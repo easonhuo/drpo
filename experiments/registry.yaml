@@ -1,26 +1,25 @@
 schema_version: 1
 
 project:
-name: drpo
-repository: easonhuo/drpo
-default_branch: main
-research_source_of_truth: docs/handoff.md
+  name: drpo
+  repository: easonhuo/drpo
+  default_branch: main
+  research_source_of_truth: docs/handoff.md
 
 allowed_statuses:
-
-* analytically_proven
-* long_run_validated
-* finite_step_validated
-* pilot
-* not_run
-* rejected
-* superseded
+  - analytically_proven
+  - long_run_validated
+  - finite_step_validated
+  - pilot
+  - not_run
+  - rejected
+  - superseded
 
 rules:
-document_before_experiment: true
-require_code_commit_for_formal_results: true
-require_paired_seeds_when_applicable: true
-require_terminal_state_audit_for_dynamics: true
-preserve_failed_runs: true
+  document_before_experiment: true
+  require_code_commit_for_formal_results: true
+  require_paired_seeds_when_applicable: true
+  require_terminal_state_audit_for_dynamics: true
+  preserve_failed_runs: true
 
 experiments: []
