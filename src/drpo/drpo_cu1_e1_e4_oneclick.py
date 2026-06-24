@@ -43,6 +43,7 @@ import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Callable, Iterable, Sequence
+from collections import deque
 
 import numpy as np
 import torch
@@ -58,7 +59,7 @@ except Exception:
 # 0. Frozen one-click protocol
 # =============================================================================
 
-SCRIPT_VERSION = "2026.06.24-reconstruction-v1"
+SCRIPT_VERSION = "2026.06.24-reconstruction-v4-adaptive-stationarity"
 SMOKE = os.environ.get("DRPO_CU1_SMOKE", "0") == "1"  # developer-only shortcut
 ROOT = Path(__file__).resolve().parent / ("drpo_cu1_reproduction_results_smoke" if SMOKE else "drpo_cu1_reproduction_results")
 ROOT.mkdir(parents=True, exist_ok=True)
@@ -71,6 +72,9 @@ try:
     torch.set_num_interop_threads(1)
 except RuntimeError:
     pass
+if torch.cuda.is_available():
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
 
 @dataclass(frozen=True)
@@ -99,7 +103,11 @@ class Protocol:
     positive_steps: int = 2000
     positive_continuation_steps: int = 2000
     lbfgs_lr: float = 0.25
-    lbfgs_max_iter: int = 80
+    lbfgs_max_iter: int = 120
+    positive_polish_min_steps: int = 100
+    positive_polish_max_steps: int = 500
+    positive_polish_check_every: int = 25
+    positive_polish_lr: float = 1e-4
     eval_every: int = 100
     probe_states: int = 128
     # E3
@@ -121,6 +129,7 @@ class Protocol:
     e4_local_lr: float = 5e-4
     e4_local_warm_steps: int = 200
     e4_local_continuation_steps: int = 200
+    e4_second_audit_max_iter: int = 160
     e4_runaway_steps: int = 4000
     e4_control_alpha_local: float = 1.0
     e4_control_lambda_far: float = 1.0
@@ -147,6 +156,10 @@ if SMOKE:
         positive_steps=4,
         positive_continuation_steps=2,
         lbfgs_max_iter=1,
+        positive_polish_min_steps=1,
+        positive_polish_max_steps=1,
+        positive_polish_check_every=1,
+        e4_second_audit_max_iter=1,
         probe_states=4,
         e3_fixed_steps=3,
         e3_learn_steps=3,
@@ -551,6 +564,31 @@ def evaluation(actor: GaussianActor, split: Split, fixed_sigma: float | None = N
         }
 
 
+def policy_distance_diagnostics(actor: GaussianActor, split: Split, fixed_sigma: float | None = None) -> dict[str, float]:
+    """Population diagnostics for raw/standardized remoteness and dynamic near/far occupancy."""
+    actor.eval()
+    with torch.no_grad():
+        mu, pred = actor(split.s)
+        log_std = pred if fixed_sigma is None else torch.full_like(pred, math.log(fixed_sigma))
+        raw = torch.linalg.vector_norm(split.negative_actions - mu[:, None, :], dim=-1)
+        standardized = raw / torch.exp(log_std)[:, None]
+        near = standardized <= P.near_far_standardized_threshold
+        local_raw = raw[:, 0]
+        local_std = standardized[:, 0]
+        farthest_raw = raw[:, 4]
+        farthest_std = standardized[:, 4]
+        return {
+            "negative_raw_distance_mean": raw.mean().item(),
+            "negative_standardized_distance_mean": standardized.mean().item(),
+            "dynamic_near_occupancy": near.float().mean().item(),
+            "dynamic_far_occupancy": (~near).float().mean().item(),
+            "local_negative_raw_distance": local_raw.mean().item(),
+            "local_negative_standardized_distance": local_std.mean().item(),
+            "farthest_negative_raw_distance": farthest_raw.mean().item(),
+            "farthest_negative_standardized_distance": farthest_std.mean().item(),
+        }
+
+
 def normalized_field_residual(actor: GaussianActor, split: Split, alpha: float, fixed_sigma: float | None, local_only: bool = True) -> dict[str, float]:
     params = actor.mean_parameters() if fixed_sigma is not None else actor.all_parameters()
     lp = positive_loss(actor, split, None, fixed_sigma)
@@ -605,7 +643,7 @@ def train_positive(seed: int) -> tuple[GaussianActor, Environment, list[dict[str
     summary_path = ROOT / "e2" / f"seed_{seed}.json"
     env = make_environment(seed)
     actor = GaussianActor().to(DEVICE)
-    if ckpt.exists() and summary_path.exists():
+    if ckpt.exists() and summary_path.exists() and trajectory_path.exists():
         try:
             state = torch.load(ckpt, map_location=DEVICE, weights_only=True)
         except TypeError:
@@ -667,6 +705,52 @@ def train_positive(seed: int) -> tuple[GaussianActor, Environment, list[dict[str
         if extra % P.eval_every == 0 or extra == P.positive_continuation_steps:
             record(step, "continuation")
 
+    # A second full-data audit is required after the continuation. Without this,
+    # stochastic continuation noise can leave a small but non-negligible residual
+    # even though the observable trajectory has plateaued.
+    post_continuation_snapshot = copy.deepcopy(actor.state_dict())
+    final_lbfgs = torch.optim.LBFGS(
+        actor.parameters(), lr=P.lbfgs_lr, max_iter=P.lbfgs_max_iter,
+        history_size=50, line_search_fn="strong_wolfe"
+    )
+
+    def final_closure() -> torch.Tensor:
+        final_lbfgs.zero_grad(set_to_none=True)
+        loss = positive_loss(actor, env.train)
+        loss.backward()
+        return loss
+
+    final_audit_succeeded = False
+    try:
+        final_lbfgs.step(final_closure)
+        if not finite_model(actor):
+            raise FloatingPointError("non-finite final LBFGS state")
+        final_audit_succeeded = True
+    except Exception:
+        actor.load_state_dict(post_continuation_snapshot)
+
+    # LBFGS can stop with a small float32 residual. A short full-data Adam
+    # polish is deterministic and enforces the pre-registered alpha=0
+    # absolute-gradient criterion instead of silently relaxing it.
+    polish = torch.optim.Adam(actor.parameters(), lr=P.positive_polish_lr)
+    polish_steps_used = 0
+    for polish_step in range(1, P.positive_polish_max_steps + 1):
+        loss = positive_loss(actor, env.train)
+        polish.zero_grad(set_to_none=True)
+        loss.backward()
+        polish.step()
+        polish_steps_used = polish_step
+        should_check = (
+            polish_step >= P.positive_polish_min_steps
+            and (polish_step % P.positive_polish_check_every == 0
+                 or polish_step == P.positive_polish_max_steps)
+        )
+        if should_check:
+            polish_field = normalized_field_residual(actor, env.train, 0.0, None)
+            if polish_field["total_gradient_norm"] < P.absolute_residual_threshold_alpha_zero:
+                break
+    record(P.positive_steps + P.positive_continuation_steps, "final_stationary_audit_and_adaptive_polish")
+
     final_phantom = phantom_metrics(actor, env.train, None)
     final_eval = evaluation(actor, env.test)
     field = normalized_field_residual(actor, env.train, 0.0, None)
@@ -677,7 +761,10 @@ def train_positive(seed: int) -> tuple[GaussianActor, Environment, list[dict[str
         **field,
         "initial_probe_phantom_gradient_norm": initial_phantom["aggregate_phantom_negative_gradient_norm"],
         "probe_phantom_growth": trajectory[-1].get("aggregate_phantom_negative_gradient_norm", float("nan")) / (initial_phantom["aggregate_phantom_negative_gradient_norm"] + EPS),
-        "status": "stable_plateau_2x_confirmed" if field["total_gradient_norm"] < max(P.absolute_residual_threshold_alpha_zero, 5e-3) else "finite_but_residual_above_strict_threshold",
+        "final_stationary_audit_succeeded": final_audit_succeeded,
+        "full_data_polish_steps": polish_steps_used,
+        "full_data_polish_max_steps": P.positive_polish_max_steps,
+        "status": "stable_plateau_2x_confirmed" if final_audit_succeeded and field["total_gradient_norm"] < P.absolute_residual_threshold_alpha_zero else "finite_but_residual_above_strict_threshold",
     }
     ckpt.parent.mkdir(parents=True, exist_ok=True)
     torch.save(actor.state_dict(), ckpt)
@@ -807,7 +894,7 @@ def run_intervention(seed: int, initial_state: dict[str, torch.Tensor], env: Env
     out_dir = ROOT / "e3" / branch / method
     out_path = out_dir / f"seed_{seed}.json"
     traj_path = out_dir / f"seed_{seed}_trajectory.csv"
-    if out_path.exists():
+    if out_path.exists() and traj_path.exists():
         return json.loads(out_path.read_text())
     actor = GaussianActor().to(DEVICE)
     actor.load_state_dict(copy.deepcopy(initial_state))
@@ -817,9 +904,10 @@ def run_intervention(seed: int, initial_state: dict[str, torch.Tensor], env: Env
     traj: list[dict[str, Any]] = []
     positive_reference = evaluation(actor, env.test, fixed_sigma)["reward"]
     task_threshold = P.task_failure_retention * positive_reference
-    consecutive = 0
+    below_threshold_eval_steps: deque[int] = deque(maxlen=P.task_failure_consecutive_evals)
     task_onset = None
     support_onset = None
+    support_event_type = None
     stop_reason = "max_steps"
 
     for step in range(1, steps + 1):
@@ -832,22 +920,38 @@ def run_intervention(seed: int, initial_state: dict[str, torch.Tensor], env: Env
         finite = finite_model(actor)
         with torch.no_grad():
             _, log_std_all = actor(env.train.s[: min(1024, P.n_train_states)])
-            support_event = fixed_sigma is None and ((~torch.isfinite(log_std_all)).any().item() or (log_std_all.abs() > P.log_sigma_event_boundary).any().item())
+            nonfinite_log_std = (~torch.isfinite(log_std_all)).any().item()
+            contraction_event = fixed_sigma is None and (log_std_all < -P.log_sigma_event_boundary).any().item()
+            expansion_event = fixed_sigma is None and (log_std_all > P.log_sigma_event_boundary).any().item()
+            support_event = fixed_sigma is None and (nonfinite_log_std or contraction_event or expansion_event)
         if support_event and support_onset is None:
             support_onset = step
+            support_event_type = (
+                "nonfinite_log_sigma" if nonfinite_log_std else
+                "support_contraction" if contraction_event else
+                "support_expansion"
+            )
         if not finite:
             stop_reason = "non_finite_parameter"
             break
         if step % P.eval_every == 0 or step == 1 or step == steps or support_event:
             ev = evaluation(actor, env.test, fixed_sigma)
             reward = ev["reward"]
-            consecutive = consecutive + 1 if reward < task_threshold else 0
-            if consecutive >= P.task_failure_consecutive_evals and task_onset is None:
-                task_onset = step - (P.task_failure_consecutive_evals - 1) * P.eval_every
-            row = {"step": step, "method": method, **ev, **diag, "task_threshold": task_threshold, "support_boundary_event": bool(support_event)}
+            if reward < task_threshold:
+                below_threshold_eval_steps.append(step)
+            else:
+                below_threshold_eval_steps.clear()
+            if len(below_threshold_eval_steps) == P.task_failure_consecutive_evals and task_onset is None:
+                task_onset = below_threshold_eval_steps[0]
+            row = {
+                "step": step, "method": method, **ev, **diag,
+                "task_threshold": task_threshold,
+                "support_boundary_event": bool(support_event),
+                "support_event_type": support_event_type if support_event else None,
+            }
             traj.append(row)
         if support_event:
-            stop_reason = "support_contraction_boundary_event"
+            stop_reason = (support_event_type or "support_boundary") + "_boundary_event"
             break
 
     final = evaluation(actor, env.test, fixed_sigma)
@@ -859,6 +963,7 @@ def run_intervention(seed: int, initial_state: dict[str, torch.Tensor], env: Env
         "task_failure_threshold": task_threshold,
         "task_failure_onset": task_onset,
         "support_boundary_onset": support_onset,
+        "support_event_type": support_event_type,
         "stop_reason": stop_reason,
         "finite_parameters": finite_model(actor),
         "steps_completed": traj[-1]["step"] if traj else 0,
@@ -903,24 +1008,28 @@ def run_local_scan_seed(seed: int, initial_state: dict[str, torch.Tensor], env: 
     out_dir = ROOT / "e4" / branch / label
     out_path = out_dir / f"seed_{seed}.json"
     traj_path = out_dir / f"seed_{seed}_trajectory.csv"
-    if out_path.exists():
+    if out_path.exists() and traj_path.exists():
         return json.loads(out_path.read_text())
     actor = GaussianActor().to(DEVICE)
     actor.load_state_dict(copy.deepcopy(initial_state))
     params = actor.mean_parameters() if fixed_sigma is not None else actor.all_parameters()
     optimizer = torch.optim.SGD(params, lr=P.e4_local_lr)
-    gen = torch.Generator(device="cpu").manual_seed(seed + 400009 + int(alpha * 1000))
+    # Use the same minibatch sequence for every alpha within a seed so the
+    # phase scan is paired rather than confounded by different SGD noise.
+    gen = torch.Generator(device="cpu").manual_seed(seed + 400009)
     analytic = analytic_local_solution(alpha)
     finite_internal = bool(analytic.get("finite_mean_fixed_point", False)) and (fixed_sigma is not None or bool(analytic.get("finite_variance_fixed_point", False)))
     warm_steps = P.e4_local_warm_steps if finite_internal else P.e4_runaway_steps
     traj: list[dict[str, Any]] = []
     support_onset = None
+    support_event_type = None
     stop_reason = "completed"
 
     def record(step: int, stage: str) -> None:
         ev = evaluation(actor, env.test, fixed_sigma)
         field = normalized_field_residual(actor, env.train, alpha, fixed_sigma, local_only=True)
-        traj.append({"step": step, "stage": stage, **ev, **field})
+        distance_diag = policy_distance_diagnostics(actor, env.train, fixed_sigma)
+        traj.append({"step": step, "stage": stage, **ev, **field, **distance_diag})
 
     record(0, "initial")
     for step in range(1, warm_steps + 1):
@@ -935,18 +1044,33 @@ def run_local_scan_seed(seed: int, initial_state: dict[str, torch.Tensor], env: 
         if fixed_sigma is None:
             with torch.no_grad():
                 _, ls = actor(env.train.s[: min(1024, P.n_train_states)])
-                if (ls.abs() > P.log_sigma_event_boundary).any().item() or (~torch.isfinite(ls)).any().item():
+                nonfinite_ls = (~torch.isfinite(ls)).any().item()
+                contraction_event = (ls < -P.log_sigma_event_boundary).any().item()
+                expansion_event = (ls > P.log_sigma_event_boundary).any().item()
+                if nonfinite_ls or contraction_event or expansion_event:
                     support_onset = step
-                    stop_reason = "support_contraction_boundary_event"
+                    support_event_type = (
+                        "nonfinite_log_sigma" if nonfinite_ls else
+                        "support_contraction" if contraction_event else
+                        "support_expansion"
+                    )
+                    stop_reason = support_event_type + "_boundary_event"
+                    record(step, "boundary_event")
                     break
         if step % P.eval_every == 0 or step == warm_steps:
             record(step, "sgd")
 
-    # Stationary audit only when the analytic population model has an internal solution.
-    audit_ok = False
+    # Stationary audits only when the analytic population model has an internal
+    # solution. The protocol requires an audit, a continuation, and a second
+    # audit; the previous reconstruction accidentally omitted the second audit.
+    audit_1_ok = False
+    audit_2_ok = False
     if finite_internal and finite_model(actor) and not SMOKE:
         snapshot = copy.deepcopy(actor.state_dict())
-        lbfgs = torch.optim.LBFGS(params, lr=P.lbfgs_lr, max_iter=P.lbfgs_max_iter, history_size=50, line_search_fn="strong_wolfe")
+        lbfgs = torch.optim.LBFGS(
+            params, lr=P.lbfgs_lr, max_iter=P.lbfgs_max_iter,
+            history_size=50, line_search_fn="strong_wolfe"
+        )
 
         def closure() -> torch.Tensor:
             lbfgs.zero_grad(set_to_none=True)
@@ -958,8 +1082,8 @@ def run_local_scan_seed(seed: int, initial_state: dict[str, torch.Tensor], env: 
             lbfgs.step(closure)
             if not finite_model(actor):
                 raise FloatingPointError
-            record(warm_steps, "stationary_audit")
-            audit_ok = True
+            record(warm_steps, "stationary_audit_1")
+            audit_1_ok = True
         except Exception:
             actor.load_state_dict(snapshot)
 
@@ -973,18 +1097,77 @@ def run_local_scan_seed(seed: int, initial_state: dict[str, torch.Tensor], env: 
             if extra % P.eval_every == 0 or extra == P.e4_local_continuation_steps:
                 record(warm_steps + extra, "continuation")
 
+        second_snapshot = copy.deepcopy(actor.state_dict())
+        second_lbfgs = torch.optim.LBFGS(
+            params, lr=P.lbfgs_lr, max_iter=P.e4_second_audit_max_iter,
+            history_size=50, line_search_fn="strong_wolfe"
+        )
+
+        def second_closure() -> torch.Tensor:
+            second_lbfgs.zero_grad(set_to_none=True)
+            loss = local_objective(actor, env.train, None, alpha, fixed_sigma)
+            loss.backward()
+            return loss
+
+        try:
+            second_lbfgs.step(second_closure)
+            if not finite_model(actor):
+                raise FloatingPointError
+            record(warm_steps + P.e4_local_continuation_steps, "stationary_audit_2")
+            audit_2_ok = True
+        except Exception:
+            actor.load_state_dict(second_snapshot)
+
     final = evaluation(actor, env.test, fixed_sigma)
     field = normalized_field_residual(actor, env.train, alpha, fixed_sigma, local_only=True)
-    stable = finite_internal and finite_model(actor) and (
+    stable = finite_internal and finite_model(actor) and audit_1_ok and audit_2_ok and (
         field["total_gradient_norm"] < P.absolute_residual_threshold_alpha_zero if alpha == 0 else field["normalized_field_residual"] < P.normalized_residual_threshold
     )
+    positive_ceiling_reward = evaluation_from_geometry(P.gap_to_unseen_optimum)[0]
     if stable:
-        state = "stable_good_fixed_point" if final["reward"] >= evaluation_from_geometry(P.gap_to_unseen_optimum)[0] * 0.9 else "stable_bad_fixed_point"
-    elif stop_reason in ("non_finite_parameter", "support_contraction_boundary_event"):
+        displacement = final["normalized_extrapolation_displacement"]
+        reward_gain = final["reward"] - positive_ceiling_reward
+        if abs(displacement) <= 0.05:
+            state = "stable_imitation_ceiling"
+        elif reward_gain > 0.01 and displacement <= 1.25:
+            state = "stable_beneficial_extrapolation"
+        elif final["reward"] < P.task_failure_retention * positive_ceiling_reward:
+            state = "stable_bad_fixed_point"
+        else:
+            state = "stable_over_extrapolated_fixed_point"
+    elif stop_reason == "non_finite_parameter" or stop_reason.endswith("_boundary_event"):
         state = stop_reason
     else:
         state = "finite_continuing_drift_or_runaway"
-    summary = {"seed": seed, "alpha": alpha, "branch": branch, **analytic, **final, **field, "stationary_audit_attempted": finite_internal, "stationary_audit_succeeded": audit_ok, "state_class": state, "support_boundary_onset": support_onset, "stop_reason": stop_reason}
+    # Last-window slopes separate a finite snapshot from a continuing dynamical trend.
+    displacement_slope = float("nan")
+    log_sigma_slope = float("nan")
+    dynamic_rows = [r for r in traj if r.get("stage") in {"sgd", "continuation"}]
+    # Audit rows can share the same step number and contain a discontinuous
+    # optimizer jump; exclude them from temporal slopes. Keep the last row for
+    # each actual training step.
+    by_step = {int(r["step"]): r for r in dynamic_rows}
+    ordered_dynamic = [by_step[k] for k in sorted(by_step)]
+    if len(ordered_dynamic) >= 3:
+        tail = ordered_dynamic[-min(5, len(ordered_dynamic)):]
+        xs = np.asarray([float(r["step"]) for r in tail])
+        if np.ptp(xs) > 0:
+            displacement_slope = float(np.polyfit(xs, np.asarray([float(r["normalized_extrapolation_displacement"]) for r in tail]), 1)[0])
+            log_sigma_slope = float(np.polyfit(xs, np.log(np.maximum(np.asarray([float(r["sigma_mean"]) for r in tail]), 1e-30)), 1)[0])
+    summary = {
+        "seed": seed, "alpha": alpha, "branch": branch, **analytic, **final, **field,
+        **policy_distance_diagnostics(actor, env.train, fixed_sigma),
+        "stationary_audit_attempted": finite_internal,
+        "stationary_audit_1_succeeded": audit_1_ok,
+        "stationary_audit_2_succeeded": audit_2_ok,
+        "stationary_audit_succeeded": audit_1_ok and audit_2_ok,
+        "state_class": state,
+        "support_boundary_onset": support_onset,
+        "support_event_type": support_event_type,
+        "stop_reason": stop_reason,
+        "normalized_extrapolation_displacement_window_slope": displacement_slope,
+        "log_sigma_window_slope": log_sigma_slope,
+    }
     write_csv(traj_path, traj)
     atomic_json(out_path, summary)
     return summary
@@ -1038,7 +1221,7 @@ def run_control_seed(seed: int, initial_state: dict[str, torch.Tensor], env: Env
     out_dir = ROOT / "e4" / "control" / method
     out_path = out_dir / f"seed_{seed}.json"
     traj_path = out_dir / f"seed_{seed}_trajectory.csv"
-    if out_path.exists():
+    if out_path.exists() and traj_path.exists():
         return json.loads(out_path.read_text())
     actor = GaussianActor().to(DEVICE)
     actor.load_state_dict(copy.deepcopy(initial_state))
@@ -1048,7 +1231,8 @@ def run_control_seed(seed: int, initial_state: dict[str, torch.Tensor], env: Env
     fixed_sigma = analytic_positive_sigma()
     traj: list[dict[str, Any]] = []
     task_threshold = P.task_failure_retention * evaluation(actor, env.test, fixed_sigma)["reward"]
-    consecutive, task_onset, nonfinite_onset = 0, None, None
+    below_threshold_eval_steps: deque[int] = deque(maxlen=P.task_failure_consecutive_evals)
+    task_onset, nonfinite_onset = None, None
 
     for step in range(1, P.e4_control_steps + 1):
         ids = torch.randint(0, P.n_train_states, (P.positive_batch_states,), generator=gen).to(DEVICE)
@@ -1061,9 +1245,12 @@ def run_control_seed(seed: int, initial_state: dict[str, torch.Tensor], env: Env
             break
         if step % P.eval_every == 0 or step == 1 or step == P.e4_control_steps:
             ev = evaluation(actor, env.test, fixed_sigma)
-            consecutive = consecutive + 1 if ev["reward"] < task_threshold else 0
-            if consecutive >= P.task_failure_consecutive_evals and task_onset is None:
-                task_onset = step - (P.task_failure_consecutive_evals - 1) * P.eval_every
+            if ev["reward"] < task_threshold:
+                below_threshold_eval_steps.append(step)
+            else:
+                below_threshold_eval_steps.clear()
+            if len(below_threshold_eval_steps) == P.task_failure_consecutive_evals and task_onset is None:
+                task_onset = below_threshold_eval_steps[0]
             traj.append({"step": step, "method": method, **ev, **diag, "task_threshold": task_threshold})
     final = evaluation(actor, env.test, fixed_sigma) if finite_model(actor) else {k: float("nan") for k in ["reward", "normalized_extrapolation_displacement", "distance_to_a_plus", "distance_to_a_star", "sigma_mean", "sigma_min", "sigma_max", "log_sigma_min", "log_sigma_max"]}
     summary = {"seed": seed, "method": method, **final, "task_failure_threshold": task_threshold, "task_failure_onset": task_onset, "nonfinite_onset": nonfinite_onset, "finite_parameters": finite_model(actor), "steps_completed": traj[-1]["step"] if traj else 0}
@@ -1093,12 +1280,13 @@ def run_variance_robustness() -> list[dict[str, Any]]:
         actor0, env, _, _ = train_positive(seed)
         initial = copy.deepcopy(actor0.state_dict())
         for alpha in (0.38, 0.40, 0.50):
-            for lr in (2.5e-4, 5e-4):
+            for lr in (1.0e-4, 2.5e-4, 5e-4):
                 actor = GaussianActor().to(DEVICE)
                 actor.load_state_dict(copy.deepcopy(initial))
                 optimizer = torch.optim.SGD(actor.parameters(), lr=lr)
-                gen = torch.Generator(device="cpu").manual_seed(seed + 600011 + int(alpha * 1000) + int(lr * 1e7))
-                crossings = {8: None, 10: None, 12: None, 14: None}
+                gen = torch.Generator(device="cpu").manual_seed(seed + 600011)
+                contraction_crossings = {8: None, 10: None, 12: None, 14: None}
+                expansion_crossings = {8: None, 10: None, 12: None, 14: None}
                 sigma_trace: list[tuple[int, float]] = []
                 steps = P.e4_runaway_steps
                 for step in range(1, steps + 1):
@@ -1112,18 +1300,27 @@ def run_variance_robustness() -> list[dict[str, Any]]:
                     if step % P.eval_every == 0 or step == 1:
                         with torch.no_grad():
                             _, ls = actor(env.train.s[: min(1024, P.n_train_states)])
-                            max_abs = ls.abs().max().item()
+                            min_log_sigma = ls.min().item()
+                            max_log_sigma = ls.max().item()
                             sigma_trace.append((step, torch.exp(ls).mean().item()))
-                            for threshold in crossings:
-                                if crossings[threshold] is None and max_abs > threshold:
-                                    crossings[threshold] = step
+                            for threshold in contraction_crossings:
+                                if contraction_crossings[threshold] is None and min_log_sigma < -threshold:
+                                    contraction_crossings[threshold] = step
+                                if expansion_crossings[threshold] is None and max_log_sigma > threshold:
+                                    expansion_crossings[threshold] = step
                 ev = evaluation(actor, env.test)
                 slope = float("nan")
                 if len(sigma_trace) >= 5:
                     x = np.array([z[0] for z in sigma_trace[-5:]], dtype=float)
                     y = np.log(np.array([max(z[1], 1e-30) for z in sigma_trace[-5:]], dtype=float))
                     slope = float(np.polyfit(x, y, 1)[0])
-                rows.append({"seed": seed, "alpha": alpha, "lr": lr, **ev, "finite_parameters": finite_model(actor), "log_sigma_window_slope": slope, **{f"cross_abs_log_sigma_{k}": v for k, v in crossings.items()}})
+                rows.append({
+                    "seed": seed, "alpha": alpha, "lr": lr, **ev,
+                    "finite_parameters": finite_model(actor),
+                    "log_sigma_window_slope": slope,
+                    **{f"support_contraction_cross_log_sigma_minus_{k}": v for k, v in contraction_crossings.items()},
+                    **{f"support_expansion_cross_log_sigma_plus_{k}": v for k, v in expansion_crossings.items()},
+                })
     write_csv(out_path, rows)
     return rows
 
@@ -1141,14 +1338,28 @@ def aggregate_group(rows: list[dict[str, Any]], keys: Sequence[str]) -> list[dic
     out = []
     for k, rs in groups.items():
         row = {name: value for name, value in zip(keys, k)}
-        numeric_keys = [name for name, val in rs[0].items() if name not in keys and isinstance(val, (int, float)) and not isinstance(val, bool)]
-        for name in numeric_keys:
-            vals = [float(x[name]) for x in rs if x.get(name) is not None and math.isfinite(float(x[name]))]
+        all_names = []
+        for item in rs:
+            for name in item:
+                if name not in keys and name not in all_names:
+                    all_names.append(name)
+        for name in all_names:
+            vals = []
+            for item in rs:
+                value = item.get(name)
+                if isinstance(value, bool):
+                    vals.append(float(value))
+                elif isinstance(value, (int, float)) and value is not None and math.isfinite(float(value)):
+                    vals.append(float(value))
             if vals:
                 m, lo, hi = mean_ci(vals)
                 row[name] = m
                 row[name + "_ci_low"] = lo
                 row[name + "_ci_high"] = hi
+        # Explicit event rates remain auditable even when the first row has None.
+        for event_name in ("task_failure_onset", "support_boundary_onset", "nonfinite_onset"):
+            if any(event_name in item for item in rs):
+                row[event_name + "_event_rate"] = sum(item.get(event_name) is not None for item in rs) / len(rs)
         row["n"] = len(rs)
         out.append(row)
     return out
@@ -1227,6 +1438,53 @@ def collect_jsons(folder: Path) -> list[dict[str, Any]]:
     return [json.loads(p.read_text()) for p in sorted(folder.rglob("seed_*.json")) if "trajectory" not in p.name]
 
 
+def run_preflight_self_tests() -> dict[str, Any]:
+    """Fail fast on implementation errors before any formal seed is trained."""
+    seed_all(12345)
+    env = make_environment(P.e1_e2_seeds[0])
+    audit = audit_environment(env)
+    tests: dict[str, Any] = {"environment_audit": bool(audit["passed"])}
+
+    # Fixed-sigma baseline gradient must equal autograd on the combined loss.
+    actor = GaussianActor().to(DEVICE)
+    ids = torch.arange(min(16, P.n_train_states), device=DEVICE)
+    params = actor.mean_parameters()
+    combined = positive_loss(actor, env.train, ids, analytic_positive_sigma()) + P.e3_fixed_alpha * all_negative_loss(actor, env.train, ids, analytic_positive_sigma())
+    direct = torch.autograd.grad(combined, params, allow_unused=True)
+    generated, _ = intervention_gradients(actor, env.train, ids, analytic_positive_sigma(), P.e3_fixed_alpha, "baseline", P.e3_cap_ratio)
+    rel = (norm_tuple(add_tuples(direct, generated, scales=[1.0, -1.0])) / (norm_tuple(direct) + EPS)).item()
+    tests["baseline_gradient_relative_error"] = rel
+
+    # Equal-budget controls must match their declared target norms.
+    _, cap_diag = intervention_gradients(actor, env.train, ids, analytic_positive_sigma(), P.e3_fixed_alpha, "far_cap", P.e3_cap_ratio)
+    _, global_diag = intervention_gradients(actor, env.train, ids, analytic_positive_sigma(), P.e3_fixed_alpha, "global_scale", P.e3_cap_ratio)
+    _, transfer_diag = intervention_gradients(actor, env.train, ids, analytic_positive_sigma(), P.e3_fixed_alpha, "far_to_near", P.e3_cap_ratio)
+    tests["far_cap_global_budget_relative_error"] = abs(cap_diag["post_control_negative_gradient_norm"] - global_diag["post_control_negative_gradient_norm"]) / (cap_diag["post_control_negative_gradient_norm"] + EPS)
+    tests["far_to_near_raw_budget_relative_error"] = abs(transfer_diag["post_control_negative_gradient_norm"] - transfer_diag["raw_negative_gradient_norm"]) / (transfer_diag["raw_negative_gradient_norm"] + EPS)
+
+    # Analytic landmarks are protocol invariants, not learned outcomes.
+    tests["analytic_positive_sigma"] = analytic_positive_sigma()
+    tests["analytic_mean_critical_alpha"] = analytic_mean_critical_alpha()
+    tests["analytic_variance_boundary_alpha"] = analytic_variance_boundary_alpha()
+    g1 = torch.Generator(device="cpu").manual_seed(999)
+    g2 = torch.Generator(device="cpu").manual_seed(999)
+    tests["paired_minibatch_stream_identical"] = bool(torch.equal(
+        torch.randint(0, P.n_train_states, (64,), generator=g1),
+        torch.randint(0, P.n_train_states, (64,), generator=g2),
+    ))
+    tests["all_passed"] = bool(
+        tests["environment_audit"]
+        and rel < 1e-6
+        and tests["far_cap_global_budget_relative_error"] < 1e-6
+        and tests["far_to_near_raw_budget_relative_error"] < 2e-5
+        and abs(tests["analytic_positive_sigma"] - 0.1903943276465978) < 1e-10
+        and abs(tests["analytic_mean_critical_alpha"] - 1.6933920000136828) < 1e-9
+        and abs(tests["analytic_variance_boundary_alpha"] - 0.3806850232588901) < 1e-9
+        and tests["paired_minibatch_stream_identical"]
+    )
+    return tests
+
+
 # =============================================================================
 # 9. Main one-click runner
 # =============================================================================
@@ -1235,11 +1493,17 @@ def collect_jsons(folder: Path) -> list[dict[str, Any]]:
 def main() -> None:
     start = time.time()
     current_protocol = asdict(P)
+    current_script_hash = sha256(Path(__file__))
     existing_manifest = ROOT / "manifest.json"
     if existing_manifest.exists():
         try:
             old = json.loads(existing_manifest.read_text())
-            if old.get("protocol") != current_protocol or old.get("script_version") != SCRIPT_VERSION:
+            incompatible = (
+                old.get("protocol") != current_protocol
+                or old.get("script_version") != SCRIPT_VERSION
+                or old.get("script_sha256") != current_script_hash
+            )
+            if incompatible:
                 archived = ROOT.with_name(ROOT.name + "_incompatible_" + time.strftime("%Y%m%d_%H%M%S"))
                 ROOT.rename(archived)
                 ROOT.mkdir(parents=True, exist_ok=True)
@@ -1251,7 +1515,7 @@ def main() -> None:
     print(f"Device: {DEVICE}; smoke={SMOKE}; output={ROOT}")
     manifest = {
         "script_version": SCRIPT_VERSION,
-        "script_sha256": sha256(Path(__file__)),
+        "script_sha256": current_script_hash,
         "protocol": current_protocol,
         "device": str(DEVICE),
         "torch_version": torch.__version__,
@@ -1262,6 +1526,16 @@ def main() -> None:
         "scope_note": "held-out-context generalization only; train/test states share the same distribution",
     }
     atomic_json(ROOT / "manifest.json", manifest)
+    source_dir = ROOT / "source_snapshot"
+    source_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(Path(__file__), source_dir / Path(__file__).name)
+    atomic_json(source_dir / "protocol.json", current_protocol)
+
+    preflight = run_preflight_self_tests()
+    atomic_json(ROOT / "preflight_self_tests.json", preflight)
+    if not preflight["all_passed"]:
+        raise SystemExit("Preflight self-tests failed; formal training was not started")
+    print("[OK] Preflight implementation self-tests")
 
     # Environment audit on a formal seed.
     audit = audit_environment(make_environment(P.e1_e2_seeds[0]))
@@ -1336,6 +1610,7 @@ def main() -> None:
     summary = {
         "elapsed_seconds": time.time() - start,
         "environment_audit": audit,
+        "preflight_self_tests": preflight,
         "reference_regression_all_passed": regression["all_passed"],
         "results_root": str(ROOT),
         "important_scope": "All test-state results are held-out-context generalization under the same state distribution, not strict OOD.",
@@ -1343,6 +1618,8 @@ def main() -> None:
     }
     atomic_json(ROOT / "RUN_COMPLETE.json", summary)
     print(json.dumps(summary, indent=2, ensure_ascii=False))
+    if not regression["all_passed"]:
+        print("WARNING: formal run completed, but one or more pre-registered reference checks failed. Inspect reference_regression.json.")
     print("Done. Re-running the same command resumes/skips completed seed files.")
 
 

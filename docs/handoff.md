@@ -1,5 +1,26 @@
 # DRPO / SNA2C 远场负梯度动力学研究主文档 v15（同分布泛化术语与一键复现重建版）
 
+
+> **v17 增量记录：重建代码正式重跑 E1/E2（不删除 v16 内容）**
+>
+> - 首次固定 100-step full-data polish 后，E2 有 7/20 seeds 未通过预注册 `<1e-3` 终态门禁；该批结果不接受。
+> - 改为 adaptive polish（至少 100、每 25 检查、最多 500）后从空目录重跑，20/20 seeds 全部通过；最终全数据 positive-gradient norm 均值 `6.44e-4`，最大 `9.23e-4`。
+> - E1 正式 20-seed：advantage far/near=`1.000000`；policy-output score far/near=`7.5638 [7.5538,7.5737]`。全参数倍率仅作附录诊断，不扩展为参数内部优化研究。
+> - E2 正式 20-seed：held-out-context reward=`0.646788`，sigma=`0.190726`，沿隐藏最优方向的归一化外推位移约 0，phantom-gradient growth=`29.525 [28.162,30.954]`。
+> - 新重跑的 held-out `distance_to_a_plus≈0.01954` 与丢失 driver 的旧报告 `≈0.00131` 不一致，已如实登记；它仍仅为 `a_plus→a_star` 间隔的约 2.8%，不改变 imitation-ceiling 结论。
+> - 所有测试状态与训练状态同分布，继续统一称 held-out-context / unseen-context generalization，不称严格 OOD。
+
+
+> **v16 增量记录：C-U1 正式重跑前代码审计（不删除 v15 内容）**
+>
+> - 正式 20-seed 重跑尚未启动；先完成重建代码的实现审计与正式规模单 seed 回归。
+> - 修复 E4 continuation 后缺少第二次 stationary audit、不同 alpha 使用不同 minibatch 序列、任务失效 onset 计算、方差事件混称、audit 跳变污染时间斜率等问题。
+> - Positive-only 不再把 `<1e-3` 判据私自放宽为 `<5e-3`；增加全数据 deterministic polish 后严格执行原判据。
+> - 方差稳健性检查分别记录 support contraction / expansion，并新增更小学习率；有限时刻 reward 与渐近稳定性继续分开。
+> - E1 主结论聚焦 policy-output score geometry；全参数 pullback/Jacobian 分解不作为本课题新增主问题。
+> - 单 seed 回归保持 E1–E4 的主要定性机制，但若新正式数值与丢失 driver 的旧汇总不同，必须如实登记，禁止为追旧数值而反向调参。
+> - 代码、协议、SHA256 和逐步轨迹在正式运行开始前即写入结果目录。
+
 **文档定位：唯一研究主轴、不可破坏性删除、面向论文重写。**  
 **恢复底稿：v7 全量累积文档；后续将 v8-v10 的有效新增内容作为可追踪补丁合入。**  
 **当前日期：2026-06-24。**
