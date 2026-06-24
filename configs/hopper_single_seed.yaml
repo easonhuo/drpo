@@ -1,0 +1,26 @@
+experiment:
+  name: hopper_single_seed_gradient_diagnostic
+  seed: 0
+
+dataset:
+  id: hopper-medium-v0
+  format: minari
+  path: data/mujoco/hopper/medium-v0
+  max_transitions: 250000
+
+policy:
+  hidden_sizes: [256, 256]
+  activation: tanh
+  log_std_min: -5.0
+  log_std_max: 2.0
+
+training:
+  batch_size: 256
+  learning_rate: 0.0003
+  steps: 50000
+  device: cpu
+
+diagnostics:
+  near_samples: 128
+  far_samples: 128
+  output_dir: outputs/hopper_single_seed
