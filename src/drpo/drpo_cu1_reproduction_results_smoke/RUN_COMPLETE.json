@@ -1,0 +1,38 @@
+{
+  "elapsed_seconds": 1.3261799812316895,
+  "environment_audit": {
+    "state_distribution": "Normal(0,I_6)",
+    "n_train_states": 64,
+    "n_test_states": 64,
+    "positive_actions_per_state": 4,
+    "negative_actions_per_state": 8,
+    "positive_centroid_max_error": 5.960464477539063e-08,
+    "positive_reward_max_range_per_state": 5.960464477539063e-08,
+    "negative_reward_max_range_per_state": 2.086162567138672e-07,
+    "negative_advantage_max_range_per_state": 2.086162567138672e-07,
+    "positive_advantage_fraction": 1.0,
+    "negative_advantage_fraction": 1.0,
+    "nearest_negative_distance": 0.5,
+    "farthest_negative_distance": 1.899999737739563,
+    "farthest_nearest_distance_ratio": 3.799999475479126,
+    "analytic_positive_sigma": 0.1903943276465978,
+    "analytic_mean_critical_alpha": 1.6933920000136828,
+    "analytic_variance_boundary_alpha": 0.3806850232588901,
+    "passed": true
+  },
+  "preflight_self_tests": {
+    "environment_audit": true,
+    "baseline_gradient_relative_error": 6.044545131089762e-08,
+    "far_cap_global_budget_relative_error": 0.0,
+    "far_to_near_raw_budget_relative_error": 8.441944578293177e-08,
+    "analytic_positive_sigma": 0.1903943276465978,
+    "analytic_mean_critical_alpha": 1.6933920000136828,
+    "analytic_variance_boundary_alpha": 0.3806850232588901,
+    "paired_minibatch_stream_identical": true,
+    "all_passed": true
+  },
+  "reference_regression_all_passed": false,
+  "results_root": "/Users/easonhuo/Documents/Codex/2026-06-23/d4rl-56-cpu-4-gb-gpu/DRPO/src/drpo/drpo_cu1_reproduction_results_smoke",
+  "important_scope": "All test-state results are held-out-context generalization under the same state distribution, not strict OOD.",
+  "variance_robustness_rows": 9
+}

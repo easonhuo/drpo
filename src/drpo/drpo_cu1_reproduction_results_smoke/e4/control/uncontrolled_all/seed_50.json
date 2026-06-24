@@ -1,0 +1,18 @@
+{
+  "seed": 50,
+  "method": "uncontrolled_all",
+  "reward": 0.5692226886749268,
+  "normalized_extrapolation_displacement": 0.0018702074885368347,
+  "distance_to_a_plus": 0.46016642451286316,
+  "distance_to_a_star": 0.7958664894104004,
+  "sigma_mean": 0.1903943419456482,
+  "sigma_min": 0.1903943419456482,
+  "sigma_max": 0.1903943419456482,
+  "log_sigma_min": -1.6586579084396362,
+  "log_sigma_max": -1.6586579084396362,
+  "task_failure_threshold": 0.2567541092634201,
+  "task_failure_onset": null,
+  "nonfinite_onset": null,
+  "finite_parameters": true,
+  "steps_completed": 3
+}

@@ -1,0 +1,20 @@
+{
+  "state_distribution": "Normal(0,I_6)",
+  "n_train_states": 64,
+  "n_test_states": 64,
+  "positive_actions_per_state": 4,
+  "negative_actions_per_state": 8,
+  "positive_centroid_max_error": 5.960464477539063e-08,
+  "positive_reward_max_range_per_state": 5.960464477539063e-08,
+  "negative_reward_max_range_per_state": 2.086162567138672e-07,
+  "negative_advantage_max_range_per_state": 2.086162567138672e-07,
+  "positive_advantage_fraction": 1.0,
+  "negative_advantage_fraction": 1.0,
+  "nearest_negative_distance": 0.5,
+  "farthest_negative_distance": 1.899999737739563,
+  "farthest_nearest_distance_ratio": 3.799999475479126,
+  "analytic_positive_sigma": 0.1903943276465978,
+  "analytic_mean_critical_alpha": 1.6933920000136828,
+  "analytic_variance_boundary_alpha": 0.3806850232588901,
+  "passed": true
+}

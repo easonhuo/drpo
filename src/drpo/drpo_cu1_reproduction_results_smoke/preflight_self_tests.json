@@ -1,0 +1,11 @@
+{
+  "environment_audit": true,
+  "baseline_gradient_relative_error": 6.044545131089762e-08,
+  "far_cap_global_budget_relative_error": 0.0,
+  "far_to_near_raw_budget_relative_error": 8.441944578293177e-08,
+  "analytic_positive_sigma": 0.1903943276465978,
+  "analytic_mean_critical_alpha": 1.6933920000136828,
+  "analytic_variance_boundary_alpha": 0.3806850232588901,
+  "paired_minibatch_stream_identical": true,
+  "all_passed": true
+}

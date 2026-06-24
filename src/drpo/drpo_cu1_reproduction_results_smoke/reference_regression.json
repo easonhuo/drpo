@@ -1,0 +1,165 @@
+{
+  "all_passed": false,
+  "checks": [
+    {
+      "name": "E1 advantage ratio",
+      "value": 1.0000001192092896,
+      "expected_low": 0.9999,
+      "expected_high": 1.0001,
+      "passed": true,
+      "relation": null
+    },
+    {
+      "name": "E1 output score ratio",
+      "value": 9.245396614074707,
+      "expected_low": 7.2,
+      "expected_high": 8.0,
+      "passed": false,
+      "relation": null
+    },
+    {
+      "name": "E1 full-parameter ratio",
+      "value": 9.440482139587402,
+      "expected_low": 6.0,
+      "expected_high": 12.0,
+      "passed": true,
+      "relation": null
+    },
+    {
+      "name": "E1 aggregate ratio",
+      "value": 8.84278392791748,
+      "expected_low": 7.0,
+      "expected_high": 14.0,
+      "passed": true,
+      "relation": null
+    },
+    {
+      "name": "E2 reward",
+      "value": 0.5824936628341675,
+      "expected_low": 0.62,
+      "expected_high": 0.67,
+      "passed": false,
+      "relation": null
+    },
+    {
+      "name": "E2 sigma",
+      "value": 0.3509032130241394,
+      "expected_low": 0.17,
+      "expected_high": 0.21,
+      "passed": false,
+      "relation": null
+    },
+    {
+      "name": "E2 displacement",
+      "value": 0.051906850188970566,
+      "expected_low": 0.0,
+      "expected_high": 0.03,
+      "passed": false,
+      "relation": null
+    },
+    {
+      "name": "E3 fixed baseline reward",
+      "value": 0.5674878358840942,
+      "expected_low": null,
+      "expected_high": 0.3,
+      "passed": false,
+      "relation": null
+    },
+    {
+      "name": "E3 fixed near_zero reward",
+      "value": 0.5674322843551636,
+      "expected_low": null,
+      "expected_high": 0.32,
+      "passed": false,
+      "relation": null
+    },
+    {
+      "name": "E3 fixed far_zero reward",
+      "value": 0.5683267116546631,
+      "expected_low": 0.6,
+      "expected_high": null,
+      "passed": false,
+      "relation": null
+    },
+    {
+      "name": "E3 fixed far_cap reward",
+      "value": 0.5683231353759766,
+      "expected_low": 0.55,
+      "expected_high": null,
+      "passed": true,
+      "relation": null
+    },
+    {
+      "name": "E3 fixed global_scale reward",
+      "value": 0.568202793598175,
+      "expected_low": 0.55,
+      "expected_high": null,
+      "passed": true,
+      "relation": null
+    },
+    {
+      "name": "E3 learn baseline support events",
+      "value": 0.0,
+      "expected_low": 0.5,
+      "expected_high": 1.0,
+      "passed": false,
+      "relation": null
+    },
+    {
+      "name": "E3 learn far-zero support events",
+      "value": 0.0,
+      "expected_low": 0.0,
+      "expected_high": 0.2,
+      "passed": true,
+      "relation": null
+    },
+    {
+      "name": "E4 fixed alpha=1 reward",
+      "value": 0.5716804265975952,
+      "expected_low": 0.94,
+      "expected_high": 1.01,
+      "passed": false,
+      "relation": null
+    },
+    {
+      "name": "E4 fixed alpha=1.25 reward",
+      "value": NaN,
+      "expected_low": 0.5,
+      "expected_high": 0.75,
+      "passed": false,
+      "relation": null
+    },
+    {
+      "name": "E4 fixed alpha=1.50 reward",
+      "value": NaN,
+      "expected_low": 0.0,
+      "expected_high": 0.05,
+      "passed": false,
+      "relation": null
+    },
+    {
+      "name": "E4 learn alpha=.38 sigma",
+      "value": 0.3805534541606903,
+      "expected_low": 0.0,
+      "expected_high": 0.05,
+      "passed": false,
+      "relation": null
+    },
+    {
+      "name": "E4 control far-cap > global",
+      "value": 0.0027486085891723633,
+      "expected_low": 0.05,
+      "expected_high": null,
+      "passed": false,
+      "relation": null
+    },
+    {
+      "name": "E4 control global > uncontrolled",
+      "value": 0.00038176774978637695,
+      "expected_low": 0.05,
+      "expected_high": null,
+      "passed": false,
+      "relation": null
+    }
+  ]
+}

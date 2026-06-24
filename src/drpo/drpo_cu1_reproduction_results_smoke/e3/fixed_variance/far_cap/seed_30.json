@@ -1,0 +1,21 @@
+{
+  "seed": 30,
+  "method": "far_cap",
+  "branch": "fixed_variance",
+  "reward": 0.5683231353759766,
+  "normalized_extrapolation_displacement": -0.06094028428196907,
+  "distance_to_a_plus": 0.40286099910736084,
+  "distance_to_a_star": 0.8015135526657104,
+  "sigma_mean": 0.1903943419456482,
+  "sigma_min": 0.1903943419456482,
+  "sigma_max": 0.1903943419456482,
+  "log_sigma_min": -1.6586579084396362,
+  "log_sigma_max": -1.6586579084396362,
+  "task_failure_threshold": 0.25566717088222507,
+  "task_failure_onset": null,
+  "support_boundary_onset": null,
+  "support_event_type": null,
+  "stop_reason": "max_steps",
+  "finite_parameters": true,
+  "steps_completed": 3
+}

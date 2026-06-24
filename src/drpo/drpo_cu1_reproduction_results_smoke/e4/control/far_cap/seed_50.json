@@ -1,0 +1,18 @@
+{
+  "seed": 50,
+  "method": "far_cap",
+  "reward": 0.5723530650138855,
+  "normalized_extrapolation_displacement": 0.009633436799049377,
+  "distance_to_a_plus": 0.45961475372314453,
+  "distance_to_a_star": 0.7913484573364258,
+  "sigma_mean": 0.1903943419456482,
+  "sigma_min": 0.1903943419456482,
+  "sigma_max": 0.1903943419456482,
+  "log_sigma_min": -1.6586579084396362,
+  "log_sigma_max": -1.6586579084396362,
+  "task_failure_threshold": 0.2567541092634201,
+  "task_failure_onset": null,
+  "nonfinite_onset": null,
+  "finite_parameters": true,
+  "steps_completed": 3
+}
