@@ -3,7 +3,7 @@
 ## 运行
 
 ```bash
-python drpo_cu1_e1_e4_oneclick.py
+python src/drpo/drpo_cu1_e1_e4_oneclick.py
 ```
 
 不需要编辑文件，不需要设置命令行参数。代码自动选择 CUDA；没有 CUDA 时也能运行，但正式 20-seed 全量实验在 CPU 上会明显更慢。
