@@ -41,6 +41,8 @@ rules:
   forbid_synthetic_or_web_reconstructed_base: true
   require_merge_equivalent_pre_delivery_test: true
   preserve_git_executable_modes_in_update_patches: true
+  require_separate_raw_gradient_and_optimizer_update_norm: true
+  forbid_variance_expansion_claim_from_sgd_overshoot: true
   preserve_previous_valid_artifact_until_candidate_verified: true
   require_failed_package_on_command_start_failure: true
   require_new_or_empty_output_root: true
@@ -83,6 +85,159 @@ rules:
   allow_verified_official_full_sha_archive_for_code_delivery: true
   archive_capsule_not_automatic_formal_run_authority: true
 experiments:
+- id: C-U1-E3-ADAM-RERUN
+  environment: C-U1
+  name: cu1_far_field_causal_intervention_unified_adam
+  status: not_run
+  claim: Test whether anomalous far-field negative gradients causally transmit into mean drift, task-performance collapse, and support or variance contraction under the same Adam optimizer used by the paper-facing C-U1 pipeline.
+  role: controlled_mechanism_identification
+  code_entrypoint: src/drpo/drpo_cu1_e1_e4_oneclick.py
+  command:
+  - python
+  - src/drpo/drpo_cu1_e1_e4_oneclick.py
+  - --stage
+  - e3
+  - --output-root
+  - outputs/cu1_e3_adam
+  initialization:
+    source: positive_only_adam_2000_step_checkpoint
+    e2_terminal_audit_checkpoint_used: false
+    shared_across_methods: true
+  optimizer:
+    name: Adam
+    betas: [0.9, 0.999]
+    eps: 1.0e-8
+    fixed_variance_lr: 1.0e-4
+    learnable_variance_lr: 5.0e-4
+  data:
+    train_states: 4096
+    test_states: 4096
+    positive_actions_per_state: 4
+    negative_actions_per_state: 8
+    terminology: held_out_context_generalization
+    fixed_advantage: true
+  held_out_seeds: [30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49]
+  primary_methods: [baseline, near_zero, far_zero, far_cap]
+  appendix_controls: [global_scale, far_to_near]
+  fixed_variance:
+    sigma: 0.1903943276465978
+    alpha: 1.4
+    max_steps: 2000
+  learnable_variance:
+    alpha: 0.15
+    max_steps: 2000
+    variance_clamp: false
+    full_state_boundary_audit: true
+    first_scientific_boundary_event: support_contraction
+    positive_boundary_event_name: unexpected_support_expansion
+  metrics:
+  - held_out_context_reward
+  - task_failure_onset
+  - mean_drift
+  - log_sigma_min_max_all_states
+  - support_contraction_onset
+  - raw_positive_near_far_gradient_norms
+  - raw_total_gradient_norm
+  - adam_parameter_update_norm
+  - parameter_log_sigma_sigma_output_finiteness
+  reporting_separation:
+  - task_performance_collapse
+  - support_or_variance_contraction
+  - nan_inf_numerical_failure
+  - unexpected_positive_boundary_event
+  controls_note: Raw-gradient budget matching does not imply Adam parameter-update matching.
+  terminal_audit: required
+  formal_run_status: not_run
+  execution:
+    state: registered
+    run_id: null
+    last_heartbeat_utc: null
+    process_exit_code: null
+  evidence:
+    raw_complete: false
+    terminal_audited: false
+    package_created: false
+    package_filename: null
+    package_sha256: null
+    delivered_to_user: false
+    applied_commit: null
+  supersedes_for_paper_facing_result: C-U1 E3 SGD reconstruction and recovered transient runs
+  preserved_history: true
+- id: C-U1-E4-ADAM-RERUN
+  environment: C-U1
+  name: cu1_stable_extrapolation_phase_transition_unified_adam
+  status: not_run
+  claim: Test whether controlled local negative gradients improve beyond the positive-only ceiling and whether excessive negative pressure causes support contraction, continuing drift, or task-performance collapse under one Adam training pipeline.
+  role: controlled_generalization_and_phase_transition
+  depends_on_delivered_experiment: C-U1-E3-ADAM-RERUN
+  code_entrypoint: src/drpo/drpo_cu1_e1_e4_oneclick.py
+  command:
+  - python
+  - src/drpo/drpo_cu1_e1_e4_oneclick.py
+  - --stage
+  - e4
+  - --output-root
+  - outputs/cu1_e4_adam
+  initialization:
+    source: positive_only_adam_2000_step_checkpoint
+    e2_terminal_audit_checkpoint_used: false
+    shared_across_methods: true
+  optimizer:
+    name: Adam
+    betas: [0.9, 0.999]
+    eps: 1.0e-8
+    lr: 5.0e-4
+    lbfgs_parameter_updates_in_e4: false
+  data:
+    train_states: 4096
+    test_states: 4096
+    positive_actions_per_state: 4
+    negative_actions_per_state: 8
+    terminology: held_out_context_generalization
+    fixed_advantage: true
+  development_seeds: [5, 6, 7, 8, 9]
+  held_out_seeds: [50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69]
+  fixed_variance_alpha_grid: [0.0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75]
+  learnable_variance_alpha_grid: [0.0, 0.1, 0.2, 0.3, 0.35, 0.38, 0.4, 0.5]
+  main_story:
+  - positive_only_ceiling
+  - beneficial_controlled_negative_region
+  - excessive_negative_pressure_support_contraction_or_task_collapse
+  appendix_controls: [uncontrolled_all, far_cap, budget_matched_global]
+  terminal_audit:
+    finite_internal_solution:
+    - 200_step_adam
+    - full_data_residual_audit_1
+    - 200_step_adam_continuation
+    - full_data_residual_audit_2
+    no_internal_solution:
+    - long_run_adam
+    - drift_or_first_boundary_audit
+  metrics:
+  - held_out_context_reward
+  - normalized_extrapolation_displacement
+  - distance_to_a_plus_and_a_star
+  - normalized_field_residual
+  - support_contraction_onset
+  - raw_total_gradient_norm
+  - adam_parameter_update_norm
+  - parameter_log_sigma_sigma_output_finiteness
+  method_ranking_pre_registered: false
+  controls_note: Raw-gradient matched controls are not called Adam-update matched.
+  formal_run_status: not_run
+  execution:
+    state: registered
+    run_id: null
+    last_heartbeat_utc: null
+    process_exit_code: null
+  evidence:
+    raw_complete: false
+    terminal_audited: false
+    package_created: false
+    package_filename: null
+    package_sha256: null
+    delivered_to_user: false
+    applied_commit: null
 - id: C-U1-E1-COMP-01
   environment: C-U1
   name: gaussian_output_score_componentwise_growth_law
@@ -748,6 +903,14 @@ artifact_protocol:
   - SHA256SUMS.txt
   - logs/at_least_one_regular_file
 governance_changes:
+- id: C-U1-OPT-ADAM-01
+  status: active
+  effective_date: '2026-06-25'
+  purpose: Unify paper-facing C-U1 E2-E4 training on Adam, remove SGD overshoot from the scientific variance story, and separate raw-gradient diagnostics from Adam parameter updates.
+  scientific_scope:
+  - E3 far-field causal transmission
+  - E4 stability-generalization phase transition
+  preserved_history: Old SGD results remain provenance and optimizer diagnostics.
 - id: GOV-EXP-ARTIFACT-01
   status: active
   effective_date: '2026-06-25'

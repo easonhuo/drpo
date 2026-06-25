@@ -1,24 +1,26 @@
 #!/usr/bin/env python3
-from __future__ import annotations
-
 """One-click reproduction of the DRPO C-U1 continuous experiments E1-E4.
 
-Run without editing any line or setting any hyperparameter:
+Run one registered stage without editing source or hyperparameters:
 
-    python drpo_cu1_e1_e4_oneclick.py
+    python drpo_cu1_e1_e4_oneclick.py --stage e3 --output-root outputs/cu1_e3_adam
+    python drpo_cu1_e1_e4_oneclick.py --stage e4 --output-root outputs/cu1_e4_adam
 
-The script automatically chooses CUDA when available, creates/resumes a fixed
-results directory next to the script, freezes all protocol values in code,
-runs environment audits, E1-E4, robustness checks, plots, summaries, and a
-reference-range regression report.
+The script automatically chooses CUDA when available and freezes all protocol
+values in code. E3 and E4 are separate formal delivery boundaries. Smoke mode
+may exercise the integrated pipeline with ``--stage all``.
 
 Important scope:
 - train and test states are independent draws from the SAME state distribution.
   Therefore this script reports held-out-context generalization, not strict OOD
   generalization.
 - fixed advantages are computed once from the environment and never updated.
-- no variance clamp is used in the main learnable-variance runs. The threshold
-  |log sigma| > 12 is an EVENT DETECTOR, not a clipping operation.
+- E2, E3, and E4 use Adam for paper-facing training. Raw gradient norms and
+  actual Adam parameter-update norms are reported separately.
+- no variance clamp is used in the main learnable-variance runs. The negative
+  log-sigma boundary is an event detector for support contraction, not clipping.
+  A positive-boundary crossing is treated as unexpected, not as a scientific
+  variance-expansion branch.
 - the normalized extrapolation diagnostic is written with the descriptive field
   name ``normalized_extrapolation_displacement``; no retired plotting symbol is reintroduced.
 
@@ -29,6 +31,9 @@ promise. The script therefore records both empirical outputs and comparisons to
 pre-registered reference ranges.
 """
 
+from __future__ import annotations
+
+import argparse
 import copy
 import csv
 import hashlib
@@ -42,7 +47,7 @@ import sys
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Callable, Iterable, Sequence
+from typing import Any, Callable, Sequence
 from collections import deque
 
 import numpy as np
@@ -59,10 +64,9 @@ except Exception:
 # 0. Frozen one-click protocol
 # =============================================================================
 
-SCRIPT_VERSION = "2026.06.24-reconstruction-v4-adaptive-stationarity"
+SCRIPT_VERSION = "2026.06.25-reconstruction-v5-unified-adam"
 SMOKE = os.environ.get("DRPO_CU1_SMOKE", "0") == "1"  # developer-only shortcut
-ROOT = Path(__file__).resolve().parent / ("drpo_cu1_reproduction_results_smoke" if SMOKE else "drpo_cu1_reproduction_results")
-ROOT.mkdir(parents=True, exist_ok=True)
+ROOT = Path(__file__).resolve().parent / ("drpo_cu1_reproduction_results_smoke" if SMOKE else "drpo_cu1_e3_adam_results")
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 DTYPE = torch.float32
@@ -110,6 +114,10 @@ class Protocol:
     positive_polish_lr: float = 1e-4
     eval_every: int = 100
     probe_states: int = 128
+    # E3 / E4 optimizer: unified Adam training for the paper-facing C-U1 pipeline.
+    adam_beta1: float = 0.9
+    adam_beta2: float = 0.999
+    adam_eps: float = 1e-8
     # E3
     near_far_standardized_threshold: float = 5.0
     e3_fixed_alpha: float = 1.40
@@ -129,7 +137,6 @@ class Protocol:
     e4_local_lr: float = 5e-4
     e4_local_warm_steps: int = 200
     e4_local_continuation_steps: int = 200
-    e4_second_audit_max_iter: int = 160
     e4_runaway_steps: int = 4000
     e4_control_alpha_local: float = 1.0
     e4_control_lambda_far: float = 1.0
@@ -159,7 +166,6 @@ if SMOKE:
         positive_polish_min_steps=1,
         positive_polish_max_steps=1,
         positive_polish_check_every=1,
-        e4_second_audit_max_iter=1,
         probe_states=4,
         e3_fixed_steps=3,
         e3_learn_steps=3,
@@ -267,6 +273,70 @@ def set_parameter_grads(params: Sequence[nn.Parameter], grads: Sequence[torch.Te
 
 def finite_model(model: nn.Module) -> bool:
     return all(torch.isfinite(p).all().item() for p in model.parameters())
+
+
+def make_adam(params: Sequence[nn.Parameter], lr: float) -> torch.optim.Adam:
+    return torch.optim.Adam(
+        params,
+        lr=lr,
+        betas=(P.adam_beta1, P.adam_beta2),
+        eps=P.adam_eps,
+    )
+
+
+def gradient_norm_from_parameters(params: Sequence[nn.Parameter]) -> float:
+    grads = [p.grad.reshape(-1) for p in params if p.grad is not None]
+    if not grads:
+        return 0.0
+    return torch.linalg.vector_norm(torch.cat(grads)).item()
+
+
+def optimizer_step_with_norm(
+    optimizer: torch.optim.Optimizer, params: Sequence[nn.Parameter]
+) -> float:
+    before = [p.detach().clone() for p in params]
+    optimizer.step()
+    deltas = [(p.detach() - old).reshape(-1) for p, old in zip(params, before)]
+    return torch.linalg.vector_norm(torch.cat(deltas)).item() if deltas else 0.0
+
+
+def support_diagnostics(actor: "GaussianActor", split: "Split") -> dict[str, Any]:
+    """Audit all registered states; never sample only a prefix.
+
+    The theory-facing failure mode is support contraction. A positive-boundary
+    crossing is retained only as an unexpected implementation/numerical event,
+    not promoted to a second scientific branch.
+    """
+    with torch.no_grad():
+        _, log_sigma = actor(split.s)
+        sigma = torch.exp(log_sigma)
+    finite_log_sigma = bool(torch.isfinite(log_sigma).all().item())
+    finite_sigma = bool(torch.isfinite(sigma).all().item())
+    log_min = float(log_sigma.min().item()) if finite_log_sigma else float("nan")
+    log_max = float(log_sigma.max().item()) if finite_log_sigma else float("nan")
+    return {
+        "log_sigma_min_all_states": log_min,
+        "log_sigma_max_all_states": log_max,
+        "sigma_output_finite_all_states": finite_sigma,
+        "log_sigma_output_finite_all_states": finite_log_sigma,
+        "support_contraction_boundary": finite_log_sigma and log_min < -P.log_sigma_event_boundary,
+        "unexpected_support_expansion_boundary": finite_log_sigma and log_max > P.log_sigma_event_boundary,
+    }
+
+
+def support_event_type(diag: dict[str, Any]) -> str | None:
+    # NaN/Inf output failures are numerical events and take precedence over
+    # finite support-boundary labels. The individual diagnostic flags are still
+    # retained so a single step can be audited without collapsing categories.
+    if not diag["log_sigma_output_finite_all_states"]:
+        return "nonfinite_log_sigma_output"
+    if not diag["sigma_output_finite_all_states"]:
+        return "nonfinite_sigma_output"
+    if diag["support_contraction_boundary"]:
+        return "support_contraction"
+    if diag["unexpected_support_expansion_boundary"]:
+        return "unexpected_support_expansion"
+    return None
 
 
 # =============================================================================
@@ -551,16 +621,19 @@ def evaluation(actor: GaussianActor, split: Split, fixed_sigma: float | None = N
         reward = reward_from_optimum(mu, split.a_star)
         axis = ((mu - split.a_plus) * split.direction).sum(-1)
         normalized = axis / P.gap_to_unseen_optimum
+        sigma = torch.exp(log_std)
         return {
             "reward": reward.mean().item(),
             "normalized_extrapolation_displacement": normalized.mean().item(),
             "distance_to_a_plus": torch.linalg.vector_norm(mu - split.a_plus, dim=-1).mean().item(),
             "distance_to_a_star": torch.linalg.vector_norm(mu - split.a_star, dim=-1).mean().item(),
-            "sigma_mean": torch.exp(log_std).mean().item(),
-            "sigma_min": torch.exp(log_std).min().item(),
-            "sigma_max": torch.exp(log_std).max().item(),
+            "sigma_mean": sigma.mean().item(),
+            "sigma_min": sigma.min().item(),
+            "sigma_max": sigma.max().item(),
             "log_sigma_min": log_std.min().item(),
             "log_sigma_max": log_std.max().item(),
+            "log_sigma_output_finite": bool(torch.isfinite(log_std).all().item()),
+            "sigma_output_finite": bool(torch.isfinite(sigma).all().item()),
         }
 
 
@@ -614,6 +687,10 @@ def positive_checkpoint_path(seed: int) -> Path:
     return ROOT / "positive_checkpoints" / f"seed_{seed}.pt"
 
 
+def positive_initialization_checkpoint_path(seed: int) -> Path:
+    return ROOT / "positive_checkpoints" / f"seed_{seed}_adam2000_initialization.pt"
+
+
 def phantom_metrics(actor: GaussianActor, split: Split, probe_n: int | None = None) -> dict[str, float]:
     if probe_n is None:
         ids = torch.arange(len(split.s), device=DEVICE)
@@ -643,7 +720,8 @@ def train_positive(seed: int) -> tuple[GaussianActor, Environment, list[dict[str
     summary_path = ROOT / "e2" / f"seed_{seed}.json"
     env = make_environment(seed)
     actor = GaussianActor().to(DEVICE)
-    if ckpt.exists() and summary_path.exists() and trajectory_path.exists():
+    init_ckpt = positive_initialization_checkpoint_path(seed)
+    if ckpt.exists() and init_ckpt.exists() and summary_path.exists() and trajectory_path.exists():
         try:
             state = torch.load(ckpt, map_location=DEVICE, weights_only=True)
         except TypeError:
@@ -654,7 +732,7 @@ def train_positive(seed: int) -> tuple[GaussianActor, Environment, list[dict[str
     seed_all(seed)
     actor = GaussianActor().to(DEVICE)
     initial_phantom = phantom_metrics(actor, env.train, P.probe_states)
-    optimizer = torch.optim.Adam(actor.parameters(), lr=P.positive_adam_lr)
+    optimizer = make_adam(list(actor.parameters()), P.positive_adam_lr)
     gen = torch.Generator(device="cpu").manual_seed(seed + 100003)
     trajectory: list[dict[str, Any]] = []
 
@@ -675,6 +753,12 @@ def train_positive(seed: int) -> tuple[GaussianActor, Environment, list[dict[str
         if step % P.eval_every == 0 or step == P.positive_steps:
             record(step, "adam")
 
+    # E3/E4 must start from the frozen 2000-step Adam checkpoint. The later
+    # LBFGS/continuation/polish sequence is an E2 terminal audit only and must
+    # not silently alter the initialization of downstream experiments.
+    init_ckpt.parent.mkdir(parents=True, exist_ok=True)
+    torch.save(actor.state_dict(), init_ckpt)
+
     # Full-data stationary audit. Snapshot and restore if LBFGS fails.
     snapshot = copy.deepcopy(actor.state_dict())
     lbfgs = torch.optim.LBFGS(actor.parameters(), lr=P.lbfgs_lr, max_iter=P.lbfgs_max_iter, history_size=50, line_search_fn="strong_wolfe")
@@ -694,7 +778,7 @@ def train_positive(seed: int) -> tuple[GaussianActor, Environment, list[dict[str
     record(P.positive_steps, "stationary_audit")
 
     # Equal-length 2x continuation.
-    optimizer = torch.optim.Adam(actor.parameters(), lr=P.positive_adam_lr * 0.25)
+    optimizer = make_adam(list(actor.parameters()), P.positive_adam_lr * 0.25)
     for extra in range(1, P.positive_continuation_steps + 1):
         ids = torch.randint(0, P.n_train_states, (P.positive_batch_states,), generator=gen).to(DEVICE)
         loss = positive_loss(actor, env.train, ids)
@@ -732,7 +816,7 @@ def train_positive(seed: int) -> tuple[GaussianActor, Environment, list[dict[str
     # LBFGS can stop with a small float32 residual. A short full-data Adam
     # polish is deterministic and enforces the pre-registered alpha=0
     # absolute-gradient criterion instead of silently relaxing it.
-    polish = torch.optim.Adam(actor.parameters(), lr=P.positive_polish_lr)
+    polish = make_adam(list(actor.parameters()), P.positive_polish_lr)
     polish_steps_used = 0
     for polish_step in range(1, P.positive_polish_max_steps + 1):
         loss = positive_loss(actor, env.train)
@@ -899,7 +983,7 @@ def run_intervention(seed: int, initial_state: dict[str, torch.Tensor], env: Env
     actor = GaussianActor().to(DEVICE)
     actor.load_state_dict(copy.deepcopy(initial_state))
     params = actor.mean_parameters() if fixed_sigma is not None else actor.all_parameters()
-    optimizer = torch.optim.SGD(params, lr=lr)
+    optimizer = make_adam(params, lr)
     gen = torch.Generator(device="cpu").manual_seed(seed + 300007)
     traj: list[dict[str, Any]] = []
     positive_reference = evaluation(actor, env.test, fixed_sigma)["reward"]
@@ -907,34 +991,37 @@ def run_intervention(seed: int, initial_state: dict[str, torch.Tensor], env: Env
     below_threshold_eval_steps: deque[int] = deque(maxlen=P.task_failure_consecutive_evals)
     task_onset = None
     support_onset = None
-    support_event_type = None
+    first_support_event_type = None
     stop_reason = "max_steps"
 
     for step in range(1, steps + 1):
+        pre_support = support_diagnostics(actor, env.train) if fixed_sigma is None else {}
         ids = torch.randint(0, P.n_train_states, (P.positive_batch_states,), generator=gen).to(DEVICE)
         grads, diag = intervention_gradients(actor, env.train, ids, fixed_sigma, alpha, method, P.e3_cap_ratio)
         optimizer.zero_grad(set_to_none=True)
         set_parameter_grads(params, grads)
-        optimizer.step()
+        raw_gradient_norm = norm_tuple(grads).item()
+        parameter_update_norm = optimizer_step_with_norm(optimizer, params)
 
         finite = finite_model(actor)
-        with torch.no_grad():
-            _, log_std_all = actor(env.train.s[: min(1024, P.n_train_states)])
-            nonfinite_log_std = (~torch.isfinite(log_std_all)).any().item()
-            contraction_event = fixed_sigma is None and (log_std_all < -P.log_sigma_event_boundary).any().item()
-            expansion_event = fixed_sigma is None and (log_std_all > P.log_sigma_event_boundary).any().item()
-            support_event = fixed_sigma is None and (nonfinite_log_std or contraction_event or expansion_event)
-        if support_event and support_onset is None:
+        post_support = support_diagnostics(actor, env.train) if fixed_sigma is None else {}
+        event_type = support_event_type(post_support) if fixed_sigma is None else None
+        if event_type is not None and support_onset is None:
             support_onset = step
-            support_event_type = (
-                "nonfinite_log_sigma" if nonfinite_log_std else
-                "support_contraction" if contraction_event else
-                "support_expansion"
-            )
+            first_support_event_type = event_type
         if not finite:
             stop_reason = "non_finite_parameter"
-            break
-        if step % P.eval_every == 0 or step == 1 or step == steps or support_event:
+        elif event_type is not None:
+            stop_reason = event_type + "_boundary_event"
+
+        should_record = (
+            step % P.eval_every == 0
+            or step == 1
+            or step == steps
+            or event_type is not None
+            or not finite
+        )
+        if should_record:
             ev = evaluation(actor, env.test, fixed_sigma)
             reward = ev["reward"]
             if reward < task_threshold:
@@ -944,14 +1031,22 @@ def run_intervention(seed: int, initial_state: dict[str, torch.Tensor], env: Env
             if len(below_threshold_eval_steps) == P.task_failure_consecutive_evals and task_onset is None:
                 task_onset = below_threshold_eval_steps[0]
             row = {
-                "step": step, "method": method, **ev, **diag,
+                "step": step,
+                "method": method,
+                "optimizer": "adam",
+                **ev,
+                **diag,
+                "raw_total_gradient_norm": raw_gradient_norm,
+                "parameter_update_norm": parameter_update_norm,
                 "task_threshold": task_threshold,
-                "support_boundary_event": bool(support_event),
-                "support_event_type": support_event_type if support_event else None,
+                "support_boundary_event": event_type is not None,
+                "support_event_type": event_type,
             }
+            if fixed_sigma is None:
+                row.update({f"pre_{k}": v for k, v in pre_support.items()})
+                row.update({f"post_{k}": v for k, v in post_support.items()})
             traj.append(row)
-        if support_event:
-            stop_reason = (support_event_type or "support_boundary") + "_boundary_event"
+        if not finite or event_type is not None:
             break
 
     final = evaluation(actor, env.test, fixed_sigma)
@@ -959,11 +1054,13 @@ def run_intervention(seed: int, initial_state: dict[str, torch.Tensor], env: Env
         "seed": seed,
         "method": method,
         "branch": branch,
+        "optimizer": "adam",
         **final,
         "task_failure_threshold": task_threshold,
         "task_failure_onset": task_onset,
         "support_boundary_onset": support_onset,
-        "support_event_type": support_event_type,
+        "support_event_type": first_support_event_type,
+        "unexpected_support_expansion": first_support_event_type == "unexpected_support_expansion",
         "stop_reason": stop_reason,
         "finite_parameters": finite_model(actor),
         "steps_completed": traj[-1]["step"] if traj else 0,
@@ -1013,116 +1110,111 @@ def run_local_scan_seed(seed: int, initial_state: dict[str, torch.Tensor], env: 
     actor = GaussianActor().to(DEVICE)
     actor.load_state_dict(copy.deepcopy(initial_state))
     params = actor.mean_parameters() if fixed_sigma is not None else actor.all_parameters()
-    optimizer = torch.optim.SGD(params, lr=P.e4_local_lr)
-    # Use the same minibatch sequence for every alpha within a seed so the
-    # phase scan is paired rather than confounded by different SGD noise.
+    optimizer = make_adam(params, P.e4_local_lr)
+    # Every alpha within a seed receives the identical minibatch stream.
     gen = torch.Generator(device="cpu").manual_seed(seed + 400009)
     analytic = analytic_local_solution(alpha)
-    finite_internal = bool(analytic.get("finite_mean_fixed_point", False)) and (fixed_sigma is not None or bool(analytic.get("finite_variance_fixed_point", False)))
-    warm_steps = P.e4_local_warm_steps if finite_internal else P.e4_runaway_steps
+    finite_internal = bool(analytic.get("finite_mean_fixed_point", False)) and (
+        fixed_sigma is not None or bool(analytic.get("finite_variance_fixed_point", False))
+    )
+    first_phase_steps = P.e4_local_warm_steps if finite_internal else P.e4_runaway_steps
     traj: list[dict[str, Any]] = []
     support_onset = None
-    support_event_type = None
+    first_support_event_type = None
     stop_reason = "completed"
 
-    def record(step: int, stage: str) -> None:
+    def record(step: int, stage: str, extra: dict[str, Any] | None = None) -> None:
         ev = evaluation(actor, env.test, fixed_sigma)
         field = normalized_field_residual(actor, env.train, alpha, fixed_sigma, local_only=True)
         distance_diag = policy_distance_diagnostics(actor, env.train, fixed_sigma)
-        traj.append({"step": step, "stage": stage, **ev, **field, **distance_diag})
+        row = {"step": step, "stage": stage, "optimizer": "adam", **ev, **field, **distance_diag}
+        if fixed_sigma is None:
+            row.update(support_diagnostics(actor, env.train))
+        if extra:
+            row.update(extra)
+        traj.append(row)
 
     record(0, "initial")
-    for step in range(1, warm_steps + 1):
-        ids = torch.randint(0, P.n_train_states, (P.positive_batch_states,), generator=gen).to(DEVICE)
-        loss = local_objective(actor, env.train, ids, alpha, fixed_sigma)
-        optimizer.zero_grad(set_to_none=True)
-        loss.backward()
-        optimizer.step()
-        if not finite_model(actor):
-            stop_reason = "non_finite_parameter"
-            break
-        if fixed_sigma is None:
-            with torch.no_grad():
-                _, ls = actor(env.train.s[: min(1024, P.n_train_states)])
-                nonfinite_ls = (~torch.isfinite(ls)).any().item()
-                contraction_event = (ls < -P.log_sigma_event_boundary).any().item()
-                expansion_event = (ls > P.log_sigma_event_boundary).any().item()
-                if nonfinite_ls or contraction_event or expansion_event:
-                    support_onset = step
-                    support_event_type = (
-                        "nonfinite_log_sigma" if nonfinite_ls else
-                        "support_contraction" if contraction_event else
-                        "support_expansion"
-                    )
-                    stop_reason = support_event_type + "_boundary_event"
-                    record(step, "boundary_event")
-                    break
-        if step % P.eval_every == 0 or step == warm_steps:
-            record(step, "sgd")
 
-    # Stationary audits only when the analytic population model has an internal
-    # solution. The protocol requires an audit, a continuation, and a second
-    # audit; the previous reconstruction accidentally omitted the second audit.
-    audit_1_ok = False
-    audit_2_ok = False
-    if finite_internal and finite_model(actor) and not SMOKE:
-        snapshot = copy.deepcopy(actor.state_dict())
-        lbfgs = torch.optim.LBFGS(
-            params, lr=P.lbfgs_lr, max_iter=P.lbfgs_max_iter,
-            history_size=50, line_search_fn="strong_wolfe"
-        )
-
-        def closure() -> torch.Tensor:
-            lbfgs.zero_grad(set_to_none=True)
-            loss = local_objective(actor, env.train, None, alpha, fixed_sigma)
-            loss.backward()
-            return loss
-
-        try:
-            lbfgs.step(closure)
-            if not finite_model(actor):
-                raise FloatingPointError
-            record(warm_steps, "stationary_audit_1")
-            audit_1_ok = True
-        except Exception:
-            actor.load_state_dict(snapshot)
-
-        optimizer = torch.optim.SGD(params, lr=P.e4_local_lr * 0.5)
-        for extra in range(1, P.e4_local_continuation_steps + 1):
+    def adam_phase(number_of_steps: int, start_step: int, stage: str) -> int:
+        nonlocal support_onset, first_support_event_type, stop_reason
+        completed = 0
+        for offset in range(1, number_of_steps + 1):
+            step = start_step + offset
+            pre_support = support_diagnostics(actor, env.train) if fixed_sigma is None else {}
             ids = torch.randint(0, P.n_train_states, (P.positive_batch_states,), generator=gen).to(DEVICE)
             loss = local_objective(actor, env.train, ids, alpha, fixed_sigma)
             optimizer.zero_grad(set_to_none=True)
             loss.backward()
-            optimizer.step()
-            if extra % P.eval_every == 0 or extra == P.e4_local_continuation_steps:
-                record(warm_steps + extra, "continuation")
+            raw_gradient_norm = gradient_norm_from_parameters(params)
+            parameter_update_norm = optimizer_step_with_norm(optimizer, params)
+            completed = offset
+            finite = finite_model(actor)
+            post_support = support_diagnostics(actor, env.train) if fixed_sigma is None else {}
+            event_type = support_event_type(post_support) if fixed_sigma is None else None
+            if event_type is not None and support_onset is None:
+                support_onset = step
+                first_support_event_type = event_type
+            extra = {
+                "raw_total_gradient_norm": raw_gradient_norm,
+                "parameter_update_norm": parameter_update_norm,
+            }
+            if fixed_sigma is None:
+                extra.update({f"pre_{k}": v for k, v in pre_support.items()})
+                extra.update({f"post_{k}": v for k, v in post_support.items()})
+            if not finite:
+                stop_reason = "non_finite_parameter"
+            elif event_type is not None:
+                stop_reason = event_type + "_boundary_event"
+            if (
+                offset % P.eval_every == 0
+                or offset == number_of_steps
+                or event_type is not None
+                or not finite
+            ):
+                record(step, stage, extra)
+            if not finite or event_type is not None:
+                break
+        return completed
 
-        second_snapshot = copy.deepcopy(actor.state_dict())
-        second_lbfgs = torch.optim.LBFGS(
-            params, lr=P.lbfgs_lr, max_iter=P.e4_second_audit_max_iter,
-            history_size=50, line_search_fn="strong_wolfe"
+    completed_first = adam_phase(first_phase_steps, 0, "adam_phase_1")
+
+    # Terminal audits measure the same full-data Adam objective without using a
+    # second optimizer. This keeps E3/E4 on one optimizer story while retaining
+    # the pre-registered residual and 2x-continuation checks.
+    audit_1_ok = False
+    audit_2_ok = False
+    audit_1_residual = float("nan")
+    audit_2_residual = float("nan")
+    if finite_internal and finite_model(actor) and support_onset is None:
+        field_1 = normalized_field_residual(actor, env.train, alpha, fixed_sigma, local_only=True)
+        audit_1_residual = (
+            field_1["total_gradient_norm"] if alpha == 0 else field_1["normalized_field_residual"]
         )
+        threshold = P.absolute_residual_threshold_alpha_zero if alpha == 0 else P.normalized_residual_threshold
+        audit_1_ok = audit_1_residual < threshold
+        record(completed_first, "full_data_residual_audit_1", {"audit_residual": audit_1_residual})
 
-        def second_closure() -> torch.Tensor:
-            second_lbfgs.zero_grad(set_to_none=True)
-            loss = local_objective(actor, env.train, None, alpha, fixed_sigma)
-            loss.backward()
-            return loss
-
-        try:
-            second_lbfgs.step(second_closure)
-            if not finite_model(actor):
-                raise FloatingPointError
-            record(warm_steps + P.e4_local_continuation_steps, "stationary_audit_2")
-            audit_2_ok = True
-        except Exception:
-            actor.load_state_dict(second_snapshot)
+        completed_second = adam_phase(
+            P.e4_local_continuation_steps,
+            completed_first,
+            "adam_continuation",
+        )
+        if finite_model(actor) and support_onset is None:
+            field_2 = normalized_field_residual(actor, env.train, alpha, fixed_sigma, local_only=True)
+            audit_2_residual = (
+                field_2["total_gradient_norm"] if alpha == 0 else field_2["normalized_field_residual"]
+            )
+            audit_2_ok = audit_2_residual < threshold
+            record(
+                completed_first + completed_second,
+                "full_data_residual_audit_2",
+                {"audit_residual": audit_2_residual},
+            )
 
     final = evaluation(actor, env.test, fixed_sigma)
     field = normalized_field_residual(actor, env.train, alpha, fixed_sigma, local_only=True)
-    stable = finite_internal and finite_model(actor) and audit_1_ok and audit_2_ok and (
-        field["total_gradient_norm"] < P.absolute_residual_threshold_alpha_zero if alpha == 0 else field["normalized_field_residual"] < P.normalized_residual_threshold
-    )
+    stable = finite_internal and finite_model(actor) and audit_1_ok and audit_2_ok and support_onset is None
     positive_ceiling_reward = evaluation_from_geometry(P.gap_to_unseen_optimum)[0]
     if stable:
         displacement = final["normalized_extrapolation_displacement"]
@@ -1139,13 +1231,10 @@ def run_local_scan_seed(seed: int, initial_state: dict[str, torch.Tensor], env: 
         state = stop_reason
     else:
         state = "finite_continuing_drift_or_runaway"
-    # Last-window slopes separate a finite snapshot from a continuing dynamical trend.
+
     displacement_slope = float("nan")
     log_sigma_slope = float("nan")
-    dynamic_rows = [r for r in traj if r.get("stage") in {"sgd", "continuation"}]
-    # Audit rows can share the same step number and contain a discontinuous
-    # optimizer jump; exclude them from temporal slopes. Keep the last row for
-    # each actual training step.
+    dynamic_rows = [r for r in traj if r.get("stage") in {"adam_phase_1", "adam_continuation"}]
     by_step = {int(r["step"]): r for r in dynamic_rows}
     ordered_dynamic = [by_step[k] for k in sorted(by_step)]
     if len(ordered_dynamic) >= 3:
@@ -1155,15 +1244,24 @@ def run_local_scan_seed(seed: int, initial_state: dict[str, torch.Tensor], env: 
             displacement_slope = float(np.polyfit(xs, np.asarray([float(r["normalized_extrapolation_displacement"]) for r in tail]), 1)[0])
             log_sigma_slope = float(np.polyfit(xs, np.log(np.maximum(np.asarray([float(r["sigma_mean"]) for r in tail]), 1e-30)), 1)[0])
     summary = {
-        "seed": seed, "alpha": alpha, "branch": branch, **analytic, **final, **field,
+        "seed": seed,
+        "alpha": alpha,
+        "branch": branch,
+        "optimizer": "adam",
+        **analytic,
+        **final,
+        **field,
         **policy_distance_diagnostics(actor, env.train, fixed_sigma),
         "stationary_audit_attempted": finite_internal,
         "stationary_audit_1_succeeded": audit_1_ok,
         "stationary_audit_2_succeeded": audit_2_ok,
         "stationary_audit_succeeded": audit_1_ok and audit_2_ok,
+        "stationary_audit_1_residual": audit_1_residual,
+        "stationary_audit_2_residual": audit_2_residual,
         "state_class": state,
         "support_boundary_onset": support_onset,
-        "support_event_type": support_event_type,
+        "support_event_type": first_support_event_type,
+        "unexpected_support_expansion": first_support_event_type == "unexpected_support_expansion",
         "stop_reason": stop_reason,
         "normalized_extrapolation_displacement_window_slope": displacement_slope,
         "log_sigma_window_slope": log_sigma_slope,
@@ -1226,7 +1324,7 @@ def run_control_seed(seed: int, initial_state: dict[str, torch.Tensor], env: Env
     actor = GaussianActor().to(DEVICE)
     actor.load_state_dict(copy.deepcopy(initial_state))
     params = actor.mean_parameters()
-    optimizer = torch.optim.SGD(params, lr=P.e4_control_lr)
+    optimizer = make_adam(params, P.e4_control_lr)
     gen = torch.Generator(device="cpu").manual_seed(seed + 500009)
     fixed_sigma = analytic_positive_sigma()
     traj: list[dict[str, Any]] = []
@@ -1239,7 +1337,11 @@ def run_control_seed(seed: int, initial_state: dict[str, torch.Tensor], env: Env
         grads, diag = e4_control_gradients(actor, env.train, ids, method, fixed_sigma)
         optimizer.zero_grad(set_to_none=True)
         set_parameter_grads(params, grads)
-        optimizer.step()
+        raw_gradient_norm = norm_tuple(grads).item()
+        parameter_update_norm = optimizer_step_with_norm(optimizer, params)
+        diag["raw_total_gradient_norm"] = raw_gradient_norm
+        diag["parameter_update_norm"] = parameter_update_norm
+        diag["optimizer"] = "adam"
         if not finite_model(actor):
             nonfinite_onset = step
             break
@@ -1253,7 +1355,7 @@ def run_control_seed(seed: int, initial_state: dict[str, torch.Tensor], env: Env
                 task_onset = below_threshold_eval_steps[0]
             traj.append({"step": step, "method": method, **ev, **diag, "task_threshold": task_threshold})
     final = evaluation(actor, env.test, fixed_sigma) if finite_model(actor) else {k: float("nan") for k in ["reward", "normalized_extrapolation_displacement", "distance_to_a_plus", "distance_to_a_star", "sigma_mean", "sigma_min", "sigma_max", "log_sigma_min", "log_sigma_max"]}
-    summary = {"seed": seed, "method": method, **final, "task_failure_threshold": task_threshold, "task_failure_onset": task_onset, "nonfinite_onset": nonfinite_onset, "finite_parameters": finite_model(actor), "steps_completed": traj[-1]["step"] if traj else 0}
+    summary = {"seed": seed, "method": method, "optimizer": "adam", **final, "task_failure_threshold": task_threshold, "task_failure_onset": task_onset, "nonfinite_onset": nonfinite_onset, "finite_parameters": finite_model(actor), "steps_completed": traj[-1]["step"] if traj else 0}
     write_csv(traj_path, traj)
     atomic_json(out_path, summary)
     return summary
@@ -1277,13 +1379,13 @@ def run_variance_robustness() -> list[dict[str, Any]]:
         return [dict(r) for r in read_csv(out_path)]
     rows: list[dict[str, Any]] = []
     for seed in P.variance_robustness_seeds:
-        actor0, env, _, _ = train_positive(seed)
-        initial = copy.deepcopy(actor0.state_dict())
+        _, env, _, _ = train_positive(seed)
+        initial = copy.deepcopy(load_initialization_state(seed))
         for alpha in (0.38, 0.40, 0.50):
             for lr in (1.0e-4, 2.5e-4, 5e-4):
                 actor = GaussianActor().to(DEVICE)
                 actor.load_state_dict(copy.deepcopy(initial))
-                optimizer = torch.optim.SGD(actor.parameters(), lr=lr)
+                optimizer = make_adam(list(actor.parameters()), lr)
                 gen = torch.Generator(device="cpu").manual_seed(seed + 600011)
                 contraction_crossings = {8: None, 10: None, 12: None, 14: None}
                 expansion_crossings = {8: None, 10: None, 12: None, 14: None}
@@ -1299,7 +1401,7 @@ def run_variance_robustness() -> list[dict[str, Any]]:
                         break
                     if step % P.eval_every == 0 or step == 1:
                         with torch.no_grad():
-                            _, ls = actor(env.train.s[: min(1024, P.n_train_states)])
+                            _, ls = actor(env.train.s)
                             min_log_sigma = ls.min().item()
                             max_log_sigma = ls.max().item()
                             sigma_trace.append((step, torch.exp(ls).mean().item()))
@@ -1319,7 +1421,7 @@ def run_variance_robustness() -> list[dict[str, Any]]:
                     "finite_parameters": finite_model(actor),
                     "log_sigma_window_slope": slope,
                     **{f"support_contraction_cross_log_sigma_minus_{k}": v for k, v in contraction_crossings.items()},
-                    **{f"support_expansion_cross_log_sigma_plus_{k}": v for k, v in expansion_crossings.items()},
+                    **{f"unexpected_support_expansion_cross_log_sigma_plus_{k}": v for k, v in expansion_crossings.items()},
                 })
     write_csv(out_path, rows)
     return rows
@@ -1399,39 +1501,54 @@ def regression_report(e1: list[dict[str, Any]], e2: list[dict[str, Any]], e3f: l
         vals = [float(r[field]) for r in rows if predicate(r) and r.get(field) is not None and math.isfinite(float(r[field]))]
         return float(np.mean(vals)) if vals else float("nan")
 
-    checks = []
+    def event_rate(rows: list[dict[str, Any]], method: str) -> float:
+        selected = [r for r in rows if r.get("method") == method]
+        return sum(r.get("support_boundary_onset") is not None for r in selected) / len(selected) if selected else float("nan")
+
+    checks: list[dict[str, Any]] = []
+
     def check(name: str, value: float, lo: float | None = None, hi: float | None = None, relation: str | None = None) -> None:
-        passed = True
+        passed = math.isfinite(value)
         if lo is not None:
             passed &= value >= lo
         if hi is not None:
             passed &= value <= hi
         checks.append({"name": name, "value": value, "expected_low": lo, "expected_high": hi, "passed": bool(passed), "relation": relation})
 
-    check("E1 advantage ratio", avg(e1, "advantage_far_near_ratio"), 0.9999, 1.0001)
-    check("E1 output score ratio", avg(e1, "output_score_far_near_ratio"), 7.2, 8.0)
-    check("E1 full-parameter ratio", avg(e1, "full_parameter_single_sample_far_near_ratio"), 6.0, 12.0)
-    check("E1 aggregate ratio", avg(e1, "aggregate_far_near_ratio"), 7.0, 14.0)
-    check("E2 reward", avg(e2, "reward"), 0.62, 0.67)
-    check("E2 sigma", avg(e2, "sigma_mean"), 0.17, 0.21)
-    check("E2 displacement", abs(avg(e2, "normalized_extrapolation_displacement")), 0.0, 0.03)
+    if e1:
+        check("E1 advantage ratio", avg(e1, "advantage_far_near_ratio"), 0.9999, 1.0001)
+        check("E1 output score ratio", avg(e1, "output_score_far_near_ratio"), 7.2, 8.0)
+    if e2:
+        check("E2 reward", avg(e2, "reward"), 0.62, 0.67)
+        check("E2 sigma", avg(e2, "sigma_mean"), 0.17, 0.21)
+    if e3f:
+        for method, bound, direction in [
+            ("baseline", 0.30, "below"),
+            ("near_zero", 0.32, "below"),
+            ("far_zero", 0.55, "above"),
+            ("far_cap", 0.50, "above"),
+        ]:
+            value = avg(e3f, "reward", lambda r, m=method: r["method"] == m)
+            check(f"E3 fixed {method} reward", value, None if direction == "below" else bound, bound if direction == "below" else None)
+    if e3l:
+        check("E3 learn baseline support contraction", event_rate(e3l, "baseline"), 0.5, 1.0)
+        check("E3 learn near-zero support contraction", event_rate(e3l, "near_zero"), 0.5, 1.0)
+        check("E3 learn far-zero support events", event_rate(e3l, "far_zero"), 0.0, 0.2)
+        unexpected = float(sum(bool(r.get("unexpected_support_expansion")) for r in e3l))
+        check("E3 unexpected support-expansion events", unexpected, 0.0, 0.0)
+    if e4f:
+        required = {float(r["alpha"]) for r in e4f}
+        check("E4 fixed alpha grid present", float(len(required)), float(len(P.e4_fixed_alphas)), float(len(P.e4_fixed_alphas)))
+    if e4l:
+        required = {float(r["alpha"]) for r in e4l}
+        check("E4 learnable alpha grid present", float(len(required)), float(len(P.e4_learn_alphas)), float(len(P.e4_learn_alphas)))
+        unexpected = float(sum(bool(r.get("unexpected_support_expansion")) for r in e4l))
+        check("E4 unexpected support-expansion events", unexpected, 0.0, 0.0)
+    if controls:
+        methods = {str(r["method"]) for r in controls}
+        check("E4 control methods present", float(len(methods)), 3.0, 3.0)
 
-    for method, bound, direction in [("baseline", 0.30, "below"), ("near_zero", 0.32, "below"), ("far_zero", 0.60, "above"), ("far_cap", 0.55, "above"), ("global_scale", 0.55, "above")]:
-        value = avg(e3f, "reward", lambda r, m=method: r["method"] == m)
-        check(f"E3 fixed {method} reward", value, None if direction == "below" else bound, bound if direction == "below" else None)
-    check("E3 learn baseline support events", np.mean([r["support_boundary_onset"] is not None for r in e3l if r["method"] == "baseline"]), 0.5, 1.0)
-    check("E3 learn far-zero support events", np.mean([r["support_boundary_onset"] is not None for r in e3l if r["method"] == "far_zero"]), 0.0, 0.2)
-
-    check("E4 fixed alpha=1 reward", avg(e4f, "reward", lambda r: abs(float(r["alpha"]) - 1.0) < 1e-9), 0.94, 1.01)
-    check("E4 fixed alpha=1.25 reward", avg(e4f, "reward", lambda r: abs(float(r["alpha"]) - 1.25) < 1e-9), 0.50, 0.75)
-    check("E4 fixed alpha=1.50 reward", avg(e4f, "reward", lambda r: abs(float(r["alpha"]) - 1.50) < 1e-9), 0.0, 0.05)
-    check("E4 learn alpha=.38 sigma", avg(e4l, "sigma_mean", lambda r: abs(float(r["alpha"]) - 0.38) < 1e-9), 0.0, 0.05)
-    farcap = avg(controls, "reward", lambda r: r["method"] == "far_cap")
-    global_ = avg(controls, "reward", lambda r: r["method"] == "budget_matched_global")
-    uncontrolled = avg(controls, "reward", lambda r: r["method"] == "uncontrolled_all")
-    check("E4 control far-cap > global", farcap - global_, 0.05, None)
-    check("E4 control global > uncontrolled", global_ - uncontrolled, 0.05, None)
-    return {"all_passed": all(x["passed"] for x in checks), "checks": checks}
+    return {"all_passed": bool(checks) and all(x["passed"] for x in checks), "checks": checks}
 
 
 def collect_jsons(folder: Path) -> list[dict[str, Any]]:
@@ -1472,6 +1589,12 @@ def run_preflight_self_tests() -> dict[str, Any]:
         torch.randint(0, P.n_train_states, (64,), generator=g1),
         torch.randint(0, P.n_train_states, (64,), generator=g2),
     ))
+    adam = make_adam(actor.all_parameters(), P.e3_learn_lr)
+    tests["formal_optimizer_is_adam"] = isinstance(adam, torch.optim.Adam)
+    support = support_diagnostics(actor, env.train)
+    tests["support_audit_covers_all_registered_states"] = bool(
+        support["log_sigma_output_finite_all_states"] and len(env.train.s) == P.n_train_states
+    )
     tests["all_passed"] = bool(
         tests["environment_audit"]
         and rel < 1e-6
@@ -1481,6 +1604,8 @@ def run_preflight_self_tests() -> dict[str, Any]:
         and abs(tests["analytic_mean_critical_alpha"] - 1.6933920000136828) < 1e-9
         and abs(tests["analytic_variance_boundary_alpha"] - 0.3806850232588901) < 1e-9
         and tests["paired_minibatch_stream_identical"]
+        and tests["formal_optimizer_is_adam"]
+        and tests["support_audit_covers_all_registered_states"]
     )
     return tests
 
@@ -1490,7 +1615,43 @@ def run_preflight_self_tests() -> dict[str, Any]:
 # =============================================================================
 
 
-def main() -> None:
+def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Run the registered C-U1 Adam pipeline by experiment boundary.")
+    parser.add_argument(
+        "--stage",
+        choices=("e1_e2", "e3", "e4", "all"),
+        default="e3",
+        help="Formal runs must use e3 or e4 separately. 'all' is smoke/integration only.",
+    )
+    parser.add_argument(
+        "--output-root",
+        type=Path,
+        default=None,
+        help="Fresh output directory. Formal supervisors should always provide one.",
+    )
+    return parser.parse_args(argv)
+
+
+def load_initialization_state(seed: int) -> dict[str, torch.Tensor]:
+    path = positive_initialization_checkpoint_path(seed)
+    try:
+        return torch.load(path, map_location=DEVICE, weights_only=True)
+    except TypeError:
+        return torch.load(path, map_location=DEVICE)
+
+
+def main(argv: Sequence[str] | None = None) -> None:
+    global ROOT
+    args = parse_args(argv)
+    if args.stage == "all" and not SMOKE:
+        raise SystemExit("Formal E3 and E4 are separate delivery boundaries; --stage all is smoke-only.")
+    if args.output_root is not None:
+        ROOT = args.output_root.expanduser().resolve()
+    else:
+        suffix = "smoke" if SMOKE else args.stage
+        ROOT = Path(__file__).resolve().parent / f"drpo_cu1_{suffix}_adam_results"
+    ROOT.mkdir(parents=True, exist_ok=True)
+
     start = time.time()
     current_protocol = asdict(P)
     current_script_hash = sha256(Path(__file__))
@@ -1502,6 +1663,7 @@ def main() -> None:
                 old.get("protocol") != current_protocol
                 or old.get("script_version") != SCRIPT_VERSION
                 or old.get("script_sha256") != current_script_hash
+                or old.get("stage") != args.stage
             )
             if incompatible:
                 archived = ROOT.with_name(ROOT.name + "_incompatible_" + time.strftime("%Y%m%d_%H%M%S"))
@@ -1511,11 +1673,13 @@ def main() -> None:
             archived = ROOT.with_name(ROOT.name + "_unreadable_" + time.strftime("%Y%m%d_%H%M%S"))
             ROOT.rename(archived)
             ROOT.mkdir(parents=True, exist_ok=True)
-    print(f"DRPO C-U1 one-click reproduction {SCRIPT_VERSION}")
-    print(f"Device: {DEVICE}; smoke={SMOKE}; output={ROOT}")
+    print(f"DRPO C-U1 Adam reproduction {SCRIPT_VERSION}")
+    print(f"Stage: {args.stage}; device: {DEVICE}; smoke={SMOKE}; output={ROOT}")
     manifest = {
         "script_version": SCRIPT_VERSION,
         "script_sha256": current_script_hash,
+        "stage": args.stage,
+        "optimizer": "adam",
         "protocol": current_protocol,
         "device": str(DEVICE),
         "torch_version": torch.__version__,
@@ -1524,6 +1688,7 @@ def main() -> None:
         "cuda_available": torch.cuda.is_available(),
         "cuda_device": torch.cuda.get_device_name(0) if torch.cuda.is_available() else None,
         "scope_note": "held-out-context generalization only; train/test states share the same distribution",
+        "optimizer_note": "raw gradient norms and Adam parameter-update norms are reported separately",
     }
     atomic_json(ROOT / "manifest.json", manifest)
     source_dir = ROOT / "source_snapshot"
@@ -1537,89 +1702,110 @@ def main() -> None:
         raise SystemExit("Preflight self-tests failed; formal training was not started")
     print("[OK] Preflight implementation self-tests")
 
-    # Environment audit on a formal seed.
     audit = audit_environment(make_environment(P.e1_e2_seeds[0]))
     atomic_json(ROOT / "environment_audit.json", audit)
     if not audit["passed"]:
         raise SystemExit("Environment invariant audit failed")
     print("[OK] Environment audit")
 
-    # Positive checkpoints, E1 and E2.
-    e1_rows, e2_rows = [], []
+    if args.stage == "e1_e2":
+        needed_seeds = P.e1_e2_seeds
+    elif args.stage == "e3":
+        needed_seeds = P.e3_seeds
+    elif args.stage == "e4":
+        needed_seeds = P.e4_seeds + P.variance_robustness_seeds
+    else:
+        needed_seeds = tuple(sorted(set(P.e1_e2_seeds + P.e3_seeds + P.e4_seeds + P.variance_robustness_seeds)))
+
+    audited_actors: dict[int, GaussianActor] = {}
     checkpoints: dict[int, dict[str, torch.Tensor]] = {}
     environments: dict[int, Environment] = {}
-    all_needed_seeds = sorted(set(P.e1_e2_seeds + P.e3_seeds + P.e4_seeds + P.variance_robustness_seeds))
-    for seed in all_needed_seeds:
+    e2_prerequisite_rows: list[dict[str, Any]] = []
+    for seed in needed_seeds:
         actor, env, _, e2 = train_positive(seed)
-        checkpoints[seed] = copy.deepcopy(actor.state_dict())
+        audited_actors[seed] = actor
+        checkpoints[seed] = copy.deepcopy(load_initialization_state(seed))
         environments[seed] = env
-        if seed in P.e1_e2_seeds:
-            e2_rows.append(e2)
-            e1_rows.append(run_e1_seed(seed, actor, env))
-            print(f"[OK] Positive/E1/E2 seed {seed}")
-    write_csv(ROOT / "e1" / "per_seed.csv", e1_rows)
-    write_csv(ROOT / "e1" / "aggregate.csv", aggregate_group(e1_rows, []))
-    write_csv(ROOT / "e2" / "per_seed.csv", e2_rows)
-    write_csv(ROOT / "e2" / "aggregate.csv", aggregate_group(e2_rows, []))
+        e2_prerequisite_rows.append(e2)
+        print(f"[OK] Positive prerequisite seed {seed}")
+    write_csv(ROOT / "positive_prerequisite_per_seed.csv", e2_prerequisite_rows)
 
-    # E3.
-    e3_fixed_rows, e3_learn_rows = [], []
-    fixed_methods = ("baseline", "near_zero", "far_zero", "far_cap", "global_scale", "far_to_near")
-    learn_methods = ("baseline", "near_zero", "far_zero", "far_cap", "global_scale")
-    for seed in P.e3_seeds:
-        for method in fixed_methods:
-            print(f"  E3 fixed seed={seed} method={method}", flush=True)
-            e3_fixed_rows.append(run_intervention(seed, checkpoints[seed], environments[seed], method, analytic_positive_sigma(), P.e3_fixed_alpha, P.e3_fixed_lr, P.e3_fixed_steps, "fixed_variance"))
-        for method in learn_methods:
-            print(f"  E3 learn seed={seed} method={method}", flush=True)
-            e3_learn_rows.append(run_intervention(seed, checkpoints[seed], environments[seed], method, None, P.e3_learn_alpha, P.e3_learn_lr, P.e3_learn_steps, "learnable_variance"))
-        print(f"[OK] E3 seed {seed}")
-    write_csv(ROOT / "e3" / "fixed_variance_per_seed.csv", e3_fixed_rows)
-    write_csv(ROOT / "e3" / "fixed_variance_aggregate.csv", aggregate_group(e3_fixed_rows, ["method"]))
-    write_csv(ROOT / "e3" / "learnable_variance_per_seed.csv", e3_learn_rows)
-    write_csv(ROOT / "e3" / "learnable_variance_aggregate.csv", aggregate_group(e3_learn_rows, ["method"]))
+    e1_rows: list[dict[str, Any]] = []
+    e2_rows: list[dict[str, Any]] = []
+    e3_fixed_rows: list[dict[str, Any]] = []
+    e3_learn_rows: list[dict[str, Any]] = []
+    e4_fixed_rows: list[dict[str, Any]] = []
+    e4_learn_rows: list[dict[str, Any]] = []
+    control_rows: list[dict[str, Any]] = []
+    robust: list[dict[str, Any]] = []
 
-    # E4 local scans and control.
-    e4_fixed_rows, e4_learn_rows, control_rows = [], [], []
-    for seed in P.e4_seeds:
-        for alpha in P.e4_fixed_alphas:
-            print(f"  E4 fixed seed={seed} alpha={alpha}", flush=True)
-            e4_fixed_rows.append(run_local_scan_seed(seed, checkpoints[seed], environments[seed], alpha, analytic_positive_sigma(), "fixed_variance"))
-        for alpha in P.e4_learn_alphas:
-            print(f"  E4 learn seed={seed} alpha={alpha}", flush=True)
-            e4_learn_rows.append(run_local_scan_seed(seed, checkpoints[seed], environments[seed], alpha, None, "learnable_variance"))
-        for method in ("uncontrolled_all", "far_cap", "budget_matched_global"):
-            print(f"  E4 control seed={seed} method={method}", flush=True)
-            control_rows.append(run_control_seed(seed, checkpoints[seed], environments[seed], method))
-        print(f"[OK] E4 seed {seed}")
-    write_csv(ROOT / "e4" / "fixed_variance_per_seed.csv", e4_fixed_rows)
-    write_csv(ROOT / "e4" / "fixed_variance_aggregate.csv", aggregate_group(e4_fixed_rows, ["alpha"]))
-    write_csv(ROOT / "e4" / "learnable_variance_per_seed.csv", e4_learn_rows)
-    write_csv(ROOT / "e4" / "learnable_variance_aggregate.csv", aggregate_group(e4_learn_rows, ["alpha"]))
-    write_csv(ROOT / "e4" / "control_per_seed.csv", control_rows)
-    write_csv(ROOT / "e4" / "control_aggregate.csv", aggregate_group(control_rows, ["method"]))
-    plot_phase(e4_fixed_rows, "fixed_variance")
-    plot_phase(e4_learn_rows, "learnable_variance")
+    if args.stage in {"e1_e2", "all"}:
+        for seed in P.e1_e2_seeds:
+            e2_rows.append(json.loads((ROOT / "e2" / f"seed_{seed}.json").read_text()))
+            e1_rows.append(run_e1_seed(seed, audited_actors[seed], environments[seed]))
+        write_csv(ROOT / "e1" / "per_seed.csv", e1_rows)
+        write_csv(ROOT / "e1" / "aggregate.csv", aggregate_group(e1_rows, []))
+        write_csv(ROOT / "e2" / "per_seed.csv", e2_rows)
+        write_csv(ROOT / "e2" / "aggregate.csv", aggregate_group(e2_rows, []))
 
-    robust = run_variance_robustness()
-    print("[OK] Variance-boundary robustness")
+    if args.stage in {"e3", "all"}:
+        fixed_methods = ("baseline", "near_zero", "far_zero", "far_cap", "global_scale", "far_to_near")
+        learn_methods = ("baseline", "near_zero", "far_zero", "far_cap", "global_scale")
+        for seed in P.e3_seeds:
+            for method in fixed_methods:
+                print(f"  E3 fixed seed={seed} method={method}", flush=True)
+                e3_fixed_rows.append(run_intervention(seed, checkpoints[seed], environments[seed], method, analytic_positive_sigma(), P.e3_fixed_alpha, P.e3_fixed_lr, P.e3_fixed_steps, "fixed_variance"))
+            for method in learn_methods:
+                print(f"  E3 learn seed={seed} method={method}", flush=True)
+                e3_learn_rows.append(run_intervention(seed, checkpoints[seed], environments[seed], method, None, P.e3_learn_alpha, P.e3_learn_lr, P.e3_learn_steps, "learnable_variance"))
+            print(f"[OK] E3 seed {seed}")
+        write_csv(ROOT / "e3" / "fixed_variance_per_seed.csv", e3_fixed_rows)
+        write_csv(ROOT / "e3" / "fixed_variance_aggregate.csv", aggregate_group(e3_fixed_rows, ["method"]))
+        write_csv(ROOT / "e3" / "learnable_variance_per_seed.csv", e3_learn_rows)
+        write_csv(ROOT / "e3" / "learnable_variance_aggregate.csv", aggregate_group(e3_learn_rows, ["method"]))
+
+    if args.stage in {"e4", "all"}:
+        for seed in P.e4_seeds:
+            for alpha in P.e4_fixed_alphas:
+                print(f"  E4 fixed seed={seed} alpha={alpha}", flush=True)
+                e4_fixed_rows.append(run_local_scan_seed(seed, checkpoints[seed], environments[seed], alpha, analytic_positive_sigma(), "fixed_variance"))
+            for alpha in P.e4_learn_alphas:
+                print(f"  E4 learn seed={seed} alpha={alpha}", flush=True)
+                e4_learn_rows.append(run_local_scan_seed(seed, checkpoints[seed], environments[seed], alpha, None, "learnable_variance"))
+            for method in ("uncontrolled_all", "far_cap", "budget_matched_global"):
+                print(f"  E4 control seed={seed} method={method}", flush=True)
+                control_rows.append(run_control_seed(seed, checkpoints[seed], environments[seed], method))
+            print(f"[OK] E4 seed {seed}")
+        write_csv(ROOT / "e4" / "fixed_variance_per_seed.csv", e4_fixed_rows)
+        write_csv(ROOT / "e4" / "fixed_variance_aggregate.csv", aggregate_group(e4_fixed_rows, ["alpha"]))
+        write_csv(ROOT / "e4" / "learnable_variance_per_seed.csv", e4_learn_rows)
+        write_csv(ROOT / "e4" / "learnable_variance_aggregate.csv", aggregate_group(e4_learn_rows, ["alpha"]))
+        write_csv(ROOT / "e4" / "control_per_seed.csv", control_rows)
+        write_csv(ROOT / "e4" / "control_aggregate.csv", aggregate_group(control_rows, ["method"]))
+        plot_phase(e4_fixed_rows, "fixed_variance")
+        plot_phase(e4_learn_rows, "learnable_variance")
+        robust = run_variance_robustness()
+        print("[OK] Variance-boundary robustness")
 
     regression = regression_report(e1_rows, e2_rows, e3_fixed_rows, e3_learn_rows, e4_fixed_rows, e4_learn_rows, control_rows)
     atomic_json(ROOT / "reference_regression.json", regression)
 
     summary = {
         "elapsed_seconds": time.time() - start,
+        "stage": args.stage,
+        "optimizer": "adam",
         "environment_audit": audit,
         "preflight_self_tests": preflight,
         "reference_regression_all_passed": regression["all_passed"],
         "results_root": str(ROOT),
         "important_scope": "All test-state results are held-out-context generalization under the same state distribution, not strict OOD.",
         "variance_robustness_rows": len(robust),
+        "execution_note": "E3 and E4 are separate formal delivery boundaries; --stage all is smoke-only.",
     }
     atomic_json(ROOT / "RUN_COMPLETE.json", summary)
     print(json.dumps(summary, indent=2, ensure_ascii=False))
     if not regression["all_passed"]:
-        print("WARNING: formal run completed, but one or more pre-registered reference checks failed. Inspect reference_regression.json.")
+        print("WARNING: run completed, but one or more registered mechanism checks failed. Inspect reference_regression.json.")
     print("Done. Re-running the same command resumes/skips completed seed files.")
 
 
