@@ -19,3 +19,5 @@ wandb/
 *.pth
 *.ckpt
 *.tar.gz
+
+*.egg-info/
