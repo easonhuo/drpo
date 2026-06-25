@@ -1,4 +1,18 @@
-# DRPO / SNA2C 远场负梯度动力学研究主文档 v22（Countdown v4.1.1 协议对齐版）
+# DRPO / SNA2C 远场负梯度动力学研究主文档 v23（C-U1 E1 分支增长律补充版）
+
+> **v23 增量登记：C-U1-E1-COMP-01（不删除 v22 及更早内容）**
+>
+> - 在不改变 C-U1 环境、数据规模、seeds、positive-only E2 训练流程、终态门禁或 E1 原 claim 的前提下，新增 E1 Gaussian 输出空间 component-wise 诊断。实验 ID 为 `C-U1-E1-COMP-01`；正式 seeds 仍为 10--29，训练/测试状态均独立采样自 `N(0,I_6)`，术语仍为 held-out-context / 未见状态泛化。
+> - 诊断只检验 Gaussian 输出 score，不研究神经网络 pullback：均值分支 `||∂ log π/∂μ||=d/σ²`；共享 log-scale 分支 `∂ log π/∂logσ=d²/σ²-D`。消去学习到的方差后，精确关系为 `||score_μ||σ²=d` 与 `(score_logσ+D)σ²=d²`。
+> - 主指标为 mean 分支 log-log slope、校正 log-scale 分支 log-log slope、near/far component ratios、解析式与 output-tensor autograd 误差，以及对原 E1 joint output-score ratio 的重构误差。
+> - **2026-06-25 pilot 结果（20 seeds，10--29）：**20/20 seeds 的科学门禁和终态审计通过。E2 held-out-context reward=`0.646788 [0.646657,0.646920]`，learned sigma=`0.190726 [0.190712,0.190740]`，最终 full-data positive-gradient norm 均值 `6.44e-4`、最大 `9.23e-4 < 1e-3`，20/20 均为 `stable_plateau_2x_confirmed`。
+> - E1 advantage 等值误差最大约 `2.09e-7`；raw-distance far/near=`3.797862 [3.794213,3.801766]`，mean-score far/near=`3.797862 [3.794213,3.801765]`。`||score_μ||σ²` 对 `d` 的 log-log slope=`1.00000000`。
+> - 原始 log-scale 绝对值 far/near=`19.970219 [19.917146,20.026194]`；去除解析常数项后的 corrected term `d²/σ²` far/near=`14.435378 [14.407362,14.465327]`，其 log-log slope=`2.00000000`。因此原始 log-scale score 应称“远场渐近二次”，corrected term 对距离平方则为精确恒等式。
+> - joint output-score far/near=`7.563755 [7.554059,7.574104]`，与 v17 正式结果 `7.5638 [7.5538,7.5737]` 对齐；解析式与 output-tensor autograd 最大相对误差 `2.48e-7`，component 重构原 joint ratio 的最大误差 `9.54e-7`。
+> - **Hopper 独立验证边界：**若 E7 在 D4RL Hopper 的真实离线数据、learned critic 和独立训练 actor 下，同样观察到远场 log-scale 分支进入平方距离主导区，并且该分支对实际全参数梯度或动力学具有可测贡献，则可称为该机制在外部环境中的独立验证/外部复现。它独立验证的是“真实任务确实进入并受该二次主导区影响”，而不是再次证明 Gaussian 解析恒等式；后者由策略族本身决定。
+> - **方法边界：**该结果证明 Gaussian 输出空间本身具有非线性远场放大，不需要诉诸神经网络 pullback；它支持采用非线性、正值、平滑尾部控制作为机制动机，但不能单独推出 Exp 必然优于 Linear、Global α、SBRC、Hybrid 或 Positive-only。
+> - **代码与 rebase provenance：**pilot 运行绑定到 `1962442aea7037fac6b57e4e9232850c69e5c1b9`。当前更新包 rebased 到其直接后继 `a9e0d860a6f03d1be12280885002c24ba2f1b66a`；该后继只修改 Countdown、handoff、registry 与 Countdown tests，未修改 C-U1 runner。结果与 v17 正式 E1/E2 数值对齐是强一致性证据，说明未观察到来源重建导致的科学偏差；但按照既有治理规则，clean committed rerun 之前科学状态仍保留为 `pilot`，不得把数值一致性等同于完整 provenance 证明。
+
 
 > **v22 增量记录：Countdown v4.1.1 负优势尺度校准与执行配置锁定（不删除 v21 及更早内容）**
 >
