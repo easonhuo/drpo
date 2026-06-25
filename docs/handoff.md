@@ -1,4 +1,17 @@
-# DRPO / SNA2C 远场负梯度动力学研究主文档 v24（事务式 artifact、显式 commit pin、持久权重与 C-U1 分支增长律同步版）
+# DRPO / SNA2C 远场负梯度动力学研究主文档 v25（E7 Hopper 二次 log-scale 外部验证预注册版）
+
+> **v25 增量登记：EXT-H-E7-Q2（不删除 v24 及更早内容）**
+>
+> - 在 E7/Hopper 的既定 learned-critic 外部机制实验中新增子 claim `EXT-H-E7-Q2`：检验真实 D4RL Hopper 数据、learned critic、状态条件 Gaussian actor 与自然 near/far negative samples 是否实际进入 log-scale 二次分支显著放大并影响优化动力学的远场区域。
+> - 该子 claim 不替代 C-U1，也不重新证明 Gaussian 解析恒等式。C-U1 负责受控识别 `mean-score ~ distance` 与校正 `log-scale-score ~ standardized-distance²`；Hopper 只回答该二次分支在真实任务中是否被实际激活、是否贡献于 full-parameter gradient、support contraction、任务性能失效或数值边界事件。
+> - 对 tanh-squashed diagonal Gaussian，理论检验使用冻结 inverse-squash 坐标 `u=atanh(clip(a,-1+eps,1-eps))` 与标准化残差 `z=(u-mu)/sigma`。同时保留 raw action distance 与 pre-squash distance 作为任务直观指标，但不得用 tanh 后被压缩的动作距离替代 Gaussian base-coordinate 定律。
+> - component-wise 指标冻结为：mean-score norm、raw log-scale-score norm、校正量 `Q_xi=sum_j(g_xi,j+1)=||z||²`、joint output-score、full-parameter gradient norm，以及 `log-scale/mean` contribution ratio。检验 `Q_xi` 对 `||z||` 的二次关系，并用解析公式与 output-tensor autograd 交叉核对。
+> - near/far negatives 必须在负 advantage 幅度上匹配；按 standardized distance 分桶并报告时间序列。必须检查二次分支增强是否先于或伴随 support contraction、mean saturation、normalized return 下降、方差边界事件或 NaN/Inf，且将任务性能崩溃、支持/方差边界事件、数值崩溃分开报告。
+> - 因果验证继续使用 E7 已有职责内的 Far-zero、Far-cap 与等预算 Global control，判断削弱远场影响是否缓解上述动力学；不新增 E9，也不把机制表与标准 offline-RL normalized-return 方法表混为一谈。
+> - 只有同时观察到真实 Hopper 样本进入二次分支显著作用区、该分支对实际全参数梯度或长期动力学有可测贡献，并通过 paired seeds 与终态审计，才可称为 Gaussian 二次 log-scale 远场机制的独立外部验证。若仅复核 `g_xi+1=z²` 与 autograd 一致，只能称实现一致性检查。
+> - 该结果即使成立，也不能单独证明神经网络全参数梯度对距离严格二次增长，不能证明 Exp 必然优于 Linear、Global α、SBRC 或 Hybrid；神经网络 pullback 与方法排名均不属于本子 claim。
+> - 本次只完成文档与 registry 预注册，E7-Q2 实现和运行状态均为“尚未运行”；base commit 为 `c7fd41ac663380de71bcd839b76ab4d1e52ae8d0`。
+
 
 > **v24 增量记录：事务式替换、失败证据、launch-commit 绑定、持久权重与正式源码预检（不删除 v23 及更早内容）**
 >
@@ -389,7 +402,7 @@ Ground-truth reward 由动作到 `a_star(s)` 的二维距离决定，因此 `a_s
 | E4 | 稳定外推与泛化 | 受控负梯度能否突破 positive-only 上限，远场是否反转为有害 | 是 | 策略越过 a_plus、接近 a_star；训练分布内/同分布 held-out-context reward；强度扫描；控制恢复；固定/可学习方差 |
 | E5 | Categorical 排斥与支持边界 | 有界 logit score 下重复负更新如何把概率推向边界 | 解析 + 长期 | direct-softmax 解析、概率衰减、rare/common 干预 |
 | E6 | 共享语义 categorical 外推 | 负梯度能否利用共享表示改善未见动作且避免 support collapse | 是 | unordered semantic actions；positive-only/controlled/uncontrolled；长期方法对比 |
-| E7 | Hopper learned-critic | 真实数据与 learned critic 下机制是否仍出现 | 是 | 训练足够长；优势匹配；长期 Near/Far 结果；不是方法效果表 |
+| E7 | Hopper learned-critic | 真实数据与 learned critic 下机制是否仍出现；二次 log-scale 分支是否在真实任务中被激活并传导 | 是 | 训练足够长；优势匹配；mean/log-scale component decomposition；校正二次律；full-parameter 传导；长期 Near/Far/Far-cap/Global；终态审计；机制表与方法效果表分开 |
 | E8 | Countdown/Qwen | Transformer 中固定负优势 near/far 机制迁移与受控负优势泛化收益 | base-first 门禁；必要时最小 SFT fallback；best + terminal/last-finite 终态审计 | 0.5B BF16-LoRA pilot；固定 A=-1 probe；Positive-only/Controlled/Uncontrolled/Global-matched 配对；held-out canonical pattern-family coverage/precision |
 
 ## 4.1 动力学实验统一收敛标准
@@ -414,7 +427,7 @@ Ground-truth reward 由动作到 `a_star(s)` 的二维距离决定，因此 `a_s
 | E4 | 独立 Extrapolation 环境；部分长程审计 | 尚未接入 C-U1 | 解析结论保留；统一环境结果未完成 |
 | E5 | 解析和长程 categorical 基本完成 | D-U1/D-Diag 可保留 | 接近完成，需整理最终口径 |
 | E6 | unordered semantic categorical 仅短程 pilot | 尚未长期重跑 | 未完成 |
-| E7 | Hopper learned-critic 600-step probe | 未长期重跑 | 有限训练步数证据 |
+| E7 | Hopper learned-critic 600-step probe | `EXT-H-E7-Q2` 二次分支外部验证协议已预注册；长期重跑与实现尚未执行 | 旧 probe 仍仅为有限训练步数证据；E7-Q2 状态为尚未运行 |
 | E8 | v4.1 审计式 pilot 代码已实现；仅代码/CPU 测试，不含真实 Qwen 结果 | 未在真实本地 Qwen/CUDA/BF16-LoRA 或 full-FT 完整运行 | 尚未运行；v4 已替换，v4.1 不得把静态/CPU 测试当作实验结果 |
 
 ---
@@ -4039,6 +4052,51 @@ w_i^- = \exp[-\lambda(S_i-S_0)_+].
 - Hopper-medium-expert：明显质量混合，用于方法效果和 stable extrapolation。
 
 分析 protocol：用正 advantage 训练 actor；固定负样本只测 phantom gradient；按 \(|A|\) 分桶匹配 near/far；报告 standardized distance、Gaussian score、full-parameter gradient。
+
+#### E7-Q2：Gaussian 二次 log-scale 分支的独立外部验证
+
+**新增 claim。** C-U1 已在受控 Gaussian 输出空间中解析并数值核对：mean-score 分支随距离一次增长，校正后的 log-scale-score 分支随标准化距离平方增长。E7-Q2 不重新证明这一恒等式，而检验真实 D4RL Hopper 数据、learned critic、状态条件 actor 与自然 near/far negatives 是否实际进入该二次分支显著作用的远场区域，以及该分支是否传导至 full-parameter gradient 和长期动力学。
+
+**坐标与解析量。** 若 actor 为 tanh-squashed diagonal Gaussian，对数据动作使用冻结 inverse-squash 坐标：
+
+\[
+u=\operatorname{atanh}(\operatorname{clip}(a,-1+\epsilon,1-\epsilon)),
+\qquad
+z_j=\frac{u_j-\mu_j(s)}{\sigma_j(s)},
+\qquad
+r=\lVert z\rVert_2.
+\]
+
+Gaussian base-distribution 的输出分支 score 为：
+
+\[
+g_{\mu,j}=\frac{u_j-\mu_j}{\sigma_j^2},
+\qquad
+g_{\xi,j}=z_j^2-1,
+\qquad \xi_j=\log\sigma_j.
+\]
+
+因此 component-wise 校正关系为 `g_xi,j+1=z_j^2`，聚合校正量为：
+
+\[
+Q_\xi=\sum_j(g_{\xi,j}+1)=\lVert z\rVert_2^2=r^2.
+\]
+
+`Q_xi` 用于检验二次标准化距离律；实际优化风险必须同时报告未校正的 `||g_xi||`、`||g_mu||`、joint output-score 与 full-parameter gradient norm。raw action distance 和 pre-squash distance 继续报告，但理论检验以 Gaussian base-coordinate 的 standardized residual 为准，避免 tanh 边界压缩造成表面斜率失真。
+
+**预注册分析。**
+
+1. 使用 learned critic 产生 advantage；只在负 advantage 内进行 near/far 比较，并在 `|A|` 上匹配或分层校正，避免把样本更差误当成距离效应。
+2. 按 standardized distance 分桶，分别报告 mean、raw log-scale、corrected `Q_xi`、joint output 与 full-parameter gradient；同时报告 `log-scale/mean` contribution ratio。
+3. 检验 mean 分支相对距离的一次增长，以及 `Q_xi` 相对 `r` 的二次增长；使用解析分解与 output-tensor autograd 交叉检查。
+4. 沿训练时间报告二次分支贡献、sigma/support、mean saturation、actor loss、normalized return 和所有非有限事件；任务性能崩溃、支持/方差边界事件与 NaN/Inf 数值崩溃必须分开。
+5. 通过 Far-zero、Far-cap 与等预算 Global control 检验：抑制远场影响后，full-parameter gradient、support contraction 和长期任务动力学是否缓解。机制表与标准 offline-RL 方法效果表分开呈现。
+6. 使用预登记 paired seeds、置信区间与终态审计；旧 600-step probe 不能升级为 E7-Q2 正式结果。
+
+**独立验证判据。** 只有同时满足以下条件，才称为 Gaussian 二次 log-scale 远场机制在 Hopper 中的独立外部验证：真实数据自然产生足够大的 standardized distance；二次 log-scale 分支相对 mean 分支显著增强；该增强对实际 full-parameter gradient 或长期支持/性能动力学具有可测贡献；定点远场控制产生相应缓解；结果通过 paired seeds 与终态审计。若只验证解析 score 与 autograd 一致，则仅为实现一致性检查。
+
+**结论边界。** E7-Q2 不研究神经网络 pullback 的阶数，不声称全参数梯度对距离严格二次；也不预设 Exp、Linear、Global α、SBRC 或 Hybrid 的方法排名。Hopper 只提供外部有效性，不能替代 C-U1 的受控机制识别。
+
 
 #### Method subsection
 

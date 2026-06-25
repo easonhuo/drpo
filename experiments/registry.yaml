@@ -179,6 +179,95 @@ experiments:
     main_package_hard_limit_mib: 25
     retain_terminal_checkpoints_for_all_seeds: true
     expected_checkpoint_total_mib_max: 5
+- id: EXT-H-E7-Q2
+  environment: EXT-H
+  name: hopper_gaussian_log_scale_quadratic_external_validation
+  status: not_run
+  parent_experiment: E7
+  registration_base_commit: c7fd41ac663380de71bcd839b76ab4d1e52ae8d0
+  claim: >-
+    In real D4RL Hopper data with a learned critic and an independently trained
+    state-conditioned Gaussian actor, naturally far negative samples enter a
+    regime where the corrected log-scale score grows with squared standardized
+    distance, contributes measurably to full-parameter gradients or long-run
+    support/task dynamics, and is selectively mitigated by far-field controls.
+  role: external_mechanism_validation
+  does_not_replace:
+  - C-U1-E1-COMP-01
+  - C-U1-E1
+  - C-U1-E2
+  - E7
+  scope:
+    controlled_identity_source: C-U1-E1-COMP-01
+    external_dataset: D4RL_Hopper
+    learned_critic: required
+    independently_trained_actor: required
+    neural_network_pullback_order: excluded
+    method_ranking: not_tested_by_this_subclaim
+  implementation_state: not_implemented
+  coordinate_protocol:
+    squashed_actor: tanh_diagonal_gaussian_if_used
+    inverse_squash: u=atanh(clip(a,-1+epsilon,1-epsilon))
+    standardized_residual: z=(u-mu)/sigma
+    primary_radius: r=norm(z,2)
+    report_also:
+    - raw_action_distance
+    - pre_squash_distance
+  analytic_components:
+    mean_score: g_mu_j=(u_j-mu_j)/sigma_j^2
+    log_scale_score: g_xi_j=z_j^2-1
+    corrected_component: g_xi_j+1=z_j^2
+    aggregate_corrected_component: Q_xi=sum_j(g_xi_j+1)=norm(z,2)^2
+  preregistered_protocol:
+    advantage_source: learned_critic
+    negative_only_comparison: true
+    match_or_stratify_by_absolute_advantage: true
+    distance_binning: standardized_residual_radius
+    analytic_autograd_crosscheck: required
+    interventions:
+    - far_zero
+    - far_cap
+    - budget_matched_global
+    paired_seeds: required
+    terminal_audit: required
+    old_600_step_probe_is_formal_evidence: false
+  metrics:
+  - mean_output_score_norm_by_distance_bin
+  - raw_log_scale_output_score_norm_by_distance_bin
+  - corrected_log_scale_Q_xi_by_distance_bin
+  - joint_output_score_norm_by_distance_bin
+  - full_parameter_gradient_norm_by_distance_bin
+  - log_scale_to_mean_contribution_ratio
+  - analytic_autograd_relative_error
+  - policy_support_or_sigma_trajectory
+  - mean_saturation_trajectory
+  - actor_loss_trajectory
+  - normalized_return_trajectory
+  - task_performance_collapse_events
+  - support_or_variance_boundary_events
+  - nan_inf_numerical_events
+  independent_validation_gate:
+    natural_far_field_present: required
+    corrected_quadratic_branch_empirically_active: required
+    measurable_full_parameter_or_long_run_contribution: required
+    targeted_far_control_mitigates_dynamics: required
+    paired_seed_evidence: required
+    terminal_state_audit: required
+    identity_only_autograd_check_counts_as_independent_validation: false
+  reporting_boundary: >-
+    Passing the gate supports independent external validation that real Hopper
+    training enters and is affected by the Gaussian quadratic log-scale
+    far-field regime. It does not independently prove the Gaussian identity,
+    establish a quadratic law for neural-network parameter gradients, replace
+    C-U1 causal identification, or rank Exp, Linear, Global alpha, SBRC, Hybrid,
+    or Positive-only methods.
+  evidence:
+    code_committed: false
+    run_started: false
+    raw_complete: false
+    terminal_audited: false
+    package_created: false
+    scientific_status: not_run
 - id: EXT-C-E8-V4
   environment: EXT-C
   name: countdown_base_first_transformer_external_validation
