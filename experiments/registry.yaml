@@ -1,4 +1,4 @@
-schema_version: 1
+schema_version: 2
 
 project:
   name: drpo
@@ -21,6 +21,12 @@ rules:
   require_paired_seeds_when_applicable: true
   require_terminal_state_audit_for_dynamics: true
   preserve_failed_runs: true
+  require_supervised_run_in_ephemeral_environment: true
+  require_heartbeat_for_formal_runs: true
+  require_durable_artifact_before_completed_claim: true
+  require_stage_package_before_next_formal_experiment: true
+  preserve_partial_results_on_failure: true
+  chat_history_is_not_experiment_evidence: true
 
 experiments:
   - id: EXT-C-E8-V4
@@ -89,3 +95,62 @@ experiments:
       qwen_3b: conditional_replication
       qwen_7b: optional
     formal_run_status: not_run
+    execution:
+      state: registered
+      run_id: null
+      last_heartbeat_utc: null
+      process_exit_code: null
+    evidence:
+      raw_complete: false
+      terminal_audited: false
+      package_created: false
+      package_filename: null
+      package_sha256: null
+      delivered_to_user: false
+      applied_commit: null
+
+allowed_execution_states:
+  - registered
+  - running
+  - raw_complete
+  - terminal_audited
+  - packaged
+  - delivered
+  - applied_to_repository
+
+artifact_protocol:
+  governance_id: GOV-EXP-ARTIFACT-01
+  document: docs/formal_experiment_artifact_protocol.md
+  guard_entrypoint: scripts/run_experiment_guard.py
+  package_entrypoint: scripts/package_experiment.py
+  verify_entrypoint: scripts/verify_experiment_package.py
+  default_checkpoint_every_formal_seeds: 5
+  checkpoint_required_for_expected_runtime_minutes_at_least: 30
+  final_package_warning_mib: 25
+  completion_requires:
+    - terminal_audited
+    - packaged
+    - delivered
+  repository_closure_requires: applied_to_repository
+  required_update_files:
+    - update.patch
+    - BASE_COMMIT.txt
+    - CHANGE_SUMMARY.md
+    - TEST_COMMANDS.sh
+    - modified_files/
+  required_final_result_files:
+    - RUN_COMPLETE.json
+    - TERMINAL_AUDIT.json_or_terminal_audit.json
+    - run_manifest.json
+    - SHA256SUMS.txt
+
+governance_changes:
+  - id: GOV-EXP-ARTIFACT-01
+    status: active
+    effective_date: '2026-06-25'
+    purpose: >-
+      Prevent loss of formal experiment outputs in ephemeral runtimes and
+      require durable delivery before completion claims.
+    incident_note: >-
+      A temporary C-U1 E3/E4 run produced ephemeral files but no durable
+      artifact; the run cannot be used as new formal evidence.

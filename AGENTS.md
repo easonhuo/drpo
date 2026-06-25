@@ -115,6 +115,21 @@ Static inspection, unit tests, and smoke tests do not constitute a formal multi-
 * Do not silently change frozen variables, seeds, thresholds, data geometry, or convergence criteria.
 * Do not treat a fixed training horizon as convergence without the terminal-state audit required by the handoff.
 
+## Formal experiment supervision and durable artifacts
+
+Formal experiments in ephemeral runtimes require active supervision and durable delivery.
+
+* Do not launch a formal experiment as an unattended background process and then end the working turn.
+* Use `scripts/run_experiment_guard.py` or an equivalent foreground supervisor that records a heartbeat, streams logs, captures exit status, preserves partial outputs, and packages success or failure.
+* Treat `registered`, `running`, `raw_complete`, `terminal_audited`, `packaged`, `delivered`, and `applied_to_repository` as separate execution/evidence states.
+* `raw_complete` is not a completed formal result. Do not claim completion until a verified durable package has been generated and delivered.
+* Do not start the next formal experiment ID until the current experiment has been packaged and delivered. In particular, package E3 before starting E4.
+* For runs expected to exceed 30 minutes, create a durable checkpoint artifact at least every five formal seeds or at another interval registered before launch.
+* If a run, aggregation, plotting, or audit step fails, preserve the completed raw outputs, logs, traceback, source commit, and missing-output inventory in an `experiment-failed` package before repair or rerun.
+* Files written only to an ephemeral path such as `/mnt/data` are not durable evidence. Chat messages and process counters are not evidence either.
+* A final experiment package must contain raw outputs, aggregate results, logs, a run manifest, `RUN_COMPLETE.json`, a terminal audit, source provenance, checksums, and the repository update files required below.
+* Follow `docs/formal_experiment_artifact_protocol.md` for package kinds, lifecycle semantics, stage boundaries, size policy, and canonical commands.
+
 ## Method-comparison discipline
 
 Do not assume that Distance, Exp, Global scaling, SBRC, Hybrid, or any other method is superior.
@@ -131,20 +146,22 @@ Use, where relevant:
 
 ## ChatGPT patch-delivery protocol
 
-When direct GitHub write access is unavailable, provide:
+When direct GitHub write access is unavailable, provide one verified downloadable ZIP compatible with the local `drpo-update` workflow. It must contain:
 
-* complete modified files;
-* a unified Git patch;
-* the repository and branch used;
-* the base commit SHA, if available;
-* commands for applying the patch;
-* commands for running tests;
-* a concise change summary;
-* any files or results that could not be generated.
+* `update.patch`, a unified patch applicable with `git apply`;
+* `BASE_COMMIT.txt`, containing only the full base commit SHA;
+* `CHANGE_SUMMARY.md`;
+* `TEST_COMMANDS.sh`, with executable non-placeholder commands;
+* `modified_files/`, containing complete modified files with repository-relative paths;
+* experiment artifacts and checksums when the task includes results.
+
+Run `git apply --check update.patch` against the confirmed base whenever the environment permits. If it cannot be run, state that explicitly.
 
 Never state or imply that changes were pushed to GitHub unless the push actually occurred.
 
 ## Completion report
+
+A formal experiment is not complete merely because its process exited. It is complete only after required audit, packaging, verification, and durable delivery. Repository closure additionally requires an actual applied commit.
 
 For every completed coding task, report:
 

@@ -1,5 +1,17 @@
 # DRPO / SNA2C 远场负梯度动力学研究主文档 v15（同分布泛化术语与一键复现重建版）
 
+> **v19 增量记录：正式实验守护与可持久交付协议（不删除 v18 及更早内容）**
+>
+> - 2026-06-25 的一次 C-U1 E3/E4 临时运行曾在容器内产生逐 seed 文件计数，但未在运行结束后立即形成可下载结果包；运行时被回收后，原始文件无法审计。聊天中的计数和“已落盘”表述不能替代正式证据。
+> - 该事故不自动推翻此前已经登记且有独立材料支撑的科学结论，但该次未交付运行不得用于升级、替换或重新确认任何正式结果；E4 仍不得据此宣称完成。
+> - 新治理 ID `GOV-EXP-ARTIFACT-01` 生效：正式实验在临时环境中必须由前台守护程序持续监控；计算成功或失败后都必须立即生成可持久下载包；仅写入临时目录不算持久化。
+> - 正式实验采用双状态轴：科学状态继续使用既有六类标签；执行证据状态使用 `registered → running → raw_complete → terminal_audited → packaged → delivered → applied_to_repository`。
+> - 只有达到 `packaged + delivered` 才能对外称“本次正式运行完成”；只有真实 commit/push 成功后才能称“已进入仓库”。`raw_complete` 必须写成“计算完成但尚未持久交付”。
+> - 每个 experiment ID 都是交付边界：E3 完成后必须先打包并交付，才能启动 E4。预计超过 30 分钟的运行默认每 5 个正式 seeds 生成一个恢复 checkpoint 包，除非预注册了其他间隔。
+> - 失败运行、收尾绘图错误和聚合错误同样必须保存 partial raw outputs、日志、traceback、代码 SHA 与缺失文件清单；不得因最后一步失败而丢弃已完成训练。
+> - 详细操作规范见 `docs/formal_experiment_artifact_protocol.md`；机器可读规则写入 `experiments/registry.yaml`；统一守护、打包和验证入口分别为 `scripts/run_experiment_guard.py`、`scripts/package_experiment.py` 和 `scripts/verify_experiment_package.py`。
+
+
 > **v18 增量记录：Countdown 0.5B base-first 最小外部验证协议（不删除 v17 及更早内容）**
 >
 > - 用户明确将 EXT-C / E8 收缩为“两三天内可得结论”的最小外部验证：先运行固定负优势的 near/far 机制迁移 probe，再运行 Positive-only / Controlled-negative / Uncontrolled-negative 三组配对效果实验；不再默认启动八方法大 arena。
@@ -115,6 +127,19 @@
 4. `a_star(s)` 是训练中未作为正样本展示的隐藏最优动作。策略接近它可称为“越过正样本支持并接近隐藏最优动作”，不能仅凭此称为 OOD。
 5. “策略漂移到低 reward 区域”与“数据分布 OOD”严格区分。前者是策略相对任务最优的几何漂移，不意味着测试状态来自分布外。
 6. Part II 历史记录中的 OOD 旧措辞不删除，但全部由本节覆盖。新论文若需要 OOD 结论，必须另外登记并运行显式状态分布偏移实验。
+
+## 0.3 正式实验守护与可持久交付门禁（v19 锁定）
+
+1. **计算结束不等于实验完成。** 正式实验必须依次经历 `registered`、`running`、`raw_complete`、`terminal_audited`、`packaged`、`delivered`；仓库闭环还需 `applied_to_repository`。科学状态标签与该执行证据状态分开维护。
+2. **临时环境必须持续守护。** 正式运行不得以无人监控的后台 PID 代替当前工作。必须使用统一守护脚本或等价前台 supervisor，持续记录 heartbeat、PID、进度、日志、输出活动与退出状态。
+3. **每个实验块立即持久化。** 当前 experiment ID 计算结束后，先完成审计、handoff/registry 回写、打包和交付，再启动下一个 experiment ID。C-U1 中 E3 包未交付前禁止启动 E4。
+4. **阶段 checkpoint。** 预计运行超过 30 分钟时，默认每完成 5 个正式 seeds 生成恢复包。恢复包可以不是正式科学结果，但必须包含已完成 seeds、待运行 seeds、日志、源代码 SHA 和部分原始输出。
+5. **失败也必须交付。** 非零退出、运行时回收、收尾绘图/聚合错误或终态审计失败时，先生成 `experiment-failed` 包，再修复或重跑；不得仅在聊天中描述错误。
+6. **最终包门禁。** 最终实验包必须兼容 `drpo-update`，并包含 `update.patch`、`BASE_COMMIT.txt`、`CHANGE_SUMMARY.md`、`TEST_COMMANDS.sh`、`modified_files/`、结果原始材料、`RUN_COMPLETE.json`、终态审计、日志、manifest 和 SHA256 校验。
+7. **临时路径不构成持久证据。** `/mnt/data` 或其他 ephemeral filesystem 中的文件只有在形成可下载 artifact、进入持久服务器/对象存储或提交到仓库后，才算持久化。
+8. **完成表述受限。** `raw_complete` 只能表述为“计算完成、审计或交付尚未完成”；只有可下载包验证并交付后，才能说“正式运行完成”。
+9. **包大小策略。** 默认最终实验包警戒线为 25 MiB；允许压缩轨迹和去除冗余 optimizer state，但不得删除逐 seed 摘要、核心轨迹、终态审计、失败索引和来源校验。
+10. **详细规范唯一引用。** 具体 package kinds、命令和校验规则见 `docs/formal_experiment_artifact_protocol.md`；若其与本节冲突，以本节和 `AGENTS.md` 为准。
 
 # 1. 论文最终目标与两条主工作线
 
