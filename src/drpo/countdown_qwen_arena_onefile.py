@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
-"""Countdown audited base-first external-validity arena for local Qwen Instruct models (v4.1.2).
+"""Countdown audited base-first external-validity arena for local Qwen Instruct models (v4.2.0).
 
 One-command run
 ---------------
-python3 src/drpo/countdown_qwen_arena_onefile.py run \
+python3 scripts/run_countdown_pilot.py \
   --model_path /ABS/PATH/TO/QWEN-0.5B-INSTRUCT \
-  --work_dir /ABS/PATH/TO/COUNTDOWN_RUN \
-  --gpu 0 --preset auto --memory_mode bf16
+  --work_dir /ABS/PATH/TO/COUNTDOWN_RUN
 
 The v4.1 protocol first evaluates the untouched base model. If the base checkpoint
 passes the registered verifier/format gate, all compared methods start from one
@@ -33,6 +32,8 @@ from __future__ import annotations
 import argparse
 import ast
 import json
+import time
+import traceback
 import math
 import os
 import random
@@ -42,6 +43,7 @@ import hashlib
 import shutil
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from fractions import Fraction
@@ -86,39 +88,110 @@ SYSTEM_PROMPT = (
     "expression. Do not include explanations."
 )
 
-VERSION = "4.1.2-evaluation-terminal-audit-fix"
+VERSION = "4.2.0-one-click-audited-orchestrator"
 
 
 def read_model_metadata(model_path: str) -> dict[str, Any]:
-    """Read enough local config metadata to choose a safe single-GPU plan."""
+    """Read local model metadata for the registered 0.5B Instruct gate."""
     root = Path(model_path)
     cfg_path = root / "config.json"
+    tok_cfg_path = root / "tokenizer_config.json"
     if not cfg_path.exists():
-        return {"model_type": "unknown", "estimated_params_b": None}
+        return {
+            "model_type": "unknown",
+            "estimated_params_b": None,
+            "has_chat_template": False,
+            "identity_hints": [root.name],
+            "registered_instruct_identity": False,
+        }
     cfg = json.loads(cfg_path.read_text())
+    tok_cfg = json.loads(tok_cfg_path.read_text()) if tok_cfg_path.exists() else {}
     hidden = cfg.get("hidden_size") or cfg.get("d_model")
     layers = cfg.get("num_hidden_layers") or cfg.get("n_layer")
     inter = cfg.get("intermediate_size")
     vocab = cfg.get("vocab_size")
     estimate = None
     if all(isinstance(x, int) and x > 0 for x in (hidden, layers, inter, vocab)):
-        # Dense decoder-only estimate: embeddings + attention + MLP + norms.
         estimate = (vocab * hidden + layers * (4 * hidden * hidden + 3 * hidden * inter)) / 1e9
-    name = root.name.lower()
+    identity_hints = [
+        root.name,
+        str(cfg.get("_name_or_path", "")),
+        str(tok_cfg.get("name_or_path", "")),
+    ]
+    identity_text = " ".join(identity_hints).lower()
     for tag, value in (("0.5b", 0.5), ("0.6b", 0.6), ("1.5b", 1.5),
                        ("1.8b", 1.8), ("3b", 3.0), ("4b", 4.0),
                        ("7b", 7.0), ("8b", 8.0), ("14b", 14.0),
                        ("32b", 32.0)):
-        if tag in name:
+        if tag in identity_text:
             estimate = value
             break
+    has_chat_template = bool(tok_cfg.get("chat_template"))
+    registered_instruct_identity = bool(
+        cfg.get("model_type") == "qwen2"
+        and has_chat_template
+        and ("qwen" in identity_text or "qwen2" in str(cfg.get("architectures", [])).lower())
+    )
     return {
         "model_type": cfg.get("model_type", "unknown"),
         "architectures": cfg.get("architectures", []),
         "estimated_params_b": estimate,
         "hidden_size": hidden,
         "num_hidden_layers": layers,
+        "has_chat_template": has_chat_template,
+        "identity_hints": identity_hints,
+        "registered_instruct_identity": registered_instruct_identity,
     }
+
+
+def _visible_gpu_tokens(visible_env: str | None, device_count: int) -> list[str]:
+    if visible_env and visible_env.strip() and visible_env.strip() != "-1":
+        tokens = [x.strip() for x in visible_env.split(",") if x.strip()]
+        if len(tokens) != device_count:
+            # CUDA may accept UUIDs or masks that PyTorch normalizes differently. Use
+            # local indices rather than guessing physical identities in that case.
+            return [str(i) for i in range(device_count)]
+        return tokens
+    return [str(i) for i in range(device_count)]
+
+
+def resolve_gpu_ids(
+    gpu_spec: str = "auto",
+    legacy_gpu: str | None = None,
+    *,
+    visible_env: str | None = None,
+    device_count: int | None = None,
+) -> list[str]:
+    """Resolve a deterministic list of visible GPU tokens for child processes."""
+    if legacy_gpu is not None:
+        if gpu_spec != "auto":
+            raise ValueError("Use only one of --gpus or legacy --gpu")
+        gpu_spec = legacy_gpu
+    if device_count is None:
+        device_count = torch.cuda.device_count()
+    if device_count <= 0:
+        raise RuntimeError("A CUDA GPU is required for the Countdown pilot")
+    if visible_env is None:
+        visible_env = os.environ.get("CUDA_VISIBLE_DEVICES")
+    available = _visible_gpu_tokens(visible_env, device_count)
+    if gpu_spec == "auto":
+        return available[:8]
+    requested = [x.strip() for x in gpu_spec.split(",") if x.strip()]
+    if not requested:
+        raise ValueError("--gpus must be 'auto' or a non-empty comma-separated list")
+    if len(set(requested)) != len(requested):
+        raise ValueError(f"Duplicate GPU ids are not allowed: {requested}")
+    unavailable = [x for x in requested if x not in available]
+    if unavailable:
+        raise ValueError(f"Requested GPUs are not visible: {unavailable}; visible={available}")
+    return requested
+
+
+def _parent_gpu_index(gpu_id: str) -> int:
+    available = _visible_gpu_tokens(
+        os.environ.get("CUDA_VISIBLE_DEVICES"), torch.cuda.device_count()
+    )
+    return available.index(gpu_id)
 
 
 def gpu_memory_gib(index: int = 0) -> float:
@@ -129,29 +202,30 @@ def gpu_memory_gib(index: int = 0) -> float:
 
 
 def resolve_execution_plan(
-    model_path: str, preset: str, memory_mode: str, gpu: str
+    model_path: str,
+    preset: str,
+    memory_mode: str,
+    gpu_index: int = 0,
+    gpu_visible: str = "0",
 ) -> dict[str, Any]:
-    """Resolve model-size preset, precision, quantization, and safe batch sizes."""
-    if gpu != "auto":
-        os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu)
+    """Resolve model-size preset, precision, and safe single-process batches."""
     if not torch.cuda.is_available():
         raise RuntimeError("A CUDA GPU is required for the formal Countdown arena")
     meta = read_model_metadata(model_path)
     params_b = meta.get("estimated_params_b") or 7.0
-    mem = gpu_memory_gib(0)
+    mem = gpu_memory_gib(gpu_index)
     if preset == "auto":
         preset = "0.5b" if params_b <= 1.0 else ("3b" if params_b <= 4.5 else "7b")
     if memory_mode == "auto":
-        # Conservative single-GPU rule. H20/A100-class cards use BF16 LoRA;
-        # smaller cards use QLoRA. The real preflight still verifies backward/generation.
         bf16_need = 18.0 if params_b <= 1.0 else (34.0 if params_b <= 4.5 else 60.0)
         memory_mode = "bf16" if mem >= bf16_need else "qlora"
+    bf16_supported = torch.cuda.is_bf16_supported()
     if memory_mode == "bf16":
         load_in_4bit = False
-        dtype = "bf16" if torch.cuda.is_bf16_supported() else "fp16"
+        dtype = "bf16" if bf16_supported else "fp16"
     elif memory_mode == "qlora":
         load_in_4bit = True
-        dtype = "bf16" if torch.cuda.is_bf16_supported() else "fp16"
+        dtype = "bf16" if bf16_supported else "fp16"
     else:
         raise ValueError(f"Unknown memory_mode: {memory_mode}")
     if mem >= 80:
@@ -168,8 +242,8 @@ def resolve_execution_plan(
         "memory_mode": memory_mode,
         "load_in_4bit": load_in_4bit,
         "dtype": dtype,
-        "gpu_visible": os.environ.get("CUDA_VISIBLE_DEVICES", "all"),
-        "gpu_name": torch.cuda.get_device_name(0),
+        "gpu_visible": gpu_visible,
+        "gpu_name": torch.cuda.get_device_name(gpu_index),
         "gpu_memory_gib": round(mem, 2),
         "model_metadata": meta,
         "micro_batch": micro_batch,
@@ -177,7 +251,6 @@ def resolve_execution_plan(
         "rollout_batch": rollout_batch,
         "score_batch": score_batch,
     }
-
 
 def seed_all(seed: int) -> None:
     random.seed(seed)
@@ -2963,59 +3036,200 @@ def cmd_evaluate(args: argparse.Namespace) -> None:
         Path(args.output_json).write_text(json.dumps(metrics, indent=2))
 
 
-def _run_stage(argv: list[str], log_path: Path) -> None:
+@dataclass(frozen=True)
+class StageTask:
+    name: str
+    argv: list[str]
+    log_path: Path
+    gpu_id: str
+
+
+class StageExecutionError(RuntimeError):
+    def __init__(self, stage: str, code: int, log_path: Path, command: Sequence[str]):
+        self.stage = stage
+        self.code = code
+        self.log_path = log_path
+        self.command = list(command)
+        tail = ""
+        try:
+            tail = "\n".join(log_path.read_text(errors="replace").splitlines()[-40:])
+        except OSError:
+            pass
+        super().__init__(
+            f"Stage {stage!r} failed with exit code {code}. See {log_path}."
+            + (f"\nLast log lines:\n{tail}" if tail else "")
+        )
+
+
+def _atomic_json(path: Path, payload: Any) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(json.dumps(payload, indent=2, ensure_ascii=False))
+    temporary.replace(path)
+
+
+def _record_decision(root: Path, name: str, decision: Any, evidence: Any = None) -> None:
+    path = root / "automatic_decisions.json"
+    payload = json.loads(path.read_text()) if path.exists() else {"version": VERSION, "decisions": []}
+    payload["decisions"].append({
+        "name": name,
+        "decision": decision,
+        "evidence": evidence,
+        "timestamp_unix": time.time(),
+    })
+    _atomic_json(path, payload)
+
+
+def _run_stage(
+    argv: list[str],
+    log_path: Path,
+    *,
+    gpu_id: str | None = None,
+    stage_name: str | None = None,
+    stream_output: bool = True,
+) -> None:
     log_path.parent.mkdir(parents=True, exist_ok=True)
     command = [sys.executable, str(Path(__file__).resolve()), *argv]
-    print("\n[RUN]", " ".join(command), flush=True)
-    with log_path.open("w") as log:
-        proc = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
-        assert proc.stdout is not None
-        for line in proc.stdout:
-            print(line, end="")
-            log.write(line)
-        code = proc.wait()
+    stage = stage_name or argv[0]
+    env = os.environ.copy()
+    if gpu_id is not None:
+        env["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
+    env.setdefault("TOKENIZERS_PARALLELISM", "false")
+    print(f"\n[RUN:{stage}] GPU={gpu_id if gpu_id is not None else 'inherited'}", " ".join(command), flush=True)
+    if stream_output:
+        with log_path.open("w") as log:
+            proc = subprocess.Popen(
+                command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                text=True, bufsize=1, env=env,
+            )
+            assert proc.stdout is not None
+            for line in proc.stdout:
+                print(line, end="")
+                log.write(line)
+            code = proc.wait()
+    else:
+        with log_path.open("w") as log:
+            proc = subprocess.Popen(command, stdout=log, stderr=subprocess.STDOUT, text=True, env=env)
+            code = proc.wait()
+        print(f"[DONE:{stage}] GPU={gpu_id} exit={code} log={log_path}", flush=True)
     if code != 0:
-        raise RuntimeError(f"Stage failed ({code}). See {log_path}")
+        raise StageExecutionError(stage, code, log_path, command)
+
+
+def _run_stage_group(tasks: Sequence[StageTask]) -> None:
+    """Run one FIFO queue per GPU; different GPU queues execute concurrently."""
+    if not tasks:
+        return
+    queues: dict[str, list[StageTask]] = defaultdict(list)
+    for task in tasks:
+        queues[task.gpu_id].append(task)
+
+    def worker(gpu_id: str, queue: Sequence[StageTask]) -> None:
+        for task in queue:
+            _run_stage(
+                task.argv,
+                task.log_path,
+                gpu_id=gpu_id,
+                stage_name=task.name,
+                stream_output=False,
+            )
+
+    failures: list[BaseException] = []
+    with ThreadPoolExecutor(max_workers=len(queues)) as executor:
+        futures = {
+            executor.submit(worker, gpu_id, queue): gpu_id
+            for gpu_id, queue in queues.items()
+        }
+        for future in as_completed(futures):
+            try:
+                future.result()
+            except BaseException as exc:  # preserve the first exact stage failure
+                failures.append(exc)
+    if failures:
+        raise failures[0]
+
+
+def _evaluation_argv(
+    model_flags: Sequence[str],
+    data: Path,
+    structure_reference: Path,
+    output_json: Path,
+    batch_size: int,
+    pass_k: int,
+    seed: int,
+    adapter: Path | None = None,
+) -> list[str]:
+    command = ["evaluate", *model_flags]
+    if adapter is not None:
+        command.extend(["--adapter", str(adapter)])
+    command.extend([
+        "--data", str(data),
+        "--structure_reference_data", str(structure_reference),
+        "--batch_size", str(batch_size),
+        "--pass_k", str(pass_k),
+        "--output_json", str(output_json),
+        "--seed", str(seed),
+    ])
+    return command
 
 
 def cmd_run(args: argparse.Namespace) -> None:
-    """One-command, resumable, base-first 0.5B Countdown audited pilot."""
-    if args.gpu != "auto":
-        os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu)
-    plan = resolve_execution_plan(args.model_path, args.preset, args.memory_mode, args.gpu)
+    """One-command audited Countdown pilot with automatic safe multi-GPU scheduling."""
+    gpu_ids = resolve_gpu_ids(args.gpus, args.gpu)
+    primary_gpu = gpu_ids[0]
+    primary_parent_index = _parent_gpu_index(primary_gpu)
+    plan = resolve_execution_plan(
+        args.model_path,
+        args.preset,
+        args.memory_mode,
+        gpu_index=primary_parent_index,
+        gpu_visible=primary_gpu,
+    )
+    plan["orchestration"] = {
+        "gpu_ids": gpu_ids,
+        "gpu_count": len(gpu_ids),
+        "offline_builder": "single_gpu_to_preserve_registered_rng_stream",
+        "mechanism_and_calibration": "parallel_when_two_or_more_gpus",
+        "method_training": "one_method_per_gpu_fifo_queue",
+        "checkpoint_evaluation": "all_gpu_fifo_queue",
+    }
     root = Path(args.work_dir).resolve()
     ensure_checkpoint_output_is_local_or_ignored(root)
     root.mkdir(parents=True, exist_ok=True)
+    _atomic_json(root / "pipeline_status.json", {
+        "version": VERSION,
+        "experiment_id": "EXT-C-E8-V4.1",
+        "status": "running",
+        "started_unix": time.time(),
+    })
+
     if (
         (plan["memory_mode"] != "bf16" or plan["load_in_4bit"] or plan["dtype"] != "bf16")
         and not args.allow_non_bf16_smoke
     ):
         raise RuntimeError(
-            "The registered pilot requires one shared BF16 LoRA parameterization for all methods. "
-            "Use a BF16-capable GPU, or pass --allow_non_bf16_smoke for engineering smoke only."
+            "The registered pilot requires one shared BF16 LoRA parameterization. "
+            "Use --allow_non_bf16_smoke only for an explicitly nonformal engineering smoke."
         )
     params_b = plan["model_metadata"].get("estimated_params_b")
-    registered_model = (
+    registered_model = bool(
         plan["preset"] in {"0.5b", "small"}
         and params_b is not None
         and params_b <= 1.0
+        and plan["model_metadata"].get("registered_instruct_identity")
     )
-    registered_parameterization = (
+    registered_parameterization = bool(
         plan["memory_mode"] == "bf16"
         and not plan["load_in_4bit"]
         and plan["dtype"] == "bf16"
     )
     if (not registered_model or not registered_parameterization) and not args.allow_non_bf16_smoke:
         raise RuntimeError(
-            "EXT-C-E8-V4.1 is registered only for Qwen Instruct 0.5B with BF16 LoRA. "
-            "Other model sizes or QLoRA/fp16 may be used only with "
-            "--allow_non_bf16_smoke and remain engineering smoke, not pilot evidence."
+            "EXT-C-E8-V4.1 requires a local Qwen2.5 0.5B Instruct checkpoint with a "
+            "chat template and BF16 LoRA. The path name alone is not trusted; check "
+            "config.json/tokenizer_config.json or use engineering-smoke mode explicitly."
         )
-    run_status = (
-        "pilot"
-        if registered_model and registered_parameterization
-        else "engineering_smoke"
-    )
+    run_status = "pilot" if registered_model and registered_parameterization else "engineering_smoke"
 
     data_dir = root / "data"
     logs = root / "logs"
@@ -3028,24 +3242,15 @@ def cmd_run(args: argparse.Namespace) -> None:
 
     methods = [method.strip() for method in args.methods.split(",") if method.strip()]
     allowed = {
-        "positive_only",
-        "controlled_negative",
-        "uncontrolled_negative",
-        "global_matched",
-        # Historical development methods remain callable but are outside the v4.1 pilot default.
+        "positive_only", "controlled_negative", "uncontrolled_negative", "global_matched",
         "uncontrolled", "global", "exp", "entropy_bonus", "target_entropy", "sbrc", "hybrid",
     }
     unknown = set(methods) - allowed
     if unknown:
         raise ValueError(f"Unknown methods: {sorted(unknown)}")
-    required_pilot = {
-        "positive_only", "controlled_negative", "uncontrolled_negative", "global_matched"
-    }
+    required_pilot = {"positive_only", "controlled_negative", "uncontrolled_negative", "global_matched"}
     if run_status == "pilot" and set(methods) != required_pilot:
-        raise RuntimeError(
-            "The registered v4.1 pilot comparison is frozen to exactly: "
-            "positive_only, controlled_negative, uncontrolled_negative, global_matched."
-        )
+        raise RuntimeError("The registered pilot is frozen to the four preregistered methods.")
 
     run_spec = {
         "version": VERSION,
@@ -3062,6 +3267,7 @@ def cmd_run(args: argparse.Namespace) -> None:
         "min_sft_success": args.min_sft_success,
         "pair_resample_rounds": args.pair_resample_rounds,
         "result_status": run_status,
+        "gpu_ids": gpu_ids,
         "checkpoint_policy": "server-local only",
         "negative_scale_protocol": (
             "fixed_training_calibration_split; match initial uncontrolled negative RMS "
@@ -3073,271 +3279,184 @@ def cmd_run(args: argparse.Namespace) -> None:
     if run_config_path.exists() and not args.force:
         previous = json.loads(run_config_path.read_text())
         if previous.get("fingerprint") != run_spec["fingerprint"]:
-            raise RuntimeError(
-                "Existing work_dir was created with a different configuration. "
-                "Use a new --work_dir or pass --force after reviewing the difference."
-            )
-    run_config_path.write_text(json.dumps(run_spec, indent=2))
-    (root / "execution_plan.json").write_text(json.dumps(plan, indent=2))
+            raise RuntimeError("Existing work_dir has a different configuration; use a new directory.")
+    _atomic_json(run_config_path, run_spec)
+    _atomic_json(root / "execution_plan.json", plan)
+    _record_decision(root, "gpu_selection", gpu_ids, plan["orchestration"])
+    _record_decision(root, "model_identity_gate", run_status, plan["model_metadata"])
+    _record_decision(root, "offline_builder_parallelism", "disabled", "preserve registered RNG stream")
     print("EXECUTION_PLAN", json.dumps(plan, indent=2))
 
     presets = {
-        "0.5b": dict(
-            train=6000, val=500, test=1000, offline=1500, rollouts=12,
-            sft_epochs=3, sft_accum=16, method_steps=1200, method_accum=8,
-            method_min_steps=400, patience=6, eval_examples=500,
-            eval_every=100, pass_k=8, probe_examples=32, dynamics_examples=16,
-            calibration_batches=16,
-        ),
-        "small": dict(
-            train=6000, val=500, test=1000, offline=1500, rollouts=12,
-            sft_epochs=3, sft_accum=16, method_steps=1200, method_accum=8,
-            method_min_steps=400, patience=6, eval_examples=500,
-            eval_every=100, pass_k=8, probe_examples=32, dynamics_examples=16,
-            calibration_batches=16,
-        ),
-        "3b": dict(
-            train=20000, val=1000, test=2000, offline=4000, rollouts=12,
-            sft_epochs=3, sft_accum=32, method_steps=3000, method_accum=16,
-            method_min_steps=1000, patience=8, eval_examples=1000,
-            eval_every=100, pass_k=8, probe_examples=32, dynamics_examples=16,
-            calibration_batches=16,
-        ),
-        "7b": dict(
-            train=20000, val=1000, test=2000, offline=4000, rollouts=12,
-            sft_epochs=2, sft_accum=32, method_steps=2500, method_accum=16,
-            method_min_steps=800, patience=8, eval_examples=1000,
-            eval_every=100, pass_k=8, probe_examples=24, dynamics_examples=12,
-            calibration_batches=12,
-        ),
+        "0.5b": dict(train=6000, val=500, test=1000, offline=1500, rollouts=12,
+                     sft_epochs=3, sft_accum=16, method_steps=1200, method_accum=8,
+                     method_min_steps=400, patience=6, eval_examples=500,
+                     eval_every=100, pass_k=8, probe_examples=32, dynamics_examples=16,
+                     calibration_batches=16),
+        "small": dict(train=6000, val=500, test=1000, offline=1500, rollouts=12,
+                      sft_epochs=3, sft_accum=16, method_steps=1200, method_accum=8,
+                      method_min_steps=400, patience=6, eval_examples=500,
+                      eval_every=100, pass_k=8, probe_examples=32, dynamics_examples=16,
+                      calibration_batches=16),
+        "3b": dict(train=20000, val=1000, test=2000, offline=4000, rollouts=12,
+                   sft_epochs=3, sft_accum=32, method_steps=3000, method_accum=16,
+                   method_min_steps=1000, patience=8, eval_examples=1000,
+                   eval_every=100, pass_k=8, probe_examples=32, dynamics_examples=16,
+                   calibration_batches=16),
+        "7b": dict(train=20000, val=1000, test=2000, offline=4000, rollouts=12,
+                   sft_epochs=2, sft_accum=32, method_steps=2500, method_accum=16,
+                   method_min_steps=800, patience=8, eval_examples=1000,
+                   eval_every=100, pass_k=8, probe_examples=24, dynamics_examples=12,
+                   calibration_batches=12),
     }
     preset = presets[plan["preset"]]
-    train_file = data_dir / "train.jsonl"
-    val_file = data_dir / "val.jsonl"
-    test_file = data_dir / "test.jsonl"
+    train_file, val_file, test_file = data_dir / "train.jsonl", data_dir / "val.jsonl", data_dir / "test.jsonl"
+    model_flags = ["--model_path", args.model_path, "--dtype", plan["dtype"]]
+    if plan["load_in_4bit"]:
+        model_flags.append("--load_in_4bit")
 
-    def model_flags_from_plan(current: dict[str, Any]) -> list[str]:
-        flags = ["--model_path", args.model_path, "--dtype", current["dtype"]]
-        if current["load_in_4bit"]:
-            flags.append("--load_in_4bit")
-        return flags
-
-    model_flags = model_flags_from_plan(plan)
     if not args.skip_preflight:
-        _run_stage(
-            ["preflight", *model_flags, "--seed", str(args.seed)],
-            logs / "00_preflight.log",
-        )
-
+        _run_stage(["preflight", *model_flags, "--seed", str(args.seed)], logs / "00_preflight.log", gpu_id=primary_gpu)
     if args.force or not (train_file.exists() and val_file.exists() and test_file.exists()):
         _run_stage([
-            "generate",
-            "--train", str(preset["train"]),
-            "--val", str(preset["val"]),
-            "--test", str(preset["test"]),
-            "--train_out", str(train_file),
-            "--val_out", str(val_file),
-            "--test_out", str(test_file),
-            "--manifest_out", str(split_manifest_file),
-            "--seed", str(args.seed),
-        ], logs / "01_generate_pattern_family_split.log")
+            "generate", "--train", str(preset["train"]), "--val", str(preset["val"]),
+            "--test", str(preset["test"]), "--train_out", str(train_file),
+            "--val_out", str(val_file), "--test_out", str(test_file),
+            "--manifest_out", str(split_manifest_file), "--seed", str(args.seed),
+        ], logs / "01_generate_pattern_family_split.log", gpu_id=primary_gpu)
 
     base_val_json = root / "base_val_metrics.json"
-    _run_stage([
-        "evaluate", *model_flags,
-        "--data", str(val_file),
-        "--structure_reference_data", str(train_file),
-        "--batch_size", str(plan["eval_batch"]),
-        "--pass_k", str(preset["pass_k"]),
-        "--output_json", str(base_val_json),
-        "--seed", str(args.seed + 5000),
-    ], logs / "02_base_eval.log")
+    _run_stage(_evaluation_argv(model_flags, val_file, train_file, base_val_json,
+                                plan["eval_batch"], preset["pass_k"], args.seed + 5000),
+               logs / "02_base_eval.log", gpu_id=primary_gpu)
     base_val = json.loads(base_val_json.read_text())
-    base_passes = (
-        base_val["greedy_success"] >= args.min_base_success
-        and base_val["valid_rate"] >= args.min_base_valid
-    )
+    base_passes = base_val["greedy_success"] >= args.min_base_success and base_val["valid_rate"] >= args.min_base_valid
+    _record_decision(root, "base_gate", "skip_sft" if base_passes else "run_minimal_sft", {
+        "greedy_success": base_val["greedy_success"], "valid_rate": base_val["valid_rate"],
+        "thresholds": {"greedy_success": args.min_base_success, "valid_rate": args.min_base_valid},
+    })
 
     if base_passes:
         initialization_mode = "base_first_no_sft"
         if args.force and shared_adapter_dir.exists():
             shutil.rmtree(shared_adapter_dir)
         if args.force or not (shared_adapter_dir / "adapter_config.json").exists():
-            _run_stage([
-                "init_adapter", *model_flags,
-                "--output_dir", str(shared_adapter_dir),
-                "--seed", str(args.seed),
-            ], logs / "03_init_shared_adapter.log")
+            _run_stage(["init_adapter", *model_flags, "--output_dir", str(shared_adapter_dir),
+                        "--seed", str(args.seed)], logs / "03_init_shared_adapter.log", gpu_id=primary_gpu)
         reference_dir = shared_adapter_dir
     else:
         if args.no_sft_fallback:
-            raise RuntimeError(
-                f"Base checkpoint failed gate: greedy={base_val['greedy_success']:.3f}, "
-                f"valid={base_val['valid_rate']:.3f}. SFT fallback disabled."
-            )
+            raise RuntimeError("Base gate failed and SFT fallback was explicitly disabled.")
         initialization_mode = "minimal_sft_fallback"
         if args.force and sft_dir.exists():
             shutil.rmtree(sft_dir)
         if args.force or not (sft_dir / "best_adapter" / "adapter_config.json").exists():
             _run_stage([
-                "sft", *model_flags,
-                "--train_data", str(train_file),
-                "--val_data", str(val_file),
-                "--output_dir", str(sft_dir),
-                "--epochs", str(preset["sft_epochs"]),
-                "--micro_batch", str(plan["micro_batch"]),
-                "--grad_accum", str(preset["sft_accum"]),
-                "--eval_batch", str(plan["eval_batch"]),
-                "--eval_examples", str(preset["eval_examples"]),
-                "--pass_k", str(preset["pass_k"]),
-                "--eval_seed", str(args.seed + 5000),
-                "--seed", str(args.seed),
-                "--result_status", run_status,
-            ], logs / "03_sft_fallback.log")
+                "sft", *model_flags, "--train_data", str(train_file), "--val_data", str(val_file),
+                "--output_dir", str(sft_dir), "--epochs", str(preset["sft_epochs"]),
+                "--micro_batch", str(plan["micro_batch"]), "--grad_accum", str(preset["sft_accum"]),
+                "--eval_batch", str(plan["eval_batch"]), "--eval_examples", str(preset["eval_examples"]),
+                "--pass_k", str(preset["pass_k"]), "--eval_seed", str(args.seed + 5000),
+                "--seed", str(args.seed), "--result_status", run_status,
+            ], logs / "03_sft_fallback.log", gpu_id=primary_gpu)
         reference_dir = sft_dir / "best_adapter"
         sft_val_json = root / "sft_val_metrics.json"
-        _run_stage([
-            "evaluate", *model_flags,
-            "--adapter", str(reference_dir),
-            "--data", str(val_file),
-            "--structure_reference_data", str(train_file),
-            "--batch_size", str(plan["eval_batch"]),
-            "--pass_k", str(preset["pass_k"]),
-            "--output_json", str(sft_val_json),
-            "--seed", str(args.seed + 5000),
-        ], logs / "03b_sft_gate.log")
+        _run_stage(_evaluation_argv(model_flags, val_file, train_file, sft_val_json,
+                                    plan["eval_batch"], preset["pass_k"], args.seed + 5000, reference_dir),
+                   logs / "03b_sft_gate.log", gpu_id=primary_gpu)
         sft_val = json.loads(sft_val_json.read_text())
         if sft_val["greedy_success"] < args.min_sft_success:
-            raise RuntimeError(
-                f"SFT fallback greedy_success={sft_val['greedy_success']:.3f} < "
-                f"{args.min_sft_success:.3f}; stop before mechanism/method training."
-            )
+            raise RuntimeError("SFT fallback failed the preregistered greedy-success gate.")
 
     reference_val_json = root / "reference_val_metrics.json"
-    _run_stage([
-        "evaluate", *model_flags,
-        "--adapter", str(reference_dir),
-        "--data", str(val_file),
-        "--structure_reference_data", str(train_file),
-        "--batch_size", str(plan["eval_batch"]),
-        "--pass_k", str(preset["pass_k"]),
-        "--output_json", str(reference_val_json),
-        "--seed", str(args.seed + 5000),
-    ], logs / "04_reference_eval.log")
+    _run_stage(_evaluation_argv(model_flags, val_file, train_file, reference_val_json,
+                                plan["eval_batch"], preset["pass_k"], args.seed + 5000, reference_dir),
+               logs / "04_reference_eval.log", gpu_id=primary_gpu)
     reference_val = json.loads(reference_val_json.read_text())
 
     if args.force or not offline_file.exists():
         _run_stage([
-            "build_offline", *model_flags,
-            "--reference_adapter", str(reference_dir),
-            "--input_data", str(train_file),
-            "--split_manifest", str(split_manifest_file),
-            "--output_data", str(offline_file),
-            "--max_examples", str(preset["offline"]),
-            "--rollouts", str(preset["rollouts"]),
-            "--batch_size", str(plan["rollout_batch"]),
+            "build_offline", *model_flags, "--reference_adapter", str(reference_dir),
+            "--input_data", str(train_file), "--split_manifest", str(split_manifest_file),
+            "--output_data", str(offline_file), "--max_examples", str(preset["offline"]),
+            "--rollouts", str(preset["rollouts"]), "--batch_size", str(plan["rollout_batch"]),
             "--score_batch_size", str(plan["score_batch"]),
-            "--pair_resample_rounds", str(args.pair_resample_rounds),
-            "--seed", str(args.seed + 11),
-        ], logs / "05_build_matched_offline.log")
+            "--pair_resample_rounds", str(args.pair_resample_rounds), "--seed", str(args.seed + 11),
+        ], logs / "05_build_matched_offline.log", gpu_id=primary_gpu)
 
-    mechanism_json = root / "mechanism_probe.json"
-    mechanism_csv = root / "mechanism_probe_pairs.csv"
-    _run_stage([
-        "mechanism_probe", *model_flags,
-        "--reference_adapter", str(reference_dir),
-        "--offline_data", str(offline_file),
-        "--output_json", str(mechanism_json),
-        "--output_csv", str(mechanism_csv),
-        "--max_examples", str(preset["probe_examples"]),
-        "--dynamics_examples", str(preset["dynamics_examples"]),
-        "--min_matched_pairs", str(args.min_matched_pairs),
-        "--seed", str(args.seed + 50),
-    ], logs / "06_mechanism_probe.log")
-
-    if any(method != "positive_only" for method in methods) and (
-        args.force or not calibration_json.exists()
-    ):
-        _run_stage([
-            "calibrate_global", *model_flags,
-            "--reference_adapter", str(reference_dir),
-            "--offline_data", str(offline_file),
-            "--output_json", str(calibration_json),
-            "--batch_size", str(plan["micro_batch"]),
-            "--calibration_batches", str(preset["calibration_batches"]),
-            "--seed", str(args.seed + 75),
-        ], logs / "06b_negative_budget_calibration.log")
+    mechanism_json, mechanism_csv = root / "mechanism_probe.json", root / "mechanism_probe_pairs.csv"
+    probe_tasks = [StageTask(
+        "mechanism_probe",
+        ["mechanism_probe", *model_flags, "--reference_adapter", str(reference_dir),
+         "--offline_data", str(offline_file), "--output_json", str(mechanism_json),
+         "--output_csv", str(mechanism_csv), "--max_examples", str(preset["probe_examples"]),
+         "--dynamics_examples", str(preset["dynamics_examples"]),
+         "--min_matched_pairs", str(args.min_matched_pairs), "--seed", str(args.seed + 50)],
+        logs / "06_mechanism_probe.log", gpu_ids[0],
+    )]
+    if any(method != "positive_only" for method in methods) and (args.force or not calibration_json.exists()):
+        calibration_gpu = gpu_ids[1] if len(gpu_ids) > 1 else gpu_ids[0]
+        probe_tasks.append(StageTask(
+            "negative_budget_calibration",
+            ["calibrate_global", *model_flags, "--reference_adapter", str(reference_dir),
+             "--offline_data", str(offline_file), "--output_json", str(calibration_json),
+             "--batch_size", str(plan["micro_batch"]),
+             "--calibration_batches", str(preset["calibration_batches"]), "--seed", str(args.seed + 75)],
+            logs / "06b_negative_budget_calibration.log", calibration_gpu,
+        ))
+    _run_stage_group(probe_tasks)
+    _record_decision(root, "mechanism_calibration_schedule", "parallel" if len({t.gpu_id for t in probe_tasks}) > 1 else "sequential", [t.name for t in probe_tasks])
 
     shared_method_seed = args.seed + 100
-    for method in methods:
+    concurrent_tasks: list[StageTask] = []
+    method_gpu_pool = gpu_ids[: min(4, len(gpu_ids))]
+    for index, method in enumerate(methods):
         output = methods_dir / method
         if args.force and output.exists():
             shutil.rmtree(output)
-        complete_checkpoint = (
-            output / "terminal_adapter" / "adapter_config.json"
-        ).exists() or (
-            output / "last_finite_adapter" / "adapter_config.json"
-        ).exists()
+        complete_checkpoint = ((output / "terminal_adapter" / "adapter_config.json").exists()
+                               or (output / "last_finite_adapter" / "adapter_config.json").exists())
         if args.force or not complete_checkpoint:
             command = [
-                "train_method", *model_flags,
-                "--reference_adapter", str(reference_dir),
-                "--offline_data", str(offline_file),
-                "--val_data", str(val_file),
-                "--structure_reference_data", str(train_file),
-                "--output_dir", str(output),
-                "--method", method,
-                "--steps", str(preset["method_steps"]),
-                "--micro_batch", str(plan["micro_batch"]),
-                "--grad_accum", str(preset["method_accum"]),
+                "train_method", *model_flags, "--reference_adapter", str(reference_dir),
+                "--offline_data", str(offline_file), "--val_data", str(val_file),
+                "--structure_reference_data", str(train_file), "--output_dir", str(output),
+                "--method", method, "--steps", str(preset["method_steps"]),
+                "--micro_batch", str(plan["micro_batch"]), "--grad_accum", str(preset["method_accum"]),
                 "--min_steps", str(preset["method_min_steps"]),
                 "--early_stop_patience", str(preset["patience"]),
-                "--eval_examples", str(preset["eval_examples"]),
-                "--eval_batch", str(plan["eval_batch"]),
-                "--eval_every", str(preset["eval_every"]),
-                "--pass_k", str(preset["pass_k"]),
-                "--eval_seed", str(args.seed + 6000),
-                "--seed", str(shared_method_seed),
+                "--eval_examples", str(preset["eval_examples"]), "--eval_batch", str(plan["eval_batch"]),
+                "--eval_every", str(preset["eval_every"]), "--pass_k", str(preset["pass_k"]),
+                "--eval_seed", str(args.seed + 6000), "--seed", str(shared_method_seed),
                 "--result_status", run_status,
             ]
             if method != "positive_only":
                 command.extend(["--negative_calibration_json", str(calibration_json)])
-            _run_stage(command, logs / f"07_train_{method}.log")
+            concurrent_tasks.append(StageTask(f"train_{method}", command,
+                                              logs / f"07_train_{method}.log",
+                                              method_gpu_pool[index % len(method_gpu_pool)]))
 
-    summary_rows: list[dict[str, Any]] = []
+    base_test_json, reference_test_json = root / "base_test_metrics.json", root / "reference_test_metrics.json"
+    spare = gpu_ids[4:] if len(gpu_ids) > 4 else gpu_ids
+    concurrent_tasks.extend([
+        StageTask("test_raw_base", _evaluation_argv(model_flags, test_file, train_file, base_test_json,
+                                                     plan["eval_batch"], preset["pass_k"], args.seed + 7000),
+                  logs / "08_test_raw_base.log", spare[0]),
+        StageTask("test_reference", _evaluation_argv(model_flags, test_file, train_file, reference_test_json,
+                                                      plan["eval_batch"], preset["pass_k"], args.seed + 7000, reference_dir),
+                  logs / "08b_test_reference.log", spare[1 % len(spare)]),
+    ])
+    _run_stage_group(concurrent_tasks)
+    _record_decision(root, "method_training_schedule", {m: method_gpu_pool[i % len(method_gpu_pool)] for i, m in enumerate(methods)}, "four methods share initialization/data/seed")
 
-    def evaluate_checkpoint(
-        label: str,
-        adapter: Path | None,
-        output_json: Path,
-        log_path: Path,
-        extra: dict[str, Any] | None = None,
-    ) -> None:
-        command = ["evaluate", *model_flags]
-        if adapter is not None:
-            command.extend(["--adapter", str(adapter)])
-        command.extend([
-            "--data", str(test_file),
-            "--structure_reference_data", str(train_file),
-            "--batch_size", str(plan["eval_batch"]),
-            "--pass_k", str(preset["pass_k"]),
-            "--output_json", str(output_json),
-            "--seed", str(args.seed + 7000),
-        ])
-        _run_stage(command, log_path)
-        summary_rows.append({"method": label, **(extra or {}), **json.loads(output_json.read_text())})
-
-    evaluate_checkpoint(
-        "raw_base_no_training", None, root / "base_test_metrics.json", logs / "08_test_raw_base.log"
-    )
-    evaluate_checkpoint(
-        "shared_initial_checkpoint",
-        reference_dir,
-        root / "reference_test_metrics.json",
-        logs / "08b_test_reference.log",
-        {"initialization_mode": initialization_mode, "checkpoint_kind": "step_0"},
-    )
-
+    summary_rows: list[dict[str, Any]] = [
+        {"method": "raw_base_no_training", **json.loads(base_test_json.read_text())},
+        {"method": "shared_initial_checkpoint", "initialization_mode": initialization_mode,
+         "checkpoint_kind": "step_0", **json.loads(reference_test_json.read_text())},
+    ]
+    eval_tasks: list[StageTask] = []
+    eval_records: list[tuple[str, Path, dict[str, Any]]] = []
+    eval_index = 0
     for method in methods:
         output = methods_dir / method
         manifest = json.loads((output / "manifest.json").read_text())
@@ -3346,25 +3465,29 @@ def cmd_run(args: argparse.Namespace) -> None:
             if not (adapter / "adapter_config.json").exists():
                 continue
             result_json = output / f"test_metrics_{checkpoint_kind}.json"
-            evaluate_checkpoint(
-                method,
-                adapter,
-                result_json,
-                logs / f"09_test_{method}_{checkpoint_kind}.log",
-                {
-                    "checkpoint_kind": checkpoint_kind,
-                    "best_step": manifest.get("best_step"),
-                    "terminal_step": manifest.get("terminal_step"),
-                    "last_finite_step": manifest.get("last_finite_step"),
-                    "failure_detected_at_step": manifest.get("failure_detected_at_step"),
-                    "best_val": manifest.get("best_value"),
-                    "stop_reason": manifest.get("stop_reason"),
-                    "numerical_failure": manifest.get("numerical_failure"),
-                    "result_status": manifest.get("result_status"),
-                    "negative_scale": manifest.get("negative_scale"),
-                    "global_matched_gamma": manifest.get("global_matched_gamma"),
-                },
-            )
+            extra = {
+                "checkpoint_kind": checkpoint_kind, "best_step": manifest.get("best_step"),
+                "terminal_step": manifest.get("terminal_step"), "last_finite_step": manifest.get("last_finite_step"),
+                "failure_detected_at_step": manifest.get("failure_detected_at_step"),
+                "best_val": manifest.get("best_value"), "stop_reason": manifest.get("stop_reason"),
+                "numerical_failure": manifest.get("numerical_failure"), "result_status": manifest.get("result_status"),
+                "negative_scale": manifest.get("negative_scale"),
+                "global_matched_gamma": manifest.get("global_matched_gamma"),
+            }
+            if args.force or not result_json.exists():
+                gpu = gpu_ids[eval_index % len(gpu_ids)]
+                eval_tasks.append(StageTask(
+                    f"test_{method}_{checkpoint_kind}",
+                    _evaluation_argv(model_flags, test_file, train_file, result_json,
+                                     plan["eval_batch"], preset["pass_k"], args.seed + 7000, adapter),
+                    logs / f"09_test_{method}_{checkpoint_kind}.log", gpu,
+                ))
+                eval_index += 1
+            eval_records.append((method, result_json, extra))
+    _run_stage_group(eval_tasks)
+    _record_decision(root, "checkpoint_evaluation_schedule", "all_visible_gpu_fifo", {"jobs": len(eval_records), "gpus": gpu_ids})
+    for method, result_json, extra in eval_records:
+        summary_rows.append({"method": method, **extra, **json.loads(result_json.read_text())})
 
     summary_path = root / "arena_summary.csv"
     fields = sorted({key for row in summary_rows for key in row})
@@ -3372,39 +3495,53 @@ def cmd_run(args: argparse.Namespace) -> None:
         writer = csv.DictWriter(handle, fieldnames=fields)
         writer.writeheader()
         writer.writerows(csv_safe_row(row) for row in summary_rows)
+
+    method_audits: dict[str, Any] = {}
+    for method in methods:
+        manifest = json.loads((methods_dir / method / "manifest.json").read_text())
+        terminal_rows = [r for r in summary_rows if r["method"] == method and r.get("checkpoint_kind") in {"terminal", "last_finite"}]
+        method_audits[method] = {
+            "task_performance": terminal_rows[0] if terminal_rows else None,
+            "support_structure": ({
+                "heldout_pattern_family_coverage": terminal_rows[0].get("heldout_pattern_family_coverage"),
+                "heldout_pattern_family_precision_micro": terminal_rows[0].get("heldout_pattern_family_precision_micro"),
+                "heldout_pattern_family_precision_macro": terminal_rows[0].get("heldout_pattern_family_precision_macro"),
+                "valid_rate": terminal_rows[0].get("valid_rate"),
+            } if terminal_rows else None),
+            "numerical": {
+                "numerical_failure": manifest.get("numerical_failure"),
+                "failure_detected_at_step": manifest.get("failure_detected_at_step"),
+                "last_finite_step": manifest.get("last_finite_step"),
+                "stop_reason": manifest.get("stop_reason"),
+            },
+        }
+    base_commit = run_spec["source_provenance"].get("git_commit")
+    terminal_audit = {
+        "version": VERSION, "experiment_id": "EXT-C-E8-V4.1", "base_commit": base_commit,
+        "task_performance_support_and_numerical_events_reported_separately": True,
+        "methods": method_audits,
+    }
+    _atomic_json(root / "terminal_audit.json", terminal_audit)
     complete = {
-        "version": VERSION,
-        "experiment_id": "EXT-C-E8-V4.1",
-        "source_provenance": source_provenance(),
-        "plan": plan,
-        "initialization_mode": initialization_mode,
-        "base_validation": base_val,
-        "reference_validation": reference_val,
-        "mechanism_probe": json.loads(mechanism_json.read_text()),
-        "negative_budget_calibration": (
-            json.loads(calibration_json.read_text()) if calibration_json.exists() else None
-        ),
-        "summary": summary_rows,
-        "result_status": run_status,
-        "terminal_audit_present": all(
-            any(
-                row["method"] == method
-                and row.get("checkpoint_kind") in {"terminal", "last_finite"}
-                for row in summary_rows
-            )
-            for method in methods
-        ),
-        "full_finetune_confirmation": (
-            "not_run; not implemented in this runner; requires a reproducible LoRA "
-            "pilot signal and separate preregistration"
-        ),
+        "version": VERSION, "experiment_id": "EXT-C-E8-V4.1", "base_commit": base_commit,
+        "source_provenance": source_provenance(), "plan": plan,
+        "initialization_mode": initialization_mode, "base_validation": base_val,
+        "reference_validation": reference_val, "mechanism_probe": json.loads(mechanism_json.read_text()),
+        "negative_budget_calibration": json.loads(calibration_json.read_text()) if calibration_json.exists() else None,
+        "summary": summary_rows, "result_status": run_status,
+        "terminal_audit_present": all(method_audits[m]["task_performance"] is not None for m in methods),
+        "full_finetune_confirmation": "not_run; requires separate preregistration",
         "note": "A completed single-seed run remains a pilot, never a formal multi-seed result.",
     }
-    (root / "run_complete.json").write_text(json.dumps(complete, indent=2))
+    _atomic_json(root / "run_complete.json", complete)
+    _atomic_json(root / "RUN_COMPLETE.json", complete)
+    _atomic_json(root / "pipeline_status.json", {
+        "version": VERSION, "experiment_id": "EXT-C-E8-V4.1", "status": "terminal_audited",
+        "completed_unix": time.time(), "summary": str(summary_path),
+    })
     print("\nDONE. Summary:", summary_path)
     for row in summary_rows:
         print(json.dumps(row, ensure_ascii=False))
-
 
 def cmd_selftest(args: argparse.Namespace) -> None:
     oracle = "((1 + 2) * (3 + 4))"
@@ -3657,7 +3794,8 @@ def build_parser() -> argparse.ArgumentParser:
     ap = sub.add_parser("run", aliases=["all"], help="Base-first 0.5B mechanism + effect arena")
     ap.add_argument("--model_path", required=True, help="Local Qwen Instruct model directory")
     ap.add_argument("--work_dir", required=True)
-    ap.add_argument("--gpu", default="0", help="Single physical GPU id, or auto")
+    ap.add_argument("--gpus", default="auto", help="Visible GPU ids, comma-separated, or auto (default)")
+    ap.add_argument("--gpu", default=None, help=argparse.SUPPRESS)
     ap.add_argument("--preset", choices=["auto", "0.5b", "small", "3b", "7b"], default="auto")
     ap.add_argument("--memory_mode", choices=["auto", "bf16", "qlora"], default="bf16")
     ap.add_argument("--methods", default="positive_only,controlled_negative,uncontrolled_negative,global_matched")
@@ -3679,7 +3817,33 @@ def main() -> None:
     args = parser.parse_args()
     if hasattr(args, "near_mix") and not math.isclose(args.near_mix + args.far_mix, 1.0):
         parser.error("--near_mix + --far_mix must equal 1")
-    args.func(args)
+    try:
+        args.func(args)
+    except BaseException as exc:
+        work_dir = getattr(args, "work_dir", None)
+        if work_dir:
+            root = Path(work_dir).resolve()
+            root.mkdir(parents=True, exist_ok=True)
+            failure = {
+                "version": VERSION,
+                "experiment_id": "EXT-C-E8-V4.1",
+                "status": "failed",
+                "exception_type": type(exc).__name__,
+                "message": str(exc),
+                "traceback": traceback.format_exc(),
+                "timestamp_unix": time.time(),
+                "rerun_instruction": "Rerun the same one-click command with a new empty work_dir after correcting the reported preflight/stage error.",
+            }
+            if isinstance(exc, StageExecutionError):
+                failure.update({
+                    "failed_stage": exc.stage,
+                    "exit_code": exc.code,
+                    "log_path": str(exc.log_path),
+                    "command": exc.command,
+                })
+            _atomic_json(root / "RUN_FAILED.json", failure)
+            _atomic_json(root / "pipeline_status.json", failure)
+        raise
 
 
 if __name__ == "__main__":

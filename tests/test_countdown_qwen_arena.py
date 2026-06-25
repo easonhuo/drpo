@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import random
 import sys
 from pathlib import Path
@@ -146,6 +147,8 @@ def test_run_defaults_are_base_first_bf16_lora_with_global_match() -> None:
         "positive_only,controlled_negative,uncontrolled_negative,global_matched"
     )
     assert args.memory_mode == "bf16"
+    assert args.gpus == "auto"
+    assert args.gpu is None
     assert args.pair_resample_rounds == 3
     assert args.min_base_success == 0.15
     assert args.min_base_valid == 0.80
@@ -326,3 +329,64 @@ def test_csv_safe_row_serializes_nested_pattern_diagnostics() -> None:
     converted = arena.csv_safe_row({"scalar": 1.0, "nested": {"b": 2, "a": 1}})
     assert converted["scalar"] == 1.0
     assert converted["nested"] == '{"a": 1, "b": 2}'
+
+
+def test_gpu_resolution_is_automatic_deterministic_and_validated() -> None:
+    assert arena.resolve_gpu_ids(
+        "auto", visible_env="2,4,6", device_count=3
+    ) == ["2", "4", "6"]
+    assert arena.resolve_gpu_ids(
+        "4,6", visible_env="2,4,6", device_count=3
+    ) == ["4", "6"]
+    with pytest.raises(ValueError, match="Duplicate"):
+        arena.resolve_gpu_ids("2,2", visible_env="2,4", device_count=2)
+    with pytest.raises(ValueError, match="not visible"):
+        arena.resolve_gpu_ids("7", visible_env="2,4", device_count=2)
+
+
+def test_registered_model_identity_uses_metadata_not_only_directory_name(tmp_path: Path) -> None:
+    model = tmp_path / "Qwen2.5-0.5B"
+    model.mkdir()
+    (model / "config.json").write_text(json.dumps({
+        "model_type": "qwen2",
+        "architectures": ["Qwen2ForCausalLM"],
+        "hidden_size": 896,
+        "num_hidden_layers": 24,
+        "intermediate_size": 4864,
+        "vocab_size": 151936,
+        "_name_or_path": "Qwen/Qwen2.5-0.5B-Instruct",
+    }))
+    (model / "tokenizer_config.json").write_text(json.dumps({
+        "name_or_path": "Qwen/Qwen2.5-0.5B-Instruct",
+        "chat_template": "{{ messages }}",
+    }))
+    metadata = arena.read_model_metadata(str(model))
+    assert metadata["registered_instruct_identity"] is True
+    assert metadata["has_chat_template"] is True
+
+    (model / "tokenizer_config.json").write_text(json.dumps({"name_or_path": "Qwen/Qwen2.5-0.5B"}))
+    metadata = arena.read_model_metadata(str(model))
+    assert metadata["registered_instruct_identity"] is False
+
+
+def test_parallel_stage_queue_preserves_fifo_per_gpu(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    observed: list[tuple[str, str]] = []
+
+    def fake_run_stage(
+        argv: list[str], log_path: Path, *, gpu_id: str | None = None,
+        stage_name: str | None = None, stream_output: bool = True,
+    ) -> None:
+        observed.append((str(gpu_id), str(stage_name)))
+
+    monkeypatch.setattr(arena, "_run_stage", fake_run_stage)
+    tasks = [
+        arena.StageTask("gpu0_first", ["selftest"], tmp_path / "a.log", "0"),
+        arena.StageTask("gpu1_only", ["selftest"], tmp_path / "b.log", "1"),
+        arena.StageTask("gpu0_second", ["selftest"], tmp_path / "c.log", "0"),
+    ]
+    arena._run_stage_group(tasks)
+    gpu0 = [name for gpu, name in observed if gpu == "0"]
+    assert gpu0 == ["gpu0_first", "gpu0_second"]
+    assert ("1", "gpu1_only") in observed

@@ -1,4 +1,14 @@
-# DRPO / SNA2C 远场负梯度动力学研究主文档 v27（Countdown 评估语义、终态审计与状态标签修正版）
+# DRPO / SNA2C 远场负梯度动力学研究主文档 v28（Countdown 一键审计式多 GPU 调度版）
+
+
+> **v28 增量记录：Countdown v4.2.0 一键审计式调度（不删除 v27 及更早内容）**
+>
+> - `EXT-C-E8-V4.1` 继续保持“尚未运行”。本轮只增加正式的一键启动与安全多 GPU 调度层，不改变模型、数据规模、seeds、门槛、SFT fallback 规则、LoRA 配置、训练步数、early-stop、pass@k、负梯度校准、方法集合或结论职责。
+> - 新增唯一推荐入口 `scripts/run_countdown_pilot.py`。操作者只需提供本地 Qwen2.5-0.5B-Instruct 路径和一个新的持久 work directory；脚本自动绑定当前完整 Git SHA、调用 hardened foreground guard、选择全部可见 GPU（最多 8 张）、执行 base gate、必要时 SFT、机制门禁、四方法、best + terminal/last-finite 评估、终态审计和 durable artifact packaging。
+> - runner 版本升级为 `4.2.0-one-click-audited-orchestrator`。`--gpus auto` 为默认；旧 `--gpu` 仅作隐藏兼容参数。正式模型身份不再只相信目录名，而同时要求 Qwen2 模型元数据和 tokenizer chat template；无法确认时停止，不由本地 AI 临时猜测。
+> - 安全并行范围冻结为：mechanism probe 与 calibration 可并行；四种方法按一方法一 GPU 的 FIFO queue 并行；raw-base/reference test 使用空闲 GPU；所有 best/terminal/last-finite test jobs 在全部可见 GPU 上排队。`build_offline` 仍保持单 GPU、单 RNG stream，禁止临时 shard + cat，以免改变冻结离线数据生成协议。
+> - 自动决定必须写入 `automatic_decisions.json`，包括 GPU 选择、模型身份、base gate/SFT 路径、离线构造并行策略和 checkpoint 评估调度。失败写入 `RUN_FAILED.json` 并由 guard 尝试恢复包；成功必须产生 `RUN_COMPLETE.json`、`terminal_audit.json`、`arena_summary.csv` 和最终 artifact ZIP。
+> - 终态审计继续分别报告任务性能、结构/支持指标与 NaN/Inf 数值事件；一键化不能把三类失效合并，也不能把单 seed pilot 升级为正式多 seed 结果。
 
 > **v27 增量记录：Countdown v4.1.2 评估语义、逐步 last-finite 与 provenance 修正（不删除 v26 及更早内容）**
 >
@@ -4140,16 +4150,17 @@ python countdown_qwen_arena_onefile_v3.py run \
 
 上述 v3 流程中的强制 SFT、只评最佳 checkpoint、八方法 arena 和自动 QLoRA 选择均已被 v22 覆盖；该段只作 provenance。当前实验仍未完成真实 Qwen/CUDA/BF16-LoRA 端到端运行。
 
-#### v27 当前协议覆盖：v4.1.2 BF16-LoRA pilot
+#### v28 当前协议覆盖：v4.2.0 一键 BF16-LoRA pilot
 
-当前唯一代码入口：
+当前唯一推荐代码入口：
 
 ```bash
-python3 src/drpo/countdown_qwen_arena_onefile.py run \
-  --model_path /ABS/PATH/TO/QWEN-0.5B-INSTRUCT \
-  --work_dir /ABS/PATH/TO/COUNTDOWN_RUN \
-  --gpu 0 --preset 0.5b --memory_mode bf16 --seed 1234
+python3 scripts/run_countdown_pilot.py \
+  --model_path /ABS/PATH/TO/QWEN2.5-0.5B-INSTRUCT \
+  --work_dir /ABS/PERSISTENT/PATH/TO/COUNTDOWN_RUN
 ```
+
+该入口自动使用冻结的 `preset=0.5b`、`memory_mode=bf16`、`seed=1234` 和四方法集合；默认选择全部可见 GPU（最多 8 张），无需本地 AI决定是否 SFT、如何分配方法、评测哪些 checkpoint 或何时打包。底层独立子命令继续保留用于测试和故障定位，但不得由本地 AI 临时拼接成另一套正式流程。
 
 1. Base-first、SFT fallback、matched-pair、Park-inspired family holdout、四方法、checkpoint 与终态审计均沿用 v21。
 2. 机制 probe 的 near/far advantage 仍固定为 `A=-1`，不乘方法训练的共同尺度。
@@ -4160,6 +4171,9 @@ python3 src/drpo/countdown_qwen_arena_onefile.py run \
 7. `presence` 与 `success` 分开：unseen-structure success 必须 verifier 正确；per-pattern precision 分别报告 greedy 与 sampled 的 attempts/correct/precision，零尝试记为 `null`。
 8. 非有限失败保存精确 optimizer-step 前的 trainable-adapter 状态，并记录 `failure_detected_at_step` 与 `last_finite_step`，不再使用最近一次验证 checkpoint 代替。
 9. 顶层 `pilot` / `engineering_smoke` 标签必须传入 SFT 和 method manifests；直接子命令默认 `standalone_unclassified`。
+10. 正式 pilot 必须通过 `scripts/run_countdown_pilot.py` 进入 hardened guard；guard 自动绑定当前完整 commit、监督前台进程并在成功/失败时生成持久 artifact。
+11. 安全多 GPU 调度不得改变随机数据生成：`build_offline` 继续单 GPU；机制/calibration、方法训练和 checkpoint evaluation 才允许并行。
+12. 成功门禁要求 `RUN_COMPLETE.json`、`terminal_audit.json` 与 `arena_summary.csv` 同时存在；本地只生成 CSV 不构成完成。
 
 #### v21 历史协议：v4.1 审计式 BF16-LoRA pilot（由 v22 覆盖 alpha 与配置登记）
 

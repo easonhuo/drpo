@@ -378,10 +378,28 @@ experiments:
   - D-U1
   - D-Diag
   code_entrypoint: src/drpo/countdown_qwen_arena_onefile.py
+  one_click_entrypoint: scripts/run_countdown_pilot.py
+  one_click_contract:
+    required_operator_inputs:
+    - model_path
+    - work_dir
+    automatic_decisions:
+    - visible_gpu_selection_up_to_eight
+    - base_gate_and_sft_fallback
+    - safe_stage_gpu_assignment
+    - best_terminal_or_last_finite_evaluation_inventory
+    - terminal_audit
+    - guarded_success_or_failure_artifact_packaging
+    build_offline_parallelism: disabled_to_preserve_registered_rng_stream
+    hardened_guard_required: true
+    required_success_outputs:
+    - RUN_COMPLETE.json
+    - terminal_audit.json
+    - arena_summary.csv
   primary_model: Qwen Instruct 0.5B
   initialization: *id001
   parameterization:
-    runner_version: 4.1.2-evaluation-terminal-audit-fix
+    runner_version: 4.2.0-one-click-audited-orchestrator
     pilot: bf16_lora
     shared_across_methods: true
     qlora: engineering_smoke_only
@@ -562,6 +580,23 @@ experiments:
     sidecar_selection: explicit_files_only
     sidecar_purpose_required: true
     sidecar_filename_policy: new_versioned_path
+  orchestration:
+    gpu_selection_default: auto_all_visible_up_to_8
+    safe_parallel_stages:
+    - mechanism_probe_and_negative_budget_calibration
+    - four_method_training_one_process_per_gpu
+    - raw_base_and_reference_test_on_spare_gpus
+    - all_best_terminal_last_finite_test_jobs
+    single_gpu_stages:
+    - preflight
+    - pattern_first_data_generation
+    - base_and_reference_gate_evaluation
+    - conditional_sft
+    - build_offline
+    reason_build_offline_not_sharded: preserve_frozen_rng_stream_and_dataset_protocol
+    automatic_decision_log: automatic_decisions.json
+    failure_marker: RUN_FAILED.json
+    terminal_audit: terminal_audit.json
   formal_run_status: not_run
   execution:
     state: registered
