@@ -22,4 +22,70 @@ rules:
   require_terminal_state_audit_for_dynamics: true
   preserve_failed_runs: true
 
-experiments: []
+experiments:
+  - id: EXT-C-E8-V4
+    environment: EXT-C
+    name: countdown_base_first_transformer_external_validation
+    status: not_run
+    claim: >-
+      Test whether the fixed-negative-advantage near/far remoteness mechanism
+      identified in D-U1 transfers to a shared-parameter Transformer, and whether
+      controlled negative advantages improve held-out structural generalization
+      relative to positive-only and uncontrolled negative updates.
+    role: external_validity
+    does_not_replace:
+      - D-U1
+      - D-Diag
+    code_entrypoint: src/drpo/countdown_qwen_arena_onefile.py
+    primary_model: Qwen Instruct 0.5B
+    initialization:
+      protocol: base_first
+      base_gate:
+        greedy_verifier_success_min: 0.15
+        valid_rate_min: 0.80
+      fallback: minimal_sft_only_if_base_gate_fails
+      sft_gate:
+        greedy_verifier_success_min: 0.15
+    data:
+      task: four-number Countdown arithmetic
+      train_validation_test_split: disjoint_canonical_operator_tree_signatures
+      positive_support: training_structures_only
+      negative_reward: 0
+      fixed_negative_advantage: -1.0
+      near_far_matching:
+        surprisal_gap_min: 0.5
+        token_length_difference_max: 2
+        tree_depth_difference_max: 1
+        value_error_ratio_max: 4.0
+    mechanism_probe:
+      matched_pairs_min: 16
+      default_pairs: 32
+      metrics:
+        - token_surprisal
+        - direct_logit_score_norm
+        - trainable_adapter_gradient_norm
+        - target_surprisal_delta_after_equal_negative_updates
+        - correct_answer_collateral_surprisal_delta
+    methods:
+      - positive_only
+      - controlled_negative
+      - uncontrolled_negative
+    pairing:
+      shared_initial_adapter: true
+      shared_offline_data: true
+      shared_training_seed: true
+      shared_evaluation_seed: true
+    primary_metrics:
+      - greedy_verifier_success
+      - pass_at_k
+      - valid_rate
+      - greedy_unseen_structure_success
+      - pass_at_k_unseen_structure
+    reporting_separation:
+      - task_performance
+      - support_or_structure_coverage
+      - nan_inf_numerical_failure
+    model_scaling:
+      qwen_3b: conditional_replication
+      qwen_7b: optional
+    formal_run_status: not_run

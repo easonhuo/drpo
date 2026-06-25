@@ -1,5 +1,17 @@
 # DRPO / SNA2C 远场负梯度动力学研究主文档 v15（同分布泛化术语与一键复现重建版）
 
+> **v18 增量记录：Countdown 0.5B base-first 最小外部验证协议（不删除 v17 及更早内容）**
+>
+> - 用户明确将 EXT-C / E8 收缩为“两三天内可得结论”的最小外部验证：先运行固定负优势的 near/far 机制迁移 probe，再运行 Positive-only / Controlled-negative / Uncontrolled-negative 三组配对效果实验；不再默认启动八方法大 arena。
+> - 当前主模型改为 Qwen Instruct 0.5B。先对未经 Countdown 训练的原始 Base checkpoint 做零训练评测；若验证集 greedy verifier success `>=0.15` 且 valid rate `>=0.80`，直接从同一个未训练 LoRA adapter 分叉三种方法，不执行 SFT。Base 未过门槛时才允许最小 SFT fallback，SFT 后 greedy success 仍须 `>=0.15`。
+> - train / validation / test 按 canonical operator-tree signature 严格分离；三组 oracle 结构集合互不重叠。当前口径为 **held-out structural generalization / 未见组合结构泛化**，不是状态分布 OOD。
+> - 离线正样本只能来自训练结构支持；near/far negatives 均须语法合法、恰好使用全部数字、verifier reward 同为 0，并尽量匹配 token 长度、树深和数值误差，只以冻结参考策略 surprisal 区分近远。
+> - 机制 probe 固定负优势 `A=-1`，报告参考 surprisal、direct-logit score、实际可训练 adapter 参数梯度范数、相同负更新下目标 surprisal 增量，以及对正确表达式 surprisal 的 collateral change。该 probe 只回答 D-U1 结论能否迁移到 Transformer 共享参数环境，不替代 D-U1 的受控因果识别。
+> - Controlled-negative 保留 near negative，按当前 token surprisal 对 far negative 做 detached exponential taper；Uncontrolled-negative 对 near/far 不做控制；三组方法使用同一初始 adapter、同一离线数据、同一数据顺序 seed、同一验证与生成 seeds。
+> - 主效果指标为 greedy verifier success、pass@k、valid rate、greedy/pass@k unseen-structure success；task-performance、support/structure coverage 与 NaN/Inf 数值失败分开记录。
+> - 3B 降为条件复验，7B 为可选规模验证；0.5B 只要通过能力和数据门禁即可承担当前 E8 主实验。旧 3B-primary / 7B-confirmation 方案保留作 provenance，但由本版本覆盖。
+> - 代码入口仍为 `src/drpo/countdown_qwen_arena_onefile.py`。v4 代码已完成 Python 编译、CPU selftest 与单元测试；真实 Qwen/CUDA/LoRA 运行尚未执行，结果状态仍为“尚未运行”。
+
 
 > **v17 增量记录：重建代码正式重跑 E1/E2（不删除 v16 内容）**
 >
@@ -279,7 +291,7 @@ Ground-truth reward 由动作到 `a_star(s)` 的二维距离决定，因此 `a_s
 | E5 | Categorical 排斥与支持边界 | 有界 logit score 下重复负更新如何把概率推向边界 | 解析 + 长期 | direct-softmax 解析、概率衰减、rare/common 干预 |
 | E6 | 共享语义 categorical 外推 | 负梯度能否利用共享表示改善未见动作且避免 support collapse | 是 | unordered semantic actions；positive-only/controlled/uncontrolled；长期方法对比 |
 | E7 | Hopper learned-critic | 真实数据与 learned critic 下机制是否仍出现 | 是 | 训练足够长；优势匹配；长期 Near/Far 结果；不是方法效果表 |
-| E8 | Countdown/Qwen | token-level shared-parameter 分支与方法收益 | early stop + 最佳验证 checkpoint | SFT 先达门槛；统一离线集；多方法同 seeds；verifier success/pass@k |
+| E8 | Countdown/Qwen | Transformer 中固定负优势 near/far 机制迁移与受控负优势泛化收益 | base-first 门禁；必要时最小 SFT fallback；early stop + 最佳验证 checkpoint | 0.5B 主实验；固定 A=-1 机制 probe；Positive-only/Controlled-negative/Uncontrolled-negative 配对；verifier success/pass@k/未见结构指标 |
 
 ## 4.1 动力学实验统一收敛标准
 
@@ -304,7 +316,7 @@ Ground-truth reward 由动作到 `a_star(s)` 的二维距离决定，因此 `a_s
 | E5 | 解析和长程 categorical 基本完成 | D-U1/D-Diag 可保留 | 接近完成，需整理最终口径 |
 | E6 | unordered semantic categorical 仅短程 pilot | 尚未长期重跑 | 未完成 |
 | E7 | Hopper learned-critic 600-step probe | 未长期重跑 | 有限训练步数证据 |
-| E8 | 单文件代码静态检查 | 未在真实本地 Qwen 完整运行 | 尚未完成 |
+| E8 | v4 base-first 单文件代码已完成 Python 编译、CPU selftest 与单元测试 | 未在真实本地 Qwen/CUDA/LoRA 完整运行 | 尚未运行；不得把静态/CPU 测试当作实验结果 |
 
 ---
 
@@ -3947,6 +3959,20 @@ python countdown_qwen_arena_onefile_v3.py run \
 ```
 
 代码会依次执行真实 forward/backward/generation preflight、数据生成、最佳验证 checkpoint SFT、verifier 门禁、冻结 SFT 策略的离线轨迹构造、各方法训练、最佳 checkpoint 测试和统一 CSV 汇总。`memory_mode=auto` 在大显存卡选择 BF16 LoRA，在较小显存卡选择 4-bit QLoRA。当前已完成 Python 编译、CLI 和纯数据/verifier smoke test；由于本容器没有 transformers/peft、GPU 和用户本地权重，尚未完成真实 Qwen 端到端运行，该边界必须保留。
+
+#### v18 当前协议覆盖：Base-first 0.5B 最小实验
+
+本小节覆盖下方 v12 的“先 SFT、3B 主 arena、八方法比较”计划；旧计划不删除，仅作为 provenance。用户已明确授权先运行 EXT-C / E8，因此本地 0.5B 验证可在不改变 D-U1 职责的前提下先行。
+
+1. **零训练 Base 门禁：**先直接评测原始 0.5B Instruct checkpoint。验证集 `greedy_success>=0.15` 且 `valid_rate>=0.80` 时跳过 SFT；所有方法从同一未训练 LoRA adapter 开始。未过门槛才进入最小 SFT fallback，SFT 后 `greedy_success>=0.15` 才继续。
+2. **结构拆分：**训练、验证、测试的 canonical operator-tree signatures 两两不重叠。离线正答案不得把验证/测试结构重新引入训练支持。
+3. **机制 probe：**从冻结参考策略构造 reward 同为 0 的合法 near/far 错误表达式；匹配 token 长度差 `<=2`、树深差 `<=1`、数值误差比 `<=4`，surprisal gap 默认至少 `0.5`。正式 probe 至少 16 个匹配 pair，默认报告 32 个 pair。
+4. **固定负优势：**near/far 均使用 `A=-1`；报告 trainable-adapter gradient norm、target surprisal suppression、correct-answer collateral change。categorical direct-logit score 有界，不能把该结果写成 Gaussian 式无界梯度爆炸。
+5. **最小方法：**`positive_only`、`controlled_negative`、`uncontrolled_negative`。Controlled 保留 near 分支，对 far token 使用 detached surprisal taper；不预设其必然优于其他方法。
+6. **配对规则：**三组方法共享初始化、离线数据、训练 seed、验证题和 generation seed。Base checkpoint 与共同初始 checkpoint 都只评测一次，不视为额外训练方法。
+7. **主指标：**greedy verifier success、pass@k、valid rate、greedy/pass@k unseen-structure success；unique correct structures、entropy/weights 和数值状态作为诊断。任务性能退化、有效支持/结构覆盖退化和 NaN/Inf 分开报告。
+8. **规模策略：**0.5B 是当前主实验；3B 仅在 0.5B 基础能力不足或需要关键结论复验时运行；7B 不阻塞当前论文结论。
+9. **结果状态：**代码测试不构成 E8 结果。真实模型运行前状态保持“尚未运行”；单 seed 只能标记 pilot，多 seed 配对且满足预登记门禁后才能升级。
 
 #### 模型阶梯
 
