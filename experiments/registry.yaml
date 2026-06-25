@@ -1,20 +1,17 @@
 schema_version: 2
-
 project:
   name: drpo
   repository: easonhuo/drpo
   default_branch: main
   research_source_of_truth: docs/handoff.md
-
 allowed_statuses:
-  - analytically_proven
-  - long_run_validated
-  - finite_step_validated
-  - pilot
-  - not_run
-  - rejected
-  - superseded
-
+- analytically_proven
+- long_run_validated
+- finite_step_validated
+- pilot
+- not_run
+- rejected
+- superseded
 rules:
   document_before_experiment: true
   require_code_commit_for_formal_results: true
@@ -43,107 +40,205 @@ rules:
   forbid_synthetic_or_web_reconstructed_base: true
   require_merge_equivalent_pre_delivery_test: true
   preserve_git_executable_modes_in_update_patches: true
-
 experiments:
-  - id: EXT-C-E8-V4
-    environment: EXT-C
-    name: countdown_base_first_transformer_external_validation
-    status: not_run
-    claim: >-
-      Test whether the fixed-negative-advantage near/far remoteness mechanism
-      identified in D-U1 transfers to a shared-parameter Transformer, and whether
-      controlled negative advantages improve held-out structural generalization
-      relative to positive-only and uncontrolled negative updates.
-    role: external_validity
-    does_not_replace:
-      - D-U1
-      - D-Diag
-    code_entrypoint: src/drpo/countdown_qwen_arena_onefile.py
-    primary_model: Qwen Instruct 0.5B
-    initialization:
-      protocol: base_first
-      base_gate:
-        greedy_verifier_success_min: 0.15
-        valid_rate_min: 0.80
-      fallback: minimal_sft_only_if_base_gate_fails
-      sft_gate:
-        greedy_verifier_success_min: 0.15
-    data:
-      task: four-number Countdown arithmetic
-      train_validation_test_split: disjoint_canonical_operator_tree_signatures
-      positive_support: training_structures_only
-      negative_reward: 0
-      fixed_negative_advantage: -1.0
-      near_far_matching:
-        surprisal_gap_min: 0.5
-        token_length_difference_max: 2
-        tree_depth_difference_max: 1
-        value_error_ratio_max: 4.0
-    mechanism_probe:
-      matched_pairs_min: 16
-      default_pairs: 32
-      metrics:
-        - token_surprisal
-        - direct_logit_score_norm
-        - trainable_adapter_gradient_norm
-        - target_surprisal_delta_after_equal_negative_updates
-        - correct_answer_collateral_surprisal_delta
-    methods:
-      - positive_only
-      - controlled_negative
-      - uncontrolled_negative
-    pairing:
-      shared_initial_adapter: true
-      shared_offline_data: true
-      shared_training_seed: true
-      shared_evaluation_seed: true
-    primary_metrics:
-      - greedy_verifier_success
-      - pass_at_k
-      - valid_rate
-      - greedy_unseen_structure_success
-      - pass_at_k_unseen_structure
-    reporting_separation:
-      - task_performance
-      - support_or_structure_coverage
-      - nan_inf_numerical_failure
-    model_scaling:
-      qwen_3b: conditional_replication
-      qwen_7b: optional
-    artifact_budget:
-      main_package_hard_limit_mib: 25
-      single_file_main_limit_mib: 10
-      max_retained_checkpoints_per_method: 2
-      checkpoint_roles:
-        - best
-        - latest
-      save_foundation_model_weights: false
-      save_optimizer_state_by_default: false
-      large_checkpoint_delivery: sidecar
-    formal_run_status: not_run
-    execution:
-      state: registered
-      run_id: null
-      last_heartbeat_utc: null
-      process_exit_code: null
-    evidence:
-      raw_complete: false
-      terminal_audited: false
-      package_created: false
-      package_filename: null
-      package_sha256: null
-      delivered_to_user: false
-      applied_commit: null
-
+- id: EXT-C-E8-V4
+  environment: EXT-C
+  name: countdown_base_first_transformer_external_validation
+  status: superseded
+  claim: Test whether the fixed-negative-advantage near/far remoteness mechanism identified in D-U1 transfers to a shared-parameter Transformer, and whether controlled negative advantages improve held-out structural generalization relative to positive-only and uncontrolled negative updates.
+  role: external_validity
+  does_not_replace:
+  - D-U1
+  - D-Diag
+  code_entrypoint: src/drpo/countdown_qwen_arena_onefile.py
+  primary_model: Qwen Instruct 0.5B
+  initialization: &id001
+    protocol: base_first
+    base_gate:
+      greedy_verifier_success_min: 0.15
+      valid_rate_min: 0.8
+    fallback: minimal_sft_only_if_base_gate_fails
+    sft_gate:
+      greedy_verifier_success_min: 0.15
+  data:
+    task: four-number Countdown arithmetic
+    train_validation_test_split: disjoint_canonical_operator_tree_signatures
+    positive_support: training_structures_only
+    negative_reward: 0
+    fixed_negative_advantage: -1.0
+    near_far_matching:
+      surprisal_gap_min: 0.5
+      token_length_difference_max: 2
+      tree_depth_difference_max: 1
+      value_error_ratio_max: 4.0
+  mechanism_probe: &id002
+    matched_pairs_min: 16
+    default_pairs: 32
+    metrics:
+    - token_surprisal
+    - direct_logit_score_norm
+    - trainable_adapter_gradient_norm
+    - target_surprisal_delta_after_equal_negative_updates
+    - correct_answer_collateral_surprisal_delta
+  methods:
+  - positive_only
+  - controlled_negative
+  - uncontrolled_negative
+  pairing:
+    shared_initial_adapter: true
+    shared_offline_data: true
+    shared_training_seed: true
+    shared_evaluation_seed: true
+  primary_metrics:
+  - greedy_verifier_success
+  - pass_at_k
+  - valid_rate
+  - greedy_unseen_structure_success
+  - pass_at_k_unseen_structure
+  reporting_separation: &id003
+  - task_performance
+  - support_or_structure_coverage
+  - nan_inf_numerical_failure
+  model_scaling:
+    qwen_3b: conditional_replication
+    qwen_7b: optional
+  artifact_budget: &id004
+    main_package_hard_limit_mib: 25
+    single_file_main_limit_mib: 10
+    max_retained_checkpoints_per_method: 2
+    checkpoint_roles:
+    - best
+    - latest
+    save_foundation_model_weights: false
+    save_optimizer_state_by_default: false
+    large_checkpoint_delivery: sidecar
+  formal_run_status: not_run
+  execution:
+    state: registered
+    run_id: null
+    last_heartbeat_utc: null
+    process_exit_code: null
+  evidence:
+    raw_complete: false
+    terminal_audited: false
+    package_created: false
+    package_filename: null
+    package_sha256: null
+    delivered_to_user: false
+    applied_commit: null
+  superseded_by: EXT-C-E8-V4.1
+  preserved_for_provenance: true
+  replacement_reason: V4 allowed unmatched pairs in method training, retained only best adapters, used a weaker structural split, and lacked a calibrated equal-budget global control.
+- id: EXT-C-E8-V4.1
+  environment: EXT-C
+  name: countdown_audited_base_first_transformer_external_validation
+  status: not_run
+  claim: Test whether the fixed-negative-advantage near/far remoteness mechanism identified in D-U1 transfers to a shared-parameter Transformer, and whether selective far-negative control improves held-out canonical pattern-family generalization beyond positive-only, uncontrolled negative updates, and an equal-budget global control.
+  role: external_validity
+  does_not_replace:
+  - D-U1
+  - D-Diag
+  code_entrypoint: src/drpo/countdown_qwen_arena_onefile.py
+  primary_model: Qwen Instruct 0.5B
+  initialization: *id001
+  parameterization:
+    pilot: bf16_lora
+    shared_across_methods: true
+    qlora: engineering_smoke_only
+    full_finetune_confirmation:
+      model: Qwen Instruct 0.5B
+      gate: only_after_lora_pilot_signal
+      status: not_run
+  data:
+    task: four-number Countdown arithmetic
+    terminology: held_out_canonical_pattern_family_generalization
+    not_claimed:
+    - state_distribution_ood
+    - latent_subtree_skill_causality
+    generation: canonical_pattern_first_capacity_audited_balanced_core
+    canonical_pattern_catalog_size_for_four_numbers: 96
+    validation_test_holdout: disjoint_three_number_pattern_families_and_four_number_derivatives
+    exclude_heldout_families_from:
+    - training_positive_completions
+    - training_negative_completions
+    negative_reward: 0
+    fixed_negative_advantage: -1.0
+    near_far_matching:
+      surprisal_gap_min: 0.5
+      token_length_difference_max: 2
+      tree_depth_difference_max: 1
+      value_error_ratio_max: 4.0
+      resample_rounds_default: 3
+      unresolved_pair_action: drop_example
+      unmatched_pairs_allowed_in_training: false
+  mechanism_probe: *id002
+  methods:
+  - positive_only
+  - controlled_negative
+  - uncontrolled_negative
+  - global_matched
+  global_matched:
+    calibration_split: fixed_training_calibration_subset
+    matching_target: rms_negative_gradient_norm_of_controlled_negative
+    gamma_frozen_before_method_training: true
+    reads_near_far_identity: false
+    test_data_used_for_calibration: false
+  pairing:
+    shared_initial_adapter: true
+    shared_offline_data: true
+    shared_training_seed: true
+    shared_evaluation_seed: true
+    shared_bf16_lora_configuration: true
+  checkpoint_policy:
+    binary_storage: server_local_or_external_persistent_storage_only
+    commit_model_binaries_to_git: false
+    normal_completion:
+    - best_adapter
+    - terminal_adapter
+    nonfinite_failure:
+    - best_adapter
+    - last_finite_adapter
+    maximum_retained_per_method: 2
+    repository_records:
+    - checkpoint_manifest
+    - path
+    - step
+    - size_bytes
+    - sha256
+  primary_metrics:
+  - greedy_verifier_success
+  - pass_at_k
+  - valid_rate
+  - heldout_pattern_family_coverage
+  - heldout_pattern_family_precision
+  - correct_heldout_patterns
+  reporting_separation: *id003
+  model_scaling:
+    qwen_3b: conditional_replication_after_v4_1
+    qwen_7b: optional
+  artifact_budget: *id004
+  formal_run_status: not_run
+  execution:
+    state: registered
+    run_id: null
+    last_heartbeat_utc: null
+    process_exit_code: null
+  evidence:
+    raw_complete: false
+    terminal_audited: false
+    package_created: false
+    package_filename: null
+    package_sha256: null
+    delivered_to_user: false
+    applied_commit: null
 allowed_execution_states:
-  - registered
-  - running
-  - raw_complete
-  - terminal_audited
-  - packaged
-  - delivered
-  - applied_to_repository
-
+- registered
+- running
+- raw_complete
+- terminal_audited
+- packaged
+- delivered
+- applied_to_repository
 artifact_protocol:
   governance_id: GOV-EXP-ARTIFACT-01
   hardening_governance_id: GOV-EXP-ARTIFACT-02
@@ -175,42 +270,34 @@ artifact_protocol:
     forbid_web_snippet_or_manual_base_reconstruction: true
     run_merge_equivalent_apply_path: true
   commit_resolution_priority:
-    - git_ls_remote_origin_main
-    - local_git_rev_parse_head
-    - explicit_expected_full_sha
+  - git_ls_remote_origin_main
+  - local_git_rev_parse_head
+  - explicit_expected_full_sha
   completion_requires:
-    - terminal_audited
-    - packaged
-    - delivered
+  - terminal_audited
+  - packaged
+  - delivered
   repository_closure_requires: applied_to_repository
   required_update_files:
-    - update.patch
-    - BASE_COMMIT.txt
-    - CHANGE_SUMMARY.md
-    - TEST_COMMANDS.sh
-    - modified_files/
+  - update.patch
+  - BASE_COMMIT.txt
+  - CHANGE_SUMMARY.md
+  - TEST_COMMANDS.sh
+  - modified_files/
   required_final_result_files:
-    - RUN_COMPLETE.json
-    - TERMINAL_AUDIT.json_or_terminal_audit.json
-    - run_manifest.json
-    - SHA256SUMS.txt
-
+  - RUN_COMPLETE.json
+  - TERMINAL_AUDIT.json_or_terminal_audit.json
+  - run_manifest.json
+  - SHA256SUMS.txt
 governance_changes:
-  - id: GOV-EXP-ARTIFACT-01
-    status: active
-    effective_date: '2026-06-25'
-    purpose: >-
-      Prevent loss of formal experiment outputs in ephemeral runtimes and
-      require durable delivery before completion claims.
-    incident_note: >-
-      A temporary C-U1 E3/E4 run produced ephemeral files but no durable
-      artifact; the run cannot be used as new formal evidence.
-  - id: GOV-EXP-ARTIFACT-02
-    status: active
-    effective_date: '2026-06-25'
-    supersedes_operational_details_of: GOV-EXP-ARTIFACT-01
-    purpose: >-
-      Bind every formal attempt to an immutable clean commit, verify and publish
-      artifacts atomically, and prevent Countdown-scale checkpoints or symbolic
-      links from inflating the main recovery package.
-    scientific_status_change: false
+- id: GOV-EXP-ARTIFACT-01
+  status: active
+  effective_date: '2026-06-25'
+  purpose: Prevent loss of formal experiment outputs in ephemeral runtimes and require durable delivery before completion claims.
+  incident_note: A temporary C-U1 E3/E4 run produced ephemeral files but no durable artifact; the run cannot be used as new formal evidence.
+- id: GOV-EXP-ARTIFACT-02
+  status: active
+  effective_date: '2026-06-25'
+  supersedes_operational_details_of: GOV-EXP-ARTIFACT-01
+  purpose: Bind every formal attempt to an immutable clean commit, verify and publish artifacts atomically, and prevent Countdown-scale checkpoints or symbolic links from inflating the main recovery package.
+  scientific_status_change: false

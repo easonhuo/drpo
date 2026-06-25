@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""Countdown base-first external-validity arena for local Qwen Instruct models (v4).
+"""Countdown audited base-first external-validity arena for local Qwen Instruct models (v4.1).
 
 One-command run
 ---------------
 python3 src/drpo/countdown_qwen_arena_onefile.py run \
   --model_path /ABS/PATH/TO/QWEN-0.5B-INSTRUCT \
   --work_dir /ABS/PATH/TO/COUNTDOWN_RUN \
-  --gpu 0 --preset auto --memory_mode auto
+  --gpu 0 --preset auto --memory_mode bf16
 
-The v4 protocol first evaluates the untouched base model. If the base checkpoint
+The v4.1 protocol first evaluates the untouched base model. If the base checkpoint
 passes the registered verifier/format gate, all compared methods start from one
 shared untrained LoRA adapter and no Countdown SFT is performed. A minimal SFT
 fallback is used only when the base gate fails.
@@ -16,8 +16,11 @@ fallback is used only when the base gate fails.
 The run has two responsibilities:
   1. a fixed-negative-advantage near/far mechanism probe on matched legal wrong
      expressions;
-  2. a minimal effect comparison: positive-only, controlled-negative, and
-     uncontrolled-negative, all paired by data, initialization, and seed.
+  2. a paired effect comparison: positive-only, controlled-negative,
+     uncontrolled-negative, and a calibrated global-matched control.
+
+All pilot methods use the same BF16 LoRA parameterization. Model/adaptor binaries
+remain server-local; only manifests, metrics, and hashes belong in artifacts.
 
 Countdown is external validity for the D-U1 categorical theory. It does not
 replace D-U1 causal identification. Static checks and CPU self-tests are not
@@ -38,9 +41,11 @@ import hashlib
 import shutil
 import subprocess
 import sys
-from collections import Counter
-from dataclasses import dataclass
+from collections import Counter, defaultdict
+from dataclasses import dataclass, field
 from fractions import Fraction
+from itertools import product
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
@@ -80,7 +85,7 @@ SYSTEM_PROMPT = (
     "expression. Do not include explanations."
 )
 
-VERSION = "4.0.0-base-first"
+VERSION = "4.1.0-audited-pilot"
 
 
 def read_model_metadata(model_path: str) -> dict[str, Any]:
@@ -284,33 +289,142 @@ _AST_OP = {
 }
 
 
-def _structure_from_ast(node: ast.AST) -> str:
-    if isinstance(node, ast.Expression):
-        return _structure_from_ast(node.body)
-    if isinstance(node, ast.Constant) and isinstance(node.value, int) and not isinstance(node.value, bool):
-        return "N"
-    if isinstance(node, ast.BinOp) and type(node.op) in _AST_OP:
-        left = _structure_from_ast(node.left)
-        right = _structure_from_ast(node.right)
-        op = _AST_OP[type(node.op)]
-        if op in {"+", "*"} and right < left:
-            left, right = right, left
-        return f"({op} {left} {right})"
-    raise ValueError(f"unsupported structure node: {type(node).__name__}")
+@dataclass
+class _PatternNode:
+    """Park-style generic signed arithmetic tree used only for structural audits."""
+
+    op: str
+    children: list["_PatternNode"] = field(default_factory=list)
+    sign: str = "+"
+    weight: int = 1
+
+    def __post_init__(self) -> None:
+        self.weight = 1 if not self.children else sum(child.weight for child in self.children)
+
+
+def _flip_sign(sign: str) -> str:
+    return "-" if sign == "+" else "+"
+
+
+def _pattern_tree_from_ast(node: ast.AST, symbols: Iterable[str] | None = None) -> _PatternNode:
+    symbol_iter = iter(symbols or (chr(ord("A") + i) for i in range(26)))
+
+    def convert(current: ast.AST) -> _PatternNode:
+        if isinstance(current, ast.Expression):
+            return convert(current.body)
+        if isinstance(current, (ast.Constant, ast.Name)):
+            if isinstance(current, ast.Constant):
+                if isinstance(current.value, bool) or not isinstance(current.value, int):
+                    raise ValueError("only integer leaves are supported")
+            return _PatternNode(next(symbol_iter))
+        if isinstance(current, ast.BinOp) and type(current.op) in _AST_OP:
+            return _PatternNode(
+                _AST_OP[type(current.op)],
+                [convert(current.left), convert(current.right)],
+            )
+        raise ValueError(f"unsupported structure node: {type(current).__name__}")
+
+    return convert(node)
+
+
+def _raw_pattern_shape(node: _PatternNode) -> str:
+    if not node.children:
+        return "L"
+    return node.op + "(" + ",".join(child.sign + _raw_pattern_shape(child) for child in node.children) + ")"
+
+
+def _generic_pattern_tree(node: _PatternNode) -> _PatternNode:
+    """Flatten associative groups and encode subtraction/division as signed children.
+
+    This follows the reproducible canonicalization machinery of Park et al. while
+    deliberately avoiding their stronger claim that every subtree is a latent skill.
+    """
+    if not node.children:
+        return node
+    node.children = [_generic_pattern_tree(child) for child in node.children]
+    if node.op in {"-", "/"}:
+        node.children[1].sign = _flip_sign(node.children[1].sign)
+    if node.op in {"+", "-"}:
+        merged: list[_PatternNode] = []
+        for child in node.children:
+            if child.op in {"+", "-"}:
+                for grandchild in child.children:
+                    if child.sign == "-":
+                        grandchild.sign = _flip_sign(grandchild.sign)
+                    merged.append(grandchild)
+            else:
+                merged.append(child)
+        node.children = merged
+        node.op = "+"
+    elif node.op in {"*", "/"}:
+        merged = []
+        for child in node.children:
+            if child.op in {"*", "/"}:
+                for grandchild in child.children:
+                    if child.sign == "-":
+                        grandchild.sign = _flip_sign(grandchild.sign)
+                    merged.append(grandchild)
+            else:
+                merged.append(child)
+        node.children = merged
+        node.op = "*"
+    node.weight = sum(child.weight for child in node.children)
+    node.children.sort(
+        key=lambda child: (
+            child.sign,
+            -child.weight,
+            -sum(grandchild.sign == "+" for grandchild in child.children),
+            _raw_pattern_shape(child),
+        )
+    )
+    return node
+
+
+def _canonical_pattern_string(tree: _PatternNode) -> str:
+    symbols: dict[str, str] = {}
+
+    def render(node: _PatternNode) -> str:
+        if not node.children:
+            if node.op not in symbols:
+                symbols[node.op] = chr(ord("A") + len(symbols))
+            return symbols[node.op]
+        parts: list[str] = []
+        for index, child in enumerate(node.children):
+            child_text = render(child)
+            if child.children and node.op == "*" and child.op == "+":
+                child_text = f"({child_text})"
+            if index > 0:
+                if child.sign == "-":
+                    parts.append("-" if node.op == "+" else "/")
+                else:
+                    parts.append(node.op)
+            elif child.sign == "-":
+                # The canonical sort places positive children first for all patterns
+                # generated here. Keep this explicit guard for malformed inputs.
+                parts.append("-" if node.op == "+" else "1/")
+            parts.append(child_text)
+        return "".join(parts)
+
+    return render(tree)
 
 
 def expression_structure(text: str) -> str:
-    """Canonical operator-tree signature, ignoring literal values."""
+    """Park-style canonical arithmetic pattern, ignoring literal values.
+
+    Commutative and associative variants of addition/multiplication collapse to
+    one pattern; subtraction and division remain direction-sensitive.
+    """
     expression = clean_expression(text)
     if not expression:
         raise ValueError("empty expression")
-    return _structure_from_ast(ast.parse(expression, mode="eval"))
+    tree = _pattern_tree_from_ast(ast.parse(expression, mode="eval"))
+    return _canonical_pattern_string(_generic_pattern_tree(tree))
 
 
 def _tree_depth(node: ast.AST) -> int:
     if isinstance(node, ast.Expression):
         return _tree_depth(node.body)
-    if isinstance(node, ast.Constant):
+    if isinstance(node, (ast.Constant, ast.Name)):
         return 0
     if isinstance(node, ast.BinOp):
         return 1 + max(_tree_depth(node.left), _tree_depth(node.right))
@@ -327,8 +441,298 @@ def stable_fingerprint(payload: Any) -> str:
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
 
-def _structure_sort_key(signature: str, seed: int) -> str:
-    return hashlib.sha256(f"{seed}:{signature}".encode("utf-8")).hexdigest()
+def source_provenance() -> dict[str, Any]:
+    """Record the exact source file and Git state used by a local run."""
+    source_file = Path(__file__).resolve()
+    result: dict[str, Any] = {
+        "source_file": str(source_file),
+        "source_sha256": hashlib.sha256(source_file.read_bytes()).hexdigest(),
+        "git_commit": None,
+        "git_branch": None,
+        "git_dirty": None,
+    }
+    try:
+        repository = subprocess.check_output(
+            ["git", "-C", str(source_file.parent), "rev-parse", "--show-toplevel"],
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+        result["repository_root"] = str(Path(repository).resolve())
+        result["git_commit"] = subprocess.check_output(
+            ["git", "-C", repository, "rev-parse", "HEAD"], text=True
+        ).strip()
+        result["git_branch"] = subprocess.check_output(
+            ["git", "-C", repository, "rev-parse", "--abbrev-ref", "HEAD"], text=True
+        ).strip()
+        status = subprocess.check_output(
+            ["git", "-C", repository, "status", "--porcelain"], text=True
+        )
+        result["git_dirty"] = bool(status.strip())
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        pass
+    return result
+
+
+_PATTERN_SHAPES: dict[int, tuple[str, ...]] = {
+    3: ("(A{0}B){1}C", "A{0}(B{1}C)"),
+    4: (
+        "A{0}(B{1}(C{2}D))",
+        "A{0}((B{2}C){1}D)",
+        "(A{1}B){0}(C{2}D)",
+        "(A{1}(B{2}C)){0}D",
+        "((A{2}B){1}C){0}D",
+    ),
+}
+
+
+def _all_raw_patterns(n_numbers: int) -> list[str]:
+    if n_numbers not in _PATTERN_SHAPES:
+        raise ValueError("Park-style structural protocol currently supports 3 or 4 numbers")
+    return [
+        shape.format(*ops)
+        for shape in _PATTERN_SHAPES[n_numbers]
+        for ops in product(OPS, repeat=n_numbers - 1)
+    ]
+
+
+def canonical_pattern_catalog(n_numbers: int = 4) -> dict[str, str]:
+    """Map each canonical pattern to one deterministic executable template."""
+    catalog: dict[str, str] = {}
+    for raw in _all_raw_patterns(n_numbers):
+        canonical = expression_structure(raw)
+        catalog.setdefault(canonical, raw)
+    return dict(sorted(catalog.items()))
+
+
+def _canonical_subpatterns(raw_pattern: str, subtree_size: int) -> set[str]:
+    root = ast.parse(raw_pattern, mode="eval").body
+    found: set[str] = set()
+
+    def leaf_count(node: ast.AST) -> int:
+        if isinstance(node, ast.Name):
+            return 1
+        if isinstance(node, ast.BinOp):
+            return leaf_count(node.left) + leaf_count(node.right)
+        raise ValueError(type(node).__name__)
+
+    def render(node: ast.AST) -> str:
+        if isinstance(node, ast.Name):
+            return node.id
+        if isinstance(node, ast.BinOp) and type(node.op) in _AST_OP:
+            return f"({render(node.left)} {_AST_OP[type(node.op)]} {render(node.right)})"
+        raise ValueError(type(node).__name__)
+
+    def visit(node: ast.AST) -> None:
+        if leaf_count(node) == subtree_size:
+            found.add(expression_structure(render(node)))
+        if isinstance(node, ast.BinOp):
+            visit(node.left)
+            visit(node.right)
+
+    visit(root)
+    return found
+
+
+def pattern_family_catalog() -> tuple[dict[str, str], dict[str, set[str]]]:
+    """Return four-number templates and Park-style three-number derivative families."""
+    templates: dict[str, str] = {}
+    families: dict[str, set[str]] = defaultdict(set)
+    for raw in _all_raw_patterns(4):
+        canonical = expression_structure(raw)
+        templates.setdefault(canonical, raw)
+        for family_seed in _canonical_subpatterns(raw, 3):
+            families[family_seed].add(canonical)
+    return dict(sorted(templates.items())), {k: set(v) for k, v in sorted(families.items())}
+
+
+def choose_disjoint_holdout_families(
+    seed: int,
+    val_count: int = 0,
+    test_count: int = 0,
+) -> tuple[str, str, set[str], set[str]]:
+    templates, families = pattern_family_catalog()
+    capacities = {
+        pattern: len(_feasible_pattern_instances(pattern, template))
+        for pattern, template in templates.items()
+    }
+    candidates: list[tuple[str, str]] = []
+    keys = sorted(families)
+    for index, left in enumerate(keys):
+        left_patterns = {pattern for pattern in families[left] if capacities[pattern] > 0}
+        if not left_patterns:
+            continue
+        for right in keys[index + 1 :]:
+            right_patterns = {pattern for pattern in families[right] if capacities[pattern] > 0}
+            if not right_patterns or not left_patterns.isdisjoint(right_patterns):
+                continue
+            left_capacity = sum(capacities[pattern] for pattern in left_patterns)
+            right_capacity = sum(capacities[pattern] for pattern in right_patterns)
+            # Either orientation may be used. Keep only pairs with enough headroom
+            # for the requested held-out splits under the frozen 1..9 task range.
+            if (
+                left_capacity >= max(val_count, 1)
+                and right_capacity >= max(test_count, 1)
+            ) or (
+                right_capacity >= max(val_count, 1)
+                and left_capacity >= max(test_count, 1)
+            ):
+                candidates.append((left, right))
+    if not candidates:
+        raise RuntimeError("No disjoint held-out pattern families have enough feasible puzzles")
+    candidates.sort(key=lambda pair: stable_fingerprint({"seed": seed, "pair": pair}))
+    left, right = candidates[0]
+    left_patterns = {pattern for pattern in families[left] if capacities[pattern] > 0}
+    right_patterns = {pattern for pattern in families[right] if capacities[pattern] > 0}
+    left_capacity = sum(capacities[pattern] for pattern in left_patterns)
+    right_capacity = sum(capacities[pattern] for pattern in right_patterns)
+    if left_capacity >= max(val_count, 1) and right_capacity >= max(test_count, 1):
+        return left, right, left_patterns, right_patterns
+    return right, left, right_patterns, left_patterns
+
+
+def _instantiate_pattern(template: str, numbers: Sequence[int]) -> str:
+    result = template
+    for index, number in enumerate(numbers):
+        result = result.replace(chr(ord("A") + index), str(int(number)))
+    return result
+
+
+@lru_cache(maxsize=None)
+def _feasible_pattern_instances(
+    canonical_pattern: str,
+    template: str,
+) -> tuple[tuple[tuple[tuple[int, ...], int], tuple[int, ...]], ...]:
+    """Enumerate feasible 1..9 instances once for balanced pattern-first sampling."""
+    del canonical_pattern  # Included in the cache key and for call-site clarity.
+    code = compile(template, "<countdown-pattern>", "eval")
+    unique: dict[tuple[tuple[int, ...], int], tuple[int, ...]] = {}
+    for numbers in product(range(1, 10), repeat=4):
+        env = {chr(ord("A") + index): Fraction(number) for index, number in enumerate(numbers)}
+        try:
+            value = eval(code, {"__builtins__": {}}, env)  # noqa: S307 - fixed internal templates only
+        except ZeroDivisionError:
+            continue
+        if not isinstance(value, Fraction) or value.denominator != 1:
+            continue
+        target = int(value)
+        if not (5 <= target <= 100):
+            continue
+        key = (tuple(sorted(numbers)), target)
+        unique.setdefault(key, tuple(int(number) for number in numbers))
+    return tuple(sorted(unique.items()))
+
+
+def _select_capacity_balanced_patterns(
+    patterns: Sequence[str],
+    count: int,
+    templates: dict[str, str],
+    seed: int,
+    min_patterns: int,
+    forbidden_keys: set[tuple[tuple[int, ...], int]] | None = None,
+) -> list[str]:
+    """Choose the largest capacity-supported core with near-equal target quotas.
+
+    Park et al. generate thousands of rows per pattern with numbers sampled from
+    1..99. This project keeps the previously registered 1..9 number range, where
+    several canonical patterns have only a handful of unique feasible prompts.
+    Rather than claim balance while silently exhausting those patterns, select a
+    deterministic capacity-supported subset and report the excluded patterns.
+    """
+    forbidden = forbidden_keys or set()
+
+    def available_capacity(pattern: str) -> int:
+        return sum(
+            key not in forbidden
+            for key, _ in _feasible_pattern_instances(pattern, templates[pattern])
+        )
+
+    ranked = sorted(
+        patterns,
+        key=lambda pattern: (
+            -available_capacity(pattern),
+            stable_fingerprint({"seed": seed, "pattern": pattern}),
+        ),
+    )
+    maximum = min(len(ranked), max(count, 1))
+    for n_patterns in range(maximum, min_patterns - 1, -1):
+        quota_high = math.ceil(count / n_patterns)
+        selected = ranked[:n_patterns]
+        if all(available_capacity(pattern) >= quota_high for pattern in selected):
+            return sorted(selected)
+    raise RuntimeError(
+        f"No capacity-supported balanced pattern subset for count={count}, "
+        f"min_patterns={min_patterns}"
+    )
+
+
+def _allocate_balanced_pattern_rows(
+    split: str,
+    count: int,
+    patterns: Sequence[str],
+    templates: dict[str, str],
+    seed: int,
+    forbidden_keys: set[tuple[tuple[int, ...], int]],
+    family_seed: str | None,
+    allow_cross_pattern_key_reuse: bool,
+) -> tuple[list[dict[str, Any]], Counter[str], set[tuple[tuple[int, ...], int]]]:
+    rng = random.Random(seed)
+    pools: dict[str, list[tuple[tuple[tuple[int, ...], int], tuple[int, ...]]]] = {}
+    for pattern in patterns:
+        pool = list(_feasible_pattern_instances(pattern, templates[pattern]))
+        rng.shuffle(pool)
+        pools[pattern] = pool
+    cursors = {pattern: 0 for pattern in patterns}
+    counts: Counter[str] = Counter()
+    rows: list[dict[str, Any]] = []
+    split_keys: set[tuple[tuple[int, ...], int]] = set()
+    active = set(patterns)
+    while len(rows) < count:
+        if not active:
+            raise RuntimeError(f"Insufficient feasible puzzles for {split}: {len(rows)}/{count}")
+        pattern = min(
+            active,
+            key=lambda item: (
+                counts[item],
+                stable_fingerprint({"seed": seed, "split": split, "pattern": item}),
+            ),
+        )
+        pool = pools[pattern]
+        cursor = cursors[pattern]
+        selected: tuple[tuple[tuple[int, ...], int], tuple[int, ...]] | None = None
+        while cursor < len(pool):
+            candidate = pool[cursor]
+            cursor += 1
+            key = candidate[0]
+            if key in forbidden_keys:
+                continue
+            if not allow_cross_pattern_key_reuse and key in split_keys:
+                continue
+            selected = candidate
+            break
+        cursors[pattern] = cursor
+        if selected is None:
+            active.remove(pattern)
+            continue
+        key, number_tuple = selected
+        numbers = list(number_tuple)
+        target = int(key[1])
+        expression = _instantiate_pattern(templates[pattern], numbers)
+        check = verify_expression(expression, numbers, target)
+        if not check["correct"] or expression_structure(expression) != pattern:
+            raise AssertionError(f"Internal pattern instance failed validation: {pattern}")
+        split_keys.add(key)
+        counts[pattern] += 1
+        rows.append({
+            "id": f"cd_{seed}_{split}_{len(rows):07d}",
+            "numbers": numbers,
+            "target": target,
+            "prompt": make_prompt(numbers, target),
+            "oracle": expression,
+            "oracle_structure": pattern,
+            "heldout_family_seed": family_seed,
+            "split": split,
+        })
+    return rows, counts, split_keys
 
 
 def generate_structural_splits(
@@ -338,79 +742,129 @@ def generate_structural_splits(
     seed: int,
     n_numbers: int = 4,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], dict[str, Any]]:
-    """Generate splits whose oracle structure is deterministically assigned once."""
-    requested = {"train": train_count, "val": val_count, "test": test_count}
-    rows: dict[str, list[dict[str, Any]]] = {"train": [], "val": [], "test": []}
-    total = train_count + val_count + test_count
-    train_cut = train_count / total
-    val_cut = (train_count + val_count) / total
-    rng = np.random.default_rng(seed)
-    seen: set[tuple[tuple[int, ...], int]] = set()
-    attempts = 0
-    max_attempts = total * 800
+    """Pattern-first generation with disjoint held-out derivative families.
 
-    def split_for(signature: str) -> str:
-        digest = int(_structure_sort_key(signature, seed), 16)
-        value = digest / float(2**256 - 1)
-        if value < train_cut:
-            return "train"
-        if value < val_cut:
-            return "val"
-        return "test"
+    The structural machinery is Park-inspired. Because this project's frozen
+    task range is much narrower (numbers 1..9 rather than 1..99), the generator
+    uses deterministic capacity-supported pattern cores so each represented
+    pattern receives an equal or near-equal quota. Training may reuse one prompt
+    across distinct oracle patterns, as the reference implementation does across
+    per-pattern files; prompt keys remain strictly disjoint across splits.
+    """
+    if n_numbers != 4:
+        raise ValueError("The registered EXT-C/E8 protocol is frozen to four-number Countdown")
+    templates, _ = pattern_family_catalog()
+    val_family_seed, test_family_seed, val_family_patterns, test_family_patterns = (
+        choose_disjoint_holdout_families(seed, val_count=val_count, test_count=test_count)
+    )
+    all_patterns = set(templates)
+    feasible_patterns = {
+        pattern
+        for pattern, template in templates.items()
+        if _feasible_pattern_instances(pattern, template)
+    }
+    train_candidates = feasible_patterns - val_family_patterns - test_family_patterns
+    if not train_candidates or not val_family_patterns or not test_family_patterns:
+        raise RuntimeError("Invalid pattern-family partition")
 
-    while any(len(rows[name]) < count for name, count in requested.items()):
-        attempts += 1
-        if attempts > max_attempts:
-            counts = {name: len(value) for name, value in rows.items()}
-            raise RuntimeError(f"Could not fill structural splits: {counts}")
-        numbers = rng.integers(1, 10, size=n_numbers).tolist()
-        expression, value = random_expression(rng, numbers.copy())
-        if value.denominator != 1:
-            continue
-        target = int(value)
-        if not (5 <= target <= 100):
-            continue
-        key = (tuple(sorted(numbers)), target)
-        if key in seen:
-            continue
-        check = verify_expression(expression, numbers, target)
-        if not check["correct"]:
-            continue
-        signature = expression_structure(expression)
-        split = split_for(signature)
-        # Reserve the numerical problem globally even when its structure bucket is full.
-        seen.add(key)
-        if len(rows[split]) >= requested[split]:
-            continue
-        rows[split].append({
-            "id": f"cd_{seed}_{split}_{len(rows[split]):07d}",
-            "numbers": numbers,
-            "target": target,
-            "prompt": make_prompt(numbers, target),
-            "oracle": expression,
-            "oracle_structure": signature,
-            "split": split,
-        })
+    val_patterns = set(_select_capacity_balanced_patterns(
+        sorted(val_family_patterns), val_count, templates, seed + 202, min_patterns=3
+    ))
+    test_patterns = set(_select_capacity_balanced_patterns(
+        sorted(test_family_patterns), test_count, templates, seed + 303, min_patterns=3
+    ))
+    forbidden: set[tuple[tuple[int, ...], int]] = set()
+    val_rows, val_counts, val_keys = _allocate_balanced_pattern_rows(
+        "val", val_count, sorted(val_patterns), templates, seed + 202,
+        forbidden, val_family_seed, allow_cross_pattern_key_reuse=False,
+    )
+    forbidden.update(val_keys)
+    test_rows, test_counts, test_keys = _allocate_balanced_pattern_rows(
+        "test", test_count, sorted(test_patterns), templates, seed + 303,
+        forbidden, test_family_seed, allow_cross_pattern_key_reuse=False,
+    )
+    forbidden.update(test_keys)
+    train_patterns = set(_select_capacity_balanced_patterns(
+        sorted(train_candidates), train_count, templates, seed + 101,
+        min_patterns=16, forbidden_keys=forbidden,
+    ))
+    train_rows, train_counts, train_keys = _allocate_balanced_pattern_rows(
+        "train", train_count, sorted(train_patterns), templates, seed + 101,
+        forbidden, None, allow_cross_pattern_key_reuse=True,
+    )
 
-    train_set = {r["oracle_structure"] for r in rows["train"]}
-    val_set = {r["oracle_structure"] for r in rows["val"]}
-    test_set = {r["oracle_structure"] for r in rows["test"]}
+    train_set = {row["oracle_structure"] for row in train_rows}
+    val_set = {row["oracle_structure"] for row in val_rows}
+    test_set = {row["oracle_structure"] for row in test_rows}
     if train_set & val_set or train_set & test_set or val_set & test_set:
-        raise AssertionError("structural split overlap")
+        raise AssertionError("canonical pattern split overlap")
+    if train_keys & val_keys or train_keys & test_keys or val_keys & test_keys:
+        raise AssertionError("problem-key leakage across splits")
+
+    def balance_summary(counts: Counter[str]) -> dict[str, Any]:
+        values = list(counts.values())
+        return {
+            "represented_patterns": len(values),
+            "minimum": min(values) if values else 0,
+            "maximum": max(values) if values else 0,
+            "max_minus_min": (max(values) - min(values)) if values else 0,
+        }
+
     manifest = {
+        "protocol": "park_inspired_pattern_first_family_holdout_capacity_audited",
+        "terminology": "held-out canonical pattern-family generalization",
+        "numeric_range": {"numbers_inclusive": [1, 9], "integer_target_inclusive": [5, 100]},
         "seed": seed,
         "n_numbers": n_numbers,
-        "train_examples": len(rows["train"]),
-        "val_examples": len(rows["val"]),
-        "test_examples": len(rows["test"]),
-        "train_structures": len(train_set),
-        "val_structures": len(val_set),
-        "test_structures": len(test_set),
+        "train_examples": len(train_rows),
+        "val_examples": len(val_rows),
+        "test_examples": len(test_rows),
+        "canonical_patterns_total": len(all_patterns),
+        "feasible_patterns_under_numeric_range": len(feasible_patterns),
+        "train_candidate_patterns": sorted(train_candidates),
+        "train_patterns": sorted(train_patterns),
+        "val_holdout_family_patterns": sorted(val_family_patterns),
+        "test_holdout_family_patterns": sorted(test_family_patterns),
+        "val_patterns": sorted(val_patterns),
+        "test_patterns": sorted(test_patterns),
+        "val_family_seed": val_family_seed,
+        "test_family_seed": test_family_seed,
         "structure_sets_disjoint": True,
         "problem_keys_disjoint": True,
-        "generation_attempts": attempts,
+        "cross_split_problem_keys_disjoint": True,
+        "within_split_unique_problem_keys": {
+            "train": len(train_keys) == len(train_rows),
+            "val": len(val_keys) == len(val_rows),
+            "test": len(test_keys) == len(test_rows),
+        },
+        "training_cross_pattern_prompt_reuse": len(train_keys) < len(train_rows),
+        "negative_training_allowed_patterns": sorted(train_patterns),
+        "per_pattern_counts": {
+            "train": dict(sorted(train_counts.items())),
+            "val": dict(sorted(val_counts.items())),
+            "test": dict(sorted(test_counts.items())),
+        },
+        "balance_summary": {
+            "train": balance_summary(train_counts),
+            "val": balance_summary(val_counts),
+            "test": balance_summary(test_counts),
+        },
+        "capacity_audit": {
+            "reason": (
+                "The frozen 1..9 number range cannot support equal quotas for all 96 "
+                "canonical patterns; deterministic capacity-supported cores are used."
+            ),
+            "excluded_feasible_train_patterns": sorted(train_candidates - train_patterns),
+            "excluded_val_family_patterns": sorted(val_family_patterns - val_patterns),
+            "excluded_test_family_patterns": sorted(test_family_patterns - test_patterns),
+        },
+        "review_safety_note": (
+            "Uses canonicalization, pattern-first capacity-audited balancing, and family "
+            "holdout only; does not treat a subtree as proof of a latent skill or call "
+            "the split OOD."
+        ),
     }
-    return rows["train"], rows["val"], rows["test"], manifest
+    return train_rows, val_rows, test_rows, manifest
 
 def random_expression(rng: np.random.Generator, numbers: list[int]) -> tuple[str, Fraction]:
     pool: list[tuple[str, Fraction]] = [(str(n), Fraction(n, 1)) for n in numbers]
@@ -758,48 +1212,74 @@ def evaluate_rows(
     greedy_unseen_successes: list[float] = []
     pass_unseen_successes: list[float] = []
     observed_correct_structures: set[str] = set()
-    for start in range(0, len(rows), batch_size):
-        chunk = rows[start : start + batch_size]
-        prompts = [r["prompt"] for r in chunk]
+    target_structures = {
+        row.get("oracle_structure") or expression_structure(row["oracle"])
+        for row in rows
+    }
+    heldout_targets = (
+        target_structures - known_structures if known_structures is not None else set()
+    )
+    heldout_pattern_attempts = 0
+    heldout_pattern_correct = 0
+
+    for start_index in range(0, len(rows), batch_size):
+        chunk = rows[start_index : start_index + batch_size]
+        prompts = [row["prompt"] for row in chunk]
         greedy = generate_outputs(
             model, tokenizer, prompts, max_new_tokens, False, 1.0, 1.0, 1
         )
-        if pass_k > 1:
-            samples = generate_outputs(
+        samples = (
+            generate_outputs(
                 model, tokenizer, prompts, max_new_tokens, True, 0.8, 0.95, pass_k
             )
-        else:
-            samples = greedy
-        for row, gout, souts in zip(chunk, greedy, samples):
-            g = verify_expression(gout[0], row["numbers"], row["target"])
-            successes.append(float(g["correct"]))
-            valid.append(float(g["valid_format"] and g["uses_numbers"]))
+            if pass_k > 1
+            else greedy
+        )
+        for row, greedy_outputs, sampled_outputs in zip(chunk, greedy, samples):
+            greedy_check = verify_expression(
+                greedy_outputs[0], row["numbers"], row["target"]
+            )
+            successes.append(float(greedy_check["correct"]))
+            valid.append(float(greedy_check["valid_format"] and greedy_check["uses_numbers"]))
             greedy_unseen = False
-            if g["correct"]:
+            if greedy_check["valid_format"] and greedy_check["uses_numbers"]:
                 try:
-                    signature = expression_structure(g["expression"])
-                    observed_correct_structures.add(signature)
-                    greedy_unseen = known_structures is not None and signature not in known_structures
+                    pattern = expression_structure(greedy_check["expression"])
+                    if pattern in heldout_targets:
+                        heldout_pattern_attempts += 1
+                        heldout_pattern_correct += int(greedy_check["correct"])
+                    if greedy_check["correct"]:
+                        observed_correct_structures.add(pattern)
+                        greedy_unseen = (
+                            known_structures is not None and pattern not in known_structures
+                        )
                 except Exception:
-                    greedy_unseen = False
+                    pass
             greedy_unseen_successes.append(float(greedy_unseen))
 
             any_correct = False
             any_unseen_correct = False
-            for text in souts:
-                check = verify_expression(text, row["numbers"], row["target"])
+            for output_text in sampled_outputs:
+                check = verify_expression(output_text, row["numbers"], row["target"])
+                if not (check["valid_format"] and check["uses_numbers"]):
+                    continue
+                try:
+                    pattern = expression_structure(check["expression"])
+                except Exception:
+                    continue
+                if pattern in heldout_targets:
+                    heldout_pattern_attempts += 1
+                    heldout_pattern_correct += int(check["correct"])
                 if not check["correct"]:
                     continue
                 any_correct = True
-                try:
-                    signature = expression_structure(check["expression"])
-                    observed_correct_structures.add(signature)
-                    if known_structures is not None and signature not in known_structures:
-                        any_unseen_correct = True
-                except Exception:
-                    pass
+                observed_correct_structures.add(pattern)
+                if known_structures is not None and pattern not in known_structures:
+                    any_unseen_correct = True
             sampled_successes.append(float(any_correct))
             pass_unseen_successes.append(float(any_unseen_correct))
+
+    heldout_correct_patterns = observed_correct_structures & heldout_targets
     metrics = {
         "greedy_success": float(np.mean(successes)),
         "pass_at_k": float(np.mean(sampled_successes)),
@@ -807,11 +1287,113 @@ def evaluate_rows(
         "greedy_unseen_structure_success": float(np.mean(greedy_unseen_successes)),
         "pass_at_k_unseen_structure": float(np.mean(pass_unseen_successes)),
         "unique_correct_structures": float(len(observed_correct_structures)),
+        "heldout_pattern_coverage": (
+            float(len(heldout_correct_patterns) / len(heldout_targets))
+            if heldout_targets else 0.0
+        ),
+        "heldout_pattern_precision": (
+            float(heldout_pattern_correct / heldout_pattern_attempts)
+            if heldout_pattern_attempts else 0.0
+        ),
+        "heldout_pattern_attempts": float(heldout_pattern_attempts),
+        "heldout_patterns_observed_correct": float(len(heldout_correct_patterns)),
+        "heldout_patterns_total": float(len(heldout_targets)),
         "n_eval": float(len(rows)),
     }
     if was_training:
         model.train()
     return metrics
+
+
+def _existing_ancestor(path: Path) -> Path:
+    current = path.resolve()
+    while not current.exists() and current.parent != current:
+        current = current.parent
+    return current
+
+
+def ensure_checkpoint_output_is_local_or_ignored(path: str | Path) -> None:
+    """Prevent accidental Git tracking of adapters while allowing external paths."""
+    target = Path(path).expanduser().resolve()
+    ancestor = _existing_ancestor(target)
+    try:
+        root = Path(subprocess.check_output(
+            ["git", "-C", str(ancestor), "rev-parse", "--show-toplevel"],
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()).resolve()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return
+    try:
+        relative = target.relative_to(root)
+    except ValueError:
+        return
+    check = subprocess.run(
+        ["git", "-C", str(root), "check-ignore", "--quiet", str(relative)],
+        check=False,
+    )
+    if check.returncode != 0:
+        raise RuntimeError(
+            f"Checkpoint output {target} is inside the Git repository but is not ignored. "
+            "Use an external server-local work_dir or an ignored outputs/runs path."
+        )
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def checkpoint_inventory(path: str | Path, kind: str, step: int) -> dict[str, Any]:
+    root = Path(path).resolve()
+    files = []
+    for item in sorted(root.rglob("*")):
+        if item.is_file():
+            files.append({
+                "relative_path": str(item.relative_to(root)),
+                "size_bytes": item.stat().st_size,
+                "sha256": _sha256_file(item),
+            })
+    adapter_config_path = root / "adapter_config.json"
+    adapter_config = (
+        json.loads(adapter_config_path.read_text())
+        if adapter_config_path.exists()
+        else None
+    )
+    return {
+        "kind": kind,
+        "step": int(step),
+        "local_only": True,
+        "path": str(root),
+        "adapter_config": adapter_config,
+        "files": files,
+        "total_size_bytes": sum(item["size_bytes"] for item in files),
+    }
+
+
+def save_local_adapter_checkpoint(
+    model: Any,
+    tokenizer: Any,
+    path: str | Path,
+    kind: str,
+    step: int,
+) -> dict[str, Any]:
+    destination = Path(path)
+    ensure_checkpoint_output_is_local_or_ignored(destination)
+    if destination.exists():
+        shutil.rmtree(destination)
+    destination.mkdir(parents=True, exist_ok=True)
+    model.save_pretrained(destination)
+    tokenizer.save_pretrained(destination)
+    return checkpoint_inventory(destination, kind, step)
+
+
+def _trainable_parameters_finite(parameters: Sequence[torch.nn.Parameter]) -> bool:
+    return all(bool(torch.isfinite(parameter.detach()).all()) for parameter in parameters)
+
 
 def cmd_generate(args: argparse.Namespace) -> None:
     train_rows, val_rows, test_rows, manifest = generate_structural_splits(
@@ -827,7 +1409,7 @@ def cmd_generate(args: argparse.Namespace) -> None:
 
 
 def cmd_sft(args: argparse.Namespace) -> None:
-    """LoRA/QLoRA SFT with fixed-seed validation and best-epoch checkpointing."""
+    """Minimal LoRA SFT fallback with local best/terminal/last-finite audit."""
     seed_all(args.seed)
     tokenizer = load_tokenizer(args.model_path)
     rows = read_jsonl(args.train_data)
@@ -850,7 +1432,7 @@ def cmd_sft(args: argparse.Namespace) -> None:
         gradient_checkpointing=True,
     )
     device = next(model.parameters()).device
-    trainable = [p for p in model.parameters() if p.requires_grad]
+    trainable = [parameter for parameter in model.parameters() if parameter.requires_grad]
     optimizer = torch.optim.AdamW(trainable, lr=args.lr, weight_decay=0.01)
     updates_per_epoch = math.ceil(len(loader) / args.grad_accum)
     total_updates = max(1, updates_per_epoch * args.epochs)
@@ -858,79 +1440,134 @@ def cmd_sft(args: argparse.Namespace) -> None:
         optimizer, max(1, int(total_updates * args.warmup_ratio)), total_updates
     )
     out_dir = Path(args.output_dir)
+    ensure_checkpoint_output_is_local_or_ignored(out_dir)
     best_dir = out_dir / "best_adapter"
+    terminal_dir = out_dir / "terminal_adapter"
+    rolling_dir = out_dir / ".last_finite_adapter_work"
+    last_finite_dir = out_dir / "last_finite_adapter"
     out_dir.mkdir(parents=True, exist_ok=True)
-    if best_dir.exists():
-        shutil.rmtree(best_dir)
     best_value = -float("inf")
     best_epoch = -1
     eval_rows: list[dict[str, Any]] = []
-    model.train()
+    checkpoint_records: list[dict[str, Any]] = []
+    numerical_failure: str | None = None
+    stop_reason = "max_epochs"
     global_step = 0
+    model.train()
     optimizer.zero_grad(set_to_none=True)
+    rolling_record = save_local_adapter_checkpoint(
+        model, tokenizer, rolling_dir, "rolling_last_finite", global_step
+    )
+
     for epoch in range(args.epochs):
         running_loss = 0.0
         micro_count = 0
-        for step, batch in enumerate(loader):
+        for batch_index, batch in enumerate(loader):
             batch = move_to_device(batch, device)
-            out = model(**batch, use_cache=False)
-            raw_loss = out.loss
+            raw_loss = model(**batch, use_cache=False).loss
+            if not bool(torch.isfinite(raw_loss)):
+                numerical_failure = f"nonfinite_loss_at_update_{global_step + 1}"
+                stop_reason = numerical_failure
+                break
             (raw_loss / args.grad_accum).backward()
             running_loss += float(raw_loss.detach())
             micro_count += 1
-            if (step + 1) % args.grad_accum == 0 or step + 1 == len(loader):
-                torch.nn.utils.clip_grad_norm_(trainable, args.max_grad_norm)
+            if (batch_index + 1) % args.grad_accum == 0 or batch_index + 1 == len(loader):
+                grad_norm = torch.nn.utils.clip_grad_norm_(trainable, args.max_grad_norm)
+                if not bool(torch.isfinite(grad_norm)):
+                    numerical_failure = f"nonfinite_gradient_at_update_{global_step + 1}"
+                    stop_reason = numerical_failure
+                    break
                 optimizer.step()
                 scheduler.step()
                 optimizer.zero_grad(set_to_none=True)
                 global_step += 1
+                if not _trainable_parameters_finite(trainable):
+                    numerical_failure = f"nonfinite_parameters_at_update_{global_step}"
+                    stop_reason = numerical_failure
+                    break
                 if global_step % args.log_every == 0:
                     print(json.dumps({
-                        "stage": "sft", "epoch": epoch + 1, "update": global_step,
+                        "stage": "sft",
+                        "epoch": epoch + 1,
+                        "update": global_step,
                         "loss": running_loss / max(micro_count, 1),
                         "lr": scheduler.get_last_lr()[0],
                     }))
                     running_loss = 0.0
                     micro_count = 0
-        # Fixed validation seed makes epochs directly comparable.
+        if numerical_failure:
+            break
         metrics = evaluate_rows(
-            model, tokenizer, val_rows[: args.eval_examples], args.eval_batch,
-            args.max_new_tokens, args.pass_k, args.eval_seed,
+            model,
+            tokenizer,
+            val_rows[: args.eval_examples],
+            args.eval_batch,
+            args.max_new_tokens,
+            args.pass_k,
+            args.eval_seed,
         )
         row = {"epoch": epoch + 1, "update": global_step, **metrics}
         eval_rows.append(row)
         print("SFT_EVAL", json.dumps(row))
+        rolling_record = save_local_adapter_checkpoint(
+            model, tokenizer, rolling_dir, "rolling_last_finite", global_step
+        )
         value = float(metrics[args.selection_metric])
         if value > best_value + args.selection_delta:
             best_value = value
             best_epoch = epoch + 1
-            if best_dir.exists():
-                shutil.rmtree(best_dir)
-            model.save_pretrained(best_dir)
-            tokenizer.save_pretrained(best_dir)
+            checkpoint_records = [
+                record for record in checkpoint_records if record["kind"] != "best"
+            ]
+            checkpoint_records.append(save_local_adapter_checkpoint(
+                model, tokenizer, best_dir, "best", global_step
+            ))
         model.train()
+
+    if numerical_failure:
+        if last_finite_dir.exists():
+            shutil.rmtree(last_finite_dir)
+        shutil.move(str(rolling_dir), str(last_finite_dir))
+        rolling_record["kind"] = "last_finite"
+        rolling_record["path"] = str(last_finite_dir.resolve())
+        checkpoint_records.append(rolling_record)
+    else:
+        checkpoint_records.append(save_local_adapter_checkpoint(
+            model, tokenizer, terminal_dir, "terminal", global_step
+        ))
+        if rolling_dir.exists():
+            shutil.rmtree(rolling_dir)
     if best_epoch < 0:
-        raise RuntimeError("SFT did not produce a valid checkpoint")
-    # Publish only the best validation adapter at output_dir root.
-    for child in list(out_dir.iterdir()):
-        if child.name == "best_adapter":
-            continue
-        if child.is_dir():
-            shutil.rmtree(child)
-        else:
-            child.unlink()
-    for child in best_dir.iterdir():
-        target = out_dir / child.name
-        if child.is_dir():
-            shutil.copytree(child, target)
-        else:
-            shutil.copy2(child, target)
-    with (out_dir / "sft_metrics.csv").open("w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=list(eval_rows[0].keys()))
-        writer.writeheader(); writer.writerows(eval_rows)
-    (out_dir / "sft_manifest.json").write_text(json.dumps({
-        **vars(args), "best_epoch": best_epoch, "best_value": best_value,
+        best_value = float("nan")
+    with (out_dir / "sft_metrics.csv").open("w", newline="") as handle:
+        if eval_rows:
+            writer = csv.DictWriter(handle, fieldnames=list(eval_rows[0].keys()))
+            writer.writeheader()
+            writer.writerows(eval_rows)
+    manifest = {
+        **vars(args),
+        "source_provenance": source_provenance(),
+        "best_epoch": best_epoch,
+        "best_value": best_value,
+        "terminal_step": global_step if not numerical_failure else None,
+        "numerical_failure": numerical_failure,
+        "stop_reason": stop_reason,
+        "checkpoint_policy": "server-local adapters only; binaries must not enter Git/artifact packages",
+        "checkpoints": checkpoint_records,
+        "result_status": "pilot",
+    }
+    (out_dir / "sft_manifest.json").write_text(json.dumps(manifest, indent=2))
+    (out_dir / "checkpoint_manifest.json").write_text(json.dumps({
+        "local_only": True,
+        "model_path": args.model_path,
+        "source_provenance": source_provenance(),
+        "checkpoints": checkpoint_records,
     }, indent=2))
+    if numerical_failure:
+        raise RuntimeError(f"SFT stopped with {numerical_failure}; last finite adapter was preserved")
+    if best_epoch < 0:
+        raise RuntimeError("SFT did not produce a valid best checkpoint")
 
 
 def score_completion(
@@ -967,21 +1604,22 @@ def score_completions_batch(
 
 
 def mutate_expression(expression: str, rng: random.Random) -> str:
-    indices = [i for i, c in enumerate(expression) if c in OPS]
+    indices = [i for i, char in enumerate(expression) if char in OPS]
     if not indices:
         return expression + " + 1"
-    idx = rng.choice(indices)
-    choices = [x for x in OPS if x != expression[idx]]
-    return expression[:idx] + rng.choice(choices) + expression[idx + 1 :]
+    index = rng.choice(indices)
+    choices = [op for op in OPS if op != expression[index]]
+    return expression[:index] + rng.choice(choices) + expression[index + 1 :]
 
 
 def make_valid_wrong_expression(
     row: dict[str, Any],
     rng: random.Random,
     avoid: set[str] | None = None,
-    max_attempts: int = 200,
+    allowed_patterns: set[str] | None = None,
+    max_attempts: int = 400,
 ) -> str:
-    """Create a syntactically valid, number-preserving, verifier-negative expression."""
+    """Create a legal reward-zero expression without leaking held-out families."""
     avoid = avoid or set()
     candidates = [mutate_expression(row["oracle"], rng)]
     np_rng = np.random.default_rng(rng.randrange(2**31))
@@ -991,28 +1629,59 @@ def make_valid_wrong_expression(
         else:
             expression, _ = random_expression(np_rng, list(row["numbers"]))
         check = verify_expression(expression, row["numbers"], row["target"])
-        if (
+        if not (
             check["valid_format"]
             and check["uses_numbers"]
             and not check["correct"]
             and check["expression"] not in avoid
         ):
-            return check["expression"]
-    raise RuntimeError(f"Could not construct a valid wrong expression for {row['id']}")
+            continue
+        try:
+            pattern = expression_structure(check["expression"])
+        except Exception:
+            continue
+        if allowed_patterns is not None and pattern not in allowed_patterns:
+            continue
+        return check["expression"]
+    raise RuntimeError(f"Could not construct an allowed valid wrong expression for {row['id']}")
 
 
-def candidate_metadata(
-    item: dict[str, Any], tokenizer: Any
-) -> dict[str, Any]:
+def candidate_metadata(item: dict[str, Any], tokenizer: Any) -> dict[str, Any]:
     expression = item["expression"]
     value = item.get("value")
     return {
         **item,
         "text": expression,
+        "structure": expression_structure(expression),
         "token_length": len(tokenizer(expression, add_special_tokens=False)["input_ids"]),
         "tree_depth": expression_tree_depth(expression),
-        "value_error": abs(float(value) - float(item["target"])) if value is not None else float("inf"),
+        "value_error": (
+            abs(float(value) - float(item["target"])) if value is not None else float("inf")
+        ),
     }
+
+
+def _pair_constraint_failures(
+    near: dict[str, Any],
+    far: dict[str, Any],
+    min_surprisal_gap: float,
+    max_token_length_diff: int,
+    max_tree_depth_diff: int,
+    max_value_error_ratio: float,
+) -> set[str]:
+    failures: set[str] = set()
+    gap = float(far["surprisal"]) - float(near["surprisal"])
+    if gap < min_surprisal_gap:
+        failures.add("surprisal_gap")
+    if abs(int(far["token_length"]) - int(near["token_length"])) > max_token_length_diff:
+        failures.add("token_length")
+    if abs(int(far["tree_depth"]) - int(near["tree_depth"])) > max_tree_depth_diff:
+        failures.add("tree_depth")
+    near_error = max(float(near["value_error"]), 1e-8)
+    far_error = max(float(far["value_error"]), 1e-8)
+    if max(near_error, far_error) / min(near_error, far_error) > max_value_error_ratio:
+        failures.add("value_error")
+    return failures
 
 
 def select_matched_negative_pair(
@@ -1021,34 +1690,108 @@ def select_matched_negative_pair(
     max_token_length_diff: int,
     max_tree_depth_diff: int,
     max_value_error_ratio: float,
-) -> tuple[dict[str, Any], dict[str, Any], bool]:
-    """Pick the largest-surprisal-gap pair under simple task-distance matching."""
-    ordered = sorted(candidates, key=lambda x: float(x["surprisal"]))
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None, bool]:
+    """Return a genuinely matched pair; never force unmatched extrema into training."""
+    ordered = sorted(candidates, key=lambda item: float(item["surprisal"]))
     best: tuple[float, dict[str, Any], dict[str, Any]] | None = None
-    for i, near in enumerate(ordered):
-        for far in ordered[i + 1 :]:
+    for index, near in enumerate(ordered):
+        for far in ordered[index + 1 :]:
+            failures = _pair_constraint_failures(
+                near,
+                far,
+                min_surprisal_gap,
+                max_token_length_diff,
+                max_tree_depth_diff,
+                max_value_error_ratio,
+            )
+            if failures:
+                continue
             gap = float(far["surprisal"]) - float(near["surprisal"])
-            if gap < min_surprisal_gap:
-                continue
-            if abs(int(far["token_length"]) - int(near["token_length"])) > max_token_length_diff:
-                continue
-            if abs(int(far["tree_depth"]) - int(near["tree_depth"])) > max_tree_depth_diff:
-                continue
-            near_err = max(float(near["value_error"]), 1e-8)
-            far_err = max(float(far["value_error"]), 1e-8)
-            if max(near_err, far_err) / min(near_err, far_err) > max_value_error_ratio:
-                continue
             if best is None or gap > best[0]:
                 best = (gap, near, far)
-    if best is not None:
-        return best[1], best[2], True
-    if len(ordered) < 2:
-        raise ValueError("At least two valid negative candidates are required")
-    return ordered[0], ordered[-1], False
+    if best is None:
+        return None, None, False
+    return best[1], best[2], True
+
+
+def _score_new_candidates(
+    model: Any,
+    tokenizer: Any,
+    row: dict[str, Any],
+    texts: Sequence[str],
+    seen: set[str],
+    allowed_patterns: set[str],
+    max_length: int,
+    score_batch_size: int,
+    diagnostics: Counter[str],
+) -> list[dict[str, Any]]:
+    accepted: list[dict[str, Any]] = []
+    for text in texts:
+        check = verify_expression(text, row["numbers"], row["target"])
+        expression = check["expression"]
+        if not expression or expression in seen:
+            diagnostics["duplicate_or_empty"] += 1
+            continue
+        seen.add(expression)
+        if not (check["valid_format"] and check["uses_numbers"]):
+            diagnostics["invalid_or_wrong_numbers"] += 1
+            continue
+        try:
+            structure = expression_structure(expression)
+        except Exception:
+            diagnostics["structure_parse_failure"] += 1
+            continue
+        if structure not in allowed_patterns:
+            diagnostics["heldout_pattern_rejected"] += 1
+            continue
+        accepted.append({**check, "target": row["target"], "structure": structure})
+    if not accepted:
+        return []
+    surprisals = score_completions_batch(
+        model,
+        tokenizer,
+        [(row["prompt"], item["expression"]) for item in accepted],
+        max_length,
+        score_batch_size,
+    )
+    for item, surprisal in zip(accepted, surprisals):
+        item["surprisal"] = float(surprisal)
+    return accepted
+
+
+def _pair_failure_summary(
+    candidates: list[dict[str, Any]],
+    args: argparse.Namespace,
+) -> Counter[str]:
+    summary: Counter[str] = Counter()
+    if len(candidates) < 2:
+        summary["candidate_count"] += 1
+        return summary
+    ordered = sorted(candidates, key=lambda item: float(item["surprisal"]))
+    all_failures: list[set[str]] = []
+    for index, near in enumerate(ordered):
+        for far in ordered[index + 1 :]:
+            all_failures.append(_pair_constraint_failures(
+                near,
+                far,
+                args.min_surprisal_gap,
+                args.max_token_length_diff,
+                args.max_tree_depth_diff,
+                args.max_value_error_ratio,
+            ))
+    if not all_failures:
+        summary["candidate_count"] += 1
+    else:
+        for name in sorted(set.union(*all_failures)):
+            if all(name in failures for failures in all_failures):
+                summary[name] += 1
+    return summary
 
 
 def cmd_build_offline(args: argparse.Namespace) -> None:
     seed_all(args.seed)
+    if args.batch_size < 1:
+        raise ValueError("--batch_size must be positive")
     tokenizer = load_tokenizer(args.model_path)
     reference_adapter = args.reference_adapter or getattr(args, "sft_adapter", None)
     model = load_model(
@@ -1061,140 +1804,231 @@ def cmd_build_offline(args: argparse.Namespace) -> None:
     )
     model.eval()
     rows = read_jsonl(args.input_data)
-    if args.max_examples > 0:
-        rows = rows[: args.max_examples]
+    split_manifest = json.loads(Path(args.split_manifest).read_text())
+    allowed_patterns = set(split_manifest["negative_training_allowed_patterns"])
+    if not allowed_patterns:
+        raise RuntimeError("Split manifest contains no allowed training patterns")
+    target_examples = len(rows) if args.max_examples <= 0 else args.max_examples
     rng = random.Random(args.seed)
     output_rows: list[dict[str, Any]] = []
-    diagnostics: dict[str, Any] = {
-        "sampled_positive": 0,
-        "fallback_negative": 0,
-        "matched_pair": 0,
-        "unmatched_pair": 0,
-        "valid_wrong_candidates": [],
-    }
-    for start in range(0, len(rows), args.batch_size):
-        chunk = rows[start : start + args.batch_size]
-        generated = generate_outputs(
+    diagnostics: Counter[str] = Counter()
+    candidate_counts: list[int] = []
+
+    # Initial rollouts are generated in batches for throughput. Only prompts that
+    # fail a real matched-pair gate are resampled individually, so batching never
+    # weakens the pair constraints or silently inserts an unmatched fallback.
+    for start_index in range(0, len(rows), args.batch_size):
+        if len(output_rows) >= target_examples:
+            break
+        chunk = rows[start_index : start_index + args.batch_size]
+        initial_groups = generate_outputs(
             model,
             tokenizer,
-            [r["prompt"] for r in chunk],
+            [row["prompt"] for row in chunk],
             args.max_new_tokens,
             True,
             args.temperature,
             args.top_p,
             args.rollouts,
         )
-        candidate_groups: list[list[dict[str, Any]]] = []
-        score_pairs: list[tuple[str, str]] = []
-        score_refs: list[tuple[int, int]] = []
-        for row_idx, (row, candidates) in enumerate(zip(chunk, generated)):
-            evaluated: list[dict[str, Any]] = []
-            seen_expr: set[str] = set()
-            for text in candidates:
-                check = verify_expression(text, row["numbers"], row["target"])
-                expr = check["expression"]
-                if not expr or expr in seen_expr:
-                    continue
-                seen_expr.add(expr)
-                item = {**check, "target": row["target"]}
-                evaluated.append(item)
-                score_pairs.append((row["prompt"], expr))
-                score_refs.append((row_idx, len(evaluated) - 1))
-            candidate_groups.append(evaluated)
-        if score_pairs:
-            scores = score_completions_batch(
-                model, tokenizer, score_pairs, args.max_length, args.score_batch_size
-            )
-            for (row_idx, cand_idx), value in zip(score_refs, scores):
-                candidate_groups[row_idx][cand_idx]["surprisal"] = value
+        diagnostics["initial_generation_batches"] += 1
+        diagnostics["initial_generation_prompts"] += len(chunk)
 
-        for row, evaluated in zip(chunk, candidate_groups):
-            correct = [x for x in evaluated if x["correct"]]
+        for row, initial_generated in zip(chunk, initial_groups):
+            if len(output_rows) >= target_examples:
+                break
+            diagnostics["attempted_rows"] += 1
+            seen: set[str] = set()
+            evaluated: list[dict[str, Any]] = []
+            matched_round: int | None = None
+            near_item: dict[str, Any] | None = None
+            far_item: dict[str, Any] | None = None
+
+            for round_index in range(args.pair_resample_rounds + 1):
+                if round_index == 0:
+                    generated = initial_generated
+                else:
+                    generated = generate_outputs(
+                        model,
+                        tokenizer,
+                        [row["prompt"]],
+                        args.max_new_tokens,
+                        True,
+                        args.temperature,
+                        args.top_p,
+                        args.rollouts,
+                    )[0]
+                    diagnostics["resample_generation_calls"] += 1
+                evaluated.extend(_score_new_candidates(
+                    model,
+                    tokenizer,
+                    row,
+                    generated,
+                    seen,
+                    allowed_patterns,
+                    args.max_length,
+                    args.score_batch_size,
+                    diagnostics,
+                ))
+
+                valid_wrong = [item for item in evaluated if not item["correct"]]
+                # Add legal synthetic candidates only inside the training pattern support.
+                while len(valid_wrong) < args.min_negative_candidates:
+                    try:
+                        expression = make_valid_wrong_expression(
+                            row,
+                            rng,
+                            avoid=seen,
+                            allowed_patterns=allowed_patterns,
+                        )
+                    except RuntimeError:
+                        diagnostics["synthetic_candidate_failure"] += 1
+                        break
+                    diagnostics["synthetic_negative"] += 1
+                    evaluated.extend(_score_new_candidates(
+                        model,
+                        tokenizer,
+                        row,
+                        [expression],
+                        seen,
+                        allowed_patterns,
+                        args.max_length,
+                        args.score_batch_size,
+                        diagnostics,
+                    ))
+                    valid_wrong = [item for item in evaluated if not item["correct"]]
+
+                detailed = [candidate_metadata(item, tokenizer) for item in valid_wrong]
+                near_item, far_item, matched = select_matched_negative_pair(
+                    detailed,
+                    args.min_surprisal_gap,
+                    args.max_token_length_diff,
+                    args.max_tree_depth_diff,
+                    args.max_value_error_ratio,
+                )
+                if matched:
+                    matched_round = round_index
+                    break
+                diagnostics["resample_rounds_used"] += int(
+                    round_index < args.pair_resample_rounds
+                )
+
+            valid_wrong = [item for item in evaluated if not item["correct"]]
+            candidate_counts.append(len(valid_wrong))
+            if near_item is None or far_item is None or matched_round is None:
+                diagnostics["dropped_unmatched"] += 1
+                diagnostics.update({
+                    f"drop_reason_{key}": value
+                    for key, value in _pair_failure_summary(
+                        [candidate_metadata(item, tokenizer) for item in valid_wrong], args
+                    ).items()
+                })
+                continue
+
+            correct = [item for item in evaluated if item["correct"]]
             oracle_structure = row.get("oracle_structure") or expression_structure(row["oracle"])
-            same_structure_correct = []
-            for item in correct:
-                try:
-                    if expression_structure(item["expression"]) == oracle_structure:
-                        same_structure_correct.append(item)
-                except Exception:
-                    pass
+            same_structure_correct = [
+                item for item in correct if item.get("structure") == oracle_structure
+            ]
             if same_structure_correct:
-                positive_item = min(same_structure_correct, key=lambda x: float(x["surprisal"]))
+                positive_item = min(
+                    same_structure_correct, key=lambda item: float(item["surprisal"])
+                )
                 positive = positive_item["expression"]
-                positive_s = float(positive_item["surprisal"])
+                positive_surprisal = float(positive_item["surprisal"])
                 diagnostics["sampled_positive"] += 1
             else:
-                # Keep positive training inside the registered train-structure support.
                 positive = row["oracle"]
-                positive_s = score_completions_batch(
+                positive_surprisal = score_completions_batch(
                     model, tokenizer, [(row["prompt"], positive)], args.max_length, 1
                 )[0]
+                diagnostics["oracle_positive"] += 1
 
-            valid_wrong = [
-                x for x in evaluated
-                if x["valid_format"] and x["uses_numbers"] and not x["correct"]
-            ]
-            seen = {x["expression"] for x in valid_wrong}
-            while len(valid_wrong) < 2:
-                expression = make_valid_wrong_expression(row, rng, avoid=seen)
-                seen.add(expression)
-                check = verify_expression(expression, row["numbers"], row["target"])
-                score = score_completions_batch(
-                    model, tokenizer, [(row["prompt"], expression)], args.max_length, 1
-                )[0]
-                valid_wrong.append({
-                    **check,
-                    "target": row["target"],
-                    "surprisal": score,
-                })
-                diagnostics["fallback_negative"] += 1
-
-            detailed = [candidate_metadata(x, tokenizer) for x in valid_wrong]
-            diagnostics["valid_wrong_candidates"].append(len(detailed))
-            near_item, far_item, matched = select_matched_negative_pair(
-                detailed,
-                args.min_surprisal_gap,
-                args.max_token_length_diff,
-                args.max_tree_depth_diff,
-                args.max_value_error_ratio,
-            )
-            diagnostics["matched_pair" if matched else "unmatched_pair"] += 1
+            diagnostics[
+                "matched_initial" if matched_round == 0 else "matched_after_resample"
+            ] += 1
             output_rows.append({
                 **row,
                 "positive": positive,
-                "positive_base_surprisal": positive_s,
+                "positive_base_surprisal": positive_surprisal,
                 "near_negative": near_item["text"],
                 "far_negative": far_item["text"],
+                "near_structure": near_item["structure"],
+                "far_structure": far_item["structure"],
                 "near_base_surprisal": float(near_item["surprisal"]),
                 "far_base_surprisal": float(far_item["surprisal"]),
-                "surprisal_gap": float(far_item["surprisal"] - near_item["surprisal"]),
+                "surprisal_gap": float(
+                    far_item["surprisal"] - near_item["surprisal"]
+                ),
                 "near_token_length": int(near_item["token_length"]),
                 "far_token_length": int(far_item["token_length"]),
                 "near_tree_depth": int(near_item["tree_depth"]),
                 "far_tree_depth": int(far_item["tree_depth"]),
                 "near_value_error": float(near_item["value_error"]),
                 "far_value_error": float(far_item["value_error"]),
-                "pair_matched": bool(matched),
+                "pair_matched": True,
+                "matched_after_resample_round": matched_round,
             })
-        print(f"built {len(output_rows)}/{len(rows)}", flush=True)
+            if len(output_rows) % 25 == 0:
+                print(f"built matched {len(output_rows)}/{target_examples}", flush=True)
+
+    if len(output_rows) < target_examples:
+        write_jsonl(args.output_data, output_rows)
+        Path(str(args.output_data) + ".manifest.json").write_text(json.dumps({
+            **vars(args),
+            **dict(diagnostics),
+            "reference_adapter": reference_adapter,
+            "requested_examples": target_examples,
+            "examples": len(output_rows),
+            "status": "insufficient_matched_pairs",
+        }, indent=2))
+        raise RuntimeError(
+            f"Only {len(output_rows)}/{target_examples} matched rows were constructed. "
+            "Partial rows and diagnostics are preserved; increase input data or resampling."
+        )
+    if any(not row.get("pair_matched") for row in output_rows):
+        raise AssertionError("Unmatched pairs must never enter the offline training data")
+    heldout_leaks = [
+        row for row in output_rows
+        if row["near_structure"] not in allowed_patterns
+        or row["far_structure"] not in allowed_patterns
+    ]
+    if heldout_leaks:
+        raise AssertionError("Held-out canonical pattern leaked into training negatives")
+
     write_jsonl(args.output_data, output_rows)
-    candidate_counts = diagnostics.pop("valid_wrong_candidates")
     manifest = {
         **vars(args),
-        **diagnostics,
+        "source_provenance": source_provenance(),
+        **dict(diagnostics),
         "reference_adapter": reference_adapter,
+        "requested_examples": target_examples,
         "examples": len(output_rows),
-        "matched_pair_rate": diagnostics["matched_pair"] / max(len(output_rows), 1),
-        "mean_valid_wrong_candidates": float(np.mean(candidate_counts)) if candidate_counts else 0.0,
-        "mean_surprisal_gap": float(np.mean([r["surprisal_gap"] for r in output_rows])) if output_rows else 0.0,
+        "matched_pair_rate_in_saved_data": 1.0,
+        "dropped_unmatched_rate": diagnostics["dropped_unmatched"]
+        / max(diagnostics["attempted_rows"], 1),
+        "mean_valid_wrong_candidates": (
+            float(np.mean(candidate_counts)) if candidate_counts else 0.0
+        ),
+        "mean_surprisal_gap": float(np.mean([
+            row["surprisal_gap"] for row in output_rows
+        ])),
+        "heldout_pattern_leaks": 0,
+        "formal_interpretation": (
+            "all saved rows are matched; dropped rows are reported, never silently trained"
+        ),
     }
-    Path(str(args.output_data) + ".manifest.json").write_text(json.dumps(manifest, indent=2))
+    Path(str(args.output_data) + ".manifest.json").write_text(
+        json.dumps(manifest, indent=2)
+    )
     print(json.dumps(manifest, indent=2))
 
 def cmd_train_method(args: argparse.Namespace) -> None:
     seed_all(args.seed)
     tokenizer = load_tokenizer(args.model_path)
     train_rows = read_jsonl(args.offline_data)
+    if not train_rows or any(not row.get("pair_matched", False) for row in train_rows):
+        raise RuntimeError("Method training requires a non-empty all-matched offline dataset")
     val_rows = read_jsonl(args.val_data)
     known_structures: set[str] | None = None
     if args.structure_reference_data:
@@ -1223,21 +2057,39 @@ def cmd_train_method(args: argparse.Namespace) -> None:
         gradient_checkpointing=True,
     )
     device = next(model.parameters()).device
-    trainable = [p for p in model.parameters() if p.requires_grad]
+    trainable = [parameter for parameter in model.parameters() if parameter.requires_grad]
     optimizer = torch.optim.AdamW(trainable, lr=args.lr, weight_decay=0.01)
     scheduler = get_cosine_schedule_with_warmup(
         optimizer, max(1, int(args.steps * args.warmup_ratio)), args.steps
     )
+    calibrated_global_gamma: float | None = None
+    if args.method == "global_matched":
+        if not args.global_calibration_json:
+            raise RuntimeError("global_matched requires --global_calibration_json")
+        calibration = json.loads(Path(args.global_calibration_json).read_text())
+        calibrated_global_gamma = float(calibration["global_gamma"])
+        if not math.isfinite(calibrated_global_gamma) or calibrated_global_gamma <= 0:
+            raise RuntimeError("Invalid calibrated global gamma")
+
     model.train()
     iterator = iter(loader)
     metrics_rows: list[dict[str, Any]] = []
     out_dir = Path(args.output_dir)
+    ensure_checkpoint_output_is_local_or_ignored(out_dir)
     best_dir = out_dir / "best_adapter"
-    last_gamma, last_weight = 1.0, 1.0
+    terminal_dir = out_dir / "terminal_adapter"
+    rolling_dir = out_dir / ".last_finite_adapter_work"
+    last_finite_dir = out_dir / "last_finite_adapter"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    checkpoint_records: list[dict[str, Any]] = []
     best_value = -float("inf")
     best_step = 0
     stale_checks = 0
     numerical_failure: str | None = None
+    stop_reason = "max_steps"
+    terminal_step: int | None = None
+    last_gamma, last_weight = 1.0, 1.0
+
     initial_eval = evaluate_rows(
         model,
         tokenizer,
@@ -1248,13 +2100,21 @@ def cmd_train_method(args: argparse.Namespace) -> None:
         args.eval_seed,
         known_structures,
     )
-    metrics_rows.append(
-        {"step": 0, "method": args.method, "gamma": 1.0, "weight": 1.0, **initial_eval}
-    )
+    initial_gamma = calibrated_global_gamma if calibrated_global_gamma is not None else 1.0
+    metrics_rows.append({
+        "step": 0,
+        "method": args.method,
+        "gamma": initial_gamma,
+        "weight": 1.0,
+        **initial_eval,
+    })
     best_value = float(initial_eval[args.selection_metric])
-    out_dir.mkdir(parents=True, exist_ok=True)
-    model.save_pretrained(best_dir)
-    tokenizer.save_pretrained(best_dir)
+    checkpoint_records.append(save_local_adapter_checkpoint(
+        model, tokenizer, best_dir, "best", 0
+    ))
+    rolling_record = save_local_adapter_checkpoint(
+        model, tokenizer, rolling_dir, "rolling_last_finite", 0
+    )
 
     stop_training = False
     for update_step in range(1, args.steps + 1):
@@ -1288,70 +2148,83 @@ def cmd_train_method(args: argparse.Namespace) -> None:
             else:
                 near = completion_stats(model, move_to_device(packed["near"], device))
                 far = completion_stats(model, move_to_device(packed["far"], device))
-                near_seq_w = torch.ones_like(near["seq_lp"])
-                far_seq_w = torch.ones_like(far["seq_lp"])
-                far_token_w = torch.ones_like(far["token_lp"])
+                near_seq_weights = torch.ones_like(near["seq_lp"])
+                far_seq_weights = torch.ones_like(far["seq_lp"])
+                far_token_weights = torch.ones_like(far["token_lp"])
                 if args.method == "controlled_negative":
                     far_token_surprisal = -far["token_lp"].detach()
-                    far_token_w = torch.exp(
+                    far_token_weights = torch.exp(
                         -args.exp_lambda
                         * F.relu(far_token_surprisal - args.surprisal_threshold)
                     )
                 elif args.method in {"exp", "hybrid"}:
-                    near_s = -near["seq_lp"].detach()
-                    far_s = -far["seq_lp"].detach()
-                    near_seq_w = torch.exp(
-                        -args.exp_lambda * F.relu(near_s - args.surprisal_threshold)
+                    near_surprisal = -near["seq_lp"].detach()
+                    far_surprisal = -far["seq_lp"].detach()
+                    near_seq_weights = torch.exp(
+                        -args.exp_lambda * F.relu(near_surprisal - args.surprisal_threshold)
                     )
-                    far_seq_w = torch.exp(
-                        -args.exp_lambda * F.relu(far_s - args.surprisal_threshold)
+                    far_seq_weights = torch.exp(
+                        -args.exp_lambda * F.relu(far_surprisal - args.surprisal_threshold)
                     )
 
                 gamma = 1.0
                 if args.method == "global":
                     gamma = args.global_gamma
+                elif args.method == "global_matched":
+                    assert calibrated_global_gamma is not None
+                    gamma = calibrated_global_gamma
                 elif args.method in {"sbrc", "hybrid"}:
-                    pos_budget = pos["score"].detach().mean()
-                    neg_budget = args.alpha * (
-                        args.near_mix * (near_seq_w * near["score"].detach()).mean()
-                        + args.far_mix * (far_seq_w * far["score"].detach()).mean()
+                    positive_budget = pos["score"].detach().mean()
+                    negative_budget = args.alpha * (
+                        args.near_mix * (near_seq_weights * near["score"].detach()).mean()
+                        + args.far_mix * (far_seq_weights * far["score"].detach()).mean()
                     )
-                    g_score = min(
-                        1.0, float(args.sbrc_kappa * pos_budget / (neg_budget + 1e-8))
+                    score_gamma = min(
+                        1.0,
+                        float(args.sbrc_kappa * positive_budget / (negative_budget + 1e-8)),
                     )
-                    current_h = float(pos["entropy"].detach().mean())
-                    floor = args.entropy_floor
-                    g_entropy = 1.0 if current_h >= floor else max(0.0, current_h / max(floor, 1e-8))
-                    gamma = min(g_score, g_entropy)
+                    current_entropy = float(pos["entropy"].detach().mean())
+                    entropy_gamma = (
+                        1.0
+                        if current_entropy >= args.entropy_floor
+                        else max(0.0, current_entropy / max(args.entropy_floor, 1e-8))
+                    )
+                    gamma = min(score_gamma, entropy_gamma)
 
                 if args.method == "controlled_negative":
                     near_lp = near["seq_lp"]
-                    far_lp = weighted_sequence_logprob(far, far_token_w)
+                    far_lp = weighted_sequence_logprob(far, far_token_weights)
                 else:
-                    near_lp = near_seq_w * near["seq_lp"]
-                    far_lp = far_seq_w * far["seq_lp"]
+                    near_lp = near_seq_weights * near["seq_lp"]
+                    far_lp = far_seq_weights * far["seq_lp"]
                 negative_lp = (
                     args.near_mix * near_lp.mean()
                     + args.far_mix * far_lp.mean()
                 )
-                objective = positive_lp - args.alpha * gamma * negative_lp
-                raw_loss = -objective
+                raw_loss = -(positive_lp - args.alpha * gamma * negative_lp)
                 if args.method == "entropy_bonus":
                     raw_loss = raw_loss - args.entropy_coef * pos["entropy"].mean()
                 elif args.method == "target_entropy":
                     entropy_gap = F.relu(args.target_entropy - pos["entropy"].mean())
                     raw_loss = raw_loss + args.target_entropy_coef * entropy_gap.square()
 
-                near_weight_value = float(near_seq_w.detach().mean())
+                near_weight_value = float(near_seq_weights.detach().mean())
                 far_weight_value = (
-                    float((far_token_w.detach() * far["token_mask"]).sum() / far["token_mask"].sum().clamp_min(1))
+                    float(
+                        (far_token_weights.detach() * far["token_mask"]).sum()
+                        / far["token_mask"].sum().clamp_min(1)
+                    )
                     if args.method == "controlled_negative"
-                    else float(far_seq_w.detach().mean())
+                    else float(far_seq_weights.detach().mean())
                 )
-                mean_weight = args.near_mix * near_weight_value + args.far_mix * far_weight_value
+                mean_weight = (
+                    args.near_mix * near_weight_value
+                    + args.far_mix * far_weight_value
+                )
 
             if not bool(torch.isfinite(raw_loss)):
                 numerical_failure = f"nonfinite_loss_at_step_{update_step}"
+                stop_reason = numerical_failure
                 stop_training = True
                 break
             (raw_loss / args.grad_accum).backward()
@@ -1369,9 +2242,14 @@ def cmd_train_method(args: argparse.Namespace) -> None:
         grad_norm = torch.nn.utils.clip_grad_norm_(trainable, args.max_grad_norm)
         if not bool(torch.isfinite(grad_norm)):
             numerical_failure = f"nonfinite_gradient_at_step_{update_step}"
+            stop_reason = numerical_failure
             break
         optimizer.step()
         scheduler.step()
+        if not _trainable_parameters_finite(trainable):
+            numerical_failure = f"nonfinite_parameters_at_step_{update_step}"
+            stop_reason = numerical_failure
+            break
         last_gamma = log_accum["gamma"]
         last_weight = log_accum["weight"]
 
@@ -1397,40 +2275,190 @@ def cmd_train_method(args: argparse.Namespace) -> None:
             }
             metrics_rows.append(row)
             print("ARENA_EVAL", json.dumps(row))
+            rolling_record = save_local_adapter_checkpoint(
+                model, tokenizer, rolling_dir, "rolling_last_finite", update_step
+            )
             value = float(metrics[args.selection_metric])
             if value > best_value + args.early_stop_delta:
                 best_value = value
                 best_step = update_step
                 stale_checks = 0
-                if best_dir.exists():
-                    shutil.rmtree(best_dir)
-                model.save_pretrained(best_dir)
-                tokenizer.save_pretrained(best_dir)
+                checkpoint_records = [
+                    record for record in checkpoint_records if record["kind"] != "best"
+                ]
+                checkpoint_records.append(save_local_adapter_checkpoint(
+                    model, tokenizer, best_dir, "best", update_step
+                ))
             else:
                 stale_checks += 1
             model.train()
             if update_step >= args.min_steps and stale_checks >= args.early_stop_patience:
-                print(json.dumps({"early_stop": True, "step": update_step,
-                                  "best_step": best_step, "best_value": best_value}))
+                stop_reason = "early_stop_patience"
+                terminal_step = update_step
+                print(json.dumps({
+                    "early_stop": True,
+                    "step": update_step,
+                    "best_step": best_step,
+                    "best_value": best_value,
+                }))
                 stop_training = True
         if stop_training:
             break
+        terminal_step = update_step
 
-    final_adapter = out_dir / "adapter"
-    if final_adapter.exists():
-        shutil.rmtree(final_adapter)
-    shutil.copytree(best_dir, final_adapter)
-    with (out_dir / "metrics.csv").open("w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=list(metrics_rows[0].keys()))
+    if numerical_failure:
+        if last_finite_dir.exists():
+            shutil.rmtree(last_finite_dir)
+        shutil.move(str(rolling_dir), str(last_finite_dir))
+        rolling_record["kind"] = "last_finite"
+        rolling_record["path"] = str(last_finite_dir.resolve())
+        checkpoint_records.append(rolling_record)
+        terminal_step = None
+    else:
+        if terminal_step is None:
+            terminal_step = 0
+        checkpoint_records.append(save_local_adapter_checkpoint(
+            model, tokenizer, terminal_dir, "terminal", terminal_step
+        ))
+        if rolling_dir.exists():
+            shutil.rmtree(rolling_dir)
+
+    with (out_dir / "metrics.csv").open("w", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(metrics_rows[0].keys()))
         writer.writeheader()
         writer.writerows(metrics_rows)
-    (out_dir / "manifest.json").write_text(json.dumps({
+    manifest = {
         **vars(args),
+        "source_provenance": source_provenance(),
         "best_step": best_step,
         "best_value": best_value,
+        "terminal_step": terminal_step,
+        "stop_reason": stop_reason,
         "numerical_failure": numerical_failure,
+        "global_matched_gamma": calibrated_global_gamma,
+        "checkpoint_policy": "server-local adapters only; binaries must not enter Git/artifact packages",
+        "checkpoints": checkpoint_records,
         "result_status": "pilot",
+    }
+    (out_dir / "manifest.json").write_text(json.dumps(manifest, indent=2))
+    (out_dir / "checkpoint_manifest.json").write_text(json.dumps({
+        "local_only": True,
+        "model_path": args.model_path,
+        "reference_adapter": args.reference_adapter or args.sft_adapter,
+        "method": args.method,
+        "source_provenance": source_provenance(),
+        "checkpoints": checkpoint_records,
     }, indent=2))
+
+
+def _current_gradient_norm(parameters: Sequence[torch.nn.Parameter]) -> float:
+    total = torch.zeros((), dtype=torch.float64)
+    for parameter in parameters:
+        if parameter.grad is not None:
+            total += parameter.grad.detach().double().square().sum().cpu()
+    return float(total.sqrt())
+
+
+def cmd_calibrate_global(args: argparse.Namespace) -> None:
+    """Freeze one gamma that matches controlled and global negative-gradient RMS budgets."""
+    seed_all(args.seed)
+    tokenizer = load_tokenizer(args.model_path)
+    rows = read_jsonl(args.offline_data)
+    if not rows or any(not row.get("pair_matched", False) for row in rows):
+        raise RuntimeError("Global calibration requires all-matched offline rows")
+    dataset = OfflineDataset(rows, tokenizer, args.max_length)
+    loader = DataLoader(
+        dataset,
+        batch_size=args.batch_size,
+        shuffle=False,
+        collate_fn=make_offline_collator(tokenizer.pad_token_id),
+        num_workers=0,
+    )
+    model = load_model(
+        args.model_path,
+        args.reference_adapter,
+        trainable_adapter=True,
+        load_in_4bit=args.load_in_4bit,
+        dtype=args.dtype,
+        gradient_checkpointing=False,
+    )
+    model.train()
+    device = next(model.parameters()).device
+    trainable = [parameter for parameter in model.parameters() if parameter.requires_grad]
+    controlled_norms: list[float] = []
+    uncontrolled_norms: list[float] = []
+    controlled_weights: list[float] = []
+
+    for batch_index, packed in enumerate(loader):
+        if batch_index >= args.calibration_batches:
+            break
+        near_batch = move_to_device(packed["near"], device)
+        far_batch = move_to_device(packed["far"], device)
+
+        model.zero_grad(set_to_none=True)
+        near = completion_stats(model, near_batch)
+        far = completion_stats(model, far_batch)
+        far_surprisal = -far["token_lp"].detach()
+        far_weights = torch.exp(
+            -args.exp_lambda * F.relu(far_surprisal - args.surprisal_threshold)
+        )
+        controlled_lp = (
+            args.near_mix * near["seq_lp"].mean()
+            + args.far_mix * weighted_sequence_logprob(far, far_weights).mean()
+        )
+        (-controlled_lp).backward()
+        controlled_norms.append(_current_gradient_norm(trainable))
+        controlled_weights.append(float(
+            args.near_mix
+            + args.far_mix
+            * (far_weights.detach() * far["token_mask"]).sum()
+            / far["token_mask"].sum().clamp_min(1)
+        ))
+
+        model.zero_grad(set_to_none=True)
+        near = completion_stats(model, near_batch)
+        far = completion_stats(model, far_batch)
+        uncontrolled_lp = (
+            args.near_mix * near["seq_lp"].mean()
+            + args.far_mix * far["seq_lp"].mean()
+        )
+        (-uncontrolled_lp).backward()
+        uncontrolled_norms.append(_current_gradient_norm(trainable))
+
+    model.zero_grad(set_to_none=True)
+    if not controlled_norms or not uncontrolled_norms:
+        raise RuntimeError("No calibration batches were processed")
+    controlled_rms = float(np.sqrt(np.mean(np.square(controlled_norms))))
+    uncontrolled_rms = float(np.sqrt(np.mean(np.square(uncontrolled_norms))))
+    if uncontrolled_rms <= 0 or not math.isfinite(uncontrolled_rms):
+        raise RuntimeError("Uncontrolled calibration gradient norm is invalid")
+    gamma = controlled_rms / uncontrolled_rms
+    if not math.isfinite(gamma) or gamma <= 0:
+        raise RuntimeError("Calibrated global gamma is invalid")
+    result = {
+        "version": VERSION,
+        "protocol": "fixed_calibration_split_rms_negative_gradient_budget_match",
+        "reference_adapter": args.reference_adapter,
+        "offline_data": args.offline_data,
+        "seed": args.seed,
+        "batches": len(controlled_norms),
+        "batch_size": args.batch_size,
+        "controlled_gradient_norms": controlled_norms,
+        "uncontrolled_gradient_norms": uncontrolled_norms,
+        "controlled_rms_gradient_norm": controlled_rms,
+        "uncontrolled_rms_gradient_norm": uncontrolled_rms,
+        "global_gamma": gamma,
+        "mean_controlled_scalar_weight": float(np.mean(controlled_weights)),
+        "frozen_before_method_training": True,
+        "interpretation": (
+            "global_matched applies the same fixed gamma to near and far negatives; "
+            "controlled_negative uses selective far-token tapering."
+        ),
+    }
+    output = Path(args.output_json)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(result, indent=2))
+    print(json.dumps(result, indent=2))
 
 
 def cmd_init_adapter(args: argparse.Namespace) -> None:
@@ -1446,17 +2474,21 @@ def cmd_init_adapter(args: argparse.Namespace) -> None:
         gradient_checkpointing=False,
     )
     output = Path(args.output_dir)
+    ensure_checkpoint_output_is_local_or_ignored(output)
     if output.exists():
         shutil.rmtree(output)
     output.mkdir(parents=True, exist_ok=True)
     model.save_pretrained(output)
     tokenizer.save_pretrained(output)
+    checkpoint = checkpoint_inventory(output, "shared_initial", 0)
     (output / "initialization_manifest.json").write_text(json.dumps({
         "version": VERSION,
         "seed": args.seed,
         "model_path": str(Path(args.model_path).resolve()),
         "training_updates": 0,
         "purpose": "shared zero-effect LoRA initialization for paired base-first methods",
+        "local_only": True,
+        "checkpoint": checkpoint,
     }, indent=2))
     print(json.dumps({"initialized_adapter": str(output), "training_updates": 0}, indent=2))
 
@@ -1742,47 +2774,90 @@ def _run_stage(argv: list[str], log_path: Path) -> None:
 
 
 def cmd_run(args: argparse.Namespace) -> None:
-    """One-command, resumable, base-first 0.5B Countdown experiment."""
+    """One-command, resumable, base-first 0.5B Countdown audited pilot."""
     if args.gpu != "auto":
         os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu)
-    requested_memory_mode = args.memory_mode
     plan = resolve_execution_plan(args.model_path, args.preset, args.memory_mode, args.gpu)
     root = Path(args.work_dir).resolve()
+    ensure_checkpoint_output_is_local_or_ignored(root)
+    root.mkdir(parents=True, exist_ok=True)
+    if (
+        (plan["memory_mode"] != "bf16" or plan["load_in_4bit"] or plan["dtype"] != "bf16")
+        and not args.allow_non_bf16_smoke
+    ):
+        raise RuntimeError(
+            "The registered pilot requires one shared BF16 LoRA parameterization for all methods. "
+            "Use a BF16-capable GPU, or pass --allow_non_bf16_smoke for engineering smoke only."
+        )
+    params_b = plan["model_metadata"].get("estimated_params_b")
+    registered_model = (
+        plan["preset"] in {"0.5b", "small"}
+        and params_b is not None
+        and params_b <= 1.0
+    )
+    registered_parameterization = (
+        plan["memory_mode"] == "bf16"
+        and not plan["load_in_4bit"]
+        and plan["dtype"] == "bf16"
+    )
+    if (not registered_model or not registered_parameterization) and not args.allow_non_bf16_smoke:
+        raise RuntimeError(
+            "EXT-C-E8-V4.1 is registered only for Qwen Instruct 0.5B with BF16 LoRA. "
+            "Other model sizes or QLoRA/fp16 may be used only with "
+            "--allow_non_bf16_smoke and remain engineering smoke, not pilot evidence."
+        )
+    run_status = (
+        "pilot"
+        if registered_model and registered_parameterization
+        else "engineering_smoke"
+    )
+
     data_dir = root / "data"
     logs = root / "logs"
-    reference_dir = root / "reference_adapter"
+    shared_adapter_dir = root / "reference_adapter"
     sft_dir = root / "sft_adapter"
     offline_file = data_dir / "offline.jsonl"
+    split_manifest_file = data_dir / "split_manifest.json"
     methods_dir = root / "methods"
-    root.mkdir(parents=True, exist_ok=True)
+    calibration_json = root / "global_matched_calibration.json"
 
-    methods = [x.strip() for x in args.methods.split(",") if x.strip()]
+    methods = [method.strip() for method in args.methods.split(",") if method.strip()]
     allowed = {
         "positive_only",
         "controlled_negative",
         "uncontrolled_negative",
-        "uncontrolled",
-        "global",
-        "exp",
-        "entropy_bonus",
-        "target_entropy",
-        "sbrc",
-        "hybrid",
+        "global_matched",
+        # Historical development methods remain callable but are outside the v4.1 pilot default.
+        "uncontrolled", "global", "exp", "entropy_bonus", "target_entropy", "sbrc", "hybrid",
     }
     unknown = set(methods) - allowed
     if unknown:
         raise ValueError(f"Unknown methods: {sorted(unknown)}")
+    required_pilot = {
+        "positive_only", "controlled_negative", "uncontrolled_negative", "global_matched"
+    }
+    if run_status == "pilot" and set(methods) != required_pilot:
+        raise RuntimeError(
+            "The registered v4.1 pilot comparison is frozen to exactly: "
+            "positive_only, controlled_negative, uncontrolled_negative, global_matched."
+        )
 
     run_spec = {
         "version": VERSION,
+        "source_provenance": source_provenance(),
+        "experiment_id": "EXT-C-E8-V4.1",
         "model_path": str(Path(args.model_path).resolve()),
         "preset": plan["preset"],
         "memory_mode": plan["memory_mode"],
+        "parameterization": "shared_bf16_lora" if run_status == "pilot" else "nonformal_smoke",
         "methods": methods,
         "seed": args.seed,
         "min_base_success": args.min_base_success,
         "min_base_valid": args.min_base_valid,
         "min_sft_success": args.min_sft_success,
+        "pair_resample_rounds": args.pair_resample_rounds,
+        "result_status": run_status,
+        "checkpoint_policy": "server-local only",
     }
     run_spec["fingerprint"] = stable_fingerprint(run_spec)
     run_config_path = root / "run_config.json"
@@ -1798,22 +2873,34 @@ def cmd_run(args: argparse.Namespace) -> None:
     print("EXECUTION_PLAN", json.dumps(plan, indent=2))
 
     presets = {
-        "0.5b": dict(train=6000, val=500, test=1000, offline=1500, rollouts=12,
-                     sft_epochs=3, sft_accum=16, method_steps=1200, method_accum=8,
-                     method_min_steps=400, patience=6, eval_examples=500,
-                     eval_every=100, pass_k=8, probe_examples=32, dynamics_examples=16),
-        "small": dict(train=6000, val=500, test=1000, offline=1500, rollouts=12,
-                      sft_epochs=3, sft_accum=16, method_steps=1200, method_accum=8,
-                      method_min_steps=400, patience=6, eval_examples=500,
-                      eval_every=100, pass_k=8, probe_examples=32, dynamics_examples=16),
-        "3b": dict(train=20000, val=1000, test=2000, offline=4000, rollouts=12,
-                   sft_epochs=3, sft_accum=32, method_steps=3000, method_accum=16,
-                   method_min_steps=1000, patience=8, eval_examples=1000,
-                   eval_every=100, pass_k=8, probe_examples=32, dynamics_examples=16),
-        "7b": dict(train=20000, val=1000, test=2000, offline=4000, rollouts=12,
-                   sft_epochs=2, sft_accum=32, method_steps=2500, method_accum=16,
-                   method_min_steps=800, patience=8, eval_examples=1000,
-                   eval_every=100, pass_k=8, probe_examples=24, dynamics_examples=12),
+        "0.5b": dict(
+            train=6000, val=500, test=1000, offline=1500, rollouts=12,
+            sft_epochs=3, sft_accum=16, method_steps=1200, method_accum=8,
+            method_min_steps=400, patience=6, eval_examples=500,
+            eval_every=100, pass_k=8, probe_examples=32, dynamics_examples=16,
+            calibration_batches=16,
+        ),
+        "small": dict(
+            train=6000, val=500, test=1000, offline=1500, rollouts=12,
+            sft_epochs=3, sft_accum=16, method_steps=1200, method_accum=8,
+            method_min_steps=400, patience=6, eval_examples=500,
+            eval_every=100, pass_k=8, probe_examples=32, dynamics_examples=16,
+            calibration_batches=16,
+        ),
+        "3b": dict(
+            train=20000, val=1000, test=2000, offline=4000, rollouts=12,
+            sft_epochs=3, sft_accum=32, method_steps=3000, method_accum=16,
+            method_min_steps=1000, patience=8, eval_examples=1000,
+            eval_every=100, pass_k=8, probe_examples=32, dynamics_examples=16,
+            calibration_batches=16,
+        ),
+        "7b": dict(
+            train=20000, val=1000, test=2000, offline=4000, rollouts=12,
+            sft_epochs=2, sft_accum=32, method_steps=2500, method_accum=16,
+            method_min_steps=800, patience=8, eval_examples=1000,
+            eval_every=100, pass_k=8, probe_examples=24, dynamics_examples=12,
+            calibration_batches=12,
+        ),
     }
     preset = presets[plan["preset"]]
     train_file = data_dir / "train.jsonl"
@@ -1828,19 +2915,10 @@ def cmd_run(args: argparse.Namespace) -> None:
 
     model_flags = model_flags_from_plan(plan)
     if not args.skip_preflight:
-        try:
-            _run_stage(["preflight", *model_flags, "--seed", str(args.seed)], logs / "00_preflight.log")
-        except RuntimeError:
-            if requested_memory_mode == "auto" and not plan["load_in_4bit"]:
-                print("BF16 preflight failed; retrying with 4-bit QLoRA.")
-                plan["memory_mode"] = "qlora"
-                plan["load_in_4bit"] = True
-                model_flags = model_flags_from_plan(plan)
-                (root / "execution_plan.json").write_text(json.dumps(plan, indent=2))
-                _run_stage(["preflight", *model_flags, "--seed", str(args.seed)],
-                           logs / "00_preflight_qlora.log")
-            else:
-                raise
+        _run_stage(
+            ["preflight", *model_flags, "--seed", str(args.seed)],
+            logs / "00_preflight.log",
+        )
 
     if args.force or not (train_file.exists() and val_file.exists() and test_file.exists()):
         _run_stage([
@@ -1851,9 +2929,9 @@ def cmd_run(args: argparse.Namespace) -> None:
             "--train_out", str(train_file),
             "--val_out", str(val_file),
             "--test_out", str(test_file),
-            "--manifest_out", str(data_dir / "split_manifest.json"),
+            "--manifest_out", str(split_manifest_file),
             "--seed", str(args.seed),
-        ], logs / "01_generate_structural_split.log")
+        ], logs / "01_generate_pattern_family_split.log")
 
     base_val_json = root / "base_val_metrics.json"
     _run_stage([
@@ -1873,14 +2951,15 @@ def cmd_run(args: argparse.Namespace) -> None:
 
     if base_passes:
         initialization_mode = "base_first_no_sft"
-        if args.force and reference_dir.exists():
-            shutil.rmtree(reference_dir)
-        if args.force or not (reference_dir / "adapter_config.json").exists():
+        if args.force and shared_adapter_dir.exists():
+            shutil.rmtree(shared_adapter_dir)
+        if args.force or not (shared_adapter_dir / "adapter_config.json").exists():
             _run_stage([
                 "init_adapter", *model_flags,
-                "--output_dir", str(reference_dir),
+                "--output_dir", str(shared_adapter_dir),
                 "--seed", str(args.seed),
             ], logs / "03_init_shared_adapter.log")
+        reference_dir = shared_adapter_dir
     else:
         if args.no_sft_fallback:
             raise RuntimeError(
@@ -1890,7 +2969,7 @@ def cmd_run(args: argparse.Namespace) -> None:
         initialization_mode = "minimal_sft_fallback"
         if args.force and sft_dir.exists():
             shutil.rmtree(sft_dir)
-        if args.force or not (sft_dir / "adapter_config.json").exists():
+        if args.force or not (sft_dir / "best_adapter" / "adapter_config.json").exists():
             _run_stage([
                 "sft", *model_flags,
                 "--train_data", str(train_file),
@@ -1905,7 +2984,7 @@ def cmd_run(args: argparse.Namespace) -> None:
                 "--eval_seed", str(args.seed + 5000),
                 "--seed", str(args.seed),
             ], logs / "03_sft_fallback.log")
-        reference_dir = sft_dir
+        reference_dir = sft_dir / "best_adapter"
         sft_val_json = root / "sft_val_metrics.json"
         _run_stage([
             "evaluate", *model_flags,
@@ -1942,11 +3021,13 @@ def cmd_run(args: argparse.Namespace) -> None:
             "build_offline", *model_flags,
             "--reference_adapter", str(reference_dir),
             "--input_data", str(train_file),
+            "--split_manifest", str(split_manifest_file),
             "--output_data", str(offline_file),
             "--max_examples", str(preset["offline"]),
             "--rollouts", str(preset["rollouts"]),
             "--batch_size", str(plan["rollout_batch"]),
             "--score_batch_size", str(plan["score_batch"]),
+            "--pair_resample_rounds", str(args.pair_resample_rounds),
             "--seed", str(args.seed + 11),
         ], logs / "05_build_matched_offline.log")
 
@@ -1964,19 +3045,35 @@ def cmd_run(args: argparse.Namespace) -> None:
         "--seed", str(args.seed + 50),
     ], logs / "06_mechanism_probe.log")
 
+    if "global_matched" in methods and (args.force or not calibration_json.exists()):
+        _run_stage([
+            "calibrate_global", *model_flags,
+            "--reference_adapter", str(reference_dir),
+            "--offline_data", str(offline_file),
+            "--output_json", str(calibration_json),
+            "--batch_size", str(plan["micro_batch"]),
+            "--calibration_batches", str(preset["calibration_batches"]),
+            "--seed", str(args.seed + 75),
+        ], logs / "06b_global_matched_calibration.log")
+
     shared_method_seed = args.seed + 100
     for method in methods:
-        out = methods_dir / method
-        if args.force and out.exists():
-            shutil.rmtree(out)
-        if args.force or not (out / "adapter" / "adapter_config.json").exists():
-            _run_stage([
+        output = methods_dir / method
+        if args.force and output.exists():
+            shutil.rmtree(output)
+        complete_checkpoint = (
+            output / "terminal_adapter" / "adapter_config.json"
+        ).exists() or (
+            output / "last_finite_adapter" / "adapter_config.json"
+        ).exists()
+        if args.force or not complete_checkpoint:
+            command = [
                 "train_method", *model_flags,
                 "--reference_adapter", str(reference_dir),
                 "--offline_data", str(offline_file),
                 "--val_data", str(val_file),
                 "--structure_reference_data", str(train_file),
-                "--output_dir", str(out),
+                "--output_dir", str(output),
                 "--method", method,
                 "--steps", str(preset["method_steps"]),
                 "--micro_batch", str(plan["micro_batch"]),
@@ -1989,83 +3086,99 @@ def cmd_run(args: argparse.Namespace) -> None:
                 "--pass_k", str(preset["pass_k"]),
                 "--eval_seed", str(args.seed + 6000),
                 "--seed", str(shared_method_seed),
-            ], logs / f"07_train_{method}.log")
+            ]
+            if method == "global_matched":
+                command.extend(["--global_calibration_json", str(calibration_json)])
+            _run_stage(command, logs / f"07_train_{method}.log")
 
     summary_rows: list[dict[str, Any]] = []
-    base_test_json = root / "base_test_metrics.json"
-    _run_stage([
-        "evaluate", *model_flags,
-        "--data", str(test_file),
-        "--structure_reference_data", str(train_file),
-        "--batch_size", str(plan["eval_batch"]),
-        "--pass_k", str(preset["pass_k"]),
-        "--output_json", str(base_test_json),
-        "--seed", str(args.seed + 7000),
-    ], logs / "08_test_raw_base.log")
-    summary_rows.append({"method": "raw_base_no_training", **json.loads(base_test_json.read_text())})
 
-    reference_test_json = root / "reference_test_metrics.json"
-    _run_stage([
-        "evaluate", *model_flags,
-        "--adapter", str(reference_dir),
-        "--data", str(test_file),
-        "--structure_reference_data", str(train_file),
-        "--batch_size", str(plan["eval_batch"]),
-        "--pass_k", str(preset["pass_k"]),
-        "--output_json", str(reference_test_json),
-        "--seed", str(args.seed + 7000),
-    ], logs / "08b_test_reference.log")
-    summary_rows.append({
-        "method": "shared_initial_checkpoint",
-        "initialization_mode": initialization_mode,
-        **json.loads(reference_test_json.read_text()),
-    })
-
-    for method in methods:
-        out = methods_dir / method
-        adapter = out / "adapter"
-        result_json = out / "test_metrics.json"
-        _run_stage([
-            "evaluate", *model_flags,
-            "--adapter", str(adapter),
+    def evaluate_checkpoint(
+        label: str,
+        adapter: Path | None,
+        output_json: Path,
+        log_path: Path,
+        extra: dict[str, Any] | None = None,
+    ) -> None:
+        command = ["evaluate", *model_flags]
+        if adapter is not None:
+            command.extend(["--adapter", str(adapter)])
+        command.extend([
             "--data", str(test_file),
             "--structure_reference_data", str(train_file),
             "--batch_size", str(plan["eval_batch"]),
             "--pass_k", str(preset["pass_k"]),
-            "--output_json", str(result_json),
+            "--output_json", str(output_json),
             "--seed", str(args.seed + 7000),
-        ], logs / f"09_test_{method}.log")
-        row: dict[str, Any] = {"method": method, **json.loads(result_json.read_text())}
-        manifest_path = out / "manifest.json"
-        metrics_path = out / "metrics.csv"
-        if manifest_path.exists() and metrics_path.exists():
-            manifest = json.loads(manifest_path.read_text())
-            best_step = int(manifest["best_step"])
-            with metrics_path.open() as f:
-                records = list(csv.DictReader(f))
-            best_record = next((r for r in records if int(r["step"]) == best_step), records[-1])
-            row["best_step"] = best_step
-            row["best_val"] = manifest["best_value"]
-            row["numerical_failure"] = manifest.get("numerical_failure")
-            row.update({f"val_{k}": v for k, v in best_record.items() if k != "method"})
-        summary_rows.append(row)
+        ])
+        _run_stage(command, log_path)
+        summary_rows.append({"method": label, **(extra or {}), **json.loads(output_json.read_text())})
+
+    evaluate_checkpoint(
+        "raw_base_no_training", None, root / "base_test_metrics.json", logs / "08_test_raw_base.log"
+    )
+    evaluate_checkpoint(
+        "shared_initial_checkpoint",
+        reference_dir,
+        root / "reference_test_metrics.json",
+        logs / "08b_test_reference.log",
+        {"initialization_mode": initialization_mode, "checkpoint_kind": "step_0"},
+    )
+
+    for method in methods:
+        output = methods_dir / method
+        manifest = json.loads((output / "manifest.json").read_text())
+        for checkpoint_kind in ("best", "terminal", "last_finite"):
+            adapter = output / f"{checkpoint_kind}_adapter"
+            if not (adapter / "adapter_config.json").exists():
+                continue
+            result_json = output / f"test_metrics_{checkpoint_kind}.json"
+            evaluate_checkpoint(
+                method,
+                adapter,
+                result_json,
+                logs / f"09_test_{method}_{checkpoint_kind}.log",
+                {
+                    "checkpoint_kind": checkpoint_kind,
+                    "best_step": manifest.get("best_step"),
+                    "terminal_step": manifest.get("terminal_step"),
+                    "best_val": manifest.get("best_value"),
+                    "stop_reason": manifest.get("stop_reason"),
+                    "numerical_failure": manifest.get("numerical_failure"),
+                    "global_matched_gamma": manifest.get("global_matched_gamma"),
+                },
+            )
 
     summary_path = root / "arena_summary.csv"
-    fields = sorted({k for row in summary_rows for k in row.keys()})
-    with summary_path.open("w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=fields)
+    fields = sorted({key for row in summary_rows for key in row})
+    with summary_path.open("w", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fields)
         writer.writeheader()
         writer.writerows(summary_rows)
     complete = {
         "version": VERSION,
+        "experiment_id": "EXT-C-E8-V4.1",
+        "source_provenance": source_provenance(),
         "plan": plan,
         "initialization_mode": initialization_mode,
         "base_validation": base_val,
         "reference_validation": reference_val,
         "mechanism_probe": json.loads(mechanism_json.read_text()),
+        "global_matched_calibration": (
+            json.loads(calibration_json.read_text()) if calibration_json.exists() else None
+        ),
         "summary": summary_rows,
-        "formal_result_status": "pilot",
-        "note": "A completed single-seed run is a pilot, not a formal multi-seed result.",
+        "result_status": run_status,
+        "terminal_audit_present": all(
+            any(
+                row["method"] == method
+                and row.get("checkpoint_kind") in {"terminal", "last_finite"}
+                for row in summary_rows
+            )
+            for method in methods
+        ),
+        "full_finetune_confirmation": "not_run; required only after a LoRA pilot signal",
+        "note": "A completed single-seed run remains a pilot, never a formal multi-seed result.",
     }
     (root / "run_complete.json").write_text(json.dumps(complete, indent=2))
     print("\nDONE. Summary:", summary_path)
@@ -2077,14 +3190,17 @@ def cmd_selftest(args: argparse.Namespace) -> None:
     oracle = "((1 + 2) * (3 + 4))"
     check = verify_expression(oracle, [1, 2, 3, 4], 21)
     assert check["correct"]
+    assert expression_structure("(1 + 2) + (3 + 4)") == expression_structure("1 + (2 + (3 + 4))")
     assert expression_structure("(1 + 2) * (3 + 4)") == expression_structure("(2 + 1) * (4 + 3)")
+    assert len(canonical_pattern_catalog(4)) == 96
     row = {
         "id": "selftest",
         "numbers": [1, 2, 3, 4],
         "target": 21,
         "oracle": oracle,
     }
-    wrong = make_valid_wrong_expression(row, random.Random(7))
+    allowed = set(canonical_pattern_catalog(4))
+    wrong = make_valid_wrong_expression(row, random.Random(7), allowed_patterns=allowed)
     wrong_check = verify_expression(wrong, row["numbers"], row["target"])
     assert wrong_check["valid_format"] and wrong_check["uses_numbers"] and not wrong_check["correct"]
     near, far, matched = select_matched_negative_pair([
@@ -2092,19 +3208,26 @@ def cmd_selftest(args: argparse.Namespace) -> None:
         {"surprisal": 2.0, "token_length": 8, "tree_depth": 2, "value_error": 5.0},
         {"surprisal": 5.0, "token_length": 8, "tree_depth": 3, "value_error": 6.0},
     ], 0.5, 2, 1, 4.0)
-    assert matched and near["surprisal"] < far["surprisal"]
+    assert matched and near is not None and far is not None and near["surprisal"] < far["surprisal"]
+    no_near, no_far, no_match = select_matched_negative_pair([
+        {"surprisal": 1.0, "token_length": 7, "tree_depth": 2, "value_error": 1.0},
+        {"surprisal": 1.1, "token_length": 20, "tree_depth": 5, "value_error": 100.0},
+    ], 0.5, 2, 1, 4.0)
+    assert not no_match and no_near is None and no_far is None
     train, val, test, manifest = generate_structural_splits(40, 12, 12, seed=17)
-    train_s = {x["oracle_structure"] for x in train}
-    val_s = {x["oracle_structure"] for x in val}
-    test_s = {x["oracle_structure"] for x in test}
-    assert not (train_s & val_s or train_s & test_s or val_s & test_s)
+    train_patterns = {item["oracle_structure"] for item in train}
+    val_patterns = {item["oracle_structure"] for item in val}
+    test_patterns = {item["oracle_structure"] for item in test}
+    assert not (train_patterns & val_patterns or train_patterns & test_patterns or val_patterns & test_patterns)
     assert manifest["structure_sets_disjoint"]
+    assert manifest["protocol"] == "park_inspired_pattern_first_family_holdout_capacity_audited"
     print(json.dumps({
         "selftest": "ok",
         "version": VERSION,
         "wrong_expression": wrong,
         "split_manifest": manifest,
     }, indent=2))
+
 
 def common_model_args(ap: argparse.ArgumentParser) -> None:
     ap.add_argument("--model_path", required=True, help="Local Qwen model directory")
@@ -2172,9 +3295,12 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--reference_adapter", default=None)
     ap.add_argument("--sft_adapter", default=None, help=argparse.SUPPRESS)
     ap.add_argument("--input_data", required=True)
+    ap.add_argument("--split_manifest", required=True)
     ap.add_argument("--output_data", required=True)
     ap.add_argument("--rollouts", type=int, default=12)
-    ap.add_argument("--batch_size", type=int, default=4)
+    ap.add_argument("--batch_size", type=int, default=4, help="Initial rollout generation batch size")
+    ap.add_argument("--pair_resample_rounds", type=int, default=3)
+    ap.add_argument("--min_negative_candidates", type=int, default=4)
     ap.add_argument("--score_batch_size", type=int, default=16)
     ap.add_argument("--max_examples", type=int, default=1500, help="0 means all")
     ap.add_argument("--temperature", type=float, default=0.8)
@@ -2217,6 +3343,7 @@ def build_parser() -> argparse.ArgumentParser:
             "positive_only",
             "controlled_negative",
             "uncontrolled_negative",
+            "global_matched",
             "uncontrolled",
             "global",
             "exp",
@@ -2246,6 +3373,7 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--near_mix", type=float, default=0.5)
     ap.add_argument("--far_mix", type=float, default=0.5)
     ap.add_argument("--global_gamma", type=float, default=0.55)
+    ap.add_argument("--global_calibration_json", default=None)
     ap.add_argument("--exp_lambda", type=float, default=0.7)
     ap.add_argument("--surprisal_threshold", type=float, default=2.0)
     ap.add_argument("--entropy_coef", type=float, default=0.02)
@@ -2259,6 +3387,21 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--num_workers", type=int, default=2)
     ap.add_argument("--seed", type=int, default=0)
     ap.set_defaults(func=cmd_train_method)
+
+    ap = sub.add_parser("calibrate_global", help="Calibrate fixed global negative-gradient budget")
+    common_model_args(ap)
+    ap.add_argument("--reference_adapter", required=True)
+    ap.add_argument("--offline_data", required=True)
+    ap.add_argument("--output_json", required=True)
+    ap.add_argument("--batch_size", type=int, default=1)
+    ap.add_argument("--calibration_batches", type=int, default=16)
+    ap.add_argument("--max_length", type=int, default=256)
+    ap.add_argument("--near_mix", type=float, default=0.5)
+    ap.add_argument("--far_mix", type=float, default=0.5)
+    ap.add_argument("--exp_lambda", type=float, default=0.7)
+    ap.add_argument("--surprisal_threshold", type=float, default=2.0)
+    ap.add_argument("--seed", type=int, default=1309)
+    ap.set_defaults(func=cmd_calibrate_global)
 
     ap = sub.add_parser("evaluate")
     common_model_args(ap)
@@ -2277,12 +3420,14 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--work_dir", required=True)
     ap.add_argument("--gpu", default="0", help="Single physical GPU id, or auto")
     ap.add_argument("--preset", choices=["auto", "0.5b", "small", "3b", "7b"], default="auto")
-    ap.add_argument("--memory_mode", choices=["auto", "bf16", "qlora"], default="auto")
-    ap.add_argument("--methods", default="positive_only,controlled_negative,uncontrolled_negative")
+    ap.add_argument("--memory_mode", choices=["auto", "bf16", "qlora"], default="bf16")
+    ap.add_argument("--methods", default="positive_only,controlled_negative,uncontrolled_negative,global_matched")
     ap.add_argument("--min_base_success", type=float, default=0.15)
     ap.add_argument("--min_base_valid", type=float, default=0.80)
     ap.add_argument("--min_sft_success", type=float, default=0.15)
     ap.add_argument("--min_matched_pairs", type=int, default=16)
+    ap.add_argument("--pair_resample_rounds", type=int, default=3)
+    ap.add_argument("--allow_non_bf16_smoke", action="store_true")
     ap.add_argument("--no_sft_fallback", action="store_true")
     ap.add_argument("--seed", type=int, default=1234)
     ap.add_argument("--skip_preflight", action="store_true")

@@ -21,3 +21,9 @@ wandb/
 *.tar.gz
 
 *.egg-info/
+*.safetensors
+adapter_model.bin
+**/best_adapter/
+**/terminal_adapter/
+**/last_finite_adapter/
+**/.last_finite_adapter_work/

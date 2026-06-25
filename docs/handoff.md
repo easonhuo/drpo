@@ -1,4 +1,16 @@
-# DRPO / SNA2C 远场负梯度动力学研究主文档 v15（同分布泛化术语与一键复现重建版）
+# DRPO / SNA2C 远场负梯度动力学研究主文档 v21（Countdown v4.1 审计协议版）
+
+> **v21 增量记录：Countdown v4.1 审计式 pilot 协议（不删除 v20 及更早内容）**
+>
+> - `EXT-C-E8-V4` 标记为已替换；新的执行 ID 为 `EXT-C-E8-V4.1`，科学状态仍为“尚未运行”。该实验只承担 Transformer/token 外部有效性，不替代 D-U1/D-Diag 的受控机制识别。
+> - Base-first 保持不变：先零训练评测 Qwen Instruct 0.5B；仅当 Base 未过既有能力门禁时执行最小 SFT fallback。Pilot 四条训练线冻结为 `positive_only`、`controlled_negative`、`uncontrolled_negative`、`global_matched`，全部共享同一 BF16 LoRA 参数化、初始 adapter、离线数据、数据顺序与评测 seeds。
+> - Near/far negative pair 必须满足预登记的 surprisal gap、token 长度、树深与数值误差匹配。候选不足时追加采样；达到冻结重采样轮数仍无合格 pair 时丢弃该题。`pair_matched=false` 不得进入 mechanism probe 或主训练。
+> - `global_matched` 在固定 calibration split 上匹配 `controlled_negative` 的 RMS 负梯度预算，再冻结同一个 `gamma` 等比例缩放 near 与 far；它不读取 near/far 身份，用于区分选择性远场控制与单纯减少总负更新，不预设方法排序。
+> - 结构协议采用 Park-inspired canonical pattern、pattern-first 容量审计、近似平衡生成和 held-out pattern-family 拆分。只采用其数据控制工具，不继承更强的 latent-skill 或 OOD 因果主张；当前术语为 **held-out canonical pattern-family generalization / 未见规范结构族泛化**。Held-out family 不得出现在训练 positive 或 negative completion 中。
+> - Adapter/checkpoint 二进制只保存在服务器本地或外部持久存储，不提交 GitHub、不进入普通代码更新包。正常结束每方法保留 `best_adapter` 与真实 `terminal_adapter`；非有限失败时保留 `best_adapter` 与 `last_finite_adapter`，符合每方法最多两个 checkpoint 的 v20 artifact 预算。Manifest 只记录路径、step、大小、SHA-256、base model 与 adapter 配置。
+> - Pilot 全部方法统一 BF16 LoRA；出现可复现信号后才在 0.5B 上执行统一 full fine-tuning 确认。不得在同一主比较中混用 LoRA 与 full FT。
+> - 静态检查、CPU selftest、硬件 smoke 和单 dev seed 均不构成正式结果；正式结论仍需 paired held-out seeds、终态审计和持久 artifact。
+
 
 > **v20 增量记录：提交身份、原子打包与大文件边界加固（不删除 v19 及更早内容）**
 >
@@ -332,7 +344,7 @@ Ground-truth reward 由动作到 `a_star(s)` 的二维距离决定，因此 `a_s
 | E5 | Categorical 排斥与支持边界 | 有界 logit score 下重复负更新如何把概率推向边界 | 解析 + 长期 | direct-softmax 解析、概率衰减、rare/common 干预 |
 | E6 | 共享语义 categorical 外推 | 负梯度能否利用共享表示改善未见动作且避免 support collapse | 是 | unordered semantic actions；positive-only/controlled/uncontrolled；长期方法对比 |
 | E7 | Hopper learned-critic | 真实数据与 learned critic 下机制是否仍出现 | 是 | 训练足够长；优势匹配；长期 Near/Far 结果；不是方法效果表 |
-| E8 | Countdown/Qwen | Transformer 中固定负优势 near/far 机制迁移与受控负优势泛化收益 | base-first 门禁；必要时最小 SFT fallback；early stop + 最佳验证 checkpoint | 0.5B 主实验；固定 A=-1 机制 probe；Positive-only/Controlled-negative/Uncontrolled-negative 配对；verifier success/pass@k/未见结构指标 |
+| E8 | Countdown/Qwen | Transformer 中固定负优势 near/far 机制迁移与受控负优势泛化收益 | base-first 门禁；必要时最小 SFT fallback；best + terminal/last-finite 终态审计 | 0.5B BF16-LoRA pilot；固定 A=-1 probe；Positive-only/Controlled/Uncontrolled/Global-matched 配对；held-out canonical pattern-family coverage/precision |
 
 ## 4.1 动力学实验统一收敛标准
 
@@ -357,7 +369,7 @@ Ground-truth reward 由动作到 `a_star(s)` 的二维距离决定，因此 `a_s
 | E5 | 解析和长程 categorical 基本完成 | D-U1/D-Diag 可保留 | 接近完成，需整理最终口径 |
 | E6 | unordered semantic categorical 仅短程 pilot | 尚未长期重跑 | 未完成 |
 | E7 | Hopper learned-critic 600-step probe | 未长期重跑 | 有限训练步数证据 |
-| E8 | v4 base-first 单文件代码已完成 Python 编译、CPU selftest 与单元测试 | 未在真实本地 Qwen/CUDA/LoRA 完整运行 | 尚未运行；不得把静态/CPU 测试当作实验结果 |
+| E8 | v4.1 审计式 pilot 代码已实现；仅代码/CPU 测试，不含真实 Qwen 结果 | 未在真实本地 Qwen/CUDA/BF16-LoRA 或 full-FT 完整运行 | 尚未运行；v4 已替换，v4.1 不得把静态/CPU 测试当作实验结果 |
 
 ---
 
@@ -4000,6 +4012,21 @@ python countdown_qwen_arena_onefile_v3.py run \
 ```
 
 代码会依次执行真实 forward/backward/generation preflight、数据生成、最佳验证 checkpoint SFT、verifier 门禁、冻结 SFT 策略的离线轨迹构造、各方法训练、最佳 checkpoint 测试和统一 CSV 汇总。`memory_mode=auto` 在大显存卡选择 BF16 LoRA，在较小显存卡选择 4-bit QLoRA。当前已完成 Python 编译、CLI 和纯数据/verifier smoke test；由于本容器没有 transformers/peft、GPU 和用户本地权重，尚未完成真实 Qwen 端到端运行，该边界必须保留。
+
+#### v21 当前协议覆盖：v4.1 审计式 BF16-LoRA pilot
+
+本小节覆盖 v18 中“单个 oracle signature 拆分、三方法比较、只保留最佳 checkpoint”的执行细节；v18 保留作 provenance。当前执行 ID 为 `EXT-C-E8-V4.1`，状态为“尚未运行”。
+
+1. 先评测未经 Countdown 训练的 Qwen Instruct 0.5B Base；仅在既有能力门禁失败时执行最小 SFT fallback。
+2. `positive_only`、`controlled_negative`、`uncontrolled_negative`、`global_matched` 统一使用 BF16 LoRA；QLoRA 只允许标注为工程 smoke fallback，不进入方法排名。
+3. 使用 canonical-pattern-first、容量审计的近似平衡生成与 held-out pattern-family 拆分；普通 verifier success 只作为任务性能，结构泛化以 family coverage 与 per-pattern precision 报告。
+4. Held-out family 不得作为训练 positive 或 near/far negative completion 出现。
+5. Near/far 均为合法、使用全部数字、reward=0 的错误表达式并固定 `A=-1`；追加采样仍无法匹配则丢弃，主训练与 probe 只读取 matched pair。
+6. `global_matched` 在固定 calibration 数据上匹配 Controlled 的 RMS 负梯度 norm，并冻结 global gamma；test 不参与校准。
+7. 权重仅保存在服务器本地：正常结束保留 best+terminal，非有限失败保留 best+last-finite；不复制 foundation model，不默认保存 optimizer state。
+8. 分别评测共同起点、best、terminal/last-finite，记录 stop reason；任务性能、结构/支持退化和 NaN/Inf 分开报告。
+9. 单 dev seed 只标记 pilot；正式升级要求 paired held-out seeds、终态审计和持久 artifact。
+10. LoRA pilot 出现可复现信号后，才在 0.5B 上做统一 full-FT 确认。
 
 #### v18 当前协议覆盖：Base-first 0.5B 最小实验
 
