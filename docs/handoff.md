@@ -1,4 +1,16 @@
-# DRPO / SNA2C 远场负梯度动力学研究主文档 v25（E7 Hopper 二次 log-scale 外部验证预注册版）
+# DRPO / SNA2C 远场负梯度动力学研究主文档 v26（base freshness 三阶段校验与自动源码获取版）
+
+> **v26 增量记录：GOV-BASE-FRESHNESS-01（不删除 v25 及更早内容）**
+>
+> - 新治理 ID `GOV-BASE-FRESHNESS-01` 生效；只优化 session 的 base 新鲜度发现、源码获取与更新包交付效率，不改变任何科学 claim、实验状态、冻结变量、seeds、阈值、数据规模或执行顺序。
+> - base 校验从“会话启动时一次”升级为三阶段：`session_start`、`pre_execution`、`pre_delivery`。每次记录 UTC 时间、local HEAD、选定 base、权威 remote main、解析方法和状态；同一尝试使用一个 freshness ledger。
+> - 若 `main` 在任一阶段前进，当前尝试立即标记 `base_advanced`，不得继续正式运行或交付旧 base ZIP。session 应自行刷新/rebase、重新读取 `AGENTS.md`、本节与 registry，并重新执行 apply、测试和最终 ZIP 校验；不能等待用户主动告知新 commit。
+> - `git ls-remote origin refs/heads/main` 仍是首选。shell DNS/网络失败时，若 session 的官方 GitHub 页面、commit API、raw/download bridge 仍可用，必须通过该权威通道解析 SHA，并把解析方法写入 ledger；用户提供 SHA 只作提示或全部自动通道失败后的兜底，不得在可自动核验时把发现责任转给用户。
+> - 对代码修改和 `drpo-update` 交付，官方 GitHub **完整 SHA 固定** archive 可在记录 archive SHA-256、安全完整解压、全树 inventory、文件模式和第二次独立解压 apply/test 后升级为 verified source capsule。该规则不包括移动的 branch ZIP、用户随手压缩的目录、网页片段或人工拼装 partial tree。
+> - 正式实验仍只能使用 supervisor 明确支持的来源模式：exact Git checkout/bundle，或经过 supervisor 验证的 capsule mode。不能因为 archive 可用于代码 patch 就绕过正式运行 provenance 预检。
+> - 在另一个 session 所述场景中，如果它确实逐项尝试并确认 existing checkout、clone/fetch、环境 download bridge、固定 SHA archive/capsule 与项目持久来源全部不可用，请求一次完整 Git bundle 是允许的最后兜底；但仅因 shell 无法解析 `github.com` 就立即要求用户上传 bundle，不符合本版规则。
+> - `scripts/resolve_main_commit.py` 新增 freshness phase、ledger、官方外部 SHA 与解析方法支持；remote 发生变化时退出码为 `3`，用于机械阻止 stale-base 执行或交付。
+> - 本轮 base 为 `f6590a28fb327bb4f83a6418637187f5ab2cace0`。`C-U1-E1-COMP-01` 保持 `pilot`，`EXT-H-E7-Q2` 与 `EXT-C-E8-V4.1` 保持 `not_run`；未产生新实验结果。
 
 > **v25 增量登记：EXT-H-E7-Q2（不删除 v24 及更早内容）**
 >

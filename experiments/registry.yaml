@@ -75,6 +75,13 @@ rules:
   capture_supervisor_setup_and_end_provenance_failures: true
   require_exact_sidecar_manifest_payload_inventory: true
   require_positive_artifact_size_and_count_limits: true
+  require_three_phase_base_freshness_check: true
+  require_base_freshness_ledger: true
+  require_session_self_discovery_of_remote_advances: true
+  user_supplied_sha_is_not_authoritative_when_official_channel_available: true
+  shell_dns_failure_alone_does_not_justify_user_upload: true
+  allow_verified_official_full_sha_archive_for_code_delivery: true
+  archive_capsule_not_automatic_formal_run_authority: true
 experiments:
 - id: C-U1-E1-COMP-01
   environment: C-U1
@@ -557,6 +564,7 @@ artifact_protocol:
   governance_id: GOV-EXP-ARTIFACT-01
   hardening_governance_id: GOV-EXP-ARTIFACT-02
   transactional_hardening_governance_id: GOV-EXP-ARTIFACT-03
+  base_freshness_governance_id: GOV-BASE-FRESHNESS-01
   document: docs/formal_experiment_artifact_protocol.md
   guard_entrypoint: scripts/run_experiment_guard_hardened.py
   package_entrypoint: scripts/package_experiment_hardened.py
@@ -597,12 +605,40 @@ artifact_protocol:
     acquisition_ladder:
     - existing_exact_checkout_or_bundle
     - shell_clone_or_fetch
-    - environment_download_bridge_for_full_sha_git_bundle_or_verified_capsule
-    - project_persistent_exact_sha_bundle_or_capsule
-    user_upload: last_resort_complete_bundle_or_capsule_only
+    - environment_download_bridge_for_official_full_sha_archive_or_git_bundle
+    - project_persistent_exact_sha_bundle_or_verified_capsule
+    user_upload: last_resort_complete_bundle_or_verified_capsule_only
     no_user_upload: allowed_when_exact_commit_source_is_acquired_automatically
-    plain_source_zip: review_only_not_formal_checkout
+    official_full_sha_archive_for_code_delivery: verified_capsule_allowed
+    archive_capsule_for_formal_run: only_when_supervisor_supports_and_validates_capsule_mode
+    unpinned_or_partial_source_archive: forbidden
   source_snapshot_preflight: require_each_requested_file_at_launch_commit
+  base_freshness:
+    phases:
+    - session_start
+    - pre_execution
+    - pre_delivery
+    ledger_required: true
+    ledger_fields:
+    - phase
+    - observed_at_utc
+    - local_head
+    - expected_sha
+    - initial_base_commit
+    - remote_main_sha
+    - remote_resolution_method
+    - remote_authoritative
+    - status
+    stale_exit_code: 3
+    stale_action:
+    - stop_current_delivery_or_formal_launch
+    - refresh_or_rebase_to_new_main
+    - reread_AGENTS_handoff_section_0_and_registry
+    - restart_freshness_ledger
+    - rerun_merge_equivalent_tests
+    user_supplied_sha_role: hint_only_when_official_resolution_channel_exists
+    local_or_selected_base_change_within_ledger: reject_and_restart
+    external_authoritative_sha_requires_resolution_method: true
   sidecar_verification:
     exact_payload_inventory: true
     require_experiment_id: true
@@ -625,14 +661,16 @@ artifact_protocol:
     require_authoritative_exact_sha_checkout: true
     forbid_web_snippet_or_manual_base_reconstruction: true
     run_merge_equivalent_apply_path: true
+    require_pre_delivery_freshness_checkpoint: true
     source_availability_preflight: true
     browser_only_source_not_accepted_for_formal_run: true
     plain_source_archive_not_accepted_as_commit_checkout: true
     require_git_commit_object: true
   commit_resolution_priority:
   - git_ls_remote_origin_main
-  - local_git_rev_parse_head
-  - explicit_expected_full_sha
+  - official_github_commit_api_or_download_bridge
+  - local_git_rev_parse_head_for_checkout_identity_only
+  - explicit_expected_full_sha_as_non_authoritative_hint
   completion_requires:
   - terminal_audited
   - packaged
@@ -668,4 +706,13 @@ governance_changes:
   effective_date: '2026-06-25'
   supersedes_operational_details_of: GOV-EXP-ARTIFACT-02
   purpose: Preserve prior valid packages during replacement, capture command-start and supervisor failures, bind recovery artifacts to the launch commit, enforce final evidence completeness, make persistent-local checkpoint indexing the default, and require explicit versioned sidecars only.
+  scientific_status_change: false
+
+- id: GOV-BASE-FRESHNESS-01
+  status: active
+  effective_date: '2026-06-25'
+  complements:
+  - GOV-EXP-ARTIFACT-03
+  purpose: Require authoritative three-phase main-branch freshness checks, make sessions discover remote advances without depending on user reminders, and allow verified immutable full-SHA archives for code-delivery work when direct Git transport is unavailable.
+  base_commit_at_registration: f6590a28fb327bb4f83a6418637187f5ab2cace0
   scientific_status_change: false

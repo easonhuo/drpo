@@ -1589,3 +1589,130 @@ def test_small_foundation_model_bin_is_index_only(tmp_path: Path) -> None:
         row = next(x for x in index["entries"] if x["path"] == "base_model/weights.bin")
         assert row["reason"] == "foundation_model_forbidden_index_only"
         assert row["role"] == "foundation_model_weight"
+
+
+def _freshness_cmd(
+    repo: Path,
+    ledger: Path,
+    phase: str,
+    *extra: str,
+) -> subprocess.CompletedProcess[str]:
+    return run(
+        [
+            sys.executable,
+            "scripts/resolve_main_commit.py",
+            "--repo-root",
+            str(repo),
+            "--expected-sha",
+            head(repo),
+            "--phase",
+            phase,
+            "--ledger",
+            str(ledger),
+            *extra,
+        ],
+        repo,
+    )
+
+
+def test_three_phase_base_freshness_ledger_passes_on_stable_main(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    ledger = tmp_path / "freshness.json"
+    start = _freshness_cmd(repo, ledger, "session_start", "--reset-ledger")
+    assert start.returncode == 0, start.stderr
+    before_run = _freshness_cmd(repo, ledger, "pre_execution")
+    assert before_run.returncode == 0, before_run.stderr
+    before_delivery = _freshness_cmd(repo, ledger, "pre_delivery")
+    assert before_delivery.returncode == 0, before_delivery.stderr
+    payload = json.loads(ledger.read_text())
+    assert [row["phase"] for row in payload["checkpoints"]] == [
+        "session_start",
+        "pre_execution",
+        "pre_delivery",
+    ]
+    assert all(row["status"] == "verified_current" for row in payload["checkpoints"])
+
+
+def test_base_freshness_detects_remote_advance_before_delivery(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    remote = tmp_path / "remote.git"
+    assert run(["git", "init", "--bare", str(remote)], tmp_path).returncode == 0
+    assert run(["git", "remote", "set-url", "origin", str(remote)], repo).returncode == 0
+    assert run(["git", "push", "-u", "origin", "main"], repo).returncode == 0
+    ledger = tmp_path / "freshness.json"
+    assert _freshness_cmd(repo, ledger, "session_start", "--reset-ledger").returncode == 0
+    assert _freshness_cmd(repo, ledger, "pre_execution").returncode == 0
+
+    old_head = head(repo)
+    (repo / "REMOTE_ADVANCE.txt").write_text("advance\n")
+    assert run(["git", "add", "REMOTE_ADVANCE.txt"], repo).returncode == 0
+    assert run(["git", "commit", "-m", "remote advance"], repo).returncode == 0
+    assert run(["git", "push", "origin", "main"], repo).returncode == 0
+    assert run(["git", "reset", "--hard", old_head], repo).returncode == 0
+
+    checked = _freshness_cmd(repo, ledger, "pre_delivery")
+    assert checked.returncode == 3
+    assert "origin/main advanced" in checked.stderr
+    payload = json.loads(ledger.read_text())
+    assert payload["latest_status"] == "base_advanced"
+
+
+def test_official_external_sha_can_supply_authoritative_freshness(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    assert run(["git", "remote", "remove", "origin"], repo).returncode == 0
+    ledger = tmp_path / "freshness.json"
+    checked = _freshness_cmd(
+        repo,
+        ledger,
+        "session_start",
+        "--reset-ledger",
+        "--authoritative-sha",
+        head(repo),
+        "--resolution-method",
+        "github_commit_api",
+    )
+    assert checked.returncode == 0, checked.stderr
+    payload = json.loads(ledger.read_text())
+    row = payload["checkpoints"][0]
+    assert row["remote_authoritative"] is True
+    assert row["remote_resolution_method"] == "github_commit_api"
+
+
+def test_user_expected_sha_alone_does_not_fake_remote_freshness(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    assert run(["git", "remote", "remove", "origin"], repo).returncode == 0
+    ledger = tmp_path / "freshness.json"
+    checked = _freshness_cmd(repo, ledger, "session_start", "--reset-ledger")
+    assert checked.returncode == 2
+    assert "could not be resolved authoritatively" in checked.stderr.lower()
+    assert not ledger.exists()
+
+
+def test_freshness_ledger_rejects_local_base_change_without_restart(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    ledger = tmp_path / "freshness.json"
+    assert _freshness_cmd(repo, ledger, "session_start", "--reset-ledger").returncode == 0
+    (repo / "LOCAL_CHANGE.txt").write_text("new base\n")
+    assert run(["git", "add", "LOCAL_CHANGE.txt"], repo).returncode == 0
+    assert run(["git", "commit", "-m", "local base change"], repo).returncode == 0
+    checked = _freshness_cmd(repo, ledger, "pre_execution")
+    assert checked.returncode == 2
+    assert "changed within the freshness ledger" in checked.stderr
+    payload = json.loads(ledger.read_text())
+    assert payload["base_commit_used"] != head(repo)
+
+
+def test_external_authoritative_sha_requires_resolution_method(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    ledger = tmp_path / "freshness.json"
+    checked = _freshness_cmd(
+        repo,
+        ledger,
+        "session_start",
+        "--reset-ledger",
+        "--authoritative-sha",
+        head(repo),
+    )
+    assert checked.returncode == 2
+    assert "requires --resolution-method" in checked.stderr
+    assert not ledger.exists()

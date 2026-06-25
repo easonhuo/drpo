@@ -2251,17 +2251,223 @@ def guard_main(argv: list[str] | None = None) -> int:
     return returncode if returncode != 0 else 2
 
 
+FRESHNESS_PHASE_ORDER = {
+    "session_start": 0,
+    "pre_execution": 1,
+    "pre_delivery": 2,
+}
+
+
+def _atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(
+        mode="w",
+        encoding="utf-8",
+        dir=path.parent,
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+        delete=False,
+    ) as handle:
+        json.dump(payload, handle, indent=2, sort_keys=True)
+        handle.write("\n")
+        candidate = Path(handle.name)
+    os.replace(candidate, path)
+
+
+def _read_freshness_ledger(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {"schema_version": 1, "checkpoints": []}
+    payload = read_json_object(path, "base freshness ledger")
+    checkpoints = payload.get("checkpoints")
+    if payload.get("schema_version") != 1 or not isinstance(checkpoints, list):
+        raise ValueError("base freshness ledger has an unsupported schema")
+    return payload
+
+
+def _external_authoritative_resolution(sha: str, method: str | None) -> dict[str, Any]:
+    if method is None:
+        raise ValueError("--authoritative-sha requires --resolution-method")
+    normalized_method = method.strip()
+    if not normalized_method:
+        raise ValueError("--resolution-method may not be empty")
+    return {
+        "sha": validate_sha(sha),
+        "source": normalized_method,
+        "authoritative": True,
+        "error": None,
+    }
+
+
+def observe_commit_state(
+    repo: Path,
+    expected_sha: str | None,
+    *,
+    authoritative_sha: str | None = None,
+    resolution_method: str | None = None,
+) -> dict[str, Any]:
+    """Observe local and remote identity without hiding a remote advance.
+
+    ``authoritative_sha`` is for an official non-shell channel such as the
+    GitHub commit API or an environment download bridge.  A user-supplied SHA
+    must not be labelled authoritative unless it was independently resolved by
+    such a channel.
+    """
+    ensure_git_repo(repo)
+    local = git_head(repo)
+    expected = validate_sha(expected_sha) if expected_sha else local
+    if local != expected:
+        raise ValueError(f"Local HEAD {local} does not match expected commit {expected}")
+    origin = (
+        _external_authoritative_resolution(authoritative_sha, resolution_method)
+        if authoritative_sha
+        else resolve_origin_main(repo)
+    )
+    remote_matches_local = bool(origin.get("authoritative") and origin.get("sha") == local)
+    return {
+        "local_head": local,
+        "expected_sha": expected,
+        "origin_main": origin,
+        "origin_matches_local": remote_matches_local,
+        "verified": remote_matches_local,
+    }
+
+
+def record_freshness_checkpoint(
+    ledger_path: Path,
+    phase: str,
+    report: dict[str, Any],
+    *,
+    reset: bool = False,
+    allow_unresolved_remote: bool = False,
+) -> tuple[dict[str, Any], bool]:
+    if phase not in FRESHNESS_PHASE_ORDER:
+        raise ValueError(f"Unknown freshness phase: {phase}")
+    ledger = {"schema_version": 1, "checkpoints": []} if reset else _read_freshness_ledger(ledger_path)
+    checkpoints = ledger["checkpoints"]
+    if not isinstance(checkpoints, list):
+        raise ValueError("base freshness ledger checkpoints must be a list")
+    expected_index = len(checkpoints)
+    if expected_index >= len(FRESHNESS_PHASE_ORDER):
+        raise ValueError("base freshness ledger is already complete; start a new ledger")
+    expected_phase = list(FRESHNESS_PHASE_ORDER)[expected_index]
+    if phase != expected_phase:
+        raise ValueError(
+            f"Freshness phase {phase!r} is out of order; expected {expected_phase!r}"
+        )
+
+    origin = report["origin_main"]
+    authoritative = bool(origin.get("authoritative") and origin.get("sha"))
+    if not authoritative and not allow_unresolved_remote:
+        raise ValueError(
+            "Current origin/main could not be resolved authoritatively. Use git ls-remote "
+            "or pass an independently resolved official --authoritative-sha; do not ask the "
+            "user to notice a newer base before exhausting those channels."
+        )
+
+    initial_base = ledger.get("initial_base_commit")
+    local_sha = report["local_head"]
+    selected_base = report["expected_sha"]
+    if initial_base is None:
+        ledger["initial_base_commit"] = selected_base
+        initial_base = selected_base
+    elif local_sha != initial_base or selected_base != initial_base:
+        raise ValueError(
+            "Local HEAD or selected base changed within the freshness ledger. "
+            "Refresh/rebase if needed, reread governance files, and restart the ledger."
+        )
+
+    first_authoritative = next(
+        (
+            row.get("remote_main_sha")
+            for row in checkpoints
+            if row.get("remote_authoritative") and row.get("remote_main_sha")
+        ),
+        None,
+    )
+    remote_sha = origin.get("sha")
+    remote_advanced = bool(authoritative and remote_sha != local_sha)
+    changed_since_start = bool(
+        authoritative and first_authoritative and remote_sha != first_authoritative
+    )
+    stale = remote_advanced or changed_since_start
+    status = "base_advanced" if stale else ("verified_current" if authoritative else "unresolved_allowed")
+    entry = {
+        "phase": phase,
+        "observed_at_utc": utc_now(),
+        "local_head": local_sha,
+        "expected_sha": report["expected_sha"],
+        "remote_main_sha": remote_sha,
+        "remote_resolution_method": origin.get("source"),
+        "remote_authoritative": authoritative,
+        "remote_error": origin.get("error"),
+        "status": status,
+    }
+    checkpoints.append(entry)
+    ledger["base_commit_used"] = initial_base
+    ledger["checkpoints"] = checkpoints
+    ledger["latest_status"] = status
+    _atomic_write_json(ledger_path, ledger)
+    return entry, stale
+
+
 def resolve_main_parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Resolve and verify the DRPO main commit")
     parser.add_argument("--repo-root", type=Path, default=Path.cwd())
     parser.add_argument("--expected-sha")
     parser.add_argument("--require-origin-main-match", action="store_true")
-    return parser.parse_args(argv)
+    parser.add_argument("--phase", choices=list(FRESHNESS_PHASE_ORDER))
+    parser.add_argument("--ledger", type=Path)
+    parser.add_argument("--reset-ledger", action="store_true")
+    parser.add_argument(
+        "--authoritative-sha",
+        help="full main SHA independently resolved through an official non-shell channel",
+    )
+    parser.add_argument(
+        "--resolution-method",
+        help="official channel used for --authoritative-sha, for example github_commit_api",
+    )
+    parser.add_argument("--allow-unresolved-remote", action="store_true")
+    args = parser.parse_args(argv)
+    if bool(args.phase) != bool(args.ledger):
+        parser.error("--phase and --ledger must be supplied together")
+    if args.reset_ledger and args.phase != "session_start":
+        parser.error("--reset-ledger is valid only for --phase session_start")
+    if args.resolution_method and not args.authoritative_sha:
+        parser.error("--resolution-method requires --authoritative-sha")
+    if args.authoritative_sha and not args.resolution_method:
+        parser.error("--authoritative-sha requires --resolution-method")
+    return args
 
 
 def resolve_main_cli(argv: list[str] | None = None) -> int:
     args = resolve_main_parse_args(argv)
     try:
+        if args.phase:
+            report = observe_commit_state(
+                args.repo_root.resolve(),
+                args.expected_sha,
+                authoritative_sha=args.authoritative_sha,
+                resolution_method=args.resolution_method,
+            )
+            entry, stale = record_freshness_checkpoint(
+                args.ledger.resolve(),
+                args.phase,
+                report,
+                reset=args.reset_ledger,
+                allow_unresolved_remote=args.allow_unresolved_remote,
+            )
+            report["freshness_checkpoint"] = entry
+            report["freshness_ledger"] = str(args.ledger.resolve())
+            print(json.dumps(report, indent=2))
+            if stale:
+                print(
+                    "ERROR: origin/main advanced; refresh/rebase, reread governance files, "
+                    "restart the freshness ledger, and rerun integration tests.",
+                    file=sys.stderr,
+                )
+                return 3
+            return 0
+
         report = resolve_commit(
             args.repo_root.resolve(),
             args.expected_sha,

@@ -298,7 +298,7 @@ The base repository used to generate and test an update package must be obtained
 1. a real `git clone`/`git fetch` followed by `git checkout <full-sha>`; or
 2. a verified Git bundle/source capsule that contains the expected commit object and complete tree.
 
-A plain GitHub source archive may support static inspection, but it does not contain Git commit objects and therefore does not by itself satisfy the commit-bound formal-run or merge-equivalent pre-delivery gate. A repository reconstructed from parsed web pages, copied snippets, manually recreated files, or an unrelated local commit is not a valid base, even when `BASE_COMMIT.txt` contains the desired SHA. A package generated from such a synthetic base must not be described as verified.
+An unpinned branch archive or a user-created source ZIP without immutable provenance may support inspection, but it is not a valid base. For code modification and `drpo-update` pre-delivery testing, an official GitHub archive whose URL is pinned to the full SHA may be promoted to a verified source capsule when the archive SHA-256, safe single-root extraction, complete-tree inventory, file modes, and a second independent extraction/apply/test pass are recorded. This archive-capsule fallback does not automatically authorize a formal experiment launch unless the supervisor explicitly validates capsule mode. A repository reconstructed from parsed web pages, copied snippets, manually recreated files, or an unrelated partial tree is never valid, even when `BASE_COMMIT.txt` contains the desired SHA.
 
 Before publishing the downloadable ZIP, perform a merge-equivalent test in a second fresh checkout of the same authoritative base:
 
@@ -435,3 +435,54 @@ The following controls apply to every package and supervised run:
 9. failures during signal-handler setup, log-reader startup, monitoring, or end-provenance resolution use the same failed-evidence path as child-process failures.
 10. sidecar verification checks the exact manifest-to-payload inventory, including experiment ID, full base commit, declared purpose, canonical path, size, and SHA-256 for every selected member;
 11. all size and sidecar-count limits must be positive, and the generic large-file persistence default is `persistent_local`; ephemeral runtimes must explicitly set `ephemeral` or `unknown`.
+
+## 18. Base freshness checkpoints and automatic source acquisition (`GOV-BASE-FRESHNESS-01`)
+
+A base selected at session start can become stale while another session commits to `main`. Therefore commit resolution is not a one-time startup action. It is a three-checkpoint protocol:
+
+1. `session_start`: record the initial authoritative `main`, local HEAD, selected base, resolution method, and UTC time;
+2. `pre_execution`: repeat the check immediately before a formal run or before locking the base used to build an update package;
+3. `pre_delivery`: repeat the check after tests and immediately before publishing the final ZIP.
+
+Use one ledger for the attempt:
+
+```bash
+BASE_SHA="$(git rev-parse HEAD)"
+
+python3 scripts/resolve_main_commit.py \
+  --repo-root . \
+  --expected-sha "$BASE_SHA" \
+  --phase session_start \
+  --ledger .drpo/base_freshness.json \
+  --reset-ledger
+
+python3 scripts/resolve_main_commit.py \
+  --repo-root . \
+  --expected-sha "$BASE_SHA" \
+  --phase pre_execution \
+  --ledger .drpo/base_freshness.json
+
+python3 scripts/resolve_main_commit.py \
+  --repo-root . \
+  --expected-sha "$BASE_SHA" \
+  --phase pre_delivery \
+  --ledger .drpo/base_freshness.json
+```
+
+When shell networking is unavailable but an official GitHub commit/API channel is available through the session's web or download bridge, pass that independently resolved SHA explicitly:
+
+```bash
+python3 scripts/resolve_main_commit.py \
+  --repo-root . \
+  --expected-sha "$BASE_SHA" \
+  --authoritative-sha <FULL_SHA_FROM_OFFICIAL_CHANNEL> \
+  --resolution-method github_commit_api \
+  --phase pre_delivery \
+  --ledger .drpo/base_freshness.json
+```
+
+The ledger freezes its initial base; changing local HEAD or `--expected-sha` mid-attempt is rejected and requires a new ledger. A user-provided SHA may identify what to investigate, but it must not be labelled authoritative when an official channel is available. If the authoritative SHA differs from local HEAD or from the earlier ledger checkpoint, the command exits with status `3`. The current attempt is stale: refresh/rebase, reread `AGENTS.md`, handoff Section 0, and the registry, then restart the ledger and rerun the merge-equivalent validation. Do not publish first and let `drpo-update` become the first stale-base detector.
+
+Before asking the user to upload source, inspect and exhaust the capabilities actually available in the session: existing exact checkout or bundle, shell clone/fetch, official immutable full-SHA archive through an environment download bridge, and project-persistent source storage. Shell DNS failure by itself is not sufficient. Asking for one complete Git bundle or verified source capsule is allowed only after those routes truly fail. Repeated ad hoc files are prohibited.
+
+An official immutable full-SHA archive is distinct from an ordinary “Download ZIP” at a moving branch tip. For code changes it is acceptable only when converted into a verified capsule with archive checksum, canonical repository/commit identity, safe complete extraction, deterministic file inventory, preserved executable modes, and independent second-extraction patch application. Formal experiment execution remains subject to the supervisor's supported source modes.
