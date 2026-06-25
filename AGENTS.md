@@ -120,7 +120,7 @@ Static inspection, unit tests, and smoke tests do not constitute a formal multi-
 Formal experiments in ephemeral runtimes require active supervision and durable delivery.
 
 * Do not launch a formal experiment as an unattended background process and then end the working turn.
-* Use `scripts/run_experiment_guard.py` or an equivalent foreground supervisor that records a heartbeat, streams logs, captures exit status, preserves partial outputs, and packages success or failure.
+* Use `scripts/run_experiment_guard_hardened.py` or an equivalent foreground supervisor that records a heartbeat, streams logs, captures exit status, preserves partial outputs, and packages success or failure.
 * Treat `registered`, `running`, `raw_complete`, `terminal_audited`, `packaged`, `delivered`, and `applied_to_repository` as separate execution/evidence states.
 * `raw_complete` is not a completed formal result. Do not claim completion until a verified durable package has been generated and delivered.
 * Do not start the next formal experiment ID until the current experiment has been packaged and delivered. In particular, package E3 before starting E4.
@@ -173,3 +173,21 @@ For every completed coding task, report:
 * result status;
 * remaining uncertainties;
 * current Git status and commit SHA, when available.
+
+## Formal commit and artifact hardening
+
+The following controls are mandatory for formal runs under `GOV-EXP-ARTIFACT-02`:
+
+* Resolve the current commit with Git (`git ls-remote origin refs/heads/main` and `git rev-parse HEAD`), not a cached web commits page. If authoritative remote resolution is unavailable, report that limitation rather than inventing a current SHA.
+* A formal experiment may start only from a clean worktree whose full commit SHA is recorded. A dirty worktree is permitted only for an explicitly labelled pilot with `--allow-dirty`, and its tracked, staged, and bounded untracked launch snapshot must be captured before process start.
+* At process exit, re-check HEAD and worktree status. A changed HEAD or dirty formal worktree marks provenance as compromised and forces failed-run handling even if the child process returned zero.
+* Main artifact ZIPs are first built as candidates, internally verified, and atomically published only after checksum, safe-path, base-commit, and `git apply --check` validation succeeds.
+* Failed, checkpoint, and raw-complete recovery packages are lightweight evidence packages by default. Large model adapters, checkpoints, optimizer states, datasets, and caches are indexed rather than copied into the main ZIP.
+* Necessary large checkpoints must be delivered as a separate sidecar with size, SHA-256, role, and persistence status recorded in the main manifest.
+* Formal large-model experiments must pre-register an artifact budget and checkpoint-retention policy. Do not save foundation-model weights, redundant checkpoints, or optimizer state unless the registered recovery plan requires them.
+* Packaging must never follow result-directory symbolic links. External links are rejected; internal links are recorded as references and their targets are packaged at most once.
+* The default main-package hard limit is 25 MiB and the default single-file main-package limit is 10 MiB. Crossing either limit must trigger exclusion/sidecar handling or fail before final publication; a post-hoc warning is insufficient.
+* The public guard, package, and verify entry points must all use the same hardened implementation and fail closed if that implementation is missing; silently falling back to a legacy protocol is prohibited.
+* Before delivering a `drpo-update` ZIP, apply it in a fresh clean checkout of the confirmed base, preserve executable file modes, run the package's own `TEST_COMMANDS.sh`, run `git diff --check`, and withhold the final ZIP if any step fails.
+* The fresh checkout must come from an authoritative Git clone/fetch or a GitHub source archive pinned to the full commit SHA. Never reconstruct a base tree from web snippets, parsed pages, copied files, or a hand-built repository. If the exact base cannot be acquired, do not label the package verified and do not deliver it as ready for blind application.
+* Pre-delivery validation must exercise the same merge path as the user: verify `BASE_COMMIT.txt`, run `git apply --check`, apply the patch in the fresh checkout, execute `TEST_COMMANDS.sh`, and confirm the declared modified-file set and Git modes. The user-side `drpo-update` run is a final environment check, not the first integration test.

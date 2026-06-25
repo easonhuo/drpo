@@ -27,6 +27,22 @@ rules:
   require_stage_package_before_next_formal_experiment: true
   preserve_partial_results_on_failure: true
   chat_history_is_not_experiment_evidence: true
+  require_authoritative_commit_resolution: true
+  require_clean_worktree_for_formal_runs: true
+  capture_launch_snapshot_for_dirty_pilots: true
+  require_end_provenance_check: true
+  require_internal_package_verification: true
+  require_atomic_package_publish: true
+  lightweight_failed_package_default: true
+  forbid_following_result_symlinks: true
+  require_pre_registered_artifact_budget_for_large_models: true
+  require_shared_hardened_entrypoint_implementation: true
+  forbid_legacy_protocol_fallback: true
+  require_pre_delivery_clean_checkout_validation: true
+  require_authoritative_exact_base_source: true
+  forbid_synthetic_or_web_reconstructed_base: true
+  require_merge_equivalent_pre_delivery_test: true
+  preserve_git_executable_modes_in_update_patches: true
 
 experiments:
   - id: EXT-C-E8-V4
@@ -94,6 +110,16 @@ experiments:
     model_scaling:
       qwen_3b: conditional_replication
       qwen_7b: optional
+    artifact_budget:
+      main_package_hard_limit_mib: 25
+      single_file_main_limit_mib: 10
+      max_retained_checkpoints_per_method: 2
+      checkpoint_roles:
+        - best
+        - latest
+      save_foundation_model_weights: false
+      save_optimizer_state_by_default: false
+      large_checkpoint_delivery: sidecar
     formal_run_status: not_run
     execution:
       state: registered
@@ -120,13 +146,38 @@ allowed_execution_states:
 
 artifact_protocol:
   governance_id: GOV-EXP-ARTIFACT-01
+  hardening_governance_id: GOV-EXP-ARTIFACT-02
   document: docs/formal_experiment_artifact_protocol.md
-  guard_entrypoint: scripts/run_experiment_guard.py
-  package_entrypoint: scripts/package_experiment.py
-  verify_entrypoint: scripts/verify_experiment_package.py
+  guard_entrypoint: scripts/run_experiment_guard_hardened.py
+  package_entrypoint: scripts/package_experiment_hardened.py
+  verify_entrypoint: scripts/verify_experiment_package_hardened.py
   default_checkpoint_every_formal_seeds: 5
   checkpoint_required_for_expected_runtime_minutes_at_least: 30
   final_package_warning_mib: 25
+  main_package_hard_limit_mib: 25
+  max_single_main_file_mib: 10
+  failed_package_mode: lightweight_evidence
+  large_file_delivery: sidecar
+  symlink_policy: never_follow
+  require_clean_worktree_for_formal_runs: true
+  allow_dirty_only_for_explicit_pilot: true
+  require_launch_snapshot_for_dirty_pilot: true
+  require_end_provenance_check: true
+  require_internal_verification_before_atomic_publish: true
+  public_entrypoints_fail_closed: true
+  pre_delivery_validation:
+    require_clean_checkout: true
+    preserve_executable_modes: true
+    run_bundle_test_commands: true
+    run_git_diff_check: true
+    verify_final_zip_checksums: true
+    require_authoritative_exact_sha_checkout: true
+    forbid_web_snippet_or_manual_base_reconstruction: true
+    run_merge_equivalent_apply_path: true
+  commit_resolution_priority:
+    - git_ls_remote_origin_main
+    - local_git_rev_parse_head
+    - explicit_expected_full_sha
   completion_requires:
     - terminal_audited
     - packaged
@@ -154,3 +205,12 @@ governance_changes:
     incident_note: >-
       A temporary C-U1 E3/E4 run produced ephemeral files but no durable
       artifact; the run cannot be used as new formal evidence.
+  - id: GOV-EXP-ARTIFACT-02
+    status: active
+    effective_date: '2026-06-25'
+    supersedes_operational_details_of: GOV-EXP-ARTIFACT-01
+    purpose: >-
+      Bind every formal attempt to an immutable clean commit, verify and publish
+      artifacts atomically, and prevent Countdown-scale checkpoints or symbolic
+      links from inflating the main recovery package.
+    scientific_status_change: false

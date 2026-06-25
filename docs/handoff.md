@@ -1,5 +1,21 @@
 # DRPO / SNA2C 远场负梯度动力学研究主文档 v15（同分布泛化术语与一键复现重建版）
 
+> **v20 增量记录：提交身份、原子打包与大文件边界加固（不删除 v19 及更早内容）**
+>
+> - 新治理 ID `GOV-EXP-ARTIFACT-02` 生效；它只加固代码来源与 artifact 交付，不改变任何实验 claim、变量、seeds、阈值、数据规模或科学状态。
+> - 当前线上 `main` 基准由用户确认并绑定为 `398a8e1dc5990fc0a2198494701d05cc27b1b73e`。以后不得用网页 commits 列表或搜索索引单独判定最新 SHA；优先使用 `git ls-remote origin refs/heads/main`，再用本地 `git rev-parse HEAD` 交叉检查。网络不可用时必须明确标为未完成远端核验。
+> - 正式实验只能从 clean worktree 启动；正式重跑前须形成新的 commit 边界。dirty worktree 只允许显式 pilot，并在进程启动前保存 tracked/staged binary diff、受限 untracked 文件副本和 SHA-256。
+> - 正式进程结束时再次核对 HEAD 和 worktree；运行期间 commit 或代码状态变化则标记 `provenance_compromised`，即使子进程返回 0 也只能进入 failed recovery 路径。
+> - 主 ZIP 先生成 candidate，由打包器内部执行安全路径、checksums、base commit 和 `git apply --check`；全部通过后才原子重命名为最终 ZIP，验证失败不得留下看似可交付的正式包。
+> - failed/checkpoint/raw-complete 包默认采用轻量证据清单；大 adapter、checkpoint、optimizer state、数据集和缓存不进入主包，而写入 `LARGE_FILE_INDEX.json`。需要续训的单个 checkpoint 作为 sidecar 独立交付并记录 SHA-256、大小和持久状态。
+> - Countdown 等大模型实验必须预登记 artifact budget 和 checkpoint retention；默认每方法最多保留 best 与 latest 两个 checkpoint，不保存 foundation model，不默认保存 optimizer state。
+> - 打包器绝不自动跟随软链接：指向结果目录外部的 symlink 直接拒绝；内部 symlink 只记录引用，真实目标最多打包一次。
+> - 主 ZIP 默认硬上限 25 MiB，单文件主包默认上限 10 MiB；超限必须转轻量/sidecar 或打包失败，不能只在产出后警告。
+> - `run_experiment_guard_hardened.py`、`package_experiment_hardened.py` 与 `verify_experiment_package_hardened.py` 必须调用同一 hardened 实现；核心模块缺失时必须 fail closed，禁止静默退回旧协议。
+> - ChatGPT 更新包交付前必须在基于确认 base 的全新 clean checkout 中保留 Git executable modes，实际应用 `update.patch`，执行包内 `TEST_COMMANDS.sh`、`git diff --check` 和最终 ZIP 校验；任一步失败都不得发布可下载正式包。
+> - v20 进一步锁定 exact-base 门禁：clean checkout 必须来自真实 Git clone/fetch 或固定到完整 SHA 的 GitHub source archive；禁止用网页解析片段、人工重建仓库或不相关本地 commit 生成补丁。交付前必须在第二份同 SHA checkout 中完整复现用户的 `git apply --check → apply → TEST_COMMANDS.sh` 合并路径。
+> - 守护器 heartbeat 与递归输出活动扫描保持现状，本轮不做低收益性能重构。
+
 > **v19 增量记录：正式实验守护与可持久交付协议（不删除 v18 及更早内容）**
 >
 > - 2026-06-25 的一次 C-U1 E3/E4 临时运行曾在容器内产生逐 seed 文件计数，但未在运行结束后立即形成可下载结果包；运行时被回收后，原始文件无法审计。聊天中的计数和“已落盘”表述不能替代正式证据。
@@ -9,7 +25,7 @@
 > - 只有达到 `packaged + delivered` 才能对外称“本次正式运行完成”；只有真实 commit/push 成功后才能称“已进入仓库”。`raw_complete` 必须写成“计算完成但尚未持久交付”。
 > - 每个 experiment ID 都是交付边界：E3 完成后必须先打包并交付，才能启动 E4。预计超过 30 分钟的运行默认每 5 个正式 seeds 生成一个恢复 checkpoint 包，除非预注册了其他间隔。
 > - 失败运行、收尾绘图错误和聚合错误同样必须保存 partial raw outputs、日志、traceback、代码 SHA 与缺失文件清单；不得因最后一步失败而丢弃已完成训练。
-> - 详细操作规范见 `docs/formal_experiment_artifact_protocol.md`；机器可读规则写入 `experiments/registry.yaml`；统一守护、打包和验证入口分别为 `scripts/run_experiment_guard.py`、`scripts/package_experiment.py` 和 `scripts/verify_experiment_package.py`。
+> - 详细操作规范见 `docs/formal_experiment_artifact_protocol.md`；机器可读规则写入 `experiments/registry.yaml`；统一守护、打包和验证入口分别为 `scripts/run_experiment_guard_hardened.py`、`scripts/package_experiment_hardened.py` 和 `scripts/verify_experiment_package_hardened.py`。
 
 
 > **v18 增量记录：Countdown 0.5B base-first 最小外部验证协议（不删除 v17 及更早内容）**

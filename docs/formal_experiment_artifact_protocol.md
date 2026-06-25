@@ -1,6 +1,6 @@
 # Formal Experiment Supervision and Durable Artifact Protocol
 
-**Governance ID:** `GOV-EXP-ARTIFACT-01`
+**Governance IDs:** `GOV-EXP-ARTIFACT-01`, `GOV-EXP-ARTIFACT-02`
 **Scope:** every formal DRPO / SNA2C experiment, including C-U1, D-U1, Hopper/D4RL, Countdown/Transformer, recommendation, and future registered environments.
 **Authority:** `AGENTS.md` and Section 0 of `docs/handoff.md` override this operational detail if they conflict.
 
@@ -44,7 +44,7 @@ Execution and evidence use a separate lifecycle:
 
 ## 3. Supervision rules for ephemeral runtimes
 
-A formal experiment in an ephemeral runtime must run through `scripts/run_experiment_guard.py` or an equivalent foreground supervisor with the same guarantees.
+A formal experiment in an ephemeral runtime must run through `scripts/run_experiment_guard_hardened.py` or an equivalent foreground supervisor with the same guarantees.
 
 The supervisor must:
 
@@ -183,7 +183,7 @@ Do not include large foundation-model checkpoints, D4RL datasets, or redundant o
 Run a supervised formal process:
 
 ```bash
-python3 scripts/run_experiment_guard.py \
+python3 scripts/run_experiment_guard_hardened.py \
   --experiment-id C-U1-E3 \
   --repo-root . \
   --output-root experiments/results/C-U1-E3/run_001 \
@@ -194,7 +194,7 @@ python3 scripts/run_experiment_guard.py \
 Build a final update artifact after terminal audit and handoff/registry edits:
 
 ```bash
-python3 scripts/package_experiment.py \
+python3 scripts/package_experiment_hardened.py \
   --repo-root . \
   --experiment-id C-U1-E3 \
   --package-kind experiment-final \
@@ -207,7 +207,7 @@ python3 scripts/package_experiment.py \
 Verify before delivery:
 
 ```bash
-python3 scripts/verify_experiment_package.py \
+python3 scripts/verify_experiment_package_hardened.py \
   artifacts/DRPO_CU1_E3_RESULTS_AND_UPDATE.zip \
   --repo-root .
 ```
@@ -226,3 +226,126 @@ Prohibited statements without corresponding evidence:
 - “The result is safe because it was written to `/mnt/data`.”
 - “The experiment is complete” when no durable package exists.
 - “The repository was updated” when no commit or push succeeded.
+
+## 11. Commit identity and formal-run provenance (`GOV-EXP-ARTIFACT-02`)
+
+A web commits page, search result, or cached repository view is not authoritative for the current `main` SHA. Resolve commit identity in this order:
+
+1. `git ls-remote --exit-code origin refs/heads/main`;
+2. `git rev-parse HEAD` in the checked-out repository;
+3. an explicitly supplied full expected SHA.
+
+The local HEAD and expected SHA must match. If an authoritative remote query succeeds, it must also match. If remote resolution is unavailable, record the failure and do not claim that remote `main` was independently verified.
+
+Formal runs require a clean worktree at launch. Editing may continue freely during development, but each formal attempt or rerun must start from a committed snapshot. Dirty execution is allowed only for an explicitly labelled pilot with `--allow-dirty`; before launch, capture tracked and staged binary patches, bounded untracked source/config files, and hashes.
+
+At process exit, re-check HEAD and worktree status. A changed HEAD or dirty formal worktree sets `provenance_compromised: true` and forces failed-run packaging even when the child process exits successfully.
+
+## 12. Atomic candidate verification
+
+`package_experiment_hardened.py` must not publish directly to the requested final filename. It must:
+
+1. build a candidate ZIP;
+2. verify safe member paths, required files, checksums, result markers, base SHA, and `git apply --check`;
+3. enforce the hard main-package size limit;
+4. delete the candidate on any failure;
+5. atomically rename the candidate only after all checks pass.
+
+This internal verification is mandatory; a separate verifier remains available for independent re-checking.
+
+## 13. Large-result and sidecar policy
+
+The default main ZIP hard limit is 25 MiB and the default single-file main-package limit is 10 MiB. These are gates, not warnings.
+
+Failed, checkpoint, and raw-complete packages use lightweight evidence mode by default. They retain manifests, commands, logs, tracebacks, compact metrics, completed/missing-unit inventories, source provenance, and checksums. Large checkpoint-like files are excluded from the main ZIP and recorded in `LARGE_FILE_INDEX.json` with path, role, byte size, SHA-256, inclusion decision, and persistence status.
+
+When a checkpoint is required for continuation or audit, deliver it as a separate sidecar. The main manifest records the sidecar filename, SHA-256, size, and status. A final experiment package that declares a required large file may not claim complete durable delivery until the sidecar is also durable.
+
+Formal large-model experiments must pre-register:
+
+- main artifact budget;
+- maximum checkpoint count;
+- best/latest retention policy;
+- optimizer-state policy;
+- sidecar requirement.
+
+For Countdown, the default is at most two retained checkpoints per method (`best` and `latest`), no copied foundation-model weights, and no optimizer state unless a registered recovery requirement overrides it.
+
+## 14. Symbolic-link policy
+
+Packaging must never follow symbolic links. An external symlink can silently import a model cache, dataset, secret, or many gigabytes of unrelated files; it is therefore rejected. An internal symlink is recorded as a reference, and the real target is packaged no more than once. Broken symlinks are rejected.
+
+## 15. Fail-closed entry points and pre-delivery compatibility gate
+
+The canonical scripts `run_experiment_guard_hardened.py`, `package_experiment_hardened.py`, and `verify_experiment_package_hardened.py` must import the same hardened implementation. If the shared implementation is absent, each entry point exits nonzero with an actionable error. A missing module must never trigger a legacy fallback, because mixed producer/verifier versions can create packages that pass one environment and fail another.
+
+Before a ChatGPT-generated update ZIP is delivered, it must be validated in a fresh clean checkout reconstructed from the confirmed base commit:
+
+1. preserve the base repository's Git file modes, especially executable scripts;
+2. run `git apply --check update.patch`;
+3. apply the patch and confirm that only declared files changed;
+4. run the ZIP's own `TEST_COMMANDS.sh`;
+5. run `git diff --check` and reject whitespace errors;
+6. independently verify ZIP structure and SHA-256 inventory;
+7. publish the downloadable ZIP only after all steps pass.
+
+Local `drpo-update` tests remain the final environment-specific safety check, not the first execution of the compatibility suite.
+
+## 16. Exact-base acquisition and merge-equivalent pre-delivery gate
+
+The base repository used to generate and test an update package must be obtained from an authoritative source pinned to the full SHA:
+
+1. a real `git clone`/`git fetch` followed by `git checkout <full-sha>`; or
+2. the GitHub source archive for that exact full SHA.
+
+A repository reconstructed from parsed web pages, copied snippets, manually recreated files, or an unrelated local commit is not a valid base, even when `BASE_COMMIT.txt` contains the desired SHA. A package generated from such a synthetic base must not be described as verified.
+
+Before publishing the downloadable ZIP, perform a merge-equivalent test in a second fresh checkout of the same authoritative base:
+
+1. confirm `git rev-parse HEAD` equals `BASE_COMMIT.txt`;
+2. confirm the worktree is clean;
+3. run `git apply --check update.patch`;
+4. apply `update.patch`;
+5. run the package's own `TEST_COMMANDS.sh`;
+6. run `git diff --check`;
+7. compare the changed paths and executable modes with `ARTIFACT_MANIFEST.json` and `modified_files/`;
+8. independently verify ZIP checksums and required members.
+
+If authoritative source acquisition or any merge-equivalent step is unavailable, the package must be withheld rather than delegated to the user's machine as the first real compatibility test.
+
+## 17. Canonical hardened commands
+
+Resolve the commit before a formal run:
+
+```bash
+python3 scripts/resolve_main_commit.py \
+  --repo-root . \
+  --expected-sha "$(git rev-parse HEAD)"
+```
+
+Run a formal experiment from a clean commit:
+
+```bash
+python3 scripts/run_experiment_guard_hardened.py \
+  --run-class formal \
+  --expected-commit "$(git rev-parse HEAD)" \
+  --experiment-id C-U1-E3 \
+  --repo-root . \
+  --output-root experiments/results/C-U1-E3/run_001 \
+  --artifact-output artifacts/C-U1-E3_RAW_COMPLETE.zip \
+  -- python3 src/drpo/drpo_cu1_e1_e4_oneclick.py
+```
+
+For a large-model run that needs a recovery checkpoint, add a sidecar:
+
+```bash
+python3 scripts/run_experiment_guard_hardened.py \
+  --run-class formal \
+  --expected-commit "$(git rev-parse HEAD)" \
+  --experiment-id EXT-C-E8-V4 \
+  --repo-root . \
+  --output-root experiments/results/EXT-C-E8-V4/run_001 \
+  --artifact-output artifacts/EXT-C-E8-V4_FAILED_EVIDENCE.zip \
+  --sidecar-output artifacts/EXT-C-E8-V4_CHECKPOINT_SIDECAR.zip \
+  -- python3 src/drpo/countdown_qwen_arena_onefile.py
+```
