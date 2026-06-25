@@ -381,7 +381,7 @@ experiments:
   primary_model: Qwen Instruct 0.5B
   initialization: *id001
   parameterization:
-    runner_version: 4.1.1-protocol-aligned
+    runner_version: 4.1.2-evaluation-terminal-audit-fix
     pilot: bf16_lora
     shared_across_methods: true
     qlora: engineering_smoke_only
@@ -503,6 +503,11 @@ experiments:
     nonfinite_failure:
     - best_adapter
     - last_finite_adapter
+    last_finite_definition: exact_trainable_adapter_state_before_the_first_nonfinite_optimizer_update
+    last_finite_implementation: cpu_snapshot_of_trainable_lora_parameters_before_each_optimizer_step
+    failure_manifest_fields:
+    - failure_detected_at_step
+    - last_finite_step
     maximum_retained_per_method: 2
     repository_records:
     - checkpoint_manifest
@@ -514,9 +519,28 @@ experiments:
   - greedy_verifier_success
   - pass_at_k
   - valid_rate
+  - greedy_unseen_structure_presence
+  - greedy_unseen_structure_success
+  - pass_at_k_unseen_structure_presence
+  - pass_at_k_unseen_structure_success
   - heldout_pattern_family_coverage
-  - heldout_pattern_family_precision
+  - heldout_pattern_family_precision_micro
+  - heldout_pattern_family_precision_macro
+  - per_pattern_attempts_correct_precision
   - correct_heldout_patterns
+  structure_metric_semantics:
+    presence: generated_a_valid_completion_with_a_pattern_outside_training_structure_support
+    success: verifier_correct_and_pattern_outside_training_structure_support
+    per_pattern_precision: correct_generations_divided_by_valid_generations_of_that_pattern
+    zero_attempt_precision: null
+    greedy_and_sampled_denominators: separate
+  result_status_propagation:
+    top_level_run_controls_children: true
+    allowed:
+    - pilot
+    - engineering_smoke
+    - standalone_unclassified
+    direct_subcommand_default: standalone_unclassified
   reporting_separation: *id003
   model_scaling:
     qwen_3b: conditional_replication_after_v4_1

@@ -186,3 +186,143 @@ def test_legacy_alpha_cli_is_rejected_instead_of_silently_reused() -> None:
             "--method", "uncontrolled_negative",
             "--alpha", "0.7",
         ])
+
+
+def test_unseen_structure_presence_is_not_mislabeled_as_success(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    row = {
+        "id": "heldout-1",
+        "numbers": [1, 2, 3, 4],
+        "target": 24,
+        "prompt": "Numbers: 1, 2, 3, 4\nTarget: 24",
+        "oracle": "(1 + 3) * (2 + 4)",
+    }
+    known_structures = {arena.expression_structure("1 * 2 * 3 * 4")}
+    heldout_pattern = arena.expression_structure(row["oracle"])
+    calls = iter([
+        [["1 + 2 + 3 + 4"]],
+        [["(1 + 3) * (2 + 4)", "(1 + 2) * (3 + 4)"]],
+    ])
+
+    def fake_generate_outputs(*args, **kwargs):  # type: ignore[no-untyped-def]
+        return next(calls)
+
+    class FakeModel:
+        training = True
+
+        def train(self) -> None:
+            self.training = True
+
+    monkeypatch.setattr(arena, "generate_outputs", fake_generate_outputs)
+    metrics = arena.evaluate_rows(
+        FakeModel(),
+        tokenizer=None,
+        rows=[row],
+        batch_size=1,
+        max_new_tokens=32,
+        pass_k=2,
+        seed=7,
+        known_structures=known_structures,
+    )
+
+    assert metrics["greedy_unseen_structure_presence"] == 1.0
+    assert metrics["greedy_unseen_structure_success"] == 0.0
+    assert metrics["pass_at_k_unseen_structure_presence"] == 1.0
+    assert metrics["pass_at_k_unseen_structure"] == 1.0
+    assert metrics["pass_at_k_unseen_structure_success"] == 1.0
+    assert metrics["heldout_pattern_coverage"] == 1.0
+    assert metrics["heldout_pattern_family_coverage"] == 1.0
+    assert metrics["greedy_heldout_pattern_attempts"] == 0.0
+    assert metrics["sampled_heldout_pattern_attempts"] == 2.0
+    assert metrics["sampled_heldout_pattern_correct"] == 1.0
+    assert metrics["sampled_heldout_pattern_precision_micro"] == 0.5
+    assert metrics["sampled_heldout_pattern_precision_macro"] == 0.5
+    assert metrics["heldout_pattern_precision"] == 0.5
+    assert metrics["heldout_pattern_family_precision_micro"] == 0.5
+    assert metrics["heldout_pattern_family_precision_macro"] == 0.5
+    assert metrics["correct_heldout_patterns"] == 1.0
+    assert metrics["per_pattern_precision"]["sampled"][heldout_pattern] == {
+        "attempts": 2,
+        "correct": 1,
+        "precision": 0.5,
+    }
+
+
+def test_zero_attempt_pattern_precision_is_null_not_zero(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    row = {
+        "id": "heldout-2",
+        "numbers": [1, 2, 3, 4],
+        "target": 24,
+        "prompt": "Numbers: 1, 2, 3, 4\nTarget: 24",
+        "oracle": "(1 + 3) * (2 + 4)",
+    }
+    known_structures = {arena.expression_structure("1 * 2 * 3 * 4")}
+    heldout_pattern = arena.expression_structure(row["oracle"])
+    calls = iter([
+        [["1 * 2 * 3 * 4"]],
+        [["1 * 2 * 3 * 4"]],
+    ])
+
+    monkeypatch.setattr(arena, "generate_outputs", lambda *args, **kwargs: next(calls))
+
+    class FakeModel:
+        training = False
+
+        def train(self) -> None:
+            self.training = True
+
+    metrics = arena.evaluate_rows(
+        FakeModel(), None, [row], 1, 32, 1, 7, known_structures
+    )
+    assert metrics["per_pattern_precision"]["greedy"][heldout_pattern]["attempts"] == 0
+    assert metrics["per_pattern_precision"]["greedy"][heldout_pattern]["precision"] is None
+    assert metrics["per_pattern_precision"]["sampled"][heldout_pattern]["precision"] is None
+
+
+def test_trainable_parameter_snapshot_restores_exact_last_finite_state() -> None:
+    parameter = torch.nn.Parameter(torch.tensor([1.0, -2.0]))
+    snapshot = arena.snapshot_trainable_parameters([parameter])
+    with torch.no_grad():
+        parameter.copy_(torch.tensor([float("nan"), 99.0]))
+    assert not arena._trainable_parameters_finite([parameter])
+    arena.restore_trainable_parameters([parameter], snapshot)
+    assert arena._trainable_parameters_finite([parameter])
+    assert torch.equal(parameter.detach(), torch.tensor([1.0, -2.0]))
+
+    optimizer = torch.optim.SGD([parameter], lr=1.0)
+    parameter.grad = torch.tensor([float("inf"), 0.0])
+    applied = arena.optimizer_step_with_last_finite_guard(optimizer, [parameter])
+    assert applied is False
+    assert torch.equal(parameter.detach(), torch.tensor([1.0, -2.0]))
+
+
+def test_child_result_status_defaults_safe_and_accepts_top_level_value() -> None:
+    parser = arena.build_parser()
+    sft = parser.parse_args([
+        "sft",
+        "--model_path", "/tmp/model",
+        "--train_data", "/tmp/train.jsonl",
+        "--val_data", "/tmp/val.jsonl",
+        "--output_dir", "/tmp/sft",
+    ])
+    assert sft.result_status == "standalone_unclassified"
+
+    method = parser.parse_args([
+        "train_method",
+        "--model_path", "/tmp/model",
+        "--offline_data", "/tmp/offline.jsonl",
+        "--val_data", "/tmp/val.jsonl",
+        "--output_dir", "/tmp/method",
+        "--method", "positive_only",
+        "--result_status", "engineering_smoke",
+    ])
+    assert method.result_status == "engineering_smoke"
+
+
+def test_csv_safe_row_serializes_nested_pattern_diagnostics() -> None:
+    converted = arena.csv_safe_row({"scalar": 1.0, "nested": {"b": 2, "a": 1}})
+    assert converted["scalar"] == 1.0
+    assert converted["nested"] == '{"a": 1, "b": 2}'

@@ -1,4 +1,15 @@
-# DRPO / SNA2C 远场负梯度动力学研究主文档 v26（base freshness 三阶段校验与自动源码获取版）
+# DRPO / SNA2C 远场负梯度动力学研究主文档 v27（Countdown 评估语义、终态审计与状态标签修正版）
+
+> **v27 增量记录：Countdown v4.1.2 评估语义、逐步 last-finite 与 provenance 修正（不删除 v26 及更早内容）**
+>
+> - `EXT-C-E8-V4.1` 的科学状态继续保持“尚未运行”。本轮只修评估定义、非有限失败 checkpoint 语义与结果状态传播；不改变模型、数据规模、seeds、LoRA 配置、训练步数、early-stop、负梯度校准、方法集合或方法职责。
+> - 修正 `greedy_unseen_structure_success`：它现在必须同时满足 verifier 正确和实际生成结构不属于训练结构支持。原先“格式合法 + 使用全部数字 + unseen pattern”只代表结构出现，不代表成功；该信息单独保留为 `greedy_unseen_structure_presence`。`pass@k` 同样分离 presence 与 correct unseen success。
+> - 结构评估继续采用 Park-inspired pattern-level 口径：不要求为每道题枚举全部正确表达式，而是读取模型实际生成的 canonical pattern，并分别统计发现与可靠执行。新增 greedy/sampled 分离的 per-pattern `attempts/correct/precision`、micro precision、macro precision 和 held-out family coverage；零尝试 pattern 的 precision 记为 `null`，不得与“尝试后全错”的 0 混淆。
+> - `heldout_pattern_precision` 作为兼容字段，明确指向 sampled-generation 的 micro precision，不再把 greedy 与 sampled 混在同一分母中。详细 `per_pattern_precision` 随 JSON 结果保存；CSV 中以确定性 JSON 字符串记录。该改动不增加模型生成、forward、backward 或训练预算，只增加已有输出上的 canonicalization 计数。
+> - 非有限失败时不再把最近一次 validation checkpoint 冒充 `last_finite_adapter`。每次 optimizer update 前只把 trainable LoRA 参数复制到 CPU；若 step 后参数变为非有限，则恢复 step 前参数并保存精确的 `last_finite_adapter`。loss/gradient 在 step 前非有限时，当前参数本身即为最后有限状态。Manifest 新增 `failure_detected_at_step` 与 `last_finite_step`。
+> - 顶层 `run` 决定的 `pilot` / `engineering_smoke` 状态现在显式传入 SFT 与各 method 子进程；直接调用子命令默认标记为 `standalone_unclassified`，不得静默冒充 pilot。SFT、method 与 checkpoint manifests 使用一致状态。
+> - runner 版本更新为 `4.1.2-evaluation-terminal-audit-fix`。CPU/unit tests 只验证实现，不构成 Qwen/CUDA pilot 结果；真实实验状态不升级。
+
 
 > **v26 增量记录：GOV-BASE-FRESHNESS-01（不删除 v25 及更早内容）**
 >
@@ -4129,7 +4140,7 @@ python countdown_qwen_arena_onefile_v3.py run \
 
 上述 v3 流程中的强制 SFT、只评最佳 checkpoint、八方法 arena 和自动 QLoRA 选择均已被 v22 覆盖；该段只作 provenance。当前实验仍未完成真实 Qwen/CUDA/BF16-LoRA 端到端运行。
 
-#### v22 当前协议覆盖：v4.1.1 BF16-LoRA pilot
+#### v27 当前协议覆盖：v4.1.2 BF16-LoRA pilot
 
 当前唯一代码入口：
 
@@ -4146,6 +4157,9 @@ python3 src/drpo/countdown_qwen_arena_onefile.py run \
 4. 同一 calibration 同时计算 `global_matched` 的 `gamma=G_neg_controlled_rms/G_neg_uncontrolled_rms`；validation/test task metric 不参与 `beta` 或 `gamma`。
 5. 当前冻结 pilot 规模、优化器、LoRA 配置和 seed 见文档顶部 v22 增量记录及 registry；任何修改都需要新的版本登记。
 6. 当前 runner 不实现 full FT。LoRA pilot 出现可复现信号后，另行登记 0.5B full-FT confirmation 的显存、优化器、步数、seeds 与 checkpoint 策略，再写代码。
+7. `presence` 与 `success` 分开：unseen-structure success 必须 verifier 正确；per-pattern precision 分别报告 greedy 与 sampled 的 attempts/correct/precision，零尝试记为 `null`。
+8. 非有限失败保存精确 optimizer-step 前的 trainable-adapter 状态，并记录 `failure_detected_at_step` 与 `last_finite_step`，不再使用最近一次验证 checkpoint 代替。
+9. 顶层 `pilot` / `engineering_smoke` 标签必须传入 SFT 和 method manifests；直接子命令默认 `standalone_unclassified`。
 
 #### v21 历史协议：v4.1 审计式 BF16-LoRA pilot（由 v22 覆盖 alpha 与配置登记）
 

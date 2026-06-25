@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Countdown audited base-first external-validity arena for local Qwen Instruct models (v4.1.1).
+"""Countdown audited base-first external-validity arena for local Qwen Instruct models (v4.1.2).
 
 One-command run
 ---------------
@@ -86,7 +86,7 @@ SYSTEM_PROMPT = (
     "expression. Do not include explanations."
 )
 
-VERSION = "4.1.1-protocol-aligned"
+VERSION = "4.1.2-evaluation-terminal-audit-fix"
 
 
 def read_model_metadata(model_path: str) -> dict[str, Any]:
@@ -202,6 +202,18 @@ def write_jsonl(path: str | Path, rows: Iterable[dict[str, Any]]) -> None:
     with path.open("w") as f:
         for row in rows:
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
+
+
+def csv_safe_row(row: dict[str, Any]) -> dict[str, Any]:
+    """Serialize nested diagnostics deterministically before CSV emission."""
+    return {
+        key: (
+            json.dumps(value, ensure_ascii=False, sort_keys=True)
+            if isinstance(value, (dict, list, tuple))
+            else value
+        )
+        for key, value in row.items()
+    }
 
 
 def clean_expression(text: str) -> str:
@@ -1204,15 +1216,19 @@ def evaluate_rows(
     pass_k: int,
     seed: int,
     known_structures: set[str] | None = None,
-) -> dict[str, float]:
+) -> dict[str, Any]:
     seed_all(seed)
     was_training = bool(model.training)
     successes: list[float] = []
     valid: list[float] = []
     sampled_successes: list[float] = []
+    greedy_unseen_presences: list[float] = []
+    pass_unseen_presences: list[float] = []
     greedy_unseen_successes: list[float] = []
     pass_unseen_successes: list[float] = []
     observed_correct_structures: set[str] = set()
+    greedy_correct_structures: set[str] = set()
+    sampled_correct_structures: set[str] = set()
     target_structures = {
         row.get("oracle_structure") or expression_structure(row["oracle"])
         for row in rows
@@ -1220,8 +1236,46 @@ def evaluate_rows(
     heldout_targets = (
         target_structures - known_structures if known_structures is not None else set()
     )
-    heldout_pattern_attempts = 0
-    heldout_pattern_correct = 0
+    greedy_pattern_counts: dict[str, dict[str, int]] = defaultdict(
+        lambda: {"attempts": 0, "correct": 0}
+    )
+    sampled_pattern_counts: dict[str, dict[str, int]] = defaultdict(
+        lambda: {"attempts": 0, "correct": 0}
+    )
+
+    def record_pattern(
+        counts: dict[str, dict[str, int]], pattern: str, correct: bool
+    ) -> None:
+        counts[pattern]["attempts"] += 1
+        counts[pattern]["correct"] += int(correct)
+
+    def finalize_pattern_counts(
+        counts: dict[str, dict[str, int]]
+    ) -> dict[str, dict[str, float | int | None]]:
+        output: dict[str, dict[str, float | int | None]] = {}
+        for pattern in sorted(heldout_targets):
+            attempts = int(counts.get(pattern, {}).get("attempts", 0))
+            correct = int(counts.get(pattern, {}).get("correct", 0))
+            output[pattern] = {
+                "attempts": attempts,
+                "correct": correct,
+                "precision": float(correct / attempts) if attempts else None,
+            }
+        return output
+
+    def aggregate_pattern_precision(
+        counts: dict[str, dict[str, int]]
+    ) -> tuple[float, float, int, int]:
+        attempts = sum(int(item["attempts"]) for item in counts.values())
+        correct = sum(int(item["correct"]) for item in counts.values())
+        per_pattern = [
+            float(item["correct"] / item["attempts"])
+            for item in counts.values()
+            if item["attempts"] > 0
+        ]
+        micro = float(correct / attempts) if attempts else 0.0
+        macro = float(np.mean(per_pattern)) if per_pattern else 0.0
+        return micro, macro, attempts, correct
 
     for start_index in range(0, len(rows), batch_size):
         chunk = rows[start_index : start_index + batch_size]
@@ -1242,23 +1296,29 @@ def evaluate_rows(
             )
             successes.append(float(greedy_check["correct"]))
             valid.append(float(greedy_check["valid_format"] and greedy_check["uses_numbers"]))
+            greedy_unseen_presence = False
             greedy_unseen = False
             if greedy_check["valid_format"] and greedy_check["uses_numbers"]:
                 try:
                     pattern = expression_structure(greedy_check["expression"])
                     if pattern in heldout_targets:
-                        heldout_pattern_attempts += 1
-                        heldout_pattern_correct += int(greedy_check["correct"])
+                        record_pattern(
+                            greedy_pattern_counts, pattern, bool(greedy_check["correct"])
+                        )
+                    greedy_unseen_presence = (
+                        known_structures is not None and pattern not in known_structures
+                    )
                     if greedy_check["correct"]:
                         observed_correct_structures.add(pattern)
-                        greedy_unseen = (
-                            known_structures is not None and pattern not in known_structures
-                        )
+                        greedy_correct_structures.add(pattern)
+                        greedy_unseen = greedy_unseen_presence
                 except Exception:
                     pass
+            greedy_unseen_presences.append(float(greedy_unseen_presence))
             greedy_unseen_successes.append(float(greedy_unseen))
 
             any_correct = False
+            any_unseen_presence = False
             any_unseen_correct = False
             for output_text in sampled_outputs:
                 check = verify_expression(output_text, row["numbers"], row["target"])
@@ -1269,36 +1329,76 @@ def evaluate_rows(
                 except Exception:
                     continue
                 if pattern in heldout_targets:
-                    heldout_pattern_attempts += 1
-                    heldout_pattern_correct += int(check["correct"])
+                    record_pattern(sampled_pattern_counts, pattern, bool(check["correct"]))
+                if known_structures is not None and pattern not in known_structures:
+                    any_unseen_presence = True
                 if not check["correct"]:
                     continue
                 any_correct = True
                 observed_correct_structures.add(pattern)
+                sampled_correct_structures.add(pattern)
                 if known_structures is not None and pattern not in known_structures:
                     any_unseen_correct = True
             sampled_successes.append(float(any_correct))
+            pass_unseen_presences.append(float(any_unseen_presence))
             pass_unseen_successes.append(float(any_unseen_correct))
 
     heldout_correct_patterns = observed_correct_structures & heldout_targets
+    greedy_heldout_correct_patterns = greedy_correct_structures & heldout_targets
+    sampled_heldout_correct_patterns = sampled_correct_structures & heldout_targets
+    greedy_micro, greedy_macro, greedy_attempts, greedy_correct = (
+        aggregate_pattern_precision(greedy_pattern_counts)
+    )
+    sampled_micro, sampled_macro, sampled_attempts, sampled_correct = (
+        aggregate_pattern_precision(sampled_pattern_counts)
+    )
     metrics = {
         "greedy_success": float(np.mean(successes)),
         "pass_at_k": float(np.mean(sampled_successes)),
         "valid_rate": float(np.mean(valid)),
+        "greedy_unseen_structure_presence": float(np.mean(greedy_unseen_presences)),
         "greedy_unseen_structure_success": float(np.mean(greedy_unseen_successes)),
+        "pass_at_k_unseen_structure_presence": float(np.mean(pass_unseen_presences)),
         "pass_at_k_unseen_structure": float(np.mean(pass_unseen_successes)),
+        "pass_at_k_unseen_structure_success": float(np.mean(pass_unseen_successes)),
         "unique_correct_structures": float(len(observed_correct_structures)),
         "heldout_pattern_coverage": (
             float(len(heldout_correct_patterns) / len(heldout_targets))
             if heldout_targets else 0.0
         ),
-        "heldout_pattern_precision": (
-            float(heldout_pattern_correct / heldout_pattern_attempts)
-            if heldout_pattern_attempts else 0.0
+        "greedy_heldout_pattern_coverage": (
+            float(len(greedy_heldout_correct_patterns) / len(heldout_targets))
+            if heldout_targets else 0.0
         ),
-        "heldout_pattern_attempts": float(heldout_pattern_attempts),
+        "sampled_heldout_pattern_coverage": (
+            float(len(sampled_heldout_correct_patterns) / len(heldout_targets))
+            if heldout_targets else 0.0
+        ),
+        "greedy_heldout_pattern_precision_micro": greedy_micro,
+        "greedy_heldout_pattern_precision_macro": greedy_macro,
+        "sampled_heldout_pattern_precision_micro": sampled_micro,
+        "sampled_heldout_pattern_precision_macro": sampled_macro,
+        # Backward-compatible aliases now refer to the sampled-generation metric,
+        # not a pooled greedy+sampled denominator.
+        "heldout_pattern_precision": sampled_micro,
+        "heldout_pattern_family_coverage": (
+            float(len(heldout_correct_patterns) / len(heldout_targets))
+            if heldout_targets else 0.0
+        ),
+        "heldout_pattern_family_precision_micro": sampled_micro,
+        "heldout_pattern_family_precision_macro": sampled_macro,
+        "heldout_pattern_attempts": float(sampled_attempts),
+        "greedy_heldout_pattern_attempts": float(greedy_attempts),
+        "greedy_heldout_pattern_correct": float(greedy_correct),
+        "sampled_heldout_pattern_attempts": float(sampled_attempts),
+        "sampled_heldout_pattern_correct": float(sampled_correct),
         "heldout_patterns_observed_correct": float(len(heldout_correct_patterns)),
+        "correct_heldout_patterns": float(len(heldout_correct_patterns)),
         "heldout_patterns_total": float(len(heldout_targets)),
+        "per_pattern_precision": {
+            "greedy": finalize_pattern_counts(greedy_pattern_counts),
+            "sampled": finalize_pattern_counts(sampled_pattern_counts),
+        },
         "n_eval": float(len(rows)),
     }
     if was_training:
@@ -1396,6 +1496,42 @@ def _trainable_parameters_finite(parameters: Sequence[torch.nn.Parameter]) -> bo
     return all(bool(torch.isfinite(parameter.detach()).all()) for parameter in parameters)
 
 
+def snapshot_trainable_parameters(
+    parameters: Sequence[torch.nn.Parameter],
+) -> list[torch.Tensor]:
+    """Capture the current finite trainable state before one optimizer update.
+
+    Only trainable adapter tensors are copied to CPU. This keeps the audit
+    checkpoint exact without writing an adapter checkpoint on every step.
+    """
+    return [parameter.detach().cpu().clone() for parameter in parameters]
+
+
+def restore_trainable_parameters(
+    parameters: Sequence[torch.nn.Parameter], snapshot: Sequence[torch.Tensor]
+) -> None:
+    if len(parameters) != len(snapshot):
+        raise ValueError("Trainable-parameter snapshot length mismatch")
+    with torch.no_grad():
+        for parameter, saved in zip(parameters, snapshot):
+            if tuple(parameter.shape) != tuple(saved.shape):
+                raise ValueError("Trainable-parameter snapshot shape mismatch")
+            parameter.copy_(saved.to(device=parameter.device, dtype=parameter.dtype))
+
+
+def optimizer_step_with_last_finite_guard(
+    optimizer: torch.optim.Optimizer,
+    parameters: Sequence[torch.nn.Parameter],
+) -> bool:
+    """Apply one update and restore the exact pre-step state on nonfinite output."""
+    snapshot = snapshot_trainable_parameters(parameters)
+    optimizer.step()
+    if _trainable_parameters_finite(parameters):
+        return True
+    restore_trainable_parameters(parameters, snapshot)
+    return False
+
+
 def cmd_generate(args: argparse.Namespace) -> None:
     train_rows, val_rows, test_rows, manifest = generate_structural_splits(
         args.train, args.val, args.test, args.seed, args.n_numbers
@@ -1444,7 +1580,6 @@ def cmd_sft(args: argparse.Namespace) -> None:
     ensure_checkpoint_output_is_local_or_ignored(out_dir)
     best_dir = out_dir / "best_adapter"
     terminal_dir = out_dir / "terminal_adapter"
-    rolling_dir = out_dir / ".last_finite_adapter_work"
     last_finite_dir = out_dir / "last_finite_adapter"
     out_dir.mkdir(parents=True, exist_ok=True)
     best_value = -float("inf")
@@ -1452,13 +1587,12 @@ def cmd_sft(args: argparse.Namespace) -> None:
     eval_rows: list[dict[str, Any]] = []
     checkpoint_records: list[dict[str, Any]] = []
     numerical_failure: str | None = None
+    failure_detected_at_step: int | None = None
+    last_finite_step: int | None = None
     stop_reason = "max_epochs"
     global_step = 0
     model.train()
     optimizer.zero_grad(set_to_none=True)
-    rolling_record = save_local_adapter_checkpoint(
-        model, tokenizer, rolling_dir, "rolling_last_finite", global_step
-    )
 
     for epoch in range(args.epochs):
         running_loss = 0.0
@@ -1468,6 +1602,8 @@ def cmd_sft(args: argparse.Namespace) -> None:
             raw_loss = model(**batch, use_cache=False).loss
             if not bool(torch.isfinite(raw_loss)):
                 numerical_failure = f"nonfinite_loss_at_update_{global_step + 1}"
+                failure_detected_at_step = global_step + 1
+                last_finite_step = global_step
                 stop_reason = numerical_failure
                 break
             (raw_loss / args.grad_accum).backward()
@@ -1477,16 +1613,20 @@ def cmd_sft(args: argparse.Namespace) -> None:
                 grad_norm = torch.nn.utils.clip_grad_norm_(trainable, args.max_grad_norm)
                 if not bool(torch.isfinite(grad_norm)):
                     numerical_failure = f"nonfinite_gradient_at_update_{global_step + 1}"
+                    failure_detected_at_step = global_step + 1
+                    last_finite_step = global_step
                     stop_reason = numerical_failure
                     break
-                optimizer.step()
+                candidate_step = global_step + 1
+                if not optimizer_step_with_last_finite_guard(optimizer, trainable):
+                    numerical_failure = f"nonfinite_parameters_at_update_{candidate_step}"
+                    failure_detected_at_step = candidate_step
+                    last_finite_step = global_step
+                    stop_reason = numerical_failure
+                    break
                 scheduler.step()
                 optimizer.zero_grad(set_to_none=True)
-                global_step += 1
-                if not _trainable_parameters_finite(trainable):
-                    numerical_failure = f"nonfinite_parameters_at_update_{global_step}"
-                    stop_reason = numerical_failure
-                    break
+                global_step = candidate_step
                 if global_step % args.log_every == 0:
                     print(json.dumps({
                         "stage": "sft",
@@ -1511,9 +1651,6 @@ def cmd_sft(args: argparse.Namespace) -> None:
         row = {"epoch": epoch + 1, "update": global_step, **metrics}
         eval_rows.append(row)
         print("SFT_EVAL", json.dumps(row))
-        rolling_record = save_local_adapter_checkpoint(
-            model, tokenizer, rolling_dir, "rolling_last_finite", global_step
-        )
         value = float(metrics[args.selection_metric])
         if value > best_value + args.selection_delta:
             best_value = value
@@ -1527,40 +1664,42 @@ def cmd_sft(args: argparse.Namespace) -> None:
         model.train()
 
     if numerical_failure:
-        if last_finite_dir.exists():
-            shutil.rmtree(last_finite_dir)
-        shutil.move(str(rolling_dir), str(last_finite_dir))
-        rolling_record["kind"] = "last_finite"
-        rolling_record["path"] = str(last_finite_dir.resolve())
-        checkpoint_records.append(rolling_record)
+        checkpoint_records.append(save_local_adapter_checkpoint(
+            model,
+            tokenizer,
+            last_finite_dir,
+            "last_finite",
+            global_step if last_finite_step is None else last_finite_step,
+        ))
     else:
         checkpoint_records.append(save_local_adapter_checkpoint(
             model, tokenizer, terminal_dir, "terminal", global_step
         ))
-        if rolling_dir.exists():
-            shutil.rmtree(rolling_dir)
     if best_epoch < 0:
         best_value = float("nan")
     with (out_dir / "sft_metrics.csv").open("w", newline="") as handle:
         if eval_rows:
             writer = csv.DictWriter(handle, fieldnames=list(eval_rows[0].keys()))
             writer.writeheader()
-            writer.writerows(eval_rows)
+            writer.writerows(csv_safe_row(row) for row in eval_rows)
     manifest = {
         **vars(args),
         "source_provenance": source_provenance(),
         "best_epoch": best_epoch,
         "best_value": best_value,
         "terminal_step": global_step if not numerical_failure else None,
+        "failure_detected_at_step": failure_detected_at_step,
+        "last_finite_step": last_finite_step,
         "numerical_failure": numerical_failure,
         "stop_reason": stop_reason,
         "checkpoint_policy": "server-local adapters only; binaries must not enter Git/artifact packages",
         "checkpoints": checkpoint_records,
-        "result_status": "pilot",
+        "result_status": args.result_status,
     }
     (out_dir / "sft_manifest.json").write_text(json.dumps(manifest, indent=2))
     (out_dir / "checkpoint_manifest.json").write_text(json.dumps({
         "local_only": True,
+        "result_status": args.result_status,
         "model_path": args.model_path,
         "source_provenance": source_provenance(),
         "checkpoints": checkpoint_records,
@@ -2099,7 +2238,6 @@ def cmd_train_method(args: argparse.Namespace) -> None:
     ensure_checkpoint_output_is_local_or_ignored(out_dir)
     best_dir = out_dir / "best_adapter"
     terminal_dir = out_dir / "terminal_adapter"
-    rolling_dir = out_dir / ".last_finite_adapter_work"
     last_finite_dir = out_dir / "last_finite_adapter"
     out_dir.mkdir(parents=True, exist_ok=True)
     checkpoint_records: list[dict[str, Any]] = []
@@ -2107,6 +2245,8 @@ def cmd_train_method(args: argparse.Namespace) -> None:
     best_step = 0
     stale_checks = 0
     numerical_failure: str | None = None
+    failure_detected_at_step: int | None = None
+    last_finite_step: int | None = None
     stop_reason = "max_steps"
     terminal_step: int | None = None
     last_gamma, last_weight = 1.0, 1.0
@@ -2134,9 +2274,6 @@ def cmd_train_method(args: argparse.Namespace) -> None:
     checkpoint_records.append(save_local_adapter_checkpoint(
         model, tokenizer, best_dir, "best", 0
     ))
-    rolling_record = save_local_adapter_checkpoint(
-        model, tokenizer, rolling_dir, "rolling_last_finite", 0
-    )
 
     stop_training = False
     for update_step in range(1, args.steps + 1):
@@ -2246,6 +2383,8 @@ def cmd_train_method(args: argparse.Namespace) -> None:
 
             if not bool(torch.isfinite(raw_loss)):
                 numerical_failure = f"nonfinite_loss_at_step_{update_step}"
+                failure_detected_at_step = update_step
+                last_finite_step = update_step - 1
                 stop_reason = numerical_failure
                 stop_training = True
                 break
@@ -2264,14 +2403,18 @@ def cmd_train_method(args: argparse.Namespace) -> None:
         grad_norm = torch.nn.utils.clip_grad_norm_(trainable, args.max_grad_norm)
         if not bool(torch.isfinite(grad_norm)):
             numerical_failure = f"nonfinite_gradient_at_step_{update_step}"
+            failure_detected_at_step = update_step
+            last_finite_step = update_step - 1
             stop_reason = numerical_failure
             break
-        optimizer.step()
-        scheduler.step()
-        if not _trainable_parameters_finite(trainable):
+        if not optimizer_step_with_last_finite_guard(optimizer, trainable):
             numerical_failure = f"nonfinite_parameters_at_step_{update_step}"
+            failure_detected_at_step = update_step
+            last_finite_step = update_step - 1
             stop_reason = numerical_failure
             break
+        scheduler.step()
+        terminal_step = update_step
         last_gamma = log_accum["gamma"]
         last_weight = log_accum["weight"]
 
@@ -2297,9 +2440,6 @@ def cmd_train_method(args: argparse.Namespace) -> None:
             }
             metrics_rows.append(row)
             print("ARENA_EVAL", json.dumps(row))
-            rolling_record = save_local_adapter_checkpoint(
-                model, tokenizer, rolling_dir, "rolling_last_finite", update_step
-            )
             value = float(metrics[args.selection_metric])
             if value > best_value + args.early_stop_delta:
                 best_value = value
@@ -2326,15 +2466,19 @@ def cmd_train_method(args: argparse.Namespace) -> None:
                 stop_training = True
         if stop_training:
             break
-        terminal_step = update_step
 
     if numerical_failure:
-        if last_finite_dir.exists():
-            shutil.rmtree(last_finite_dir)
-        shutil.move(str(rolling_dir), str(last_finite_dir))
-        rolling_record["kind"] = "last_finite"
-        rolling_record["path"] = str(last_finite_dir.resolve())
-        checkpoint_records.append(rolling_record)
+        checkpoint_records.append(save_local_adapter_checkpoint(
+            model,
+            tokenizer,
+            last_finite_dir,
+            "last_finite",
+            (
+                last_finite_step
+                if last_finite_step is not None
+                else (terminal_step if terminal_step is not None else 0)
+            ),
+        ))
         terminal_step = None
     else:
         if terminal_step is None:
@@ -2342,19 +2486,19 @@ def cmd_train_method(args: argparse.Namespace) -> None:
         checkpoint_records.append(save_local_adapter_checkpoint(
             model, tokenizer, terminal_dir, "terminal", terminal_step
         ))
-        if rolling_dir.exists():
-            shutil.rmtree(rolling_dir)
 
     with (out_dir / "metrics.csv").open("w", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=list(metrics_rows[0].keys()))
         writer.writeheader()
-        writer.writerows(metrics_rows)
+        writer.writerows(csv_safe_row(row) for row in metrics_rows)
     manifest = {
         **vars(args),
         "source_provenance": source_provenance(),
         "best_step": best_step,
         "best_value": best_value,
         "terminal_step": terminal_step,
+        "failure_detected_at_step": failure_detected_at_step,
+        "last_finite_step": last_finite_step,
         "stop_reason": stop_reason,
         "numerical_failure": numerical_failure,
         "negative_scale": calibrated_negative_scale,
@@ -2366,11 +2510,12 @@ def cmd_train_method(args: argparse.Namespace) -> None:
         "global_matched_gamma": calibrated_global_gamma,
         "checkpoint_policy": "server-local adapters only; binaries must not enter Git/artifact packages",
         "checkpoints": checkpoint_records,
-        "result_status": "pilot",
+        "result_status": args.result_status,
     }
     (out_dir / "manifest.json").write_text(json.dumps(manifest, indent=2))
     (out_dir / "checkpoint_manifest.json").write_text(json.dumps({
         "local_only": True,
+        "result_status": args.result_status,
         "model_path": args.model_path,
         "reference_adapter": args.reference_adapter or args.sft_adapter,
         "method": args.method,
@@ -3047,6 +3192,7 @@ def cmd_run(args: argparse.Namespace) -> None:
                 "--pass_k", str(preset["pass_k"]),
                 "--eval_seed", str(args.seed + 5000),
                 "--seed", str(args.seed),
+                "--result_status", run_status,
             ], logs / "03_sft_fallback.log")
         reference_dir = sft_dir / "best_adapter"
         sft_val_json = root / "sft_val_metrics.json"
@@ -3152,6 +3298,7 @@ def cmd_run(args: argparse.Namespace) -> None:
                 "--pass_k", str(preset["pass_k"]),
                 "--eval_seed", str(args.seed + 6000),
                 "--seed", str(shared_method_seed),
+                "--result_status", run_status,
             ]
             if method != "positive_only":
                 command.extend(["--negative_calibration_json", str(calibration_json)])
@@ -3208,9 +3355,12 @@ def cmd_run(args: argparse.Namespace) -> None:
                     "checkpoint_kind": checkpoint_kind,
                     "best_step": manifest.get("best_step"),
                     "terminal_step": manifest.get("terminal_step"),
+                    "last_finite_step": manifest.get("last_finite_step"),
+                    "failure_detected_at_step": manifest.get("failure_detected_at_step"),
                     "best_val": manifest.get("best_value"),
                     "stop_reason": manifest.get("stop_reason"),
                     "numerical_failure": manifest.get("numerical_failure"),
+                    "result_status": manifest.get("result_status"),
                     "negative_scale": manifest.get("negative_scale"),
                     "global_matched_gamma": manifest.get("global_matched_gamma"),
                 },
@@ -3221,7 +3371,7 @@ def cmd_run(args: argparse.Namespace) -> None:
     with summary_path.open("w", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=fields)
         writer.writeheader()
-        writer.writerows(summary_rows)
+        writer.writerows(csv_safe_row(row) for row in summary_rows)
     complete = {
         "version": VERSION,
         "experiment_id": "EXT-C-E8-V4.1",
@@ -3358,6 +3508,11 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--log_every", type=int, default=10)
     ap.add_argument("--num_workers", type=int, default=2)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument(
+        "--result_status",
+        choices=["pilot", "engineering_smoke", "standalone_unclassified"],
+        default="standalone_unclassified",
+    )
     ap.set_defaults(func=cmd_sft)
 
     ap = sub.add_parser("build_offline")
@@ -3443,7 +3598,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--negative_scale", type=float, default=None,
         help=(
             "Explicit shared negative scale for a separately registered run. "
-            "The v4.1.1 pilot normally reads the automatically calibrated value."
+            "The v4.1.2 pilot normally reads the automatically calibrated value."
         ),
     )
     ap.add_argument("--near_mix", type=float, default=0.5)
@@ -3462,6 +3617,11 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--log_every", type=int, default=10)
     ap.add_argument("--num_workers", type=int, default=2)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument(
+        "--result_status",
+        choices=["pilot", "engineering_smoke", "standalone_unclassified"],
+        default="standalone_unclassified",
+    )
     ap.set_defaults(func=cmd_train_method)
 
     ap = sub.add_parser(
