@@ -39,6 +39,42 @@ python src/drpo/drpo_cu1_e1_e4_oneclick.py \
 - NumPy
 - Matplotlib（缺失时只跳过绘图，不影响训练和 CSV/JSON）
 
+## 共享实现
+
+C-U1 的环境几何、数据生成、Gaussian actor、log-probability、标准化距离与 Gaussian 输出分量统一位于：
+
+```text
+src/drpo/cu1_core.py
+```
+
+E1--E4、component-wise 诊断和后续距离衰减实验均导入该模块，不允许复制一套环境或 actor。
+
+## 距离衰减正式实验（已注册、尚未运行）
+
+实验入口为 `src/drpo/cu1_distance_taper_formal.py`。正式运行必须在更新包应用并形成新 commit 后，由 hardened foreground supervisor 启动，例如：
+
+```bash
+COMMIT="$(git rev-parse HEAD)"
+OUT="experiments/results/C-U1-E4-TAPER-01/run_001"
+python scripts/run_experiment_guard_hardened.py \
+  --experiment-id C-U1-E4-TAPER-01 \
+  --repo-root . \
+  --output-root "$OUT" \
+  --artifact-output artifacts/C-U1-E4-TAPER-01_RAW_COMPLETE.zip \
+  --expected-commit "$COMMIT" \
+  --require-origin-main-match \
+  --source-file src/drpo/cu1_distance_taper_formal.py \
+  --source-file src/drpo/cu1_core.py \
+  --required-output RUN_COMPLETE.json \
+  --required-output terminal_audit.json \
+  --progress-glob per_seed_runs_partial.csv \
+  -- python src/drpo/cu1_distance_taper_formal.py \
+     --output-dir "$OUT" \
+     --base-commit "$COMMIT"
+```
+
+实验 ID 为 `C-U1-E4-TAPER-01`。它从与 E3/E4 相同的 2000-step positive-only Adam checkpoint 初始化，在同一个 detached 标准化距离上比较 reciprocal-linear、reciprocal-quadratic 与 exponential，并强制执行 paired seeds、完整 2× 终态审计以及任务崩溃、support/variance boundary、NaN/Inf 三类事件分报。E2 后续 LBFGS/continuation/polish 不进入方法初始化；普通直接运行不替代正式 provenance 门禁。
+
 ## 输出
 
 `--output-root` 中包括：
@@ -62,4 +98,7 @@ python src/drpo/drpo_cu1_e1_e4_oneclick.py \
 
 ## 当前验证边界
 
-本版本只完成代码、文档、registry 与 smoke 测试更新。Adam 版正式 E3/E4 尚未运行。
+- 本版本只完成代码、文档、registry 与 smoke 测试更新；Adam 版正式 E3/E4 尚未运行。
+- 共享 core 等价回归、Python 语法检查和 CPU engineering smoke 由对应更新包记录；
+- `C-U1-E4-TAPER-01` 仅完成代码与协议注册，且必须等待 E3/E4 Adam 交付；正式 20-seed 尚未运行；
+- smoke、单元测试与静态检查不构成正式实验结果。

@@ -55,6 +55,11 @@ import torch
 import torch.nn as nn
 
 try:
+    from . import cu1_core
+except ImportError:  # direct script execution
+    import cu1_core
+
+try:
     import matplotlib.pyplot as plt
 except Exception:
     plt = None
@@ -64,7 +69,7 @@ except Exception:
 # 0. Frozen one-click protocol
 # =============================================================================
 
-SCRIPT_VERSION = "2026.06.25-reconstruction-v5-unified-adam"
+SCRIPT_VERSION = "2026.06.25-reconstruction-v6-unified-adam-shared-cu1-core"
 SMOKE = os.environ.get("DRPO_CU1_SMOKE", "0") == "1"  # developer-only shortcut
 ROOT = Path(__file__).resolve().parent / ("drpo_cu1_reproduction_results_smoke" if SMOKE else "drpo_cu1_e3_adam_results")
 
@@ -340,156 +345,73 @@ def support_event_type(diag: dict[str, Any]) -> str | None:
 
 
 # =============================================================================
-# 2. Exact C-U1 environment
+# 2. Exact C-U1 environment (shared implementation)
 # =============================================================================
+
+Split = cu1_core.Split
+Environment = cu1_core.Environment
 
 
 def base_from_state(s: torch.Tensor) -> torch.Tensor:
-    b1 = 0.70 * torch.tanh(0.85 * s[:, 0] - 0.30 * s[:, 1] * s[:, 2] + 0.20 * torch.sin(1.6 * s[:, 3]))
-    b2 = 0.65 * torch.tanh(-0.50 * s[:, 1] + 0.35 * torch.cos(1.1 * s[:, 4]) + 0.22 * s[:, 0] * s[:, 5])
-    return torch.stack([b1, b2], dim=1)
+    return cu1_core.base_from_state(s)
 
 
 def task_direction_from_state(s: torch.Tensor) -> torch.Tensor:
-    angle = 1.15 * torch.tanh(0.75 * s[:, 0] + 0.50 * s[:, 2] - 0.30 * s[:, 5])
-    angle = angle + 0.30 * torch.sin(1.35 * s[:, 1])
-    return torch.stack([torch.cos(angle), torch.sin(angle)], dim=1)
+    return cu1_core.task_direction_from_state(s)
 
 
 def orthogonal(direction: torch.Tensor) -> torch.Tensor:
-    return torch.stack([-direction[:, 1], direction[:, 0]], dim=1)
+    return cu1_core.orthogonal(direction)
 
 
 def reward_from_optimum(action: torch.Tensor, optimum: torch.Tensor) -> torch.Tensor:
-    d = torch.linalg.vector_norm(action - optimum, dim=-1)
-    return torch.exp(-0.5 * (d / P.reward_width).square())
-
-
-@dataclass
-class Split:
-    s: torch.Tensor
-    a_plus: torch.Tensor
-    a_star: torch.Tensor
-    a_minus: torch.Tensor
-    direction: torch.Tensor
-    orthogonal: torch.Tensor
-    positive_actions: torch.Tensor
-    positive_rewards: torch.Tensor
-    positive_advantages: torch.Tensor
-    negative_actions: torch.Tensor
-    negative_rewards: torch.Tensor
-    negative_advantages: torch.Tensor
-
-
-@dataclass
-class Environment:
-    train: Split
-    test: Split
+    return cu1_core.reward_from_optimum(action, optimum, P.reward_width)
 
 
 def positive_angles() -> torch.Tensor:
-    # Four equal-reward points with exact centroid a_plus.
-    t1 = P.positive_angle_1
-    cos_t2 = 2.0 * P.gap_to_unseen_optimum / P.positive_contour_radius - math.cos(t1)
-    if not (-1.0 <= cos_t2 <= 1.0):
-        raise RuntimeError("Invalid positive contour geometry")
-    t2 = math.acos(cos_t2)
-    return torch.tensor([math.pi - t1, math.pi + t1, math.pi - t2, math.pi + t2], dtype=DTYPE)
+    return cu1_core.positive_angles(P, DTYPE)
 
 
 def negative_angles() -> torch.Tensor:
-    # Index 0 is a_minus; index 4 is the farthest contour copy.
-    return torch.tensor([
-        math.pi,
-        3.0 * math.pi / 4.0,
-        math.pi / 2.0,
-        math.pi / 4.0,
-        0.0,
-        -math.pi / 4.0,
-        -math.pi / 2.0,
-        -3.0 * math.pi / 4.0,
-    ], dtype=DTYPE)
+    return cu1_core.negative_angles(DTYPE)
 
 
 def make_split(s: torch.Tensor) -> Split:
-    plus = base_from_state(s)
-    u = task_direction_from_state(s)
-    v = orthogonal(u)
-    star = plus + P.gap_to_unseen_optimum * u
-    minus = plus - P.negative_offset_from_positive * u
-
-    pa = positive_angles().to(s.device)
-    pdir = torch.cos(pa)[None, :, None] * u[:, None, :] + torch.sin(pa)[None, :, None] * v[:, None, :]
-    pos = star[:, None, :] + P.positive_contour_radius * pdir
-    pos_r = reward_from_optimum(pos, star[:, None, :])
-    pos_a = pos_r - P.baseline
-
-    na = negative_angles().to(s.device)
-    ndir = torch.cos(na)[None, :, None] * u[:, None, :] + torch.sin(na)[None, :, None] * v[:, None, :]
-    neg = star[:, None, :] + P.negative_contour_radius * ndir
-    neg_r = reward_from_optimum(neg, star[:, None, :])
-    neg_a = neg_r - P.baseline
-
-    return Split(s, plus, star, minus, u, v, pos, pos_r, pos_a, neg, neg_r, neg_a)
+    return cu1_core.make_split(s, P)
 
 
 def make_environment(seed: int) -> Environment:
-    g = torch.Generator(device="cpu").manual_seed(seed)
-    train_s = torch.randn(P.n_train_states, P.state_dim, generator=g, dtype=DTYPE).to(DEVICE)
-    test_s = torch.randn(P.n_test_states, P.state_dim, generator=g, dtype=DTYPE).to(DEVICE)
-    return Environment(make_split(train_s), make_split(test_s))
+    return cu1_core.make_environment(seed, P, DEVICE, DTYPE)
 
 
 def audit_environment(env: Environment) -> dict[str, Any]:
-    t = env.train
-    pos_centroid_error = torch.max(torch.abs(t.positive_actions.mean(dim=1) - t.a_plus)).item()
-    neg_reward_range = (t.negative_rewards.max(1).values - t.negative_rewards.min(1).values).abs().max().item()
-    neg_adv_range = (t.negative_advantages.max(1).values - t.negative_advantages.min(1).values).abs().max().item()
-    pos_reward_range = (t.positive_rewards.max(1).values - t.positive_rewards.min(1).values).abs().max().item()
-    d = torch.linalg.vector_norm(t.negative_actions - t.a_plus[:, None, :], dim=-1)
-    nearest = d[:, 0].mean().item()
-    farthest = d[:, 4].mean().item()
-    out = {
-        "state_distribution": "Normal(0,I_6)",
-        "n_train_states": P.n_train_states,
-        "n_test_states": P.n_test_states,
-        "positive_actions_per_state": 4,
-        "negative_actions_per_state": 8,
-        "positive_centroid_max_error": pos_centroid_error,
-        "positive_reward_max_range_per_state": pos_reward_range,
-        "negative_reward_max_range_per_state": neg_reward_range,
-        "negative_advantage_max_range_per_state": neg_adv_range,
-        "positive_advantage_fraction": (t.positive_advantages > 0).float().mean().item(),
-        "negative_advantage_fraction": (t.negative_advantages < 0).float().mean().item(),
-        "nearest_negative_distance": nearest,
-        "farthest_negative_distance": farthest,
-        "farthest_nearest_distance_ratio": farthest / nearest,
-        "analytic_positive_sigma": analytic_positive_sigma(),
-        "analytic_mean_critical_alpha": analytic_mean_critical_alpha(),
-        "analytic_variance_boundary_alpha": analytic_variance_boundary_alpha(),
-    }
-    ok = (
-        pos_centroid_error < 2e-6
-        and pos_reward_range < 2e-6
-        and neg_reward_range < 2e-6
-        and neg_adv_range < 2e-6
-        and out["positive_advantage_fraction"] == 1.0
-        and out["negative_advantage_fraction"] == 1.0
+    result = cu1_core.audit_environment(env, P)
+    result.update(
+        {
+            "analytic_positive_sigma": analytic_positive_sigma(),
+            "analytic_mean_critical_alpha": analytic_mean_critical_alpha(),
+            "analytic_variance_boundary_alpha": analytic_variance_boundary_alpha(),
+        }
     )
-    out["passed"] = ok
-    return out
+    return result
 
 
 def positive_advantage_value() -> float:
-    return math.exp(-0.5 * (P.positive_contour_radius / P.reward_width) ** 2) - P.baseline
+    return math.exp(
+        -0.5 * (P.positive_contour_radius / P.reward_width) ** 2
+    ) - P.baseline
 
 
 def negative_advantage_value() -> float:
-    return math.exp(-0.5 * (P.negative_contour_radius / P.reward_width) ** 2) - P.baseline
+    return math.exp(
+        -0.5 * (P.negative_contour_radius / P.reward_width) ** 2
+    ) - P.baseline
 
 
 def analytic_positive_sigma() -> float:
-    residual_second_moment = P.positive_contour_radius ** 2 - P.gap_to_unseen_optimum ** 2
+    residual_second_moment = (
+        P.positive_contour_radius**2 - P.gap_to_unseen_optimum**2
+    )
     return math.sqrt(residual_second_moment / P.action_dim)
 
 
@@ -501,7 +423,7 @@ def analytic_variance_boundary_alpha() -> float:
     # Solve p*M_pos(mu*) - q*M_neg(mu*) = 0 by bisection.
     p = positive_advantage_value()
     n = abs(negative_advantage_value())
-    residual = P.positive_contour_radius ** 2 - P.gap_to_unseen_optimum ** 2
+    residual = P.positive_contour_radius**2 - P.gap_to_unseen_optimum**2
 
     def f(alpha: float) -> float:
         q = alpha * n
@@ -525,35 +447,22 @@ def analytic_variance_boundary_alpha() -> float:
 # =============================================================================
 
 
-class GaussianActor(nn.Module):
+class GaussianActor(cu1_core.GaussianActor):
     def __init__(self) -> None:
-        super().__init__()
-        self.fc1 = nn.Linear(P.state_dim, P.hidden_dim)
-        self.fc2 = nn.Linear(P.hidden_dim, P.hidden_dim)
-        self.mu_head = nn.Linear(P.hidden_dim, P.action_dim)
-        self.log_std_head = nn.Linear(P.hidden_dim, 1)
-        nn.init.zeros_(self.log_std_head.weight)
-        nn.init.constant_(self.log_std_head.bias, math.log(P.initial_sigma))
-
-    def features(self, s: torch.Tensor) -> torch.Tensor:
-        return torch.relu(self.fc2(torch.relu(self.fc1(s))))
-
-    def forward(self, s: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        h = self.features(s)
-        return self.mu_head(h), self.log_std_head(h).squeeze(-1)
-
-    def mean_parameters(self) -> list[nn.Parameter]:
-        return list(self.fc1.parameters()) + list(self.fc2.parameters()) + list(self.mu_head.parameters())
-
-    def all_parameters(self) -> list[nn.Parameter]:
-        return list(self.parameters())
+        super().__init__(
+            state_dim=P.state_dim,
+            action_dim=P.action_dim,
+            hidden_dim=P.hidden_dim,
+            initial_sigma=P.initial_sigma,
+        )
 
 
-def gaussian_log_prob(mu: torch.Tensor, log_std: torch.Tensor, actions: torch.Tensor) -> torch.Tensor:
-    # actions: [B,K,2], mu [B,2], log_std [B]
-    inv_std = torch.exp(-log_std)[:, None, None]
-    z = (actions - mu[:, None, :]) * inv_std
-    return -0.5 * z.square().sum(-1) - P.action_dim * log_std[:, None] - 0.5 * P.action_dim * math.log(2.0 * math.pi)
+def gaussian_log_prob(
+    mu: torch.Tensor,
+    log_std: torch.Tensor,
+    actions: torch.Tensor,
+) -> torch.Tensor:
+    return cu1_core.gaussian_log_prob(mu, log_std, actions, P.action_dim)
 
 
 def actor_log_prob(actor: GaussianActor, s: torch.Tensor, actions: torch.Tensor, fixed_sigma: float | None = None) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -1694,6 +1603,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     source_dir = ROOT / "source_snapshot"
     source_dir.mkdir(parents=True, exist_ok=True)
     shutil.copy2(Path(__file__), source_dir / Path(__file__).name)
+    shutil.copy2(Path(cu1_core.__file__), source_dir / Path(cu1_core.__file__).name)
     atomic_json(source_dir / "protocol.json", current_protocol)
 
     preflight = run_preflight_self_tests()

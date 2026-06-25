@@ -104,7 +104,8 @@ def test_registry_and_handoff_register_adam_reruns_as_not_run() -> None:
     assert e3["data"]["terminology"] == "held_out_context_generalization"
 
     handoff = (REPO_ROOT / "docs" / "handoff.md").read_text()
-    assert "v29（C-U1 E3/E4 统一 Adam 修正版）" in handoff
+    assert "v30（Gaussian 二次临界界、C-U1 共享实现与统一 Adam 对齐版）" in handoff
+    assert "v29 增量记录：C-U1 E3/E4 统一 Adam 与方差坍缩口径修正" in handoff
     assert "C-U1-E3-ADAM-RERUN" in handoff
     assert "C-U1-E4-ADAM-RERUN" in handoff
     assert "方差爆炸" in handoff  # only in the explicit prohibition/correction record

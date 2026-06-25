@@ -1,4 +1,16 @@
-# DRPO / SNA2C 远场负梯度动力学研究主文档 v29（C-U1 E3/E4 统一 Adam 修正版）
+# DRPO / SNA2C 远场负梯度动力学研究主文档 v30（Gaussian 二次临界界、C-U1 共享实现与统一 Adam 对齐版）
+
+
+> **v30 增量登记：Gaussian 二次临界界、C-U1 共享实现与 `C-U1-E4-TAPER-01`（不删除 v29 及更早内容）**
+>
+> - 本轮不产生新实验结果。`C-U1-E4-TAPER-01` 状态为“尚未运行”；此前 seeds 0--4 的独立 taper 结果只保留为开发 pilot，不能进入正式方法排名。
+> - C-U1 环境几何、数据生成、Gaussian actor、log-probability、标准化距离与 Gaussian 输出 score 统一抽入 `src/drpo/cu1_core.py`。E1--E4 runner、component-wise runner 和新 taper runner 必须调用同一实现，禁止再次复制环境或 actor。
+> - 当前方法比较只使用一个距离：`d_theta(s,a)=||a-mu_theta(s)||_2/sigma_theta(s)`；所有 taper 对该距离 stop-gradient。不得以 surprisal、平方 surprisal、raw reward 或另一距离替换。
+> - 已解析证明：在 advantage 幅度有界且进入 support-boundary 之前 `sigma_theta(s)>=sigma_min>0` 的 Gaussian 输出区域，learnable log-scale 的负优势输出梯度为 `Theta(d^2)`。对 `w_p(d)=[1+lambda(d/d_ref)^p]^{-1}`，加权输出梯度为 `Theta(d^{2-p})`；故 reciprocal-linear 仍无界，reciprocal-quadratic 是保证有界的最低多项式阶，严格快于二次的尾部使影响趋零。
+> - 同一参考衰减 `w(d_ref)=rho` 下，reciprocal-quadratic 在 `d<d_ref` 比 reciprocal-linear 保留更多，在 `d>d_ref` 抑制更强。这是有限距离的解析排序；它不推出任务 reward 排名。
+> - 全参数结论只作充分界：若 actor 输出 Jacobian 的 operator norm 有界，二次 taper 也使全参数单样本影响有界。若要声称全参数增长的必要二次阶或严格下界，还需 Jacobian 在 log-scale score 方向不退化。
+> - 正式主比较冻结为 reciprocal-linear 对 reciprocal-quadratic，`d_ref=5`、`rho=0.25`、`alpha=1.0`，held-out seeds 70--89；`rho in {0.50,0.75}` 和 exponential 仅作敏感性/安全类对照。Linear 的外部 prior-work 身份在精确论文公式与引用锁定前不得声称；当前名称必须写作 **reciprocal-linear baseline**。
+> - `C-U1-E4-TAPER-01` 必须等待 `C-U1-E3-ADAM-RERUN` 与 `C-U1-E4-ADAM-RERUN` 均完成终态审计、打包和交付；共享 core 重构不得改变 v29 锁定的 Adam、初始化、seeds、阈值或执行顺序。
 
 
 > **v29 增量记录：C-U1 E3/E4 统一 Adam 与方差坍缩口径修正（不删除 v28 及更早内容）**
@@ -179,7 +191,7 @@
 
 **文档定位：唯一研究主轴、不可破坏性删除、面向论文重写。**  
 **恢复底稿：v7 全量累积文档；后续将 v8-v10 的有效新增内容作为可追踪补丁合入。**  
-**当前日期：2026-06-24。**
+**当前日期：2026-06-25。**
 
 
 
@@ -442,6 +454,47 @@ Ground-truth reward 由动作到 `a_star(s)` 的二维距离决定，因此 `a_s
 
 ---
 
+## 3.8 C-U1 共享实现与二次阶方法实验 `C-U1-E4-TAPER-01`
+
+### 3.8.1 代码单一来源
+
+C-U1 的环境与 actor 不再允许嵌入新实验文件。唯一共享实现为 `src/drpo/cu1_core.py`，包含 state-to-geometry 映射、正/负轮廓、`Split/Environment`、Gaussian actor、log-probability、标准化距离和输出 score 分解。`drpo_cu1_e1_e4_oneclick.py` 只保留冻结 protocol、训练、干预、审计与报告；`cu1_e1_componentwise_rerun.py` 和 taper runner 只导入共享实现。重构必须用确定性张量、actor 初始化、log-probability、环境不变量和 smoke run 做等价回归，不能以“代码更整洁”为由改变任何冻结科学变量。
+
+### 3.8.2 唯一距离与方法公式
+
+对当前 isotropic Gaussian actor，定义唯一方法距离
+
+$$
+d_\theta(s,a)=\frac{\lVert a-\mu_\theta(s)\rVert_2}{\sigma_\theta(s)},\qquad u=\frac{d_\theta(s,a)}{d_{\mathrm{ref}}},\qquad d_{\mathrm{ref}}=5.
+$$
+
+距离和权重均 stop-gradient；只重权负优势项，正优势项不变。正式方法为
+
+$$
+w_{\mathrm{lin}}(u)=\frac{1}{1+\lambda u},\qquad
+w_{\mathrm{quad}}(u)=\frac{1}{1+\lambda u^2},\qquad
+w_{\exp}(u)=e^{-\lambda_{\exp}u}.
+$$
+
+共同参考衰减为 `w(u=1)=rho`，故 reciprocal 两族使用 `lambda=rho^{-1}-1`，指数族使用 `lambda_exp=-log rho`。这不是 gradient-budget matching；所有方法读取同一数据、固定 advantage、actor、初始化和 minibatch index stream，只改变以上函数。
+
+### 3.8.3 正式协议
+
+- **Experiment ID：** `C-U1-E4-TAPER-01`；补充 E4 的方法阶数 claim，不替代 E1--E4。
+- **状态：** 尚未运行。seeds 0--4 的旧结果仅作开发 pilot。
+- **正式 seeds：** 70--89；20 seeds 配对。
+- **主比较：** reciprocal-linear 对 reciprocal-quadratic，`rho=0.25`、`alpha=1.0`。
+- **次要对照：** `rho in {0.50,0.75}` 的形状敏感性；exponential 只检验更快尾部，不预设其 reward 更优；positive-only 与 unweighted-negative 为边界对照。
+- **优化：** 从同 seed 的 **2000-step positive-only Adam checkpoint** 初始化，与 v29 的 E3/E4 起点完全相同；E2 后续 LBFGS、continuation 与 adaptive polish 不得进入 taper 方法初始化。Adam `lr=5e-4`，state minibatch 256。
+- **终态：** 每 100 steps 评估；至少 1000 steps 后，连续 10 个窗口中 reward、归一化外推位移和 sigma 的归一化斜率均低于 `1e-4`，且 joint 方法的归一化净场残差低于 `2e-3`，才形成稳定候选；`positive-only` 因不存在负场抵消，改用全数据 absolute positive-gradient norm `<1e-3`。只有完整运行到候选步数的 2 倍且终态分类不反转，才能记为 `stable_plateau_2x_confirmed`；若候选在 4000 steps 之后才出现而 8000-step 上限容不下完整 2× continuation，必须记为未解析终态。到达 support/variance boundary 或 NaN/Inf 作为独立终态事件；固定 horizon 到期本身不构成收敛。
+- **主机制指标：** 初始与终态实际全参数负梯度的 far/near ratio、far-field log-log slope、标准化距离与权重、output-space mean/log-scale 分量。
+- **任务指标：** 同分布 held-out-context reward、到 `a_plus/a_star` 的距离、归一化外推位移。
+- **失效拆分：** task-performance collapse、support/variance-boundary event、NaN/Inf numerical event 分开记录。
+- **主统计：** 20-seed paired bootstrap，报告 quadratic-minus-linear 的 far/near ratio 与 reward 差异；理论预注册只预言前者更低，不预言后者必然更高。
+- **外部基线边界：** 在精确论文与公式未锁定前，`w_lin` 只称 reciprocal-linear baseline，不声称已经复现某篇 prior work。若外部方法采用 clipped-linear 或不同距离，须另行登记，不能更名替换本实验。
+
+---
+
 # 4. 论文机制实验总表与验收标准
 
 | ID | 实验 | 核心问题 | 是否要求训练饱和 | 正式验收 |
@@ -457,6 +510,7 @@ Ground-truth reward 由动作到 `a_star(s)` 的二维距离决定，因此 `a_s
 
 该区分在早期讨论中存在概念基础，但旧 E3 表格和正式输出没有明确登记；是在用户本轮提醒后才补入实验协议。因此不能声称旧实验已经完整报告了两类崩溃。
 | E4 | 稳定外推与泛化 | 受控负梯度能否突破 positive-only 上限，远场是否反转为有害 | 是 | 策略越过 a_plus、接近 a_star；训练分布内/同分布 held-out-context reward；强度扫描；控制恢复；固定/可学习方差 |
+| E4-TAPER | 距离衰减阶数 | 同一标准化距离上二次 reciprocal 是否比线性 reciprocal 更强压制远场负梯度；是否改善任务效果 | 是 | 20 paired seeds；主 rho=0.25；实际全参数 far/near ratio；held-out-context reward；2× 终态审计；三类失效分报 |
 | E5 | Categorical 排斥与支持边界 | 有界 logit score 下重复负更新如何把概率推向边界 | 解析 + 长期 | direct-softmax 解析、概率衰减、rare/common 干预 |
 | E6 | 共享语义 categorical 外推 | 负梯度能否利用共享表示改善未见动作且避免 support collapse | 是 | unordered semantic actions；positive-only/controlled/uncontrolled；长期方法对比 |
 | E7 | Hopper learned-critic | 真实数据与 learned critic 下机制是否仍出现；二次 log-scale 分支是否在真实任务中被激活并传导 | 是 | 训练足够长；优势匹配；mean/log-scale component decomposition；校正二次律；full-parameter 传导；长期 Near/Far/Far-cap/Global；终态审计；机制表与方法效果表分开 |
@@ -482,6 +536,7 @@ Ground-truth reward 由动作到 `a_star(s)` 的二维距离决定，因此 `a_s
 | E2 | 零散 positive-only 曲线 | **C-U1 正式 20-seed 已完成**：20/20 通过稳态与 2× 延长审计；phantom gradient 增长 28.93× | 正式长期验证完成 |
 | E3 | Product/Collapse 环境与旧 SGD C-U1 结果保留 provenance | `C-U1-E3-ADAM-RERUN` 已登记、尚未运行；旧 SGD 运行支持机制方向，但其 sigma 正向越界属于优化器过冲诊断，不作为当前正式终态 | Adam 版完成终态审计前不得覆盖旧表，也不得升级为当前论文正式结果 |
 | E4 | 独立 Extrapolation 环境；部分长程审计 | `C-U1-E4-ADAM-RERUN` 已登记、尚未运行；必须等待 E3 Adam 包交付 | 解析结论保留；统一 Adam 结果未完成 |
+| E4-TAPER | seeds 0--4 独立复制实现 pilot | 共享 core 与正式 runner 已登记；依赖 E3/E4 Adam 交付，正式 seeds 70--89 尚未运行 | 二次临界界已解析证明；方法排名尚无正式结果 |
 | E5 | 解析和长程 categorical 基本完成 | D-U1/D-Diag 可保留 | 接近完成，需整理最终口径 |
 | E6 | unordered semantic categorical 仅短程 pilot | 尚未长期重跑 | 未完成 |
 | E7 | Hopper learned-critic 600-step probe | `EXT-H-E7-Q2` 二次分支外部验证协议已预注册；长期重跑与实现尚未执行 | 旧 probe 仍仅为有限训练步数证据；E7-Q2 状态为尚未运行 |
@@ -492,14 +547,15 @@ Ground-truth reward 由动作到 `a_star(s)` 的二维距离决定，因此 `a_s
 # 6. 接下来唯一执行顺序
 
 1. E1/E2 的既有正式状态与历史证据保持不变；
-2. 提交并确认本次统一 Adam 代码 commit；
+2. 提交并确认本次统一 Adam + shared-core 代码 commit；
 3. 运行、终态审计、打包并交付 `C-U1-E3-ADAM-RERUN`；
 4. E3 Adam 包交付后，运行、终态审计、打包并交付 `C-U1-E4-ADAM-RERUN`；
 5. E3 主文只保留 Baseline/Near-zero/Far-zero/Far-cap 的最短因果链；
 6. E4 主文只保留 positive-only ceiling、适度负梯度收益和过强负梯度失稳的单一相变链；
-7. 统一连续结果通过后，再完成 E6 categorical 长程；
-8. 外部 Hopper 和 Countdown；
-9. 论文正文重写与方法效果实验并行。
+7. E3/E4 Adam 均交付后，再运行 `C-U1-E4-TAPER-01` 正式距离阶数比较；
+8. 统一连续结果通过后，再完成 E6 categorical 长程；
+9. 外部 Hopper 和 Countdown；
+10. 论文正文重写与方法效果实验并行。
 
 任何新增实验必须先说明它补哪一个 claim、是否替代现有实验、是否进入本文档。
 
@@ -2588,6 +2644,215 @@ $$
 
 
 固定 σ 且只重复一个负样本时，δₜ=μₜ−a 满足精确递推 δₜ₊₁=(1+hc/σ²)δₜ，故均值距离和 mean-score 关于训练步数几何增长。可学习方差时，远场负样本同时使 μ 远离、σ 收缩，通常进一步放大标准化距离；但不应再无条件声称 μ 与 σ 都“expand”。
+
+## 2.7A Gaussian 远场负梯度的二次临界衰减定理（v30，已解析证明）
+
+本节只证明同一 Gaussian 标准化距离上的控制阶数，不把 surprisal 替换成距离，也不把任务 reward 排名写进定理。考虑动作维数为 `D` 的 isotropic Gaussian：
+
+$$
+\pi_\theta(a\mid s)=\mathcal N(\mu_\theta(s),\sigma_\theta(s)^2I_D),\qquad \xi_\theta(s)=\log\sigma_\theta(s).
+$$
+
+定义当前 C-U1 Near/Far 使用的标准化距离
+
+$$
+d=d_\theta(s,a)=\frac{\lVert a-\mu_\theta(s)\rVert_2}{\sigma_\theta(s)}.
+$$
+
+固定一个负优势样本 `A(s,a)=-c<0`，并令 policy-output 坐标为 `y=(mu,xi)`。其负梯度幅度等于 `c` 乘以 Gaussian score 幅度。精确公式为
+
+$$
+\nabla_\mu\log\pi_\theta(a\mid s)=\frac{a-\mu}{\sigma^2},\qquad
+\frac{\partial\log\pi_\theta(a\mid s)}{\partial\xi}=d^2-D,
+$$
+
+从而
+
+$$
+\boxed{
+\lVert g_y^-(s,a)\rVert_2^2
+=c^2\left[\frac{d^2}{\sigma^2}+(d^2-D)^2\right].
+}
+$$
+
+### 定理 3（pre-boundary 区域中的二次远场界）
+
+假设负优势幅度满足 `0<c_min<=c<=c_max<infinity`，并且只在 support/variance boundary 之前的正则区域讨论，即存在 `sigma_min>0` 使 `sigma_theta(s)>=sigma_min`。令 `d>=d_0=max{1,sqrt(2D)}`，则存在与 `d` 无关的正常数 `C_1,C_2`，使
+
+$$
+C_1d^2\le \lVert g_y^-(s,a)\rVert_2\le C_2d^2.
+$$
+
+可取
+
+$$
+C_1=\frac{c_{\min}}{2},\qquad
+C_2=c_{\max}\sqrt{1+\sigma_{\min}^{-2}}.
+$$
+
+**证明。** 当 `d^2>=2D` 时，`d^2-D>=d^2/2`，故 log-scale 分支直接给出
+
+$$
+\lVert g_y^-\rVert_2\ge c|d^2-D|\ge\frac{c_{\min}}2d^2.
+$$
+
+另一方面，`0<=d^2-D<=d^2`，且 `d>=1`、`sigma>=sigma_min`，因此
+
+$$
+\frac{d^2}{\sigma^2}\le\frac{d^4}{\sigma_{\min}^2},\qquad(d^2-D)^2\le d^4.
+$$
+
+代回精确范数式，得到
+
+$$
+\lVert g_y^-\rVert_2^2\le c_{\max}^2d^4(1+\sigma_{\min}^{-2}).
+$$
+
+开平方即得上界，故 `||g_y^-||=Theta(d^2)`。证毕。
+
+该定理说的是**固定时刻、同一标准化距离上的单样本输出梯度**。它不等同于 advantage 自身二次增长，也不声称神经网络全参数梯度无条件具有严格二次下界。
+
+### 定理 4（reciprocal-polynomial 的二次临界阶）
+
+令距离权重 stop-gradient，并定义
+
+$$
+w_p(d)=\frac{1}{1+\lambda(d/d_{\mathrm{ref}})^p},\qquad \lambda>0,\ p\ge0.
+$$
+
+在定理 3 的条件下，
+
+$$
+\boxed{\lVert w_p(d)g_y^-(s,a)\rVert_2=\Theta(d^{2-p}).}
+$$
+
+因此
+
+$$
+p<2\Rightarrow \lVert w_pg_y^-\rVert_2\to\infty,
+$$
+
+$$
+p=2\Rightarrow 0<\liminf_{d\to\infty}\lVert w_pg_y^-\rVert_2\le\limsup_{d\to\infty}\lVert w_pg_y^-\rVert_2<\infty,
+$$
+
+$$
+p>2\Rightarrow \lVert w_pg_y^-\rVert_2\to0.
+$$
+
+**证明。** 当 `p=0` 时，`w_0(d)=1/(1+lambda)` 为正常数，结论直接由定理 3 得到。以下设 `p>0`。对充分大的 `d`，`lambda(d/d_ref)^p>=1`，于是
+
+$$
+\frac{d_{\mathrm{ref}}^p}{2\lambda}d^{-p}
+\le w_p(d)\le
+\frac{d_{\mathrm{ref}}^p}{\lambda}d^{-p}.
+$$
+
+与定理 3 的 `C_1d^2<=||g_y^-||<=C_2d^2` 相乘，即得两侧同阶界 `Theta(d^{2-p})`；三种极限由 `2-p` 的符号立即得到。证毕。
+
+**直接推论。**
+
+$$
+w_{\mathrm{lin}}(d)=\frac{1}{1+\lambda d/d_{\mathrm{ref}}}\quad\Rightarrow\quad \lVert w_{\mathrm{lin}}g_y^-\rVert=\Theta(d),
+$$
+
+仍然无界；
+
+$$
+w_{\mathrm{quad}}(d)=\frac{1}{1+\lambda(d/d_{\mathrm{ref}})^2}\quad\Rightarrow\quad \lVert w_{\mathrm{quad}}g_y^-\rVert=\Theta(1),
+$$
+
+所以二次 reciprocal 是该正值平滑多项式族中保证有界的最低阶。对
+
+$$
+w_{\exp}(d)=e^{-\lambda d/d_{\mathrm{ref}}},
+$$
+
+由 `d^2e^{-lambda d/d_ref}->0`，加权影响趋零。
+
+### 命题 5（同一参考衰减下的有限距离选择性）
+
+固定 `rho in (0,1)`，令 `lambda=rho^{-1}-1`、`u=d/d_ref`，则
+
+$$
+w_{\mathrm{lin}}(u)=\frac1{1+\lambda u},\qquad
+w_{\mathrm{quad}}(u)=\frac1{1+\lambda u^2},
+$$
+
+并且二者均满足 `w(1)=rho`。因为 `u^2<u` 当 `0<u<1`，而 `u^2>u` 当 `u>1`，所以
+
+$$
+0<u<1\Rightarrow w_{\mathrm{quad}}(u)>w_{\mathrm{lin}}(u),
+$$
+
+$$
+u=1\Rightarrow w_{\mathrm{quad}}(u)=w_{\mathrm{lin}}(u)=\rho,
+$$
+
+$$
+u>1\Rightarrow w_{\mathrm{quad}}(u)<w_{\mathrm{lin}}(u).
+$$
+
+因此在相同 `d_ref` 和参考强度下，二次方法同时具有“近场保留更多、远场压制更强”的解析性质。该命题不需要渐近极限，但仍不推出任务 reward 必然更高。
+
+### 对角 Gaussian 推论
+
+对一般 diagonal Gaussian，令
+
+$$
+z_j=\frac{a_j-\mu_j}{\sigma_j},\qquad d=\lVert z\rVert_2,
+$$
+
+则每个 log-scale 分量为
+
+$$
+\frac{\partial\log\pi}{\partial\xi_j}=z_j^2-1.
+$$
+
+由 Cauchy--Schwarz 不等式，
+
+$$
+\frac{d^2}{\sqrt D}\le \lVert z^{\odot2}\rVert_2\le d^2.
+$$
+
+因此
+
+$$
+\frac{d^2}{\sqrt D}-\sqrt D
+\le
+\lVert z^{\odot2}-\mathbf 1\rVert_2
+\le
+ d^2+\sqrt D.
+$$
+
+当 `d^2>=2D` 时，log-scale 联合分支被上下界为常数倍 `d^2`。若各维 `sigma_j>=sigma_min>0`，mean 分支也至多为 `O(d^2)`，故 diagonal Gaussian 的联合 policy-output 梯度仍为 `Theta(d^2)`，定理 4 的临界阶 `p=2` 不变。该推论覆盖后续 state-conditioned diagonal Gaussian 外部验证；tanh-squashed actor 必须在 frozen inverse-squash/base-Gaussian 坐标中使用此距离。
+
+### 神经网络 pullback、例外与可声明边界
+
+令 `J_theta(s)=partial(mu_theta,xi_theta)/partial theta`，则
+
+$$
+g_\theta^-=J_\theta(s)^\top g_y^-.
+$$
+
+若研究区域内 `||J_theta(s)||_op<=M`，则
+
+$$
+\lVert w_pg_\theta^-\rVert_2\le M\lVert w_pg_y^-\rVert_2.
+$$
+
+故 `p=2` 对实际全参数单样本影响给出充分有界性；但要把 `p=2` 写成全参数空间的必要临界阶，还需 Jacobian 在 log-scale score 方向有统一非退化下界。正式 C-U1 实验直接测量实际全参数梯度，正是为了验证该 pullback 是否保留理论排序。
+
+边界条件必须同时保留：
+
+1. 固定方差时 log-scale 分支不存在，mean score 仅为一次阶，临界多项式阶降为 `p=1`。
+2. `p=2` 的**有界上界**只需要 `|A|<=c_max`；“`p<2` 必然无界”的必要性结论还要求沿所讨论的远场序列存在 `|A|>=c_min>0`。C-U1 的等 advantage 设计正是用来隔离这一条件。
+3. 若优势幅度本身满足 `|A(d)|=Theta(d^q)`，则总输出梯度阶变为 `Theta(d^{2+q})`，reciprocal-polynomial 的临界阶相应变为 `p=2+q`；当前定理的主情形是 `q=0`。
+4. 若允许 `sigma->0` 且不在 pre-boundary 区域设置任何 `sigma_min`，标准化距离的二次 taper只能直接保证 log-scale 分支，不能无条件给出总 mean 分支的统一界；因此 support/variance boundary 必须单独报告。
+5. 若权重不 stop-gradient，会额外出现 `grad_theta w`，本定理不适用。
+6. `[1-lambda d]_+` 等 clipped-linear 在有限阈值后严格为零，属于 compact-support hard cutoff，不属于 reciprocal-linear 尾部，必须另行分析。
+7. 本定理证明控制强度和有界性，不证明 Quadratic、Exp 或其他方法的任务性能排名。
+
 
 ## 2.8 Categorical 推论 A：有界单步 score 仍可把策略推到 simplex 边界
 

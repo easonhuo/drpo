@@ -341,6 +341,127 @@ experiments:
     main_package_hard_limit_mib: 25
     retain_terminal_checkpoints_for_all_seeds: true
     expected_checkpoint_total_mib_max: 5
+- id: C-U1-E4-TAPER-01
+  environment: C-U1
+  name: standardized_distance_taper_order_formal_comparison
+  status: not_run
+  parent_experiment: E4
+  depends_on_delivered_experiments: [C-U1-E3-ADAM-RERUN, C-U1-E4-ADAM-RERUN]
+  registration_base_commit: ac286a46b8ffad898dfad0e7e9188b1d2e81052a
+  claim: >-
+    With the same detached standardized Gaussian distance, matched reference
+    attenuation, fixed advantages, actor, initialization, and minibatch stream,
+    reciprocal-quadratic tapering suppresses far-field negative gradients more
+    strongly than reciprocal-linear tapering. Whether this stronger suppression
+    improves held-out-context task reward is an empirical secondary claim and
+    is not assumed.
+  role: controlled_method_order_validation
+  does_not_replace:
+  - C-U1-E1
+  - C-U1-E2
+  - C-U1-E3
+  - C-U1-E4
+  theory:
+    status: analytically_proven
+    distance: d_theta(s,a)=norm(a-mu_theta(s),2)/sigma_theta(s)
+    pre_boundary_assumption: sigma_theta(s)>=sigma_min>0
+    fixed_or_bounded_negative_advantage: true
+    output_gradient_order: Theta(d^2)
+    reciprocal_polynomial_weight: w_p(d)=1/(1+lambda*(d/d_ref)^p)
+    weighted_output_gradient_order: Theta(d^(2-p))
+    critical_polynomial_order: 2
+    full_parameter_extension: sufficient_under_bounded_output_jacobian
+    full_parameter_necessity_requires: nondegenerate_log_scale_pullback
+  shared_implementation:
+    core: src/drpo/cu1_core.py
+    base_runner: src/drpo/drpo_cu1_e1_e4_oneclick.py
+    componentwise_runner: src/drpo/cu1_e1_componentwise_rerun.py
+    experiment_entrypoint: src/drpo/cu1_distance_taper_formal.py
+    duplicated_environment_or_actor_allowed: false
+  protocol:
+    initialization_source: positive_only_adam_2000_step_checkpoint
+    e2_post_2000_terminal_audit_checkpoint_used: false
+    shared_across_methods: true
+    state_distribution: Normal(0,I_6)
+    train_states: 4096
+    test_states: 4096
+    positive_actions_per_state: 4
+    equal_advantage_negative_actions_per_state: 8
+    actor: shared_two_layer_MLP_isotropic_Gaussian_learnable_log_scale
+    distance_reference: 5.0
+    negative_alpha: 1.0
+    distance_and_weight_stop_gradient: true
+    primary_reference_weight_rho: 0.25
+    sensitivity_reference_weights: [0.50, 0.75]
+    development_seeds: [0, 1, 2, 3, 4]
+    formal_held_out_seeds: [70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89]
+    optimizer: Adam
+    learning_rate: 0.0005
+    state_minibatch_size: 256
+    evaluation_interval_steps: 100
+    minimum_steps_before_stationarity: 1000
+    maximum_steps: 8000
+    stable_windows: 10
+    normalized_slope_threshold: 0.0001
+    normalized_field_residual_threshold: 0.002
+    positive_only_absolute_gradient_threshold: 0.001
+    terminal_extension: two_times_first_stable_candidate
+  methods:
+  - positive_only
+  - unweighted
+  - reciprocal_linear
+  - reciprocal_quadratic
+  - exponential
+  formulas:
+    normalized_distance: u=d/d_ref
+    reciprocal_linear: w=1/(1+(rho^-1-1)*u)
+    reciprocal_quadratic: w=1/(1+(rho^-1-1)*u^2)
+    exponential: w=exp(log(rho)*u)
+    common_reference_alignment: w(u=1)=rho
+    negative_gradient_budget_matching: false
+  prior_work_boundary: >-
+    The current reciprocal-linear method is an internally defined baseline.
+    It must not be described as an exact reproduction of prior work until the
+    external paper, distance coordinate, and formula are explicitly locked.
+    A clipped-linear or other linear family requires separate registration.
+  primary_metrics:
+  - initial_and_terminal_full_parameter_far_near_negative_gradient_ratio
+  - initial_and_terminal_far_field_loglog_slope
+  - output_mean_and_log_scale_components
+  - held_out_context_reward
+  - normalized_extrapolation_displacement
+  - distance_to_a_plus
+  - distance_to_a_star
+  - sigma_trajectory
+  - normalized_field_residual
+  reporting_separation:
+  - task_performance_collapse_event
+  - support_or_variance_boundary_event
+  - nan_inf_numerical_event
+  primary_inference:
+    comparison: reciprocal_quadratic_minus_reciprocal_linear_at_rho_0_25
+    paired_bootstrap: true
+    theory_predicts_lower_far_near_ratio: true
+    theory_predicts_higher_reward: false
+  terminal_audit: required
+  execution:
+    state: registered
+    run_id: null
+    last_heartbeat_utc: null
+    process_exit_code: null
+  evidence:
+    raw_complete: false
+    terminal_audited: false
+    package_created: false
+    package_filename: null
+    package_sha256: null
+    delivered_to_user: false
+    applied_commit: null
+    scientific_status: not_run
+  artifact_budget:
+    main_package_hard_limit_mib: 25
+    checkpoint_policy: persistent_local_index
+    checkpoint_every_formal_seeds: 5
 - id: EXT-H-E7-Q2
   environment: EXT-H
   name: hopper_gaussian_log_scale_quadratic_external_validation
