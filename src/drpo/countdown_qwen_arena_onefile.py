@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Countdown audited base-first external-validity arena for local Qwen Instruct models (v4.1).
+"""Countdown audited base-first external-validity arena for local Qwen Instruct models (v4.1.1).
 
 One-command run
 ---------------
@@ -17,7 +17,9 @@ The run has two responsibilities:
   1. a fixed-negative-advantage near/far mechanism probe on matched legal wrong
      expressions;
   2. a paired effect comparison: positive-only, controlled-negative,
-     uncontrolled-negative, and a calibrated global-matched control.
+     uncontrolled-negative, and a calibrated global-matched control. The shared
+     negative scale is calibrated once at the common initialization from a fixed
+     training calibration split; it is not selected from task outcomes or test data.
 
 All pilot methods use the same BF16 LoRA parameterization. Model/adaptor binaries
 remain server-local; only manifests, metrics, and hashes belong in artifacts.
@@ -30,7 +32,6 @@ from __future__ import annotations
 
 import argparse
 import ast
-import copy
 import json
 import math
 import os
@@ -85,7 +86,7 @@ SYSTEM_PROMPT = (
     "expression. Do not include explanations."
 )
 
-VERSION = "4.1.0-audited-pilot"
+VERSION = "4.1.1-protocol-aligned"
 
 
 def read_model_metadata(model_path: str) -> dict[str, Any]:
@@ -2063,10 +2064,30 @@ def cmd_train_method(args: argparse.Namespace) -> None:
         optimizer, max(1, int(args.steps * args.warmup_ratio)), args.steps
     )
     calibrated_global_gamma: float | None = None
+    calibrated_negative_scale: float | None = None
+    calibration: dict[str, Any] | None = None
+    if args.method != "positive_only":
+        if args.negative_calibration_json:
+            calibration = json.loads(Path(args.negative_calibration_json).read_text())
+            calibrated_negative_scale = float(calibration["negative_scale"])
+        elif args.negative_scale is not None:
+            calibrated_negative_scale = float(args.negative_scale)
+        else:
+            raise RuntimeError(
+                "Negative-advantage methods require --negative_calibration_json "
+                "or an explicit --negative_scale for a separately registered run"
+            )
+        if (
+            not math.isfinite(calibrated_negative_scale)
+            or calibrated_negative_scale <= 0
+        ):
+            raise RuntimeError("Invalid calibrated negative scale")
+
     if args.method == "global_matched":
-        if not args.global_calibration_json:
-            raise RuntimeError("global_matched requires --global_calibration_json")
-        calibration = json.loads(Path(args.global_calibration_json).read_text())
+        if calibration is None:
+            raise RuntimeError(
+                "global_matched requires --negative_calibration_json containing global_gamma"
+            )
         calibrated_global_gamma = float(calibration["global_gamma"])
         if not math.isfinite(calibrated_global_gamma) or calibrated_global_gamma <= 0:
             raise RuntimeError("Invalid calibrated global gamma")
@@ -2105,6 +2126,7 @@ def cmd_train_method(args: argparse.Namespace) -> None:
         "step": 0,
         "method": args.method,
         "gamma": initial_gamma,
+        "negative_scale": calibrated_negative_scale or 0.0,
         "weight": 1.0,
         **initial_eval,
     })
@@ -2175,7 +2197,7 @@ def cmd_train_method(args: argparse.Namespace) -> None:
                     gamma = calibrated_global_gamma
                 elif args.method in {"sbrc", "hybrid"}:
                     positive_budget = pos["score"].detach().mean()
-                    negative_budget = args.alpha * (
+                    negative_budget = calibrated_negative_scale * (
                         args.near_mix * (near_seq_weights * near["score"].detach()).mean()
                         + args.far_mix * (far_seq_weights * far["score"].detach()).mean()
                     )
@@ -2201,7 +2223,7 @@ def cmd_train_method(args: argparse.Namespace) -> None:
                     args.near_mix * near_lp.mean()
                     + args.far_mix * far_lp.mean()
                 )
-                raw_loss = -(positive_lp - args.alpha * gamma * negative_lp)
+                raw_loss = -(positive_lp - calibrated_negative_scale * gamma * negative_lp)
                 if args.method == "entropy_bonus":
                     raw_loss = raw_loss - args.entropy_coef * pos["entropy"].mean()
                 elif args.method == "target_entropy":
@@ -2335,6 +2357,12 @@ def cmd_train_method(args: argparse.Namespace) -> None:
         "terminal_step": terminal_step,
         "stop_reason": stop_reason,
         "numerical_failure": numerical_failure,
+        "negative_scale": calibrated_negative_scale,
+        "negative_scale_source": (
+            "fixed_calibration_split_rms_gradient_match"
+            if args.negative_calibration_json and args.method != "positive_only"
+            else ("explicit_override" if args.method != "positive_only" else "not_applicable")
+        ),
         "global_matched_gamma": calibrated_global_gamma,
         "checkpoint_policy": "server-local adapters only; binaries must not enter Git/artifact packages",
         "checkpoints": checkpoint_records,
@@ -2359,8 +2387,24 @@ def _current_gradient_norm(parameters: Sequence[torch.nn.Parameter]) -> float:
     return float(total.sqrt())
 
 
+def calibration_scales_from_rms(
+    positive_rms: float, controlled_rms: float, uncontrolled_rms: float
+) -> tuple[float, float]:
+    """Return shared negative scale and equal-budget global gamma.
+
+    The shared negative scale matches the unscaled uncontrolled negative-gradient
+    RMS to the positive-gradient RMS at the common initialization. The global
+    gamma then matches the controlled and uncontrolled negative-gradient RMS.
+    No task metric or test example enters either calculation.
+    """
+    values = (positive_rms, controlled_rms, uncontrolled_rms)
+    if any((not math.isfinite(value) or value <= 0) for value in values):
+        raise ValueError("Calibration RMS norms must be finite and positive")
+    return positive_rms / uncontrolled_rms, controlled_rms / uncontrolled_rms
+
+
 def cmd_calibrate_global(args: argparse.Namespace) -> None:
-    """Freeze one gamma that matches controlled and global negative-gradient RMS budgets."""
+    """Freeze shared negative scale and global-matched gamma before training."""
     seed_all(args.seed)
     tokenizer = load_tokenizer(args.model_path)
     rows = read_jsonl(args.offline_data)
@@ -2385,6 +2429,7 @@ def cmd_calibrate_global(args: argparse.Namespace) -> None:
     model.train()
     device = next(model.parameters()).device
     trainable = [parameter for parameter in model.parameters() if parameter.requires_grad]
+    positive_norms: list[float] = []
     controlled_norms: list[float] = []
     uncontrolled_norms: list[float] = []
     controlled_weights: list[float] = []
@@ -2392,8 +2437,14 @@ def cmd_calibrate_global(args: argparse.Namespace) -> None:
     for batch_index, packed in enumerate(loader):
         if batch_index >= args.calibration_batches:
             break
+        positive_batch = move_to_device(packed["positive"], device)
         near_batch = move_to_device(packed["near"], device)
         far_batch = move_to_device(packed["far"], device)
+
+        model.zero_grad(set_to_none=True)
+        positive = completion_stats(model, positive_batch)
+        (-positive["seq_lp"].mean()).backward()
+        positive_norms.append(_current_gradient_norm(trainable))
 
         model.zero_grad(set_to_none=True)
         near = completion_stats(model, near_batch)
@@ -2426,34 +2477,43 @@ def cmd_calibrate_global(args: argparse.Namespace) -> None:
         uncontrolled_norms.append(_current_gradient_norm(trainable))
 
     model.zero_grad(set_to_none=True)
-    if not controlled_norms or not uncontrolled_norms:
+    if not positive_norms or not controlled_norms or not uncontrolled_norms:
         raise RuntimeError("No calibration batches were processed")
+    positive_rms = float(np.sqrt(np.mean(np.square(positive_norms))))
     controlled_rms = float(np.sqrt(np.mean(np.square(controlled_norms))))
     uncontrolled_rms = float(np.sqrt(np.mean(np.square(uncontrolled_norms))))
-    if uncontrolled_rms <= 0 or not math.isfinite(uncontrolled_rms):
-        raise RuntimeError("Uncontrolled calibration gradient norm is invalid")
-    gamma = controlled_rms / uncontrolled_rms
-    if not math.isfinite(gamma) or gamma <= 0:
-        raise RuntimeError("Calibrated global gamma is invalid")
+    try:
+        negative_scale, gamma = calibration_scales_from_rms(
+            positive_rms, controlled_rms, uncontrolled_rms
+        )
+    except ValueError as exc:
+        raise RuntimeError(str(exc)) from exc
     result = {
         "version": VERSION,
-        "protocol": "fixed_calibration_split_rms_negative_gradient_budget_match",
+        "protocol": "fixed_calibration_split_rms_positive_negative_and_global_budget_match",
         "reference_adapter": args.reference_adapter,
         "offline_data": args.offline_data,
         "seed": args.seed,
         "batches": len(controlled_norms),
         "batch_size": args.batch_size,
+        "positive_gradient_norms": positive_norms,
         "controlled_gradient_norms": controlled_norms,
         "uncontrolled_gradient_norms": uncontrolled_norms,
+        "positive_rms_gradient_norm": positive_rms,
         "controlled_rms_gradient_norm": controlled_rms,
         "uncontrolled_rms_gradient_norm": uncontrolled_rms,
+        "negative_scale": negative_scale,
         "global_gamma": gamma,
         "mean_controlled_scalar_weight": float(np.mean(controlled_weights)),
         "frozen_before_method_training": True,
         "interpretation": (
-            "global_matched applies the same fixed gamma to near and far negatives; "
-            "controlled_negative uses selective far-token tapering."
+            "negative_scale is shared by every negative-advantage method and matches "
+            "the initial uncontrolled negative-gradient RMS to the positive-gradient RMS. "
+            "global_matched additionally applies one fixed gamma equally to near and far, "
+            "whereas controlled_negative selectively tapers far tokens."
         ),
+        "task_metrics_used_for_selection": False,
+        "test_data_used": False,
     }
     output = Path(args.output_json)
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -2819,7 +2879,7 @@ def cmd_run(args: argparse.Namespace) -> None:
     offline_file = data_dir / "offline.jsonl"
     split_manifest_file = data_dir / "split_manifest.json"
     methods_dir = root / "methods"
-    calibration_json = root / "global_matched_calibration.json"
+    calibration_json = root / "negative_budget_calibration.json"
 
     methods = [method.strip() for method in args.methods.split(",") if method.strip()]
     allowed = {
@@ -2858,6 +2918,10 @@ def cmd_run(args: argparse.Namespace) -> None:
         "pair_resample_rounds": args.pair_resample_rounds,
         "result_status": run_status,
         "checkpoint_policy": "server-local only",
+        "negative_scale_protocol": (
+            "fixed_training_calibration_split; match initial uncontrolled negative RMS "
+            "gradient to positive RMS gradient; freeze across negative methods"
+        ),
     }
     run_spec["fingerprint"] = stable_fingerprint(run_spec)
     run_config_path = root / "run_config.json"
@@ -3045,7 +3109,9 @@ def cmd_run(args: argparse.Namespace) -> None:
         "--seed", str(args.seed + 50),
     ], logs / "06_mechanism_probe.log")
 
-    if "global_matched" in methods and (args.force or not calibration_json.exists()):
+    if any(method != "positive_only" for method in methods) and (
+        args.force or not calibration_json.exists()
+    ):
         _run_stage([
             "calibrate_global", *model_flags,
             "--reference_adapter", str(reference_dir),
@@ -3054,7 +3120,7 @@ def cmd_run(args: argparse.Namespace) -> None:
             "--batch_size", str(plan["micro_batch"]),
             "--calibration_batches", str(preset["calibration_batches"]),
             "--seed", str(args.seed + 75),
-        ], logs / "06b_global_matched_calibration.log")
+        ], logs / "06b_negative_budget_calibration.log")
 
     shared_method_seed = args.seed + 100
     for method in methods:
@@ -3087,8 +3153,8 @@ def cmd_run(args: argparse.Namespace) -> None:
                 "--eval_seed", str(args.seed + 6000),
                 "--seed", str(shared_method_seed),
             ]
-            if method == "global_matched":
-                command.extend(["--global_calibration_json", str(calibration_json)])
+            if method != "positive_only":
+                command.extend(["--negative_calibration_json", str(calibration_json)])
             _run_stage(command, logs / f"07_train_{method}.log")
 
     summary_rows: list[dict[str, Any]] = []
@@ -3145,6 +3211,7 @@ def cmd_run(args: argparse.Namespace) -> None:
                     "best_val": manifest.get("best_value"),
                     "stop_reason": manifest.get("stop_reason"),
                     "numerical_failure": manifest.get("numerical_failure"),
+                    "negative_scale": manifest.get("negative_scale"),
                     "global_matched_gamma": manifest.get("global_matched_gamma"),
                 },
             )
@@ -3164,7 +3231,7 @@ def cmd_run(args: argparse.Namespace) -> None:
         "base_validation": base_val,
         "reference_validation": reference_val,
         "mechanism_probe": json.loads(mechanism_json.read_text()),
-        "global_matched_calibration": (
+        "negative_budget_calibration": (
             json.loads(calibration_json.read_text()) if calibration_json.exists() else None
         ),
         "summary": summary_rows,
@@ -3177,7 +3244,10 @@ def cmd_run(args: argparse.Namespace) -> None:
             )
             for method in methods
         ),
-        "full_finetune_confirmation": "not_run; required only after a LoRA pilot signal",
+        "full_finetune_confirmation": (
+            "not_run; not implemented in this runner; requires a reproducible LoRA "
+            "pilot signal and separate preregistration"
+        ),
         "note": "A completed single-seed run remains a pilot, never a formal multi-seed result.",
     }
     (root / "run_complete.json").write_text(json.dumps(complete, indent=2))
@@ -3369,11 +3439,17 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--eval_examples", type=int, default=500)
     ap.add_argument("--eval_batch", type=int, default=8)
     ap.add_argument("--pass_k", type=int, default=8)
-    ap.add_argument("--alpha", type=float, default=0.7)
+    ap.add_argument(
+        "--negative_scale", type=float, default=None,
+        help=(
+            "Explicit shared negative scale for a separately registered run. "
+            "The v4.1.1 pilot normally reads the automatically calibrated value."
+        ),
+    )
     ap.add_argument("--near_mix", type=float, default=0.5)
     ap.add_argument("--far_mix", type=float, default=0.5)
     ap.add_argument("--global_gamma", type=float, default=0.55)
-    ap.add_argument("--global_calibration_json", default=None)
+    ap.add_argument("--negative_calibration_json", default=None)
     ap.add_argument("--exp_lambda", type=float, default=0.7)
     ap.add_argument("--surprisal_threshold", type=float, default=2.0)
     ap.add_argument("--entropy_coef", type=float, default=0.02)
@@ -3388,7 +3464,10 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--seed", type=int, default=0)
     ap.set_defaults(func=cmd_train_method)
 
-    ap = sub.add_parser("calibrate_global", help="Calibrate fixed global negative-gradient budget")
+    ap = sub.add_parser(
+        "calibrate_global",
+        help="Calibrate shared negative scale and fixed global-matched budget",
+    )
     common_model_args(ap)
     ap.add_argument("--reference_adapter", required=True)
     ap.add_argument("--offline_data", required=True)

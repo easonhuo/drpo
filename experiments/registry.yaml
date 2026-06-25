@@ -142,12 +142,29 @@ experiments:
   primary_model: Qwen Instruct 0.5B
   initialization: *id001
   parameterization:
+    runner_version: 4.1.1-protocol-aligned
     pilot: bf16_lora
     shared_across_methods: true
     qlora: engineering_smoke_only
+    lora_configuration:
+      rank: 32
+      alpha: 64
+      dropout: 0.05
+      bias: none
+      target_modules:
+      - q_proj
+      - k_proj
+      - v_proj
+      - o_proj
+      - gate_proj
+      - up_proj
+      - down_proj
     full_finetune_confirmation:
       model: Qwen Instruct 0.5B
-      gate: only_after_lora_pilot_signal
+      gate: only_after_reproducible_lora_pilot_signal
+      implemented_in_current_runner: false
+      requires_separate_registration_before_implementation: true
+      mixed_with_lora_main_comparison: false
       status: not_run
   data:
     task: four-number Countdown arithmetic
@@ -177,12 +194,61 @@ experiments:
   - controlled_negative
   - uncontrolled_negative
   - global_matched
+  negative_scale_calibration:
+    symbol: beta
+    replaces_unjustified_legacy_default_alpha: 0.7
+    mechanism_probe_advantage_unchanged: -1.0
+    calibration_split: fixed_training_calibration_subset
+    calibration_time: common_initial_adapter_before_any_method_training
+    positive_budget: rms_gradient_norm_of_positive_branch
+    negative_budget: rms_gradient_norm_of_unscaled_uncontrolled_negative_branch
+    formula: beta = positive_rms_gradient_norm / uncontrolled_negative_rms_gradient_norm
+    shared_by_methods:
+    - controlled_negative
+    - uncontrolled_negative
+    - global_matched
+    frozen_after_calibration: true
+    task_metrics_used_for_selection: false
+    validation_data_used_for_calibration: false
+    test_data_used_for_calibration: false
+    failure_action: stop_without_fallback_if_nonfinite_or_nonpositive
   global_matched:
     calibration_split: fixed_training_calibration_subset
     matching_target: rms_negative_gradient_norm_of_controlled_negative
     gamma_frozen_before_method_training: true
     reads_near_far_identity: false
     test_data_used_for_calibration: false
+  pilot_configuration:
+    development_seeds:
+    - 1234
+    formal_held_out_seeds: pending_separate_registration_after_pilot
+    formal_multiseed_gate: blocked_until_held_out_seeds_are_registered
+    data_sizes:
+      train: 6000
+      validation: 500
+      test: 1000
+      offline_matched_rows: 1500
+      rollouts_per_prompt: 12
+    pair_resample_rounds: 3
+    calibration_batches: 16
+    optimization:
+      maximum_steps: 1200
+      minimum_steps_before_early_stop: 400
+      evaluation_interval_steps: 100
+      early_stop_patience_evaluations: 6
+      early_stop_delta: 0.002
+      selection_metric: greedy_success
+      learning_rate: 5.0e-05
+      warmup_ratio: 0.03
+      maximum_gradient_norm: 1.0
+    evaluation:
+      pass_at_k: 8
+      evaluation_examples: 500
+    negative_branches:
+      near_mix: 0.5
+      far_mix: 0.5
+      far_taper_lambda: 0.7
+      surprisal_threshold: 2.0
   pairing:
     shared_initial_adapter: true
     shared_offline_data: true
@@ -216,7 +282,18 @@ experiments:
   model_scaling:
     qwen_3b: conditional_replication_after_v4_1
     qwen_7b: optional
-  artifact_budget: *id004
+  artifact_budget:
+    main_package_hard_limit_mib: 25
+    single_file_main_limit_mib: 10
+    max_retained_checkpoints_per_method: 2
+    checkpoint_roles:
+    - best_adapter
+    - terminal_adapter_on_normal_completion
+    - last_finite_adapter_on_nonfinite_failure
+    mutually_exclusive_latest_roles: true
+    save_foundation_model_weights: false
+    save_optimizer_state_by_default: false
+    large_checkpoint_delivery: sidecar
   formal_run_status: not_run
   execution:
     state: registered

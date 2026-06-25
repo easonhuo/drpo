@@ -1,4 +1,16 @@
-# DRPO / SNA2C 远场负梯度动力学研究主文档 v21（Countdown v4.1 审计协议版）
+# DRPO / SNA2C 远场负梯度动力学研究主文档 v22（Countdown v4.1.1 协议对齐版）
+
+> **v22 增量记录：Countdown v4.1.1 负优势尺度校准与执行配置锁定（不删除 v21 及更早内容）**
+>
+> - `EXT-C-E8-V4.1` 的科学状态保持“尚未运行”，实验职责不变。v22 只修正文档—代码口径并冻结 pilot 执行配置，不产生实验结果。
+> - 旧代码中的 `alpha=0.7` 是继承的工程默认值，没有经验或理论证据支持，**不得视为已冻结科学设置**。机制 probe 继续严格使用每个 near/far 样本固定 `A=-1`；方法训练另设共同负分支尺度 `beta`。
+> - `beta` 不在训练结果或 test 上调参。它在共同初始 adapter、固定 training calibration subset 上、任何方法训练开始前自动计算一次：令未缩放 Uncontrolled 负分支的 RMS 梯度范数与正分支 RMS 梯度范数相等，即 `beta = G_pos_rms / G_neg_uncontrolled_rms`。随后同一个 `beta` 对 `controlled_negative`、`uncontrolled_negative` 和 `global_matched` 全部冻结；校准非有限或非正时直接停止，不静默回退到 `0.7`。
+> - `global_matched` 的 `gamma = G_neg_controlled_rms / G_neg_uncontrolled_rms` 继续在同一 calibration subset 上计算并冻结；因此 `beta` 回答共同正负预算尺度，`gamma` 回答选择性远场控制与等预算全局缩放的对照，两者不得混淆。校准不读取 validation/test task outcome。
+> - 当前 0.5B BF16-LoRA pilot 配置冻结为：train/val/test=`6000/500/1000`，offline matched rows=`1500`，rollouts=`12`，pair resample rounds=`3`，calibration batches=`16`，method max/min steps=`1200/400`，eval every=`100`，early-stop patience=`6`、delta=`0.002`，selection metric=`greedy_success`，pass@k=`8`，method LR=`5e-5`，warmup ratio=`0.03`，max grad norm=`1.0`，near/far mix=`0.5/0.5`，far taper lambda=`0.7`，surprisal threshold=`2.0`。
+> - LoRA 配置冻结为 rank=`32`、LoRA alpha=`64`、dropout=`0.05`，target modules=`q/k/v/o/gate/up/down_proj`；四方法共享相同初始化、离线数据、训练顺序 seed 和评测 seed。Pilot development seed 固定为 `1234`；未来正式 paired held-out seeds 尚未登记，故 formal multi-seed 运行继续被门禁阻止。
+> - v12/v18 中“`/mnt/data` v3 入口、强制先 SFT、3B 主 arena、八方法比较、只评最佳 checkpoint、QLoRA 自动进入正式排名”等描述明确标记为历史 provenance，不得执行。当前唯一入口为 `src/drpo/countdown_qwen_arena_onefile.py`。
+> - v4.1.1 runner 只实现 BF16-LoRA pilot。0.5B full fine-tuning confirmation 尚未实现；仅当 LoRA pilot 出现可复现信号后，才另行登记、实现并运行，且不得与 LoRA 方法混入同一主比较。
+> - 对 `EXT-C-E8-V4.1`，v20 通用 artifact 预算中的 `latest` 角色具体化为：正常结束保存真实 `terminal_adapter`，非有限失败保存 `last_finite_adapter`；它们与 `best_adapter` 互斥组合，因此每方法仍最多保留两个本地 checkpoint。
 
 > **v21 增量记录：Countdown v4.1 审计式 pilot 协议（不删除 v20 及更早内容）**
 >
@@ -4000,9 +4012,9 @@ w_i^- = \exp[-\lambda(S_i-S_0)_+].
 
 ### 9.2 Countdown token arena
 
-**当前可执行入口（v12 登记）：** `/mnt/data/countdown_qwen_arena_onefile_v3.py`。
+**历史入口（v12 登记，已由 v22 替换，仅作 provenance，不得执行）：** `/mnt/data/countdown_qwen_arena_onefile_v3.py`。
 
-用户只需配置 `model_path`、`work_dir`、`gpu` 和可选 `preset`：
+以下 v3 命令仅保留历史记录，不是当前执行入口：
 
 ```bash
 python countdown_qwen_arena_onefile_v3.py run \
@@ -4011,9 +4023,27 @@ python countdown_qwen_arena_onefile_v3.py run \
   --gpu 0 --preset auto --memory_mode auto
 ```
 
-代码会依次执行真实 forward/backward/generation preflight、数据生成、最佳验证 checkpoint SFT、verifier 门禁、冻结 SFT 策略的离线轨迹构造、各方法训练、最佳 checkpoint 测试和统一 CSV 汇总。`memory_mode=auto` 在大显存卡选择 BF16 LoRA，在较小显存卡选择 4-bit QLoRA。当前已完成 Python 编译、CLI 和纯数据/verifier smoke test；由于本容器没有 transformers/peft、GPU 和用户本地权重，尚未完成真实 Qwen 端到端运行，该边界必须保留。
+上述 v3 流程中的强制 SFT、只评最佳 checkpoint、八方法 arena 和自动 QLoRA 选择均已被 v22 覆盖；该段只作 provenance。当前实验仍未完成真实 Qwen/CUDA/BF16-LoRA 端到端运行。
 
-#### v21 当前协议覆盖：v4.1 审计式 BF16-LoRA pilot
+#### v22 当前协议覆盖：v4.1.1 BF16-LoRA pilot
+
+当前唯一代码入口：
+
+```bash
+python3 src/drpo/countdown_qwen_arena_onefile.py run \
+  --model_path /ABS/PATH/TO/QWEN-0.5B-INSTRUCT \
+  --work_dir /ABS/PATH/TO/COUNTDOWN_RUN \
+  --gpu 0 --preset 0.5b --memory_mode bf16 --seed 1234
+```
+
+1. Base-first、SFT fallback、matched-pair、Park-inspired family holdout、四方法、checkpoint 与终态审计均沿用 v21。
+2. 机制 probe 的 near/far advantage 仍固定为 `A=-1`，不乘方法训练的共同尺度。
+3. 方法训练不再固定 `alpha=0.7`。先在固定 training calibration subset 上计算共同 `beta=G_pos_rms/G_neg_uncontrolled_rms`，再对三个含负优势方法冻结。
+4. 同一 calibration 同时计算 `global_matched` 的 `gamma=G_neg_controlled_rms/G_neg_uncontrolled_rms`；validation/test task metric 不参与 `beta` 或 `gamma`。
+5. 当前冻结 pilot 规模、优化器、LoRA 配置和 seed 见文档顶部 v22 增量记录及 registry；任何修改都需要新的版本登记。
+6. 当前 runner 不实现 full FT。LoRA pilot 出现可复现信号后，另行登记 0.5B full-FT confirmation 的显存、优化器、步数、seeds 与 checkpoint 策略，再写代码。
+
+#### v21 历史协议：v4.1 审计式 BF16-LoRA pilot（由 v22 覆盖 alpha 与配置登记）
 
 本小节覆盖 v18 中“单个 oracle signature 拆分、三方法比较、只保留最佳 checkpoint”的执行细节；v18 保留作 provenance。当前执行 ID 为 `EXT-C-E8-V4.1`，状态为“尚未运行”。
 
@@ -4028,7 +4058,7 @@ python countdown_qwen_arena_onefile_v3.py run \
 9. 单 dev seed 只标记 pilot；正式升级要求 paired held-out seeds、终态审计和持久 artifact。
 10. LoRA pilot 出现可复现信号后，才在 0.5B 上做统一 full-FT 确认。
 
-#### v18 当前协议覆盖：Base-first 0.5B 最小实验
+#### v18 历史协议：Base-first 0.5B 最小实验（由 v21/v22 覆盖）
 
 本小节覆盖下方 v12 的“先 SFT、3B 主 arena、八方法比较”计划；旧计划不删除，仅作为 provenance。用户已明确授权先运行 EXT-C / E8，因此本地 0.5B 验证可在不改变 D-U1 职责的前提下先行。
 
@@ -4042,13 +4072,13 @@ python countdown_qwen_arena_onefile_v3.py run \
 8. **规模策略：**0.5B 是当前主实验；3B 仅在 0.5B 基础能力不足或需要关键结论复验时运行；7B 不阻塞当前论文结论。
 9. **结果状态：**代码测试不构成 E8 结果。真实模型运行前状态保持“尚未运行”；单 seed 只能标记 pilot，多 seed 配对且满足预登记门禁后才能升级。
 
-#### 模型阶梯
+#### 历史模型阶梯（v12，已由 v22 替换，不得执行）
 
 - 0.5B：pipeline 和超参快速筛选；
 - 3B Instruct：正式主 arena；
 - 7B：冻结方法后的最终确认，而不是全部网格搜索。
 
-#### 正式流程
+#### 历史正式流程（v12，已由 v22 替换，不得执行）
 
 SFT 达到至少 15%–20% greedy verifier success → 冻结 checkpoint → 同一模型采样正/near-negative/far-negative 轨迹 → 各方法从同一 checkpoint 训练。
 
@@ -4056,7 +4086,7 @@ SFT 达到至少 15%–20% greedy verifier success → 冻结 checkpoint → 同
 
 Verifier greedy success、pass@k、valid rate、token surprisal、正确低概率 token 保留、错误 token suppression、entropy、有效 support、\(\gamma_t\) 与平均权重。
 
-#### Baselines
+#### 历史 Baselines（v12，已由 v22 替换，不得执行）
 
 Positive-only、uncontrolled、global α、Exp、entropy bonus、target entropy、SBRC/Hybrid，以及适用的现有 low-probability / surprisal-aware 方法。
 

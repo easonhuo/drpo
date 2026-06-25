@@ -5,6 +5,7 @@ import random
 import sys
 from pathlib import Path
 
+import pytest
 import torch
 
 
@@ -150,6 +151,14 @@ def test_run_defaults_are_base_first_bf16_lora_with_global_match() -> None:
     assert args.min_base_valid == 0.80
 
 
+def test_negative_budget_calibration_is_non_outcome_based_and_shared() -> None:
+    negative_scale, gamma = arena.calibration_scales_from_rms(
+        positive_rms=2.0, controlled_rms=1.5, uncontrolled_rms=4.0
+    )
+    assert negative_scale == 0.5
+    assert gamma == 0.375
+
+
 def test_global_matched_parser_requires_explicit_calibration_at_training_time() -> None:
     parser = arena.build_parser()
     args = parser.parse_args([
@@ -161,4 +170,19 @@ def test_global_matched_parser_requires_explicit_calibration_at_training_time() 
         "--method", "global_matched",
     ])
     assert args.method == "global_matched"
-    assert args.global_calibration_json is None
+    assert args.negative_calibration_json is None
+    assert args.negative_scale is None
+
+
+def test_legacy_alpha_cli_is_rejected_instead_of_silently_reused() -> None:
+    parser = arena.build_parser()
+    with pytest.raises(SystemExit):
+        parser.parse_args([
+            "train_method",
+            "--model_path", "/tmp/model",
+            "--offline_data", "/tmp/offline.jsonl",
+            "--val_data", "/tmp/val.jsonl",
+            "--output_dir", "/tmp/out",
+            "--method", "uncontrolled_negative",
+            "--alpha", "0.7",
+        ])
