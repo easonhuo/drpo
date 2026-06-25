@@ -29,6 +29,7 @@ rules:
   capture_launch_snapshot_for_dirty_pilots: true
   require_end_provenance_check: true
   require_internal_package_verification: true
+  require_isolated_base_index_for_apply_check: true
   require_atomic_package_publish: true
   lightweight_failed_package_default: true
   forbid_following_result_symlinks: true
@@ -40,6 +41,40 @@ rules:
   forbid_synthetic_or_web_reconstructed_base: true
   require_merge_equivalent_pre_delivery_test: true
   preserve_git_executable_modes_in_update_patches: true
+  preserve_previous_valid_artifact_until_candidate_verified: true
+  require_failed_package_on_command_start_failure: true
+  require_new_or_empty_output_root: true
+  bind_recovery_artifacts_to_launch_commit: true
+  require_final_manifest_audit_and_logs: true
+  default_large_file_storage: persistent_local_index
+  sidecar_default_enabled: false
+  require_explicit_sidecar_file_selection: true
+  require_explicit_sidecar_purpose: true
+  forbid_sidecar_overwrite: true
+  forbid_foundation_model_weight_copy: true
+  index_checkpoint_state_regardless_of_file_size: true
+  require_formal_source_availability_preflight: true
+  require_automated_source_acquisition_attempts_before_user_upload: true
+  user_upload_not_required_when_exact_source_acquired_automatically: true
+  manual_source_transfer_last_resort: complete_git_bundle_or_verified_source_capsule_only
+  forbid_requesting_plain_source_zip_for_formal_run: true
+  forbid_requesting_ad_hoc_source_files: true
+  browser_only_source_is_not_formal_checkout: true
+  plain_source_archive_is_not_commit_bound_checkout: true
+  require_commit_object_for_formal_run: true
+  formal_run_requires_explicit_commit_or_authoritative_origin_match: true
+  require_source_files_present_at_launch_commit_before_start: true
+  validate_experiment_id_before_filesystem_use: true
+  reject_root_or_parent_symlink_paths: true
+  reject_runtime_paths_overlapping_tracked_files: true
+  require_identity_match_for_all_result_package_kinds: true
+  preserve_small_numpy_raw_evidence: true
+  detect_result_mutation_during_packaging: true
+  reject_unknown_package_kind_and_malformed_manifest: true
+  escalate_stale_process_after_grace: true
+  capture_supervisor_setup_and_end_provenance_failures: true
+  require_exact_sidecar_manifest_payload_inventory: true
+  require_positive_artifact_size_and_count_limits: true
 experiments:
 - id: C-U1-E1-COMP-01
   environment: C-U1
@@ -214,7 +249,12 @@ experiments:
     - latest
     save_foundation_model_weights: false
     save_optimizer_state_by_default: false
-    large_checkpoint_delivery: sidecar
+    large_checkpoint_delivery: persistent_local_index
+    sidecar_default: false
+    sidecar_only_if_pre_registered: true
+    sidecar_selection: explicit_files_only
+    sidecar_purpose_required: true
+    sidecar_filename_policy: new_versioned_path
   formal_run_status: not_run
   execution:
     state: registered
@@ -396,7 +436,12 @@ experiments:
     mutually_exclusive_latest_roles: true
     save_foundation_model_weights: false
     save_optimizer_state_by_default: false
-    large_checkpoint_delivery: sidecar
+    large_checkpoint_delivery: persistent_local_index
+    sidecar_default: false
+    sidecar_only_if_pre_registered: true
+    sidecar_selection: explicit_files_only
+    sidecar_purpose_required: true
+    sidecar_filename_policy: new_versioned_path
   formal_run_status: not_run
   execution:
     state: registered
@@ -422,6 +467,7 @@ allowed_execution_states:
 artifact_protocol:
   governance_id: GOV-EXP-ARTIFACT-01
   hardening_governance_id: GOV-EXP-ARTIFACT-02
+  transactional_hardening_governance_id: GOV-EXP-ARTIFACT-03
   document: docs/formal_experiment_artifact_protocol.md
   guard_entrypoint: scripts/run_experiment_guard_hardened.py
   package_entrypoint: scripts/package_experiment_hardened.py
@@ -432,12 +478,53 @@ artifact_protocol:
   main_package_hard_limit_mib: 25
   max_single_main_file_mib: 10
   failed_package_mode: lightweight_evidence
-  large_file_delivery: sidecar
+  large_file_delivery: persistent_local_index
+  sidecar_default: false
+  sidecar_selection: explicit_files_only
+  sidecar_purpose_required: true
+  sidecar_allowed_purposes:
+  - cross_machine_transfer
+  - restart
+  - independent_audit
+  sidecar_filename_policy: new_versioned_path
+  foundation_model_weights: forbidden
+  checkpoint_main_zip_policy: index_only_regardless_of_size
+  max_sidecar_files_default: 2
+  max_sidecar_mib_default: 1024
   symlink_policy: never_follow
   require_clean_worktree_for_formal_runs: true
   allow_dirty_only_for_explicit_pilot: true
   require_launch_snapshot_for_dirty_pilot: true
   require_end_provenance_check: true
+  require_new_or_empty_output_root: true
+  experiment_id_pattern: '[A-Za-z0-9][A-Za-z0-9._-]{0,127}'
+  result_identity_scope: all_result_package_kinds
+  small_numpy_evidence_policy: embed_when_under_main_file_limit
+  result_copy_integrity: rescan_hash_after_copy
+  formal_source_identity:
+    offline_checkout: explicit_expected_full_sha_required
+    online_without_explicit_sha: authoritative_origin_main_match_required
+    arbitrary_local_head: forbidden
+    acquisition_ladder:
+    - existing_exact_checkout_or_bundle
+    - shell_clone_or_fetch
+    - environment_download_bridge_for_full_sha_git_bundle_or_verified_capsule
+    - project_persistent_exact_sha_bundle_or_capsule
+    user_upload: last_resort_complete_bundle_or_capsule_only
+    no_user_upload: allowed_when_exact_commit_source_is_acquired_automatically
+    plain_source_zip: review_only_not_formal_checkout
+  source_snapshot_preflight: require_each_requested_file_at_launch_commit
+  sidecar_verification:
+    exact_payload_inventory: true
+    require_experiment_id: true
+    require_full_base_commit: true
+    require_registered_purpose: true
+    require_member_size_and_sha256_match: true
+  stale_termination:
+    first_signal: SIGTERM
+    escalation_signal: SIGKILL
+    grace_seconds_default: 30
+  reject_runtime_paths_overlapping_tracked_files: true
   require_internal_verification_before_atomic_publish: true
   public_entrypoints_fail_closed: true
   pre_delivery_validation:
@@ -449,6 +536,10 @@ artifact_protocol:
     require_authoritative_exact_sha_checkout: true
     forbid_web_snippet_or_manual_base_reconstruction: true
     run_merge_equivalent_apply_path: true
+    source_availability_preflight: true
+    browser_only_source_not_accepted_for_formal_run: true
+    plain_source_archive_not_accepted_as_commit_checkout: true
+    require_git_commit_object: true
   commit_resolution_priority:
   - git_ls_remote_origin_main
   - local_git_rev_parse_head
@@ -469,6 +560,7 @@ artifact_protocol:
   - TERMINAL_AUDIT.json_or_terminal_audit.json
   - run_manifest.json
   - SHA256SUMS.txt
+  - logs/at_least_one_regular_file
 governance_changes:
 - id: GOV-EXP-ARTIFACT-01
   status: active
@@ -480,4 +572,11 @@ governance_changes:
   effective_date: '2026-06-25'
   supersedes_operational_details_of: GOV-EXP-ARTIFACT-01
   purpose: Bind every formal attempt to an immutable clean commit, verify and publish artifacts atomically, and prevent Countdown-scale checkpoints or symbolic links from inflating the main recovery package.
+  scientific_status_change: false
+
+- id: GOV-EXP-ARTIFACT-03
+  status: active
+  effective_date: '2026-06-25'
+  supersedes_operational_details_of: GOV-EXP-ARTIFACT-02
+  purpose: Preserve prior valid packages during replacement, capture command-start and supervisor failures, bind recovery artifacts to the launch commit, enforce final evidence completeness, make persistent-local checkpoint indexing the default, and require explicit versioned sidecars only.
   scientific_status_change: false

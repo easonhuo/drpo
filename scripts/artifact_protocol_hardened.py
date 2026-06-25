@@ -10,7 +10,9 @@ one place.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import hashlib
+import io
 import json
 import os
 import platform
@@ -24,6 +26,7 @@ import sys
 import tempfile
 import threading
 import time
+import traceback
 import zipfile
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
@@ -52,12 +55,15 @@ REQUIRED_TOP_LEVEL = {
     "SHA256SUMS.txt",
 }
 SHA_RE = re.compile(r"[0-9a-f]{40}")
-LARGE_BINARY_SUFFIXES = {
-    ".bin",
+EXPERIMENT_ID_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}")
+MODEL_STATE_SUFFIXES = {
     ".ckpt",
     ".pt",
     ".pth",
     ".safetensors",
+}
+GENERIC_BINARY_SUFFIXES = {
+    ".bin",
     ".npz",
     ".npy",
 }
@@ -70,6 +76,18 @@ MODEL_OR_OPTIMIZER_NAMES = (
     "rng_state",
     "trainer_state",
 )
+FOUNDATION_MODEL_PATH_TOKENS = {
+    "base_model",
+    "foundation_model",
+    "pretrained_model",
+    "hf_cache",
+    "huggingface_cache",
+}
+SIDECAR_PURPOSES = {
+    "cross_machine_transfer",
+    "restart",
+    "independent_audit",
+}
 
 
 def utc_now() -> str:
@@ -108,6 +126,91 @@ def validate_sha(value: str) -> str:
     if not SHA_RE.fullmatch(value):
         raise ValueError(f"Expected a full 40-character Git SHA, got: {value!r}")
     return value
+
+
+def ensure_commit_exists(repo: Path, commit: str) -> None:
+    commit = validate_sha(commit)
+    result = run(["git", "cat-file", "-e", f"{commit}^{{commit}}"], repo, check=False)
+    if result.returncode != 0:
+        raise ValueError(f"Commit {commit} is not available in repository {repo}")
+
+
+
+def validate_experiment_id(value: str) -> str:
+    if not EXPERIMENT_ID_RE.fullmatch(value):
+        raise ValueError(
+            "experiment_id must match [A-Za-z0-9][A-Za-z0-9._-]{0,127}; "
+            f"got {value!r}"
+        )
+    return value
+
+
+def first_symlink_component(path: Path) -> Path | None:
+    absolute = path.absolute()
+    current = Path(absolute.anchor)
+    parts = absolute.parts[1:] if absolute.anchor else absolute.parts
+    for part in parts:
+        current /= part
+        if current.is_symlink():
+            return current
+    return None
+
+
+def reject_symlink_path(path: Path, label: str) -> None:
+    component = first_symlink_component(path)
+    if component is not None:
+        raise ValueError(f"{label} may not use a symbolic link path component: {component}")
+
+
+def tracked_paths_under(repo: Path, path: Path) -> list[str]:
+    try:
+        rel = path.absolute().relative_to(repo.resolve())
+    except ValueError:
+        return []
+    if not rel.parts:
+        return git_output(repo, "ls-files", check=False).splitlines()
+    result = run(["git", "ls-files", "--", rel.as_posix()], repo, check=False)
+    return [line for line in result.stdout.splitlines() if line.strip()]
+
+
+def reject_tracked_runtime_path(repo: Path, path: Path, label: str, *, subtree: bool) -> None:
+    tracked = tracked_paths_under(repo, path)
+    if not tracked:
+        return
+    if subtree or path.is_file():
+        preview = ", ".join(tracked[:5])
+        extra = " ..." if len(tracked) > 5 else ""
+        raise ValueError(
+            f"{label} overlaps tracked repository content ({preview}{extra}); "
+            "runtime paths may not hide tracked modifications"
+        )
+
+
+def read_json_object(path: Path, label: str) -> dict[str, Any]:
+    try:
+        payload = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"{label} is not valid JSON: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise ValueError(f"{label} must contain a JSON object")
+    return payload
+
+
+def require_identity(
+    payload: dict[str, Any],
+    *,
+    label: str,
+    experiment_id: str,
+    base_commit: str,
+) -> None:
+    if payload.get("experiment_id") != experiment_id:
+        raise ValueError(
+            f"{label} experiment_id must be {experiment_id!r}, got {payload.get('experiment_id')!r}"
+        )
+    if payload.get("base_commit") != base_commit:
+        raise ValueError(
+            f"{label} base_commit must be {base_commit}, got {payload.get('base_commit')!r}"
+        )
 
 
 def git_head(repo: Path) -> str:
@@ -289,6 +392,58 @@ def copy_changed_files(repo: Path, paths: Iterable[Path], destination: Path) -> 
         shutil.copy2(source, target)
 
 
+def copy_source_snapshot(
+    repo: Path,
+    paths: Iterable[Path],
+    destination: Path,
+    *,
+    base_commit: str,
+    from_commit: bool,
+) -> None:
+    for rel in paths:
+        target = destination / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if from_commit:
+            ensure_commit_exists(repo, base_commit)
+            result = subprocess.run(
+                ["git", "show", f"{base_commit}:{rel.as_posix()}"],
+                cwd=repo,
+                capture_output=True,
+            )
+            if result.returncode != 0:
+                message = result.stderr.decode("utf-8", errors="replace").strip()
+                raise ValueError(
+                    f"Could not read source file {rel} from launch commit {base_commit}: {message}"
+                )
+            target.write_bytes(result.stdout)
+        else:
+            source = repo / rel
+            if not source.is_file() or source.is_symlink():
+                raise ValueError(f"Missing or unsafe source file: {rel}")
+            shutil.copy2(source, target)
+
+
+def validate_source_snapshot_inputs(
+    repo: Path,
+    paths: Iterable[Path],
+    *,
+    base_commit: str,
+) -> None:
+    """Fail before launch when a requested source snapshot is not commit-bound."""
+    ensure_commit_exists(repo, base_commit)
+    for rel in paths:
+        result = run(
+            ["git", "cat-file", "-e", f"{base_commit}:{rel.as_posix()}"],
+            repo,
+            check=False,
+        )
+        if result.returncode != 0:
+            raise ValueError(
+                "Requested --source-file is unavailable at launch commit "
+                f"{base_commit}: {rel.as_posix()}"
+            )
+
+
 def file_sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -324,22 +479,83 @@ def find_terminal_audit(result_dir: Path) -> Path | None:
     return None
 
 
-def validate_result_markers(kind: str, result_dir: Path | None) -> None:
+def validate_result_markers(
+    kind: str,
+    result_dir: Path | None,
+    *,
+    experiment_id: str,
+    base_commit: str,
+) -> None:
     if kind not in RESULT_KINDS:
         return
     if result_dir is None or not result_dir.is_dir():
         raise ValueError(f"{kind} requires an existing --result-dir")
+
+    run_manifest_path = result_dir / "run_manifest.json"
+    if not run_manifest_path.is_file():
+        raise ValueError(f"{kind} requires run_manifest.json")
+    run_manifest = read_json_object(run_manifest_path, "run_manifest.json")
+    require_identity(
+        run_manifest,
+        label="run_manifest.json",
+        experiment_id=experiment_id,
+        base_commit=base_commit,
+    )
+
+    logs_dir = result_dir / "logs"
+    log_files = []
+    if logs_dir.is_dir():
+        log_files = [
+            path
+            for path in logs_dir.rglob("*")
+            if path.is_file() and not path.is_symlink()
+        ]
+    if not log_files:
+        raise ValueError(f"{kind} requires at least one regular file under logs/")
+
     if kind == "experiment-final":
-        if not (result_dir / "RUN_COMPLETE.json").is_file():
+        complete_path = result_dir / "RUN_COMPLETE.json"
+        if not complete_path.is_file():
             raise ValueError("experiment-final requires RUN_COMPLETE.json")
-        if find_terminal_audit(result_dir) is None:
+        audit_path = find_terminal_audit(result_dir)
+        if audit_path is None:
             raise ValueError("experiment-final requires a terminal audit")
+        complete = read_json_object(complete_path, "RUN_COMPLETE.json")
+        audit = read_json_object(audit_path, audit_path.name)
+        require_identity(
+            complete,
+            label="RUN_COMPLETE.json",
+            experiment_id=experiment_id,
+            base_commit=base_commit,
+        )
+        require_identity(
+            audit,
+            label=audit_path.name,
+            experiment_id=experiment_id,
+            base_commit=base_commit,
+        )
     elif kind == "experiment-failed":
-        if not (result_dir / "RUN_FAILED.json").is_file():
+        marker = result_dir / "RUN_FAILED.json"
+        if not marker.is_file():
             raise ValueError("experiment-failed requires RUN_FAILED.json")
+        failed = read_json_object(marker, "RUN_FAILED.json")
+        require_identity(
+            failed,
+            label="RUN_FAILED.json",
+            experiment_id=experiment_id,
+            base_commit=base_commit,
+        )
     elif kind == "experiment-raw-complete":
-        if not (result_dir / "RUN_RAW_COMPLETE.json").is_file():
+        marker = result_dir / "RUN_RAW_COMPLETE.json"
+        if not marker.is_file():
             raise ValueError("experiment-raw-complete requires RUN_RAW_COMPLETE.json")
+        raw_complete = read_json_object(marker, "RUN_RAW_COMPLETE.json")
+        require_identity(
+            raw_complete,
+            label="RUN_RAW_COMPLETE.json",
+            experiment_id=experiment_id,
+            base_commit=base_commit,
+        )
 
 
 @dataclass
@@ -352,12 +568,34 @@ class ResultEntry:
     include_main: bool
     include_sidecar: bool
     reason: str
+    role: str
+    storage_path: str | None
+    persistence_status: str
 
 
 def _is_checkpoint_like(rel: Path) -> bool:
     lower = rel.as_posix().lower()
-    return rel.suffix.lower() in LARGE_BINARY_SUFFIXES or any(
-        token in lower for token in MODEL_OR_OPTIMIZER_NAMES
+    suffix = rel.suffix.lower()
+    named_model_state = any(token in lower for token in MODEL_OR_OPTIMIZER_NAMES)
+    if suffix in MODEL_STATE_SUFFIXES:
+        return True
+    if suffix == ".bin":
+        return named_model_state
+    return named_model_state
+
+
+def _is_foundation_model_weight(rel: Path) -> bool:
+    # A filename such as model.safetensors can be a legitimate full-finetune output,
+    # so classification must use an explicit base/pretrained-cache path marker rather
+    # than the filename alone. Imported foundation weights should normally live outside
+    # result_dir entirely; this catches accidental copies under a clearly marked path.
+    parts = [part.lower() for part in rel.parts[:-1]]
+    return any(
+        part in FOUNDATION_MODEL_PATH_TOKENS
+        or part.startswith("models--")
+        or "foundation" in part
+        or "pretrained" in part
+        for part in parts
     )
 
 
@@ -366,7 +604,8 @@ def scan_result_tree(
     *,
     package_kind: str,
     max_single_bytes: int,
-    sidecar_enabled: bool,
+    selected_sidecar_paths: set[str],
+    large_file_persistence: str,
 ) -> list[ResultEntry]:
     root = result_dir.resolve()
     entries: list[ResultEntry] = []
@@ -395,6 +634,9 @@ def scan_result_tree(
                         include_main=False,
                         include_sidecar=False,
                         reason="internal_reference" if internal else "external_symlink_rejected",
+                        role="reference",
+                        storage_path=str(path),
+                        persistence_status="reference_only",
                     )
                 )
                 if not internal:
@@ -405,6 +647,7 @@ def scan_result_tree(
         for name in sorted(filenames):
             path = current_path / name
             rel = path.relative_to(root)
+            rel_name = rel.as_posix()
             if path.is_symlink():
                 resolved = path.resolve(strict=False)
                 if not resolved.exists():
@@ -416,7 +659,7 @@ def scan_result_tree(
                     internal = False
                 entries.append(
                     ResultEntry(
-                        path=rel.as_posix(),
+                        path=rel_name,
                         kind="symlink_file",
                         size_bytes=0,
                         sha256=None,
@@ -424,6 +667,9 @@ def scan_result_tree(
                         include_main=False,
                         include_sidecar=False,
                         reason="internal_reference" if internal else "external_symlink_rejected",
+                        role="reference",
+                        storage_path=str(path),
+                        persistence_status="reference_only",
                     )
                 )
                 if not internal:
@@ -434,22 +680,53 @@ def scan_result_tree(
             size = path.stat().st_size
             digest = file_sha256(path)
             checkpoint_like = _is_checkpoint_like(rel)
+            foundation_model = _is_foundation_model_weight(rel)
             too_large = size > max_single_bytes
-            lightweight = package_kind in RECOVERY_KINDS
-            include_main = not too_large and not (lightweight and checkpoint_like)
-            include_sidecar = bool(sidecar_enabled and (checkpoint_like or too_large))
+            # Model/optimizer state is never embedded in the main evidence ZIP, even when
+            # it is smaller than the generic single-file threshold.
+            include_main = not too_large and not checkpoint_like and not foundation_model
+            include_sidecar = rel_name in selected_sidecar_paths
             textual = rel.suffix.lower() in {".log", ".txt", ".json", ".jsonl", ".csv", ".md"}
-            if include_main:
+            if include_sidecar and foundation_model:
+                raise ValueError(
+                    f"Foundation-model weights may not be copied into a sidecar: {rel_name}"
+                )
+            if include_sidecar and not (checkpoint_like or too_large):
+                raise ValueError(
+                    f"--sidecar-file is only valid for checkpoint-like or oversized files: {rel_name}"
+                )
+            if foundation_model:
+                reason = "foundation_model_forbidden_index_only"
+            elif include_main:
                 reason = "included_main"
             elif too_large and textual and not checkpoint_like:
                 reason = "text_tail_in_main"
             elif include_sidecar:
-                reason = "large_or_checkpoint_sidecar"
+                reason = "explicit_sidecar"
             else:
                 reason = "large_or_checkpoint_index_only"
+            if foundation_model:
+                role = "foundation_model_weight"
+            elif checkpoint_like:
+                role = "checkpoint_or_model_state"
+            elif too_large and textual:
+                role = "large_text_or_log"
+            elif too_large:
+                role = "large_result"
+            else:
+                role = "result_file"
+            if include_main:
+                persistence_status = "embedded_main"
+                storage_path = None
+            elif include_sidecar:
+                persistence_status = "sidecar_candidate"
+                storage_path = str(path.resolve())
+            else:
+                persistence_status = large_file_persistence
+                storage_path = str(path.resolve())
             entries.append(
                 ResultEntry(
-                    path=rel.as_posix(),
+                    path=rel_name,
                     kind="file",
                     size_bytes=size,
                     sha256=digest,
@@ -457,6 +734,9 @@ def scan_result_tree(
                     include_main=include_main,
                     include_sidecar=include_sidecar,
                     reason=reason,
+                    role=role,
+                    storage_path=storage_path,
+                    persistence_status=persistence_status,
                 )
             )
     return entries
@@ -481,6 +761,14 @@ def copy_result_entries(
         if not sidecar and not should_copy and entry.reason == "text_tail_in_main":
             target = target_root / (entry.path + ".tail.txt")
             target.parent.mkdir(parents=True, exist_ok=True)
+            current_size = source.stat().st_size
+            current_digest = file_sha256(source)
+            if current_size != entry.size_bytes or current_digest != entry.sha256:
+                raise ValueError(
+                    f"Result file changed while packaging: {entry.path}; "
+                    f"scanned size/hash={entry.size_bytes}/{entry.sha256}, "
+                    f"current size/hash={current_size}/{current_digest}"
+                )
             tail_bytes = 1024 * 1024
             with source.open("rb") as handle:
                 if entry.size_bytes > tail_bytes:
@@ -499,6 +787,15 @@ def copy_result_entries(
         target = target_root / entry.path
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, target)
+        copied_size = target.stat().st_size
+        copied_digest = file_sha256(target)
+        if copied_size != entry.size_bytes or copied_digest != entry.sha256:
+            target.unlink(missing_ok=True)
+            raise ValueError(
+                f"Result file changed while packaging: {entry.path}; "
+                f"scanned size/hash={entry.size_bytes}/{entry.sha256}, "
+                f"copied size/hash={copied_size}/{copied_digest}"
+            )
 
 
 def build_summary(
@@ -586,20 +883,101 @@ def validate_test_commands(text: str) -> None:
         raise ValueError("TEST_COMMANDS.sh must use 'set -euo pipefail'")
 
 
-def verify_result_markers(names: set[str], manifest: dict[str, Any]) -> None:
+def read_zip_json(zf: zipfile.ZipFile, name: str) -> dict[str, Any]:
+    try:
+        payload = json.loads(zf.read(name))
+    except (KeyError, json.JSONDecodeError, UnicodeDecodeError) as exc:
+        raise ValueError(f"{name} is not valid JSON: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise ValueError(f"{name} must contain a JSON object")
+    return payload
+
+
+def verify_result_markers(
+    zf: zipfile.ZipFile,
+    names: set[str],
+    manifest: dict[str, Any],
+    base_commit: str,
+) -> None:
     kind = str(manifest.get("package_kind"))
     experiment_id = str(manifest.get("experiment_id"))
     prefix = f"results/{experiment_id}/"
+    if kind not in RESULT_KINDS:
+        return
+    run_manifest_name = prefix + "run_manifest.json"
+    if run_manifest_name not in names:
+        raise ValueError(f"{kind} is missing run_manifest.json")
+    if not any(name.startswith(prefix + "logs/") for name in names):
+        raise ValueError(f"{kind} is missing a log file under logs/")
+    run_manifest = read_zip_json(zf, run_manifest_name)
+    require_identity(
+        run_manifest,
+        label=run_manifest_name,
+        experiment_id=experiment_id,
+        base_commit=base_commit,
+    )
     if kind == "experiment-final":
-        if prefix + "RUN_COMPLETE.json" not in names:
+        complete_name = prefix + "RUN_COMPLETE.json"
+        if complete_name not in names:
             raise ValueError("experiment-final is missing RUN_COMPLETE.json")
-        audits = {prefix + "TERMINAL_AUDIT.json", prefix + "terminal_audit.json"}
-        if not names.intersection(audits):
+        audits = [prefix + "TERMINAL_AUDIT.json", prefix + "terminal_audit.json"]
+        audit_name = next((name for name in audits if name in names), None)
+        if audit_name is None:
             raise ValueError("experiment-final is missing a terminal audit")
-    elif kind == "experiment-failed" and prefix + "RUN_FAILED.json" not in names:
-        raise ValueError("experiment-failed is missing RUN_FAILED.json")
-    elif kind == "experiment-raw-complete" and prefix + "RUN_RAW_COMPLETE.json" not in names:
-        raise ValueError("experiment-raw-complete is missing RUN_RAW_COMPLETE.json")
+        complete = read_zip_json(zf, complete_name)
+        audit = read_zip_json(zf, audit_name)
+        require_identity(
+            complete,
+            label=complete_name,
+            experiment_id=experiment_id,
+            base_commit=base_commit,
+        )
+        require_identity(
+            audit,
+            label=audit_name,
+            experiment_id=experiment_id,
+            base_commit=base_commit,
+        )
+    elif kind == "experiment-failed":
+        marker = prefix + "RUN_FAILED.json"
+        if marker not in names:
+            raise ValueError("experiment-failed is missing RUN_FAILED.json")
+        failed = read_zip_json(zf, marker)
+        require_identity(
+            failed,
+            label=marker,
+            experiment_id=experiment_id,
+            base_commit=base_commit,
+        )
+    elif kind == "experiment-raw-complete":
+        marker = prefix + "RUN_RAW_COMPLETE.json"
+        if marker not in names:
+            raise ValueError("experiment-raw-complete is missing RUN_RAW_COMPLETE.json")
+        raw_complete = read_zip_json(zf, marker)
+        require_identity(
+            raw_complete,
+            label=marker,
+            experiment_id=experiment_id,
+            base_commit=base_commit,
+        )
+
+
+def validate_modified_files_manifest(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        raise ValueError("Manifest modified_files must be a JSON list")
+    rows: list[str] = []
+    seen: set[str] = set()
+    for item in value:
+        if not isinstance(item, str):
+            raise ValueError("Manifest modified_files entries must be strings")
+        rel = safe_repo_rel(item).as_posix()
+        if rel != item:
+            raise ValueError(f"Manifest modified_files path is not canonical: {item!r}")
+        if rel in seen:
+            raise ValueError(f"Manifest modified_files contains a duplicate: {rel}")
+        seen.add(rel)
+        rows.append(rel)
+    return rows
 
 
 def run_git_apply_check(repo: Path, patch: bytes, expected_sha: str) -> None:
@@ -608,14 +986,30 @@ def run_git_apply_check(repo: Path, patch: bytes, expected_sha: str) -> None:
         raise ValueError(f"Repository HEAD {actual} does not match BASE_COMMIT {expected_sha}")
     if not patch.strip():
         return
-    with tempfile.NamedTemporaryFile(suffix=".patch") as handle:
-        handle.write(patch)
-        handle.flush()
-        result = subprocess.run(
-            ["git", "apply", "--check", "--cached", handle.name],
+    # Verify against an isolated index loaded from the immutable base commit. The
+    # caller's real index may contain staged edits that are themselves part of the
+    # package, so using it directly would create a false apply conflict.
+    with tempfile.TemporaryDirectory(prefix="drpo_apply_index_") as tmp:
+        index_path = Path(tmp) / "index"
+        env = os.environ.copy()
+        env["GIT_INDEX_FILE"] = str(index_path)
+        read_tree = subprocess.run(
+            ["git", "read-tree", expected_sha],
             cwd=repo,
             text=True,
             capture_output=True,
+            env=env,
+        )
+        if read_tree.returncode != 0:
+            raise ValueError(f"Could not initialize isolated Git index:\n{read_tree.stderr}")
+        patch_path = Path(tmp) / "update.patch"
+        patch_path.write_bytes(patch)
+        result = subprocess.run(
+            ["git", "apply", "--check", "--cached", str(patch_path)],
+            cwd=repo,
+            text=True,
+            capture_output=True,
+            env=env,
         )
         if result.returncode != 0:
             raise ValueError(f"git apply --check failed:\n{result.stderr}")
@@ -646,18 +1040,38 @@ def verify_package(
         missing = REQUIRED_TOP_LEVEL - names
         if missing:
             raise ValueError(f"Missing required top-level files: {sorted(missing)}")
-        base_text = zf.read("BASE_COMMIT.txt").decode("utf-8")
+        try:
+            base_text = zf.read("BASE_COMMIT.txt").decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise ValueError(f"BASE_COMMIT.txt is not UTF-8: {exc}") from exc
         if not re.fullmatch(r"[0-9a-f]{40}\n", base_text):
             raise ValueError("BASE_COMMIT.txt must contain exactly one lowercase full SHA")
         base_sha = base_text.strip()
-        manifest = json.loads(zf.read("ARTIFACT_MANIFEST.json"))
+        manifest = read_zip_json(zf, "ARTIFACT_MANIFEST.json")
         if manifest.get("base_commit") != base_sha:
             raise ValueError("Manifest base_commit does not match BASE_COMMIT.txt")
-        kind = str(manifest.get("package_kind"))
+        kind = manifest.get("package_kind")
+        if not isinstance(kind, str) or kind not in ALL_KINDS:
+            raise ValueError(f"Unknown or invalid package_kind: {kind!r}")
+        experiment_id_raw = manifest.get("experiment_id")
+        if not isinstance(experiment_id_raw, str):
+            raise ValueError("Manifest experiment_id must be a string")
+        experiment_id = validate_experiment_id(experiment_id_raw)
+        modified_files = validate_modified_files_manifest(manifest.get("modified_files"))
+        declared_modified = {f"modified_files/{name}" for name in modified_files}
+        actual_modified = {
+            name for name in names if name.startswith("modified_files/")
+        }
+        if actual_modified != declared_modified:
+            raise ValueError(
+                "modified_files inventory mismatch; "
+                f"missing={sorted(declared_modified - actual_modified)}, "
+                f"extra={sorted(actual_modified - declared_modified)}"
+            )
         patch = zf.read("update.patch")
         if kind in FINAL_KINDS and not patch.strip():
             raise ValueError(f"{kind} requires a non-empty update.patch")
-        if kind in FINAL_KINDS and not any(name.startswith("modified_files/") for name in names):
+        if kind in FINAL_KINDS and not modified_files:
             raise ValueError("Final packages require complete files under modified_files/")
         checksums = parse_checksums(zf.read("SHA256SUMS.txt").decode("utf-8"))
         expected_names = names - {"SHA256SUMS.txt"}
@@ -671,28 +1085,43 @@ def verify_package(
             if sha256_bytes(zf.read(name)) != expected:
                 raise ValueError(f"Checksum mismatch for {name}")
         validate_test_commands(zf.read("TEST_COMMANDS.sh").decode("utf-8"))
-        verify_result_markers(names, manifest)
-        for name in list(manifest.get("modified_files") or []):
-            path = f"modified_files/{name}"
-            if path not in names:
-                raise ValueError(f"Manifest modified file is missing: {path}")
+        verify_result_markers(zf, names, manifest, base_sha)
         index_name = "LARGE_FILE_INDEX.json"
         if index_name in names:
-            index = json.loads(zf.read(index_name))
-            if not isinstance(index.get("entries"), list):
-                raise ValueError("LARGE_FILE_INDEX.json is malformed")
+            index = read_zip_json(zf, index_name)
+            entries = index.get("entries")
+            if not isinstance(entries, list):
+                raise ValueError("LARGE_FILE_INDEX.json entries must be a list")
+            for row in entries:
+                if not isinstance(row, dict):
+                    raise ValueError("LARGE_FILE_INDEX.json entries must be JSON objects")
+                path = row.get("path")
+                if not isinstance(path, str):
+                    raise ValueError("LARGE_FILE_INDEX.json entry path must be a string")
+                safe_repo_rel(path)
             if index.get("sidecar_required") and not index.get("sidecar"):
                 raise ValueError("Large-file index requires a sidecar but none is declared")
+    git_apply_checked = False
+    evidence_commit_present = False
     if repo_root is not None and not skip_head_match:
-        run_git_apply_check(repo_root.resolve(), patch, base_sha)
+        repo = repo_root.resolve()
+        if kind in FINAL_KINDS or patch.strip():
+            run_git_apply_check(repo, patch, base_sha)
+            git_apply_checked = True
+        else:
+            ensure_git_repo(repo)
+            ensure_commit_exists(repo, base_sha)
+            evidence_commit_present = True
     return {
         "package": str(package),
         "package_kind": kind,
+        "experiment_id": experiment_id,
         "base_commit": base_sha,
         "size_mib": round(size_mib, 3),
         "hard_limit_mib": hard_limit_mib,
         "checksum_files": len(checksums),
-        "git_apply_check": bool(repo_root is not None and not skip_head_match),
+        "git_apply_check": git_apply_checked,
+        "evidence_commit_present": evidence_commit_present,
         "verified": True,
     }
 
@@ -708,28 +1137,179 @@ def package_parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--summary-file", type=Path)
     parser.add_argument("--test-command", action="append", default=[])
     parser.add_argument("--changed-file", action="append", default=[])
+    parser.add_argument("--no-repository-changes", action="store_true")
     parser.add_argument("--source-file", action="append", default=[])
     parser.add_argument("--warning-mib", type=float, default=25.0)
     parser.add_argument("--max-package-mib", type=float, default=25.0)
     parser.add_argument("--max-single-file-mib", type=float, default=10.0)
     parser.add_argument("--sidecar-output", type=Path)
+    parser.add_argument("--sidecar-file", action="append", default=[])
+    parser.add_argument("--sidecar-purpose", choices=sorted(SIDECAR_PURPOSES))
+    parser.add_argument("--max-sidecar-mib", type=float, default=1024.0)
+    parser.add_argument("--max-sidecar-files", type=int, default=2)
+    parser.add_argument(
+        "--large-file-persistence",
+        choices=["persistent_local", "external_durable", "ephemeral", "unknown"],
+        default="persistent_local",
+    )
+    parser.add_argument("--allow-recovery-base-mismatch", action="store_true")
     parser.add_argument("--require-origin-main-match", action="store_true")
     return parser.parse_args(argv)
 
 
+def verify_sidecar_candidate(package: Path, *, hard_limit_mib: float) -> dict[str, Any]:
+    size_mib = package.stat().st_size / (1024 * 1024)
+    if size_mib > hard_limit_mib:
+        raise ValueError(
+            f"Sidecar is {size_mib:.3f} MiB, exceeding hard limit {hard_limit_mib:.3f} MiB"
+        )
+    with zipfile.ZipFile(package) as zf:
+        raw_names = zf.namelist()
+        for name in raw_names:
+            _safe_zip_member(name)
+        if len(raw_names) != len(set(raw_names)):
+            raise ValueError("Sidecar ZIP contains duplicate member names")
+        names = {name for name in raw_names if not name.endswith("/")}
+        required = {"SIDECAR_MANIFEST.json", "SHA256SUMS.txt"}
+        missing = required - names
+        if missing:
+            raise ValueError(f"Sidecar is missing required files: {sorted(missing)}")
+        manifest = read_zip_json(zf, "SIDECAR_MANIFEST.json")
+        experiment_id_raw = manifest.get("experiment_id")
+        if not isinstance(experiment_id_raw, str):
+            raise ValueError("Sidecar manifest experiment_id must be a string")
+        experiment_id = validate_experiment_id(experiment_id_raw)
+        base_commit_raw = manifest.get("base_commit")
+        if not isinstance(base_commit_raw, str):
+            raise ValueError("Sidecar manifest base_commit must be a string")
+        validate_sha(base_commit_raw)
+        if manifest.get("selection_mode") != "explicit_only":
+            raise ValueError("Sidecar selection_mode must be explicit_only")
+        if manifest.get("purpose") not in SIDECAR_PURPOSES:
+            raise ValueError("Sidecar manifest has an invalid purpose")
+        if not isinstance(manifest.get("files"), list) or not manifest["files"]:
+            raise ValueError("Sidecar manifest must list at least one selected file")
+        expected_payload: set[str] = set()
+        seen_paths: set[str] = set()
+        for row in manifest["files"]:
+            if not isinstance(row, dict):
+                raise ValueError("Sidecar manifest file entries must be JSON objects")
+            rel_raw = row.get("path")
+            if not isinstance(rel_raw, str):
+                raise ValueError("Sidecar manifest file path must be a string")
+            rel = safe_repo_rel(rel_raw).as_posix()
+            if rel != rel_raw:
+                raise ValueError(f"Sidecar manifest path is not canonical: {rel_raw!r}")
+            if rel in seen_paths:
+                raise ValueError(f"Sidecar manifest contains a duplicate file: {rel}")
+            seen_paths.add(rel)
+            if row.get("kind") != "file" or row.get("include_sidecar") is not True:
+                raise ValueError(f"Sidecar manifest entry is not explicitly selected: {rel}")
+            size_bytes = row.get("size_bytes")
+            digest = row.get("sha256")
+            if not isinstance(size_bytes, int) or size_bytes < 0:
+                raise ValueError(f"Sidecar manifest has invalid size for {rel}")
+            if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
+                raise ValueError(f"Sidecar manifest has invalid SHA-256 for {rel}")
+            member = f"results/{experiment_id}/{rel}"
+            expected_payload.add(member)
+            try:
+                info = zf.getinfo(member)
+            except KeyError as exc:
+                raise ValueError(f"Sidecar is missing selected file: {member}") from exc
+            if info.file_size != size_bytes:
+                raise ValueError(f"Sidecar size does not match manifest for {member}")
+            if sha256_bytes(zf.read(member)) != digest:
+                raise ValueError(f"Sidecar SHA-256 does not match manifest for {member}")
+        actual_payload = names - required
+        if actual_payload != expected_payload:
+            raise ValueError(
+                "Sidecar payload inventory mismatch; "
+                f"missing={sorted(expected_payload - actual_payload)}, "
+                f"extra={sorted(actual_payload - expected_payload)}"
+            )
+        checksums = parse_checksums(zf.read("SHA256SUMS.txt").decode("utf-8"))
+        expected = names - {"SHA256SUMS.txt"}
+        if set(checksums) != expected:
+            raise ValueError("Sidecar checksum inventory mismatch")
+        for name, digest in checksums.items():
+            if sha256_bytes(zf.read(name)) != digest:
+                raise ValueError(f"Sidecar checksum mismatch for {name}")
+    return {
+        "size_mib": round(size_mib, 3),
+        "files": len(manifest["files"]),
+        "experiment_id": experiment_id,
+        "base_commit": base_commit_raw,
+        "purpose": manifest["purpose"],
+    }
+
+
 def package_main(argv: list[str] | None = None) -> int:
     args = package_parse_args(argv)
-    repo = args.repo_root.resolve()
     try:
-        resolution = resolve_commit(
-            repo,
-            args.base_commit,
-            require_origin_match=args.require_origin_main_match,
-        )
-        base_commit = resolution["local_head"]
+        validate_experiment_id(args.experiment_id)
+        reject_symlink_path(args.output, "--output")
+        if args.sidecar_output is not None:
+            reject_symlink_path(args.sidecar_output, "--sidecar-output")
+        if args.result_dir is not None:
+            reject_symlink_path(args.result_dir, "--result-dir")
+        if args.max_package_mib <= 0 or args.max_single_file_mib <= 0:
+            raise ValueError("Main-package size limits must be positive")
+        if args.max_sidecar_mib <= 0 or args.max_sidecar_files <= 0:
+            raise ValueError("Sidecar size and file-count limits must be positive")
+    except ValueError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
+    repo = args.repo_root.resolve()
+    candidate: Path | None = None
+    candidate_sidecar: Path | None = None
+    try:
+        ensure_git_repo(repo)
+        output = args.output.resolve()
+        sidecar_output = args.sidecar_output.resolve() if args.sidecar_output else None
+        reject_tracked_runtime_path(repo, output, "--output", subtree=False)
+        if sidecar_output is not None:
+            reject_tracked_runtime_path(repo, sidecar_output, "--sidecar-output", subtree=False)
+        if args.result_dir is not None:
+            reject_tracked_runtime_path(repo, args.result_dir.resolve(), "--result-dir", subtree=True)
+        packaging_head = git_head(repo)
+        if args.allow_recovery_base_mismatch:
+            if args.package_kind not in RECOVERY_KINDS:
+                raise ValueError("--allow-recovery-base-mismatch is only valid for recovery packages")
+            if not args.base_commit:
+                raise ValueError("Recovery base mismatch mode requires --base-commit")
+            base_commit = validate_sha(args.base_commit)
+            ensure_commit_exists(repo, base_commit)
+            origin = resolve_origin_main(repo)
+            resolution = {
+                "local_head": packaging_head,
+                "expected_sha": base_commit,
+                "origin_main": origin,
+                "origin_matches_local": bool(origin.get("authoritative") and origin.get("sha") == packaging_head),
+                "verified": bool(origin.get("authoritative") and origin.get("sha") == packaging_head),
+                "head_matches_evidence_base": packaging_head == base_commit,
+                "recovery_evidence_mode": True,
+            }
+        else:
+            resolution = resolve_commit(
+                repo,
+                args.base_commit,
+                require_origin_match=args.require_origin_main_match,
+            )
+            base_commit = resolution["local_head"]
+
         result_dir = args.result_dir.resolve() if args.result_dir else None
-        validate_result_markers(args.package_kind, result_dir)
-        if args.changed_file:
+        validate_result_markers(
+            args.package_kind,
+            result_dir,
+            experiment_id=args.experiment_id,
+            base_commit=base_commit,
+        )
+        if args.no_repository_changes:
+            if args.package_kind not in RECOVERY_KINDS:
+                raise ValueError("--no-repository-changes is only valid for recovery packages")
+            paths: list[Path] = []
+        elif args.changed_file:
             paths = [safe_repo_rel(x) for x in args.changed_file]
             missing = [p for p in paths if not (repo / p).is_file()]
             if missing:
@@ -748,23 +1328,43 @@ def package_main(argv: list[str] | None = None) -> int:
         patch = patch_for_repo(repo, paths)
         if args.package_kind in FINAL_KINDS and not patch.strip():
             raise ValueError(f"{args.package_kind} requires a non-empty update.patch")
+
         source_files = [safe_repo_rel(x) for x in args.source_file]
+        selected_sidecar_paths = {safe_repo_rel(x).as_posix() for x in args.sidecar_file}
+        if sidecar_output is not None and sidecar_output == output:
+            raise ValueError("--sidecar-output must differ from --output")
+        if sidecar_output is not None and not selected_sidecar_paths:
+            raise ValueError("--sidecar-output requires at least one explicit --sidecar-file")
+        if sidecar_output is not None and not args.sidecar_purpose:
+            raise ValueError("--sidecar-output requires an explicit --sidecar-purpose")
+        if args.sidecar_purpose and sidecar_output is None:
+            raise ValueError("--sidecar-purpose requires --sidecar-output")
+        if selected_sidecar_paths and sidecar_output is None:
+            raise ValueError("--sidecar-file requires --sidecar-output")
+        if sidecar_output is not None and sidecar_output.exists():
+            raise ValueError(
+                "Refusing to overwrite an existing sidecar; use a new versioned --sidecar-output path"
+            )
+        if len(selected_sidecar_paths) > args.max_sidecar_files:
+            raise ValueError(
+                f"Selected {len(selected_sidecar_paths)} sidecar files, exceeding limit {args.max_sidecar_files}"
+            )
+
         max_single_bytes = max(1, int(args.max_single_file_mib * 1024 * 1024))
-        sidecar_output = args.sidecar_output.resolve() if args.sidecar_output else None
         entries: list[ResultEntry] = []
         if result_dir is not None:
             entries = scan_result_tree(
                 result_dir,
                 package_kind=args.package_kind,
                 max_single_bytes=max_single_bytes,
-                sidecar_enabled=sidecar_output is not None,
+                selected_sidecar_paths=selected_sidecar_paths,
+                large_file_persistence=args.large_file_persistence,
             )
-        excluded = [entry for entry in entries if entry.kind == "file" and not entry.include_main]
-        if args.package_kind == "experiment-final" and excluded and sidecar_output is None:
-            raise ValueError(
-                "experiment-final contains large/checkpoint files. Supply --sidecar-output "
-                "or reduce the result directory."
-            )
+        discovered = {entry.path for entry in entries if entry.kind == "file"}
+        missing_selected = selected_sidecar_paths - discovered
+        if missing_selected:
+            raise ValueError(f"Selected sidecar files do not exist: {sorted(missing_selected)}")
+
         with tempfile.TemporaryDirectory(prefix="drpo_artifact_") as tmp:
             tmp_root = Path(tmp)
             stage = tmp_root / "main"
@@ -794,15 +1394,19 @@ def package_main(argv: list[str] | None = None) -> int:
                     entries,
                     sidecar=False,
                 )
-            for rel in source_files:
-                source = repo / rel
-                if not source.is_file() or source.is_symlink():
-                    raise ValueError(f"Missing or unsafe source file: {rel}")
-                target = stage / "source_snapshot" / rel
-                target.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(source, target)
+            copy_source_snapshot(
+                repo,
+                source_files,
+                stage / "source_snapshot",
+                base_commit=base_commit,
+                from_commit=args.package_kind in RECOVERY_KINDS or packaging_head != base_commit,
+            )
+
             sidecar_meta: dict[str, Any] | None = None
-            if sidecar_output is not None and any(e.include_sidecar for e in entries):
+            if sidecar_output is not None:
+                selected_entries = [entry for entry in entries if entry.include_sidecar]
+                if not selected_entries:
+                    raise ValueError("No result files matched the explicit --sidecar-file selection")
                 side_stage = tmp_root / "sidecar"
                 side_stage.mkdir()
                 copy_result_entries(
@@ -813,53 +1417,75 @@ def package_main(argv: list[str] | None = None) -> int:
                     sidecar=True,
                 )
                 side_manifest = {
-                    "schema_version": 1,
+                    "schema_version": 2,
                     "experiment_id": args.experiment_id,
                     "base_commit": base_commit,
                     "generated_utc": utc_now(),
-                    "files": [asdict(e) for e in entries if e.include_sidecar],
+                    "selection_mode": "explicit_only",
+                    "purpose": args.sidecar_purpose,
+                    "files": [asdict(entry) for entry in selected_entries],
                 }
                 (side_stage / "SIDECAR_MANIFEST.json").write_text(
                     json.dumps(side_manifest, indent=2, ensure_ascii=False) + "\n"
                 )
                 write_checksums(side_stage)
-                candidate_sidecar = sidecar_output.with_suffix(sidecar_output.suffix + ".candidate")
-                candidate_sidecar.parent.mkdir(parents=True, exist_ok=True)
-                candidate_sidecar.unlink(missing_ok=True)
+                sidecar_output.parent.mkdir(parents=True, exist_ok=True)
+                candidate_sidecar = sidecar_output.with_name(
+                    f".{sidecar_output.name}.candidate-{os.getpid()}-{time.time_ns()}"
+                )
                 write_zip_from_stage(side_stage, candidate_sidecar)
+                side_report = verify_sidecar_candidate(
+                    candidate_sidecar,
+                    hard_limit_mib=args.max_sidecar_mib,
+                )
                 sidecar_meta = {
                     "path": sidecar_output.name,
                     "sha256": file_sha256(candidate_sidecar),
                     "size_bytes": candidate_sidecar.stat().st_size,
-                    "status": "candidate_verified_by_checksum",
+                    "status": "verified_candidate",
+                    "selection_mode": "explicit_only",
+                    "purpose": args.sidecar_purpose,
+                    "selected_files": sorted(selected_sidecar_paths),
+                    "verification": side_report,
                 }
+
+            excluded_entries = [
+                entry for entry in entries if entry.kind != "file" or not entry.include_main
+            ]
             large_index = {
-                "schema_version": 1,
+                "schema_version": 2,
                 "generated_utc": utc_now(),
-                "entries": [asdict(e) for e in entries if e.kind != "file" or not e.include_main],
-                "sidecar_required": bool(args.package_kind == "experiment-final" and excluded),
+                "entries": [asdict(entry) for entry in excluded_entries],
+                "default_delivery": "persistent_local_index",
+                "sidecar_default": False,
+                "sidecar_required": bool(sidecar_meta),
                 "sidecar": sidecar_meta,
             }
             (stage / "LARGE_FILE_INDEX.json").write_text(
                 json.dumps(large_index, indent=2, ensure_ascii=False) + "\n"
             )
             manifest = {
-                "schema_version": 2,
+                "schema_version": 3,
                 "generated_utc": utc_now(),
                 "experiment_id": args.experiment_id,
                 "package_kind": args.package_kind,
                 "base_commit": base_commit,
+                "packaging_head": packaging_head,
                 "repository": "easonhuo/drpo",
                 "branch": git_branch(repo),
                 "commit_resolution": resolution,
                 "modified_files": [p.as_posix() for p in paths],
                 "result_dir_name": args.experiment_id if result_dir else None,
+                "result_storage_root": str(result_dir) if result_dir else None,
                 "source_files": [p.as_posix() for p in source_files],
+                "source_snapshot_commit": base_commit if source_files else None,
                 "scientific_completion_claim": args.package_kind == "experiment-final",
                 "durable_delivery_pending": True,
                 "lightweight_recovery": args.package_kind in RECOVERY_KINDS,
                 "main_package_hard_limit_mib": args.max_package_mib,
                 "max_single_file_mib": args.max_single_file_mib,
+                "large_file_persistence": args.large_file_persistence,
+                "sidecar_default": False,
                 "sidecar": sidecar_meta,
                 "symlink_policy": "never_follow",
             }
@@ -867,41 +1493,50 @@ def package_main(argv: list[str] | None = None) -> int:
                 json.dumps(manifest, indent=2, ensure_ascii=False) + "\n"
             )
             write_checksums(stage)
-            output = args.output.resolve()
-            candidate = output.with_suffix(output.suffix + ".candidate")
             output.parent.mkdir(parents=True, exist_ok=True)
-            candidate.unlink(missing_ok=True)
-            output.unlink(missing_ok=True)
+            candidate = output.with_name(
+                f".{output.name}.candidate-{os.getpid()}-{time.time_ns()}"
+            )
             write_zip_from_stage(stage, candidate)
+            report = verify_package(
+                candidate,
+                repo_root=repo,
+                skip_head_match=False,
+                hard_limit_mib=args.max_package_mib,
+            )
+            published_sidecar: Path | None = None
             try:
-                report = verify_package(
-                    candidate,
-                    repo_root=repo,
-                    skip_head_match=False,
-                    hard_limit_mib=args.max_package_mib,
-                )
-            except Exception:
-                candidate.unlink(missing_ok=True)
-                if sidecar_output is not None:
-                    sidecar_output.with_suffix(sidecar_output.suffix + ".candidate").unlink(missing_ok=True)
-                raise
-            os.replace(candidate, output)
-            if sidecar_output is not None:
-                candidate_sidecar = sidecar_output.with_suffix(sidecar_output.suffix + ".candidate")
-                if candidate_sidecar.exists():
+                if candidate_sidecar is not None and sidecar_output is not None:
+                    # Sidecars use a new versioned filename and are never overwritten.
+                    # Publish it first; if the main atomic replace fails, remove the newly
+                    # published orphan and leave the previous main package untouched.
                     os.replace(candidate_sidecar, sidecar_output)
+                    candidate_sidecar = None
+                    published_sidecar = sidecar_output
+                os.replace(candidate, output)
+                candidate = None
+            except Exception:
+                if published_sidecar is not None:
+                    published_sidecar.unlink(missing_ok=True)
+                raise
             report.update(
                 {
                     "output": str(output),
                     "atomic_publish": True,
+                    "previous_output_preserved_until_publish": True,
                     "sidecar_output": str(sidecar_output) if sidecar_output and sidecar_output.exists() else None,
                 }
             )
             print(json.dumps(report, indent=2))
         return 0
-    except (ValueError, OSError, subprocess.SubprocessError) as exc:
+    except (ValueError, OSError, subprocess.SubprocessError, zipfile.BadZipFile) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
+    finally:
+        if candidate is not None:
+            candidate.unlink(missing_ok=True)
+        if candidate_sidecar is not None:
+            candidate_sidecar.unlink(missing_ok=True)
 
 
 def verify_parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -945,7 +1580,7 @@ def latest_mtime(root: Path) -> float | None:
         try:
             if path.name == "heartbeat.json":
                 continue
-            if path.is_file():
+            if path.is_file() and not path.is_symlink():
                 value = path.stat().st_mtime
                 latest = value if latest is None else max(latest, value)
         except FileNotFoundError:
@@ -954,7 +1589,10 @@ def latest_mtime(root: Path) -> float | None:
 
 
 def progress_counts(root: Path, patterns: list[str]) -> dict[str, int]:
-    return {pattern: sum(1 for p in root.glob(pattern) if p.is_file()) for pattern in patterns}
+    return {
+        pattern: sum(1 for p in root.glob(pattern) if p.is_file() and not p.is_symlink())
+        for pattern in patterns
+    }
 
 
 def stream_reader(pipe: Any, events: queue.Queue[tuple[float, str]]) -> None:
@@ -1008,9 +1646,19 @@ def guard_parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--output-root", type=Path, required=True)
     parser.add_argument("--artifact-output", type=Path, required=True)
     parser.add_argument("--sidecar-output", type=Path)
+    parser.add_argument("--sidecar-file", action="append", default=[])
+    parser.add_argument("--sidecar-purpose", choices=sorted(SIDECAR_PURPOSES))
+    parser.add_argument("--max-sidecar-mib", type=float, default=1024.0)
+    parser.add_argument("--max-sidecar-files", type=int, default=2)
+    parser.add_argument(
+        "--large-file-persistence",
+        choices=["persistent_local", "external_durable", "ephemeral", "unknown"],
+        default="persistent_local",
+    )
     parser.add_argument("--heartbeat-seconds", type=float, default=30.0)
     parser.add_argument("--stale-seconds", type=float, default=600.0)
     parser.add_argument("--fail-on-stale", action="store_true")
+    parser.add_argument("--termination-grace-seconds", type=float, default=30.0)
     parser.add_argument("--progress-glob", action="append", default=[])
     parser.add_argument("--required-output", action="append", default=[])
     parser.add_argument("--source-file", action="append", default=[])
@@ -1026,10 +1674,24 @@ def guard_parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         args.command = args.command[1:]
     if not args.command:
         parser.error("Supply the experiment command after --")
-    if args.heartbeat_seconds <= 0 or args.stale_seconds <= 0:
-        parser.error("Heartbeat and stale intervals must be positive")
+    if (
+        args.heartbeat_seconds <= 0
+        or args.stale_seconds <= 0
+        or args.termination_grace_seconds <= 0
+    ):
+        parser.error("Heartbeat, stale, and termination-grace intervals must be positive")
+    if args.max_package_mib <= 0 or args.max_single_file_mib <= 0:
+        parser.error("Main-package size limits must be positive")
+    if args.max_sidecar_mib <= 0 or args.max_sidecar_files <= 0:
+        parser.error("Sidecar size and file-count limits must be positive")
     if args.run_class == "formal" and args.allow_dirty:
         parser.error("--allow-dirty is only valid with --run-class pilot")
+    if args.sidecar_output is not None and not args.sidecar_file:
+        parser.error("--sidecar-output requires at least one --sidecar-file")
+    if args.sidecar_output is not None and not args.sidecar_purpose:
+        parser.error("--sidecar-output requires --sidecar-purpose")
+    if args.sidecar_purpose and args.sidecar_output is None:
+        parser.error("--sidecar-purpose requires --sidecar-output")
     return args
 
 
@@ -1041,14 +1703,17 @@ def package_recovery(
     package_kind: str,
     source_files: list[str],
     *,
+    launch_commit: str,
     sidecar_output: Path | None,
+    sidecar_files: list[str],
+    sidecar_purpose: str | None,
     max_package_mib: float,
     max_single_file_mib: float,
+    max_sidecar_mib: float,
+    max_sidecar_files: int,
+    large_file_persistence: str,
 ) -> subprocess.CompletedProcess[str]:
-    script = repo / "scripts" / "package_experiment_hardened.py"
     cmd = [
-        sys.executable,
-        str(script),
         "--repo-root",
         str(repo),
         "--experiment-id",
@@ -1060,39 +1725,127 @@ def package_recovery(
         "--output",
         str(artifact_output),
         "--base-commit",
-        git_head(repo),
+        launch_commit,
+        "--allow-recovery-base-mismatch",
+        "--no-repository-changes",
+        "--large-file-persistence",
+        large_file_persistence,
         "--max-package-mib",
         str(max_package_mib),
         "--max-single-file-mib",
         str(max_single_file_mib),
+        "--max-sidecar-mib",
+        str(max_sidecar_mib),
+        "--max-sidecar-files",
+        str(max_sidecar_files),
         "--test-command",
         "python3 -m pytest -q tests/test_experiment_artifact_protocol.py tests/test_experiment_artifact_hardening.py",
     ]
     if sidecar_output is not None:
         cmd.extend(["--sidecar-output", str(sidecar_output)])
+        if sidecar_purpose is not None:
+            cmd.extend(["--sidecar-purpose", sidecar_purpose])
+    for sidecar_file in sidecar_files:
+        cmd.extend(["--sidecar-file", sidecar_file])
     for source in source_files:
         cmd.extend(["--source-file", source])
-    return subprocess.run(cmd, cwd=repo, text=True, capture_output=True)
+    stdout = io.StringIO()
+    stderr = io.StringIO()
+    with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+        returncode = package_main(cmd)
+    return subprocess.CompletedProcess(
+        args=["package_experiment_hardened.py", *cmd],
+        returncode=returncode,
+        stdout=stdout.getvalue(),
+        stderr=stderr.getvalue(),
+    )
+
+
+def _path_is_within(path: Path, parent: Path) -> bool:
+    try:
+        path.resolve().relative_to(parent.resolve())
+        return True
+    except ValueError:
+        return False
 
 
 def guard_main(argv: list[str] | None = None) -> int:
     args = guard_parse_args(argv)
+    try:
+        validate_experiment_id(args.experiment_id)
+        reject_symlink_path(args.output_root, "--output-root")
+        reject_symlink_path(args.artifact_output, "--artifact-output")
+        if args.sidecar_output is not None:
+            reject_symlink_path(args.sidecar_output, "--sidecar-output")
+    except ValueError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
     repo = args.repo_root.resolve()
     output_root = args.output_root.resolve()
     artifact_output = args.artifact_output.resolve()
+    sidecar_output = args.sidecar_output.resolve() if args.sidecar_output else None
+    if sidecar_output is not None and sidecar_output == artifact_output:
+        print("ERROR: --sidecar-output must differ from --artifact-output", file=sys.stderr)
+        return 2
+    if _path_is_within(artifact_output, output_root):
+        print("ERROR: --artifact-output must be outside --output-root", file=sys.stderr)
+        return 2
+    if sidecar_output is not None and _path_is_within(sidecar_output, output_root):
+        print("ERROR: --sidecar-output must be outside --output-root", file=sys.stderr)
+        return 2
+    if sidecar_output is not None and sidecar_output.exists():
+        print(
+            "ERROR: --sidecar-output already exists; use a new versioned path",
+            file=sys.stderr,
+        )
+        return 2
     try:
+        ensure_git_repo(repo)
+        reject_tracked_runtime_path(repo, output_root, "--output-root", subtree=True)
+        reject_tracked_runtime_path(repo, artifact_output, "--artifact-output", subtree=False)
+        if sidecar_output is not None:
+            reject_tracked_runtime_path(repo, sidecar_output, "--sidecar-output", subtree=False)
+    except (ValueError, OSError, subprocess.SubprocessError) as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
+    if output_root.exists():
+        try:
+            has_existing_entries = any(output_root.iterdir())
+        except OSError as exc:
+            print(f"ERROR: cannot inspect --output-root: {exc}", file=sys.stderr)
+            return 2
+        if has_existing_entries:
+            print(
+                "ERROR: --output-root must be new or empty so stale files cannot satisfy "
+                "required-output or contaminate the artifact",
+                file=sys.stderr,
+            )
+            return 2
+    try:
+        # A formal run must be anchored either by an explicit full expected SHA
+        # (suitable for an offline clone or Git bundle) or by a live authoritative
+        # origin/main check.  Silently trusting the current local HEAD is not enough.
+        require_origin_match = args.require_origin_main_match or (
+            args.run_class == "formal" and args.expected_commit is None
+        )
         resolution = resolve_commit(
             repo,
             args.expected_commit,
-            require_origin_match=args.require_origin_main_match,
+            require_origin_match=require_origin_match,
         )
     except (ValueError, OSError, subprocess.SubprocessError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
     launch_head = resolution["local_head"]
+    try:
+        source_files = [safe_repo_rel(value) for value in args.source_file]
+        validate_source_snapshot_inputs(repo, source_files, base_commit=launch_head)
+    except (ValueError, OSError, subprocess.SubprocessError) as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
     ignored_runtime_paths = [output_root, artifact_output]
-    if args.sidecar_output:
-        ignored_runtime_paths.append(args.sidecar_output.resolve())
+    if sidecar_output:
+        ignored_runtime_paths.append(sidecar_output)
     launch_status = git_status_excluding(repo, ignored_runtime_paths)
     dirty = bool(launch_status)
     if args.run_class == "formal" and dirty:
@@ -1116,7 +1869,7 @@ def guard_main(argv: list[str] | None = None) -> int:
     start_wall = time.time()
     start_utc = utc_now()
     run_manifest = {
-        "schema_version": 2,
+        "schema_version": 3,
         "experiment_id": args.experiment_id,
         "execution_state": "running",
         "run_class": args.run_class,
@@ -1135,24 +1888,114 @@ def guard_main(argv: list[str] | None = None) -> int:
         "pid": None,
         "heartbeat_seconds": args.heartbeat_seconds,
         "stale_seconds": args.stale_seconds,
+        "termination_grace_seconds": args.termination_grace_seconds,
         "progress_globs": args.progress_glob,
         "required_outputs": args.required_output,
         "artifact_output": str(artifact_output),
+        "large_file_persistence": args.large_file_persistence,
+        "sidecar_default": False,
+        "sidecar_files": args.sidecar_file,
+        "sidecar_purpose": args.sidecar_purpose,
     }
     atomic_json(output_root / "run_manifest.json", run_manifest)
-    process = subprocess.Popen(
-        args.command,
-        cwd=repo,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        bufsize=1,
-        env=os.environ.copy(),
-        start_new_session=True,
-    )
+
+    try:
+        process = subprocess.Popen(
+            args.command,
+            cwd=repo,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+            env=os.environ.copy(),
+            start_new_session=True,
+        )
+    except (OSError, ValueError) as exc:
+        trace = traceback.format_exc()
+        log_path.write_text(
+            f"[{start_utc}] START_FAILED command={args.command!r}\n{trace}"
+        )
+        try:
+            end_head = git_head(repo)
+            end_status = git_status_excluding(repo, ignored_runtime_paths)
+        except Exception:
+            end_head = launch_head
+            end_status = ["unable_to_resolve_end_git_state"]
+        common = {
+            "schema_version": 3,
+            "experiment_id": args.experiment_id,
+            "run_class": args.run_class,
+            "start_utc": start_utc,
+            "end_utc": utc_now(),
+            "elapsed_seconds": round(time.time() - start_wall, 3),
+            "pid": None,
+            "returncode": None,
+            "supervisor_error_type": type(exc).__name__,
+            "supervisor_error": str(exc),
+            "traceback_file": "logs/supervised_run.log",
+            "missing_required_outputs": args.required_output,
+            "base_commit": launch_head,
+            "end_commit": end_head,
+            "git_status_at_end": end_status,
+            "provenance_compromised": end_head != launch_head or bool(end_status),
+            "branch": git_branch(repo),
+            "command": args.command,
+            "scientific_acceptance_pending": True,
+            "execution_state": "failed",
+        }
+        atomic_json(output_root / "RUN_FAILED.json", common)
+        run_manifest.update(common)
+        atomic_json(output_root / "run_manifest.json", run_manifest)
+        packaged = package_recovery(
+            repo,
+            args.experiment_id,
+            output_root,
+            artifact_output,
+            "experiment-failed",
+            args.source_file,
+            launch_commit=launch_head,
+            sidecar_output=sidecar_output,
+            sidecar_files=args.sidecar_file,
+            sidecar_purpose=args.sidecar_purpose,
+            max_package_mib=args.max_package_mib,
+            max_single_file_mib=args.max_single_file_mib,
+            max_sidecar_mib=args.max_sidecar_mib,
+            max_sidecar_files=args.max_sidecar_files,
+            large_file_persistence=args.large_file_persistence,
+        )
+        atomic_json(
+            output_root / "recovery_package_status.json",
+            {
+                "command": packaged.args,
+                "returncode": packaged.returncode,
+                "stdout": packaged.stdout,
+                "stderr": packaged.stderr,
+                "artifact_output": str(artifact_output),
+                "artifact_exists": artifact_output.is_file(),
+            },
+        )
+        if packaged.returncode != 0:
+            print(packaged.stdout, end="")
+            print(packaged.stderr, file=sys.stderr, end="")
+            return 3
+        print(packaged.stdout, end="")
+        print("The experiment command did not start; failed-run evidence was preserved.")
+        return 2
+
     run_manifest["pid"] = process.pid
     atomic_json(output_root / "run_manifest.json", run_manifest)
     forwarded_signal: int | None = None
+    previous_handlers: dict[int, Any] = {}
+    events: queue.Queue[tuple[float, str]] = queue.Queue()
+    reader: threading.Thread | None = None
+    last_console_activity = time.time()
+    last_fs_activity = latest_mtime(output_root) or start_wall
+    last_heartbeat = 0.0
+    stale_detected = False
+    stale_term_sent_at: float | None = None
+    stale_kill_sent = False
+    supervisor_error: dict[str, str] | None = None
+    returncode = -1
 
     def handle_signal(signum: int, _frame: Any) -> None:
         nonlocal forwarded_signal
@@ -1162,16 +2005,17 @@ def guard_main(argv: list[str] | None = None) -> int:
         except ProcessLookupError:
             pass
 
-    previous_handlers = {sig: signal.signal(sig, handle_signal) for sig in (signal.SIGINT, signal.SIGTERM)}
-    events: queue.Queue[tuple[float, str]] = queue.Queue()
-    assert process.stdout is not None
-    reader = threading.Thread(target=stream_reader, args=(process.stdout, events), daemon=True)
-    reader.start()
-    last_console_activity = time.time()
-    last_fs_activity = latest_mtime(output_root) or start_wall
-    last_heartbeat = 0.0
-    stale_detected = False
     try:
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            previous_handlers[sig] = signal.signal(sig, handle_signal)
+        if process.stdout is None:
+            raise RuntimeError("Child stdout pipe was not created")
+        reader = threading.Thread(
+            target=stream_reader,
+            args=(process.stdout, events),
+            daemon=True,
+        )
+        reader.start()
         with log_path.open("a", buffering=1) as log:
             log.write(f"[{start_utc}] START pid={process.pid} command={args.command!r}\n")
             while True:
@@ -1192,9 +2036,30 @@ def guard_main(argv: list[str] | None = None) -> int:
                 stale_for = max(0.0, now - last_activity)
                 if stale_for >= args.stale_seconds:
                     stale_detected = True
-                    if args.fail_on_stale and process.poll() is None:
-                        log.write(f"[{utc_now()}] STALE timeout={stale_for:.1f}s; terminating\n")
+                    if (
+                        args.fail_on_stale
+                        and process.poll() is None
+                        and stale_term_sent_at is None
+                    ):
+                        log.write(
+                            f"[{utc_now()}] STALE timeout={stale_for:.1f}s; "
+                            "sending SIGTERM\n"
+                        )
                         os.killpg(process.pid, signal.SIGTERM)
+                        stale_term_sent_at = now
+                if (
+                    args.fail_on_stale
+                    and stale_term_sent_at is not None
+                    and process.poll() is None
+                    and not stale_kill_sent
+                    and now - stale_term_sent_at >= args.termination_grace_seconds
+                ):
+                    log.write(
+                        f"[{utc_now()}] STALE child ignored SIGTERM for "
+                        f"{args.termination_grace_seconds:.1f}s; sending SIGKILL\n"
+                    )
+                    os.killpg(process.pid, signal.SIGKILL)
+                    stale_kill_sent = True
                 if now - last_heartbeat >= args.heartbeat_seconds:
                     atomic_json(
                         heartbeat_path,
@@ -1207,6 +2072,8 @@ def guard_main(argv: list[str] | None = None) -> int:
                             "process_returncode": process.poll(),
                             "seconds_since_activity": round(stale_for, 3),
                             "stale_detected": stale_detected,
+                            "stale_term_sent": stale_term_sent_at is not None,
+                            "stale_kill_sent": stale_kill_sent,
                             "progress": progress_counts(output_root, args.progress_glob),
                             "latest_output_mtime_utc": datetime.fromtimestamp(
                                 last_fs_activity, timezone.utc
@@ -1214,10 +2081,16 @@ def guard_main(argv: list[str] | None = None) -> int:
                         },
                     )
                     last_heartbeat = now
-                if process.poll() is not None and events.empty() and not reader.is_alive():
+                if (
+                    process.poll() is not None
+                    and events.empty()
+                    and reader is not None
+                    and not reader.is_alive()
+                ):
                     break
                 time.sleep(min(1.0, args.heartbeat_seconds / 4.0))
-            reader.join(timeout=2)
+            if reader is not None:
+                reader.join(timeout=2)
             try:
                 while True:
                     _event_time, line = events.get_nowait()
@@ -1227,13 +2100,63 @@ def guard_main(argv: list[str] | None = None) -> int:
                 pass
             returncode = process.wait()
             log.write(f"[{utc_now()}] EXIT returncode={returncode}\n")
+    except Exception as exc:
+        supervisor_error = {
+            "type": type(exc).__name__,
+            "message": str(exc),
+            "traceback": traceback.format_exc(),
+        }
+        try:
+            with log_path.open("a") as log:
+                log.write(
+                    f"[{utc_now()}] SUPERVISOR_EXCEPTION "
+                    f"{supervisor_error['type']}: {supervisor_error['message']}\n"
+                )
+                log.write(supervisor_error["traceback"])
+        except OSError:
+            pass
+        if process.poll() is None:
+            try:
+                os.killpg(process.pid, signal.SIGTERM)
+                process.wait(timeout=args.termination_grace_seconds)
+            except (OSError, subprocess.TimeoutExpired):
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                    process.wait(timeout=5)
+                except (OSError, subprocess.TimeoutExpired):
+                    pass
+        polled = process.poll()
+        returncode = polled if polled is not None else -1
     finally:
         for sig, handler in previous_handlers.items():
-            signal.signal(sig, handler)
-    end_head = git_head(repo)
-    end_status = git_status_excluding(repo, ignored_runtime_paths)
+            try:
+                signal.signal(sig, handler)
+            except (OSError, ValueError):
+                pass
+
+    try:
+        end_head = git_head(repo)
+        end_status = git_status_excluding(repo, ignored_runtime_paths)
+        end_branch = git_branch(repo)
+        provenance_resolution_failed = False
+    except Exception as exc:
+        provenance_resolution_failed = True
+        end_head = launch_head
+        end_status = [f"unable_to_resolve_end_git_state: {type(exc).__name__}: {exc}"]
+        end_branch = "UNRESOLVED"
+        if supervisor_error is None:
+            supervisor_error = {
+                "type": type(exc).__name__,
+                "message": f"End-of-run provenance resolution failed: {exc}",
+                "traceback": traceback.format_exc(),
+            }
+        try:
+            with log_path.open("a") as log:
+                log.write(supervisor_error["traceback"])
+        except OSError:
+            pass
     provenance_compromised = args.run_class == "formal" and (
-        end_head != launch_head or bool(end_status)
+        provenance_resolution_failed or end_head != launch_head or bool(end_status)
     )
     missing_outputs = [name for name in args.required_output if not (output_root / name).exists()]
     success = (
@@ -1241,9 +2164,10 @@ def guard_main(argv: list[str] | None = None) -> int:
         and not missing_outputs
         and not (args.fail_on_stale and stale_detected)
         and not provenance_compromised
+        and supervisor_error is None
     )
     common = {
-        "schema_version": 2,
+        "schema_version": 3,
         "experiment_id": args.experiment_id,
         "run_class": args.run_class,
         "start_utc": start_utc,
@@ -1251,14 +2175,19 @@ def guard_main(argv: list[str] | None = None) -> int:
         "elapsed_seconds": round(time.time() - start_wall, 3),
         "pid": process.pid,
         "returncode": returncode,
+        "supervisor_error_type": supervisor_error["type"] if supervisor_error else None,
+        "supervisor_error": supervisor_error["message"] if supervisor_error else None,
+        "traceback_file": "logs/supervised_run.log" if supervisor_error else None,
         "forwarded_signal": forwarded_signal,
         "stale_detected": stale_detected,
+        "stale_term_sent": stale_term_sent_at is not None,
+        "stale_kill_sent": stale_kill_sent,
         "missing_required_outputs": missing_outputs,
         "base_commit": launch_head,
         "end_commit": end_head,
         "git_status_at_end": end_status,
         "provenance_compromised": provenance_compromised,
-        "branch": git_branch(repo),
+        "branch": end_branch,
         "command": args.command,
         "scientific_acceptance_pending": True,
     }
@@ -1288,9 +2217,15 @@ def guard_main(argv: list[str] | None = None) -> int:
         artifact_output,
         package_kind,
         args.source_file,
-        sidecar_output=args.sidecar_output.resolve() if args.sidecar_output else None,
+        launch_commit=launch_head,
+        sidecar_output=sidecar_output,
+        sidecar_files=args.sidecar_file,
+        sidecar_purpose=args.sidecar_purpose,
         max_package_mib=args.max_package_mib,
         max_single_file_mib=args.max_single_file_mib,
+        max_sidecar_mib=args.max_sidecar_mib,
+        max_sidecar_files=args.max_sidecar_files,
+        large_file_persistence=args.large_file_persistence,
     )
     package_record = {
         "command": packaged.args,

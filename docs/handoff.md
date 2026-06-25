@@ -1,4 +1,25 @@
-# DRPO / SNA2C 远场负梯度动力学研究主文档 v23（C-U1 E1 分支增长律补充版）
+# DRPO / SNA2C 远场负梯度动力学研究主文档 v24（事务式 artifact、显式 commit pin、持久权重与 C-U1 分支增长律同步版）
+
+> **v24 增量记录：事务式替换、失败证据、launch-commit 绑定、持久权重与正式源码预检（不删除 v23 及更早内容）**
+>
+> - 新治理 ID `GOV-EXP-ARTIFACT-03` 生效；只修 artifact/source pipeline，不改变任何科学 claim、实验变量、seeds、阈值、数据规模、执行顺序、优先级或结果状态。
+> - 新 candidate 失败时不得删除旧的有效 final ZIP；只有 candidate 与显式 sidecar 都验证通过后才允许替换。sidecar 使用新的版本化文件名，禁止覆盖已有 sidecar；若 sidecar 发布后主包替换失败，删除新发布的孤立 sidecar并保留旧主包。
+> - 实验命令在 `Popen` 阶段即失败也必须生成 `RUN_FAILED.json`、traceback log、launch commit 与轻量 failed package，不能让守护器 traceback 直接结束。signal/reader setup、monitor 与 end-provenance 异常也进入同一 failed-evidence 路径。
+> - 每次受监督运行必须使用全新或空的 output root；续训 checkpoint 从单独声明的持久路径读取，新尝试仍写入新目录，禁止旧 required-output、旧日志或旧结果混入新运行。
+> - recovery package 的 `BASE_COMMIT.txt`、manifest 与 source snapshot 永远绑定 launch commit；若运行期间 HEAD 改变，packaging HEAD 单独记录，禁止把结束时源码冒充启动源码。
+> - `experiment-final` 强制要求可解析的 `RUN_COMPLETE.json`、`run_manifest.json`、terminal audit 和至少一份日志；所有 identity-bearing JSON 的 experiment ID/base commit 必须一致。
+> - 所有真实权重、adapter、optimizer state 与 checkpoint 无论文件大小，默认仅保存在持久训练服务器；主 ZIP 只记录路径、大小、SHA-256、角色和持久状态。sidecar 默认关闭，仅对预登记、显式选择且声明 `cross_machine_transfer` / `restart` / `independent_audit` 用途的文件开启，并受文件数与总大小硬门禁。foundation-model 权重永不复制。该规则不限于 Countdown。
+> - 通用大文件持久状态默认值为 `persistent_local`；只有能跨 runtime 保留且项目后续可访问的服务器路径才能使用。临时容器必须显式标记为 `ephemeral` 或 `unknown`。
+> - 正式守护运行必须满足二选一：显式传入本地 Git 对象库中真实存在的完整 `--expected-commit`；或在未显式传入时由 `git ls-remote origin refs/heads/main` 实时权威核验并确认与本地 `HEAD` 一致。离线 clone / Git bundle 路径必须使用显式 full SHA，禁止把任意本地 `HEAD` 默认为正式来源。
+> - 所有 `--source-file` 在子进程启动前检查其是否存在于 launch commit；路径错误或文件未提交时直接结束预检。
+> - GitHub 浏览器只能用于 review，不能直接形成 shell 中的 commit-bearing checkout。正式运行前依次尝试：已有 exact checkout/bundle、shell clone/fetch、环境自带下载工具取得 pinned Git bundle 或带 Git 元数据的 verified source capsule、项目持久存储中的同 SHA bundle。只有全部自动路径失败后，才可请用户提供一个完整 Git bundle/source capsule；禁止索要零散文件，也不得把普通 Source code ZIP 冒充 formal checkout。
+> - 用户上传不是优先路径，也不是正式运行的必需条件；只要任一自动路径取得包含预期完整 SHA 的 exact checkout / Git bundle / verified capsule，并通过 clean worktree 与 source-file 预检，即可在不上传源码的情况下正式运行。
+> - 该来源门禁解释了为什么早期 session 可以按网页代码运行、而现在正式运行会被阻断：早期流程没有执行当前 commit-bound provenance 门禁。旧结果不因新门禁自动失效，其状态仍由 handoff 中已有证据决定。
+> - 所有 result kind 的 `run_manifest.json` 与状态 marker 必须绑定同一 experiment ID/launch commit；experiment ID 路径穿越、根/父目录 symlink、未知 package kind、malformed manifest、tracked runtime path 覆盖与 scan-copy 文件变更均为硬失败。
+> - 小型 `.npy`/`.npz` 原始指标仍可进入主证据包；模型、adapter、optimizer/checkpoint state 无论大小均保持 index-only。stale child 在 SIGTERM 后超过 grace period 必须升级 SIGKILL。
+> - sidecar verifier 要求 experiment ID、完整 base commit、显式用途与实际 payload 精确一致；每个显式选择文件的规范路径、大小和 SHA-256 均需匹配，缺失文件、额外文件或篡改 manifest 都是硬失败。
+> - 本轮新增故障测试覆盖旧包保留、命令启动失败、监督器异常、运行期 HEAD 变化、final evidence 缺失、sidecar 清单与 payload 不一致、无网络且无显式 pin 的 formal run 拒绝、离线 checkout + 显式 pin 允许，以及缺失 source snapshot 启动前拒绝。
+> - heartbeat 与结果活动扫描保持现状，本轮不做无明显收益的性能重构。
 
 > **v23 增量登记：C-U1-E1-COMP-01（不删除 v22 及更早内容）**
 >
@@ -12,7 +33,6 @@
 > - **Hopper 独立验证边界：**若 E7 在 D4RL Hopper 的真实离线数据、learned critic 和独立训练 actor 下，同样观察到远场 log-scale 分支进入平方距离主导区，并且该分支对实际全参数梯度或动力学具有可测贡献，则可称为该机制在外部环境中的独立验证/外部复现。它独立验证的是“真实任务确实进入并受该二次主导区影响”，而不是再次证明 Gaussian 解析恒等式；后者由策略族本身决定。
 > - **方法边界：**该结果证明 Gaussian 输出空间本身具有非线性远场放大，不需要诉诸神经网络 pullback；它支持采用非线性、正值、平滑尾部控制作为机制动机，但不能单独推出 Exp 必然优于 Linear、Global α、SBRC、Hybrid 或 Positive-only。
 > - **代码与 rebase provenance：**pilot 运行绑定到 `1962442aea7037fac6b57e4e9232850c69e5c1b9`。当前更新包 rebased 到其直接后继 `a9e0d860a6f03d1be12280885002c24ba2f1b66a`；该后继只修改 Countdown、handoff、registry 与 Countdown tests，未修改 C-U1 runner。结果与 v17 正式 E1/E2 数值对齐是强一致性证据，说明未观察到来源重建导致的科学偏差；但按照既有治理规则，clean committed rerun 之前科学状态仍保留为 `pilot`，不得把数值一致性等同于完整 provenance 证明。
-
 
 > **v22 增量记录：Countdown v4.1.1 负优势尺度校准与执行配置锁定（不删除 v21 及更早内容）**
 >

@@ -1,6 +1,6 @@
 # Formal Experiment Supervision and Durable Artifact Protocol
 
-**Governance IDs:** `GOV-EXP-ARTIFACT-01`, `GOV-EXP-ARTIFACT-02`
+**Governance IDs:** `GOV-EXP-ARTIFACT-01`, `GOV-EXP-ARTIFACT-02`, `GOV-EXP-ARTIFACT-03`
 **Scope:** every formal DRPO / SNA2C experiment, including C-U1, D-U1, Hopper/D4RL, Countdown/Transformer, recommendation, and future registered environments.
 **Authority:** `AGENTS.md` and Section 0 of `docs/handoff.md` override this operational detail if they conflict.
 
@@ -251,7 +251,7 @@ At process exit, re-check HEAD and worktree status. A changed HEAD or dirty form
 4. delete the candidate on any failure;
 5. atomically rename the candidate only after all checks pass.
 
-This internal verification is mandatory; a separate verifier remains available for independent re-checking.
+This internal verification is mandatory; a separate verifier remains available for independent re-checking. The patch apply gate uses a temporary Git index loaded from `BASE_COMMIT.txt`, so staged packaging edits do not create a false conflict and the caller's real index is never mutated.
 
 ## 13. Large-result and sidecar policy
 
@@ -259,7 +259,7 @@ The default main ZIP hard limit is 25 MiB and the default single-file main-packa
 
 Failed, checkpoint, and raw-complete packages use lightweight evidence mode by default. They retain manifests, commands, logs, tracebacks, compact metrics, completed/missing-unit inventories, source provenance, and checksums. Large checkpoint-like files are excluded from the main ZIP and recorded in `LARGE_FILE_INDEX.json` with path, role, byte size, SHA-256, inclusion decision, and persistence status.
 
-When a checkpoint is required for continuation or audit, deliver it as a separate sidecar. The main manifest records the sidecar filename, SHA-256, size, and status. A final experiment package that declares a required large file may not claim complete durable delivery until the sidecar is also durable.
+Real weights and checkpoints remain on persistent training-server storage by default. The main package records their storage path, byte size, SHA-256, role, and persistence status. Sidecar delivery is disabled by default. A sidecar may be created only for explicitly selected files whose cross-machine transfer, restart, or independent audit requirement was pre-registered. The sidecar has independent file-count and size limits and may never silently sweep all checkpoint-like files.
 
 Formal large-model experiments must pre-register:
 
@@ -296,9 +296,9 @@ Local `drpo-update` tests remain the final environment-specific safety check, no
 The base repository used to generate and test an update package must be obtained from an authoritative source pinned to the full SHA:
 
 1. a real `git clone`/`git fetch` followed by `git checkout <full-sha>`; or
-2. the GitHub source archive for that exact full SHA.
+2. a verified Git bundle/source capsule that contains the expected commit object and complete tree.
 
-A repository reconstructed from parsed web pages, copied snippets, manually recreated files, or an unrelated local commit is not a valid base, even when `BASE_COMMIT.txt` contains the desired SHA. A package generated from such a synthetic base must not be described as verified.
+A plain GitHub source archive may support static inspection, but it does not contain Git commit objects and therefore does not by itself satisfy the commit-bound formal-run or merge-equivalent pre-delivery gate. A repository reconstructed from parsed web pages, copied snippets, manually recreated files, or an unrelated local commit is not a valid base, even when `BASE_COMMIT.txt` contains the desired SHA. A package generated from such a synthetic base must not be described as verified.
 
 Before publishing the downloadable ZIP, perform a merge-equivalent test in a second fresh checkout of the same authoritative base:
 
@@ -344,8 +344,94 @@ python3 scripts/run_experiment_guard_hardened.py \
   --expected-commit "$(git rev-parse HEAD)" \
   --experiment-id EXT-C-E8-V4 \
   --repo-root . \
-  --output-root experiments/results/EXT-C-E8-V4/run_001 \
-  --artifact-output artifacts/EXT-C-E8-V4_FAILED_EVIDENCE.zip \
-  --sidecar-output artifacts/EXT-C-E8-V4_CHECKPOINT_SIDECAR.zip \
+  --output-root experiments/results/EXT-C-E8-V4.1/run_001 \
+  --artifact-output artifacts/EXT-C-E8-V4.1_FAILED_EVIDENCE.zip \
+  --large-file-persistence persistent_local \
+  --sidecar-output artifacts/EXT-C-E8-V4.1_CHECKPOINT_SIDECAR_run001.zip \
+  --sidecar-purpose restart \
+  --sidecar-file method/latest/adapter_model.safetensors \
   -- python3 src/drpo/countdown_qwen_arena_onefile.py
 ```
+
+## 18. Transactional replacement and launch-failure recovery (`GOV-EXP-ARTIFACT-03`)
+
+A previously verified artifact is immutable until a replacement candidate has passed every gate. The packager must never unlink the final output before verification. Candidate failure removes only candidate files and leaves the prior final package untouched. Explicit sidecars use a new versioned path. If sidecar publication succeeds but the subsequent main-package replace fails, the newly published sidecar is removed and the prior main package remains untouched.
+
+A supervised attempt must use a new or empty `--output-root`. Reusing a non-empty run directory is rejected before process launch because stale files could satisfy `--required-output`, contaminate logs, or be packaged as if they came from the new attempt. A resumed run reads its input checkpoint from a separately declared persistent path and writes to a fresh run directory.
+
+The foreground supervisor treats command-start failure as an experiment failure, not as an uncaught tool crash. Missing executables, permission errors, invalid working directories, and equivalent `Popen` failures must produce:
+
+- `RUN_FAILED.json`;
+- `run_manifest.json`;
+- a traceback-bearing log under `logs/`;
+- launch commit and end-state provenance;
+- an attempted lightweight `experiment-failed` package.
+
+## 19. Launch-commit binding for recovery packages
+
+A recovery artifact describes the code that actually launched. Its `BASE_COMMIT.txt`, manifest `base_commit`, and any source snapshot therefore use the launch commit even when the repository HEAD changes before packaging. The packaging-time HEAD is recorded separately. Recovery packages do not contain an update patch assembled from the contaminated end-state worktree. Source files are read from the launch commit with Git object access.
+
+## 20. Final-evidence completeness gate
+
+Before `experiment-final` publication, the result directory must contain:
+
+- parseable `RUN_COMPLETE.json`;
+- parseable `run_manifest.json`;
+- parseable `TERMINAL_AUDIT.json` or `terminal_audit.json`;
+- at least one regular log file under `logs/`.
+
+The experiment ID and base commit in all three identity-bearing JSON records must match the package request. These checks are repeated against the finished ZIP. Raw metrics and summaries remain experiment-specific, but omission of the generic provenance and audit evidence is a hard failure.
+
+## 21. Persistent-local checkpoint default and explicit sidecars
+
+The generic policy applies to Countdown, Hopper, recommendation, and every future large-file-producing experiment:
+
+1. foundation-model weights are never copied;
+2. real adapters/checkpoints stay on persistent training-server storage by default;
+3. the main ZIP contains only the large-file index with storage path, size, SHA-256, role, and persistence status;
+4. sidecar generation is off by default;
+5. `--sidecar-output` requires one or more explicit `--sidecar-file` selections and an explicit `--sidecar-purpose` (`cross_machine_transfer`, `restart`, or `independent_audit`);
+6. sidecar filenames are versioned and must not already exist; overwriting a previous sidecar is rejected;
+7. sidecar file-count and total-size limits are hard gates;
+8. optimizer state is excluded unless a registered recovery requirement explicitly needs it;
+9. foundation-model weights are never copied to either the main ZIP or a sidecar;
+10. checkpoint/model-state files are indexed rather than embedded in the main ZIP even when they are below the generic single-file size threshold.
+
+A path on an ephemeral container is not `persistent_local`. The run manifest must use `ephemeral` or `unknown` unless the storage survives the runtime and remains accessible to the project.
+
+## 22. Formal source-availability preflight
+
+The strict exact-source rule explains why an environment may browse GitHub yet still be unable to launch a formal experiment: browser rendering is not a Git checkout and cannot prove the complete import/configuration closure. Earlier sessions sometimes ran directly reconstructed one-file code before this gate existed; the new rule prevents repeating that weaker provenance path and does not by itself erase previously accepted evidence.
+
+Before proposing a formal run, check source availability in this order:
+
+1. an existing clean Git checkout containing the expected full SHA;
+2. shell-accessible clone/fetch;
+3. an environment-provided download bridge for a full-SHA Git bundle or a verified source capsule that includes the expected commit object and complete tree;
+4. a project-persistent exact-SHA bundle/capsule already delivered by a previous trusted workflow.
+
+Browser access and shell access are separate capabilities: seeing a GitHub page does not place executable files or Git objects in the shell. A plain source ZIP can be used for read-only review, but it is not sufficient for the formal guard. Exhaust all automated acquisition paths before involving the user. If none succeeds, stop at preflight and, only as a last resort, request one complete Git bundle or verified source capsule; never request arbitrary individual files or describe a plain Source code ZIP as a formal checkout. Browser-only inspection remains allowed for review, planning, and static analysis, but not for a new commit-bound formal result. This source gate must not be weakened to solve a network/tooling limitation.
+User upload is therefore optional rather than preferred: it is unnecessary whenever an existing checkout, clone/fetch, environment bridge, or project-persistent bundle/capsule supplies the exact commit object and complete tree. A no-upload formal run is valid after the same commit, cleanliness, and source-file preflights pass.
+
+The formal guard accepts exactly two source-identity paths:
+
+1. pass an explicit full `--expected-commit` that exists as a commit object in the local checkout, which is the normal offline/server path; or
+2. omit `--expected-commit` only when a live authoritative `git ls-remote origin refs/heads/main` succeeds and matches local `HEAD`.
+
+An offline checkout must therefore use the explicit full SHA. The guard never silently promotes an arbitrary local `HEAD` into a formal source identity. Any requested `--source-file` is also checked against the launch commit before process start, so a typo or missing committed entry point fails before compute begins.
+
+## 23. Defensive identity, path, and mutation gates
+
+The following controls apply to every package and supervised run:
+
+1. experiment IDs must match the restricted identifier grammar and may not contain path separators or traversal;
+2. result roots, output roots, artifact paths, and sidecar paths may not be symlinks or pass through symlink components;
+3. runtime output/artifact paths inside the repository may not overlap tracked files, because ignored runtime paths must never hide source changes;
+4. `run_manifest.json` and the relevant failed/raw-complete/final marker must agree on experiment ID and launch commit for every result package kind;
+5. small `.npy`/`.npz` raw evidence is embedded when it is below the normal file-size limit, while model/checkpoint/optimizer state remains index-only regardless of size;
+6. files are hashed during scan and rechecked after copy; concurrent mutation invalidates the candidate;
+7. the verifier rejects malformed JSON-object manifests, unknown package kinds, unsafe or duplicate paths, undeclared `modified_files/` members, and malformed large-file indexes;
+8. a stale process receives one SIGTERM and then SIGKILL after `--termination-grace-seconds` if it remains alive;
+9. failures during signal-handler setup, log-reader startup, monitoring, or end-provenance resolution use the same failed-evidence path as child-process failures.
+10. sidecar verification checks the exact manifest-to-payload inventory, including experiment ID, full base commit, declared purpose, canonical path, size, and SHA-256 for every selected member;
+11. all size and sidecar-count limits must be positive, and the generic large-file persistence default is `persistent_local`; ephemeral runtimes must explicitly set `ephemeral` or `unknown`.
