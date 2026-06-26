@@ -332,3 +332,26 @@ python3 scripts/validate_governance_rule_inventory.py --repo-root . --run-machin
 ```
 
 第一条进行快速结构和 AST 检查；第二条证明节点可被 pytest 收集；第三条实际运行机器 assurance 的全部唯一测试节点。任何一步失败均应 fail closed。
+
+## 12. Stage 0.2：紧凑输出与 direct package-contract coverage
+
+Stage 0.1 保留了完整逐规则 JSON 报告，但默认把整份报告写到终端。该信息对审计有价值，却不适合作为每次治理检查的默认对话输出：终端内容可能被模型或自动化直接带入上下文，造成与规则数量近似线性增长的 token 开销。
+
+Stage 0.2 将输出职责拆开：
+
+- 默认终端只打印固定长度的通过摘要，包括规则总数、assurance 类型、direct/grouped 覆盖数、pytest 节点数和运行状态；
+- `--report-out` 继续把完整逐规则 JSON 写入文件，审计信息不丢失；
+- `--verbose` 显式请求时才在终端打印完整 JSON；
+- 失败仍然 fail closed，并只展开直接导致失败的规则或测试节点。
+
+这种优化不降低安全等级。validator 仍在内存中构造并验证完整报告，改变的只是正常成功路径的展示方式。因此运行测试主要消耗本地 CPU 与磁盘，而不会要求模型反复阅读全部规则。
+
+Stage 0.1 中三条更新包契约规则仍标记为 `grouped`：`update.patch`、`CHANGE_SUMMARY.md` 和 `TEST_COMMANDS.sh`。`grouped` 表示一个端到端测试整体经过了这些文件，但没有一个独立测试节点直接断言该条规则；它是可见的待补证据，不等于失败，也不等于一对一覆盖。
+
+Stage 0.2 新增 `tests/test_update_package_contract.py`，分别验证：
+
+1. `update.patch` 是必需成员、正式治理包中不得为空，并包含实际修改；
+2. `CHANGE_SUMMARY.md` 是必需成员，自动生成内容绑定 experiment ID、base commit 和修改文件；
+3. `TEST_COMMANDS.sh` 是必需成员，保留可执行模式、包含 `set -euo pipefail`，并拒绝占位命令。
+
+完成后 11 条 machine assurance 均为 `direct`，`grouped_machine_rules` 必须为 0。若以后新增 grouped coverage，仍必须显式记录 `coverage_note`，以防尚未补齐的证据被误报为完整覆盖。

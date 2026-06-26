@@ -316,6 +316,7 @@ rules:
     tests:
     - tests/test_experiment_artifact_protocol.py
     - tests/test_experiment_artifact_hardening.py
+    - tests/test_update_package_contract.py
   migration:
     status: unchanged
     destination_locations: []
@@ -372,6 +373,7 @@ rules:
     tests:
     - tests/test_experiment_artifact_protocol.py
     - tests/test_experiment_artifact_hardening.py
+    - tests/test_update_package_contract.py
   migration:
     status: unchanged
     destination_locations: []
@@ -400,6 +402,7 @@ rules:
     tests:
     - tests/test_experiment_artifact_protocol.py
     - tests/test_experiment_artifact_hardening.py
+    - tests/test_update_package_contract.py
   migration:
     status: unchanged
     destination_locations: []

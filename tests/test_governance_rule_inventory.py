@@ -43,7 +43,8 @@ def test_repository_inventory_and_assurance_validate() -> None:
     assert report["assurance"]["assurance_rules"] == 49
     assert report["assurance"]["assurance_type_counts"]["machine"] == 11
     assert report["assurance"]["assurance_type_counts"]["review"] == 38
-    assert report["assurance"]["grouped_machine_rules"] == 3
+    assert report["assurance"]["direct_machine_rules"] == 11
+    assert report["assurance"]["grouped_machine_rules"] == 0
     assert report["assurance"]["unique_pytest_nodes"]
 
 
@@ -60,6 +61,7 @@ def test_untracked_new_bullet_is_rejected(tmp_path: Path) -> None:
         "scripts/verify_experiment_package_hardened.py",
         "tests/test_experiment_artifact_protocol.py",
         "tests/test_experiment_artifact_hardening.py",
+        "tests/test_update_package_contract.py",
     ]:
         source = ROOT / rel
         target = repo / rel
@@ -179,11 +181,10 @@ def test_machine_assurance_must_match_machine_enforcement_flag(tmp_path: Path) -
 def test_grouped_machine_coverage_requires_visible_note(tmp_path: Path) -> None:
     candidate = copy.deepcopy(_load_assurance())
     rule_id = next(
-        rule_id
-        for rule_id, entry in candidate["rules"].items()
-        if entry.get("coverage_level") == "grouped"
+        rule_id for rule_id, entry in candidate["rules"].items() if entry["type"] == "machine"
     )
-    candidate["rules"][rule_id].pop("coverage_note")
+    candidate["rules"][rule_id]["coverage_level"] = "grouped"
+    candidate["rules"][rule_id].pop("coverage_note", None)
     path = tmp_path / "assurance.yaml"
     _write_yaml(path, candidate)
     with pytest.raises(MODULE.InventoryError, match="grouped coverage needs coverage_note"):
@@ -222,3 +223,32 @@ def test_pytest_node_collection_and_execution_use_exact_node(tmp_path: Path) -> 
     assert collected["returncode"] == 0
     executed = MODULE.run_pytest_nodes(tmp_path, [node], collect_only=False)
     assert executed["returncode"] == 0
+
+
+def test_cli_defaults_to_compact_summary_and_writes_full_report(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    report_path = tmp_path / "governance-report.json"
+    returncode = MODULE.main(
+        [
+            "--repo-root",
+            str(ROOT),
+            "--report-out",
+            str(report_path),
+        ]
+    )
+    assert returncode == 0
+    captured = capsys.readouterr()
+    assert "Governance validation: PASS" in captured.out
+    assert "Coverage: direct=11, grouped=0" in captured.out
+    assert '"rule_reports"' not in captured.out
+    payload = yaml.safe_load(report_path.read_text())
+    assert len(payload["assurance"]["rule_reports"]) == 49
+
+
+def test_cli_verbose_prints_complete_json(capsys: pytest.CaptureFixture[str]) -> None:
+    returncode = MODULE.main(["--repo-root", str(ROOT), "--verbose"])
+    assert returncode == 0
+    captured = capsys.readouterr()
+    assert '"rule_reports"' in captured.out
+    assert '"grouped_machine_rules": 0' in captured.out

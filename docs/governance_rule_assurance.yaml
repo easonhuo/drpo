@@ -112,10 +112,8 @@ rules:
     implementation_paths:
     - scripts/artifact_protocol_hardened.py
     pytest_nodes:
-    - tests/test_experiment_artifact_protocol.py::test_build_and_verify_final_package
-    coverage_level: grouped
-    coverage_note: The end-to-end package test exercises patch creation and package verification together; a dedicated
-      patch-only semantic test remains a later hardening opportunity.
+    - tests/test_update_package_contract.py::test_update_patch_is_required_and_nonempty
+    coverage_level: direct
   GOV-AGENT-PATCH-002:
     type: machine
     implementation_paths:
@@ -129,19 +127,15 @@ rules:
     implementation_paths:
     - scripts/artifact_protocol_hardened.py
     pytest_nodes:
-    - tests/test_experiment_artifact_protocol.py::test_build_and_verify_final_package
-    coverage_level: grouped
-    coverage_note: The end-to-end package test covers the complete package contract as a group; CHANGE_SUMMARY-specific
-      assertions are not yet isolated.
+    - tests/test_update_package_contract.py::test_change_summary_is_required_and_generated_with_identity
+    coverage_level: direct
   GOV-AGENT-PATCH-004:
     type: machine
     implementation_paths:
     - scripts/artifact_protocol_hardened.py
     pytest_nodes:
-    - tests/test_experiment_artifact_protocol.py::test_build_and_verify_final_package
-    coverage_level: grouped
-    coverage_note: The end-to-end package test covers the complete package contract as a group; placeholder-command
-      rejection is not yet isolated in a dedicated node.
+    - tests/test_update_package_contract.py::test_test_commands_is_required_executable_and_rejects_placeholders
+    coverage_level: direct
   GOV-AGENT-PATCH-005:
     type: machine
     implementation_paths:

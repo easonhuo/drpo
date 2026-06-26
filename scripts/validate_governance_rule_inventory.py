@@ -372,6 +372,7 @@ def validate_assurance(
     seen_nodes: set[str] = set()
     rule_reports: list[dict[str, Any]] = []
     counts = {kind: 0 for kind in ALLOWED_ASSURANCE_TYPES}
+    direct_machine_rules = 0
     grouped_machine_rules = 0
 
     for rule_id in sorted(inventory_rules):
@@ -405,6 +406,8 @@ def validate_assurance(
                 if not isinstance(note, str) or not note.strip():
                     raise InventoryError(f"{rule_id}: grouped coverage needs coverage_note")
                 grouped_machine_rules += 1
+            else:
+                direct_machine_rules += 1
 
             declared_implementations = set(
                 rule.get("machine_enforcement", {}).get("implementations", [])
@@ -461,6 +464,7 @@ def validate_assurance(
         "schema_version": 1,
         "assurance_rules": len(entries),
         "assurance_type_counts": counts,
+        "direct_machine_rules": direct_machine_rules,
         "grouped_machine_rules": grouped_machine_rules,
         "unique_pytest_nodes": unique_nodes,
         "rule_reports": rule_reports,
@@ -552,7 +556,42 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Collect and execute every unique machine-assurance node.",
     )
     parser.add_argument("--report-out", type=Path)
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Print the complete per-rule JSON report instead of the compact summary.",
+    )
     return parser.parse_args(argv)
+
+
+def compact_summary(report: dict[str, Any], report_out: Path | None = None) -> str:
+    inventory = report["inventory"]
+    assurance = report["assurance"]
+    counts = assurance["assurance_type_counts"]
+    pytest_report = report["pytest"]
+    lines = [
+        "Governance validation: PASS",
+        (
+            f"Rules: {assurance['assurance_rules']} "
+            f"(machine={counts['machine']}, review={counts['review']}, "
+            f"structural={counts['structural']})"
+        ),
+        (
+            f"Coverage: direct={assurance['direct_machine_rules']}, "
+            f"grouped={assurance['grouped_machine_rules']}"
+        ),
+        (
+            f"Pytest nodes: {len(assurance['unique_pytest_nodes'])}; "
+            f"status={pytest_report['status']}"
+        ),
+        (
+            f"Inventory: sections={inventory['tracked_sections']}, "
+            f"covered_rules={inventory['covered_rules']}"
+        ),
+    ]
+    if report_out is not None:
+        lines.append(f"Full report: {report_out}")
+    return "\n".join(lines)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -575,13 +614,17 @@ def main(argv: list[str] | None = None) -> int:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
     rendered = json.dumps(report, indent=2, sort_keys=True)
+    report_out: Path | None = None
     if args.report_out:
         report_out = args.report_out
         if not report_out.is_absolute():
             report_out = args.repo_root / report_out
         report_out.parent.mkdir(parents=True, exist_ok=True)
         report_out.write_text(rendered + "\n", encoding="utf-8")
-    print(rendered)
+    if args.verbose:
+        print(rendered)
+    else:
+        print(compact_summary(report, report_out))
     return 0
 
 
