@@ -510,3 +510,69 @@ Stage 1 已解决 stale base 的自动三方集成，但“无冲突更新究竟
 - 任一 package test、selected test、Ruff、compile 或 validator 失败，真实 `main` 保持不动。
 
 该机制优化的是“相关测试选择”和可观测性，不把“无文本冲突”错误等同于“无需测试”。包生成时验证的是 `base + patch`，stale integration 实际验证的是 `new main + patch`，两者属于不同软件状态，仍必须至少经过 focused integration gate。
+
+## 16. Stage 1E：生产端全仓验收与失败诊断闭环
+
+Stage 1E 补齐 Stage 1D 之后仍存在的两个低摩擦缺口：更新包生产端未必先在
+exact-base 完整仓库中执行全仓门禁，以及用户端失败后仍需人工整理日志和仓库
+状态。该阶段不改变任何科学实验、冻结配置或结果状态。
+
+### 16.1 生产端交付硬门禁
+
+任何代码更新包在交付前必须基于已确认的完整 Git commit object：
+
+1. 在未修改 exact base 上记录 baseline 门禁结果；
+2. 在独立干净 checkout 中按用户侧等价路径应用 `update.patch`；
+3. 执行包内 `TEST_COMMANDS.sh`；
+4. 聚合执行 compile、Shell syntax、formal-channel validator、governance
+   validator、全仓 pytest 与全仓 Ruff；
+5. 执行 `git diff --check`、modified-file identity 和 executable-mode 检查；
+6. 任一候选新增失败时禁止交付。
+
+baseline 若存在失败，必须明确记录原失败集合；不能把 base 环境缺失或原有测试
+债务误报为候选成功。用户侧 `drpo-update` 仍执行最终集成复核，但不应成为普通
+源码回归的首次发现位置。
+
+### 16.2 聚合门禁
+
+`tools/drpo-update/test_selection.py` 不再在第一个独立门禁失败时立即退出。完整
+门禁依次尝试：
+
+- Python compileall；
+- updater Shell syntax；
+- formal execution channel validator；
+- governance rule inventory validator；
+- full pytest；
+- full Ruff。
+
+fast gate 同样聚合 changed-file compile/Ruff、映射 validators 与映射 pytest。
+每个命令单独记录 return code 和完整日志，全部结束后统一报告失败集合。缺少 Ruff
+等必需执行文件按门禁失败处理，不再静默跳过。
+
+### 16.3 自动诊断包
+
+`drpo-update` 任一失败路径默认原子生成：
+
+```text
+~/Downloads/DRPO_DIAGNOSTIC_<HEAD>_<TIMESTAMP>_<ID>.zip
+```
+
+可通过 `--diagnostic-dir` 或 `DRPO_UPDATE_DIAGNOSTIC_DIR` 覆盖，但默认不得写入
+Desktop。诊断包至少包含原更新包、apply report、完整测试日志、当前仓库 Git
+bundle、候选 identity/diff、冲突 base/ours/theirs/worktree 四份材料、Git 状态与
+refs、依赖/系统信息和 SHA-256 manifest。
+
+冲突和测试失败时，真实 `main` 在诊断包完成前保持不动；诊断包必须在临时
+worktree 清理前生成。用户失败后的唯一人工动作是上传这一份 ZIP，不再手工执行
+`git bundle create` 或逐段复制日志。
+
+### 16.4 验收路径
+
+Stage 1E 自动测试必须覆盖：
+
+1. stale ancestral bundle 非冲突成功；
+2. 真实三方冲突，主分支不动且诊断包含四方冲突材料；
+3. package test 失败后仍执行 repository gate，并生成完整日志；
+4. full gate 首项失败后后续独立命令仍执行；
+5. 默认诊断目录严格为 `~/Downloads`；
+6. 失败后仓库 clean、HEAD 未移动；成功后才 fast-forward。

@@ -13,7 +13,12 @@ TOOL_DIR = REPO_ROOT / "tools" / "drpo-update"
 
 sys.path.insert(0, str(TOOL_DIR))
 
-from test_selection import TestSelectionError as SelectionError, select_test_plan  # noqa: E402
+from test_selection import (  # noqa: E402
+    TestExecutionError as ExecutionError,
+    TestSelectionError as SelectionError,
+    execute_test_plan,
+    select_test_plan,
+)
 
 
 def write_map(path: Path) -> Path:
@@ -151,3 +156,67 @@ def test_cli_reports_plan_from_git_diff(tmp_path: Path):
     payload = json.loads(proc.stdout)
     assert payload["selected_mode"] == "fast"
     assert payload["changed_paths"] == ["docs/plan.md"]
+
+
+def test_full_gate_aggregates_failures_and_runs_later_commands(tmp_path: Path):
+    marker = tmp_path / "later-command-ran.txt"
+    impact_map = tmp_path / "map.json"
+    payload = {
+        "schema_version": 1,
+        "unknown_path_policy": "full",
+        "full_commands": [
+            ["{python}", "-c", "raise SystemExit(7)"],
+            [
+                "{python}",
+                "-c",
+                f"from pathlib import Path; Path({str(marker)!r}).write_text('ran')",
+            ],
+        ],
+        "control_plane_patterns": [],
+        "groups": [
+            {
+                "id": "docs",
+                "risk": "low",
+                "patterns": ["docs/**"],
+                "pytest_targets": [],
+                "validators": [],
+            }
+        ],
+    }
+    impact_map.write_text(json.dumps(payload) + "\n")
+    plan = select_test_plan(["unknown.py"], impact_map)
+    log_dir = tmp_path / "logs"
+    with pytest.raises(ExecutionError) as captured:
+        execute_test_plan(plan, worktree=tmp_path, log_dir=log_dir)
+    assert marker.read_text() == "ran"
+    assert len(captured.value.outcomes) == 2
+    assert captured.value.outcomes[0].returncode == 7
+    assert captured.value.outcomes[1].returncode == 0
+    assert len(list(log_dir.glob("*.log"))) == 2
+
+
+def test_fast_gate_missing_ruff_fails_closed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    impact_map = tmp_path / "map.json"
+    payload = {
+        "schema_version": 1,
+        "unknown_path_policy": "full",
+        "full_commands": [["{python}", "-c", "print('full')"]],
+        "control_plane_patterns": [],
+        "groups": [
+            {
+                "id": "python",
+                "risk": "low",
+                "patterns": ["*.py"],
+                "pytest_targets": [],
+                "validators": [],
+            }
+        ],
+    }
+    impact_map.write_text(json.dumps(payload) + "\n")
+    (tmp_path / "changed.py").write_text("VALUE = 1\n")
+    plan = select_test_plan(["changed.py"], impact_map)
+    monkeypatch.setenv("PATH", "")
+    with pytest.raises(ExecutionError) as captured:
+        execute_test_plan(plan, worktree=tmp_path, log_dir=tmp_path / "logs")
+    assert [outcome.returncode for outcome in captured.value.outcomes] == [0, 127]
+    assert "ruff" in (captured.value.outcomes[1].error or "")

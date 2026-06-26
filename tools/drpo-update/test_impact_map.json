@@ -136,6 +136,34 @@
     [
       "{python}",
       "-m",
+      "compileall",
+      "-q",
+      "src",
+      "scripts",
+      "tools",
+      "tests"
+    ],
+    [
+      "bash",
+      "-n",
+      "tools/drpo-update/drpo-update",
+      "tools/drpo-update/install.sh"
+    ],
+    [
+      "{python}",
+      "scripts/validate_formal_execution_channel.py",
+      "--repo-root",
+      "."
+    ],
+    [
+      "{python}",
+      "scripts/validate_governance_rule_inventory.py",
+      "--repo-root",
+      "."
+    ],
+    [
+      "{python}",
+      "-m",
       "pytest",
       "-q"
     ],

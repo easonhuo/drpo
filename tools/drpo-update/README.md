@@ -31,6 +31,7 @@ Options:
 --test-mode auto        focused tests unless risk requires the full suite
 --test-mode fast        request focused tests; unsafe downgrades are rejected
 --test-mode full        force full pytest and Ruff gates
+--diagnostic-dir PATH   override the failure ZIP directory (default: ~/Downloads)
 --version               print the installed helper version
 ```
 
@@ -89,6 +90,11 @@ The default `--test-mode auto` policy is:
   decision;
 - `TEST_COMMANDS.sh` is still run first for package-specific checks.
 
+The full gate is aggregated rather than fail-fast. It attempts compile checks,
+shell syntax checks, governance validators, full pytest, and full Ruff even when
+an earlier independent command fails. Each command receives its own complete
+log, and the helper reports the combined failure set once all gates finish.
+
 The standalone inspection command is:
 
 ```bash
@@ -111,3 +117,30 @@ package tests, selected test mode, matched impact groups, unknown paths,
 conflicts, resulting commit, push state, failure details, and per-phase timing.
 The terminal prints only a compact timing summary; the complete structured
 record remains in the report file.
+
+## Automatic failure diagnostic ZIP
+
+Any package validation, stale-base, merge-conflict, package-test, repository
+gate, review, or push failure creates one upload-ready archive by default at:
+
+```text
+~/Downloads/DRPO_DIAGNOSTIC_<HEAD>_<TIMESTAMP>_<ID>.zip
+```
+
+The location can be overridden with `--diagnostic-dir` or the
+`DRPO_UPDATE_DIAGNOSTIC_DIR` environment variable. The archive contains:
+
+- the original update package;
+- the structured apply report;
+- complete per-command package and repository-gate logs;
+- a Git repository bundle with current/base/patch/candidate refs when available;
+- candidate identity, changed files, and a current-to-candidate patch;
+- base/ours/theirs/worktree copies for each merge conflict;
+- Git status, refs, recent log, remotes, system information, and installed package
+  versions;
+- a SHA-256 diagnostic manifest.
+
+The real `main` remains unchanged for package, integration, or test failures.
+The diagnostic ZIP is created before the isolated worktree is removed, so
+conflict stages and failed candidate state are preserved without extra user
+commands.

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -56,7 +57,7 @@ def git_fixture(tmp_path: Path):
                         "id": "fixture_tracked_file",
                         "risk": "low",
                         "patterns": ["tracked.txt"],
-                        "pytest_targets": [],
+                        "pytest_targets": ["tests/test_smoke.py"],
                         "validators": [],
                     }
                 ],
@@ -98,6 +99,7 @@ def helper_env(repo: Path, report_dir: Path) -> dict[str, str]:
             "DRPO_UPDATE_ALLOW_ANY_REMOTE": "1",
             "DRPO_UPDATE_SKIP_FETCH": "1",
             "DRPO_UPDATE_REPORT_DIR": str(report_dir),
+            "DRPO_UPDATE_DIAGNOSTIC_DIR": str(report_dir.parent / "diagnostics"),
         }
     )
     return env
@@ -163,6 +165,19 @@ def test_bundle_conflict_fails_without_modifying_main(git_fixture, tmp_path: Pat
     assert git_text(repo, "rev-parse", "HEAD") == before
     assert (repo / "tracked.txt").read_text() == "main side\n"
     assert git_text(repo, "status", "--porcelain") == ""
+    diagnostics = list((tmp_path / "diagnostics").glob("DRPO_DIAGNOSTIC_*.zip"))
+    assert len(diagnostics) == 1
+    with zipfile.ZipFile(diagnostics[0]) as archive:
+        names = set(archive.namelist())
+        assert "apply_report.json" in names
+        assert "git/repository.bundle" in names
+        assert "candidate/conflicts/tracked.txt/base" in names
+        assert "candidate/conflicts/tracked.txt/ours" in names
+        assert "candidate/conflicts/tracked.txt/theirs" in names
+        assert "candidate/conflicts/tracked.txt/worktree" in names
+        report = json.loads(archive.read("apply_report.json"))
+        assert report["failure_phase"] == "integration"
+        assert report["conflicts"] == ["tracked.txt"]
 
 
 def test_patch_bundle_mismatch_is_rejected(git_fixture, tmp_path: Path):
@@ -211,6 +226,38 @@ def test_failed_package_tests_leave_main_untouched(git_fixture, tmp_path: Path):
     assert git_text(repo, "rev-parse", "HEAD") == before
     assert (repo / "tracked.txt").read_text() == "base\n"
     assert git_text(repo, "status", "--porcelain") == ""
+    diagnostics = list((tmp_path / "diagnostics").glob("DRPO_DIAGNOSTIC_*.zip"))
+    assert len(diagnostics) == 1
+    with zipfile.ZipFile(diagnostics[0]) as archive:
+        names = set(archive.namelist())
+        assert "logs/package-tests.log" in names
+        assert any(name.startswith("logs/repository-gates/") for name in names)
+        assert "inputs/original_package/update.patch" in names
+        report = json.loads(archive.read("apply_report.json"))
+        assert report["status"] == "failed"
+        assert report["diagnostic_zip"].endswith(diagnostics[0].name)
+        assert any(item["label"] == "TEST_COMMANDS.sh" for item in report["test_commands"])
+
+
+def test_default_failure_diagnostic_is_written_to_downloads(git_fixture, tmp_path: Path):
+    _, repo, _ = git_fixture
+    package = tmp_path / "package"
+    make_patch(repo, package, "bundle\n", test_command="exit 11")
+    build_bundle(repo, package)
+    home = tmp_path / "home"
+    home.mkdir()
+    env = helper_env(repo, tmp_path / "reports")
+    env.pop("DRPO_UPDATE_DIAGNOSTIC_DIR")
+    env["HOME"] = str(home)
+    proc = run(
+        [str(HELPER), str(package), "--yes", "--no-push"],
+        env=env,
+        check=False,
+    )
+    assert proc.returncode != 0
+    diagnostics = list((home / "Downloads").glob("DRPO_DIAGNOSTIC_*.zip"))
+    assert len(diagnostics) == 1
+    assert f"Diagnostic ZIP: {diagnostics[0]}" in proc.stderr
 
 
 def test_exact_base_legacy_package_succeeds_transactionally(git_fixture, tmp_path: Path):

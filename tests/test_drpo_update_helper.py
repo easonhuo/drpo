@@ -17,7 +17,7 @@ def run(cmd: list[str], *, cwd: Path | None = None, env: dict[str, str] | None =
 
 def test_helper_reports_version():
     proc = run([str(HELPER_DIR / "drpo-update"), "--version"])
-    assert proc.stdout.strip() == "drpo-update 2.1.0"
+    assert proc.stdout.strip() == "drpo-update 2.2.0"
 
 
 def test_installer_defaults_to_repository_symlink(tmp_path: Path):
@@ -43,7 +43,7 @@ def test_installer_defaults_to_repository_symlink(tmp_path: Path):
     assert installed.is_symlink()
     assert installed.resolve() == (target_dir / "drpo-update").resolve()
     assert (home / ".config" / "drpo-update" / "repo_path").read_text().strip() == str(repo.resolve())
-    assert "drpo-update 2.1.0" in proc.stdout
+    assert "drpo-update 2.2.0" in proc.stdout
 
 
 def test_provenance_records_user_verified_original_hash():

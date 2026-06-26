@@ -10,8 +10,10 @@ worktree; the user's main branch moves only after successful verification.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
+import platform
 import re
 import shutil
 import stat
@@ -30,9 +32,15 @@ TOOL_DIR = Path(__file__).resolve().parent
 if str(TOOL_DIR) not in sys.path:
     sys.path.insert(0, str(TOOL_DIR))
 
-from test_selection import TestSelectionError, execute_test_plan, select_test_plan  # noqa: E402
+from test_selection import (  # noqa: E402
+    CommandOutcome,
+    TestExecutionError,
+    TestSelectionError,
+    execute_test_plan,
+    select_test_plan,
+)
 
-VERSION = "2.1.0"
+VERSION = "2.2.0"
 EXPECTED_REMOTE_FRAGMENTS = ("github.com/easonhuo/drpo", "github.com:easonhuo/drpo")
 FULL_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 
@@ -75,12 +83,16 @@ class ApplyReport:
     requested_test_mode: str = "auto"
     selected_test_mode: str | None = None
     test_selection: dict[str, object] | None = None
+    test_commands: list[dict[str, object]] = field(default_factory=list)
+    diagnostic_zip: str | None = None
+    diagnostic_error: str | None = None
+    failure_phase: str | None = None
     timings_seconds: dict[str, float] = field(default_factory=dict)
     created_at_unix: int = field(default_factory=lambda: int(time.time()))
 
     def to_dict(self) -> dict[str, object]:
         return {
-            "schema_version": 2,
+            "schema_version": 3,
             "tool_version": VERSION,
             **self.__dict__,
         }
@@ -131,6 +143,60 @@ def run(
         detail = (proc.stderr or proc.stdout or "").strip()
         raise UpdateError(f"command failed ({proc.returncode}): {' '.join(cmd)}\n{detail}")
     return proc
+
+
+def run_logged_command(
+    cmd: Sequence[str],
+    *,
+    cwd: Path,
+    log_path: Path,
+) -> CommandOutcome:
+    """Run one command with merged stdout/stderr streamed to console and disk."""
+
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    command = tuple(str(item) for item in cmd)
+    header = f"$ {' '.join(command)}\n"
+    try:
+        proc = subprocess.Popen(
+            list(command),
+            cwd=str(cwd),
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+    except OSError as exc:
+        text = header + f"command start failed: {exc}\n"
+        log_path.write_text(text)
+        print(text.rstrip(), file=sys.stderr)
+        return CommandOutcome(
+            label="TEST_COMMANDS.sh",
+            command=command,
+            returncode=127,
+            log_file=str(log_path),
+            error=str(exc),
+        )
+
+    with log_path.open("w") as handle:
+        handle.write(header)
+        assert proc.stdout is not None
+        for line in proc.stdout:
+            print(line, end="")
+            handle.write(line)
+        returncode = proc.wait()
+        handle.write(f"\n[exit_code] {returncode}\n")
+    return CommandOutcome(
+        label="TEST_COMMANDS.sh",
+        command=command,
+        returncode=returncode,
+        log_file=str(log_path),
+    )
+
+
+def append_test_outcome(report: ApplyReport, outcome: CommandOutcome) -> None:
+    payload = outcome.to_dict()
+    if outcome.log_file:
+        payload["log_file"] = Path(outcome.log_file).name
+    report.test_commands.append(payload)
 
 
 def git(repo: Path, *args: str, check: bool = True, capture: bool = True) -> subprocess.CompletedProcess[str]:
@@ -315,15 +381,28 @@ def verify_bundle_and_patch(repo: Path, package: Package, base: str, temp_root: 
         git(repo, "update-ref", "-d", imported_ref, check=False)
 
 
-def run_package_tests(worktree: Path, test_file: Path | None, report: ApplyReport) -> None:
+def run_package_tests(
+    worktree: Path,
+    test_file: Path | None,
+    report: ApplyReport,
+    log_dir: Path,
+) -> UpdateError | None:
     print("[5/9] Running package tests in isolated worktree...")
     if test_file:
         report.tests.append("TEST_COMMANDS.sh")
-        proc = run(("bash", str(test_file)), cwd=worktree, check=False, capture=False)
-        if proc.returncode != 0:
-            raise UpdateError(f"TEST_COMMANDS.sh failed with exit code {proc.returncode}")
-        return
+        outcome = run_logged_command(
+            ("bash", str(test_file)),
+            cwd=worktree,
+            log_path=log_dir / "package-tests.log",
+        )
+        append_test_outcome(report, outcome)
+        if not outcome.passed:
+            return UpdateError(
+                f"TEST_COMMANDS.sh failed with exit code {outcome.returncode}"
+            )
+        return None
     print("WARNING: TEST_COMMANDS.sh is absent; relying on the repository test selector", file=sys.stderr)
+    return None
 
 
 def candidate_changed_paths(worktree: Path, current: str, integrated: str) -> list[str]:
@@ -338,7 +417,8 @@ def run_selected_tests(
     integrated: str,
     requested_mode: str,
     report: ApplyReport,
-) -> None:
+    log_dir: Path,
+) -> UpdateError | None:
     print("[6/9] Selecting and running repository integration tests...")
     impact_map = repo / "tools" / "drpo-update" / "test_impact_map.json"
     if not impact_map.is_file():
@@ -350,13 +430,22 @@ def run_selected_tests(
             impact_map,
             requested_mode=requested_mode,
         )
-        executed = execute_test_plan(
-            plan,
-            worktree=worktree,
-            python_executable=sys.executable,
-        )
+        try:
+            executed = execute_test_plan(
+                plan,
+                worktree=worktree,
+                python_executable=sys.executable,
+                log_dir=log_dir,
+                outcome_callback=lambda outcome: append_test_outcome(report, outcome),
+            )
+        except TestExecutionError as exc:
+            executed = [outcome.label for outcome in exc.outcomes]
+            report.selected_test_mode = plan.selected_mode
+            report.test_selection = plan.to_dict()
+            report.tests.extend(executed)
+            return UpdateError(f"repository test gate failed: {exc}")
     except TestSelectionError as exc:
-        raise UpdateError(f"repository test selection failed: {exc}") from exc
+        return UpdateError(f"repository test selection failed: {exc}")
     report.selected_test_mode = plan.selected_mode
     report.test_selection = plan.to_dict()
     report.tests.extend(executed)
@@ -367,6 +456,7 @@ def run_selected_tests(
         f"unknown={len(plan.unknown_paths)}"
     )
     print(f"Selection reason: {plan.reason}")
+    return None
 
 
 def conflict_paths(worktree: Path) -> list[str]:
@@ -374,59 +464,62 @@ def conflict_paths(worktree: Path) -> list[str]:
     return [line for line in proc.stdout.splitlines() if line.strip()]
 
 
-def create_integration_commit(
+def prepare_integration_worktree(
     repo: Path,
+    current: str,
+    temp_root: Path,
+) -> tuple[Path, str]:
+    worktree = temp_root / "integration"
+    branch = f"drpo-update/integration-{uuid.uuid4().hex}"
+    git(repo, "worktree", "add", "--quiet", "-b", branch, str(worktree), current)
+    configured_name = git(repo, "config", "--get", "user.name", check=False).stdout.strip()
+    configured_email = git(repo, "config", "--get", "user.email", check=False).stdout.strip()
+    git(worktree, "config", "user.name", configured_name or "drpo-update")
+    git(worktree, "config", "user.email", configured_email or "drpo-update@local.invalid")
+    return worktree, branch
+
+
+def create_integration_commit(
+    worktree: Path,
     package: Package,
     current: str,
     base: str,
     patch_commit: str | None,
     message: str,
-    temp_root: Path,
     report: ApplyReport,
-) -> tuple[Path, str, str]:
-    worktree = temp_root / "integration"
-    branch = f"drpo-update/integration-{uuid.uuid4().hex}"
-    git(repo, "worktree", "add", "--quiet", "-b", branch, str(worktree), current)
-    try:
-        configured_name = git(repo, "config", "--get", "user.name", check=False).stdout.strip()
-        configured_email = git(repo, "config", "--get", "user.email", check=False).stdout.strip()
-        git(worktree, "config", "user.name", configured_name or "drpo-update")
-        git(worktree, "config", "user.email", configured_email or "drpo-update@local.invalid")
-        if patch_commit:
-            report.integration_mode = "git-bundle-three-way" if current != base else "git-bundle-exact-base"
-            proc = git(worktree, "cherry-pick", patch_commit, check=False, capture=True)
-            if proc.returncode != 0:
-                report.conflicts = conflict_paths(worktree)
-                git(worktree, "cherry-pick", "--abort", check=False)
-                detail = (proc.stderr or proc.stdout).strip()
-                raise UpdateError(f"three-way cherry-pick failed; main was not modified\n{detail}")
-            git(worktree, "commit", "--amend", "--reset-author", "-m", message, capture=False)
-        else:
-            if current != base:
-                raise UpdateError(
-                    "bundle base is stale and the package has no change.bundle; regenerate once or use a bundle-backed package"
-                )
-            report.integration_mode = "legacy-patch-exact-base"
-            proc = git(worktree, "apply", "--index", str(package.patch_file), check=False)
-            if proc.returncode != 0:
-                raise UpdateError(f"git apply failed:\n{(proc.stderr or proc.stdout).strip()}")
-            git(
-                worktree,
-                "-c",
-                "user.name=drpo-update",
-                "-c",
-                "user.email=drpo-update@local.invalid",
-                "commit",
-                "-m",
-                message,
-                capture=False,
+) -> str:
+    if patch_commit:
+        report.integration_mode = (
+            "git-bundle-three-way" if current != base else "git-bundle-exact-base"
+        )
+        proc = git(worktree, "cherry-pick", patch_commit, check=False, capture=True)
+        if proc.returncode != 0:
+            report.conflicts = conflict_paths(worktree)
+            detail = (proc.stderr or proc.stdout).strip()
+            raise UpdateError(f"three-way cherry-pick failed; main was not modified\n{detail}")
+        git(worktree, "commit", "--amend", "--reset-author", "-m", message, capture=False)
+    else:
+        if current != base:
+            raise UpdateError(
+                "bundle base is stale and the package has no change.bundle; "
+                "regenerate once or use a bundle-backed package"
             )
-        integrated = git_text(worktree, "rev-parse", "HEAD")
-        return worktree, branch, integrated
-    except Exception:
-        remove_worktree(repo, worktree)
-        git(repo, "branch", "-D", branch, check=False)
-        raise
+        report.integration_mode = "legacy-patch-exact-base"
+        proc = git(worktree, "apply", "--index", str(package.patch_file), check=False)
+        if proc.returncode != 0:
+            raise UpdateError(f"git apply failed:\n{(proc.stderr or proc.stdout).strip()}")
+        git(
+            worktree,
+            "-c",
+            "user.name=drpo-update",
+            "-c",
+            "user.email=drpo-update@local.invalid",
+            "commit",
+            "-m",
+            message,
+            capture=False,
+        )
+    return git_text(worktree, "rev-parse", "HEAD")
 
 
 def write_report(report: ApplyReport) -> Path:
@@ -438,6 +531,300 @@ def write_report(report: ApplyReport) -> Path:
     path.write_text(json.dumps(report.to_dict(), indent=2, sort_keys=True) + "\n")
     return path
 
+
+
+def diagnostic_output_path(report: ApplyReport, configured_dir: str | None) -> Path:
+    directory = (
+        Path(configured_dir).expanduser()
+        if configured_dir
+        else Path(os.environ.get("DRPO_UPDATE_DIAGNOSTIC_DIR", "")).expanduser()
+        if os.environ.get("DRPO_UPDATE_DIAGNOSTIC_DIR")
+        else Path.home() / "Downloads"
+    )
+    directory.mkdir(parents=True, exist_ok=True)
+    marker = (report.head_before or report.package_base or "unknown")[:12]
+    timestamp = time.strftime("%Y%m%d-%H%M%S", time.localtime())
+    return directory / f"DRPO_DIAGNOSTIC_{marker}_{timestamp}_{uuid.uuid4().hex[:8]}.zip"
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _write_git_command(repo: Path, destination: Path, *args: str) -> None:
+    proc = git(repo, *args, check=False)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    content = (
+        f"$ git {' '.join(args)}\n"
+        f"[exit_code] {proc.returncode}\n\n"
+        f"{proc.stdout or ''}"
+        f"{proc.stderr or ''}"
+    )
+    content = re.sub(r"(https?://)[^/@\s]+@", r"\1<redacted>@", content)
+    destination.write_text(content)
+
+
+def _safe_conflict_path(path: str) -> Path:
+    relative = Path(path)
+    if relative.is_absolute() or ".." in relative.parts or not relative.parts:
+        raise UpdateError(f"unsafe conflict path reported by Git: {path}")
+    return relative
+
+
+def capture_conflict_materials(worktree: Path, destination: Path, paths: Sequence[str]) -> None:
+    for path in paths:
+        relative = _safe_conflict_path(path)
+        conflict_dir = destination / relative
+        conflict_dir.mkdir(parents=True, exist_ok=True)
+        for stage, label in ((1, "base"), (2, "ours"), (3, "theirs")):
+            proc = subprocess.run(
+                ["git", "-C", str(worktree), "show", f":{stage}:{path}"],
+                check=False,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            if proc.returncode == 0:
+                (conflict_dir / label).write_bytes(proc.stdout)
+            else:
+                (conflict_dir / f"{label}.missing.txt").write_bytes(proc.stderr)
+        candidate = worktree / relative
+        if candidate.is_file() and not candidate.is_symlink():
+            shutil.copy2(candidate, conflict_dir / "worktree")
+
+
+def _copy_original_package(source: Path, destination: Path) -> None:
+    destination.mkdir(parents=True, exist_ok=True)
+    try:
+        if source.is_file():
+            shutil.copy2(source, destination / source.name)
+        elif source.is_dir():
+            _copy_directory(source, destination / "original_package")
+        else:
+            raise OSError(f"package path no longer exists: {source}")
+    except (OSError, UpdateError) as exc:
+        (destination / "COPY_ERROR.txt").write_text(
+            f"Original package could not be copied safely: {exc}\n"
+        )
+
+
+def _create_repository_bundle(
+    repo: Path,
+    destination: Path,
+    commits: dict[str, str | None],
+) -> str | None:
+    namespace = f"refs/drpo-update/diagnostic/{uuid.uuid4().hex}"
+    temporary_refs: list[str] = []
+    try:
+        for label, commit in commits.items():
+            if not commit or not FULL_SHA_RE.fullmatch(commit):
+                continue
+            if git(repo, "cat-file", "-e", f"{commit}^{{commit}}", check=False).returncode != 0:
+                continue
+            ref = f"{namespace}/{label}"
+            git(repo, "update-ref", ref, commit)
+            temporary_refs.append(ref)
+        proc = git(repo, "bundle", "create", str(destination), "--all", check=False)
+        if proc.returncode != 0:
+            return (proc.stderr or proc.stdout or "git bundle create failed").strip()
+        return None
+    finally:
+        for ref in temporary_refs:
+            git(repo, "update-ref", "-d", ref, check=False)
+
+
+def create_diagnostic_zip(
+    *,
+    output_path: Path,
+    staging_root: Path,
+    report: ApplyReport,
+    report_path: Path,
+    repo: Path | None,
+    package_source: Path,
+    package: Package | None,
+    integration_worktree: Path | None,
+    current: str | None,
+    base: str | None,
+    patch_commit: str | None,
+    integrated: str | None,
+    logs_dir: Path,
+) -> Path:
+    """Create one upload-ready failure ZIP without mutating the user's main branch."""
+
+    if staging_root.exists():
+        shutil.rmtree(staging_root)
+    staging_root.mkdir(parents=True)
+    (staging_root / "README.txt").write_text(
+        "DRPO update diagnostic bundle\n"
+        "\n"
+        "This bundle was generated automatically after drpo-update failed.\n"
+        "It contains the original update package, apply report, complete gate logs,\n"
+        "a Git repository bundle, candidate metadata, conflict stages when present,\n"
+        "and a dependency/environment inventory. Secrets and arbitrary environment\n"
+        "variables are intentionally not collected.\n"
+    )
+    shutil.copy2(report_path, staging_root / "apply_report.json")
+    _copy_original_package(package_source, staging_root / "inputs")
+
+    if logs_dir.is_dir():
+        shutil.copytree(logs_dir, staging_root / "logs", dirs_exist_ok=True)
+
+    environment = {
+        "platform": platform.platform(),
+        "python_version": sys.version,
+        "python_executable": sys.executable,
+        "tool_version": VERSION,
+        "home": str(Path.home()),
+        "selected_environment": {
+            key: os.environ.get(key)
+            for key in ("SHELL", "VIRTUAL_ENV", "PYTHONPATH", "PATH")
+            if os.environ.get(key) is not None
+        },
+    }
+    environment_dir = staging_root / "environment"
+    environment_dir.mkdir()
+    (environment_dir / "system.json").write_text(
+        json.dumps(environment, indent=2, sort_keys=True) + "\n"
+    )
+    for name, command in (
+        ("git-version.txt", ("git", "--version")),
+        ("python-packages.json", (sys.executable, "-m", "pip", "list", "--format=json")),
+    ):
+        proc = run(command, check=False)
+        (environment_dir / name).write_text(
+            (proc.stdout or "") + (proc.stderr or "") + f"\n[exit_code] {proc.returncode}\n"
+        )
+
+    git_dir = staging_root / "git"
+    git_dir.mkdir()
+    if repo is not None and git(repo, "rev-parse", "--git-dir", check=False).returncode == 0:
+        commits = {
+            "current": current,
+            "base": base,
+            "patch": patch_commit,
+            "candidate": integrated,
+        }
+        bundle_error = _create_repository_bundle(repo, git_dir / "repository.bundle", commits)
+        if bundle_error:
+            (git_dir / "repository-bundle-error.txt").write_text(bundle_error + "\n")
+        _write_git_command(repo, git_dir / "status.txt", "status", "--porcelain=v2", "--branch")
+        _write_git_command(repo, git_dir / "refs.txt", "show-ref")
+        _write_git_command(repo, git_dir / "log.txt", "log", "--oneline", "--decorate", "-30", "--all")
+        _write_git_command(repo, git_dir / "remotes.txt", "remote", "-v")
+    else:
+        (git_dir / "repository-unavailable.txt").write_text(
+            "Repository was unavailable before failure diagnostics were created.\n"
+        )
+
+    candidate_dir = staging_root / "candidate"
+    candidate_dir.mkdir()
+    identity = {
+        "current": current,
+        "base": base,
+        "patch_commit": patch_commit,
+        "integrated_commit": integrated,
+        "integration_mode": report.integration_mode,
+        "conflicts": report.conflicts,
+        "package_extracted_root": str(package.extracted_root) if package else None,
+    }
+    (candidate_dir / "identity.json").write_text(
+        json.dumps(identity, indent=2, sort_keys=True) + "\n"
+    )
+    if package is not None:
+        shutil.copy2(package.patch_file, candidate_dir / "package-update.patch")
+        if repo is not None:
+            patch_paths = git(
+                repo,
+                "apply",
+                "--numstat",
+                str(package.patch_file),
+                check=False,
+            )
+            (candidate_dir / "package-patch-paths.txt").write_text(
+                patch_paths.stdout + patch_paths.stderr
+            )
+    if integration_worktree is not None and integration_worktree.exists():
+        _write_git_command(
+            integration_worktree,
+            candidate_dir / "worktree-status.txt",
+            "status",
+            "--porcelain=v2",
+            "--branch",
+        )
+        if current and integrated:
+            _write_git_command(
+                integration_worktree,
+                candidate_dir / "changed-files.txt",
+                "diff",
+                "--name-status",
+                f"{current}..{integrated}",
+            )
+            diff_proc = git(
+                integration_worktree,
+                "diff",
+                "--binary",
+                f"{current}..{integrated}",
+                check=False,
+            )
+            (candidate_dir / "current-to-candidate.patch").write_text(
+                diff_proc.stdout + diff_proc.stderr
+            )
+        if report.conflicts:
+            capture_conflict_materials(
+                integration_worktree,
+                candidate_dir / "conflicts",
+                report.conflicts,
+            )
+
+    files = []
+    for path in sorted(staging_root.rglob("*")):
+        if path.is_file() and path.name != "diagnostic_manifest.json":
+            files.append(
+                {
+                    "path": path.relative_to(staging_root).as_posix(),
+                    "size": path.stat().st_size,
+                    "sha256": _sha256(path),
+                }
+            )
+    (staging_root / "diagnostic_manifest.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "created_at_unix": int(time.time()),
+                "failure_phase": report.failure_phase,
+                "status": report.status,
+                "files": files,
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n"
+    )
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    candidate_zip = output_path.with_name(f".{output_path.name}.{uuid.uuid4().hex}.tmp")
+    try:
+        with zipfile.ZipFile(candidate_zip, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+            for path in sorted(staging_root.rglob("*")):
+                if path.is_file():
+                    archive.write(path, path.relative_to(staging_root).as_posix())
+        with zipfile.ZipFile(candidate_zip) as archive:
+            corrupt = archive.testzip()
+            if corrupt:
+                raise UpdateError(f"diagnostic ZIP checksum verification failed: {corrupt}")
+            required = {"apply_report.json", "diagnostic_manifest.json", "README.txt"}
+            missing = sorted(required.difference(archive.namelist()))
+            if missing:
+                raise UpdateError(
+                    "diagnostic ZIP is missing required members: " + ", ".join(missing)
+                )
+        os.replace(candidate_zip, output_path)
+    finally:
+        candidate_zip.unlink(missing_ok=True)
+    return output_path
 
 def display_review(worktree: Path, current: str, integrated: str, package: Package, report: ApplyReport) -> None:
     print("[7/9] Review summary")
@@ -455,40 +842,55 @@ def display_review(worktree: Path, current: str, integrated: str, package: Packa
 
 def apply_update(args: argparse.Namespace) -> int:
     total_started = time.perf_counter()
-    repo = resolve_repo(args.repo)
+    package_source = Path(args.package).expanduser().resolve()
     report = ApplyReport(
-        package=str(Path(args.package).expanduser().resolve()),
-        repository=str(repo),
+        package=str(package_source),
+        repository="unresolved",
         requested_test_mode=args.test_mode,
     )
     temp_root = Path(tempfile.mkdtemp(prefix="drpo-update-"))
+    logs_dir = temp_root / "logs"
     package: Package | None = None
+    repo: Path | None = None
     integration_worktree: Path | None = None
     integration_branch: str | None = None
+    current: str | None = None
+    base: str | None = None
+    patch_commit: str | None = None
+    integrated: str | None = None
+    phase = "repository_resolution"
     try:
-        with timed_phase(report, "package_extract"):
-            package = extract_package(Path(args.package), temp_root)
-        with timed_phase(report, "repository_preflight"):
+        repo = resolve_repo(args.repo)
+        report.repository = str(repo)
+
+        phase = "package_extract"
+        with timed_phase(report, phase):
+            package = extract_package(package_source, temp_root)
+        phase = "repository_preflight"
+        with timed_phase(report, phase):
             validate_repo(repo)
-        with timed_phase(report, "refresh_main"):
+        phase = "refresh_main"
+        with timed_phase(report, phase):
             refresh_main(repo)
-        with timed_phase(report, "base_resolution"):
+        phase = "base_resolution"
+        with timed_phase(report, phase):
             current = git_text(repo, "rev-parse", "HEAD")
             base_requested = read_full_sha(package.base_file, "BASE_COMMIT.txt")
             base = resolve_commit(repo, base_requested, "BASE_COMMIT.txt")
         report.package_base = base
         report.head_before = current
 
-        patch_commit: str | None = None
         if package.has_git_bundle:
             print("[2/9] Verifying Git bundle and patch equivalence...")
-            with timed_phase(report, "bundle_verification"):
+            phase = "bundle_verification"
+            with timed_phase(report, phase):
                 patch_commit = verify_bundle_and_patch(repo, package, base, temp_root)
             report.patch_commit = patch_commit
             ancestry = git(repo, "merge-base", "--is-ancestor", base, current, check=False)
             if ancestry.returncode != 0:
                 raise UpdateError(
-                    "BASE_COMMIT.txt is not an ancestor of current main; automatic integration is intentionally disabled"
+                    "BASE_COMMIT.txt is not an ancestor of current main; "
+                    "automatic integration is intentionally disabled"
                 )
         elif current != base:
             raise UpdateError(
@@ -500,28 +902,66 @@ def apply_update(args: argparse.Namespace) -> int:
 
         print("[3/9] Preparing isolated integration worktree...")
         message = args.message or summary_title(package.summary_file)
-        with timed_phase(report, "integration"):
-            integration_worktree, integration_branch, integrated = create_integration_commit(
-                repo, package, current, base, patch_commit, message, temp_root, report
+        phase = "integration"
+        with timed_phase(report, phase):
+            integration_worktree, integration_branch = prepare_integration_worktree(
+                repo,
+                current,
+                temp_root,
+            )
+            integrated = create_integration_commit(
+                integration_worktree,
+                package,
+                current,
+                base,
+                patch_commit,
+                message,
+                report,
             )
         report.integrated_commit = integrated
         print("[4/9] Candidate integration created; main is still untouched.")
-        with timed_phase(report, "package_tests"):
-            run_package_tests(integration_worktree, package.test_file, report)
-        with timed_phase(report, "repository_test_gate"):
-            run_selected_tests(
+
+        gate_errors: list[UpdateError] = []
+        phase = "package_tests"
+        with timed_phase(report, phase):
+            package_error = run_package_tests(
+                integration_worktree,
+                package.test_file,
+                report,
+                logs_dir,
+            )
+        if package_error:
+            gate_errors.append(package_error)
+
+        phase = "repository_test_gate"
+        with timed_phase(report, phase):
+            repository_error = run_selected_tests(
                 repo,
                 integration_worktree,
                 current,
                 integrated,
                 args.test_mode,
                 report,
+                logs_dir / "repository-gates",
             )
-        with timed_phase(report, "review"):
+        if repository_error:
+            gate_errors.append(repository_error)
+        if gate_errors:
+            phase = "aggregated_test_gates"
+            detail = "\n".join(f"- {error}" for error in gate_errors)
+            raise UpdateError(
+                "candidate integration failed one or more aggregated test gates; "
+                "main was not modified:\n" + detail
+            )
+
+        phase = "review"
+        with timed_phase(report, phase):
             display_review(integration_worktree, current, integrated, package, report)
 
         if not args.yes:
-            answer = input(f"Tests passed. Fast-forward main to '{message}' and push? [y/N] ").strip()
+            answer = input(
+                f"Tests passed. Fast-forward main to '{message}' and push? [y/N] "
+            ).strip()
             if answer.lower() != "y":
                 report.status = "stopped_before_main_update"
                 finalize_total_timing(report, total_started)
@@ -531,7 +971,8 @@ def apply_update(args: argparse.Namespace) -> int:
                 return 0
 
         print("[8/9] Fast-forwarding verified commit onto main...")
-        with timed_phase(report, "main_fast_forward"):
+        phase = "main_fast_forward"
+        with timed_phase(report, phase):
             git(repo, "merge", "--ff-only", integrated, capture=False)
             report.head_after = git_text(repo, "rev-parse", "HEAD")
         report.status = "committed_local"
@@ -540,7 +981,8 @@ def apply_update(args: argparse.Namespace) -> int:
             print("[9/9] Push skipped (--no-push).")
         else:
             print("[9/9] Pushing origin/main...")
-            with timed_phase(report, "push"):
+            phase = "push"
+            with timed_phase(report, phase):
                 push = git(repo, "push", "origin", "main", check=False, capture=False)
             if push.returncode != 0:
                 report.status = "committed_local_push_failed"
@@ -556,20 +998,60 @@ def apply_update(args: argparse.Namespace) -> int:
         return 0
     except (UpdateError, OSError, zipfile.BadZipFile) as exc:
         report.error = str(exc)
+        report.failure_phase = phase
         if report.status not in {"committed_local_push_failed"}:
             report.status = "failed"
         finalize_total_timing(report, total_started)
+        report_path: Path | None = None
         try:
-            path = write_report(report)
-            print_timing_summary(report)
-            print(f"ERROR: {exc}\nApply report: {path}", file=sys.stderr)
-        except Exception:
-            print(f"ERROR: {exc}", file=sys.stderr)
+            diagnostic_path = diagnostic_output_path(report, args.diagnostic_dir)
+            report.diagnostic_zip = str(diagnostic_path)
+            report_path = write_report(report)
+            create_diagnostic_zip(
+                output_path=diagnostic_path,
+                staging_root=temp_root / "diagnostic-staging",
+                report=report,
+                report_path=report_path,
+                repo=repo,
+                package_source=package_source,
+                package=package,
+                integration_worktree=integration_worktree,
+                current=current,
+                base=base,
+                patch_commit=patch_commit,
+                integrated=integrated,
+                logs_dir=logs_dir,
+            )
+        except Exception as diagnostic_exc:  # diagnostics must not hide root failure
+            report.diagnostic_error = str(diagnostic_exc)
+            report.diagnostic_zip = None
+            try:
+                if report_path is None:
+                    report_path = write_report(report)
+                else:
+                    report_path.write_text(
+                        json.dumps(report.to_dict(), indent=2, sort_keys=True) + "\n"
+                    )
+            except Exception as report_exc:
+                print(
+                    f"ERROR: {exc}\nDiagnostic reporting also failed: {report_exc}",
+                    file=sys.stderr,
+                )
+                return 1
+        print_timing_summary(report)
+        message = f"ERROR: {exc}"
+        if report_path is not None:
+            message += f"\nApply report: {report_path}"
+        if report.diagnostic_zip:
+            message += f"\nDiagnostic ZIP: {report.diagnostic_zip}"
+        elif report.diagnostic_error:
+            message += f"\nDiagnostic ZIP generation failed: {report.diagnostic_error}"
+        print(message, file=sys.stderr)
         return 1
     finally:
-        if integration_worktree is not None:
+        if repo is not None and integration_worktree is not None:
             remove_worktree(repo, integration_worktree)
-        if integration_branch is not None:
+        if repo is not None and integration_branch is not None:
             git(repo, "branch", "-D", integration_branch, check=False)
         shutil.rmtree(temp_root, ignore_errors=True)
 
@@ -586,6 +1068,10 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         help="auto selects a focused gate unless high-risk or unknown paths require the full suite",
     )
     parser.add_argument("--message", "-m")
+    parser.add_argument(
+        "--diagnostic-dir",
+        help="failure diagnostic ZIP directory (default: ~/Downloads)",
+    )
     parser.add_argument("--repo", help=argparse.SUPPRESS)
     parser.add_argument("--version", action="store_true")
     args = parser.parse_args(argv)
