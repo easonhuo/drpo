@@ -1,0 +1,48 @@
+{
+  "experiment_id": "C-U1-E3-ADAM-RERUN",
+  "scientific_status": "long_run_validated",
+  "run_commit": "ac286a46b8ffad898dfad0e7e9188b1d2e81052a",
+  "repository_closure_base_commit": "04a5d342b4102f863f6b5a2aae1fb750295349b5",
+  "runner_sha256": "502c345289d2b5b7c34832246478b64c33a1789e80ddcab7f6194cb09b0eac6f",
+  "external_artifact": {
+    "filename": "DRPO_CU1_E3_ADAM_AC286A4_FINAL.zip",
+    "sha256": "2b8bfdbe6f33ed1db9dc1e59f6e9fbdb6c224c7b31b1326a7f2fbaeeaaaf522b",
+    "delivered_to_user": true,
+    "contains_raw_trajectories": true,
+    "contains_terminal_checkpoints": true
+  },
+  "compact_repository_files": {
+    "RESULT_SUMMARY.md": {
+      "sha256": "adaba3e2ab9d29869725639a86213156f85f29f7a6939fa021a456fa668a4b84",
+      "size_bytes": 3849
+    },
+    "TERMINAL_AUDIT.md": {
+      "sha256": "a4db973c89e9e764db7647aeca0f542dec4432e6fd54b455c32af896389e209e",
+      "size_bytes": 2764
+    },
+    "fixed_variance_aggregate.csv": {
+      "sha256": "fa64ef6fa4a318add9cf739dca232718290415105278f6f792cc0a281ce92c49",
+      "size_bytes": 5498
+    },
+    "learnable_variance_aggregate.csv": {
+      "sha256": "2743ba102ad3c32e8daa8d0b265a6fbbef747248007939dc981b3499ec7ee37d",
+      "size_bytes": 4853
+    }
+  },
+  "paper_use": {
+    "main_text": [
+      "fixed_variance/baseline",
+      "fixed_variance/near_zero",
+      "fixed_variance/far_zero",
+      "fixed_variance/far_cap"
+    ],
+    "complementary": [
+      "learnable_variance support contraction"
+    ],
+    "appendix_controls": [
+      "global_scale",
+      "far_to_near"
+    ]
+  },
+  "terminology": "held-out-context generalization; not OOD"
+}

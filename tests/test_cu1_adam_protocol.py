@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import importlib.util
+import importlib
 import inspect
 import sys
 from pathlib import Path
@@ -11,16 +11,16 @@ import yaml
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-RUNNER_PATH = REPO_ROOT / "src" / "drpo" / "drpo_cu1_e1_e4_oneclick.py"
+SRC_ROOT = REPO_ROOT / "src"
 
 
 def load_runner():
-    spec = importlib.util.spec_from_file_location("drpo_cu1_adam_runner_test", RUNNER_PATH)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
+    # Load the runner as part of the ``drpo`` package so its relative import of
+    # ``cu1_core`` uses the same semantics as the installed/module entry point.
+    src_root = str(SRC_ROOT)
+    if src_root not in sys.path:
+        sys.path.insert(0, src_root)
+    return importlib.import_module("drpo.drpo_cu1_e1_e4_oneclick")
 
 
 def test_registered_adam_stages_and_optimizer() -> None:
@@ -90,13 +90,16 @@ def test_full_state_support_audit_and_event_precedence() -> None:
     assert runner.support_event_type(overflow) == "nonfinite_sigma_output"
 
 
-def test_registry_and_handoff_register_adam_reruns_as_not_run() -> None:
+def test_registry_and_handoff_register_e3_result_and_keep_e4_not_run() -> None:
     registry = yaml.safe_load((REPO_ROOT / "experiments" / "registry.yaml").read_text())
     experiments = {row["id"]: row for row in registry["experiments"]}
 
     e3 = experiments["C-U1-E3-ADAM-RERUN"]
     e4 = experiments["C-U1-E4-ADAM-RERUN"]
-    assert e3["status"] == "not_run"
+    assert e3["status"] == "long_run_validated"
+    assert e3["formal_run_status"] == "delivered"
+    assert e3["evidence"]["terminal_audited"] is True
+    assert e3["evidence"]["delivered_to_user"] is True
     assert e4["status"] == "not_run"
     assert e3["optimizer"]["name"] == "Adam"
     assert e4["optimizer"]["name"] == "Adam"
@@ -104,7 +107,8 @@ def test_registry_and_handoff_register_adam_reruns_as_not_run() -> None:
     assert e3["data"]["terminology"] == "held_out_context_generalization"
 
     handoff = (REPO_ROOT / "docs" / "handoff.md").read_text()
-    assert "v30（Gaussian 二次临界界、C-U1 共享实现与统一 Adam 对齐版）" in handoff
+    assert "v31（C-U1 E3 统一 Adam 因果闭环与论文结果版）" in handoff
+    assert "v30 增量登记：Gaussian 二次临界界" in handoff
     assert "v29 增量记录：C-U1 E3/E4 统一 Adam 与方差坍缩口径修正" in handoff
     assert "C-U1-E3-ADAM-RERUN" in handoff
     assert "C-U1-E4-ADAM-RERUN" in handoff

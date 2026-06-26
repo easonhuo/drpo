@@ -88,7 +88,7 @@ experiments:
 - id: C-U1-E3-ADAM-RERUN
   environment: C-U1
   name: cu1_far_field_causal_intervention_unified_adam
-  status: not_run
+  status: long_run_validated
   claim: Test whether anomalous far-field negative gradients causally transmit into mean drift, task-performance collapse, and support or variance contraction under the same Adam optimizer used by the paper-facing C-U1 pipeline.
   role: controlled_mechanism_identification
   code_entrypoint: src/drpo/drpo_cu1_e1_e4_oneclick.py
@@ -147,20 +147,102 @@ experiments:
   - unexpected_positive_boundary_event
   controls_note: Raw-gradient budget matching does not imply Adam parameter-update matching.
   terminal_audit: required
-  formal_run_status: not_run
+  formal_run_status: delivered
   execution:
-    state: registered
-    run_id: null
+    state: delivered
+    run_id: cu1_e3_adam_ac286a4_run1
+    completion_mode: sharded_recovery_with_terminal_aggregation
     last_heartbeat_utc: null
     process_exit_code: null
+    note: No single supervisor exit code represents the sharded recovered run; all expected scientific outputs and terminal gates were audited.
   evidence:
-    raw_complete: false
-    terminal_audited: false
-    package_created: false
-    package_filename: null
-    package_sha256: null
-    delivered_to_user: false
+    raw_complete: true
+    terminal_audited: true
+    terminal_audit_all_checks_passed: true
+    expected_fixed_rows: 120
+    actual_fixed_rows: 120
+    expected_learnable_rows: 100
+    actual_learnable_rows: 100
+    missing_required_files: 0
+    package_created: true
+    package_filename: DRPO_CU1_E3_ADAM_AC286A4_FINAL.zip
+    package_sha256: 2b8bfdbe6f33ed1db9dc1e59f6e9fbdb6c224c7b31b1326a7f2fbaeeaaaf522b
+    delivered_to_user: true
     applied_commit: null
+    compact_result_path: outputs/cu1_e3_adam
+  provenance:
+    run_commit: ac286a46b8ffad898dfad0e7e9188b1d2e81052a
+    repository_closure_base_commit: 04a5d342b4102f863f6b5a2aae1fb750295349b5
+    runner_git_blob: 9b509ccd224f9cf7b4f9d79b58e04d76bad62e69
+    runner_sha256: 502c345289d2b5b7c34832246478b64c33a1789e80ddcab7f6194cb09b0eac6f
+    source_mode: exact_committed_runner_blob_plus_committed_handoff_registry_snapshots
+    local_git_object_available_at_launch: false
+    local_git_object_limitation: Shell DNS could not reach GitHub in the launch environment.
+    aggregation_workaround: JSON tuple/list representation normalization only; no scientific inputs or outputs changed.
+  result_summary:
+    fixed_variance:
+      baseline:
+        reward_mean: 0.0000022246353978516707
+        task_collapse_count: 20
+        support_event_count: 0
+        nan_inf_count: 0
+      near_zero:
+        reward_mean: 0.00000217606851151686
+        task_collapse_count: 20
+        support_event_count: 0
+        nan_inf_count: 0
+      far_zero:
+        reward_mean: 0.7393616884946823
+        reward_ci95: [0.7388725359139248, 0.7398508410754399]
+        task_collapse_count: 0
+        support_event_count: 0
+        nan_inf_count: 0
+      far_cap:
+        reward_mean: 0.733071705698967
+        reward_ci95: [0.7325694714536328, 0.7335739399443011]
+        task_collapse_count: 0
+        support_event_count: 0
+        nan_inf_count: 0
+      global_scale:
+        reward_mean: 0.5990572392940521
+        task_collapse_count: 0
+      far_to_near:
+        reward_mean: 0.8753230214118958
+        task_collapse_count: 0
+    learnable_variance:
+      baseline:
+        support_contraction_count: 20
+        support_onset_median: 73
+        unexpected_expansion_count: 0
+        nan_inf_count: 0
+      near_zero:
+        support_contraction_count: 20
+        support_onset_median: 73
+        unexpected_expansion_count: 0
+        nan_inf_count: 0
+      far_zero:
+        support_event_count: 0
+        nan_inf_count: 0
+      far_cap:
+        support_event_count: 0
+        nan_inf_count: 0
+      global_scale:
+        support_event_count: 0
+        nan_inf_count: 0
+    total_method_seed_runs: 220
+    total_nan_inf_count: 0
+    learnable_method_seed_runs: 100
+    unexpected_support_expansion_count: 0
+  paper_use:
+    suitable: true
+    main_text: [fixed_variance_baseline, fixed_variance_near_zero, fixed_variance_far_zero, fixed_variance_far_cap]
+    complementary_panel_or_appendix: [learnable_variance_support_contraction]
+    appendix_controls: [global_scale, far_to_near]
+    prohibited_claims:
+    - OOD_generalization
+    - universal_method_ranking
+    - variance_explosion
+  scientific_status: long_run_validated
   supersedes_for_paper_facing_result: C-U1 E3 SGD reconstruction and recovered transient runs
   preserved_history: true
 - id: C-U1-E4-ADAM-RERUN
