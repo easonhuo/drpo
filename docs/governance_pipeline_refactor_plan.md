@@ -420,3 +420,74 @@ PATCH_COMMIT.txt
 - failure detail。
 
 报告不进入研究结果主文档，也不默认打印完整 JSON，避免治理审计反向膨胀对话 token。
+
+## 14. Stage 2：统一正式实验通道与防绕过门禁
+
+### 14.1 阶段编号调整
+
+早期计划把 handoff delta shadow mode 称为 Stage 2。实施过程中，更新包过期问题已经由 Stage 1 收口，而“新训练入口能否默认继承统一 artifact 规则”成为更直接的治理风险。因此从本节起调整执行顺序，但不删除第 7 节的历史计划：
+
+- 当前 Stage 2：统一正式实验 guard/package/verify 通道与防绕过门禁；
+- 原 Stage 2 handoff delta shadow mode 顺延为 Stage 3；
+- 原 Stage 3 无损历史拆分顺延为 Stage 4；
+- 原 Stage 4 受控切换与 AGENTS 精简顺延为 Stage 5。
+
+该调整只改变治理工作的实施顺序，不改变任何科学实验职责、冻结参数或结果状态。
+
+### 14.2 唯一正式执行通道
+
+`experiments/registry.yaml` 新增顶层 `formal_execution_channel`，将以下文件登记为唯一规范通道：
+
+```text
+scripts/run_experiment_guard_hardened.py
+scripts/package_experiment_hardened.py
+scripts/verify_experiment_package_hardened.py
+scripts/artifact_protocol_hardened.py
+docs/formal_experiment_artifact_protocol.md
+```
+
+新的训练文件只负责训练、指标和规定的 checkpoint 输出，不自行复制 25 MiB / 10 MiB、symlink、checksum、原子发布或失败恢复逻辑。正式运行的 artifact 所有权属于统一通道。所有 registry 实验必须显式声明 `execution_class`：
+
+- `formal`：当前或未来可能产生正式证据；
+- `pilot`：只产生 pilot 或开发证据；
+- `historical_formal`：Stage 2 之前已经完成并保留 provenance 的正式运行；
+- `superseded`：保留历史但不得重新启动的旧协议。
+
+正式条目必须声明 canonical channel、guard、packager、verifier、hardened core、artifact protocol、entrypoint 状态和 runner archive policy。已规划但尚未实现的正式入口只能处于 blocked 状态，不能伪装为可执行入口。
+
+### 14.3 防绕过 validator
+
+`scripts/validate_formal_execution_channel.py` 负责：
+
+1. 验证三个公共 wrapper 都导入同一个 hardened core，并在 core 缺失时 fail closed；
+2. 锁定默认主包 25 MiB、单文件 10 MiB、persistent-local 大文件索引和 sidecar 默认关闭；
+3. 要求每个正式实验显式绑定统一通道；
+4. 要求 active formal entrypoint 的 launch template 经过 canonical guard 并绑定精确 experiment ID；
+5. 静态拒绝新正式 Python entrypoint 直接创建 ZIP/TAR/7z 等 archive；
+6. 区分 formal、pilot、historical formal 和 superseded，防止 pilot 冒充正式结果；
+7. 默认只输出紧凑摘要，完整逐实验报告写入文件，避免治理输出反向膨胀 token。
+
+该 validator 不能替代 artifact hardened core。它负责证明“入口是否被正确接线”，hardened core 负责真正执行路径、大小、symlink、checksum、发布和失败恢复规则。
+
+### 14.4 现有 C-U1 recovery checkpoint 的窄例外
+
+`src/drpo/drpo_cu1_e1_e4_oneclick.py` 在 Stage 2 之前已经包含每五个 seed 写一次 recovery checkpoint ZIP 的逻辑。该 ZIP 是恢复检查点，不是最终 formal artifact。为避免在本阶段同时重写已登记的 C-U1 runner，registry 只为 `C-U1-E4-CONV-01` 登记一个精确 legacy exception：
+
+```text
+CU1-RECOVERY-CHECKPOINT-LEGACY-01
+```
+
+例外仅允许既有 entrypoint、既有 experiment ID 和 `recovery_checkpoint_only` 范围；新训练入口不得复制。最终/raw-complete 包仍必须由 canonical hardened channel 生成。未来若重构 C-U1 checkpoint API，应先移除直接 archive 写入，再删除该例外，而不是扩大例外范围。
+
+### 14.5 Stage 2A 的边界
+
+本阶段只完成 registry schema、validator、规则 assurance 和负向测试：
+
+- 不启动任何实验；
+- 不修改 seeds、数据规模、阈值、优化器或终态标准；
+- 不删除 AGENTS 中现有硬规则；
+- 不修改 artifact 大小预算；
+- 不把历史正式运行倒推为经过当前 guard；
+- 不开始 handoff 历史拆分。
+
+Stage 2A 验收后，新增 formal entrypoint 若未接入统一通道、使用自定义 packager、直接创建 formal archive 或缺少明确 execution class，治理测试必须失败。

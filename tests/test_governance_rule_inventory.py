@@ -19,11 +19,15 @@ SPEC.loader.exec_module(MODULE)
 
 
 def _load_inventory() -> dict:
-    return yaml.safe_load((ROOT / "docs" / "governance_rule_inventory.yaml").read_text())
+    return yaml.safe_load(
+        (ROOT / "docs" / "governance_rule_inventory.yaml").read_text()
+    )
 
 
 def _load_assurance() -> dict:
-    return yaml.safe_load((ROOT / "docs" / "governance_rule_assurance.yaml").read_text())
+    return yaml.safe_load(
+        (ROOT / "docs" / "governance_rule_assurance.yaml").read_text()
+    )
 
 
 def _write_yaml(path: Path, payload: dict) -> None:
@@ -59,9 +63,11 @@ def test_untracked_new_bullet_is_rejected(tmp_path: Path) -> None:
         "scripts/run_experiment_guard_hardened.py",
         "scripts/package_experiment_hardened.py",
         "scripts/verify_experiment_package_hardened.py",
+        "scripts/validate_formal_execution_channel.py",
         "tests/test_experiment_artifact_protocol.py",
         "tests/test_experiment_artifact_hardening.py",
         "tests/test_update_package_contract.py",
+        "tests/test_formal_execution_channel.py",
     ]:
         source = ROOT / rel
         target = repo / rel
@@ -69,7 +75,9 @@ def test_untracked_new_bullet_is_rejected(tmp_path: Path) -> None:
         target.write_bytes(source.read_bytes())
     agents = (repo / "AGENTS.md").read_text()
     marker = "## Method-comparison discipline"
-    agents = agents.replace(marker, "* A newly added unregistered hard rule.\n\n" + marker)
+    agents = agents.replace(
+        marker, "* A newly added unregistered hard rule.\n\n" + marker
+    )
     (repo / "AGENTS.md").write_text(agents)
     with pytest.raises(
         MODULE.InventoryError,
@@ -78,7 +86,9 @@ def test_untracked_new_bullet_is_rejected(tmp_path: Path) -> None:
         MODULE.validate_inventory(repo, repo / "docs/governance_rule_inventory.yaml")
 
 
-def test_machine_enforceable_rule_requires_implementation_and_test(tmp_path: Path) -> None:
+def test_machine_enforceable_rule_requires_implementation_and_test(
+    tmp_path: Path,
+) -> None:
     payload = _load_inventory()
     candidate = copy.deepcopy(payload)
     rule = next(
@@ -123,7 +133,9 @@ def test_every_inventory_rule_requires_one_assurance_entry(tmp_path: Path) -> No
 def test_machine_assurance_requires_exact_pytest_nodes(tmp_path: Path) -> None:
     candidate = copy.deepcopy(_load_assurance())
     rule_id = next(
-        rule_id for rule_id, entry in candidate["rules"].items() if entry["type"] == "machine"
+        rule_id
+        for rule_id, entry in candidate["rules"].items()
+        if entry["type"] == "machine"
     )
     candidate["rules"][rule_id]["pytest_nodes"] = []
     path = tmp_path / "assurance.yaml"
@@ -139,7 +151,9 @@ def test_machine_assurance_requires_exact_pytest_nodes(tmp_path: Path) -> None:
 def test_nonexistent_pytest_function_is_rejected(tmp_path: Path) -> None:
     candidate = copy.deepcopy(_load_assurance())
     rule_id = next(
-        rule_id for rule_id, entry in candidate["rules"].items() if entry["type"] == "machine"
+        rule_id
+        for rule_id, entry in candidate["rules"].items()
+        if entry["type"] == "machine"
     )
     test_path = candidate["rules"][rule_id]["pytest_nodes"][0].split("::", 1)[0]
     candidate["rules"][rule_id]["pytest_nodes"] = [
@@ -158,7 +172,9 @@ def test_nonexistent_pytest_function_is_rejected(tmp_path: Path) -> None:
 def test_machine_assurance_must_match_machine_enforcement_flag(tmp_path: Path) -> None:
     candidate = copy.deepcopy(_load_assurance())
     review_rule_id = next(
-        rule_id for rule_id, entry in candidate["rules"].items() if entry["type"] == "review"
+        rule_id
+        for rule_id, entry in candidate["rules"].items()
+        if entry["type"] == "review"
     )
     candidate["rules"][review_rule_id] = {
         "type": "machine",
@@ -181,13 +197,17 @@ def test_machine_assurance_must_match_machine_enforcement_flag(tmp_path: Path) -
 def test_grouped_machine_coverage_requires_visible_note(tmp_path: Path) -> None:
     candidate = copy.deepcopy(_load_assurance())
     rule_id = next(
-        rule_id for rule_id, entry in candidate["rules"].items() if entry["type"] == "machine"
+        rule_id
+        for rule_id, entry in candidate["rules"].items()
+        if entry["type"] == "machine"
     )
     candidate["rules"][rule_id]["coverage_level"] = "grouped"
     candidate["rules"][rule_id].pop("coverage_note", None)
     path = tmp_path / "assurance.yaml"
     _write_yaml(path, candidate)
-    with pytest.raises(MODULE.InventoryError, match="grouped coverage needs coverage_note"):
+    with pytest.raises(
+        MODULE.InventoryError, match="grouped coverage needs coverage_note"
+    ):
         MODULE.validate_assurance(
             ROOT,
             ROOT / "docs" / "governance_rule_inventory.yaml",
@@ -198,12 +218,16 @@ def test_grouped_machine_coverage_requires_visible_note(tmp_path: Path) -> None:
 def test_review_assurance_requires_triggers_and_evidence(tmp_path: Path) -> None:
     candidate = copy.deepcopy(_load_assurance())
     rule_id = next(
-        rule_id for rule_id, entry in candidate["rules"].items() if entry["type"] == "review"
+        rule_id
+        for rule_id, entry in candidate["rules"].items()
+        if entry["type"] == "review"
     )
     candidate["rules"][rule_id]["required_evidence"] = []
     path = tmp_path / "assurance.yaml"
     _write_yaml(path, candidate)
-    with pytest.raises(MODULE.InventoryError, match="review assurance needs required_evidence"):
+    with pytest.raises(
+        MODULE.InventoryError, match="review assurance needs required_evidence"
+    ):
         MODULE.validate_assurance(
             ROOT,
             ROOT / "docs" / "governance_rule_inventory.yaml",
