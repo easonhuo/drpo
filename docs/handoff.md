@@ -1,4 +1,18 @@
-# DRPO / SNA2C 远场负梯度动力学研究主文档 v35（C-U1 E4 用户确认闭环版）
+# DRPO / SNA2C 远场负梯度动力学研究主文档 v36（D-U1 E5 长程复核协议版）
+
+
+> **v36 增量登记：`D-U1-E5-LONGRUN-RERUN` 长程复核与 provenance 重建（不删除 v35 及更早内容）**
+>
+> - 用户于 2026-06-26 明确确认：E5 与正在其他 session 执行的 `C-U1-E4-TAPER-01` 科学职责、runner 和结果目录完全独立，允许并行推进；但两者最终都可能修改 `docs/handoff.md` 与 `experiments/registry.yaml`，仓库集成仍须通过 Stage 1 Git-bundle 三方合并串行完成。
+> - 新正式实验 ID 为 **`D-U1-E5-LONGRUN-RERUN`**，当前状态为 **尚未运行（not_run）**。它只复核 E5 的 categorical 排斥与支持边界，不替代 E6 的共享语义未见动作外推，也不承担 Transformer/token 外部有效性。
+> - 当前 Git 历史和 tree 中不存在旧 `run_categorical.py`、`unified_repulsive_dynamics/results/categorical_paper_run/` 或原始 categorical artifact。旧 handoff 中的 direct-softmax、20-seed near/far 干预和饱和审计结论继续保留，但本轮必须明确称为“基于已锁定 handoff 的 protocol reconstruction”，不得声称 byte-identical 复现缺失的历史 runner。
+> - D-Diag 直接 softmax 分支冻结为 3 动作、固定负优势 `A=-1`、学习率 `1e-3`、20000 steps、每 100 steps 评估；高概率负动作初态 `p0=0.8991,H0=0.386`，低概率负动作初态 `p0=0.0038,H0=0.292`。验收为 target surprisal/logit gap 持续增长、direct-logit score 始终不超过 `sqrt(2)`，并与旧 handoff 的终值数量级对齐。
+> - D-U1 causal reconstruction 使用 6D context、26 个随机 ID 映射的 semantic offsets、固定 advantage、无 critic/value、无 importance sampling。正式 seeds 仍为 10--29；比较 `positive_only / baseline / near_zero / far_zero / far_cap / global_scale`，并固定 near/far 负质量与所有几何、Adam、阈值和最大步数。
+> - 长程上限冻结为 20000 steps，每 100 steps 评估，终态窗口为 `10000--15000` 与 `15000--20000`。内部稳态分支必须通过 beta、tau、reward 与 raw-gradient 后段门禁；无法形成内部 fixed point 的分支允许以 support/temperature boundary 或 persistent suppression 闭环。task-performance collapse、support/temperature boundary、NaN/Inf 必须分开报告。
+> - 历史 qualitative pattern（Baseline/Near-zero task+support collapse；Far-zero/Far-cap 两类均不 collapse；Global-scale task 保留但 support collapse；Positive-only 两类均不 collapse）只作为**预先登记的复现参照**，不是结果后调参目标。若长程结果不一致，必须如实报告并替换旧口径，禁止修改 seed、阈值或方法质量以追求对齐。
+> - 正式入口为 `src/drpo/du1_e5_longrun_rerun.py`，必须通过 `scripts/run_experiment_guard_hardened.py` 的 canonical channel 启动；runner 禁止自行写 ZIP。raw-complete、terminal audit、最终闭环包与 repository commit 继续作为分离状态管理。
+> - 本协议基于 `main` commit `d9424f1b9ab4e5ed25bc1ac00f97d84317f67cdc`。在协议更新实际应用并提交前，不得启动正式 E5。
+
 
 > **v35 增量登记：`C-U1-E4-CONV-01` 经用户审阅后的科学闭环（不删除 v34 及更早内容）**
 >
@@ -525,6 +539,21 @@ Ground-truth reward 由动作到 `a_star(s)` 的二维距离决定，因此 `a_s
 
 ---
 
+## 3.7.1 D-U1 / D-Diag E5 长程复核 `D-U1-E5-LONGRUN-RERUN`
+
+本实验是 E5 历史结果的正式 provenance 重建与长期复核，不是新的方法排名，也不替代 E6。历史代码和 raw artifact 未进入当前 Git 历史，因此本轮只继承已锁定的科学职责、解析初值、方法角色和 qualitative 参照；所有重建参数均在本节和 registry 中一次性冻结。
+
+1. **D-Diag direct-softmax：** 三动作 full-softmax，目标动作固定负优势 `A=-1`，plain Euler/SGD learning rate `1e-3`，20000 steps。两个精确初态分别匹配旧 handoff 的 `(p0,H0)=(0.8991,0.386)` 与 `(0.0038,0.292)`；保存 target probability、surprisal、entropy、direct-logit score 和 logit gap。
+2. **D-U1 causal reconstruction：** 6D contexts 只生成受控 contextual provenance；26 个 action ID 由 semantic offset `[-3,3]` 的随机 permutation 得到，禁止把 ID 顺序解释成语义顺序。positive/near/far 的 offset-spread 分别为 `(0,1.2)`、`(-0.5,0.2)`、`(-2.5,0.2)`，advantage magnitude 固定相等。
+3. **优化器与数据：** 每 seed 4096 contexts；positive 4096、near 2048、far 2048 empirical samples；Adam `lr=0.003,betas=(0.9,0.999),eps=1e-8`；正式 seeds 10--29。
+4. **方法质量：** `positive_only=(0,0)`、`baseline=(0.25,0.45)`、`near_zero=(0,0.45)`、`far_zero=(0.25,0)`、`far_cap=(0.25,0.03)`、`global_scale=(0.10,0.18)`，元组顺序为 `(near_mass,far_mass)`。不得根据正式结果修改。
+5. **终态：** 最大 20000 steps、每 100 steps 评估；W1=`10000--15000`，W2=`15000--20000`。稳定门禁为 W2 `|Δbeta|<=0.02`、`|Δtau|<=0.02`、`|Δreward|<=0.01`、raw-gradient median `<=1e-4`。`tau<=0.05` 或 effective support `<=1.5` 记为 support/temperature boundary；没有内部稳态但 surprisal 继续增长则记 persistent suppression；其他为 inconclusive。
+6. **任务阈值：** 每 seed 以同一 seed 的 positive-only terminal reward 为参考，终态 reward 不高于其 20% 记 task-performance collapse。该事件与 support boundary、NaN/Inf 分报。
+7. **历史比较：** 旧 20/20 qualitative pattern 是预注册 comparison。正式验收首先要求 120/120 method-seed runs 完整、direct-softmax 数值重建通过、所有终态可审计；是否与历史完全一致必须如实报告，不能作为结果后调参门禁。
+8. **执行与 artifact：** canonical hardened guard 负责监督和打包；runner 只写普通 CSV/JSON/PNG/Markdown 和每 5 seeds checkpoint marker，不写 archive。正式运行完成后先交 raw-complete 包，再做 terminal audit 和仓库闭环更新。
+
+---
+
 ## 3.8 C-U1 共享实现与二次阶方法实验 `C-U1-E4-TAPER-01`
 
 ### 3.8.1 代码单一来源
@@ -609,7 +638,7 @@ $$
 | E4 | 独立 Extrapolation 环境；部分长程审计 | **`C-U1-E4-ADAM-RERUN` 已完成并交付**：有限步 reward 相变、过强压力任务崩溃、learnable-variance support contraction 与 4000-step controls 均完成；受益分支未通过 20/20 双 residual audit | **有限训练步数验证**；可用于有限步相变图与失稳分支，暂不可写成稳定有益 fixed point |
 | E4-CONV | 无历史独立环境结果 | **4000-step 正式运行已完成**：`0.75/1.00/1.25` 目标状态分别为 15/20、16/20、15/20，剩余均 inconclusive，0 个明确相反终态，60/60 科学角色未反转 | **已长期验证（用户确认闭环）**；原 18/20 门禁未通过的事实继续保留，不等同于 20/20 fixed-point 认证 |
 | E4-TAPER | seeds 0--4 独立复制实现 pilot | 共享 core 与正式 runner 已登记；E4-CONV 前置门禁已由用户确认闭环解除，正式 seeds 70--89 尚未运行 | 二次临界界已解析证明；允许按冻结协议启动，方法排名尚无正式结果 |
-| E5 | 解析和长程 categorical 基本完成 | D-U1/D-Diag 可保留 | 接近完成，需整理最终口径 |
+| E5 | 历史解析、direct-softmax 与 20-seed 因果结果保留；旧 runner/raw artifact 未入库 | `D-U1-E5-LONGRUN-RERUN` 已登记，正式 20000-step 复核尚未运行 | 尚未运行；需先重建 provenance 并比较历史 qualitative pattern |
 | E6 | unordered semantic categorical 仅短程 pilot | 尚未长期重跑 | 未完成 |
 | E7 | Hopper learned-critic 600-step probe | `EXT-H-E7-Q2` 二次分支外部验证协议已预注册；长期重跑与实现尚未执行 | 旧 probe 仍仅为有限训练步数证据；E7-Q2 状态为尚未运行 |
 | E8 | v4.1 审计式 pilot 代码已实现；仅代码/CPU 测试，不含真实 Qwen 结果 | 未在真实本地 Qwen/CUDA/BF16-LoRA 或 full-FT 完整运行 | 尚未运行；v4 已替换，v4.1 不得把静态/CPU 测试当作实验结果 |
@@ -624,8 +653,9 @@ $$
 4. `C-U1-E4-TAPER-01` 前置门禁已解除，状态为“尚未运行、允许按冻结协议启动”；解除依据是用户对完整证据的文档化审阅，不得改写原 per-seed 18/20 共识门禁失败；
 5. E4 论文口径允许使用经用户确认闭环的长程相变结论：`alpha=0.75/1.00` 有界有益外推、`alpha=1.25` 稳定过度外推，以及既有任务性能崩溃、support contraction 和 `alpha=1.75` finite runaway；同时必须披露原 18/20 门禁未通过，且不得写成 20/20 fixed-point 认证；
 6. E3 主文继续只保留 Baseline/Near-zero/Far-zero/Far-cap 的最短因果链；
-7. 下一正式实验可按冻结顺序运行 `C-U1-E4-TAPER-01`，随后为 E6 categorical 长程及外部 Hopper/Countdown；
-8. 论文正文可以并行整理 E1/E2/E3 与 E4 已闭环的非单调相变及分离失败类型证据。
+7. `C-U1-E4-TAPER-01` 与 `D-U1-E5-LONGRUN-RERUN` 经用户批准可由不同 session 并行运行；两者科学与输出独立，但 handoff/registry 更新必须通过 Git-bundle 三方集成串行落库；
+8. E5 长程复核完成并交付后，再决定旧 E5 口径是否直接保留、修正或降级；E6 categorical 长程仍单独执行，不得由 E5 替代；
+9. 外部 Hopper/Countdown 与论文正文整理可按各自门禁并行推进。
 
 任何新增实验必须先说明它补哪一个 claim、是否替代现有实验、是否进入本文档。
 

@@ -1385,6 +1385,190 @@ experiments:
     package_sha256: null
     delivered_to_user: false
     applied_commit: null
+- id: D-U1-E5-LONGRUN-RERUN
+  environment: D-U1_and_D-Diag
+  name: categorical_repulsion_support_boundary_longrun_reconstruction
+  status: not_run
+  parent_experiment: E5
+  registration_base_commit: d9424f1b9ab4e5ed25bc1ac00f97d84317f67cdc
+  claim: >-
+    Reconstruct and long-run audit the locked E5 categorical mechanism: repeated
+    fixed negative updates keep the direct-logit score bounded while driving
+    target surprisal and logit gaps toward the simplex boundary, and selective
+    rare/far-negative interventions reproduce the historical separation between
+    task-performance collapse, support/temperature boundary events, and NaN/Inf
+    numerical failure.
+  role: controlled_categorical_mechanism_reconstruction_and_provenance_repair
+  execution_class: formal
+  formal_execution:
+    channel_ref: hardened-v1
+    activation_state: active
+    entrypoint_status: implemented
+    entrypoint: src/drpo/du1_e5_longrun_rerun.py
+    launch_mode: canonical_guard
+    artifact_owner: canonical_channel
+    guard_entrypoint: scripts/run_experiment_guard_hardened.py
+    package_entrypoint: scripts/package_experiment_hardened.py
+    verify_entrypoint: scripts/verify_experiment_package_hardened.py
+    hardened_core: scripts/artifact_protocol_hardened.py
+    artifact_protocol: docs/formal_experiment_artifact_protocol.md
+    inherit_default_artifact_budget: true
+    runner_archive_policy:
+      mode: forbid
+  code_entrypoint: src/drpo/du1_e5_longrun_rerun.py
+  formal_launch_template: >-
+    python3 scripts/run_experiment_guard_hardened.py
+    --experiment-id D-U1-E5-LONGRUN-RERUN
+    --repo-root .
+    --output-root experiments/results/D-U1-E5-LONGRUN-RERUN/run_001
+    --artifact-output artifacts/D-U1-E5-LONGRUN-RERUN_RAW_COMPLETE.zip
+    --heartbeat-seconds 60
+    --stale-seconds 900
+    --fail-on-stale
+    --progress-glob causal/per_seed_summary.csv
+    --required-output RUN_COMPLETE.json
+    --required-output terminal_audit.json
+    --required-output REPORT.md
+    --required-output causal/per_seed_summary.csv
+    --required-output causal/aggregate_summary.json
+    --required-output historical_reference_comparison.json
+    --source-file src/drpo/du1_e5_longrun_rerun.py
+    --run-class formal
+    --expected-commit "$(git rev-parse HEAD)"
+    --require-origin-main-match
+    -- python3 src/drpo/du1_e5_longrun_rerun.py
+    --mode formal
+    --output-root experiments/results/D-U1-E5-LONGRUN-RERUN/run_001
+  historical_provenance:
+    historical_runner_path: run_categorical.py
+    historical_result_path: unified_repulsive_dynamics/results/categorical_paper_run/
+    historical_source_committed: false
+    historical_raw_artifact_committed: false
+    reconstruction_status: reconstructed_from_locked_handoff
+    exact_legacy_code_reproduction_claimed: false
+    historical_values_are_reference_not_tuning_targets: true
+  independence_and_parallelism:
+    independent_of: C-U1-E4-TAPER-01
+    user_parallel_execution_approved: true
+    approval_date: '2026-06-26'
+    shared_files_requiring_serialized_repository_integration:
+    - docs/handoff.md
+    - experiments/registry.yaml
+  protocol:
+    fixed_advantage: true
+    critic_or_value_network: false
+    importance_sampling: false
+    direct_softmax:
+      action_count: 3
+      fixed_negative_advantage: -1.0
+      learning_rate: 0.001
+      maximum_steps: 20000
+      evaluation_interval_steps: 100
+      high_probability_initial: 0.8991
+      low_probability_initial: 0.0038
+      score_upper_bound: sqrt_2
+    du1_causal:
+      state_dim: 6
+      train_states: 4096
+      action_count: 26
+      action_ids: random_permutation_of_semantic_offsets
+      semantic_offset_range: [-3.0, 3.0]
+      positive_samples: 4096
+      near_negative_samples: 2048
+      far_negative_samples: 2048
+      initial_beta: 0.0
+      initial_tau: 1.2
+      positive_offset_and_spread: [0.0, 1.2]
+      near_offset_and_spread: [-0.5, 0.2]
+      far_offset_and_spread: [-2.5, 0.2]
+      reward_optimum_offset: 0.7
+      reward_width: 0.4
+      optimizer: Adam
+      learning_rate: 0.003
+      betas: [0.9, 0.999]
+      eps: 1.0e-8
+      formal_held_out_seeds: [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29]
+      maximum_steps: 20000
+      evaluation_interval_steps: 100
+      audit_window_1: [10000, 15000]
+      audit_window_2: [15000, 20000]
+      support_tau_threshold: 0.05
+      effective_support_threshold: 1.5
+      task_collapse_ratio_to_positive_only: 0.20
+      stable_beta_change: 0.02
+      stable_tau_change: 0.02
+      stable_reward_change: 0.01
+      stable_raw_gradient_median: 1.0e-4
+      checkpoint_marker_every_seeds: 5
+  methods:
+    positive_only: {near_mass: 0.0, far_mass: 0.0}
+    baseline: {near_mass: 0.25, far_mass: 0.45}
+    near_zero: {near_mass: 0.0, far_mass: 0.45}
+    far_zero: {near_mass: 0.25, far_mass: 0.0}
+    far_cap: {near_mass: 0.25, far_mass: 0.03}
+    global_scale: {near_mass: 0.10, far_mass: 0.18}
+  primary_metrics:
+  - target_action_probability_and_surprisal
+  - direct_logit_score_norm
+  - target_logit_gap
+  - entropy_and_effective_support
+  - task_reward_relative_to_positive_only
+  - beta_and_temperature
+  - raw_gradient_norm
+  - adam_parameter_update_norm
+  reporting_separation:
+  - task_performance_collapse
+  - support_or_temperature_boundary_event
+  - nan_inf_numerical_failure
+  terminal_classes:
+  - stable_bounded
+  - support_boundary
+  - persistent_suppression
+  - terminal_inconclusive
+  - nan_inf_numerical_failure
+  historical_reference_pattern:
+    baseline: {task_collapse: true, support_collapse: true}
+    near_zero: {task_collapse: true, support_collapse: true}
+    far_zero: {task_collapse: false, support_collapse: false}
+    far_cap: {task_collapse: false, support_collapse: false}
+    global_scale: {task_collapse: false, support_collapse: true}
+    positive_only: {task_collapse: false, support_collapse: false}
+  acceptance_and_reporting:
+    run_completeness_required: 120_method_seed_runs
+    direct_reference_reproduction_required: true
+    historical_causal_pattern_is_comparison_not_tuning_gate: true
+    no_post_result_threshold_changes: true
+    terminal_audit_required: true
+    exact_counts_must_be_reported_even_if_history_does_not_reproduce: true
+    no_method_ranking_claim: true
+  does_not_replace:
+  - E6
+  - EXT-C-E8-V4.1
+  prohibited_claims:
+  - categorical_direct_logit_gradient_is_unbounded
+  - support_boundary_equals_nan_inf_failure
+  - E5_proves_unseen_action_semantic_generalization
+  - exact_legacy_runner_reproduction
+  - universal_method_ranking
+  execution:
+    state: registered
+    run_id: null
+    last_heartbeat_utc: null
+    process_exit_code: null
+  evidence:
+    raw_complete: false
+    terminal_audited: false
+    package_created: false
+    package_filename: null
+    package_sha256: null
+    delivered_to_user: false
+    applied_commit: null
+    scientific_status: not_run
+  artifact_budget:
+    main_package_hard_limit_mib: 25
+    checkpoint_policy: canonical_channel_markers_every_5_seeds
+    large_file_storage: persistent_local_index
+
 allowed_execution_states:
 - registered
 - running
