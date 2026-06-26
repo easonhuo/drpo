@@ -1637,6 +1637,194 @@ experiments:
     checkpoint_policy: canonical_channel_markers_every_5_seeds
     large_file_storage: persistent_local_index
 
+development_experiment_registrations:
+- id: D-U1-E6-SEMANTIC-PILOT-01
+  environment: D-U1
+  name: shared_semantic_categorical_extrapolation_development_pilot
+  status: pilot
+  parent_experiment: E6
+  registration_base_commit: c5c9ebf67ed7aa08d0313e604f836907890f0964
+  claim: >-
+    Test whether controlled local fixed-negative gradients in a shared semantic
+    categorical policy can move probability mass beyond positive demonstrations
+    toward a hidden optimal action on independently sampled held-out contexts,
+    while uncontrolled far-negative pressure can cause task-performance or
+    support/temperature failure.
+  role: controlled_shared_semantic_categorical_development
+  execution_class: pilot
+  registry_scope: development_preregistration_not_in_canonical_experiments
+  code_entrypoint: src/drpo/du1_e6_semantic.py
+  config_path: configs/du1_e6_semantic_pilot.yaml
+  documentation_path: src/drpo/README_DU1_E6_SEMANTIC.md
+  command:
+  - python
+  - src/drpo/du1_e6_semantic.py
+  - --config
+  - configs/du1_e6_semantic_pilot.yaml
+  - --stage
+  - pilot
+  - --output-root
+  - experiments/results/D-U1-E6-SEMANTIC-PILOT-01/run_001
+  - --device
+  - auto
+  parallelism:
+    independent_of: C-U1-E4-TAPER-01
+    user_parallel_execution_approved: true
+    approval_date: '2026-06-26'
+    shared_files_requiring_serialized_repository_integration:
+    - docs/handoff.md
+    - experiments/registry.yaml
+  protocol:
+    fixed_advantage: true
+    critic_or_value_network: false
+    importance_sampling: false
+    state_dim: 6
+    semantic_dim: 4
+    action_count: 64
+    development_train_states: 2048
+    development_test_states: 2048
+    state_distribution: standard_normal
+    train_test_relation: independent_same_distribution
+    terminology: held_out_context_generalization
+    positive_actions_per_state: 4
+    local_negative_actions_per_state: 1
+    far_negative_actions_per_state: 4
+    hidden_optimum_excluded_from_positive_demonstrations: true
+    target_offset: 0.45
+    positive_advantage: 1.0
+    negative_advantage: -1.0
+    negative_advantages_exactly_equal: true
+    random_action_id_permutation: true
+    development_seeds: [0, 1, 2, 3, 4]
+    held_out_formal_seeds: []
+    optimizer: Adam
+    development_learning_rate: 0.001
+    development_maximum_steps: 2000
+    evaluation_interval_steps: 50
+    fixed_concentration: 8.0
+    initial_learnable_concentration: 8.0
+    learnable_concentration_upper_clamp: false
+    protocol_a_local_alpha_grid: [0.0, 0.1, 0.25, 0.5, 0.75, 1.0]
+    protocol_b_methods:
+    - positive_only
+    - local_only
+    - uncontrolled
+    - near_zero
+    - far_zero
+    - far_cap
+    - budget_matched_global
+    protocol_c_policy_embedding_modes: [aligned, shuffled]
+  primary_metrics:
+  - hidden_optimal_probability
+  - positive_support_probability
+  - expected_semantic_reward
+  - normalized_semantic_extrapolation
+  - entropy
+  - effective_support
+  - concentration
+  - raw_positive_local_far_gradient_norms
+  - raw_controlled_negative_gradient_norm
+  - raw_total_gradient_norm
+  - adam_parameter_update_norm
+  reporting_separation:
+  - task_performance_collapse
+  - support_or_temperature_boundary
+  - nan_inf_numerical_failure
+  controls:
+    paired_network_initialization: true
+    paired_minibatch_index_stream: true
+    policy_side_semantic_shuffle_only: true
+    reward_semantics_unchanged_under_shuffle: true
+    raw_gradient_budget_matching_only: true
+    adam_update_budget_matching_claimed: false
+  terminal_audit:
+    pilot_two_trailing_windows: true
+    formal_two_x_extension_performed: false
+    formal_acceptance_allowed: false
+  formal_parameter_freeze:
+    frozen: false
+    required_before_longrun:
+    - local_alpha_or_grid
+    - concentration_settings
+    - learning_rate_and_optimizer
+    - maximum_steps_and_evaluation_interval
+    - event_thresholds
+    - stopping_and_two_x_extension_criteria
+    - untouched_held_out_seeds
+    - formal_method_matrix
+  non_claims:
+  - formal_method_ranking
+  - long_run_validation
+  - OOD_generalization
+  - Transformer_external_validity
+  - E5_replacement
+  execution:
+    state: registered
+    run_id: null
+    last_heartbeat_utc: null
+    process_exit_code: null
+  evidence:
+    static_checks: false
+    unit_tests: false
+    smoke_test: false
+    pilot_raw_complete: false
+    terminal_audited: false
+    package_created: false
+    delivered_to_user: false
+
+- id: D-U1-E6-SEMANTIC-LONGRUN-01
+  environment: D-U1
+  name: shared_semantic_categorical_extrapolation_longrun
+  status: not_run
+  parent_experiment: E6
+  predecessor: D-U1-E6-SEMANTIC-PILOT-01
+  registration_base_commit: c5c9ebf67ed7aa08d0313e604f836907890f0964
+  claim: >-
+    Reserved formal long-run E6 experiment for shared-semantic categorical
+    extrapolation and support protection. Its final claim, methods, thresholds,
+    stopping rules, and held-out seeds must be frozen only after the development
+    pilot has been reviewed.
+  role: reserved_formal_controlled_shared_semantic_categorical_experiment
+  execution_class: formal
+  implementation_state: not_implemented
+  registry_scope: development_preregistration_not_in_canonical_experiments
+  formal_execution:
+    channel_ref: hardened-v1
+    activation_state: blocked
+    entrypoint_status: planned
+    entrypoint: null
+    launch_mode: canonical_guard
+    artifact_owner: canonical_channel
+    guard_entrypoint: scripts/run_experiment_guard_hardened.py
+    package_entrypoint: scripts/package_experiment_hardened.py
+    verify_entrypoint: scripts/verify_experiment_package_hardened.py
+    hardened_core: scripts/artifact_protocol_hardened.py
+    artifact_protocol: docs/formal_experiment_artifact_protocol.md
+    inherit_default_artifact_budget: true
+    runner_archive_policy: {mode: forbid}
+  blocked_by:
+  - user_review_of_D-U1-E6-SEMANTIC-PILOT-01
+  - frozen_alpha_and_concentration
+  - frozen_learning_rate_and_maximum_steps
+  - frozen_event_and_terminal_audit_thresholds
+  - frozen_untouched_held_out_seeds
+  - separately_implemented_formal_runner
+  code_entrypoint: null
+  command: null
+  development_seeds_forbidden_in_formal_aggregation: [0, 1, 2, 3, 4]
+  held_out_seeds: []
+  formal_parameter_freeze: false
+  execution:
+    state: registered
+    run_id: null
+    last_heartbeat_utc: null
+    process_exit_code: null
+  evidence:
+    raw_complete: false
+    terminal_audited: false
+    package_created: false
+    delivered_to_user: false
+
 allowed_execution_states:
 - registered
 - running
@@ -1808,4 +1996,16 @@ governance_changes:
   - GOV-EXP-ARTIFACT-03
   purpose: Require authoritative three-phase main-branch freshness checks, make sessions discover remote advances without depending on user reminders, and allow verified immutable full-SHA archives for code-delivery work when direct Git transport is unavailable.
   base_commit_at_registration: f6590a28fb327bb4f83a6418637187f5ab2cace0
+  scientific_status_change: false
+- id: GOV-E6-TAPER-PARALLEL-01
+  status: active
+  effective_date: '2026-06-26'
+  purpose: >-
+    Record the user's approval for D-U1-E6-SEMANTIC-PILOT-01 to run in parallel
+    with C-U1-E4-TAPER-01 while preserving independent scientific duties,
+    experiment IDs, runners, and output roots.
+  constraints:
+  - shared_handoff_and_registry_integration_must_be_serialized
+  - neither_session_may_overwrite_the_other_experiment_history
+  - E6_formal_longrun_remains_blocked_until_pilot_parameter_freeze
   scientific_status_change: false

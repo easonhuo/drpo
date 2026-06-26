@@ -1,0 +1,133 @@
+experiment_id: D-U1-E6-SEMANTIC-PILOT-01
+parent_experiment: E6
+environment: D-U1
+scientific_status: pilot
+execution_mode: development_pilot
+formal_parameter_freeze: false
+claim: >-
+  Test whether controlled local negative gradients in a shared semantic categorical
+  policy can move probability mass beyond positive demonstrations toward a hidden
+  optimal action on unseen contexts, while uncontrolled far-negative pressure can
+  induce task-performance or support-boundary failure.
+non_claims:
+  - no_formal_method_ranking
+  - no_ood_generalization_claim
+  - no_long_run_validation
+  - no_transformer_external_validity
+parallelism:
+  independent_experiment: C-U1-E4-TAPER-01
+  user_parallel_execution_approved: true
+  approval_date: '2026-06-26'
+  repository_integration_must_be_serialized: true
+seeds:
+  development: [0, 1, 2, 3, 4]
+  held_out_formal: []
+data:
+  state_dim: 6
+  semantic_dim: 4
+  action_count: 64
+  train_states: 2048
+  test_states: 2048
+  positive_actions_per_state: 4
+  far_negative_actions_per_state: 4
+  hidden_optimal_actions_per_state: 1
+  local_negative_actions_per_state: 1
+  state_distribution: standard_normal
+  train_test_relation: independent_same_distribution
+  terminology: held_out_context_generalization
+geometry:
+  target_offset: 0.45
+  reward_scale: 0.5
+  positive_advantage: 1.0
+  negative_advantage: -1.0
+  fixed_advantage: true
+  random_action_id_permutation: true
+policy:
+  hidden_dim: 64
+  fixed_concentration: 8.0
+  learnable_concentration_floor: 0.05
+  initial_learnable_concentration: 8.0
+  activation: tanh
+optimization:
+  optimizer: Adam
+  learning_rate: 0.001
+  betas: [0.9, 0.999]
+  eps: 1.0e-8
+  batch_size: 128
+  maximum_steps: 2000
+  evaluation_interval_steps: 50
+  audit_states: 512
+  far_pressure_lambda: 1.0
+  far_cap_ratio_to_weighted_local_gradient: 1.0
+protocol_a:
+  concentration_mode: fixed
+  local_alpha_grid: [0.0, 0.1, 0.25, 0.5, 0.75, 1.0]
+  far_pressure_lambda: 0.0
+protocol_b:
+  concentration_mode: learnable
+  local_alpha: 0.5
+  far_pressure_lambda: 1.0
+  methods:
+    - positive_only
+    - local_only
+    - uncontrolled
+    - near_zero
+    - far_zero
+    - far_cap
+    - budget_matched_global
+protocol_c:
+  concentration_mode: learnable
+  local_alpha: 0.5
+  far_pressure_lambda: 1.0
+  embedding_modes: [aligned, shuffled]
+  methods:
+    - positive_only
+    - local_only
+    - uncontrolled
+    - far_cap
+metrics:
+  - hidden_optimal_probability
+  - positive_support_probability
+  - expected_semantic_reward
+  - normalized_semantic_extrapolation
+  - entropy
+  - effective_support
+  - concentration
+  - raw_positive_local_far_gradient_norms
+  - raw_controlled_negative_gradient_norm
+  - raw_total_gradient_norm
+  - adam_parameter_update_norm
+reporting_separation:
+  - task_performance_collapse
+  - support_or_temperature_boundary
+  - nan_inf_numerical_failure
+events:
+  task_collapse_ratio_to_paired_positive_only: 0.20
+  effective_support_boundary: 1.50
+  concentration_warning: 80.0
+terminal_audit:
+  trailing_evaluations_per_window: 6
+  normalized_metric_change_tolerance: 0.02
+  raw_total_gradient_median_tolerance: 0.02
+  require_two_windows: true
+  formal_two_x_extension_required: true
+formal_gate:
+  enabled: false
+  reason: >-
+    Development seeds must first establish environment invariants and produce a
+    user-reviewed parameter-freeze record for alpha, concentration, learning rate,
+    maximum steps, event thresholds, stopping criteria, and untouched held-out seeds.
+  approval_record: null
+  frozen_protocol_path: null
+  held_out_seeds: []
+outputs:
+  required:
+    - resolved_config.yaml
+    - environment_audits.json
+    - trajectories.jsonl
+    - per_run_summary.json
+    - aggregate_summary.json
+    - terminal_audit.json
+    - pilot_freeze_recommendation.json
+    - run_manifest.json
+    - RUN_COMPLETE.json

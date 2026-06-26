@@ -1,4 +1,21 @@
-# DRPO / SNA2C 远场负梯度动力学研究主文档 v37（D-U1 E5 长程复核闭环版）
+# DRPO / SNA2C 远场负梯度动力学研究主文档 v38（D-U1 E6 语义 pilot 准备版）
+
+> **v38 增量登记：`D-U1-E6-SEMANTIC-PILOT-01` 共享语义 categorical pilot 准备与并行批准（不删除 v37 及更早内容）**
+>
+> - 用户于 2026-06-26 明确批准：`D-U1-E6-SEMANTIC-PILOT-01` 可与另一 session 正在执行的 `C-U1-E4-TAPER-01` 并行。两者科学职责、runner、结果目录和 experiment ID 完全独立；若两边都修改 `docs/handoff.md` 或 `experiments/registry.yaml`，仍须由 Stage 1 `drpo-update` 三方集成串行落库。
+> - E6 本轮只进入 **pilot 准备与开发 seeds 0--4**，科学状态保持 **pilot**。正式长程 ID 预留为 `D-U1-E6-SEMANTIC-LONGRUN-01`，但在 alpha、concentration、学习率、最大步数、事件阈值、终态标准和 untouched held-out seeds 经 pilot 审阅并回写冻结前，正式门禁保持关闭。
+> - 为保持 canonical formal-channel validator 的现有激活清单不被未实现 long-run 污染，两个 E6 ID 先登记在 `experiments/registry.yaml` 的 `development_experiment_registrations`；pilot 冻结完成、正式 runner 实现并通过审阅后，再把 long-run 条目提升到 canonical `experiments` 列表。该预登记不是正式激活，也不构成实验结果。
+> - 新 runner `src/drpo/du1_e6_semantic.py`、开发配置 `configs/du1_e6_semantic_pilot.yaml` 与测试共同实现 E6-A/B/C：local-negative alpha scan、far-pressure 因果控制、policy-side semantic shuffle。训练与测试 context 均独立采样自同一 `N(0,I_6)`；只能称同分布 held-out-context / unseen-state generalization，不得称 OOD。
+> - 环境保持 6D state、64 个随机 ID 的 4D semantic actions、隐藏最优动作不进入 positive demonstrations、4 positive / 1 local negative / 4 far negatives、负 advantage 严格相等且冻结。固定 concentration 分支隔离语义外推；可学习 concentration 分支审计 support/temperature dynamics。
+> - 输出必须分别记录 hidden-optimal probability、expected semantic reward、normalized semantic extrapolation、entropy/effective support、concentration、raw positive/local/far gradients、controlled negative budget 与 Adam parameter update。task-performance collapse、support/temperature boundary 和 NaN/Inf numerical failure分开报告。
+> - `Far-cap` 与 `budget-matched global` 只做 raw-negative-gradient norm 匹配；不得把它写成 Adam update matching。E6-C 只打乱 policy-side embedding 对 reward semantic 的对应，reward geometry、hidden optimum、样本标签和动作集合保持不变。
+> - static/unit/smoke 只证明实现可运行；pilot 只用于冻结正式协议。任何方法排序、稳定外推、支持保护或 shared-semantic generalization 的论文结论，均须等待单独登记的 long-run held-out-seed 实验与终态 2x 审计。
+
+
+
+> **v37（D-U1 E5 长程复核闭环版）**
+>
+> 以下 v37 历史标题与内容完整保留；v38 只追加 E6 pilot 准备，不覆盖 E5 闭环。
 
 
 > **v37 增量登记：`D-U1-E5-LONGRUN-RERUN` 20000-step 正式复核、历史对照与长期闭环（不删除 v36 及更早内容）**
@@ -345,7 +362,7 @@
 ## 0.1 当前执行门禁
 
 - C-U1 E1/E2/E3：现有正式状态保留。`C-U1-E4-ADAM-RERUN` 保留“有限训练步数验证”；`C-U1-E4-CONV-01` 经用户明确审阅，在保留原 18/20 门禁失败事实的前提下，按 15/20、16/20、15/20 目标状态、0/60 明确相反终态与 60/60 长程科学角色不反转，闭合为“已长期验证”。`C-U1-E4-TAPER-01` 前置门禁解除，仍为尚未运行。
-- D-U1：沿用既定离散计划，不因本轮讨论擅自改动。
+- D-U1：E5 已长期闭环。用户已批准 `D-U1-E6-SEMANTIC-PILOT-01` 与 `C-U1-E4-TAPER-01` 并行；E6 仅允许执行 seeds 0--4 invariant/smoke/pilot，正式 `D-U1-E6-SEMANTIC-LONGRUN-01` 在参数冻结与 untouched held-out seeds 登记前保持阻塞。
 - Countdown：允许先交付可执行代码并由用户服务器运行；代码计划与状态已在第 9.2 节登记。
 - Hopper：在 C-U1 E1-E4 与 E6 categorical 长程完成后，按第 9.1 节锁定范围执行。
 
@@ -536,7 +553,7 @@ Ground-truth reward 由动作到 `a_star(s)` 的二维距离决定，因此 `a_s
 
 ---
 
-## 3.7 D-U1 / E6 开发配置登记（仅在 E4 完成后执行）
+## 3.7 D-U1 / E6 开发配置登记（E4 已完成；用户已批准与 E4-TAPER 并行）
 
 本节把既定的“随机 action ID + semantic embedding”计划落成开发配置，不改变 E5 direct-softmax 已锁定结论。正式数值网格须经过开发 seeds 后另行冻结。
 
@@ -548,7 +565,7 @@ Ground-truth reward 由动作到 `a_star(s)` 的二维距离决定，因此 `a_s
 6. **E6-A：** positive-only 与 local-negative alpha scan，验证未见最优动作概率是否提高、是否越过 positive support、是否存在过度外推。
 7. **E6-B：** 加入 far pressure，比较 uncontrolled、Near-zero、Far-zero/local-oracle、Far-cap、budget-matched global。
 8. **E6-C：** 独立打乱 policy-side embeddings 与 reward semantics 的对应关系；预期 support suppression 保留，但系统性的 hidden-optimum 外推消失。
-9. **顺序门禁：** 在 C-U1 E4 正式结果完成并汇报前，只允许代码静态实现，不运行 D-U1 smoke 或训练。E4 完成后先用 seeds 0–4 做 invariant/smoke，再把 alpha、concentration、学习率、最大步数和 held-out seeds 写入新冻结小节，随后正式运行。
+9. **顺序门禁更新（v38）：** C-U1 E4 已完成并由用户确认闭环；用户进一步批准 E6 pilot 与 E4-TAPER 并行。当前仅执行 seeds 0--4 的 invariant/smoke/pilot。pilot 后必须先把 alpha、concentration、学习率、最大步数、事件阈值、终态/2x 标准和 untouched held-out seeds 写入新冻结小节，再实现并启动 `D-U1-E6-SEMANTIC-LONGRUN-01`。
 
 ---
 
@@ -574,6 +591,19 @@ Ground-truth reward 由动作到 `a_star(s)` 的二维距离决定，因此 `a_s
 - **事件分离：** task-performance collapse、support/temperature boundary 与 NaN/Inf 继续分开报告。本次三者计数分别依方法变化、支持边界总计 60/120、NaN/Inf 总计 0/120。
 - **允许论文表述：** “在该受控 categorical reconstruction 中，bounded direct-logit scores under repeated negative updates still induce monotone surprisal/logit-gap growth and simplex-boundary suppression; selective far-negative removal/capping, but not near-negative removal, breaks the harmful path.”
 - **禁止升级：** 不写成旧 runner 逐字节复现、离散欧氏梯度无界、support boundary 等同数值崩溃、E5 已证明未见动作泛化、或 Far-cap/Global-scale 的普遍方法排名。
+
+## 3.7.3 E6 共享语义 pilot `D-U1-E6-SEMANTIC-PILOT-01`
+
+1. **实验职责：** E6 不重复 E5 的 direct-softmax/support-boundary 结论。它检验共享 semantic representation 下，受控 local negative 是否能把策略从 positive demonstrations 推向训练中未展示的 hidden optimal action，并检验 far pressure 是否导致 task failure 或 support/temperature boundary。
+2. **状态与术语：** train/test contexts 独立采样自相同 `N(0,I_6)`，因此只报告同分布 held-out-context / unseen-state generalization；本实验没有显式 state distribution shift，不使用 OOD generalization。
+3. **开发身份：** experiment ID 为 `D-U1-E6-SEMANTIC-PILOT-01`，seeds 固定为 0--4，状态为 `pilot`。`D-U1-E6-SEMANTIC-LONGRUN-01` 只是预留正式 ID，当前为 `not_run` 且 blocked。
+4. **实现入口：** `src/drpo/du1_e6_semantic.py`；开发配置 `configs/du1_e6_semantic_pilot.yaml`；实现说明 `src/drpo/README_DU1_E6_SEMANTIC.md`。runner 只写普通 JSON/JSONL/CSV/YAML，不自行打包。
+5. **E6-A：** fixed concentration 下比较 positive-only 与 local-negative alpha scan，观察 hidden-optimal probability、positive-support probability、expected semantic reward 与 normalized semantic extrapolation。alpha 网格是开发值，不是正式冻结值。
+6. **E6-B：** learnable concentration 下比较 `positive_only / local_only / uncontrolled / near_zero / far_zero / far_cap / budget_matched_global`。`local_only` 与 `far_zero` 在数学更新上同义但保留不同协议语义；Far-cap 与 Global 只匹配 raw controlled-negative norm。
+7. **E6-C：** 对同一 reward-side catalogue、hidden optimum、demonstrations、negative sets 与 fixed advantages，只独立置换 policy-side action embeddings。若 suppression 仍存在但 hidden-optimum 改善消失，才支持 shared semantic alignment 是外推收益的必要通道；pilot 不构成正式结论。
+8. **配对与审计：** 同一 seed 内共享网络初始化与 minibatch index stream；task collapse 以 paired positive-only terminal reward 的 20% 为开发阈值。effective support boundary、concentration warning、NaN/Inf 分开记录；所有阈值均须在正式运行前重新审阅冻结。
+9. **终态边界：** pilot 保存两尾窗 provisional classification，但不执行正式 2x 延长，因此不能升级为 long-run validated、稳定 fixed point 或正式方法排名。正式 E6 必须另建冻结协议和 hardened-guard launch。
+10. **并行治理：** 用户已批准本 pilot 与 `C-U1-E4-TAPER-01` 并行；共享文档的 repository integration 必须串行，冲突不得通过覆盖对方历史来解决。
 
 ---
 
@@ -662,7 +692,7 @@ $$
 | E4-CONV | 无历史独立环境结果 | **4000-step 正式运行已完成**：`0.75/1.00/1.25` 目标状态分别为 15/20、16/20、15/20，剩余均 inconclusive，0 个明确相反终态，60/60 科学角色未反转 | **已长期验证（用户确认闭环）**；原 18/20 门禁未通过的事实继续保留，不等同于 20/20 fixed-point 认证 |
 | E4-TAPER | seeds 0--4 独立复制实现 pilot | 共享 core 与正式 runner 已登记；E4-CONV 前置门禁已由用户确认闭环解除，正式 seeds 70--89 尚未运行 | 二次临界界已解析证明；允许按冻结协议启动，方法排名尚无正式结果 |
 | E5 | 历史解析、direct-softmax 与 20-seed 因果结果保留；旧 runner/raw artifact 未入库 | **`D-U1-E5-LONGRUN-RERUN` 已完成**：direct-softmax 参照通过，120/120 长程因果 runs 全部分类且 120/120 复现历史 qualitative class，NaN/Inf 0/120 | **已长期验证**；受控 categorical 排斥、支持边界和 near/far 因果链可用于论文，E6 语义泛化仍未完成 |
-| E6 | unordered semantic categorical 仅短程 pilot | 尚未长期重跑 | 未完成 |
+| E6 | unordered semantic categorical 历史短程 pilot 保留 | **`D-U1-E6-SEMANTIC-PILOT-01` 已完成文档、配置、runner 与测试准备，允许 seeds 0--4 invariant/smoke/pilot；正式 long-run 仍 blocked/not_run** | 当前仅 pilot 准备；不得宣称正式泛化收益、稳定性或方法排名 |
 | E7 | Hopper learned-critic 600-step probe | `EXT-H-E7-Q2` 二次分支外部验证协议已预注册；长期重跑与实现尚未执行 | 旧 probe 仍仅为有限训练步数证据；E7-Q2 状态为尚未运行 |
 | E8 | v4.1 审计式 pilot 代码已实现；仅代码/CPU 测试，不含真实 Qwen 结果 | 未在真实本地 Qwen/CUDA/BF16-LoRA 或 full-FT 完整运行 | 尚未运行；v4 已替换，v4.1 不得把静态/CPU 测试当作实验结果 |
 
@@ -676,9 +706,10 @@ $$
 4. `C-U1-E4-TAPER-01` 前置门禁已解除，状态为“尚未运行、允许按冻结协议启动”；解除依据是用户对完整证据的文档化审阅，不得改写原 per-seed 18/20 共识门禁失败；
 5. E4 论文口径允许使用经用户确认闭环的长程相变结论：`alpha=0.75/1.00` 有界有益外推、`alpha=1.25` 稳定过度外推，以及既有任务性能崩溃、support contraction 和 `alpha=1.75` finite runaway；同时必须披露原 18/20 门禁未通过，且不得写成 20/20 fixed-point 认证；
 6. E3 主文继续只保留 Baseline/Near-zero/Far-zero/Far-cap 的最短因果链；
-7. `C-U1-E4-TAPER-01` 与 `D-U1-E5-LONGRUN-RERUN` 经用户批准可由不同 session 并行运行；两者科学与输出独立，但 handoff/registry 更新必须通过 Git-bundle 三方集成串行落库；
-8. `D-U1-E5-LONGRUN-RERUN` 已完成并复现全部历史 qualitative class，E5 状态升级为已长期验证；E6 categorical 长程仍单独执行，不得由 E5 替代；
-9. 外部 Hopper/Countdown 与论文正文整理可按各自门禁并行推进。
+7. `C-U1-E4-TAPER-01` 与 `D-U1-E5-LONGRUN-RERUN` 的历史并行批准继续保留；E5 已完成。用户于 2026-06-26 进一步批准 `D-U1-E6-SEMANTIC-PILOT-01` 与正在其他 session 执行的 E4-TAPER 并行；各实验科学与输出独立，但 handoff/registry 更新必须通过 Stage 1 三方集成串行落库；
+8. `D-U1-E5-LONGRUN-RERUN` 已完成并复现全部历史 qualitative class，E5 状态为已长期验证；E6 不得由 E5 替代。当前先执行 E6 seeds 0--4 invariant/smoke/pilot，再经用户审阅冻结正式参数；
+9. `D-U1-E6-SEMANTIC-LONGRUN-01` 在 alpha、concentration、学习率、最大步数、事件阈值、终态/2x 标准与 untouched held-out seeds 登记前保持 blocked/not_run；
+10. 外部 Hopper/Countdown 与论文正文整理可按各自门禁并行推进。
 
 任何新增实验必须先说明它补哪一个 claim、是否替代现有实验、是否进入本文档。
 
