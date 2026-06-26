@@ -411,18 +411,21 @@ experiments:
     - NaN_Inf_collapse
   next_gate:
     convergence_experiment: C-U1-E4-CONV-01
-    convergence_status: registered_not_run
-    taper_status: blocked
+    convergence_status: long_run_validated_user_confirmed_closure
+    taper_status: ready
     reason: >-
-      C-U1-E4-TAPER-01 must not start until C-U1-E4-CONV-01 has completed
-      terminal audit, packaging, and delivery.
+      The original 18/20 consensus did not pass, but the user explicitly accepted
+      the preserved 15/20, 16/20, and 15/20 expected-state counts together with
+      0/60 explicit opposite states and 60/60 non-reversed scientific roles as
+      sufficient long-horizon E4 closure. TAPER may start only after this closure
+      update is applied and committed.
   scientific_status: finite_step_validated
   preserved_history: true
 - id: C-U1-E4-CONV-01
   environment: C-U1
   name: cu1_e4_fixed_variance_long_horizon_terminal_confirmation
-  status: not_run
-  scientific_status: not_run
+  status: long_run_validated
+  scientific_status: long_run_validated
   claim: >-
     Confirm that fixed-variance alpha=0.75 and alpha=1.00 remain bounded
     beneficial extrapolation rather than transient optimum crossings, and that
@@ -522,29 +525,113 @@ experiments:
   - support_or_variance_boundary
   - nan_inf_numerical_failure
   method_ranking_pre_registered: false
-  formal_run_status: not_run
+  formal_run_status: delivered
   execution:
-    state: registered
-    run_id: null
-    last_heartbeat_utc: null
-    process_exit_code: null
+    state: delivered
+    run_id: cu1_e4_conv_c869df8_run002
+    completion_mode: scientific_child_completed_wrapper_packaging_recovered
+    start_utc: '2026-06-26T06:37:47.424130+00:00'
+    end_utc: '2026-06-26T06:48:25.998924+00:00'
+    process_exit_code: 0
+    elapsed_seconds: 635.0746870040894
+    first_attempt_failure_preserved: true
+    wrapper_required_output_mismatch_preserved: true
   evidence:
-    raw_complete: false
-    terminal_audited: false
-    package_created: false
-    package_filename: null
-    package_sha256: null
-    delivered_to_user: false
-    applied_commit: null
+    raw_complete: true
+    terminal_audited: true
+    package_created: true
+    package_filename: DRPO_CU1_E4_CONV_C869_RUN002_RAW_COMPLETE.zip
+    package_sha256: 98214c2f09f7cd6ba75472bfc489771cb2ac439031e9f3636a8472a6c2a06b13
+    failed_attempt_package_filename: DRPO_CU1_E4_CONV_RUN001_FAILED_C869.zip
+    failed_attempt_package_sha256: 765c40e3b2df1e980ef786cdf5f6dddd912d1d149d111207d822b098cf2a99ff
+    guard_wrapper_failure_package_filename: DRPO_CU1_E4_CONV_C869_RUN002_GUARD_FAILED.zip
+    guard_wrapper_failure_package_sha256: bef2e57cf0646b3aa3556156fcb710a611cebb397847af3ea033f59316e2a802
+    expected_rows: 60
+    actual_rows: 60
+    checkpoint_packages_created: 4
+    delivered_to_user: true
+    applied_commit:
+    compact_result_path: outputs/cu1_e4_convergence
   paper_use:
-    allowed_after_success:
-    - long_run_stable_beneficial_extrapolation
-    - stable_over_extrapolation_before_runaway
-    prohibited_before_success:
-    - terminally_stable_beneficial_fixed_point
+    allowed:
+    - long_horizon_beneficial_extrapolation_for_alpha_0_75_and_1_00_with_exact_counts
+    - long_horizon_stable_over_extrapolation_for_alpha_1_25_with_exact_counts
+    - no_explicit_opposite_terminal_state_in_60_runs
+    - all_60_scientific_roles_not_reversed_from_step_2000_to_4000
+    - aggregate_displacement_and_reward_remain_near_stationary
+    prohibited:
+    - registered_18_of_20_terminal_gate_passed
+    - all_20_seeds_fixed_point_certified
+    - every_seed_strictly_stationary
     - OOD_generalization
     - universal_method_ranking
+  user_confirmed_closure:
+    confirmed: true
+    decision_date: '2026-06-26'
+    decision_type: post_run_explicit_user_evidence_review
+    original_pre_registered_consensus_gate_passed: false
+    per_alpha_expected_state_counts:
+      alpha_0_75: 15
+      alpha_1_00: 16
+      alpha_1_25: 15
+    total_explicit_opposite_terminal_states: 0
+    total_scientific_roles_not_reversed: 60
+    accepted_scientific_scope: >-
+      The 4000-step evidence closes the E4 long-horizon phase claim: alpha=0.75
+      and 1.00 retain bounded beneficial extrapolation without role reversal,
+      while alpha=1.25 is stable over-extrapolation rather than slow runaway.
+    excluded_scope: >-
+      This decision does not certify 20/20 fixed points, does not claim that the
+      original 18/20 gate passed, and does not relabel inconclusive seed-alpha rows.
   preserved_history: true
+  terminal_audit:
+    integrity_checks_all_passed: true
+    scientific_terminal_acceptance_passed: false
+    pre_registered_18_of_20_gate_passed: false
+    user_confirmed_scoped_scientific_closure_passed: true
+    consensus_min: 18
+    alpha_0_75_expected_state_count: 15
+    alpha_0_75_inconclusive_count: 5
+    alpha_1_00_expected_state_count: 16
+    alpha_1_00_inconclusive_count: 4
+    alpha_1_25_expected_state_count: 15
+    alpha_1_25_inconclusive_count: 5
+    explicit_opposite_terminal_state_count: 0
+    scientific_role_not_reversed_count: 60
+    task_performance_collapse_count: 0
+    support_or_variance_boundary_count: 0
+    nan_inf_count: 0
+    failure_reason: No alpha reached the frozen 18/20 expected-state consensus. All remaining runs were inconclusive and no explicit opposite terminal state occurred.
+    post_hoc_diagnostic_only: Fourteen seed-alpha rows were inconclusive because a raw-gradient or Adam-update W2/W1 ratio exceeded 1.25; displacement and reward windows remained within frozen stability bounds. This does not override the original gate.
+    closure_note: The user explicitly accepted the preserved majority-state evidence and absence of opposite states as sufficient for the scoped long-horizon E4 phase claim; the original gate remains recorded as failed.
+  provenance:
+    run_commit: c869df8b203f13eb8389d1d300b33f1928502871
+    source_mode: exact_reconstructed_git_commit_object
+    parent_commit: 5b4671780c09d434d6482a71eada9422f885f10f
+    reconstructed_commit_sha_matched_github_full_sha: true
+    git_worktree_clean_at_launch: true
+    git_worktree_clean_at_exit: true
+    provenance_compromised: false
+    origin_main_ls_remote_authoritative: false
+    origin_main_resolution_error: container DNS could not resolve github.com
+    device: cpu
+    cuda_available: false
+  result_summary:
+    alpha_0_75_reward_mean: 0.9206409364938736
+    alpha_0_75_displacement_mean: 0.566690868139267
+    alpha_0_75_expected_state_count: 15
+    alpha_1_00_reward_mean: 0.9982822149991989
+    alpha_1_00_displacement_mean: 1.02889803647995
+    alpha_1_00_expected_state_count: 16
+    alpha_1_25_reward_mean: 0.6388135522603988
+    alpha_1_25_displacement_mean: 2.012682521343231
+    alpha_1_25_expected_state_count: 15
+    explicit_opposite_count: 0
+    scientific_acceptance_all_passed: false
+  next_gate:
+    state: ready_after_repository_closure
+    unblocked_experiment: C-U1-E4-TAPER-01
+    reason: The user explicitly closed the scoped E4 long-horizon claim after reviewing the unchanged 4000-step evidence. The original 18/20 gate remains failed and no threshold, horizon, optimizer, seed, or classification was changed.
 - id: C-U1-E1-COMP-01
   environment: C-U1
   name: gaussian_output_score_componentwise_growth_law
@@ -650,9 +737,10 @@ experiments:
     expected_checkpoint_total_mib_max: 5
 - id: C-U1-E4-TAPER-01
   execution_gate:
-    state: blocked
+    state: ready
     depends_on_delivered_experiment: C-U1-E4-CONV-01
-    reason: C-U1-E4-CONV-01 must complete terminal audit, packaging, and delivery first.
+    closure_decision: user_confirmed_on_2026_06_26
+    reason: C-U1-E4-CONV-01 is long-run validated for its scoped phase claim by explicit user evidence review. The original 18/20 gate failure remains documented and no method ranking is assumed.
   environment: C-U1
   name: standardized_distance_taper_order_formal_comparison
   status: not_run

@@ -1,0 +1,7 @@
+alpha,terminal_state,count
+0.75,terminal_state_inconclusive,5
+0.75,stable_beneficial_extrapolation,15
+1.00,stable_beneficial_extrapolation,16
+1.00,terminal_state_inconclusive,4
+1.25,stable_over_extrapolation,15
+1.25,terminal_state_inconclusive,5

@@ -99,7 +99,8 @@ def test_artifact_index_and_handoff_close_e3_without_overclaiming() -> None:
     experiments = {row["id"]: row for row in registry["experiments"]}
     assert experiments["C-U1-E4-ADAM-RERUN"]["status"] == "finite_step_validated"
     assert experiments["C-U1-E4-TAPER-01"]["status"] == "not_run"
-    assert experiments["C-U1-E4-TAPER-01"]["execution_gate"]["state"] == "blocked"
+    assert experiments["C-U1-E4-TAPER-01"]["execution_gate"]["state"] == "ready"
+    assert experiments["C-U1-E4-TAPER-01"]["execution_gate"]["closure_decision"] == "user_confirmed_on_2026_06_26"
 
 
 def test_reported_confidence_intervals_match_compact_aggregates() -> None:

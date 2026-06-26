@@ -66,7 +66,8 @@ def test_e4_registry_records_finite_step_evidence_without_terminal_overclaim() -
     assert e4["provenance"]["provenance_compromised"] is False
 
     assert taper["status"] == "not_run"
-    assert taper["execution_gate"]["state"] == "blocked"
+    assert taper["execution_gate"]["state"] == "ready"
+    assert taper["execution_gate"]["closure_decision"] == "user_confirmed_on_2026_06_26"
 
 
 def test_fixed_variance_phase_scan_and_terminal_state_counts_match() -> None:
@@ -160,4 +161,5 @@ def test_artifact_index_hashes_and_handoff_boundary_are_closed() -> None:
     assert "同分布 held-out-context generalization" in handoff
     assert "受益分支未通过冻结的终态残差门禁" in handoff
     assert "NaN/Inf 数值崩溃" in handoff
-    assert "C-U1-E4-TAPER-01` **继续阻塞**" in handoff
+    assert "C-U1-E4-TAPER-01` **继续阻塞**" in handoff  # preserved v32 history
+    assert "`C-U1-E4-TAPER-01` 的 E4 前置门禁解除" in handoff

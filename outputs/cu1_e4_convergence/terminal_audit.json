@@ -1,0 +1,52 @@
+{
+  "experiment_id": "C-U1-E4-CONV-01",
+  "scientific_acceptance_all_passed": false,
+  "consensus_min": 18,
+  "positive_only_additional_run_included": false,
+  "residual_threshold_is_diagnostic_only": true,
+  "per_alpha": {
+    "0.75": {
+      "expected_terminal_state": "stable_beneficial_extrapolation",
+      "n": 20,
+      "state_counts": {
+        "terminal_state_inconclusive": 5,
+        "stable_beneficial_extrapolation": 15
+      },
+      "expected_state_count": 15,
+      "inconclusive_count": 5,
+      "explicit_opposite_count": 0,
+      "consensus_gate_passed": false
+    },
+    "1.00": {
+      "expected_terminal_state": "stable_beneficial_extrapolation",
+      "n": 20,
+      "state_counts": {
+        "stable_beneficial_extrapolation": 16,
+        "terminal_state_inconclusive": 4
+      },
+      "expected_state_count": 16,
+      "inconclusive_count": 4,
+      "explicit_opposite_count": 0,
+      "consensus_gate_passed": false
+    },
+    "1.25": {
+      "expected_terminal_state": "stable_over_extrapolation",
+      "n": 20,
+      "state_counts": {
+        "stable_over_extrapolation": 15,
+        "terminal_state_inconclusive": 5
+      },
+      "expected_state_count": 15,
+      "inconclusive_count": 5,
+      "explicit_opposite_count": 0,
+      "consensus_gate_passed": false
+    }
+  },
+  "pre_registered_scientific_acceptance_all_passed": false,
+  "user_confirmed_scoped_scientific_closure_passed": true,
+  "user_confirmation_date": "2026-06-26",
+  "final_scientific_status": "long_run_validated",
+  "closure_scope": "E4 long-horizon phase-role persistence for alpha 0.75, 1.00, and 1.25; not 20/20 fixed-point certification",
+  "original_gate_preserved": true,
+  "raw_classifications_changed": false
+}

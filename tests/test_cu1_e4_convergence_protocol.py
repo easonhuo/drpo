@@ -47,7 +47,7 @@ def test_registry_and_handoff_freeze_e4_convergence_protocol() -> None:
     conv = experiments["C-U1-E4-CONV-01"]
     taper = experiments["C-U1-E4-TAPER-01"]
 
-    assert conv["status"] == "not_run"
+    assert conv["status"] == "long_run_validated"
     assert conv["scope"]["alphas"] == [0.75, 1.0, 1.25]
     assert conv["scope"]["positive_only_additional_run"] is False
     assert conv["training"]["max_steps"] == 4000
@@ -56,13 +56,22 @@ def test_registry_and_handoff_freeze_e4_convergence_protocol() -> None:
     assert conv["training"]["terminal_window_2"] == [3000, 4000]
     assert conv["terminal_classification"]["residual_threshold_2e_3_is_hard_gate"] is False
     assert conv["aggregate_acceptance"]["minimum_expected_state_seeds_per_alpha"] == 18
+    assert conv["user_confirmed_closure"]["confirmed"] is True
+    assert conv["user_confirmed_closure"]["original_pre_registered_consensus_gate_passed"] is False
     assert taper["execution_gate"]["depends_on_delivered_experiment"] == "C-U1-E4-CONV-01"
+    assert taper["execution_gate"]["state"] == "ready"
 
     handoff = (REPO_ROOT / "docs" / "handoff.md").read_text()
+    assert "v35（C-U1 E4 用户确认闭环版）" in handoff
+    assert "v34（C-U1 E4 长程终态确认结果审计版）" in handoff
     assert "v33（C-U1 E4 长程终态确认协议冻结版）" in handoff
     assert "从追加运行范围中移除 `alpha=0`" in handoff
     assert "`W1=2000--3000` 与 `W2=3000--4000`" in handoff
-    assert "`C-U1-E4-TAPER-01` 继续阻塞" in handoff
+    assert "`C-U1-E4-TAPER-01` 的 E4 前置门禁解除" in handoff
+    assert "15/20 `stable_beneficial_extrapolation`" in handoff
+    assert "16/20 + 4/20 inconclusive" in handoff
+    assert "原预注册 18/20 门禁改写为通过" in handoff
+    assert "科学状态升级为 **已长期验证（long-run validated）**" in handoff
 
 
 def test_runner_protocol_values_and_stage_are_frozen() -> None:

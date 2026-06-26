@@ -1,0 +1,117 @@
+{
+  "experiment_id": "C-U1-E4-CONV-01",
+  "repository_closure_base_commit": "ba1e3710df4140ffaf54db3ecf12cd6f40ac531a",
+  "scientific_status": "long_run_validated",
+  "scientific_terminal_acceptance_passed": false,
+  "registered_consensus_min": 18,
+  "terminal_counts": {
+    "0.75": {
+      "expected_terminal_state": "stable_beneficial_extrapolation",
+      "n": 20,
+      "state_counts": {
+        "terminal_state_inconclusive": 5,
+        "stable_beneficial_extrapolation": 15
+      },
+      "expected_state_count": 15,
+      "inconclusive_count": 5,
+      "explicit_opposite_count": 0,
+      "consensus_gate_passed": false
+    },
+    "1.00": {
+      "expected_terminal_state": "stable_beneficial_extrapolation",
+      "n": 20,
+      "state_counts": {
+        "stable_beneficial_extrapolation": 16,
+        "terminal_state_inconclusive": 4
+      },
+      "expected_state_count": 16,
+      "inconclusive_count": 4,
+      "explicit_opposite_count": 0,
+      "consensus_gate_passed": false
+    },
+    "1.25": {
+      "expected_terminal_state": "stable_over_extrapolation",
+      "n": 20,
+      "state_counts": {
+        "stable_over_extrapolation": 15,
+        "terminal_state_inconclusive": 5
+      },
+      "expected_state_count": 15,
+      "inconclusive_count": 5,
+      "explicit_opposite_count": 0,
+      "consensus_gate_passed": false
+    }
+  },
+  "external_artifacts": {
+    "raw_complete": {
+      "filename": "DRPO_CU1_E4_CONV_C869_RUN002_RAW_COMPLETE.zip",
+      "sha256": "98214c2f09f7cd6ba75472bfc489771cb2ac439031e9f3636a8472a6c2a06b13",
+      "size_bytes": 2116586,
+      "verified": true
+    },
+    "run_001_failed": {
+      "filename": "DRPO_CU1_E4_CONV_RUN001_FAILED_C869.zip",
+      "sha256": "765c40e3b2df1e980ef786cdf5f6dddd912d1d149d111207d822b098cf2a99ff",
+      "size_bytes": 85451,
+      "verified": true
+    },
+    "run_002_guard_failed": {
+      "filename": "DRPO_CU1_E4_CONV_C869_RUN002_GUARD_FAILED.zip",
+      "sha256": "bef2e57cf0646b3aa3556156fcb710a611cebb397847af3ea033f59316e2a802",
+      "size_bytes": 2112619,
+      "verified": true
+    }
+  },
+  "compact_repository_files": {
+    "PROVENANCE_NOTE.md": {
+      "size_bytes": 974,
+      "sha256": "91c8ca6e0b600f79f501b7a602d6722c46c4a71a0720cf3fd03953696db70ba7"
+    },
+    "RESULT_SUMMARY.md": {
+      "size_bytes": 3298,
+      "sha256": "a56c21c18d9effc9fdaef9370d6651750e8f45aaa46b5efd3ddc10d2c5030e98"
+    },
+    "RUN_COMPLETE.json": {
+      "size_bytes": 2416,
+      "sha256": "570b7bfbb4b5cf3c2444c3f4563b70e527b1289b50e8e9d9e9777854e5d8468b"
+    },
+    "TERMINAL_AUDIT.md": {
+      "size_bytes": 1242,
+      "sha256": "6f8e97e91eb1ba6886541ec438d83d6b7559fa4f1fc52f5b6c8f9f2424f149a4"
+    },
+    "aggregate.csv": {
+      "size_bytes": 9868,
+      "sha256": "99f630a41a22d1e2f9a5e8ed9de075ab54676ed393067d9f1ed3fe2b35bec031"
+    },
+    "environment_audit.json": {
+      "size_bytes": 815,
+      "sha256": "37cba773abb32f732d359ccdfaf8d9b9e1cf57330dafd1cc72bb006116eb288e"
+    },
+    "per_seed.csv": {
+      "size_bytes": 49066,
+      "sha256": "f50a29585eee2b1fcac8e3db8e4ba44bf74983ad030cb1cd2e712b27b379fd93"
+    },
+    "preflight_self_tests.json": {
+      "size_bytes": 524,
+      "sha256": "857f5cca8f787f3c22de6e9ac7439d5e5b857f2fe1ea929dbbf69e71ae425da0"
+    },
+    "reference_regression.json": {
+      "size_bytes": 346,
+      "sha256": "caf072a157356d69385579dc63b118dbeb56b61821b82f16a3105906035b6851"
+    },
+    "terminal_audit.json": {
+      "size_bytes": 1722,
+      "sha256": "cd547d08c745e5a3501ac1a066087cfdf3907dc061f8d24bf7b2cbc4578398cf"
+    },
+    "terminal_state_counts.csv": {
+      "size_bytes": 246,
+      "sha256": "532b5ca52d4e735cf9388e812e8250535e6ffd03bd4a0988b6289d24014e12ae"
+    }
+  },
+  "taper_gate": "ready_after_repository_closure",
+  "pre_registered_18_of_20_gate_passed": false,
+  "user_confirmed_scoped_scientific_closure_passed": true,
+  "user_confirmation_date": "2026-06-26",
+  "closure_decision": "post_run_explicit_user_evidence_review",
+  "raw_classifications_changed": false
+}

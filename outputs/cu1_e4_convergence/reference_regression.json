@@ -1,0 +1,14 @@
+{
+  "all_passed": true,
+  "checks": [],
+  "e4_convergence_integrity": {
+    "expected_seed_alpha_grid_present": true,
+    "row_count": 60,
+    "expected_row_count": 60,
+    "all_rows_fixed_variance": true,
+    "all_rows_adam": true,
+    "positive_only_additional_run_absent": true,
+    "terminal_audit_present": true,
+    "all_passed": true
+  }
+}

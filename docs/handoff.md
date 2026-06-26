@@ -1,4 +1,27 @@
-# DRPO / SNA2C 远场负梯度动力学研究主文档 v33（C-U1 E4 长程终态确认协议冻结版）
+# DRPO / SNA2C 远场负梯度动力学研究主文档 v35（C-U1 E4 用户确认闭环版）
+
+> **v35 增量登记：`C-U1-E4-CONV-01` 经用户审阅后的科学闭环（不删除 v34 及更早内容）**
+>
+> - 用户于 2026-06-26 明确审阅并确认：`alpha=0.75` 的 15/20、`alpha=1.00` 的 16/20 `stable_beneficial_extrapolation`，以及 `alpha=1.25` 的 15/20 `stable_over_extrapolation`，结合其余 14/60 仅为 inconclusive、0/60 明确相反终态、60/60 从 step 2000 到 4000 科学角色不反转，已足以闭合 E4 的长程相变结论。
+> - 该决定是**结果后、用户明确确认的证据审阅闭环**，不是把原预注册 18/20 门禁改写为通过。v34 中“18/20 门禁未通过”的历史事实、逐 seed 分类、阈值、训练步数和所有原始结果全部保留，不重新标注任何 inconclusive seed。
+> - `C-U1-E4-CONV-01` 的科学状态升级为 **已长期验证（long-run validated）**，但闭环范围严格限定为：`alpha=0.75/1.00` 的有益外推在 4000-step 长程中保持有界且未反转；`alpha=1.25` 表现为稳定过度外推而非慢 runaway；结合既有 `alpha=1.50` 任务性能崩溃、`alpha=1.75` 持续 raw-gradient/parameter runaway 与可学习方差 support contraction，E4 的非单调相变与失败类型链条完成论文级闭环。
+> - 仍禁止声称：原 18/20 预注册门禁已经通过、20/20 seeds 均获 fixed-point 认证、所有单 seed 都严格 stationary、同分布 held-out-context 是 OOD、或任何方法跨任务必然更优。论文必须如实报告 15/20、16/20、15/20 与 0/60 明确相反终态。
+> - `C-U1-E4-TAPER-01` 的 E4 前置门禁解除；本 v35 更新应用并提交后，其状态为 **尚未运行、允许按已冻结协议启动**。该解除不预设 Linear、Quadratic、Exp 或其他方法排名。
+> - 仓库闭环更新基于当前 `main` commit `ba1e3710df4140ffaf54db3ecf12cd6f40ac531a`；科学运行仍绑定 run commit `c869df8b203f13eb8389d1d300b33f1928502871`，两者不得混淆。
+
+
+> **v34（C-U1 E4 长程终态确认结果审计版）**
+>
+> **v34 增量登记：`C-U1-E4-CONV-01` 4000-step 正式结果与失败门禁审计（不删除 v33 及更早内容）**
+>
+> - 正式运行绑定 commit `c869df8b203f13eb8389d1d300b33f1928502871`，完成固定方差 `alpha in {0.75,1.00,1.25}`、held-out seeds 50--69、每分支 4000 updates，共 60/60 seed-alpha rows。preflight、环境不变量、网格完整性、固定方差/Adam/positive-only 排除及 reference regression 均通过。
+> - 冻结的 18/20 汇总门禁未通过：`alpha=0.75` 为 15/20 `stable_beneficial_extrapolation` + 5/20 inconclusive；`alpha=1.00` 为 16/20 + 4/20 inconclusive；`alpha=1.25` 为 15/20 `stable_over_extrapolation` + 5/20 inconclusive。三组均为 0/20 明确相反终态。
+> - 60/60 runs 从 step 2000 到 4000 的科学角色均未反转；没有任务性能崩溃、support/variance boundary 或 NaN/Inf。aggregate W2 displacement/reward change 接近 0，raw-gradient 与 Adam-update W2/W1 aggregate ratios 也低于 1.25。门禁失败来自 14 个 seed-alpha rows 的个体 raw-gradient 或 Adam-update ratio 超过冻结阈值，而不是漂移、reward 反转或 runaway。该诊断不得在结果后用于放宽门禁。
+> - 科学状态保持 **有限训练步数验证（finite-step validated）/ convergence unresolved**，不得升级为“已长期验证”或“稳定 fixed point 已闭环”。可以报告 4000-step 长程轨迹强支持原科学角色且无相反终态，但必须同时报告预注册共识门禁失败。
+> - `C-U1-E4-TAPER-01` 继续阻塞。是否另行登记阈值稳健性、解析终态判据或接受当前证据边界，必须由后续文档化决策决定；不得自动延长训练、修改 optimizer/learning rate、降低 18/20 或放宽 1.25 阈值。
+> - 第一次 `run_001` 因当前工具调用在 34 秒时转发 SIGTERM，失败证据已保存；`run_002` 科学子进程 return code 为 0，但第一次 guard packaging 因启动命令误要求不存在的 `TERMINAL_AUDIT.json`（实际为 `terminal_audit.json`）而标记 wrapper failure。原始失败证据与恢复后的 verified raw-complete 包均保留；科学输出未修改。
+
+> **v33（C-U1 E4 长程终态确认协议冻结版）**
 
 > **v33 增量登记：`C-U1-E4-CONV-01` 长程终态确认协议（不删除 v32 及更早内容）**
 >
@@ -294,7 +317,7 @@
 
 ## 0.1 当前执行门禁
 
-- C-U1 E1/E2/E3：现有正式状态保留。`C-U1-E4-ADAM-RERUN` 已完成并登记为“有限训练步数验证”。`C-U1-E4-CONV-01` 已批准和冻结、状态为“尚未运行”，是下一正式执行项；`C-U1-E4-TAPER-01` 在其审计、打包和交付前继续阻塞。
+- C-U1 E1/E2/E3：现有正式状态保留。`C-U1-E4-ADAM-RERUN` 保留“有限训练步数验证”；`C-U1-E4-CONV-01` 经用户明确审阅，在保留原 18/20 门禁失败事实的前提下，按 15/20、16/20、15/20 目标状态、0/60 明确相反终态与 60/60 长程科学角色不反转，闭合为“已长期验证”。`C-U1-E4-TAPER-01` 前置门禁解除，仍为尚未运行。
 - D-U1：沿用既定离散计划，不因本轮讨论擅自改动。
 - Countdown：允许先交付可执行代码并由用户服务器运行；代码计划与状态已在第 9.2 节登记。
 - Hopper：在 C-U1 E1-E4 与 E6 categorical 长程完成后，按第 9.1 节锁定范围执行。
@@ -584,8 +607,8 @@ $$
 | E2 | 零散 positive-only 曲线 | **C-U1 正式 20-seed 已完成**：20/20 通过稳态与 2× 延长审计；phantom gradient 增长 28.93× | 正式长期验证完成 |
 | E3 | Product/Collapse 环境与旧 SGD C-U1 结果保留 provenance | **`C-U1-E3-ADAM-RERUN` 已完成并交付**：固定方差 Baseline/Near-zero 20/20 任务崩溃，Far-zero/Far-cap 0/20；可学习方差 Baseline/Near-zero 20/20 support contraction，远场控制 0/20；NaN/Inf 0/220 | **已长期验证，论文可用**；主文采用四方法 fixed-variance 因果链，learnable-variance 作互补 panel/附录 |
 | E4 | 独立 Extrapolation 环境；部分长程审计 | **`C-U1-E4-ADAM-RERUN` 已完成并交付**：有限步 reward 相变、过强压力任务崩溃、learnable-variance support contraction 与 4000-step controls 均完成；受益分支未通过 20/20 双 residual audit | **有限训练步数验证**；可用于有限步相变图与失稳分支，暂不可写成稳定有益 fixed point |
-| E4-CONV | 无历史独立环境结果 | `C-U1-E4-CONV-01` 已冻结：固定方差 `alpha=0.75/1.00/1.25`，4000 steps，seeds 50--69，长期趋势门禁 | **尚未运行**；只负责有益/过度外推终态不反转确认 |
-| E4-TAPER | seeds 0--4 独立复制实现 pilot | 共享 core 与正式 runner 已登记；正式 seeds 70--89 继续等待 E4-CONV 交付 | 二次临界界已解析证明；方法排名尚无正式结果 |
+| E4-CONV | 无历史独立环境结果 | **4000-step 正式运行已完成**：`0.75/1.00/1.25` 目标状态分别为 15/20、16/20、15/20，剩余均 inconclusive，0 个明确相反终态，60/60 科学角色未反转 | **已长期验证（用户确认闭环）**；原 18/20 门禁未通过的事实继续保留，不等同于 20/20 fixed-point 认证 |
+| E4-TAPER | seeds 0--4 独立复制实现 pilot | 共享 core 与正式 runner 已登记；E4-CONV 前置门禁已由用户确认闭环解除，正式 seeds 70--89 尚未运行 | 二次临界界已解析证明；允许按冻结协议启动，方法排名尚无正式结果 |
 | E5 | 解析和长程 categorical 基本完成 | D-U1/D-Diag 可保留 | 接近完成，需整理最终口径 |
 | E6 | unordered semantic categorical 仅短程 pilot | 尚未长期重跑 | 未完成 |
 | E7 | Hopper learned-critic 600-step probe | `EXT-H-E7-Q2` 二次分支外部验证协议已预注册；长期重跑与实现尚未执行 | 旧 probe 仍仅为有限训练步数证据；E7-Q2 状态为尚未运行 |
@@ -597,12 +620,12 @@ $$
 
 1. E1/E2/E3 的既有正式状态与历史证据保持不变；
 2. `C-U1-E4-ADAM-RERUN` 已完成正式运行、审计、打包与交付，科学状态保持“有限训练步数验证”；
-3. 下一正式执行项为 `C-U1-E4-CONV-01`：只跑固定方差 `alpha=0.75/1.00/1.25` 的 4000-step 长程终态确认，不追加 positive-only；
-4. `C-U1-E4-CONV-01` 完成终态审计、打包和交付前，`C-U1-E4-TAPER-01` 继续阻塞；
-5. 在 convergence-resolution 通过前，E4 论文口径仅允许 positive-only ceiling、有限步受益、过强压力任务崩溃、support contraction 与已确认的 `alpha=1.75` finite runaway，不允许把受益分支写成长期稳定 fixed point；
+3. `C-U1-E4-CONV-01` 已完成 4000-step 正式运行；用户已完成文档化证据审阅并接受 15/20、16/20、15/20 目标状态、0/60 相反终态和 60/60 科学角色不反转作为 E4 长程闭环，状态为已长期验证；原 18/20 门禁失败仍须在论文与结果表中披露；
+4. `C-U1-E4-TAPER-01` 前置门禁已解除，状态为“尚未运行、允许按冻结协议启动”；解除依据是用户对完整证据的文档化审阅，不得改写原 per-seed 18/20 共识门禁失败；
+5. E4 论文口径允许使用经用户确认闭环的长程相变结论：`alpha=0.75/1.00` 有界有益外推、`alpha=1.25` 稳定过度外推，以及既有任务性能崩溃、support contraction 和 `alpha=1.75` finite runaway；同时必须披露原 18/20 门禁未通过，且不得写成 20/20 fixed-point 认证；
 6. E3 主文继续只保留 Baseline/Near-zero/Far-zero/Far-cap 的最短因果链；
-7. E4-CONV 交付后，再依冻结顺序运行 TAPER、E6 categorical 长程及外部 Hopper/Countdown；
-8. 论文正文可以并行整理已通过门禁的 E1/E2/E3 与 E4 失稳侧证据。
+7. 下一正式实验可按冻结顺序运行 `C-U1-E4-TAPER-01`，随后为 E6 categorical 长程及外部 Hopper/Countdown；
+8. 论文正文可以并行整理 E1/E2/E3 与 E4 已闭环的非单调相变及分离失败类型证据。
 
 任何新增实验必须先说明它补哪一个 claim、是否替代现有实验、是否进入本文档。
 
