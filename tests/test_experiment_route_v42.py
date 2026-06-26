@@ -19,10 +19,7 @@ def _experiments() -> dict[str, dict]:
 
 
 def _development() -> dict[str, dict]:
-    return {
-        row["id"]: row
-        for row in _registry()["development_experiment_registrations"]
-    }
+    return {row["id"]: row for row in _registry()["development_experiment_registrations"]}
 
 
 def test_e4_taper_is_ready_active_but_not_run() -> None:
@@ -36,27 +33,30 @@ def test_e4_taper_is_ready_active_but_not_run() -> None:
     assert taper["evidence"]["raw_complete"] is False
 
 
-def test_e6_longrun_and_taper_remain_development_blocked() -> None:
+def test_e6_longrun_is_ready_active_while_taper_remains_blocked() -> None:
+    experiments = _experiments()
     development = _development()
     pilot = development["D-U1-E6-SEMANTIC-PILOT-01"]
-    longrun = development["D-U1-E6-SEMANTIC-LONGRUN-01"]
+    longrun = experiments["D-U1-E6-SEMANTIC-LONGRUN-01"]
     taper = development["D-U1-E6-TAPER-01"]
     assert pilot["status"] == "pilot"
     assert pilot["protocol"]["development_seeds"] == [0, 1, 2, 3, 4]
     assert pilot["execution"]["state"] == "delivered"
     assert pilot["pilot_result"]["actual_runs"] == 105
-    assert pilot["pilot_result"]["formal_gate_decision"].startswith("remains_blocked")
     assert pilot["evidence"]["repository_applied"] is True
-    assert pilot["evidence"]["applied_commit"] == (
-        "2e04f6dba6d4e87f61920bedb1c464656906bf2b"
-    )
-    for entry in (longrun, taper):
-        assert entry["status"] == "not_run"
-        assert entry["implementation_state"] == "not_implemented"
-        assert entry["formal_execution"]["activation_state"] == "blocked"
-        assert entry["formal_execution"]["entrypoint_status"] == "planned"
-        assert entry["formal_execution"]["entrypoint"] is None
-        assert entry["blocked_by"]
+    assert pilot["evidence"]["applied_commit"] == ("2e04f6dba6d4e87f61920bedb1c464656906bf2b")
+    assert longrun["status"] == "not_run"
+    assert longrun["implementation_state"] == "implemented"
+    assert longrun["execution_gate"]["state"] == "ready"
+    assert longrun["formal_execution"]["activation_state"] == "active"
+    assert longrun["formal_execution"]["entrypoint_status"] == "implemented"
+    assert longrun["formal_execution"]["entrypoint"] == ("src/drpo/du1_e6_semantic_longrun.py")
+    assert (ROOT / longrun["formal_execution"]["entrypoint"]).is_file()
+    assert taper["status"] == "not_run"
+    assert taper["implementation_state"] == "not_implemented"
+    assert taper["formal_execution"]["activation_state"] == "blocked"
+    assert taper["formal_execution"]["entrypoint_status"] == "planned"
+    assert taper["blocked_by"]
 
 
 def test_e7_mechanism_is_implemented_but_formal_launch_is_blocked() -> None:
@@ -64,9 +64,7 @@ def test_e7_mechanism_is_implemented_but_formal_launch_is_blocked() -> None:
     assert entry["status"] == "not_run"
     assert entry["scientific_status"] == "not_run"
     assert entry["implementation_state"] == "implemented"
-    assert entry["implementation_commit"] == (
-        "f64452a7452274a183b03c87c39b847039230c00"
-    )
+    assert entry["implementation_commit"] == ("f64452a7452274a183b03c87c39b847039230c00")
     assert entry["execution_gate"]["state"] == "blocked"
     assert entry["execution_gate"]["blocked_by"] == ["D-U1-E6-TAPER-01"]
     assert entry["formal_execution"]["activation_state"] == "blocked"
@@ -100,9 +98,7 @@ def test_e7_benchmark_scope_is_exactly_nine_locomotion_tasks() -> None:
         "medium_expert",
     ]
     assert suite["task_count"] == 9
-    assert bench["shortlist_rule"] == (
-        "freeze_after_E4_and_E6_taper_without_D4RL_retuning"
-    )
+    assert bench["shortlist_rule"] == ("freeze_after_E4_and_E6_taper_without_D4RL_retuning")
 
 
 def test_e8_scale_keeps_mechanism_and_scale_roles_separate() -> None:
@@ -121,10 +117,7 @@ def test_handoff_locks_v42_route_and_internal_linear_boundary() -> None:
     handoff = (ROOT / "docs" / "handoff.md").read_text()
     assert "v42（执行状态一致性与跨环境路线锁定版）" in handoff
     assert "ready gate + implemented entrypoint 必须 active" in handoff
-    assert (
-        "E4-TAPER -> E6 -> E6-TAPER -> E7-MECH -> E7-BENCH -> E8-MECH -> E8-SCALE"
-        in handoff
-    )
+    assert "E4-TAPER -> E6 -> E6-TAPER -> E7-MECH -> E7-BENCH -> E8-MECH -> E8-SCALE" in handoff
     assert "D4RL MuJoCo locomotion 9-task suite" in handoff
     assert "implemented + not_run + blocked" in handoff
     assert "不是原 DRPO 分布鲁棒章节中的 linear weighting" in handoff

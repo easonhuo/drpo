@@ -843,6 +843,7 @@ experiments:
     --fail-on-stale
     --progress-glob per_seed_runs_partial.csv
     --required-output RUN_COMPLETE.json
+    --required-output scientific_run_manifest.json
     --required-output terminal_audit.json
     --required-output per_seed_runs.csv
     --required-output aggregate.csv
@@ -2159,6 +2160,170 @@ experiments:
     package_created: false
     scientific_status: not_run
 
+- id: D-U1-E6-SEMANTIC-LONGRUN-01
+  environment: D-U1
+  name: shared_semantic_categorical_extrapolation_longrun
+  status: not_run
+  parent_experiment: E6
+  predecessor: D-U1-E6-SEMANTIC-FOCUSED-DEV-01
+  registration_base_commit: eb6a90d55127cead4d95bd0a85a78f32c47ff56a
+  claim: >-
+    On untouched held-out seeds, formally test the positive-only ceiling,
+    controlled local-negative shared-semantic extrapolation, far-pressure task or
+    support failure, and the policy-side semantic-alignment exclusion control.
+  role: formal_controlled_shared_semantic_categorical_experiment
+  execution_class: formal
+  implementation_state: implemented
+  registry_scope: development_registration_with_canonical_formal_execution
+  execution_gate:
+    state: ready
+    approval_record: user_approved_2026-06-27_exact_focused_dev_freeze
+    blocker_resolution_experiment: D-U1-E6-SEMANTIC-FOCUSED-DEV-01
+  formal_execution:
+    channel_ref: hardened-v1
+    activation_state: active
+    entrypoint_status: implemented
+    entrypoint: src/drpo/du1_e6_semantic_longrun.py
+    launch_mode: canonical_guard
+    artifact_owner: canonical_channel
+    guard_entrypoint: scripts/run_experiment_guard_hardened.py
+    package_entrypoint: scripts/package_experiment_hardened.py
+    verify_entrypoint: scripts/verify_experiment_package_hardened.py
+    hardened_core: scripts/artifact_protocol_hardened.py
+    artifact_protocol: docs/formal_experiment_artifact_protocol.md
+    inherit_default_artifact_budget: true
+    runner_archive_policy: {mode: forbid}
+  code_entrypoint: src/drpo/du1_e6_semantic_longrun.py
+  one_click_entrypoint: scripts/run_du1_e6_semantic_longrun.py
+  config_path: configs/du1_e6_semantic_longrun.yaml
+  formal_launch_template: >-
+    python3 scripts/run_experiment_guard_hardened.py
+    --experiment-id D-U1-E6-SEMANTIC-LONGRUN-01
+    --repo-root .
+    --output-root experiments/results/D-U1-E6-SEMANTIC-LONGRUN-01/run_001
+    --artifact-output artifacts/D-U1-E6-SEMANTIC-LONGRUN-01_RAW_COMPLETE.zip
+    --run-class formal
+    --expected-commit "$(git rev-parse HEAD)"
+    --require-origin-main-match
+    --required-output RUN_COMPLETE.json
+    --required-output terminal_audit.json
+    --required-output aggregate_summary.json
+    --required-output per_run_summary.csv
+    --required-output formal_protocol_freeze.json
+    --source-file src/drpo/du1_e6_semantic_longrun.py
+    --source-file src/drpo/du1_e6_semantic.py
+    --source-file configs/du1_e6_semantic_longrun.yaml
+    --progress-glob checkpoints/*/CHECKPOINT_COMPLETE.json
+    -- python3 src/drpo/du1_e6_semantic_longrun.py
+    --config configs/du1_e6_semantic_longrun.yaml
+    --output-root experiments/results/D-U1-E6-SEMANTIC-LONGRUN-01/run_001
+    --device cpu
+  formal_parameter_freeze: true
+  freeze_approval:
+    approved_by_user: true
+    approval_date: '2026-06-27'
+    source: focused_development_recommendation
+    automatic_retuning_allowed: false
+  development_seeds_forbidden_in_formal_aggregation: [0, 1, 2, 3, 4]
+  held_out_seeds: [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29]
+  protocol:
+    fixed_advantage: true
+    critic_or_value_network: false
+    importance_sampling: false
+    state_dim: 6
+    semantic_dim: 4
+    action_count: 64
+    train_states: 2048
+    test_states: 2048
+    state_distribution: standard_normal
+    train_test_relation: independent_same_distribution
+    terminology: held_out_context_generalization
+    positive_actions_per_state: 4
+    local_negative_actions_per_state: 1
+    far_negative_actions_per_state: 4
+    hidden_optimum_excluded_from_positive_demonstrations: true
+    optimizer: Adam
+    learning_rate: 0.001
+    maximum_steps: 8000
+    evaluation_interval_steps: 50
+    fixed_concentration: 8.0
+    fixed_alpha_grid: [0.0, 0.25, 0.5, 0.75]
+    initial_learnable_concentration: 8.0
+    learnable_concentration_upper_clamp: false
+    learnable_local_alpha: 0.1
+    far_pressure_stress_lambda: 0.05
+    formal_method_matrix:
+    - positive_only
+    - far_zero
+    - uncontrolled
+    - near_zero
+    - far_cap
+    - budget_matched_global
+    semantic_alignment_control_methods:
+    - positive_only
+    - far_zero
+    - uncontrolled
+    - far_cap
+    semantic_alignment_modes: [aligned, shuffled]
+    far_cap_ratio_to_weighted_local_gradient: 1.0
+  events:
+    task_collapse_ratio_to_paired_positive_only: 0.2
+    effective_support_boundary: 1.5
+    concentration_warning: 80.0
+  checkpointing:
+    seed_block_size: 5
+    seed_blocks:
+    - [10, 11, 12, 13, 14]
+    - [15, 16, 17, 18, 19]
+    - [20, 21, 22, 23, 24]
+    - [25, 26, 27, 28, 29]
+    persistence: persistent_local
+    write_compact_manifest_after_each_block: true
+  terminal_audit:
+    mode: formal_two_x_windows
+    development_reference_horizon_steps: 4000
+    formal_horizon_steps: 8000
+    formal_extension_factor: 2.0
+    window_1_steps: [4000, 6000]
+    window_2_steps: [6000, 8000]
+    metric_window_mean_abs_tolerances:
+      test_expected_semantic_reward: 0.01
+      test_hidden_optimal_probability: 0.02
+      test_normalized_semantic_extrapolation: 0.08
+      test_entropy_mean: 0.08
+    raw_total_gradient_median_ratio_max: 1.25
+    adam_update_median_ratio_max: 1.25
+    scientific_failure_outcomes_are_results: true
+  reporting_separation:
+  - task_performance_collapse
+  - support_or_temperature_boundary
+  - nan_inf_numerical_failure
+  required_outputs:
+  - RUN_COMPLETE.json
+  - scientific_run_manifest.json
+  - terminal_audit.json
+  - aggregate_summary.json
+  - per_run_summary.csv
+  - formal_protocol_freeze.json
+  - run_manifest.json
+  non_claims:
+  - OOD_generalization
+  - Transformer_external_validity
+  - cross_task_method_superiority
+  - Gaussian_quadratic_gradient_law_for_categorical_policy
+  execution:
+    state: registered
+    run_id: null
+    last_heartbeat_utc: null
+    process_exit_code: null
+  evidence:
+    implementation_tests_passed: true
+    run_started: false
+    raw_complete: false
+    terminal_audited: false
+    package_created: false
+    delivered_to_user: false
+
 development_experiment_registrations:
 - id: D-U1-E6-SEMANTIC-PILOT-01
   environment: D-U1
@@ -2434,10 +2599,13 @@ development_experiment_registrations:
     budget_matched_global_rescued_transition: false
     compact_output_path: outputs/du1_e6_semantic_focused_dev
     raw_artifact_sha256: bee5b62e7715bda63ec166849f431ab5c4c90954720e672945e25e62b320e0d6
-    formal_gate_decision: blocked_pending_explicit_user_approval_of_freeze
+    formal_gate_decision: user_approved_and_frozen_for_D-U1-E6-SEMANTIC-LONGRUN-01
   formal_freeze_recommendation:
     automatic_freeze_allowed: false
     user_review_required: true
+    user_approved: true
+    approval_date: '2026-06-27'
+    activated_experiment: D-U1-E6-SEMANTIC-LONGRUN-01
     held_out_seeds: [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29]
     optimizer: Adam
     learning_rate: 0.001
@@ -2460,59 +2628,9 @@ development_experiment_registrations:
     phase2_raw_complete: true
     terminal_audited: true
     package_created: true
-    delivered_to_user: false
-    repository_applied: false
-
-- id: D-U1-E6-SEMANTIC-LONGRUN-01
-  environment: D-U1
-  name: shared_semantic_categorical_extrapolation_longrun
-  status: not_run
-  parent_experiment: E6
-  predecessor: D-U1-E6-SEMANTIC-FOCUSED-DEV-01
-  registration_base_commit: c5c9ebf67ed7aa08d0313e604f836907890f0964
-  claim: >-
-    Reserved formal long-run E6 experiment for shared-semantic categorical
-    extrapolation and support protection. Its final claim, methods, thresholds,
-    stopping rules, and held-out seeds must be frozen only after the development
-    pilot has been reviewed.
-  role: reserved_formal_controlled_shared_semantic_categorical_experiment
-  execution_class: formal
-  implementation_state: not_implemented
-  registry_scope: development_preregistration_not_in_canonical_experiments
-  formal_execution:
-    channel_ref: hardened-v1
-    activation_state: blocked
-    entrypoint_status: planned
-    entrypoint: null
-    launch_mode: canonical_guard
-    artifact_owner: canonical_channel
-    guard_entrypoint: scripts/run_experiment_guard_hardened.py
-    package_entrypoint: scripts/package_experiment_hardened.py
-    verify_entrypoint: scripts/verify_experiment_package_hardened.py
-    hardened_core: scripts/artifact_protocol_hardened.py
-    artifact_protocol: docs/formal_experiment_artifact_protocol.md
-    inherit_default_artifact_budget: true
-    runner_archive_policy: {mode: forbid}
-  blocked_by:
-  - explicit_user_approval_of_D-U1-E6-SEMANTIC-FOCUSED-DEV-01_freeze
-  - formal_runner_and_config_implementation
-  - canonical_formal_channel_activation
-  code_entrypoint: null
-  command: null
-  development_seeds_forbidden_in_formal_aggregation: [0, 1, 2, 3, 4]
-  held_out_seeds: []
-  formal_parameter_freeze: false
-  execution:
-    state: registered
-    run_id: null
-    last_heartbeat_utc: null
-    process_exit_code: null
-  evidence:
-    raw_complete: false
-    terminal_audited: false
-    package_created: false
-    delivered_to_user: false
-
+    delivered_to_user: true
+    repository_applied: true
+    applied_commit: eb6a90d55127cead4d95bd0a85a78f32c47ff56a
 
 - id: D-U1-E6-TAPER-01
   environment: D-U1

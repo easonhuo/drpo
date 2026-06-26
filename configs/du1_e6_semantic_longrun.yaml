@@ -1,0 +1,148 @@
+experiment_id: D-U1-E6-SEMANTIC-LONGRUN-01
+parent_experiment: E6
+environment: D-U1
+scientific_status: not_run
+execution_mode: formal_longrun
+formal_parameter_freeze: true
+predecessor: D-U1-E6-SEMANTIC-FOCUSED-DEV-01
+approval:
+  user_approved: true
+  approval_date: '2026-06-27'
+  approval_scope: exact_focused_development_freeze_recommendation
+claim: >-
+  Formally test, on untouched held-out seeds, whether controlled local fixed-negative
+  gradients improve shared-semantic categorical generalization beyond the
+  positive-only ceiling, whether stronger far-negative pressure independently
+  causes task-performance or support/temperature failure, and whether the effect
+  depends on policy-side semantic alignment rather than action identifiers alone.
+non_claims:
+- no_ood_generalization_claim
+- no_transformer_external_validity
+- no_cross_task_method_superiority
+- no_gaussian_quadratic_gradient_law_for_categorical_policy
+seeds:
+  development: []
+  held_out_formal: [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29]
+data:
+  state_dim: 6
+  semantic_dim: 4
+  action_count: 64
+  train_states: 2048
+  test_states: 2048
+  positive_actions_per_state: 4
+  far_negative_actions_per_state: 4
+  hidden_optimal_actions_per_state: 1
+  local_negative_actions_per_state: 1
+  state_distribution: standard_normal
+  train_test_relation: independent_same_distribution
+  terminology: held_out_context_generalization
+geometry:
+  target_offset: 0.45
+  reward_scale: 0.5
+  positive_advantage: 1.0
+  negative_advantage: -1.0
+  fixed_advantage: true
+  random_action_id_permutation: true
+policy:
+  hidden_dim: 64
+  fixed_concentration: 8.0
+  learnable_concentration_floor: 0.05
+  initial_learnable_concentration: 8.0
+  learnable_concentration_upper_clamp: false
+  activation: tanh
+optimization:
+  optimizer: Adam
+  learning_rate: 0.001
+  betas: [0.9, 0.999]
+  eps: 1.0e-8
+  batch_size: 128
+  maximum_steps: 8000
+  evaluation_interval_steps: 50
+  audit_states: 512
+  parallel_workers: 8
+  far_cap_ratio_to_weighted_local_gradient: 1.0
+protocol_a:
+  responsibility: fixed_concentration_positive_only_ceiling_and_alpha_transition
+  concentration_mode: fixed
+  local_alpha_grid: [0.0, 0.25, 0.5, 0.75]
+  far_pressure_lambda: 0.0
+protocol_b:
+  responsibility: learnable_concentration_near_far_causal_and_control_matrix
+  concentration_mode: learnable
+  settings:
+  - local_alpha: 0.0
+    far_pressure_lambda: 0.0
+    methods: [positive_only]
+  - local_alpha: 0.1
+    far_pressure_lambda: 0.05
+    methods: [far_zero, uncontrolled, near_zero, far_cap, budget_matched_global]
+protocol_c:
+  responsibility: policy_side_semantic_alignment_exclusion_control
+  concentration_mode: learnable
+  local_alpha: 0.1
+  far_pressure_lambda: 0.05
+  embedding_modes: [aligned, shuffled]
+  methods: [positive_only, far_zero, uncontrolled, far_cap]
+metrics:
+- hidden_optimal_probability
+- positive_support_probability
+- expected_semantic_reward
+- normalized_semantic_extrapolation
+- entropy
+- effective_support
+- concentration
+- raw_positive_local_far_gradient_norms
+- raw_controlled_negative_gradient_norm
+- raw_total_gradient_norm
+- adam_parameter_update_norm
+reporting_separation:
+- task_performance_collapse
+- support_or_temperature_boundary
+- nan_inf_numerical_failure
+events:
+  task_collapse_ratio_to_paired_positive_only: 0.2
+  effective_support_boundary: 1.5
+  concentration_warning: 80.0
+checkpointing:
+  seed_block_size: 5
+  seed_blocks:
+  - [10, 11, 12, 13, 14]
+  - [15, 16, 17, 18, 19]
+  - [20, 21, 22, 23, 24]
+  - [25, 26, 27, 28, 29]
+  persistence: persistent_local
+  write_compact_manifest_after_each_block: true
+terminal_audit:
+  mode: formal_two_x_windows
+  development_reference_horizon_steps: 4000
+  formal_horizon_steps: 8000
+  formal_extension_factor: 2.0
+  window_1_steps: [4000, 6000]
+  window_2_steps: [6000, 8000]
+  metric_window_mean_abs_tolerances:
+    test_expected_semantic_reward: 0.01
+    test_hidden_optimal_probability: 0.02
+    test_normalized_semantic_extrapolation: 0.08
+    test_entropy_mean: 0.08
+  raw_total_gradient_median_ratio_max: 1.25
+  adam_update_median_ratio_max: 1.25
+  require_all_registered_runs: true
+  allow_scientific_failure_outcomes: true
+formal_gate:
+  enabled: true
+  approval_record: user_approved_2026-06-27_exact_focused_dev_freeze
+  frozen_protocol_path: configs/du1_e6_semantic_longrun.yaml
+  held_out_seeds: [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29]
+outputs:
+  required:
+  - resolved_config.yaml
+  - scientific_run_manifest.json
+  - environment_audits.json
+  - trajectories.jsonl
+  - per_run_summary.json
+  - per_run_summary.csv
+  - aggregate_summary.json
+  - terminal_audit.json
+  - formal_protocol_freeze.json
+  - run_manifest.json
+  - RUN_COMPLETE.json

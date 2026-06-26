@@ -138,16 +138,19 @@ def test_cpu_smoke_writes_complete_nonformal_outputs(tmp_path: Path) -> None:
 
 def test_registry_preregistration_preserves_canonical_channel_and_history() -> None:
     registry = yaml.safe_load((REPO_ROOT / "experiments" / "registry.yaml").read_text())
-    canonical_ids = [item["id"] for item in registry["experiments"]]
+    canonical = {item["id"]: item for item in registry["experiments"]}
+    canonical_ids = list(canonical)
     development = {item["id"]: item for item in registry["development_experiment_registrations"]}
     assert "D-U1-E6-SEMANTIC-PILOT-01" not in canonical_ids
-    assert "D-U1-E6-SEMANTIC-LONGRUN-01" not in canonical_ids
+    assert "D-U1-E6-SEMANTIC-LONGRUN-01" in canonical_ids
     assert development["D-U1-E6-SEMANTIC-PILOT-01"]["status"] == "pilot"
-    longrun = development["D-U1-E6-SEMANTIC-LONGRUN-01"]
+    longrun = canonical["D-U1-E6-SEMANTIC-LONGRUN-01"]
     assert longrun["status"] == "not_run"
-    assert longrun["formal_execution"]["activation_state"] == "blocked"
-    assert longrun["formal_execution"]["entrypoint_status"] == "planned"
+    assert longrun["formal_execution"]["activation_state"] == "active"
+    assert longrun["formal_execution"]["entrypoint_status"] == "implemented"
     assert longrun["formal_execution"]["launch_mode"] == "canonical_guard"
+    assert longrun["execution_gate"]["state"] == "ready"
+    assert longrun["formal_parameter_freeze"] is True
     handoff = (REPO_ROOT / "docs" / "handoff.md").read_text()
     assert "v37（D-U1 E5 长程复核闭环版）" in handoff
 
@@ -222,6 +225,7 @@ def test_focused_phase2_config_follows_preregistered_selection() -> None:
 
 def test_focused_development_result_closure_and_formal_gate() -> None:
     registry = yaml.safe_load((REPO_ROOT / "experiments" / "registry.yaml").read_text())
+    canonical = {item["id"]: item for item in registry["experiments"]}
     development = {item["id"]: item for item in registry["development_experiment_registrations"]}
     focused = development["D-U1-E6-SEMANTIC-FOCUSED-DEV-01"]
     assert focused["status"] == "pilot"
@@ -232,12 +236,203 @@ def test_focused_development_result_closure_and_formal_gate() -> None:
     assert focused["result"]["support_transition_far_lambda"] == 0.02
     assert focused["formal_freeze_recommendation"]["automatic_freeze_allowed"] is False
     assert focused["formal_freeze_recommendation"]["maximum_steps"] == 8000
-    longrun = development["D-U1-E6-SEMANTIC-LONGRUN-01"]
-    assert longrun["formal_execution"]["activation_state"] == "blocked"
-    assert longrun["formal_parameter_freeze"] is False
-    assert "explicit_user_approval_of_D-U1-E6-SEMANTIC-FOCUSED-DEV-01_freeze" in longrun["blocked_by"]
+    longrun = canonical["D-U1-E6-SEMANTIC-LONGRUN-01"]
+    assert focused["formal_freeze_recommendation"]["user_approved"] is True
+    assert focused["evidence"]["repository_applied"] is True
+    assert focused["evidence"]["applied_commit"] == ("eb6a90d55127cead4d95bd0a85a78f32c47ff56a")
+    assert longrun["formal_execution"]["activation_state"] == "active"
+    assert longrun["formal_parameter_freeze"] is True
+    assert longrun["held_out_seeds"] == list(range(10, 30))
+    assert longrun["protocol"]["maximum_steps"] == 8000
     summary = REPO_ROOT / "outputs" / "du1_e6_semantic_focused_dev" / "FOCUSED_DEV_SUMMARY.md"
     assert summary.exists()
     handoff = (REPO_ROOT / "docs" / "handoff.md").read_text()
+    assert "v44（D-U1 E6 formal 冻结与单次启动版）" in handoff
     assert "v43（D-U1 E6 聚焦开发扩展结果审计版）" in handoff
     assert "v37（D-U1 E5 长程复核闭环版）" in handoff
+
+
+def test_formal_config_is_frozen_and_uses_untouched_seeds() -> None:
+    from drpo.du1_e6_semantic import FORMAL_EXPERIMENT_ID, run_specs
+
+    path = REPO_ROOT / "configs" / "du1_e6_semantic_longrun.yaml"
+    config = yaml.safe_load(path.read_text())
+    assert config["experiment_id"] == FORMAL_EXPERIMENT_ID
+    validate_config(config, "formal")
+    assert config["seeds"]["development"] == []
+    assert config["seeds"]["held_out_formal"] == list(range(10, 30))
+    assert config["optimization"]["maximum_steps"] == 8000
+    assert config["terminal_audit"]["window_1_steps"] == [4000, 6000]
+    assert config["terminal_audit"]["window_2_steps"] == [6000, 8000]
+    specs = run_specs(config)
+    assert len(specs) == 18
+    assert sum(spec.protocol == "E6-A" for spec in specs) == 4
+    assert sum(spec.protocol == "E6-B" for spec in specs) == 6
+    assert sum(spec.protocol == "E6-C" for spec in specs) == 8
+
+
+def test_formal_config_rejects_post_approval_retuning() -> None:
+    path = REPO_ROOT / "configs" / "du1_e6_semantic_longrun.yaml"
+    config = yaml.safe_load(path.read_text())
+    config["optimization"]["maximum_steps"] = 7999
+    with pytest.raises(ValueError, match="maximum_steps"):
+        validate_config(config, "formal")
+
+
+def test_formal_terminal_audit_accepts_stable_two_x_windows() -> None:
+    from drpo.du1_e6_semantic import terminal_classification
+
+    config = yaml.safe_load((REPO_ROOT / "configs" / "du1_e6_semantic_longrun.yaml").read_text())
+    trajectory = []
+    for step in range(0, 8001, 50):
+        trajectory.append(
+            {
+                "step": step,
+                "nan_inf_numerical_failure": False,
+                "support_or_temperature_boundary": False,
+                "test_expected_semantic_reward": 0.88 + 1.0e-7 * step,
+                "test_hidden_optimal_probability": 0.20 + 1.0e-7 * step,
+                "test_normalized_semantic_extrapolation": 0.90 + 2.0e-7 * step,
+                "test_entropy_mean": 1.80 - 1.0e-7 * step,
+                "audit_raw_total_gradient_norm": 0.50,
+                "adam_parameter_update_norm": 0.01,
+            }
+        )
+    result = terminal_classification(trajectory, config)
+    assert result["class"] == "formal_terminal_plateau"
+    assert result["formal_two_x_extension_performed"] is True
+    assert result["formal_acceptance"] is True
+
+
+def test_formal_entrypoint_check_only_does_not_consume_seeds(tmp_path: Path) -> None:
+    from drpo.du1_e6_semantic_longrun import main as formal_main
+
+    output = tmp_path / "unused"
+    rc = formal_main(
+        [
+            "--config",
+            str(REPO_ROOT / "configs" / "du1_e6_semantic_longrun.yaml"),
+            "--output-root",
+            str(output),
+            "--check-only",
+        ]
+    )
+    assert rc == 0
+    assert not output.exists()
+
+
+def test_formal_config_rejects_any_frozen_field_change() -> None:
+    path = REPO_ROOT / "configs" / "du1_e6_semantic_longrun.yaml"
+    mutations = [
+        (("optimization", "batch_size"), 64, "optimization"),
+        (("events", "effective_support_boundary"), 1.6, "events"),
+        (("terminal_audit", "raw_total_gradient_median_ratio_max"), 1.3, "terminal_audit"),
+        (("checkpointing", "seed_block_size"), 10, "checkpointing"),
+    ]
+    for keys, value, match in mutations:
+        config = yaml.safe_load(path.read_text())
+        target = config
+        for key in keys[:-1]:
+            target = target[key]
+        target[keys[-1]] = value
+        with pytest.raises(ValueError, match=match):
+            validate_config(config, "formal")
+
+
+def test_formal_output_root_requires_guard_owned_manifest(tmp_path: Path) -> None:
+    from drpo.du1_e6_semantic import FORMAL_EXPERIMENT_ID, prepare_output_manifest_path
+
+    output = tmp_path / "formal"
+    output.mkdir()
+    with pytest.raises(RuntimeError, match="guard-owned"):
+        prepare_output_manifest_path(output, formal=True)
+
+    guard = {
+        "experiment_id": FORMAL_EXPERIMENT_ID,
+        "run_class": "formal",
+        "execution_state": "running",
+        "base_commit": "a" * 40,
+    }
+    (output / "run_manifest.json").write_text(json.dumps(guard))
+    scientific = prepare_output_manifest_path(output, formal=True)
+    assert scientific == output / "scientific_run_manifest.json"
+    assert json.loads((output / "run_manifest.json").read_text()) == guard
+
+
+def test_tiny_formal_execution_preserves_guard_manifest_and_checkpoints(tmp_path: Path) -> None:
+    from drpo.du1_e6_semantic import execute
+
+    config = yaml.safe_load((REPO_ROOT / "configs" / "du1_e6_semantic_longrun.yaml").read_text())
+    config["seeds"]["held_out_formal"] = [999]
+    config["formal_gate"]["held_out_seeds"] = [999]
+    config["data"].update(
+        {
+            "train_states": 24,
+            "test_states": 24,
+            "action_count": 16,
+        }
+    )
+    config["policy"]["hidden_dim"] = 8
+    config["optimization"].update(
+        {
+            "batch_size": 8,
+            "maximum_steps": 2,
+            "evaluation_interval_steps": 2,
+            "audit_states": 8,
+            "parallel_workers": 1,
+        }
+    )
+    config["protocol_a"]["local_alpha_grid"] = [0.0]
+    config["protocol_b"]["settings"] = [
+        {"local_alpha": 0.0, "far_pressure_lambda": 0.0, "methods": ["positive_only"]}
+    ]
+    config["protocol_c"].update(
+        {
+            "embedding_modes": ["aligned"],
+            "methods": ["positive_only"],
+        }
+    )
+    config["checkpointing"].update(
+        {
+            "seed_block_size": 1,
+            "seed_blocks": [[999]],
+        }
+    )
+    config["terminal_audit"].update(
+        {
+            "development_reference_horizon_steps": 1,
+            "formal_horizon_steps": 2,
+            "window_1_steps": [0, 1],
+            "window_2_steps": [1, 2],
+            "metric_window_mean_abs_tolerances": {
+                "test_expected_semantic_reward": 10.0,
+                "test_hidden_optimal_probability": 10.0,
+                "test_normalized_semantic_extrapolation": 10.0,
+                "test_entropy_mean": 10.0,
+            },
+            "raw_total_gradient_median_ratio_max": 1.0e9,
+            "adam_update_median_ratio_max": 1.0e9,
+        }
+    )
+
+    output = tmp_path / "guarded"
+    output.mkdir()
+    guard = {
+        "experiment_id": "D-U1-E6-SEMANTIC-LONGRUN-01",
+        "run_class": "formal",
+        "execution_state": "running",
+        "base_commit": "b" * 40,
+    }
+    (output / "run_manifest.json").write_text(json.dumps(guard))
+    (output / "logs").mkdir()
+
+    execute(config, "formal", output, torch.device("cpu"))
+
+    assert json.loads((output / "run_manifest.json").read_text()) == guard
+    assert (output / "scientific_run_manifest.json").is_file()
+    assert (output / "checkpoints/block_01_seeds_999_999/CHECKPOINT_COMPLETE.json").is_file()
+    complete = json.loads((output / "RUN_COMPLETE.json").read_text())
+    terminal = json.loads((output / "terminal_audit.json").read_text())
+    assert complete["completed"] is True
+    assert terminal["formal_scientific_acceptance"] is True
+    assert terminal["formal_two_x_extension_performed"] is True

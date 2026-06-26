@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""D-U1 E6 shared-semantic categorical pilot.
+"""D-U1 E6 shared-semantic categorical mechanism implementation.
 
-This runner prepares the controlled E6 environment and executes development-only
-invariant, smoke, and pilot stages. It intentionally fails closed for formal use
-until the protocol has been frozen after development seeds 0--4.
+This module owns the shared environment, training loop, diagnostics, and terminal
+audits used by the development pilot, focused blocker-resolution runs, and the
+separately frozen formal long-run. Formal execution is accepted only for the exact
+registered config and untouched held-out seeds 10--29.
 
 Scientific boundaries
 ---------------------
@@ -15,7 +16,8 @@ Scientific boundaries
   Results are held-out-context generalization, not OOD generalization.
 * Task collapse, support/temperature boundary events, and NaN/Inf numerical failure
   are reported separately.
-* Smoke tests and pilot runs are not formal results or method rankings.
+* Smoke tests and development runs are not formal results or method rankings.
+* Formal execution must use the separate long-run entrypoint and hardened guard.
 """
 
 from __future__ import annotations
@@ -47,6 +49,10 @@ FOCUSED_EXPERIMENT_ID = "D-U1-E6-SEMANTIC-FOCUSED-DEV-01"
 EXPERIMENT_ID = PILOT_EXPERIMENT_ID  # Backward-compatible public constant.
 FORMAL_EXPERIMENT_ID = "D-U1-E6-SEMANTIC-LONGRUN-01"
 ALLOWED_DEVELOPMENT_EXPERIMENT_IDS = {PILOT_EXPERIMENT_ID, FOCUSED_EXPERIMENT_ID}
+ALLOWED_EXPERIMENT_IDS = {
+    *ALLOWED_DEVELOPMENT_EXPERIMENT_IDS,
+    FORMAL_EXPERIMENT_ID,
+}
 EPS = 1.0e-12
 
 
@@ -104,6 +110,64 @@ def ensure_new_or_empty(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
 
 
+def prepare_output_manifest_path(output_root: Path, *, formal: bool) -> Path:
+    """Prepare an output root without clobbering the hardened guard manifest.
+
+    The canonical guard creates ``run_manifest.json`` and ``logs/`` before the
+    scientific child starts. Development runs still require a new or empty root,
+    while formal runs fail closed unless that guard-owned manifest is present and
+    identifies the active E6 formal experiment.
+    """
+    if not formal:
+        ensure_new_or_empty(output_root)
+        return output_root / "run_manifest.json"
+
+    if not output_root.is_dir():
+        raise RuntimeError("formal E6 must run inside the canonical hardened guard output root")
+    guard_manifest_path = output_root / "run_manifest.json"
+    if not guard_manifest_path.is_file():
+        raise RuntimeError(
+            "formal E6 requires the guard-owned run_manifest.json; direct formal "
+            "execution is forbidden"
+        )
+    try:
+        guard_manifest = json.loads(guard_manifest_path.read_text())
+    except (json.JSONDecodeError, OSError) as exc:
+        raise RuntimeError("cannot read the hardened guard manifest") from exc
+    required_identity = {
+        "experiment_id": FORMAL_EXPERIMENT_ID,
+        "run_class": "formal",
+        "execution_state": "running",
+    }
+    for key, expected in required_identity.items():
+        if guard_manifest.get(key) != expected:
+            raise RuntimeError(
+                f"guard manifest {key} must be {expected!r}, got {guard_manifest.get(key)!r}"
+            )
+
+    science_owned = [
+        "resolved_config.yaml",
+        "scientific_run_manifest.json",
+        "environment_audits.json",
+        "trajectories.jsonl",
+        "per_run_summary.json",
+        "per_run_summary.csv",
+        "aggregate_summary.json",
+        "terminal_audit.json",
+        "formal_protocol_freeze.json",
+        "RUN_COMPLETE.json",
+        "RUN_FAILED.json",
+        "runs",
+        "checkpoints",
+    ]
+    stale = [name for name in science_owned if (output_root / name).exists()]
+    if stale:
+        raise RuntimeError(
+            "formal E6 output root contains stale scientific files: " + ", ".join(stale)
+        )
+    return output_root / "scientific_run_manifest.json"
+
+
 def nested(config: Mapping[str, Any], *keys: str) -> Any:
     value: Any = config
     for key in keys:
@@ -115,53 +179,281 @@ def nested(config: Mapping[str, Any], *keys: str) -> Any:
 
 def configured_experiment_id(config: Mapping[str, Any]) -> str:
     value = str(config.get("experiment_id", ""))
-    if value not in ALLOWED_DEVELOPMENT_EXPERIMENT_IDS:
-        allowed = ", ".join(sorted(ALLOWED_DEVELOPMENT_EXPERIMENT_IDS))
+    if value not in ALLOWED_EXPERIMENT_IDS:
+        allowed = ", ".join(sorted(ALLOWED_EXPERIMENT_IDS))
         raise ValueError(f"experiment_id must be one of: {allowed}")
     return value
 
 
+def is_formal_config(config: Mapping[str, Any]) -> bool:
+    return configured_experiment_id(config) == FORMAL_EXPERIMENT_ID
+
+
+def run_seeds(config: Mapping[str, Any]) -> list[int]:
+    key = "held_out_formal" if is_formal_config(config) else "development"
+    return [int(seed) for seed in nested(config, "seeds", key)]
+
+
+def result_scientific_status(config: Mapping[str, Any]) -> str:
+    return "long_run_validated" if is_formal_config(config) else "pilot"
+
+
+def _require_exact(value: Any, expected: Any, label: str) -> None:
+    if value != expected:
+        raise ValueError(f"{label} is frozen to {expected!r}, got {value!r}")
+
+
+def validate_formal_config(config: Mapping[str, Any], stage: str) -> None:
+    """Fail closed unless every registered E6 formal field matches the freeze."""
+    if stage != "formal":
+        raise ValueError("formal E6 config may only run with --stage formal")
+
+    _require_exact(config.get("scientific_status"), "not_run", "scientific_status")
+    _require_exact(config.get("execution_mode"), "formal_longrun", "execution_mode")
+    _require_exact(bool(config.get("formal_parameter_freeze")), True, "formal_parameter_freeze")
+    _require_exact(
+        config.get("predecessor"),
+        FOCUSED_EXPERIMENT_ID,
+        "predecessor",
+    )
+    _require_exact(
+        dict(config.get("approval", {})),
+        {
+            "user_approved": True,
+            "approval_date": "2026-06-27",
+            "approval_scope": "exact_focused_development_freeze_recommendation",
+        },
+        "approval",
+    )
+
+    held_out = list(range(10, 30))
+    _require_exact(list(nested(config, "seeds", "development")), [], "seeds.development")
+    _require_exact(
+        list(nested(config, "seeds", "held_out_formal")),
+        held_out,
+        "seeds.held_out_formal",
+    )
+
+    expected_data = {
+        "state_dim": 6,
+        "semantic_dim": 4,
+        "action_count": 64,
+        "train_states": 2048,
+        "test_states": 2048,
+        "positive_actions_per_state": 4,
+        "far_negative_actions_per_state": 4,
+        "hidden_optimal_actions_per_state": 1,
+        "local_negative_actions_per_state": 1,
+        "state_distribution": "standard_normal",
+        "train_test_relation": "independent_same_distribution",
+        "terminology": "held_out_context_generalization",
+    }
+    _require_exact(dict(nested(config, "data")), expected_data, "data")
+
+    expected_geometry = {
+        "target_offset": 0.45,
+        "reward_scale": 0.5,
+        "positive_advantage": 1.0,
+        "negative_advantage": -1.0,
+        "fixed_advantage": True,
+        "random_action_id_permutation": True,
+    }
+    _require_exact(dict(nested(config, "geometry")), expected_geometry, "geometry")
+
+    expected_policy = {
+        "hidden_dim": 64,
+        "fixed_concentration": 8.0,
+        "learnable_concentration_floor": 0.05,
+        "initial_learnable_concentration": 8.0,
+        "learnable_concentration_upper_clamp": False,
+        "activation": "tanh",
+    }
+    _require_exact(dict(nested(config, "policy")), expected_policy, "policy")
+
+    expected_optimization = {
+        "optimizer": "Adam",
+        "learning_rate": 0.001,
+        "betas": [0.9, 0.999],
+        "eps": 1.0e-8,
+        "batch_size": 128,
+        "maximum_steps": 8000,
+        "evaluation_interval_steps": 50,
+        "audit_states": 512,
+        "parallel_workers": 8,
+        "far_cap_ratio_to_weighted_local_gradient": 1.0,
+    }
+    _require_exact(
+        dict(nested(config, "optimization")),
+        expected_optimization,
+        "optimization",
+    )
+
+    expected_protocol_a = {
+        "responsibility": "fixed_concentration_positive_only_ceiling_and_alpha_transition",
+        "concentration_mode": "fixed",
+        "local_alpha_grid": [0.0, 0.25, 0.5, 0.75],
+        "far_pressure_lambda": 0.0,
+    }
+    _require_exact(dict(nested(config, "protocol_a")), expected_protocol_a, "protocol_a")
+
+    expected_protocol_b = {
+        "responsibility": "learnable_concentration_near_far_causal_and_control_matrix",
+        "concentration_mode": "learnable",
+        "settings": [
+            {
+                "local_alpha": 0.0,
+                "far_pressure_lambda": 0.0,
+                "methods": ["positive_only"],
+            },
+            {
+                "local_alpha": 0.1,
+                "far_pressure_lambda": 0.05,
+                "methods": [
+                    "far_zero",
+                    "uncontrolled",
+                    "near_zero",
+                    "far_cap",
+                    "budget_matched_global",
+                ],
+            },
+        ],
+    }
+    _require_exact(dict(nested(config, "protocol_b")), expected_protocol_b, "protocol_b")
+
+    expected_protocol_c = {
+        "responsibility": "policy_side_semantic_alignment_exclusion_control",
+        "concentration_mode": "learnable",
+        "local_alpha": 0.1,
+        "far_pressure_lambda": 0.05,
+        "embedding_modes": ["aligned", "shuffled"],
+        "methods": ["positive_only", "far_zero", "uncontrolled", "far_cap"],
+    }
+    _require_exact(dict(nested(config, "protocol_c")), expected_protocol_c, "protocol_c")
+
+    _require_exact(
+        list(config.get("reporting_separation", [])),
+        [
+            "task_performance_collapse",
+            "support_or_temperature_boundary",
+            "nan_inf_numerical_failure",
+        ],
+        "reporting_separation",
+    )
+    _require_exact(
+        dict(nested(config, "events")),
+        {
+            "task_collapse_ratio_to_paired_positive_only": 0.2,
+            "effective_support_boundary": 1.5,
+            "concentration_warning": 80.0,
+        },
+        "events",
+    )
+
+    expected_terminal_audit = {
+        "mode": "formal_two_x_windows",
+        "development_reference_horizon_steps": 4000,
+        "formal_horizon_steps": 8000,
+        "formal_extension_factor": 2.0,
+        "window_1_steps": [4000, 6000],
+        "window_2_steps": [6000, 8000],
+        "metric_window_mean_abs_tolerances": {
+            "test_expected_semantic_reward": 0.01,
+            "test_hidden_optimal_probability": 0.02,
+            "test_normalized_semantic_extrapolation": 0.08,
+            "test_entropy_mean": 0.08,
+        },
+        "raw_total_gradient_median_ratio_max": 1.25,
+        "adam_update_median_ratio_max": 1.25,
+        "require_all_registered_runs": True,
+        "allow_scientific_failure_outcomes": True,
+    }
+    _require_exact(
+        dict(nested(config, "terminal_audit")),
+        expected_terminal_audit,
+        "terminal_audit",
+    )
+
+    expected_checkpointing = {
+        "seed_block_size": 5,
+        "seed_blocks": [
+            [10, 11, 12, 13, 14],
+            [15, 16, 17, 18, 19],
+            [20, 21, 22, 23, 24],
+            [25, 26, 27, 28, 29],
+        ],
+        "persistence": "persistent_local",
+        "write_compact_manifest_after_each_block": True,
+    }
+    _require_exact(
+        dict(nested(config, "checkpointing")),
+        expected_checkpointing,
+        "checkpointing",
+    )
+
+    expected_gate = {
+        "enabled": True,
+        "approval_record": "user_approved_2026-06-27_exact_focused_dev_freeze",
+        "frozen_protocol_path": "configs/du1_e6_semantic_longrun.yaml",
+        "held_out_seeds": held_out,
+    }
+    _require_exact(dict(nested(config, "formal_gate")), expected_gate, "formal_gate")
+
+    expected_outputs = [
+        "resolved_config.yaml",
+        "scientific_run_manifest.json",
+        "environment_audits.json",
+        "trajectories.jsonl",
+        "per_run_summary.json",
+        "per_run_summary.csv",
+        "aggregate_summary.json",
+        "terminal_audit.json",
+        "formal_protocol_freeze.json",
+        "run_manifest.json",
+        "RUN_COMPLETE.json",
+    ]
+    _require_exact(
+        list(nested(config, "outputs", "required")),
+        expected_outputs,
+        "outputs.required",
+    )
+
+
 def validate_config(config: Mapping[str, Any], stage: str) -> None:
     configured_experiment_id(config)
-    if config.get("scientific_status") != "pilot":
-        raise ValueError("E6 preparation runner must remain status=pilot")
-    if bool(config.get("formal_parameter_freeze")):
-        raise ValueError("pilot config must not claim a formal parameter freeze")
-    if stage == "formal":
-        formal = nested(config, "formal_gate")
-        required = (
-            bool(formal.get("enabled")),
-            bool(formal.get("approval_record")),
-            bool(formal.get("frozen_protocol_path")),
-            bool(formal.get("held_out_seeds")),
-        )
-        if not all(required):
+    formal = is_formal_config(config)
+    if formal:
+        validate_formal_config(config, stage)
+    else:
+        if config.get("scientific_status") != "pilot":
+            raise ValueError("E6 development runner must remain status=pilot")
+        if bool(config.get("formal_parameter_freeze")):
+            raise ValueError("pilot config must not claim a formal parameter freeze")
+        if stage == "formal":
             raise RuntimeError(
-                f"{FORMAL_EXPERIMENT_ID} is blocked: pilot review and an explicit "
-                "formal parameter-freeze record are required"
+                f"{FORMAL_EXPERIMENT_ID} is blocked for development configs; use the "
+                "separately frozen formal config and formal entrypoint"
             )
-        raise RuntimeError(
-            "formal execution is intentionally not implemented in the pilot runner; "
-            "create a separately registered formal runner after protocol freeze"
-        )
+
     data = nested(config, "data")
     if int(data["state_dim"]) != 6 or int(data["semantic_dim"]) != 4:
-        raise ValueError("locked E6 development geometry is 6D state / 4D semantics")
+        raise ValueError("locked E6 geometry is 6D state / 4D semantics")
     if int(data["positive_actions_per_state"]) != 4:
-        raise ValueError("E6 development geometry requires four positive actions per state")
+        raise ValueError("E6 geometry requires four positive actions per state")
     if int(data["far_negative_actions_per_state"]) != 4:
-        raise ValueError("E6 development geometry requires four far negatives per state")
+        raise ValueError("E6 geometry requires four far negatives per state")
     if nested(config, "geometry", "negative_advantage") >= 0:
         raise ValueError("negative_advantage must be negative")
     if nested(config, "geometry", "positive_advantage") <= 0:
         raise ValueError("positive_advantage must be positive")
     if not bool(nested(config, "geometry", "fixed_advantage")):
-        raise ValueError("E6 pilot is a fixed-advantage mechanism experiment")
-    seeds = list(nested(config, "seeds", "development"))
-    if stage in {"pilot", "all", "invariants"} and seeds != [0, 1, 2, 3, 4]:
-        raise ValueError("development seeds are locked to 0--4 for this pilot")
-    if list(nested(config, "seeds", "held_out_formal")):
-        raise ValueError("pilot config must not consume held-out formal seeds")
+        raise ValueError("E6 is a fixed-advantage mechanism experiment")
+
+    if not formal:
+        seeds = list(nested(config, "seeds", "development"))
+        if stage in {"pilot", "all", "invariants"} and seeds != [0, 1, 2, 3, 4]:
+            raise ValueError("development seeds are locked to 0--4 for this pilot")
+        if list(nested(config, "seeds", "held_out_formal")):
+            raise ValueError("pilot config must not consume held-out formal seeds")
 
 
 def smoke_config(config: Mapping[str, Any]) -> dict[str, Any]:
@@ -750,36 +1042,58 @@ def terminal_classification(
 ) -> dict[str, Any]:
     if not trajectory:
         return {"class": "inconclusive", "reason": "empty_trajectory"}
+    formal_mode = is_formal_config(config)
+    final_step = int(trajectory[-1].get("step", -1))
+    maximum_steps = int(nested(config, "optimization", "maximum_steps"))
+    full_horizon_reached = final_step >= maximum_steps
     if any(bool(row.get("nan_inf_numerical_failure")) for row in trajectory):
-        return {"class": "numerical_failure", "reason": "nonfinite_value_observed"}
+        return {
+            "class": "numerical_failure",
+            "reason": "nonfinite_value_observed",
+            "completed_steps": final_step,
+            "formal_two_x_extension_performed": False,
+            "formal_acceptance": formal_mode,
+        }
     if any(bool(row.get("support_or_temperature_boundary")) for row in trajectory):
         return {
             "class": "support_or_temperature_boundary",
             "reason": "effective_support_boundary_reached",
+            "completed_steps": final_step,
+            "full_horizon_reached": full_horizon_reached,
+            "formal_two_x_extension_performed": formal_mode and full_horizon_reached,
+            "formal_acceptance": formal_mode and full_horizon_reached,
         }
 
     audit = nested(config, "terminal_audit")
-    if audit.get("mode") == "focused_two_x_windows":
+    mode = audit.get("mode")
+    if mode in {"focused_two_x_windows", "formal_two_x_windows"}:
+        formal_mode = mode == "formal_two_x_windows"
         first_bounds = [int(x) for x in audit["window_1_steps"]]
         second_bounds = [int(x) for x in audit["window_2_steps"]]
         if len(first_bounds) != 2 or len(second_bounds) != 2:
-            raise ValueError("focused terminal windows must each have two endpoints")
+            raise ValueError("registered terminal windows must each have two endpoints")
         windows = [
             [row for row in trajectory if first_bounds[0] <= int(row["step"]) <= first_bounds[1]],
             [row for row in trajectory if second_bounds[0] < int(row["step"]) <= second_bounds[1]],
         ]
         if any(not window for window in windows):
+            prefix = "formal" if formal_mode else "focused"
             return {
-                "class": "focused_terminal_inconclusive",
+                "class": f"{prefix}_terminal_inconclusive",
                 "reason": "missing_registered_terminal_window",
                 "window_sizes": [len(window) for window in windows],
+                "formal_two_x_extension_performed": formal_mode,
+                "formal_acceptance": False,
             }
         tolerances = {
             str(key): float(value)
             for key, value in audit["metric_window_mean_abs_tolerances"].items()
         }
         means = [
-            {metric: float(np.mean([float(row[metric]) for row in window])) for metric in tolerances}
+            {
+                metric: float(np.mean([float(row[metric]) for row in window]))
+                for metric in tolerances
+            }
             for window in windows
         ]
         deltas = {metric: abs(means[1][metric] - means[0][metric]) for metric in tolerances}
@@ -797,8 +1111,21 @@ def terminal_classification(
         gradient_pass = gradient_ratio <= float(audit["raw_total_gradient_median_ratio_max"])
         update_pass = update_ratio <= float(audit["adam_update_median_ratio_max"])
         passed = metric_pass and gradient_pass and update_pass
+        if formal_mode:
+            classification = (
+                "formal_terminal_plateau" if passed else "formal_persistent_drift_or_inconclusive"
+            )
+            note = (
+                "Formal terminal classification is scientific evidence; task, "
+                "support, and numerical events remain separately reported."
+            )
+        else:
+            classification = (
+                "focused_terminal_plateau" if passed else "focused_terminal_drift_or_inconclusive"
+            )
+            note = "Focused development terminal evidence cannot establish formal ranking."
         return {
-            "class": "focused_terminal_plateau" if passed else "focused_terminal_drift_or_inconclusive",
+            "class": classification,
             "window_bounds": [first_bounds, second_bounds],
             "window_sizes": [len(window) for window in windows],
             "metric_window_means": means,
@@ -811,10 +1138,10 @@ def terminal_classification(
             "metric_pass": metric_pass,
             "gradient_pass": gradient_pass,
             "update_pass": update_pass,
-            "development_two_x_horizon_performed": True,
-            "formal_two_x_extension_performed": False,
-            "formal_acceptance": False,
-            "note": "Focused development terminal evidence cannot establish formal ranking.",
+            "development_two_x_horizon_performed": not formal_mode,
+            "formal_two_x_extension_performed": formal_mode,
+            "formal_acceptance": formal_mode,
+            "note": note,
         }
 
     width = int(audit["trailing_evaluations_per_window"])
@@ -984,7 +1311,7 @@ def run_one(
     final = trajectory[-1]
     summary = {
         "experiment_id": configured_experiment_id(config),
-        "scientific_status": "pilot",
+        "scientific_status": result_scientific_status(config),
         "seed": seed,
         "run_key": spec.key,
         "protocol": spec.protocol,
@@ -1013,7 +1340,6 @@ def run_one(
     per_run_dir.mkdir(parents=True, exist_ok=True)
     json_dump(per_run_dir / f"{spec.key}.summary.json", summary)
     return summary, trajectory
-
 
 
 def run_one_reconstructed(
@@ -1052,6 +1378,7 @@ def run_one_reconstructed(
         output_root,
         device,
     )
+
 
 def apply_task_collapse_labels(summaries: list[dict[str, Any]], config: Mapping[str, Any]) -> None:
     ratio = float(nested(config, "events", "task_collapse_ratio_to_paired_positive_only"))
@@ -1214,12 +1541,68 @@ def write_summary_csv(path: Path, summaries: Sequence[Mapping[str, Any]]) -> Non
         writer.writerows(rows)
 
 
+def write_formal_checkpoint(
+    output_root: Path,
+    *,
+    block_index: int,
+    block_seeds: Sequence[int],
+    completed_seeds: Sequence[int],
+    summaries: Sequence[Mapping[str, Any]],
+    expected_total_runs: int,
+) -> None:
+    """Write a compact persistent-local checkpoint after each five-seed block."""
+    checkpoint_root = (
+        output_root
+        / "checkpoints"
+        / (f"block_{block_index + 1:02d}_seeds_{block_seeds[0]}_{block_seeds[-1]}")
+    )
+    checkpoint_root.mkdir(parents=True, exist_ok=False)
+    tracked = [
+        output_root / "trajectories.jsonl",
+        output_root / "per_run_summary.json",
+        output_root / "per_run_summary.csv",
+        output_root / "aggregate_summary.json",
+    ]
+    files = []
+    for path in tracked:
+        if not path.is_file():
+            raise RuntimeError(f"formal checkpoint source is missing: {path}")
+        files.append(
+            {
+                "path": path.relative_to(output_root).as_posix(),
+                "size_bytes": path.stat().st_size,
+                "sha256": sha256_file(path),
+            }
+        )
+    json_dump(
+        checkpoint_root / "CHECKPOINT_COMPLETE.json",
+        {
+            "schema_version": 1,
+            "experiment_id": FORMAL_EXPERIMENT_ID,
+            "scientific_status": "not_run",
+            "checkpoint_only": True,
+            "method_ranking_allowed": False,
+            "persistence": "persistent_local",
+            "block_index": block_index,
+            "block_seeds": list(block_seeds),
+            "completed_seeds": list(completed_seeds),
+            "completed_run_count": len(summaries),
+            "expected_total_run_count": expected_total_runs,
+            "git_head": git_text("rev-parse", "HEAD"),
+            "files": files,
+        },
+    )
+
+
 def source_manifest(output_root: Path) -> dict[str, Any]:
     tracked = [
         Path("src/drpo/du1_e6_semantic.py"),
+        Path("src/drpo/du1_e6_semantic_longrun.py"),
+        Path("scripts/run_du1_e6_semantic_longrun.py"),
         Path("configs/du1_e6_semantic_pilot.yaml"),
         Path("configs/du1_e6_semantic_focused_dev.yaml"),
         Path("configs/du1_e6_semantic_focused_dev_phase2.yaml"),
+        Path("configs/du1_e6_semantic_longrun.yaml"),
         Path("docs/handoff.md"),
         Path("experiments/registry.yaml"),
     ]
@@ -1227,7 +1610,11 @@ def source_manifest(output_root: Path) -> dict[str, Any]:
     for path in tracked:
         if path.exists():
             files.append(
-                {"path": path.as_posix(), "size": path.stat().st_size, "sha256": sha256_file(path)}
+                {
+                    "path": path.as_posix(),
+                    "size": path.stat().st_size,
+                    "sha256": sha256_file(path),
+                }
             )
     return {
         "git_head": git_text("rev-parse", "HEAD"),
@@ -1237,24 +1624,55 @@ def source_manifest(output_root: Path) -> dict[str, Any]:
     }
 
 
-def execute(config: dict[str, Any], stage: str, output_root: Path, device: torch.device) -> None:
-    ensure_new_or_empty(output_root)
+def formal_protocol_freeze(config: Mapping[str, Any]) -> dict[str, Any]:
+    if not is_formal_config(config):
+        raise ValueError("formal protocol freeze is only defined for the formal config")
+    return {
+        "experiment_id": FORMAL_EXPERIMENT_ID,
+        "user_approval": copy.deepcopy(config["approval"]),
+        "held_out_seeds": list(nested(config, "seeds", "held_out_formal")),
+        "optimizer": copy.deepcopy(config["optimization"]),
+        "policy": copy.deepcopy(config["policy"]),
+        "protocol_a": copy.deepcopy(config["protocol_a"]),
+        "protocol_b": copy.deepcopy(config["protocol_b"]),
+        "protocol_c": copy.deepcopy(config["protocol_c"]),
+        "events": copy.deepcopy(config["events"]),
+        "checkpointing": copy.deepcopy(config["checkpointing"]),
+        "terminal_audit": copy.deepcopy(config["terminal_audit"]),
+        "formal_gate": copy.deepcopy(config["formal_gate"]),
+        "automatic_retuning_allowed": False,
+        "development_seeds_forbidden": [0, 1, 2, 3, 4],
+    }
+
+
+def execute(
+    config: dict[str, Any],
+    stage: str,
+    output_root: Path,
+    device: torch.device,
+) -> None:
     started = time.time()
+    formal = is_formal_config(config)
+    scientific_manifest_path = prepare_output_manifest_path(output_root, formal=formal)
+    scientific_status = result_scientific_status(config)
     yaml_dump(output_root / "resolved_config.yaml", config)
     manifest = {
         "experiment_id": configured_experiment_id(config),
-        "scientific_status": "pilot",
+        "registered_scientific_status": config.get("scientific_status"),
         "execution_mode": config.get("execution_mode"),
         "requested_stage": stage,
-        "formal_result": False,
-        "method_ranking_allowed": False,
+        "run_class": "formal" if formal else "pilot",
+        "formal_result": formal,
+        "method_ranking_allowed_after_complete_audit": formal,
         "started_unix": started,
         "device": str(device),
         "source": source_manifest(output_root),
     }
-    json_dump(output_root / "run_manifest.json", manifest)
+    json_dump(scientific_manifest_path, manifest)
 
-    seeds = [int(seed) for seed in nested(config, "seeds", "development")]
+    seeds = run_seeds(config)
+    requested_workers = int(nested(config, "optimization").get("parallel_workers", 1))
+    workers = requested_workers if device.type == "cpu" else 1
     embedding_modes = sorted(
         set(["aligned", *list(nested(config, "protocol_c", "embedding_modes"))])
     )
@@ -1264,21 +1682,25 @@ def execute(config: dict[str, Any], stage: str, output_root: Path, device: torch
         for embedding_mode in embedding_modes:
             environment = SemanticEnvironment(config, seed, embedding_mode)
             audit = environment.audit()
-            environments[(seed, embedding_mode)] = environment
+            if workers == 1:
+                environments[(seed, embedding_mode)] = environment
             audits.append(audit)
     json_dump(output_root / "environment_audits.json", audits)
-    if not all(bool(audit["passed"]) for audit in audits):
+    environment_invariants_passed = all(bool(audit["passed"]) for audit in audits)
+    if not environment_invariants_passed:
         json_dump(
             output_root / "RUN_FAILED.json",
             {
                 "experiment_id": configured_experiment_id(config),
                 "reason": "environment_invariant_failure",
-                "scientific_status": "pilot",
+                "run_class": "formal" if formal else "pilot",
             },
         )
         raise RuntimeError("E6 environment invariant audit failed")
 
     if stage == "invariants":
+        if formal:
+            raise RuntimeError("formal config does not support an invariants-only launch")
         terminal_audit = {
             "experiment_id": configured_experiment_id(config),
             "stage": "invariants",
@@ -1313,68 +1735,123 @@ def execute(config: dict[str, Any], stage: str, output_root: Path, device: torch
     trajectory_path = output_root / "trajectories.jsonl"
     maximum_steps = int(nested(config, "optimization", "maximum_steps"))
     batch_size = int(nested(config, "optimization", "batch_size"))
-    requested_workers = int(nested(config, "optimization").get("parallel_workers", 1))
-    workers = requested_workers if device.type == "cpu" else 1
-    tasks = [(config, seed, spec, output_root) for seed in seeds for spec in specs]
-    if workers > 1:
-        with concurrent.futures.ProcessPoolExecutor(max_workers=workers) as executor:
-            results = executor.map(
-                run_one_reconstructed,
-                *(list(values) for values in zip(*tasks)),
-            )
-            for summary, trajectory in results:
-                summaries.append(summary)
-                write_trajectory_rows(trajectory_path, trajectory)
-    else:
-        initial_states: dict[tuple[int, str], dict[str, torch.Tensor]] = {}
-        for seed in seeds:
-            for mode in {spec.concentration_mode for spec in specs}:
-                seed_all(seed + 10_000)
-                initial_model = SemanticPolicy(config, mode)
-                initial_states[(seed, mode)] = {
-                    key: value.detach().clone()
-                    for key, value in initial_model.state_dict().items()
-                }
-            batches = shared_batch_stream(
-                seed,
-                int(nested(config, "data", "train_states")),
-                batch_size,
-                maximum_steps,
-            )
-            for spec in specs:
-                summary, trajectory = run_one(
-                    config,
-                    seed,
-                    spec,
-                    environments[(seed, spec.embedding_mode)],
-                    initial_states[(seed, spec.concentration_mode)],
-                    batches,
-                    output_root,
-                    device,
+    seed_blocks = (
+        [list(block) for block in nested(config, "checkpointing", "seed_blocks")]
+        if formal
+        else [seeds]
+    )
+    expected_runs = len(seeds) * len(specs)
+    completed_seeds: list[int] = []
+    for block_index, seed_block in enumerate(seed_blocks):
+        block_summaries: list[dict[str, Any]] = []
+        tasks = [(config, seed, spec, output_root) for seed in seed_block for spec in specs]
+        if workers > 1:
+            with concurrent.futures.ProcessPoolExecutor(max_workers=workers) as executor:
+                results = executor.map(
+                    run_one_reconstructed,
+                    *(list(values) for values in zip(*tasks)),
                 )
-                summaries.append(summary)
-                write_trajectory_rows(trajectory_path, trajectory)
+                for summary, trajectory in results:
+                    block_summaries.append(summary)
+                    write_trajectory_rows(trajectory_path, trajectory)
+        else:
+            initial_states: dict[tuple[int, str], dict[str, torch.Tensor]] = {}
+            for seed in seed_block:
+                for mode in {spec.concentration_mode for spec in specs}:
+                    seed_all(seed + 10_000)
+                    initial_model = SemanticPolicy(config, mode)
+                    initial_states[(seed, mode)] = {
+                        key: value.detach().clone()
+                        for key, value in initial_model.state_dict().items()
+                    }
+                batches = shared_batch_stream(
+                    seed,
+                    int(nested(config, "data", "train_states")),
+                    batch_size,
+                    maximum_steps,
+                )
+                for spec in specs:
+                    summary, trajectory = run_one(
+                        config,
+                        seed,
+                        spec,
+                        environments[(seed, spec.embedding_mode)],
+                        initial_states[(seed, spec.concentration_mode)],
+                        batches,
+                        output_root,
+                        device,
+                    )
+                    block_summaries.append(summary)
+                    write_trajectory_rows(trajectory_path, trajectory)
+        summaries.extend(block_summaries)
+        completed_seeds.extend(seed_block)
+        if formal:
+            apply_task_collapse_labels(summaries, config)
+            json_dump(output_root / "per_run_summary.json", summaries)
+            write_summary_csv(output_root / "per_run_summary.csv", summaries)
+            json_dump(
+                output_root / "aggregate_summary.json",
+                aggregate_summaries(summaries),
+            )
+            write_formal_checkpoint(
+                output_root,
+                block_index=block_index,
+                block_seeds=seed_block,
+                completed_seeds=completed_seeds,
+                summaries=summaries,
+                expected_total_runs=expected_runs,
+            )
 
     apply_task_collapse_labels(summaries, config)
     json_dump(output_root / "per_run_summary.json", summaries)
     write_summary_csv(output_root / "per_run_summary.csv", summaries)
     aggregate = aggregate_summaries(summaries)
     json_dump(output_root / "aggregate_summary.json", aggregate)
-    freeze = pilot_freeze_recommendation(summaries, config)
-    json_dump(output_root / "pilot_freeze_recommendation.json", freeze)
-    expected_runs = len(seeds) * len(specs)
+    if formal:
+        json_dump(output_root / "formal_protocol_freeze.json", formal_protocol_freeze(config))
+    else:
+        freeze = pilot_freeze_recommendation(summaries, config)
+        json_dump(output_root / "pilot_freeze_recommendation.json", freeze)
+
     all_runs_present = len(summaries) == expected_runs
-    no_numerical_failures = all(not row["nan_inf_numerical_failure"] for row in summaries)
+    numerical_failure_count = sum(bool(row["nan_inf_numerical_failure"]) for row in summaries)
+    missing_task_references = sum(
+        bool(row.get("task_collapse_reference_missing")) for row in summaries
+    )
+    all_terminal_audits_present = all(bool(row.get("terminal_audit")) for row in summaries)
+    all_terminal_audits_accepted = bool(
+        all_terminal_audits_present
+        and all(bool(row["terminal_audit"].get("formal_acceptance")) for row in summaries)
+    )
+    formal_two_x_for_all_non_numerical = bool(
+        formal
+        and all_terminal_audits_present
+        and all(
+            bool(row["terminal_audit"].get("formal_two_x_extension_performed"))
+            or row["terminal_class"] == "numerical_failure"
+            for row in summaries
+        )
+    )
+    formal_audit_complete = bool(
+        formal
+        and all_runs_present
+        and environment_invariants_passed
+        and missing_task_references == 0
+        and all_terminal_audits_accepted
+        and formal_two_x_for_all_non_numerical
+    )
     terminal_audit = {
         "experiment_id": configured_experiment_id(config),
-        "scientific_status": "pilot",
+        "scientific_status": scientific_status if formal_audit_complete else "pilot",
+        "run_class": "formal" if formal else "pilot",
         "expected_runs": expected_runs,
         "actual_runs": len(summaries),
         "all_runs_present": all_runs_present,
-        "environment_invariants_passed": all(bool(audit["passed"]) for audit in audits),
-        "nan_inf_numerical_failure_count": sum(
-            bool(row["nan_inf_numerical_failure"]) for row in summaries
-        ),
+        "environment_invariants_passed": environment_invariants_passed,
+        "all_terminal_audits_present": all_terminal_audits_present,
+        "all_terminal_audits_accepted": all_terminal_audits_accepted,
+        "missing_task_collapse_reference_count": missing_task_references,
+        "nan_inf_numerical_failure_count": numerical_failure_count,
         "support_or_temperature_boundary_count": sum(
             bool(row["support_or_temperature_boundary"]) for row in summaries
         ),
@@ -1384,30 +1861,39 @@ def execute(config: dict[str, Any], stage: str, output_root: Path, device: torch
         "development_two_x_horizon_performed": bool(
             nested(config, "terminal_audit").get("mode") == "focused_two_x_windows"
         ),
-        "formal_two_x_extension_performed": False,
-        "formal_scientific_acceptance": False,
-        "formal_method_ranking_allowed": False,
-        "pilot_integrity_passed": all_runs_present and no_numerical_failures,
-        "remaining_gate": nested(config, "formal_gate", "reason"),
+        "formal_two_x_extension_performed": formal_two_x_for_all_non_numerical,
+        "formal_scientific_acceptance": formal_audit_complete,
+        "formal_method_ranking_allowed": formal_audit_complete,
+        "scientific_failure_outcomes_preserved": True,
+        "pilot_integrity_passed": bool(
+            (not formal) and all_runs_present and numerical_failure_count == 0
+        ),
     }
+    if not formal:
+        terminal_audit["remaining_gate"] = nested(config, "formal_gate", "reason")
     json_dump(output_root / "terminal_audit.json", terminal_audit)
-    completed = all_runs_present and no_numerical_failures
+
+    completed = (
+        formal_audit_complete if formal else bool(all_runs_present and numerical_failure_count == 0)
+    )
+    completed_status = scientific_status if completed else "pilot"
     json_dump(
         output_root / "RUN_COMPLETE.json",
         {
             "experiment_id": configured_experiment_id(config),
-            "scientific_status": "pilot",
+            "scientific_status": completed_status,
             "execution_mode": config.get("execution_mode"),
             "completed": completed,
-            "formal_result": False,
-            "method_ranking_allowed": False,
+            "formal_result": formal,
+            "method_ranking_allowed": bool(formal and completed),
             "expected_runs": expected_runs,
             "actual_runs": len(summaries),
             "elapsed_seconds": time.time() - started,
         },
     )
     if not completed:
-        raise RuntimeError("E6 pilot did not complete all finite method-seed runs")
+        label = "formal long-run" if formal else "pilot"
+        raise RuntimeError(f"E6 {label} did not complete its registered audit")
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:

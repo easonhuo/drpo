@@ -12,9 +12,7 @@ import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 VALIDATOR_PATH = REPO_ROOT / "scripts" / "validate_formal_execution_channel.py"
-SPEC = importlib.util.spec_from_file_location(
-    "formal_channel_validator", VALIDATOR_PATH
-)
+SPEC = importlib.util.spec_from_file_location("formal_channel_validator", VALIDATOR_PATH)
 assert SPEC is not None and SPEC.loader is not None
 VALIDATOR = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = VALIDATOR
@@ -128,13 +126,11 @@ def validate(repo: Path, registry: dict[str, Any]) -> dict[str, Any]:
 
 
 def test_current_registry_uses_canonical_channel() -> None:
-    report = VALIDATOR.validate_registry(
-        REPO_ROOT, REPO_ROOT / "experiments/registry.yaml"
-    )
+    report = VALIDATOR.validate_registry(REPO_ROOT, REPO_ROOT / "experiments/registry.yaml")
     assert report["matched"] is True
     assert report["channel_id"] == "hardened-v1"
     assert report["execution_class_counts"] == {
-        "formal": 6,
+        "formal": 7,
         "historical_formal": 2,
         "pilot": 3,
         "superseded": 1,
@@ -146,14 +142,13 @@ def test_current_registry_uses_canonical_channel() -> None:
         "D-U1-E5-LONGRUN-RERUN",
         "EXT-H-E7-BENCH-01",
         "EXT-C-E8-SCALE-01",
+        "D-U1-E6-SEMANTIC-LONGRUN-01",
     ]
 
 
 def test_formal_experiment_rejects_noncanonical_guard(tmp_path: Path) -> None:
     repo, registry = make_repo(tmp_path)
-    registry["experiments"][0]["formal_execution"]["guard_entrypoint"] = (
-        "scripts/custom_guard.py"
-    )
+    registry["experiments"][0]["formal_execution"]["guard_entrypoint"] = "scripts/custom_guard.py"
     with pytest.raises(VALIDATOR.ChannelError, match="guard_entrypoint"):
         validate(repo, registry)
 
@@ -278,9 +273,10 @@ def test_planned_blocked_experiment_with_reason_is_allowed(tmp_path: Path) -> No
 
 def test_repository_development_formal_registrations_are_fail_closed() -> None:
     report = VALIDATOR.validate_registry(REPO_ROOT, REPO_ROOT / "experiments" / "registry.yaml")
+    experiments = {item["id"]: item for item in report["experiment_reports"]}
     development = {item["id"]: item for item in report["development_registration_reports"]}
     assert development["D-U1-E6-SEMANTIC-PILOT-01"]["state"] == "development_nonformal"
-    assert development["D-U1-E6-SEMANTIC-LONGRUN-01"]["state"] == "planned_blocked"
+    assert experiments["D-U1-E6-SEMANTIC-LONGRUN-01"]["state"] == "active"
     assert development["D-U1-E6-TAPER-01"]["state"] == "planned_blocked"
 
 
@@ -354,9 +350,7 @@ def test_guarded_pilot_operator_must_exist(tmp_path: Path) -> None:
         validate(repo, registry)
 
 
-def test_cli_default_output_is_compact(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_cli_default_output_is_compact(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     repo, registry = make_repo(tmp_path)
     registry_path = repo / "experiments/registry.yaml"
     write(registry_path, yaml.safe_dump(registry, sort_keys=False))

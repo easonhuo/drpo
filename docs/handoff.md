@@ -1,5 +1,18 @@
-# DRPO / SNA2C 远场负梯度动力学研究主文档 v43（D-U1 E6 聚焦开发扩展结果审计版）
+# DRPO / SNA2C 远场负梯度动力学研究主文档 v44（D-U1 E6 formal 冻结与单次启动版）
 
+> **v44 增量登记：`D-U1-E6-SEMANTIC-LONGRUN-01` 用户批准 freeze、formal 实现与 canonical activation（不删除 v43 及更早内容）**
+>
+> - 用户于 2026-06-27 明确批准按 focused-development 建议原样冻结 E6 formal 协议，并要求不再拆分额外“激活包”。本版一次性完成 formal config、独立科学 runner、one-click hardened launcher、registry ready/active 状态和测试；应用并提交后即可直接启动 long-run，不再需要新的运行前仓库更新。
+> - 正式 seeds 锁定为 untouched `10--29`；development seeds `0--4` 禁止进入正式聚合。Adam `lr=1e-3`、batch 128、8000 steps、每 50 steps 评估；8000 是相对 4000-step focused-development horizon 的 2x 正式延长。
+> - 固定 concentration `8.0`，E6-A alpha 网格冻结为 `{0,0.25,0.5,0.75}`。Learnable concentration 初值 `8.0`、无上界 clamp，local alpha `0.1`、far-pressure stress `0.05`；E6-B 比较 `positive_only / far_zero / uncontrolled / near_zero / far_cap / budget_matched_global`，不预设胜负。
+> - E6-C 保留 policy-side semantic alignment 排他性控制：`aligned/shuffled` 两种模式，方法为 `positive_only / far_zero / uncontrolled / far_cap`；reward-side catalogue、hidden optimum、数据与 advantage 不变。训练/测试 context 仍为同分布独立采样，只能称 held-out-context / unseen-state generalization。
+> - 正式终态窗口锁定为 `4000--6000` 与 `6000--8000`；沿用 focused-development 的任务/支持窗口变化阈值及 raw-gradient、Adam-update 增长比 `<=1.25`。任务性能崩溃、support/temperature boundary、NaN/Inf 数值失败继续分别报告；科学失败事件本身不使 artifact 丢失。
+> - 预计正式运行超过 30 分钟，因此按 held-out seeds 每 5 个一组写入 persistent-local compact checkpoint manifest（`10--14 / 15--19 / 20--24 / 25--29`）。科学 runner 不创建归档；canonical guard 在失败时把已有 partial outputs 与 checkpoint manifests 打包为 failed-run evidence，成功时生成 raw-complete artifact。
+> - 正式配置为 `configs/du1_e6_semantic_longrun.yaml`，科学入口为 `src/drpo/du1_e6_semantic_longrun.py`，唯一推荐启动入口为 `scripts/run_du1_e6_semantic_longrun.py`。one-click 入口要求 clean HEAD 与 `origin/main` 一致，并通过 canonical hardened guard 前台监督、打包和验证。
+> - `D-U1-E6-SEMANTIC-LONGRUN-01` 当前科学状态仍是 **尚未运行（not_run）**，但实现和执行门禁已为 **implemented + ready + active**。应用本版后的下一步就是运行 long-run；结果完成前不得启动 `D-U1-E6-TAPER-01`。
+>
+> **v43（D-U1 E6 聚焦开发扩展结果审计版）**
+>
 > **v43 增量登记：`D-U1-E6-SEMANTIC-FOCUSED-DEV-01` 两阶段完成、阻塞项解决与 formal freeze 建议（不删除 v42 及更早内容）**
 >
 > - 本扩展基于用户确认的 GitHub `main` commit `2e04f6dba6d4e87f61920bedb1c464656906bf2b` 的完整 tree，源码在本地 clean commits 上运行。Phase 1 完成 `55/55` runs，Phase 2 完成 `110/110` runs；均只使用 development seeds `0--4`、CPU 和 4000 steps，未消耗任何 formal held-out seed。
@@ -457,7 +470,7 @@
 ## 0.1 当前执行门禁
 
 - C-U1 E1/E2/E3：现有正式状态保留。`C-U1-E4-ADAM-RERUN` 保留“有限训练步数验证”；`C-U1-E4-CONV-01` 经用户明确审阅，在保留原 18/20 门禁失败事实的前提下，按 15/20、16/20、15/20 目标状态、0/60 明确相反终态与 60/60 长程科学角色不反转，闭合为“已长期验证”。`C-U1-E4-TAPER-01` 已完成文档登记、共享实现和 operational activation 同步，当前为 **尚未运行、允许按冻结协议正式启动**。
-- D-U1：E5 已长期闭环。`D-U1-E6-SEMANTIC-PILOT-01` 与 `D-U1-E6-SEMANTIC-FOCUSED-DEV-01` 均已完成、终态审计并交付，科学状态保持 **pilot**；focused development 已解决固定 concentration horizon 与 learnable-concentration 压力区间两个开发阻塞项，但自动 freeze 仍禁止。`D-U1-E6-SEMANTIC-LONGRUN-01` 保持 planned + blocked，等待用户明确批准 freeze 建议、formal runner/config 实现和 canonical activation；`D-U1-E6-TAPER-01` 继续等待 E6 long-run 交付。
+- D-U1：E5 已长期闭环。E6 pilot 与 focused development 均已完成并保持 **pilot**；用户已批准 formal freeze，`D-U1-E6-SEMANTIC-LONGRUN-01` 已实现并同步为 **not_run + ready + active**，应用本版后可直接启动。`D-U1-E6-TAPER-01` 继续等待 E6 long-run 完成 terminal audit、packaging 和 delivery。
 - Hopper/D4RL：`EXT-H-E7-Q2` 是 E7-MECH，runner/config 已实现但 formal launch 仍等待受控 taper 阶段交付；`EXT-H-E7-BENCH-01` 是 D4RL MuJoCo locomotion 9-task 方法效果表，等待 E7-MECH 与受控方法 shortlist 冻结。
 - Countdown：`EXT-C-E8-V4.2` 是当前 E8-MECH/pilot；`EXT-C-E8-V4.1` 仅保留 provenance；`EXT-C-E8-SCALE-01` 是更大固定数据与模型规模验证，等待 E8-MECH 和 E7-BENCH。
 
@@ -669,7 +682,7 @@ Ground-truth reward 由动作到 `a_star(s)` 的二维距离决定，因此 `a_s
 6. **E6-A：** positive-only 与 local-negative alpha scan，验证未见最优动作概率是否提高、是否越过 positive support、是否存在过度外推。
 7. **E6-B：** 加入 far pressure，比较 uncontrolled、Near-zero、Far-zero/local-oracle、Far-cap、budget-matched global。
 8. **E6-C：** 独立打乱 policy-side embeddings 与 reward semantics 的对应关系；预期 support suppression 保留，但系统性的 hidden-optimum 外推消失。
-9. **顺序门禁更新（v43）：** E6 pilot 与 focused development 已分别完成 105/105 和 165/165 development runs。固定 concentration horizon 与 learnable-concentration 安全压力区间两个开发阻塞项已解决，formal freeze 建议已生成但未自动生效。下一步必须由用户明确批准或修订该建议，再实现 formal runner/config、登记 canonical activation，随后才能使用 untouched seeds `10--29` 启动 `D-U1-E6-SEMANTIC-LONGRUN-01`。
+9. **顺序门禁更新（v44）：** E6 pilot 与 focused development 已分别完成 105/105 和 165/165 development runs；用户已批准 freeze，formal runner/config 和 canonical activation 已在本版一次性实现。应用并提交本版后，直接使用 untouched seeds `10--29` 启动 `D-U1-E6-SEMANTIC-LONGRUN-01`，不得再插入新的调参或激活步骤。
 
 ---
 
@@ -700,14 +713,14 @@ Ground-truth reward 由动作到 `a_star(s)` 的二维距离决定，因此 `a_s
 
 1. **实验职责：** E6 不重复 E5 的 direct-softmax/support-boundary 结论。它检验共享 semantic representation 下，受控 local negative 是否能把策略从 positive demonstrations 推向训练中未展示的 hidden optimal action，并检验 far pressure 是否导致 task failure 或 support/temperature boundary。
 2. **状态与术语：** train/test contexts 独立采样自相同 `N(0,I_6)`，因此只报告同分布 held-out-context / unseen-state generalization；本实验没有显式 state distribution shift，不使用 OOD generalization。
-3. **开发身份与当前状态：** experiment ID 为 `D-U1-E6-SEMANTIC-PILOT-01`，seeds 固定为 0--4，科学状态为 `pilot`。105/105 development runs 已完成、审计并交付；这不升级为 formal long-run。`D-U1-E6-SEMANTIC-LONGRUN-01` 仍是预留正式 ID，当前为 `not_run` 且 blocked。
+3. **开发身份与当前状态：** experiment ID 为 `D-U1-E6-SEMANTIC-PILOT-01`，seeds 固定为 0--4，科学状态为 `pilot`。105/105 development runs 已完成、审计并交付；这不升级为 formal long-run。`D-U1-E6-SEMANTIC-LONGRUN-01` 已在 v44 冻结并实现，科学状态仍为 `not_run`，执行门禁为 ready + active。
 4. **实现入口：** `src/drpo/du1_e6_semantic.py`；开发配置 `configs/du1_e6_semantic_pilot.yaml`；实现说明 `src/drpo/README_DU1_E6_SEMANTIC.md`。runner 只写普通 JSON/JSONL/CSV/YAML，不自行打包。
 5. **E6-A：** fixed concentration 下比较 positive-only 与 local-negative alpha scan，观察 hidden-optimal probability、positive-support probability、expected semantic reward 与 normalized semantic extrapolation。alpha 网格是开发值，不是正式冻结值。
 6. **E6-B：** learnable concentration 下比较 `positive_only / local_only / uncontrolled / near_zero / far_zero / far_cap / budget_matched_global`。`local_only` 与 `far_zero` 在数学更新上同义但保留不同协议语义；Far-cap 与 Global 只匹配 raw controlled-negative norm。
 7. **E6-C：** 对同一 reward-side catalogue、hidden optimum、demonstrations、negative sets 与 fixed advantages，只独立置换 policy-side action embeddings。若 suppression 仍存在但 hidden-optimum 改善消失，才支持 shared semantic alignment 是外推收益的必要通道；pilot 不构成正式结论。
 8. **配对与审计结果：** 同一 seed 内共享网络初始化与 minibatch index stream；105/105 runs 完整。任务性能崩溃为 0/105，support/temperature boundary 为 56/105，NaN/Inf 为 0/105；三类事件继续分报。
 9. **终态边界：** fixed-concentration 的 30/30 runs 均未通过两尾窗 provisional plateau，可学习 concentration 的负压力分支普遍触发 support boundary；正式 2x 延长未执行。因此本 pilot 不能升级为 long-run validated、稳定 fixed point 或正式方法排名。
-10. **下一门禁：** `D-U1-E6-SEMANTIC-FOCUSED-DEV-01` 已完成并给出 formal freeze 建议；禁止自动冻结。必须先由用户明确批准或修订 held-out seeds、alpha、concentration、far pressure、方法矩阵、最大步数和终态/2x 规则，再实现并激活 formal runner。E4-TAPER 与 E6 的科学职责和输出仍相互独立。
+10. **下一门禁：** focused-development freeze 已由用户批准，formal runner/config 已实现并激活。应用本版后直接启动 E6 long-run；运行完成后必须先做 terminal audit、durable packaging 和 delivery，随后才可进入 E6-TAPER。E4-TAPER 与 E6 的科学职责和输出仍相互独立。
 
 ---
 
@@ -752,13 +765,13 @@ $$
 
 ## 3.9 E6--E8 方法迁移与规模验证路线（v42 锁定）
 
-1. **E6：** `D-U1-E6-SEMANTIC-PILOT-01` 与 `D-U1-E6-SEMANTIC-FOCUSED-DEV-01` 已完成 development seeds 0--4 的 105/105 与 165/165 runs，只提供 pilot 证据与 formal-freeze 输入；当前不得自动冻结。用户明确批准或修订 freeze 建议并完成 formal runner/config activation 后，才由 `D-U1-E6-SEMANTIC-LONGRUN-01` 建立 positive-only ceiling、受控 local negative 的未见动作泛化收益、far pressure 的任务/支持失稳以及语义置乱排他性。
+1. **E6：** pilot 与 focused development 已完成 development seeds 0--4 的 105/105 与 165/165 runs。用户已批准 v44 formal freeze，runner/config 已实现并 active；下一步由 `D-U1-E6-SEMANTIC-LONGRUN-01` 在 untouched seeds 10--29 上建立 positive-only ceiling、受控 local negative 的未见动作泛化收益、far pressure 的任务/支持失稳以及语义置乱排他性。
 2. **`D-U1-E6-TAPER-01`（E6-TAPER）：** 在 E6 long-run 冻结的同一个 semantic remoteness coordinate 上比较 reciprocal-linear、reciprocal-quadratic 与 exponential，并包含 positive-only、uncontrolled 和 global-alpha controls。该实验验证控制思想跨策略族迁移，不声称 categorical policy 具有 Gaussian 的二次梯度临界界。
 3. **`EXT-H-E7-Q2`（E7-MECH）：** Hopper learned-critic 深度机制 runner 已实现，但 formal launch 继续 blocked，直到 E6-TAPER 交付。该实验回答真实数据是否进入 Gaussian log-scale 二次主导区、是否传导到 full-parameter gradient/长期动力学；不承担大规模方法排名。
 4. **`EXT-H-E7-BENCH-01`（E7-BENCH）：** 公共大规模连续控制主表固定为 D4RL MuJoCo locomotion suite：Hopper、Walker2d、HalfCheetah × medium、medium-replay、medium-expert，共 9 tasks。方法 shortlist 与超参从 E4/E6-TAPER 冻结，不得在 D4RL 上按任务重新选择方法族；主报 normalized return、多 seed 区间、跨任务平均排名、最差 seed 与三类失效事件。AntMaze/Kitchen/Adroit 不属于本主表，可另行登记 stress test。
 5. **`EXT-C-E8-V4.2`（E8-MECH）：** 0.5B Countdown/Qwen 继续承担 Transformer 固定负优势 near/far probe、pipeline 与小规模方法信号，不承担最终规模结论。
 6. **`EXT-C-E8-SCALE-01`（E8-SCALE）：** 在方法 shortlist 冻结后，使用更大固定 Countdown offline dataset；3B 为正式主模型，7B 只做冻结配置确认，不在规模实验重新筛选方法族。
-7. **执行顺序：** `E4-TAPER -> E6 -> E6-TAPER -> E7-MECH -> E7-BENCH -> E8-MECH -> E8-SCALE`。E6 development pilot 已完成；E4-TAPER 可独立启动，而 E6 long-run 必须等待 pilot 审阅与 formal-freeze。除此之外，每个正式 ID 必须先完成 terminal audit、packaging 和 delivery，下一正式 ID 才可启动。
+7. **执行顺序：** `E4-TAPER -> E6 -> E6-TAPER -> E7-MECH -> E7-BENCH -> E8-MECH -> E8-SCALE`。E6 formal-freeze 已批准并实现，当前可直接启动 long-run；每个正式 ID 必须先完成 terminal audit、packaging 和 delivery，下一正式 ID 才可启动。
 
 ---
 
@@ -809,7 +822,7 @@ $$
 | E4-CONV | 无历史独立环境结果 | **4000-step 正式运行已完成**：`0.75/1.00/1.25` 目标状态分别为 15/20、16/20、15/20，剩余均 inconclusive，0 个明确相反终态，60/60 科学角色未反转 | **已长期验证（用户确认闭环）**；原 18/20 门禁未通过的事实继续保留，不等同于 20/20 fixed-point 认证 |
 | E4-TAPER | seeds 0--4 独立复制实现 pilot | 共享 core 与正式 runner 已登记；E4-CONV 前置门禁已由用户确认闭环解除，正式 seeds 70--89 尚未运行 | 二次临界界已解析证明；允许按冻结协议启动，方法排名尚无正式结果 |
 | E5 | 历史解析、direct-softmax 与 20-seed 因果结果保留；旧 runner/raw artifact 未入库 | **`D-U1-E5-LONGRUN-RERUN` 已完成**：direct-softmax 参照通过，120/120 长程因果 runs 全部分类且 120/120 复现历史 qualitative class，NaN/Inf 0/120 | **已长期验证**；受控 categorical 排斥、支持边界和 near/far 因果链可用于论文，E6 语义泛化仍未完成 |
-| E6 | unordered semantic categorical 开发 runner/config 已实现 | Pilot 105/105 与 focused development 165/165 已完成；后者为 task collapse 0/165、support boundary 78/165、NaN/Inf 0/165，并识别 `local_alpha=0.1` 与 far-pressure 转折；`D-U1-E6-SEMANTIC-LONGRUN-01` 等待用户批准 freeze 建议和 formal 实现 | 科学状态保持 pilot；正式 long-run blocked，不构成方法排名 |
+| E6 | unordered semantic categorical pilot/focused runner 与 formal runner/config 均已实现 | Pilot 105/105 与 focused development 165/165 已完成；用户已批准 `local_alpha=0.1`、far stress 0.05、8000-step、seeds 10--29 的 formal freeze；long-run 尚未运行但 ready + active | 开发证据保持 pilot；正式方法结论等待 long-run terminal audit |
 | E6-TAPER | 无正式结果 | `D-U1-E6-TAPER-01` 已 planned 登记，semantic distance 尚未冻结 | 未完成、blocked；不得套用 Gaussian 二次界 |
 | E7-MECH | Hopper learned-critic 600-step probe | `EXT-H-E7-Q2` runner/config/operator/test 已在 commit `f64452a7452274a183b03c87c39b847039230c00` 实现；formal launch 仍等待 E6-TAPER 交付 | 旧 probe 仅有限步；新实现科学状态仍为 not_run/blocked |
 | E7-BENCH | 无 9-task 主表 | `EXT-H-E7-BENCH-01` 已登记 D4RL MuJoCo locomotion 9-task scope | 未完成、blocked；等待 E7-MECH 与 bandit shortlist |
@@ -823,7 +836,7 @@ $$
 1. E1/E2/E3、E4、E4-CONV 与 E5 的既有科学状态和历史证据保持不变；原 E4 18/20 门禁失败事实继续披露。
 2. **`C-U1-E4-TAPER-01` 现已 ready + active。** 它仍是尚未运行，必须从应用本更新后的 clean commit 通过 canonical hardened guard 启动。
 3. `D-U1-E6-SEMANTIC-PILOT-01` 已完成并交付，但只提供 development 证据，不产生论文级方法排名，也不自动冻结 E6 正式参数。
-4. E6 focused development 已完成并回写 freeze 建议；下一步须由用户明确批准或修订 alpha、concentration、far pressure、方法矩阵、学习率、最大步数、事件阈值、2× 终态标准和 untouched held-out seeds，随后实现 formal runner/config 与 canonical activation，才能启动 `D-U1-E6-SEMANTIC-LONGRUN-01`。
+4. E6 focused development 已完成；用户已批准 freeze，formal runner/config 与 canonical activation 已一次性实现。应用本版后的下一步是直接启动 `D-U1-E6-SEMANTIC-LONGRUN-01`，不再增加运行前激活提交。
 5. E6 long-run 交付并冻结同一个 semantic remoteness coordinate 后，实施 `D-U1-E6-TAPER-01`；不得把 Gaussian 标准化距离或二次临界界直接搬到 categorical。
 6. E6-TAPER 交付后，解除已实现的 `EXT-H-E7-Q2`（E7-MECH）formal gate 并启动正式运行；它只回答 Hopper learned-critic 下二次 log-scale 远场区是否真实激活并传导。
 7. E7-MECH 交付后，实施 `EXT-H-E7-BENCH-01`（E7-BENCH）：D4RL MuJoCo locomotion 9 tasks，方法 shortlist/超参从受控实验冻结，不做按任务方法族重选。
