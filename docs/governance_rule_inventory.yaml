@@ -1,0 +1,1370 @@
+schema_version: 1
+inventory_id: GOV-RULE-MIGRATION-01
+inventory_base_commit: d699bb6b1d0093d8a9b935fd6c67f049fc3c3df0
+authority_note: This inventory is a migration safety net, not a competing governance authority.
+coverage_note: Only selected migration-candidate AGENTS sections are exhaustively covered in Stage 0. Add a section here before
+  moving any rule from it.
+tracked_sections:
+- source_id: AGENTS-FORMAL-SUPERVISION
+  path: AGENTS.md
+  heading: Formal experiment supervision and durable artifacts
+  selector: top_level_list_items
+  expected_item_count: 10
+  section_item_digest: 7e796974220efea2f1cde608543f29822d5e3713c4367283c7ec53ae65a8eaa4
+  coverage: complete_for_selected_section
+- source_id: AGENTS-PATCH-DELIVERY
+  path: AGENTS.md
+  heading: ChatGPT patch-delivery protocol
+  selector: top_level_list_items
+  expected_item_count: 6
+  section_item_digest: 8edd003db353edda1395117b33e83a32a90653ea924235c73635c9817a36e566
+  coverage: complete_for_selected_section
+- source_id: AGENTS-FORMAL-HARDENING
+  path: AGENTS.md
+  heading: Formal commit and artifact hardening
+  selector: top_level_list_items
+  expected_item_count: 33
+  section_item_digest: fb72a64512635b2c965cb657f43656459b94e17a4732234e0f62d7d41d1b2cda
+  coverage: complete_for_selected_section
+rules:
+- rule_id: GOV-AGENT-SUPERVISION-001
+  title: Do not launch a formal experiment as an unattended background process and then end the working turn.
+  severity: mandatory
+  scope: formal_experiment
+  source:
+    source_id: AGENTS-FORMAL-SUPERVISION
+    item_index: 1
+    kind: top_level_list_item
+    excerpt: Do not launch a formal experiment as an unattended background process and then end the working turn.
+    normalized_text_sha256: c01eff7ca9e9a13ff79f98222c8caa0ceadf6fa48f669b1ed085aa69b65f7d38
+  current_locations:
+  - path: AGENTS.md
+    heading: Formal experiment supervision and durable artifacts
+    role: prompt_authority
+  detailed_contract_locations:
+  - path: docs/formal_experiment_artifact_protocol.md
+    role: operational_contract
+  machine_enforcement:
+    required: false
+    implementations: []
+    tests: []
+  migration:
+    status: unchanged
+    destination_locations: []
+    evidence: []
+- rule_id: GOV-AGENT-SUPERVISION-002
+  title: Use `scripts/run_experiment_guard_hardened.py` or an equivalent foreground supervisor that records a
+  severity: mandatory
+  scope: formal_experiment
+  source:
+    source_id: AGENTS-FORMAL-SUPERVISION
+    item_index: 2
+    kind: top_level_list_item
+    excerpt: Use `scripts/run_experiment_guard_hardened.py` or an equivalent foreground supervisor that records a heartbeat,
+      streams logs, captures exit status, preserves partial outputs, and packages success or failure.
+    normalized_text_sha256: f7d8314e06bb35a044d79efe65297ad7d86cd8041c95f408a448387f1833330a
+  current_locations:
+  - path: AGENTS.md
+    heading: Formal experiment supervision and durable artifacts
+    role: prompt_authority
+  detailed_contract_locations:
+  - path: docs/formal_experiment_artifact_protocol.md
+    role: operational_contract
+  machine_enforcement:
+    required: true
+    implementations:
+    - scripts/artifact_protocol_hardened.py
+    - scripts/run_experiment_guard_hardened.py
+    - scripts/package_experiment_hardened.py
+    - scripts/verify_experiment_package_hardened.py
+    tests:
+    - tests/test_experiment_artifact_protocol.py
+    - tests/test_experiment_artifact_hardening.py
+  migration:
+    status: unchanged
+    destination_locations: []
+    evidence: []
+- rule_id: GOV-AGENT-SUPERVISION-003
+  title: Treat `registered`, `running`, `raw_complete`, `terminal_audited`, `packaged`, `delivered`, and `app
+  severity: mandatory
+  scope: formal_experiment
+  source:
+    source_id: AGENTS-FORMAL-SUPERVISION
+    item_index: 3
+    kind: top_level_list_item
+    excerpt: Treat `registered`, `running`, `raw_complete`, `terminal_audited`, `packaged`, `delivered`, and `applied_to_repository`
+      as separate execution/evidence states.
+    normalized_text_sha256: 84460a6ba744654637d06c07f9a88668f44cfc1befbf792a5fa34f4a7878840a
+  current_locations:
+  - path: AGENTS.md
+    heading: Formal experiment supervision and durable artifacts
+    role: prompt_authority
+  detailed_contract_locations:
+  - path: docs/formal_experiment_artifact_protocol.md
+    role: operational_contract
+  machine_enforcement:
+    required: false
+    implementations: []
+    tests: []
+  migration:
+    status: unchanged
+    destination_locations: []
+    evidence: []
+- rule_id: GOV-AGENT-SUPERVISION-004
+  title: '`raw_complete` is not a completed formal result. Do not claim completion until a verified durable pa'
+  severity: mandatory
+  scope: formal_experiment
+  source:
+    source_id: AGENTS-FORMAL-SUPERVISION
+    item_index: 4
+    kind: top_level_list_item
+    excerpt: '`raw_complete` is not a completed formal result. Do not claim completion until a verified durable package has
+      been generated and delivered.'
+    normalized_text_sha256: d8cbc588f118008d415d3b4ab0fc92d04a61b67616256df649d68a6287e431b0
+  current_locations:
+  - path: AGENTS.md
+    heading: Formal experiment supervision and durable artifacts
+    role: prompt_authority
+  detailed_contract_locations:
+  - path: docs/formal_experiment_artifact_protocol.md
+    role: operational_contract
+  machine_enforcement:
+    required: false
+    implementations: []
+    tests: []
+  migration:
+    status: unchanged
+    destination_locations: []
+    evidence: []
+- rule_id: GOV-AGENT-SUPERVISION-005
+  title: Do not start the next formal experiment ID until the current experiment has been packaged and delive
+  severity: mandatory
+  scope: formal_experiment
+  source:
+    source_id: AGENTS-FORMAL-SUPERVISION
+    item_index: 5
+    kind: top_level_list_item
+    excerpt: Do not start the next formal experiment ID until the current experiment has been packaged and delivered. In particular,
+      package E3 before starting E4.
+    normalized_text_sha256: 4dd305a7f5da171eb8304ffa0d3d47ca0f45e8e7051ad2efe8883162b0e4a793
+  current_locations:
+  - path: AGENTS.md
+    heading: Formal experiment supervision and durable artifacts
+    role: prompt_authority
+  detailed_contract_locations:
+  - path: docs/formal_experiment_artifact_protocol.md
+    role: operational_contract
+  machine_enforcement:
+    required: false
+    implementations: []
+    tests: []
+  migration:
+    status: unchanged
+    destination_locations: []
+    evidence: []
+- rule_id: GOV-AGENT-SUPERVISION-006
+  title: For runs expected to exceed 30 minutes, create a durable checkpoint artifact at least every five for
+  severity: mandatory
+  scope: formal_experiment
+  source:
+    source_id: AGENTS-FORMAL-SUPERVISION
+    item_index: 6
+    kind: top_level_list_item
+    excerpt: For runs expected to exceed 30 minutes, create a durable checkpoint artifact at least every five formal seeds
+      or at another interval registered before launch.
+    normalized_text_sha256: 9423e2fa774cabccf003c2675b405d40c8685bc3a8ffa6fde16bab43447b7dc5
+  current_locations:
+  - path: AGENTS.md
+    heading: Formal experiment supervision and durable artifacts
+    role: prompt_authority
+  detailed_contract_locations:
+  - path: docs/formal_experiment_artifact_protocol.md
+    role: operational_contract
+  machine_enforcement:
+    required: false
+    implementations: []
+    tests: []
+  migration:
+    status: unchanged
+    destination_locations: []
+    evidence: []
+- rule_id: GOV-AGENT-SUPERVISION-007
+  title: If a run, aggregation, plotting, or audit step fails, preserve the completed raw outputs, logs, trac
+  severity: mandatory
+  scope: formal_experiment
+  source:
+    source_id: AGENTS-FORMAL-SUPERVISION
+    item_index: 7
+    kind: top_level_list_item
+    excerpt: If a run, aggregation, plotting, or audit step fails, preserve the completed raw outputs, logs, traceback, source
+      commit, and missing-output inventory in an `experiment-failed` package before repair or rerun.
+    normalized_text_sha256: 6272fcfd63b11f4cbcd34530ed058d86dd1ea2bdede3e292a15e4f2884fdf4e6
+  current_locations:
+  - path: AGENTS.md
+    heading: Formal experiment supervision and durable artifacts
+    role: prompt_authority
+  detailed_contract_locations:
+  - path: docs/formal_experiment_artifact_protocol.md
+    role: operational_contract
+  machine_enforcement:
+    required: false
+    implementations: []
+    tests: []
+  migration:
+    status: unchanged
+    destination_locations: []
+    evidence: []
+- rule_id: GOV-AGENT-SUPERVISION-008
+  title: 'Files written only to an ephemeral path such as `/mnt/data` are not durable evidence. Chat messages '
+  severity: mandatory
+  scope: formal_experiment
+  source:
+    source_id: AGENTS-FORMAL-SUPERVISION
+    item_index: 8
+    kind: top_level_list_item
+    excerpt: Files written only to an ephemeral path such as `/mnt/data` are not durable evidence. Chat messages and process
+      counters are not evidence either.
+    normalized_text_sha256: 387a9be73fa1f727bb6accd70bb723b7bdf7f1771490254ef162bee41d616cf3
+  current_locations:
+  - path: AGENTS.md
+    heading: Formal experiment supervision and durable artifacts
+    role: prompt_authority
+  detailed_contract_locations:
+  - path: docs/formal_experiment_artifact_protocol.md
+    role: operational_contract
+  machine_enforcement:
+    required: false
+    implementations: []
+    tests: []
+  migration:
+    status: unchanged
+    destination_locations: []
+    evidence: []
+- rule_id: GOV-AGENT-SUPERVISION-009
+  title: A final experiment package must contain raw outputs, aggregate results, logs, a run manifest, `RUN_C
+  severity: mandatory
+  scope: formal_experiment
+  source:
+    source_id: AGENTS-FORMAL-SUPERVISION
+    item_index: 9
+    kind: top_level_list_item
+    excerpt: A final experiment package must contain raw outputs, aggregate results, logs, a run manifest, `RUN_COMPLETE.json`,
+      a terminal audit, source provenance, checksums, and the repository update files required below.
+    normalized_text_sha256: 8f1582140ccfe10f573e412399235a5ba0a29a03048dc12270e3498927f417b8
+  current_locations:
+  - path: AGENTS.md
+    heading: Formal experiment supervision and durable artifacts
+    role: prompt_authority
+  detailed_contract_locations:
+  - path: docs/formal_experiment_artifact_protocol.md
+    role: operational_contract
+  machine_enforcement:
+    required: false
+    implementations: []
+    tests: []
+  migration:
+    status: unchanged
+    destination_locations: []
+    evidence: []
+- rule_id: GOV-AGENT-SUPERVISION-010
+  title: Follow `docs/formal_experiment_artifact_protocol.md` for package kinds, lifecycle semantics, stage b
+  severity: mandatory
+  scope: formal_experiment
+  source:
+    source_id: AGENTS-FORMAL-SUPERVISION
+    item_index: 10
+    kind: top_level_list_item
+    excerpt: Follow `docs/formal_experiment_artifact_protocol.md` for package kinds, lifecycle semantics, stage boundaries,
+      size policy, and canonical commands.
+    normalized_text_sha256: 4fb546d3cdf9a56c763f86d2fbb3d639a055b60376f11ac2d93d788665c4464e
+  current_locations:
+  - path: AGENTS.md
+    heading: Formal experiment supervision and durable artifacts
+    role: prompt_authority
+  detailed_contract_locations:
+  - path: docs/formal_experiment_artifact_protocol.md
+    role: operational_contract
+  machine_enforcement:
+    required: false
+    implementations: []
+    tests: []
+  migration:
+    status: unchanged
+    destination_locations: []
+    evidence: []
+- rule_id: GOV-AGENT-PATCH-001
+  title: '`update.patch`, a unified patch applicable with `git apply`;'
+  severity: mandatory
+  scope: code_delivery
+  source:
+    source_id: AGENTS-PATCH-DELIVERY
+    item_index: 1
+    kind: top_level_list_item
+    excerpt: '`update.patch`, a unified patch applicable with `git apply`;'
+    normalized_text_sha256: 5c88c5521538d079fbf4925187b8b95565f2edc993b64c1b2fb2e294e7eee61e
+  current_locations:
+  - path: AGENTS.md
+    heading: ChatGPT patch-delivery protocol
+    role: prompt_authority
+  detailed_contract_locations:
+  - path: docs/formal_experiment_artifact_protocol.md
+    role: operational_contract
+  machine_enforcement:
+    required: true
+    implementations:
+    - scripts/artifact_protocol_hardened.py
+    tests:
+    - tests/test_experiment_artifact_protocol.py
+    - tests/test_experiment_artifact_hardening.py
+  migration:
+    status: unchanged
+    destination_locations: []
+    evidence: []
+- rule_id: GOV-AGENT-PATCH-002
+  title: '`BASE_COMMIT.txt`, containing only the full base commit SHA;'
+  severity: mandatory
+  scope: code_delivery
+  source:
+    source_id: AGENTS-PATCH-DELIVERY
+    item_index: 2
+    kind: top_level_list_item
+    excerpt: '`BASE_COMMIT.txt`, containing only the full base commit SHA;'
+    normalized_text_sha256: ab4283ba3e568bde9f4a035b0f8e4f1d258e3e18167fc6566d1b608d7411b763
+  current_locations:
+  - path: AGENTS.md
+    heading: ChatGPT patch-delivery protocol
+    role: prompt_authority
+  detailed_contract_locations:
+  - path: docs/formal_experiment_artifact_protocol.md
+    role: operational_contract
+  machine_enforcement:
+    required: true
+    implementations:
+    - scripts/artifact_protocol_hardened.py
+    tests:
+    - tests/test_experiment_artifact_protocol.py
+    - tests/test_experiment_artifact_hardening.py
+  migration:
+    status: unchanged
+    destination_locations: []
+    evidence: []
+- rule_id: GOV-AGENT-PATCH-003
+  title: '`CHANGE_SUMMARY.md`;'
+  severity: mandatory
+  scope: code_delivery
+  source:
+    source_id: AGENTS-PATCH-DELIVERY
+    item_index: 3
+    kind: top_level_list_item
+    excerpt: '`CHANGE_SUMMARY.md`;'
+    normalized_text_sha256: aee265088ac684a47bb665b7afd62bf309c90a3f7b4fe6a52919b4b1fe7580b4
+  current_locations:
+  - path: AGENTS.md
+    heading: ChatGPT patch-delivery protocol
+    role: prompt_authority
+  detailed_contract_locations:
+  - path: docs/formal_experiment_artifact_protocol.md
+    role: operational_contract
+  machine_enforcement:
+    required: true
+    implementations:
+    - scripts/artifact_protocol_hardened.py
+    tests:
+    - tests/test_experiment_artifact_protocol.py
+    - tests/test_experiment_artifact_hardening.py
+  migration:
+    status: unchanged
+    destination_locations: []
+    evidence: []
+- rule_id: GOV-AGENT-PATCH-004
+  title: '`TEST_COMMANDS.sh`, with executable non-placeholder commands;'
+  severity: mandatory
+  scope: code_delivery
+  source:
+    source_id: AGENTS-PATCH-DELIVERY
+    item_index: 4
+    kind: top_level_list_item
+    excerpt: '`TEST_COMMANDS.sh`, with executable non-placeholder commands;'
+    normalized_text_sha256: 33c481fc049788ff98af7c317ab6fcf2b16b060b484c38563f19d4ef8716a7c1
+  current_locations:
+  - path: AGENTS.md
+    heading: ChatGPT patch-delivery protocol
+    role: prompt_authority
+  detailed_contract_locations:
+  - path: docs/formal_experiment_artifact_protocol.md
+    role: operational_contract
+  machine_enforcement:
+    required: true
+    implementations:
+    - scripts/artifact_protocol_hardened.py
+    tests:
+    - tests/test_experiment_artifact_protocol.py
+    - tests/test_experiment_artifact_hardening.py
+  migration:
+    status: unchanged
+    destination_locations: []
+    evidence: []
+- rule_id: GOV-AGENT-PATCH-005
+  title: '`modified_files/`, containing complete modified files with repository-relative paths;'
+  severity: mandatory
+  scope: code_delivery
+  source:
+    source_id: AGENTS-PATCH-DELIVERY
+    item_index: 5
+    kind: top_level_list_item
+    excerpt: '`modified_files/`, containing complete modified files with repository-relative paths;'
+    normalized_text_sha256: 550c823305084bf6153a288e48e8d3a3fbdf7d0322aac266b50f37002c9c00e9
+  current_locations:
+  - path: AGENTS.md
+    heading: ChatGPT patch-delivery protocol
+    role: prompt_authority
+  detailed_contract_locations:
+  - path: docs/formal_experiment_artifact_protocol.md
+    role: operational_contract
+  machine_enforcement:
+    required: true
+    implementations:
+    - scripts/artifact_protocol_hardened.py
+    tests:
+    - tests/test_experiment_artifact_protocol.py
+    - tests/test_experiment_artifact_hardening.py
+  migration:
+    status: unchanged
+    destination_locations: []
+    evidence: []
+- rule_id: GOV-AGENT-PATCH-006
+  title: experiment artifacts and checksums when the task includes results.
+  severity: mandatory
+  scope: code_delivery
+  source:
+    source_id: AGENTS-PATCH-DELIVERY
+    item_index: 6
+    kind: top_level_list_item
+    excerpt: experiment artifacts and checksums when the task includes results.
+    normalized_text_sha256: 7c5b0a1dd0d4a4d7f83f8ae1d41c2c77ef7ff8d4297cb7b4db42b92ffb4cc38c
+  current_locations:
+  - path: AGENTS.md
+    heading: ChatGPT patch-delivery protocol
+    role: prompt_authority
+  detailed_contract_locations:
+  - path: docs/formal_experiment_artifact_protocol.md
+    role: operational_contract
+  machine_enforcement:
+    required: true
+    implementations:
+    - scripts/artifact_protocol_hardened.py
+    tests:
+    - tests/test_experiment_artifact_protocol.py
+    - tests/test_experiment_artifact_hardening.py
+  migration:
+    status: unchanged
+    destination_locations: []
+    evidence: []
+- rule_id: GOV-AGENT-HARDENING-001
+  title: Resolve the current commit with Git (`git ls-remote origin refs/heads/main` and `git rev-parse HEAD`
+  severity: mandatory
+  scope: formal_experiment_and_code_delivery
+  source:
+    source_id: AGENTS-FORMAL-HARDENING
+    item_index: 1
+    kind: top_level_list_item
+    excerpt: Resolve the current commit with Git (`git ls-remote origin refs/heads/main` and `git rev-parse HEAD`), not a
+      cached web commits page. If authoritative remote resolution is unavailable, report that limitation rather than inventing
+      a current SHA.
+    normalized_text_sha256: 66b6b452f3875afa16322e086d2ca1f2c81f5d77247e7eb13a5aa1458c25e195
+  current_locations:
+  - path: AGENTS.md
+    heading: Formal commit and artifact hardening
+    role: prompt_authority
+  detailed_contract_locations:
+  - path: docs/formal_experiment_artifact_protocol.md
+    role: operational_contract
+  machine_enforcement:
+    required: false
+    implementations: []
+    tests: []
+  migration:
+    status: unchanged
+    destination_locations: []
+    evidence: []
+- rule_id: GOV-AGENT-HARDENING-002
+  title: 'A formal experiment may start only from a clean worktree whose full commit SHA is recorded. A dirty '
+  severity: mandatory
+  scope: formal_experiment_and_code_delivery
+  source:
+    source_id: AGENTS-FORMAL-HARDENING
+    item_index: 2
+    kind: top_level_list_item
+    excerpt: A formal experiment may start only from a clean worktree whose full commit SHA is recorded. A dirty worktree
+      is permitted only for an explicitly labelled pilot with `--allow-dirty`, and its tracked, staged, and bounded untracked
+      launch snapshot must be captured before process start.
+    normalized_text_sha256: fe9f86f562c8719ce235689dbdc002bae61b88919ef4f0f4dcfaa8a33a99a983
+  current_locations:
+  - path: AGENTS.md
+    heading: Formal commit and artifact hardening
+    role: prompt_authority
+  detailed_contract_locations:
+  - path: docs/formal_experiment_artifact_protocol.md
+    role: operational_contract
+  machine_enforcement:
+    required: false
+    implementations: []
+    tests: []
+  migration:
+    status: unchanged
+    destination_locations: []
+    evidence: []
+- rule_id: GOV-AGENT-HARDENING-003
+  title: At process exit, re-check HEAD and worktree status. A changed HEAD or dirty formal worktree marks pr
+  severity: mandatory
+  scope: formal_experiment_and_code_delivery
+  source:
+    source_id: AGENTS-FORMAL-HARDENING
+    item_index: 3
+    kind: top_level_list_item
+    excerpt: At process exit, re-check HEAD and worktree status. A changed HEAD or dirty formal worktree marks provenance
+      as compromised and forces failed-run handling even if the child process returned zero.
+    normalized_text_sha256: c6276546a0a6ca55b019f27749a803dd5d4d2640b4ad921e223d4fbee1e80721
+  current_locations:
+  - path: AGENTS.md
+    heading: Formal commit and artifact hardening
+    role: prompt_authority
+  detailed_contract_locations:
+  - path: docs/formal_experiment_artifact_protocol.md
+    role: operational_contract
+  machine_enforcement:
+    required: false
+    implementations: []
+    tests: []
+  migration:
+    status: unchanged
+    destination_locations: []
+    evidence: []
+- rule_id: GOV-AGENT-HARDENING-004
+  title: Main artifact ZIPs are first built as candidates, internally verified, and atomically published only
+  severity: mandatory
+  scope: formal_experiment_and_code_delivery
+  source:
+    source_id: AGENTS-FORMAL-HARDENING
+    item_index: 4
+    kind: top_level_list_item
+    excerpt: Main artifact ZIPs are first built as candidates, internally verified, and atomically published only after checksum,
+      safe-path, base-commit, and `git apply --check` validation succeeds. The apply check must use an isolated index loaded
+      from the immutable base commit, not the caller's possibly staged index.
+    normalized_text_sha256: 3109bea1accaf7bc2dd89852d7e28d3a9128ff7535a3708d4b4b8aeb20c88493
+  current_locations:
+  - path: AGENTS.md
+    heading: Formal commit and artifact hardening
+    role: prompt_authority
+  detailed_contract_locations:
+  - path: docs/formal_experiment_artifact_protocol.md
+    role: operational_contract
+  machine_enforcement:
+    required: true
+    implementations:
+    - scripts/artifact_protocol_hardened.py
+    tests:
+    - tests/test_experiment_artifact_protocol.py
+    - tests/test_experiment_artifact_hardening.py
+  migration:
+    status: unchanged
+    destination_locations: []
+    evidence: []
+- rule_id: GOV-AGENT-HARDENING-005
+  title: Failed, checkpoint, and raw-complete recovery packages are lightweight evidence packages by default.
+  severity: mandatory
+  scope: formal_experiment_and_code_delivery
+  source:
+    source_id: AGENTS-FORMAL-HARDENING
+    item_index: 5
+    kind: top_level_list_item
+    excerpt: Failed, checkpoint, and raw-complete recovery packages are lightweight evidence packages by default. Large model
+      adapters, checkpoints, optimizer states, datasets, and caches are indexed rather than copied into the main ZIP.
+    normalized_text_sha256: 8bce9e480c7c41047aa435739174cbe0b00648993d1833d9267cc54d64ca725a
+  current_locations:
+  - path: AGENTS.md
+    heading: Formal commit and artifact hardening
+    role: prompt_authority
+  detailed_contract_locations:
+  - path: docs/formal_experiment_artifact_protocol.md
+    role: operational_contract
+  machine_enforcement:
+    required: false
+    implementations: []
+    tests: []
+  migration:
+    status: unchanged
+    destination_locations: []
+    evidence: []
+- rule_id: GOV-AGENT-HARDENING-006
+  title: Real model weights, adapters, optimizer states, and checkpoints remain on persistent training-server
+  severity: mandatory
+  scope: formal_experiment_and_code_delivery
+  source:
+    source_id: AGENTS-FORMAL-HARDENING
+    item_index: 6
+    kind: top_level_list_item
+    excerpt: Real model weights, adapters, optimizer states, and checkpoints remain on persistent training-server storage
+      by default, regardless of individual file size. The main ZIP records path, size, SHA-256, role, and persistence status;
+      a sidecar is disabled by default and is created only for explicitly selected, pre-registered files with a declared cross-machine
+      transfer, restart, or independent-audit purpose. Foundation-model weights are never copied.
+    normalized_text_sha256: c735f31ac506995ec9c3e7b45f5f9a7df5b68270b664b052f10c94e02b97b94d
+  current_locations:
+  - path: AGENTS.md
+    heading: Formal commit and artifact hardening
+    role: prompt_authority
+  detailed_contract_locations:
+  - path: docs/formal_experiment_artifact_protocol.md
+    role: operational_contract
+  machine_enforcement:
+    required: false
+    implementations: []
+    tests: []
+  migration:
+    status: unchanged
+    destination_locations: []
+    evidence: []
+- rule_id: GOV-AGENT-HARDENING-007
+  title: The generic CLI default for large-file persistence is `persistent_local`. Runs in ephemeral containe
+  severity: mandatory
+  scope: formal_experiment_and_code_delivery
+  source:
+    source_id: AGENTS-FORMAL-HARDENING
+    item_index: 7
+    kind: top_level_list_item
+    excerpt: The generic CLI default for large-file persistence is `persistent_local`. Runs in ephemeral containers must explicitly
+      override it to `ephemeral` or `unknown`; the label may never be used merely because a file currently exists on local
+      disk.
+    normalized_text_sha256: 9778120893a45a48fa8997b9f4a216c9d9a5cf2405c15e1dae59cc772ada8b0d
+  current_locations:
+  - path: AGENTS.md
+    heading: Formal commit and artifact hardening
+    role: prompt_authority
+  detailed_contract_locations:
+  - path: docs/formal_experiment_artifact_protocol.md
+    role: operational_contract
+  machine_enforcement:
+    required: false
+    implementations: []
+    tests: []
+  migration:
+    status: unchanged
+    destination_locations: []
+    evidence: []
+- rule_id: GOV-AGENT-HARDENING-008
+  title: Formal large-model experiments must pre-register an artifact budget and checkpoint-retention policy.
+  severity: mandatory
+  scope: formal_experiment_and_code_delivery
+  source:
+    source_id: AGENTS-FORMAL-HARDENING
+    item_index: 8
+    kind: top_level_list_item
+    excerpt: Formal large-model experiments must pre-register an artifact budget and checkpoint-retention policy. Do not save
+      foundation-model weights, redundant checkpoints, or optimizer state unless the registered recovery plan requires them.
+    normalized_text_sha256: cb78597abfb25db6c44e798ac22f45d6aa3b0d48d7a661d0d8e3b4d1b4c24dbb
+  current_locations:
+  - path: AGENTS.md
+    heading: Formal commit and artifact hardening
+    role: prompt_authority
+  detailed_contract_locations:
+  - path: docs/formal_experiment_artifact_protocol.md
+    role: operational_contract
+  machine_enforcement:
+    required: false
+    implementations: []
+    tests: []
+  migration:
+    status: unchanged
+    destination_locations: []
+    evidence: []
+- rule_id: GOV-AGENT-HARDENING-009
+  title: Packaging must never follow result-directory symbolic links. External links are rejected; internal l
+  severity: mandatory
+  scope: formal_experiment_and_code_delivery
+  source:
+    source_id: AGENTS-FORMAL-HARDENING
+    item_index: 9
+    kind: top_level_list_item
+    excerpt: Packaging must never follow result-directory symbolic links. External links are rejected; internal links are
+      recorded as references and their targets are packaged at most once.
+    normalized_text_sha256: 08a11594a3c7beef7134acec9722157299dabb67d29def05e088c99200b84359
+  current_locations:
+  - path: AGENTS.md
+    heading: Formal commit and artifact hardening
+    role: prompt_authority
+  detailed_contract_locations:
+  - path: docs/formal_experiment_artifact_protocol.md
+    role: operational_contract
+  machine_enforcement:
+    required: true
+    implementations:
+    - scripts/artifact_protocol_hardened.py
+    tests:
+    - tests/test_experiment_artifact_protocol.py
+    - tests/test_experiment_artifact_hardening.py
+  migration:
+    status: unchanged
+    destination_locations: []
+    evidence: []
+- rule_id: GOV-AGENT-HARDENING-010
+  title: The default main-package hard limit is 25 MiB and the default single-file main-package limit is 10 M
+  severity: mandatory
+  scope: formal_experiment_and_code_delivery
+  source:
+    source_id: AGENTS-FORMAL-HARDENING
+    item_index: 10
+    kind: top_level_list_item
+    excerpt: The default main-package hard limit is 25 MiB and the default single-file main-package limit is 10 MiB. Crossing
+      either limit must trigger exclusion/sidecar handling or fail before final publication; a post-hoc warning is insufficient.
+    normalized_text_sha256: f225f8b7f0930239e5e48de3828b676e9cedb2a93fc85705bb3c64a11d3157ae
+  current_locations:
+  - path: AGENTS.md
+    heading: Formal commit and artifact hardening
+    role: prompt_authority
+  detailed_contract_locations:
+  - path: docs/formal_experiment_artifact_protocol.md
+    role: operational_contract
+  machine_enforcement:
+    required: true
+    implementations:
+    - scripts/artifact_protocol_hardened.py
+    tests:
+    - tests/test_experiment_artifact_protocol.py
+    - tests/test_experiment_artifact_hardening.py
+  migration:
+    status: unchanged
+    destination_locations: []
+    evidence: []
+- rule_id: GOV-AGENT-HARDENING-011
+  title: The public guard, package, and verify entry points must all use the same hardened implementation and
+  severity: mandatory
+  scope: formal_experiment_and_code_delivery
+  source:
+    source_id: AGENTS-FORMAL-HARDENING
+    item_index: 11
+    kind: top_level_list_item
+    excerpt: The public guard, package, and verify entry points must all use the same hardened implementation and fail closed
+      if that implementation is missing; silently falling back to a legacy protocol is prohibited.
+    normalized_text_sha256: 4a88fd587b8f19d7ca9fd336b89ec8d3e3bbbb00f897d24b40833e4e20e14e6e
+  current_locations:
+  - path: AGENTS.md
+    heading: Formal commit and artifact hardening
+    role: prompt_authority
+  detailed_contract_locations:
+  - path: docs/formal_experiment_artifact_protocol.md
+    role: operational_contract
+  machine_enforcement:
+    required: true
+    implementations:
+    - scripts/artifact_protocol_hardened.py
+    - scripts/run_experiment_guard_hardened.py
+    - scripts/package_experiment_hardened.py
+    - scripts/verify_experiment_package_hardened.py
+    tests:
+    - tests/test_experiment_artifact_protocol.py
+    - tests/test_experiment_artifact_hardening.py
+  migration:
+    status: unchanged
+    destination_locations: []
+    evidence: []
+- rule_id: GOV-AGENT-HARDENING-012
+  title: Before delivering a `drpo-update` ZIP, apply it in a fresh clean checkout of the confirmed base, pre
+  severity: mandatory
+  scope: formal_experiment_and_code_delivery
+  source:
+    source_id: AGENTS-FORMAL-HARDENING
+    item_index: 12
+    kind: top_level_list_item
+    excerpt: Before delivering a `drpo-update` ZIP, apply it in a fresh clean checkout of the confirmed base, preserve executable
+      file modes, run the package's own `TEST_COMMANDS.sh`, run `git diff --check`, and withhold the final ZIP if any step
+      fails.
+    normalized_text_sha256: c421a837bddb818cbca6ab402da82d0663451ceb2b49bd92a8803c66bc9ba059
+  current_locations:
+  - path: AGENTS.md
+    heading: Formal commit and artifact hardening
+    role: prompt_authority
+  detailed_contract_locations:
+  - path: docs/formal_experiment_artifact_protocol.md
+    role: operational_contract
+  machine_enforcement:
+    required: false
+    implementations: []
+    tests: []
+  migration:
+    status: unchanged
+    destination_locations: []
+    evidence: []
+- rule_id: GOV-AGENT-HARDENING-013
+  title: The merge-equivalent base must come from an authoritative immutable full-SHA source. Prefer a real G
+  severity: mandatory
+  scope: formal_experiment_and_code_delivery
+  source:
+    source_id: AGENTS-FORMAL-HARDENING
+    item_index: 13
+    kind: top_level_list_item
+    excerpt: The merge-equivalent base must come from an authoritative immutable full-SHA source. Prefer a real Git checkout/fetch
+      or Git bundle containing the expected commit object. For code modification and `drpo-update` pre-delivery testing, an
+      official GitHub archive pinned to the full SHA may be promoted to a verified source capsule only after safe extraction,
+      archive SHA-256 recording, complete-tree inventory, file-mode preservation, and a second independent extraction/apply/test
+      pass. An unpinned branch ZIP, user-created ZIP without immutable provenance, web snippets, parsed pages, copied files,
+      or a hand-built partial repository are not valid bases. Archive-only capsule mode does not automatically satisfy a formal
+      experiment launch unless the supervisor explicitly validates that capsule mode.
+    normalized_text_sha256: c2f03f4ba6658a8cabaacc649a1c8a4514c9bddb7c26cf0bfe60f527f623adf0
+  current_locations:
+  - path: AGENTS.md
+    heading: Formal commit and artifact hardening
+    role: prompt_authority
+  detailed_contract_locations:
+  - path: docs/formal_experiment_artifact_protocol.md
+    role: operational_contract
+  machine_enforcement:
+    required: false
+    implementations: []
+    tests: []
+  migration:
+    status: unchanged
+    destination_locations: []
+    evidence: []
+- rule_id: GOV-AGENT-HARDENING-014
+  title: A formal guard launch must be anchored either by an explicit full `--expected-commit` available in t
+  severity: mandatory
+  scope: formal_experiment_and_code_delivery
+  source:
+    source_id: AGENTS-FORMAL-HARDENING
+    item_index: 14
+    kind: top_level_list_item
+    excerpt: A formal guard launch must be anchored either by an explicit full `--expected-commit` available in the local
+      Git object database or by a live authoritative `origin/main` match. In an offline clone or Git-bundle checkout, always
+      pass the explicit full SHA. Merely trusting whatever local `HEAD` happens to contain is not a formal source preflight.
+    normalized_text_sha256: 015e0c9aa8d5bc2656198a4d6b6297483b1b7c9a5f5ee7980fbd095147ffd1b8
+  current_locations:
+  - path: AGENTS.md
+    heading: Formal commit and artifact hardening
+    role: prompt_authority
+  detailed_contract_locations:
+  - path: docs/formal_experiment_artifact_protocol.md
+    role: operational_contract
+  machine_enforcement:
+    required: false
+    implementations: []
+    tests: []
+  migration:
+    status: unchanged
+    destination_locations: []
+    evidence: []
+- rule_id: GOV-AGENT-HARDENING-015
+  title: 'Every requested `--source-file` must be a repository-relative path present in the launch commit and '
+  severity: mandatory
+  scope: formal_experiment_and_code_delivery
+  source:
+    source_id: AGENTS-FORMAL-HARDENING
+    item_index: 15
+    kind: top_level_list_item
+    excerpt: Every requested `--source-file` must be a repository-relative path present in the launch commit and is checked
+      before the child process starts. A missing source snapshot input is a preflight failure, not a post-training packaging
+      surprise.
+    normalized_text_sha256: 2aaaf64c20b3fa5dc40ee946961e3dae8397f12c5f6bfa27b946f4c68bc12442
+  current_locations:
+  - path: AGENTS.md
+    heading: Formal commit and artifact hardening
+    role: prompt_authority
+  detailed_contract_locations:
+  - path: docs/formal_experiment_artifact_protocol.md
+    role: operational_contract
+  machine_enforcement:
+    required: false
+    implementations: []
+    tests: []
+  migration:
+    status: unchanged
+    destination_locations: []
+    evidence: []
+- rule_id: GOV-AGENT-HARDENING-016
+  title: 'Pre-delivery validation must exercise the same merge path as the user: verify `BASE_COMMIT.txt`, run'
+  severity: mandatory
+  scope: formal_experiment_and_code_delivery
+  source:
+    source_id: AGENTS-FORMAL-HARDENING
+    item_index: 16
+    kind: top_level_list_item
+    excerpt: 'Pre-delivery validation must exercise the same merge path as the user: verify `BASE_COMMIT.txt`, run `git apply
+      --check`, apply the patch in the fresh checkout, execute `TEST_COMMANDS.sh`, and confirm the declared modified-file
+      set and Git modes. The user-side `drpo-update` run is a final environment check, not the first integration test.'
+    normalized_text_sha256: d21c09b2b8c4687cc1302034afbc97129adab6100a2d07fdef016115afb4657f
+  current_locations:
+  - path: AGENTS.md
+    heading: Formal commit and artifact hardening
+    role: prompt_authority
+  detailed_contract_locations:
+  - path: docs/formal_experiment_artifact_protocol.md
+    role: operational_contract
+  machine_enforcement:
+    required: false
+    implementations: []
+    tests: []
+  migration:
+    status: unchanged
+    destination_locations: []
+    evidence: []
+- rule_id: GOV-AGENT-HARDENING-017
+  title: 'Candidate-package failure must never delete or overwrite an already verified final package. The old '
+  severity: mandatory
+  scope: formal_experiment_and_code_delivery
+  source:
+    source_id: AGENTS-FORMAL-HARDENING
+    item_index: 17
+    kind: top_level_list_item
+    excerpt: Candidate-package failure must never delete or overwrite an already verified final package. The old final remains
+      until the new candidate and any explicitly requested sidecar have passed verification. Sidecars use new versioned filenames
+      rather than overwriting an existing sidecar; if main publication fails after sidecar publication, the newly published
+      orphan sidecar is removed.
+    normalized_text_sha256: 64e1e94e6e94698cec70a9102b276c9fe99c16ef29d3422f7f9d1c8416503491
+  current_locations:
+  - path: AGENTS.md
+    heading: Formal commit and artifact hardening
+    role: prompt_authority
+  detailed_contract_locations:
+  - path: docs/formal_experiment_artifact_protocol.md
+    role: operational_contract
+  machine_enforcement:
+    required: false
+    implementations: []
+    tests: []
+  migration:
+    status: unchanged
+    destination_locations: []
+    evidence: []
+- rule_id: GOV-AGENT-HARDENING-018
+  title: Sidecar verification must bind the sidecar manifest to one valid experiment ID, one full base commit
+  severity: mandatory
+  scope: formal_experiment_and_code_delivery
+  source:
+    source_id: AGENTS-FORMAL-HARDENING
+    item_index: 18
+    kind: top_level_list_item
+    excerpt: Sidecar verification must bind the sidecar manifest to one valid experiment ID, one full base commit, one registered
+      purpose, and the exact payload inventory. Each selected member's path, size, and SHA-256 must match; undeclared or missing
+      payload members are hard failures.
+    normalized_text_sha256: 10bad5fe2ea4e7dc46a6d2f30a11d34a2d4f8ee7de049a6c8b432e80e9134bc3
+  current_locations:
+  - path: AGENTS.md
+    heading: Formal commit and artifact hardening
+    role: prompt_authority
+  detailed_contract_locations:
+  - path: docs/formal_experiment_artifact_protocol.md
+    role: operational_contract
+  machine_enforcement:
+    required: false
+    implementations: []
+    tests: []
+  migration:
+    status: unchanged
+    destination_locations: []
+    evidence: []
+- rule_id: GOV-AGENT-HARDENING-019
+  title: The supervisor must preserve failed-run evidence even when the experiment command cannot start. `Pop
+  severity: mandatory
+  scope: formal_experiment_and_code_delivery
+  source:
+    source_id: AGENTS-FORMAL-HARDENING
+    item_index: 19
+    kind: top_level_list_item
+    excerpt: The supervisor must preserve failed-run evidence even when the experiment command cannot start. `Popen`/working-directory/permission
+      failures require `RUN_FAILED.json`, a traceback log, launch commit, and an attempted lightweight recovery package.
+    normalized_text_sha256: f8cc742b964a17fd193dbc5054268a850b6265827e214b2f7043e232b39d976b
+  current_locations:
+  - path: AGENTS.md
+    heading: Formal commit and artifact hardening
+    role: prompt_authority
+  detailed_contract_locations:
+  - path: docs/formal_experiment_artifact_protocol.md
+    role: operational_contract
+  machine_enforcement:
+    required: false
+    implementations: []
+    tests: []
+  migration:
+    status: unchanged
+    destination_locations: []
+    evidence: []
+- rule_id: GOV-AGENT-HARDENING-020
+  title: Every supervised attempt must use a new or empty output root. Existing files may not be reused to sa
+  severity: mandatory
+  scope: formal_experiment_and_code_delivery
+  source:
+    source_id: AGENTS-FORMAL-HARDENING
+    item_index: 20
+    kind: top_level_list_item
+    excerpt: Every supervised attempt must use a new or empty output root. Existing files may not be reused to satisfy required-output
+      checks or be silently mixed into a new artifact; resume input must be read from a separately declared persistent checkpoint
+      path.
+    normalized_text_sha256: 7897007d7daebcfe219b7a5f6ba9cc40bcb54eebfeb15f0f16644432dd3481ee
+  current_locations:
+  - path: AGENTS.md
+    heading: Formal commit and artifact hardening
+    role: prompt_authority
+  detailed_contract_locations:
+  - path: docs/formal_experiment_artifact_protocol.md
+    role: operational_contract
+  machine_enforcement:
+    required: false
+    implementations: []
+    tests: []
+  migration:
+    status: unchanged
+    destination_locations: []
+    evidence: []
+- rule_id: GOV-AGENT-HARDENING-021
+  title: Every recovery package is bound to the launch commit, not the packaging-time HEAD. If HEAD changes d
+  severity: mandatory
+  scope: formal_experiment_and_code_delivery
+  source:
+    source_id: AGENTS-FORMAL-HARDENING
+    item_index: 21
+    kind: top_level_list_item
+    excerpt: Every recovery package is bound to the launch commit, not the packaging-time HEAD. If HEAD changes during a run,
+      source snapshots must be read from the launch commit and the package must record both launch and packaging commits.
+    normalized_text_sha256: a3513e08f67b864682fc054e0f941883bcea52c0c719b5acf8504e06aed37ebf
+  current_locations:
+  - path: AGENTS.md
+    heading: Formal commit and artifact hardening
+    role: prompt_authority
+  detailed_contract_locations:
+  - path: docs/formal_experiment_artifact_protocol.md
+    role: operational_contract
+  machine_enforcement:
+    required: false
+    implementations: []
+    tests: []
+  migration:
+    status: unchanged
+    destination_locations: []
+    evidence: []
+- rule_id: GOV-AGENT-HARDENING-022
+  title: '`experiment-final` packages require parseable `RUN_COMPLETE.json`, terminal audit, `run_manifest.jso'
+  severity: mandatory
+  scope: formal_experiment_and_code_delivery
+  source:
+    source_id: AGENTS-FORMAL-HARDENING
+    item_index: 22
+    kind: top_level_list_item
+    excerpt: '`experiment-final` packages require parseable `RUN_COMPLETE.json`, terminal audit, `run_manifest.json`, and
+      at least one log file. Their experiment ID and base commit must agree before publication.'
+    normalized_text_sha256: 3e366ae2de7c45324516cdf00e28826ccb597b92fce90b7005f12ea438cd8f87
+  current_locations:
+  - path: AGENTS.md
+    heading: Formal commit and artifact hardening
+    role: prompt_authority
+  detailed_contract_locations:
+  - path: docs/formal_experiment_artifact_protocol.md
+    role: operational_contract
+  machine_enforcement:
+    required: false
+    implementations: []
+    tests: []
+  migration:
+    status: unchanged
+    destination_locations: []
+    evidence: []
+- rule_id: GOV-AGENT-HARDENING-023
+  title: Formal source availability is a launch preflight. Browser-only code viewing and a plain source ZIP a
+  severity: mandatory
+  scope: formal_experiment_and_code_delivery
+  source:
+    source_id: AGENTS-FORMAL-HARDENING
+    item_index: 23
+    kind: top_level_list_item
+    excerpt: 'Formal source availability is a launch preflight. Browser-only code viewing and a plain source ZIP are sufficient
+      for review but are not exact formal checkouts. Before asking the user to upload anything, exhaust the automated acquisition
+      ladder: an existing exact checkout/bundle, shell clone/fetch, an environment download tool for a full-SHA Git bundle
+      or Git-metadata-bearing verified source capsule, and project-persistent source storage. Only if all automated paths
+      fail may the user be asked for one complete Git bundle/source capsule; never request ad hoc files or treat a plain Source
+      code ZIP as a formal checkout.'
+    normalized_text_sha256: 9af7c24b97c2371d13af61780bf5d8471f42d6a795ce8ae3c818834ae7beba13
+  current_locations:
+  - path: AGENTS.md
+    heading: Formal commit and artifact hardening
+    role: prompt_authority
+  detailed_contract_locations:
+  - path: docs/formal_experiment_artifact_protocol.md
+    role: operational_contract
+  machine_enforcement:
+    required: false
+    implementations: []
+    tests: []
+  migration:
+    status: unchanged
+    destination_locations: []
+    evidence: []
+- rule_id: GOV-AGENT-HARDENING-024
+  title: User upload is not the preferred or default source path and is not required when an automated path y
+  severity: mandatory
+  scope: formal_experiment_and_code_delivery
+  source:
+    source_id: AGENTS-FORMAL-HARDENING
+    item_index: 24
+    kind: top_level_list_item
+    excerpt: User upload is not the preferred or default source path and is not required when an automated path yields an
+      exact commit-bearing checkout, Git bundle, or verified capsule. A formal run without any user source upload is fully
+      valid once the expected full SHA exists in the local Git object database and all normal clean-worktree/source-file preflights
+      pass.
+    normalized_text_sha256: be2941a6f4eef3dc2c1fa9c958c5dd159c510681014539c2e1667b1d5413d38b
+  current_locations:
+  - path: AGENTS.md
+    heading: Formal commit and artifact hardening
+    role: prompt_authority
+  detailed_contract_locations:
+  - path: docs/formal_experiment_artifact_protocol.md
+    role: operational_contract
+  machine_enforcement:
+    required: false
+    implementations: []
+    tests: []
+  migration:
+    status: unchanged
+    destination_locations: []
+    evidence: []
+- rule_id: GOV-AGENT-HARDENING-025
+  title: The exact-checkout rule for patch generation remains stricter than read-only code review. Earlier ex
+  severity: mandatory
+  scope: formal_experiment_and_code_delivery
+  source:
+    source_id: AGENTS-FORMAL-HARDENING
+    item_index: 25
+    kind: top_level_list_item
+    excerpt: The exact-checkout rule for patch generation remains stricter than read-only code review. Earlier experiments
+      are not retroactively reclassified solely because the newer provenance gate did not yet exist; their status remains
+      whatever the handoff and surviving evidence support.
+    normalized_text_sha256: 9387a8c082a361a2e636ae5cee1a050bab6391af9d2399171e94ede52afe4a04
+  current_locations:
+  - path: AGENTS.md
+    heading: Formal commit and artifact hardening
+    role: prompt_authority
+  detailed_contract_locations:
+  - path: docs/formal_experiment_artifact_protocol.md
+    role: operational_contract
+  machine_enforcement:
+    required: false
+    implementations: []
+    tests: []
+  migration:
+    status: unchanged
+    destination_locations: []
+    evidence: []
+- rule_id: GOV-AGENT-HARDENING-026
+  title: Experiment IDs and archive paths must be validated before filesystem use; traversal, root/parent sym
+  severity: mandatory
+  scope: formal_experiment_and_code_delivery
+  source:
+    source_id: AGENTS-FORMAL-HARDENING
+    item_index: 26
+    kind: top_level_list_item
+    excerpt: Experiment IDs and archive paths must be validated before filesystem use; traversal, root/parent symlinks, duplicate
+      ZIP members, malformed manifests, unknown package kinds, and runtime paths overlapping tracked repository files are
+      hard failures.
+    normalized_text_sha256: 592a29d04e15bb8c5b6230ffafcd590bc63638f811bed26e1a5c9b4b8ba8ee51
+  current_locations:
+  - path: AGENTS.md
+    heading: Formal commit and artifact hardening
+    role: prompt_authority
+  detailed_contract_locations:
+  - path: docs/formal_experiment_artifact_protocol.md
+    role: operational_contract
+  machine_enforcement:
+    required: false
+    implementations: []
+    tests: []
+  migration:
+    status: unchanged
+    destination_locations: []
+    evidence: []
+- rule_id: GOV-AGENT-HARDENING-027
+  title: Every result package kind—not only final packages—must bind `run_manifest.json` and its status marke
+  severity: mandatory
+  scope: formal_experiment_and_code_delivery
+  source:
+    source_id: AGENTS-FORMAL-HARDENING
+    item_index: 27
+    kind: top_level_list_item
+    excerpt: Every result package kind—not only final packages—must bind `run_manifest.json` and its status marker to the
+      same experiment ID and launch commit. Small raw NumPy evidence remains in the main ZIP when below the size limit; model/checkpoint
+      state remains index-only regardless of size.
+    normalized_text_sha256: 47f1f430196789a2138204fce63fd4e9890e0c1860ab762a65961f2c6251b82f
+  current_locations:
+  - path: AGENTS.md
+    heading: Formal commit and artifact hardening
+    role: prompt_authority
+  detailed_contract_locations:
+  - path: docs/formal_experiment_artifact_protocol.md
+    role: operational_contract
+  machine_enforcement:
+    required: false
+    implementations: []
+    tests: []
+  migration:
+    status: unchanged
+    destination_locations: []
+    evidence: []
+- rule_id: GOV-AGENT-HARDENING-028
+  title: 'Result files are hashed during discovery and revalidated after copying. A file that changes between '
+  severity: mandatory
+  scope: formal_experiment_and_code_delivery
+  source:
+    source_id: AGENTS-FORMAL-HARDENING
+    item_index: 28
+    kind: top_level_list_item
+    excerpt: Result files are hashed during discovery and revalidated after copying. A file that changes between scan and
+      ZIP assembly invalidates the candidate rather than producing a manifest/content mismatch.
+    normalized_text_sha256: a36804bf3856cab6491b8e9b8b58437dffdc2131af9347aee976cae44b2b6d5d
+  current_locations:
+  - path: AGENTS.md
+    heading: Formal commit and artifact hardening
+    role: prompt_authority
+  detailed_contract_locations:
+  - path: docs/formal_experiment_artifact_protocol.md
+    role: operational_contract
+  machine_enforcement:
+    required: false
+    implementations: []
+    tests: []
+  migration:
+    status: unchanged
+    destination_locations: []
+    evidence: []
+- rule_id: GOV-AGENT-HARDENING-029
+  title: A stale child receives SIGTERM once and is escalated to SIGKILL after the registered grace period if
+  severity: mandatory
+  scope: formal_experiment_and_code_delivery
+  source:
+    source_id: AGENTS-FORMAL-HARDENING
+    item_index: 29
+    kind: top_level_list_item
+    excerpt: A stale child receives SIGTERM once and is escalated to SIGKILL after the registered grace period if it remains
+      alive. Supervisor setup, monitoring, and end-provenance failures all enter the same failed-evidence path.
+    normalized_text_sha256: a63bdf044ee74508a16627c47275f08fbcb27f72fcf2bb37d913f141e413f205
+  current_locations:
+  - path: AGENTS.md
+    heading: Formal commit and artifact hardening
+    role: prompt_authority
+  detailed_contract_locations:
+  - path: docs/formal_experiment_artifact_protocol.md
+    role: operational_contract
+  machine_enforcement:
+    required: false
+    implementations: []
+    tests: []
+  migration:
+    status: unchanged
+    destination_locations: []
+    evidence: []
+- rule_id: GOV-AGENT-HARDENING-030
+  title: 'Base freshness is checked three times: at session start, immediately before locking a formal executi'
+  severity: mandatory
+  scope: formal_experiment_and_code_delivery
+  source:
+    source_id: AGENTS-FORMAL-HARDENING
+    item_index: 30
+    kind: top_level_list_item
+    excerpt: 'Base freshness is checked three times: at session start, immediately before locking a formal execution or update-package
+      build, and immediately before final ZIP delivery. Use `scripts/resolve_main_commit.py --phase ... --ledger ...`; record
+      UTC time, local HEAD, selected base, authoritative remote SHA, and resolution method at every checkpoint.'
+    normalized_text_sha256: b32ab1df2e11ceeaca273be27ed295a4f54d985df4b0f2729554d8723cdb2850
+  current_locations:
+  - path: AGENTS.md
+    heading: Formal commit and artifact hardening
+    role: prompt_authority
+  detailed_contract_locations:
+  - path: docs/formal_experiment_artifact_protocol.md
+    role: operational_contract
+  machine_enforcement:
+    required: false
+    implementations: []
+    tests: []
+  migration:
+    status: unchanged
+    destination_locations: []
+    evidence: []
+- rule_id: GOV-AGENT-HARDENING-031
+  title: A session must discover a newer `main` itself whenever an authoritative channel is available. `git l
+  severity: mandatory
+  scope: formal_experiment_and_code_delivery
+  source:
+    source_id: AGENTS-FORMAL-HARDENING
+    item_index: 31
+    kind: top_level_list_item
+    excerpt: A session must discover a newer `main` itself whenever an authoritative channel is available. `git ls-remote`
+      is first choice; if shell networking fails, use an official GitHub commit/API channel through the available web or download
+      bridge and pass the independently resolved SHA with its method. A SHA supplied by the user is a useful hint or emergency
+      fallback, but it is not a substitute for an available authoritative check.
+    normalized_text_sha256: 9a29ea2323d027115e5e9330ac7c2e2bdccd3df69947319911eb26800c5c45f3
+  current_locations:
+  - path: AGENTS.md
+    heading: Formal commit and artifact hardening
+    role: prompt_authority
+  detailed_contract_locations:
+  - path: docs/formal_experiment_artifact_protocol.md
+    role: operational_contract
+  machine_enforcement:
+    required: false
+    implementations: []
+    tests: []
+  migration:
+    status: unchanged
+    destination_locations: []
+    evidence: []
+- rule_id: GOV-AGENT-HARDENING-032
+  title: If authoritative `main` changes between freshness checkpoints or no longer matches the selected base
+  severity: mandatory
+  scope: formal_experiment_and_code_delivery
+  source:
+    source_id: AGENTS-FORMAL-HARDENING
+    item_index: 32
+    kind: top_level_list_item
+    excerpt: If authoritative `main` changes between freshness checkpoints or no longer matches the selected base, stop before
+      execution or delivery, refresh/rebase to the new SHA, reread `AGENTS.md`, handoff Section 0, and the registry, then
+      rerun `git apply --check`, the patch application, `TEST_COMMANDS.sh`, and ZIP verification. Do not deliver a package
+      known to be stale and do not wait for the user to notice the new commit.
+    normalized_text_sha256: 68f32124fc83cb339a93a0c96787a311cb5bed5522adc025f85118a78da6d86a
+  current_locations:
+  - path: AGENTS.md
+    heading: Formal commit and artifact hardening
+    role: prompt_authority
+  detailed_contract_locations:
+  - path: docs/formal_experiment_artifact_protocol.md
+    role: operational_contract
+  machine_enforcement:
+    required: false
+    implementations: []
+    tests: []
+  migration:
+    status: unchanged
+    destination_locations: []
+    evidence: []
+- rule_id: GOV-AGENT-HARDENING-033
+  title: Shell DNS failure alone is not grounds to ask the user for source. Inspect the session's available t
+  severity: mandatory
+  scope: formal_experiment_and_code_delivery
+  source:
+    source_id: AGENTS-FORMAL-HARDENING
+    item_index: 33
+    kind: top_level_list_item
+    excerpt: Shell DNS failure alone is not grounds to ask the user for source. Inspect the session's available tools and
+      exhaust existing checkout, Git clone/fetch, official full-SHA archive/download bridge, and project-persistent source
+      storage. Only after those paths actually fail may one complete Git bundle or verified source capsule be requested; never
+      request repeated ad hoc files.
+    normalized_text_sha256: 58d3b58f41990f095c060bf42e6eacbf54f4bb59d8def120557bd75323136e95
+  current_locations:
+  - path: AGENTS.md
+    heading: Formal commit and artifact hardening
+    role: prompt_authority
+  detailed_contract_locations:
+  - path: docs/formal_experiment_artifact_protocol.md
+    role: operational_contract
+  machine_enforcement:
+    required: false
+    implementations: []
+    tests: []
+  migration:
+    status: unchanged
+    destination_locations: []
+    evidence: []
