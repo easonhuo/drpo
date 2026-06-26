@@ -291,7 +291,6 @@ def per_sample_gradient_diagnostic(
         actions = environment.train.negative_actions[state_index]
         advantages = environment.train.negative_advantages[state_index]
         mu, log_std = actor(state)
-        sigma = torch.exp(log_std)[0]
         for contour_index in range(actions.shape[0]):
             action = actions[contour_index : contour_index + 1]
             log_prob = cu1_core.gaussian_log_prob(

@@ -31,3 +31,6 @@ where = ["src"]
 [tool.ruff]
 line-length = 100
 target-version = "py310"
+extend-exclude = [
+  "src/drpo/drpo_cu1_reproduction_results_smoke/source_snapshot",
+]

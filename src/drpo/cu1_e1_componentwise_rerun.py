@@ -22,8 +22,6 @@ import json
 import math
 import os
 import platform
-import shutil
-import subprocess
 import sys
 import time
 from dataclasses import asdict
@@ -122,7 +120,6 @@ def componentwise_seed(
         mu, log_std = actor(states)
         components = gaussian_output_components(mu, log_std, actions, core.P.action_dim)
         sigma = components["sigma"]
-        sigma2 = components["sigma2"]
         raw_distance = components["raw_distance"]
         standardized2 = components["standardized2"]
         mean_score = components["mean_score"]

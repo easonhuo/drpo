@@ -1,4 +1,15 @@
-# DRPO / SNA2C 远场负梯度动力学研究主文档 v36（D-U1 E5 长程复核协议版）
+# DRPO / SNA2C 远场负梯度动力学研究主文档 v37（D-U1 E5 长程复核闭环版）
+
+
+> **v37 增量登记：`D-U1-E5-LONGRUN-RERUN` 20000-step 正式复核、历史对照与长期闭环（不删除 v36 及更早内容）**
+>
+> - 正式运行绑定 commit `22c5823d66169eb90c256de342e27c5391e464c3`。D-Diag 两个 direct-softmax 分支均完成 20000 steps；D-U1 完成 6 methods × seeds 10--29 × 20000 steps，共 120/120 method-seed runs。所有运行均有终态分类，NaN/Inf 为 0/120。
+> - Direct-softmax 精确复核通过：高概率负动作由 `p=0.8991` 降至 `3.70436e-12`，低概率负动作由 `p=0.0038` 降至 `1.91726e-20`；两者 target surprisal 与 logit gap 在尾段持续增长，direct-logit score 始终不超过 `sqrt(2)`。高概率分支 entropy 先升后降，低概率分支 entropy 从初始起非增。终值与旧 handoff 参照均在冻结的 20% 容差内。
+> - D-U1 长程因果结果逐项复现历史 qualitative pattern：Baseline 与 Near-zero 均为 20/20 task-performance collapse 且 20/20 support boundary；Far-zero 与 Far-cap 均为 0/20 task collapse、0/20 support boundary；Global-scale 为 0/20 task collapse 但 20/20 support boundary；Positive-only 为两类事件均 0/20。六方法共 120/120 historical joint class match。
+> - 该结果闭合 E5 的受控 categorical 机制：单步 direct-logit score 有界并不阻止 repeated negative update 持续扩大 surprisal/logit gap、将概率推向 simplex/support boundary；删除近场而保留 far negative 不能救援，删除或截断 far negative 可以同时保护任务与支持。Global-scale 的高 reward 与 support boundary 并存进一步证明任务性能与支持边界必须分报。
+> - 科学状态升级为 **已长期验证（long-run validated）**。该状态仅适用于本次基于 locked handoff 重建的 D-Diag/D-U1 categorical mechanism 与历史 qualitative pattern；不声称旧未提交 runner 的 byte-identical 复现，不证明 E6 的未见动作语义泛化，不声称 categorical direct-logit gradient 无界，也不形成跨任务方法排名。
+> - 第一次和第二次正式尝试均在完成 66/120 runs 后被当前工具调用的外部持续时间上限终止；两个 failed-run 证据包完整保留。第三次尝试由同一 hardened guard、同一 commit 和冻结协议完成 120/120，并生成 verified raw-complete artifact。失败尝试不进入科学聚合。
+> - 仓库只提交 compact summary、逐 seed 汇总、direct trajectories、终态审计、图和 artifact index；完整逐方法轨迹保存在 raw-complete ZIP 中。E6 仍是独立未完成实验，不得由 E5 替代。
 
 
 > **v36 增量登记：`D-U1-E5-LONGRUN-RERUN` 长程复核与 provenance 重建（不删除 v35 及更早内容）**
@@ -14,6 +25,8 @@
 > - 本协议基于 `main` commit `d9424f1b9ab4e5ed25bc1ac00f97d84317f67cdc`。在协议更新实际应用并提交前，不得启动正式 E5。
 
 
+> **v35（C-U1 E4 用户确认闭环版）**
+>
 > **v35 增量登记：`C-U1-E4-CONV-01` 经用户审阅后的科学闭环（不删除 v34 及更早内容）**
 >
 > - 用户于 2026-06-26 明确审阅并确认：`alpha=0.75` 的 15/20、`alpha=1.00` 的 16/20 `stable_beneficial_extrapolation`，以及 `alpha=1.25` 的 15/20 `stable_over_extrapolation`，结合其余 14/60 仅为 inconclusive、0/60 明确相反终态、60/60 从 step 2000 到 4000 科学角色不反转，已足以闭合 E4 的长程相变结论。
@@ -552,6 +565,16 @@ Ground-truth reward 由动作到 `a_star(s)` 的二维距离决定，因此 `a_s
 7. **历史比较：** 旧 20/20 qualitative pattern 是预注册 comparison。正式验收首先要求 120/120 method-seed runs 完整、direct-softmax 数值重建通过、所有终态可审计；是否与历史完全一致必须如实报告，不能作为结果后调参门禁。
 8. **执行与 artifact：** canonical hardened guard 负责监督和打包；runner 只写普通 CSV/JSON/PNG/Markdown 和每 5 seeds checkpoint marker，不写 archive。正式运行完成后先交 raw-complete 包，再做 terminal audit 和仓库闭环更新。
 
+
+## 3.7.2 E5 长程复核结果与论文口径
+
+- **运行身份：** `D-U1-E5-LONGRUN-RERUN`，run commit `22c5823d66169eb90c256de342e27c5391e464c3`，formal seeds 10--29，六方法各 20000 steps，120/120 完整。
+- **Direct-softmax：** 两个初态均满足 score bound；高概率负动作的 entropy 为 rise-then-fall，低概率负动作 entropy 非增；两者尾段 surprisal/logit-gap slope 均约 `2e-3` per step。该分支证明的是 persistent support suppression，而不是欧氏 logit-gradient amplitude explosion。
+- **因果分类：** Baseline/Near-zero 为 task+support 双失败；Far-zero/Far-cap 为两类均救援；Global-scale 保住 task reward 但未保住 support；Positive-only 两类均不失败。每一方法均为 20/20 与历史 qualitative class 一致。
+- **事件分离：** task-performance collapse、support/temperature boundary 与 NaN/Inf 继续分开报告。本次三者计数分别依方法变化、支持边界总计 60/120、NaN/Inf 总计 0/120。
+- **允许论文表述：** “在该受控 categorical reconstruction 中，bounded direct-logit scores under repeated negative updates still induce monotone surprisal/logit-gap growth and simplex-boundary suppression; selective far-negative removal/capping, but not near-negative removal, breaks the harmful path.”
+- **禁止升级：** 不写成旧 runner 逐字节复现、离散欧氏梯度无界、support boundary 等同数值崩溃、E5 已证明未见动作泛化、或 Far-cap/Global-scale 的普遍方法排名。
+
 ---
 
 ## 3.8 C-U1 共享实现与二次阶方法实验 `C-U1-E4-TAPER-01`
@@ -638,7 +661,7 @@ $$
 | E4 | 独立 Extrapolation 环境；部分长程审计 | **`C-U1-E4-ADAM-RERUN` 已完成并交付**：有限步 reward 相变、过强压力任务崩溃、learnable-variance support contraction 与 4000-step controls 均完成；受益分支未通过 20/20 双 residual audit | **有限训练步数验证**；可用于有限步相变图与失稳分支，暂不可写成稳定有益 fixed point |
 | E4-CONV | 无历史独立环境结果 | **4000-step 正式运行已完成**：`0.75/1.00/1.25` 目标状态分别为 15/20、16/20、15/20，剩余均 inconclusive，0 个明确相反终态，60/60 科学角色未反转 | **已长期验证（用户确认闭环）**；原 18/20 门禁未通过的事实继续保留，不等同于 20/20 fixed-point 认证 |
 | E4-TAPER | seeds 0--4 独立复制实现 pilot | 共享 core 与正式 runner 已登记；E4-CONV 前置门禁已由用户确认闭环解除，正式 seeds 70--89 尚未运行 | 二次临界界已解析证明；允许按冻结协议启动，方法排名尚无正式结果 |
-| E5 | 历史解析、direct-softmax 与 20-seed 因果结果保留；旧 runner/raw artifact 未入库 | `D-U1-E5-LONGRUN-RERUN` 已登记，正式 20000-step 复核尚未运行 | 尚未运行；需先重建 provenance 并比较历史 qualitative pattern |
+| E5 | 历史解析、direct-softmax 与 20-seed 因果结果保留；旧 runner/raw artifact 未入库 | **`D-U1-E5-LONGRUN-RERUN` 已完成**：direct-softmax 参照通过，120/120 长程因果 runs 全部分类且 120/120 复现历史 qualitative class，NaN/Inf 0/120 | **已长期验证**；受控 categorical 排斥、支持边界和 near/far 因果链可用于论文，E6 语义泛化仍未完成 |
 | E6 | unordered semantic categorical 仅短程 pilot | 尚未长期重跑 | 未完成 |
 | E7 | Hopper learned-critic 600-step probe | `EXT-H-E7-Q2` 二次分支外部验证协议已预注册；长期重跑与实现尚未执行 | 旧 probe 仍仅为有限训练步数证据；E7-Q2 状态为尚未运行 |
 | E8 | v4.1 审计式 pilot 代码已实现；仅代码/CPU 测试，不含真实 Qwen 结果 | 未在真实本地 Qwen/CUDA/BF16-LoRA 或 full-FT 完整运行 | 尚未运行；v4 已替换，v4.1 不得把静态/CPU 测试当作实验结果 |
@@ -654,7 +677,7 @@ $$
 5. E4 论文口径允许使用经用户确认闭环的长程相变结论：`alpha=0.75/1.00` 有界有益外推、`alpha=1.25` 稳定过度外推，以及既有任务性能崩溃、support contraction 和 `alpha=1.75` finite runaway；同时必须披露原 18/20 门禁未通过，且不得写成 20/20 fixed-point 认证；
 6. E3 主文继续只保留 Baseline/Near-zero/Far-zero/Far-cap 的最短因果链；
 7. `C-U1-E4-TAPER-01` 与 `D-U1-E5-LONGRUN-RERUN` 经用户批准可由不同 session 并行运行；两者科学与输出独立，但 handoff/registry 更新必须通过 Git-bundle 三方集成串行落库；
-8. E5 长程复核完成并交付后，再决定旧 E5 口径是否直接保留、修正或降级；E6 categorical 长程仍单独执行，不得由 E5 替代；
+8. `D-U1-E5-LONGRUN-RERUN` 已完成并复现全部历史 qualitative class，E5 状态升级为已长期验证；E6 categorical 长程仍单独执行，不得由 E5 替代；
 9. 外部 Hopper/Countdown 与论文正文整理可按各自门禁并行推进。
 
 任何新增实验必须先说明它补哪一个 claim、是否替代现有实验、是否进入本文档。

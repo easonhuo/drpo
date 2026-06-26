@@ -113,7 +113,9 @@ def test_registry_and_canonical_formal_channel() -> None:
     registry = yaml.safe_load((REPO_ROOT / "experiments" / "registry.yaml").read_text())
     experiments = {entry["id"]: entry for entry in registry["experiments"]}
     entry = experiments["D-U1-E5-LONGRUN-RERUN"]
-    assert entry["status"] == "not_run"
+    assert entry["status"] == "long_run_validated"
+    assert entry["execution"]["state"] == "delivered"
+    assert entry["evidence"]["scientific_status"] == "long_run_validated"
     assert entry["execution_class"] == "formal"
     assert entry["formal_execution"]["activation_state"] == "active"
     assert entry["formal_execution"]["entrypoint"] == "src/drpo/du1_e5_longrun_rerun.py"

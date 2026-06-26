@@ -1,0 +1,34 @@
+{
+  "actual_runs": 120,
+  "all_historical_classes_match": true,
+  "artifacts": [
+    {
+      "filename": "DRPO_DU1_E5_LONGRUN_22C_RUN001_RAW_COMPLETE.zip",
+      "included_in_update_package": true,
+      "role": "failed_external_timeout_attempt_1",
+      "sha256": "bb28f290c110b9410ab46a6a1d59df3599eaefc1068ec9d59d09d2d90a39ca66",
+      "size_bytes": 515027
+    },
+    {
+      "filename": "DRPO_DU1_E5_LONGRUN_22C_RUN002_RAW_COMPLETE.zip",
+      "included_in_update_package": true,
+      "role": "failed_external_timeout_attempt_2",
+      "sha256": "f1109c0aba9c46e3e95c25a34da1edd9c1ef13f158b5529ab97550ca3a91b855",
+      "size_bytes": 515033
+    },
+    {
+      "filename": "DRPO_DU1_E5_LONGRUN_22C_RUN003_RAW_COMPLETE.zip",
+      "included_in_update_package": true,
+      "role": "verified_raw_complete",
+      "sha256": "a4b15c0862b23c78bec15a8b001ea1f1d192f86dc05699cd8bc83b41f0c1348d",
+      "size_bytes": 1044832
+    }
+  ],
+  "expected_runs": 120,
+  "experiment_id": "D-U1-E5-LONGRUN-RERUN",
+  "repository_closure_base_commit": "22c5823d66169eb90c256de342e27c5391e464c3",
+  "schema_version": 1,
+  "scientific_run_commit": "22c5823d66169eb90c256de342e27c5391e464c3",
+  "scientific_status": "long_run_validated",
+  "total_nan_inf_count": 0
+}

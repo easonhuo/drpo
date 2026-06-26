@@ -18,7 +18,7 @@ SCRIPTS_DIR = PROJECT_ROOT / "scripts"
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
-import artifact_protocol_hardened as hardened
+import artifact_protocol_hardened as hardened  # noqa: E402
 
 
 SCRIPT_NAMES = [

@@ -1,0 +1,21 @@
+{
+  "actual_runs": 120,
+  "all_causal_runs_classified": true,
+  "all_historical_classes_match": true,
+  "base_commit": "22c5823d66169eb90c256de342e27c5391e464c3",
+  "direct_reference_checks_passed": true,
+  "expected_runs": 120,
+  "experiment_id": "D-U1-E5-LONGRUN-RERUN",
+  "mode": "formal",
+  "prohibited_claims": [
+    "categorical_direct_logit_gradient_is_unbounded",
+    "support_boundary_is_identical_to_nan_inf_failure",
+    "E5_proves_unseen_action_semantic_generalization",
+    "historical_runner_was_byte_identically_reproduced",
+    "universal_method_ranking"
+  ],
+  "raw_runs_complete": true,
+  "scientific_status_candidate": "long_run_validated_pending_repository_closure",
+  "task_support_nan_inf_reported_separately": true,
+  "total_nan_inf_count": 0
+}

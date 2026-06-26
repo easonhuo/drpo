@@ -1,0 +1,15 @@
+{
+  "action_count": 26,
+  "action_ids_are_permuted": true,
+  "all_checks_passed": true,
+  "all_empirical_distributions_sum_to_one": true,
+  "context_center_mean": 0.0010209714830643178,
+  "context_center_std": 0.08919729254955155,
+  "far_initial_probability": 0.00887844684743035,
+  "initial_entropy": 2.9837086571551383,
+  "near_far_advantage_magnitudes_equal": true,
+  "near_initial_probability": 0.0710672517974887,
+  "near_probability_exceeds_far": true,
+  "state_dim": 6,
+  "train_states": 4096
+}

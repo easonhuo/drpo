@@ -1,0 +1,208 @@
+{
+  "causal_expected_pattern": {
+    "baseline": {
+      "support_collapse": true,
+      "task_collapse": true
+    },
+    "far_cap": {
+      "support_collapse": false,
+      "task_collapse": false
+    },
+    "far_zero": {
+      "support_collapse": false,
+      "task_collapse": false
+    },
+    "global_scale": {
+      "support_collapse": true,
+      "task_collapse": false
+    },
+    "near_zero": {
+      "support_collapse": true,
+      "task_collapse": true
+    },
+    "positive_only": {
+      "support_collapse": false,
+      "task_collapse": false
+    }
+  },
+  "causal_observed": {
+    "all_historical_classes_match": true,
+    "all_runs_classified": true,
+    "methods": {
+      "baseline": {
+        "historical_joint_match_count": 20,
+        "nan_inf_count": 0,
+        "runs": 20,
+        "support_collapse_count": 20,
+        "task_collapse_count": 20,
+        "terminal_class_counts": {
+          "nan_inf_numerical_failure": 0,
+          "persistent_suppression": 0,
+          "stable_bounded": 0,
+          "support_boundary": 20,
+          "terminal_inconclusive": 0
+        },
+        "terminal_entropy_mean": 0.3869193186807219,
+        "terminal_reward_mean": 0.0006978558570929635,
+        "terminal_tau_mean": 0.09579813926130588
+      },
+      "far_cap": {
+        "historical_joint_match_count": 20,
+        "nan_inf_count": 0,
+        "runs": 20,
+        "support_collapse_count": 0,
+        "task_collapse_count": 0,
+        "terminal_class_counts": {
+          "nan_inf_numerical_failure": 0,
+          "persistent_suppression": 0,
+          "stable_bounded": 20,
+          "support_boundary": 0,
+          "terminal_inconclusive": 0
+        },
+        "terminal_entropy_mean": 3.002567346988965,
+        "terminal_reward_mean": 0.29714767390090524,
+        "terminal_tau_mean": 1.2467396974685738
+      },
+      "far_zero": {
+        "historical_joint_match_count": 20,
+        "nan_inf_count": 0,
+        "runs": 20,
+        "support_collapse_count": 0,
+        "task_collapse_count": 0,
+        "terminal_class_counts": {
+          "nan_inf_numerical_failure": 0,
+          "persistent_suppression": 0,
+          "stable_bounded": 20,
+          "support_boundary": 0,
+          "terminal_inconclusive": 0
+        },
+        "terminal_entropy_mean": 3.074916608994715,
+        "terminal_reward_mean": 0.26738098736568067,
+        "terminal_tau_mean": 1.394839230659166
+      },
+      "global_scale": {
+        "historical_joint_match_count": 20,
+        "nan_inf_count": 0,
+        "runs": 20,
+        "support_collapse_count": 20,
+        "task_collapse_count": 0,
+        "terminal_class_counts": {
+          "nan_inf_numerical_failure": 0,
+          "persistent_suppression": 0,
+          "stable_bounded": 0,
+          "support_boundary": 20,
+          "terminal_inconclusive": 0
+        },
+        "terminal_entropy_mean": 0.6647171253762851,
+        "terminal_reward_mean": 0.9567831669200537,
+        "terminal_tau_mean": 0.04975297632420915
+      },
+      "near_zero": {
+        "historical_joint_match_count": 20,
+        "nan_inf_count": 0,
+        "runs": 20,
+        "support_collapse_count": 20,
+        "task_collapse_count": 20,
+        "terminal_class_counts": {
+          "nan_inf_numerical_failure": 0,
+          "persistent_suppression": 0,
+          "stable_bounded": 0,
+          "support_boundary": 20,
+          "terminal_inconclusive": 0
+        },
+        "terminal_entropy_mean": 0.3963175598988688,
+        "terminal_reward_mean": 0.005860351494973978,
+        "terminal_tau_mean": 0.0903333646223647
+      },
+      "positive_only": {
+        "historical_joint_match_count": 20,
+        "nan_inf_count": 0,
+        "runs": 20,
+        "support_collapse_count": 0,
+        "task_collapse_count": 0,
+        "terminal_class_counts": {
+          "nan_inf_numerical_failure": 0,
+          "persistent_suppression": 0,
+          "stable_bounded": 20,
+          "support_boundary": 0,
+          "terminal_inconclusive": 0
+        },
+        "terminal_entropy_mean": 2.981075214053795,
+        "terminal_reward_mean": 0.27525529281893174,
+        "terminal_tau_mean": 1.1958329249285797
+      }
+    },
+    "total_nan_inf_count": 0,
+    "total_runs": 120
+  },
+  "direct_softmax": {
+    "all_direct_reference_checks_passed": true,
+    "high_probability_negative": {
+      "initial_entropy_match": true,
+      "initial_probability_match": true,
+      "observed": {
+        "case": "high_probability_negative",
+        "entropy_pattern": "rise_then_fall",
+        "initial_entropy": 0.38599999999999984,
+        "initial_probability": 0.8991000000000001,
+        "learning_rate": 0.001,
+        "max_score": 1.4142132719131175,
+        "peak_entropy": 0.9087028938161621,
+        "score_bound_pass": true,
+        "steps": 20000,
+        "surprisal_growth_pass": true,
+        "tail_logit_gap_slope_per_step": 0.0019999988278277805,
+        "tail_surprisal_slope_per_step": 0.0019999976562447876,
+        "terminal_entropy": 6.451268219733341e-06,
+        "terminal_probability": 3.7043613598643434e-12,
+        "terminal_surprisal": 26.321510244544594
+      },
+      "reference": {
+        "initial_entropy": 0.386,
+        "initial_probability": 0.8991,
+        "max_score": 1.414213,
+        "peak_entropy": 0.906,
+        "terminal_entropy": 6.72e-06,
+        "terminal_probability": 4.06e-12
+      },
+      "score_bound_pass": true,
+      "surprisal_growth_pass": true,
+      "terminal_probability_ratio_observed_to_reference": 0.912404275828656,
+      "terminal_probability_within_20_percent": true
+    },
+    "low_probability_negative": {
+      "initial_entropy_match": true,
+      "initial_probability_match": true,
+      "observed": {
+        "case": "low_probability_negative",
+        "entropy_pattern": "nonincreasing_or_flat",
+        "initial_entropy": 0.29199999999999987,
+        "initial_probability": 0.003800000000000001,
+        "learning_rate": 0.001,
+        "max_score": 1.4142135622312735,
+        "peak_entropy": 0.29199999999999987,
+        "score_bound_pass": true,
+        "steps": 20000,
+        "surprisal_growth_pass": true,
+        "tail_logit_gap_slope_per_step": 0.001999999999428922,
+        "tail_surprisal_slope_per_step": 0.001999999998856901,
+        "terminal_entropy": 4.6791824127452695e-09,
+        "terminal_probability": 1.9172584004125106e-20,
+        "terminal_surprisal": 45.40080561073726
+      },
+      "reference": {
+        "initial_entropy": 0.292,
+        "initial_probability": 0.0038,
+        "max_score": 1.414214,
+        "peak_entropy": 0.292,
+        "terminal_entropy": 4.51e-09,
+        "terminal_probability": 1.9e-20
+      },
+      "score_bound_pass": true,
+      "surprisal_growth_pass": true,
+      "terminal_probability_ratio_observed_to_reference": 1.0090833686381635,
+      "terminal_probability_within_20_percent": true
+    }
+  },
+  "historical_numbers_are_reference_not_tuning_targets": true
+}

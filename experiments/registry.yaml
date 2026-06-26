@@ -1388,7 +1388,7 @@ experiments:
 - id: D-U1-E5-LONGRUN-RERUN
   environment: D-U1_and_D-Diag
   name: categorical_repulsion_support_boundary_longrun_reconstruction
-  status: not_run
+  status: long_run_validated
   parent_experiment: E5
   registration_base_commit: d9424f1b9ab4e5ed25bc1ac00f97d84317f67cdc
   claim: >-
@@ -1551,19 +1551,87 @@ experiments:
   - exact_legacy_runner_reproduction
   - universal_method_ranking
   execution:
-    state: registered
-    run_id: null
-    last_heartbeat_utc: null
-    process_exit_code: null
+    state: delivered
+    run_id: du1_e5_longrun_22c_run003
+    start_utc: '2026-06-26T08:49:27.910888+00:00'
+    end_utc: '2026-06-26T08:50:30.203169+00:00'
+    process_exit_code: 0
+    completed_method_seed_runs: 120
+    failed_external_timeout_attempts_preserved: 2
   evidence:
-    raw_complete: false
-    terminal_audited: false
-    package_created: false
-    package_filename: null
-    package_sha256: null
-    delivered_to_user: false
+    raw_complete: true
+    terminal_audited: true
+    package_created: true
+    package_filename: DRPO_DU1_E5_LONGRUN_22C_RUN003_RAW_COMPLETE.zip
+    package_sha256: a4b15c0862b23c78bec15a8b001ea1f1d192f86dc05699cd8bc83b41f0c1348d
+    failed_attempt_packages:
+    - filename: DRPO_DU1_E5_LONGRUN_22C_RUN001_RAW_COMPLETE.zip
+      sha256: bb28f290c110b9410ab46a6a1d59df3599eaefc1068ec9d59d09d2d90a39ca66
+      completed_runs_before_external_timeout: 66
+    - filename: DRPO_DU1_E5_LONGRUN_22C_RUN002_RAW_COMPLETE.zip
+      sha256: f1109c0aba9c46e3e95c25a34da1edd9c1ef13f158b5529ab97550ca3a91b855
+      completed_runs_before_external_timeout: 66
+    delivered_to_user: true
     applied_commit: null
-    scientific_status: not_run
+    scientific_status: long_run_validated
+    compact_result_path: outputs/du1_e5_longrun
+  terminal_audit:
+    raw_runs_complete: true
+    expected_method_seed_runs: 120
+    actual_method_seed_runs: 120
+    all_runs_classified: true
+    direct_reference_checks_passed: true
+    historical_joint_class_matches: 120
+    historical_joint_class_total: 120
+    all_historical_classes_match: true
+    task_support_nan_inf_reported_separately: true
+    total_nan_inf_count: 0
+    method_counts:
+      positive_only: {task_collapse: 0, support_boundary: 0, stable_bounded: 20}
+      baseline: {task_collapse: 20, support_boundary: 20, stable_bounded: 0}
+      near_zero: {task_collapse: 20, support_boundary: 20, stable_bounded: 0}
+      far_zero: {task_collapse: 0, support_boundary: 0, stable_bounded: 20}
+      far_cap: {task_collapse: 0, support_boundary: 0, stable_bounded: 20}
+      global_scale: {task_collapse: 0, support_boundary: 20, stable_bounded: 0}
+  result_summary:
+    direct_softmax:
+      high_probability_negative_terminal_probability: 3.7043613598643434e-12
+      low_probability_negative_terminal_probability: 1.9172584004125106e-20
+      high_probability_negative_max_score: 1.4142132719131175
+      low_probability_negative_max_score: 1.4142135622312735
+      high_entropy_pattern: rise_then_fall
+      low_entropy_pattern: nonincreasing_or_flat
+    causal:
+      baseline_reward_mean: 0.0006978558570929635
+      near_zero_reward_mean: 0.005860351494973978
+      far_zero_reward_mean: 0.26738098736568067
+      far_cap_reward_mean: 0.29714767390090524
+      global_scale_reward_mean: 0.9567831669200537
+      positive_only_reward_mean: 0.27525529281893174
+  paper_use:
+    allowed:
+    - bounded_direct_logit_score_with_persistent_surprisal_and_logit_gap_growth
+    - simplex_or_support_boundary_under_repeated_negative_updates
+    - baseline_and_near_zero_20_of_20_task_and_support_failure
+    - far_zero_and_far_cap_20_of_20_task_and_support_rescue
+    - global_scale_task_preservation_with_20_of_20_support_boundary
+    - exact_separation_of_task_support_and_nan_inf_events
+    prohibited:
+    - categorical_direct_logit_gradient_is_unbounded
+    - support_boundary_equals_nan_inf_failure
+    - E5_proves_unseen_action_semantic_generalization
+    - exact_legacy_runner_reproduction
+    - universal_method_ranking
+  provenance:
+    run_commit: 22c5823d66169eb90c256de342e27c5391e464c3
+    parent_commit: d9424f1b9ab4e5ed25bc1ac00f97d84317f67cdc
+    exact_commit_object_sha_verified: true
+    git_worktree_clean_at_launch: true
+    git_worktree_clean_at_exit: true
+    provenance_compromised: false
+    historical_runner_available: false
+    reconstruction_scope: locked_handoff_scientific_roles_and_reference_values
+    exact_legacy_code_reproduction_claimed: false
   artifact_budget:
     main_package_hard_limit_mib: 25
     checkpoint_policy: canonical_channel_markers_every_5_seeds

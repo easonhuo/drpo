@@ -31,7 +31,7 @@ import zipfile
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
-from typing import Any, Iterable, Iterator
+from typing import Any, Iterable
 
 FINAL_KINDS = {"governance", "experiment-final"}
 RESULT_KINDS = {

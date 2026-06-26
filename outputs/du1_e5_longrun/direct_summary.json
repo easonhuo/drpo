@@ -1,0 +1,36 @@
+{
+  "high_probability_negative": {
+    "case": "high_probability_negative",
+    "entropy_pattern": "rise_then_fall",
+    "initial_entropy": 0.38599999999999984,
+    "initial_probability": 0.8991000000000001,
+    "learning_rate": 0.001,
+    "max_score": 1.4142132719131175,
+    "peak_entropy": 0.9087028938161621,
+    "score_bound_pass": true,
+    "steps": 20000,
+    "surprisal_growth_pass": true,
+    "tail_logit_gap_slope_per_step": 0.0019999988278277805,
+    "tail_surprisal_slope_per_step": 0.0019999976562447876,
+    "terminal_entropy": 6.451268219733341e-06,
+    "terminal_probability": 3.7043613598643434e-12,
+    "terminal_surprisal": 26.321510244544594
+  },
+  "low_probability_negative": {
+    "case": "low_probability_negative",
+    "entropy_pattern": "nonincreasing_or_flat",
+    "initial_entropy": 0.29199999999999987,
+    "initial_probability": 0.003800000000000001,
+    "learning_rate": 0.001,
+    "max_score": 1.4142135622312735,
+    "peak_entropy": 0.29199999999999987,
+    "score_bound_pass": true,
+    "steps": 20000,
+    "surprisal_growth_pass": true,
+    "tail_logit_gap_slope_per_step": 0.001999999999428922,
+    "tail_surprisal_slope_per_step": 0.001999999998856901,
+    "terminal_entropy": 4.6791824127452695e-09,
+    "terminal_probability": 1.9172584004125106e-20,
+    "terminal_surprisal": 45.40080561073726
+  }
+}

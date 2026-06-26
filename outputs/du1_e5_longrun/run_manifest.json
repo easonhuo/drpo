@@ -1,0 +1,63 @@
+{
+  "schema_version": 3,
+  "experiment_id": "D-U1-E5-LONGRUN-RERUN",
+  "execution_state": "raw_complete",
+  "run_class": "formal",
+  "start_utc": "2026-06-26T08:49:27.910888+00:00",
+  "repo_root": "/mnt/data/drpo_main_22c_exact",
+  "branch": "main",
+  "base_commit": "22c5823d66169eb90c256de342e27c5391e464c3",
+  "commit_resolution": {
+    "local_head": "22c5823d66169eb90c256de342e27c5391e464c3",
+    "expected_sha": "22c5823d66169eb90c256de342e27c5391e464c3",
+    "origin_main": {
+      "sha": "22c5823d66169eb90c256de342e27c5391e464c3",
+      "source": "git_ls_remote_origin_main",
+      "authoritative": true,
+      "error": null
+    },
+    "origin_matches_local": true,
+    "verified": true
+  },
+  "git_dirty_at_launch": false,
+  "git_status_at_launch": [],
+  "launch_snapshot": false,
+  "command": [
+    "python3",
+    "src/drpo/du1_e5_longrun_rerun.py",
+    "--mode",
+    "formal",
+    "--output-root",
+    "experiments/results/D-U1-E5-LONGRUN-RERUN/run_003"
+  ],
+  "cwd": "/mnt/data/drpo_main_22c_exact",
+  "python": "3.13.5 (main, May  5 2026, 21:05:52) [GCC 14.2.0]",
+  "platform": "Linux-4.4.0-x86_64-with-glibc2.41",
+  "pid": 28770,
+  "heartbeat_seconds": 20.0,
+  "stale_seconds": 600.0,
+  "termination_grace_seconds": 30.0,
+  "progress_globs": [
+    "CHECKPOINT_*_SEEDS.json"
+  ],
+  "required_outputs": [
+    "RUN_COMPLETE.json",
+    "terminal_audit.json",
+    "REPORT.md",
+    "causal/per_seed_summary.csv",
+    "causal/aggregate_summary.json",
+    "historical_reference_comparison.json"
+  ],
+  "artifact_output": "/mnt/data/DRPO_DU1_E5_LONGRUN_22C_RUN003_RAW_COMPLETE.zip",
+  "large_file_persistence": "persistent_local",
+  "sidecar_default": false,
+  "sidecar_files": [],
+  "sidecar_purpose": null,
+  "end_utc": "2026-06-26T08:50:30.203169+00:00",
+  "returncode": 0,
+  "missing_required_outputs": [],
+  "stale_detected": false,
+  "end_commit": "22c5823d66169eb90c256de342e27c5391e464c3",
+  "git_status_at_end": [],
+  "provenance_compromised": false
+}

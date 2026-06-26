@@ -1,0 +1,110 @@
+{
+  "all_historical_classes_match": true,
+  "all_runs_classified": true,
+  "methods": {
+    "baseline": {
+      "historical_joint_match_count": 20,
+      "nan_inf_count": 0,
+      "runs": 20,
+      "support_collapse_count": 20,
+      "task_collapse_count": 20,
+      "terminal_class_counts": {
+        "nan_inf_numerical_failure": 0,
+        "persistent_suppression": 0,
+        "stable_bounded": 0,
+        "support_boundary": 20,
+        "terminal_inconclusive": 0
+      },
+      "terminal_entropy_mean": 0.3869193186807219,
+      "terminal_reward_mean": 0.0006978558570929635,
+      "terminal_tau_mean": 0.09579813926130588
+    },
+    "far_cap": {
+      "historical_joint_match_count": 20,
+      "nan_inf_count": 0,
+      "runs": 20,
+      "support_collapse_count": 0,
+      "task_collapse_count": 0,
+      "terminal_class_counts": {
+        "nan_inf_numerical_failure": 0,
+        "persistent_suppression": 0,
+        "stable_bounded": 20,
+        "support_boundary": 0,
+        "terminal_inconclusive": 0
+      },
+      "terminal_entropy_mean": 3.002567346988965,
+      "terminal_reward_mean": 0.29714767390090524,
+      "terminal_tau_mean": 1.2467396974685738
+    },
+    "far_zero": {
+      "historical_joint_match_count": 20,
+      "nan_inf_count": 0,
+      "runs": 20,
+      "support_collapse_count": 0,
+      "task_collapse_count": 0,
+      "terminal_class_counts": {
+        "nan_inf_numerical_failure": 0,
+        "persistent_suppression": 0,
+        "stable_bounded": 20,
+        "support_boundary": 0,
+        "terminal_inconclusive": 0
+      },
+      "terminal_entropy_mean": 3.074916608994715,
+      "terminal_reward_mean": 0.26738098736568067,
+      "terminal_tau_mean": 1.394839230659166
+    },
+    "global_scale": {
+      "historical_joint_match_count": 20,
+      "nan_inf_count": 0,
+      "runs": 20,
+      "support_collapse_count": 20,
+      "task_collapse_count": 0,
+      "terminal_class_counts": {
+        "nan_inf_numerical_failure": 0,
+        "persistent_suppression": 0,
+        "stable_bounded": 0,
+        "support_boundary": 20,
+        "terminal_inconclusive": 0
+      },
+      "terminal_entropy_mean": 0.6647171253762851,
+      "terminal_reward_mean": 0.9567831669200537,
+      "terminal_tau_mean": 0.04975297632420915
+    },
+    "near_zero": {
+      "historical_joint_match_count": 20,
+      "nan_inf_count": 0,
+      "runs": 20,
+      "support_collapse_count": 20,
+      "task_collapse_count": 20,
+      "terminal_class_counts": {
+        "nan_inf_numerical_failure": 0,
+        "persistent_suppression": 0,
+        "stable_bounded": 0,
+        "support_boundary": 20,
+        "terminal_inconclusive": 0
+      },
+      "terminal_entropy_mean": 0.3963175598988688,
+      "terminal_reward_mean": 0.005860351494973978,
+      "terminal_tau_mean": 0.0903333646223647
+    },
+    "positive_only": {
+      "historical_joint_match_count": 20,
+      "nan_inf_count": 0,
+      "runs": 20,
+      "support_collapse_count": 0,
+      "task_collapse_count": 0,
+      "terminal_class_counts": {
+        "nan_inf_numerical_failure": 0,
+        "persistent_suppression": 0,
+        "stable_bounded": 20,
+        "support_boundary": 0,
+        "terminal_inconclusive": 0
+      },
+      "terminal_entropy_mean": 2.981075214053795,
+      "terminal_reward_mean": 0.27525529281893174,
+      "terminal_tau_mean": 1.1958329249285797
+    }
+  },
+  "total_nan_inf_count": 0,
+  "total_runs": 120
+}

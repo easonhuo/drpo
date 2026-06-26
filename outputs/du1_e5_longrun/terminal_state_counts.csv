@@ -1,0 +1,7 @@
+method,runs,stable_bounded,support_boundary,persistent_suppression,terminal_inconclusive,nan_inf_numerical_failure,task_collapse_count
+positive_only,20,20,0,0,0,0,0
+baseline,20,0,20,0,0,0,20
+near_zero,20,0,20,0,0,0,20
+far_zero,20,20,0,0,0,0,0
+far_cap,20,20,0,0,0,0,0
+global_scale,20,0,20,0,0,0,0
