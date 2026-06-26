@@ -1,6 +1,6 @@
 # DRPO 治理与多 Session 集成重构方案（工作设计稿）
 
-**治理 claim：** `GOV-RULE-MIGRATION-01`、`GOV-FORMAL-ENTRYPOINT-01`、`GOV-HANDOFF-INDEX-01`、`GOV-UPDATE-BUNDLE-01`
+**治理 claim：** `GOV-RULE-MIGRATION-01`、`GOV-FORMAL-ENTRYPOINT-01`、`GOV-HANDOFF-INDEX-01`、`GOV-UPDATE-BUNDLE-01`、`GOV-UPDATE-FAST-GATE-01`
 **文档性质：** 工作设计稿，不是第二份研究 Master，不改变任何实验状态、冻结参数或科学结论。
 **当前权威来源：** `AGENTS.md`、`docs/handoff.md`、`experiments/registry.yaml` 仍保持原有优先级。
 
@@ -491,3 +491,22 @@ CU1-RECOVERY-CHECKPOINT-LEGACY-01
 - 不开始 handoff 历史拆分。
 
 Stage 2A 验收后，新增 formal entrypoint 若未接入统一通道、使用自定义 packager、直接创建 formal archive 或缺少明确 execution class，治理测试必须失败。
+
+## 15. Stage 1D：更新应用计时与 fail-closed fast gate
+
+Stage 1 已解决 stale base 的自动三方集成，但“无冲突更新究竟慢在哪里”此前没有结构化数据，且所有包只能依靠各自的 `TEST_COMMANDS.sh` 决定测试范围。Stage 1D 在不取消测试的前提下增加两项能力：
+
+1. `drpo-update` 在 `APPLY_REPORT` 中记录 package extraction、repository preflight、fetch/merge、base resolution、bundle verification、integration、package tests、repository test gate、review、main fast-forward、push 和 total 的耗时；
+2. 由当前真实 `main` 中的 `tools/drpo-update/test_impact_map.json` 根据 candidate diff 选择 focused fast gate 或 full suite。
+
+测试选择必须满足以下安全边界：
+
+- `TEST_COMMANDS.sh` 仍然先执行，保留包级专用验证；
+- 已知 low/medium-risk 文件只运行变更 Python 文件的 compile/Ruff、映射 validator 和映射 pytest targets；
+- shared artifact core、正式训练代码、依赖、AGENTS、测试选择控制面等 high-risk 文件强制 full suite；
+- 任何未被 impact map 覆盖的新路径默认 full suite，不得静默跳过；
+- 显式 `--test-mode fast` 不能降级 high-risk 或 unknown-path 决策；
+- impact map 从应用前真实 `main` 读取，candidate 不能先修改 map 再利用新 map 弱化自己的门禁；
+- 任一 package test、selected test、Ruff、compile 或 validator 失败，真实 `main` 保持不动。
+
+该机制优化的是“相关测试选择”和可观测性，不把“无文本冲突”错误等同于“无需测试”。包生成时验证的是 `base + patch`，stale integration 实际验证的是 `new main + patch`，两者属于不同软件状态，仍必须至少经过 focused integration gate。

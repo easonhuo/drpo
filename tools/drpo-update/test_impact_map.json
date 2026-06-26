@@ -1,0 +1,148 @@
+{
+  "schema_version": 1,
+  "policy_id": "GOV-UPDATE-FAST-GATE-01",
+  "unknown_path_policy": "full",
+  "risk_order": [
+    "low",
+    "medium",
+    "high"
+  ],
+  "control_plane_patterns": [
+    "AGENTS.md",
+    "pyproject.toml",
+    "requirements*.txt",
+    ".github/**",
+    "tools/drpo-update/drpo_update.py",
+    "tools/drpo-update/test_selection.py",
+    "tools/drpo-update/test_impact_map.json",
+    "scripts/select_update_tests.py"
+  ],
+  "groups": [
+    {
+      "id": "update_helper",
+      "risk": "medium",
+      "patterns": [
+        "tools/drpo-update/**",
+        "scripts/create_update_git_bundle.py",
+        "scripts/verify_update_git_bundle.py",
+        "scripts/select_update_tests.py",
+        "tests/test_update_git_bundle.py",
+        "tests/test_drpo_update_helper.py",
+        "tests/test_update_test_selector.py"
+      ],
+      "pytest_targets": [
+        "tests/test_update_git_bundle.py",
+        "tests/test_drpo_update_helper.py",
+        "tests/test_update_test_selector.py"
+      ],
+      "validators": []
+    },
+    {
+      "id": "governance",
+      "risk": "medium",
+      "patterns": [
+        "docs/governance_*.md",
+        "docs/governance_*.yaml",
+        "scripts/validate_governance_rule_inventory.py",
+        "tests/test_governance_rule_inventory.py",
+        "tests/test_update_package_contract.py"
+      ],
+      "pytest_targets": [
+        "tests/test_governance_rule_inventory.py",
+        "tests/test_update_package_contract.py"
+      ],
+      "validators": [
+        [
+          "{python}",
+          "scripts/validate_governance_rule_inventory.py",
+          "--repo-root",
+          "."
+        ]
+      ]
+    },
+    {
+      "id": "formal_execution_channel",
+      "risk": "medium",
+      "patterns": [
+        "experiments/registry.yaml",
+        "scripts/validate_formal_execution_channel.py",
+        "tests/test_formal_execution_channel.py"
+      ],
+      "pytest_targets": [
+        "tests/test_formal_execution_channel.py",
+        "tests/test_governance_rule_inventory.py"
+      ],
+      "validators": [
+        [
+          "{python}",
+          "scripts/validate_formal_execution_channel.py",
+          "--repo-root",
+          "."
+        ]
+      ]
+    },
+    {
+      "id": "artifact_core",
+      "risk": "high",
+      "patterns": [
+        "docs/formal_experiment_artifact_protocol.md",
+        "scripts/artifact_protocol_hardened.py",
+        "scripts/run_experiment_guard_hardened.py",
+        "scripts/package_experiment_hardened.py",
+        "scripts/verify_experiment_package_hardened.py",
+        "tests/test_experiment_artifact_hardening.py",
+        "tests/test_experiment_artifact_protocol.py"
+      ],
+      "pytest_targets": [
+        "tests/test_experiment_artifact_hardening.py",
+        "tests/test_experiment_artifact_protocol.py"
+      ],
+      "validators": []
+    },
+    {
+      "id": "cu1_formal_code",
+      "risk": "high",
+      "patterns": [
+        "src/drpo/drpo_cu1_*.py",
+        "scripts/run_cu1_*.py",
+        "tests/test_cu1_*.py"
+      ],
+      "pytest_targets": [],
+      "validators": []
+    },
+    {
+      "id": "countdown_formal_code",
+      "risk": "high",
+      "patterns": [
+        "src/drpo/countdown*.py",
+        "scripts/run_countdown*.py",
+        "tests/test_countdown*.py"
+      ],
+      "pytest_targets": [],
+      "validators": []
+    },
+    {
+      "id": "documentation",
+      "risk": "low",
+      "patterns": [
+        "docs/**",
+        "README.md"
+      ],
+      "pytest_targets": [],
+      "validators": []
+    }
+  ],
+  "full_commands": [
+    [
+      "{python}",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    [
+      "{ruff}",
+      "check",
+      "."
+    ]
+  ]
+}

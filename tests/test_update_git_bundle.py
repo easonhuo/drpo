@@ -42,6 +42,31 @@ def git_fixture(tmp_path: Path):
     run(["git", "clone", str(origin), str(repo)])
     git(repo, "checkout", "-b", "main")
     (repo / "tracked.txt").write_text("base\n")
+    impact_map = repo / "tools" / "drpo-update" / "test_impact_map.json"
+    impact_map.parent.mkdir(parents=True)
+    impact_map.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "unknown_path_policy": "full",
+                "full_commands": [["{python}", "-c", "print(\"synthetic full gate\")"]],
+                "control_plane_patterns": ["tools/drpo-update/test_impact_map.json"],
+                "groups": [
+                    {
+                        "id": "fixture_tracked_file",
+                        "risk": "low",
+                        "patterns": ["tracked.txt"],
+                        "pytest_targets": [],
+                        "validators": [],
+                    }
+                ],
+            }
+        )
+        + "\n"
+    )
+    smoke = repo / "tests" / "test_smoke.py"
+    smoke.parent.mkdir(parents=True)
+    smoke.write_text("def test_smoke():\n    assert True\n")
     base = commit_all(repo, "base")
     git(repo, "push", "-u", "origin", "main")
     git(origin, "symbolic-ref", "HEAD", "refs/heads/main")
@@ -114,6 +139,11 @@ def test_stale_ancestral_bundle_merges_nonconflicting_main(git_fixture, tmp_path
     assert report["head_before"] == current
     assert report["integration_mode"] == "git-bundle-three-way"
     assert report["status"] == "success_no_push"
+    assert report["selected_test_mode"] == "fast"
+    assert report["test_selection"]["matched_groups"] == ["fixture_tracked_file"]
+    assert report["timings_seconds"]["integration"] >= 0
+    assert report["timings_seconds"]["repository_test_gate"] >= 0
+    assert report["timings_seconds"]["total"] >= 0
 
 
 def test_bundle_conflict_fails_without_modifying_main(git_fixture, tmp_path: Path):
@@ -210,3 +240,63 @@ def test_incomplete_bundle_pair_is_rejected(git_fixture, tmp_path: Path):
     assert proc.returncode != 0
     assert "must appear together" in proc.stderr
     assert (repo / "tracked.txt").read_text() == "base\n"
+
+
+def test_fast_override_cannot_downgrade_unknown_path(git_fixture, tmp_path: Path):
+    _, repo, _ = git_fixture
+    package = tmp_path / "package"
+    package.mkdir(parents=True)
+    (repo / "unknown.py").write_text("VALUE = 2\n")
+    git(repo, "add", "-N", "unknown.py")
+    patch = git(repo, "diff", "--binary", "--", "unknown.py").stdout
+    git(repo, "reset", "--", "unknown.py")
+    (repo / "unknown.py").unlink()
+    (package / "update.patch").write_text(patch)
+    (package / "CHANGE_SUMMARY.md").write_text("# Unsafe fast override test\n")
+    (package / "TEST_COMMANDS.sh").write_text("#!/usr/bin/env bash\nset -euo pipefail\ntrue\n")
+    os.chmod(package / "TEST_COMMANDS.sh", 0o755)
+    (package / "BASE_COMMIT.txt").write_text(git_text(repo, "rev-parse", "HEAD") + "\n")
+    build_bundle(repo, package)
+    before = git_text(repo, "rev-parse", "HEAD")
+    proc = run(
+        [
+            str(HELPER),
+            str(package),
+            "--yes",
+            "--no-push",
+            "--test-mode",
+            "fast",
+        ],
+        env=helper_env(repo, tmp_path / "reports"),
+        check=False,
+    )
+    assert proc.returncode != 0
+    assert "fast mode cannot override" in proc.stderr
+    assert git_text(repo, "rev-parse", "HEAD") == before
+
+def test_unknown_changed_path_escalates_to_full_suite(git_fixture, tmp_path: Path):
+    _, repo, _ = git_fixture
+    package = tmp_path / "package"
+    package.mkdir(parents=True)
+    (repo / "unknown.py").write_text("VALUE = 1\n")
+    git(repo, "add", "-N", "unknown.py")
+    patch = git(repo, "diff", "--binary", "--", "unknown.py").stdout
+    git(repo, "reset", "--", "unknown.py")
+    (repo / "unknown.py").unlink()
+    (package / "update.patch").write_text(patch)
+    (package / "CHANGE_SUMMARY.md").write_text("# Unknown-path full-suite test\n")
+    (package / "TEST_COMMANDS.sh").write_text("#!/usr/bin/env bash\nset -euo pipefail\ntrue\n")
+    os.chmod(package / "TEST_COMMANDS.sh", 0o755)
+    (package / "BASE_COMMIT.txt").write_text(git_text(repo, "rev-parse", "HEAD") + "\n")
+    build_bundle(repo, package)
+
+    report_dir = tmp_path / "reports"
+    proc = run(
+        [str(HELPER), str(package), "--yes", "--no-push"],
+        env=helper_env(repo, report_dir),
+    )
+    assert "mode=full" in proc.stdout
+    report = json.loads(next(report_dir.glob("*.json")).read_text())
+    assert report["selected_test_mode"] == "full"
+    assert report["test_selection"]["unknown_paths"] == ["unknown.py"]
+    assert '{python} -c print("synthetic full gate") [full]' in report["tests"]

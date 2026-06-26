@@ -17,7 +17,7 @@ def run(cmd: list[str], *, cwd: Path | None = None, env: dict[str, str] | None =
 
 def test_helper_reports_version():
     proc = run([str(HELPER_DIR / "drpo-update"), "--version"])
-    assert proc.stdout.strip() == "drpo-update 2.0.0"
+    assert proc.stdout.strip() == "drpo-update 2.1.0"
 
 
 def test_installer_defaults_to_repository_symlink(tmp_path: Path):
@@ -28,7 +28,7 @@ def test_installer_defaults_to_repository_symlink(tmp_path: Path):
     run(["git", "-C", str(repo), "remote", "add", "origin", str(origin)])
     target_dir = repo / "tools" / "drpo-update"
     target_dir.mkdir(parents=True)
-    for name in ("drpo-update", "drpo_update.py", "install.sh"):
+    for name in ("drpo-update", "drpo_update.py", "test_selection.py", "install.sh"):
         source = HELPER_DIR / name
         destination = target_dir / name
         destination.write_bytes(source.read_bytes())
@@ -43,7 +43,7 @@ def test_installer_defaults_to_repository_symlink(tmp_path: Path):
     assert installed.is_symlink()
     assert installed.resolve() == (target_dir / "drpo-update").resolve()
     assert (home / ".config" / "drpo-update" / "repo_path").read_text().strip() == str(repo.resolve())
-    assert "drpo-update 2.0.0" in proc.stdout
+    assert "drpo-update 2.1.0" in proc.stdout
 
 
 def test_provenance_records_user_verified_original_hash():

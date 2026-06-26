@@ -21,11 +21,18 @@ import tempfile
 import time
 import uuid
 import zipfile
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Sequence
 
-VERSION = "2.0.0"
+TOOL_DIR = Path(__file__).resolve().parent
+if str(TOOL_DIR) not in sys.path:
+    sys.path.insert(0, str(TOOL_DIR))
+
+from test_selection import TestSelectionError, execute_test_plan, select_test_plan  # noqa: E402
+
+VERSION = "2.1.0"
 EXPECTED_REMOTE_FRAGMENTS = ("github.com/easonhuo/drpo", "github.com:easonhuo/drpo")
 FULL_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 
@@ -65,14 +72,42 @@ class ApplyReport:
     pushed: bool = False
     status: str = "started"
     error: str | None = None
+    requested_test_mode: str = "auto"
+    selected_test_mode: str | None = None
+    test_selection: dict[str, object] | None = None
+    timings_seconds: dict[str, float] = field(default_factory=dict)
     created_at_unix: int = field(default_factory=lambda: int(time.time()))
 
     def to_dict(self) -> dict[str, object]:
         return {
-            "schema_version": 1,
+            "schema_version": 2,
             "tool_version": VERSION,
             **self.__dict__,
         }
+
+
+@contextmanager
+def timed_phase(report: ApplyReport, name: str):
+    started = time.perf_counter()
+    try:
+        yield
+    finally:
+        report.timings_seconds[name] = round(time.perf_counter() - started, 6)
+
+
+def finalize_total_timing(report: ApplyReport, started: float) -> None:
+    report.timings_seconds["total"] = round(time.perf_counter() - started, 6)
+
+
+def print_timing_summary(report: ApplyReport) -> None:
+    if not report.timings_seconds:
+        return
+    print("Timing summary:")
+    for name, duration in sorted(
+        report.timings_seconds.items(),
+        key=lambda item: (item[0] == "total", item[0]),
+    ):
+        print(f"  {name}: {duration:.3f}s")
 
 
 def run(
@@ -210,7 +245,7 @@ def validate_repo(repo: Path) -> None:
 def refresh_main(repo: Path) -> None:
     if os.environ.get("DRPO_UPDATE_SKIP_FETCH") == "1":
         return
-    print("[1/8] Updating local main...")
+    print("[1/9] Updating local main...")
     git(repo, "fetch", "origin", "main", capture=False)
     git(repo, "merge", "--ff-only", "origin/main", capture=False)
 
@@ -280,39 +315,58 @@ def verify_bundle_and_patch(repo: Path, package: Package, base: str, temp_root: 
         git(repo, "update-ref", "-d", imported_ref, check=False)
 
 
-def run_tests(worktree: Path, test_file: Path | None, report: ApplyReport) -> None:
-    print("[5/8] Running tests in isolated worktree...")
+def run_package_tests(worktree: Path, test_file: Path | None, report: ApplyReport) -> None:
+    print("[5/9] Running package tests in isolated worktree...")
     if test_file:
         report.tests.append("TEST_COMMANDS.sh")
         proc = run(("bash", str(test_file)), cwd=worktree, check=False, capture=False)
         if proc.returncode != 0:
             raise UpdateError(f"TEST_COMMANDS.sh failed with exit code {proc.returncode}")
         return
+    print("WARNING: TEST_COMMANDS.sh is absent; relying on the repository test selector", file=sys.stderr)
 
-    pytest = shutil.which("pytest")
-    if pytest:
-        report.tests.append("pytest -q")
-        proc = run((pytest, "-q"), cwd=worktree, check=False, capture=False)
-        if proc.returncode != 0:
-            raise UpdateError(f"pytest failed with exit code {proc.returncode}")
-    else:
-        probe = run((sys.executable, "-c", "import pytest"), check=False)
-        if probe.returncode == 0:
-            report.tests.append("python -m pytest -q")
-            proc = run((sys.executable, "-m", "pytest", "-q"), cwd=worktree, check=False, capture=False)
-            if proc.returncode != 0:
-                raise UpdateError(f"pytest failed with exit code {proc.returncode}")
-        else:
-            print("WARNING: pytest is not installed; skipping pytest", file=sys.stderr)
 
-    ruff = shutil.which("ruff")
-    if ruff:
-        report.tests.append("ruff check .")
-        proc = run((ruff, "check", "."), cwd=worktree, check=False, capture=False)
-        if proc.returncode != 0:
-            raise UpdateError(f"ruff failed with exit code {proc.returncode}")
-    else:
-        print("WARNING: ruff is not installed; skipping ruff", file=sys.stderr)
+def candidate_changed_paths(worktree: Path, current: str, integrated: str) -> list[str]:
+    proc = git(worktree, "diff", "--name-only", f"{current}..{integrated}")
+    return [line for line in proc.stdout.splitlines() if line.strip()]
+
+
+def run_selected_tests(
+    repo: Path,
+    worktree: Path,
+    current: str,
+    integrated: str,
+    requested_mode: str,
+    report: ApplyReport,
+) -> None:
+    print("[6/9] Selecting and running repository integration tests...")
+    impact_map = repo / "tools" / "drpo-update" / "test_impact_map.json"
+    if not impact_map.is_file():
+        raise UpdateError(f"trusted test impact map is missing from current main: {impact_map}")
+    changed_paths = candidate_changed_paths(worktree, current, integrated)
+    try:
+        plan = select_test_plan(
+            changed_paths,
+            impact_map,
+            requested_mode=requested_mode,
+        )
+        executed = execute_test_plan(
+            plan,
+            worktree=worktree,
+            python_executable=sys.executable,
+        )
+    except TestSelectionError as exc:
+        raise UpdateError(f"repository test selection failed: {exc}") from exc
+    report.selected_test_mode = plan.selected_mode
+    report.test_selection = plan.to_dict()
+    report.tests.extend(executed)
+    print(
+        "Repository test gate: "
+        f"mode={plan.selected_mode}, risk={plan.risk}, "
+        f"groups={','.join(plan.matched_groups) or '-'}, "
+        f"unknown={len(plan.unknown_paths)}"
+    )
+    print(f"Selection reason: {plan.reason}")
 
 
 def conflict_paths(worktree: Path) -> list[str]:
@@ -386,7 +440,7 @@ def write_report(report: ApplyReport) -> Path:
 
 
 def display_review(worktree: Path, current: str, integrated: str, package: Package, report: ApplyReport) -> None:
-    print("[6/8] Review summary")
+    print("[7/9] Review summary")
     print(f"Original package base: {report.package_base}")
     print(f"Current main before integration: {current}")
     print(f"Integration mode: {report.integration_mode}")
@@ -400,26 +454,36 @@ def display_review(worktree: Path, current: str, integrated: str, package: Packa
 
 
 def apply_update(args: argparse.Namespace) -> int:
+    total_started = time.perf_counter()
     repo = resolve_repo(args.repo)
-    report = ApplyReport(package=str(Path(args.package).expanduser().resolve()), repository=str(repo))
+    report = ApplyReport(
+        package=str(Path(args.package).expanduser().resolve()),
+        repository=str(repo),
+        requested_test_mode=args.test_mode,
+    )
     temp_root = Path(tempfile.mkdtemp(prefix="drpo-update-"))
     package: Package | None = None
     integration_worktree: Path | None = None
     integration_branch: str | None = None
     try:
-        package = extract_package(Path(args.package), temp_root)
-        validate_repo(repo)
-        refresh_main(repo)
-        current = git_text(repo, "rev-parse", "HEAD")
-        base_requested = read_full_sha(package.base_file, "BASE_COMMIT.txt")
-        base = resolve_commit(repo, base_requested, "BASE_COMMIT.txt")
+        with timed_phase(report, "package_extract"):
+            package = extract_package(Path(args.package), temp_root)
+        with timed_phase(report, "repository_preflight"):
+            validate_repo(repo)
+        with timed_phase(report, "refresh_main"):
+            refresh_main(repo)
+        with timed_phase(report, "base_resolution"):
+            current = git_text(repo, "rev-parse", "HEAD")
+            base_requested = read_full_sha(package.base_file, "BASE_COMMIT.txt")
+            base = resolve_commit(repo, base_requested, "BASE_COMMIT.txt")
         report.package_base = base
         report.head_before = current
 
         patch_commit: str | None = None
         if package.has_git_bundle:
-            print("[2/8] Verifying Git bundle and patch equivalence...")
-            patch_commit = verify_bundle_and_patch(repo, package, base, temp_root)
+            print("[2/9] Verifying Git bundle and patch equivalence...")
+            with timed_phase(report, "bundle_verification"):
+                patch_commit = verify_bundle_and_patch(repo, package, base, temp_root)
             report.patch_commit = patch_commit
             ancestry = git(repo, "merge-base", "--is-ancestor", base, current, check=False)
             if ancestry.returncode != 0:
@@ -432,36 +496,52 @@ def apply_update(args: argparse.Namespace) -> int:
                 f"  package base: {base}\n  current HEAD: {current}"
             )
         else:
-            print("[2/8] Legacy package detected; exact-base patch path will be used.")
+            print("[2/9] Legacy package detected; exact-base patch path will be used.")
 
-        print("[3/8] Preparing isolated integration worktree...")
+        print("[3/9] Preparing isolated integration worktree...")
         message = args.message or summary_title(package.summary_file)
-        integration_worktree, integration_branch, integrated = create_integration_commit(
-            repo, package, current, base, patch_commit, message, temp_root, report
-        )
+        with timed_phase(report, "integration"):
+            integration_worktree, integration_branch, integrated = create_integration_commit(
+                repo, package, current, base, patch_commit, message, temp_root, report
+            )
         report.integrated_commit = integrated
-        print("[4/8] Candidate integration created; main is still untouched.")
-        run_tests(integration_worktree, package.test_file, report)
-        display_review(integration_worktree, current, integrated, package, report)
+        print("[4/9] Candidate integration created; main is still untouched.")
+        with timed_phase(report, "package_tests"):
+            run_package_tests(integration_worktree, package.test_file, report)
+        with timed_phase(report, "repository_test_gate"):
+            run_selected_tests(
+                repo,
+                integration_worktree,
+                current,
+                integrated,
+                args.test_mode,
+                report,
+            )
+        with timed_phase(report, "review"):
+            display_review(integration_worktree, current, integrated, package, report)
 
         if not args.yes:
             answer = input(f"Tests passed. Fast-forward main to '{message}' and push? [y/N] ").strip()
             if answer.lower() != "y":
                 report.status = "stopped_before_main_update"
+                finalize_total_timing(report, total_started)
                 path = write_report(report)
+                print_timing_summary(report)
                 print(f"Stopped before changing main. Report: {path}")
                 return 0
 
-        print("[7/8] Fast-forwarding verified commit onto main...")
-        git(repo, "merge", "--ff-only", integrated, capture=False)
-        report.head_after = git_text(repo, "rev-parse", "HEAD")
+        print("[8/9] Fast-forwarding verified commit onto main...")
+        with timed_phase(report, "main_fast_forward"):
+            git(repo, "merge", "--ff-only", integrated, capture=False)
+            report.head_after = git_text(repo, "rev-parse", "HEAD")
         report.status = "committed_local"
 
         if args.no_push:
-            print("[8/8] Push skipped (--no-push).")
+            print("[9/9] Push skipped (--no-push).")
         else:
-            print("[8/8] Pushing origin/main...")
-            push = git(repo, "push", "origin", "main", check=False, capture=False)
+            print("[9/9] Pushing origin/main...")
+            with timed_phase(report, "push"):
+                push = git(repo, "push", "origin", "main", check=False, capture=False)
             if push.returncode != 0:
                 report.status = "committed_local_push_failed"
                 raise UpdateError("push failed; verified commit remains on local main")
@@ -469,15 +549,19 @@ def apply_update(args: argparse.Namespace) -> int:
             report.status = "success"
         if args.no_push:
             report.status = "success_no_push"
+        finalize_total_timing(report, total_started)
         path = write_report(report)
+        print_timing_summary(report)
         print(f"Done.\nCommit: {report.head_after}\nApply report: {path}")
         return 0
     except (UpdateError, OSError, zipfile.BadZipFile) as exc:
         report.error = str(exc)
         if report.status not in {"committed_local_push_failed"}:
             report.status = "failed"
+        finalize_total_timing(report, total_started)
         try:
             path = write_report(report)
+            print_timing_summary(report)
             print(f"ERROR: {exc}\nApply report: {path}", file=sys.stderr)
         except Exception:
             print(f"ERROR: {exc}", file=sys.stderr)
@@ -495,6 +579,12 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("package", nargs="?")
     parser.add_argument("--yes", "-y", action="store_true")
     parser.add_argument("--no-push", action="store_true")
+    parser.add_argument(
+        "--test-mode",
+        choices=("auto", "fast", "full"),
+        default="auto",
+        help="auto selects a focused gate unless high-risk or unknown paths require the full suite",
+    )
     parser.add_argument("--message", "-m")
     parser.add_argument("--repo", help=argparse.SUPPRESS)
     parser.add_argument("--version", action="store_true")
