@@ -355,3 +355,68 @@ Stage 0.2 新增 `tests/test_update_package_contract.py`，分别验证：
 3. `TEST_COMMANDS.sh` 是必需成员，保留可执行模式、包含 `set -euo pipefail`，并拒绝占位命令。
 
 完成后 11 条 machine assurance 均为 `direct`，`grouped_machine_rules` 必须为 0。若以后新增 grouped coverage，仍必须显式记录 `coverage_note`，以防尚未补齐的证据被误报为完整覆盖。
+
+## 13. Stage 1：仓库托管的 drpo-update 与 Git bundle 三方集成
+
+### 13.1 本地工具进入仓库
+
+`tools/drpo-update/` 是本地 `drpo-update` 的唯一规范源码。该源码来自用户上传的本地安装包；用户已通过 `cmp` 和 SHA-256 独立确认上传可执行文件与 `/Users/easonhuo/bin/drpo-update` 完全一致。原始可执行文件 SHA-256 为：
+
+```text
+f344b0cffc163ecdeb80ec8d07b564d00c3538ad22e03887f87bd1ce2a85f4f3
+```
+
+安装器默认使用从 `~/bin/drpo-update` 指向仓库源码的符号链接。这样本地命令不再是脱离仓库的孤立副本，后续仓库更新会自动同步到已安装命令；仍保留 `--copy` 兼容模式。
+
+### 13.2 更新包双表示
+
+Stage 1 保留现有审计成员：
+
+```text
+BASE_COMMIT.txt
+update.patch
+CHANGE_SUMMARY.md
+TEST_COMMANDS.sh
+modified_files/
+```
+
+并允许新增一对不可拆分的 Git 成员：
+
+```text
+change.bundle
+PATCH_COMMIT.txt
+```
+
+`PATCH_COMMIT.txt` 必须是完整 40 位 SHA。该 commit 必须恰有一个 parent，且 parent 必须严格等于 `BASE_COMMIT.txt`。`change.bundle` 与 `update.patch` 不是两个可任选的真相：验证器必须把 patch 应用到 base 后计算 Git tree，并要求它与 patch commit 的 tree 完全一致。
+
+当前 Stage 1 引导更新包本身仍使用旧版 exact-base patch 路径，因为用户电脑上的旧 helper 尚不理解 Git bundle。该包应用并提交后，运行一次仓库内安装器即可切换到 Stage 1 helper；此后新包可以携带 bundle pair。
+
+### 13.3 隔离集成与失败语义
+
+新版 helper 对 legacy 和 bundle 路径都使用临时 worktree。真实 `main` 在以下条件全部成立前保持不变：
+
+1. 包结构安全且完整；
+2. base 与 bundle identity 验证通过；
+3. patch/tree 等价验证通过；
+4. 三方 cherry-pick 或 exact-base apply 成功；
+5. `TEST_COMMANDS.sh` 或回退测试通过；
+6. `git diff --check` 通过；
+7. 用户确认或使用 `--yes`。
+
+若 package base 等于当前 main，legacy patch 和 bundle 都可执行。若 base 已落后但仍是 current main 的祖先，则只有 bundle 路径允许自动三方集成。若 base 不是祖先、发生真实冲突、patch 与 bundle 不一致或测试失败，helper 必须 fail closed，并保持真实 main 干净且未移动。
+
+### 13.4 应用审计
+
+每次执行都在 `~/.config/drpo-update/reports/` 写入结构化报告，记录：
+
+- package original base；
+- application 前的 main HEAD；
+- patch commit；
+- integration mode；
+- tests；
+- conflict files；
+- integrated commit；
+- push 状态；
+- failure detail。
+
+报告不进入研究结果主文档，也不默认打印完整 JSON，避免治理审计反向膨胀对话 token。
