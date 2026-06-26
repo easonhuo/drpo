@@ -1385,6 +1385,303 @@ experiments:
     package_sha256: null
     delivered_to_user: false
     applied_commit: null
+  superseded_by: EXT-C-E8-V4.2
+  preserved_for_provenance: true
+  replacement_reason: V4.2 registers the post-pilot capability gates, balanced 6000-row offline corpus, effective-epoch training, dynamic far-field diagnostics, and isolated full-FT reference diagnostic.
+- id: EXT-C-E8-V4.2
+  environment: EXT-C
+  name: countdown_balanced_offline_dynamic_far_field_external_validation
+  status: not_run
+  claim: Test whether fixed-advantage far negatives exert larger and more damaging policy-relative influence than matched near negatives in a shared-parameter Transformer, and whether selective far-negative control preserves held-out canonical pattern-family performance better than positive-only, uncontrolled negative updates, and an equal-initial-budget global control. Near negatives are not assumed to be universally beneficial.
+  role: external_validity
+  execution_class: pilot
+  registration_base_commit: e8b62dde518f593ff8325c7da94c41406311ca45
+  pilot_execution:
+    channel_ref: hardened-v1
+    launch_mode: guarded_orchestrator
+    operator_entrypoint: scripts/run_countdown_pilot.py
+    guard_required: true
+  does_not_replace:
+  - D-U1
+  - D-Diag
+  supersedes: EXT-C-E8-V4.1
+  preserved_prior_run_note: The dirty-worktree single-seed V4.1 server run is exploratory mechanism evidence only and does not satisfy this registered protocol.
+  code_entrypoint: src/drpo/countdown_qwen_arena_onefile.py
+  one_click_entrypoint: scripts/run_countdown_pilot.py
+  one_click_contract:
+    required_operator_inputs:
+    - model_path
+    - work_dir
+    automatic_decisions:
+    - visible_gpu_selection_up_to_eight
+    - base_gate_and_extended_lora_sft_fallback
+    - mechanism_only_versus_method_effect_capability_gate
+    - isolated_full_ft_reference_diagnostic
+    - safe_stage_gpu_assignment
+    - balanced_offline_construction_and_nested_subsets
+    - best_terminal_or_last_finite_evaluation_inventory
+    - terminal_audit
+    - guarded_success_or_failure_artifact_packaging
+    build_offline_parallelism: disabled_to_preserve_one_rng_stream_and_pattern_quotas
+    hardened_guard_required: true
+    required_success_outputs:
+    - RUN_COMPLETE.json
+    - terminal_audit.json
+    - arena_summary.csv
+  primary_model: Qwen2.5-0.5B-Instruct
+  initialization: *id001
+  parameterization:
+    runner_version: 4.3.0-balanced-offline-diagnostics
+    main_comparison: bf16_lora
+    shared_across_methods: true
+    qlora: engineering_smoke_only
+    lora_configuration:
+      rank: 32
+      alpha: 64
+      dropout: 0.05
+      bias: none
+      target_modules:
+      - q_proj
+      - k_proj
+      - v_proj
+      - o_proj
+      - gate_proj
+      - up_proj
+      - down_proj
+    full_finetune_reference_diagnostic:
+      model: Qwen2.5-0.5B-Instruct
+      implemented: true
+      parameterization: bf16_full_parameter_sft
+      learning_rate: 2.0e-05
+      same_sft_train_validation_split_as_lora: true
+      maximum_epochs: 6
+      minimum_epochs: 3
+      early_stop_patience_epochs: 2
+      role: isolated_parameterization_capacity_diagnostic
+      eligible_to_initialize_four_method_comparison: false
+      mixed_with_lora_main_comparison: false
+      checkpoint_storage: server_local_index_only
+      status: not_run
+  capability_gates:
+    base_first_sft_trigger:
+      greedy_success_min: 0.15
+      valid_rate_min: 0.80
+    mechanism_pilot:
+      greedy_success_min: 0.08
+      valid_rate_min: 0.95
+      failure_action: stop_before_offline_mechanism_interpretation
+    method_effect_comparison:
+      greedy_success_min: 0.15
+      valid_rate_min: 0.95
+      failure_action: complete_mechanism_and_full_ft_diagnostics_but_skip_four_method_ranking
+    threshold_note: Fifteen percent is an operational floor-effect guard rather than a theoretical constant; it may only change in a new registered protocol, not during a run.
+  sft:
+    main_parameterization: lora
+    maximum_epochs: 6
+    minimum_epochs: 3
+    early_stop_patience_epochs: 2
+    selection_metric: greedy_success
+    learning_rate: 2.0e-04
+    warmup_ratio: 0.03
+    maximum_gradient_norm: 1.0
+    evaluate_each_epoch: true
+    scheduler: cosine_over_the_full_registered_schedule
+  data:
+    task: four-number Countdown arithmetic
+    terminology: held_out_canonical_pattern_family_generalization
+    not_claimed:
+    - state_distribution_ood
+    - universal_benefit_of_near_negatives
+    - latent_subtree_skill_causality
+    generation: canonical_pattern_first_capacity_audited_balanced_core
+    canonical_pattern_catalog_size_for_four_numbers: 96
+    validation_test_holdout: disjoint_three_number_pattern_families_and_four_number_derivatives
+    generated_sizes:
+      train: 6000
+      validation: 500
+      test: 1000
+    exclude_heldout_families_from:
+    - training_positive_completions
+    - training_negative_completions
+    negative_reward: 0
+    fixed_negative_advantage: -1.0
+    offline_matched_dataset:
+      rows: 6000
+      construction_scope: one_matched_row_for_each_registered_training_prompt
+      balance_key: oracle_structure
+      expected_train_patterns: 48
+      expected_rows_per_pattern: 125
+      nested_balanced_subsets:
+      - 1500
+      - 3000
+      - 6000
+      reference_policy_bound: true
+      reusable_across_methods_training_seeds_and_registered_hyperparameter_checks: true
+      must_rebuild_after_reference_model_or_parameterization_change: true
+      build_parallelism: single_gpu_single_rng_stream
+      unresolved_quota_action: fail_closed_and_preserve_partial_diagnostics
+    near_far_matching:
+      surprisal_gap_min: 0.5
+      token_length_difference_max: 2
+      tree_depth_difference_max: 1
+      value_error_ratio_max: 4.0
+      rollouts_per_prompt: 12
+      minimum_negative_candidates: 8
+      resample_rounds_default: 8
+      deterministic_synthetic_rescue_candidates_max: 64
+      rescue_does_not_relax_matching_thresholds: true
+      unmatched_pairs_allowed_in_training: false
+  mechanism_probe: *id002
+  methods:
+  - positive_only
+  - controlled_negative
+  - uncontrolled_negative
+  - global_matched
+  core_interpretation:
+    primary: Far negatives may be more harmful because their fixed-advantage updates have larger policy-relative influence.
+    near_branch: Near negatives may be beneficial, neutral, or harmful; universal benefit is not required by the claim.
+    prohibited_inference: Do not interpret one held-out pattern redistribution as aggregate method superiority.
+  dynamic_diagnostics:
+    cadence: step_zero_and_each_validation_checkpoint
+    fixed_balanced_diagnostic_rows: 32
+    gradient_diagnostic_rows: 8
+    fields:
+    - positive_near_far_surprisal_mean_median_p90
+    - near_fraction_crossing_the_frozen_far_threshold
+    - controlled_far_token_weight
+    - positive_near_far_raw_and_scaled_gradient_norm
+    - far_to_near_gradient_norm_ratio
+    - positive_near_and_positive_far_gradient_cosine
+    - effective_epoch
+    output: methods_each_dynamic_diagnostics_jsonl
+  negative_scale_calibration:
+    symbol: beta
+    mechanism_probe_advantage_unchanged: -1.0
+    calibration_split: fixed_training_calibration_subset
+    calibration_time: common_initial_lora_adapter_before_any_method_training
+    positive_budget: rms_gradient_norm_of_positive_branch
+    negative_budget: rms_gradient_norm_of_unscaled_uncontrolled_negative_branch
+    formula: beta = positive_rms_gradient_norm / uncontrolled_negative_rms_gradient_norm
+    shared_by_methods:
+    - controlled_negative
+    - uncontrolled_negative
+    - global_matched
+    frozen_after_calibration: true
+    task_metrics_used_for_selection: false
+    validation_data_used_for_calibration: false
+    test_data_used_for_calibration: false
+    failure_action: stop_without_fallback_if_nonfinite_or_nonpositive
+  global_matched:
+    calibration_split: fixed_training_calibration_subset
+    matching_target: rms_negative_gradient_norm_of_controlled_negative
+    gamma_frozen_before_method_training: true
+    reads_near_far_identity: false
+    test_data_used_for_calibration: false
+  pilot_configuration:
+    development_seeds:
+    - 1234
+    formal_held_out_seeds: pending_separate_registration_after_pilot
+    formal_multiseed_gate: blocked_until_held_out_seeds_are_registered
+    calibration_batches: 16
+    optimization:
+      duration_unit: effective_offline_epochs
+      maximum_effective_epochs: 6
+      minimum_effective_epochs_before_early_stop: 2
+      evaluation_interval_effective_epochs: 1
+      early_stop_patience_evaluations: 2
+      early_stop_delta: 0.002
+      selection_metric: greedy_success
+      learning_rate: 5.0e-05
+      warmup_ratio: 0.03
+      maximum_gradient_norm: 1.0
+      h20_reference_effective_batch_size: 32
+      h20_reference_updates_per_epoch: 188
+      h20_reference_maximum_steps: 1128
+      h20_reference_minimum_steps: 376
+    evaluation:
+      pass_at_k: 8
+      evaluation_examples: 500
+    negative_branches:
+      near_mix: 0.5
+      far_mix: 0.5
+      far_taper_lambda: 0.7
+      surprisal_threshold: 2.0
+  pairing:
+    shared_initial_lora_adapter: true
+    shared_offline_data: true
+    shared_training_seed: true
+    shared_evaluation_seed: true
+    shared_bf16_lora_configuration: true
+    full_ft_diagnostic_excluded_from_pairing_and_ranking: true
+  checkpoint_policy:
+    binary_storage: server_local_or_external_persistent_storage_only
+    commit_model_binaries_to_git: false
+    lora_normal_completion:
+    - best_adapter
+    - terminal_adapter
+    lora_nonfinite_failure:
+    - best_adapter
+    - last_finite_adapter
+    lora_last_finite_definition: exact_trainable_adapter_state_before_the_first_nonfinite_optimizer_update
+    full_ft_diagnostic_normal_completion:
+    - best_model
+    - terminal_model
+    full_ft_nonfinite_action: fail_closed_with_epoch_checkpoint_semantics
+    maximum_retained_per_main_method: 2
+    lora_tokenizer_storage: reference_registered_model_path_without_per_checkpoint_vocab_duplication
+    full_model_tokenizer_storage: self_describing_checkpoint_metadata
+    repository_records:
+    - checkpoint_manifest
+    - path
+    - step
+    - size_bytes
+    - sha256
+  primary_metrics:
+  - greedy_verifier_success
+  - pass_at_k
+  - valid_rate
+  - greedy_unseen_structure_presence
+  - greedy_unseen_structure_success
+  - pass_at_k_unseen_structure_presence
+  - pass_at_k_unseen_structure_success
+  - heldout_pattern_family_coverage
+  - heldout_pattern_family_precision_micro
+  - heldout_pattern_family_precision_macro
+  - per_pattern_attempts_correct_precision
+  - correct_heldout_patterns
+  reporting_separation: *id003
+  model_scaling:
+    qwen_3b: conditional_after_v4_2_if_reference_capacity_or_cross_seed_confirmation_requires_it
+    qwen_7b: optional
+  orchestration:
+    gpu_selection_default: auto_all_visible_up_to_8
+    safe_parallel_stages:
+    - balanced_offline_build_and_isolated_full_ft_reference_diagnostic_on_different_gpus
+    - mechanism_probe_and_negative_budget_calibration
+    - four_method_training_one_process_per_gpu
+    - raw_base_lora_reference_and_full_ft_reference_test_on_spare_gpus
+    - all_best_terminal_last_finite_test_jobs
+    single_rng_stages:
+    - pattern_first_data_generation
+    - balanced_build_offline
+    reason_build_offline_not_sharded: preserve_one_deterministic_rng_stream_and_pattern_quota_protocol
+    automatic_decision_log: automatic_decisions.json
+    failure_marker: RUN_FAILED.json
+    terminal_audit: terminal_audit.json
+  formal_run_status: not_run
+  execution:
+    state: registered
+    run_id: null
+    last_heartbeat_utc: null
+    process_exit_code: null
+  evidence:
+    raw_complete: false
+    terminal_audited: false
+    package_created: false
+    package_filename: null
+    package_sha256: null
+    delivered_to_user: false
+    applied_commit: null
 - id: D-U1-E5-LONGRUN-RERUN
   environment: D-U1_and_D-Diag
   name: categorical_repulsion_support_boundary_longrun_reconstruction

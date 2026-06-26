@@ -23,16 +23,16 @@ def test_one_click_launcher_requires_only_model_and_work_dir() -> None:
     assert args.gpus == "auto"
     assert args.artifact_output is None
     assert args.allow_dirty is False
-    assert launcher.EXPERIMENT_ID == "EXT-C-E8-V4.1"
+    assert launcher.EXPERIMENT_ID == "EXT-C-E8-V4.2"
 
 
-def test_registry_points_to_the_one_click_v4_2_runner() -> None:
+def test_registry_points_to_the_one_click_v4_3_runner() -> None:
     registry = Path(__file__).resolve().parents[1] / "experiments" / "registry.yaml"
     payload = yaml.safe_load(registry.read_text())
-    entry = next(x for x in payload["experiments"] if x.get("id") == "EXT-C-E8-V4.1")
+    entry = next(x for x in payload["experiments"] if x.get("id") == "EXT-C-E8-V4.2")
     assert entry["status"] == "not_run"
-    assert entry["parameterization"]["runner_version"] == "4.2.0-one-click-audited-orchestrator"
+    assert entry["parameterization"]["runner_version"] == "4.3.0-balanced-offline-diagnostics"
     assert entry["one_click_entrypoint"] == "scripts/run_countdown_pilot.py"
     assert entry["orchestration"]["reason_build_offline_not_sharded"] == (
-        "preserve_frozen_rng_stream_and_dataset_protocol"
+        "preserve_one_deterministic_rng_stream_and_pattern_quota_protocol"
     )

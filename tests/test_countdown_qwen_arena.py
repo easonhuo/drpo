@@ -149,10 +149,88 @@ def test_run_defaults_are_base_first_bf16_lora_with_global_match() -> None:
     assert args.memory_mode == "bf16"
     assert args.gpus == "auto"
     assert args.gpu is None
-    assert args.pair_resample_rounds == 3
+    assert args.pair_resample_rounds == 8
     assert args.min_base_success == 0.15
     assert args.min_base_valid == 0.80
 
+
+
+def test_argparse_namespace_manifest_filter_removes_func_and_paths(tmp_path: Path) -> None:
+    parser = arena.build_parser()
+    args = parser.parse_args([
+        "sft",
+        "--model_path", "/tmp/model",
+        "--train_data", "/tmp/train.jsonl",
+        "--val_data", "/tmp/val.jsonl",
+        "--output_dir", str(tmp_path / "sft"),
+    ])
+    args.extra_path = tmp_path / "artifact"
+    payload = arena.serializable_namespace(args)
+    assert "func" not in payload
+    assert payload["extra_path"] == str(tmp_path / "artifact")
+    json.dumps(payload)
+
+
+def test_balanced_6000_offline_quotas_and_nested_subsets() -> None:
+    patterns = [f"pattern_{index:02d}" for index in range(48)]
+    quotas = arena.balanced_pattern_quotas(patterns, 6000)
+    assert set(quotas.values()) == {125}
+    rows = [
+        {
+            "id": f"{pattern}_{index:03d}",
+            "oracle_structure": pattern,
+            "oracle": "1 + 2 + 3 + 4",
+        }
+        for pattern in patterns
+        for index in range(125)
+    ]
+    subsets = arena.build_nested_balanced_subsets(rows, [1500, 3000, 6000])
+    assert [len(subsets[size]) for size in (1500, 3000, 6000)] == [1500, 3000, 6000]
+    assert {row["id"] for row in subsets[1500]} <= {row["id"] for row in subsets[3000]}
+    assert {row["id"] for row in subsets[3000]} <= {row["id"] for row in subsets[6000]}
+    for size, subset in subsets.items():
+        counts: dict[str, int] = {}
+        for row in subset:
+            counts[row["oracle_structure"]] = counts.get(row["oracle_structure"], 0) + 1
+        assert max(counts.values()) - min(counts.values()) <= 1
+
+
+def test_v4_2_sft_and_method_diagnostic_defaults_are_frozen() -> None:
+    parser = arena.build_parser()
+    sft = parser.parse_args([
+        "sft",
+        "--model_path", "/tmp/model",
+        "--train_data", "/tmp/train.jsonl",
+        "--val_data", "/tmp/val.jsonl",
+        "--output_dir", "/tmp/sft",
+    ])
+    assert sft.epochs == 6
+    assert sft.min_epochs == 3
+    assert sft.early_stop_patience == 2
+    assert sft.parameterization == "lora"
+
+    method = parser.parse_args([
+        "train_method",
+        "--model_path", "/tmp/model",
+        "--offline_data", "/tmp/offline.jsonl",
+        "--val_data", "/tmp/val.jsonl",
+        "--output_dir", "/tmp/method",
+        "--method", "controlled_negative",
+    ])
+    assert method.diagnostic_examples == 32
+    assert method.diagnostic_gradient_examples == 8
+    assert method.diagnostic_batch == 8
+
+    run = parser.parse_args([
+        "run",
+        "--model_path", "/tmp/model",
+        "--work_dir", "/tmp/run",
+    ])
+    assert arena.EXPERIMENT_ID == "EXT-C-E8-V4.2"
+    assert run.min_sft_success == 0.15
+    assert run.min_sft_valid == 0.95
+    assert run.min_mechanism_success == 0.08
+    assert run.min_mechanism_valid == 0.95
 
 def test_negative_budget_calibration_is_non_outcome_based_and_shared() -> None:
     negative_scale, gamma = arena.calibration_scales_from_rms(

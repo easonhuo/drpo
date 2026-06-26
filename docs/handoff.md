@@ -1,4 +1,25 @@
-# DRPO / SNA2C 远场负梯度动力学研究主文档 v38（D-U1 E6 语义 pilot 准备版）
+# DRPO / SNA2C 远场负梯度动力学研究主文档 v39（Countdown V4.2 平衡离线集与动态远场诊断冻结版）
+
+> **v39 增量登记：Countdown `EXT-C-E8-V4.2` 平衡离线集、动态远场诊断与参数化隔离（不删除 v38 及更早内容）**
+>
+> - 新执行 ID 为 `EXT-C-E8-V4.2`，状态为 **尚未运行（not_run）**；它继续只承担 Transformer/Countdown 外部有效性，不替代 D-U1/D-Diag 的受控机制识别。`EXT-C-E8-V4.1` 保留 provenance 并由本版本替换。
+> - 服务器上完成的单 seed V4.1 运行绑定 commit `17fdb46502cd82f0b17a2601172f32d368611507`，但运行时工作树为 dirty，且本地把 SFT greedy gate 从 15% 改为 5%；因此只登记为 **off-protocol exploratory pilot**。其 mechanism probe 可作为开发诊断，不能作为注册版方法排名或正式结果。
+> - 修复昂贵阶段结束后 manifest 写入失败的问题：`argparse.set_defaults(func=...)` 注入的 callable 不得随 `vars(args)` 直接 JSON 序列化。`cmd_sft`、`cmd_build_offline` 的两个 manifest 路径和 `cmd_train_method` 统一通过 `serializable_namespace()` 过滤 callable；该修复不改变训练数学。
+> - 研究主张保持：在固定 reward/advantage 和 matched nuisance 条件下，far negative 可能因 policy-relative influence 更大而比 near negative 更危险。**不要求 near negative 普遍有益**；near 可以有益、无效或有害。V4.2 主要检查 far/near influence、uncontrolled 退化以及 selective far control 是否更能保存性能，不得把单一 held-out pattern 的概率重分配升级为总体方法优势。
+> - `15%` greedy 不是理论常数，而是防止 floor effect 的操作性方法门禁。冻结两级门禁：mechanism pilot 要求 reference greedy `>=0.08` 且 valid `>=0.95`；四方法效果比较要求 greedy `>=0.15` 且 valid `>=0.95`。只过前者时自动完成机制 probe 与 full-FT reference 诊断，但跳过四方法排名；不得在运行中继续降低阈值。
+> - 主方法比较继续使用同一个 Qwen2.5-0.5B-Instruct BF16 LoRA reference。SFT 由固定 3 epochs 改为最多 6 epochs、至少 3 epochs、逐 epoch validation、连续 2 次无改进停止，并使用覆盖完整注册 schedule 的 cosine scheduler。LoRA 四方法仍共享初始化、离线数据、训练 seed 和评估 seed。
+> - 新增隔离的 0.5B BF16 full-parameter SFT reference diagnostic：与 LoRA 使用同一 train/validation split，学习率 `2e-5`、最多 6 epochs、至少 3 epochs、patience 2。该分支只判断 LoRA 是否构成基础能力瓶颈，不得替代 LoRA reference、不得混入四方法排名；其 checkpoint 只保存在服务器本地并索引。
+> - 离线 matched corpus 扩大为 **6000 rows**：继续使用 6000 个训练 prompts，并要求 48 个训练 canonical patterns 各保留 125 rows；每个 prompt 只在找到满足既有 surprisal/长度/树深/数值误差约束的 pair 后进入数据。默认 `rollouts=12`、最少 8 个合法负候选、最多 8 个 resample rounds；仍未配对时最多补充 64 个确定性 synthetic rescue candidates，但不放宽任何 matching 约束。任何 pattern quota 未填满即 fail closed，并保存 partial diagnostics，禁止静默缩小或不平衡继续。
+> - 同一 frozen LoRA reference 的 6000-row corpus 自动导出 pattern-balanced、互相 nested 的 1500/3000/6000 subsets。该数据可在同一 reference 下复用于四方法、训练 seeds 与已登记的开发检查；reference checkpoint、模型大小、tokenizer 或参数化变化后必须重建。
+> - 方法训练从固定 1200 steps 改为 effective-offline-epoch 口径：最多 6 epochs、至少 2 epochs、每 1 epoch validation、patience 2。H20 参考配置的 effective batch 为 32，对 6000 rows 对应约 188 updates/epoch、最大 1128 updates、最小 376 updates；实际 runner 按运行时 effective batch 自动计算，不由本地 AI 决策。
+> - 每个方法在 step 0 与每次 validation 自动写 `dynamic_diagnostics.jsonl`：positive/near/far surprisal 的 mean/median/p90、原 near 动态越过 far threshold 的比例、controlled far weight、raw/scaled gradient norms、far/near gradient ratio、positive-near 与 positive-far gradient cosine、effective epoch。任务性能、结构/支持退化与 NaN/Inf 继续分开报告。
+> - LoRA checkpoint 不再在每个 best/terminal 目录重复复制 tokenizer 词表，只写入 `tokenizer_reference.json` 并从注册的 foundation model path 加载 tokenizer；full-model diagnostic checkpoint 仍保存自身 tokenizer metadata。该变化只减少本地与 artifact 索引冗余，不改变模型参数或评估。
+> - 本协议基于 `main` commit `e8b62dde518f593ff8325c7da94c41406311ca45`。本版本只冻结文档、registry、实现和测试，不产生新的 Qwen/H20 结果；任何 V4.2 数值结论必须等待 clean committed source 上的一键运行、终态审计与 durable artifact。
+
+> **v38（D-U1 E6 语义 pilot 准备版）**
+>
+> 以下 v38 历史标题与内容完整保留；v39 只追加 Countdown V4.2 协议，不覆盖 E6 pilot 准备。
+
 
 > **v38 增量登记：`D-U1-E6-SEMANTIC-PILOT-01` 共享语义 categorical pilot 准备与并行批准（不删除 v37 及更早内容）**
 >

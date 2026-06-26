@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Countdown audited base-first external-validity arena for local Qwen Instruct models (v4.2.0).
+"""Countdown balanced-data external-validity arena for local Qwen Instruct models (v4.3.0).
 
 One-command run
 ---------------
@@ -88,7 +88,8 @@ SYSTEM_PROMPT = (
     "expression. Do not include explanations."
 )
 
-VERSION = "4.2.0-one-click-audited-orchestrator"
+EXPERIMENT_ID = "EXT-C-E8-V4.2"
+VERSION = "4.3.0-balanced-offline-diagnostics"
 
 
 def read_model_metadata(model_path: str) -> dict[str, Any]:
@@ -267,6 +268,22 @@ def read_jsonl(path: str | Path) -> list[dict[str, Any]]:
             if line.strip():
                 rows.append(json.loads(line))
     return rows
+
+
+def serializable_namespace(args: argparse.Namespace) -> dict[str, Any]:
+    """Return argparse values that are safe to persist in JSON manifests.
+
+    ``set_defaults(func=...)`` stores a callable in the Namespace.  Serializing
+    ``vars(args)`` directly therefore fails only after an expensive stage has
+    completed.  Filter every callable centrally rather than patching individual
+    manifests ad hoc.
+    """
+    payload: dict[str, Any] = {}
+    for key, value in vars(args).items():
+        if callable(value):
+            continue
+        payload[key] = str(value) if isinstance(value, Path) else value
+    return payload
 
 
 def write_jsonl(path: str | Path, rows: Iterable[dict[str, Any]]) -> None:
@@ -1053,6 +1070,7 @@ def load_model(
     load_in_4bit: bool,
     dtype: str,
     gradient_checkpointing: bool,
+    parameterization: str = "lora",
 ) -> Any:
     require_hf_stack()
     if dtype == "auto":
@@ -1074,9 +1092,18 @@ def load_model(
             bnb_4bit_use_double_quant=True,
         )
     model = AutoModelForCausalLM.from_pretrained(model_path, **kwargs)
+    if parameterization not in {"lora", "full"}:
+        raise ValueError(f"Unknown parameterization: {parameterization}")
+    if parameterization == "full" and load_in_4bit:
+        raise ValueError("Full fine-tuning cannot use 4-bit loading")
+    if parameterization == "full" and adapter_path:
+        raise ValueError("Full fine-tuning starts from model_path and cannot load a LoRA adapter")
     if load_in_4bit:
         model = prepare_model_for_kbit_training(model)
-    if adapter_path:
+    if parameterization == "full":
+        for parameter in model.parameters():
+            parameter.requires_grad_(bool(trainable_adapter))
+    elif adapter_path:
         model = PeftModel.from_pretrained(
             model, adapter_path, is_trainable=trainable_adapter
         )
@@ -1542,13 +1569,14 @@ def checkpoint_inventory(path: str | Path, kind: str, step: int) -> dict[str, An
         "step": int(step),
         "local_only": True,
         "path": str(root),
+        "parameterization": "lora" if adapter_config is not None else "full_model",
         "adapter_config": adapter_config,
         "files": files,
         "total_size_bytes": sum(item["size_bytes"] for item in files),
     }
 
 
-def save_local_adapter_checkpoint(
+def save_local_model_checkpoint(
     model: Any,
     tokenizer: Any,
     path: str | Path,
@@ -1561,7 +1589,18 @@ def save_local_adapter_checkpoint(
         shutil.rmtree(destination)
     destination.mkdir(parents=True, exist_ok=True)
     model.save_pretrained(destination)
-    tokenizer.save_pretrained(destination)
+    if (destination / "adapter_config.json").exists():
+        # LoRA evaluation always loads the frozen tokenizer from model_path.
+        # Duplicating the multi-megabyte tokenizer in every adapter checkpoint
+        # bloats durable evidence without improving reproducibility.
+        (destination / "tokenizer_reference.json").write_text(json.dumps({
+            "source": getattr(tokenizer, "name_or_path", None),
+            "load_from_registered_model_path": True,
+        }, indent=2))
+    else:
+        # A full-model diagnostic is evaluated directly from this directory and
+        # therefore remains self-describing with its tokenizer metadata.
+        tokenizer.save_pretrained(destination)
     return checkpoint_inventory(destination, kind, step)
 
 
@@ -1619,7 +1658,12 @@ def cmd_generate(args: argparse.Namespace) -> None:
 
 
 def cmd_sft(args: argparse.Namespace) -> None:
-    """Minimal LoRA SFT fallback with local best/terminal/last-finite audit."""
+    """Train the registered reference policy with LoRA or a full-FT diagnostic.
+
+    The LoRA branch is the only branch eligible to initialize the four-method
+    comparison.  The full-parameter branch is an isolated capacity diagnostic;
+    it is evaluated and reported but never substituted into the LoRA ranking.
+    """
     seed_all(args.seed)
     tokenizer = load_tokenizer(args.model_path)
     rows = read_jsonl(args.train_data)
@@ -1640,9 +1684,12 @@ def cmd_sft(args: argparse.Namespace) -> None:
         load_in_4bit=args.load_in_4bit,
         dtype=args.dtype,
         gradient_checkpointing=True,
+        parameterization=args.parameterization,
     )
     device = next(model.parameters()).device
     trainable = [parameter for parameter in model.parameters() if parameter.requires_grad]
+    if not trainable:
+        raise RuntimeError("SFT has no trainable parameters")
     optimizer = torch.optim.AdamW(trainable, lr=args.lr, weight_decay=0.01)
     updates_per_epoch = math.ceil(len(loader) / args.grad_accum)
     total_updates = max(1, updates_per_epoch * args.epochs)
@@ -1651,12 +1698,14 @@ def cmd_sft(args: argparse.Namespace) -> None:
     )
     out_dir = Path(args.output_dir)
     ensure_checkpoint_output_is_local_or_ignored(out_dir)
-    best_dir = out_dir / "best_adapter"
-    terminal_dir = out_dir / "terminal_adapter"
-    last_finite_dir = out_dir / "last_finite_adapter"
+    suffix = "adapter" if args.parameterization == "lora" else "model"
+    best_dir = out_dir / f"best_{suffix}"
+    terminal_dir = out_dir / f"terminal_{suffix}"
+    last_finite_dir = out_dir / f"last_finite_{suffix}"
     out_dir.mkdir(parents=True, exist_ok=True)
     best_value = -float("inf")
     best_epoch = -1
+    stale_epochs = 0
     eval_rows: list[dict[str, Any]] = []
     checkpoint_records: list[dict[str, Any]] = []
     numerical_failure: str | None = None
@@ -1691,7 +1740,16 @@ def cmd_sft(args: argparse.Namespace) -> None:
                     stop_reason = numerical_failure
                     break
                 candidate_step = global_step + 1
-                if not optimizer_step_with_last_finite_guard(optimizer, trainable):
+                if args.parameterization == "lora":
+                    applied = optimizer_step_with_last_finite_guard(optimizer, trainable)
+                else:
+                    # Copying every full-model tensor to CPU before each optimizer
+                    # step would dominate this diagnostic.  Full FT therefore fails
+                    # closed on a nonfinite post-step state and keeps the most recent
+                    # epoch checkpoint; it is never used for the main method ranking.
+                    optimizer.step()
+                    applied = _trainable_parameters_finite(trainable)
+                if not applied:
                     numerical_failure = f"nonfinite_parameters_at_update_{candidate_step}"
                     failure_detected_at_step = candidate_step
                     last_finite_step = global_step
@@ -1703,6 +1761,7 @@ def cmd_sft(args: argparse.Namespace) -> None:
                 if global_step % args.log_every == 0:
                     print(json.dumps({
                         "stage": "sft",
+                        "parameterization": args.parameterization,
                         "epoch": epoch + 1,
                         "update": global_step,
                         "loss": running_loss / max(micro_count, 1),
@@ -1721,31 +1780,44 @@ def cmd_sft(args: argparse.Namespace) -> None:
             args.pass_k,
             args.eval_seed,
         )
-        row = {"epoch": epoch + 1, "update": global_step, **metrics}
+        row = {
+            "epoch": epoch + 1,
+            "update": global_step,
+            "effective_train_epochs": epoch + 1,
+            "parameterization": args.parameterization,
+            **metrics,
+        }
         eval_rows.append(row)
         print("SFT_EVAL", json.dumps(row))
         value = float(metrics[args.selection_metric])
         if value > best_value + args.selection_delta:
             best_value = value
             best_epoch = epoch + 1
+            stale_epochs = 0
             checkpoint_records = [
                 record for record in checkpoint_records if record["kind"] != "best"
             ]
-            checkpoint_records.append(save_local_adapter_checkpoint(
+            checkpoint_records.append(save_local_model_checkpoint(
                 model, tokenizer, best_dir, "best", global_step
             ))
+        else:
+            stale_epochs += 1
         model.train()
+        if epoch + 1 >= args.min_epochs and stale_epochs >= args.early_stop_patience:
+            stop_reason = "early_stop_patience"
+            break
 
     if numerical_failure:
-        checkpoint_records.append(save_local_adapter_checkpoint(
-            model,
-            tokenizer,
-            last_finite_dir,
-            "last_finite",
-            global_step if last_finite_step is None else last_finite_step,
-        ))
+        if args.parameterization == "lora":
+            checkpoint_records.append(save_local_model_checkpoint(
+                model,
+                tokenizer,
+                last_finite_dir,
+                "last_finite",
+                global_step if last_finite_step is None else last_finite_step,
+            ))
     else:
-        checkpoint_records.append(save_local_adapter_checkpoint(
+        checkpoint_records.append(save_local_model_checkpoint(
             model, tokenizer, terminal_dir, "terminal", global_step
         ))
     if best_epoch < 0:
@@ -1756,16 +1828,28 @@ def cmd_sft(args: argparse.Namespace) -> None:
             writer.writeheader()
             writer.writerows(csv_safe_row(row) for row in eval_rows)
     manifest = {
-        **vars(args),
+        **serializable_namespace(args),
         "source_provenance": source_provenance(),
         "best_epoch": best_epoch,
         "best_value": best_value,
+        "updates_per_effective_epoch": updates_per_epoch,
+        "completed_effective_epochs": len(eval_rows),
         "terminal_step": global_step if not numerical_failure else None,
         "failure_detected_at_step": failure_detected_at_step,
         "last_finite_step": last_finite_step,
         "numerical_failure": numerical_failure,
         "stop_reason": stop_reason,
-        "checkpoint_policy": "server-local adapters only; binaries must not enter Git/artifact packages",
+        "main_method_eligibility": args.parameterization == "lora",
+        "full_ft_role": (
+            "isolated_reference_capacity_diagnostic"
+            if args.parameterization == "full" else None
+        ),
+        "last_finite_semantics": (
+            "exact_pre_step_trainable_lora_snapshot"
+            if args.parameterization == "lora"
+            else "epoch_checkpoint_only; diagnostic fails closed on nonfinite parameters"
+        ),
+        "checkpoint_policy": "server-local model state only; binaries must not enter Git/artifact packages",
         "checkpoints": checkpoint_records,
         "result_status": args.result_status,
     }
@@ -1774,14 +1858,14 @@ def cmd_sft(args: argparse.Namespace) -> None:
         "local_only": True,
         "result_status": args.result_status,
         "model_path": args.model_path,
+        "parameterization": args.parameterization,
         "source_provenance": source_provenance(),
         "checkpoints": checkpoint_records,
     }, indent=2))
     if numerical_failure:
-        raise RuntimeError(f"SFT stopped with {numerical_failure}; last finite adapter was preserved")
+        raise RuntimeError(f"SFT stopped with {numerical_failure}")
     if best_epoch < 0:
         raise RuntimeError("SFT did not produce a valid best checkpoint")
-
 
 def score_completion(
     model: Any, tokenizer: Any, prompt: str, completion: str, max_length: int
@@ -2001,6 +2085,53 @@ def _pair_failure_summary(
     return summary
 
 
+def balanced_pattern_quotas(patterns: Sequence[str], total: int) -> dict[str, int]:
+    """Allocate a deterministic near-equal quota over canonical patterns."""
+    ordered = sorted(set(patterns))
+    if not ordered:
+        raise ValueError("At least one pattern is required")
+    if total < 0:
+        raise ValueError("total must be non-negative")
+    base, extra = divmod(total, len(ordered))
+    return {
+        pattern: base + int(index < extra)
+        for index, pattern in enumerate(ordered)
+    }
+
+
+def build_nested_balanced_subsets(
+    rows: Sequence[dict[str, Any]], sizes: Sequence[int]
+) -> dict[int, list[dict[str, Any]]]:
+    """Create deterministic, pattern-balanced nested prefixes from one full set."""
+    grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for row in rows:
+        pattern = row.get("oracle_structure") or expression_structure(row["oracle"])
+        grouped[pattern].append(row)
+    patterns = sorted(grouped)
+    output: dict[int, list[dict[str, Any]]] = {}
+    previous_ids: set[str] = set()
+    for size in sorted(set(int(value) for value in sizes)):
+        if size <= 0 or size > len(rows):
+            raise ValueError(f"Nested subset size {size} is outside 1..{len(rows)}")
+        quotas = balanced_pattern_quotas(patterns, size)
+        chosen_ids: set[str] = set()
+        for pattern in patterns:
+            if len(grouped[pattern]) < quotas[pattern]:
+                raise RuntimeError(
+                    f"Pattern {pattern} has {len(grouped[pattern])} rows but nested quota "
+                    f"requires {quotas[pattern]}"
+                )
+            chosen_ids.update(str(row["id"]) for row in grouped[pattern][: quotas[pattern]])
+        if not previous_ids.issubset(chosen_ids):
+            raise AssertionError("Nested balanced subsets must be monotone")
+        subset = [row for row in rows if str(row["id"]) in chosen_ids]
+        if len(subset) != size:
+            raise AssertionError("Nested balanced subset has the wrong size")
+        output[size] = subset
+        previous_ids = chosen_ids
+    return output
+
+
 def cmd_build_offline(args: argparse.Namespace) -> None:
     seed_all(args.seed)
     if args.batch_size < 1:
@@ -2022,18 +2153,42 @@ def cmd_build_offline(args: argparse.Namespace) -> None:
     if not allowed_patterns:
         raise RuntimeError("Split manifest contains no allowed training patterns")
     target_examples = len(rows) if args.max_examples <= 0 else args.max_examples
+    if target_examples > len(rows):
+        raise RuntimeError(
+            f"Requested {target_examples} matched rows from only {len(rows)} unique prompts"
+        )
+    train_patterns = sorted(set(split_manifest.get("train_patterns", allowed_patterns)))
+    pattern_quotas = (
+        balanced_pattern_quotas(train_patterns, target_examples)
+        if args.balance_by_oracle_pattern else {}
+    )
+    accepted_by_pattern: Counter[str] = Counter()
+    attempted_by_pattern: Counter[str] = Counter()
+    dropped_by_pattern: Counter[str] = Counter()
     rng = random.Random(args.seed)
     output_rows: list[dict[str, Any]] = []
     diagnostics: Counter[str] = Counter()
     candidate_counts: list[int] = []
 
-    # Initial rollouts are generated in batches for throughput. Only prompts that
-    # fail a real matched-pair gate are resampled individually, so batching never
-    # weakens the pair constraints or silently inserts an unmatched fallback.
+    def quota_open(row: dict[str, Any]) -> bool:
+        if not pattern_quotas:
+            return len(output_rows) < target_examples
+        pattern = row.get("oracle_structure") or expression_structure(row["oracle"])
+        if pattern not in pattern_quotas:
+            raise AssertionError(f"Training row pattern is absent from the registered core: {pattern}")
+        return accepted_by_pattern[pattern] < pattern_quotas[pattern]
+
+    # Initial rollouts remain one deterministic RNG stream.  Pattern quotas are
+    # enforced before generation so hard/easy patterns cannot silently rebalance
+    # the saved data through differential matched-pair acceptance.
     for start_index in range(0, len(rows), args.batch_size):
         if len(output_rows) >= target_examples:
             break
-        chunk = rows[start_index : start_index + args.batch_size]
+        raw_chunk = rows[start_index : start_index + args.batch_size]
+        chunk = [row for row in raw_chunk if quota_open(row)]
+        diagnostics["skipped_quota_filled"] += len(raw_chunk) - len(chunk)
+        if not chunk:
+            continue
         initial_groups = generate_outputs(
             model,
             tokenizer,
@@ -2050,7 +2205,12 @@ def cmd_build_offline(args: argparse.Namespace) -> None:
         for row, initial_generated in zip(chunk, initial_groups):
             if len(output_rows) >= target_examples:
                 break
+            if not quota_open(row):
+                diagnostics["skipped_quota_filled"] += 1
+                continue
+            oracle_structure = row.get("oracle_structure") or expression_structure(row["oracle"])
             diagnostics["attempted_rows"] += 1
+            attempted_by_pattern[oracle_structure] += 1
             seen: set[str] = set()
             evaluated: list[dict[str, Any]] = []
             matched_round: int | None = None
@@ -2085,7 +2245,6 @@ def cmd_build_offline(args: argparse.Namespace) -> None:
                 ))
 
                 valid_wrong = [item for item in evaluated if not item["correct"]]
-                # Add legal synthetic candidates only inside the training pattern support.
                 while len(valid_wrong) < args.min_negative_candidates:
                     try:
                         expression = make_valid_wrong_expression(
@@ -2126,10 +2285,43 @@ def cmd_build_offline(args: argparse.Namespace) -> None:
                     round_index < args.pair_resample_rounds
                 )
 
+            if near_item is None or far_item is None:
+                rescue_texts: list[str] = []
+                for _ in range(args.synthetic_rescue_candidates):
+                    try:
+                        rescue_texts.append(make_valid_wrong_expression(
+                            row, rng, avoid=seen.union(rescue_texts),
+                            allowed_patterns=allowed_patterns,
+                        ))
+                    except RuntimeError:
+                        diagnostics["synthetic_rescue_generation_failure"] += 1
+                        break
+                if rescue_texts:
+                    diagnostics["synthetic_rescue_candidates"] += len(rescue_texts)
+                    evaluated.extend(_score_new_candidates(
+                        model, tokenizer, row, rescue_texts, seen, allowed_patterns,
+                        args.max_length, args.score_batch_size, diagnostics,
+                    ))
+                    rescue_detailed = [
+                        candidate_metadata(item, tokenizer)
+                        for item in evaluated if not item["correct"]
+                    ]
+                    near_item, far_item, rescue_matched = select_matched_negative_pair(
+                        rescue_detailed,
+                        args.min_surprisal_gap,
+                        args.max_token_length_diff,
+                        args.max_tree_depth_diff,
+                        args.max_value_error_ratio,
+                    )
+                    if rescue_matched:
+                        matched_round = args.pair_resample_rounds + 1
+                        diagnostics["matched_after_synthetic_rescue"] += 1
+
             valid_wrong = [item for item in evaluated if not item["correct"]]
             candidate_counts.append(len(valid_wrong))
             if near_item is None or far_item is None or matched_round is None:
                 diagnostics["dropped_unmatched"] += 1
+                dropped_by_pattern[oracle_structure] += 1
                 diagnostics.update({
                     f"drop_reason_{key}": value
                     for key, value in _pair_failure_summary(
@@ -2139,7 +2331,6 @@ def cmd_build_offline(args: argparse.Namespace) -> None:
                 continue
 
             correct = [item for item in evaluated if item["correct"]]
-            oracle_structure = row.get("oracle_structure") or expression_structure(row["oracle"])
             same_structure_correct = [
                 item for item in correct if item.get("structure") == oracle_structure
             ]
@@ -2160,6 +2351,7 @@ def cmd_build_offline(args: argparse.Namespace) -> None:
             diagnostics[
                 "matched_initial" if matched_round == 0 else "matched_after_resample"
             ] += 1
+            accepted_by_pattern[oracle_structure] += 1
             output_rows.append({
                 **row,
                 "positive": positive,
@@ -2170,9 +2362,7 @@ def cmd_build_offline(args: argparse.Namespace) -> None:
                 "far_structure": far_item["structure"],
                 "near_base_surprisal": float(near_item["surprisal"]),
                 "far_base_surprisal": float(far_item["surprisal"]),
-                "surprisal_gap": float(
-                    far_item["surprisal"] - near_item["surprisal"]
-                ),
+                "surprisal_gap": float(far_item["surprisal"] - near_item["surprisal"]),
                 "near_token_length": int(near_item["token_length"]),
                 "far_token_length": int(far_item["token_length"]),
                 "near_tree_depth": int(near_item["tree_depth"]),
@@ -2182,22 +2372,45 @@ def cmd_build_offline(args: argparse.Namespace) -> None:
                 "pair_matched": True,
                 "matched_after_resample_round": matched_round,
             })
-            if len(output_rows) % 25 == 0:
-                print(f"built matched {len(output_rows)}/{target_examples}", flush=True)
+            if len(output_rows) % 100 == 0:
+                completed = sum(
+                    accepted_by_pattern[p] >= q for p, q in pattern_quotas.items()
+                ) if pattern_quotas else None
+                print(
+                    f"built matched {len(output_rows)}/{target_examples}; "
+                    f"pattern_quotas_complete={completed}",
+                    flush=True,
+                )
 
-    if len(output_rows) < target_examples:
+    missing_by_pattern = {
+        pattern: quota - accepted_by_pattern[pattern]
+        for pattern, quota in pattern_quotas.items()
+        if accepted_by_pattern[pattern] < quota
+    }
+    partial_manifest = {
+        **serializable_namespace(args),
+        **dict(diagnostics),
+        "reference_adapter": reference_adapter,
+        "input_rows": len(rows),
+        "requested_examples": target_examples,
+        "examples": len(output_rows),
+        "balance_by_oracle_pattern": bool(pattern_quotas),
+        "per_pattern_quota": pattern_quotas,
+        "per_pattern_attempted": dict(sorted(attempted_by_pattern.items())),
+        "per_pattern_accepted": dict(sorted(accepted_by_pattern.items())),
+        "per_pattern_dropped_unmatched": dict(sorted(dropped_by_pattern.items())),
+        "missing_by_pattern": missing_by_pattern,
+        "source_provenance": source_provenance(),
+    }
+    if len(output_rows) < target_examples or missing_by_pattern:
         write_jsonl(args.output_data, output_rows)
         Path(str(args.output_data) + ".manifest.json").write_text(json.dumps({
-            **vars(args),
-            **dict(diagnostics),
-            "reference_adapter": reference_adapter,
-            "requested_examples": target_examples,
-            "examples": len(output_rows),
-            "status": "insufficient_matched_pairs",
+            **partial_manifest,
+            "status": "insufficient_pattern_balanced_matched_pairs",
         }, indent=2))
         raise RuntimeError(
-            f"Only {len(output_rows)}/{target_examples} matched rows were constructed. "
-            "Partial rows and diagnostics are preserved; increase input data or resampling."
+            f"Only {len(output_rows)}/{target_examples} balanced matched rows were "
+            f"constructed; missing patterns={missing_by_pattern}. Partial evidence was preserved."
         )
     if any(not row.get("pair_matched") for row in output_rows):
         raise AssertionError("Unmatched pairs must never enter the offline training data")
@@ -2210,13 +2423,37 @@ def cmd_build_offline(args: argparse.Namespace) -> None:
         raise AssertionError("Held-out canonical pattern leaked into training negatives")
 
     write_jsonl(args.output_data, output_rows)
+    nested_sizes = [
+        int(value) for value in args.nested_sizes.split(",") if value.strip()
+    ] if args.nested_sizes else []
+    if target_examples not in nested_sizes:
+        nested_sizes.append(target_examples)
+    nested_outputs: dict[str, Any] = {}
+    subsets = build_nested_balanced_subsets(output_rows, nested_sizes)
+    nested_dir = Path(args.nested_output_dir) if args.nested_output_dir else Path(args.output_data).parent
+    nested_dir.mkdir(parents=True, exist_ok=True)
+    output_path = Path(args.output_data).resolve()
+    for size, subset in subsets.items():
+        subset_path = output_path if size == target_examples else (nested_dir / f"offline_{size}.jsonl").resolve()
+        if subset_path != output_path:
+            write_jsonl(subset_path, subset)
+        counts = Counter(
+            row.get("oracle_structure") or expression_structure(row["oracle"])
+            for row in subset
+        )
+        nested_outputs[str(size)] = {
+            "path": str(subset_path),
+            "sha256": _sha256_file(subset_path),
+            "rows": len(subset),
+            "per_pattern_min": min(counts.values()),
+            "per_pattern_max": max(counts.values()),
+            "nested_in_next_larger_subset": True,
+        }
+
     manifest = {
-        **vars(args),
+        **partial_manifest,
         "source_provenance": source_provenance(),
-        **dict(diagnostics),
-        "reference_adapter": reference_adapter,
-        "requested_examples": target_examples,
-        "examples": len(output_rows),
+        "status": "complete",
         "matched_pair_rate_in_saved_data": 1.0,
         "dropped_unmatched_rate": diagnostics["dropped_unmatched"]
         / max(diagnostics["attempted_rows"], 1),
@@ -2227,14 +2464,210 @@ def cmd_build_offline(args: argparse.Namespace) -> None:
             row["surprisal_gap"] for row in output_rows
         ])),
         "heldout_pattern_leaks": 0,
+        "nested_balanced_subsets": nested_outputs,
         "formal_interpretation": (
-            "all saved rows are matched; dropped rows are reported, never silently trained"
+            "all saved rows are matched and oracle-pattern quotas are enforced; "
+            "dropped prompts and per-pattern acceptance are reported"
         ),
     }
     Path(str(args.output_data) + ".manifest.json").write_text(
         json.dumps(manifest, indent=2)
     )
     print(json.dumps(manifest, indent=2))
+
+def balanced_diagnostic_rows(
+    rows: Sequence[dict[str, Any]], max_examples: int
+) -> list[dict[str, Any]]:
+    """Select a deterministic round-robin sample across oracle patterns."""
+    if max_examples <= 0 or max_examples >= len(rows):
+        return list(rows)
+    grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for row in rows:
+        pattern = row.get("oracle_structure") or expression_structure(row["oracle"])
+        grouped[pattern].append(row)
+    selected: list[dict[str, Any]] = []
+    index = 0
+    patterns = sorted(grouped)
+    while len(selected) < max_examples:
+        progressed = False
+        for pattern in patterns:
+            if index < len(grouped[pattern]):
+                selected.append(grouped[pattern][index])
+                progressed = True
+                if len(selected) >= max_examples:
+                    break
+        if not progressed:
+            break
+        index += 1
+    return selected
+
+
+def _gradient_norm_and_dot(
+    left: Sequence[torch.Tensor | None], right: Sequence[torch.Tensor | None]
+) -> tuple[float, float, float]:
+    left_sq = torch.zeros((), dtype=torch.float64)
+    right_sq = torch.zeros((), dtype=torch.float64)
+    dot = torch.zeros((), dtype=torch.float64)
+    for left_grad, right_grad in zip(left, right):
+        if left_grad is not None:
+            left_cpu = left_grad.detach().double().cpu()
+            left_sq += left_cpu.square().sum()
+        else:
+            left_cpu = None
+        if right_grad is not None:
+            right_cpu = right_grad.detach().double().cpu()
+            right_sq += right_cpu.square().sum()
+        else:
+            right_cpu = None
+        if left_cpu is not None and right_cpu is not None:
+            dot += (left_cpu * right_cpu).sum()
+    left_norm = float(left_sq.sqrt())
+    right_norm = float(right_sq.sqrt())
+    cosine = float(dot / (left_sq.sqrt() * right_sq.sqrt()).clamp_min(1e-30))
+    return left_norm, right_norm, cosine
+
+
+def dynamic_negative_diagnostics(
+    model: Any,
+    tokenizer: Any,
+    rows: Sequence[dict[str, Any]],
+    trainable: Sequence[torch.nn.Parameter],
+    *,
+    max_examples: int,
+    gradient_examples: int,
+    batch_size: int,
+    max_length: int,
+    exp_lambda: float,
+    surprisal_threshold: float,
+    negative_scale: float | None,
+) -> dict[str, float]:
+    """Audit policy-relative remoteness and branch influence at one checkpoint."""
+    diagnostic_rows = balanced_diagnostic_rows(rows, max_examples)
+    if not diagnostic_rows:
+        raise RuntimeError("Dynamic diagnostics require at least one offline row")
+    was_training = bool(model.training)
+    model.eval()
+    dataset = OfflineDataset(list(diagnostic_rows), tokenizer, max_length)
+    loader = DataLoader(
+        dataset,
+        batch_size=max(1, batch_size),
+        shuffle=False,
+        collate_fn=make_offline_collator(tokenizer.pad_token_id),
+        num_workers=0,
+    )
+    device = next(model.parameters()).device
+    positive_surprisal: list[float] = []
+    near_surprisal: list[float] = []
+    far_surprisal: list[float] = []
+    far_weights: list[float] = []
+    near_crossings = 0
+    far_crossings = 0
+    total_sequences = 0
+    with torch.no_grad():
+        for packed in loader:
+            pos = completion_stats(model, move_to_device(packed["positive"], device))
+            near = completion_stats(model, move_to_device(packed["near"], device))
+            far = completion_stats(model, move_to_device(packed["far"], device))
+            pos_values = (-pos["seq_lp"]).detach().float().cpu().tolist()
+            near_values = (-near["seq_lp"]).detach().float().cpu().tolist()
+            far_values = (-far["seq_lp"]).detach().float().cpu().tolist()
+            positive_surprisal.extend(float(value) for value in pos_values)
+            near_surprisal.extend(float(value) for value in near_values)
+            far_surprisal.extend(float(value) for value in far_values)
+            near_crossings += sum(value > surprisal_threshold for value in near_values)
+            far_crossings += sum(value > surprisal_threshold for value in far_values)
+            total_sequences += len(near_values)
+            token_weights = torch.exp(
+                -exp_lambda * F.relu(-far["token_lp"].detach() - surprisal_threshold)
+            )
+            weighted = (
+                (token_weights * far["token_mask"]).sum(-1)
+                / far["token_mask"].sum(-1).clamp_min(1)
+            )
+            far_weights.extend(float(value) for value in weighted.float().cpu().tolist())
+
+    gradient_rows = diagnostic_rows[: max(1, min(gradient_examples, len(diagnostic_rows)))]
+    gradient_dataset = OfflineDataset(list(gradient_rows), tokenizer, max_length)
+    gradient_batch = make_offline_collator(tokenizer.pad_token_id)(
+        [gradient_dataset[index] for index in range(len(gradient_dataset))]
+    )
+    positive_batch = move_to_device(gradient_batch["positive"], device)
+    near_batch = move_to_device(gradient_batch["near"], device)
+    far_batch = move_to_device(gradient_batch["far"], device)
+
+    model.zero_grad(set_to_none=True)
+    positive = completion_stats(model, positive_batch)
+    positive_grads = torch.autograd.grad(
+        -positive["seq_lp"].mean(), trainable, allow_unused=True
+    )
+    model.zero_grad(set_to_none=True)
+    near = completion_stats(model, near_batch)
+    near_grads = torch.autograd.grad(
+        near["seq_lp"].mean(), trainable, allow_unused=True
+    )
+    pos_norm, near_norm, pos_near_cosine = _gradient_norm_and_dot(
+        positive_grads, near_grads
+    )
+    del near_grads
+
+    model.zero_grad(set_to_none=True)
+    far = completion_stats(model, far_batch)
+    far_raw_grads = torch.autograd.grad(
+        far["seq_lp"].mean(), trainable, allow_unused=True
+    )
+    _, far_raw_norm, pos_far_raw_cosine = _gradient_norm_and_dot(
+        positive_grads, far_raw_grads
+    )
+    del far_raw_grads
+
+    model.zero_grad(set_to_none=True)
+    far = completion_stats(model, far_batch)
+    far_token_weights = torch.exp(
+        -exp_lambda * F.relu(-far["token_lp"].detach() - surprisal_threshold)
+    )
+    far_controlled_grads = torch.autograd.grad(
+        weighted_sequence_logprob(far, far_token_weights).mean(),
+        trainable,
+        allow_unused=True,
+    )
+    _, far_controlled_norm, pos_far_controlled_cosine = _gradient_norm_and_dot(
+        positive_grads, far_controlled_grads
+    )
+    model.zero_grad(set_to_none=True)
+    scale = float(negative_scale) if negative_scale is not None else 1.0
+    result = {
+        "diagnostic_examples": float(len(diagnostic_rows)),
+        "diagnostic_gradient_examples": float(len(gradient_rows)),
+        "positive_surprisal_mean": float(np.mean(positive_surprisal)),
+        "positive_surprisal_median": float(np.median(positive_surprisal)),
+        "positive_surprisal_p90": float(np.quantile(positive_surprisal, 0.9)),
+        "near_surprisal_mean": float(np.mean(near_surprisal)),
+        "near_surprisal_median": float(np.median(near_surprisal)),
+        "near_surprisal_p90": float(np.quantile(near_surprisal, 0.9)),
+        "far_surprisal_mean": float(np.mean(far_surprisal)),
+        "far_surprisal_median": float(np.median(far_surprisal)),
+        "far_surprisal_p90": float(np.quantile(far_surprisal, 0.9)),
+        "far_over_near_surprisal_ratio": float(
+            np.mean(far_surprisal) / max(np.mean(near_surprisal), 1e-12)
+        ),
+        "near_dynamic_far_fraction": float(near_crossings / max(total_sequences, 1)),
+        "far_above_threshold_fraction": float(far_crossings / max(total_sequences, 1)),
+        "controlled_far_token_weight_mean": float(np.mean(far_weights)),
+        "positive_gradient_norm": pos_norm,
+        "near_negative_gradient_norm_raw": near_norm,
+        "far_negative_gradient_norm_raw": far_raw_norm,
+        "far_negative_gradient_norm_controlled": far_controlled_norm,
+        "near_negative_gradient_norm_scaled": scale * near_norm,
+        "far_negative_gradient_norm_scaled": scale * far_raw_norm,
+        "far_over_near_gradient_norm_ratio": far_raw_norm / max(near_norm, 1e-30),
+        "positive_near_update_cosine": pos_near_cosine,
+        "positive_far_raw_update_cosine": pos_far_raw_cosine,
+        "positive_far_controlled_update_cosine": pos_far_controlled_cosine,
+    }
+    if was_training:
+        model.train()
+    return result
+
 
 def cmd_train_method(args: argparse.Namespace) -> None:
     seed_all(args.seed)
@@ -2261,6 +2694,12 @@ def cmd_train_method(args: argparse.Namespace) -> None:
         collate_fn=make_offline_collator(tokenizer.pad_token_id),
         num_workers=args.num_workers,
     )
+    effective_batch_size = args.micro_batch * args.grad_accum
+    updates_per_effective_epoch = math.ceil(len(train_rows) / max(effective_batch_size, 1))
+    max_effective_epochs = args.steps / max(updates_per_effective_epoch, 1)
+    min_effective_epochs = args.min_steps / max(updates_per_effective_epoch, 1)
+    diagnostic_rows = balanced_diagnostic_rows(train_rows, args.diagnostic_examples)
+
     model = load_model(
         args.model_path,
         args.reference_adapter or args.sft_adapter,
@@ -2313,6 +2752,9 @@ def cmd_train_method(args: argparse.Namespace) -> None:
     terminal_dir = out_dir / "terminal_adapter"
     last_finite_dir = out_dir / "last_finite_adapter"
     out_dir.mkdir(parents=True, exist_ok=True)
+    diagnostics_path = out_dir / "dynamic_diagnostics.jsonl"
+    if diagnostics_path.exists():
+        diagnostics_path.unlink()
     checkpoint_records: list[dict[str, Any]] = []
     best_value = -float("inf")
     best_step = 0
@@ -2335,16 +2777,31 @@ def cmd_train_method(args: argparse.Namespace) -> None:
         known_structures,
     )
     initial_gamma = calibrated_global_gamma if calibrated_global_gamma is not None else 1.0
-    metrics_rows.append({
+    initial_diagnostics = dynamic_negative_diagnostics(
+        model, tokenizer, diagnostic_rows, trainable,
+        max_examples=args.diagnostic_examples,
+        gradient_examples=args.diagnostic_gradient_examples,
+        batch_size=args.diagnostic_batch,
+        max_length=args.max_length,
+        exp_lambda=args.exp_lambda,
+        surprisal_threshold=args.surprisal_threshold,
+        negative_scale=calibrated_negative_scale,
+    )
+    initial_row = {
         "step": 0,
+        "effective_epoch": 0.0,
         "method": args.method,
         "gamma": initial_gamma,
         "negative_scale": calibrated_negative_scale or 0.0,
         "weight": 1.0,
+        **initial_diagnostics,
         **initial_eval,
-    })
+    }
+    metrics_rows.append(initial_row)
+    with diagnostics_path.open("a") as handle:
+        handle.write(json.dumps({"step": 0, "method": args.method, **initial_diagnostics}) + "\n")
     best_value = float(initial_eval[args.selection_metric])
-    checkpoint_records.append(save_local_adapter_checkpoint(
+    checkpoint_records.append(save_local_model_checkpoint(
         model, tokenizer, best_dir, "best", 0
     ))
 
@@ -2504,13 +2961,29 @@ def cmd_train_method(args: argparse.Namespace) -> None:
                 args.eval_seed,
                 known_structures,
             )
+            checkpoint_diagnostics = dynamic_negative_diagnostics(
+                model, tokenizer, diagnostic_rows, trainable,
+                max_examples=args.diagnostic_examples,
+                gradient_examples=args.diagnostic_gradient_examples,
+                batch_size=args.diagnostic_batch,
+                max_length=args.max_length,
+                exp_lambda=args.exp_lambda,
+                surprisal_threshold=args.surprisal_threshold,
+                negative_scale=calibrated_negative_scale,
+            )
             row = {
                 "step": update_step,
+                "effective_epoch": update_step / max(updates_per_effective_epoch, 1),
                 "method": args.method,
                 "gamma": last_gamma,
                 "weight": last_weight,
+                **checkpoint_diagnostics,
                 **metrics,
             }
+            with diagnostics_path.open("a") as handle:
+                handle.write(json.dumps({
+                    "step": update_step, "method": args.method, **checkpoint_diagnostics
+                }) + "\n")
             metrics_rows.append(row)
             print("ARENA_EVAL", json.dumps(row))
             value = float(metrics[args.selection_metric])
@@ -2521,7 +2994,7 @@ def cmd_train_method(args: argparse.Namespace) -> None:
                 checkpoint_records = [
                     record for record in checkpoint_records if record["kind"] != "best"
                 ]
-                checkpoint_records.append(save_local_adapter_checkpoint(
+                checkpoint_records.append(save_local_model_checkpoint(
                     model, tokenizer, best_dir, "best", update_step
                 ))
             else:
@@ -2541,7 +3014,7 @@ def cmd_train_method(args: argparse.Namespace) -> None:
             break
 
     if numerical_failure:
-        checkpoint_records.append(save_local_adapter_checkpoint(
+        checkpoint_records.append(save_local_model_checkpoint(
             model,
             tokenizer,
             last_finite_dir,
@@ -2556,7 +3029,7 @@ def cmd_train_method(args: argparse.Namespace) -> None:
     else:
         if terminal_step is None:
             terminal_step = 0
-        checkpoint_records.append(save_local_adapter_checkpoint(
+        checkpoint_records.append(save_local_model_checkpoint(
             model, tokenizer, terminal_dir, "terminal", terminal_step
         ))
 
@@ -2565,7 +3038,7 @@ def cmd_train_method(args: argparse.Namespace) -> None:
         writer.writeheader()
         writer.writerows(csv_safe_row(row) for row in metrics_rows)
     manifest = {
-        **vars(args),
+        **serializable_namespace(args),
         "source_provenance": source_provenance(),
         "best_step": best_step,
         "best_value": best_value,
@@ -2574,6 +3047,16 @@ def cmd_train_method(args: argparse.Namespace) -> None:
         "last_finite_step": last_finite_step,
         "stop_reason": stop_reason,
         "numerical_failure": numerical_failure,
+        "offline_rows": len(train_rows),
+        "effective_batch_size": effective_batch_size,
+        "updates_per_effective_epoch": updates_per_effective_epoch,
+        "maximum_effective_epochs": max_effective_epochs,
+        "minimum_effective_epochs_before_early_stop": min_effective_epochs,
+        "completed_effective_epochs": (
+            (terminal_step if terminal_step is not None else (last_finite_step or 0))
+            / max(updates_per_effective_epoch, 1)
+        ),
+        "dynamic_diagnostics_path": str(diagnostics_path),
         "negative_scale": calibrated_negative_scale,
         "negative_scale_source": (
             "fixed_calibration_split_rms_gradient_match"
@@ -3174,7 +3657,7 @@ def _evaluation_argv(
 
 
 def cmd_run(args: argparse.Namespace) -> None:
-    """One-command audited Countdown pilot with automatic safe multi-GPU scheduling."""
+    """Run the preregistered v4.2 Countdown pilot without interactive decisions."""
     gpu_ids = resolve_gpu_ids(args.gpus, args.gpu)
     primary_gpu = gpu_ids[0]
     primary_parent_index = _parent_gpu_index(primary_gpu)
@@ -3188,7 +3671,8 @@ def cmd_run(args: argparse.Namespace) -> None:
     plan["orchestration"] = {
         "gpu_ids": gpu_ids,
         "gpu_count": len(gpu_ids),
-        "offline_builder": "single_gpu_to_preserve_registered_rng_stream",
+        "offline_builder": "single_rng_stream_balanced_by_oracle_pattern",
+        "full_ft_reference_diagnostic": "isolated_from_lora_method_ranking",
         "mechanism_and_calibration": "parallel_when_two_or_more_gpus",
         "method_training": "one_method_per_gpu_fifo_queue",
         "checkpoint_evaluation": "all_gpu_fifo_queue",
@@ -3198,7 +3682,7 @@ def cmd_run(args: argparse.Namespace) -> None:
     root.mkdir(parents=True, exist_ok=True)
     _atomic_json(root / "pipeline_status.json", {
         "version": VERSION,
-        "experiment_id": "EXT-C-E8-V4.1",
+        "experiment_id": EXPERIMENT_ID,
         "status": "running",
         "started_unix": time.time(),
     })
@@ -3208,7 +3692,7 @@ def cmd_run(args: argparse.Namespace) -> None:
         and not args.allow_non_bf16_smoke
     ):
         raise RuntimeError(
-            "The registered pilot requires one shared BF16 LoRA parameterization. "
+            "The registered pilot requires the shared BF16 LoRA parameterization. "
             "Use --allow_non_bf16_smoke only for an explicitly nonformal engineering smoke."
         )
     params_b = plan["model_metadata"].get("estimated_params_b")
@@ -3225,9 +3709,9 @@ def cmd_run(args: argparse.Namespace) -> None:
     )
     if (not registered_model or not registered_parameterization) and not args.allow_non_bf16_smoke:
         raise RuntimeError(
-            "EXT-C-E8-V4.1 requires a local Qwen2.5 0.5B Instruct checkpoint with a "
-            "chat template and BF16 LoRA. The path name alone is not trusted; check "
-            "config.json/tokenizer_config.json or use engineering-smoke mode explicitly."
+            f"{EXPERIMENT_ID} requires a local Qwen2.5 0.5B Instruct checkpoint with "
+            "a chat template and BF16 LoRA. Model identity is verified from local metadata, "
+            "not only from the directory name."
         )
     run_status = "pilot" if registered_model and registered_parameterization else "engineering_smoke"
 
@@ -3235,7 +3719,8 @@ def cmd_run(args: argparse.Namespace) -> None:
     logs = root / "logs"
     shared_adapter_dir = root / "reference_adapter"
     sft_dir = root / "sft_adapter"
-    offline_file = data_dir / "offline.jsonl"
+    full_ft_dir = root / "full_ft_reference_diagnostic"
+    offline_file = data_dir / "offline_6000.jsonl"
     split_manifest_file = data_dir / "split_manifest.json"
     methods_dir = root / "methods"
     calibration_json = root / "negative_budget_calibration.json"
@@ -3252,19 +3737,72 @@ def cmd_run(args: argparse.Namespace) -> None:
     if run_status == "pilot" and set(methods) != required_pilot:
         raise RuntimeError("The registered pilot is frozen to the four preregistered methods.")
 
+    presets = {
+        "0.5b": dict(
+            train=6000, val=500, test=1000, offline=6000, rollouts=12,
+            sft_epochs=6, sft_min_epochs=3, sft_patience=2, sft_accum=16,
+            full_ft_lr=2e-5, method_epochs=6, method_min_epochs=2,
+            method_accum=8, patience=2, eval_examples=500, pass_k=8,
+            probe_examples=32, dynamics_examples=16, calibration_batches=16,
+            diagnostic_examples=32, diagnostic_gradient_examples=8, diagnostic_batch=8,
+        ),
+        "small": dict(
+            train=6000, val=500, test=1000, offline=6000, rollouts=12,
+            sft_epochs=6, sft_min_epochs=3, sft_patience=2, sft_accum=16,
+            full_ft_lr=2e-5, method_epochs=6, method_min_epochs=2,
+            method_accum=8, patience=2, eval_examples=500, pass_k=8,
+            probe_examples=32, dynamics_examples=16, calibration_batches=16,
+            diagnostic_examples=32, diagnostic_gradient_examples=8, diagnostic_batch=8,
+        ),
+        # Larger presets remain engineering-smoke conveniences.  They do not acquire
+        # formal status without a separate registry entry and frozen protocol.
+        "3b": dict(
+            train=20000, val=1000, test=2000, offline=6000, rollouts=12,
+            sft_epochs=4, sft_min_epochs=2, sft_patience=2, sft_accum=32,
+            full_ft_lr=1e-5, method_epochs=6, method_min_epochs=2,
+            method_accum=16, patience=2, eval_examples=1000, pass_k=8,
+            probe_examples=32, dynamics_examples=16, calibration_batches=16,
+            diagnostic_examples=32, diagnostic_gradient_examples=8, diagnostic_batch=8,
+        ),
+        "7b": dict(
+            train=20000, val=1000, test=2000, offline=6000, rollouts=12,
+            sft_epochs=3, sft_min_epochs=2, sft_patience=2, sft_accum=32,
+            full_ft_lr=1e-5, method_epochs=6, method_min_epochs=2,
+            method_accum=16, patience=2, eval_examples=1000, pass_k=8,
+            probe_examples=24, dynamics_examples=12, calibration_batches=12,
+            diagnostic_examples=24, diagnostic_gradient_examples=6, diagnostic_batch=6,
+        ),
+    }
+    preset = presets[plan["preset"]]
+
     run_spec = {
         "version": VERSION,
         "source_provenance": source_provenance(),
-        "experiment_id": "EXT-C-E8-V4.1",
+        "experiment_id": EXPERIMENT_ID,
         "model_path": str(Path(args.model_path).resolve()),
         "preset": plan["preset"],
         "memory_mode": plan["memory_mode"],
-        "parameterization": "shared_bf16_lora" if run_status == "pilot" else "nonformal_smoke",
+        "main_parameterization": "shared_bf16_lora" if run_status == "pilot" else "nonformal_smoke",
+        "full_ft_role": "isolated_reference_capacity_diagnostic_only",
         "methods": methods,
         "seed": args.seed,
-        "min_base_success": args.min_base_success,
-        "min_base_valid": args.min_base_valid,
-        "min_sft_success": args.min_sft_success,
+        "data_protocol": {
+            "generated_train_rows": preset["train"],
+            "balanced_matched_rows": preset["offline"],
+            "nested_subsets": [1500, 3000, 6000],
+            "balance_key": "oracle_structure",
+        },
+        "gates": {
+            "base": {"greedy_success": args.min_base_success, "valid_rate": args.min_base_valid},
+            "mechanism": {
+                "greedy_success": args.min_mechanism_success,
+                "valid_rate": args.min_mechanism_valid,
+            },
+            "method_effect": {
+                "greedy_success": args.min_sft_success,
+                "valid_rate": args.min_sft_valid,
+            },
+        },
         "pair_resample_rounds": args.pair_resample_rounds,
         "result_status": run_status,
         "gpu_ids": gpu_ids,
@@ -3273,6 +3811,11 @@ def cmd_run(args: argparse.Namespace) -> None:
             "fixed_training_calibration_split; match initial uncontrolled negative RMS "
             "gradient to positive RMS gradient; freeze across negative methods"
         ),
+        "method_duration_protocol": {
+            "max_effective_epochs": preset["method_epochs"],
+            "min_effective_epochs": preset["method_min_epochs"],
+            "validation_every_effective_epoch": True,
+        },
     }
     run_spec["fingerprint"] = stable_fingerprint(run_spec)
     run_config_path = root / "run_config.json"
@@ -3284,39 +3827,33 @@ def cmd_run(args: argparse.Namespace) -> None:
     _atomic_json(root / "execution_plan.json", plan)
     _record_decision(root, "gpu_selection", gpu_ids, plan["orchestration"])
     _record_decision(root, "model_identity_gate", run_status, plan["model_metadata"])
-    _record_decision(root, "offline_builder_parallelism", "disabled", "preserve registered RNG stream")
+    _record_decision(
+        root,
+        "offline_builder_parallelism",
+        "disabled",
+        "balanced builder preserves one deterministic registered RNG stream",
+    )
+    _record_decision(
+        root,
+        "full_ft_role",
+        "isolated_reference_capacity_diagnostic",
+        "never substitutes for the LoRA reference in the four-method ranking",
+    )
     print("EXECUTION_PLAN", json.dumps(plan, indent=2))
 
-    presets = {
-        "0.5b": dict(train=6000, val=500, test=1000, offline=1500, rollouts=12,
-                     sft_epochs=3, sft_accum=16, method_steps=1200, method_accum=8,
-                     method_min_steps=400, patience=6, eval_examples=500,
-                     eval_every=100, pass_k=8, probe_examples=32, dynamics_examples=16,
-                     calibration_batches=16),
-        "small": dict(train=6000, val=500, test=1000, offline=1500, rollouts=12,
-                      sft_epochs=3, sft_accum=16, method_steps=1200, method_accum=8,
-                      method_min_steps=400, patience=6, eval_examples=500,
-                      eval_every=100, pass_k=8, probe_examples=32, dynamics_examples=16,
-                      calibration_batches=16),
-        "3b": dict(train=20000, val=1000, test=2000, offline=4000, rollouts=12,
-                   sft_epochs=3, sft_accum=32, method_steps=3000, method_accum=16,
-                   method_min_steps=1000, patience=8, eval_examples=1000,
-                   eval_every=100, pass_k=8, probe_examples=32, dynamics_examples=16,
-                   calibration_batches=16),
-        "7b": dict(train=20000, val=1000, test=2000, offline=4000, rollouts=12,
-                   sft_epochs=2, sft_accum=32, method_steps=2500, method_accum=16,
-                   method_min_steps=800, patience=8, eval_examples=1000,
-                   eval_every=100, pass_k=8, probe_examples=24, dynamics_examples=12,
-                   calibration_batches=12),
-    }
-    preset = presets[plan["preset"]]
-    train_file, val_file, test_file = data_dir / "train.jsonl", data_dir / "val.jsonl", data_dir / "test.jsonl"
+    train_file = data_dir / "train.jsonl"
+    val_file = data_dir / "val.jsonl"
+    test_file = data_dir / "test.jsonl"
     model_flags = ["--model_path", args.model_path, "--dtype", plan["dtype"]]
     if plan["load_in_4bit"]:
         model_flags.append("--load_in_4bit")
 
     if not args.skip_preflight:
-        _run_stage(["preflight", *model_flags, "--seed", str(args.seed)], logs / "00_preflight.log", gpu_id=primary_gpu)
+        _run_stage(
+            ["preflight", *model_flags, "--seed", str(args.seed)],
+            logs / "00_preflight.log",
+            gpu_id=primary_gpu,
+        )
     if args.force or not (train_file.exists() and val_file.exists() and test_file.exists()):
         _run_stage([
             "generate", "--train", str(preset["train"]), "--val", str(preset["val"]),
@@ -3326,14 +3863,26 @@ def cmd_run(args: argparse.Namespace) -> None:
         ], logs / "01_generate_pattern_family_split.log", gpu_id=primary_gpu)
 
     base_val_json = root / "base_val_metrics.json"
-    _run_stage(_evaluation_argv(model_flags, val_file, train_file, base_val_json,
-                                plan["eval_batch"], preset["pass_k"], args.seed + 5000),
-               logs / "02_base_eval.log", gpu_id=primary_gpu)
+    _run_stage(
+        _evaluation_argv(
+            model_flags, val_file, train_file, base_val_json,
+            plan["eval_batch"], preset["pass_k"], args.seed + 5000,
+        ),
+        logs / "02_base_eval.log",
+        gpu_id=primary_gpu,
+    )
     base_val = json.loads(base_val_json.read_text())
-    base_passes = base_val["greedy_success"] >= args.min_base_success and base_val["valid_rate"] >= args.min_base_valid
-    _record_decision(root, "base_gate", "skip_sft" if base_passes else "run_minimal_sft", {
-        "greedy_success": base_val["greedy_success"], "valid_rate": base_val["valid_rate"],
-        "thresholds": {"greedy_success": args.min_base_success, "valid_rate": args.min_base_valid},
+    base_passes = bool(
+        base_val["greedy_success"] >= args.min_base_success
+        and base_val["valid_rate"] >= args.min_base_valid
+    )
+    _record_decision(root, "base_gate", "skip_sft" if base_passes else "run_extended_sft", {
+        "greedy_success": base_val["greedy_success"],
+        "valid_rate": base_val["valid_rate"],
+        "thresholds": {
+            "greedy_success": args.min_base_success,
+            "valid_rate": args.min_base_valid,
+        },
     })
 
     if base_passes:
@@ -3341,123 +3890,307 @@ def cmd_run(args: argparse.Namespace) -> None:
         if args.force and shared_adapter_dir.exists():
             shutil.rmtree(shared_adapter_dir)
         if args.force or not (shared_adapter_dir / "adapter_config.json").exists():
-            _run_stage(["init_adapter", *model_flags, "--output_dir", str(shared_adapter_dir),
-                        "--seed", str(args.seed)], logs / "03_init_shared_adapter.log", gpu_id=primary_gpu)
+            _run_stage(
+                ["init_adapter", *model_flags, "--output_dir", str(shared_adapter_dir),
+                 "--seed", str(args.seed)],
+                logs / "03_init_shared_adapter.log",
+                gpu_id=primary_gpu,
+            )
         reference_dir = shared_adapter_dir
     else:
         if args.no_sft_fallback:
             raise RuntimeError("Base gate failed and SFT fallback was explicitly disabled.")
-        initialization_mode = "minimal_sft_fallback"
+        initialization_mode = "extended_lora_sft_fallback"
         if args.force and sft_dir.exists():
             shutil.rmtree(sft_dir)
         if args.force or not (sft_dir / "best_adapter" / "adapter_config.json").exists():
             _run_stage([
-                "sft", *model_flags, "--train_data", str(train_file), "--val_data", str(val_file),
+                "sft", *model_flags, "--parameterization", "lora",
+                "--train_data", str(train_file), "--val_data", str(val_file),
                 "--output_dir", str(sft_dir), "--epochs", str(preset["sft_epochs"]),
-                "--micro_batch", str(plan["micro_batch"]), "--grad_accum", str(preset["sft_accum"]),
-                "--eval_batch", str(plan["eval_batch"]), "--eval_examples", str(preset["eval_examples"]),
-                "--pass_k", str(preset["pass_k"]), "--eval_seed", str(args.seed + 5000),
+                "--min_epochs", str(preset["sft_min_epochs"]),
+                "--early_stop_patience", str(preset["sft_patience"]),
+                "--micro_batch", str(plan["micro_batch"]),
+                "--grad_accum", str(preset["sft_accum"]),
+                "--eval_batch", str(plan["eval_batch"]),
+                "--eval_examples", str(preset["eval_examples"]),
+                "--pass_k", str(preset["pass_k"]),
+                "--eval_seed", str(args.seed + 5000),
                 "--seed", str(args.seed), "--result_status", run_status,
-            ], logs / "03_sft_fallback.log", gpu_id=primary_gpu)
+            ], logs / "03_lora_sft_fallback.log", gpu_id=primary_gpu)
         reference_dir = sft_dir / "best_adapter"
-        sft_val_json = root / "sft_val_metrics.json"
-        _run_stage(_evaluation_argv(model_flags, val_file, train_file, sft_val_json,
-                                    plan["eval_batch"], preset["pass_k"], args.seed + 5000, reference_dir),
-                   logs / "03b_sft_gate.log", gpu_id=primary_gpu)
-        sft_val = json.loads(sft_val_json.read_text())
-        if sft_val["greedy_success"] < args.min_sft_success:
-            raise RuntimeError("SFT fallback failed the preregistered greedy-success gate.")
 
     reference_val_json = root / "reference_val_metrics.json"
-    _run_stage(_evaluation_argv(model_flags, val_file, train_file, reference_val_json,
-                                plan["eval_batch"], preset["pass_k"], args.seed + 5000, reference_dir),
-               logs / "04_reference_eval.log", gpu_id=primary_gpu)
+    _run_stage(
+        _evaluation_argv(
+            model_flags, val_file, train_file, reference_val_json,
+            plan["eval_batch"], preset["pass_k"], args.seed + 5000, reference_dir,
+        ),
+        logs / "04_reference_eval.log",
+        gpu_id=primary_gpu,
+    )
     reference_val = json.loads(reference_val_json.read_text())
+    mechanism_gate_passed = bool(
+        reference_val["greedy_success"] >= args.min_mechanism_success
+        and reference_val["valid_rate"] >= args.min_mechanism_valid
+    )
+    method_gate_passed = bool(
+        reference_val["greedy_success"] >= args.min_sft_success
+        and reference_val["valid_rate"] >= args.min_sft_valid
+    )
+    _record_decision(root, "reference_mechanism_gate", mechanism_gate_passed, {
+        "metrics": reference_val,
+        "thresholds": {
+            "greedy_success": args.min_mechanism_success,
+            "valid_rate": args.min_mechanism_valid,
+        },
+    })
+    _record_decision(root, "reference_method_effect_gate", method_gate_passed, {
+        "metrics": reference_val,
+        "thresholds": {
+            "greedy_success": args.min_sft_success,
+            "valid_rate": args.min_sft_valid,
+        },
+        "failure_action": "complete mechanism/full-FT diagnostics but skip four-method ranking",
+    })
+    if not mechanism_gate_passed:
+        raise RuntimeError(
+            "The LoRA reference failed the mechanism-pilot capability/validity gate. "
+            "The run stops rather than interpreting a floor-effect model."
+        )
 
+    # The balanced offline corpus and isolated full-FT reference diagnostic are
+    # independent once the LoRA reference has been frozen, so they may safely run
+    # in parallel on different GPUs.  The offline builder itself remains single-GPU.
+    preparation_tasks: list[StageTask] = []
     if args.force or not offline_file.exists():
-        _run_stage([
-            "build_offline", *model_flags, "--reference_adapter", str(reference_dir),
-            "--input_data", str(train_file), "--split_manifest", str(split_manifest_file),
-            "--output_data", str(offline_file), "--max_examples", str(preset["offline"]),
-            "--rollouts", str(preset["rollouts"]), "--batch_size", str(plan["rollout_batch"]),
-            "--score_batch_size", str(plan["score_batch"]),
-            "--pair_resample_rounds", str(args.pair_resample_rounds), "--seed", str(args.seed + 11),
-        ], logs / "05_build_matched_offline.log", gpu_id=primary_gpu)
+        preparation_tasks.append(StageTask(
+            "build_balanced_offline_6000",
+            [
+                "build_offline", *model_flags, "--reference_adapter", str(reference_dir),
+                "--input_data", str(train_file), "--split_manifest", str(split_manifest_file),
+                "--output_data", str(offline_file), "--max_examples", str(preset["offline"]),
+                "--balance_by_oracle_pattern", "--nested_sizes", "1500,3000,6000",
+                "--nested_output_dir", str(data_dir),
+                "--rollouts", str(preset["rollouts"]),
+                "--batch_size", str(plan["rollout_batch"]),
+                "--score_batch_size", str(plan["score_batch"]),
+                "--pair_resample_rounds", str(args.pair_resample_rounds),
+                "--min_negative_candidates", "8",
+                "--synthetic_rescue_candidates", "64",
+                "--seed", str(args.seed + 11),
+            ],
+            logs / "05_build_balanced_matched_offline.log",
+            primary_gpu,
+        ))
+    full_ft_best = full_ft_dir / "best_model"
+    if args.force and full_ft_dir.exists():
+        shutil.rmtree(full_ft_dir)
+    if args.force or not (full_ft_best / "config.json").exists():
+        full_ft_gpu = gpu_ids[1] if len(gpu_ids) > 1 else primary_gpu
+        preparation_tasks.append(StageTask(
+            "full_ft_reference_diagnostic",
+            [
+                "sft", "--model_path", args.model_path, "--dtype", plan["dtype"],
+                "--parameterization", "full", "--train_data", str(train_file),
+                "--val_data", str(val_file), "--output_dir", str(full_ft_dir),
+                "--epochs", str(preset["sft_epochs"]),
+                "--min_epochs", str(preset["sft_min_epochs"]),
+                "--early_stop_patience", str(preset["sft_patience"]),
+                "--micro_batch", str(plan["micro_batch"]),
+                "--grad_accum", str(preset["sft_accum"]),
+                "--lr", str(preset["full_ft_lr"]),
+                "--eval_batch", str(plan["eval_batch"]),
+                "--eval_examples", str(preset["eval_examples"]),
+                "--pass_k", str(preset["pass_k"]),
+                "--eval_seed", str(args.seed + 5000),
+                "--seed", str(args.seed), "--result_status", run_status,
+            ],
+            logs / "05b_full_ft_reference_diagnostic.log",
+            full_ft_gpu,
+        ))
+    _run_stage_group(preparation_tasks)
+    if not offline_file.exists():
+        raise RuntimeError("Balanced offline builder did not produce offline_6000.jsonl")
+    offline_rows = len(read_jsonl(offline_file))
+    if offline_rows != preset["offline"]:
+        raise RuntimeError(
+            f"Expected {preset['offline']} balanced matched rows, found {offline_rows}"
+        )
 
-    mechanism_json, mechanism_csv = root / "mechanism_probe.json", root / "mechanism_probe_pairs.csv"
+    full_ft_val_json = full_ft_dir / "val_metrics_best.json"
+    if not (full_ft_best / "config.json").exists():
+        raise RuntimeError("Full-FT reference diagnostic did not produce best_model/config.json")
+    full_ft_flags = ["--model_path", str(full_ft_best), "--dtype", plan["dtype"]]
+    _run_stage(
+        _evaluation_argv(
+            full_ft_flags, val_file, train_file, full_ft_val_json,
+            plan["eval_batch"], preset["pass_k"], args.seed + 5000,
+        ),
+        logs / "05c_full_ft_reference_val.log",
+        gpu_id=gpu_ids[1] if len(gpu_ids) > 1 else primary_gpu,
+    )
+    full_ft_val = json.loads(full_ft_val_json.read_text())
+
+    mechanism_json = root / "mechanism_probe.json"
+    mechanism_csv = root / "mechanism_probe_pairs.csv"
     probe_tasks = [StageTask(
         "mechanism_probe",
-        ["mechanism_probe", *model_flags, "--reference_adapter", str(reference_dir),
-         "--offline_data", str(offline_file), "--output_json", str(mechanism_json),
-         "--output_csv", str(mechanism_csv), "--max_examples", str(preset["probe_examples"]),
-         "--dynamics_examples", str(preset["dynamics_examples"]),
-         "--min_matched_pairs", str(args.min_matched_pairs), "--seed", str(args.seed + 50)],
-        logs / "06_mechanism_probe.log", gpu_ids[0],
+        [
+            "mechanism_probe", *model_flags, "--reference_adapter", str(reference_dir),
+            "--offline_data", str(offline_file), "--output_json", str(mechanism_json),
+            "--output_csv", str(mechanism_csv),
+            "--max_examples", str(preset["probe_examples"]),
+            "--dynamics_examples", str(preset["dynamics_examples"]),
+            "--min_matched_pairs", str(args.min_matched_pairs),
+            "--seed", str(args.seed + 50),
+        ],
+        logs / "06_mechanism_probe.log",
+        gpu_ids[0],
     )]
-    if any(method != "positive_only" for method in methods) and (args.force or not calibration_json.exists()):
+    if method_gate_passed and any(method != "positive_only" for method in methods):
         calibration_gpu = gpu_ids[1] if len(gpu_ids) > 1 else gpu_ids[0]
-        probe_tasks.append(StageTask(
-            "negative_budget_calibration",
-            ["calibrate_global", *model_flags, "--reference_adapter", str(reference_dir),
-             "--offline_data", str(offline_file), "--output_json", str(calibration_json),
-             "--batch_size", str(plan["micro_batch"]),
-             "--calibration_batches", str(preset["calibration_batches"]), "--seed", str(args.seed + 75)],
-            logs / "06b_negative_budget_calibration.log", calibration_gpu,
-        ))
+        if args.force or not calibration_json.exists():
+            probe_tasks.append(StageTask(
+                "negative_budget_calibration",
+                [
+                    "calibrate_global", *model_flags, "--reference_adapter", str(reference_dir),
+                    "--offline_data", str(offline_file), "--output_json", str(calibration_json),
+                    "--batch_size", str(plan["micro_batch"]),
+                    "--calibration_batches", str(preset["calibration_batches"]),
+                    "--seed", str(args.seed + 75),
+                ],
+                logs / "06b_negative_budget_calibration.log",
+                calibration_gpu,
+            ))
     _run_stage_group(probe_tasks)
-    _record_decision(root, "mechanism_calibration_schedule", "parallel" if len({t.gpu_id for t in probe_tasks}) > 1 else "sequential", [t.name for t in probe_tasks])
+    _record_decision(
+        root,
+        "mechanism_calibration_schedule",
+        "parallel" if len({task.gpu_id for task in probe_tasks}) > 1 else "sequential",
+        [task.name for task in probe_tasks],
+    )
+
+    methods_to_run = methods if method_gate_passed else []
+    if not method_gate_passed:
+        _record_decision(
+            root,
+            "four_method_ranking",
+            "skipped_by_capability_gate",
+            "mechanism and full-FT diagnostics remain valid exploratory outputs",
+        )
+    effective_batch = plan["micro_batch"] * preset["method_accum"]
+    updates_per_epoch = math.ceil(offline_rows / effective_batch)
+    method_steps = updates_per_epoch * preset["method_epochs"]
+    method_min_steps = updates_per_epoch * preset["method_min_epochs"]
+    eval_every = updates_per_epoch
 
     shared_method_seed = args.seed + 100
     concurrent_tasks: list[StageTask] = []
     method_gpu_pool = gpu_ids[: min(4, len(gpu_ids))]
-    for index, method in enumerate(methods):
+    for index, method in enumerate(methods_to_run):
         output = methods_dir / method
         if args.force and output.exists():
             shutil.rmtree(output)
-        complete_checkpoint = ((output / "terminal_adapter" / "adapter_config.json").exists()
-                               or (output / "last_finite_adapter" / "adapter_config.json").exists())
+        complete_checkpoint = (
+            (output / "terminal_adapter" / "adapter_config.json").exists()
+            or (output / "last_finite_adapter" / "adapter_config.json").exists()
+        )
         if args.force or not complete_checkpoint:
             command = [
                 "train_method", *model_flags, "--reference_adapter", str(reference_dir),
                 "--offline_data", str(offline_file), "--val_data", str(val_file),
                 "--structure_reference_data", str(train_file), "--output_dir", str(output),
-                "--method", method, "--steps", str(preset["method_steps"]),
-                "--micro_batch", str(plan["micro_batch"]), "--grad_accum", str(preset["method_accum"]),
-                "--min_steps", str(preset["method_min_steps"]),
+                "--method", method, "--steps", str(method_steps),
+                "--micro_batch", str(plan["micro_batch"]),
+                "--grad_accum", str(preset["method_accum"]),
+                "--min_steps", str(method_min_steps),
                 "--early_stop_patience", str(preset["patience"]),
-                "--eval_examples", str(preset["eval_examples"]), "--eval_batch", str(plan["eval_batch"]),
-                "--eval_every", str(preset["eval_every"]), "--pass_k", str(preset["pass_k"]),
+                "--eval_examples", str(preset["eval_examples"]),
+                "--eval_batch", str(plan["eval_batch"]),
+                "--eval_every", str(eval_every), "--pass_k", str(preset["pass_k"]),
+                "--diagnostic_examples", str(preset["diagnostic_examples"]),
+                "--diagnostic_gradient_examples", str(preset["diagnostic_gradient_examples"]),
+                "--diagnostic_batch", str(preset["diagnostic_batch"]),
                 "--eval_seed", str(args.seed + 6000), "--seed", str(shared_method_seed),
                 "--result_status", run_status,
             ]
             if method != "positive_only":
                 command.extend(["--negative_calibration_json", str(calibration_json)])
-            concurrent_tasks.append(StageTask(f"train_{method}", command,
-                                              logs / f"07_train_{method}.log",
-                                              method_gpu_pool[index % len(method_gpu_pool)]))
+            concurrent_tasks.append(StageTask(
+                f"train_{method}", command, logs / f"07_train_{method}.log",
+                method_gpu_pool[index % len(method_gpu_pool)],
+            ))
 
-    base_test_json, reference_test_json = root / "base_test_metrics.json", root / "reference_test_metrics.json"
+    base_test_json = root / "base_test_metrics.json"
+    reference_test_json = root / "reference_test_metrics.json"
+    full_ft_test_json = full_ft_dir / "test_metrics_best.json"
     spare = gpu_ids[4:] if len(gpu_ids) > 4 else gpu_ids
     concurrent_tasks.extend([
-        StageTask("test_raw_base", _evaluation_argv(model_flags, test_file, train_file, base_test_json,
-                                                     plan["eval_batch"], preset["pass_k"], args.seed + 7000),
-                  logs / "08_test_raw_base.log", spare[0]),
-        StageTask("test_reference", _evaluation_argv(model_flags, test_file, train_file, reference_test_json,
-                                                      plan["eval_batch"], preset["pass_k"], args.seed + 7000, reference_dir),
-                  logs / "08b_test_reference.log", spare[1 % len(spare)]),
+        StageTask(
+            "test_raw_base",
+            _evaluation_argv(
+                model_flags, test_file, train_file, base_test_json,
+                plan["eval_batch"], preset["pass_k"], args.seed + 7000,
+            ),
+            logs / "08_test_raw_base.log",
+            spare[0],
+        ),
+        StageTask(
+            "test_lora_reference",
+            _evaluation_argv(
+                model_flags, test_file, train_file, reference_test_json,
+                plan["eval_batch"], preset["pass_k"], args.seed + 7000, reference_dir,
+            ),
+            logs / "08b_test_lora_reference.log",
+            spare[1 % len(spare)],
+        ),
+        StageTask(
+            "test_full_ft_reference_diagnostic",
+            _evaluation_argv(
+                full_ft_flags, test_file, train_file, full_ft_test_json,
+                plan["eval_batch"], preset["pass_k"], args.seed + 7000,
+            ),
+            logs / "08c_test_full_ft_reference.log",
+            spare[2 % len(spare)],
+        ),
     ])
     _run_stage_group(concurrent_tasks)
-    _record_decision(root, "method_training_schedule", {m: method_gpu_pool[i % len(method_gpu_pool)] for i, m in enumerate(methods)}, "four methods share initialization/data/seed")
+    _record_decision(
+        root,
+        "method_training_schedule",
+        {method: method_gpu_pool[index % len(method_gpu_pool)]
+         for index, method in enumerate(methods_to_run)},
+        {
+            "shared_initialization_data_seed": True,
+            "updates_per_effective_epoch": updates_per_epoch,
+            "max_steps": method_steps,
+            "min_steps": method_min_steps,
+            "eval_every": eval_every,
+        },
+    )
 
     summary_rows: list[dict[str, Any]] = [
         {"method": "raw_base_no_training", **json.loads(base_test_json.read_text())},
-        {"method": "shared_initial_checkpoint", "initialization_mode": initialization_mode,
-         "checkpoint_kind": "step_0", **json.loads(reference_test_json.read_text())},
+        {
+            "method": "shared_lora_reference",
+            "initialization_mode": initialization_mode,
+            "checkpoint_kind": "step_0",
+            "eligible_for_method_ranking": method_gate_passed,
+            **json.loads(reference_test_json.read_text()),
+        },
+        {
+            "method": "full_ft_reference_diagnostic",
+            "checkpoint_kind": "best",
+            "eligible_for_method_ranking": False,
+            "diagnostic_role": "parameterization_capacity_check_only",
+            **json.loads(full_ft_test_json.read_text()),
+        },
     ]
     eval_tasks: list[StageTask] = []
     eval_records: list[tuple[str, Path, dict[str, Any]]] = []
     eval_index = 0
-    for method in methods:
+    for method in methods_to_run:
         output = methods_dir / method
         manifest = json.loads((output / "manifest.json").read_text())
         for checkpoint_kind in ("best", "terminal", "last_finite"):
@@ -3466,26 +4199,40 @@ def cmd_run(args: argparse.Namespace) -> None:
                 continue
             result_json = output / f"test_metrics_{checkpoint_kind}.json"
             extra = {
-                "checkpoint_kind": checkpoint_kind, "best_step": manifest.get("best_step"),
-                "terminal_step": manifest.get("terminal_step"), "last_finite_step": manifest.get("last_finite_step"),
+                "checkpoint_kind": checkpoint_kind,
+                "best_step": manifest.get("best_step"),
+                "terminal_step": manifest.get("terminal_step"),
+                "last_finite_step": manifest.get("last_finite_step"),
                 "failure_detected_at_step": manifest.get("failure_detected_at_step"),
-                "best_val": manifest.get("best_value"), "stop_reason": manifest.get("stop_reason"),
-                "numerical_failure": manifest.get("numerical_failure"), "result_status": manifest.get("result_status"),
+                "best_val": manifest.get("best_value"),
+                "stop_reason": manifest.get("stop_reason"),
+                "numerical_failure": manifest.get("numerical_failure"),
+                "result_status": manifest.get("result_status"),
                 "negative_scale": manifest.get("negative_scale"),
                 "global_matched_gamma": manifest.get("global_matched_gamma"),
+                "updates_per_effective_epoch": manifest.get("updates_per_effective_epoch"),
+                "completed_effective_epochs": manifest.get("completed_effective_epochs"),
             }
             if args.force or not result_json.exists():
                 gpu = gpu_ids[eval_index % len(gpu_ids)]
                 eval_tasks.append(StageTask(
                     f"test_{method}_{checkpoint_kind}",
-                    _evaluation_argv(model_flags, test_file, train_file, result_json,
-                                     plan["eval_batch"], preset["pass_k"], args.seed + 7000, adapter),
-                    logs / f"09_test_{method}_{checkpoint_kind}.log", gpu,
+                    _evaluation_argv(
+                        model_flags, test_file, train_file, result_json,
+                        plan["eval_batch"], preset["pass_k"], args.seed + 7000, adapter,
+                    ),
+                    logs / f"09_test_{method}_{checkpoint_kind}.log",
+                    gpu,
                 ))
                 eval_index += 1
             eval_records.append((method, result_json, extra))
     _run_stage_group(eval_tasks)
-    _record_decision(root, "checkpoint_evaluation_schedule", "all_visible_gpu_fifo", {"jobs": len(eval_records), "gpus": gpu_ids})
+    _record_decision(
+        root,
+        "checkpoint_evaluation_schedule",
+        "all_visible_gpu_fifo",
+        {"jobs": len(eval_records), "gpus": gpu_ids},
+    )
     for method, result_json, extra in eval_records:
         summary_rows.append({"method": method, **extra, **json.loads(result_json.read_text())})
 
@@ -3497,9 +4244,13 @@ def cmd_run(args: argparse.Namespace) -> None:
         writer.writerows(csv_safe_row(row) for row in summary_rows)
 
     method_audits: dict[str, Any] = {}
-    for method in methods:
+    for method in methods_to_run:
         manifest = json.loads((methods_dir / method / "manifest.json").read_text())
-        terminal_rows = [r for r in summary_rows if r["method"] == method and r.get("checkpoint_kind") in {"terminal", "last_finite"}]
+        terminal_rows = [
+            row for row in summary_rows
+            if row["method"] == method
+            and row.get("checkpoint_kind") in {"terminal", "last_finite"}
+        ]
         method_audits[method] = {
             "task_performance": terminal_rows[0] if terminal_rows else None,
             "support_structure": ({
@@ -3514,35 +4265,77 @@ def cmd_run(args: argparse.Namespace) -> None:
                 "last_finite_step": manifest.get("last_finite_step"),
                 "stop_reason": manifest.get("stop_reason"),
             },
+            "dynamic_diagnostics": manifest.get("dynamic_diagnostics_path"),
         }
     base_commit = run_spec["source_provenance"].get("git_commit")
     terminal_audit = {
-        "version": VERSION, "experiment_id": "EXT-C-E8-V4.1", "base_commit": base_commit,
+        "version": VERSION,
+        "experiment_id": EXPERIMENT_ID,
+        "base_commit": base_commit,
         "task_performance_support_and_numerical_events_reported_separately": True,
+        "reference_gates": {
+            "mechanism_gate_passed": mechanism_gate_passed,
+            "method_effect_gate_passed": method_gate_passed,
+            "lora_reference_validation": reference_val,
+        },
+        "full_ft_reference_diagnostic": {
+            "eligible_for_method_ranking": False,
+            "validation": full_ft_val,
+            "test": json.loads(full_ft_test_json.read_text()),
+        },
+        "method_comparison": {
+            "status": "completed" if method_gate_passed else "skipped_by_capability_gate",
+            "methods_requested": methods,
+            "methods_run": methods_to_run,
+        },
         "methods": method_audits,
     }
     _atomic_json(root / "terminal_audit.json", terminal_audit)
     complete = {
-        "version": VERSION, "experiment_id": "EXT-C-E8-V4.1", "base_commit": base_commit,
-        "source_provenance": source_provenance(), "plan": plan,
-        "initialization_mode": initialization_mode, "base_validation": base_val,
-        "reference_validation": reference_val, "mechanism_probe": json.loads(mechanism_json.read_text()),
-        "negative_budget_calibration": json.loads(calibration_json.read_text()) if calibration_json.exists() else None,
-        "summary": summary_rows, "result_status": run_status,
-        "terminal_audit_present": all(method_audits[m]["task_performance"] is not None for m in methods),
-        "full_finetune_confirmation": "not_run; requires separate preregistration",
+        "version": VERSION,
+        "experiment_id": EXPERIMENT_ID,
+        "base_commit": base_commit,
+        "source_provenance": source_provenance(),
+        "plan": plan,
+        "initialization_mode": initialization_mode,
+        "base_validation": base_val,
+        "reference_validation": reference_val,
+        "reference_gates": terminal_audit["reference_gates"],
+        "full_ft_reference_diagnostic": terminal_audit["full_ft_reference_diagnostic"],
+        "offline_dataset": {
+            "path": str(offline_file),
+            "rows": offline_rows,
+            "nested_subsets": [1500, 3000, 6000],
+            "balanced_by_oracle_pattern": True,
+        },
+        "mechanism_probe": json.loads(mechanism_json.read_text()),
+        "negative_budget_calibration": (
+            json.loads(calibration_json.read_text()) if calibration_json.exists() else None
+        ),
+        "summary": summary_rows,
+        "result_status": run_status,
+        "terminal_audit_present": (
+            True if not method_gate_passed
+            else all(method_audits[method]["task_performance"] is not None for method in methods_to_run)
+        ),
+        "full_finetune_confirmation": (
+            "isolated reference-capacity diagnostic only; not a full-FT method confirmation"
+        ),
         "note": "A completed single-seed run remains a pilot, never a formal multi-seed result.",
     }
     _atomic_json(root / "run_complete.json", complete)
     _atomic_json(root / "RUN_COMPLETE.json", complete)
     _atomic_json(root / "pipeline_status.json", {
-        "version": VERSION, "experiment_id": "EXT-C-E8-V4.1", "status": "terminal_audited",
-        "completed_unix": time.time(), "summary": str(summary_path),
+        "version": VERSION,
+        "experiment_id": EXPERIMENT_ID,
+        "status": "terminal_audited",
+        "completed_unix": time.time(),
+        "summary": str(summary_path),
+        "method_comparison": terminal_audit["method_comparison"]["status"],
     })
     print("\nDONE. Summary:", summary_path)
     for row in summary_rows:
         print(json.dumps(row, ensure_ascii=False))
-
 def cmd_selftest(args: argparse.Namespace) -> None:
     oracle = "((1 + 2) * (3 + 4))"
     check = verify_expression(oracle, [1, 2, 3, 4], 21)
@@ -3628,7 +4421,10 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--train_data", required=True)
     ap.add_argument("--val_data", required=True)
     ap.add_argument("--output_dir", required=True)
-    ap.add_argument("--epochs", type=int, default=2)
+    ap.add_argument("--epochs", type=int, default=6)
+    ap.add_argument("--min_epochs", type=int, default=3)
+    ap.add_argument("--early_stop_patience", type=int, default=2)
+    ap.add_argument("--parameterization", choices=["lora", "full"], default="lora")
     ap.add_argument("--micro_batch", type=int, default=1)
     ap.add_argument("--grad_accum", type=int, default=32)
     ap.add_argument("--lr", type=float, default=2e-4)
@@ -3661,10 +4457,14 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--output_data", required=True)
     ap.add_argument("--rollouts", type=int, default=12)
     ap.add_argument("--batch_size", type=int, default=4, help="Initial rollout generation batch size")
-    ap.add_argument("--pair_resample_rounds", type=int, default=3)
-    ap.add_argument("--min_negative_candidates", type=int, default=4)
+    ap.add_argument("--pair_resample_rounds", type=int, default=8)
+    ap.add_argument("--min_negative_candidates", type=int, default=8)
+    ap.add_argument("--synthetic_rescue_candidates", type=int, default=64)
     ap.add_argument("--score_batch_size", type=int, default=16)
-    ap.add_argument("--max_examples", type=int, default=1500, help="0 means all")
+    ap.add_argument("--max_examples", type=int, default=6000, help="0 means all")
+    ap.add_argument("--balance_by_oracle_pattern", action="store_true")
+    ap.add_argument("--nested_sizes", default="1500,3000,6000")
+    ap.add_argument("--nested_output_dir", default=None)
     ap.add_argument("--temperature", type=float, default=0.8)
     ap.add_argument("--top_p", type=float, default=0.95)
     ap.add_argument("--max_new_tokens", type=int, default=80)
@@ -3735,7 +4535,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--negative_scale", type=float, default=None,
         help=(
             "Explicit shared negative scale for a separately registered run. "
-            "The v4.1.2 pilot normally reads the automatically calibrated value."
+            "The v4.3.0 pilot normally reads the automatically calibrated value."
         ),
     )
     ap.add_argument("--near_mix", type=float, default=0.5)
@@ -3751,6 +4551,9 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--entropy_floor", type=float, default=1.0)
     ap.add_argument("--eval_every", type=int, default=100)
     ap.add_argument("--eval_seed", type=int, default=6000)
+    ap.add_argument("--diagnostic_examples", type=int, default=32)
+    ap.add_argument("--diagnostic_gradient_examples", type=int, default=8)
+    ap.add_argument("--diagnostic_batch", type=int, default=8)
     ap.add_argument("--log_every", type=int, default=10)
     ap.add_argument("--num_workers", type=int, default=2)
     ap.add_argument("--seed", type=int, default=0)
@@ -3802,8 +4605,11 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--min_base_success", type=float, default=0.15)
     ap.add_argument("--min_base_valid", type=float, default=0.80)
     ap.add_argument("--min_sft_success", type=float, default=0.15)
+    ap.add_argument("--min_sft_valid", type=float, default=0.95)
+    ap.add_argument("--min_mechanism_success", type=float, default=0.08)
+    ap.add_argument("--min_mechanism_valid", type=float, default=0.95)
     ap.add_argument("--min_matched_pairs", type=int, default=16)
-    ap.add_argument("--pair_resample_rounds", type=int, default=3)
+    ap.add_argument("--pair_resample_rounds", type=int, default=8)
     ap.add_argument("--allow_non_bf16_smoke", action="store_true")
     ap.add_argument("--no_sft_fallback", action="store_true")
     ap.add_argument("--seed", type=int, default=1234)
@@ -3826,7 +4632,7 @@ def main() -> None:
             root.mkdir(parents=True, exist_ok=True)
             failure = {
                 "version": VERSION,
-                "experiment_id": "EXT-C-E8-V4.1",
+                "experiment_id": EXPERIMENT_ID,
                 "status": "failed",
                 "exception_type": type(exc).__name__,
                 "message": str(exc),

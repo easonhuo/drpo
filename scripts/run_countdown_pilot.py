@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""One-decision Countdown v4.2 pilot launcher.
+"""One-decision Countdown v4.3 pilot launcher.
 
 The operator supplies only the local Qwen2.5-0.5B-Instruct path and a new
 work directory. The launcher binds the current Git commit, starts the hardened
@@ -15,7 +15,7 @@ import sys
 from pathlib import Path
 
 
-EXPERIMENT_ID = "EXT-C-E8-V4.1"
+EXPERIMENT_ID = "EXT-C-E8-V4.2"
 
 
 def _git(repo: Path, *args: str) -> str:
