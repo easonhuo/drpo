@@ -1,5 +1,19 @@
-# DRPO / SNA2C 远场负梯度动力学研究主文档 v40（D-U1 E6 语义 pilot 结果审计版）
+# DRPO / SNA2C 远场负梯度动力学研究主文档 v41（EXT-H-E7-Q2 Hopper 实现冻结版）
 
+> **v41 增量登记：`EXT-H-E7-Q2` Hopper 实现、执行门禁与结果打包协议（不删除 v40 及更早内容）**
+>
+> - 本轮基于 `main` commit `2e04f6dba6d4e87f61920bedb1c464656906bf2b` 实现 `EXT-H-E7-Q2`。实现入口为 `src/drpo/e7_hopper_q2.py`，一键操作入口为 `scripts/run_e7_hopper_q2.py`，冻结配置为 `configs/e7_hopper_q2_medium_replay_v2.yaml`。当前科学状态仍为 **尚未运行（not_run）**；CPU 单元测试、静态检查和缩减工程 pilot 均不得升级为 Hopper 正式结果。
+> - 主机制数据冻结为 legacy D4RL `hopper_medium_replay-v2.hdf5`，SHA-256 `e121c5f7c9857a307baa9edc6a2c3b48e85fedb9ac316ecddd0f48ca7ef4e39b`。该数据承担自然 near/far 外部机制验证；Hopper-medium 保留为较窄复验，Hopper-medium-expert 保留给后续方法效果或 stable-extrapolation 研究，不在本子 claim 中混用。
+> - critic 先按完整 episode 划分训练/验证/测试，目标为 discounted Monte-Carlo return；通过预登记优化终态审计后冻结。冻结 critic 随后一次性物化 TD-residual advantage、训练划分统计量、正负 mask 与 provenance hash；actor 阶段禁止 minibatch advantage 重归一化或继续更新 critic，因此该阶段研究对象保持为固定 learned advantage 与动态 policy-score geometry 的重复离线更新。
+> - actor 冻结为 state-conditioned tanh-squashed diagonal Gaussian MLP；理论坐标使用 `u=atanh(clip(a))`、`z=(u-mu)/sigma` 与 `r=||z||`。runner 同时保存 mean-score、raw log-scale score、校正 `Q_xi=||z||²`、joint output score、full-parameter gradient、raw action distance、pre-squash distance及 analytic/output-autograd 误差。仅解析恒等式通过仍只算实现一致性，不算独立外部验证。
+> - 每个 paired seed 先将 Positive-only 训练到预登记终态候选并完成 2x continuation，再从同一个 checkpoint、同一个 minibatch 随机流分叉 `positive_only / signed / near_zero / far_zero / far_cap / budget_matched_global`。near/far 只在负 advantage 内按 `|A|` 匹配；Far-cap 使用冻结近场 joint-output-score 参考，Global control 按初始逐样本 full-parameter negative-gradient 总预算匹配。该实验不形成标准 D4RL 方法排名。
+> - 正式 normalized-return 评估要求训练机可注册 `hopper-medium-replay-v2` 环境；正式 seeds 冻结为 100--109，pilot seed 为 42。任务性能崩溃、support/variance boundary、persistent/slow drift 与 NaN/Inf 数值崩溃继续分报；终态分类必须包含冻结窗口、2x continuation 与 paired-seed targeted-control gate。
+> - 所有 pilot 与 formal 运行必须由 `scripts/run_experiment_guard_hardened.py` 的 canonical channel 前台监督。科学 runner 禁止创建 ZIP/TAR；guard 负责 heartbeat、失败证据、源码快照、checksums、size policy 和最终结果 ZIP。用户只需启动一次并上传 guard 生成的结果 ZIP；大型 checkpoint 与数据集保留在持久本地，仅以路径、大小、角色和 SHA-256 索引。
+> - 旧 Hopper 600-step probe 继续保留为有限训练步数历史证据，不能冒充本次 E7-Q2 实现或正式结果。Hopper 仍只提供外部有效性，不能替代 C-U1 的 ground-truth 因果识别，也不预设 Exp、Linear、Global alpha、SBRC、Hybrid 或 Positive-only 的跨任务排名。
+
+> **v40（D-U1 E6 语义 pilot 结果审计版）**
+>
+> 以下 v40 历史标题与内容完整保留；v41 只追加 E7-Q2 实现冻结，不覆盖 D-U1 E6 pilot 结果与正式门禁判断。
 
 > **v40 增量登记：`D-U1-E6-SEMANTIC-PILOT-01` 开发 pilot 完成、终态审计与正式门禁判断（不删除 v39 及更早内容）**
 >

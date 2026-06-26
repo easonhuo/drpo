@@ -941,8 +941,10 @@ experiments:
   environment: EXT-H
   name: hopper_gaussian_log_scale_quadratic_external_validation
   status: not_run
+  scientific_status: not_run
   parent_experiment: E7
   registration_base_commit: c7fd41ac663380de71bcd839b76ab4d1e52ae8d0
+  implementation_base_commit: 2e04f6dba6d4e87f61920bedb1c464656906bf2b
   claim: >-
     In real D4RL Hopper data with a learned critic and an independently trained
     state-conditioned Gaussian actor, naturally far negative samples enter a
@@ -953,9 +955,9 @@ experiments:
   execution_class: formal
   formal_execution:
     channel_ref: hardened-v1
-    activation_state: blocked
-    entrypoint_status: planned
-    entrypoint: null
+    activation_state: active
+    entrypoint_status: implemented
+    entrypoint: src/drpo/e7_hopper_q2.py
     launch_mode: canonical_guard
     artifact_owner: canonical_channel
     guard_entrypoint: scripts/run_experiment_guard_hardened.py
@@ -966,6 +968,26 @@ experiments:
     inherit_default_artifact_budget: true
     runner_archive_policy:
       mode: forbid
+  implementation_state: implemented
+  code_entrypoint: src/drpo/e7_hopper_q2.py
+  operator_entrypoint: scripts/run_e7_hopper_q2.py
+  config_path: configs/e7_hopper_q2_medium_replay_v2.yaml
+  operator_guide: docs/README_E7_HOPPER_Q2_ONECLICK.md
+  formal_launch_template: >-
+    python3 scripts/run_experiment_guard_hardened.py --run-class formal
+    --expected-commit "$(git rev-parse HEAD)" --require-origin-main-match
+    --experiment-id EXT-H-E7-Q2 --repo-root .
+    --output-root experiments/results/EXT-H-E7-Q2/run_001
+    --artifact-output artifacts/EXT-H-E7-Q2_RAW_COMPLETE.zip
+    --required-output RUN_COMPLETE.json --required-output terminal_audit.json
+    --required-output aggregate_summary.json --required-output per_seed_summary.csv
+    --source-file src/drpo/e7_hopper_q2.py
+    --source-file scripts/run_e7_hopper_q2.py
+    --source-file configs/e7_hopper_q2_medium_replay_v2.yaml --
+    python3 src/drpo/e7_hopper_q2.py run --mode formal
+    --dataset-path /ABSOLUTE/PERSISTENT/PATH/hopper_medium_replay-v2.hdf5
+    --work-dir experiments/results/EXT-H-E7-Q2/run_001
+    --config configs/e7_hopper_q2_medium_replay_v2.yaml --repo-root . --device cuda
   does_not_replace:
   - C-U1-E1-COMP-01
   - C-U1-E1
@@ -978,9 +1000,35 @@ experiments:
     independently_trained_actor: required
     neural_network_pullback_order: excluded
     method_ranking: not_tested_by_this_subclaim
-  implementation_state: not_implemented
+  dataset:
+    primary_id: hopper-medium-replay-v2
+    basename: hopper_medium_replay-v2.hdf5
+    format: legacy_d4rl_hdf5
+    sha256: e121c5f7c9857a307baa9edc6a2c3b48e85fedb9ac316ecddd0f48ca7ef4e39b
+    role: natural_near_far_external_mechanism_validation
+    conservative_replication: hopper-medium
+    method_effect_dataset: hopper-medium-expert
+  critic_protocol:
+    target: discounted_monte_carlo_return
+    episode_split: [0.8, 0.1, 0.1]
+    gamma: 0.99
+    frozen_before_actor: true
+    terminal_audit: required
+  frozen_advantage_protocol:
+    definition: r_plus_gamma_v_next_minus_v
+    materialize_once: true
+    standardize_once_on_critic_train_split: true
+    minibatch_renormalization: false
+    critic_updates_during_actor_training: false
+  actor_protocol:
+    family: tanh_squashed_diagonal_gaussian_mlp
+    hidden_sizes: [256, 256]
+    log_scale_parameterization: global_diagonal
+    positive_only_terminal_before_branching: true
+    identical_branch_checkpoint: true
+    identical_minibatch_stream_across_methods: true
   coordinate_protocol:
-    squashed_actor: tanh_diagonal_gaussian_if_used
+    squashed_actor: tanh_diagonal_gaussian
     inverse_squash: u=atanh(clip(a,-1+epsilon,1-epsilon))
     standardized_residual: z=(u-mu)/sigma
     primary_radius: r=norm(z,2)
@@ -993,18 +1041,24 @@ experiments:
     corrected_component: g_xi_j+1=z_j^2
     aggregate_corrected_component: Q_xi=sum_j(g_xi_j+1)=norm(z,2)^2
   preregistered_protocol:
-    advantage_source: learned_critic
+    advantage_source: frozen_learned_critic
     negative_only_comparison: true
     match_or_stratify_by_absolute_advantage: true
     distance_binning: standardized_residual_radius
     analytic_autograd_crosscheck: required
-    interventions:
+    methods:
+    - positive_only
+    - signed
+    - near_zero
     - far_zero
     - far_cap
     - budget_matched_global
     paired_seeds: required
     terminal_audit: required
     old_600_step_probe_is_formal_evidence: false
+  seeds:
+    pilot: [42]
+    formal: [100, 101, 102, 103, 104, 105, 106, 107, 108, 109]
   metrics:
   - mean_output_score_norm_by_distance_bin
   - raw_log_scale_output_score_norm_by_distance_bin
@@ -1019,6 +1073,7 @@ experiments:
   - normalized_return_trajectory
   - task_performance_collapse_events
   - support_or_variance_boundary_events
+  - persistent_or_slow_drift_events
   - nan_inf_numerical_events
   independent_validation_gate:
     natural_far_field_present: required
@@ -1028,6 +1083,17 @@ experiments:
     paired_seed_evidence: required
     terminal_state_audit: required
     identity_only_autograd_check_counts_as_independent_validation: false
+  output_contract:
+    result_archive_owner: canonical_hardened_channel
+    scientific_runner_archive_writes: forbidden
+    required_root_files:
+    - RUN_COMPLETE.json
+    - terminal_audit.json
+    - aggregate_summary.json
+    - per_seed_summary.csv
+    - scientific_run_manifest.json
+    upload_instruction: upload_guard_generated_zip_unchanged
+    large_checkpoint_policy: persistent_local_index
   reporting_boundary: >-
     Passing the gate supports independent external validation that real Hopper
     training enters and is affected by the Gaussian quadratic log-scale
@@ -1035,13 +1101,24 @@ experiments:
     establish a quadratic law for neural-network parameter gradients, replace
     C-U1 causal identification, or rank Exp, Linear, Global alpha, SBRC, Hybrid,
     or Positive-only methods.
+  execution:
+    state: registered
+    run_id: null
+    last_heartbeat_utc: null
+    process_exit_code: null
   evidence:
     code_committed: false
+    implementation_tests_passed: true
     run_started: false
     raw_complete: false
     terminal_audited: false
     package_created: false
+    package_filename: null
+    package_sha256: null
+    delivered_to_user: false
+    applied_commit: null
     scientific_status: not_run
+
 - id: EXT-C-E8-V4
   environment: EXT-C
   name: countdown_base_first_transformer_external_validation

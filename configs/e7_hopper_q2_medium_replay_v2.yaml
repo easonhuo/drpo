@@ -1,0 +1,172 @@
+experiment_id: EXT-H-E7-Q2
+protocol_version: 3.0.0
+role: external_mechanism_validation
+status: not_run
+
+claim: >-
+  Test whether naturally far negative transitions in Hopper-medium-replay-v2,
+  after matching absolute frozen learned-critic advantage, enter the Gaussian
+  log-scale quadratic regime, contribute measurably to full-parameter gradients
+  or long-run support/task dynamics, and are selectively mitigated by far-field
+  controls.
+
+claim_boundaries:
+  - This is an external mechanism validation, not a standard offline-RL method table.
+  - It does not replace C-U1 controlled causal identification.
+  - It does not assert a quadratic law for neural-network parameter gradients.
+  - Pilot, smoke, static, and implementation-only checks are not formal evidence.
+
+dataset:
+  basename: hopper_medium_replay-v2.hdf5
+  sha256: e121c5f7c9857a307baa9edc6a2c3b48e85fedb9ac316ecddd0f48ca7ef4e39b
+  format: legacy_d4rl_hdf5
+  role: primary_mechanism_dataset
+
+environment_evaluation:
+  env_id: hopper-medium-replay-v2
+  registration_import: d4rl
+  deterministic_actor: true
+  normalized_score_percent: true
+  formal_required: true
+  pilot_required: false
+
+model:
+  actor: tanh_squashed_diagonal_gaussian_mlp
+  critic: return_value_mlp
+  hidden_sizes: [256, 256]
+  activation: tanh
+  log_scale_parameterization: global_diagonal
+
+optimization:
+  optimizer: adamw
+  weight_decay: 0.0001
+  max_gradient_norm: 100.0
+
+critic:
+  target: discounted_monte_carlo_return
+  gamma: 0.99
+  learning_rate: 0.0003
+  batch_size: 1024
+  episode_split:
+    train: 0.80
+    validation: 0.10
+    test: 0.10
+  freeze_before_actor: true
+
+advantage:
+  definition: r_plus_gamma_v_next_minus_v
+  stop_gradient: true
+  materialize_once: true
+  standardize_once: true
+  standardization_population: critic_train_episode_split_only
+  minibatch_renormalization: false
+
+actor:
+  learning_rate: 0.0003
+  batch_size: 1024
+  log_std_min: -5.0
+  log_std_max: 2.0
+  action_clip_epsilon: 0.000001
+  positive_only_before_branching: true
+  identical_branch_checkpoint: true
+
+matching:
+  population: frozen_negative_advantage_transitions
+  near_quantile: 0.25
+  far_quantile: 0.75
+  advantage_bins: 20
+  relative_advantage_tolerance: 0.05
+  gradient_probe_pairs: 64
+  distance_bins: 8
+  report:
+    - absolute_advantage_ratio
+    - standardized_distance_ratio
+    - mean_output_score_ratio
+    - raw_log_scale_output_score_ratio
+    - corrected_log_scale_Q_xi_ratio
+    - joint_output_score_ratio
+    - full_parameter_gradient_ratio
+    - analytic_autograd_relative_error
+
+interventions:
+  methods:
+    - positive_only
+    - signed
+    - near_zero
+    - far_zero
+    - far_cap
+    - budget_matched_global
+  far_threshold: midpoint_between_registered_near_and_far_quantile_cuts
+  dynamic_distance_reclassification: true
+  far_cap_reference_quantile: 0.95
+  far_cap_quantity: near_negative_joint_output_score
+  global_budget_rule: match_initial_far_cap_sum_of_per_sample_full_parameter_gradient_norms
+  global_budget_audit_size: 256
+
+independent_validation_gate:
+  natural_far_radius_rule: far_median_r_at_least_sqrt_2_action_dim
+  corrected_Q_xi_loglog_slope_target: 2.0
+  corrected_Q_xi_loglog_slope_tolerance: 0.05
+  analytic_autograd_relative_error_max: 0.00001
+  full_parameter_far_near_ratio_min: 1.10
+  log_scale_to_mean_far_near_ratio_min: 1.00
+  targeted_control_requires_paired_mitigation: true
+
+terminal_audit:
+  windows: 6
+  extension_factor: 2
+  critic_relative_slope_tolerance: 0.000002
+  critic_gradient_tolerance: 0.01
+  critic_update_tolerance: 0.0001
+  actor_relative_slope_tolerance: 0.000002
+  actor_gradient_tolerance: 0.01
+  actor_update_tolerance: 0.0001
+  support_boundary_threshold: 0.99
+  support_boundary_fraction: 0.10
+  task_normalized_return_drop_threshold: 20.0
+  distinguish:
+    - task_performance_collapse
+    - support_or_variance_boundary_event
+    - nan_inf_numerical_collapse
+    - persistent_or_slow_drift
+    - finite_terminal
+
+modes:
+  pilot:
+    max_transitions: 10000
+    seeds: [42]
+    critic_max_steps: 100
+    critic_min_steps: 40
+    critic_eval_interval: 20
+    positive_max_steps: 100
+    positive_min_steps: 40
+    actor_eval_interval: 20
+    branch_max_steps: 100
+    branch_min_steps: 40
+    matched_pairs: 16
+    audit_sample_size: 512
+    rollout_episodes: 1
+    rollout_eval_interval: 100
+  formal:
+    max_transitions: null
+    seeds: [100, 101, 102, 103, 104, 105, 106, 107, 108, 109]
+    critic_max_steps: 20000
+    critic_min_steps: 2000
+    critic_eval_interval: 200
+    positive_max_steps: 20000
+    positive_min_steps: 2000
+    actor_eval_interval: 200
+    branch_max_steps: 20000
+    branch_min_steps: 2000
+    matched_pairs: 256
+    audit_sample_size: 16384
+    rollout_episodes: 5
+    rollout_eval_interval: 2000
+
+artifact:
+  checkpoint_every_formal_seeds: 5
+  artifact_owner: canonical_hardened_channel
+  runner_archive_writes: forbidden
+  main_package_hard_limit_mib: 25
+  single_file_main_limit_mib: 10
+  checkpoint_policy: persistent_local_index
