@@ -90,7 +90,7 @@ def test_full_state_support_audit_and_event_precedence() -> None:
     assert runner.support_event_type(overflow) == "nonfinite_sigma_output"
 
 
-def test_registry_and_handoff_register_e3_result_and_keep_e4_not_run() -> None:
+def test_registry_and_handoff_register_e3_and_audited_e4_statuses() -> None:
     registry = yaml.safe_load((REPO_ROOT / "experiments" / "registry.yaml").read_text())
     experiments = {row["id"]: row for row in registry["experiments"]}
 
@@ -100,14 +100,17 @@ def test_registry_and_handoff_register_e3_result_and_keep_e4_not_run() -> None:
     assert e3["formal_run_status"] == "delivered"
     assert e3["evidence"]["terminal_audited"] is True
     assert e3["evidence"]["delivered_to_user"] is True
-    assert e4["status"] == "not_run"
+    assert e4["status"] == "finite_step_validated"
+    assert e4["formal_run_status"] == "delivered"
+    assert e4["terminal_audit"]["scientific_terminal_acceptance_passed"] is False
     assert e3["optimizer"]["name"] == "Adam"
     assert e4["optimizer"]["name"] == "Adam"
     assert e4["depends_on_delivered_experiment"] == "C-U1-E3-ADAM-RERUN"
     assert e3["data"]["terminology"] == "held_out_context_generalization"
 
     handoff = (REPO_ROOT / "docs" / "handoff.md").read_text()
-    assert "v31（C-U1 E3 统一 Adam 因果闭环与论文结果版）" in handoff
+    assert "v32（C-U1 E4 统一 Adam 有限步相变证据与终态门禁审计版）" in handoff
+    assert "v31 增量登记：`C-U1-E3-ADAM-RERUN`" in handoff
     assert "v30 增量登记：Gaussian 二次临界界" in handoff
     assert "v29 增量记录：C-U1 E3/E4 统一 Adam 与方差坍缩口径修正" in handoff
     assert "C-U1-E3-ADAM-RERUN" in handoff

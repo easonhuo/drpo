@@ -5,6 +5,7 @@ Run one registered stage without editing source or hyperparameters:
 
     python drpo_cu1_e1_e4_oneclick.py --stage e3 --output-root outputs/cu1_e3_adam
     python drpo_cu1_e1_e4_oneclick.py --stage e4 --output-root outputs/cu1_e4_adam
+    python drpo_cu1_e1_e4_oneclick.py --stage e4_convergence --output-root outputs/cu1_e4_convergence
 
 The script automatically chooses CUDA when available and freezes all protocol
 values in code. E3 and E4 are separate formal delivery boundaries. Smoke mode
@@ -45,6 +46,7 @@ import random
 import shutil
 import sys
 import time
+import zipfile
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Callable, Sequence
@@ -69,7 +71,7 @@ except Exception:
 # 0. Frozen one-click protocol
 # =============================================================================
 
-SCRIPT_VERSION = "2026.06.25-reconstruction-v6-unified-adam-shared-cu1-core"
+SCRIPT_VERSION = "2026.06.26-reconstruction-v7-e4-convergence-resolution"
 SMOKE = os.environ.get("DRPO_CU1_SMOKE", "0") == "1"  # developer-only shortcut
 ROOT = Path(__file__).resolve().parent / ("drpo_cu1_reproduction_results_smoke" if SMOKE else "drpo_cu1_e3_adam_results")
 
@@ -148,6 +150,19 @@ class Protocol:
     e4_control_far_cap_ratio: float = 0.05
     e4_control_lr: float = 5e-4
     e4_control_steps: int = 4000
+    # E4 convergence-resolution. These values are separately pre-registered
+    # under C-U1-E4-CONV-01 and must not be used to rewrite the original E4 run.
+    e4_convergence_alphas: tuple[float, ...] = (0.75, 1.00, 1.25)
+    e4_convergence_steps: int = 4000
+    e4_convergence_audit_steps: tuple[int, ...] = (400, 800, 1600, 2400, 3200, 4000)
+    e4_convergence_window_1: tuple[int, int] = (2000, 3000)
+    e4_convergence_window_2: tuple[int, int] = (3000, 4000)
+    e4_convergence_displacement_change_max: float = 0.02
+    e4_convergence_reward_change_max: float = 0.01
+    e4_convergence_growth_ratio_max: float = 1.25
+    e4_convergence_runaway_displacement_min: float = 0.05
+    e4_convergence_consensus_min: int = 18
+    e4_convergence_checkpoint_every_seeds: int = 5
     # Convergence
     normalized_residual_threshold: float = 2e-3
     absolute_residual_threshold_alpha_zero: float = 1e-3
@@ -180,6 +195,11 @@ if SMOKE:
         e4_local_continuation_steps=1,
         e4_runaway_steps=3,
         e4_control_steps=3,
+        e4_convergence_steps=6,
+        e4_convergence_audit_steps=(1, 2, 3, 4, 5, 6),
+        e4_convergence_window_1=(2, 4),
+        e4_convergence_window_2=(4, 6),
+        e4_convergence_checkpoint_every_seeds=1,
         e1_e2_seeds=(10,),
         e3_seeds=(30,),
         e4_seeds=(50,),
@@ -1180,6 +1200,388 @@ def run_local_scan_seed(seed: int, initial_state: dict[str, torch.Tensor], env: 
     return summary
 
 
+
+def e4_convergence_scientific_role(row: dict[str, Any]) -> str:
+    """Classify task/geometry role without using the strict residual gate."""
+    positive_ceiling_reward = evaluation_from_geometry(P.gap_to_unseen_optimum)[0]
+    reward = float(row["reward"])
+    displacement = float(row["normalized_extrapolation_displacement"])
+    if reward < P.task_failure_retention * positive_ceiling_reward:
+        return "task_performance_collapse"
+    if reward > positive_ceiling_reward + 0.01 and displacement <= 1.25:
+        return "beneficial_extrapolation"
+    if displacement > 1.25:
+        return "over_extrapolation"
+    return "transition_region"
+
+
+def _trajectory_window(
+    trajectory: Sequence[dict[str, Any]], bounds: tuple[int, int]
+) -> list[dict[str, Any]]:
+    lo, hi = bounds
+    return [
+        row
+        for row in trajectory
+        if row.get("stage") in {"adam_training", "full_state_audit"}
+        and lo <= int(row["step"]) <= hi
+    ]
+
+
+def _finite_median(rows: Sequence[dict[str, Any]], key: str) -> float:
+    values = [
+        float(row[key])
+        for row in rows
+        if row.get(key) is not None and math.isfinite(float(row[key]))
+    ]
+    return float(np.median(values)) if values else float("nan")
+
+
+def classify_e4_convergence_trajectory(
+    trajectory: Sequence[dict[str, Any]],
+) -> dict[str, Any]:
+    """Apply the pre-registered long-horizon trend classification.
+
+    The old normalized residual is retained as a diagnostic in every audit row,
+    but it is intentionally not a hard acceptance condition for this experiment.
+    """
+    dynamic = sorted(
+        [
+            row
+            for row in trajectory
+            if row.get("stage") in {"adam_training", "full_state_audit"}
+        ],
+        key=lambda row: int(row["step"]),
+    )
+    if not dynamic:
+        return {"terminal_state": "terminal_state_inconclusive"}
+    final = dynamic[-1]
+    finite = all(
+        bool(final.get(key, False))
+        for key in ("finite_parameters", "log_sigma_output_finite", "sigma_output_finite")
+    )
+    if not finite:
+        return {
+            "terminal_state": "nan_inf_numerical_failure",
+            "final_scientific_role": e4_convergence_scientific_role(final),
+        }
+
+    w1 = _trajectory_window(dynamic, P.e4_convergence_window_1)
+    w2 = _trajectory_window(dynamic, P.e4_convergence_window_2)
+    if len(w1) < 2 or len(w2) < 2:
+        return {
+            "terminal_state": "terminal_state_inconclusive",
+            "final_scientific_role": e4_convergence_scientific_role(final),
+        }
+
+    displacement_change_w1 = float(w1[-1]["normalized_extrapolation_displacement"]) - float(
+        w1[0]["normalized_extrapolation_displacement"]
+    )
+    displacement_change_w2 = float(w2[-1]["normalized_extrapolation_displacement"]) - float(
+        w2[0]["normalized_extrapolation_displacement"]
+    )
+    reward_change_w2 = float(w2[-1]["reward"]) - float(w2[0]["reward"])
+    raw_w1 = _finite_median(w1, "full_data_raw_total_gradient_norm")
+    raw_w2 = _finite_median(w2, "full_data_raw_total_gradient_norm")
+    update_w1 = _finite_median(w1, "adam_parameter_update_norm")
+    update_w2 = _finite_median(w2, "adam_parameter_update_norm")
+    raw_ratio = raw_w2 / max(raw_w1, EPS) if math.isfinite(raw_w1) and math.isfinite(raw_w2) else float("nan")
+    update_ratio = (
+        update_w2 / max(update_w1, EPS)
+        if math.isfinite(update_w1) and math.isfinite(update_w2)
+        else float("nan")
+    )
+    role_2000 = e4_convergence_scientific_role(w1[0])
+    role_4000 = e4_convergence_scientific_role(w2[-1])
+    role_not_reversed = role_2000 == role_4000
+    stable_trend = (
+        abs(displacement_change_w2) <= P.e4_convergence_displacement_change_max
+        and abs(reward_change_w2) <= P.e4_convergence_reward_change_max
+        and math.isfinite(raw_ratio)
+        and raw_ratio <= P.e4_convergence_growth_ratio_max
+        and math.isfinite(update_ratio)
+        and update_ratio <= P.e4_convergence_growth_ratio_max
+        and role_not_reversed
+    )
+    runaway_trend = (
+        displacement_change_w1 > 0.0
+        and displacement_change_w2 > P.e4_convergence_runaway_displacement_min
+        and (
+            (math.isfinite(raw_ratio) and raw_ratio > P.e4_convergence_growth_ratio_max)
+            or (math.isfinite(update_ratio) and update_ratio > P.e4_convergence_growth_ratio_max)
+        )
+    )
+
+    if stable_trend and role_4000 == "beneficial_extrapolation":
+        terminal_state = "stable_beneficial_extrapolation"
+    elif stable_trend and role_4000 == "over_extrapolation":
+        terminal_state = "stable_over_extrapolation"
+    elif stable_trend and role_4000 == "task_performance_collapse":
+        terminal_state = "stable_task_performance_collapse"
+    elif runaway_trend:
+        terminal_state = "finite_continuing_runaway"
+    else:
+        terminal_state = "terminal_state_inconclusive"
+
+    return {
+        "terminal_state": terminal_state,
+        "scientific_role_at_window_1_start": role_2000,
+        "final_scientific_role": role_4000,
+        "scientific_role_not_reversed": role_not_reversed,
+        "window_1_displacement_change": displacement_change_w1,
+        "window_2_displacement_change": displacement_change_w2,
+        "window_2_reward_change": reward_change_w2,
+        "window_1_raw_gradient_median": raw_w1,
+        "window_2_raw_gradient_median": raw_w2,
+        "window_2_over_window_1_raw_gradient_ratio": raw_ratio,
+        "window_1_adam_update_median": update_w1,
+        "window_2_adam_update_median": update_w2,
+        "window_2_over_window_1_adam_update_ratio": update_ratio,
+        "strict_residual_gate_used_for_acceptance": False,
+    }
+
+
+def run_e4_convergence_seed(
+    seed: int,
+    initial_state: dict[str, torch.Tensor],
+    env: Environment,
+    alpha: float,
+) -> dict[str, Any]:
+    """Run one fixed-variance convergence-resolution branch from the E2 start."""
+    label = f"alpha_{alpha:.2f}"
+    out_dir = ROOT / "e4_convergence" / "fixed_variance" / label
+    out_path = out_dir / f"seed_{seed}.json"
+    traj_path = out_dir / f"seed_{seed}_trajectory.csv"
+    if out_path.exists() and traj_path.exists():
+        return json.loads(out_path.read_text())
+
+    fixed_sigma = analytic_positive_sigma()
+    actor = GaussianActor().to(DEVICE)
+    actor.load_state_dict(copy.deepcopy(initial_state))
+    params = actor.mean_parameters()
+    optimizer = make_adam(params, P.e4_local_lr)
+    # Preserve the original E4 paired minibatch stream exactly.
+    gen = torch.Generator(device="cpu").manual_seed(seed + 400009)
+    trajectory: list[dict[str, Any]] = []
+    audit_steps = set(P.e4_convergence_audit_steps)
+    stop_reason = "completed"
+
+    def record(
+        step: int,
+        stage: str,
+        minibatch_raw_gradient_norm: float | None = None,
+        adam_update_norm: float | None = None,
+    ) -> None:
+        ev = evaluation(actor, env.test, fixed_sigma)
+        field = normalized_field_residual(
+            actor, env.train, alpha, fixed_sigma, local_only=True
+        )
+        row = {
+            "step": step,
+            "stage": stage,
+            "optimizer": "adam",
+            "alpha": alpha,
+            **ev,
+            **field,
+            **policy_distance_diagnostics(actor, env.train, fixed_sigma),
+            "full_data_raw_total_gradient_norm": field["total_gradient_norm"],
+            "minibatch_raw_total_gradient_norm": minibatch_raw_gradient_norm,
+            "adam_parameter_update_norm": adam_update_norm,
+            "finite_parameters": finite_model(actor),
+            "strict_residual_gate_used_for_acceptance": False,
+        }
+        trajectory.append(row)
+
+    record(0, "initial")
+    for step in range(1, P.e4_convergence_steps + 1):
+        ids = torch.randint(
+            0,
+            P.n_train_states,
+            (P.positive_batch_states,),
+            generator=gen,
+        ).to(DEVICE)
+        loss = local_objective(actor, env.train, ids, alpha, fixed_sigma)
+        optimizer.zero_grad(set_to_none=True)
+        loss.backward()
+        minibatch_raw = gradient_norm_from_parameters(params)
+        update_norm = optimizer_step_with_norm(optimizer, params)
+        finite = finite_model(actor)
+        should_record = (
+            step % P.eval_every == 0
+            or step in audit_steps
+            or step == P.e4_convergence_steps
+            or not finite
+        )
+        if should_record:
+            stage = "full_state_audit" if step in audit_steps else "adam_training"
+            record(step, stage, minibatch_raw, update_norm)
+        if not finite:
+            stop_reason = "non_finite_parameter"
+            break
+
+    final = evaluation(actor, env.test, fixed_sigma)
+    field = normalized_field_residual(actor, env.train, alpha, fixed_sigma, local_only=True)
+    classification = classify_e4_convergence_trajectory(trajectory)
+    summary = {
+        "experiment_id": "C-U1-E4-CONV-01",
+        "seed": seed,
+        "alpha": alpha,
+        "branch": "fixed_variance",
+        "optimizer": "adam",
+        "steps_completed": int(trajectory[-1]["step"]),
+        "stop_reason": stop_reason,
+        "support_boundary_onset": None,
+        "support_event_type": None,
+        "nan_inf_numerical_failure": classification["terminal_state"]
+        == "nan_inf_numerical_failure",
+        "task_performance_collapse": classification.get("final_scientific_role")
+        == "task_performance_collapse",
+        **analytic_local_solution(alpha),
+        **final,
+        **field,
+        **policy_distance_diagnostics(actor, env.train, fixed_sigma),
+        **classification,
+    }
+    write_csv(traj_path, trajectory)
+    atomic_json(out_path, summary)
+    return summary
+
+
+def e4_convergence_terminal_audit(rows: Sequence[dict[str, Any]]) -> dict[str, Any]:
+    expected_states = {
+        0.75: "stable_beneficial_extrapolation",
+        1.00: "stable_beneficial_extrapolation",
+        1.25: "stable_over_extrapolation",
+    }
+    per_alpha: dict[str, Any] = {}
+    all_passed = True
+    for alpha, expected in expected_states.items():
+        selected = [row for row in rows if abs(float(row["alpha"]) - alpha) < 1e-12]
+        counts: dict[str, int] = {}
+        for row in selected:
+            state = str(row["terminal_state"])
+            counts[state] = counts.get(state, 0) + 1
+        expected_count = counts.get(expected, 0)
+        inconclusive_count = counts.get("terminal_state_inconclusive", 0)
+        explicit_opposite_count = len(selected) - expected_count - inconclusive_count
+        passed = (
+            len(selected) == len(P.e4_seeds)
+            and expected_count >= P.e4_convergence_consensus_min
+            and explicit_opposite_count == 0
+        )
+        all_passed = all_passed and passed
+        per_alpha[f"{alpha:.2f}"] = {
+            "expected_terminal_state": expected,
+            "n": len(selected),
+            "state_counts": counts,
+            "expected_state_count": expected_count,
+            "inconclusive_count": inconclusive_count,
+            "explicit_opposite_count": explicit_opposite_count,
+            "consensus_gate_passed": passed,
+        }
+    return {
+        "experiment_id": "C-U1-E4-CONV-01",
+        "scientific_acceptance_all_passed": all_passed,
+        "consensus_min": P.e4_convergence_consensus_min,
+        "positive_only_additional_run_included": False,
+        "residual_threshold_is_diagnostic_only": True,
+        "per_alpha": per_alpha,
+    }
+
+
+def write_e4_convergence_audit(rows: Sequence[dict[str, Any]]) -> dict[str, Any]:
+    audit = e4_convergence_terminal_audit(rows)
+    audit_dir = ROOT / "e4_convergence"
+    atomic_json(audit_dir / "terminal_audit.json", audit)
+    count_rows: list[dict[str, Any]] = []
+    for alpha, payload in audit["per_alpha"].items():
+        for state, count in payload["state_counts"].items():
+            count_rows.append({"alpha": alpha, "terminal_state": state, "count": count})
+    write_csv(audit_dir / "terminal_state_counts.csv", count_rows)
+    lines = [
+        "# C-U1-E4-CONV-01 terminal audit",
+        "",
+        f"Scientific acceptance: **{audit['scientific_acceptance_all_passed']}**",
+        "",
+        "The normalized full-data residual is retained as a diagnostic and is not a hard gate.",
+        "Positive-only is not rerun; its complete terminal dynamics remain assigned to E2.",
+        "",
+        "| alpha | expected state | expected / total | inconclusive | explicit opposite | gate |",
+        "|---:|---|---:|---:|---:|---|",
+    ]
+    for alpha, payload in audit["per_alpha"].items():
+        lines.append(
+            f"| {alpha} | {payload['expected_terminal_state']} | "
+            f"{payload['expected_state_count']}/{payload['n']} | "
+            f"{payload['inconclusive_count']} | {payload['explicit_opposite_count']} | "
+            f"{payload['consensus_gate_passed']} |"
+        )
+    (audit_dir / "TERMINAL_AUDIT.md").write_text("\n".join(lines) + "\n")
+    return audit
+
+
+def write_e4_convergence_checkpoint(
+    completed_seeds: Sequence[int], rows: Sequence[dict[str, Any]]
+) -> Path:
+    checkpoint_dir = ROOT / "checkpoints"
+    checkpoint_dir.mkdir(parents=True, exist_ok=True)
+    final_path = checkpoint_dir / (
+        f"C-U1-E4-CONV-01_checkpoint_{len(completed_seeds):02d}_seeds.zip"
+    )
+    candidate = final_path.with_suffix(final_path.suffix + ".candidate")
+    manifest = {
+        "experiment_id": "C-U1-E4-CONV-01",
+        "completed_seeds": list(completed_seeds),
+        "pending_seeds": [seed for seed in P.e4_seeds if seed not in completed_seeds],
+        "row_count": len(rows),
+        "script_version": SCRIPT_VERSION,
+        "script_sha256": sha256(Path(__file__)),
+    }
+    with zipfile.ZipFile(candidate, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("CHECKPOINT_MANIFEST.json", json.dumps(manifest, indent=2) + "\n")
+        for relative in (
+            Path("manifest.json"),
+            Path("environment_audit.json"),
+            Path("preflight_self_tests.json"),
+            Path("positive_prerequisite_per_seed.csv"),
+        ):
+            path = ROOT / relative
+            if path.is_file():
+                zf.write(path, relative.as_posix())
+        results_dir = ROOT / "e4_convergence"
+        if results_dir.is_dir():
+            for path in sorted(results_dir.rglob("*")):
+                if path.is_file():
+                    zf.write(path, path.relative_to(ROOT).as_posix())
+    candidate.replace(final_path)
+    return final_path
+
+
+def e4_convergence_integrity_report(
+    rows: Sequence[dict[str, Any]], terminal_audit: dict[str, Any]
+) -> dict[str, Any]:
+    expected_pairs = {
+        (seed, alpha) for seed in P.e4_seeds for alpha in P.e4_convergence_alphas
+    }
+    actual_pairs = {(int(row["seed"]), float(row["alpha"])) for row in rows}
+    checks = {
+        "expected_seed_alpha_grid_present": actual_pairs == expected_pairs,
+        "row_count": len(rows),
+        "expected_row_count": len(expected_pairs),
+        "all_rows_fixed_variance": all(row.get("branch") == "fixed_variance" for row in rows),
+        "all_rows_adam": all(row.get("optimizer") == "adam" for row in rows),
+        "positive_only_additional_run_absent": all(float(row["alpha"]) != 0.0 for row in rows),
+        "terminal_audit_present": bool(terminal_audit),
+    }
+    checks["all_passed"] = bool(
+        checks["expected_seed_alpha_grid_present"]
+        and checks["all_rows_fixed_variance"]
+        and checks["all_rows_adam"]
+        and checks["positive_only_additional_run_absent"]
+        and checks["terminal_audit_present"]
+    )
+    return checks
+
+
 def evaluation_from_geometry(distance_to_star: float) -> tuple[float]:
     return (math.exp(-0.5 * (distance_to_star / P.reward_width) ** 2),)
 
@@ -1528,9 +1930,9 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run the registered C-U1 Adam pipeline by experiment boundary.")
     parser.add_argument(
         "--stage",
-        choices=("e1_e2", "e3", "e4", "all"),
+        choices=("e1_e2", "e3", "e4", "e4_convergence", "all"),
         default="e3",
-        help="Formal runs must use e3 or e4 separately. 'all' is smoke/integration only.",
+        help="Formal runs must use e3, e4, or e4_convergence separately. 'all' is smoke/integration only.",
     )
     parser.add_argument(
         "--output-root",
@@ -1553,7 +1955,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     global ROOT
     args = parse_args(argv)
     if args.stage == "all" and not SMOKE:
-        raise SystemExit("Formal E3 and E4 are separate delivery boundaries; --stage all is smoke-only.")
+        raise SystemExit("Formal E3, E4, and E4 convergence are separate delivery boundaries; --stage all is smoke-only.")
     if args.output_root is not None:
         ROOT = args.output_root.expanduser().resolve()
     else:
@@ -1624,6 +2026,8 @@ def main(argv: Sequence[str] | None = None) -> None:
         needed_seeds = P.e3_seeds
     elif args.stage == "e4":
         needed_seeds = P.e4_seeds + P.variance_robustness_seeds
+    elif args.stage == "e4_convergence":
+        needed_seeds = P.e4_seeds
     else:
         needed_seeds = tuple(sorted(set(P.e1_e2_seeds + P.e3_seeds + P.e4_seeds + P.variance_robustness_seeds)))
 
@@ -1647,6 +2051,8 @@ def main(argv: Sequence[str] | None = None) -> None:
     e4_fixed_rows: list[dict[str, Any]] = []
     e4_learn_rows: list[dict[str, Any]] = []
     control_rows: list[dict[str, Any]] = []
+    e4_convergence_rows: list[dict[str, Any]] = []
+    e4_convergence_audit: dict[str, Any] = {}
     robust: list[dict[str, Any]] = []
 
     if args.stage in {"e1_e2", "all"}:
@@ -1697,7 +2103,53 @@ def main(argv: Sequence[str] | None = None) -> None:
         robust = run_variance_robustness()
         print("[OK] Variance-boundary robustness")
 
+    if args.stage in {"e4_convergence", "all"}:
+        completed_seeds: list[int] = []
+        for seed_index, seed in enumerate(P.e4_seeds, start=1):
+            for alpha in P.e4_convergence_alphas:
+                print(f"  E4 convergence seed={seed} alpha={alpha}", flush=True)
+                e4_convergence_rows.append(
+                    run_e4_convergence_seed(
+                        seed, checkpoints[seed], environments[seed], alpha
+                    )
+                )
+            completed_seeds.append(seed)
+            write_csv(
+                ROOT / "e4_convergence" / "per_seed.csv", e4_convergence_rows
+            )
+            write_csv(
+                ROOT / "e4_convergence" / "aggregate.csv",
+                aggregate_group(e4_convergence_rows, ["alpha"]),
+            )
+            e4_convergence_audit = write_e4_convergence_audit(
+                e4_convergence_rows
+            )
+            if (
+                seed_index % P.e4_convergence_checkpoint_every_seeds == 0
+                or seed_index == len(P.e4_seeds)
+            ):
+                checkpoint = write_e4_convergence_checkpoint(
+                    completed_seeds, e4_convergence_rows
+                )
+                print(f"[OK] E4 convergence checkpoint {checkpoint}", flush=True)
+            print(f"[OK] E4 convergence seed {seed}")
+
     regression = regression_report(e1_rows, e2_rows, e3_fixed_rows, e3_learn_rows, e4_fixed_rows, e4_learn_rows, control_rows)
+    if e4_convergence_rows:
+        convergence_integrity = e4_convergence_integrity_report(
+            e4_convergence_rows, e4_convergence_audit
+        )
+        if args.stage == "e4_convergence":
+            regression = {
+                "all_passed": convergence_integrity["all_passed"],
+                "checks": [],
+                "e4_convergence_integrity": convergence_integrity,
+            }
+        else:
+            regression["e4_convergence_integrity"] = convergence_integrity
+            regression["all_passed"] = bool(
+                regression["all_passed"] and convergence_integrity["all_passed"]
+            )
     atomic_json(ROOT / "reference_regression.json", regression)
 
     summary = {
@@ -1710,7 +2162,13 @@ def main(argv: Sequence[str] | None = None) -> None:
         "results_root": str(ROOT),
         "important_scope": "All test-state results are held-out-context generalization under the same state distribution, not strict OOD.",
         "variance_robustness_rows": len(robust),
-        "execution_note": "E3 and E4 are separate formal delivery boundaries; --stage all is smoke-only.",
+        "e4_convergence_rows": len(e4_convergence_rows),
+        "e4_convergence_scientific_acceptance_all_passed": (
+            e4_convergence_audit.get("scientific_acceptance_all_passed")
+            if e4_convergence_audit
+            else None
+        ),
+        "execution_note": "E3, E4, and E4 convergence are separate formal delivery boundaries; --stage all is smoke-only.",
     }
     atomic_json(ROOT / "RUN_COMPLETE.json", summary)
     print(json.dumps(summary, indent=2, ensure_ascii=False))

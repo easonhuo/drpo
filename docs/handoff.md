@@ -1,4 +1,29 @@
-# DRPO / SNA2C 远场负梯度动力学研究主文档 v31（C-U1 E3 统一 Adam 因果闭环与论文结果版）
+# DRPO / SNA2C 远场负梯度动力学研究主文档 v33（C-U1 E4 长程终态确认协议冻结版）
+
+> **v33 增量登记：`C-U1-E4-CONV-01` 长程终态确认协议（不删除 v32 及更早内容）**
+>
+> - 用户批准新增 `C-U1-E4-CONV-01`，只补齐 E4 有益与过度外推分支的长期终态，不重跑完整 E4，也不替代 `C-U1-E4-ADAM-RERUN` 的有限步相变、支持收缩、任务崩溃和 runaway 证据。当前状态为 **尚未运行（not_run）**。
+> - 从追加运行范围中移除 `alpha=0`。Positive-only ceiling 的完整长期动力学由 E2 的 2000-step Adam、等长 2x continuation 和终态审计承担；E4 仍保留原 `alpha=0` 有限步点作为比较基线，但不再重复研究固定学习率 Adam 能否通过 `2e-3` residual。
+> - 正式分支只包含固定方差 `alpha in {0.75,1.00,1.25}`、held-out seeds 50--69。`0.75/1.00` 检验高 reward 是否为稳定有益外推而非暂时经过隐藏最优点；`1.25` 检验其是否为稳定过度外推而非临界慢 runaway。
+> - 数据、C-U1 几何、2000-step positive-only Adam 初始化、网络、固定 `sigma=0.1903943276465978`、Adam `betas=(0.9,0.999)`、`eps=1e-8`、学习率 `5e-4`、batch、advantage、seeds 和 minibatch RNG 均保持不变。每个 alpha 从同 seed 的 E2 初始化 checkpoint 重新完整运行，不从旧 400-step 参数或 optimizer state 续跑。
+> - 每个分支运行 4000 个 E4 updates；full-state audit 固定在 steps `400,800,1600,2400,3200,4000`。终态窗口固定为 `W1=2000--3000` 与 `W2=3000--4000`，同时保存 held-out-context reward、归一化外推位移、到 `a_plus/a_star` 的距离、full-data raw total gradient norm、Adam parameter-update norm 和 residual diagnostic。
+> - 稳定平台门禁：W2 位移首尾变化绝对值不超过 `0.02`，W2 reward 首尾变化绝对值不超过 `0.01`，W2/W1 raw-gradient 中位比与 Adam-update 中位比均不超过 `1.25`，且 step 2000 到 4000 的科学角色不反转。持续 runaway 要求 W1/W2 位移均增加、W2 位移增量大于 `0.05`，并且 raw gradient 或 Adam update 的 W2/W1 比超过 `1.25`。其他情况登记 `terminal_state_inconclusive`，不得临时延长或放宽。
+> - 原 `normalized_field_residual < 2e-3` 继续保存为诊断量，但不再作为本实验的硬科学验收门禁。该实验不研究固定学习率 Adam 的噪声平台；验收对象是长期轨迹类别是否保持有界、是否反转以及 raw-gradient/actual-update 趋势。
+> - 20-seed 汇总门禁：`alpha=0.75/1.00` 目标为 `stable_beneficial_extrapolation`，`alpha=1.25` 目标为 `stable_over_extrapolation`；每个 alpha 至少 18/20 seeds 达到目标状态，剩余 seeds 只允许 `terminal_state_inconclusive`，不得出现明确相反终态。任务性能崩溃、support/variance boundary 与 NaN/Inf 继续分报。
+> - 预计运行超过 30 分钟，按每 5 个正式 seeds 生成 recovery checkpoint。`C-U1-E4-TAPER-01` 继续阻塞，直到本实验完成终态审计、打包和交付。
+
+> **v32（C-U1 E4 统一 Adam 有限步相变证据与终态门禁审计版）**
+>
+> **v32 增量登记：`C-U1-E4-ADAM-RERUN` 20-seed 正式运行、终态审计与有限步证据闭环（不删除 v31 及更早内容）**
+>
+> - `C-U1-E4-ADAM-RERUN` 已在 exact Git bundle checkout `d699bb6b1d0093d8a9b935fd6c67f049fc3c3df0` 上完成 seeds 50--69、固定/可学习方差两个 alpha 网格、三类 4000-step 控制与 45-run 方差边界稳健性审计。hardened supervisor 退出码为 0，所有预期文件、alpha 网格、Adam 字段、环境不变量和 reference regression 均通过；运行时约 30.3 分钟。
+> - 科学状态登记为 **有限训练步数验证（finite-step validated）**，不是“已长期验证”。原因是受益分支未通过冻结的终态残差门禁：固定方差 `alpha=1.00` 虽达到 held-out-context reward `0.991703 [0.991363, 0.992035]`、归一化位移约 `1.0078`，但只有 3/20 seeds 同时通过两次 full-data residual audit；不存在任何受益 alpha 达到 20/20 双审计通过。
+> - 有限步相变证据本身高度一致：固定方差 `alpha in {0.25,0.50,0.75,1.00}` 相对 positive-only `alpha=0` 均在 20/20 paired seeds 中提高 reward；网格峰值为 `alpha=1.00`。过强压力发生反转：`alpha=1.50` 与 `1.75` 均为 20/20 任务性能崩溃；`alpha=1.75` 为 20/20 有限参数下持续 runaway，未出现 NaN/Inf。
+> - 可学习方差分支必须按事件口径读取：`alpha=0.40` 有 18/20 support contraction，中位 onset step 434.5；`alpha=0.50` 为 20/20，中位 onset step 83。45-run robustness 中 `alpha=0.38` 对 `log_sigma<-8` 为 0/15，`alpha=0.40` 为 15/15，`alpha=0.50` 对 `-14` 仍为 15/15；unexpected support expansion 与 NaN/Inf 均为 0。
+> - 4000-step 附录控制：`uncontrolled_all` reward 为 `0.000000` 且 20/20 任务失败；`far_cap` reward 为 `0.995224 [0.995023,0.995416]` 且 0/20 失败；raw-gradient budget-matched global reward 为 `0.502925 [0.501994,0.503900]` 且 0/20 失败。该比较未预注册方法排名，且 raw-gradient matching 不等于 Adam-update matching，不能升级为跨任务 Distance 必然更优。
+> - 三类事件继续分报：任务性能崩溃、support/variance boundary、NaN/Inf 数值崩溃。本次 NaN/Inf 总数为 0；不能把低 reward 或有限 support contraction 写成数值崩溃，也不能把同分布 held-out-context 写成 OOD。
+> - 最终科学证据包为 `DRPO_CU1_E4_ADAM_D699_FINAL_EVIDENCE.zip`，SHA-256 `c2fbc594891b594652338b8937d02d4b283e75caa7cd475572ca7307f6f08673`；4 个每五 seeds checkpoint 和 raw-complete 包均已生成并校验。仓库仅保存 compact aggregate、summary、terminal audit 与 artifact index。
+> - `C-U1-E4-TAPER-01` **继续阻塞**。在另行登记并批准 E4 convergence-resolution protocol，或论文明确接受 E4 只承担有限步相变证据之前，不得启动 taper 正式方法比较。
 
 > **v31 增量登记：`C-U1-E3-ADAM-RERUN` 20-seed 终态审计、持久交付与论文口径闭环（不删除 v30 及更早内容）**
 >
@@ -269,7 +294,7 @@
 
 ## 0.1 当前执行门禁
 
-- C-U1 E1/E2：现有正式状态保留。`C-U1-E3-ADAM-RERUN` 已完成 20-seed 长程运行、终态审计、打包与交付，科学状态为“已长期验证”；本 v31 更新应用并提交后完成仓库闭环。`C-U1-E4-ADAM-RERUN` 仍为“尚未运行”，是下一执行项；`C-U1-E4-TAPER-01` 继续等待 E4 交付。
+- C-U1 E1/E2/E3：现有正式状态保留。`C-U1-E4-ADAM-RERUN` 已完成并登记为“有限训练步数验证”。`C-U1-E4-CONV-01` 已批准和冻结、状态为“尚未运行”，是下一正式执行项；`C-U1-E4-TAPER-01` 在其审计、打包和交付前继续阻塞。
 - D-U1：沿用既定离散计划，不因本轮讨论擅自改动。
 - Countdown：允许先交付可执行代码并由用户服务器运行；代码计划与状态已在第 9.2 节登记。
 - Hopper：在 C-U1 E1-E4 与 E6 categorical 长程完成后，按第 9.1 节锁定范围执行。
@@ -447,6 +472,18 @@ Ground-truth reward 由动作到 `a_star(s)` 的二维距离决定，因此 `a_s
 6. 主文只保留最短因果链和倒 U 型相变；Global、Far-to-near、budget-matched controls 进入附录，不把优化器细节拆成多条主叙事。
 7. 正式命令必须按 stage 分开执行；`--stage all` 只允许 smoke。
 
+### 3.6.6 `C-U1-E4-CONV-01` 长程终态确认（v33 当前有效协议）
+
+1. **实验职责：** 仅确认原 E4 固定方差 `alpha=0.75/1.00/1.25` 的长期状态是否反转。它不重跑可学习方差、控制方法、`alpha=1.50/1.75`，也不新增方法排名。
+2. **Positive-only 边界：** 不追加运行 `alpha=0`。E2 承担 positive-only 完整动力学；原 E4 的 `alpha=0` 只保留为相变扫描左端 control。
+3. **冻结执行：** seeds 50--69；从同 seed 的 2000-step positive-only Adam checkpoint 重新开始；固定方差、Adam、学习率、batch、advantage、数据和 RNG 与 `C-U1-E4-ADAM-RERUN` 完全一致。
+4. **训练与审计：** 每个 alpha 运行 4000 steps；full-state audits 为 `400/800/1600/2400/3200/4000`；终态窗口为 `2000--3000` 和 `3000--4000`。
+5. **稳定判据：** W2 位移变化绝对值 `<=0.02`，W2 reward 变化绝对值 `<=0.01`，raw full-data gradient 与 Adam update 的 W2/W1 中位比均 `<=1.25`，且长期科学角色不反转。
+6. **Runaway 判据：** 两个窗口的位移均增加，W2 位移增量 `>0.05`，且 raw gradient 或 Adam update 的 W2/W1 中位比 `>1.25`。其余登记 `terminal_state_inconclusive`。
+7. **残差口径：** 继续记录 full-data normalized residual，但 `2e-3` 不再是硬 gate，不为通过门禁而改学习率、optimizer、batch、threshold 或训练长度。
+8. **目标状态与汇总：** `0.75/1.00 -> stable_beneficial_extrapolation`；`1.25 -> stable_over_extrapolation`。每个 alpha 至少 18/20 达标，余下只允许 inconclusive。
+9. **持久化：** 每 5 seeds 生成 checkpoint 包；正式结束后必须独立报告任务性能、support/variance boundary 和 NaN/Inf，并完成终态审计与 durable delivery。
+
 ---
 
 ## 3.7 D-U1 / E6 开发配置登记（仅在 E4 完成后执行）
@@ -546,8 +583,9 @@ $$
 | E1 | Product 环境已完成，逻辑严密 | **C-U1 正式 20-seed 已完成**：positive-trained full-gradient far/near 9.093×，aggregate 10.072×；advantage 1.000× | 正式机制识别完成；数值倍率仅限本环境 |
 | E2 | 零散 positive-only 曲线 | **C-U1 正式 20-seed 已完成**：20/20 通过稳态与 2× 延长审计；phantom gradient 增长 28.93× | 正式长期验证完成 |
 | E3 | Product/Collapse 环境与旧 SGD C-U1 结果保留 provenance | **`C-U1-E3-ADAM-RERUN` 已完成并交付**：固定方差 Baseline/Near-zero 20/20 任务崩溃，Far-zero/Far-cap 0/20；可学习方差 Baseline/Near-zero 20/20 support contraction，远场控制 0/20；NaN/Inf 0/220 | **已长期验证，论文可用**；主文采用四方法 fixed-variance 因果链，learnable-variance 作互补 panel/附录 |
-| E4 | 独立 Extrapolation 环境；部分长程审计 | `C-U1-E4-ADAM-RERUN` 已登记、尚未运行；必须等待 E3 Adam 包交付 | 解析结论保留；统一 Adam 结果未完成 |
-| E4-TAPER | seeds 0--4 独立复制实现 pilot | 共享 core 与正式 runner 已登记；依赖 E3/E4 Adam 交付，正式 seeds 70--89 尚未运行 | 二次临界界已解析证明；方法排名尚无正式结果 |
+| E4 | 独立 Extrapolation 环境；部分长程审计 | **`C-U1-E4-ADAM-RERUN` 已完成并交付**：有限步 reward 相变、过强压力任务崩溃、learnable-variance support contraction 与 4000-step controls 均完成；受益分支未通过 20/20 双 residual audit | **有限训练步数验证**；可用于有限步相变图与失稳分支，暂不可写成稳定有益 fixed point |
+| E4-CONV | 无历史独立环境结果 | `C-U1-E4-CONV-01` 已冻结：固定方差 `alpha=0.75/1.00/1.25`，4000 steps，seeds 50--69，长期趋势门禁 | **尚未运行**；只负责有益/过度外推终态不反转确认 |
+| E4-TAPER | seeds 0--4 独立复制实现 pilot | 共享 core 与正式 runner 已登记；正式 seeds 70--89 继续等待 E4-CONV 交付 | 二次临界界已解析证明；方法排名尚无正式结果 |
 | E5 | 解析和长程 categorical 基本完成 | D-U1/D-Diag 可保留 | 接近完成，需整理最终口径 |
 | E6 | unordered semantic categorical 仅短程 pilot | 尚未长期重跑 | 未完成 |
 | E7 | Hopper learned-critic 600-step probe | `EXT-H-E7-Q2` 二次分支外部验证协议已预注册；长期重跑与实现尚未执行 | 旧 probe 仍仅为有限训练步数证据；E7-Q2 状态为尚未运行 |
@@ -557,15 +595,14 @@ $$
 
 # 6. 接下来唯一执行顺序
 
-1. E1/E2 的既有正式状态与历史证据保持不变；
-2. `C-U1-E3-ADAM-RERUN` 已完成终态审计、打包与交付；应用并提交本 v31 更新，完成 E3 仓库闭环；
-3. 运行、终态审计、打包并交付 `C-U1-E4-ADAM-RERUN`；
-4. E3 主文只保留 Baseline/Near-zero/Far-zero/Far-cap 的最短因果链；
-5. E4 主文只保留 positive-only ceiling、适度负梯度收益和过强负梯度失稳的单一相变链；
-6. E4 Adam 交付后，再运行 `C-U1-E4-TAPER-01` 正式距离阶数比较；
-7. 统一连续结果通过后，再完成 E6 categorical 长程；
-8. 外部 Hopper 和 Countdown；
-9. 论文正文重写与方法效果实验并行。
+1. E1/E2/E3 的既有正式状态与历史证据保持不变；
+2. `C-U1-E4-ADAM-RERUN` 已完成正式运行、审计、打包与交付，科学状态保持“有限训练步数验证”；
+3. 下一正式执行项为 `C-U1-E4-CONV-01`：只跑固定方差 `alpha=0.75/1.00/1.25` 的 4000-step 长程终态确认，不追加 positive-only；
+4. `C-U1-E4-CONV-01` 完成终态审计、打包和交付前，`C-U1-E4-TAPER-01` 继续阻塞；
+5. 在 convergence-resolution 通过前，E4 论文口径仅允许 positive-only ceiling、有限步受益、过强压力任务崩溃、support contraction 与已确认的 `alpha=1.75` finite runaway，不允许把受益分支写成长期稳定 fixed point；
+6. E3 主文继续只保留 Baseline/Near-zero/Far-zero/Far-cap 的最短因果链；
+7. E4-CONV 交付后，再依冻结顺序运行 TAPER、E6 categorical 长程及外部 Hopper/Countdown；
+8. 论文正文可以并行整理已通过门禁的 E1/E2/E3 与 E4 失稳侧证据。
 
 任何新增实验必须先说明它补哪一个 claim、是否替代现有实验、是否进入本文档。
 

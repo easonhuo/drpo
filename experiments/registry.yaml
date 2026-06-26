@@ -248,7 +248,7 @@ experiments:
 - id: C-U1-E4-ADAM-RERUN
   environment: C-U1
   name: cu1_stable_extrapolation_phase_transition_unified_adam
-  status: not_run
+  status: finite_step_validated
   claim: Test whether controlled local negative gradients improve beyond the positive-only ceiling and whether excessive negative pressure causes support contraction, continuing drift, or task-performance collapse under one Adam training pipeline.
   role: controlled_generalization_and_phase_transition
   depends_on_delivered_experiment: C-U1-E3-ADAM-RERUN
@@ -295,6 +295,12 @@ experiments:
     no_internal_solution:
     - long_run_adam
     - drift_or_first_boundary_audit
+    integrity_checks_all_passed: true
+    scientific_terminal_acceptance_passed: false
+    failure_reason: >-
+      The finite-horizon beneficial branch is reproducible, but no beneficial
+      alpha passes both frozen full-data residual audits in 20/20 seeds.
+      Fixed-variance alpha=1.00 passes both audits in only 3/20 seeds.
   metrics:
   - held_out_context_reward
   - normalized_extrapolation_displacement
@@ -306,6 +312,216 @@ experiments:
   - parameter_log_sigma_sigma_output_finiteness
   method_ranking_pre_registered: false
   controls_note: Raw-gradient matched controls are not called Adam-update matched.
+  formal_run_status: delivered
+  execution:
+    state: delivered
+    run_id: cu1_e4_adam_d699bb6_run001
+    completion_mode: hardened_foreground_supervisor
+    start_utc: '2026-06-26T03:55:06.139980+00:00'
+    end_utc: '2026-06-26T04:25:23.841907+00:00'
+    last_heartbeat_utc: '2026-06-26T04:25:21.671266+00:00'
+    process_exit_code: 0
+    elapsed_seconds: 1817.702
+  evidence:
+    raw_complete: true
+    terminal_audited: true
+    terminal_audit_integrity_all_checks_passed: true
+    terminal_scientific_acceptance_passed: false
+    expected_fixed_rows: 160
+    actual_fixed_rows: 160
+    expected_learnable_rows: 160
+    actual_learnable_rows: 160
+    expected_control_rows: 60
+    actual_control_rows: 60
+    expected_variance_robustness_rows: 45
+    actual_variance_robustness_rows: 45
+    missing_required_files: 0
+    checkpoint_packages_created: 4
+    package_created: true
+    package_filename: DRPO_CU1_E4_ADAM_D699_FINAL_EVIDENCE.zip
+    package_sha256: c2fbc594891b594652338b8937d02d4b283e75caa7cd475572ca7307f6f08673
+    raw_complete_package_filename: DRPO_CU1_E4_ADAM_RAW_COMPLETE_D699_RUN001.zip
+    raw_complete_package_sha256: daf7d133692335db477a5c5b42706b96d245e13696b6ea181f0e2895ee2387e8
+    delivered_to_user: true
+    applied_commit: null
+    compact_result_path: outputs/cu1_e4_adam
+  provenance:
+    run_commit: d699bb6b1d0093d8a9b935fd6c67f049fc3c3df0
+    repository_closure_base_commit: d699bb6b1d0093d8a9b935fd6c67f049fc3c3df0
+    source_mode: exact_git_bundle_checkout
+    source_bundle_filename: DRPO_MAIN_d699bb6b1d00.bundle
+    source_bundle_sha256: d9c5dfa5b914d4e17e224849ebed6b400c6cadc26cc41ad60d6fcc510b0bc5bb
+    git_bundle_verify_passed: true
+    clean_worktree_at_launch: true
+    clean_worktree_at_exit: true
+    provenance_compromised: false
+    cuda_available: false
+    device: cpu
+  result_summary:
+    positive_only_ceiling:
+      fixed_alpha_0_reward_mean: 0.646987646818161
+    finite_horizon_beneficial_region:
+      fixed_alpha_0_25_reward_mean: 0.7144076138734817
+      fixed_alpha_0_50_reward_mean: 0.8040281385183334
+      fixed_alpha_0_75_reward_mean: 0.9153103202581405
+      fixed_alpha_1_00_reward_mean: 0.9917025655508042
+      fixed_alpha_1_00_reward_ci95: [0.99136316254735, 0.9920345157384872]
+      fixed_alpha_1_00_normalized_displacement_mean: 1.007807719707489
+      each_alpha_0_25_through_1_00_beats_alpha_0_paired_seeds: 20
+      stable_fixed_point_claim_terminally_validated: false
+      fixed_alpha_1_00_both_residual_audits_passed: 3
+    excessive_fixed_pressure:
+      fixed_alpha_1_50_task_collapse_count: 20
+      fixed_alpha_1_75_task_collapse_count: 20
+      fixed_alpha_1_75_continuing_runaway_count: 20
+      nan_inf_count: 0
+    learnable_variance:
+      alpha_0_40_support_contraction_count: 18
+      alpha_0_40_support_onset_median: 434.5
+      alpha_0_50_support_contraction_count: 20
+      alpha_0_50_support_onset_median: 83.0
+      unexpected_support_expansion_count: 0
+      nan_inf_count: 0
+    variance_robustness:
+      alpha_0_38_cross_minus_8_count: 0
+      alpha_0_40_cross_minus_8_count: 15
+      alpha_0_40_cross_minus_12_count: 11
+      alpha_0_50_cross_minus_14_count: 15
+      total_rows: 45
+    controls_4000_steps:
+      uncontrolled_all_reward_mean: 0.0
+      uncontrolled_all_task_failure_count: 20
+      far_cap_reward_mean: 0.9952240824699402
+      far_cap_task_failure_count: 0
+      budget_matched_global_reward_mean: 0.502925130724907
+      budget_matched_global_task_failure_count: 0
+      nonfinite_count: 0
+  paper_use:
+    suitable_for_finite_horizon_phase_figure: true
+    suitable_for_stable_fixed_point_claim: false
+    allowed:
+    - positive_only_ceiling_and_finite_horizon_benefit
+    - excessive_fixed_pressure_task_collapse
+    - learnable_variance_support_contraction
+    - long_run_controls_as_appendix_evidence
+    prohibited_claims:
+    - terminally_stable_beneficial_fixed_point
+    - OOD_generalization
+    - universal_method_ranking
+    - NaN_Inf_collapse
+  next_gate:
+    convergence_experiment: C-U1-E4-CONV-01
+    convergence_status: registered_not_run
+    taper_status: blocked
+    reason: >-
+      C-U1-E4-TAPER-01 must not start until C-U1-E4-CONV-01 has completed
+      terminal audit, packaging, and delivery.
+  scientific_status: finite_step_validated
+  preserved_history: true
+- id: C-U1-E4-CONV-01
+  environment: C-U1
+  name: cu1_e4_fixed_variance_long_horizon_terminal_confirmation
+  status: not_run
+  scientific_status: not_run
+  claim: >-
+    Confirm that fixed-variance alpha=0.75 and alpha=1.00 remain bounded
+    beneficial extrapolation rather than transient optimum crossings, and that
+    alpha=1.25 is a stable over-extrapolated state rather than slow runaway.
+  role: controlled_long_horizon_terminal_confirmation
+  depends_on_delivered_experiment: C-U1-E4-ADAM-RERUN
+  blocks_experiment: C-U1-E4-TAPER-01
+  code_entrypoint: src/drpo/drpo_cu1_e1_e4_oneclick.py
+  stage: e4_convergence
+  command:
+  - python3
+  - src/drpo/drpo_cu1_e1_e4_oneclick.py
+  - --stage
+  - e4_convergence
+  - --output-root
+  - experiments/results/C-U1-E4-CONV-01/run_001
+  guard_entrypoint: scripts/run_experiment_guard_hardened.py
+  formal_launch_template: >-
+    python3 scripts/run_experiment_guard_hardened.py --run-class formal
+    --expected-commit "$(git rev-parse HEAD)" --experiment-id C-U1-E4-CONV-01
+    --repo-root . --output-root experiments/results/C-U1-E4-CONV-01/run_001
+    --artifact-output artifacts/C-U1-E4-CONV-01_RAW_COMPLETE.zip --
+    python3 src/drpo/drpo_cu1_e1_e4_oneclick.py --stage e4_convergence
+    --output-root experiments/results/C-U1-E4-CONV-01/run_001
+  scope:
+    fixed_variance_only: true
+    alphas: [0.75, 1.0, 1.25]
+    positive_only_additional_run: false
+    positive_only_terminal_evidence_owner: C-U1-E2
+    rerun_full_e4: false
+    rerun_learnable_variance: false
+    rerun_controls: false
+    rerun_alpha_1_50_or_1_75: false
+  initialization:
+    source: positive_only_adam_2000_step_checkpoint
+    e2_terminal_audit_checkpoint_used: false
+    restart_from_same_e2_initialization: true
+    continue_from_old_400_step_checkpoint: false
+    shared_across_alphas: true
+  optimizer:
+    name: Adam
+    betas: [0.9, 0.999]
+    eps: 1.0e-8
+    lr: 5.0e-4
+    fixed_sigma: 0.1903943276465978
+    batch_or_rng_changes_allowed: false
+  data:
+    train_states: 4096
+    test_states: 4096
+    positive_actions_per_state: 4
+    negative_actions_per_state: 8
+    terminology: held_out_context_generalization
+    fixed_advantage: true
+  held_out_seeds: [50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69]
+  training:
+    max_steps: 4000
+    full_state_audit_steps: [400, 800, 1600, 2400, 3200, 4000]
+    terminal_window_1: [2000, 3000]
+    terminal_window_2: [3000, 4000]
+    checkpoint_every_formal_seeds: 5
+    silent_horizon_extension_allowed: false
+  terminal_classification:
+    residual_threshold_2e_3_is_hard_gate: false
+    normalized_field_residual_retained_as_diagnostic: true
+    stable_platform:
+      window_2_absolute_displacement_change_max: 0.02
+      window_2_absolute_reward_change_max: 0.01
+      window_2_over_window_1_raw_gradient_median_ratio_max: 1.25
+      window_2_over_window_1_adam_update_median_ratio_max: 1.25
+      scientific_role_step_2000_to_4000_must_not_reverse: true
+    continuing_runaway:
+      window_1_displacement_increase_required: true
+      window_2_displacement_change_min: 0.05
+      raw_gradient_or_adam_update_ratio_min_exclusive: 1.25
+    otherwise: terminal_state_inconclusive
+  expected_terminal_states:
+    alpha_0_75: stable_beneficial_extrapolation
+    alpha_1_00: stable_beneficial_extrapolation
+    alpha_1_25: stable_over_extrapolation
+  aggregate_acceptance:
+    minimum_expected_state_seeds_per_alpha: 18
+    remaining_seeds_allowed_state: terminal_state_inconclusive
+    explicit_opposite_terminal_state_allowed: false
+  metrics:
+  - held_out_context_reward
+  - normalized_extrapolation_displacement
+  - distance_to_a_plus_and_a_star
+  - full_data_raw_total_gradient_norm
+  - minibatch_raw_total_gradient_norm
+  - adam_parameter_update_norm
+  - normalized_field_residual_diagnostic
+  - task_performance_collapse
+  - support_or_variance_boundary_event
+  - nan_inf_numerical_failure
+  reporting_separation:
+  - task_performance_collapse
+  - support_or_variance_boundary
+  - nan_inf_numerical_failure
+  method_ranking_pre_registered: false
   formal_run_status: not_run
   execution:
     state: registered
@@ -320,6 +536,15 @@ experiments:
     package_sha256: null
     delivered_to_user: false
     applied_commit: null
+  paper_use:
+    allowed_after_success:
+    - long_run_stable_beneficial_extrapolation
+    - stable_over_extrapolation_before_runaway
+    prohibited_before_success:
+    - terminally_stable_beneficial_fixed_point
+    - OOD_generalization
+    - universal_method_ranking
+  preserved_history: true
 - id: C-U1-E1-COMP-01
   environment: C-U1
   name: gaussian_output_score_componentwise_growth_law
@@ -424,6 +649,10 @@ experiments:
     retain_terminal_checkpoints_for_all_seeds: true
     expected_checkpoint_total_mib_max: 5
 - id: C-U1-E4-TAPER-01
+  execution_gate:
+    state: blocked
+    depends_on_delivered_experiment: C-U1-E4-CONV-01
+    reason: C-U1-E4-CONV-01 must complete terminal audit, packaging, and delivery first.
   environment: C-U1
   name: standardized_distance_taper_order_formal_comparison
   status: not_run

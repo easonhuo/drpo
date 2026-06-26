@@ -86,8 +86,8 @@ def test_artifact_index_and_handoff_close_e3_without_overclaiming() -> None:
         assert path.stat().st_size == metadata["size_bytes"]
 
     handoff = (REPO_ROOT / "docs" / "handoff.md").read_text()
-    assert "v31（C-U1 E3 统一 Adam 因果闭环与论文结果版）" in handoff
-    assert "C-U1-E3-ADAM-RERUN` 已完成 20-seed" in handoff
+    assert "v31 增量登记：`C-U1-E3-ADAM-RERUN`" in handoff
+    assert "`C-U1-E3-ADAM-RERUN` 20-seed 终态审计" in handoff
     assert "Baseline 与 Near-zero 均为 20/20 任务性能崩溃" in handoff
     assert "中位 onset 都为 step 73" in handoff
     assert "不得称 OOD" in handoff
@@ -97,8 +97,9 @@ def test_artifact_index_and_handoff_close_e3_without_overclaiming() -> None:
         (REPO_ROOT / "experiments" / "registry.yaml").read_text()
     )
     experiments = {row["id"]: row for row in registry["experiments"]}
-    assert experiments["C-U1-E4-ADAM-RERUN"]["status"] == "not_run"
+    assert experiments["C-U1-E4-ADAM-RERUN"]["status"] == "finite_step_validated"
     assert experiments["C-U1-E4-TAPER-01"]["status"] == "not_run"
+    assert experiments["C-U1-E4-TAPER-01"]["execution_gate"]["state"] == "blocked"
 
 
 def test_reported_confidence_intervals_match_compact_aggregates() -> None:

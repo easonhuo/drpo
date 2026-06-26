@@ -1,0 +1,97 @@
+{
+  "experiment_id": "C-U1-E4-ADAM-RERUN",
+  "scientific_status": "finite_step_validated",
+  "run_commit": "d699bb6b1d0093d8a9b935fd6c67f049fc3c3df0",
+  "repository_closure_base_commit": "d699bb6b1d0093d8a9b935fd6c67f049fc3c3df0",
+  "source_mode": "exact_git_bundle_checkout",
+  "source_bundle": {
+    "filename": "DRPO_MAIN_d699bb6b1d00.bundle",
+    "sha256": "d9c5dfa5b914d4e17e224849ebed6b400c6cadc26cc41ad60d6fcc510b0bc5bb",
+    "bundle_verify_passed": true
+  },
+  "external_artifact": {
+    "filename": "DRPO_CU1_E4_ADAM_D699_FINAL_EVIDENCE.zip",
+    "sha256": "c2fbc594891b594652338b8937d02d4b283e75caa7cd475572ca7307f6f08673",
+    "delivered_to_user": true,
+    "contains_raw_trajectories": true,
+    "contains_positive_initialization_checkpoints": true,
+    "contains_terminal_audit": true,
+    "scientific_terminal_acceptance_passed": false
+  },
+  "raw_complete_artifact": {
+    "filename": "DRPO_CU1_E4_ADAM_RAW_COMPLETE_D699_RUN001.zip",
+    "sha256": "daf7d133692335db477a5c5b42706b96d245e13696b6ea181f0e2895ee2387e8"
+  },
+  "checkpoint_artifacts": [
+    {
+      "filename": "DRPO_CU1_E4_ADAM_CHECKPOINT_5SEEDS_D699_RUN001.zip",
+      "exists": true,
+      "size_bytes": 586549,
+      "sha256": "924bddf3e2316d9db5494c242b05bd1cf500aa059778f418d6eaeb6affbb66ed"
+    },
+    {
+      "filename": "DRPO_CU1_E4_ADAM_CHECKPOINT_10SEEDS_D699_RUN001.zip",
+      "exists": true,
+      "size_bytes": 923612,
+      "sha256": "23d9d3096c285ef26fafcfc3c90aad77862b5ed22702ff9aff664c5e7463c2bd"
+    },
+    {
+      "filename": "DRPO_CU1_E4_ADAM_CHECKPOINT_15SEEDS_D699_RUN001.zip",
+      "exists": true,
+      "size_bytes": 1248068,
+      "sha256": "b2978ee25fd3f68645547425f28a0eb2c290209c54ccd4b9828e4369f1275acf"
+    },
+    {
+      "filename": "DRPO_CU1_E4_ADAM_CHECKPOINT_20SEEDS_D699_RUN001.zip",
+      "exists": true,
+      "size_bytes": 1935315,
+      "sha256": "0255b4c920a3bb8e8c79f5c91afe2422438424feccf1ccb5e792238e728e2540"
+    }
+  ],
+  "compact_repository_files": {
+    "RESULT_SUMMARY.md": {
+      "sha256": "4ed3b60a6e650717140bd34d75cf9809e91789787636b65ebf62282077e39d62",
+      "size_bytes": 2159
+    },
+    "TERMINAL_AUDIT.md": {
+      "sha256": "7d52c5b633862c84151b74541ea3a9d3d6d9b696e6b24478a5b26044cc11c92e",
+      "size_bytes": 5783
+    },
+    "fixed_variance_aggregate.csv": {
+      "sha256": "406eb58a5490a895d6fcb5d76d753be22eabe723c0bf3fcac01a749f71ab4332",
+      "size_bytes": 16770
+    },
+    "learnable_variance_aggregate.csv": {
+      "sha256": "8dd0b2de4a7391ad3232a935b160115cf189d2a5240ff841dc897c2f17087c06",
+      "size_bytes": 17067
+    },
+    "control_aggregate.csv": {
+      "sha256": "1e2334bd55b0db6d46ebbe4effcdb5d72857c48069b365434d37fa3b0dca1728",
+      "size_bytes": 3146
+    },
+    "variance_robustness_aggregate.csv": {
+      "sha256": "37a597291a4631eb9e381845380c6f1db6357d9f7130800d97c3c817b7f0a38a",
+      "size_bytes": 1003
+    },
+    "terminal_state_counts.csv": {
+      "sha256": "69165bbc332fb48224c2df471c80b7220374822d18e34053b4f36a6fef2e57a6",
+      "size_bytes": 1934
+    }
+  },
+  "paper_use": {
+    "allowed": [
+      "finite-horizon phase-transition curve",
+      "fixed-variance excessive-pressure task collapse",
+      "learnable-variance support contraction",
+      "long-run controls as appendix evidence"
+    ],
+    "not_yet_allowed": [
+      "terminally stable beneficial fixed point",
+      "universal method ranking",
+      "OOD generalization",
+      "NaN/Inf collapse"
+    ]
+  },
+  "next_gate": "C-U1-E4-TAPER-01 remains blocked pending an approved E4 convergence-resolution decision.",
+  "terminology": "held-out-context generalization; not OOD"
+}

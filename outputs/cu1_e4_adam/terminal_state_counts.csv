@@ -1,0 +1,17 @@
+branch,alpha,n,reward_mean,normalized_extrapolation_displacement_mean,task_performance_collapse_count,support_contraction_count,unexpected_support_expansion_count,nan_inf_count,stationary_audit_1_success_count,stationary_audit_2_success_count,stationary_audit_both_success_count,stable_imitation_ceiling_count,stable_beneficial_extrapolation_count,stable_over_extrapolated_fixed_point_count,stable_bad_fixed_point_count,finite_continuing_drift_or_runaway_count,support_contraction_boundary_event_count
+fixed_variance,0.0,20,0.646987646818161,0.000749173444637536,0,0,0,0,0,0,0,0,0,0,0,20,0
+fixed_variance,0.25,20,0.7144076138734817,0.1221731353551149,0,0,0,0,0,0,0,0,0,0,0,20,0
+fixed_variance,0.5,20,0.8040281385183334,0.29421235620975494,0,0,0,0,1,1,0,0,0,0,0,20,0
+fixed_variance,0.75,20,0.9153103202581405,0.5563146203756333,0,0,0,0,2,5,1,0,1,0,0,19,0
+fixed_variance,1.0,20,0.9917025655508042,1.0078075170516967,0,0,0,0,7,10,3,0,3,0,0,17,0
+fixed_variance,1.25,20,0.6500721573829651,1.9634895861148833,0,0,0,0,8,18,8,0,0,8,0,12,0
+fixed_variance,1.5,20,0.0005368456302675949,5.325675511360169,20,0,0,0,15,20,15,0,0,0,15,5,0
+fixed_variance,1.75,20,0.0,523331.290625,20,0,0,0,0,0,0,0,0,0,0,20,0
+learnable_variance,0.0,20,0.6469966322183609,0.0007666837365831949,0,0,0,0,0,0,0,0,0,0,0,20,0
+learnable_variance,0.1,20,0.6716500788927078,0.044741007871925774,0,0,0,0,0,0,0,0,0,0,0,20,0
+learnable_variance,0.2,20,0.6993993848562241,0.09477813653647896,0,0,0,0,0,0,0,0,0,0,0,20,0
+learnable_variance,0.3,20,0.7307297259569168,0.15229738131165502,0,0,0,0,0,0,0,0,0,0,0,20,0
+learnable_variance,0.35,20,0.7478544175624847,0.1843628622591495,0,0,0,0,0,0,0,0,0,0,0,20,0
+learnable_variance,0.38,20,0.7590394407510758,0.20563834235072131,0,0,0,0,0,0,0,0,0,0,0,20,0
+learnable_variance,0.4,20,0.7564286142587662,0.20382034778594965,0,18,0,0,0,0,0,0,0,0,0,2,18
+learnable_variance,0.5,20,0.7738757312297821,0.2429382625967264,0,20,0,0,0,0,0,0,0,0,0,0,20
