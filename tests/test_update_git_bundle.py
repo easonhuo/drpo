@@ -347,3 +347,105 @@ def test_unknown_changed_path_escalates_to_full_suite(git_fixture, tmp_path: Pat
     assert report["selected_test_mode"] == "full"
     assert report["test_selection"]["unknown_paths"] == ["unknown.py"]
     assert '{python} -c print("synthetic full gate") [full]' in report["tests"]
+
+
+def test_successful_push_defaults_versioned_and_latest_main_bundles_to_downloads(
+    git_fixture, tmp_path: Path
+):
+    origin, repo, _ = git_fixture
+    package = tmp_path / "package"
+    make_patch(repo, package, "bundle\n")
+    build_bundle(repo, package)
+    home = tmp_path / "home"
+    home.mkdir()
+    downloads = home / "Downloads"
+    report_dir = tmp_path / "reports"
+    env = helper_env(repo, report_dir)
+    env["HOME"] = str(home)
+    proc = run([str(HELPER), str(package), "--yes"], env=env)
+    head = git_text(repo, "rev-parse", "HEAD")
+    assert git_text(origin, "rev-parse", "refs/heads/main") == head
+    versioned = downloads / f"DRPO_MAIN_{head[:12]}.bundle"
+    latest = downloads / "DRPO_MAIN_LATEST.bundle"
+    assert versioned.is_file()
+    assert latest.is_file()
+    assert (downloads / f"{versioned.name}.sha256").is_file()
+    assert (downloads / f"{latest.name}.sha256").is_file()
+    assert f"Main bundle: {versioned}" in proc.stdout
+    assert f"Latest bundle: {latest}" in proc.stdout
+    listed = git(repo, "bundle", "list-heads", str(versioned)).stdout.splitlines()
+    assert f"{head} refs/heads/main" in listed
+    report = json.loads(next(report_dir.glob("*.json")).read_text())
+    assert report["pushed"] is True
+    assert report["remote_head_after_push"] == head
+    assert report["main_bundle_exported"] is True
+    assert report["main_bundle_path"] == str(versioned)
+    assert report["main_bundle_latest_path"] == str(latest)
+
+
+def test_no_push_never_exports_official_main_bundle(git_fixture, tmp_path: Path):
+    _, repo, _ = git_fixture
+    package = tmp_path / "package"
+    make_patch(repo, package, "bundle\n")
+    build_bundle(repo, package)
+    downloads = tmp_path / "Downloads"
+    report_dir = tmp_path / "reports"
+    env = helper_env(repo, report_dir)
+    env["DRPO_UPDATE_MAIN_BUNDLE_DIR"] = str(downloads)
+    run([str(HELPER), str(package), "--yes", "--no-push"], env=env)
+    assert not list(downloads.glob("DRPO_MAIN_*.bundle"))
+    report = json.loads(next(report_dir.glob("*.json")).read_text())
+    assert report["main_bundle_exported"] is False
+    assert report["main_bundle_export_skipped"] == "no_push"
+
+
+def test_explicit_export_disable_is_recorded_after_push(git_fixture, tmp_path: Path):
+    _, repo, _ = git_fixture
+    package = tmp_path / "package"
+    make_patch(repo, package, "bundle\n")
+    build_bundle(repo, package)
+    downloads = tmp_path / "Downloads"
+    report_dir = tmp_path / "reports"
+    env = helper_env(repo, report_dir)
+    env["DRPO_UPDATE_MAIN_BUNDLE_DIR"] = str(downloads)
+    run(
+        [
+            str(HELPER),
+            str(package),
+            "--yes",
+            "--no-export-main-bundle",
+        ],
+        env=env,
+    )
+    assert not list(downloads.glob("DRPO_MAIN_*.bundle"))
+    report = json.loads(next(report_dir.glob("*.json")).read_text())
+    assert report["pushed"] is True
+    assert report["main_bundle_export_skipped"] == "disabled_by_flag"
+
+
+def test_post_push_export_failure_generates_diagnostic_without_rolling_back_push(
+    git_fixture, tmp_path: Path
+):
+    origin, repo, before = git_fixture
+    package = tmp_path / "package"
+    make_patch(repo, package, "bundle\n")
+    build_bundle(repo, package)
+    blocker = tmp_path / "not-a-directory"
+    blocker.write_text("block")
+    report_dir = tmp_path / "reports"
+    env = helper_env(repo, report_dir)
+    env["DRPO_UPDATE_MAIN_BUNDLE_DIR"] = str(blocker)
+    proc = run([str(HELPER), str(package), "--yes"], env=env, check=False)
+    assert proc.returncode != 0
+    local_head = git_text(repo, "rev-parse", "HEAD")
+    remote_head = git_text(origin, "rev-parse", "refs/heads/main")
+    assert local_head != before
+    assert remote_head == local_head
+    report = json.loads(next(report_dir.glob("*.json")).read_text())
+    assert report["status"] == "pushed_main_bundle_export_failed"
+    assert report["pushed"] is True
+    assert report["remote_head_after_push"] == local_head
+    assert report["main_bundle_exported"] is False
+    diagnostics = list((tmp_path / "diagnostics").glob("DRPO_DIAGNOSTIC_*.zip"))
+    assert len(diagnostics) == 1
+    assert f"Diagnostic ZIP: {diagnostics[0]}" in proc.stderr

@@ -32,39 +32,58 @@ Options:
 --test-mode fast        request focused tests; unsafe downgrades are rejected
 --test-mode full        force full pytest and Ruff gates
 --diagnostic-dir PATH   override the failure ZIP directory (default: ~/Downloads)
+--main-bundle-dir PATH  override successful post-push main bundle directory
+--no-export-main-bundle disable successful post-push main bundle export
+--doctor                run non-destructive transactional self-tests
 --version               print the installed helper version
 ```
 
-## Package compatibility
+## Package production and compatibility
 
-Legacy packages remain supported and contain:
+### Canonical producer for every new package
 
-- `BASE_COMMIT.txt`
-- exactly one `*.patch` or `*.diff`
-- `CHANGE_SUMMARY.md`
-- optional `TEST_COMMANDS.sh`
+New code-update packages must be bundle-backed. Prepare a staging directory with
+`BASE_COMMIT.txt`, `update.patch`, `CHANGE_SUMMARY.md`, executable
+`TEST_COMMANDS.sh`, and complete after-images under `modified_files/`, then run:
 
-A Stage 1 package may additionally contain both:
+```bash
+python3 scripts/package_update.py \
+  --repo . \
+  --package-root /path/to/staging \
+  --output ~/Downloads/DRPO_UPDATE.zip
+
+python3 scripts/verify_update_package.py \
+  --repo . \
+  --package ~/Downloads/DRPO_UPDATE.zip
+```
+
+The producer adds and verifies:
 
 - `change.bundle`
 - `PATCH_COMMIT.txt`
+- `UPDATE_PACKAGE_MANIFEST.json`
 
-The pair is atomic: either both files are present or neither is present.
+It proves that the patch commit has the package base as its unique parent, that
+the Git bundle and patch produce the same tree, and that every non-deleted
+changed file and executable mode matches `modified_files/`.
 
-### Exact-base package
+### Legacy consumption compatibility
 
-A legacy patch-only package is accepted only when `BASE_COMMIT.txt` equals the
-current `main`. Integration and testing still occur in an isolated worktree, so
-failures do not dirty `main`.
+Historical patch-only exact-base packages remain accepted when they contain
+`BASE_COMMIT.txt`, exactly one patch, `CHANGE_SUMMARY.md`, and optional
+`TEST_COMMANDS.sh`. This is a consumption-only compatibility path. New packages
+must not be manually produced in this format.
 
-### Stale but ancestral package
+A legacy package is accepted only when `BASE_COMMIT.txt` equals current `main`.
+Integration and testing still occur in an isolated worktree.
 
-When the package contains the Git bundle pair and the package base is an
-ancestor of current `main`, the helper:
+### Bundle-backed integration
+
+When the package contains `change.bundle` and `PATCH_COMMIT.txt`, and the package
+base is an ancestor of current `main`, the helper:
 
 1. verifies the bundle;
-2. verifies that the patch commit has exactly one parent equal to the package
-   base;
+2. verifies that the patch commit has exactly one parent equal to the package base;
 3. proves that `change.bundle` and `update.patch` produce the same Git tree;
 4. cherry-picks the patch commit in an isolated worktree;
 5. runs package tests and the repository-selected integration gate there;
@@ -144,3 +163,33 @@ The real `main` remains unchanged for package, integration, or test failures.
 The diagnostic ZIP is created before the isolated worktree is removed, so
 conflict stages and failed candidate state are preserved without extra user
 commands.
+
+## Successful push main-bundle export
+
+After tests pass, local `main` advances, push succeeds, and a fresh `ls-remote`
+confirms that `origin/main` equals local HEAD, the helper atomically writes to
+`~/Downloads` by default:
+
+```text
+DRPO_MAIN_<12-char-SHA>.bundle
+DRPO_MAIN_<12-char-SHA>.bundle.sha256
+DRPO_MAIN_LATEST.bundle
+DRPO_MAIN_LATEST.bundle.sha256
+```
+
+Use `--main-bundle-dir PATH` or `DRPO_UPDATE_MAIN_BUNDLE_DIR` to change the
+directory. `--no-push` never creates an official main bundle. Use
+`--no-export-main-bundle` to suppress export after a verified push.
+
+## Local doctor
+
+Run:
+
+```bash
+drpo-update --doctor
+```
+
+The doctor compiles the updater/producer, checks Shell syntax, and runs the
+synthetic transactional tests for exact/stale bundle integration, conflict
+protection, diagnostics, canonical packaging, and main-bundle export. It does
+not mutate or push the real repository.

@@ -15,7 +15,9 @@
     "tools/drpo-update/drpo_update.py",
     "tools/drpo-update/test_selection.py",
     "tools/drpo-update/test_impact_map.json",
-    "scripts/select_update_tests.py"
+    "scripts/select_update_tests.py",
+    "scripts/package_update.py",
+    "scripts/verify_update_package.py"
   ],
   "groups": [
     {
@@ -28,12 +30,16 @@
         "scripts/select_update_tests.py",
         "tests/test_update_git_bundle.py",
         "tests/test_drpo_update_helper.py",
-        "tests/test_update_test_selector.py"
+        "tests/test_update_test_selector.py",
+        "scripts/package_update.py",
+        "scripts/verify_update_package.py",
+        "tests/test_update_packager.py"
       ],
       "pytest_targets": [
         "tests/test_update_git_bundle.py",
         "tests/test_drpo_update_helper.py",
-        "tests/test_update_test_selector.py"
+        "tests/test_update_test_selector.py",
+        "tests/test_update_packager.py"
       ],
       "validators": []
     },

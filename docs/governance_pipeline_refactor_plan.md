@@ -576,3 +576,47 @@ Stage 1E 自动测试必须覆盖：
 4. full gate 首项失败后后续独立命令仍执行；
 5. 默认诊断目录严格为 `~/Downloads`；
 6. 失败后仓库 clean、HEAD 未移动；成功后才 fast-forward。
+
+## 17. Stage 1F：Bundle-default 生产闭环与成功提交快照
+
+Stage 1F 关闭 Stage 1 在“消费端已支持 bundle、生产端却仍默认手工 patch-only”上的迁移缺口。该阶段只修改代码更新基础设施，不启动实验、不改变实验状态，也不修改冻结科学变量。
+
+### 17.1 新包生产规范
+
+1. 新生成的代码更新包必须由 `scripts/package_update.py` 构建。
+2. canonical 包必须同时包含 `change.bundle`、`PATCH_COMMIT.txt` 和 `UPDATE_PACKAGE_MANIFEST.json`；缺任一项即为生产端硬失败。
+3. `PATCH_COMMIT.txt` 指向的提交必须以 `BASE_COMMIT.txt` 为唯一父提交；bundle tree、`update.patch` 应用结果、`modified_files/` 完整 after-image 和 executable mode 必须一致。
+4. 历史 patch-only exact-base 包仍可由 `drpo-update` 消费，但 canonical producer 不再生成这种 legacy package。
+5. canonical verifier 为 `scripts/verify_update_package.py`。生产端验证失败时禁止交付。
+
+### 17.2 成功 push 后导出 main bundle
+
+只有在候选测试通过、本地 `main` fast-forward、`git push origin main` 成功且随后 `git ls-remote origin refs/heads/main` 与本地 HEAD 完全一致后，`drpo-update` 才自动在 `~/Downloads` 原子生成：
+
+```text
+DRPO_MAIN_<12-char-SHA>.bundle
+DRPO_MAIN_<12-char-SHA>.bundle.sha256
+DRPO_MAIN_LATEST.bundle
+DRPO_MAIN_LATEST.bundle.sha256
+```
+
+`--main-bundle-dir` 或 `DRPO_UPDATE_MAIN_BUNDLE_DIR` 可覆盖目录；默认不得使用 Desktop。`--no-push` 不生成正式 main bundle；`--no-export-main-bundle` 可显式关闭成功后的导出。push 成功但导出失败时，提交已存在于本地和远端，apply report 必须使用单独状态并自动生成诊断 ZIP，不得误报为“main 未修改”。
+
+### 17.3 本机 doctor
+
+`drpo-update --doctor` 在临时 synthetic repositories 中运行 bundle exact/stale、真实冲突、失败诊断、producer/verifier 与 post-push export 的事务测试，同时执行 Python compile 和 Shell syntax。doctor 不修改真实 `main`、不创建真实提交、不 push。
+
+### 17.4 验收矩阵
+
+Stage 1F 交付前至少覆盖：
+
+1. canonical producer 总是生成 bundle pair 和 manifest；
+2. producer 对缺失 after-image、错误 mode、patch/bundle 不一致 fail closed；
+3. producer verifier 拒绝新生产的 patch-only 包；
+4. updater 继续接受历史 exact-base legacy 包；
+5. bundle-backed exact-base 与 stale ancestral 无冲突路径成功；
+6. stale 真实冲突与测试失败保持原 main 不动并生成诊断 ZIP；
+7. 成功 push 后远端 SHA 二次确认并生成 versioned/latest bundle 与 SHA-256；
+8. `--no-push` 和 `--no-export-main-bundle` 均不生成正式 main bundle；
+9. `drpo-update --doctor` 全部通过；
+10. candidate 全仓 pytest、Ruff、compile、Shell syntax、治理 validators 与 `git diff --check` 通过。

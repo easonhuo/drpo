@@ -17,7 +17,7 @@ def run(cmd: list[str], *, cwd: Path | None = None, env: dict[str, str] | None =
 
 def test_helper_reports_version():
     proc = run([str(HELPER_DIR / "drpo-update"), "--version"])
-    assert proc.stdout.strip() == "drpo-update 2.2.0"
+    assert proc.stdout.strip() == "drpo-update 2.3.0"
 
 
 def test_installer_defaults_to_repository_symlink(tmp_path: Path):
@@ -43,10 +43,22 @@ def test_installer_defaults_to_repository_symlink(tmp_path: Path):
     assert installed.is_symlink()
     assert installed.resolve() == (target_dir / "drpo-update").resolve()
     assert (home / ".config" / "drpo-update" / "repo_path").read_text().strip() == str(repo.resolve())
-    assert "drpo-update 2.2.0" in proc.stdout
+    assert "drpo-update 2.3.0" in proc.stdout
 
 
 def test_provenance_records_user_verified_original_hash():
     text = (HELPER_DIR / "SOURCE_PROVENANCE.md").read_text()
     assert "f344b0cffc163ecdeb80ec8d07b564d00c3538ad22e03887f87bd1ce2a85f4f3" in text
     assert "byte-identical" in text
+
+
+def test_doctor_runs_non_destructive_transaction_self_tests(tmp_path: Path):
+    # The doctor invokes only synthetic temporary-repository tests.
+    proc = run(
+        [str(HELPER_DIR / "drpo-update"), "--doctor", "--repo", str(REPO_ROOT)],
+        cwd=REPO_ROOT,
+    )
+    assert "DOCTOR PYTHON COMPILE: PASS" in proc.stdout
+    assert "DOCTOR SHELL SYNTAX: PASS" in proc.stdout
+    assert "DOCTOR TRANSACTION PATHS: PASS" in proc.stdout
+    assert "DRPO UPDATE DOCTOR: PASS" in proc.stdout

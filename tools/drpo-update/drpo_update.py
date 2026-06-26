@@ -40,7 +40,7 @@ from test_selection import (  # noqa: E402
     select_test_plan,
 )
 
-VERSION = "2.2.0"
+VERSION = "2.3.0"
 EXPECTED_REMOTE_FRAGMENTS = ("github.com/easonhuo/drpo", "github.com:easonhuo/drpo")
 FULL_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 
@@ -78,6 +78,12 @@ class ApplyReport:
     integrated_commit: str | None = None
     head_after: str | None = None
     pushed: bool = False
+    remote_head_after_push: str | None = None
+    main_bundle_exported: bool = False
+    main_bundle_path: str | None = None
+    main_bundle_latest_path: str | None = None
+    main_bundle_sha256: str | None = None
+    main_bundle_export_skipped: str | None = None
     status: str = "started"
     error: str | None = None
     requested_test_mode: str = "auto"
@@ -92,7 +98,7 @@ class ApplyReport:
 
     def to_dict(self) -> dict[str, object]:
         return {
-            "schema_version": 3,
+            "schema_version": 4,
             "tool_version": VERSION,
             **self.__dict__,
         }
@@ -199,12 +205,23 @@ def append_test_outcome(report: ApplyReport, outcome: CommandOutcome) -> None:
     report.test_commands.append(payload)
 
 
-def git(repo: Path, *args: str, check: bool = True, capture: bool = True) -> subprocess.CompletedProcess[str]:
-    return run(("git", "-C", str(repo), *args), check=check, capture=capture)
+def git(
+    repo: Path,
+    *args: str,
+    check: bool = True,
+    capture: bool = True,
+    env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    return run(
+        ("git", "-C", str(repo), *args),
+        check=check,
+        capture=capture,
+        env=env,
+    )
 
 
-def git_text(repo: Path, *args: str) -> str:
-    return git(repo, *args).stdout.strip()
+def git_text(repo: Path, *args: str, env: dict[str, str] | None = None) -> str:
+    return git(repo, *args, env=env).stdout.strip()
 
 
 def resolve_repo(cli_repo: str | None) -> Path:
@@ -311,7 +328,7 @@ def validate_repo(repo: Path) -> None:
 def refresh_main(repo: Path) -> None:
     if os.environ.get("DRPO_UPDATE_SKIP_FETCH") == "1":
         return
-    print("[1/9] Updating local main...")
+    print("[1/10] Updating local main...")
     git(repo, "fetch", "origin", "main", capture=False)
     git(repo, "merge", "--ff-only", "origin/main", capture=False)
 
@@ -359,18 +376,25 @@ def verify_bundle_and_patch(repo: Path, package: Package, base: str, temp_root: 
                 f"bundle patch commit must have exactly one parent equal to BASE_COMMIT.txt; got {parents}"
             )
 
-        compare_tree = temp_root / "patch-equivalence"
-        add_detached_worktree(repo, compare_tree, base)
-        try:
-            apply = git(compare_tree, "apply", "--index", str(package.patch_file), check=False)
-            if apply.returncode != 0:
-                raise UpdateError(
-                    "update.patch does not apply to BASE_COMMIT.txt while checking bundle equivalence:\n"
-                    + (apply.stderr or apply.stdout).strip()
-                )
-            patch_tree = git_text(compare_tree, "write-tree")
-        finally:
-            remove_worktree(repo, compare_tree)
+        index_file = temp_root / "patch-equivalence.index"
+        index_env = os.environ.copy()
+        index_env["GIT_INDEX_FILE"] = str(index_file)
+        git(repo, "read-tree", base, env=index_env)
+        apply = git(
+            repo,
+            "apply",
+            "--cached",
+            str(package.patch_file),
+            check=False,
+            env=index_env,
+        )
+        if apply.returncode != 0:
+            raise UpdateError(
+                "update.patch does not apply to BASE_COMMIT.txt while checking "
+                "bundle equivalence:\n"
+                + (apply.stderr or apply.stdout).strip()
+            )
+        patch_tree = git_text(repo, "write-tree", "--missing-ok", env=index_env)
         commit_tree = git_text(repo, "rev-parse", f"{patch_commit}^{{tree}}")
         if patch_tree != commit_tree:
             raise UpdateError(
@@ -387,7 +411,7 @@ def run_package_tests(
     report: ApplyReport,
     log_dir: Path,
 ) -> UpdateError | None:
-    print("[5/9] Running package tests in isolated worktree...")
+    print("[5/10] Running package tests in isolated worktree...")
     if test_file:
         report.tests.append("TEST_COMMANDS.sh")
         outcome = run_logged_command(
@@ -419,7 +443,7 @@ def run_selected_tests(
     report: ApplyReport,
     log_dir: Path,
 ) -> UpdateError | None:
-    print("[6/9] Selecting and running repository integration tests...")
+    print("[6/10] Selecting and running repository integration tests...")
     impact_map = repo / "tools" / "drpo-update" / "test_impact_map.json"
     if not impact_map.is_file():
         raise UpdateError(f"trusted test impact map is missing from current main: {impact_map}")
@@ -545,6 +569,96 @@ def diagnostic_output_path(report: ApplyReport, configured_dir: str | None) -> P
     marker = (report.head_before or report.package_base or "unknown")[:12]
     timestamp = time.strftime("%Y%m%d-%H%M%S", time.localtime())
     return directory / f"DRPO_DIAGNOSTIC_{marker}_{timestamp}_{uuid.uuid4().hex[:8]}.zip"
+
+
+def main_bundle_output_dir(configured_dir: str | None) -> Path:
+    """Resolve the post-push main-bundle directory (Downloads by default)."""
+
+    directory = (
+        Path(configured_dir).expanduser()
+        if configured_dir
+        else Path(os.environ.get("DRPO_UPDATE_MAIN_BUNDLE_DIR", "")).expanduser()
+        if os.environ.get("DRPO_UPDATE_MAIN_BUNDLE_DIR")
+        else Path.home() / "Downloads"
+    )
+    directory.mkdir(parents=True, exist_ok=True)
+    return directory.resolve()
+
+
+def remote_main_sha(repo: Path) -> str:
+    proc = git(repo, "ls-remote", "origin", "refs/heads/main", check=False)
+    if proc.returncode != 0:
+        raise UpdateError(
+            "could not verify origin/main after push:\n"
+            + (proc.stderr or proc.stdout or "git ls-remote failed").strip()
+        )
+    lines = [line for line in proc.stdout.splitlines() if line.strip()]
+    if len(lines) != 1:
+        raise UpdateError(f"expected one origin/main ref after push, found {len(lines)}")
+    sha, ref = lines[0].split(None, 1)
+    if ref != "refs/heads/main" or not FULL_SHA_RE.fullmatch(sha):
+        raise UpdateError(f"unexpected origin/main response: {lines[0]}")
+    return sha
+
+
+def _atomic_write_text(path: Path, text: str) -> None:
+    temp = path.with_name(f".{path.name}.tmp-{uuid.uuid4().hex}")
+    temp.write_text(text)
+    os.replace(temp, path)
+
+
+def _atomic_copy(source: Path, destination: Path) -> None:
+    temp = destination.with_name(f".{destination.name}.tmp-{uuid.uuid4().hex}")
+    shutil.copy2(source, temp)
+    os.replace(temp, destination)
+
+
+def export_main_bundle(repo: Path, output_dir: Path, head: str) -> dict[str, str]:
+    """Atomically export the pushed main ref as versioned and stable bundles."""
+
+    if git_text(repo, "branch", "--show-current") != "main":
+        raise UpdateError("main bundle export requires the checked-out main branch")
+    if git_text(repo, "rev-parse", "HEAD") != head:
+        raise UpdateError("main bundle export HEAD changed unexpectedly")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    temp_root = Path(tempfile.mkdtemp(prefix="drpo-main-bundle-", dir=output_dir))
+    try:
+        candidate = temp_root / "candidate.bundle"
+        created = git(repo, "bundle", "create", str(candidate), "main", check=False)
+        if created.returncode != 0:
+            raise UpdateError(
+                "git bundle create failed:\n"
+                + (created.stderr or created.stdout or "unknown error").strip()
+            )
+        verified = git(repo, "bundle", "verify", str(candidate), check=False)
+        if verified.returncode != 0:
+            raise UpdateError(
+                "created main bundle failed verification:\n"
+                + (verified.stderr or verified.stdout or "unknown error").strip()
+            )
+        heads = git(repo, "bundle", "list-heads", str(candidate), check=False)
+        expected = f"{head} refs/heads/main"
+        if heads.returncode != 0 or expected not in heads.stdout.splitlines():
+            raise UpdateError(
+                "created main bundle does not advertise the verified main ref; "
+                f"expected '{expected}'"
+            )
+        digest = _sha256(candidate)
+        versioned = output_dir / f"DRPO_MAIN_{head[:12]}.bundle"
+        latest = output_dir / "DRPO_MAIN_LATEST.bundle"
+        versioned_sha = versioned.with_name(versioned.name + ".sha256")
+        latest_sha = latest.with_name(latest.name + ".sha256")
+        _atomic_copy(candidate, versioned)
+        _atomic_write_text(versioned_sha, f"{digest}  {versioned.name}\n")
+        _atomic_copy(candidate, latest)
+        _atomic_write_text(latest_sha, f"{digest}  {latest.name}\n")
+        return {
+            "versioned": str(versioned),
+            "latest": str(latest),
+            "sha256": digest,
+        }
+    finally:
+        shutil.rmtree(temp_root, ignore_errors=True)
 
 
 def _sha256(path: Path) -> str:
@@ -827,7 +941,7 @@ def create_diagnostic_zip(
     return output_path
 
 def display_review(worktree: Path, current: str, integrated: str, package: Package, report: ApplyReport) -> None:
-    print("[7/9] Review summary")
+    print("[7/10] Review summary")
     print(f"Original package base: {report.package_base}")
     print(f"Current main before integration: {current}")
     print(f"Integration mode: {report.integration_mode}")
@@ -881,7 +995,7 @@ def apply_update(args: argparse.Namespace) -> int:
         report.head_before = current
 
         if package.has_git_bundle:
-            print("[2/9] Verifying Git bundle and patch equivalence...")
+            print("[2/10] Verifying Git bundle and patch equivalence...")
             phase = "bundle_verification"
             with timed_phase(report, phase):
                 patch_commit = verify_bundle_and_patch(repo, package, base, temp_root)
@@ -898,9 +1012,9 @@ def apply_update(args: argparse.Namespace) -> int:
                 f"  package base: {base}\n  current HEAD: {current}"
             )
         else:
-            print("[2/9] Legacy package detected; exact-base patch path will be used.")
+            print("[2/10] Legacy package detected; exact-base patch path will be used.")
 
-        print("[3/9] Preparing isolated integration worktree...")
+        print("[3/10] Preparing isolated integration worktree...")
         message = args.message or summary_title(package.summary_file)
         phase = "integration"
         with timed_phase(report, phase):
@@ -919,7 +1033,7 @@ def apply_update(args: argparse.Namespace) -> int:
                 report,
             )
         report.integrated_commit = integrated
-        print("[4/9] Candidate integration created; main is still untouched.")
+        print("[4/10] Candidate integration created; main is still untouched.")
 
         gate_errors: list[UpdateError] = []
         phase = "package_tests"
@@ -970,7 +1084,7 @@ def apply_update(args: argparse.Namespace) -> int:
                 print(f"Stopped before changing main. Report: {path}")
                 return 0
 
-        print("[8/9] Fast-forwarding verified commit onto main...")
+        print("[8/10] Fast-forwarding verified commit onto main...")
         phase = "main_fast_forward"
         with timed_phase(report, phase):
             git(repo, "merge", "--ff-only", integrated, capture=False)
@@ -978,9 +1092,11 @@ def apply_update(args: argparse.Namespace) -> int:
         report.status = "committed_local"
 
         if args.no_push:
-            print("[9/9] Push skipped (--no-push).")
+            print("[9/10] Push skipped (--no-push).")
+            report.main_bundle_export_skipped = "no_push"
+            report.status = "success_no_push"
         else:
-            print("[9/9] Pushing origin/main...")
+            print("[9/10] Pushing origin/main...")
             phase = "push"
             with timed_phase(report, phase):
                 push = git(repo, "push", "origin", "main", check=False, capture=False)
@@ -988,9 +1104,42 @@ def apply_update(args: argparse.Namespace) -> int:
                 report.status = "committed_local_push_failed"
                 raise UpdateError("push failed; verified commit remains on local main")
             report.pushed = True
+            phase = "post_push_remote_verification"
+            with timed_phase(report, phase):
+                remote_head = remote_main_sha(repo)
+            report.remote_head_after_push = remote_head
+            if remote_head != report.head_after:
+                report.status = "committed_local_push_verification_failed"
+                raise UpdateError(
+                    "push returned success but origin/main does not match local HEAD; "
+                    f"local={report.head_after} remote={remote_head}"
+                )
+            if args.no_export_main_bundle:
+                print("[10/10] Main bundle export skipped (--no-export-main-bundle).")
+                report.main_bundle_export_skipped = "disabled_by_flag"
+            else:
+                print("[10/10] Exporting verified origin/main bundle to Downloads...")
+                phase = "main_bundle_export"
+                try:
+                    with timed_phase(report, phase):
+                        exported = export_main_bundle(
+                            repo,
+                            main_bundle_output_dir(args.main_bundle_dir),
+                            report.head_after,
+                        )
+                except Exception as exc:
+                    report.status = "pushed_main_bundle_export_failed"
+                    raise UpdateError(
+                        "origin/main was pushed and verified, but automatic main bundle "
+                        f"export failed: {exc}"
+                    ) from exc
+                report.main_bundle_exported = True
+                report.main_bundle_path = exported["versioned"]
+                report.main_bundle_latest_path = exported["latest"]
+                report.main_bundle_sha256 = exported["sha256"]
+                print(f"Main bundle: {report.main_bundle_path}")
+                print(f"Latest bundle: {report.main_bundle_latest_path}")
             report.status = "success"
-        if args.no_push:
-            report.status = "success_no_push"
         finalize_total_timing(report, total_started)
         path = write_report(report)
         print_timing_summary(report)
@@ -999,7 +1148,11 @@ def apply_update(args: argparse.Namespace) -> int:
     except (UpdateError, OSError, zipfile.BadZipFile) as exc:
         report.error = str(exc)
         report.failure_phase = phase
-        if report.status not in {"committed_local_push_failed"}:
+        if report.status not in {
+            "committed_local_push_failed",
+            "committed_local_push_verification_failed",
+            "pushed_main_bundle_export_failed",
+        }:
             report.status = "failed"
         finalize_total_timing(report, total_started)
         report_path: Path | None = None
@@ -1062,6 +1215,20 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--yes", "-y", action="store_true")
     parser.add_argument("--no-push", action="store_true")
     parser.add_argument(
+        "--no-export-main-bundle",
+        action="store_true",
+        help="do not export DRPO_MAIN bundles after a verified successful push",
+    )
+    parser.add_argument(
+        "--main-bundle-dir",
+        help="post-push main bundle directory (default: ~/Downloads)",
+    )
+    parser.add_argument(
+        "--doctor",
+        action="store_true",
+        help="run non-destructive updater self-tests and exit",
+    )
+    parser.add_argument(
         "--test-mode",
         choices=("auto", "fast", "full"),
         default="auto",
@@ -1078,13 +1245,100 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     if args.version:
         print(f"drpo-update {VERSION}")
         raise SystemExit(0)
-    if not args.package:
+    if not args.package and not args.doctor:
         parser.error("the following arguments are required: package")
     return args
 
 
+def run_doctor(args: argparse.Namespace) -> int:
+    """Run key updater paths in synthetic repositories without touching real main."""
+
+    try:
+        repo = resolve_repo(args.repo)
+    except Exception as exc:
+        print(f"DOCTOR REPOSITORY: FAIL ({exc})", file=sys.stderr)
+        return 1
+
+    failures: list[str] = []
+    static_commands = [
+        (
+            "PYTHON COMPILE",
+            [
+                sys.executable,
+                "-m",
+                "compileall",
+                "-q",
+                "tools/drpo-update",
+                "scripts/package_update.py",
+                "scripts/verify_update_package.py",
+            ],
+        ),
+        (
+            "SHELL SYNTAX",
+            ["bash", "-n", "tools/drpo-update/drpo-update", "tools/drpo-update/install.sh"],
+        ),
+    ]
+    for label, command in static_commands:
+        proc = run(command, cwd=repo, check=False, capture=True)
+        if proc.returncode == 0:
+            print(f"DOCTOR {label}: PASS")
+        else:
+            failures.append(label)
+            print(f"DOCTOR {label}: FAIL", file=sys.stderr)
+            detail = (proc.stdout or "") + (proc.stderr or "")
+            if detail.strip():
+                print(detail.rstrip(), file=sys.stderr)
+
+    # Invoke each transactional scenario in a fresh pytest process.  This keeps
+    # synthetic repositories and any child test gates isolated from one another.
+    transaction_nodes = [
+        "tests/test_update_git_bundle.py::test_bundle_verifier_proves_patch_tree_equivalence",
+        "tests/test_update_git_bundle.py::test_stale_ancestral_bundle_merges_nonconflicting_main",
+        "tests/test_update_git_bundle.py::test_bundle_conflict_fails_without_modifying_main",
+        "tests/test_update_git_bundle.py::test_failed_package_tests_leave_main_untouched",
+        "tests/test_update_git_bundle.py::test_default_failure_diagnostic_is_written_to_downloads",
+        "tests/test_update_git_bundle.py::test_successful_push_defaults_versioned_and_latest_main_bundles_to_downloads",
+        "tests/test_update_git_bundle.py::test_no_push_never_exports_official_main_bundle",
+        "tests/test_update_git_bundle.py::test_post_push_export_failure_generates_diagnostic_without_rolling_back_push",
+        "tests/test_update_packager.py::test_canonical_packager_always_emits_bundle_pair_and_manifest",
+        "tests/test_update_packager.py::test_production_verifier_rejects_legacy_patch_only_package",
+    ]
+    transaction_failures: list[str] = []
+    transaction_env = os.environ.copy()
+    transaction_env.pop("PYTEST_CURRENT_TEST", None)
+    transaction_env["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
+    for node in transaction_nodes:
+        proc = run(
+            [sys.executable, "-m", "pytest", "-q", node],
+            cwd=repo,
+            check=False,
+            capture=True,
+            env=transaction_env,
+        )
+        if proc.returncode != 0:
+            transaction_failures.append(node)
+            detail = (proc.stdout or "") + (proc.stderr or "")
+            if detail.strip():
+                print(f"DOCTOR TRANSACTION NODE FAIL: {node}", file=sys.stderr)
+                print(detail.rstrip(), file=sys.stderr)
+    if transaction_failures:
+        failures.append("TRANSACTION PATHS")
+        print("DOCTOR TRANSACTION PATHS: FAIL", file=sys.stderr)
+    else:
+        print("DOCTOR TRANSACTION PATHS: PASS")
+
+    if failures:
+        print("DRPO UPDATE DOCTOR: FAIL (" + ", ".join(failures) + ")", file=sys.stderr)
+        return 1
+    print("DRPO UPDATE DOCTOR: PASS")
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
-    return apply_update(parse_args(argv))
+    args = parse_args(argv)
+    if args.doctor:
+        return run_doctor(args)
+    return apply_update(args)
 
 
 if __name__ == "__main__":

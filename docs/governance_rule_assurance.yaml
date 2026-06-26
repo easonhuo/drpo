@@ -155,6 +155,25 @@ rules:
     - tests/test_experiment_artifact_protocol.py::test_build_and_verify_final_package
     - tests/test_experiment_artifact_hardening.py::test_checksum_corruption_is_rejected
     coverage_level: direct
+  GOV-AGENT-PATCH-007:
+    type: machine
+    implementation_paths:
+    - scripts/package_update.py
+    - scripts/verify_update_package.py
+    - scripts/create_update_git_bundle.py
+    - tools/drpo-update/drpo_update.py
+    pytest_nodes:
+    - tests/test_update_packager.py::test_canonical_packager_always_emits_bundle_pair_and_manifest
+    - tests/test_update_packager.py::test_production_verifier_rejects_legacy_patch_only_package
+    coverage_level: direct
+  GOV-AGENT-PATCH-008:
+    type: machine
+    implementation_paths:
+    - scripts/package_update.py
+    - scripts/verify_update_package.py
+    pytest_nodes:
+    - tests/test_update_packager.py::test_canonical_packager_always_emits_bundle_pair_and_manifest
+    coverage_level: direct
   GOV-AGENT-HARDENING-001:
     type: review
     triggers:
