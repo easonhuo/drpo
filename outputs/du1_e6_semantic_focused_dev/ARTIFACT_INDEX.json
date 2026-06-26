@@ -1,0 +1,28 @@
+{
+  "compact_repository_outputs": [
+    "FOCUSED_DEV_SUMMARY.md",
+    "RUN_COMPLETE.json",
+    "formal_freeze_recommendation.json",
+    "phase1_aggregate_summary.json",
+    "phase1_fixed_concentration_summary.csv",
+    "phase1_learnable_local_alpha_summary.csv",
+    "phase1_local_alpha_selection.csv",
+    "phase1_run_complete.json",
+    "phase2_aggregate_summary.json",
+    "phase2_far_pressure_summary.csv",
+    "phase2_paired_counts.csv",
+    "phase2_run_complete.json",
+    "run_manifest.json",
+    "terminal_audit.json"
+  ],
+  "experiment_id": "D-U1-E6-SEMANTIC-FOCUSED-DEV-01",
+  "formal_result": false,
+  "method_ranking_allowed": false,
+  "raw_artifact": {
+    "filename": "DRPO_DU1_E6_SEMANTIC_FOCUSED_DEV_RAW.zip",
+    "included_in_update_package_under": "experiment_artifacts/DRPO_DU1_E6_SEMANTIC_FOCUSED_DEV_RAW.zip",
+    "sha256": "bee5b62e7715bda63ec166849f431ab5c4c90954720e672945e25e62b320e0d6",
+    "size_bytes": 5217817
+  },
+  "scientific_status": "pilot"
+}

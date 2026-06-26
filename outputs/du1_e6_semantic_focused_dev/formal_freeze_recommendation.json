@@ -1,0 +1,112 @@
+{
+  "automatic_freeze_allowed": false,
+  "blockers_resolved": {
+    "far_pressure_transition_identified": true,
+    "fixed_concentration_2000_step_terminal_uncertainty": true,
+    "safe_learnable_local_negative_pressure_identified": true
+  },
+  "development_findings": {
+    "far_pressure": {
+      "budget_matched_global_protected_at_transition": false,
+      "far_cap_ratio_1_0_protected_at_transition": false,
+      "far_only_boundary_lambda": 0.05,
+      "far_only_boundary_support_events": 5,
+      "interpretation": "far_pressure_has_a_sharp_support_transition_existing_ratio_1_controls_do_not_rescue_it",
+      "safe_lambda": 0.01,
+      "safe_lambda_support_events": 0,
+      "transition_lambda": 0.02,
+      "transition_lambda_uncontrolled_support_events": 5
+    },
+    "fixed_concentration": {
+      "alpha_0_25_plateau_seeds": 5,
+      "alpha_0_5_plateau_seeds": 5,
+      "alpha_0_75_plateau_seeds": 5,
+      "interpretation": "alpha_0_25_and_0_5_stably_beneficial_alpha_0_75_stably_over_extrapolated"
+    },
+    "learnable_local_pressure": {
+      "alpha_0_2_support_events": 3,
+      "interpretation": "alpha_0_1_safe_and_beneficial_alpha_0_2_enters_support_transition",
+      "selected_alpha": 0.1,
+      "selected_plateau_seeds": 5,
+      "selected_support_events": 0,
+      "selection_rule": "largest_descending_candidate_meeting_all_preregistered_conditions"
+    }
+  },
+  "experiment_id": "D-U1-E6-SEMANTIC-FOCUSED-DEV-01",
+  "proposed_formal_freeze_for_user_review": {
+    "evaluation_interval_steps": 50,
+    "event_thresholds": {
+      "concentration_warning": 80.0,
+      "effective_support_boundary": 1.5,
+      "task_collapse_ratio_to_paired_positive_only": 0.2
+    },
+    "far_cap_ratio_to_weighted_local_gradient": 1.0,
+    "fixed_alpha_grid": [
+      0.0,
+      0.25,
+      0.5,
+      0.75
+    ],
+    "fixed_concentration": 8.0,
+    "formal_2x_note": "8000 steps is 2x the focused-development 4000-step horizon; windows are fixed before held-out execution.",
+    "formal_method_matrix": [
+      "positive_only",
+      "far_zero",
+      "uncontrolled",
+      "near_zero",
+      "far_cap",
+      "budget_matched_global"
+    ],
+    "held_out_seeds": [
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29
+    ],
+    "learnable_concentration_upper_clamp": false,
+    "learnable_far_pressure_stress_lambda": 0.05,
+    "learnable_initial_concentration": 8.0,
+    "learnable_local_alpha": 0.1,
+    "learning_rate": 0.001,
+    "maximum_steps": 8000,
+    "optimizer": "Adam",
+    "primary_comparisons": [
+      "far_zero_vs_positive_only",
+      "uncontrolled_vs_far_zero",
+      "near_zero_vs_far_zero"
+    ],
+    "secondary_non_assumptive_controls": [
+      "far_cap_vs_uncontrolled",
+      "budget_matched_global_vs_uncontrolled"
+    ],
+    "terminal_windows": [
+      [
+        4000,
+        6000
+      ],
+      [
+        6000,
+        8000
+      ]
+    ]
+  },
+  "remaining_gate": "explicit_user_approval_then_formal_runner_and_canonical_activation",
+  "scientific_status": "pilot",
+  "user_review_required": true
+}

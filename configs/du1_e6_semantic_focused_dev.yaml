@@ -1,0 +1,158 @@
+experiment_id: D-U1-E6-SEMANTIC-FOCUSED-DEV-01
+parent_experiment: E6
+environment: D-U1
+scientific_status: pilot
+execution_mode: focused_development_extension_phase1
+formal_parameter_freeze: false
+predecessor: D-U1-E6-SEMANTIC-PILOT-01
+claim: >-
+  Resolve the two pilot blockers without adding a new scientific variable: confirm
+  the fixed-concentration alpha branches over a 2x development horizon, then identify
+  a lower learnable-concentration local-negative pressure that improves held-out-context
+  hidden-optimal probability without crossing the registered support boundary.
+non_claims:
+  - no_formal_method_ranking
+  - no_ood_generalization_claim
+  - no_long_run_validation
+  - no_transformer_external_validity
+  - no_automatic_formal_parameter_freeze
+seeds:
+  development: [0, 1, 2, 3, 4]
+  held_out_formal: []
+data:
+  state_dim: 6
+  semantic_dim: 4
+  action_count: 64
+  train_states: 2048
+  test_states: 2048
+  positive_actions_per_state: 4
+  far_negative_actions_per_state: 4
+  hidden_optimal_actions_per_state: 1
+  local_negative_actions_per_state: 1
+  state_distribution: standard_normal
+  train_test_relation: independent_same_distribution
+  terminology: held_out_context_generalization
+geometry:
+  target_offset: 0.45
+  reward_scale: 0.5
+  positive_advantage: 1.0
+  negative_advantage: -1.0
+  fixed_advantage: true
+  random_action_id_permutation: true
+policy:
+  hidden_dim: 64
+  fixed_concentration: 8.0
+  learnable_concentration_floor: 0.05
+  initial_learnable_concentration: 8.0
+  activation: tanh
+optimization:
+  optimizer: Adam
+  learning_rate: 0.001
+  betas: [0.9, 0.999]
+  eps: 1.0e-8
+  batch_size: 128
+  maximum_steps: 4000
+  evaluation_interval_steps: 50
+  audit_states: 512
+  parallel_workers: 8
+  far_pressure_lambda: 0.0
+  far_cap_ratio_to_weighted_local_gradient: 1.0
+protocol_a:
+  concentration_mode: fixed
+  local_alpha_grid: [0.0, 0.25, 0.5, 0.75]
+  far_pressure_lambda: 0.0
+protocol_b:
+  concentration_mode: learnable
+  settings:
+    - local_alpha: 0.0
+      far_pressure_lambda: 0.0
+      methods: [positive_only]
+    - local_alpha: 0.005
+      far_pressure_lambda: 0.0
+      methods: [local_only]
+    - local_alpha: 0.01
+      far_pressure_lambda: 0.0
+      methods: [local_only]
+    - local_alpha: 0.02
+      far_pressure_lambda: 0.0
+      methods: [local_only]
+    - local_alpha: 0.05
+      far_pressure_lambda: 0.0
+      methods: [local_only]
+    - local_alpha: 0.1
+      far_pressure_lambda: 0.0
+      methods: [local_only]
+    - local_alpha: 0.2
+      far_pressure_lambda: 0.0
+      methods: [local_only]
+protocol_c:
+  concentration_mode: learnable
+  local_alpha: 0.0
+  far_pressure_lambda: 0.0
+  embedding_modes: [aligned]
+  methods: []
+focused_extension:
+  phase: phase1_fixed_horizon_and_local_pressure
+  pilot_horizon_steps: 2000
+  development_extension_horizon_steps: 4000
+  local_alpha_selection_rule:
+    candidate_order: [0.2, 0.1, 0.05, 0.02, 0.01, 0.005]
+    require_support_events: 0
+    require_numerical_failures: 0
+    require_reward_wins_vs_paired_positive_only: 4
+    require_hidden_probability_wins_vs_paired_positive_only: 4
+    require_focused_terminal_plateau_seeds: 4
+  phase2_far_lambda_grid_if_candidate_exists: [0.01, 0.02, 0.05, 0.1, 0.2]
+  phase2_methods: [uncontrolled, far_cap, budget_matched_global, near_zero]
+metrics:
+  - hidden_optimal_probability
+  - positive_support_probability
+  - expected_semantic_reward
+  - normalized_semantic_extrapolation
+  - entropy
+  - effective_support
+  - concentration
+  - raw_positive_local_far_gradient_norms
+  - raw_controlled_negative_gradient_norm
+  - raw_total_gradient_norm
+  - adam_parameter_update_norm
+reporting_separation:
+  - task_performance_collapse
+  - support_or_temperature_boundary
+  - nan_inf_numerical_failure
+events:
+  task_collapse_ratio_to_paired_positive_only: 0.20
+  effective_support_boundary: 1.50
+  concentration_warning: 80.0
+terminal_audit:
+  mode: focused_two_x_windows
+  window_1_steps: [2000, 3000]
+  window_2_steps: [3000, 4000]
+  metric_window_mean_abs_tolerances:
+    test_expected_semantic_reward: 0.01
+    test_hidden_optimal_probability: 0.02
+    test_normalized_semantic_extrapolation: 0.08
+    test_entropy_mean: 0.08
+  raw_total_gradient_median_ratio_max: 1.25
+  adam_update_median_ratio_max: 1.25
+  formal_two_x_extension_required: true
+formal_gate:
+  enabled: false
+  reason: >-
+    This is a development-only blocker-resolution experiment. Its selected local
+    alpha and any phase-2 far-pressure settings require user review and a separate
+    formal freeze before untouched held-out seeds may be consumed.
+  approval_record: null
+  frozen_protocol_path: null
+  held_out_seeds: []
+outputs:
+  required:
+    - resolved_config.yaml
+    - environment_audits.json
+    - trajectories.jsonl
+    - per_run_summary.json
+    - aggregate_summary.json
+    - terminal_audit.json
+    - pilot_freeze_recommendation.json
+    - run_manifest.json
+    - RUN_COMPLETE.json

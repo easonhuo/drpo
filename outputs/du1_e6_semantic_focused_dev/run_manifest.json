@@ -1,0 +1,36 @@
+{
+  "base_github_commit": "2e04f6dba6d4e87f61920bedb1c464656906bf2b",
+  "development_seeds": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "device": "cpu",
+  "experiment_id": "D-U1-E6-SEMANTIC-FOCUSED-DEV-01",
+  "formal_result": false,
+  "phase1_run_complete": {
+    "actual_runs": 55,
+    "completed": true,
+    "elapsed_seconds": 147.61765384674072,
+    "execution_mode": "focused_development_extension_phase1",
+    "expected_runs": 55,
+    "experiment_id": "D-U1-E6-SEMANTIC-FOCUSED-DEV-01",
+    "formal_result": false,
+    "method_ranking_allowed": false,
+    "scientific_status": "pilot"
+  },
+  "phase2_local_source_commit": "07f521694d3cb2d0e71993467907c0849450deb9",
+  "phase2_run_complete": {
+    "actual_runs": 110,
+    "completed": true,
+    "elapsed_seconds": 310.27297711372375,
+    "execution_mode": "focused_development_extension_phase2",
+    "expected_runs": 110,
+    "experiment_id": "D-U1-E6-SEMANTIC-FOCUSED-DEV-01",
+    "formal_result": false,
+    "method_ranking_allowed": false,
+    "scientific_status": "pilot"
+  }
+}

@@ -83,3 +83,15 @@ Formal execution must later use a separately registered hardened-guard command.
 `automatic_freeze_allowed=false`. The user must review the development evidence
 before alpha, concentration, optimizer, stopping rules, thresholds, and untouched
 held-out seeds are registered for the long-run experiment.
+
+## Focused blocker-resolution extension
+
+`configs/du1_e6_semantic_focused_dev.yaml` registers
+`D-U1-E6-SEMANTIC-FOCUSED-DEV-01`. It keeps development seeds 0--4 and the
+original D-U1 geometry, doubles the pilot horizon to 4000 steps, and uses only
+existing alpha/far-pressure variables. Phase 1 verifies fixed-concentration
+terminal behavior and screens lower learnable-concentration local pressure. A
+phase-2 far-pressure scan is allowed only after the pre-registered phase-1
+selection rule chooses a safe local alpha. The focused terminal classification
+uses window-mean stability and gradient/update growth ratios; it does not require
+a stochastic raw gradient to vanish and does not constitute formal acceptance.

@@ -1,0 +1,18 @@
+{
+  "all_runs_present": true,
+  "development_two_x_horizon_performed": true,
+  "experiment_id": "D-U1-E6-SEMANTIC-FOCUSED-DEV-01",
+  "focused_terminal_plateau_count": 86,
+  "formal_longrun_performed": false,
+  "formal_method_ranking_allowed": false,
+  "formal_result": false,
+  "held_out_formal_seeds_consumed": false,
+  "nan_inf_numerical_failure_count": 0,
+  "phase1_actual_runs": 55,
+  "phase1_expected_runs": 55,
+  "phase2_actual_runs": 110,
+  "phase2_expected_runs": 110,
+  "scientific_status": "pilot",
+  "support_or_temperature_boundary_count": 78,
+  "task_performance_collapse_count": 0
+}

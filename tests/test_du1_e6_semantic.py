@@ -150,3 +150,94 @@ def test_registry_preregistration_preserves_canonical_channel_and_history() -> N
     assert longrun["formal_execution"]["launch_mode"] == "canonical_guard"
     handoff = (REPO_ROOT / "docs" / "handoff.md").read_text()
     assert "v37（D-U1 E5 长程复核闭环版）" in handoff
+
+
+def test_focused_config_supports_explicit_pressure_settings_and_two_x_audit() -> None:
+    from drpo.du1_e6_semantic import FOCUSED_EXPERIMENT_ID, run_specs
+
+    path = REPO_ROOT / "configs" / "du1_e6_semantic_focused_dev.yaml"
+    config = yaml.safe_load(path.read_text())
+    assert config["experiment_id"] == FOCUSED_EXPERIMENT_ID
+    validate_config(config, "pilot")
+    specs = run_specs(config)
+    assert len(specs) == 11
+    assert sum(spec.protocol == "E6-A" for spec in specs) == 4
+    assert sum(spec.protocol == "E6-B" for spec in specs) == 7
+    assert {spec.alpha for spec in specs if spec.protocol == "E6-B"} == {
+        0.0,
+        0.005,
+        0.01,
+        0.02,
+        0.05,
+        0.1,
+        0.2,
+    }
+    assert config["terminal_audit"]["mode"] == "focused_two_x_windows"
+    assert config["seeds"]["held_out_formal"] == []
+
+
+def test_focused_terminal_audit_accepts_stable_nonzero_gradient() -> None:
+    from drpo.du1_e6_semantic import terminal_classification
+
+    config = yaml.safe_load(
+        (REPO_ROOT / "configs" / "du1_e6_semantic_focused_dev.yaml").read_text()
+    )
+    trajectory = []
+    for step in range(0, 4001, 50):
+        trajectory.append(
+            {
+                "step": step,
+                "nan_inf_numerical_failure": False,
+                "support_or_temperature_boundary": False,
+                "test_expected_semantic_reward": 0.88 + 1.0e-6 * step,
+                "test_hidden_optimal_probability": 0.20 + 1.0e-6 * step,
+                "test_normalized_semantic_extrapolation": 0.90 + 2.0e-6 * step,
+                "test_entropy_mean": 1.80 - 1.0e-6 * step,
+                "audit_raw_total_gradient_norm": 0.50,
+                "adam_parameter_update_norm": 0.01,
+            }
+        )
+    result = terminal_classification(trajectory, config)
+    assert result["class"] == "focused_terminal_plateau"
+    assert result["raw_total_gradient_medians"] == pytest.approx([0.5, 0.5])
+    assert result["formal_acceptance"] is False
+
+
+def test_focused_phase2_config_follows_preregistered_selection() -> None:
+    from drpo.du1_e6_semantic import run_specs
+
+    config = yaml.safe_load(
+        (REPO_ROOT / "configs" / "du1_e6_semantic_focused_dev_phase2.yaml").read_text()
+    )
+    validate_config(config, "pilot")
+    evidence = config["focused_extension"]["phase1_selection_evidence"]
+    assert evidence["selected_local_alpha"] == 0.1
+    assert evidence["alpha_0_1_support_events"] == 0
+    specs = run_specs(config)
+    assert len(specs) == 22
+    far_values = {spec.far_lambda for spec in specs if spec.far_lambda > 0}
+    assert far_values == {0.01, 0.02, 0.05, 0.1, 0.2}
+    assert all(spec.alpha in {0.0, 0.1} for spec in specs)
+
+
+def test_focused_development_result_closure_and_formal_gate() -> None:
+    registry = yaml.safe_load((REPO_ROOT / "experiments" / "registry.yaml").read_text())
+    development = {item["id"]: item for item in registry["development_experiment_registrations"]}
+    focused = development["D-U1-E6-SEMANTIC-FOCUSED-DEV-01"]
+    assert focused["status"] == "pilot"
+    assert focused["execution"]["state"] == "delivered"
+    assert focused["result"]["total_actual_runs"] == 165
+    assert focused["result"]["nan_inf_numerical_failure_count"] == 0
+    assert focused["result"]["selected_learnable_local_alpha"] == 0.1
+    assert focused["result"]["support_transition_far_lambda"] == 0.02
+    assert focused["formal_freeze_recommendation"]["automatic_freeze_allowed"] is False
+    assert focused["formal_freeze_recommendation"]["maximum_steps"] == 8000
+    longrun = development["D-U1-E6-SEMANTIC-LONGRUN-01"]
+    assert longrun["formal_execution"]["activation_state"] == "blocked"
+    assert longrun["formal_parameter_freeze"] is False
+    assert "explicit_user_approval_of_D-U1-E6-SEMANTIC-FOCUSED-DEV-01_freeze" in longrun["blocked_by"]
+    summary = REPO_ROOT / "outputs" / "du1_e6_semantic_focused_dev" / "FOCUSED_DEV_SUMMARY.md"
+    assert summary.exists()
+    handoff = (REPO_ROOT / "docs" / "handoff.md").read_text()
+    assert "v43（D-U1 E6 聚焦开发扩展结果审计版）" in handoff
+    assert "v37（D-U1 E5 长程复核闭环版）" in handoff

@@ -1,0 +1,10 @@
+{
+  "completed": true,
+  "experiment_id": "D-U1-E6-SEMANTIC-FOCUSED-DEV-01",
+  "formal_result": false,
+  "method_ranking_allowed": false,
+  "phase1_runs": 55,
+  "phase2_runs": 110,
+  "scientific_status": "pilot",
+  "total_runs": 165
+}

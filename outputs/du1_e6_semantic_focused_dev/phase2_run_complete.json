@@ -1,0 +1,11 @@
+{
+  "actual_runs": 110,
+  "completed": true,
+  "elapsed_seconds": 310.27297711372375,
+  "execution_mode": "focused_development_extension_phase2",
+  "expected_runs": 110,
+  "experiment_id": "D-U1-E6-SEMANTIC-FOCUSED-DEV-01",
+  "formal_result": false,
+  "method_ranking_allowed": false,
+  "scientific_status": "pilot"
+}

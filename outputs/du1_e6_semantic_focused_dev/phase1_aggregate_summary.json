@@ -1,0 +1,719 @@
+{
+  "E6-A|aligned|fixed|local_only|alpha=0.25|far=0.0": {
+    "metrics": {
+      "concentration_max": {
+        "max": 8.0,
+        "mean": 8.0,
+        "min": 8.0,
+        "std": 0.0
+      },
+      "concentration_mean": {
+        "max": 8.0,
+        "mean": 8.0,
+        "min": 8.0,
+        "std": 0.0
+      },
+      "effective_support_mean": {
+        "max": 9.76491641998291,
+        "mean": 9.510277938842773,
+        "min": 9.171772956848145,
+        "std": 0.23988779923595516
+      },
+      "effective_support_p05": {
+        "max": 7.444883346557617,
+        "mean": 6.8378547668457035,
+        "min": 6.134535789489746,
+        "std": 0.5354461563852749
+      },
+      "entropy_mean": {
+        "max": 2.2619385719299316,
+        "mean": 2.2336169242858888,
+        "min": 2.203551769256592,
+        "std": 0.027231451682421696
+      },
+      "expected_semantic_reward": {
+        "max": 0.891629159450531,
+        "mean": 0.8815025925636292,
+        "min": 0.8728147149085999,
+        "std": 0.007198244149184352
+      },
+      "hidden_optimal_probability": {
+        "max": 0.20287013053894043,
+        "mean": 0.19278203845024108,
+        "min": 0.18583151698112488,
+        "std": 0.006684748374049401
+      },
+      "normalized_semantic_extrapolation": {
+        "max": 0.4187934994697571,
+        "mean": 0.35607409477233887,
+        "min": 0.26457610726356506,
+        "std": 0.056838625643169806
+      },
+      "positive_support_probability": {
+        "max": 0.5358226299285889,
+        "mean": 0.5263657808303833,
+        "min": 0.5143648386001587,
+        "std": 0.009347429521506842
+      }
+    },
+    "n": 5,
+    "nan_inf_numerical_failure_count": 0,
+    "support_or_temperature_boundary_count": 0,
+    "task_performance_collapse_count": 0,
+    "terminal_class_counts": {
+      "focused_terminal_plateau": 5
+    }
+  },
+  "E6-A|aligned|fixed|local_only|alpha=0.5|far=0.0": {
+    "metrics": {
+      "concentration_max": {
+        "max": 8.0,
+        "mean": 8.0,
+        "min": 8.0,
+        "std": 0.0
+      },
+      "concentration_mean": {
+        "max": 8.0,
+        "mean": 8.0,
+        "min": 8.0,
+        "std": 0.0
+      },
+      "effective_support_mean": {
+        "max": 10.218975067138672,
+        "mean": 9.982856941223144,
+        "min": 9.664593696594238,
+        "std": 0.23675600995702922
+      },
+      "effective_support_p05": {
+        "max": 7.617865562438965,
+        "mean": 7.03883056640625,
+        "min": 6.361216068267822,
+        "std": 0.49530658566947755
+      },
+      "entropy_mean": {
+        "max": 2.3105180263519287,
+        "mean": 2.281157875061035,
+        "min": 2.253605842590332,
+        "std": 0.023829133815860472
+      },
+      "expected_semantic_reward": {
+        "max": 0.8851267695426941,
+        "mean": 0.8806196451187134,
+        "min": 0.8772547245025635,
+        "std": 0.003235773595938102
+      },
+      "hidden_optimal_probability": {
+        "max": 0.20953544974327087,
+        "mean": 0.19717957377433776,
+        "min": 0.18929384648799896,
+        "std": 0.007572075830617893
+      },
+      "normalized_semantic_extrapolation": {
+        "max": 1.0735195875167847,
+        "mean": 0.9916653394699096,
+        "min": 0.88422030210495,
+        "std": 0.0682556200409613
+      },
+      "positive_support_probability": {
+        "max": 0.3805931806564331,
+        "mean": 0.357295298576355,
+        "min": 0.3345859944820404,
+        "std": 0.017429619306529844
+      }
+    },
+    "n": 5,
+    "nan_inf_numerical_failure_count": 0,
+    "support_or_temperature_boundary_count": 0,
+    "task_performance_collapse_count": 0,
+    "terminal_class_counts": {
+      "focused_terminal_plateau": 5
+    }
+  },
+  "E6-A|aligned|fixed|local_only|alpha=0.75|far=0.0": {
+    "metrics": {
+      "concentration_max": {
+        "max": 8.0,
+        "mean": 8.0,
+        "min": 8.0,
+        "std": 0.0
+      },
+      "concentration_mean": {
+        "max": 8.0,
+        "mean": 8.0,
+        "min": 8.0,
+        "std": 0.0
+      },
+      "effective_support_mean": {
+        "max": 10.621910095214844,
+        "mean": 10.303123474121094,
+        "min": 10.078187942504883,
+        "std": 0.2079362174106054
+      },
+      "effective_support_p05": {
+        "max": 7.563399791717529,
+        "mean": 7.198247718811035,
+        "min": 6.297958850860596,
+        "std": 0.5221887806394172
+      },
+      "entropy_mean": {
+        "max": 2.346114158630371,
+        "mean": 2.3102901935577393,
+        "min": 2.275825262069702,
+        "std": 0.025039912797700344
+      },
+      "expected_semantic_reward": {
+        "max": 0.8449139595031738,
+        "mean": 0.8401557922363281,
+        "min": 0.8347574472427368,
+        "std": 0.004092504953523391
+      },
+      "hidden_optimal_probability": {
+        "max": 0.13820666074752808,
+        "mean": 0.13106368184089662,
+        "min": 0.11471304297447205,
+        "std": 0.009803678933459879
+      },
+      "normalized_semantic_extrapolation": {
+        "max": 1.6225082874298096,
+        "mean": 1.5694567680358886,
+        "min": 1.4795860052108765,
+        "std": 0.05622902851434907
+      },
+      "positive_support_probability": {
+        "max": 0.18380549550056458,
+        "mean": 0.16493670344352723,
+        "min": 0.1484350711107254,
+        "std": 0.012905350220736368
+      }
+    },
+    "n": 5,
+    "nan_inf_numerical_failure_count": 0,
+    "support_or_temperature_boundary_count": 0,
+    "task_performance_collapse_count": 0,
+    "terminal_class_counts": {
+      "focused_terminal_plateau": 5
+    }
+  },
+  "E6-A|aligned|fixed|positive_only|alpha=0.0|far=0.0": {
+    "metrics": {
+      "concentration_max": {
+        "max": 8.0,
+        "mean": 8.0,
+        "min": 8.0,
+        "std": 0.0
+      },
+      "concentration_mean": {
+        "max": 8.0,
+        "mean": 8.0,
+        "min": 8.0,
+        "std": 0.0
+      },
+      "effective_support_mean": {
+        "max": 9.89101791381836,
+        "mean": 9.688689613342286,
+        "min": 9.28457260131836,
+        "std": 0.25041258135065503
+      },
+      "effective_support_p05": {
+        "max": 7.637444496154785,
+        "mean": 6.828860569000244,
+        "min": 6.081232070922852,
+        "std": 0.5640063053386616
+      },
+      "entropy_mean": {
+        "max": 2.279731273651123,
+        "mean": 2.2493377208709715,
+        "min": 2.213195562362671,
+        "std": 0.025697385579820684
+      },
+      "expected_semantic_reward": {
+        "max": 0.8678714036941528,
+        "mean": 0.8566656470298767,
+        "min": 0.8490378260612488,
+        "std": 0.007206456229730002
+      },
+      "hidden_optimal_probability": {
+        "max": 0.14736562967300415,
+        "mean": 0.14225898683071136,
+        "min": 0.1380750983953476,
+        "std": 0.004190482371621102
+      },
+      "normalized_semantic_extrapolation": {
+        "max": -0.1644410789012909,
+        "mean": -0.18037371337413788,
+        "min": -0.19830983877182007,
+        "std": 0.012266594012077822
+      },
+      "positive_support_probability": {
+        "max": 0.6056681871414185,
+        "mean": 0.5949613571166992,
+        "min": 0.588977575302124,
+        "std": 0.00648623186145741
+      }
+    },
+    "n": 5,
+    "nan_inf_numerical_failure_count": 0,
+    "support_or_temperature_boundary_count": 0,
+    "task_performance_collapse_count": 0,
+    "terminal_class_counts": {
+      "focused_terminal_plateau": 5
+    }
+  },
+  "E6-B|aligned|learnable|local_only|alpha=0.005|far=0.0": {
+    "metrics": {
+      "concentration_max": {
+        "max": 17.592918395996094,
+        "mean": 14.659929656982422,
+        "min": 12.603632926940918,
+        "std": 2.2211586186956924
+      },
+      "concentration_mean": {
+        "max": 10.656124114990234,
+        "mean": 10.224292373657226,
+        "min": 9.877052307128906,
+        "std": 0.3235709138574092
+      },
+      "effective_support_mean": {
+        "max": 7.730891704559326,
+        "mean": 7.565945243835449,
+        "min": 7.297188758850098,
+        "std": 0.1764476751303875
+      },
+      "effective_support_p05": {
+        "max": 5.607045650482178,
+        "mean": 5.422257328033448,
+        "min": 5.276530742645264,
+        "std": 0.11938445913539386
+      },
+      "entropy_mean": {
+        "max": 2.0263547897338867,
+        "mean": 2.003931927680969,
+        "min": 1.9710578918457031,
+        "std": 0.02171062687231265
+      },
+      "expected_semantic_reward": {
+        "max": 0.8830612301826477,
+        "mean": 0.8683651685714722,
+        "min": 0.8599628210067749,
+        "std": 0.008872237850483912
+      },
+      "hidden_optimal_probability": {
+        "max": 0.1584664136171341,
+        "mean": 0.1532937228679657,
+        "min": 0.14944975078105927,
+        "std": 0.003569752883928459
+      },
+      "normalized_semantic_extrapolation": {
+        "max": -0.15335775911808014,
+        "mean": -0.1772477924823761,
+        "min": -0.19310946762561798,
+        "std": 0.015331804180583497
+      },
+      "positive_support_probability": {
+        "max": 0.6657627820968628,
+        "mean": 0.6552546620368958,
+        "min": 0.6502014994621277,
+        "std": 0.006412077374559795
+      }
+    },
+    "n": 5,
+    "nan_inf_numerical_failure_count": 0,
+    "support_or_temperature_boundary_count": 0,
+    "task_performance_collapse_count": 0,
+    "terminal_class_counts": {
+      "focused_terminal_plateau": 5
+    }
+  },
+  "E6-B|aligned|learnable|local_only|alpha=0.01|far=0.0": {
+    "metrics": {
+      "concentration_max": {
+        "max": 17.752704620361328,
+        "mean": 14.802311897277832,
+        "min": 12.721353530883789,
+        "std": 2.245902516051154
+      },
+      "concentration_mean": {
+        "max": 10.742250442504883,
+        "mean": 10.299210929870606,
+        "min": 9.9479341506958,
+        "std": 0.3298872471088368
+      },
+      "effective_support_mean": {
+        "max": 7.674117565155029,
+        "mean": 7.506032180786133,
+        "min": 7.23667573928833,
+        "std": 0.1775123135920698
+      },
+      "effective_support_p05": {
+        "max": 5.5487542152404785,
+        "mean": 5.37155933380127,
+        "min": 5.22429895401001,
+        "std": 0.11590223725197382
+      },
+      "entropy_mean": {
+        "max": 2.0187575817108154,
+        "mean": 1.9957651615142822,
+        "min": 1.9625996351242065,
+        "std": 0.022003027283933003
+      },
+      "expected_semantic_reward": {
+        "max": 0.8840325474739075,
+        "mean": 0.8693226099014282,
+        "min": 0.8608471155166626,
+        "std": 0.008898618343087776
+      },
+      "hidden_optimal_probability": {
+        "max": 0.16026665270328522,
+        "mean": 0.1549737572669983,
+        "min": 0.15093432366847992,
+        "std": 0.0037101512175119213
+      },
+      "normalized_semantic_extrapolation": {
+        "max": -0.14386457204818726,
+        "mean": -0.16858532428741455,
+        "min": -0.18523666262626648,
+        "std": 0.01592183561160174
+      },
+      "positive_support_probability": {
+        "max": 0.6665536165237427,
+        "mean": 0.6561467170715332,
+        "min": 0.6510823965072632,
+        "std": 0.00636767462526912
+      }
+    },
+    "n": 5,
+    "nan_inf_numerical_failure_count": 0,
+    "support_or_temperature_boundary_count": 0,
+    "task_performance_collapse_count": 0,
+    "terminal_class_counts": {
+      "focused_terminal_plateau": 5
+    }
+  },
+  "E6-B|aligned|learnable|local_only|alpha=0.02|far=0.0": {
+    "metrics": {
+      "concentration_max": {
+        "max": 18.07767105102539,
+        "mean": 15.090790367126464,
+        "min": 12.97402572631836,
+        "std": 2.2870803157883905
+      },
+      "concentration_mean": {
+        "max": 10.926743507385254,
+        "mean": 10.457107162475586,
+        "min": 10.09947395324707,
+        "std": 0.343016171199682
+      },
+      "effective_support_mean": {
+        "max": 7.5571136474609375,
+        "mean": 7.383164787292481,
+        "min": 7.1111159324646,
+        "std": 0.1807218264843988
+      },
+      "effective_support_p05": {
+        "max": 5.430723667144775,
+        "mean": 5.246490097045898,
+        "min": 5.118237495422363,
+        "std": 0.11422376082343634
+      },
+      "entropy_mean": {
+        "max": 2.0028867721557617,
+        "mean": 1.9787400245666504,
+        "min": 1.9448211193084717,
+        "std": 0.022717398067521582
+      },
+      "expected_semantic_reward": {
+        "max": 0.8860032558441162,
+        "mean": 0.8712615966796875,
+        "min": 0.8626191020011902,
+        "std": 0.008955632623273438
+      },
+      "hidden_optimal_probability": {
+        "max": 0.16397415101528168,
+        "mean": 0.1584414154291153,
+        "min": 0.1539161205291748,
+        "std": 0.00403118379262697
+      },
+      "normalized_semantic_extrapolation": {
+        "max": -0.12462419271469116,
+        "mean": -0.1509930521249771,
+        "min": -0.16958102583885193,
+        "std": 0.01725182556249806
+      },
+      "positive_support_probability": {
+        "max": 0.668091356754303,
+        "mean": 0.657876992225647,
+        "min": 0.6529164910316467,
+        "std": 0.006295591353532101
+      }
+    },
+    "n": 5,
+    "nan_inf_numerical_failure_count": 0,
+    "support_or_temperature_boundary_count": 0,
+    "task_performance_collapse_count": 0,
+    "terminal_class_counts": {
+      "focused_terminal_plateau": 5
+    }
+  },
+  "E6-B|aligned|learnable|local_only|alpha=0.05|far=0.0": {
+    "metrics": {
+      "concentration_max": {
+        "max": 19.149890899658203,
+        "mean": 16.096777534484865,
+        "min": 13.911018371582031,
+        "std": 2.2574192940100515
+      },
+      "concentration_mean": {
+        "max": 11.60172176361084,
+        "mean": 11.024244689941407,
+        "min": 10.643671035766602,
+        "std": 0.4020363387615749
+      },
+      "effective_support_mean": {
+        "max": 7.176593780517578,
+        "mean": 6.978689098358155,
+        "min": 6.694363117218018,
+        "std": 0.19474531855027938
+      },
+      "effective_support_p05": {
+        "max": 5.035755634307861,
+        "mean": 4.8320869445800785,
+        "min": 4.713608264923096,
+        "std": 0.13049443337598854
+      },
+      "entropy_mean": {
+        "max": 1.9494861364364624,
+        "mean": 1.9204506397247314,
+        "min": 1.8833950757980347,
+        "std": 0.025718624096749434
+      },
+      "expected_semantic_reward": {
+        "max": 0.8921038508415222,
+        "mean": 0.877257513999939,
+        "min": 0.8682007789611816,
+        "std": 0.009122354204699437
+      },
+      "hidden_optimal_probability": {
+        "max": 0.17615139484405518,
+        "mean": 0.1699034333229065,
+        "min": 0.16400569677352905,
+        "std": 0.005106030904606253
+      },
+      "normalized_semantic_extrapolation": {
+        "max": -0.06473112106323242,
+        "mean": -0.09605936855077743,
+        "min": -0.11987441033124924,
+        "std": 0.02142377297307151
+      },
+      "positive_support_probability": {
+        "max": 0.6722367405891418,
+        "mean": 0.6627036571502686,
+        "min": 0.6571369171142578,
+        "std": 0.006183625400361583
+      }
+    },
+    "n": 5,
+    "nan_inf_numerical_failure_count": 0,
+    "support_or_temperature_boundary_count": 0,
+    "task_performance_collapse_count": 0,
+    "terminal_class_counts": {
+      "focused_terminal_plateau": 5
+    }
+  },
+  "E6-B|aligned|learnable|local_only|alpha=0.1|far=0.0": {
+    "metrics": {
+      "concentration_max": {
+        "max": 21.81310272216797,
+        "mean": 18.80681800842285,
+        "min": 16.89312171936035,
+        "std": 2.1054986476138757
+      },
+      "concentration_mean": {
+        "max": 13.414267539978027,
+        "mean": 12.560330963134765,
+        "min": 11.880739212036133,
+        "std": 0.5930103475342333
+      },
+      "effective_support_mean": {
+        "max": 6.40824031829834,
+        "mean": 6.134727668762207,
+        "min": 5.834160327911377,
+        "std": 0.22714965980917254
+      },
+      "effective_support_p05": {
+        "max": 4.257867336273193,
+        "mean": 4.063416576385498,
+        "min": 3.925358295440674,
+        "std": 0.12222279518689344
+      },
+      "entropy_mean": {
+        "max": 1.8317118883132935,
+        "mean": 1.7866011142730713,
+        "min": 1.7421245574951172,
+        "std": 0.03455641692440176
+      },
+      "expected_semantic_reward": {
+        "max": 0.9028750061988831,
+        "mean": 0.8881093621253967,
+        "min": 0.8784911632537842,
+        "std": 0.00923756765714958
+      },
+      "hidden_optimal_probability": {
+        "max": 0.20145249366760254,
+        "mean": 0.19376502931118011,
+        "min": 0.18547271192073822,
+        "std": 0.007258104312637689
+      },
+      "normalized_semantic_extrapolation": {
+        "max": 0.041839223355054855,
+        "mean": 0.005931459274142981,
+        "min": -0.02713308110833168,
+        "std": 0.02738119271967781
+      },
+      "positive_support_probability": {
+        "max": 0.6766529083251953,
+        "mean": 0.6695696353912354,
+        "min": 0.6631894111633301,
+        "std": 0.005847767164092649
+      }
+    },
+    "n": 5,
+    "nan_inf_numerical_failure_count": 0,
+    "support_or_temperature_boundary_count": 0,
+    "task_performance_collapse_count": 0,
+    "terminal_class_counts": {
+      "focused_terminal_plateau": 5
+    }
+  },
+  "E6-B|aligned|learnable|local_only|alpha=0.2|far=0.0": {
+    "metrics": {
+      "concentration_max": {
+        "max": 63.39503860473633,
+        "mean": 50.41245880126953,
+        "min": 34.024330139160156,
+        "std": 11.611832346570178
+      },
+      "concentration_mean": {
+        "max": 35.827964782714844,
+        "mean": 27.78124084472656,
+        "min": 20.780744552612305,
+        "std": 5.558929656423749
+      },
+      "effective_support_mean": {
+        "max": 4.053138732910156,
+        "mean": 3.5467365741729737,
+        "min": 2.9763247966766357,
+        "std": 0.3941128930430204
+      },
+      "effective_support_p05": {
+        "max": 1.97158682346344,
+        "mean": 1.5785271167755126,
+        "min": 1.3323808908462524,
+        "std": 0.2606573646056518
+      },
+      "entropy_mean": {
+        "max": 1.3372690677642822,
+        "mean": 1.174343729019165,
+        "min": 1.0046577453613281,
+        "std": 0.11779818856430053
+      },
+      "expected_semantic_reward": {
+        "max": 0.9270154237747192,
+        "mean": 0.913057267665863,
+        "min": 0.9028233885765076,
+        "std": 0.009199289950743672
+      },
+      "hidden_optimal_probability": {
+        "max": 0.2998878061771393,
+        "mean": 0.27958386540412905,
+        "min": 0.2589401602745056,
+        "std": 0.019142226287622254
+      },
+      "normalized_semantic_extrapolation": {
+        "max": 0.3156161904335022,
+        "mean": 0.25840435922145844,
+        "min": 0.203843891620636,
+        "std": 0.04591134532856931
+      },
+      "positive_support_probability": {
+        "max": 0.6719733476638794,
+        "mean": 0.6564801216125489,
+        "min": 0.6478515863418579,
+        "std": 0.009415582357653638
+      }
+    },
+    "n": 5,
+    "nan_inf_numerical_failure_count": 0,
+    "support_or_temperature_boundary_count": 3,
+    "task_performance_collapse_count": 0,
+    "terminal_class_counts": {
+      "focused_terminal_drift_or_inconclusive": 1,
+      "focused_terminal_plateau": 1,
+      "support_or_temperature_boundary": 3
+    }
+  },
+  "E6-B|aligned|learnable|positive_only|alpha=0.0|far=0.0": {
+    "metrics": {
+      "concentration_max": {
+        "max": 17.436477661132812,
+        "mean": 14.523031997680665,
+        "min": 12.487967491149902,
+        "std": 2.1996879755930614
+      },
+      "concentration_mean": {
+        "max": 10.57392692565918,
+        "mean": 10.152347183227539,
+        "min": 9.809242248535156,
+        "std": 0.31755389786378824
+      },
+      "effective_support_mean": {
+        "max": 7.787459373474121,
+        "mean": 7.624762439727784,
+        "min": 7.356151580810547,
+        "std": 0.175801643202837
+      },
+      "effective_support_p05": {
+        "max": 5.6610612869262695,
+        "mean": 5.474353790283203,
+        "min": 5.33101224899292,
+        "std": 0.1197305905101136
+      },
+      "entropy_mean": {
+        "max": 2.0338103771209717,
+        "mean": 2.011869287490845,
+        "min": 1.9792308807373047,
+        "std": 0.021468611872724284
+      },
+      "expected_semantic_reward": {
+        "max": 0.8820996880531311,
+        "mean": 0.8674160957336425,
+        "min": 0.8590807914733887,
+        "std": 0.008847846072071947
+      },
+      "hidden_optimal_probability": {
+        "max": 0.15671133995056152,
+        "mean": 0.15165030360221862,
+        "min": 0.14799095690250397,
+        "std": 0.003440312182383865
+      },
+      "normalized_semantic_extrapolation": {
+        "max": -0.16276302933692932,
+        "mean": -0.18580601811408998,
+        "min": -0.20088988542556763,
+        "std": 0.014757631547228083
+      },
+      "positive_support_probability": {
+        "max": 0.6649627685546875,
+        "mean": 0.6543471693992615,
+        "min": 0.6492905020713806,
+        "std": 0.006463350166909319
+      }
+    },
+    "n": 5,
+    "nan_inf_numerical_failure_count": 0,
+    "support_or_temperature_boundary_count": 0,
+    "task_performance_collapse_count": 0,
+    "terminal_class_counts": {
+      "focused_terminal_plateau": 5
+    }
+  }
+}

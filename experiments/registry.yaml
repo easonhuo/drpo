@@ -2329,12 +2329,146 @@ development_experiment_registrations:
     repository_applied: true
     applied_commit: 2e04f6dba6d4e87f61920bedb1c464656906bf2b
 
+- id: D-U1-E6-SEMANTIC-FOCUSED-DEV-01
+  environment: D-U1
+  name: shared_semantic_categorical_focused_development_extension
+  status: pilot
+  parent_experiment: E6
+  predecessor: D-U1-E6-SEMANTIC-PILOT-01
+  registration_base_commit: 2e04f6dba6d4e87f61920bedb1c464656906bf2b
+  claim: >-
+    Resolve the fixed-concentration terminal-horizon and learnable-concentration
+    support-boundary blockers using only the already registered alpha, far-pressure,
+    concentration, and training-horizon variables.
+  role: controlled_shared_semantic_categorical_blocker_resolution
+  execution_class: pilot
+  registry_scope: development_preregistration_not_in_canonical_experiments
+  code_entrypoint: src/drpo/du1_e6_semantic.py
+  config_path: configs/du1_e6_semantic_focused_dev.yaml
+  phase2_config_path: configs/du1_e6_semantic_focused_dev_phase2.yaml
+  command:
+  - python
+  - src/drpo/du1_e6_semantic.py
+  - --config
+  - configs/du1_e6_semantic_focused_dev.yaml
+  - --stage
+  - pilot
+  - --output-root
+  - experiments/results/D-U1-E6-SEMANTIC-FOCUSED-DEV-01/run_001
+  - --device
+  - auto
+  protocol:
+    development_seeds: [0, 1, 2, 3, 4]
+    held_out_formal_seeds: []
+    optimizer: Adam
+    learning_rate: 0.001
+    maximum_steps: 4000
+    evaluation_interval_steps: 50
+    fixed_concentration: 8.0
+    initial_learnable_concentration: 8.0
+    learnable_concentration_upper_clamp: false
+    fixed_concentration_alpha_grid: [0.0, 0.25, 0.5, 0.75]
+    learnable_local_alpha_grid: [0.005, 0.01, 0.02, 0.05, 0.1, 0.2]
+    phase2_far_pressure_lambda_grid: [0.01, 0.02, 0.05, 0.1, 0.2]
+    phase2_methods: [uncontrolled, far_cap, budget_matched_global, near_zero]
+    phase2_requires_preregistered_phase1_selection: true
+  local_alpha_selection_rule:
+    descending_candidate_order: [0.2, 0.1, 0.05, 0.02, 0.01, 0.005]
+    support_boundary_count_required: 0
+    numerical_failure_count_required: 0
+    paired_reward_wins_required: 4
+    paired_hidden_probability_wins_required: 4
+    focused_terminal_plateau_seeds_required: 4
+    no_candidate_action: stop_without_phase2
+  terminal_audit:
+    mode: focused_two_x_windows
+    window_1_steps: [2000, 3000]
+    window_2_steps: [3000, 4000]
+    metric_window_mean_abs_tolerances:
+      expected_semantic_reward: 0.01
+      hidden_optimal_probability: 0.02
+      normalized_semantic_extrapolation: 0.08
+      entropy_mean: 0.08
+    raw_total_gradient_median_ratio_max: 1.25
+    adam_update_median_ratio_max: 1.25
+    formal_acceptance_allowed: false
+  reporting_separation:
+  - task_performance_collapse
+  - support_or_temperature_boundary
+  - nan_inf_numerical_failure
+  non_claims:
+  - formal_method_ranking
+  - long_run_validation
+  - OOD_generalization
+  - automatic_formal_parameter_freeze
+  execution:
+    state: delivered
+    run_id: focused-dev-two-phase-20260626
+    last_heartbeat_utc: '2026-06-26T14:58:00Z'
+    process_exit_code: 0
+  result:
+    scientific_status: pilot
+    base_github_commit: 2e04f6dba6d4e87f61920bedb1c464656906bf2b
+    phase1_actual_runs: 55
+    phase2_actual_runs: 110
+    total_actual_runs: 165
+    maximum_steps_per_run: 4000
+    development_two_x_horizon_performed: true
+    formal_held_out_seeds_consumed: false
+    nan_inf_numerical_failure_count: 0
+    task_performance_collapse_count: 0
+    support_or_temperature_boundary_count: 78
+    fixed_concentration_plateau_counts:
+      alpha_0_0: 5
+      alpha_0_25: 5
+      alpha_0_5: 5
+      alpha_0_75: 5
+    selected_learnable_local_alpha: 0.1
+    selected_local_alpha_support_events: 0
+    selected_local_alpha_plateau_seeds: 5
+    rejected_alpha_0_2_support_events: 3
+    safe_far_lambda: 0.01
+    support_transition_far_lambda: 0.02
+    far_only_boundary_lambda: 0.05
+    ratio_1_far_cap_rescued_transition: false
+    budget_matched_global_rescued_transition: false
+    compact_output_path: outputs/du1_e6_semantic_focused_dev
+    raw_artifact_sha256: bee5b62e7715bda63ec166849f431ab5c4c90954720e672945e25e62b320e0d6
+    formal_gate_decision: blocked_pending_explicit_user_approval_of_freeze
+  formal_freeze_recommendation:
+    automatic_freeze_allowed: false
+    user_review_required: true
+    held_out_seeds: [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29]
+    optimizer: Adam
+    learning_rate: 0.001
+    maximum_steps: 8000
+    evaluation_interval_steps: 50
+    terminal_windows: [[4000, 6000], [6000, 8000]]
+    fixed_concentration: 8.0
+    fixed_alpha_grid: [0.0, 0.25, 0.5, 0.75]
+    initial_learnable_concentration: 8.0
+    learnable_concentration_upper_clamp: false
+    learnable_local_alpha: 0.1
+    learnable_far_pressure_stress_lambda: 0.05
+    formal_method_matrix: [positive_only, far_zero, uncontrolled, near_zero, far_cap, budget_matched_global]
+    far_cap_ratio_to_weighted_local_gradient: 1.0
+  evidence:
+    static_checks: true
+    unit_tests: true
+    smoke_test: true
+    phase1_raw_complete: true
+    phase2_raw_complete: true
+    terminal_audited: true
+    package_created: true
+    delivered_to_user: false
+    repository_applied: false
+
 - id: D-U1-E6-SEMANTIC-LONGRUN-01
   environment: D-U1
   name: shared_semantic_categorical_extrapolation_longrun
   status: not_run
   parent_experiment: E6
-  predecessor: D-U1-E6-SEMANTIC-PILOT-01
+  predecessor: D-U1-E6-SEMANTIC-FOCUSED-DEV-01
   registration_base_commit: c5c9ebf67ed7aa08d0313e604f836907890f0964
   claim: >-
     Reserved formal long-run E6 experiment for shared-semantic categorical
@@ -2360,12 +2494,9 @@ development_experiment_registrations:
     inherit_default_artifact_budget: true
     runner_archive_policy: {mode: forbid}
   blocked_by:
-  - user_review_of_D-U1-E6-SEMANTIC-PILOT-01
-  - frozen_alpha_and_concentration
-  - frozen_learning_rate_and_maximum_steps
-  - frozen_event_and_terminal_audit_thresholds
-  - frozen_untouched_held_out_seeds
-  - separately_implemented_formal_runner
+  - explicit_user_approval_of_D-U1-E6-SEMANTIC-FOCUSED-DEV-01_freeze
+  - formal_runner_and_config_implementation
+  - canonical_formal_channel_activation
   code_entrypoint: null
   command: null
   development_seeds_forbidden_in_formal_aggregation: [0, 1, 2, 3, 4]

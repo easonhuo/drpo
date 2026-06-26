@@ -21,6 +21,7 @@ Scientific boundaries
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
 import copy
 import csv
 import hashlib
@@ -41,8 +42,11 @@ import torch.nn.functional as F
 import yaml
 
 
-EXPERIMENT_ID = "D-U1-E6-SEMANTIC-PILOT-01"
+PILOT_EXPERIMENT_ID = "D-U1-E6-SEMANTIC-PILOT-01"
+FOCUSED_EXPERIMENT_ID = "D-U1-E6-SEMANTIC-FOCUSED-DEV-01"
+EXPERIMENT_ID = PILOT_EXPERIMENT_ID  # Backward-compatible public constant.
 FORMAL_EXPERIMENT_ID = "D-U1-E6-SEMANTIC-LONGRUN-01"
+ALLOWED_DEVELOPMENT_EXPERIMENT_IDS = {PILOT_EXPERIMENT_ID, FOCUSED_EXPERIMENT_ID}
 EPS = 1.0e-12
 
 
@@ -109,9 +113,16 @@ def nested(config: Mapping[str, Any], *keys: str) -> Any:
     return value
 
 
+def configured_experiment_id(config: Mapping[str, Any]) -> str:
+    value = str(config.get("experiment_id", ""))
+    if value not in ALLOWED_DEVELOPMENT_EXPERIMENT_IDS:
+        allowed = ", ".join(sorted(ALLOWED_DEVELOPMENT_EXPERIMENT_IDS))
+        raise ValueError(f"experiment_id must be one of: {allowed}")
+    return value
+
+
 def validate_config(config: Mapping[str, Any], stage: str) -> None:
-    if config.get("experiment_id") != EXPERIMENT_ID:
-        raise ValueError(f"experiment_id must be {EXPERIMENT_ID}")
+    configured_experiment_id(config)
     if config.get("scientific_status") != "pilot":
         raise ValueError("E6 preparation runner must remain status=pilot")
     if bool(config.get("formal_parameter_freeze")):
@@ -165,6 +176,7 @@ def smoke_config(config: Mapping[str, Any]) -> dict[str, Any]:
     out["optimization"]["maximum_steps"] = 2
     out["optimization"]["evaluation_interval_steps"] = 2
     out["optimization"]["audit_states"] = 8
+    out["optimization"]["parallel_workers"] = 1
     out["protocol_a"]["local_alpha_grid"] = [0.0, 0.5]
     out["protocol_b"]["methods"] = [
         "positive_only",
@@ -591,17 +603,31 @@ def run_specs(config: Mapping[str, Any]) -> list[RunSpec]:
             )
         )
     protocol_b = nested(config, "protocol_b")
-    for method in protocol_b["methods"]:
-        specs.append(
-            RunSpec(
-                protocol="E6-B",
-                method=str(method),
-                alpha=float(protocol_b["local_alpha"]),
-                far_lambda=float(protocol_b["far_pressure_lambda"]),
-                concentration_mode=str(protocol_b["concentration_mode"]),
-                embedding_mode="aligned",
+    settings = protocol_b.get("settings")
+    if settings is None:
+        settings = [
+            {
+                "local_alpha": protocol_b["local_alpha"],
+                "far_pressure_lambda": protocol_b["far_pressure_lambda"],
+                "methods": protocol_b["methods"],
+            }
+        ]
+    if not isinstance(settings, Sequence):
+        raise ValueError("protocol_b.settings must be a sequence")
+    for setting in settings:
+        if not isinstance(setting, Mapping):
+            raise ValueError("each protocol_b setting must be a mapping")
+        for method in setting["methods"]:
+            specs.append(
+                RunSpec(
+                    protocol="E6-B",
+                    method=str(method),
+                    alpha=float(setting["local_alpha"]),
+                    far_lambda=float(setting["far_pressure_lambda"]),
+                    concentration_mode=str(protocol_b["concentration_mode"]),
+                    embedding_mode="aligned",
+                )
             )
-        )
     protocol_c = nested(config, "protocol_c")
     for embedding_mode in protocol_c["embedding_modes"]:
         for method in protocol_c["methods"]:
@@ -731,7 +757,67 @@ def terminal_classification(
             "class": "support_or_temperature_boundary",
             "reason": "effective_support_boundary_reached",
         }
-    width = int(nested(config, "terminal_audit", "trailing_evaluations_per_window"))
+
+    audit = nested(config, "terminal_audit")
+    if audit.get("mode") == "focused_two_x_windows":
+        first_bounds = [int(x) for x in audit["window_1_steps"]]
+        second_bounds = [int(x) for x in audit["window_2_steps"]]
+        if len(first_bounds) != 2 or len(second_bounds) != 2:
+            raise ValueError("focused terminal windows must each have two endpoints")
+        windows = [
+            [row for row in trajectory if first_bounds[0] <= int(row["step"]) <= first_bounds[1]],
+            [row for row in trajectory if second_bounds[0] < int(row["step"]) <= second_bounds[1]],
+        ]
+        if any(not window for window in windows):
+            return {
+                "class": "focused_terminal_inconclusive",
+                "reason": "missing_registered_terminal_window",
+                "window_sizes": [len(window) for window in windows],
+            }
+        tolerances = {
+            str(key): float(value)
+            for key, value in audit["metric_window_mean_abs_tolerances"].items()
+        }
+        means = [
+            {metric: float(np.mean([float(row[metric]) for row in window])) for metric in tolerances}
+            for window in windows
+        ]
+        deltas = {metric: abs(means[1][metric] - means[0][metric]) for metric in tolerances}
+        gradient_medians = [
+            float(np.median([float(row["audit_raw_total_gradient_norm"]) for row in window]))
+            for window in windows
+        ]
+        update_medians = [
+            float(np.median([float(row["adam_parameter_update_norm"]) for row in window]))
+            for window in windows
+        ]
+        gradient_ratio = gradient_medians[1] / max(gradient_medians[0], EPS)
+        update_ratio = update_medians[1] / max(update_medians[0], EPS)
+        metric_pass = all(deltas[name] <= tolerances[name] for name in tolerances)
+        gradient_pass = gradient_ratio <= float(audit["raw_total_gradient_median_ratio_max"])
+        update_pass = update_ratio <= float(audit["adam_update_median_ratio_max"])
+        passed = metric_pass and gradient_pass and update_pass
+        return {
+            "class": "focused_terminal_plateau" if passed else "focused_terminal_drift_or_inconclusive",
+            "window_bounds": [first_bounds, second_bounds],
+            "window_sizes": [len(window) for window in windows],
+            "metric_window_means": means,
+            "metric_window_mean_abs_deltas": deltas,
+            "metric_tolerances": tolerances,
+            "raw_total_gradient_medians": gradient_medians,
+            "raw_total_gradient_median_ratio": gradient_ratio,
+            "adam_update_medians": update_medians,
+            "adam_update_median_ratio": update_ratio,
+            "metric_pass": metric_pass,
+            "gradient_pass": gradient_pass,
+            "update_pass": update_pass,
+            "development_two_x_horizon_performed": True,
+            "formal_two_x_extension_performed": False,
+            "formal_acceptance": False,
+            "note": "Focused development terminal evidence cannot establish formal ranking.",
+        }
+
+    width = int(audit["trailing_evaluations_per_window"])
     if len(trajectory) < 2 * width:
         return {
             "class": "inconclusive",
@@ -739,8 +825,8 @@ def terminal_classification(
             "required_evaluations": 2 * width,
             "actual_evaluations": len(trajectory),
         }
-    tolerance = float(nested(config, "terminal_audit", "normalized_metric_change_tolerance"))
-    grad_tolerance = float(nested(config, "terminal_audit", "raw_total_gradient_median_tolerance"))
+    tolerance = float(audit["normalized_metric_change_tolerance"])
+    grad_tolerance = float(audit["raw_total_gradient_median_tolerance"])
     windows = [trajectory[-2 * width : -width], trajectory[-width:]]
     metrics = (
         "test_expected_semantic_reward",
@@ -826,7 +912,7 @@ def run_one(
             finite_scalar(value) for value in numeric_values
         )
         row: dict[str, Any] = {
-            "experiment_id": EXPERIMENT_ID,
+            "experiment_id": configured_experiment_id(config),
             "seed": seed,
             "run_key": spec.key,
             "protocol": spec.protocol,
@@ -897,7 +983,7 @@ def run_one(
     terminal = terminal_classification(trajectory, config)
     final = trajectory[-1]
     summary = {
-        "experiment_id": EXPERIMENT_ID,
+        "experiment_id": configured_experiment_id(config),
         "scientific_status": "pilot",
         "seed": seed,
         "run_key": spec.key,
@@ -928,6 +1014,44 @@ def run_one(
     json_dump(per_run_dir / f"{spec.key}.summary.json", summary)
     return summary, trajectory
 
+
+
+def run_one_reconstructed(
+    config: Mapping[str, Any],
+    seed: int,
+    spec: RunSpec,
+    output_root: Path,
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """Run one deterministic CPU branch in a worker process.
+
+    Reconstructing the environment, initialization, and minibatch stream from the
+    registered seed preserves paired scientific inputs while avoiding transfer of
+    large mutable objects between processes.
+    """
+    torch.set_num_threads(1)
+    device = torch.device("cpu")
+    environment = SemanticEnvironment(config, seed, spec.embedding_mode)
+    seed_all(seed + 10_000)
+    initial_model = SemanticPolicy(config, spec.concentration_mode)
+    initial_state = {
+        key: value.detach().clone() for key, value in initial_model.state_dict().items()
+    }
+    batches = shared_batch_stream(
+        seed,
+        int(nested(config, "data", "train_states")),
+        int(nested(config, "optimization", "batch_size")),
+        int(nested(config, "optimization", "maximum_steps")),
+    )
+    return run_one(
+        config,
+        seed,
+        spec,
+        environment,
+        initial_state,
+        batches,
+        output_root,
+        device,
+    )
 
 def apply_task_collapse_labels(summaries: list[dict[str, Any]], config: Mapping[str, Any]) -> None:
     ratio = float(nested(config, "events", "task_collapse_ratio_to_paired_positive_only"))
@@ -1043,7 +1167,7 @@ def pilot_freeze_recommendation(
             }
         )
     return {
-        "experiment_id": EXPERIMENT_ID,
+        "experiment_id": configured_experiment_id(config),
         "scientific_status": "pilot",
         "automatic_freeze_allowed": False,
         "user_review_required": True,
@@ -1094,6 +1218,8 @@ def source_manifest(output_root: Path) -> dict[str, Any]:
     tracked = [
         Path("src/drpo/du1_e6_semantic.py"),
         Path("configs/du1_e6_semantic_pilot.yaml"),
+        Path("configs/du1_e6_semantic_focused_dev.yaml"),
+        Path("configs/du1_e6_semantic_focused_dev_phase2.yaml"),
         Path("docs/handoff.md"),
         Path("experiments/registry.yaml"),
     ]
@@ -1116,7 +1242,7 @@ def execute(config: dict[str, Any], stage: str, output_root: Path, device: torch
     started = time.time()
     yaml_dump(output_root / "resolved_config.yaml", config)
     manifest = {
-        "experiment_id": EXPERIMENT_ID,
+        "experiment_id": configured_experiment_id(config),
         "scientific_status": "pilot",
         "execution_mode": config.get("execution_mode"),
         "requested_stage": stage,
@@ -1145,7 +1271,7 @@ def execute(config: dict[str, Any], stage: str, output_root: Path, device: torch
         json_dump(
             output_root / "RUN_FAILED.json",
             {
-                "experiment_id": EXPERIMENT_ID,
+                "experiment_id": configured_experiment_id(config),
                 "reason": "environment_invariant_failure",
                 "scientific_status": "pilot",
             },
@@ -1154,7 +1280,7 @@ def execute(config: dict[str, Any], stage: str, output_root: Path, device: torch
 
     if stage == "invariants":
         terminal_audit = {
-            "experiment_id": EXPERIMENT_ID,
+            "experiment_id": configured_experiment_id(config),
             "stage": "invariants",
             "all_environment_invariants_passed": True,
             "scientific_result": False,
@@ -1173,7 +1299,7 @@ def execute(config: dict[str, Any], stage: str, output_root: Path, device: torch
         json_dump(
             output_root / "RUN_COMPLETE.json",
             {
-                "experiment_id": EXPERIMENT_ID,
+                "experiment_id": configured_experiment_id(config),
                 "stage": "invariants",
                 "scientific_status": "pilot",
                 "formal_result": False,
@@ -1187,33 +1313,47 @@ def execute(config: dict[str, Any], stage: str, output_root: Path, device: torch
     trajectory_path = output_root / "trajectories.jsonl"
     maximum_steps = int(nested(config, "optimization", "maximum_steps"))
     batch_size = int(nested(config, "optimization", "batch_size"))
-    initial_states: dict[tuple[int, str], dict[str, torch.Tensor]] = {}
-    for seed in seeds:
-        for mode in {spec.concentration_mode for spec in specs}:
-            seed_all(seed + 10_000)
-            initial_model = SemanticPolicy(config, mode)
-            initial_states[(seed, mode)] = {
-                key: value.detach().clone() for key, value in initial_model.state_dict().items()
-            }
-        batches = shared_batch_stream(
-            seed,
-            int(nested(config, "data", "train_states")),
-            batch_size,
-            maximum_steps,
-        )
-        for spec in specs:
-            summary, trajectory = run_one(
-                config,
-                seed,
-                spec,
-                environments[(seed, spec.embedding_mode)],
-                initial_states[(seed, spec.concentration_mode)],
-                batches,
-                output_root,
-                device,
+    requested_workers = int(nested(config, "optimization").get("parallel_workers", 1))
+    workers = requested_workers if device.type == "cpu" else 1
+    tasks = [(config, seed, spec, output_root) for seed in seeds for spec in specs]
+    if workers > 1:
+        with concurrent.futures.ProcessPoolExecutor(max_workers=workers) as executor:
+            results = executor.map(
+                run_one_reconstructed,
+                *(list(values) for values in zip(*tasks)),
             )
-            summaries.append(summary)
-            write_trajectory_rows(trajectory_path, trajectory)
+            for summary, trajectory in results:
+                summaries.append(summary)
+                write_trajectory_rows(trajectory_path, trajectory)
+    else:
+        initial_states: dict[tuple[int, str], dict[str, torch.Tensor]] = {}
+        for seed in seeds:
+            for mode in {spec.concentration_mode for spec in specs}:
+                seed_all(seed + 10_000)
+                initial_model = SemanticPolicy(config, mode)
+                initial_states[(seed, mode)] = {
+                    key: value.detach().clone()
+                    for key, value in initial_model.state_dict().items()
+                }
+            batches = shared_batch_stream(
+                seed,
+                int(nested(config, "data", "train_states")),
+                batch_size,
+                maximum_steps,
+            )
+            for spec in specs:
+                summary, trajectory = run_one(
+                    config,
+                    seed,
+                    spec,
+                    environments[(seed, spec.embedding_mode)],
+                    initial_states[(seed, spec.concentration_mode)],
+                    batches,
+                    output_root,
+                    device,
+                )
+                summaries.append(summary)
+                write_trajectory_rows(trajectory_path, trajectory)
 
     apply_task_collapse_labels(summaries, config)
     json_dump(output_root / "per_run_summary.json", summaries)
@@ -1226,7 +1366,7 @@ def execute(config: dict[str, Any], stage: str, output_root: Path, device: torch
     all_runs_present = len(summaries) == expected_runs
     no_numerical_failures = all(not row["nan_inf_numerical_failure"] for row in summaries)
     terminal_audit = {
-        "experiment_id": EXPERIMENT_ID,
+        "experiment_id": configured_experiment_id(config),
         "scientific_status": "pilot",
         "expected_runs": expected_runs,
         "actual_runs": len(summaries),
@@ -1241,6 +1381,9 @@ def execute(config: dict[str, Any], stage: str, output_root: Path, device: torch
         "task_performance_collapse_count": sum(
             row.get("task_performance_collapse") is True for row in summaries
         ),
+        "development_two_x_horizon_performed": bool(
+            nested(config, "terminal_audit").get("mode") == "focused_two_x_windows"
+        ),
         "formal_two_x_extension_performed": False,
         "formal_scientific_acceptance": False,
         "formal_method_ranking_allowed": False,
@@ -1252,7 +1395,7 @@ def execute(config: dict[str, Any], stage: str, output_root: Path, device: torch
     json_dump(
         output_root / "RUN_COMPLETE.json",
         {
-            "experiment_id": EXPERIMENT_ID,
+            "experiment_id": configured_experiment_id(config),
             "scientific_status": "pilot",
             "execution_mode": config.get("execution_mode"),
             "completed": completed,
