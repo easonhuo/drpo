@@ -28,6 +28,7 @@ POLICY_ID = "GOV-FORMAL-ENTRYPOINT-01"
 ALLOWED_EXECUTION_CLASSES = {"formal", "pilot", "historical_formal", "superseded"}
 ALLOWED_ACTIVATION_STATES = {"active", "blocked"}
 ALLOWED_ENTRYPOINT_STATES = {"implemented", "planned"}
+ALLOWED_GATE_STATES = {"ready", "blocked"}
 ALLOWED_ARCHIVE_MODES = {"forbid", "legacy_exception"}
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 EXPERIMENT_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
@@ -315,6 +316,90 @@ def _require_canonical_formal_fields(
             )
 
 
+def _nonempty(value: Any) -> bool:
+    if isinstance(value, str):
+        return bool(value.strip())
+    if isinstance(value, (list, tuple, set, dict)):
+        return bool(value)
+    return value is not None
+
+
+def _has_blocking_metadata(
+    experiment: dict[str, Any], gate: dict[str, Any] | None
+) -> bool:
+    gate = gate or {}
+    candidate_keys = (
+        "blocking_reason",
+        "reason",
+        "blocked_by",
+        "depends_on",
+        "depends_on_experiment",
+        "depends_on_experiments",
+        "depends_on_delivered_experiment",
+        "depends_on_delivered_experiments",
+    )
+    return any(
+        _nonempty(mapping.get(key))
+        for mapping in (gate, experiment)
+        for key in candidate_keys
+    )
+
+
+def _validate_execution_state_consistency(
+    experiment_id: str,
+    experiment: dict[str, Any],
+    formal: dict[str, Any],
+) -> None:
+    """Fail closed when scientific gates and operational activation disagree."""
+    activation_state = formal["activation_state"]
+    entrypoint_status = formal["entrypoint_status"]
+    gate_value = experiment.get("execution_gate")
+    gate: dict[str, Any] | None
+    if gate_value is None:
+        gate = None
+    elif not isinstance(gate_value, dict):
+        raise ChannelError(f"{experiment_id}: execution_gate must be a mapping")
+    else:
+        gate = gate_value
+        gate_state = gate.get("state")
+        if gate_state not in ALLOWED_GATE_STATES:
+            raise ChannelError(
+                f"{experiment_id}: execution_gate.state must be one of "
+                f"{sorted(ALLOWED_GATE_STATES)}"
+            )
+        if gate_state == "ready" and entrypoint_status == "implemented":
+            if activation_state != "active":
+                raise ChannelError(
+                    f"{experiment_id}: execution_gate=ready with an implemented "
+                    "entrypoint requires activation_state=active"
+                )
+        if gate_state == "blocked":
+            if activation_state == "active":
+                raise ChannelError(
+                    f"{experiment_id}: active formal execution cannot sit behind "
+                    "execution_gate=blocked"
+                )
+            if not _has_blocking_metadata(experiment, gate):
+                raise ChannelError(
+                    f"{experiment_id}: blocked execution gate requires a dependency "
+                    "or blocking reason"
+                )
+
+    if activation_state == "active" and gate is not None:
+        if gate.get("state") != "ready":
+            raise ChannelError(
+                f"{experiment_id}: active formal execution requires a ready gate"
+            )
+
+    if activation_state == "blocked" and not _has_blocking_metadata(
+        experiment, gate
+    ):
+        raise ChannelError(
+            f"{experiment_id}: blocked formal execution requires a dependency "
+            "or blocking reason"
+        )
+
+
 def _validate_archive_policy(
     experiment_id: str,
     entrypoint: str,
@@ -364,6 +449,7 @@ def validate_formal_experiment(
             f"{experiment_id}: formal experiment requires formal_execution"
         )
     _require_canonical_formal_fields(experiment_id, formal)
+    _validate_execution_state_consistency(experiment_id, experiment, formal)
 
     entrypoint_status = formal["entrypoint_status"]
     activation_state = formal["activation_state"]
@@ -534,11 +620,78 @@ def validate_experiments(
     return reports
 
 
+def validate_development_registration_states(
+    registry: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """Validate formal state declarations kept outside the canonical experiment list."""
+    registrations = registry.get("development_experiment_registrations", [])
+    if registrations is None:
+        return []
+    if not isinstance(registrations, list):
+        raise ChannelError("development_experiment_registrations must be a list")
+    reports: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for registration in registrations:
+        if not isinstance(registration, dict):
+            raise ChannelError("Every development registration must be a mapping")
+        experiment_id = registration.get("id")
+        if not isinstance(experiment_id, str) or not EXPERIMENT_ID_RE.fullmatch(
+            experiment_id
+        ):
+            raise ChannelError(f"Invalid development experiment id: {experiment_id!r}")
+        if experiment_id in seen:
+            raise ChannelError(f"Duplicate development experiment id: {experiment_id}")
+        seen.add(experiment_id)
+        execution_class = registration.get("execution_class")
+        formal = registration.get("formal_execution")
+        if execution_class == "formal":
+            if not isinstance(formal, dict):
+                raise ChannelError(
+                    f"{experiment_id}: formal development registration requires "
+                    "formal_execution"
+                )
+            _require_canonical_formal_fields(experiment_id, formal)
+            _validate_execution_state_consistency(
+                experiment_id, registration, formal
+            )
+            if formal.get("entrypoint_status") != "planned":
+                raise ChannelError(
+                    f"{experiment_id}: development formal registration must remain planned"
+                )
+            if formal.get("activation_state") != "blocked":
+                raise ChannelError(
+                    f"{experiment_id}: development formal registration must remain blocked"
+                )
+            if registration.get("implementation_state") != "not_implemented":
+                raise ChannelError(
+                    f"{experiment_id}: development formal registration requires "
+                    "implementation_state=not_implemented"
+                )
+            reports.append(
+                {"id": experiment_id, "class": "formal", "state": "planned_blocked"}
+            )
+        elif formal is not None:
+            raise ChannelError(
+                f"{experiment_id}: non-formal development registration must not "
+                "declare formal_execution"
+            )
+        else:
+            reports.append(
+                {
+                    "id": experiment_id,
+                    "class": execution_class or "unclassified",
+                    "state": "development_nonformal",
+                }
+            )
+    return reports
+
+
 def validate_registry(repo_root: Path, registry_path: Path) -> dict[str, Any]:
     repo_root = repo_root.resolve()
     registry = load_yaml_mapping(registry_path)
     channel = validate_channel_definition(repo_root, registry)
     experiment_reports = validate_experiments(repo_root, registry, channel)
+    development_reports = validate_development_registration_states(registry)
     counts = {key: 0 for key in sorted(ALLOWED_EXECUTION_CLASSES)}
     for item in experiment_reports:
         counts[item["class"]] += 1
@@ -552,6 +705,7 @@ def validate_registry(repo_root: Path, registry_path: Path) -> dict[str, Any]:
         ],
         "legacy_archive_exceptions": sorted(channel["legacy_exceptions"]),
         "experiment_reports": experiment_reports,
+        "development_registration_reports": development_reports,
     }
 
 

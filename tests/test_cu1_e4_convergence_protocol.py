@@ -60,6 +60,8 @@ def test_registry_and_handoff_freeze_e4_convergence_protocol() -> None:
     assert conv["user_confirmed_closure"]["original_pre_registered_consensus_gate_passed"] is False
     assert taper["execution_gate"]["depends_on_delivered_experiment"] == "C-U1-E4-CONV-01"
     assert taper["execution_gate"]["state"] == "ready"
+    assert taper["formal_execution"]["activation_state"] == "active"
+    assert taper["formal_execution"]["entrypoint_status"] == "implemented"
 
     handoff = (REPO_ROOT / "docs" / "handoff.md").read_text()
     assert "v35（C-U1 E4 用户确认闭环版）" in handoff

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import importlib.util
 import os
 import sys
@@ -133,7 +134,7 @@ def test_current_registry_uses_canonical_channel() -> None:
     assert report["matched"] is True
     assert report["channel_id"] == "hardened-v1"
     assert report["execution_class_counts"] == {
-        "formal": 4,
+        "formal": 6,
         "historical_formal": 2,
         "pilot": 3,
         "superseded": 1,
@@ -143,6 +144,8 @@ def test_current_registry_uses_canonical_channel() -> None:
         "C-U1-E4-TAPER-01",
         "EXT-H-E7-Q2",
         "D-U1-E5-LONGRUN-RERUN",
+        "EXT-H-E7-BENCH-01",
+        "EXT-C-E8-SCALE-01",
     ]
 
 
@@ -203,6 +206,10 @@ def test_planned_formal_entrypoint_must_remain_blocked(tmp_path: Path) -> None:
             "entrypoint": None,
         }
     )
+    experiment["execution_gate"] = {
+        "state": "blocked",
+        "blocking_reason": "runner implementation is not complete",
+    }
     experiment.pop("formal_launch_template")
     report = validate(repo, registry)
     assert report["experiment_reports"][0]["state"] == "planned_blocked"
@@ -219,6 +226,79 @@ def test_active_planned_entrypoint_is_rejected(tmp_path: Path) -> None:
         }
     )
     with pytest.raises(VALIDATOR.ChannelError, match="must remain blocked"):
+        validate(repo, registry)
+
+
+def test_ready_implemented_experiment_cannot_remain_blocked(tmp_path: Path) -> None:
+    repo, registry = make_repo(tmp_path)
+    experiment = registry["experiments"][0]
+    experiment["execution_gate"] = {"state": "ready", "reason": "approved"}
+    experiment["formal_execution"]["activation_state"] = "blocked"
+    with pytest.raises(VALIDATOR.ChannelError, match="requires activation_state=active"):
+        validate(repo, registry)
+
+
+def test_active_experiment_cannot_have_blocked_gate(tmp_path: Path) -> None:
+    repo, registry = make_repo(tmp_path)
+    registry["experiments"][0]["execution_gate"] = {
+        "state": "blocked",
+        "blocking_reason": "dependency missing",
+    }
+    with pytest.raises(VALIDATOR.ChannelError, match="cannot sit behind"):
+        validate(repo, registry)
+
+
+def test_blocked_experiment_requires_reason_or_dependency(tmp_path: Path) -> None:
+    repo, registry = make_repo(tmp_path)
+    experiment = registry["experiments"][0]
+    experiment["formal_execution"]["activation_state"] = "blocked"
+    with pytest.raises(VALIDATOR.ChannelError, match="requires a dependency"):
+        validate(repo, registry)
+
+
+def test_planned_blocked_experiment_with_reason_is_allowed(tmp_path: Path) -> None:
+    repo, registry = make_repo(tmp_path)
+    experiment = registry["experiments"][0]
+    experiment["implementation_state"] = "not_implemented"
+    experiment["formal_execution"].update(
+        {
+            "activation_state": "blocked",
+            "entrypoint_status": "planned",
+            "entrypoint": None,
+        }
+    )
+    experiment["execution_gate"] = {
+        "state": "blocked",
+        "blocked_by": ["FORMAL-DEPENDENCY-01"],
+    }
+    experiment.pop("formal_launch_template")
+    report = validate(repo, registry)
+    assert report["experiment_reports"][0]["state"] == "planned_blocked"
+
+
+def test_repository_development_formal_registrations_are_fail_closed() -> None:
+    report = VALIDATOR.validate_registry(REPO_ROOT, REPO_ROOT / "experiments" / "registry.yaml")
+    development = {item["id"]: item for item in report["development_registration_reports"]}
+    assert development["D-U1-E6-SEMANTIC-PILOT-01"]["state"] == "development_nonformal"
+    assert development["D-U1-E6-SEMANTIC-LONGRUN-01"]["state"] == "planned_blocked"
+    assert development["D-U1-E6-TAPER-01"]["state"] == "planned_blocked"
+
+
+def test_blocked_development_formal_registration_requires_metadata(tmp_path: Path) -> None:
+    repo, registry = make_repo(tmp_path)
+    registration = copy.deepcopy(registry["experiments"][0])
+    registration["id"] = "DEV-FORMAL-01"
+    registration["implementation_state"] = "not_implemented"
+    registration["formal_execution"].update(
+        {
+            "activation_state": "blocked",
+            "entrypoint_status": "planned",
+            "entrypoint": None,
+        }
+    )
+    registration.pop("formal_launch_template")
+    registry["development_experiment_registrations"] = [registration]
+    with pytest.raises(VALIDATOR.ChannelError, match="requires a dependency"):
         validate(repo, registry)
 
 

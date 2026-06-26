@@ -136,7 +136,7 @@ def test_legacy_hdf5_loader(tmp_path: Path) -> None:
     np.testing.assert_array_equal(data.episode_ids, np.array([0, 0, 1, 1, 1, 1]))
 
 
-def test_registry_activates_implemented_q2_without_claiming_results() -> None:
+def test_registry_keeps_implemented_q2_blocked_without_claiming_results() -> None:
     import yaml
 
     root = Path(__file__).parents[1]
@@ -145,16 +145,20 @@ def test_registry_activates_implemented_q2_without_claiming_results() -> None:
     assert entry["status"] == "not_run"
     assert entry["scientific_status"] == "not_run"
     assert entry["implementation_state"] == "implemented"
-    assert entry["formal_execution"]["activation_state"] == "active"
+    assert entry["execution_gate"]["state"] == "blocked"
+    assert entry["execution_gate"]["blocked_by"] == ["D-U1-E6-TAPER-01"]
+    assert entry["formal_execution"]["activation_state"] == "blocked"
     assert entry["formal_execution"]["entrypoint"] == "src/drpo/e7_hopper_q2.py"
     assert entry["formal_execution"]["runner_archive_policy"]["mode"] == "forbid"
     assert entry["evidence"]["implementation_tests_passed"] is True
     assert entry["evidence"]["run_started"] is False
 
 
-def test_handoff_v41_preserves_external_validation_boundary() -> None:
+def test_handoff_preserves_v41_boundary_under_v42_route() -> None:
     handoff = (Path(__file__).parents[1] / "docs" / "handoff.md").read_text()
-    assert "v41（EXT-H-E7-Q2 Hopper 实现冻结版）" in handoff
+    assert "v42（执行状态一致性与跨环境路线锁定版）" in handoff
+    assert "v41 增量登记：`EXT-H-E7-Q2` Hopper 实现" in handoff
+    assert "implemented + not_run + blocked" in handoff
     assert "CPU 单元测试、静态检查和缩减工程 pilot" in handoff
     assert "尚未运行（not_run）" in handoff
     assert "不能替代 C-U1" in handoff

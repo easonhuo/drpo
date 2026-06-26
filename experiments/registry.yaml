@@ -818,7 +818,7 @@ experiments:
   execution_class: formal
   formal_execution:
     channel_ref: hardened-v1
-    activation_state: blocked
+    activation_state: active
     entrypoint_status: implemented
     entrypoint: src/drpo/cu1_distance_taper_formal.py
     launch_mode: canonical_guard
@@ -831,6 +831,31 @@ experiments:
     inherit_default_artifact_budget: true
     runner_archive_policy:
       mode: forbid
+  code_entrypoint: src/drpo/cu1_distance_taper_formal.py
+  formal_launch_template: >-
+    python3 scripts/run_experiment_guard_hardened.py
+    --experiment-id C-U1-E4-TAPER-01
+    --repo-root .
+    --output-root experiments/results/C-U1-E4-TAPER-01/run_001
+    --artifact-output artifacts/C-U1-E4-TAPER-01_RAW_COMPLETE.zip
+    --heartbeat-seconds 60
+    --stale-seconds 900
+    --fail-on-stale
+    --progress-glob per_seed_runs_partial.csv
+    --required-output RUN_COMPLETE.json
+    --required-output terminal_audit.json
+    --required-output per_seed_runs.csv
+    --required-output aggregate.csv
+    --required-output paired_primary_summary.json
+    --source-file src/drpo/cu1_distance_taper_formal.py
+    --source-file src/drpo/cu1_core.py
+    --source-file src/drpo/drpo_cu1_e1_e4_oneclick.py
+    --run-class formal
+    --expected-commit "$(git rev-parse HEAD)"
+    --require-origin-main-match
+    -- python3 src/drpo/cu1_distance_taper_formal.py
+    --output-dir experiments/results/C-U1-E4-TAPER-01/run_001
+    --base-commit "$(git rev-parse HEAD)"
   does_not_replace:
   - C-U1-E1
   - C-U1-E2
@@ -894,11 +919,12 @@ experiments:
     exponential: w=exp(log(rho)*u)
     common_reference_alignment: w(u=1)=rho
     negative_gradient_budget_matching: false
-  prior_work_boundary: >-
-    The current reciprocal-linear method is an internally defined baseline.
-    It must not be described as an exact reproduction of prior work until the
-    external paper, distance coordinate, and formula are explicitly locked.
-    A clipped-linear or other linear family requires separate registration.
+  linear_baseline_boundary: >-
+    Reciprocal-linear is the internally defined p=1 control in the present
+    same-distance taper theory. It is not the distributionally robust linear
+    weighting from the original DRPO paper and does not require an external
+    prior-work formula lock. Clipped-linear or any other family would be a
+    different method and requires separate registration.
   primary_metrics:
   - initial_and_terminal_full_parameter_far_near_negative_gradient_ratio
   - initial_and_terminal_far_field_loglog_slope
@@ -938,13 +964,20 @@ experiments:
     checkpoint_policy: persistent_local_index
     checkpoint_every_formal_seeds: 5
 - id: EXT-H-E7-Q2
+  execution_gate:
+    state: blocked
+    blocked_by: [D-U1-E6-TAPER-01]
+    blocking_reason: >-
+      The Hopper mechanism runner is implemented, but the locked cross-environment
+      route requires D-U1-E6-TAPER-01 to be delivered before formal launch.
   environment: EXT-H
   name: hopper_gaussian_log_scale_quadratic_external_validation
   status: not_run
   scientific_status: not_run
-  parent_experiment: E7
+  parent_experiment: E7-MECH
   registration_base_commit: c7fd41ac663380de71bcd839b76ab4d1e52ae8d0
   implementation_base_commit: 2e04f6dba6d4e87f61920bedb1c464656906bf2b
+  implementation_commit: f64452a7452274a183b03c87c39b847039230c00
   claim: >-
     In real D4RL Hopper data with a learned critic and an independently trained
     state-conditioned Gaussian actor, naturally far negative samples enter a
@@ -955,7 +988,7 @@ experiments:
   execution_class: formal
   formal_execution:
     channel_ref: hardened-v1
-    activation_state: active
+    activation_state: blocked
     entrypoint_status: implemented
     entrypoint: src/drpo/e7_hopper_q2.py
     launch_mode: canonical_guard
@@ -2011,6 +2044,121 @@ experiments:
     checkpoint_policy: canonical_channel_markers_every_5_seeds
     large_file_storage: persistent_local_index
 
+
+- id: EXT-H-E7-BENCH-01
+  execution_gate:
+    state: blocked
+    blocked_by: [EXT-H-E7-Q2, D-U1-E6-TAPER-01]
+    blocking_reason: >-
+      The Hopper mechanism stage and both controlled taper stages must be
+      delivered before the large public benchmark freezes its method shortlist
+      and hyperparameters.
+  environment: EXT-H
+  name: d4rl_mujoco_locomotion_method_benchmark
+  status: not_run
+  parent_experiment: E7-BENCH
+  registration_base_commit: f64452a7452274a183b03c87c39b847039230c00
+  claim: >-
+    Test whether the controller shortlist selected in controlled bandits improves
+    multi-seed normalized return and stability on the public D4RL MuJoCo
+    locomotion suite, without per-task method-family retuning.
+  role: external_large_scale_continuous_benchmark
+  execution_class: formal
+  implementation_state: not_implemented
+  formal_execution:
+    channel_ref: hardened-v1
+    activation_state: blocked
+    entrypoint_status: planned
+    entrypoint: null
+    launch_mode: canonical_guard
+    artifact_owner: canonical_channel
+    guard_entrypoint: scripts/run_experiment_guard_hardened.py
+    package_entrypoint: scripts/package_experiment_hardened.py
+    verify_entrypoint: scripts/verify_experiment_package_hardened.py
+    hardened_core: scripts/artifact_protocol_hardened.py
+    artifact_protocol: docs/formal_experiment_artifact_protocol.md
+    inherit_default_artifact_budget: true
+    runner_archive_policy:
+      mode: forbid
+  suite:
+    name: D4RL_MuJoCo_locomotion
+    environments: [hopper, walker2d, halfcheetah]
+    dataset_qualities: [medium, medium_replay, medium_expert]
+    task_count: 9
+    excludes_from_primary_suite: [antmaze, kitchen, adroit]
+  mandatory_baselines: [offline_rl_base, positive_only, uncontrolled_negative, global_alpha]
+  candidate_controllers: [reciprocal_linear, reciprocal_quadratic, exponential]
+  shortlist_rule: freeze_after_E4_and_E6_taper_without_D4RL_retuning
+  primary_metrics:
+  - normalized_return
+  - paired_multiseed_confidence_interval
+  - mean_rank_across_nine_tasks
+  - worst_seed_return
+  - task_performance_collapse_events
+  - support_or_variance_boundary_events
+  - nan_inf_numerical_events
+  protocol_lock_status: seeds_optimizer_base_algorithm_and_exact_versions_pending_before_implementation
+  evidence:
+    code_committed: false
+    run_started: false
+    raw_complete: false
+    terminal_audited: false
+    package_created: false
+    scientific_status: not_run
+- id: EXT-C-E8-SCALE-01
+  execution_gate:
+    state: blocked
+    blocked_by: [EXT-C-E8-V4.2, EXT-H-E7-BENCH-01]
+    blocking_reason: >-
+      The audited Countdown mechanism/pilot and the continuous external benchmark
+      must be delivered before model/data scaling uses a frozen method shortlist.
+  environment: EXT-C
+  name: countdown_large_model_large_data_external_benchmark
+  status: not_run
+  parent_experiment: E8-SCALE
+  registration_base_commit: f64452a7452274a183b03c87c39b847039230c00
+  claim: >-
+    Validate the frozen controller shortlist on a larger fixed Countdown dataset
+    and larger Transformer models, separating mechanism transfer from scalable
+    task-performance evidence.
+  role: external_large_scale_discrete_benchmark
+  execution_class: formal
+  implementation_state: not_implemented
+  formal_execution:
+    channel_ref: hardened-v1
+    activation_state: blocked
+    entrypoint_status: planned
+    entrypoint: null
+    launch_mode: canonical_guard
+    artifact_owner: canonical_channel
+    guard_entrypoint: scripts/run_experiment_guard_hardened.py
+    package_entrypoint: scripts/package_experiment_hardened.py
+    verify_entrypoint: scripts/verify_experiment_package_hardened.py
+    hardened_core: scripts/artifact_protocol_hardened.py
+    artifact_protocol: docs/formal_experiment_artifact_protocol.md
+    inherit_default_artifact_budget: true
+    runner_archive_policy:
+      mode: forbid
+  scaling_plan:
+    mechanism_owner: EXT-C-E8-V4.2
+    primary_model: Qwen_Instruct_3B
+    frozen_confirmation_model: Qwen_Instruct_7B
+    dataset: larger_fixed_offline_countdown_dataset
+    exact_sizes_and_seeds: pending_before_implementation
+    retune_method_family_on_scale_tasks: false
+  candidate_methods: frozen_shortlist_from_controlled_and_E7_results
+  reporting_separation:
+  - task_performance_collapse
+  - support_or_entropy_boundary
+  - nan_inf_numerical_failure
+  evidence:
+    code_committed: false
+    run_started: false
+    raw_complete: false
+    terminal_audited: false
+    package_created: false
+    scientific_status: not_run
+
 development_experiment_registrations:
 - id: D-U1-E6-SEMANTIC-PILOT-01
   environment: D-U1
@@ -2178,7 +2326,8 @@ development_experiment_registrations:
     delivered_to_user: true
     pilot_integrity_passed: true
     raw_artifact_sha256: 6aee3262bcd6936f53d15889ab0c38d825b7ba8f110fa40ab40032f90d079bfb
-    repository_applied: false
+    repository_applied: true
+    applied_commit: 2e04f6dba6d4e87f61920bedb1c464656906bf2b
 
 - id: D-U1-E6-SEMANTIC-LONGRUN-01
   environment: D-U1
@@ -2232,6 +2381,63 @@ development_experiment_registrations:
     terminal_audited: false
     package_created: false
     delivered_to_user: false
+
+
+- id: D-U1-E6-TAPER-01
+  environment: D-U1
+  name: categorical_semantic_taper_order_comparison
+  status: not_run
+  parent_experiment: E6-TAPER
+  predecessor: D-U1-E6-SEMANTIC-LONGRUN-01
+  registration_base_commit: f64452a7452274a183b03c87c39b847039230c00
+  claim: >-
+    On one frozen D-U1 semantic-remoteness coordinate and paired training stream,
+    compare reciprocal-linear, reciprocal-quadratic, and exponential negative
+    tapering for preservation of beneficial local negative signal, suppression
+    of harmful far pressure, held-out unseen-action performance, and support
+    stability. This experiment does not claim a Gaussian quadratic gradient law
+    for categorical policies.
+  role: controlled_cross_policy_taper_validation
+  execution_class: formal
+  implementation_state: not_implemented
+  registry_scope: development_preregistration_not_in_canonical_experiments
+  formal_execution:
+    channel_ref: hardened-v1
+    activation_state: blocked
+    entrypoint_status: planned
+    entrypoint: null
+    launch_mode: canonical_guard
+    artifact_owner: canonical_channel
+    guard_entrypoint: scripts/run_experiment_guard_hardened.py
+    package_entrypoint: scripts/package_experiment_hardened.py
+    verify_entrypoint: scripts/verify_experiment_package_hardened.py
+    hardened_core: scripts/artifact_protocol_hardened.py
+    artifact_protocol: docs/formal_experiment_artifact_protocol.md
+    inherit_default_artifact_budget: true
+    runner_archive_policy: {mode: forbid}
+  blocked_by:
+  - delivered_D-U1-E6-SEMANTIC-LONGRUN-01
+  - frozen_semantic_remoteness_coordinate
+  - frozen_paired_method_protocol
+  - frozen_untouched_held_out_seeds
+  - separately_implemented_formal_runner
+  distance_rule:
+    same_coordinate_across_methods: required
+    gaussian_standardized_distance_reused: false
+    exact_semantic_coordinate: pending_E6_longrun_protocol_freeze
+  candidate_families: [reciprocal_linear, reciprocal_quadratic, exponential]
+  controls: [positive_only, uncontrolled_negative, global_alpha]
+  no_method_winner_assumed: true
+  reporting_separation:
+  - task_performance_collapse
+  - support_or_temperature_boundary
+  - nan_inf_numerical_failure
+  evidence:
+    raw_complete: false
+    terminal_audited: false
+    package_created: false
+    delivered_to_user: false
+    scientific_status: not_run
 
 allowed_execution_states:
 - registered
