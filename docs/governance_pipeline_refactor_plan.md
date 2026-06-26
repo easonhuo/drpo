@@ -287,3 +287,48 @@ handoff 切换前还必须满足：
 ## 10. 当前阶段边界
 
 本设计稿和 Stage 0 安全网不改变已有规则的权威性。若 inventory 与 `AGENTS.md` 或 handoff 冲突，仍以原权威文件为准。inventory 当前只覆盖明确登记的迁移候选 section；扩大迁移范围前，必须先把对应 section 纳入完整覆盖检查。
+
+## 11. Stage 0.1：逐规则 assurance 与精确测试证据
+
+Stage 0 证明被跟踪规则没有被静默删除、增加、改写或无目的地迁移，但它只要求机器规则声明测试**文件**。仅验证文件存在，无法证明该文件中确有一个可收集、可运行并与规则绑定的测试。
+
+Stage 0.1 增加 `docs/governance_rule_assurance.yaml`，并要求 inventory 中的每一个 rule ID 恰好拥有一种 assurance：
+
+- `machine`：规则由代码直接执行，必须登记实现路径、精确 pytest node 和覆盖级别；
+- `review`：规则依赖治理或科研判断，必须登记触发条件和审查证据；
+- `structural`：规则可以通过 schema、索引、哈希或集合完整性验证，必须登记结构检查项。
+
+机器 assurance 的精确节点使用如下形式：
+
+```text
+ tests/test_experiment_artifact_hardening.py::test_external_result_symlink_is_rejected
+```
+
+validator 必须依次确认：
+
+1. assurance 与 inventory 的 rule ID 集合完全相等；
+2. `machine_enforcement.required` 与 `assurance.type: machine` 一致；
+3. implementation path 存在，且已经登记在 inventory 的 implementation 集合中；
+4. pytest node 的文件存在，且已经登记在 inventory 的 test 集合中；
+5. Python AST 中存在精确的测试函数或类方法；
+6. 使用 `--collect-pytest` 时，pytest 可以收集全部唯一节点；
+7. 使用 `--run-machine-tests` 时，全部节点实际执行成功；
+8. 输出逐规则 JSON 报告，而不只给出一个总布尔值。
+
+覆盖级别分为：
+
+- `direct`：节点直接断言该规则的行为；
+- `grouped`：端到端测试覆盖一组 package contract，但尚未为该条规则建立独立断言。
+
+`grouped` 不是伪装成完整覆盖。它必须带 `coverage_note`，并在报告中单独计数，使后续专门测试的缺口保持可见。当前 patch contract 中少数规则仍属于 grouped coverage；Stage 0.1 的目标是把这一事实显式化，而不是在没有证据时声称已经一对一验证。
+
+规范命令：
+
+```bash
+python3 scripts/validate_governance_rule_inventory.py --repo-root .
+python3 scripts/validate_governance_rule_inventory.py --repo-root . --collect-pytest
+python3 scripts/validate_governance_rule_inventory.py --repo-root . --run-machine-tests \
+  --report-out governance_assurance_report.json
+```
+
+第一条进行快速结构和 AST 检查；第二条证明节点可被 pytest 收集；第三条实际运行机器 assurance 的全部唯一测试节点。任何一步失败均应 fail closed。

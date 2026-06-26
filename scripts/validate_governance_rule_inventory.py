@@ -1,15 +1,19 @@
 #!/usr/bin/env python3
-"""Validate the DRPO governance rule migration inventory.
+"""Validate the DRPO governance rule inventory and its assurance evidence.
 
-The validator is intentionally read-only.  Stage 0 adds a safety net without
-moving or weakening any existing governance rule.
+Stage 0 protects rule presence, source fingerprints, and migration bookkeeping.
+Stage 0.1 adds one explicit assurance mode per tracked rule.  Machine-enforced
+rules must name concrete implementation paths and exact pytest nodes; review and
+structural rules must declare the evidence required when they change.
 """
 from __future__ import annotations
 
 import argparse
+import ast
 import hashlib
 import json
 import re
+import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -23,6 +27,11 @@ SHA_RE = re.compile(r"[0-9a-f]{40}")
 ITEM_RE = re.compile(r"^(?P<indent>\s*)(?P<marker>[*-]|\d+\.)\s+(?P<text>.+?)\s*$")
 HEADING_RE = re.compile(r"^(?P<marks>#{1,6})\s+(?P<title>.+?)\s*$")
 ALLOWED_MIGRATION_STATUSES = {"unchanged", "shadowed", "migrated", "retired"}
+ALLOWED_ASSURANCE_TYPES = {"machine", "review", "structural"}
+ALLOWED_COVERAGE_LEVELS = {"direct", "grouped"}
+PYTEST_NODE_RE = re.compile(
+    r"^(?P<path>[^:]+\.py)::(?P<selectors>[A-Za-z_][A-Za-z0-9_]*(?:::[A-Za-z_][A-Za-z0-9_]*)?)(?:\[[^\]]+\])?$"
+)
 
 
 class InventoryError(ValueError):
@@ -34,6 +43,13 @@ class MarkdownItem:
     index: int
     text: str
     normalized_sha256: str
+
+
+@dataclass(frozen=True)
+class PytestEvidence:
+    node: str
+    path: str
+    selectors: tuple[str, ...]
 
 
 def normalize_text(value: str) -> str:
@@ -97,7 +113,6 @@ def extract_top_level_list_items(markdown: str, heading: str) -> list[MarkdownIt
         elif line.startswith(" ") or line.startswith("\t"):
             current.append(stripped)
         else:
-            # A non-indented paragraph terminates the active list item.
             raw_items.append(current)
             current = None
     if current is not None:
@@ -285,6 +300,234 @@ def validate_inventory(repo_root: Path, inventory_path: Path) -> dict[str, Any]:
     }
 
 
+def _inventory_rule_map(inventory: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    rules = inventory.get("rules")
+    if not isinstance(rules, list):
+        raise InventoryError("inventory rules must be a list")
+    return {rule["rule_id"]: rule for rule in rules if isinstance(rule, dict) and "rule_id" in rule}
+
+
+def _parse_pytest_node(repo_root: Path, node: str) -> PytestEvidence:
+    if not isinstance(node, str):
+        raise InventoryError(f"pytest node must be a string: {node!r}")
+    match = PYTEST_NODE_RE.fullmatch(node)
+    if not match:
+        raise InventoryError(f"Invalid exact pytest node: {node!r}")
+    path_value = match.group("path")
+    path = require_repo_path(repo_root, path_value, f"pytest node {node}")
+    if not path.is_file():
+        raise InventoryError(f"pytest node path is not a file: {path_value}")
+    selectors = tuple(match.group("selectors").split("::"))
+    return PytestEvidence(node=node, path=path_value, selectors=selectors)
+
+
+def _python_node_exists(path: Path, selectors: tuple[str, ...]) -> bool:
+    try:
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    except (OSError, SyntaxError) as exc:
+        raise InventoryError(f"Could not parse pytest source {path}: {exc}") from exc
+
+    if len(selectors) == 1:
+        target = selectors[0]
+        return any(
+            isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == target
+            for node in tree.body
+        )
+    class_name, method_name = selectors
+    for node in tree.body:
+        if isinstance(node, ast.ClassDef) and node.name == class_name:
+            return any(
+                isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef))
+                and child.name == method_name
+                for child in node.body
+            )
+    return False
+
+
+def validate_assurance(
+    repo_root: Path,
+    inventory_path: Path,
+    assurance_path: Path,
+) -> dict[str, Any]:
+    repo_root = repo_root.resolve()
+    inventory = load_yaml_mapping(inventory_path)
+    assurance = load_yaml_mapping(assurance_path)
+    if assurance.get("schema_version") != 1:
+        raise InventoryError("assurance schema_version must be 1")
+    if assurance.get("inventory_path") != "docs/governance_rule_inventory.yaml":
+        raise InventoryError("assurance inventory_path must point to the canonical inventory")
+
+    inventory_rules = _inventory_rule_map(inventory)
+    entries = assurance.get("rules")
+    if not isinstance(entries, dict) or not entries:
+        raise InventoryError("assurance rules must be a non-empty mapping")
+    assurance_ids = set(entries)
+    inventory_ids = set(inventory_rules)
+    missing = sorted(inventory_ids - assurance_ids)
+    extra = sorted(assurance_ids - inventory_ids)
+    if missing or extra:
+        raise InventoryError(f"assurance coverage mismatch; missing={missing}, extra={extra}")
+
+    unique_nodes: list[str] = []
+    seen_nodes: set[str] = set()
+    rule_reports: list[dict[str, Any]] = []
+    counts = {kind: 0 for kind in ALLOWED_ASSURANCE_TYPES}
+    grouped_machine_rules = 0
+
+    for rule_id in sorted(inventory_rules):
+        rule = inventory_rules[rule_id]
+        entry = entries[rule_id]
+        if not isinstance(entry, dict):
+            raise InventoryError(f"{rule_id}: assurance entry must be a mapping")
+        assurance_type = entry.get("type")
+        if assurance_type not in ALLOWED_ASSURANCE_TYPES:
+            raise InventoryError(f"{rule_id}: invalid assurance type {assurance_type!r}")
+        counts[assurance_type] += 1
+        machine_required = rule.get("machine_enforcement", {}).get("required") is True
+        if machine_required != (assurance_type == "machine"):
+            raise InventoryError(
+                f"{rule_id}: machine_enforcement.required and assurance type disagree"
+            )
+
+        report: dict[str, Any] = {"rule_id": rule_id, "type": assurance_type}
+        if assurance_type == "machine":
+            implementation_paths = entry.get("implementation_paths")
+            nodes = entry.get("pytest_nodes")
+            coverage_level = entry.get("coverage_level")
+            if not isinstance(implementation_paths, list) or not implementation_paths:
+                raise InventoryError(f"{rule_id}: machine assurance needs implementation_paths")
+            if not isinstance(nodes, list) or not nodes:
+                raise InventoryError(f"{rule_id}: machine assurance needs exact pytest_nodes")
+            if coverage_level not in ALLOWED_COVERAGE_LEVELS:
+                raise InventoryError(f"{rule_id}: invalid coverage_level {coverage_level!r}")
+            if coverage_level == "grouped":
+                note = entry.get("coverage_note")
+                if not isinstance(note, str) or not note.strip():
+                    raise InventoryError(f"{rule_id}: grouped coverage needs coverage_note")
+                grouped_machine_rules += 1
+
+            declared_implementations = set(
+                rule.get("machine_enforcement", {}).get("implementations", [])
+            )
+            for path_value in implementation_paths:
+                if not isinstance(path_value, str):
+                    raise InventoryError(f"{rule_id}: implementation_paths must be strings")
+                require_repo_path(repo_root, path_value, f"{rule_id} assured implementation")
+                if path_value not in declared_implementations:
+                    raise InventoryError(
+                        f"{rule_id}: assured implementation is absent from inventory: {path_value}"
+                    )
+
+            declared_test_paths = set(rule.get("machine_enforcement", {}).get("tests", []))
+            checked_nodes: list[str] = []
+            for node_value in nodes:
+                evidence = _parse_pytest_node(repo_root, node_value)
+                if evidence.path not in declared_test_paths:
+                    raise InventoryError(
+                        f"{rule_id}: pytest node file is absent from inventory tests: {evidence.path}"
+                    )
+                source_path = repo_root / evidence.path
+                if not _python_node_exists(source_path, evidence.selectors):
+                    raise InventoryError(f"{rule_id}: pytest node does not exist: {node_value}")
+                checked_nodes.append(node_value)
+                if node_value not in seen_nodes:
+                    seen_nodes.add(node_value)
+                    unique_nodes.append(node_value)
+            report.update(
+                {
+                    "coverage_level": coverage_level,
+                    "implementation_paths": implementation_paths,
+                    "pytest_nodes": checked_nodes,
+                    "static_node_check": "passed",
+                }
+            )
+        elif assurance_type == "review":
+            triggers = entry.get("triggers")
+            evidence = entry.get("required_evidence")
+            if not isinstance(triggers, list) or not triggers:
+                raise InventoryError(f"{rule_id}: review assurance needs triggers")
+            if not isinstance(evidence, list) or not evidence:
+                raise InventoryError(f"{rule_id}: review assurance needs required_evidence")
+            report.update({"triggers": triggers, "required_evidence": evidence})
+        else:
+            checks = entry.get("checks")
+            if not isinstance(checks, list) or not checks:
+                raise InventoryError(f"{rule_id}: structural assurance needs checks")
+            report["checks"] = checks
+        rule_reports.append(report)
+
+    return {
+        "matched": True,
+        "schema_version": 1,
+        "assurance_rules": len(entries),
+        "assurance_type_counts": counts,
+        "grouped_machine_rules": grouped_machine_rules,
+        "unique_pytest_nodes": unique_nodes,
+        "rule_reports": rule_reports,
+    }
+
+
+def run_pytest_nodes(
+    repo_root: Path,
+    nodes: list[str],
+    *,
+    collect_only: bool,
+) -> dict[str, Any]:
+    if not nodes:
+        raise InventoryError("No pytest nodes were supplied")
+    command = [sys.executable, "-m", "pytest"]
+    if collect_only:
+        command.extend(["--collect-only", "-q"])
+    else:
+        command.append("-q")
+    command.extend(nodes)
+    completed = subprocess.run(
+        command,
+        cwd=repo_root,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if completed.returncode != 0:
+        mode = "collection" if collect_only else "execution"
+        detail = (completed.stdout + "\n" + completed.stderr).strip()
+        raise InventoryError(f"pytest {mode} failed with code {completed.returncode}: {detail}")
+    return {
+        "mode": "collect_only" if collect_only else "run",
+        "command": command,
+        "returncode": completed.returncode,
+        "stdout": completed.stdout,
+        "stderr": completed.stderr,
+    }
+
+
+def validate_governance(
+    repo_root: Path,
+    inventory_path: Path,
+    assurance_path: Path,
+    *,
+    collect_pytest: bool = False,
+    run_machine_tests: bool = False,
+) -> dict[str, Any]:
+    inventory_report = validate_inventory(repo_root, inventory_path)
+    assurance_report = validate_assurance(repo_root, inventory_path, assurance_path)
+    pytest_report: dict[str, Any] = {"status": "not_requested"}
+    nodes = assurance_report["unique_pytest_nodes"]
+    if collect_pytest or run_machine_tests:
+        collected = run_pytest_nodes(repo_root, nodes, collect_only=True)
+        pytest_report = {"status": "collected", "collection": collected}
+    if run_machine_tests:
+        executed = run_pytest_nodes(repo_root, nodes, collect_only=False)
+        pytest_report["status"] = "passed"
+        pytest_report["execution"] = executed
+    return {
+        "matched": True,
+        "inventory": inventory_report,
+        "assurance": assurance_report,
+        "pytest": pytest_report,
+    }
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo-root", type=Path, default=Path.cwd())
@@ -293,20 +536,52 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         type=Path,
         default=Path("docs/governance_rule_inventory.yaml"),
     )
+    parser.add_argument(
+        "--assurance",
+        type=Path,
+        default=Path("docs/governance_rule_assurance.yaml"),
+    )
+    parser.add_argument(
+        "--collect-pytest",
+        action="store_true",
+        help="Run pytest --collect-only for every unique machine-assurance node.",
+    )
+    parser.add_argument(
+        "--run-machine-tests",
+        action="store_true",
+        help="Collect and execute every unique machine-assurance node.",
+    )
+    parser.add_argument("--report-out", type=Path)
     return parser.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     inventory = args.inventory
+    assurance = args.assurance
     if not inventory.is_absolute():
         inventory = args.repo_root / inventory
+    if not assurance.is_absolute():
+        assurance = args.repo_root / assurance
     try:
-        report = validate_inventory(args.repo_root, inventory)
+        report = validate_governance(
+            args.repo_root,
+            inventory,
+            assurance,
+            collect_pytest=args.collect_pytest,
+            run_machine_tests=args.run_machine_tests,
+        )
     except InventoryError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
-    print(json.dumps(report, indent=2, sort_keys=True))
+    rendered = json.dumps(report, indent=2, sort_keys=True)
+    if args.report_out:
+        report_out = args.report_out
+        if not report_out.is_absolute():
+            report_out = args.repo_root / report_out
+        report_out.parent.mkdir(parents=True, exist_ok=True)
+        report_out.write_text(rendered + "\n", encoding="utf-8")
+    print(rendered)
     return 0
 
 

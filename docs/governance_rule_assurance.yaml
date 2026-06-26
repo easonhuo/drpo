@@ -1,0 +1,484 @@
+schema_version: 1
+assurance_id: GOV-RULE-ASSURANCE-01
+inventory_path: docs/governance_rule_inventory.yaml
+authority_note: This file records assurance evidence for the migration inventory. It does not replace AGENTS.md,
+  docs/handoff.md, or the operational protocol.
+stage_note: Stage 0.1 binds every tracked rule to an explicit assurance mode. Grouped machine coverage is visible
+  and is not represented as a dedicated semantic test.
+rules:
+  GOV-AGENT-SUPERVISION-001:
+    type: review
+    triggers:
+    - source_text_change
+    - migration_status_change
+    - authority_location_change
+    required_evidence:
+    - source_fingerprint_match
+    - destination_and_migration_evidence_when_moved
+    - governance_review_record
+  GOV-AGENT-SUPERVISION-002:
+    type: machine
+    implementation_paths:
+    - scripts/artifact_protocol_hardened.py
+    - scripts/run_experiment_guard_hardened.py
+    - scripts/package_experiment_hardened.py
+    - scripts/verify_experiment_package_hardened.py
+    pytest_nodes:
+    - tests/test_experiment_artifact_hardening.py::test_command_start_failure_creates_failed_evidence_package
+    - tests/test_experiment_artifact_hardening.py::test_supervisor_exception_after_launch_still_packages_failure
+    coverage_level: direct
+  GOV-AGENT-SUPERVISION-003:
+    type: review
+    triggers:
+    - source_text_change
+    - migration_status_change
+    - authority_location_change
+    required_evidence:
+    - source_fingerprint_match
+    - destination_and_migration_evidence_when_moved
+    - governance_review_record
+  GOV-AGENT-SUPERVISION-004:
+    type: review
+    triggers:
+    - source_text_change
+    - migration_status_change
+    - authority_location_change
+    required_evidence:
+    - source_fingerprint_match
+    - destination_and_migration_evidence_when_moved
+    - governance_review_record
+  GOV-AGENT-SUPERVISION-005:
+    type: review
+    triggers:
+    - source_text_change
+    - migration_status_change
+    - authority_location_change
+    required_evidence:
+    - source_fingerprint_match
+    - destination_and_migration_evidence_when_moved
+    - governance_review_record
+  GOV-AGENT-SUPERVISION-006:
+    type: review
+    triggers:
+    - source_text_change
+    - migration_status_change
+    - authority_location_change
+    required_evidence:
+    - source_fingerprint_match
+    - destination_and_migration_evidence_when_moved
+    - governance_review_record
+  GOV-AGENT-SUPERVISION-007:
+    type: review
+    triggers:
+    - source_text_change
+    - migration_status_change
+    - authority_location_change
+    required_evidence:
+    - source_fingerprint_match
+    - destination_and_migration_evidence_when_moved
+    - governance_review_record
+  GOV-AGENT-SUPERVISION-008:
+    type: review
+    triggers:
+    - source_text_change
+    - migration_status_change
+    - authority_location_change
+    required_evidence:
+    - source_fingerprint_match
+    - destination_and_migration_evidence_when_moved
+    - governance_review_record
+  GOV-AGENT-SUPERVISION-009:
+    type: review
+    triggers:
+    - source_text_change
+    - migration_status_change
+    - authority_location_change
+    required_evidence:
+    - source_fingerprint_match
+    - destination_and_migration_evidence_when_moved
+    - governance_review_record
+  GOV-AGENT-SUPERVISION-010:
+    type: review
+    triggers:
+    - source_text_change
+    - migration_status_change
+    - authority_location_change
+    required_evidence:
+    - source_fingerprint_match
+    - destination_and_migration_evidence_when_moved
+    - governance_review_record
+  GOV-AGENT-PATCH-001:
+    type: machine
+    implementation_paths:
+    - scripts/artifact_protocol_hardened.py
+    pytest_nodes:
+    - tests/test_experiment_artifact_protocol.py::test_build_and_verify_final_package
+    coverage_level: grouped
+    coverage_note: The end-to-end package test exercises patch creation and package verification together; a dedicated
+      patch-only semantic test remains a later hardening opportunity.
+  GOV-AGENT-PATCH-002:
+    type: machine
+    implementation_paths:
+    - scripts/artifact_protocol_hardened.py
+    pytest_nodes:
+    - tests/test_experiment_artifact_protocol.py::test_build_and_verify_final_package
+    - tests/test_experiment_artifact_hardening.py::test_head_change_failed_package_is_bound_to_launch_commit
+    coverage_level: direct
+  GOV-AGENT-PATCH-003:
+    type: machine
+    implementation_paths:
+    - scripts/artifact_protocol_hardened.py
+    pytest_nodes:
+    - tests/test_experiment_artifact_protocol.py::test_build_and_verify_final_package
+    coverage_level: grouped
+    coverage_note: The end-to-end package test covers the complete package contract as a group; CHANGE_SUMMARY-specific
+      assertions are not yet isolated.
+  GOV-AGENT-PATCH-004:
+    type: machine
+    implementation_paths:
+    - scripts/artifact_protocol_hardened.py
+    pytest_nodes:
+    - tests/test_experiment_artifact_protocol.py::test_build_and_verify_final_package
+    coverage_level: grouped
+    coverage_note: The end-to-end package test covers the complete package contract as a group; placeholder-command
+      rejection is not yet isolated in a dedicated node.
+  GOV-AGENT-PATCH-005:
+    type: machine
+    implementation_paths:
+    - scripts/artifact_protocol_hardened.py
+    pytest_nodes:
+    - tests/test_experiment_artifact_protocol.py::test_build_and_verify_final_package
+    coverage_level: direct
+  GOV-AGENT-PATCH-006:
+    type: machine
+    implementation_paths:
+    - scripts/artifact_protocol_hardened.py
+    pytest_nodes:
+    - tests/test_experiment_artifact_protocol.py::test_build_and_verify_final_package
+    - tests/test_experiment_artifact_hardening.py::test_checksum_corruption_is_rejected
+    coverage_level: direct
+  GOV-AGENT-HARDENING-001:
+    type: review
+    triggers:
+    - source_text_change
+    - migration_status_change
+    - authority_location_change
+    required_evidence:
+    - source_fingerprint_match
+    - destination_and_migration_evidence_when_moved
+    - governance_review_record
+  GOV-AGENT-HARDENING-002:
+    type: review
+    triggers:
+    - source_text_change
+    - migration_status_change
+    - authority_location_change
+    required_evidence:
+    - source_fingerprint_match
+    - destination_and_migration_evidence_when_moved
+    - governance_review_record
+  GOV-AGENT-HARDENING-003:
+    type: review
+    triggers:
+    - source_text_change
+    - migration_status_change
+    - authority_location_change
+    required_evidence:
+    - source_fingerprint_match
+    - destination_and_migration_evidence_when_moved
+    - governance_review_record
+  GOV-AGENT-HARDENING-004:
+    type: machine
+    implementation_paths:
+    - scripts/artifact_protocol_hardened.py
+    pytest_nodes:
+    - tests/test_experiment_artifact_hardening.py::test_internal_verification_failure_leaves_no_final_zip
+    - tests/test_experiment_artifact_hardening.py::test_failed_candidate_preserves_existing_valid_output
+    coverage_level: direct
+  GOV-AGENT-HARDENING-005:
+    type: review
+    triggers:
+    - source_text_change
+    - migration_status_change
+    - authority_location_change
+    required_evidence:
+    - source_fingerprint_match
+    - destination_and_migration_evidence_when_moved
+    - governance_review_record
+  GOV-AGENT-HARDENING-006:
+    type: review
+    triggers:
+    - source_text_change
+    - migration_status_change
+    - authority_location_change
+    required_evidence:
+    - source_fingerprint_match
+    - destination_and_migration_evidence_when_moved
+    - governance_review_record
+  GOV-AGENT-HARDENING-007:
+    type: review
+    triggers:
+    - source_text_change
+    - migration_status_change
+    - authority_location_change
+    required_evidence:
+    - source_fingerprint_match
+    - destination_and_migration_evidence_when_moved
+    - governance_review_record
+  GOV-AGENT-HARDENING-008:
+    type: review
+    triggers:
+    - source_text_change
+    - migration_status_change
+    - authority_location_change
+    required_evidence:
+    - source_fingerprint_match
+    - destination_and_migration_evidence_when_moved
+    - governance_review_record
+  GOV-AGENT-HARDENING-009:
+    type: machine
+    implementation_paths:
+    - scripts/artifact_protocol_hardened.py
+    pytest_nodes:
+    - tests/test_experiment_artifact_hardening.py::test_external_result_symlink_is_rejected
+    coverage_level: direct
+  GOV-AGENT-HARDENING-010:
+    type: machine
+    implementation_paths:
+    - scripts/artifact_protocol_hardened.py
+    pytest_nodes:
+    - tests/test_experiment_artifact_hardening.py::test_large_checkpoint_stays_out_of_lightweight_main_and_can_use_sidecar
+    - tests/test_experiment_artifact_hardening.py::test_internal_verification_failure_leaves_no_final_zip
+    - tests/test_experiment_artifact_hardening.py::test_sidecar_selection_and_size_limits_are_enforced
+    coverage_level: direct
+  GOV-AGENT-HARDENING-011:
+    type: machine
+    implementation_paths:
+    - scripts/artifact_protocol_hardened.py
+    - scripts/run_experiment_guard_hardened.py
+    - scripts/package_experiment_hardened.py
+    - scripts/verify_experiment_package_hardened.py
+    pytest_nodes:
+    - tests/test_experiment_artifact_hardening.py::test_public_entrypoints_are_executable
+    - tests/test_experiment_artifact_hardening.py::test_public_wrappers_fail_closed_without_core_module
+    coverage_level: direct
+  GOV-AGENT-HARDENING-012:
+    type: review
+    triggers:
+    - source_text_change
+    - migration_status_change
+    - authority_location_change
+    required_evidence:
+    - source_fingerprint_match
+    - destination_and_migration_evidence_when_moved
+    - governance_review_record
+  GOV-AGENT-HARDENING-013:
+    type: review
+    triggers:
+    - source_text_change
+    - migration_status_change
+    - authority_location_change
+    required_evidence:
+    - source_fingerprint_match
+    - destination_and_migration_evidence_when_moved
+    - governance_review_record
+  GOV-AGENT-HARDENING-014:
+    type: review
+    triggers:
+    - source_text_change
+    - migration_status_change
+    - authority_location_change
+    required_evidence:
+    - source_fingerprint_match
+    - destination_and_migration_evidence_when_moved
+    - governance_review_record
+  GOV-AGENT-HARDENING-015:
+    type: review
+    triggers:
+    - source_text_change
+    - migration_status_change
+    - authority_location_change
+    required_evidence:
+    - source_fingerprint_match
+    - destination_and_migration_evidence_when_moved
+    - governance_review_record
+  GOV-AGENT-HARDENING-016:
+    type: review
+    triggers:
+    - source_text_change
+    - migration_status_change
+    - authority_location_change
+    required_evidence:
+    - source_fingerprint_match
+    - destination_and_migration_evidence_when_moved
+    - governance_review_record
+  GOV-AGENT-HARDENING-017:
+    type: review
+    triggers:
+    - source_text_change
+    - migration_status_change
+    - authority_location_change
+    required_evidence:
+    - source_fingerprint_match
+    - destination_and_migration_evidence_when_moved
+    - governance_review_record
+  GOV-AGENT-HARDENING-018:
+    type: review
+    triggers:
+    - source_text_change
+    - migration_status_change
+    - authority_location_change
+    required_evidence:
+    - source_fingerprint_match
+    - destination_and_migration_evidence_when_moved
+    - governance_review_record
+  GOV-AGENT-HARDENING-019:
+    type: review
+    triggers:
+    - source_text_change
+    - migration_status_change
+    - authority_location_change
+    required_evidence:
+    - source_fingerprint_match
+    - destination_and_migration_evidence_when_moved
+    - governance_review_record
+  GOV-AGENT-HARDENING-020:
+    type: review
+    triggers:
+    - source_text_change
+    - migration_status_change
+    - authority_location_change
+    required_evidence:
+    - source_fingerprint_match
+    - destination_and_migration_evidence_when_moved
+    - governance_review_record
+  GOV-AGENT-HARDENING-021:
+    type: review
+    triggers:
+    - source_text_change
+    - migration_status_change
+    - authority_location_change
+    required_evidence:
+    - source_fingerprint_match
+    - destination_and_migration_evidence_when_moved
+    - governance_review_record
+  GOV-AGENT-HARDENING-022:
+    type: review
+    triggers:
+    - source_text_change
+    - migration_status_change
+    - authority_location_change
+    required_evidence:
+    - source_fingerprint_match
+    - destination_and_migration_evidence_when_moved
+    - governance_review_record
+  GOV-AGENT-HARDENING-023:
+    type: review
+    triggers:
+    - source_text_change
+    - migration_status_change
+    - authority_location_change
+    required_evidence:
+    - source_fingerprint_match
+    - destination_and_migration_evidence_when_moved
+    - governance_review_record
+  GOV-AGENT-HARDENING-024:
+    type: review
+    triggers:
+    - source_text_change
+    - migration_status_change
+    - authority_location_change
+    required_evidence:
+    - source_fingerprint_match
+    - destination_and_migration_evidence_when_moved
+    - governance_review_record
+  GOV-AGENT-HARDENING-025:
+    type: review
+    triggers:
+    - source_text_change
+    - migration_status_change
+    - authority_location_change
+    required_evidence:
+    - source_fingerprint_match
+    - destination_and_migration_evidence_when_moved
+    - governance_review_record
+  GOV-AGENT-HARDENING-026:
+    type: review
+    triggers:
+    - source_text_change
+    - migration_status_change
+    - authority_location_change
+    required_evidence:
+    - source_fingerprint_match
+    - destination_and_migration_evidence_when_moved
+    - governance_review_record
+  GOV-AGENT-HARDENING-027:
+    type: review
+    triggers:
+    - source_text_change
+    - migration_status_change
+    - authority_location_change
+    required_evidence:
+    - source_fingerprint_match
+    - destination_and_migration_evidence_when_moved
+    - governance_review_record
+  GOV-AGENT-HARDENING-028:
+    type: review
+    triggers:
+    - source_text_change
+    - migration_status_change
+    - authority_location_change
+    required_evidence:
+    - source_fingerprint_match
+    - destination_and_migration_evidence_when_moved
+    - governance_review_record
+  GOV-AGENT-HARDENING-029:
+    type: review
+    triggers:
+    - source_text_change
+    - migration_status_change
+    - authority_location_change
+    required_evidence:
+    - source_fingerprint_match
+    - destination_and_migration_evidence_when_moved
+    - governance_review_record
+  GOV-AGENT-HARDENING-030:
+    type: review
+    triggers:
+    - source_text_change
+    - migration_status_change
+    - authority_location_change
+    required_evidence:
+    - source_fingerprint_match
+    - destination_and_migration_evidence_when_moved
+    - governance_review_record
+  GOV-AGENT-HARDENING-031:
+    type: review
+    triggers:
+    - source_text_change
+    - migration_status_change
+    - authority_location_change
+    required_evidence:
+    - source_fingerprint_match
+    - destination_and_migration_evidence_when_moved
+    - governance_review_record
+  GOV-AGENT-HARDENING-032:
+    type: review
+    triggers:
+    - source_text_change
+    - migration_status_change
+    - authority_location_change
+    required_evidence:
+    - source_fingerprint_match
+    - destination_and_migration_evidence_when_moved
+    - governance_review_record
+  GOV-AGENT-HARDENING-033:
+    type: review
+    triggers:
+    - source_text_change
+    - migration_status_change
+    - authority_location_change
+    required_evidence:
+    - source_fingerprint_match
+    - destination_and_migration_evidence_when_moved
+    - governance_review_record
