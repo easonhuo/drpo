@@ -1,0 +1,37 @@
+{
+  "device": "cpu",
+  "execution_mode": "development_pilot",
+  "experiment_id": "D-U1-E6-SEMANTIC-PILOT-01",
+  "formal_result": false,
+  "method_ranking_allowed": false,
+  "requested_stage": "pilot",
+  "scientific_status": "pilot",
+  "source": {
+    "git_head": "653aa6f73b18fed17609e6096cb1c50de0a8cd66",
+    "git_status_porcelain": "?? src/drpo/__pycache__/\n?? tests/__pycache__/",
+    "output_root": "/mnt/data/e6_pilot_run/pilot",
+    "source_files": [
+      {
+        "path": "src/drpo/du1_e6_semantic.py",
+        "sha256": "cf087913c228a5edffcca5498abcb684bd312793a592e99fef8b7f13e59bd660",
+        "size": 54432
+      },
+      {
+        "path": "configs/du1_e6_semantic_pilot.yaml",
+        "sha256": "c0cf5dc224f0b427f4f2741d1153525094f8bbc5757cbcae0e3b3aeff2787863",
+        "size": 3795
+      },
+      {
+        "path": "docs/handoff.md",
+        "sha256": "c3a920d48f6bc834982197397617130e188abceda12cc7a47d8df3ceaef0881f",
+        "size": 353459
+      },
+      {
+        "path": "experiments/registry.yaml",
+        "sha256": "73c8bbeeb235ea1284418f996649ba48bfac3a3686eed8800b3dd16ee6ef7fe7",
+        "size": 80079
+      }
+    ]
+  },
+  "started_unix": 1782478436.983184
+}

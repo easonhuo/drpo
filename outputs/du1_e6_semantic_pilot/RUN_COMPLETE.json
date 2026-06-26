@@ -1,0 +1,11 @@
+{
+  "actual_runs": 105,
+  "completed": true,
+  "elapsed_seconds": 512.93954205513,
+  "execution_mode": "development_pilot",
+  "expected_runs": 105,
+  "experiment_id": "D-U1-E6-SEMANTIC-PILOT-01",
+  "formal_result": false,
+  "method_ranking_allowed": false,
+  "scientific_status": "pilot"
+}

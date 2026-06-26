@@ -1,0 +1,532 @@
+[
+  {
+    "action_id_permutation_checksum": "e4f82dbdaa87fac8f9aa1b72e9ed6d6517ac120633e0fefa8286387b349c934c",
+    "embedding_mode": "aligned",
+    "passed": true,
+    "policy_embedding_norm_max_error": 1.1920928955078125e-07,
+    "policy_mapping_changed_when_shuffled": true,
+    "policy_permutation_checksum": "7a4644928f3a08db905254fd7e5e53ef19a46d932a2ecd372b45462413a82619",
+    "reward_embedding_norm_max_error": 1.1920928955078125e-07,
+    "reward_policy_diagonal_cosine_mean": 1.0,
+    "seed": 0,
+    "splits": {
+      "test": {
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.09646600484848022,
+          "hidden": 0.9684738516807556,
+          "local_negative": 0.6854186058044434,
+          "positive": 0.878472089767456
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 6.556510925292969e-07
+      },
+      "train": {
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.0978054329752922,
+          "hidden": 0.9684392809867859,
+          "local_negative": 0.6920499205589294,
+          "positive": 0.8803040981292725
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 6.258487701416016e-07
+      }
+    }
+  },
+  {
+    "action_id_permutation_checksum": "e4f82dbdaa87fac8f9aa1b72e9ed6d6517ac120633e0fefa8286387b349c934c",
+    "embedding_mode": "shuffled",
+    "passed": true,
+    "policy_embedding_norm_max_error": 1.1920928955078125e-07,
+    "policy_mapping_changed_when_shuffled": true,
+    "policy_permutation_checksum": "f6d8ff0cff721d9656cfe1e5480a0680670001e3fa031d60b14547f0a8e51a81",
+    "reward_embedding_norm_max_error": 1.1920928955078125e-07,
+    "reward_policy_diagonal_cosine_mean": -0.04347227141261101,
+    "seed": 0,
+    "splits": {
+      "test": {
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.09646600484848022,
+          "hidden": 0.9684738516807556,
+          "local_negative": 0.6854186058044434,
+          "positive": 0.878472089767456
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 6.556510925292969e-07
+      },
+      "train": {
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.0978054329752922,
+          "hidden": 0.9684392809867859,
+          "local_negative": 0.6920499205589294,
+          "positive": 0.8803040981292725
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 6.258487701416016e-07
+      }
+    }
+  },
+  {
+    "action_id_permutation_checksum": "69017a674b9facd4fc6a25900996ddae9168ac7d7c619b626cc5ea6963274849",
+    "embedding_mode": "aligned",
+    "passed": true,
+    "policy_embedding_norm_max_error": 5.960464477539063e-08,
+    "policy_mapping_changed_when_shuffled": true,
+    "policy_permutation_checksum": "7a4644928f3a08db905254fd7e5e53ef19a46d932a2ecd372b45462413a82619",
+    "reward_embedding_norm_max_error": 5.960464477539063e-08,
+    "reward_policy_diagonal_cosine_mean": 1.0,
+    "seed": 1,
+    "splits": {
+      "test": {
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.11052018404006958,
+          "hidden": 0.9643183946609497,
+          "local_negative": 0.6692509055137634,
+          "positive": 0.8652641773223877
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 6.705522537231445e-07
+      },
+      "train": {
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.10991363227367401,
+          "hidden": 0.9636362791061401,
+          "local_negative": 0.6681622266769409,
+          "positive": 0.8627818822860718
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 6.705522537231445e-07
+      }
+    }
+  },
+  {
+    "action_id_permutation_checksum": "69017a674b9facd4fc6a25900996ddae9168ac7d7c619b626cc5ea6963274849",
+    "embedding_mode": "shuffled",
+    "passed": true,
+    "policy_embedding_norm_max_error": 5.960464477539063e-08,
+    "policy_mapping_changed_when_shuffled": true,
+    "policy_permutation_checksum": "3001a55e4812827eebf8a4a0fa6184cd0e4bfe310bab28d1b236b9bbc0e2411a",
+    "reward_embedding_norm_max_error": 5.960464477539063e-08,
+    "reward_policy_diagonal_cosine_mean": 0.10310139507055283,
+    "seed": 1,
+    "splits": {
+      "test": {
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.11052018404006958,
+          "hidden": 0.9643183946609497,
+          "local_negative": 0.6692509055137634,
+          "positive": 0.8652641773223877
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 6.705522537231445e-07
+      },
+      "train": {
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.10991363227367401,
+          "hidden": 0.9636362791061401,
+          "local_negative": 0.6681622266769409,
+          "positive": 0.8627818822860718
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 6.705522537231445e-07
+      }
+    }
+  },
+  {
+    "action_id_permutation_checksum": "fb839ea314f2dbe3f5307104b72923560a3165caba4af7b81ed442c484d355f4",
+    "embedding_mode": "aligned",
+    "passed": true,
+    "policy_embedding_norm_max_error": 1.1920928955078125e-07,
+    "policy_mapping_changed_when_shuffled": true,
+    "policy_permutation_checksum": "7a4644928f3a08db905254fd7e5e53ef19a46d932a2ecd372b45462413a82619",
+    "reward_embedding_norm_max_error": 1.1920928955078125e-07,
+    "reward_policy_diagonal_cosine_mean": 1.0,
+    "seed": 2,
+    "splits": {
+      "test": {
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.11310720443725586,
+          "hidden": 0.9571748971939087,
+          "local_negative": 0.6731323003768921,
+          "positive": 0.857343316078186
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 7.301568984985352e-07
+      },
+      "train": {
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.11534108966588974,
+          "hidden": 0.9589618444442749,
+          "local_negative": 0.672531247138977,
+          "positive": 0.8595466613769531
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 6.332993507385254e-07
+      }
+    }
+  },
+  {
+    "action_id_permutation_checksum": "fb839ea314f2dbe3f5307104b72923560a3165caba4af7b81ed442c484d355f4",
+    "embedding_mode": "shuffled",
+    "passed": true,
+    "policy_embedding_norm_max_error": 1.1920928955078125e-07,
+    "policy_mapping_changed_when_shuffled": true,
+    "policy_permutation_checksum": "2dd3330dd91faf312d13ad757978b05692119682f672b3cb50c6c442294963dd",
+    "reward_embedding_norm_max_error": 1.1920928955078125e-07,
+    "reward_policy_diagonal_cosine_mean": -0.02000894956290722,
+    "seed": 2,
+    "splits": {
+      "test": {
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.11310720443725586,
+          "hidden": 0.9571748971939087,
+          "local_negative": 0.6731323003768921,
+          "positive": 0.857343316078186
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 7.301568984985352e-07
+      },
+      "train": {
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.11534108966588974,
+          "hidden": 0.9589618444442749,
+          "local_negative": 0.672531247138977,
+          "positive": 0.8595466613769531
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 6.332993507385254e-07
+      }
+    }
+  },
+  {
+    "action_id_permutation_checksum": "1aef5c0c0e9205912f9d78f0331f50eeeb1c5ff824f56d77dee8b272648dd432",
+    "embedding_mode": "aligned",
+    "passed": true,
+    "policy_embedding_norm_max_error": 5.960464477539063e-08,
+    "policy_mapping_changed_when_shuffled": true,
+    "policy_permutation_checksum": "7a4644928f3a08db905254fd7e5e53ef19a46d932a2ecd372b45462413a82619",
+    "reward_embedding_norm_max_error": 5.960464477539063e-08,
+    "reward_policy_diagonal_cosine_mean": 1.0,
+    "seed": 3,
+    "splits": {
+      "test": {
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.11376578360795975,
+          "hidden": 0.960781455039978,
+          "local_negative": 0.6673115491867065,
+          "positive": 0.8608386516571045
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 1.1771917343139648e-06
+      },
+      "train": {
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.114724300801754,
+          "hidden": 0.9609246253967285,
+          "local_negative": 0.6704908609390259,
+          "positive": 0.8622295260429382
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 6.73346221446991e-07
+      }
+    }
+  },
+  {
+    "action_id_permutation_checksum": "1aef5c0c0e9205912f9d78f0331f50eeeb1c5ff824f56d77dee8b272648dd432",
+    "embedding_mode": "shuffled",
+    "passed": true,
+    "policy_embedding_norm_max_error": 5.960464477539063e-08,
+    "policy_mapping_changed_when_shuffled": true,
+    "policy_permutation_checksum": "04771670941a4f5a6d57ff41d48cfbb3f7e56a552752274e092809de45b29eac",
+    "reward_embedding_norm_max_error": 5.960464477539063e-08,
+    "reward_policy_diagonal_cosine_mean": -0.01692087948322296,
+    "seed": 3,
+    "splits": {
+      "test": {
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.11376578360795975,
+          "hidden": 0.960781455039978,
+          "local_negative": 0.6673115491867065,
+          "positive": 0.8608386516571045
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 1.1771917343139648e-06
+      },
+      "train": {
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.114724300801754,
+          "hidden": 0.9609246253967285,
+          "local_negative": 0.6704908609390259,
+          "positive": 0.8622295260429382
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 6.73346221446991e-07
+      }
+    }
+  },
+  {
+    "action_id_permutation_checksum": "87f43dbb7eb69ecaec5e75371616bc0114f7521632adce167b3d1abab62e9b58",
+    "embedding_mode": "aligned",
+    "passed": true,
+    "policy_embedding_norm_max_error": 1.1920928955078125e-07,
+    "policy_mapping_changed_when_shuffled": true,
+    "policy_permutation_checksum": "7a4644928f3a08db905254fd7e5e53ef19a46d932a2ecd372b45462413a82619",
+    "reward_embedding_norm_max_error": 1.1920928955078125e-07,
+    "reward_policy_diagonal_cosine_mean": 1.0,
+    "seed": 4,
+    "splits": {
+      "test": {
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.10845872759819031,
+          "hidden": 0.9636107683181763,
+          "local_negative": 0.6696946024894714,
+          "positive": 0.8655840158462524
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 8.791685104370117e-07
+      },
+      "train": {
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.10856230556964874,
+          "hidden": 0.9634825587272644,
+          "local_negative": 0.6691204309463501,
+          "positive": 0.8662418723106384
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 7.972121238708496e-07
+      }
+    }
+  },
+  {
+    "action_id_permutation_checksum": "87f43dbb7eb69ecaec5e75371616bc0114f7521632adce167b3d1abab62e9b58",
+    "embedding_mode": "shuffled",
+    "passed": true,
+    "policy_embedding_norm_max_error": 1.1920928955078125e-07,
+    "policy_mapping_changed_when_shuffled": true,
+    "policy_permutation_checksum": "5b597eeddcc2f1682367ed570cf74e4292330b972db3ede0d5b0d990779fc0fb",
+    "reward_embedding_norm_max_error": 1.1920928955078125e-07,
+    "reward_policy_diagonal_cosine_mean": -0.041618913412094116,
+    "seed": 4,
+    "splits": {
+      "test": {
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.10845872759819031,
+          "hidden": 0.9636107683181763,
+          "local_negative": 0.6696946024894714,
+          "positive": 0.8655840158462524
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 8.791685104370117e-07
+      },
+      "train": {
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.10856230556964874,
+          "hidden": 0.9634825587272644,
+          "local_negative": 0.6691204309463501,
+          "positive": 0.8662418723106384
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 7.972121238708496e-07
+      }
+    }
+  }
+]

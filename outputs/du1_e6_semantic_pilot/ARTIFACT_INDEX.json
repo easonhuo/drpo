@@ -1,0 +1,40 @@
+{
+  "compact_repository_outputs": [
+    "PILOT_SUMMARY.md",
+    "RUN_COMPLETE.json",
+    "aggregate_summary.json",
+    "environment_audits.json",
+    "per_run_summary.csv",
+    "pilot_freeze_recommendation.json",
+    "pilot_result_summary.json",
+    "protocol_a_alpha_scan.csv",
+    "protocol_b_method_summary.csv",
+    "protocol_c_alignment_deltas.csv",
+    "protocol_c_semantic_shuffle_summary.csv",
+    "run_manifest.json",
+    "support_boundary_onsets.csv",
+    "terminal_audit.json"
+  ],
+  "execution_summary": {
+    "actual_runs": 105,
+    "environment_invariants_passed": true,
+    "exit_code": 0,
+    "expected_runs": 105,
+    "formal_two_x_extension_performed": false,
+    "nan_inf_numerical_failure_count": 0,
+    "support_or_temperature_boundary_count": 56,
+    "task_performance_collapse_count": 0
+  },
+  "expected_github_commit": "e8b62dde518f593ff8325c7da94c41406311ca45",
+  "experiment_id": "D-U1-E6-SEMANTIC-PILOT-01",
+  "formal_result": false,
+  "method_ranking_allowed": false,
+  "raw_artifact": {
+    "filename": "DRPO_DU1_E6_SEMANTIC_PILOT_E8B_RAW.zip",
+    "included_in_update_package_under": "experiment_artifacts/DRPO_DU1_E6_SEMANTIC_PILOT_E8B_RAW.zip",
+    "sha256": "6aee3262bcd6936f53d15889ab0c38d825b7ba8f110fa40ab40032f90d079bfb",
+    "size_bytes": 1895526
+  },
+  "remaining_gate": "User review and focused development extension before formal parameter freeze.",
+  "scientific_status": "pilot"
+}

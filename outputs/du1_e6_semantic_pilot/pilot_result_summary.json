@@ -1,0 +1,36 @@
+{
+  "development_observations": {
+    "learnable_negative_branches_support_boundary_ubiquitous_aligned": true,
+    "protocol_a_all_runs_terminal_inconclusive": true,
+    "protocol_a_alpha_0_5_hidden_delta_vs_positive_only": 0.07203658819198608,
+    "protocol_a_alpha_0_5_hidden_probability_mean": 0.21612542271614074,
+    "protocol_a_alpha_0_5_reward_mean": 0.8882276892662049,
+    "protocol_a_best_scanned_reward_alpha": 0.5,
+    "semantic_shuffle_reduces_hidden_optimum_probability": true
+  },
+  "execution": {
+    "actual_runs": 105,
+    "device": "cpu",
+    "elapsed_seconds": 512.93954205513,
+    "exit_code": 0,
+    "expected_runs": 105
+  },
+  "expected_github_commit": "e8b62dde518f593ff8325c7da94c41406311ca45",
+  "experiment_id": "D-U1-E6-SEMANTIC-PILOT-01",
+  "formal_gate": {
+    "enabled": false,
+    "reason": "Pilot requires user review; 2000-step fixed-concentration branches did not reach provisional plateau, and current learnable-concentration negative branches hit support boundaries.",
+    "recommended_next_action": "focused development extension before parameter freeze"
+  },
+  "formal_result": false,
+  "integrity": {
+    "environment_invariants_passed": true,
+    "nan_inf_numerical_failure_count": 0,
+    "pilot_integrity_passed": true,
+    "support_or_temperature_boundary_count": 56,
+    "task_performance_collapse_count": 0
+  },
+  "local_snapshot_commit": "653aa6f73b18fed17609e6096cb1c50de0a8cd66",
+  "method_ranking_allowed": false,
+  "scientific_status": "pilot"
+}

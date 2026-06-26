@@ -1,5 +1,24 @@
-# DRPO / SNA2C 远场负梯度动力学研究主文档 v39（Countdown V4.2 平衡离线集与动态远场诊断冻结版）
+# DRPO / SNA2C 远场负梯度动力学研究主文档 v40（D-U1 E6 语义 pilot 结果审计版）
 
+
+> **v40 增量登记：`D-U1-E6-SEMANTIC-PILOT-01` 开发 pilot 完成、终态审计与正式门禁判断（不删除 v39 及更早内容）**
+>
+> - 运行依据为用户确认并由 GitHub commit 页面核对的 `main` commit `e8b62dde518f593ff8325c7da94c41406311ca45`。当前执行环境的 Git shell 无法解析 GitHub 域名，因此未取得该 commit 的完整 Git object checkout；pilot 使用与该提交 E6 runner、配置、handoff 和 registry 文件一致的本地验证快照，快照 commit 为 `653aa6f73b18fed17609e6096cb1c50de0a8cd66`。该 provenance 限制允许保留 pilot 证据，但禁止把本轮升级为 formal long-run 结果。
+> - 先后完成 invariants、engineering smoke 和完整 development pilot。正式 pilot 使用 CPU、development seeds `0--4`、21 个 protocol/method 条件、每条件 5 seeds，共 `105/105` runs、每 run 2000 steps；子进程 exit code 为 0，总运行时约 513 秒。环境不变量全部通过，NaN/Inf 数值失败为 `0/105`。
+> - 三类失败事件继续分报：任务性能崩溃 `0/105`；support/temperature boundary `56/105`；NaN/Inf `0/105`。高 task reward 与 support boundary 可同时出现，因此本结果再次证明不能把任务效果、支持边界和数值崩溃合并为单一“collapse”。
+> - E6-A 固定 concentration 扫描中，开发集 `alpha=0.5` 的 held-out-context expected semantic reward 均值为 `0.888228`，hidden-optimal probability 为 `0.216125`，相对 positive-only 的 hidden-probability 配对均值增量为 `+0.072037`；`alpha=0.75/1.0` 出现过度外推和性能反转。但 6 个 alpha 条件的 30/30 runs 均未通过 pilot 两窗口 provisional plateau，2000 steps 不能被冻结为已收敛正式 horizon。
+> - E6-B 可学习 concentration 下，positive-only 为 `0/5` support boundary；所有包含负压力的 aligned 方法均为 `5/5` support boundary，常在 step 200--400 首次触发，终态 effective support 约 `1.27--1.32`、concentration mean 约 `134--155`。该结果是开发期支持收缩证据，不构成方法排名；当前 `alpha=0.5, far_lambda=1.0` 不得原样冻结为 formal protocol。
+> - E6-C 中，aligned policy-side semantic embedding 对 hidden-optimal probability 与 semantic reward 的提升显著高于 shuffled control；这在 pilot 层面支持“共享语义结构是未见动作概率转移的必要机制之一”。训练与测试 context 仍同分布独立采样，只能称 held-out-context / unseen-state generalization，不得称 OOD。
+> - 自动参数冻结仍被禁止。`D-U1-E6-SEMANTIC-LONGRUN-01` 保持 blocked：必须先做用户审阅，并使用既有变量进行聚焦开发扩展——固定 concentration 围绕 `alpha in {0.25,0.5,0.75}` 延长终态检查；可学习 concentration 降低 local/far negative pressure 后重新确认支持边界。不得新增未经审批的变量或正则器。
+> - compact repository outputs 位于 `outputs/du1_e6_semantic_pilot/`；完整 raw trajectories、逐 run summaries、日志、source snapshot 与 checksums 保存在交付包内嵌 raw artifact。科学状态保持 **pilot**，formal 2x extension、held-out formal seeds 与正式方法排名均未执行。
+
+> **v38（D-U1 E6 语义 pilot 准备版）**
+>
+> 以下 v38 历史标题与内容完整保留；v
+
+> **v39（Countdown V4.2 平衡离线集与动态远场诊断冻结版）**
+>
+> 以下 v39 历史标题与内容完整保留；v40 只追加 E6 pilot 结果和门禁判断，不覆盖 Countdown V4.2 协议。
 > **v39 增量登记：Countdown `EXT-C-E8-V4.2` 平衡离线集、动态远场诊断与参数化隔离（不删除 v38 及更早内容）**
 >
 > - 新执行 ID 为 `EXT-C-E8-V4.2`，状态为 **尚未运行（not_run）**；它继续只承担 Transformer/Countdown 外部有效性，不替代 D-U1/D-Diag 的受控机制识别。`EXT-C-E8-V4.1` 保留 provenance 并由本版本替换。

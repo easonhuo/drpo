@@ -2049,6 +2049,37 @@ development_experiment_registrations:
     - stopping_and_two_x_extension_criteria
     - untouched_held_out_seeds
     - formal_method_matrix
+  pilot_result:
+    expected_github_commit: e8b62dde518f593ff8325c7da94c41406311ca45
+    execution_snapshot_commit: 653aa6f73b18fed17609e6096cb1c50de0a8cd66
+    exact_git_object_checkout_available: false
+    provenance_scope: verified_E6_source_snapshot_for_pilot_only
+    completed_at_utc: '2026-06-26T13:02:30Z'
+    device: cpu
+    expected_runs: 105
+    actual_runs: 105
+    maximum_steps_per_run: 2000
+    environment_invariants_passed: true
+    nan_inf_numerical_failure_count: 0
+    task_performance_collapse_count: 0
+    support_or_temperature_boundary_count: 56
+    formal_two_x_extension_performed: false
+    protocol_a_development_observation:
+      alpha_0_5_expected_semantic_reward_mean: 0.8882276892662049
+      alpha_0_5_hidden_optimal_probability_mean: 0.21612542271614074
+      alpha_0_5_hidden_probability_delta_vs_positive_only: 0.07203658819198608
+      all_fixed_concentration_runs_provisional_plateau: false
+      interpretation: development_peak_but_terminal_horizon_unresolved
+    protocol_b_development_observation:
+      positive_only_support_events: 0
+      negative_pressure_aligned_support_events: 30
+      negative_pressure_aligned_total_runs: 30
+      interpretation: current_learnable_concentration_negative_pressure_not_freezable
+    protocol_c_development_observation:
+      semantic_alignment_control_supported: true
+      formal_claim_allowed: false
+    formal_gate_decision: remains_blocked_pending_user_review_and_focused_development_extension
+    compact_output_path: outputs/du1_e6_semantic_pilot
   non_claims:
   - formal_method_ranking
   - long_run_validation
@@ -2056,18 +2087,21 @@ development_experiment_registrations:
   - Transformer_external_validity
   - E5_replacement
   execution:
-    state: registered
-    run_id: null
-    last_heartbeat_utc: null
-    process_exit_code: null
+    state: delivered
+    run_id: cpu-pilot-20260626T125354Z
+    last_heartbeat_utc: '2026-06-26T13:02:30Z'
+    process_exit_code: 0
   evidence:
-    static_checks: false
-    unit_tests: false
-    smoke_test: false
-    pilot_raw_complete: false
-    terminal_audited: false
-    package_created: false
-    delivered_to_user: false
+    static_checks: true
+    unit_tests: true
+    smoke_test: true
+    pilot_raw_complete: true
+    terminal_audited: true
+    package_created: true
+    delivered_to_user: true
+    pilot_integrity_passed: true
+    raw_artifact_sha256: 6aee3262bcd6936f53d15889ab0c38d825b7ba8f110fa40ab40032f90d079bfb
+    repository_applied: false
 
 - id: D-U1-E6-SEMANTIC-LONGRUN-01
   environment: D-U1

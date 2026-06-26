@@ -1,0 +1,74 @@
+{
+  "automatic_freeze_allowed": false,
+  "experiment_id": "D-U1-E6-SEMANTIC-PILOT-01",
+  "formal_experiment_id_reserved": "D-U1-E6-SEMANTIC-LONGRUN-01",
+  "formal_gate_enabled": false,
+  "must_freeze_before_formal": [
+    "local alpha grid or selected alphas",
+    "fixed and learnable concentration settings",
+    "learning rate and optimizer",
+    "maximum steps and evaluation interval",
+    "two-window and 2x-extension stopping criteria",
+    "task and support boundary thresholds",
+    "untouched held-out formal seeds",
+    "formal method matrix and primary comparisons"
+  ],
+  "protocol_a_development_summary": [
+    {
+      "alpha": 0.0,
+      "development_candidate": false,
+      "expected_semantic_reward_mean": 0.8568169116973877,
+      "hidden_optimal_probability_mean": 0.14408883452415466,
+      "hidden_probability_delta_vs_positive_only": 0.0,
+      "numerical_failure_count": 0,
+      "support_event_count": 0
+    },
+    {
+      "alpha": 0.1,
+      "development_candidate": true,
+      "expected_semantic_reward_mean": 0.8682748436927795,
+      "hidden_optimal_probability_mean": 0.16571184694767,
+      "hidden_probability_delta_vs_positive_only": 0.02162301242351533,
+      "numerical_failure_count": 0,
+      "support_event_count": 0
+    },
+    {
+      "alpha": 0.25,
+      "development_candidate": true,
+      "expected_semantic_reward_mean": 0.8827299237251282,
+      "hidden_optimal_probability_mean": 0.19828735291957855,
+      "hidden_probability_delta_vs_positive_only": 0.05419851839542389,
+      "numerical_failure_count": 0,
+      "support_event_count": 0
+    },
+    {
+      "alpha": 0.5,
+      "development_candidate": true,
+      "expected_semantic_reward_mean": 0.8882276892662049,
+      "hidden_optimal_probability_mean": 0.21612542271614074,
+      "hidden_probability_delta_vs_positive_only": 0.07203658819198608,
+      "numerical_failure_count": 0,
+      "support_event_count": 0
+    },
+    {
+      "alpha": 0.75,
+      "development_candidate": true,
+      "expected_semantic_reward_mean": 0.8499974250793457,
+      "hidden_optimal_probability_mean": 0.14523199200630188,
+      "hidden_probability_delta_vs_positive_only": 0.0011431574821472168,
+      "numerical_failure_count": 0,
+      "support_event_count": 0
+    },
+    {
+      "alpha": 1.0,
+      "development_candidate": false,
+      "expected_semantic_reward_mean": 0.7609370470046997,
+      "hidden_optimal_probability_mean": 0.053274430334568024,
+      "hidden_probability_delta_vs_positive_only": -0.09081440418958664,
+      "numerical_failure_count": 0,
+      "support_event_count": 0
+    }
+  ],
+  "scientific_status": "pilot",
+  "user_review_required": true
+}

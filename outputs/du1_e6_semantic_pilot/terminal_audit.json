@@ -1,0 +1,16 @@
+{
+  "actual_runs": 105,
+  "all_runs_present": true,
+  "environment_invariants_passed": true,
+  "expected_runs": 105,
+  "experiment_id": "D-U1-E6-SEMANTIC-PILOT-01",
+  "formal_method_ranking_allowed": false,
+  "formal_scientific_acceptance": false,
+  "formal_two_x_extension_performed": false,
+  "nan_inf_numerical_failure_count": 0,
+  "pilot_integrity_passed": true,
+  "remaining_gate": "Development seeds must first establish environment invariants and produce a user-reviewed parameter-freeze record for alpha, concentration, learning rate, maximum steps, event thresholds, stopping criteria, and untouched held-out seeds.",
+  "scientific_status": "pilot",
+  "support_or_temperature_boundary_count": 56,
+  "task_performance_collapse_count": 0
+}
