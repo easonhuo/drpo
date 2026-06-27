@@ -1,0 +1,39 @@
+{
+  "affected_selectors": [
+    "DRPO / SNA2C \u8fdc\u573a\u8d1f\u68af\u5ea6\u52a8\u529b\u5b66\u7814\u7a76\u4e3b\u6587\u6863 v49\uff08\u6cbb\u7406 Pipeline Stage 1/2 Closure \u7248\uff09",
+    "DRPO / SNA2C \u8fdc\u573a\u8d1f\u68af\u5ea6\u52a8\u529b\u5b66\u7814\u7a76\u4e3b\u6587\u6863 v50\uff08\u6cbb\u7406 Pipeline Stage 3 Shadow Mode \u542f\u52a8\u7248\uff09"
+  ],
+  "base_commit": "40a942b5305e7de35acc16add2b6cc6b798a4508",
+  "base_handoff_sha256": "a75041b54bafd28d48edc356059eaa378705b454533686d5f0cca3a2e1c4dbdb",
+  "base_registry_sha256": "330a5a832b4707fdabf2d7a81764201ba98293308d5b3082361e6828ae72104c",
+  "candidate_replaced_authority": false,
+  "candidate_sha256": "058db535193cd9cf64d1f6e639752305cdad8f875f97ed0a92820f7887fbdc9c",
+  "current_registry_sha256": "330a5a832b4707fdabf2d7a81764201ba98293308d5b3082361e6828ae72104c",
+  "exact_manual_candidate_match": true,
+  "full_candidate_saved": false,
+  "head_commit": "40a942b5305e7de35acc16add2b6cc6b798a4508",
+  "history_preservation_passed": true,
+  "idempotence_passed": true,
+  "llm_blocking_gate_used": false,
+  "manual_handoff_authoritative": true,
+  "manual_sha256": "058db535193cd9cf64d1f6e639752305cdad8f875f97ed0a92820f7887fbdc9c",
+  "mode": "shadow",
+  "network_used": false,
+  "operation_count": 2,
+  "performance": {
+    "base_validation_ms": 57.202,
+    "comparison_and_registry_ms": 4.125,
+    "hard_limit_ms": 15000.0,
+    "policy_and_schema_ms": 5.928,
+    "render_and_idempotence_ms": 31.416,
+    "target_p95_ms": 5000.0,
+    "total_ms": 99.012,
+    "within_hard_limit": true,
+    "within_target": true
+  },
+  "policy_id": "GOV-HANDOFF-INDEX-01",
+  "registry_transition_assertions": [],
+  "schema_version": 1,
+  "status": "PASS",
+  "update_id": "GOV-STAGE3-SHADOW-BOOTSTRAP-2026-06-27"
+}

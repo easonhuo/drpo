@@ -60,6 +60,13 @@ REOPEN_REQUIREMENTS = {
     "authorization_record",
     "rollback_plan",
 }
+ALLOWED_STAGE3_ACCEPTANCE_STATES = {
+    "bootstrap_validation_pending",
+    "bootstrap_full_passed_shadow_observation_pending",
+    "critical_mismatch_open",
+    "shadow_validation_complete",
+}
+
 EXPECTED_HISTORICAL_RENUMBERING = {
     "historical_stage_2_handoff_delta": "stage_3",
     "historical_stage_3_handoff_history_split": "stage_4",
@@ -292,6 +299,39 @@ def validate(repo_root: Path, ledger_path: Path) -> dict[str, Any]:
         elif protected:
             raise StageStatusError(f"{stage_id}: only Stage 1/2 may own protected_files")
 
+        if stage_id == "stage_3" and status == "shadow_active":
+            required_stage3_files = {
+                "shadow_policy": "docs/handoff_delta_policy.yaml",
+                "schema_protocol": "docs/handoff_delta_protocol.md",
+                "state_machines": "docs/handoff_delta_state_machines.yaml",
+                "renderer": "scripts/handoff_delta_shadow.py",
+                "acceptance_entrypoint": "scripts/run_handoff_delta_acceptance.py",
+                "bootstrap_delta": (
+                    "docs/handoff_deltas/GOV-STAGE3-SHADOW-BOOTSTRAP-2026-06-27/"
+                    "HANDOFF_DELTA.yaml"
+                ),
+            }
+            if stage.get("implementation_state") != "implemented":
+                raise StageStatusError("stage_3 shadow_active requires implementation_state=implemented")
+            if stage.get("manual_handoff_remains_authoritative") is not True:
+                raise StageStatusError("stage_3 shadow mode must keep the manual handoff authoritative")
+            if stage.get("authority_cutover_allowed") is not False:
+                raise StageStatusError("stage_3 shadow mode must forbid authority cutover")
+            acceptance_state = require_string(
+                stage.get("acceptance_state"), "stage_3 acceptance_state"
+            )
+            if acceptance_state not in ALLOWED_STAGE3_ACCEPTANCE_STATES:
+                raise StageStatusError(
+                    f"stage_3 acceptance_state is not recognized: {acceptance_state!r}"
+                )
+            for key, expected_path in required_stage3_files.items():
+                value = require_string(stage.get(key), f"stage_3 {key}")
+                if value != expected_path:
+                    raise StageStatusError(
+                        f"stage_3 {key} must be {expected_path!r}, got {value!r}"
+                    )
+                safe_repo_path(repo_root, value, f"stage_3 {key}")
+
         file_reports: list[dict[str, str]] = []
         for entry in protected:
             if not isinstance(entry, dict):
@@ -341,6 +381,7 @@ def validate(repo_root: Path, ledger_path: Path) -> dict[str, Any]:
         "stage_1_closed": stages["stage_1"]["status"] == "closed_maintenance_only",
         "stage_2_closed": stages["stage_2"]["status"] == "closed_maintenance_only",
         "stage_3_ready_not_started": stages["stage_3"]["status"] == "ready_not_started",
+        "stage_3_shadow_active": stages["stage_3"]["status"] == "shadow_active",
     }
 
 

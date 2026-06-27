@@ -138,6 +138,49 @@
       "validators": []
     },
     {
+      "id": "handoff_delta_fast",
+      "risk": "medium",
+      "patterns": [
+        "docs/handoff.md",
+        "experiments/registry.yaml",
+        "docs/handoff_deltas/**"
+      ],
+      "pytest_targets": [],
+      "validators": [
+        [
+          "{python}",
+          "scripts/handoff_delta_shadow.py",
+          "auto-check",
+          "--repo-root",
+          "."
+        ]
+      ]
+    },
+    {
+      "id": "handoff_delta_core",
+      "risk": "medium",
+      "patterns": [
+        "docs/handoff_delta_policy.yaml",
+        "docs/handoff_delta_state_machines.yaml",
+        "docs/handoff_delta_protocol.md",
+        "scripts/handoff_delta_shadow.py",
+        "scripts/run_handoff_delta_acceptance.py",
+        "tests/test_handoff_delta_shadow.py"
+      ],
+      "pytest_targets": [
+        "tests/test_handoff_delta_shadow.py"
+      ],
+      "validators": [
+        [
+          "{python}",
+          "scripts/handoff_delta_shadow.py",
+          "auto-check",
+          "--repo-root",
+          "."
+        ]
+      ]
+    },
+    {
       "id": "documentation",
       "risk": "low",
       "patterns": [

@@ -1,0 +1,38 @@
+{
+  "elapsed_seconds": 7.041,
+  "outcomes": [
+    {
+      "command": [
+        "/opt/pyvenv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_handoff_delta_shadow.py"
+      ],
+      "elapsed_seconds": 5.266,
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "...........                                                              [100%]\n11 passed in 1.97s\n",
+      "timed_out": false
+    },
+    {
+      "command": [
+        "/opt/pyvenv/bin/python3",
+        "scripts/handoff_delta_shadow.py",
+        "auto-check",
+        "--repo-root",
+        "."
+      ],
+      "elapsed_seconds": 1.776,
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "HANDOFF_DELTA shadow gate: PASS (command=auto-check, mode=shadow)\n",
+      "timed_out": false
+    }
+  ],
+  "policy_id": "GOV-HANDOFF-INDEX-01",
+  "schema_version": 1,
+  "status": "PASS",
+  "target_seconds": 900.0,
+  "tier": "full"
+}

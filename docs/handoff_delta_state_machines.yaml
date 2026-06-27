@@ -1,0 +1,43 @@
+schema_version: 1
+policy_id: GOV-HANDOFF-INDEX-01
+machines:
+  scientific_status:
+    states:
+    - not_run
+    - pilot
+    - finite_step_validated
+    - long_run_validated
+    - analytically_proven
+    - rejected
+    - superseded
+    transitions:
+      not_run: [pilot, finite_step_validated, long_run_validated, rejected, superseded]
+      pilot: [finite_step_validated, long_run_validated, rejected, superseded]
+      finite_step_validated: [long_run_validated, rejected, superseded]
+      long_run_validated: [superseded]
+      analytically_proven: [superseded]
+      rejected: [superseded]
+      superseded: []
+  execution_gate:
+    states: [blocked, ready, review_required_not_runnable, completed]
+    transitions:
+      blocked: [ready, review_required_not_runnable]
+      ready: [blocked, completed]
+      review_required_not_runnable: [blocked, ready]
+      completed: []
+  activation_state:
+    states: [blocked, active, completed]
+    transitions:
+      blocked: [active]
+      active: [blocked, completed]
+      completed: []
+  evidence_lifecycle:
+    states: [registered, running, raw_complete, terminal_audited, packaged, delivered, applied_to_repository]
+    transitions:
+      registered: [running]
+      running: [raw_complete]
+      raw_complete: [terminal_audited]
+      terminal_audited: [packaged]
+      packaged: [delivered]
+      delivered: [applied_to_repository]
+      applied_to_repository: []

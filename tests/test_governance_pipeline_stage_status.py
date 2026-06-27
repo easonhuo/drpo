@@ -45,7 +45,7 @@ def test_current_repository_stage_closure_is_valid() -> None:
     proc = run_validator(REPO_ROOT)
     assert "Stage 1=closed_maintenance_only" in proc.stdout
     assert "Stage 2=closed_maintenance_only" in proc.stdout
-    assert "Stage 3=ready_not_started" in proc.stdout
+    assert "Stage 3=shadow_active" in proc.stdout
 
 
 def test_protected_file_tamper_is_rejected(tmp_path: Path) -> None:
@@ -98,3 +98,15 @@ def test_ledger_hash_edit_without_matching_authorization_is_rejected(tmp_path: P
     proc = run_validator(repo, check=False)
     assert proc.returncode == 2
     assert "ledger hash is not bound by authorization" in proc.stderr
+
+
+def test_shadow_active_stage_keeps_manual_authority_and_forbids_cutover(tmp_path: Path) -> None:
+    repo = copy_repository(tmp_path)
+    ledger_path = repo / "docs" / "governance_pipeline_stage_status.yaml"
+    ledger = yaml.safe_load(ledger_path.read_text())
+    ledger["stages"]["stage_3"]["authority_cutover_allowed"] = True
+    ledger_path.write_text(yaml.safe_dump(ledger, sort_keys=False))
+
+    proc = run_validator(repo, check=False)
+    assert proc.returncode == 2
+    assert "must forbid authority cutover" in proc.stderr

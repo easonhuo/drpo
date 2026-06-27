@@ -514,8 +514,13 @@ rules:
     type: machine
     implementation_paths:
     - scripts/validate_governance_pipeline_stage_status.py
+    - scripts/handoff_delta_shadow.py
     pytest_nodes:
     - tests/test_governance_pipeline_stage_status.py::test_protected_file_tamper_is_rejected
     - tests/test_governance_pipeline_stage_status.py::test_closed_stage_cannot_be_reopened_by_editing_only_the_ledger
     - tests/test_governance_pipeline_stage_status.py::test_ledger_hash_edit_without_matching_authorization_is_rejected
+    - tests/test_governance_pipeline_stage_status.py::test_shadow_active_stage_keeps_manual_authority_and_forbids_cutover
+    - tests/test_handoff_delta_shadow.py::test_current_repository_bootstrap_delta_matches_manual_handoff
+    - tests/test_handoff_delta_shadow.py::test_standard_replay_is_idempotent
+    - tests/test_handoff_delta_shadow.py::test_standard_manual_undeclared_change_is_rejected
     coverage_level: direct

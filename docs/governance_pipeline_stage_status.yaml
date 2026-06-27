@@ -39,7 +39,7 @@ stages:
     name: bundle_backed_update_integration_pipeline
     responsibility: Produce, verify, integrate, test, diagnose, and export canonical code-update packages.
     status: closed_maintenance_only
-    status_authorization: GOV-PIPELINE-STAGE12-CLOSURE-2026-06-27
+    status_authorization: GOV-STAGE1-STAGE3-TEST-INTEGRATION-2026-06-27
     closure_evidence:
     - canonical_bundle_backed_producer_and_verifier
     - exact_and_stale_ancestral_isolated_integration
@@ -75,8 +75,8 @@ stages:
       sha256: c7b305d73a6649c8012492f66e40edf0f234663fa72146bdb5ae59e495e5ad37
       authorized_by: GOV-PIPELINE-STAGE12-CLOSURE-2026-06-27
     - path: tools/drpo-update/test_impact_map.json
-      sha256: aaa96b9da42c34caa1631f2526df3a07fc72235f4ae1f156bd0f011ee94d89f7
-      authorized_by: GOV-PIPELINE-STAGE12-CLOSURE-2026-06-27
+      sha256: 86cae7c12c63128634a11916fef8ce0b2947e6e2f6252788c0f2b7db204b17e6
+      authorized_by: GOV-STAGE1-STAGE3-TEST-INTEGRATION-2026-06-27
     - path: scripts/package_update.py
       sha256: c1adf8a162d9ce596d610326ff3103bc00ee108ea89cc7e86ee4f74390083a52
       authorized_by: GOV-PIPELINE-STAGE12-CLOSURE-2026-06-27
@@ -145,13 +145,23 @@ stages:
     name: handoff_delta_shadow_mode
     responsibility: Add structured HANDOFF_DELTA generation, replay, candidate rendering, and shadow comparison without switching
       authority.
-    status: ready_not_started
-    status_authorization: GOV-PIPELINE-STAGE12-CLOSURE-2026-06-27
+    status: shadow_active
+    status_authorization: GOV-STAGE3-SHADOW-ACTIVATION-2026-06-27
     depends_on:
     - stage_1
     - stage_2
     separate_update_required: true
     protected_files: []
+    implementation_state: implemented
+    shadow_policy: docs/handoff_delta_policy.yaml
+    schema_protocol: docs/handoff_delta_protocol.md
+    state_machines: docs/handoff_delta_state_machines.yaml
+    renderer: scripts/handoff_delta_shadow.py
+    acceptance_entrypoint: scripts/run_handoff_delta_acceptance.py
+    bootstrap_delta: docs/handoff_deltas/GOV-STAGE3-SHADOW-BOOTSTRAP-2026-06-27/HANDOFF_DELTA.yaml
+    acceptance_state: bootstrap_full_passed_shadow_observation_pending
+    manual_handoff_remains_authoritative: true
+    authority_cutover_allowed: false
   stage_4:
     number: 4
     name: lossless_handoff_history_split_shadow_mode

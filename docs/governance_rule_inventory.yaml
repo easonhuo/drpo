@@ -31,7 +31,7 @@ tracked_sections:
   heading: Governance pipeline stage closure
   selector: top_level_list_items
   expected_item_count: 2
-  section_item_digest: 8ae7cec90c39d61827cfcf6304074819cfbb1783d766efacdcfc52784cc1c228
+  section_item_digest: 37c9c745d85633cc8516b5338a6aca5db9704b181cbec8ba4aef9a95211105d7
   coverage: complete_for_selected_section
 rules:
 - rule_id: GOV-AGENT-SUPERVISION-001
@@ -1475,15 +1475,15 @@ rules:
     destination_locations: []
     evidence: []
 - rule_id: GOV-PIPELINE-CLOSURE-002
-  title: Stage 1/2 are maintenance-only, protected after-images need authorization, and Stage 3 remains separate.
+  title: Stage 1/2 stay maintenance-only while Stage 3 runs a mandatory non-authoritative shadow delta gate.
   severity: mandatory
   scope: governance_pipeline
   source:
     source_id: AGENTS-PIPELINE-CLOSURE
     item_index: 2
     kind: top_level_list_item
-    excerpt: Stage 1 and the current Stage 2 are `closed_maintenance_only`. A protected after-image must match the stage ledger and an authorization record under `docs/governance_stage_authorizations/`; new features, architecture expansion, responsibility changes, or default-policy changes require an explicit user-approved `reopen` authorization and rollback plan. Stage 3 (`HANDOFF_DELTA.yaml` shadow mode) is `ready_not_started` and must be implemented in a separate approved update rather than folded into Stage 1/2 maintenance.
-    normalized_text_sha256: 64c7a2b698ea982628975d66fc00757642c22346ce6c09c01a570f6a2c5b23e2
+    excerpt: 'Stage 1 and the current Stage 2 remain `closed_maintenance_only`. A protected after-image must match the stage ledger and an authorization record under `docs/governance_stage_authorizations/`; new features, architecture expansion, responsibility changes, or default-policy changes require an explicit user-approved `reopen` authorization and rollback plan. Stage 3 (`HANDOFF_DELTA.yaml`) is `shadow_active`: every update that changes `docs/handoff.md` or `experiments/registry.yaml` must add exactly one delta under `docs/handoff_deltas/<update_id>/HANDOFF_DELTA.yaml` and pass `python3 scripts/handoff_delta_shadow.py auto-check --repo-root .`. During shadow mode the manual handoff remains authoritative and the generated candidate may not replace it.'
+    normalized_text_sha256: d76237d55a5f72e444b013cfec106aa0a2672e5fe1350a521c56c82ee7ebc33a
   current_locations:
   - path: AGENTS.md
     heading: Governance pipeline stage closure
@@ -1491,14 +1491,18 @@ rules:
   detailed_contract_locations:
   - path: docs/governance_pipeline_stage_status.yaml
     role: machine_status_contract
-  - path: docs/governance_stage_authorizations/GOV-PIPELINE-STAGE12-CLOSURE-2026-06-27.yaml
-    role: closure_authorization
+  - path: docs/governance_stage_authorizations/GOV-STAGE3-SHADOW-ACTIVATION-2026-06-27.yaml
+    role: stage_transition_authorization
+  - path: docs/handoff_delta_protocol.md
+    role: shadow_delta_contract
   machine_enforcement:
     required: true
     implementations:
     - scripts/validate_governance_pipeline_stage_status.py
+    - scripts/handoff_delta_shadow.py
     tests:
     - tests/test_governance_pipeline_stage_status.py
+    - tests/test_handoff_delta_shadow.py
   migration:
     status: unchanged
     destination_locations: []

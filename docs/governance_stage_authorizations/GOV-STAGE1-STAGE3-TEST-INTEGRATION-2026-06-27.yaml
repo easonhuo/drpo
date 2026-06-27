@@ -1,0 +1,23 @@
+schema_version: 1
+authorization_id: GOV-STAGE1-STAGE3-TEST-INTEGRATION-2026-06-27
+kind: reopen
+change_class: reopen
+claim_id: GOV-HANDOFF-INDEX-01
+approval_record: user_approved_2026-06-27_start_stage_3_with_deterministic_gates
+base_commit: 40a942b5305e7de35acc16add2b6cc6b798a4508
+stage_ids:
+- stage_1
+authorized_stage_statuses:
+  stage_1: closed_maintenance_only
+scope:
+- temporarily_reopen_only_the_test_impact_integration_surface
+- add_stage_3_fast_and_core_test_selection_groups
+- immediately_reclose_stage_1_without_changing_update_package_or_integration_semantics
+authorized_file_hashes:
+  tools/drpo-update/test_impact_map.json: 86cae7c12c63128634a11916fef8ce0b2947e6e2f6252788c0f2b7db204b17e6
+rollback_plan:
+- restore_tools_drpo_update_test_impact_map_json_to_commit_40a942b5305e7de35acc16add2b6cc6b798a4508
+- remove_the_stage_3_test_selection_groups
+- keep_stage_1_closed_maintenance_only
+remaining_uncertainties:
+- test_selection_overhead_must_be_measured_in_real_updates

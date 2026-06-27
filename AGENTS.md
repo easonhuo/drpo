@@ -30,7 +30,7 @@ Before changing code, designing a new experiment, or running an experiment:
 ## Governance pipeline stage closure
 
 * `docs/governance_pipeline_stage_status.yaml` is the machine-readable canonical stage map for the governance pipeline. Read it before modifying any Stage 1 or Stage 2 owned core file, and run `python3 scripts/validate_governance_pipeline_stage_status.py --repo-root .` before delivery.
-* Stage 1 and the current Stage 2 are `closed_maintenance_only`. A protected after-image must match the stage ledger and an authorization record under `docs/governance_stage_authorizations/`; new features, architecture expansion, responsibility changes, or default-policy changes require an explicit user-approved `reopen` authorization and rollback plan. Stage 3 (`HANDOFF_DELTA.yaml` shadow mode) is `ready_not_started` and must be implemented in a separate approved update rather than folded into Stage 1/2 maintenance.
+* Stage 1 and the current Stage 2 remain `closed_maintenance_only`. A protected after-image must match the stage ledger and an authorization record under `docs/governance_stage_authorizations/`; new features, architecture expansion, responsibility changes, or default-policy changes require an explicit user-approved `reopen` authorization and rollback plan. Stage 3 (`HANDOFF_DELTA.yaml`) is `shadow_active`: every update that changes `docs/handoff.md` or `experiments/registry.yaml` must add exactly one delta under `docs/handoff_deltas/<update_id>/HANDOFF_DELTA.yaml` and pass `python3 scripts/handoff_delta_shadow.py auto-check --repo-root .`. During shadow mode the manual handoff remains authoritative and the generated candidate may not replace it.
 
 ## Locked research boundaries
 

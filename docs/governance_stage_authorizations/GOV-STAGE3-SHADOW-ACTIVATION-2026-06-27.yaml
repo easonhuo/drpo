@@ -1,0 +1,25 @@
+schema_version: 1
+authorization_id: GOV-STAGE3-SHADOW-ACTIVATION-2026-06-27
+kind: stage_transition
+change_class: stage_transition
+claim_id: GOV-HANDOFF-INDEX-01
+approval_record: user_approved_2026-06-27_start_stage_3_shadow_mode_after_stage_1_2_closure
+base_commit: 40a942b5305e7de35acc16add2b6cc6b798a4508
+stage_ids:
+- stage_3
+authorized_stage_statuses:
+  stage_3: shadow_active
+scope:
+- implement_append_oriented_handoff_delta_schema_v1
+- implement_deterministic_candidate_renderer_and_shadow_comparison
+- implement_fast_standard_full_acceptance_tiers
+- keep_manual_handoff_authoritative
+- forbid_authority_cutover_in_this_update
+authorized_file_hashes: {}
+rollback_plan:
+- set_stage_3_back_to_ready_not_started_with_a_new_user_approved_transition
+- disable_handoff_delta_test_selection_group
+- keep_docs_handoff_md_as_the_unchanged_authority
+remaining_uncertainties:
+- real_multi_session_shadow_cycles_have_not_yet_been_completed
+- semantic_equivalence_beyond_exact_shadow_match_requires_future_acceptance_coverage

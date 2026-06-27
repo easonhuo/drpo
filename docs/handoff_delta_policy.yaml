@@ -1,0 +1,77 @@
+schema_version: 1
+policy_id: GOV-HANDOFF-INDEX-01
+mode: shadow
+research_master: docs/handoff.md
+registry: experiments/registry.yaml
+delta_root: docs/handoff_deltas
+schema_document: docs/handoff_delta_protocol.md
+entrypoint: scripts/handoff_delta_shadow.py
+acceptance_entrypoint: scripts/run_handoff_delta_acceptance.py
+authority:
+  manual_handoff_remains_authoritative: true
+  generated_candidate_may_replace_manual_handoff: false
+  switch_requires_separate_user_approved_stage_transition: true
+safety:
+  allow_network: false
+  allow_llm_blocking_gate: false
+  require_full_base_commit: true
+  require_base_handoff_sha256: true
+  require_base_registry_sha256: true
+  require_exact_manual_candidate_match: true
+  preserve_unaddressed_bytes: true
+  preserve_historical_identifiers: true
+  unknown_operation_policy: reject
+  maximum_deltas_per_update: 1
+supported_operations:
+- replace_heading
+- insert_after_heading
+- append_to_section
+fast_gate:
+  trigger_paths:
+  - docs/handoff.md
+  - experiments/registry.yaml
+  - docs/handoff_deltas/**
+  - docs/handoff_delta_policy.yaml
+  - docs/handoff_delta_state_machines.yaml
+  - docs/handoff_delta_protocol.md
+  - scripts/handoff_delta_shadow.py
+  target_p95_seconds: 5
+  hard_timeout_seconds: 15
+  save_full_candidate_on_success: false
+  save_full_candidate_on_failure: true
+standard_regression:
+  triggers:
+  - schema_change
+  - renderer_change
+  - state_machine_change
+  - conflict_rule_change
+  - parser_or_index_change
+  - new_operation
+  target_seconds: 60
+full_acceptance:
+  triggers:
+  - before_shadow_activation
+  - before_authority_cutover
+  - schema_major_version_change
+  - architecture_level_renderer_or_state_machine_change
+  - after_20_successful_relevant_updates
+  - after_7_days_with_at_least_one_relevant_update
+  - after_critical_semantic_mismatch_fix
+  - after_50_deltas_post_cutover
+  target_seconds: 900
+  zero_unresolved_critical_differences: true
+  require_historical_replay: true
+  require_mutation_suite: true
+  require_conflict_matrix: true
+  require_idempotence: true
+  require_independent_operation_commutativity: true
+retention:
+  always_keep:
+  - HANDOFF_DELTA.yaml
+  - SHADOW_REPORT.json
+  - candidate_sha256
+  - manual_sha256
+  keep_full_candidate_when:
+  - comparison_failed
+  - full_acceptance_case
+  - golden_replay_case

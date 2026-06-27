@@ -1,4 +1,15 @@
-# DRPO / SNA2C 远场负梯度动力学研究主文档 v49（治理 Pipeline Stage 1/2 Closure 版）
+# DRPO / SNA2C 远场负梯度动力学研究主文档 v50（治理 Pipeline Stage 3 Shadow Mode 启动版）
+
+<!-- HANDOFF-DELTA-BLOCK:after_heading:v50-stage3-shadow-bootstrap:START -->
+> **v50 增量登记：治理 Pipeline Stage 3 `HANDOFF_DELTA.yaml` shadow mode 启动（不删除 v49 及更早内容）**
+>
+> - Stage 1 与当前 Stage 2 的 `closed_maintenance_only` 状态保持不变；本版只启动当前 Stage 3，不改变任何科学实验变量、seeds、阈值、结果或执行顺序。`D-U1-E6-CONDITIONAL-GAP-01` 继续保持 **not_run + implemented + ready + active**。
+> - Stage 3 状态由 `ready_not_started` 迁移为 `shadow_active`。`docs/handoff.md` 在整个 shadow 期继续是唯一权威研究 Master；结构化 delta 只生成 candidate 并与人工 handoff 比较，不得替换正式 handoff。
+> - 新增 `docs/handoff_delta_protocol.md`、机器策略 `docs/handoff_delta_policy.yaml`、状态机 `docs/handoff_delta_state_machines.yaml`、确定性入口 `scripts/handoff_delta_shadow.py` 与三级验收入口 `scripts/run_handoff_delta_acceptance.py`。版本 1 只允许 heading rename、heading 后插入和 section 末尾 append，不允许任意文本替换或破坏性删除。
+> - Fast Gate 对每个 handoff / registry / delta 相关更新执行本地确定性 replay、base/hash、幂等、历史 ID、registry transition 与 candidate/manual exact-match 检查；禁止网络和 LLM 作为阻塞式 oracle。目标 p95 不超过 5 秒，硬上限 15 秒。
+> - Standard Regression 在 schema、renderer、状态机、冲突规则、parser/index 或 operation 变化时运行，目标 60 秒。Full Acceptance 在 shadow 激活前、authority cutover 前、schema 主版本或架构变化、累计 20 次相关更新、7 天内发生相关更新的兜底周期、critical mismatch 修复后运行，目标 15 分钟。
+> - 本更新使用 `GOV-STAGE3-SHADOW-BOOTSTRAP-2026-06-27/HANDOFF_DELTA.yaml` 自举 replay；candidate 与人工 v50 handoff 必须字节级一致。该自举通过只证明实现与门禁可运行，不等于 Stage 3 已验收或可以切换权威路径。
+<!-- HANDOFF-DELTA-BLOCK:after_heading:v50-stage3-shadow-bootstrap:END -->
 
 > **v49 增量登记：治理 Pipeline Stage 1/2 冻结式关闭（不删除 v48 及更早内容）**
 >
