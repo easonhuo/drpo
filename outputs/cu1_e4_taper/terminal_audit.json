@@ -1,0 +1,47 @@
+{
+  "experiment_id": "C-U1-E4-TAPER-01",
+  "base_commit": "054c2e275cfd36e07e8883cb65d0b8df00460361",
+  "execution_status": "formal_run",
+  "scientific_status": "finite-step validated / 有限训练步数验证",
+  "all_checks_passed": false,
+  "checks": [
+    {
+      "name": "all_registered_runs_present",
+      "passed": true,
+      "value": 220,
+      "expected": 220
+    },
+    {
+      "name": "primary_linear_quadratic_pairs_complete",
+      "passed": true,
+      "value": 20,
+      "expected": 20
+    },
+    {
+      "name": "failure_types_reported_separately",
+      "passed": true,
+      "value": true,
+      "expected": true
+    },
+    {
+      "name": "terminal_classification_available",
+      "passed": true,
+      "value": true,
+      "expected": true
+    },
+    {
+      "name": "all_runs_terminally_resolved",
+      "passed": false,
+      "value": {
+        "maximum_steps": 200,
+        "support_or_variance_boundary_event": 20
+      },
+      "expected": [
+        "nan_inf_numerical_event",
+        "stable_plateau_2x_confirmed",
+        "support_or_variance_boundary_event"
+      ]
+    }
+  ],
+  "interpretation_boundary": "The registered primary claim is stronger far-field suppression by reciprocal-quadratic versus reciprocal-linear at matched reference attenuation. A task-reward ranking is empirical and is not assumed."
+}

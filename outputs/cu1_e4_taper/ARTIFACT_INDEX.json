@@ -1,0 +1,66 @@
+{
+  "experiment_id": "C-U1-E4-TAPER-01",
+  "run_commit": "054c2e275cfd36e07e8883cb65d0b8df00460361",
+  "successful_run_id": "run_002",
+  "raw_complete_artifact": {
+    "filename": "C-U1-E4-TAPER-01_RUN002_RAW_COMPLETE.zip",
+    "sha256": "18ce26dfd9762f645095035ec24d544e4ec832e05e167402db04acb972c20b16",
+    "verified": true
+  },
+  "failed_attempt_artifact": {
+    "filename": "C-U1-E4-TAPER-01_RAW_COMPLETE.zip",
+    "sha256": "caabbc0c38dded4b33c49d6a7b00b7dd4bfa8a4f38c56bdbe595424e966d3376",
+    "verified": true
+  },
+  "scientific_status": "finite_step_validated",
+  "terminal_audit_all_checks_passed": false,
+  "notes": [
+    "same-distribution held-out-context generalization; not OOD",
+    "equal negative reward/advantage is a controlled equal-contour construction in a continuous action/reward environment",
+    "family comparison is anchor-normalized, not slope-, near-retention-, or gradient-budget-matched",
+    "final closure ZIP SHA-256 is reported at delivery to avoid self-referential package metadata"
+  ],
+  "repository_closure_base_commit": "054c2e275cfd36e07e8883cb65d0b8df00460361",
+  "compact_repository_files": {
+    "FAILED_RUN_INDEX.json": {
+      "sha256": "4ef44624144fb681fd3ac1ea286323c302fb0c87d7ffab9a94ee511ad6b170d5",
+      "size_bytes": 484
+    },
+    "RESULT_SUMMARY.md": {
+      "sha256": "5c21b44aeab6f5771ad19c4c21f6a8ec3d994a1ff0b00becf23988939de20b65",
+      "size_bytes": 6094
+    },
+    "RUN_COMPLETE.json": {
+      "sha256": "f2a5ae22040d76ae06cbea7293d149b75235940efd23fd62486d6a987912b2a6",
+      "size_bytes": 231
+    },
+    "aggregate.csv": {
+      "sha256": "c312078c6f2f0f80f0f939c8029c833f7268b21c5f5f845d52f76500a958c9e5",
+      "size_bytes": 1822
+    },
+    "environment_audit.json": {
+      "sha256": "37cba773abb32f732d359ccdfaf8d9b9e1cf57330dafd1cc72bb006116eb288e",
+      "size_bytes": 815
+    },
+    "paired_primary_comparison.csv": {
+      "sha256": "565ff54181f5e50d649f47bc0bf30cbc06f1830c09dd09610d25f70115eb15a5",
+      "size_bytes": 1194
+    },
+    "paired_primary_summary.json": {
+      "sha256": "95862ccb8f341d553f0da3a9edeaeb18c5e6f8e3eaa7c4c2ea2a8cc5949b491b",
+      "size_bytes": 344
+    },
+    "terminal_audit.json": {
+      "sha256": "f5498765c6f35f3cc795d9d081bfe336f8c26d71d2d59e823d6401ebe984da93",
+      "size_bytes": 1342
+    },
+    "terminal_state_counts.csv": {
+      "sha256": "ac7b34f162624388943b3aa625d62b3bfe41417653303bdcd2970f57855804d5",
+      "size_bytes": 74
+    },
+    "DESIGN_AND_FAIRNESS_NOTE.md": {
+      "sha256": "4b8e37d30892a6910854173348af1f3f4db01ccb8c8eded78105dafbeb13bb30",
+      "size_bytes": 3330
+    }
+  }
+}

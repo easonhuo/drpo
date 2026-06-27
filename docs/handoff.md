@@ -1,5 +1,21 @@
-# DRPO / SNA2C 远场负梯度动力学研究主文档 v44（D-U1 E6 formal 冻结与单次启动版）
+# DRPO / SNA2C 远场负梯度动力学研究主文档 v45（E4-TAPER 结果闭环、环境识别与公平性边界版）
 
+> **v45 增量登记：`C-U1-E4-TAPER-01` 正式结果、环境识别边界与方法公平性审计（不删除 v44 及更早内容）**
+>
+> - 正式运行绑定 commit `054c2e275cfd36e07e8883cb65d0b8df00460361`，成功 attempt `run_002` 完成 seeds `70--89`、11 个冻结条件，共 `220/220` runs；第一次 `run_001` 的 `SIGTERM` 失败证据单独保留且未进入科学汇总。
+> - 主比较 `rho=0.25` 下，reciprocal-quadratic 相对 reciprocal-linear 在 `20/20` paired seeds 中获得更低终态 full-parameter far/near negative-gradient ratio，并在 `20/20` seeds 中获得更高 held-out-context reward。reward 均值差为 `+0.011372`，paired bootstrap 95% 区间 `[+0.010951,+0.011826]`；far/near ratio 均值差为 `-1.601377`，95% 区间 `[-1.617527,-1.586817]`。
+> - 终态审计未通过全部科学门禁：`200/220` controlled/positive runs 在冻结 8000-step maximum 时仍未形成稳定候选，未进入 2x continuation；`20/220` unweighted runs 在 step 100 触发 support/variance boundary。因此状态登记为 **有限训练步数验证（finite-step validated）**，不是 long-run validated 或稳定固定点排名。
+> - 三类事件继续分开报告：task-performance collapse `10/220`、support/variance boundary `20/220`、NaN/Inf numerical failure `0/220`。Unweighted 只作为内部负对照和 runner 回归锚点，不登记为新的失稳发现。
+> - C-U1 动作空间与 reward 函数连续。每个状态的 8 个负动作是从连续等 reward 圆周上人为选择的均匀角度，用于精确匹配负 reward/advantage 并隔离 policy-relative distance；有限离线支持不等于环境不连续。
+> - 在负样本内部，质量幅度与 near/far distance 严格解耦，但 directional utility 与 distance 在当前二维几何中有意相关。该设计识别 informativeness--amplification mismatch，不得升级为“所有近负样本必然有益、所有远负样本必然有害”。
+> - Linear/Quadratic/Exponential 只匹配共同参考点 `w(d_ref)=rho`，未匹配参考点斜率、near-negative retention、总负梯度预算或累计 optimizer update。当前结果只支持 anchor-normalized mechanism-order claim；不支持 best-tuned family 的普遍任务排名。 不得写成 Exp、Quadratic 或其他方法的 universal winner。
+> - 解析边界保持：在 bounded advantage、pre-boundary `sigma>=sigma_min>0` 与 learnable Gaussian log-scale 输出分支下，未加权远场项为 `Theta(d^2)`；reciprocal-polynomial `p=2` 是使该输出分支渐近有界的最低多项式阶。该阶数结论与有限系数无关，但不推出 Quadratic task reward 必然高于充分调参后的 Linear，也不推出 Exponential 是最终最佳方法。
+> - 后续证据需求只登记为 **review-required proposals**，本版不授权新 formal experiment：连续角度/随机 phase/薄圆环几何稳健性；匹配 near-negative retention 的 family 比较；与 Global alpha 的逐步或累计负梯度预算匹配；等搜索预算调参后使用全新 confirmatory seeds；原 Adam 长程、2x continuation 与必要时独立 full-batch stationary-solution audit。
+> - E4/E4-CONV 继续承担 positive-only imitation ceiling、受控负梯度外推收益和过强负压力反转；E4-TAPER 不重复这些既有职责。当前执行路线不被上述 review proposals 抢占：下一正式实验仍是已批准、implemented + ready + active 的 `D-U1-E6-SEMANTIC-LONGRUN-01`。
+
+
+> **v44（D-U1 E6 formal 冻结与单次启动版）**
+>
 > **v44 增量登记：`D-U1-E6-SEMANTIC-LONGRUN-01` 用户批准 freeze、formal 实现与 canonical activation（不删除 v43 及更早内容）**
 >
 > - 用户于 2026-06-27 明确批准按 focused-development 建议原样冻结 E6 formal 协议，并要求不再拆分额外“激活包”。本版一次性完成 formal config、独立科学 runner、one-click hardened launcher、registry ready/active 状态和测试；应用并提交后即可直接启动 long-run，不再需要新的运行前仓库更新。
@@ -24,9 +40,6 @@
 > - `outputs/du1_e6_semantic_focused_dev/` 保存 compact summary、逐条件表、终态审计和 formal freeze 建议；完整 Phase 1/2 trajectories、逐 run summaries、日志、配置、source snapshot 与 checksums 位于 raw artifact `DRPO_DU1_E6_SEMANTIC_FOCUSED_DEV_RAW.zip`，SHA-256 为 `bee5b62e7715bda63ec166849f431ab5c4c90954720e672945e25e62b320e0d6`。
 > - 两个开发阻塞项已经解决，但自动 freeze 仍禁止。建议供用户审阅的 formal 配置为：held-out seeds `10--29`；Adam `lr=1e-3`；8000 steps（相对 4000-step development horizon 的 2x）；固定 concentration `8.0` 与 `alpha={0,0.25,0.5,0.75}`；learnable concentration 初值 `8.0`、无上界 clamp、`local_alpha=0.1`、far stress `lambda=0.05`；方法矩阵 `positive_only / far_zero / uncontrolled / near_zero / far_cap / budget_matched_global`。正式 runner、canonical activation 和 held-out 执行必须等待用户明确批准。
 
-> **v42（执行状态一致性与跨环境路线锁定版）**
->
-> 以下 v42 历史标题与内容完整保留；v43 只追加 E6 focused-development 结果与 formal-freeze 建议，不覆盖跨环境路线和状态机一致性规则。
 
 > **v42 增量登记：状态机一致性、E7 已实现门禁与 E4--E8 路线锁定（不删除 v41 及更早内容）**
 >
@@ -469,7 +482,7 @@
 
 ## 0.1 当前执行门禁
 
-- C-U1 E1/E2/E3：现有正式状态保留。`C-U1-E4-ADAM-RERUN` 保留“有限训练步数验证”；`C-U1-E4-CONV-01` 经用户明确审阅，在保留原 18/20 门禁失败事实的前提下，按 15/20、16/20、15/20 目标状态、0/60 明确相反终态与 60/60 长程科学角色不反转，闭合为“已长期验证”。`C-U1-E4-TAPER-01` 已完成文档登记、共享实现和 operational activation 同步，当前为 **尚未运行、允许按冻结协议正式启动**。
+- C-U1 E1/E2/E3：现有正式状态保留。`C-U1-E4-ADAM-RERUN` 保留“有限训练步数验证”；`C-U1-E4-CONV-01` 经用户明确审阅，在保留原 18/20 门禁失败事实的前提下，按 15/20、16/20、15/20 目标状态、0/60 明确相反终态与 60/60 长程科学角色不反转，闭合为“已长期验证”。`C-U1-E4-TAPER-01` 已完成 `220/220` 正式 runs、终态审计与交付；20/20 paired seeds 支持 Quadratic 在 anchor-normalized protocol 下比 Linear 更强抑制远场负梯度，但 200 controlled/positive runs 未形成稳定候选，故科学状态为 **有限训练步数验证**，不得称 long-run validated 或形成 universal method ranking。
 - D-U1：E5 已长期闭环。E6 pilot 与 focused development 均已完成并保持 **pilot**；用户已批准 formal freeze，`D-U1-E6-SEMANTIC-LONGRUN-01` 已实现并同步为 **not_run + ready + active**，应用本版后可直接启动。`D-U1-E6-TAPER-01` 继续等待 E6 long-run 完成 terminal audit、packaging 和 delivery。
 - Hopper/D4RL：`EXT-H-E7-Q2` 是 E7-MECH，runner/config 已实现但 formal launch 仍等待受控 taper 阶段交付；`EXT-H-E7-BENCH-01` 是 D4RL MuJoCo locomotion 9-task 方法效果表，等待 E7-MECH 与受控方法 shortlist 冻结。
 - Countdown：`EXT-C-E8-V4.2` 是当前 E8-MECH/pilot；`EXT-C-E8-V4.1` 仅保留 provenance；`EXT-C-E8-SCALE-01` 是更大固定数据与模型规模验证，等待 E8-MECH 和 E7-BENCH。
@@ -751,7 +764,7 @@ $$
 ### 3.8.3 正式协议
 
 - **Experiment ID：** `C-U1-E4-TAPER-01`；补充 E4 的方法阶数 claim，不替代 E1--E4。
-- **状态：** 尚未运行。seeds 0--4 的旧结果仅作开发 pilot。
+- **状态：** 正式 seeds 70--89 已完成 220/220 runs；终态审计未全部通过，科学状态为 **有限训练步数验证**。seeds 0--4 的旧结果继续只作开发 pilot。
 - **正式 seeds：** 70--89；20 seeds 配对。
 - **主比较：** reciprocal-linear 对 reciprocal-quadratic，`rho=0.25`、`alpha=1.0`。
 - **次要对照：** `rho in {0.50,0.75}` 的形状敏感性；exponential 只检验更快尾部，不预设其 reward 更优；positive-only 与 unweighted-negative 为边界对照。
@@ -763,6 +776,30 @@ $$
 - **主统计：** 20-seed paired bootstrap，报告 quadratic-minus-linear 的 far/near ratio 与 reward 差异；理论预注册只预言前者更低，不预言后者必然更高。
 - **Linear 名称边界：** `w_lin` 是本研究在同一标准化距离上的内部 `p=1` reciprocal control，不是原 DRPO 分布鲁棒章节中的 linear weighting，也不以复现任何外部方法为前置条件。clipped-linear、surprisal-linear 或不同距离上的线性族属于其他方法，必须另行登记，不能更名替换本实验。
 
+
+### 3.8.4 环境连续性、质量匹配与方向效用边界（v44 澄清）
+
+1. **连续环境与有限离线支持必须区分。** C-U1 的动作空间是 `R^2`，reward 对任意动作连续可计算；负样本集合来自以 `a_star(s)` 为圆心、半径 1.20 的连续等值圆周。正式数据每状态只取 8 个均匀角度，是有限 offline dataset 的支持设计，不是分段或不连续 reward。
+2. **等 reward/advantage 是人为控制变量。** 它不是行为策略自然采样后的经验巧合。这样设计是为了排除“far 样本梯度更大只是因为 reward 更低或 `|A|` 更大”的混杂，使 near/far 差异主要来自当前 policy score geometry 与方向。
+3. **质量解耦不等于方向效用解耦。** 对负样本，均值分支更新方向与 `mu-a` 同向；其相对真实 improvement direction `a_star-mu` 的 cosine 决定局部 utility。当前圆周含 `a_minus=a_plus-0.50u`，排斥该近场点朝向 hidden optimum；圆周另一侧的远点排斥方向可与 hidden optimum 相反。因此相同 advantage 可以具有不同 directional utility。
+4. **允许的机制表述。** 当前环境展示一种受控且现实相关的结构：局部负样本仍可能提供 boundary shaping，随着 policy-relative remoteness 增大，方向相关性可能下降或反转，而 Gaussian score influence 仍增长。Distance taper 处理的是这种 informativeness--amplification mismatch。
+5. **禁止的普遍化。** 不得写成“near negative 必然有益”“far negative 必然有害”或“distance 在任何任务中都是 oracle utility”。真实任务中的 utility--distance 关系必须由多几何稳健性和 Hopper/Countdown/推荐外部验证测量。
+6. **未来透明化材料。** 论文附录至少报告：负 advantage 对 distance 的水平匹配；未加权 score/influence 随 distance 的变化；负更新与 oracle improvement direction 的 cosine；各 taper 后的有效 `utility x influence`。这属于解释与审计，不改变 v43 的冻结结果。
+
+### 3.8.5 函数族公平性、解析阶数与后续验证（v44 澄清）
+
+1. **当前比较匹配了什么。** 三个 family 共享 `w(d_ref)=rho`、同一距离、同一初始化、同一 advantage、同一 minibatch stream。它们没有匹配 `w'(d_ref)`、near-bin 平均权重、总负梯度 norm 或累计 optimizer update。
+2. **当前结果能回答什么。** 它回答 anchor-normalized protocol 下的形状差异：在同一 `rho` 下，Quadratic 在 `d<d_ref` 保留更多、在 `d>d_ref` 抑制更强，并在正式 paired seeds 上产生更低 far/near ratio。它不回答各 family 独立充分调参后的最优 reward 排名。
+3. **超参数不能改变尾部阶数。** 对 `w_p(d)=[1+lambda(d/d_ref)^p]^{-1}`，任意有限 `lambda>0` 只改变常数，不改变 `w_p(d)=Theta(d^{-p})`。在 learnable-log-scale 输出分支 `Theta(d^2)` 下，`p<2` 仍无界，`p=2` 有界，`p>2` 趋零；Exponential 支配任何有限多项式增长。该结论是渐近影响界，不是 task reward 定理。
+4. **衰减并非越重越好。** 将任一 family 系数无限增大会趋近 positive-only，可能丢失 E4 已证明有价值的局部负信号。因此优化目标不是最小化全部负权重，而是在保持局部信息的条件下最小化远场风险。
+5. **后续公平比较的最低要求。** 至少分别完成：
+   - 匹配 `E[w(d)|near]` 或预注册 near-bin retention 后比较 far risk；
+   - 与 Global alpha 做逐步或累计 negative-gradient budget matching；
+   - 每个 family 使用相同 dev-search trial 数，冻结超参后在全新 confirmatory seeds 评估；
+   - 报告 Pareto frontier：near retention、far influence、task reward、sigma/support 与三类失效事件；
+   - 保持原 Adam 做长程状态审计，并在必要时另用预注册 full-batch polish/root finding 检查 objective stationary solution。
+6. **执行门禁。** 上述项目尚无可运行 experiment ID；不得复用 seeds 70--89 作为新的 confirmatory set，也不得擅自修改 horizon、optimizer、阈值或当前 E4-TAPER 定义。任何执行必须先给出独立 ID、冻结参数和对既有路线的影响。
+
 ## 3.9 E6--E8 方法迁移与规模验证路线（v42 锁定）
 
 1. **E6：** pilot 与 focused development 已完成 development seeds 0--4 的 105/105 与 165/165 runs。用户已批准 v44 formal freeze，runner/config 已实现并 active；下一步由 `D-U1-E6-SEMANTIC-LONGRUN-01` 在 untouched seeds 10--29 上建立 positive-only ceiling、受控 local negative 的未见动作泛化收益、far pressure 的任务/支持失稳以及语义置乱排他性。
@@ -771,7 +808,7 @@ $$
 4. **`EXT-H-E7-BENCH-01`（E7-BENCH）：** 公共大规模连续控制主表固定为 D4RL MuJoCo locomotion suite：Hopper、Walker2d、HalfCheetah × medium、medium-replay、medium-expert，共 9 tasks。方法 shortlist 与超参从 E4/E6-TAPER 冻结，不得在 D4RL 上按任务重新选择方法族；主报 normalized return、多 seed 区间、跨任务平均排名、最差 seed 与三类失效事件。AntMaze/Kitchen/Adroit 不属于本主表，可另行登记 stress test。
 5. **`EXT-C-E8-V4.2`（E8-MECH）：** 0.5B Countdown/Qwen 继续承担 Transformer 固定负优势 near/far probe、pipeline 与小规模方法信号，不承担最终规模结论。
 6. **`EXT-C-E8-SCALE-01`（E8-SCALE）：** 在方法 shortlist 冻结后，使用更大固定 Countdown offline dataset；3B 为正式主模型，7B 只做冻结配置确认，不在规模实验重新筛选方法族。
-7. **执行顺序：** `E4-TAPER -> E6 -> E6-TAPER -> E7-MECH -> E7-BENCH -> E8-MECH -> E8-SCALE`。E6 formal-freeze 已批准并实现，当前可直接启动 long-run；每个正式 ID 必须先完成 terminal audit、packaging 和 delivery，下一正式 ID 才可启动。
+7. **执行顺序：** `E4-TAPER -> E6 -> E6-TAPER -> E7-MECH -> E7-BENCH -> E8-MECH -> E8-SCALE`。E4-TAPER 已完成并以 finite-step status 交付；E6 pilot/focused development 已完成，formal freeze 已获用户批准且 runner 已实现，当前下一正式实验可直接启动 `D-U1-E6-SEMANTIC-LONGRUN-01`。每个正式 ID 必须先完成 terminal audit、packaging 和 delivery，下一正式 ID 才可启动。
 
 ---
 
@@ -820,7 +857,7 @@ $$
 | E3 | Product/Collapse 环境与旧 SGD C-U1 结果保留 provenance | **`C-U1-E3-ADAM-RERUN` 已完成并交付**：固定方差 Baseline/Near-zero 20/20 任务崩溃，Far-zero/Far-cap 0/20；可学习方差 Baseline/Near-zero 20/20 support contraction，远场控制 0/20；NaN/Inf 0/220 | **已长期验证，论文可用**；主文采用四方法 fixed-variance 因果链，learnable-variance 作互补 panel/附录 |
 | E4 | 独立 Extrapolation 环境；部分长程审计 | **`C-U1-E4-ADAM-RERUN` 已完成并交付**：有限步 reward 相变、过强压力任务崩溃、learnable-variance support contraction 与 4000-step controls 均完成；受益分支未通过 20/20 双 residual audit | **有限训练步数验证**；可用于有限步相变图与失稳分支，暂不可写成稳定有益 fixed point |
 | E4-CONV | 无历史独立环境结果 | **4000-step 正式运行已完成**：`0.75/1.00/1.25` 目标状态分别为 15/20、16/20、15/20，剩余均 inconclusive，0 个明确相反终态，60/60 科学角色未反转 | **已长期验证（用户确认闭环）**；原 18/20 门禁未通过的事实继续保留，不等同于 20/20 fixed-point 认证 |
-| E4-TAPER | seeds 0--4 独立复制实现 pilot | 共享 core 与正式 runner 已登记；E4-CONV 前置门禁已由用户确认闭环解除，正式 seeds 70--89 尚未运行 | 二次临界界已解析证明；允许按冻结协议启动，方法排名尚无正式结果 |
+| E4-TAPER | seeds 0--4 独立复制实现 pilot | **正式 seeds 70--89 已完成 220/220 runs**：quadratic vs linear 在主 rho=0.25 上 20/20 更强抑制远场且 20/20 reward 更高；200 controlled/positive runs 到 8000 steps 仍无稳定候选，20 unweighted runs 触发 support boundary | **有限训练步数验证**；机制阶数 claim 可用，稳定终态和 universal method ranking 不可声称 |
 | E5 | 历史解析、direct-softmax 与 20-seed 因果结果保留；旧 runner/raw artifact 未入库 | **`D-U1-E5-LONGRUN-RERUN` 已完成**：direct-softmax 参照通过，120/120 长程因果 runs 全部分类且 120/120 复现历史 qualitative class，NaN/Inf 0/120 | **已长期验证**；受控 categorical 排斥、支持边界和 near/far 因果链可用于论文，E6 语义泛化仍未完成 |
 | E6 | unordered semantic categorical pilot/focused runner 与 formal runner/config 均已实现 | Pilot 105/105 与 focused development 165/165 已完成；用户已批准 `local_alpha=0.1`、far stress 0.05、8000-step、seeds 10--29 的 formal freeze；long-run 尚未运行但 ready + active | 开发证据保持 pilot；正式方法结论等待 long-run terminal audit |
 | E6-TAPER | 无正式结果 | `D-U1-E6-TAPER-01` 已 planned 登记，semantic distance 尚未冻结 | 未完成、blocked；不得套用 Gaussian 二次界 |
@@ -834,7 +871,7 @@ $$
 # 6. 接下来唯一执行顺序
 
 1. E1/E2/E3、E4、E4-CONV 与 E5 的既有科学状态和历史证据保持不变；原 E4 18/20 门禁失败事实继续披露。
-2. **`C-U1-E4-TAPER-01` 现已 ready + active。** 它仍是尚未运行，必须从应用本更新后的 clean commit 通过 canonical hardened guard 启动。
+2. **`C-U1-E4-TAPER-01` 已完成正式运行与交付。** 当前科学状态是有限训练步数验证：主 paired mechanism-order claim 得到支持，但 2× 终态门禁未通过；不得自动延长或升级为 long-run validated。
 3. `D-U1-E6-SEMANTIC-PILOT-01` 已完成并交付，但只提供 development 证据，不产生论文级方法排名，也不自动冻结 E6 正式参数。
 4. E6 focused development 已完成；用户已批准 freeze，formal runner/config 与 canonical activation 已一次性实现。应用本版后的下一步是直接启动 `D-U1-E6-SEMANTIC-LONGRUN-01`，不再增加运行前激活提交。
 5. E6 long-run 交付并冻结同一个 semantic remoteness coordinate 后，实施 `D-U1-E6-TAPER-01`；不得把 Gaussian 标准化距离或二次临界界直接搬到 categorical。

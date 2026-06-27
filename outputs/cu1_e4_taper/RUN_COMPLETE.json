@@ -1,0 +1,7 @@
+{
+  "experiment_id": "C-U1-E4-TAPER-01",
+  "base_commit": "054c2e275cfd36e07e8883cb65d0b8df00460361",
+  "result_status": "finite-step validated / 有限训练步数验证",
+  "terminal_audit_passed": false,
+  "aggregate_rows": 11
+}

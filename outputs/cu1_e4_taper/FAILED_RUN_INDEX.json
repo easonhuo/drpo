@@ -1,0 +1,13 @@
+{
+  "experiment_id": "C-U1-E4-TAPER-01",
+  "failed_attempts": [
+    {
+      "run_id": "run_001",
+      "classification": "infrastructure_interruption_not_scientific_result",
+      "returncode": -15,
+      "reason": "foreground execution tool time limit terminated the child process",
+      "verified_failed_artifact_filename": "C-U1-E4-TAPER-01_RAW_COMPLETE.zip",
+      "verified_failed_artifact_sha256": "caabbc0c38dded4b33c49d6a7b00b7dd4bfa8a4f38c56bdbe595424e966d3376"
+    }
+  ]
+}

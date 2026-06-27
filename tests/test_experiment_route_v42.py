@@ -22,15 +22,20 @@ def _development() -> dict[str, dict]:
     return {row["id"]: row for row in _registry()["development_experiment_registrations"]}
 
 
-def test_e4_taper_is_ready_active_but_not_run() -> None:
+def test_e4_taper_records_delivered_finite_step_result() -> None:
     taper = _experiments()["C-U1-E4-TAPER-01"]
-    assert taper["status"] == "not_run"
+    assert taper["status"] == "finite_step_validated"
     assert taper["execution_gate"]["state"] == "ready"
     assert taper["formal_execution"]["activation_state"] == "active"
     assert taper["formal_execution"]["entrypoint_status"] == "implemented"
     assert "--experiment-id C-U1-E4-TAPER-01" in taper["formal_launch_template"]
     assert "scripts/run_experiment_guard_hardened.py" in taper["formal_launch_template"]
-    assert taper["evidence"]["raw_complete"] is False
+    assert taper["execution"]["state"] == "delivered"
+    assert taper["execution"]["process_exit_code"] == 0
+    assert taper["evidence"]["raw_complete"] is True
+    assert taper["evidence"]["terminal_audit_all_checks_passed"] is False
+    assert taper["evidence"]["actual_runs"] == 220
+    assert taper["evidence"]["scientific_status"] == "finite_step_validated"
 
 
 def test_e6_longrun_is_ready_active_while_taper_remains_blocked() -> None:
@@ -113,9 +118,10 @@ def test_e8_scale_keeps_mechanism_and_scale_roles_separate() -> None:
     assert scale["scaling_plan"]["retune_method_family_on_scale_tasks"] is False
 
 
-def test_handoff_locks_v42_route_and_internal_linear_boundary() -> None:
+def test_handoff_preserves_v42_route_and_records_v45_taper_result() -> None:
     handoff = (ROOT / "docs" / "handoff.md").read_text()
-    assert "v42（执行状态一致性与跨环境路线锁定版）" in handoff
+    assert "v42 增量登记：状态机一致性、E7 已实现门禁与 E4--E8 路线锁定" in handoff
+    assert "v45（E4-TAPER 结果闭环、环境识别与公平性边界版）" in handoff
     assert "ready gate + implemented entrypoint 必须 active" in handoff
     assert "E4-TAPER -> E6 -> E6-TAPER -> E7-MECH -> E7-BENCH -> E8-MECH -> E8-SCALE" in handoff
     assert "D4RL MuJoCo locomotion 9-task suite" in handoff

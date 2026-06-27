@@ -65,7 +65,7 @@ def test_e4_registry_records_finite_step_evidence_without_terminal_overclaim() -
     assert e4["provenance"]["source_mode"] == "exact_git_bundle_checkout"
     assert e4["provenance"]["provenance_compromised"] is False
 
-    assert taper["status"] == "not_run"
+    assert taper["status"] == "finite_step_validated"
     assert taper["execution_gate"]["state"] == "ready"
     assert taper["execution_gate"]["closure_decision"] == "user_confirmed_on_2026_06_26"
 

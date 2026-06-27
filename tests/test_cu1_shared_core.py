@@ -203,12 +203,14 @@ def test_gradient_diagnostic_records_output_and_full_parameter_components() -> N
     assert "far_near_weighted_output_joint_ratio" in summary
     assert "far_near_weighted_gradient_ratio" in summary
 
-def test_formal_taper_experiment_is_registered_but_not_run() -> None:
+def test_formal_taper_experiment_records_finite_step_result() -> None:
     registry = yaml.safe_load((ROOT / "experiments" / "registry.yaml").read_text())
     entry = next(item for item in registry["experiments"] if item["id"] == taper.EXPERIMENT_ID)
 
-    assert entry["status"] == "not_run"
-    assert entry["evidence"]["scientific_status"] == "not_run"
+    assert entry["status"] == "finite_step_validated"
+    assert entry["evidence"]["scientific_status"] == "finite_step_validated"
+    assert entry["evidence"]["actual_runs"] == 220
+    assert entry["evidence"]["terminal_audit_all_checks_passed"] is False
     assert entry["protocol"]["formal_held_out_seeds"] == list(range(70, 90))
     assert entry["protocol"]["initialization_source"] == "positive_only_adam_2000_step_checkpoint"
     assert entry["protocol"]["e2_post_2000_terminal_audit_checkpoint_used"] is False

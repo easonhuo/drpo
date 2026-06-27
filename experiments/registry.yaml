@@ -803,7 +803,7 @@ experiments:
     reason: C-U1-E4-CONV-01 is long-run validated for its scoped phase claim by explicit user evidence review. The original 18/20 gate failure remains documented and no method ranking is assumed.
   environment: C-U1
   name: standardized_distance_taper_order_formal_comparison
-  status: not_run
+  status: finite_step_validated
   parent_experiment: E4
   depends_on_delivered_experiments: [C-U1-E3-ADAM-RERUN, C-U1-E4-ADAM-RERUN]
   registration_base_commit: ac286a46b8ffad898dfad0e7e9188b1d2e81052a
@@ -873,6 +873,60 @@ experiments:
     critical_polynomial_order: 2
     full_parameter_extension: sufficient_under_bounded_output_jacobian
     full_parameter_necessity_requires: nondegenerate_log_scale_pullback
+  environment_identification_boundary:
+    action_space_continuous: true
+    reward_function_continuous: true
+    negative_support_construction: eight_uniform_angles_selected_from_a_continuous_equal_reward_contour_per_state
+    equal_reward_and_advantage_are_controlled_by_design: true
+    quality_magnitude_decoupled_from_policy_relative_distance_within_negative_set: true
+    directional_utility_decoupled_from_distance: false
+    directional_utility_note: >-
+      The present 2D geometry intentionally allows local negative repulsion to
+      align with the hidden-optimum direction and far-side repulsion to become
+      misaligned. This is a controlled informativeness-amplification mismatch,
+      not a universal near-good/far-bad law.
+    not_an_ood_protocol: true
+  comparison_fairness_boundary:
+    matched:
+    - distance_coordinate
+    - reference_weight_at_d_ref
+    - negative_alpha
+    - fixed_advantage
+    - actor_initialization
+    - minibatch_index_stream
+    not_matched:
+    - reference_point_slope
+    - mean_near_negative_retention
+    - total_negative_gradient_norm
+    - cumulative_negative_optimizer_update
+    allowed_claim: mechanism_order_under_anchor_normalization
+    forbidden_claims:
+    - best_tuned_quadratic_always_beats_best_tuned_linear
+    - exponential_is_universally_best
+    - distance_taper_always_beats_global_alpha
+  followup_evidence_requirements:
+    authorization_state: review_required_not_runnable
+    geometry_robustness:
+    - continuous_angle_sampling
+    - random_phase_per_state
+    - negative_contour_resolution_sweep
+    - thin_annulus_radial_jitter
+    - reward_bin_matching
+    fair_family_comparison:
+    - matched_near_negative_retention
+    - matched_stepwise_or_cumulative_negative_gradient_budget
+    - equal_hyperparameter_search_budget
+    - new_confirmatory_seeds
+    - pareto_frontier_near_retention_far_risk_reward
+    terminal_resolution:
+    - original_adam_long_horizon
+    - frozen_two_times_continuation
+    - separate_full_batch_stationary_solution_audit_if_registered
+    global_alpha_comparison: required_before_claiming_selective_distance_control_superiority
+    no_automatic_execution: true
+  control_role_notes:
+    unweighted: internal_negative_control_and_runner_regression_anchor_not_a_new_scientific_claim
+    positive_only: zero_negative_reference; E4 already owns the imitation_ceiling claim
   shared_implementation:
     core: src/drpo/cu1_core.py
     base_runner: src/drpo/drpo_cu1_e1_e4_oneclick.py
@@ -946,20 +1000,89 @@ experiments:
     theory_predicts_lower_far_near_ratio: true
     theory_predicts_higher_reward: false
   terminal_audit: required
+  formal_run_status: delivered
   execution:
-    state: registered
-    run_id: null
-    last_heartbeat_utc: null
-    process_exit_code: null
+    state: delivered
+    run_id: cu1_e4_taper_054c2e2_run002
+    completion_mode: hardened_guard_with_fresh_output_root
+    start_utc: '2026-06-26T16:18:42.497876+00:00'
+    end_utc: '2026-06-26T17:29:38.645563+00:00'
+    elapsed_seconds: 4256.147687
+    process_exit_code: 0
+    runtime: cpu
+    first_attempt_failure_preserved: true
   evidence:
-    raw_complete: false
-    terminal_audited: false
-    package_created: false
-    package_filename: null
+    raw_complete: true
+    terminal_audited: true
+    terminal_audit_all_checks_passed: false
+    terminal_scientific_acceptance_passed: false
+    expected_runs: 220
+    actual_runs: 220
+    expected_primary_pairs: 20
+    actual_primary_pairs: 20
+    maximum_steps_unresolved_runs: 200
+    support_or_variance_boundary_events: 20
+    task_performance_collapse_events: 10
+    nan_inf_numerical_events: 0
+    stable_plateau_2x_confirmed_runs: 0
+    checkpoint_packages_created: 3
+    package_created: true
+    package_filename: DRPO_CU1_E4_TAPER_054C2E2_FINAL_RESULTS_AND_UPDATE.zip
     package_sha256: null
-    delivered_to_user: false
+    package_checksum_note: ZIP self-hash is reported at delivery; internal files are covered by SHA256SUMS.txt
+    raw_complete_package_filename: C-U1-E4-TAPER-01_RUN002_RAW_COMPLETE.zip
+    raw_complete_package_sha256: 18ce26dfd9762f645095035ec24d544e4ec832e05e167402db04acb972c20b16
+    failed_attempt_package_filename: C-U1-E4-TAPER-01_RAW_COMPLETE.zip
+    failed_attempt_package_sha256: caabbc0c38dded4b33c49d6a7b00b7dd4bfa8a4f38c56bdbe595424e966d3376
+    delivered_to_user: true
     applied_commit: null
-    scientific_status: not_run
+    compact_result_path: outputs/cu1_e4_taper
+    scientific_status: finite_step_validated
+  provenance:
+    run_commit: 054c2e275cfd36e07e8883cb65d0b8df00460361
+    repository_closure_base_commit: 054c2e275cfd36e07e8883cb65d0b8df00460361
+    source_mode: exact_git_bundle_checkout
+    source_bundle_filename: 8598d4f4-716d-41fa-8bb0-24ddc0a9a1d1.bundle
+    source_bundle_sha256: e04bb1b7761921dc4591b1728dc982999e6ba9d4935e1c72d6749af505a37066
+    git_bundle_verify_passed: true
+    clean_worktree_at_launch: true
+    clean_worktree_at_exit: true
+    provenance_compromised: false
+    cuda_available: false
+    device: cpu
+  result_summary:
+    primary_rho: 0.25
+    paired_seeds: 20
+    quadratic_suppression_wins: 20
+    quadratic_reward_wins: 20
+    quadratic_minus_linear_reward_mean: 0.011371958255767822
+    quadratic_minus_linear_reward_ci95: [0.010951273515820504, 0.011826263964176178]
+    quadratic_minus_linear_far_near_ratio_mean: -1.6013766842192854
+    quadratic_minus_linear_far_near_ratio_ci95: [-1.617527360639786, -1.5868169221681996]
+    linear_terminal_far_near_ratio_mean: 2.2746997012172607
+    quadratic_terminal_far_near_ratio_mean: 0.6733230169979755
+    linear_reward_mean: 0.6333347022533417
+    quadratic_reward_mean: 0.6447066605091095
+    exponential_rho_0_25_reward_mean: 0.6505336821079254
+    exponential_rho_0_25_terminal_far_near_ratio_mean: 0.29548881279823996
+    positive_only_reward_mean: 0.6467910826206207
+  paper_use:
+    suitable_for_finite_horizon_mechanism_order_claim: true
+    suitable_for_terminally_stable_method_ranking: false
+    allowed:
+    - reciprocal_quadratic_stronger_far_field_suppression_than_reciprocal_linear_at_rho_0_25
+    - paired_reward_advantage_for_quadratic_over_linear_in_this_C_U1_horizon
+    - separate_reporting_of_task_support_and_numerical_events
+    prohibited_claims:
+    - long_run_validated
+    - stable_fixed_point_ranking
+    - OOD_generalization
+    - universal_method_ranking
+    - exponential_universal_winner
+  next_gate:
+    automatic_horizon_extension_forbidden: true
+    convergence_resolution_requires_new_registration: true
+    project_route: D-U1-E6-SEMANTIC-LONGRUN-01_ready_active
   artifact_budget:
     main_package_hard_limit_mib: 25
     checkpoint_policy: persistent_local_index

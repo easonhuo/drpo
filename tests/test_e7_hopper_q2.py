@@ -156,7 +156,8 @@ def test_registry_keeps_implemented_q2_blocked_without_claiming_results() -> Non
 
 def test_handoff_preserves_v41_boundary_under_v42_route() -> None:
     handoff = (Path(__file__).parents[1] / "docs" / "handoff.md").read_text()
-    assert "v42（执行状态一致性与跨环境路线锁定版）" in handoff
+    assert "v42 增量登记：状态机一致性、E7 已实现门禁与 E4--E8 路线锁定" in handoff
+    assert "v45（E4-TAPER 结果闭环、环境识别与公平性边界版）" in handoff
     assert "v41 增量登记：`EXT-H-E7-Q2` Hopper 实现" in handoff
     assert "implemented + not_run + blocked" in handoff
     assert "CPU 单元测试、静态检查和缩减工程 pilot" in handoff

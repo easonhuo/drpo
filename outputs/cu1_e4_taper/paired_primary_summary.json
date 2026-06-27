@@ -1,0 +1,16 @@
+{
+  "rho": 0.25,
+  "paired_seeds": 20,
+  "quadratic_reward_wins": 20,
+  "quadratic_suppression_wins": 20,
+  "reward_difference_mean_ci95": [
+    0.011371958255767822,
+    0.010951273515820504,
+    0.011826263964176178
+  ],
+  "far_near_ratio_difference_mean_ci95": [
+    -1.6013766842192854,
+    -1.617527360639786,
+    -1.5868169221681996
+  ]
+}
