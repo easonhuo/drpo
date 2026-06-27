@@ -1,0 +1,100 @@
+{
+  "affected_selectors": [
+    "DRPO / SNA2C \u8fdc\u573a\u8d1f\u68af\u5ea6\u52a8\u529b\u5b66\u7814\u7a76\u4e3b\u6587\u6863 v51\uff08D-U1 E6 \u6761\u4ef6\u7f3a\u53e3\u95ed\u73af\u4e0e\u6700\u5c0f\u6539\u52a8\u6b63\u5f0f\u534f\u8bae\u7248\uff09",
+    "DRPO / SNA2C \u8fdc\u573a\u8d1f\u68af\u5ea6\u52a8\u529b\u5b66\u7814\u7a76\u4e3b\u6587\u6863 v52\uff08Countdown \u52a8\u6001 remoteness \u63a7\u5236 pilot \u7248\uff09",
+    "0. \u7814\u7a76\u4e0e\u6267\u884c\u539f\u5219\uff08\u6bcf\u6b21\u65b0\u4f1a\u8bdd\u9996\u5148\u9605\u8bfb\uff09 / 0.1 \u5f53\u524d\u6267\u884c\u95e8\u7981",
+    "3. \u8fde\u7eed\u7edf\u4e00\u73af\u5883 C-U1 \u7684\u8be6\u7ec6\u8bbe\u8ba1 / 3.9 E6--E8 \u65b9\u6cd5\u8fc1\u79fb\u4e0e\u89c4\u6a21\u9a8c\u8bc1\u8def\u7ebf\uff08v42 \u9501\u5b9a\uff09",
+    "6. \u63a5\u4e0b\u6765\u552f\u4e00\u6267\u884c\u987a\u5e8f"
+  ],
+  "base_commit": "0907c3c0e76fc836c2bf2b752abf554c17f79f22",
+  "base_handoff_sha256": "c770d2bfa2abb8f1c0feb9606b544b7775fb297d002afdef6e927c05ab299579",
+  "base_registry_sha256": "9dae51728a8762b9184a5c3ecfe93df2276638417a86f672ec7956dc81103244",
+  "candidate_replaced_authority": false,
+  "candidate_sha256": "8574e7a481180160da1da0ca450c507751df4cf36b53d6c851e8acb60a39b6f6",
+  "comparison_target": "repository_commit",
+  "current_registry_sha256": "4e82fb50db25e0d33a1f7d5e5bc309fc6e599c1085f2dfffbab895afb777efc5",
+  "exact_manual_candidate_match": true,
+  "full_candidate_saved": false,
+  "history_preservation_passed": true,
+  "idempotence_passed": true,
+  "llm_blocking_gate_used": false,
+  "manual_handoff_authoritative": true,
+  "manual_sha256": "8574e7a481180160da1da0ca450c507751df4cf36b53d6c851e8acb60a39b6f6",
+  "mode": "shadow",
+  "network_used": false,
+  "observation_kind": "real",
+  "operation_count": 5,
+  "performance": {
+    "base_validation_ms": 62.426,
+    "comparison_and_registry_ms": 357.814,
+    "hard_limit_ms": 15000.0,
+    "policy_and_schema_ms": 7.938,
+    "render_and_idempotence_ms": 44.845,
+    "target_p95_ms": 5000.0,
+    "total_ms": 473.25,
+    "within_hard_limit": true,
+    "within_target": true
+  },
+  "policy_id": "GOV-HANDOFF-INDEX-01",
+  "registry_change_assertions": [
+    {
+      "change_id": "ext-c-e8-v42-superseded-by-v43",
+      "entity_id": "EXT-C-E8-V4.2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "1550fdebe22725e1015a0e0a2943328f14559e81be88e7ea0e77aca93fad0bb4"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "4e82fb50db25e0d33a1f7d5e5bc309fc6e599c1085f2dfffbab895afb777efc5"
+        }
+      ],
+      "field_path": [
+        "status"
+      ],
+      "from": "not_run",
+      "kind": "transition",
+      "machine": "scientific_status",
+      "to": "superseded"
+    }
+  ],
+  "registry_change_coverage": {
+    "added_entities": [
+      "EXT-C-E8-V4.3"
+    ],
+    "changed_field_count": 6,
+    "declared_assertion_count": 1,
+    "fully_declared": false,
+    "mode": "legacy_schema1_partial_assertions",
+    "removed_entities": []
+  },
+  "registry_transition_assertions": [
+    {
+      "assertion_id": "ext-c-e8-v42-superseded-by-v43",
+      "entity_id": "EXT-C-E8-V4.2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "1550fdebe22725e1015a0e0a2943328f14559e81be88e7ea0e77aca93fad0bb4"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "4e82fb50db25e0d33a1f7d5e5bc309fc6e599c1085f2dfffbab895afb777efc5"
+        }
+      ],
+      "field_path": [
+        "status"
+      ],
+      "from": "not_run",
+      "machine": "scientific_status",
+      "to": "superseded"
+    }
+  ],
+  "report_schema_version": 2,
+  "repository_commit": "f203d86032366eb134207f3fd7ab26a31804c8bc",
+  "schema_version": 1,
+  "status": "PASS",
+  "update_id": "EXT-C-E8-V4.3-DYNAMIC-CONTROL-2026-06-27",
+  "validation_worktree_head": "f203d86032366eb134207f3fd7ab26a31804c8bc"
+}

@@ -11,6 +11,8 @@ from pathlib import Path
 
 import yaml
 
+import handoff_delta_shadow as shadow
+
 
 def run(command: list[str], cwd: Path, timeout_seconds: float) -> dict[str, object]:
     started = time.perf_counter()
@@ -42,27 +44,63 @@ def run(command: list[str], cwd: Path, timeout_seconds: float) -> dict[str, obje
         }
 
 
+def observation_fingerprint(update_ids: list[str]) -> str:
+    return shadow.sha256_text("\n".join(sorted(update_ids)) + "\n")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repo-root", type=Path, default=Path.cwd())
     parser.add_argument("--tier", choices=("fast", "standard", "full"), required=True)
     parser.add_argument("--report", type=Path)
+    parser.add_argument(
+        "--reason",
+        action="append",
+        default=[],
+        help="Registered Full Acceptance trigger; may be repeated.",
+    )
     args = parser.parse_args()
     repo = args.repo_root.resolve()
     policy = yaml.safe_load((repo / "docs/handoff_delta_policy.yaml").read_text())
     if args.tier == "fast":
-        commands = [[sys.executable, "scripts/handoff_delta_shadow.py", "auto-check", "--repo-root", "."]]
+        commands = [
+            [sys.executable, "scripts/handoff_delta_shadow.py", "auto-check", "--repo-root", "."]
+        ]
         limit = float(policy["fast_gate"]["hard_timeout_seconds"])
     elif args.tier == "standard":
         commands = [
-            [sys.executable, "-m", "pytest", "-q", "tests/test_handoff_delta_shadow.py", "-k", "not full_acceptance"],
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "-q",
+                "tests/test_handoff_delta_shadow.py",
+                "-k",
+                "not full_acceptance",
+            ],
             [sys.executable, "scripts/handoff_delta_shadow.py", "auto-check", "--repo-root", "."],
         ]
         limit = float(policy["standard_regression"]["target_seconds"])
     else:
+        if not args.report:
+            parser.error("--tier full requires --report so acceptance evidence is durable")
         commands = [
             [sys.executable, "-m", "pytest", "-q", "tests/test_handoff_delta_shadow.py"],
-            [sys.executable, "scripts/handoff_delta_shadow.py", "auto-check", "--repo-root", "."],
+            [
+                sys.executable,
+                "scripts/handoff_delta_shadow.py",
+                "corpus-check",
+                "--repo-root",
+                ".",
+            ],
+            [
+                sys.executable,
+                "scripts/handoff_delta_shadow.py",
+                "auto-check",
+                "--repo-root",
+                ".",
+                "--allow-full-due",
+            ],
         ]
         limit = float(policy["full_acceptance"]["target_seconds"])
 
@@ -86,18 +124,39 @@ def main() -> int:
         outcomes.append(run(command, repo, remaining))
     total = time.perf_counter() - started
     passed = all(item["returncode"] == 0 for item in outcomes) and total <= limit
-    report = {
+    report: dict[str, object] = {
         "schema_version": 1,
+        "report_schema_version": 2,
         "policy_id": policy["policy_id"],
         "tier": args.tier,
         "status": "PASS" if passed else "FAIL",
+        "validation_worktree_head": shadow.git_text(repo, "rev-parse", "HEAD"),
+        "reasons": args.reason,
         "elapsed_seconds": round(total, 3),
         "target_seconds": limit,
         "outcomes": outcomes,
     }
+    if args.tier == "full" and passed:
+        observations = shadow.observation_records(repo)
+        real_ids = [item["update_id"] for item in observations if item["kind"] == "real"]
+        report["coverage"] = {
+            "bootstrap_observation_count": sum(
+                item["kind"] == "bootstrap" for item in observations
+            ),
+            "successful_real_observation_count": len(real_ids),
+            "covered_update_ids": real_ids,
+            "observation_fingerprint": observation_fingerprint(real_ids),
+        }
+        report["corpus_audit"] = {
+            "observation_count": len(observations),
+            "all_stored_reports_revalidated": True,
+        }
     if args.report:
-        args.report.parent.mkdir(parents=True, exist_ok=True)
-        args.report.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
+        report_path = args.report
+        if not report_path.is_absolute():
+            report_path = repo / report_path
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
     print(json.dumps(report, indent=2, sort_keys=True))
     return 0 if passed else 2
 

@@ -110,3 +110,15 @@ def test_shadow_active_stage_keeps_manual_authority_and_forbids_cutover(tmp_path
     proc = run_validator(repo, check=False)
     assert proc.returncode == 2
     assert "must forbid authority cutover" in proc.stderr
+
+
+def test_shadow_active_stage_requires_derived_observation_ledger(tmp_path: Path) -> None:
+    repo = copy_repository(tmp_path)
+    ledger_path = repo / "docs" / "governance_pipeline_stage_status.yaml"
+    ledger = yaml.safe_load(ledger_path.read_text())
+    ledger["stages"]["stage_3"]["observation_ledger_mode"] = "manual_counter"
+    ledger_path.write_text(yaml.safe_dump(ledger, sort_keys=False))
+
+    proc = run_validator(repo, check=False)
+    assert proc.returncode == 2
+    assert "observation_ledger_mode" in proc.stderr

@@ -31,7 +31,7 @@ tracked_sections:
   heading: Governance pipeline stage closure
   selector: top_level_list_items
   expected_item_count: 2
-  section_item_digest: 37c9c745d85633cc8516b5338a6aca5db9704b181cbec8ba4aef9a95211105d7
+  section_item_digest: 2e2a975dff45be5655ed4b674350891a9dcf51b9fee9dd90f4b162d1181d5861
   coverage: complete_for_selected_section
 rules:
 - rule_id: GOV-AGENT-SUPERVISION-001
@@ -1482,8 +1482,8 @@ rules:
     source_id: AGENTS-PIPELINE-CLOSURE
     item_index: 2
     kind: top_level_list_item
-    excerpt: 'Stage 1 and the current Stage 2 remain `closed_maintenance_only`. A protected after-image must match the stage ledger and an authorization record under `docs/governance_stage_authorizations/`; new features, architecture expansion, responsibility changes, or default-policy changes require an explicit user-approved `reopen` authorization and rollback plan. Stage 3 (`HANDOFF_DELTA.yaml`) is `shadow_active`: every update that changes `docs/handoff.md` or `experiments/registry.yaml` must add exactly one delta under `docs/handoff_deltas/<update_id>/HANDOFF_DELTA.yaml` and pass `python3 scripts/handoff_delta_shadow.py auto-check --repo-root .`. During shadow mode the manual handoff remains authoritative and the generated candidate may not replace it.'
-    normalized_text_sha256: d76237d55a5f72e444b013cfec106aa0a2672e5fe1350a521c56c82ee7ebc33a
+    excerpt: 'Stage 1 and the current Stage 2 remain `closed_maintenance_only`. A protected after-image must match the stage ledger and an authorization record under `docs/governance_stage_authorizations/`; new features, architecture expansion, responsibility changes, or default-policy changes require an explicit user-approved `reopen` authorization and rollback plan. Stage 3 (`HANDOFF_DELTA.yaml`) is `shadow_active`: every update that changes `docs/handoff.md` or `experiments/registry.yaml` must add exactly one current-schema delta under `docs/handoff_deltas/<update_id>/HANDOFF_DELTA.yaml`, materialize its sibling `SHADOW_REPORT.json` with `python3 scripts/handoff_delta_shadow.py record-report --repo-root . --delta <path>`, and pass `python3 scripts/handoff_delta_shadow.py auto-check --repo-root .`. `auto-check` replays and revalidates the stored report and fails when the machine-derived 20-update/7-day Full Acceptance trigger is overdue. During shadow mode the manual handoff remains authoritative and the generated candidate may not replace it.'
+    normalized_text_sha256: e20553011a9dae7a659f31980c5d58717001ce49a0e5d80d7d52c9baaf6b9f03
   current_locations:
   - path: AGENTS.md
     heading: Governance pipeline stage closure

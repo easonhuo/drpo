@@ -159,7 +159,12 @@ stages:
     renderer: scripts/handoff_delta_shadow.py
     acceptance_entrypoint: scripts/run_handoff_delta_acceptance.py
     bootstrap_delta: docs/handoff_deltas/GOV-STAGE3-SHADOW-BOOTSTRAP-2026-06-27/HANDOFF_DELTA.yaml
-    acceptance_state: bootstrap_full_passed_shadow_observation_pending
+    acceptance_state: real_shadow_observation_active
+    observation_ledger_mode: derived_from_delta_reports_and_git_history
+    observation_audit_entrypoint: scripts/handoff_delta_shadow.py
+    report_persistence: required_and_revalidated
+    full_trigger_enforcement: automatic_on_fast_gate
+    current_delta_schema_version: 2
     manual_handoff_remains_authoritative: true
     authority_cutover_allowed: false
   stage_4:

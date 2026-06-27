@@ -7,6 +7,15 @@ delta_root: docs/handoff_deltas
 schema_document: docs/handoff_delta_protocol.md
 entrypoint: scripts/handoff_delta_shadow.py
 acceptance_entrypoint: scripts/run_handoff_delta_acceptance.py
+delta_schema:
+  accepted_versions:
+  - 1
+  - 2
+  current_version: 2
+  legacy_schema1_update_ids:
+  - GOV-STAGE3-SHADOW-BOOTSTRAP-2026-06-27
+  - DU1-E6-SEMANTIC-GAP-FORMAL-2026-06-27
+  - EXT-C-E8-V4.3-DYNAMIC-CONTROL-2026-06-27
 authority:
   manual_handoff_remains_authoritative: true
   generated_candidate_may_replace_manual_handoff: false
@@ -59,6 +68,8 @@ full_acceptance:
   - after_critical_semantic_mismatch_fix
   - after_50_deltas_post_cutover
   target_seconds: 900
+  successful_update_interval: 20
+  max_days_with_relevant_update: 7
   zero_unresolved_critical_differences: true
   require_historical_replay: true
   require_mutation_suite: true
@@ -75,3 +86,9 @@ retention:
   - comparison_failed
   - full_acceptance_case
   - golden_replay_case
+reporting:
+  report_schema_version: 2
+  require_sibling_shadow_report: true
+  validate_stored_report_against_replay: true
+  derive_repository_commit_from_git_history: true
+  legacy_head_commit_field_is_read_only_compatibility: true

@@ -123,5 +123,5 @@ def test_registry_and_handoff_register_ready_formal_successor() -> None:
     assert item["protocol"]["alpha_grid"] == ALPHA_GRID
     assert item["held_out_seeds"] == HELD_OUT_SEEDS
     handoff = (REPO_ROOT / "docs" / "handoff.md").read_text()
-    assert "v51（D-U1 E6 条件缺口闭环与最小改动正式协议版）" in handoff
+    assert "HANDOFF-DELTA-BLOCK:after_heading:v51-du1-e6-semantic-gap-formal:START" in handoff
     assert EXPERIMENT_ID in handoff

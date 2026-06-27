@@ -7,6 +7,7 @@ import json
 import subprocess
 import sys
 import time
+from datetime import timedelta
 from pathlib import Path
 
 import pytest
@@ -89,7 +90,7 @@ def write_delta(
     delta_dir = repo / "docs/handoff_deltas" / update_id
     delta_dir.mkdir(parents=True)
     payload = {
-        "schema_version": 1,
+        "schema_version": 2,
         "update_id": update_id,
         "mode": "shadow",
         "base": {
@@ -100,7 +101,7 @@ def write_delta(
         "renderer_version": 1,
         "operations": operations,
         "registry": registry
-        or {"mode": "unchanged", "expected_after_sha256": None, "transitions": []},
+        or {"mode": "unchanged", "expected_after_sha256": None, "changes": []},
         "expected": {
             "candidate_sha256": digest(rendered),
             "manual_sha256": digest(manual_text),
@@ -109,6 +110,63 @@ def write_delta(
     path = delta_dir / "HANDOFF_DELTA.yaml"
     path.write_text(yaml.safe_dump(payload, sort_keys=False, allow_unicode=True))
     return path
+
+
+def write_report(repo: Path, delta: Path) -> dict[str, object]:
+    result = MODULE.check_delta(repo, delta)
+    path = delta.parent / MODULE.REPORT_FILENAME
+    path.write_text(json.dumps(result.report, indent=2, sort_keys=True) + "\n")
+    return result.report
+
+
+def commit_all(repo: Path, message: str) -> str:
+    git(repo, "add", ".")
+    git(repo, "commit", "-m", message)
+    return git(repo, "rev-parse", "HEAD")
+
+
+def write_full_report(repo: Path, path: Path, covered_ids: list[str]) -> None:
+    observations = MODULE.observation_records(repo, replay=False)
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "report_schema_version": 2,
+                "policy_id": "GOV-HANDOFF-INDEX-01",
+                "tier": "full",
+                "status": "PASS",
+                "validation_worktree_head": git(repo, "rev-parse", "HEAD"),
+                "reasons": ["test"],
+                "elapsed_seconds": 0.1,
+                "target_seconds": 900.0,
+                "outcomes": [
+                    {
+                        "command": ["python3", "-m", "pytest"],
+                        "returncode": 0,
+                        "timed_out": False,
+                        "elapsed_seconds": 0.1,
+                        "stdout": "passed",
+                        "stderr": "",
+                    }
+                ],
+                "coverage": {
+                    "bootstrap_observation_count": sum(
+                        row["kind"] == "bootstrap" for row in observations
+                    ),
+                    "successful_real_observation_count": len(covered_ids),
+                    "covered_update_ids": sorted(covered_ids),
+                    "observation_fingerprint": MODULE.observation_fingerprint(covered_ids),
+                },
+                "corpus_audit": {
+                    "observation_count": len(observations),
+                    "all_stored_reports_revalidated": True,
+                },
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n"
+    )
 
 
 def test_historical_bootstrap_delta_matches_golden_candidate() -> None:
@@ -123,8 +181,29 @@ def test_historical_bootstrap_delta_matches_golden_candidate() -> None:
 
 
 def test_current_repository_semantic_gap_delta_matches_manual_handoff() -> None:
-    # The node name is governance-inventoried; the assertion follows the current shadow delta.
+    delta = ROOT / "docs/handoff_deltas/DU1-E6-SEMANTIC-GAP-FORMAL-2026-06-27/HANDOFF_DELTA.yaml"
+    result = MODULE.check_delta(
+        ROOT, delta, target_commit="0907c3c0e76fc836c2bf2b752abf554c17f79f22"
+    )
+    assert result.report["status"] == "PASS"
+    assert result.report["exact_manual_candidate_match"] is True
+    assert result.report["idempotence_passed"] is True
+    assert result.report["candidate_replaced_authority"] is False
+
+
+def test_historical_countdown_v43_delta_matches_repository_after_image() -> None:
     delta = ROOT / "docs/handoff_deltas/EXT-C-E8-V4.3-DYNAMIC-CONTROL-2026-06-27/HANDOFF_DELTA.yaml"
+    result = MODULE.check_delta(
+        ROOT, delta, target_commit="f203d86032366eb134207f3fd7ab26a31804c8bc"
+    )
+    assert result.report["status"] == "PASS"
+    assert result.report["exact_manual_candidate_match"] is True
+    assert result.report["idempotence_passed"] is True
+    assert result.report["candidate_replaced_authority"] is False
+
+
+def test_current_stage3_automation_delta_matches_manual_handoff() -> None:
+    delta = ROOT / "docs/handoff_deltas/GOV-STAGE3-OBSERVATION-AUTOMATION-2026-06-27/HANDOFF_DELTA.yaml"
     result = MODULE.check_delta(ROOT, delta)
     assert result.report["status"] == "PASS"
     assert result.report["exact_manual_candidate_match"] is True
@@ -257,9 +336,10 @@ def test_standard_allowed_registry_transition_is_verified(tmp_path: Path) -> Non
         "expected_after_sha256": hashlib.sha256(
             (repo / "experiments/registry.yaml").read_bytes()
         ).hexdigest(),
-        "transitions": [
+        "changes": [
             {
-                "assertion_id": "pilot-status",
+                "change_id": "pilot-status",
+                "kind": "transition",
                 "entity_id": "EXP-A-01",
                 "field_path": ["status"],
                 "machine": "scientific_status",
@@ -294,9 +374,10 @@ def test_standard_illegal_registry_transition_is_rejected(tmp_path: Path) -> Non
         "expected_after_sha256": hashlib.sha256(
             (repo / "experiments/registry.yaml").read_bytes()
         ).hexdigest(),
-        "transitions": [
+        "changes": [
             {
-                "assertion_id": "invalid-proof",
+                "change_id": "invalid-proof",
+                "kind": "transition",
                 "entity_id": "EXP-A-01",
                 "field_path": ["status"],
                 "machine": "scientific_status",
@@ -320,7 +401,10 @@ def test_full_acceptance_mutations_are_rejected(tmp_path: Path) -> None:
 
 
 def test_full_acceptance_fast_gate_stays_below_hard_limit() -> None:
-    delta = ROOT / "docs/handoff_deltas/EXT-C-E8-V4.3-DYNAMIC-CONTROL-2026-06-27/HANDOFF_DELTA.yaml"
+    delta = (
+        ROOT
+        / "docs/handoff_deltas/GOV-STAGE3-OBSERVATION-AUTOMATION-2026-06-27/HANDOFF_DELTA.yaml"
+    )
     samples = []
     for _ in range(3):
         started = time.perf_counter()
@@ -350,3 +434,535 @@ def test_standard_after_heading_and_section_end_blocks_keep_distinct_clusters(tm
     assert rendered.index("Immediately after A.") < rendered.index("A body EXP-A-01")
     assert rendered.index("A body EXP-A-01") < rendered.index("At the end of A.")
     assert MODULE.render(rendered, [after, end]).text == rendered
+
+
+def test_standard_new_schema_requires_complete_registry_change_coverage(tmp_path: Path) -> None:
+    repo, base = make_repo(tmp_path)
+    current = yaml.safe_load((repo / "experiments/registry.yaml").read_text())
+    current["experiments"].append(
+        {"id": "EXP-B-01", "status": "not_run", "execution_gate": {"state": "blocked"}}
+    )
+    (repo / "experiments/registry.yaml").write_text(yaml.safe_dump(current, sort_keys=False))
+    (repo / "evidence.json").write_text("{}")
+    operations = [
+        {
+            "operation_id": "append-a",
+            "op": "append_to_section",
+            "heading_path": ["Master v1", "A"],
+            "block_id": "block-a",
+            "content": "Register EXP-B-01.",
+        }
+    ]
+    registry = {
+        "mode": "expected_after",
+        "expected_after_sha256": hashlib.sha256(
+            (repo / "experiments/registry.yaml").read_bytes()
+        ).hexdigest(),
+        "changes": [],
+    }
+    delta = write_delta(repo, base, "TEST-MISSING-REGISTRY-COVERAGE", operations, registry=registry)
+    payload = yaml.safe_load(delta.read_text())
+    payload["registry"]["changes"] = [
+        {
+            "change_id": "unrelated-field",
+            "kind": "update_field",
+            "entity_id": "EXP-A-01",
+            "field_path": ["status"],
+            "from": "not_run",
+            "to": "pilot",
+            "reason": "intentionally wrong",
+            "evidence": ["evidence.json"],
+        }
+    ]
+    delta.write_text(yaml.safe_dump(payload, sort_keys=False))
+    with pytest.raises(MODULE.HandoffDeltaError, match="does not match an actual changed field"):
+        MODULE.check_delta(repo, delta)
+
+
+def test_standard_schema2_add_entity_is_fully_declared(tmp_path: Path) -> None:
+    repo, base = make_repo(tmp_path)
+    current = yaml.safe_load((repo / "experiments/registry.yaml").read_text())
+    current["experiments"].append(
+        {"id": "EXP-B-01", "status": "not_run", "execution_gate": {"state": "blocked"}}
+    )
+    (repo / "experiments/registry.yaml").write_text(yaml.safe_dump(current, sort_keys=False))
+    (repo / "evidence.json").write_text("{}")
+    operations = [
+        {
+            "operation_id": "append-a",
+            "op": "append_to_section",
+            "heading_path": ["Master v1", "A"],
+            "block_id": "block-a",
+            "content": "Register EXP-B-01.",
+        }
+    ]
+    registry = {
+        "mode": "expected_after",
+        "expected_after_sha256": hashlib.sha256(
+            (repo / "experiments/registry.yaml").read_bytes()
+        ).hexdigest(),
+        "changes": [
+            {
+                "change_id": "add-exp-b",
+                "kind": "add_entity",
+                "entity_id": "EXP-B-01",
+                "evidence": ["evidence.json"],
+            }
+        ],
+    }
+    delta = write_delta(repo, base, "TEST-ADD-ENTITY", operations, registry=registry)
+    result = MODULE.check_delta(repo, delta)
+    assert result.report["registry_change_coverage"]["fully_declared"] is True
+    assert result.report["registry_change_coverage"]["added_entities"] == ["EXP-B-01"]
+
+
+def test_standard_schema2_registry_entity_removal_is_rejected(tmp_path: Path) -> None:
+    repo, base = make_repo(tmp_path)
+    current = yaml.safe_load((repo / "experiments/registry.yaml").read_text())
+    current["experiments"] = []
+    (repo / "experiments/registry.yaml").write_text(yaml.safe_dump(current, sort_keys=False))
+    (repo / "evidence.json").write_text("{}")
+    operations = [
+        {
+            "operation_id": "append-a",
+            "op": "append_to_section",
+            "heading_path": ["Master v1", "A"],
+            "block_id": "block-a",
+            "content": "Attempt removal.",
+        }
+    ]
+    registry = {
+        "mode": "expected_after",
+        "expected_after_sha256": hashlib.sha256(
+            (repo / "experiments/registry.yaml").read_bytes()
+        ).hexdigest(),
+        "changes": [
+            {
+                "change_id": "fake-update",
+                "kind": "update_field",
+                "entity_id": "__registry__",
+                "field_path": ["schema_version"],
+                "from": 2,
+                "to": 3,
+                "reason": "placeholder to satisfy shape",
+                "evidence": ["evidence.json"],
+            }
+        ],
+    }
+    delta = write_delta(repo, base, "TEST-REMOVE-ENTITY", operations, registry=registry)
+    with pytest.raises(MODULE.HandoffDeltaError, match="forbids destructive registry entity removal"):
+        MODULE.check_delta(repo, delta)
+
+
+def test_standard_stored_report_is_revalidated_and_stale_report_is_rejected(tmp_path: Path) -> None:
+    repo, base = make_repo(tmp_path)
+    operations = [
+        {
+            "operation_id": "append-a",
+            "op": "append_to_section",
+            "heading_path": ["Master v1", "A"],
+            "block_id": "block-a",
+            "content": "A extension.",
+        }
+    ]
+    delta = write_delta(repo, base, "TEST-STORED-REPORT", operations)
+    fresh = MODULE.check_delta(repo, delta)
+    report_path = delta.parent / MODULE.REPORT_FILENAME
+    report_path.write_text(json.dumps(fresh.report, indent=2, sort_keys=True) + "\n")
+    metadata = MODULE.validate_stored_report(repo, delta, fresh.report)
+    assert metadata["report_schema_version"] == 2
+    stored = json.loads(report_path.read_text())
+    stored["candidate_sha256"] = "0" * 64
+    report_path.write_text(json.dumps(stored, indent=2, sort_keys=True) + "\n")
+    with pytest.raises(MODULE.HandoffDeltaError, match="stale or does not match"):
+        MODULE.validate_stored_report(repo, delta, fresh.report)
+
+
+def test_standard_auto_check_requires_sibling_report(tmp_path: Path) -> None:
+    repo, base = make_repo(tmp_path)
+    operations = [
+        {
+            "operation_id": "append-a",
+            "op": "append_to_section",
+            "heading_path": ["Master v1", "A"],
+            "block_id": "block-a",
+            "content": "A extension.",
+        }
+    ]
+    write_delta(repo, base, "TEST-AUTO-REPORT", operations)
+    with pytest.raises(MODULE.HandoffDeltaError, match="missing required SHADOW_REPORT.json"):
+        MODULE.auto_check(repo, allow_full_due=True)
+
+
+def test_standard_pair_check_rejects_registry_semantic_conflict(tmp_path: Path) -> None:
+    repo, base = make_repo(tmp_path)
+    base_handoff = git(repo, "show", f"{base}:docs/handoff.md") + "\n"
+    base_registry = git(repo, "show", f"{base}:experiments/registry.yaml") + "\n"
+
+    def make_delta(update_id: str, section: str, to_value: str) -> Path:
+        operation = {
+            "operation_id": f"append-{section.lower()}",
+            "op": "append_to_section",
+            "heading_path": ["Master v1", section],
+            "block_id": f"block-{section.lower()}",
+            "content": f"{section} update.",
+        }
+        rendered = MODULE.render(base_handoff, [operation]).text
+        directory = repo / "docs/handoff_deltas" / update_id
+        directory.mkdir(parents=True)
+        payload = {
+            "schema_version": 2,
+            "update_id": update_id,
+            "mode": "shadow",
+            "base": {
+                "commit": base,
+                "handoff_sha256": digest(base_handoff),
+                "registry_sha256": digest(base_registry),
+            },
+            "renderer_version": 1,
+            "operations": [operation],
+            "registry": {
+                "mode": "expected_after",
+                "expected_after_sha256": "0" * 64,
+                "changes": [
+                    {
+                        "change_id": f"status-{to_value}",
+                        "kind": "transition",
+                        "entity_id": "EXP-A-01",
+                        "field_path": ["status"],
+                        "machine": "scientific_status",
+                        "from": "not_run",
+                        "to": to_value,
+                        "evidence": ["docs/handoff.md"],
+                    }
+                ],
+            },
+            "expected": {
+                "candidate_sha256": digest(rendered),
+                "manual_sha256": digest(rendered),
+            },
+        }
+        path = directory / "HANDOFF_DELTA.yaml"
+        path.write_text(yaml.safe_dump(payload, sort_keys=False))
+        return path
+
+    delta_a = make_delta("TEST-PAIR-A", "A", "pilot")
+    delta_b = make_delta("TEST-PAIR-B", "B", "finite_step_validated")
+    with pytest.raises(MODULE.HandoffDeltaError, match="Semantic registry conflict"):
+        MODULE.pair_check(repo, delta_a, delta_b)
+
+
+
+def test_standard_report_backfill_does_not_count_as_second_new_delta(tmp_path: Path) -> None:
+    repo, base = make_repo(tmp_path)
+    first_ops = [
+        {
+            "operation_id": "insert-first",
+            "op": "insert_after_heading",
+            "heading_path": ["Master v1", "A"],
+            "block_id": "first-block",
+            "content": "First observation.",
+        }
+    ]
+    first_delta = write_delta(repo, base, "TEST-FIRST-OBS", first_ops)
+    first_result = MODULE.check_delta(repo, first_delta)
+    (first_delta.parent / MODULE.REPORT_FILENAME).write_text(
+        json.dumps(first_result.report, indent=2, sort_keys=True) + "\n"
+    )
+    git(repo, "add", ".")
+    git(repo, "commit", "-m", "first observation")
+    first_commit = git(repo, "rev-parse", "HEAD")
+
+    # Start a second authority update while touching only the historical report.
+    second_ops = [
+        {
+            "operation_id": "insert-second",
+            "op": "insert_after_heading",
+            "heading_path": ["Master v1", "B"],
+            "block_id": "second-block",
+            "content": "Second observation.",
+        }
+    ]
+    second_delta = write_delta(repo, first_commit, "TEST-SECOND-OBS", second_ops)
+    second_result = MODULE.check_delta(repo, second_delta)
+    (second_delta.parent / MODULE.REPORT_FILENAME).write_text(
+        json.dumps(second_result.report, indent=2, sort_keys=True) + "\n"
+    )
+    # Re-materialize the historical report with repository-after-image provenance.
+    historical = MODULE.check_delta(repo, first_delta, target_commit=first_commit)
+    (first_delta.parent / MODULE.REPORT_FILENAME).write_text(
+        json.dumps(historical.report, indent=2, sort_keys=True) + "\n"
+    )
+
+    result = MODULE.auto_check(repo, allow_full_due=True)
+    assert result["status"] == "PASS"
+    assert result["changed_delta_file_count"] == 1
+    assert result["delta_count"] == 2
+
+def test_full_acceptance_observation_audit_derives_repository_commit_and_coverage(tmp_path: Path) -> None:
+    repo, base = make_repo(tmp_path)
+    operations = [
+        {
+            "operation_id": "append-a",
+            "op": "append_to_section",
+            "heading_path": ["Master v1", "A"],
+            "block_id": "block-a",
+            "content": "A extension.",
+        }
+    ]
+    delta = write_delta(repo, base, "TEST-REAL-OBSERVATION", operations)
+    write_report(repo, delta)
+    observation_commit = commit_all(repo, "real observation")
+    records = MODULE.observation_records(repo)
+    assert len(records) == 1
+    assert records[0]["repository_commit"] == observation_commit
+    assert records[0]["validation_worktree_head"] == base
+
+    status = MODULE.acceptance_status(repo)
+    assert status["full_acceptance_due"] is True
+    assert status["full_acceptance_due_reasons"] == ["no_successful_full_acceptance_report"]
+
+    full_report = delta.parent / MODULE.FULL_REPORT_FILENAME
+    write_full_report(repo, full_report, ["TEST-REAL-OBSERVATION"])
+    full_commit = commit_all(repo, "full acceptance")
+    current = MODULE.acceptance_status(repo)
+    assert current["full_acceptance_due"] is False
+    assert current["latest_full_acceptance"]["repository_commit"] == full_commit
+
+    full_time = MODULE.commit_datetime(repo, full_commit)
+    after_eight_days = (full_time + timedelta(days=8)).isoformat()
+    still_current = MODULE.acceptance_status(repo, as_of=after_eight_days)
+    assert still_current["full_acceptance_due"] is False
+
+
+def test_full_acceptance_time_trigger_requires_an_uncovered_relevant_update(tmp_path: Path) -> None:
+    repo, base = make_repo(tmp_path)
+    first_operations = [
+        {
+            "operation_id": "append-a",
+            "op": "append_to_section",
+            "heading_path": ["Master v1", "A"],
+            "block_id": "block-a",
+            "content": "A extension.",
+        }
+    ]
+    first = write_delta(repo, base, "TEST-FIRST-OBSERVATION", first_operations)
+    write_report(repo, first)
+    commit_all(repo, "first observation")
+    full_report = first.parent / MODULE.FULL_REPORT_FILENAME
+    write_full_report(repo, full_report, ["TEST-FIRST-OBSERVATION"])
+    full_commit = commit_all(repo, "full acceptance")
+
+    second_base = git(repo, "rev-parse", "HEAD")
+    second_operations = [
+        {
+            "operation_id": "append-b",
+            "op": "append_to_section",
+            "heading_path": ["Master v1", "B"],
+            "block_id": "block-b",
+            "content": "B extension.",
+        }
+    ]
+    second = write_delta(repo, second_base, "TEST-SECOND-OBSERVATION", second_operations)
+    write_report(repo, second)
+    commit_all(repo, "second observation")
+
+    as_of = (MODULE.commit_datetime(repo, full_commit) + timedelta(days=8)).isoformat()
+    status = MODULE.acceptance_status(repo, as_of=as_of)
+    assert status["full_acceptance_due"] is True
+    assert "calendar_interval_with_relevant_update_reached" in status[
+        "full_acceptance_due_reasons"
+    ]
+    assert status["uncovered_update_ids"] == ["TEST-SECOND-OBSERVATION"]
+
+
+def test_full_acceptance_count_trigger_is_machine_enforced(tmp_path: Path) -> None:
+    repo, base = make_repo(tmp_path)
+    policy_path = repo / "docs/handoff_delta_policy.yaml"
+    policy = yaml.safe_load(policy_path.read_text())
+    policy["full_acceptance"]["successful_update_interval"] = 1
+    policy_path.write_text(yaml.safe_dump(policy, sort_keys=False))
+    git(repo, "add", ".")
+    git(repo, "commit", "-m", "test policy interval")
+    base = git(repo, "rev-parse", "HEAD")
+    operations = [
+        {
+            "operation_id": "append-a",
+            "op": "append_to_section",
+            "heading_path": ["Master v1", "A"],
+            "block_id": "block-a",
+            "content": "A extension.",
+        }
+    ]
+    delta = write_delta(repo, base, "TEST-COUNT-TRIGGER", operations)
+    write_report(repo, delta)
+    commit_all(repo, "count observation")
+    status = MODULE.acceptance_status(repo)
+    assert status["full_acceptance_due"] is True
+    assert "successful_relevant_update_interval_reached" in status[
+        "full_acceptance_due_reasons"
+    ]
+
+
+def test_standard_schema2_registry_field_removal_is_rejected(tmp_path: Path) -> None:
+    repo, base = make_repo(tmp_path)
+    current = yaml.safe_load((repo / "experiments/registry.yaml").read_text())
+    del current["experiments"][0]["execution_gate"]
+    (repo / "experiments/registry.yaml").write_text(yaml.safe_dump(current, sort_keys=False))
+    (repo / "evidence.json").write_text("{}")
+    operations = [
+        {
+            "operation_id": "append-a",
+            "op": "append_to_section",
+            "heading_path": ["Master v1", "A"],
+            "block_id": "block-a",
+            "content": "Attempt field removal.",
+        }
+    ]
+    registry = {
+        "mode": "expected_after",
+        "expected_after_sha256": hashlib.sha256(
+            (repo / "experiments/registry.yaml").read_bytes()
+        ).hexdigest(),
+        "changes": [
+            {
+                "change_id": "remove-gate",
+                "kind": "update_field",
+                "entity_id": "EXP-A-01",
+                "field_path": ["execution_gate"],
+                "from": {"state": "blocked"},
+                "to": None,
+                "reason": "intentionally destructive",
+                "evidence": ["evidence.json"],
+            }
+        ],
+    }
+    delta = write_delta(repo, base, "TEST-REMOVE-FIELD", operations, registry=registry)
+    with pytest.raises(MODULE.HandoffDeltaError, match="forbids destructive registry field removal"):
+        MODULE.check_delta(repo, delta)
+
+
+def test_standard_changed_paths_do_not_double_count_previous_committed_delta(tmp_path: Path) -> None:
+    repo, base = make_repo(tmp_path)
+    first_ops = [
+        {
+            "operation_id": "append-a",
+            "op": "append_to_section",
+            "heading_path": ["Master v1", "A"],
+            "block_id": "block-a",
+            "content": "First update.",
+        }
+    ]
+    first = write_delta(repo, base, "TEST-PREVIOUS-DELTA", first_ops)
+    write_report(repo, first)
+    commit_all(repo, "previous delta")
+
+    second_base = git(repo, "rev-parse", "HEAD")
+    second_ops = [
+        {
+            "operation_id": "append-b",
+            "op": "append_to_section",
+            "heading_path": ["Master v1", "B"],
+            "block_id": "block-b",
+            "content": "Second update.",
+        }
+    ]
+    second = write_delta(repo, second_base, "TEST-CURRENT-DELTA", second_ops)
+    write_report(repo, second)
+    paths = MODULE.changed_paths(repo)
+    deltas = MODULE.discover_changed_deltas(repo, paths)
+    assert [path.parent.name for path in deltas] == ["TEST-CURRENT-DELTA"]
+
+
+def test_standard_v2_report_projection_detects_registry_coverage_tamper(tmp_path: Path) -> None:
+    repo, base = make_repo(tmp_path)
+    operations = [
+        {
+            "operation_id": "append-a",
+            "op": "append_to_section",
+            "heading_path": ["Master v1", "A"],
+            "block_id": "block-a",
+            "content": "A extension.",
+        }
+    ]
+    delta = write_delta(repo, base, "TEST-REPORT-COVERAGE", operations)
+    fresh = MODULE.check_delta(repo, delta)
+    report_path = delta.parent / MODULE.REPORT_FILENAME
+    report_path.write_text(json.dumps(fresh.report, indent=2, sort_keys=True) + "\n")
+    stored = json.loads(report_path.read_text())
+    stored["registry_change_coverage"]["fully_declared"] = False
+    report_path.write_text(json.dumps(stored, indent=2, sort_keys=True) + "\n")
+    with pytest.raises(MODULE.HandoffDeltaError, match="stale or does not match"):
+        MODULE.validate_stored_report(repo, delta, fresh.report)
+
+
+def test_standard_acceptance_status_uses_lightweight_observation_scan(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo, base = make_repo(tmp_path)
+    operations = [
+        {
+            "operation_id": "append-a",
+            "op": "append_to_section",
+            "heading_path": ["Master v1", "A"],
+            "block_id": "block-a",
+            "content": "A extension.",
+        }
+    ]
+    delta = write_delta(repo, base, "TEST-LIGHTWEIGHT-STATUS", operations)
+    write_report(repo, delta)
+    commit_all(repo, "observation")
+
+    def fail_replay(*args: object, **kwargs: object) -> object:
+        raise AssertionError("acceptance_status must not replay the historical corpus")
+
+    monkeypatch.setattr(MODULE, "check_delta", fail_replay)
+    status = MODULE.acceptance_status(repo)
+    assert status["successful_real_observation_count"] == 1
+
+
+def test_standard_changed_report_maps_back_to_sibling_delta(tmp_path: Path) -> None:
+    repo, base = make_repo(tmp_path)
+    operations = [
+        {
+            "operation_id": "append-a",
+            "op": "append_to_section",
+            "heading_path": ["Master v1", "A"],
+            "block_id": "block-a",
+            "content": "A extension.",
+        }
+    ]
+    delta = write_delta(repo, base, "TEST-REPORT-TO-DELTA", operations)
+    write_report(repo, delta)
+    commit_all(repo, "observation")
+    report = delta.parent / MODULE.REPORT_FILENAME
+    payload = json.loads(report.read_text())
+    payload["performance"]["total_ms"] = 1.0
+    report.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+    deltas = MODULE.discover_changed_deltas(repo, MODULE.changed_paths(repo))
+    assert deltas == [delta.resolve()]
+
+
+def test_full_acceptance_report_rejects_invalid_fingerprint(tmp_path: Path) -> None:
+    repo, base = make_repo(tmp_path)
+    operations = [
+        {
+            "operation_id": "append-a",
+            "op": "append_to_section",
+            "heading_path": ["Master v1", "A"],
+            "block_id": "block-a",
+            "content": "A extension.",
+        }
+    ]
+    delta = write_delta(repo, base, "TEST-FULL-FINGERPRINT", operations)
+    write_report(repo, delta)
+    commit_all(repo, "observation")
+    full_report = delta.parent / MODULE.FULL_REPORT_FILENAME
+    write_full_report(repo, full_report, ["TEST-FULL-FINGERPRINT"])
+    payload = json.loads(full_report.read_text())
+    payload["coverage"]["observation_fingerprint"] = "0" * 64
+    full_report.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+    commit_all(repo, "bad full report")
+    observations = MODULE.observation_records(repo, replay=False)
+    with pytest.raises(MODULE.HandoffDeltaError, match="fingerprint is invalid"):
+        MODULE.full_acceptance_records(repo, observations)

@@ -168,7 +168,7 @@ def test_registry_and_handoff_record_formal_closure_and_keep_taper_blocked() -> 
     assert "frozen_semantic_remoteness_coordinate" in taper["blocked_by"]
     assert taper["formal_execution"]["activation_state"] == "blocked"
     handoff = (REPO_ROOT / "docs" / "handoff.md").read_text()
-    assert "v51（D-U1 E6 条件缺口闭环与最小改动正式协议版）" in handoff
+    assert "HANDOFF-DELTA-BLOCK:after_heading:v51-du1-e6-semantic-gap-formal:START" in handoff
     assert "task-performance collapse `77/200`" in handoff
     assert "禁止升级为 long-run validated" in handoff
 

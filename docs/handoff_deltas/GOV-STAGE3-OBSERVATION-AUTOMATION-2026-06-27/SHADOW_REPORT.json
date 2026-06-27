@@ -1,0 +1,51 @@
+{
+  "affected_selectors": [
+    "DRPO / SNA2C \u8fdc\u573a\u8d1f\u68af\u5ea6\u52a8\u529b\u5b66\u7814\u7a76\u4e3b\u6587\u6863 v52\uff08Countdown \u52a8\u6001 remoteness \u63a7\u5236 pilot \u7248\uff09",
+    "DRPO / SNA2C \u8fdc\u573a\u8d1f\u68af\u5ea6\u52a8\u529b\u5b66\u7814\u7a76\u4e3b\u6587\u6863 v53\uff08Stage 3 \u771f\u5b9e\u89c2\u5bdf\u8bb0\u8d26\u4e0e\u9a8c\u6536\u81ea\u52a8\u5316\u7248\uff09"
+  ],
+  "base_commit": "f203d86032366eb134207f3fd7ab26a31804c8bc",
+  "base_handoff_sha256": "8574e7a481180160da1da0ca450c507751df4cf36b53d6c851e8acb60a39b6f6",
+  "base_registry_sha256": "4e82fb50db25e0d33a1f7d5e5bc309fc6e599c1085f2dfffbab895afb777efc5",
+  "candidate_replaced_authority": false,
+  "candidate_sha256": "1550fdebe22725e1015a0e0a2943328f14559e81be88e7ea0e77aca93fad0bb4",
+  "comparison_target": "working_tree",
+  "current_registry_sha256": "4e82fb50db25e0d33a1f7d5e5bc309fc6e599c1085f2dfffbab895afb777efc5",
+  "exact_manual_candidate_match": true,
+  "full_candidate_saved": false,
+  "history_preservation_passed": true,
+  "idempotence_passed": true,
+  "llm_blocking_gate_used": false,
+  "manual_handoff_authoritative": true,
+  "manual_sha256": "1550fdebe22725e1015a0e0a2943328f14559e81be88e7ea0e77aca93fad0bb4",
+  "mode": "shadow",
+  "network_used": false,
+  "observation_kind": "real",
+  "operation_count": 2,
+  "performance": {
+    "base_validation_ms": 73.461,
+    "comparison_and_registry_ms": 4.438,
+    "hard_limit_ms": 15000.0,
+    "policy_and_schema_ms": 5.846,
+    "render_and_idempotence_ms": 26.724,
+    "target_p95_ms": 5000.0,
+    "total_ms": 110.702,
+    "within_hard_limit": true,
+    "within_target": true
+  },
+  "policy_id": "GOV-HANDOFF-INDEX-01",
+  "registry_change_assertions": [],
+  "registry_change_coverage": {
+    "added_entities": [],
+    "changed_field_count": 0,
+    "fully_declared": true,
+    "mode": "exact_unchanged",
+    "removed_entities": []
+  },
+  "registry_transition_assertions": [],
+  "report_schema_version": 2,
+  "repository_commit": null,
+  "schema_version": 1,
+  "status": "PASS",
+  "update_id": "GOV-STAGE3-OBSERVATION-AUTOMATION-2026-06-27",
+  "validation_worktree_head": "f203d86032366eb134207f3fd7ab26a31804c8bc"
+}

@@ -11,10 +11,12 @@ import argparse
 import hashlib
 import json
 import re
+import statistics
 import subprocess
 import sys
 import time
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
@@ -32,6 +34,10 @@ IDENTIFIER_RE = re.compile(
 SUPPORTED_OPERATIONS = {"replace_heading", "insert_after_heading", "append_to_section"}
 DELTA_FILENAME = "HANDOFF_DELTA.yaml"
 REPORT_FILENAME = "SHADOW_REPORT.json"
+FULL_REPORT_FILENAME = "FULL_ACCEPTANCE_REPORT.json"
+CURRENT_DELTA_SCHEMA_VERSION = 2
+LEGACY_DELTA_SCHEMA_VERSION = 1
+CURRENT_REPORT_SCHEMA_VERSION = 2
 
 
 class HandoffDeltaError(ValueError):
@@ -329,7 +335,50 @@ def insert_canonical_block(
     return text[:insertion] + separator + terminal_rendered + text[insertion:]
 
 
-def validate_delta_shape(delta: dict[str, Any], delta_path: Path) -> None:
+def validate_evidence_paths_shape(value: Any, label: str) -> list[str]:
+    evidence = require_list(value, label)
+    if not evidence or not all(isinstance(path, str) and path for path in evidence):
+        raise HandoffDeltaError(f"{label} must contain non-empty repository-relative paths")
+    return evidence
+
+
+def validate_registry_change_shape(item: dict[str, Any], index: int) -> None:
+    label = f"registry.changes[{index}]"
+    kind = require_string(item.get("kind"), f"{label}.kind")
+    common = {"change_id", "kind", "entity_id", "evidence"}
+    change_id = require_string(item.get("change_id"), f"{label}.change_id")
+    if not OP_ID_RE.fullmatch(change_id):
+        raise HandoffDeltaError(f"Invalid registry change_id: {change_id!r}")
+    require_string(item.get("entity_id"), f"{label}.entity_id")
+    validate_evidence_paths_shape(item.get("evidence"), f"{label}.evidence")
+    if kind == "transition":
+        allowed = common | {"field_path", "machine", "from", "to"}
+        require_string(item.get("machine"), f"{label}.machine")
+        require_string(item.get("from"), f"{label}.from")
+        require_string(item.get("to"), f"{label}.to")
+        field_path = require_list(item.get("field_path"), f"{label}.field_path")
+        if not field_path or not all(isinstance(part, str) and part for part in field_path):
+            raise HandoffDeltaError(f"{label}.field_path must contain non-empty strings")
+    elif kind == "add_entity":
+        allowed = common
+    elif kind == "update_field":
+        allowed = common | {"field_path", "from", "to", "reason"}
+        field_path = require_list(item.get("field_path"), f"{label}.field_path")
+        if not field_path or not all(isinstance(part, str) and part for part in field_path):
+            raise HandoffDeltaError(f"{label}.field_path must contain non-empty strings")
+        if "from" not in item or "to" not in item:
+            raise HandoffDeltaError(f"{label} must declare exact from/to values")
+        require_string(item.get("reason"), f"{label}.reason")
+    else:
+        raise HandoffDeltaError(f"Unsupported registry change kind: {kind}")
+    reject_unknown_keys(item, allowed, label)
+
+
+def validate_delta_shape(
+    delta: dict[str, Any],
+    delta_path: Path,
+    policy: dict[str, Any] | None = None,
+) -> None:
     reject_unknown_keys(
         delta,
         {
@@ -344,8 +393,12 @@ def validate_delta_shape(delta: dict[str, Any], delta_path: Path) -> None:
         },
         "delta",
     )
-    if delta.get("schema_version") != 1:
-        raise HandoffDeltaError("delta.schema_version must be 1")
+    schema_version = delta.get("schema_version")
+    if schema_version not in {LEGACY_DELTA_SCHEMA_VERSION, CURRENT_DELTA_SCHEMA_VERSION}:
+        raise HandoffDeltaError(
+            f"delta.schema_version must be {LEGACY_DELTA_SCHEMA_VERSION} or "
+            f"{CURRENT_DELTA_SCHEMA_VERSION}"
+        )
     update_id = require_string(delta.get("update_id"), "delta.update_id")
     if not UPDATE_ID_RE.fullmatch(update_id):
         raise HandoffDeltaError(f"Invalid update_id: {update_id!r}")
@@ -357,6 +410,23 @@ def validate_delta_shape(delta: dict[str, Any], delta_path: Path) -> None:
         raise HandoffDeltaError("delta.mode must remain shadow during Stage 3")
     if delta.get("renderer_version") != 1:
         raise HandoffDeltaError("renderer_version must be 1")
+    if policy is not None:
+        schema_policy = require_mapping(policy.get("delta_schema"), "policy.delta_schema")
+        accepted = require_list(schema_policy.get("accepted_versions"), "policy.delta_schema.accepted_versions")
+        if schema_version not in accepted:
+            raise HandoffDeltaError(f"Delta schema version {schema_version} is not accepted")
+        current = schema_policy.get("current_version")
+        legacy_ids = set(
+            require_list(
+                schema_policy.get("legacy_schema1_update_ids", []),
+                "policy.delta_schema.legacy_schema1_update_ids",
+            )
+        )
+        if schema_version != current and update_id not in legacy_ids:
+            raise HandoffDeltaError(
+                f"New delta {update_id} must use current schema_version={current}; "
+                f"legacy schema is restricted to registered historical update IDs"
+            )
 
     base = require_mapping(delta.get("base"), "delta.base")
     reject_unknown_keys(base, {"commit", "handoff_sha256", "registry_sha256"}, "delta.base")
@@ -404,44 +474,75 @@ def validate_delta_shape(delta: dict[str, Any], delta_path: Path) -> None:
             raise HandoffDeltaError(f"operation[{index}].heading_path must be non-empty strings")
 
     registry = require_mapping(delta.get("registry"), "delta.registry")
-    reject_unknown_keys(registry, {"mode", "expected_after_sha256", "transitions"}, "delta.registry")
     mode = registry.get("mode")
     if mode not in {"unchanged", "expected_after"}:
         raise HandoffDeltaError("delta.registry.mode must be unchanged or expected_after")
-    transitions = require_list(registry.get("transitions", []), "delta.registry.transitions")
     expected_after = registry.get("expected_after_sha256")
-    if mode == "unchanged":
-        if expected_after is not None or transitions:
-            raise HandoffDeltaError("unchanged registry mode forbids after hash and transitions")
+    if schema_version == LEGACY_DELTA_SCHEMA_VERSION:
+        reject_unknown_keys(
+            registry, {"mode", "expected_after_sha256", "transitions"}, "delta.registry"
+        )
+        transitions = require_list(registry.get("transitions", []), "delta.registry.transitions")
+        if mode == "unchanged":
+            if expected_after is not None or transitions:
+                raise HandoffDeltaError("unchanged registry mode forbids after hash and transitions")
+        else:
+            value = require_string(expected_after, "delta.registry.expected_after_sha256")
+            if not SHA256_RE.fullmatch(value):
+                raise HandoffDeltaError("registry expected_after_sha256 must be lowercase SHA-256")
+            if not transitions:
+                raise HandoffDeltaError("expected_after registry mode requires transitions")
+            for index, transition in enumerate(transitions):
+                item = require_mapping(transition, f"registry.transitions[{index}]")
+                reject_unknown_keys(
+                    item,
+                    {
+                        "assertion_id",
+                        "entity_id",
+                        "field_path",
+                        "machine",
+                        "from",
+                        "to",
+                        "evidence",
+                    },
+                    f"registry.transitions[{index}]",
+                )
+                for key in ("assertion_id", "entity_id", "machine", "from", "to"):
+                    require_string(item.get(key), f"registry.transitions[{index}].{key}")
+                field_path = require_list(
+                    item.get("field_path"), f"registry.transitions[{index}].field_path"
+                )
+                if not field_path or not all(
+                    isinstance(part, str) and part for part in field_path
+                ):
+                    raise HandoffDeltaError(
+                        "registry transition field_path must be non-empty strings"
+                    )
+                validate_evidence_paths_shape(
+                    item.get("evidence"), f"registry.transitions[{index}].evidence"
+                )
     else:
-        value = require_string(expected_after, "delta.registry.expected_after_sha256")
-        if not SHA256_RE.fullmatch(value):
-            raise HandoffDeltaError("registry expected_after_sha256 must be lowercase SHA-256")
-        if not transitions:
-            raise HandoffDeltaError("expected_after registry mode requires transitions")
-        for index, transition in enumerate(transitions):
-            item = require_mapping(transition, f"registry.transitions[{index}]")
-            reject_unknown_keys(
-                item,
-                {
-                    "assertion_id",
-                    "entity_id",
-                    "field_path",
-                    "machine",
-                    "from",
-                    "to",
-                    "evidence",
-                },
-                f"registry.transitions[{index}]",
-            )
-            for key in ("assertion_id", "entity_id", "machine", "from", "to"):
-                require_string(item.get(key), f"registry.transitions[{index}].{key}")
-            field_path = require_list(item.get("field_path"), f"registry.transitions[{index}].field_path")
-            if not field_path or not all(isinstance(part, str) and part for part in field_path):
-                raise HandoffDeltaError("registry transition field_path must be non-empty strings")
-            evidence = require_list(item.get("evidence"), f"registry.transitions[{index}].evidence")
-            if not evidence or not all(isinstance(path, str) and path for path in evidence):
-                raise HandoffDeltaError("registry transition evidence must be non-empty paths")
+        reject_unknown_keys(
+            registry, {"mode", "expected_after_sha256", "changes"}, "delta.registry"
+        )
+        changes = require_list(registry.get("changes", []), "delta.registry.changes")
+        if mode == "unchanged":
+            if expected_after is not None or changes:
+                raise HandoffDeltaError("unchanged registry mode forbids after hash and changes")
+        else:
+            value = require_string(expected_after, "delta.registry.expected_after_sha256")
+            if not SHA256_RE.fullmatch(value):
+                raise HandoffDeltaError("registry expected_after_sha256 must be lowercase SHA-256")
+            if not changes:
+                raise HandoffDeltaError("schema v2 expected_after registry mode requires changes")
+            seen_change_ids: set[str] = set()
+            for index, raw in enumerate(changes):
+                item = require_mapping(raw, f"registry.changes[{index}]")
+                validate_registry_change_shape(item, index)
+                change_id = item["change_id"]
+                if change_id in seen_change_ids:
+                    raise HandoffDeltaError(f"Duplicate registry change_id: {change_id}")
+                seen_change_ids.add(change_id)
 
     expected = require_mapping(delta.get("expected"), "delta.expected")
     reject_unknown_keys(expected, {"candidate_sha256", "manual_sha256"}, "delta.expected")
@@ -449,7 +550,6 @@ def validate_delta_shape(delta: dict[str, Any], delta_path: Path) -> None:
         value = require_string(expected.get(key), f"delta.expected.{key}")
         if not SHA256_RE.fullmatch(value):
             raise HandoffDeltaError(f"delta.expected.{key} must be lowercase SHA-256")
-
 
 def load_policy(repo_root: Path) -> dict[str, Any]:
     policy_path = repo_root / "docs" / "handoff_delta_policy.yaml"
@@ -463,6 +563,24 @@ def load_policy(repo_root: Path) -> dict[str, Any]:
         raise HandoffDeltaError("Fast Gate must not use network or an LLM blocking oracle")
     if safety.get("maximum_deltas_per_update") != 1:
         raise HandoffDeltaError("Version 1 requires exactly one delta per relevant update")
+    schema_policy = require_mapping(policy.get("delta_schema"), "policy.delta_schema")
+    accepted = require_list(
+        schema_policy.get("accepted_versions"), "policy.delta_schema.accepted_versions"
+    )
+    if accepted != [LEGACY_DELTA_SCHEMA_VERSION, CURRENT_DELTA_SCHEMA_VERSION]:
+        raise HandoffDeltaError(
+            "policy.delta_schema.accepted_versions must preserve legacy v1 and current v2"
+        )
+    if schema_policy.get("current_version") != CURRENT_DELTA_SCHEMA_VERSION:
+        raise HandoffDeltaError(
+            f"policy.delta_schema.current_version must be {CURRENT_DELTA_SCHEMA_VERSION}"
+        )
+    legacy_ids = require_list(
+        schema_policy.get("legacy_schema1_update_ids"),
+        "policy.delta_schema.legacy_schema1_update_ids",
+    )
+    if len(set(legacy_ids)) != len(legacy_ids):
+        raise HandoffDeltaError("policy.delta_schema.legacy_schema1_update_ids contains duplicates")
     supported = set(require_list(policy.get("supported_operations"), "policy.supported_operations"))
     if supported != SUPPORTED_OPERATIONS:
         raise HandoffDeltaError("policy supported_operations drifted from renderer implementation")
@@ -561,13 +679,116 @@ def nested_get(mapping: dict[str, Any], field_path: Sequence[str], label: str) -
     return current
 
 
+def registry_experiments(registry: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    rows = registry.get("experiments")
+    if not isinstance(rows, list):
+        raise HandoffDeltaError("registry.experiments must be a list")
+    result: dict[str, dict[str, Any]] = {}
+    for index, row in enumerate(rows):
+        if not isinstance(row, dict):
+            raise HandoffDeltaError(f"registry.experiments[{index}] must be a mapping")
+        entity_id = require_string(row.get("id"), f"registry.experiments[{index}].id")
+        if entity_id in result:
+            raise HandoffDeltaError(f"Duplicate registry experiment ID: {entity_id}")
+        result[entity_id] = row
+    return result
+
+
+def diff_values(before: Any, after: Any, path: tuple[str, ...] = ()) -> list[dict[str, Any]]:
+    if before == after:
+        return []
+    if isinstance(before, dict) and isinstance(after, dict):
+        rows: list[dict[str, Any]] = []
+        for key in sorted(set(before) | set(after)):
+            child_path = path + (str(key),)
+            if key not in before:
+                rows.append(
+                    {
+                        "field_path": list(child_path),
+                        "from": None,
+                        "to": after[key],
+                        "change_type": "added_key",
+                    }
+                )
+            elif key not in after:
+                rows.append(
+                    {
+                        "field_path": list(child_path),
+                        "from": before[key],
+                        "to": None,
+                        "change_type": "removed_key",
+                    }
+                )
+            else:
+                rows.extend(diff_values(before[key], after[key], child_path))
+        return rows
+    return [
+        {
+            "field_path": list(path),
+            "from": before,
+            "to": after,
+            "change_type": "value_change",
+        }
+    ]
+
+
+def compute_registry_diff(
+    base_registry: dict[str, Any], current_registry: dict[str, Any]
+) -> dict[str, Any]:
+    base_entities = registry_experiments(base_registry)
+    current_entities = registry_experiments(current_registry)
+    added = sorted(set(current_entities) - set(base_entities))
+    removed = sorted(set(base_entities) - set(current_entities))
+    changed: list[dict[str, Any]] = []
+    for entity_id in sorted(set(base_entities) & set(current_entities)):
+        for row in diff_values(base_entities[entity_id], current_entities[entity_id]):
+            if row["field_path"] == ["id"]:
+                continue
+            changed.append({"entity_id": entity_id, **row})
+
+    base_top = {key: value for key, value in base_registry.items() if key != "experiments"}
+    current_top = {key: value for key, value in current_registry.items() if key != "experiments"}
+    for row in diff_values(base_top, current_top):
+        changed.append({"entity_id": "__registry__", **row})
+    changed.sort(key=lambda item: (item["entity_id"], tuple(item["field_path"])))
+    return {"added_entities": added, "removed_entities": removed, "changed_fields": changed}
+
+
+def evidence_reports(repo_root: Path, values: Sequence[str], label: str) -> list[dict[str, str]]:
+    reports: list[dict[str, str]] = []
+    for relative in values:
+        path = safe_repo_file(repo_root, relative, label)
+        reports.append({"path": relative, "sha256": sha256_file(path)})
+    return reports
+
+
+def validate_state_transition(
+    machines: dict[str, Any], machine_name: str, before: Any, after: Any, entity_id: str
+) -> None:
+    machine = require_mapping(machines.get(machine_name), f"state machine {machine_name}")
+    states = require_list(machine.get("states"), f"state machine {machine_name}.states")
+    transitions = require_mapping(
+        machine.get("transitions"), f"state machine {machine_name}.transitions"
+    )
+    if before not in states or after not in states:
+        raise HandoffDeltaError(
+            f"Registry transition uses a state outside machine {machine_name}: {before!r}->{after!r}"
+        )
+    allowed = transitions.get(before)
+    if not isinstance(allowed, list) or after not in allowed:
+        raise HandoffDeltaError(
+            f"Illegal {machine_name} transition for {entity_id}: {before!r}->{after!r}"
+        )
+
+
 def validate_registry(
     repo_root: Path,
     delta: dict[str, Any],
     base_registry_text: str,
     current_registry_text: str,
-) -> list[dict[str, Any]]:
+) -> dict[str, Any]:
     spec = delta["registry"]
+    schema_version = delta["schema_version"]
     base_hash = sha256_text(base_registry_text)
     current_hash = sha256_text(current_registry_text)
     if base_hash != delta["base"]["registry_sha256"]:
@@ -575,7 +796,17 @@ def validate_registry(
     if spec["mode"] == "unchanged":
         if current_hash != base_hash:
             raise HandoffDeltaError("Registry changed but delta.registry.mode is unchanged")
-        return []
+        return {
+            "assertions": [],
+            "legacy_transition_assertions": [],
+            "coverage": {
+                "mode": "exact_unchanged",
+                "added_entities": [],
+                "removed_entities": [],
+                "changed_field_count": 0,
+                "fully_declared": True,
+            },
+        }
     if current_hash != spec["expected_after_sha256"]:
         raise HandoffDeltaError("Current registry SHA-256 does not match expected after-image")
 
@@ -585,53 +816,196 @@ def validate_registry(
     machines = require_mapping(state_payload.get("machines"), "state_machines.machines")
     base_registry = require_mapping(yaml.safe_load(base_registry_text), "base registry")
     current_registry = require_mapping(yaml.safe_load(current_registry_text), "current registry")
-    reports: list[dict[str, Any]] = []
-    for transition in spec["transitions"]:
-        entity_id = transition["entity_id"]
-        base_entity = find_experiment(base_registry, entity_id)
-        current_entity = find_experiment(current_registry, entity_id)
-        field_path = transition["field_path"]
-        before = nested_get(base_entity, field_path, f"base experiment {entity_id}")
-        after = nested_get(current_entity, field_path, f"current experiment {entity_id}")
-        if before != transition["from"] or after != transition["to"]:
-            raise HandoffDeltaError(
-                f"Registry transition {transition['assertion_id']} does not match actual values: "
-                f"{before!r}->{after!r}"
-            )
-        machine_name = transition["machine"]
-        machine = require_mapping(machines.get(machine_name), f"state machine {machine_name}")
-        states = require_list(machine.get("states"), f"state machine {machine_name}.states")
-        transitions = require_mapping(
-            machine.get("transitions"), f"state machine {machine_name}.transitions"
+    actual = compute_registry_diff(base_registry, current_registry)
+    if actual["removed_entities"]:
+        raise HandoffDeltaError(
+            "Schema v2 forbids destructive registry entity removal: "
+            f"{actual['removed_entities']}"
         )
-        if before not in states or after not in states:
-            raise HandoffDeltaError(
-                f"Registry transition uses a state outside machine {machine_name}: {before!r}->{after!r}"
+    removed_fields = [
+        item
+        for item in actual["changed_fields"]
+        if item.get("change_type") == "removed_key"
+    ]
+    if removed_fields:
+        preview = [
+            f"{item['entity_id']}:{item['field_path']}" for item in removed_fields[:20]
+        ]
+        raise HandoffDeltaError(
+            "Schema v2 forbids destructive registry field removal: " + ", ".join(preview)
+        )
+
+    assertions: list[dict[str, Any]] = []
+    if schema_version == LEGACY_DELTA_SCHEMA_VERSION:
+        for transition in spec["transitions"]:
+            entity_id = transition["entity_id"]
+            base_entity = find_experiment(base_registry, entity_id)
+            current_entity = find_experiment(current_registry, entity_id)
+            field_path = transition["field_path"]
+            before = nested_get(base_entity, field_path, f"base experiment {entity_id}")
+            after = nested_get(current_entity, field_path, f"current experiment {entity_id}")
+            if before != transition["from"] or after != transition["to"]:
+                raise HandoffDeltaError(
+                    f"Registry transition {transition['assertion_id']} does not match actual values: "
+                    f"{before!r}->{after!r}"
+                )
+            validate_state_transition(machines, transition["machine"], before, after, entity_id)
+            assertions.append(
+                {
+                    "change_id": transition["assertion_id"],
+                    "kind": "transition",
+                    "entity_id": entity_id,
+                    "field_path": field_path,
+                    "machine": transition["machine"],
+                    "from": before,
+                    "to": after,
+                    "evidence": evidence_reports(
+                        repo_root,
+                        transition["evidence"],
+                        f"transition {transition['assertion_id']} evidence",
+                    ),
+                }
             )
-        allowed = transitions.get(before)
-        if not isinstance(allowed, list) or after not in allowed:
-            raise HandoffDeltaError(
-                f"Illegal {machine_name} transition for {entity_id}: {before!r}->{after!r}"
+        return {
+            "assertions": assertions,
+            "legacy_transition_assertions": [
+                {
+                    "assertion_id": item["change_id"],
+                    "entity_id": item["entity_id"],
+                    "field_path": item["field_path"],
+                    "machine": item["machine"],
+                    "from": item["from"],
+                    "to": item["to"],
+                    "evidence": item["evidence"],
+                }
+                for item in assertions
+            ],
+            "coverage": {
+                "mode": "legacy_schema1_partial_assertions",
+                "added_entities": actual["added_entities"],
+                "removed_entities": actual["removed_entities"],
+                "changed_field_count": len(actual["changed_fields"]),
+                "declared_assertion_count": len(assertions),
+                "fully_declared": False,
+            },
+        }
+
+    actual_added = set(actual["added_entities"])
+    actual_fields = {
+        (item["entity_id"], tuple(item["field_path"])): item
+        for item in actual["changed_fields"]
+    }
+    declared_added: set[str] = set()
+    declared_fields: set[tuple[str, tuple[str, ...]]] = set()
+    for change in spec["changes"]:
+        kind = change["kind"]
+        entity_id = change["entity_id"]
+        report: dict[str, Any] = {
+            "change_id": change["change_id"],
+            "kind": kind,
+            "entity_id": entity_id,
+            "evidence": evidence_reports(
+                repo_root,
+                change["evidence"],
+                f"registry change {change['change_id']} evidence",
+            ),
+        }
+        if kind == "add_entity":
+            if entity_id not in actual_added:
+                raise HandoffDeltaError(
+                    f"Registry add_entity {change['change_id']} does not match an actual addition: "
+                    f"{entity_id}"
+                )
+            if entity_id in declared_added:
+                raise HandoffDeltaError(f"Registry addition declared twice: {entity_id}")
+            declared_added.add(entity_id)
+        else:
+            field_path = tuple(change["field_path"])
+            key = (entity_id, field_path)
+            actual_row = actual_fields.get(key)
+            if actual_row is None:
+                raise HandoffDeltaError(
+                    f"Registry change {change['change_id']} does not match an actual changed field: "
+                    f"{entity_id}:{list(field_path)}"
+                )
+            if key in declared_fields:
+                raise HandoffDeltaError(
+                    f"Registry field change declared twice: {entity_id}:{list(field_path)}"
+                )
+            if actual_row["from"] != change["from"] or actual_row["to"] != change["to"]:
+                raise HandoffDeltaError(
+                    f"Registry change {change['change_id']} from/to does not match actual values: "
+                    f"{actual_row['from']!r}->{actual_row['to']!r}"
+                )
+            declared_fields.add(key)
+            report.update(
+                {
+                    "field_path": list(field_path),
+                    "from": actual_row["from"],
+                    "to": actual_row["to"],
+                }
             )
-        evidence_reports = []
-        for relative in transition["evidence"]:
-            path = safe_repo_file(repo_root, relative, f"transition {transition['assertion_id']} evidence")
-            evidence_reports.append({"path": relative, "sha256": sha256_file(path)})
-        reports.append(
+            if kind == "transition":
+                validate_state_transition(
+                    machines, change["machine"], actual_row["from"], actual_row["to"], entity_id
+                )
+                report["machine"] = change["machine"]
+            else:
+                report["reason"] = change["reason"]
+        assertions.append(report)
+
+    missing_added = sorted(actual_added - declared_added)
+    extra_added = sorted(declared_added - actual_added)
+    missing_fields = sorted(
+        (entity_id, list(path)) for entity_id, path in set(actual_fields) - declared_fields
+    )
+    extra_fields = sorted(
+        (entity_id, list(path)) for entity_id, path in declared_fields - set(actual_fields)
+    )
+    if missing_added or extra_added or missing_fields or extra_fields:
+        raise HandoffDeltaError(
+            "Schema v2 registry change coverage is incomplete; "
+            f"missing_added={missing_added} extra_added={extra_added} "
+            f"missing_fields={missing_fields[:20]} extra_fields={extra_fields[:20]}"
+        )
+    return {
+        "assertions": assertions,
+        "legacy_transition_assertions": [
             {
-                "assertion_id": transition["assertion_id"],
-                "entity_id": entity_id,
-                "field_path": field_path,
-                "machine": machine_name,
-                "from": before,
-                "to": after,
-                "evidence": evidence_reports,
+                "assertion_id": item["change_id"],
+                "entity_id": item["entity_id"],
+                "field_path": item["field_path"],
+                "machine": item["machine"],
+                "from": item["from"],
+                "to": item["to"],
+                "evidence": item["evidence"],
             }
-        )
-    return reports
+            for item in assertions
+            if item["kind"] == "transition"
+        ],
+        "coverage": {
+            "mode": "schema2_complete",
+            "added_entities": sorted(actual_added),
+            "removed_entities": [],
+            "changed_field_count": len(actual_fields),
+            "declared_assertion_count": len(assertions),
+            "fully_declared": True,
+        },
+    }
+
+def classify_observation(update_id: str) -> str:
+    if update_id.startswith("GOV-STAGE3-SHADOW-BOOTSTRAP-"):
+        return "bootstrap"
+    return "real"
 
 
-def check_delta(repo_root: Path, delta_path: Path, *, enforce_performance: bool = True) -> CheckResult:
+def check_delta(
+    repo_root: Path,
+    delta_path: Path,
+    *,
+    enforce_performance: bool = True,
+    target_commit: str | None = None,
+) -> CheckResult:
     started = time.perf_counter()
     repo_root = repo_root.resolve()
     delta_path = delta_path.resolve()
@@ -643,13 +1017,15 @@ def check_delta(repo_root: Path, delta_path: Path, *, enforce_performance: bool 
     policy_start = time.perf_counter()
     policy = load_policy(repo_root)
     delta = load_yaml(delta_path, "handoff delta")
-    validate_delta_shape(delta, delta_path)
+    validate_delta_shape(delta, delta_path, policy)
     policy_ms = (time.perf_counter() - policy_start) * 1000
 
     base_start = time.perf_counter()
     base_commit = delta["base"]["commit"]
     git(repo_root, "cat-file", "-e", f"{base_commit}^{{commit}}")
-    git(repo_root, "merge-base", "--is-ancestor", base_commit, "HEAD")
+    comparison_commit = target_commit or git_text(repo_root, "rev-parse", "HEAD")
+    git(repo_root, "cat-file", "-e", f"{comparison_commit}^{{commit}}")
+    git(repo_root, "merge-base", "--is-ancestor", base_commit, comparison_commit)
     handoff_path = require_string(policy.get("research_master"), "policy.research_master")
     registry_path = require_string(policy.get("registry"), "policy.registry")
     base_handoff = git_show_text(repo_root, base_commit, handoff_path)
@@ -669,10 +1045,18 @@ def check_delta(repo_root: Path, delta_path: Path, *, enforce_performance: bool 
     render_ms = (time.perf_counter() - render_start) * 1000
 
     compare_start = time.perf_counter()
-    manual_path = safe_repo_file(repo_root, handoff_path, "manual handoff")
-    registry_file = safe_repo_file(repo_root, registry_path, "current registry")
-    manual = manual_path.read_text(encoding="utf-8")
-    current_registry = registry_file.read_text(encoding="utf-8")
+    if target_commit is None:
+        manual_path = safe_repo_file(repo_root, handoff_path, "manual handoff")
+        registry_file = safe_repo_file(repo_root, registry_path, "current registry")
+        manual = manual_path.read_text(encoding="utf-8")
+        current_registry = registry_file.read_text(encoding="utf-8")
+        comparison_target = "working_tree"
+        repository_commit = None
+    else:
+        manual = git_show_text(repo_root, target_commit, handoff_path)
+        current_registry = git_show_text(repo_root, target_commit, registry_path)
+        comparison_target = "repository_commit"
+        repository_commit = target_commit
     candidate_hash = sha256_text(rendered.text)
     manual_hash = sha256_text(manual)
     if candidate_hash != delta["expected"]["candidate_sha256"]:
@@ -681,7 +1065,7 @@ def check_delta(repo_root: Path, delta_path: Path, *, enforce_performance: bool 
         raise HandoffDeltaError("Manual handoff SHA-256 differs from delta.expected")
     if rendered.text != manual:
         raise HandoffDeltaError("Shadow candidate does not exactly match the authoritative manual handoff")
-    registry_transitions = validate_registry(repo_root, delta, base_registry, current_registry)
+    registry_result = validate_registry(repo_root, delta, base_registry, current_registry)
     compare_ms = (time.perf_counter() - compare_start) * 1000
 
     total_ms = (time.perf_counter() - started) * 1000
@@ -695,12 +1079,16 @@ def check_delta(repo_root: Path, delta_path: Path, *, enforce_performance: bool 
 
     report = {
         "schema_version": 1,
+        "report_schema_version": CURRENT_REPORT_SCHEMA_VERSION,
         "policy_id": policy["policy_id"],
         "update_id": delta["update_id"],
+        "observation_kind": classify_observation(delta["update_id"]),
         "mode": "shadow",
         "status": "PASS",
         "base_commit": base_commit,
-        "head_commit": git_text(repo_root, "rev-parse", "HEAD"),
+        "validation_worktree_head": git_text(repo_root, "rev-parse", "HEAD"),
+        "comparison_target": comparison_target,
+        "repository_commit": repository_commit,
         "manual_handoff_authoritative": True,
         "candidate_replaced_authority": False,
         "candidate_sha256": candidate_hash,
@@ -713,7 +1101,9 @@ def check_delta(repo_root: Path, delta_path: Path, *, enforce_performance: bool 
         "history_preservation_passed": True,
         "operation_count": rendered.operation_count,
         "affected_selectors": list(rendered.affected_selectors),
-        "registry_transition_assertions": registry_transitions,
+        "registry_change_assertions": registry_result["assertions"],
+        "registry_change_coverage": registry_result["coverage"],
+        "registry_transition_assertions": registry_result["legacy_transition_assertions"],
         "network_used": False,
         "llm_blocking_gate_used": False,
         "full_candidate_saved": False,
@@ -732,49 +1122,487 @@ def check_delta(repo_root: Path, delta_path: Path, *, enforce_performance: bool 
     return CheckResult(report=report, candidate=rendered.text)
 
 
+def load_json(path: Path, label: str) -> dict[str, Any]:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise HandoffDeltaError(f"Could not read {label} {path}: {exc}") from exc
+    return require_mapping(payload, label)
+
+
+def report_projection(
+    report: dict[str, Any], *, compatibility_version: int | None = None
+) -> dict[str, Any]:
+    """Return deterministic semantic fields while excluding runtime-only provenance."""
+
+    keys = (
+        "policy_id",
+        "update_id",
+        "observation_kind",
+        "mode",
+        "status",
+        "base_commit",
+        "manual_handoff_authoritative",
+        "candidate_replaced_authority",
+        "candidate_sha256",
+        "manual_sha256",
+        "base_handoff_sha256",
+        "base_registry_sha256",
+        "current_registry_sha256",
+        "exact_manual_candidate_match",
+        "idempotence_passed",
+        "history_preservation_passed",
+        "operation_count",
+        "affected_selectors",
+        "network_used",
+        "llm_blocking_gate_used",
+    )
+    projection = {key: report.get(key) for key in keys}
+    report_version = (
+        compatibility_version
+        if compatibility_version is not None
+        else report.get("report_schema_version", 1)
+    )
+    if report_version >= CURRENT_REPORT_SCHEMA_VERSION:
+        projection["registry_change_assertions"] = report.get(
+            "registry_change_assertions", []
+        )
+        projection["registry_change_coverage"] = report.get("registry_change_coverage")
+        projection["registry_transition_assertions"] = report.get(
+            "registry_transition_assertions", []
+        )
+    else:
+        projection.pop("observation_kind", None)
+        projection["registry_transition_assertions"] = report.get(
+            "registry_transition_assertions", []
+        )
+    return projection
+
+
+def stored_report_metadata(repo_root: Path, delta_path: Path) -> dict[str, Any]:
+    report_path = delta_path.parent / REPORT_FILENAME
+    if not report_path.is_file() or report_path.is_symlink():
+        raise HandoffDeltaError(
+            f"Delta {delta_path.parent.name} is missing required {REPORT_FILENAME}"
+        )
+    stored = load_json(report_path, "stored shadow report")
+    report_version = stored.get("report_schema_version", 1)
+    if report_version not in {1, CURRENT_REPORT_SCHEMA_VERSION}:
+        raise HandoffDeltaError(f"Unsupported stored report schema version: {report_version}")
+    provenance_head = stored.get("validation_worktree_head") or stored.get("head_commit")
+    if not isinstance(provenance_head, str) or not GIT_SHA_RE.fullmatch(provenance_head):
+        raise HandoffDeltaError(
+            "Stored shadow report must record validation_worktree_head "
+            "(or legacy head_commit) as a full Git SHA"
+        )
+    if stored.get("status") != "PASS" or stored.get("mode") != "shadow":
+        raise HandoffDeltaError("Stored shadow report must be a successful shadow report")
+    return {
+        "stored": stored,
+        "path": report_path.relative_to(repo_root).as_posix(),
+        "sha256": sha256_file(report_path),
+        "report_schema_version": report_version,
+        "validation_worktree_head": provenance_head,
+        "legacy_head_commit_field": "head_commit" in stored,
+        "performance_total_ms": stored.get("performance", {}).get("total_ms"),
+    }
+
+
+def validate_stored_report(
+    repo_root: Path,
+    delta_path: Path,
+    fresh_report: dict[str, Any],
+) -> dict[str, Any]:
+    metadata = stored_report_metadata(repo_root, delta_path)
+    stored = metadata.pop("stored")
+    if stored.get("update_id") != fresh_report.get("update_id"):
+        raise HandoffDeltaError("Stored shadow report update_id does not match delta")
+    report_version = metadata["report_schema_version"]
+    if report_projection(
+        stored, compatibility_version=report_version
+    ) != report_projection(fresh_report, compatibility_version=report_version):
+        raise HandoffDeltaError(
+            f"Stored {REPORT_FILENAME} is stale or does not match deterministic replay"
+        )
+    return metadata
+
+def repository_commit_for_added_path(repo_root: Path, path: Path) -> str | None:
+    relative = path.resolve().relative_to(repo_root.resolve()).as_posix()
+    result = git(
+        repo_root,
+        "log",
+        "--diff-filter=A",
+        "--format=%H",
+        "--",
+        relative,
+        check=False,
+    )
+    commits = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    return commits[-1] if commits else None
+
+
+def latest_commit_for_path(repo_root: Path, path: Path) -> str | None:
+    relative = path.resolve().relative_to(repo_root.resolve()).as_posix()
+    result = git(repo_root, "log", "-1", "--format=%H", "--", relative, check=False)
+    value = result.stdout.strip()
+    return value if GIT_SHA_RE.fullmatch(value) else None
+
+
+def commit_datetime(repo_root: Path, commit: str) -> datetime:
+    value = git_text(repo_root, "show", "-s", "--format=%cI", commit)
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise HandoffDeltaError(f"Invalid commit timestamp for {commit}: {value}") from exc
+    return parsed.astimezone(timezone.utc)
+
+
+def percentile(values: Sequence[float], percentile_value: float) -> float | None:
+    if not values:
+        return None
+    ordered = sorted(values)
+    index = max(0, min(len(ordered) - 1, int(round((len(ordered) - 1) * percentile_value))))
+    return ordered[index]
+
+
+def observation_records(
+    repo_root: Path,
+    *,
+    replay: bool = True,
+) -> list[dict[str, Any]]:
+    """Return immutable observation metadata.
+
+    Full corpus and acceptance runs use ``replay=True`` to reconstruct every
+    historical candidate. The ordinary Fast Gate uses ``replay=False`` and only
+    reads already-validated report metadata; any report touched by the current
+    update is separately replayed by ``auto_check``.
+    """
+
+    repo_root = repo_root.resolve()
+    policy = load_policy(repo_root)
+    root = repo_root / "docs" / "handoff_deltas"
+    records: list[dict[str, Any]] = []
+    for delta_path in sorted(root.glob(f"*/{DELTA_FILENAME}")):
+        delta = load_yaml(delta_path, "handoff delta")
+        validate_delta_shape(delta, delta_path, policy)
+        repository_commit = repository_commit_for_added_path(repo_root, delta_path)
+        if repository_commit is None:
+            continue
+        if replay:
+            result = check_delta(
+                repo_root,
+                delta_path,
+                enforce_performance=False,
+                target_commit=repository_commit,
+            )
+            report_meta = validate_stored_report(repo_root, delta_path, result.report)
+        else:
+            report_meta = stored_report_metadata(repo_root, delta_path)
+            stored = report_meta.pop("stored")
+            if stored.get("update_id") != delta["update_id"]:
+                raise HandoffDeltaError("Stored shadow report update_id does not match delta")
+            if stored.get("base_commit") != delta["base"]["commit"]:
+                raise HandoffDeltaError("Stored shadow report base_commit does not match delta")
+        records.append(
+            {
+                "update_id": delta["update_id"],
+                "kind": classify_observation(delta["update_id"]),
+                "delta_schema_version": delta["schema_version"],
+                "delta_path": delta_path.relative_to(repo_root).as_posix(),
+                "report_path": report_meta["path"],
+                "report_sha256": report_meta["sha256"],
+                "repository_commit": repository_commit,
+                "repository_commit_time": commit_datetime(
+                    repo_root, repository_commit
+                ).isoformat(),
+                "validation_worktree_head": report_meta["validation_worktree_head"],
+                "legacy_head_commit_field": report_meta["legacy_head_commit_field"],
+                "performance_total_ms": report_meta["performance_total_ms"],
+            }
+        )
+    records.sort(key=lambda item: (item["repository_commit_time"], item["update_id"]))
+    return records
+
+
+def observation_fingerprint(update_ids: Sequence[str]) -> str:
+    return sha256_text("\n".join(sorted(update_ids)) + "\n")
+
+
+def validate_full_acceptance_report(
+    repo_root: Path,
+    path: Path,
+    observations: Sequence[dict[str, Any]],
+) -> dict[str, Any] | None:
+    payload = load_json(path, "full acceptance report")
+    if payload.get("tier") != "full" or payload.get("status") != "PASS":
+        return None
+    repository_commit = latest_commit_for_path(repo_root, path)
+    if repository_commit is None:
+        return None
+    report_version = payload.get("report_schema_version", 1)
+    coverage = payload.get("coverage")
+    covered_ids: list[str] = []
+    if report_version >= CURRENT_REPORT_SCHEMA_VERSION:
+        if not isinstance(coverage, dict):
+            raise HandoffDeltaError(f"Full report {path} is missing coverage")
+        raw_ids = coverage.get("covered_update_ids")
+        if not isinstance(raw_ids, list) or not all(isinstance(value, str) for value in raw_ids):
+            raise HandoffDeltaError(f"Full report {path} has invalid covered_update_ids")
+        covered_ids = list(raw_ids)
+        if covered_ids != sorted(set(covered_ids)):
+            raise HandoffDeltaError(
+                f"Full report {path} covered_update_ids must be unique and sorted"
+            )
+        real_ids = {
+            row["update_id"]
+            for row in observations
+            if row["kind"] == "real"
+            and git(
+                repo_root,
+                "merge-base",
+                "--is-ancestor",
+                row["repository_commit"],
+                repository_commit,
+                check=False,
+            ).returncode
+            == 0
+        }
+        unknown = sorted(set(covered_ids) - real_ids)
+        if unknown:
+            raise HandoffDeltaError(
+                f"Full report {path} covers unknown or future observations: {unknown}"
+            )
+        if coverage.get("successful_real_observation_count") != len(covered_ids):
+            raise HandoffDeltaError(f"Full report {path} coverage count is inconsistent")
+        if coverage.get("observation_fingerprint") != observation_fingerprint(covered_ids):
+            raise HandoffDeltaError(f"Full report {path} observation fingerprint is invalid")
+        outcomes = payload.get("outcomes")
+        if not isinstance(outcomes, list) or not outcomes:
+            raise HandoffDeltaError(f"Full report {path} must retain command outcomes")
+        if any(
+            not isinstance(item, dict)
+            or item.get("returncode") != 0
+            or item.get("timed_out") is not False
+            for item in outcomes
+        ):
+            raise HandoffDeltaError(f"Full report {path} contains a failed outcome")
+        corpus = payload.get("corpus_audit")
+        if not isinstance(corpus, dict) or corpus.get("all_stored_reports_revalidated") is not True:
+            raise HandoffDeltaError(f"Full report {path} lacks a successful corpus audit")
+    elif isinstance(coverage, dict) and isinstance(coverage.get("covered_update_ids"), list):
+        covered_ids = [str(value) for value in coverage["covered_update_ids"]]
+    return {
+        "path": path.relative_to(repo_root).as_posix(),
+        "sha256": sha256_file(path),
+        "repository_commit": repository_commit,
+        "repository_commit_time": commit_datetime(repo_root, repository_commit).isoformat(),
+        "covered_update_ids": covered_ids,
+        "reasons": payload.get("reasons", []),
+        "report_schema_version": report_version,
+    }
+
+
+def full_acceptance_records(
+    repo_root: Path,
+    observations: Sequence[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    repo_root = repo_root.resolve()
+    root = repo_root / "docs" / "handoff_deltas"
+    rows: list[dict[str, Any]] = []
+    for path in sorted(root.glob(f"*/{FULL_REPORT_FILENAME}")):
+        row = validate_full_acceptance_report(repo_root, path, observations)
+        if row is not None:
+            rows.append(row)
+    rows.sort(key=lambda item: (item["repository_commit_time"], item["path"]))
+    return rows
+
+def parse_as_of(value: str | None) -> datetime:
+    if value is None:
+        return datetime.now(timezone.utc)
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise HandoffDeltaError(f"Invalid --as-of timestamp: {value}") from exc
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def acceptance_status(repo_root: Path, *, as_of: str | None = None) -> dict[str, Any]:
+    repo_root = repo_root.resolve()
+    policy = load_policy(repo_root)
+    observations = observation_records(repo_root, replay=False)
+    real = [row for row in observations if row["kind"] == "real"]
+    bootstrap = [row for row in observations if row["kind"] == "bootstrap"]
+    full_reports = full_acceptance_records(repo_root, observations)
+    latest_full = full_reports[-1] if full_reports else None
+    covered = set(latest_full["covered_update_ids"] if latest_full else [])
+    uncovered = [row for row in real if row["update_id"] not in covered]
+
+    config = require_mapping(policy.get("full_acceptance"), "policy.full_acceptance")
+    count_interval = int(config.get("successful_update_interval", 20))
+    day_interval = int(config.get("max_days_with_relevant_update", 7))
+    now = parse_as_of(as_of)
+    elapsed_days: float | None = None
+    if latest_full is not None:
+        full_time = datetime.fromisoformat(latest_full["repository_commit_time"])
+        elapsed_days = max(0.0, (now - full_time).total_seconds() / 86400.0)
+    reasons: list[str] = []
+    if latest_full is None:
+        reasons.append("no_successful_full_acceptance_report")
+    if len(uncovered) >= count_interval:
+        reasons.append("successful_relevant_update_interval_reached")
+    if uncovered and elapsed_days is not None and elapsed_days >= day_interval:
+        reasons.append("calendar_interval_with_relevant_update_reached")
+
+    performance_values = [
+        float(row["performance_total_ms"])
+        for row in real
+        if isinstance(row.get("performance_total_ms"), (int, float))
+    ]
+    return {
+        "schema_version": 1,
+        "policy_id": policy["policy_id"],
+        "status": "FULL_DUE" if reasons else "CURRENT",
+        "as_of": now.isoformat(),
+        "bootstrap_observation_count": len(bootstrap),
+        "successful_real_observation_count": len(real),
+        "successful_real_observations": real,
+        "latest_real_observation": real[-1] if real else None,
+        "full_acceptance_reports": full_reports,
+        "latest_full_acceptance": latest_full,
+        "uncovered_real_observation_count": len(uncovered),
+        "uncovered_update_ids": [row["update_id"] for row in uncovered],
+        "full_acceptance_due": bool(reasons),
+        "full_acceptance_due_reasons": reasons,
+        "remaining_until_count_trigger": max(0, count_interval - len(uncovered)),
+        "days_since_latest_full_acceptance": (
+            round(elapsed_days, 3) if elapsed_days is not None else None
+        ),
+        "performance_ms": {
+            "sample_count": len(performance_values),
+            "mean": round(statistics.fmean(performance_values), 3)
+            if performance_values
+            else None,
+            "p95": round(percentile(performance_values, 0.95), 3)
+            if performance_values
+            else None,
+            "max": round(max(performance_values), 3) if performance_values else None,
+        },
+    }
+
+
+def corpus_check(repo_root: Path) -> dict[str, Any]:
+    observations = observation_records(repo_root)
+    return {
+        "status": "PASS",
+        "mode": "shadow",
+        "observation_count": len(observations),
+        "bootstrap_count": sum(item["kind"] == "bootstrap" for item in observations),
+        "real_count": sum(item["kind"] == "real" for item in observations),
+        "observations": observations,
+    }
+
 def changed_paths(repo_root: Path) -> set[str]:
-    paths: set[str] = set()
-    head_parent = git(repo_root, "rev-parse", "HEAD^", check=False)
-    if head_parent.returncode == 0:
-        result = git(repo_root, "diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD")
-        paths.update(line for line in result.stdout.splitlines() if line)
+    working_paths: set[str] = set()
     for args in (("diff", "--name-only"), ("diff", "--cached", "--name-only")):
         result = git(repo_root, *args)
-        paths.update(line for line in result.stdout.splitlines() if line)
+        working_paths.update(line for line in result.stdout.splitlines() if line)
     result = git(repo_root, "ls-files", "--others", "--exclude-standard")
-    paths.update(line for line in result.stdout.splitlines() if line)
-    return paths
+    working_paths.update(line for line in result.stdout.splitlines() if line)
+    if working_paths:
+        # During authoring or isolated integration, the current update is the
+        # worktree/index delta. Including HEAD's already-committed parent diff
+        # would double-count the previous observation.
+        return working_paths
+
+    head_parent = git(repo_root, "rev-parse", "HEAD^", check=False)
+    if head_parent.returncode != 0:
+        return set()
+    result = git(repo_root, "diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD")
+    return {line for line in result.stdout.splitlines() if line}
 
 
 def discover_changed_deltas(repo_root: Path, paths: Iterable[str]) -> list[Path]:
-    found = []
+    """Map any touched observation artifact back to its sibling delta."""
+
+    found: set[Path] = set()
+    prefix = Path("docs/handoff_deltas")
     for value in sorted(set(paths)):
-        if value.startswith("docs/handoff_deltas/") and value.endswith(f"/{DELTA_FILENAME}"):
-            found.append((repo_root / value).resolve())
-    return found
+        relative = Path(value)
+        if len(relative.parts) < 4 or Path(*relative.parts[:2]) != prefix:
+            continue
+        delta = (repo_root / Path(*relative.parts[:3]) / DELTA_FILENAME).resolve()
+        if delta.is_file():
+            found.add(delta)
+    return sorted(found)
 
 
-def auto_check(repo_root: Path) -> dict[str, Any]:
+def discover_changed_full_reports(repo_root: Path, paths: Iterable[str]) -> list[Path]:
+    return sorted(
+        (repo_root / value).resolve()
+        for value in set(paths)
+        if value.startswith("docs/handoff_deltas/")
+        and value.endswith(f"/{FULL_REPORT_FILENAME}")
+    )
+
+
+def auto_check(repo_root: Path, *, allow_full_due: bool = False) -> dict[str, Any]:
     repo_root = repo_root.resolve()
     policy = load_policy(repo_root)
     paths = changed_paths(repo_root)
     relevant_authority_change = bool({"docs/handoff.md", "experiments/registry.yaml"} & paths)
     deltas = discover_changed_deltas(repo_root, paths)
+    changed_delta_files = {
+        (repo_root / value).resolve()
+        for value in paths
+        if value.startswith("docs/handoff_deltas/")
+        and value.endswith(f"/{DELTA_FILENAME}")
+    }
     maximum = policy["safety"]["maximum_deltas_per_update"]
-    if relevant_authority_change and not deltas:
+    if relevant_authority_change and not changed_delta_files:
         raise HandoffDeltaError("handoff/registry changed without a HANDOFF_DELTA.yaml")
-    if len(deltas) > maximum:
+    if len(changed_delta_files) > maximum:
         raise HandoffDeltaError(
-            f"Version 1 allows at most {maximum} delta per update; found {len(deltas)}"
+            f"Version 1 allows at most {maximum} new or modified delta per update; "
+            f"found {len(changed_delta_files)}"
         )
-    reports = [check_delta(repo_root, path).report for path in deltas]
+    reports = []
+    stored_reports = []
+    for path in deltas:
+        target_commit = None
+        if path.resolve() not in changed_delta_files:
+            target_commit = repository_commit_for_added_path(repo_root, path)
+            if target_commit is None:
+                raise HandoffDeltaError(
+                    f"Historical observation artifact changed before its delta entered Git history: {path}"
+                )
+        result = check_delta(repo_root, path, target_commit=target_commit)
+        reports.append(result.report)
+        stored_reports.append(validate_stored_report(repo_root, path, result.report))
+    lightweight_observations = observation_records(repo_root, replay=False)
+    changed_full_reports = discover_changed_full_reports(repo_root, paths)
+    validated_full_reports = [
+        validate_full_acceptance_report(repo_root, path, lightweight_observations)
+        for path in changed_full_reports
+    ]
+    acceptance = acceptance_status(repo_root)
+    if acceptance["full_acceptance_due"] and not allow_full_due:
+        raise HandoffDeltaError(
+            "Full Acceptance is due before this update can pass: "
+            + ", ".join(acceptance["full_acceptance_due_reasons"])
+        )
     return {
         "status": "PASS",
         "mode": "shadow",
         "changed_paths": sorted(paths),
         "relevant_authority_change": relevant_authority_change,
         "delta_count": len(deltas),
+        "changed_delta_file_count": len(changed_delta_files),
         "reports": reports,
+        "stored_reports": stored_reports,
+        "validated_full_reports": [row for row in validated_full_reports if row is not None],
+        "acceptance_status": acceptance,
     }
 
 
@@ -782,11 +1610,37 @@ def operation_footprint(op: dict[str, Any]) -> tuple[str, tuple[str, ...], str |
     return op["op"], tuple(op["heading_path"]), op.get("block_id")
 
 
+def registry_change_footprints(delta: dict[str, Any]) -> list[tuple[tuple[str, tuple[str, ...]], dict[str, Any]]]:
+    registry = delta["registry"]
+    if registry["mode"] == "unchanged":
+        return []
+    rows = registry.get("changes")
+    if rows is None:
+        rows = [
+            {
+                "change_id": item["assertion_id"],
+                "kind": "transition",
+                "entity_id": item["entity_id"],
+                "field_path": item["field_path"],
+                "machine": item["machine"],
+                "from": item["from"],
+                "to": item["to"],
+            }
+            for item in registry.get("transitions", [])
+        ]
+    result = []
+    for item in rows:
+        path = tuple(item.get("field_path", ("<entity>",)))
+        result.append(((item["entity_id"], path), item))
+    return result
+
+
 def pair_check(repo_root: Path, delta_a_path: Path, delta_b_path: Path) -> dict[str, Any]:
+    policy = load_policy(repo_root)
     delta_a = load_yaml(delta_a_path, "delta A")
     delta_b = load_yaml(delta_b_path, "delta B")
-    validate_delta_shape(delta_a, delta_a_path)
-    validate_delta_shape(delta_b, delta_b_path)
+    validate_delta_shape(delta_a, delta_a_path, policy)
+    validate_delta_shape(delta_b, delta_b_path, policy)
     if delta_a["base"] != delta_b["base"]:
         raise HandoffDeltaError("Pair check requires identical base metadata")
 
@@ -799,6 +1653,21 @@ def pair_check(repo_root: Path, delta_a_path: Path, delta_b_path: Path) -> dict[
                 raise HandoffDeltaError(f"Semantic operation conflict at {footprint} between deltas")
             footprints[footprint] = op
 
+    registry_footprints: dict[tuple[str, tuple[str, ...]], dict[str, Any]] = {}
+    for delta in (delta_a, delta_b):
+        for footprint, change in registry_change_footprints(delta):
+            previous = registry_footprints.get(footprint)
+            comparable = {
+                key: value
+                for key, value in change.items()
+                if key not in {"change_id", "assertion_id", "evidence", "reason"}
+            }
+            if previous is not None and previous != comparable:
+                raise HandoffDeltaError(
+                    f"Semantic registry conflict at {footprint} between deltas"
+                )
+            registry_footprints[footprint] = comparable
+
     base_text = git_show_text(repo_root, delta_a["base"]["commit"], "docs/handoff.md")
     ab = render(render(base_text, delta_a["operations"]).text, delta_b["operations"]).text
     ba = render(render(base_text, delta_b["operations"]).text, delta_a["operations"]).text
@@ -809,6 +1678,7 @@ def pair_check(repo_root: Path, delta_a_path: Path, delta_b_path: Path) -> dict[
         "delta_a": delta_a["update_id"],
         "delta_b": delta_b["update_id"],
         "commutative": True,
+        "registry_conflicts_checked": True,
         "combined_sha256": sha256_text(ab),
     }
 
@@ -827,12 +1697,30 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     check_parser.add_argument("--delta", type=Path, required=True)
     check_parser.add_argument("--report", type=Path)
     check_parser.add_argument("--candidate-on-failure", type=Path)
+    check_parser.add_argument("--target-commit")
     check_parser.add_argument("--json", action="store_true")
     check_parser.add_argument("--no-performance-enforcement", action="store_true")
 
+    record_parser = subparsers.add_parser("record-report")
+    record_parser.add_argument("--repo-root", type=Path, default=Path.cwd())
+    record_parser.add_argument("--delta", type=Path, required=True)
+    record_parser.add_argument("--force", action="store_true")
+    record_parser.add_argument("--json", action="store_true")
+
     auto_parser = subparsers.add_parser("auto-check")
     auto_parser.add_argument("--repo-root", type=Path, default=Path.cwd())
+    auto_parser.add_argument("--allow-full-due", action="store_true")
     auto_parser.add_argument("--json", action="store_true")
+
+    corpus_parser = subparsers.add_parser("corpus-check")
+    corpus_parser.add_argument("--repo-root", type=Path, default=Path.cwd())
+    corpus_parser.add_argument("--json", action="store_true")
+
+    status_parser = subparsers.add_parser("acceptance-status")
+    status_parser.add_argument("--repo-root", type=Path, default=Path.cwd())
+    status_parser.add_argument("--as-of")
+    status_parser.add_argument("--require-current", action="store_true")
+    status_parser.add_argument("--json", action="store_true")
 
     render_parser = subparsers.add_parser("render")
     render_parser.add_argument("--repo-root", type=Path, default=Path.cwd())
@@ -855,12 +1743,36 @@ def main(argv: Sequence[str] | None = None) -> int:
                 args.repo_root,
                 args.delta,
                 enforce_performance=not args.no_performance_enforcement,
+                target_commit=args.target_commit,
             )
             if args.report:
                 write_json(args.report, result.report)
             payload = result.report
+        elif args.command == "record-report":
+            result = check_delta(args.repo_root, args.delta)
+            report_path = args.delta.resolve().parent / REPORT_FILENAME
+            if report_path.exists() and not args.force:
+                raise HandoffDeltaError(
+                    f"{report_path} already exists; use --force only while authoring this update"
+                )
+            write_json(report_path, result.report)
+            payload = {
+                "status": "PASS",
+                "mode": "shadow",
+                "report": report_path.relative_to(args.repo_root.resolve()).as_posix(),
+                **result.report,
+            }
         elif args.command == "auto-check":
-            payload = auto_check(args.repo_root)
+            payload = auto_check(args.repo_root, allow_full_due=args.allow_full_due)
+        elif args.command == "corpus-check":
+            payload = corpus_check(args.repo_root)
+        elif args.command == "acceptance-status":
+            payload = acceptance_status(args.repo_root, as_of=args.as_of)
+            if args.require_current and payload["full_acceptance_due"]:
+                raise HandoffDeltaError(
+                    "Full Acceptance is due: "
+                    + ", ".join(payload["full_acceptance_due_reasons"])
+                )
         elif args.command == "render":
             result = check_delta(args.repo_root, args.delta, enforce_performance=False)
             args.output.parent.mkdir(parents=True, exist_ok=True)

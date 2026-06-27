@@ -63,6 +63,7 @@ REOPEN_REQUIREMENTS = {
 ALLOWED_STAGE3_ACCEPTANCE_STATES = {
     "bootstrap_validation_pending",
     "bootstrap_full_passed_shadow_observation_pending",
+    "real_shadow_observation_active",
     "critical_mismatch_open",
     "shadow_validation_complete",
 }
@@ -324,6 +325,29 @@ def validate(repo_root: Path, ledger_path: Path) -> dict[str, Any]:
                 raise StageStatusError(
                     f"stage_3 acceptance_state is not recognized: {acceptance_state!r}"
                 )
+            if stage.get("observation_ledger_mode") != "derived_from_delta_reports_and_git_history":
+                raise StageStatusError(
+                    "stage_3 observation_ledger_mode must be derived_from_delta_reports_and_git_history"
+                )
+            if stage.get("report_persistence") != "required_and_revalidated":
+                raise StageStatusError(
+                    "stage_3 report_persistence must be required_and_revalidated"
+                )
+            if stage.get("full_trigger_enforcement") != "automatic_on_fast_gate":
+                raise StageStatusError(
+                    "stage_3 full_trigger_enforcement must be automatic_on_fast_gate"
+                )
+            if stage.get("current_delta_schema_version") != 2:
+                raise StageStatusError("stage_3 current_delta_schema_version must be 2")
+            audit_entrypoint = require_string(
+                stage.get("observation_audit_entrypoint"),
+                "stage_3 observation_audit_entrypoint",
+            )
+            if audit_entrypoint != "scripts/handoff_delta_shadow.py":
+                raise StageStatusError(
+                    "stage_3 observation_audit_entrypoint must be scripts/handoff_delta_shadow.py"
+                )
+            safe_repo_path(repo_root, audit_entrypoint, "stage_3 observation_audit_entrypoint")
             for key, expected_path in required_stage3_files.items():
                 value = require_string(stage.get(key), f"stage_3 {key}")
                 if value != expected_path:
