@@ -1,0 +1,80 @@
+{
+  "actual_runs": 200,
+  "compact_repository_files": {
+    "PROVENANCE_NOTE.md": {
+      "sha256": "13674fef1c6f863e7867eb6218d357bdfd8904f59c9c524879efe62ea5a9506f",
+      "size_bytes": 1044
+    },
+    "RESULT_SUMMARY.md": {
+      "sha256": "ec73165e954abb03b86ce12fcc0bc348f1da5b98793ebfe7b5211adc181d4347",
+      "size_bytes": 5208
+    },
+    "RUN_COMPLETE.json": {
+      "sha256": "65a4b5dd428265351a842266bba5a09641a89c2ff65637393b6138f2fca9656e",
+      "size_bytes": 305
+    },
+    "aggregate_summary.json": {
+      "sha256": "a1bfda9038ff48063add4c22d2a94a54026406c1e444a781ca72eaae5b7c9469",
+      "size_bytes": 21763
+    },
+    "condition_summary.csv": {
+      "sha256": "1cb8cab317fa0a901eb6f15ae0c442bf77b9e5340ff996a785a8f87dc52d4b2b",
+      "size_bytes": 5380
+    },
+    "formal_protocol_freeze.json": {
+      "sha256": "165a328c7f89bf6ac6b31f6a554b4e3b441f1d40f520d24d01bbb8d0852ec387",
+      "size_bytes": 5429
+    },
+    "paired_comparisons.json": {
+      "sha256": "8ddf6cf2da74defc90d7fea2345ee95196bbecfa645d469c71bfae910c8b6b6c",
+      "size_bytes": 4667
+    },
+    "per_run_summary.csv": {
+      "sha256": "d1c242eef394a376f53e2a59838c05702706d151d5162a324087f969f569bab9",
+      "size_bytes": 109813
+    },
+    "run_manifest.json": {
+      "sha256": "e5ad5dca6b82ed0dc7ef8faed48fc06a72f302360eb2859f1dca471e8b30c00d",
+      "size_bytes": 2219
+    },
+    "scientific_run_manifest.json": {
+      "sha256": "431a72fa20e6a594854baed03204503516aca3a7bb611849923404a7f8e267c9",
+      "size_bytes": 411
+    },
+    "terminal_audit.json": {
+      "sha256": "2ad1b7eddfe393af4b1f48a456d0034fbe9b4af7bc343621b66b8b7ca15d040c",
+      "size_bytes": 702
+    },
+    "terminal_state_counts.csv": {
+      "sha256": "6bf71f285f5760de7b03d62293094ba15ef522743045b33add73e2ac45643326",
+      "size_bytes": 714
+    }
+  },
+  "event_counts": {
+    "nan_inf_numerical_failure": 0,
+    "support_or_temperature_boundary": 0,
+    "task_performance_collapse": 77
+  },
+  "expected_runs": 200,
+  "experiment_id": "D-U1-E6-CONDITIONAL-GAP-01",
+  "notes": [
+    "same-distribution structured state-action support gap; not state-distribution OOD",
+    "task, support/temperature, and NaN/Inf events remain separate",
+    "151/200 non-plateau runs prohibit steady-state or universal method-ranking claims"
+  ],
+  "persistent_drift_or_inconclusive_count": 151,
+  "raw_complete_artifact": {
+    "applicable_by_drpo_update": false,
+    "filename": "D-U1-E6-CONDITIONAL-GAP-01_RAW_COMPLETE.zip",
+    "package_kind": "experiment-raw-complete",
+    "sha256": "8c64f197e90e945f3a6bf8326c63abd6c4b3118e1c6c8bd614c73af6d1e5be93",
+    "size_bytes": 781249,
+    "verified_by_canonical_packager": true
+  },
+  "repository_closure_base_commit": "1fa7f04d4830e4d562ab147dbb11dfa8cecc9b5d",
+  "schema_version": 1,
+  "scientific_run_commit": "7a70278f3d6061379c81f33e82d93ead86484908",
+  "scientific_status": "finite_step_validated",
+  "terminal_audit_all_checks_passed": true,
+  "terminal_plateau_count": 49
+}

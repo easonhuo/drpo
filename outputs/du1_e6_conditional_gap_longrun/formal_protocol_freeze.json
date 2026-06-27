@@ -1,0 +1,220 @@
+{
+  "automatic_retuning_allowed": false,
+  "checkpointing": {
+    "persistence": "persistent_local",
+    "seed_block_size": 5,
+    "seed_blocks": [
+      [
+        130,
+        131,
+        132,
+        133,
+        134
+      ],
+      [
+        135,
+        136,
+        137,
+        138,
+        139
+      ],
+      [
+        140,
+        141,
+        142,
+        143,
+        144
+      ],
+      [
+        145,
+        146,
+        147,
+        148,
+        149
+      ]
+    ],
+    "write_compact_manifest_after_each_block": true
+  },
+  "claim": "Under same-distribution held-out contexts, test whether a large structured state-region by action-group support gap creates wrong conditional generalization and task-performance collapse, whether controlled local repulsion can improve the hidden optimal group, and whether excessive or far negative pressure reverses that gain. This is not a state-distribution OOD claim.",
+  "data": {
+    "action_count": 256,
+    "action_groups": 8,
+    "actions_per_group": 32,
+    "conditional_block_gap_fraction": 0.625,
+    "far_negative_actions_per_state": 4,
+    "gap_state_fraction": 0.5,
+    "local_negative_actions_per_state": 1,
+    "observed_action_groups_per_state": 3,
+    "positive_actions_per_state": 4,
+    "semantic_dim": 4,
+    "state_dim": 6,
+    "state_distribution": "paired_standard_normal_marginal",
+    "terminology": "same_distribution_structured_state_action_support_gap",
+    "test_states": 4096,
+    "train_states": 4096,
+    "train_test_relation": "independent_same_distribution"
+  },
+  "development_seeds_forbidden": [
+    0,
+    1
+  ],
+  "events": {
+    "below_random_is_collapse": true,
+    "concentration_warning": 80.0,
+    "effective_support_boundary": 1.5,
+    "task_collapse_normalized_margin_to_random": 0.2
+  },
+  "experiment_id": "D-U1-E6-CONDITIONAL-GAP-01",
+  "formal_gate": {
+    "approval_record": "user_approved_2026-06-27_large_structured_gap",
+    "enabled": true,
+    "frozen_protocol_path": "configs/du1_e6_conditional_gap_longrun.yaml",
+    "held_out_seeds": [
+      130,
+      131,
+      132,
+      133,
+      134,
+      135,
+      136,
+      137,
+      138,
+      139,
+      140,
+      141,
+      142,
+      143,
+      144,
+      145,
+      146,
+      147,
+      148,
+      149
+    ]
+  },
+  "geometry": {
+    "correct_group_offset": 0,
+    "correct_group_reward": 1.0,
+    "far_negative_group_offset": -3,
+    "fixed_advantage": true,
+    "local_negative_group_offset": -2,
+    "negative_advantage": -1.0,
+    "other_group_reward": 0.0,
+    "positive_advantage": 1.0,
+    "proxy_group_reward": 0.65,
+    "proxy_positive_group_offset": -1,
+    "random_action_id_permutation": true,
+    "trap_group_offset": 1,
+    "within_group_reward_floor": 0.85
+  },
+  "optimization": {
+    "audit_states": 512,
+    "batch_size": 128,
+    "betas": [
+      0.9,
+      0.999
+    ],
+    "eps": 1e-08,
+    "evaluation_interval_steps": 50,
+    "far_cap_ratio_to_weighted_local_gradient": 1.0,
+    "learning_rate": 0.001,
+    "maximum_steps": 8000,
+    "optimizer": "Adam",
+    "parallel_workers": 8
+  },
+  "policy": {
+    "activation": "tanh",
+    "concentration_mode": "fixed",
+    "fixed_concentration": 8.0,
+    "hidden_dim": 64,
+    "initial_learnable_concentration": 8.0,
+    "learnable_concentration_floor": 0.05,
+    "learnable_concentration_upper_clamp": false
+  },
+  "run_matrix": [
+    {
+      "coverage_mode": "optimal_group_covered",
+      "far_lambda": 0.0,
+      "local_alpha": 0.0,
+      "method": "positive_only"
+    },
+    {
+      "coverage_mode": "optimal_group_covered",
+      "far_lambda": 0.0,
+      "local_alpha": 0.5,
+      "method": "local_only"
+    },
+    {
+      "coverage_mode": "optimal_group_covered",
+      "far_lambda": 0.0,
+      "local_alpha": 1.5,
+      "method": "local_only"
+    },
+    {
+      "coverage_mode": "structured_gap",
+      "far_lambda": 0.0,
+      "local_alpha": 0.0,
+      "method": "positive_only"
+    },
+    {
+      "coverage_mode": "structured_gap",
+      "far_lambda": 0.0,
+      "local_alpha": 0.5,
+      "method": "local_only"
+    },
+    {
+      "coverage_mode": "structured_gap",
+      "far_lambda": 0.0,
+      "local_alpha": 1.5,
+      "method": "local_only"
+    },
+    {
+      "coverage_mode": "structured_gap",
+      "far_lambda": 4.0,
+      "local_alpha": 0.5,
+      "method": "uncontrolled"
+    },
+    {
+      "coverage_mode": "structured_gap",
+      "far_lambda": 4.0,
+      "local_alpha": 0.5,
+      "method": "near_zero"
+    },
+    {
+      "coverage_mode": "structured_gap",
+      "far_lambda": 4.0,
+      "local_alpha": 0.5,
+      "method": "far_cap"
+    },
+    {
+      "coverage_mode": "structured_gap",
+      "far_lambda": 4.0,
+      "local_alpha": 0.5,
+      "method": "budget_matched_global"
+    }
+  ],
+  "terminal_audit": {
+    "adam_update_median_ratio_max": 1.25,
+    "allow_scientific_failure_outcomes": true,
+    "development_reference_horizon_steps": 1000,
+    "formal_extension_factor": 8.0,
+    "formal_horizon_steps": 8000,
+    "metric_window_mean_abs_tolerances": {
+      "test_entropy_mean": 0.08,
+      "test_gap_correct_group_probability": 0.03,
+      "test_gap_expected_reward": 0.015,
+      "test_gap_trap_group_probability": 0.03
+    },
+    "mode": "formal_extension_windows",
+    "raw_total_gradient_median_ratio_max": 1.25,
+    "require_all_registered_runs": true,
+    "window_1_steps": [
+      4000,
+      6000
+    ],
+    "window_2_steps": [
+      6000,
+      8000
+    ]
+  }
+}

@@ -2541,11 +2541,213 @@ experiments:
     - freeze_new_untouched_held_out_seeds
     - implement_separate_formal_runner
 
+- id: D-U1-E6-SEMANTIC-GAP-LONGRUN-01
+  environment: D-U1
+  name: minimum_change_shared_semantic_conditional_gap_longrun
+  status: not_run
+  scientific_status: not_run
+  parent_experiment: E6
+  predecessor: D-U1-E6-SEMANTIC-LONGRUN-01
+  related_stress_diagnostic: D-U1-E6-CONDITIONAL-GAP-01
+  registration_base_commit: 1fa7f04d4830e4d562ab147dbb11dfa8cecc9b5d
+  claim: >-
+    In the original 64-action shared-semantic E6 environment, changing only the
+    logged state-action coverage by withholding the reward-optimal semantic
+    neighbourhood on half of same-distribution contexts, test whether overall
+    reward exhibits a Positive-only ceiling, an intermediate-alpha benefit, and
+    progressively larger degradation when the original negative gradient is
+    left unsuppressed at alpha=1 over a 32000-step horizon.
+  role: formal_minimum_change_controlled_categorical_successor
+  execution_class: formal
+  implementation_state: implemented
+  registry_scope: canonical_formal_confirmation_after_sandbox_qualification
+  execution_gate:
+    state: ready
+    blocked_by: []
+    approval_record: user_authorized_formal_package_generation_after_sandbox_review_2026-06-27
+    blocking_reason: null
+  formal_execution:
+    channel_ref: hardened-v1
+    activation_state: active
+    entrypoint_status: implemented
+    entrypoint: src/drpo/du1_e6_semantic_gap_longrun.py
+    launch_mode: canonical_guard
+    artifact_owner: canonical_channel
+    guard_entrypoint: scripts/run_experiment_guard_hardened.py
+    package_entrypoint: scripts/package_experiment_hardened.py
+    verify_entrypoint: scripts/verify_experiment_package_hardened.py
+    hardened_core: scripts/artifact_protocol_hardened.py
+    artifact_protocol: docs/formal_experiment_artifact_protocol.md
+    inherit_default_artifact_budget: true
+    runner_archive_policy: {mode: forbid}
+  code_entrypoint: src/drpo/du1_e6_semantic_gap_longrun.py
+  shared_scientific_entrypoint: src/drpo/du1_e6_semantic.py
+  protocol_validator: src/drpo/du1_e6_semantic_gap.py
+  one_click_entrypoint: scripts/run_du1_e6_semantic_gap_longrun.py
+  config_path: configs/du1_e6_semantic_gap_longrun.yaml
+  documentation_path: src/drpo/README_DU1_E6_SEMANTIC_GAP.md
+  formal_launch_template: >-
+    python3 scripts/run_experiment_guard_hardened.py
+    --experiment-id D-U1-E6-SEMANTIC-GAP-LONGRUN-01
+    --repo-root .
+    --output-root experiments/results/D-U1-E6-SEMANTIC-GAP-LONGRUN-01/run_001
+    --artifact-output artifacts/D-U1-E6-SEMANTIC-GAP-LONGRUN-01_RAW_COMPLETE.zip
+    --run-class formal
+    --expected-commit "$(git rev-parse HEAD)"
+    --require-origin-main-match
+    --required-output RUN_COMPLETE.json
+    --required-output scientific_run_manifest.json
+    --required-output terminal_audit.json
+    --required-output aggregate_summary.json
+    --required-output horizon_summary.json
+    --required-output horizon_summary.csv
+    --required-output per_run_summary.csv
+    --required-output formal_protocol_freeze.json
+    --source-file scripts/run_du1_e6_semantic_gap_longrun.py
+    --source-file src/drpo/du1_e6_semantic_gap_longrun.py
+    --source-file src/drpo/du1_e6_semantic_gap.py
+    --source-file src/drpo/du1_e6_semantic.py
+    --source-file configs/du1_e6_semantic_gap_longrun.yaml
+    --progress-glob checkpoints/*/CHECKPOINT_COMPLETE.json
+    -- python3 src/drpo/du1_e6_semantic_gap_longrun.py
+    --config configs/du1_e6_semantic_gap_longrun.yaml
+    --output-root experiments/results/D-U1-E6-SEMANTIC-GAP-LONGRUN-01/run_001
+    --device cpu
+  formal_parameter_freeze: true
+  freeze_approval:
+    approved_by_user: true
+    approval_date: '2026-06-27'
+    source: sandbox_review_and_user_request_for_formal_package
+    automatic_retuning_allowed: false
+  development_promotion_record:
+    evidence_class: sandbox_and_candidate_only_not_formal
+    repository_registration_during_exploration: false
+    development_seeds: [900, 901, 902, 903, 904, 905, 906, 907, 908, 909]
+    primary_metric_used_for_selection: overall_expected_semantic_reward
+    inherited_alpha_anchors: [0.0, 0.25, 0.5, 0.75]
+    added_unpenalized_anchor: 1.0
+    alpha_greater_than_one_excluded_from_formal_domain: true
+    qualitative_findings:
+    - minimum_change_64_action_gap_reproduced_positive_only_ceiling_and_nonmonotonic_alpha_curve
+    - longer_horizon_diagnostic_showed_alpha_1_degradation_growing_with_training
+    - sandbox_results_are_not_formal_and_are_forbidden_from_formal_aggregation
+    exact_steady_state_optimum_known: false
+  development_seeds_forbidden_in_formal_aggregation: [900, 901, 902, 903, 904, 905, 906, 907, 908, 909]
+  held_out_seeds: [150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169]
+  protocol:
+    fixed_advantage: true
+    critic_or_value_network: false
+    importance_sampling: false
+    state_dim: 6
+    semantic_dim: 4
+    action_count: 64
+    train_states: 2048
+    test_states: 2048
+    state_distribution: standard_normal
+    train_test_relation: independent_same_distribution
+    terminology: held_out_context_generalization
+    positive_actions_per_state: 4
+    local_negative_actions_per_state: 1
+    far_negative_actions_per_state: 4
+    hidden_optimum_excluded_from_positive_demonstrations: true
+    conditional_coverage_mode: structured_semantic_neighbourhood_gap
+    gap_state_fraction: 0.5
+    withheld_action_fraction_per_gap_state: 0.25
+    withheld_actions_per_gap_state: 16
+    withheld_from_logged_roles: [positive, local_negative, far_negative]
+    evaluation_oracle_remains_complete: true
+    require_global_action_coverage: true
+    reward_geometry_inherited_from_predecessor: true
+    policy_and_optimizer_inherited_from_predecessor: true
+    optimizer: Adam
+    learning_rate: 0.001
+    batch_size: 128
+    fixed_concentration: 8.0
+    alpha_grid: [0.0, 0.25, 0.5, 0.75, 1.0]
+    alpha_semantics: negative_gradient_retention_weight
+    alpha_zero_semantics: positive_only
+    alpha_one_semantics: original_negative_gradient_without_suppression
+    alpha_greater_than_one_allowed: false
+    far_pressure_lambda: 0.0
+    maximum_steps: 32000
+    evaluation_interval_steps: 200
+    registered_horizon_checkpoints: [4000, 8000, 16000, 24000, 32000]
+    total_method_seed_runs: 100
+  primary_metrics:
+  - overall_expected_semantic_reward
+  - paired_reward_difference_vs_positive_only
+  - reward_trajectory_across_registered_horizons
+  diagnostic_metrics:
+  - hidden_optimal_probability
+  - positive_support_probability
+  - normalized_semantic_extrapolation
+  - entropy_and_effective_support
+  - raw_positive_local_far_gradient_norms
+  - Adam_parameter_update_norm
+  events:
+    task_collapse_ratio_to_paired_positive_only: 0.2
+    effective_support_boundary: 1.5
+    concentration_warning: 80.0
+  checkpointing:
+    seed_block_size: 5
+    seed_blocks:
+    - [150, 151, 152, 153, 154]
+    - [155, 156, 157, 158, 159]
+    - [160, 161, 162, 163, 164]
+    - [165, 166, 167, 168, 169]
+    persistence: persistent_local
+    write_compact_manifest_after_each_block: true
+  terminal_audit:
+    mode: formal_two_x_windows
+    development_reference_horizon_steps: 16000
+    formal_horizon_steps: 32000
+    formal_extension_factor: 2.0
+    window_1_steps: [16000, 24000]
+    window_2_steps: [24000, 32000]
+    stable_method_ranking_requires_all_registered_runs_plateau: true
+    scientific_failure_outcomes_are_results: true
+  reporting_separation:
+  - task_performance_collapse
+  - support_or_temperature_boundary
+  - nan_inf_numerical_failure
+  required_outputs:
+  - RUN_COMPLETE.json
+  - scientific_run_manifest.json
+  - environment_audits.json
+  - terminal_audit.json
+  - aggregate_summary.json
+  - horizon_summary.json
+  - horizon_summary.csv
+  - per_run_summary.csv
+  - formal_protocol_freeze.json
+  non_claims:
+  - state_distribution_OOD_generalization
+  - alpha_greater_than_one_method_claim
+  - steady_state_method_ranking_without_terminal_plateau
+  - Transformer_external_validity
+  - cross_task_method_superiority
+  evidence:
+    implementation_tests_passed: false
+    formal_run_started: false
+    raw_complete: false
+    terminal_audited: false
+    package_created: false
+    delivered_to_user: false
+    scientific_status: not_run
+  provenance:
+    exact_base_commit_source: complete_user_uploaded_git_bundle
+    live_github_dns_available_in_generation_environment: false
+    authoritative_remote_tip_recheck_required_by_formal_wrapper: true
+  next_gate:
+    state: run_after_update_is_applied_and_committed_on_clean_main
+    automatic_retuning_forbidden: true
+    D_U1_E6_TAPER_01_remains_blocked_until_delivery: true
+
 - id: D-U1-E6-CONDITIONAL-GAP-01
   environment: D-U1
   name: structured_conditional_support_gap_categorical_longrun
-  status: not_run
-  scientific_status: not_run
+  status: finite_step_validated
+  scientific_status: finite_step_validated
   parent_experiment: E6
   predecessor: D-U1-E6-SEMANTIC-LONGRUN-01
   registration_base_commit: ff2afe443167154eae5de7871cda83f3aba9a89e
@@ -2559,13 +2761,15 @@ experiments:
   execution_class: formal
   implementation_state: implemented
   execution_gate:
-    state: ready
-    blocked_by: []
+    state: blocked
+    blocked_by: [completed_formal_execution_no_rerun_without_new_registration]
     approval_record: user_approved_2026-06-27_large_structured_gap
-    blocking_reason: null
+    blocking_reason: >-
+      The frozen formal run is complete, terminal-audited, packaged, and delivered.
+      Re-running held-out seeds 130--149 requires a separately registered protocol.
   formal_execution:
     channel_ref: hardened-v1
-    activation_state: active
+    activation_state: blocked
     entrypoint_status: implemented
     entrypoint: src/drpo/du1_e6_conditional_gap_longrun.py
     launch_mode: canonical_guard
@@ -2694,19 +2898,85 @@ experiments:
   - cross_task_method_superiority
   - universal_far_cap_or_global_alpha_winner
   execution:
-    state: registered
-    run_id: null
-    process_exit_code: null
+    state: delivered
+    run_id: du1_e6_conditional_gap_7a70278_run001
+    start_utc: '2026-06-27T08:07:04.244576+00:00'
+    end_utc: '2026-06-27T08:23:30.677071+00:00'
+    elapsed_seconds: 986.433
+    process_exit_code: 0
+    runtime: cpu
   evidence:
     development_pilot_completed: true
     environment_invariants_passed: true
     implementation_tests_passed: true
-    formal_run_started: false
-    raw_complete: false
-    terminal_audited: false
-    package_created: false
-    delivered_to_user: false
-    scientific_status: not_run
+    formal_run_started: true
+    raw_complete: true
+    terminal_audited: true
+    terminal_audit_all_checks_passed: true
+    formal_extension_windows_performed: true
+    expected_runs: 200
+    actual_runs: 200
+    terminal_plateau_runs: 49
+    persistent_drift_or_inconclusive_runs: 151
+    task_performance_collapse_events: 77
+    support_or_temperature_boundary_events: 0
+    nan_inf_numerical_events: 0
+    package_created: true
+    raw_complete_package_filename: D-U1-E6-CONDITIONAL-GAP-01_RAW_COMPLETE.zip
+    raw_complete_package_sha256: 8c64f197e90e945f3a6bf8326c63abd6c4b3118e1c6c8bd614c73af6d1e5be93
+    delivered_to_user: true
+    repository_applied: false
+    applied_commit: null
+    compact_result_path: outputs/du1_e6_conditional_gap_longrun
+    scientific_status: finite_step_validated
+  provenance:
+    run_commit: 7a70278f3d6061379c81f33e82d93ead86484908
+    repository_closure_base_commit: 1fa7f04d4830e4d562ab147dbb11dfa8cecc9b5d
+    source_checkout: complete_user_uploaded_git_bundle
+    live_github_dns_available: false
+    origin_main_authoritative_match_at_launch: true
+    git_worktree_clean_at_launch: true
+    git_worktree_clean_at_exit: true
+    provenance_compromised: false
+    raw_artifact_package_kind: experiment-raw-complete
+    raw_artifact_is_drpo_update_input: false
+  result_summary:
+    positive_only_gap_effect:
+      covered_gap_reward_mean: 0.7312927275896073
+      structured_gap_reward_mean: 0.5801327347755432
+      structured_minus_covered_mean: -0.15115999281406403
+      bootstrap_ci95: [-0.1558610486239195, -0.14663811750710012]
+      structured_lower_seeds: 20
+    controlled_local_alpha_0_5:
+      positive_only_gap_reward_mean: 0.5801327347755432
+      local_gap_reward_mean: 0.7639744341373443
+      local_minus_positive_mean: 0.18384169936180114
+      bootstrap_ci95: [0.18014306128025054, 0.18749583370983602]
+      gap_reward_wins: 20
+      overall_reward_difference: -0.05098388195037842
+      overall_reward_losses: 20
+    excessive_local_alpha_1_5:
+      structured_gap_reward_mean: 0.07551877722144126
+      structured_task_collapse_events: 20
+      covered_task_collapse_events: 20
+      structured_trap_group_probability_mean: 0.7325085878372193
+    far_pressure:
+      local_only_gap_reward_mean: 0.7639744341373443
+      uncontrolled_gap_reward_mean: 0.17814922630786895
+      uncontrolled_task_collapse_events: 20
+      near_zero_task_collapse_events: 16
+      far_cap_task_collapse_events: 1
+      budget_matched_global_task_collapse_events: 0
+      far_cap_minus_uncontrolled_gap_reward_mean: 0.1223801597952843
+      global_minus_uncontrolled_gap_reward_mean: 0.13157710283994678
+      global_minus_far_cap_gap_reward_mean: 0.009196943044662481
+      global_minus_far_cap_ci95: [0.00008500430732964994, 0.01788240306079387]
+      global_wins_over_far_cap: 14
+    terminal_boundary:
+      scientific_status: finite_step_validated
+      terminal_plateau_runs: 49
+      persistent_drift_or_inconclusive_runs: 151
+      stable_method_ranking_allowed: false
 
 development_experiment_registrations:
 - id: D-U1-E6-CONDITIONAL-GAP-DEV-01
@@ -3082,6 +3352,9 @@ development_experiment_registrations:
   parent_experiment: E6-TAPER
   predecessor: D-U1-E6-SEMANTIC-LONGRUN-01
   additional_predecessor: D-U1-E6-CONDITIONAL-GAP-01
+  additional_predecessors:
+  - D-U1-E6-CONDITIONAL-GAP-01
+  - D-U1-E6-SEMANTIC-GAP-LONGRUN-01
   registration_base_commit: f64452a7452274a183b03c87c39b847039230c00
   claim: >-
     On one frozen D-U1 semantic-remoteness coordinate and paired training stream,
@@ -3109,8 +3382,9 @@ development_experiment_registrations:
     inherit_default_artifact_budget: true
     runner_archive_policy: {mode: forbid}
   predecessor_delivery_satisfied: true
+  semantic_gap_successor_delivery_satisfied: false
   blocked_by:
-  - D-U1-E6-CONDITIONAL-GAP-01_delivery
+  - D-U1-E6-SEMANTIC-GAP-LONGRUN-01_delivery
   - frozen_semantic_remoteness_coordinate
   - frozen_paired_method_protocol
   - frozen_untouched_held_out_seeds

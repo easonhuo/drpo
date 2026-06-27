@@ -1,0 +1,15 @@
+{
+  "device": "cpu",
+  "execution_mode": "formal_longrun",
+  "experiment_id": "D-U1-E6-CONDITIONAL-GAP-01",
+  "formal_result": true,
+  "registered_scientific_status": "not_run",
+  "requested_stage": "formal",
+  "run_class": "formal",
+  "source": {
+    "git_branch": "main",
+    "git_commit": "7a70278f3d6061379c81f33e82d93ead86484908",
+    "git_status_porcelain": ""
+  },
+  "started_unix": 1782547626.6851325
+}

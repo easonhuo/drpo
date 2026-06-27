@@ -1,5 +1,4 @@
-# DRPO / SNA2C 远场负梯度动力学研究主文档 v50（治理 Pipeline Stage 3 Shadow Mode 启动版）
-
+# DRPO / SNA2C 远场负梯度动力学研究主文档 v51（D-U1 E6 条件缺口闭环与最小改动正式协议版）
 <!-- HANDOFF-DELTA-BLOCK:after_heading:v50-stage3-shadow-bootstrap:START -->
 > **v50 增量登记：治理 Pipeline Stage 3 `HANDOFF_DELTA.yaml` shadow mode 启动（不删除 v49 及更早内容）**
 >
@@ -10,6 +9,20 @@
 > - Standard Regression 在 schema、renderer、状态机、冲突规则、parser/index 或 operation 变化时运行，目标 60 秒。Full Acceptance 在 shadow 激活前、authority cutover 前、schema 主版本或架构变化、累计 20 次相关更新、7 天内发生相关更新的兜底周期、critical mismatch 修复后运行，目标 15 分钟。
 > - 本更新使用 `GOV-STAGE3-SHADOW-BOOTSTRAP-2026-06-27/HANDOFF_DELTA.yaml` 自举 replay；candidate 与人工 v50 handoff 必须字节级一致。该自举通过只证明实现与门禁可运行，不等于 Stage 3 已验收或可以切换权威路径。
 <!-- HANDOFF-DELTA-BLOCK:after_heading:v50-stage3-shadow-bootstrap:END -->
+<!-- HANDOFF-DELTA-BLOCK:after_heading:v51-du1-e6-semantic-gap-formal:START -->
+> **v51 增量登记：`D-U1-E6-CONDITIONAL-GAP-01` 结果闭环与 `D-U1-E6-SEMANTIC-GAP-LONGRUN-01` 最小改动 formal freeze（不删除 v50 及更早内容）**
+>
+> - `D-U1-E6-CONDITIONAL-GAP-01` 已在 clean scientific run commit `7a70278f3d6061379c81f33e82d93ead86484908` 上完成 frozen matrix `200/200` runs、terminal audit 与 raw-complete artifact。三类事件严格分报：task-performance collapse `77/200`、support/temperature boundary `0/200`、NaN/Inf numerical failure `0/200`。全实验只有 `49/200` terminal plateau，`151/200` 为 persistent-drift-or-inconclusive，因此科学状态只登记为 **有限训练步数验证（finite-step validated）**，禁止升级为 long-run validated，并禁止稳态排名。
+> - 该 group-based conditional-gap 实验保留为大缺口与强压力的 stress diagnostic。其 structured-gap local `alpha=0.5` 虽提高 withheld-block reward，却降低 overall reward；`alpha=1.5` 与 far-pressure stress 不属于后续正式方法域。该结果不得推翻旧 `D-U1-E6-SEMANTIC-LONGRUN-01` 已锁定的“适度负优势可在 overall reward 上超过 Positive-only”结论。
+> - 新实验 `D-U1-E6-SEMANTIC-GAP-LONGRUN-01` 是旧 64-action shared-semantic E6 的正式最小改动 successor。继续使用 6D state、64 个 4D semantic actions、旧 `t_plus/t_star/t_minus` reward 几何、4 positive / 1 local negative / 4 far negatives、固定相等 advantage、共享 `SemanticPolicy`、fixed concentration `8.0`、Adam `lr=1e-3`、batch 128。唯一核心环境干预是在 exactly 50% contexts 上，将按该状态 reward similarity 排名前 25% 的 16 个动作从 positive/local/far 三类日志角色中移除；完整 reward oracle 与 64-action evaluation space 保持不变，并要求每个 action 在全局日志中仍然出现。
+> - train/test contexts 继续独立采样自同一 `N(0,I_6)`，因此只称 same-distribution held-out-context generalization / structured state-action support gap，不称 state-distribution OOD generalization。
+> - 临时 sandbox 未写入 registry、未使用正式 seeds，也不构成正式结果。它只用于 candidate qualification：64-action 最小改动环境复现了 `Positive-only ceiling -> intermediate-alpha benefit -> stronger-alpha reversal`；长 horizon 诊断显示 `alpha=1` 相对 Positive-only 的 overall reward 差距会随训练延长扩大。
+> - 正式 alpha 域冻结为 `[0.0,0.25,0.5,0.75,1.0]`。`alpha=0` 是 Positive-only，`alpha=1` 是不抑制原始负梯度；`alpha>1` 不属于方法域，也不进入正式实验。唯一主指标为 overall expected semantic reward，并登记 paired difference vs Positive-only 与 4k/8k/16k/24k/32k trajectory；hidden-optimal probability、support 与 gradient 只作诊断。
+> - 正式协议使用 untouched seeds `150--169`，禁止 sandbox seeds `900--909` 进入正式聚合；5 个 alpha × 20 seeds，共 `100` method-seed runs。最大 `32000` steps、每 `200` steps evaluation，每 5 seeds 写 persistent-local checkpoint；terminal windows 为 `16000--24000` 与 `24000--32000`。
+> - task-performance collapse、support/temperature boundary 与 NaN/Inf numerical failure 继续分报。完整运行和登记窗口审计完成可形成有限步正式证据；只有全部登记 runs 达到 formal terminal plateau 时，才允许声称稳态方法排名。若仍持续漂移，必须报告 trajectory 与 finite-step status，禁止预设最佳 alpha。
+> - 代码复用 `src/drpo/du1_e6_semantic.py`，新增最小差异 validator `src/drpo/du1_e6_semantic_gap.py`、formal entrypoint `src/drpo/du1_e6_semantic_gap_longrun.py`、冻结配置 `configs/du1_e6_semantic_gap_longrun.yaml` 和 hardened wrapper `scripts/run_du1_e6_semantic_gap_longrun.py`。应用并提交本版后，实验状态为 **implemented + ready + active + not_run**；正式训练不得在 dirty worktree 或未匹配 `origin/main` 时启动。
+> - 本更新重基于当前 `main` commit `1fa7f04d4830e4d562ab147dbb11dfa8cecc9b5d`，并保留治理 Pipeline Stage 3 shadow mode 的全部新内容。`D-U1-E6-TAPER-01` 在本 successor terminal-audited、packaged、delivered 之前继续 blocked。
+<!-- HANDOFF-DELTA-BLOCK:after_heading:v51-du1-e6-semantic-gap-formal:END -->
 
 > **v49 增量登记：治理 Pipeline Stage 1/2 冻结式关闭（不删除 v48 及更早内容）**
 >

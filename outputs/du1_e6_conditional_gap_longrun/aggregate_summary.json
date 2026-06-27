@@ -1,0 +1,717 @@
+{
+  "optimal_group_covered|local_only|alpha=0.5|far=0.0": {
+    "metrics": {
+      "covered_expected_reward": {
+        "max": 0.41018831729888916,
+        "mean": 0.3848524495959282,
+        "min": 0.35631638765335083,
+        "std": 0.014971338494180213
+      },
+      "effective_support_p05": {
+        "max": 57.4051513671875,
+        "mean": 56.642543411254884,
+        "min": 55.650672912597656,
+        "std": 0.42516637321765455
+      },
+      "entropy_mean": {
+        "max": 4.17970085144043,
+        "mean": 4.171180319786072,
+        "min": 4.151443958282471,
+        "std": 0.006873137751159616
+      },
+      "expected_reward": {
+        "max": 0.4105108976364136,
+        "mean": 0.385089148581028,
+        "min": 0.3555395305156708,
+        "std": 0.015152176646603227
+      },
+      "gap_correct_group_probability": {
+        "max": 0.4278305172920227,
+        "mean": 0.4026859298348427,
+        "min": 0.37123191356658936,
+        "std": 0.015992014218043058
+      },
+      "gap_expected_reward": {
+        "max": 0.4108335077762604,
+        "mean": 0.38532585054636004,
+        "min": 0.3547626733779907,
+        "std": 0.015426162248739465
+      },
+      "gap_proxy_group_probability": {
+        "max": 0.017697719857096672,
+        "mean": 0.014065378019586206,
+        "min": 0.010913575068116188,
+        "std": 0.0018426777263784095
+      },
+      "gap_top1_group_accuracy": {
+        "max": 0.328125,
+        "mean": 0.2428466796875,
+        "min": 0.154296875,
+        "std": 0.05452486679969285
+      },
+      "gap_trap_group_probability": {
+        "max": 0.5747584104537964,
+        "mean": 0.5507130771875381,
+        "min": 0.5273400545120239,
+        "std": 0.014298433405254015
+      },
+      "paired_group_distribution_l1": {
+        "max": 0.08113674819469452,
+        "mean": 0.04909253064543009,
+        "min": 0.038304250687360764,
+        "std": 0.009173361463390806
+      }
+    },
+    "n": 20,
+    "nan_inf_numerical_failure_count": 0,
+    "support_or_temperature_boundary_count": 0,
+    "task_performance_collapse_count": 0,
+    "terminal_class_counts": {
+      "formal_terminal_plateau": 20
+    }
+  },
+  "optimal_group_covered|local_only|alpha=1.5|far=0.0": {
+    "metrics": {
+      "covered_expected_reward": {
+        "max": 0.05309814214706421,
+        "mean": 0.045988739281892774,
+        "min": 0.03641679883003235,
+        "std": 0.005455477391263612
+      },
+      "effective_support_p05": {
+        "max": 57.86990737915039,
+        "mean": 57.69543647766113,
+        "min": 57.591285705566406,
+        "std": 0.07832349649815344
+      },
+      "entropy_mean": {
+        "max": 4.143278121948242,
+        "mean": 4.135850119590759,
+        "min": 4.128340244293213,
+        "std": 0.005092010726741336
+      },
+      "expected_reward": {
+        "max": 0.05349399149417877,
+        "mean": 0.046050028316676615,
+        "min": 0.0369604118168354,
+        "std": 0.005466219645660026
+      },
+      "gap_correct_group_probability": {
+        "max": 0.05686626583337784,
+        "mean": 0.048571113124489786,
+        "min": 0.03956731781363487,
+        "std": 0.00580558946441436
+      },
+      "gap_expected_reward": {
+        "max": 0.05388984456658363,
+        "mean": 0.046111319400370124,
+        "min": 0.03750402480363846,
+        "std": 0.005510342468001785
+      },
+      "gap_proxy_group_probability": {
+        "max": 0.004686359316110611,
+        "mean": 0.0024755288468440995,
+        "min": 0.0008828284917399287,
+        "std": 0.0009524154003211462
+      },
+      "gap_top1_group_accuracy": {
+        "max": 0.0185546875,
+        "mean": 0.011083984375,
+        "min": 0.00537109375,
+        "std": 0.003657737933679531
+      },
+      "gap_trap_group_probability": {
+        "max": 0.7010865211486816,
+        "mean": 0.6845514923334122,
+        "min": 0.6411635875701904,
+        "std": 0.013771777903462117
+      },
+      "paired_group_distribution_l1": {
+        "max": 0.07460805028676987,
+        "mean": 0.04628255404531956,
+        "min": 0.030979786068201065,
+        "std": 0.008939754729272465
+      }
+    },
+    "n": 20,
+    "nan_inf_numerical_failure_count": 0,
+    "support_or_temperature_boundary_count": 0,
+    "task_performance_collapse_count": 20,
+    "terminal_class_counts": {
+      "formal_persistent_drift_or_inconclusive": 17,
+      "formal_terminal_plateau": 3
+    }
+  },
+  "optimal_group_covered|positive_only|alpha=0.0|far=0.0": {
+    "metrics": {
+      "covered_expected_reward": {
+        "max": 0.7460744380950928,
+        "mean": 0.7314501792192459,
+        "min": 0.7160453200340271,
+        "std": 0.008971220880000984
+      },
+      "effective_support_p05": {
+        "max": 48.385887145996094,
+        "mean": 48.34741764068603,
+        "min": 48.331321716308594,
+        "std": 0.011514646675256451
+      },
+      "entropy_mean": {
+        "max": 3.9332070350646973,
+        "mean": 3.9185694098472594,
+        "min": 3.911235809326172,
+        "std": 0.005160484128066391
+      },
+      "expected_reward": {
+        "max": 0.7459577918052673,
+        "mean": 0.7313714534044266,
+        "min": 0.7161858081817627,
+        "std": 0.008930052318387031
+      },
+      "gap_correct_group_probability": {
+        "max": 0.6646605134010315,
+        "mean": 0.6504485338926316,
+        "min": 0.6327874064445496,
+        "std": 0.008692842756355864
+      },
+      "gap_expected_reward": {
+        "max": 0.7458411455154419,
+        "mean": 0.7312927275896073,
+        "min": 0.7159295082092285,
+        "std": 0.008916230074951494
+      },
+      "gap_proxy_group_probability": {
+        "max": 0.17826610803604126,
+        "mean": 0.15782464072108268,
+        "min": 0.14886970818042755,
+        "std": 0.008612018500662814
+      },
+      "gap_top1_group_accuracy": {
+        "max": 0.9560546875,
+        "mean": 0.9428466796875,
+        "min": 0.9150390625,
+        "std": 0.010728716274730507
+      },
+      "gap_trap_group_probability": {
+        "max": 0.1786232739686966,
+        "mean": 0.1650589294731617,
+        "min": 0.14704763889312744,
+        "std": 0.009010274564652948
+      },
+      "paired_group_distribution_l1": {
+        "max": 0.056805383414030075,
+        "mean": 0.03072924241423607,
+        "min": 0.022276148200035095,
+        "std": 0.007593152533608077
+      }
+    },
+    "n": 20,
+    "nan_inf_numerical_failure_count": 0,
+    "support_or_temperature_boundary_count": 0,
+    "task_performance_collapse_count": 0,
+    "terminal_class_counts": {
+      "formal_persistent_drift_or_inconclusive": 20
+    }
+  },
+  "structured_gap|budget_matched_global|alpha=0.5|far=4.0": {
+    "metrics": {
+      "covered_expected_reward": {
+        "max": 0.27422893047332764,
+        "mean": 0.22370757758617402,
+        "min": 0.20263832807540894,
+        "std": 0.018623968633630084
+      },
+      "effective_support_p05": {
+        "max": 57.60688781738281,
+        "mean": 57.355584907531735,
+        "min": 57.04153823852539,
+        "std": 0.14032338986040688
+      },
+      "entropy_mean": {
+        "max": 4.1527204513549805,
+        "mean": 4.141935086250305,
+        "min": 4.1323981285095215,
+        "std": 0.006311750647128371
+      },
+      "expected_reward": {
+        "max": 0.31613755226135254,
+        "mean": 0.2667169526219368,
+        "min": 0.24359048902988434,
+        "std": 0.0200444018570188
+      },
+      "gap_correct_group_probability": {
+        "max": 0.3796342611312866,
+        "mean": 0.3306166797876358,
+        "min": 0.30400025844573975,
+        "std": 0.022502876020472542
+      },
+      "gap_expected_reward": {
+        "max": 0.3580462336540222,
+        "mean": 0.3097263291478157,
+        "min": 0.28454262018203735,
+        "std": 0.0219051123795426
+      },
+      "gap_proxy_group_probability": {
+        "max": 0.015923064202070236,
+        "mean": 0.010819188226014376,
+        "min": 0.007045176811516285,
+        "std": 0.0023007548627223596
+      },
+      "gap_top1_group_accuracy": {
+        "max": 0.24462890625,
+        "mean": 0.137548828125,
+        "min": 0.07861328125,
+        "std": 0.04133048375231781
+      },
+      "gap_trap_group_probability": {
+        "max": 0.6476443409919739,
+        "mean": 0.6194768428802491,
+        "min": 0.5685181617736816,
+        "std": 0.02219260484328745
+      },
+      "paired_group_distribution_l1": {
+        "max": 0.24563559889793396,
+        "mean": 0.20960301384329796,
+        "min": 0.18417318165302277,
+        "std": 0.01499688553362349
+      }
+    },
+    "n": 20,
+    "nan_inf_numerical_failure_count": 0,
+    "support_or_temperature_boundary_count": 0,
+    "task_performance_collapse_count": 0,
+    "terminal_class_counts": {
+      "formal_persistent_drift_or_inconclusive": 20
+    }
+  },
+  "structured_gap|far_cap|alpha=0.5|far=4.0": {
+    "metrics": {
+      "covered_expected_reward": {
+        "max": 0.2508523762226105,
+        "mean": 0.20467512235045432,
+        "min": 0.18149040639400482,
+        "std": 0.01679898459803549
+      },
+      "effective_support_p05": {
+        "max": 57.71840286254883,
+        "mean": 57.38827381134033,
+        "min": 57.16294860839844,
+        "std": 0.12797505452307956
+      },
+      "entropy_mean": {
+        "max": 4.157790184020996,
+        "mean": 4.136174869537354,
+        "min": 4.124197006225586,
+        "std": 0.007096011755982302
+      },
+      "expected_reward": {
+        "max": 0.3044446110725403,
+        "mean": 0.25260225832462313,
+        "min": 0.22486066818237305,
+        "std": 0.01818657357858909
+      },
+      "gap_correct_group_probability": {
+        "max": 0.3798689544200897,
+        "mean": 0.32044954150915145,
+        "min": 0.2880863547325134,
+        "std": 0.02051290348915705
+      },
+      "gap_expected_reward": {
+        "max": 0.3580368757247925,
+        "mean": 0.3005293861031532,
+        "min": 0.2682309150695801,
+        "std": 0.020160023847958893
+      },
+      "gap_proxy_group_probability": {
+        "max": 0.01428966224193573,
+        "mean": 0.01065076186787337,
+        "min": 0.0069106868468225,
+        "std": 0.002303918973586314
+      },
+      "gap_top1_group_accuracy": {
+        "max": 0.2373046875,
+        "mean": 0.131103515625,
+        "min": 0.0703125,
+        "std": 0.03904852366126843
+      },
+      "gap_trap_group_probability": {
+        "max": 0.6646239161491394,
+        "mean": 0.6287858068943024,
+        "min": 0.5745154619216919,
+        "std": 0.021144687415074588
+      },
+      "paired_group_distribution_l1": {
+        "max": 0.27847057580947876,
+        "mean": 0.23363494426012038,
+        "min": 0.20876561105251312,
+        "std": 0.0168883120080263
+      }
+    },
+    "n": 20,
+    "nan_inf_numerical_failure_count": 0,
+    "support_or_temperature_boundary_count": 0,
+    "task_performance_collapse_count": 1,
+    "terminal_class_counts": {
+      "formal_persistent_drift_or_inconclusive": 20
+    }
+  },
+  "structured_gap|local_only|alpha=0.5|far=0.0": {
+    "metrics": {
+      "covered_expected_reward": {
+        "max": 0.48411062359809875,
+        "mean": 0.4344045102596283,
+        "min": 0.39905846118927,
+        "std": 0.02203939132888847
+      },
+      "effective_support_p05": {
+        "max": 54.52515411376953,
+        "mean": 53.73364086151123,
+        "min": 52.52862548828125,
+        "std": 0.6462139787991187
+      },
+      "entropy_mean": {
+        "max": 4.135824203491211,
+        "mean": 4.121014499664307,
+        "min": 4.099494457244873,
+        "std": 0.009264417215973037
+      },
+      "expected_reward": {
+        "max": 0.6163252592086792,
+        "mean": 0.5991894781589509,
+        "min": 0.5865700840950012,
+        "std": 0.009561572877069859
+      },
+      "gap_correct_group_probability": {
+        "max": 0.6297260522842407,
+        "mean": 0.6096234321594238,
+        "min": 0.574309229850769,
+        "std": 0.011968083050679982
+      },
+      "gap_expected_reward": {
+        "max": 0.7740817666053772,
+        "mean": 0.7639744341373443,
+        "min": 0.7485397458076477,
+        "std": 0.00801066976929334
+      },
+      "gap_proxy_group_probability": {
+        "max": 0.33948561549186707,
+        "mean": 0.30836917757987975,
+        "min": 0.2700548768043518,
+        "std": 0.020263206947540236
+      },
+      "gap_top1_group_accuracy": {
+        "max": 0.83837890625,
+        "mean": 0.7809814453125,
+        "min": 0.7138671875,
+        "std": 0.024972777854716757
+      },
+      "gap_trap_group_probability": {
+        "max": 0.08313769102096558,
+        "mean": 0.057766452245414254,
+        "min": 0.045963697135448456,
+        "std": 0.010843443145262978
+      },
+      "paired_group_distribution_l1": {
+        "max": 1.1300888061523438,
+        "mean": 1.0559863179922104,
+        "min": 0.9091852307319641,
+        "std": 0.04813984710737489
+      }
+    },
+    "n": 20,
+    "nan_inf_numerical_failure_count": 0,
+    "support_or_temperature_boundary_count": 0,
+    "task_performance_collapse_count": 0,
+    "terminal_class_counts": {
+      "formal_persistent_drift_or_inconclusive": 20
+    }
+  },
+  "structured_gap|local_only|alpha=1.5|far=0.0": {
+    "metrics": {
+      "covered_expected_reward": {
+        "max": 0.06602645665407181,
+        "mean": 0.05239629633724689,
+        "min": 0.03775477781891823,
+        "std": 0.006476440294786853
+      },
+      "effective_support_p05": {
+        "max": 57.53921890258789,
+        "mean": 57.40987415313721,
+        "min": 57.25106430053711,
+        "std": 0.08050903888015891
+      },
+      "entropy_mean": {
+        "max": 4.123355865478516,
+        "mean": 4.112222409248352,
+        "min": 4.1049346923828125,
+        "std": 0.004335785729073875
+      },
+      "expected_reward": {
+        "max": 0.07881130278110504,
+        "mean": 0.06395753752440214,
+        "min": 0.047925177961587906,
+        "std": 0.007474668220051487
+      },
+      "gap_correct_group_probability": {
+        "max": 0.09684418141841888,
+        "mean": 0.08010432347655297,
+        "min": 0.06224571168422699,
+        "std": 0.008964114280477649
+      },
+      "gap_expected_reward": {
+        "max": 0.09202097356319427,
+        "mean": 0.07551877722144126,
+        "min": 0.05809558182954788,
+        "std": 0.008628605976932406
+      },
+      "gap_proxy_group_probability": {
+        "max": 0.005970390979200602,
+        "mean": 0.0033149252005387096,
+        "min": 0.0015196263557299972,
+        "std": 0.0013092462410453224
+      },
+      "gap_top1_group_accuracy": {
+        "max": 0.03564453125,
+        "mean": 0.0190673828125,
+        "min": 0.0107421875,
+        "std": 0.005924280301917717
+      },
+      "gap_trap_group_probability": {
+        "max": 0.7482130527496338,
+        "mean": 0.7325085878372193,
+        "min": 0.6851075887680054,
+        "std": 0.014798732457339188
+      },
+      "paired_group_distribution_l1": {
+        "max": 0.22748397290706635,
+        "mean": 0.1563163436949253,
+        "min": 0.1415499597787857,
+        "std": 0.018881881171908442
+      }
+    },
+    "n": 20,
+    "nan_inf_numerical_failure_count": 0,
+    "support_or_temperature_boundary_count": 0,
+    "task_performance_collapse_count": 20,
+    "terminal_class_counts": {
+      "formal_persistent_drift_or_inconclusive": 19,
+      "formal_terminal_plateau": 1
+    }
+  },
+  "structured_gap|near_zero|alpha=0.5|far=4.0": {
+    "metrics": {
+      "covered_expected_reward": {
+        "max": 0.239894300699234,
+        "mean": 0.20856115072965623,
+        "min": 0.1853179931640625,
+        "std": 0.015176636443369005
+      },
+      "effective_support_p05": {
+        "max": 57.13532257080078,
+        "mean": 56.882039070129395,
+        "min": 56.50149917602539,
+        "std": 0.17707353670935239
+      },
+      "entropy_mean": {
+        "max": 4.131232261657715,
+        "mean": 4.119893717765808,
+        "min": 4.112488269805908,
+        "std": 0.00587678371831845
+      },
+      "expected_reward": {
+        "max": 0.26045504212379456,
+        "mean": 0.22965386137366295,
+        "min": 0.20792995393276215,
+        "std": 0.01509850863264598
+      },
+      "gap_correct_group_probability": {
+        "max": 0.2996109127998352,
+        "mean": 0.2681140325963497,
+        "min": 0.24640138447284698,
+        "std": 0.015762126041382375
+      },
+      "gap_expected_reward": {
+        "max": 0.2819673418998718,
+        "mean": 0.2507465809583664,
+        "min": 0.2298303097486496,
+        "std": 0.015191419598561693
+      },
+      "gap_proxy_group_probability": {
+        "max": 0.013277237303555012,
+        "mean": 0.008921001851558686,
+        "min": 0.006712105590850115,
+        "std": 0.0017730773204106683
+      },
+      "gap_top1_group_accuracy": {
+        "max": 0.14013671875,
+        "mean": 0.0927978515625,
+        "min": 0.0517578125,
+        "std": 0.02431851936017031
+      },
+      "gap_trap_group_probability": {
+        "max": 0.6925167441368103,
+        "mean": 0.6713830053806304,
+        "min": 0.6407136917114258,
+        "std": 0.015145158374498646
+      },
+      "paired_group_distribution_l1": {
+        "max": 0.13188433647155762,
+        "mean": 0.1132185399532318,
+        "min": 0.09939518570899963,
+        "std": 0.0078676628405849
+      }
+    },
+    "n": 20,
+    "nan_inf_numerical_failure_count": 0,
+    "support_or_temperature_boundary_count": 0,
+    "task_performance_collapse_count": 16,
+    "terminal_class_counts": {
+      "formal_persistent_drift_or_inconclusive": 15,
+      "formal_terminal_plateau": 5
+    }
+  },
+  "structured_gap|positive_only|alpha=0.0|far=0.0": {
+    "metrics": {
+      "covered_expected_reward": {
+        "max": 0.7346622943878174,
+        "mean": 0.7202140182256699,
+        "min": 0.7062361240386963,
+        "std": 0.008647428372396163
+      },
+      "effective_support_p05": {
+        "max": 48.42404556274414,
+        "mean": 48.385009956359866,
+        "min": 48.363895416259766,
+        "std": 0.018244218506659728
+      },
+      "entropy_mean": {
+        "max": 3.9555835723876953,
+        "mean": 3.9370466828346253,
+        "min": 3.926872730255127,
+        "std": 0.008277111949670382
+      },
+      "expected_reward": {
+        "max": 0.6598378419876099,
+        "mean": 0.6501733601093292,
+        "min": 0.641403079032898,
+        "std": 0.0048775889782469
+      },
+      "gap_correct_group_probability": {
+        "max": 0.2172095775604248,
+        "mean": 0.1973828375339508,
+        "min": 0.17746949195861816,
+        "std": 0.011259047800572044
+      },
+      "gap_expected_reward": {
+        "max": 0.5914841294288635,
+        "mean": 0.5801327347755432,
+        "min": 0.5660963654518127,
+        "std": 0.006869409933956836
+      },
+      "gap_proxy_group_probability": {
+        "max": 0.6324277520179749,
+        "mean": 0.6146367341279984,
+        "min": 0.589825451374054,
+        "std": 0.012904554626631929
+      },
+      "gap_top1_group_accuracy": {
+        "max": 0.07958984375,
+        "mean": 0.0575439453125,
+        "min": 0.03662109375,
+        "std": 0.012934506331597413
+      },
+      "gap_trap_group_probability": {
+        "max": 0.020411789417266846,
+        "mean": 0.015611965768039226,
+        "min": 0.01136242225766182,
+        "std": 0.0025127087070412443
+      },
+      "paired_group_distribution_l1": {
+        "max": 1.2517483234405518,
+        "mean": 1.1739485263824463,
+        "min": 1.0557399988174438,
+        "std": 0.046015708921052736
+      }
+    },
+    "n": 20,
+    "nan_inf_numerical_failure_count": 0,
+    "support_or_temperature_boundary_count": 0,
+    "task_performance_collapse_count": 0,
+    "terminal_class_counts": {
+      "formal_persistent_drift_or_inconclusive": 1,
+      "formal_terminal_plateau": 19
+    }
+  },
+  "structured_gap|uncontrolled|alpha=0.5|far=4.0": {
+    "metrics": {
+      "covered_expected_reward": {
+        "max": 0.18049941956996918,
+        "mean": 0.15303820595145226,
+        "min": 0.1345766931772232,
+        "std": 0.0127298556817526
+      },
+      "effective_support_p05": {
+        "max": 56.918060302734375,
+        "mean": 56.51034774780273,
+        "min": 56.13186264038086,
+        "std": 0.18948295799538037
+      },
+      "entropy_mean": {
+        "max": 4.105738639831543,
+        "mean": 4.088504528999328,
+        "min": 4.0781049728393555,
+        "std": 0.007402362923812765
+      },
+      "expected_reward": {
+        "max": 0.19437715411186218,
+        "mean": 0.16559371948242188,
+        "min": 0.1460506021976471,
+        "std": 0.01318742169928528
+      },
+      "gap_correct_group_probability": {
+        "max": 0.22256284952163696,
+        "mean": 0.19085456430912018,
+        "min": 0.168775275349617,
+        "std": 0.014410249787471074
+      },
+      "gap_expected_reward": {
+        "max": 0.2082548439502716,
+        "mean": 0.17814922630786895,
+        "min": 0.1575244963169098,
+        "std": 0.013715408168776972
+      },
+      "gap_proxy_group_probability": {
+        "max": 0.008671835064888,
+        "mean": 0.00608330168761313,
+        "min": 0.004181429278105497,
+        "std": 0.0013124518332607194
+      },
+      "gap_top1_group_accuracy": {
+        "max": 0.09375,
+        "mean": 0.0572021484375,
+        "min": 0.0302734375,
+        "std": 0.017325947045560983
+      },
+      "gap_trap_group_probability": {
+        "max": 0.7498316764831543,
+        "mean": 0.7266717404127121,
+        "min": 0.6950573325157166,
+        "std": 0.01530672061521547
+      },
+      "paired_group_distribution_l1": {
+        "max": 0.10110669583082199,
+        "mean": 0.07816315926611424,
+        "min": 0.06757941097021103,
+        "std": 0.009204337018678685
+      }
+    },
+    "n": 20,
+    "nan_inf_numerical_failure_count": 0,
+    "support_or_temperature_boundary_count": 0,
+    "task_performance_collapse_count": 20,
+    "terminal_class_counts": {
+      "formal_persistent_drift_or_inconclusive": 19,
+      "formal_terminal_plateau": 1
+    }
+  }
+}

@@ -1,0 +1,68 @@
+{
+  "schema_version": 3,
+  "experiment_id": "D-U1-E6-CONDITIONAL-GAP-01",
+  "execution_state": "raw_complete",
+  "run_class": "formal",
+  "start_utc": "2026-06-27T08:07:04.244576+00:00",
+  "repo_root": "/mnt/data/drpo_formal_7a70278",
+  "branch": "main",
+  "base_commit": "7a70278f3d6061379c81f33e82d93ead86484908",
+  "commit_resolution": {
+    "local_head": "7a70278f3d6061379c81f33e82d93ead86484908",
+    "expected_sha": "7a70278f3d6061379c81f33e82d93ead86484908",
+    "origin_main": {
+      "sha": "7a70278f3d6061379c81f33e82d93ead86484908",
+      "source": "git_ls_remote_origin_main",
+      "authoritative": true,
+      "error": null
+    },
+    "origin_matches_local": true,
+    "verified": true
+  },
+  "git_dirty_at_launch": false,
+  "git_status_at_launch": [],
+  "launch_snapshot": false,
+  "command": [
+    "/opt/pyvenv/bin/python",
+    "/mnt/data/drpo_formal_7a70278/src/drpo/du1_e6_conditional_gap_longrun.py",
+    "--config",
+    "/mnt/data/drpo_formal_7a70278/configs/du1_e6_conditional_gap_longrun.yaml",
+    "--output-root",
+    "/mnt/data/DRPO_RUNS/D-U1-E6-CONDITIONAL-GAP-01/run_001",
+    "--device",
+    "cpu"
+  ],
+  "cwd": "/mnt/data/drpo_formal_7a70278",
+  "python": "3.13.5 (main, May  5 2026, 21:05:52) [GCC 14.2.0]",
+  "platform": "Linux-4.4.0-x86_64-with-glibc2.41",
+  "pid": 20241,
+  "heartbeat_seconds": 60.0,
+  "stale_seconds": 900.0,
+  "termination_grace_seconds": 30.0,
+  "progress_globs": [
+    "trajectories.jsonl",
+    "runs/seed_*/*.summary.json",
+    "checkpoints/*/CHECKPOINT_COMPLETE.json"
+  ],
+  "required_outputs": [
+    "RUN_COMPLETE.json",
+    "scientific_run_manifest.json",
+    "terminal_audit.json",
+    "aggregate_summary.json",
+    "per_run_summary.csv",
+    "formal_protocol_freeze.json",
+    "run_manifest.json"
+  ],
+  "artifact_output": "/mnt/data/D-U1-E6-CONDITIONAL-GAP-01_RAW_COMPLETE.zip",
+  "large_file_persistence": "persistent_local",
+  "sidecar_default": false,
+  "sidecar_files": [],
+  "sidecar_purpose": null,
+  "end_utc": "2026-06-27T08:23:30.677071+00:00",
+  "returncode": 0,
+  "missing_required_outputs": [],
+  "stale_detected": false,
+  "end_commit": "7a70278f3d6061379c81f33e82d93ead86484908",
+  "git_status_at_end": [],
+  "provenance_compromised": false
+}

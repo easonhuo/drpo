@@ -48,10 +48,12 @@ PILOT_EXPERIMENT_ID = "D-U1-E6-SEMANTIC-PILOT-01"
 FOCUSED_EXPERIMENT_ID = "D-U1-E6-SEMANTIC-FOCUSED-DEV-01"
 EXPERIMENT_ID = PILOT_EXPERIMENT_ID  # Backward-compatible public constant.
 FORMAL_EXPERIMENT_ID = "D-U1-E6-SEMANTIC-LONGRUN-01"
+SEMANTIC_GAP_FORMAL_EXPERIMENT_ID = "D-U1-E6-SEMANTIC-GAP-LONGRUN-01"
 ALLOWED_DEVELOPMENT_EXPERIMENT_IDS = {PILOT_EXPERIMENT_ID, FOCUSED_EXPERIMENT_ID}
 ALLOWED_EXPERIMENT_IDS = {
     *ALLOWED_DEVELOPMENT_EXPERIMENT_IDS,
     FORMAL_EXPERIMENT_ID,
+    SEMANTIC_GAP_FORMAL_EXPERIMENT_ID,
 }
 EPS = 1.0e-12
 
@@ -110,7 +112,9 @@ def ensure_new_or_empty(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
 
 
-def prepare_output_manifest_path(output_root: Path, *, formal: bool) -> Path:
+def prepare_output_manifest_path(
+    output_root: Path, *, formal: bool, experiment_id: str = FORMAL_EXPERIMENT_ID
+) -> Path:
     """Prepare an output root without clobbering the hardened guard manifest.
 
     The canonical guard creates ``run_manifest.json`` and ``logs/`` before the
@@ -135,7 +139,7 @@ def prepare_output_manifest_path(output_root: Path, *, formal: bool) -> Path:
     except (json.JSONDecodeError, OSError) as exc:
         raise RuntimeError("cannot read the hardened guard manifest") from exc
     required_identity = {
-        "experiment_id": FORMAL_EXPERIMENT_ID,
+        "experiment_id": experiment_id,
         "run_class": "formal",
         "execution_state": "running",
     }
@@ -186,7 +190,10 @@ def configured_experiment_id(config: Mapping[str, Any]) -> str:
 
 
 def is_formal_config(config: Mapping[str, Any]) -> bool:
-    return configured_experiment_id(config) == FORMAL_EXPERIMENT_ID
+    return configured_experiment_id(config) in {
+        FORMAL_EXPERIMENT_ID,
+        SEMANTIC_GAP_FORMAL_EXPERIMENT_ID,
+    }
 
 
 def run_seeds(config: Mapping[str, Any]) -> list[int]:
@@ -195,7 +202,12 @@ def run_seeds(config: Mapping[str, Any]) -> list[int]:
 
 
 def result_scientific_status(config: Mapping[str, Any]) -> str:
-    return "long_run_validated" if is_formal_config(config) else "pilot"
+    experiment_id = configured_experiment_id(config)
+    if experiment_id == FORMAL_EXPERIMENT_ID:
+        return "long_run_validated"
+    if experiment_id == SEMANTIC_GAP_FORMAL_EXPERIMENT_ID:
+        return "finite_step_validated"
+    return "pilot"
 
 
 def _require_exact(value: Any, expected: Any, label: str) -> None:
@@ -419,9 +431,15 @@ def validate_formal_config(config: Mapping[str, Any], stage: str) -> None:
 
 
 def validate_config(config: Mapping[str, Any], stage: str) -> None:
-    configured_experiment_id(config)
+    experiment_id = configured_experiment_id(config)
     formal = is_formal_config(config)
-    if formal:
+    if experiment_id == SEMANTIC_GAP_FORMAL_EXPERIMENT_ID:
+        # Import lazily to avoid a module-level cycle: the successor validator
+        # deliberately reuses the original E6 implementation.
+        from drpo.du1_e6_semantic_gap import validate_formal_config as validate_gap_config
+
+        validate_gap_config(config, stage)
+    elif formal:
         validate_formal_config(config, stage)
     else:
         if config.get("scientific_status") != "pilot":
@@ -518,6 +536,27 @@ class SemanticEnvironment:
         self.reward_scale = float(nested(config, "geometry", "reward_scale"))
         self.positive_advantage = float(nested(config, "geometry", "positive_advantage"))
         self.negative_advantage = float(nested(config, "geometry", "negative_advantage"))
+        coverage = config.get("conditional_coverage", {})
+        if coverage is None:
+            coverage = {}
+        if not isinstance(coverage, Mapping):
+            raise ValueError("conditional_coverage must be a mapping when provided")
+        self.coverage_mode = str(coverage.get("mode", "dense"))
+        self.gap_state_fraction = float(coverage.get("gap_state_fraction", 0.0))
+        self.withheld_action_fraction = float(coverage.get("withheld_action_fraction", 0.0))
+        self.require_global_action_coverage = bool(
+            coverage.get("require_global_action_coverage", False)
+        )
+        if self.coverage_mode not in {"dense", "structured_semantic_neighbourhood_gap"}:
+            raise ValueError(f"unknown conditional coverage mode: {self.coverage_mode}")
+        if not 0.0 <= self.gap_state_fraction <= 1.0:
+            raise ValueError("gap_state_fraction must be in [0, 1]")
+        if not 0.0 <= self.withheld_action_fraction < 1.0:
+            raise ValueError("withheld_action_fraction must be in [0, 1)")
+        if self.coverage_mode == "dense" and (
+            self.gap_state_fraction != 0.0 or self.withheld_action_fraction != 0.0
+        ):
+            raise ValueError("dense coverage cannot specify a nonzero structured gap")
 
         catalogue_generator = torch.Generator(device="cpu").manual_seed(100_003 + self.seed)
         base_embeddings = unit(
@@ -573,13 +612,70 @@ class SemanticEnvironment:
         plus_similarity = t_plus @ self.reward_embeddings.T
         minus_similarity = t_minus @ self.reward_embeddings.T
         far_similarity = (-t_plus) @ self.reward_embeddings.T
-        banned = torch.zeros(count, self.action_count, dtype=torch.bool)
+
+        gap_mask = torch.zeros(count, dtype=torch.bool)
+        conditional_gap = torch.zeros(count, self.action_count, dtype=torch.bool)
+        target_neighbourhood = torch.empty(count, 0, dtype=torch.long)
+        if self.coverage_mode == "structured_semantic_neighbourhood_gap":
+            gap_count = int(round(hidden.numel() * self.gap_state_fraction))
+            if gap_count > 0:
+                state_score = states[:, 0] + 0.37 * states[:, 1]
+                gap_rows = state_score.argsort(descending=True)[:gap_count]
+                gap_mask[gap_rows] = True
+            withheld_count = int(round(self.action_count * self.withheld_action_fraction))
+            withheld_count = max(1, withheld_count)
+            max_withheld = self.action_count - (self.n_positive + self.n_far + 1)
+            withheld_count = min(withheld_count, max_withheld)
+            target_neighbourhood = reward_similarity.topk(withheld_count, dim=1).indices
+            if bool(gap_mask.any()):
+                rows = gap_mask.nonzero(as_tuple=False).squeeze(1)
+                conditional_gap[rows[:, None], target_neighbourhood[rows]] = True
+
+        banned = conditional_gap.clone()
         banned.scatter_(1, hidden[:, None], True)
         positive = self._topk_excluding(plus_similarity, banned, self.n_positive)
         banned.scatter_(1, positive, True)
         local = self._topk_excluding(minus_similarity, banned, 1).squeeze(1)
         banned.scatter_(1, local[:, None], True)
         far = self._topk_excluding(far_similarity, banned, self.n_far)
+
+        if self.require_global_action_coverage:
+            roles = torch.cat([positive.reshape(-1), local.reshape(-1), far.reshape(-1)])
+            counts = torch.bincount(roles, minlength=self.action_count)
+            missing = (counts == 0).nonzero(as_tuple=False).squeeze(1).tolist()
+            covered_rows = (~gap_mask).nonzero(as_tuple=False).squeeze(1)
+            for action in missing:
+                admissible = covered_rows[
+                    (hidden[covered_rows] != action)
+                    & ~(positive[covered_rows] == action).any(dim=1)
+                    & (local[covered_rows] != action)
+                    & ~(far[covered_rows] == action).any(dim=1)
+                ]
+                if admissible.numel() == 0:
+                    raise RuntimeError(f"cannot repair global coverage for action {action}")
+                candidate_scores = far_similarity[admissible, action]
+                repaired = False
+                for row in admissible[candidate_scores.argsort(descending=True)].tolist():
+                    replaceable = [
+                        slot
+                        for slot in range(self.n_far)
+                        if int(counts[int(far[row, slot])]) > 1
+                    ]
+                    if not replaceable:
+                        continue
+                    slot = min(
+                        replaceable,
+                        key=lambda index: float(far_similarity[row, far[row, index]]),
+                    )
+                    old_action = int(far[row, slot])
+                    far[row, slot] = int(action)
+                    counts[old_action] -= 1
+                    counts[action] += 1
+                    repaired = True
+                    break
+                if not repaired:
+                    raise RuntimeError(f"cannot find replaceable far slot for action {action}")
+
         return {
             "states": states,
             "t_plus": t_plus,
@@ -594,6 +690,9 @@ class SemanticEnvironment:
             "positive_advantage": torch.full((count, self.n_positive), self.positive_advantage),
             "local_advantage": torch.full((count,), self.negative_advantage),
             "far_advantage": torch.full((count, self.n_far), self.negative_advantage),
+            "gap_mask": gap_mask,
+            "conditional_gap_mask": conditional_gap,
+            "target_neighbourhood": target_neighbourhood,
         }
 
     @staticmethod
@@ -640,6 +739,59 @@ class SemanticEnvironment:
                 .max()
             )
             orthogonality_error = float((split["t_plus"] * split["direction"]).sum(-1).abs().max())
+            gap_mask = split["gap_mask"]
+            conditional_gap = split["conditional_gap_mask"]
+            role_gap_violations = 0
+            hidden_gap_violations = 0
+            if bool(gap_mask.any()):
+                gap_rows = gap_mask.nonzero(as_tuple=False).squeeze(1)
+                role_gap_violations += int(
+                    conditional_gap[gap_rows[:, None], positive[gap_mask]].sum()
+                )
+                role_gap_violations += int(
+                    conditional_gap[gap_rows, local[gap_mask]].sum()
+                )
+                role_gap_violations += int(
+                    conditional_gap[gap_rows[:, None], far[gap_mask]].sum()
+                )
+                hidden_gap_violations = int(
+                    (~conditional_gap[gap_rows, hidden[gap_mask]]).sum()
+                )
+            logged_roles = torch.cat(
+                [positive.reshape(-1), local.reshape(-1), far.reshape(-1)]
+            )
+            global_action_counts = torch.bincount(
+                logged_roles, minlength=self.action_count
+            )
+            globally_unobserved_actions = int((global_action_counts == 0).sum())
+            expected_gap_states = (
+                int(round(hidden.numel() * self.gap_state_fraction))
+                if self.coverage_mode == "structured_semantic_neighbourhood_gap"
+                else 0
+            )
+            expected_withheld = (
+                int(round(self.action_count * self.withheld_action_fraction))
+                if self.coverage_mode == "structured_semantic_neighbourhood_gap"
+                else 0
+            )
+            actual_withheld_values = conditional_gap[gap_mask].sum(1)
+            actual_withheld_min = (
+                int(actual_withheld_values.min()) if actual_withheld_values.numel() else 0
+            )
+            actual_withheld_max = (
+                int(actual_withheld_values.max()) if actual_withheld_values.numel() else 0
+            )
+            coverage_passed = all(
+                [
+                    int(gap_mask.sum()) == expected_gap_states,
+                    actual_withheld_min == expected_withheld,
+                    actual_withheld_max == expected_withheld,
+                    role_gap_violations == 0,
+                    hidden_gap_violations == 0,
+                    (not self.require_global_action_coverage)
+                    or globally_unobserved_actions == 0,
+                ]
+            )
             split_passed = all(
                 [
                     overlap_hidden_positive == 0,
@@ -651,6 +803,7 @@ class SemanticEnvironment:
                     negative_advantage_range <= 1.0e-12,
                     orthogonality_error <= 1.0e-5,
                     float((hidden_reward - max_reward).abs().max()) <= 1.0e-7,
+                    coverage_passed,
                 ]
             )
             passed = passed and split_passed
@@ -674,6 +827,18 @@ class SemanticEnvironment:
                     "positive": float(positive_reward.mean()),
                     "local_negative": float(local_reward.mean()),
                     "far_negative": float(far_reward.mean()),
+                },
+                "conditional_coverage": {
+                    "mode": self.coverage_mode,
+                    "gap_state_count": int(gap_mask.sum()),
+                    "expected_gap_state_count": expected_gap_states,
+                    "withheld_action_count_min": actual_withheld_min,
+                    "withheld_action_count_max": actual_withheld_max,
+                    "expected_withheld_action_count": expected_withheld,
+                    "logged_role_gap_violations": role_gap_violations,
+                    "hidden_not_withheld_violations": hidden_gap_violations,
+                    "globally_unobserved_action_count": globally_unobserved_actions,
+                    "passed": coverage_passed,
                 },
             }
         reward_norm_error = float(self.reward_embeddings.norm(dim=1).sub(1).abs().max())
@@ -1544,6 +1709,7 @@ def write_summary_csv(path: Path, summaries: Sequence[Mapping[str, Any]]) -> Non
 def write_formal_checkpoint(
     output_root: Path,
     *,
+    experiment_id: str,
     block_index: int,
     block_seeds: Sequence[int],
     completed_seeds: Sequence[int],
@@ -1578,7 +1744,7 @@ def write_formal_checkpoint(
         checkpoint_root / "CHECKPOINT_COMPLETE.json",
         {
             "schema_version": 1,
-            "experiment_id": FORMAL_EXPERIMENT_ID,
+            "experiment_id": experiment_id,
             "scientific_status": "not_run",
             "checkpoint_only": True,
             "method_ranking_allowed": False,
@@ -1603,6 +1769,10 @@ def source_manifest(output_root: Path) -> dict[str, Any]:
         Path("configs/du1_e6_semantic_focused_dev.yaml"),
         Path("configs/du1_e6_semantic_focused_dev_phase2.yaml"),
         Path("configs/du1_e6_semantic_longrun.yaml"),
+        Path("src/drpo/du1_e6_semantic_gap.py"),
+        Path("src/drpo/du1_e6_semantic_gap_longrun.py"),
+        Path("scripts/run_du1_e6_semantic_gap_longrun.py"),
+        Path("configs/du1_e6_semantic_gap_longrun.yaml"),
         Path("docs/handoff.md"),
         Path("experiments/registry.yaml"),
     ]
@@ -1624,15 +1794,96 @@ def source_manifest(output_root: Path) -> dict[str, Any]:
     }
 
 
+def write_registered_horizon_summary(
+    trajectory_path: Path,
+    config: Mapping[str, Any],
+    output_root: Path,
+) -> None:
+    """Aggregate the preregistered overall-reward checkpoints, when present."""
+    checkpoints = [int(value) for value in config.get("registered_horizon_checkpoints", [])]
+    if not checkpoints:
+        return
+    rows: list[dict[str, Any]] = []
+    with trajectory_path.open() as handle:
+        for line in handle:
+            row = json.loads(line)
+            if int(row.get("step", -1)) in checkpoints:
+                rows.append(row)
+    expected = len(run_seeds(config)) * len(run_specs(config)) * len(checkpoints)
+    if len(rows) != expected:
+        raise RuntimeError(
+            f"registered horizon rows mismatch: expected {expected}, got {len(rows)}"
+        )
+    grouped: dict[tuple[int, float], list[dict[str, Any]]] = {}
+    by_seed: dict[tuple[int, int, float], float] = {}
+    for row in rows:
+        step = int(row["step"])
+        alpha = float(row["alpha"])
+        reward = float(row["test_expected_semantic_reward"])
+        grouped.setdefault((step, alpha), []).append(row)
+        by_seed[(int(row["seed"]), step, alpha)] = reward
+    summary_rows: list[dict[str, Any]] = []
+    for step in checkpoints:
+        baseline = {
+            seed: reward
+            for (seed, row_step, alpha), reward in by_seed.items()
+            if row_step == step and alpha == 0.0
+        }
+        for alpha in sorted({key[1] for key in grouped if key[0] == step}):
+            values = np.asarray(
+                [float(row["test_expected_semantic_reward"]) for row in grouped[(step, alpha)]],
+                dtype=float,
+            )
+            paired = np.asarray(
+                [
+                    by_seed[(seed, step, alpha)] - baseline[seed]
+                    for seed in sorted(baseline)
+                ],
+                dtype=float,
+            )
+            summary_rows.append(
+                {
+                    "step": step,
+                    "alpha": alpha,
+                    "n": int(values.size),
+                    "overall_reward_mean": float(values.mean()),
+                    "overall_reward_std": float(values.std(ddof=1)) if values.size > 1 else 0.0,
+                    "paired_difference_vs_positive_only_mean": float(paired.mean()),
+                    "paired_wins_vs_positive_only": int((paired > 0).sum()),
+                    "paired_losses_vs_positive_only": int((paired < 0).sum()),
+                }
+            )
+    json_dump(
+        output_root / "horizon_summary.json",
+        {
+            "experiment_id": configured_experiment_id(config),
+            "primary_metric": "overall_expected_semantic_reward",
+            "registered_steps": checkpoints,
+            "rows": summary_rows,
+        },
+    )
+    with (output_root / "horizon_summary.csv").open("w", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(summary_rows[0]))
+        writer.writeheader()
+        writer.writerows(summary_rows)
+
+
 def formal_protocol_freeze(config: Mapping[str, Any]) -> dict[str, Any]:
     if not is_formal_config(config):
         raise ValueError("formal protocol freeze is only defined for the formal config")
     return {
-        "experiment_id": FORMAL_EXPERIMENT_ID,
+        "experiment_id": configured_experiment_id(config),
         "user_approval": copy.deepcopy(config["approval"]),
         "held_out_seeds": list(nested(config, "seeds", "held_out_formal")),
+        "data": copy.deepcopy(config["data"]),
+        "conditional_coverage": copy.deepcopy(config.get("conditional_coverage")),
+        "geometry": copy.deepcopy(config["geometry"]),
         "optimizer": copy.deepcopy(config["optimization"]),
         "policy": copy.deepcopy(config["policy"]),
+        "primary_metrics": copy.deepcopy(config.get("primary_metrics")),
+        "registered_horizon_checkpoints": copy.deepcopy(
+            config.get("registered_horizon_checkpoints")
+        ),
         "protocol_a": copy.deepcopy(config["protocol_a"]),
         "protocol_b": copy.deepcopy(config["protocol_b"]),
         "protocol_c": copy.deepcopy(config["protocol_c"]),
@@ -1641,7 +1892,9 @@ def formal_protocol_freeze(config: Mapping[str, Any]) -> dict[str, Any]:
         "terminal_audit": copy.deepcopy(config["terminal_audit"]),
         "formal_gate": copy.deepcopy(config["formal_gate"]),
         "automatic_retuning_allowed": False,
-        "development_seeds_forbidden": [0, 1, 2, 3, 4],
+        "development_seeds_forbidden": list(
+            config.get("development_seeds_forbidden_in_formal_aggregation", [0, 1, 2, 3, 4])
+        ),
     }
 
 
@@ -1653,7 +1906,9 @@ def execute(
 ) -> None:
     started = time.time()
     formal = is_formal_config(config)
-    scientific_manifest_path = prepare_output_manifest_path(output_root, formal=formal)
+    scientific_manifest_path = prepare_output_manifest_path(
+        output_root, formal=formal, experiment_id=configured_experiment_id(config)
+    )
     scientific_status = result_scientific_status(config)
     yaml_dump(output_root / "resolved_config.yaml", config)
     manifest = {
@@ -1795,6 +2050,7 @@ def execute(
             )
             write_formal_checkpoint(
                 output_root,
+                experiment_id=configured_experiment_id(config),
                 block_index=block_index,
                 block_seeds=seed_block,
                 completed_seeds=completed_seeds,
@@ -1807,6 +2063,7 @@ def execute(
     write_summary_csv(output_root / "per_run_summary.csv", summaries)
     aggregate = aggregate_summaries(summaries)
     json_dump(output_root / "aggregate_summary.json", aggregate)
+    write_registered_horizon_summary(trajectory_path, config, output_root)
     if formal:
         json_dump(output_root / "formal_protocol_freeze.json", formal_protocol_freeze(config))
     else:
@@ -1840,6 +2097,17 @@ def execute(
         and all_terminal_audits_accepted
         and formal_two_x_for_all_non_numerical
     )
+    all_formal_terminal_plateau = bool(
+        formal
+        and all_runs_present
+        and all(
+            row.get("terminal_class") == "formal_terminal_plateau"
+            for row in summaries
+        )
+    )
+    stable_method_ranking_allowed = bool(
+        formal_audit_complete and all_formal_terminal_plateau
+    )
     terminal_audit = {
         "experiment_id": configured_experiment_id(config),
         "scientific_status": scientific_status if formal_audit_complete else "pilot",
@@ -1863,7 +2131,8 @@ def execute(
         ),
         "formal_two_x_extension_performed": formal_two_x_for_all_non_numerical,
         "formal_scientific_acceptance": formal_audit_complete,
-        "formal_method_ranking_allowed": formal_audit_complete,
+        "formal_method_ranking_allowed": stable_method_ranking_allowed,
+        "all_formal_terminal_plateau": all_formal_terminal_plateau,
         "scientific_failure_outcomes_preserved": True,
         "pilot_integrity_passed": bool(
             (not formal) and all_runs_present and numerical_failure_count == 0
@@ -1885,7 +2154,7 @@ def execute(
             "execution_mode": config.get("execution_mode"),
             "completed": completed,
             "formal_result": formal,
-            "method_ranking_allowed": bool(formal and completed),
+            "method_ranking_allowed": stable_method_ranking_allowed,
             "expected_runs": expected_runs,
             "actual_runs": len(summaries),
             "elapsed_seconds": time.time() - started,

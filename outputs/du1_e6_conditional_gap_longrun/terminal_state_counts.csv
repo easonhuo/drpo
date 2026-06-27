@@ -1,0 +1,11 @@
+coverage_mode,method,local_alpha,far_lambda,n,formal_terminal_plateau,formal_persistent_drift_or_inconclusive,task_performance_collapse,support_or_temperature_boundary,nan_inf_numerical_failure
+optimal_group_covered,positive_only,0.0,0.0,20,0,20,0,0,0
+optimal_group_covered,local_only,0.5,0.0,20,20,0,0,0,0
+optimal_group_covered,local_only,1.5,0.0,20,3,17,20,0,0
+structured_gap,positive_only,0.0,0.0,20,19,1,0,0,0
+structured_gap,local_only,0.5,0.0,20,0,20,0,0,0
+structured_gap,local_only,1.5,0.0,20,1,19,20,0,0
+structured_gap,uncontrolled,0.5,4.0,20,1,19,20,0,0
+structured_gap,near_zero,0.5,4.0,20,5,15,16,0,0
+structured_gap,far_cap,0.5,4.0,20,0,20,1,0,0
+structured_gap,budget_matched_global,0.5,4.0,20,0,20,0,0,0

@@ -1,0 +1,114 @@
+{
+  "affected_selectors": [
+    "DRPO / SNA2C \u8fdc\u573a\u8d1f\u68af\u5ea6\u52a8\u529b\u5b66\u7814\u7a76\u4e3b\u6587\u6863 v50\uff08\u6cbb\u7406 Pipeline Stage 3 Shadow Mode \u542f\u52a8\u7248\uff09",
+    "DRPO / SNA2C \u8fdc\u573a\u8d1f\u68af\u5ea6\u52a8\u529b\u5b66\u7814\u7a76\u4e3b\u6587\u6863 v51\uff08D-U1 E6 \u6761\u4ef6\u7f3a\u53e3\u95ed\u73af\u4e0e\u6700\u5c0f\u6539\u52a8\u6b63\u5f0f\u534f\u8bae\u7248\uff09"
+  ],
+  "base_commit": "1fa7f04d4830e4d562ab147dbb11dfa8cecc9b5d",
+  "base_handoff_sha256": "058db535193cd9cf64d1f6e639752305cdad8f875f97ed0a92820f7887fbdc9c",
+  "base_registry_sha256": "330a5a832b4707fdabf2d7a81764201ba98293308d5b3082361e6828ae72104c",
+  "candidate_replaced_authority": false,
+  "candidate_sha256": "c770d2bfa2abb8f1c0feb9606b544b7775fb297d002afdef6e927c05ab299579",
+  "current_registry_sha256": "9dae51728a8762b9184a5c3ecfe93df2276638417a86f672ec7956dc81103244",
+  "exact_manual_candidate_match": true,
+  "full_candidate_saved": false,
+  "head_commit": "f7cd87a90584f8a2d7b13cfa9b55767972ee86e9",
+  "history_preservation_passed": true,
+  "idempotence_passed": true,
+  "llm_blocking_gate_used": false,
+  "manual_handoff_authoritative": true,
+  "manual_sha256": "c770d2bfa2abb8f1c0feb9606b544b7775fb297d002afdef6e927c05ab299579",
+  "mode": "shadow",
+  "network_used": false,
+  "operation_count": 2,
+  "performance": {
+    "base_validation_ms": 44.644,
+    "comparison_and_registry_ms": 292.303,
+    "hard_limit_ms": 15000.0,
+    "policy_and_schema_ms": 6.749,
+    "render_and_idempotence_ms": 26.562,
+    "target_p95_ms": 5000.0,
+    "total_ms": 370.442,
+    "within_hard_limit": true,
+    "within_target": true
+  },
+  "policy_id": "GOV-HANDOFF-INDEX-01",
+  "registry_transition_assertions": [
+    {
+      "assertion_id": "conditional-gap-status-finite-step",
+      "entity_id": "D-U1-E6-CONDITIONAL-GAP-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_conditional_gap_longrun/RUN_COMPLETE.json",
+          "sha256": "65a4b5dd428265351a842266bba5a09641a89c2ff65637393b6138f2fca9656e"
+        },
+        {
+          "path": "outputs/du1_e6_conditional_gap_longrun/terminal_audit.json",
+          "sha256": "2ad1b7eddfe393af4b1f48a456d0034fbe9b4af7bc343621b66b8b7ca15d040c"
+        }
+      ],
+      "field_path": [
+        "status"
+      ],
+      "from": "not_run",
+      "machine": "scientific_status",
+      "to": "finite_step_validated"
+    },
+    {
+      "assertion_id": "conditional-gap-scientific-status-finite-step",
+      "entity_id": "D-U1-E6-CONDITIONAL-GAP-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_conditional_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "ec73165e954abb03b86ce12fcc0bc348f1da5b98793ebfe7b5211adc181d4347"
+        },
+        {
+          "path": "outputs/du1_e6_conditional_gap_longrun/terminal_audit.json",
+          "sha256": "2ad1b7eddfe393af4b1f48a456d0034fbe9b4af7bc343621b66b8b7ca15d040c"
+        }
+      ],
+      "field_path": [
+        "scientific_status"
+      ],
+      "from": "not_run",
+      "machine": "scientific_status",
+      "to": "finite_step_validated"
+    },
+    {
+      "assertion_id": "conditional-gap-gate-block-after-completion",
+      "entity_id": "D-U1-E6-CONDITIONAL-GAP-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_conditional_gap_longrun/RUN_COMPLETE.json",
+          "sha256": "65a4b5dd428265351a842266bba5a09641a89c2ff65637393b6138f2fca9656e"
+        }
+      ],
+      "field_path": [
+        "execution_gate",
+        "state"
+      ],
+      "from": "ready",
+      "machine": "execution_gate",
+      "to": "blocked"
+    },
+    {
+      "assertion_id": "conditional-gap-activation-block-after-completion",
+      "entity_id": "D-U1-E6-CONDITIONAL-GAP-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_conditional_gap_longrun/RUN_COMPLETE.json",
+          "sha256": "65a4b5dd428265351a842266bba5a09641a89c2ff65637393b6138f2fca9656e"
+        }
+      ],
+      "field_path": [
+        "formal_execution",
+        "activation_state"
+      ],
+      "from": "active",
+      "machine": "activation_state",
+      "to": "blocked"
+    }
+  ],
+  "schema_version": 1,
+  "status": "PASS",
+  "update_id": "DU1-E6-SEMANTIC-GAP-FORMAL-2026-06-27"
+}

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import gzip
 import hashlib
 import importlib.util
 import json
@@ -110,8 +111,19 @@ def write_delta(
     return path
 
 
-def test_current_repository_bootstrap_delta_matches_manual_handoff() -> None:
-    delta = ROOT / "docs/handoff_deltas/GOV-STAGE3-SHADOW-BOOTSTRAP-2026-06-27/HANDOFF_DELTA.yaml"
+def test_historical_bootstrap_delta_matches_golden_candidate() -> None:
+    delta_dir = ROOT / "docs/handoff_deltas/GOV-STAGE3-SHADOW-BOOTSTRAP-2026-06-27"
+    payload = yaml.safe_load((delta_dir / "HANDOFF_DELTA.yaml").read_text())
+    base_text = git(ROOT, "show", f"{payload['base']['commit']}:docs/handoff.md") + "\n"
+    rendered = MODULE.render(base_text, payload["operations"]).text
+    assert digest(rendered) == payload["expected"]["candidate_sha256"]
+    golden = gzip.decompress((delta_dir / "candidate.golden.md.gz").read_bytes()).decode()
+    assert rendered == golden
+    assert MODULE.render(rendered, payload["operations"]).text == rendered
+
+
+def test_current_repository_semantic_gap_delta_matches_manual_handoff() -> None:
+    delta = ROOT / "docs/handoff_deltas/DU1-E6-SEMANTIC-GAP-FORMAL-2026-06-27/HANDOFF_DELTA.yaml"
     result = MODULE.check_delta(ROOT, delta)
     assert result.report["status"] == "PASS"
     assert result.report["exact_manual_candidate_match"] is True
@@ -307,7 +319,7 @@ def test_full_acceptance_mutations_are_rejected(tmp_path: Path) -> None:
 
 
 def test_full_acceptance_fast_gate_stays_below_hard_limit() -> None:
-    delta = ROOT / "docs/handoff_deltas/GOV-STAGE3-SHADOW-BOOTSTRAP-2026-06-27/HANDOFF_DELTA.yaml"
+    delta = ROOT / "docs/handoff_deltas/DU1-E6-SEMANTIC-GAP-FORMAL-2026-06-27/HANDOFF_DELTA.yaml"
     samples = []
     for _ in range(3):
         started = time.perf_counter()

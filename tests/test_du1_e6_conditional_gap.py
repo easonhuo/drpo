@@ -141,25 +141,56 @@ def test_smoke_is_nonformal_and_complete(tmp_path: Path) -> None:
     assert terminal["formal_scientific_acceptance"] is False
 
 
-def test_registry_and_handoff_activate_only_the_new_formal_protocol() -> None:
+def test_registry_and_handoff_record_formal_closure_and_keep_taper_blocked() -> None:
     registry = yaml.safe_load((REPO_ROOT / "experiments" / "registry.yaml").read_text())
     canonical = {item["id"]: item for item in registry["experiments"]}
     development = {item["id"]: item for item in registry["development_experiment_registrations"]}
     formal = canonical[FORMAL_EXPERIMENT_ID]
-    assert formal["status"] == "not_run"
-    assert formal["execution_gate"]["state"] == "ready"
-    assert formal["formal_execution"]["activation_state"] == "active"
+    assert formal["status"] == "finite_step_validated"
+    assert formal["scientific_status"] == "finite_step_validated"
+    assert formal["execution_gate"]["state"] == "blocked"
+    assert formal["formal_execution"]["activation_state"] == "blocked"
     assert formal["held_out_seeds"] == list(range(130, 150))
+    assert formal["execution"]["state"] == "delivered"
+    assert formal["evidence"]["actual_runs"] == 200
+    assert formal["evidence"]["task_performance_collapse_events"] == 77
+    assert formal["evidence"]["support_or_temperature_boundary_events"] == 0
+    assert formal["evidence"]["nan_inf_numerical_events"] == 0
+    assert formal["evidence"]["terminal_plateau_runs"] == 49
+    assert formal["evidence"]["persistent_drift_or_inconclusive_runs"] == 151
     assert development["D-U1-E6-CONDITIONAL-GAP-DEV-01"]["status"] == "pilot"
     assert canonical["D-U1-E6-SEMANTIC-LONGRUN-01"]["status"] == "long_run_validated"
     taper = development["D-U1-E6-TAPER-01"]
     assert taper["predecessor"] == "D-U1-E6-SEMANTIC-LONGRUN-01"
     assert taper["predecessor_delivery_satisfied"] is True
     assert taper["additional_predecessor"] == FORMAL_EXPERIMENT_ID
-    assert "D-U1-E6-CONDITIONAL-GAP-01_delivery" in taper["blocked_by"]
+    assert "D-U1-E6-CONDITIONAL-GAP-01_delivery" not in taper["blocked_by"]
+    assert "frozen_semantic_remoteness_coordinate" in taper["blocked_by"]
+    assert taper["formal_execution"]["activation_state"] == "blocked"
     handoff = (REPO_ROOT / "docs" / "handoff.md").read_text()
-    assert "v48（D-U1 E6 大规模条件支持缺口协议与正式执行准备版）" in handoff
-    assert "禁止称为 OOD generalization" in handoff
+    assert "v51（D-U1 E6 条件缺口闭环与最小改动正式协议版）" in handoff
+    assert "task-performance collapse `77/200`" in handoff
+    assert "禁止升级为 long-run validated" in handoff
+
+
+def test_compact_formal_closure_records_event_separation_and_status() -> None:
+    root = REPO_ROOT / "outputs" / "du1_e6_conditional_gap_longrun"
+    complete = json.loads((root / "RUN_COMPLETE.json").read_text())
+    terminal = json.loads((root / "terminal_audit.json").read_text())
+    index = json.loads((root / "ARTIFACT_INDEX.json").read_text())
+    assert complete["actual_runs"] == complete["expected_runs"] == 200
+    assert complete["scientific_status"] == "finite_step_validated"
+    assert complete["method_ranking_allowed"] is False
+    assert terminal["formal_scientific_acceptance"] is True
+    assert terminal["scientific_status"] == "finite_step_validated"
+    assert terminal["task_performance_collapse_count"] == 77
+    assert terminal["support_or_temperature_boundary_count"] == 0
+    assert terminal["nan_inf_numerical_failure_count"] == 0
+    assert index["terminal_plateau_count"] == 49
+    assert index["persistent_drift_or_inconclusive_count"] == 151
+    assert index["raw_complete_artifact"]["sha256"] == (
+        "8c64f197e90e945f3a6bf8326c63abd6c4b3118e1c6c8bd614c73af6d1e5be93"
+    )
 
 
 def test_compact_pilot_closure_remains_nonformal() -> None:

@@ -1,0 +1,161 @@
+experiment_id: D-U1-E6-SEMANTIC-GAP-LONGRUN-01
+parent_experiment: E6
+environment: D-U1
+scientific_status: not_run
+execution_mode: formal_longrun
+formal_parameter_freeze: true
+predecessor: D-U1-E6-SEMANTIC-LONGRUN-01
+approval:
+  user_approved: true
+  approval_date: '2026-06-27'
+  approval_scope: minimum_change_semantic_gap_formal_promotion
+  automatic_retuning_allowed: false
+claim: >-
+  In the original 64-action shared-semantic E6 environment, with only a
+  state-conditioned logged-action coverage mask added, formally test whether
+  positive-only has a lower overall-reward ceiling, whether alpha in (0,1)
+  exceeds that ceiling, and whether the unpenalized alpha=1 branch undergoes
+  progressively larger task-reward degradation over a 32000-step horizon.
+non_claims:
+- no_state_distribution_OOD_generalization
+- no_alpha_greater_than_one_stress_claim
+- no_transformer_external_validity
+- no_cross_task_method_superiority
+- no_steady_state_ranking_without_terminal_plateau
+seeds:
+  development: []
+  held_out_formal: [150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169]
+development_seeds_forbidden_in_formal_aggregation: [900, 901, 902, 903, 904, 905, 906, 907, 908, 909]
+data:
+  state_dim: 6
+  semantic_dim: 4
+  action_count: 64
+  train_states: 2048
+  test_states: 2048
+  positive_actions_per_state: 4
+  far_negative_actions_per_state: 4
+  hidden_optimal_actions_per_state: 1
+  local_negative_actions_per_state: 1
+  state_distribution: standard_normal
+  train_test_relation: independent_same_distribution
+  terminology: held_out_context_generalization
+conditional_coverage:
+  mode: structured_semantic_neighbourhood_gap
+  gap_state_fraction: 0.5
+  withheld_action_fraction: 0.25
+  state_partition: top_half_of_state_0_plus_0_37_state_1
+  withhold_basis: per_state_reward_similarity_top_fraction
+  apply_to_logged_roles: [positive, local_negative, far_negative]
+  evaluation_oracle_remains_complete: true
+  require_global_action_coverage: true
+geometry:
+  target_offset: 0.45
+  reward_scale: 0.5
+  positive_advantage: 1.0
+  negative_advantage: -1.0
+  fixed_advantage: true
+  random_action_id_permutation: true
+policy:
+  hidden_dim: 64
+  fixed_concentration: 8.0
+  learnable_concentration_floor: 0.05
+  initial_learnable_concentration: 8.0
+  learnable_concentration_upper_clamp: false
+  activation: tanh
+optimization:
+  optimizer: Adam
+  learning_rate: 0.001
+  betas: [0.9, 0.999]
+  eps: 1.0e-8
+  batch_size: 128
+  maximum_steps: 32000
+  evaluation_interval_steps: 200
+  audit_states: 512
+  parallel_workers: 8
+  far_cap_ratio_to_weighted_local_gradient: 1.0
+protocol_a:
+  responsibility: minimum_change_gap_alpha_utility_and_uncontrolled_degradation
+  concentration_mode: fixed
+  local_alpha_grid: [0.0, 0.25, 0.5, 0.75, 1.0]
+  far_pressure_lambda: 0.0
+protocol_b:
+  responsibility: not_in_scope
+  concentration_mode: fixed
+  settings: []
+protocol_c:
+  responsibility: not_in_scope
+  concentration_mode: fixed
+  local_alpha: 0.0
+  far_pressure_lambda: 0.0
+  embedding_modes: []
+  methods: []
+primary_metrics:
+- overall_expected_semantic_reward
+- paired_reward_difference_vs_positive_only
+- reward_trajectory_across_registered_horizons
+registered_horizon_checkpoints: [4000, 8000, 16000, 24000, 32000]
+metrics:
+- hidden_optimal_probability
+- positive_support_probability
+- expected_semantic_reward
+- normalized_semantic_extrapolation
+- entropy
+- effective_support
+- concentration
+- raw_positive_local_far_gradient_norms
+- raw_controlled_negative_gradient_norm
+- raw_total_gradient_norm
+- adam_parameter_update_norm
+reporting_separation:
+- task_performance_collapse
+- support_or_temperature_boundary
+- nan_inf_numerical_failure
+events:
+  task_collapse_ratio_to_paired_positive_only: 0.2
+  effective_support_boundary: 1.5
+  concentration_warning: 80.0
+checkpointing:
+  seed_block_size: 5
+  seed_blocks:
+  - [150, 151, 152, 153, 154]
+  - [155, 156, 157, 158, 159]
+  - [160, 161, 162, 163, 164]
+  - [165, 166, 167, 168, 169]
+  persistence: persistent_local
+  write_compact_manifest_after_each_block: true
+terminal_audit:
+  mode: formal_two_x_windows
+  development_reference_horizon_steps: 16000
+  formal_horizon_steps: 32000
+  formal_extension_factor: 2.0
+  window_1_steps: [16000, 24000]
+  window_2_steps: [24000, 32000]
+  metric_window_mean_abs_tolerances:
+    test_expected_semantic_reward: 0.01
+    test_hidden_optimal_probability: 0.02
+    test_normalized_semantic_extrapolation: 0.08
+    test_entropy_mean: 0.08
+  raw_total_gradient_median_ratio_max: 1.25
+  adam_update_median_ratio_max: 1.25
+  require_all_registered_runs: true
+  allow_scientific_failure_outcomes: true
+formal_gate:
+  enabled: true
+  approval_record: user_approved_2026-06-27_minimum_change_semantic_gap
+  frozen_protocol_path: configs/du1_e6_semantic_gap_longrun.yaml
+  held_out_seeds: [150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169]
+outputs:
+  required:
+  - resolved_config.yaml
+  - scientific_run_manifest.json
+  - environment_audits.json
+  - trajectories.jsonl
+  - per_run_summary.json
+  - per_run_summary.csv
+  - aggregate_summary.json
+  - horizon_summary.json
+  - horizon_summary.csv
+  - terminal_audit.json
+  - formal_protocol_freeze.json
+  - run_manifest.json
+  - RUN_COMPLETE.json

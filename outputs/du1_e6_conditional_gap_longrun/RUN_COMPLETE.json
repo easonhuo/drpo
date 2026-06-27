@@ -1,0 +1,11 @@
+{
+  "actual_runs": 200,
+  "completed": true,
+  "elapsed_seconds": 982.7848348617554,
+  "execution_mode": "formal_longrun",
+  "expected_runs": 200,
+  "experiment_id": "D-U1-E6-CONDITIONAL-GAP-01",
+  "formal_result": true,
+  "method_ranking_allowed": false,
+  "scientific_status": "finite_step_validated"
+}
