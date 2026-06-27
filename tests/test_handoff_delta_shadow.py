@@ -123,7 +123,8 @@ def test_historical_bootstrap_delta_matches_golden_candidate() -> None:
 
 
 def test_current_repository_semantic_gap_delta_matches_manual_handoff() -> None:
-    delta = ROOT / "docs/handoff_deltas/DU1-E6-SEMANTIC-GAP-FORMAL-2026-06-27/HANDOFF_DELTA.yaml"
+    # The node name is governance-inventoried; the assertion follows the current shadow delta.
+    delta = ROOT / "docs/handoff_deltas/EXT-C-E8-V4.3-DYNAMIC-CONTROL-2026-06-27/HANDOFF_DELTA.yaml"
     result = MODULE.check_delta(ROOT, delta)
     assert result.report["status"] == "PASS"
     assert result.report["exact_manual_candidate_match"] is True
@@ -319,7 +320,7 @@ def test_full_acceptance_mutations_are_rejected(tmp_path: Path) -> None:
 
 
 def test_full_acceptance_fast_gate_stays_below_hard_limit() -> None:
-    delta = ROOT / "docs/handoff_deltas/DU1-E6-SEMANTIC-GAP-FORMAL-2026-06-27/HANDOFF_DELTA.yaml"
+    delta = ROOT / "docs/handoff_deltas/EXT-C-E8-V4.3-DYNAMIC-CONTROL-2026-06-27/HANDOFF_DELTA.yaml"
     samples = []
     for _ in range(3):
         started = time.perf_counter()

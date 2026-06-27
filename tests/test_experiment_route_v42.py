@@ -112,11 +112,21 @@ def test_e7_benchmark_scope_is_exactly_nine_locomotion_tasks() -> None:
 
 def test_e8_scale_keeps_mechanism_and_scale_roles_separate() -> None:
     experiments = _experiments()
-    mechanism = experiments["EXT-C-E8-V4.2"]
+    prior = experiments["EXT-C-E8-V4.2"]
+    mechanism = experiments["EXT-C-E8-V4.3"]
     scale = experiments["EXT-C-E8-SCALE-01"]
+    assert prior["execution_class"] == "superseded"
+    assert prior["status"] == "superseded"
+    assert prior["superseded_by"] == "EXT-C-E8-V4.3"
     assert mechanism["execution_class"] == "pilot"
     assert mechanism["status"] == "not_run"
-    assert scale["scaling_plan"]["mechanism_owner"] == "EXT-C-E8-V4.2"
+    assert mechanism["methods"] == [
+        "positive_only",
+        "controlled_negative",
+        "dynamic_controlled_negative",
+        "uncontrolled_negative",
+    ]
+    assert scale["scaling_plan"]["mechanism_owner"] == "EXT-C-E8-V4.3"
     assert scale["scaling_plan"]["primary_model"] == "Qwen_Instruct_3B"
     assert scale["scaling_plan"]["frozen_confirmation_model"] == "Qwen_Instruct_7B"
     assert scale["scaling_plan"]["retune_method_family_on_scale_tasks"] is False

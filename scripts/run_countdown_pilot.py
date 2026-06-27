@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""One-decision Countdown v4.3 pilot launcher.
+"""One-decision Countdown V4.3 dynamic-remoteness pilot launcher.
 
 The operator supplies only the local Qwen2.5-0.5B-Instruct path and a new
 work directory. The launcher binds the current Git commit, starts the hardened
@@ -15,7 +15,7 @@ import sys
 from pathlib import Path
 
 
-EXPERIMENT_ID = "EXT-C-E8-V4.2"
+EXPERIMENT_ID = "EXT-C-E8-V4.3"
 
 
 def _git(repo: Path, *args: str) -> str:
@@ -26,7 +26,7 @@ def _git(repo: Path, *args: str) -> str:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Run the registered Countdown pilot under the hardened guard"
+        description="Run the registered Countdown V4.3 pilot under the hardened guard"
     )
     parser.add_argument("--model_path", required=True)
     parser.add_argument("--work_dir", required=True, help="New or empty persistent run directory")

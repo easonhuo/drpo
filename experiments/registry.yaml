@@ -1625,11 +1625,13 @@ experiments:
 - id: EXT-C-E8-V4.2
   environment: EXT-C
   name: countdown_balanced_offline_dynamic_far_field_external_validation
-  status: not_run
+  status: superseded
   claim: Test whether fixed-advantage far negatives exert larger and more damaging policy-relative influence than matched near negatives in a shared-parameter Transformer, and whether selective far-negative control preserves held-out canonical pattern-family performance better than positive-only, uncontrolled negative updates, and an equal-initial-budget global control. Near negatives are not assumed to be universally beneficial.
   role: external_validity
-  execution_class: pilot
+  execution_class: superseded
   registration_base_commit: e8b62dde518f593ff8325c7da94c41406311ca45
+  superseded_by: EXT-C-E8-V4.3
+  preserved_for_provenance: true
   pilot_execution:
     channel_ref: hardened-v1
     launch_mode: guarded_orchestrator
@@ -1902,6 +1904,150 @@ experiments:
     automatic_decision_log: automatic_decisions.json
     failure_marker: RUN_FAILED.json
     terminal_audit: terminal_audit.json
+  formal_run_status: not_run
+  execution:
+    state: registered
+    run_id: null
+    last_heartbeat_utc: null
+    process_exit_code: null
+  evidence:
+    raw_complete: false
+    terminal_audited: false
+    package_created: false
+    package_filename: null
+    package_sha256: null
+    delivered_to_user: false
+    applied_commit: null
+- id: EXT-C-E8-V4.3
+  environment: EXT-C
+  name: countdown_policy_relative_dynamic_negative_control_pilot
+  status: not_run
+  claim: >-
+    Test whether the V4.2 static construction-time near/far labels caused the
+    controlled method to miss negative completions that became far under the
+    moving policy, and whether applying the same current-policy token-surprisal
+    taper to every negative branch improves verifier success and valid rate
+    relative to static control, positive-only, and uncontrolled negatives.
+  role: external_validity_focused_method_diagnostic
+  execution_class: pilot
+  registration_base_commit: 0907c3c0e76fc836c2bf2b752abf554c17f79f22
+  pilot_execution:
+    channel_ref: hardened-v1
+    launch_mode: guarded_orchestrator
+    operator_entrypoint: scripts/run_countdown_pilot.py
+    guard_required: true
+  does_not_replace: [D-U1, D-Diag]
+  supersedes: EXT-C-E8-V4.2
+  preserved_v4_2_role: >-
+    Matched near/far pairs remain valid for the instantaneous fixed-advantage
+    mechanism probe. Only their use as permanent long-run control identities is
+    replaced.
+  code_entrypoint: src/drpo/countdown_qwen_arena_onefile.py
+  one_click_entrypoint: scripts/run_countdown_pilot.py
+  primary_model: Qwen2.5-0.5B-Instruct
+  parameterization:
+    runner_version: 4.4.0-dynamic-negative-control
+    main_comparison: bf16_lora
+    shared_across_methods: true
+    qlora: engineering_smoke_only
+    full_finetune_role: isolated_reference_capacity_diagnostic_only
+  capability_gates:
+    mechanism_and_focused_pilot:
+      greedy_success_min: 0.08
+      valid_rate_min: 0.95
+      failure_action: stop_before_interpreting_negative_control
+    formal_method_ranking:
+      greedy_success_min: 0.15
+      valid_rate_min: 0.95
+      failure_action: >-
+        Run and report the focused single-seed pilot, but prohibit formal method
+        ranking or scale-up claims.
+    threshold_note: >-
+      The 0.08 gate permits the approved 0.5B focused diagnostic; the 0.15 gate
+      remains a floor-effect guard for any later ranking claim. Neither threshold
+      may change after results are observed.
+  data:
+    inherited_from: EXT-C-E8-V4.2
+    task: four-number Countdown arithmetic
+    terminology: held_out_canonical_pattern_family_generalization
+    generated_sizes: {train: 6000, validation: 500, test: 1000}
+    offline_matched_rows: 6000
+    fixed_negative_advantage: -1.0
+    static_pair_role: instantaneous_mechanism_matching_and_branch_provenance
+    long_run_remoteness_role: recomputed_from_current_policy_each_optimizer_step
+    negative_bank_expansion: not_in_this_update
+  methods:
+  - positive_only
+  - controlled_negative
+  - dynamic_controlled_negative
+  - uncontrolled_negative
+  method_definitions:
+    controlled_negative: >-
+      V4.2 static ablation: initial near branch remains untapered and only the
+      initial far branch receives detached token-surprisal tapering.
+    dynamic_controlled_negative: >-
+      Apply the same detached current-policy token-surprisal taper to both
+      initially-near and initially-far negative branches.
+    uncontrolled_negative: Shared calibrated negative scale without surprisal taper.
+  frozen_controls:
+    shared_initial_lora_adapter: true
+    shared_offline_data: true
+    shared_training_seed: true
+    shared_evaluation_seed: true
+    near_mix: 0.5
+    far_mix: 0.5
+    taper_lambda: 0.7
+    surprisal_threshold: 2.0
+    maximum_effective_epochs: 6
+    minimum_effective_epochs_before_early_stop: 2
+    evaluation_interval_effective_epochs: 1
+    early_stop_patience_evaluations: 2
+    early_stop_delta: 0.002
+    selection_metric: greedy_success
+    learning_rate: 5.0e-05
+    warmup_ratio: 0.03
+    maximum_gradient_norm: 1.0
+    development_seed: 1234
+  negative_scale_calibration:
+    inherited_formula: beta_equals_positive_rms_over_uncontrolled_negative_rms
+    calibration_split: fixed_training_subset_before_method_training
+    shared_by: [controlled_negative, dynamic_controlled_negative, uncontrolled_negative]
+    task_metrics_used_for_selection: false
+    validation_or_test_used: false
+  primary_metrics:
+  - greedy_verifier_success
+  - pass_at_k
+  - valid_rate
+  - heldout_pattern_family_coverage
+  - heldout_pattern_family_precision_micro
+  - heldout_pattern_family_precision_macro
+  - best_and_terminal_checkpoint_results
+  diagnostics:
+  - initial_near_fraction_currently_above_threshold
+  - current_near_and_far_surprisal
+  - current_near_and_far_taper_weight
+  - raw_and_tapered_near_and_far_gradient_norm
+  - positive_negative_gradient_cosine
+  reporting_separation:
+  - task_performance_degradation
+  - support_or_structure_boundary_event
+  - nan_inf_numerical_failure
+  interpretation_limits:
+  - single_seed_is_pilot_only
+  - weight_trajectory_is_implementation_evidence_not_primary_outcome
+  - no_universal_method_ranking
+  - no_state_distribution_ood_claim
+  - countdown_does_not_replace_controlled_causal_identification
+  expected_outputs:
+  - RUN_COMPLETE.json
+  - terminal_audit.json
+  - arena_summary.csv
+  - methods_each_dynamic_diagnostics_jsonl
+  orchestration:
+    gpu_selection_default: auto_all_visible_up_to_8
+    method_training: one_method_per_gpu_fifo_queue
+    reason_build_offline_not_sharded: preserve_one_deterministic_rng_stream_and_pattern_quota_protocol
+    terminal_audit_required: true
   formal_run_status: not_run
   execution:
     state: registered
@@ -2232,7 +2378,7 @@ experiments:
 - id: EXT-C-E8-SCALE-01
   execution_gate:
     state: blocked
-    blocked_by: [EXT-C-E8-V4.2, EXT-H-E7-BENCH-01]
+    blocked_by: [EXT-C-E8-V4.3, EXT-H-E7-BENCH-01]
     blocking_reason: >-
       The audited Countdown mechanism/pilot and the continuous external benchmark
       must be delivered before model/data scaling uses a frozen method shortlist.
@@ -2264,7 +2410,7 @@ experiments:
     runner_archive_policy:
       mode: forbid
   scaling_plan:
-    mechanism_owner: EXT-C-E8-V4.2
+    mechanism_owner: EXT-C-E8-V4.3
     primary_model: Qwen_Instruct_3B
     frozen_confirmation_model: Qwen_Instruct_7B
     dataset: larger_fixed_offline_countdown_dataset

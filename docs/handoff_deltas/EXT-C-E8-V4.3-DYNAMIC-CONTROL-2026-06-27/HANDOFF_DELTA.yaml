@@ -1,0 +1,88 @@
+schema_version: 1
+update_id: EXT-C-E8-V4.3-DYNAMIC-CONTROL-2026-06-27
+mode: shadow
+base:
+  commit: 0907c3c0e76fc836c2bf2b752abf554c17f79f22
+  handoff_sha256: c770d2bfa2abb8f1c0feb9606b544b7775fb297d002afdef6e927c05ab299579
+  registry_sha256: 9dae51728a8762b9184a5c3ecfe93df2276638417a86f672ec7956dc81103244
+renderer_version: 1
+operations:
+- operation_id: rename-v51-title-to-v52-countdown-dynamic-control
+  op: replace_heading
+  heading_path:
+  - DRPO / SNA2C 远场负梯度动力学研究主文档 v51（D-U1 E6 条件缺口闭环与最小改动正式协议版）
+  new_heading: DRPO / SNA2C 远场负梯度动力学研究主文档 v52（Countdown 动态 remoteness 控制 pilot 版）
+  reason: Register the user-approved V4.3 focused pilot on top of the current v51 master without rewriting prior history.
+- operation_id: prepend-v52-countdown-dynamic-control-record
+  op: insert_after_heading
+  heading_path:
+  - DRPO / SNA2C 远场负梯度动力学研究主文档 v52（Countdown 动态 remoteness 控制 pilot 版）
+  block_id: v52-ext-c-e8-v43-dynamic-control
+  content: '> **v52 增量登记：Countdown `EXT-C-E8-V4.3` 动态负样本 remoteness 控制（不删除 v51 及更早内容）**
+
+    >
+
+    > **v51（D-U1 E6 条件缺口闭环与最小改动正式协议版）历史标题与全部内容继续保留。**
+
+    >
+
+    > - 用户确认：matched near/far pair 继续用于瞬时机制研究，但 near/far 是相对当前策略变化的状态，不能把数据构造时的身份永久用于长期训练控制。V4.2 的静态 `controlled_negative`
+    只 taper 初始 far 分支；初始 near 在训练中进入 far 区后仍保持未衰减，因而没有真正测试“控制所有当前远场负样本”。
+
+    > - 新执行 ID 为 `EXT-C-E8-V4.3`，状态为 **尚未运行（not_run）**，科学职责为外部有效性的 focused method diagnostic。V4.2 完整保留为 provenance 并登记 superseded；它的
+    matched-pair mechanism probe 设计不被否定。
+
+    > - V4.3 新增 `dynamic_controlled_negative`：对初始 near 与初始 far 两个负分支都按当前模型 token surprisal 使用同一 detached exponential taper。旧
+    `controlled_negative` 原样保留为 static-label ablation；同时比较 `positive_only` 与 `uncontrolled_negative`。本轮不扩充 negative bank，不改数据规模、seed、学习率、训练
+    horizon、taper lambda、threshold、LoRA 配置或共同负梯度尺度。
+
+    > - 0.5B focused pilot 在 reference greedy `>=0.08` 且 valid `>=0.95` 时允许执行四方法，以检验实现修复和初步效果；`15%/95%` 继续作为任何正式方法排名的 floor-effect
+    门禁。低于 15% 时必须明确标注 single-seed pilot，不得形成方法排名、scale-up 结论或论文方法胜负。
+
+    > - 主要结果仍是 verifier success、pass@k、valid rate、held-out canonical pattern-family coverage/precision 以及 best/terminal 终态。当前
+    near/far 权重轨迹只是实现证据，用于确认实际运行的是动态控制，不是主要科学结果；即使权重按预期变化但任务指标不改善，方法仍判定无效。
+
+    > - 任务性能退化、support/structure boundary 与 NaN/Inf 数值失败继续分开报告。Countdown 仍不替代 D-U1/D-Diag 的受控因果识别，也不得称 state-distribution
+    OOD generalization。
+
+    > - 本更新重基于 `main` commit `0907c3c0e76fc836c2bf2b752abf554c17f79f22`，保留 v51 的 D-U1 E6 条件缺口正式协议与治理 Stage 3 shadow mode；未运行真实
+    Qwen/CUDA 实验。'
+- operation_id: append-v52-countdown-current-gate-override
+  op: append_to_section
+  heading_path:
+  - 0. 研究与执行原则（每次新会话首先阅读）
+  - 0.1 当前执行门禁
+  block_id: v52-countdown-current-gate-override
+  content: '- **Countdown v52 覆盖：** `EXT-C-E8-V4.3` 取代 V4.2 成为当前 E8-MECH/focused pilot；V4.2 只保留 matched-pair mechanism provenance。`EXT-C-E8-SCALE-01`
+    继续等待 V4.3 与 E7-BENCH，不因本次实现自动解锁。'
+- operation_id: append-v52-e8-route-override
+  op: append_to_section
+  heading_path:
+  - 3. 连续统一环境 C-U1 的详细设计
+  - 3.9 E6--E8 方法迁移与规模验证路线（v42 锁定）
+  block_id: v52-e8-route-override
+  content: 7. **v52 路线覆盖：** 上述第 5 项的当前 E8-MECH owner 更新为 `EXT-C-E8-V4.3`。V4.3 只修复长期训练中的动态 remoteness 控制并保留 V4.2 静态方法作消融；E8-SCALE
+    的 3B/7B 规模结论仍需后续独立执行。
+- operation_id: append-v52-execution-order-override
+  op: append_to_section
+  heading_path:
+  - 6. 接下来唯一执行顺序
+  block_id: v52-execution-order-override
+  content: 11. **v52 执行覆盖：** 当锁定路线进入 E8-MECH 时，执行 `EXT-C-E8-V4.3` 而不是 V4.2；当前只完成注册和代码实现，真实 Qwen/CUDA pilot 仍为 not_run。
+registry:
+  mode: expected_after
+  expected_after_sha256: 4e82fb50db25e0d33a1f7d5e5bc309fc6e599c1085f2dfffbab895afb777efc5
+  transitions:
+  - assertion_id: ext-c-e8-v42-superseded-by-v43
+    entity_id: EXT-C-E8-V4.2
+    field_path:
+    - status
+    machine: scientific_status
+    from: not_run
+    to: superseded
+    evidence:
+    - docs/handoff.md
+    - experiments/registry.yaml
+expected:
+  candidate_sha256: 8574e7a481180160da1da0ca450c507751df4cf36b53d6c851e8acb60a39b6f6
+  manual_sha256: 8574e7a481180160da1da0ca450c507751df4cf36b53d6c851e8acb60a39b6f6

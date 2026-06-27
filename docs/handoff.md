@@ -1,4 +1,4 @@
-# DRPO / SNA2C 远场负梯度动力学研究主文档 v51（D-U1 E6 条件缺口闭环与最小改动正式协议版）
+# DRPO / SNA2C 远场负梯度动力学研究主文档 v52（Countdown 动态 remoteness 控制 pilot 版）
 <!-- HANDOFF-DELTA-BLOCK:after_heading:v50-stage3-shadow-bootstrap:START -->
 > **v50 增量登记：治理 Pipeline Stage 3 `HANDOFF_DELTA.yaml` shadow mode 启动（不删除 v49 及更早内容）**
 >
@@ -23,6 +23,19 @@
 > - 代码复用 `src/drpo/du1_e6_semantic.py`，新增最小差异 validator `src/drpo/du1_e6_semantic_gap.py`、formal entrypoint `src/drpo/du1_e6_semantic_gap_longrun.py`、冻结配置 `configs/du1_e6_semantic_gap_longrun.yaml` 和 hardened wrapper `scripts/run_du1_e6_semantic_gap_longrun.py`。应用并提交本版后，实验状态为 **implemented + ready + active + not_run**；正式训练不得在 dirty worktree 或未匹配 `origin/main` 时启动。
 > - 本更新重基于当前 `main` commit `1fa7f04d4830e4d562ab147dbb11dfa8cecc9b5d`，并保留治理 Pipeline Stage 3 shadow mode 的全部新内容。`D-U1-E6-TAPER-01` 在本 successor terminal-audited、packaged、delivered 之前继续 blocked。
 <!-- HANDOFF-DELTA-BLOCK:after_heading:v51-du1-e6-semantic-gap-formal:END -->
+<!-- HANDOFF-DELTA-BLOCK:after_heading:v52-ext-c-e8-v43-dynamic-control:START -->
+> **v52 增量登记：Countdown `EXT-C-E8-V4.3` 动态负样本 remoteness 控制（不删除 v51 及更早内容）**
+>
+> **v51（D-U1 E6 条件缺口闭环与最小改动正式协议版）历史标题与全部内容继续保留。**
+>
+> - 用户确认：matched near/far pair 继续用于瞬时机制研究，但 near/far 是相对当前策略变化的状态，不能把数据构造时的身份永久用于长期训练控制。V4.2 的静态 `controlled_negative` 只 taper 初始 far 分支；初始 near 在训练中进入 far 区后仍保持未衰减，因而没有真正测试“控制所有当前远场负样本”。
+> - 新执行 ID 为 `EXT-C-E8-V4.3`，状态为 **尚未运行（not_run）**，科学职责为外部有效性的 focused method diagnostic。V4.2 完整保留为 provenance 并登记 superseded；它的 matched-pair mechanism probe 设计不被否定。
+> - V4.3 新增 `dynamic_controlled_negative`：对初始 near 与初始 far 两个负分支都按当前模型 token surprisal 使用同一 detached exponential taper。旧 `controlled_negative` 原样保留为 static-label ablation；同时比较 `positive_only` 与 `uncontrolled_negative`。本轮不扩充 negative bank，不改数据规模、seed、学习率、训练 horizon、taper lambda、threshold、LoRA 配置或共同负梯度尺度。
+> - 0.5B focused pilot 在 reference greedy `>=0.08` 且 valid `>=0.95` 时允许执行四方法，以检验实现修复和初步效果；`15%/95%` 继续作为任何正式方法排名的 floor-effect 门禁。低于 15% 时必须明确标注 single-seed pilot，不得形成方法排名、scale-up 结论或论文方法胜负。
+> - 主要结果仍是 verifier success、pass@k、valid rate、held-out canonical pattern-family coverage/precision 以及 best/terminal 终态。当前 near/far 权重轨迹只是实现证据，用于确认实际运行的是动态控制，不是主要科学结果；即使权重按预期变化但任务指标不改善，方法仍判定无效。
+> - 任务性能退化、support/structure boundary 与 NaN/Inf 数值失败继续分开报告。Countdown 仍不替代 D-U1/D-Diag 的受控因果识别，也不得称 state-distribution OOD generalization。
+> - 本更新重基于 `main` commit `0907c3c0e76fc836c2bf2b752abf554c17f79f22`，保留 v51 的 D-U1 E6 条件缺口正式协议与治理 Stage 3 shadow mode；未运行真实 Qwen/CUDA 实验。
+<!-- HANDOFF-DELTA-BLOCK:after_heading:v52-ext-c-e8-v43-dynamic-control:END -->
 
 > **v49 增量登记：治理 Pipeline Stage 1/2 冻结式关闭（不删除 v48 及更早内容）**
 >
@@ -550,6 +563,10 @@
 - Hopper/D4RL：`EXT-H-E7-Q2` 是 E7-MECH，runner/config 已实现但 formal launch 仍等待受控 taper 阶段交付；`EXT-H-E7-BENCH-01` 是 D4RL MuJoCo locomotion 9-task 方法效果表，等待 E7-MECH 与受控方法 shortlist 冻结。
 - Countdown：`EXT-C-E8-V4.2` 是当前 E8-MECH/pilot；`EXT-C-E8-V4.1` 仅保留 provenance；`EXT-C-E8-SCALE-01` 是更大固定数据与模型规模验证，等待 E8-MECH 和 E7-BENCH。
 
+<!-- HANDOFF-DELTA-BLOCK:section_end:v52-countdown-current-gate-override:START -->
+- **Countdown v52 覆盖：** `EXT-C-E8-V4.3` 取代 V4.2 成为当前 E8-MECH/focused pilot；V4.2 只保留 matched-pair mechanism provenance。`EXT-C-E8-SCALE-01` 继续等待 V4.3 与 E7-BENCH，不因本次实现自动解锁。
+<!-- HANDOFF-DELTA-BLOCK:section_end:v52-countdown-current-gate-override:END -->
+
 ## 0.2 C-U1 泛化术语覆盖规则（v15 锁定）
 
 1. C-U1 的训练状态与测试状态使用同一生成分布 `s ~ N(0,I_6)`，只在样本身份上独立；因此 E1-E4 报告的是 **同分布 held-out-context generalization（未见状态泛化）**。
@@ -875,6 +892,10 @@ $$
 
 ---
 
+<!-- HANDOFF-DELTA-BLOCK:section_end:v52-e8-route-override:START -->
+7. **v52 路线覆盖：** 上述第 5 项的当前 E8-MECH owner 更新为 `EXT-C-E8-V4.3`。V4.3 只修复长期训练中的动态 remoteness 控制并保留 V4.2 静态方法作消融；E8-SCALE 的 3B/7B 规模结论仍需后续独立执行。
+<!-- HANDOFF-DELTA-BLOCK:section_end:v52-e8-route-override:END -->
+
 # 4. 论文机制实验总表与验收标准
 
 | ID | 实验 | 核心问题 | 是否要求训练饱和 | 正式验收 |
@@ -947,6 +968,10 @@ $$
 任何新增实验必须先说明它补哪一个 claim、是否替代现有实验、是否进入本文档。
 
 ---
+
+<!-- HANDOFF-DELTA-BLOCK:section_end:v52-execution-order-override:START -->
+11. **v52 执行覆盖：** 当锁定路线进入 E8-MECH 时，执行 `EXT-C-E8-V4.3` 而不是 V4.2；当前只完成注册和代码实现，真实 Qwen/CUDA pilot 仍为 not_run。
+<!-- HANDOFF-DELTA-BLOCK:section_end:v52-execution-order-override:END -->
 
 # 7. 变量治理
 

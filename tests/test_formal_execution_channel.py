@@ -133,7 +133,7 @@ def test_current_registry_uses_canonical_channel() -> None:
         "formal": 9,
         "historical_formal": 2,
         "pilot": 3,
-        "superseded": 1,
+        "superseded": 2,
     }
     assert report["formal_experiments"] == [
         "C-U1-E4-CONV-01",

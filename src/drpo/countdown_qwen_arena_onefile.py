@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Countdown balanced-data external-validity arena for local Qwen Instruct models (v4.3.0).
+"""Countdown dynamic-remoteness external-validity arena for local Qwen Instruct models (v4.4.0).
 
 One-command run
 ---------------
@@ -7,7 +7,7 @@ python3 scripts/run_countdown_pilot.py \
   --model_path /ABS/PATH/TO/QWEN-0.5B-INSTRUCT \
   --work_dir /ABS/PATH/TO/COUNTDOWN_RUN
 
-The v4.1 protocol first evaluates the untouched base model. If the base checkpoint
+The v4.3 protocol first evaluates the untouched base model. If the base checkpoint
 passes the registered verifier/format gate, all compared methods start from one
 shared untrained LoRA adapter and no Countdown SFT is performed. A minimal SFT
 fallback is used only when the base gate fails.
@@ -15,8 +15,10 @@ fallback is used only when the base gate fails.
 The run has two responsibilities:
   1. a fixed-negative-advantage near/far mechanism probe on matched legal wrong
      expressions;
-  2. a paired effect comparison: positive-only, controlled-negative,
-     uncontrolled-negative, and a calibrated global-matched control. The shared
+  2. a focused paired comparison: positive-only, static controlled-negative,
+     dynamic controlled-negative, and uncontrolled-negative. Static control tapers
+     only the branch labeled far at data construction; dynamic control applies the
+     same current-policy token-surprisal taper to both negative branches. The shared
      negative scale is calibrated once at the common initialization from a fixed
      training calibration split; it is not selected from task outcomes or test data.
 
@@ -88,8 +90,8 @@ SYSTEM_PROMPT = (
     "expression. Do not include explanations."
 )
 
-EXPERIMENT_ID = "EXT-C-E8-V4.2"
-VERSION = "4.3.0-balanced-offline-diagnostics"
+EXPERIMENT_ID = "EXT-C-E8-V4.3"
+VERSION = "4.4.0-dynamic-negative-control"
 
 
 def read_model_metadata(model_path: str) -> dict[str, Any]:
@@ -1263,6 +1265,54 @@ def weighted_sequence_logprob(
 ) -> torch.Tensor:
     mask = stats["token_mask"].to(token_weights.dtype)
     return (stats["token_lp"] * token_weights * mask).sum(-1) / stats["lengths"]
+
+
+def detached_token_surprisal_taper(
+    stats: dict[str, torch.Tensor],
+    exp_lambda: float,
+    surprisal_threshold: float,
+) -> torch.Tensor:
+    """Return stop-gradient token weights from current policy surprisal.
+
+    The offline completion identity stays fixed, but its policy-relative
+    remoteness is recomputed at every optimizer step.  A token that was near at
+    data construction therefore receives the same taper as an initially-far
+    token once their current surprisals are equal.
+    """
+    token_surprisal = -stats["token_lp"].detach()
+    return torch.exp(
+        -exp_lambda * F.relu(token_surprisal - surprisal_threshold)
+    )
+
+
+def controlled_negative_token_weights(
+    method: str,
+    near: dict[str, torch.Tensor],
+    far: dict[str, torch.Tensor],
+    exp_lambda: float,
+    surprisal_threshold: float,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Return token weights for the static and dynamic control ablation.
+
+    ``controlled_negative`` preserves the V4.2 static-label behavior: only the
+    construction-time far branch is tapered. ``dynamic_controlled_negative``
+    applies the same current-policy taper to both branches, so initial labels do
+    not freeze their long-run treatment. Other methods receive unit token weights.
+    """
+    near_weights = torch.ones_like(near["token_lp"])
+    far_weights = torch.ones_like(far["token_lp"])
+    if method == "controlled_negative":
+        far_weights = detached_token_surprisal_taper(
+            far, exp_lambda, surprisal_threshold
+        )
+    elif method == "dynamic_controlled_negative":
+        near_weights = detached_token_surprisal_taper(
+            near, exp_lambda, surprisal_threshold
+        )
+        far_weights = detached_token_surprisal_taper(
+            far, exp_lambda, surprisal_threshold
+        )
+    return near_weights, far_weights
 
 
 @torch.no_grad()
@@ -2559,6 +2609,7 @@ def dynamic_negative_diagnostics(
     positive_surprisal: list[float] = []
     near_surprisal: list[float] = []
     far_surprisal: list[float] = []
+    near_weights: list[float] = []
     far_weights: list[float] = []
     near_crossings = 0
     far_crossings = 0
@@ -2577,14 +2628,26 @@ def dynamic_negative_diagnostics(
             near_crossings += sum(value > surprisal_threshold for value in near_values)
             far_crossings += sum(value > surprisal_threshold for value in far_values)
             total_sequences += len(near_values)
-            token_weights = torch.exp(
-                -exp_lambda * F.relu(-far["token_lp"].detach() - surprisal_threshold)
+            near_token_weights = detached_token_surprisal_taper(
+                near, exp_lambda, surprisal_threshold
             )
-            weighted = (
-                (token_weights * far["token_mask"]).sum(-1)
+            far_token_weights = detached_token_surprisal_taper(
+                far, exp_lambda, surprisal_threshold
+            )
+            near_weighted = (
+                (near_token_weights * near["token_mask"]).sum(-1)
+                / near["token_mask"].sum(-1).clamp_min(1)
+            )
+            far_weighted = (
+                (far_token_weights * far["token_mask"]).sum(-1)
                 / far["token_mask"].sum(-1).clamp_min(1)
             )
-            far_weights.extend(float(value) for value in weighted.float().cpu().tolist())
+            near_weights.extend(
+                float(value) for value in near_weighted.float().cpu().tolist()
+            )
+            far_weights.extend(
+                float(value) for value in far_weighted.float().cpu().tolist()
+            )
 
     gradient_rows = diagnostic_rows[: max(1, min(gradient_examples, len(diagnostic_rows)))]
     gradient_dataset = OfflineDataset(list(gradient_rows), tokenizer, max_length)
@@ -2611,6 +2674,21 @@ def dynamic_negative_diagnostics(
     del near_grads
 
     model.zero_grad(set_to_none=True)
+    near = completion_stats(model, near_batch)
+    near_token_weights = detached_token_surprisal_taper(
+        near, exp_lambda, surprisal_threshold
+    )
+    near_controlled_grads = torch.autograd.grad(
+        weighted_sequence_logprob(near, near_token_weights).mean(),
+        trainable,
+        allow_unused=True,
+    )
+    _, near_controlled_norm, pos_near_controlled_cosine = _gradient_norm_and_dot(
+        positive_grads, near_controlled_grads
+    )
+    del near_controlled_grads
+
+    model.zero_grad(set_to_none=True)
     far = completion_stats(model, far_batch)
     far_raw_grads = torch.autograd.grad(
         far["seq_lp"].mean(), trainable, allow_unused=True
@@ -2622,8 +2700,8 @@ def dynamic_negative_diagnostics(
 
     model.zero_grad(set_to_none=True)
     far = completion_stats(model, far_batch)
-    far_token_weights = torch.exp(
-        -exp_lambda * F.relu(-far["token_lp"].detach() - surprisal_threshold)
+    far_token_weights = detached_token_surprisal_taper(
+        far, exp_lambda, surprisal_threshold
     )
     far_controlled_grads = torch.autograd.grad(
         weighted_sequence_logprob(far, far_token_weights).mean(),
@@ -2652,15 +2730,18 @@ def dynamic_negative_diagnostics(
         ),
         "near_dynamic_far_fraction": float(near_crossings / max(total_sequences, 1)),
         "far_above_threshold_fraction": float(far_crossings / max(total_sequences, 1)),
+        "controlled_near_token_weight_mean": float(np.mean(near_weights)),
         "controlled_far_token_weight_mean": float(np.mean(far_weights)),
         "positive_gradient_norm": pos_norm,
         "near_negative_gradient_norm_raw": near_norm,
+        "near_negative_gradient_norm_controlled": near_controlled_norm,
         "far_negative_gradient_norm_raw": far_raw_norm,
         "far_negative_gradient_norm_controlled": far_controlled_norm,
         "near_negative_gradient_norm_scaled": scale * near_norm,
         "far_negative_gradient_norm_scaled": scale * far_raw_norm,
         "far_over_near_gradient_norm_ratio": far_raw_norm / max(near_norm, 1e-30),
         "positive_near_update_cosine": pos_near_cosine,
+        "positive_near_controlled_update_cosine": pos_near_controlled_cosine,
         "positive_far_raw_update_cosine": pos_far_raw_cosine,
         "positive_far_controlled_update_cosine": pos_far_controlled_cosine,
     }
@@ -2839,14 +2920,14 @@ def cmd_train_method(args: argparse.Namespace) -> None:
                 far = completion_stats(model, move_to_device(packed["far"], device))
                 near_seq_weights = torch.ones_like(near["seq_lp"])
                 far_seq_weights = torch.ones_like(far["seq_lp"])
-                far_token_weights = torch.ones_like(far["token_lp"])
-                if args.method == "controlled_negative":
-                    far_token_surprisal = -far["token_lp"].detach()
-                    far_token_weights = torch.exp(
-                        -args.exp_lambda
-                        * F.relu(far_token_surprisal - args.surprisal_threshold)
-                    )
-                elif args.method in {"exp", "hybrid"}:
+                near_token_weights, far_token_weights = controlled_negative_token_weights(
+                    args.method,
+                    near,
+                    far,
+                    args.exp_lambda,
+                    args.surprisal_threshold,
+                )
+                if args.method in {"exp", "hybrid"}:
                     near_surprisal = -near["seq_lp"].detach()
                     far_surprisal = -far["seq_lp"].detach()
                     near_seq_weights = torch.exp(
@@ -2880,8 +2961,8 @@ def cmd_train_method(args: argparse.Namespace) -> None:
                     )
                     gamma = min(score_gamma, entropy_gamma)
 
-                if args.method == "controlled_negative":
-                    near_lp = near["seq_lp"]
+                if args.method in {"controlled_negative", "dynamic_controlled_negative"}:
+                    near_lp = weighted_sequence_logprob(near, near_token_weights)
                     far_lp = weighted_sequence_logprob(far, far_token_weights)
                 else:
                     near_lp = near_seq_weights * near["seq_lp"]
@@ -2897,15 +2978,18 @@ def cmd_train_method(args: argparse.Namespace) -> None:
                     entropy_gap = F.relu(args.target_entropy - pos["entropy"].mean())
                     raw_loss = raw_loss + args.target_entropy_coef * entropy_gap.square()
 
-                near_weight_value = float(near_seq_weights.detach().mean())
-                far_weight_value = (
-                    float(
+                if args.method in {"controlled_negative", "dynamic_controlled_negative"}:
+                    near_weight_value = float(
+                        (near_token_weights.detach() * near["token_mask"]).sum()
+                        / near["token_mask"].sum().clamp_min(1)
+                    )
+                    far_weight_value = float(
                         (far_token_weights.detach() * far["token_mask"]).sum()
                         / far["token_mask"].sum().clamp_min(1)
                     )
-                    if args.method == "controlled_negative"
-                    else float(far_seq_weights.detach().mean())
-                )
+                else:
+                    near_weight_value = float(near_seq_weights.detach().mean())
+                    far_weight_value = float(far_seq_weights.detach().mean())
                 mean_weight = (
                     args.near_mix * near_weight_value
                     + args.far_mix * far_weight_value
@@ -3210,8 +3294,10 @@ def cmd_calibrate_global(args: argparse.Namespace) -> None:
         "interpretation": (
             "negative_scale is shared by every negative-advantage method and matches "
             "the initial uncontrolled negative-gradient RMS to the positive-gradient RMS. "
-            "global_matched additionally applies one fixed gamma equally to near and far, "
-            "whereas controlled_negative selectively tapers far tokens."
+            "global_matched additionally applies one fixed gamma equally to near and far. "
+            "controlled_negative preserves the V4.2 static far-only taper, whereas "
+            "dynamic_controlled_negative applies the same current-policy token taper "
+            "to both initially-near and initially-far branches."
         ),
         "task_metrics_used_for_selection": False,
         "test_data_used": False,
@@ -3657,7 +3743,7 @@ def _evaluation_argv(
 
 
 def cmd_run(args: argparse.Namespace) -> None:
-    """Run the preregistered v4.2 Countdown pilot without interactive decisions."""
+    """Run the preregistered V4.3 dynamic-remoteness pilot."""
     gpu_ids = resolve_gpu_ids(args.gpus, args.gpu)
     primary_gpu = gpu_ids[0]
     primary_parent_index = _parent_gpu_index(primary_gpu)
@@ -3727,15 +3813,24 @@ def cmd_run(args: argparse.Namespace) -> None:
 
     methods = [method.strip() for method in args.methods.split(",") if method.strip()]
     allowed = {
-        "positive_only", "controlled_negative", "uncontrolled_negative", "global_matched",
-        "uncontrolled", "global", "exp", "entropy_bonus", "target_entropy", "sbrc", "hybrid",
+        "positive_only", "controlled_negative", "dynamic_controlled_negative",
+        "uncontrolled_negative", "global_matched", "uncontrolled", "global",
+        "exp", "entropy_bonus", "target_entropy", "sbrc", "hybrid",
     }
     unknown = set(methods) - allowed
     if unknown:
         raise ValueError(f"Unknown methods: {sorted(unknown)}")
-    required_pilot = {"positive_only", "controlled_negative", "uncontrolled_negative", "global_matched"}
+    required_pilot = {
+        "positive_only",
+        "controlled_negative",
+        "dynamic_controlled_negative",
+        "uncontrolled_negative",
+    }
     if run_status == "pilot" and set(methods) != required_pilot:
-        raise RuntimeError("The registered pilot is frozen to the four preregistered methods.")
+        raise RuntimeError(
+            "The registered V4.3 pilot is frozen to positive-only, static control, "
+            "dynamic control, and uncontrolled negative updates."
+        )
 
     presets = {
         "0.5b": dict(
@@ -3837,7 +3932,7 @@ def cmd_run(args: argparse.Namespace) -> None:
         root,
         "full_ft_role",
         "isolated_reference_capacity_diagnostic",
-        "never substitutes for the LoRA reference in the four-method ranking",
+        "never substitutes for the LoRA reference in the focused four-method pilot",
     )
     print("EXECUTION_PLAN", json.dumps(plan, indent=2))
 
@@ -3934,10 +4029,11 @@ def cmd_run(args: argparse.Namespace) -> None:
         reference_val["greedy_success"] >= args.min_mechanism_success
         and reference_val["valid_rate"] >= args.min_mechanism_valid
     )
-    method_gate_passed = bool(
+    method_ranking_gate_passed = bool(
         reference_val["greedy_success"] >= args.min_sft_success
         and reference_val["valid_rate"] >= args.min_sft_valid
     )
+    focused_dynamic_pilot_gate_passed = mechanism_gate_passed
     _record_decision(root, "reference_mechanism_gate", mechanism_gate_passed, {
         "metrics": reference_val,
         "thresholds": {
@@ -3945,13 +4041,15 @@ def cmd_run(args: argparse.Namespace) -> None:
             "valid_rate": args.min_mechanism_valid,
         },
     })
-    _record_decision(root, "reference_method_effect_gate", method_gate_passed, {
+    _record_decision(root, "reference_method_effect_gate", method_ranking_gate_passed, {
         "metrics": reference_val,
         "thresholds": {
             "greedy_success": args.min_sft_success,
             "valid_rate": args.min_sft_valid,
         },
-        "failure_action": "complete mechanism/full-FT diagnostics but skip four-method ranking",
+        "failure_action": (
+            "run the registered focused dynamic-control pilot but prohibit formal method ranking"
+        ),
     })
     if not mechanism_gate_passed:
         raise RuntimeError(
@@ -4048,7 +4146,7 @@ def cmd_run(args: argparse.Namespace) -> None:
         logs / "06_mechanism_probe.log",
         gpu_ids[0],
     )]
-    if method_gate_passed and any(method != "positive_only" for method in methods):
+    if focused_dynamic_pilot_gate_passed and any(method != "positive_only" for method in methods):
         calibration_gpu = gpu_ids[1] if len(gpu_ids) > 1 else gpu_ids[0]
         if args.force or not calibration_json.exists():
             probe_tasks.append(StageTask(
@@ -4071,13 +4169,22 @@ def cmd_run(args: argparse.Namespace) -> None:
         [task.name for task in probe_tasks],
     )
 
-    methods_to_run = methods if method_gate_passed else []
-    if not method_gate_passed:
+    methods_to_run = methods if focused_dynamic_pilot_gate_passed else []
+    _record_decision(
+        root,
+        "focused_dynamic_control_pilot",
+        "run" if focused_dynamic_pilot_gate_passed else "skipped_by_capability_gate",
+        {
+            "formal_method_ranking_eligible": method_ranking_gate_passed,
+            "methods": methods_to_run,
+        },
+    )
+    if not method_ranking_gate_passed:
         _record_decision(
             root,
-            "four_method_ranking",
-            "skipped_by_capability_gate",
-            "mechanism and full-FT diagnostics remain valid exploratory outputs",
+            "formal_method_ranking",
+            "prohibited_by_floor_effect_gate",
+            "focused single-seed dynamic-control results remain pilot evidence only",
         )
     effective_batch = plan["micro_batch"] * preset["method_accum"]
     updates_per_epoch = math.ceil(offline_rows / effective_batch)
@@ -4176,7 +4283,7 @@ def cmd_run(args: argparse.Namespace) -> None:
             "method": "shared_lora_reference",
             "initialization_mode": initialization_mode,
             "checkpoint_kind": "step_0",
-            "eligible_for_method_ranking": method_gate_passed,
+            "eligible_for_method_ranking": method_ranking_gate_passed,
             **json.loads(reference_test_json.read_text()),
         },
         {
@@ -4275,7 +4382,8 @@ def cmd_run(args: argparse.Namespace) -> None:
         "task_performance_support_and_numerical_events_reported_separately": True,
         "reference_gates": {
             "mechanism_gate_passed": mechanism_gate_passed,
-            "method_effect_gate_passed": method_gate_passed,
+            "method_effect_gate_passed": method_ranking_gate_passed,
+            "focused_dynamic_pilot_gate_passed": focused_dynamic_pilot_gate_passed,
             "lora_reference_validation": reference_val,
         },
         "full_ft_reference_diagnostic": {
@@ -4284,7 +4392,12 @@ def cmd_run(args: argparse.Namespace) -> None:
             "test": json.loads(full_ft_test_json.read_text()),
         },
         "method_comparison": {
-            "status": "completed" if method_gate_passed else "skipped_by_capability_gate",
+            "status": (
+                "completed_focused_pilot"
+                if focused_dynamic_pilot_gate_passed
+                else "skipped_by_capability_gate"
+            ),
+            "formal_ranking_eligible": method_ranking_gate_passed,
             "methods_requested": methods,
             "methods_run": methods_to_run,
         },
@@ -4314,9 +4427,9 @@ def cmd_run(args: argparse.Namespace) -> None:
         ),
         "summary": summary_rows,
         "result_status": run_status,
-        "terminal_audit_present": (
-            True if not method_gate_passed
-            else all(method_audits[method]["task_performance"] is not None for method in methods_to_run)
+        "terminal_audit_present": all(
+            method_audits[method]["task_performance"] is not None
+            for method in methods_to_run
         ),
         "full_finetune_confirmation": (
             "isolated reference-capacity diagnostic only; not a full-FT method confirmation"
@@ -4504,6 +4617,7 @@ def build_parser() -> argparse.ArgumentParser:
         choices=[
             "positive_only",
             "controlled_negative",
+            "dynamic_controlled_negative",
             "uncontrolled_negative",
             "global_matched",
             "uncontrolled",
@@ -4535,7 +4649,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--negative_scale", type=float, default=None,
         help=(
             "Explicit shared negative scale for a separately registered run. "
-            "The v4.3.0 pilot normally reads the automatically calibrated value."
+            "The V4.3 focused pilot normally reads the automatically calibrated value."
         ),
     )
     ap.add_argument("--near_mix", type=float, default=0.5)
@@ -4601,7 +4715,13 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--gpu", default=None, help=argparse.SUPPRESS)
     ap.add_argument("--preset", choices=["auto", "0.5b", "small", "3b", "7b"], default="auto")
     ap.add_argument("--memory_mode", choices=["auto", "bf16", "qlora"], default="bf16")
-    ap.add_argument("--methods", default="positive_only,controlled_negative,uncontrolled_negative,global_matched")
+    ap.add_argument(
+        "--methods",
+        default=(
+            "positive_only,controlled_negative,dynamic_controlled_negative,"
+            "uncontrolled_negative"
+        ),
+    )
     ap.add_argument("--min_base_success", type=float, default=0.15)
     ap.add_argument("--min_base_valid", type=float, default=0.80)
     ap.add_argument("--min_sft_success", type=float, default=0.15)

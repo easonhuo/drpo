@@ -125,6 +125,35 @@ def test_weighted_sequence_logprob_does_not_renormalize_removed_weight() -> None
     assert torch.allclose(value, torch.tensor([-0.5]))
 
 
+def test_dynamic_control_tapers_current_surprisal_for_both_branches() -> None:
+    near = {"token_lp": torch.tensor([[-1.0, -5.0]])}
+    far = {"token_lp": torch.tensor([[-1.0, -5.0]])}
+    near_weights, far_weights = arena.controlled_negative_token_weights(
+        "dynamic_controlled_negative", near, far, exp_lambda=0.7, surprisal_threshold=2.0
+    )
+    assert torch.allclose(near_weights, far_weights)
+    assert near_weights[0, 0] == 1.0
+    assert 0.0 < near_weights[0, 1] < 1.0
+
+
+def test_static_control_keeps_initial_near_branch_untapered() -> None:
+    near = {"token_lp": torch.tensor([[-10.0]])}
+    far = {"token_lp": torch.tensor([[-10.0]])}
+    near_weights, far_weights = arena.controlled_negative_token_weights(
+        "controlled_negative", near, far, exp_lambda=0.7, surprisal_threshold=2.0
+    )
+    assert near_weights.item() == 1.0
+    assert 0.0 < far_weights.item() < 1.0
+
+
+def test_dynamic_taper_weight_decreases_when_same_negative_moves_farther() -> None:
+    near_now = {"token_lp": torch.tensor([[-2.5]])}
+    near_later = {"token_lp": torch.tensor([[-8.0]])}
+    weight_now = arena.detached_token_surprisal_taper(near_now, 0.7, 2.0)
+    weight_later = arena.detached_token_surprisal_taper(near_later, 0.7, 2.0)
+    assert weight_later.item() < weight_now.item()
+
+
 def test_checkpoint_inventory_records_hash_and_local_only(tmp_path: Path) -> None:
     checkpoint = tmp_path / "terminal_adapter"
     checkpoint.mkdir()
@@ -136,7 +165,7 @@ def test_checkpoint_inventory_records_hash_and_local_only(tmp_path: Path) -> Non
     assert len(inventory["files"][0]["sha256"]) == 64
 
 
-def test_run_defaults_are_base_first_bf16_lora_with_global_match() -> None:
+def test_run_defaults_are_base_first_bf16_lora_with_dynamic_control() -> None:
     parser = arena.build_parser()
     args = parser.parse_args([
         "run",
@@ -144,7 +173,8 @@ def test_run_defaults_are_base_first_bf16_lora_with_global_match() -> None:
         "--work_dir", "/tmp/run",
     ])
     assert args.methods == (
-        "positive_only,controlled_negative,uncontrolled_negative,global_matched"
+        "positive_only,controlled_negative,dynamic_controlled_negative,"
+        "uncontrolled_negative"
     )
     assert args.memory_mode == "bf16"
     assert args.gpus == "auto"
@@ -195,7 +225,7 @@ def test_balanced_6000_offline_quotas_and_nested_subsets() -> None:
         assert max(counts.values()) - min(counts.values()) <= 1
 
 
-def test_v4_2_sft_and_method_diagnostic_defaults_are_frozen() -> None:
+def test_v4_3_sft_and_method_diagnostic_defaults_are_frozen() -> None:
     parser = arena.build_parser()
     sft = parser.parse_args([
         "sft",
@@ -226,7 +256,7 @@ def test_v4_2_sft_and_method_diagnostic_defaults_are_frozen() -> None:
         "--model_path", "/tmp/model",
         "--work_dir", "/tmp/run",
     ])
-    assert arena.EXPERIMENT_ID == "EXT-C-E8-V4.2"
+    assert arena.EXPERIMENT_ID == "EXT-C-E8-V4.3"
     assert run.min_sft_success == 0.15
     assert run.min_sft_valid == 0.95
     assert run.min_mechanism_success == 0.08
