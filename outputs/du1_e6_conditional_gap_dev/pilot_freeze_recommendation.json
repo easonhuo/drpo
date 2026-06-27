@@ -1,0 +1,66 @@
+{
+  "automatic_freeze_allowed": false,
+  "candidate_run_matrix": [
+    {
+      "coverage_mode": "optimal_group_covered",
+      "far_lambda": 0.0,
+      "local_alpha": 0.0,
+      "method": "positive_only"
+    },
+    {
+      "coverage_mode": "optimal_group_covered",
+      "far_lambda": 0.0,
+      "local_alpha": 0.5,
+      "method": "local_only"
+    },
+    {
+      "coverage_mode": "optimal_group_covered",
+      "far_lambda": 0.0,
+      "local_alpha": 1.5,
+      "method": "local_only"
+    },
+    {
+      "coverage_mode": "structured_gap",
+      "far_lambda": 0.0,
+      "local_alpha": 0.0,
+      "method": "positive_only"
+    },
+    {
+      "coverage_mode": "structured_gap",
+      "far_lambda": 0.0,
+      "local_alpha": 0.5,
+      "method": "local_only"
+    },
+    {
+      "coverage_mode": "structured_gap",
+      "far_lambda": 0.0,
+      "local_alpha": 1.5,
+      "method": "local_only"
+    },
+    {
+      "coverage_mode": "structured_gap",
+      "far_lambda": 4.0,
+      "local_alpha": 0.5,
+      "method": "uncontrolled"
+    },
+    {
+      "coverage_mode": "structured_gap",
+      "far_lambda": 4.0,
+      "local_alpha": 0.5,
+      "method": "near_zero"
+    },
+    {
+      "coverage_mode": "structured_gap",
+      "far_lambda": 4.0,
+      "local_alpha": 0.5,
+      "method": "far_cap"
+    },
+    {
+      "coverage_mode": "structured_gap",
+      "far_lambda": 4.0,
+      "local_alpha": 0.5,
+      "method": "budget_matched_global"
+    }
+  ],
+  "reason": "development evidence requires explicit user-approved formal freeze"
+}

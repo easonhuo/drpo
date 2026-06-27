@@ -1,0 +1,209 @@
+experiment_id: D-U1-E6-CONDITIONAL-GAP-01
+scientific_status: not_run
+execution_mode: formal_longrun
+formal_parameter_freeze: true
+predecessor: D-U1-E6-SEMANTIC-LONGRUN-01
+approval:
+  user_approved: true
+  approval_date: '2026-06-27'
+  approval_scope: large_structured_conditional_support_gap_rerun
+claim: Under same-distribution held-out contexts, test whether a large structured
+  state-region by action-group support gap creates wrong conditional generalization
+  and task-performance collapse, whether controlled local repulsion can improve the
+  hidden optimal group, and whether excessive or far negative pressure reverses that
+  gain. This is not a state-distribution OOD claim.
+seeds:
+  development: []
+  held_out_formal:
+  - 130
+  - 131
+  - 132
+  - 133
+  - 134
+  - 135
+  - 136
+  - 137
+  - 138
+  - 139
+  - 140
+  - 141
+  - 142
+  - 143
+  - 144
+  - 145
+  - 146
+  - 147
+  - 148
+  - 149
+data:
+  state_dim: 6
+  semantic_dim: 4
+  action_groups: 8
+  actions_per_group: 32
+  action_count: 256
+  train_states: 4096
+  test_states: 4096
+  positive_actions_per_state: 4
+  local_negative_actions_per_state: 1
+  far_negative_actions_per_state: 4
+  gap_state_fraction: 0.5
+  observed_action_groups_per_state: 3
+  conditional_block_gap_fraction: 0.625
+  state_distribution: paired_standard_normal_marginal
+  train_test_relation: independent_same_distribution
+  terminology: same_distribution_structured_state_action_support_gap
+geometry:
+  correct_group_offset: 0
+  proxy_positive_group_offset: -1
+  local_negative_group_offset: -2
+  far_negative_group_offset: -3
+  trap_group_offset: 1
+  correct_group_reward: 1.0
+  proxy_group_reward: 0.65
+  other_group_reward: 0.0
+  within_group_reward_floor: 0.85
+  positive_advantage: 1.0
+  negative_advantage: -1.0
+  fixed_advantage: true
+  random_action_id_permutation: true
+policy:
+  hidden_dim: 64
+  fixed_concentration: 8.0
+  learnable_concentration_floor: 0.05
+  initial_learnable_concentration: 8.0
+  learnable_concentration_upper_clamp: false
+  activation: tanh
+  concentration_mode: fixed
+optimization:
+  optimizer: Adam
+  learning_rate: 0.001
+  betas:
+  - 0.9
+  - 0.999
+  eps: 1.0e-08
+  batch_size: 128
+  maximum_steps: 8000
+  evaluation_interval_steps: 50
+  audit_states: 512
+  parallel_workers: 8
+  far_cap_ratio_to_weighted_local_gradient: 1.0
+run_matrix:
+- coverage_mode: optimal_group_covered
+  method: positive_only
+  local_alpha: 0.0
+  far_lambda: 0.0
+- coverage_mode: optimal_group_covered
+  method: local_only
+  local_alpha: 0.5
+  far_lambda: 0.0
+- coverage_mode: optimal_group_covered
+  method: local_only
+  local_alpha: 1.5
+  far_lambda: 0.0
+- coverage_mode: structured_gap
+  method: positive_only
+  local_alpha: 0.0
+  far_lambda: 0.0
+- coverage_mode: structured_gap
+  method: local_only
+  local_alpha: 0.5
+  far_lambda: 0.0
+- coverage_mode: structured_gap
+  method: local_only
+  local_alpha: 1.5
+  far_lambda: 0.0
+- coverage_mode: structured_gap
+  method: uncontrolled
+  local_alpha: 0.5
+  far_lambda: 4.0
+- coverage_mode: structured_gap
+  method: near_zero
+  local_alpha: 0.5
+  far_lambda: 4.0
+- coverage_mode: structured_gap
+  method: far_cap
+  local_alpha: 0.5
+  far_lambda: 4.0
+- coverage_mode: structured_gap
+  method: budget_matched_global
+  local_alpha: 0.5
+  far_lambda: 4.0
+events:
+  task_collapse_normalized_margin_to_random: 0.2
+  below_random_is_collapse: true
+  effective_support_boundary: 1.5
+  concentration_warning: 80.0
+terminal_audit:
+  mode: formal_extension_windows
+  development_reference_horizon_steps: 1000
+  formal_horizon_steps: 8000
+  formal_extension_factor: 8.0
+  window_1_steps:
+  - 4000
+  - 6000
+  window_2_steps:
+  - 6000
+  - 8000
+  metric_window_mean_abs_tolerances:
+    test_gap_expected_reward: 0.015
+    test_gap_correct_group_probability: 0.03
+    test_gap_trap_group_probability: 0.03
+    test_entropy_mean: 0.08
+  raw_total_gradient_median_ratio_max: 1.25
+  adam_update_median_ratio_max: 1.25
+  require_all_registered_runs: true
+  allow_scientific_failure_outcomes: true
+checkpointing:
+  seed_block_size: 5
+  seed_blocks:
+  - - 130
+    - 131
+    - 132
+    - 133
+    - 134
+  - - 135
+    - 136
+    - 137
+    - 138
+    - 139
+  - - 140
+    - 141
+    - 142
+    - 143
+    - 144
+  - - 145
+    - 146
+    - 147
+    - 148
+    - 149
+  persistence: persistent_local
+  write_compact_manifest_after_each_block: true
+formal_gate:
+  enabled: true
+  approval_record: user_approved_2026-06-27_large_structured_gap
+  frozen_protocol_path: configs/du1_e6_conditional_gap_longrun.yaml
+  held_out_seeds:
+  - 130
+  - 131
+  - 132
+  - 133
+  - 134
+  - 135
+  - 136
+  - 137
+  - 138
+  - 139
+  - 140
+  - 141
+  - 142
+  - 143
+  - 144
+  - 145
+  - 146
+  - 147
+  - 148
+  - 149
+reporting_separation:
+- task_performance_collapse
+- support_or_temperature_boundary
+- nan_inf_numerical_failure

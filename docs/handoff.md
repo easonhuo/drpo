@@ -1,5 +1,20 @@
-# DRPO / SNA2C 远场负梯度动力学研究主文档 v47（D-U1 E6 长程结果闭环与 raw-complete 包类型修复版）
+# DRPO / SNA2C 远场负梯度动力学研究主文档 v48（D-U1 E6 大规模条件支持缺口协议与正式执行准备版）
 
+> **v48 增量登记：`D-U1-E6-CONDITIONAL-GAP-01` 大规模条件支持缺口、开发 pilot 与 formal freeze（不删除 v47 及更早内容）**
+>
+> - 已完成的 `D-U1-E6-SEMANTIC-LONGRUN-01` 不被覆盖或否定，继续作为 **dense effective coverage / benign interpolation control**：其 360/360 长程结果证明高 reward 可与 support boundary 共存，但没有产生 task-performance collapse。该结果促使本版补充一个新的、职责独立的条件支持缺口实验，而不是重跑或修改历史结果。
+> - 新实验只研究离散 contextual policy 的 **same-distribution structured state-action support gap**。训练和测试 context 仍为独立同分布样本，不存在显式 state-distribution shift，禁止称为 OOD generalization。实验问题是：一个 action group 在其他 contexts 中可见，但在一大片目标 contexts 中系统缺失时，共享策略是否把见过的 action 错误推广到不匹配 contexts，并出现任务性能崩溃。
+> - 环境冻结为 8 个 semantic action groups、每组 32 个动作、共 256 个随机置换 action IDs。4096 个 train states 与 4096 个 test states 均使用 balanced paired standard-normal marginal；每对 state 除 gap indicator 所在坐标符号外完全相同，target group 由其余状态坐标决定。因此 covered/gap 比较不混入 target、nuisance 或 state marginal 差异。
+> - exactly 50% states 为 gap states。每个 state 只记录 3/8 action groups，因此 62.5% conditional group blocks 缺失；在 gap states 上，完整 32-action optimal group 从 positive/local/far 全部日志角色中移除，但该 group 在其他 states 中继续出现。50% 是保持 exact paired covered/gap control 的最大平衡区域，且比旧 E6 的随机、密集语义插值形成显著更大的结构化条件缺口。
+> - reward cliff 固定为：correct group scale `1.0`、proxy-positive group scale `0.65`、其余 groups（包括 trap group）为 `0.0`；within-group factor 下限 `0.85`。hidden optimal action 永不进入 positive demonstrations。固定 concentration `8.0`，本实验先隔离 task overgeneralization，不把 learnable-temperature support dynamics 混入主因果链。
+> - 开发协议 `D-U1-E6-CONDITIONAL-GAP-DEV-01` 已使用 seeds `0--1`、1000 steps 完成 20/20 pilot runs；所有环境不变量通过，NaN/Inf `0/20`、support/temperature boundary `0/20`、task-performance collapse `4/20`。该 pilot 只选择 formal 条件，不是正式结果。random-policy gap reward 约 `0.1908`；structured-gap positive-only 为 `0.5152`；local `alpha=0.5` 为 `0.6363`；local `alpha=1.5` 为 `0.1859` 且 2/2 达到 task-collapse 规则。far-pressure `lambda=4.0` 下 uncontrolled 为 `0.2991`，Far-cap 与 raw-budget-matched Global 分别为 `0.4508`、`0.4908`；不得将两 seed pilot 升级为方法排名。
+> - 正式协议 `D-U1-E6-CONDITIONAL-GAP-01` 经用户于 2026-06-27 批准，使用 untouched seeds `130--149`、Adam `lr=1e-3`、batch 128、8000 steps、每 50 steps 评估。正式条件固定为 paired covered control 与 structured gap 下的 positive-only、local `alpha=0.5/1.5`、uncontrolled、near-zero、Far-cap、budget-matched Global；far pressure 固定 `4.0`，不预设任何方法赢家。
+> - 正式 horizon 是新 pilot 的 8x，终态窗口为 `4000--6000` 与 `6000--8000`；每 5 个 seeds 写 persistent-local recovery checkpoint。task-performance collapse 使用 random-policy 与 paired positive-only 之间的 normalized margin，并与 support/temperature boundary、NaN/Inf numerical failure 分开报告。科学失败事件是结果，不得丢弃或通过结果后改阈值修复。
+> - 代码入口为 `src/drpo/du1_e6_conditional_gap.py`，formal entrypoint 为 `src/drpo/du1_e6_conditional_gap_longrun.py`，唯一推荐启动入口为 `scripts/run_du1_e6_conditional_gap_longrun.py`。应用并提交本版后，formal gate 为 **implemented + ready + active**；正式训练尚未启动。`D-U1-E6-TAPER-01` 新增 predecessor-delivery blocker，必须等待本实验终态审计、打包和交付，且原 semantic-remoteness / paired-protocol / untouched-seed / independent-runner blockers 继续存在。
+
+
+> **v47（D-U1 E6 长程结果闭环与 raw-complete 包类型修复版）历史标题保留。**
+>
 > **v47 增量登记：`D-U1-E6-SEMANTIC-LONGRUN-01` 正式结果、仓库闭环与 raw-complete 更新器诊断（不删除 v45 及更早内容）**
 >
 > - 正式运行绑定 clean `main` commit `eb5e12626026854f44f4698dbc8ed8829e74e0b0`，使用 untouched held-out seeds `10--29`，完成冻结矩阵 `360/360` runs；8000-step 正式 horizon 是 4000-step development horizon 的 2x，所有逐 run terminal audit 均存在且被接受，科学状态登记为 **已长期验证（long-run validated）**。

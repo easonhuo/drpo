@@ -1,0 +1,17 @@
+{
+  "experiment_id": "D-U1-E6-CONDITIONAL-GAP-DEV-01",
+  "scientific_status": "pilot",
+  "formal_result": false,
+  "files": [
+    "RESULT_SUMMARY.md",
+    "aggregate_summary.json",
+    "per_run_summary.csv",
+    "terminal_audit.json",
+    "environment_audits.json",
+    "pilot_freeze_recommendation.json"
+  ],
+  "excluded_large_files": [
+    "trajectories.jsonl",
+    "per-run development summaries"
+  ]
+}

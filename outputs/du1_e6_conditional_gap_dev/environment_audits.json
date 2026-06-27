@@ -1,0 +1,170 @@
+[
+  {
+    "action_id_permutation_changed": true,
+    "action_id_permutation_checksum": "7b9ad378f8c93fbb218da88bab91eca894060232c9f4d4f0d0e7de54dd31f8e9",
+    "coverage_mode": "optimal_group_covered",
+    "passed": true,
+    "policy_embedding_norm_max_error": 0.0,
+    "seed": 0,
+    "splits": {
+      "test": {
+        "conditional_block_gap_fraction": 0.625,
+        "covered_correct_group_observed_count": 2048,
+        "gap_correct_group_observed_count": 2048,
+        "gap_state_fraction": 0.5,
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "hidden_positive_overlap_count": 0,
+        "mean_random_policy_reward": 0.19078125059604645,
+        "observed_action_groups_per_state_unique": [
+          3
+        ],
+        "paired_non_gap_state_coordinates_max_error": 0.0,
+        "paired_target_group_equal": true,
+        "passed": true,
+        "positive_role_action_groups_covered": 8
+      },
+      "train": {
+        "conditional_block_gap_fraction": 0.625,
+        "covered_correct_group_observed_count": 2048,
+        "gap_correct_group_observed_count": 2048,
+        "gap_state_fraction": 0.5,
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "hidden_positive_overlap_count": 0,
+        "mean_random_policy_reward": 0.19078125059604645,
+        "observed_action_groups_per_state_unique": [
+          3
+        ],
+        "paired_non_gap_state_coordinates_max_error": 0.0,
+        "paired_target_group_equal": true,
+        "passed": true,
+        "positive_role_action_groups_covered": 8
+      }
+    }
+  },
+  {
+    "action_id_permutation_changed": true,
+    "action_id_permutation_checksum": "7b9ad378f8c93fbb218da88bab91eca894060232c9f4d4f0d0e7de54dd31f8e9",
+    "coverage_mode": "structured_gap",
+    "passed": true,
+    "policy_embedding_norm_max_error": 0.0,
+    "seed": 0,
+    "splits": {
+      "test": {
+        "conditional_block_gap_fraction": 0.625,
+        "covered_correct_group_observed_count": 2048,
+        "gap_correct_group_observed_count": 0,
+        "gap_state_fraction": 0.5,
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "hidden_positive_overlap_count": 0,
+        "mean_random_policy_reward": 0.19078125059604645,
+        "observed_action_groups_per_state_unique": [
+          3
+        ],
+        "paired_non_gap_state_coordinates_max_error": 0.0,
+        "paired_target_group_equal": true,
+        "passed": true,
+        "positive_role_action_groups_covered": 8
+      },
+      "train": {
+        "conditional_block_gap_fraction": 0.625,
+        "covered_correct_group_observed_count": 2048,
+        "gap_correct_group_observed_count": 0,
+        "gap_state_fraction": 0.5,
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "hidden_positive_overlap_count": 0,
+        "mean_random_policy_reward": 0.19078125059604645,
+        "observed_action_groups_per_state_unique": [
+          3
+        ],
+        "paired_non_gap_state_coordinates_max_error": 0.0,
+        "paired_target_group_equal": true,
+        "passed": true,
+        "positive_role_action_groups_covered": 8
+      }
+    }
+  },
+  {
+    "action_id_permutation_changed": true,
+    "action_id_permutation_checksum": "68f7eb7acb8f709a33116ce8b1165a62668d4ba2e4535692bc9a4817ffd03e87",
+    "coverage_mode": "optimal_group_covered",
+    "passed": true,
+    "policy_embedding_norm_max_error": 0.0,
+    "seed": 1,
+    "splits": {
+      "test": {
+        "conditional_block_gap_fraction": 0.625,
+        "covered_correct_group_observed_count": 2048,
+        "gap_correct_group_observed_count": 2048,
+        "gap_state_fraction": 0.5,
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "hidden_positive_overlap_count": 0,
+        "mean_random_policy_reward": 0.19078125059604645,
+        "observed_action_groups_per_state_unique": [
+          3
+        ],
+        "paired_non_gap_state_coordinates_max_error": 0.0,
+        "paired_target_group_equal": true,
+        "passed": true,
+        "positive_role_action_groups_covered": 8
+      },
+      "train": {
+        "conditional_block_gap_fraction": 0.625,
+        "covered_correct_group_observed_count": 2048,
+        "gap_correct_group_observed_count": 2048,
+        "gap_state_fraction": 0.5,
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "hidden_positive_overlap_count": 0,
+        "mean_random_policy_reward": 0.19078125059604645,
+        "observed_action_groups_per_state_unique": [
+          3
+        ],
+        "paired_non_gap_state_coordinates_max_error": 0.0,
+        "paired_target_group_equal": true,
+        "passed": true,
+        "positive_role_action_groups_covered": 8
+      }
+    }
+  },
+  {
+    "action_id_permutation_changed": true,
+    "action_id_permutation_checksum": "68f7eb7acb8f709a33116ce8b1165a62668d4ba2e4535692bc9a4817ffd03e87",
+    "coverage_mode": "structured_gap",
+    "passed": true,
+    "policy_embedding_norm_max_error": 0.0,
+    "seed": 1,
+    "splits": {
+      "test": {
+        "conditional_block_gap_fraction": 0.625,
+        "covered_correct_group_observed_count": 2048,
+        "gap_correct_group_observed_count": 0,
+        "gap_state_fraction": 0.5,
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "hidden_positive_overlap_count": 0,
+        "mean_random_policy_reward": 0.19078125059604645,
+        "observed_action_groups_per_state_unique": [
+          3
+        ],
+        "paired_non_gap_state_coordinates_max_error": 0.0,
+        "paired_target_group_equal": true,
+        "passed": true,
+        "positive_role_action_groups_covered": 8
+      },
+      "train": {
+        "conditional_block_gap_fraction": 0.625,
+        "covered_correct_group_observed_count": 2048,
+        "gap_correct_group_observed_count": 0,
+        "gap_state_fraction": 0.5,
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "hidden_positive_overlap_count": 0,
+        "mean_random_policy_reward": 0.19078125059604645,
+        "observed_action_groups_per_state_unique": [
+          3
+        ],
+        "paired_non_gap_state_coordinates_max_error": 0.0,
+        "paired_target_group_equal": true,
+        "passed": true,
+        "positive_role_action_groups_covered": 8
+      }
+    }
+  }
+]
