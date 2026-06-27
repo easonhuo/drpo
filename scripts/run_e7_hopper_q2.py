@@ -31,6 +31,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--config", default=DEFAULT_CONFIG)
     parser.add_argument("--artifact-output")
     parser.add_argument(
+        "--critic-artifact",
+        help="Optional exact canonical critic artifact directory to verify and reuse",
+    )
+    parser.add_argument(
         "--allow-dirty",
         action="store_true",
         help="Pilot only; the hardened guard captures a bounded launch snapshot",
@@ -105,6 +109,10 @@ def main() -> int:
         "aggregate_summary.json",
         "--required-output",
         "per_seed_summary.csv",
+        "--required-output",
+        "ROLLOUT_PREFLIGHT.json",
+        "--required-output",
+        "CANONICAL_CRITIC_REFERENCE.json",
         "--source-file",
         "scripts/run_e7_hopper_q2.py",
         "--source-file",
@@ -121,6 +129,10 @@ def main() -> int:
         "events.jsonl",
         "--progress-glob",
         "seeds/*/methods/*/curves.csv",
+        "--progress-glob",
+        "canonical_critic/training/critic_metrics.csv",
+        "--progress-glob",
+        "rollout_preflight/rollout_preflight.json",
     ]
     if args.run_class == "formal":
         command.append("--require-origin-main-match")
@@ -146,6 +158,11 @@ def main() -> int:
             args.device,
         ]
     )
+    if args.critic_artifact:
+        critic_artifact = Path(args.critic_artifact).expanduser().resolve()
+        if not critic_artifact.is_dir():
+            raise SystemExit(f"Canonical critic artifact does not exist: {critic_artifact}")
+        command.extend(["--critic-artifact", str(critic_artifact)])
     if args.allow_dirty:
         command.append("--allow-dirty")
 
@@ -154,6 +171,10 @@ def main() -> int:
     print(f"Run class: {args.run_class}")
     print(f"Dataset: {dataset}")
     print(f"Run directory: {work}")
+    print(
+        "Canonical critic: "
+        + (str(Path(args.critic_artifact).expanduser().resolve()) if args.critic_artifact else "train once inside this run")
+    )
     print(f"Result artifact: {artifact}")
     result = subprocess.run(command, cwd=repo)
     if result.returncode == 0:

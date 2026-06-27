@@ -1,0 +1,51 @@
+{
+  "affected_selectors": [
+    "DRPO / SNA2C \u8fdc\u573a\u8d1f\u68af\u5ea6\u52a8\u529b\u5b66\u7814\u7a76\u4e3b\u6587\u6863 v53\uff08Stage 3 \u771f\u5b9e\u89c2\u5bdf\u8bb0\u8d26\u4e0e\u9a8c\u6536\u81ea\u52a8\u5316\u7248\uff09",
+    "DRPO / SNA2C \u8fdc\u573a\u8d1f\u68af\u5ea6\u52a8\u529b\u5b66\u7814\u7a76\u4e3b\u6587\u6863 v54\uff08E7 Canonical Critic \u4e0e Rollout Preflight \u4fee\u6b63\u7248\uff09"
+  ],
+  "base_commit": "bfa01c28b8dadfd4a191d92e0a239cf9cf69d45d",
+  "base_handoff_sha256": "1550fdebe22725e1015a0e0a2943328f14559e81be88e7ea0e77aca93fad0bb4",
+  "base_registry_sha256": "4e82fb50db25e0d33a1f7d5e5bc309fc6e599c1085f2dfffbab895afb777efc5",
+  "candidate_replaced_authority": false,
+  "candidate_sha256": "b431ae3ccef5237fa65ea59128397607950fac2494492a39de57ba7f029bd806",
+  "comparison_target": "working_tree",
+  "current_registry_sha256": "4e82fb50db25e0d33a1f7d5e5bc309fc6e599c1085f2dfffbab895afb777efc5",
+  "exact_manual_candidate_match": true,
+  "full_candidate_saved": false,
+  "history_preservation_passed": true,
+  "idempotence_passed": true,
+  "llm_blocking_gate_used": false,
+  "manual_handoff_authoritative": true,
+  "manual_sha256": "b431ae3ccef5237fa65ea59128397607950fac2494492a39de57ba7f029bd806",
+  "mode": "shadow",
+  "network_used": false,
+  "observation_kind": "real",
+  "operation_count": 2,
+  "performance": {
+    "base_validation_ms": 173.982,
+    "comparison_and_registry_ms": 10.633,
+    "hard_limit_ms": 15000.0,
+    "policy_and_schema_ms": 23.742,
+    "render_and_idempotence_ms": 58.663,
+    "target_p95_ms": 5000.0,
+    "total_ms": 268.554,
+    "within_hard_limit": true,
+    "within_target": true
+  },
+  "policy_id": "GOV-HANDOFF-INDEX-01",
+  "registry_change_assertions": [],
+  "registry_change_coverage": {
+    "added_entities": [],
+    "changed_field_count": 0,
+    "fully_declared": true,
+    "mode": "exact_unchanged",
+    "removed_entities": []
+  },
+  "registry_transition_assertions": [],
+  "report_schema_version": 2,
+  "repository_commit": null,
+  "schema_version": 1,
+  "status": "PASS",
+  "update_id": "EXT-H-E7-Q2-CANONICAL-CRITIC-ROLLOUT-2026-06-28",
+  "validation_worktree_head": "bfa01c28b8dadfd4a191d92e0a239cf9cf69d45d"
+}

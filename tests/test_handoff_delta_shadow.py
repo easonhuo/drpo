@@ -202,8 +202,22 @@ def test_historical_countdown_v43_delta_matches_repository_after_image() -> None
     assert result.report["candidate_replaced_authority"] is False
 
 
-def test_current_stage3_automation_delta_matches_manual_handoff() -> None:
+def test_historical_stage3_automation_delta_matches_repository_after_image() -> None:
     delta = ROOT / "docs/handoff_deltas/GOV-STAGE3-OBSERVATION-AUTOMATION-2026-06-27/HANDOFF_DELTA.yaml"
+    result = MODULE.check_delta(
+        ROOT, delta, target_commit="bfa01c28b8dadfd4a191d92e0a239cf9cf69d45d"
+    )
+    assert result.report["status"] == "PASS"
+    assert result.report["exact_manual_candidate_match"] is True
+    assert result.report["idempotence_passed"] is True
+    assert result.report["candidate_replaced_authority"] is False
+
+
+def test_current_e7_canonical_critic_rollout_delta_matches_manual_handoff() -> None:
+    delta = (
+        ROOT
+        / "docs/handoff_deltas/EXT-H-E7-Q2-CANONICAL-CRITIC-ROLLOUT-2026-06-28/HANDOFF_DELTA.yaml"
+    )
     result = MODULE.check_delta(ROOT, delta)
     assert result.report["status"] == "PASS"
     assert result.report["exact_manual_candidate_match"] is True
@@ -403,7 +417,7 @@ def test_full_acceptance_mutations_are_rejected(tmp_path: Path) -> None:
 def test_full_acceptance_fast_gate_stays_below_hard_limit() -> None:
     delta = (
         ROOT
-        / "docs/handoff_deltas/GOV-STAGE3-OBSERVATION-AUTOMATION-2026-06-27/HANDOFF_DELTA.yaml"
+        / "docs/handoff_deltas/EXT-H-E7-Q2-CANONICAL-CRITIC-ROLLOUT-2026-06-28/HANDOFF_DELTA.yaml"
     )
     samples = []
     for _ in range(3):

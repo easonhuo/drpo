@@ -15,6 +15,7 @@ from __future__ import annotations
 import argparse
 import csv
 import hashlib
+import importlib
 import json
 import math
 import os
@@ -24,6 +25,7 @@ import shutil
 import subprocess
 import sys
 import traceback
+from importlib import metadata as importlib_metadata
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -41,7 +43,7 @@ except ImportError as exc:  # pragma: no cover - dependency declared by project
     raise SystemExit("PyYAML is required. Install the project with pip install -e .") from exc
 
 EXPERIMENT_ID = "EXT-H-E7-Q2"
-RUNNER_VERSION = "3.0.0-hardened-q2"
+RUNNER_VERSION = "4.0.0-canonical-critic-rollout-preflight"
 EPS = 1e-6
 METHODS = (
     "positive_only",
@@ -184,6 +186,7 @@ def environment_manifest() -> dict[str, Any]:
 class ModeConfig:
     max_transitions: int | None
     seeds: tuple[int, ...]
+    canonical_critic_seed: int
     critic_max_steps: int
     critic_min_steps: int
     critic_eval_interval: int
@@ -208,6 +211,7 @@ class E7Config:
     normalized_score_percent: bool
     formal_rollout_required: bool
     pilot_rollout_required: bool
+    rollout_preflight_max_steps: int
     gamma: float
     train_fraction: float
     validation_fraction: float
@@ -256,6 +260,7 @@ def _mode_from_dict(raw: dict[str, Any]) -> ModeConfig:
             None if raw.get("max_transitions") in (None, 0) else int(raw["max_transitions"])
         ),
         seeds=tuple(int(x) for x in raw["seeds"]),
+        canonical_critic_seed=int(raw["canonical_critic_seed"]),
         critic_max_steps=int(raw["critic_max_steps"]),
         critic_min_steps=int(raw["critic_min_steps"]),
         critic_eval_interval=int(raw["critic_eval_interval"]),
@@ -288,6 +293,7 @@ def load_config(path: str | Path) -> E7Config:
         normalized_score_percent=bool(env["normalized_score_percent"]),
         formal_rollout_required=bool(env["formal_required"]),
         pilot_rollout_required=bool(env["pilot_required"]),
+        rollout_preflight_max_steps=int(env["preflight_max_steps"]),
         gamma=float(raw["critic"]["gamma"]),
         train_fraction=float(raw["critic"]["episode_split"]["train"]),
         validation_fraction=float(raw["critic"]["episode_split"]["validation"]),
@@ -645,17 +651,28 @@ def classify_actor_terminal(
         and float(last["update_norm"]) <= config.actor_update_tolerance
         and not nonfinite
     )
-    rollout_values = [
-        float(row.get("normalized_return", float("nan"))) for row in rows
-    ]
+    rollout_values = [float(row.get("normalized_return", float("nan"))) for row in rows]
     finite_rollouts = [value for value in rollout_values if math.isfinite(value)]
+    rollout_statuses = {
+        str(row.get("rollout_status", "not_evaluated")) for row in rows
+    }
     initial_return = finite_rollouts[0] if finite_rollouts else float("nan")
     final_return = finite_rollouts[-1] if finite_rollouts else float("nan")
-    task_collapse = bool(
-        math.isfinite(initial_return)
-        and math.isfinite(final_return)
-        and initial_return - final_return >= config.task_return_drop_threshold
-    )
+    if finite_rollouts:
+        task_status = "available"
+        task_collapse: bool | None = bool(
+            initial_return - final_return >= config.task_return_drop_threshold
+        )
+    elif "unavailable" in rollout_statuses:
+        task_status = "unavailable"
+        task_collapse = None
+    elif rollout_statuses == {"disabled"}:
+        task_status = "disabled"
+        task_collapse = None
+    else:
+        task_status = "not_evaluated"
+        task_collapse = None
+
     if nonfinite:
         state = "nan_inf_numerical_collapse"
     elif stable and support_event:
@@ -668,6 +685,7 @@ def classify_actor_terminal(
         state = "persistent_or_slow_drift"
     else:
         state = "max_horizon_without_terminal_classification"
+    explicit_terminal_classification = state != "max_horizon_without_terminal_classification"
     return {
         "state": state,
         "candidate_step": candidate_step,
@@ -675,12 +693,15 @@ def classify_actor_terminal(
         "slopes": slopes,
         "support_boundary_event": support_event,
         "numerical_nonfinite": nonfinite,
+        "task_performance_status": task_status,
         "task_performance_collapse": task_collapse,
+        "normalized_return_available": task_status == "available",
         "initial_normalized_return": initial_return,
         "final_normalized_return": final_return,
         "task_return_drop_threshold": config.task_return_drop_threshold,
+        "explicit_terminal_classification": explicit_terminal_classification,
         "reporting_separation": [
-            "task_performance_collapse",
+            "task_performance_status_and_collapse",
             "support_or_variance_boundary_event",
             "nan_inf_numerical_collapse",
         ],
@@ -701,6 +722,303 @@ def choose_device(requested: str) -> torch.device:
     return device
 
 
+def _package_version(name: str) -> str | None:
+    try:
+        return importlib_metadata.version(name)
+    except importlib_metadata.PackageNotFoundError:
+        return None
+
+
+def _legacy_numpy_compatibility() -> list[str]:
+    """Install the minimal NumPy-2 compatibility alias required by legacy Gym.
+
+    Gym 0.26 and old D4RL wrappers may reference ``np.bool8`` during ``step``.
+    NumPy 2 removed the alias while retaining ``np.bool_``.  The shim is explicit,
+    recorded in every rollout preflight, and does not alter numerical values.
+    """
+    applied: list[str] = []
+    if not hasattr(np, "bool8"):
+        setattr(np, "bool8", np.bool_)
+        applied.append("numpy.bool8=numpy.bool_")
+    return applied
+
+
+def _open_d4rl_env(
+    env_id: str, registration_import: str
+) -> tuple[Any, dict[str, Any]]:
+    compatibility_shims = _legacy_numpy_compatibility()
+    registration_module = importlib.import_module(registration_import)
+    try:
+        gym_module = importlib.import_module("gym")
+        gym_backend = "gym"
+    except ImportError:
+        gym_module = importlib.import_module("gymnasium")
+        gym_backend = "gymnasium"
+
+    attempts: list[dict[str, Any]] = []
+    env = None
+    for kwargs in ({"disable_env_checker": True}, {}):
+        try:
+            env = gym_module.make(env_id, **kwargs)
+            attempts.append({"kwargs": kwargs, "status": "success"})
+            break
+        except TypeError as exc:
+            attempts.append(
+                {
+                    "kwargs": kwargs,
+                    "status": "type_error",
+                    "error": str(exc),
+                }
+            )
+        except Exception as exc:
+            attempts.append(
+                {
+                    "kwargs": kwargs,
+                    "status": "error",
+                    "error_type": type(exc).__name__,
+                    "error": str(exc),
+                }
+            )
+            if kwargs == {}:
+                raise
+    if env is None:
+        raise RuntimeError(f"Could not construct registered environment {env_id!r}")
+    metadata = {
+        "gym_backend": gym_backend,
+        "gym_module": getattr(gym_module, "__name__", gym_backend),
+        "registration_module": getattr(
+            registration_module, "__name__", registration_import
+        ),
+        "compatibility_shims": compatibility_shims,
+        "make_attempts": attempts,
+    }
+    return env, metadata
+
+
+def _reset_env(env: Any, seed: int) -> tuple[np.ndarray, dict[str, Any]]:
+    try:
+        result = env.reset(seed=int(seed))
+        reset_mode = "reset_seed_kwarg"
+    except TypeError:
+        if hasattr(env, "seed"):
+            env.seed(int(seed))
+        result = env.reset()
+        reset_mode = "legacy_env_seed"
+    if isinstance(result, tuple):
+        observation = result[0]
+        info = result[1] if len(result) > 1 and isinstance(result[1], dict) else {}
+    else:
+        observation = result
+        info = {}
+    return np.asarray(observation, dtype=np.float32), {
+        "reset_mode": reset_mode,
+        "info_keys": sorted(str(key) for key in info),
+    }
+
+
+def _step_env(env: Any, action: np.ndarray) -> tuple[np.ndarray, float, bool, dict[str, Any]]:
+    result = env.step(action)
+    if not isinstance(result, tuple):
+        raise RuntimeError(f"env.step returned {type(result).__name__}, expected tuple")
+    if len(result) == 5:
+        observation, reward, terminated, truncated, info = result
+        done = bool(terminated or truncated)
+        api = "new_five_tuple"
+    elif len(result) == 4:
+        observation, reward, done, info = result
+        done = bool(done)
+        api = "legacy_four_tuple"
+    else:
+        raise RuntimeError(f"env.step returned {len(result)} values, expected 4 or 5")
+    return (
+        np.asarray(observation, dtype=np.float32),
+        float(reward),
+        done,
+        {
+            "step_api": api,
+            "info_keys": sorted(str(key) for key in info) if isinstance(info, dict) else [],
+        },
+    )
+
+
+def _environment_scorer(env: Any) -> Callable[[float], float] | None:
+    scorer = getattr(env, "get_normalized_score", None)
+    if callable(scorer):
+        return scorer
+    unwrapped = getattr(env, "unwrapped", None)
+    scorer = getattr(unwrapped, "get_normalized_score", None)
+    return scorer if callable(scorer) else None
+
+
+def _clip_action_to_space(env: Any, action: np.ndarray) -> np.ndarray:
+    action = np.asarray(action, dtype=np.float32)
+    space = getattr(env, "action_space", None)
+    low = getattr(space, "low", None)
+    high = getattr(space, "high", None)
+    if low is not None and high is not None:
+        action = np.clip(action, np.asarray(low), np.asarray(high))
+    return action.astype(np.float32, copy=False)
+
+
+def _max_episode_steps(env: Any, fallback: int) -> int:
+    spec = getattr(env, "spec", None)
+    value = getattr(spec, "max_episode_steps", None)
+    if isinstance(value, int) and value > 0:
+        return min(value, fallback)
+    value = getattr(env, "_max_episode_steps", None)
+    if isinstance(value, int) and value > 0:
+        return min(value, fallback)
+    return fallback
+
+
+def preflight_d4rl_environment(
+    *,
+    env_id: str,
+    registration_import: str,
+    expected_observation_dim: int,
+    expected_action_dim: int,
+    seed: int,
+    max_steps: int,
+    normalized_score_percent: bool,
+    output_dir: Path,
+    required: bool,
+) -> dict[str, Any]:
+    """Exercise registration, reset, step, one episode, and score normalization.
+
+    The preflight runs before critic training.  Failure evidence is written before
+    the exception is re-raised so the hardened guard can package the exact cause.
+    """
+    output_dir.mkdir(parents=True, exist_ok=True)
+    versions = {
+        "python": sys.version,
+        "numpy": np.__version__,
+        "packages": {
+            name: _package_version(name)
+            for name in ("gym", "gymnasium", "d4rl", "mujoco", "mujoco-py")
+        },
+    }
+    atomic_write_json(output_dir / "environment_versions.json", versions)
+    report: dict[str, Any] = {
+        "status": "running",
+        "started_utc": utc_now(),
+        "env_id": env_id,
+        "registration_import": registration_import,
+        "required": required,
+        "expected_observation_dim": expected_observation_dim,
+        "expected_action_dim": expected_action_dim,
+        "max_steps": max_steps,
+        "versions": versions,
+    }
+    env = None
+    try:
+        env, open_metadata = _open_d4rl_env(env_id, registration_import)
+        report["open"] = open_metadata
+        observation, reset_metadata = _reset_env(env, seed)
+        report["reset"] = {
+            **reset_metadata,
+            "observation_shape": list(observation.shape),
+            "observation_finite": bool(np.all(np.isfinite(observation))),
+        }
+        if observation.size != expected_observation_dim:
+            raise RuntimeError(
+                f"Environment observation size {observation.size} does not match "
+                f"dataset observation dimension {expected_observation_dim}"
+            )
+        action_space = getattr(env, "action_space", None)
+        if action_space is None or not hasattr(action_space, "sample"):
+            raise RuntimeError("Environment does not expose a sampleable action_space")
+        if hasattr(action_space, "seed"):
+            action_space.seed(int(seed))
+        sample_action = _clip_action_to_space(env, action_space.sample())
+        if sample_action.size != expected_action_dim:
+            raise RuntimeError(
+                f"Environment action size {sample_action.size} does not match "
+                f"dataset action dimension {expected_action_dim}"
+            )
+        next_observation, reward, done, step_metadata = _step_env(env, sample_action)
+        report["single_step"] = {
+            **step_metadata,
+            "action_shape": list(sample_action.shape),
+            "action_finite": bool(np.all(np.isfinite(sample_action))),
+            "next_observation_shape": list(next_observation.shape),
+            "next_observation_finite": bool(np.all(np.isfinite(next_observation))),
+            "reward": reward,
+            "reward_finite": math.isfinite(reward),
+            "done": done,
+        }
+        observation, _ = _reset_env(env, seed + 1)
+        total = 0.0
+        limit = _max_episode_steps(env, max_steps)
+        episode_steps = 0
+        done = False
+        last_api = None
+        while not done and episode_steps < limit:
+            action = _clip_action_to_space(env, action_space.sample())
+            observation, reward, done, meta = _step_env(env, action)
+            total += reward
+            episode_steps += 1
+            last_api = meta["step_api"]
+        scorer = _environment_scorer(env)
+        normalized = float("nan")
+        if scorer is not None:
+            normalized = float(scorer(total))
+            if normalized_score_percent:
+                normalized *= 100.0
+        elif required:
+            raise RuntimeError(
+                f"Environment {env_id!r} does not expose get_normalized_score"
+            )
+        report["random_episode"] = {
+            "steps": episode_steps,
+            "step_limit": limit,
+            "terminated_or_truncated": done,
+            "return": total,
+            "normalized_return": normalized,
+            "normalized_return_available": math.isfinite(normalized),
+            "last_step_api": last_api,
+        }
+        if episode_steps <= 0:
+            raise RuntimeError("Random rollout completed zero steps")
+        if not math.isfinite(total):
+            raise RuntimeError("Random rollout return is non-finite")
+        if required and not math.isfinite(normalized):
+            raise RuntimeError("Required normalized score is unavailable or non-finite")
+        report.update(
+            {
+                "status": "passed",
+                "completed_utc": utc_now(),
+                "interaction_verified": True,
+                "normalized_score_verified": math.isfinite(normalized),
+            }
+        )
+        atomic_write_json(output_dir / "rollout_preflight.json", report)
+        return report
+    except Exception as exc:
+        report.update(
+            {
+                "status": "failed",
+                "failed_utc": utc_now(),
+                "interaction_verified": False,
+                "error_type": type(exc).__name__,
+                "error": str(exc),
+                "traceback": traceback.format_exc(),
+            }
+        )
+        atomic_write_json(output_dir / "rollout_preflight.json", report)
+        if required:
+            raise RuntimeError(
+                f"D4RL rollout preflight failed for {env_id!r}: {exc}. "
+                f"See {output_dir / 'rollout_preflight.json'}"
+            ) from exc
+        return report
+    finally:
+        if env is not None:
+            try:
+                env.close()
+            except Exception:
+                pass
+
+
 def evaluate_d4rl_rollouts(
     *,
     policy: SquashedGaussianPolicy,
@@ -712,71 +1030,52 @@ def evaluate_d4rl_rollouts(
     device: torch.device,
     normalized_score_percent: bool,
     required: bool,
-) -> dict[str, float]:
+    diagnostics_path: Path | None = None,
+) -> dict[str, Any]:
     if episodes <= 0:
         return {
+            "rollout_status": "disabled",
             "rollout_return_mean": float("nan"),
             "rollout_return_std": float("nan"),
             "normalized_return": float("nan"),
+            "normalized_return_available": False,
             "rollout_episodes": 0,
         }
+    env = None
     try:
-        __import__(registration_import)
-        try:
-            import gym  # type: ignore
-        except ImportError:
-            import gymnasium as gym  # type: ignore
-        env = gym.make(env_id)
-    except Exception as exc:
-        if required:
-            raise RuntimeError(
-                f"Rollout evaluation requires {registration_import!r} and env {env_id!r}: {exc}"
-            ) from exc
-        return {
-            "rollout_return_mean": float("nan"),
-            "rollout_return_std": float("nan"),
-            "normalized_return": float("nan"),
-            "rollout_episodes": 0,
-            "rollout_unavailable": 1.0,
-        }
-
-    returns: list[float] = []
-    try:
+        env, open_metadata = _open_d4rl_env(env_id, registration_import)
+        returns: list[float] = []
+        episode_steps: list[int] = []
         for episode in range(episodes):
             episode_seed = int(seed + episode)
-            try:
-                reset_out = env.reset(seed=episode_seed)
-            except TypeError:
-                if hasattr(env, "seed"):
-                    env.seed(episode_seed)
-                reset_out = env.reset()
-            observation = reset_out[0] if isinstance(reset_out, tuple) else reset_out
+            observation, _ = _reset_env(env, episode_seed)
             total = 0.0
             done = False
-            while not done:
-                normalized = obs_norm.transform(
-                    np.asarray(observation, dtype=np.float32).reshape(1, -1)
-                )
+            steps = 0
+            limit = _max_episode_steps(env, 10000)
+            while not done and steps < limit:
+                normalized_obs = obs_norm.transform(observation.reshape(1, -1))
                 with torch.no_grad():
                     action = (
-                        policy.action_mean(tensor(normalized, device))[0]
+                        policy.action_mean(tensor(normalized_obs, device))[0]
                         .detach()
                         .cpu()
                         .numpy()
                     )
-                step_out = env.step(action)
-                if len(step_out) == 5:
-                    observation, reward, terminated, truncated, _ = step_out
-                    done = bool(terminated or truncated)
-                else:
-                    observation, reward, done, _ = step_out
-                    done = bool(done)
-                total += float(reward)
+                action = _clip_action_to_space(env, action)
+                observation, reward, done, _ = _step_env(env, action)
+                total += reward
+                steps += 1
+            if steps >= limit and not done:
+                raise RuntimeError(
+                    f"Episode reached safety limit {limit} without termination"
+                )
             returns.append(total)
+            episode_steps.append(steps)
         mean_return = float(np.mean(returns))
+        scorer = _environment_scorer(env)
         normalized = float("nan")
-        scorer = getattr(env, "get_normalized_score", None)
-        if callable(scorer):
+        if scorer is not None:
             normalized = float(scorer(mean_return))
             if normalized_score_percent:
                 normalized *= 100.0
@@ -784,14 +1083,46 @@ def evaluate_d4rl_rollouts(
             raise RuntimeError(
                 f"Environment {env_id!r} does not expose get_normalized_score"
             )
-        return {
+        result: dict[str, Any] = {
+            "rollout_status": "available" if math.isfinite(normalized) else "return_only",
             "rollout_return_mean": mean_return,
             "rollout_return_std": float(np.std(returns)),
             "normalized_return": normalized,
+            "normalized_return_available": math.isfinite(normalized),
             "rollout_episodes": int(episodes),
+            "rollout_episode_steps_mean": float(np.mean(episode_steps)),
+            "rollout_open_metadata": open_metadata,
         }
+        if required and not math.isfinite(normalized):
+            raise RuntimeError("Required normalized return is unavailable or non-finite")
+        if diagnostics_path is not None:
+            atomic_write_json(diagnostics_path, result)
+        return result
+    except Exception as exc:
+        failure: dict[str, Any] = {
+            "rollout_status": "unavailable",
+            "rollout_return_mean": float("nan"),
+            "rollout_return_std": float("nan"),
+            "normalized_return": float("nan"),
+            "normalized_return_available": False,
+            "rollout_episodes": 0,
+            "error_type": type(exc).__name__,
+            "error": str(exc),
+            "traceback": traceback.format_exc(),
+        }
+        if diagnostics_path is not None:
+            atomic_write_json(diagnostics_path, failure)
+        if required:
+            raise RuntimeError(
+                f"Required rollout evaluation failed for {env_id!r}: {exc}"
+            ) from exc
+        return failure
     finally:
-        env.close()
+        if env is not None:
+            try:
+                env.close()
+            except Exception:
+                pass
 
 
 def sample_indices(rng: np.random.Generator, pool: np.ndarray, batch_size: int) -> np.ndarray:
@@ -825,6 +1156,13 @@ def train_critic(
     output_dir: Path,
     heartbeat: Callable[[str, int], None] | None = None,
 ) -> tuple[ValueNetwork, Normalizer, dict[str, Any]]:
+    """Train one critic to an audited terminal checkpoint.
+
+    The canonical checkpoint is the model after the registered 2x continuation,
+    not the best transient validation checkpoint.  The best checkpoint is retained
+    only as a diagnostic so the actor stage never silently reintroduces a
+    pre-terminal critic.
+    """
     output_dir.mkdir(parents=True, exist_ok=True)
     obs = obs_norm.transform(data.observations)
     target_norm = Normalizer.fit(returns[split["train"]].reshape(-1, 1))
@@ -837,7 +1175,8 @@ def train_critic(
     rows: list[dict[str, Any]] = []
     best_loss = float("inf")
     best_step = 0
-    best_path = output_dir / "best_critic.pt"
+    best_path = output_dir / "best_validation_critic.pt"
+    selected_path = output_dir / "terminal_critic.pt"
     candidate_step: int | None = None
     extension_target: int | None = None
     validation_audit = rng.choice(
@@ -895,10 +1234,10 @@ def train_critic(
             row["train_batch_loss_normalized"] = float(loss.detach().cpu())
             rows.append(row)
             if heartbeat is not None:
-                heartbeat("critic", step)
+                heartbeat("canonical_critic", step)
             emit_event(
                 {
-                    "stage": "critic",
+                    "stage": "canonical_critic",
                     "step": step,
                     "validation_mse": row["validation_mse"],
                     "test_r2": row["test_r2"],
@@ -918,6 +1257,7 @@ def train_critic(
                         "target_mean": target_norm.mean,
                         "target_std": target_norm.std,
                         "step": step,
+                        "checkpoint_role": "best_validation_diagnostic",
                     },
                     best_path,
                 )
@@ -936,13 +1276,46 @@ def train_critic(
             if extension_target is not None and step >= extension_target:
                 break
 
-    checkpoint = torch.load(best_path, map_location=device, weights_only=False)
-    model.load_state_dict(checkpoint["model"])
-    model.eval()
-    selected_metrics = evaluate(best_step, 0.0)
-    model.eval()
+    if not rows:
+        raise RuntimeError("Critic produced no evaluation rows")
+    final_step = int(rows[-1]["step"])
     extension_complete = bool(
-        candidate_step is not None and rows[-1]["step"] >= 2 * candidate_step
+        candidate_step is not None and final_step >= 2 * candidate_step
+    )
+    final_slope = relative_slope(rows, "validation_mse", config.audit_windows)
+    final_stationarity_reconfirmed = bool(
+        final_slope <= config.critic_relative_slope_tolerance
+        and float(rows[-1]["validation_gradient_norm"])
+        <= config.critic_gradient_tolerance
+        and float(rows[-1]["update_norm_per_step"])
+        <= config.critic_update_tolerance
+    )
+    optimization_terminal = bool(
+        candidate_step is not None
+        and extension_complete
+        and final_stationarity_reconfirmed
+    )
+    selected_role = (
+        "terminal_extension_checkpoint"
+        if optimization_terminal
+        else "final_nonterminal_checkpoint_for_pilot_diagnostics"
+    )
+    selected_metrics = evaluate(final_step, float(rows[-1]["update_norm_per_step"]))
+    model.eval()
+    torch.save(
+        {
+            "model": model.state_dict(),
+            "obs_mean": obs_norm.mean,
+            "obs_std": obs_norm.std,
+            "target_mean": target_norm.mean,
+            "target_std": target_norm.std,
+            "step": final_step,
+            "candidate_step": candidate_step,
+            "extension_complete": extension_complete,
+            "optimization_terminal": optimization_terminal,
+            "checkpoint_role": selected_role,
+        },
+        selected_path,
     )
     audit = {
         "best_step": best_step,
@@ -950,21 +1323,27 @@ def train_critic(
         "candidate_step": candidate_step,
         "extension_target": extension_target,
         "extension_complete": extension_complete,
-        "validation_mse_relative_slope": relative_slope(
-            rows, "validation_mse", config.audit_windows
-        ),
+        "final_stationarity_reconfirmed": final_stationarity_reconfirmed,
+        "validation_mse_relative_slope": final_slope,
         "final_validation_gradient_norm": rows[-1]["validation_gradient_norm"],
         "final_update_norm_per_step": rows[-1]["update_norm_per_step"],
-        "optimization_terminal": bool(candidate_step is not None and extension_complete),
+        "optimization_terminal": optimization_terminal,
+        "selected_checkpoint_role": selected_role,
         "selected_checkpoint_metrics": selected_metrics,
         "statistical_note": (
             "Optimization convergence does not imply a ground-truth value function; "
             "held-out R2/Pearson are reported to expose critic error."
         ),
         "checkpoint": {
+            "path": str(selected_path),
+            "sha256": sha256_file(selected_path),
+            "size_bytes": selected_path.stat().st_size,
+        },
+        "best_validation_checkpoint": {
             "path": str(best_path),
             "sha256": sha256_file(best_path),
             "size_bytes": best_path.stat().st_size,
+            "role": "diagnostic_only_not_used_for_actor_advantages",
         },
         "final_training_metrics": rows[-1],
     }
@@ -1051,6 +1430,295 @@ def freeze_advantages(
     return advantage, manifest
 
 
+
+@dataclass
+class CanonicalCriticContext:
+    root: Path
+    split: dict[str, np.ndarray]
+    obs_norm: Normalizer
+    target_norm: Normalizer
+    critic: ValueNetwork
+    advantages: np.ndarray
+    critic_audit: dict[str, Any]
+    advantage_manifest: dict[str, Any]
+    artifact_manifest: dict[str, Any]
+    reused: bool
+
+
+def _artifact_file_record(path: Path, root: Path) -> dict[str, Any]:
+    relative = path.resolve().relative_to(root.resolve())
+    return {
+        "path": relative.as_posix(),
+        "sha256": sha256_file(path),
+        "size_bytes": path.stat().st_size,
+    }
+
+
+def _artifact_path(root: Path, record: dict[str, Any]) -> Path:
+    relative = Path(str(record["path"]))
+    if relative.is_absolute() or ".." in relative.parts:
+        raise RuntimeError(f"Unsafe canonical critic artifact path: {relative}")
+    return root / relative
+
+
+def _verify_artifact_file(root: Path, record: dict[str, Any], label: str) -> Path:
+    path = _artifact_path(root, record)
+    if not path.is_file():
+        raise RuntimeError(f"Canonical critic artifact is missing {label}: {path}")
+    actual = sha256_file(path)
+    if actual != record.get("sha256"):
+        raise RuntimeError(
+            f"Canonical critic artifact hash mismatch for {label}: "
+            f"expected {record.get('sha256')}, got {actual}"
+        )
+    if int(record.get("size_bytes", -1)) != path.stat().st_size:
+        raise RuntimeError(f"Canonical critic artifact size mismatch for {label}: {path}")
+    return path
+
+
+def _canonical_identity(
+    *,
+    config_path: Path,
+    dataset_manifest: dict[str, Any],
+    data: OfflineData,
+    mode_name: str,
+    mode: ModeConfig,
+) -> dict[str, Any]:
+    return {
+        "experiment_id": EXPERIMENT_ID,
+        "runner_version": RUNNER_VERSION,
+        "mode": mode_name,
+        "config_sha256": sha256_file(config_path),
+        "dataset_basename": dataset_manifest["basename"],
+        "dataset_sha256": dataset_manifest["sha256"],
+        "dataset_size_bytes": dataset_manifest["size_bytes"],
+        "transitions_loaded": data.size,
+        "max_transitions": mode.max_transitions,
+        "observation_dim": int(data.observations.shape[1]),
+        "action_dim": int(data.actions.shape[1]),
+        "canonical_critic_seed": mode.canonical_critic_seed,
+    }
+
+
+def _load_canonical_critic_context(
+    *,
+    root: Path,
+    expected_identity: dict[str, Any],
+    config: E7Config,
+    data: OfflineData,
+    device: torch.device,
+    require_terminal: bool,
+) -> CanonicalCriticContext:
+    manifest_path = root / "canonical_critic_manifest.json"
+    if not manifest_path.is_file():
+        raise RuntimeError(
+            f"Canonical critic artifact does not contain {manifest_path.name}: {root}"
+        )
+    manifest = json.loads(manifest_path.read_text())
+    if manifest.get("schema_version") != 1 or not manifest.get("complete"):
+        raise RuntimeError("Canonical critic artifact is incomplete or has an unsupported schema")
+    if manifest.get("identity") != expected_identity:
+        raise RuntimeError(
+            "Canonical critic artifact identity does not match this run. "
+            f"Expected {expected_identity}, got {manifest.get('identity')}"
+        )
+    files = manifest.get("files")
+    if not isinstance(files, dict):
+        raise RuntimeError("Canonical critic manifest is missing its file inventory")
+    checkpoint_path = _verify_artifact_file(root, files["critic_checkpoint"], "critic checkpoint")
+    split_path = _verify_artifact_file(root, files["episode_split"], "episode split")
+    advantage_path = _verify_artifact_file(root, files["frozen_advantages"], "frozen advantages")
+    critic_audit_path = _verify_artifact_file(root, files["critic_audit"], "critic audit")
+    advantage_manifest_path = _verify_artifact_file(
+        root, files["advantage_manifest"], "advantage manifest"
+    )
+
+    critic_audit = json.loads(critic_audit_path.read_text())
+    if require_terminal and not bool(critic_audit.get("optimization_terminal")):
+        raise RuntimeError(
+            "Formal E7 requires an optimization-terminal canonical critic artifact"
+        )
+    split_payload = np.load(split_path)
+    split = {
+        name: np.asarray(split_payload[name], dtype=np.int64)
+        for name in ("train", "validation", "test")
+    }
+    all_indices = np.concatenate(list(split.values()))
+    if len(all_indices) != data.size or len(np.unique(all_indices)) != data.size:
+        raise RuntimeError("Canonical critic episode split does not partition the loaded dataset")
+
+    checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
+    obs_norm = Normalizer(
+        mean=np.asarray(checkpoint["obs_mean"], dtype=np.float32),
+        std=np.asarray(checkpoint["obs_std"], dtype=np.float32),
+    )
+    target_norm = Normalizer(
+        mean=np.asarray(checkpoint["target_mean"], dtype=np.float32),
+        std=np.asarray(checkpoint["target_std"], dtype=np.float32),
+    )
+    critic = ValueNetwork(data.observations.shape[1], config.hidden_sizes).to(device)
+    critic.load_state_dict(checkpoint["model"])
+    critic.eval()
+    for parameter in critic.parameters():
+        parameter.requires_grad_(False)
+
+    advantage_payload = np.load(advantage_path)
+    advantages = np.asarray(advantage_payload["advantage"], dtype=np.float32)
+    if len(advantages) != data.size:
+        raise RuntimeError(
+            f"Frozen advantage count {len(advantages)} does not match data size {data.size}"
+        )
+    advantage_manifest = json.loads(advantage_manifest_path.read_text())
+    return CanonicalCriticContext(
+        root=root,
+        split=split,
+        obs_norm=obs_norm,
+        target_norm=target_norm,
+        critic=critic,
+        advantages=advantages,
+        critic_audit=critic_audit,
+        advantage_manifest=advantage_manifest,
+        artifact_manifest=manifest,
+        reused=True,
+    )
+
+
+def prepare_canonical_critic_context(
+    *,
+    data: OfflineData,
+    config: E7Config,
+    mode: ModeConfig,
+    mode_name: str,
+    config_path: Path,
+    dataset_manifest: dict[str, Any],
+    device: torch.device,
+    artifact_root: Path,
+    reuse_root: Path | None,
+    heartbeat: Callable[[str, int], None] | None = None,
+) -> CanonicalCriticContext:
+    """Prepare or strictly reuse the one critic/advantage artifact for all seeds."""
+    expected_identity = _canonical_identity(
+        config_path=config_path,
+        dataset_manifest=dataset_manifest,
+        data=data,
+        mode_name=mode_name,
+        mode=mode,
+    )
+    require_terminal = mode_name == "formal"
+    if reuse_root is not None:
+        return _load_canonical_critic_context(
+            root=reuse_root.resolve(),
+            expected_identity=expected_identity,
+            config=config,
+            data=data,
+            device=device,
+            require_terminal=require_terminal,
+        )
+    manifest_path = artifact_root / "canonical_critic_manifest.json"
+    if manifest_path.is_file():
+        return _load_canonical_critic_context(
+            root=artifact_root,
+            expected_identity=expected_identity,
+            config=config,
+            data=data,
+            device=device,
+            require_terminal=require_terminal,
+        )
+    if artifact_root.exists() and any(artifact_root.iterdir()):
+        raise RuntimeError(
+            f"Canonical critic directory is non-empty but incomplete: {artifact_root}"
+        )
+    artifact_root.mkdir(parents=True, exist_ok=True)
+    seed_everything(mode.canonical_critic_seed)
+    split = split_episode_indices(
+        data.episode_ids,
+        mode.canonical_critic_seed,
+        config.train_fraction,
+        config.validation_fraction,
+    )
+    obs_norm = Normalizer.fit(data.observations[split["train"]])
+    returns = discounted_returns(data.rewards, data.terminals, data.timeouts, config.gamma)
+    training_dir = artifact_root / "training"
+    critic, target_norm, critic_audit = train_critic(
+        data=data,
+        split=split,
+        obs_norm=obs_norm,
+        returns=returns,
+        config=config,
+        mode=mode,
+        seed=mode.canonical_critic_seed,
+        device=device,
+        output_dir=training_dir,
+        heartbeat=heartbeat,
+    )
+    split_path = artifact_root / "episode_split.npz"
+    np.savez_compressed(split_path, **split)
+    advantages, advantage_manifest = freeze_advantages(
+        critic=critic,
+        data=data,
+        obs_norm=obs_norm,
+        target_norm=target_norm,
+        gamma=config.gamma,
+        standardize=config.advantage_standardize,
+        standardization_indices=split["train"],
+        device=device,
+        output_dir=artifact_root / "frozen_advantage",
+    )
+    for parameter in critic.parameters():
+        parameter.requires_grad_(False)
+    if require_terminal and not bool(critic_audit.get("optimization_terminal")):
+        failure_manifest = {
+            "schema_version": 1,
+            "complete": False,
+            "identity": expected_identity,
+            "created_utc": utc_now(),
+            "reason": "critic_failed_registered_terminal_gate",
+            "critic_optimization_terminal": False,
+        }
+        atomic_write_json(artifact_root / "canonical_critic_incomplete.json", failure_manifest)
+        raise RuntimeError(
+            "Formal E7 gate failed: the canonical critic did not pass the registered "
+            "optimization-terminal and 2x continuation audit"
+        )
+    checkpoint_path = Path(critic_audit["checkpoint"]["path"])
+    critic_audit_path = training_dir / "critic_terminal_audit.json"
+    advantage_path = artifact_root / "frozen_advantage" / "frozen_advantages.npz"
+    advantage_manifest_path = artifact_root / "frozen_advantage" / "advantage_manifest.json"
+    manifest = {
+        "schema_version": 1,
+        "complete": True,
+        "created_utc": utc_now(),
+        "identity": expected_identity,
+        "critic_training_count": 1,
+        "shared_across_all_actor_seeds": True,
+        "critic_updates_during_actor_training": False,
+        "advantage_recomputation_during_actor_training": False,
+        "critic_optimization_terminal": bool(critic_audit["optimization_terminal"]),
+        "checkpoint_role": critic_audit["selected_checkpoint_role"],
+        "files": {
+            "critic_checkpoint": _artifact_file_record(checkpoint_path, artifact_root),
+            "episode_split": _artifact_file_record(split_path, artifact_root),
+            "frozen_advantages": _artifact_file_record(advantage_path, artifact_root),
+            "critic_audit": _artifact_file_record(critic_audit_path, artifact_root),
+            "advantage_manifest": _artifact_file_record(
+                advantage_manifest_path, artifact_root
+            ),
+        },
+    }
+    atomic_write_json(manifest_path, manifest)
+    return CanonicalCriticContext(
+        root=artifact_root,
+        split=split,
+        obs_norm=obs_norm,
+        target_norm=target_norm,
+        critic=critic,
+        advantages=advantages,
+        critic_audit=critic_audit,
+        advantage_manifest=advantage_manifest,
+        artifact_manifest=manifest,
+        reused=False,
+    )
+
 def actor_eval_metrics(
     *,
     policy: SquashedGaussianPolicy,
@@ -1120,9 +1788,11 @@ def actor_eval_metrics(
     else:
         metrics.update(
             {
+                "rollout_status": "not_evaluated",
                 "rollout_return_mean": float("nan"),
                 "rollout_return_std": float("nan"),
                 "normalized_return": float("nan"),
+                "normalized_return_available": False,
                 "rollout_episodes": 0,
             }
         )
@@ -1200,7 +1870,7 @@ def train_actor_stage(
     far_threshold: float = float("inf"),
     global_scale: float = 1.0,
     far_cap_score: float = float("inf"),
-    rollout_evaluator: Callable[[SquashedGaussianPolicy, int], dict[str, float]] | None = None,
+    rollout_evaluator: Callable[[SquashedGaussianPolicy, int, str], dict[str, Any]] | None = None,
     rollout_eval_interval: int = 0,
     heartbeat: Callable[[str, int], None] | None = None,
 ) -> tuple[SquashedGaussianPolicy, dict[str, Any]]:
@@ -1247,7 +1917,7 @@ def train_actor_stage(
             step=step,
             boundary_threshold=config.support_boundary_threshold,
             rollout_metrics=(
-                rollout_evaluator(policy, step)
+                rollout_evaluator(policy, step, method)
                 if rollout_evaluator
                 and (step == 0 or rollout_eval_interval <= 0 or step % rollout_eval_interval == 0)
                 else None
@@ -1357,8 +2027,17 @@ def train_actor_stage(
             if extension_target is not None and step >= extension_target:
                 break
 
-    if rollout_evaluator and not math.isfinite(float(rows[-1].get("normalized_return", float("nan")))):
-        rows[-1].update(rollout_evaluator(policy, int(rows[-1]["step"])))
+    parameters_finite = all(
+        bool(torch.isfinite(parameter).all()) for parameter in policy.parameters()
+    )
+    if (
+        rollout_evaluator
+        and parameters_finite
+        and not math.isfinite(float(rows[-1].get("normalized_return", float("nan"))))
+    ):
+        rows[-1].update(
+            rollout_evaluator(policy, int(rows[-1]["step"]), method)
+        )
 
     checkpoint_path = output_dir / "terminal_actor.pt"
     torch.save(
@@ -1380,6 +2059,8 @@ def train_actor_stage(
         {
             "method": method,
             "final_step": rows[-1]["step"],
+            "max_steps": max_steps,
+            "reached_max_steps": int(rows[-1]["step"]) >= max_steps,
             "extension_target": extension_target,
             "far_threshold": far_threshold,
             "global_scale": global_scale,
@@ -1391,6 +2072,14 @@ def train_actor_stage(
             },
             "final_metrics": rows[-1],
         }
+    )
+    audit["terminal_audit_complete"] = bool(
+        audit["extension_complete"]
+        or audit["numerical_nonfinite"]
+        or (
+            audit["explicit_terminal_classification"]
+            and audit["reached_max_steps"]
+        )
     )
     write_csv(output_dir / "curves.csv", rows)
     atomic_write_json(output_dir / "terminal_audit.json", audit)
@@ -1772,6 +2461,7 @@ def run_seed(
     *,
     seed: int,
     data: OfflineData,
+    canonical: CanonicalCriticContext,
     config: E7Config,
     mode: ModeConfig,
     device: torch.device,
@@ -1781,13 +2471,17 @@ def run_seed(
 ) -> dict[str, Any]:
     seed_everything(seed)
     seed_dir.mkdir(parents=True, exist_ok=True)
-    split = split_episode_indices(
-        data.episode_ids, seed, config.train_fraction, config.validation_fraction
+    split = canonical.split
+    obs_norm = canonical.obs_norm
+    advantages = canonical.advantages
+    rollout_required = (
+        config.formal_rollout_required if formal_mode else config.pilot_rollout_required
     )
-    obs_norm = Normalizer.fit(data.observations[split["train"]])
-    rollout_required = config.formal_rollout_required if formal_mode else config.pilot_rollout_required
 
-    def rollout_evaluator(policy: SquashedGaussianPolicy, step: int) -> dict[str, float]:
+    def rollout_evaluator(
+        policy: SquashedGaussianPolicy, step: int, stage: str
+    ) -> dict[str, Any]:
+        diagnostics = seed_dir / "rollouts" / stage / f"step_{step:08d}.json"
         return evaluate_d4rl_rollouts(
             policy=policy,
             obs_norm=obs_norm,
@@ -1798,37 +2492,9 @@ def run_seed(
             device=device,
             normalized_score_percent=config.normalized_score_percent,
             required=rollout_required,
+            diagnostics_path=diagnostics,
         )
 
-    returns = discounted_returns(data.rewards, data.terminals, data.timeouts, config.gamma)
-    critic, critic_target_norm, critic_audit = train_critic(
-        data=data,
-        split=split,
-        obs_norm=obs_norm,
-        returns=returns,
-        config=config,
-        mode=mode,
-        seed=seed,
-        device=device,
-        output_dir=seed_dir / "critic",
-        heartbeat=heartbeat,
-    )
-    if formal_mode and not critic_audit["optimization_terminal"]:
-        raise RuntimeError(
-            "Formal E7 gate failed: critic did not pass the registered optimization terminal audit"
-        )
-
-    advantages, advantage_manifest = freeze_advantages(
-        critic=critic,
-        data=data,
-        obs_norm=obs_norm,
-        target_norm=critic_target_norm,
-        gamma=config.gamma,
-        standardize=config.advantage_standardize,
-        standardization_indices=split["train"],
-        device=device,
-        output_dir=seed_dir / "frozen_advantage",
-    )
     obs = obs_norm.transform(data.observations)
     train_indices = split["train"]
     positive_train = train_indices[advantages[train_indices] > 0]
@@ -1884,13 +2550,14 @@ def run_seed(
     )
     if formal_mode and positive_audit["state"] != "finite_terminal":
         raise RuntimeError(
-            "Formal E7 gate failed: Positive-only did not reach a finite terminal without a support boundary event"
+            "Formal E7 gate failed: Positive-only did not reach a finite terminal "
+            "without a support boundary event"
         )
 
     with torch.no_grad():
         all_negative_distances = np.full(data.size, np.nan, dtype=np.float32)
-        for start in range(0, len(negative_train), 65536):
-            idx = negative_train[start : start + 65536]
+        for offset in range(0, len(negative_train), 65536):
+            idx = negative_train[offset : offset + 65536]
             all_negative_distances[idx] = positive_policy.standardized_distance(
                 tensor(obs[idx], device), tensor(data.actions[idx], device)
             ).cpu().numpy()
@@ -1934,8 +2601,12 @@ def run_seed(
         device=device,
         output_dir=probe_dir,
     )
-    far_threshold = float((matching_summary["near_cut"] + matching_summary["far_cut"]) / 2.0)
-    near_negative_pool = negative_train[all_negative_distances[negative_train] <= matching_summary["near_cut"]]
+    far_threshold = float(
+        (matching_summary["near_cut"] + matching_summary["far_cut"]) / 2.0
+    )
+    near_negative_pool = negative_train[
+        all_negative_distances[negative_train] <= matching_summary["near_cut"]
+    ]
     if len(near_negative_pool) == 0:
         raise RuntimeError("No near-negative samples available to define Far-cap")
     with torch.no_grad():
@@ -1943,7 +2614,9 @@ def run_seed(
             tensor(obs[near_negative_pool], device),
             tensor(data.actions[near_negative_pool], device),
         ).cpu().numpy()
-    far_cap_score = float(np.quantile(near_joint_scores, config.far_cap_reference_quantile))
+    far_cap_score = float(
+        np.quantile(near_joint_scores, config.far_cap_reference_quantile)
+    )
     atomic_write_json(
         probe_dir / "far_cap_definition.json",
         {
@@ -2010,10 +2683,21 @@ def run_seed(
         support_rescued = bool(signed_audit["support_boundary_event"]) and not bool(
             control["support_boundary_event"]
         )
-        task_rescued = bool(signed_audit["task_performance_collapse"]) and not bool(
-            control["task_performance_collapse"]
-        )
+        signed_task_collapse = signed_audit["task_performance_collapse"] is True
+        control_task_collapse = control["task_performance_collapse"] is True
+        task_rescued = signed_task_collapse and not control_task_collapse
         mitigation_details[method] = bool(score_reduced or support_rescued or task_rescued)
+    terminal_records_complete = all(
+        bool(audit.get("terminal_audit_complete")) for audit in branch_audits.values()
+    )
+    terminal_classification_complete = all(
+        bool(audit.get("explicit_terminal_classification"))
+        for audit in branch_audits.values()
+    )
+    rollout_available = all(
+        audit.get("task_performance_status") == "available"
+        for audit in branch_audits.values()
+    )
     seed_gate = {
         "natural_far_field_present": bool(gradient_summary["natural_far_field_present"]),
         "corrected_quadratic_branch_empirically_active": bool(
@@ -2033,21 +2717,37 @@ def run_seed(
             and mitigation_details.get("far_cap", False)
         ),
         "control_details": mitigation_details,
-        "terminal_state_audit_complete": bool(
-            all(audit.get("state") for audit in branch_audits.values())
-        ),
+        "terminal_audit_records_complete": terminal_records_complete,
+        "terminal_state_classification_complete": terminal_classification_complete,
+        "rollout_available_for_all_methods": rollout_available,
     }
-    seed_gate["all_seed_level_checks_passed"] = bool(
-        all(value for key, value in seed_gate.items() if key not in {"control_details", "all_seed_level_checks_passed"})
+    core_keys = (
+        "natural_far_field_present",
+        "corrected_quadratic_branch_empirically_active",
+        "measurable_full_parameter_contribution",
+        "targeted_far_control_mitigates_dynamics",
+    )
+    seed_gate["all_mechanism_subchecks_passed"] = all(
+        bool(seed_gate[key]) for key in core_keys
     )
     summary = {
         "seed": seed,
-        "critic": critic_audit,
-        "advantage": advantage_manifest,
+        "canonical_critic_artifact": {
+            "root": str(canonical.root),
+            "reused": canonical.reused,
+            "identity": canonical.artifact_manifest["identity"],
+            "critic_training_count": canonical.artifact_manifest["critic_training_count"],
+            "shared_across_all_actor_seeds": True,
+        },
+        "critic": canonical.critic_audit,
+        "advantage": canonical.advantage_manifest,
         "positive_only_initialization": positive_audit,
         "matching": matching_summary,
         "gradient_probe": gradient_summary,
         "global_budget": budget,
+        "mechanism_subchecks": seed_gate,
+        # Compatibility alias for pre-v4 result readers.  Root-level audit semantics
+        # no longer treat this alias as a formal scientific gate in pilot runs.
         "independent_validation_gate": seed_gate,
         "methods": branch_audits,
     }
@@ -2059,8 +2759,13 @@ def flatten_seed_summary(summary: dict[str, Any]) -> dict[str, Any]:
     probe = summary["gradient_probe"]
     row: dict[str, Any] = {
         "seed": summary["seed"],
+        "canonical_critic_seed": summary["canonical_critic_artifact"]["identity"][
+            "canonical_critic_seed"
+        ],
         "critic_test_r2": summary["critic"]["selected_checkpoint_metrics"]["test_r2"],
-        "critic_test_pearson": summary["critic"]["selected_checkpoint_metrics"]["test_pearson"],
+        "critic_test_pearson": summary["critic"]["selected_checkpoint_metrics"][
+            "test_pearson"
+        ],
         "critic_optimization_terminal": summary["critic"]["optimization_terminal"],
         "positive_fraction": summary["advantage"]["positive_fraction"],
         "matched_pairs": summary["matching"]["pairs"],
@@ -2095,15 +2800,36 @@ def flatten_seed_summary(summary: dict[str, Any]) -> dict[str, Any]:
         ],
         "natural_far_field_present": probe["natural_far_field_present"],
         "global_scale": summary["global_budget"]["global_scale"],
-        "seed_gate_passed": summary["independent_validation_gate"][
-            "all_seed_level_checks_passed"
+        "mechanism_subchecks_passed": summary["mechanism_subchecks"][
+            "all_mechanism_subchecks_passed"
+        ],
+        "terminal_audit_records_complete": summary["mechanism_subchecks"][
+            "terminal_audit_records_complete"
+        ],
+        "terminal_state_classification_complete": summary["mechanism_subchecks"][
+            "terminal_state_classification_complete"
+        ],
+        "rollout_available_for_all_methods": summary["mechanism_subchecks"][
+            "rollout_available_for_all_methods"
+        ],
+        "positive_only_terminal_state": summary["positive_only_initialization"]["state"],
+        "positive_only_terminal_audit_complete": summary["positive_only_initialization"][
+            "terminal_audit_complete"
+        ],
+        "positive_only_task_performance_status": summary["positive_only_initialization"][
+            "task_performance_status"
         ],
     }
     for method, audit in summary["methods"].items():
         final = audit["final_metrics"]
         row[f"{method}_terminal_state"] = audit["state"]
+        row[f"{method}_terminal_audit_complete"] = audit["terminal_audit_complete"]
+        row[f"{method}_task_performance_status"] = audit["task_performance_status"]
         row[f"{method}_task_performance_collapse"] = audit[
             "task_performance_collapse"
+        ]
+        row[f"{method}_normalized_return_available"] = audit[
+            "normalized_return_available"
         ]
         row[f"{method}_support_boundary_event"] = audit["support_boundary_event"]
         row[f"{method}_nan_inf_event"] = audit["numerical_nonfinite"]
@@ -2127,14 +2853,23 @@ def aggregate_seed_summaries(summaries: Sequence[dict[str, Any]]) -> dict[str, A
     numeric_keys = [
         key
         for key, value in rows[0].items()
-        if isinstance(value, (int, float, np.integer, np.floating, bool)) and key != "seed"
+        if isinstance(value, (int, float, np.integer, np.floating, bool))
+        and key not in {"seed", "canonical_critic_seed"}
     ]
     aggregate: dict[str, Any] = {
         "seeds_completed": len(rows),
         "seed_ids": [row["seed"] for row in rows],
+        "canonical_critic_seed": rows[0]["canonical_critic_seed"],
+        "one_shared_canonical_critic": len(
+            {row["canonical_critic_seed"] for row in rows}
+        )
+        == 1,
     }
     for key in numeric_keys:
-        values = np.asarray([float(row[key]) for row in rows], dtype=np.float64)
+        values = np.asarray(
+            [float(row[key]) for row in rows if row[key] is not None],
+            dtype=np.float64,
+        )
         finite = values[np.isfinite(values)]
         if len(finite):
             aggregate[key] = {
@@ -2158,8 +2893,16 @@ def aggregate_seed_summaries(summaries: Sequence[dict[str, Any]]) -> dict[str, A
     }
     aggregate["reporting_separation"] = {
         method: {
+            "task_performance_available_count": sum(
+                summary["methods"][method]["task_performance_status"] == "available"
+                for summary in summaries
+            ),
+            "task_performance_unavailable_count": sum(
+                summary["methods"][method]["task_performance_status"] != "available"
+                for summary in summaries
+            ),
             "task_performance_collapse_count": sum(
-                bool(summary["methods"][method]["task_performance_collapse"])
+                summary["methods"][method]["task_performance_collapse"] is True
                 for summary in summaries
             ),
             "support_or_variance_boundary_count": sum(
@@ -2173,51 +2916,134 @@ def aggregate_seed_summaries(summaries: Sequence[dict[str, Any]]) -> dict[str, A
         }
         for method in METHODS
     }
-    gates = [summary["independent_validation_gate"] for summary in summaries]
+    gates = [summary["mechanism_subchecks"] for summary in summaries]
     gate_names = (
         "natural_far_field_present",
         "corrected_quadratic_branch_empirically_active",
         "measurable_full_parameter_contribution",
         "targeted_far_control_mitigates_dynamics",
-        "terminal_state_audit_complete",
-        "all_seed_level_checks_passed",
+        "terminal_audit_records_complete",
+        "terminal_state_classification_complete",
+        "rollout_available_for_all_methods",
+        "all_mechanism_subchecks_passed",
     )
-    aggregate["independent_validation_gate_counts"] = {
+    aggregate["mechanism_subcheck_counts"] = {
         name: int(sum(bool(gate[name]) for gate in gates)) for name in gate_names
     }
-    aggregate["paired_seed_evidence_complete"] = len(rows) > 1
-    aggregate["scientific_status"] = (
-        "pilot" if len(rows) == 1 else "raw_complete_pending_scientific_review"
-    )
+    # Compatibility alias for pre-v4 readers.  The root terminal audit carries the
+    # authoritative pilot/formal semantics.
+    aggregate["independent_validation_gate_counts"] = aggregate[
+        "mechanism_subcheck_counts"
+    ]
     aggregate["method_ranking_claim_allowed"] = False
     return aggregate
 
 
 def build_terminal_audit(
-    summaries: Sequence[dict[str, Any]], mode_name: str
+    *,
+    summaries: Sequence[dict[str, Any]],
+    mode_name: str,
+    expected_seed_count: int,
+    canonical: CanonicalCriticContext,
+    rollout_preflight: dict[str, Any],
+    rollout_required: bool,
 ) -> dict[str, Any]:
     aggregate = aggregate_seed_summaries(summaries)
-    expected = len(summaries)
-    counts = aggregate.get("independent_validation_gate_counts", {})
-    all_gates = bool(
-        expected > 0
-        and counts
-        and all(int(counts.get(name, 0)) == expected for name in (
-            "natural_far_field_present",
-            "corrected_quadratic_branch_empirically_active",
-            "measurable_full_parameter_contribution",
-            "targeted_far_control_mitigates_dynamics",
-            "terminal_state_audit_complete",
-        ))
+    completed = len(summaries)
+    counts = aggregate.get("mechanism_subcheck_counts", {})
+    seed_count_complete = completed == expected_seed_count and expected_seed_count > 0
+    mechanism_subchecks_passed = bool(
+        completed > 0
+        and all(
+            int(counts.get(name, 0)) == completed
+            for name in (
+                "natural_far_field_present",
+                "corrected_quadratic_branch_empirically_active",
+                "measurable_full_parameter_contribution",
+                "targeted_far_control_mitigates_dynamics",
+            )
+        )
+    )
+    terminal_audit_records_complete = bool(
+        completed > 0
+        and int(counts.get("terminal_audit_records_complete", 0)) == completed
+    )
+    terminal_state_classification_complete = bool(
+        completed > 0
+        and int(counts.get("terminal_state_classification_complete", 0)) == completed
+    )
+    paired_seed_evidence_complete = bool(
+        mode_name == "formal" and expected_seed_count > 1 and seed_count_complete
+    )
+    positive_only_terminal_all_seeds = bool(
+        completed > 0
+        and all(
+            summary["positive_only_initialization"]["state"] == "finite_terminal"
+            and summary["positive_only_initialization"]["terminal_audit_complete"]
+            for summary in summaries
+        )
+    )
+    rollout_available_all_required_checkpoints = bool(
+        rollout_preflight.get("status") == "passed"
+        and (
+            not rollout_required
+            or all(
+                summary["positive_only_initialization"]["task_performance_status"]
+                == "available"
+                and all(
+                    audit["task_performance_status"] == "available"
+                    for audit in summary["methods"].values()
+                )
+                for summary in summaries
+            )
+        )
+    )
+    critic_artifact_terminal = bool(
+        canonical.critic_audit.get("optimization_terminal")
+    )
+    engineering_pipeline_complete = bool(
+        seed_count_complete
+        and canonical.artifact_manifest.get("complete")
+        and rollout_preflight.get("status") == "passed"
+        and terminal_audit_records_complete
+    )
+    formal_evidence_prerequisites_complete = bool(
+        mode_name == "formal"
+        and engineering_pipeline_complete
+        and critic_artifact_terminal
+        and positive_only_terminal_all_seeds
+        and paired_seed_evidence_complete
+        and rollout_available_all_required_checkpoints
+        and terminal_state_classification_complete
+        and mechanism_subchecks_passed
     )
     return {
         "experiment_id": EXPERIMENT_ID,
         "mode": mode_name,
-        "seeds_audited": expected,
-        "scientific_status": "pilot" if mode_name == "pilot" else "raw_complete_pending_review",
-        "independent_validation_gate_all_seeds": all_gates,
+        "seeds_expected": expected_seed_count,
+        "seeds_audited": completed,
+        "scientific_status": (
+            "pilot" if mode_name == "pilot" else "raw_complete_pending_review"
+        ),
+        "engineering_pipeline_complete": engineering_pipeline_complete,
+        "mechanism_subchecks_passed_for_completed_seeds": mechanism_subchecks_passed,
+        "critic_artifact_terminal": critic_artifact_terminal,
+        "critic_artifact_shared_across_all_actor_seeds": True,
+        "positive_only_terminal_all_seeds": positive_only_terminal_all_seeds,
+        "terminal_audit_records_complete": terminal_audit_records_complete,
+        "terminal_state_classification_complete": terminal_state_classification_complete,
+        "rollout_preflight_passed": rollout_preflight.get("status") == "passed",
+        "rollout_available_all_required_checkpoints": rollout_available_all_required_checkpoints,
+        "paired_seed_evidence_complete": paired_seed_evidence_complete,
+        "formal_evidence_prerequisites_complete": formal_evidence_prerequisites_complete,
+        "formal_scientific_gate_passed": False,
+        "formal_scientific_gate_reason": "post_run_scientific_review_required",
+        "independent_validation_gate_all_seeds": formal_evidence_prerequisites_complete,
+        "independent_validation_gate_all_seeds_deprecated_semantics": (
+            "Compatibility field. It is false for pilot runs and only mirrors "
+            "formal_evidence_prerequisites_complete; it is not a final scientific claim."
+        ),
         "gate_counts": counts,
-        "paired_seed_evidence_complete": bool(expected > 1),
         "reporting_separation": aggregate.get("reporting_separation", {}),
         "method_ranking_claim_allowed": False,
         "formal_claim_requires_post_run_review": True,
@@ -2264,10 +3090,17 @@ def run_experiment(args: argparse.Namespace) -> int:
     dataset_path = Path(args.dataset_path).expanduser().resolve()
     work_dir = Path(args.work_dir).expanduser().resolve()
     repo_root = Path(args.repo_root).expanduser().resolve()
+    reuse_critic_root = (
+        Path(args.critic_artifact).expanduser().resolve()
+        if args.critic_artifact
+        else None
+    )
     work_dir.mkdir(parents=True, exist_ok=True)
     global _EVENT_LOG_PATH
     _EVENT_LOG_PATH = work_dir / "events.jsonl"
-    run_id = args.run_id or f"{args.mode}-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}"
+    run_id = args.run_id or (
+        f"{args.mode}-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}"
+    )
     git_start = collect_git_state(repo_root)
     atomic_write_json(work_dir / "GIT_STATE_START.json", git_start)
     atomic_write_json(work_dir / "ENVIRONMENT.json", environment_manifest())
@@ -2292,6 +3125,10 @@ def run_experiment(args: argparse.Namespace) -> int:
         "run_commit": git_start.get("head"),
         "dataset": dataset_manifest,
         "seeds": list(mode.seeds),
+        "canonical_critic_seed": mode.canonical_critic_seed,
+        "canonical_critic_reuse_request": (
+            str(reuse_critic_root) if reuse_critic_root else None
+        ),
         "device_request": args.device,
         "claim_boundary": (
             "External mechanism validation with diagnostic normalized-return trajectories; "
@@ -2299,11 +3136,27 @@ def run_experiment(args: argparse.Namespace) -> int:
         ),
     }
     atomic_write_json(work_dir / "scientific_run_manifest.json", run_manifest)
-    device = choose_device(args.device)
-    data = load_hopper_hdf5(dataset_path, mode.max_transitions)
-    atomic_write_json(
-        work_dir / "DATASET_RUNTIME_SUMMARY.json",
-        {
+    summaries: list[dict[str, Any]] = []
+    canonical: CanonicalCriticContext | None = None
+    rollout_preflight: dict[str, Any] = {"status": "not_started"}
+
+    def root_heartbeat(stage: str, step: int) -> None:
+        atomic_write_json(
+            work_dir / "scientific_heartbeat.json",
+            {
+                "utc": utc_now(),
+                "run_id": run_id,
+                "state": "running",
+                "stage": stage,
+                "step": step,
+                "seeds_completed": len(summaries),
+            },
+        )
+
+    try:
+        device = choose_device(args.device)
+        data = load_hopper_hdf5(dataset_path, mode.max_transitions)
+        runtime_summary = {
             "transitions_loaded": data.size,
             "episodes_loaded": int(np.max(data.episode_ids) + 1),
             "observation_dim": data.observations.shape[1],
@@ -2312,10 +3165,77 @@ def run_experiment(args: argparse.Namespace) -> int:
             "reward_std": float(np.std(data.rewards)),
             "terminal_fraction": float(np.mean(data.terminals)),
             "timeout_fraction": float(np.mean(data.timeouts)),
-        },
-    )
-    summaries: list[dict[str, Any]] = []
-    try:
+        }
+        atomic_write_json(work_dir / "DATASET_RUNTIME_SUMMARY.json", runtime_summary)
+        rollout_required = (
+            config.formal_rollout_required
+            if args.mode == "formal"
+            else config.pilot_rollout_required
+        )
+        root_heartbeat("rollout_preflight", 0)
+        rollout_preflight_dir = work_dir / "rollout_preflight"
+        try:
+            rollout_preflight = preflight_d4rl_environment(
+                env_id=config.env_id,
+                registration_import=config.env_registration_import,
+                expected_observation_dim=data.observations.shape[1],
+                expected_action_dim=data.actions.shape[1],
+                seed=mode.canonical_critic_seed,
+                max_steps=config.rollout_preflight_max_steps,
+                normalized_score_percent=config.normalized_score_percent,
+                output_dir=rollout_preflight_dir,
+                required=rollout_required,
+            )
+        except Exception:
+            failure_path = rollout_preflight_dir / "rollout_preflight.json"
+            if failure_path.is_file():
+                rollout_preflight = json.loads(failure_path.read_text())
+                atomic_write_json(
+                    work_dir / "ROLLOUT_PREFLIGHT.json", rollout_preflight
+                )
+            raise
+        atomic_write_json(work_dir / "ROLLOUT_PREFLIGHT.json", rollout_preflight)
+        root_heartbeat("canonical_critic_prepare", 0)
+        canonical = prepare_canonical_critic_context(
+            data=data,
+            config=config,
+            mode=mode,
+            mode_name=args.mode,
+            config_path=config_path,
+            dataset_manifest=dataset_manifest,
+            device=device,
+            artifact_root=work_dir / "canonical_critic",
+            reuse_root=reuse_critic_root,
+            heartbeat=root_heartbeat,
+        )
+        canonical_reference = {
+            "root": str(canonical.root),
+            "reused": canonical.reused,
+            "identity": canonical.artifact_manifest["identity"],
+            "critic_optimization_terminal": canonical.critic_audit[
+                "optimization_terminal"
+            ],
+            "critic_training_count": canonical.artifact_manifest[
+                "critic_training_count"
+            ],
+            "shared_across_all_actor_seeds": True,
+            "files": canonical.artifact_manifest["files"],
+        }
+        atomic_write_json(
+            work_dir / "CANONICAL_CRITIC_REFERENCE.json", canonical_reference
+        )
+        run_manifest.update(
+            {
+                "rollout_preflight_status": rollout_preflight["status"],
+                "canonical_critic_root": str(canonical.root),
+                "canonical_critic_reused": canonical.reused,
+                "canonical_critic_optimization_terminal": canonical.critic_audit[
+                    "optimization_terminal"
+                ],
+            }
+        )
+        atomic_write_json(work_dir / "scientific_run_manifest.json", run_manifest)
+
         for index, seed in enumerate(mode.seeds, start=1):
             atomic_write_json(
                 work_dir / "scientific_heartbeat.json",
@@ -2328,6 +3248,7 @@ def run_experiment(args: argparse.Namespace) -> int:
                     "seed_total": len(mode.seeds),
                 },
             )
+
             def seed_heartbeat(stage: str, step: int) -> None:
                 atomic_write_json(
                     work_dir / "scientific_heartbeat.json",
@@ -2346,6 +3267,7 @@ def run_experiment(args: argparse.Namespace) -> int:
             summary = run_seed(
                 seed=seed,
                 data=data,
+                canonical=canonical,
                 config=config,
                 mode=mode,
                 device=device,
@@ -2354,16 +3276,25 @@ def run_experiment(args: argparse.Namespace) -> int:
                 formal_mode=args.mode == "formal",
             )
             summaries.append(summary)
-            flat = [flatten_seed_summary(item) for item in summaries]
-            write_csv(work_dir / "per_seed_summary.csv", flat)
+            write_csv(
+                work_dir / "per_seed_summary.csv",
+                [flatten_seed_summary(item) for item in summaries],
+            )
             aggregate = aggregate_seed_summaries(summaries)
+            aggregate["scientific_status"] = (
+                "pilot_partial"
+                if args.mode == "pilot"
+                else "formal_partial_pending_completion"
+            )
             atomic_write_json(work_dir / "aggregate_summary.json", aggregate)
             if args.mode == "formal" and (
-                index % config.checkpoint_every_formal_seeds == 0 or index == len(mode.seeds)
+                index % config.checkpoint_every_formal_seeds == 0
+                or index == len(mode.seeds)
             ):
                 run_manifest["state"] = "checkpoint_ready"
                 run_manifest["seeds_completed"] = index
                 atomic_write_json(work_dir / "scientific_run_manifest.json", run_manifest)
+
         git_end = collect_git_state(repo_root)
         atomic_write_json(work_dir / "GIT_STATE_END.json", git_end)
         provenance_compromised = bool(
@@ -2375,8 +3306,21 @@ def run_experiment(args: argparse.Namespace) -> int:
         )
         aggregate = aggregate_seed_summaries(summaries)
         aggregate["provenance_compromised"] = provenance_compromised
+        aggregate["scientific_status"] = (
+            "pilot" if args.mode == "pilot" else "raw_complete_pending_scientific_review"
+        )
+        aggregate["paired_seed_evidence_complete"] = bool(
+            args.mode == "formal" and len(summaries) == len(mode.seeds) and len(mode.seeds) > 1
+        )
         atomic_write_json(work_dir / "aggregate_summary.json", aggregate)
-        terminal_audit = build_terminal_audit(summaries, args.mode)
+        terminal_audit = build_terminal_audit(
+            summaries=summaries,
+            mode_name=args.mode,
+            expected_seed_count=len(mode.seeds),
+            canonical=canonical,
+            rollout_preflight=rollout_preflight,
+            rollout_required=rollout_required,
+        )
         terminal_audit["provenance_compromised"] = provenance_compromised
         atomic_write_json(work_dir / "terminal_audit.json", terminal_audit)
         complete = {
@@ -2387,17 +3331,29 @@ def run_experiment(args: argparse.Namespace) -> int:
             "process_exit_code": 0 if not provenance_compromised else 3,
             "seeds_completed": len(summaries),
             "provenance_compromised": provenance_compromised,
-            "result_status": "pilot" if args.mode == "pilot" else "raw_complete_pending_review",
+            "result_status": (
+                "pilot" if args.mode == "pilot" else "raw_complete_pending_review"
+            ),
             "formal_result_claim": False,
+            "formal_evidence_prerequisites_complete": terminal_audit[
+                "formal_evidence_prerequisites_complete"
+            ],
         }
         atomic_write_json(work_dir / "RUN_COMPLETE.json", complete)
         atomic_write_json(
             work_dir / "scientific_heartbeat.json",
-            {"utc": utc_now(), "run_id": run_id, "state": "completed", "seeds_completed": len(summaries)},
+            {
+                "utc": utc_now(),
+                "run_id": run_id,
+                "state": "completed",
+                "seeds_completed": len(summaries),
+            },
         )
         run_manifest.update(
             {
-                "state": "raw_complete" if not provenance_compromised else "failed_provenance",
+                "state": (
+                    "raw_complete" if not provenance_compromised else "failed_provenance"
+                ),
                 "completed_utc": utc_now(),
                 "seeds_completed": len(summaries),
             }
@@ -2415,14 +3371,25 @@ def run_experiment(args: argparse.Namespace) -> int:
             "error": str(exc),
             "traceback": traceback.format_exc(),
             "seeds_completed": len(summaries),
-            "result_status": "failed_pilot" if args.mode == "pilot" else "failed_formal_attempt",
+            "rollout_preflight_status": rollout_preflight.get("status"),
+            "canonical_critic_available": canonical is not None,
+            "result_status": (
+                "failed_pilot" if args.mode == "pilot" else "failed_formal_attempt"
+            ),
         }
         atomic_write_json(work_dir / "SCIENTIFIC_RUN_FAILED.json", failure)
         atomic_write_json(
             work_dir / "scientific_heartbeat.json",
-            {"utc": utc_now(), "run_id": run_id, "state": "failed", "seeds_completed": len(summaries)},
+            {
+                "utc": utc_now(),
+                "run_id": run_id,
+                "state": "failed",
+                "seeds_completed": len(summaries),
+            },
         )
-        emit_event({"event": "run_failed", "error_type": type(exc).__name__, "error": str(exc)})
+        emit_event(
+            {"event": "run_failed", "error_type": type(exc).__name__, "error": str(exc)}
+        )
         run_manifest.update({"state": "failed", "failed_utc": utc_now()})
         atomic_write_json(work_dir / "scientific_run_manifest.json", run_manifest)
         raise
@@ -2441,6 +3408,11 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--repo-root", default=".")
     run.add_argument("--device", default="auto")
     run.add_argument("--run-id", default=None)
+    run.add_argument(
+        "--critic-artifact",
+        default=None,
+        help="Optional exact canonical critic artifact directory to verify and reuse",
+    )
     run.add_argument("--allow-dirty", action="store_true")
     inspect = sub.add_parser("inspect", help="validate config and dataset only")
     inspect.add_argument("--dataset-path", required=True)

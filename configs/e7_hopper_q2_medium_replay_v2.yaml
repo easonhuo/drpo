@@ -1,5 +1,5 @@
 experiment_id: EXT-H-E7-Q2
-protocol_version: 3.0.0
+protocol_version: 4.0.0
 role: external_mechanism_validation
 status: not_run
 
@@ -28,7 +28,8 @@ environment_evaluation:
   deterministic_actor: true
   normalized_score_percent: true
   formal_required: true
-  pilot_required: false
+  pilot_required: true
+  preflight_max_steps: 2000
 
 model:
   actor: tanh_squashed_diagonal_gaussian_mlp
@@ -52,6 +53,9 @@ critic:
     validation: 0.10
     test: 0.10
   freeze_before_actor: true
+  canonical_shared_across_actor_seeds: true
+  selected_checkpoint: terminal_extension_checkpoint
+  best_validation_checkpoint_role: diagnostic_only
 
 advantage:
   definition: r_plus_gamma_v_next_minus_v
@@ -135,6 +139,7 @@ modes:
   pilot:
     max_transitions: 10000
     seeds: [42]
+    canonical_critic_seed: 42
     critic_max_steps: 100
     critic_min_steps: 40
     critic_eval_interval: 20
@@ -150,6 +155,7 @@ modes:
   formal:
     max_transitions: null
     seeds: [100, 101, 102, 103, 104, 105, 106, 107, 108, 109]
+    canonical_critic_seed: 100
     critic_max_steps: 20000
     critic_min_steps: 2000
     critic_eval_interval: 200
