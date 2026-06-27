@@ -502,3 +502,20 @@ rules:
     - source_fingerprint_match
     - destination_and_migration_evidence_when_moved
     - governance_review_record
+  GOV-PIPELINE-CLOSURE-001:
+    type: machine
+    implementation_paths:
+    - scripts/validate_governance_pipeline_stage_status.py
+    pytest_nodes:
+    - tests/test_governance_pipeline_stage_status.py::test_current_repository_stage_closure_is_valid
+    - tests/test_governance_pipeline_stage_status.py::test_protected_file_tamper_is_rejected
+    coverage_level: direct
+  GOV-PIPELINE-CLOSURE-002:
+    type: machine
+    implementation_paths:
+    - scripts/validate_governance_pipeline_stage_status.py
+    pytest_nodes:
+    - tests/test_governance_pipeline_stage_status.py::test_protected_file_tamper_is_rejected
+    - tests/test_governance_pipeline_stage_status.py::test_closed_stage_cannot_be_reopened_by_editing_only_the_ledger
+    - tests/test_governance_pipeline_stage_status.py::test_ledger_hash_edit_without_matching_authorization_is_rejected
+    coverage_level: direct

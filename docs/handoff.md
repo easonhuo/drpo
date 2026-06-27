@@ -1,5 +1,16 @@
-# DRPO / SNA2C 远场负梯度动力学研究主文档 v48（D-U1 E6 大规模条件支持缺口协议与正式执行准备版）
+# DRPO / SNA2C 远场负梯度动力学研究主文档 v49（治理 Pipeline Stage 1/2 Closure 版）
 
+> **v49 增量登记：治理 Pipeline Stage 1/2 冻结式关闭（不删除 v48 及更早内容）**
+>
+> - 当前规范编号锁定：Stage 1 是 bundle-backed 更新包与隔离集成闭环；当前 Stage 2 是正式实验 guard/package/verify 唯一通道；早期文档中名为 Stage 2 的 `HANDOFF_DELTA.yaml` shadow mode 顺延为当前 Stage 3。
+> - Stage 1 与当前 Stage 2 均关闭为 `closed_maintenance_only`。关闭不冻结科研路线，也不禁止 bugfix、安全修复、兼容性修复或不改变职责的文档澄清；新功能、架构扩张、职责变化或默认策略变化必须通过用户批准的 reopen authorization 和回滚计划。
+> - 新增机器状态 ledger `docs/governance_pipeline_stage_status.yaml`、授权目录 `docs/governance_stage_authorizations/` 与 fail-closed validator `scripts/validate_governance_pipeline_stage_status.py`。受保护核心文件采用 SHA-256 after-image 与授权记录绑定；直接改文件、只改 ledger 哈希或只改状态都会失败。
+> - `D-U1-E6-SEMANTIC-LONGRUN-01` 作为 Stage 2 的首个完整生产验收：360/360 formal runs、2x terminal audit、canonical raw-complete artifact、durable delivery 与 repository closure 均已完成。registry 同步 `repository_applied: true`、`applied_commit: ff2afe443167154eae5de7871cda83f3aba9a89e`；无法恢复的首个 closure ZIP SHA 保持未记录，不得编造。
+> - 当前 Stage 3 状态为 `ready_not_started`。本版不实现 handoff delta schema、合并器或 candidate 生成；Stage 3 必须由后续独立更新启动。
+
+
+> **v48（D-U1 E6 大规模条件支持缺口协议与正式执行准备版）历史标题保留。**
+>
 > **v48 增量登记：`D-U1-E6-CONDITIONAL-GAP-01` 大规模条件支持缺口、开发 pilot 与 formal freeze（不删除 v47 及更早内容）**
 >
 > - 已完成的 `D-U1-E6-SEMANTIC-LONGRUN-01` 不被覆盖或否定，继续作为 **dense effective coverage / benign interpolation control**：其 360/360 长程结果证明高 reward 可与 support boundary 共存，但没有产生 task-performance collapse。该结果促使本版补充一个新的、职责独立的条件支持缺口实验，而不是重跑或修改历史结果。

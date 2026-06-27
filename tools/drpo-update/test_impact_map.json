@@ -51,16 +51,26 @@
         "docs/governance_*.yaml",
         "scripts/validate_governance_rule_inventory.py",
         "tests/test_governance_rule_inventory.py",
-        "tests/test_update_package_contract.py"
+        "tests/test_update_package_contract.py",
+        "docs/governance_stage_authorizations/**",
+        "scripts/validate_governance_pipeline_stage_status.py",
+        "tests/test_governance_pipeline_stage_status.py"
       ],
       "pytest_targets": [
         "tests/test_governance_rule_inventory.py",
-        "tests/test_update_package_contract.py"
+        "tests/test_update_package_contract.py",
+        "tests/test_governance_pipeline_stage_status.py"
       ],
       "validators": [
         [
           "{python}",
           "scripts/validate_governance_rule_inventory.py",
+          "--repo-root",
+          "."
+        ],
+        [
+          "{python}",
+          "scripts/validate_governance_pipeline_stage_status.py",
           "--repo-root",
           "."
         ]
@@ -164,6 +174,12 @@
     [
       "{python}",
       "scripts/validate_governance_rule_inventory.py",
+      "--repo-root",
+      "."
+    ],
+    [
+      "{python}",
+      "scripts/validate_governance_pipeline_stage_status.py",
       "--repo-root",
       "."
     ],

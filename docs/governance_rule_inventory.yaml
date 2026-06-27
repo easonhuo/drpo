@@ -26,6 +26,13 @@ tracked_sections:
   expected_item_count: 33
   section_item_digest: fb72a64512635b2c965cb657f43656459b94e17a4732234e0f62d7d41d1b2cda
   coverage: complete_for_selected_section
+- source_id: AGENTS-PIPELINE-CLOSURE
+  path: AGENTS.md
+  heading: Governance pipeline stage closure
+  selector: top_level_list_items
+  expected_item_count: 2
+  section_item_digest: 8ae7cec90c39d61827cfcf6304074819cfbb1783d766efacdcfc52784cc1c228
+  coverage: complete_for_selected_section
 rules:
 - rule_id: GOV-AGENT-SUPERVISION-001
   title: Do not launch a formal experiment as an unattended background process and then end the working turn.
@@ -1434,6 +1441,64 @@ rules:
     required: false
     implementations: []
     tests: []
+  migration:
+    status: unchanged
+    destination_locations: []
+    evidence: []
+- rule_id: GOV-PIPELINE-CLOSURE-001
+  title: The machine-readable stage map and validator must be read and run before Stage 1/2 core delivery.
+  severity: mandatory
+  scope: governance_pipeline
+  source:
+    source_id: AGENTS-PIPELINE-CLOSURE
+    item_index: 1
+    kind: top_level_list_item
+    excerpt: '`docs/governance_pipeline_stage_status.yaml` is the machine-readable canonical stage map for the governance pipeline. Read it before modifying any Stage 1 or Stage 2 owned core file, and run `python3 scripts/validate_governance_pipeline_stage_status.py --repo-root .` before delivery.'
+    normalized_text_sha256: 9aca17f03a8cc5da98242f0fc8255a31321c88b842e142cf8e068306bb77d9ce
+  current_locations:
+  - path: AGENTS.md
+    heading: Governance pipeline stage closure
+    role: prompt_authority
+  detailed_contract_locations:
+  - path: docs/governance_pipeline_stage_status.yaml
+    role: machine_status_contract
+  - path: docs/governance_pipeline_refactor_plan.md
+    role: human_closure_record
+  machine_enforcement:
+    required: true
+    implementations:
+    - scripts/validate_governance_pipeline_stage_status.py
+    tests:
+    - tests/test_governance_pipeline_stage_status.py
+  migration:
+    status: unchanged
+    destination_locations: []
+    evidence: []
+- rule_id: GOV-PIPELINE-CLOSURE-002
+  title: Stage 1/2 are maintenance-only, protected after-images need authorization, and Stage 3 remains separate.
+  severity: mandatory
+  scope: governance_pipeline
+  source:
+    source_id: AGENTS-PIPELINE-CLOSURE
+    item_index: 2
+    kind: top_level_list_item
+    excerpt: Stage 1 and the current Stage 2 are `closed_maintenance_only`. A protected after-image must match the stage ledger and an authorization record under `docs/governance_stage_authorizations/`; new features, architecture expansion, responsibility changes, or default-policy changes require an explicit user-approved `reopen` authorization and rollback plan. Stage 3 (`HANDOFF_DELTA.yaml` shadow mode) is `ready_not_started` and must be implemented in a separate approved update rather than folded into Stage 1/2 maintenance.
+    normalized_text_sha256: 64c7a2b698ea982628975d66fc00757642c22346ce6c09c01a570f6a2c5b23e2
+  current_locations:
+  - path: AGENTS.md
+    heading: Governance pipeline stage closure
+    role: prompt_authority
+  detailed_contract_locations:
+  - path: docs/governance_pipeline_stage_status.yaml
+    role: machine_status_contract
+  - path: docs/governance_stage_authorizations/GOV-PIPELINE-STAGE12-CLOSURE-2026-06-27.yaml
+    role: closure_authorization
+  machine_enforcement:
+    required: true
+    implementations:
+    - scripts/validate_governance_pipeline_stage_status.py
+    tests:
+    - tests/test_governance_pipeline_stage_status.py
   migration:
     status: unchanged
     destination_locations: []

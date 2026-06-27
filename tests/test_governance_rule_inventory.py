@@ -41,13 +41,13 @@ def test_repository_inventory_and_assurance_validate() -> None:
         ROOT / "docs" / "governance_rule_assurance.yaml",
     )
     assert report["matched"] is True
-    assert report["inventory"]["tracked_sections"] == 3
-    assert report["inventory"]["covered_rules"] == 51
-    assert report["inventory"]["machine_enforced_rules"] == 13
-    assert report["assurance"]["assurance_rules"] == 51
-    assert report["assurance"]["assurance_type_counts"]["machine"] == 13
+    assert report["inventory"]["tracked_sections"] == 4
+    assert report["inventory"]["covered_rules"] == 53
+    assert report["inventory"]["machine_enforced_rules"] == 15
+    assert report["assurance"]["assurance_rules"] == 53
+    assert report["assurance"]["assurance_type_counts"]["machine"] == 15
     assert report["assurance"]["assurance_type_counts"]["review"] == 38
-    assert report["assurance"]["direct_machine_rules"] == 13
+    assert report["assurance"]["direct_machine_rules"] == 15
     assert report["assurance"]["grouped_machine_rules"] == 0
     assert report["assurance"]["unique_pytest_nodes"]
 
@@ -59,12 +59,15 @@ def test_untracked_new_bullet_is_rejected(tmp_path: Path) -> None:
         "AGENTS.md",
         "docs/governance_rule_inventory.yaml",
         "docs/governance_pipeline_refactor_plan.md",
+        "docs/governance_pipeline_stage_status.yaml",
+        "docs/governance_stage_authorizations/GOV-PIPELINE-STAGE12-CLOSURE-2026-06-27.yaml",
         "docs/formal_experiment_artifact_protocol.md",
         "scripts/artifact_protocol_hardened.py",
         "scripts/run_experiment_guard_hardened.py",
         "scripts/package_experiment_hardened.py",
         "scripts/verify_experiment_package_hardened.py",
         "scripts/validate_formal_execution_channel.py",
+        "scripts/validate_governance_pipeline_stage_status.py",
         "scripts/create_update_git_bundle.py",
         "scripts/package_update.py",
         "scripts/verify_update_package.py",
@@ -74,6 +77,7 @@ def test_untracked_new_bullet_is_rejected(tmp_path: Path) -> None:
         "tests/test_update_git_bundle.py",
         "tests/test_experiment_artifact_protocol.py",
         "tests/test_experiment_artifact_hardening.py",
+        "tests/test_governance_pipeline_stage_status.py",
         "tests/test_update_package_contract.py",
         "tests/test_formal_execution_channel.py",
     ]:
@@ -272,10 +276,10 @@ def test_cli_defaults_to_compact_summary_and_writes_full_report(
     assert returncode == 0
     captured = capsys.readouterr()
     assert "Governance validation: PASS" in captured.out
-    assert "Coverage: direct=13, grouped=0" in captured.out
+    assert "Coverage: direct=15, grouped=0" in captured.out
     assert '"rule_reports"' not in captured.out
     payload = yaml.safe_load(report_path.read_text())
-    assert len(payload["assurance"]["rule_reports"]) == 51
+    assert len(payload["assurance"]["rule_reports"]) == 53
 
 
 def test_cli_verbose_prints_complete_json(capsys: pytest.CaptureFixture[str]) -> None:

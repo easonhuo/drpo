@@ -1,0 +1,172 @@
+schema_version: 1
+policy_id: GOV-PIPELINE-STAGE-CLOSURE-01
+authority: governance_status_ledger_not_research_master
+research_master: docs/handoff.md
+human_design_document: docs/governance_pipeline_refactor_plan.md
+closure_base_commit: 7a70278f3d6061379c81f33e82d93ead86484908
+historical_renumbering:
+  historical_stage_2_handoff_delta: stage_3
+  historical_stage_3_handoff_history_split: stage_4
+  historical_stage_4_controlled_switch: stage_5
+change_control:
+  authorization_directory: docs/governance_stage_authorizations
+  validator: scripts/validate_governance_pipeline_stage_status.py
+  closed_stage_allowed_change_classes:
+  - bugfix
+  - security_fix
+  - compatibility_fix
+  - documentation_clarification
+  prohibited_without_reopen:
+  - new_feature
+  - architecture_expansion
+  - responsibility_change
+  - default_policy_change
+  reopen_requires:
+  - explicit_user_approval
+  - registered_governance_claim
+  - authorization_record
+  - rollback_plan
+stages:
+  stage_0:
+    number: 0
+    name: rule_migration_safety_and_assurance
+    responsibility: Preserve governance rules, fingerprints, assurance mappings, and direct test evidence.
+    status: closed
+    status_authorization: GOV-PIPELINE-STAGE12-CLOSURE-2026-06-27
+    protected_files: []
+  stage_1:
+    number: 1
+    name: bundle_backed_update_integration_pipeline
+    responsibility: Produce, verify, integrate, test, diagnose, and export canonical code-update packages.
+    status: closed_maintenance_only
+    status_authorization: GOV-PIPELINE-STAGE12-CLOSURE-2026-06-27
+    closure_evidence:
+    - canonical_bundle_backed_producer_and_verifier
+    - exact_and_stale_ancestral_isolated_integration
+    - fast_full_repository_gates_and_diagnostics
+    - post_push_main_bundle_export
+    - drpo_update_doctor_transaction_matrix
+    allowed_change_classes:
+    - bugfix
+    - security_fix
+    - compatibility_fix
+    - documentation_clarification
+    prohibited_without_reopen:
+    - new_feature
+    - architecture_expansion
+    - responsibility_change
+    - default_policy_change
+    reopen_requires:
+    - explicit_user_approval
+    - registered_governance_claim
+    - authorization_record
+    - rollback_plan
+    protected_files:
+    - path: tools/drpo-update/drpo-update
+      sha256: fb4eb274fe45bcae53983c77a9cb7f6837319c92e7669f097da19e40216afff2
+      authorized_by: GOV-PIPELINE-STAGE12-CLOSURE-2026-06-27
+    - path: tools/drpo-update/drpo_update.py
+      sha256: 3c93eacfd58f64bc3e346b416b4f50b3f9b91edbba9cdbb333502e35be57f2a8
+      authorized_by: GOV-PIPELINE-STAGE12-CLOSURE-2026-06-27
+    - path: tools/drpo-update/install.sh
+      sha256: f82d3a49e1f11195ab8cc268679b263425750198c0deca9fe5537b1e57fe890c
+      authorized_by: GOV-PIPELINE-STAGE12-CLOSURE-2026-06-27
+    - path: tools/drpo-update/test_selection.py
+      sha256: c7b305d73a6649c8012492f66e40edf0f234663fa72146bdb5ae59e495e5ad37
+      authorized_by: GOV-PIPELINE-STAGE12-CLOSURE-2026-06-27
+    - path: tools/drpo-update/test_impact_map.json
+      sha256: aaa96b9da42c34caa1631f2526df3a07fc72235f4ae1f156bd0f011ee94d89f7
+      authorized_by: GOV-PIPELINE-STAGE12-CLOSURE-2026-06-27
+    - path: scripts/package_update.py
+      sha256: c1adf8a162d9ce596d610326ff3103bc00ee108ea89cc7e86ee4f74390083a52
+      authorized_by: GOV-PIPELINE-STAGE12-CLOSURE-2026-06-27
+    - path: scripts/verify_update_package.py
+      sha256: 245a969c9baa87a5690b2571b7aa07527e452a79464a591a363bfd78882e5a46
+      authorized_by: GOV-PIPELINE-STAGE12-CLOSURE-2026-06-27
+    - path: scripts/create_update_git_bundle.py
+      sha256: 4ccc204cb197f20f57102a05614fbcab9579f6401310b0206a36fefd5dda3d71
+      authorized_by: GOV-PIPELINE-STAGE12-CLOSURE-2026-06-27
+    - path: scripts/verify_update_git_bundle.py
+      sha256: cbc4839e96dfbbd55a30df5aeb6e8b5d5d9df590ee2536fb5199f5443a7c2f9e
+      authorized_by: GOV-PIPELINE-STAGE12-CLOSURE-2026-06-27
+    - path: scripts/select_update_tests.py
+      sha256: 6b502e9d059505489cb757c85a3c255e7023c33c9ddcb4715e0a49417602ad1d
+      authorized_by: GOV-PIPELINE-STAGE12-CLOSURE-2026-06-27
+  stage_2:
+    number: 2
+    name: canonical_formal_experiment_channel
+    responsibility: Enforce the single guarded formal execution, packaging, verification, and anti-bypass channel.
+    status: closed_maintenance_only
+    status_authorization: GOV-PIPELINE-STAGE12-CLOSURE-2026-06-27
+    production_acceptance_experiment: D-U1-E6-SEMANTIC-LONGRUN-01
+    production_acceptance_repository_commit: ff2afe443167154eae5de7871cda83f3aba9a89e
+    closure_evidence:
+    - hardened_v1_registry_channel
+    - guard_package_verify_shared_core
+    - formal_entrypoint_and_state_consistency_validator
+    - 360_of_360_E6_formal_runs_with_terminal_audit
+    - canonical_raw_complete_delivery_and_repository_closure
+    allowed_change_classes:
+    - bugfix
+    - security_fix
+    - compatibility_fix
+    - documentation_clarification
+    prohibited_without_reopen:
+    - new_feature
+    - architecture_expansion
+    - responsibility_change
+    - default_policy_change
+    reopen_requires:
+    - explicit_user_approval
+    - registered_governance_claim
+    - authorization_record
+    - rollback_plan
+    protected_files:
+    - path: scripts/artifact_protocol_hardened.py
+      sha256: 30fb1570eb51fc0b229c6e39d3711ed9f0264b6a4b4bb56b95ad5288a88e0158
+      authorized_by: GOV-PIPELINE-STAGE12-CLOSURE-2026-06-27
+    - path: scripts/run_experiment_guard_hardened.py
+      sha256: a60fca4eef2d984e3b279d699f6022f4a42e3750c48bb61e8004210b89563add
+      authorized_by: GOV-PIPELINE-STAGE12-CLOSURE-2026-06-27
+    - path: scripts/package_experiment_hardened.py
+      sha256: d8765286fd0dae41721f19df931f3bb470e23c62c3a93655ade68988ac69f585
+      authorized_by: GOV-PIPELINE-STAGE12-CLOSURE-2026-06-27
+    - path: scripts/verify_experiment_package_hardened.py
+      sha256: 1fa6bcf212c2cfad13dd6777634e766e1a78ad2dd61d6c1b960ef1b5617159b2
+      authorized_by: GOV-PIPELINE-STAGE12-CLOSURE-2026-06-27
+    - path: scripts/validate_formal_execution_channel.py
+      sha256: c54f2e530c9498d2b5a78eba4521dd5ac26170d25a78d07165b5b54552d2701a
+      authorized_by: GOV-PIPELINE-STAGE12-CLOSURE-2026-06-27
+    - path: docs/formal_experiment_artifact_protocol.md
+      sha256: 96cac1c1f545e6067ce90ceff2dcd9db038abd03ff462df4c7a1e893eacc7ece
+      authorized_by: GOV-PIPELINE-STAGE12-CLOSURE-2026-06-27
+  stage_3:
+    number: 3
+    name: handoff_delta_shadow_mode
+    responsibility: Add structured HANDOFF_DELTA generation, replay, candidate rendering, and shadow comparison without switching
+      authority.
+    status: ready_not_started
+    status_authorization: GOV-PIPELINE-STAGE12-CLOSURE-2026-06-27
+    depends_on:
+    - stage_1
+    - stage_2
+    separate_update_required: true
+    protected_files: []
+  stage_4:
+    number: 4
+    name: lossless_handoff_history_split_shadow_mode
+    responsibility: Generate a compact current handoff plus immutable indexed history while preserving all bytes and headings.
+    status: blocked_by_predecessor
+    status_authorization: GOV-PIPELINE-STAGE12-CLOSURE-2026-06-27
+    depends_on:
+    - stage_3_shadow_validation
+    protected_files: []
+  stage_5:
+    number: 5
+    name: controlled_handoff_switch_and_agents_compaction
+    responsibility: Switch authority only after shadow evidence and compact AGENTS details already enforced elsewhere.
+    status: blocked_by_predecessor
+    status_authorization: GOV-PIPELINE-STAGE12-CLOSURE-2026-06-27
+    depends_on:
+    - stage_4_lossless_validation
+    protected_files: []

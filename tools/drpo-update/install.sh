@@ -34,7 +34,11 @@ git -C "$REPO_PATH" rev-parse --show-toplevel >/dev/null 2>&1 || {
 }
 TOPLEVEL="$(git -C "$REPO_PATH" rev-parse --show-toplevel)"
 SOURCE="$TOPLEVEL/tools/drpo-update/drpo-update"
+PY_SOURCE="$TOPLEVEL/tools/drpo-update/drpo_update.py"
+SELECTION_SOURCE="$TOPLEVEL/tools/drpo-update/test_selection.py"
 [[ -x "$SOURCE" ]] || { echo "ERROR: repository helper is missing or not executable: $SOURCE" >&2; exit 1; }
+[[ -f "$PY_SOURCE" ]] || { echo "ERROR: repository helper runtime is missing: $PY_SOURCE" >&2; exit 1; }
+[[ -f "$SELECTION_SOURCE" ]] || { echo "ERROR: repository test selector is missing: $SELECTION_SOURCE" >&2; exit 1; }
 
 REMOTE_URL="$(git -C "$TOPLEVEL" remote get-url origin 2>/dev/null || true)"
 if [[ "${DRPO_UPDATE_ALLOW_ANY_REMOTE:-0}" != "1" ]]; then
@@ -48,15 +52,29 @@ BIN_DIR="$HOME/bin"
 CFG_DIR="$HOME/.config/drpo-update"
 mkdir -p "$BIN_DIR" "$CFG_DIR"
 TARGET="$BIN_DIR/drpo-update"
+PY_TARGET="$BIN_DIR/drpo_update.py"
+SELECTION_TARGET="$BIN_DIR/test_selection.py"
 TMP_TARGET="$BIN_DIR/.drpo-update.install.$$"
-rm -f "$TMP_TARGET"
+TMP_PY_TARGET="$BIN_DIR/.drpo_update.py.install.$$"
+TMP_SELECTION_TARGET="$BIN_DIR/.test_selection.py.install.$$"
+cleanup() {
+  rm -f "$TMP_TARGET" "$TMP_PY_TARGET" "$TMP_SELECTION_TARGET"
+}
+trap cleanup EXIT
+cleanup
 if [[ "$MODE" == "symlink" ]]; then
   ln -s "$SOURCE" "$TMP_TARGET"
+  mv -f "$TMP_TARGET" "$TARGET"
 else
   cp "$SOURCE" "$TMP_TARGET"
+  cp "$PY_SOURCE" "$TMP_PY_TARGET"
+  cp "$SELECTION_SOURCE" "$TMP_SELECTION_TARGET"
   chmod +x "$TMP_TARGET"
+  chmod 0644 "$TMP_PY_TARGET" "$TMP_SELECTION_TARGET"
+  mv -f "$TMP_PY_TARGET" "$PY_TARGET"
+  mv -f "$TMP_SELECTION_TARGET" "$SELECTION_TARGET"
+  mv -f "$TMP_TARGET" "$TARGET"
 fi
-mv -f "$TMP_TARGET" "$TARGET"
 printf '%s\n' "$TOPLEVEL" > "$CFG_DIR/repo_path"
 printf '%s\n' "$MODE" > "$CFG_DIR/install_mode"
 

@@ -1,8 +1,23 @@
 # DRPO 治理与多 Session 集成重构方案（工作设计稿）
 
-**治理 claim：** `GOV-RULE-MIGRATION-01`、`GOV-FORMAL-ENTRYPOINT-01`、`GOV-HANDOFF-INDEX-01`、`GOV-UPDATE-BUNDLE-01`、`GOV-UPDATE-FAST-GATE-01`
+**治理 claim：** `GOV-RULE-MIGRATION-01`、`GOV-FORMAL-ENTRYPOINT-01`、`GOV-HANDOFF-INDEX-01`、`GOV-UPDATE-BUNDLE-01`、`GOV-UPDATE-FAST-GATE-01`、`GOV-PIPELINE-STAGE-CLOSURE-01`
 **文档性质：** 工作设计稿，不是第二份研究 Master，不改变任何实验状态、冻结参数或科学结论。
 **当前权威来源：** `AGENTS.md`、`docs/handoff.md`、`experiments/registry.yaml` 仍保持原有优先级。
+
+## 0. 当前规范阶段编号与关闭状态
+
+本节是当前唯一规范编号。第 7 节保留的是早期历史实施计划；它的旧 Stage 2/3/4 编号已由第 14.1 节顺延，不得再用于判断当前实施状态。机器可读状态与关闭门禁位于 `docs/governance_pipeline_stage_status.yaml`，由 `scripts/validate_governance_pipeline_stage_status.py` fail closed 校验。
+
+| 当前阶段 | 责任 | 状态 | 历史编号关系 |
+|---|---|---|---|
+| Stage 0 | 规则迁移安全网与 assurance | closed | 未调整 |
+| Stage 1 | bundle-backed 更新包、隔离三方集成、测试与诊断闭环 | closed / maintenance-only | 未调整 |
+| Stage 2 | 正式实验 guard/package/verify 唯一通道与防绕过门禁 | closed / maintenance-only | 后插入的当前 Stage 2 |
+| Stage 3 | `HANDOFF_DELTA.yaml` shadow mode | ready / not started | 原 Stage 2 |
+| Stage 4 | 无损 handoff 历史拆分 shadow mode | blocked by Stage 3 | 原 Stage 3 |
+| Stage 5 | 受控切换与 AGENTS 精简 | blocked by Stage 4 | 原 Stage 4 |
+
+`closed / maintenance-only` 不等于永远禁止修复。Stage 1/2 只接受 bugfix、安全修复、兼容性修复和不改变职责的文档澄清；新功能、架构扩张、职责变化或默认策略变化必须先登记新的治理 claim、取得用户明确批准、创建 reopen authorization 和回滚计划。受保护核心文件采用 SHA-256 after-image 与授权记录绑定，任何未授权修改都会使治理 validator 失败。
 
 ## 1. 目标与非目标
 
@@ -216,6 +231,8 @@ validator 从被跟踪 section 重新提取所有顶层 bullet，要求：
 25 MiB / 10 MiB、symlink、安全路径、原子发布、统一 hardened core 等属于此类。
 
 ## 7. 渐进实施顺序
+
+> **历史编号说明：** 本节保留最初计划，不破坏性重写。自第 14.1 节起，原 Stage 2 `HANDOFF_DELTA.yaml` shadow mode 顺延为当前 Stage 3，原 Stage 3/4 顺延为当前 Stage 4/5。当前判断必须使用第 0 节和机器 ledger。
 
 ### Stage 0：规则迁移安全网（本更新）
 
@@ -620,3 +637,69 @@ Stage 1F 交付前至少覆盖：
 8. `--no-push` 和 `--no-export-main-bundle` 均不生成正式 main bundle；
 9. `drpo-update --doctor` 全部通过；
 10. candidate 全仓 pytest、Ruff、compile、Shell syntax、治理 validators 与 `git diff --check` 通过。
+
+## 18. Stage 1/2 冻结式 Closure（2026-06-27）
+
+### 18.1 Closure 的载体与权威边界
+
+Closure 不是新建第二份研究 Master，也不是只写一句“已经完成”。它由四层共同体现：
+
+1. 本文档保存人可读的职责、验收证据、遗留边界和阶段编号；
+2. `docs/governance_pipeline_stage_status.yaml` 保存机器可读状态、受保护文件 after-image 和 reopen 条件；
+3. `docs/governance_stage_authorizations/` 保存用户批准、治理 claim、变更类别、授权状态和授权文件哈希；
+4. `scripts/validate_governance_pipeline_stage_status.py`、pytest 和 update impact map 共同形成 fail-closed 门禁。
+
+`AGENTS.md` 与 `docs/handoff.md` 第 0 节只保留入口指针和不可绕过原则，避免形成第三份重复清单。
+
+### 18.2 Stage 1 关闭结论
+
+Stage 1 的责任边界是代码更新包生产、验证、隔离集成、测试、诊断和成功 push 后的 main bundle 导出。关闭时已具备：
+
+- canonical bundle-backed producer 与 verifier；
+- exact-base 和 stale-ancestral 隔离集成；
+- patch、bundle、after-image 和 executable mode 等价验证；
+- package test、fast/full repository gate、聚合失败日志和 `git diff --check`；
+- 冲突或测试失败时真实 `main` 不移动，并自动生成诊断 ZIP；
+- push 后远端 SHA 二次确认与 versioned/latest main bundle 导出；
+- `drpo-update --doctor` 事务测试；
+- 默认 symlink 安装与显式 `--copy` 安装都能完整部署 wrapper、Python runtime 和 test selector；
+- recovery/raw-complete 证据包与代码更新包的类型区分。
+
+Stage 1 状态关闭为 `closed_maintenance_only`。历史 patch-only exact-base 消费兼容继续保留，但不得恢复为新包生产格式。
+
+### 18.3 Stage 2 关闭结论与 E6 生产验收
+
+当前 Stage 2 的责任边界是正式实验统一 guard/package/verify 通道，不是 handoff delta。关闭时已具备：
+
+- registry 中唯一 `hardened-v1` channel；
+- formal/pilot/historical_formal/superseded 执行类别；
+- clean commit、origin/main、源文件和输出目录运行前门禁；
+- 前台 supervisor、heartbeat、stale escalation、退出和结束 provenance；
+- raw-complete、failed、checkpoint、final 等 package kind；
+- safe path、symlink、checksum、size budget、原子发布和旧 artifact 保留；
+- formal entrypoint 接线、防自定义 archive、防 blocked/active 状态矛盾的 validator；
+- 任务性能崩溃、支持/方差边界和 NaN/Inf 分报要求。
+
+`D-U1-E6-SEMANTIC-LONGRUN-01` 是首个完整生产验收：clean commit `eb5e12626026854f44f4698dbc8ed8829e74e0b0` 上完成 360/360 formal runs、2x terminal audit、canonical raw-complete package 与 durable delivery；随后 compact closure 进入 `main` commit `ff2afe443167154eae5de7871cda83f3aba9a89e`。该实验同时暴露并修复了 raw-complete recovery package 被误交给 `drpo-update` 时诊断不清的问题。Stage 2 因而关闭为 `closed_maintenance_only`。
+
+### 18.4 已知遗留项与非阻塞边界
+
+- E6 首个 repository closure ZIP 的 SHA-256 未在仓库证据中记录；保持 `null` 并显式登记 `not_recorded`，不得推测。该缺口不影响已应用 commit、科学结果或 Stage 2 通道验收。
+- Stage 1/2 的维护门禁不能替代用户对治理授权的真实性审查；机器门禁负责要求授权记录、状态和 after-image 自洽，不声称提供密码学身份认证。
+- 新实验继续允许更新 registry 和科学 runner；关闭保护的是 Stage 1/2 的核心职责实现，不冻结科研路线。
+- Stage 3 尚未实现。本 closure 包不包含 `HANDOFF_DELTA.yaml` schema、合并器或 candidate handoff 生成。
+
+### 18.5 关闭后的变更规则
+
+Stage 1/2 受保护核心文件必须与 ledger 中 SHA-256 一致。维护修改必须：
+
+1. 使用允许的 change class；
+2. 登记新的 authorization record、治理 claim、用户批准来源和授权 after-image；
+3. 更新 ledger 中对应文件哈希与 `authorized_by`；
+4. 运行 stage-status validator、相关 pytest、全仓门禁和 canonical package verifier。
+
+新功能、架构扩张、职责变化或默认策略变化必须先将目标阶段通过 `reopen` authorization 显式重开，并包含回滚计划。直接编辑 ledger 状态、只更新哈希或只修改文件都会被测试拒绝。
+
+### 18.6 下一阶段
+
+当前 Stage 3 为 `ready_not_started`。下一更新应独立实现 `HANDOFF_DELTA.yaml` shadow mode，并保持“直接修改正式 handoff + 同时生成 candidate + 只比较不切换”的双轨边界；Stage 1/2 closure 不与 Stage 3 实现混包。

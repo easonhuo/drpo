@@ -27,6 +27,11 @@ Before changing code, designing a new experiment, or running an experiment:
 
 `docs/handoff.md` is the unique research master document. Do not introduce a second competing master-status document.
 
+## Governance pipeline stage closure
+
+* `docs/governance_pipeline_stage_status.yaml` is the machine-readable canonical stage map for the governance pipeline. Read it before modifying any Stage 1 or Stage 2 owned core file, and run `python3 scripts/validate_governance_pipeline_stage_status.py --repo-root .` before delivery.
+* Stage 1 and the current Stage 2 are `closed_maintenance_only`. A protected after-image must match the stage ledger and an authorization record under `docs/governance_stage_authorizations/`; new features, architecture expansion, responsibility changes, or default-policy changes require an explicit user-approved `reopen` authorization and rollback plan. Stage 3 (`HANDOFF_DELTA.yaml` shadow mode) is `ready_not_started` and must be implemented in a separate approved update rather than folded into Stage 1/2 maintenance.
+
 ## Locked research boundaries
 
 Do not conflate:

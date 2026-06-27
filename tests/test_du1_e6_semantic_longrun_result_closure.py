@@ -14,6 +14,7 @@ RESULT_ROOT = REPO_ROOT / "outputs" / "du1_e6_semantic_longrun"
 RUN_COMMIT = "eb5e12626026854f44f4698dbc8ed8829e74e0b0"
 CLOSURE_BASE = "a1672d95653139964debdd5c1baf00173722c071"
 RAW_SHA256 = "e098d4dd0483a661468db0cb1c4b67e4e563e2426a6aa078fe7b808f7ac691fa"
+APPLIED_COMMIT = "ff2afe443167154eae5de7871cda83f3aba9a89e"
 
 
 def _registry() -> dict:
@@ -48,6 +49,12 @@ def test_registry_closes_formal_longrun_without_reusing_held_out_seeds() -> None
     assert entry["evidence"]["support_or_temperature_boundary_events"] == 120
     assert entry["evidence"]["nan_inf_numerical_events"] == 0
     assert entry["evidence"]["raw_complete_package_sha256"] == RAW_SHA256
+    assert entry["evidence"]["repository_applied"] is True
+    assert entry["evidence"]["applied_commit"] == APPLIED_COMMIT
+    assert entry["evidence"]["final_repository_closure_package_sha256"] is None
+    assert entry["evidence"]["final_repository_closure_package_sha256_status"] == (
+        "not_recorded_in_repository_evidence"
+    )
     assert entry["provenance"]["run_commit"] == RUN_COMMIT
     assert entry["provenance"]["repository_closure_base_commit"] == CLOSURE_BASE
     assert entry["provenance"]["raw_artifact_is_drpo_update_input"] is False

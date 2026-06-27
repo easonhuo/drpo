@@ -2463,9 +2463,11 @@ experiments:
     raw_complete_package_sha256: e098d4dd0483a661468db0cb1c4b67e4e563e2426a6aa078fe7b808f7ac691fa
     final_repository_closure_package_filename: DRPO_DU1_E6_LONGRUN_CLOSURE_A1672D9_UPDATE.zip
     final_repository_closure_package_sha256: null
+    final_repository_closure_package_sha256_status: not_recorded_in_repository_evidence
     delivered_to_user: true
-    repository_applied: false
-    applied_commit: null
+    repository_applied: true
+    applied_commit: ff2afe443167154eae5de7871cda83f3aba9a89e
+    repository_application_evidence: current_main_contains_e6_closure_and_compact_results
     compact_result_path: outputs/du1_e6_semantic_longrun
     scientific_status: long_run_validated
   provenance:
