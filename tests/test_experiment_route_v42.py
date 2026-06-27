@@ -38,7 +38,7 @@ def test_e4_taper_records_delivered_finite_step_result() -> None:
     assert taper["evidence"]["scientific_status"] == "finite_step_validated"
 
 
-def test_e6_longrun_is_ready_active_while_taper_remains_blocked() -> None:
+def test_e6_longrun_is_delivered_and_taper_remains_review_blocked() -> None:
     experiments = _experiments()
     development = _development()
     pilot = development["D-U1-E6-SEMANTIC-PILOT-01"]
@@ -50,10 +50,12 @@ def test_e6_longrun_is_ready_active_while_taper_remains_blocked() -> None:
     assert pilot["pilot_result"]["actual_runs"] == 105
     assert pilot["evidence"]["repository_applied"] is True
     assert pilot["evidence"]["applied_commit"] == ("2e04f6dba6d4e87f61920bedb1c464656906bf2b")
-    assert longrun["status"] == "not_run"
+    assert longrun["status"] == "long_run_validated"
     assert longrun["implementation_state"] == "implemented"
-    assert longrun["execution_gate"]["state"] == "ready"
-    assert longrun["formal_execution"]["activation_state"] == "active"
+    assert longrun["execution_gate"]["state"] == "blocked"
+    assert longrun["formal_execution"]["activation_state"] == "blocked"
+    assert longrun["execution"]["state"] == "delivered"
+    assert longrun["evidence"]["actual_runs"] == 360
     assert longrun["formal_execution"]["entrypoint_status"] == "implemented"
     assert longrun["formal_execution"]["entrypoint"] == ("src/drpo/du1_e6_semantic_longrun.py")
     assert (ROOT / longrun["formal_execution"]["entrypoint"]).is_file()
@@ -61,6 +63,8 @@ def test_e6_longrun_is_ready_active_while_taper_remains_blocked() -> None:
     assert taper["implementation_state"] == "not_implemented"
     assert taper["formal_execution"]["activation_state"] == "blocked"
     assert taper["formal_execution"]["entrypoint_status"] == "planned"
+    assert taper["predecessor_delivery_satisfied"] is True
+    assert "delivered_D-U1-E6-SEMANTIC-LONGRUN-01" not in taper["blocked_by"]
     assert taper["blocked_by"]
 
 

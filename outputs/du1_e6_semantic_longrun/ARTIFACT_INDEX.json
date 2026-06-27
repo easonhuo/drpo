@@ -1,0 +1,79 @@
+{
+  "actual_runs": 360,
+  "compact_repository_files": {
+    "PROVENANCE_NOTE.md": {
+      "sha256": "91fa0ac2b4dc35f60c609b2d7a9275cb0117fdb3921a832b071620697182af95",
+      "size_bytes": 839
+    },
+    "RESULT_SUMMARY.md": {
+      "sha256": "5662b380eae305684368b42726059b46a29a5d90d0be7c5eda62f146dfb3d7cb",
+      "size_bytes": 4362
+    },
+    "RUN_COMPLETE.json": {
+      "sha256": "f11cc4dbe65c43b4f7903d002c22da3bb3f6c6c5c92fea6ce084df5c7dee8e32",
+      "size_bytes": 303
+    },
+    "aggregate_summary.json": {
+      "sha256": "bcb921822f0989ad3e5e37e16f1227ba87162d64ff6ad4a8456791dbba8a6462",
+      "size_bytes": 34830
+    },
+    "condition_summary.csv": {
+      "sha256": "022d7ff4666a53bf8ae5a70a95384f34f0b2410b30c772cca4c893e137df3ccc",
+      "size_bytes": 2951
+    },
+    "formal_protocol_freeze.json": {
+      "sha256": "06a35b7e2b39a98e7f7f5768ac7bdb0fa914bc6ad15c84d74d9a0b31fc08c430",
+      "size_bytes": 3974
+    },
+    "paired_comparisons.json": {
+      "sha256": "8274145b62fcbbcf6fee4f6b2f8a45ad8b86dde323cfbcb4a7614f0913767324",
+      "size_bytes": 8158
+    },
+    "per_run_summary.csv": {
+      "sha256": "3b4d551af9d48fee2eebe1c8eb494c183731ace6a52964e8417cb270725d6926",
+      "size_bytes": 98109
+    },
+    "run_manifest.json": {
+      "sha256": "a09104593e4d01c661e79e8015560e97055ca73bc4838ab55033185d959985b2",
+      "size_bytes": 2156
+    },
+    "scientific_run_manifest.json": {
+      "sha256": "448650ac8fade0c74a828124c8648da7477caa5184bf374afd600fac782413ab",
+      "size_bytes": 2116
+    },
+    "terminal_audit.json": {
+      "sha256": "bc17c9b2568c8411fd750494e98fe85bf136261c956a1860568cc869ee69d85c",
+      "size_bytes": 748
+    },
+    "terminal_state_counts.csv": {
+      "sha256": "71accf90f55a773e83d55b9cb4659655418966c36274fc17fc191a091e6032d9",
+      "size_bytes": 1899
+    }
+  },
+  "event_counts": {
+    "nan_inf_numerical_failure": 0,
+    "support_or_temperature_boundary": 120,
+    "task_performance_collapse": 0
+  },
+  "expected_runs": 360,
+  "experiment_id": "D-U1-E6-SEMANTIC-LONGRUN-01",
+  "notes": [
+    "same-distribution held-out-context generalization; not OOD",
+    "task, support/temperature, and NaN/Inf events remain separate",
+    "no universal method winner is claimed",
+    "final code-update ZIP SHA-256 is reported at delivery to avoid self-reference"
+  ],
+  "raw_complete_artifact": {
+    "applicable_by_drpo_update": false,
+    "filename": "D-U1-E6-SEMANTIC-LONGRUN-01_RAW_COMPLETE.zip",
+    "package_kind": "experiment-raw-complete",
+    "sha256": "e098d4dd0483a661468db0cb1c4b67e4e563e2426a6aa078fe7b808f7ac691fa",
+    "size_bytes": 961729,
+    "verified_by_canonical_packager": true
+  },
+  "repository_closure_base_commit": "a1672d95653139964debdd5c1baf00173722c071",
+  "schema_version": 1,
+  "scientific_run_commit": "eb5e12626026854f44f4698dbc8ed8829e74e0b0",
+  "scientific_status": "long_run_validated",
+  "terminal_audit_all_checks_passed": true
+}

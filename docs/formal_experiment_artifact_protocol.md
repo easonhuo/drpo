@@ -371,6 +371,16 @@ The foreground supervisor treats command-start failure as an experiment failure,
 
 A recovery artifact describes the code that actually launched. Its `BASE_COMMIT.txt`, manifest `base_commit`, and any source snapshot therefore use the launch commit even when the repository HEAD changes before packaging. The packaging-time HEAD is recorded separately. Recovery packages do not contain an update patch assembled from the contaminated end-state worktree. Source files are read from the launch commit with Git object access.
 
+## 19.1 Recovery artifacts are not `drpo-update` inputs
+
+`experiment-checkpoint`, `experiment-failed`, and `experiment-raw-complete` preserve
+run evidence before repository closure. Their `update.patch` is intentionally allowed
+to be empty. They must not be applied with `drpo-update`. The operator preserves the
+artifact for audit, completes terminal interpretation, updates `docs/handoff.md`,
+`experiments/registry.yaml`, and compact repository outputs, and then creates an
+`experiment-final` repository-closure package. `drpo-update` must reject recovery kinds
+with this actionable distinction instead of reporting only a generic empty-patch error.
+
 ## 20. Final-evidence completeness gate
 
 Before `experiment-final` publication, the result directory must contain:

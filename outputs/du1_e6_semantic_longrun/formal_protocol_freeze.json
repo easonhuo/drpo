@@ -1,0 +1,203 @@
+{
+  "automatic_retuning_allowed": false,
+  "checkpointing": {
+    "persistence": "persistent_local",
+    "seed_block_size": 5,
+    "seed_blocks": [
+      [
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      [
+        15,
+        16,
+        17,
+        18,
+        19
+      ],
+      [
+        20,
+        21,
+        22,
+        23,
+        24
+      ],
+      [
+        25,
+        26,
+        27,
+        28,
+        29
+      ]
+    ],
+    "write_compact_manifest_after_each_block": true
+  },
+  "development_seeds_forbidden": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "events": {
+    "concentration_warning": 80.0,
+    "effective_support_boundary": 1.5,
+    "task_collapse_ratio_to_paired_positive_only": 0.2
+  },
+  "experiment_id": "D-U1-E6-SEMANTIC-LONGRUN-01",
+  "formal_gate": {
+    "approval_record": "user_approved_2026-06-27_exact_focused_dev_freeze",
+    "enabled": true,
+    "frozen_protocol_path": "configs/du1_e6_semantic_longrun.yaml",
+    "held_out_seeds": [
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29
+    ]
+  },
+  "held_out_seeds": [
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29
+  ],
+  "optimizer": {
+    "audit_states": 512,
+    "batch_size": 128,
+    "betas": [
+      0.9,
+      0.999
+    ],
+    "eps": 1e-08,
+    "evaluation_interval_steps": 50,
+    "far_cap_ratio_to_weighted_local_gradient": 1.0,
+    "learning_rate": 0.001,
+    "maximum_steps": 8000,
+    "optimizer": "Adam",
+    "parallel_workers": 8
+  },
+  "policy": {
+    "activation": "tanh",
+    "fixed_concentration": 8.0,
+    "hidden_dim": 64,
+    "initial_learnable_concentration": 8.0,
+    "learnable_concentration_floor": 0.05,
+    "learnable_concentration_upper_clamp": false
+  },
+  "protocol_a": {
+    "concentration_mode": "fixed",
+    "far_pressure_lambda": 0.0,
+    "local_alpha_grid": [
+      0.0,
+      0.25,
+      0.5,
+      0.75
+    ],
+    "responsibility": "fixed_concentration_positive_only_ceiling_and_alpha_transition"
+  },
+  "protocol_b": {
+    "concentration_mode": "learnable",
+    "responsibility": "learnable_concentration_near_far_causal_and_control_matrix",
+    "settings": [
+      {
+        "far_pressure_lambda": 0.0,
+        "local_alpha": 0.0,
+        "methods": [
+          "positive_only"
+        ]
+      },
+      {
+        "far_pressure_lambda": 0.05,
+        "local_alpha": 0.1,
+        "methods": [
+          "far_zero",
+          "uncontrolled",
+          "near_zero",
+          "far_cap",
+          "budget_matched_global"
+        ]
+      }
+    ]
+  },
+  "protocol_c": {
+    "concentration_mode": "learnable",
+    "embedding_modes": [
+      "aligned",
+      "shuffled"
+    ],
+    "far_pressure_lambda": 0.05,
+    "local_alpha": 0.1,
+    "methods": [
+      "positive_only",
+      "far_zero",
+      "uncontrolled",
+      "far_cap"
+    ],
+    "responsibility": "policy_side_semantic_alignment_exclusion_control"
+  },
+  "terminal_audit": {
+    "adam_update_median_ratio_max": 1.25,
+    "allow_scientific_failure_outcomes": true,
+    "development_reference_horizon_steps": 4000,
+    "formal_extension_factor": 2.0,
+    "formal_horizon_steps": 8000,
+    "metric_window_mean_abs_tolerances": {
+      "test_entropy_mean": 0.08,
+      "test_expected_semantic_reward": 0.01,
+      "test_hidden_optimal_probability": 0.02,
+      "test_normalized_semantic_extrapolation": 0.08
+    },
+    "mode": "formal_two_x_windows",
+    "raw_total_gradient_median_ratio_max": 1.25,
+    "require_all_registered_runs": true,
+    "window_1_steps": [
+      4000,
+      6000
+    ],
+    "window_2_steps": [
+      6000,
+      8000
+    ]
+  },
+  "user_approval": {
+    "approval_date": "2026-06-27",
+    "approval_scope": "exact_focused_development_freeze_recommendation",
+    "user_approved": true
+  }
+}

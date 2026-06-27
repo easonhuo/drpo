@@ -193,3 +193,15 @@ The doctor compiles the updater/producer, checks Shell syntax, and runs the
 synthetic transactional tests for exact/stale bundle integration, conflict
 protection, diagnostics, canonical packaging, and main-bundle export. It does
 not mutate or push the real repository.
+
+
+## Recovery experiment artifacts are evidence-only
+
+`experiment-checkpoint`, `experiment-failed`, and `experiment-raw-complete`
+packages preserve immutable run evidence before repository closure. Their
+`update.patch` may intentionally be empty, so they must not be passed to
+`drpo-update`. Preserve them for audit. After terminal audit and scientific
+interpretation, update `docs/handoff.md`, `experiments/registry.yaml`, and the
+compact result files, then build an `experiment-final` repository-closure
+package. The updater detects these package kinds before patch validation and
+reports this workflow explicitly.

@@ -1,0 +1,279 @@
+{
+  "bootstrap_replicates": 20000,
+  "bootstrap_seed": 20260627,
+  "comparisons": {
+    "E6-A local_only alpha=0.25 minus positive_only hidden_optimal_probability": {
+      "bootstrap_ci95": [
+        0.039230827447026974,
+        0.0445048679970205
+      ],
+      "losses": 0,
+      "mean_difference": 0.04196665287017822,
+      "metric": "final_hidden_optimal_probability",
+      "paired_seeds": 20,
+      "ties": 0,
+      "wilcoxon_p": 1.9073486328125e-06,
+      "wins": 20
+    },
+    "E6-A local_only alpha=0.25 minus positive_only normalized_extrapolation": {
+      "bootstrap_ci95": [
+        0.5327922604791819,
+        0.5537452796660364
+      ],
+      "losses": 0,
+      "mean_difference": 0.5424279868602753,
+      "metric": "final_normalized_semantic_extrapolation",
+      "paired_seeds": 20,
+      "ties": 0,
+      "wilcoxon_p": 1.9073486328125e-06,
+      "wins": 20
+    },
+    "E6-A local_only alpha=0.25 minus positive_only reward": {
+      "bootstrap_ci95": [
+        0.02057325214147568,
+        0.02244885817170143
+      ],
+      "losses": 0,
+      "mean_difference": 0.021537724137306213,
+      "metric": "final_expected_semantic_reward",
+      "paired_seeds": 20,
+      "ties": 0,
+      "wilcoxon_p": 1.9073486328125e-06,
+      "wins": 20
+    },
+    "E6-A local_only alpha=0.5 minus positive_only hidden_optimal_probability": {
+      "bootstrap_ci95": [
+        0.03739881662651898,
+        0.04756082462146878
+      ],
+      "losses": 0,
+      "mean_difference": 0.0427242510020733,
+      "metric": "final_hidden_optimal_probability",
+      "paired_seeds": 20,
+      "ties": 0,
+      "wilcoxon_p": 1.9073486328125e-06,
+      "wins": 20
+    },
+    "E6-A local_only alpha=0.5 minus positive_only normalized_extrapolation": {
+      "bootstrap_ci95": [
+        1.124845789000392,
+        1.1572548292949796
+      ],
+      "losses": 0,
+      "mean_difference": 1.140947236120701,
+      "metric": "final_normalized_semantic_extrapolation",
+      "paired_seeds": 20,
+      "ties": 0,
+      "wilcoxon_p": 1.9073486328125e-06,
+      "wins": 20
+    },
+    "E6-A local_only alpha=0.5 minus positive_only reward": {
+      "bootstrap_ci95": [
+        0.013682029843330383,
+        0.01812527000904083
+      ],
+      "losses": 0,
+      "mean_difference": 0.01598736345767975,
+      "metric": "final_expected_semantic_reward",
+      "paired_seeds": 20,
+      "ties": 0,
+      "wilcoxon_p": 1.9073486328125e-06,
+      "wins": 20
+    },
+    "E6-A local_only alpha=0.75 minus positive_only hidden_optimal_probability": {
+      "bootstrap_ci95": [
+        -0.024465898228809246,
+        -0.013521935092285272
+      ],
+      "losses": 19,
+      "mean_difference": -0.018896006792783745,
+      "metric": "final_hidden_optimal_probability",
+      "paired_seeds": 20,
+      "ties": 0,
+      "wilcoxon_p": 5.7220458984375e-06,
+      "wins": 1
+    },
+    "E6-A local_only alpha=0.75 minus positive_only normalized_extrapolation": {
+      "bootstrap_ci95": [
+        1.6596901793964207,
+        1.7024301015026866
+      ],
+      "losses": 0,
+      "mean_difference": 1.6819234177470208,
+      "metric": "final_normalized_semantic_extrapolation",
+      "paired_seeds": 20,
+      "ties": 0,
+      "wilcoxon_p": 1.9073486328125e-06,
+      "wins": 20
+    },
+    "E6-A local_only alpha=0.75 minus positive_only reward": {
+      "bootstrap_ci95": [
+        -0.03421750903129577,
+        -0.02788556635379792
+      ],
+      "losses": 20,
+      "mean_difference": -0.031028494238853455,
+      "metric": "final_expected_semantic_reward",
+      "paired_seeds": 20,
+      "ties": 0,
+      "wilcoxon_p": 1.9073486328125e-06,
+      "wins": 0
+    },
+    "E6-B budget_matched_global minus far_cap reward": {
+      "bootstrap_ci95": [
+        -0.0003325497359037292,
+        0.0004504617303610054
+      ],
+      "losses": 6,
+      "mean_difference": 7.615983486175537e-05,
+      "metric": "final_expected_semantic_reward",
+      "paired_seeds": 20,
+      "ties": 2,
+      "wilcoxon_p": 0.21453736472050733,
+      "wins": 12
+    },
+    "E6-B far_cap minus uncontrolled reward": {
+      "bootstrap_ci95": [
+        -0.00016365386545649354,
+        0.0004614894837141153
+      ],
+      "losses": 7,
+      "mean_difference": 0.00013844966888429955,
+      "metric": "final_expected_semantic_reward",
+      "paired_seeds": 20,
+      "ties": 2,
+      "wilcoxon_p": 0.4204264735837405,
+      "wins": 11
+    },
+    "E6-B far_zero minus positive_only reward": {
+      "bootstrap_ci95": [
+        0.0204301019012928,
+        0.021405215337872503
+      ],
+      "losses": 0,
+      "mean_difference": 0.020926111936569215,
+      "metric": "final_expected_semantic_reward",
+      "paired_seeds": 20,
+      "ties": 0,
+      "wilcoxon_p": 1.9073486328125e-06,
+      "wins": 20
+    },
+    "E6-B uncontrolled minus positive_only reward": {
+      "bootstrap_ci95": [
+        0.04154294930398465,
+        0.044837494790554044
+      ],
+      "losses": 0,
+      "mean_difference": 0.04322995245456695,
+      "metric": "final_expected_semantic_reward",
+      "paired_seeds": 20,
+      "ties": 0,
+      "wilcoxon_p": 1.9073486328125e-06,
+      "wins": 20
+    },
+    "E6-C aligned minus shuffled far_cap hidden_optimal_probability": {
+      "bootstrap_ci95": [
+        0.2084961210656911,
+        0.22999716383172195
+      ],
+      "losses": 0,
+      "mean_difference": 0.21944056740030646,
+      "metric": "final_hidden_optimal_probability",
+      "paired_seeds": 20,
+      "ties": 0,
+      "wilcoxon_p": 1.9073486328125e-06,
+      "wins": 20
+    },
+    "E6-C aligned minus shuffled far_cap reward": {
+      "bootstrap_ci95": [
+        0.36637523032724856,
+        0.3784841521829367
+      ],
+      "losses": 0,
+      "mean_difference": 0.3726573079824448,
+      "metric": "final_expected_semantic_reward",
+      "paired_seeds": 20,
+      "ties": 0,
+      "wilcoxon_p": 1.9073486328125e-06,
+      "wins": 20
+    },
+    "E6-C aligned minus shuffled far_zero hidden_optimal_probability": {
+      "bootstrap_ci95": [
+        0.15575941725401207,
+        0.16391914908308536
+      ],
+      "losses": 0,
+      "mean_difference": 0.15985922021791338,
+      "metric": "final_hidden_optimal_probability",
+      "paired_seeds": 20,
+      "ties": 0,
+      "wilcoxon_p": 1.9073486328125e-06,
+      "wins": 20
+    },
+    "E6-C aligned minus shuffled far_zero reward": {
+      "bootstrap_ci95": [
+        0.34916827857494354,
+        0.3585609447211027
+      ],
+      "losses": 0,
+      "mean_difference": 0.3541200339794159,
+      "metric": "final_expected_semantic_reward",
+      "paired_seeds": 20,
+      "ties": 0,
+      "wilcoxon_p": 1.9073486328125e-06,
+      "wins": 20
+    },
+    "E6-C aligned minus shuffled positive_only hidden_optimal_probability": {
+      "bootstrap_ci95": [
+        0.11582691175630319,
+        0.12282476822612806
+      ],
+      "losses": 0,
+      "mean_difference": 0.11936375107616186,
+      "metric": "final_hidden_optimal_probability",
+      "paired_seeds": 20,
+      "ties": 0,
+      "wilcoxon_p": 1.9073486328125e-06,
+      "wins": 20
+    },
+    "E6-C aligned minus shuffled positive_only reward": {
+      "bootstrap_ci95": [
+        0.3318576227128506,
+        0.34024110458791257
+      ],
+      "losses": 0,
+      "mean_difference": 0.3362449496984482,
+      "metric": "final_expected_semantic_reward",
+      "paired_seeds": 20,
+      "ties": 0,
+      "wilcoxon_p": 1.9073486328125e-06,
+      "wins": 20
+    },
+    "E6-C aligned minus shuffled uncontrolled hidden_optimal_probability": {
+      "bootstrap_ci95": [
+        0.20885565747041254,
+        0.2303627456561662
+      ],
+      "losses": 0,
+      "mean_difference": 0.21973759662359954,
+      "metric": "final_hidden_optimal_probability",
+      "paired_seeds": 20,
+      "ties": 0,
+      "wilcoxon_p": 1.9073486328125e-06,
+      "wins": 20
+    },
+    "E6-C aligned minus shuffled uncontrolled reward": {
+      "bootstrap_ci95": [
+        0.36624133914709095,
+        0.37837297976017
+      ],
+      "losses": 0,
+      "mean_difference": 0.37251958847045896,
+      "metric": "final_expected_semantic_reward",
+      "paired_seeds": 20,
+      "ties": 0,
+      "wilcoxon_p": 1.9073486328125e-06,
+      "wins": 20
+    }
+  }
+}

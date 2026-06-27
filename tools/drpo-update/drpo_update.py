@@ -40,9 +40,15 @@ from test_selection import (  # noqa: E402
     select_test_plan,
 )
 
-VERSION = "2.3.0"
+VERSION = "2.3.1"
 EXPECTED_REMOTE_FRAGMENTS = ("github.com/easonhuo/drpo", "github.com:easonhuo/drpo")
 FULL_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
+RECOVERY_ARTIFACT_KINDS = {
+    "experiment-checkpoint",
+    "experiment-failed",
+    "experiment-raw-complete",
+}
+APPLICABLE_ARTIFACT_KINDS = {"governance", "experiment-final"}
 
 
 class UpdateError(RuntimeError):
@@ -256,6 +262,40 @@ def _copy_directory(source: Path, destination: Path) -> None:
     shutil.copytree(source, destination, dirs_exist_ok=True)
 
 
+def read_artifact_package_kind(root: Path) -> str | None:
+    """Return a hardened experiment-artifact kind when the manifest is present.
+
+    Recovery artifacts preserve evidence and intentionally may carry an empty
+    ``update.patch``. They are not repository updates and must never reach the
+    patch-integration path.
+    """
+
+    manifest_path = root / "ARTIFACT_MANIFEST.json"
+    if not manifest_path.is_file():
+        return None
+    try:
+        payload = json.loads(manifest_path.read_text())
+    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+        raise UpdateError(f"ARTIFACT_MANIFEST.json is not valid JSON: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise UpdateError("ARTIFACT_MANIFEST.json must contain a JSON object")
+    package_kind = payload.get("package_kind")
+    if not isinstance(package_kind, str) or not package_kind:
+        raise UpdateError("ARTIFACT_MANIFEST.json is missing package_kind")
+    if package_kind in RECOVERY_ARTIFACT_KINDS:
+        raise UpdateError(
+            f"{package_kind} is a recovery/evidence package, not a repository update. "
+            "Do not pass it to drpo-update. Preserve it for audit, then create and "
+            "apply an experiment-final repository-closure package after the "
+            "handoff, registry, and compact result files are updated."
+        )
+    if package_kind not in APPLICABLE_ARTIFACT_KINDS:
+        raise UpdateError(
+            f"unsupported ARTIFACT_MANIFEST package_kind for drpo-update: {package_kind}"
+        )
+    return package_kind
+
+
 def extract_package(source: Path, temp_root: Path) -> Package:
     source = source.expanduser().resolve()
     if not source.exists():
@@ -280,6 +320,7 @@ def extract_package(source: Path, temp_root: Path) -> Package:
     summary_file = root / "CHANGE_SUMMARY.md"
     if not summary_file.is_file():
         raise UpdateError("CHANGE_SUMMARY.md is missing")
+    read_artifact_package_kind(root)
     patches = [p for p in root.iterdir() if p.is_file() and p.suffix in {".patch", ".diff"}]
     if len(patches) != 1:
         raise UpdateError(f"expected exactly one .patch/.diff file, found {len(patches)}")

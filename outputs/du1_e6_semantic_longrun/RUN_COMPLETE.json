@@ -1,0 +1,11 @@
+{
+  "actual_runs": 360,
+  "completed": true,
+  "elapsed_seconds": 1846.7317748069763,
+  "execution_mode": "formal_longrun",
+  "expected_runs": 360,
+  "experiment_id": "D-U1-E6-SEMANTIC-LONGRUN-01",
+  "formal_result": true,
+  "method_ranking_allowed": true,
+  "scientific_status": "long_run_validated"
+}

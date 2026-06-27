@@ -1,8 +1,14 @@
 from __future__ import annotations
 
+import importlib.util
+import json
 import os
 import subprocess
+import sys
+import zipfile
 from pathlib import Path
+
+import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 HELPER_DIR = REPO_ROOT / "tools" / "drpo-update"
@@ -17,7 +23,7 @@ def run(cmd: list[str], *, cwd: Path | None = None, env: dict[str, str] | None =
 
 def test_helper_reports_version():
     proc = run([str(HELPER_DIR / "drpo-update"), "--version"])
-    assert proc.stdout.strip() == "drpo-update 2.3.0"
+    assert proc.stdout.strip() == "drpo-update 2.3.1"
 
 
 def test_installer_defaults_to_repository_symlink(tmp_path: Path):
@@ -43,7 +49,7 @@ def test_installer_defaults_to_repository_symlink(tmp_path: Path):
     assert installed.is_symlink()
     assert installed.resolve() == (target_dir / "drpo-update").resolve()
     assert (home / ".config" / "drpo-update" / "repo_path").read_text().strip() == str(repo.resolve())
-    assert "drpo-update 2.3.0" in proc.stdout
+    assert "drpo-update 2.3.1" in proc.stdout
 
 
 def test_provenance_records_user_verified_original_hash():
@@ -62,3 +68,38 @@ def test_doctor_runs_non_destructive_transaction_self_tests(tmp_path: Path):
     assert "DOCTOR SHELL SYNTAX: PASS" in proc.stdout
     assert "DOCTOR TRANSACTION PATHS: PASS" in proc.stdout
     assert "DRPO UPDATE DOCTOR: PASS" in proc.stdout
+
+
+def _load_update_module():
+    path = HELPER_DIR / "drpo_update.py"
+    spec = importlib.util.spec_from_file_location("drpo_update_under_test", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_recovery_artifact_is_rejected_with_actionable_message(tmp_path: Path):
+    package = tmp_path / "raw-complete.zip"
+    with zipfile.ZipFile(package, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("BASE_COMMIT.txt", "0" * 40 + "\n")
+        archive.writestr("CHANGE_SUMMARY.md", "raw evidence\n")
+        archive.writestr("update.patch", b"")
+        archive.writestr(
+            "ARTIFACT_MANIFEST.json",
+            json.dumps(
+                {
+                    "package_kind": "experiment-raw-complete",
+                    "experiment_id": "TEST-RAW-COMPLETE",
+                    "base_commit": "0" * 40,
+                }
+            ),
+        )
+
+    updater = _load_update_module()
+    with pytest.raises(
+        updater.UpdateError,
+        match=r"recovery/evidence package.*Do not pass it to drpo-update",
+    ):
+        updater.extract_package(package, tmp_path / "extract")

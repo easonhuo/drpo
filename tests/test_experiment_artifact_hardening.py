@@ -1716,3 +1716,18 @@ def test_external_authoritative_sha_requires_resolution_method(tmp_path: Path) -
     assert checked.returncode == 2
     assert "requires --resolution-method" in checked.stderr
     assert not ledger.exists()
+
+
+def test_recovery_change_summary_does_not_instruct_patch_application(tmp_path: Path) -> None:
+    summary = hardened.build_summary(
+        experiment_id="TEST-RAW-COMPLETE",
+        package_kind="experiment-raw-complete",
+        base_commit="0" * 40,
+        paths=[],
+        result_dir=tmp_path / "results",
+        supplied=None,
+    )
+    assert "Do not pass this package to `drpo-update`" in summary
+    assert "`update.patch` is intentionally empty" in summary
+    assert "create an `experiment-final` repository-closure package" in summary
+    assert "apply `update.patch` only" not in summary

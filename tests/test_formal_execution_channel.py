@@ -276,7 +276,7 @@ def test_repository_development_formal_registrations_are_fail_closed() -> None:
     experiments = {item["id"]: item for item in report["experiment_reports"]}
     development = {item["id"]: item for item in report["development_registration_reports"]}
     assert development["D-U1-E6-SEMANTIC-PILOT-01"]["state"] == "development_nonformal"
-    assert experiments["D-U1-E6-SEMANTIC-LONGRUN-01"]["state"] == "active"
+    assert experiments["D-U1-E6-SEMANTIC-LONGRUN-01"]["state"] == "blocked"
     assert development["D-U1-E6-TAPER-01"]["state"] == "planned_blocked"
 
 

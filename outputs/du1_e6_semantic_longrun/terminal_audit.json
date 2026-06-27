@@ -1,0 +1,21 @@
+{
+  "actual_runs": 360,
+  "all_runs_present": true,
+  "all_terminal_audits_accepted": true,
+  "all_terminal_audits_present": true,
+  "development_two_x_horizon_performed": false,
+  "environment_invariants_passed": true,
+  "expected_runs": 360,
+  "experiment_id": "D-U1-E6-SEMANTIC-LONGRUN-01",
+  "formal_method_ranking_allowed": true,
+  "formal_scientific_acceptance": true,
+  "formal_two_x_extension_performed": true,
+  "missing_task_collapse_reference_count": 0,
+  "nan_inf_numerical_failure_count": 0,
+  "pilot_integrity_passed": false,
+  "run_class": "formal",
+  "scientific_failure_outcomes_preserved": true,
+  "scientific_status": "long_run_validated",
+  "support_or_temperature_boundary_count": 120,
+  "task_performance_collapse_count": 0
+}

@@ -809,6 +809,17 @@ def build_summary(
     if supplied:
         return supplied.read_text()
     changed = "\n".join(f"- `{p.as_posix()}`" for p in paths) or "- None"
+    if package_kind in RECOVERY_KINDS:
+        remaining = """- Preserve this package as immutable run evidence.
+- Do not pass this package to `drpo-update`; it is not a repository update.
+- `update.patch` is intentionally empty for this recovery package kind.
+- After terminal audit and scientific interpretation, update the handoff, registry,
+  and compact result files, then create an `experiment-final` repository-closure package.
+"""
+    else:
+        remaining = """Review the artifact manifest, execute `TEST_COMMANDS.sh`, and apply `update.patch` only
+against the stated base commit.
+"""
     return f"""# Change Summary
 
 - Governance/experiment ID: `{experiment_id}`
@@ -828,9 +839,7 @@ controlled by `docs/handoff.md`, `experiments/registry.yaml`, and the package ki
 
 ## Remaining items
 
-Review the artifact manifest, execute `TEST_COMMANDS.sh`, and apply `update.patch` only
-against the stated base commit.
-"""
+{remaining}"""
 
 
 def executable_test_script(commands: list[str]) -> str:

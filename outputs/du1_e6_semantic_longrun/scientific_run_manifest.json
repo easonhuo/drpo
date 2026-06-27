@@ -1,0 +1,63 @@
+{
+  "device": "cpu",
+  "execution_mode": "formal_longrun",
+  "experiment_id": "D-U1-E6-SEMANTIC-LONGRUN-01",
+  "formal_result": true,
+  "method_ranking_allowed_after_complete_audit": true,
+  "registered_scientific_status": "not_run",
+  "requested_stage": "formal",
+  "run_class": "formal",
+  "source": {
+    "git_head": "eb5e12626026854f44f4698dbc8ed8829e74e0b0",
+    "git_status_porcelain": "",
+    "output_root": "/mnt/data/e6_longrun_run_001",
+    "source_files": [
+      {
+        "path": "src/drpo/du1_e6_semantic.py",
+        "sha256": "40379e651edc626394ebe5cb60dd466d7755b3c53b942a0bbb958985477c8405",
+        "size": 78974
+      },
+      {
+        "path": "src/drpo/du1_e6_semantic_longrun.py",
+        "sha256": "02509b3d1ff71c4371fd8866967e13cbc6cc2a186f69ec0155ea2ad796eab5c6",
+        "size": 1771
+      },
+      {
+        "path": "scripts/run_du1_e6_semantic_longrun.py",
+        "sha256": "501508d09a4d23e1c64a186f5156259553b9d7642ec1c18fae9fa5f8bd294e1d",
+        "size": 4875
+      },
+      {
+        "path": "configs/du1_e6_semantic_pilot.yaml",
+        "sha256": "c0cf5dc224f0b427f4f2741d1153525094f8bbc5757cbcae0e3b3aeff2787863",
+        "size": 3795
+      },
+      {
+        "path": "configs/du1_e6_semantic_focused_dev.yaml",
+        "sha256": "b287f5a90c884ce86972690992247154607779e2303984c50d29be34771e1b5f",
+        "size": 4901
+      },
+      {
+        "path": "configs/du1_e6_semantic_focused_dev_phase2.yaml",
+        "sha256": "169986e3801dc1ed1ba51a1203046d990004d0538e94f0a86c2b11efb0a36f4a",
+        "size": 5704
+      },
+      {
+        "path": "configs/du1_e6_semantic_longrun.yaml",
+        "sha256": "527ab4be84849283a21ecb4b3c073be06c17d87854b8933def109a233106c6b7",
+        "size": 4746
+      },
+      {
+        "path": "docs/handoff.md",
+        "sha256": "bbcfaf694d2fba7f319ce44ba5e6dc82ca4d88323dbc87b93d9f357aa2f7a82b",
+        "size": 382999
+      },
+      {
+        "path": "experiments/registry.yaml",
+        "sha256": "afaf9b8d644c16368c293b89001d5cc8044186a7fea17be78cfbf3ec469d7e44",
+        "size": 114179
+      }
+    ]
+  },
+  "started_unix": 1782513923.9777546
+}

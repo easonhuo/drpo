@@ -2286,7 +2286,7 @@ experiments:
 - id: D-U1-E6-SEMANTIC-LONGRUN-01
   environment: D-U1
   name: shared_semantic_categorical_extrapolation_longrun
-  status: not_run
+  status: long_run_validated
   parent_experiment: E6
   predecessor: D-U1-E6-SEMANTIC-FOCUSED-DEV-01
   registration_base_commit: eb6a90d55127cead4d95bd0a85a78f32c47ff56a
@@ -2299,12 +2299,16 @@ experiments:
   implementation_state: implemented
   registry_scope: development_registration_with_canonical_formal_execution
   execution_gate:
-    state: ready
+    state: blocked
+    blocked_by: [completed_formal_execution_no_rerun_without_new_registration]
     approval_record: user_approved_2026-06-27_exact_focused_dev_freeze
     blocker_resolution_experiment: D-U1-E6-SEMANTIC-FOCUSED-DEV-01
+    blocking_reason: >-
+      The frozen formal run is complete, terminal-audited, packaged, and delivered.
+      Re-running the held-out seeds requires a separately registered protocol.
   formal_execution:
     channel_ref: hardened-v1
-    activation_state: active
+    activation_state: blocked
     entrypoint_status: implemented
     entrypoint: src/drpo/du1_e6_semantic_longrun.py
     launch_mode: canonical_guard
@@ -2435,17 +2439,105 @@ experiments:
   - cross_task_method_superiority
   - Gaussian_quadratic_gradient_law_for_categorical_policy
   execution:
-    state: registered
-    run_id: null
-    last_heartbeat_utc: null
-    process_exit_code: null
+    state: delivered
+    run_id: du1_e6_semantic_longrun_eb5e126_run001
+    start_utc: '2026-06-26T22:45:21.924397+00:00'
+    end_utc: '2026-06-26T23:16:11.850511+00:00'
+    elapsed_seconds: 1849.926
+    process_exit_code: 0
+    runtime: cpu
   evidence:
     implementation_tests_passed: true
-    run_started: false
-    raw_complete: false
-    terminal_audited: false
-    package_created: false
-    delivered_to_user: false
+    run_started: true
+    raw_complete: true
+    terminal_audited: true
+    terminal_audit_all_checks_passed: true
+    formal_two_x_extension_performed: true
+    expected_runs: 360
+    actual_runs: 360
+    task_performance_collapse_events: 0
+    support_or_temperature_boundary_events: 120
+    nan_inf_numerical_events: 0
+    package_created: true
+    raw_complete_package_filename: D-U1-E6-SEMANTIC-LONGRUN-01_RAW_COMPLETE.zip
+    raw_complete_package_sha256: e098d4dd0483a661468db0cb1c4b67e4e563e2426a6aa078fe7b808f7ac691fa
+    final_repository_closure_package_filename: DRPO_DU1_E6_LONGRUN_CLOSURE_A1672D9_UPDATE.zip
+    final_repository_closure_package_sha256: null
+    delivered_to_user: true
+    repository_applied: false
+    applied_commit: null
+    compact_result_path: outputs/du1_e6_semantic_longrun
+    scientific_status: long_run_validated
+  provenance:
+    run_commit: eb5e12626026854f44f4698dbc8ed8829e74e0b0
+    repository_closure_base_commit: a1672d95653139964debdd5c1baf00173722c071
+    origin_main_authoritative_match_at_launch: true
+    git_worktree_clean_at_launch: true
+    git_worktree_clean_at_exit: true
+    provenance_compromised: false
+    raw_artifact_package_kind: experiment-raw-complete
+    raw_artifact_is_drpo_update_input: false
+  result_summary:
+    e6_a:
+      positive_only_reward_mean: 0.851448580622673
+      local_alpha_0_25_reward_mean: 0.8729863047599793
+      local_alpha_0_25_minus_positive_only_reward_mean: 0.021537724137306213
+      local_alpha_0_25_minus_positive_only_reward_ci95: [0.02057325214147568, 0.02244885817170143]
+      local_alpha_0_25_reward_wins: 20
+      local_alpha_0_50_reward_mean: 0.8674359440803527
+      local_alpha_0_50_minus_positive_only_reward_mean: 0.01598736345767975
+      local_alpha_0_50_minus_positive_only_reward_ci95: [0.013682029843330383, 0.01812527000904083]
+      local_alpha_0_50_reward_wins: 20
+      local_alpha_0_75_reward_mean: 0.8204200863838196
+      local_alpha_0_75_minus_positive_only_reward_mean: -0.031028494238853455
+      local_alpha_0_75_minus_positive_only_reward_ci95: [-0.03421750903129577, -0.02788556635379792]
+      local_alpha_0_75_reward_losses: 20
+    e6_b:
+      positive_only_reward_mean: 0.8643916040658951
+      far_zero_reward_mean: 0.8853177160024643
+      far_zero_support_boundary_events: 0
+      far_zero_terminal_plateaus: 5
+      far_zero_persistent_drift_or_inconclusive: 15
+      uncontrolled_support_boundary_events: 20
+      near_zero_support_boundary_events: 20
+      far_cap_support_boundary_events: 20
+      budget_matched_global_support_boundary_events: 20
+      far_cap_minus_uncontrolled_reward_mean: 0.00013844966888429955
+      far_cap_minus_uncontrolled_reward_ci95: [-0.00015761151909824173, 0.0004596554487943544]
+      budget_global_minus_far_cap_reward_mean: 0.00007615983486175537
+      budget_global_minus_far_cap_reward_ci95: [-0.0003324817121028858, 0.00045173332095150014]
+    e6_c:
+      all_registered_methods_aligned_reward_wins_over_shuffled: 20
+      positive_only_aligned_minus_shuffled_reward_mean: 0.3362449496984482
+      far_zero_aligned_minus_shuffled_reward_mean: 0.3541200339794159
+      uncontrolled_aligned_minus_shuffled_reward_mean: 0.37251958847045896
+      far_cap_aligned_minus_shuffled_reward_mean: 0.3726573079824448
+  paper_use:
+    suitable_for_positive_only_ceiling_claim: true
+    suitable_for_controlled_local_negative_benefit_claim: true
+    suitable_for_excessive_pressure_reversal_claim: true
+    suitable_for_semantic_alignment_exclusion_claim: true
+    suitable_for_universal_method_ranking: false
+    allowed:
+    - same_distribution_held_out_context_generalization
+    - unseen_action_semantic_extrapolation_in_aligned_D_U1
+    - separate_task_support_and_numerical_event_reporting
+    - high_reward_can_coexist_with_support_boundary
+    prohibited_claims:
+    - OOD_generalization
+    - Transformer_external_validity
+    - cross_task_method_superiority
+    - far_cap_or_global_alpha_universal_winner
+    - far_field_pressure_as_the_sole_cause_of_all_failures
+  next_gate:
+    experiment_id: D-U1-E6-TAPER-01
+    state: review_required_not_runnable
+    automatic_activation_forbidden: true
+    remaining_requirements:
+    - freeze_semantic_remoteness_coordinate
+    - freeze_paired_method_protocol
+    - freeze_new_untouched_held_out_seeds
+    - implement_separate_formal_runner
 
 development_experiment_registrations:
 - id: D-U1-E6-SEMANTIC-PILOT-01
@@ -2787,8 +2879,8 @@ development_experiment_registrations:
     artifact_protocol: docs/formal_experiment_artifact_protocol.md
     inherit_default_artifact_budget: true
     runner_archive_policy: {mode: forbid}
+  predecessor_delivery_satisfied: true
   blocked_by:
-  - delivered_D-U1-E6-SEMANTIC-LONGRUN-01
   - frozen_semantic_remoteness_coordinate
   - frozen_paired_method_protocol
   - frozen_untouched_held_out_seeds
@@ -2796,7 +2888,7 @@ development_experiment_registrations:
   distance_rule:
     same_coordinate_across_methods: required
     gaussian_standardized_distance_reused: false
-    exact_semantic_coordinate: pending_E6_longrun_protocol_freeze
+    exact_semantic_coordinate: pending_separate_E6_TAPER_protocol_freeze
   candidate_families: [reciprocal_linear, reciprocal_quadratic, exponential]
   controls: [positive_only, uncontrolled_negative, global_alpha]
   no_method_winner_assumed: true

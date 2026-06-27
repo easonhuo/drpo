@@ -145,11 +145,13 @@ def test_registry_preregistration_preserves_canonical_channel_and_history() -> N
     assert "D-U1-E6-SEMANTIC-LONGRUN-01" in canonical_ids
     assert development["D-U1-E6-SEMANTIC-PILOT-01"]["status"] == "pilot"
     longrun = canonical["D-U1-E6-SEMANTIC-LONGRUN-01"]
-    assert longrun["status"] == "not_run"
-    assert longrun["formal_execution"]["activation_state"] == "active"
+    assert longrun["status"] == "long_run_validated"
+    assert longrun["formal_execution"]["activation_state"] == "blocked"
     assert longrun["formal_execution"]["entrypoint_status"] == "implemented"
     assert longrun["formal_execution"]["launch_mode"] == "canonical_guard"
-    assert longrun["execution_gate"]["state"] == "ready"
+    assert longrun["execution_gate"]["state"] == "blocked"
+    assert longrun["execution"]["state"] == "delivered"
+    assert longrun["evidence"]["actual_runs"] == 360
     assert longrun["formal_parameter_freeze"] is True
     handoff = (REPO_ROOT / "docs" / "handoff.md").read_text()
     assert "v37（D-U1 E5 长程复核闭环版）" in handoff
@@ -240,8 +242,9 @@ def test_focused_development_result_closure_and_formal_gate() -> None:
     assert focused["formal_freeze_recommendation"]["user_approved"] is True
     assert focused["evidence"]["repository_applied"] is True
     assert focused["evidence"]["applied_commit"] == ("eb6a90d55127cead4d95bd0a85a78f32c47ff56a")
-    assert longrun["formal_execution"]["activation_state"] == "active"
+    assert longrun["formal_execution"]["activation_state"] == "blocked"
     assert longrun["formal_parameter_freeze"] is True
+    assert longrun["evidence"]["scientific_status"] == "long_run_validated"
     assert longrun["held_out_seeds"] == list(range(10, 30))
     assert longrun["protocol"]["maximum_steps"] == 8000
     summary = REPO_ROOT / "outputs" / "du1_e6_semantic_focused_dev" / "FOCUSED_DEV_SUMMARY.md"
