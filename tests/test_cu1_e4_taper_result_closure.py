@@ -132,7 +132,9 @@ def test_registry_records_geometry_and_fairness_boundaries() -> None:
     assert "exponential_is_universally_best" in fairness["forbidden_claims"]
 
     followup = taper["followup_evidence_requirements"]
-    assert followup["authorization_state"] == "user_approved_registered_not_runnable"
+    assert followup["authorization_state"] == (
+        "user_approved_first_successor_implemented_remaining_sequence_gated"
+    )
     assert followup["no_automatic_execution"] is True
     assert "continuous_angle_sampling" in followup["geometry_robustness"]
     assert "matched_near_negative_retention" in followup["fair_family_comparison"]

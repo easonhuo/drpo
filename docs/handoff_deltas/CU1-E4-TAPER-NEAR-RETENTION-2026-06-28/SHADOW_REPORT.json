@@ -1,0 +1,1651 @@
+{
+  "affected_selectors": [
+    "DRPO / SNA2C \u8fdc\u573a\u8d1f\u68af\u5ea6\u52a8\u529b\u5b66\u7814\u7a76\u4e3b\u6587\u6863 v60\uff08E4-TAPER \u6548\u7528\u5047\u8bbe\u4e0e\u516c\u5e73\u5b9e\u9a8c\u767b\u8bb0\u7248\uff09",
+    "DRPO / SNA2C \u8fdc\u573a\u8d1f\u68af\u5ea6\u52a8\u529b\u5b66\u7814\u7a76\u4e3b\u6587\u6863 v61\uff08E4-TAPER Near-Retention \u534f\u8bae\u51bb\u7ed3\u4e0e\u5b9e\u73b0\u7248\uff09",
+    "0. \u7814\u7a76\u4e0e\u6267\u884c\u539f\u5219\uff08\u6bcf\u6b21\u65b0\u4f1a\u8bdd\u9996\u5148\u9605\u8bfb\uff09 / 0.1 \u5f53\u524d\u6267\u884c\u95e8\u7981",
+    "3. \u8fde\u7eed\u7edf\u4e00\u73af\u5883 C-U1 \u7684\u8be6\u7ec6\u8bbe\u8ba1 / 3.8 C-U1 \u5171\u4eab\u5b9e\u73b0\u4e0e\u4e8c\u6b21\u9636\u65b9\u6cd5\u5b9e\u9a8c `C-U1-E4-TAPER-01`",
+    "6. \u63a5\u4e0b\u6765\u552f\u4e00\u6267\u884c\u987a\u5e8f"
+  ],
+  "base_commit": "ce5964a0c16b12626ceb81fa9813fff14893c612",
+  "base_handoff_sha256": "85fa8b7cd5da5af2d05fccf71fb83ae8a91a9eb1f162ed96046e84f8764298ae",
+  "base_registry_sha256": "7cd2d196ecd53bb5a0a9998abe2b2ace1d55cbd62f489c3f5129592c066b7950",
+  "candidate_replaced_authority": false,
+  "candidate_sha256": "9a921b8d64ed2f10010c7847b21904931a9e0d976982efc60e05ce63f8124826",
+  "comparison_target": "working_tree",
+  "current_registry_sha256": "3265b7d8659db352297c44e4373c6bbb3c764cbd7550bcddab3a5f33374e54c9",
+  "exact_manual_candidate_match": true,
+  "full_candidate_saved": false,
+  "history_preservation_passed": true,
+  "idempotence_passed": true,
+  "llm_blocking_gate_used": false,
+  "manual_handoff_authoritative": true,
+  "manual_sha256": "9a921b8d64ed2f10010c7847b21904931a9e0d976982efc60e05ce63f8124826",
+  "mode": "shadow",
+  "network_used": false,
+  "observation_kind": "real",
+  "operation_count": 5,
+  "performance": {
+    "base_validation_ms": 75.87,
+    "comparison_and_registry_ms": 411.37,
+    "hard_limit_ms": 15000.0,
+    "policy_and_schema_ms": 25.987,
+    "render_and_idempotence_ms": 54.573,
+    "target_p95_ms": 5000.0,
+    "total_ms": 567.938,
+    "within_hard_limit": true,
+    "within_target": true
+  },
+  "policy_id": "GOV-HANDOFF-INDEX-01",
+  "registry_change_assertions": [
+    {
+      "change_id": "near-retention-001-followup-evidence-requirements-authorization-state",
+      "entity_id": "C-U1-E4-TAPER-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "9a921b8d64ed2f10010c7847b21904931a9e0d976982efc60e05ce63f8124826"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "3265b7d8659db352297c44e4373c6bbb3c764cbd7550bcddab3a5f33374e54c9"
+        },
+        {
+          "path": "src/drpo/cu1_taper_near_retention_formal.py",
+          "sha256": "70391b6295062ba65ed43bdc2639eb858f79d4e0832783d189eb0588a6c3083b"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_utility_followups.py",
+          "sha256": "d044661ba547bf98c0e45660b8ebd7a8bb3c1e055ed2e0a08cafe30279c37ce2"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_near_retention_protocol.py",
+          "sha256": "dfa5e25ffb5c067af96d82a974d5754dd8767c865fceae6973fc764e5eb5c87e"
+        }
+      ],
+      "field_path": [
+        "followup_evidence_requirements",
+        "authorization_state"
+      ],
+      "from": "user_approved_registered_not_runnable",
+      "kind": "update_field",
+      "reason": "Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.",
+      "to": "user_approved_first_successor_implemented_remaining_sequence_gated"
+    },
+    {
+      "change_id": "near-retention-002-candidate-families",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "9a921b8d64ed2f10010c7847b21904931a9e0d976982efc60e05ce63f8124826"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "3265b7d8659db352297c44e4373c6bbb3c764cbd7550bcddab3a5f33374e54c9"
+        },
+        {
+          "path": "src/drpo/cu1_taper_near_retention_formal.py",
+          "sha256": "70391b6295062ba65ed43bdc2639eb858f79d4e0832783d189eb0588a6c3083b"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_utility_followups.py",
+          "sha256": "d044661ba547bf98c0e45660b8ebd7a8bb3c1e055ed2e0a08cafe30279c37ce2"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_near_retention_protocol.py",
+          "sha256": "dfa5e25ffb5c067af96d82a974d5754dd8767c865fceae6973fc764e5eb5c87e"
+        }
+      ],
+      "field_path": [
+        "candidate_families"
+      ],
+      "from": [
+        "reciprocal_linear",
+        "reciprocal_quadratic",
+        "current_exponential"
+      ],
+      "kind": "update_field",
+      "reason": "Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.",
+      "to": [
+        "reciprocal_linear",
+        "reciprocal_quadratic",
+        "current_exponential",
+        "squared_distance_exponential"
+      ]
+    },
+    {
+      "change_id": "near-retention-003-claim",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "9a921b8d64ed2f10010c7847b21904931a9e0d976982efc60e05ce63f8124826"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "3265b7d8659db352297c44e4373c6bbb3c764cbd7550bcddab3a5f33374e54c9"
+        },
+        {
+          "path": "src/drpo/cu1_taper_near_retention_formal.py",
+          "sha256": "70391b6295062ba65ed43bdc2639eb858f79d4e0832783d189eb0588a6c3083b"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_utility_followups.py",
+          "sha256": "d044661ba547bf98c0e45660b8ebd7a8bb3c1e055ed2e0a08cafe30279c37ce2"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_near_retention_protocol.py",
+          "sha256": "dfa5e25ffb5c067af96d82a974d5754dd8767c865fceae6973fc764e5eb5c87e"
+        }
+      ],
+      "field_path": [
+        "claim"
+      ],
+      "from": "Under a shared C-U1 geometry and matched average near-negative retention, test whether reciprocal-quadratic or a vanishing-tail family reduces far harmful influence more efficiently than reciprocal-linear without merely deleting more locally useful negative signal.",
+      "kind": "update_field",
+      "reason": "Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.",
+      "to": "Under the shared C-U1 geometry and matched pooled average retention over the preregistered near region, test whether taper shape changes useful-near preservation, harmful-far influence, full-parameter far/near gradient allocation, and held-out-context task behavior. Reward superiority and a universal family winner are not assumed."
+    },
+    {
+      "change_id": "near-retention-004-code-entrypoint",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "9a921b8d64ed2f10010c7847b21904931a9e0d976982efc60e05ce63f8124826"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "3265b7d8659db352297c44e4373c6bbb3c764cbd7550bcddab3a5f33374e54c9"
+        },
+        {
+          "path": "src/drpo/cu1_taper_near_retention_formal.py",
+          "sha256": "70391b6295062ba65ed43bdc2639eb858f79d4e0832783d189eb0588a6c3083b"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_utility_followups.py",
+          "sha256": "d044661ba547bf98c0e45660b8ebd7a8bb3c1e055ed2e0a08cafe30279c37ce2"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_near_retention_protocol.py",
+          "sha256": "dfa5e25ffb5c067af96d82a974d5754dd8767c865fceae6973fc764e5eb5c87e"
+        }
+      ],
+      "field_path": [
+        "code_entrypoint"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.",
+      "to": "src/drpo/cu1_taper_near_retention_formal.py"
+    },
+    {
+      "change_id": "near-retention-005-controls",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "9a921b8d64ed2f10010c7847b21904931a9e0d976982efc60e05ce63f8124826"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "3265b7d8659db352297c44e4373c6bbb3c764cbd7550bcddab3a5f33374e54c9"
+        },
+        {
+          "path": "src/drpo/cu1_taper_near_retention_formal.py",
+          "sha256": "70391b6295062ba65ed43bdc2639eb858f79d4e0832783d189eb0588a6c3083b"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_utility_followups.py",
+          "sha256": "d044661ba547bf98c0e45660b8ebd7a8bb3c1e055ed2e0a08cafe30279c37ce2"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_near_retention_protocol.py",
+          "sha256": "dfa5e25ffb5c067af96d82a974d5754dd8767c865fceae6973fc764e5eb5c87e"
+        }
+      ],
+      "field_path": [
+        "controls"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.",
+      "to": [
+        "positive_only",
+        "unweighted_negative"
+      ]
+    },
+    {
+      "change_id": "near-retention-006-evidence-formal-run-started",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "9a921b8d64ed2f10010c7847b21904931a9e0d976982efc60e05ce63f8124826"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "3265b7d8659db352297c44e4373c6bbb3c764cbd7550bcddab3a5f33374e54c9"
+        },
+        {
+          "path": "src/drpo/cu1_taper_near_retention_formal.py",
+          "sha256": "70391b6295062ba65ed43bdc2639eb858f79d4e0832783d189eb0588a6c3083b"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_utility_followups.py",
+          "sha256": "d044661ba547bf98c0e45660b8ebd7a8bb3c1e055ed2e0a08cafe30279c37ce2"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_near_retention_protocol.py",
+          "sha256": "dfa5e25ffb5c067af96d82a974d5754dd8767c865fceae6973fc764e5eb5c87e"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "formal_run_started"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.",
+      "to": false
+    },
+    {
+      "change_id": "near-retention-007-evidence-implementation-tests-passed",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "9a921b8d64ed2f10010c7847b21904931a9e0d976982efc60e05ce63f8124826"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "3265b7d8659db352297c44e4373c6bbb3c764cbd7550bcddab3a5f33374e54c9"
+        },
+        {
+          "path": "src/drpo/cu1_taper_near_retention_formal.py",
+          "sha256": "70391b6295062ba65ed43bdc2639eb858f79d4e0832783d189eb0588a6c3083b"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_utility_followups.py",
+          "sha256": "d044661ba547bf98c0e45660b8ebd7a8bb3c1e055ed2e0a08cafe30279c37ce2"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_near_retention_protocol.py",
+          "sha256": "dfa5e25ffb5c067af96d82a974d5754dd8767c865fceae6973fc764e5eb5c87e"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "implementation_tests_passed"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.",
+      "to": true
+    },
+    {
+      "change_id": "near-retention-008-evidence-smoke-test-passed",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "9a921b8d64ed2f10010c7847b21904931a9e0d976982efc60e05ce63f8124826"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "3265b7d8659db352297c44e4373c6bbb3c764cbd7550bcddab3a5f33374e54c9"
+        },
+        {
+          "path": "src/drpo/cu1_taper_near_retention_formal.py",
+          "sha256": "70391b6295062ba65ed43bdc2639eb858f79d4e0832783d189eb0588a6c3083b"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_utility_followups.py",
+          "sha256": "d044661ba547bf98c0e45660b8ebd7a8bb3c1e055ed2e0a08cafe30279c37ce2"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_near_retention_protocol.py",
+          "sha256": "dfa5e25ffb5c067af96d82a974d5754dd8767c865fceae6973fc764e5eb5c87e"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "smoke_test_passed"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.",
+      "to": true
+    },
+    {
+      "change_id": "near-retention-009-execution-gate-blocked-by",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "9a921b8d64ed2f10010c7847b21904931a9e0d976982efc60e05ce63f8124826"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "3265b7d8659db352297c44e4373c6bbb3c764cbd7550bcddab3a5f33374e54c9"
+        },
+        {
+          "path": "src/drpo/cu1_taper_near_retention_formal.py",
+          "sha256": "70391b6295062ba65ed43bdc2639eb858f79d4e0832783d189eb0588a6c3083b"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_utility_followups.py",
+          "sha256": "d044661ba547bf98c0e45660b8ebd7a8bb3c1e055ed2e0a08cafe30279c37ce2"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_near_retention_protocol.py",
+          "sha256": "dfa5e25ffb5c067af96d82a974d5754dd8767c865fceae6973fc764e5eb5c87e"
+        }
+      ],
+      "field_path": [
+        "execution_gate",
+        "blocked_by"
+      ],
+      "from": [
+        "frozen_near_region_definition",
+        "frozen_retention_targets",
+        "frozen_family_formula_set",
+        "frozen_development_and_formal_seed_split",
+        "separately_implemented_formal_runner"
+      ],
+      "kind": "update_field",
+      "reason": "Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.",
+      "to": []
+    },
+    {
+      "change_id": "near-retention-010-execution-gate-blocking-reason",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "9a921b8d64ed2f10010c7847b21904931a9e0d976982efc60e05ce63f8124826"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "3265b7d8659db352297c44e4373c6bbb3c764cbd7550bcddab3a5f33374e54c9"
+        },
+        {
+          "path": "src/drpo/cu1_taper_near_retention_formal.py",
+          "sha256": "70391b6295062ba65ed43bdc2639eb858f79d4e0832783d189eb0588a6c3083b"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_utility_followups.py",
+          "sha256": "d044661ba547bf98c0e45660b8ebd7a8bb3c1e055ed2e0a08cafe30279c37ce2"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_near_retention_protocol.py",
+          "sha256": "dfa5e25ffb5c067af96d82a974d5754dd8767c865fceae6973fc764e5eb5c87e"
+        }
+      ],
+      "field_path": [
+        "execution_gate",
+        "blocking_reason"
+      ],
+      "from": "The user approved this as the first E4-TAPER fairness follow-up, but the exact near bin, retention levels, formula set, seeds, and runner must be frozen in a separate implementation update before launch.",
+      "kind": "update_field",
+      "reason": "Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.",
+      "to": "resolved_by_v61_protocol_freeze_and_implemented_runner"
+    },
+    {
+      "change_id": "near-retention-011-execution-gate-depends-on-delivered-experiment",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "9a921b8d64ed2f10010c7847b21904931a9e0d976982efc60e05ce63f8124826"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "3265b7d8659db352297c44e4373c6bbb3c764cbd7550bcddab3a5f33374e54c9"
+        },
+        {
+          "path": "src/drpo/cu1_taper_near_retention_formal.py",
+          "sha256": "70391b6295062ba65ed43bdc2639eb858f79d4e0832783d189eb0588a6c3083b"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_utility_followups.py",
+          "sha256": "d044661ba547bf98c0e45660b8ebd7a8bb3c1e055ed2e0a08cafe30279c37ce2"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_near_retention_protocol.py",
+          "sha256": "dfa5e25ffb5c067af96d82a974d5754dd8767c865fceae6973fc764e5eb5c87e"
+        }
+      ],
+      "field_path": [
+        "execution_gate",
+        "depends_on_delivered_experiment"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.",
+      "to": "C-U1-E4-TAPER-01"
+    },
+    {
+      "change_id": "near-retention-012-execution-gate-protocol-freeze",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "9a921b8d64ed2f10010c7847b21904931a9e0d976982efc60e05ce63f8124826"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "3265b7d8659db352297c44e4373c6bbb3c764cbd7550bcddab3a5f33374e54c9"
+        },
+        {
+          "path": "src/drpo/cu1_taper_near_retention_formal.py",
+          "sha256": "70391b6295062ba65ed43bdc2639eb858f79d4e0832783d189eb0588a6c3083b"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_utility_followups.py",
+          "sha256": "d044661ba547bf98c0e45660b8ebd7a8bb3c1e055ed2e0a08cafe30279c37ce2"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_near_retention_protocol.py",
+          "sha256": "dfa5e25ffb5c067af96d82a974d5754dd8767c865fceae6973fc764e5eb5c87e"
+        }
+      ],
+      "field_path": [
+        "execution_gate",
+        "protocol_freeze"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.",
+      "to": "v61_near_retention_matching"
+    },
+    {
+      "change_id": "near-retention-013-execution-gate-reason",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "9a921b8d64ed2f10010c7847b21904931a9e0d976982efc60e05ce63f8124826"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "3265b7d8659db352297c44e4373c6bbb3c764cbd7550bcddab3a5f33374e54c9"
+        },
+        {
+          "path": "src/drpo/cu1_taper_near_retention_formal.py",
+          "sha256": "70391b6295062ba65ed43bdc2639eb858f79d4e0832783d189eb0588a6c3083b"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_utility_followups.py",
+          "sha256": "d044661ba547bf98c0e45660b8ebd7a8bb3c1e055ed2e0a08cafe30279c37ce2"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_near_retention_protocol.py",
+          "sha256": "dfa5e25ffb5c067af96d82a974d5754dd8767c865fceae6973fc764e5eb5c87e"
+        }
+      ],
+      "field_path": [
+        "execution_gate",
+        "reason"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.",
+      "to": "The near region, retention levels, family formulas, development/formal seed firewall, deterministic coefficient calibration, runner, metrics, and terminal audit are frozen. Formal execution is active but has not started; Budget-Match remains blocked until this result is delivered."
+    },
+    {
+      "change_id": "near-retention-014-execution-gate-state",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "9a921b8d64ed2f10010c7847b21904931a9e0d976982efc60e05ce63f8124826"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "3265b7d8659db352297c44e4373c6bbb3c764cbd7550bcddab3a5f33374e54c9"
+        },
+        {
+          "path": "src/drpo/cu1_taper_near_retention_formal.py",
+          "sha256": "70391b6295062ba65ed43bdc2639eb858f79d4e0832783d189eb0588a6c3083b"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_utility_followups.py",
+          "sha256": "d044661ba547bf98c0e45660b8ebd7a8bb3c1e055ed2e0a08cafe30279c37ce2"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_near_retention_protocol.py",
+          "sha256": "dfa5e25ffb5c067af96d82a974d5754dd8767c865fceae6973fc764e5eb5c87e"
+        }
+      ],
+      "field_path": [
+        "execution_gate",
+        "state"
+      ],
+      "from": "blocked",
+      "kind": "update_field",
+      "reason": "Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.",
+      "to": "ready"
+    },
+    {
+      "change_id": "near-retention-015-formal-execution-activation-state",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "9a921b8d64ed2f10010c7847b21904931a9e0d976982efc60e05ce63f8124826"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "3265b7d8659db352297c44e4373c6bbb3c764cbd7550bcddab3a5f33374e54c9"
+        },
+        {
+          "path": "src/drpo/cu1_taper_near_retention_formal.py",
+          "sha256": "70391b6295062ba65ed43bdc2639eb858f79d4e0832783d189eb0588a6c3083b"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_utility_followups.py",
+          "sha256": "d044661ba547bf98c0e45660b8ebd7a8bb3c1e055ed2e0a08cafe30279c37ce2"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_near_retention_protocol.py",
+          "sha256": "dfa5e25ffb5c067af96d82a974d5754dd8767c865fceae6973fc764e5eb5c87e"
+        }
+      ],
+      "field_path": [
+        "formal_execution",
+        "activation_state"
+      ],
+      "from": "blocked",
+      "kind": "update_field",
+      "reason": "Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.",
+      "to": "active"
+    },
+    {
+      "change_id": "near-retention-016-formal-execution-entrypoint",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "9a921b8d64ed2f10010c7847b21904931a9e0d976982efc60e05ce63f8124826"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "3265b7d8659db352297c44e4373c6bbb3c764cbd7550bcddab3a5f33374e54c9"
+        },
+        {
+          "path": "src/drpo/cu1_taper_near_retention_formal.py",
+          "sha256": "70391b6295062ba65ed43bdc2639eb858f79d4e0832783d189eb0588a6c3083b"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_utility_followups.py",
+          "sha256": "d044661ba547bf98c0e45660b8ebd7a8bb3c1e055ed2e0a08cafe30279c37ce2"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_near_retention_protocol.py",
+          "sha256": "dfa5e25ffb5c067af96d82a974d5754dd8767c865fceae6973fc764e5eb5c87e"
+        }
+      ],
+      "field_path": [
+        "formal_execution",
+        "entrypoint"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.",
+      "to": "src/drpo/cu1_taper_near_retention_formal.py"
+    },
+    {
+      "change_id": "near-retention-017-formal-execution-entrypoint-status",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "9a921b8d64ed2f10010c7847b21904931a9e0d976982efc60e05ce63f8124826"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "3265b7d8659db352297c44e4373c6bbb3c764cbd7550bcddab3a5f33374e54c9"
+        },
+        {
+          "path": "src/drpo/cu1_taper_near_retention_formal.py",
+          "sha256": "70391b6295062ba65ed43bdc2639eb858f79d4e0832783d189eb0588a6c3083b"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_utility_followups.py",
+          "sha256": "d044661ba547bf98c0e45660b8ebd7a8bb3c1e055ed2e0a08cafe30279c37ce2"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_near_retention_protocol.py",
+          "sha256": "dfa5e25ffb5c067af96d82a974d5754dd8767c865fceae6973fc764e5eb5c87e"
+        }
+      ],
+      "field_path": [
+        "formal_execution",
+        "entrypoint_status"
+      ],
+      "from": "planned",
+      "kind": "update_field",
+      "reason": "Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.",
+      "to": "implemented"
+    },
+    {
+      "change_id": "near-retention-018-formal-launch-template",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "9a921b8d64ed2f10010c7847b21904931a9e0d976982efc60e05ce63f8124826"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "3265b7d8659db352297c44e4373c6bbb3c764cbd7550bcddab3a5f33374e54c9"
+        },
+        {
+          "path": "src/drpo/cu1_taper_near_retention_formal.py",
+          "sha256": "70391b6295062ba65ed43bdc2639eb858f79d4e0832783d189eb0588a6c3083b"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_utility_followups.py",
+          "sha256": "d044661ba547bf98c0e45660b8ebd7a8bb3c1e055ed2e0a08cafe30279c37ce2"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_near_retention_protocol.py",
+          "sha256": "dfa5e25ffb5c067af96d82a974d5754dd8767c865fceae6973fc764e5eb5c87e"
+        }
+      ],
+      "field_path": [
+        "formal_launch_template"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.",
+      "to": "python3 scripts/run_experiment_guard_hardened.py --experiment-id C-U1-E4-TAPER-NEAR-RETENTION-01 --repo-root . --output-root experiments/results/C-U1-E4-TAPER-NEAR-RETENTION-01/run_001 --artifact-output artifacts/C-U1-E4-TAPER-NEAR-RETENTION-01_RAW_COMPLETE.zip --heartbeat-seconds 60 --stale-seconds 900 --fail-on-stale --progress-glob per_seed_runs_partial.csv --required-output RUN_COMPLETE.json --required-output scientific_run_manifest.json --required-output formal_protocol_freeze.json --required-output calibration.json --required-output terminal_audit.json --required-output per_seed_runs.csv --required-output aggregate.csv --required-output paired_summary.json --source-file src/drpo/cu1_taper_near_retention_formal.py --source-file src/drpo/cu1_distance_taper_formal.py --source-file src/drpo/cu1_core.py --source-file src/drpo/drpo_cu1_e1_e4_oneclick.py --run-class formal --expected-commit \"$(git rev-parse HEAD)\" --require-origin-main-match -- python3 src/drpo/cu1_taper_near_retention_formal.py --output-dir experiments/results/C-U1-E4-TAPER-NEAR-RETENTION-01/run_001 --base-commit \"$(git rev-parse HEAD)\""
+    },
+    {
+      "change_id": "near-retention-019-formulas",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "9a921b8d64ed2f10010c7847b21904931a9e0d976982efc60e05ce63f8124826"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "3265b7d8659db352297c44e4373c6bbb3c764cbd7550bcddab3a5f33374e54c9"
+        },
+        {
+          "path": "src/drpo/cu1_taper_near_retention_formal.py",
+          "sha256": "70391b6295062ba65ed43bdc2639eb858f79d4e0832783d189eb0588a6c3083b"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_utility_followups.py",
+          "sha256": "d044661ba547bf98c0e45660b8ebd7a8bb3c1e055ed2e0a08cafe30279c37ce2"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_near_retention_protocol.py",
+          "sha256": "dfa5e25ffb5c067af96d82a974d5754dd8767c865fceae6973fc764e5eb5c87e"
+        }
+      ],
+      "field_path": [
+        "formulas"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.",
+      "to": {
+        "coefficient_rule": "one_development_calibrated_c_per_family_and_retention_level",
+        "current_exponential": "w=exp(-c*u)",
+        "distance_and_weight_stop_gradient": true,
+        "normalized_distance": "u=d/5",
+        "reciprocal_linear": "w=1/(1+c*u)",
+        "reciprocal_quadratic": "w=1/(1+c*u^2)",
+        "squared_distance_exponential": "w=exp(-c*u^2)"
+      }
+    },
+    {
+      "change_id": "near-retention-020-implementation-base-commit",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "9a921b8d64ed2f10010c7847b21904931a9e0d976982efc60e05ce63f8124826"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "3265b7d8659db352297c44e4373c6bbb3c764cbd7550bcddab3a5f33374e54c9"
+        },
+        {
+          "path": "src/drpo/cu1_taper_near_retention_formal.py",
+          "sha256": "70391b6295062ba65ed43bdc2639eb858f79d4e0832783d189eb0588a6c3083b"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_utility_followups.py",
+          "sha256": "d044661ba547bf98c0e45660b8ebd7a8bb3c1e055ed2e0a08cafe30279c37ce2"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_near_retention_protocol.py",
+          "sha256": "dfa5e25ffb5c067af96d82a974d5754dd8767c865fceae6973fc764e5eb5c87e"
+        }
+      ],
+      "field_path": [
+        "implementation_base_commit"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.",
+      "to": "ce5964a0c16b12626ceb81fa9813fff14893c612"
+    },
+    {
+      "change_id": "near-retention-021-implementation-state",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "9a921b8d64ed2f10010c7847b21904931a9e0d976982efc60e05ce63f8124826"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "3265b7d8659db352297c44e4373c6bbb3c764cbd7550bcddab3a5f33374e54c9"
+        },
+        {
+          "path": "src/drpo/cu1_taper_near_retention_formal.py",
+          "sha256": "70391b6295062ba65ed43bdc2639eb858f79d4e0832783d189eb0588a6c3083b"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_utility_followups.py",
+          "sha256": "d044661ba547bf98c0e45660b8ebd7a8bb3c1e055ed2e0a08cafe30279c37ce2"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_near_retention_protocol.py",
+          "sha256": "dfa5e25ffb5c067af96d82a974d5754dd8767c865fceae6973fc764e5eb5c87e"
+        }
+      ],
+      "field_path": [
+        "implementation_state"
+      ],
+      "from": "not_implemented",
+      "kind": "update_field",
+      "reason": "Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.",
+      "to": "implemented"
+    },
+    {
+      "change_id": "near-retention-022-matching-contract-calibration-tolerance",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "9a921b8d64ed2f10010c7847b21904931a9e0d976982efc60e05ce63f8124826"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "3265b7d8659db352297c44e4373c6bbb3c764cbd7550bcddab3a5f33374e54c9"
+        },
+        {
+          "path": "src/drpo/cu1_taper_near_retention_formal.py",
+          "sha256": "70391b6295062ba65ed43bdc2639eb858f79d4e0832783d189eb0588a6c3083b"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_utility_followups.py",
+          "sha256": "d044661ba547bf98c0e45660b8ebd7a8bb3c1e055ed2e0a08cafe30279c37ce2"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_near_retention_protocol.py",
+          "sha256": "dfa5e25ffb5c067af96d82a974d5754dd8767c865fceae6973fc764e5eb5c87e"
+        }
+      ],
+      "field_path": [
+        "matching_contract",
+        "calibration_tolerance"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.",
+      "to": 1e-06
+    },
+    {
+      "change_id": "near-retention-023-matching-contract-coefficient-application",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "9a921b8d64ed2f10010c7847b21904931a9e0d976982efc60e05ce63f8124826"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "3265b7d8659db352297c44e4373c6bbb3c764cbd7550bcddab3a5f33374e54c9"
+        },
+        {
+          "path": "src/drpo/cu1_taper_near_retention_formal.py",
+          "sha256": "70391b6295062ba65ed43bdc2639eb858f79d4e0832783d189eb0588a6c3083b"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_utility_followups.py",
+          "sha256": "d044661ba547bf98c0e45660b8ebd7a8bb3c1e055ed2e0a08cafe30279c37ce2"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_near_retention_protocol.py",
+          "sha256": "dfa5e25ffb5c067af96d82a974d5754dd8767c865fceae6973fc764e5eb5c87e"
+        }
+      ],
+      "field_path": [
+        "matching_contract",
+        "coefficient_application"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.",
+      "to": "fixed_for_all_formal_seeds_and_all_training_steps"
+    },
+    {
+      "change_id": "near-retention-024-matching-contract-coefficient-calibration-data",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "9a921b8d64ed2f10010c7847b21904931a9e0d976982efc60e05ce63f8124826"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "3265b7d8659db352297c44e4373c6bbb3c764cbd7550bcddab3a5f33374e54c9"
+        },
+        {
+          "path": "src/drpo/cu1_taper_near_retention_formal.py",
+          "sha256": "70391b6295062ba65ed43bdc2639eb858f79d4e0832783d189eb0588a6c3083b"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_utility_followups.py",
+          "sha256": "d044661ba547bf98c0e45660b8ebd7a8bb3c1e055ed2e0a08cafe30279c37ce2"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_near_retention_protocol.py",
+          "sha256": "dfa5e25ffb5c067af96d82a974d5754dd8767c865fceae6973fc764e5eb5c87e"
+        }
+      ],
+      "field_path": [
+        "matching_contract",
+        "coefficient_calibration_data"
+      ],
+      "from": "development_seeds_only",
+      "kind": "update_field",
+      "reason": "Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.",
+      "to": "development_seeds_0_4_only"
+    },
+    {
+      "change_id": "near-retention-025-matching-contract-coefficient-solver",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "9a921b8d64ed2f10010c7847b21904931a9e0d976982efc60e05ce63f8124826"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "3265b7d8659db352297c44e4373c6bbb3c764cbd7550bcddab3a5f33374e54c9"
+        },
+        {
+          "path": "src/drpo/cu1_taper_near_retention_formal.py",
+          "sha256": "70391b6295062ba65ed43bdc2639eb858f79d4e0832783d189eb0588a6c3083b"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_utility_followups.py",
+          "sha256": "d044661ba547bf98c0e45660b8ebd7a8bb3c1e055ed2e0a08cafe30279c37ce2"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_near_retention_protocol.py",
+          "sha256": "dfa5e25ffb5c067af96d82a974d5754dd8767c865fceae6973fc764e5eb5c87e"
+        }
+      ],
+      "field_path": [
+        "matching_contract",
+        "coefficient_solver"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.",
+      "to": "deterministic_monotone_bisection"
+    },
+    {
+      "change_id": "near-retention-026-matching-contract-near-region-boundary",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "9a921b8d64ed2f10010c7847b21904931a9e0d976982efc60e05ce63f8124826"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "3265b7d8659db352297c44e4373c6bbb3c764cbd7550bcddab3a5f33374e54c9"
+        },
+        {
+          "path": "src/drpo/cu1_taper_near_retention_formal.py",
+          "sha256": "70391b6295062ba65ed43bdc2639eb858f79d4e0832783d189eb0588a6c3083b"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_utility_followups.py",
+          "sha256": "d044661ba547bf98c0e45660b8ebd7a8bb3c1e055ed2e0a08cafe30279c37ce2"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_near_retention_protocol.py",
+          "sha256": "dfa5e25ffb5c067af96d82a974d5754dd8767c865fceae6973fc764e5eb5c87e"
+        }
+      ],
+      "field_path": [
+        "matching_contract",
+        "near_region_boundary"
+      ],
+      "from": "pending_protocol_freeze_without_confirmatory_seed_access",
+      "kind": "update_field",
+      "reason": "Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.",
+      "to": "standardized_distance_d_le_5_at_frozen_positive_checkpoint"
+    },
+    {
+      "change_id": "near-retention-027-matching-contract-primary-retention-level",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "9a921b8d64ed2f10010c7847b21904931a9e0d976982efc60e05ce63f8124826"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "3265b7d8659db352297c44e4373c6bbb3c764cbd7550bcddab3a5f33374e54c9"
+        },
+        {
+          "path": "src/drpo/cu1_taper_near_retention_formal.py",
+          "sha256": "70391b6295062ba65ed43bdc2639eb858f79d4e0832783d189eb0588a6c3083b"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_utility_followups.py",
+          "sha256": "d044661ba547bf98c0e45660b8ebd7a8bb3c1e055ed2e0a08cafe30279c37ce2"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_near_retention_protocol.py",
+          "sha256": "dfa5e25ffb5c067af96d82a974d5754dd8767c865fceae6973fc764e5eb5c87e"
+        }
+      ],
+      "field_path": [
+        "matching_contract",
+        "primary_retention_level"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.",
+      "to": 0.75
+    },
+    {
+      "change_id": "near-retention-028-matching-contract-retention-levels",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "9a921b8d64ed2f10010c7847b21904931a9e0d976982efc60e05ce63f8124826"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "3265b7d8659db352297c44e4373c6bbb3c764cbd7550bcddab3a5f33374e54c9"
+        },
+        {
+          "path": "src/drpo/cu1_taper_near_retention_formal.py",
+          "sha256": "70391b6295062ba65ed43bdc2639eb858f79d4e0832783d189eb0588a6c3083b"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_utility_followups.py",
+          "sha256": "d044661ba547bf98c0e45660b8ebd7a8bb3c1e055ed2e0a08cafe30279c37ce2"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_near_retention_protocol.py",
+          "sha256": "dfa5e25ffb5c067af96d82a974d5754dd8767c865fceae6973fc764e5eb5c87e"
+        }
+      ],
+      "field_path": [
+        "matching_contract",
+        "retention_levels"
+      ],
+      "from": "pending_protocol_freeze",
+      "kind": "update_field",
+      "reason": "Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.",
+      "to": [
+        0.75,
+        0.5,
+        0.25
+      ]
+    },
+    {
+      "change_id": "near-retention-029-matching-contract-sensitivity-retention-levels",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "9a921b8d64ed2f10010c7847b21904931a9e0d976982efc60e05ce63f8124826"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "3265b7d8659db352297c44e4373c6bbb3c764cbd7550bcddab3a5f33374e54c9"
+        },
+        {
+          "path": "src/drpo/cu1_taper_near_retention_formal.py",
+          "sha256": "70391b6295062ba65ed43bdc2639eb858f79d4e0832783d189eb0588a6c3083b"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_utility_followups.py",
+          "sha256": "d044661ba547bf98c0e45660b8ebd7a8bb3c1e055ed2e0a08cafe30279c37ce2"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_near_retention_protocol.py",
+          "sha256": "dfa5e25ffb5c067af96d82a974d5754dd8767c865fceae6973fc764e5eb5c87e"
+        }
+      ],
+      "field_path": [
+        "matching_contract",
+        "sensitivity_retention_levels"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.",
+      "to": [
+        0.5,
+        0.25
+      ]
+    },
+    {
+      "change_id": "near-retention-030-matching-contract-target",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "9a921b8d64ed2f10010c7847b21904931a9e0d976982efc60e05ce63f8124826"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "3265b7d8659db352297c44e4373c6bbb3c764cbd7550bcddab3a5f33374e54c9"
+        },
+        {
+          "path": "src/drpo/cu1_taper_near_retention_formal.py",
+          "sha256": "70391b6295062ba65ed43bdc2639eb858f79d4e0832783d189eb0588a6c3083b"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_utility_followups.py",
+          "sha256": "d044661ba547bf98c0e45660b8ebd7a8bb3c1e055ed2e0a08cafe30279c37ce2"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_near_retention_protocol.py",
+          "sha256": "dfa5e25ffb5c067af96d82a974d5754dd8767c865fceae6973fc764e5eb5c87e"
+        }
+      ],
+      "field_path": [
+        "matching_contract",
+        "target"
+      ],
+      "from": "E[w(d)|d_in_pre_registered_near_region]",
+      "kind": "update_field",
+      "reason": "Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.",
+      "to": "pooled_E_weight_given_initial_standardized_distance_le_5"
+    },
+    {
+      "change_id": "near-retention-031-matching-contract-total-negative-gradient-budget-matched",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "9a921b8d64ed2f10010c7847b21904931a9e0d976982efc60e05ce63f8124826"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "3265b7d8659db352297c44e4373c6bbb3c764cbd7550bcddab3a5f33374e54c9"
+        },
+        {
+          "path": "src/drpo/cu1_taper_near_retention_formal.py",
+          "sha256": "70391b6295062ba65ed43bdc2639eb858f79d4e0832783d189eb0588a6c3083b"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_utility_followups.py",
+          "sha256": "d044661ba547bf98c0e45660b8ebd7a8bb3c1e055ed2e0a08cafe30279c37ce2"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_near_retention_protocol.py",
+          "sha256": "dfa5e25ffb5c067af96d82a974d5754dd8767c865fceae6973fc764e5eb5c87e"
+        }
+      ],
+      "field_path": [
+        "matching_contract",
+        "total_negative_gradient_budget_matched"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.",
+      "to": false
+    },
+    {
+      "change_id": "near-retention-032-next-gate",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "9a921b8d64ed2f10010c7847b21904931a9e0d976982efc60e05ce63f8124826"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "3265b7d8659db352297c44e4373c6bbb3c764cbd7550bcddab3a5f33374e54c9"
+        },
+        {
+          "path": "src/drpo/cu1_taper_near_retention_formal.py",
+          "sha256": "70391b6295062ba65ed43bdc2639eb858f79d4e0832783d189eb0588a6c3083b"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_utility_followups.py",
+          "sha256": "d044661ba547bf98c0e45660b8ebd7a8bb3c1e055ed2e0a08cafe30279c37ce2"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_near_retention_protocol.py",
+          "sha256": "dfa5e25ffb5c067af96d82a974d5754dd8767c865fceae6973fc764e5eb5c87e"
+        }
+      ],
+      "field_path": [
+        "next_gate"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.",
+      "to": {
+        "automatic_activation_forbidden": true,
+        "experiment_id": "C-U1-E4-TAPER-BUDGET-MATCH-01",
+        "state": "blocked_until_near_retention_delivered"
+      }
+    },
+    {
+      "change_id": "near-retention-033-optional-family-requires-explicit-freeze",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "9a921b8d64ed2f10010c7847b21904931a9e0d976982efc60e05ce63f8124826"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "3265b7d8659db352297c44e4373c6bbb3c764cbd7550bcddab3a5f33374e54c9"
+        },
+        {
+          "path": "src/drpo/cu1_taper_near_retention_formal.py",
+          "sha256": "70391b6295062ba65ed43bdc2639eb858f79d4e0832783d189eb0588a6c3083b"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_utility_followups.py",
+          "sha256": "d044661ba547bf98c0e45660b8ebd7a8bb3c1e055ed2e0a08cafe30279c37ce2"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_near_retention_protocol.py",
+          "sha256": "dfa5e25ffb5c067af96d82a974d5754dd8767c865fceae6973fc764e5eb5c87e"
+        }
+      ],
+      "field_path": [
+        "optional_family_requires_explicit_freeze"
+      ],
+      "from": [
+        "squared_distance_exponential"
+      ],
+      "kind": "update_field",
+      "reason": "Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.",
+      "to": []
+    },
+    {
+      "change_id": "near-retention-034-primary-inference",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "9a921b8d64ed2f10010c7847b21904931a9e0d976982efc60e05ce63f8124826"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "3265b7d8659db352297c44e4373c6bbb3c764cbd7550bcddab3a5f33374e54c9"
+        },
+        {
+          "path": "src/drpo/cu1_taper_near_retention_formal.py",
+          "sha256": "70391b6295062ba65ed43bdc2639eb858f79d4e0832783d189eb0588a6c3083b"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_utility_followups.py",
+          "sha256": "d044661ba547bf98c0e45660b8ebd7a8bb3c1e055ed2e0a08cafe30279c37ce2"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_near_retention_protocol.py",
+          "sha256": "dfa5e25ffb5c067af96d82a974d5754dd8767c865fceae6973fc764e5eb5c87e"
+        }
+      ],
+      "field_path": [
+        "primary_inference"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.",
+      "to": {
+        "candidate_minus_linear": [
+          "reciprocal_quadratic",
+          "current_exponential",
+          "squared_distance_exponential"
+        ],
+        "paired_bootstrap": true,
+        "primary_retention_level": 0.75,
+        "reference_family": "reciprocal_linear",
+        "reward_directional_hypothesis": "none",
+        "universal_family_winner_hypothesis": "none"
+      }
+    },
+    {
+      "change_id": "near-retention-035-primary-metrics",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "9a921b8d64ed2f10010c7847b21904931a9e0d976982efc60e05ce63f8124826"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "3265b7d8659db352297c44e4373c6bbb3c764cbd7550bcddab3a5f33374e54c9"
+        },
+        {
+          "path": "src/drpo/cu1_taper_near_retention_formal.py",
+          "sha256": "70391b6295062ba65ed43bdc2639eb858f79d4e0832783d189eb0588a6c3083b"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_utility_followups.py",
+          "sha256": "d044661ba547bf98c0e45660b8ebd7a8bb3c1e055ed2e0a08cafe30279c37ce2"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_near_retention_protocol.py",
+          "sha256": "dfa5e25ffb5c067af96d82a974d5754dd8767c865fceae6973fc764e5eb5c87e"
+        }
+      ],
+      "field_path": [
+        "primary_metrics"
+      ],
+      "from": [
+        "near_useful_retention",
+        "far_harmful_influence",
+        "full_parameter_far_near_negative_gradient_ratio",
+        "net_utility_by_distance_bin",
+        "held_out_context_reward",
+        "sigma_trajectory",
+        "task_performance_collapse_event",
+        "support_or_variance_boundary_event",
+        "nan_inf_numerical_event"
+      ],
+      "kind": "update_field",
+      "reason": "Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.",
+      "to": [
+        "calibrated_near_region_mean_weight",
+        "near_useful_gradient_retention",
+        "far_harmful_influence_retention",
+        "far_harmful_weighted_projection",
+        "full_parameter_far_near_negative_gradient_ratio",
+        "net_utility_by_distance_bin",
+        "held_out_context_reward",
+        "sigma_trajectory",
+        "task_performance_collapse_event",
+        "support_or_variance_boundary_event",
+        "nan_inf_numerical_event"
+      ]
+    },
+    {
+      "change_id": "near-retention-036-protocol",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "9a921b8d64ed2f10010c7847b21904931a9e0d976982efc60e05ce63f8124826"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "3265b7d8659db352297c44e4373c6bbb3c764cbd7550bcddab3a5f33374e54c9"
+        },
+        {
+          "path": "src/drpo/cu1_taper_near_retention_formal.py",
+          "sha256": "70391b6295062ba65ed43bdc2639eb858f79d4e0832783d189eb0588a6c3083b"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_utility_followups.py",
+          "sha256": "d044661ba547bf98c0e45660b8ebd7a8bb3c1e055ed2e0a08cafe30279c37ce2"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_near_retention_protocol.py",
+          "sha256": "dfa5e25ffb5c067af96d82a974d5754dd8767c865fceae6973fc764e5eb5c87e"
+        }
+      ],
+      "field_path": [
+        "protocol"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.",
+      "to": {
+        "checkpoint_every_formal_seeds": 5,
+        "development_seeds": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "evaluation_interval_steps": 100,
+        "formal_paired_seeds": [
+          90,
+          91,
+          92,
+          93,
+          94,
+          95,
+          96,
+          97,
+          98,
+          99,
+          100,
+          101,
+          102,
+          103,
+          104,
+          105,
+          106,
+          107,
+          108,
+          109
+        ],
+        "initialization_source": "positive_only_adam_2000_step_checkpoint",
+        "learning_rate": 0.0005,
+        "maximum_steps": 8000,
+        "minimum_steps_before_stationarity": 1000,
+        "negative_alpha": 1.0,
+        "normalized_field_residual_threshold": 0.002,
+        "normalized_slope_threshold": 0.0001,
+        "optimizer": "Adam",
+        "positive_only_absolute_gradient_threshold": 0.001,
+        "seeds_110_and_above": "untouched_for_successor_protocol_freeze",
+        "seeds_70_89_role": "predecessor_evidence_only_not_confirmation",
+        "shared_C_U1_environment_and_actor": true,
+        "stable_windows": 10,
+        "state_minibatch_size": 256,
+        "terminal_candidate_audit": "complete_two_times_when_it_fits_inside_8000"
+      }
+    },
+    {
+      "change_id": "near-retention-037-required-outputs",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "9a921b8d64ed2f10010c7847b21904931a9e0d976982efc60e05ce63f8124826"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "3265b7d8659db352297c44e4373c6bbb3c764cbd7550bcddab3a5f33374e54c9"
+        },
+        {
+          "path": "src/drpo/cu1_taper_near_retention_formal.py",
+          "sha256": "70391b6295062ba65ed43bdc2639eb858f79d4e0832783d189eb0588a6c3083b"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_utility_followups.py",
+          "sha256": "d044661ba547bf98c0e45660b8ebd7a8bb3c1e055ed2e0a08cafe30279c37ce2"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_near_retention_protocol.py",
+          "sha256": "dfa5e25ffb5c067af96d82a974d5754dd8767c865fceae6973fc764e5eb5c87e"
+        }
+      ],
+      "field_path": [
+        "required_outputs"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.",
+      "to": [
+        "RUN_COMPLETE.json",
+        "scientific_run_manifest.json",
+        "formal_protocol_freeze.json",
+        "calibration.json",
+        "environment_audit.json",
+        "terminal_audit.json",
+        "per_seed_runs.csv",
+        "aggregate.csv",
+        "paired_summary.json",
+        "utility_bins.csv"
+      ]
+    },
+    {
+      "change_id": "near-retention-038-seed-policy-exact-development-seeds",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "9a921b8d64ed2f10010c7847b21904931a9e0d976982efc60e05ce63f8124826"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "3265b7d8659db352297c44e4373c6bbb3c764cbd7550bcddab3a5f33374e54c9"
+        },
+        {
+          "path": "src/drpo/cu1_taper_near_retention_formal.py",
+          "sha256": "70391b6295062ba65ed43bdc2639eb858f79d4e0832783d189eb0588a6c3083b"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_utility_followups.py",
+          "sha256": "d044661ba547bf98c0e45660b8ebd7a8bb3c1e055ed2e0a08cafe30279c37ce2"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_near_retention_protocol.py",
+          "sha256": "dfa5e25ffb5c067af96d82a974d5754dd8767c865fceae6973fc764e5eb5c87e"
+        }
+      ],
+      "field_path": [
+        "seed_policy",
+        "exact_development_seeds"
+      ],
+      "from": "pending_protocol_freeze",
+      "kind": "update_field",
+      "reason": "Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.",
+      "to": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ]
+    },
+    {
+      "change_id": "near-retention-039-seed-policy-exact-formal-seeds",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "9a921b8d64ed2f10010c7847b21904931a9e0d976982efc60e05ce63f8124826"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "3265b7d8659db352297c44e4373c6bbb3c764cbd7550bcddab3a5f33374e54c9"
+        },
+        {
+          "path": "src/drpo/cu1_taper_near_retention_formal.py",
+          "sha256": "70391b6295062ba65ed43bdc2639eb858f79d4e0832783d189eb0588a6c3083b"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_utility_followups.py",
+          "sha256": "d044661ba547bf98c0e45660b8ebd7a8bb3c1e055ed2e0a08cafe30279c37ce2"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_near_retention_protocol.py",
+          "sha256": "dfa5e25ffb5c067af96d82a974d5754dd8767c865fceae6973fc764e5eb5c87e"
+        }
+      ],
+      "field_path": [
+        "seed_policy",
+        "exact_formal_seeds"
+      ],
+      "from": "pending_protocol_freeze",
+      "kind": "update_field",
+      "reason": "Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.",
+      "to": [
+        90,
+        91,
+        92,
+        93,
+        94,
+        95,
+        96,
+        97,
+        98,
+        99,
+        100,
+        101,
+        102,
+        103,
+        104,
+        105,
+        106,
+        107,
+        108,
+        109
+      ]
+    },
+    {
+      "change_id": "near-retention-040-seed-policy-seeds-110-and-above",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "9a921b8d64ed2f10010c7847b21904931a9e0d976982efc60e05ce63f8124826"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "3265b7d8659db352297c44e4373c6bbb3c764cbd7550bcddab3a5f33374e54c9"
+        },
+        {
+          "path": "src/drpo/cu1_taper_near_retention_formal.py",
+          "sha256": "70391b6295062ba65ed43bdc2639eb858f79d4e0832783d189eb0588a6c3083b"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_utility_followups.py",
+          "sha256": "d044661ba547bf98c0e45660b8ebd7a8bb3c1e055ed2e0a08cafe30279c37ce2"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_near_retention_protocol.py",
+          "sha256": "dfa5e25ffb5c067af96d82a974d5754dd8767c865fceae6973fc764e5eb5c87e"
+        }
+      ],
+      "field_path": [
+        "seed_policy",
+        "seeds_110_and_above"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.",
+      "to": "untouched_for_successor_protocol_freeze"
+    },
+    {
+      "change_id": "near-retention-041-terminal-audit",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "9a921b8d64ed2f10010c7847b21904931a9e0d976982efc60e05ce63f8124826"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "3265b7d8659db352297c44e4373c6bbb3c764cbd7550bcddab3a5f33374e54c9"
+        },
+        {
+          "path": "src/drpo/cu1_taper_near_retention_formal.py",
+          "sha256": "70391b6295062ba65ed43bdc2639eb858f79d4e0832783d189eb0588a6c3083b"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_utility_followups.py",
+          "sha256": "d044661ba547bf98c0e45660b8ebd7a8bb3c1e055ed2e0a08cafe30279c37ce2"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_near_retention_protocol.py",
+          "sha256": "dfa5e25ffb5c067af96d82a974d5754dd8767c865fceae6973fc764e5eb5c87e"
+        }
+      ],
+      "field_path": [
+        "terminal_audit"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.",
+      "to": {
+        "failure_types_separate": [
+          "task_performance_collapse",
+          "support_or_variance_boundary",
+          "nan_inf_numerical_failure"
+        ],
+        "long_run_shortlist_resolution_owned_by": "C-U1-E4-TAPER-CONV-01",
+        "required": true,
+        "scientific_status_cap": "finite_step_validated",
+        "unresolved_terminal_states_do_not_upgrade_to_long_run": true
+      }
+    },
+    {
+      "change_id": "near-retention-042-utility-diagnostics",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "9a921b8d64ed2f10010c7847b21904931a9e0d976982efc60e05ce63f8124826"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "3265b7d8659db352297c44e4373c6bbb3c764cbd7550bcddab3a5f33374e54c9"
+        },
+        {
+          "path": "src/drpo/cu1_taper_near_retention_formal.py",
+          "sha256": "70391b6295062ba65ed43bdc2639eb858f79d4e0832783d189eb0588a6c3083b"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_utility_followups.py",
+          "sha256": "d044661ba547bf98c0e45660b8ebd7a8bb3c1e055ed2e0a08cafe30279c37ce2"
+        },
+        {
+          "path": "tests/test_cu1_e4_taper_near_retention_protocol.py",
+          "sha256": "dfa5e25ffb5c067af96d82a974d5754dd8767c865fceae6973fc764e5eb5c87e"
+        }
+      ],
+      "field_path": [
+        "utility_diagnostics"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.",
+      "to": {
+        "dimensional_net_utility_universal_claimed": false,
+        "distance_bins": [
+          "0_to_2_5",
+          "2_5_to_5",
+          "5_to_7_5",
+          "7_5_to_10",
+          "10_to_infinity"
+        ],
+        "far_harmful_influence": "weighted_negative_projection_mass_and_retention",
+        "harmful_far_definition": "d_gt_5_and_negative_update_alignment_negative",
+        "near_useful_retention": "weighted_positive_projection_mass_over_raw_positive_projection_mass",
+        "normalized_net_utility": "cosine_minus_kappa_times_orthogonal_fraction_squared",
+        "normalized_utility_kappa": 1.0,
+        "oracle_direction": "hidden_optimum_parameter_improvement_direction",
+        "useful_near_definition": "d_le_5_and_negative_update_alignment_positive"
+      }
+    }
+  ],
+  "registry_change_coverage": {
+    "added_entities": [],
+    "changed_field_count": 42,
+    "declared_assertion_count": 42,
+    "fully_declared": true,
+    "mode": "schema2_complete",
+    "removed_entities": []
+  },
+  "registry_transition_assertions": [],
+  "report_schema_version": 2,
+  "repository_commit": null,
+  "schema_version": 1,
+  "status": "PASS",
+  "update_id": "CU1-E4-TAPER-NEAR-RETENTION-2026-06-28",
+  "validation_worktree_head": "ce5964a0c16b12626ceb81fa9813fff14893c612"
+}

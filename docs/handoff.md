@@ -1,4 +1,4 @@
-# DRPO / SNA2C 远场负梯度动力学研究主文档 v60（E4-TAPER 效用假设与公平实验登记版）
+# DRPO / SNA2C 远场负梯度动力学研究主文档 v61（E4-TAPER Near-Retention 协议冻结与实现版）
 <!-- HANDOFF-DELTA-BLOCK:after_heading:v50-stage3-shadow-bootstrap:START -->
 > **v50 增量登记：治理 Pipeline Stage 3 `HANDOFF_DELTA.yaml` shadow mode 启动（不删除 v49 及更早内容）**
 >
@@ -128,6 +128,17 @@
 > - E4-TAPER 内部顺序冻结为 near-retention matching -> negative-budget matching -> long-run terminal resolution -> untouched-seed confirmation。Long-run 继续推迟到前两项冻结方法公式和超参数之后；几何 robustness extension 保持低优先级、非当前门禁。
 > - 本更新只修改理论、registry、Stage 3 delta 与治理测试；没有运行新的科学实验，也不预设 Linear、Quadratic、Exponential、Global alpha 或 squared-distance exponential 的最终赢家。
 <!-- HANDOFF-DELTA-BLOCK:after_heading:v60-e4-taper-utility-registration:END -->
+<!-- HANDOFF-DELTA-BLOCK:after_heading:v61-e4-taper-near-retention-implementation:START -->
+> **v61 增量登记：`C-U1-E4-TAPER-NEAR-RETENTION-01` 协议冻结、独立 runner 与执行解锁（不删除 v60 及更早内容）**
+>
+> - `C-U1-E4-TAPER-01` 的 220/220 结果、有限训练步数验证状态、anchor-normalized 结论与所有公平性边界保持不变；本版不重跑、不延长旧实验。
+> - 第一项后续 `C-U1-E4-TAPER-NEAR-RETENTION-01` 已冻结：near 区域为 frozen 2000-step positive-only checkpoint 上的标准化距离 `d<=5`；匹配目标为 development seeds 0--4 上 pooled `E[w(d)|near]`；正式 paired seeds 为 90--109。
+> - 保持率层级冻结为主层级 `0.75` 与敏感性层级 `0.50/0.25`。每个 family 只通过确定性单调二分求一个系数，系数在正式 seeds 和全部训练步中固定；formal/confirmatory seeds 严禁参与校准。
+> - 候选函数冻结为 reciprocal-linear、reciprocal-quadratic、历史 current exponential `exp(-c u)` 与新批准的 squared-distance exponential `exp(-c u^2)`。后者只属于本新实验，不能追溯替换旧 E4-TAPER exponential。
+> - 新增独立 formal runner `src/drpo/cu1_taper_near_retention_formal.py`，复用共享 C-U1 环境/actor 与原 positive checkpoint；报告 near useful retention、far harmful influence、全参数 far/near 比、distance-bin utility、同分布 held-out-context reward、sigma/support 和三类失效事件。
+> - 本实验不匹配总负梯度预算，科学状态上限为 finite-step validated；长期 shortlist 与稳态排名继续由后续 `CONV-01` 负责。当前仅完成实现与 smoke，正式多 seed 尚未启动。
+> - `BUDGET-MATCH-01`、`CONV-01`、`CONFIRM-01` 继续 blocked；只有 Near-Retention 正式结果完成终态审计、打包并交付后，才允许冻结下一项。
+<!-- HANDOFF-DELTA-BLOCK:after_heading:v61-e4-taper-near-retention-implementation:END -->
 
 > **v49 增量登记：治理 Pipeline Stage 1/2 冻结式关闭（不删除 v48 及更早内容）**
 >
@@ -673,6 +684,9 @@
 <!-- HANDOFF-DELTA-BLOCK:section_end:v60-e4-taper-current-gate:START -->
 - **E4-TAPER v60 覆盖：** `C-U1-E4-TAPER-01` 仍为 finite-step validated。四个后续 ID 已获用户批准并登记，但全部保持 blocked：先冻结并实现 `NEAR-RETENTION-01`，交付后才允许冻结 `BUDGET-MATCH-01`；二者交付并冻结 shortlist 后才允许 `CONV-01`；最后才用 untouched seeds 执行 `CONFIRM-01`。原实验禁止自动延长，几何 robustness 不作为当前门禁。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v60-e4-taper-current-gate:END -->
+<!-- HANDOFF-DELTA-BLOCK:section_end:v61-e4-taper-near-retention-current-gate:START -->
+- **E4-TAPER v61 覆盖：** `C-U1-E4-TAPER-NEAR-RETENTION-01` 已完成协议冻结、独立 runner、formal-channel 登记和工程 smoke，registry 为 **implemented + ready + active + not_run**。允许下一步启动该实验的 canonical guarded formal run，但 smoke/单元测试不构成科学结果。`BUDGET-MATCH-01` 仍必须等待 Near-Retention 的 raw-complete、终态审计、打包与交付；不得提前实现为可运行状态或并行启动。
+<!-- HANDOFF-DELTA-BLOCK:section_end:v61-e4-taper-near-retention-current-gate:END -->
 
 ## 0.2 C-U1 泛化术语覆盖规则（v15 锁定）
 
@@ -1055,6 +1069,42 @@ $$
 
 当前 E4-TAPER 已完成机制层阶段闭环：anchor-normalized protocol 下 Quadratic 相对 Linear 的 far-field suppression order 获得正式 paired evidence，并清楚记录终态未解析和公平性限制。新四项用于升级公平方法比较和长期/确认性证据，不是修复一个已知致命漏洞。连续角度、随机 phase、轮廓分辨率、薄圆环 jitter 与 reward-bin matching 的几何 robustness extension 保持低优先级 optional study；有时间可增强附录，没有执行也不阻塞当前四项路线。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v60-e4-taper-utility-theory-and-followups:END -->
+<!-- HANDOFF-DELTA-BLOCK:section_end:v61-e4-taper-near-retention-protocol:START -->
+### 3.8.10 Near-Retention Matching 正式协议（v61）
+
+**实验 ID 与职责。** `C-U1-E4-TAPER-NEAR-RETENTION-01` 是 E4-TAPER 四项后续中的第一项，只回答“在保留相同平均近场负信号时，函数形状如何重新分配 useful-near 与 harmful-far influence”。它不回答总负更新预算公平性，不负责长期 shortlist 稳态解析，也不构成 untouched-seed confirmation。
+
+**Near 区域与校准防火墙。** 唯一 near 定义为 frozen 2000-step positive-only Adam checkpoint 上的
+
+$$
+d_\theta(s,a)=\frac{\lVert a-\mu_\theta(s)\rVert_2}{\sigma_\theta(s)}\le 5.
+$$
+
+校准只使用 development seeds `0--4` 的训练负样本，先 pooling 全部 near distances，再对每个 family/retention target 通过确定性单调二分求解
+
+$$
+\mathbb E_{\text{dev pooled}}[w_c(d)\mid d\le5]=r.
+$$
+
+`r` 的主层级为 `0.75`，敏感性层级为 `0.50` 和 `0.25`；绝对匹配误差必须不超过 `1e-6`。系数一经求出，在 formal seeds 与全部训练步上固定，不按 seed、minibatch、验证 reward 或终态结果重新校准。seeds `70--89` 只保留为 predecessor evidence，formal paired seeds 冻结为 `90--109`；`110+` 在后续 protocol freeze 前保持 untouched。
+
+**函数族。** 令 `u=d/5`，冻结四个候选：
+
+$$
+w_{\mathrm{lin}}=\frac{1}{1+cu},\quad
+w_{\mathrm{quad}}=\frac{1}{1+cu^2},\quad
+w_{\exp}=e^{-cu},\quad
+w_{\exp2}=e^{-cu^2}.
+$$
+
+`w_exp` 与历史 E4-TAPER 公式同族但采用 near-retention-derived coefficient；`w_exp2` 是本实验首次显式批准的 squared-distance exponential。二者都不得被用来重解释旧结果。Positive-only 与 unweighted-negative 每 seed 运行一次，只作为边界对照。
+
+**Useful/Harmful 诊断。** 对负样本，输出均值分支的负更新方向为 `|A^-|(mu-a)/sigma^2`，oracle improvement direction 为 `a_star-mu`。`d<=5` 且投影为正定义为 useful-near；`d>5` 且投影为负定义为 harmful-far。主要报告：near-region mean weight、near useful positive-projection mass retention、far harmful negative-projection mass retention 与 weighted projection、全参数 contour-4/contour-0 gradient ratio，以及 `[0,2.5),[2.5,5),[5,7.5),[7.5,10),[10,inf)` 的 alignment、orthogonal fraction 和 weighted directional utility。归一化方向效用使用 `cos - (1-cos^2)`（`kappa=1`）作为无量纲诊断，不声称它等同于普遍的维度化 `U_net`。
+
+**训练与终态。** 初始化、Adam `lr=5e-4`、negative alpha `1.0`、state minibatch `256`、8000-step 上限、每 100 steps 评估、稳定窗口与 2x candidate audit 均继承旧 TAPER protocol。任务效果崩溃、support/variance boundary 与 NaN/Inf 继续分报。由于本实验没有匹配 total negative-gradient/optimizer budget，也不承担最终 long-run shortlist，正式完成后的科学状态最高只能是 **有限训练步数验证**；即使个别运行通过 2x plateau，也不得提前关闭 `CONV-01`。
+
+**主统计与非结论。** 主保持率 `0.75` 下，以 reciprocal-linear 为 reference，对其余三个 family 做 20-seed paired bootstrap；`0.50/0.25` 只作形状敏感性。far-risk、near-retention 与 reward 同时报；不预注册 reward winner，不预设 Exponential、Squared-Exponential、Quadratic 或 Linear 获胜，也不得由该实验声称 Distance 优于 Global alpha。
+<!-- HANDOFF-DELTA-BLOCK:section_end:v61-e4-taper-near-retention-protocol:END -->
 
 ## 3.9 E6--E8 方法迁移与规模验证路线（v42 锁定）
 
@@ -1176,6 +1226,9 @@ $$
 <!-- HANDOFF-DELTA-BLOCK:section_end:v60-e4-taper-local-execution-order:START -->
 16. **v60 E4-TAPER 内部执行序列：** 本条只登记 TAPER track 的依赖顺序，不自动改写 v56--v59 的全局外部实验路线。选择推进该 track 时，必须按 `NEAR-RETENTION-01 -> BUDGET-MATCH-01 -> CONV-01 -> CONFIRM-01` 逐项完成 protocol freeze、实现、正式运行、终态审计、打包和交付；下一项不得在前一项交付前启动。四项目前均 blocked，第一步是另行冻结 Near-retention protocol，而不是直接运行或延长旧 E4-TAPER。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v60-e4-taper-local-execution-order:END -->
+<!-- HANDOFF-DELTA-BLOCK:section_end:v61-e4-taper-near-retention-execution-order:START -->
+17. **v61 E4-TAPER 内部执行覆盖：** `NEAR-RETENTION-01` 已从 blocked 迁移为 implemented + ready + active + not_run，允许作为当前 TAPER track 的下一项正式运行。运行必须使用 hardened guard、正式 seeds 90--109、development-only coefficient calibration 和每 5 seeds checkpoint index；raw-complete 后仍需终态审计、canonical packaging 与交付。`BUDGET-MATCH-01` 在该交付之前继续 blocked，Long-run 与 Confirmation 顺序不变。
+<!-- HANDOFF-DELTA-BLOCK:section_end:v61-e4-taper-near-retention-execution-order:END -->
 
 # 7. 变量治理
 

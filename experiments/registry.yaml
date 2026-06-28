@@ -934,7 +934,7 @@ experiments:
     - exponential_is_universally_best
     - distance_taper_always_beats_global_alpha
   followup_evidence_requirements:
-    authorization_state: user_approved_registered_not_runnable
+    authorization_state: user_approved_first_successor_implemented_remaining_sequence_gated
     geometry_robustness:
     - continuous_angle_sampling
     - random_phase_per_state
@@ -1125,36 +1125,37 @@ experiments:
     checkpoint_every_formal_seeds: 5
 - id: C-U1-E4-TAPER-NEAR-RETENTION-01
   execution_gate:
-    state: blocked
-    blocked_by:
-    - frozen_near_region_definition
-    - frozen_retention_targets
-    - frozen_family_formula_set
-    - frozen_development_and_formal_seed_split
-    - separately_implemented_formal_runner
-    blocking_reason: >-
-      The user approved this as the first E4-TAPER fairness follow-up, but the
-      exact near bin, retention levels, formula set, seeds, and runner must be
-      frozen in a separate implementation update before launch.
+    state: ready
+    blocked_by: []
+    blocking_reason: resolved_by_v61_protocol_freeze_and_implemented_runner
+    depends_on_delivered_experiment: C-U1-E4-TAPER-01
+    protocol_freeze: v61_near_retention_matching
+    reason: >-
+      The near region, retention levels, family formulas, development/formal
+      seed firewall, deterministic coefficient calibration, runner, metrics,
+      and terminal audit are frozen. Formal execution is active but has not
+      started; Budget-Match remains blocked until this result is delivered.
   environment: C-U1
   name: taper_family_near_negative_retention_matched_comparison
   status: not_run
   scientific_status: not_run
   parent_experiment: C-U1-E4-TAPER-01
   registration_base_commit: 22161a91c0863278765b0d604ea82401d481b5aa
+  implementation_base_commit: ce5964a0c16b12626ceb81fa9813fff14893c612
   claim: >-
-    Under a shared C-U1 geometry and matched average near-negative retention,
-    test whether reciprocal-quadratic or a vanishing-tail family reduces far
-    harmful influence more efficiently than reciprocal-linear without merely
-    deleting more locally useful negative signal.
+    Under the shared C-U1 geometry and matched pooled average retention over
+    the preregistered near region, test whether taper shape changes useful-near
+    preservation, harmful-far influence, full-parameter far/near gradient
+    allocation, and held-out-context task behavior. Reward superiority and a
+    universal family winner are not assumed.
   role: controlled_taper_shape_fairness_validation
   execution_class: formal
-  implementation_state: not_implemented
+  implementation_state: implemented
   formal_execution:
     channel_ref: hardened-v1
-    activation_state: blocked
-    entrypoint_status: planned
-    entrypoint: null
+    activation_state: active
+    entrypoint_status: implemented
+    entrypoint: src/drpo/cu1_taper_near_retention_formal.py
     launch_mode: canonical_guard
     artifact_owner: canonical_channel
     guard_entrypoint: scripts/run_experiment_guard_hardened.py
@@ -1164,21 +1165,89 @@ experiments:
     artifact_protocol: docs/formal_experiment_artifact_protocol.md
     inherit_default_artifact_budget: true
     runner_archive_policy: {mode: forbid}
+  code_entrypoint: src/drpo/cu1_taper_near_retention_formal.py
+  formal_launch_template: >-
+    python3 scripts/run_experiment_guard_hardened.py --experiment-id
+    C-U1-E4-TAPER-NEAR-RETENTION-01 --repo-root . --output-root
+    experiments/results/C-U1-E4-TAPER-NEAR-RETENTION-01/run_001
+    --artifact-output artifacts/C-U1-E4-TAPER-NEAR-RETENTION-01_RAW_COMPLETE.zip
+    --heartbeat-seconds 60 --stale-seconds 900 --fail-on-stale
+    --progress-glob per_seed_runs_partial.csv --required-output RUN_COMPLETE.json
+    --required-output scientific_run_manifest.json --required-output
+    formal_protocol_freeze.json --required-output calibration.json
+    --required-output terminal_audit.json --required-output per_seed_runs.csv
+    --required-output aggregate.csv --required-output paired_summary.json
+    --source-file src/drpo/cu1_taper_near_retention_formal.py --source-file
+    src/drpo/cu1_distance_taper_formal.py --source-file src/drpo/cu1_core.py
+    --source-file src/drpo/drpo_cu1_e1_e4_oneclick.py --run-class formal
+    --expected-commit "$(git rev-parse HEAD)" --require-origin-main-match --
+    python3 src/drpo/cu1_taper_near_retention_formal.py --output-dir
+    experiments/results/C-U1-E4-TAPER-NEAR-RETENTION-01/run_001 --base-commit
+    "$(git rev-parse HEAD)"
   matching_contract:
-    target: E[w(d)|d_in_pre_registered_near_region]
-    retention_levels: pending_protocol_freeze
-    near_region_boundary: pending_protocol_freeze_without_confirmatory_seed_access
-    coefficient_calibration_data: development_seeds_only
+    target: pooled_E_weight_given_initial_standardized_distance_le_5
+    retention_levels: [0.75, 0.50, 0.25]
+    near_region_boundary: standardized_distance_d_le_5_at_frozen_positive_checkpoint
+    primary_retention_level: 0.75
+    sensitivity_retention_levels: [0.50, 0.25]
+    coefficient_calibration_data: development_seeds_0_4_only
+    coefficient_solver: deterministic_monotone_bisection
+    calibration_tolerance: 0.000001
+    coefficient_application: fixed_for_all_formal_seeds_and_all_training_steps
     confirmatory_seed_access_during_calibration: forbidden
+    total_negative_gradient_budget_matched: false
   candidate_families:
   - reciprocal_linear
   - reciprocal_quadratic
   - current_exponential
-  optional_family_requires_explicit_freeze:
   - squared_distance_exponential
+  optional_family_requires_explicit_freeze: []
+  formulas:
+    normalized_distance: u=d/5
+    reciprocal_linear: w=1/(1+c*u)
+    reciprocal_quadratic: w=1/(1+c*u^2)
+    current_exponential: w=exp(-c*u)
+    squared_distance_exponential: w=exp(-c*u^2)
+    coefficient_rule: one_development_calibrated_c_per_family_and_retention_level
+    distance_and_weight_stop_gradient: true
+  utility_diagnostics:
+    oracle_direction: hidden_optimum_parameter_improvement_direction
+    useful_near_definition: d_le_5_and_negative_update_alignment_positive
+    harmful_far_definition: d_gt_5_and_negative_update_alignment_negative
+    near_useful_retention: weighted_positive_projection_mass_over_raw_positive_projection_mass
+    far_harmful_influence: weighted_negative_projection_mass_and_retention
+    normalized_net_utility: cosine_minus_kappa_times_orthogonal_fraction_squared
+    normalized_utility_kappa: 1.0
+    distance_bins: [0_to_2_5, 2_5_to_5, 5_to_7_5, 7_5_to_10, 10_to_infinity]
+    dimensional_net_utility_universal_claimed: false
+  protocol:
+    initialization_source: positive_only_adam_2000_step_checkpoint
+    shared_C_U1_environment_and_actor: true
+    development_seeds: [0, 1, 2, 3, 4]
+    formal_paired_seeds: [90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109]
+    seeds_70_89_role: predecessor_evidence_only_not_confirmation
+    seeds_110_and_above: untouched_for_successor_protocol_freeze
+    optimizer: Adam
+    learning_rate: 0.0005
+    negative_alpha: 1.0
+    state_minibatch_size: 256
+    evaluation_interval_steps: 100
+    minimum_steps_before_stationarity: 1000
+    maximum_steps: 8000
+    stable_windows: 10
+    normalized_slope_threshold: 0.0001
+    normalized_field_residual_threshold: 0.002
+    positive_only_absolute_gradient_threshold: 0.001
+    terminal_candidate_audit: complete_two_times_when_it_fits_inside_8000
+    checkpoint_every_formal_seeds: 5
+  controls:
+  - positive_only
+  - unweighted_negative
   primary_metrics:
-  - near_useful_retention
-  - far_harmful_influence
+  - calibrated_near_region_mean_weight
+  - near_useful_gradient_retention
+  - far_harmful_influence_retention
+  - far_harmful_weighted_projection
   - full_parameter_far_near_negative_gradient_ratio
   - net_utility_by_distance_bin
   - held_out_context_reward
@@ -1188,10 +1257,46 @@ experiments:
   - nan_inf_numerical_event
   seed_policy:
     seeds_70_89_reuse_as_confirmation: forbidden
-    exact_development_seeds: pending_protocol_freeze
-    exact_formal_seeds: pending_protocol_freeze
+    exact_development_seeds: [0, 1, 2, 3, 4]
+    exact_formal_seeds: [90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109]
+    seeds_110_and_above: untouched_for_successor_protocol_freeze
+  primary_inference:
+    paired_bootstrap: true
+    primary_retention_level: 0.75
+    reference_family: reciprocal_linear
+    candidate_minus_linear: [reciprocal_quadratic, current_exponential, squared_distance_exponential]
+    reward_directional_hypothesis: none
+    universal_family_winner_hypothesis: none
+  terminal_audit:
+    required: true
+    unresolved_terminal_states_do_not_upgrade_to_long_run: true
+    scientific_status_cap: finite_step_validated
+    long_run_shortlist_resolution_owned_by: C-U1-E4-TAPER-CONV-01
+    failure_types_separate: [task_performance_collapse, support_or_variance_boundary, nan_inf_numerical_failure]
+  required_outputs:
+  - RUN_COMPLETE.json
+  - scientific_run_manifest.json
+  - formal_protocol_freeze.json
+  - calibration.json
+  - environment_audit.json
+  - terminal_audit.json
+  - per_seed_runs.csv
+  - aggregate.csv
+  - paired_summary.json
+  - utility_bins.csv
   no_method_winner_assumed: true
-  evidence: {run_started: false, raw_complete: false, terminal_audited: false, package_created: false}
+  evidence:
+    implementation_tests_passed: true
+    smoke_test_passed: true
+    formal_run_started: false
+    run_started: false
+    raw_complete: false
+    terminal_audited: false
+    package_created: false
+  next_gate:
+    experiment_id: C-U1-E4-TAPER-BUDGET-MATCH-01
+    state: blocked_until_near_retention_delivered
+    automatic_activation_forbidden: true
 
 - id: C-U1-E4-TAPER-BUDGET-MATCH-01
   execution_gate:

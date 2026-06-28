@@ -339,10 +339,25 @@ def test_historical_countdown_v45_tuning_delta_matches_repository_after_image() 
     assert result.report["registry_change_coverage"]["fully_declared"] is True
 
 
-def test_current_cu1_e4_taper_utility_fairness_delta_matches_manual_handoff() -> None:
+def test_historical_cu1_e4_taper_utility_fairness_delta_matches_repository_after_image() -> None:
     delta = (
         ROOT
         / "docs/handoff_deltas/CU1-E4-TAPER-UTILITY-FAIRNESS-REGISTRATION-2026-06-28/HANDOFF_DELTA.yaml"
+    )
+    result = MODULE.check_delta(
+        ROOT, delta, target_commit="ce5964a0c16b12626ceb81fa9813fff14893c612"
+    )
+    assert result.report["status"] == "PASS"
+    assert result.report["exact_manual_candidate_match"] is True
+    assert result.report["idempotence_passed"] is True
+    assert result.report["candidate_replaced_authority"] is False
+    assert result.report["registry_change_coverage"]["fully_declared"] is True
+
+
+def test_current_cu1_e4_taper_near_retention_delta_matches_manual_handoff() -> None:
+    delta = (
+        ROOT
+        / "docs/handoff_deltas/CU1-E4-TAPER-NEAR-RETENTION-2026-06-28/HANDOFF_DELTA.yaml"
     )
     result = MODULE.check_delta(ROOT, delta)
     assert result.report["status"] == "PASS"

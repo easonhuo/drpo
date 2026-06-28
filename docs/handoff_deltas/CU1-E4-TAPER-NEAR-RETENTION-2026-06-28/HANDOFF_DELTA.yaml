@@ -1,0 +1,721 @@
+schema_version: 2
+update_id: CU1-E4-TAPER-NEAR-RETENTION-2026-06-28
+mode: shadow
+base:
+  commit: ce5964a0c16b12626ceb81fa9813fff14893c612
+  handoff_sha256: 85fa8b7cd5da5af2d05fccf71fb83ae8a91a9eb1f162ed96046e84f8764298ae
+  registry_sha256: 7cd2d196ecd53bb5a0a9998abe2b2ace1d55cbd62f489c3f5129592c066b7950
+renderer_version: 1
+operations:
+- operation_id: rename-v60-title-to-v61-near-retention
+  op: replace_heading
+  heading_path:
+  - DRPO / SNA2C 远场负梯度动力学研究主文档 v60（E4-TAPER 效用假设与公平实验登记版）
+  new_heading: DRPO / SNA2C 远场负梯度动力学研究主文档 v61（E4-TAPER Near-Retention 协议冻结与实现版）
+  reason: Freeze and implement the first approved E4-TAPER fairness successor without rewriting v60 results or activating
+    later successors.
+- operation_id: prepend-v61-near-retention-implementation
+  op: insert_after_heading
+  heading_path:
+  - DRPO / SNA2C 远场负梯度动力学研究主文档 v61（E4-TAPER Near-Retention 协议冻结与实现版）
+  block_id: v61-e4-taper-near-retention-implementation
+  content: '> **v61 增量登记：`C-U1-E4-TAPER-NEAR-RETENTION-01` 协议冻结、独立 runner 与执行解锁（不删除 v60 及更早内容）**
+
+    >
+
+    > - `C-U1-E4-TAPER-01` 的 220/220 结果、有限训练步数验证状态、anchor-normalized 结论与所有公平性边界保持不变；本版不重跑、不延长旧实验。
+
+    > - 第一项后续 `C-U1-E4-TAPER-NEAR-RETENTION-01` 已冻结：near 区域为 frozen 2000-step positive-only checkpoint 上的标准化距离 `d<=5`；匹配目标为
+    development seeds 0--4 上 pooled `E[w(d)|near]`；正式 paired seeds 为 90--109。
+
+    > - 保持率层级冻结为主层级 `0.75` 与敏感性层级 `0.50/0.25`。每个 family 只通过确定性单调二分求一个系数，系数在正式 seeds 和全部训练步中固定；formal/confirmatory seeds 严禁参与校准。
+
+    > - 候选函数冻结为 reciprocal-linear、reciprocal-quadratic、历史 current exponential `exp(-c u)` 与新批准的 squared-distance exponential
+    `exp(-c u^2)`。后者只属于本新实验，不能追溯替换旧 E4-TAPER exponential。
+
+    > - 新增独立 formal runner `src/drpo/cu1_taper_near_retention_formal.py`，复用共享 C-U1 环境/actor 与原 positive checkpoint；报告 near
+    useful retention、far harmful influence、全参数 far/near 比、distance-bin utility、同分布 held-out-context reward、sigma/support 和三类失效事件。
+
+    > - 本实验不匹配总负梯度预算，科学状态上限为 finite-step validated；长期 shortlist 与稳态排名继续由后续 `CONV-01` 负责。当前仅完成实现与 smoke，正式多 seed 尚未启动。
+
+    > - `BUDGET-MATCH-01`、`CONV-01`、`CONFIRM-01` 继续 blocked；只有 Near-Retention 正式结果完成终态审计、打包并交付后，才允许冻结下一项。'
+- operation_id: append-v61-near-retention-current-gate
+  op: append_to_section
+  heading_path:
+  - 0. 研究与执行原则（每次新会话首先阅读）
+  - 0.1 当前执行门禁
+  block_id: v61-e4-taper-near-retention-current-gate
+  content: '- **E4-TAPER v61 覆盖：** `C-U1-E4-TAPER-NEAR-RETENTION-01` 已完成协议冻结、独立 runner、formal-channel 登记和工程 smoke，registry
+    为 **implemented + ready + active + not_run**。允许下一步启动该实验的 canonical guarded formal run，但 smoke/单元测试不构成科学结果。`BUDGET-MATCH-01`
+    仍必须等待 Near-Retention 的 raw-complete、终态审计、打包与交付；不得提前实现为可运行状态或并行启动。'
+- operation_id: append-v61-near-retention-protocol
+  op: append_to_section
+  heading_path:
+  - 3. 连续统一环境 C-U1 的详细设计
+  - 3.8 C-U1 共享实现与二次阶方法实验 `C-U1-E4-TAPER-01`
+  block_id: v61-e4-taper-near-retention-protocol
+  content: '### 3.8.10 Near-Retention Matching 正式协议（v61）
+
+
+    **实验 ID 与职责。** `C-U1-E4-TAPER-NEAR-RETENTION-01` 是 E4-TAPER 四项后续中的第一项，只回答“在保留相同平均近场负信号时，函数形状如何重新分配 useful-near 与 harmful-far
+    influence”。它不回答总负更新预算公平性，不负责长期 shortlist 稳态解析，也不构成 untouched-seed confirmation。
+
+
+    **Near 区域与校准防火墙。** 唯一 near 定义为 frozen 2000-step positive-only Adam checkpoint 上的
+
+
+    $$
+
+    d_\theta(s,a)=\frac{\lVert a-\mu_\theta(s)\rVert_2}{\sigma_\theta(s)}\le 5.
+
+    $$
+
+
+    校准只使用 development seeds `0--4` 的训练负样本，先 pooling 全部 near distances，再对每个 family/retention target 通过确定性单调二分求解
+
+
+    $$
+
+    \mathbb E_{\text{dev pooled}}[w_c(d)\mid d\le5]=r.
+
+    $$
+
+
+    `r` 的主层级为 `0.75`，敏感性层级为 `0.50` 和 `0.25`；绝对匹配误差必须不超过 `1e-6`。系数一经求出，在 formal seeds 与全部训练步上固定，不按 seed、minibatch、验证 reward
+    或终态结果重新校准。seeds `70--89` 只保留为 predecessor evidence，formal paired seeds 冻结为 `90--109`；`110+` 在后续 protocol freeze 前保持 untouched。
+
+
+    **函数族。** 令 `u=d/5`，冻结四个候选：
+
+
+    $$
+
+    w_{\mathrm{lin}}=\frac{1}{1+cu},\quad
+
+    w_{\mathrm{quad}}=\frac{1}{1+cu^2},\quad
+
+    w_{\exp}=e^{-cu},\quad
+
+    w_{\exp2}=e^{-cu^2}.
+
+    $$
+
+
+    `w_exp` 与历史 E4-TAPER 公式同族但采用 near-retention-derived coefficient；`w_exp2` 是本实验首次显式批准的 squared-distance exponential。二者都不得被用来重解释旧结果。Positive-only
+    与 unweighted-negative 每 seed 运行一次，只作为边界对照。
+
+
+    **Useful/Harmful 诊断。** 对负样本，输出均值分支的负更新方向为 `|A^-|(mu-a)/sigma^2`，oracle improvement direction 为 `a_star-mu`。`d<=5` 且投影为正定义为
+    useful-near；`d>5` 且投影为负定义为 harmful-far。主要报告：near-region mean weight、near useful positive-projection mass retention、far
+    harmful negative-projection mass retention 与 weighted projection、全参数 contour-4/contour-0 gradient ratio，以及 `[0,2.5),[2.5,5),[5,7.5),[7.5,10),[10,inf)`
+    的 alignment、orthogonal fraction 和 weighted directional utility。归一化方向效用使用 `cos - (1-cos^2)`（`kappa=1`）作为无量纲诊断，不声称它等同于普遍的维度化
+    `U_net`。
+
+
+    **训练与终态。** 初始化、Adam `lr=5e-4`、negative alpha `1.0`、state minibatch `256`、8000-step 上限、每 100 steps 评估、稳定窗口与 2x candidate
+    audit 均继承旧 TAPER protocol。任务效果崩溃、support/variance boundary 与 NaN/Inf 继续分报。由于本实验没有匹配 total negative-gradient/optimizer
+    budget，也不承担最终 long-run shortlist，正式完成后的科学状态最高只能是 **有限训练步数验证**；即使个别运行通过 2x plateau，也不得提前关闭 `CONV-01`。
+
+
+    **主统计与非结论。** 主保持率 `0.75` 下，以 reciprocal-linear 为 reference，对其余三个 family 做 20-seed paired bootstrap；`0.50/0.25` 只作形状敏感性。far-risk、near-retention
+    与 reward 同时报；不预注册 reward winner，不预设 Exponential、Squared-Exponential、Quadratic 或 Linear 获胜，也不得由该实验声称 Distance 优于 Global
+    alpha。'
+- operation_id: append-v61-near-retention-execution-order
+  op: append_to_section
+  heading_path:
+  - 6. 接下来唯一执行顺序
+  block_id: v61-e4-taper-near-retention-execution-order
+  content: 17. **v61 E4-TAPER 内部执行覆盖：** `NEAR-RETENTION-01` 已从 blocked 迁移为 implemented + ready + active + not_run，允许作为当前 TAPER
+    track 的下一项正式运行。运行必须使用 hardened guard、正式 seeds 90--109、development-only coefficient calibration 和每 5 seeds checkpoint index；raw-complete
+    后仍需终态审计、canonical packaging 与交付。`BUDGET-MATCH-01` 在该交付之前继续 blocked，Long-run 与 Confirmation 顺序不变。
+registry:
+  mode: expected_after
+  expected_after_sha256: 3265b7d8659db352297c44e4373c6bbb3c764cbd7550bcddab3a5f33374e54c9
+  changes:
+  - change_id: near-retention-001-followup-evidence-requirements-authorization-state
+    kind: update_field
+    entity_id: C-U1-E4-TAPER-01
+    field_path:
+    - followup_evidence_requirements
+    - authorization_state
+    from: user_approved_registered_not_runnable
+    to: user_approved_first_successor_implemented_remaining_sequence_gated
+    reason: Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.
+    evidence: &id001
+    - docs/handoff.md
+    - experiments/registry.yaml
+    - src/drpo/cu1_taper_near_retention_formal.py
+    - tests/test_cu1_e4_taper_utility_followups.py
+    - tests/test_cu1_e4_taper_near_retention_protocol.py
+  - change_id: near-retention-002-candidate-families
+    kind: update_field
+    entity_id: C-U1-E4-TAPER-NEAR-RETENTION-01
+    field_path:
+    - candidate_families
+    from:
+    - reciprocal_linear
+    - reciprocal_quadratic
+    - current_exponential
+    to:
+    - reciprocal_linear
+    - reciprocal_quadratic
+    - current_exponential
+    - squared_distance_exponential
+    reason: Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.
+    evidence: *id001
+  - change_id: near-retention-003-claim
+    kind: update_field
+    entity_id: C-U1-E4-TAPER-NEAR-RETENTION-01
+    field_path:
+    - claim
+    from: Under a shared C-U1 geometry and matched average near-negative retention, test whether reciprocal-quadratic or a
+      vanishing-tail family reduces far harmful influence more efficiently than reciprocal-linear without merely deleting
+      more locally useful negative signal.
+    to: Under the shared C-U1 geometry and matched pooled average retention over the preregistered near region, test whether
+      taper shape changes useful-near preservation, harmful-far influence, full-parameter far/near gradient allocation, and
+      held-out-context task behavior. Reward superiority and a universal family winner are not assumed.
+    reason: Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.
+    evidence: *id001
+  - change_id: near-retention-004-code-entrypoint
+    kind: update_field
+    entity_id: C-U1-E4-TAPER-NEAR-RETENTION-01
+    field_path:
+    - code_entrypoint
+    from: null
+    to: src/drpo/cu1_taper_near_retention_formal.py
+    reason: Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.
+    evidence: *id001
+  - change_id: near-retention-005-controls
+    kind: update_field
+    entity_id: C-U1-E4-TAPER-NEAR-RETENTION-01
+    field_path:
+    - controls
+    from: null
+    to:
+    - positive_only
+    - unweighted_negative
+    reason: Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.
+    evidence: *id001
+  - change_id: near-retention-006-evidence-formal-run-started
+    kind: update_field
+    entity_id: C-U1-E4-TAPER-NEAR-RETENTION-01
+    field_path:
+    - evidence
+    - formal_run_started
+    from: null
+    to: false
+    reason: Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.
+    evidence: *id001
+  - change_id: near-retention-007-evidence-implementation-tests-passed
+    kind: update_field
+    entity_id: C-U1-E4-TAPER-NEAR-RETENTION-01
+    field_path:
+    - evidence
+    - implementation_tests_passed
+    from: null
+    to: true
+    reason: Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.
+    evidence: *id001
+  - change_id: near-retention-008-evidence-smoke-test-passed
+    kind: update_field
+    entity_id: C-U1-E4-TAPER-NEAR-RETENTION-01
+    field_path:
+    - evidence
+    - smoke_test_passed
+    from: null
+    to: true
+    reason: Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.
+    evidence: *id001
+  - change_id: near-retention-009-execution-gate-blocked-by
+    kind: update_field
+    entity_id: C-U1-E4-TAPER-NEAR-RETENTION-01
+    field_path:
+    - execution_gate
+    - blocked_by
+    from:
+    - frozen_near_region_definition
+    - frozen_retention_targets
+    - frozen_family_formula_set
+    - frozen_development_and_formal_seed_split
+    - separately_implemented_formal_runner
+    to: []
+    reason: Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.
+    evidence: *id001
+  - change_id: near-retention-010-execution-gate-blocking-reason
+    kind: update_field
+    entity_id: C-U1-E4-TAPER-NEAR-RETENTION-01
+    field_path:
+    - execution_gate
+    - blocking_reason
+    from: The user approved this as the first E4-TAPER fairness follow-up, but the exact near bin, retention levels, formula
+      set, seeds, and runner must be frozen in a separate implementation update before launch.
+    to: resolved_by_v61_protocol_freeze_and_implemented_runner
+    reason: Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.
+    evidence: *id001
+  - change_id: near-retention-011-execution-gate-depends-on-delivered-experiment
+    kind: update_field
+    entity_id: C-U1-E4-TAPER-NEAR-RETENTION-01
+    field_path:
+    - execution_gate
+    - depends_on_delivered_experiment
+    from: null
+    to: C-U1-E4-TAPER-01
+    reason: Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.
+    evidence: *id001
+  - change_id: near-retention-012-execution-gate-protocol-freeze
+    kind: update_field
+    entity_id: C-U1-E4-TAPER-NEAR-RETENTION-01
+    field_path:
+    - execution_gate
+    - protocol_freeze
+    from: null
+    to: v61_near_retention_matching
+    reason: Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.
+    evidence: *id001
+  - change_id: near-retention-013-execution-gate-reason
+    kind: update_field
+    entity_id: C-U1-E4-TAPER-NEAR-RETENTION-01
+    field_path:
+    - execution_gate
+    - reason
+    from: null
+    to: The near region, retention levels, family formulas, development/formal seed firewall, deterministic coefficient calibration,
+      runner, metrics, and terminal audit are frozen. Formal execution is active but has not started; Budget-Match remains
+      blocked until this result is delivered.
+    reason: Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.
+    evidence: *id001
+  - change_id: near-retention-014-execution-gate-state
+    kind: update_field
+    entity_id: C-U1-E4-TAPER-NEAR-RETENTION-01
+    field_path:
+    - execution_gate
+    - state
+    from: blocked
+    to: ready
+    reason: Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.
+    evidence: *id001
+  - change_id: near-retention-015-formal-execution-activation-state
+    kind: update_field
+    entity_id: C-U1-E4-TAPER-NEAR-RETENTION-01
+    field_path:
+    - formal_execution
+    - activation_state
+    from: blocked
+    to: active
+    reason: Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.
+    evidence: *id001
+  - change_id: near-retention-016-formal-execution-entrypoint
+    kind: update_field
+    entity_id: C-U1-E4-TAPER-NEAR-RETENTION-01
+    field_path:
+    - formal_execution
+    - entrypoint
+    from: null
+    to: src/drpo/cu1_taper_near_retention_formal.py
+    reason: Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.
+    evidence: *id001
+  - change_id: near-retention-017-formal-execution-entrypoint-status
+    kind: update_field
+    entity_id: C-U1-E4-TAPER-NEAR-RETENTION-01
+    field_path:
+    - formal_execution
+    - entrypoint_status
+    from: planned
+    to: implemented
+    reason: Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.
+    evidence: *id001
+  - change_id: near-retention-018-formal-launch-template
+    kind: update_field
+    entity_id: C-U1-E4-TAPER-NEAR-RETENTION-01
+    field_path:
+    - formal_launch_template
+    from: null
+    to: python3 scripts/run_experiment_guard_hardened.py --experiment-id C-U1-E4-TAPER-NEAR-RETENTION-01 --repo-root . --output-root
+      experiments/results/C-U1-E4-TAPER-NEAR-RETENTION-01/run_001 --artifact-output artifacts/C-U1-E4-TAPER-NEAR-RETENTION-01_RAW_COMPLETE.zip
+      --heartbeat-seconds 60 --stale-seconds 900 --fail-on-stale --progress-glob per_seed_runs_partial.csv --required-output
+      RUN_COMPLETE.json --required-output scientific_run_manifest.json --required-output formal_protocol_freeze.json --required-output
+      calibration.json --required-output terminal_audit.json --required-output per_seed_runs.csv --required-output aggregate.csv
+      --required-output paired_summary.json --source-file src/drpo/cu1_taper_near_retention_formal.py --source-file src/drpo/cu1_distance_taper_formal.py
+      --source-file src/drpo/cu1_core.py --source-file src/drpo/drpo_cu1_e1_e4_oneclick.py --run-class formal --expected-commit
+      "$(git rev-parse HEAD)" --require-origin-main-match -- python3 src/drpo/cu1_taper_near_retention_formal.py --output-dir
+      experiments/results/C-U1-E4-TAPER-NEAR-RETENTION-01/run_001 --base-commit "$(git rev-parse HEAD)"
+    reason: Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.
+    evidence: *id001
+  - change_id: near-retention-019-formulas
+    kind: update_field
+    entity_id: C-U1-E4-TAPER-NEAR-RETENTION-01
+    field_path:
+    - formulas
+    from: null
+    to:
+      normalized_distance: u=d/5
+      reciprocal_linear: w=1/(1+c*u)
+      reciprocal_quadratic: w=1/(1+c*u^2)
+      current_exponential: w=exp(-c*u)
+      squared_distance_exponential: w=exp(-c*u^2)
+      coefficient_rule: one_development_calibrated_c_per_family_and_retention_level
+      distance_and_weight_stop_gradient: true
+    reason: Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.
+    evidence: *id001
+  - change_id: near-retention-020-implementation-base-commit
+    kind: update_field
+    entity_id: C-U1-E4-TAPER-NEAR-RETENTION-01
+    field_path:
+    - implementation_base_commit
+    from: null
+    to: ce5964a0c16b12626ceb81fa9813fff14893c612
+    reason: Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.
+    evidence: *id001
+  - change_id: near-retention-021-implementation-state
+    kind: update_field
+    entity_id: C-U1-E4-TAPER-NEAR-RETENTION-01
+    field_path:
+    - implementation_state
+    from: not_implemented
+    to: implemented
+    reason: Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.
+    evidence: *id001
+  - change_id: near-retention-022-matching-contract-calibration-tolerance
+    kind: update_field
+    entity_id: C-U1-E4-TAPER-NEAR-RETENTION-01
+    field_path:
+    - matching_contract
+    - calibration_tolerance
+    from: null
+    to: 1.0e-06
+    reason: Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.
+    evidence: *id001
+  - change_id: near-retention-023-matching-contract-coefficient-application
+    kind: update_field
+    entity_id: C-U1-E4-TAPER-NEAR-RETENTION-01
+    field_path:
+    - matching_contract
+    - coefficient_application
+    from: null
+    to: fixed_for_all_formal_seeds_and_all_training_steps
+    reason: Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.
+    evidence: *id001
+  - change_id: near-retention-024-matching-contract-coefficient-calibration-data
+    kind: update_field
+    entity_id: C-U1-E4-TAPER-NEAR-RETENTION-01
+    field_path:
+    - matching_contract
+    - coefficient_calibration_data
+    from: development_seeds_only
+    to: development_seeds_0_4_only
+    reason: Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.
+    evidence: *id001
+  - change_id: near-retention-025-matching-contract-coefficient-solver
+    kind: update_field
+    entity_id: C-U1-E4-TAPER-NEAR-RETENTION-01
+    field_path:
+    - matching_contract
+    - coefficient_solver
+    from: null
+    to: deterministic_monotone_bisection
+    reason: Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.
+    evidence: *id001
+  - change_id: near-retention-026-matching-contract-near-region-boundary
+    kind: update_field
+    entity_id: C-U1-E4-TAPER-NEAR-RETENTION-01
+    field_path:
+    - matching_contract
+    - near_region_boundary
+    from: pending_protocol_freeze_without_confirmatory_seed_access
+    to: standardized_distance_d_le_5_at_frozen_positive_checkpoint
+    reason: Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.
+    evidence: *id001
+  - change_id: near-retention-027-matching-contract-primary-retention-level
+    kind: update_field
+    entity_id: C-U1-E4-TAPER-NEAR-RETENTION-01
+    field_path:
+    - matching_contract
+    - primary_retention_level
+    from: null
+    to: 0.75
+    reason: Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.
+    evidence: *id001
+  - change_id: near-retention-028-matching-contract-retention-levels
+    kind: update_field
+    entity_id: C-U1-E4-TAPER-NEAR-RETENTION-01
+    field_path:
+    - matching_contract
+    - retention_levels
+    from: pending_protocol_freeze
+    to:
+    - 0.75
+    - 0.5
+    - 0.25
+    reason: Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.
+    evidence: *id001
+  - change_id: near-retention-029-matching-contract-sensitivity-retention-levels
+    kind: update_field
+    entity_id: C-U1-E4-TAPER-NEAR-RETENTION-01
+    field_path:
+    - matching_contract
+    - sensitivity_retention_levels
+    from: null
+    to:
+    - 0.5
+    - 0.25
+    reason: Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.
+    evidence: *id001
+  - change_id: near-retention-030-matching-contract-target
+    kind: update_field
+    entity_id: C-U1-E4-TAPER-NEAR-RETENTION-01
+    field_path:
+    - matching_contract
+    - target
+    from: E[w(d)|d_in_pre_registered_near_region]
+    to: pooled_E_weight_given_initial_standardized_distance_le_5
+    reason: Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.
+    evidence: *id001
+  - change_id: near-retention-031-matching-contract-total-negative-gradient-budget-matched
+    kind: update_field
+    entity_id: C-U1-E4-TAPER-NEAR-RETENTION-01
+    field_path:
+    - matching_contract
+    - total_negative_gradient_budget_matched
+    from: null
+    to: false
+    reason: Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.
+    evidence: *id001
+  - change_id: near-retention-032-next-gate
+    kind: update_field
+    entity_id: C-U1-E4-TAPER-NEAR-RETENTION-01
+    field_path:
+    - next_gate
+    from: null
+    to:
+      experiment_id: C-U1-E4-TAPER-BUDGET-MATCH-01
+      state: blocked_until_near_retention_delivered
+      automatic_activation_forbidden: true
+    reason: Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.
+    evidence: *id001
+  - change_id: near-retention-033-optional-family-requires-explicit-freeze
+    kind: update_field
+    entity_id: C-U1-E4-TAPER-NEAR-RETENTION-01
+    field_path:
+    - optional_family_requires_explicit_freeze
+    from:
+    - squared_distance_exponential
+    to: []
+    reason: Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.
+    evidence: *id001
+  - change_id: near-retention-034-primary-inference
+    kind: update_field
+    entity_id: C-U1-E4-TAPER-NEAR-RETENTION-01
+    field_path:
+    - primary_inference
+    from: null
+    to:
+      paired_bootstrap: true
+      primary_retention_level: 0.75
+      reference_family: reciprocal_linear
+      candidate_minus_linear:
+      - reciprocal_quadratic
+      - current_exponential
+      - squared_distance_exponential
+      reward_directional_hypothesis: none
+      universal_family_winner_hypothesis: none
+    reason: Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.
+    evidence: *id001
+  - change_id: near-retention-035-primary-metrics
+    kind: update_field
+    entity_id: C-U1-E4-TAPER-NEAR-RETENTION-01
+    field_path:
+    - primary_metrics
+    from:
+    - near_useful_retention
+    - far_harmful_influence
+    - full_parameter_far_near_negative_gradient_ratio
+    - net_utility_by_distance_bin
+    - held_out_context_reward
+    - sigma_trajectory
+    - task_performance_collapse_event
+    - support_or_variance_boundary_event
+    - nan_inf_numerical_event
+    to:
+    - calibrated_near_region_mean_weight
+    - near_useful_gradient_retention
+    - far_harmful_influence_retention
+    - far_harmful_weighted_projection
+    - full_parameter_far_near_negative_gradient_ratio
+    - net_utility_by_distance_bin
+    - held_out_context_reward
+    - sigma_trajectory
+    - task_performance_collapse_event
+    - support_or_variance_boundary_event
+    - nan_inf_numerical_event
+    reason: Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.
+    evidence: *id001
+  - change_id: near-retention-036-protocol
+    kind: update_field
+    entity_id: C-U1-E4-TAPER-NEAR-RETENTION-01
+    field_path:
+    - protocol
+    from: null
+    to:
+      initialization_source: positive_only_adam_2000_step_checkpoint
+      shared_C_U1_environment_and_actor: true
+      development_seeds:
+      - 0
+      - 1
+      - 2
+      - 3
+      - 4
+      formal_paired_seeds:
+      - 90
+      - 91
+      - 92
+      - 93
+      - 94
+      - 95
+      - 96
+      - 97
+      - 98
+      - 99
+      - 100
+      - 101
+      - 102
+      - 103
+      - 104
+      - 105
+      - 106
+      - 107
+      - 108
+      - 109
+      seeds_70_89_role: predecessor_evidence_only_not_confirmation
+      seeds_110_and_above: untouched_for_successor_protocol_freeze
+      optimizer: Adam
+      learning_rate: 0.0005
+      negative_alpha: 1.0
+      state_minibatch_size: 256
+      evaluation_interval_steps: 100
+      minimum_steps_before_stationarity: 1000
+      maximum_steps: 8000
+      stable_windows: 10
+      normalized_slope_threshold: 0.0001
+      normalized_field_residual_threshold: 0.002
+      positive_only_absolute_gradient_threshold: 0.001
+      terminal_candidate_audit: complete_two_times_when_it_fits_inside_8000
+      checkpoint_every_formal_seeds: 5
+    reason: Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.
+    evidence: *id001
+  - change_id: near-retention-037-required-outputs
+    kind: update_field
+    entity_id: C-U1-E4-TAPER-NEAR-RETENTION-01
+    field_path:
+    - required_outputs
+    from: null
+    to:
+    - RUN_COMPLETE.json
+    - scientific_run_manifest.json
+    - formal_protocol_freeze.json
+    - calibration.json
+    - environment_audit.json
+    - terminal_audit.json
+    - per_seed_runs.csv
+    - aggregate.csv
+    - paired_summary.json
+    - utility_bins.csv
+    reason: Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.
+    evidence: *id001
+  - change_id: near-retention-038-seed-policy-exact-development-seeds
+    kind: update_field
+    entity_id: C-U1-E4-TAPER-NEAR-RETENTION-01
+    field_path:
+    - seed_policy
+    - exact_development_seeds
+    from: pending_protocol_freeze
+    to:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    reason: Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.
+    evidence: *id001
+  - change_id: near-retention-039-seed-policy-exact-formal-seeds
+    kind: update_field
+    entity_id: C-U1-E4-TAPER-NEAR-RETENTION-01
+    field_path:
+    - seed_policy
+    - exact_formal_seeds
+    from: pending_protocol_freeze
+    to:
+    - 90
+    - 91
+    - 92
+    - 93
+    - 94
+    - 95
+    - 96
+    - 97
+    - 98
+    - 99
+    - 100
+    - 101
+    - 102
+    - 103
+    - 104
+    - 105
+    - 106
+    - 107
+    - 108
+    - 109
+    reason: Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.
+    evidence: *id001
+  - change_id: near-retention-040-seed-policy-seeds-110-and-above
+    kind: update_field
+    entity_id: C-U1-E4-TAPER-NEAR-RETENTION-01
+    field_path:
+    - seed_policy
+    - seeds_110_and_above
+    from: null
+    to: untouched_for_successor_protocol_freeze
+    reason: Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.
+    evidence: *id001
+  - change_id: near-retention-041-terminal-audit
+    kind: update_field
+    entity_id: C-U1-E4-TAPER-NEAR-RETENTION-01
+    field_path:
+    - terminal_audit
+    from: null
+    to:
+      required: true
+      unresolved_terminal_states_do_not_upgrade_to_long_run: true
+      scientific_status_cap: finite_step_validated
+      long_run_shortlist_resolution_owned_by: C-U1-E4-TAPER-CONV-01
+      failure_types_separate:
+      - task_performance_collapse
+      - support_or_variance_boundary
+      - nan_inf_numerical_failure
+    reason: Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.
+    evidence: *id001
+  - change_id: near-retention-042-utility-diagnostics
+    kind: update_field
+    entity_id: C-U1-E4-TAPER-NEAR-RETENTION-01
+    field_path:
+    - utility_diagnostics
+    from: null
+    to:
+      oracle_direction: hidden_optimum_parameter_improvement_direction
+      useful_near_definition: d_le_5_and_negative_update_alignment_positive
+      harmful_far_definition: d_gt_5_and_negative_update_alignment_negative
+      near_useful_retention: weighted_positive_projection_mass_over_raw_positive_projection_mass
+      far_harmful_influence: weighted_negative_projection_mass_and_retention
+      normalized_net_utility: cosine_minus_kappa_times_orthogonal_fraction_squared
+      normalized_utility_kappa: 1.0
+      distance_bins:
+      - 0_to_2_5
+      - 2_5_to_5
+      - 5_to_7_5
+      - 7_5_to_10
+      - 10_to_infinity
+      dimensional_net_utility_universal_claimed: false
+    reason: Freeze the implemented Near-Retention protocol and preserve the gated successor sequence.
+    evidence: *id001
+expected:
+  candidate_sha256: 9a921b8d64ed2f10010c7847b21904931a9e0d976982efc60e05ce63f8124826
+  manual_sha256: 9a921b8d64ed2f10010c7847b21904931a9e0d976982efc60e05ce63f8124826
