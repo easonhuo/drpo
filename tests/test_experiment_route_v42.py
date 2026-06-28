@@ -118,10 +118,11 @@ def test_e7_benchmark_scope_is_exactly_nine_locomotion_tasks() -> None:
     )
 
 
-def test_e8_scale_keeps_mechanism_and_scale_roles_separate() -> None:
+def test_e8_offline_bank_precedes_scale_and_keeps_roles_separate() -> None:
     experiments = _experiments()
     prior = experiments["EXT-C-E8-V4.2"]
     mechanism = experiments["EXT-C-E8-V4.3"]
+    bank = experiments["EXT-C-E8-V4.4-OFFLINE-BANK"]
     scale = experiments["EXT-C-E8-SCALE-01"]
     assert prior["execution_class"] == "superseded"
     assert prior["status"] == "superseded"
@@ -134,7 +135,23 @@ def test_e8_scale_keeps_mechanism_and_scale_roles_separate() -> None:
         "dynamic_controlled_negative",
         "uncontrolled_negative",
     ]
-    assert scale["scaling_plan"]["mechanism_owner"] == "EXT-C-E8-V4.3"
+    assert bank["execution_class"] == "pilot"
+    assert bank["status"] == "not_run"
+    assert bank["predecessor"] == "EXT-C-E8-V4.3"
+    assert bank["data"]["negative_bank_size_per_prompt"] == 16
+    assert bank["data"]["online_rollout_during_method_training"] is False
+    assert bank["methods"] == [
+        "positive_only",
+        "dynamic_controlled_negative",
+        "bank_dynamic_controlled_negative",
+        "bank_global_matched",
+        "bank_uncontrolled_negative",
+    ]
+    assert scale["execution_gate"]["blocked_by"] == [
+        "EXT-C-E8-V4.4-OFFLINE-BANK",
+        "EXT-H-E7-BENCH-01",
+    ]
+    assert scale["scaling_plan"]["mechanism_owner"] == "EXT-C-E8-V4.4-OFFLINE-BANK"
     assert scale["scaling_plan"]["primary_model"] == "Qwen_Instruct_3B"
     assert scale["scaling_plan"]["frozen_confirmation_model"] == "Qwen_Instruct_7B"
     assert scale["scaling_plan"]["retune_method_family_on_scale_tasks"] is False
@@ -149,5 +166,7 @@ def test_handoff_preserves_v42_route_and_records_v45_taper_result() -> None:
     assert "D4RL MuJoCo locomotion 9-task suite" in handoff
     assert "implemented + not_run + blocked" in handoff
     assert "v56 增量登记：E6 父 claim 关闭与 E7-MECH 路线解锁" in handoff
+    assert "v57 增量登记：Countdown `EXT-C-E8-V4.4-OFFLINE-BANK`" in handoff
+    assert "`EXT-H-E7-Q2` 仍是下一正式 route item" in handoff
     assert "它不再是 E6 父 claim 关闭或 E7-MECH 启动的前置条件" in handoff
     assert "不是原 DRPO 分布鲁棒章节中的 linear weighting" in handoff

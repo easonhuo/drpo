@@ -115,6 +115,75 @@ def test_matched_pair_selection_never_falls_back_to_unmatched_extrema() -> None:
     assert near is None and far is None
 
 
+def test_fixed_negative_bank_is_unique_spans_surprisal_and_keeps_pair() -> None:
+    candidates = [
+        {
+            "text": f"expr_{index:02d}",
+            "structure": f"pattern_{index:02d}",
+            "surprisal": float(index),
+            "token_length": 5 + index % 3,
+            "tree_depth": 2 + index % 2,
+            "value_error": 1.0 + index,
+        }
+        for index in range(24)
+    ]
+    bank = arena.select_fixed_negative_bank(
+        candidates, candidates[3], candidates[20], bank_size=16
+    )
+    assert len(bank) == 16
+    assert len({item["text"] for item in bank}) == 16
+    assert candidates[3]["text"] in {item["text"] for item in bank}
+    assert candidates[20]["text"] in {item["text"] for item in bank}
+    surprises = [item["surprisal"] for item in bank]
+    assert surprises == sorted(surprises)
+    assert min(surprises) == 0.0
+    assert max(surprises) == 23.0
+
+
+def test_current_bank_extremes_ignore_construction_time_identity() -> None:
+    bank_stats = {
+        "seq_lp": torch.tensor([[-1.0], [-4.0], [-2.0], [-8.0], [-3.0], [-6.0]]),
+        "token_lp": torch.arange(6, dtype=torch.float32).reshape(6, 1),
+        "token_mask": torch.ones((6, 1), dtype=torch.bool),
+        "lengths": torch.ones(6, dtype=torch.long),
+        "entropy": torch.arange(6, dtype=torch.float32),
+        "score": torch.arange(6, dtype=torch.float32),
+        "token_score": torch.arange(6, dtype=torch.float32).reshape(6, 1),
+    }
+    near, far, near_slot, far_slot = arena.select_current_bank_extremes(
+        bank_stats, batch_size=2, bank_size=3
+    )
+    assert near_slot.tolist() == [0, 1]
+    assert far_slot.tolist() == [1, 0]
+    assert near["seq_lp"].squeeze(-1).tolist() == [-1.0, -3.0]
+    assert far["seq_lp"].squeeze(-1).tolist() == [-4.0, -8.0]
+
+    moved = dict(bank_stats)
+    moved["seq_lp"] = torch.tensor([[-7.0], [-4.0], [-1.0], [-2.0], [-9.0], [-6.0]])
+    _, _, moved_near_slot, moved_far_slot = arena.select_current_bank_extremes(
+        moved, batch_size=2, bank_size=3
+    )
+    assert moved_near_slot.tolist() == [2, 0]
+    assert moved_far_slot.tolist() == [0, 1]
+
+
+def test_offline_collator_flattens_a_uniform_negative_bank() -> None:
+    def encoded(value: int) -> arena.EncodedExample:
+        return arena.EncodedExample([value], [value])
+
+    rows = []
+    for offset in (0, 10):
+        rows.append({
+            "positive": encoded(offset + 1),
+            "near": encoded(offset + 2),
+            "far": encoded(offset + 3),
+            "bank": [encoded(offset + 4), encoded(offset + 5), encoded(offset + 6)],
+        })
+    packed = arena.make_offline_collator(0)(rows)
+    assert packed["bank_size"] == 3
+    assert packed["bank"]["input_ids"].squeeze(-1).tolist() == [4, 5, 6, 14, 15, 16]
+
+
 def test_weighted_sequence_logprob_does_not_renormalize_removed_weight() -> None:
     stats = {
         "token_lp": torch.tensor([[-1.0, -3.0]]),
@@ -165,7 +234,7 @@ def test_checkpoint_inventory_records_hash_and_local_only(tmp_path: Path) -> Non
     assert len(inventory["files"][0]["sha256"]) == 64
 
 
-def test_run_defaults_are_base_first_bf16_lora_with_dynamic_control() -> None:
+def test_run_defaults_are_base_first_bf16_lora_with_offline_bank() -> None:
     parser = arena.build_parser()
     args = parser.parse_args([
         "run",
@@ -173,8 +242,8 @@ def test_run_defaults_are_base_first_bf16_lora_with_dynamic_control() -> None:
         "--work_dir", "/tmp/run",
     ])
     assert args.methods == (
-        "positive_only,controlled_negative,dynamic_controlled_negative,"
-        "uncontrolled_negative"
+        "positive_only,dynamic_controlled_negative,bank_dynamic_controlled_negative,"
+        "bank_global_matched,bank_uncontrolled_negative"
     )
     assert args.memory_mode == "bf16"
     assert args.gpus == "auto"
@@ -182,6 +251,16 @@ def test_run_defaults_are_base_first_bf16_lora_with_dynamic_control() -> None:
     assert args.pair_resample_rounds == 8
     assert args.min_base_success == 0.15
     assert args.min_base_valid == 0.80
+
+    build = parser.parse_args([
+        "build_offline",
+        "--model_path", "/tmp/model",
+        "--input_data", "/tmp/train.jsonl",
+        "--split_manifest", "/tmp/split.json",
+        "--output_data", "/tmp/offline.jsonl",
+    ])
+    assert build.negative_bank_size == 16
+    assert build.min_negative_candidates == 16
 
 
 
@@ -225,7 +304,7 @@ def test_balanced_6000_offline_quotas_and_nested_subsets() -> None:
         assert max(counts.values()) - min(counts.values()) <= 1
 
 
-def test_v4_3_sft_and_method_diagnostic_defaults_are_frozen() -> None:
+def test_v4_4_sft_bank_and_method_diagnostic_defaults_are_frozen() -> None:
     parser = arena.build_parser()
     sft = parser.parse_args([
         "sft",
@@ -256,7 +335,7 @@ def test_v4_3_sft_and_method_diagnostic_defaults_are_frozen() -> None:
         "--model_path", "/tmp/model",
         "--work_dir", "/tmp/run",
     ])
-    assert arena.EXPERIMENT_ID == "EXT-C-E8-V4.3"
+    assert arena.EXPERIMENT_ID == "EXT-C-E8-V4.4-OFFLINE-BANK"
     assert run.min_sft_success == 0.15
     assert run.min_sft_valid == 0.95
     assert run.min_mechanism_success == 0.08

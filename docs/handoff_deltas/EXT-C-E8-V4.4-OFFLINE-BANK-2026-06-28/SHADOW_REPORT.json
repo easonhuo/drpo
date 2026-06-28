@@ -1,0 +1,165 @@
+{
+  "affected_selectors": [
+    "DRPO / SNA2C \u8fdc\u573a\u8d1f\u68af\u5ea6\u52a8\u529b\u5b66\u7814\u7a76\u4e3b\u6587\u6863 v56\uff08D-U1 E6 \u7236 Claim \u5173\u95ed\u4e0e E7 \u8def\u7ebf\u89e3\u9501\u7248\uff09",
+    "DRPO / SNA2C \u8fdc\u573a\u8d1f\u68af\u5ea6\u52a8\u529b\u5b66\u7814\u7a76\u4e3b\u6587\u6863 v57\uff08Countdown \u56fa\u5b9a\u79bb\u7ebf Negative Bank Pilot \u7248\uff09",
+    "0. \u7814\u7a76\u4e0e\u6267\u884c\u539f\u5219\uff08\u6bcf\u6b21\u65b0\u4f1a\u8bdd\u9996\u5148\u9605\u8bfb\uff09 / 0.1 \u5f53\u524d\u6267\u884c\u95e8\u7981",
+    "3. \u8fde\u7eed\u7edf\u4e00\u73af\u5883 C-U1 \u7684\u8be6\u7ec6\u8bbe\u8ba1 / 3.9 E6--E8 \u65b9\u6cd5\u8fc1\u79fb\u4e0e\u89c4\u6a21\u9a8c\u8bc1\u8def\u7ebf\uff08v42 \u9501\u5b9a\uff09",
+    "6. \u63a5\u4e0b\u6765\u552f\u4e00\u6267\u884c\u987a\u5e8f"
+  ],
+  "base_commit": "c2ad7d5f6fe957d6a6297e6987d878cf72dbf7c8",
+  "base_handoff_sha256": "a7c2b572a42ff3cbe7329994b30818963423ed9d256e8e876bc8aa34b19ed375",
+  "base_registry_sha256": "e4184acff76a4e6beed77aea208a2e023a8de7f2fb3696c4ffc858b830100eae",
+  "candidate_replaced_authority": false,
+  "candidate_sha256": "c60e81fe004a606bb57efabed2bda2a6a3b234110bc55d686ec606c7e420c7db",
+  "comparison_target": "working_tree",
+  "current_registry_sha256": "27fab74100f0e9c184fb298a3435a9487fb818d506b34eb402e4f637c3682125",
+  "exact_manual_candidate_match": true,
+  "full_candidate_saved": false,
+  "history_preservation_passed": true,
+  "idempotence_passed": true,
+  "llm_blocking_gate_used": false,
+  "manual_handoff_authoritative": true,
+  "manual_sha256": "c60e81fe004a606bb57efabed2bda2a6a3b234110bc55d686ec606c7e420c7db",
+  "mode": "shadow",
+  "network_used": false,
+  "observation_kind": "real",
+  "operation_count": 5,
+  "performance": {
+    "base_validation_ms": 69.359,
+    "comparison_and_registry_ms": 319.631,
+    "hard_limit_ms": 15000.0,
+    "policy_and_schema_ms": 7.655,
+    "render_and_idempotence_ms": 52.0,
+    "target_p95_ms": 5000.0,
+    "total_ms": 448.802,
+    "within_hard_limit": true,
+    "within_target": true
+  },
+  "policy_id": "GOV-HANDOFF-INDEX-01",
+  "registry_change_assertions": [
+    {
+      "change_id": "e8-v44-add-pilot",
+      "entity_id": "EXT-C-E8-V4.4-OFFLINE-BANK",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "c60e81fe004a606bb57efabed2bda2a6a3b234110bc55d686ec606c7e420c7db"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "27fab74100f0e9c184fb298a3435a9487fb818d506b34eb402e4f637c3682125"
+        },
+        {
+          "path": "src/drpo/countdown_qwen_arena_onefile.py",
+          "sha256": "381ac6796720748aa2c4a9f5b40120de6fcc79ba7d3bbcfb0ec3824b844a0572"
+        },
+        {
+          "path": "tests/test_countdown_qwen_arena.py",
+          "sha256": "9d2b59090b8bb3290a2aa76296e8df5664df3e9cba0ebe89e11881441d22831a"
+        }
+      ],
+      "kind": "add_entity"
+    },
+    {
+      "change_id": "e8-v44-scale-blocker",
+      "entity_id": "EXT-C-E8-SCALE-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "c60e81fe004a606bb57efabed2bda2a6a3b234110bc55d686ec606c7e420c7db"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "27fab74100f0e9c184fb298a3435a9487fb818d506b34eb402e4f637c3682125"
+        },
+        {
+          "path": "tests/test_experiment_route_v42.py",
+          "sha256": "d018b75f79a6579dc0cc77cd802db7c3b531b45dcaccde00f0b159936aeaeaf0"
+        }
+      ],
+      "field_path": [
+        "execution_gate",
+        "blocked_by"
+      ],
+      "from": [
+        "EXT-C-E8-V4.3",
+        "EXT-H-E7-BENCH-01"
+      ],
+      "kind": "update_field",
+      "reason": "Require the audited fixed-bank offline pilot before Countdown scale-up while preserving the E7-BENCH dependency.",
+      "to": [
+        "EXT-C-E8-V4.4-OFFLINE-BANK",
+        "EXT-H-E7-BENCH-01"
+      ]
+    },
+    {
+      "change_id": "e8-v44-scale-reason",
+      "entity_id": "EXT-C-E8-SCALE-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "c60e81fe004a606bb57efabed2bda2a6a3b234110bc55d686ec606c7e420c7db"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "27fab74100f0e9c184fb298a3435a9487fb818d506b34eb402e4f637c3682125"
+        },
+        {
+          "path": "tests/test_experiment_route_v42.py",
+          "sha256": "d018b75f79a6579dc0cc77cd802db7c3b531b45dcaccde00f0b159936aeaeaf0"
+        }
+      ],
+      "field_path": [
+        "execution_gate",
+        "blocking_reason"
+      ],
+      "from": "The audited Countdown mechanism/pilot and the continuous external benchmark must be delivered before model/data scaling uses a frozen method shortlist.",
+      "kind": "update_field",
+      "reason": "Name the exact offline predecessor that must be audited before scale-up.",
+      "to": "The audited V4.4 fixed-bank offline pilot and the continuous external benchmark must be delivered before model/data scaling uses a frozen method shortlist."
+    },
+    {
+      "change_id": "e8-v44-scale-owner",
+      "entity_id": "EXT-C-E8-SCALE-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "c60e81fe004a606bb57efabed2bda2a6a3b234110bc55d686ec606c7e420c7db"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "27fab74100f0e9c184fb298a3435a9487fb818d506b34eb402e4f637c3682125"
+        },
+        {
+          "path": "tests/test_experiment_route_v42.py",
+          "sha256": "d018b75f79a6579dc0cc77cd802db7c3b531b45dcaccde00f0b159936aeaeaf0"
+        }
+      ],
+      "field_path": [
+        "scaling_plan",
+        "mechanism_owner"
+      ],
+      "from": "EXT-C-E8-V4.3",
+      "kind": "update_field",
+      "reason": "Bind the later scale experiment to the newest user-approved offline focused pilot rather than the single-pair predecessor.",
+      "to": "EXT-C-E8-V4.4-OFFLINE-BANK"
+    }
+  ],
+  "registry_change_coverage": {
+    "added_entities": [
+      "EXT-C-E8-V4.4-OFFLINE-BANK"
+    ],
+    "changed_field_count": 3,
+    "declared_assertion_count": 4,
+    "fully_declared": true,
+    "mode": "schema2_complete",
+    "removed_entities": []
+  },
+  "registry_transition_assertions": [],
+  "report_schema_version": 2,
+  "repository_commit": null,
+  "schema_version": 1,
+  "status": "PASS",
+  "update_id": "EXT-C-E8-V4.4-OFFLINE-BANK-2026-06-28",
+  "validation_worktree_head": "c2ad7d5f6fe957d6a6297e6987d878cf72dbf7c8"
+}

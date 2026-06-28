@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Countdown dynamic-remoteness external-validity arena for local Qwen Instruct models (v4.4.0).
+"""Countdown fixed-offline-negative-bank arena for local Qwen Instruct models (v4.5.0).
 
 One-command run
 ---------------
@@ -7,27 +7,24 @@ python3 scripts/run_countdown_pilot.py \
   --model_path /ABS/PATH/TO/QWEN-0.5B-INSTRUCT \
   --work_dir /ABS/PATH/TO/COUNTDOWN_RUN
 
-The v4.3 protocol first evaluates the untouched base model. If the base checkpoint
-passes the registered verifier/format gate, all compared methods start from one
-shared untrained LoRA adapter and no Countdown SFT is performed. A minimal SFT
-fallback is used only when the base gate fails.
+The V4.4 focused pilot keeps all method-training data offline. Each prompt owns
+one frozen bank of 16 unique legal wrong expressions built before method
+training. At every optimizer step, bank methods rescore that same bank under the
+current learner and select the current minimum-surprisal negative as near and the
+current maximum-surprisal negative as far. No rollout or replay data is added
+while methods train.
 
-The run has two responsibilities:
-  1. a fixed-negative-advantage near/far mechanism probe on matched legal wrong
-     expressions;
-  2. a focused paired comparison: positive-only, static controlled-negative,
-     dynamic controlled-negative, and uncontrolled-negative. Static control tapers
-     only the branch labeled far at data construction; dynamic control applies the
-     same current-policy token-surprisal taper to both negative branches. The shared
-     negative scale is calibrated once at the common initialization from a fixed
-     training calibration split; it is not selected from task outcomes or test data.
+The frozen comparison is positive-only, the V4.3 two-fixed-branch dynamic
+control, bank dynamic control, bank budget-matched global scaling, and bank
+uncontrolled negatives. Pair and bank negative scales are calibrated once from
+a fixed training subset at the shared initialization; validation and test
+outcomes do not enter calibration.
 
 All pilot methods use the same BF16 LoRA parameterization. Model/adaptor binaries
 remain server-local; only manifests, metrics, and hashes belong in artifacts.
-
-Countdown is external validity for the D-U1 categorical theory. It does not
-replace D-U1 causal identification. Static checks and CPU self-tests are not
-formal Qwen results.
+Countdown provides Transformer external validity and does not replace D-U1
+controlled causal identification. Static checks and CPU self-tests are not Qwen
+experimental results.
 """
 from __future__ import annotations
 
@@ -90,8 +87,8 @@ SYSTEM_PROMPT = (
     "expression. Do not include explanations."
 )
 
-EXPERIMENT_ID = "EXT-C-E8-V4.3"
-VERSION = "4.4.0-dynamic-negative-control"
+EXPERIMENT_ID = "EXT-C-E8-V4.4-OFFLINE-BANK"
+VERSION = "4.5.0-offline-negative-bank"
 
 
 def read_model_metadata(model_path: str) -> dict[str, Any]:
@@ -1180,6 +1177,16 @@ class OfflineDataset(Dataset):
 
     def __getitem__(self, index: int) -> dict[str, Any]:
         row = self.rows[index]
+        bank_entries = row.get("negative_bank", [])
+        bank = [
+            encode_prompt_completion(
+                self.tokenizer,
+                row["prompt"],
+                item["expression"] if isinstance(item, dict) else str(item),
+                self.max_length,
+            )
+            for item in bank_entries
+        ]
         return {
             "positive": encode_prompt_completion(
                 self.tokenizer, row["prompt"], row["positive"], self.max_length
@@ -1190,6 +1197,7 @@ class OfflineDataset(Dataset):
             "far": encode_prompt_completion(
                 self.tokenizer, row["prompt"], row["far_negative"], self.max_length
             ),
+            "bank": bank,
         }
 
 
@@ -1215,11 +1223,21 @@ def make_sft_collator(pad_id: int):
 
 
 def make_offline_collator(pad_id: int):
-    def collate(batch: list[dict[str, Any]]) -> dict[str, dict[str, torch.Tensor]]:
-        return {
+    def collate(batch: list[dict[str, Any]]) -> dict[str, Any]:
+        result: dict[str, Any] = {
             key: pad_encoded([x[key] for x in batch], pad_id)
             for key in ("positive", "near", "far")
         }
+        bank_sizes = {len(x.get("bank", [])) for x in batch}
+        if len(bank_sizes) != 1:
+            raise ValueError("Every row in one offline batch must have the same bank size")
+        bank_size = bank_sizes.pop()
+        result["bank_size"] = bank_size
+        if bank_size:
+            result["bank"] = pad_encoded(
+                [item for row in batch for item in row["bank"]], pad_id
+            )
+        return result
     return collate
 
 
@@ -1283,6 +1301,80 @@ def detached_token_surprisal_taper(
     return torch.exp(
         -exp_lambda * F.relu(token_surprisal - surprisal_threshold)
     )
+
+
+def current_bank_extreme_indices(
+    seq_lp: torch.Tensor, batch_size: int, bank_size: int
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    """Return flat indices and per-row slots for current bank near/far items."""
+    if bank_size < 2:
+        raise ValueError("Offline negative-bank methods require at least two candidates")
+    expected = batch_size * bank_size
+    if seq_lp.shape[0] != expected:
+        raise ValueError("Flattened bank statistics do not match batch_size * bank_size")
+    surprisal = (-seq_lp.detach()).reshape(batch_size, bank_size)
+    near_slot = surprisal.argmin(dim=1)
+    far_slot = surprisal.argmax(dim=1)
+    offsets = torch.arange(batch_size, device=surprisal.device) * bank_size
+    return offsets + near_slot, offsets + far_slot, near_slot, far_slot
+
+
+def select_current_bank_extremes(
+    bank_stats: dict[str, torch.Tensor], batch_size: int, bank_size: int
+) -> tuple[dict[str, torch.Tensor], dict[str, torch.Tensor], torch.Tensor, torch.Tensor]:
+    """Select current nearest/farthest statistics from a fixed offline bank."""
+    near_flat, far_flat, near_slot, far_slot = current_bank_extreme_indices(
+        bank_stats["seq_lp"], batch_size, bank_size
+    )
+
+    def take(indices: torch.Tensor) -> dict[str, torch.Tensor]:
+        return {key: value.index_select(0, indices) for key, value in bank_stats.items()}
+
+    return take(near_flat), take(far_flat), near_slot, far_slot
+
+
+def select_tensor_batch(
+    batch: dict[str, torch.Tensor], indices: torch.Tensor
+) -> dict[str, torch.Tensor]:
+    """Index the first dimension of one encoded completion batch."""
+    return {key: value.index_select(0, indices) for key, value in batch.items()}
+
+
+def current_bank_training_batches(
+    model: Any,
+    bank_batch: dict[str, torch.Tensor],
+    batch_size: int,
+    bank_size: int,
+) -> tuple[dict[str, torch.Tensor], dict[str, torch.Tensor], torch.Tensor, torch.Tensor]:
+    """Deterministically select current near/far, then return only those batches.
+
+    Selection is an eval-mode, stop-gradient operation.  The caller performs a
+    fresh train-mode forward pass only on the two selected completions, avoiding
+    a 16-candidate activation graph while preserving current-policy reselection.
+    """
+    was_training = bool(model.training)
+    model.eval()
+    with torch.no_grad():
+        selection_stats = completion_stats(model, bank_batch)
+        near_flat, far_flat, near_slot, far_slot = current_bank_extreme_indices(
+            selection_stats["seq_lp"], batch_size, bank_size
+        )
+    if was_training:
+        model.train()
+    return (
+        select_tensor_batch(bank_batch, near_flat),
+        select_tensor_batch(bank_batch, far_flat),
+        near_slot,
+        far_slot,
+    )
+
+
+def method_uses_negative_bank(method: str) -> bool:
+    return method in {
+        "bank_dynamic_controlled_negative",
+        "bank_global_matched",
+        "bank_uncontrolled_negative",
+    }
 
 
 def controlled_negative_token_weights(
@@ -2182,10 +2274,70 @@ def build_nested_balanced_subsets(
     return output
 
 
+def select_fixed_negative_bank(
+    candidates: Sequence[dict[str, Any]],
+    near_item: dict[str, Any],
+    far_item: dict[str, Any],
+    bank_size: int,
+) -> list[dict[str, Any]]:
+    """Freeze a deterministic, surprisal-spanning bank while retaining the matched pair."""
+    if bank_size < 2:
+        raise ValueError("negative_bank_size must be at least 2")
+    ordered = sorted(candidates, key=lambda item: (float(item["surprisal"]), item["text"]))
+    unique: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for item in ordered:
+        if item["text"] not in seen:
+            unique.append(item)
+            seen.add(item["text"])
+    if len(unique) < bank_size:
+        raise ValueError(f"Need {bank_size} unique wrong candidates, found {len(unique)}")
+    required = {near_item["text"], far_item["text"]}
+    selected: dict[str, dict[str, Any]] = {
+        item["text"]: item for item in unique if item["text"] in required
+    }
+    remaining = bank_size - len(selected)
+    pool = [item for item in unique if item["text"] not in selected]
+    if remaining:
+        if remaining == 1:
+            slots = [len(pool) // 2]
+        else:
+            slots = [round(i * (len(pool) - 1) / (remaining - 1)) for i in range(remaining)]
+        for slot in slots:
+            selected[pool[slot]["text"]] = pool[slot]
+    if len(selected) < bank_size:
+        for item in pool:
+            selected.setdefault(item["text"], item)
+            if len(selected) == bank_size:
+                break
+    bank = sorted(selected.values(), key=lambda item: (float(item["surprisal"]), item["text"]))
+    if len(bank) != bank_size:
+        raise AssertionError("Frozen negative bank has the wrong size")
+    return bank
+
+
+def serialize_negative_bank(bank: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        {
+            "expression": item["text"],
+            "structure": item["structure"],
+            "base_surprisal": float(item["surprisal"]),
+            "token_length": int(item["token_length"]),
+            "tree_depth": int(item["tree_depth"]),
+            "value_error": float(item["value_error"]),
+        }
+        for item in bank
+    ]
+
+
 def cmd_build_offline(args: argparse.Namespace) -> None:
     seed_all(args.seed)
     if args.batch_size < 1:
         raise ValueError("--batch_size must be positive")
+    if args.negative_bank_size < 2:
+        raise ValueError("--negative_bank_size must be at least 2")
+    if args.min_negative_candidates < args.negative_bank_size:
+        raise ValueError("--min_negative_candidates must be >= --negative_bank_size")
     tokenizer = load_tokenizer(args.model_path)
     reference_adapter = args.reference_adapter or getattr(args, "sft_adapter", None)
     model = load_model(
@@ -2398,6 +2550,21 @@ def cmd_build_offline(args: argparse.Namespace) -> None:
                 )[0]
                 diagnostics["oracle_positive"] += 1
 
+            detailed_bank_candidates = [
+                candidate_metadata(item, tokenizer) for item in valid_wrong
+            ]
+            try:
+                frozen_bank = select_fixed_negative_bank(
+                    detailed_bank_candidates,
+                    near_item,
+                    far_item,
+                    args.negative_bank_size,
+                )
+            except ValueError:
+                diagnostics["dropped_insufficient_bank"] += 1
+                dropped_by_pattern[oracle_structure] += 1
+                continue
+
             diagnostics[
                 "matched_initial" if matched_round == 0 else "matched_after_resample"
             ] += 1
@@ -2421,6 +2588,8 @@ def cmd_build_offline(args: argparse.Namespace) -> None:
                 "far_value_error": float(far_item["value_error"]),
                 "pair_matched": True,
                 "matched_after_resample_round": matched_round,
+                "negative_bank_size": len(frozen_bank),
+                "negative_bank": serialize_negative_bank(frozen_bank),
             })
             if len(output_rows) % 100 == 0:
                 completed = sum(
@@ -2464,10 +2633,18 @@ def cmd_build_offline(args: argparse.Namespace) -> None:
         )
     if any(not row.get("pair_matched") for row in output_rows):
         raise AssertionError("Unmatched pairs must never enter the offline training data")
+    if any(len(row.get("negative_bank", [])) != args.negative_bank_size for row in output_rows):
+        raise AssertionError("Every saved row must contain the frozen negative bank")
+    if any(
+        len({item["expression"] for item in row["negative_bank"]}) != args.negative_bank_size
+        for row in output_rows
+    ):
+        raise AssertionError("Negative-bank expressions must be unique within each prompt")
     heldout_leaks = [
         row for row in output_rows
         if row["near_structure"] not in allowed_patterns
         or row["far_structure"] not in allowed_patterns
+        or any(item["structure"] not in allowed_patterns for item in row["negative_bank"])
     ]
     if heldout_leaks:
         raise AssertionError("Held-out canonical pattern leaked into training negatives")
@@ -2513,6 +2690,8 @@ def cmd_build_offline(args: argparse.Namespace) -> None:
         "mean_surprisal_gap": float(np.mean([
             row["surprisal_gap"] for row in output_rows
         ])),
+        "negative_bank_size": args.negative_bank_size,
+        "negative_bank_policy": "fixed_before_training_current_policy_dynamic_min_max_selection",
         "heldout_pattern_leaks": 0,
         "nested_balanced_subsets": nested_outputs,
         "formal_interpretation": (
@@ -2614,6 +2793,10 @@ def dynamic_negative_diagnostics(
     near_crossings = 0
     far_crossings = 0
     total_sequences = 0
+    bank_near_surprisal: list[float] = []
+    bank_far_surprisal: list[float] = []
+    bank_near_slots: list[int] = []
+    bank_far_slots: list[int] = []
     with torch.no_grad():
         for packed in loader:
             pos = completion_stats(model, move_to_device(packed["positive"], device))
@@ -2648,6 +2831,20 @@ def dynamic_negative_diagnostics(
             far_weights.extend(
                 float(value) for value in far_weighted.float().cpu().tolist()
             )
+            bank_size = int(packed.get("bank_size", 0))
+            if bank_size and "bank" in packed:
+                bank_stats = completion_stats(model, move_to_device(packed["bank"], device))
+                bank_near, bank_far, near_slot, far_slot = select_current_bank_extremes(
+                    bank_stats, len(near_values), bank_size
+                )
+                bank_near_surprisal.extend(
+                    float(value) for value in (-bank_near["seq_lp"]).float().cpu().tolist()
+                )
+                bank_far_surprisal.extend(
+                    float(value) for value in (-bank_far["seq_lp"]).float().cpu().tolist()
+                )
+                bank_near_slots.extend(int(value) for value in near_slot.cpu().tolist())
+                bank_far_slots.extend(int(value) for value in far_slot.cpu().tolist())
 
     gradient_rows = diagnostic_rows[: max(1, min(gradient_examples, len(diagnostic_rows)))]
     gradient_dataset = OfflineDataset(list(gradient_rows), tokenizer, max_length)
@@ -2732,6 +2929,18 @@ def dynamic_negative_diagnostics(
         "far_above_threshold_fraction": float(far_crossings / max(total_sequences, 1)),
         "controlled_near_token_weight_mean": float(np.mean(near_weights)),
         "controlled_far_token_weight_mean": float(np.mean(far_weights)),
+        "bank_current_near_surprisal_mean": (
+            float(np.mean(bank_near_surprisal)) if bank_near_surprisal else float("nan")
+        ),
+        "bank_current_far_surprisal_mean": (
+            float(np.mean(bank_far_surprisal)) if bank_far_surprisal else float("nan")
+        ),
+        "bank_current_near_unique_slot_fraction": (
+            len(set(bank_near_slots)) / max(len(bank_near_slots), 1)
+        ),
+        "bank_current_far_unique_slot_fraction": (
+            len(set(bank_far_slots)) / max(len(bank_far_slots), 1)
+        ),
         "positive_gradient_norm": pos_norm,
         "near_negative_gradient_norm_raw": near_norm,
         "near_negative_gradient_norm_controlled": near_controlled_norm,
@@ -2801,7 +3010,8 @@ def cmd_train_method(args: argparse.Namespace) -> None:
     if args.method != "positive_only":
         if args.negative_calibration_json:
             calibration = json.loads(Path(args.negative_calibration_json).read_text())
-            calibrated_negative_scale = float(calibration["negative_scale"])
+            scale_key = "bank_negative_scale" if method_uses_negative_bank(args.method) else "negative_scale"
+            calibrated_negative_scale = float(calibration[scale_key])
         elif args.negative_scale is not None:
             calibrated_negative_scale = float(args.negative_scale)
         else:
@@ -2815,12 +3025,13 @@ def cmd_train_method(args: argparse.Namespace) -> None:
         ):
             raise RuntimeError("Invalid calibrated negative scale")
 
-    if args.method == "global_matched":
+    if args.method in {"global_matched", "bank_global_matched"}:
         if calibration is None:
             raise RuntimeError(
-                "global_matched requires --negative_calibration_json containing global_gamma"
+                f"{args.method} requires --negative_calibration_json"
             )
-        calibrated_global_gamma = float(calibration["global_gamma"])
+        gamma_key = "bank_global_gamma" if args.method == "bank_global_matched" else "global_gamma"
+        calibrated_global_gamma = float(calibration[gamma_key])
         if not math.isfinite(calibrated_global_gamma) or calibrated_global_gamma <= 0:
             raise RuntimeError("Invalid calibrated global gamma")
 
@@ -2916,8 +3127,23 @@ def cmd_train_method(args: argparse.Namespace) -> None:
                 mean_weight = 0.0
                 raw_loss = -positive_lp
             else:
-                near = completion_stats(model, move_to_device(packed["near"], device))
-                far = completion_stats(model, move_to_device(packed["far"], device))
+                if method_uses_negative_bank(args.method):
+                    bank_size = int(packed.get("bank_size", 0))
+                    if bank_size < 2 or "bank" not in packed:
+                        raise RuntimeError("Selected bank method requires a populated negative bank")
+                    bank_batch = move_to_device(packed["bank"], device)
+                    near_batch, far_batch, near_slots, far_slots = current_bank_training_batches(
+                        model,
+                        bank_batch,
+                        packed["positive"]["input_ids"].shape[0],
+                        bank_size,
+                    )
+                    near = completion_stats(model, near_batch)
+                    far = completion_stats(model, far_batch)
+                else:
+                    near = completion_stats(model, move_to_device(packed["near"], device))
+                    far = completion_stats(model, move_to_device(packed["far"], device))
+                    near_slots = far_slots = None
                 near_seq_weights = torch.ones_like(near["seq_lp"])
                 far_seq_weights = torch.ones_like(far["seq_lp"])
                 near_token_weights, far_token_weights = controlled_negative_token_weights(
@@ -2940,7 +3166,7 @@ def cmd_train_method(args: argparse.Namespace) -> None:
                 gamma = 1.0
                 if args.method == "global":
                     gamma = args.global_gamma
-                elif args.method == "global_matched":
+                elif args.method in {"global_matched", "bank_global_matched"}:
                     assert calibrated_global_gamma is not None
                     gamma = calibrated_global_gamma
                 elif args.method in {"sbrc", "hybrid"}:
@@ -2961,7 +3187,18 @@ def cmd_train_method(args: argparse.Namespace) -> None:
                     )
                     gamma = min(score_gamma, entropy_gamma)
 
-                if args.method in {"controlled_negative", "dynamic_controlled_negative"}:
+                if args.method in {
+                    "controlled_negative",
+                    "dynamic_controlled_negative",
+                    "bank_dynamic_controlled_negative",
+                }:
+                    if args.method == "bank_dynamic_controlled_negative":
+                        near_token_weights = detached_token_surprisal_taper(
+                            near, args.exp_lambda, args.surprisal_threshold
+                        )
+                        far_token_weights = detached_token_surprisal_taper(
+                            far, args.exp_lambda, args.surprisal_threshold
+                        )
                     near_lp = weighted_sequence_logprob(near, near_token_weights)
                     far_lp = weighted_sequence_logprob(far, far_token_weights)
                 else:
@@ -2978,7 +3215,11 @@ def cmd_train_method(args: argparse.Namespace) -> None:
                     entropy_gap = F.relu(args.target_entropy - pos["entropy"].mean())
                     raw_loss = raw_loss + args.target_entropy_coef * entropy_gap.square()
 
-                if args.method in {"controlled_negative", "dynamic_controlled_negative"}:
+                if args.method in {
+                    "controlled_negative",
+                    "dynamic_controlled_negative",
+                    "bank_dynamic_controlled_negative",
+                }:
                     near_weight_value = float(
                         (near_token_weights.detach() * near["token_mask"]).sum()
                         / near["token_mask"].sum().clamp_min(1)
@@ -3011,6 +3252,12 @@ def cmd_train_method(args: argparse.Namespace) -> None:
             log_accum["pos_lp"] += float(positive_lp.detach()) / args.grad_accum
             log_accum["neg_lp"] += float(negative_lp.detach()) / args.grad_accum
             log_accum["entropy"] += float(pos["entropy"].detach().mean()) / args.grad_accum
+            if args.method != "positive_only" and method_uses_negative_bank(args.method):
+                log_accum.setdefault("bank_near_slot", 0.0)
+                log_accum.setdefault("bank_far_slot", 0.0)
+                assert near_slots is not None and far_slots is not None
+                log_accum["bank_near_slot"] += float(near_slots.float().mean()) / args.grad_accum
+                log_accum["bank_far_slot"] += float(far_slots.float().mean()) / args.grad_accum
         if stop_training:
             break
 
@@ -3218,6 +3465,9 @@ def cmd_calibrate_global(args: argparse.Namespace) -> None:
     controlled_norms: list[float] = []
     uncontrolled_norms: list[float] = []
     controlled_weights: list[float] = []
+    bank_controlled_norms: list[float] = []
+    bank_uncontrolled_norms: list[float] = []
+    bank_controlled_weights: list[float] = []
 
     for batch_index, packed in enumerate(loader):
         if batch_index >= args.calibration_batches:
@@ -3261,15 +3511,71 @@ def cmd_calibrate_global(args: argparse.Namespace) -> None:
         (-uncontrolled_lp).backward()
         uncontrolled_norms.append(_current_gradient_norm(trainable))
 
+        bank_size = int(packed.get("bank_size", 0))
+        if bank_size < 2 or "bank" not in packed:
+            raise RuntimeError("Bank calibration requires every row to contain a negative bank")
+        bank_batch = move_to_device(packed["bank"], device)
+        bank_near_batch, bank_far_batch, _, _ = current_bank_training_batches(
+            model, bank_batch, positive_batch["input_ids"].shape[0], bank_size
+        )
+
+        model.zero_grad(set_to_none=True)
+        bank_near = completion_stats(model, bank_near_batch)
+        bank_far = completion_stats(model, bank_far_batch)
+        bank_near_weights = detached_token_surprisal_taper(
+            bank_near, args.exp_lambda, args.surprisal_threshold
+        )
+        bank_far_weights = detached_token_surprisal_taper(
+            bank_far, args.exp_lambda, args.surprisal_threshold
+        )
+        bank_controlled_lp = (
+            args.near_mix * weighted_sequence_logprob(bank_near, bank_near_weights).mean()
+            + args.far_mix * weighted_sequence_logprob(bank_far, bank_far_weights).mean()
+        )
+        (-bank_controlled_lp).backward()
+        bank_controlled_norms.append(_current_gradient_norm(trainable))
+        bank_controlled_weights.append(float(
+            args.near_mix
+            * (bank_near_weights.detach() * bank_near["token_mask"]).sum()
+            / bank_near["token_mask"].sum().clamp_min(1)
+            + args.far_mix
+            * (bank_far_weights.detach() * bank_far["token_mask"]).sum()
+            / bank_far["token_mask"].sum().clamp_min(1)
+        ))
+
+        model.zero_grad(set_to_none=True)
+        bank_near = completion_stats(model, bank_near_batch)
+        bank_far = completion_stats(model, bank_far_batch)
+        bank_uncontrolled_lp = (
+            args.near_mix * bank_near["seq_lp"].mean()
+            + args.far_mix * bank_far["seq_lp"].mean()
+        )
+        (-bank_uncontrolled_lp).backward()
+        bank_uncontrolled_norms.append(_current_gradient_norm(trainable))
+
     model.zero_grad(set_to_none=True)
-    if not positive_norms or not controlled_norms or not uncontrolled_norms:
+    if not (
+        positive_norms
+        and controlled_norms
+        and uncontrolled_norms
+        and bank_controlled_norms
+        and bank_uncontrolled_norms
+    ):
         raise RuntimeError("No calibration batches were processed")
     positive_rms = float(np.sqrt(np.mean(np.square(positive_norms))))
     controlled_rms = float(np.sqrt(np.mean(np.square(controlled_norms))))
     uncontrolled_rms = float(np.sqrt(np.mean(np.square(uncontrolled_norms))))
+    bank_controlled_rms = float(np.sqrt(np.mean(np.square(bank_controlled_norms))))
+    bank_uncontrolled_rms = float(np.sqrt(np.mean(np.square(bank_uncontrolled_norms))))
     try:
         negative_scale, gamma = calibration_scales_from_rms(
             positive_rms, controlled_rms, uncontrolled_rms
+        )
+    except ValueError as exc:
+        raise RuntimeError(str(exc)) from exc
+    try:
+        bank_negative_scale, bank_gamma = calibration_scales_from_rms(
+            positive_rms, bank_controlled_rms, bank_uncontrolled_rms
         )
     except ValueError as exc:
         raise RuntimeError(str(exc)) from exc
@@ -3284,12 +3590,19 @@ def cmd_calibrate_global(args: argparse.Namespace) -> None:
         "positive_gradient_norms": positive_norms,
         "controlled_gradient_norms": controlled_norms,
         "uncontrolled_gradient_norms": uncontrolled_norms,
+        "bank_controlled_gradient_norms": bank_controlled_norms,
+        "bank_uncontrolled_gradient_norms": bank_uncontrolled_norms,
         "positive_rms_gradient_norm": positive_rms,
         "controlled_rms_gradient_norm": controlled_rms,
         "uncontrolled_rms_gradient_norm": uncontrolled_rms,
+        "bank_controlled_rms_gradient_norm": bank_controlled_rms,
+        "bank_uncontrolled_rms_gradient_norm": bank_uncontrolled_rms,
         "negative_scale": negative_scale,
         "global_gamma": gamma,
+        "bank_negative_scale": bank_negative_scale,
+        "bank_global_gamma": bank_gamma,
         "mean_controlled_scalar_weight": float(np.mean(controlled_weights)),
+        "mean_bank_controlled_scalar_weight": float(np.mean(bank_controlled_weights)),
         "frozen_before_method_training": True,
         "interpretation": (
             "negative_scale is shared by every negative-advantage method and matches "
@@ -3297,7 +3610,9 @@ def cmd_calibrate_global(args: argparse.Namespace) -> None:
             "global_matched additionally applies one fixed gamma equally to near and far. "
             "controlled_negative preserves the V4.2 static far-only taper, whereas "
             "dynamic_controlled_negative applies the same current-policy token taper "
-            "to both initially-near and initially-far branches."
+            "to both initially-near and initially-far branches. Bank methods first select "
+            "the current minimum- and maximum-surprisal candidates from the frozen bank; "
+            "bank_global_matched uses one fixed gamma to match the initial bank-controlled RMS."
         ),
         "task_metrics_used_for_selection": False,
         "test_data_used": False,
@@ -3743,7 +4058,7 @@ def _evaluation_argv(
 
 
 def cmd_run(args: argparse.Namespace) -> None:
-    """Run the preregistered V4.3 dynamic-remoteness pilot."""
+    """Run the preregistered V4.4 fixed offline negative-bank pilot."""
     gpu_ids = resolve_gpu_ids(args.gpus, args.gpu)
     primary_gpu = gpu_ids[0]
     primary_parent_index = _parent_gpu_index(primary_gpu)
@@ -3814,7 +4129,9 @@ def cmd_run(args: argparse.Namespace) -> None:
     methods = [method.strip() for method in args.methods.split(",") if method.strip()]
     allowed = {
         "positive_only", "controlled_negative", "dynamic_controlled_negative",
-        "uncontrolled_negative", "global_matched", "uncontrolled", "global",
+        "bank_dynamic_controlled_negative", "bank_global_matched",
+        "bank_uncontrolled_negative", "uncontrolled_negative", "global_matched",
+        "uncontrolled", "global",
         "exp", "entropy_bonus", "target_entropy", "sbrc", "hybrid",
     }
     unknown = set(methods) - allowed
@@ -3822,14 +4139,16 @@ def cmd_run(args: argparse.Namespace) -> None:
         raise ValueError(f"Unknown methods: {sorted(unknown)}")
     required_pilot = {
         "positive_only",
-        "controlled_negative",
         "dynamic_controlled_negative",
-        "uncontrolled_negative",
+        "bank_dynamic_controlled_negative",
+        "bank_global_matched",
+        "bank_uncontrolled_negative",
     }
     if run_status == "pilot" and set(methods) != required_pilot:
         raise RuntimeError(
-            "The registered V4.3 pilot is frozen to positive-only, static control, "
-            "dynamic control, and uncontrolled negative updates."
+            "The registered V4.4 offline-bank pilot is frozen to positive-only, "
+            "legacy pair-dynamic control, bank-dynamic control, bank-global-matched, "
+            "and bank-uncontrolled updates."
         )
 
     presets = {
@@ -4074,7 +4393,8 @@ def cmd_run(args: argparse.Namespace) -> None:
                 "--batch_size", str(plan["rollout_batch"]),
                 "--score_batch_size", str(plan["score_batch"]),
                 "--pair_resample_rounds", str(args.pair_resample_rounds),
-                "--min_negative_candidates", "8",
+                "--min_negative_candidates", "16",
+                "--negative_bank_size", "16",
                 "--synthetic_rescue_candidates", "64",
                 "--seed", str(args.seed + 11),
             ],
@@ -4571,7 +4891,8 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--rollouts", type=int, default=12)
     ap.add_argument("--batch_size", type=int, default=4, help="Initial rollout generation batch size")
     ap.add_argument("--pair_resample_rounds", type=int, default=8)
-    ap.add_argument("--min_negative_candidates", type=int, default=8)
+    ap.add_argument("--min_negative_candidates", type=int, default=16)
+    ap.add_argument("--negative_bank_size", type=int, default=16)
     ap.add_argument("--synthetic_rescue_candidates", type=int, default=64)
     ap.add_argument("--score_batch_size", type=int, default=16)
     ap.add_argument("--max_examples", type=int, default=6000, help="0 means all")
@@ -4618,6 +4939,9 @@ def build_parser() -> argparse.ArgumentParser:
             "positive_only",
             "controlled_negative",
             "dynamic_controlled_negative",
+            "bank_dynamic_controlled_negative",
+            "bank_global_matched",
+            "bank_uncontrolled_negative",
             "uncontrolled_negative",
             "global_matched",
             "uncontrolled",
@@ -4649,7 +4973,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--negative_scale", type=float, default=None,
         help=(
             "Explicit shared negative scale for a separately registered run. "
-            "The V4.3 focused pilot normally reads the automatically calibrated value."
+            "The V4.4 offline-bank pilot normally reads the automatically calibrated value."
         ),
     )
     ap.add_argument("--near_mix", type=float, default=0.5)
@@ -4718,8 +5042,8 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument(
         "--methods",
         default=(
-            "positive_only,controlled_negative,dynamic_controlled_negative,"
-            "uncontrolled_negative"
+            "positive_only,dynamic_controlled_negative,bank_dynamic_controlled_negative,"
+            "bank_global_matched,bank_uncontrolled_negative"
         ),
     )
     ap.add_argument("--min_base_success", type=float, default=0.15)

@@ -23,16 +23,16 @@ def test_one_click_launcher_requires_only_model_and_work_dir() -> None:
     assert args.gpus == "auto"
     assert args.artifact_output is None
     assert args.allow_dirty is False
-    assert launcher.EXPERIMENT_ID == "EXT-C-E8-V4.3"
+    assert launcher.EXPERIMENT_ID == "EXT-C-E8-V4.4-OFFLINE-BANK"
 
 
-def test_registry_points_to_the_one_click_v4_4_runner() -> None:
+def test_registry_points_to_the_one_click_v4_5_offline_bank_runner() -> None:
     registry = Path(__file__).resolve().parents[1] / "experiments" / "registry.yaml"
     payload = yaml.safe_load(registry.read_text())
-    entry = next(x for x in payload["experiments"] if x.get("id") == "EXT-C-E8-V4.3")
+    entry = next(x for x in payload["experiments"] if x.get("id") == "EXT-C-E8-V4.4-OFFLINE-BANK")
     assert entry["status"] == "not_run"
-    assert entry["parameterization"]["runner_version"] == "4.4.0-dynamic-negative-control"
+    assert entry["parameterization"]["runner_version"] == "4.5.0-offline-negative-bank"
     assert entry["one_click_entrypoint"] == "scripts/run_countdown_pilot.py"
     assert entry["orchestration"]["reason_build_offline_not_sharded"] == (
-        "preserve_one_deterministic_rng_stream_and_pattern_quota_protocol"
+        "preserve_one_deterministic_rng_stream_pattern_quota_and_fixed_bank_protocol"
     )

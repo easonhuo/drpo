@@ -1,0 +1,134 @@
+schema_version: 2
+update_id: EXT-C-E8-V4.4-OFFLINE-BANK-2026-06-28
+mode: shadow
+base:
+  commit: c2ad7d5f6fe957d6a6297e6987d878cf72dbf7c8
+  handoff_sha256: a7c2b572a42ff3cbe7329994b30818963423ed9d256e8e876bc8aa34b19ed375
+  registry_sha256: e4184acff76a4e6beed77aea208a2e023a8de7f2fb3696c4ffc858b830100eae
+renderer_version: 1
+operations:
+- operation_id: rename-v56-title-to-v57-countdown-offline-bank
+  op: replace_heading
+  heading_path:
+  - DRPO / SNA2C 远场负梯度动力学研究主文档 v56（D-U1 E6 父 Claim 关闭与 E7 路线解锁版）
+  new_heading: DRPO / SNA2C 远场负梯度动力学研究主文档 v57（Countdown 固定离线 Negative Bank Pilot 版）
+  reason: Register the user-approved fixed-offline-negative-bank focused pilot without deleting the v56 E6 closure or changing
+    the next formal E7 route.
+- operation_id: prepend-v57-countdown-offline-negative-bank
+  op: insert_after_heading
+  heading_path:
+  - DRPO / SNA2C 远场负梯度动力学研究主文档 v57（Countdown 固定离线 Negative Bank Pilot 版）
+  block_id: v57-ext-c-e8-v44-offline-negative-bank
+  content: '> **v57 增量登记：Countdown `EXT-C-E8-V4.4-OFFLINE-BANK` 固定离线 negative-bank pilot（不删除 v56 及更早内容）**
+
+    >
+
+    > - 用户确认采用两阶段路线：先完成纯离线固定 negative-bank 实验，再依据离线结果另行讨论并登记 online off-policy successor。本版禁止在方法训练期间重新 rollout、追加 replay 数据或把在线刷新与负样本密度同时改变。
+
+    > - V4.3 的 matched near/far pair 与动态 remoteness 修复继续保留。新实验只检验一个更窄的问题：每个 prompt 只有一对固定负样本时，两者可能很快同时远场化；将固定离线负样本覆盖扩大后，是否能持续提供当前局部负信号并超过
+    Positive-only。该动机不 retroactively 升级 V4.3 的 repository result status。
+
+    > - 新实验 ID 为 `EXT-C-E8-V4.4-OFFLINE-BANK`，状态为 **尚未运行（not_run）**，执行类别为 single-seed focused pilot。每个训练 prompt 在方法训练前冻结 `16`
+    个互不重复、格式合法且 verifier 判错的表达式；原 matched near/far pair 继续保存，只承担瞬时机制与 provenance 对照。
+
+    > - 方法训练期间 bank 内容不变。每个 optimizer step 使用当前 learner 对同一固定 bank 重新计分，选择最低 sequence surprisal 为 current near、最高 sequence
+    surprisal 为 current far；选择过程 stop-gradient，随后只对选出的两条 completion 做 train-mode forward/backward，避免建立 16-candidate activation
+    graph。
+
+    > - 冻结比较为 `positive_only`、V4.3 `dynamic_controlled_negative`、`bank_dynamic_controlled_negative`、`bank_global_matched`
+    与 `bank_uncontrolled_negative`。Bank dynamic 对当前 near/far 使用同一 detached token-surprisal taper；bank global 使用与 bank dynamic
+    初始实际负梯度 RMS 匹配的统一系数；不得预设任何方法胜出。
+
+    > - 数据规模、SFT/base gate、seed、学习率、训练 horizon、near/far mix、taper lambda、surprisal threshold、LoRA 配置和 best/terminal 审计沿用 V4.3。主要结果仍是
+    greedy verifier success、pass@k、valid rate 与 held-out canonical pattern-family coverage/precision；bank 槽位轮换、surprisal 和权重仅是实现诊断。
+
+    > - 0.5B 单 seed 只承担 focused pilot。reference greedy `<0.15` 时禁止正式方法排名、online-successor 成功结论或 3B scale-up 结论。任务性能退化、support/structure
+    boundary 与 NaN/Inf 数值失败继续分开报告；不得称 state-distribution OOD generalization。
+
+    > - 本 pilot 的用户批准不改变 v56 锁定的正式路线：`EXT-H-E7-Q2` 仍是下一 formal route item。V4.4 可作为非正式外部诊断执行，但不得越过 E7/E7-BENCH 门禁解锁 `EXT-C-E8-SCALE-01`。
+
+    > - 本更新基于 `main` commit `c2ad7d5f6fe957d6a6297e6987d878cf72dbf7c8`，只完成文档、实现与测试注册；未运行真实 Qwen/CUDA/BF16-LoRA pilot。'
+- operation_id: append-v57-countdown-offline-bank-current-gate
+  op: append_to_section
+  heading_path:
+  - 0. 研究与执行原则（每次新会话首先阅读）
+  - 0.1 当前执行门禁
+  block_id: v57-countdown-offline-bank-current-gate
+  content: '- **Countdown v57 覆盖：** `EXT-C-E8-V4.4-OFFLINE-BANK` 是用户批准的当前离线 focused pilot；V4.3 保留为 fixed-pair predecessor。V4.4
+    只改变固定负样本覆盖与 current-policy near/far reselection，不引入在线数据刷新。`EXT-H-E7-Q2` 仍是下一正式 route item，`EXT-C-E8-SCALE-01` 继续 blocked。'
+- operation_id: append-v57-e8-offline-online-route
+  op: append_to_section
+  heading_path:
+  - 3. 连续统一环境 C-U1 的详细设计
+  - 3.9 E6--E8 方法迁移与规模验证路线（v42 锁定）
+  block_id: v57-e8-offline-online-route
+  content: 8. **v57 E8 内部路线覆盖：** 在进入 E8 外部诊断时，先执行 `EXT-C-E8-V4.4-OFFLINE-BANK`，只改变 fixed-bank 密度与每步动态选择；online off-policy
+    必须作为独立 successor 重新冻结 rollout actor、同步滞后、replay age、seeds 与预算匹配，不能与 V4.4 共用结论。
+- operation_id: append-v57-e8-offline-bank-execution-order
+  op: append_to_section
+  heading_path:
+  - 6. 接下来唯一执行顺序
+  block_id: v57-e8-offline-bank-execution-order
+  content: 14. **v57 执行覆盖：** v56 的 formal 顺序不变，`EXT-H-E7-Q2` 仍是下一正式实验。用户批准的 V4.4 作为 single-seed focused pilot 可独立执行，但必须先完成自身
+    best/terminal audit 与结果交付，才允许讨论 online off-policy successor；不得一次性同时改变 negative-bank 密度和数据在线刷新机制。
+registry:
+  mode: expected_after
+  expected_after_sha256: 27fab74100f0e9c184fb298a3435a9487fb818d506b34eb402e4f637c3682125
+  changes:
+  - change_id: e8-v44-add-pilot
+    kind: add_entity
+    entity_id: EXT-C-E8-V4.4-OFFLINE-BANK
+    evidence:
+    - docs/handoff.md
+    - experiments/registry.yaml
+    - src/drpo/countdown_qwen_arena_onefile.py
+    - tests/test_countdown_qwen_arena.py
+  - change_id: e8-v44-scale-blocker
+    kind: update_field
+    entity_id: EXT-C-E8-SCALE-01
+    field_path:
+    - execution_gate
+    - blocked_by
+    from:
+    - EXT-C-E8-V4.3
+    - EXT-H-E7-BENCH-01
+    to:
+    - EXT-C-E8-V4.4-OFFLINE-BANK
+    - EXT-H-E7-BENCH-01
+    reason: Require the audited fixed-bank offline pilot before Countdown scale-up while preserving the E7-BENCH dependency.
+    evidence:
+    - docs/handoff.md
+    - experiments/registry.yaml
+    - tests/test_experiment_route_v42.py
+  - change_id: e8-v44-scale-reason
+    kind: update_field
+    entity_id: EXT-C-E8-SCALE-01
+    field_path:
+    - execution_gate
+    - blocking_reason
+    from: The audited Countdown mechanism/pilot and the continuous external benchmark must be delivered before model/data
+      scaling uses a frozen method shortlist.
+    to: The audited V4.4 fixed-bank offline pilot and the continuous external benchmark must be delivered before model/data
+      scaling uses a frozen method shortlist.
+    reason: Name the exact offline predecessor that must be audited before scale-up.
+    evidence:
+    - docs/handoff.md
+    - experiments/registry.yaml
+    - tests/test_experiment_route_v42.py
+  - change_id: e8-v44-scale-owner
+    kind: update_field
+    entity_id: EXT-C-E8-SCALE-01
+    field_path:
+    - scaling_plan
+    - mechanism_owner
+    from: EXT-C-E8-V4.3
+    to: EXT-C-E8-V4.4-OFFLINE-BANK
+    reason: Bind the later scale experiment to the newest user-approved offline focused pilot rather than the single-pair
+      predecessor.
+    evidence:
+    - docs/handoff.md
+    - experiments/registry.yaml
+    - tests/test_experiment_route_v42.py
+expected:
+  candidate_sha256: c60e81fe004a606bb57efabed2bda2a6a3b234110bc55d686ec606c7e420c7db
+  manual_sha256: c60e81fe004a606bb57efabed2bda2a6a3b234110bc55d686ec606c7e420c7db
