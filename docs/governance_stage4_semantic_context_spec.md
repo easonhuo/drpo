@@ -241,7 +241,7 @@ Stage 4 开发必须拆分为独立可验收更新，不允许一次性实现并
 - **切换过早：** Stage 5 独立授权和回滚计划；
 - **治理复杂度膨胀：** 只保留必要节点/关系类型，不建设通用知识库平台。
 
-## 8. 当前授权边界
+## 8. 初始设计登记时的授权边界（历史）
 
 本规范的登记只授权：
 
@@ -256,3 +256,25 @@ Stage 4 开发必须拆分为独立可验收更新，不允许一次性实现并
 - 启动 Stage 5；
 - 自动编辑或提交正式 handoff；
 - 修改任何科学实验状态或执行顺序。
+
+## 9. 当前 Stage 4A 并行实现授权
+
+在 `GOV-STAGE4A-PARALLEL-IMPLEMENTATION-2026-06-28` 下，Stage 4 的前置关系更新为：Stage 3 已实现并进入 `feature_frozen_bugfix_only` 即足以授权 Stage 4A shadow implementation；Stage 3 继续独立执行真实 observation 和 20-update／7-day Full Acceptance。
+
+当前允许：
+
+- 冻结 Stage 4A schema；
+- 建立 heading / claim / experiment 静态 inventory；
+- 实现只读、确定性的 Stage 4A validator；
+- 增加 fail-closed mutation tests；
+- 在明确的 shadow 路径保存 Stage 4A 静态产物。
+
+当前仍禁止：
+
+- 生成或启用 Stage 4B 的拆分 candidate；
+- 实现或启用 Stage 4C context packer；
+- 修改默认启动上下文；
+- 替换、覆盖或自动提交 `docs/handoff.md`；
+- 任何 Stage 5 或 Delta-first authority cutover。
+
+Stage 4B 只有在独立 Stage 4A acceptance 更新通过后才能授权。Stage 4C 只有在独立 Stage 4B acceptance 更新通过后才能授权。Stage 5 必须同时等待 Stage 3 shadow validation 和 Stage 4 lossless validation。

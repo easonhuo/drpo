@@ -326,16 +326,9 @@ def validate(repo_root: Path, ledger_path: Path) -> dict[str, Any]:
                 raise StageStatusError(
                     "stage_3 feature freeze requires a stage_transition authorization"
                 )
-            expected_freeze_statuses = {
-                "stage_3": "shadow_active",
-                "stage_4": "blocked_by_predecessor",
-            }
-            if any(
-                freeze_auth["authorized_stage_statuses"].get(key) != value
-                for key, value in expected_freeze_statuses.items()
-            ):
+            if freeze_auth["authorized_stage_statuses"].get("stage_3") != "shadow_active":
                 raise StageStatusError(
-                    "stage_3 feature freeze authorization has inconsistent stage statuses"
+                    "stage_3 feature freeze authorization must preserve shadow_active"
                 )
             checkpoint = require_string(
                 stage.get("freeze_checkpoint_full_acceptance_report"),
@@ -393,9 +386,9 @@ def validate(repo_root: Path, ledger_path: Path) -> dict[str, Any]:
                 safe_repo_path(repo_root, value, f"stage_3 {key}")
 
         if stage_id == "stage_4":
-            if status != "blocked_by_predecessor":
+            if status != "active":
                 raise StageStatusError(
-                    "stage_4 must remain blocked_by_predecessor until Stage 3 shadow validation"
+                    "stage_4 must be active while only Stage 4A shadow implementation is authorized"
                 )
             if stage.get("design_state") != "specification_authorized":
                 raise StageStatusError(
@@ -404,9 +397,42 @@ def validate(repo_root: Path, ledger_path: Path) -> dict[str, Any]:
             design_auth_id = require_string(
                 stage.get("design_authorization"), "stage_4 design_authorization"
             )
-            if design_auth_id != status_auth_id:
+            expected_design_auth_id = "GOV-STAGE3-FREEZE-STAGE4-DESIGN-2026-06-28"
+            if design_auth_id != expected_design_auth_id:
                 raise StageStatusError(
-                    "stage_4 design and status must use the same authorization"
+                    f"stage_4 design_authorization must remain {expected_design_auth_id}"
+                )
+            design_auth = authorizations.get(design_auth_id)
+            if design_auth is None or design_auth.get("kind") != "stage_transition":
+                raise StageStatusError(
+                    "stage_4 design requires its registered stage_transition authorization"
+                )
+            implementation_auth_id = require_string(
+                stage.get("implementation_authorization"),
+                "stage_4 implementation_authorization",
+            )
+            expected_implementation_auth_id = (
+                "GOV-STAGE4A-PARALLEL-IMPLEMENTATION-2026-06-28"
+            )
+            if implementation_auth_id != expected_implementation_auth_id:
+                raise StageStatusError(
+                    "stage_4 implementation_authorization is not the approved Stage 4A record"
+                )
+            if implementation_auth_id != status_auth_id:
+                raise StageStatusError(
+                    "stage_4 status and implementation must use the same authorization"
+                )
+            implementation_auth = authorizations.get(implementation_auth_id)
+            if (
+                implementation_auth is None
+                or implementation_auth.get("kind") != "stage_transition"
+            ):
+                raise StageStatusError(
+                    "stage_4 implementation requires a stage_transition authorization"
+                )
+            if implementation_auth["authorized_stage_statuses"].get("stage_3") != "shadow_active":
+                raise StageStatusError(
+                    "stage_4 parallel authorization must preserve Stage 3 shadow_active"
                 )
             spec = require_string(
                 stage.get("semantic_context_spec"), "stage_4 semantic_context_spec"
@@ -417,22 +443,30 @@ def validate(repo_root: Path, ledger_path: Path) -> dict[str, Any]:
                     f"stage_4 semantic_context_spec must be {expected_spec}"
                 )
             safe_repo_path(repo_root, spec, "stage_4 semantic_context_spec")
-            if stage.get("implementation_state") != "blocked_by_predecessor":
+            if stage.get("implementation_state") != "stage_4a_authorized":
                 raise StageStatusError(
-                    "stage_4 implementation must remain blocked_by_predecessor"
+                    "stage_4 implementation_state must authorize only Stage 4A"
                 )
-            if stage.get("implementation_allowed") is not False:
+            if stage.get("implementation_allowed") is not True:
                 raise StageStatusError(
-                    "stage_4 implementation must not be allowed before predecessor closure"
+                    "stage_4 Stage 4A implementation must be allowed"
+                )
+            if stage.get("active_phase") != "stage_4a_schema_inventory":
+                raise StageStatusError(
+                    "stage_4 active_phase must be stage_4a_schema_inventory"
+                )
+            if stage.get("depends_on") != ["stage_3_feature_frozen"]:
+                raise StageStatusError(
+                    "stage_4 Stage 4A must depend on Stage 3 feature freeze, not shadow closure"
                 )
             if stage.get("shadow_candidate_only") is not True:
                 raise StageStatusError("stage_4 outputs must remain shadow candidates")
             if stage.get("manual_handoff_remains_authoritative") is not True:
                 raise StageStatusError(
-                    "stage_4 design must keep the manual handoff authoritative"
+                    "stage_4 must keep the manual handoff authoritative"
                 )
             if stage.get("authority_cutover_allowed") is not False:
-                raise StageStatusError("stage_4 design must forbid authority cutover")
+                raise StageStatusError("stage_4 must forbid authority cutover")
             expected_phases = [
                 "stage_4a_schema_inventory",
                 "stage_4b_lossless_candidate",
@@ -441,6 +475,44 @@ def validate(repo_root: Path, ledger_path: Path) -> dict[str, Any]:
             if stage.get("phase_plan") != expected_phases:
                 raise StageStatusError(
                     "stage_4 phase_plan must preserve the registered 4A/4B/4C sequence"
+                )
+            expected_phase_states = {
+                "stage_4a_schema_inventory": "authorized",
+                "stage_4b_lossless_candidate": "blocked_by_stage_4a_acceptance",
+                "stage_4c_context_assembly_shadow_validation": (
+                    "blocked_by_stage_4b_acceptance"
+                ),
+            }
+            if stage.get("phase_states") != expected_phase_states:
+                raise StageStatusError(
+                    "stage_4 phase_states must authorize only 4A and keep 4B/4C blocked"
+                )
+
+        if stage_id == "stage_5":
+            expected_stage5_auth_id = "GOV-STAGE4A-PARALLEL-IMPLEMENTATION-2026-06-28"
+            if status_auth_id != expected_stage5_auth_id:
+                raise StageStatusError(
+                    f"stage_5 status_authorization must be {expected_stage5_auth_id}"
+                )
+            if status != "blocked_by_predecessor":
+                raise StageStatusError("stage_5 must remain blocked_by_predecessor")
+            if stage.get("implementation_state") != "blocked_by_predecessor":
+                raise StageStatusError("stage_5 implementation must remain blocked")
+            if stage.get("implementation_allowed") is not False:
+                raise StageStatusError("stage_5 implementation must not be allowed")
+            if stage.get("authority_cutover_allowed") is not False:
+                raise StageStatusError("stage_5 must forbid authority cutover")
+            if stage.get("cutover_requires_independent_user_authorization") is not True:
+                raise StageStatusError(
+                    "stage_5 cutover must require independent user authorization"
+                )
+            expected_stage5_dependencies = [
+                "stage_3_shadow_validation",
+                "stage_4_lossless_validation",
+            ]
+            if stage.get("depends_on") != expected_stage5_dependencies:
+                raise StageStatusError(
+                    "stage_5 must wait for both Stage 3 and Stage 4 validation"
                 )
 
         file_reports: list[dict[str, str]] = []
@@ -493,6 +565,8 @@ def validate(repo_root: Path, ledger_path: Path) -> dict[str, Any]:
         "stage_2_closed": stages["stage_2"]["status"] == "closed_maintenance_only",
         "stage_3_ready_not_started": stages["stage_3"]["status"] == "ready_not_started",
         "stage_3_shadow_active": stages["stage_3"]["status"] == "shadow_active",
+        "stage_4_active": stages["stage_4"]["status"] == "active",
+        "stage_5_blocked": stages["stage_5"]["status"] == "blocked_by_predecessor",
     }
 
 
@@ -522,6 +596,8 @@ def main(argv: list[str] | None = None) -> int:
             f"(Stage 1={current['stage_1']['status']}, "
             f"Stage 2={current['stage_2']['status']}, "
             f"Stage 3={current['stage_3']['status']}, "
+            f"Stage 4={current['stage_4']['status']}, "
+            f"Stage 5={current['stage_5']['status']}, "
             f"protected_files={report['protected_file_count']}, "
             f"authorizations={report['authorization_count']})"
         )

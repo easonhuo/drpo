@@ -46,6 +46,8 @@ def test_current_repository_stage_closure_is_valid() -> None:
     assert "Stage 1=closed_maintenance_only" in proc.stdout
     assert "Stage 2=closed_maintenance_only" in proc.stdout
     assert "Stage 3=shadow_active" in proc.stdout
+    assert "Stage 4=active" in proc.stdout
+    assert "Stage 5=blocked_by_predecessor" in proc.stdout
 
 
 def test_protected_file_tamper_is_rejected(tmp_path: Path) -> None:
@@ -136,16 +138,57 @@ def test_stage3_feature_freeze_cannot_be_silently_relaxed(tmp_path: Path) -> Non
     assert "feature_state must be feature_frozen_bugfix_only" in proc.stderr
 
 
-def test_stage4_design_cannot_enable_implementation_early(tmp_path: Path) -> None:
+def test_stage4a_parallel_implementation_is_authorized() -> None:
+    ledger = yaml.safe_load(LEDGER.read_text())
+    stage_4 = ledger["stages"]["stage_4"]
+
+    assert stage_4["status"] == "active"
+    assert stage_4["implementation_state"] == "stage_4a_authorized"
+    assert stage_4["implementation_allowed"] is True
+    assert stage_4["active_phase"] == "stage_4a_schema_inventory"
+    assert stage_4["depends_on"] == ["stage_3_feature_frozen"]
+
+
+def test_stage4a_cannot_revert_to_stage3_shadow_closure_dependency(
+    tmp_path: Path,
+) -> None:
     repo = copy_repository(tmp_path)
     ledger_path = repo / "docs" / "governance_pipeline_stage_status.yaml"
     ledger = yaml.safe_load(ledger_path.read_text())
-    ledger["stages"]["stage_4"]["implementation_allowed"] = True
+    ledger["stages"]["stage_4"]["depends_on"] = ["stage_3_shadow_validation"]
     ledger_path.write_text(yaml.safe_dump(ledger, sort_keys=False))
 
     proc = run_validator(repo, check=False)
     assert proc.returncode == 2
-    assert "implementation must not be allowed" in proc.stderr
+    assert "must depend on Stage 3 feature freeze" in proc.stderr
+
+
+def test_stage4b_cannot_be_enabled_before_stage4a_acceptance(tmp_path: Path) -> None:
+    repo = copy_repository(tmp_path)
+    ledger_path = repo / "docs" / "governance_pipeline_stage_status.yaml"
+    ledger = yaml.safe_load(ledger_path.read_text())
+    ledger["stages"]["stage_4"]["phase_states"][
+        "stage_4b_lossless_candidate"
+    ] = "authorized"
+    ledger_path.write_text(yaml.safe_dump(ledger, sort_keys=False))
+
+    proc = run_validator(repo, check=False)
+    assert proc.returncode == 2
+    assert "authorize only 4A and keep 4B/4C blocked" in proc.stderr
+
+
+def test_stage4c_cannot_be_enabled_before_stage4b_acceptance(tmp_path: Path) -> None:
+    repo = copy_repository(tmp_path)
+    ledger_path = repo / "docs" / "governance_pipeline_stage_status.yaml"
+    ledger = yaml.safe_load(ledger_path.read_text())
+    ledger["stages"]["stage_4"]["phase_states"][
+        "stage_4c_context_assembly_shadow_validation"
+    ] = "authorized"
+    ledger_path.write_text(yaml.safe_dump(ledger, sort_keys=False))
+
+    proc = run_validator(repo, check=False)
+    assert proc.returncode == 2
+    assert "authorize only 4A and keep 4B/4C blocked" in proc.stderr
 
 
 def test_stage4_design_cannot_switch_authority(tmp_path: Path) -> None:
@@ -157,7 +200,7 @@ def test_stage4_design_cannot_switch_authority(tmp_path: Path) -> None:
 
     proc = run_validator(repo, check=False)
     assert proc.returncode == 2
-    assert "stage_4 design must forbid authority cutover" in proc.stderr
+    assert "stage_4 must forbid authority cutover" in proc.stderr
 
 
 def test_stage4_phase_order_cannot_be_collapsed(tmp_path: Path) -> None:
@@ -170,3 +213,40 @@ def test_stage4_phase_order_cannot_be_collapsed(tmp_path: Path) -> None:
     proc = run_validator(repo, check=False)
     assert proc.returncode == 2
     assert "4A/4B/4C sequence" in proc.stderr
+
+
+def test_stage5_waits_for_both_stage3_and_stage4_validation() -> None:
+    ledger = yaml.safe_load(LEDGER.read_text())
+    stage_5 = ledger["stages"]["stage_5"]
+
+    assert stage_5["status"] == "blocked_by_predecessor"
+    assert stage_5["implementation_allowed"] is False
+    assert stage_5["authority_cutover_allowed"] is False
+    assert stage_5["depends_on"] == [
+        "stage_3_shadow_validation",
+        "stage_4_lossless_validation",
+    ]
+
+
+def test_stage5_cannot_drop_stage3_shadow_validation_dependency(tmp_path: Path) -> None:
+    repo = copy_repository(tmp_path)
+    ledger_path = repo / "docs" / "governance_pipeline_stage_status.yaml"
+    ledger = yaml.safe_load(ledger_path.read_text())
+    ledger["stages"]["stage_5"]["depends_on"] = ["stage_4_lossless_validation"]
+    ledger_path.write_text(yaml.safe_dump(ledger, sort_keys=False))
+
+    proc = run_validator(repo, check=False)
+    assert proc.returncode == 2
+    assert "wait for both Stage 3 and Stage 4 validation" in proc.stderr
+
+
+def test_stage5_cannot_enable_authority_cutover(tmp_path: Path) -> None:
+    repo = copy_repository(tmp_path)
+    ledger_path = repo / "docs" / "governance_pipeline_stage_status.yaml"
+    ledger = yaml.safe_load(ledger_path.read_text())
+    ledger["stages"]["stage_5"]["authority_cutover_allowed"] = True
+    ledger_path.write_text(yaml.safe_dump(ledger, sort_keys=False))
+
+    proc = run_validator(repo, check=False)
+    assert proc.returncode == 2
+    assert "stage_5 must forbid authority cutover" in proc.stderr

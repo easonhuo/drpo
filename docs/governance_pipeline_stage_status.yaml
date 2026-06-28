@@ -174,13 +174,15 @@ stages:
     number: 4
     name: lossless_handoff_history_split_shadow_mode
     responsibility: Generate a compact current handoff plus immutable indexed history while preserving all bytes and headings.
-    status: blocked_by_predecessor
-    status_authorization: GOV-STAGE3-FREEZE-STAGE4-DESIGN-2026-06-28
+    status: active
+    status_authorization: GOV-STAGE4A-PARALLEL-IMPLEMENTATION-2026-06-28
     design_state: specification_authorized
     design_authorization: GOV-STAGE3-FREEZE-STAGE4-DESIGN-2026-06-28
     semantic_context_spec: docs/governance_stage4_semantic_context_spec.md
-    implementation_state: blocked_by_predecessor
-    implementation_allowed: false
+    implementation_state: stage_4a_authorized
+    implementation_allowed: true
+    implementation_authorization: GOV-STAGE4A-PARALLEL-IMPLEMENTATION-2026-06-28
+    active_phase: stage_4a_schema_inventory
     shadow_candidate_only: true
     manual_handoff_remains_authoritative: true
     authority_cutover_allowed: false
@@ -188,15 +190,24 @@ stages:
     - stage_4a_schema_inventory
     - stage_4b_lossless_candidate
     - stage_4c_context_assembly_shadow_validation
+    phase_states:
+      stage_4a_schema_inventory: authorized
+      stage_4b_lossless_candidate: blocked_by_stage_4a_acceptance
+      stage_4c_context_assembly_shadow_validation: blocked_by_stage_4b_acceptance
     depends_on:
-    - stage_3_shadow_validation
+    - stage_3_feature_frozen
     protected_files: []
   stage_5:
     number: 5
     name: controlled_handoff_switch_and_agents_compaction
     responsibility: Switch authority only after shadow evidence and compact AGENTS details already enforced elsewhere.
     status: blocked_by_predecessor
-    status_authorization: GOV-PIPELINE-STAGE12-CLOSURE-2026-06-27
+    status_authorization: GOV-STAGE4A-PARALLEL-IMPLEMENTATION-2026-06-28
+    implementation_state: blocked_by_predecessor
+    implementation_allowed: false
+    authority_cutover_allowed: false
+    cutover_requires_independent_user_authorization: true
     depends_on:
+    - stage_3_shadow_validation
     - stage_4_lossless_validation
     protected_files: []
