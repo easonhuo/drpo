@@ -8,17 +8,18 @@ The first one-seed/100-step pilot correctly remained `pilot`, but exposed three 
 
 1. the critic used to be retrained independently inside every actor seed;
 2. rollout failures were collapsed into `rollout_unavailable=1` without a traceback;
-3. a pilot could show `independent_validation_gate_all_seeds=true` even though paired-seed evidence and formal review were absent.
+3. a pilot could show `independent_validation_gate_all_seeds=true` even though paired-seed evidence and formal review were absent;
+4. the legacy `gym.make("hopper-medium-replay-v2")` path imported `mujoco_py` and could terminate the entire process with SIGSEGV.
 
-Protocol v4 trains or verifies **one canonical critic artifact per run**, freezes one advantage array, shares both across every actor seed, executes a hard rollout preflight before critic training, and separates engineering completion, mechanism subchecks, paired evidence, formal prerequisites, and post-run scientific review.
+Protocol v4.1 trains or verifies **one canonical critic artifact per run**, freezes one advantage array, shares both across every actor seed, uses a process-isolated Gymnasium `Hopper-v4` preflight before critic training, and separates engineering completion, mechanism subchecks, paired evidence, formal prerequisites, and post-run scientific review.
 
 ## Scientific flow
 
 The one-command runner automatically:
 
 1. verifies the exact `hopper_medium_replay-v2.hdf5` basename and SHA-256;
-2. imports D4RL, constructs `hopper-medium-replay-v2`, resets it, executes a real step, runs one random episode, and verifies `get_normalized_score`;
-3. writes the full rollout environment/version report and traceback before any critic training if preflight fails;
+2. launches an isolated subprocess that constructs Gymnasium `Hopper-v4`, resets it, executes a real step, runs one random episode, and checks manual D4RL-v2 reference normalization;
+3. writes the full rollout environment/version report, subprocess exit code, native signal, stdout/stderr, and traceback before any critic training if preflight fails;
 4. creates one episode-level critic train/validation/test split using the registered canonical critic seed;
 5. trains one return-value critic to the registered optimization-terminal candidate, completes the 2× continuation, and reconfirms the terminal criteria at the continuation endpoint;
 6. selects the **terminal extension checkpoint** for the experiment; the best transient validation checkpoint is retained only as a diagnostic;
@@ -56,8 +57,20 @@ A mismatched file fails before environment interaction or training.
 
 ```bash
 python3 -m pip install -e .
-# Install the project-approved MuJoCo/Gym/D4RL stack on the training machine.
+python3 -m pip install 'gymnasium[mujoco]'
 ```
+
+The rollout path does not import `d4rl` or `mujoco_py` and has no automatic legacy fallback. The offline HDF5 file remains D4RL Hopper medium-replay-v2 data; only policy interaction uses the local Gymnasium `Hopper-v4` compatibility environment.
+
+Normalized return is computed manually with the frozen D4RL-v2 Hopper medium-replay references:
+
+```text
+min = -20.272305
+max = 3234.3
+score = (raw_return - min) / (max - min) * 100
+```
+
+Reports must describe this as a Gymnasium `Hopper-v4` compatibility evaluation with D4RL-v2 reference normalization, not as an exact legacy `mujoco-py` leaderboard reproduction.
 
 CPU is supported and is acceptable for this small-network experiment. Use the same device policy across paired methods and retain the device in the run manifest.
 
@@ -73,7 +86,20 @@ python3 scripts/run_e7_hopper_q2.py \
   --device cpu
 ```
 
-The pilot uses seed `42`, at most 10,000 transitions, and short horizons. It is implementation evidence only. The rollout preflight is now mandatory for pilot as well as formal execution; a failed preflight stops before critic training and is packaged by the hardened guard.
+The pilot uses seed `42`, at most 10,000 transitions, and short horizons. It is implementation evidence only. The process-isolated rollout preflight is mandatory for pilot as well as formal execution; a Python exception, timeout, or native signal such as SIGSEGV stops the run before critic training and is packaged by the hardened guard.
+
+
+## Dataset and rollout version boundary
+
+| Component | Frozen choice |
+|---|---|
+| Offline training data | `hopper-medium-replay-v2` HDF5 |
+| Local interaction environment | Gymnasium `Hopper-v4` |
+| MuJoCo binding | modern `mujoco` package |
+| Normalization | D4RL-v2 min/max reference constants |
+| Legacy D4RL/mujoco-py fallback | forbidden |
+
+This split is intentional: dataset version and simulator API version are different objects. `Hopper-v4` is not a v4 dataset.
 
 ## Reuse an exact canonical critic artifact
 

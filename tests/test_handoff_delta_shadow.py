@@ -285,10 +285,25 @@ def test_historical_e6_parent_closure_delta_matches_repository_after_image() -> 
     assert result.report["registry_change_coverage"]["fully_declared"] is True
 
 
-def test_current_countdown_v44_offline_bank_delta_matches_manual_handoff() -> None:
+def test_historical_countdown_v44_offline_bank_delta_matches_repository_after_image() -> None:
     delta = (
         ROOT
         / "docs/handoff_deltas/EXT-C-E8-V4.4-OFFLINE-BANK-2026-06-28/HANDOFF_DELTA.yaml"
+    )
+    result = MODULE.check_delta(
+        ROOT, delta, target_commit="194bd6fa77c029420244ae8ba143fdcf7abacf40"
+    )
+    assert result.report["status"] == "PASS"
+    assert result.report["exact_manual_candidate_match"] is True
+    assert result.report["idempotence_passed"] is True
+    assert result.report["candidate_replaced_authority"] is False
+    assert result.report["registry_change_coverage"]["fully_declared"] is True
+
+
+def test_current_e7_gymnasium_v4_rollout_delta_matches_manual_handoff() -> None:
+    delta = (
+        ROOT
+        / "docs/handoff_deltas/EXT-H-E7-Q2-GYMNASIUM-V4-ROLLOUT-2026-06-28/HANDOFF_DELTA.yaml"
     )
     result = MODULE.check_delta(ROOT, delta)
     assert result.report["status"] == "PASS"

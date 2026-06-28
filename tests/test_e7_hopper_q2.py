@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import subprocess
 import sys
 from pathlib import Path
 
@@ -123,6 +124,13 @@ def test_config_is_bound_to_q2() -> None:
     assert config.formal.canonical_critic_seed == 100
     assert config.pilot_rollout_required is True
     assert config.formal_rollout_required is True
+    assert config.env_backend == "gymnasium_mujoco"
+    assert config.rollout_dataset_id == "hopper-medium-replay-v2"
+    assert config.env_id == "Hopper-v4"
+    assert config.normalized_score_reference_min == -20.272305
+    assert config.normalized_score_reference_max == 3234.3
+    assert config.process_isolated_preflight is True
+    assert config.rollout_preflight_timeout_seconds == 120
     assert config.rollout_preflight_max_steps == 2000
     assert config.formal.rollout_episodes == 5
 
@@ -158,6 +166,12 @@ def test_registry_releases_implemented_q2_without_claiming_results() -> None:
     assert entry["evidence"]["code_committed"] is True
     assert entry["evidence"]["implementation_tests_passed"] is True
     assert entry["evidence"]["run_started"] is False
+    rollout = entry["rollout_evaluation"]
+    assert rollout["offline_dataset_id"] == "hopper-medium-replay-v2"
+    assert rollout["evaluation_env_id"] == "Hopper-v4"
+    assert rollout["backend"] == "gymnasium_mujoco"
+    assert rollout["legacy_d4rl_fallback"] == "forbidden"
+    assert rollout["process_isolated_preflight"] is True
 
 
 def test_handoff_preserves_v41_boundary_under_v42_route() -> None:
@@ -173,6 +187,9 @@ def test_handoff_preserves_v41_boundary_under_v42_route() -> None:
     assert "每个 run 只训练或严格复用一个 canonical critic artifact" in handoff
     assert "task_performance_collapse=null" in handoff
     assert "formal gate 也必须为 false" in handoff
+    assert "v58 增量登记：`EXT-H-E7-Q2` Gymnasium `Hopper-v4` rollout" in handoff
+    assert "离线训练数据仍是 `hopper-medium-replay-v2`" in handoff
+    assert "legacy D4RL/mujoco-py fallback 明确禁止" in handoff
 
 
 def test_task_performance_unavailable_is_not_reported_as_no_collapse() -> None:
@@ -204,7 +221,16 @@ def test_task_performance_unavailable_is_not_reported_as_no_collapse() -> None:
     assert audit["normalized_return_available"] is False
 
 
-def test_rollout_preflight_exercises_reset_step_episode_and_score(
+def test_d4rl_reference_normalization_endpoints() -> None:
+    lo = -20.272305
+    hi = 3234.3
+    assert mod.normalize_d4rl_reference_score(lo, lo, hi, percent=True) == 0.0
+    assert mod.normalize_d4rl_reference_score(hi, lo, hi, percent=True) == 100.0
+    midpoint = (lo + hi) / 2.0
+    assert mod.normalize_d4rl_reference_score(midpoint, lo, hi, percent=True) == 50.0
+
+
+def test_rollout_preflight_exercises_gymnasium_and_manual_score(
     tmp_path: Path, monkeypatch
 ) -> None:
     class FakeSpace:
@@ -236,69 +262,193 @@ def test_rollout_preflight_exercises_reset_step_episode_and_score(
             done = self.steps >= 2
             return np.ones(3, dtype=np.float32), 1.0, done, {"ok": True}
 
-        def get_normalized_score(self, value: float) -> float:
-            return value / 10.0
-
         def close(self) -> None:
             pass
 
     monkeypatch.setattr(
         mod,
-        "_open_d4rl_env",
-        lambda env_id, registration_import: (
+        "_open_gymnasium_mujoco_env",
+        lambda env_id: (
             FakeEnv(),
-            {"gym_backend": "fake", "compatibility_shims": [], "make_attempts": []},
+            {
+                "backend": "gymnasium_mujoco",
+                "evaluation_env_id": env_id,
+                "legacy_d4rl_fallback": "forbidden",
+            },
         ),
     )
-    report = mod.preflight_d4rl_environment(
-        env_id="fake-hopper",
-        registration_import="fake_d4rl",
+    report = mod.preflight_rollout_environment(
+        backend="gymnasium_mujoco",
+        dataset_id="hopper-medium-replay-v2",
+        env_id="Hopper-v4",
         expected_observation_dim=3,
         expected_action_dim=2,
         seed=7,
         max_steps=5,
         normalized_score_percent=True,
+        reference_min_score=0.0,
+        reference_max_score=10.0,
         output_dir=tmp_path / "preflight",
         required=True,
+        process_isolated=False,
+        timeout_seconds=30,
     )
     assert report["status"] == "passed"
     assert report["interaction_verified"] is True
     assert report["normalized_score_verified"] is True
     assert report["random_episode"]["steps"] == 2
+    assert report["random_episode"]["normalized_return"] == 20.0
+    assert report["legacy_d4rl_fallback"] == "forbidden"
     assert (tmp_path / "preflight" / "rollout_preflight.json").is_file()
-
-
 
 
 def test_rollout_preflight_failure_persists_traceback_before_raising(
     tmp_path: Path, monkeypatch
 ) -> None:
-    def fail_open(env_id: str, registration_import: str):
-        raise RuntimeError("synthetic registration failure")
+    def fail_open(env_id: str):
+        raise RuntimeError("synthetic gymnasium failure")
 
-    monkeypatch.setattr(mod, "_open_d4rl_env", fail_open)
+    monkeypatch.setattr(mod, "_open_gymnasium_mujoco_env", fail_open)
     output_dir = tmp_path / "preflight_failure"
     import pytest
 
-    with pytest.raises(RuntimeError, match="rollout preflight failed"):
-        mod.preflight_d4rl_environment(
-            env_id="missing-hopper",
-            registration_import="missing_d4rl",
+    with pytest.raises(RuntimeError, match="Gymnasium rollout preflight failed"):
+        mod.preflight_rollout_environment(
+            backend="gymnasium_mujoco",
+            dataset_id="hopper-medium-replay-v2",
+            env_id="Hopper-v4",
             expected_observation_dim=3,
             expected_action_dim=2,
             seed=7,
             max_steps=5,
             normalized_score_percent=True,
+            reference_min_score=0.0,
+            reference_max_score=10.0,
             output_dir=output_dir,
             required=True,
+            process_isolated=False,
+            timeout_seconds=30,
         )
     report = __import__("json").loads(
         (output_dir / "rollout_preflight.json").read_text()
     )
     assert report["status"] == "failed"
     assert report["error_type"] == "RuntimeError"
-    assert "synthetic registration failure" in report["error"]
+    assert "synthetic gymnasium failure" in report["error"]
     assert "Traceback" in report["traceback"]
+
+
+def test_process_isolated_preflight_captures_sigsegv(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.setattr(
+        mod.subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(
+            args=args[0], returncode=-11, stdout="", stderr="native crash"
+        ),
+    )
+    report = mod.preflight_rollout_environment(
+        backend="gymnasium_mujoco",
+        dataset_id="hopper-medium-replay-v2",
+        env_id="Hopper-v4",
+        expected_observation_dim=11,
+        expected_action_dim=3,
+        seed=7,
+        max_steps=5,
+        normalized_score_percent=True,
+        reference_min_score=-20.272305,
+        reference_max_score=3234.3,
+        output_dir=tmp_path / "segfault",
+        required=False,
+        process_isolated=True,
+        timeout_seconds=30,
+    )
+    assert report["status"] == "failed"
+    assert report["error_type"] == "NativeProcessSignal"
+    assert report["subprocess_isolation"]["signal_name"] == "SIGSEGV"
+    assert report["legacy_d4rl_fallback"] == "forbidden"
+
+
+def test_rollout_evaluation_uses_manual_reference_normalization(monkeypatch) -> None:
+    class FakeSpace:
+        low = np.array([-1.0, -1.0], dtype=np.float32)
+        high = np.array([1.0, 1.0], dtype=np.float32)
+
+    class FakeSpec:
+        max_episode_steps = 2
+
+    class FakeEnv:
+        action_space = FakeSpace()
+        spec = FakeSpec()
+
+        def __init__(self) -> None:
+            self.steps = 0
+
+        def reset(self, seed: int | None = None):
+            self.steps = 0
+            return np.zeros(3, dtype=np.float32), {}
+
+        def step(self, action: np.ndarray):
+            self.steps += 1
+            return np.zeros(3, dtype=np.float32), 2.0, self.steps >= 2, {}
+
+        def close(self) -> None:
+            pass
+
+    monkeypatch.setattr(
+        mod,
+        "_open_gymnasium_mujoco_env",
+        lambda env_id: (FakeEnv(), {"evaluation_env_id": env_id}),
+    )
+    policy = mod.SquashedGaussianPolicy(3, 2, (4,), -5.0, 2.0, 1e-6)
+    obs_norm = mod.Normalizer(
+        mean=np.zeros(3, dtype=np.float32),
+        std=np.ones(3, dtype=np.float32),
+    )
+    result = mod.evaluate_d4rl_rollouts(
+        policy=policy,
+        obs_norm=obs_norm,
+        backend="gymnasium_mujoco",
+        dataset_id="hopper-medium-replay-v2",
+        env_id="Hopper-v4",
+        episodes=2,
+        seed=10,
+        device=torch.device("cpu"),
+        normalized_score_percent=True,
+        reference_min_score=0.0,
+        reference_max_score=8.0,
+        required=True,
+    )
+    assert result["rollout_return_mean"] == 4.0
+    assert result["normalized_return"] == 50.0
+    assert result["offline_dataset_id"] == "hopper-medium-replay-v2"
+    assert result["evaluation_env_id"] == "Hopper-v4"
+
+
+def test_gymnasium_open_path_never_imports_d4rl(monkeypatch) -> None:
+    imported: list[str] = []
+
+    class FakeGymnasium:
+        __name__ = "gymnasium"
+
+        @staticmethod
+        def make(env_id: str):
+            assert env_id == "Hopper-v4"
+            return type("FakeEnv", (), {"close": lambda self: None})()
+
+    def fake_import(name: str):
+        imported.append(name)
+        if name == "gymnasium":
+            return FakeGymnasium()
+        raise AssertionError(f"unexpected import: {name}")
+
+    monkeypatch.setattr(mod.importlib, "import_module", fake_import)
+    env, metadata = mod._open_gymnasium_mujoco_env("Hopper-v4")
+    env.close()
+    assert imported == ["gymnasium"]
+    assert metadata["legacy_d4rl_fallback"] == "forbidden"
+
 
 
 def test_canonical_critic_is_trained_once_and_strictly_reused(tmp_path: Path) -> None:

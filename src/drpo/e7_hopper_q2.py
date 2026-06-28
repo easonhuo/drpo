@@ -43,7 +43,7 @@ except ImportError as exc:  # pragma: no cover - dependency declared by project
     raise SystemExit("PyYAML is required. Install the project with pip install -e .") from exc
 
 EXPERIMENT_ID = "EXT-H-E7-Q2"
-RUNNER_VERSION = "4.0.0-canonical-critic-rollout-preflight"
+RUNNER_VERSION = "4.1.0-gymnasium-v4-rollout-compatibility"
 EPS = 1e-6
 METHODS = (
     "positive_only",
@@ -206,9 +206,14 @@ class E7Config:
     experiment_id: str
     dataset_basename: str
     dataset_sha256: str
+    env_backend: str
+    rollout_dataset_id: str
     env_id: str
-    env_registration_import: str
     normalized_score_percent: bool
+    normalized_score_reference_min: float
+    normalized_score_reference_max: float
+    process_isolated_preflight: bool
+    rollout_preflight_timeout_seconds: int
     formal_rollout_required: bool
     pilot_rollout_required: bool
     rollout_preflight_max_steps: int
@@ -288,9 +293,14 @@ def load_config(path: str | Path) -> E7Config:
         experiment_id=raw["experiment_id"],
         dataset_basename=str(raw["dataset"]["basename"]),
         dataset_sha256=str(raw["dataset"]["sha256"]),
+        env_backend=str(env["backend"]),
+        rollout_dataset_id=str(env["dataset_id"]),
         env_id=str(env["env_id"]),
-        env_registration_import=str(env["registration_import"]),
         normalized_score_percent=bool(env["normalized_score_percent"]),
+        normalized_score_reference_min=float(env["reference_min_score"]),
+        normalized_score_reference_max=float(env["reference_max_score"]),
+        process_isolated_preflight=bool(env["process_isolated_preflight"]),
+        rollout_preflight_timeout_seconds=int(env["preflight_timeout_seconds"]),
         formal_rollout_required=bool(env["formal_required"]),
         pilot_rollout_required=bool(env["pilot_required"]),
         rollout_preflight_max_steps=int(env["preflight_max_steps"]),
@@ -729,68 +739,59 @@ def _package_version(name: str) -> str | None:
         return None
 
 
-def _legacy_numpy_compatibility() -> list[str]:
-    """Install the minimal NumPy-2 compatibility alias required by legacy Gym.
+def normalize_d4rl_reference_score(
+    raw_return: float,
+    reference_min_score: float,
+    reference_max_score: float,
+    *,
+    percent: bool,
+) -> float:
+    """Normalize a raw return with frozen D4RL-v2 reference scores.
 
-    Gym 0.26 and old D4RL wrappers may reference ``np.bool8`` during ``step``.
-    NumPy 2 removed the alias while retaining ``np.bool_``.  The shim is explicit,
-    recorded in every rollout preflight, and does not alter numerical values.
+    The rollout simulator is intentionally decoupled from the offline dataset
+    registration stack.  This function reproduces the public D4RL normalization
+    convention without importing ``d4rl`` or ``mujoco_py``.
     """
-    applied: list[str] = []
-    if not hasattr(np, "bool8"):
-        setattr(np, "bool8", np.bool_)
-        applied.append("numpy.bool8=numpy.bool_")
-    return applied
+    raw = float(raw_return)
+    lo = float(reference_min_score)
+    hi = float(reference_max_score)
+    if not all(math.isfinite(value) for value in (raw, lo, hi)):
+        raise ValueError("Raw return and D4RL reference scores must be finite")
+    if hi <= lo:
+        raise ValueError("D4RL reference_max_score must exceed reference_min_score")
+    normalized = (raw - lo) / (hi - lo)
+    return normalized * 100.0 if percent else normalized
 
 
-def _open_d4rl_env(
-    env_id: str, registration_import: str
-) -> tuple[Any, dict[str, Any]]:
-    compatibility_shims = _legacy_numpy_compatibility()
-    registration_module = importlib.import_module(registration_import)
-    try:
-        gym_module = importlib.import_module("gym")
-        gym_backend = "gym"
-    except ImportError:
-        gym_module = importlib.import_module("gymnasium")
-        gym_backend = "gymnasium"
+def _open_gymnasium_mujoco_env(env_id: str) -> tuple[Any, dict[str, Any]]:
+    """Open the explicit Gymnasium/MuJoCo compatibility environment.
 
-    attempts: list[dict[str, Any]] = []
-    env = None
-    for kwargs in ({"disable_env_checker": True}, {}):
-        try:
-            env = gym_module.make(env_id, **kwargs)
-            attempts.append({"kwargs": kwargs, "status": "success"})
-            break
-        except TypeError as exc:
-            attempts.append(
-                {
-                    "kwargs": kwargs,
-                    "status": "type_error",
-                    "error": str(exc),
-                }
-            )
-        except Exception as exc:
-            attempts.append(
-                {
-                    "kwargs": kwargs,
-                    "status": "error",
-                    "error_type": type(exc).__name__,
-                    "error": str(exc),
-                }
-            )
-            if kwargs == {}:
-                raise
-    if env is None:
-        raise RuntimeError(f"Could not construct registered environment {env_id!r}")
+    There is deliberately no legacy D4RL fallback.  Importing ``d4rl`` can load
+    ``mujoco_py`` and terminate the process with SIGSEGV before Python exception
+    handling runs.  Dataset identity and score normalization are handled
+    separately from simulator construction.
+    """
+    legacy_modules_before = {
+        name: name in sys.modules for name in ("d4rl", "mujoco_py")
+    }
+    gymnasium = importlib.import_module("gymnasium")
+    env = gymnasium.make(env_id)
+    legacy_modules_after = {
+        name: name in sys.modules for name in ("d4rl", "mujoco_py")
+    }
+    if any(legacy_modules_after.values()):
+        env.close()
+        raise RuntimeError(
+            "Gymnasium rollout process contains a legacy D4RL/mujoco_py module"
+        )
     metadata = {
-        "gym_backend": gym_backend,
-        "gym_module": getattr(gym_module, "__name__", gym_backend),
-        "registration_module": getattr(
-            registration_module, "__name__", registration_import
-        ),
-        "compatibility_shims": compatibility_shims,
-        "make_attempts": attempts,
+        "backend": "gymnasium_mujoco",
+        "gym_backend": "gymnasium",
+        "gym_module": getattr(gymnasium, "__name__", "gymnasium"),
+        "evaluation_env_id": env_id,
+        "legacy_d4rl_fallback": "forbidden",
+        "legacy_modules_before": legacy_modules_before,
+        "legacy_modules_after": legacy_modules_after,
     }
     return env, metadata
 
@@ -841,15 +842,6 @@ def _step_env(env: Any, action: np.ndarray) -> tuple[np.ndarray, float, bool, di
     )
 
 
-def _environment_scorer(env: Any) -> Callable[[float], float] | None:
-    scorer = getattr(env, "get_normalized_score", None)
-    if callable(scorer):
-        return scorer
-    unwrapped = getattr(env, "unwrapped", None)
-    scorer = getattr(unwrapped, "get_normalized_score", None)
-    return scorer if callable(scorer) else None
-
-
 def _clip_action_to_space(env: Any, action: np.ndarray) -> np.ndarray:
     action = np.asarray(action, dtype=np.float32)
     space = getattr(env, "action_space", None)
@@ -871,47 +863,61 @@ def _max_episode_steps(env: Any, fallback: int) -> int:
     return fallback
 
 
-def preflight_d4rl_environment(
+def _rollout_environment_versions() -> dict[str, Any]:
+    return {
+        "python": sys.version,
+        "numpy": np.__version__,
+        "packages": {
+            name: _package_version(name)
+            for name in ("gymnasium", "mujoco", "gym", "d4rl", "mujoco-py")
+        },
+        "legacy_modules_imported": {
+            name: name in sys.modules for name in ("d4rl", "mujoco_py")
+        },
+    }
+
+
+def _run_rollout_preflight_worker(
     *,
+    backend: str,
+    dataset_id: str,
     env_id: str,
-    registration_import: str,
     expected_observation_dim: int,
     expected_action_dim: int,
     seed: int,
     max_steps: int,
     normalized_score_percent: bool,
-    output_dir: Path,
-    required: bool,
+    reference_min_score: float,
+    reference_max_score: float,
+    output_report: Path,
 ) -> dict[str, Any]:
-    """Exercise registration, reset, step, one episode, and score normalization.
-
-    The preflight runs before critic training.  Failure evidence is written before
-    the exception is re-raised so the hardened guard can package the exact cause.
-    """
-    output_dir.mkdir(parents=True, exist_ok=True)
-    versions = {
-        "python": sys.version,
-        "numpy": np.__version__,
-        "packages": {
-            name: _package_version(name)
-            for name in ("gym", "gymnasium", "d4rl", "mujoco", "mujoco-py")
-        },
-    }
-    atomic_write_json(output_dir / "environment_versions.json", versions)
+    """Run one preflight inside the current process and persist its report."""
+    output_report.parent.mkdir(parents=True, exist_ok=True)
+    versions = _rollout_environment_versions()
+    atomic_write_json(output_report.parent / "environment_versions.json", versions)
     report: dict[str, Any] = {
         "status": "running",
         "started_utc": utc_now(),
-        "env_id": env_id,
-        "registration_import": registration_import,
-        "required": required,
+        "backend": backend,
+        "dataset_id": dataset_id,
+        "evaluation_env_id": env_id,
         "expected_observation_dim": expected_observation_dim,
         "expected_action_dim": expected_action_dim,
         "max_steps": max_steps,
         "versions": versions,
+        "normalization": {
+            "protocol": "d4rl_v2_reference",
+            "reference_dataset_id": dataset_id,
+            "reference_min_score": float(reference_min_score),
+            "reference_max_score": float(reference_max_score),
+            "percent": bool(normalized_score_percent),
+        },
     }
     env = None
     try:
-        env, open_metadata = _open_d4rl_env(env_id, registration_import)
+        if backend != "gymnasium_mujoco":
+            raise ValueError(f"Unsupported rollout backend: {backend!r}")
+        env, open_metadata = _open_gymnasium_mujoco_env(env_id)
         report["open"] = open_metadata
         observation, reset_metadata = _reset_env(env, seed)
         report["reset"] = {
@@ -958,16 +964,12 @@ def preflight_d4rl_environment(
             total += reward
             episode_steps += 1
             last_api = meta["step_api"]
-        scorer = _environment_scorer(env)
-        normalized = float("nan")
-        if scorer is not None:
-            normalized = float(scorer(total))
-            if normalized_score_percent:
-                normalized *= 100.0
-        elif required:
-            raise RuntimeError(
-                f"Environment {env_id!r} does not expose get_normalized_score"
-            )
+        normalized = normalize_d4rl_reference_score(
+            total,
+            reference_min_score,
+            reference_max_score,
+            percent=normalized_score_percent,
+        )
         report["random_episode"] = {
             "steps": episode_steps,
             "step_limit": limit,
@@ -981,54 +983,217 @@ def preflight_d4rl_environment(
             raise RuntimeError("Random rollout completed zero steps")
         if not math.isfinite(total):
             raise RuntimeError("Random rollout return is non-finite")
-        if required and not math.isfinite(normalized):
-            raise RuntimeError("Required normalized score is unavailable or non-finite")
+        if not math.isfinite(normalized):
+            raise RuntimeError("D4RL-reference normalized score is non-finite")
         report.update(
             {
                 "status": "passed",
                 "completed_utc": utc_now(),
                 "interaction_verified": True,
-                "normalized_score_verified": math.isfinite(normalized),
+                "normalized_score_verified": True,
             }
         )
-        atomic_write_json(output_dir / "rollout_preflight.json", report)
-        return report
     except Exception as exc:
         report.update(
             {
                 "status": "failed",
                 "failed_utc": utc_now(),
                 "interaction_verified": False,
+                "normalized_score_verified": False,
                 "error_type": type(exc).__name__,
                 "error": str(exc),
                 "traceback": traceback.format_exc(),
             }
         )
-        atomic_write_json(output_dir / "rollout_preflight.json", report)
-        if required:
-            raise RuntimeError(
-                f"D4RL rollout preflight failed for {env_id!r}: {exc}. "
-                f"See {output_dir / 'rollout_preflight.json'}"
-            ) from exc
-        return report
     finally:
         if env is not None:
             try:
                 env.close()
             except Exception:
                 pass
+        atomic_write_json(output_report, report)
+    return report
+
+
+def _signal_name(returncode: int) -> str | None:
+    if returncode >= 0:
+        return None
+    try:
+        import signal
+
+        return signal.Signals(-returncode).name
+    except (ValueError, OSError):
+        return f"SIGNAL_{-returncode}"
+
+
+
+
+def _diagnostic_text(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+    return str(value)
+
+def preflight_rollout_environment(
+    *,
+    backend: str,
+    dataset_id: str,
+    env_id: str,
+    expected_observation_dim: int,
+    expected_action_dim: int,
+    seed: int,
+    max_steps: int,
+    normalized_score_percent: bool,
+    reference_min_score: float,
+    reference_max_score: float,
+    output_dir: Path,
+    required: bool,
+    process_isolated: bool,
+    timeout_seconds: int,
+) -> dict[str, Any]:
+    """Run the Gymnasium rollout preflight, isolating native crashes by default."""
+    output_dir.mkdir(parents=True, exist_ok=True)
+    worker_report = output_dir / "rollout_preflight_worker.json"
+    canonical_report = output_dir / "rollout_preflight.json"
+
+    if process_isolated:
+        command = [
+            sys.executable,
+            str(Path(__file__).resolve()),
+            "rollout-preflight-worker",
+            "--backend",
+            backend,
+            "--dataset-id",
+            dataset_id,
+            "--env-id",
+            env_id,
+            "--expected-observation-dim",
+            str(expected_observation_dim),
+            "--expected-action-dim",
+            str(expected_action_dim),
+            "--seed",
+            str(seed),
+            "--max-steps",
+            str(max_steps),
+            "--reference-min-score",
+            repr(float(reference_min_score)),
+            "--reference-max-score",
+            repr(float(reference_max_score)),
+            "--output-report",
+            str(worker_report),
+        ]
+        if normalized_score_percent:
+            command.append("--normalized-score-percent")
+        try:
+            completed = subprocess.run(
+                command,
+                text=True,
+                capture_output=True,
+                timeout=int(timeout_seconds),
+                check=False,
+            )
+            if worker_report.is_file():
+                report = json.loads(worker_report.read_text())
+            else:
+                report = {
+                    "status": "failed",
+                    "interaction_verified": False,
+                    "normalized_score_verified": False,
+                    "error_type": (
+                        "NativeProcessSignal"
+                        if completed.returncode < 0
+                        else "WorkerReportMissing"
+                    ),
+                    "error": (
+                        f"rollout worker terminated by {_signal_name(completed.returncode)}"
+                        if completed.returncode < 0
+                        else "rollout worker exited without writing its report"
+                    ),
+                }
+            report["subprocess_isolation"] = {
+                "enabled": True,
+                "command": command,
+                "returncode": completed.returncode,
+                "signal_name": _signal_name(completed.returncode),
+                "stdout": _diagnostic_text(completed.stdout),
+                "stderr": _diagnostic_text(completed.stderr),
+                "timeout_seconds": int(timeout_seconds),
+            }
+            if completed.returncode != 0:
+                report["status"] = "failed"
+                report["interaction_verified"] = False
+                report["normalized_score_verified"] = False
+                if completed.returncode < 0:
+                    report["error_type"] = "NativeProcessSignal"
+                    report["error"] = (
+                        f"rollout worker terminated by {_signal_name(completed.returncode)}"
+                    )
+        except subprocess.TimeoutExpired as exc:
+            report = {
+                "status": "failed",
+                "interaction_verified": False,
+                "normalized_score_verified": False,
+                "error_type": "RolloutPreflightTimeout",
+                "error": f"rollout worker exceeded {timeout_seconds} seconds",
+                "subprocess_isolation": {
+                    "enabled": True,
+                    "command": command,
+                    "timeout_seconds": int(timeout_seconds),
+                    "stdout": _diagnostic_text(exc.stdout),
+                    "stderr": _diagnostic_text(exc.stderr),
+                },
+            }
+        except Exception as exc:
+            report = {
+                "status": "failed",
+                "interaction_verified": False,
+                "normalized_score_verified": False,
+                "error_type": type(exc).__name__,
+                "error": str(exc),
+                "traceback": traceback.format_exc(),
+                "subprocess_isolation": {"enabled": True, "command": command},
+            }
+    else:
+        report = _run_rollout_preflight_worker(
+            backend=backend,
+            dataset_id=dataset_id,
+            env_id=env_id,
+            expected_observation_dim=expected_observation_dim,
+            expected_action_dim=expected_action_dim,
+            seed=seed,
+            max_steps=max_steps,
+            normalized_score_percent=normalized_score_percent,
+            reference_min_score=reference_min_score,
+            reference_max_score=reference_max_score,
+            output_report=worker_report,
+        )
+        report["subprocess_isolation"] = {"enabled": False}
+
+    report["required"] = bool(required)
+    report["legacy_d4rl_fallback"] = "forbidden"
+    atomic_write_json(canonical_report, report)
+    if required and report.get("status") != "passed":
+        raise RuntimeError(
+            f"Gymnasium rollout preflight failed for {env_id!r}: "
+            f"{report.get('error', 'unknown failure')}. See {canonical_report}"
+        )
+    return report
 
 
 def evaluate_d4rl_rollouts(
     *,
     policy: SquashedGaussianPolicy,
     obs_norm: Normalizer,
+    backend: str,
+    dataset_id: str,
     env_id: str,
-    registration_import: str,
     episodes: int,
     seed: int,
     device: torch.device,
     normalized_score_percent: bool,
+    reference_min_score: float,
+    reference_max_score: float,
     required: bool,
     diagnostics_path: Path | None = None,
 ) -> dict[str, Any]:
@@ -1043,7 +1208,9 @@ def evaluate_d4rl_rollouts(
         }
     env = None
     try:
-        env, open_metadata = _open_d4rl_env(env_id, registration_import)
+        if backend != "gymnasium_mujoco":
+            raise ValueError(f"Unsupported rollout backend: {backend!r}")
+        env, open_metadata = _open_gymnasium_mujoco_env(env_id)
         returns: list[float] = []
         episode_steps: list[int] = []
         for episode in range(episodes):
@@ -1073,18 +1240,14 @@ def evaluate_d4rl_rollouts(
             returns.append(total)
             episode_steps.append(steps)
         mean_return = float(np.mean(returns))
-        scorer = _environment_scorer(env)
-        normalized = float("nan")
-        if scorer is not None:
-            normalized = float(scorer(mean_return))
-            if normalized_score_percent:
-                normalized *= 100.0
-        elif required:
-            raise RuntimeError(
-                f"Environment {env_id!r} does not expose get_normalized_score"
-            )
+        normalized = normalize_d4rl_reference_score(
+            mean_return,
+            reference_min_score,
+            reference_max_score,
+            percent=normalized_score_percent,
+        )
         result: dict[str, Any] = {
-            "rollout_status": "available" if math.isfinite(normalized) else "return_only",
+            "rollout_status": "available",
             "rollout_return_mean": mean_return,
             "rollout_return_std": float(np.std(returns)),
             "normalized_return": normalized,
@@ -1092,6 +1255,15 @@ def evaluate_d4rl_rollouts(
             "rollout_episodes": int(episodes),
             "rollout_episode_steps_mean": float(np.mean(episode_steps)),
             "rollout_open_metadata": open_metadata,
+            "rollout_backend": backend,
+            "evaluation_env_id": env_id,
+            "offline_dataset_id": dataset_id,
+            "normalization": {
+                "protocol": "d4rl_v2_reference",
+                "reference_min_score": float(reference_min_score),
+                "reference_max_score": float(reference_max_score),
+                "percent": bool(normalized_score_percent),
+            },
         }
         if required and not math.isfinite(normalized):
             raise RuntimeError("Required normalized return is unavailable or non-finite")
@@ -1106,6 +1278,9 @@ def evaluate_d4rl_rollouts(
             "normalized_return": float("nan"),
             "normalized_return_available": False,
             "rollout_episodes": 0,
+            "rollout_backend": backend,
+            "evaluation_env_id": env_id,
+            "offline_dataset_id": dataset_id,
             "error_type": type(exc).__name__,
             "error": str(exc),
             "traceback": traceback.format_exc(),
@@ -1123,7 +1298,6 @@ def evaluate_d4rl_rollouts(
                 env.close()
             except Exception:
                 pass
-
 
 def sample_indices(rng: np.random.Generator, pool: np.ndarray, batch_size: int) -> np.ndarray:
     replace = len(pool) < batch_size
@@ -2485,12 +2659,15 @@ def run_seed(
         return evaluate_d4rl_rollouts(
             policy=policy,
             obs_norm=obs_norm,
+            backend=config.env_backend,
+            dataset_id=config.rollout_dataset_id,
             env_id=config.env_id,
-            registration_import=config.env_registration_import,
             episodes=mode.rollout_episodes,
             seed=seed * 100000 + step,
             device=device,
             normalized_score_percent=config.normalized_score_percent,
+            reference_min_score=config.normalized_score_reference_min,
+            reference_max_score=config.normalized_score_reference_max,
             required=rollout_required,
             diagnostics_path=diagnostics,
         )
@@ -3175,16 +3352,21 @@ def run_experiment(args: argparse.Namespace) -> int:
         root_heartbeat("rollout_preflight", 0)
         rollout_preflight_dir = work_dir / "rollout_preflight"
         try:
-            rollout_preflight = preflight_d4rl_environment(
+            rollout_preflight = preflight_rollout_environment(
+                backend=config.env_backend,
+                dataset_id=config.rollout_dataset_id,
                 env_id=config.env_id,
-                registration_import=config.env_registration_import,
                 expected_observation_dim=data.observations.shape[1],
                 expected_action_dim=data.actions.shape[1],
                 seed=mode.canonical_critic_seed,
                 max_steps=config.rollout_preflight_max_steps,
                 normalized_score_percent=config.normalized_score_percent,
+                reference_min_score=config.normalized_score_reference_min,
+                reference_max_score=config.normalized_score_reference_max,
                 output_dir=rollout_preflight_dir,
                 required=rollout_required,
+                process_isolated=config.process_isolated_preflight,
+                timeout_seconds=config.rollout_preflight_timeout_seconds,
             )
         except Exception:
             failure_path = rollout_preflight_dir / "rollout_preflight.json"
@@ -3420,11 +3602,41 @@ def build_parser() -> argparse.ArgumentParser:
         "--config", default="configs/e7_hopper_q2_medium_replay_v2.yaml"
     )
     inspect.add_argument("--max-transitions", type=int, default=1000)
+    worker = sub.add_parser(
+        "rollout-preflight-worker",
+        help=argparse.SUPPRESS,
+    )
+    worker.add_argument("--backend", required=True)
+    worker.add_argument("--dataset-id", required=True)
+    worker.add_argument("--env-id", required=True)
+    worker.add_argument("--expected-observation-dim", type=int, required=True)
+    worker.add_argument("--expected-action-dim", type=int, required=True)
+    worker.add_argument("--seed", type=int, required=True)
+    worker.add_argument("--max-steps", type=int, required=True)
+    worker.add_argument("--reference-min-score", type=float, required=True)
+    worker.add_argument("--reference-max-score", type=float, required=True)
+    worker.add_argument("--normalized-score-percent", action="store_true")
+    worker.add_argument("--output-report", required=True)
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    if args.command == "rollout-preflight-worker":
+        report = _run_rollout_preflight_worker(
+            backend=args.backend,
+            dataset_id=args.dataset_id,
+            env_id=args.env_id,
+            expected_observation_dim=args.expected_observation_dim,
+            expected_action_dim=args.expected_action_dim,
+            seed=args.seed,
+            max_steps=args.max_steps,
+            normalized_score_percent=args.normalized_score_percent,
+            reference_min_score=args.reference_min_score,
+            reference_max_score=args.reference_max_score,
+            output_report=Path(args.output_report).resolve(),
+        )
+        return 0 if report.get("status") == "passed" else 2
     if args.command == "inspect":
         config = load_config(args.config)
         path = Path(args.dataset_path).resolve()

@@ -1165,6 +1165,25 @@ experiments:
     role: natural_near_far_external_mechanism_validation
     conservative_replication: hopper-medium
     method_effect_dataset: hopper-medium-expert
+  rollout_evaluation:
+    offline_dataset_id: hopper-medium-replay-v2
+    evaluation_env_id: Hopper-v4
+    backend: gymnasium_mujoco
+    simulator_binding: mujoco_3_x
+    exact_legacy_environment_equivalence: false
+    compatibility_environment_disclosure_required: true
+    process_isolated_preflight: true
+    legacy_d4rl_fallback: forbidden
+    normalization:
+      protocol: d4rl_v2_reference
+      reference_min_score: -20.272305
+      reference_max_score: 3234.3
+      output_scale: percent
+    interpretation: >-
+      Offline training still uses the D4RL Hopper medium-replay-v2 HDF5 dataset.
+      Policy interaction is evaluated locally in Gymnasium Hopper-v4 and normalized
+      with the frozen D4RL-v2 reference scores; this is a compatibility evaluation,
+      not an exact legacy mujoco-py leaderboard reproduction.
   critic_protocol:
     target: discounted_monte_carlo_return
     episode_split: [0.8, 0.1, 0.1]

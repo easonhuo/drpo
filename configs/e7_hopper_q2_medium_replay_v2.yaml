@@ -1,5 +1,5 @@
 experiment_id: EXT-H-E7-Q2
-protocol_version: 4.0.0
+protocol_version: 4.1.0
 role: external_mechanism_validation
 status: not_run
 
@@ -23,10 +23,16 @@ dataset:
   role: primary_mechanism_dataset
 
 environment_evaluation:
-  env_id: hopper-medium-replay-v2
-  registration_import: d4rl
+  backend: gymnasium_mujoco
+  dataset_id: hopper-medium-replay-v2
+  env_id: Hopper-v4
   deterministic_actor: true
   normalized_score_percent: true
+  reference_min_score: -20.272305
+  reference_max_score: 3234.3
+  process_isolated_preflight: true
+  preflight_timeout_seconds: 120
+  legacy_d4rl_fallback: forbidden
   formal_required: true
   pilot_required: true
   preflight_max_steps: 2000
