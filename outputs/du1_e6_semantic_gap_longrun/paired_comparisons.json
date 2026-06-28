@@ -1,0 +1,401 @@
+{
+  "bootstrap": {
+    "interval": "percentile_95",
+    "resamples": 50000,
+    "seed": 20260628
+  },
+  "comparison": "final_expected_semantic_reward minus paired positive_only at 32000 steps",
+  "comparisons": {
+    "alpha_0_25_minus_positive_only": {
+      "alpha": 0.25,
+      "bootstrap_ci95": [
+        0.02358505330979824,
+        0.026427947282791138
+      ],
+      "differences_by_seed": {
+        "150": 0.025499939918518066,
+        "151": 0.02197939157485962,
+        "152": 0.024041354656219482,
+        "153": 0.0282059907913208,
+        "154": 0.023815155029296875,
+        "155": 0.02817559242248535,
+        "156": 0.02467900514602661,
+        "157": 0.02862381935119629,
+        "158": 0.024311840534210205,
+        "159": 0.020994365215301514,
+        "160": 0.02485942840576172,
+        "161": 0.020477235317230225,
+        "162": 0.020538687705993652,
+        "163": 0.029324233531951904,
+        "164": 0.03265923261642456,
+        "165": 0.028756260871887207,
+        "166": 0.022885620594024658,
+        "167": 0.023097634315490723,
+        "168": 0.021764755249023438,
+        "169": 0.02451193332672119
+      },
+      "losses": 0,
+      "mean_difference": 0.024960073828697204,
+      "n": 20,
+      "ties": 0,
+      "wins": 20
+    },
+    "alpha_0_5_minus_positive_only": {
+      "alpha": 0.5,
+      "bootstrap_ci95": [
+        0.022564217671751978,
+        0.026787295341491702
+      ],
+      "differences_by_seed": {
+        "150": 0.026709556579589844,
+        "151": 0.028743624687194824,
+        "152": 0.026891589164733887,
+        "153": 0.02680760622024536,
+        "154": 0.034481585025787354,
+        "155": 0.020700514316558838,
+        "156": 0.025317668914794922,
+        "157": 0.019589245319366455,
+        "158": 0.02243030071258545,
+        "159": 0.017681658267974854,
+        "160": 0.01802206039428711,
+        "161": 0.029599368572235107,
+        "162": 0.021788954734802246,
+        "163": 0.030305445194244385,
+        "164": 0.026629984378814697,
+        "165": 0.030952155590057373,
+        "166": 0.02642422914505005,
+        "167": 0.018155574798583984,
+        "168": 0.02399986982345581,
+        "169": 0.018098294734954834
+      },
+      "losses": 0,
+      "mean_difference": 0.024666464328765868,
+      "n": 20,
+      "ties": 0,
+      "wins": 20
+    },
+    "alpha_0_75_minus_positive_only": {
+      "alpha": 0.75,
+      "bootstrap_ci95": [
+        -0.005438663214445113,
+        0.0013230986893177034
+      ],
+      "differences_by_seed": {
+        "150": 0.0007485151290893555,
+        "151": 0.004840075969696045,
+        "152": 0.0066558122634887695,
+        "153": 0.0017323493957519531,
+        "154": 0.000628054141998291,
+        "155": -0.010119616985321045,
+        "156": 0.007209718227386475,
+        "157": -0.006287634372711182,
+        "158": -0.003711104393005371,
+        "159": -0.004732668399810791,
+        "160": -0.01652592420578003,
+        "161": 0.007750570774078369,
+        "162": -0.0033093690872192383,
+        "163": -0.004365861415863037,
+        "164": -0.004949986934661865,
+        "165": 0.009856462478637695,
+        "166": -0.0004488229751586914,
+        "167": 0.004650533199310303,
+        "168": -0.01868724822998047,
+        "169": -0.010497450828552246
+      },
+      "losses": 11,
+      "mean_difference": -0.0019781798124313354,
+      "n": 20,
+      "ties": 0,
+      "wins": 9
+    },
+    "alpha_1_0_minus_positive_only": {
+      "alpha": 1.0,
+      "bootstrap_ci95": [
+        -0.06415405839681626,
+        -0.058077503591775895
+      ],
+      "differences_by_seed": {
+        "150": -0.06630468368530273,
+        "151": -0.07094436883926392,
+        "152": -0.0638546347618103,
+        "153": -0.05525416135787964,
+        "154": -0.05941122770309448,
+        "155": -0.06192094087600708,
+        "156": -0.05149739980697632,
+        "157": -0.06397950649261475,
+        "158": -0.051283419132232666,
+        "159": -0.0679364800453186,
+        "160": -0.07497406005859375,
+        "161": -0.049191057682037354,
+        "162": -0.061184465885162354,
+        "163": -0.05586117506027222,
+        "164": -0.05628097057342529,
+        "165": -0.055713772773742676,
+        "166": -0.062319815158843994,
+        "167": -0.059831976890563965,
+        "168": -0.07146412134170532,
+        "169": -0.062491416931152344
+      },
+      "losses": 20,
+      "mean_difference": -0.061084982752799985,
+      "n": 20,
+      "ties": 0,
+      "wins": 0
+    }
+  },
+  "experiment_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+  "registered_horizon_summary": [
+    {
+      "alpha": 0.0,
+      "n": 20,
+      "overall_reward_mean": 0.755118590593338,
+      "overall_reward_std": 0.008416893807019304,
+      "paired_difference_vs_positive_only_mean": 0.0,
+      "paired_losses_vs_positive_only": 0,
+      "paired_wins_vs_positive_only": 0,
+      "step": 4000
+    },
+    {
+      "alpha": 0.25,
+      "n": 20,
+      "overall_reward_mean": 0.7944407045841217,
+      "overall_reward_std": 0.0072633029756799675,
+      "paired_difference_vs_positive_only_mean": 0.03932211399078369,
+      "paired_losses_vs_positive_only": 0,
+      "paired_wins_vs_positive_only": 20,
+      "step": 4000
+    },
+    {
+      "alpha": 0.5,
+      "n": 20,
+      "overall_reward_mean": 0.8271516770124435,
+      "overall_reward_std": 0.0052837542101823514,
+      "paired_difference_vs_positive_only_mean": 0.07203308641910552,
+      "paired_losses_vs_positive_only": 0,
+      "paired_wins_vs_positive_only": 20,
+      "step": 4000
+    },
+    {
+      "alpha": 0.75,
+      "n": 20,
+      "overall_reward_mean": 0.8254932194948197,
+      "overall_reward_std": 0.006510565769978782,
+      "paired_difference_vs_positive_only_mean": 0.07037462890148163,
+      "paired_losses_vs_positive_only": 0,
+      "paired_wins_vs_positive_only": 20,
+      "step": 4000
+    },
+    {
+      "alpha": 1.0,
+      "n": 20,
+      "overall_reward_mean": 0.7590612739324569,
+      "overall_reward_std": 0.007126541189881457,
+      "paired_difference_vs_positive_only_mean": 0.0039426833391189575,
+      "paired_losses_vs_positive_only": 10,
+      "paired_wins_vs_positive_only": 10,
+      "step": 4000
+    },
+    {
+      "alpha": 0.0,
+      "n": 20,
+      "overall_reward_mean": 0.7497380077838898,
+      "overall_reward_std": 0.007321873136826406,
+      "paired_difference_vs_positive_only_mean": 0.0,
+      "paired_losses_vs_positive_only": 0,
+      "paired_wins_vs_positive_only": 0,
+      "step": 8000
+    },
+    {
+      "alpha": 0.25,
+      "n": 20,
+      "overall_reward_mean": 0.7869091928005219,
+      "overall_reward_std": 0.007848518545228288,
+      "paired_difference_vs_positive_only_mean": 0.03717118501663208,
+      "paired_losses_vs_positive_only": 0,
+      "paired_wins_vs_positive_only": 20,
+      "step": 8000
+    },
+    {
+      "alpha": 0.5,
+      "n": 20,
+      "overall_reward_mean": 0.811719897389412,
+      "overall_reward_std": 0.007127979637578703,
+      "paired_difference_vs_positive_only_mean": 0.06198188960552216,
+      "paired_losses_vs_positive_only": 0,
+      "paired_wins_vs_positive_only": 20,
+      "step": 8000
+    },
+    {
+      "alpha": 0.75,
+      "n": 20,
+      "overall_reward_mean": 0.7984096050262451,
+      "overall_reward_std": 0.007654753857276545,
+      "paired_difference_vs_positive_only_mean": 0.04867159724235535,
+      "paired_losses_vs_positive_only": 0,
+      "paired_wins_vs_positive_only": 20,
+      "step": 8000
+    },
+    {
+      "alpha": 1.0,
+      "n": 20,
+      "overall_reward_mean": 0.7359968602657319,
+      "overall_reward_std": 0.006154556784296798,
+      "paired_difference_vs_positive_only_mean": -0.01374114751815796,
+      "paired_losses_vs_positive_only": 20,
+      "paired_wins_vs_positive_only": 0,
+      "step": 8000
+    },
+    {
+      "alpha": 0.0,
+      "n": 20,
+      "overall_reward_mean": 0.7463195085525512,
+      "overall_reward_std": 0.007009587508398752,
+      "paired_difference_vs_positive_only_mean": 0.0,
+      "paired_losses_vs_positive_only": 0,
+      "paired_wins_vs_positive_only": 0,
+      "step": 16000
+    },
+    {
+      "alpha": 0.25,
+      "n": 20,
+      "overall_reward_mean": 0.7777924627065659,
+      "overall_reward_std": 0.007179412668972616,
+      "paired_difference_vs_positive_only_mean": 0.03147295415401459,
+      "paired_losses_vs_positive_only": 0,
+      "paired_wins_vs_positive_only": 20,
+      "step": 16000
+    },
+    {
+      "alpha": 0.5,
+      "n": 20,
+      "overall_reward_mean": 0.7900325864553451,
+      "overall_reward_std": 0.005391911119351043,
+      "paired_difference_vs_positive_only_mean": 0.043713077902793884,
+      "paired_losses_vs_positive_only": 0,
+      "paired_wins_vs_positive_only": 20,
+      "step": 16000
+    },
+    {
+      "alpha": 0.75,
+      "n": 20,
+      "overall_reward_mean": 0.7676091492176056,
+      "overall_reward_std": 0.007804916645247905,
+      "paired_difference_vs_positive_only_mean": 0.021289640665054323,
+      "paired_losses_vs_positive_only": 0,
+      "paired_wins_vs_positive_only": 20,
+      "step": 16000
+    },
+    {
+      "alpha": 1.0,
+      "n": 20,
+      "overall_reward_mean": 0.7071522742509841,
+      "overall_reward_std": 0.005464502135420126,
+      "paired_difference_vs_positive_only_mean": -0.03916723430156708,
+      "paired_losses_vs_positive_only": 20,
+      "paired_wins_vs_positive_only": 0,
+      "step": 16000
+    },
+    {
+      "alpha": 0.0,
+      "n": 20,
+      "overall_reward_mean": 0.7430283397436142,
+      "overall_reward_std": 0.006645492079311184,
+      "paired_difference_vs_positive_only_mean": 0.0,
+      "paired_losses_vs_positive_only": 0,
+      "paired_wins_vs_positive_only": 0,
+      "step": 24000
+    },
+    {
+      "alpha": 0.25,
+      "n": 20,
+      "overall_reward_mean": 0.7705904632806778,
+      "overall_reward_std": 0.006892723093585673,
+      "paired_difference_vs_positive_only_mean": 0.0275621235370636,
+      "paired_losses_vs_positive_only": 0,
+      "paired_wins_vs_positive_only": 20,
+      "step": 24000
+    },
+    {
+      "alpha": 0.5,
+      "n": 20,
+      "overall_reward_mean": 0.7764193832874298,
+      "overall_reward_std": 0.00558859990017979,
+      "paired_difference_vs_positive_only_mean": 0.03339104354381561,
+      "paired_losses_vs_positive_only": 0,
+      "paired_wins_vs_positive_only": 20,
+      "step": 24000
+    },
+    {
+      "alpha": 0.75,
+      "n": 20,
+      "overall_reward_mean": 0.7520342469215393,
+      "overall_reward_std": 0.00883607222362405,
+      "paired_difference_vs_positive_only_mean": 0.00900590717792511,
+      "paired_losses_vs_positive_only": 4,
+      "paired_wins_vs_positive_only": 16,
+      "step": 24000
+    },
+    {
+      "alpha": 1.0,
+      "n": 20,
+      "overall_reward_mean": 0.689801636338234,
+      "overall_reward_std": 0.00599801305941085,
+      "paired_difference_vs_positive_only_mean": -0.05322670340538025,
+      "paired_losses_vs_positive_only": 20,
+      "paired_wins_vs_positive_only": 0,
+      "step": 24000
+    },
+    {
+      "alpha": 0.0,
+      "n": 20,
+      "overall_reward_mean": 0.741308581829071,
+      "overall_reward_std": 0.005927126080174987,
+      "paired_difference_vs_positive_only_mean": 0.0,
+      "paired_losses_vs_positive_only": 0,
+      "paired_wins_vs_positive_only": 0,
+      "step": 32000
+    },
+    {
+      "alpha": 0.25,
+      "n": 20,
+      "overall_reward_mean": 0.7662686556577682,
+      "overall_reward_std": 0.00698466242819795,
+      "paired_difference_vs_positive_only_mean": 0.024960073828697204,
+      "paired_losses_vs_positive_only": 0,
+      "paired_wins_vs_positive_only": 20,
+      "step": 32000
+    },
+    {
+      "alpha": 0.5,
+      "n": 20,
+      "overall_reward_mean": 0.765975046157837,
+      "overall_reward_std": 0.005872174592689896,
+      "paired_difference_vs_positive_only_mean": 0.024666464328765868,
+      "paired_losses_vs_positive_only": 0,
+      "paired_wins_vs_positive_only": 20,
+      "step": 32000
+    },
+    {
+      "alpha": 0.75,
+      "n": 20,
+      "overall_reward_mean": 0.7393304020166397,
+      "overall_reward_std": 0.008430331648160462,
+      "paired_difference_vs_positive_only_mean": -0.0019781798124313354,
+      "paired_losses_vs_positive_only": 11,
+      "paired_wins_vs_positive_only": 9,
+      "step": 32000
+    },
+    {
+      "alpha": 1.0,
+      "n": 20,
+      "overall_reward_mean": 0.6802235990762711,
+      "overall_reward_std": 0.00818192312888965,
+      "paired_difference_vs_positive_only_mean": -0.061084982752799985,
+      "paired_losses_vs_positive_only": 20,
+      "paired_wins_vs_positive_only": 0,
+      "step": 32000
+    }
+  ],
+  "run_commit": "0907c3c0e76fc836c2bf2b752abf554c17f79f22",
+  "schema_version": 1
+}

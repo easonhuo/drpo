@@ -1,0 +1,1542 @@
+[
+  {
+    "action_id_permutation_checksum": "dfe8c3d914a949ba6a8c2c13d29094d39a586453916a8f7a573671d5325558d3",
+    "embedding_mode": "aligned",
+    "passed": true,
+    "policy_embedding_norm_max_error": 1.1920928955078125e-07,
+    "policy_mapping_changed_when_shuffled": true,
+    "policy_permutation_checksum": "7a4644928f3a08db905254fd7e5e53ef19a46d932a2ecd372b45462413a82619",
+    "reward_embedding_norm_max_error": 1.1920928955078125e-07,
+    "reward_policy_diagonal_cosine_mean": 1.0,
+    "seed": 150,
+    "splits": {
+      "test": {
+        "conditional_coverage": {
+          "expected_gap_state_count": 1024,
+          "expected_withheld_action_count": 16,
+          "gap_state_count": 1024,
+          "globally_unobserved_action_count": 0,
+          "hidden_not_withheld_violations": 0,
+          "logged_role_gap_violations": 0,
+          "mode": "structured_semantic_neighbourhood_gap",
+          "passed": true,
+          "withheld_action_count_max": 16,
+          "withheld_action_count_min": 16
+        },
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.11113264411687851,
+          "hidden": 0.9630461931228638,
+          "local_negative": 0.5785661935806274,
+          "positive": 0.7434840202331543
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 1.7285346984863281e-06
+      },
+      "train": {
+        "conditional_coverage": {
+          "expected_gap_state_count": 1024,
+          "expected_withheld_action_count": 16,
+          "gap_state_count": 1024,
+          "globally_unobserved_action_count": 0,
+          "hidden_not_withheld_violations": 0,
+          "logged_role_gap_violations": 0,
+          "mode": "structured_semantic_neighbourhood_gap",
+          "passed": true,
+          "withheld_action_count_max": 16,
+          "withheld_action_count_min": 16
+        },
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.11119205504655838,
+          "hidden": 0.9622055888175964,
+          "local_negative": 0.5787917375564575,
+          "positive": 0.7429639101028442
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 1.2218952178955078e-06
+      }
+    }
+  },
+  {
+    "action_id_permutation_checksum": "18a127e880f1278feff7b4033d4ef1ed8dd27afa823cf6ec0893b1de597a96e5",
+    "embedding_mode": "aligned",
+    "passed": true,
+    "policy_embedding_norm_max_error": 1.1920928955078125e-07,
+    "policy_mapping_changed_when_shuffled": true,
+    "policy_permutation_checksum": "7a4644928f3a08db905254fd7e5e53ef19a46d932a2ecd372b45462413a82619",
+    "reward_embedding_norm_max_error": 1.1920928955078125e-07,
+    "reward_policy_diagonal_cosine_mean": 1.0,
+    "seed": 151,
+    "splits": {
+      "test": {
+        "conditional_coverage": {
+          "expected_gap_state_count": 1024,
+          "expected_withheld_action_count": 16,
+          "gap_state_count": 1024,
+          "globally_unobserved_action_count": 0,
+          "hidden_not_withheld_violations": 0,
+          "logged_role_gap_violations": 0,
+          "mode": "structured_semantic_neighbourhood_gap",
+          "passed": true,
+          "withheld_action_count_max": 16,
+          "withheld_action_count_min": 16
+        },
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.11223433911800385,
+          "hidden": 0.9590528011322021,
+          "local_negative": 0.5821552276611328,
+          "positive": 0.7403255701065063
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 9.08970832824707e-07
+      },
+      "train": {
+        "conditional_coverage": {
+          "expected_gap_state_count": 1024,
+          "expected_withheld_action_count": 16,
+          "gap_state_count": 1024,
+          "globally_unobserved_action_count": 0,
+          "hidden_not_withheld_violations": 0,
+          "logged_role_gap_violations": 0,
+          "mode": "structured_semantic_neighbourhood_gap",
+          "passed": true,
+          "withheld_action_count_max": 16,
+          "withheld_action_count_min": 16
+        },
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.11275429278612137,
+          "hidden": 0.9595920443534851,
+          "local_negative": 0.5809938907623291,
+          "positive": 0.7416579723358154
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 9.164214134216309e-07
+      }
+    }
+  },
+  {
+    "action_id_permutation_checksum": "3ef4a477add520f74802c7e17a06fd4399d4eea626bc40dc222d567b7288d3ec",
+    "embedding_mode": "aligned",
+    "passed": true,
+    "policy_embedding_norm_max_error": 1.1920928955078125e-07,
+    "policy_mapping_changed_when_shuffled": true,
+    "policy_permutation_checksum": "7a4644928f3a08db905254fd7e5e53ef19a46d932a2ecd372b45462413a82619",
+    "reward_embedding_norm_max_error": 1.1920928955078125e-07,
+    "reward_policy_diagonal_cosine_mean": 1.0,
+    "seed": 152,
+    "splits": {
+      "test": {
+        "conditional_coverage": {
+          "expected_gap_state_count": 1024,
+          "expected_withheld_action_count": 16,
+          "gap_state_count": 1024,
+          "globally_unobserved_action_count": 0,
+          "hidden_not_withheld_violations": 0,
+          "logged_role_gap_violations": 0,
+          "mode": "structured_semantic_neighbourhood_gap",
+          "passed": true,
+          "withheld_action_count_max": 16,
+          "withheld_action_count_min": 16
+        },
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.10632189363241196,
+          "hidden": 0.9605059027671814,
+          "local_negative": 0.5943970084190369,
+          "positive": 0.7556960582733154
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 4.470348358154297e-07
+      },
+      "train": {
+        "conditional_coverage": {
+          "expected_gap_state_count": 1024,
+          "expected_withheld_action_count": 16,
+          "gap_state_count": 1024,
+          "globally_unobserved_action_count": 0,
+          "hidden_not_withheld_violations": 0,
+          "logged_role_gap_violations": 0,
+          "mode": "structured_semantic_neighbourhood_gap",
+          "passed": true,
+          "withheld_action_count_max": 16,
+          "withheld_action_count_min": 16
+        },
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.10694236308336258,
+          "hidden": 0.9600459337234497,
+          "local_negative": 0.5915064215660095,
+          "positive": 0.753752589225769
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 4.6193599700927734e-07
+      }
+    }
+  },
+  {
+    "action_id_permutation_checksum": "aca909134f9d47f9937e74c497b8639c751ee5e9a25a51e9d54b3cfa8379a4b3",
+    "embedding_mode": "aligned",
+    "passed": true,
+    "policy_embedding_norm_max_error": 1.1920928955078125e-07,
+    "policy_mapping_changed_when_shuffled": true,
+    "policy_permutation_checksum": "7a4644928f3a08db905254fd7e5e53ef19a46d932a2ecd372b45462413a82619",
+    "reward_embedding_norm_max_error": 1.1920928955078125e-07,
+    "reward_policy_diagonal_cosine_mean": 1.0,
+    "seed": 153,
+    "splits": {
+      "test": {
+        "conditional_coverage": {
+          "expected_gap_state_count": 1024,
+          "expected_withheld_action_count": 16,
+          "gap_state_count": 1024,
+          "globally_unobserved_action_count": 0,
+          "hidden_not_withheld_violations": 0,
+          "logged_role_gap_violations": 0,
+          "mode": "structured_semantic_neighbourhood_gap",
+          "passed": true,
+          "withheld_action_count_max": 16,
+          "withheld_action_count_min": 16
+        },
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.11693306267261505,
+          "hidden": 0.9569502472877502,
+          "local_negative": 0.5653164386749268,
+          "positive": 0.7394418120384216
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 1.0728836059570312e-06
+      },
+      "train": {
+        "conditional_coverage": {
+          "expected_gap_state_count": 1024,
+          "expected_withheld_action_count": 16,
+          "gap_state_count": 1024,
+          "globally_unobserved_action_count": 0,
+          "hidden_not_withheld_violations": 0,
+          "logged_role_gap_violations": 0,
+          "mode": "structured_semantic_neighbourhood_gap",
+          "passed": true,
+          "withheld_action_count_max": 16,
+          "withheld_action_count_min": 16
+        },
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.11708405613899231,
+          "hidden": 0.9576213955879211,
+          "local_negative": 0.5653080940246582,
+          "positive": 0.7418535947799683
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 8.493661880493164e-07
+      }
+    }
+  },
+  {
+    "action_id_permutation_checksum": "372d9cc83ece24657a372ee92ee39f1ec874ba730cc6f303d0f34d00d0b971c8",
+    "embedding_mode": "aligned",
+    "passed": true,
+    "policy_embedding_norm_max_error": 1.1920928955078125e-07,
+    "policy_mapping_changed_when_shuffled": true,
+    "policy_permutation_checksum": "7a4644928f3a08db905254fd7e5e53ef19a46d932a2ecd372b45462413a82619",
+    "reward_embedding_norm_max_error": 1.1920928955078125e-07,
+    "reward_policy_diagonal_cosine_mean": 1.0,
+    "seed": 154,
+    "splits": {
+      "test": {
+        "conditional_coverage": {
+          "expected_gap_state_count": 1024,
+          "expected_withheld_action_count": 16,
+          "gap_state_count": 1024,
+          "globally_unobserved_action_count": 0,
+          "hidden_not_withheld_violations": 0,
+          "logged_role_gap_violations": 0,
+          "mode": "structured_semantic_neighbourhood_gap",
+          "passed": true,
+          "withheld_action_count_max": 16,
+          "withheld_action_count_min": 16
+        },
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.12110908329486847,
+          "hidden": 0.9573912024497986,
+          "local_negative": 0.5866793394088745,
+          "positive": 0.7413042783737183
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 1.3262033462524414e-06
+      },
+      "train": {
+        "conditional_coverage": {
+          "expected_gap_state_count": 1024,
+          "expected_withheld_action_count": 16,
+          "gap_state_count": 1024,
+          "globally_unobserved_action_count": 0,
+          "hidden_not_withheld_violations": 0,
+          "logged_role_gap_violations": 0,
+          "mode": "structured_semantic_neighbourhood_gap",
+          "passed": true,
+          "withheld_action_count_max": 16,
+          "withheld_action_count_min": 16
+        },
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.12007416784763336,
+          "hidden": 0.958769679069519,
+          "local_negative": 0.5874813795089722,
+          "positive": 0.7427705526351929
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 7.748603820800781e-07
+      }
+    }
+  },
+  {
+    "action_id_permutation_checksum": "2a56f6e457f5a2208b14f790e12f74f6381d85e6581b427f79622fb16dc068fb",
+    "embedding_mode": "aligned",
+    "passed": true,
+    "policy_embedding_norm_max_error": 1.1920928955078125e-07,
+    "policy_mapping_changed_when_shuffled": true,
+    "policy_permutation_checksum": "7a4644928f3a08db905254fd7e5e53ef19a46d932a2ecd372b45462413a82619",
+    "reward_embedding_norm_max_error": 1.1920928955078125e-07,
+    "reward_policy_diagonal_cosine_mean": 1.0,
+    "seed": 155,
+    "splits": {
+      "test": {
+        "conditional_coverage": {
+          "expected_gap_state_count": 1024,
+          "expected_withheld_action_count": 16,
+          "gap_state_count": 1024,
+          "globally_unobserved_action_count": 0,
+          "hidden_not_withheld_violations": 0,
+          "logged_role_gap_violations": 0,
+          "mode": "structured_semantic_neighbourhood_gap",
+          "passed": true,
+          "withheld_action_count_max": 16,
+          "withheld_action_count_min": 16
+        },
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.11096343398094177,
+          "hidden": 0.9614557027816772,
+          "local_negative": 0.5618038773536682,
+          "positive": 0.7403919100761414
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 1.773238182067871e-06
+      },
+      "train": {
+        "conditional_coverage": {
+          "expected_gap_state_count": 1024,
+          "expected_withheld_action_count": 16,
+          "gap_state_count": 1024,
+          "globally_unobserved_action_count": 0,
+          "hidden_not_withheld_violations": 0,
+          "logged_role_gap_violations": 0,
+          "mode": "structured_semantic_neighbourhood_gap",
+          "passed": true,
+          "withheld_action_count_max": 16,
+          "withheld_action_count_min": 16
+        },
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.11224647611379623,
+          "hidden": 0.9604530930519104,
+          "local_negative": 0.5603806972503662,
+          "positive": 0.7404994368553162
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 1.2405216693878174e-06
+      }
+    }
+  },
+  {
+    "action_id_permutation_checksum": "3ebdee65f09e166fa1247a6e266f2c4f0ad759c39653b4d81b0a8c002afb40bf",
+    "embedding_mode": "aligned",
+    "passed": true,
+    "policy_embedding_norm_max_error": 1.1920928955078125e-07,
+    "policy_mapping_changed_when_shuffled": true,
+    "policy_permutation_checksum": "7a4644928f3a08db905254fd7e5e53ef19a46d932a2ecd372b45462413a82619",
+    "reward_embedding_norm_max_error": 1.1920928955078125e-07,
+    "reward_policy_diagonal_cosine_mean": 1.0,
+    "seed": 156,
+    "splits": {
+      "test": {
+        "conditional_coverage": {
+          "expected_gap_state_count": 1024,
+          "expected_withheld_action_count": 16,
+          "gap_state_count": 1024,
+          "globally_unobserved_action_count": 0,
+          "hidden_not_withheld_violations": 0,
+          "logged_role_gap_violations": 0,
+          "mode": "structured_semantic_neighbourhood_gap",
+          "passed": true,
+          "withheld_action_count_max": 16,
+          "withheld_action_count_min": 16
+        },
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.11980819702148438,
+          "hidden": 0.9591199159622192,
+          "local_negative": 0.569555401802063,
+          "positive": 0.7423518896102905
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 1.2218952178955078e-06
+      },
+      "train": {
+        "conditional_coverage": {
+          "expected_gap_state_count": 1024,
+          "expected_withheld_action_count": 16,
+          "gap_state_count": 1024,
+          "globally_unobserved_action_count": 0,
+          "hidden_not_withheld_violations": 0,
+          "logged_role_gap_violations": 0,
+          "mode": "structured_semantic_neighbourhood_gap",
+          "passed": true,
+          "withheld_action_count_max": 16,
+          "withheld_action_count_min": 16
+        },
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.11938454210758209,
+          "hidden": 0.9598373174667358,
+          "local_negative": 0.5647829174995422,
+          "positive": 0.7396331429481506
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 1.7434358596801758e-06
+      }
+    }
+  },
+  {
+    "action_id_permutation_checksum": "1dcd172d9a0d3b30b32a90c827ea887fd1ef48e0fb1702a8b158d9ba0b7e586b",
+    "embedding_mode": "aligned",
+    "passed": true,
+    "policy_embedding_norm_max_error": 1.1920928955078125e-07,
+    "policy_mapping_changed_when_shuffled": true,
+    "policy_permutation_checksum": "7a4644928f3a08db905254fd7e5e53ef19a46d932a2ecd372b45462413a82619",
+    "reward_embedding_norm_max_error": 1.1920928955078125e-07,
+    "reward_policy_diagonal_cosine_mean": 1.0,
+    "seed": 157,
+    "splits": {
+      "test": {
+        "conditional_coverage": {
+          "expected_gap_state_count": 1024,
+          "expected_withheld_action_count": 16,
+          "gap_state_count": 1024,
+          "globally_unobserved_action_count": 0,
+          "hidden_not_withheld_violations": 0,
+          "logged_role_gap_violations": 0,
+          "mode": "structured_semantic_neighbourhood_gap",
+          "passed": true,
+          "withheld_action_count_max": 16,
+          "withheld_action_count_min": 16
+        },
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.10808876156806946,
+          "hidden": 0.9627282619476318,
+          "local_negative": 0.5763402581214905,
+          "positive": 0.7537934184074402
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 1.1622905731201172e-06
+      },
+      "train": {
+        "conditional_coverage": {
+          "expected_gap_state_count": 1024,
+          "expected_withheld_action_count": 16,
+          "gap_state_count": 1024,
+          "globally_unobserved_action_count": 0,
+          "hidden_not_withheld_violations": 0,
+          "logged_role_gap_violations": 0,
+          "mode": "structured_semantic_neighbourhood_gap",
+          "passed": true,
+          "withheld_action_count_max": 16,
+          "withheld_action_count_min": 16
+        },
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.10692571848630905,
+          "hidden": 0.96050626039505,
+          "local_negative": 0.5757138133049011,
+          "positive": 0.7553688287734985
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 1.296401023864746e-06
+      }
+    }
+  },
+  {
+    "action_id_permutation_checksum": "8e88e9ac58cebbb6a44d7ace53e3c1a04ba2e82aeccc1fed3209e0d9bda6c13d",
+    "embedding_mode": "aligned",
+    "passed": true,
+    "policy_embedding_norm_max_error": 1.1920928955078125e-07,
+    "policy_mapping_changed_when_shuffled": true,
+    "policy_permutation_checksum": "7a4644928f3a08db905254fd7e5e53ef19a46d932a2ecd372b45462413a82619",
+    "reward_embedding_norm_max_error": 1.1920928955078125e-07,
+    "reward_policy_diagonal_cosine_mean": 1.0,
+    "seed": 158,
+    "splits": {
+      "test": {
+        "conditional_coverage": {
+          "expected_gap_state_count": 1024,
+          "expected_withheld_action_count": 16,
+          "gap_state_count": 1024,
+          "globally_unobserved_action_count": 0,
+          "hidden_not_withheld_violations": 0,
+          "logged_role_gap_violations": 0,
+          "mode": "structured_semantic_neighbourhood_gap",
+          "passed": true,
+          "withheld_action_count_max": 16,
+          "withheld_action_count_min": 16
+        },
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.12230410426855087,
+          "hidden": 0.9563016891479492,
+          "local_negative": 0.5676607489585876,
+          "positive": 0.7366026639938354
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 1.0542571544647217e-06
+      },
+      "train": {
+        "conditional_coverage": {
+          "expected_gap_state_count": 1024,
+          "expected_withheld_action_count": 16,
+          "gap_state_count": 1024,
+          "globally_unobserved_action_count": 0,
+          "hidden_not_withheld_violations": 0,
+          "logged_role_gap_violations": 0,
+          "mode": "structured_semantic_neighbourhood_gap",
+          "passed": true,
+          "withheld_action_count_max": 16,
+          "withheld_action_count_min": 16
+        },
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.12071350961923599,
+          "hidden": 0.9555819630622864,
+          "local_negative": 0.5635661482810974,
+          "positive": 0.7356746792793274
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 1.5795230865478516e-06
+      }
+    }
+  },
+  {
+    "action_id_permutation_checksum": "460491eb8396a49b16b166e698f626c08f830873050a2fe76bc5b6f0a2cd9f69",
+    "embedding_mode": "aligned",
+    "passed": true,
+    "policy_embedding_norm_max_error": 1.1920928955078125e-07,
+    "policy_mapping_changed_when_shuffled": true,
+    "policy_permutation_checksum": "7a4644928f3a08db905254fd7e5e53ef19a46d932a2ecd372b45462413a82619",
+    "reward_embedding_norm_max_error": 1.1920928955078125e-07,
+    "reward_policy_diagonal_cosine_mean": 1.0,
+    "seed": 159,
+    "splits": {
+      "test": {
+        "conditional_coverage": {
+          "expected_gap_state_count": 1024,
+          "expected_withheld_action_count": 16,
+          "gap_state_count": 1024,
+          "globally_unobserved_action_count": 0,
+          "hidden_not_withheld_violations": 0,
+          "logged_role_gap_violations": 0,
+          "mode": "structured_semantic_neighbourhood_gap",
+          "passed": true,
+          "withheld_action_count_max": 16,
+          "withheld_action_count_min": 16
+        },
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.1089615523815155,
+          "hidden": 0.9604362845420837,
+          "local_negative": 0.5778433084487915,
+          "positive": 0.7447067499160767
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 1.3113021850585938e-06
+      },
+      "train": {
+        "conditional_coverage": {
+          "expected_gap_state_count": 1024,
+          "expected_withheld_action_count": 16,
+          "gap_state_count": 1024,
+          "globally_unobserved_action_count": 0,
+          "hidden_not_withheld_violations": 0,
+          "logged_role_gap_violations": 0,
+          "mode": "structured_semantic_neighbourhood_gap",
+          "passed": true,
+          "withheld_action_count_max": 16,
+          "withheld_action_count_min": 16
+        },
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.10861789435148239,
+          "hidden": 0.9604777097702026,
+          "local_negative": 0.5777521729469299,
+          "positive": 0.7442829608917236
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 9.238719940185547e-07
+      }
+    }
+  },
+  {
+    "action_id_permutation_checksum": "40326bdf7e6282da8e87eeefb457adc9157e4a13700f87cf01a41ba3f7f88516",
+    "embedding_mode": "aligned",
+    "passed": true,
+    "policy_embedding_norm_max_error": 1.1920928955078125e-07,
+    "policy_mapping_changed_when_shuffled": true,
+    "policy_permutation_checksum": "7a4644928f3a08db905254fd7e5e53ef19a46d932a2ecd372b45462413a82619",
+    "reward_embedding_norm_max_error": 1.1920928955078125e-07,
+    "reward_policy_diagonal_cosine_mean": 1.0,
+    "seed": 160,
+    "splits": {
+      "test": {
+        "conditional_coverage": {
+          "expected_gap_state_count": 1024,
+          "expected_withheld_action_count": 16,
+          "gap_state_count": 1024,
+          "globally_unobserved_action_count": 0,
+          "hidden_not_withheld_violations": 0,
+          "logged_role_gap_violations": 0,
+          "mode": "structured_semantic_neighbourhood_gap",
+          "passed": true,
+          "withheld_action_count_max": 16,
+          "withheld_action_count_min": 16
+        },
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.11099892109632492,
+          "hidden": 0.9623320698738098,
+          "local_negative": 0.5821146965026855,
+          "positive": 0.7508228421211243
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 9.909272193908691e-07
+      },
+      "train": {
+        "conditional_coverage": {
+          "expected_gap_state_count": 1024,
+          "expected_withheld_action_count": 16,
+          "gap_state_count": 1024,
+          "globally_unobserved_action_count": 0,
+          "hidden_not_withheld_violations": 0,
+          "logged_role_gap_violations": 0,
+          "mode": "structured_semantic_neighbourhood_gap",
+          "passed": true,
+          "withheld_action_count_max": 16,
+          "withheld_action_count_min": 16
+        },
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.11040113866329193,
+          "hidden": 0.9624606370925903,
+          "local_negative": 0.581659197807312,
+          "positive": 0.7489821314811707
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 1.1771917343139648e-06
+      }
+    }
+  },
+  {
+    "action_id_permutation_checksum": "2ebede7c870cd246cc65efb50f36fff7df8c120a3a45ac72fd8d94a0616bd2fb",
+    "embedding_mode": "aligned",
+    "passed": true,
+    "policy_embedding_norm_max_error": 1.1920928955078125e-07,
+    "policy_mapping_changed_when_shuffled": true,
+    "policy_permutation_checksum": "7a4644928f3a08db905254fd7e5e53ef19a46d932a2ecd372b45462413a82619",
+    "reward_embedding_norm_max_error": 1.1920928955078125e-07,
+    "reward_policy_diagonal_cosine_mean": 1.0,
+    "seed": 161,
+    "splits": {
+      "test": {
+        "conditional_coverage": {
+          "expected_gap_state_count": 1024,
+          "expected_withheld_action_count": 16,
+          "gap_state_count": 1024,
+          "globally_unobserved_action_count": 0,
+          "hidden_not_withheld_violations": 0,
+          "logged_role_gap_violations": 0,
+          "mode": "structured_semantic_neighbourhood_gap",
+          "passed": true,
+          "withheld_action_count_max": 16,
+          "withheld_action_count_min": 16
+        },
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.11778247356414795,
+          "hidden": 0.9566928744316101,
+          "local_negative": 0.577831506729126,
+          "positive": 0.7421896457672119
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 8.344650268554688e-07
+      },
+      "train": {
+        "conditional_coverage": {
+          "expected_gap_state_count": 1024,
+          "expected_withheld_action_count": 16,
+          "gap_state_count": 1024,
+          "globally_unobserved_action_count": 0,
+          "hidden_not_withheld_violations": 0,
+          "logged_role_gap_violations": 0,
+          "mode": "structured_semantic_neighbourhood_gap",
+          "passed": true,
+          "withheld_action_count_max": 16,
+          "withheld_action_count_min": 16
+        },
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.11742263287305832,
+          "hidden": 0.9564812183380127,
+          "local_negative": 0.5768722295761108,
+          "positive": 0.7437078952789307
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 6.332993507385254e-07
+      }
+    }
+  },
+  {
+    "action_id_permutation_checksum": "6d0629a5edaad6c297a9b388eae05159344e3abb8b3e7bcbc73982c5608f804c",
+    "embedding_mode": "aligned",
+    "passed": true,
+    "policy_embedding_norm_max_error": 1.1920928955078125e-07,
+    "policy_mapping_changed_when_shuffled": true,
+    "policy_permutation_checksum": "7a4644928f3a08db905254fd7e5e53ef19a46d932a2ecd372b45462413a82619",
+    "reward_embedding_norm_max_error": 1.1920928955078125e-07,
+    "reward_policy_diagonal_cosine_mean": 1.0,
+    "seed": 162,
+    "splits": {
+      "test": {
+        "conditional_coverage": {
+          "expected_gap_state_count": 1024,
+          "expected_withheld_action_count": 16,
+          "gap_state_count": 1024,
+          "globally_unobserved_action_count": 0,
+          "hidden_not_withheld_violations": 0,
+          "logged_role_gap_violations": 0,
+          "mode": "structured_semantic_neighbourhood_gap",
+          "passed": true,
+          "withheld_action_count_max": 16,
+          "withheld_action_count_min": 16
+        },
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.11646506190299988,
+          "hidden": 0.9591080546379089,
+          "local_negative": 0.5701652765274048,
+          "positive": 0.738835334777832
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 9.98377799987793e-07
+      },
+      "train": {
+        "conditional_coverage": {
+          "expected_gap_state_count": 1024,
+          "expected_withheld_action_count": 16,
+          "gap_state_count": 1024,
+          "globally_unobserved_action_count": 0,
+          "hidden_not_withheld_violations": 0,
+          "logged_role_gap_violations": 0,
+          "mode": "structured_semantic_neighbourhood_gap",
+          "passed": true,
+          "withheld_action_count_max": 16,
+          "withheld_action_count_min": 16
+        },
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.11484093219041824,
+          "hidden": 0.9601426124572754,
+          "local_negative": 0.5672485828399658,
+          "positive": 0.7389533519744873
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 1.043081283569336e-06
+      }
+    }
+  },
+  {
+    "action_id_permutation_checksum": "f1f470ac55810ebce563afd48dff8d5bfb2a9f3d0c604f3ddd16f956e21d299f",
+    "embedding_mode": "aligned",
+    "passed": true,
+    "policy_embedding_norm_max_error": 1.1920928955078125e-07,
+    "policy_mapping_changed_when_shuffled": true,
+    "policy_permutation_checksum": "7a4644928f3a08db905254fd7e5e53ef19a46d932a2ecd372b45462413a82619",
+    "reward_embedding_norm_max_error": 1.1920928955078125e-07,
+    "reward_policy_diagonal_cosine_mean": 1.0,
+    "seed": 163,
+    "splits": {
+      "test": {
+        "conditional_coverage": {
+          "expected_gap_state_count": 1024,
+          "expected_withheld_action_count": 16,
+          "gap_state_count": 1024,
+          "globally_unobserved_action_count": 0,
+          "hidden_not_withheld_violations": 0,
+          "logged_role_gap_violations": 0,
+          "mode": "structured_semantic_neighbourhood_gap",
+          "passed": true,
+          "withheld_action_count_max": 16,
+          "withheld_action_count_min": 16
+        },
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.11394472420215607,
+          "hidden": 0.9644933938980103,
+          "local_negative": 0.5792033076286316,
+          "positive": 0.741530179977417
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 1.0579824447631836e-06
+      },
+      "train": {
+        "conditional_coverage": {
+          "expected_gap_state_count": 1024,
+          "expected_withheld_action_count": 16,
+          "gap_state_count": 1024,
+          "globally_unobserved_action_count": 0,
+          "hidden_not_withheld_violations": 0,
+          "logged_role_gap_violations": 0,
+          "mode": "structured_semantic_neighbourhood_gap",
+          "passed": true,
+          "withheld_action_count_max": 16,
+          "withheld_action_count_min": 16
+        },
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.11288827657699585,
+          "hidden": 0.9633224010467529,
+          "local_negative": 0.574718713760376,
+          "positive": 0.738663911819458
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 8.717179298400879e-07
+      }
+    }
+  },
+  {
+    "action_id_permutation_checksum": "dad1c91160dd8f5bb430ad0f1ed59d42e6353876dde7d41427b62227b7cd162a",
+    "embedding_mode": "aligned",
+    "passed": true,
+    "policy_embedding_norm_max_error": 1.1920928955078125e-07,
+    "policy_mapping_changed_when_shuffled": true,
+    "policy_permutation_checksum": "7a4644928f3a08db905254fd7e5e53ef19a46d932a2ecd372b45462413a82619",
+    "reward_embedding_norm_max_error": 1.1920928955078125e-07,
+    "reward_policy_diagonal_cosine_mean": 1.0,
+    "seed": 164,
+    "splits": {
+      "test": {
+        "conditional_coverage": {
+          "expected_gap_state_count": 1024,
+          "expected_withheld_action_count": 16,
+          "gap_state_count": 1024,
+          "globally_unobserved_action_count": 0,
+          "hidden_not_withheld_violations": 0,
+          "logged_role_gap_violations": 0,
+          "mode": "structured_semantic_neighbourhood_gap",
+          "passed": true,
+          "withheld_action_count_max": 16,
+          "withheld_action_count_min": 16
+        },
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.1060585305094719,
+          "hidden": 0.9667617678642273,
+          "local_negative": 0.5865359902381897,
+          "positive": 0.7526211738586426
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 9.238719940185547e-07
+      },
+      "train": {
+        "conditional_coverage": {
+          "expected_gap_state_count": 1024,
+          "expected_withheld_action_count": 16,
+          "gap_state_count": 1024,
+          "globally_unobserved_action_count": 0,
+          "hidden_not_withheld_violations": 0,
+          "logged_role_gap_violations": 0,
+          "mode": "structured_semantic_neighbourhood_gap",
+          "passed": true,
+          "withheld_action_count_max": 16,
+          "withheld_action_count_min": 16
+        },
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.10618691146373749,
+          "hidden": 0.96746826171875,
+          "local_negative": 0.5867072343826294,
+          "positive": 0.7528102397918701
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 1.773238182067871e-06
+      }
+    }
+  },
+  {
+    "action_id_permutation_checksum": "4ee425d58d9577bd1201e1fb3f9b24899664383fc06dfb83e34355fc0034206d",
+    "embedding_mode": "aligned",
+    "passed": true,
+    "policy_embedding_norm_max_error": 1.1920928955078125e-07,
+    "policy_mapping_changed_when_shuffled": true,
+    "policy_permutation_checksum": "7a4644928f3a08db905254fd7e5e53ef19a46d932a2ecd372b45462413a82619",
+    "reward_embedding_norm_max_error": 1.1920928955078125e-07,
+    "reward_policy_diagonal_cosine_mean": 1.0,
+    "seed": 165,
+    "splits": {
+      "test": {
+        "conditional_coverage": {
+          "expected_gap_state_count": 1024,
+          "expected_withheld_action_count": 16,
+          "gap_state_count": 1024,
+          "globally_unobserved_action_count": 0,
+          "hidden_not_withheld_violations": 0,
+          "logged_role_gap_violations": 0,
+          "mode": "structured_semantic_neighbourhood_gap",
+          "passed": true,
+          "withheld_action_count_max": 16,
+          "withheld_action_count_min": 16
+        },
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.11547675728797913,
+          "hidden": 0.961496114730835,
+          "local_negative": 0.5781445503234863,
+          "positive": 0.7434893846511841
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 1.3634562492370605e-06
+      },
+      "train": {
+        "conditional_coverage": {
+          "expected_gap_state_count": 1024,
+          "expected_withheld_action_count": 16,
+          "gap_state_count": 1024,
+          "globally_unobserved_action_count": 0,
+          "hidden_not_withheld_violations": 0,
+          "logged_role_gap_violations": 0,
+          "mode": "structured_semantic_neighbourhood_gap",
+          "passed": true,
+          "withheld_action_count_max": 16,
+          "withheld_action_count_min": 16
+        },
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.11332710087299347,
+          "hidden": 0.9612610936164856,
+          "local_negative": 0.5750205516815186,
+          "positive": 0.7418405413627625
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 1.6316771507263184e-06
+      }
+    }
+  },
+  {
+    "action_id_permutation_checksum": "43d23ea60baa73ba68205a8d5252ee57d70871e2d215ba8ecd2c771bb1bdd563",
+    "embedding_mode": "aligned",
+    "passed": true,
+    "policy_embedding_norm_max_error": 1.1920928955078125e-07,
+    "policy_mapping_changed_when_shuffled": true,
+    "policy_permutation_checksum": "7a4644928f3a08db905254fd7e5e53ef19a46d932a2ecd372b45462413a82619",
+    "reward_embedding_norm_max_error": 1.1920928955078125e-07,
+    "reward_policy_diagonal_cosine_mean": 1.0,
+    "seed": 166,
+    "splits": {
+      "test": {
+        "conditional_coverage": {
+          "expected_gap_state_count": 1024,
+          "expected_withheld_action_count": 16,
+          "gap_state_count": 1024,
+          "globally_unobserved_action_count": 0,
+          "hidden_not_withheld_violations": 0,
+          "logged_role_gap_violations": 0,
+          "mode": "structured_semantic_neighbourhood_gap",
+          "passed": true,
+          "withheld_action_count_max": 16,
+          "withheld_action_count_min": 16
+        },
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.1079666018486023,
+          "hidden": 0.9623262882232666,
+          "local_negative": 0.5888169407844543,
+          "positive": 0.7512229084968567
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 1.3560056686401367e-06
+      },
+      "train": {
+        "conditional_coverage": {
+          "expected_gap_state_count": 1024,
+          "expected_withheld_action_count": 16,
+          "gap_state_count": 1024,
+          "globally_unobserved_action_count": 0,
+          "hidden_not_withheld_violations": 0,
+          "logged_role_gap_violations": 0,
+          "mode": "structured_semantic_neighbourhood_gap",
+          "passed": true,
+          "withheld_action_count_max": 16,
+          "withheld_action_count_min": 16
+        },
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.10990844666957855,
+          "hidden": 0.9623048901557922,
+          "local_negative": 0.5869894027709961,
+          "positive": 0.7511058449745178
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 1.7362181097269058e-06
+      }
+    }
+  },
+  {
+    "action_id_permutation_checksum": "6705d5a2cbe3f6ad5476cec4064626b207f8a1c3163b4b82785429b3fe2a008e",
+    "embedding_mode": "aligned",
+    "passed": true,
+    "policy_embedding_norm_max_error": 1.1920928955078125e-07,
+    "policy_mapping_changed_when_shuffled": true,
+    "policy_permutation_checksum": "7a4644928f3a08db905254fd7e5e53ef19a46d932a2ecd372b45462413a82619",
+    "reward_embedding_norm_max_error": 1.1920928955078125e-07,
+    "reward_policy_diagonal_cosine_mean": 1.0,
+    "seed": 167,
+    "splits": {
+      "test": {
+        "conditional_coverage": {
+          "expected_gap_state_count": 1024,
+          "expected_withheld_action_count": 16,
+          "gap_state_count": 1024,
+          "globally_unobserved_action_count": 0,
+          "hidden_not_withheld_violations": 0,
+          "logged_role_gap_violations": 0,
+          "mode": "structured_semantic_neighbourhood_gap",
+          "passed": true,
+          "withheld_action_count_max": 16,
+          "withheld_action_count_min": 16
+        },
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.10256598889827728,
+          "hidden": 0.9676254987716675,
+          "local_negative": 0.5818628072738647,
+          "positive": 0.7535703182220459
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 8.493661880493164e-07
+      },
+      "train": {
+        "conditional_coverage": {
+          "expected_gap_state_count": 1024,
+          "expected_withheld_action_count": 16,
+          "gap_state_count": 1024,
+          "globally_unobserved_action_count": 0,
+          "hidden_not_withheld_violations": 0,
+          "logged_role_gap_violations": 0,
+          "mode": "structured_semantic_neighbourhood_gap",
+          "passed": true,
+          "withheld_action_count_max": 16,
+          "withheld_action_count_min": 16
+        },
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.1019643023610115,
+          "hidden": 0.9672000408172607,
+          "local_negative": 0.5815185904502869,
+          "positive": 0.752469003200531
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 8.827191777527332e-07
+      }
+    }
+  },
+  {
+    "action_id_permutation_checksum": "d868aea0c1594aeccff46fb1cfd273379718302704ce8565e46bf9d9347bae74",
+    "embedding_mode": "aligned",
+    "passed": true,
+    "policy_embedding_norm_max_error": 5.960464477539063e-08,
+    "policy_mapping_changed_when_shuffled": true,
+    "policy_permutation_checksum": "7a4644928f3a08db905254fd7e5e53ef19a46d932a2ecd372b45462413a82619",
+    "reward_embedding_norm_max_error": 5.960464477539063e-08,
+    "reward_policy_diagonal_cosine_mean": 1.0,
+    "seed": 168,
+    "splits": {
+      "test": {
+        "conditional_coverage": {
+          "expected_gap_state_count": 1024,
+          "expected_withheld_action_count": 16,
+          "gap_state_count": 1024,
+          "globally_unobserved_action_count": 0,
+          "hidden_not_withheld_violations": 0,
+          "logged_role_gap_violations": 0,
+          "mode": "structured_semantic_neighbourhood_gap",
+          "passed": true,
+          "withheld_action_count_max": 16,
+          "withheld_action_count_min": 16
+        },
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.11204896122217178,
+          "hidden": 0.9567036032676697,
+          "local_negative": 0.5851961374282837,
+          "positive": 0.7531830668449402
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 1.1026859283447266e-06
+      },
+      "train": {
+        "conditional_coverage": {
+          "expected_gap_state_count": 1024,
+          "expected_withheld_action_count": 16,
+          "gap_state_count": 1024,
+          "globally_unobserved_action_count": 0,
+          "hidden_not_withheld_violations": 0,
+          "logged_role_gap_violations": 0,
+          "mode": "structured_semantic_neighbourhood_gap",
+          "passed": true,
+          "withheld_action_count_max": 16,
+          "withheld_action_count_min": 16
+        },
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.11227641254663467,
+          "hidden": 0.9572259187698364,
+          "local_negative": 0.5808077454566956,
+          "positive": 0.7513275742530823
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 9.153736755251884e-07
+      }
+    }
+  },
+  {
+    "action_id_permutation_checksum": "b9a99d68fb29bf49596acd0287de27dfbf3b6d748e10d41a33d54faaac339b10",
+    "embedding_mode": "aligned",
+    "passed": true,
+    "policy_embedding_norm_max_error": 1.1920928955078125e-07,
+    "policy_mapping_changed_when_shuffled": true,
+    "policy_permutation_checksum": "7a4644928f3a08db905254fd7e5e53ef19a46d932a2ecd372b45462413a82619",
+    "reward_embedding_norm_max_error": 1.1920928955078125e-07,
+    "reward_policy_diagonal_cosine_mean": 1.0,
+    "seed": 169,
+    "splits": {
+      "test": {
+        "conditional_coverage": {
+          "expected_gap_state_count": 1024,
+          "expected_withheld_action_count": 16,
+          "gap_state_count": 1024,
+          "globally_unobserved_action_count": 0,
+          "hidden_not_withheld_violations": 0,
+          "logged_role_gap_violations": 0,
+          "mode": "structured_semantic_neighbourhood_gap",
+          "passed": true,
+          "withheld_action_count_max": 16,
+          "withheld_action_count_min": 16
+        },
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.11023284494876862,
+          "hidden": 0.9622769951820374,
+          "local_negative": 0.5826857686042786,
+          "positive": 0.7491929531097412
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 1.4007091522216797e-06
+      },
+      "train": {
+        "conditional_coverage": {
+          "expected_gap_state_count": 1024,
+          "expected_withheld_action_count": 16,
+          "gap_state_count": 1024,
+          "globally_unobserved_action_count": 0,
+          "hidden_not_withheld_violations": 0,
+          "logged_role_gap_violations": 0,
+          "mode": "structured_semantic_neighbourhood_gap",
+          "passed": true,
+          "withheld_action_count_max": 16,
+          "withheld_action_count_min": 16
+        },
+        "hidden_is_reward_argmax_max_error": 0.0,
+        "mean_rewards": {
+          "far_negative": 0.10804709792137146,
+          "hidden": 0.9622535109519958,
+          "local_negative": 0.5833584666252136,
+          "positive": 0.74912428855896
+        },
+        "negative_advantage_range_max": 0.0,
+        "overlap_counts": {
+          "hidden_far": 0,
+          "hidden_local": 0,
+          "hidden_positive": 0,
+          "local_far": 0,
+          "positive_far": 0,
+          "positive_local": 0
+        },
+        "passed": true,
+        "t_plus_direction_orthogonality_max_error": 7.152557373046875e-07
+      }
+    }
+  }
+]

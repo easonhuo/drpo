@@ -1,4 +1,4 @@
-# DRPO / SNA2C 远场负梯度动力学研究主文档 v54（E7 Canonical Critic 与 Rollout Preflight 修正版）
+# DRPO / SNA2C 远场负梯度动力学研究主文档 v55（D-U1 E6 Semantic-Gap 正式结果闭环版）
 <!-- HANDOFF-DELTA-BLOCK:after_heading:v50-stage3-shadow-bootstrap:START -->
 > **v50 增量登记：治理 Pipeline Stage 3 `HANDOFF_DELTA.yaml` shadow mode 启动（不删除 v49 及更早内容）**
 >
@@ -58,6 +58,20 @@
 > - 修复总门禁命名：根审计分开输出 `engineering_pipeline_complete`、`mechanism_subchecks_passed_for_completed_seeds`、`paired_seed_evidence_complete`、`formal_evidence_prerequisites_complete` 与 `formal_scientific_gate_passed`。Pilot 即使工程与子检查通过，formal gate 也必须为 false；历史 `independent_validation_gate_all_seeds` 仅保留兼容别名且 pilot 固定为 false。
 > - `EXT-H-E7-Q2` 的 formal 科学门禁、方法、正式 seeds、阈值与执行顺序不变，仍保持 **not_run + implemented + blocked**；本更新只修复实现隔离、环境交互可观测性和审计语义，不构成正式实验启动或结果升级。
 <!-- HANDOFF-DELTA-BLOCK:after_heading:v54-e7-canonical-critic-rollout-audit:END -->
+<!-- HANDOFF-DELTA-BLOCK:after_heading:v55-du1-e6-semantic-gap-result-closure:START -->
+> **v55 增量登记：`D-U1-E6-SEMANTIC-GAP-LONGRUN-01` 正式结果、终态审计与仓库闭环（不删除 v54 及更早内容）**
+>
+> - 冻结协议在科学运行 commit `0907c3c0e76fc836c2bf2b752abf554c17f79f22` 上完成 `100/100` method-seed runs；正式 seeds 为 `150--169`，sandbox seeds `900--909` 未进入正式聚合。raw-complete 包 SHA-256 为 `65630159ef85c665a3a0ac0eba5cbf751ecb77a929f267423f7a6d9a8e5c4fbf`。
+> - 所有 required outputs 与 terminal audits 均存在且被接受，并完成预注册的 2× horizon 扩展到 32000 steps；但只有 `45/100` runs 达到 formal terminal plateau，`55/100` 为 persistent-drift-or-inconclusive。因此科学状态只升级为 **有限训练步数验证（finite-step validated）**，不得形成全 alpha 稳态方法排名。
+> - 三类事件严格分报且均为 0：task-performance collapse `0/100`、support/temperature boundary `0/100`、NaN/Inf numerical failure `0/100`。这不等于全部方法已收敛。
+> - 32k 时 Positive-only reward 为 `0.741309`；`alpha=0.25` 与 `alpha=0.50` 分别为 `0.766269` 和 `0.765975`，相对 Positive-only 的 paired mean gains 为 `+0.024960` 与 `+0.024666`，均为 `20/20` seeds 胜出。
+> - `alpha=1.0` 相对 Positive-only 的差距从 4k 的 `+0.003943` 转为 8k/16k/24k/32k 的 `-0.013741/-0.039167/-0.053227/-0.061085`，自 8k 起均为 `0/20` 胜出；`alpha=0.75` 到 32k 为 `-0.001978`、9 胜 11 负且 0/20 plateau，属于有限 horizon 反转与持续漂移证据，不是稳态排名。
+> - 该结果支持：Positive-only 存在有限 horizon overall-reward ceiling、适度保留负梯度可改善同分布 held-out-context reward、完全不抑制的原始负梯度会产生随 horizon 扩大的任务退化。它不支持 universal alpha optimum、跨任务方法优越性或 categorical policy 的 Gaussian 二次远场律。
+> - 训练/测试 contexts 仍独立采样自同一分布；只能称 **same-distribution held-out-context generalization / structured state-action support gap**，不得称 state-distribution OOD generalization。
+> - 用户上传的 raw-complete ZIP 是不可变实验/恢复证据，不是 repository update；`drpo-update` 在 `package_extract` 阶段拒绝它是预期行为。仓库只纳入 compact summaries、terminal audit、provenance 与 artifact index，33.6 MB trajectory 保持 persistent-local 索引。
+> - `D-U1-E6-TAPER-01` 的 semantic-gap successor delivery blocker 已满足并移除，但 semantic remoteness coordinate、paired protocol、新 untouched seeds 与独立 formal runner 仍未冻结/实现；其状态继续是 **not_run + not_implemented + review-required/blocked**，不得自动启动。
+> - 本仓库闭环更新基于 `main` commit `fa225510e3e3e4616f36d8f586611aa6af79bf6e`；未重跑正式实验，也未修改冻结变量、seeds、阈值或训练协议。
+<!-- HANDOFF-DELTA-BLOCK:after_heading:v55-du1-e6-semantic-gap-result-closure:END -->
 
 > **v49 增量登记：治理 Pipeline Stage 1/2 冻结式关闭（不删除 v48 及更早内容）**
 >
@@ -588,6 +602,9 @@
 <!-- HANDOFF-DELTA-BLOCK:section_end:v52-countdown-current-gate-override:START -->
 - **Countdown v52 覆盖：** `EXT-C-E8-V4.3` 取代 V4.2 成为当前 E8-MECH/focused pilot；V4.2 只保留 matched-pair mechanism provenance。`EXT-C-E8-SCALE-01` 继续等待 V4.3 与 E7-BENCH，不因本次实现自动解锁。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v52-countdown-current-gate-override:END -->
+<!-- HANDOFF-DELTA-BLOCK:section_end:v55-du1-e6-semantic-gap-current-gate:START -->
+- **D-U1 v55 覆盖：** `D-U1-E6-SEMANTIC-GAP-LONGRUN-01` 已完成 `100/100` 正式 runs、2× horizon 与终态审计，科学状态为 **有限训练步数验证**；45/100 plateau、55/100 persistent-drift-or-inconclusive，禁止稳态方法排名或无新登记重跑。`D-U1-E6-TAPER-01` 的 successor-delivery 条件已满足，但其四项协议/实现门禁仍未完成，继续 review-required + blocked。
+<!-- HANDOFF-DELTA-BLOCK:section_end:v55-du1-e6-semantic-gap-current-gate:END -->
 
 ## 0.2 C-U1 泛化术语覆盖规则（v15 锁定）
 
@@ -974,6 +991,10 @@ $$
 
 ---
 
+<!-- HANDOFF-DELTA-BLOCK:section_end:v55-du1-e6-semantic-gap-completion-status:START -->
+**v55 E6 Semantic-Gap 结果补充：** `D-U1-E6-SEMANTIC-GAP-LONGRUN-01` 已完成 100/100 runs。32k 时 `alpha=0.25/0.50` 均 20/20 胜过 Positive-only；`alpha=1.0` 相对差距随 8k→32k 由 `-0.013741` 扩大至 `-0.061085`，20/20 失败。由于仅 45/100 terminal plateau，论文可用状态限定为有限 horizon trajectory 与 paired finite-step claim，不允许全方法稳态排名。三类失效事件分别为 0/100、0/100、0/100。
+<!-- HANDOFF-DELTA-BLOCK:section_end:v55-du1-e6-semantic-gap-completion-status:END -->
+
 # 6. 接下来唯一执行顺序
 
 1. E1/E2/E3、E4、E4-CONV 与 E5 的既有科学状态和历史证据保持不变；原 E4 18/20 门禁失败事实继续披露。
@@ -994,6 +1015,9 @@ $$
 <!-- HANDOFF-DELTA-BLOCK:section_end:v52-execution-order-override:START -->
 11. **v52 执行覆盖：** 当锁定路线进入 E8-MECH 时，执行 `EXT-C-E8-V4.3` 而不是 V4.2；当前只完成注册和代码实现，真实 Qwen/CUDA pilot 仍为 not_run。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v52-execution-order-override:END -->
+<!-- HANDOFF-DELTA-BLOCK:section_end:v55-du1-e6-semantic-gap-execution-order:START -->
+12. **v55 执行覆盖：** Semantic-Gap 正式结果已闭环，不再等待该 successor 的 delivery。下一项仍不是直接运行 E6-TAPER，而是先冻结其 semantic remoteness coordinate、paired method protocol、全新 untouched held-out seeds，并实现独立 formal runner；完成用户审阅和 registry activation 前禁止启动。
+<!-- HANDOFF-DELTA-BLOCK:section_end:v55-du1-e6-semantic-gap-execution-order:END -->
 
 # 7. 变量治理
 

@@ -1,0 +1,2758 @@
+{
+  "affected_selectors": [
+    "DRPO / SNA2C \u8fdc\u573a\u8d1f\u68af\u5ea6\u52a8\u529b\u5b66\u7814\u7a76\u4e3b\u6587\u6863 v54\uff08E7 Canonical Critic \u4e0e Rollout Preflight \u4fee\u6b63\u7248\uff09",
+    "DRPO / SNA2C \u8fdc\u573a\u8d1f\u68af\u5ea6\u52a8\u529b\u5b66\u7814\u7a76\u4e3b\u6587\u6863 v55\uff08D-U1 E6 Semantic-Gap \u6b63\u5f0f\u7ed3\u679c\u95ed\u73af\u7248\uff09",
+    "0. \u7814\u7a76\u4e0e\u6267\u884c\u539f\u5219\uff08\u6bcf\u6b21\u65b0\u4f1a\u8bdd\u9996\u5148\u9605\u8bfb\uff09 / 0.1 \u5f53\u524d\u6267\u884c\u95e8\u7981",
+    "5. \u5f53\u524d\u771f\u5b9e\u5b8c\u6210\u72b6\u6001",
+    "6. \u63a5\u4e0b\u6765\u552f\u4e00\u6267\u884c\u987a\u5e8f"
+  ],
+  "base_commit": "fa225510e3e3e4616f36d8f586611aa6af79bf6e",
+  "base_handoff_sha256": "b431ae3ccef5237fa65ea59128397607950fac2494492a39de57ba7f029bd806",
+  "base_registry_sha256": "4e82fb50db25e0d33a1f7d5e5bc309fc6e599c1085f2dfffbab895afb777efc5",
+  "candidate_replaced_authority": false,
+  "candidate_sha256": "fc0b8de092993f41f65057a777b462dd18f86e58831116b6a379216799561f82",
+  "comparison_target": "working_tree",
+  "current_registry_sha256": "b1069d88ce6038e9d653f63ff745e5e3fe45d67d6d3473b2375e39457917393f",
+  "exact_manual_candidate_match": true,
+  "full_candidate_saved": false,
+  "history_preservation_passed": true,
+  "idempotence_passed": true,
+  "llm_blocking_gate_used": false,
+  "manual_handoff_authoritative": true,
+  "manual_sha256": "fc0b8de092993f41f65057a777b462dd18f86e58831116b6a379216799561f82",
+  "mode": "shadow",
+  "network_used": false,
+  "observation_kind": "real",
+  "operation_count": 5,
+  "performance": {
+    "base_validation_ms": 52.086,
+    "comparison_and_registry_ms": 333.169,
+    "hard_limit_ms": 15000.0,
+    "policy_and_schema_ms": 66.39,
+    "render_and_idempotence_ms": 43.073,
+    "target_p95_ms": 5000.0,
+    "total_ms": 494.871,
+    "within_hard_limit": true,
+    "within_target": true
+  },
+  "policy_id": "GOV-HANDOFF-INDEX-01",
+  "registry_change_assertions": [
+    {
+      "change_id": "semgap-closure-change-001",
+      "entity_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "actual_runs"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Record terminal-audited formal evidence, closure provenance, or the remaining successor gate without changing the frozen scientific protocol.",
+      "to": 100
+    },
+    {
+      "change_id": "semgap-closure-change-002",
+      "entity_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "all_terminal_audits_accepted"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Record terminal-audited formal evidence, closure provenance, or the remaining successor gate without changing the frozen scientific protocol.",
+      "to": true
+    },
+    {
+      "change_id": "semgap-closure-change-003",
+      "entity_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "applied_commit"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Record terminal-audited formal evidence, closure provenance, or the remaining successor gate without changing the frozen scientific protocol.",
+      "to": null
+    },
+    {
+      "change_id": "semgap-closure-change-004",
+      "entity_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "compact_result_path"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Record terminal-audited formal evidence, closure provenance, or the remaining successor gate without changing the frozen scientific protocol.",
+      "to": "outputs/du1_e6_semantic_gap_longrun"
+    },
+    {
+      "change_id": "semgap-closure-change-005",
+      "entity_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "delivered_to_user"
+      ],
+      "from": false,
+      "kind": "update_field",
+      "reason": "Record terminal-audited formal evidence, closure provenance, or the remaining successor gate without changing the frozen scientific protocol.",
+      "to": true
+    },
+    {
+      "change_id": "semgap-closure-change-006",
+      "entity_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "expected_runs"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Record terminal-audited formal evidence, closure provenance, or the remaining successor gate without changing the frozen scientific protocol.",
+      "to": 100
+    },
+    {
+      "change_id": "semgap-closure-change-007",
+      "entity_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "final_repository_closure_package_filename"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Record terminal-audited formal evidence, closure provenance, or the remaining successor gate without changing the frozen scientific protocol.",
+      "to": "DRPO_DU1_E6_SEMANTIC_GAP_CLOSURE_FA225_UPDATE.zip"
+    },
+    {
+      "change_id": "semgap-closure-change-008",
+      "entity_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "final_repository_closure_package_sha256"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Record terminal-audited formal evidence, closure provenance, or the remaining successor gate without changing the frozen scientific protocol.",
+      "to": null
+    },
+    {
+      "change_id": "semgap-closure-change-009",
+      "entity_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "final_repository_closure_package_sha256_status"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Record terminal-audited formal evidence, closure provenance, or the remaining successor gate without changing the frozen scientific protocol.",
+      "to": "not_recorded_in_repository_evidence"
+    },
+    {
+      "change_id": "semgap-closure-change-010",
+      "entity_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "formal_run_started"
+      ],
+      "from": false,
+      "kind": "update_field",
+      "reason": "Record terminal-audited formal evidence, closure provenance, or the remaining successor gate without changing the frozen scientific protocol.",
+      "to": true
+    },
+    {
+      "change_id": "semgap-closure-change-011",
+      "entity_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "formal_two_x_extension_performed"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Record terminal-audited formal evidence, closure provenance, or the remaining successor gate without changing the frozen scientific protocol.",
+      "to": true
+    },
+    {
+      "change_id": "semgap-closure-change-012",
+      "entity_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "implementation_tests_passed"
+      ],
+      "from": false,
+      "kind": "update_field",
+      "reason": "Record terminal-audited formal evidence, closure provenance, or the remaining successor gate without changing the frozen scientific protocol.",
+      "to": true
+    },
+    {
+      "change_id": "semgap-closure-change-013",
+      "entity_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "nan_inf_numerical_events"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Record terminal-audited formal evidence, closure provenance, or the remaining successor gate without changing the frozen scientific protocol.",
+      "to": 0
+    },
+    {
+      "change_id": "semgap-closure-change-014",
+      "entity_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "package_created"
+      ],
+      "from": false,
+      "kind": "update_field",
+      "reason": "Record terminal-audited formal evidence, closure provenance, or the remaining successor gate without changing the frozen scientific protocol.",
+      "to": true
+    },
+    {
+      "change_id": "semgap-closure-change-015",
+      "entity_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "persistent_drift_or_inconclusive_runs"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Record terminal-audited formal evidence, closure provenance, or the remaining successor gate without changing the frozen scientific protocol.",
+      "to": 55
+    },
+    {
+      "change_id": "semgap-closure-change-016",
+      "entity_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "raw_complete"
+      ],
+      "from": false,
+      "kind": "update_field",
+      "reason": "Record terminal-audited formal evidence, closure provenance, or the remaining successor gate without changing the frozen scientific protocol.",
+      "to": true
+    },
+    {
+      "change_id": "semgap-closure-change-017",
+      "entity_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "raw_complete_package_filename"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Record terminal-audited formal evidence, closure provenance, or the remaining successor gate without changing the frozen scientific protocol.",
+      "to": "DRPO_DU1_E6_SEMANTIC_GAP_0907C3C_RAW_COMPLETE.zip"
+    },
+    {
+      "change_id": "semgap-closure-change-018",
+      "entity_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "raw_complete_package_sha256"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Record terminal-audited formal evidence, closure provenance, or the remaining successor gate without changing the frozen scientific protocol.",
+      "to": "65630159ef85c665a3a0ac0eba5cbf751ecb77a929f267423f7a6d9a8e5c4fbf"
+    },
+    {
+      "change_id": "semgap-closure-change-019",
+      "entity_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "repository_applied"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Record terminal-audited formal evidence, closure provenance, or the remaining successor gate without changing the frozen scientific protocol.",
+      "to": false
+    },
+    {
+      "change_id": "semgap-closure-change-020",
+      "entity_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "scientific_status"
+      ],
+      "from": "not_run",
+      "kind": "transition",
+      "machine": "scientific_status",
+      "to": "finite_step_validated"
+    },
+    {
+      "change_id": "semgap-closure-change-021",
+      "entity_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "support_or_temperature_boundary_events"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Record terminal-audited formal evidence, closure provenance, or the remaining successor gate without changing the frozen scientific protocol.",
+      "to": 0
+    },
+    {
+      "change_id": "semgap-closure-change-022",
+      "entity_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "task_performance_collapse_events"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Record terminal-audited formal evidence, closure provenance, or the remaining successor gate without changing the frozen scientific protocol.",
+      "to": 0
+    },
+    {
+      "change_id": "semgap-closure-change-023",
+      "entity_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "terminal_audited"
+      ],
+      "from": false,
+      "kind": "update_field",
+      "reason": "Record terminal-audited formal evidence, closure provenance, or the remaining successor gate without changing the frozen scientific protocol.",
+      "to": true
+    },
+    {
+      "change_id": "semgap-closure-change-024",
+      "entity_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "terminal_plateau_runs"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Record terminal-audited formal evidence, closure provenance, or the remaining successor gate without changing the frozen scientific protocol.",
+      "to": 45
+    },
+    {
+      "change_id": "semgap-closure-change-025",
+      "entity_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "execution"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Record terminal-audited formal evidence, closure provenance, or the remaining successor gate without changing the frozen scientific protocol.",
+      "to": {
+        "elapsed_seconds": 1979.99,
+        "end_utc": "2026-06-27T14:57:17.858160+00:00",
+        "process_exit_code": 0,
+        "run_id": "du1_e6_semantic_gap_longrun_0907c3c_run001",
+        "runtime": "cpu",
+        "start_utc": "2026-06-27T14:24:17.868186+00:00",
+        "state": "delivered"
+      }
+    },
+    {
+      "change_id": "semgap-closure-change-026",
+      "entity_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "execution_gate",
+        "blocked_by"
+      ],
+      "from": [],
+      "kind": "update_field",
+      "reason": "Record terminal-audited formal evidence, closure provenance, or the remaining successor gate without changing the frozen scientific protocol.",
+      "to": [
+        "completed_formal_execution_no_rerun_without_new_registration"
+      ]
+    },
+    {
+      "change_id": "semgap-closure-change-027",
+      "entity_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "execution_gate",
+        "blocking_reason"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Record terminal-audited formal evidence, closure provenance, or the remaining successor gate without changing the frozen scientific protocol.",
+      "to": "The frozen 100-run formal execution is complete, terminal-audited, packaged, and delivered. Re-running seeds 150--169 requires a separately registered protocol."
+    },
+    {
+      "change_id": "semgap-closure-change-028",
+      "entity_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "execution_gate",
+        "state"
+      ],
+      "from": "ready",
+      "kind": "transition",
+      "machine": "execution_gate",
+      "to": "blocked"
+    },
+    {
+      "change_id": "semgap-closure-change-029",
+      "entity_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "formal_execution",
+        "activation_state"
+      ],
+      "from": "active",
+      "kind": "transition",
+      "machine": "activation_state",
+      "to": "blocked"
+    },
+    {
+      "change_id": "semgap-closure-change-030",
+      "entity_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "next_gate",
+        "D_U1_E6_TAPER_01_remains_blocked_until_delivery"
+      ],
+      "from": true,
+      "kind": "update_field",
+      "reason": "Record terminal-audited formal evidence, closure provenance, or the remaining successor gate without changing the frozen scientific protocol.",
+      "to": false
+    },
+    {
+      "change_id": "semgap-closure-change-031",
+      "entity_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "next_gate",
+        "automatic_activation_forbidden"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Record terminal-audited formal evidence, closure provenance, or the remaining successor gate without changing the frozen scientific protocol.",
+      "to": true
+    },
+    {
+      "change_id": "semgap-closure-change-032",
+      "entity_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "next_gate",
+        "experiment_id"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Record terminal-audited formal evidence, closure provenance, or the remaining successor gate without changing the frozen scientific protocol.",
+      "to": "D-U1-E6-TAPER-01"
+    },
+    {
+      "change_id": "semgap-closure-change-033",
+      "entity_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "next_gate",
+        "predecessor_delivery_satisfied"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Record terminal-audited formal evidence, closure provenance, or the remaining successor gate without changing the frozen scientific protocol.",
+      "to": true
+    },
+    {
+      "change_id": "semgap-closure-change-034",
+      "entity_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "next_gate",
+        "remaining_requirements"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Record terminal-audited formal evidence, closure provenance, or the remaining successor gate without changing the frozen scientific protocol.",
+      "to": [
+        "freeze_semantic_remoteness_coordinate",
+        "freeze_paired_method_protocol",
+        "freeze_new_untouched_held_out_seeds",
+        "implement_separate_formal_runner"
+      ]
+    },
+    {
+      "change_id": "semgap-closure-change-035",
+      "entity_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "next_gate",
+        "state"
+      ],
+      "from": "run_after_update_is_applied_and_committed_on_clean_main",
+      "kind": "update_field",
+      "reason": "Record terminal-audited formal evidence, closure provenance, or the remaining successor gate without changing the frozen scientific protocol.",
+      "to": "review_required_not_runnable"
+    },
+    {
+      "change_id": "semgap-closure-change-036",
+      "entity_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "paper_use"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Record terminal-audited formal evidence, closure provenance, or the remaining successor gate without changing the frozen scientific protocol.",
+      "to": {
+        "allowed": [
+          "same_distribution_held_out_context_generalization",
+          "structured_state_action_support_gap",
+          "finite_step_reward_trajectory_comparison",
+          "separate_task_support_and_numerical_event_reporting"
+        ],
+        "prohibited_claims": [
+          "state_distribution_OOD_generalization",
+          "universal_alpha_optimum",
+          "steady_state_method_ranking_across_all_alpha",
+          "Gaussian_quadratic_far_field_law_for_categorical_policy",
+          "cross_task_method_superiority"
+        ],
+        "suitable_for_finite_horizon_positive_only_ceiling_claim": true,
+        "suitable_for_intermediate_alpha_benefit_claim": true,
+        "suitable_for_progressive_unsuppressed_negative_degradation_claim": true,
+        "suitable_for_steady_state_method_ranking": false
+      }
+    },
+    {
+      "change_id": "semgap-closure-change-037",
+      "entity_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "provenance",
+        "diagnostic_rejection_expected"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Record terminal-audited formal evidence, closure provenance, or the remaining successor gate without changing the frozen scientific protocol.",
+      "to": true
+    },
+    {
+      "change_id": "semgap-closure-change-038",
+      "entity_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "provenance",
+        "diagnostic_rejection_phase"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Record terminal-audited formal evidence, closure provenance, or the remaining successor gate without changing the frozen scientific protocol.",
+      "to": "package_extract"
+    },
+    {
+      "change_id": "semgap-closure-change-039",
+      "entity_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "provenance",
+        "git_worktree_clean_at_exit"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Record terminal-audited formal evidence, closure provenance, or the remaining successor gate without changing the frozen scientific protocol.",
+      "to": true
+    },
+    {
+      "change_id": "semgap-closure-change-040",
+      "entity_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "provenance",
+        "git_worktree_clean_at_launch"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Record terminal-audited formal evidence, closure provenance, or the remaining successor gate without changing the frozen scientific protocol.",
+      "to": true
+    },
+    {
+      "change_id": "semgap-closure-change-041",
+      "entity_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "provenance",
+        "origin_main_authoritative_match_at_launch"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Record terminal-audited formal evidence, closure provenance, or the remaining successor gate without changing the frozen scientific protocol.",
+      "to": true
+    },
+    {
+      "change_id": "semgap-closure-change-042",
+      "entity_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "provenance",
+        "provenance_compromised"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Record terminal-audited formal evidence, closure provenance, or the remaining successor gate without changing the frozen scientific protocol.",
+      "to": false
+    },
+    {
+      "change_id": "semgap-closure-change-043",
+      "entity_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "provenance",
+        "raw_artifact_is_drpo_update_input"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Record terminal-audited formal evidence, closure provenance, or the remaining successor gate without changing the frozen scientific protocol.",
+      "to": false
+    },
+    {
+      "change_id": "semgap-closure-change-044",
+      "entity_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "provenance",
+        "raw_artifact_package_kind"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Record terminal-audited formal evidence, closure provenance, or the remaining successor gate without changing the frozen scientific protocol.",
+      "to": "experiment-raw-complete"
+    },
+    {
+      "change_id": "semgap-closure-change-045",
+      "entity_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "provenance",
+        "repository_closure_base_commit"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Record terminal-audited formal evidence, closure provenance, or the remaining successor gate without changing the frozen scientific protocol.",
+      "to": "fa225510e3e3e4616f36d8f586611aa6af79bf6e"
+    },
+    {
+      "change_id": "semgap-closure-change-046",
+      "entity_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "provenance",
+        "run_commit"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Record terminal-audited formal evidence, closure provenance, or the remaining successor gate without changing the frozen scientific protocol.",
+      "to": "0907c3c0e76fc836c2bf2b752abf554c17f79f22"
+    },
+    {
+      "change_id": "semgap-closure-change-047",
+      "entity_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "result_summary"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Record terminal-audited formal evidence, closure provenance, or the remaining successor gate without changing the frozen scientific protocol.",
+      "to": {
+        "alpha_1_progressive_gap_vs_positive_only": {
+          "step_16000": -0.03916723430156708,
+          "step_24000": -0.05322670340538025,
+          "step_32000": -0.061084982752799985,
+          "step_4000": 0.0039426833391189575,
+          "step_8000": -0.01374114751815796
+        },
+        "final_32000_step": {
+          "alpha_0_25_minus_positive_only_ci95": [
+            0.02358505330979824,
+            0.026427947282791138
+          ],
+          "alpha_0_25_minus_positive_only_mean": 0.024960073828697204,
+          "alpha_0_25_reward_mean": 0.7662686556577682,
+          "alpha_0_25_wins": 20,
+          "alpha_0_50_minus_positive_only_ci95": [
+            0.022564217671751978,
+            0.026787295341491702
+          ],
+          "alpha_0_50_minus_positive_only_mean": 0.024666464328765868,
+          "alpha_0_50_reward_mean": 0.765975046157837,
+          "alpha_0_50_wins": 20,
+          "alpha_0_75_losses": 11,
+          "alpha_0_75_minus_positive_only_ci95": [
+            -0.005438663214445113,
+            0.0013230986893177034
+          ],
+          "alpha_0_75_minus_positive_only_mean": -0.0019781798124313354,
+          "alpha_0_75_reward_mean": 0.7393304020166397,
+          "alpha_0_75_wins": 9,
+          "alpha_1_0_losses": 20,
+          "alpha_1_0_minus_positive_only_ci95": [
+            -0.06415405839681626,
+            -0.058077503591775895
+          ],
+          "alpha_1_0_minus_positive_only_mean": -0.061084982752799985,
+          "alpha_1_0_reward_mean": 0.6802235990762711,
+          "positive_only_reward_mean": 0.741308581829071
+        },
+        "terminal": {
+          "all_formal_terminal_plateau": false,
+          "formal_method_ranking_allowed": false,
+          "persistent_drift_or_inconclusive_runs": 55,
+          "terminal_plateau_runs": 45
+        },
+        "terminal_class_by_alpha": {
+          "alpha_0_0": {
+            "drift_or_inconclusive": 0,
+            "plateau": 20
+          },
+          "alpha_0_25": {
+            "drift_or_inconclusive": 0,
+            "plateau": 20
+          },
+          "alpha_0_50": {
+            "drift_or_inconclusive": 15,
+            "plateau": 5
+          },
+          "alpha_0_75": {
+            "drift_or_inconclusive": 20,
+            "plateau": 0
+          },
+          "alpha_1_0": {
+            "drift_or_inconclusive": 20,
+            "plateau": 0
+          }
+        }
+      }
+    },
+    {
+      "change_id": "semgap-closure-change-048",
+      "entity_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "scientific_status"
+      ],
+      "from": "not_run",
+      "kind": "transition",
+      "machine": "scientific_status",
+      "to": "finite_step_validated"
+    },
+    {
+      "change_id": "semgap-closure-change-049",
+      "entity_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "status"
+      ],
+      "from": "not_run",
+      "kind": "transition",
+      "machine": "scientific_status",
+      "to": "finite_step_validated"
+    },
+    {
+      "change_id": "semgap-closure-change-050",
+      "entity_id": "__registry__",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "development_experiment_registrations"
+      ],
+      "from": [
+        {
+          "claim": "On development seeds, verify a balanced large structured conditional state-action support gap and identify fixed local/far pressure candidates for a separately frozen formal long-run without consuming formal seeds.",
+          "code_entrypoint": "src/drpo/du1_e6_conditional_gap.py",
+          "config_path": "configs/du1_e6_conditional_gap_dev.yaml",
+          "documentation_path": "src/drpo/README_DU1_E6_CONDITIONAL_GAP.md",
+          "environment": "D-U1",
+          "evidence": {
+            "development_pilot": true,
+            "formal_result": false,
+            "invariant_test": true,
+            "smoke_test": true,
+            "static_checks": true,
+            "terminal_audited": true
+          },
+          "execution_class": "pilot",
+          "formal_freeze_recommendation": {
+            "activated_experiment": "D-U1-E6-CONDITIONAL-GAP-01",
+            "approval_date": "2026-06-27",
+            "automatic_freeze_allowed": false,
+            "formal_extension_factor_over_pilot": 8.0,
+            "formal_horizon_steps": 8000,
+            "held_out_seeds": [
+              130,
+              131,
+              132,
+              133,
+              134,
+              135,
+              136,
+              137,
+              138,
+              139,
+              140,
+              141,
+              142,
+              143,
+              144,
+              145,
+              146,
+              147,
+              148,
+              149
+            ],
+            "user_approved": true
+          },
+          "id": "D-U1-E6-CONDITIONAL-GAP-DEV-01",
+          "name": "structured_conditional_support_gap_development_pilot",
+          "parent_experiment": "E6",
+          "predecessor": "D-U1-E6-SEMANTIC-LONGRUN-01",
+          "protocol": {
+            "action_count": 256,
+            "conditional_block_gap_fraction": 0.625,
+            "development_seeds": [
+              0,
+              1
+            ],
+            "formal_seeds_consumed": false,
+            "gap_state_fraction": 0.5,
+            "maximum_steps": 1000,
+            "state_distribution_shift": false,
+            "test_states": 4096,
+            "train_states": 4096
+          },
+          "registration_base_commit": "ff2afe443167154eae5de7871cda83f3aba9a89e",
+          "registry_scope": "development_preregistration_not_formal_evidence",
+          "result": {
+            "actual_runs": 20,
+            "compact_output_path": "outputs/du1_e6_conditional_gap_dev",
+            "environment_invariants_passed": true,
+            "nan_inf_numerical_failure_count": 0,
+            "pilot_integrity_passed": true,
+            "random_policy_gap_reward_mean": 0.19078125059604645,
+            "scientific_status": "pilot",
+            "structured_gap_budget_matched_global_gap_reward_mean": 0.49083396792411804,
+            "structured_gap_far_cap_gap_reward_mean": 0.4508051127195358,
+            "structured_gap_local_alpha_0_5_gap_reward_mean": 0.6362665593624115,
+            "structured_gap_local_alpha_1_5_gap_reward_mean": 0.18586624413728714,
+            "structured_gap_positive_only_gap_reward_mean": 0.515236884355545,
+            "structured_gap_uncontrolled_far_4_gap_reward_mean": 0.2991461008787155,
+            "support_or_temperature_boundary_count": 0,
+            "task_performance_collapse_count": 4
+          },
+          "role": "controlled_categorical_conditional_gap_development",
+          "status": "pilot"
+        },
+        {
+          "claim": "Test whether controlled local fixed-negative gradients in a shared semantic categorical policy can move probability mass beyond positive demonstrations toward a hidden optimal action on independently sampled held-out contexts, while uncontrolled far-negative pressure can cause task-performance or support/temperature failure.",
+          "code_entrypoint": "src/drpo/du1_e6_semantic.py",
+          "command": [
+            "python",
+            "src/drpo/du1_e6_semantic.py",
+            "--config",
+            "configs/du1_e6_semantic_pilot.yaml",
+            "--stage",
+            "pilot",
+            "--output-root",
+            "experiments/results/D-U1-E6-SEMANTIC-PILOT-01/run_001",
+            "--device",
+            "auto"
+          ],
+          "config_path": "configs/du1_e6_semantic_pilot.yaml",
+          "controls": {
+            "adam_update_budget_matching_claimed": false,
+            "paired_minibatch_index_stream": true,
+            "paired_network_initialization": true,
+            "policy_side_semantic_shuffle_only": true,
+            "raw_gradient_budget_matching_only": true,
+            "reward_semantics_unchanged_under_shuffle": true
+          },
+          "documentation_path": "src/drpo/README_DU1_E6_SEMANTIC.md",
+          "environment": "D-U1",
+          "evidence": {
+            "applied_commit": "2e04f6dba6d4e87f61920bedb1c464656906bf2b",
+            "delivered_to_user": true,
+            "package_created": true,
+            "pilot_integrity_passed": true,
+            "pilot_raw_complete": true,
+            "raw_artifact_sha256": "6aee3262bcd6936f53d15889ab0c38d825b7ba8f110fa40ab40032f90d079bfb",
+            "repository_applied": true,
+            "smoke_test": true,
+            "static_checks": true,
+            "terminal_audited": true,
+            "unit_tests": true
+          },
+          "execution": {
+            "last_heartbeat_utc": "2026-06-26T13:02:30Z",
+            "process_exit_code": 0,
+            "run_id": "cpu-pilot-20260626T125354Z",
+            "state": "delivered"
+          },
+          "execution_class": "pilot",
+          "formal_parameter_freeze": {
+            "frozen": false,
+            "required_before_longrun": [
+              "local_alpha_or_grid",
+              "concentration_settings",
+              "learning_rate_and_optimizer",
+              "maximum_steps_and_evaluation_interval",
+              "event_thresholds",
+              "stopping_and_two_x_extension_criteria",
+              "untouched_held_out_seeds",
+              "formal_method_matrix"
+            ]
+          },
+          "id": "D-U1-E6-SEMANTIC-PILOT-01",
+          "name": "shared_semantic_categorical_extrapolation_development_pilot",
+          "non_claims": [
+            "formal_method_ranking",
+            "long_run_validation",
+            "OOD_generalization",
+            "Transformer_external_validity",
+            "E5_replacement"
+          ],
+          "parallelism": {
+            "approval_date": "2026-06-26",
+            "independent_of": "C-U1-E4-TAPER-01",
+            "shared_files_requiring_serialized_repository_integration": [
+              "docs/handoff.md",
+              "experiments/registry.yaml"
+            ],
+            "user_parallel_execution_approved": true
+          },
+          "parent_experiment": "E6",
+          "pilot_result": {
+            "actual_runs": 105,
+            "compact_output_path": "outputs/du1_e6_semantic_pilot",
+            "completed_at_utc": "2026-06-26T13:02:30Z",
+            "device": "cpu",
+            "environment_invariants_passed": true,
+            "exact_git_object_checkout_available": false,
+            "execution_snapshot_commit": "653aa6f73b18fed17609e6096cb1c50de0a8cd66",
+            "expected_github_commit": "e8b62dde518f593ff8325c7da94c41406311ca45",
+            "expected_runs": 105,
+            "formal_gate_decision": "remains_blocked_pending_user_review_and_focused_development_extension",
+            "formal_two_x_extension_performed": false,
+            "maximum_steps_per_run": 2000,
+            "nan_inf_numerical_failure_count": 0,
+            "protocol_a_development_observation": {
+              "all_fixed_concentration_runs_provisional_plateau": false,
+              "alpha_0_5_expected_semantic_reward_mean": 0.8882276892662049,
+              "alpha_0_5_hidden_optimal_probability_mean": 0.21612542271614074,
+              "alpha_0_5_hidden_probability_delta_vs_positive_only": 0.07203658819198608,
+              "interpretation": "development_peak_but_terminal_horizon_unresolved"
+            },
+            "protocol_b_development_observation": {
+              "interpretation": "current_learnable_concentration_negative_pressure_not_freezable",
+              "negative_pressure_aligned_support_events": 30,
+              "negative_pressure_aligned_total_runs": 30,
+              "positive_only_support_events": 0
+            },
+            "protocol_c_development_observation": {
+              "formal_claim_allowed": false,
+              "semantic_alignment_control_supported": true
+            },
+            "provenance_scope": "verified_E6_source_snapshot_for_pilot_only",
+            "support_or_temperature_boundary_count": 56,
+            "task_performance_collapse_count": 0
+          },
+          "primary_metrics": [
+            "hidden_optimal_probability",
+            "positive_support_probability",
+            "expected_semantic_reward",
+            "normalized_semantic_extrapolation",
+            "entropy",
+            "effective_support",
+            "concentration",
+            "raw_positive_local_far_gradient_norms",
+            "raw_controlled_negative_gradient_norm",
+            "raw_total_gradient_norm",
+            "adam_parameter_update_norm"
+          ],
+          "protocol": {
+            "action_count": 64,
+            "critic_or_value_network": false,
+            "development_learning_rate": 0.001,
+            "development_maximum_steps": 2000,
+            "development_seeds": [
+              0,
+              1,
+              2,
+              3,
+              4
+            ],
+            "development_test_states": 2048,
+            "development_train_states": 2048,
+            "evaluation_interval_steps": 50,
+            "far_negative_actions_per_state": 4,
+            "fixed_advantage": true,
+            "fixed_concentration": 8.0,
+            "held_out_formal_seeds": [],
+            "hidden_optimum_excluded_from_positive_demonstrations": true,
+            "importance_sampling": false,
+            "initial_learnable_concentration": 8.0,
+            "learnable_concentration_upper_clamp": false,
+            "local_negative_actions_per_state": 1,
+            "negative_advantage": -1.0,
+            "negative_advantages_exactly_equal": true,
+            "optimizer": "Adam",
+            "positive_actions_per_state": 4,
+            "positive_advantage": 1.0,
+            "protocol_a_local_alpha_grid": [
+              0.0,
+              0.1,
+              0.25,
+              0.5,
+              0.75,
+              1.0
+            ],
+            "protocol_b_methods": [
+              "positive_only",
+              "local_only",
+              "uncontrolled",
+              "near_zero",
+              "far_zero",
+              "far_cap",
+              "budget_matched_global"
+            ],
+            "protocol_c_policy_embedding_modes": [
+              "aligned",
+              "shuffled"
+            ],
+            "random_action_id_permutation": true,
+            "semantic_dim": 4,
+            "state_dim": 6,
+            "state_distribution": "standard_normal",
+            "target_offset": 0.45,
+            "terminology": "held_out_context_generalization",
+            "train_test_relation": "independent_same_distribution"
+          },
+          "registration_base_commit": "c5c9ebf67ed7aa08d0313e604f836907890f0964",
+          "registry_scope": "development_preregistration_not_in_canonical_experiments",
+          "reporting_separation": [
+            "task_performance_collapse",
+            "support_or_temperature_boundary",
+            "nan_inf_numerical_failure"
+          ],
+          "role": "controlled_shared_semantic_categorical_development",
+          "status": "pilot",
+          "terminal_audit": {
+            "formal_acceptance_allowed": false,
+            "formal_two_x_extension_performed": false,
+            "pilot_two_trailing_windows": true
+          }
+        },
+        {
+          "claim": "Resolve the fixed-concentration terminal-horizon and learnable-concentration support-boundary blockers using only the already registered alpha, far-pressure, concentration, and training-horizon variables.",
+          "code_entrypoint": "src/drpo/du1_e6_semantic.py",
+          "command": [
+            "python",
+            "src/drpo/du1_e6_semantic.py",
+            "--config",
+            "configs/du1_e6_semantic_focused_dev.yaml",
+            "--stage",
+            "pilot",
+            "--output-root",
+            "experiments/results/D-U1-E6-SEMANTIC-FOCUSED-DEV-01/run_001",
+            "--device",
+            "auto"
+          ],
+          "config_path": "configs/du1_e6_semantic_focused_dev.yaml",
+          "environment": "D-U1",
+          "evidence": {
+            "applied_commit": "eb6a90d55127cead4d95bd0a85a78f32c47ff56a",
+            "delivered_to_user": true,
+            "package_created": true,
+            "phase1_raw_complete": true,
+            "phase2_raw_complete": true,
+            "repository_applied": true,
+            "smoke_test": true,
+            "static_checks": true,
+            "terminal_audited": true,
+            "unit_tests": true
+          },
+          "execution": {
+            "last_heartbeat_utc": "2026-06-26T14:58:00Z",
+            "process_exit_code": 0,
+            "run_id": "focused-dev-two-phase-20260626",
+            "state": "delivered"
+          },
+          "execution_class": "pilot",
+          "formal_freeze_recommendation": {
+            "activated_experiment": "D-U1-E6-SEMANTIC-LONGRUN-01",
+            "approval_date": "2026-06-27",
+            "automatic_freeze_allowed": false,
+            "evaluation_interval_steps": 50,
+            "far_cap_ratio_to_weighted_local_gradient": 1.0,
+            "fixed_alpha_grid": [
+              0.0,
+              0.25,
+              0.5,
+              0.75
+            ],
+            "fixed_concentration": 8.0,
+            "formal_method_matrix": [
+              "positive_only",
+              "far_zero",
+              "uncontrolled",
+              "near_zero",
+              "far_cap",
+              "budget_matched_global"
+            ],
+            "held_out_seeds": [
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16,
+              17,
+              18,
+              19,
+              20,
+              21,
+              22,
+              23,
+              24,
+              25,
+              26,
+              27,
+              28,
+              29
+            ],
+            "initial_learnable_concentration": 8.0,
+            "learnable_concentration_upper_clamp": false,
+            "learnable_far_pressure_stress_lambda": 0.05,
+            "learnable_local_alpha": 0.1,
+            "learning_rate": 0.001,
+            "maximum_steps": 8000,
+            "optimizer": "Adam",
+            "terminal_windows": [
+              [
+                4000,
+                6000
+              ],
+              [
+                6000,
+                8000
+              ]
+            ],
+            "user_approved": true,
+            "user_review_required": true
+          },
+          "id": "D-U1-E6-SEMANTIC-FOCUSED-DEV-01",
+          "local_alpha_selection_rule": {
+            "descending_candidate_order": [
+              0.2,
+              0.1,
+              0.05,
+              0.02,
+              0.01,
+              0.005
+            ],
+            "focused_terminal_plateau_seeds_required": 4,
+            "no_candidate_action": "stop_without_phase2",
+            "numerical_failure_count_required": 0,
+            "paired_hidden_probability_wins_required": 4,
+            "paired_reward_wins_required": 4,
+            "support_boundary_count_required": 0
+          },
+          "name": "shared_semantic_categorical_focused_development_extension",
+          "non_claims": [
+            "formal_method_ranking",
+            "long_run_validation",
+            "OOD_generalization",
+            "automatic_formal_parameter_freeze"
+          ],
+          "parent_experiment": "E6",
+          "phase2_config_path": "configs/du1_e6_semantic_focused_dev_phase2.yaml",
+          "predecessor": "D-U1-E6-SEMANTIC-PILOT-01",
+          "protocol": {
+            "development_seeds": [
+              0,
+              1,
+              2,
+              3,
+              4
+            ],
+            "evaluation_interval_steps": 50,
+            "fixed_concentration": 8.0,
+            "fixed_concentration_alpha_grid": [
+              0.0,
+              0.25,
+              0.5,
+              0.75
+            ],
+            "held_out_formal_seeds": [],
+            "initial_learnable_concentration": 8.0,
+            "learnable_concentration_upper_clamp": false,
+            "learnable_local_alpha_grid": [
+              0.005,
+              0.01,
+              0.02,
+              0.05,
+              0.1,
+              0.2
+            ],
+            "learning_rate": 0.001,
+            "maximum_steps": 4000,
+            "optimizer": "Adam",
+            "phase2_far_pressure_lambda_grid": [
+              0.01,
+              0.02,
+              0.05,
+              0.1,
+              0.2
+            ],
+            "phase2_methods": [
+              "uncontrolled",
+              "far_cap",
+              "budget_matched_global",
+              "near_zero"
+            ],
+            "phase2_requires_preregistered_phase1_selection": true
+          },
+          "registration_base_commit": "2e04f6dba6d4e87f61920bedb1c464656906bf2b",
+          "registry_scope": "development_preregistration_not_in_canonical_experiments",
+          "reporting_separation": [
+            "task_performance_collapse",
+            "support_or_temperature_boundary",
+            "nan_inf_numerical_failure"
+          ],
+          "result": {
+            "base_github_commit": "2e04f6dba6d4e87f61920bedb1c464656906bf2b",
+            "budget_matched_global_rescued_transition": false,
+            "compact_output_path": "outputs/du1_e6_semantic_focused_dev",
+            "development_two_x_horizon_performed": true,
+            "far_only_boundary_lambda": 0.05,
+            "fixed_concentration_plateau_counts": {
+              "alpha_0_0": 5,
+              "alpha_0_25": 5,
+              "alpha_0_5": 5,
+              "alpha_0_75": 5
+            },
+            "formal_gate_decision": "user_approved_and_frozen_for_D-U1-E6-SEMANTIC-LONGRUN-01",
+            "formal_held_out_seeds_consumed": false,
+            "maximum_steps_per_run": 4000,
+            "nan_inf_numerical_failure_count": 0,
+            "phase1_actual_runs": 55,
+            "phase2_actual_runs": 110,
+            "ratio_1_far_cap_rescued_transition": false,
+            "raw_artifact_sha256": "bee5b62e7715bda63ec166849f431ab5c4c90954720e672945e25e62b320e0d6",
+            "rejected_alpha_0_2_support_events": 3,
+            "safe_far_lambda": 0.01,
+            "scientific_status": "pilot",
+            "selected_learnable_local_alpha": 0.1,
+            "selected_local_alpha_plateau_seeds": 5,
+            "selected_local_alpha_support_events": 0,
+            "support_or_temperature_boundary_count": 78,
+            "support_transition_far_lambda": 0.02,
+            "task_performance_collapse_count": 0,
+            "total_actual_runs": 165
+          },
+          "role": "controlled_shared_semantic_categorical_blocker_resolution",
+          "status": "pilot",
+          "terminal_audit": {
+            "adam_update_median_ratio_max": 1.25,
+            "formal_acceptance_allowed": false,
+            "metric_window_mean_abs_tolerances": {
+              "entropy_mean": 0.08,
+              "expected_semantic_reward": 0.01,
+              "hidden_optimal_probability": 0.02,
+              "normalized_semantic_extrapolation": 0.08
+            },
+            "mode": "focused_two_x_windows",
+            "raw_total_gradient_median_ratio_max": 1.25,
+            "window_1_steps": [
+              2000,
+              3000
+            ],
+            "window_2_steps": [
+              3000,
+              4000
+            ]
+          }
+        },
+        {
+          "additional_predecessor": "D-U1-E6-CONDITIONAL-GAP-01",
+          "additional_predecessors": [
+            "D-U1-E6-CONDITIONAL-GAP-01",
+            "D-U1-E6-SEMANTIC-GAP-LONGRUN-01"
+          ],
+          "blocked_by": [
+            "D-U1-E6-SEMANTIC-GAP-LONGRUN-01_delivery",
+            "frozen_semantic_remoteness_coordinate",
+            "frozen_paired_method_protocol",
+            "frozen_untouched_held_out_seeds",
+            "separately_implemented_formal_runner"
+          ],
+          "candidate_families": [
+            "reciprocal_linear",
+            "reciprocal_quadratic",
+            "exponential"
+          ],
+          "claim": "On one frozen D-U1 semantic-remoteness coordinate and paired training stream, compare reciprocal-linear, reciprocal-quadratic, and exponential negative tapering for preservation of beneficial local negative signal, suppression of harmful far pressure, held-out unseen-action performance, and support stability. This experiment does not claim a Gaussian quadratic gradient law for categorical policies.",
+          "controls": [
+            "positive_only",
+            "uncontrolled_negative",
+            "global_alpha"
+          ],
+          "distance_rule": {
+            "exact_semantic_coordinate": "pending_separate_E6_TAPER_protocol_freeze",
+            "gaussian_standardized_distance_reused": false,
+            "same_coordinate_across_methods": "required"
+          },
+          "environment": "D-U1",
+          "evidence": {
+            "delivered_to_user": false,
+            "package_created": false,
+            "raw_complete": false,
+            "scientific_status": "not_run",
+            "terminal_audited": false
+          },
+          "execution_class": "formal",
+          "formal_execution": {
+            "activation_state": "blocked",
+            "artifact_owner": "canonical_channel",
+            "artifact_protocol": "docs/formal_experiment_artifact_protocol.md",
+            "channel_ref": "hardened-v1",
+            "entrypoint": null,
+            "entrypoint_status": "planned",
+            "guard_entrypoint": "scripts/run_experiment_guard_hardened.py",
+            "hardened_core": "scripts/artifact_protocol_hardened.py",
+            "inherit_default_artifact_budget": true,
+            "launch_mode": "canonical_guard",
+            "package_entrypoint": "scripts/package_experiment_hardened.py",
+            "runner_archive_policy": {
+              "mode": "forbid"
+            },
+            "verify_entrypoint": "scripts/verify_experiment_package_hardened.py"
+          },
+          "id": "D-U1-E6-TAPER-01",
+          "implementation_state": "not_implemented",
+          "name": "categorical_semantic_taper_order_comparison",
+          "no_method_winner_assumed": true,
+          "parent_experiment": "E6-TAPER",
+          "predecessor": "D-U1-E6-SEMANTIC-LONGRUN-01",
+          "predecessor_delivery_satisfied": true,
+          "registration_base_commit": "f64452a7452274a183b03c87c39b847039230c00",
+          "registry_scope": "development_preregistration_not_in_canonical_experiments",
+          "reporting_separation": [
+            "task_performance_collapse",
+            "support_or_temperature_boundary",
+            "nan_inf_numerical_failure"
+          ],
+          "role": "controlled_cross_policy_taper_validation",
+          "semantic_gap_successor_delivery_satisfied": false,
+          "status": "not_run"
+        }
+      ],
+      "kind": "update_field",
+      "reason": "Record terminal-audited formal evidence, closure provenance, or the remaining successor gate without changing the frozen scientific protocol.",
+      "to": [
+        {
+          "claim": "On development seeds, verify a balanced large structured conditional state-action support gap and identify fixed local/far pressure candidates for a separately frozen formal long-run without consuming formal seeds.",
+          "code_entrypoint": "src/drpo/du1_e6_conditional_gap.py",
+          "config_path": "configs/du1_e6_conditional_gap_dev.yaml",
+          "documentation_path": "src/drpo/README_DU1_E6_CONDITIONAL_GAP.md",
+          "environment": "D-U1",
+          "evidence": {
+            "development_pilot": true,
+            "formal_result": false,
+            "invariant_test": true,
+            "smoke_test": true,
+            "static_checks": true,
+            "terminal_audited": true
+          },
+          "execution_class": "pilot",
+          "formal_freeze_recommendation": {
+            "activated_experiment": "D-U1-E6-CONDITIONAL-GAP-01",
+            "approval_date": "2026-06-27",
+            "automatic_freeze_allowed": false,
+            "formal_extension_factor_over_pilot": 8.0,
+            "formal_horizon_steps": 8000,
+            "held_out_seeds": [
+              130,
+              131,
+              132,
+              133,
+              134,
+              135,
+              136,
+              137,
+              138,
+              139,
+              140,
+              141,
+              142,
+              143,
+              144,
+              145,
+              146,
+              147,
+              148,
+              149
+            ],
+            "user_approved": true
+          },
+          "id": "D-U1-E6-CONDITIONAL-GAP-DEV-01",
+          "name": "structured_conditional_support_gap_development_pilot",
+          "parent_experiment": "E6",
+          "predecessor": "D-U1-E6-SEMANTIC-LONGRUN-01",
+          "protocol": {
+            "action_count": 256,
+            "conditional_block_gap_fraction": 0.625,
+            "development_seeds": [
+              0,
+              1
+            ],
+            "formal_seeds_consumed": false,
+            "gap_state_fraction": 0.5,
+            "maximum_steps": 1000,
+            "state_distribution_shift": false,
+            "test_states": 4096,
+            "train_states": 4096
+          },
+          "registration_base_commit": "ff2afe443167154eae5de7871cda83f3aba9a89e",
+          "registry_scope": "development_preregistration_not_formal_evidence",
+          "result": {
+            "actual_runs": 20,
+            "compact_output_path": "outputs/du1_e6_conditional_gap_dev",
+            "environment_invariants_passed": true,
+            "nan_inf_numerical_failure_count": 0,
+            "pilot_integrity_passed": true,
+            "random_policy_gap_reward_mean": 0.19078125059604645,
+            "scientific_status": "pilot",
+            "structured_gap_budget_matched_global_gap_reward_mean": 0.49083396792411804,
+            "structured_gap_far_cap_gap_reward_mean": 0.4508051127195358,
+            "structured_gap_local_alpha_0_5_gap_reward_mean": 0.6362665593624115,
+            "structured_gap_local_alpha_1_5_gap_reward_mean": 0.18586624413728714,
+            "structured_gap_positive_only_gap_reward_mean": 0.515236884355545,
+            "structured_gap_uncontrolled_far_4_gap_reward_mean": 0.2991461008787155,
+            "support_or_temperature_boundary_count": 0,
+            "task_performance_collapse_count": 4
+          },
+          "role": "controlled_categorical_conditional_gap_development",
+          "status": "pilot"
+        },
+        {
+          "claim": "Test whether controlled local fixed-negative gradients in a shared semantic categorical policy can move probability mass beyond positive demonstrations toward a hidden optimal action on independently sampled held-out contexts, while uncontrolled far-negative pressure can cause task-performance or support/temperature failure.",
+          "code_entrypoint": "src/drpo/du1_e6_semantic.py",
+          "command": [
+            "python",
+            "src/drpo/du1_e6_semantic.py",
+            "--config",
+            "configs/du1_e6_semantic_pilot.yaml",
+            "--stage",
+            "pilot",
+            "--output-root",
+            "experiments/results/D-U1-E6-SEMANTIC-PILOT-01/run_001",
+            "--device",
+            "auto"
+          ],
+          "config_path": "configs/du1_e6_semantic_pilot.yaml",
+          "controls": {
+            "adam_update_budget_matching_claimed": false,
+            "paired_minibatch_index_stream": true,
+            "paired_network_initialization": true,
+            "policy_side_semantic_shuffle_only": true,
+            "raw_gradient_budget_matching_only": true,
+            "reward_semantics_unchanged_under_shuffle": true
+          },
+          "documentation_path": "src/drpo/README_DU1_E6_SEMANTIC.md",
+          "environment": "D-U1",
+          "evidence": {
+            "applied_commit": "2e04f6dba6d4e87f61920bedb1c464656906bf2b",
+            "delivered_to_user": true,
+            "package_created": true,
+            "pilot_integrity_passed": true,
+            "pilot_raw_complete": true,
+            "raw_artifact_sha256": "6aee3262bcd6936f53d15889ab0c38d825b7ba8f110fa40ab40032f90d079bfb",
+            "repository_applied": true,
+            "smoke_test": true,
+            "static_checks": true,
+            "terminal_audited": true,
+            "unit_tests": true
+          },
+          "execution": {
+            "last_heartbeat_utc": "2026-06-26T13:02:30Z",
+            "process_exit_code": 0,
+            "run_id": "cpu-pilot-20260626T125354Z",
+            "state": "delivered"
+          },
+          "execution_class": "pilot",
+          "formal_parameter_freeze": {
+            "frozen": false,
+            "required_before_longrun": [
+              "local_alpha_or_grid",
+              "concentration_settings",
+              "learning_rate_and_optimizer",
+              "maximum_steps_and_evaluation_interval",
+              "event_thresholds",
+              "stopping_and_two_x_extension_criteria",
+              "untouched_held_out_seeds",
+              "formal_method_matrix"
+            ]
+          },
+          "id": "D-U1-E6-SEMANTIC-PILOT-01",
+          "name": "shared_semantic_categorical_extrapolation_development_pilot",
+          "non_claims": [
+            "formal_method_ranking",
+            "long_run_validation",
+            "OOD_generalization",
+            "Transformer_external_validity",
+            "E5_replacement"
+          ],
+          "parallelism": {
+            "approval_date": "2026-06-26",
+            "independent_of": "C-U1-E4-TAPER-01",
+            "shared_files_requiring_serialized_repository_integration": [
+              "docs/handoff.md",
+              "experiments/registry.yaml"
+            ],
+            "user_parallel_execution_approved": true
+          },
+          "parent_experiment": "E6",
+          "pilot_result": {
+            "actual_runs": 105,
+            "compact_output_path": "outputs/du1_e6_semantic_pilot",
+            "completed_at_utc": "2026-06-26T13:02:30Z",
+            "device": "cpu",
+            "environment_invariants_passed": true,
+            "exact_git_object_checkout_available": false,
+            "execution_snapshot_commit": "653aa6f73b18fed17609e6096cb1c50de0a8cd66",
+            "expected_github_commit": "e8b62dde518f593ff8325c7da94c41406311ca45",
+            "expected_runs": 105,
+            "formal_gate_decision": "remains_blocked_pending_user_review_and_focused_development_extension",
+            "formal_two_x_extension_performed": false,
+            "maximum_steps_per_run": 2000,
+            "nan_inf_numerical_failure_count": 0,
+            "protocol_a_development_observation": {
+              "all_fixed_concentration_runs_provisional_plateau": false,
+              "alpha_0_5_expected_semantic_reward_mean": 0.8882276892662049,
+              "alpha_0_5_hidden_optimal_probability_mean": 0.21612542271614074,
+              "alpha_0_5_hidden_probability_delta_vs_positive_only": 0.07203658819198608,
+              "interpretation": "development_peak_but_terminal_horizon_unresolved"
+            },
+            "protocol_b_development_observation": {
+              "interpretation": "current_learnable_concentration_negative_pressure_not_freezable",
+              "negative_pressure_aligned_support_events": 30,
+              "negative_pressure_aligned_total_runs": 30,
+              "positive_only_support_events": 0
+            },
+            "protocol_c_development_observation": {
+              "formal_claim_allowed": false,
+              "semantic_alignment_control_supported": true
+            },
+            "provenance_scope": "verified_E6_source_snapshot_for_pilot_only",
+            "support_or_temperature_boundary_count": 56,
+            "task_performance_collapse_count": 0
+          },
+          "primary_metrics": [
+            "hidden_optimal_probability",
+            "positive_support_probability",
+            "expected_semantic_reward",
+            "normalized_semantic_extrapolation",
+            "entropy",
+            "effective_support",
+            "concentration",
+            "raw_positive_local_far_gradient_norms",
+            "raw_controlled_negative_gradient_norm",
+            "raw_total_gradient_norm",
+            "adam_parameter_update_norm"
+          ],
+          "protocol": {
+            "action_count": 64,
+            "critic_or_value_network": false,
+            "development_learning_rate": 0.001,
+            "development_maximum_steps": 2000,
+            "development_seeds": [
+              0,
+              1,
+              2,
+              3,
+              4
+            ],
+            "development_test_states": 2048,
+            "development_train_states": 2048,
+            "evaluation_interval_steps": 50,
+            "far_negative_actions_per_state": 4,
+            "fixed_advantage": true,
+            "fixed_concentration": 8.0,
+            "held_out_formal_seeds": [],
+            "hidden_optimum_excluded_from_positive_demonstrations": true,
+            "importance_sampling": false,
+            "initial_learnable_concentration": 8.0,
+            "learnable_concentration_upper_clamp": false,
+            "local_negative_actions_per_state": 1,
+            "negative_advantage": -1.0,
+            "negative_advantages_exactly_equal": true,
+            "optimizer": "Adam",
+            "positive_actions_per_state": 4,
+            "positive_advantage": 1.0,
+            "protocol_a_local_alpha_grid": [
+              0.0,
+              0.1,
+              0.25,
+              0.5,
+              0.75,
+              1.0
+            ],
+            "protocol_b_methods": [
+              "positive_only",
+              "local_only",
+              "uncontrolled",
+              "near_zero",
+              "far_zero",
+              "far_cap",
+              "budget_matched_global"
+            ],
+            "protocol_c_policy_embedding_modes": [
+              "aligned",
+              "shuffled"
+            ],
+            "random_action_id_permutation": true,
+            "semantic_dim": 4,
+            "state_dim": 6,
+            "state_distribution": "standard_normal",
+            "target_offset": 0.45,
+            "terminology": "held_out_context_generalization",
+            "train_test_relation": "independent_same_distribution"
+          },
+          "registration_base_commit": "c5c9ebf67ed7aa08d0313e604f836907890f0964",
+          "registry_scope": "development_preregistration_not_in_canonical_experiments",
+          "reporting_separation": [
+            "task_performance_collapse",
+            "support_or_temperature_boundary",
+            "nan_inf_numerical_failure"
+          ],
+          "role": "controlled_shared_semantic_categorical_development",
+          "status": "pilot",
+          "terminal_audit": {
+            "formal_acceptance_allowed": false,
+            "formal_two_x_extension_performed": false,
+            "pilot_two_trailing_windows": true
+          }
+        },
+        {
+          "claim": "Resolve the fixed-concentration terminal-horizon and learnable-concentration support-boundary blockers using only the already registered alpha, far-pressure, concentration, and training-horizon variables.",
+          "code_entrypoint": "src/drpo/du1_e6_semantic.py",
+          "command": [
+            "python",
+            "src/drpo/du1_e6_semantic.py",
+            "--config",
+            "configs/du1_e6_semantic_focused_dev.yaml",
+            "--stage",
+            "pilot",
+            "--output-root",
+            "experiments/results/D-U1-E6-SEMANTIC-FOCUSED-DEV-01/run_001",
+            "--device",
+            "auto"
+          ],
+          "config_path": "configs/du1_e6_semantic_focused_dev.yaml",
+          "environment": "D-U1",
+          "evidence": {
+            "applied_commit": "eb6a90d55127cead4d95bd0a85a78f32c47ff56a",
+            "delivered_to_user": true,
+            "package_created": true,
+            "phase1_raw_complete": true,
+            "phase2_raw_complete": true,
+            "repository_applied": true,
+            "smoke_test": true,
+            "static_checks": true,
+            "terminal_audited": true,
+            "unit_tests": true
+          },
+          "execution": {
+            "last_heartbeat_utc": "2026-06-26T14:58:00Z",
+            "process_exit_code": 0,
+            "run_id": "focused-dev-two-phase-20260626",
+            "state": "delivered"
+          },
+          "execution_class": "pilot",
+          "formal_freeze_recommendation": {
+            "activated_experiment": "D-U1-E6-SEMANTIC-LONGRUN-01",
+            "approval_date": "2026-06-27",
+            "automatic_freeze_allowed": false,
+            "evaluation_interval_steps": 50,
+            "far_cap_ratio_to_weighted_local_gradient": 1.0,
+            "fixed_alpha_grid": [
+              0.0,
+              0.25,
+              0.5,
+              0.75
+            ],
+            "fixed_concentration": 8.0,
+            "formal_method_matrix": [
+              "positive_only",
+              "far_zero",
+              "uncontrolled",
+              "near_zero",
+              "far_cap",
+              "budget_matched_global"
+            ],
+            "held_out_seeds": [
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16,
+              17,
+              18,
+              19,
+              20,
+              21,
+              22,
+              23,
+              24,
+              25,
+              26,
+              27,
+              28,
+              29
+            ],
+            "initial_learnable_concentration": 8.0,
+            "learnable_concentration_upper_clamp": false,
+            "learnable_far_pressure_stress_lambda": 0.05,
+            "learnable_local_alpha": 0.1,
+            "learning_rate": 0.001,
+            "maximum_steps": 8000,
+            "optimizer": "Adam",
+            "terminal_windows": [
+              [
+                4000,
+                6000
+              ],
+              [
+                6000,
+                8000
+              ]
+            ],
+            "user_approved": true,
+            "user_review_required": true
+          },
+          "id": "D-U1-E6-SEMANTIC-FOCUSED-DEV-01",
+          "local_alpha_selection_rule": {
+            "descending_candidate_order": [
+              0.2,
+              0.1,
+              0.05,
+              0.02,
+              0.01,
+              0.005
+            ],
+            "focused_terminal_plateau_seeds_required": 4,
+            "no_candidate_action": "stop_without_phase2",
+            "numerical_failure_count_required": 0,
+            "paired_hidden_probability_wins_required": 4,
+            "paired_reward_wins_required": 4,
+            "support_boundary_count_required": 0
+          },
+          "name": "shared_semantic_categorical_focused_development_extension",
+          "non_claims": [
+            "formal_method_ranking",
+            "long_run_validation",
+            "OOD_generalization",
+            "automatic_formal_parameter_freeze"
+          ],
+          "parent_experiment": "E6",
+          "phase2_config_path": "configs/du1_e6_semantic_focused_dev_phase2.yaml",
+          "predecessor": "D-U1-E6-SEMANTIC-PILOT-01",
+          "protocol": {
+            "development_seeds": [
+              0,
+              1,
+              2,
+              3,
+              4
+            ],
+            "evaluation_interval_steps": 50,
+            "fixed_concentration": 8.0,
+            "fixed_concentration_alpha_grid": [
+              0.0,
+              0.25,
+              0.5,
+              0.75
+            ],
+            "held_out_formal_seeds": [],
+            "initial_learnable_concentration": 8.0,
+            "learnable_concentration_upper_clamp": false,
+            "learnable_local_alpha_grid": [
+              0.005,
+              0.01,
+              0.02,
+              0.05,
+              0.1,
+              0.2
+            ],
+            "learning_rate": 0.001,
+            "maximum_steps": 4000,
+            "optimizer": "Adam",
+            "phase2_far_pressure_lambda_grid": [
+              0.01,
+              0.02,
+              0.05,
+              0.1,
+              0.2
+            ],
+            "phase2_methods": [
+              "uncontrolled",
+              "far_cap",
+              "budget_matched_global",
+              "near_zero"
+            ],
+            "phase2_requires_preregistered_phase1_selection": true
+          },
+          "registration_base_commit": "2e04f6dba6d4e87f61920bedb1c464656906bf2b",
+          "registry_scope": "development_preregistration_not_in_canonical_experiments",
+          "reporting_separation": [
+            "task_performance_collapse",
+            "support_or_temperature_boundary",
+            "nan_inf_numerical_failure"
+          ],
+          "result": {
+            "base_github_commit": "2e04f6dba6d4e87f61920bedb1c464656906bf2b",
+            "budget_matched_global_rescued_transition": false,
+            "compact_output_path": "outputs/du1_e6_semantic_focused_dev",
+            "development_two_x_horizon_performed": true,
+            "far_only_boundary_lambda": 0.05,
+            "fixed_concentration_plateau_counts": {
+              "alpha_0_0": 5,
+              "alpha_0_25": 5,
+              "alpha_0_5": 5,
+              "alpha_0_75": 5
+            },
+            "formal_gate_decision": "user_approved_and_frozen_for_D-U1-E6-SEMANTIC-LONGRUN-01",
+            "formal_held_out_seeds_consumed": false,
+            "maximum_steps_per_run": 4000,
+            "nan_inf_numerical_failure_count": 0,
+            "phase1_actual_runs": 55,
+            "phase2_actual_runs": 110,
+            "ratio_1_far_cap_rescued_transition": false,
+            "raw_artifact_sha256": "bee5b62e7715bda63ec166849f431ab5c4c90954720e672945e25e62b320e0d6",
+            "rejected_alpha_0_2_support_events": 3,
+            "safe_far_lambda": 0.01,
+            "scientific_status": "pilot",
+            "selected_learnable_local_alpha": 0.1,
+            "selected_local_alpha_plateau_seeds": 5,
+            "selected_local_alpha_support_events": 0,
+            "support_or_temperature_boundary_count": 78,
+            "support_transition_far_lambda": 0.02,
+            "task_performance_collapse_count": 0,
+            "total_actual_runs": 165
+          },
+          "role": "controlled_shared_semantic_categorical_blocker_resolution",
+          "status": "pilot",
+          "terminal_audit": {
+            "adam_update_median_ratio_max": 1.25,
+            "formal_acceptance_allowed": false,
+            "metric_window_mean_abs_tolerances": {
+              "entropy_mean": 0.08,
+              "expected_semantic_reward": 0.01,
+              "hidden_optimal_probability": 0.02,
+              "normalized_semantic_extrapolation": 0.08
+            },
+            "mode": "focused_two_x_windows",
+            "raw_total_gradient_median_ratio_max": 1.25,
+            "window_1_steps": [
+              2000,
+              3000
+            ],
+            "window_2_steps": [
+              3000,
+              4000
+            ]
+          }
+        },
+        {
+          "additional_predecessor": "D-U1-E6-CONDITIONAL-GAP-01",
+          "additional_predecessors": [
+            "D-U1-E6-CONDITIONAL-GAP-01",
+            "D-U1-E6-SEMANTIC-GAP-LONGRUN-01"
+          ],
+          "blocked_by": [
+            "frozen_semantic_remoteness_coordinate",
+            "frozen_paired_method_protocol",
+            "frozen_untouched_held_out_seeds",
+            "separately_implemented_formal_runner"
+          ],
+          "candidate_families": [
+            "reciprocal_linear",
+            "reciprocal_quadratic",
+            "exponential"
+          ],
+          "claim": "On one frozen D-U1 semantic-remoteness coordinate and paired training stream, compare reciprocal-linear, reciprocal-quadratic, and exponential negative tapering for preservation of beneficial local negative signal, suppression of harmful far pressure, held-out unseen-action performance, and support stability. This experiment does not claim a Gaussian quadratic gradient law for categorical policies.",
+          "controls": [
+            "positive_only",
+            "uncontrolled_negative",
+            "global_alpha"
+          ],
+          "distance_rule": {
+            "exact_semantic_coordinate": "pending_separate_E6_TAPER_protocol_freeze",
+            "gaussian_standardized_distance_reused": false,
+            "same_coordinate_across_methods": "required"
+          },
+          "environment": "D-U1",
+          "evidence": {
+            "delivered_to_user": false,
+            "package_created": false,
+            "raw_complete": false,
+            "scientific_status": "not_run",
+            "semantic_gap_successor_delivered_to_user": true,
+            "semantic_gap_successor_raw_complete": true,
+            "semantic_gap_successor_scientific_status": "finite_step_validated",
+            "semantic_gap_successor_terminal_audited": true,
+            "terminal_audited": false
+          },
+          "execution_class": "formal",
+          "formal_execution": {
+            "activation_state": "blocked",
+            "artifact_owner": "canonical_channel",
+            "artifact_protocol": "docs/formal_experiment_artifact_protocol.md",
+            "channel_ref": "hardened-v1",
+            "entrypoint": null,
+            "entrypoint_status": "planned",
+            "guard_entrypoint": "scripts/run_experiment_guard_hardened.py",
+            "hardened_core": "scripts/artifact_protocol_hardened.py",
+            "inherit_default_artifact_budget": true,
+            "launch_mode": "canonical_guard",
+            "package_entrypoint": "scripts/package_experiment_hardened.py",
+            "runner_archive_policy": {
+              "mode": "forbid"
+            },
+            "verify_entrypoint": "scripts/verify_experiment_package_hardened.py"
+          },
+          "id": "D-U1-E6-TAPER-01",
+          "implementation_state": "not_implemented",
+          "name": "categorical_semantic_taper_order_comparison",
+          "no_method_winner_assumed": true,
+          "parent_experiment": "E6-TAPER",
+          "predecessor": "D-U1-E6-SEMANTIC-LONGRUN-01",
+          "predecessor_delivery_satisfied": true,
+          "registration_base_commit": "f64452a7452274a183b03c87c39b847039230c00",
+          "registry_scope": "development_preregistration_not_in_canonical_experiments",
+          "reporting_separation": [
+            "task_performance_collapse",
+            "support_or_temperature_boundary",
+            "nan_inf_numerical_failure"
+          ],
+          "role": "controlled_cross_policy_taper_validation",
+          "semantic_gap_successor_delivery_satisfied": true,
+          "status": "not_run"
+        }
+      ]
+    }
+  ],
+  "registry_change_coverage": {
+    "added_entities": [],
+    "changed_field_count": 50,
+    "declared_assertion_count": 50,
+    "fully_declared": true,
+    "mode": "schema2_complete",
+    "removed_entities": []
+  },
+  "registry_transition_assertions": [
+    {
+      "assertion_id": "semgap-closure-change-020",
+      "entity_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "scientific_status"
+      ],
+      "from": "not_run",
+      "machine": "scientific_status",
+      "to": "finite_step_validated"
+    },
+    {
+      "assertion_id": "semgap-closure-change-028",
+      "entity_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "execution_gate",
+        "state"
+      ],
+      "from": "ready",
+      "machine": "execution_gate",
+      "to": "blocked"
+    },
+    {
+      "assertion_id": "semgap-closure-change-029",
+      "entity_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "formal_execution",
+        "activation_state"
+      ],
+      "from": "active",
+      "machine": "activation_state",
+      "to": "blocked"
+    },
+    {
+      "assertion_id": "semgap-closure-change-048",
+      "entity_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "scientific_status"
+      ],
+      "from": "not_run",
+      "machine": "scientific_status",
+      "to": "finite_step_validated"
+    },
+    {
+      "assertion_id": "semgap-closure-change-049",
+      "entity_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/terminal_audit.json",
+          "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/ARTIFACT_INDEX.json",
+          "sha256": "658e4f00fc66938dd14e2d9fdbd417f611f9723978c10a9f95d6953cff62a5a7"
+        }
+      ],
+      "field_path": [
+        "status"
+      ],
+      "from": "not_run",
+      "machine": "scientific_status",
+      "to": "finite_step_validated"
+    }
+  ],
+  "report_schema_version": 2,
+  "repository_commit": null,
+  "schema_version": 1,
+  "status": "PASS",
+  "update_id": "DU1-E6-SEMANTIC-GAP-CLOSURE-2026-06-28",
+  "validation_worktree_head": "fa225510e3e3e4616f36d8f586611aa6af79bf6e"
+}

@@ -1,0 +1,76 @@
+{
+  "compact_repository_files": {
+    "PROVENANCE_NOTE.md": {
+      "sha256": "f94ec64a8558846a06a6a5315d2234f3219081d48d977f9117fee97814395a1c",
+      "size_bytes": 955
+    },
+    "RESULT_SUMMARY.md": {
+      "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0",
+      "size_bytes": 3101
+    },
+    "RUN_COMPLETE.json": {
+      "sha256": "36467e9e17768bf5cf58dccb7a278713cf5c597dd377a5533c9d229aff01fe13",
+      "size_bytes": 311
+    },
+    "aggregate_summary.json": {
+      "sha256": "bfa07882cca8363222ea6555fb7c02307a0acb0a3cd4a6cbf25264be37c6ecea",
+      "size_bytes": 9294
+    },
+    "environment_audits.json": {
+      "sha256": "79141a41df4b96c7bd2a423e55549fb2cda415dc635f952b9a5549584057aa1b",
+      "size_bytes": 55618
+    },
+    "formal_protocol_freeze.json": {
+      "sha256": "d6369ee81c3923ed7a9656e6076578ce522daa3361e351141c25facbdefea892",
+      "size_bytes": 4964
+    },
+    "horizon_summary.csv": {
+      "sha256": "d9c001ecfd58d6b37d3b0d29a0e94095c0873b20c28ba1b7cc046c2575a7af80",
+      "size_bytes": 2023
+    },
+    "horizon_summary.json": {
+      "sha256": "05b3a339268dac8b72d5501003e6927f65ce40f0f1c86cbb51a4b9b1d8bf013e",
+      "size_bytes": 8181
+    },
+    "paired_comparisons.json": {
+      "sha256": "1172523c58d25555790c5eafed67ea76686531f98b33815b676d650c028f0a01",
+      "size_bytes": 12594
+    },
+    "per_run_summary.csv": {
+      "sha256": "6f9fa82a1449771766daeb68e5fa5bb446145062c46cc1a8e6e362a361de5c58",
+      "size_bytes": 24957
+    },
+    "resolved_config.yaml": {
+      "sha256": "c64643e46d89bc5561f5d714a32772f87558869172e03647fc8d1ee8526bc156",
+      "size_bytes": 5510
+    },
+    "run_manifest.json": {
+      "sha256": "9c5eaf1a858f1068457300e1aad9a5827cbcda6b070be371d553108ea8a952ae",
+      "size_bytes": 2277
+    },
+    "scientific_run_manifest.json": {
+      "sha256": "9301b0e06e9a2b390c01ed1dc08ea02841e631708b24183bad7d3356f96416fe",
+      "size_bytes": 2884
+    },
+    "terminal_audit.json": {
+      "sha256": "57db97f1217b2659b74d12a897467ce167ae8f63537b454473757e91008c7d4d",
+      "size_bytes": 794
+    },
+    "terminal_state_counts.csv": {
+      "sha256": "709e7d7d97b918340061f13f8c07f885f8e05c795d99ad1464c562680b538ce0",
+      "size_bytes": 496
+    }
+  },
+  "experiment_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+  "raw_complete_artifact": {
+    "applicable_by_drpo_update": false,
+    "filename": "DRPO_DU1_E6_SEMANTIC_GAP_0907C3C_RAW_COMPLETE.zip",
+    "large_trajectory_persistence": "persistent_local_index_only",
+    "package_kind": "experiment-raw-complete",
+    "sha256": "65630159ef85c665a3a0ac0eba5cbf751ecb77a929f267423f7a6d9a8e5c4fbf"
+  },
+  "repository_closure_base_commit": "fa225510e3e3e4616f36d8f586611aa6af79bf6e",
+  "schema_version": 1,
+  "scientific_run_commit": "0907c3c0e76fc836c2bf2b752abf554c17f79f22",
+  "scientific_status": "finite_step_validated"
+}

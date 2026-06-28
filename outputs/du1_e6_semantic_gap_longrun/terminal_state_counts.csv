@@ -1,0 +1,6 @@
+alpha,n,terminal_plateau_count,persistent_drift_or_inconclusive_count,task_performance_collapse_count,support_or_temperature_boundary_count,nan_inf_numerical_failure_count,final_reward_mean,final_reward_std
+0.0,20,20,0,0,0,0,0.741308581829071,0.005927126080174987
+0.25,20,20,0,0,0,0,0.7662686556577682,0.006984662428197951
+0.5,20,5,15,0,0,0,0.765975046157837,0.005872174592689895
+0.75,20,0,20,0,0,0,0.7393304020166397,0.008430331648160462
+1.0,20,0,20,0,0,0,0.6802235990762711,0.00818192312888965

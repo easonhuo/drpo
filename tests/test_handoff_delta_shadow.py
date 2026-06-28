@@ -213,16 +213,31 @@ def test_historical_stage3_automation_delta_matches_repository_after_image() -> 
     assert result.report["candidate_replaced_authority"] is False
 
 
-def test_current_e7_canonical_critic_rollout_delta_matches_manual_handoff() -> None:
+def test_historical_e7_canonical_critic_rollout_delta_matches_repository_after_image() -> None:
     delta = (
         ROOT
         / "docs/handoff_deltas/EXT-H-E7-Q2-CANONICAL-CRITIC-ROLLOUT-2026-06-28/HANDOFF_DELTA.yaml"
+    )
+    result = MODULE.check_delta(
+        ROOT, delta, target_commit="fa225510e3e3e4616f36d8f586611aa6af79bf6e"
+    )
+    assert result.report["status"] == "PASS"
+    assert result.report["exact_manual_candidate_match"] is True
+    assert result.report["idempotence_passed"] is True
+    assert result.report["candidate_replaced_authority"] is False
+
+
+def test_current_semantic_gap_closure_delta_matches_manual_handoff() -> None:
+    delta = (
+        ROOT
+        / "docs/handoff_deltas/DU1-E6-SEMANTIC-GAP-CLOSURE-2026-06-28/HANDOFF_DELTA.yaml"
     )
     result = MODULE.check_delta(ROOT, delta)
     assert result.report["status"] == "PASS"
     assert result.report["exact_manual_candidate_match"] is True
     assert result.report["idempotence_passed"] is True
     assert result.report["candidate_replaced_authority"] is False
+    assert result.report["registry_change_coverage"]["fully_declared"] is True
 
 
 def test_standard_replay_is_idempotent(tmp_path: Path) -> None:
@@ -417,7 +432,7 @@ def test_full_acceptance_mutations_are_rejected(tmp_path: Path) -> None:
 def test_full_acceptance_fast_gate_stays_below_hard_limit() -> None:
     delta = (
         ROOT
-        / "docs/handoff_deltas/EXT-H-E7-Q2-CANONICAL-CRITIC-ROLLOUT-2026-06-28/HANDOFF_DELTA.yaml"
+        / "docs/handoff_deltas/DU1-E6-SEMANTIC-GAP-CLOSURE-2026-06-28/HANDOFF_DELTA.yaml"
     )
     samples = []
     for _ in range(3):

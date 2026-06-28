@@ -1,0 +1,11 @@
+{
+  "actual_runs": 100,
+  "completed": true,
+  "elapsed_seconds": 1976.1579430103302,
+  "execution_mode": "formal_longrun",
+  "expected_runs": 100,
+  "experiment_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+  "formal_result": true,
+  "method_ranking_allowed": false,
+  "scientific_status": "finite_step_validated"
+}

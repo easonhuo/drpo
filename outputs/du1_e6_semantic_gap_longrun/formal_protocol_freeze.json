@@ -1,0 +1,231 @@
+{
+  "automatic_retuning_allowed": false,
+  "checkpointing": {
+    "persistence": "persistent_local",
+    "seed_block_size": 5,
+    "seed_blocks": [
+      [
+        150,
+        151,
+        152,
+        153,
+        154
+      ],
+      [
+        155,
+        156,
+        157,
+        158,
+        159
+      ],
+      [
+        160,
+        161,
+        162,
+        163,
+        164
+      ],
+      [
+        165,
+        166,
+        167,
+        168,
+        169
+      ]
+    ],
+    "write_compact_manifest_after_each_block": true
+  },
+  "conditional_coverage": {
+    "apply_to_logged_roles": [
+      "positive",
+      "local_negative",
+      "far_negative"
+    ],
+    "evaluation_oracle_remains_complete": true,
+    "gap_state_fraction": 0.5,
+    "mode": "structured_semantic_neighbourhood_gap",
+    "require_global_action_coverage": true,
+    "state_partition": "top_half_of_state_0_plus_0_37_state_1",
+    "withheld_action_fraction": 0.25,
+    "withhold_basis": "per_state_reward_similarity_top_fraction"
+  },
+  "data": {
+    "action_count": 64,
+    "far_negative_actions_per_state": 4,
+    "hidden_optimal_actions_per_state": 1,
+    "local_negative_actions_per_state": 1,
+    "positive_actions_per_state": 4,
+    "semantic_dim": 4,
+    "state_dim": 6,
+    "state_distribution": "standard_normal",
+    "terminology": "held_out_context_generalization",
+    "test_states": 2048,
+    "train_states": 2048,
+    "train_test_relation": "independent_same_distribution"
+  },
+  "development_seeds_forbidden": [
+    900,
+    901,
+    902,
+    903,
+    904,
+    905,
+    906,
+    907,
+    908,
+    909
+  ],
+  "events": {
+    "concentration_warning": 80.0,
+    "effective_support_boundary": 1.5,
+    "task_collapse_ratio_to_paired_positive_only": 0.2
+  },
+  "experiment_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+  "formal_gate": {
+    "approval_record": "user_approved_2026-06-27_minimum_change_semantic_gap",
+    "enabled": true,
+    "frozen_protocol_path": "configs/du1_e6_semantic_gap_longrun.yaml",
+    "held_out_seeds": [
+      150,
+      151,
+      152,
+      153,
+      154,
+      155,
+      156,
+      157,
+      158,
+      159,
+      160,
+      161,
+      162,
+      163,
+      164,
+      165,
+      166,
+      167,
+      168,
+      169
+    ]
+  },
+  "geometry": {
+    "fixed_advantage": true,
+    "negative_advantage": -1.0,
+    "positive_advantage": 1.0,
+    "random_action_id_permutation": true,
+    "reward_scale": 0.5,
+    "target_offset": 0.45
+  },
+  "held_out_seeds": [
+    150,
+    151,
+    152,
+    153,
+    154,
+    155,
+    156,
+    157,
+    158,
+    159,
+    160,
+    161,
+    162,
+    163,
+    164,
+    165,
+    166,
+    167,
+    168,
+    169
+  ],
+  "optimizer": {
+    "audit_states": 512,
+    "batch_size": 128,
+    "betas": [
+      0.9,
+      0.999
+    ],
+    "eps": 1e-08,
+    "evaluation_interval_steps": 200,
+    "far_cap_ratio_to_weighted_local_gradient": 1.0,
+    "learning_rate": 0.001,
+    "maximum_steps": 32000,
+    "optimizer": "Adam",
+    "parallel_workers": 8
+  },
+  "policy": {
+    "activation": "tanh",
+    "fixed_concentration": 8.0,
+    "hidden_dim": 64,
+    "initial_learnable_concentration": 8.0,
+    "learnable_concentration_floor": 0.05,
+    "learnable_concentration_upper_clamp": false
+  },
+  "primary_metrics": [
+    "overall_expected_semantic_reward",
+    "paired_reward_difference_vs_positive_only",
+    "reward_trajectory_across_registered_horizons"
+  ],
+  "protocol_a": {
+    "concentration_mode": "fixed",
+    "far_pressure_lambda": 0.0,
+    "local_alpha_grid": [
+      0.0,
+      0.25,
+      0.5,
+      0.75,
+      1.0
+    ],
+    "responsibility": "minimum_change_gap_alpha_utility_and_uncontrolled_degradation"
+  },
+  "protocol_b": {
+    "concentration_mode": "fixed",
+    "responsibility": "not_in_scope",
+    "settings": []
+  },
+  "protocol_c": {
+    "concentration_mode": "fixed",
+    "embedding_modes": [],
+    "far_pressure_lambda": 0.0,
+    "local_alpha": 0.0,
+    "methods": [],
+    "responsibility": "not_in_scope"
+  },
+  "registered_horizon_checkpoints": [
+    4000,
+    8000,
+    16000,
+    24000,
+    32000
+  ],
+  "terminal_audit": {
+    "adam_update_median_ratio_max": 1.25,
+    "allow_scientific_failure_outcomes": true,
+    "development_reference_horizon_steps": 16000,
+    "formal_extension_factor": 2.0,
+    "formal_horizon_steps": 32000,
+    "metric_window_mean_abs_tolerances": {
+      "test_entropy_mean": 0.08,
+      "test_expected_semantic_reward": 0.01,
+      "test_hidden_optimal_probability": 0.02,
+      "test_normalized_semantic_extrapolation": 0.08
+    },
+    "mode": "formal_two_x_windows",
+    "raw_total_gradient_median_ratio_max": 1.25,
+    "require_all_registered_runs": true,
+    "window_1_steps": [
+      16000,
+      24000
+    ],
+    "window_2_steps": [
+      24000,
+      32000
+    ]
+  },
+  "user_approval": {
+    "approval_date": "2026-06-27",
+    "approval_scope": "minimum_change_semantic_gap_formal_promotion",
+    "automatic_retuning_allowed": false,
+    "user_approved": true
+  }
+}

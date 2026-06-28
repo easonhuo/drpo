@@ -1,0 +1,70 @@
+{
+  "schema_version": 3,
+  "experiment_id": "D-U1-E6-SEMANTIC-GAP-LONGRUN-01",
+  "execution_state": "raw_complete",
+  "run_class": "formal",
+  "start_utc": "2026-06-27T14:24:17.868186+00:00",
+  "repo_root": "/mnt/data/drpo_formal_0907",
+  "branch": "main",
+  "base_commit": "0907c3c0e76fc836c2bf2b752abf554c17f79f22",
+  "commit_resolution": {
+    "local_head": "0907c3c0e76fc836c2bf2b752abf554c17f79f22",
+    "expected_sha": "0907c3c0e76fc836c2bf2b752abf554c17f79f22",
+    "origin_main": {
+      "sha": "0907c3c0e76fc836c2bf2b752abf554c17f79f22",
+      "source": "git_ls_remote_origin_main",
+      "authoritative": true,
+      "error": null
+    },
+    "origin_matches_local": true,
+    "verified": true
+  },
+  "git_dirty_at_launch": false,
+  "git_status_at_launch": [],
+  "launch_snapshot": false,
+  "command": [
+    "/opt/pyvenv/bin/python3",
+    "/mnt/data/drpo_formal_0907/src/drpo/du1_e6_semantic_gap_longrun.py",
+    "--config",
+    "/mnt/data/drpo_formal_0907/configs/du1_e6_semantic_gap_longrun.yaml",
+    "--output-root",
+    "/mnt/data/DRPO_RUNS/D-U1-E6-SEMANTIC-GAP-LONGRUN-01/run_0907c3c",
+    "--device",
+    "cpu"
+  ],
+  "cwd": "/mnt/data/drpo_formal_0907",
+  "python": "3.13.5 (main, May  5 2026, 21:05:52) [GCC 14.2.0]",
+  "platform": "Linux-4.4.0-x86_64-with-glibc2.41",
+  "pid": 63728,
+  "heartbeat_seconds": 60.0,
+  "stale_seconds": 900.0,
+  "termination_grace_seconds": 30.0,
+  "progress_globs": [
+    "trajectories.jsonl",
+    "runs/seed_*/*.summary.json",
+    "checkpoints/*/CHECKPOINT_COMPLETE.json"
+  ],
+  "required_outputs": [
+    "RUN_COMPLETE.json",
+    "scientific_run_manifest.json",
+    "terminal_audit.json",
+    "aggregate_summary.json",
+    "horizon_summary.json",
+    "horizon_summary.csv",
+    "per_run_summary.csv",
+    "formal_protocol_freeze.json",
+    "run_manifest.json"
+  ],
+  "artifact_output": "/mnt/data/DRPO_DU1_E6_SEMANTIC_GAP_0907C3C_RAW_COMPLETE.zip",
+  "large_file_persistence": "persistent_local",
+  "sidecar_default": false,
+  "sidecar_files": [],
+  "sidecar_purpose": null,
+  "end_utc": "2026-06-27T14:57:17.858160+00:00",
+  "returncode": 0,
+  "missing_required_outputs": [],
+  "stale_detected": false,
+  "end_commit": "0907c3c0e76fc836c2bf2b752abf554c17f79f22",
+  "git_status_at_end": [],
+  "provenance_compromised": false
+}

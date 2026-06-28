@@ -112,16 +112,19 @@ def test_engineering_smoke_is_nonformal_and_writes_horizon_free_outputs(
     assert not (output / "formal_protocol_freeze.json").exists()
 
 
-def test_registry_and_handoff_register_ready_formal_successor() -> None:
+def test_registry_and_handoff_preserve_frozen_protocol_after_formal_closure() -> None:
     registry = yaml.safe_load((REPO_ROOT / "experiments" / "registry.yaml").read_text())
     experiments = {item["id"]: item for item in registry["experiments"]}
     item = experiments[EXPERIMENT_ID]
-    assert item["status"] == "not_run"
-    assert item["execution_gate"]["state"] == "ready"
-    assert item["formal_execution"]["activation_state"] == "active"
+    assert item["status"] == "finite_step_validated"
+    assert item["execution_gate"]["state"] == "blocked"
+    assert item["formal_execution"]["activation_state"] == "blocked"
     assert item["protocol"]["action_count"] == 64
     assert item["protocol"]["alpha_grid"] == ALPHA_GRID
     assert item["held_out_seeds"] == HELD_OUT_SEEDS
+    assert item["evidence"]["actual_runs"] == 100
+    assert item["evidence"]["terminal_plateau_runs"] == 45
     handoff = (REPO_ROOT / "docs" / "handoff.md").read_text()
     assert "HANDOFF-DELTA-BLOCK:after_heading:v51-du1-e6-semantic-gap-formal:START" in handoff
+    assert "HANDOFF-DELTA-BLOCK:after_heading:v55-du1-e6-semantic-gap-result-closure:START" in handoff
     assert EXPERIMENT_ID in handoff

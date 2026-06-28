@@ -2690,8 +2690,8 @@ experiments:
 - id: D-U1-E6-SEMANTIC-GAP-LONGRUN-01
   environment: D-U1
   name: minimum_change_shared_semantic_conditional_gap_longrun
-  status: not_run
-  scientific_status: not_run
+  status: finite_step_validated
+  scientific_status: finite_step_validated
   parent_experiment: E6
   predecessor: D-U1-E6-SEMANTIC-LONGRUN-01
   related_stress_diagnostic: D-U1-E6-CONDITIONAL-GAP-01
@@ -2708,13 +2708,15 @@ experiments:
   implementation_state: implemented
   registry_scope: canonical_formal_confirmation_after_sandbox_qualification
   execution_gate:
-    state: ready
-    blocked_by: []
+    state: blocked
+    blocked_by: [completed_formal_execution_no_rerun_without_new_registration]
     approval_record: user_authorized_formal_package_generation_after_sandbox_review_2026-06-27
-    blocking_reason: null
+    blocking_reason: >-
+      The frozen 100-run formal execution is complete, terminal-audited, packaged,
+      and delivered. Re-running seeds 150--169 requires a separately registered protocol.
   formal_execution:
     channel_ref: hardened-v1
-    activation_state: active
+    activation_state: blocked
     entrypoint_status: implemented
     entrypoint: src/drpo/du1_e6_semantic_gap_longrun.py
     launch_mode: canonical_guard
@@ -2873,21 +2875,117 @@ experiments:
   - Transformer_external_validity
   - cross_task_method_superiority
   evidence:
-    implementation_tests_passed: false
-    formal_run_started: false
-    raw_complete: false
-    terminal_audited: false
-    package_created: false
-    delivered_to_user: false
-    scientific_status: not_run
+    implementation_tests_passed: true
+    formal_run_started: true
+    raw_complete: true
+    terminal_audited: true
+    all_terminal_audits_accepted: true
+    formal_two_x_extension_performed: true
+    expected_runs: 100
+    actual_runs: 100
+    terminal_plateau_runs: 45
+    persistent_drift_or_inconclusive_runs: 55
+    task_performance_collapse_events: 0
+    support_or_temperature_boundary_events: 0
+    nan_inf_numerical_events: 0
+    package_created: true
+    raw_complete_package_filename: DRPO_DU1_E6_SEMANTIC_GAP_0907C3C_RAW_COMPLETE.zip
+    raw_complete_package_sha256: 65630159ef85c665a3a0ac0eba5cbf751ecb77a929f267423f7a6d9a8e5c4fbf
+    final_repository_closure_package_filename: DRPO_DU1_E6_SEMANTIC_GAP_CLOSURE_FA225_UPDATE.zip
+    final_repository_closure_package_sha256: null
+    final_repository_closure_package_sha256_status: not_recorded_in_repository_evidence
+    delivered_to_user: true
+    repository_applied: false
+    applied_commit: null
+    compact_result_path: outputs/du1_e6_semantic_gap_longrun
+    scientific_status: finite_step_validated
   provenance:
     exact_base_commit_source: complete_user_uploaded_git_bundle
     live_github_dns_available_in_generation_environment: false
     authoritative_remote_tip_recheck_required_by_formal_wrapper: true
+    run_commit: 0907c3c0e76fc836c2bf2b752abf554c17f79f22
+    repository_closure_base_commit: fa225510e3e3e4616f36d8f586611aa6af79bf6e
+    origin_main_authoritative_match_at_launch: true
+    git_worktree_clean_at_launch: true
+    git_worktree_clean_at_exit: true
+    provenance_compromised: false
+    raw_artifact_package_kind: experiment-raw-complete
+    raw_artifact_is_drpo_update_input: false
+    diagnostic_rejection_phase: package_extract
+    diagnostic_rejection_expected: true
+  execution:
+    state: delivered
+    run_id: du1_e6_semantic_gap_longrun_0907c3c_run001
+    start_utc: '2026-06-27T14:24:17.868186+00:00'
+    end_utc: '2026-06-27T14:57:17.858160+00:00'
+    elapsed_seconds: 1979.99
+    process_exit_code: 0
+    runtime: cpu
+  result_summary:
+    terminal:
+      all_formal_terminal_plateau: false
+      terminal_plateau_runs: 45
+      persistent_drift_or_inconclusive_runs: 55
+      formal_method_ranking_allowed: false
+    final_32000_step:
+      positive_only_reward_mean: 0.741308581829071
+      alpha_0_25_reward_mean: 0.7662686556577682
+      alpha_0_25_minus_positive_only_mean: 0.024960073828697204
+      alpha_0_25_minus_positive_only_ci95: [0.02358505330979824, 0.026427947282791138]
+      alpha_0_25_wins: 20
+      alpha_0_50_reward_mean: 0.765975046157837
+      alpha_0_50_minus_positive_only_mean: 0.024666464328765868
+      alpha_0_50_minus_positive_only_ci95: [0.022564217671751978, 0.026787295341491702]
+      alpha_0_50_wins: 20
+      alpha_0_75_reward_mean: 0.7393304020166397
+      alpha_0_75_minus_positive_only_mean: -0.0019781798124313354
+      alpha_0_75_minus_positive_only_ci95: [-0.005438663214445113, 0.0013230986893177034]
+      alpha_0_75_wins: 9
+      alpha_0_75_losses: 11
+      alpha_1_0_reward_mean: 0.6802235990762711
+      alpha_1_0_minus_positive_only_mean: -0.061084982752799985
+      alpha_1_0_minus_positive_only_ci95: [-0.06415405839681626, -0.058077503591775895]
+      alpha_1_0_losses: 20
+    alpha_1_progressive_gap_vs_positive_only:
+      step_4000: 0.0039426833391189575
+      step_8000: -0.01374114751815796
+      step_16000: -0.03916723430156708
+      step_24000: -0.05322670340538025
+      step_32000: -0.061084982752799985
+    terminal_class_by_alpha:
+      alpha_0_0: {plateau: 20, drift_or_inconclusive: 0}
+      alpha_0_25: {plateau: 20, drift_or_inconclusive: 0}
+      alpha_0_50: {plateau: 5, drift_or_inconclusive: 15}
+      alpha_0_75: {plateau: 0, drift_or_inconclusive: 20}
+      alpha_1_0: {plateau: 0, drift_or_inconclusive: 20}
+  paper_use:
+    suitable_for_finite_horizon_positive_only_ceiling_claim: true
+    suitable_for_intermediate_alpha_benefit_claim: true
+    suitable_for_progressive_unsuppressed_negative_degradation_claim: true
+    suitable_for_steady_state_method_ranking: false
+    allowed:
+    - same_distribution_held_out_context_generalization
+    - structured_state_action_support_gap
+    - finite_step_reward_trajectory_comparison
+    - separate_task_support_and_numerical_event_reporting
+    prohibited_claims:
+    - state_distribution_OOD_generalization
+    - universal_alpha_optimum
+    - steady_state_method_ranking_across_all_alpha
+    - Gaussian_quadratic_far_field_law_for_categorical_policy
+    - cross_task_method_superiority
   next_gate:
-    state: run_after_update_is_applied_and_committed_on_clean_main
+    experiment_id: D-U1-E6-TAPER-01
+    predecessor_delivery_satisfied: true
+    state: review_required_not_runnable
     automatic_retuning_forbidden: true
-    D_U1_E6_TAPER_01_remains_blocked_until_delivery: true
+    D_U1_E6_TAPER_01_remains_blocked_until_delivery: false
+    automatic_activation_forbidden: true
+    remaining_requirements:
+    - freeze_semantic_remoteness_coordinate
+    - freeze_paired_method_protocol
+    - freeze_new_untouched_held_out_seeds
+    - implement_separate_formal_runner
 
 - id: D-U1-E6-CONDITIONAL-GAP-01
   environment: D-U1
@@ -3528,9 +3626,8 @@ development_experiment_registrations:
     inherit_default_artifact_budget: true
     runner_archive_policy: {mode: forbid}
   predecessor_delivery_satisfied: true
-  semantic_gap_successor_delivery_satisfied: false
+  semantic_gap_successor_delivery_satisfied: true
   blocked_by:
-  - D-U1-E6-SEMANTIC-GAP-LONGRUN-01_delivery
   - frozen_semantic_remoteness_coordinate
   - frozen_paired_method_protocol
   - frozen_untouched_held_out_seeds
@@ -3552,6 +3649,10 @@ development_experiment_registrations:
     package_created: false
     delivered_to_user: false
     scientific_status: not_run
+    semantic_gap_successor_raw_complete: true
+    semantic_gap_successor_terminal_audited: true
+    semantic_gap_successor_delivered_to_user: true
+    semantic_gap_successor_scientific_status: finite_step_validated
 
 allowed_execution_states:
 - registered
