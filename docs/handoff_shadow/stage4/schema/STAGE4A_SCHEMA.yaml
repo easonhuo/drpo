@@ -1,0 +1,56 @@
+schema_version: 1
+policy_id: GOV-HANDOFF-INDEX-01
+authority: non_authoritative_stage4a_shadow_inventory
+phase: stage_4a_schema_inventory
+manual_handoff_remains_authoritative: true
+authority_cutover_allowed: false
+paths:
+  root: docs/handoff_shadow/stage4
+  schema: docs/handoff_shadow/stage4/schema/STAGE4A_SCHEMA.yaml
+  modules: docs/handoff_shadow/stage4/inventory/MODULES.yaml
+  headings: docs/handoff_shadow/stage4/inventory/HEADINGS.yaml
+  claims: docs/handoff_shadow/stage4/inventory/CLAIMS.yaml
+  experiments: docs/handoff_shadow/stage4/inventory/EXPERIMENTS.yaml
+node_types:
+  - question
+  - hypothesis
+  - claim
+  - assumption
+  - experiment
+  - evidence
+  - method
+  - limitation
+  - alternative
+  - open_issue
+relation_types:
+  - depends_on
+  - tests
+  - supports
+  - contradicts
+  - supersedes
+  - external_validates
+  - does_not_replace
+  - motivates
+dependency_closure:
+  traversal_relation: depends_on
+  traversal: transitive
+  include_target: true
+  include_direct_limitations_lineage_and_provenance: true
+  missing_dependency_policy: fail_closed
+  uncertain_dependency_policy: conservative_overinclude_with_warning
+  cycle_policy: reject
+ambiguity_policy:
+  automatic_guessing_allowed: false
+  unresolved_classification: reject
+  resolved_multi_module_requires_rationale: true
+  unknown_node_or_relation_type: reject
+  dangling_reference: reject
+  duplicate_identifier: reject
+forbidden_stage4a_outputs:
+  - CURRENT_CANDIDATE.md
+  - modules/
+  - history/
+  - graph/NODES.yaml
+  - graph/EDGES.yaml
+  - graph/CLAIM_LINEAGE.yaml
+  - context_packs/

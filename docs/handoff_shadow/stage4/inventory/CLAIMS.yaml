@@ -1,0 +1,519 @@
+schema_version: 1
+policy_id: GOV-HANDOFF-INDEX-01
+authority: non_authoritative_stage4a_shadow_inventory
+source:
+  path: docs/handoff.md
+  sha256: 85fa8b7cd5da5af2d05fccf71fb83ae8a91a9eb1f162ed96046e84f8764298ae
+scope: manual_locator_inventory_of_locked_supported_limited_open_and_superseded_claims
+claims:
+- claim_id: GOV-UNIQUE-MASTER-01
+  node_type: claim
+  status: current_locked
+  statement_summary: docs/handoff.md is the unique research master and new research state must be registered there first.
+  module_ids:
+  - global_core_governance
+  source_anchor:
+    file: docs/handoff.md
+    heading_id: H0002
+    text: 1. **唯一 Master 文档是任务轴。** 新理论、新实验、新变量、代码入口和结果状态必须先登记，再执行。
+    sha256: 6875963ea7a719e97ec6ce05fde0dfd8277e41edbbacbe12a0d19dd66291cd1b
+    occurrence_in_section: 1
+  lineage:
+    supersedes: []
+    superseded_by: []
+- claim_id: GOV-DOCUMENT-FIRST-01
+  node_type: claim
+  status: current_locked
+  statement_summary: Formal experiments require prior registration of claim, environment, data, metrics, convergence criteria, and result destination.
+  module_ids:
+  - global_core_governance
+  - execution_status_gates
+  source_anchor:
+    file: docs/handoff.md
+    heading_id: H0002
+    text: 2. **文档先于实验。** 未写明 claim、环境、数据、指标、收敛条件和结果落点的实验，严格禁止启动。
+    sha256: e410beba773f026d6e8d2f4b424c636ae77af4d9cce1dbd957f0ea2002a0e497
+    occurrence_in_section: 1
+  lineage:
+    supersedes: []
+    superseded_by: []
+- claim_id: GOV-NONDESTRUCTIVE-HISTORY-01
+  node_type: claim
+  status: current_locked
+  statement_summary: Historical content may be moved or indexed but not destructively deleted.
+  module_ids:
+  - global_core_governance
+  - history_provenance
+  source_anchor:
+    file: docs/handoff.md
+    heading_id: H0002
+    text: 3. **不得破坏性删除。** 旧内容只能移动、压缩并保留索引；结论变化写成“旧结论—问题—新证据—新结论”。
+    sha256: fde532080ed8cc7487131848e220e6f451aee3fcd6ef143d537560c772d5cb4d
+    occurrence_in_section: 1
+  lineage:
+    supersedes: []
+    superseded_by: []
+- claim_id: GOV-TERMINAL-AUDIT-01
+  node_type: claim
+  status: current_locked
+  statement_summary: Steady-state, collapse, and method-ranking claims require terminal-state auditing rather than arbitrary fixed horizons.
+  module_ids:
+  - global_core_governance
+  - execution_status_gates
+  source_anchor:
+    file: docs/handoff.md
+    heading_id: H0002
+    text: 6. **动力学必须做终态审计。** 涉及稳态、崩溃、方法排名时，不以任意固定训练步数代替收敛/持续漂移证据。
+    sha256: ae061519c816d2ccda01d6e20b19e84cc337e020ba897b2a2b306bccf5e33dad
+    occurrence_in_section: 1
+  lineage:
+    supersedes: []
+    superseded_by: []
+- claim_id: GOV-EXTERNAL-DOES-NOT-REPLACE-01
+  node_type: claim
+  status: current_locked
+  statement_summary: Hopper and Countdown provide external validity and do not replace C-U1/D-U1 controlled identification.
+  module_ids:
+  - global_core_governance
+  - continuous_e1_e4
+  - categorical_e5_e6
+  - hopper_e7
+  - countdown_e8
+  source_anchor:
+    file: docs/handoff.md
+    heading_id: H0002
+    text: 10. **外部实验不能替代理想识别。** Hopper/Countdown 回答外部有效性；C-U1/D-U1 回答可控因果与 ground truth。
+    sha256: 454f44095b1c0310ae5f3cbab60f7c3e2037814b224b9fe18a6fd0f8c3f963c2
+    occurrence_in_section: 1
+  lineage:
+    supersedes: []
+    superseded_by: []
+- claim_id: GOV-CU1-TERMINOLOGY-01
+  node_type: claim
+  status: current_locked
+  statement_summary: Current C-U1 results are same-distribution held-out-context generalization, not OOD generalization.
+  module_ids:
+  - global_core_governance
+  - continuous_e1_e4
+  source_anchor:
+    file: docs/handoff.md
+    heading_id: H0004
+    text: 1. C-U1 的训练状态与测试状态使用同一生成分布 `s ~ N(0,I_6)`，只在样本身份上独立；因此 E1-E4 报告的是 **同分布 held-out-context generalization（未见状态泛化）**。
+    sha256: 6c3c3a105dcb6c47857025de3e3c30a49de912786279e0f5a7348262df5d577a
+    occurrence_in_section: 1
+  lineage:
+    supersedes: []
+    superseded_by: []
+- claim_id: GOV-COLLAPSE-TAXONOMY-01
+  node_type: claim
+  status: current_locked
+  statement_summary: Task-performance collapse, support or variance boundary events, and NaN/Inf numerical failure must be reported separately.
+  module_ids:
+  - global_core_governance
+  - execution_status_gates
+  - continuous_e1_e4
+  source_anchor:
+    file: docs/handoff.md
+    heading_id: H0041
+    text: '**E3 结果状态必须拆分（v12 新增协议细化）：**'
+    sha256: daf7cb277faa2200692668d73485f3fecf375a77db78ad209a673e41bcc83547
+    occurrence_in_section: 1
+  lineage:
+    supersedes: []
+    superseded_by: []
+- claim_id: GOV-CURRENT-ROUTE-E7-01
+  node_type: claim
+  status: current_locked
+  statement_summary: The current next formal route item is EXT-H-E7-Q2 and it remains not run until canonical execution and delivery complete.
+  module_ids:
+  - execution_status_gates
+  - hopper_e7
+  source_anchor:
+    file: docs/handoff.md
+    heading_id: H0003
+    text: 当前下一正式 route item 为 `EXT-H-E7-Q2`，registry 状态为 **implemented + ready + active + not_run**；启动后仍须走 canonical hardened guard，且在 raw-complete、终态审计、打包和交付前不得声称
+      E7 完成。
+    sha256: 47b90f6cabb177a938a13bdf0839668a8bac926008884d3bf1e9bc58cc185b1c
+    occurrence_in_section: 1
+  lineage:
+    supersedes: []
+    superseded_by: []
+- claim_id: SCI-REPULSIVE-CORE-01
+  node_type: claim
+  status: current_locked
+  statement_summary: The core mechanism is attraction from positive advantage and far-field-amplified repulsion from fixed off-policy negative
+    samples.
+  module_ids:
+  - theory_methods_related_work
+  - continuous_e1_e4
+  source_anchor:
+    file: docs/handoff.md
+    heading_id: H0009
+    text: 1. 保留原始 repulsive dynamics 主干：正优势吸引、负优势排斥、固定离线样本随策略移动进入远场、score function 放大、正负梯度失衡与 collapse。
+    sha256: de62dae04e1212ac3f9226f12fce304036b8d7f65d0d1c926653a60c5a9ff023
+    occurrence_in_section: 1
+  lineage:
+    supersedes: []
+    superseded_by: []
+- claim_id: SCI-GAUSSIAN-VARIANCE-CORRECTION-01
+  node_type: claim
+  status: current_locked
+  statement_summary: Far-field negative samples repel the mean and contract variance/support rather than expanding mean and variance together.
+  module_ids:
+  - theory_methods_related_work
+  - continuous_e1_e4
+  - history_provenance
+  source_anchor:
+    file: docs/handoff.md
+    heading_id: H0009
+    text: 2. 修正 Gaussian 方差方向：远场负样本导致均值排斥并收缩方差，而不是均值与方差同时扩张。
+    sha256: 7feba868937daa4a4cd10233b482570664e9f4e7ae8527c9c4c8b75e6844b86b
+    occurrence_in_section: 1
+  lineage:
+    supersedes:
+    - HIST-MU-SIGMA-EXPAND-01
+    superseded_by: []
+- claim_id: SCI-FISHER-CORRECTION-01
+  node_type: claim
+  status: current_locked
+  statement_summary: Fixed off-policy signed-gradient stability must use exact updates or the signed field Jacobian, not expected-Fisher SPD alone.
+  module_ids:
+  - theory_methods_related_work
+  - continuous_e1_e4
+  - history_provenance
+  source_anchor:
+    file: docs/handoff.md
+    heading_id: H0009
+    text: 3. 修正数学工具：固定 off-policy 样本不能用 expected Fisher 的 SPD 性质证明联合扩张；改用精确更新式与总体 signed gradient field 的 Jacobian。
+    sha256: c2b0f3bd5dd3e5743b3e2b47b49711eb77bea1ebfab096246ffb9b97fd67fbd8
+    occurrence_in_section: 1
+  lineage:
+    supersedes: []
+    superseded_by: []
+- claim_id: SCI-EXP-FAMILY-UNIFICATION-01
+  node_type: claim
+  status: current_supported
+  statement_summary: Gaussian and categorical branches are unified through the necessary exponential-family signed-moment structure.
+  module_ids:
+  - theory_methods_related_work
+  - continuous_e1_e4
+  - categorical_e5_e6
+  source_anchor:
+    file: docs/handoff.md
+    heading_id: H0009
+    text: 4. 将 exponential-family 统一作为核心 contribution：在不抛弃原变量体系的前提下，使用指数族必要符号给出 Gaussian 与 categorical 的共同平衡/边界条件。
+    sha256: d789b975e43a5a977b379762af655098cc55f4b054cd955b16c572b246c4c343
+    occurrence_in_section: 1
+  lineage:
+    supersedes: []
+    superseded_by: []
+- claim_id: SCI-NEGATIVE-DUAL-ROLE-01
+  node_type: claim
+  status: current_locked
+  statement_summary: Controlled negative gradients can beat the positive-only ceiling while anomalous far-field negatives destabilize training.
+  module_ids:
+  - theory_methods_related_work
+  - continuous_e1_e4
+  - categorical_e5_e6
+  source_anchor:
+    file: docs/handoff.md
+    heading_id: H0009
+    text: 5. 解释负梯度的双重作用：受控负梯度可突破 positive-only 的模仿上限，远场异常负梯度则导致失稳。
+    sha256: 1d1aa4451ff621d03c9e293aa9a5bcad72bc1882e0132e40ec8276b2af341e78
+    occurrence_in_section: 1
+  lineage:
+    supersedes: []
+    superseded_by: []
+- claim_id: SCI-CU1-E1-SOURCE-01
+  node_type: claim
+  status: current_supported
+  statement_summary: C-U1 E1 identifies far-field score geometry as an independent source of larger negative gradients at matched advantage.
+  module_ids:
+  - continuous_e1_e4
+  source_anchor:
+    file: docs/handoff.md
+    heading_id: H0043
+    text: '| E1 | Product 环境已完成，逻辑严密 | **C-U1 正式 20-seed 已完成**：positive-trained full-gradient far/near 9.093×，aggregate 10.072×；advantage 1.000×
+      | 正式机制识别完成；数值倍率仅限本环境 |'
+    sha256: 032a957a06e7ef7e29cb3cb403209bad423a22120f6829e682cbb7ad24d6a7dc
+    occurrence_in_section: 1
+  lineage:
+    supersedes: []
+    superseded_by: []
+- claim_id: SCI-CU1-E3-CAUSAL-01
+  node_type: claim
+  status: current_supported
+  statement_summary: C-U1 E3 long-run evidence supports far-field negative gradients as the causal path to task collapse and support contraction.
+  module_ids:
+  - continuous_e1_e4
+  source_anchor:
+    file: docs/handoff.md
+    heading_id: H0043
+    text: '| E3 | Product/Collapse 环境与旧 SGD C-U1 结果保留 provenance | **`C-U1-E3-ADAM-RERUN` 已完成并交付**：固定方差 Baseline/Near-zero 20/20 任务崩溃，Far-zero/Far-cap
+      0/20；可学习方差 Baseline/Near-zero 20/20 support contraction，远场控制 0/20；NaN/Inf 0/220 | **已长期验证，论文可用**；主文采用四方法 fixed-variance 因果链，learnable-variance
+      作互补 panel/附录 |'
+    sha256: 45011a2849911043ea7f5fda9e488bc122a48bfe7819e474c67c3e3ae83b9212
+    occurrence_in_section: 1
+  lineage:
+    supersedes: []
+    superseded_by: []
+- claim_id: SCI-CU1-E4-TERMINAL-01
+  node_type: limitation
+  status: current_limited
+  statement_summary: C-U1 E4 supports finite-horizon phase-transition and failure branches but not a fully certified stable beneficial fixed point.
+  module_ids:
+  - continuous_e1_e4
+  - execution_status_gates
+  source_anchor:
+    file: docs/handoff.md
+    heading_id: H0043
+    text: '| E4 | 独立 Extrapolation 环境；部分长程审计 | **`C-U1-E4-ADAM-RERUN` 已完成并交付**：有限步 reward 相变、过强压力任务崩溃、learnable-variance support contraction 与
+      4000-step controls 均完成；受益分支未通过 20/20 双 residual audit | **有限训练步数验证**；可用于有限步相变图与失稳分支，暂不可写成稳定有益 fixed point |'
+    sha256: faf98923b9f2904b5c9ce3702b8ce808eeeb3f4b30f69a99c00c97ac5cc05563
+    occurrence_in_section: 1
+  lineage:
+    supersedes: []
+    superseded_by: []
+- claim_id: SCI-DU1-E5-BOUNDARY-01
+  node_type: claim
+  status: current_supported
+  statement_summary: D-U1 E5 long-run evidence validates bounded-score repeated repulsion and categorical support-boundary dynamics.
+  module_ids:
+  - categorical_e5_e6
+  source_anchor:
+    file: docs/handoff.md
+    heading_id: H0043
+    text: '| E5 | 历史解析、direct-softmax 与 20-seed 因果结果保留；旧 runner/raw artifact 未入库 | **`D-U1-E5-LONGRUN-RERUN` 已完成**：direct-softmax 参照通过，120/120
+      长程因果 runs 全部分类且 120/120 复现历史 qualitative class，NaN/Inf 0/120 | **已长期验证**；受控 categorical 排斥、支持边界和 near/far 因果链可用于论文，E6 语义泛化仍未完成 |'
+    sha256: 2c2925f8f37677043cc4ce8be2f9a6ebfd8615dcb071bf81bb667d326d7c05f9
+    occurrence_in_section: 1
+  lineage:
+    supersedes: []
+    superseded_by: []
+- claim_id: SCI-DU1-E6-GENERALIZATION-01
+  node_type: claim
+  status: current_supported
+  statement_summary: D-U1 E6 validates a non-monotonic benefit of controlled local negative signals and a semantic-alignment exclusion control.
+  module_ids:
+  - categorical_e5_e6
+  source_anchor:
+    file: docs/handoff.md
+    heading_id: H0043
+    text: '| E6 | unordered semantic categorical pilot/focused runner 与 formal runner/config 均已实现 | **`D-U1-E6-SEMANTIC-LONGRUN-01` 已完成 360/360
+      formal runs**：E6-A 受控 local negatives 在 alpha 0.25/0.50 上 20/20 胜过 positive-only，alpha 0.75 出现 20/20 reward 反转；E6-B task collapse 0、support
+      boundary 120；E6-C aligned 在四方法上均 20/20 胜过 shuffled | **已长期验证**；可用于 positive-only ceiling、受控负梯度非单调收益、支持边界分离与 semantic-alignment 排他性，不能称 OOD
+      或 universal method ranking |'
+    sha256: 7ec729143525be22b1ed58a06acac97d2d25f4eecc1abb7ceb05df37a657b027
+    occurrence_in_section: 1
+  lineage:
+    supersedes: []
+    superseded_by: []
+- claim_id: SCI-HOPPER-ROLE-01
+  node_type: claim
+  status: current_locked
+  statement_summary: EXT-H/Hopper provides learned-critic external mechanism and method validation rather than controlled ground truth.
+  module_ids:
+  - hopper_e7
+  - continuous_e1_e4
+  source_anchor:
+    file: docs/handoff.md
+    heading_id: H0011
+    text: '| EXT-H | Hopper/D4RL | 真实离线控制数据 | learned-critic 外部机制与方法效果 | 外部验证 |'
+    sha256: 970cc9b6910ac106bfbce9dbca0db66b30b5956be3123d7fff462ed43b6c36bf
+    occurrence_in_section: 1
+  lineage:
+    supersedes: []
+    superseded_by: []
+- claim_id: SCI-COUNTDOWN-ROLE-01
+  node_type: claim
+  status: current_locked
+  statement_summary: EXT-C/Countdown provides token-level discrete external validation rather than replacing D-U1.
+  module_ids:
+  - countdown_e8
+  - categorical_e5_e6
+  source_anchor:
+    file: docs/handoff.md
+    heading_id: H0011
+    text: '| EXT-C | Countdown/Qwen | 序列生成 | token-level 离散外部验证 | 外部验证 |'
+    sha256: dcd57ef533b2ba427291f990ba8ecf8663b31d7a8cba5164e9e5bb357657c2fb
+    occurrence_in_section: 1
+  lineage:
+    supersedes: []
+    superseded_by: []
+- claim_id: SCI-CATEGORICAL-BOUNDED-SCORE-01
+  node_type: claim
+  status: current_locked
+  statement_summary: Direct softmax logit score is bounded as token probability approaches zero, while repeated negatives still cause persistent
+    support suppression.
+  module_ids:
+  - theory_methods_related_work
+  - categorical_e5_e6
+  source_anchor:
+    file: docs/handoff.md
+    heading_id: H0114
+    text: 其欧氏范数随 1−p_y 增长，但在 p_y→0
+    sha256: d742ef061207be077cb713089ed949e59f733e6bd0f06e1c59a71c4f467fc056
+    occurrence_in_section: 1
+  lineage:
+    supersedes: []
+    superseded_by: []
+- claim_id: SCI-UTILITY-INFLUENCE-MISMATCH-01
+  node_type: hypothesis
+  status: current_supported
+  statement_summary: Far-field risk arises when informational utility decays with distance while optimization influence grows or remains persistent.
+  module_ids:
+  - theory_methods_related_work
+  - continuous_e1_e4
+  - categorical_e5_e6
+  source_anchor:
+    file: docs/handoff.md
+    heading_id: H0119
+    text: 于是出现核心错配：信息价值随距离衰减，优化影响却随距离增长或保持不消失。
+    sha256: 67ae3216c26dba6cda47a5e9352aeda7a86413a66b6f75966cfdad4ff274e3c7
+    occurrence_in_section: 1
+  lineage:
+    supersedes: []
+    superseded_by: []
+- claim_id: SCI-HOPPER-EXTERNAL-CLAIM-01
+  node_type: claim
+  status: current_limited
+  statement_summary: Historical Hopper evidence is an external mechanism validation, not a normalized-return method table.
+  module_ids:
+  - hopper_e7
+  - history_provenance
+  source_anchor:
+    file: docs/handoff.md
+    heading_id: H0227
+    text: 这是一项**外部机制验证**，不是 D4RL normalized-return 方法表。
+    sha256: 1539eaadbb5af75afbb21a9ad952ebb04b073c2f4d82d3e760802f87fa5e480a
+    occurrence_in_section: 1
+  lineage:
+    supersedes: []
+    superseded_by: []
+- claim_id: SCI-COUNTDOWN-NOT-RUN-01
+  node_type: open_issue
+  status: open
+  statement_summary: Countdown still lacks a complete real Qwen/CUDA/BF16-LoRA end-to-end run for the current protocol.
+  module_ids:
+  - countdown_e8
+  - execution_status_gates
+  source_anchor:
+    file: docs/handoff.md
+    heading_id: H0317
+    text: 当前实验仍未完成真实 Qwen/CUDA/BF16-LoRA 端到端运行。
+    sha256: 3904bee414579e4b3d3752ddad5d94df267d0a526e57cb0ba4f5d732aaa8a32f
+    occurrence_in_section: 1
+  lineage:
+    supersedes: []
+    superseded_by: []
+- claim_id: SCI-REMOTENESS-CONTROL-01
+  node_type: claim
+  status: current_limited
+  statement_summary: The method narrative is remoteness control under a stability-generalization trade-off; hard filtering is only a limiting
+    case.
+  module_ids:
+  - theory_methods_related_work
+  - paper_rewrite
+  source_anchor:
+    file: docs/handoff.md
+    heading_id: H0253
+    text: '- **从“hard filtering 是必要且唯一方案”改为“负更新存在稳定—泛化折中，方法应控制 policy-relative remoteness”。** Hard filtering 仅保留为零负权重极限、旧方法或强基线。'
+    sha256: a772e4986ef9fdb6fe7cd673c6c3ad959639e137f17a0f25d712144214d74361
+    occurrence_in_section: 1
+  lineage:
+    supersedes:
+    - HIST-HARD-FILTER-UNIQUE-01
+    superseded_by: []
+- claim_id: HIST-MU-SIGMA-EXPAND-01
+  node_type: claim
+  status: historical_superseded
+  statement_summary: The old interpretation claimed that both Gaussian mean and variance expanded under far-field negative updates.
+  module_ids:
+  - history_provenance
+  - continuous_e1_e4
+  source_anchor:
+    file: docs/handoff.md
+    heading_id: H0080
+    text: "Figure 2(b)\n  只能支持梯度敏感度增长，不能支持“Both μ and σ expand”。"
+    sha256: 46dfc6f95d05eb4273a8c1a58eab3f2028b2b920afc441e3ccb70aae90420ef0
+    occurrence_in_section: 1
+  lineage:
+    supersedes: []
+    superseded_by:
+    - SCI-GAUSSIAN-VARIANCE-CORRECTION-01
+  archive_pointer: docs/handoff.md#part-ii-v7-全量累积研究记录原文保留
+  reopen_conditions:
+  - A new registered protocol directly measures parameter and output variance expansion under matched far-field negative updates.
+- claim_id: HIST-HARD-FILTER-UNIQUE-01
+  node_type: claim
+  status: historical_superseded
+  statement_summary: The old paper narrative treated hard filtering as the necessary and unique solution.
+  module_ids:
+  - history_provenance
+  - theory_methods_related_work
+  source_anchor:
+    file: docs/handoff.md
+    heading_id: H0253
+    text: hard filtering 是必要且唯一方案
+    sha256: 334b6c4fbe2f897428ce564474dfab36de046060dbe15e0ea2322c617cd04c48
+    occurrence_in_section: 1
+  lineage:
+    supersedes: []
+    superseded_by:
+    - SCI-REMOTENESS-CONTROL-01
+  archive_pointer: docs/handoff.md#part-vi-论文重写大纲当前草案后续须与实验状态同步
+  reopen_conditions:
+  - A newly registered theorem and cross-task experiment establish uniqueness under an explicitly stated objective and uncertainty set.
+- claim_id: SCI-E4-TAPER-NET-UTILITY-01
+  node_type: hypothesis
+  status: open
+  statement_summary: Outside the locally informative region, expected negative-sample net utility is hypothesized to be generally non-increasing
+    with policy-relative distance and may approach zero or become negative; no exponential decay law is assumed.
+  module_ids:
+  - continuous_e1_e4
+  - theory_methods_related_work
+  source_anchor:
+    file: docs/handoff.md
+    heading_id: H0036
+    text: 本文只采用一个**条件经验假设**：离开局部信息区后，`U_net(d)` 总体不增，并可能趋零或转负。该假设可证伪但不是普遍定理；本文不假设它具有指数衰减速度，也不要求研究其精确函数形状。
+    occurrence_in_section: 1
+    sha256: 9f145d0ce9ae0e23b7aca40f327d68a2b40cbcaa75248a544ba8d52a4bc3e1d1
+  lineage:
+    supersedes: []
+    superseded_by: []
+- claim_id: SCI-E4-TAPER-INFLUENCE-TAIL-01
+  node_type: claim
+  status: current_limited
+  statement_summary: Under bounded-advantage, pre-boundary learnable-log-scale assumptions, reciprocal-quadratic weighting bounds the quadratic
+    far-field influence at a generally nonzero constant, while o(d^-2) tails such as higher-order reciprocal polynomials or exponentials make
+    that influence vanish; this does not imply a universal reward winner.
+  module_ids:
+  - continuous_e1_e4
+  - theory_methods_related_work
+  source_anchor:
+    file: docs/handoff.md
+    heading_id: H0037
+    text: 所以 Quadratic 的严格作用是把远场影响从无界增长压成一般非零的有界常数。它是 learnable-log-scale 二次分支的最低充分多项式有界阶，同时在近场满足 `1-w_quad(d)=O(d^2)`，比 reciprocal-linear 的一阶近场损失更平坦。
+    occurrence_in_section: 1
+    sha256: 2fe7b47d84950ea43d44768e7295f00b996f1c983e6c0b10b567e113881651fa
+  lineage:
+    supersedes: []
+    superseded_by: []
+- claim_id: GOV-E4-TAPER-FOLLOWUP-ORDER-01
+  node_type: claim
+  status: current_locked
+  statement_summary: 'The four approved E4-TAPER follow-ups remain blocked and must execute in the frozen order: near-retention matching, budget
+    matching, long-run terminal resolution, then untouched-seed confirmation.'
+  module_ids:
+  - continuous_e1_e4
+  - execution_status_gates
+  source_anchor:
+    file: docs/handoff.md
+    heading_id: H0003
+    text: '- **E4-TAPER v60 覆盖：** `C-U1-E4-TAPER-01` 仍为 finite-step validated。四个后续 ID 已获用户批准并登记，但全部保持 blocked：先冻结并实现 `NEAR-RETENTION-01`，交付后才允许冻结
+      `BUDGET-MATCH-01`；二者交付并冻结 shortlist 后才允许 `CONV-01`；最后才用 untouched seeds 执行 `CONFIRM-01`。原实验禁止自动延长，几何 robustness 不作为当前门禁。'
+    occurrence_in_section: 1
+    sha256: c96861c2a64f5fc8575b336fbbaed5241581c75f9ec769df14fdfa75f805ee40
+  lineage:
+    supersedes: []
+    superseded_by: []

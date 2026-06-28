@@ -278,3 +278,44 @@ Stage 4 开发必须拆分为独立可验收更新，不允许一次性实现并
 - 任何 Stage 5 或 Delta-first authority cutover。
 
 Stage 4B 只有在独立 Stage 4A acceptance 更新通过后才能授权。Stage 4C 只有在独立 Stage 4B acceptance 更新通过后才能授权。Stage 5 必须同时等待 Stage 3 shadow validation 和 Stage 4 lossless validation。
+
+## 10. Stage 4A 冻结实现布局（2026-06-28）
+
+`GOV-STAGE4A-PARALLEL-IMPLEMENTATION-2026-06-28` 下的 Stage 4A 实现路径冻结为：
+
+```text
+docs/handoff_shadow/stage4/
+  README.md
+  schema/STAGE4A_SCHEMA.yaml
+  inventory/MODULES.yaml
+  inventory/HEADINGS.yaml
+  inventory/CLAIMS.yaml
+  inventory/EXPERIMENTS.yaml
+scripts/validate_stage4a_inventory.py
+tests/test_stage4a_inventory.py
+```
+
+该布局只登记 schema 与静态 inventory，不生成 Stage 4B 的
+`CURRENT_CANDIDATE.md`、`modules/`、`history/` 或 graph 节点/边 candidate，
+也不生成 Stage 4C `context_packs/`。出现上述后续阶段产物时，Stage 4A
+validator 必须 fail closed。
+
+冻结的最小规则如下：
+
+- node types 与 relation types 严格采用本规范第 3.2 节的集合；未知类型拒绝；
+- heading inventory 对 `docs/handoff.md` 的全部 Markdown headings 做有序、逐项、
+  source-hash 绑定的静态登记；重复标题使用 occurrence 和独立 heading ID 区分；
+- claim inventory 是非权威 locator/lineage 清单，必须绑定原文 heading、精确 anchor
+  与 SHA-256；被替代 claim 必须登记 reciprocal `supersedes/superseded_by`、archive
+  pointer 和 reopen conditions；
+- experiment inventory 必须与 `experiments/registry.yaml` 的正式 experiment 列表
+  一一对应，并引用已登记 claim 与 handoff heading；
+- 单模块和已人工消歧的多模块分类均可接受；多模块分类必须给出 rationale；任何
+  unresolved/automatic guess、重复 ID、悬空引用、lineage cycle 或 source drift 均拒绝；
+- 依赖闭包只冻结规则，不在 Stage 4A 实现 context packer：未来只沿 `depends_on`
+  做传递闭包，并附带直接 limitation、lineage 和 provenance；不确定依赖必须保守
+  过度包含并报警，缺失依赖直接失败。
+
+Stage 4A 代码和 inventory 完成不等于 Stage 4A 已验收，也不会自动解锁 Stage 4B。
+Stage 4B 仍须通过独立 acceptance 更新获得授权；`docs/handoff.md` 继续是唯一权威
+研究 Master。

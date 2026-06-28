@@ -1,0 +1,61 @@
+schema_version: 1
+policy_id: GOV-HANDOFF-INDEX-01
+authority: non_authoritative_stage4a_shadow_inventory
+modules:
+  - module_id: global_core_governance
+    name: Global research core and governance boundaries
+    purpose: Preserve the unique-master rule, terminology, scientific scope, and non-destructive governance constraints.
+    default_dependencies: []
+  - module_id: execution_status_gates
+    name: Current execution status and gates
+    purpose: Track experiment ordering, execution evidence states, formal gates, and terminal-audit requirements without changing them.
+    default_dependencies:
+      - global_core_governance
+  - module_id: theory_methods_related_work
+    name: Theory, method families, and related work
+    purpose: Hold the shared repulsive-dynamics theory, method definitions, comparison boundaries, and literature positioning.
+    default_dependencies:
+      - global_core_governance
+  - module_id: continuous_e1_e4
+    name: Continuous far-field dynamics E1-E4
+    purpose: Organize C-U1 and historical continuous source, causal, extrapolation, variance, and taper evidence.
+    default_dependencies:
+      - global_core_governance
+      - theory_methods_related_work
+  - module_id: categorical_e5_e6
+    name: Categorical dynamics E5-E6
+    purpose: Organize D-U1 and D-Diag support-boundary, semantic generalization, and controlled negative-signal evidence.
+    default_dependencies:
+      - global_core_governance
+      - theory_methods_related_work
+  - module_id: hopper_e7
+    name: Hopper external validation E7
+    purpose: Organize learned-critic mechanism validation and D4RL method-effect evidence while preserving its external-validity role.
+    default_dependencies:
+      - global_core_governance
+      - execution_status_gates
+      - continuous_e1_e4
+      - theory_methods_related_work
+  - module_id: countdown_e8
+    name: Countdown external validation E8
+    purpose: Organize Transformer token-level mechanism and method pilots while preserving the D-U1 non-replacement boundary.
+    default_dependencies:
+      - global_core_governance
+      - execution_status_gates
+      - categorical_e5_e6
+      - theory_methods_related_work
+  - module_id: history_provenance
+    name: Historical conclusions and provenance
+    purpose: Preserve superseded statements, old protocols, audits, source pointers, and reopen conditions without deleting history.
+    default_dependencies:
+      - global_core_governance
+  - module_id: paper_rewrite
+    name: Paper rewrite and presentation plan
+    purpose: Organize the current manuscript outline, claim hierarchy, figures, tables, limitations, and reproducibility plan.
+    default_dependencies:
+      - global_core_governance
+      - theory_methods_related_work
+      - continuous_e1_e4
+      - categorical_e5_e6
+      - hopper_e7
+      - countdown_e8
