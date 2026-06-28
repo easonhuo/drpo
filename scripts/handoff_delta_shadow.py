@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import re
 import statistics
 import subprocess
@@ -1130,6 +1131,80 @@ def load_json(path: Path, label: str) -> dict[str, Any]:
     return require_mapping(payload, label)
 
 
+def evidence_path_projection(value: Any, label: str) -> list[str]:
+    rows = require_list(value, label)
+    paths: list[str] = []
+    for index, raw in enumerate(rows):
+        item = require_mapping(raw, f"{label}[{index}]")
+        reject_unknown_keys(item, {"path", "sha256"}, f"{label}[{index}]")
+        path = require_string(item.get("path"), f"{label}[{index}].path")
+        digest = require_string(item.get("sha256"), f"{label}[{index}].sha256")
+        if not SHA256_RE.fullmatch(digest):
+            raise HandoffDeltaError(f"{label}[{index}].sha256 must be lowercase SHA-256")
+        paths.append(path)
+    return paths
+
+
+def registry_assertion_projection(value: Any, label: str) -> list[dict[str, Any]]:
+    rows = require_list(value, label)
+    projected: list[dict[str, Any]] = []
+    for index, raw in enumerate(rows):
+        item = require_mapping(raw, f"{label}[{index}]")
+        normalized = {key: item[key] for key in item if key != "evidence"}
+        normalized["evidence"] = evidence_path_projection(
+            item.get("evidence"), f"{label}[{index}].evidence"
+        )
+        projected.append(normalized)
+    return projected
+
+
+def validate_report_runtime_fields(report: dict[str, Any], label: str) -> float:
+    validation_head = report.get("validation_worktree_head") or report.get("head_commit")
+    if not isinstance(validation_head, str) or not GIT_SHA_RE.fullmatch(validation_head):
+        raise HandoffDeltaError(
+            f"{label} must record validation_worktree_head "
+            "(or legacy head_commit) as a full Git SHA"
+        )
+
+    comparison_target = report.get("comparison_target")
+    repository_commit = report.get("repository_commit")
+    if comparison_target is not None and comparison_target not in {
+        "working_tree",
+        "repository_commit",
+    }:
+        raise HandoffDeltaError(f"{label}.comparison_target is invalid")
+    if repository_commit is not None and (
+        not isinstance(repository_commit, str) or not GIT_SHA_RE.fullmatch(repository_commit)
+    ):
+        raise HandoffDeltaError(f"{label}.repository_commit must be null or a full Git SHA")
+
+    performance = require_mapping(report.get("performance"), f"{label}.performance")
+    values: dict[str, float] = {}
+    for key in ("total_ms", "target_p95_ms", "hard_limit_ms"):
+        raw = performance.get(key)
+        if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+            raise HandoffDeltaError(f"{label}.performance.{key} must be numeric")
+        values[key] = float(raw)
+        if not math.isfinite(values[key]):
+            raise HandoffDeltaError(f"{label}.performance.{key} must be finite")
+    if values["total_ms"] < 0 or values["target_p95_ms"] <= 0:
+        raise HandoffDeltaError(f"{label}.performance contains invalid values")
+    if values["hard_limit_ms"] < values["target_p95_ms"]:
+        raise HandoffDeltaError(f"{label}.performance hard limit is below target")
+
+    within_target = performance.get("within_target")
+    within_hard_limit = performance.get("within_hard_limit")
+    if not isinstance(within_target, bool) or not isinstance(within_hard_limit, bool):
+        raise HandoffDeltaError(f"{label}.performance limit flags must be booleans")
+    if within_target != (values["total_ms"] <= values["target_p95_ms"]):
+        raise HandoffDeltaError(f"{label}.performance.within_target is inconsistent")
+    if within_hard_limit != (values["total_ms"] <= values["hard_limit_ms"]):
+        raise HandoffDeltaError(f"{label}.performance.within_hard_limit is inconsistent")
+    if not within_hard_limit:
+        raise HandoffDeltaError(f"{label} exceeded its recorded hard performance limit")
+    return values["total_ms"]
+
+
 def report_projection(
     report: dict[str, Any], *, compatibility_version: int | None = None
 ) -> dict[str, Any]:
@@ -1164,17 +1239,20 @@ def report_projection(
         else report.get("report_schema_version", 1)
     )
     if report_version >= CURRENT_REPORT_SCHEMA_VERSION:
-        projection["registry_change_assertions"] = report.get(
-            "registry_change_assertions", []
+        projection["registry_change_assertions"] = registry_assertion_projection(
+            report.get("registry_change_assertions", []),
+            "report.registry_change_assertions",
         )
         projection["registry_change_coverage"] = report.get("registry_change_coverage")
-        projection["registry_transition_assertions"] = report.get(
-            "registry_transition_assertions", []
+        projection["registry_transition_assertions"] = registry_assertion_projection(
+            report.get("registry_transition_assertions", []),
+            "report.registry_transition_assertions",
         )
     else:
         projection.pop("observation_kind", None)
-        projection["registry_transition_assertions"] = report.get(
-            "registry_transition_assertions", []
+        projection["registry_transition_assertions"] = registry_assertion_projection(
+            report.get("registry_transition_assertions", []),
+            "report.registry_transition_assertions",
         )
     return projection
 
@@ -1197,6 +1275,7 @@ def stored_report_metadata(repo_root: Path, delta_path: Path) -> dict[str, Any]:
         )
     if stored.get("status") != "PASS" or stored.get("mode") != "shadow":
         raise HandoffDeltaError("Stored shadow report must be a successful shadow report")
+    performance_total_ms = validate_report_runtime_fields(stored, "stored shadow report")
     return {
         "stored": stored,
         "path": report_path.relative_to(repo_root).as_posix(),
@@ -1204,7 +1283,7 @@ def stored_report_metadata(repo_root: Path, delta_path: Path) -> dict[str, Any]:
         "report_schema_version": report_version,
         "validation_worktree_head": provenance_head,
         "legacy_head_commit_field": "head_commit" in stored,
-        "performance_total_ms": stored.get("performance", {}).get("total_ms"),
+        "performance_total_ms": performance_total_ms,
     }
 
 
@@ -1218,6 +1297,7 @@ def validate_stored_report(
     if stored.get("update_id") != fresh_report.get("update_id"):
         raise HandoffDeltaError("Stored shadow report update_id does not match delta")
     report_version = metadata["report_schema_version"]
+    validate_report_runtime_fields(fresh_report, "fresh replay report")
     if report_projection(
         stored, compatibility_version=report_version
     ) != report_projection(fresh_report, compatibility_version=report_version):

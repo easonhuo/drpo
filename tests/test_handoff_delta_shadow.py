@@ -202,6 +202,34 @@ def test_historical_countdown_v43_delta_matches_repository_after_image() -> None
     assert result.report["candidate_replaced_authority"] is False
 
 
+def test_historical_countdown_v43_stored_report_revalidates_after_later_commits() -> None:
+    delta = (
+        ROOT
+        / "docs/handoff_deltas/EXT-C-E8-V4.3-DYNAMIC-CONTROL-2026-06-27/HANDOFF_DELTA.yaml"
+    )
+    fresh = MODULE.check_delta(
+        ROOT, delta, target_commit="f203d86032366eb134207f3fd7ab26a31804c8bc"
+    )
+    metadata = MODULE.validate_stored_report(ROOT, delta, fresh.report)
+    assert metadata["report_schema_version"] == 2
+
+
+def test_standard_report_projection_ignores_evidence_digest_but_not_evidence_path() -> None:
+    report_path = (
+        ROOT
+        / "docs/handoff_deltas/EXT-C-E8-V4.3-DYNAMIC-CONTROL-2026-06-27/SHADOW_REPORT.json"
+    )
+    stored = json.loads(report_path.read_text())
+    changed_digest = json.loads(json.dumps(stored))
+    changed_digest["registry_change_assertions"][0]["evidence"][0]["sha256"] = "0" * 64
+    changed_digest["registry_transition_assertions"][0]["evidence"][0]["sha256"] = "0" * 64
+    assert MODULE.report_projection(stored) == MODULE.report_projection(changed_digest)
+
+    changed_path = json.loads(json.dumps(stored))
+    changed_path["registry_change_assertions"][0]["evidence"][0]["path"] = "other.md"
+    assert MODULE.report_projection(stored) != MODULE.report_projection(changed_path)
+
+
 def test_historical_stage3_automation_delta_matches_repository_after_image() -> None:
     delta = ROOT / "docs/handoff_deltas/GOV-STAGE3-OBSERVATION-AUTOMATION-2026-06-27/HANDOFF_DELTA.yaml"
     result = MODULE.check_delta(
@@ -623,6 +651,40 @@ def test_standard_stored_report_is_revalidated_and_stale_report_is_rejected(tmp_
     stored["candidate_sha256"] = "0" * 64
     report_path.write_text(json.dumps(stored, indent=2, sort_keys=True) + "\n")
     with pytest.raises(MODULE.HandoffDeltaError, match="stale or does not match"):
+        MODULE.validate_stored_report(repo, delta, fresh.report)
+
+
+def test_standard_stored_report_allows_runtime_drift_but_checks_hard_limit(
+    tmp_path: Path,
+) -> None:
+    repo, base = make_repo(tmp_path)
+    operations = [
+        {
+            "operation_id": "append-a",
+            "op": "append_to_section",
+            "heading_path": ["Master v1", "A"],
+            "block_id": "block-a",
+            "content": "A extension.",
+        }
+    ]
+    delta = write_delta(repo, base, "TEST-RUNTIME-DRIFT", operations)
+    fresh = MODULE.check_delta(repo, delta)
+    stored = json.loads(json.dumps(fresh.report))
+    stored["validation_worktree_head"] = base
+    stored["comparison_target"] = "repository_commit"
+    stored["repository_commit"] = base
+    stored["performance"].update(
+        {"total_ms": 1000.0, "within_target": True, "within_hard_limit": True}
+    )
+    report_path = delta.parent / MODULE.REPORT_FILENAME
+    report_path.write_text(json.dumps(stored, indent=2, sort_keys=True) + "\n")
+    assert MODULE.validate_stored_report(repo, delta, fresh.report)["performance_total_ms"] == 1000.0
+
+    stored["performance"].update(
+        {"total_ms": 16000.0, "within_target": False, "within_hard_limit": False}
+    )
+    report_path.write_text(json.dumps(stored, indent=2, sort_keys=True) + "\n")
+    with pytest.raises(MODULE.HandoffDeltaError, match="exceeded its recorded hard"):
         MODULE.validate_stored_report(repo, delta, fresh.report)
 
 
