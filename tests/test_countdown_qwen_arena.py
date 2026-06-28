@@ -577,3 +577,26 @@ def test_parallel_stage_queue_preserves_fifo_per_gpu(
     gpu0 = [name for gpu, name in observed if gpu == "0"]
     assert gpu0 == ["gpu0_first", "gpu0_second"]
     assert ("1", "gpu1_only") in observed
+
+
+def test_effective_negative_scale_applies_registered_multiplier() -> None:
+    assert arena.effective_negative_scale(0.2, 1.5) == pytest.approx(0.3)
+    for base, multiplier in [
+        (0.0, 1.0), (-1.0, 1.0), (float("nan"), 1.0),
+        (1.0, 0.0), (1.0, -1.0), (1.0, float("inf")),
+    ]:
+        with pytest.raises(ValueError):
+            arena.effective_negative_scale(base, multiplier)
+
+
+def test_train_method_negative_scale_multiplier_defaults_to_one() -> None:
+    parser = arena.build_parser()
+    args = parser.parse_args([
+        "train_method",
+        "--model_path", "/tmp/model",
+        "--offline_data", "/tmp/offline.jsonl",
+        "--val_data", "/tmp/val.jsonl",
+        "--output_dir", "/tmp/method",
+        "--method", "bank_dynamic_controlled_negative",
+    ])
+    assert args.negative_scale_multiplier == 1.0

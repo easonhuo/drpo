@@ -88,7 +88,7 @@ SYSTEM_PROMPT = (
 )
 
 EXPERIMENT_ID = "EXT-C-E8-V4.4-OFFLINE-BANK"
-VERSION = "4.5.0-offline-negative-bank"
+VERSION = "4.6.0-offline-negative-bank-tuning-support"
 
 
 def read_model_metadata(model_path: str) -> dict[str, Any]:
@@ -3011,9 +3011,13 @@ def cmd_train_method(args: argparse.Namespace) -> None:
         if args.negative_calibration_json:
             calibration = json.loads(Path(args.negative_calibration_json).read_text())
             scale_key = "bank_negative_scale" if method_uses_negative_bank(args.method) else "negative_scale"
-            calibrated_negative_scale = float(calibration[scale_key])
+            calibrated_negative_scale = effective_negative_scale(
+                float(calibration[scale_key]), args.negative_scale_multiplier
+            )
         elif args.negative_scale is not None:
-            calibrated_negative_scale = float(args.negative_scale)
+            calibrated_negative_scale = effective_negative_scale(
+                float(args.negative_scale), args.negative_scale_multiplier
+            )
         else:
             raise RuntimeError(
                 "Negative-advantage methods require --negative_calibration_json "
@@ -3389,10 +3393,11 @@ def cmd_train_method(args: argparse.Namespace) -> None:
         ),
         "dynamic_diagnostics_path": str(diagnostics_path),
         "negative_scale": calibrated_negative_scale,
+        "negative_scale_multiplier": args.negative_scale_multiplier,
         "negative_scale_source": (
-            "fixed_calibration_split_rms_gradient_match"
+            "fixed_calibration_split_rms_gradient_match_times_registered_multiplier"
             if args.negative_calibration_json and args.method != "positive_only"
-            else ("explicit_override" if args.method != "positive_only" else "not_applicable")
+            else ("explicit_override_times_registered_multiplier" if args.method != "positive_only" else "not_applicable")
         ),
         "global_matched_gamma": calibrated_global_gamma,
         "checkpoint_policy": "server-local adapters only; binaries must not enter Git/artifact packages",
@@ -3417,6 +3422,23 @@ def _current_gradient_norm(parameters: Sequence[torch.nn.Parameter]) -> float:
         if parameter.grad is not None:
             total += parameter.grad.detach().double().square().sum().cpu()
     return float(total.sqrt())
+
+
+def effective_negative_scale(base_scale: float, multiplier: float) -> float:
+    """Apply a registered global negative-strength multiplier safely.
+
+    The calibrated ``base_scale`` remains the V4.4 initialization match. V4.5
+    scans only this dimension by multiplying that frozen calibration; it does
+    not recalibrate from validation or test metrics.
+    """
+    if not math.isfinite(base_scale) or base_scale <= 0:
+        raise ValueError("Base negative scale must be finite and positive")
+    if not math.isfinite(multiplier) or multiplier <= 0:
+        raise ValueError("Negative-scale multiplier must be finite and positive")
+    value = base_scale * multiplier
+    if not math.isfinite(value) or value <= 0:
+        raise ValueError("Effective negative scale must be finite and positive")
+    return value
 
 
 def calibration_scales_from_rms(
@@ -4974,6 +4996,15 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Explicit shared negative scale for a separately registered run. "
             "The V4.4 offline-bank pilot normally reads the automatically calibrated value."
+        ),
+    )
+    ap.add_argument(
+        "--negative_scale_multiplier",
+        type=float,
+        default=1.0,
+        help=(
+            "Registered multiplier applied to the frozen calibrated negative scale. "
+            "V4.4 remains 1.0; V4.5 scans this value using validation only."
         ),
     )
     ap.add_argument("--near_mix", type=float, default=0.5)

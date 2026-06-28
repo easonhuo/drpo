@@ -1,0 +1,132 @@
+schema_version: 2
+update_id: EXT-C-E8-V4.5-OFFLINE-BANK-TUNING-2026-06-28
+mode: shadow
+base:
+  commit: 58342ae7809354ef8af0e90a1d9938aa51f3a97d
+  handoff_sha256: 022dd888430620a5a51002adc542a808039730e274a157855228d9aee52906fc
+  registry_sha256: a49567b74b094e98eef8d5365c475a00981b4be9c0e432728ce3a070ef496603
+renderer_version: 1
+operations:
+- operation_id: rename-v58-title-to-v59-countdown-offline-bank-tuning
+  op: replace_heading
+  heading_path:
+  - DRPO / SNA2C 远场负梯度动力学研究主文档 v58（E7 Gymnasium Hopper-v4 Rollout 兼容修复版）
+  new_heading: DRPO / SNA2C 远场负梯度动力学研究主文档 v59（Countdown Offline Bank α×λ 调参 Pilot 版）
+  reason: Register the user-approved validation-only offline-bank alpha/lambda tuning pilot without deleting v58 history or
+    changing the formal E7 route.
+- operation_id: prepend-v59-countdown-offline-bank-tuning
+  op: insert_after_heading
+  heading_path:
+  - DRPO / SNA2C 远场负梯度动力学研究主文档 v59（Countdown Offline Bank α×λ 调参 Pilot 版）
+  block_id: v59-ext-c-e8-v45-offline-bank-tuning
+  content: '> **v59 增量登记：Countdown `EXT-C-E8-V4.5-OFFLINE-BANK-TUNING` validation-only α×λ 调参 pilot（不删除 v58 及更早内容）**
+
+    >
+
+    > - V4.4 的固定 16-negative offline bank、current-policy near/far reselection 与结果边界全部保留。本版只检验一个后续问题：V4.4 从 uncontrolled 到
+    initialization-matched global 再到 dynamic 的改善趋势停在 Positive-only 附近，是否由整体负梯度强度或指数 taper 速度未落在最佳区间造成。
+
+    > - 新实验复用 V4.4 已冻结并完成终态审计的 reference adapter、train/validation/test split、6000-row offline bank 与初始化梯度 calibration；输入在
+    V4.5 运行前后均做 SHA-256 校验。训练期间不生成新 rollout、不追加 replay、不改变 bank 内容，也不修改 threshold、数据规模、LoRA、学习率或 horizon。
+
+    > - Stage A 只扫描 calibrated bank negative scale 的全局 multiplier `alpha in {0.5,1.0,1.5,2.0}`，固定 `lambda=0.7`；Stage B 在 Stage
+    A 选出的 alpha 上扫描 `lambda in {0.3,0.7,1.2}`。两个阶段只用 validation，test 在唯一 alpha/lambda 组合冻结后才允许访问。
+
+    > - 调参 seeds 固定为 `1234,2234`。候选选择顺序冻结为 mean best validation greedy success、mean best pass@8、mean terminal validation greedy
+    success、mean best valid rate，再使用保守 tie-break；valid rate `<0.95` 或任何 NaN/Inf 直接使候选失格。
+
+    > - 最终只在 untouched training seeds `3234,4234,5234` 上比较 validation-selected bank dynamic 与 Positive-only，并同时报告 best/terminal
+    checkpoint。0.5B reference 若仍低于 greedy `0.15`，本实验即使多 seed 也只能形成 pilot 证据，不得自动升级为正式方法排名或显著性 claim。
+
+    > - 该调参只回答“力度和 taper 是否未调到位”，不能证明 negative directional utility 已解决。若所有候选仍与 Positive-only 持平或更差，应转向已讨论但尚未登记的 online off-policy
+    successor，而不是继续扩大网格。
+
+    > - 当前 formal route 不变：`EXT-H-E7-Q2` 仍是下一正式实验。V4.5 是外部 focused pilot，不解锁 `EXT-C-E8-SCALE-01`，也不替代 D-U1/E6 的受控因果识别。
+
+    > - 本更新基于用户上传 Git bundle 的 `main` commit `58342ae7809354ef8af0e90a1d9938aa51f3a97d`，只完成协议、runner 支持与测试；未运行真实 Qwen/CUDA/BF16-LoRA
+    调参。'
+- operation_id: append-v59-countdown-offline-bank-tuning-current-gate
+  op: append_to_section
+  heading_path:
+  - 0. 研究与执行原则（每次新会话首先阅读）
+  - 0.1 当前执行门禁
+  block_id: v59-countdown-offline-bank-tuning-current-gate
+  content: '- **Countdown v59 覆盖：** `EXT-C-E8-V4.5-OFFLINE-BANK-TUNING` 是当前用户批准的离线 focused successor；V4.4 作为 frozen-bank predecessor
+    保留。V4.5 只调 calibrated global negative multiplier 与 exponential taper lambda，禁止在线刷新、方向筛选或模型规模同时变化。`EXT-H-E7-Q2` 仍是下一 formal
+    route item，`EXT-C-E8-SCALE-01` 继续 blocked。'
+- operation_id: append-v59-e8-offline-tuning-route
+  op: append_to_section
+  heading_path:
+  - 3. 连续统一环境 C-U1 的详细设计
+  - 3.9 E6--E8 方法迁移与规模验证路线（v42 锁定）
+  block_id: v59-e8-offline-tuning-route
+  content: 9. **v59 E8 内部路线覆盖：** V4.4 fixed-bank 之后先运行 V4.5 validation-only α×λ 调参，检验当前 dynamic 方法是否只是控制强度偏保守。只有调参仍不能产生稳定收益时，才进入另行登记的
+    online off-policy successor；不得用 test 反复挑选参数，也不得把 V4.5 变成无界 HPO。
+- operation_id: append-v59-e8-offline-tuning-execution-order
+  op: append_to_section
+  heading_path:
+  - 6. 接下来唯一执行顺序
+  block_id: v59-e8-offline-tuning-execution-order
+  content: 15. **v59 执行覆盖：** formal 顺序仍由 v56/v58 控制，E7-Q2 优先级不变。V4.5 可作为独立 pilot 执行，但必须复用并校验 V4.4 frozen inputs，按 Stage A
+    alpha、Stage B lambda、untouched-seed confirmation 顺序完成；test 只能在 selection 冻结后运行，结果必须 best/terminal 与三类事件分报后再交付。
+registry:
+  mode: expected_after
+  expected_after_sha256: fe22ecf199cbcadc51e89800f6973c81ca577abb44b7546980c604987e07d771
+  changes:
+  - change_id: e8-v45-add-pilot
+    kind: add_entity
+    entity_id: EXT-C-E8-V4.5-OFFLINE-BANK-TUNING
+    evidence:
+    - docs/handoff.md
+    - experiments/registry.yaml
+    - scripts/run_countdown_v45_tuning.py
+    - src/drpo/countdown_qwen_arena_onefile.py
+    - tests/test_countdown_v45_tuning.py
+  - change_id: e8-v45-scale-blocker
+    kind: update_field
+    entity_id: EXT-C-E8-SCALE-01
+    field_path:
+    - execution_gate
+    - blocked_by
+    from:
+    - EXT-C-E8-V4.4-OFFLINE-BANK
+    - EXT-H-E7-BENCH-01
+    to:
+    - EXT-C-E8-V4.5-OFFLINE-BANK-TUNING
+    - EXT-H-E7-BENCH-01
+    reason: Require the validation-selected V4.5 tuning audit before Countdown scale-up while preserving the E7-BENCH dependency.
+    evidence:
+    - docs/handoff.md
+    - experiments/registry.yaml
+    - tests/test_experiment_route_v42.py
+  - change_id: e8-v45-scale-reason
+    kind: update_field
+    entity_id: EXT-C-E8-SCALE-01
+    field_path:
+    - execution_gate
+    - blocking_reason
+    from: The audited V4.4 fixed-bank offline pilot and the continuous external benchmark must be delivered before model/data
+      scaling uses a frozen method shortlist.
+    to: The audited V4.5 validation-only alpha/lambda tuning pilot and the continuous external benchmark must be delivered
+      before model/data scaling uses a frozen method shortlist.
+    reason: Name the exact tuning successor that must be audited before scale-up.
+    evidence:
+    - docs/handoff.md
+    - experiments/registry.yaml
+    - tests/test_experiment_route_v42.py
+  - change_id: e8-v45-scale-owner
+    kind: update_field
+    entity_id: EXT-C-E8-SCALE-01
+    field_path:
+    - scaling_plan
+    - mechanism_owner
+    from: EXT-C-E8-V4.4-OFFLINE-BANK
+    to: EXT-C-E8-V4.5-OFFLINE-BANK-TUNING
+    reason: Bind the later scale experiment to the validation-selected offline-bank controller rather than the untuned predecessor.
+    evidence:
+    - docs/handoff.md
+    - experiments/registry.yaml
+    - tests/test_experiment_route_v42.py
+expected:
+  candidate_sha256: 53ecec93f0ac7d65b2ad02e1143aa45c2705956b961473f294a876050ba34f0e
+  manual_sha256: 53ecec93f0ac7d65b2ad02e1143aa45c2705956b961473f294a876050ba34f0e

@@ -2240,6 +2240,134 @@ experiments:
     package_sha256: null
     delivered_to_user: false
     applied_commit: null
+- id: EXT-C-E8-V4.5-OFFLINE-BANK-TUNING
+  environment: EXT-C
+  name: countdown_offline_bank_alpha_lambda_validation_tuning_pilot
+  status: not_run
+  claim: >-
+    Test whether the V4.4 ordering from uncontrolled to initialization-matched global
+    scaling to dynamic remoteness control stopped near Positive-only because the
+    calibrated overall negative strength or exponential taper rate was suboptimal,
+    and whether a validation-selected configuration improves held-out verifier
+    outcomes without valid-rate or numerical degradation.
+  role: external_validity_offline_bank_control_hyperparameter_diagnostic
+  execution_class: pilot
+  registration_base_commit: 58342ae7809354ef8af0e90a1d9938aa51f3a97d
+  predecessor: EXT-C-E8-V4.4-OFFLINE-BANK
+  pilot_execution:
+    channel_ref: hardened-v1
+    launch_mode: guarded_orchestrator
+    operator_entrypoint: scripts/run_countdown_v45_tuning.py
+    guard_required: true
+  does_not_replace: [D-U1, D-Diag]
+  code_entrypoint: src/drpo/countdown_qwen_arena_onefile.py
+  one_click_entrypoint: scripts/run_countdown_v45_tuning.py
+  primary_model: Qwen2.5-0.5B-Instruct
+  parameterization:
+    runner_version: 4.6.0-offline-negative-bank-tuning-support
+    main_comparison: bf16_lora
+    predecessor_reference_adapter_reused: true
+    predecessor_split_and_bank_reused: true
+    online_rollout_during_training: false
+  predecessor_requirements:
+    experiment_id: EXT-C-E8-V4.4-OFFLINE-BANK
+    terminal_audit_required: true
+    frozen_inputs:
+    - reference_adapter
+    - train_validation_test_split
+    - offline_6000_rows
+    - fixed_16_negative_bank_per_prompt
+    - initial_gradient_calibration
+    input_hashes_checked_before_and_after_run: true
+  capability_gates:
+    inherited_mechanism_gate:
+      greedy_success_min: 0.08
+      valid_rate_min: 0.95
+    formal_method_ranking:
+      greedy_success_min: 0.15
+      valid_rate_min: 0.95
+      failure_action: >-
+        Complete and report the registered tuning pilot, but prohibit a formal method
+        ranking or significance claim when the inherited reference remains below gate.
+  tuning_protocol:
+    test_split_access: only_after_all_validation_selection_is_frozen
+    stage_a_global_negative_strength:
+      parameter: negative_scale_multiplier
+      interpretation: calibrated_bank_negative_scale_times_multiplier
+      values: [0.5, 1.0, 1.5, 2.0]
+      fixed_taper_lambda: 0.7
+      tuning_seeds: [1234, 2234]
+    stage_b_exponential_taper:
+      parameter: taper_lambda
+      values: [0.3, 0.7, 1.2]
+      global_negative_strength: selected_from_stage_a
+      tuning_seeds: [1234, 2234]
+    selection_order:
+    - mean_best_validation_greedy_success
+    - mean_best_validation_pass_at_k
+    - mean_terminal_validation_greedy_success
+    - mean_best_validation_valid_rate
+    - conservative_tie_break
+    candidate_valid_rate_floor: 0.95
+    numerical_failure_disqualifies_candidate: true
+    threshold_frozen: 2.0
+  confirmation_protocol:
+    untouched_training_seeds: [3234, 4234, 5234]
+    methods: [positive_only, validation_selected_bank_dynamic]
+    checkpoints: [best, terminal]
+    paired_evaluation_seed_per_training_seed: true
+    test_metrics:
+    - greedy_verifier_success
+    - pass_at_k
+    - valid_rate
+    - heldout_pattern_family_coverage
+    - heldout_pattern_family_precision_micro
+  frozen_controls:
+    negative_bank_size_per_prompt: 16
+    current_policy_min_max_bank_selection: true
+    near_mix: 0.5
+    far_mix: 0.5
+    maximum_effective_epochs: 6
+    minimum_effective_epochs_before_early_stop: 2
+    evaluation_interval_effective_epochs: 1
+    early_stop_patience_evaluations: 2
+    early_stop_delta: 0.002
+    learning_rate: 5.0e-05
+    warmup_ratio: 0.03
+    maximum_gradient_norm: 1.0
+  reporting_separation:
+  - task_performance_degradation
+  - support_or_structure_boundary_event
+  - nan_inf_numerical_failure
+  interpretation_limits:
+  - hyperparameters_selected_on_validation_only
+  - test_not_used_for_selection
+  - multi_seed_0_5b_pilot_is_not_automatic_formal_ranking
+  - no_state_distribution_ood_claim
+  - no_online_off_policy_claim
+  - no_claim_that_tuning_repairs_directional_utility
+  - countdown_does_not_replace_controlled_causal_identification
+  expected_outputs:
+  - RUN_COMPLETE.json
+  - terminal_audit.json
+  - arena_summary.csv
+  - alpha_selection.json
+  - lambda_selection.json
+  - run_config.json
+  formal_run_status: not_run
+  execution:
+    state: registered
+    run_id: null
+    last_heartbeat_utc: null
+    process_exit_code: null
+  evidence:
+    raw_complete: false
+    terminal_audited: false
+    package_created: false
+    package_filename: null
+    package_sha256: null
+    delivered_to_user: false
+    applied_commit: null
 - id: D-U1-E5-LONGRUN-RERUN
   environment: D-U1_and_D-Diag
   name: categorical_repulsion_support_boundary_longrun_reconstruction
@@ -2556,9 +2684,9 @@ experiments:
 - id: EXT-C-E8-SCALE-01
   execution_gate:
     state: blocked
-    blocked_by: [EXT-C-E8-V4.4-OFFLINE-BANK, EXT-H-E7-BENCH-01]
+    blocked_by: [EXT-C-E8-V4.5-OFFLINE-BANK-TUNING, EXT-H-E7-BENCH-01]
     blocking_reason: >-
-      The audited V4.4 fixed-bank offline pilot and the continuous external benchmark
+      The audited V4.5 validation-only alpha/lambda tuning pilot and the continuous external benchmark
       must be delivered before model/data scaling uses a frozen method shortlist.
   environment: EXT-C
   name: countdown_large_model_large_data_external_benchmark
@@ -2588,7 +2716,7 @@ experiments:
     runner_archive_policy:
       mode: forbid
   scaling_plan:
-    mechanism_owner: EXT-C-E8-V4.4-OFFLINE-BANK
+    mechanism_owner: EXT-C-E8-V4.5-OFFLINE-BANK-TUNING
     primary_model: Qwen_Instruct_3B
     frozen_confirmation_model: Qwen_Instruct_7B
     dataset: larger_fixed_offline_countdown_dataset
