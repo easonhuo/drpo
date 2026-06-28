@@ -873,6 +873,35 @@ experiments:
     critical_polynomial_order: 2
     full_parameter_extension: sufficient_under_bounded_output_jacobian
     full_parameter_necessity_requires: nondegenerate_log_scale_pullback
+    utility_extension:
+      status: conditional_empirical_hypothesis
+      negative_update: g_minus=A_minus*grad_theta_log_pi_with_A_minus_negative
+      oracle_improvement_direction: g_star
+      alignment_utility: U_align(d)=E[cos(g_minus,g_star)|d]
+      orthogonal_nuisance_cost: N_perp(d)=E[||Proj_perp_g_star(g_minus)||^2|d]
+      net_utility: U_net(d)=U_align(d)-kappa*N_perp(d)
+      hypothesis: >-
+        Outside the local informative region, expected net utility is generally
+        non-increasing with policy-relative distance and may approach zero or
+        become negative. No exponential decay rate is assumed.
+      interpretation: >-
+        Far negatives may lose first-order alignment while retaining nonzero
+        gradient magnitude, variance, curvature, support, or optimizer costs.
+      universal_law_claimed: false
+      exact_decay_rate_claimed: false
+    influence_control_levels:
+      raw_learnable_log_scale_order: Theta(d^2)
+      quadratic_reciprocal_weight_order: Theta(d^-2)
+      quadratic_weight_itself_vanishes: true
+      quadratic_weighted_influence_limit: bounded_nonzero_constant_in_general
+      bounded_influence_condition: w(d)=O(d^-2)
+      vanishing_influence_condition: w(d)=o(d^-2)
+      exponential_tail_property: d^k*exp(-beta*d)->0_for_every_fixed_finite_k
+      exponential_role: smooth_vanishing_tail_candidate_not_unique_solution
+      squared_distance_exponential_candidate: exp(-beta*(d/d_ref)^2)
+      squared_distance_exponential_near_field_property: first_derivative_at_zero_is_zero
+      current_E4_exponential_formula_unchanged: true
+      no_universal_method_winner_assumed: true
   environment_identification_boundary:
     action_space_continuous: true
     reward_function_continuous: true
@@ -905,7 +934,7 @@ experiments:
     - exponential_is_universally_best
     - distance_taper_always_beats_global_alpha
   followup_evidence_requirements:
-    authorization_state: review_required_not_runnable
+    authorization_state: user_approved_registered_not_runnable
     geometry_robustness:
     - continuous_angle_sampling
     - random_phase_per_state
@@ -923,6 +952,13 @@ experiments:
     - frozen_two_times_continuation
     - separate_full_batch_stationary_solution_audit_if_registered
     global_alpha_comparison: required_before_claiming_selective_distance_control_superiority
+    geometry_robustness_priority: low_optional_not_a_current_gate
+    registered_followup_experiments:
+    - C-U1-E4-TAPER-NEAR-RETENTION-01
+    - C-U1-E4-TAPER-BUDGET-MATCH-01
+    - C-U1-E4-TAPER-CONV-01
+    - C-U1-E4-TAPER-CONFIRM-01
+    local_execution_order: near_retention_then_budget_match_then_convergence_then_confirmation
     no_automatic_execution: true
   control_role_notes:
     unweighted: internal_negative_control_and_runner_regression_anchor_not_a_new_scientific_claim
@@ -1087,6 +1123,246 @@ experiments:
     main_package_hard_limit_mib: 25
     checkpoint_policy: persistent_local_index
     checkpoint_every_formal_seeds: 5
+- id: C-U1-E4-TAPER-NEAR-RETENTION-01
+  execution_gate:
+    state: blocked
+    blocked_by:
+    - frozen_near_region_definition
+    - frozen_retention_targets
+    - frozen_family_formula_set
+    - frozen_development_and_formal_seed_split
+    - separately_implemented_formal_runner
+    blocking_reason: >-
+      The user approved this as the first E4-TAPER fairness follow-up, but the
+      exact near bin, retention levels, formula set, seeds, and runner must be
+      frozen in a separate implementation update before launch.
+  environment: C-U1
+  name: taper_family_near_negative_retention_matched_comparison
+  status: not_run
+  scientific_status: not_run
+  parent_experiment: C-U1-E4-TAPER-01
+  registration_base_commit: 22161a91c0863278765b0d604ea82401d481b5aa
+  claim: >-
+    Under a shared C-U1 geometry and matched average near-negative retention,
+    test whether reciprocal-quadratic or a vanishing-tail family reduces far
+    harmful influence more efficiently than reciprocal-linear without merely
+    deleting more locally useful negative signal.
+  role: controlled_taper_shape_fairness_validation
+  execution_class: formal
+  implementation_state: not_implemented
+  formal_execution:
+    channel_ref: hardened-v1
+    activation_state: blocked
+    entrypoint_status: planned
+    entrypoint: null
+    launch_mode: canonical_guard
+    artifact_owner: canonical_channel
+    guard_entrypoint: scripts/run_experiment_guard_hardened.py
+    package_entrypoint: scripts/package_experiment_hardened.py
+    verify_entrypoint: scripts/verify_experiment_package_hardened.py
+    hardened_core: scripts/artifact_protocol_hardened.py
+    artifact_protocol: docs/formal_experiment_artifact_protocol.md
+    inherit_default_artifact_budget: true
+    runner_archive_policy: {mode: forbid}
+  matching_contract:
+    target: E[w(d)|d_in_pre_registered_near_region]
+    retention_levels: pending_protocol_freeze
+    near_region_boundary: pending_protocol_freeze_without_confirmatory_seed_access
+    coefficient_calibration_data: development_seeds_only
+    confirmatory_seed_access_during_calibration: forbidden
+  candidate_families:
+  - reciprocal_linear
+  - reciprocal_quadratic
+  - current_exponential
+  optional_family_requires_explicit_freeze:
+  - squared_distance_exponential
+  primary_metrics:
+  - near_useful_retention
+  - far_harmful_influence
+  - full_parameter_far_near_negative_gradient_ratio
+  - net_utility_by_distance_bin
+  - held_out_context_reward
+  - sigma_trajectory
+  - task_performance_collapse_event
+  - support_or_variance_boundary_event
+  - nan_inf_numerical_event
+  seed_policy:
+    seeds_70_89_reuse_as_confirmation: forbidden
+    exact_development_seeds: pending_protocol_freeze
+    exact_formal_seeds: pending_protocol_freeze
+  no_method_winner_assumed: true
+  evidence: {run_started: false, raw_complete: false, terminal_audited: false, package_created: false}
+
+- id: C-U1-E4-TAPER-BUDGET-MATCH-01
+  execution_gate:
+    state: blocked
+    blocked_by:
+    - C-U1-E4-TAPER-NEAR-RETENTION-01_delivered
+    - frozen_negative_budget_definition
+    - frozen_global_alpha_control
+    - frozen_optimizer_level_matching_rule
+    - separately_implemented_formal_runner
+    blocking_reason: >-
+      This experiment starts only after the near-retention result is delivered
+      and the exact stepwise or cumulative negative-update budget is frozen.
+  environment: C-U1
+  name: taper_family_negative_update_budget_matched_comparison
+  status: not_run
+  scientific_status: not_run
+  parent_experiment: C-U1-E4-TAPER-01
+  predecessor: C-U1-E4-TAPER-NEAR-RETENTION-01
+  registration_base_commit: 22161a91c0863278765b0d604ea82401d481b5aa
+  claim: >-
+    At matched total negative-update budget, test whether distance-selective
+    tapering improves the allocation of update mass between useful near and
+    harmful far negatives relative to reciprocal-linear and Global alpha.
+  role: controlled_selectivity_vs_global_scale_validation
+  execution_class: formal
+  implementation_state: not_implemented
+  formal_execution:
+    channel_ref: hardened-v1
+    activation_state: blocked
+    entrypoint_status: planned
+    entrypoint: null
+    launch_mode: canonical_guard
+    artifact_owner: canonical_channel
+    guard_entrypoint: scripts/run_experiment_guard_hardened.py
+    package_entrypoint: scripts/package_experiment_hardened.py
+    verify_entrypoint: scripts/verify_experiment_package_hardened.py
+    hardened_core: scripts/artifact_protocol_hardened.py
+    artifact_protocol: docs/formal_experiment_artifact_protocol.md
+    inherit_default_artifact_budget: true
+    runner_archive_policy: {mode: forbid}
+  budget_contract:
+    required_controls: [global_alpha, reciprocal_linear, reciprocal_quadratic, vanishing_tail_candidate]
+    candidate_matching_modes: [stepwise_negative_gradient_norm, cumulative_negative_optimizer_update]
+    exact_primary_mode: pending_protocol_freeze
+    same_initialization_and_minibatch_stream: required
+    only_selective_distance_allocation_may_differ: true
+  primary_metrics:
+  - matched_total_negative_update_budget
+  - near_budget_fraction
+  - far_budget_fraction
+  - far_harmful_influence
+  - held_out_context_reward
+  - sigma_and_support_trajectory
+  - task_performance_collapse_event
+  - support_or_variance_boundary_event
+  - nan_inf_numerical_event
+  no_method_winner_assumed: true
+  evidence: {run_started: false, raw_complete: false, terminal_audited: false, package_created: false}
+
+- id: C-U1-E4-TAPER-CONV-01
+  execution_gate:
+    state: blocked
+    blocked_by:
+    - C-U1-E4-TAPER-NEAR-RETENTION-01_delivered
+    - C-U1-E4-TAPER-BUDGET-MATCH-01_delivered
+    - frozen_method_shortlist_and_hyperparameters
+    - frozen_long_horizon_and_terminal_windows
+    - separately_implemented_formal_runner
+    blocking_reason: >-
+      Long-run execution is intentionally deferred until the fairness studies
+      freeze the method formulas and hyperparameters. The original 8000-step
+      experiment may not be extended in place.
+  environment: C-U1
+  name: taper_frozen_shortlist_long_run_terminal_resolution
+  status: not_run
+  scientific_status: not_run
+  parent_experiment: C-U1-E4-TAPER-01
+  predecessors: [C-U1-E4-TAPER-NEAR-RETENTION-01, C-U1-E4-TAPER-BUDGET-MATCH-01]
+  registration_base_commit: 22161a91c0863278765b0d604ea82401d481b5aa
+  claim: >-
+    With the method shortlist and hyperparameters frozen by prior fairness
+    studies, determine whether the finite-horizon ordering persists under the
+    original Adam dynamics through a registered terminal candidate and complete
+    two-times continuation.
+  role: controlled_taper_long_run_terminal_resolution
+  execution_class: formal
+  implementation_state: not_implemented
+  formal_execution:
+    channel_ref: hardened-v1
+    activation_state: blocked
+    entrypoint_status: planned
+    entrypoint: null
+    launch_mode: canonical_guard
+    artifact_owner: canonical_channel
+    guard_entrypoint: scripts/run_experiment_guard_hardened.py
+    package_entrypoint: scripts/package_experiment_hardened.py
+    verify_entrypoint: scripts/verify_experiment_package_hardened.py
+    hardened_core: scripts/artifact_protocol_hardened.py
+    artifact_protocol: docs/formal_experiment_artifact_protocol.md
+    inherit_default_artifact_budget: true
+    runner_archive_policy: {mode: forbid}
+  terminal_contract:
+    optimizer: original_Adam_dynamics
+    optimizer_state_continuity: required
+    fixed_horizon_extension_without_registration: forbidden
+    provisional_candidate_rule: pending_protocol_freeze
+    complete_two_times_continuation: required
+    full_batch_stationary_audit: optional_separate_registered_diagnostic_not_a_replacement
+    separate_failure_reporting: [task_performance_collapse, support_or_variance_boundary, nan_inf_numerical_failure]
+  no_method_winner_assumed: true
+  evidence: {run_started: false, raw_complete: false, terminal_audited: false, package_created: false}
+
+- id: C-U1-E4-TAPER-CONFIRM-01
+  execution_gate:
+    state: blocked
+    blocked_by:
+    - C-U1-E4-TAPER-CONV-01_delivered
+    - frozen_untouched_confirmatory_seeds
+    - frozen_primary_claim_and_analysis_plan
+    - frozen_all_method_formulas_and_hyperparameters
+    - separately_implemented_formal_runner
+    blocking_reason: >-
+      Confirmation is last. It uses untouched seeds only after all formulas,
+      coefficients, terminal rules, and primary metrics are frozen, with no
+      result-dependent retuning.
+  environment: C-U1
+  name: taper_frozen_protocol_independent_seed_confirmation
+  status: not_run
+  scientific_status: not_run
+  parent_experiment: C-U1-E4-TAPER-01
+  predecessor: C-U1-E4-TAPER-CONV-01
+  registration_base_commit: 22161a91c0863278765b0d604ea82401d481b5aa
+  claim: >-
+    On untouched confirmatory seeds, test whether the fully frozen fairness and
+    long-run conclusions replicate without seed selection or post-result
+    hyperparameter adjustment.
+  role: controlled_taper_confirmatory_replication
+  execution_class: formal
+  implementation_state: not_implemented
+  formal_execution:
+    channel_ref: hardened-v1
+    activation_state: blocked
+    entrypoint_status: planned
+    entrypoint: null
+    launch_mode: canonical_guard
+    artifact_owner: canonical_channel
+    guard_entrypoint: scripts/run_experiment_guard_hardened.py
+    package_entrypoint: scripts/package_experiment_hardened.py
+    verify_entrypoint: scripts/verify_experiment_package_hardened.py
+    hardened_core: scripts/artifact_protocol_hardened.py
+    artifact_protocol: docs/formal_experiment_artifact_protocol.md
+    inherit_default_artifact_budget: true
+    runner_archive_policy: {mode: forbid}
+  confirmation_contract:
+    seeds_70_89: development_evidence_not_confirmatory
+    exact_untouched_seeds: pending_protocol_freeze_before_any_access
+    hyperparameter_retuning_after_confirmation_start: forbidden
+    primary_claim_change_after_confirmation_start: forbidden
+    registered_terminal_audit: required
+  primary_metrics:
+  - held_out_context_reward
+  - near_useful_retention
+  - far_harmful_influence
+  - terminal_state_classification
+  - task_performance_collapse_event
+  - support_or_variance_boundary_event
+  - nan_inf_numerical_event
+  no_method_winner_assumed: true
+  evidence: {run_started: false, raw_complete: false, terminal_audited: false, package_created: false}
+
 - id: EXT-H-E7-Q2
   execution_gate:
     state: ready

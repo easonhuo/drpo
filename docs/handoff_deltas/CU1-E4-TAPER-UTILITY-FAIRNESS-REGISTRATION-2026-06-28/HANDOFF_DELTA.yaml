@@ -1,0 +1,323 @@
+schema_version: 2
+update_id: CU1-E4-TAPER-UTILITY-FAIRNESS-REGISTRATION-2026-06-28
+mode: shadow
+base:
+  commit: 22161a91c0863278765b0d604ea82401d481b5aa
+  handoff_sha256: 53ecec93f0ac7d65b2ad02e1143aa45c2705956b961473f294a876050ba34f0e
+  registry_sha256: fe22ecf199cbcadc51e89800f6973c81ca577abb44b7546980c604987e07d771
+renderer_version: 1
+operations:
+- operation_id: rename-v59-title-to-v60-e4-taper-utility
+  op: replace_heading
+  heading_path:
+  - DRPO / SNA2C 远场负梯度动力学研究主文档 v59（Countdown Offline Bank α×λ 调参 Pilot 版）
+  new_heading: DRPO / SNA2C 远场负梯度动力学研究主文档 v60（E4-TAPER 效用假设与公平实验登记版）
+  reason: Register the user-approved E4-TAPER utility theory and four blocked follow-up experiments without deleting v59 or
+    changing completed results or the active Stage 4A governance state.
+- operation_id: prepend-v60-e4-taper-utility-registration
+  op: insert_after_heading
+  heading_path:
+  - DRPO / SNA2C 远场负梯度动力学研究主文档 v60（E4-TAPER 效用假设与公平实验登记版）
+  block_id: v60-e4-taper-utility-registration
+  content: '> **v60 增量登记：E4-TAPER 负样本净效用理论与四项公平/终态实验路线（不删除 v59 及更早内容）**
+
+    >
+
+    > - `C-U1-E4-TAPER-01` 的 220/220 正式结果和 **finite-step validated** 状态保持不变；本版不重跑、不延长原 8000-step protocol，也不把有限步排序升级为长期或普遍方法排名。
+
+    > - 正式引入负样本 alignment utility、orthogonal nuisance cost 与 net utility。条件经验假设只要求：离开局部信息区后，负样本净效用随 policy-relative distance
+    总体不增，并可能趋零或转负；**不假设效用按指数速度下降**，也不把该关系声明为普遍定理。
+
+    > - 澄清 Quadratic 与 Exponential 的理论职责：Quadratic 权重本身趋零，但与 learnable-log-scale 的 `Theta(d^2)` 原始影响相乘后一般只得到 bounded nonzero
+    influence；Exponential 或任何 `o(d^-2)` 尾部进一步保证 vanishing influence。Quadratic 是最低充分有界阶，Exponential 是平滑 vanishing-tail 候选而非唯一解。
+
+    > - 当前 E4 历史公式 `exp(-lambda*u)` 不变。`exp(-beta*u^2)` 仅登记为近场一阶导数为零、远场指数趋零的候选，必须在新实验 protocol freeze 中显式批准，不能追溯性替换旧结果。
+
+    > - 用户批准登记四项后续：`C-U1-E4-TAPER-NEAR-RETENTION-01`、`C-U1-E4-TAPER-BUDGET-MATCH-01`、`C-U1-E4-TAPER-CONV-01`、`C-U1-E4-TAPER-CONFIRM-01`。四项当前均为
+    **not_run + not_implemented + blocked**，不得因登记而直接启动。
+
+    > - E4-TAPER 内部顺序冻结为 near-retention matching -> negative-budget matching -> long-run terminal resolution -> untouched-seed
+    confirmation。Long-run 继续推迟到前两项冻结方法公式和超参数之后；几何 robustness extension 保持低优先级、非当前门禁。
+
+    > - 本更新只修改理论、registry、Stage 3 delta 与治理测试；没有运行新的科学实验，也不预设 Linear、Quadratic、Exponential、Global alpha 或 squared-distance
+    exponential 的最终赢家。'
+- operation_id: append-v60-e4-taper-current-gate
+  op: append_to_section
+  heading_path:
+  - 0. 研究与执行原则（每次新会话首先阅读）
+  - 0.1 当前执行门禁
+  block_id: v60-e4-taper-current-gate
+  content: '- **E4-TAPER v60 覆盖：** `C-U1-E4-TAPER-01` 仍为 finite-step validated。四个后续 ID 已获用户批准并登记，但全部保持 blocked：先冻结并实现 `NEAR-RETENTION-01`，交付后才允许冻结
+    `BUDGET-MATCH-01`；二者交付并冻结 shortlist 后才允许 `CONV-01`；最后才用 untouched seeds 执行 `CONFIRM-01`。原实验禁止自动延长，几何 robustness 不作为当前门禁。'
+- operation_id: append-v60-e4-taper-utility-theory-and-followups
+  op: append_to_section
+  heading_path:
+  - 3. 连续统一环境 C-U1 的详细设计
+  - 3.8 C-U1 共享实现与二次阶方法实验 `C-U1-E4-TAPER-01`
+  block_id: v60-e4-taper-utility-theory-and-followups
+  content: '### 3.8.6 负样本 alignment utility、正交代价与净效用假设（v60）
+
+
+    对负优势样本定义其参数更新为
+
+
+    $$
+
+    g^-(s,a)=A^-(s,a)\nabla_\theta\log\pi_\theta(a\mid s),\qquad A^-<0,
+
+    $$
+
+
+    并以任务的 oracle improvement direction `g_star(s)` 为参照。定义条件平均 alignment utility
+
+
+    $$
+
+    U_{\mathrm{align}}(d)=\mathbb E[\cos(g^-,g^\star)\mid d],
+
+    $$
+
+
+    以及正交 nuisance cost
+
+
+    $$
+
+    N_\perp(d)=\mathbb E[\lVert P^\perp_{g^\star}g^-\rVert_2^2\mid d].
+
+    $$
+
+
+    净效用写成
+
+
+    $$
+
+    U_{\mathrm{net}}(d)=U_{\mathrm{align}}(d)-\kappa N_\perp(d),\qquad \kappa>0.
+
+    $$
+
+
+    这里正交梯度的一阶投影收益为零，但仍会占用更新预算、增加梯度方差、引入曲率路径偏移并可能推动 variance/support boundary，因此净效用可以为负。本文只采用一个**条件经验假设**：离开局部信息区后，`U_net(d)`
+    总体不增，并可能趋零或转负。该假设可证伪但不是普遍定理；本文不假设它具有指数衰减速度，也不要求研究其精确函数形状。
+
+
+    ### 3.8.7 Quadratic bounded influence 与 Exponential vanishing influence（v60）
+
+
+    在 bounded advantage、pre-boundary `sigma>=sigma_min>0` 和 learnable Gaussian log-scale 分支下，原始 far-field influence 为 `Theta(d^2)`。若使用
+    reciprocal quadratic
+
+
+    $$
+
+    w_{\mathrm{quad}}(d)=\frac{1}{1+\lambda(d/d_{\mathrm{ref}})^2},
+
+    $$
+
+
+    则 `w_quad(d)->0`，但
+
+
+    $$
+
+    d^2w_{\mathrm{quad}}(d)\to d_{\mathrm{ref}}^2/\lambda,
+
+    $$
+
+
+    所以 Quadratic 的严格作用是把远场影响从无界增长压成一般非零的有界常数。它是 learnable-log-scale 二次分支的最低充分多项式有界阶，同时在近场满足 `1-w_quad(d)=O(d^2)`，比 reciprocal-linear
+    的一阶近场损失更平坦。
+
+
+    若远场净效用趋零或转负，则更强的合理目标是
+
+
+    $$
+
+    w(d)d^2\to0,
+
+    $$
+
+
+    即 `w(d)=o(d^-2)`。`p>2` reciprocal polynomial 和 exponential tail 都满足；Exponential 的价值在于对任意固定有限阶多项式增长提供平滑 vanishing influence，而不是因为本文强行假设效用按指数下降。它不是唯一解，也不由当前理论推出
+    universal reward winner。
+
+
+    历史 E4-TAPER 使用的 `exp(-lambda*u)` 公式保持不变。另一个待冻结候选 `exp(-beta*u^2)` 同时具有 `w''(0)=0` 的近场二阶平坦性和远场指数趋零；它只有在新实验显式冻结后才能加入比较，不能替换或重解释既有正式结果。
+
+
+    ### 3.8.8 四项后续实验登记与职责拆分（v60）
+
+
+    1. **`C-U1-E4-TAPER-NEAR-RETENTION-01`：** 对每个 family 独立校准系数，使预注册 near 区域的平均 `E[w(d)|near]` 相同；比较 near useful retention、far
+    harmful influence、far/near gradient ratio、held-out-context reward、sigma/support 与三类失效事件。它排除“某方法只是整体压得更重”的解释。
+
+    2. **`C-U1-E4-TAPER-BUDGET-MATCH-01`：** 在相同逐步负梯度 norm 或累计 negative optimizer update 下比较 Distance families 与 Global alpha，冻结后只允许
+    near/far 预算分配不同。它排除“收益只来自总负更新更小”的解释。具体 primary budget definition 必须在实施包中二选一并冻结，不能看结果后切换。
+
+    3. **`C-U1-E4-TAPER-CONV-01`：** 前两项交付并冻结 method shortlist/超参后，使用原 Adam 动力学、连续 optimizer state、预注册终态窗口和完整 2x continuation
+    解析长期状态；不得直接延长旧 `C-U1-E4-TAPER-01`。full-batch stationary audit 如需执行，必须另行登记且不能替代 Adam long-run。
+
+    4. **`C-U1-E4-TAPER-CONFIRM-01`：** 所有公式、超参、主要 claim、终态标准和分析计划冻结后，使用全新 untouched seeds 一次性确认；seeds 70--89 只能作为既有 development/formal
+    evidence，不能再次充当 confirmatory set，确认开始后禁止 retune。
+
+
+    四项共同使用 C-U1 同分布 held-out-context terminology，并继续分报 task-performance collapse、support/variance boundary 与 NaN/Inf。任何 family
+    winner、Exponential 优于 Quadratic、Distance 优于 Global alpha 或稳定 fixed-point 排名，都必须等待对应实验和终态审计，不能由登记本身推出。
+
+
+    ### 3.8.9 当前阶段闭环与低优先级项目（v60）
+
+
+    当前 E4-TAPER 已完成机制层阶段闭环：anchor-normalized protocol 下 Quadratic 相对 Linear 的 far-field suppression order 获得正式 paired evidence，并清楚记录终态未解析和公平性限制。新四项用于升级公平方法比较和长期/确认性证据，不是修复一个已知致命漏洞。连续角度、随机
+    phase、轮廓分辨率、薄圆环 jitter 与 reward-bin matching 的几何 robustness extension 保持低优先级 optional study；有时间可增强附录，没有执行也不阻塞当前四项路线。'
+- operation_id: append-v60-e4-taper-local-execution-order
+  op: append_to_section
+  heading_path:
+  - 6. 接下来唯一执行顺序
+  block_id: v60-e4-taper-local-execution-order
+  content: 16. **v60 E4-TAPER 内部执行序列：** 本条只登记 TAPER track 的依赖顺序，不自动改写 v56--v59 的全局外部实验路线。选择推进该 track 时，必须按 `NEAR-RETENTION-01
+    -> BUDGET-MATCH-01 -> CONV-01 -> CONFIRM-01` 逐项完成 protocol freeze、实现、正式运行、终态审计、打包和交付；下一项不得在前一项交付前启动。四项目前均 blocked，第一步是另行冻结
+    Near-retention protocol，而不是直接运行或延长旧 E4-TAPER。
+registry:
+  mode: expected_after
+  expected_after_sha256: 7cd2d196ecd53bb5a0a9998abe2b2ace1d55cbd62f489c3f5129592c066b7950
+  changes:
+  - change_id: e4-taper-utility-extension
+    kind: update_field
+    entity_id: C-U1-E4-TAPER-01
+    field_path:
+    - theory
+    - utility_extension
+    from: null
+    to:
+      status: conditional_empirical_hypothesis
+      negative_update: g_minus=A_minus*grad_theta_log_pi_with_A_minus_negative
+      oracle_improvement_direction: g_star
+      alignment_utility: U_align(d)=E[cos(g_minus,g_star)|d]
+      orthogonal_nuisance_cost: N_perp(d)=E[||Proj_perp_g_star(g_minus)||^2|d]
+      net_utility: U_net(d)=U_align(d)-kappa*N_perp(d)
+      hypothesis: Outside the local informative region, expected net utility is generally non-increasing with policy-relative
+        distance and may approach zero or become negative. No exponential decay rate is assumed.
+      interpretation: Far negatives may lose first-order alignment while retaining nonzero gradient magnitude, variance, curvature,
+        support, or optimizer costs.
+      universal_law_claimed: false
+      exact_decay_rate_claimed: false
+    reason: Make the distance-dependent net-utility hypothesis explicit without claiming a universal decay law.
+    evidence:
+    - docs/handoff.md
+    - experiments/registry.yaml
+    - tests/test_cu1_e4_taper_utility_followups.py
+  - change_id: e4-taper-influence-control-levels
+    kind: update_field
+    entity_id: C-U1-E4-TAPER-01
+    field_path:
+    - theory
+    - influence_control_levels
+    from: null
+    to:
+      raw_learnable_log_scale_order: Theta(d^2)
+      quadratic_reciprocal_weight_order: Theta(d^-2)
+      quadratic_weight_itself_vanishes: true
+      quadratic_weighted_influence_limit: bounded_nonzero_constant_in_general
+      bounded_influence_condition: w(d)=O(d^-2)
+      vanishing_influence_condition: w(d)=o(d^-2)
+      exponential_tail_property: d^k*exp(-beta*d)->0_for_every_fixed_finite_k
+      exponential_role: smooth_vanishing_tail_candidate_not_unique_solution
+      squared_distance_exponential_candidate: exp(-beta*(d/d_ref)^2)
+      squared_distance_exponential_near_field_property: first_derivative_at_zero_is_zero
+      current_E4_exponential_formula_unchanged: true
+      no_universal_method_winner_assumed: true
+    reason: Separate the quadratic bounded-influence condition from the stronger vanishing-influence condition.
+    evidence:
+    - docs/handoff.md
+    - experiments/registry.yaml
+    - tests/test_cu1_e4_taper_utility_followups.py
+  - change_id: e4-taper-followup-authorization
+    kind: update_field
+    entity_id: C-U1-E4-TAPER-01
+    field_path:
+    - followup_evidence_requirements
+    - authorization_state
+    from: review_required_not_runnable
+    to: user_approved_registered_not_runnable
+    reason: Record the user approval to register the follow-up route while preserving the no-run gate.
+    evidence:
+    - docs/handoff.md
+    - experiments/registry.yaml
+    - tests/test_cu1_e4_taper_utility_followups.py
+  - change_id: e4-taper-followup-registration-fields
+    kind: update_field
+    entity_id: C-U1-E4-TAPER-01
+    field_path:
+    - followup_evidence_requirements
+    - registered_followup_experiments
+    from: null
+    to:
+    - C-U1-E4-TAPER-NEAR-RETENTION-01
+    - C-U1-E4-TAPER-BUDGET-MATCH-01
+    - C-U1-E4-TAPER-CONV-01
+    - C-U1-E4-TAPER-CONFIRM-01
+    reason: Bind the approved four-experiment sequence to the parent E4-TAPER record.
+    evidence:
+    - docs/handoff.md
+    - experiments/registry.yaml
+    - tests/test_cu1_e4_taper_utility_followups.py
+  - change_id: e4-taper-followup-local-order
+    kind: update_field
+    entity_id: C-U1-E4-TAPER-01
+    field_path:
+    - followup_evidence_requirements
+    - local_execution_order
+    from: null
+    to: near_retention_then_budget_match_then_convergence_then_confirmation
+    reason: Freeze the within-track dependency order without starting any run.
+    evidence:
+    - docs/handoff.md
+    - experiments/registry.yaml
+    - tests/test_cu1_e4_taper_utility_followups.py
+  - change_id: e4-taper-geometry-priority
+    kind: update_field
+    entity_id: C-U1-E4-TAPER-01
+    field_path:
+    - followup_evidence_requirements
+    - geometry_robustness_priority
+    from: null
+    to: low_optional_not_a_current_gate
+    reason: Record geometry robustness as optional low-priority evidence rather than a current gate.
+    evidence:
+    - docs/handoff.md
+    - experiments/registry.yaml
+    - tests/test_cu1_e4_taper_utility_followups.py
+  - change_id: c-u1-e4-taper-near-retention-01-add
+    kind: add_entity
+    entity_id: C-U1-E4-TAPER-NEAR-RETENTION-01
+    evidence:
+    - docs/handoff.md
+    - experiments/registry.yaml
+    - tests/test_cu1_e4_taper_utility_followups.py
+  - change_id: c-u1-e4-taper-budget-match-01-add
+    kind: add_entity
+    entity_id: C-U1-E4-TAPER-BUDGET-MATCH-01
+    evidence:
+    - docs/handoff.md
+    - experiments/registry.yaml
+    - tests/test_cu1_e4_taper_utility_followups.py
+  - change_id: c-u1-e4-taper-conv-01-add
+    kind: add_entity
+    entity_id: C-U1-E4-TAPER-CONV-01
+    evidence:
+    - docs/handoff.md
+    - experiments/registry.yaml
+    - tests/test_cu1_e4_taper_utility_followups.py
+  - change_id: c-u1-e4-taper-confirm-01-add
+    kind: add_entity
+    entity_id: C-U1-E4-TAPER-CONFIRM-01
+    evidence:
+    - docs/handoff.md
+    - experiments/registry.yaml
+    - tests/test_cu1_e4_taper_utility_followups.py
+expected:
+  candidate_sha256: 85fa8b7cd5da5af2d05fccf71fb83ae8a91a9eb1f162ed96046e84f8764298ae
+  manual_sha256: 85fa8b7cd5da5af2d05fccf71fb83ae8a91a9eb1f162ed96046e84f8764298ae

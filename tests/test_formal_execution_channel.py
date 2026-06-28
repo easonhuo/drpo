@@ -130,7 +130,7 @@ def test_current_registry_uses_canonical_channel() -> None:
     assert report["matched"] is True
     assert report["channel_id"] == "hardened-v1"
     assert report["execution_class_counts"] == {
-        "formal": 9,
+        "formal": 13,
         "historical_formal": 2,
         "pilot": 5,
         "superseded": 2,
@@ -138,6 +138,10 @@ def test_current_registry_uses_canonical_channel() -> None:
     assert report["formal_experiments"] == [
         "C-U1-E4-CONV-01",
         "C-U1-E4-TAPER-01",
+        "C-U1-E4-TAPER-NEAR-RETENTION-01",
+        "C-U1-E4-TAPER-BUDGET-MATCH-01",
+        "C-U1-E4-TAPER-CONV-01",
+        "C-U1-E4-TAPER-CONFIRM-01",
         "EXT-H-E7-Q2",
         "D-U1-E5-LONGRUN-RERUN",
         "EXT-H-E7-BENCH-01",

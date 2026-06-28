@@ -1,4 +1,4 @@
-# DRPO / SNA2C 远场负梯度动力学研究主文档 v59（Countdown Offline Bank α×λ 调参 Pilot 版）
+# DRPO / SNA2C 远场负梯度动力学研究主文档 v60（E4-TAPER 效用假设与公平实验登记版）
 <!-- HANDOFF-DELTA-BLOCK:after_heading:v50-stage3-shadow-bootstrap:START -->
 > **v50 增量登记：治理 Pipeline Stage 3 `HANDOFF_DELTA.yaml` shadow mode 启动（不删除 v49 及更早内容）**
 >
@@ -117,6 +117,17 @@
 > - 当前 formal route 不变：`EXT-H-E7-Q2` 仍是下一正式实验。V4.5 是外部 focused pilot，不解锁 `EXT-C-E8-SCALE-01`，也不替代 D-U1/E6 的受控因果识别。
 > - 本更新基于用户上传 Git bundle 的 `main` commit `58342ae7809354ef8af0e90a1d9938aa51f3a97d`，只完成协议、runner 支持与测试；未运行真实 Qwen/CUDA/BF16-LoRA 调参。
 <!-- HANDOFF-DELTA-BLOCK:after_heading:v59-ext-c-e8-v45-offline-bank-tuning:END -->
+<!-- HANDOFF-DELTA-BLOCK:after_heading:v60-e4-taper-utility-registration:START -->
+> **v60 增量登记：E4-TAPER 负样本净效用理论与四项公平/终态实验路线（不删除 v59 及更早内容）**
+>
+> - `C-U1-E4-TAPER-01` 的 220/220 正式结果和 **finite-step validated** 状态保持不变；本版不重跑、不延长原 8000-step protocol，也不把有限步排序升级为长期或普遍方法排名。
+> - 正式引入负样本 alignment utility、orthogonal nuisance cost 与 net utility。条件经验假设只要求：离开局部信息区后，负样本净效用随 policy-relative distance 总体不增，并可能趋零或转负；**不假设效用按指数速度下降**，也不把该关系声明为普遍定理。
+> - 澄清 Quadratic 与 Exponential 的理论职责：Quadratic 权重本身趋零，但与 learnable-log-scale 的 `Theta(d^2)` 原始影响相乘后一般只得到 bounded nonzero influence；Exponential 或任何 `o(d^-2)` 尾部进一步保证 vanishing influence。Quadratic 是最低充分有界阶，Exponential 是平滑 vanishing-tail 候选而非唯一解。
+> - 当前 E4 历史公式 `exp(-lambda*u)` 不变。`exp(-beta*u^2)` 仅登记为近场一阶导数为零、远场指数趋零的候选，必须在新实验 protocol freeze 中显式批准，不能追溯性替换旧结果。
+> - 用户批准登记四项后续：`C-U1-E4-TAPER-NEAR-RETENTION-01`、`C-U1-E4-TAPER-BUDGET-MATCH-01`、`C-U1-E4-TAPER-CONV-01`、`C-U1-E4-TAPER-CONFIRM-01`。四项当前均为 **not_run + not_implemented + blocked**，不得因登记而直接启动。
+> - E4-TAPER 内部顺序冻结为 near-retention matching -> negative-budget matching -> long-run terminal resolution -> untouched-seed confirmation。Long-run 继续推迟到前两项冻结方法公式和超参数之后；几何 robustness extension 保持低优先级、非当前门禁。
+> - 本更新只修改理论、registry、Stage 3 delta 与治理测试；没有运行新的科学实验，也不预设 Linear、Quadratic、Exponential、Global alpha 或 squared-distance exponential 的最终赢家。
+<!-- HANDOFF-DELTA-BLOCK:after_heading:v60-e4-taper-utility-registration:END -->
 
 > **v49 增量登记：治理 Pipeline Stage 1/2 冻结式关闭（不删除 v48 及更早内容）**
 >
@@ -659,6 +670,9 @@
 <!-- HANDOFF-DELTA-BLOCK:section_end:v59-countdown-offline-bank-tuning-current-gate:START -->
 - **Countdown v59 覆盖：** `EXT-C-E8-V4.5-OFFLINE-BANK-TUNING` 是当前用户批准的离线 focused successor；V4.4 作为 frozen-bank predecessor 保留。V4.5 只调 calibrated global negative multiplier 与 exponential taper lambda，禁止在线刷新、方向筛选或模型规模同时变化。`EXT-H-E7-Q2` 仍是下一 formal route item，`EXT-C-E8-SCALE-01` 继续 blocked。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v59-countdown-offline-bank-tuning-current-gate:END -->
+<!-- HANDOFF-DELTA-BLOCK:section_end:v60-e4-taper-current-gate:START -->
+- **E4-TAPER v60 覆盖：** `C-U1-E4-TAPER-01` 仍为 finite-step validated。四个后续 ID 已获用户批准并登记，但全部保持 blocked：先冻结并实现 `NEAR-RETENTION-01`，交付后才允许冻结 `BUDGET-MATCH-01`；二者交付并冻结 shortlist 后才允许 `CONV-01`；最后才用 untouched seeds 执行 `CONFIRM-01`。原实验禁止自动延长，几何 robustness 不作为当前门禁。
+<!-- HANDOFF-DELTA-BLOCK:section_end:v60-e4-taper-current-gate:END -->
 
 ## 0.2 C-U1 泛化术语覆盖规则（v15 锁定）
 
@@ -973,6 +987,75 @@ $$
    - 保持原 Adam 做长程状态审计，并在必要时另用预注册 full-batch polish/root finding 检查 objective stationary solution。
 6. **执行门禁。** 上述项目尚无可运行 experiment ID；不得复用 seeds 70--89 作为新的 confirmatory set，也不得擅自修改 horizon、optimizer、阈值或当前 E4-TAPER 定义。任何执行必须先给出独立 ID、冻结参数和对既有路线的影响。
 
+<!-- HANDOFF-DELTA-BLOCK:section_end:v60-e4-taper-utility-theory-and-followups:START -->
+### 3.8.6 负样本 alignment utility、正交代价与净效用假设（v60）
+
+对负优势样本定义其参数更新为
+
+$$
+g^-(s,a)=A^-(s,a)\nabla_\theta\log\pi_\theta(a\mid s),\qquad A^-<0,
+$$
+
+并以任务的 oracle improvement direction `g_star(s)` 为参照。定义条件平均 alignment utility
+
+$$
+U_{\mathrm{align}}(d)=\mathbb E[\cos(g^-,g^\star)\mid d],
+$$
+
+以及正交 nuisance cost
+
+$$
+N_\perp(d)=\mathbb E[\lVert P^\perp_{g^\star}g^-\rVert_2^2\mid d].
+$$
+
+净效用写成
+
+$$
+U_{\mathrm{net}}(d)=U_{\mathrm{align}}(d)-\kappa N_\perp(d),\qquad \kappa>0.
+$$
+
+这里正交梯度的一阶投影收益为零，但仍会占用更新预算、增加梯度方差、引入曲率路径偏移并可能推动 variance/support boundary，因此净效用可以为负。本文只采用一个**条件经验假设**：离开局部信息区后，`U_net(d)` 总体不增，并可能趋零或转负。该假设可证伪但不是普遍定理；本文不假设它具有指数衰减速度，也不要求研究其精确函数形状。
+
+### 3.8.7 Quadratic bounded influence 与 Exponential vanishing influence（v60）
+
+在 bounded advantage、pre-boundary `sigma>=sigma_min>0` 和 learnable Gaussian log-scale 分支下，原始 far-field influence 为 `Theta(d^2)`。若使用 reciprocal quadratic
+
+$$
+w_{\mathrm{quad}}(d)=\frac{1}{1+\lambda(d/d_{\mathrm{ref}})^2},
+$$
+
+则 `w_quad(d)->0`，但
+
+$$
+d^2w_{\mathrm{quad}}(d)\to d_{\mathrm{ref}}^2/\lambda,
+$$
+
+所以 Quadratic 的严格作用是把远场影响从无界增长压成一般非零的有界常数。它是 learnable-log-scale 二次分支的最低充分多项式有界阶，同时在近场满足 `1-w_quad(d)=O(d^2)`，比 reciprocal-linear 的一阶近场损失更平坦。
+
+若远场净效用趋零或转负，则更强的合理目标是
+
+$$
+w(d)d^2\to0,
+$$
+
+即 `w(d)=o(d^-2)`。`p>2` reciprocal polynomial 和 exponential tail 都满足；Exponential 的价值在于对任意固定有限阶多项式增长提供平滑 vanishing influence，而不是因为本文强行假设效用按指数下降。它不是唯一解，也不由当前理论推出 universal reward winner。
+
+历史 E4-TAPER 使用的 `exp(-lambda*u)` 公式保持不变。另一个待冻结候选 `exp(-beta*u^2)` 同时具有 `w'(0)=0` 的近场二阶平坦性和远场指数趋零；它只有在新实验显式冻结后才能加入比较，不能替换或重解释既有正式结果。
+
+### 3.8.8 四项后续实验登记与职责拆分（v60）
+
+1. **`C-U1-E4-TAPER-NEAR-RETENTION-01`：** 对每个 family 独立校准系数，使预注册 near 区域的平均 `E[w(d)|near]` 相同；比较 near useful retention、far harmful influence、far/near gradient ratio、held-out-context reward、sigma/support 与三类失效事件。它排除“某方法只是整体压得更重”的解释。
+2. **`C-U1-E4-TAPER-BUDGET-MATCH-01`：** 在相同逐步负梯度 norm 或累计 negative optimizer update 下比较 Distance families 与 Global alpha，冻结后只允许 near/far 预算分配不同。它排除“收益只来自总负更新更小”的解释。具体 primary budget definition 必须在实施包中二选一并冻结，不能看结果后切换。
+3. **`C-U1-E4-TAPER-CONV-01`：** 前两项交付并冻结 method shortlist/超参后，使用原 Adam 动力学、连续 optimizer state、预注册终态窗口和完整 2x continuation 解析长期状态；不得直接延长旧 `C-U1-E4-TAPER-01`。full-batch stationary audit 如需执行，必须另行登记且不能替代 Adam long-run。
+4. **`C-U1-E4-TAPER-CONFIRM-01`：** 所有公式、超参、主要 claim、终态标准和分析计划冻结后，使用全新 untouched seeds 一次性确认；seeds 70--89 只能作为既有 development/formal evidence，不能再次充当 confirmatory set，确认开始后禁止 retune。
+
+四项共同使用 C-U1 同分布 held-out-context terminology，并继续分报 task-performance collapse、support/variance boundary 与 NaN/Inf。任何 family winner、Exponential 优于 Quadratic、Distance 优于 Global alpha 或稳定 fixed-point 排名，都必须等待对应实验和终态审计，不能由登记本身推出。
+
+### 3.8.9 当前阶段闭环与低优先级项目（v60）
+
+当前 E4-TAPER 已完成机制层阶段闭环：anchor-normalized protocol 下 Quadratic 相对 Linear 的 far-field suppression order 获得正式 paired evidence，并清楚记录终态未解析和公平性限制。新四项用于升级公平方法比较和长期/确认性证据，不是修复一个已知致命漏洞。连续角度、随机 phase、轮廓分辨率、薄圆环 jitter 与 reward-bin matching 的几何 robustness extension 保持低优先级 optional study；有时间可增强附录，没有执行也不阻塞当前四项路线。
+<!-- HANDOFF-DELTA-BLOCK:section_end:v60-e4-taper-utility-theory-and-followups:END -->
+
 ## 3.9 E6--E8 方法迁移与规模验证路线（v42 锁定）
 
 1. **E6：** pilot 与 focused development 已完成 development seeds 0--4 的 105/105 与 165/165 runs；`D-U1-E6-SEMANTIC-LONGRUN-01` 已在 untouched seeds 10--29 上完成 360/360 formal runs并通过 2x 终态审计。结果支持 positive-only ceiling、受控 local negative 的同分布 held-out-context / unseen-action 收益、过强压力反转、任务与支持事件分离以及语义置乱排他性。
@@ -1090,6 +1173,9 @@ $$
 <!-- HANDOFF-DELTA-BLOCK:section_end:v59-e8-offline-tuning-execution-order:START -->
 15. **v59 执行覆盖：** formal 顺序仍由 v56/v58 控制，E7-Q2 优先级不变。V4.5 可作为独立 pilot 执行，但必须复用并校验 V4.4 frozen inputs，按 Stage A alpha、Stage B lambda、untouched-seed confirmation 顺序完成；test 只能在 selection 冻结后运行，结果必须 best/terminal 与三类事件分报后再交付。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v59-e8-offline-tuning-execution-order:END -->
+<!-- HANDOFF-DELTA-BLOCK:section_end:v60-e4-taper-local-execution-order:START -->
+16. **v60 E4-TAPER 内部执行序列：** 本条只登记 TAPER track 的依赖顺序，不自动改写 v56--v59 的全局外部实验路线。选择推进该 track 时，必须按 `NEAR-RETENTION-01 -> BUDGET-MATCH-01 -> CONV-01 -> CONFIRM-01` 逐项完成 protocol freeze、实现、正式运行、终态审计、打包和交付；下一项不得在前一项交付前启动。四项目前均 blocked，第一步是另行冻结 Near-retention protocol，而不是直接运行或延长旧 E4-TAPER。
+<!-- HANDOFF-DELTA-BLOCK:section_end:v60-e4-taper-local-execution-order:END -->
 
 # 7. 变量治理
 
