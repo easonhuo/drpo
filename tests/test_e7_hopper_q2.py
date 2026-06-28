@@ -141,7 +141,7 @@ def test_legacy_hdf5_loader(tmp_path: Path) -> None:
     np.testing.assert_array_equal(data.episode_ids, np.array([0, 0, 1, 1, 1, 1]))
 
 
-def test_registry_keeps_implemented_q2_blocked_without_claiming_results() -> None:
+def test_registry_releases_implemented_q2_without_claiming_results() -> None:
     import yaml
 
     root = Path(__file__).parents[1]
@@ -150,11 +150,12 @@ def test_registry_keeps_implemented_q2_blocked_without_claiming_results() -> Non
     assert entry["status"] == "not_run"
     assert entry["scientific_status"] == "not_run"
     assert entry["implementation_state"] == "implemented"
-    assert entry["execution_gate"]["state"] == "blocked"
-    assert entry["execution_gate"]["blocked_by"] == ["D-U1-E6-TAPER-01"]
-    assert entry["formal_execution"]["activation_state"] == "blocked"
+    assert entry["execution_gate"]["state"] == "ready"
+    assert entry["execution_gate"]["blocked_by"] == []
+    assert entry["formal_execution"]["activation_state"] == "active"
     assert entry["formal_execution"]["entrypoint"] == "src/drpo/e7_hopper_q2.py"
     assert entry["formal_execution"]["runner_archive_policy"]["mode"] == "forbid"
+    assert entry["evidence"]["code_committed"] is True
     assert entry["evidence"]["implementation_tests_passed"] is True
     assert entry["evidence"]["run_started"] is False
 

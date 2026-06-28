@@ -1,0 +1,652 @@
+{
+  "affected_selectors": [
+    "DRPO / SNA2C \u8fdc\u573a\u8d1f\u68af\u5ea6\u52a8\u529b\u5b66\u7814\u7a76\u4e3b\u6587\u6863 v55\uff08D-U1 E6 Semantic-Gap \u6b63\u5f0f\u7ed3\u679c\u95ed\u73af\u7248\uff09",
+    "DRPO / SNA2C \u8fdc\u573a\u8d1f\u68af\u5ea6\u52a8\u529b\u5b66\u7814\u7a76\u4e3b\u6587\u6863 v56\uff08D-U1 E6 \u7236 Claim \u5173\u95ed\u4e0e E7 \u8def\u7ebf\u89e3\u9501\u7248\uff09",
+    "0. \u7814\u7a76\u4e0e\u6267\u884c\u539f\u5219\uff08\u6bcf\u6b21\u65b0\u4f1a\u8bdd\u9996\u5148\u9605\u8bfb\uff09 / 0.1 \u5f53\u524d\u6267\u884c\u95e8\u7981",
+    "5. \u5f53\u524d\u771f\u5b9e\u5b8c\u6210\u72b6\u6001",
+    "6. \u63a5\u4e0b\u6765\u552f\u4e00\u6267\u884c\u987a\u5e8f"
+  ],
+  "base_commit": "e70f0d84256cdeb6ebbf80b0495a043582787bf6",
+  "base_handoff_sha256": "fc0b8de092993f41f65057a777b462dd18f86e58831116b6a379216799561f82",
+  "base_registry_sha256": "b1069d88ce6038e9d653f63ff745e5e3fe45d67d6d3473b2375e39457917393f",
+  "candidate_replaced_authority": false,
+  "candidate_sha256": "a7c2b572a42ff3cbe7329994b30818963423ed9d256e8e876bc8aa34b19ed375",
+  "comparison_target": "working_tree",
+  "current_registry_sha256": "e4184acff76a4e6beed77aea208a2e023a8de7f2fb3696c4ffc858b830100eae",
+  "exact_manual_candidate_match": true,
+  "full_candidate_saved": false,
+  "history_preservation_passed": true,
+  "idempotence_passed": true,
+  "llm_blocking_gate_used": false,
+  "manual_handoff_authoritative": true,
+  "manual_sha256": "a7c2b572a42ff3cbe7329994b30818963423ed9d256e8e876bc8aa34b19ed375",
+  "mode": "shadow",
+  "network_used": false,
+  "observation_kind": "real",
+  "operation_count": 5,
+  "performance": {
+    "base_validation_ms": 65.836,
+    "comparison_and_registry_ms": 323.493,
+    "hard_limit_ms": 15000.0,
+    "policy_and_schema_ms": 14.234,
+    "render_and_idempotence_ms": 50.636,
+    "target_p95_ms": 5000.0,
+    "total_ms": 454.364,
+    "within_hard_limit": true,
+    "within_target": true
+  },
+  "policy_id": "GOV-HANDOFF-INDEX-01",
+  "registry_change_assertions": [
+    {
+      "change_id": "e6-parent-close-001",
+      "entity_id": "C-U1-E4-TAPER-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "a7c2b572a42ff3cbe7329994b30818963423ed9d256e8e876bc8aa34b19ed375"
+        },
+        {
+          "path": "tests/test_experiment_route_v42.py",
+          "sha256": "5c6db34c3853028586f0e495a74f0979ecc31deb8fb71c908799cd5169430366"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_longrun/RESULT_SUMMARY.md",
+          "sha256": "5662b380eae305684368b42726059b46a29a5d90d0be7c5eda62f146dfb3d7cb"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_conditional_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "ec73165e954abb03b86ce12fcc0bc348f1da5b98793ebfe7b5211adc181d4347"
+        }
+      ],
+      "field_path": [
+        "next_gate",
+        "project_route"
+      ],
+      "from": "D-U1-E6-SEMANTIC-LONGRUN-01_ready_active",
+      "kind": "update_field",
+      "reason": "Record the scoped E6 parent-claim closure and remove optional E6-TAPER from the mandatory E7 route without changing any experiment result or frozen protocol.",
+      "to": "EXT-H-E7-Q2_ready_active"
+    },
+    {
+      "change_id": "e6-parent-close-002",
+      "entity_id": "D-U1-E6-SEMANTIC-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_longrun/RESULT_SUMMARY.md",
+          "sha256": "5662b380eae305684368b42726059b46a29a5d90d0be7c5eda62f146dfb3d7cb"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_conditional_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "ec73165e954abb03b86ce12fcc0bc348f1da5b98793ebfe7b5211adc181d4347"
+        }
+      ],
+      "field_path": [
+        "next_gate",
+        "automatic_activation_forbidden"
+      ],
+      "from": true,
+      "kind": "update_field",
+      "reason": "Record the scoped E6 parent-claim closure and remove optional E6-TAPER from the mandatory E7 route without changing any experiment result or frozen protocol.",
+      "to": false
+    },
+    {
+      "change_id": "e6-parent-close-003",
+      "entity_id": "D-U1-E6-SEMANTIC-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_longrun/RESULT_SUMMARY.md",
+          "sha256": "5662b380eae305684368b42726059b46a29a5d90d0be7c5eda62f146dfb3d7cb"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_conditional_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "ec73165e954abb03b86ce12fcc0bc348f1da5b98793ebfe7b5211adc181d4347"
+        }
+      ],
+      "field_path": [
+        "next_gate",
+        "experiment_id"
+      ],
+      "from": "D-U1-E6-TAPER-01",
+      "kind": "update_field",
+      "reason": "Record the scoped E6 parent-claim closure and remove optional E6-TAPER from the mandatory E7 route without changing any experiment result or frozen protocol.",
+      "to": "EXT-H-E7-Q2"
+    },
+    {
+      "change_id": "e6-parent-close-004",
+      "entity_id": "D-U1-E6-SEMANTIC-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_longrun/RESULT_SUMMARY.md",
+          "sha256": "5662b380eae305684368b42726059b46a29a5d90d0be7c5eda62f146dfb3d7cb"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_conditional_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "ec73165e954abb03b86ce12fcc0bc348f1da5b98793ebfe7b5211adc181d4347"
+        }
+      ],
+      "field_path": [
+        "next_gate",
+        "optional_non_gating_follow_up"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Record the scoped E6 parent-claim closure and remove optional E6-TAPER from the mandatory E7 route without changing any experiment result or frozen protocol.",
+      "to": "D-U1-E6-TAPER-01"
+    },
+    {
+      "change_id": "e6-parent-close-005",
+      "entity_id": "D-U1-E6-SEMANTIC-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_longrun/RESULT_SUMMARY.md",
+          "sha256": "5662b380eae305684368b42726059b46a29a5d90d0be7c5eda62f146dfb3d7cb"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_conditional_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "ec73165e954abb03b86ce12fcc0bc348f1da5b98793ebfe7b5211adc181d4347"
+        }
+      ],
+      "field_path": [
+        "next_gate",
+        "remaining_requirements"
+      ],
+      "from": [
+        "freeze_semantic_remoteness_coordinate",
+        "freeze_paired_method_protocol",
+        "freeze_new_untouched_held_out_seeds",
+        "implement_separate_formal_runner"
+      ],
+      "kind": "update_field",
+      "reason": "Record the scoped E6 parent-claim closure and remove optional E6-TAPER from the mandatory E7 route without changing any experiment result or frozen protocol.",
+      "to": []
+    },
+    {
+      "change_id": "e6-parent-close-006",
+      "entity_id": "D-U1-E6-SEMANTIC-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_longrun/RESULT_SUMMARY.md",
+          "sha256": "5662b380eae305684368b42726059b46a29a5d90d0be7c5eda62f146dfb3d7cb"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_conditional_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "ec73165e954abb03b86ce12fcc0bc348f1da5b98793ebfe7b5211adc181d4347"
+        }
+      ],
+      "field_path": [
+        "next_gate",
+        "state"
+      ],
+      "from": "review_required_not_runnable",
+      "kind": "update_field",
+      "reason": "Record the scoped E6 parent-claim closure and remove optional E6-TAPER from the mandatory E7 route without changing any experiment result or frozen protocol.",
+      "to": "ready"
+    },
+    {
+      "change_id": "e6-parent-close-007",
+      "entity_id": "D-U1-E6-SEMANTIC-LONGRUN-01",
+      "evidence": [
+        {
+          "path": "outputs/du1_e6_semantic_longrun/RESULT_SUMMARY.md",
+          "sha256": "5662b380eae305684368b42726059b46a29a5d90d0be7c5eda62f146dfb3d7cb"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_conditional_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "ec73165e954abb03b86ce12fcc0bc348f1da5b98793ebfe7b5211adc181d4347"
+        }
+      ],
+      "field_path": [
+        "parent_claim_closure"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Record the scoped E6 parent-claim closure and remove optional E6-TAPER from the mandatory E7 route without changing any experiment result or frozen protocol.",
+      "to": {
+        "approval_record": "user_approved_close_after_commit_e70f0d84256cdeb6ebbf80b0495a043582787bf6",
+        "basis_experiments": [
+          "D-U1-E6-SEMANTIC-LONGRUN-01",
+          "D-U1-E6-CONDITIONAL-GAP-01",
+          "D-U1-E6-SEMANTIC-GAP-LONGRUN-01"
+        ],
+        "closed_claims": [
+          "positive_only_has_a_shared_semantic_imitation_ceiling",
+          "moderate_controlled_negative_signal_can_improve_same_distribution_held_out_context_and_unseen_action_performance",
+          "excessive_or_unsuppressed_negative_pressure_can_reverse_or_progressively_degrade_task_performance",
+          "semantic_alignment_is_required_for_the_observed_unseen_action_transfer",
+          "task_performance_support_boundary_and_nan_inf_events_must_be_reported_separately"
+        ],
+        "decision_date": "2026-06-28",
+        "optional_follow_up_status": "not_run_not_implemented_blocked_until_separately_frozen",
+        "optional_non_gating_follow_up": "D-U1-E6-TAPER-01",
+        "parent_id": "E6",
+        "preserved_limitations": [
+          "semantic_gap_and_conditional_gap_children_remain_finite_step_validated",
+          "no_steady_state_ranking_for_nonplateau_gap_runs",
+          "no_universal_alpha_optimum",
+          "no_state_distribution_OOD_generalization_claim",
+          "no_Gaussian_quadratic_law_claim_for_categorical_policy",
+          "no_cross_task_method_superiority_claim"
+        ],
+        "required_before_EXT_H_E7_Q2": false,
+        "required_for_parent_closure": false,
+        "state": "closed"
+      }
+    },
+    {
+      "change_id": "e6-parent-close-008",
+      "entity_id": "EXT-H-E7-BENCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "a7c2b572a42ff3cbe7329994b30818963423ed9d256e8e876bc8aa34b19ed375"
+        },
+        {
+          "path": "tests/test_experiment_route_v42.py",
+          "sha256": "5c6db34c3853028586f0e495a74f0979ecc31deb8fb71c908799cd5169430366"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_longrun/RESULT_SUMMARY.md",
+          "sha256": "5662b380eae305684368b42726059b46a29a5d90d0be7c5eda62f146dfb3d7cb"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_conditional_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "ec73165e954abb03b86ce12fcc0bc348f1da5b98793ebfe7b5211adc181d4347"
+        }
+      ],
+      "field_path": [
+        "execution_gate",
+        "blocked_by"
+      ],
+      "from": [
+        "EXT-H-E7-Q2",
+        "D-U1-E6-TAPER-01"
+      ],
+      "kind": "update_field",
+      "reason": "Record the scoped E6 parent-claim closure and remove optional E6-TAPER from the mandatory E7 route without changing any experiment result or frozen protocol.",
+      "to": [
+        "EXT-H-E7-Q2"
+      ]
+    },
+    {
+      "change_id": "e6-parent-close-009",
+      "entity_id": "EXT-H-E7-BENCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "a7c2b572a42ff3cbe7329994b30818963423ed9d256e8e876bc8aa34b19ed375"
+        },
+        {
+          "path": "tests/test_experiment_route_v42.py",
+          "sha256": "5c6db34c3853028586f0e495a74f0979ecc31deb8fb71c908799cd5169430366"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_longrun/RESULT_SUMMARY.md",
+          "sha256": "5662b380eae305684368b42726059b46a29a5d90d0be7c5eda62f146dfb3d7cb"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_conditional_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "ec73165e954abb03b86ce12fcc0bc348f1da5b98793ebfe7b5211adc181d4347"
+        }
+      ],
+      "field_path": [
+        "execution_gate",
+        "blocking_reason"
+      ],
+      "from": "The Hopper mechanism stage and both controlled taper stages must be delivered before the large public benchmark freezes its method shortlist and hyperparameters.",
+      "kind": "update_field",
+      "reason": "Record the scoped E6 parent-claim closure and remove optional E6-TAPER from the mandatory E7 route without changing any experiment result or frozen protocol.",
+      "to": "The large public benchmark remains blocked until EXT-H-E7-Q2 is terminal-audited, packaged, delivered, and the controlled-method shortlist is frozen without D4RL retuning. Optional D-U1-E6-TAPER-01 is not a prerequisite."
+    },
+    {
+      "change_id": "e6-parent-close-010",
+      "entity_id": "EXT-H-E7-BENCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "a7c2b572a42ff3cbe7329994b30818963423ed9d256e8e876bc8aa34b19ed375"
+        },
+        {
+          "path": "tests/test_experiment_route_v42.py",
+          "sha256": "5c6db34c3853028586f0e495a74f0979ecc31deb8fb71c908799cd5169430366"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_longrun/RESULT_SUMMARY.md",
+          "sha256": "5662b380eae305684368b42726059b46a29a5d90d0be7c5eda62f146dfb3d7cb"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_conditional_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "ec73165e954abb03b86ce12fcc0bc348f1da5b98793ebfe7b5211adc181d4347"
+        }
+      ],
+      "field_path": [
+        "shortlist_rule"
+      ],
+      "from": "freeze_after_E4_and_E6_taper_without_D4RL_retuning",
+      "kind": "update_field",
+      "reason": "Record the scoped E6 parent-claim closure and remove optional E6-TAPER from the mandatory E7 route without changing any experiment result or frozen protocol.",
+      "to": "freeze_after_E4_E6_core_closure_and_E7_mechanism_without_D4RL_retuning"
+    },
+    {
+      "change_id": "e6-parent-close-011",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/README_E7_HOPPER_Q2_ONECLICK.md",
+          "sha256": "19f7c4ec914d20da53bdeed5aa967cab5352ca8b6e71e0544b13bbef5430ef48"
+        },
+        {
+          "path": "src/drpo/e7_hopper_q2.py",
+          "sha256": "6b42bffd6eb1dd7f41495f93568990e1e53ef3bcab3fc2ead502d85f23c45b47"
+        },
+        {
+          "path": "tests/test_e7_hopper_q2.py",
+          "sha256": "58fa00b80ac81dd2740f6de57e661925ef8fee1f9fdcbb573198f6a617ddae1f"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_longrun/RESULT_SUMMARY.md",
+          "sha256": "5662b380eae305684368b42726059b46a29a5d90d0be7c5eda62f146dfb3d7cb"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_conditional_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "ec73165e954abb03b86ce12fcc0bc348f1da5b98793ebfe7b5211adc181d4347"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "code_committed"
+      ],
+      "from": false,
+      "kind": "update_field",
+      "reason": "Record the scoped E6 parent-claim closure and remove optional E6-TAPER from the mandatory E7 route without changing any experiment result or frozen protocol.",
+      "to": true
+    },
+    {
+      "change_id": "e6-parent-close-012",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/README_E7_HOPPER_Q2_ONECLICK.md",
+          "sha256": "19f7c4ec914d20da53bdeed5aa967cab5352ca8b6e71e0544b13bbef5430ef48"
+        },
+        {
+          "path": "src/drpo/e7_hopper_q2.py",
+          "sha256": "6b42bffd6eb1dd7f41495f93568990e1e53ef3bcab3fc2ead502d85f23c45b47"
+        },
+        {
+          "path": "tests/test_e7_hopper_q2.py",
+          "sha256": "58fa00b80ac81dd2740f6de57e661925ef8fee1f9fdcbb573198f6a617ddae1f"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_longrun/RESULT_SUMMARY.md",
+          "sha256": "5662b380eae305684368b42726059b46a29a5d90d0be7c5eda62f146dfb3d7cb"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_conditional_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "ec73165e954abb03b86ce12fcc0bc348f1da5b98793ebfe7b5211adc181d4347"
+        }
+      ],
+      "field_path": [
+        "execution_gate",
+        "blocked_by"
+      ],
+      "from": [
+        "D-U1-E6-TAPER-01"
+      ],
+      "kind": "update_field",
+      "reason": "Record the scoped E6 parent-claim closure and remove optional E6-TAPER from the mandatory E7 route without changing any experiment result or frozen protocol.",
+      "to": []
+    },
+    {
+      "change_id": "e6-parent-close-013",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/README_E7_HOPPER_Q2_ONECLICK.md",
+          "sha256": "19f7c4ec914d20da53bdeed5aa967cab5352ca8b6e71e0544b13bbef5430ef48"
+        },
+        {
+          "path": "src/drpo/e7_hopper_q2.py",
+          "sha256": "6b42bffd6eb1dd7f41495f93568990e1e53ef3bcab3fc2ead502d85f23c45b47"
+        },
+        {
+          "path": "tests/test_e7_hopper_q2.py",
+          "sha256": "58fa00b80ac81dd2740f6de57e661925ef8fee1f9fdcbb573198f6a617ddae1f"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_longrun/RESULT_SUMMARY.md",
+          "sha256": "5662b380eae305684368b42726059b46a29a5d90d0be7c5eda62f146dfb3d7cb"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_conditional_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "ec73165e954abb03b86ce12fcc0bc348f1da5b98793ebfe7b5211adc181d4347"
+        }
+      ],
+      "field_path": [
+        "execution_gate",
+        "blocking_reason"
+      ],
+      "from": "The Hopper mechanism runner is implemented, but the locked cross-environment route requires D-U1-E6-TAPER-01 to be delivered before formal launch.",
+      "kind": "update_field",
+      "reason": "Record the scoped E6 parent-claim closure and remove optional E6-TAPER from the mandatory E7 route without changing any experiment result or frozen protocol.",
+      "to": "E6 parent claims are closed; the implemented Hopper mechanism experiment is the next registered formal route item. No E7 scientific run has started."
+    },
+    {
+      "change_id": "e6-parent-close-014",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/README_E7_HOPPER_Q2_ONECLICK.md",
+          "sha256": "19f7c4ec914d20da53bdeed5aa967cab5352ca8b6e71e0544b13bbef5430ef48"
+        },
+        {
+          "path": "src/drpo/e7_hopper_q2.py",
+          "sha256": "6b42bffd6eb1dd7f41495f93568990e1e53ef3bcab3fc2ead502d85f23c45b47"
+        },
+        {
+          "path": "tests/test_e7_hopper_q2.py",
+          "sha256": "58fa00b80ac81dd2740f6de57e661925ef8fee1f9fdcbb573198f6a617ddae1f"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_longrun/RESULT_SUMMARY.md",
+          "sha256": "5662b380eae305684368b42726059b46a29a5d90d0be7c5eda62f146dfb3d7cb"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_conditional_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "ec73165e954abb03b86ce12fcc0bc348f1da5b98793ebfe7b5211adc181d4347"
+        }
+      ],
+      "field_path": [
+        "execution_gate",
+        "state"
+      ],
+      "from": "blocked",
+      "kind": "transition",
+      "machine": "execution_gate",
+      "to": "ready"
+    },
+    {
+      "change_id": "e6-parent-close-015",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/README_E7_HOPPER_Q2_ONECLICK.md",
+          "sha256": "19f7c4ec914d20da53bdeed5aa967cab5352ca8b6e71e0544b13bbef5430ef48"
+        },
+        {
+          "path": "src/drpo/e7_hopper_q2.py",
+          "sha256": "6b42bffd6eb1dd7f41495f93568990e1e53ef3bcab3fc2ead502d85f23c45b47"
+        },
+        {
+          "path": "tests/test_e7_hopper_q2.py",
+          "sha256": "58fa00b80ac81dd2740f6de57e661925ef8fee1f9fdcbb573198f6a617ddae1f"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_longrun/RESULT_SUMMARY.md",
+          "sha256": "5662b380eae305684368b42726059b46a29a5d90d0be7c5eda62f146dfb3d7cb"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_conditional_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "ec73165e954abb03b86ce12fcc0bc348f1da5b98793ebfe7b5211adc181d4347"
+        }
+      ],
+      "field_path": [
+        "formal_execution",
+        "activation_state"
+      ],
+      "from": "blocked",
+      "kind": "transition",
+      "machine": "activation_state",
+      "to": "active"
+    }
+  ],
+  "registry_change_coverage": {
+    "added_entities": [],
+    "changed_field_count": 15,
+    "declared_assertion_count": 15,
+    "fully_declared": true,
+    "mode": "schema2_complete",
+    "removed_entities": []
+  },
+  "registry_transition_assertions": [
+    {
+      "assertion_id": "e6-parent-close-014",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/README_E7_HOPPER_Q2_ONECLICK.md",
+          "sha256": "19f7c4ec914d20da53bdeed5aa967cab5352ca8b6e71e0544b13bbef5430ef48"
+        },
+        {
+          "path": "src/drpo/e7_hopper_q2.py",
+          "sha256": "6b42bffd6eb1dd7f41495f93568990e1e53ef3bcab3fc2ead502d85f23c45b47"
+        },
+        {
+          "path": "tests/test_e7_hopper_q2.py",
+          "sha256": "58fa00b80ac81dd2740f6de57e661925ef8fee1f9fdcbb573198f6a617ddae1f"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_longrun/RESULT_SUMMARY.md",
+          "sha256": "5662b380eae305684368b42726059b46a29a5d90d0be7c5eda62f146dfb3d7cb"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_conditional_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "ec73165e954abb03b86ce12fcc0bc348f1da5b98793ebfe7b5211adc181d4347"
+        }
+      ],
+      "field_path": [
+        "execution_gate",
+        "state"
+      ],
+      "from": "blocked",
+      "machine": "execution_gate",
+      "to": "ready"
+    },
+    {
+      "assertion_id": "e6-parent-close-015",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/README_E7_HOPPER_Q2_ONECLICK.md",
+          "sha256": "19f7c4ec914d20da53bdeed5aa967cab5352ca8b6e71e0544b13bbef5430ef48"
+        },
+        {
+          "path": "src/drpo/e7_hopper_q2.py",
+          "sha256": "6b42bffd6eb1dd7f41495f93568990e1e53ef3bcab3fc2ead502d85f23c45b47"
+        },
+        {
+          "path": "tests/test_e7_hopper_q2.py",
+          "sha256": "58fa00b80ac81dd2740f6de57e661925ef8fee1f9fdcbb573198f6a617ddae1f"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_longrun/RESULT_SUMMARY.md",
+          "sha256": "5662b380eae305684368b42726059b46a29a5d90d0be7c5eda62f146dfb3d7cb"
+        },
+        {
+          "path": "outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "6dffba1e927de180031b087957dacdc942bec935774e1565f85e70c07b42dbf0"
+        },
+        {
+          "path": "outputs/du1_e6_conditional_gap_longrun/RESULT_SUMMARY.md",
+          "sha256": "ec73165e954abb03b86ce12fcc0bc348f1da5b98793ebfe7b5211adc181d4347"
+        }
+      ],
+      "field_path": [
+        "formal_execution",
+        "activation_state"
+      ],
+      "from": "blocked",
+      "machine": "activation_state",
+      "to": "active"
+    }
+  ],
+  "report_schema_version": 2,
+  "repository_commit": null,
+  "schema_version": 1,
+  "status": "PASS",
+  "update_id": "DU1-E6-PARENT-CLOSURE-2026-06-28",
+  "validation_worktree_head": "e70f0d84256cdeb6ebbf80b0495a043582787bf6"
+}

@@ -1,0 +1,325 @@
+schema_version: 2
+update_id: DU1-E6-PARENT-CLOSURE-2026-06-28
+mode: shadow
+base:
+  commit: e70f0d84256cdeb6ebbf80b0495a043582787bf6
+  handoff_sha256: fc0b8de092993f41f65057a777b462dd18f86e58831116b6a379216799561f82
+  registry_sha256: b1069d88ce6038e9d653f63ff745e5e3fe45d67d6d3473b2375e39457917393f
+renderer_version: 1
+operations:
+- operation_id: rename-v55-title-to-v56-e6-parent-closure
+  op: replace_heading
+  heading_path:
+  - DRPO / SNA2C 远场负梯度动力学研究主文档 v55（D-U1 E6 Semantic-Gap 正式结果闭环版）
+  new_heading: DRPO / SNA2C 远场负梯度动力学研究主文档 v56（D-U1 E6 父 Claim 关闭与 E7 路线解锁版）
+  reason: Record the user-approved scoped closure of the E6 parent claim and release the already implemented E7 mechanism
+    route without deleting prior evidence.
+- operation_id: prepend-v56-e6-parent-closure-route-release
+  op: insert_after_heading
+  heading_path:
+  - DRPO / SNA2C 远场负梯度动力学研究主文档 v56（D-U1 E6 父 Claim 关闭与 E7 路线解锁版）
+  block_id: v56-e6-parent-closure-route-release
+  content: '> **v56 增量登记：E6 父 claim 关闭与 E7-MECH 路线解锁（不删除 v55 及更早内容）**
+
+    >
+
+    > - 用户在确认 `main` commit `e70f0d84256cdeb6ebbf80b0495a043582787bf6` 已提交后，批准对 **E6 父实验/父 claim** 做范围受限关闭。关闭依据是：`D-U1-E6-SEMANTIC-LONGRUN-01`
+    的 `360/360` long-run validated 主结果、`D-U1-E6-SEMANTIC-GAP-LONGRUN-01` 的 `100/100` finite-step robustness successor，以及 `D-U1-E6-CONDITIONAL-GAP-01`
+    的 `200/200` finite-step stress diagnostic。
+
+    > - 本次关闭锁定五项论文可用结论：Positive-only 在共享语义 categorical 环境存在 imitation ceiling；适度受控负信号可改善同分布 held-out-context / unseen-action
+    表现；过强或不抑制负压力会出现性能反转或随 horizon 扩大的退化；semantic alignment 是观察到的未见动作迁移的重要排他性条件；任务性能崩溃、support/temperature boundary 与 NaN/Inf
+    必须继续分报。
+
+    > - 本次关闭不把两个 gap 子实验升级为 long-run validated，也不声称全 alpha 稳态排名、universal alpha optimum、state-distribution OOD generalization、categorical
+    policy 的 Gaussian 二次远场律或跨任务方法优越性。`45/100` semantic-gap plateau 与 `49/200` conditional-gap plateau 的终态边界原样保留。
+
+    > - `D-U1-E6-TAPER-01` 降为**可选、独立、非门禁**的方法形状比较：它仍是 `not_run + not_implemented + blocked`，若未来执行，必须另行冻结 semantic remoteness
+    coordinate、paired protocol、全新 untouched seeds 与独立 runner；但它不再是 E6 父 claim 关闭或 E7-MECH 启动的前置条件。
+
+    > - `EXT-H-E7-Q2` 由 `blocked/blocked` 迁移为 **ready/active**，科学状态仍为 `not_run`。该迁移只开放已经冻结和实现的 Hopper mechanism formal protocol，不代表
+    E7 已运行或已有结果。`EXT-H-E7-BENCH-01` 继续 blocked，但依赖收缩为 E7-Q2 交付和随后冻结 shortlist，不再依赖可选 E6-TAPER。
+
+    > - 本更新只修改研究治理、路线和相应测试/操作说明；未重跑实验，未更改任何冻结变量、数据规模、seeds、阈值、收敛标准或方法职责。'
+- operation_id: append-v56-e6-parent-closure-current-gate
+  op: append_to_section
+  heading_path:
+  - 0. 研究与执行原则（每次新会话首先阅读）
+  - 0.1 当前执行门禁
+  block_id: v56-e6-parent-closure-current-gate
+  content: '- **v56 E6 父 claim 关闭覆盖：** E6 的论文核心 claim 现已范围受限关闭；主 long-run 与两个 gap 子实验的原科学状态分别保持 `long_run_validated / finite_step_validated
+    / finite_step_validated`。`D-U1-E6-TAPER-01` 保留为可选非门禁未来工作。当前下一正式 route item 为 `EXT-H-E7-Q2`，registry 状态为 **implemented
+    + ready + active + not_run**；启动后仍须走 canonical hardened guard，且在 raw-complete、终态审计、打包和交付前不得声称 E7 完成。'
+- operation_id: append-v56-e6-parent-closure-completion-status
+  op: append_to_section
+  heading_path:
+  - 5. 当前真实完成状态
+  block_id: v56-e6-parent-closure-completion-status
+  content: '**v56 E6 父实验关闭判断：** E6 已达到当前论文所需的机制与泛化证据闭环：主语义 long-run 给出 Positive-only ceiling、适度负信号收益、过强压力反转与 semantic-alignment
+    排他性；semantic-gap successor 复现中等 alpha 收益和 `alpha=1` 随 horizon 扩大的退化；conditional-gap stress diagnostic 证明更强支持缺口下局部收益与 overall
+    trade-off、强压力任务崩溃及控制救援。关闭的是上述父 claim，不是把所有子运行宣称为稳态，也不是冻结 universal 方法排名。'
+- operation_id: append-v56-e6-parent-closure-execution-order
+  op: append_to_section
+  heading_path:
+  - 6. 接下来唯一执行顺序
+  block_id: v56-e6-parent-closure-execution-order
+  content: 13. **v56 执行覆盖：** E6 父 claim 已关闭，`D-U1-E6-TAPER-01` 改为可选非门禁 future study；当前直接进入已实现且 registry 为 ready/active 的 `EXT-H-E7-Q2`（E7-MECH）。E7-Q2
+    仍为 not_run，必须先完成正式运行、终态审计、打包与交付；其后才允许冻结并实施 `EXT-H-E7-BENCH-01`。E8-MECH/V4.3 与 E8-SCALE 的相对顺序不变。
+registry:
+  mode: expected_after
+  expected_after_sha256: e4184acff76a4e6beed77aea208a2e023a8de7f2fb3696c4ffc858b830100eae
+  changes:
+  - change_id: e6-parent-close-001
+    entity_id: C-U1-E4-TAPER-01
+    evidence:
+    - docs/handoff.md
+    - tests/test_experiment_route_v42.py
+    - outputs/du1_e6_semantic_longrun/RESULT_SUMMARY.md
+    - outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md
+    - outputs/du1_e6_conditional_gap_longrun/RESULT_SUMMARY.md
+    kind: update_field
+    field_path:
+    - next_gate
+    - project_route
+    from: D-U1-E6-SEMANTIC-LONGRUN-01_ready_active
+    to: EXT-H-E7-Q2_ready_active
+    reason: Record the scoped E6 parent-claim closure and remove optional E6-TAPER from the mandatory E7 route without changing
+      any experiment result or frozen protocol.
+  - change_id: e6-parent-close-002
+    entity_id: D-U1-E6-SEMANTIC-LONGRUN-01
+    evidence: &id001
+    - outputs/du1_e6_semantic_longrun/RESULT_SUMMARY.md
+    - outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md
+    - outputs/du1_e6_conditional_gap_longrun/RESULT_SUMMARY.md
+    kind: update_field
+    field_path:
+    - next_gate
+    - automatic_activation_forbidden
+    from: true
+    to: false
+    reason: Record the scoped E6 parent-claim closure and remove optional E6-TAPER from the mandatory E7 route without changing
+      any experiment result or frozen protocol.
+  - change_id: e6-parent-close-003
+    entity_id: D-U1-E6-SEMANTIC-LONGRUN-01
+    evidence: *id001
+    kind: update_field
+    field_path:
+    - next_gate
+    - experiment_id
+    from: D-U1-E6-TAPER-01
+    to: EXT-H-E7-Q2
+    reason: Record the scoped E6 parent-claim closure and remove optional E6-TAPER from the mandatory E7 route without changing
+      any experiment result or frozen protocol.
+  - change_id: e6-parent-close-004
+    entity_id: D-U1-E6-SEMANTIC-LONGRUN-01
+    evidence: *id001
+    kind: update_field
+    field_path:
+    - next_gate
+    - optional_non_gating_follow_up
+    from: null
+    to: D-U1-E6-TAPER-01
+    reason: Record the scoped E6 parent-claim closure and remove optional E6-TAPER from the mandatory E7 route without changing
+      any experiment result or frozen protocol.
+  - change_id: e6-parent-close-005
+    entity_id: D-U1-E6-SEMANTIC-LONGRUN-01
+    evidence: *id001
+    kind: update_field
+    field_path:
+    - next_gate
+    - remaining_requirements
+    from:
+    - freeze_semantic_remoteness_coordinate
+    - freeze_paired_method_protocol
+    - freeze_new_untouched_held_out_seeds
+    - implement_separate_formal_runner
+    to: []
+    reason: Record the scoped E6 parent-claim closure and remove optional E6-TAPER from the mandatory E7 route without changing
+      any experiment result or frozen protocol.
+  - change_id: e6-parent-close-006
+    entity_id: D-U1-E6-SEMANTIC-LONGRUN-01
+    evidence: *id001
+    kind: update_field
+    field_path:
+    - next_gate
+    - state
+    from: review_required_not_runnable
+    to: ready
+    reason: Record the scoped E6 parent-claim closure and remove optional E6-TAPER from the mandatory E7 route without changing
+      any experiment result or frozen protocol.
+  - change_id: e6-parent-close-007
+    entity_id: D-U1-E6-SEMANTIC-LONGRUN-01
+    evidence: *id001
+    kind: update_field
+    field_path:
+    - parent_claim_closure
+    from: null
+    to:
+      parent_id: E6
+      state: closed
+      decision_date: '2026-06-28'
+      approval_record: user_approved_close_after_commit_e70f0d84256cdeb6ebbf80b0495a043582787bf6
+      basis_experiments:
+      - D-U1-E6-SEMANTIC-LONGRUN-01
+      - D-U1-E6-CONDITIONAL-GAP-01
+      - D-U1-E6-SEMANTIC-GAP-LONGRUN-01
+      closed_claims:
+      - positive_only_has_a_shared_semantic_imitation_ceiling
+      - moderate_controlled_negative_signal_can_improve_same_distribution_held_out_context_and_unseen_action_performance
+      - excessive_or_unsuppressed_negative_pressure_can_reverse_or_progressively_degrade_task_performance
+      - semantic_alignment_is_required_for_the_observed_unseen_action_transfer
+      - task_performance_support_boundary_and_nan_inf_events_must_be_reported_separately
+      preserved_limitations:
+      - semantic_gap_and_conditional_gap_children_remain_finite_step_validated
+      - no_steady_state_ranking_for_nonplateau_gap_runs
+      - no_universal_alpha_optimum
+      - no_state_distribution_OOD_generalization_claim
+      - no_Gaussian_quadratic_law_claim_for_categorical_policy
+      - no_cross_task_method_superiority_claim
+      optional_non_gating_follow_up: D-U1-E6-TAPER-01
+      optional_follow_up_status: not_run_not_implemented_blocked_until_separately_frozen
+      required_for_parent_closure: false
+      required_before_EXT_H_E7_Q2: false
+    reason: Record the scoped E6 parent-claim closure and remove optional E6-TAPER from the mandatory E7 route without changing
+      any experiment result or frozen protocol.
+  - change_id: e6-parent-close-008
+    entity_id: EXT-H-E7-BENCH-01
+    evidence:
+    - docs/handoff.md
+    - tests/test_experiment_route_v42.py
+    - outputs/du1_e6_semantic_longrun/RESULT_SUMMARY.md
+    - outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md
+    - outputs/du1_e6_conditional_gap_longrun/RESULT_SUMMARY.md
+    kind: update_field
+    field_path:
+    - execution_gate
+    - blocked_by
+    from:
+    - EXT-H-E7-Q2
+    - D-U1-E6-TAPER-01
+    to:
+    - EXT-H-E7-Q2
+    reason: Record the scoped E6 parent-claim closure and remove optional E6-TAPER from the mandatory E7 route without changing
+      any experiment result or frozen protocol.
+  - change_id: e6-parent-close-009
+    entity_id: EXT-H-E7-BENCH-01
+    evidence:
+    - docs/handoff.md
+    - tests/test_experiment_route_v42.py
+    - outputs/du1_e6_semantic_longrun/RESULT_SUMMARY.md
+    - outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md
+    - outputs/du1_e6_conditional_gap_longrun/RESULT_SUMMARY.md
+    kind: update_field
+    field_path:
+    - execution_gate
+    - blocking_reason
+    from: The Hopper mechanism stage and both controlled taper stages must be delivered before the large public benchmark
+      freezes its method shortlist and hyperparameters.
+    to: The large public benchmark remains blocked until EXT-H-E7-Q2 is terminal-audited, packaged, delivered, and the controlled-method
+      shortlist is frozen without D4RL retuning. Optional D-U1-E6-TAPER-01 is not a prerequisite.
+    reason: Record the scoped E6 parent-claim closure and remove optional E6-TAPER from the mandatory E7 route without changing
+      any experiment result or frozen protocol.
+  - change_id: e6-parent-close-010
+    entity_id: EXT-H-E7-BENCH-01
+    evidence:
+    - docs/handoff.md
+    - tests/test_experiment_route_v42.py
+    - outputs/du1_e6_semantic_longrun/RESULT_SUMMARY.md
+    - outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md
+    - outputs/du1_e6_conditional_gap_longrun/RESULT_SUMMARY.md
+    kind: update_field
+    field_path:
+    - shortlist_rule
+    from: freeze_after_E4_and_E6_taper_without_D4RL_retuning
+    to: freeze_after_E4_E6_core_closure_and_E7_mechanism_without_D4RL_retuning
+    reason: Record the scoped E6 parent-claim closure and remove optional E6-TAPER from the mandatory E7 route without changing
+      any experiment result or frozen protocol.
+  - change_id: e6-parent-close-011
+    entity_id: EXT-H-E7-Q2
+    evidence:
+    - docs/README_E7_HOPPER_Q2_ONECLICK.md
+    - src/drpo/e7_hopper_q2.py
+    - tests/test_e7_hopper_q2.py
+    - outputs/du1_e6_semantic_longrun/RESULT_SUMMARY.md
+    - outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md
+    - outputs/du1_e6_conditional_gap_longrun/RESULT_SUMMARY.md
+    kind: update_field
+    field_path:
+    - evidence
+    - code_committed
+    from: false
+    to: true
+    reason: Record the scoped E6 parent-claim closure and remove optional E6-TAPER from the mandatory E7 route without changing
+      any experiment result or frozen protocol.
+  - change_id: e6-parent-close-012
+    entity_id: EXT-H-E7-Q2
+    evidence:
+    - docs/README_E7_HOPPER_Q2_ONECLICK.md
+    - src/drpo/e7_hopper_q2.py
+    - tests/test_e7_hopper_q2.py
+    - outputs/du1_e6_semantic_longrun/RESULT_SUMMARY.md
+    - outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md
+    - outputs/du1_e6_conditional_gap_longrun/RESULT_SUMMARY.md
+    kind: update_field
+    field_path:
+    - execution_gate
+    - blocked_by
+    from:
+    - D-U1-E6-TAPER-01
+    to: []
+    reason: Record the scoped E6 parent-claim closure and remove optional E6-TAPER from the mandatory E7 route without changing
+      any experiment result or frozen protocol.
+  - change_id: e6-parent-close-013
+    entity_id: EXT-H-E7-Q2
+    evidence:
+    - docs/README_E7_HOPPER_Q2_ONECLICK.md
+    - src/drpo/e7_hopper_q2.py
+    - tests/test_e7_hopper_q2.py
+    - outputs/du1_e6_semantic_longrun/RESULT_SUMMARY.md
+    - outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md
+    - outputs/du1_e6_conditional_gap_longrun/RESULT_SUMMARY.md
+    kind: update_field
+    field_path:
+    - execution_gate
+    - blocking_reason
+    from: The Hopper mechanism runner is implemented, but the locked cross-environment route requires D-U1-E6-TAPER-01 to
+      be delivered before formal launch.
+    to: E6 parent claims are closed; the implemented Hopper mechanism experiment is the next registered formal route item.
+      No E7 scientific run has started.
+    reason: Record the scoped E6 parent-claim closure and remove optional E6-TAPER from the mandatory E7 route without changing
+      any experiment result or frozen protocol.
+  - change_id: e6-parent-close-014
+    entity_id: EXT-H-E7-Q2
+    evidence:
+    - docs/README_E7_HOPPER_Q2_ONECLICK.md
+    - src/drpo/e7_hopper_q2.py
+    - tests/test_e7_hopper_q2.py
+    - outputs/du1_e6_semantic_longrun/RESULT_SUMMARY.md
+    - outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md
+    - outputs/du1_e6_conditional_gap_longrun/RESULT_SUMMARY.md
+    kind: transition
+    field_path:
+    - execution_gate
+    - state
+    machine: execution_gate
+    from: blocked
+    to: ready
+  - change_id: e6-parent-close-015
+    entity_id: EXT-H-E7-Q2
+    evidence:
+    - docs/README_E7_HOPPER_Q2_ONECLICK.md
+    - src/drpo/e7_hopper_q2.py
+    - tests/test_e7_hopper_q2.py
+    - outputs/du1_e6_semantic_longrun/RESULT_SUMMARY.md
+    - outputs/du1_e6_semantic_gap_longrun/RESULT_SUMMARY.md
+    - outputs/du1_e6_conditional_gap_longrun/RESULT_SUMMARY.md
+    kind: transition
+    field_path:
+    - formal_execution
+    - activation_state
+    machine: activation_state
+    from: blocked
+    to: active
+expected:
+  candidate_sha256: a7c2b572a42ff3cbe7329994b30818963423ed9d256e8e876bc8aa34b19ed375
+  manual_sha256: a7c2b572a42ff3cbe7329994b30818963423ed9d256e8e876bc8aa34b19ed375

@@ -227,10 +227,25 @@ def test_historical_e7_canonical_critic_rollout_delta_matches_repository_after_i
     assert result.report["candidate_replaced_authority"] is False
 
 
-def test_current_semantic_gap_closure_delta_matches_manual_handoff() -> None:
+def test_historical_semantic_gap_closure_delta_matches_repository_after_image() -> None:
     delta = (
         ROOT
         / "docs/handoff_deltas/DU1-E6-SEMANTIC-GAP-CLOSURE-2026-06-28/HANDOFF_DELTA.yaml"
+    )
+    result = MODULE.check_delta(
+        ROOT, delta, target_commit="e70f0d84256cdeb6ebbf80b0495a043582787bf6"
+    )
+    assert result.report["status"] == "PASS"
+    assert result.report["exact_manual_candidate_match"] is True
+    assert result.report["idempotence_passed"] is True
+    assert result.report["candidate_replaced_authority"] is False
+    assert result.report["registry_change_coverage"]["fully_declared"] is True
+
+
+def test_current_e6_parent_closure_delta_matches_manual_handoff() -> None:
+    delta = (
+        ROOT
+        / "docs/handoff_deltas/DU1-E6-PARENT-CLOSURE-2026-06-28/HANDOFF_DELTA.yaml"
     )
     result = MODULE.check_delta(ROOT, delta)
     assert result.report["status"] == "PASS"
@@ -429,7 +444,7 @@ def test_full_acceptance_mutations_are_rejected(tmp_path: Path) -> None:
         MODULE.verify_history_preservation(base_text, malicious, [])
 
 
-def test_full_acceptance_fast_gate_stays_below_hard_limit() -> None:
+def test_historical_full_acceptance_fast_gate_stays_below_hard_limit() -> None:
     delta = (
         ROOT
         / "docs/handoff_deltas/DU1-E6-SEMANTIC-GAP-CLOSURE-2026-06-28/HANDOFF_DELTA.yaml"
@@ -437,7 +452,11 @@ def test_full_acceptance_fast_gate_stays_below_hard_limit() -> None:
     samples = []
     for _ in range(3):
         started = time.perf_counter()
-        MODULE.check_delta(ROOT, delta)
+        MODULE.check_delta(
+            ROOT,
+            delta,
+            target_commit="e70f0d84256cdeb6ebbf80b0495a043582787bf6",
+        )
         samples.append(time.perf_counter() - started)
     assert max(samples) < 15.0
 

@@ -92,9 +92,9 @@ Every artifact file is rehashed before reuse. A nonterminal critic artifact is r
 
 ## Formal run
 
-`EXT-H-E7-Q2` is still registry-blocked by the locked experiment order. Do not launch formal mode until `experiments/registry.yaml` changes both its scientific gate and operational activation state to ready/active.
+`EXT-H-E7-Q2` is now the next registered formal route item: its scientific gate is `ready` and its operational activation state is `active`. Its scientific status remains `not_run`; this route release is permission to launch the frozen protocol, not evidence that Hopper results already exist.
 
-After that separate gate transition, formal execution uses:
+Formal execution uses:
 
 ```bash
 python3 scripts/run_e7_hopper_q2.py \

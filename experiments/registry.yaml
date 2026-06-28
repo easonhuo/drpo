@@ -1082,18 +1082,18 @@ experiments:
   next_gate:
     automatic_horizon_extension_forbidden: true
     convergence_resolution_requires_new_registration: true
-    project_route: D-U1-E6-SEMANTIC-LONGRUN-01_ready_active
+    project_route: EXT-H-E7-Q2_ready_active
   artifact_budget:
     main_package_hard_limit_mib: 25
     checkpoint_policy: persistent_local_index
     checkpoint_every_formal_seeds: 5
 - id: EXT-H-E7-Q2
   execution_gate:
-    state: blocked
-    blocked_by: [D-U1-E6-TAPER-01]
+    state: ready
+    blocked_by: []
     blocking_reason: >-
-      The Hopper mechanism runner is implemented, but the locked cross-environment
-      route requires D-U1-E6-TAPER-01 to be delivered before formal launch.
+      E6 parent claims are closed; the implemented Hopper mechanism experiment is
+      the next registered formal route item. No E7 scientific run has started.
   environment: EXT-H
   name: hopper_gaussian_log_scale_quadratic_external_validation
   status: not_run
@@ -1112,7 +1112,7 @@ experiments:
   execution_class: formal
   formal_execution:
     channel_ref: hardened-v1
-    activation_state: blocked
+    activation_state: active
     entrypoint_status: implemented
     entrypoint: src/drpo/e7_hopper_q2.py
     launch_mode: canonical_guard
@@ -1264,7 +1264,7 @@ experiments:
     last_heartbeat_utc: null
     process_exit_code: null
   evidence:
-    code_committed: false
+    code_committed: true
     implementation_tests_passed: true
     run_started: false
     raw_complete: false
@@ -2318,11 +2318,11 @@ experiments:
 - id: EXT-H-E7-BENCH-01
   execution_gate:
     state: blocked
-    blocked_by: [EXT-H-E7-Q2, D-U1-E6-TAPER-01]
+    blocked_by: [EXT-H-E7-Q2]
     blocking_reason: >-
-      The Hopper mechanism stage and both controlled taper stages must be
-      delivered before the large public benchmark freezes its method shortlist
-      and hyperparameters.
+      The large public benchmark remains blocked until EXT-H-E7-Q2 is
+      terminal-audited, packaged, delivered, and the controlled-method shortlist
+      is frozen without D4RL retuning. Optional D-U1-E6-TAPER-01 is not a prerequisite.
   environment: EXT-H
   name: d4rl_mujoco_locomotion_method_benchmark
   status: not_run
@@ -2358,7 +2358,7 @@ experiments:
     excludes_from_primary_suite: [antmaze, kitchen, adroit]
   mandatory_baselines: [offline_rl_base, positive_only, uncontrolled_negative, global_alpha]
   candidate_controllers: [reciprocal_linear, reciprocal_quadratic, exponential]
-  shortlist_rule: freeze_after_E4_and_E6_taper_without_D4RL_retuning
+  shortlist_rule: freeze_after_E4_E6_core_closure_and_E7_mechanism_without_D4RL_retuning
   primary_metrics:
   - normalized_return
   - paired_multiseed_confidence_interval
@@ -2677,15 +2677,38 @@ experiments:
     - cross_task_method_superiority
     - far_cap_or_global_alpha_universal_winner
     - far_field_pressure_as_the_sole_cause_of_all_failures
+  parent_claim_closure:
+    parent_id: E6
+    state: closed
+    decision_date: '2026-06-28'
+    approval_record: user_approved_close_after_commit_e70f0d84256cdeb6ebbf80b0495a043582787bf6
+    basis_experiments:
+    - D-U1-E6-SEMANTIC-LONGRUN-01
+    - D-U1-E6-CONDITIONAL-GAP-01
+    - D-U1-E6-SEMANTIC-GAP-LONGRUN-01
+    closed_claims:
+    - positive_only_has_a_shared_semantic_imitation_ceiling
+    - moderate_controlled_negative_signal_can_improve_same_distribution_held_out_context_and_unseen_action_performance
+    - excessive_or_unsuppressed_negative_pressure_can_reverse_or_progressively_degrade_task_performance
+    - semantic_alignment_is_required_for_the_observed_unseen_action_transfer
+    - task_performance_support_boundary_and_nan_inf_events_must_be_reported_separately
+    preserved_limitations:
+    - semantic_gap_and_conditional_gap_children_remain_finite_step_validated
+    - no_steady_state_ranking_for_nonplateau_gap_runs
+    - no_universal_alpha_optimum
+    - no_state_distribution_OOD_generalization_claim
+    - no_Gaussian_quadratic_law_claim_for_categorical_policy
+    - no_cross_task_method_superiority_claim
+    optional_non_gating_follow_up: D-U1-E6-TAPER-01
+    optional_follow_up_status: not_run_not_implemented_blocked_until_separately_frozen
+    required_for_parent_closure: false
+    required_before_EXT_H_E7_Q2: false
   next_gate:
-    experiment_id: D-U1-E6-TAPER-01
-    state: review_required_not_runnable
-    automatic_activation_forbidden: true
-    remaining_requirements:
-    - freeze_semantic_remoteness_coordinate
-    - freeze_paired_method_protocol
-    - freeze_new_untouched_held_out_seeds
-    - implement_separate_formal_runner
+    experiment_id: EXT-H-E7-Q2
+    state: ready
+    automatic_activation_forbidden: false
+    remaining_requirements: []
+    optional_non_gating_follow_up: D-U1-E6-TAPER-01
 
 - id: D-U1-E6-SEMANTIC-GAP-LONGRUN-01
   environment: D-U1

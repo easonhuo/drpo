@@ -144,7 +144,7 @@ def test_artifact_index_hashes_all_compact_repository_evidence() -> None:
 
 def test_handoff_records_finite_step_boundary_and_correct_terminology() -> None:
     handoff = (REPO_ROOT / "docs" / "handoff.md").read_text()
-    assert "v55（D-U1 E6 Semantic-Gap 正式结果闭环版）" in handoff
+    assert "v55 增量登记：`D-U1-E6-SEMANTIC-GAP-LONGRUN-01` 正式结果" in handoff
     assert "`100/100` method-seed runs" in handoff
     assert "`45/100` runs" in handoff
     assert "`55/100` 为 persistent-drift-or-inconclusive" in handoff

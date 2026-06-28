@@ -1,4 +1,4 @@
-# DRPO / SNA2C 远场负梯度动力学研究主文档 v55（D-U1 E6 Semantic-Gap 正式结果闭环版）
+# DRPO / SNA2C 远场负梯度动力学研究主文档 v56（D-U1 E6 父 Claim 关闭与 E7 路线解锁版）
 <!-- HANDOFF-DELTA-BLOCK:after_heading:v50-stage3-shadow-bootstrap:START -->
 > **v50 增量登记：治理 Pipeline Stage 3 `HANDOFF_DELTA.yaml` shadow mode 启动（不删除 v49 及更早内容）**
 >
@@ -72,6 +72,16 @@
 > - `D-U1-E6-TAPER-01` 的 semantic-gap successor delivery blocker 已满足并移除，但 semantic remoteness coordinate、paired protocol、新 untouched seeds 与独立 formal runner 仍未冻结/实现；其状态继续是 **not_run + not_implemented + review-required/blocked**，不得自动启动。
 > - 本仓库闭环更新基于 `main` commit `fa225510e3e3e4616f36d8f586611aa6af79bf6e`；未重跑正式实验，也未修改冻结变量、seeds、阈值或训练协议。
 <!-- HANDOFF-DELTA-BLOCK:after_heading:v55-du1-e6-semantic-gap-result-closure:END -->
+<!-- HANDOFF-DELTA-BLOCK:after_heading:v56-e6-parent-closure-route-release:START -->
+> **v56 增量登记：E6 父 claim 关闭与 E7-MECH 路线解锁（不删除 v55 及更早内容）**
+>
+> - 用户在确认 `main` commit `e70f0d84256cdeb6ebbf80b0495a043582787bf6` 已提交后，批准对 **E6 父实验/父 claim** 做范围受限关闭。关闭依据是：`D-U1-E6-SEMANTIC-LONGRUN-01` 的 `360/360` long-run validated 主结果、`D-U1-E6-SEMANTIC-GAP-LONGRUN-01` 的 `100/100` finite-step robustness successor，以及 `D-U1-E6-CONDITIONAL-GAP-01` 的 `200/200` finite-step stress diagnostic。
+> - 本次关闭锁定五项论文可用结论：Positive-only 在共享语义 categorical 环境存在 imitation ceiling；适度受控负信号可改善同分布 held-out-context / unseen-action 表现；过强或不抑制负压力会出现性能反转或随 horizon 扩大的退化；semantic alignment 是观察到的未见动作迁移的重要排他性条件；任务性能崩溃、support/temperature boundary 与 NaN/Inf 必须继续分报。
+> - 本次关闭不把两个 gap 子实验升级为 long-run validated，也不声称全 alpha 稳态排名、universal alpha optimum、state-distribution OOD generalization、categorical policy 的 Gaussian 二次远场律或跨任务方法优越性。`45/100` semantic-gap plateau 与 `49/200` conditional-gap plateau 的终态边界原样保留。
+> - `D-U1-E6-TAPER-01` 降为**可选、独立、非门禁**的方法形状比较：它仍是 `not_run + not_implemented + blocked`，若未来执行，必须另行冻结 semantic remoteness coordinate、paired protocol、全新 untouched seeds 与独立 runner；但它不再是 E6 父 claim 关闭或 E7-MECH 启动的前置条件。
+> - `EXT-H-E7-Q2` 由 `blocked/blocked` 迁移为 **ready/active**，科学状态仍为 `not_run`。该迁移只开放已经冻结和实现的 Hopper mechanism formal protocol，不代表 E7 已运行或已有结果。`EXT-H-E7-BENCH-01` 继续 blocked，但依赖收缩为 E7-Q2 交付和随后冻结 shortlist，不再依赖可选 E6-TAPER。
+> - 本更新只修改研究治理、路线和相应测试/操作说明；未重跑实验，未更改任何冻结变量、数据规模、seeds、阈值、收敛标准或方法职责。
+<!-- HANDOFF-DELTA-BLOCK:after_heading:v56-e6-parent-closure-route-release:END -->
 
 > **v49 增量登记：治理 Pipeline Stage 1/2 冻结式关闭（不删除 v48 及更早内容）**
 >
@@ -605,6 +615,9 @@
 <!-- HANDOFF-DELTA-BLOCK:section_end:v55-du1-e6-semantic-gap-current-gate:START -->
 - **D-U1 v55 覆盖：** `D-U1-E6-SEMANTIC-GAP-LONGRUN-01` 已完成 `100/100` 正式 runs、2× horizon 与终态审计，科学状态为 **有限训练步数验证**；45/100 plateau、55/100 persistent-drift-or-inconclusive，禁止稳态方法排名或无新登记重跑。`D-U1-E6-TAPER-01` 的 successor-delivery 条件已满足，但其四项协议/实现门禁仍未完成，继续 review-required + blocked。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v55-du1-e6-semantic-gap-current-gate:END -->
+<!-- HANDOFF-DELTA-BLOCK:section_end:v56-e6-parent-closure-current-gate:START -->
+- **v56 E6 父 claim 关闭覆盖：** E6 的论文核心 claim 现已范围受限关闭；主 long-run 与两个 gap 子实验的原科学状态分别保持 `long_run_validated / finite_step_validated / finite_step_validated`。`D-U1-E6-TAPER-01` 保留为可选非门禁未来工作。当前下一正式 route item 为 `EXT-H-E7-Q2`，registry 状态为 **implemented + ready + active + not_run**；启动后仍须走 canonical hardened guard，且在 raw-complete、终态审计、打包和交付前不得声称 E7 完成。
+<!-- HANDOFF-DELTA-BLOCK:section_end:v56-e6-parent-closure-current-gate:END -->
 
 ## 0.2 C-U1 泛化术语覆盖规则（v15 锁定）
 
@@ -994,6 +1007,9 @@ $$
 <!-- HANDOFF-DELTA-BLOCK:section_end:v55-du1-e6-semantic-gap-completion-status:START -->
 **v55 E6 Semantic-Gap 结果补充：** `D-U1-E6-SEMANTIC-GAP-LONGRUN-01` 已完成 100/100 runs。32k 时 `alpha=0.25/0.50` 均 20/20 胜过 Positive-only；`alpha=1.0` 相对差距随 8k→32k 由 `-0.013741` 扩大至 `-0.061085`，20/20 失败。由于仅 45/100 terminal plateau，论文可用状态限定为有限 horizon trajectory 与 paired finite-step claim，不允许全方法稳态排名。三类失效事件分别为 0/100、0/100、0/100。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v55-du1-e6-semantic-gap-completion-status:END -->
+<!-- HANDOFF-DELTA-BLOCK:section_end:v56-e6-parent-closure-completion-status:START -->
+**v56 E6 父实验关闭判断：** E6 已达到当前论文所需的机制与泛化证据闭环：主语义 long-run 给出 Positive-only ceiling、适度负信号收益、过强压力反转与 semantic-alignment 排他性；semantic-gap successor 复现中等 alpha 收益和 `alpha=1` 随 horizon 扩大的退化；conditional-gap stress diagnostic 证明更强支持缺口下局部收益与 overall trade-off、强压力任务崩溃及控制救援。关闭的是上述父 claim，不是把所有子运行宣称为稳态，也不是冻结 universal 方法排名。
+<!-- HANDOFF-DELTA-BLOCK:section_end:v56-e6-parent-closure-completion-status:END -->
 
 # 6. 接下来唯一执行顺序
 
@@ -1018,6 +1034,9 @@ $$
 <!-- HANDOFF-DELTA-BLOCK:section_end:v55-du1-e6-semantic-gap-execution-order:START -->
 12. **v55 执行覆盖：** Semantic-Gap 正式结果已闭环，不再等待该 successor 的 delivery。下一项仍不是直接运行 E6-TAPER，而是先冻结其 semantic remoteness coordinate、paired method protocol、全新 untouched held-out seeds，并实现独立 formal runner；完成用户审阅和 registry activation 前禁止启动。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v55-du1-e6-semantic-gap-execution-order:END -->
+<!-- HANDOFF-DELTA-BLOCK:section_end:v56-e6-parent-closure-execution-order:START -->
+13. **v56 执行覆盖：** E6 父 claim 已关闭，`D-U1-E6-TAPER-01` 改为可选非门禁 future study；当前直接进入已实现且 registry 为 ready/active 的 `EXT-H-E7-Q2`（E7-MECH）。E7-Q2 仍为 not_run，必须先完成正式运行、终态审计、打包与交付；其后才允许冻结并实施 `EXT-H-E7-BENCH-01`。E8-MECH/V4.3 与 E8-SCALE 的相对顺序不变。
+<!-- HANDOFF-DELTA-BLOCK:section_end:v56-e6-parent-closure-execution-order:END -->
 
 # 7. 变量治理
 

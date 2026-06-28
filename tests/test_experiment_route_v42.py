@@ -51,6 +51,11 @@ def test_e6_longrun_is_delivered_and_taper_remains_review_blocked() -> None:
     assert pilot["evidence"]["repository_applied"] is True
     assert pilot["evidence"]["applied_commit"] == ("2e04f6dba6d4e87f61920bedb1c464656906bf2b")
     assert longrun["status"] == "long_run_validated"
+    assert longrun["parent_claim_closure"]["state"] == "closed"
+    assert longrun["parent_claim_closure"]["required_for_parent_closure"] is False
+    assert longrun["parent_claim_closure"]["required_before_EXT_H_E7_Q2"] is False
+    assert longrun["next_gate"]["experiment_id"] == "EXT-H-E7-Q2"
+    assert longrun["next_gate"]["state"] == "ready"
     assert longrun["implementation_state"] == "implemented"
     assert longrun["execution_gate"]["state"] == "blocked"
     assert longrun["formal_execution"]["activation_state"] == "blocked"
@@ -68,15 +73,15 @@ def test_e6_longrun_is_delivered_and_taper_remains_review_blocked() -> None:
     assert taper["blocked_by"]
 
 
-def test_e7_mechanism_is_implemented_but_formal_launch_is_blocked() -> None:
+def test_e7_mechanism_is_implemented_ready_and_still_not_run() -> None:
     entry = _experiments()["EXT-H-E7-Q2"]
     assert entry["status"] == "not_run"
     assert entry["scientific_status"] == "not_run"
     assert entry["implementation_state"] == "implemented"
     assert entry["implementation_commit"] == ("f64452a7452274a183b03c87c39b847039230c00")
-    assert entry["execution_gate"]["state"] == "blocked"
-    assert entry["execution_gate"]["blocked_by"] == ["D-U1-E6-TAPER-01"]
-    assert entry["formal_execution"]["activation_state"] == "blocked"
+    assert entry["execution_gate"]["state"] == "ready"
+    assert entry["execution_gate"]["blocked_by"] == []
+    assert entry["formal_execution"]["activation_state"] == "active"
     assert entry["formal_execution"]["entrypoint_status"] == "implemented"
     assert entry["formal_execution"]["entrypoint"] == "src/drpo/e7_hopper_q2.py"
     assert (ROOT / entry["formal_execution"]["entrypoint"]).is_file()
@@ -107,7 +112,10 @@ def test_e7_benchmark_scope_is_exactly_nine_locomotion_tasks() -> None:
         "medium_expert",
     ]
     assert suite["task_count"] == 9
-    assert bench["shortlist_rule"] == ("freeze_after_E4_and_E6_taper_without_D4RL_retuning")
+    assert bench["execution_gate"]["blocked_by"] == ["EXT-H-E7-Q2"]
+    assert bench["shortlist_rule"] == (
+        "freeze_after_E4_E6_core_closure_and_E7_mechanism_without_D4RL_retuning"
+    )
 
 
 def test_e8_scale_keeps_mechanism_and_scale_roles_separate() -> None:
@@ -140,4 +148,6 @@ def test_handoff_preserves_v42_route_and_records_v45_taper_result() -> None:
     assert "E4-TAPER -> E6 -> E6-TAPER -> E7-MECH -> E7-BENCH -> E8-MECH -> E8-SCALE" in handoff
     assert "D4RL MuJoCo locomotion 9-task suite" in handoff
     assert "implemented + not_run + blocked" in handoff
+    assert "v56 增量登记：E6 父 claim 关闭与 E7-MECH 路线解锁" in handoff
+    assert "它不再是 E6 父 claim 关闭或 E7-MECH 启动的前置条件" in handoff
     assert "不是原 DRPO 分布鲁棒章节中的 linear weighting" in handoff
