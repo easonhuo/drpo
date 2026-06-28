@@ -160,6 +160,9 @@ stages:
     acceptance_entrypoint: scripts/run_handoff_delta_acceptance.py
     bootstrap_delta: docs/handoff_deltas/GOV-STAGE3-SHADOW-BOOTSTRAP-2026-06-27/HANDOFF_DELTA.yaml
     acceptance_state: real_shadow_observation_active
+    feature_state: feature_frozen_bugfix_only
+    freeze_authorization: GOV-STAGE3-FREEZE-STAGE4-DESIGN-2026-06-28
+    freeze_checkpoint_full_acceptance_report: docs/handoff_deltas/GOV-STAGE3-FREEZE-STAGE4-DESIGN-2026-06-28/FULL_ACCEPTANCE_REPORT.json
     observation_ledger_mode: derived_from_delta_reports_and_git_history
     observation_audit_entrypoint: scripts/handoff_delta_shadow.py
     report_persistence: required_and_revalidated
@@ -172,7 +175,19 @@ stages:
     name: lossless_handoff_history_split_shadow_mode
     responsibility: Generate a compact current handoff plus immutable indexed history while preserving all bytes and headings.
     status: blocked_by_predecessor
-    status_authorization: GOV-PIPELINE-STAGE12-CLOSURE-2026-06-27
+    status_authorization: GOV-STAGE3-FREEZE-STAGE4-DESIGN-2026-06-28
+    design_state: specification_authorized
+    design_authorization: GOV-STAGE3-FREEZE-STAGE4-DESIGN-2026-06-28
+    semantic_context_spec: docs/governance_stage4_semantic_context_spec.md
+    implementation_state: blocked_by_predecessor
+    implementation_allowed: false
+    shadow_candidate_only: true
+    manual_handoff_remains_authoritative: true
+    authority_cutover_allowed: false
+    phase_plan:
+    - stage_4a_schema_inventory
+    - stage_4b_lossless_candidate
+    - stage_4c_context_assembly_shadow_validation
     depends_on:
     - stage_3_shadow_validation
     protected_files: []

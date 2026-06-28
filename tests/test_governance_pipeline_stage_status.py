@@ -122,3 +122,51 @@ def test_shadow_active_stage_requires_derived_observation_ledger(tmp_path: Path)
     proc = run_validator(repo, check=False)
     assert proc.returncode == 2
     assert "observation_ledger_mode" in proc.stderr
+
+
+def test_stage3_feature_freeze_cannot_be_silently_relaxed(tmp_path: Path) -> None:
+    repo = copy_repository(tmp_path)
+    ledger_path = repo / "docs" / "governance_pipeline_stage_status.yaml"
+    ledger = yaml.safe_load(ledger_path.read_text())
+    ledger["stages"]["stage_3"]["feature_state"] = "feature_development_open"
+    ledger_path.write_text(yaml.safe_dump(ledger, sort_keys=False))
+
+    proc = run_validator(repo, check=False)
+    assert proc.returncode == 2
+    assert "feature_state must be feature_frozen_bugfix_only" in proc.stderr
+
+
+def test_stage4_design_cannot_enable_implementation_early(tmp_path: Path) -> None:
+    repo = copy_repository(tmp_path)
+    ledger_path = repo / "docs" / "governance_pipeline_stage_status.yaml"
+    ledger = yaml.safe_load(ledger_path.read_text())
+    ledger["stages"]["stage_4"]["implementation_allowed"] = True
+    ledger_path.write_text(yaml.safe_dump(ledger, sort_keys=False))
+
+    proc = run_validator(repo, check=False)
+    assert proc.returncode == 2
+    assert "implementation must not be allowed" in proc.stderr
+
+
+def test_stage4_design_cannot_switch_authority(tmp_path: Path) -> None:
+    repo = copy_repository(tmp_path)
+    ledger_path = repo / "docs" / "governance_pipeline_stage_status.yaml"
+    ledger = yaml.safe_load(ledger_path.read_text())
+    ledger["stages"]["stage_4"]["authority_cutover_allowed"] = True
+    ledger_path.write_text(yaml.safe_dump(ledger, sort_keys=False))
+
+    proc = run_validator(repo, check=False)
+    assert proc.returncode == 2
+    assert "stage_4 design must forbid authority cutover" in proc.stderr
+
+
+def test_stage4_phase_order_cannot_be_collapsed(tmp_path: Path) -> None:
+    repo = copy_repository(tmp_path)
+    ledger_path = repo / "docs" / "governance_pipeline_stage_status.yaml"
+    ledger = yaml.safe_load(ledger_path.read_text())
+    ledger["stages"]["stage_4"]["phase_plan"] = ["stage_4_all_at_once"]
+    ledger_path.write_text(yaml.safe_dump(ledger, sort_keys=False))
+
+    proc = run_validator(repo, check=False)
+    assert proc.returncode == 2
+    assert "4A/4B/4C sequence" in proc.stderr

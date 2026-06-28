@@ -48,6 +48,15 @@ def observation_fingerprint(update_ids: list[str]) -> str:
     return shadow.sha256_text("\n".join(sorted(update_ids)) + "\n")
 
 
+def real_observation_ids(observations: list[dict[str, object]]) -> list[str]:
+    """Return canonical lexicographic coverage IDs for durable Full reports."""
+    return sorted(
+        str(item["update_id"])
+        for item in observations
+        if item.get("kind") == "real"
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repo-root", type=Path, default=Path.cwd())
@@ -138,7 +147,7 @@ def main() -> int:
     }
     if args.tier == "full" and passed:
         observations = shadow.observation_records(repo)
-        real_ids = [item["update_id"] for item in observations if item["kind"] == "real"]
+        real_ids = real_observation_ids(observations)
         report["coverage"] = {
             "bootstrap_observation_count": sum(
                 item["kind"] == "bootstrap" for item in observations

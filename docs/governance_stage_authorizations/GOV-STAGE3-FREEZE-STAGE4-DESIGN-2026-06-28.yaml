@@ -1,0 +1,32 @@
+schema_version: 1
+authorization_id: GOV-STAGE3-FREEZE-STAGE4-DESIGN-2026-06-28
+kind: stage_transition
+change_class: stage_transition
+claim_id: GOV-HANDOFF-INDEX-01
+approval_record: user_approved_2026-06-28_freeze_stage_3_and_register_stage_4_shadow_candidate_design
+base_commit: a77b9b4fb3c60622680d94f456f78ebc8785ebe7
+stage_ids:
+- stage_3
+- stage_4
+authorized_stage_statuses:
+  stage_3: shadow_active
+  stage_4: blocked_by_predecessor
+scope:
+- freeze_stage_3_features_while_continuing_real_shadow_observations
+- persist_the_post_mismatch_full_acceptance_checkpoint
+- register_stage_4_semantic_modules_claim_graph_and_dependency_closure_design
+- authorize_stage_4_design_and_static_specification_only
+- keep_stage_4_implementation_blocked_until_stage_3_shadow_validation
+- keep_manual_handoff_authoritative
+- forbid_stage_4_and_stage_5_authority_cutover
+- require_stage_4a_4b_4c_as_separate_acceptance_steps
+authorized_file_hashes: {}
+rollback_plan:
+- remove_the_stage_4_semantic_context_design_specification
+- restore_the_previous_stage_3_and_stage_4_ledger_metadata
+- keep_stage_3_shadow_active_and_the_manual_handoff_authoritative
+- preserve_the_full_acceptance_report_as_historical_evidence_if_already_committed
+remaining_uncertainties:
+- stage_3_time_or_update_count_shadow_validation_gate_is_not_yet_complete
+- stage_4_dependency_extraction_quality_requires_real_shadow_evaluation
+- stage_4_candidate_paths_and_schema_details_remain_to_be_frozen_in_stage_4a

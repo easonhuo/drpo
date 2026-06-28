@@ -314,6 +314,42 @@ def validate(repo_root: Path, ledger_path: Path) -> dict[str, Any]:
             }
             if stage.get("implementation_state") != "implemented":
                 raise StageStatusError("stage_3 shadow_active requires implementation_state=implemented")
+            if stage.get("feature_state") != "feature_frozen_bugfix_only":
+                raise StageStatusError(
+                    "stage_3 feature_state must be feature_frozen_bugfix_only"
+                )
+            freeze_auth_id = require_string(
+                stage.get("freeze_authorization"), "stage_3 freeze_authorization"
+            )
+            freeze_auth = authorizations.get(freeze_auth_id)
+            if freeze_auth is None or freeze_auth.get("kind") != "stage_transition":
+                raise StageStatusError(
+                    "stage_3 feature freeze requires a stage_transition authorization"
+                )
+            expected_freeze_statuses = {
+                "stage_3": "shadow_active",
+                "stage_4": "blocked_by_predecessor",
+            }
+            if any(
+                freeze_auth["authorized_stage_statuses"].get(key) != value
+                for key, value in expected_freeze_statuses.items()
+            ):
+                raise StageStatusError(
+                    "stage_3 feature freeze authorization has inconsistent stage statuses"
+                )
+            checkpoint = require_string(
+                stage.get("freeze_checkpoint_full_acceptance_report"),
+                "stage_3 freeze_checkpoint_full_acceptance_report",
+            )
+            expected_checkpoint = (
+                "docs/handoff_deltas/GOV-STAGE3-FREEZE-STAGE4-DESIGN-2026-06-28/"
+                "FULL_ACCEPTANCE_REPORT.json"
+            )
+            if checkpoint != expected_checkpoint:
+                raise StageStatusError(
+                    "stage_3 freeze checkpoint must use the registered Full Acceptance report"
+                )
+            safe_repo_path(repo_root, checkpoint, "stage_3 freeze Full Acceptance report")
             if stage.get("manual_handoff_remains_authoritative") is not True:
                 raise StageStatusError("stage_3 shadow mode must keep the manual handoff authoritative")
             if stage.get("authority_cutover_allowed") is not False:
@@ -355,6 +391,57 @@ def validate(repo_root: Path, ledger_path: Path) -> dict[str, Any]:
                         f"stage_3 {key} must be {expected_path!r}, got {value!r}"
                     )
                 safe_repo_path(repo_root, value, f"stage_3 {key}")
+
+        if stage_id == "stage_4":
+            if status != "blocked_by_predecessor":
+                raise StageStatusError(
+                    "stage_4 must remain blocked_by_predecessor until Stage 3 shadow validation"
+                )
+            if stage.get("design_state") != "specification_authorized":
+                raise StageStatusError(
+                    "stage_4 design_state must be specification_authorized"
+                )
+            design_auth_id = require_string(
+                stage.get("design_authorization"), "stage_4 design_authorization"
+            )
+            if design_auth_id != status_auth_id:
+                raise StageStatusError(
+                    "stage_4 design and status must use the same authorization"
+                )
+            spec = require_string(
+                stage.get("semantic_context_spec"), "stage_4 semantic_context_spec"
+            )
+            expected_spec = "docs/governance_stage4_semantic_context_spec.md"
+            if spec != expected_spec:
+                raise StageStatusError(
+                    f"stage_4 semantic_context_spec must be {expected_spec}"
+                )
+            safe_repo_path(repo_root, spec, "stage_4 semantic_context_spec")
+            if stage.get("implementation_state") != "blocked_by_predecessor":
+                raise StageStatusError(
+                    "stage_4 implementation must remain blocked_by_predecessor"
+                )
+            if stage.get("implementation_allowed") is not False:
+                raise StageStatusError(
+                    "stage_4 implementation must not be allowed before predecessor closure"
+                )
+            if stage.get("shadow_candidate_only") is not True:
+                raise StageStatusError("stage_4 outputs must remain shadow candidates")
+            if stage.get("manual_handoff_remains_authoritative") is not True:
+                raise StageStatusError(
+                    "stage_4 design must keep the manual handoff authoritative"
+                )
+            if stage.get("authority_cutover_allowed") is not False:
+                raise StageStatusError("stage_4 design must forbid authority cutover")
+            expected_phases = [
+                "stage_4a_schema_inventory",
+                "stage_4b_lossless_candidate",
+                "stage_4c_context_assembly_shadow_validation",
+            ]
+            if stage.get("phase_plan") != expected_phases:
+                raise StageStatusError(
+                    "stage_4 phase_plan must preserve the registered 4A/4B/4C sequence"
+                )
 
         file_reports: list[dict[str, str]] = []
         for entry in protected:

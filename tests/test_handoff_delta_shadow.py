@@ -20,6 +20,15 @@ assert SPEC is not None and SPEC.loader is not None
 MODULE = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = MODULE
 SPEC.loader.exec_module(MODULE)
+sys.modules.setdefault("handoff_delta_shadow", MODULE)
+
+RUNNER_PATH = ROOT / "scripts" / "run_handoff_delta_acceptance.py"
+RUNNER_SPEC = importlib.util.spec_from_file_location(
+    "run_handoff_delta_acceptance_tested", RUNNER_PATH
+)
+assert RUNNER_SPEC is not None and RUNNER_SPEC.loader is not None
+RUNNER = importlib.util.module_from_spec(RUNNER_SPEC)
+RUNNER_SPEC.loader.exec_module(RUNNER)
 
 
 def digest(text: str) -> str:
@@ -1106,3 +1115,11 @@ def test_full_acceptance_report_rejects_invalid_fingerprint(tmp_path: Path) -> N
     observations = MODULE.observation_records(repo, replay=False)
     with pytest.raises(MODULE.HandoffDeltaError, match="fingerprint is invalid"):
         MODULE.full_acceptance_records(repo, observations)
+
+def test_full_acceptance_runner_canonicalizes_coverage_order() -> None:
+    observations = [
+        {"update_id": "Z-LAST", "kind": "real"},
+        {"update_id": "BOOTSTRAP", "kind": "bootstrap"},
+        {"update_id": "A-FIRST", "kind": "real"},
+    ]
+    assert RUNNER.real_observation_ids(observations) == ["A-FIRST", "Z-LAST"]
