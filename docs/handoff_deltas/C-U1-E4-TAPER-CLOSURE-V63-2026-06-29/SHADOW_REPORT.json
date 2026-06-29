@@ -1,0 +1,2885 @@
+{
+  "affected_selectors": [
+    "DRPO / SNA2C \u8fdc\u573a\u8d1f\u68af\u5ea6\u52a8\u529b\u5b66\u7814\u7a76\u4e3b\u6587\u6863 v62\uff08Countdown Online Off-Policy Replay Pilot \u5b9e\u73b0\u7248\uff09",
+    "0. \u7814\u7a76\u4e0e\u6267\u884c\u539f\u5219\uff08\u6bcf\u6b21\u65b0\u4f1a\u8bdd\u9996\u5148\u9605\u8bfb\uff09 / 0.1 \u5f53\u524d\u6267\u884c\u95e8\u7981",
+    "3. \u8fde\u7eed\u7edf\u4e00\u73af\u5883 C-U1 \u7684\u8be6\u7ec6\u8bbe\u8ba1 / 3.8 C-U1 \u5171\u4eab\u5b9e\u73b0\u4e0e\u4e8c\u6b21\u9636\u65b9\u6cd5\u5b9e\u9a8c `C-U1-E4-TAPER-01`",
+    "6. \u63a5\u4e0b\u6765\u552f\u4e00\u6267\u884c\u987a\u5e8f"
+  ],
+  "base_commit": "b503b1245d9de150e034d85ad96405c0be5c2b01",
+  "base_handoff_sha256": "248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb",
+  "base_registry_sha256": "b760c8db417c7a769ea1d6e3dda5d27d8d7d2d3f31e33a13aa5a42e07083720c",
+  "candidate_replaced_authority": false,
+  "candidate_sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d",
+  "comparison_target": "working_tree",
+  "current_registry_sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579",
+  "exact_manual_candidate_match": true,
+  "full_candidate_saved": false,
+  "history_preservation_passed": true,
+  "idempotence_passed": true,
+  "llm_blocking_gate_used": false,
+  "manual_handoff_authoritative": true,
+  "manual_sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d",
+  "mode": "shadow",
+  "network_used": false,
+  "observation_kind": "real",
+  "operation_count": 4,
+  "performance": {
+    "base_validation_ms": 85.702,
+    "comparison_and_registry_ms": 522.115,
+    "hard_limit_ms": 15000.0,
+    "policy_and_schema_ms": 59.06,
+    "render_and_idempotence_ms": 57.863,
+    "target_p95_ms": 5000.0,
+    "total_ms": 724.961,
+    "within_hard_limit": true,
+    "within_target": true
+  },
+  "policy_id": "GOV-HANDOFF-INDEX-01",
+  "registry_change_assertions": [
+    {
+      "change_id": "c-u1-e4-taper-near-retention-01-001",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "compact_repository_deposition_created"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": true
+    },
+    {
+      "change_id": "c-u1-e4-taper-near-retention-01-002",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "completed_runs"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": 280
+    },
+    {
+      "change_id": "c-u1-e4-taper-near-retention-01-003",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "expected_runs"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": 280
+    },
+    {
+      "change_id": "c-u1-e4-taper-near-retention-01-004",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "formal_run_started"
+      ],
+      "from": false,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": true
+    },
+    {
+      "change_id": "c-u1-e4-taper-near-retention-01-005",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "nan_inf_numerical_events"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": 0
+    },
+    {
+      "change_id": "c-u1-e4-taper-near-retention-01-006",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "original_raw_artifact_embedded"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": false
+    },
+    {
+      "change_id": "c-u1-e4-taper-near-retention-01-007",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "original_raw_artifact_hash_available"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": false
+    },
+    {
+      "change_id": "c-u1-e4-taper-near-retention-01-008",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "raw_complete_reported_by_completed_formal_run"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": true
+    },
+    {
+      "change_id": "c-u1-e4-taper-near-retention-01-009",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "run_started"
+      ],
+      "from": false,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": true
+    },
+    {
+      "change_id": "c-u1-e4-taper-near-retention-01-010",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "support_or_variance_boundary_events"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": 20
+    },
+    {
+      "change_id": "c-u1-e4-taper-near-retention-01-011",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "task_performance_collapse_events"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": 13
+    },
+    {
+      "change_id": "c-u1-e4-taper-near-retention-01-012",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "terminal_audited"
+      ],
+      "from": false,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": true
+    },
+    {
+      "change_id": "c-u1-e4-taper-near-retention-01-013",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "terminal_resolution_complete"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": false
+    },
+    {
+      "change_id": "c-u1-e4-taper-near-retention-01-014",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "unresolved_at_maximum_steps"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": 260
+    },
+    {
+      "change_id": "c-u1-e4-taper-near-retention-01-015",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "execution_gate",
+        "blocking_reason"
+      ],
+      "from": "resolved_by_v61_protocol_freeze_and_implemented_runner",
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": "resolved_by_completed_formal_run_and_v62_compact_repository_deposition"
+    },
+    {
+      "change_id": "c-u1-e4-taper-near-retention-01-016",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "execution_gate",
+        "reason"
+      ],
+      "from": "The near region, retention levels, family formulas, development/formal seed firewall, deterministic coefficient calibration, runner, metrics, and terminal audit are frozen. Formal execution is active but has not started; Budget-Match remains blocked until this result is delivered.",
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": "The frozen 280-run matrix completed and was terminal-audited. The result is deposited as finite-step validated; 260/280 runs remained terminally unresolved at 8000 steps, so no steady-state ranking is allowed. The original raw-complete artifact is not embedded in this repository update and its hash must be restored before archival publication."
+    },
+    {
+      "change_id": "c-u1-e4-taper-near-retention-01-017",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "next_gate",
+        "automatic_activation_authorized_by_user"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": true
+    },
+    {
+      "change_id": "c-u1-e4-taper-near-retention-01-018",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "next_gate",
+        "convergence_and_confirmation_remain_blocked"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": true
+    },
+    {
+      "change_id": "c-u1-e4-taper-near-retention-01-019",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "next_gate",
+        "state"
+      ],
+      "from": "blocked_until_near_retention_delivered",
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": "ready_after_v62_application"
+    },
+    {
+      "change_id": "c-u1-e4-taper-near-retention-01-020",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "paper_use"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": {
+        "allowed": [
+          "near_retention_matching_passed_within_tolerance",
+          "faster_tail_candidates_outperformed_reciprocal_linear_on_20_of_20_paired_seeds_at_rho_0_75",
+          "squared_distance_exponential_is_the_strongest_candidate_in_this_frozen_finite_horizon_matrix",
+          "task_support_and_numerical_events_reported_separately"
+        ],
+        "prohibited_claims": [
+          "long_run_validated",
+          "stable_fixed_point_ranking",
+          "OOD_generalization",
+          "universal_method_ranking",
+          "cross_task_superiority",
+          "Adam_optimizer_update_budget_was_matched"
+        ],
+        "suitable_for_finite_horizon_near_retention_matched_shape_claim": true,
+        "suitable_for_terminally_stable_method_ranking": false
+      }
+    },
+    {
+      "change_id": "c-u1-e4-taper-near-retention-01-021",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "result_deposition"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": {
+        "archival_recovery_required": true,
+        "compact_result_path": "outputs/cu1_e4_taper_near_retention",
+        "completed_runs": 280,
+        "expected_runs": 280,
+        "raw_artifact_hash_known_in_v62_build_session": false,
+        "raw_complete_artifact_available_in_v62_build_session": false,
+        "raw_rows_embedded_in_repository": false,
+        "run_commit": "69c8f532570b5c4377a0cd35ff42f0bcb77afef0"
+      }
+    },
+    {
+      "change_id": "c-u1-e4-taper-near-retention-01-022",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "result_summary"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": {
+        "calibration_maximum_absolute_error": 1.11e-16,
+        "calibration_tolerance": 1e-06,
+        "candidate_positive_reward_delta_seeds": {
+          "current_exponential": 20,
+          "reciprocal_quadratic": 20,
+          "squared_distance_exponential": 20
+        },
+        "current_exponential_minus_linear_reward_mean": 0.015619,
+        "interpretation": "Strong finite-horizon evidence that faster tail decay changes harmful-far allocation after initial average near retention is matched; no steady-state or universal winner claim.",
+        "paired_seeds": 20,
+        "primary_retention_level": 0.75,
+        "reciprocal_linear_harmful_far_retention": 0.055886,
+        "reciprocal_quadratic_minus_linear_reward_mean": 0.012002,
+        "squared_distance_exponential_harmful_far_retention": 0.010382,
+        "squared_distance_exponential_minus_linear_reward_mean": 0.036134
+      }
+    },
+    {
+      "change_id": "c-u1-e4-taper-near-retention-01-023",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "scientific_status"
+      ],
+      "from": "not_run",
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": "finite_step_validated"
+    },
+    {
+      "change_id": "c-u1-e4-taper-near-retention-01-024",
+      "entity_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "status"
+      ],
+      "from": "not_run",
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": "finite_step_validated"
+    },
+    {
+      "change_id": "c-u1-e4-taper-budget-match-01-001",
+      "entity_id": "C-U1-E4-TAPER-BUDGET-MATCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "budget_contract",
+        "Adam_parameter_update_norm_logged"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": true
+    },
+    {
+      "change_id": "c-u1-e4-taper-budget-match-01-002",
+      "entity_id": "C-U1-E4-TAPER-BUDGET-MATCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "budget_contract",
+        "Adam_parameter_update_norm_matched"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": false
+    },
+    {
+      "change_id": "c-u1-e4-taper-budget-match-01-003",
+      "entity_id": "C-U1-E4-TAPER-BUDGET-MATCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "budget_contract",
+        "boundary_controls"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": [
+        "positive_only",
+        "unweighted_boundary"
+      ]
+    },
+    {
+      "change_id": "c-u1-e4-taper-budget-match-01-004",
+      "entity_id": "C-U1-E4-TAPER-BUDGET-MATCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "budget_contract",
+        "budget_relative_tolerance"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": 1e-06
+    },
+    {
+      "change_id": "c-u1-e4-taper-budget-match-01-005",
+      "entity_id": "C-U1-E4-TAPER-BUDGET-MATCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "budget_contract",
+        "forbidden_reinterpretation"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": "Do not call this cumulative Adam optimizer-update matching."
+    },
+    {
+      "change_id": "c-u1-e4-taper-budget-match-01-006",
+      "entity_id": "C-U1-E4-TAPER-BUDGET-MATCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "budget_contract",
+        "global_control"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": "unweighted_negative_gradient_direction_scaled_each_step_to_reference_norm"
+    },
+    {
+      "change_id": "c-u1-e4-taper-budget-match-01-007",
+      "entity_id": "C-U1-E4-TAPER-BUDGET-MATCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "budget_contract",
+        "matched_methods"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": [
+        "reciprocal_linear",
+        "reciprocal_quadratic",
+        "current_exponential",
+        "squared_distance_exponential",
+        "global_stepwise_scale"
+      ]
+    },
+    {
+      "change_id": "c-u1-e4-taper-budget-match-01-008",
+      "entity_id": "C-U1-E4-TAPER-BUDGET-MATCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "budget_contract",
+        "matching_rule"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": "detached_scalar_target_norm_divided_by_current_method_negative_gradient_norm"
+    },
+    {
+      "change_id": "c-u1-e4-taper-budget-match-01-009",
+      "entity_id": "C-U1-E4-TAPER-BUDGET-MATCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "budget_contract",
+        "only_negative_gradient_direction_and_near_far_allocation_may_differ"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": true
+    },
+    {
+      "change_id": "c-u1-e4-taper-budget-match-01-010",
+      "entity_id": "C-U1-E4-TAPER-BUDGET-MATCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "budget_contract",
+        "primary_mode"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": "stepwise_raw_negative_gradient_l2_before_Adam"
+    },
+    {
+      "change_id": "c-u1-e4-taper-budget-match-01-011",
+      "entity_id": "C-U1-E4-TAPER-BUDGET-MATCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "budget_contract",
+        "reference_method"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": "reciprocal_linear_at_near_retention_0_75"
+    },
+    {
+      "change_id": "c-u1-e4-taper-budget-match-01-012",
+      "entity_id": "C-U1-E4-TAPER-BUDGET-MATCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "budget_contract",
+        "reference_schedule"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": "paired_seed_reciprocal_linear_actor_same_minibatch_indices"
+    },
+    {
+      "change_id": "c-u1-e4-taper-budget-match-01-013",
+      "entity_id": "C-U1-E4-TAPER-BUDGET-MATCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "budget_contract",
+        "same_initialization_and_minibatch_stream"
+      ],
+      "from": "required",
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": true
+    },
+    {
+      "change_id": "c-u1-e4-taper-budget-match-01-014",
+      "entity_id": "C-U1-E4-TAPER-BUDGET-MATCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "claim"
+      ],
+      "from": "At matched total negative-update budget, test whether distance-selective tapering improves the allocation of update mass between useful near and harmful far negatives relative to reciprocal-linear and Global alpha.",
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": "At the same per-step raw negative-gradient L2 norm before Adam, test whether distance-selective tapering allocates more update mass to useful near negatives and less to harmful far negatives than reciprocal-linear and a non-selective global stepwise scale. Adam parameter-update norms are logged but are not claimed to be matched."
+    },
+    {
+      "change_id": "c-u1-e4-taper-budget-match-01-015",
+      "entity_id": "C-U1-E4-TAPER-BUDGET-MATCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "code_entrypoint"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": "src/drpo/cu1_taper_budget_match_formal.py"
+    },
+    {
+      "change_id": "c-u1-e4-taper-budget-match-01-016",
+      "entity_id": "C-U1-E4-TAPER-BUDGET-MATCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "engineering_smoke_passed"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": true
+    },
+    {
+      "change_id": "c-u1-e4-taper-budget-match-01-017",
+      "entity_id": "C-U1-E4-TAPER-BUDGET-MATCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "formal_run_started"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": false
+    },
+    {
+      "change_id": "c-u1-e4-taper-budget-match-01-018",
+      "entity_id": "C-U1-E4-TAPER-BUDGET-MATCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "implementation_tests_passed"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": true
+    },
+    {
+      "change_id": "c-u1-e4-taper-budget-match-01-019",
+      "entity_id": "C-U1-E4-TAPER-BUDGET-MATCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "execution_gate",
+        "blocked_by"
+      ],
+      "from": [
+        "C-U1-E4-TAPER-NEAR-RETENTION-01_delivered",
+        "frozen_negative_budget_definition",
+        "frozen_global_alpha_control",
+        "frozen_optimizer_level_matching_rule",
+        "separately_implemented_formal_runner"
+      ],
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": []
+    },
+    {
+      "change_id": "c-u1-e4-taper-budget-match-01-020",
+      "entity_id": "C-U1-E4-TAPER-BUDGET-MATCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "execution_gate",
+        "blocking_reason"
+      ],
+      "from": "This experiment starts only after the near-retention result is delivered and the exact stepwise or cumulative negative-update budget is frozen.",
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": "resolved_by_v62_stepwise_raw_negative_gradient_l2_protocol_and_implemented_runner"
+    },
+    {
+      "change_id": "c-u1-e4-taper-budget-match-01-021",
+      "entity_id": "C-U1-E4-TAPER-BUDGET-MATCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "execution_gate",
+        "depends_on_delivered_experiment"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": "C-U1-E4-TAPER-NEAR-RETENTION-01"
+    },
+    {
+      "change_id": "c-u1-e4-taper-budget-match-01-022",
+      "entity_id": "C-U1-E4-TAPER-BUDGET-MATCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "execution_gate",
+        "protocol_freeze"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": "v62_stepwise_raw_negative_gradient_l2_budget_match"
+    },
+    {
+      "change_id": "c-u1-e4-taper-budget-match-01-023",
+      "entity_id": "C-U1-E4-TAPER-BUDGET-MATCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "execution_gate",
+        "reason"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": "Near-Retention is deposited as finite-step validated. The primary budget coordinate, reference schedule, global control, seed firewall, runner, outputs, and interpretation boundary are frozen. Formal execution is active but has not started."
+    },
+    {
+      "change_id": "c-u1-e4-taper-budget-match-01-024",
+      "entity_id": "C-U1-E4-TAPER-BUDGET-MATCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "execution_gate",
+        "state"
+      ],
+      "from": "blocked",
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": "ready"
+    },
+    {
+      "change_id": "c-u1-e4-taper-budget-match-01-025",
+      "entity_id": "C-U1-E4-TAPER-BUDGET-MATCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "formal_execution",
+        "activation_state"
+      ],
+      "from": "blocked",
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": "active"
+    },
+    {
+      "change_id": "c-u1-e4-taper-budget-match-01-026",
+      "entity_id": "C-U1-E4-TAPER-BUDGET-MATCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "formal_execution",
+        "entrypoint"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": "src/drpo/cu1_taper_budget_match_formal.py"
+    },
+    {
+      "change_id": "c-u1-e4-taper-budget-match-01-027",
+      "entity_id": "C-U1-E4-TAPER-BUDGET-MATCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "formal_execution",
+        "entrypoint_status"
+      ],
+      "from": "planned",
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": "implemented"
+    },
+    {
+      "change_id": "c-u1-e4-taper-budget-match-01-028",
+      "entity_id": "C-U1-E4-TAPER-BUDGET-MATCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "formal_launch_template"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": "python3 scripts/run_experiment_guard_hardened.py --experiment-id C-U1-E4-TAPER-BUDGET-MATCH-01 --repo-root . --output-root experiments/results/C-U1-E4-TAPER-BUDGET-MATCH-01/run_001 --artifact-output artifacts/C-U1-E4-TAPER-BUDGET-MATCH-01_RAW_COMPLETE.zip --heartbeat-seconds 60 --stale-seconds 900 --fail-on-stale --progress-glob per_seed_runs_partial.csv --required-output RUN_COMPLETE.json --required-output scientific_run_manifest.json --required-output formal_protocol_freeze.json --required-output calibration.json --required-output budget_audit.json --required-output terminal_audit.json --required-output per_seed_runs.csv --required-output aggregate.csv --required-output paired_summary.json --source-file src/drpo/cu1_taper_budget_match_formal.py --source-file src/drpo/cu1_taper_near_retention_formal.py --source-file src/drpo/cu1_distance_taper_formal.py --source-file src/drpo/cu1_core.py --source-file src/drpo/drpo_cu1_e1_e4_oneclick.py --run-class formal --expected-commit \"$(git rev-parse HEAD)\" --require-origin-main-match -- python3 src/drpo/cu1_taper_budget_match_formal.py --output-dir experiments/results/C-U1-E4-TAPER-BUDGET-MATCH-01/run_001 --base-commit \"$(git rev-parse HEAD)\""
+    },
+    {
+      "change_id": "c-u1-e4-taper-budget-match-01-029",
+      "entity_id": "C-U1-E4-TAPER-BUDGET-MATCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "implementation_state"
+      ],
+      "from": "not_implemented",
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": "implemented"
+    },
+    {
+      "change_id": "c-u1-e4-taper-budget-match-01-030",
+      "entity_id": "C-U1-E4-TAPER-BUDGET-MATCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "next_gate"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": {
+        "automatic_activation_forbidden": true,
+        "experiment_id": "C-U1-E4-TAPER-CONV-01",
+        "state": "blocked_until_budget_match_delivered_and_shortlist_frozen"
+      }
+    },
+    {
+      "change_id": "c-u1-e4-taper-budget-match-01-031",
+      "entity_id": "C-U1-E4-TAPER-BUDGET-MATCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "primary_metrics"
+      ],
+      "from": [
+        "matched_total_negative_update_budget",
+        "near_budget_fraction",
+        "far_budget_fraction",
+        "far_harmful_influence",
+        "held_out_context_reward",
+        "sigma_and_support_trajectory",
+        "task_performance_collapse_event",
+        "support_or_variance_boundary_event",
+        "nan_inf_numerical_event"
+      ],
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": [
+        "maximum_stepwise_negative_gradient_budget_matching_error",
+        "near_useful_gradient_retention",
+        "far_harmful_influence_retention",
+        "near_and_far_negative_budget_fraction",
+        "held_out_context_reward",
+        "cumulative_raw_negative_gradient_norm",
+        "realized_Adam_total_parameter_update_norm_secondary",
+        "sigma_and_support_trajectory",
+        "task_performance_collapse_event",
+        "support_or_variance_boundary_event",
+        "nan_inf_numerical_event"
+      ]
+    },
+    {
+      "change_id": "c-u1-e4-taper-budget-match-01-032",
+      "entity_id": "C-U1-E4-TAPER-BUDGET-MATCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "protocol"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": {
+        "checkpoint_every_formal_seeds": 5,
+        "coefficient_source": "development_seeds_0_4_near_retention_0_75_calibration",
+        "confirmation_seeds_130_149_access": "forbidden",
+        "development_seeds": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "evaluation_interval_steps": 100,
+        "formal_paired_seeds": [
+          110,
+          111,
+          112,
+          113,
+          114,
+          115,
+          116,
+          117,
+          118,
+          119,
+          120,
+          121,
+          122,
+          123,
+          124,
+          125,
+          126,
+          127,
+          128,
+          129
+        ],
+        "initialization_source": "positive_only_adam_2000_step_checkpoint",
+        "learning_rate": 0.0005,
+        "maximum_steps": 8000,
+        "minimum_steps_before_stationarity": 1000,
+        "negative_alpha_before_budget_rescaling": 1.0,
+        "normalized_field_residual_threshold": 0.002,
+        "normalized_slope_threshold": 0.0001,
+        "optimizer": "Adam",
+        "positive_only_absolute_gradient_threshold": 0.001,
+        "scientific_status_cap": "finite_step_validated",
+        "stable_windows": 10,
+        "state_minibatch_size": 256
+      }
+    },
+    {
+      "change_id": "c-u1-e4-taper-budget-match-01-033",
+      "entity_id": "C-U1-E4-TAPER-BUDGET-MATCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "required_outputs"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": [
+        "RUN_COMPLETE.json",
+        "scientific_run_manifest.json",
+        "formal_protocol_freeze.json",
+        "calibration.json",
+        "environment_audit.json",
+        "budget_audit.json",
+        "terminal_audit.json",
+        "per_seed_runs.csv",
+        "aggregate.csv",
+        "paired_summary.json"
+      ]
+    },
+    {
+      "change_id": "c-u1-e4-taper-budget-match-01-034",
+      "entity_id": "C-U1-E4-TAPER-BUDGET-MATCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "terminal_audit"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": {
+        "equal_finite_horizon": 8000,
+        "failure_types_separate": [
+          "task_performance_collapse",
+          "support_or_variance_boundary",
+          "nan_inf_numerical_failure"
+        ],
+        "fixed_horizon_does_not_imply_convergence": true,
+        "long_run_resolution_owned_by": "C-U1-E4-TAPER-CONV-01",
+        "required": true,
+        "scientific_status_cap": "finite_step_validated"
+      }
+    },
+    {
+      "change_id": "c-u1-e4-taper-conv-01-001",
+      "entity_id": "C-U1-E4-TAPER-CONV-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "confirmation_seed_access"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": {
+        "seeds_130_149": "forbidden"
+      }
+    },
+    {
+      "change_id": "c-u1-e4-taper-conv-01-002",
+      "entity_id": "C-U1-E4-TAPER-CONV-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "execution_gate",
+        "blocked_by"
+      ],
+      "from": [
+        "C-U1-E4-TAPER-NEAR-RETENTION-01_delivered",
+        "C-U1-E4-TAPER-BUDGET-MATCH-01_delivered",
+        "frozen_method_shortlist_and_hyperparameters",
+        "frozen_long_horizon_and_terminal_windows",
+        "separately_implemented_formal_runner"
+      ],
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": [
+        "C-U1-E4-TAPER-BUDGET-MATCH-01_delivered",
+        "frozen_shortlist_json_generated_from_preregistered_rule",
+        "separately_implemented_continuation_runner"
+      ]
+    },
+    {
+      "change_id": "c-u1-e4-taper-conv-01-003",
+      "entity_id": "C-U1-E4-TAPER-CONV-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "execution_gate",
+        "blocking_reason"
+      ],
+      "from": "Long-run execution is intentionally deferred until the fairness studies freeze the method formulas and hyperparameters. The original 8000-step experiment may not be extended in place.",
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": "Budget-Match must be delivered before its registered shortlist rule is evaluated and frozen. The long-run runner must consume exact actor and Adam optimizer checkpoints; no old 8000-step run may be extended ad hoc."
+    },
+    {
+      "change_id": "c-u1-e4-taper-conv-01-004",
+      "entity_id": "C-U1-E4-TAPER-CONV-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "shortlist_freeze_rule"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": {
+        "always_include": [
+          "positive_only",
+          "unweighted_boundary",
+          "reciprocal_linear",
+          "global_stepwise_scale"
+        ],
+        "eligibility_all_required": [
+          "near_retention_primary_result_positive_reward_delta_vs_reciprocal_linear_on_at_least_18_of_20_seeds",
+          "budget_match_far_harmful_retention_lower_than_global_stepwise_scale_on_at_least_18_of_20_seeds",
+          "budget_match_reward_delta_vs_reciprocal_linear_nonnegative_on_at_least_18_of_20_seeds",
+          "no_more_nan_inf_events_than_reciprocal_linear"
+        ],
+        "freeze_artifact_required": "FROZEN_CONVERGENCE_SHORTLIST.json_with_sha256",
+        "maximum_selective_candidates": 2,
+        "result_dependent_manual_override": "forbidden_without_new_user_approved_registration",
+        "selective_candidate_pool": [
+          "reciprocal_quadratic",
+          "current_exponential",
+          "squared_distance_exponential"
+        ],
+        "tie_break_order": [
+          "budget_match_mean_held_out_context_reward_descending",
+          "budget_match_mean_far_harmful_retention_ascending",
+          "family_name_lexicographic"
+        ]
+      }
+    },
+    {
+      "change_id": "c-u1-e4-taper-conv-01-005",
+      "entity_id": "C-U1-E4-TAPER-CONV-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "terminal_contract",
+        "Adam_optimizer_state_continuity"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": "required"
+    },
+    {
+      "change_id": "c-u1-e4-taper-conv-01-006",
+      "entity_id": "C-U1-E4-TAPER-CONV-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "terminal_contract",
+        "actor_state_continuity"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": "required"
+    },
+    {
+      "change_id": "c-u1-e4-taper-conv-01-007",
+      "entity_id": "C-U1-E4-TAPER-CONV-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "terminal_contract",
+        "complete_two_times_continuation"
+      ],
+      "from": "required",
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": "required_when_candidate_times_two_is_at_most_32000"
+    },
+    {
+      "change_id": "c-u1-e4-taper-conv-01-008",
+      "entity_id": "C-U1-E4-TAPER-CONV-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "terminal_contract",
+        "continuation_seeds"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": [
+        110,
+        111,
+        112,
+        113,
+        114,
+        115,
+        116,
+        117,
+        118,
+        119,
+        120,
+        121,
+        122,
+        123,
+        124,
+        125,
+        126,
+        127,
+        128,
+        129
+      ]
+    },
+    {
+      "change_id": "c-u1-e4-taper-conv-01-009",
+      "entity_id": "C-U1-E4-TAPER-CONV-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "terminal_contract",
+        "evaluation_interval_steps"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": 100
+    },
+    {
+      "change_id": "c-u1-e4-taper-conv-01-010",
+      "entity_id": "C-U1-E4-TAPER-CONV-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "terminal_contract",
+        "input_checkpoint_owner"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": "C-U1-E4-TAPER-BUDGET-MATCH-01"
+    },
+    {
+      "change_id": "c-u1-e4-taper-conv-01-011",
+      "entity_id": "C-U1-E4-TAPER-CONV-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "terminal_contract",
+        "maximum_total_steps"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": 32000
+    },
+    {
+      "change_id": "c-u1-e4-taper-conv-01-012",
+      "entity_id": "C-U1-E4-TAPER-CONV-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "terminal_contract",
+        "minimum_total_steps_before_new_terminal_candidate"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": 10000
+    },
+    {
+      "change_id": "c-u1-e4-taper-conv-01-013",
+      "entity_id": "C-U1-E4-TAPER-CONV-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "terminal_contract",
+        "normalized_field_residual_threshold"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": 0.002
+    },
+    {
+      "change_id": "c-u1-e4-taper-conv-01-014",
+      "entity_id": "C-U1-E4-TAPER-CONV-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "terminal_contract",
+        "normalized_slope_threshold"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": 0.0001
+    },
+    {
+      "change_id": "c-u1-e4-taper-conv-01-015",
+      "entity_id": "C-U1-E4-TAPER-CONV-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "terminal_contract",
+        "persistent_drift_or_runaway_is_a_resolved_terminal_class_if_explicitly_audited"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": true
+    },
+    {
+      "change_id": "c-u1-e4-taper-conv-01-016",
+      "entity_id": "C-U1-E4-TAPER-CONV-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "terminal_contract",
+        "reference_budget_schedule_continuation"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": "reciprocal_linear_continues_first_then_other_methods_use_its_frozen_stepwise_norm_schedule"
+    },
+    {
+      "change_id": "c-u1-e4-taper-conv-01-017",
+      "entity_id": "C-U1-E4-TAPER-CONV-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "terminal_contract",
+        "stable_windows"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": 10
+    },
+    {
+      "change_id": "c-u1-e4-taper-conv-01-018",
+      "entity_id": "C-U1-E4-TAPER-CONV-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "terminal_contract",
+        "starting_step"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": 8000
+    },
+    {
+      "change_id": "c-u1-e4-taper-confirm-01-001",
+      "entity_id": "C-U1-E4-TAPER-CONFIRM-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "confirmation_contract",
+        "OOD_claim_allowed"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": false
+    },
+    {
+      "change_id": "c-u1-e4-taper-confirm-01-002",
+      "entity_id": "C-U1-E4-TAPER-CONFIRM-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "confirmation_contract",
+        "earlier_seed_roles"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": {
+        "110_129": "budget_and_continuation_evidence_only",
+        "70_89": "predecessor_TAPER_evidence_only",
+        "90_109": "near_retention_formal_evidence_only"
+      }
+    },
+    {
+      "change_id": "c-u1-e4-taper-confirm-01-003",
+      "entity_id": "C-U1-E4-TAPER-CONFIRM-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "confirmation_contract",
+        "exact_untouched_seeds"
+      ],
+      "from": "pending_protocol_freeze_before_any_access",
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": [
+        130,
+        131,
+        132,
+        133,
+        134,
+        135,
+        136,
+        137,
+        138,
+        139,
+        140,
+        141,
+        142,
+        143,
+        144,
+        145,
+        146,
+        147,
+        148,
+        149
+      ]
+    },
+    {
+      "change_id": "c-u1-e4-taper-confirm-01-004",
+      "entity_id": "C-U1-E4-TAPER-CONFIRM-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "confirmation_contract",
+        "maximum_total_steps_inherit_from_frozen_convergence_config"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": true
+    },
+    {
+      "change_id": "c-u1-e4-taper-confirm-01-005",
+      "entity_id": "C-U1-E4-TAPER-CONFIRM-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "confirmation_contract",
+        "method_formula_change_after_confirmation_start"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": "forbidden"
+    },
+    {
+      "change_id": "c-u1-e4-taper-confirm-01-006",
+      "entity_id": "C-U1-E4-TAPER-CONFIRM-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "confirmation_contract",
+        "same_distribution_held_out_context_only"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": true
+    },
+    {
+      "change_id": "c-u1-e4-taper-confirm-01-007",
+      "entity_id": "C-U1-E4-TAPER-CONFIRM-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "confirmation_contract",
+        "seed_access_before_frozen_confirmation_config"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": "forbidden"
+    },
+    {
+      "change_id": "c-u1-e4-taper-confirm-01-008",
+      "entity_id": "C-U1-E4-TAPER-CONFIRM-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "execution_gate",
+        "blocked_by"
+      ],
+      "from": [
+        "C-U1-E4-TAPER-CONV-01_delivered",
+        "frozen_untouched_confirmatory_seeds",
+        "frozen_primary_claim_and_analysis_plan",
+        "frozen_all_method_formulas_and_hyperparameters",
+        "separately_implemented_formal_runner"
+      ],
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": [
+        "C-U1-E4-TAPER-CONV-01_delivered",
+        "frozen_confirmation_config_with_hash",
+        "separately_implemented_confirmation_runner"
+      ]
+    },
+    {
+      "change_id": "c-u1-e4-taper-confirm-01-009",
+      "entity_id": "C-U1-E4-TAPER-CONFIRM-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "execution_gate",
+        "blocking_reason"
+      ],
+      "from": "Confirmation is last. It uses untouched seeds only after all formulas, coefficients, terminal rules, and primary metrics are frozen, with no result-dependent retuning.",
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": "Confirmation is last. Seeds 130-149 are reserved now and may not be accessed by Budget-Match or Convergence. The final shortlist, coefficients, long-run horizon, terminal rules, and primary claims must be frozen after Convergence delivery and before any confirmation access."
+    },
+    {
+      "change_id": "c-u1-e4-taper-confirm-01-010",
+      "entity_id": "C-U1-E4-TAPER-CONFIRM-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        },
+        {
+          "path": "src/drpo/cu1_taper_budget_match_formal.py",
+          "sha256": "615c5d981ca96d05c6f3457a2ac955c10c1cb34be279bf4b2a5fd7fd0ed454c7"
+        }
+      ],
+      "field_path": [
+        "primary_analysis_plan"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the v63 result deposition or the frozen E4-TAPER closure protocol approved in this update.",
+      "to": {
+        "failure_of_task_superiority_does_not_erase_mechanism_result": true,
+        "mechanism_confirmation_report_separately": [
+          "near_useful_retention_noninferiority",
+          "far_harmful_retention_improvement_vs_reciprocal_linear",
+          "far_harmful_retention_improvement_vs_global_stepwise_scale"
+        ],
+        "minimum_directional_consistency_seeds": 16,
+        "paired_bootstrap_confidence_interval": 0.95,
+        "steady_state_ranking_requires_terminal_resolution": "required",
+        "task_confirmation_report_separately": [
+          "paired_held_out_context_reward_delta_vs_reciprocal_linear",
+          "paired_held_out_context_reward_delta_vs_global_stepwise_scale"
+        ],
+        "terminal_confirmation_report_separately": [
+          "terminal_state_classification",
+          "classification_reversal",
+          "persistent_drift_or_runaway",
+          "task_performance_collapse",
+          "support_or_variance_boundary",
+          "nan_inf_numerical_failure"
+        ]
+      }
+    }
+  ],
+  "registry_change_coverage": {
+    "added_entities": [],
+    "changed_field_count": 86,
+    "declared_assertion_count": 86,
+    "fully_declared": true,
+    "mode": "schema2_complete",
+    "removed_entities": []
+  },
+  "registry_transition_assertions": [],
+  "report_schema_version": 2,
+  "repository_commit": null,
+  "schema_version": 1,
+  "status": "PASS",
+  "update_id": "C-U1-E4-TAPER-CLOSURE-V63-2026-06-29",
+  "validation_worktree_head": "b503b1245d9de150e034d85ad96405c0be5c2b01"
+}

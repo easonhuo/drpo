@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "experiment_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+  "run_commit": "69c8f532570b5c4377a0cd35ff42f0bcb77afef0",
+  "scientific_status": "finite_step_validated",
+  "execution_scope": "same-distribution held-out-context generalization; not OOD",
+  "formal_matrix": {
+    "development_seeds": [0, 1, 2, 3, 4],
+    "formal_seeds": [90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109],
+    "methods_per_seed": 14,
+    "expected_runs": 280,
+    "completed_runs": 280,
+    "maximum_steps": 8000
+  },
+  "calibration": {
+    "primary_near_retention": 0.75,
+    "sensitivity_near_retentions": [0.5, 0.25],
+    "near_region": "initial standardized distance d <= 5 at the frozen positive-only checkpoint",
+    "maximum_absolute_error": 1.11e-16,
+    "registered_tolerance": 1e-6,
+    "passed": true
+  },
+  "primary_paired_results_at_near_retention_0_75": {
+    "reference": "reciprocal_linear",
+    "reciprocal_quadratic": {
+      "mean_held_out_context_reward_delta": 0.012002,
+      "positive_delta_seeds": 20,
+      "paired_seeds": 20
+    },
+    "current_exponential": {
+      "mean_held_out_context_reward_delta": 0.015619,
+      "positive_delta_seeds": 20,
+      "paired_seeds": 20
+    },
+    "squared_distance_exponential": {
+      "mean_held_out_context_reward_delta": 0.036134,
+      "positive_delta_seeds": 20,
+      "paired_seeds": 20
+    }
+  },
+  "mechanism_diagnostics_at_near_retention_0_75": {
+    "reciprocal_linear_harmful_far_retention": 0.055886,
+    "squared_distance_exponential_harmful_far_retention": 0.010382,
+    "interpretation": "Under matched initial average near retention, faster tail decay preserves less harmful far influence and is associated with higher finite-horizon held-out-context reward."
+  },
+  "events": {
+    "task_performance_collapse": 13,
+    "support_or_variance_boundary": 20,
+    "nan_inf_numerical_failure": 0,
+    "total_runs": 280,
+    "all_task_and_support_events_from_unweighted_control": true,
+    "unweighted_control": {
+      "formal_seeds": 20,
+      "task_performance_collapse": 13,
+      "support_or_variance_boundary": 20,
+      "nan_inf_numerical_failure": 0
+    }
+  },
+  "terminal_audit": {
+    "coverage_complete": true,
+    "unresolved_at_8000_steps": 260,
+    "total_runs": 280,
+    "steady_state_ranking_allowed": false,
+    "status_cap": "finite_step_validated"
+  },
+  "allowed_claims": [
+    "Near-retention matching succeeded within the preregistered tolerance.",
+    "Taper shape still changed harmful-far retention and finite-horizon held-out-context reward after matching average initial near retention.",
+    "All three faster-decaying candidate families had positive paired reward deltas against reciprocal-linear on 20 of 20 formal seeds at retention 0.75.",
+    "Squared-distance exponential is the strongest candidate in this frozen finite-horizon matrix."
+  ],
+  "prohibited_claims": [
+    "long_run_validated",
+    "steady_state_or_fixed_point_winner",
+    "universal_method_ranking",
+    "OOD_generalization",
+    "cross_task_superiority",
+    "Adam_optimizer_update_budget_was_matched"
+  ],
+  "artifact_provenance": {
+    "compact_repository_deposition": true,
+    "raw_rows_embedded_in_repository": false,
+    "raw_complete_artifact_available_in_current_session": false,
+    "raw_artifact_hash_known": false,
+    "note": "This compact deposition records the completed formal summary and claim boundary. It does not fabricate or replace the missing raw-complete artifact; raw trajectories and their checksum must be restored from the original delivered result package before archival publication."
+  }
+}

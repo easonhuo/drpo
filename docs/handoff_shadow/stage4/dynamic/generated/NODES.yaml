@@ -5,23 +5,23 @@ kernel_version: 1
 profile_id: drpo-research
 profile_version: 1
 override_version: 1
-graph_hash: 9f7c3484d96a2c33fa25524b1ea3bec5d4601cf2db15a1d86f5494ba75717512
+graph_hash: 74b2996c85087cfae3606eedf415bcca16a66d85ae5831a0a8b946e8098b68a4
 sources:
   bootstrap_claims:
     path: docs/handoff_shadow/stage4/inventory/CLAIMS.yaml
-    sha256: bf49879177a596d16ee614e8d55efd649e1a5ca6cc675d139d7a8c1bb1061f61
+    sha256: 5bde2f8c2298a9e9a08932ec1e456f3dfde059789092be9d28a8911e399f03af
   bootstrap_experiments:
     path: docs/handoff_shadow/stage4/inventory/EXPERIMENTS.yaml
-    sha256: abd07ff4d3f9d619517de5024d8849efec1be52c80b497bbeae8c92134c544ea
+    sha256: 853f5d4943d32959bb3906d57cbb63c9476edda61464404a39848cdf187b6a72
   bootstrap_headings:
     path: docs/handoff_shadow/stage4/inventory/HEADINGS.yaml
-    sha256: 4812904b69ad0226781eb4b43b7d6453bde5d06b59aec46a577e7199b21ec105
+    sha256: 134b5a224df7c7306a606c5e552e1f06306a93f8df4ec672474384a08dc95704
   handoff:
     path: docs/handoff.md
-    sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
+    sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
   registry:
     path: experiments/registry.yaml
-    sha256: b760c8db417c7a769ea1d6e3dda5d27d8d7d2d3f31e33a13aa5a42e07083720c
+    sha256: ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579
 nodes:
 - node_id: claim:GOV-COLLAPSE-TAXONOMY-01
   node_type: claim
@@ -35,7 +35,7 @@ nodes:
     kind: bootstrap_claim_inventory
     source_anchor:
       file: docs/handoff.md
-      heading_id: H0042
+      heading_id: H0043
       text: '**E3 结果状态必须拆分（v12 新增协议细化）：**'
       sha256: daf7cb277faa2200692668d73485f3fecf375a77db78ad209a673e41bcc83547
       occurrence_in_section: 1
@@ -203,7 +203,7 @@ nodes:
     kind: bootstrap_claim_inventory
     source_anchor:
       file: docs/handoff.md
-      heading_id: H0254
+      heading_id: H0255
       text: hard filtering 是必要且唯一方案
       sha256: 334b6c4fbe2f897428ce564474dfab36de046060dbe15e0ea2322c617cd04c48
       occurrence_in_section: 1
@@ -221,7 +221,7 @@ nodes:
     kind: bootstrap_claim_inventory
     source_anchor:
       file: docs/handoff.md
-      heading_id: H0081
+      heading_id: H0082
       text: "Figure 2(b)\n  只能支持梯度敏感度增长，不能支持“Both μ and σ expand”。"
       sha256: 46dfc6f95d05eb4273a8c1a58eab3f2028b2b920afc441e3ccb70aae90420ef0
       occurrence_in_section: 1
@@ -240,7 +240,7 @@ nodes:
     kind: bootstrap_claim_inventory
     source_anchor:
       file: docs/handoff.md
-      heading_id: H0115
+      heading_id: H0116
       text: 其欧氏范数随 1−p_y 增长，但在 p_y→0
       sha256: d742ef061207be077cb713089ed949e59f733e6bd0f06e1c59a71c4f467fc056
       occurrence_in_section: 1
@@ -258,7 +258,7 @@ nodes:
     kind: bootstrap_claim_inventory
     source_anchor:
       file: docs/handoff.md
-      heading_id: H0318
+      heading_id: H0319
       text: 当前实验仍未完成真实 Qwen/CUDA/BF16-LoRA 端到端运行。
       sha256: 3904bee414579e4b3d3752ddad5d94df267d0a526e57cb0ba4f5d732aaa8a32f
       occurrence_in_section: 1
@@ -293,7 +293,7 @@ nodes:
     kind: bootstrap_claim_inventory
     source_anchor:
       file: docs/handoff.md
-      heading_id: H0044
+      heading_id: H0045
       text: '| E1 | Product 环境已完成，逻辑严密 | **C-U1 正式 20-seed 已完成**：positive-trained full-gradient far/near 9.093×，aggregate
         10.072×；advantage 1.000× | 正式机制识别完成；数值倍率仅限本环境 |'
       sha256: 032a957a06e7ef7e29cb3cb403209bad423a22120f6829e682cbb7ad24d6a7dc
@@ -311,7 +311,7 @@ nodes:
     kind: bootstrap_claim_inventory
     source_anchor:
       file: docs/handoff.md
-      heading_id: H0044
+      heading_id: H0045
       text: '| E3 | Product/Collapse 环境与旧 SGD C-U1 结果保留 provenance | **`C-U1-E3-ADAM-RERUN` 已完成并交付**：固定方差 Baseline/Near-zero
         20/20 任务崩溃，Far-zero/Far-cap 0/20；可学习方差 Baseline/Near-zero 20/20 support contraction，远场控制 0/20；NaN/Inf 0/220 | **已长期验证，论文可用**；主文采用四方法
         fixed-variance 因果链，learnable-variance 作互补 panel/附录 |'
@@ -332,7 +332,7 @@ nodes:
     kind: bootstrap_claim_inventory
     source_anchor:
       file: docs/handoff.md
-      heading_id: H0044
+      heading_id: H0045
       text: '| E4 | 独立 Extrapolation 环境；部分长程审计 | **`C-U1-E4-ADAM-RERUN` 已完成并交付**：有限步 reward 相变、过强压力任务崩溃、learnable-variance
         support contraction 与 4000-step controls 均完成；受益分支未通过 20/20 双 residual audit | **有限训练步数验证**；可用于有限步相变图与失稳分支，暂不可写成稳定有益
         fixed point |'
@@ -351,7 +351,7 @@ nodes:
     kind: bootstrap_claim_inventory
     source_anchor:
       file: docs/handoff.md
-      heading_id: H0044
+      heading_id: H0045
       text: '| E5 | 历史解析、direct-softmax 与 20-seed 因果结果保留；旧 runner/raw artifact 未入库 | **`D-U1-E5-LONGRUN-RERUN` 已完成**：direct-softmax
         参照通过，120/120 长程因果 runs 全部分类且 120/120 复现历史 qualitative class，NaN/Inf 0/120 | **已长期验证**；受控 categorical 排斥、支持边界和 near/far
         因果链可用于论文，E6 语义泛化仍未完成 |'
@@ -371,7 +371,7 @@ nodes:
     kind: bootstrap_claim_inventory
     source_anchor:
       file: docs/handoff.md
-      heading_id: H0044
+      heading_id: H0045
       text: '| E6 | unordered semantic categorical pilot/focused runner 与 formal runner/config 均已实现 | **`D-U1-E6-SEMANTIC-LONGRUN-01`
         已完成 360/360 formal runs**：E6-A 受控 local negatives 在 alpha 0.25/0.50 上 20/20 胜过 positive-only，alpha 0.75 出现 20/20 reward
         反转；E6-B task collapse 0、support boundary 120；E6-C aligned 在四方法上均 20/20 胜过 shuffled | **已长期验证**；可用于 positive-only ceiling、受控负梯度非单调收益、支持边界分离与
@@ -401,6 +401,28 @@ nodes:
       sha256: 2fe7b47d84950ea43d44768e7295f00b996f1c983e6c0b10b567e113881651fa
   attributes:
     claim_id: SCI-E4-TAPER-INFLUENCE-TAIL-01
+    domain_status: current_limited
+- node_id: claim:SCI-E4-TAPER-NEAR-RETENTION-01
+  node_type: claim
+  lifecycle_status: accepted
+  title: With initial near-retention matched, faster taper tails correlate with lower harmful-far influence and higher finite-horizon
+    held-out-context reward; no steady-state or universal winner is claimed.
+  module_ids:
+  - continuous_e1_e4
+  - execution_status_gates
+  - theory_methods_related_work
+  provenance:
+    kind: bootstrap_claim_inventory
+    source_anchor:
+      file: docs/handoff.md
+      heading_id: H0041
+      text: Reciprocal-Linear 的 harmful-far retention 为 `0.055886`，Squared-distance Exponential 为 `0.010382`。因此可以写成：**在冻结
+        C-U1、相同初始近场平均保留率和 8000-step horizon 下，更快尾部衰减与更低 harmful-far influence、更高 held-out-context reward 一致相关，Squared-distance
+        Exponential 是当前最强候选。** 不可写成 steady-state winner、universal winner、Distance 必然优于 Global alpha、跨任务优越或 OOD generalization。
+      sha256: c2e32f78e27037a235a1d6ee5824fe6a050368ba50f3879940f5a4909b532dc9
+      occurrence_in_section: 1
+  attributes:
+    claim_id: SCI-E4-TAPER-NEAR-RETENTION-01
     domain_status: current_limited
 - node_id: claim:SCI-E4-TAPER-NET-UTILITY-01
   node_type: hypothesis
@@ -490,7 +512,7 @@ nodes:
     kind: bootstrap_claim_inventory
     source_anchor:
       file: docs/handoff.md
-      heading_id: H0228
+      heading_id: H0229
       text: 这是一项**外部机制验证**，不是 D4RL normalized-return 方法表。
       sha256: 1539eaadbb5af75afbb21a9ad952ebb04b073c2f4d82d3e760802f87fa5e480a
       occurrence_in_section: 1
@@ -547,7 +569,7 @@ nodes:
     kind: bootstrap_claim_inventory
     source_anchor:
       file: docs/handoff.md
-      heading_id: H0254
+      heading_id: H0255
       text: '- **从“hard filtering 是必要且唯一方案”改为“负更新存在稳定—泛化折中，方法应控制 policy-relative remoteness”。** Hard filtering 仅保留为零负权重极限、旧方法或强基线。'
       sha256: a772e4986ef9fdb6fe7cd673c6c3ad959639e137f17a0f25d712144214d74361
       occurrence_in_section: 1
@@ -586,7 +608,7 @@ nodes:
     kind: bootstrap_claim_inventory
     source_anchor:
       file: docs/handoff.md
-      heading_id: H0120
+      heading_id: H0121
       text: 于是出现核心错配：信息价值随距离衰减，优化影响却随距离增长或保持不消失。
       sha256: 67ae3216c26dba6cda47a5e9352aeda7a86413a66b6f75966cfdad4ff274e3c7
       occurrence_in_section: 1
@@ -604,7 +626,7 @@ nodes:
     kind: mechanical_registry_discovery
     source:
       path: experiments/registry.yaml
-      sha256: b760c8db417c7a769ea1d6e3dda5d27d8d7d2d3f31e33a13aa5a42e07083720c
+      sha256: ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579
     registry_index: 4
   attributes:
     experiment_id: C-U1-E1-COMP-01
@@ -622,7 +644,7 @@ nodes:
     kind: mechanical_registry_discovery
     source:
       path: experiments/registry.yaml
-      sha256: b760c8db417c7a769ea1d6e3dda5d27d8d7d2d3f31e33a13aa5a42e07083720c
+      sha256: ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579
     registry_index: 1
   attributes:
     experiment_id: C-U1-E3-ADAM-RERUN
@@ -640,7 +662,7 @@ nodes:
     kind: mechanical_registry_discovery
     source:
       path: experiments/registry.yaml
-      sha256: b760c8db417c7a769ea1d6e3dda5d27d8d7d2d3f31e33a13aa5a42e07083720c
+      sha256: ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579
     registry_index: 2
   attributes:
     experiment_id: C-U1-E4-ADAM-RERUN
@@ -658,7 +680,7 @@ nodes:
     kind: mechanical_registry_discovery
     source:
       path: experiments/registry.yaml
-      sha256: b760c8db417c7a769ea1d6e3dda5d27d8d7d2d3f31e33a13aa5a42e07083720c
+      sha256: ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579
     registry_index: 3
   attributes:
     experiment_id: C-U1-E4-CONV-01
@@ -676,7 +698,7 @@ nodes:
     kind: mechanical_registry_discovery
     source:
       path: experiments/registry.yaml
-      sha256: b760c8db417c7a769ea1d6e3dda5d27d8d7d2d3f31e33a13aa5a42e07083720c
+      sha256: ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579
     registry_index: 5
   attributes:
     experiment_id: C-U1-E4-TAPER-01
@@ -695,7 +717,7 @@ nodes:
     kind: mechanical_registry_discovery
     source:
       path: experiments/registry.yaml
-      sha256: b760c8db417c7a769ea1d6e3dda5d27d8d7d2d3f31e33a13aa5a42e07083720c
+      sha256: ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579
     registry_index: 7
   attributes:
     experiment_id: C-U1-E4-TAPER-BUDGET-MATCH-01
@@ -714,7 +736,7 @@ nodes:
     kind: mechanical_registry_discovery
     source:
       path: experiments/registry.yaml
-      sha256: b760c8db417c7a769ea1d6e3dda5d27d8d7d2d3f31e33a13aa5a42e07083720c
+      sha256: ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579
     registry_index: 9
   attributes:
     experiment_id: C-U1-E4-TAPER-CONFIRM-01
@@ -733,7 +755,7 @@ nodes:
     kind: mechanical_registry_discovery
     source:
       path: experiments/registry.yaml
-      sha256: b760c8db417c7a769ea1d6e3dda5d27d8d7d2d3f31e33a13aa5a42e07083720c
+      sha256: ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579
     registry_index: 8
   attributes:
     experiment_id: C-U1-E4-TAPER-CONV-01
@@ -752,13 +774,13 @@ nodes:
     kind: mechanical_registry_discovery
     source:
       path: experiments/registry.yaml
-      sha256: b760c8db417c7a769ea1d6e3dda5d27d8d7d2d3f31e33a13aa5a42e07083720c
+      sha256: ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579
     registry_index: 6
   attributes:
     experiment_id: C-U1-E4-TAPER-NEAR-RETENTION-01
     environment: C-U1
     role: controlled_taper_shape_fairness_validation
-    domain_status: not_run
+    domain_status: finite_step_validated
 - node_id: experiment:D-U1-E5-LONGRUN-RERUN
   node_type: experiment
   lifecycle_status: active
@@ -770,7 +792,7 @@ nodes:
     kind: mechanical_registry_discovery
     source:
       path: experiments/registry.yaml
-      sha256: b760c8db417c7a769ea1d6e3dda5d27d8d7d2d3f31e33a13aa5a42e07083720c
+      sha256: ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579
     registry_index: 18
   attributes:
     experiment_id: D-U1-E5-LONGRUN-RERUN
@@ -788,7 +810,7 @@ nodes:
     kind: mechanical_registry_discovery
     source:
       path: experiments/registry.yaml
-      sha256: b760c8db417c7a769ea1d6e3dda5d27d8d7d2d3f31e33a13aa5a42e07083720c
+      sha256: ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579
     registry_index: 23
   attributes:
     experiment_id: D-U1-E6-CONDITIONAL-GAP-01
@@ -806,7 +828,7 @@ nodes:
     kind: mechanical_registry_discovery
     source:
       path: experiments/registry.yaml
-      sha256: b760c8db417c7a769ea1d6e3dda5d27d8d7d2d3f31e33a13aa5a42e07083720c
+      sha256: ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579
     registry_index: 22
   attributes:
     experiment_id: D-U1-E6-SEMANTIC-GAP-LONGRUN-01
@@ -824,7 +846,7 @@ nodes:
     kind: mechanical_registry_discovery
     source:
       path: experiments/registry.yaml
-      sha256: b760c8db417c7a769ea1d6e3dda5d27d8d7d2d3f31e33a13aa5a42e07083720c
+      sha256: ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579
     registry_index: 21
   attributes:
     experiment_id: D-U1-E6-SEMANTIC-LONGRUN-01
@@ -843,7 +865,7 @@ nodes:
     kind: mechanical_registry_discovery
     source:
       path: experiments/registry.yaml
-      sha256: b760c8db417c7a769ea1d6e3dda5d27d8d7d2d3f31e33a13aa5a42e07083720c
+      sha256: ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579
     registry_index: 20
   attributes:
     experiment_id: EXT-C-E8-SCALE-01
@@ -862,7 +884,7 @@ nodes:
     kind: mechanical_registry_discovery
     source:
       path: experiments/registry.yaml
-      sha256: b760c8db417c7a769ea1d6e3dda5d27d8d7d2d3f31e33a13aa5a42e07083720c
+      sha256: ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579
     registry_index: 11
   attributes:
     experiment_id: EXT-C-E8-V4
@@ -881,7 +903,7 @@ nodes:
     kind: mechanical_registry_discovery
     source:
       path: experiments/registry.yaml
-      sha256: b760c8db417c7a769ea1d6e3dda5d27d8d7d2d3f31e33a13aa5a42e07083720c
+      sha256: ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579
     registry_index: 12
   attributes:
     experiment_id: EXT-C-E8-V4.1
@@ -900,7 +922,7 @@ nodes:
     kind: mechanical_registry_discovery
     source:
       path: experiments/registry.yaml
-      sha256: b760c8db417c7a769ea1d6e3dda5d27d8d7d2d3f31e33a13aa5a42e07083720c
+      sha256: ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579
     registry_index: 13
   attributes:
     experiment_id: EXT-C-E8-V4.2
@@ -919,7 +941,7 @@ nodes:
     kind: mechanical_registry_discovery
     source:
       path: experiments/registry.yaml
-      sha256: b760c8db417c7a769ea1d6e3dda5d27d8d7d2d3f31e33a13aa5a42e07083720c
+      sha256: ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579
     registry_index: 14
   attributes:
     experiment_id: EXT-C-E8-V4.3
@@ -938,7 +960,7 @@ nodes:
     kind: mechanical_registry_discovery
     source:
       path: experiments/registry.yaml
-      sha256: b760c8db417c7a769ea1d6e3dda5d27d8d7d2d3f31e33a13aa5a42e07083720c
+      sha256: ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579
     registry_index: 15
   attributes:
     experiment_id: EXT-C-E8-V4.4-OFFLINE-BANK
@@ -957,7 +979,7 @@ nodes:
     kind: mechanical_registry_discovery
     source:
       path: experiments/registry.yaml
-      sha256: b760c8db417c7a769ea1d6e3dda5d27d8d7d2d3f31e33a13aa5a42e07083720c
+      sha256: ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579
     registry_index: 16
   attributes:
     experiment_id: EXT-C-E8-V4.5-OFFLINE-BANK-TUNING
@@ -976,7 +998,7 @@ nodes:
     kind: mechanical_registry_discovery
     source:
       path: experiments/registry.yaml
-      sha256: b760c8db417c7a769ea1d6e3dda5d27d8d7d2d3f31e33a13aa5a42e07083720c
+      sha256: ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579
     registry_index: 17
   attributes:
     experiment_id: EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY
@@ -995,7 +1017,7 @@ nodes:
     kind: mechanical_registry_discovery
     source:
       path: experiments/registry.yaml
-      sha256: b760c8db417c7a769ea1d6e3dda5d27d8d7d2d3f31e33a13aa5a42e07083720c
+      sha256: ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579
     registry_index: 19
   attributes:
     experiment_id: EXT-H-E7-BENCH-01
@@ -1014,7 +1036,7 @@ nodes:
     kind: mechanical_registry_discovery
     source:
       path: experiments/registry.yaml
-      sha256: b760c8db417c7a769ea1d6e3dda5d27d8d7d2d3f31e33a13aa5a42e07083720c
+      sha256: ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579
     registry_index: 10
   attributes:
     experiment_id: EXT-H-E7-Q2
@@ -1024,7 +1046,7 @@ nodes:
 - node_id: heading:H0001
   node_type: source_section
   lifecycle_status: accepted
-  title: DRPO / SNA2C 远场负梯度动力学研究主文档 v62（Countdown Online Off-Policy Replay Pilot 实现版）
+  title: DRPO / SNA2C 远场负梯度动力学研究主文档 v63（E4-TAPER Near-Retention 结果沉淀与闭环协议版）
   module_ids:
   - categorical_e5_e6
   - continuous_e1_e4
@@ -1039,7 +1061,7 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
     line: 1
     level: 1
     occurrence: 1
@@ -1054,7 +1076,7 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
     line: 664
     level: 1
     occurrence: 1
@@ -1069,7 +1091,7 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
     line: 677
     level: 2
     occurrence: 1
@@ -1085,8 +1107,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 709
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 715
     level: 2
     occurrence: 1
 - node_id: heading:H0005
@@ -1100,8 +1122,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 718
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 724
     level: 2
     occurrence: 1
 - node_id: heading:H0006
@@ -1115,8 +1137,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 731
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 737
     level: 2
     occurrence: 1
 - node_id: heading:H0007
@@ -1131,8 +1153,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 740
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 746
     level: 1
     occurrence: 1
 - node_id: heading:H0008
@@ -1147,8 +1169,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 742
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 748
     level: 2
     occurrence: 1
 - node_id: heading:H0009
@@ -1163,8 +1185,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 746
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 752
     level: 2
     occurrence: 1
 - node_id: heading:H0010
@@ -1179,8 +1201,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 754
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 760
     level: 2
     occurrence: 1
 - node_id: heading:H0011
@@ -1197,8 +1219,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 763
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 769
     level: 1
     occurrence: 1
 - node_id: heading:H0012
@@ -1212,8 +1234,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 778
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 784
     level: 1
     occurrence: 1
 - node_id: heading:H0013
@@ -1228,8 +1250,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 780
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 786
     level: 2
     occurrence: 1
 - node_id: heading:H0014
@@ -1243,8 +1265,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 786
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 792
     level: 3
     occurrence: 1
 - node_id: heading:H0015
@@ -1258,8 +1280,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 797
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 803
     level: 2
     occurrence: 1
 - node_id: heading:H0016
@@ -1273,8 +1295,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 801
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 807
     level: 2
     occurrence: 1
 - node_id: heading:H0017
@@ -1288,8 +1310,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 808
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 814
     level: 2
     occurrence: 1
 - node_id: heading:H0018
@@ -1303,8 +1325,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 819
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 825
     level: 2
     occurrence: 1
 - node_id: heading:H0019
@@ -1319,8 +1341,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 836
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 842
     level: 2
     occurrence: 1
 - node_id: heading:H0020
@@ -1334,8 +1356,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 838
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 844
     level: 3
     occurrence: 1
 - node_id: heading:H0021
@@ -1349,8 +1371,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 846
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 852
     level: 3
     occurrence: 1
 - node_id: heading:H0022
@@ -1365,8 +1387,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 858
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 864
     level: 3
     occurrence: 1
 - node_id: heading:H0023
@@ -1380,8 +1402,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 871
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 877
     level: 3
     occurrence: 1
 - node_id: heading:H0024
@@ -1396,8 +1418,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 879
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 885
     level: 3
     occurrence: 1
 - node_id: heading:H0025
@@ -1411,8 +1433,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 891
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 897
     level: 3
     occurrence: 1
 - node_id: heading:H0026
@@ -1427,8 +1449,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 905
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 911
     level: 2
     occurrence: 1
 - node_id: heading:H0027
@@ -1442,8 +1464,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 921
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 927
     level: 2
     occurrence: 1
 - node_id: heading:H0028
@@ -1458,8 +1480,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 935
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 941
     level: 2
     occurrence: 1
 - node_id: heading:H0029
@@ -1473,8 +1495,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 944
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 950
     level: 2
     occurrence: 1
 - node_id: heading:H0030
@@ -1489,8 +1511,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 959
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 965
     level: 2
     occurrence: 1
 - node_id: heading:H0031
@@ -1505,8 +1527,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 961
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 967
     level: 3
     occurrence: 1
 - node_id: heading:H0032
@@ -1521,8 +1543,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 965
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 971
     level: 3
     occurrence: 1
 - node_id: heading:H0033
@@ -1537,8 +1559,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 983
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 989
     level: 3
     occurrence: 1
 - node_id: heading:H0034
@@ -1554,8 +1576,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 999
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1005
     level: 3
     occurrence: 1
 - node_id: heading:H0035
@@ -1570,8 +1592,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1008
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1014
     level: 3
     occurrence: 1
 - node_id: heading:H0036
@@ -1585,8 +1607,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1023
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1029
     level: 3
     occurrence: 1
 - node_id: heading:H0037
@@ -1600,8 +1622,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1051
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1057
     level: 3
     occurrence: 1
 - node_id: heading:H0038
@@ -1616,8 +1638,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1077
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1083
     level: 3
     occurrence: 1
 - node_id: heading:H0039
@@ -1631,8 +1653,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1086
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1092
     level: 3
     occurrence: 1
 - node_id: heading:H0040
@@ -1647,11 +1669,27 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1091
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1097
     level: 3
     occurrence: 1
 - node_id: heading:H0041
+  node_type: source_section
+  lifecycle_status: accepted
+  title: 3.8.11 Near-Retention 结果沉淀与闭环实验协议（v63）
+  module_ids:
+  - continuous_e1_e4
+  - execution_status_gates
+  - theory_methods_related_work
+  provenance:
+    kind: mechanical_markdown_discovery
+    source:
+      path: docs/handoff.md
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1133
+    level: 3
+    occurrence: 1
+- node_id: heading:H0042
   node_type: source_section
   lifecycle_status: accepted
   title: 3.9 E6--E8 方法迁移与规模验证路线（v42 锁定）
@@ -1665,11 +1703,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1127
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1170
     level: 2
     occurrence: 1
-- node_id: heading:H0042
+- node_id: heading:H0043
   node_type: source_section
   lifecycle_status: accepted
   title: 4. 论文机制实验总表与验收标准
@@ -1684,11 +1722,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1152
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1195
     level: 1
     occurrence: 1
-- node_id: heading:H0043
+- node_id: heading:H0044
   node_type: source_section
   lifecycle_status: accepted
   title: 4.1 动力学实验统一收敛标准
@@ -1702,11 +1740,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1176
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1219
     level: 2
     occurrence: 1
-- node_id: heading:H0044
+- node_id: heading:H0045
   node_type: source_section
   lifecycle_status: accepted
   title: 5. 当前真实完成状态
@@ -1720,11 +1758,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1188
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1231
     level: 1
     occurrence: 1
-- node_id: heading:H0045
+- node_id: heading:H0046
   node_type: source_section
   lifecycle_status: accepted
   title: 6. 接下来唯一执行顺序
@@ -1738,11 +1776,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1215
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1258
     level: 1
     occurrence: 1
-- node_id: heading:H0046
+- node_id: heading:H0047
   node_type: source_section
   lifecycle_status: accepted
   title: 7. 变量治理
@@ -1755,11 +1793,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1257
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1303
     level: 1
     occurrence: 1
-- node_id: heading:H0047
+- node_id: heading:H0048
   node_type: source_section
   lifecycle_status: accepted
   title: 7.1 原体系保留的核心变量
@@ -1772,11 +1810,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1259
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1305
     level: 2
     occurrence: 1
-- node_id: heading:H0048
+- node_id: heading:H0049
   node_type: source_section
   lifecycle_status: accepted
   title: 7.2 Exponential-family 核心定理所需新增符号
@@ -1789,11 +1827,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1263
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1309
     level: 2
     occurrence: 1
-- node_id: heading:H0049
+- node_id: heading:H0050
   node_type: source_section
   lifecycle_status: accepted
   title: 7.3 共同负对数概率
@@ -1806,11 +1844,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1267
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1313
     level: 2
     occurrence: 1
-- node_id: heading:H0050
+- node_id: heading:H0051
   node_type: source_section
   lifecycle_status: accepted
   title: 7.4 撤出主体系的符号
@@ -1823,11 +1861,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1271
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1317
     level: 2
     occurrence: 1
-- node_id: heading:H0051
+- node_id: heading:H0052
   node_type: source_section
   lifecycle_status: accepted
   title: 8. v4-v10 版本审计与恢复策略
@@ -1841,11 +1879,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1277
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1323
     level: 1
     occurrence: 1
-- node_id: heading:H0052
+- node_id: heading:H0053
   node_type: source_section
   lifecycle_status: accepted
   title: 8.1 为什么 v8 删除是不合理的
@@ -1858,11 +1896,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1290
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1336
     level: 2
     occurrence: 1
-- node_id: heading:H0053
+- node_id: heading:H0054
   node_type: source_section
   lifecycle_status: accepted
   title: 9. 原审稿问题与新论文的硬约束
@@ -1875,11 +1913,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1304
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1350
     level: 1
     occurrence: 1
-- node_id: heading:H0054
+- node_id: heading:H0055
   node_type: source_section
   lifecycle_status: accepted
   title: 10. 当前新环境原型的审计结果
@@ -1891,11 +1929,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1319
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1365
     level: 1
     occurrence: 1
-- node_id: heading:H0055
+- node_id: heading:H0056
   node_type: source_section
   lifecycle_status: accepted
   title: 11. v13 正式执行日志
@@ -1907,11 +1945,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1341
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1387
     level: 1
     occurrence: 1
-- node_id: heading:H0056
+- node_id: heading:H0057
   node_type: source_section
   lifecycle_status: accepted
   title: 11.1 C-U1 单 seed 回归（2026-06-24）
@@ -1923,11 +1961,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1343
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1389
     level: 2
     occurrence: 1
-- node_id: heading:H0057
+- node_id: heading:H0058
   node_type: source_section
   lifecycle_status: accepted
   title: 11.2 E1：统一环境中的瞬时梯度来源隔离（2026-06-24）
@@ -1939,11 +1977,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1349
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1395
     level: 2
     occurrence: 1
-- node_id: heading:H0058
+- node_id: heading:H0059
   node_type: source_section
   lifecycle_status: accepted
   title: 11.3 E2：Positive-only 完整动力学与终态审计（2026-06-24）
@@ -1955,11 +1993,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1363
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1409
     level: 2
     occurrence: 1
-- node_id: heading:H0059
+- node_id: heading:H0060
   node_type: source_section
   lifecycle_status: accepted
   title: 11.4 E3：C-U1 统一 Adam Near/Far 因果干预（2026-06-25，当前论文结果）
@@ -1972,11 +2010,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1382
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1428
     level: 2
     occurrence: 1
-- node_id: heading:H0060
+- node_id: heading:H0061
   node_type: source_section
   lifecycle_status: accepted
   title: 固定方差：远场路径传导为任务性能崩溃
@@ -1988,11 +2026,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1386
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1432
     level: 3
     occurrence: 1
-- node_id: heading:H0061
+- node_id: heading:H0062
   node_type: source_section
   lifecycle_status: accepted
   title: 可学习方差：远场路径提前触发支持收缩
@@ -2004,11 +2042,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1401
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1447
     level: 3
     occurrence: 1
-- node_id: heading:H0062
+- node_id: heading:H0063
   node_type: source_section
   lifecycle_status: accepted
   title: 因果结论、论文位置与边界
@@ -2022,11 +2060,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1415
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1461
     level: 3
     occurrence: 1
-- node_id: heading:H0063
+- node_id: heading:H0064
   node_type: source_section
   lifecycle_status: accepted
   title: 来源与聚合审计说明
@@ -2038,11 +2076,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1423
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1469
     level: 3
     occurrence: 1
-- node_id: heading:H0064
+- node_id: heading:H0065
   node_type: source_section
   lifecycle_status: accepted
   title: 11.4 E3：C-U1 长期 Near/Far 因果干预（2026-06-24，历史 SGD 证据）
@@ -2054,11 +2092,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1427
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1473
     level: 2
     occurrence: 1
-- node_id: heading:H0065
+- node_id: heading:H0066
   node_type: source_section
   lifecycle_status: accepted
   title: 固定方差任务崩溃分支
@@ -2070,11 +2108,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1433
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1479
     level: 3
     occurrence: 1
-- node_id: heading:H0066
+- node_id: heading:H0067
   node_type: source_section
   lifecycle_status: accepted
   title: 可学习方差精度坍缩分支
@@ -2086,11 +2124,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1439
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1485
     level: 3
     occurrence: 1
-- node_id: heading:H0067
+- node_id: heading:H0068
   node_type: source_section
   lifecycle_status: accepted
   title: 11.4 E3 历史 SGD 协议冻结补充：均值任务崩溃与可学习方差提前失稳
@@ -2102,11 +2140,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1448
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1494
     level: 2
     occurrence: 1
-- node_id: heading:H0068
+- node_id: heading:H0069
   node_type: source_section
   lifecycle_status: accepted
   title: 11.7 C-U1 论文成熟度与剩余漏洞审计（2026-06-24）
@@ -2119,11 +2157,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1459
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1505
     level: 2
     occurrence: 1
-- node_id: heading:H0069
+- node_id: heading:H0070
   node_type: source_section
   lifecycle_status: accepted
   title: 当前判断
@@ -2135,11 +2173,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1461
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1507
     level: 3
     occurrence: 1
-- node_id: heading:H0070
+- node_id: heading:H0071
   node_type: source_section
   lifecycle_status: accepted
   title: 需要优先补强的漏洞
@@ -2151,11 +2189,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1471
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1517
     level: 3
     occurrence: 1
-- node_id: heading:H0071
+- node_id: heading:H0072
   node_type: source_section
   lifecycle_status: accepted
   title: Part II. v7 全量累积研究记录（原文保留）
@@ -2168,11 +2206,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1479
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1525
     level: 1
     occurrence: 1
-- node_id: heading:H0072
+- node_id: heading:H0073
   node_type: source_section
   lifecycle_status: accepted
   title: 文档结构
@@ -2185,11 +2223,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1523
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1569
     level: 1
     occurrence: 1
-- node_id: heading:H0073
+- node_id: heading:H0074
   node_type: source_section
   lifecycle_status: accepted
   title: 2.1 机制分析的 fixed-advantage naive-PG 假设
@@ -2202,11 +2240,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1539
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1585
     level: 2
     occurrence: 1
-- node_id: heading:H0074
+- node_id: heading:H0075
   node_type: source_section
   lifecycle_status: accepted
   title: 0. 新会话交接：必须继承的共识与阅读顺序
@@ -2219,11 +2257,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1574
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1620
     level: 1
     occurrence: 1
-- node_id: heading:H0075
+- node_id: heading:H0076
   node_type: source_section
   lifecycle_status: accepted
   title: 0.1 两套环境必须严格区分
@@ -2236,11 +2274,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1578
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1624
     level: 2
     occurrence: 1
-- node_id: heading:H0076
+- node_id: heading:H0077
   node_type: source_section
   lifecycle_status: accepted
   title: 0.2 已锁定、未锁定与后续可变结论
@@ -2253,11 +2291,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1593
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1639
     level: 2
     occurrence: 1
-- node_id: heading:H0077
+- node_id: heading:H0078
   node_type: source_section
   lifecycle_status: accepted
   title: 0.3 三个容易误判、但不应再反复争论的问题
@@ -2270,11 +2308,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1602
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1648
     level: 2
     occurrence: 1
-- node_id: heading:H0078
+- node_id: heading:H0079
   node_type: source_section
   lifecycle_status: accepted
   title: 0.4 当前论文主线与执行优先级
@@ -2288,11 +2326,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1617
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1663
     level: 2
     occurrence: 1
-- node_id: heading:H0079
+- node_id: heading:H0080
   node_type: source_section
   lifecycle_status: accepted
   title: 0.5 方法族的稳定解释
@@ -2305,11 +2343,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1632
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1678
     level: 2
     occurrence: 1
-- node_id: heading:H0080
+- node_id: heading:H0081
   node_type: source_section
   lifecycle_status: accepted
   title: 0.6 P0 的固定 advantage 假设与未来环境统一（必须继承）
@@ -2322,11 +2360,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1645
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1691
     level: 2
     occurrence: 1
-- node_id: heading:H0081
+- node_id: heading:H0082
   node_type: source_section
   lifecycle_status: accepted
   title: 0.7 Gaussian 方差动力学修正与联合稳态（必须继承）
@@ -2340,11 +2378,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1677
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1723
     level: 2
     occurrence: 1
-- node_id: heading:H0082
+- node_id: heading:H0083
   node_type: source_section
   lifecycle_status: accepted
   title: 0.8 统一 benchmark 的新锁定结论（必须继承）
@@ -2357,11 +2395,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1709
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1755
     level: 2
     occurrence: 1
-- node_id: heading:H0083
+- node_id: heading:H0084
   node_type: source_section
   lifecycle_status: accepted
   title: 1. 执行摘要与最终判断
@@ -2375,11 +2413,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1745
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1791
     level: 1
     occurrence: 1
-- node_id: heading:H0084
+- node_id: heading:H0085
   node_type: source_section
   lifecycle_status: accepted
   title: 2. 理论命题与需要闭合的因果链
@@ -2392,11 +2430,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1782
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1828
     level: 1
     occurrence: 1
-- node_id: heading:H0085
+- node_id: heading:H0086
   node_type: source_section
   lifecycle_status: accepted
   title: 2.2 从 expected Fisher 改为 signed off-policy 动力场 Jacobian
@@ -2409,11 +2447,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1813
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1859
     level: 2
     occurrence: 1
-- node_id: heading:H0086
+- node_id: heading:H0087
   node_type: source_section
   lifecycle_status: accepted
   title: 3. 实验一：badness–distance 严格解耦下的梯度来源分解
@@ -2425,11 +2463,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1832
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1878
     level: 1
     occurrence: 1
-- node_id: heading:H0087
+- node_id: heading:H0088
   node_type: source_section
   lifecycle_status: accepted
   title: 3.1 乘积流形构造
@@ -2441,11 +2479,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1834
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1880
     level: 2
     occurrence: 1
-- node_id: heading:H0088
+- node_id: heading:H0089
   node_type: source_section
   lifecycle_status: accepted
   title: 3.2 梯度分解结果
@@ -2458,11 +2496,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1846
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1892
     level: 2
     occurrence: 1
-- node_id: heading:H0089
+- node_id: heading:H0090
   node_type: source_section
   lifecycle_status: accepted
   title: 4. 实验二：非线性 Gaussian actor 中的因果干预
@@ -2474,11 +2512,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1879
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1925
     level: 1
     occurrence: 1
-- node_id: heading:H0090
+- node_id: heading:H0091
   node_type: source_section
   lifecycle_status: accepted
   title: 4.1 环境与预注册式选择
@@ -2490,11 +2528,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1881
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1927
     level: 2
     occurrence: 1
-- node_id: heading:H0091
+- node_id: heading:H0092
   node_type: source_section
   lifecycle_status: accepted
   title: 4.2 五类关键干预
@@ -2506,11 +2544,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1894
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1940
     level: 2
     occurrence: 1
-- node_id: heading:H0092
+- node_id: heading:H0093
   node_type: source_section
   lifecycle_status: accepted
   title: 4.3 初始机制诊断
@@ -2522,11 +2560,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1905
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1951
     level: 2
     occurrence: 1
-- node_id: heading:H0093
+- node_id: heading:H0094
   node_type: source_section
   lifecycle_status: accepted
   title: 4.4 20-seed held-out 主结果
@@ -2539,11 +2577,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1921
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1967
     level: 2
     occurrence: 1
-- node_id: heading:H0094
+- node_id: heading:H0095
   node_type: source_section
   lifecycle_status: accepted
   title: 4.5 配对因果效应
@@ -2555,11 +2593,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1939
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 1985
     level: 2
     occurrence: 1
-- node_id: heading:H0095
+- node_id: heading:H0096
   node_type: source_section
   lifecycle_status: accepted
   title: 4.6 时序中介与 OOD 漂移
@@ -2571,11 +2609,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1965
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 2011
     level: 2
     occurrence: 1
-- node_id: heading:H0096
+- node_id: heading:H0097
   node_type: source_section
   lifecycle_status: accepted
   title: 4.7 稳健性与实现验证
@@ -2587,11 +2625,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1977
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 2023
     level: 2
     occurrence: 1
-- node_id: heading:H0097
+- node_id: heading:H0098
   node_type: source_section
   lifecycle_status: accepted
   title: 5. 证据强度、结论边界与仍未证明的内容
@@ -2604,11 +2642,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1990
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 2036
     level: 1
     occurrence: 1
-- node_id: heading:H0098
+- node_id: heading:H0099
   node_type: source_section
   lifecycle_status: accepted
   title: 5.1 当前可以强声明的内容
@@ -2620,11 +2658,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 1992
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 2038
     level: 2
     occurrence: 1
-- node_id: heading:H0099
+- node_id: heading:H0100
   node_type: source_section
   lifecycle_status: accepted
   title: 5.2 仍不可直接声称的内容
@@ -2636,11 +2674,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 2005
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 2051
     level: 2
     occurrence: 1
-- node_id: heading:H0100
+- node_id: heading:H0101
   node_type: source_section
   lifecycle_status: accepted
   title: 6. 对 DRPO 论文贡献的含义
@@ -2652,11 +2690,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 2019
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 2065
     level: 1
     occurrence: 1
-- node_id: heading:H0101
+- node_id: heading:H0102
   node_type: source_section
   lifecycle_status: accepted
   title: 6.1 可形成的论文贡献组合
@@ -2668,11 +2706,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 2044
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 2090
     level: 2
     occurrence: 1
-- node_id: heading:H0102
+- node_id: heading:H0103
   node_type: source_section
   lifecycle_status: accepted
   title: 6.2 对原论文 claim 的增强与修正
@@ -2684,11 +2722,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 2061
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 2107
     level: 2
     occurrence: 1
-- node_id: heading:H0103
+- node_id: heading:H0104
   node_type: source_section
   lifecycle_status: accepted
   title: 7. 与相关工作的关系及 novelty 定位
@@ -2700,11 +2738,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 2070
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 2116
     level: 1
     occurrence: 1
-- node_id: heading:H0104
+- node_id: heading:H0105
   node_type: source_section
   lifecycle_status: accepted
   title: 7.1 推荐 novelty 表述
@@ -2716,11 +2754,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 2090
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 2136
     level: 2
     occurrence: 1
-- node_id: heading:H0105
+- node_id: heading:H0106
   node_type: source_section
   lifecycle_status: accepted
   title: 8. 建议写入论文的核心 claims、图表与段落结构
@@ -2732,11 +2770,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 2115
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 2161
     level: 1
     occurrence: 1
-- node_id: heading:H0106
+- node_id: heading:H0107
   node_type: source_section
   lifecycle_status: accepted
   title: 8.1 建议的核心 claims
@@ -2748,11 +2786,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 2117
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 2163
     level: 2
     occurrence: 1
-- node_id: heading:H0107
+- node_id: heading:H0108
   node_type: source_section
   lifecycle_status: accepted
   title: 8.2 建议的实验章节结构
@@ -2764,11 +2802,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 2136
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 2182
     level: 2
     occurrence: 1
-- node_id: heading:H0108
+- node_id: heading:H0109
   node_type: source_section
   lifecycle_status: accepted
   title: 8.3 论文中需要避免的过度表述
@@ -2780,11 +2818,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 2155
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 2201
     level: 2
     occurrence: 1
-- node_id: heading:H0109
+- node_id: heading:H0110
   node_type: source_section
   lifecycle_status: accepted
   title: 9. 旧阶段路线回顾与更新后的执行顺序
@@ -2797,11 +2835,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 2183
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 2229
     level: 1
     occurrence: 1
-- node_id: heading:H0110
+- node_id: heading:H0111
   node_type: source_section
   lifecycle_status: accepted
   title: 10. 从推荐扩展到通用 Off-Policy Policy Optimization
@@ -2813,11 +2851,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 2203
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 2249
     level: 1
     occurrence: 1
-- node_id: heading:H0111
+- node_id: heading:H0112
   node_type: source_section
   lifecycle_status: accepted
   title: 建议的总框架：
@@ -2830,11 +2868,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 2215
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 2261
     level: 2
     occurrence: 1
-- node_id: heading:H0112
+- node_id: heading:H0113
   node_type: source_section
   lifecycle_status: accepted
   title: 11. 连续—离散统一的 Repulsive Surprisal Dynamics
@@ -2847,11 +2885,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 2234
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 2280
     level: 1
     occurrence: 1
-- node_id: heading:H0113
+- node_id: heading:H0114
   node_type: source_section
   lifecycle_status: accepted
   title: 11.1 与动作空间无关的一阶动力学恒等式
@@ -2864,11 +2902,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 2236
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 2282
     level: 2
     occurrence: 1
-- node_id: heading:H0114
+- node_id: heading:H0115
   node_type: source_section
   lifecycle_status: accepted
   title: 11.2 连续 Gaussian：梯度幅度自增强
@@ -2881,11 +2919,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 2257
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 2303
     level: 2
     occurrence: 1
-- node_id: heading:H0115
+- node_id: heading:H0116
   node_type: source_section
   lifecycle_status: accepted
   title: 11.3 离散 softmax：持续排斥与支持集坍缩
@@ -2898,11 +2936,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 2265
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 2311
     level: 2
     occurrence: 1
-- node_id: heading:H0116
+- node_id: heading:H0117
   node_type: source_section
   lifecycle_status: accepted
   title: 11.4 统一理论的潜在贡献
@@ -2915,11 +2953,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 2288
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 2334
     level: 2
     occurrence: 1
-- node_id: heading:H0117
+- node_id: heading:H0118
   node_type: source_section
   lifecycle_status: accepted
   title: 12. 为什么负梯度并不总是有害：局部泛化与远场失稳
@@ -2932,11 +2970,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 2304
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 2350
     level: 1
     occurrence: 1
-- node_id: heading:H0118
+- node_id: heading:H0119
   node_type: source_section
   lifecycle_status: accepted
   title: 12.1 正优势提供 attraction，但存在 imitation ceiling
@@ -2949,11 +2987,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 2311
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 2357
     level: 2
     occurrence: 1
-- node_id: heading:H0119
+- node_id: heading:H0120
   node_type: source_section
   lifecycle_status: accepted
   title: 12.2 受控负优势提供 boundary shaping 与 mode suppression
@@ -2966,11 +3004,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 2319
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 2365
     level: 2
     occurrence: 1
-- node_id: heading:H0120
+- node_id: heading:H0121
   node_type: source_section
   lifecycle_status: accepted
   title: 12.3 为什么远场负梯度会从有益变为有害
@@ -2983,11 +3021,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 2333
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 2379
     level: 2
     occurrence: 1
-- node_id: heading:H0121
+- node_id: heading:H0122
   node_type: source_section
   lifecycle_status: accepted
   title: 12.4 建议的形式化方向
@@ -3000,11 +3038,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 2352
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 2398
     level: 2
     occurrence: 1
-- node_id: heading:H0122
+- node_id: heading:H0123
   node_type: source_section
   lifecycle_status: accepted
   title: 12.5 一维 Gaussian 的稳定外推闭式模型
@@ -3017,11 +3055,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 2368
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 2414
     level: 2
     occurrence: 1
-- node_id: heading:H0123
+- node_id: heading:H0124
   node_type: source_section
   lifecycle_status: accepted
   title: 12.6 可学习方差下的联合均值—方差稳态
@@ -3034,11 +3072,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 2394
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 2440
     level: 2
     occurrence: 1
-- node_id: heading:H0124
+- node_id: heading:H0125
   node_type: source_section
   lifecycle_status: accepted
   title: 13. 最新相关工作的机制对照
@@ -3052,11 +3090,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 2444
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 2490
     level: 1
     occurrence: 1
-- node_id: heading:H0125
+- node_id: heading:H0126
   node_type: source_section
   lifecycle_status: accepted
   title: 13.1 WAPO 的真正含义
@@ -3070,11 +3108,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 2462
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 2508
     level: 2
     occurrence: 1
-- node_id: heading:H0126
+- node_id: heading:H0127
   node_type: source_section
   lifecycle_status: accepted
   title: 13.2 STARE 比 WAPO 更接近“打压危险部分、保留其余”
@@ -3088,11 +3126,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 2472
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 2518
     level: 2
     occurrence: 1
-- node_id: heading:H0127
+- node_id: heading:H0128
   node_type: source_section
   lifecycle_status: accepted
   title: 13.3 Mu-GRPO 已经触及重复排斥，但尚未统一
@@ -3106,11 +3144,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 2481
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 2527
     level: 2
     occurrence: 1
-- node_id: heading:H0128
+- node_id: heading:H0129
   node_type: source_section
   lifecycle_status: accepted
   title: 13.4 现有证据已经支持负梯度的泛化价值
@@ -3124,11 +3162,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 2490
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 2536
     level: 2
     occurrence: 1
-- node_id: heading:H0129
+- node_id: heading:H0130
   node_type: source_section
   lifecycle_status: accepted
   title: 13.5 OGPO：强外部证据，但尚未闭合负梯度外推机制
@@ -3142,11 +3180,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 2506
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 2552
     level: 2
     occurrence: 1
-- node_id: heading:H0130
+- node_id: heading:H0131
   node_type: source_section
   lifecycle_status: accepted
   title: 13.6 建议重点深化的三条前序工作线
@@ -3160,11 +3198,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 2534
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 2580
     level: 2
     occurrence: 1
-- node_id: heading:H0131
+- node_id: heading:H0132
   node_type: source_section
   lifecycle_status: accepted
   title: 13.7 2026 年新增相关工作与 novelty 风险检查
@@ -3178,11 +3216,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 2560
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 2606
     level: 2
     occurrence: 1
-- node_id: heading:H0132
+- node_id: heading:H0133
   node_type: source_section
   lifecycle_status: accepted
   title: 13.8 BAPO 与 Low-Probability Tokens：证据边界必须写清
@@ -3197,11 +3235,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 2577
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 2623
     level: 2
     occurrence: 1
-- node_id: heading:H0133
+- node_id: heading:H0134
   node_type: source_section
   lifecycle_status: accepted
   title: 14. 下一阶段理论与实验增强计划
@@ -3215,11 +3253,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 2597
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 2643
     level: 1
     occurrence: 1
-- node_id: heading:H0134
+- node_id: heading:H0135
   node_type: source_section
   lifecycle_status: accepted
   title: 14.1 理论并行任务：完成连续—离散统一定理
@@ -3234,11 +3272,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 2599
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 2645
     level: 2
     occurrence: 1
-- node_id: heading:H0135
+- node_id: heading:H0136
   node_type: source_section
   lifecycle_status: accepted
   title: 14.2 P1：Categorical bandit 严格隔离实验（第二优先级）
@@ -3253,11 +3291,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 2616
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 2662
     level: 2
     occurrence: 1
-- node_id: heading:H0136
+- node_id: heading:H0137
   node_type: source_section
   lifecycle_status: accepted
   title: 14.3 P0：验证负梯度为何能超越 positive-only（第一优先级）
@@ -3272,11 +3310,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 2633
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 2679
     level: 2
     occurrence: 1
-- node_id: heading:H0137
+- node_id: heading:H0138
   node_type: source_section
   lifecycle_status: accepted
   title: 14.4 P2：小型 Transformer 序列实验
@@ -3290,11 +3328,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 2654
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 2700
     level: 2
     occurrence: 1
-- node_id: heading:H0138
+- node_id: heading:H0139
   node_type: source_section
   lifecycle_status: accepted
   title: 14.5 论文重构建议
@@ -3308,11 +3346,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 2667
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 2713
     level: 2
     occurrence: 1
-- node_id: heading:H0139
+- node_id: heading:H0140
   node_type: source_section
   lifecycle_status: accepted
   title: 14.6 更新后的实验优先级（v4）
@@ -3327,11 +3365,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 2683
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 2729
     level: 2
     occurrence: 1
-- node_id: heading:H0140
+- node_id: heading:H0141
   node_type: source_section
   lifecycle_status: accepted
   title: 14.7 P0 实验：负梯度的稳定外推—临界失稳—距离控制
@@ -3345,11 +3383,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 2692
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 2738
     level: 2
     occurrence: 1
-- node_id: heading:H0141
+- node_id: heading:H0142
   node_type: source_section
   lifecycle_status: accepted
   title: 14.8 理论升级清单
@@ -3363,11 +3401,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 2721
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 2767
     level: 2
     occurrence: 1
-- node_id: heading:H0142
+- node_id: heading:H0143
   node_type: source_section
   lifecycle_status: accepted
   title: 14.9 论文重构后的主线
@@ -3381,11 +3419,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 2748
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 2794
     level: 2
     occurrence: 1
-- node_id: heading:H0143
+- node_id: heading:H0144
   node_type: source_section
   lifecycle_status: accepted
   title: 14.10 未来统一实验环境：论文定稿前的必做重构
@@ -3400,11 +3438,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 2765
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 2811
     level: 2
     occurrence: 1
-- node_id: heading:H0144
+- node_id: heading:H0145
   node_type: source_section
   lifecycle_status: accepted
   title: 15. 最终结论
@@ -3418,11 +3456,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 2795
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 2841
     level: 1
     occurrence: 1
-- node_id: heading:H0145
+- node_id: heading:H0146
   node_type: source_section
   lifecycle_status: accepted
   title: 附录 A　主要数值结果
@@ -3436,11 +3474,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 2841
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 2887
     level: 1
     occurrence: 1
-- node_id: heading:H0146
+- node_id: heading:H0147
   node_type: source_section
   lifecycle_status: accepted
   title: 附录 B　参考文献与相关工作
@@ -3454,11 +3492,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 2853
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 2899
     level: 1
     occurrence: 1
-- node_id: heading:H0147
+- node_id: heading:H0148
   node_type: source_section
   lifecycle_status: accepted
   title: 附录 C　新会话核心文件索引
@@ -3472,11 +3510,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 2940
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 2986
     level: 1
     occurrence: 1
-- node_id: heading:H0148
+- node_id: heading:H0149
   node_type: source_section
   lifecycle_status: accepted
   title: 附录 D　P0 可学习方差：闭式稳态与快速实验验证
@@ -3490,11 +3528,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 2951
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 2997
     level: 1
     occurrence: 1
-- node_id: heading:H0149
+- node_id: heading:H0150
   node_type: source_section
   lifecycle_status: accepted
   title: D.1 直接参数化 (μ,log σ) 的解析—数值一致性
@@ -3508,11 +3546,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 2957
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 3003
     level: 2
     occurrence: 1
-- node_id: heading:H0150
+- node_id: heading:H0151
   node_type: source_section
   lifecycle_status: accepted
   title: D.2 距离移动方差临界边界
@@ -3527,11 +3565,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 2971
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 3017
     level: 2
     occurrence: 1
-- node_id: heading:H0151
+- node_id: heading:H0152
   node_type: source_section
   lifecycle_status: accepted
   title: D.3 非线性参数化与控制方法
@@ -3545,11 +3583,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 2987
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 3033
     level: 2
     occurrence: 1
-- node_id: heading:H0152
+- node_id: heading:H0153
   node_type: source_section
   lifecycle_status: accepted
   title: D.4 原始 gradient-explode 代码诊断
@@ -3563,11 +3601,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 2996
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 3042
     level: 2
     occurrence: 1
-- node_id: heading:H0153
+- node_id: heading:H0154
   node_type: source_section
   lifecycle_status: accepted
   title: D.5 论文写作结论
@@ -3582,11 +3620,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 3004
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 3050
     level: 2
     occurrence: 1
-- node_id: heading:H0154
+- node_id: heading:H0155
   node_type: source_section
   lifecycle_status: accepted
   title: 附录 E　统一非线性 benchmark：论文级正式结果
@@ -3601,11 +3639,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 3011
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 3057
     level: 1
     occurrence: 1
-- node_id: heading:H0155
+- node_id: heading:H0156
   node_type: source_section
   lifecycle_status: accepted
   title: E.1 Protocol A：严格来源隔离
@@ -3619,11 +3657,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 3018
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 3064
     level: 2
     occurrence: 1
-- node_id: heading:H0156
+- node_id: heading:H0157
   node_type: source_section
   lifecycle_status: accepted
   title: E.2 Protocol B：远场 collapse 因果干预
@@ -3637,11 +3675,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 3028
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 3074
     level: 2
     occurrence: 1
-- node_id: heading:H0157
+- node_id: heading:H0158
   node_type: source_section
   lifecycle_status: accepted
   title: E.3 Protocol C：稳定外推与联合均值—方差相变
@@ -3655,11 +3693,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 3050
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 3096
     level: 2
     occurrence: 1
-- node_id: heading:H0158
+- node_id: heading:H0159
   node_type: source_section
   lifecycle_status: accepted
   title: E.4 控制方法与等预算识别
@@ -3673,11 +3711,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 3080
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 3126
     level: 2
     occurrence: 1
-- node_id: heading:H0159
+- node_id: heading:H0160
   node_type: source_section
   lifecycle_status: accepted
   title: E.5 论文呈现与代码索引
@@ -3692,11 +3730,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 3100
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 3146
     level: 2
     occurrence: 1
-- node_id: heading:H0160
+- node_id: heading:H0161
   node_type: source_section
   lifecycle_status: accepted
   title: Part III. v9 Exponential-Family 核心理论补丁（完整保留）
@@ -3708,11 +3746,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 3124
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 3170
     level: 1
     occurrence: 1
-- node_id: heading:H0161
+- node_id: heading:H0162
   node_type: source_section
   lifecycle_status: accepted
   title: 2. 大一统理论：Repulsive Signed-Moment Dynamics
@@ -3724,11 +3762,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 3128
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 3174
     level: 1
     occurrence: 1
-- node_id: heading:H0162
+- node_id: heading:H0163
   node_type: source_section
   lifecycle_status: accepted
   title: 2.1 研究对象、记号与结论层级
@@ -3740,11 +3778,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 3130
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 3176
     level: 2
     occurrence: 1
-- node_id: heading:H0163
+- node_id: heading:H0164
   node_type: source_section
   lifecycle_status: accepted
   title: 2.2 定理 1：单个负优势更新必然提高该样本 surprisal
@@ -3756,11 +3794,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 3140
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 3186
     level: 2
     occurrence: 1
-- node_id: heading:H0164
+- node_id: heading:H0165
   node_type: source_section
   lifecycle_status: accepted
   title: 2.3 批量更新：自项、跨样本干涉与方向一致性
@@ -3772,11 +3810,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 3174
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 3220
     level: 2
     occurrence: 1
-- node_id: heading:H0165
+- node_id: heading:H0166
   node_type: source_section
   lifecycle_status: accepted
   title: 2.4 定理 2：正则最小指数族中的 signed-moment 平衡
@@ -3788,11 +3826,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 3192
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 3238
     level: 2
     occurrence: 1
-- node_id: heading:H0166
+- node_id: heading:H0167
   node_type: source_section
   lifecycle_status: accepted
   title: 2.5 Gaussian 推论 A：固定方差下的稳定外推与均值相变
@@ -3804,11 +3842,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 3247
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 3293
     level: 2
     occurrence: 1
-- node_id: heading:H0167
+- node_id: heading:H0168
   node_type: source_section
   lifecycle_status: accepted
   title: 2.6 Gaussian 推论 B：可学习方差的联合稳态与提前失稳
@@ -3820,11 +3858,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 3281
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 3327
     level: 2
     occurrence: 1
-- node_id: heading:H0168
+- node_id: heading:H0169
   node_type: source_section
   lifecycle_status: accepted
   title: 2.7 Gaussian 推论 C：方差四象限、单样本 MLE 与远场幅度放大
@@ -3836,11 +3874,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 3345
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 3391
     level: 2
     occurrence: 1
-- node_id: heading:H0169
+- node_id: heading:H0170
   node_type: source_section
   lifecycle_status: accepted
   title: 2.7A Gaussian 远场负梯度的二次临界衰减定理（v30，已解析证明）
@@ -3852,11 +3890,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 3386
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 3432
     level: 2
     occurrence: 1
-- node_id: heading:H0170
+- node_id: heading:H0171
   node_type: source_section
   lifecycle_status: accepted
   title: 定理 3（pre-boundary 区域中的二次远场界）
@@ -3868,11 +3906,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 3416
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 3462
     level: 3
     occurrence: 1
-- node_id: heading:H0171
+- node_id: heading:H0172
   node_type: source_section
   lifecycle_status: accepted
   title: 定理 4（reciprocal-polynomial 的二次临界阶）
@@ -3884,11 +3922,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 3453
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 3499
     level: 3
     occurrence: 1
-- node_id: heading:H0172
+- node_id: heading:H0173
   node_type: source_section
   lifecycle_status: accepted
   title: 命题 5（同一参考衰减下的有限距离选择性）
@@ -3900,11 +3938,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 3511
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 3557
     level: 3
     occurrence: 1
-- node_id: heading:H0173
+- node_id: heading:H0174
   node_type: source_section
   lifecycle_status: accepted
   title: 对角 Gaussian 推论
@@ -3916,11 +3954,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 3536
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 3582
     level: 3
     occurrence: 1
-- node_id: heading:H0174
+- node_id: heading:H0175
   node_type: source_section
   lifecycle_status: accepted
   title: 神经网络 pullback、例外与可声明边界
@@ -3933,11 +3971,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 3568
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 3614
     level: 3
     occurrence: 1
-- node_id: heading:H0175
+- node_id: heading:H0176
   node_type: source_section
   lifecycle_status: accepted
   title: 2.8 Categorical 推论 A：有界单步 score 仍可把策略推到 simplex 边界
@@ -3950,11 +3988,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 3595
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 3641
     level: 2
     occurrence: 1
-- node_id: heading:H0176
+- node_id: heading:H0177
   node_type: source_section
   lifecycle_status: accepted
   title: 2.9 Categorical 推论 B：未见动作外推为何需要语义结构，而不需要“动作有序”
@@ -3966,11 +4004,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 3633
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 3679
     level: 2
     occurrence: 1
-- node_id: heading:H0177
+- node_id: heading:H0178
   node_type: source_section
   lifecycle_status: accepted
   title: 2.10 神经网络共享参数：指数族输出场的 pullback
@@ -3982,11 +4020,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 3657
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 3703
     level: 2
     occurrence: 1
-- node_id: heading:H0178
+- node_id: heading:H0179
   node_type: source_section
   lifecycle_status: accepted
   title: 2.11 方法推论：Global α、Exp-remoteness 与 stability budget
@@ -3998,11 +4036,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 3679
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 3725
     level: 2
     occurrence: 1
-- node_id: heading:H0179
+- node_id: heading:H0180
   node_type: source_section
   lifecycle_status: accepted
   title: 2.12 Learned critic / value network：瞬时适用与移动目标
@@ -4015,11 +4053,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 3703
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 3749
     level: 2
     occurrence: 1
-- node_id: heading:H0180
+- node_id: heading:H0181
   node_type: source_section
   lifecycle_status: accepted
   title: 2.13 自我审查：反例挑战、修正与最终可声明边界
@@ -4032,11 +4070,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 3717
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 3763
     level: 2
     occurrence: 1
-- node_id: heading:H0181
+- node_id: heading:H0182
   node_type: source_section
   lifecycle_status: accepted
   title: Part IV. v10 Hopper Learned-Critic 外部验证记录（完整保留，状态降级）
@@ -4049,11 +4087,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 3739
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 3785
     level: 1
     occurrence: 1
-- node_id: heading:H0182
+- node_id: heading:H0183
   node_type: source_section
   lifecycle_status: accepted
   title: DRPO / SNA2C 统一理论与实验备忘录 v9
@@ -4064,11 +4102,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 3743
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 3789
     level: 1
     occurrence: 1
-- node_id: heading:H0183
+- node_id: heading:H0184
   node_type: source_section
   lifecycle_status: accepted
   title: 0. 新会话必须继承的锁定结论
@@ -4079,11 +4117,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 3759
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 3805
     level: 1
     occurrence: 1
-- node_id: heading:H0184
+- node_id: heading:H0185
   node_type: source_section
   lifecycle_status: accepted
   title: 0.1 连续 Gaussian
@@ -4095,11 +4133,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 3764
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 3810
     level: 2
     occurrence: 1
-- node_id: heading:H0185
+- node_id: heading:H0186
   node_type: source_section
   lifecycle_status: accepted
   title: 0.2 离散 categorical
@@ -4111,11 +4149,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 3778
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 3824
     level: 2
     occurrence: 1
-- node_id: heading:H0186
+- node_id: heading:H0187
   node_type: source_section
   lifecycle_status: accepted
   title: 0.3 明确不可声称
@@ -4126,11 +4164,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 3790
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 3836
     level: 2
     occurrence: 1
-- node_id: heading:H0187
+- node_id: heading:H0188
   node_type: source_section
   lifecycle_status: accepted
   title: 1. 文档审计与结论固化
@@ -4142,11 +4180,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 3802
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 3848
     level: 1
     occurrence: 1
-- node_id: heading:H0188
+- node_id: heading:H0189
   node_type: source_section
   lifecycle_status: accepted
   title: 1.1 v7 的主要问题
@@ -4157,11 +4195,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 3804
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 3850
     level: 2
     occurrence: 1
-- node_id: heading:H0189
+- node_id: heading:H0190
   node_type: source_section
   lifecycle_status: accepted
   title: 1.2 v8 的删除与替换规则
@@ -4172,11 +4210,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 3814
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 3860
     level: 2
     occurrence: 1
-- node_id: heading:H0190
+- node_id: heading:H0191
   node_type: source_section
   lifecycle_status: accepted
   title: 2. 大一统理论：Repulsive Signed-Moment Dynamics
@@ -4187,11 +4225,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 3828
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 3874
     level: 1
     occurrence: 2
-- node_id: heading:H0191
+- node_id: heading:H0192
   node_type: source_section
   lifecycle_status: accepted
   title: 2.1 研究对象、记号与结论层级
@@ -4202,11 +4240,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 3830
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 3876
     level: 2
     occurrence: 2
-- node_id: heading:H0192
+- node_id: heading:H0193
   node_type: source_section
   lifecycle_status: accepted
   title: 2.2 定理 1：单个负优势更新必然提高该样本 surprisal
@@ -4217,11 +4255,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 3840
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 3886
     level: 2
     occurrence: 2
-- node_id: heading:H0193
+- node_id: heading:H0194
   node_type: source_section
   lifecycle_status: accepted
   title: 2.3 批量更新：自项、跨样本干涉与方向一致性
@@ -4232,11 +4270,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 3874
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 3920
     level: 2
     occurrence: 2
-- node_id: heading:H0194
+- node_id: heading:H0195
   node_type: source_section
   lifecycle_status: accepted
   title: 2.4 定理 2：正则最小指数族中的 signed-moment 平衡
@@ -4247,11 +4285,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 3892
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 3938
     level: 2
     occurrence: 2
-- node_id: heading:H0195
+- node_id: heading:H0196
   node_type: source_section
   lifecycle_status: accepted
   title: 2.5 Gaussian 推论 A：固定方差下的稳定外推与均值相变
@@ -4263,11 +4301,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 3947
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 3993
     level: 2
     occurrence: 2
-- node_id: heading:H0196
+- node_id: heading:H0197
   node_type: source_section
   lifecycle_status: accepted
   title: 2.6 Gaussian 推论 B：可学习方差的联合稳态与提前失稳
@@ -4279,11 +4317,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 3981
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4027
     level: 2
     occurrence: 2
-- node_id: heading:H0197
+- node_id: heading:H0198
   node_type: source_section
   lifecycle_status: accepted
   title: 2.7 Gaussian 推论 C：方差四象限、单样本 MLE 与远场幅度放大
@@ -4295,11 +4333,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4045
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4091
     level: 2
     occurrence: 2
-- node_id: heading:H0198
+- node_id: heading:H0199
   node_type: source_section
   lifecycle_status: accepted
   title: 2.8 Categorical 推论 A：有界单步 score 仍可把策略推到 simplex 边界
@@ -4312,11 +4350,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4086
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4132
     level: 2
     occurrence: 2
-- node_id: heading:H0199
+- node_id: heading:H0200
   node_type: source_section
   lifecycle_status: accepted
   title: 2.9 Categorical 推论 B：未见动作外推为何需要语义结构，而不需要“动作有序”
@@ -4328,11 +4366,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4124
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4170
     level: 2
     occurrence: 2
-- node_id: heading:H0200
+- node_id: heading:H0201
   node_type: source_section
   lifecycle_status: accepted
   title: 2.10 神经网络共享参数：指数族输出场的 pullback
@@ -4343,11 +4381,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4148
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4194
     level: 2
     occurrence: 2
-- node_id: heading:H0201
+- node_id: heading:H0202
   node_type: source_section
   lifecycle_status: accepted
   title: 2.11 方法推论：Global α、Exp-remoteness 与 stability budget
@@ -4358,11 +4396,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4170
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4216
     level: 2
     occurrence: 2
-- node_id: heading:H0202
+- node_id: heading:H0203
   node_type: source_section
   lifecycle_status: accepted
   title: 2.12 Learned critic / value network：瞬时适用与移动目标
@@ -4374,11 +4412,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4194
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4240
     level: 2
     occurrence: 2
-- node_id: heading:H0203
+- node_id: heading:H0204
   node_type: source_section
   lifecycle_status: accepted
   title: 2.13 自我审查：反例挑战、修正与最终可声明边界
@@ -4390,11 +4428,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4208
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4254
     level: 2
     occurrence: 2
-- node_id: heading:H0204
+- node_id: heading:H0205
   node_type: source_section
   lifecycle_status: accepted
   title: 3. 连续统一 benchmark：正式论文级证据
@@ -4407,11 +4445,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4228
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4274
     level: 1
     occurrence: 1
-- node_id: heading:H0205
+- node_id: heading:H0206
   node_type: source_section
   lifecycle_status: accepted
   title: 3.1 Protocol A：来源隔离
@@ -4422,11 +4460,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4230
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4276
     level: 2
     occurrence: 1
-- node_id: heading:H0206
+- node_id: heading:H0207
   node_type: source_section
   lifecycle_status: accepted
   title: 3.2 Protocol B：因果 collapse 干预
@@ -4437,11 +4475,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4243
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4289
     level: 2
     occurrence: 1
-- node_id: heading:H0207
+- node_id: heading:H0208
   node_type: source_section
   lifecycle_status: accepted
   title: 3.3 Protocol C：稳定外推与联合相变
@@ -4452,11 +4490,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4263
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4309
     level: 2
     occurrence: 1
-- node_id: heading:H0208
+- node_id: heading:H0209
   node_type: source_section
   lifecycle_status: accepted
   title: 3.4 控制方法与等预算识别
@@ -4467,11 +4505,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4285
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4331
     level: 2
     occurrence: 1
-- node_id: heading:H0209
+- node_id: heading:H0210
   node_type: source_section
   lifecycle_status: accepted
   title: 4. 离散 categorical benchmark：理论与正式结果
@@ -4484,11 +4522,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4301
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4347
     level: 1
     occurrence: 1
-- node_id: heading:H0210
+- node_id: heading:H0211
   node_type: source_section
   lifecycle_status: accepted
   title: 4.1 小环境：direct softmax 的精确结论
@@ -4500,11 +4538,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4303
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4349
     level: 2
     occurrence: 1
-- node_id: heading:H0211
+- node_id: heading:H0212
   node_type: source_section
   lifecycle_status: accepted
   title: 4.2 来源隔离：rarity 使梯度更大但幅度有界
@@ -4515,11 +4553,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4316
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4362
     level: 2
     occurrence: 1
-- node_id: heading:H0212
+- node_id: heading:H0213
   node_type: source_section
   lifecycle_status: accepted
   title: 4.3 结构化 categorical 外推：解析桥梁与无序语义动作
@@ -4531,11 +4569,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4329
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4375
     level: 2
     occurrence: 1
-- node_id: heading:H0213
+- node_id: heading:H0214
   node_type: source_section
   lifecycle_status: accepted
   title: 4.4 categorical near/far 因果干预
@@ -4547,11 +4585,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4351
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4397
     level: 2
     occurrence: 1
-- node_id: heading:H0214
+- node_id: heading:H0215
   node_type: source_section
   lifecycle_status: accepted
   title: 4.5 控制方法：反对“distance 永远更优”的过度 claim
@@ -4562,11 +4600,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4368
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4414
     level: 2
     occurrence: 1
-- node_id: heading:H0215
+- node_id: heading:H0216
   node_type: source_section
   lifecycle_status: accepted
   title: 5. 连续—离散统一解释
@@ -4579,11 +4617,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4384
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4430
     level: 1
     occurrence: 1
-- node_id: heading:H0216
+- node_id: heading:H0217
   node_type: source_section
   lifecycle_status: accepted
   title: 6. 论文贡献与推荐 claim 结构
@@ -4595,11 +4633,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4404
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4450
     level: 1
     occurrence: 1
-- node_id: heading:H0217
+- node_id: heading:H0218
   node_type: source_section
   lifecycle_status: accepted
   title: 6.1 当前已经形成的贡献栈
@@ -4610,11 +4648,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4406
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4452
     level: 2
     occurrence: 1
-- node_id: heading:H0218
+- node_id: heading:H0219
   node_type: source_section
   lifecycle_status: accepted
   title: 6.2 论文主文建议
@@ -4626,11 +4664,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4420
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4466
     level: 2
     occurrence: 1
-- node_id: heading:H0219
+- node_id: heading:H0220
   node_type: source_section
   lifecycle_status: accepted
   title: 6.3 推荐用语
@@ -4641,11 +4679,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4429
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4475
     level: 2
     occurrence: 1
-- node_id: heading:H0220
+- node_id: heading:H0221
   node_type: source_section
   lifecycle_status: accepted
   title: 7. 接下来唯一保留的任务清单
@@ -4657,11 +4695,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4439
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4485
     level: 1
     occurrence: 1
-- node_id: heading:H0221
+- node_id: heading:H0222
   node_type: source_section
   lifecycle_status: accepted
   title: P0：统一理论已完成；转入论文 LaTeX 化与定理精简
@@ -4673,11 +4711,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4441
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4487
     level: 2
     occurrence: 1
-- node_id: heading:H0222
+- node_id: heading:H0223
   node_type: source_section
   lifecycle_status: accepted
   title: P1：方法创新与外部有效性（下一实验主线）
@@ -4688,11 +4726,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4449
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4495
     level: 2
     occurrence: 1
-- node_id: heading:H0223
+- node_id: heading:H0224
   node_type: source_section
   lifecycle_status: accepted
   title: P2：当前不做或降级为 future work
@@ -4703,11 +4741,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4459
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4505
     level: 2
     occurrence: 1
-- node_id: heading:H0224
+- node_id: heading:H0225
   node_type: source_section
   lifecycle_status: accepted
   title: 8. 复现入口与文件索引
@@ -4719,11 +4757,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4472
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4518
     level: 1
     occurrence: 1
-- node_id: heading:H0225
+- node_id: heading:H0226
   node_type: source_section
   lifecycle_status: accepted
   title: 附录 A. 旧实验的保留规则
@@ -4734,11 +4772,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4486
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4532
     level: 1
     occurrence: 1
-- node_id: heading:H0226
+- node_id: heading:H0227
   node_type: source_section
   lifecycle_status: accepted
   title: 附录 B. 最终研究判断
@@ -4749,11 +4787,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4502
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4548
     level: 1
     occurrence: 1
-- node_id: heading:H0227
+- node_id: heading:H0228
   node_type: source_section
   lifecycle_status: accepted
   title: 附录 C. 公式自检与机器验证
@@ -4764,11 +4802,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4509
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4555
     level: 1
     occurrence: 1
-- node_id: heading:H0228
+- node_id: heading:H0229
   node_type: source_section
   lifecycle_status: accepted
   title: 15. Learned-Critic External Mechanism Validation on D4RL
@@ -4780,11 +4818,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4515
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4561
     level: 1
     occurrence: 1
-- node_id: heading:H0229
+- node_id: heading:H0230
   node_type: source_section
   lifecycle_status: accepted
   title: 1. learned advantage 下的来源隔离
@@ -4795,11 +4833,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4529
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4575
     level: 2
     occurrence: 1
-- node_id: heading:H0230
+- node_id: heading:H0231
   node_type: source_section
   lifecycle_status: accepted
   title: 2. 方差方向与修正理论一致
@@ -4811,11 +4849,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4540
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4586
     level: 2
     occurrence: 1
-- node_id: heading:H0231
+- node_id: heading:H0232
   node_type: source_section
   lifecycle_status: accepted
   title: 3. 10-seed 定点干预
@@ -4826,11 +4864,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4550
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4596
     level: 2
     occurrence: 1
-- node_id: heading:H0232
+- node_id: heading:H0233
   node_type: source_section
   lifecycle_status: accepted
   title: 4. 相变而非 sign-only 法则
@@ -4841,11 +4879,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4569
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4615
     level: 2
     occurrence: 1
-- node_id: heading:H0233
+- node_id: heading:H0234
   node_type: source_section
   lifecycle_status: accepted
   title: 5. Advantage estimator 稳健性
@@ -4856,11 +4894,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4573
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4619
     level: 2
     occurrence: 1
-- node_id: heading:H0234
+- node_id: heading:H0235
   node_type: source_section
   lifecycle_status: accepted
   title: 6. 论文中的正确使用方式
@@ -4872,11 +4910,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4587
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4633
     level: 2
     occurrence: 1
-- node_id: heading:H0235
+- node_id: heading:H0236
   node_type: source_section
   lifecycle_status: accepted
   title: Part V. Bandit 稳定外推子实验的收敛审计（完整保留）
@@ -4890,11 +4928,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4607
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4653
     level: 1
     occurrence: 1
-- node_id: heading:H0236
+- node_id: heading:H0237
   node_type: source_section
   lifecycle_status: accepted
   title: DRPO Bandit Saturation Re-audit (v1)
@@ -4907,11 +4945,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4611
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4657
     level: 1
     occurrence: 1
-- node_id: heading:H0237
+- node_id: heading:H0238
   node_type: source_section
   lifecycle_status: accepted
   title: 结论摘要
@@ -4925,11 +4963,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4613
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4659
     level: 2
     occurrence: 1
-- node_id: heading:H0238
+- node_id: heading:H0239
   node_type: source_section
   lifecycle_status: accepted
   title: 1. Ground truth
@@ -4942,11 +4980,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4623
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4669
     level: 2
     occurrence: 1
-- node_id: heading:H0239
+- node_id: heading:H0240
   node_type: source_section
   lifecycle_status: accepted
   title: Continuous, fixed variance
@@ -4959,11 +4997,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4625
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4671
     level: 3
     occurrence: 1
-- node_id: heading:H0240
+- node_id: heading:H0241
   node_type: source_section
   lifecycle_status: accepted
   title: Continuous, learnable variance
@@ -4976,11 +5014,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4635
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4681
     level: 3
     occurrence: 1
-- node_id: heading:H0241
+- node_id: heading:H0242
   node_type: source_section
   lifecycle_status: accepted
   title: Categorical energy policy
@@ -4993,11 +5031,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4645
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4691
     level: 3
     occurrence: 1
-- node_id: heading:H0242
+- node_id: heading:H0243
   node_type: source_section
   lifecycle_status: accepted
   title: 2. 重新训练后的关键结果（seeds 10–12）
@@ -5011,11 +5049,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4649
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4695
     level: 2
     occurrence: 1
-- node_id: heading:H0243
+- node_id: heading:H0244
   node_type: source_section
   lifecycle_status: accepted
   title: Continuous fixed variance
@@ -5028,11 +5066,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4651
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4697
     level: 3
     occurrence: 1
-- node_id: heading:H0244
+- node_id: heading:H0245
   node_type: source_section
   lifecycle_status: accepted
   title: Continuous learnable variance
@@ -5045,11 +5083,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4662
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4708
     level: 3
     occurrence: 1
-- node_id: heading:H0245
+- node_id: heading:H0246
   node_type: source_section
   lifecycle_status: accepted
   title: Categorical
@@ -5062,11 +5100,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4674
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4720
     level: 3
     occurrence: 1
-- node_id: heading:H0246
+- node_id: heading:H0247
   node_type: source_section
   lifecycle_status: accepted
   title: 3. 对旧结论的处理
@@ -5079,11 +5117,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4687
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4733
     level: 2
     occurrence: 1
-- node_id: heading:H0247
+- node_id: heading:H0248
   node_type: source_section
   lifecycle_status: accepted
   title: 4. 哪些实验不以训练收敛为验收条件
@@ -5096,11 +5134,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4694
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4740
     level: 2
     occurrence: 1
-- node_id: heading:H0248
+- node_id: heading:H0249
   node_type: source_section
   lifecycle_status: accepted
   title: 5. 现在可防守的 solid 结论
@@ -5113,11 +5151,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4700
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4746
     level: 2
     occurrence: 1
-- node_id: heading:H0249
+- node_id: heading:H0250
   node_type: source_section
   lifecycle_status: accepted
   title: Part VI. 论文重写大纲（当前草案，后续须与实验状态同步）
@@ -5133,11 +5171,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4711
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4757
     level: 1
     occurrence: 1
-- node_id: heading:H0250
+- node_id: heading:H0251
   node_type: source_section
   lifecycle_status: accepted
   title: 论文重写大纲 v1：从推荐专属 DRPO 到通用 Repulsive Policy Dynamics
@@ -5152,11 +5190,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4713
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4759
     level: 1
     occurrence: 1
-- node_id: heading:H0251
+- node_id: heading:H0252
   node_type: source_section
   lifecycle_status: accepted
   title: 0. 一句话定位与非谈不可的重写原则
@@ -5172,11 +5210,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4717
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4763
     level: 2
     occurrence: 1
-- node_id: heading:H0252
+- node_id: heading:H0253
   node_type: source_section
   lifecycle_status: accepted
   title: 建议主标题
@@ -5191,11 +5229,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4719
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4765
     level: 3
     occurrence: 1
-- node_id: heading:H0253
+- node_id: heading:H0254
   node_type: source_section
   lifecycle_status: accepted
   title: 一句话主张
@@ -5210,11 +5248,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4729
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4775
     level: 3
     occurrence: 1
-- node_id: heading:H0254
+- node_id: heading:H0255
   node_type: source_section
   lifecycle_status: accepted
   title: 必须完成的根本重写
@@ -5229,11 +5267,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4733
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4779
     level: 3
     occurrence: 1
-- node_id: heading:H0255
+- node_id: heading:H0256
   node_type: source_section
   lifecycle_status: accepted
   title: 1. 旧审稿意见到新稿设计的逐项映射
@@ -5249,11 +5287,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4744
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4790
     level: 2
     occurrence: 1
-- node_id: heading:H0256
+- node_id: heading:H0257
   node_type: source_section
   lifecycle_status: accepted
   title: 2. 摘要：建议按 7 句话写成一个紧凑段落
@@ -5268,11 +5306,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4761
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4807
     level: 2
     occurrence: 1
-- node_id: heading:H0257
+- node_id: heading:H0258
   node_type: source_section
   lifecycle_status: accepted
   title: 句 1：通用问题
@@ -5287,11 +5325,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4763
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4809
     level: 3
     occurrence: 1
-- node_id: heading:H0258
+- node_id: heading:H0259
   node_type: source_section
   lifecycle_status: accepted
   title: 句 2：核心悖论
@@ -5306,11 +5344,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4769
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4815
     level: 3
     occurrence: 1
-- node_id: heading:H0259
+- node_id: heading:H0260
   node_type: source_section
   lifecycle_status: accepted
   title: 句 3：统一理论
@@ -5325,11 +5363,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4775
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4821
     level: 3
     occurrence: 1
-- node_id: heading:H0260
+- node_id: heading:H0261
   node_type: source_section
   lifecycle_status: accepted
   title: 句 4：策略族分叉
@@ -5344,11 +5382,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4779
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4825
     level: 3
     occurrence: 1
-- node_id: heading:H0261
+- node_id: heading:H0262
   node_type: source_section
   lifecycle_status: accepted
   title: 句 5：因果证据
@@ -5363,11 +5401,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4783
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4829
     level: 3
     occurrence: 1
-- node_id: heading:H0262
+- node_id: heading:H0263
   node_type: source_section
   lifecycle_status: accepted
   title: 句 6：方法
@@ -5382,11 +5420,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4787
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4833
     level: 3
     occurrence: 1
-- node_id: heading:H0263
+- node_id: heading:H0264
   node_type: source_section
   lifecycle_status: accepted
   title: 句 7：外部验证
@@ -5401,11 +5439,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4791
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4837
     level: 3
     occurrence: 1
-- node_id: heading:H0264
+- node_id: heading:H0265
   node_type: source_section
   lifecycle_status: accepted
   title: 3. Introduction：建议 8 个段落
@@ -5420,11 +5458,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4799
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4845
     level: 2
     occurrence: 1
-- node_id: heading:H0265
+- node_id: heading:H0266
   node_type: source_section
   lifecycle_status: accepted
   title: P1：从 off-policy actor learning 的普遍结构切入
@@ -5439,11 +5477,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4801
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4847
     level: 3
     occurrence: 1
-- node_id: heading:H0266
+- node_id: heading:H0267
   node_type: source_section
   lifecycle_status: accepted
   title: P2：解释负优势的双重价值
@@ -5458,11 +5496,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4807
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4853
     level: 3
     occurrence: 1
-- node_id: heading:H0267
+- node_id: heading:H0268
   node_type: source_section
   lifecycle_status: accepted
   title: P3：提出真正的未解问题
@@ -5477,11 +5515,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4813
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4859
     level: 3
     occurrence: 1
-- node_id: heading:H0268
+- node_id: heading:H0269
   node_type: source_section
   lifecycle_status: accepted
   title: P4：机制概览
@@ -5496,11 +5534,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4819
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4865
     level: 3
     occurrence: 1
-- node_id: heading:H0269
+- node_id: heading:H0270
   node_type: source_section
   lifecycle_status: accepted
   title: P5：理论贡献概览
@@ -5515,11 +5553,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4828
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4874
     level: 3
     occurrence: 1
-- node_id: heading:H0270
+- node_id: heading:H0271
   node_type: source_section
   lifecycle_status: accepted
   title: P6：证据链概览
@@ -5534,11 +5572,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4832
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4878
     level: 3
     occurrence: 1
-- node_id: heading:H0271
+- node_id: heading:H0272
   node_type: source_section
   lifecycle_status: accepted
   title: P7：方法概览
@@ -5553,11 +5591,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4842
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4888
     level: 3
     occurrence: 1
-- node_id: heading:H0272
+- node_id: heading:H0273
   node_type: source_section
   lifecycle_status: accepted
   title: P8：贡献列表
@@ -5572,11 +5610,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4846
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4892
     level: 3
     occurrence: 1
-- node_id: heading:H0273
+- node_id: heading:H0274
   node_type: source_section
   lifecycle_status: accepted
   title: 4. Related Work：建议 4 个小节，每节 2–3 段
@@ -5591,11 +5629,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4859
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4905
     level: 2
     occurrence: 1
-- node_id: heading:H0274
+- node_id: heading:H0275
   node_type: source_section
   lifecycle_status: accepted
   title: 4.1 Offline policy optimization and distribution shift
@@ -5610,11 +5648,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4861
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4907
     level: 3
     occurrence: 1
-- node_id: heading:H0275
+- node_id: heading:H0276
   node_type: source_section
   lifecycle_status: accepted
   title: 4.2 Negative-advantage and low-probability update dynamics
@@ -5629,11 +5667,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4867
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4913
     level: 3
     occurrence: 1
-- node_id: heading:H0276
+- node_id: heading:H0277
   node_type: source_section
   lifecycle_status: accepted
   title: 4.3 Negative data for generalization and mode suppression
@@ -5648,11 +5686,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4873
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4919
     level: 3
     occurrence: 1
-- node_id: heading:H0277
+- node_id: heading:H0278
   node_type: source_section
   lifecycle_status: accepted
   title: 4.4 Entropy and support control
@@ -5667,11 +5705,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4879
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4925
     level: 3
     occurrence: 1
-- node_id: heading:H0278
+- node_id: heading:H0279
   node_type: source_section
   lifecycle_status: accepted
   title: 引用治理规则
@@ -5687,11 +5725,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4885
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4931
     level: 3
     occurrence: 1
-- node_id: heading:H0279
+- node_id: heading:H0280
   node_type: source_section
   lifecycle_status: accepted
   title: 5. Problem Setup and Scope：建议 5 个段落
@@ -5707,11 +5745,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4894
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4940
     level: 2
     occurrence: 1
-- node_id: heading:H0280
+- node_id: heading:H0281
   node_type: source_section
   lifecycle_status: accepted
   title: P1：分析对象
@@ -5726,11 +5764,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4896
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4942
     level: 3
     occurrence: 1
-- node_id: heading:H0281
+- node_id: heading:H0282
   node_type: source_section
   lifecycle_status: accepted
   title: P2：不要把它伪装成无偏 policy-gradient theorem
@@ -5745,11 +5783,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4906
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4952
     level: 3
     occurrence: 1
-- node_id: heading:H0282
+- node_id: heading:H0283
   node_type: source_section
   lifecycle_status: accepted
   title: P3：advantage 条件
@@ -5764,11 +5802,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4912
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4958
     level: 3
     occurrence: 1
-- node_id: heading:H0283
+- node_id: heading:H0284
   node_type: source_section
   lifecycle_status: accepted
   title: P4：正负质量与条件分布
@@ -5783,11 +5821,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4916
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4962
     level: 3
     occurrence: 1
-- node_id: heading:H0284
+- node_id: heading:H0285
   node_type: source_section
   lifecycle_status: accepted
   title: P5：claim 层级
@@ -5802,11 +5840,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4920
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4966
     level: 3
     occurrence: 1
-- node_id: heading:H0285
+- node_id: heading:H0286
   node_type: source_section
   lifecycle_status: accepted
   title: 6. Theory：正文建议 4–5 页，完整证明放附录
@@ -5822,11 +5860,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4926
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4972
     level: 2
     occurrence: 1
-- node_id: heading:H0286
+- node_id: heading:H0287
   node_type: source_section
   lifecycle_status: accepted
   title: 6.1 Theorem 1：Single-sample repulsive surprisal dynamics
@@ -5841,11 +5879,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4928
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4974
     level: 3
     occurrence: 1
-- node_id: heading:H0287
+- node_id: heading:H0288
   node_type: source_section
   lifecycle_status: accepted
   title: 6.2 Batch interference and directional coherence
@@ -5860,11 +5898,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4942
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4988
     level: 3
     occurrence: 1
-- node_id: heading:H0288
+- node_id: heading:H0289
   node_type: source_section
   lifecycle_status: accepted
   title: 6.3 Theorem 2：Signed-moment equilibrium in exponential families
@@ -5879,11 +5917,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4950
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 4996
     level: 3
     occurrence: 1
-- node_id: heading:H0289
+- node_id: heading:H0290
   node_type: source_section
   lifecycle_status: accepted
   title: 6.4 Gaussian branch
@@ -5898,11 +5936,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4962
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5008
     level: 3
     occurrence: 1
-- node_id: heading:H0290
+- node_id: heading:H0291
   node_type: source_section
   lifecycle_status: accepted
   title: P1：fixed variance mean equilibrium
@@ -5917,11 +5955,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4964
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5010
     level: 4
     occurrence: 1
-- node_id: heading:H0291
+- node_id: heading:H0292
   node_type: source_section
   lifecycle_status: accepted
   title: P2：learnable variance joint equilibrium
@@ -5936,11 +5974,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4968
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5014
     level: 4
     occurrence: 1
-- node_id: heading:H0292
+- node_id: heading:H0293
   node_type: source_section
   lifecycle_status: accepted
   title: P3：variance four quadrants
@@ -5955,11 +5993,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4972
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5018
     level: 4
     occurrence: 1
-- node_id: heading:H0293
+- node_id: heading:H0294
   node_type: source_section
   lifecycle_status: accepted
   title: P4：fixed-sample Hessian correction
@@ -5974,11 +6012,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4976
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5022
     level: 4
     occurrence: 1
-- node_id: heading:H0294
+- node_id: heading:H0295
   node_type: source_section
   lifecycle_status: accepted
   title: P5：far-field amplitude law
@@ -5993,11 +6031,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4980
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5026
     level: 4
     occurrence: 1
-- node_id: heading:H0295
+- node_id: heading:H0296
   node_type: source_section
   lifecycle_status: accepted
   title: 6.5 Categorical branch
@@ -6012,11 +6050,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4984
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5030
     level: 3
     occurrence: 1
-- node_id: heading:H0296
+- node_id: heading:H0297
   node_type: source_section
   lifecycle_status: accepted
   title: P1：direct-logit score boundedness
@@ -6031,11 +6069,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4986
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5032
     level: 4
     occurrence: 1
-- node_id: heading:H0297
+- node_id: heading:H0298
   node_type: source_section
   lifecycle_status: accepted
   title: P2：support boundary dynamics
@@ -6050,11 +6088,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4990
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5036
     level: 4
     occurrence: 1
-- node_id: heading:H0298
+- node_id: heading:H0299
   node_type: source_section
   lifecycle_status: accepted
   title: P3：categorical signed target
@@ -6069,11 +6107,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4994
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5040
     level: 4
     occurrence: 1
-- node_id: heading:H0299
+- node_id: heading:H0300
   node_type: source_section
   lifecycle_status: accepted
   title: P4：semantic feature policy
@@ -6088,11 +6126,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 4998
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5044
     level: 4
     occurrence: 1
-- node_id: heading:H0300
+- node_id: heading:H0301
   node_type: source_section
   lifecycle_status: accepted
   title: 6.6 Neural-network pullback and scope
@@ -6108,11 +6146,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5002
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5048
     level: 3
     occurrence: 1
-- node_id: heading:H0301
+- node_id: heading:H0302
   node_type: source_section
   lifecycle_status: accepted
   title: 6.7 Moving critics and stale advantages
@@ -6127,11 +6165,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5010
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5056
     level: 3
     occurrence: 1
-- node_id: heading:H0302
+- node_id: heading:H0303
   node_type: source_section
   lifecycle_status: accepted
   title: 7. Method：先保留两个候选，外部实验后只选一个主方法
@@ -6146,11 +6184,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5020
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5066
     level: 2
     occurrence: 1
-- node_id: heading:H0303
+- node_id: heading:H0304
   node_type: source_section
   lifecycle_status: accepted
   title: 7.1 Candidate A：Exponential Remoteness Taper
@@ -6165,11 +6203,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5022
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5068
     level: 3
     occurrence: 1
-- node_id: heading:H0304
+- node_id: heading:H0305
   node_type: source_section
   lifecycle_status: accepted
   title: 7.2 Candidate B：Safety-only Stability-Budgeted Taper
@@ -6184,11 +6222,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5039
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5085
     level: 3
     occurrence: 1
-- node_id: heading:H0305
+- node_id: heading:H0306
   node_type: source_section
   lifecycle_status: accepted
   title: 7.3 主方法选择规则
@@ -6203,11 +6241,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5045
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5091
     level: 3
     occurrence: 1
-- node_id: heading:H0306
+- node_id: heading:H0307
   node_type: source_section
   lifecycle_status: accepted
   title: 7.4 Hard filtering / DRPO 的新位置
@@ -6222,11 +6260,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5051
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5097
     level: 3
     occurrence: 1
-- node_id: heading:H0307
+- node_id: heading:H0308
   node_type: source_section
   lifecycle_status: accepted
   title: 8. Controlled Experiments：正文机制证据
@@ -6241,11 +6279,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5060
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5106
     level: 2
     occurrence: 1
-- node_id: heading:H0308
+- node_id: heading:H0309
   node_type: source_section
   lifecycle_status: accepted
   title: 8.1 Protocol A：Source isolation
@@ -6260,11 +6298,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5062
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5108
     level: 3
     occurrence: 1
-- node_id: heading:H0309
+- node_id: heading:H0310
   node_type: source_section
   lifecycle_status: accepted
   title: 8.2 Protocol B：Causal collapse
@@ -6279,11 +6317,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5072
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5118
     level: 3
     occurrence: 1
-- node_id: heading:H0310
+- node_id: heading:H0311
   node_type: source_section
   lifecycle_status: accepted
   title: 8.3 Protocol C：Stable extrapolation and phase transition
@@ -6298,11 +6336,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5082
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5128
     level: 3
     occurrence: 1
-- node_id: heading:H0311
+- node_id: heading:H0312
   node_type: source_section
   lifecycle_status: accepted
   title: 8.4 Generic categorical with unordered IDs
@@ -6317,11 +6355,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5090
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5136
     level: 3
     occurrence: 1
-- node_id: heading:H0312
+- node_id: heading:H0313
   node_type: source_section
   lifecycle_status: accepted
   title: 8.5 Entropy-matched controls
@@ -6336,11 +6374,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5096
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5142
     level: 3
     occurrence: 1
-- node_id: heading:H0313
+- node_id: heading:H0314
   node_type: source_section
   lifecycle_status: accepted
   title: 9. External Validation：至少两类公共任务
@@ -6355,11 +6393,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5104
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5150
     level: 2
     occurrence: 1
-- node_id: heading:H0314
+- node_id: heading:H0315
   node_type: source_section
   lifecycle_status: accepted
   title: 9.1 D4RL / Hopper
@@ -6374,11 +6412,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5106
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5152
     level: 3
     occurrence: 1
-- node_id: heading:H0315
+- node_id: heading:H0316
   node_type: source_section
   lifecycle_status: accepted
   title: Mechanism subsection
@@ -6393,11 +6431,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5110
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5156
     level: 4
     occurrence: 1
-- node_id: heading:H0316
+- node_id: heading:H0317
   node_type: source_section
   lifecycle_status: accepted
   title: E7-Q2：Gaussian 二次 log-scale 分支的独立外部验证
@@ -6412,11 +6450,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5118
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5164
     level: 4
     occurrence: 1
-- node_id: heading:H0317
+- node_id: heading:H0318
   node_type: source_section
   lifecycle_status: accepted
   title: Method subsection
@@ -6431,11 +6469,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5163
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5209
     level: 4
     occurrence: 1
-- node_id: heading:H0318
+- node_id: heading:H0319
   node_type: source_section
   lifecycle_status: accepted
   title: 9.2 Countdown token arena
@@ -6450,11 +6488,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5167
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5213
     level: 3
     occurrence: 1
-- node_id: heading:H0319
+- node_id: heading:H0320
   node_type: source_section
   lifecycle_status: accepted
   title: v28 当前协议覆盖：v4.2.0 一键 BF16-LoRA pilot
@@ -6469,11 +6507,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5182
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5228
     level: 4
     occurrence: 1
-- node_id: heading:H0320
+- node_id: heading:H0321
   node_type: source_section
   lifecycle_status: accepted
   title: v21 历史协议：v4.1 审计式 BF16-LoRA pilot（由 v22 覆盖 alpha 与配置登记）
@@ -6490,11 +6528,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5207
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5253
     level: 4
     occurrence: 1
-- node_id: heading:H0321
+- node_id: heading:H0322
   node_type: source_section
   lifecycle_status: accepted
   title: v18 历史协议：Base-first 0.5B 最小实验（由 v21/v22 覆盖）
@@ -6510,11 +6548,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5222
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5268
     level: 4
     occurrence: 1
-- node_id: heading:H0322
+- node_id: heading:H0323
   node_type: source_section
   lifecycle_status: accepted
   title: 历史模型阶梯（v12，已由 v22 替换，不得执行）
@@ -6531,11 +6569,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5236
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5282
     level: 4
     occurrence: 1
-- node_id: heading:H0323
+- node_id: heading:H0324
   node_type: source_section
   lifecycle_status: accepted
   title: 历史正式流程（v12，已由 v22 替换，不得执行）
@@ -6552,11 +6590,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5242
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5288
     level: 4
     occurrence: 1
-- node_id: heading:H0324
+- node_id: heading:H0325
   node_type: source_section
   lifecycle_status: accepted
   title: 主指标
@@ -6571,11 +6609,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5246
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5292
     level: 4
     occurrence: 1
-- node_id: heading:H0325
+- node_id: heading:H0326
   node_type: source_section
   lifecycle_status: accepted
   title: 历史 Baselines（v12，已由 v22 替换，不得执行）
@@ -6592,11 +6630,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5250
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5296
     level: 4
     occurrence: 1
-- node_id: heading:H0326
+- node_id: heading:H0327
   node_type: source_section
   lifecycle_status: accepted
   title: 9.3 Recommendation application（可选但有价值）
@@ -6611,11 +6649,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5254
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5300
     level: 3
     occurrence: 1
-- node_id: heading:H0327
+- node_id: heading:H0328
   node_type: source_section
   lifecycle_status: accepted
   title: 10. Results section 的段落顺序
@@ -6630,11 +6668,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5262
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5308
     level: 2
     occurrence: 1
-- node_id: heading:H0328
+- node_id: heading:H0329
   node_type: source_section
   lifecycle_status: accepted
   title: P1：先回答机制是否存在
@@ -6649,11 +6687,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5264
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5310
     level: 3
     occurrence: 1
-- node_id: heading:H0329
+- node_id: heading:H0330
   node_type: source_section
   lifecycle_status: accepted
   title: P2：再回答是否因果导致 collapse
@@ -6668,11 +6706,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5268
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5314
     level: 3
     occurrence: 1
-- node_id: heading:H0330
+- node_id: heading:H0331
   node_type: source_section
   lifecycle_status: accepted
   title: P3：回答负梯度是否有益
@@ -6687,11 +6725,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5272
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5318
     level: 3
     occurrence: 1
-- node_id: heading:H0331
+- node_id: heading:H0332
   node_type: source_section
   lifecycle_status: accepted
   title: P4：回答连续—离散是否统一
@@ -6706,11 +6744,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5276
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5322
     level: 3
     occurrence: 1
-- node_id: heading:H0332
+- node_id: heading:H0333
   node_type: source_section
   lifecycle_status: accepted
   title: P5：回答方法是否不仅仅维持 entropy
@@ -6725,11 +6763,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5280
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5326
     level: 3
     occurrence: 1
-- node_id: heading:H0333
+- node_id: heading:H0334
   node_type: source_section
   lifecycle_status: accepted
   title: P6：回答是否外部有效
@@ -6744,11 +6782,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5284
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5330
     level: 3
     occurrence: 1
-- node_id: heading:H0334
+- node_id: heading:H0335
   node_type: source_section
   lifecycle_status: accepted
   title: P7：超参和计算开销
@@ -6763,11 +6801,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5288
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5334
     level: 3
     occurrence: 1
-- node_id: heading:H0335
+- node_id: heading:H0336
   node_type: source_section
   lifecycle_status: accepted
   title: 11. Discussion and Limitations：主文必须单设
@@ -6782,11 +6820,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5294
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5340
     level: 2
     occurrence: 1
-- node_id: heading:H0336
+- node_id: heading:H0337
   node_type: source_section
   lifecycle_status: accepted
   title: 段落 1：机制边界
@@ -6802,11 +6840,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5296
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5342
     level: 3
     occurrence: 1
-- node_id: heading:H0337
+- node_id: heading:H0338
   node_type: source_section
   lifecycle_status: accepted
   title: 段落 2：方向可靠性
@@ -6821,11 +6859,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5300
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5346
     level: 3
     occurrence: 1
-- node_id: heading:H0338
+- node_id: heading:H0339
   node_type: source_section
   lifecycle_status: accepted
   title: 段落 3：critic 与 optimizer
@@ -6840,11 +6878,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5304
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5350
     level: 3
     occurrence: 1
-- node_id: heading:H0339
+- node_id: heading:H0340
   node_type: source_section
   lifecycle_status: accepted
   title: 段落 4：神经网络全局性
@@ -6859,11 +6897,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5308
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5354
     level: 3
     occurrence: 1
-- node_id: heading:H0340
+- node_id: heading:H0341
   node_type: source_section
   lifecycle_status: accepted
   title: 段落 5：reward 与 support
@@ -6878,11 +6916,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5312
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5358
     level: 3
     occurrence: 1
-- node_id: heading:H0341
+- node_id: heading:H0342
   node_type: source_section
   lifecycle_status: accepted
   title: 段落 6：方法边界
@@ -6898,11 +6936,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5316
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5362
     level: 3
     occurrence: 1
-- node_id: heading:H0342
+- node_id: heading:H0343
   node_type: source_section
   lifecycle_status: accepted
   title: 12. Reproducibility and Ethics
@@ -6917,11 +6955,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5322
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5368
     level: 2
     occurrence: 1
-- node_id: heading:H0343
+- node_id: heading:H0344
   node_type: source_section
   lifecycle_status: accepted
   title: Reproducibility
@@ -6936,11 +6974,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5324
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5370
     level: 3
     occurrence: 1
-- node_id: heading:H0344
+- node_id: heading:H0345
   node_type: source_section
   lifecycle_status: accepted
   title: Reference integrity
@@ -6955,11 +6993,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5331
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5377
     level: 3
     occurrence: 1
-- node_id: heading:H0345
+- node_id: heading:H0346
   node_type: source_section
   lifecycle_status: accepted
   title: Ethics
@@ -6974,11 +7012,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5337
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5383
     level: 3
     occurrence: 1
-- node_id: heading:H0346
+- node_id: heading:H0347
   node_type: source_section
   lifecycle_status: accepted
   title: 13. 主图与主表蓝图
@@ -6993,11 +7031,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5344
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5390
     level: 2
     occurrence: 1
-- node_id: heading:H0347
+- node_id: heading:H0348
   node_type: source_section
   lifecycle_status: accepted
   title: Figure 1：统一机制示意图
@@ -7012,11 +7050,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5346
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5392
     level: 3
     occurrence: 1
-- node_id: heading:H0348
+- node_id: heading:H0349
   node_type: source_section
   lifecycle_status: accepted
   title: Figure 2：Source isolation
@@ -7031,11 +7069,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5350
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5396
     level: 3
     occurrence: 1
-- node_id: heading:H0349
+- node_id: heading:H0350
   node_type: source_section
   lifecycle_status: accepted
   title: Figure 3：Causal intervention
@@ -7050,11 +7088,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5354
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5400
     level: 3
     occurrence: 1
-- node_id: heading:H0350
+- node_id: heading:H0351
   node_type: source_section
   lifecycle_status: accepted
   title: Figure 4：Stable extrapolation phase diagram
@@ -7069,11 +7107,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5358
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5404
     level: 3
     occurrence: 1
-- node_id: heading:H0351
+- node_id: heading:H0352
   node_type: source_section
   lifecycle_status: accepted
   title: Figure 5：Categorical support dynamics
@@ -7088,11 +7126,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5362
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5408
     level: 3
     occurrence: 1
-- node_id: heading:H0352
+- node_id: heading:H0353
   node_type: source_section
   lifecycle_status: accepted
   title: Figure 6：External validation
@@ -7107,11 +7145,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5366
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5412
     level: 3
     occurrence: 1
-- node_id: heading:H0353
+- node_id: heading:H0354
   node_type: source_section
   lifecycle_status: accepted
   title: Table 1：理论对象与分叉
@@ -7126,11 +7164,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5370
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5416
     level: 3
     occurrence: 1
-- node_id: heading:H0354
+- node_id: heading:H0355
   node_type: source_section
   lifecycle_status: accepted
   title: Table 2：受控因果结果
@@ -7146,11 +7184,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5374
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5420
     level: 3
     occurrence: 1
-- node_id: heading:H0355
+- node_id: heading:H0356
   node_type: source_section
   lifecycle_status: accepted
   title: Table 3：D4RL 方法结果
@@ -7166,11 +7204,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5378
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5424
     level: 3
     occurrence: 1
-- node_id: heading:H0356
+- node_id: heading:H0357
   node_type: source_section
   lifecycle_status: accepted
   title: Table 4：Countdown arena
@@ -7185,11 +7223,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5382
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5428
     level: 3
     occurrence: 1
-- node_id: heading:H0357
+- node_id: heading:H0358
   node_type: source_section
   lifecycle_status: accepted
   title: 14. 原稿内容的删除、降级和复用清单
@@ -7204,11 +7242,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5388
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5434
     level: 2
     occurrence: 1
-- node_id: heading:H0358
+- node_id: heading:H0359
   node_type: source_section
   lifecycle_status: accepted
   title: 完全删除
@@ -7223,11 +7261,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5390
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5436
     level: 3
     occurrence: 1
-- node_id: heading:H0359
+- node_id: heading:H0360
   node_type: source_section
   lifecycle_status: accepted
   title: 降级到附录或历史背景
@@ -7243,11 +7281,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5400
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5446
     level: 3
     occurrence: 1
-- node_id: heading:H0360
+- node_id: heading:H0361
   node_type: source_section
   lifecycle_status: accepted
   title: 直接复用但需重写叙事
@@ -7262,11 +7300,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5407
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5453
     level: 3
     occurrence: 1
-- node_id: heading:H0361
+- node_id: heading:H0362
   node_type: source_section
   lifecycle_status: accepted
   title: 15. 写正文前的决策门槛
@@ -7281,11 +7319,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5417
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5463
     level: 2
     occurrence: 1
-- node_id: heading:H0362
+- node_id: heading:H0363
   node_type: source_section
   lifecycle_status: accepted
   title: 16. 建议的最终章节目录
@@ -7300,11 +7338,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5428
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5474
     level: 2
     occurrence: 1
-- node_id: heading:H0363
+- node_id: heading:H0364
   node_type: source_section
   lifecycle_status: accepted
   title: 附录 A：v11 恢复记录（原第 0 节，完整保留）
@@ -7316,11 +7354,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5463
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5509
     level: 1
     occurrence: 1
-- node_id: heading:H0364
+- node_id: heading:H0365
   node_type: source_section
   lifecycle_status: accepted
   title: 0. 本次恢复的明确结论
@@ -7332,11 +7370,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5465
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5511
     level: 1
     occurrence: 1
-- node_id: heading:H0365
+- node_id: heading:H0366
   node_type: source_section
   lifecycle_status: accepted
   title: 0.1 “大一统连续环境”当前是否已经实现
@@ -7348,11 +7386,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5467
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5513
     level: 2
     occurrence: 1
-- node_id: heading:H0366
+- node_id: heading:H0367
   node_type: source_section
   lifecycle_status: accepted
   title: 0.2 Product 与 Extrapolation 能否真正合并
@@ -7364,11 +7402,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5476
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5522
     level: 2
     occurrence: 1
-- node_id: heading:H0367
+- node_id: heading:H0368
   node_type: source_section
   lifecycle_status: accepted
   title: 0.3 真正统一的解决方案：等奖励轮廓构造
@@ -7380,11 +7418,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5486
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5532
     level: 2
     occurrence: 1
-- node_id: heading:H0368
+- node_id: heading:H0369
   node_type: source_section
   lifecycle_status: accepted
   title: 0.4 从昨日下午到现在是否“白忙活”
@@ -7396,11 +7434,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5516
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5562
     level: 2
     occurrence: 1
-- node_id: heading:H0369
+- node_id: heading:H0370
   node_type: source_section
   lifecycle_status: accepted
   title: 附录：本恢复版之后的变更协议
@@ -7412,11 +7450,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5526
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5572
     level: 1
     occurrence: 1
-- node_id: heading:H0370
+- node_id: heading:H0371
   node_type: source_section
   lifecycle_status: accepted
   title: 11.6 用户审阅后的 E4 变量治理与结论边界修正（2026-06-24）
@@ -7429,11 +7467,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5540
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5586
     level: 2
     occurrence: 1
-- node_id: heading:H0371
+- node_id: heading:H0372
   node_type: source_section
   lifecycle_status: accepted
   title: v15 附录：上传环境代码兼容性与一键重建登记
@@ -7445,11 +7483,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5551
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5597
     level: 1
     occurrence: 1
-- node_id: heading:H0372
+- node_id: heading:H0373
   node_type: source_section
   lifecycle_status: accepted
   title: A. 上传 `drpo_unified_continuous_environment_v1 (1).py` 与正式 C-U1 的差异
@@ -7461,11 +7499,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5553
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5599
     level: 2
     occurrence: 1
-- node_id: heading:H0373
+- node_id: heading:H0374
   node_type: source_section
   lifecycle_status: accepted
   title: B. 重建代码状态
@@ -7478,11 +7516,11 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5566
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5612
     level: 2
     occurrence: 1
-- node_id: heading:H0374
+- node_id: heading:H0375
   node_type: source_section
   lifecycle_status: accepted
   title: C. 重新登记的任务失效判据
@@ -7494,8 +7532,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
-    line: 5575
+      sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+    line: 5621
     level: 2
     occurrence: 1
 - node_id: module:categorical_e5_e6

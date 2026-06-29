@@ -41,38 +41,39 @@ def test_taper_utility_extension_separates_bounded_and_vanishing_influence() -> 
     assert levels["no_universal_method_winner_assumed"] is True
 
 
-def test_near_retention_is_the_only_implemented_and_active_followup() -> None:
+def test_near_result_is_deposited_and_budget_match_is_the_only_active_successor() -> None:
     experiments = _experiments()
     taper = experiments["C-U1-E4-TAPER-01"]
     followup = taper["followup_evidence_requirements"]
-    assert followup["authorization_state"] == (
-        "user_approved_first_successor_implemented_remaining_sequence_gated"
-    )
     assert followup["registered_followup_experiments"] == FOLLOWUPS
     assert followup["local_execution_order"] == (
         "near_retention_then_budget_match_then_convergence_then_confirmation"
     )
-    assert followup["geometry_robustness_priority"] == (
-        "low_optional_not_a_current_gate"
-    )
-    assert followup["no_automatic_execution"] is True
 
     near = experiments[FOLLOWUPS[0]]
-    assert near["status"] == "not_run"
-    assert near["scientific_status"] == "not_run"
-    assert near["implementation_state"] == "implemented"
-    assert near["execution_gate"]["state"] == "ready"
-    assert near["formal_execution"]["activation_state"] == "active"
-    assert near["formal_execution"]["entrypoint_status"] == "implemented"
-    assert near["formal_execution"]["entrypoint"] == (
-        "src/drpo/cu1_taper_near_retention_formal.py"
-    )
-    assert near["evidence"]["formal_run_started"] is False
-    assert near["evidence"]["run_started"] is False
-    assert near["evidence"]["raw_complete"] is False
-    assert near["no_method_winner_assumed"] is True
+    assert near["status"] == "finite_step_validated"
+    assert near["scientific_status"] == "finite_step_validated"
+    assert near["evidence"]["completed_runs"] == 280
+    assert near["evidence"]["unresolved_at_maximum_steps"] == 260
+    assert near["paper_use"]["suitable_for_terminally_stable_method_ranking"] is False
 
-    for experiment_id in FOLLOWUPS[1:]:
+    budget = experiments[FOLLOWUPS[1]]
+    assert budget["status"] == "not_run"
+    assert budget["implementation_state"] == "implemented"
+    assert budget["execution_gate"]["state"] == "ready"
+    assert budget["formal_execution"]["activation_state"] == "active"
+    assert budget["formal_execution"]["entrypoint_status"] == "implemented"
+    assert budget["formal_execution"]["entrypoint"] == (
+        "src/drpo/cu1_taper_budget_match_formal.py"
+    )
+    assert budget["budget_contract"]["primary_mode"] == (
+        "stepwise_raw_negative_gradient_l2_before_Adam"
+    )
+    assert budget["budget_contract"]["Adam_parameter_update_norm_matched"] is False
+    assert budget["protocol"]["formal_paired_seeds"] == list(range(110, 130))
+    assert budget["evidence"]["formal_run_started"] is False
+
+    for experiment_id in FOLLOWUPS[2:]:
         row = experiments[experiment_id]
         assert row["status"] == "not_run"
         assert row["scientific_status"] == "not_run"
@@ -82,9 +83,7 @@ def test_near_retention_is_the_only_implemented_and_active_followup() -> None:
         assert row["formal_execution"]["activation_state"] == "blocked"
         assert row["formal_execution"]["entrypoint_status"] == "planned"
         assert row["evidence"]["run_started"] is False
-        assert row["evidence"]["raw_complete"] is False
         assert row["no_method_winner_assumed"] is True
-
 
 def test_followup_dependency_chain_and_seed_firewall_are_explicit() -> None:
     experiments = _experiments()
@@ -93,29 +92,24 @@ def test_followup_dependency_chain_and_seed_firewall_are_explicit() -> None:
     conv = experiments[FOLLOWUPS[2]]
     confirm = experiments[FOLLOWUPS[3]]
 
-    protocol = near["protocol"]
-    assert protocol["development_seeds"] == [0, 1, 2, 3, 4]
-    assert protocol["formal_paired_seeds"] == list(range(90, 110))
-    assert protocol["seeds_70_89_role"] == (
-        "predecessor_evidence_only_not_confirmation"
-    )
-    assert protocol["seeds_110_and_above"] == (
-        "untouched_for_successor_protocol_freeze"
-    )
+    assert near["protocol"]["formal_paired_seeds"] == list(range(90, 110))
     assert budget["predecessor"] == FOLLOWUPS[0]
+    assert budget["protocol"]["formal_paired_seeds"] == list(range(110, 130))
+    assert budget["protocol"]["confirmation_seeds_130_149_access"] == "forbidden"
     assert conv["predecessors"] == FOLLOWUPS[:2]
+    assert conv["terminal_contract"]["continuation_seeds"] == list(range(110, 130))
+    assert conv["terminal_contract"]["maximum_total_steps"] == 32000
+    assert conv["terminal_contract"]["Adam_optimizer_state_continuity"] == "required"
     assert confirm["predecessor"] == FOLLOWUPS[2]
-    assert confirm["confirmation_contract"]["seeds_70_89"] == (
-        "development_evidence_not_confirmatory"
-    )
+    assert confirm["confirmation_contract"]["exact_untouched_seeds"] == list(range(130, 150))
+    assert confirm["confirmation_contract"]["seed_access_before_frozen_confirmation_config"] == "forbidden"
     assert confirm["confirmation_contract"][
         "hyperparameter_retuning_after_confirmation_start"
     ] == "forbidden"
 
-
-def test_handoff_preserves_v60_and_records_v61_first_successor() -> None:
+def test_handoff_preserves_history_and_records_v63_closure_route() -> None:
     handoff = (ROOT / "docs" / "handoff.md").read_text()
-    assert "v61（E4-TAPER Near-Retention 协议冻结与实现版）" in handoff
+    assert "v63（E4-TAPER Near-Retention 结果沉淀与闭环协议版）" in handoff
     assert "v60" in handoff
     assert "Quadratic bounded influence 与 Exponential vanishing influence" in handoff
     assert "Exponential 的价值在于" in handoff
@@ -125,4 +119,6 @@ def test_handoff_preserves_v60_and_records_v61_first_successor() -> None:
     for experiment_id in FOLLOWUPS:
         assert f"`{experiment_id}`" in handoff
     assert "几何 robustness extension 保持低优先级" in handoff
-    assert "只有 Near-Retention 正式结果完成终态审计、打包并交付后" in handoff
+    assert "每一步、Adam 之前的 raw negative-gradient L2 norm" in handoff
+    assert "seeds `130--149`" in handoff
+    assert "260/280" in handoff

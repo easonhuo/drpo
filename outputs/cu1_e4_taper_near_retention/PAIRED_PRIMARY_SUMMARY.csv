@@ -1,0 +1,4 @@
+candidate,reference,near_retention,mean_held_out_context_reward_delta,positive_delta_seeds,paired_seeds
+reciprocal_quadratic,reciprocal_linear,0.75,0.012002,20,20
+current_exponential,reciprocal_linear,0.75,0.015619,20,20
+squared_distance_exponential,reciprocal_linear,0.75,0.036134,20,20

@@ -5,7 +5,7 @@
 
 ## candidate_split_module: `continuous_e4_taper`
 
-- Reason: source content has 72936 characters, above the configured 60000 threshold
+- Reason: source content has 93177 characters, above the configured 60000 threshold
 - Automatic action: `false`
 
 ## candidate_split_module: `countdown_e8`

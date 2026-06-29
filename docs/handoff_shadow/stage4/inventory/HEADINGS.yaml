@@ -3,15 +3,15 @@ policy_id: GOV-HANDOFF-INDEX-01
 authority: non_authoritative_stage4a_shadow_inventory
 source:
   path: docs/handoff.md
-  sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
+  sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
 classification_method: manual_reviewed_semantic_mapping_with_conservative_multi_module_assignment
 headings:
 - heading_id: H0001
   ordinal: 1
   level: 1
   line: 1
-  title: DRPO / SNA2C 远场负梯度动力学研究主文档 v62（Countdown Online Off-Policy Replay Pilot 实现版）
-  slug: drpo-sna2c-远场负梯度动力学研究主文档-v62-countdown-online-off-policy-replay-pilot-实现版
+  title: DRPO / SNA2C 远场负梯度动力学研究主文档 v63（E4-TAPER Near-Retention 结果沉淀与闭环协议版）
+  slug: drpo-sna2c-远场负梯度动力学研究主文档-v63-e4-taper-near-retention-结果沉淀与闭环协议版
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -55,7 +55,7 @@ headings:
 - heading_id: H0004
   ordinal: 4
   level: 2
-  line: 709
+  line: 715
   title: 0.2 C-U1 泛化术语覆盖规则（v15 锁定）
   slug: 0-2-c-u1-泛化术语覆盖规则-v15-锁定
   occurrence: 1
@@ -69,7 +69,7 @@ headings:
 - heading_id: H0005
   ordinal: 5
   level: 2
-  line: 718
+  line: 724
   title: 0.3 正式实验守护与可持久交付门禁（v19 锁定）
   slug: 0-3-正式实验守护与可持久交付门禁-v19-锁定
   occurrence: 1
@@ -82,7 +82,7 @@ headings:
 - heading_id: H0006
   ordinal: 6
   level: 2
-  line: 731
+  line: 737
   title: 0.4 Registry 执行状态一致性（v42 锁定）
   slug: 0-4-registry-执行状态一致性-v42-锁定
   occurrence: 1
@@ -95,7 +95,7 @@ headings:
 - heading_id: H0007
   ordinal: 7
   level: 1
-  line: 740
+  line: 746
   title: 1. 论文最终目标与两条主工作线
   slug: 1-论文最终目标与两条主工作线
   occurrence: 1
@@ -109,7 +109,7 @@ headings:
 - heading_id: H0008
   ordinal: 8
   level: 2
-  line: 742
+  line: 748
   title: 1.1 论文目标
   slug: 1-1-论文目标
   occurrence: 1
@@ -123,7 +123,7 @@ headings:
 - heading_id: H0009
   ordinal: 9
   level: 2
-  line: 746
+  line: 752
   title: 1.2 理论修改主线
   slug: 1-2-理论修改主线
   occurrence: 1
@@ -137,7 +137,7 @@ headings:
 - heading_id: H0010
   ordinal: 10
   level: 2
-  line: 754
+  line: 760
   title: 1.3 新实验主线
   slug: 1-3-新实验主线
   occurrence: 1
@@ -151,7 +151,7 @@ headings:
 - heading_id: H0011
   ordinal: 11
   level: 1
-  line: 763
+  line: 769
   title: 2. 环境登记表（锁定）
   slug: 2-环境登记表-锁定
   occurrence: 1
@@ -167,7 +167,7 @@ headings:
 - heading_id: H0012
   ordinal: 12
   level: 1
-  line: 778
+  line: 784
   title: 3. 连续统一环境 C-U1 的详细设计
   slug: 3-连续统一环境-c-u1-的详细设计
   occurrence: 1
@@ -180,7 +180,7 @@ headings:
 - heading_id: H0013
   ordinal: 13
   level: 2
-  line: 780
+  line: 786
   title: 3.1 状态与动作
   slug: 3-1-状态与动作
   occurrence: 1
@@ -194,7 +194,7 @@ headings:
 - heading_id: H0014
   ordinal: 14
   level: 3
-  line: 786
+  line: 792
   title: 3.1.1 “context/state”在小网络中的具体含义
   slug: 3-1-1-context-state-在小网络中的具体含义
   occurrence: 1
@@ -207,7 +207,7 @@ headings:
 - heading_id: H0015
   ordinal: 15
   level: 2
-  line: 797
+  line: 803
   title: 3.2 数据与奖励
   slug: 3-2-数据与奖励
   occurrence: 1
@@ -220,7 +220,7 @@ headings:
 - heading_id: H0016
   ordinal: 16
   level: 2
-  line: 801
+  line: 807
   title: 3.3 同一环境如何支持四个实验
   slug: 3-3-同一环境如何支持四个实验
   occurrence: 1
@@ -233,7 +233,7 @@ headings:
 - heading_id: H0017
   ordinal: 17
   level: 2
-  line: 808
+  line: 814
   title: 3.4 需要预先讨论而不能擅自决定的设计项
   slug: 3-4-需要预先讨论而不能擅自决定的设计项
   occurrence: 1
@@ -246,7 +246,7 @@ headings:
 - heading_id: H0018
   ordinal: 18
   level: 2
-  line: 819
+  line: 825
   title: 3.5 v13 冻结后的 C-U1 正式配置
   slug: 3-5-v13-冻结后的-c-u1-正式配置
   occurrence: 1
@@ -259,7 +259,7 @@ headings:
 - heading_id: H0019
   ordinal: 19
   level: 2
-  line: 836
+  line: 842
   title: 3.6 v13 执行期勘误与 E4 正式协议冻结
   slug: 3-6-v13-执行期勘误与-e4-正式协议冻结
   occurrence: 1
@@ -273,7 +273,7 @@ headings:
 - heading_id: H0020
   ordinal: 20
   level: 3
-  line: 838
+  line: 844
   title: 3.6.1 正样本几何勘误（不破坏性覆盖）
   slug: 3-6-1-正样本几何勘误-不破坏性覆盖
   occurrence: 1
@@ -286,7 +286,7 @@ headings:
 - heading_id: H0021
   ordinal: 21
   level: 3
-  line: 846
+  line: 852
   title: 3.6.2 E4：稳定外推—相变—远场控制
   slug: 3-6-2-e4-稳定外推-相变-远场控制
   occurrence: 1
@@ -299,7 +299,7 @@ headings:
 - heading_id: H0022
   ordinal: 22
   level: 3
-  line: 858
+  line: 864
   title: 3.6.3 E4 数值配置冻结与一次执行流程纠正
   slug: 3-6-3-e4-数值配置冻结与一次执行流程纠正
   occurrence: 1
@@ -313,7 +313,7 @@ headings:
 - heading_id: H0023
   ordinal: 23
   level: 3
-  line: 871
+  line: 877
   title: 3.6.4 E4 控制分支的精确长程配置
   slug: 3-6-4-e4-控制分支的精确长程配置
   occurrence: 1
@@ -326,7 +326,7 @@ headings:
 - heading_id: H0024
   ordinal: 24
   level: 3
-  line: 879
+  line: 885
   title: 3.6.5 v29 统一 Adam 执行覆盖（当前有效协议）
   slug: 3-6-5-v29-统一-adam-执行覆盖-当前有效协议
   occurrence: 1
@@ -340,7 +340,7 @@ headings:
 - heading_id: H0025
   ordinal: 25
   level: 3
-  line: 891
+  line: 897
   title: 3.6.6 `C-U1-E4-CONV-01` 长程终态确认（v33 当前有效协议）
   slug: 3-6-6-c-u1-e4-conv-01-长程终态确认-v33-当前有效协议
   occurrence: 1
@@ -353,7 +353,7 @@ headings:
 - heading_id: H0026
   ordinal: 26
   level: 2
-  line: 905
+  line: 911
   title: 3.7 D-U1 / E6 开发配置登记（E4 已完成；用户已批准与 E4-TAPER 并行）
   slug: 3-7-d-u1-e6-开发配置登记-e4-已完成-用户已批准与-e4-taper-并行
   occurrence: 1
@@ -367,7 +367,7 @@ headings:
 - heading_id: H0027
   ordinal: 27
   level: 2
-  line: 921
+  line: 927
   title: 3.7.1 D-U1 / D-Diag E5 长程复核 `D-U1-E5-LONGRUN-RERUN`
   slug: 3-7-1-d-u1-d-diag-e5-长程复核-d-u1-e5-longrun-rerun
   occurrence: 1
@@ -380,7 +380,7 @@ headings:
 - heading_id: H0028
   ordinal: 28
   level: 2
-  line: 935
+  line: 941
   title: 3.7.2 E5 长程复核结果与论文口径
   slug: 3-7-2-e5-长程复核结果与论文口径
   occurrence: 1
@@ -394,7 +394,7 @@ headings:
 - heading_id: H0029
   ordinal: 29
   level: 2
-  line: 944
+  line: 950
   title: 3.7.3 E6 共享语义 pilot `D-U1-E6-SEMANTIC-PILOT-01`
   slug: 3-7-3-e6-共享语义-pilot-d-u1-e6-semantic-pilot-01
   occurrence: 1
@@ -407,7 +407,7 @@ headings:
 - heading_id: H0030
   ordinal: 30
   level: 2
-  line: 959
+  line: 965
   title: 3.8 C-U1 共享实现与二次阶方法实验 `C-U1-E4-TAPER-01`
   slug: 3-8-c-u1-共享实现与二次阶方法实验-c-u1-e4-taper-01
   occurrence: 1
@@ -421,7 +421,7 @@ headings:
 - heading_id: H0031
   ordinal: 31
   level: 3
-  line: 961
+  line: 967
   title: 3.8.1 代码单一来源
   slug: 3-8-1-代码单一来源
   occurrence: 1
@@ -435,7 +435,7 @@ headings:
 - heading_id: H0032
   ordinal: 32
   level: 3
-  line: 965
+  line: 971
   title: 3.8.2 唯一距离与方法公式
   slug: 3-8-2-唯一距离与方法公式
   occurrence: 1
@@ -449,7 +449,7 @@ headings:
 - heading_id: H0033
   ordinal: 33
   level: 3
-  line: 983
+  line: 989
   title: 3.8.3 正式协议
   slug: 3-8-3-正式协议
   occurrence: 1
@@ -463,7 +463,7 @@ headings:
 - heading_id: H0034
   ordinal: 34
   level: 3
-  line: 999
+  line: 1005
   title: 3.8.4 环境连续性、质量匹配与方向效用边界（v44 澄清）
   slug: 3-8-4-环境连续性-质量匹配与方向效用边界-v44-澄清
   occurrence: 1
@@ -478,7 +478,7 @@ headings:
 - heading_id: H0035
   ordinal: 35
   level: 3
-  line: 1008
+  line: 1014
   title: 3.8.5 函数族公平性、解析阶数与后续验证（v44 澄清）
   slug: 3-8-5-函数族公平性-解析阶数与后续验证-v44-澄清
   occurrence: 1
@@ -492,7 +492,7 @@ headings:
 - heading_id: H0036
   ordinal: 36
   level: 3
-  line: 1023
+  line: 1029
   title: 3.8.6 负样本 alignment utility、正交代价与净效用假设（v60）
   slug: 3-8-6-负样本-alignment-utility-正交代价与净效用假设-v60
   occurrence: 1
@@ -506,7 +506,7 @@ headings:
 - heading_id: H0037
   ordinal: 37
   level: 3
-  line: 1051
+  line: 1057
   title: 3.8.7 Quadratic bounded influence 与 Exponential vanishing influence（v60）
   slug: 3-8-7-quadratic-bounded-influence-与-exponential-vanishing-influence-v60
   occurrence: 1
@@ -520,7 +520,7 @@ headings:
 - heading_id: H0038
   ordinal: 38
   level: 3
-  line: 1077
+  line: 1083
   title: 3.8.8 四项后续实验登记与职责拆分（v60）
   slug: 3-8-8-四项后续实验登记与职责拆分-v60
   occurrence: 1
@@ -535,7 +535,7 @@ headings:
 - heading_id: H0039
   ordinal: 39
   level: 3
-  line: 1086
+  line: 1092
   title: 3.8.9 当前阶段闭环与低优先级项目（v60）
   slug: 3-8-9-当前阶段闭环与低优先级项目-v60
   occurrence: 1
@@ -549,7 +549,7 @@ headings:
 - heading_id: H0040
   ordinal: 40
   level: 3
-  line: 1091
+  line: 1097
   title: 3.8.10 Near-Retention Matching 正式协议（v61）
   slug: 3-8-10-near-retention-matching-正式协议-v61
   occurrence: 1
@@ -562,8 +562,22 @@ headings:
   classification_rationale: The frozen v61 protocol spans controlled E4-TAPER science, formal execution gates, and taper-method theory.
 - heading_id: H0041
   ordinal: 41
+  level: 3
+  line: 1133
+  title: 3.8.11 Near-Retention 结果沉淀与闭环实验协议（v63）
+  slug: 3-8-11-near-retention-结果沉淀与闭环实验协议-v63
+  occurrence: 1
+  module_ids:
+  - continuous_e1_e4
+  - execution_status_gates
+  - theory_methods_related_work
+  temporal_role: current
+  classification: resolved_multi
+  classification_rationale: The v62 result deposition and closure protocol spans controlled E4-TAPER science, method theory, and execution gating.
+- heading_id: H0042
+  ordinal: 42
   level: 2
-  line: 1127
+  line: 1170
   title: 3.9 E6--E8 方法迁移与规模验证路线（v42 锁定）
   slug: 3-9-e6-e8-方法迁移与规模验证路线-v42-锁定
   occurrence: 1
@@ -576,10 +590,10 @@ headings:
   temporal_role: current
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0042
-  ordinal: 42
+- heading_id: H0043
+  ordinal: 43
   level: 1
-  line: 1152
+  line: 1195
   title: 4. 论文机制实验总表与验收标准
   slug: 4-论文机制实验总表与验收标准
   occurrence: 1
@@ -593,28 +607,12 @@ headings:
   temporal_role: current
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0043
-  ordinal: 43
-  level: 2
-  line: 1176
-  title: 4.1 动力学实验统一收敛标准
-  slug: 4-1-动力学实验统一收敛标准
-  occurrence: 1
-  module_ids:
-  - categorical_e5_e6
-  - continuous_e1_e4
-  - countdown_e8
-  - execution_status_gates
-  - hopper_e7
-  temporal_role: current
-  classification: resolved_multi
-  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0044
   ordinal: 44
-  level: 1
-  line: 1188
-  title: 5. 当前真实完成状态
-  slug: 5-当前真实完成状态
+  level: 2
+  line: 1219
+  title: 4.1 动力学实验统一收敛标准
+  slug: 4-1-动力学实验统一收敛标准
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -628,9 +626,9 @@ headings:
 - heading_id: H0045
   ordinal: 45
   level: 1
-  line: 1215
-  title: 6. 接下来唯一执行顺序
-  slug: 6-接下来唯一执行顺序
+  line: 1231
+  title: 5. 当前真实完成状态
+  slug: 5-当前真实完成状态
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -644,24 +642,25 @@ headings:
 - heading_id: H0046
   ordinal: 46
   level: 1
-  line: 1257
-  title: 7. 变量治理
-  slug: 7-变量治理
+  line: 1258
+  title: 6. 接下来唯一执行顺序
+  slug: 6-接下来唯一执行顺序
   occurrence: 1
   module_ids:
-  - global_core_governance
-  - history_provenance
-  - paper_rewrite
-  - theory_methods_related_work
+  - categorical_e5_e6
+  - continuous_e1_e4
+  - countdown_e8
+  - execution_status_gates
+  - hopper_e7
   temporal_role: current
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0047
   ordinal: 47
-  level: 2
-  line: 1259
-  title: 7.1 原体系保留的核心变量
-  slug: 7-1-原体系保留的核心变量
+  level: 1
+  line: 1303
+  title: 7. 变量治理
+  slug: 7-变量治理
   occurrence: 1
   module_ids:
   - global_core_governance
@@ -674,9 +673,9 @@ headings:
 - heading_id: H0048
   ordinal: 48
   level: 2
-  line: 1263
-  title: 7.2 Exponential-family 核心定理所需新增符号
-  slug: 7-2-exponential-family-核心定理所需新增符号
+  line: 1305
+  title: 7.1 原体系保留的核心变量
+  slug: 7-1-原体系保留的核心变量
   occurrence: 1
   module_ids:
   - global_core_governance
@@ -689,9 +688,9 @@ headings:
 - heading_id: H0049
   ordinal: 49
   level: 2
-  line: 1267
-  title: 7.3 共同负对数概率
-  slug: 7-3-共同负对数概率
+  line: 1309
+  title: 7.2 Exponential-family 核心定理所需新增符号
+  slug: 7-2-exponential-family-核心定理所需新增符号
   occurrence: 1
   module_ids:
   - global_core_governance
@@ -704,9 +703,9 @@ headings:
 - heading_id: H0050
   ordinal: 50
   level: 2
-  line: 1271
-  title: 7.4 撤出主体系的符号
-  slug: 7-4-撤出主体系的符号
+  line: 1313
+  title: 7.3 共同负对数概率
+  slug: 7-3-共同负对数概率
   occurrence: 1
   module_ids:
   - global_core_governance
@@ -718,8 +717,23 @@ headings:
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0051
   ordinal: 51
+  level: 2
+  line: 1317
+  title: 7.4 撤出主体系的符号
+  slug: 7-4-撤出主体系的符号
+  occurrence: 1
+  module_ids:
+  - global_core_governance
+  - history_provenance
+  - paper_rewrite
+  - theory_methods_related_work
+  temporal_role: current
+  classification: resolved_multi
+  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
+- heading_id: H0052
+  ordinal: 52
   level: 1
-  line: 1277
+  line: 1323
   title: 8. v4-v10 版本审计与恢复策略
   slug: 8-v4-v10-版本审计与恢复策略
   occurrence: 1
@@ -732,27 +746,12 @@ headings:
   temporal_role: current
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0052
-  ordinal: 52
-  level: 2
-  line: 1290
-  title: 8.1 为什么 v8 删除是不合理的
-  slug: 8-1-为什么-v8-删除是不合理的
-  occurrence: 1
-  module_ids:
-  - global_core_governance
-  - history_provenance
-  - paper_rewrite
-  - theory_methods_related_work
-  temporal_role: current
-  classification: resolved_multi
-  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0053
   ordinal: 53
-  level: 1
-  line: 1304
-  title: 9. 原审稿问题与新论文的硬约束
-  slug: 9-原审稿问题与新论文的硬约束
+  level: 2
+  line: 1336
+  title: 8.1 为什么 v8 删除是不合理的
+  slug: 8-1-为什么-v8-删除是不合理的
   occurrence: 1
   module_ids:
   - global_core_governance
@@ -765,7 +764,22 @@ headings:
 - heading_id: H0054
   ordinal: 54
   level: 1
-  line: 1319
+  line: 1350
+  title: 9. 原审稿问题与新论文的硬约束
+  slug: 9-原审稿问题与新论文的硬约束
+  occurrence: 1
+  module_ids:
+  - global_core_governance
+  - history_provenance
+  - paper_rewrite
+  - theory_methods_related_work
+  temporal_role: current
+  classification: resolved_multi
+  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
+- heading_id: H0055
+  ordinal: 55
+  level: 1
+  line: 1365
   title: 10. 当前新环境原型的审计结果
   slug: 10-当前新环境原型的审计结果
   occurrence: 1
@@ -776,26 +790,12 @@ headings:
   temporal_role: current
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0055
-  ordinal: 55
-  level: 1
-  line: 1341
-  title: 11. v13 正式执行日志
-  slug: 11-v13-正式执行日志
-  occurrence: 1
-  module_ids:
-  - continuous_e1_e4
-  - execution_status_gates
-  - history_provenance
-  temporal_role: current
-  classification: resolved_multi
-  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0056
   ordinal: 56
-  level: 2
-  line: 1343
-  title: 11.1 C-U1 单 seed 回归（2026-06-24）
-  slug: 11-1-c-u1-单-seed-回归-2026-06-24
+  level: 1
+  line: 1387
+  title: 11. v13 正式执行日志
+  slug: 11-v13-正式执行日志
   occurrence: 1
   module_ids:
   - continuous_e1_e4
@@ -807,9 +807,9 @@ headings:
 - heading_id: H0057
   ordinal: 57
   level: 2
-  line: 1349
-  title: 11.2 E1：统一环境中的瞬时梯度来源隔离（2026-06-24）
-  slug: 11-2-e1-统一环境中的瞬时梯度来源隔离-2026-06-24
+  line: 1389
+  title: 11.1 C-U1 单 seed 回归（2026-06-24）
+  slug: 11-1-c-u1-单-seed-回归-2026-06-24
   occurrence: 1
   module_ids:
   - continuous_e1_e4
@@ -821,9 +821,9 @@ headings:
 - heading_id: H0058
   ordinal: 58
   level: 2
-  line: 1363
-  title: 11.3 E2：Positive-only 完整动力学与终态审计（2026-06-24）
-  slug: 11-3-e2-positive-only-完整动力学与终态审计-2026-06-24
+  line: 1395
+  title: 11.2 E1：统一环境中的瞬时梯度来源隔离（2026-06-24）
+  slug: 11-2-e1-统一环境中的瞬时梯度来源隔离-2026-06-24
   occurrence: 1
   module_ids:
   - continuous_e1_e4
@@ -835,7 +835,21 @@ headings:
 - heading_id: H0059
   ordinal: 59
   level: 2
-  line: 1382
+  line: 1409
+  title: 11.3 E2：Positive-only 完整动力学与终态审计（2026-06-24）
+  slug: 11-3-e2-positive-only-完整动力学与终态审计-2026-06-24
+  occurrence: 1
+  module_ids:
+  - continuous_e1_e4
+  - execution_status_gates
+  - history_provenance
+  temporal_role: current
+  classification: resolved_multi
+  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
+- heading_id: H0060
+  ordinal: 60
+  level: 2
+  line: 1428
   title: 11.4 E3：C-U1 统一 Adam Near/Far 因果干预（2026-06-25，当前论文结果）
   slug: 11-4-e3-c-u1-统一-adam-near-far-因果干预-2026-06-25-当前论文结果
   occurrence: 1
@@ -847,26 +861,12 @@ headings:
   temporal_role: current
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0060
-  ordinal: 60
-  level: 3
-  line: 1386
-  title: 固定方差：远场路径传导为任务性能崩溃
-  slug: 固定方差-远场路径传导为任务性能崩溃
-  occurrence: 1
-  module_ids:
-  - continuous_e1_e4
-  - execution_status_gates
-  - history_provenance
-  temporal_role: current
-  classification: resolved_multi
-  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0061
   ordinal: 61
   level: 3
-  line: 1401
-  title: 可学习方差：远场路径提前触发支持收缩
-  slug: 可学习方差-远场路径提前触发支持收缩
+  line: 1432
+  title: 固定方差：远场路径传导为任务性能崩溃
+  slug: 固定方差-远场路径传导为任务性能崩溃
   occurrence: 1
   module_ids:
   - continuous_e1_e4
@@ -878,7 +878,21 @@ headings:
 - heading_id: H0062
   ordinal: 62
   level: 3
-  line: 1415
+  line: 1447
+  title: 可学习方差：远场路径提前触发支持收缩
+  slug: 可学习方差-远场路径提前触发支持收缩
+  occurrence: 1
+  module_ids:
+  - continuous_e1_e4
+  - execution_status_gates
+  - history_provenance
+  temporal_role: current
+  classification: resolved_multi
+  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
+- heading_id: H0063
+  ordinal: 63
+  level: 3
+  line: 1461
   title: 因果结论、论文位置与边界
   slug: 因果结论-论文位置与边界
   occurrence: 1
@@ -891,10 +905,10 @@ headings:
   temporal_role: current
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0063
-  ordinal: 63
+- heading_id: H0064
+  ordinal: 64
   level: 3
-  line: 1423
+  line: 1469
   title: 来源与聚合审计说明
   slug: 来源与聚合审计说明
   occurrence: 1
@@ -905,26 +919,12 @@ headings:
   temporal_role: current
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0064
-  ordinal: 64
-  level: 2
-  line: 1427
-  title: 11.4 E3：C-U1 长期 Near/Far 因果干预（2026-06-24，历史 SGD 证据）
-  slug: 11-4-e3-c-u1-长期-near-far-因果干预-2026-06-24-历史-sgd-证据
-  occurrence: 1
-  module_ids:
-  - continuous_e1_e4
-  - execution_status_gates
-  - history_provenance
-  temporal_role: current
-  classification: resolved_multi
-  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0065
   ordinal: 65
-  level: 3
-  line: 1433
-  title: 固定方差任务崩溃分支
-  slug: 固定方差任务崩溃分支
+  level: 2
+  line: 1473
+  title: 11.4 E3：C-U1 长期 Near/Far 因果干预（2026-06-24，历史 SGD 证据）
+  slug: 11-4-e3-c-u1-长期-near-far-因果干预-2026-06-24-历史-sgd-证据
   occurrence: 1
   module_ids:
   - continuous_e1_e4
@@ -936,9 +936,9 @@ headings:
 - heading_id: H0066
   ordinal: 66
   level: 3
-  line: 1439
-  title: 可学习方差精度坍缩分支
-  slug: 可学习方差精度坍缩分支
+  line: 1479
+  title: 固定方差任务崩溃分支
+  slug: 固定方差任务崩溃分支
   occurrence: 1
   module_ids:
   - continuous_e1_e4
@@ -949,10 +949,10 @@ headings:
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0067
   ordinal: 67
-  level: 2
-  line: 1448
-  title: 11.4 E3 历史 SGD 协议冻结补充：均值任务崩溃与可学习方差提前失稳
-  slug: 11-4-e3-历史-sgd-协议冻结补充-均值任务崩溃与可学习方差提前失稳
+  level: 3
+  line: 1485
+  title: 可学习方差精度坍缩分支
+  slug: 可学习方差精度坍缩分支
   occurrence: 1
   module_ids:
   - continuous_e1_e4
@@ -964,7 +964,21 @@ headings:
 - heading_id: H0068
   ordinal: 68
   level: 2
-  line: 1459
+  line: 1494
+  title: 11.4 E3 历史 SGD 协议冻结补充：均值任务崩溃与可学习方差提前失稳
+  slug: 11-4-e3-历史-sgd-协议冻结补充-均值任务崩溃与可学习方差提前失稳
+  occurrence: 1
+  module_ids:
+  - continuous_e1_e4
+  - execution_status_gates
+  - history_provenance
+  temporal_role: current
+  classification: resolved_multi
+  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
+- heading_id: H0069
+  ordinal: 69
+  level: 2
+  line: 1505
   title: 11.7 C-U1 论文成熟度与剩余漏洞审计（2026-06-24）
   slug: 11-7-c-u1-论文成熟度与剩余漏洞审计-2026-06-24
   occurrence: 1
@@ -976,10 +990,10 @@ headings:
   temporal_role: current
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0069
-  ordinal: 69
+- heading_id: H0070
+  ordinal: 70
   level: 3
-  line: 1461
+  line: 1507
   title: 当前判断
   slug: 当前判断
   occurrence: 1
@@ -990,10 +1004,10 @@ headings:
   temporal_role: current
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0070
-  ordinal: 70
+- heading_id: H0071
+  ordinal: 71
   level: 3
-  line: 1471
+  line: 1517
   title: 需要优先补强的漏洞
   slug: 需要优先补强的漏洞
   occurrence: 1
@@ -1004,10 +1018,10 @@ headings:
   temporal_role: current
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0071
-  ordinal: 71
+- heading_id: H0072
+  ordinal: 72
   level: 1
-  line: 1479
+  line: 1525
   title: Part II. v7 全量累积研究记录（原文保留）
   slug: part-ii-v7-全量累积研究记录-原文保留
   occurrence: 1
@@ -1019,10 +1033,10 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0072
-  ordinal: 72
+- heading_id: H0073
+  ordinal: 73
   level: 1
-  line: 1523
+  line: 1569
   title: 文档结构
   slug: 文档结构
   occurrence: 1
@@ -1034,10 +1048,10 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0073
-  ordinal: 73
+- heading_id: H0074
+  ordinal: 74
   level: 2
-  line: 1539
+  line: 1585
   title: 2.1 机制分析的 fixed-advantage naive-PG 假设
   slug: 2-1-机制分析的-fixed-advantage-naive-pg-假设
   occurrence: 1
@@ -1049,27 +1063,12 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0074
-  ordinal: 74
-  level: 1
-  line: 1574
-  title: 0. 新会话交接：必须继承的共识与阅读顺序
-  slug: 0-新会话交接-必须继承的共识与阅读顺序
-  occurrence: 1
-  module_ids:
-  - execution_status_gates
-  - global_core_governance
-  - history_provenance
-  - theory_methods_related_work
-  temporal_role: historical
-  classification: resolved_multi
-  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0075
   ordinal: 75
-  level: 2
-  line: 1578
-  title: 0.1 两套环境必须严格区分
-  slug: 0-1-两套环境必须严格区分
+  level: 1
+  line: 1620
+  title: 0. 新会话交接：必须继承的共识与阅读顺序
+  slug: 0-新会话交接-必须继承的共识与阅读顺序
   occurrence: 1
   module_ids:
   - execution_status_gates
@@ -1082,9 +1081,9 @@ headings:
 - heading_id: H0076
   ordinal: 76
   level: 2
-  line: 1593
-  title: 0.2 已锁定、未锁定与后续可变结论
-  slug: 0-2-已锁定-未锁定与后续可变结论
+  line: 1624
+  title: 0.1 两套环境必须严格区分
+  slug: 0-1-两套环境必须严格区分
   occurrence: 1
   module_ids:
   - execution_status_gates
@@ -1097,9 +1096,9 @@ headings:
 - heading_id: H0077
   ordinal: 77
   level: 2
-  line: 1602
-  title: 0.3 三个容易误判、但不应再反复争论的问题
-  slug: 0-3-三个容易误判-但不应再反复争论的问题
+  line: 1639
+  title: 0.2 已锁定、未锁定与后续可变结论
+  slug: 0-2-已锁定-未锁定与后续可变结论
   occurrence: 1
   module_ids:
   - execution_status_gates
@@ -1112,7 +1111,22 @@ headings:
 - heading_id: H0078
   ordinal: 78
   level: 2
-  line: 1617
+  line: 1648
+  title: 0.3 三个容易误判、但不应再反复争论的问题
+  slug: 0-3-三个容易误判-但不应再反复争论的问题
+  occurrence: 1
+  module_ids:
+  - execution_status_gates
+  - global_core_governance
+  - history_provenance
+  - theory_methods_related_work
+  temporal_role: historical
+  classification: resolved_multi
+  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
+- heading_id: H0079
+  ordinal: 79
+  level: 2
+  line: 1663
   title: 0.4 当前论文主线与执行优先级
   slug: 0-4-当前论文主线与执行优先级
   occurrence: 1
@@ -1125,27 +1139,12 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0079
-  ordinal: 79
-  level: 2
-  line: 1632
-  title: 0.5 方法族的稳定解释
-  slug: 0-5-方法族的稳定解释
-  occurrence: 1
-  module_ids:
-  - execution_status_gates
-  - global_core_governance
-  - history_provenance
-  - theory_methods_related_work
-  temporal_role: historical
-  classification: resolved_multi
-  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0080
   ordinal: 80
   level: 2
-  line: 1645
-  title: 0.6 P0 的固定 advantage 假设与未来环境统一（必须继承）
-  slug: 0-6-p0-的固定-advantage-假设与未来环境统一-必须继承
+  line: 1678
+  title: 0.5 方法族的稳定解释
+  slug: 0-5-方法族的稳定解释
   occurrence: 1
   module_ids:
   - execution_status_gates
@@ -1158,7 +1157,22 @@ headings:
 - heading_id: H0081
   ordinal: 81
   level: 2
-  line: 1677
+  line: 1691
+  title: 0.6 P0 的固定 advantage 假设与未来环境统一（必须继承）
+  slug: 0-6-p0-的固定-advantage-假设与未来环境统一-必须继承
+  occurrence: 1
+  module_ids:
+  - execution_status_gates
+  - global_core_governance
+  - history_provenance
+  - theory_methods_related_work
+  temporal_role: historical
+  classification: resolved_multi
+  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
+- heading_id: H0082
+  ordinal: 82
+  level: 2
+  line: 1723
   title: 0.7 Gaussian 方差动力学修正与联合稳态（必须继承）
   slug: 0-7-gaussian-方差动力学修正与联合稳态-必须继承
   occurrence: 1
@@ -1171,10 +1185,10 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0082
-  ordinal: 82
+- heading_id: H0083
+  ordinal: 83
   level: 2
-  line: 1709
+  line: 1755
   title: 0.8 统一 benchmark 的新锁定结论（必须继承）
   slug: 0-8-统一-benchmark-的新锁定结论-必须继承
   occurrence: 1
@@ -1186,10 +1200,10 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0083
-  ordinal: 83
+- heading_id: H0084
+  ordinal: 84
   level: 1
-  line: 1745
+  line: 1791
   title: 1. 执行摘要与最终判断
   slug: 1-执行摘要与最终判断
   occurrence: 1
@@ -1202,10 +1216,10 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0084
-  ordinal: 84
+- heading_id: H0085
+  ordinal: 85
   level: 1
-  line: 1782
+  line: 1828
   title: 2. 理论命题与需要闭合的因果链
   slug: 2-理论命题与需要闭合的因果链
   occurrence: 1
@@ -1217,10 +1231,10 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0085
-  ordinal: 85
+- heading_id: H0086
+  ordinal: 86
   level: 2
-  line: 1813
+  line: 1859
   title: 2.2 从 expected Fisher 改为 signed off-policy 动力场 Jacobian
   slug: 2-2-从-expected-fisher-改为-signed-off-policy-动力场-jacobian
   occurrence: 1
@@ -1232,26 +1246,12 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0086
-  ordinal: 86
-  level: 1
-  line: 1832
-  title: 3. 实验一：badness–distance 严格解耦下的梯度来源分解
-  slug: 3-实验一-badness-distance-严格解耦下的梯度来源分解
-  occurrence: 1
-  module_ids:
-  - continuous_e1_e4
-  - history_provenance
-  - theory_methods_related_work
-  temporal_role: historical
-  classification: resolved_multi
-  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0087
   ordinal: 87
-  level: 2
-  line: 1834
-  title: 3.1 乘积流形构造
-  slug: 3-1-乘积流形构造
+  level: 1
+  line: 1878
+  title: 3. 实验一：badness–distance 严格解耦下的梯度来源分解
+  slug: 3-实验一-badness-distance-严格解耦下的梯度来源分解
   occurrence: 1
   module_ids:
   - continuous_e1_e4
@@ -1263,7 +1263,21 @@ headings:
 - heading_id: H0088
   ordinal: 88
   level: 2
-  line: 1846
+  line: 1880
+  title: 3.1 乘积流形构造
+  slug: 3-1-乘积流形构造
+  occurrence: 1
+  module_ids:
+  - continuous_e1_e4
+  - history_provenance
+  - theory_methods_related_work
+  temporal_role: historical
+  classification: resolved_multi
+  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
+- heading_id: H0089
+  ordinal: 89
+  level: 2
+  line: 1892
   title: 3.2 梯度分解结果
   slug: 3-2-梯度分解结果
   occurrence: 1
@@ -1275,26 +1289,12 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0089
-  ordinal: 89
-  level: 1
-  line: 1879
-  title: 4. 实验二：非线性 Gaussian actor 中的因果干预
-  slug: 4-实验二-非线性-gaussian-actor-中的因果干预
-  occurrence: 1
-  module_ids:
-  - continuous_e1_e4
-  - history_provenance
-  - theory_methods_related_work
-  temporal_role: historical
-  classification: resolved_multi
-  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0090
   ordinal: 90
-  level: 2
-  line: 1881
-  title: 4.1 环境与预注册式选择
-  slug: 4-1-环境与预注册式选择
+  level: 1
+  line: 1925
+  title: 4. 实验二：非线性 Gaussian actor 中的因果干预
+  slug: 4-实验二-非线性-gaussian-actor-中的因果干预
   occurrence: 1
   module_ids:
   - continuous_e1_e4
@@ -1306,9 +1306,9 @@ headings:
 - heading_id: H0091
   ordinal: 91
   level: 2
-  line: 1894
-  title: 4.2 五类关键干预
-  slug: 4-2-五类关键干预
+  line: 1927
+  title: 4.1 环境与预注册式选择
+  slug: 4-1-环境与预注册式选择
   occurrence: 1
   module_ids:
   - continuous_e1_e4
@@ -1320,9 +1320,9 @@ headings:
 - heading_id: H0092
   ordinal: 92
   level: 2
-  line: 1905
-  title: 4.3 初始机制诊断
-  slug: 4-3-初始机制诊断
+  line: 1940
+  title: 4.2 五类关键干预
+  slug: 4-2-五类关键干预
   occurrence: 1
   module_ids:
   - continuous_e1_e4
@@ -1334,7 +1334,21 @@ headings:
 - heading_id: H0093
   ordinal: 93
   level: 2
-  line: 1921
+  line: 1951
+  title: 4.3 初始机制诊断
+  slug: 4-3-初始机制诊断
+  occurrence: 1
+  module_ids:
+  - continuous_e1_e4
+  - history_provenance
+  - theory_methods_related_work
+  temporal_role: historical
+  classification: resolved_multi
+  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
+- heading_id: H0094
+  ordinal: 94
+  level: 2
+  line: 1967
   title: 4.4 20-seed held-out 主结果
   slug: 4-4-20-seed-held-out-主结果
   occurrence: 1
@@ -1346,26 +1360,12 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0094
-  ordinal: 94
-  level: 2
-  line: 1939
-  title: 4.5 配对因果效应
-  slug: 4-5-配对因果效应
-  occurrence: 1
-  module_ids:
-  - continuous_e1_e4
-  - history_provenance
-  - theory_methods_related_work
-  temporal_role: historical
-  classification: resolved_multi
-  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0095
   ordinal: 95
   level: 2
-  line: 1965
-  title: 4.6 时序中介与 OOD 漂移
-  slug: 4-6-时序中介与-ood-漂移
+  line: 1985
+  title: 4.5 配对因果效应
+  slug: 4-5-配对因果效应
   occurrence: 1
   module_ids:
   - continuous_e1_e4
@@ -1377,9 +1377,9 @@ headings:
 - heading_id: H0096
   ordinal: 96
   level: 2
-  line: 1977
-  title: 4.7 稳健性与实现验证
-  slug: 4-7-稳健性与实现验证
+  line: 2011
+  title: 4.6 时序中介与 OOD 漂移
+  slug: 4-6-时序中介与-ood-漂移
   occurrence: 1
   module_ids:
   - continuous_e1_e4
@@ -1390,8 +1390,22 @@ headings:
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0097
   ordinal: 97
+  level: 2
+  line: 2023
+  title: 4.7 稳健性与实现验证
+  slug: 4-7-稳健性与实现验证
+  occurrence: 1
+  module_ids:
+  - continuous_e1_e4
+  - history_provenance
+  - theory_methods_related_work
+  temporal_role: historical
+  classification: resolved_multi
+  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
+- heading_id: H0098
+  ordinal: 98
   level: 1
-  line: 1990
+  line: 2036
   title: 5. 证据强度、结论边界与仍未证明的内容
   slug: 5-证据强度-结论边界与仍未证明的内容
   occurrence: 1
@@ -1403,10 +1417,10 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0098
-  ordinal: 98
+- heading_id: H0099
+  ordinal: 99
   level: 2
-  line: 1992
+  line: 2038
   title: 5.1 当前可以强声明的内容
   slug: 5-1-当前可以强声明的内容
   occurrence: 1
@@ -1417,10 +1431,10 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0099
-  ordinal: 99
+- heading_id: H0100
+  ordinal: 100
   level: 2
-  line: 2005
+  line: 2051
   title: 5.2 仍不可直接声称的内容
   slug: 5-2-仍不可直接声称的内容
   occurrence: 1
@@ -1431,26 +1445,12 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0100
-  ordinal: 100
-  level: 1
-  line: 2019
-  title: 6. 对 DRPO 论文贡献的含义
-  slug: 6-对-drpo-论文贡献的含义
-  occurrence: 1
-  module_ids:
-  - history_provenance
-  - paper_rewrite
-  - theory_methods_related_work
-  temporal_role: historical
-  classification: resolved_multi
-  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0101
   ordinal: 101
-  level: 2
-  line: 2044
-  title: 6.1 可形成的论文贡献组合
-  slug: 6-1-可形成的论文贡献组合
+  level: 1
+  line: 2065
+  title: 6. 对 DRPO 论文贡献的含义
+  slug: 6-对-drpo-论文贡献的含义
   occurrence: 1
   module_ids:
   - history_provenance
@@ -1462,9 +1462,9 @@ headings:
 - heading_id: H0102
   ordinal: 102
   level: 2
-  line: 2061
-  title: 6.2 对原论文 claim 的增强与修正
-  slug: 6-2-对原论文-claim-的增强与修正
+  line: 2090
+  title: 6.1 可形成的论文贡献组合
+  slug: 6-1-可形成的论文贡献组合
   occurrence: 1
   module_ids:
   - history_provenance
@@ -1475,10 +1475,10 @@ headings:
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0103
   ordinal: 103
-  level: 1
-  line: 2070
-  title: 7. 与相关工作的关系及 novelty 定位
-  slug: 7-与相关工作的关系及-novelty-定位
+  level: 2
+  line: 2107
+  title: 6.2 对原论文 claim 的增强与修正
+  slug: 6-2-对原论文-claim-的增强与修正
   occurrence: 1
   module_ids:
   - history_provenance
@@ -1489,10 +1489,10 @@ headings:
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0104
   ordinal: 104
-  level: 2
-  line: 2090
-  title: 7.1 推荐 novelty 表述
-  slug: 7-1-推荐-novelty-表述
+  level: 1
+  line: 2116
+  title: 7. 与相关工作的关系及 novelty 定位
+  slug: 7-与相关工作的关系及-novelty-定位
   occurrence: 1
   module_ids:
   - history_provenance
@@ -1503,10 +1503,10 @@ headings:
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0105
   ordinal: 105
-  level: 1
-  line: 2115
-  title: 8. 建议写入论文的核心 claims、图表与段落结构
-  slug: 8-建议写入论文的核心-claims-图表与段落结构
+  level: 2
+  line: 2136
+  title: 7.1 推荐 novelty 表述
+  slug: 7-1-推荐-novelty-表述
   occurrence: 1
   module_ids:
   - history_provenance
@@ -1517,10 +1517,10 @@ headings:
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0106
   ordinal: 106
-  level: 2
-  line: 2117
-  title: 8.1 建议的核心 claims
-  slug: 8-1-建议的核心-claims
+  level: 1
+  line: 2161
+  title: 8. 建议写入论文的核心 claims、图表与段落结构
+  slug: 8-建议写入论文的核心-claims-图表与段落结构
   occurrence: 1
   module_ids:
   - history_provenance
@@ -1532,9 +1532,9 @@ headings:
 - heading_id: H0107
   ordinal: 107
   level: 2
-  line: 2136
-  title: 8.2 建议的实验章节结构
-  slug: 8-2-建议的实验章节结构
+  line: 2163
+  title: 8.1 建议的核心 claims
+  slug: 8-1-建议的核心-claims
   occurrence: 1
   module_ids:
   - history_provenance
@@ -1546,9 +1546,9 @@ headings:
 - heading_id: H0108
   ordinal: 108
   level: 2
-  line: 2155
-  title: 8.3 论文中需要避免的过度表述
-  slug: 8-3-论文中需要避免的过度表述
+  line: 2182
+  title: 8.2 建议的实验章节结构
+  slug: 8-2-建议的实验章节结构
   occurrence: 1
   module_ids:
   - history_provenance
@@ -1559,8 +1559,22 @@ headings:
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0109
   ordinal: 109
+  level: 2
+  line: 2201
+  title: 8.3 论文中需要避免的过度表述
+  slug: 8-3-论文中需要避免的过度表述
+  occurrence: 1
+  module_ids:
+  - history_provenance
+  - paper_rewrite
+  - theory_methods_related_work
+  temporal_role: historical
+  classification: resolved_multi
+  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
+- heading_id: H0110
+  ordinal: 110
   level: 1
-  line: 2183
+  line: 2229
   title: 9. 旧阶段路线回顾与更新后的执行顺序
   slug: 9-旧阶段路线回顾与更新后的执行顺序
   occurrence: 1
@@ -1572,10 +1586,10 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0110
-  ordinal: 110
+- heading_id: H0111
+  ordinal: 111
   level: 1
-  line: 2203
+  line: 2249
   title: 10. 从推荐扩展到通用 Off-Policy Policy Optimization
   slug: 10-从推荐扩展到通用-off-policy-policy-optimization
   occurrence: 1
@@ -1586,10 +1600,10 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0111
-  ordinal: 111
+- heading_id: H0112
+  ordinal: 112
   level: 2
-  line: 2215
+  line: 2261
   title: 建议的总框架：
   slug: 建议的总框架
   occurrence: 1
@@ -1601,27 +1615,12 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0112
-  ordinal: 112
-  level: 1
-  line: 2234
-  title: 11. 连续—离散统一的 Repulsive Surprisal Dynamics
-  slug: 11-连续-离散统一的-repulsive-surprisal-dynamics
-  occurrence: 1
-  module_ids:
-  - categorical_e5_e6
-  - continuous_e1_e4
-  - history_provenance
-  - theory_methods_related_work
-  temporal_role: historical
-  classification: resolved_multi
-  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0113
   ordinal: 113
-  level: 2
-  line: 2236
-  title: 11.1 与动作空间无关的一阶动力学恒等式
-  slug: 11-1-与动作空间无关的一阶动力学恒等式
+  level: 1
+  line: 2280
+  title: 11. 连续—离散统一的 Repulsive Surprisal Dynamics
+  slug: 11-连续-离散统一的-repulsive-surprisal-dynamics
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -1634,9 +1633,9 @@ headings:
 - heading_id: H0114
   ordinal: 114
   level: 2
-  line: 2257
-  title: 11.2 连续 Gaussian：梯度幅度自增强
-  slug: 11-2-连续-gaussian-梯度幅度自增强
+  line: 2282
+  title: 11.1 与动作空间无关的一阶动力学恒等式
+  slug: 11-1-与动作空间无关的一阶动力学恒等式
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -1649,9 +1648,9 @@ headings:
 - heading_id: H0115
   ordinal: 115
   level: 2
-  line: 2265
-  title: 11.3 离散 softmax：持续排斥与支持集坍缩
-  slug: 11-3-离散-softmax-持续排斥与支持集坍缩
+  line: 2303
+  title: 11.2 连续 Gaussian：梯度幅度自增强
+  slug: 11-2-连续-gaussian-梯度幅度自增强
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -1664,9 +1663,9 @@ headings:
 - heading_id: H0116
   ordinal: 116
   level: 2
-  line: 2288
-  title: 11.4 统一理论的潜在贡献
-  slug: 11-4-统一理论的潜在贡献
+  line: 2311
+  title: 11.3 离散 softmax：持续排斥与支持集坍缩
+  slug: 11-3-离散-softmax-持续排斥与支持集坍缩
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -1678,10 +1677,10 @@ headings:
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0117
   ordinal: 117
-  level: 1
-  line: 2304
-  title: 12. 为什么负梯度并不总是有害：局部泛化与远场失稳
-  slug: 12-为什么负梯度并不总是有害-局部泛化与远场失稳
+  level: 2
+  line: 2334
+  title: 11.4 统一理论的潜在贡献
+  slug: 11-4-统一理论的潜在贡献
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -1693,10 +1692,10 @@ headings:
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0118
   ordinal: 118
-  level: 2
-  line: 2311
-  title: 12.1 正优势提供 attraction，但存在 imitation ceiling
-  slug: 12-1-正优势提供-attraction-但存在-imitation-ceiling
+  level: 1
+  line: 2350
+  title: 12. 为什么负梯度并不总是有害：局部泛化与远场失稳
+  slug: 12-为什么负梯度并不总是有害-局部泛化与远场失稳
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -1709,9 +1708,9 @@ headings:
 - heading_id: H0119
   ordinal: 119
   level: 2
-  line: 2319
-  title: 12.2 受控负优势提供 boundary shaping 与 mode suppression
-  slug: 12-2-受控负优势提供-boundary-shaping-与-mode-suppression
+  line: 2357
+  title: 12.1 正优势提供 attraction，但存在 imitation ceiling
+  slug: 12-1-正优势提供-attraction-但存在-imitation-ceiling
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -1724,9 +1723,9 @@ headings:
 - heading_id: H0120
   ordinal: 120
   level: 2
-  line: 2333
-  title: 12.3 为什么远场负梯度会从有益变为有害
-  slug: 12-3-为什么远场负梯度会从有益变为有害
+  line: 2365
+  title: 12.2 受控负优势提供 boundary shaping 与 mode suppression
+  slug: 12-2-受控负优势提供-boundary-shaping-与-mode-suppression
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -1739,9 +1738,9 @@ headings:
 - heading_id: H0121
   ordinal: 121
   level: 2
-  line: 2352
-  title: 12.4 建议的形式化方向
-  slug: 12-4-建议的形式化方向
+  line: 2379
+  title: 12.3 为什么远场负梯度会从有益变为有害
+  slug: 12-3-为什么远场负梯度会从有益变为有害
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -1754,9 +1753,9 @@ headings:
 - heading_id: H0122
   ordinal: 122
   level: 2
-  line: 2368
-  title: 12.5 一维 Gaussian 的稳定外推闭式模型
-  slug: 12-5-一维-gaussian-的稳定外推闭式模型
+  line: 2398
+  title: 12.4 建议的形式化方向
+  slug: 12-4-建议的形式化方向
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -1769,9 +1768,9 @@ headings:
 - heading_id: H0123
   ordinal: 123
   level: 2
-  line: 2394
-  title: 12.6 可学习方差下的联合均值—方差稳态
-  slug: 12-6-可学习方差下的联合均值-方差稳态
+  line: 2414
+  title: 12.5 一维 Gaussian 的稳定外推闭式模型
+  slug: 12-5-一维-gaussian-的稳定外推闭式模型
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -1783,26 +1782,25 @@ headings:
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0124
   ordinal: 124
-  level: 1
-  line: 2444
-  title: 13. 最新相关工作的机制对照
-  slug: 13-最新相关工作的机制对照
+  level: 2
+  line: 2440
+  title: 12.6 可学习方差下的联合均值—方差稳态
+  slug: 12-6-可学习方差下的联合均值-方差稳态
   occurrence: 1
   module_ids:
   - categorical_e5_e6
-  - countdown_e8
+  - continuous_e1_e4
   - history_provenance
-  - paper_rewrite
   - theory_methods_related_work
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0125
   ordinal: 125
-  level: 2
-  line: 2462
-  title: 13.1 WAPO 的真正含义
-  slug: 13-1-wapo-的真正含义
+  level: 1
+  line: 2490
+  title: 13. 最新相关工作的机制对照
+  slug: 13-最新相关工作的机制对照
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -1816,9 +1814,9 @@ headings:
 - heading_id: H0126
   ordinal: 126
   level: 2
-  line: 2472
-  title: 13.2 STARE 比 WAPO 更接近“打压危险部分、保留其余”
-  slug: 13-2-stare-比-wapo-更接近-打压危险部分-保留其余
+  line: 2508
+  title: 13.1 WAPO 的真正含义
+  slug: 13-1-wapo-的真正含义
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -1832,9 +1830,9 @@ headings:
 - heading_id: H0127
   ordinal: 127
   level: 2
-  line: 2481
-  title: 13.3 Mu-GRPO 已经触及重复排斥，但尚未统一
-  slug: 13-3-mu-grpo-已经触及重复排斥-但尚未统一
+  line: 2518
+  title: 13.2 STARE 比 WAPO 更接近“打压危险部分、保留其余”
+  slug: 13-2-stare-比-wapo-更接近-打压危险部分-保留其余
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -1848,9 +1846,9 @@ headings:
 - heading_id: H0128
   ordinal: 128
   level: 2
-  line: 2490
-  title: 13.4 现有证据已经支持负梯度的泛化价值
-  slug: 13-4-现有证据已经支持负梯度的泛化价值
+  line: 2527
+  title: 13.3 Mu-GRPO 已经触及重复排斥，但尚未统一
+  slug: 13-3-mu-grpo-已经触及重复排斥-但尚未统一
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -1864,9 +1862,9 @@ headings:
 - heading_id: H0129
   ordinal: 129
   level: 2
-  line: 2506
-  title: 13.5 OGPO：强外部证据，但尚未闭合负梯度外推机制
-  slug: 13-5-ogpo-强外部证据-但尚未闭合负梯度外推机制
+  line: 2536
+  title: 13.4 现有证据已经支持负梯度的泛化价值
+  slug: 13-4-现有证据已经支持负梯度的泛化价值
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -1880,9 +1878,9 @@ headings:
 - heading_id: H0130
   ordinal: 130
   level: 2
-  line: 2534
-  title: 13.6 建议重点深化的三条前序工作线
-  slug: 13-6-建议重点深化的三条前序工作线
+  line: 2552
+  title: 13.5 OGPO：强外部证据，但尚未闭合负梯度外推机制
+  slug: 13-5-ogpo-强外部证据-但尚未闭合负梯度外推机制
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -1896,9 +1894,9 @@ headings:
 - heading_id: H0131
   ordinal: 131
   level: 2
-  line: 2560
-  title: 13.7 2026 年新增相关工作与 novelty 风险检查
-  slug: 13-7-2026-年新增相关工作与-novelty-风险检查
+  line: 2580
+  title: 13.6 建议重点深化的三条前序工作线
+  slug: 13-6-建议重点深化的三条前序工作线
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -1912,7 +1910,23 @@ headings:
 - heading_id: H0132
   ordinal: 132
   level: 2
-  line: 2577
+  line: 2606
+  title: 13.7 2026 年新增相关工作与 novelty 风险检查
+  slug: 13-7-2026-年新增相关工作与-novelty-风险检查
+  occurrence: 1
+  module_ids:
+  - categorical_e5_e6
+  - countdown_e8
+  - history_provenance
+  - paper_rewrite
+  - theory_methods_related_work
+  temporal_role: historical
+  classification: resolved_multi
+  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
+- heading_id: H0133
+  ordinal: 133
+  level: 2
+  line: 2623
   title: 13.8 BAPO 与 Low-Probability Tokens：证据边界必须写清
   slug: 13-8-bapo-与-low-probability-tokens-证据边界必须写清
   occurrence: 1
@@ -1926,10 +1940,10 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0133
-  ordinal: 133
+- heading_id: H0134
+  ordinal: 134
   level: 1
-  line: 2597
+  line: 2643
   title: 14. 下一阶段理论与实验增强计划
   slug: 14-下一阶段理论与实验增强计划
   occurrence: 1
@@ -1942,10 +1956,10 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0134
-  ordinal: 134
+- heading_id: H0135
+  ordinal: 135
   level: 2
-  line: 2599
+  line: 2645
   title: 14.1 理论并行任务：完成连续—离散统一定理
   slug: 14-1-理论并行任务-完成连续-离散统一定理
   occurrence: 1
@@ -1959,29 +1973,12 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0135
-  ordinal: 135
-  level: 2
-  line: 2616
-  title: 14.2 P1：Categorical bandit 严格隔离实验（第二优先级）
-  slug: 14-2-p1-categorical-bandit-严格隔离实验-第二优先级
-  occurrence: 1
-  module_ids:
-  - categorical_e5_e6
-  - countdown_e8
-  - execution_status_gates
-  - history_provenance
-  - paper_rewrite
-  - theory_methods_related_work
-  temporal_role: historical
-  classification: resolved_multi
-  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0136
   ordinal: 136
   level: 2
-  line: 2633
-  title: 14.3 P0：验证负梯度为何能超越 positive-only（第一优先级）
-  slug: 14-3-p0-验证负梯度为何能超越-positive-only-第一优先级
+  line: 2662
+  title: 14.2 P1：Categorical bandit 严格隔离实验（第二优先级）
+  slug: 14-2-p1-categorical-bandit-严格隔离实验-第二优先级
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -1996,13 +1993,14 @@ headings:
 - heading_id: H0137
   ordinal: 137
   level: 2
-  line: 2654
-  title: 14.4 P2：小型 Transformer 序列实验
-  slug: 14-4-p2-小型-transformer-序列实验
+  line: 2679
+  title: 14.3 P0：验证负梯度为何能超越 positive-only（第一优先级）
+  slug: 14-3-p0-验证负梯度为何能超越-positive-only-第一优先级
   occurrence: 1
   module_ids:
   - categorical_e5_e6
   - countdown_e8
+  - execution_status_gates
   - history_provenance
   - paper_rewrite
   - theory_methods_related_work
@@ -2012,9 +2010,9 @@ headings:
 - heading_id: H0138
   ordinal: 138
   level: 2
-  line: 2667
-  title: 14.5 论文重构建议
-  slug: 14-5-论文重构建议
+  line: 2700
+  title: 14.4 P2：小型 Transformer 序列实验
+  slug: 14-4-p2-小型-transformer-序列实验
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -2028,7 +2026,23 @@ headings:
 - heading_id: H0139
   ordinal: 139
   level: 2
-  line: 2683
+  line: 2713
+  title: 14.5 论文重构建议
+  slug: 14-5-论文重构建议
+  occurrence: 1
+  module_ids:
+  - categorical_e5_e6
+  - countdown_e8
+  - history_provenance
+  - paper_rewrite
+  - theory_methods_related_work
+  temporal_role: historical
+  classification: resolved_multi
+  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
+- heading_id: H0140
+  ordinal: 140
+  level: 2
+  line: 2729
   title: 14.6 更新后的实验优先级（v4）
   slug: 14-6-更新后的实验优先级-v4
   occurrence: 1
@@ -2042,28 +2056,12 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0140
-  ordinal: 140
-  level: 2
-  line: 2692
-  title: 14.7 P0 实验：负梯度的稳定外推—临界失稳—距离控制
-  slug: 14-7-p0-实验-负梯度的稳定外推-临界失稳-距离控制
-  occurrence: 1
-  module_ids:
-  - categorical_e5_e6
-  - countdown_e8
-  - history_provenance
-  - paper_rewrite
-  - theory_methods_related_work
-  temporal_role: historical
-  classification: resolved_multi
-  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0141
   ordinal: 141
   level: 2
-  line: 2721
-  title: 14.8 理论升级清单
-  slug: 14-8-理论升级清单
+  line: 2738
+  title: 14.7 P0 实验：负梯度的稳定外推—临界失稳—距离控制
+  slug: 14-7-p0-实验-负梯度的稳定外推-临界失稳-距离控制
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -2077,9 +2075,9 @@ headings:
 - heading_id: H0142
   ordinal: 142
   level: 2
-  line: 2748
-  title: 14.9 论文重构后的主线
-  slug: 14-9-论文重构后的主线
+  line: 2767
+  title: 14.8 理论升级清单
+  slug: 14-8-理论升级清单
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -2093,7 +2091,23 @@ headings:
 - heading_id: H0143
   ordinal: 143
   level: 2
-  line: 2765
+  line: 2794
+  title: 14.9 论文重构后的主线
+  slug: 14-9-论文重构后的主线
+  occurrence: 1
+  module_ids:
+  - categorical_e5_e6
+  - countdown_e8
+  - history_provenance
+  - paper_rewrite
+  - theory_methods_related_work
+  temporal_role: historical
+  classification: resolved_multi
+  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
+- heading_id: H0144
+  ordinal: 144
+  level: 2
+  line: 2811
   title: 14.10 未来统一实验环境：论文定稿前的必做重构
   slug: 14-10-未来统一实验环境-论文定稿前的必做重构
   occurrence: 1
@@ -2107,28 +2121,12 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0144
-  ordinal: 144
-  level: 1
-  line: 2795
-  title: 15. 最终结论
-  slug: 15-最终结论
-  occurrence: 1
-  module_ids:
-  - categorical_e5_e6
-  - continuous_e1_e4
-  - execution_status_gates
-  - history_provenance
-  - theory_methods_related_work
-  temporal_role: historical
-  classification: resolved_multi
-  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0145
   ordinal: 145
   level: 1
   line: 2841
-  title: 附录 A　主要数值结果
-  slug: 附录-a-主要数值结果
+  title: 15. 最终结论
+  slug: 15-最终结论
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -2142,9 +2140,9 @@ headings:
 - heading_id: H0146
   ordinal: 146
   level: 1
-  line: 2853
-  title: 附录 B　参考文献与相关工作
-  slug: 附录-b-参考文献与相关工作
+  line: 2887
+  title: 附录 A　主要数值结果
+  slug: 附录-a-主要数值结果
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -2158,9 +2156,9 @@ headings:
 - heading_id: H0147
   ordinal: 147
   level: 1
-  line: 2940
-  title: 附录 C　新会话核心文件索引
-  slug: 附录-c-新会话核心文件索引
+  line: 2899
+  title: 附录 B　参考文献与相关工作
+  slug: 附录-b-参考文献与相关工作
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -2174,9 +2172,9 @@ headings:
 - heading_id: H0148
   ordinal: 148
   level: 1
-  line: 2951
-  title: 附录 D　P0 可学习方差：闭式稳态与快速实验验证
-  slug: 附录-d-p0-可学习方差-闭式稳态与快速实验验证
+  line: 2986
+  title: 附录 C　新会话核心文件索引
+  slug: 附录-c-新会话核心文件索引
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -2189,10 +2187,10 @@ headings:
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0149
   ordinal: 149
-  level: 2
-  line: 2957
-  title: D.1 直接参数化 (μ,log σ) 的解析—数值一致性
-  slug: d-1-直接参数化-μ-log-σ-的解析-数值一致性
+  level: 1
+  line: 2997
+  title: 附录 D　P0 可学习方差：闭式稳态与快速实验验证
+  slug: 附录-d-p0-可学习方差-闭式稳态与快速实验验证
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -2206,7 +2204,23 @@ headings:
 - heading_id: H0150
   ordinal: 150
   level: 2
-  line: 2971
+  line: 3003
+  title: D.1 直接参数化 (μ,log σ) 的解析—数值一致性
+  slug: d-1-直接参数化-μ-log-σ-的解析-数值一致性
+  occurrence: 1
+  module_ids:
+  - categorical_e5_e6
+  - continuous_e1_e4
+  - execution_status_gates
+  - history_provenance
+  - theory_methods_related_work
+  temporal_role: historical
+  classification: resolved_multi
+  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
+- heading_id: H0151
+  ordinal: 151
+  level: 2
+  line: 3017
   title: D.2 距离移动方差临界边界
   slug: d-2-距离移动方差临界边界
   occurrence: 1
@@ -2220,28 +2234,12 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0151
-  ordinal: 151
-  level: 2
-  line: 2987
-  title: D.3 非线性参数化与控制方法
-  slug: d-3-非线性参数化与控制方法
-  occurrence: 1
-  module_ids:
-  - categorical_e5_e6
-  - continuous_e1_e4
-  - execution_status_gates
-  - history_provenance
-  - theory_methods_related_work
-  temporal_role: historical
-  classification: resolved_multi
-  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0152
   ordinal: 152
   level: 2
-  line: 2996
-  title: D.4 原始 gradient-explode 代码诊断
-  slug: d-4-原始-gradient-explode-代码诊断
+  line: 3033
+  title: D.3 非线性参数化与控制方法
+  slug: d-3-非线性参数化与控制方法
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -2255,7 +2253,23 @@ headings:
 - heading_id: H0153
   ordinal: 153
   level: 2
-  line: 3004
+  line: 3042
+  title: D.4 原始 gradient-explode 代码诊断
+  slug: d-4-原始-gradient-explode-代码诊断
+  occurrence: 1
+  module_ids:
+  - categorical_e5_e6
+  - continuous_e1_e4
+  - execution_status_gates
+  - history_provenance
+  - theory_methods_related_work
+  temporal_role: historical
+  classification: resolved_multi
+  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
+- heading_id: H0154
+  ordinal: 154
+  level: 2
+  line: 3050
   title: D.5 论文写作结论
   slug: d-5-论文写作结论
   occurrence: 1
@@ -2269,10 +2283,10 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0154
-  ordinal: 154
+- heading_id: H0155
+  ordinal: 155
   level: 1
-  line: 3011
+  line: 3057
   title: 附录 E　统一非线性 benchmark：论文级正式结果
   slug: 附录-e-统一非线性-benchmark-论文级正式结果
   occurrence: 1
@@ -2286,28 +2300,12 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0155
-  ordinal: 155
-  level: 2
-  line: 3018
-  title: E.1 Protocol A：严格来源隔离
-  slug: e-1-protocol-a-严格来源隔离
-  occurrence: 1
-  module_ids:
-  - categorical_e5_e6
-  - continuous_e1_e4
-  - execution_status_gates
-  - history_provenance
-  - theory_methods_related_work
-  temporal_role: historical
-  classification: resolved_multi
-  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0156
   ordinal: 156
   level: 2
-  line: 3028
-  title: E.2 Protocol B：远场 collapse 因果干预
-  slug: e-2-protocol-b-远场-collapse-因果干预
+  line: 3064
+  title: E.1 Protocol A：严格来源隔离
+  slug: e-1-protocol-a-严格来源隔离
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -2321,9 +2319,9 @@ headings:
 - heading_id: H0157
   ordinal: 157
   level: 2
-  line: 3050
-  title: E.3 Protocol C：稳定外推与联合均值—方差相变
-  slug: e-3-protocol-c-稳定外推与联合均值-方差相变
+  line: 3074
+  title: E.2 Protocol B：远场 collapse 因果干预
+  slug: e-2-protocol-b-远场-collapse-因果干预
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -2337,9 +2335,9 @@ headings:
 - heading_id: H0158
   ordinal: 158
   level: 2
-  line: 3080
-  title: E.4 控制方法与等预算识别
-  slug: e-4-控制方法与等预算识别
+  line: 3096
+  title: E.3 Protocol C：稳定外推与联合均值—方差相变
+  slug: e-3-protocol-c-稳定外推与联合均值-方差相变
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -2353,7 +2351,23 @@ headings:
 - heading_id: H0159
   ordinal: 159
   level: 2
-  line: 3100
+  line: 3126
+  title: E.4 控制方法与等预算识别
+  slug: e-4-控制方法与等预算识别
+  occurrence: 1
+  module_ids:
+  - categorical_e5_e6
+  - continuous_e1_e4
+  - execution_status_gates
+  - history_provenance
+  - theory_methods_related_work
+  temporal_role: historical
+  classification: resolved_multi
+  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
+- heading_id: H0160
+  ordinal: 160
+  level: 2
+  line: 3146
   title: E.5 论文呈现与代码索引
   slug: e-5-论文呈现与代码索引
   occurrence: 1
@@ -2367,10 +2381,10 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0160
-  ordinal: 160
+- heading_id: H0161
+  ordinal: 161
   level: 1
-  line: 3124
+  line: 3170
   title: Part III. v9 Exponential-Family 核心理论补丁（完整保留）
   slug: part-iii-v9-exponential-family-核心理论补丁-完整保留
   occurrence: 1
@@ -2381,26 +2395,12 @@ headings:
   temporal_role: current
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0161
-  ordinal: 161
-  level: 1
-  line: 3128
-  title: 2. 大一统理论：Repulsive Signed-Moment Dynamics
-  slug: 2-大一统理论-repulsive-signed-moment-dynamics
-  occurrence: 1
-  module_ids:
-  - categorical_e5_e6
-  - continuous_e1_e4
-  - theory_methods_related_work
-  temporal_role: current
-  classification: resolved_multi
-  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0162
   ordinal: 162
-  level: 2
-  line: 3130
-  title: 2.1 研究对象、记号与结论层级
-  slug: 2-1-研究对象-记号与结论层级
+  level: 1
+  line: 3174
+  title: 2. 大一统理论：Repulsive Signed-Moment Dynamics
+  slug: 2-大一统理论-repulsive-signed-moment-dynamics
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -2412,9 +2412,9 @@ headings:
 - heading_id: H0163
   ordinal: 163
   level: 2
-  line: 3140
-  title: 2.2 定理 1：单个负优势更新必然提高该样本 surprisal
-  slug: 2-2-定理-1-单个负优势更新必然提高该样本-surprisal
+  line: 3176
+  title: 2.1 研究对象、记号与结论层级
+  slug: 2-1-研究对象-记号与结论层级
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -2426,9 +2426,9 @@ headings:
 - heading_id: H0164
   ordinal: 164
   level: 2
-  line: 3174
-  title: 2.3 批量更新：自项、跨样本干涉与方向一致性
-  slug: 2-3-批量更新-自项-跨样本干涉与方向一致性
+  line: 3186
+  title: 2.2 定理 1：单个负优势更新必然提高该样本 surprisal
+  slug: 2-2-定理-1-单个负优势更新必然提高该样本-surprisal
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -2440,9 +2440,9 @@ headings:
 - heading_id: H0165
   ordinal: 165
   level: 2
-  line: 3192
-  title: 2.4 定理 2：正则最小指数族中的 signed-moment 平衡
-  slug: 2-4-定理-2-正则最小指数族中的-signed-moment-平衡
+  line: 3220
+  title: 2.3 批量更新：自项、跨样本干涉与方向一致性
+  slug: 2-3-批量更新-自项-跨样本干涉与方向一致性
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -2454,9 +2454,9 @@ headings:
 - heading_id: H0166
   ordinal: 166
   level: 2
-  line: 3247
-  title: 2.5 Gaussian 推论 A：固定方差下的稳定外推与均值相变
-  slug: 2-5-gaussian-推论-a-固定方差下的稳定外推与均值相变
+  line: 3238
+  title: 2.4 定理 2：正则最小指数族中的 signed-moment 平衡
+  slug: 2-4-定理-2-正则最小指数族中的-signed-moment-平衡
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -2468,9 +2468,9 @@ headings:
 - heading_id: H0167
   ordinal: 167
   level: 2
-  line: 3281
-  title: 2.6 Gaussian 推论 B：可学习方差的联合稳态与提前失稳
-  slug: 2-6-gaussian-推论-b-可学习方差的联合稳态与提前失稳
+  line: 3293
+  title: 2.5 Gaussian 推论 A：固定方差下的稳定外推与均值相变
+  slug: 2-5-gaussian-推论-a-固定方差下的稳定外推与均值相变
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -2482,9 +2482,9 @@ headings:
 - heading_id: H0168
   ordinal: 168
   level: 2
-  line: 3345
-  title: 2.7 Gaussian 推论 C：方差四象限、单样本 MLE 与远场幅度放大
-  slug: 2-7-gaussian-推论-c-方差四象限-单样本-mle-与远场幅度放大
+  line: 3327
+  title: 2.6 Gaussian 推论 B：可学习方差的联合稳态与提前失稳
+  slug: 2-6-gaussian-推论-b-可学习方差的联合稳态与提前失稳
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -2496,9 +2496,9 @@ headings:
 - heading_id: H0169
   ordinal: 169
   level: 2
-  line: 3386
-  title: 2.7A Gaussian 远场负梯度的二次临界衰减定理（v30，已解析证明）
-  slug: 2-7a-gaussian-远场负梯度的二次临界衰减定理-v30-已解析证明
+  line: 3391
+  title: 2.7 Gaussian 推论 C：方差四象限、单样本 MLE 与远场幅度放大
+  slug: 2-7-gaussian-推论-c-方差四象限-单样本-mle-与远场幅度放大
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -2509,10 +2509,10 @@ headings:
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0170
   ordinal: 170
-  level: 3
-  line: 3416
-  title: 定理 3（pre-boundary 区域中的二次远场界）
-  slug: 定理-3-pre-boundary-区域中的二次远场界
+  level: 2
+  line: 3432
+  title: 2.7A Gaussian 远场负梯度的二次临界衰减定理（v30，已解析证明）
+  slug: 2-7a-gaussian-远场负梯度的二次临界衰减定理-v30-已解析证明
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -2524,9 +2524,9 @@ headings:
 - heading_id: H0171
   ordinal: 171
   level: 3
-  line: 3453
-  title: 定理 4（reciprocal-polynomial 的二次临界阶）
-  slug: 定理-4-reciprocal-polynomial-的二次临界阶
+  line: 3462
+  title: 定理 3（pre-boundary 区域中的二次远场界）
+  slug: 定理-3-pre-boundary-区域中的二次远场界
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -2538,9 +2538,9 @@ headings:
 - heading_id: H0172
   ordinal: 172
   level: 3
-  line: 3511
-  title: 命题 5（同一参考衰减下的有限距离选择性）
-  slug: 命题-5-同一参考衰减下的有限距离选择性
+  line: 3499
+  title: 定理 4（reciprocal-polynomial 的二次临界阶）
+  slug: 定理-4-reciprocal-polynomial-的二次临界阶
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -2552,9 +2552,9 @@ headings:
 - heading_id: H0173
   ordinal: 173
   level: 3
-  line: 3536
-  title: 对角 Gaussian 推论
-  slug: 对角-gaussian-推论
+  line: 3557
+  title: 命题 5（同一参考衰减下的有限距离选择性）
+  slug: 命题-5-同一参考衰减下的有限距离选择性
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -2566,24 +2566,23 @@ headings:
 - heading_id: H0174
   ordinal: 174
   level: 3
-  line: 3568
-  title: 神经网络 pullback、例外与可声明边界
-  slug: 神经网络-pullback-例外与可声明边界
+  line: 3582
+  title: 对角 Gaussian 推论
+  slug: 对角-gaussian-推论
   occurrence: 1
   module_ids:
   - categorical_e5_e6
   - continuous_e1_e4
-  - global_core_governance
   - theory_methods_related_work
   temporal_role: current
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0175
   ordinal: 175
-  level: 2
-  line: 3595
-  title: 2.8 Categorical 推论 A：有界单步 score 仍可把策略推到 simplex 边界
-  slug: 2-8-categorical-推论-a-有界单步-score-仍可把策略推到-simplex-边界
+  level: 3
+  line: 3614
+  title: 神经网络 pullback、例外与可声明边界
+  slug: 神经网络-pullback-例外与可声明边界
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -2596,13 +2595,14 @@ headings:
 - heading_id: H0176
   ordinal: 176
   level: 2
-  line: 3633
-  title: 2.9 Categorical 推论 B：未见动作外推为何需要语义结构，而不需要“动作有序”
-  slug: 2-9-categorical-推论-b-未见动作外推为何需要语义结构-而不需要-动作有序
+  line: 3641
+  title: 2.8 Categorical 推论 A：有界单步 score 仍可把策略推到 simplex 边界
+  slug: 2-8-categorical-推论-a-有界单步-score-仍可把策略推到-simplex-边界
   occurrence: 1
   module_ids:
   - categorical_e5_e6
   - continuous_e1_e4
+  - global_core_governance
   - theory_methods_related_work
   temporal_role: current
   classification: resolved_multi
@@ -2610,9 +2610,9 @@ headings:
 - heading_id: H0177
   ordinal: 177
   level: 2
-  line: 3657
-  title: 2.10 神经网络共享参数：指数族输出场的 pullback
-  slug: 2-10-神经网络共享参数-指数族输出场的-pullback
+  line: 3679
+  title: 2.9 Categorical 推论 B：未见动作外推为何需要语义结构，而不需要“动作有序”
+  slug: 2-9-categorical-推论-b-未见动作外推为何需要语义结构-而不需要-动作有序
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -2624,9 +2624,9 @@ headings:
 - heading_id: H0178
   ordinal: 178
   level: 2
-  line: 3679
-  title: 2.11 方法推论：Global α、Exp-remoteness 与 stability budget
-  slug: 2-11-方法推论-global-α-exp-remoteness-与-stability-budget
+  line: 3703
+  title: 2.10 神经网络共享参数：指数族输出场的 pullback
+  slug: 2-10-神经网络共享参数-指数族输出场的-pullback
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -2638,7 +2638,21 @@ headings:
 - heading_id: H0179
   ordinal: 179
   level: 2
-  line: 3703
+  line: 3725
+  title: 2.11 方法推论：Global α、Exp-remoteness 与 stability budget
+  slug: 2-11-方法推论-global-α-exp-remoteness-与-stability-budget
+  occurrence: 1
+  module_ids:
+  - categorical_e5_e6
+  - continuous_e1_e4
+  - theory_methods_related_work
+  temporal_role: current
+  classification: resolved_multi
+  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
+- heading_id: H0180
+  ordinal: 180
+  level: 2
+  line: 3749
   title: 2.12 Learned critic / value network：瞬时适用与移动目标
   slug: 2-12-learned-critic-value-network-瞬时适用与移动目标
   occurrence: 1
@@ -2650,10 +2664,10 @@ headings:
   temporal_role: current
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0180
-  ordinal: 180
+- heading_id: H0181
+  ordinal: 181
   level: 2
-  line: 3717
+  line: 3763
   title: 2.13 自我审查：反例挑战、修正与最终可声明边界
   slug: 2-13-自我审查-反例挑战-修正与最终可声明边界
   occurrence: 1
@@ -2665,10 +2679,10 @@ headings:
   temporal_role: current
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0181
-  ordinal: 181
+- heading_id: H0182
+  ordinal: 182
   level: 1
-  line: 3739
+  line: 3785
   title: Part IV. v10 Hopper Learned-Critic 外部验证记录（完整保留，状态降级）
   slug: part-iv-v10-hopper-learned-critic-外部验证记录-完整保留-状态降级
   occurrence: 1
@@ -2680,10 +2694,10 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0182
-  ordinal: 182
+- heading_id: H0183
+  ordinal: 183
   level: 1
-  line: 3743
+  line: 3789
   title: DRPO / SNA2C 统一理论与实验备忘录 v9
   slug: drpo-sna2c-统一理论与实验备忘录-v9
   occurrence: 1
@@ -2693,10 +2707,10 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0183
-  ordinal: 183
+- heading_id: H0184
+  ordinal: 184
   level: 1
-  line: 3759
+  line: 3805
   title: 0. 新会话必须继承的锁定结论
   slug: 0-新会话必须继承的锁定结论
   occurrence: 1
@@ -2706,10 +2720,10 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0184
-  ordinal: 184
+- heading_id: H0185
+  ordinal: 185
   level: 2
-  line: 3764
+  line: 3810
   title: 0.1 连续 Gaussian
   slug: 0-1-连续-gaussian
   occurrence: 1
@@ -2720,10 +2734,10 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0185
-  ordinal: 185
+- heading_id: H0186
+  ordinal: 186
   level: 2
-  line: 3778
+  line: 3824
   title: 0.2 离散 categorical
   slug: 0-2-离散-categorical
   occurrence: 1
@@ -2734,10 +2748,10 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0186
-  ordinal: 186
+- heading_id: H0187
+  ordinal: 187
   level: 2
-  line: 3790
+  line: 3836
   title: 0.3 明确不可声称
   slug: 0-3-明确不可声称
   occurrence: 1
@@ -2747,10 +2761,10 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0187
-  ordinal: 187
+- heading_id: H0188
+  ordinal: 188
   level: 1
-  line: 3802
+  line: 3848
   title: 1. 文档审计与结论固化
   slug: 1-文档审计与结论固化
   occurrence: 1
@@ -2761,10 +2775,10 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0188
-  ordinal: 188
+- heading_id: H0189
+  ordinal: 189
   level: 2
-  line: 3804
+  line: 3850
   title: 1.1 v7 的主要问题
   slug: 1-1-v7-的主要问题
   occurrence: 1
@@ -2774,10 +2788,10 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0189
-  ordinal: 189
+- heading_id: H0190
+  ordinal: 190
   level: 2
-  line: 3814
+  line: 3860
   title: 1.2 v8 的删除与替换规则
   slug: 1-2-v8-的删除与替换规则
   occurrence: 1
@@ -2787,25 +2801,12 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0190
-  ordinal: 190
-  level: 1
-  line: 3828
-  title: 2. 大一统理论：Repulsive Signed-Moment Dynamics
-  slug: 2-大一统理论-repulsive-signed-moment-dynamics
-  occurrence: 2
-  module_ids:
-  - history_provenance
-  - theory_methods_related_work
-  temporal_role: historical
-  classification: resolved_multi
-  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0191
   ordinal: 191
-  level: 2
-  line: 3830
-  title: 2.1 研究对象、记号与结论层级
-  slug: 2-1-研究对象-记号与结论层级
+  level: 1
+  line: 3874
+  title: 2. 大一统理论：Repulsive Signed-Moment Dynamics
+  slug: 2-大一统理论-repulsive-signed-moment-dynamics
   occurrence: 2
   module_ids:
   - history_provenance
@@ -2816,9 +2817,9 @@ headings:
 - heading_id: H0192
   ordinal: 192
   level: 2
-  line: 3840
-  title: 2.2 定理 1：单个负优势更新必然提高该样本 surprisal
-  slug: 2-2-定理-1-单个负优势更新必然提高该样本-surprisal
+  line: 3876
+  title: 2.1 研究对象、记号与结论层级
+  slug: 2-1-研究对象-记号与结论层级
   occurrence: 2
   module_ids:
   - history_provenance
@@ -2829,9 +2830,9 @@ headings:
 - heading_id: H0193
   ordinal: 193
   level: 2
-  line: 3874
-  title: 2.3 批量更新：自项、跨样本干涉与方向一致性
-  slug: 2-3-批量更新-自项-跨样本干涉与方向一致性
+  line: 3886
+  title: 2.2 定理 1：单个负优势更新必然提高该样本 surprisal
+  slug: 2-2-定理-1-单个负优势更新必然提高该样本-surprisal
   occurrence: 2
   module_ids:
   - history_provenance
@@ -2842,9 +2843,9 @@ headings:
 - heading_id: H0194
   ordinal: 194
   level: 2
-  line: 3892
-  title: 2.4 定理 2：正则最小指数族中的 signed-moment 平衡
-  slug: 2-4-定理-2-正则最小指数族中的-signed-moment-平衡
+  line: 3920
+  title: 2.3 批量更新：自项、跨样本干涉与方向一致性
+  slug: 2-3-批量更新-自项-跨样本干涉与方向一致性
   occurrence: 2
   module_ids:
   - history_provenance
@@ -2855,12 +2856,11 @@ headings:
 - heading_id: H0195
   ordinal: 195
   level: 2
-  line: 3947
-  title: 2.5 Gaussian 推论 A：固定方差下的稳定外推与均值相变
-  slug: 2-5-gaussian-推论-a-固定方差下的稳定外推与均值相变
+  line: 3938
+  title: 2.4 定理 2：正则最小指数族中的 signed-moment 平衡
+  slug: 2-4-定理-2-正则最小指数族中的-signed-moment-平衡
   occurrence: 2
   module_ids:
-  - continuous_e1_e4
   - history_provenance
   - theory_methods_related_work
   temporal_role: historical
@@ -2869,9 +2869,9 @@ headings:
 - heading_id: H0196
   ordinal: 196
   level: 2
-  line: 3981
-  title: 2.6 Gaussian 推论 B：可学习方差的联合稳态与提前失稳
-  slug: 2-6-gaussian-推论-b-可学习方差的联合稳态与提前失稳
+  line: 3993
+  title: 2.5 Gaussian 推论 A：固定方差下的稳定外推与均值相变
+  slug: 2-5-gaussian-推论-a-固定方差下的稳定外推与均值相变
   occurrence: 2
   module_ids:
   - continuous_e1_e4
@@ -2883,9 +2883,9 @@ headings:
 - heading_id: H0197
   ordinal: 197
   level: 2
-  line: 4045
-  title: 2.7 Gaussian 推论 C：方差四象限、单样本 MLE 与远场幅度放大
-  slug: 2-7-gaussian-推论-c-方差四象限-单样本-mle-与远场幅度放大
+  line: 4027
+  title: 2.6 Gaussian 推论 B：可学习方差的联合稳态与提前失稳
+  slug: 2-6-gaussian-推论-b-可学习方差的联合稳态与提前失稳
   occurrence: 2
   module_ids:
   - continuous_e1_e4
@@ -2897,7 +2897,21 @@ headings:
 - heading_id: H0198
   ordinal: 198
   level: 2
-  line: 4086
+  line: 4091
+  title: 2.7 Gaussian 推论 C：方差四象限、单样本 MLE 与远场幅度放大
+  slug: 2-7-gaussian-推论-c-方差四象限-单样本-mle-与远场幅度放大
+  occurrence: 2
+  module_ids:
+  - continuous_e1_e4
+  - history_provenance
+  - theory_methods_related_work
+  temporal_role: historical
+  classification: resolved_multi
+  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
+- heading_id: H0199
+  ordinal: 199
+  level: 2
+  line: 4132
   title: 2.8 Categorical 推论 A：有界单步 score 仍可把策略推到 simplex 边界
   slug: 2-8-categorical-推论-a-有界单步-score-仍可把策略推到-simplex-边界
   occurrence: 2
@@ -2909,10 +2923,10 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0199
-  ordinal: 199
+- heading_id: H0200
+  ordinal: 200
   level: 2
-  line: 4124
+  line: 4170
   title: 2.9 Categorical 推论 B：未见动作外推为何需要语义结构，而不需要“动作有序”
   slug: 2-9-categorical-推论-b-未见动作外推为何需要语义结构-而不需要-动作有序
   occurrence: 2
@@ -2923,25 +2937,12 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0200
-  ordinal: 200
-  level: 2
-  line: 4148
-  title: 2.10 神经网络共享参数：指数族输出场的 pullback
-  slug: 2-10-神经网络共享参数-指数族输出场的-pullback
-  occurrence: 2
-  module_ids:
-  - history_provenance
-  - theory_methods_related_work
-  temporal_role: historical
-  classification: resolved_multi
-  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0201
   ordinal: 201
   level: 2
-  line: 4170
-  title: 2.11 方法推论：Global α、Exp-remoteness 与 stability budget
-  slug: 2-11-方法推论-global-α-exp-remoteness-与-stability-budget
+  line: 4194
+  title: 2.10 神经网络共享参数：指数族输出场的 pullback
+  slug: 2-10-神经网络共享参数-指数族输出场的-pullback
   occurrence: 2
   module_ids:
   - history_provenance
@@ -2952,7 +2953,20 @@ headings:
 - heading_id: H0202
   ordinal: 202
   level: 2
-  line: 4194
+  line: 4216
+  title: 2.11 方法推论：Global α、Exp-remoteness 与 stability budget
+  slug: 2-11-方法推论-global-α-exp-remoteness-与-stability-budget
+  occurrence: 2
+  module_ids:
+  - history_provenance
+  - theory_methods_related_work
+  temporal_role: historical
+  classification: resolved_multi
+  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
+- heading_id: H0203
+  ordinal: 203
+  level: 2
+  line: 4240
   title: 2.12 Learned critic / value network：瞬时适用与移动目标
   slug: 2-12-learned-critic-value-network-瞬时适用与移动目标
   occurrence: 2
@@ -2963,10 +2977,10 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0203
-  ordinal: 203
+- heading_id: H0204
+  ordinal: 204
   level: 2
-  line: 4208
+  line: 4254
   title: 2.13 自我审查：反例挑战、修正与最终可声明边界
   slug: 2-13-自我审查-反例挑战-修正与最终可声明边界
   occurrence: 2
@@ -2977,10 +2991,10 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0204
-  ordinal: 204
+- heading_id: H0205
+  ordinal: 205
   level: 1
-  line: 4228
+  line: 4274
   title: 3. 连续统一 benchmark：正式论文级证据
   slug: 3-连续统一-benchmark-正式论文级证据
   occurrence: 1
@@ -2992,25 +3006,12 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0205
-  ordinal: 205
-  level: 2
-  line: 4230
-  title: 3.1 Protocol A：来源隔离
-  slug: 3-1-protocol-a-来源隔离
-  occurrence: 1
-  module_ids:
-  - history_provenance
-  - theory_methods_related_work
-  temporal_role: historical
-  classification: resolved_multi
-  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0206
   ordinal: 206
   level: 2
-  line: 4243
-  title: 3.2 Protocol B：因果 collapse 干预
-  slug: 3-2-protocol-b-因果-collapse-干预
+  line: 4276
+  title: 3.1 Protocol A：来源隔离
+  slug: 3-1-protocol-a-来源隔离
   occurrence: 1
   module_ids:
   - history_provenance
@@ -3021,9 +3022,9 @@ headings:
 - heading_id: H0207
   ordinal: 207
   level: 2
-  line: 4263
-  title: 3.3 Protocol C：稳定外推与联合相变
-  slug: 3-3-protocol-c-稳定外推与联合相变
+  line: 4289
+  title: 3.2 Protocol B：因果 collapse 干预
+  slug: 3-2-protocol-b-因果-collapse-干预
   occurrence: 1
   module_ids:
   - history_provenance
@@ -3034,9 +3035,9 @@ headings:
 - heading_id: H0208
   ordinal: 208
   level: 2
-  line: 4285
-  title: 3.4 控制方法与等预算识别
-  slug: 3-4-控制方法与等预算识别
+  line: 4309
+  title: 3.3 Protocol C：稳定外推与联合相变
+  slug: 3-3-protocol-c-稳定外推与联合相变
   occurrence: 1
   module_ids:
   - history_provenance
@@ -3046,8 +3047,21 @@ headings:
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0209
   ordinal: 209
+  level: 2
+  line: 4331
+  title: 3.4 控制方法与等预算识别
+  slug: 3-4-控制方法与等预算识别
+  occurrence: 1
+  module_ids:
+  - history_provenance
+  - theory_methods_related_work
+  temporal_role: historical
+  classification: resolved_multi
+  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
+- heading_id: H0210
+  ordinal: 210
   level: 1
-  line: 4301
+  line: 4347
   title: 4. 离散 categorical benchmark：理论与正式结果
   slug: 4-离散-categorical-benchmark-理论与正式结果
   occurrence: 1
@@ -3059,10 +3073,10 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0210
-  ordinal: 210
+- heading_id: H0211
+  ordinal: 211
   level: 2
-  line: 4303
+  line: 4349
   title: 4.1 小环境：direct softmax 的精确结论
   slug: 4-1-小环境-direct-softmax-的精确结论
   occurrence: 1
@@ -3073,10 +3087,10 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0211
-  ordinal: 211
+- heading_id: H0212
+  ordinal: 212
   level: 2
-  line: 4316
+  line: 4362
   title: 4.2 来源隔离：rarity 使梯度更大但幅度有界
   slug: 4-2-来源隔离-rarity-使梯度更大但幅度有界
   occurrence: 1
@@ -3086,26 +3100,12 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0212
-  ordinal: 212
-  level: 2
-  line: 4329
-  title: 4.3 结构化 categorical 外推：解析桥梁与无序语义动作
-  slug: 4-3-结构化-categorical-外推-解析桥梁与无序语义动作
-  occurrence: 1
-  module_ids:
-  - categorical_e5_e6
-  - history_provenance
-  - theory_methods_related_work
-  temporal_role: historical
-  classification: resolved_multi
-  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0213
   ordinal: 213
   level: 2
-  line: 4351
-  title: 4.4 categorical near/far 因果干预
-  slug: 4-4-categorical-near-far-因果干预
+  line: 4375
+  title: 4.3 结构化 categorical 外推：解析桥梁与无序语义动作
+  slug: 4-3-结构化-categorical-外推-解析桥梁与无序语义动作
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -3117,7 +3117,21 @@ headings:
 - heading_id: H0214
   ordinal: 214
   level: 2
-  line: 4368
+  line: 4397
+  title: 4.4 categorical near/far 因果干预
+  slug: 4-4-categorical-near-far-因果干预
+  occurrence: 1
+  module_ids:
+  - categorical_e5_e6
+  - history_provenance
+  - theory_methods_related_work
+  temporal_role: historical
+  classification: resolved_multi
+  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
+- heading_id: H0215
+  ordinal: 215
+  level: 2
+  line: 4414
   title: 4.5 控制方法：反对“distance 永远更优”的过度 claim
   slug: 4-5-控制方法-反对-distance-永远更优-的过度-claim
   occurrence: 1
@@ -3127,10 +3141,10 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0215
-  ordinal: 215
+- heading_id: H0216
+  ordinal: 216
   level: 1
-  line: 4384
+  line: 4430
   title: 5. 连续—离散统一解释
   slug: 5-连续-离散统一解释
   occurrence: 1
@@ -3142,10 +3156,10 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0216
-  ordinal: 216
+- heading_id: H0217
+  ordinal: 217
   level: 1
-  line: 4404
+  line: 4450
   title: 6. 论文贡献与推荐 claim 结构
   slug: 6-论文贡献与推荐-claim-结构
   occurrence: 1
@@ -3156,10 +3170,10 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0217
-  ordinal: 217
+- heading_id: H0218
+  ordinal: 218
   level: 2
-  line: 4406
+  line: 4452
   title: 6.1 当前已经形成的贡献栈
   slug: 6-1-当前已经形成的贡献栈
   occurrence: 1
@@ -3169,10 +3183,10 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0218
-  ordinal: 218
+- heading_id: H0219
+  ordinal: 219
   level: 2
-  line: 4420
+  line: 4466
   title: 6.2 论文主文建议
   slug: 6-2-论文主文建议
   occurrence: 1
@@ -3183,10 +3197,10 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0219
-  ordinal: 219
+- heading_id: H0220
+  ordinal: 220
   level: 2
-  line: 4429
+  line: 4475
   title: 6.3 推荐用语
   slug: 6-3-推荐用语
   occurrence: 1
@@ -3196,10 +3210,10 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0220
-  ordinal: 220
+- heading_id: H0221
+  ordinal: 221
   level: 1
-  line: 4439
+  line: 4485
   title: 7. 接下来唯一保留的任务清单
   slug: 7-接下来唯一保留的任务清单
   occurrence: 1
@@ -3210,10 +3224,10 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0221
-  ordinal: 221
+- heading_id: H0222
+  ordinal: 222
   level: 2
-  line: 4441
+  line: 4487
   title: P0：统一理论已完成；转入论文 LaTeX 化与定理精简
   slug: p0-统一理论已完成-转入论文-latex-化与定理精简
   occurrence: 1
@@ -3224,10 +3238,10 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0222
-  ordinal: 222
+- heading_id: H0223
+  ordinal: 223
   level: 2
-  line: 4449
+  line: 4495
   title: P1：方法创新与外部有效性（下一实验主线）
   slug: p1-方法创新与外部有效性-下一实验主线
   occurrence: 1
@@ -3237,10 +3251,10 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0223
-  ordinal: 223
+- heading_id: H0224
+  ordinal: 224
   level: 2
-  line: 4459
+  line: 4505
   title: P2：当前不做或降级为 future work
   slug: p2-当前不做或降级为-future-work
   occurrence: 1
@@ -3250,10 +3264,10 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0224
-  ordinal: 224
+- heading_id: H0225
+  ordinal: 225
   level: 1
-  line: 4472
+  line: 4518
   title: 8. 复现入口与文件索引
   slug: 8-复现入口与文件索引
   occurrence: 1
@@ -3264,25 +3278,12 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0225
-  ordinal: 225
-  level: 1
-  line: 4486
-  title: 附录 A. 旧实验的保留规则
-  slug: 附录-a-旧实验的保留规则
-  occurrence: 1
-  module_ids:
-  - history_provenance
-  - theory_methods_related_work
-  temporal_role: historical
-  classification: resolved_multi
-  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0226
   ordinal: 226
   level: 1
-  line: 4502
-  title: 附录 B. 最终研究判断
-  slug: 附录-b-最终研究判断
+  line: 4532
+  title: 附录 A. 旧实验的保留规则
+  slug: 附录-a-旧实验的保留规则
   occurrence: 1
   module_ids:
   - history_provenance
@@ -3293,9 +3294,9 @@ headings:
 - heading_id: H0227
   ordinal: 227
   level: 1
-  line: 4509
-  title: 附录 C. 公式自检与机器验证
-  slug: 附录-c-公式自检与机器验证
+  line: 4548
+  title: 附录 B. 最终研究判断
+  slug: 附录-b-最终研究判断
   occurrence: 1
   module_ids:
   - history_provenance
@@ -3306,7 +3307,20 @@ headings:
 - heading_id: H0228
   ordinal: 228
   level: 1
-  line: 4515
+  line: 4555
+  title: 附录 C. 公式自检与机器验证
+  slug: 附录-c-公式自检与机器验证
+  occurrence: 1
+  module_ids:
+  - history_provenance
+  - theory_methods_related_work
+  temporal_role: historical
+  classification: resolved_multi
+  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
+- heading_id: H0229
+  ordinal: 229
+  level: 1
+  line: 4561
   title: 15. Learned-Critic External Mechanism Validation on D4RL
   slug: 15-learned-critic-external-mechanism-validation-on-d4rl
   occurrence: 1
@@ -3317,10 +3331,10 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0229
-  ordinal: 229
+- heading_id: H0230
+  ordinal: 230
   level: 2
-  line: 4529
+  line: 4575
   title: 1. learned advantage 下的来源隔离
   slug: 1-learned-advantage-下的来源隔离
   occurrence: 1
@@ -3330,10 +3344,10 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0230
-  ordinal: 230
+- heading_id: H0231
+  ordinal: 231
   level: 2
-  line: 4540
+  line: 4586
   title: 2. 方差方向与修正理论一致
   slug: 2-方差方向与修正理论一致
   occurrence: 1
@@ -3344,25 +3358,12 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0231
-  ordinal: 231
-  level: 2
-  line: 4550
-  title: 3. 10-seed 定点干预
-  slug: 3-10-seed-定点干预
-  occurrence: 1
-  module_ids:
-  - history_provenance
-  - theory_methods_related_work
-  temporal_role: historical
-  classification: resolved_multi
-  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0232
   ordinal: 232
   level: 2
-  line: 4569
-  title: 4. 相变而非 sign-only 法则
-  slug: 4-相变而非-sign-only-法则
+  line: 4596
+  title: 3. 10-seed 定点干预
+  slug: 3-10-seed-定点干预
   occurrence: 1
   module_ids:
   - history_provenance
@@ -3373,9 +3374,9 @@ headings:
 - heading_id: H0233
   ordinal: 233
   level: 2
-  line: 4573
-  title: 5. Advantage estimator 稳健性
-  slug: 5-advantage-estimator-稳健性
+  line: 4615
+  title: 4. 相变而非 sign-only 法则
+  slug: 4-相变而非-sign-only-法则
   occurrence: 1
   module_ids:
   - history_provenance
@@ -3386,7 +3387,20 @@ headings:
 - heading_id: H0234
   ordinal: 234
   level: 2
-  line: 4587
+  line: 4619
+  title: 5. Advantage estimator 稳健性
+  slug: 5-advantage-estimator-稳健性
+  occurrence: 1
+  module_ids:
+  - history_provenance
+  - theory_methods_related_work
+  temporal_role: historical
+  classification: resolved_multi
+  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
+- heading_id: H0235
+  ordinal: 235
+  level: 2
+  line: 4633
   title: 6. 论文中的正确使用方式
   slug: 6-论文中的正确使用方式
   occurrence: 1
@@ -3397,10 +3411,10 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0235
-  ordinal: 235
+- heading_id: H0236
+  ordinal: 236
   level: 1
-  line: 4607
+  line: 4653
   title: Part V. Bandit 稳定外推子实验的收敛审计（完整保留）
   slug: part-v-bandit-稳定外推子实验的收敛审计-完整保留
   occurrence: 1
@@ -3413,10 +3427,10 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0236
-  ordinal: 236
+- heading_id: H0237
+  ordinal: 237
   level: 1
-  line: 4611
+  line: 4657
   title: DRPO Bandit Saturation Re-audit (v1)
   slug: drpo-bandit-saturation-re-audit-v1
   occurrence: 1
@@ -3428,10 +3442,10 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0237
-  ordinal: 237
+- heading_id: H0238
+  ordinal: 238
   level: 2
-  line: 4613
+  line: 4659
   title: 结论摘要
   slug: 结论摘要
   occurrence: 1
@@ -3444,27 +3458,12 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0238
-  ordinal: 238
-  level: 2
-  line: 4623
-  title: 1. Ground truth
-  slug: 1-ground-truth
-  occurrence: 1
-  module_ids:
-  - categorical_e5_e6
-  - continuous_e1_e4
-  - history_provenance
-  - theory_methods_related_work
-  temporal_role: historical
-  classification: resolved_multi
-  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0239
   ordinal: 239
-  level: 3
-  line: 4625
-  title: Continuous, fixed variance
-  slug: continuous-fixed-variance
+  level: 2
+  line: 4669
+  title: 1. Ground truth
+  slug: 1-ground-truth
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -3477,9 +3476,9 @@ headings:
 - heading_id: H0240
   ordinal: 240
   level: 3
-  line: 4635
-  title: Continuous, learnable variance
-  slug: continuous-learnable-variance
+  line: 4671
+  title: Continuous, fixed variance
+  slug: continuous-fixed-variance
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -3492,9 +3491,9 @@ headings:
 - heading_id: H0241
   ordinal: 241
   level: 3
-  line: 4645
-  title: Categorical energy policy
-  slug: categorical-energy-policy
+  line: 4681
+  title: Continuous, learnable variance
+  slug: continuous-learnable-variance
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -3506,8 +3505,23 @@ headings:
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0242
   ordinal: 242
+  level: 3
+  line: 4691
+  title: Categorical energy policy
+  slug: categorical-energy-policy
+  occurrence: 1
+  module_ids:
+  - categorical_e5_e6
+  - continuous_e1_e4
+  - history_provenance
+  - theory_methods_related_work
+  temporal_role: historical
+  classification: resolved_multi
+  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
+- heading_id: H0243
+  ordinal: 243
   level: 2
-  line: 4649
+  line: 4695
   title: 2. 重新训练后的关键结果（seeds 10–12）
   slug: 2-重新训练后的关键结果-seeds-10-12
   occurrence: 1
@@ -3520,27 +3534,12 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0243
-  ordinal: 243
-  level: 3
-  line: 4651
-  title: Continuous fixed variance
-  slug: continuous-fixed-variance
-  occurrence: 1
-  module_ids:
-  - categorical_e5_e6
-  - continuous_e1_e4
-  - history_provenance
-  - theory_methods_related_work
-  temporal_role: historical
-  classification: resolved_multi
-  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0244
   ordinal: 244
   level: 3
-  line: 4662
-  title: Continuous learnable variance
-  slug: continuous-learnable-variance
+  line: 4697
+  title: Continuous fixed variance
+  slug: continuous-fixed-variance
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -3553,9 +3552,9 @@ headings:
 - heading_id: H0245
   ordinal: 245
   level: 3
-  line: 4674
-  title: Categorical
-  slug: categorical
+  line: 4708
+  title: Continuous learnable variance
+  slug: continuous-learnable-variance
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -3567,10 +3566,10 @@ headings:
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0246
   ordinal: 246
-  level: 2
-  line: 4687
-  title: 3. 对旧结论的处理
-  slug: 3-对旧结论的处理
+  level: 3
+  line: 4720
+  title: Categorical
+  slug: categorical
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -3583,9 +3582,9 @@ headings:
 - heading_id: H0247
   ordinal: 247
   level: 2
-  line: 4694
-  title: 4. 哪些实验不以训练收敛为验收条件
-  slug: 4-哪些实验不以训练收敛为验收条件
+  line: 4733
+  title: 3. 对旧结论的处理
+  slug: 3-对旧结论的处理
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -3598,9 +3597,9 @@ headings:
 - heading_id: H0248
   ordinal: 248
   level: 2
-  line: 4700
-  title: 5. 现在可防守的 solid 结论
-  slug: 5-现在可防守的-solid-结论
+  line: 4740
+  title: 4. 哪些实验不以训练收敛为验收条件
+  slug: 4-哪些实验不以训练收敛为验收条件
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -3612,8 +3611,23 @@ headings:
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0249
   ordinal: 249
+  level: 2
+  line: 4746
+  title: 5. 现在可防守的 solid 结论
+  slug: 5-现在可防守的-solid-结论
+  occurrence: 1
+  module_ids:
+  - categorical_e5_e6
+  - continuous_e1_e4
+  - history_provenance
+  - theory_methods_related_work
+  temporal_role: historical
+  classification: resolved_multi
+  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
+- heading_id: H0250
+  ordinal: 250
   level: 1
-  line: 4711
+  line: 4757
   title: Part VI. 论文重写大纲（当前草案，后续须与实验状态同步）
   slug: part-vi-论文重写大纲-当前草案-后续须与实验状态同步
   occurrence: 1
@@ -3628,10 +3642,10 @@ headings:
   temporal_role: current
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0250
-  ordinal: 250
+- heading_id: H0251
+  ordinal: 251
   level: 1
-  line: 4713
+  line: 4759
   title: 论文重写大纲 v1：从推荐专属 DRPO 到通用 Repulsive Policy Dynamics
   slug: 论文重写大纲-v1-从推荐专属-drpo-到通用-repulsive-policy-dynamics
   occurrence: 1
@@ -3645,10 +3659,10 @@ headings:
   temporal_role: current
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0251
-  ordinal: 251
+- heading_id: H0252
+  ordinal: 252
   level: 2
-  line: 4717
+  line: 4763
   title: 0. 一句话定位与非谈不可的重写原则
   slug: 0-一句话定位与非谈不可的重写原则
   occurrence: 1
@@ -3663,29 +3677,12 @@ headings:
   temporal_role: current
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0252
-  ordinal: 252
-  level: 3
-  line: 4719
-  title: 建议主标题
-  slug: 建议主标题
-  occurrence: 1
-  module_ids:
-  - categorical_e5_e6
-  - continuous_e1_e4
-  - countdown_e8
-  - hopper_e7
-  - paper_rewrite
-  - theory_methods_related_work
-  temporal_role: current
-  classification: resolved_multi
-  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0253
   ordinal: 253
   level: 3
-  line: 4729
-  title: 一句话主张
-  slug: 一句话主张
+  line: 4765
+  title: 建议主标题
+  slug: 建议主标题
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -3700,9 +3697,9 @@ headings:
 - heading_id: H0254
   ordinal: 254
   level: 3
-  line: 4733
-  title: 必须完成的根本重写
-  slug: 必须完成的根本重写
+  line: 4775
+  title: 一句话主张
+  slug: 一句话主张
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -3716,8 +3713,25 @@ headings:
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0255
   ordinal: 255
+  level: 3
+  line: 4779
+  title: 必须完成的根本重写
+  slug: 必须完成的根本重写
+  occurrence: 1
+  module_ids:
+  - categorical_e5_e6
+  - continuous_e1_e4
+  - countdown_e8
+  - hopper_e7
+  - paper_rewrite
+  - theory_methods_related_work
+  temporal_role: current
+  classification: resolved_multi
+  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
+- heading_id: H0256
+  ordinal: 256
   level: 2
-  line: 4744
+  line: 4790
   title: 1. 旧审稿意见到新稿设计的逐项映射
   slug: 1-旧审稿意见到新稿设计的逐项映射
   occurrence: 1
@@ -3732,29 +3746,12 @@ headings:
   temporal_role: current
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0256
-  ordinal: 256
-  level: 2
-  line: 4761
-  title: 2. 摘要：建议按 7 句话写成一个紧凑段落
-  slug: 2-摘要-建议按-7-句话写成一个紧凑段落
-  occurrence: 1
-  module_ids:
-  - categorical_e5_e6
-  - continuous_e1_e4
-  - countdown_e8
-  - hopper_e7
-  - paper_rewrite
-  - theory_methods_related_work
-  temporal_role: current
-  classification: resolved_multi
-  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0257
   ordinal: 257
-  level: 3
-  line: 4763
-  title: 句 1：通用问题
-  slug: 句-1-通用问题
+  level: 2
+  line: 4807
+  title: 2. 摘要：建议按 7 句话写成一个紧凑段落
+  slug: 2-摘要-建议按-7-句话写成一个紧凑段落
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -3769,9 +3766,9 @@ headings:
 - heading_id: H0258
   ordinal: 258
   level: 3
-  line: 4769
-  title: 句 2：核心悖论
-  slug: 句-2-核心悖论
+  line: 4809
+  title: 句 1：通用问题
+  slug: 句-1-通用问题
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -3786,9 +3783,9 @@ headings:
 - heading_id: H0259
   ordinal: 259
   level: 3
-  line: 4775
-  title: 句 3：统一理论
-  slug: 句-3-统一理论
+  line: 4815
+  title: 句 2：核心悖论
+  slug: 句-2-核心悖论
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -3803,9 +3800,9 @@ headings:
 - heading_id: H0260
   ordinal: 260
   level: 3
-  line: 4779
-  title: 句 4：策略族分叉
-  slug: 句-4-策略族分叉
+  line: 4821
+  title: 句 3：统一理论
+  slug: 句-3-统一理论
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -3820,9 +3817,9 @@ headings:
 - heading_id: H0261
   ordinal: 261
   level: 3
-  line: 4783
-  title: 句 5：因果证据
-  slug: 句-5-因果证据
+  line: 4825
+  title: 句 4：策略族分叉
+  slug: 句-4-策略族分叉
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -3837,9 +3834,9 @@ headings:
 - heading_id: H0262
   ordinal: 262
   level: 3
-  line: 4787
-  title: 句 6：方法
-  slug: 句-6-方法
+  line: 4829
+  title: 句 5：因果证据
+  slug: 句-5-因果证据
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -3854,9 +3851,9 @@ headings:
 - heading_id: H0263
   ordinal: 263
   level: 3
-  line: 4791
-  title: 句 7：外部验证
-  slug: 句-7-外部验证
+  line: 4833
+  title: 句 6：方法
+  slug: 句-6-方法
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -3870,10 +3867,10 @@ headings:
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0264
   ordinal: 264
-  level: 2
-  line: 4799
-  title: 3. Introduction：建议 8 个段落
-  slug: 3-introduction-建议-8-个段落
+  level: 3
+  line: 4837
+  title: 句 7：外部验证
+  slug: 句-7-外部验证
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -3887,10 +3884,10 @@ headings:
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0265
   ordinal: 265
-  level: 3
-  line: 4801
-  title: P1：从 off-policy actor learning 的普遍结构切入
-  slug: p1-从-off-policy-actor-learning-的普遍结构切入
+  level: 2
+  line: 4845
+  title: 3. Introduction：建议 8 个段落
+  slug: 3-introduction-建议-8-个段落
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -3905,9 +3902,9 @@ headings:
 - heading_id: H0266
   ordinal: 266
   level: 3
-  line: 4807
-  title: P2：解释负优势的双重价值
-  slug: p2-解释负优势的双重价值
+  line: 4847
+  title: P1：从 off-policy actor learning 的普遍结构切入
+  slug: p1-从-off-policy-actor-learning-的普遍结构切入
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -3922,9 +3919,9 @@ headings:
 - heading_id: H0267
   ordinal: 267
   level: 3
-  line: 4813
-  title: P3：提出真正的未解问题
-  slug: p3-提出真正的未解问题
+  line: 4853
+  title: P2：解释负优势的双重价值
+  slug: p2-解释负优势的双重价值
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -3939,9 +3936,9 @@ headings:
 - heading_id: H0268
   ordinal: 268
   level: 3
-  line: 4819
-  title: P4：机制概览
-  slug: p4-机制概览
+  line: 4859
+  title: P3：提出真正的未解问题
+  slug: p3-提出真正的未解问题
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -3956,9 +3953,9 @@ headings:
 - heading_id: H0269
   ordinal: 269
   level: 3
-  line: 4828
-  title: P5：理论贡献概览
-  slug: p5-理论贡献概览
+  line: 4865
+  title: P4：机制概览
+  slug: p4-机制概览
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -3973,9 +3970,9 @@ headings:
 - heading_id: H0270
   ordinal: 270
   level: 3
-  line: 4832
-  title: P6：证据链概览
-  slug: p6-证据链概览
+  line: 4874
+  title: P5：理论贡献概览
+  slug: p5-理论贡献概览
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -3990,9 +3987,9 @@ headings:
 - heading_id: H0271
   ordinal: 271
   level: 3
-  line: 4842
-  title: P7：方法概览
-  slug: p7-方法概览
+  line: 4878
+  title: P6：证据链概览
+  slug: p6-证据链概览
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -4007,9 +4004,9 @@ headings:
 - heading_id: H0272
   ordinal: 272
   level: 3
-  line: 4846
-  title: P8：贡献列表
-  slug: p8-贡献列表
+  line: 4888
+  title: P7：方法概览
+  slug: p7-方法概览
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -4023,10 +4020,10 @@ headings:
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0273
   ordinal: 273
-  level: 2
-  line: 4859
-  title: 4. Related Work：建议 4 个小节，每节 2–3 段
-  slug: 4-related-work-建议-4-个小节-每节-2-3-段
+  level: 3
+  line: 4892
+  title: P8：贡献列表
+  slug: p8-贡献列表
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -4040,10 +4037,10 @@ headings:
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0274
   ordinal: 274
-  level: 3
-  line: 4861
-  title: 4.1 Offline policy optimization and distribution shift
-  slug: 4-1-offline-policy-optimization-and-distribution-shift
+  level: 2
+  line: 4905
+  title: 4. Related Work：建议 4 个小节，每节 2–3 段
+  slug: 4-related-work-建议-4-个小节-每节-2-3-段
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -4058,9 +4055,9 @@ headings:
 - heading_id: H0275
   ordinal: 275
   level: 3
-  line: 4867
-  title: 4.2 Negative-advantage and low-probability update dynamics
-  slug: 4-2-negative-advantage-and-low-probability-update-dynamics
+  line: 4907
+  title: 4.1 Offline policy optimization and distribution shift
+  slug: 4-1-offline-policy-optimization-and-distribution-shift
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -4075,9 +4072,9 @@ headings:
 - heading_id: H0276
   ordinal: 276
   level: 3
-  line: 4873
-  title: 4.3 Negative data for generalization and mode suppression
-  slug: 4-3-negative-data-for-generalization-and-mode-suppression
+  line: 4913
+  title: 4.2 Negative-advantage and low-probability update dynamics
+  slug: 4-2-negative-advantage-and-low-probability-update-dynamics
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -4092,9 +4089,9 @@ headings:
 - heading_id: H0277
   ordinal: 277
   level: 3
-  line: 4879
-  title: 4.4 Entropy and support control
-  slug: 4-4-entropy-and-support-control
+  line: 4919
+  title: 4.3 Negative data for generalization and mode suppression
+  slug: 4-3-negative-data-for-generalization-and-mode-suppression
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -4109,7 +4106,24 @@ headings:
 - heading_id: H0278
   ordinal: 278
   level: 3
-  line: 4885
+  line: 4925
+  title: 4.4 Entropy and support control
+  slug: 4-4-entropy-and-support-control
+  occurrence: 1
+  module_ids:
+  - categorical_e5_e6
+  - continuous_e1_e4
+  - countdown_e8
+  - hopper_e7
+  - paper_rewrite
+  - theory_methods_related_work
+  temporal_role: current
+  classification: resolved_multi
+  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
+- heading_id: H0279
+  ordinal: 279
+  level: 3
+  line: 4931
   title: 引用治理规则
   slug: 引用治理规则
   occurrence: 1
@@ -4124,10 +4138,10 @@ headings:
   temporal_role: current
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0279
-  ordinal: 279
+- heading_id: H0280
+  ordinal: 280
   level: 2
-  line: 4894
+  line: 4940
   title: 5. Problem Setup and Scope：建议 5 个段落
   slug: 5-problem-setup-and-scope-建议-5-个段落
   occurrence: 1
@@ -4142,29 +4156,12 @@ headings:
   temporal_role: current
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0280
-  ordinal: 280
-  level: 3
-  line: 4896
-  title: P1：分析对象
-  slug: p1-分析对象
-  occurrence: 1
-  module_ids:
-  - categorical_e5_e6
-  - continuous_e1_e4
-  - countdown_e8
-  - hopper_e7
-  - paper_rewrite
-  - theory_methods_related_work
-  temporal_role: current
-  classification: resolved_multi
-  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0281
   ordinal: 281
   level: 3
-  line: 4906
-  title: P2：不要把它伪装成无偏 policy-gradient theorem
-  slug: p2-不要把它伪装成无偏-policy-gradient-theorem
+  line: 4942
+  title: P1：分析对象
+  slug: p1-分析对象
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -4179,9 +4176,9 @@ headings:
 - heading_id: H0282
   ordinal: 282
   level: 3
-  line: 4912
-  title: P3：advantage 条件
-  slug: p3-advantage-条件
+  line: 4952
+  title: P2：不要把它伪装成无偏 policy-gradient theorem
+  slug: p2-不要把它伪装成无偏-policy-gradient-theorem
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -4196,9 +4193,9 @@ headings:
 - heading_id: H0283
   ordinal: 283
   level: 3
-  line: 4916
-  title: P4：正负质量与条件分布
-  slug: p4-正负质量与条件分布
+  line: 4958
+  title: P3：advantage 条件
+  slug: p3-advantage-条件
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -4213,9 +4210,9 @@ headings:
 - heading_id: H0284
   ordinal: 284
   level: 3
-  line: 4920
-  title: P5：claim 层级
-  slug: p5-claim-层级
+  line: 4962
+  title: P4：正负质量与条件分布
+  slug: p4-正负质量与条件分布
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -4229,8 +4226,25 @@ headings:
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0285
   ordinal: 285
+  level: 3
+  line: 4966
+  title: P5：claim 层级
+  slug: p5-claim-层级
+  occurrence: 1
+  module_ids:
+  - categorical_e5_e6
+  - continuous_e1_e4
+  - countdown_e8
+  - hopper_e7
+  - paper_rewrite
+  - theory_methods_related_work
+  temporal_role: current
+  classification: resolved_multi
+  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
+- heading_id: H0286
+  ordinal: 286
   level: 2
-  line: 4926
+  line: 4972
   title: 6. Theory：正文建议 4–5 页，完整证明放附录
   slug: 6-theory-正文建议-4-5-页-完整证明放附录
   occurrence: 1
@@ -4245,29 +4259,12 @@ headings:
   temporal_role: current
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0286
-  ordinal: 286
-  level: 3
-  line: 4928
-  title: 6.1 Theorem 1：Single-sample repulsive surprisal dynamics
-  slug: 6-1-theorem-1-single-sample-repulsive-surprisal-dynamics
-  occurrence: 1
-  module_ids:
-  - categorical_e5_e6
-  - continuous_e1_e4
-  - countdown_e8
-  - hopper_e7
-  - paper_rewrite
-  - theory_methods_related_work
-  temporal_role: current
-  classification: resolved_multi
-  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0287
   ordinal: 287
   level: 3
-  line: 4942
-  title: 6.2 Batch interference and directional coherence
-  slug: 6-2-batch-interference-and-directional-coherence
+  line: 4974
+  title: 6.1 Theorem 1：Single-sample repulsive surprisal dynamics
+  slug: 6-1-theorem-1-single-sample-repulsive-surprisal-dynamics
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -4282,9 +4279,9 @@ headings:
 - heading_id: H0288
   ordinal: 288
   level: 3
-  line: 4950
-  title: 6.3 Theorem 2：Signed-moment equilibrium in exponential families
-  slug: 6-3-theorem-2-signed-moment-equilibrium-in-exponential-families
+  line: 4988
+  title: 6.2 Batch interference and directional coherence
+  slug: 6-2-batch-interference-and-directional-coherence
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -4299,9 +4296,9 @@ headings:
 - heading_id: H0289
   ordinal: 289
   level: 3
-  line: 4962
-  title: 6.4 Gaussian branch
-  slug: 6-4-gaussian-branch
+  line: 4996
+  title: 6.3 Theorem 2：Signed-moment equilibrium in exponential families
+  slug: 6-3-theorem-2-signed-moment-equilibrium-in-exponential-families
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -4315,10 +4312,10 @@ headings:
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0290
   ordinal: 290
-  level: 4
-  line: 4964
-  title: P1：fixed variance mean equilibrium
-  slug: p1-fixed-variance-mean-equilibrium
+  level: 3
+  line: 5008
+  title: 6.4 Gaussian branch
+  slug: 6-4-gaussian-branch
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -4333,9 +4330,9 @@ headings:
 - heading_id: H0291
   ordinal: 291
   level: 4
-  line: 4968
-  title: P2：learnable variance joint equilibrium
-  slug: p2-learnable-variance-joint-equilibrium
+  line: 5010
+  title: P1：fixed variance mean equilibrium
+  slug: p1-fixed-variance-mean-equilibrium
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -4350,9 +4347,9 @@ headings:
 - heading_id: H0292
   ordinal: 292
   level: 4
-  line: 4972
-  title: P3：variance four quadrants
-  slug: p3-variance-four-quadrants
+  line: 5014
+  title: P2：learnable variance joint equilibrium
+  slug: p2-learnable-variance-joint-equilibrium
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -4367,9 +4364,9 @@ headings:
 - heading_id: H0293
   ordinal: 293
   level: 4
-  line: 4976
-  title: P4：fixed-sample Hessian correction
-  slug: p4-fixed-sample-hessian-correction
+  line: 5018
+  title: P3：variance four quadrants
+  slug: p3-variance-four-quadrants
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -4384,9 +4381,9 @@ headings:
 - heading_id: H0294
   ordinal: 294
   level: 4
-  line: 4980
-  title: P5：far-field amplitude law
-  slug: p5-far-field-amplitude-law
+  line: 5022
+  title: P4：fixed-sample Hessian correction
+  slug: p4-fixed-sample-hessian-correction
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -4400,10 +4397,10 @@ headings:
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0295
   ordinal: 295
-  level: 3
-  line: 4984
-  title: 6.5 Categorical branch
-  slug: 6-5-categorical-branch
+  level: 4
+  line: 5026
+  title: P5：far-field amplitude law
+  slug: p5-far-field-amplitude-law
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -4417,10 +4414,10 @@ headings:
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0296
   ordinal: 296
-  level: 4
-  line: 4986
-  title: P1：direct-logit score boundedness
-  slug: p1-direct-logit-score-boundedness
+  level: 3
+  line: 5030
+  title: 6.5 Categorical branch
+  slug: 6-5-categorical-branch
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -4435,9 +4432,9 @@ headings:
 - heading_id: H0297
   ordinal: 297
   level: 4
-  line: 4990
-  title: P2：support boundary dynamics
-  slug: p2-support-boundary-dynamics
+  line: 5032
+  title: P1：direct-logit score boundedness
+  slug: p1-direct-logit-score-boundedness
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -4452,9 +4449,9 @@ headings:
 - heading_id: H0298
   ordinal: 298
   level: 4
-  line: 4994
-  title: P3：categorical signed target
-  slug: p3-categorical-signed-target
+  line: 5036
+  title: P2：support boundary dynamics
+  slug: p2-support-boundary-dynamics
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -4469,9 +4466,9 @@ headings:
 - heading_id: H0299
   ordinal: 299
   level: 4
-  line: 4998
-  title: P4：semantic feature policy
-  slug: p4-semantic-feature-policy
+  line: 5040
+  title: P3：categorical signed target
+  slug: p3-categorical-signed-target
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -4485,8 +4482,25 @@ headings:
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0300
   ordinal: 300
+  level: 4
+  line: 5044
+  title: P4：semantic feature policy
+  slug: p4-semantic-feature-policy
+  occurrence: 1
+  module_ids:
+  - categorical_e5_e6
+  - continuous_e1_e4
+  - countdown_e8
+  - hopper_e7
+  - paper_rewrite
+  - theory_methods_related_work
+  temporal_role: current
+  classification: resolved_multi
+  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
+- heading_id: H0301
+  ordinal: 301
   level: 3
-  line: 5002
+  line: 5048
   title: 6.6 Neural-network pullback and scope
   slug: 6-6-neural-network-pullback-and-scope
   occurrence: 1
@@ -4501,10 +4515,10 @@ headings:
   temporal_role: current
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0301
-  ordinal: 301
+- heading_id: H0302
+  ordinal: 302
   level: 3
-  line: 5010
+  line: 5056
   title: 6.7 Moving critics and stale advantages
   slug: 6-7-moving-critics-and-stale-advantages
   occurrence: 1
@@ -4518,29 +4532,12 @@ headings:
   temporal_role: current
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0302
-  ordinal: 302
-  level: 2
-  line: 5020
-  title: 7. Method：先保留两个候选，外部实验后只选一个主方法
-  slug: 7-method-先保留两个候选-外部实验后只选一个主方法
-  occurrence: 1
-  module_ids:
-  - categorical_e5_e6
-  - continuous_e1_e4
-  - countdown_e8
-  - hopper_e7
-  - paper_rewrite
-  - theory_methods_related_work
-  temporal_role: current
-  classification: resolved_multi
-  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0303
   ordinal: 303
-  level: 3
-  line: 5022
-  title: 7.1 Candidate A：Exponential Remoteness Taper
-  slug: 7-1-candidate-a-exponential-remoteness-taper
+  level: 2
+  line: 5066
+  title: 7. Method：先保留两个候选，外部实验后只选一个主方法
+  slug: 7-method-先保留两个候选-外部实验后只选一个主方法
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -4555,9 +4552,9 @@ headings:
 - heading_id: H0304
   ordinal: 304
   level: 3
-  line: 5039
-  title: 7.2 Candidate B：Safety-only Stability-Budgeted Taper
-  slug: 7-2-candidate-b-safety-only-stability-budgeted-taper
+  line: 5068
+  title: 7.1 Candidate A：Exponential Remoteness Taper
+  slug: 7-1-candidate-a-exponential-remoteness-taper
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -4572,9 +4569,9 @@ headings:
 - heading_id: H0305
   ordinal: 305
   level: 3
-  line: 5045
-  title: 7.3 主方法选择规则
-  slug: 7-3-主方法选择规则
+  line: 5085
+  title: 7.2 Candidate B：Safety-only Stability-Budgeted Taper
+  slug: 7-2-candidate-b-safety-only-stability-budgeted-taper
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -4589,9 +4586,9 @@ headings:
 - heading_id: H0306
   ordinal: 306
   level: 3
-  line: 5051
-  title: 7.4 Hard filtering / DRPO 的新位置
-  slug: 7-4-hard-filtering-drpo-的新位置
+  line: 5091
+  title: 7.3 主方法选择规则
+  slug: 7-3-主方法选择规则
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -4605,10 +4602,10 @@ headings:
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0307
   ordinal: 307
-  level: 2
-  line: 5060
-  title: 8. Controlled Experiments：正文机制证据
-  slug: 8-controlled-experiments-正文机制证据
+  level: 3
+  line: 5097
+  title: 7.4 Hard filtering / DRPO 的新位置
+  slug: 7-4-hard-filtering-drpo-的新位置
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -4622,10 +4619,10 @@ headings:
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0308
   ordinal: 308
-  level: 3
-  line: 5062
-  title: 8.1 Protocol A：Source isolation
-  slug: 8-1-protocol-a-source-isolation
+  level: 2
+  line: 5106
+  title: 8. Controlled Experiments：正文机制证据
+  slug: 8-controlled-experiments-正文机制证据
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -4640,9 +4637,9 @@ headings:
 - heading_id: H0309
   ordinal: 309
   level: 3
-  line: 5072
-  title: 8.2 Protocol B：Causal collapse
-  slug: 8-2-protocol-b-causal-collapse
+  line: 5108
+  title: 8.1 Protocol A：Source isolation
+  slug: 8-1-protocol-a-source-isolation
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -4657,9 +4654,9 @@ headings:
 - heading_id: H0310
   ordinal: 310
   level: 3
-  line: 5082
-  title: 8.3 Protocol C：Stable extrapolation and phase transition
-  slug: 8-3-protocol-c-stable-extrapolation-and-phase-transition
+  line: 5118
+  title: 8.2 Protocol B：Causal collapse
+  slug: 8-2-protocol-b-causal-collapse
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -4674,9 +4671,9 @@ headings:
 - heading_id: H0311
   ordinal: 311
   level: 3
-  line: 5090
-  title: 8.4 Generic categorical with unordered IDs
-  slug: 8-4-generic-categorical-with-unordered-ids
+  line: 5128
+  title: 8.3 Protocol C：Stable extrapolation and phase transition
+  slug: 8-3-protocol-c-stable-extrapolation-and-phase-transition
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -4691,9 +4688,9 @@ headings:
 - heading_id: H0312
   ordinal: 312
   level: 3
-  line: 5096
-  title: 8.5 Entropy-matched controls
-  slug: 8-5-entropy-matched-controls
+  line: 5136
+  title: 8.4 Generic categorical with unordered IDs
+  slug: 8-4-generic-categorical-with-unordered-ids
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -4707,10 +4704,10 @@ headings:
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0313
   ordinal: 313
-  level: 2
-  line: 5104
-  title: 9. External Validation：至少两类公共任务
-  slug: 9-external-validation-至少两类公共任务
+  level: 3
+  line: 5142
+  title: 8.5 Entropy-matched controls
+  slug: 8-5-entropy-matched-controls
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -4724,10 +4721,10 @@ headings:
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0314
   ordinal: 314
-  level: 3
-  line: 5106
-  title: 9.1 D4RL / Hopper
-  slug: 9-1-d4rl-hopper
+  level: 2
+  line: 5150
+  title: 9. External Validation：至少两类公共任务
+  slug: 9-external-validation-至少两类公共任务
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -4741,10 +4738,10 @@ headings:
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0315
   ordinal: 315
-  level: 4
-  line: 5110
-  title: Mechanism subsection
-  slug: mechanism-subsection
+  level: 3
+  line: 5152
+  title: 9.1 D4RL / Hopper
+  slug: 9-1-d4rl-hopper
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -4759,9 +4756,9 @@ headings:
 - heading_id: H0316
   ordinal: 316
   level: 4
-  line: 5118
-  title: E7-Q2：Gaussian 二次 log-scale 分支的独立外部验证
-  slug: e7-q2-gaussian-二次-log-scale-分支的独立外部验证
+  line: 5156
+  title: Mechanism subsection
+  slug: mechanism-subsection
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -4776,9 +4773,9 @@ headings:
 - heading_id: H0317
   ordinal: 317
   level: 4
-  line: 5163
-  title: Method subsection
-  slug: method-subsection
+  line: 5164
+  title: E7-Q2：Gaussian 二次 log-scale 分支的独立外部验证
+  slug: e7-q2-gaussian-二次-log-scale-分支的独立外部验证
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -4792,10 +4789,10 @@ headings:
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0318
   ordinal: 318
-  level: 3
-  line: 5167
-  title: 9.2 Countdown token arena
-  slug: 9-2-countdown-token-arena
+  level: 4
+  line: 5209
+  title: Method subsection
+  slug: method-subsection
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -4809,10 +4806,10 @@ headings:
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0319
   ordinal: 319
-  level: 4
-  line: 5182
-  title: v28 当前协议覆盖：v4.2.0 一键 BF16-LoRA pilot
-  slug: v28-当前协议覆盖-v4-2-0-一键-bf16-lora-pilot
+  level: 3
+  line: 5213
+  title: 9.2 Countdown token arena
+  slug: 9-2-countdown-token-arena
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -4827,7 +4824,24 @@ headings:
 - heading_id: H0320
   ordinal: 320
   level: 4
-  line: 5207
+  line: 5228
+  title: v28 当前协议覆盖：v4.2.0 一键 BF16-LoRA pilot
+  slug: v28-当前协议覆盖-v4-2-0-一键-bf16-lora-pilot
+  occurrence: 1
+  module_ids:
+  - categorical_e5_e6
+  - continuous_e1_e4
+  - countdown_e8
+  - hopper_e7
+  - paper_rewrite
+  - theory_methods_related_work
+  temporal_role: current
+  classification: resolved_multi
+  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
+- heading_id: H0321
+  ordinal: 321
+  level: 4
+  line: 5253
   title: v21 历史协议：v4.1 审计式 BF16-LoRA pilot（由 v22 覆盖 alpha 与配置登记）
   slug: v21-历史协议-v4-1-审计式-bf16-lora-pilot-由-v22-覆盖-alpha-与配置登记
   occurrence: 1
@@ -4843,10 +4857,10 @@ headings:
   temporal_role: current
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0321
-  ordinal: 321
+- heading_id: H0322
+  ordinal: 322
   level: 4
-  line: 5222
+  line: 5268
   title: v18 历史协议：Base-first 0.5B 最小实验（由 v21/v22 覆盖）
   slug: v18-历史协议-base-first-0-5b-最小实验-由-v21-v22-覆盖
   occurrence: 1
@@ -4861,31 +4875,12 @@ headings:
   temporal_role: current
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0322
-  ordinal: 322
-  level: 4
-  line: 5236
-  title: 历史模型阶梯（v12，已由 v22 替换，不得执行）
-  slug: 历史模型阶梯-v12-已由-v22-替换-不得执行
-  occurrence: 1
-  module_ids:
-  - categorical_e5_e6
-  - continuous_e1_e4
-  - countdown_e8
-  - execution_status_gates
-  - history_provenance
-  - hopper_e7
-  - paper_rewrite
-  - theory_methods_related_work
-  temporal_role: current
-  classification: resolved_multi
-  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0323
   ordinal: 323
   level: 4
-  line: 5242
-  title: 历史正式流程（v12，已由 v22 替换，不得执行）
-  slug: 历史正式流程-v12-已由-v22-替换-不得执行
+  line: 5282
+  title: 历史模型阶梯（v12，已由 v22 替换，不得执行）
+  slug: 历史模型阶梯-v12-已由-v22-替换-不得执行
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -4902,7 +4897,26 @@ headings:
 - heading_id: H0324
   ordinal: 324
   level: 4
-  line: 5246
+  line: 5288
+  title: 历史正式流程（v12，已由 v22 替换，不得执行）
+  slug: 历史正式流程-v12-已由-v22-替换-不得执行
+  occurrence: 1
+  module_ids:
+  - categorical_e5_e6
+  - continuous_e1_e4
+  - countdown_e8
+  - execution_status_gates
+  - history_provenance
+  - hopper_e7
+  - paper_rewrite
+  - theory_methods_related_work
+  temporal_role: current
+  classification: resolved_multi
+  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
+- heading_id: H0325
+  ordinal: 325
+  level: 4
+  line: 5292
   title: 主指标
   slug: 主指标
   occurrence: 1
@@ -4916,10 +4930,10 @@ headings:
   temporal_role: current
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0325
-  ordinal: 325
+- heading_id: H0326
+  ordinal: 326
   level: 4
-  line: 5250
+  line: 5296
   title: 历史 Baselines（v12，已由 v22 替换，不得执行）
   slug: 历史-baselines-v12-已由-v22-替换-不得执行
   occurrence: 1
@@ -4935,10 +4949,10 @@ headings:
   temporal_role: current
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0326
-  ordinal: 326
+- heading_id: H0327
+  ordinal: 327
   level: 3
-  line: 5254
+  line: 5300
   title: 9.3 Recommendation application（可选但有价值）
   slug: 9-3-recommendation-application-可选但有价值
   occurrence: 1
@@ -4952,29 +4966,12 @@ headings:
   temporal_role: current
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0327
-  ordinal: 327
-  level: 2
-  line: 5262
-  title: 10. Results section 的段落顺序
-  slug: 10-results-section-的段落顺序
-  occurrence: 1
-  module_ids:
-  - categorical_e5_e6
-  - continuous_e1_e4
-  - countdown_e8
-  - hopper_e7
-  - paper_rewrite
-  - theory_methods_related_work
-  temporal_role: current
-  classification: resolved_multi
-  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0328
   ordinal: 328
-  level: 3
-  line: 5264
-  title: P1：先回答机制是否存在
-  slug: p1-先回答机制是否存在
+  level: 2
+  line: 5308
+  title: 10. Results section 的段落顺序
+  slug: 10-results-section-的段落顺序
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -4989,9 +4986,9 @@ headings:
 - heading_id: H0329
   ordinal: 329
   level: 3
-  line: 5268
-  title: P2：再回答是否因果导致 collapse
-  slug: p2-再回答是否因果导致-collapse
+  line: 5310
+  title: P1：先回答机制是否存在
+  slug: p1-先回答机制是否存在
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -5006,9 +5003,9 @@ headings:
 - heading_id: H0330
   ordinal: 330
   level: 3
-  line: 5272
-  title: P3：回答负梯度是否有益
-  slug: p3-回答负梯度是否有益
+  line: 5314
+  title: P2：再回答是否因果导致 collapse
+  slug: p2-再回答是否因果导致-collapse
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -5023,9 +5020,9 @@ headings:
 - heading_id: H0331
   ordinal: 331
   level: 3
-  line: 5276
-  title: P4：回答连续—离散是否统一
-  slug: p4-回答连续-离散是否统一
+  line: 5318
+  title: P3：回答负梯度是否有益
+  slug: p3-回答负梯度是否有益
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -5040,9 +5037,9 @@ headings:
 - heading_id: H0332
   ordinal: 332
   level: 3
-  line: 5280
-  title: P5：回答方法是否不仅仅维持 entropy
-  slug: p5-回答方法是否不仅仅维持-entropy
+  line: 5322
+  title: P4：回答连续—离散是否统一
+  slug: p4-回答连续-离散是否统一
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -5057,9 +5054,9 @@ headings:
 - heading_id: H0333
   ordinal: 333
   level: 3
-  line: 5284
-  title: P6：回答是否外部有效
-  slug: p6-回答是否外部有效
+  line: 5326
+  title: P5：回答方法是否不仅仅维持 entropy
+  slug: p5-回答方法是否不仅仅维持-entropy
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -5074,9 +5071,9 @@ headings:
 - heading_id: H0334
   ordinal: 334
   level: 3
-  line: 5288
-  title: P7：超参和计算开销
-  slug: p7-超参和计算开销
+  line: 5330
+  title: P6：回答是否外部有效
+  slug: p6-回答是否外部有效
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -5090,10 +5087,10 @@ headings:
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0335
   ordinal: 335
-  level: 2
-  line: 5294
-  title: 11. Discussion and Limitations：主文必须单设
-  slug: 11-discussion-and-limitations-主文必须单设
+  level: 3
+  line: 5334
+  title: P7：超参和计算开销
+  slug: p7-超参和计算开销
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -5107,8 +5104,25 @@ headings:
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0336
   ordinal: 336
+  level: 2
+  line: 5340
+  title: 11. Discussion and Limitations：主文必须单设
+  slug: 11-discussion-and-limitations-主文必须单设
+  occurrence: 1
+  module_ids:
+  - categorical_e5_e6
+  - continuous_e1_e4
+  - countdown_e8
+  - hopper_e7
+  - paper_rewrite
+  - theory_methods_related_work
+  temporal_role: current
+  classification: resolved_multi
+  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
+- heading_id: H0337
+  ordinal: 337
   level: 3
-  line: 5296
+  line: 5342
   title: 段落 1：机制边界
   slug: 段落-1-机制边界
   occurrence: 1
@@ -5123,29 +5137,12 @@ headings:
   temporal_role: current
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0337
-  ordinal: 337
-  level: 3
-  line: 5300
-  title: 段落 2：方向可靠性
-  slug: 段落-2-方向可靠性
-  occurrence: 1
-  module_ids:
-  - categorical_e5_e6
-  - continuous_e1_e4
-  - countdown_e8
-  - hopper_e7
-  - paper_rewrite
-  - theory_methods_related_work
-  temporal_role: current
-  classification: resolved_multi
-  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0338
   ordinal: 338
   level: 3
-  line: 5304
-  title: 段落 3：critic 与 optimizer
-  slug: 段落-3-critic-与-optimizer
+  line: 5346
+  title: 段落 2：方向可靠性
+  slug: 段落-2-方向可靠性
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -5160,9 +5157,9 @@ headings:
 - heading_id: H0339
   ordinal: 339
   level: 3
-  line: 5308
-  title: 段落 4：神经网络全局性
-  slug: 段落-4-神经网络全局性
+  line: 5350
+  title: 段落 3：critic 与 optimizer
+  slug: 段落-3-critic-与-optimizer
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -5177,9 +5174,9 @@ headings:
 - heading_id: H0340
   ordinal: 340
   level: 3
-  line: 5312
-  title: 段落 5：reward 与 support
-  slug: 段落-5-reward-与-support
+  line: 5354
+  title: 段落 4：神经网络全局性
+  slug: 段落-4-神经网络全局性
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -5194,7 +5191,24 @@ headings:
 - heading_id: H0341
   ordinal: 341
   level: 3
-  line: 5316
+  line: 5358
+  title: 段落 5：reward 与 support
+  slug: 段落-5-reward-与-support
+  occurrence: 1
+  module_ids:
+  - categorical_e5_e6
+  - continuous_e1_e4
+  - countdown_e8
+  - hopper_e7
+  - paper_rewrite
+  - theory_methods_related_work
+  temporal_role: current
+  classification: resolved_multi
+  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
+- heading_id: H0342
+  ordinal: 342
+  level: 3
+  line: 5362
   title: 段落 6：方法边界
   slug: 段落-6-方法边界
   occurrence: 1
@@ -5209,29 +5223,12 @@ headings:
   temporal_role: current
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0342
-  ordinal: 342
-  level: 2
-  line: 5322
-  title: 12. Reproducibility and Ethics
-  slug: 12-reproducibility-and-ethics
-  occurrence: 1
-  module_ids:
-  - categorical_e5_e6
-  - continuous_e1_e4
-  - countdown_e8
-  - hopper_e7
-  - paper_rewrite
-  - theory_methods_related_work
-  temporal_role: current
-  classification: resolved_multi
-  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0343
   ordinal: 343
-  level: 3
-  line: 5324
-  title: Reproducibility
-  slug: reproducibility
+  level: 2
+  line: 5368
+  title: 12. Reproducibility and Ethics
+  slug: 12-reproducibility-and-ethics
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -5246,9 +5243,9 @@ headings:
 - heading_id: H0344
   ordinal: 344
   level: 3
-  line: 5331
-  title: Reference integrity
-  slug: reference-integrity
+  line: 5370
+  title: Reproducibility
+  slug: reproducibility
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -5263,9 +5260,9 @@ headings:
 - heading_id: H0345
   ordinal: 345
   level: 3
-  line: 5337
-  title: Ethics
-  slug: ethics
+  line: 5377
+  title: Reference integrity
+  slug: reference-integrity
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -5279,10 +5276,10 @@ headings:
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0346
   ordinal: 346
-  level: 2
-  line: 5344
-  title: 13. 主图与主表蓝图
-  slug: 13-主图与主表蓝图
+  level: 3
+  line: 5383
+  title: Ethics
+  slug: ethics
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -5296,10 +5293,10 @@ headings:
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0347
   ordinal: 347
-  level: 3
-  line: 5346
-  title: Figure 1：统一机制示意图
-  slug: figure-1-统一机制示意图
+  level: 2
+  line: 5390
+  title: 13. 主图与主表蓝图
+  slug: 13-主图与主表蓝图
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -5314,9 +5311,9 @@ headings:
 - heading_id: H0348
   ordinal: 348
   level: 3
-  line: 5350
-  title: Figure 2：Source isolation
-  slug: figure-2-source-isolation
+  line: 5392
+  title: Figure 1：统一机制示意图
+  slug: figure-1-统一机制示意图
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -5331,9 +5328,9 @@ headings:
 - heading_id: H0349
   ordinal: 349
   level: 3
-  line: 5354
-  title: Figure 3：Causal intervention
-  slug: figure-3-causal-intervention
+  line: 5396
+  title: Figure 2：Source isolation
+  slug: figure-2-source-isolation
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -5348,9 +5345,9 @@ headings:
 - heading_id: H0350
   ordinal: 350
   level: 3
-  line: 5358
-  title: Figure 4：Stable extrapolation phase diagram
-  slug: figure-4-stable-extrapolation-phase-diagram
+  line: 5400
+  title: Figure 3：Causal intervention
+  slug: figure-3-causal-intervention
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -5365,9 +5362,9 @@ headings:
 - heading_id: H0351
   ordinal: 351
   level: 3
-  line: 5362
-  title: Figure 5：Categorical support dynamics
-  slug: figure-5-categorical-support-dynamics
+  line: 5404
+  title: Figure 4：Stable extrapolation phase diagram
+  slug: figure-4-stable-extrapolation-phase-diagram
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -5382,9 +5379,9 @@ headings:
 - heading_id: H0352
   ordinal: 352
   level: 3
-  line: 5366
-  title: Figure 6：External validation
-  slug: figure-6-external-validation
+  line: 5408
+  title: Figure 5：Categorical support dynamics
+  slug: figure-5-categorical-support-dynamics
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -5399,9 +5396,9 @@ headings:
 - heading_id: H0353
   ordinal: 353
   level: 3
-  line: 5370
-  title: Table 1：理论对象与分叉
-  slug: table-1-理论对象与分叉
+  line: 5412
+  title: Figure 6：External validation
+  slug: figure-6-external-validation
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -5416,15 +5413,14 @@ headings:
 - heading_id: H0354
   ordinal: 354
   level: 3
-  line: 5374
-  title: Table 2：受控因果结果
-  slug: table-2-受控因果结果
+  line: 5416
+  title: Table 1：理论对象与分叉
+  slug: table-1-理论对象与分叉
   occurrence: 1
   module_ids:
   - categorical_e5_e6
   - continuous_e1_e4
   - countdown_e8
-  - execution_status_gates
   - hopper_e7
   - paper_rewrite
   - theory_methods_related_work
@@ -5434,9 +5430,9 @@ headings:
 - heading_id: H0355
   ordinal: 355
   level: 3
-  line: 5378
-  title: Table 3：D4RL 方法结果
-  slug: table-3-d4rl-方法结果
+  line: 5420
+  title: Table 2：受控因果结果
+  slug: table-2-受控因果结果
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -5452,7 +5448,25 @@ headings:
 - heading_id: H0356
   ordinal: 356
   level: 3
-  line: 5382
+  line: 5424
+  title: Table 3：D4RL 方法结果
+  slug: table-3-d4rl-方法结果
+  occurrence: 1
+  module_ids:
+  - categorical_e5_e6
+  - continuous_e1_e4
+  - countdown_e8
+  - execution_status_gates
+  - hopper_e7
+  - paper_rewrite
+  - theory_methods_related_work
+  temporal_role: current
+  classification: resolved_multi
+  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
+- heading_id: H0357
+  ordinal: 357
+  level: 3
+  line: 5428
   title: Table 4：Countdown arena
   slug: table-4-countdown-arena
   occurrence: 1
@@ -5466,29 +5480,12 @@ headings:
   temporal_role: current
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0357
-  ordinal: 357
-  level: 2
-  line: 5388
-  title: 14. 原稿内容的删除、降级和复用清单
-  slug: 14-原稿内容的删除-降级和复用清单
-  occurrence: 1
-  module_ids:
-  - categorical_e5_e6
-  - continuous_e1_e4
-  - countdown_e8
-  - hopper_e7
-  - paper_rewrite
-  - theory_methods_related_work
-  temporal_role: current
-  classification: resolved_multi
-  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0358
   ordinal: 358
-  level: 3
-  line: 5390
-  title: 完全删除
-  slug: 完全删除
+  level: 2
+  line: 5434
+  title: 14. 原稿内容的删除、降级和复用清单
+  slug: 14-原稿内容的删除-降级和复用清单
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -5503,7 +5500,24 @@ headings:
 - heading_id: H0359
   ordinal: 359
   level: 3
-  line: 5400
+  line: 5436
+  title: 完全删除
+  slug: 完全删除
+  occurrence: 1
+  module_ids:
+  - categorical_e5_e6
+  - continuous_e1_e4
+  - countdown_e8
+  - hopper_e7
+  - paper_rewrite
+  - theory_methods_related_work
+  temporal_role: current
+  classification: resolved_multi
+  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
+- heading_id: H0360
+  ordinal: 360
+  level: 3
+  line: 5446
   title: 降级到附录或历史背景
   slug: 降级到附录或历史背景
   occurrence: 1
@@ -5518,29 +5532,12 @@ headings:
   temporal_role: current
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0360
-  ordinal: 360
-  level: 3
-  line: 5407
-  title: 直接复用但需重写叙事
-  slug: 直接复用但需重写叙事
-  occurrence: 1
-  module_ids:
-  - categorical_e5_e6
-  - continuous_e1_e4
-  - countdown_e8
-  - hopper_e7
-  - paper_rewrite
-  - theory_methods_related_work
-  temporal_role: current
-  classification: resolved_multi
-  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0361
   ordinal: 361
-  level: 2
-  line: 5417
-  title: 15. 写正文前的决策门槛
-  slug: 15-写正文前的决策门槛
+  level: 3
+  line: 5453
+  title: 直接复用但需重写叙事
+  slug: 直接复用但需重写叙事
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -5555,9 +5552,9 @@ headings:
 - heading_id: H0362
   ordinal: 362
   level: 2
-  line: 5428
-  title: 16. 建议的最终章节目录
-  slug: 16-建议的最终章节目录
+  line: 5463
+  title: 15. 写正文前的决策门槛
+  slug: 15-写正文前的决策门槛
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -5571,8 +5568,25 @@ headings:
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0363
   ordinal: 363
+  level: 2
+  line: 5474
+  title: 16. 建议的最终章节目录
+  slug: 16-建议的最终章节目录
+  occurrence: 1
+  module_ids:
+  - categorical_e5_e6
+  - continuous_e1_e4
+  - countdown_e8
+  - hopper_e7
+  - paper_rewrite
+  - theory_methods_related_work
+  temporal_role: current
+  classification: resolved_multi
+  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
+- heading_id: H0364
+  ordinal: 364
   level: 1
-  line: 5463
+  line: 5509
   title: 附录 A：v11 恢复记录（原第 0 节，完整保留）
   slug: 附录-a-v11-恢复记录-原第-0-节-完整保留
   occurrence: 1
@@ -5583,26 +5597,12 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0364
-  ordinal: 364
-  level: 1
-  line: 5465
-  title: 0. 本次恢复的明确结论
-  slug: 0-本次恢复的明确结论
-  occurrence: 1
-  module_ids:
-  - continuous_e1_e4
-  - global_core_governance
-  - history_provenance
-  temporal_role: historical
-  classification: resolved_multi
-  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0365
   ordinal: 365
-  level: 2
-  line: 5467
-  title: 0.1 “大一统连续环境”当前是否已经实现
-  slug: 0-1-大一统连续环境-当前是否已经实现
+  level: 1
+  line: 5511
+  title: 0. 本次恢复的明确结论
+  slug: 0-本次恢复的明确结论
   occurrence: 1
   module_ids:
   - continuous_e1_e4
@@ -5614,9 +5614,9 @@ headings:
 - heading_id: H0366
   ordinal: 366
   level: 2
-  line: 5476
-  title: 0.2 Product 与 Extrapolation 能否真正合并
-  slug: 0-2-product-与-extrapolation-能否真正合并
+  line: 5513
+  title: 0.1 “大一统连续环境”当前是否已经实现
+  slug: 0-1-大一统连续环境-当前是否已经实现
   occurrence: 1
   module_ids:
   - continuous_e1_e4
@@ -5628,9 +5628,9 @@ headings:
 - heading_id: H0367
   ordinal: 367
   level: 2
-  line: 5486
-  title: 0.3 真正统一的解决方案：等奖励轮廓构造
-  slug: 0-3-真正统一的解决方案-等奖励轮廓构造
+  line: 5522
+  title: 0.2 Product 与 Extrapolation 能否真正合并
+  slug: 0-2-product-与-extrapolation-能否真正合并
   occurrence: 1
   module_ids:
   - continuous_e1_e4
@@ -5642,9 +5642,9 @@ headings:
 - heading_id: H0368
   ordinal: 368
   level: 2
-  line: 5516
-  title: 0.4 从昨日下午到现在是否“白忙活”
-  slug: 0-4-从昨日下午到现在是否-白忙活
+  line: 5532
+  title: 0.3 真正统一的解决方案：等奖励轮廓构造
+  slug: 0-3-真正统一的解决方案-等奖励轮廓构造
   occurrence: 1
   module_ids:
   - continuous_e1_e4
@@ -5655,10 +5655,10 @@ headings:
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0369
   ordinal: 369
-  level: 1
-  line: 5526
-  title: 附录：本恢复版之后的变更协议
-  slug: 附录-本恢复版之后的变更协议
+  level: 2
+  line: 5562
+  title: 0.4 从昨日下午到现在是否“白忙活”
+  slug: 0-4-从昨日下午到现在是否-白忙活
   occurrence: 1
   module_ids:
   - continuous_e1_e4
@@ -5669,8 +5669,22 @@ headings:
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0370
   ordinal: 370
+  level: 1
+  line: 5572
+  title: 附录：本恢复版之后的变更协议
+  slug: 附录-本恢复版之后的变更协议
+  occurrence: 1
+  module_ids:
+  - continuous_e1_e4
+  - global_core_governance
+  - history_provenance
+  temporal_role: historical
+  classification: resolved_multi
+  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
+- heading_id: H0371
+  ordinal: 371
   level: 2
-  line: 5540
+  line: 5586
   title: 11.6 用户审阅后的 E4 变量治理与结论边界修正（2026-06-24）
   slug: 11-6-用户审阅后的-e4-变量治理与结论边界修正-2026-06-24
   occurrence: 1
@@ -5682,26 +5696,12 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0371
-  ordinal: 371
-  level: 1
-  line: 5551
-  title: v15 附录：上传环境代码兼容性与一键重建登记
-  slug: v15-附录-上传环境代码兼容性与一键重建登记
-  occurrence: 1
-  module_ids:
-  - continuous_e1_e4
-  - global_core_governance
-  - history_provenance
-  temporal_role: historical
-  classification: resolved_multi
-  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
 - heading_id: H0372
   ordinal: 372
-  level: 2
-  line: 5553
-  title: A. 上传 `drpo_unified_continuous_environment_v1 (1).py` 与正式 C-U1 的差异
-  slug: a-上传-drpo-unified-continuous-environment-v1-1-py-与正式-c-u1-的差异
+  level: 1
+  line: 5597
+  title: v15 附录：上传环境代码兼容性与一键重建登记
+  slug: v15-附录-上传环境代码兼容性与一键重建登记
   occurrence: 1
   module_ids:
   - continuous_e1_e4
@@ -5713,7 +5713,21 @@ headings:
 - heading_id: H0373
   ordinal: 373
   level: 2
-  line: 5566
+  line: 5599
+  title: A. 上传 `drpo_unified_continuous_environment_v1 (1).py` 与正式 C-U1 的差异
+  slug: a-上传-drpo-unified-continuous-environment-v1-1-py-与正式-c-u1-的差异
+  occurrence: 1
+  module_ids:
+  - continuous_e1_e4
+  - global_core_governance
+  - history_provenance
+  temporal_role: historical
+  classification: resolved_multi
+  classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
+- heading_id: H0374
+  ordinal: 374
+  level: 2
+  line: 5612
   title: B. 重建代码状态
   slug: b-重建代码状态
   occurrence: 1
@@ -5725,10 +5739,10 @@ headings:
   temporal_role: historical
   classification: resolved_multi
   classification_rationale: Conservative manual multi-module mapping preserves all semantically necessary contexts for this heading.
-- heading_id: H0374
-  ordinal: 374
+- heading_id: H0375
+  ordinal: 375
   level: 2
-  line: 5575
+  line: 5621
   title: C. 重新登记的任务失效判据
   slug: c-重新登记的任务失效判据
   occurrence: 1

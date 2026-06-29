@@ -1127,27 +1127,23 @@ experiments:
   execution_gate:
     state: ready
     blocked_by: []
-    blocking_reason: resolved_by_v61_protocol_freeze_and_implemented_runner
+    blocking_reason: resolved_by_completed_formal_run_and_v62_compact_repository_deposition
     depends_on_delivered_experiment: C-U1-E4-TAPER-01
     protocol_freeze: v61_near_retention_matching
-    reason: >-
-      The near region, retention levels, family formulas, development/formal
-      seed firewall, deterministic coefficient calibration, runner, metrics,
-      and terminal audit are frozen. Formal execution is active but has not
-      started; Budget-Match remains blocked until this result is delivered.
+    reason: The frozen 280-run matrix completed and was terminal-audited. The result is deposited as finite-step
+      validated; 260/280 runs remained terminally unresolved at 8000 steps, so no steady-state ranking is allowed. The
+      original raw-complete artifact is not embedded in this repository update and its hash must be restored before
+      archival publication.
   environment: C-U1
   name: taper_family_near_negative_retention_matched_comparison
-  status: not_run
-  scientific_status: not_run
+  status: finite_step_validated
+  scientific_status: finite_step_validated
   parent_experiment: C-U1-E4-TAPER-01
   registration_base_commit: 22161a91c0863278765b0d604ea82401d481b5aa
   implementation_base_commit: ce5964a0c16b12626ceb81fa9813fff14893c612
-  claim: >-
-    Under the shared C-U1 geometry and matched pooled average retention over
-    the preregistered near region, test whether taper shape changes useful-near
-    preservation, harmful-far influence, full-parameter far/near gradient
-    allocation, and held-out-context task behavior. Reward superiority and a
-    universal family winner are not assumed.
+  claim: Under the shared C-U1 geometry and matched pooled average retention over the preregistered near region, test
+    whether taper shape changes useful-near preservation, harmful-far influence, full-parameter far/near gradient
+    allocation, and held-out-context task behavior. Reward superiority and a universal family winner are not assumed.
   role: controlled_taper_shape_fairness_validation
   execution_class: formal
   implementation_state: implemented
@@ -1164,35 +1160,35 @@ experiments:
     hardened_core: scripts/artifact_protocol_hardened.py
     artifact_protocol: docs/formal_experiment_artifact_protocol.md
     inherit_default_artifact_budget: true
-    runner_archive_policy: {mode: forbid}
+    runner_archive_policy:
+      mode: forbid
   code_entrypoint: src/drpo/cu1_taper_near_retention_formal.py
-  formal_launch_template: >-
-    python3 scripts/run_experiment_guard_hardened.py --experiment-id
+  formal_launch_template: python3 scripts/run_experiment_guard_hardened.py --experiment-id
     C-U1-E4-TAPER-NEAR-RETENTION-01 --repo-root . --output-root
-    experiments/results/C-U1-E4-TAPER-NEAR-RETENTION-01/run_001
-    --artifact-output artifacts/C-U1-E4-TAPER-NEAR-RETENTION-01_RAW_COMPLETE.zip
-    --heartbeat-seconds 60 --stale-seconds 900 --fail-on-stale
-    --progress-glob per_seed_runs_partial.csv --required-output RUN_COMPLETE.json
-    --required-output scientific_run_manifest.json --required-output
-    formal_protocol_freeze.json --required-output calibration.json
-    --required-output terminal_audit.json --required-output per_seed_runs.csv
-    --required-output aggregate.csv --required-output paired_summary.json
-    --source-file src/drpo/cu1_taper_near_retention_formal.py --source-file
-    src/drpo/cu1_distance_taper_formal.py --source-file src/drpo/cu1_core.py
-    --source-file src/drpo/drpo_cu1_e1_e4_oneclick.py --run-class formal
-    --expected-commit "$(git rev-parse HEAD)" --require-origin-main-match --
-    python3 src/drpo/cu1_taper_near_retention_formal.py --output-dir
-    experiments/results/C-U1-E4-TAPER-NEAR-RETENTION-01/run_001 --base-commit
-    "$(git rev-parse HEAD)"
+    experiments/results/C-U1-E4-TAPER-NEAR-RETENTION-01/run_001 --artifact-output
+    artifacts/C-U1-E4-TAPER-NEAR-RETENTION-01_RAW_COMPLETE.zip --heartbeat-seconds 60 --stale-seconds 900
+    --fail-on-stale --progress-glob per_seed_runs_partial.csv --required-output RUN_COMPLETE.json --required-output
+    scientific_run_manifest.json --required-output formal_protocol_freeze.json --required-output calibration.json
+    --required-output terminal_audit.json --required-output per_seed_runs.csv --required-output aggregate.csv
+    --required-output paired_summary.json --source-file src/drpo/cu1_taper_near_retention_formal.py --source-file
+    src/drpo/cu1_distance_taper_formal.py --source-file src/drpo/cu1_core.py --source-file
+    src/drpo/drpo_cu1_e1_e4_oneclick.py --run-class formal --expected-commit "$(git rev-parse HEAD)"
+    --require-origin-main-match -- python3 src/drpo/cu1_taper_near_retention_formal.py --output-dir
+    experiments/results/C-U1-E4-TAPER-NEAR-RETENTION-01/run_001 --base-commit "$(git rev-parse HEAD)"
   matching_contract:
     target: pooled_E_weight_given_initial_standardized_distance_le_5
-    retention_levels: [0.75, 0.50, 0.25]
+    retention_levels:
+    - 0.75
+    - 0.5
+    - 0.25
     near_region_boundary: standardized_distance_d_le_5_at_frozen_positive_checkpoint
     primary_retention_level: 0.75
-    sensitivity_retention_levels: [0.50, 0.25]
+    sensitivity_retention_levels:
+    - 0.5
+    - 0.25
     coefficient_calibration_data: development_seeds_0_4_only
     coefficient_solver: deterministic_monotone_bisection
-    calibration_tolerance: 0.000001
+    calibration_tolerance: 1.0e-06
     coefficient_application: fixed_for_all_formal_seeds_and_all_training_steps
     confirmatory_seed_access_during_calibration: forbidden
     total_negative_gradient_budget_matched: false
@@ -1218,13 +1214,43 @@ experiments:
     far_harmful_influence: weighted_negative_projection_mass_and_retention
     normalized_net_utility: cosine_minus_kappa_times_orthogonal_fraction_squared
     normalized_utility_kappa: 1.0
-    distance_bins: [0_to_2_5, 2_5_to_5, 5_to_7_5, 7_5_to_10, 10_to_infinity]
+    distance_bins:
+    - 0_to_2_5
+    - 2_5_to_5
+    - 5_to_7_5
+    - 7_5_to_10
+    - 10_to_infinity
     dimensional_net_utility_universal_claimed: false
   protocol:
     initialization_source: positive_only_adam_2000_step_checkpoint
     shared_C_U1_environment_and_actor: true
-    development_seeds: [0, 1, 2, 3, 4]
-    formal_paired_seeds: [90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109]
+    development_seeds:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    formal_paired_seeds:
+    - 90
+    - 91
+    - 92
+    - 93
+    - 94
+    - 95
+    - 96
+    - 97
+    - 98
+    - 99
+    - 100
+    - 101
+    - 102
+    - 103
+    - 104
+    - 105
+    - 106
+    - 107
+    - 108
+    - 109
     seeds_70_89_role: predecessor_evidence_only_not_confirmation
     seeds_110_and_above: untouched_for_successor_protocol_freeze
     optimizer: Adam
@@ -1257,14 +1283,42 @@ experiments:
   - nan_inf_numerical_event
   seed_policy:
     seeds_70_89_reuse_as_confirmation: forbidden
-    exact_development_seeds: [0, 1, 2, 3, 4]
-    exact_formal_seeds: [90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109]
+    exact_development_seeds:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    exact_formal_seeds:
+    - 90
+    - 91
+    - 92
+    - 93
+    - 94
+    - 95
+    - 96
+    - 97
+    - 98
+    - 99
+    - 100
+    - 101
+    - 102
+    - 103
+    - 104
+    - 105
+    - 106
+    - 107
+    - 108
+    - 109
     seeds_110_and_above: untouched_for_successor_protocol_freeze
   primary_inference:
     paired_bootstrap: true
     primary_retention_level: 0.75
     reference_family: reciprocal_linear
-    candidate_minus_linear: [reciprocal_quadratic, current_exponential, squared_distance_exponential]
+    candidate_minus_linear:
+    - reciprocal_quadratic
+    - current_exponential
+    - squared_distance_exponential
     reward_directional_hypothesis: none
     universal_family_winner_hypothesis: none
   terminal_audit:
@@ -1272,7 +1326,10 @@ experiments:
     unresolved_terminal_states_do_not_upgrade_to_long_run: true
     scientific_status_cap: finite_step_validated
     long_run_shortlist_resolution_owned_by: C-U1-E4-TAPER-CONV-01
-    failure_types_separate: [task_performance_collapse, support_or_variance_boundary, nan_inf_numerical_failure]
+    failure_types_separate:
+    - task_performance_collapse
+    - support_or_variance_boundary
+    - nan_inf_numerical_failure
   required_outputs:
   - RUN_COMPLETE.json
   - scientific_run_manifest.json
@@ -1288,28 +1345,78 @@ experiments:
   evidence:
     implementation_tests_passed: true
     smoke_test_passed: true
-    formal_run_started: false
-    run_started: false
+    formal_run_started: true
+    run_started: true
+    raw_complete_reported_by_completed_formal_run: true
+    terminal_audited: true
+    terminal_resolution_complete: false
+    expected_runs: 280
+    completed_runs: 280
+    unresolved_at_maximum_steps: 260
+    task_performance_collapse_events: 13
+    support_or_variance_boundary_events: 20
+    nan_inf_numerical_events: 0
+    compact_repository_deposition_created: true
+    original_raw_artifact_embedded: false
+    original_raw_artifact_hash_available: false
     raw_complete: false
-    terminal_audited: false
     package_created: false
   next_gate:
     experiment_id: C-U1-E4-TAPER-BUDGET-MATCH-01
-    state: blocked_until_near_retention_delivered
+    state: ready_after_v62_application
+    automatic_activation_authorized_by_user: true
+    convergence_and_confirmation_remain_blocked: true
     automatic_activation_forbidden: true
-
+  result_deposition:
+    compact_result_path: outputs/cu1_e4_taper_near_retention
+    run_commit: 69c8f532570b5c4377a0cd35ff42f0bcb77afef0
+    expected_runs: 280
+    completed_runs: 280
+    raw_rows_embedded_in_repository: false
+    raw_complete_artifact_available_in_v62_build_session: false
+    raw_artifact_hash_known_in_v62_build_session: false
+    archival_recovery_required: true
+  result_summary:
+    primary_retention_level: 0.75
+    calibration_maximum_absolute_error: 1.11e-16
+    calibration_tolerance: 1.0e-06
+    paired_seeds: 20
+    reciprocal_quadratic_minus_linear_reward_mean: 0.012002
+    current_exponential_minus_linear_reward_mean: 0.015619
+    squared_distance_exponential_minus_linear_reward_mean: 0.036134
+    candidate_positive_reward_delta_seeds:
+      reciprocal_quadratic: 20
+      current_exponential: 20
+      squared_distance_exponential: 20
+    reciprocal_linear_harmful_far_retention: 0.055886
+    squared_distance_exponential_harmful_far_retention: 0.010382
+    interpretation: Strong finite-horizon evidence that faster tail decay changes harmful-far allocation after initial
+      average near retention is matched; no steady-state or universal winner claim.
+  paper_use:
+    suitable_for_finite_horizon_near_retention_matched_shape_claim: true
+    suitable_for_terminally_stable_method_ranking: false
+    allowed:
+    - near_retention_matching_passed_within_tolerance
+    - faster_tail_candidates_outperformed_reciprocal_linear_on_20_of_20_paired_seeds_at_rho_0_75
+    - squared_distance_exponential_is_the_strongest_candidate_in_this_frozen_finite_horizon_matrix
+    - task_support_and_numerical_events_reported_separately
+    prohibited_claims:
+    - long_run_validated
+    - stable_fixed_point_ranking
+    - OOD_generalization
+    - universal_method_ranking
+    - cross_task_superiority
+    - Adam_optimizer_update_budget_was_matched
 - id: C-U1-E4-TAPER-BUDGET-MATCH-01
   execution_gate:
-    state: blocked
-    blocked_by:
-    - C-U1-E4-TAPER-NEAR-RETENTION-01_delivered
-    - frozen_negative_budget_definition
-    - frozen_global_alpha_control
-    - frozen_optimizer_level_matching_rule
-    - separately_implemented_formal_runner
-    blocking_reason: >-
-      This experiment starts only after the near-retention result is delivered
-      and the exact stepwise or cumulative negative-update budget is frozen.
+    state: ready
+    blocked_by: []
+    blocking_reason: resolved_by_v62_stepwise_raw_negative_gradient_l2_protocol_and_implemented_runner
+    depends_on_delivered_experiment: C-U1-E4-TAPER-NEAR-RETENTION-01
+    protocol_freeze: v62_stepwise_raw_negative_gradient_l2_budget_match
+    reason: Near-Retention is deposited as finite-step validated. The primary budget coordinate, reference schedule,
+      global control, seed firewall, runner, outputs, and interpretation boundary are frozen. Formal execution is active
+      but has not started.
   environment: C-U1
   name: taper_family_negative_update_budget_matched_comparison
   status: not_run
@@ -1317,18 +1424,17 @@ experiments:
   parent_experiment: C-U1-E4-TAPER-01
   predecessor: C-U1-E4-TAPER-NEAR-RETENTION-01
   registration_base_commit: 22161a91c0863278765b0d604ea82401d481b5aa
-  claim: >-
-    At matched total negative-update budget, test whether distance-selective
-    tapering improves the allocation of update mass between useful near and
-    harmful far negatives relative to reciprocal-linear and Global alpha.
+  claim: At the same per-step raw negative-gradient L2 norm before Adam, test whether distance-selective tapering
+    allocates more update mass to useful near negatives and less to harmful far negatives than reciprocal-linear and a
+    non-selective global stepwise scale. Adam parameter-update norms are logged but are not claimed to be matched.
   role: controlled_selectivity_vs_global_scale_validation
   execution_class: formal
-  implementation_state: not_implemented
+  implementation_state: implemented
   formal_execution:
     channel_ref: hardened-v1
-    activation_state: blocked
-    entrypoint_status: planned
-    entrypoint: null
+    activation_state: active
+    entrypoint_status: implemented
+    entrypoint: src/drpo/cu1_taper_budget_match_formal.py
     launch_mode: canonical_guard
     artifact_owner: canonical_channel
     guard_entrypoint: scripts/run_experiment_guard_hardened.py
@@ -1337,51 +1443,158 @@ experiments:
     hardened_core: scripts/artifact_protocol_hardened.py
     artifact_protocol: docs/formal_experiment_artifact_protocol.md
     inherit_default_artifact_budget: true
-    runner_archive_policy: {mode: forbid}
+    runner_archive_policy:
+      mode: forbid
   budget_contract:
+    primary_mode: stepwise_raw_negative_gradient_l2_before_Adam
+    reference_method: reciprocal_linear_at_near_retention_0_75
+    reference_schedule: paired_seed_reciprocal_linear_actor_same_minibatch_indices
+    matching_rule: detached_scalar_target_norm_divided_by_current_method_negative_gradient_norm
+    budget_relative_tolerance: 1.0e-06
+    matched_methods:
+    - reciprocal_linear
+    - reciprocal_quadratic
+    - current_exponential
+    - squared_distance_exponential
+    - global_stepwise_scale
+    global_control: unweighted_negative_gradient_direction_scaled_each_step_to_reference_norm
+    boundary_controls:
+    - positive_only
+    - unweighted_boundary
+    same_initialization_and_minibatch_stream: true
+    only_negative_gradient_direction_and_near_far_allocation_may_differ: true
+    Adam_parameter_update_norm_matched: false
+    Adam_parameter_update_norm_logged: true
+    forbidden_reinterpretation: Do not call this cumulative Adam optimizer-update matching.
     required_controls: [global_alpha, reciprocal_linear, reciprocal_quadratic, vanishing_tail_candidate]
     candidate_matching_modes: [stepwise_negative_gradient_norm, cumulative_negative_optimizer_update]
     exact_primary_mode: pending_protocol_freeze
-    same_initialization_and_minibatch_stream: required
     only_selective_distance_allocation_may_differ: true
   primary_metrics:
-  - matched_total_negative_update_budget
-  - near_budget_fraction
-  - far_budget_fraction
-  - far_harmful_influence
+  - maximum_stepwise_negative_gradient_budget_matching_error
+  - near_useful_gradient_retention
+  - far_harmful_influence_retention
+  - near_and_far_negative_budget_fraction
   - held_out_context_reward
+  - cumulative_raw_negative_gradient_norm
+  - realized_Adam_total_parameter_update_norm_secondary
   - sigma_and_support_trajectory
   - task_performance_collapse_event
   - support_or_variance_boundary_event
   - nan_inf_numerical_event
   no_method_winner_assumed: true
-  evidence: {run_started: false, raw_complete: false, terminal_audited: false, package_created: false}
-
+  evidence:
+    implementation_tests_passed: true
+    engineering_smoke_passed: true
+    formal_run_started: false
+    run_started: false
+    raw_complete: false
+    terminal_audited: false
+    package_created: false
+  code_entrypoint: src/drpo/cu1_taper_budget_match_formal.py
+  formal_launch_template: python3 scripts/run_experiment_guard_hardened.py --experiment-id C-U1-E4-TAPER-BUDGET-MATCH-01
+    --repo-root . --output-root experiments/results/C-U1-E4-TAPER-BUDGET-MATCH-01/run_001 --artifact-output
+    artifacts/C-U1-E4-TAPER-BUDGET-MATCH-01_RAW_COMPLETE.zip --heartbeat-seconds 60 --stale-seconds 900 --fail-on-stale
+    --progress-glob per_seed_runs_partial.csv --required-output RUN_COMPLETE.json --required-output
+    scientific_run_manifest.json --required-output formal_protocol_freeze.json --required-output calibration.json
+    --required-output budget_audit.json --required-output terminal_audit.json --required-output per_seed_runs.csv
+    --required-output aggregate.csv --required-output paired_summary.json --source-file
+    src/drpo/cu1_taper_budget_match_formal.py --source-file src/drpo/cu1_taper_near_retention_formal.py --source-file
+    src/drpo/cu1_distance_taper_formal.py --source-file src/drpo/cu1_core.py --source-file
+    src/drpo/drpo_cu1_e1_e4_oneclick.py --run-class formal --expected-commit "$(git rev-parse HEAD)"
+    --require-origin-main-match -- python3 src/drpo/cu1_taper_budget_match_formal.py --output-dir
+    experiments/results/C-U1-E4-TAPER-BUDGET-MATCH-01/run_001 --base-commit "$(git rev-parse HEAD)"
+  protocol:
+    initialization_source: positive_only_adam_2000_step_checkpoint
+    coefficient_source: development_seeds_0_4_near_retention_0_75_calibration
+    development_seeds:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    formal_paired_seeds:
+    - 110
+    - 111
+    - 112
+    - 113
+    - 114
+    - 115
+    - 116
+    - 117
+    - 118
+    - 119
+    - 120
+    - 121
+    - 122
+    - 123
+    - 124
+    - 125
+    - 126
+    - 127
+    - 128
+    - 129
+    confirmation_seeds_130_149_access: forbidden
+    optimizer: Adam
+    learning_rate: 0.0005
+    negative_alpha_before_budget_rescaling: 1.0
+    state_minibatch_size: 256
+    evaluation_interval_steps: 100
+    minimum_steps_before_stationarity: 1000
+    maximum_steps: 8000
+    stable_windows: 10
+    normalized_slope_threshold: 0.0001
+    normalized_field_residual_threshold: 0.002
+    positive_only_absolute_gradient_threshold: 0.001
+    checkpoint_every_formal_seeds: 5
+    scientific_status_cap: finite_step_validated
+  required_outputs:
+  - RUN_COMPLETE.json
+  - scientific_run_manifest.json
+  - formal_protocol_freeze.json
+  - calibration.json
+  - environment_audit.json
+  - budget_audit.json
+  - terminal_audit.json
+  - per_seed_runs.csv
+  - aggregate.csv
+  - paired_summary.json
+  terminal_audit:
+    required: true
+    equal_finite_horizon: 8000
+    fixed_horizon_does_not_imply_convergence: true
+    scientific_status_cap: finite_step_validated
+    long_run_resolution_owned_by: C-U1-E4-TAPER-CONV-01
+    failure_types_separate:
+    - task_performance_collapse
+    - support_or_variance_boundary
+    - nan_inf_numerical_failure
+  next_gate:
+    experiment_id: C-U1-E4-TAPER-CONV-01
+    state: blocked_until_budget_match_delivered_and_shortlist_frozen
+    automatic_activation_forbidden: true
 - id: C-U1-E4-TAPER-CONV-01
   execution_gate:
     state: blocked
     blocked_by:
-    - C-U1-E4-TAPER-NEAR-RETENTION-01_delivered
     - C-U1-E4-TAPER-BUDGET-MATCH-01_delivered
-    - frozen_method_shortlist_and_hyperparameters
-    - frozen_long_horizon_and_terminal_windows
-    - separately_implemented_formal_runner
-    blocking_reason: >-
-      Long-run execution is intentionally deferred until the fairness studies
-      freeze the method formulas and hyperparameters. The original 8000-step
-      experiment may not be extended in place.
+    - frozen_shortlist_json_generated_from_preregistered_rule
+    - separately_implemented_continuation_runner
+    blocking_reason: Budget-Match must be delivered before its registered shortlist rule is evaluated and frozen. The
+      long-run runner must consume exact actor and Adam optimizer checkpoints; no old 8000-step run may be extended ad
+      hoc.
   environment: C-U1
   name: taper_frozen_shortlist_long_run_terminal_resolution
   status: not_run
   scientific_status: not_run
   parent_experiment: C-U1-E4-TAPER-01
-  predecessors: [C-U1-E4-TAPER-NEAR-RETENTION-01, C-U1-E4-TAPER-BUDGET-MATCH-01]
+  predecessors:
+  - C-U1-E4-TAPER-NEAR-RETENTION-01
+  - C-U1-E4-TAPER-BUDGET-MATCH-01
   registration_base_commit: 22161a91c0863278765b0d604ea82401d481b5aa
-  claim: >-
-    With the method shortlist and hyperparameters frozen by prior fairness
-    studies, determine whether the finite-horizon ordering persists under the
-    original Adam dynamics through a registered terminal candidate and complete
-    two-times continuation.
+  claim: With the method shortlist and hyperparameters frozen by prior fairness studies, determine whether the
+    finite-horizon ordering persists under the original Adam dynamics through a registered terminal candidate and
+    complete two-times continuation.
   role: controlled_taper_long_run_terminal_resolution
   execution_class: formal
   implementation_state: not_implemented
@@ -1389,7 +1602,7 @@ experiments:
     channel_ref: hardened-v1
     activation_state: blocked
     entrypoint_status: planned
-    entrypoint: null
+    entrypoint:
     launch_mode: canonical_guard
     artifact_owner: canonical_channel
     guard_entrypoint: scripts/run_experiment_guard_hardened.py
@@ -1398,31 +1611,93 @@ experiments:
     hardened_core: scripts/artifact_protocol_hardened.py
     artifact_protocol: docs/formal_experiment_artifact_protocol.md
     inherit_default_artifact_budget: true
-    runner_archive_policy: {mode: forbid}
+    runner_archive_policy:
+      mode: forbid
   terminal_contract:
+    continuation_seeds:
+    - 110
+    - 111
+    - 112
+    - 113
+    - 114
+    - 115
+    - 116
+    - 117
+    - 118
+    - 119
+    - 120
+    - 121
+    - 122
+    - 123
+    - 124
+    - 125
+    - 126
+    - 127
+    - 128
+    - 129
+    input_checkpoint_owner: C-U1-E4-TAPER-BUDGET-MATCH-01
+    actor_state_continuity: required
+    Adam_optimizer_state_continuity: required
+    reference_budget_schedule_continuation:
+      reciprocal_linear_continues_first_then_other_methods_use_its_frozen_stepwise_norm_schedule
+    starting_step: 8000
+    maximum_total_steps: 32000
+    evaluation_interval_steps: 100
+    minimum_total_steps_before_new_terminal_candidate: 10000
+    stable_windows: 10
+    normalized_slope_threshold: 0.0001
+    normalized_field_residual_threshold: 0.002
+    complete_two_times_continuation: required_when_candidate_times_two_is_at_most_32000
+    persistent_drift_or_runaway_is_a_resolved_terminal_class_if_explicitly_audited: true
+    fixed_horizon_extension_without_registration: forbidden
+    full_batch_stationary_audit: optional_separate_registered_diagnostic_not_a_replacement
+    separate_failure_reporting:
+    - task_performance_collapse
+    - support_or_variance_boundary
+    - nan_inf_numerical_failure
     optimizer: original_Adam_dynamics
     optimizer_state_continuity: required
-    fixed_horizon_extension_without_registration: forbidden
     provisional_candidate_rule: pending_protocol_freeze
-    complete_two_times_continuation: required
-    full_batch_stationary_audit: optional_separate_registered_diagnostic_not_a_replacement
-    separate_failure_reporting: [task_performance_collapse, support_or_variance_boundary, nan_inf_numerical_failure]
   no_method_winner_assumed: true
-  evidence: {run_started: false, raw_complete: false, terminal_audited: false, package_created: false}
-
+  evidence:
+    run_started: false
+    raw_complete: false
+    terminal_audited: false
+    package_created: false
+  shortlist_freeze_rule:
+    always_include:
+    - positive_only
+    - unweighted_boundary
+    - reciprocal_linear
+    - global_stepwise_scale
+    selective_candidate_pool:
+    - reciprocal_quadratic
+    - current_exponential
+    - squared_distance_exponential
+    eligibility_all_required:
+    - near_retention_primary_result_positive_reward_delta_vs_reciprocal_linear_on_at_least_18_of_20_seeds
+    - budget_match_far_harmful_retention_lower_than_global_stepwise_scale_on_at_least_18_of_20_seeds
+    - budget_match_reward_delta_vs_reciprocal_linear_nonnegative_on_at_least_18_of_20_seeds
+    - no_more_nan_inf_events_than_reciprocal_linear
+    maximum_selective_candidates: 2
+    tie_break_order:
+    - budget_match_mean_held_out_context_reward_descending
+    - budget_match_mean_far_harmful_retention_ascending
+    - family_name_lexicographic
+    freeze_artifact_required: FROZEN_CONVERGENCE_SHORTLIST.json_with_sha256
+    result_dependent_manual_override: forbidden_without_new_user_approved_registration
+  confirmation_seed_access:
+    seeds_130_149: forbidden
 - id: C-U1-E4-TAPER-CONFIRM-01
   execution_gate:
     state: blocked
     blocked_by:
     - C-U1-E4-TAPER-CONV-01_delivered
-    - frozen_untouched_confirmatory_seeds
-    - frozen_primary_claim_and_analysis_plan
-    - frozen_all_method_formulas_and_hyperparameters
-    - separately_implemented_formal_runner
-    blocking_reason: >-
-      Confirmation is last. It uses untouched seeds only after all formulas,
-      coefficients, terminal rules, and primary metrics are frozen, with no
-      result-dependent retuning.
+    - frozen_confirmation_config_with_hash
+    - separately_implemented_confirmation_runner
+    blocking_reason: Confirmation is last. Seeds 130-149 are reserved now and may not be accessed by Budget-Match or
+      Convergence. The final shortlist, coefficients, long-run horizon, terminal rules, and primary claims must be
+      frozen after Convergence delivery and before any confirmation access.
   environment: C-U1
   name: taper_frozen_protocol_independent_seed_confirmation
   status: not_run
@@ -1430,10 +1705,8 @@ experiments:
   parent_experiment: C-U1-E4-TAPER-01
   predecessor: C-U1-E4-TAPER-CONV-01
   registration_base_commit: 22161a91c0863278765b0d604ea82401d481b5aa
-  claim: >-
-    On untouched confirmatory seeds, test whether the fully frozen fairness and
-    long-run conclusions replicate without seed selection or post-result
-    hyperparameter adjustment.
+  claim: On untouched confirmatory seeds, test whether the fully frozen fairness and long-run conclusions replicate
+    without seed selection or post-result hyperparameter adjustment.
   role: controlled_taper_confirmatory_replication
   execution_class: formal
   implementation_state: not_implemented
@@ -1441,7 +1714,7 @@ experiments:
     channel_ref: hardened-v1
     activation_state: blocked
     entrypoint_status: planned
-    entrypoint: null
+    entrypoint:
     launch_mode: canonical_guard
     artifact_owner: canonical_channel
     guard_entrypoint: scripts/run_experiment_guard_hardened.py
@@ -1450,13 +1723,43 @@ experiments:
     hardened_core: scripts/artifact_protocol_hardened.py
     artifact_protocol: docs/formal_experiment_artifact_protocol.md
     inherit_default_artifact_budget: true
-    runner_archive_policy: {mode: forbid}
+    runner_archive_policy:
+      mode: forbid
   confirmation_contract:
-    seeds_70_89: development_evidence_not_confirmatory
-    exact_untouched_seeds: pending_protocol_freeze_before_any_access
+    exact_untouched_seeds:
+    - 130
+    - 131
+    - 132
+    - 133
+    - 134
+    - 135
+    - 136
+    - 137
+    - 138
+    - 139
+    - 140
+    - 141
+    - 142
+    - 143
+    - 144
+    - 145
+    - 146
+    - 147
+    - 148
+    - 149
+    earlier_seed_roles:
+      '70_89': predecessor_TAPER_evidence_only
+      '90_109': near_retention_formal_evidence_only
+      '110_129': budget_and_continuation_evidence_only
+    seed_access_before_frozen_confirmation_config: forbidden
     hyperparameter_retuning_after_confirmation_start: forbidden
     primary_claim_change_after_confirmation_start: forbidden
+    method_formula_change_after_confirmation_start: forbidden
     registered_terminal_audit: required
+    maximum_total_steps_inherit_from_frozen_convergence_config: true
+    same_distribution_held_out_context_only: true
+    OOD_claim_allowed: false
+    seeds_70_89: development_evidence_not_confirmatory
   primary_metrics:
   - held_out_context_reward
   - near_useful_retention
@@ -1466,8 +1769,30 @@ experiments:
   - support_or_variance_boundary_event
   - nan_inf_numerical_event
   no_method_winner_assumed: true
-  evidence: {run_started: false, raw_complete: false, terminal_audited: false, package_created: false}
-
+  evidence:
+    run_started: false
+    raw_complete: false
+    terminal_audited: false
+    package_created: false
+  primary_analysis_plan:
+    mechanism_confirmation_report_separately:
+    - near_useful_retention_noninferiority
+    - far_harmful_retention_improvement_vs_reciprocal_linear
+    - far_harmful_retention_improvement_vs_global_stepwise_scale
+    task_confirmation_report_separately:
+    - paired_held_out_context_reward_delta_vs_reciprocal_linear
+    - paired_held_out_context_reward_delta_vs_global_stepwise_scale
+    terminal_confirmation_report_separately:
+    - terminal_state_classification
+    - classification_reversal
+    - persistent_drift_or_runaway
+    - task_performance_collapse
+    - support_or_variance_boundary
+    - nan_inf_numerical_failure
+    minimum_directional_consistency_seeds: 16
+    paired_bootstrap_confidence_interval: 0.95
+    steady_state_ranking_requires_terminal_resolution: required
+    failure_of_task_superiority_does_not_erase_mechanism_result: true
 - id: EXT-H-E7-Q2
   execution_gate:
     state: ready

@@ -354,10 +354,40 @@ def test_historical_cu1_e4_taper_utility_fairness_delta_matches_repository_after
     assert result.report["registry_change_coverage"]["fully_declared"] is True
 
 
-def test_current_countdown_v46_online_replay_delta_matches_manual_handoff() -> None:
+def test_historical_countdown_v46_online_replay_delta_matches_repository_after_image() -> None:
     delta = (
         ROOT
         / "docs/handoff_deltas/EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY-2026-06-29/HANDOFF_DELTA.yaml"
+    )
+    result = MODULE.check_delta(
+        ROOT, delta, target_commit="b503b1245d9de150e034d85ad96405c0be5c2b01"
+    )
+    assert result.report["status"] == "PASS"
+    assert result.report["exact_manual_candidate_match"] is True
+    assert result.report["idempotence_passed"] is True
+    assert result.report["candidate_replaced_authority"] is False
+    assert result.report["registry_change_coverage"]["fully_declared"] is True
+
+
+def test_historical_cu1_e4_taper_near_retention_delta_matches_repository_after_image() -> None:
+    delta = (
+        ROOT
+        / "docs/handoff_deltas/CU1-E4-TAPER-NEAR-RETENTION-2026-06-28/HANDOFF_DELTA.yaml"
+    )
+    result = MODULE.check_delta(
+        ROOT, delta, target_commit="bb06d5ec107c7630adf7100bb9bfb5b95ff7303f"
+    )
+    assert result.report["status"] == "PASS"
+    assert result.report["exact_manual_candidate_match"] is True
+    assert result.report["idempotence_passed"] is True
+    assert result.report["candidate_replaced_authority"] is False
+    assert result.report["registry_change_coverage"]["fully_declared"] is True
+
+
+def test_current_cu1_e4_taper_closure_delta_matches_manual_handoff() -> None:
+    delta = (
+        ROOT
+        / "docs/handoff_deltas/C-U1-E4-TAPER-CLOSURE-V63-2026-06-29/HANDOFF_DELTA.yaml"
     )
     result = MODULE.check_delta(ROOT, delta)
     assert result.report["status"] == "PASS"

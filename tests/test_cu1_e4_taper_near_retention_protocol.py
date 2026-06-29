@@ -96,7 +96,7 @@ def test_deterministic_bisection_matches_each_near_retention_target() -> None:
     assert len({round(value, 12) for value in coefficients.values()}) == 4
 
 
-def test_registry_activates_only_near_retention_without_claiming_results() -> None:
+def test_registry_records_near_retention_finite_step_result_without_terminal_overclaim() -> None:
     row = _experiment()
     assert row["execution_gate"]["state"] == "ready"
     assert row["implementation_state"] == "implemented"
@@ -110,10 +110,13 @@ def test_registry_activates_only_near_retention_without_claiming_results() -> No
         "squared_distance_exponential",
     ]
     assert row["protocol"]["formal_paired_seeds"] == list(range(90, 110))
-    assert row["scientific_status"] == "not_run"
-    assert row["evidence"]["formal_run_started"] is False
-    assert row["evidence"]["raw_complete"] is False
-    assert row["next_gate"]["state"] == "blocked_until_near_retention_delivered"
+    assert row["scientific_status"] == "finite_step_validated"
+    assert row["evidence"]["formal_run_started"] is True
+    assert row["evidence"]["completed_runs"] == 280
+    assert row["evidence"]["unresolved_at_maximum_steps"] == 260
+    assert row["evidence"]["terminal_resolution_complete"] is False
+    assert row["result_deposition"]["raw_rows_embedded_in_repository"] is False
+    assert row["next_gate"]["state"] == "ready_after_v62_application"
     assert row["no_method_winner_assumed"] is True
 
 

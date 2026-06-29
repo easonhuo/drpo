@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "experiment_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+  "run_commit": "69c8f532570b5c4377a0cd35ff42f0bcb77afef0",
+  "coverage_complete": true,
+  "expected_runs": 280,
+  "completed_runs": 280,
+  "terminally_unresolved_runs_at_maximum_steps": 260,
+  "task_performance_collapse_events": 13,
+  "support_or_variance_boundary_events": 20,
+  "nan_inf_numerical_events": 0,
+  "scientific_status": "finite_step_validated",
+  "long_run_validated": false,
+  "method_ranking_at_steady_state_allowed": false,
+  "next_terminal_owner": "C-U1-E4-TAPER-CONV-01"
+}

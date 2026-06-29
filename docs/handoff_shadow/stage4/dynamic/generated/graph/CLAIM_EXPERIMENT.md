@@ -1,6 +1,6 @@
 # Generated Claim--Experiment View
 
-Graph hash: `9f7c3484d96a2c33fa25524b1ea3bec5d4601cf2db15a1d86f5494ba75717512`
+Graph hash: `74b2996c85087cfae3606eedf415bcca16a66d85ae5831a0a8b946e8098b68a4`
 
 > Generated from accepted edges only. Pending semantic suggestions remain in REVIEW_QUEUE.yaml.
 
@@ -14,6 +14,7 @@ flowchart LR
   n_6e543aa69f86["D-U1 E5 long-run evidence validates bounded-score repeated repulsion and categorical support-boundar"]
   n_083a4a1007fc["D-U1 E6 validates a non-monotonic benefit of controlled local negative signals and a semantic-alignm"]
   n_237e5cc010a0["Under bounded-advantage, pre-boundary learnable-log-scale assumptions, reciprocal-quadratic weightin"]
+  n_e0a5582344a5["With initial near-retention matched, faster taper tails correlate with lower harmful-far influence a"]
   n_bc8cd768c956["Outside the locally informative region, expected negative-sample net utility is hypothesized to be g"]
   n_feef39560333["Historical Hopper evidence is an external mechanism validation, not a normalized-return method table"]
   n_8779f773aadc["EXT-H/Hopper provides learned-critic external mechanism and method validation rather than controlled"]
@@ -66,6 +67,7 @@ flowchart LR
   n_e7cdb0f7970d -->|external_validates| n_e02b1aa584bf
   n_5bb3c13685ab -->|tests| n_31220683b4ee
   n_8a45c33d6842 -->|tests| n_ed9ebb420865
+  n_5bb3c13685ab -->|tests| n_e0a5582344a5
   n_202ee82e9a9b -->|external_validates| n_8779f773aadc
   n_4f7c98612a3a -->|tests| n_93128d5421b6
   n_684cc40787c6 -->|tests| n_237e5cc010a0

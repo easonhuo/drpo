@@ -94,10 +94,10 @@
   ],
   "graph_hash": "169b59a966fdcbb55a4a7aaa9cea1058ea0446b4be21029f2986498a9603d99a",
   "input_hashes": {
-    "docs/handoff.md": "248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb",
+    "docs/handoff.md": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d",
     "docs/handoff_shadow/stage4/minimal/DEPENDENCIES.yaml": "325d13fa65e7922e1412bf0582588d6c3d32487b8c958a41631dc172f895cbf7",
     "docs/handoff_shadow/stage4/minimal/MODULES.yaml": "494908f16c4b0e41dc39b668e6c46b2ea23bc00bbebcdd464c96691dc0abcc9c",
-    "experiments/registry.yaml": "b760c8db417c7a769ea1d6e3dda5d27d8d7d2d3f31e33a13aa5a42e07083720c"
+    "experiments/registry.yaml": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
   },
   "module_order": [
     "global_core_governance",
@@ -117,9 +117,9 @@
     {
       "depends_on": [],
       "module_id": "global_core_governance",
-      "snapshot_hash": "7bad1854735d84514fd2d1a74081fd90a95abd927c7ce3186907e46a9e541a4f",
-      "source_chars": 7676,
-      "source_hash": "9fe36353a77f8888d9d3fbd71dea78d712ca15f20ceeb41574c0c621d69ffbdb",
+      "snapshot_hash": "dab6f7c04a9ebe314128cfc4bb403b658e0ccfac983aa32cf0b534c864d417d2",
+      "source_chars": 9300,
+      "source_hash": "65e16ebbf02028f1117d1926adbe9dab6d51d4e49d93d2a2892bc50a41e41971",
       "source_labels": [
         "docs/handoff.md: # 0. 研究与执行原则（每次新会话首先阅读） -> # 1. 论文最终目标与两条主工作线"
       ]
@@ -129,9 +129,9 @@
         "global_core_governance"
       ],
       "module_id": "execution_status_gates",
-      "snapshot_hash": "de081fdf8f978946996aea7cb3c1a12d9629a3f17d26f88b41146de9fdb706ef",
-      "source_chars": 8457,
-      "source_hash": "98c7eee15b0d2585df2ec4719c593516aaf7b0010938fdd01b9f396b497b2753",
+      "snapshot_hash": "54f8606c8b8bc0275dcb27677ba6dffa8b6d7ddba37123db552cefb48a654652",
+      "source_chars": 8991,
+      "source_hash": "c5cd80beb10b67bc50d71ab188d6a613b86833198c881f7a917344ba964bef84",
       "source_labels": [
         "docs/handoff.md: # 5. 当前真实完成状态 -> # 7. 变量治理"
       ]
@@ -183,9 +183,9 @@
         "continuous_mechanism_e1_e3"
       ],
       "module_id": "continuous_e4_taper",
-      "snapshot_hash": "d904c9f077db6938bb6906c027f16da3f7066c9ed26c2f91f2522d356d42e6e8",
-      "source_chars": 72936,
-      "source_hash": "158b04774f4940adae6a07349fa7b05dc760c90eb91847435d31174f29799241",
+      "snapshot_hash": "94ff0261db63f542ea393f7dff862cbf38a564996bdb903dcdd19693342b06d3",
+      "source_chars": 93177,
+      "source_hash": "acabcb285fd0d36f62216597157d9c5282740e52c9ed310cbd8b2967d69944c0",
       "source_labels": [
         "docs/handoff.md: ### 3.6.2 E4：稳定外推—相变—远场控制 -> ## 3.7 D-U1 / E6 开发配置登记（E4 已完成；用户已批准与 E4-TAPER 并行）",
         "docs/handoff.md: ## 3.8 C-U1 共享实现与二次阶方法实验 `C-U1-E4-TAPER-01` -> ## 3.9 E6--E8 方法迁移与规模验证路线（v42 锁定）",

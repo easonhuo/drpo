@@ -3,7 +3,7 @@ policy_id: GOV-HANDOFF-INDEX-01
 authority: non_authoritative_stage4a_shadow_inventory
 source:
   path: experiments/registry.yaml
-  sha256: b760c8db417c7a769ea1d6e3dda5d27d8d7d2d3f31e33a13aa5a42e07083720c
+  sha256: ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579
 experiments:
 - experiment_id: C-U1-E3-ADAM-RERUN
   registry_index: 1
@@ -16,8 +16,8 @@ experiments:
   claim_ids:
   - SCI-CU1-E3-CAUSAL-01
   handoff_heading_ids:
-  - H0042
-  - H0044
+  - H0043
+  - H0045
   classification: resolved_multi
   classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks also retain their
     controlled-mechanism dependency.
@@ -33,8 +33,8 @@ experiments:
   - SCI-CU1-E4-TERMINAL-01
   - SCI-NEGATIVE-DUAL-ROLE-01
   handoff_heading_ids:
-  - H0042
-  - H0044
+  - H0043
+  - H0045
   classification: resolved_multi
   classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks also retain their
     controlled-mechanism dependency.
@@ -51,7 +51,7 @@ experiments:
   - GOV-TERMINAL-AUDIT-01
   handoff_heading_ids:
   - H0025
-  - H0044
+  - H0045
   classification: resolved_multi
   classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks also retain their
     controlled-mechanism dependency.
@@ -66,8 +66,8 @@ experiments:
   claim_ids:
   - SCI-CU1-E1-SOURCE-01
   handoff_heading_ids:
-  - H0042
-  - H0044
+  - H0043
+  - H0045
   classification: resolved_multi
   classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks also retain their
     controlled-mechanism dependency.
@@ -85,14 +85,14 @@ experiments:
   - SCI-E4-TAPER-INFLUENCE-TAIL-01
   handoff_heading_ids:
   - H0030
-  - H0044
+  - H0045
   classification: resolved_multi
   classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks also retain their
     controlled-mechanism dependency.
 - experiment_id: C-U1-E4-TAPER-NEAR-RETENTION-01
   registry_index: 6
   environment: C-U1
-  registry_status: not_run
+  registry_status: finite_step_validated
   role: controlled_taper_shape_fairness_validation
   module_ids:
   - continuous_e1_e4
@@ -102,15 +102,17 @@ experiments:
   - SCI-E4-TAPER-NET-UTILITY-01
   - SCI-E4-TAPER-INFLUENCE-TAIL-01
   - GOV-E4-TAPER-FOLLOWUP-ORDER-01
+  - SCI-E4-TAPER-NEAR-RETENTION-01
   handoff_heading_ids:
   - H0003
   - H0036
   - H0037
   - H0038
   - H0040
+  - H0041
   classification: resolved_multi
-  classification_rationale: The frozen v61 Near-Retention protocol is indexed under controlled E4-TAPER science, method theory, and the formal
-    execution-gate sequence.
+  classification_rationale: The v62 finite-step Near-Retention result is indexed under controlled E4-TAPER science, method theory, provenance,
+    and the next-gate sequence.
 - experiment_id: C-U1-E4-TAPER-BUDGET-MATCH-01
   registry_index: 7
   environment: C-U1
@@ -127,8 +129,10 @@ experiments:
   handoff_heading_ids:
   - H0003
   - H0038
+  - H0041
   classification: resolved_multi
-  classification_rationale: The v60 follow-up is indexed under controlled E4-TAPER science, method theory, and the frozen execution-gate sequence.
+  classification_rationale: The v62 Budget-Match protocol is the active next E4-TAPER fairness experiment and remains non-authoritative until
+    formal execution and delivery.
 - experiment_id: C-U1-E4-TAPER-CONV-01
   registry_index: 8
   environment: C-U1
@@ -146,7 +150,8 @@ experiments:
   handoff_heading_ids:
   - H0003
   - H0038
-  - H0043
+  - H0044
+  - H0041
   classification: resolved_multi
   classification_rationale: The v60 follow-up is indexed under controlled E4-TAPER science, method theory, and the frozen execution-gate sequence.
 - experiment_id: C-U1-E4-TAPER-CONFIRM-01
@@ -166,6 +171,7 @@ experiments:
   - H0003
   - H0038
   - H0039
+  - H0041
   classification: resolved_multi
   classification_rationale: The v60 follow-up is indexed under controlled E4-TAPER science, method theory, and the frozen execution-gate sequence.
 - experiment_id: EXT-H-E7-Q2
@@ -181,9 +187,9 @@ experiments:
   - SCI-HOPPER-ROLE-01
   - SCI-HOPPER-EXTERNAL-CLAIM-01
   handoff_heading_ids:
-  - H0042
-  - H0044
-  - H0228
+  - H0043
+  - H0045
+  - H0229
   classification: resolved_multi
   classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks also retain their
     controlled-mechanism dependency.
@@ -200,9 +206,9 @@ experiments:
   - SCI-COUNTDOWN-ROLE-01
   - SCI-COUNTDOWN-NOT-RUN-01
   handoff_heading_ids:
-  - H0042
-  - H0044
-  - H0318
+  - H0043
+  - H0045
+  - H0319
   classification: resolved_multi
   classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks also retain their
     controlled-mechanism dependency.
@@ -219,9 +225,9 @@ experiments:
   - SCI-COUNTDOWN-ROLE-01
   - SCI-COUNTDOWN-NOT-RUN-01
   handoff_heading_ids:
-  - H0042
-  - H0044
-  - H0318
+  - H0043
+  - H0045
+  - H0319
   classification: resolved_multi
   classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks also retain their
     controlled-mechanism dependency.
@@ -238,9 +244,9 @@ experiments:
   - SCI-COUNTDOWN-ROLE-01
   - SCI-COUNTDOWN-NOT-RUN-01
   handoff_heading_ids:
-  - H0042
-  - H0044
-  - H0318
+  - H0043
+  - H0045
+  - H0319
   classification: resolved_multi
   classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks also retain their
     controlled-mechanism dependency.
@@ -257,9 +263,9 @@ experiments:
   - SCI-COUNTDOWN-ROLE-01
   - SCI-COUNTDOWN-NOT-RUN-01
   handoff_heading_ids:
-  - H0042
-  - H0044
-  - H0318
+  - H0043
+  - H0045
+  - H0319
   classification: resolved_multi
   classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks also retain their
     controlled-mechanism dependency.
@@ -276,9 +282,9 @@ experiments:
   - SCI-COUNTDOWN-ROLE-01
   - SCI-COUNTDOWN-NOT-RUN-01
   handoff_heading_ids:
-  - H0042
-  - H0044
-  - H0318
+  - H0043
+  - H0045
+  - H0319
   classification: resolved_multi
   classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks also retain their
     controlled-mechanism dependency.
@@ -295,9 +301,9 @@ experiments:
   - SCI-COUNTDOWN-ROLE-01
   - SCI-COUNTDOWN-NOT-RUN-01
   handoff_heading_ids:
-  - H0042
-  - H0044
-  - H0318
+  - H0043
+  - H0045
+  - H0319
   classification: resolved_multi
   classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks also retain their
     controlled-mechanism dependency.
@@ -314,9 +320,9 @@ experiments:
   - SCI-COUNTDOWN-ROLE-01
   - SCI-COUNTDOWN-NOT-RUN-01
   handoff_heading_ids:
-  - H0042
-  - H0044
-  - H0318
+  - H0043
+  - H0045
+  - H0319
   classification: resolved_multi
   classification_rationale: The user-approved online replay successor is indexed under Countdown external validity, execution gates, and its controlled
     categorical non-replacement dependency.
@@ -332,7 +338,7 @@ experiments:
   - SCI-DU1-E5-BOUNDARY-01
   handoff_heading_ids:
   - H0027
-  - H0044
+  - H0045
   classification: resolved_multi
   classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks also retain their
     controlled-mechanism dependency.
@@ -348,9 +354,9 @@ experiments:
   claim_ids:
   - SCI-HOPPER-ROLE-01
   handoff_heading_ids:
-  - H0042
-  - H0044
-  - H0228
+  - H0043
+  - H0045
+  - H0229
   classification: resolved_multi
   classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks also retain their
     controlled-mechanism dependency.
@@ -367,9 +373,9 @@ experiments:
   - SCI-COUNTDOWN-ROLE-01
   - SCI-COUNTDOWN-NOT-RUN-01
   handoff_heading_ids:
-  - H0042
-  - H0044
-  - H0318
+  - H0043
+  - H0045
+  - H0319
   classification: resolved_multi
   classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks also retain their
     controlled-mechanism dependency.
@@ -384,8 +390,8 @@ experiments:
   claim_ids:
   - SCI-DU1-E6-GENERALIZATION-01
   handoff_heading_ids:
-  - H0042
-  - H0044
+  - H0043
+  - H0045
   classification: resolved_multi
   classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks also retain their
     controlled-mechanism dependency.
@@ -400,8 +406,8 @@ experiments:
   claim_ids:
   - SCI-DU1-E6-GENERALIZATION-01
   handoff_heading_ids:
-  - H0042
-  - H0044
+  - H0043
+  - H0045
   classification: resolved_multi
   classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks also retain their
     controlled-mechanism dependency.
@@ -416,8 +422,8 @@ experiments:
   claim_ids:
   - SCI-DU1-E6-GENERALIZATION-01
   handoff_heading_ids:
-  - H0042
-  - H0044
+  - H0043
+  - H0045
   classification: resolved_multi
   classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks also retain their
     controlled-mechanism dependency.

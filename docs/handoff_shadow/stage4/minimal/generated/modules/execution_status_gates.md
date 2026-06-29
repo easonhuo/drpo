@@ -5,7 +5,7 @@
 
 - Module ID: `execution_status_gates`
 - Responsibility: Provide the current experiment evidence states, execution ordering, and formal launch gates.
-- Source hash: `98c7eee15b0d2585df2ec4719c593516aaf7b0010938fdd01b9f396b497b2753`
+- Source hash: `c5cd80beb10b67bc50d71ab188d6a613b86833198c881f7a917344ba964bef84`
 
 ## Source 1: docs/handoff.md: # 5. 当前真实完成状态 -> # 7. 变量治理
 
@@ -77,3 +77,6 @@
 <!-- HANDOFF-DELTA-BLOCK:section_end:v62-countdown-online-offpolicy-execution-order:START -->
 18. **v62 Countdown 执行覆盖：** formal 主顺序继续由 v56/v58/v61 控制；`EXT-H-E7-Q2` 优先级不变。V4.6 允许作为独立 guarded pilot 执行，顺序固定为 predecessor/input hash audit -> 四 cell paired training -> 全部训练结束后 test evaluation -> 2×2 paired effect/interaction -> terminal audit -> canonical artifact delivery。任何 online phase 都必须保留 collector manifest、round JSONL、fresh/stale mix 与实际 selected-bank diagnostics；smoke 或单 seed 不得称实验结果。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v62-countdown-online-offpolicy-execution-order:END -->
+<!-- HANDOFF-DELTA-BLOCK:section_end:v63-e4-taper-closure-execution-order:START -->
+18. **v63 E4-TAPER 内部执行覆盖：** `NEAR-RETENTION-01` 已完成正式矩阵并沉淀为有限训练步数验证；当前下一项是已冻结且已实现的 `BUDGET-MATCH-01`，正式 seeds 固定为 110--129，只允许按每一步 Adam 之前的 raw negative-gradient L2 norm 做 paired budget matching。`CONV-01` 与 `CONFIRM-01` 虽已完整登记输入输出契约、shortlist 规则和 untouched seeds，但继续 blocked；必须等待 Budget-Match 正式结果完成终态审计、打包、交付并冻结 shortlist 后，才允许实现和启动 Convergence，Confirmation 仍为最后一步。
+<!-- HANDOFF-DELTA-BLOCK:section_end:v63-e4-taper-closure-execution-order:END -->

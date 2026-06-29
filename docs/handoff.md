@@ -1,4 +1,4 @@
-# DRPO / SNA2C 远场负梯度动力学研究主文档 v62（Countdown Online Off-Policy Replay Pilot 实现版）
+# DRPO / SNA2C 远场负梯度动力学研究主文档 v63（E4-TAPER Near-Retention 结果沉淀与闭环协议版）
 <!-- HANDOFF-DELTA-BLOCK:after_heading:v50-stage3-shadow-bootstrap:START -->
 > **v50 增量登记：治理 Pipeline Stage 3 `HANDOFF_DELTA.yaml` shadow mode 启动（不删除 v49 及更早内容）**
 >
@@ -705,6 +705,12 @@
 <!-- HANDOFF-DELTA-BLOCK:section_end:v62-countdown-online-offpolicy-current-gate:START -->
 - **Countdown v62 覆盖：** `EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY` 是当前用户批准并已实现的 Countdown focused successor，状态为 **implemented + not_run**。执行前必须提供完整 V4.5 `RUN_COMPLETE.json`/`terminal_audit.json` 及其指向的 V4.4 frozen inputs；runner fail-closed 校验输入与 reference adapter。它可作为独立 pilot 启动，但不改变 `EXT-H-E7-Q2` 的 formal 优先级，也不自动解锁 `EXT-C-E8-SCALE-01`。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v62-countdown-online-offpolicy-current-gate:END -->
+<!-- HANDOFF-DELTA-BLOCK:section_end:v63-e4-taper-closure-current-gate:START -->
+- **E4-TAPER v63 覆盖：** `C-U1-E4-TAPER-NEAR-RETENTION-01` 已完成 `280/280` method-seed runs 与终态审计，科学状态沉淀为 **有限训练步数验证**。主保持率 `0.75` 下，Reciprocal-Quadratic、current Exponential、Squared-distance Exponential 相对 Reciprocal-Linear 的 held-out-context reward 配对均值差分别为 `+0.012002 / +0.015619 / +0.036134`，三者均为 `20/20` seeds 正差；Squared-distance Exponential 的 harmful-far retention 为 `0.010382`，低于 Reciprocal-Linear 的 `0.055886`。该结果只支持当前冻结矩阵中的有限步函数形状信号；`260/280` runs 在 8000 steps 时未获严格终态解析，禁止稳态、普遍方法排名或 OOD 表述。
+- 三类事件继续严格分报：task-performance collapse `13/280`、support/variance boundary `20/280`、NaN/Inf `0/280`；前两类全部来自 unweighted control。v63 仓库只保存 compact result deposition；本次构建会话没有原始 280-run raw-complete artifact 及其哈希，禁止伪造，归档发布前必须从原交付包恢复。
+- `C-U1-E4-TAPER-BUDGET-MATCH-01` 在 v63 冻结并实现为下一项 **implemented + ready + active + not_run**。唯一 primary budget coordinate 是每一步、Adam 之前的 raw negative-gradient L2 norm；paired Reciprocal-Linear actor 生成冻结目标 schedule，其他 Distance families 与 non-selective Global stepwise scale 使用 detached scalar 精确匹配该 norm。Adam 实际 parameter-update norm 只记录、不声称匹配。正式 seeds 固定为 `110--129`；seeds `130--149` 继续 untouched，专属最终 confirmation。
+- `C-U1-E4-TAPER-CONV-01` 与 `C-U1-E4-TAPER-CONFIRM-01` 的 seed firewall、输入输出契约、shortlist 冻结规则、32000-step 长程上限、continuous Adam-state 要求、2× terminal audit 与确认分析计划已预登记，但二者继续 blocked。Budget-Match terminal-audited、packaged、delivered 之前不得生成 shortlist 或启动 Convergence；Convergence 交付且 confirmation config 哈希冻结前不得访问 seeds `130--149`。
+<!-- HANDOFF-DELTA-BLOCK:section_end:v63-e4-taper-closure-current-gate:END -->
 
 ## 0.2 C-U1 泛化术语覆盖规则（v15 锁定）
 
@@ -1123,6 +1129,43 @@ $$
 
 **主统计与非结论。** 主保持率 `0.75` 下，以 reciprocal-linear 为 reference，对其余三个 family 做 20-seed paired bootstrap；`0.50/0.25` 只作形状敏感性。far-risk、near-retention 与 reward 同时报；不预注册 reward winner，不预设 Exponential、Squared-Exponential、Quadratic 或 Linear 获胜，也不得由该实验声称 Distance 优于 Global alpha。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v61-e4-taper-near-retention-protocol:END -->
+<!-- HANDOFF-DELTA-BLOCK:section_end:v63-e4-taper-near-result-and-closure-protocol:START -->
+### 3.8.11 Near-Retention 结果沉淀与闭环实验协议（v63）
+
+**Near-Retention 正式结果。** `C-U1-E4-TAPER-NEAR-RETENTION-01` 在 run commit `69c8f532570b5c4377a0cd35ff42f0bcb77afef0` 上完成 development seeds `0--4`、formal seeds `90--109`、每 seed 14 configurations，共 `280/280` runs。近场平均保留率的最大校准误差为 `1.11e-16`，通过 `1e-6` 门槛。主保留率 `r=0.75` 下，以 Reciprocal-Linear 为 reference：
+
+| Candidate | mean held-out-context reward delta | positive paired seeds |
+|---|---:|---:|
+| Reciprocal-Quadratic | +0.012002 | 20/20 |
+| current Exponential | +0.015619 | 20/20 |
+| Squared-distance Exponential | +0.036134 | 20/20 |
+
+Reciprocal-Linear 的 harmful-far retention 为 `0.055886`，Squared-distance Exponential 为 `0.010382`。因此可以写成：**在冻结 C-U1、相同初始近场平均保留率和 8000-step horizon 下，更快尾部衰减与更低 harmful-far influence、更高 held-out-context reward 一致相关，Squared-distance Exponential 是当前最强候选。** 不可写成 steady-state winner、universal winner、Distance 必然优于 Global alpha、跨任务优越或 OOD generalization。
+
+**终态与失败边界。** `280/280` coverage 完整；task-performance collapse `13/280`、support/variance boundary `20/280`、NaN/Inf `0/280`，前两类全部来自 unweighted control。`260/280` runs 在 8000 steps 仍 terminally unresolved，因此科学状态只能是 **有限训练步数验证**。compact repository summary 位于 `outputs/cu1_e4_taper_near_retention/`；它记录正式汇总和 claim boundary，不替代原 raw trajectories/checkpoints。当前构建会话缺少原 raw-complete artifact 与 SHA256，归档发布前必须恢复，禁止补造。
+
+**Budget-Match primary fairness coordinate。** `C-U1-E4-TAPER-BUDGET-MATCH-01` 唯一冻结 primary 为
+
+$$
+\left\|g^-_{m,t}\right\|_2 = \left\|g^-_{\mathrm{lin},t}\right\|_2,
+$$
+
+其中 norm 在每个 minibatch、Adam 之前、全 actor 参数空间计算。每个 paired seed 先运行 Reciprocal-Linear reference，使用与所有方法相同的初始化和 minibatch index stream，生成逐步目标 schedule。对 Candidate 方法，令 raw negative gradient 为 `g^-_m`，应用 detached scalar
+
+$$
+s_{m,t}=\frac{\lVert g^-_{\mathrm{lin},t}\rVert_2}{\lVert g^-_{m,t}\rVert_2},
+$$
+
+再与同一步 positive gradient 相加。匹配误差门槛为 `1e-6`。`global_stepwise_scale` 使用 unweighted negative-gradient direction，也按同一 schedule 缩放，因而是 non-selective global control。该 protocol 匹配 raw negative-gradient L2，不匹配 Adam preconditioned negative-only parameter update；实际 total Adam parameter-update norm 必须单独记录，不得把本实验改写成 optimizer-update matching。
+
+**Budget-Match 方法、seeds 与 horizon。** 近场系数继续只由 development seeds `0--4`、target retention `0.75` 校准。matched methods 为 Reciprocal-Linear、Reciprocal-Quadratic、current Exponential、Squared-distance Exponential、Global stepwise scale；Positive-only 与 raw Unweighted 只作边界 controls。formal paired seeds 固定 `110--129`；8000 steps、Adam `lr=5e-4`、batch 256、每 100 steps evaluation、原三类事件阈值不变。它仍只形成 finite-horizon fairness evidence，状态上限为 **有限训练步数验证**；不承担最终终态排名。
+
+**Convergence 冻结壳。** `C-U1-E4-TAPER-CONV-01` 只在 Budget-Match 交付后生成 `FROZEN_CONVERGENCE_SHORTLIST.json`。必含 Positive-only、Unweighted boundary、Reciprocal-Linear、Global stepwise scale；Selective 候选池是 Reciprocal-Quadratic、current Exponential、Squared-distance Exponential，最多选两个。候选必须同时满足：Near-Retention 主结果相对 Linear 至少 `18/20` reward 正差；Budget-Match 相对 Global 至少 `18/20` harmful-far retention 更低；相对 Linear 至少 `18/20` reward 非负；NaN/Inf 不多于 Linear。若超过两个，依次按 Budget-Match mean reward 降序、harmful-far retention 升序、family 名字字典序裁决，禁止人工看结果改 shortlist。
+
+Convergence 继续使用 seeds `110--129`，从 Budget-Match 8000-step actor 与 Adam optimizer checkpoint 原位续训；Reciprocal-Linear 先继续产生 8001--32000 的 budget schedule，其余 matched methods 消费相同 schedule。最大 total steps `32000`，原 slope/residual 阈值和 2× continuation 保持；明确 persistent drift/runaway 也可作为已审计终态分类。没有 exact actor+optimizer state、shortlist hash 或 predecessor delivery 时 fail closed。
+
+**Independent Confirmation 防火墙。** `C-U1-E4-TAPER-CONFIRM-01` 的 untouched seeds 现在冻结为 `130--149`，在 confirmation config 完整冻结前任何代码、校准、smoke 或 exploratory analysis 都不得访问。确认阶段继承最终 shortlist、系数、budget rule、32000-step 上限和终态标准，禁止 retune 或改 primary claim。机制、任务和终态分开判断：near-useful non-inferiority、far-harmful improvement、paired reward vs Linear/Global、terminal classification 与三类 failure 各自报告；最低方向一致性门槛为 `16/20`，并给 paired 95% bootstrap interval。任务 superiority 不成立不能抹除机制结果，机制成立也不能冒充 reward 或稳态 superiority。
+<!-- HANDOFF-DELTA-BLOCK:section_end:v63-e4-taper-near-result-and-closure-protocol:END -->
 
 ## 3.9 E6--E8 方法迁移与规模验证路线（v42 锁定）
 
@@ -1253,6 +1296,9 @@ $$
 <!-- HANDOFF-DELTA-BLOCK:section_end:v62-countdown-online-offpolicy-execution-order:START -->
 18. **v62 Countdown 执行覆盖：** formal 主顺序继续由 v56/v58/v61 控制；`EXT-H-E7-Q2` 优先级不变。V4.6 允许作为独立 guarded pilot 执行，顺序固定为 predecessor/input hash audit -> 四 cell paired training -> 全部训练结束后 test evaluation -> 2×2 paired effect/interaction -> terminal audit -> canonical artifact delivery。任何 online phase 都必须保留 collector manifest、round JSONL、fresh/stale mix 与实际 selected-bank diagnostics；smoke 或单 seed 不得称实验结果。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v62-countdown-online-offpolicy-execution-order:END -->
+<!-- HANDOFF-DELTA-BLOCK:section_end:v63-e4-taper-closure-execution-order:START -->
+18. **v63 E4-TAPER 内部执行覆盖：** `NEAR-RETENTION-01` 已完成正式矩阵并沉淀为有限训练步数验证；当前下一项是已冻结且已实现的 `BUDGET-MATCH-01`，正式 seeds 固定为 110--129，只允许按每一步 Adam 之前的 raw negative-gradient L2 norm 做 paired budget matching。`CONV-01` 与 `CONFIRM-01` 虽已完整登记输入输出契约、shortlist 规则和 untouched seeds，但继续 blocked；必须等待 Budget-Match 正式结果完成终态审计、打包、交付并冻结 shortlist 后，才允许实现和启动 Convergence，Confirmation 仍为最后一步。
+<!-- HANDOFF-DELTA-BLOCK:section_end:v63-e4-taper-closure-execution-order:END -->
 
 # 7. 变量治理
 
