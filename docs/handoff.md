@@ -1,4 +1,4 @@
-# DRPO / SNA2C 远场负梯度动力学研究主文档 v64（E4-TAPER Near-Retention 结果沉淀与闭环协议版；E7-Q2 Acceptance Pipeline v4.2 补充）
+# DRPO / SNA2C 远场负梯度动力学研究主文档 v65（E4-TAPER Near-Retention 闭环、E7-Q2 Acceptance Pipeline v4.2 与论文重写 v0.7 补充版）
 <!-- HANDOFF-DELTA-BLOCK:after_heading:v50-stage3-shadow-bootstrap:START -->
 > **v50 增量登记：治理 Pipeline Stage 3 `HANDOFF_DELTA.yaml` shadow mode 启动（不删除 v49 及更早内容）**
 >
@@ -166,6 +166,20 @@
 > - Canonical critic artifact schema 升级为 v2，并继续对 mode、config hash、dataset、transition count、dimensions、canonical seed 与 runner version 做 exact identity 校验；pilot、v4.1 或其他 formal 身份的 artifact fail closed。
 > - 操作入口升级为 Countdown 风格一键命令：在 clean current `main`、已设置 `DRPO_HOPPER_MEDIUM_REPLAY` 或标准数据路径时执行 `python3 scripts/run_e7_hopper_q2.py`，默认 formal、自动创建 timestamped persistent work directory，并由 hardened guard 打包结果。`--plan-only` 只解析和打印完整命令，不启动训练；pilot 仍不得冒充 formal evidence。
 <!-- HANDOFF-DELTA-BLOCK:after_heading:v64-e7-q2-acceptance-pipeline:END -->
+<!-- HANDOFF-DELTA-BLOCK:after_heading:v65-paper-rewrite-outline-intro-blueprint:START -->
+> **v65 增量登记：论文重写 v0.7、会话纠错账本与 Introduction 段落级施工图落库（不删除 v64 及更早内容）**
+>
+> - 本版只沉淀论文写作与理论证明计划，不运行新实验，不改变任何现有实验状态，也不修改任何数据集、模型、seeds、阈值、训练 horizon、终态门禁或既有实验职责；当前正式路线与执行顺序保持不变。
+> - 完整的用户审阅通过版论文大纲、标题选择、理论/方法边界、术语替换、图表布局、纠错账本与下一阶段清单落在 `docs/paper_rewrite_outline_v0_7.md`；`docs/handoff.md` 继续是唯一研究状态 Master，该详细文档不得成为第二份实验状态来源。
+> - 推荐标题继续为 **Breaking the Curse of Repulsion: Distributionally Robust Policy Optimization for Off-Policy Learning**。`curse` 仅指 fixed/stale far-field negatives 被重复优化时的失稳风险，不表示 negative advantage 本身天然有害。
+> - 主理论使用 RL/optimization 常用表述 **stationary empirical actor objective**：在 fully offline actor analysis 中，dataset、advantage labels 与 base sample weights 固定，因此静态平衡分析精确适用；off-policy mismatch 的强弱与 objective stationarity 是不同维度。Replay、changing buffers、online collection 或 jointly evolving actor–critic systems 不在当前定理的全局保证范围内。
+> - Fixed advantage 不作为 Preliminaries 中的通用 RL setting；C-U1/D-U1 只在实验设置中说明其用于隔离 critic error、advantage relabeling 和 policy-dependent weighting。当前论文不展开 dynamic-critic / moving-equilibrium 推导。
+> - 术语继续优先复用主流 RL/optimization 表达：standardized/Mahalanobis distance、negative log-probability/surprisal、behavior–policy mismatch、policy-ratio clipping、simplex boundary、task-performance collapse 和 numerical failure。避免重新引入 `policy-relative remoteness`、utility radius、repulsive frontier、probability-boundary dynamics 或把 support boundary 自动称为 collapse。
+> - 最终论文方法方向保持 exponential DRPO；SBRC 与 Hybrid 不进入最终论文候选。Exp 是压过有限阶 score growth 的 far-field gradient-control envelope，不是假设负样本 utility 指数衰减，也不假设真实安全半径或由 raw `p/q` 动态迁移推出。
+> - Introduction 段落施工图 v0.1 落在 `docs/paper_rewrite_intro_blueprint_v0_1.md`，逐段冻结 reader question、topic sentence、supporting logic、citation targets、target length、transition、evidence status 与 forbidden overclaim。叙事顺序固定为背景 → 负更新双重作用 → fixed/stale data reuse → prior solutions → unresolved gap → Repulsive Dynamics/nonlinear policies → DRPO → evidence/contributions。
+> - 当前主图规划不变：只有 Figure 1 默认双栏；Figures 2–5 默认单栏，Figure 3 为单栏 2×2，Figure 4 为单栏 2×1。D4RL、Countdown 与 Online 未完成结果只保留 `TBD`，禁止填预期数值。
+> - 下一阶段顺序为：完成 Theory/Method/Experiments 的段落施工图，正式证明 equilibrium/boundary/divergence theorem 与离散 spectral-radius 条件，完成 Gaussian/categorical corollary、Exp proposition、逐条引用核验、主图视觉规范和真实受控数据重绘；Online formal protocol 必须先登记再执行。
+<!-- HANDOFF-DELTA-BLOCK:after_heading:v65-paper-rewrite-outline-intro-blueprint:END -->
 
 > **v49 增量登记：治理 Pipeline Stage 1/2 冻结式关闭（不删除 v48 及更早内容）**
 >

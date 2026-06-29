@@ -94,7 +94,7 @@
   ],
   "graph_hash": "169b59a966fdcbb55a4a7aaa9cea1058ea0446b4be21029f2986498a9603d99a",
   "input_hashes": {
-    "docs/handoff.md": "ffc89242a232de2663bd441bf0615d3894efd44179d955b5ab280649f787ce26",
+    "docs/handoff.md": "85d2cd1562ff1846b9fcd6ce4f0ce83c7bd7a03aebaf4e258fd69a4a294a4065",
     "docs/handoff_shadow/stage4/minimal/DEPENDENCIES.yaml": "325d13fa65e7922e1412bf0582588d6c3d32487b8c958a41631dc172f895cbf7",
     "docs/handoff_shadow/stage4/minimal/MODULES.yaml": "494908f16c4b0e41dc39b668e6c46b2ea23bc00bbebcdd464c96691dc0abcc9c",
     "experiments/registry.yaml": "6a7f2a8009fc0d3c25a86c669601de38ac873480b76edc35711634c92b14b656"
