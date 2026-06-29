@@ -6,7 +6,8 @@ digraph stage4_minimal_context {
   "theory_methods_related_work" [label="Theory, method families, and related work"];
   "terminal_audit" [label="Terminal-state and collapse audit rules"];
   "continuous_mechanism_e1_e3" [label="Continuous C-U1 source and causal mechanism E1-E3"];
-  "continuous_e4_taper" [label="Continuous C-U1 E4 extrapolation and taper track"];
+  "continuous_e4_extrapolation" [label="Continuous C-U1 E4 stable extrapolation and phase transition"];
+  "continuous_e4_taper" [label="Continuous C-U1 E4 taper-family follow-up track"];
   "categorical_e5_mechanism" [label="Categorical D-U1 E5 repulsion and support boundary"];
   "categorical_e6_generalization" [label="Categorical D-U1 E6 shared-semantic generalization"];
   "hopper_e7" [label="Hopper learned-critic external validation E7"];
@@ -19,10 +20,11 @@ digraph stage4_minimal_context {
   "continuous_mechanism_e1_e3" -> "global_core_governance" [label="depends_on"];
   "continuous_mechanism_e1_e3" -> "theory_methods_related_work" [label="depends_on"];
   "continuous_mechanism_e1_e3" -> "terminal_audit" [label="depends_on"];
-  "continuous_e4_taper" -> "global_core_governance" [label="depends_on"];
-  "continuous_e4_taper" -> "theory_methods_related_work" [label="depends_on"];
-  "continuous_e4_taper" -> "terminal_audit" [label="depends_on"];
-  "continuous_e4_taper" -> "continuous_mechanism_e1_e3" [label="depends_on"];
+  "continuous_e4_extrapolation" -> "global_core_governance" [label="depends_on"];
+  "continuous_e4_extrapolation" -> "theory_methods_related_work" [label="depends_on"];
+  "continuous_e4_extrapolation" -> "terminal_audit" [label="depends_on"];
+  "continuous_e4_extrapolation" -> "continuous_mechanism_e1_e3" [label="depends_on"];
+  "continuous_e4_taper" -> "continuous_e4_extrapolation" [label="depends_on"];
   "categorical_e5_mechanism" -> "global_core_governance" [label="depends_on"];
   "categorical_e5_mechanism" -> "theory_methods_related_work" [label="depends_on"];
   "categorical_e5_mechanism" -> "terminal_audit" [label="depends_on"];

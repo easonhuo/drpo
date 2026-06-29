@@ -6,6 +6,7 @@
         "theory_methods_related_work",
         "terminal_audit",
         "continuous_mechanism_e1_e3",
+        "continuous_e4_extrapolation",
         "continuous_e4_taper"
       ],
       "must_exclude": [
@@ -17,6 +18,7 @@
         "theory_methods_related_work",
         "terminal_audit",
         "continuous_mechanism_e1_e3",
+        "continuous_e4_extrapolation",
         "continuous_e4_taper"
       ],
       "status": "pass",
@@ -58,7 +60,8 @@
       ],
       "must_exclude": [
         "hopper_e7",
-        "continuous_e4_taper"
+        "continuous_e4_taper",
+        "continuous_e4_extrapolation"
       ],
       "must_include": [
         "global_core_governance",
@@ -81,6 +84,7 @@
     "STRUCTURE_SUGGESTIONS.md",
     "modules/categorical_e5_mechanism.md",
     "modules/categorical_e6_generalization.md",
+    "modules/continuous_e4_extrapolation.md",
     "modules/continuous_e4_taper.md",
     "modules/continuous_mechanism_e1_e3.md",
     "modules/countdown_e8.md",
@@ -92,11 +96,11 @@
     "modules/terminal_audit.md",
     "modules/theory_methods_related_work.md"
   ],
-  "graph_hash": "169b59a966fdcbb55a4a7aaa9cea1058ea0446b4be21029f2986498a9603d99a",
+  "graph_hash": "0db2d992b651a2ed85d93d68c298214ba6bdbee1ae15b7b7c48d92162a7fb87c",
   "input_hashes": {
     "docs/handoff.md": "85d2cd1562ff1846b9fcd6ce4f0ce83c7bd7a03aebaf4e258fd69a4a294a4065",
-    "docs/handoff_shadow/stage4/minimal/DEPENDENCIES.yaml": "325d13fa65e7922e1412bf0582588d6c3d32487b8c958a41631dc172f895cbf7",
-    "docs/handoff_shadow/stage4/minimal/MODULES.yaml": "494908f16c4b0e41dc39b668e6c46b2ea23bc00bbebcdd464c96691dc0abcc9c",
+    "docs/handoff_shadow/stage4/minimal/DEPENDENCIES.yaml": "bb1ad1dc8afdd1a826b23c9fcb763eca260c575fd18636fb549d061490683773",
+    "docs/handoff_shadow/stage4/minimal/MODULES.yaml": "c2c8addc431e2b0502c4f5868c1fcfd57f714127f573bf772e30418bd7e06c93",
     "experiments/registry.yaml": "6a7f2a8009fc0d3c25a86c669601de38ac873480b76edc35711634c92b14b656"
   },
   "module_order": [
@@ -105,6 +109,7 @@
     "theory_methods_related_work",
     "terminal_audit",
     "continuous_mechanism_e1_e3",
+    "continuous_e4_extrapolation",
     "continuous_e4_taper",
     "categorical_e5_mechanism",
     "categorical_e6_generalization",
@@ -115,100 +120,199 @@
   ],
   "modules": [
     {
+      "content_contract_evidence": [],
+      "content_contract_topics": [],
+      "deduplicated_source_labels": [],
       "depends_on": [],
       "module_id": "global_core_governance",
-      "snapshot_hash": "dab6f7c04a9ebe314128cfc4bb403b658e0ccfac983aa32cf0b534c864d417d2",
+      "snapshot_hash": "96872367e52b08b2387e6790c659820c208bdaa6fbc6219f62a0644fd0e4a05c",
       "source_chars": 9300,
-      "source_hash": "65e16ebbf02028f1117d1926adbe9dab6d51d4e49d93d2a2892bc50a41e41971",
+      "source_hash": "4825a4b8410dbf2bc4fa6e766b5b0a7ea021515f9f7deac69661afbad72bb16c",
       "source_labels": [
         "docs/handoff.md: # 0. 研究与执行原则（每次新会话首先阅读） -> # 1. 论文最终目标与两条主工作线"
       ]
     },
     {
+      "content_contract_evidence": [],
+      "content_contract_topics": [],
+      "deduplicated_source_labels": [],
       "depends_on": [
         "global_core_governance"
       ],
       "module_id": "execution_status_gates",
-      "snapshot_hash": "54f8606c8b8bc0275dcb27677ba6dffa8b6d7ddba37123db552cefb48a654652",
+      "snapshot_hash": "3765128a97a14e59f8ba581a4886239b777332a54f579abfb1a8a3b3e3b8e95e",
       "source_chars": 8991,
-      "source_hash": "c5cd80beb10b67bc50d71ab188d6a613b86833198c881f7a917344ba964bef84",
+      "source_hash": "6b1d1a0d1f8bf189613714ad116ba6fbe33b9f19d6c739658940c5efba6030ea",
       "source_labels": [
         "docs/handoff.md: # 5. 当前真实完成状态 -> # 7. 变量治理"
       ]
     },
     {
+      "content_contract_evidence": [],
+      "content_contract_topics": [],
+      "deduplicated_source_labels": [],
       "depends_on": [
         "global_core_governance"
       ],
       "module_id": "theory_methods_related_work",
-      "snapshot_hash": "c0ade405b7e2decbc82072058ce53bd0fd069829432b235304049009e175e2e2",
+      "snapshot_hash": "14d8e01d6f0c9c6f5a0e7d33ccda6e732325af700e9056695964a5f79ae1a31a",
       "source_chars": 17632,
-      "source_hash": "4886ff54562ce038d7a90b9d52b8c99291d0b5ce44ea9a342bcfd8204794dd3a",
+      "source_hash": "d22a238eb96978563624e02419954cce4b0adf858105b0348f574615d6d6c0ee",
       "source_labels": [
         "docs/handoff.md: # Part III. v9 Exponential-Family 核心理论补丁（完整保留） -> # Part IV. v10 Hopper Learned-Critic 外部验证记录（完整保留，状态降级）"
       ]
     },
     {
+      "content_contract_evidence": [
+        {
+          "description": "Define how terminal convergence is distinguished from persistent drift or runaway.",
+          "matched_token": "持续 runaway",
+          "source_label": "docs/handoff.md: # 4. 论文机制实验总表与验收标准 -> # 5. 当前真实完成状态",
+          "topic_id": "convergence_or_persistent_drift"
+        },
+        {
+          "description": "Require at least a 2x continuation audit before accepting a terminal classification or method ranking.",
+          "matched_token": "延长至少 2 倍",
+          "source_label": "docs/handoff.md: # 4. 论文机制实验总表与验收标准 -> # 5. 当前真实完成状态",
+          "topic_id": "two_x_continuation"
+        },
+        {
+          "description": "Reject false plateaus caused by clamps, temperature floors, or numerical saturation.",
+          "matched_token": "假平台",
+          "source_label": "docs/handoff.md: # 4. 论文机制实验总表与验收标准 -> # 5. 当前真实完成状态",
+          "topic_id": "false_plateau_checks"
+        },
+        {
+          "description": "Define and preserve task-performance collapse separately from numerical failure.",
+          "matched_token": "任务效果崩溃、数值训练仍可运行",
+          "source_label": "docs/handoff.md: # 4. 论文机制实验总表与验收标准 -> # 5. 当前真实完成状态",
+          "topic_id": "task_performance_collapse"
+        },
+        {
+          "description": "Track support or variance boundary events as a distinct scientific outcome.",
+          "matched_token": "支持/方差收缩",
+          "source_label": "docs/handoff.md: ### 可学习方差：远场路径提前触发支持收缩 -> ### 来源与聚合审计说明",
+          "topic_id": "support_or_variance_boundary"
+        },
+        {
+          "description": "Track NaN/Inf and other non-finite optimizer failures as numerical collapse.",
+          "matched_token": "NaN/Inf",
+          "source_label": "docs/handoff.md: # 4. 论文机制实验总表与验收标准 -> # 5. 当前真实完成状态",
+          "topic_id": "nan_inf_numerical_failure"
+        },
+        {
+          "description": "Require task collapse, support or variance boundary events, and NaN/Inf to be reported separately.",
+          "matched_token": "任务性能崩溃、support/variance boundary 与 NaN/Inf 必须继续分开报告",
+          "source_label": "docs/handoff.md: ### 可学习方差：远场路径提前触发支持收缩 -> ### 来源与聚合审计说明",
+          "topic_id": "separate_failure_reporting"
+        }
+      ],
+      "content_contract_topics": [
+        "convergence_or_persistent_drift",
+        "two_x_continuation",
+        "false_plateau_checks",
+        "task_performance_collapse",
+        "support_or_variance_boundary",
+        "nan_inf_numerical_failure",
+        "separate_failure_reporting"
+      ],
+      "deduplicated_source_labels": [],
       "depends_on": [
         "global_core_governance"
       ],
       "module_id": "terminal_audit",
-      "snapshot_hash": "15897d0c3274290b65c8f8c2f6d575ae25518d0457eb0e21948d85d3c82cd88c",
-      "source_chars": 232,
-      "source_hash": "510d90335e9f056948dcc48103c06565b247321be8f2e79b34655f60c127b283",
+      "snapshot_hash": "75ced4e0a87110e8ec118750ff7ab516cb14fea215432de142b6f4294eda9ed5",
+      "source_chars": 3877,
+      "source_hash": "275c6965993498d20826c8cb04f32528eee1fe6b430371b275502608d6022d26",
       "source_labels": [
-        "docs/handoff.md: ## 4.1 动力学实验统一收敛标准 -> # 5. 当前真实完成状态"
+        "docs/handoff.md: # 4. 论文机制实验总表与验收标准 -> # 5. 当前真实完成状态",
+        "docs/handoff.md: ### 可学习方差：远场路径提前触发支持收缩 -> ### 来源与聚合审计说明"
       ]
     },
     {
+      "content_contract_evidence": [],
+      "content_contract_topics": [],
+      "deduplicated_source_labels": [],
       "depends_on": [
         "global_core_governance",
         "theory_methods_related_work",
         "terminal_audit"
       ],
       "module_id": "continuous_mechanism_e1_e3",
-      "snapshot_hash": "41b862b245f0652d46e375ce0bef0e1659745a252f30360570156a8ccdfb1c72",
+      "snapshot_hash": "7b6a4cccef2a43ceb15d39a190d1784c204d989601b4a5eb147b824ab36a8f68",
       "source_chars": 14576,
-      "source_hash": "67398f2fb2b5a8ebc7bd4e0f1e27193b23914dd404acab1dcfe0eee46bc562aa",
+      "source_hash": "2205e2fd3efccdce254e1f29b21a97dd35b64d0abc4309d6a958160f64dd08a6",
       "source_labels": [
         "docs/handoff.md: # 3. 连续统一环境 C-U1 的详细设计 -> ### 3.6.2 E4：稳定外推—相变—远场控制",
         "experiments/registry.yaml: experiments[C-U1-E3-ADAM-RERUN, C-U1-E1-COMP-01]"
       ]
     },
     {
+      "content_contract_evidence": [],
+      "content_contract_topics": [],
+      "deduplicated_source_labels": [],
       "depends_on": [
         "global_core_governance",
         "theory_methods_related_work",
         "terminal_audit",
         "continuous_mechanism_e1_e3"
       ],
-      "module_id": "continuous_e4_taper",
-      "snapshot_hash": "94ff0261db63f542ea393f7dff862cbf38a564996bdb903dcdd19693342b06d3",
-      "source_chars": 93177,
-      "source_hash": "acabcb285fd0d36f62216597157d9c5282740e52c9ed310cbd8b2967d69944c0",
+      "module_id": "continuous_e4_extrapolation",
+      "snapshot_hash": "c7c8b20f520f2c81e4094164dc564bd28f4dbf3a390a713f6a5f550a5a83faed",
+      "source_chars": 23393,
+      "source_hash": "b62a1253e7a54aa4fb9537955428de923360eaaf557b7a77e6d11a609068cd5f",
       "source_labels": [
         "docs/handoff.md: ### 3.6.2 E4：稳定外推—相变—远场控制 -> ## 3.7 D-U1 / E6 开发配置登记（E4 已完成；用户已批准与 E4-TAPER 并行）",
-        "docs/handoff.md: ## 3.8 C-U1 共享实现与二次阶方法实验 `C-U1-E4-TAPER-01` -> ## 3.9 E6--E8 方法迁移与规模验证路线（v42 锁定）",
-        "docs/handoff.md: HANDOFF-DELTA-BLOCKs matching 'C-U1-E4-TAPER'",
-        "experiments/registry.yaml: experiments[C-U1-E4-ADAM-RERUN, C-U1-E4-CONV-01, C-U1-E4-TAPER-01, C-U1-E4-TAPER-NEAR-RETENTION-01, C-U1-E4-TAPER-BUDGET-MATCH-01, C-U1-E4-TAPER-CONV-01, C-U1-E4-TAPER-CONFIRM-01]"
+        "experiments/registry.yaml: experiments[C-U1-E4-ADAM-RERUN, C-U1-E4-CONV-01]"
       ]
     },
     {
+      "content_contract_evidence": [],
+      "content_contract_topics": [],
+      "deduplicated_source_labels": [
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v60-e4-taper-utility-theory-and-followups (covered by docs/handoff.md: ## 3.8 C-U1 共享实现与二次阶方法实验 `C-U1-E4-TAPER-01` -> ## 3.9 E6--E8 方法迁移与规模验证路线（v42 锁定）)",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v61-e4-taper-near-retention-protocol (covered by docs/handoff.md: ## 3.8 C-U1 共享实现与二次阶方法实验 `C-U1-E4-TAPER-01` -> ## 3.9 E6--E8 方法迁移与规模验证路线（v42 锁定）)",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v63-e4-taper-near-result-and-closure-protocol (covered by docs/handoff.md: ## 3.8 C-U1 共享实现与二次阶方法实验 `C-U1-E4-TAPER-01` -> ## 3.9 E6--E8 方法迁移与规模验证路线（v42 锁定）)"
+      ],
+      "depends_on": [
+        "continuous_e4_extrapolation"
+      ],
+      "module_id": "continuous_e4_taper",
+      "snapshot_hash": "60af093d64b69cf808c7657b45c48519bc0046d9109077aa89641368589a7f9b",
+      "source_chars": 60330,
+      "source_hash": "1ab92bc6f636fa94e90dcdccd132c8e2be0c76a32928eed7d58dedee044fe2db",
+      "source_labels": [
+        "docs/handoff.md: ## 3.8 C-U1 共享实现与二次阶方法实验 `C-U1-E4-TAPER-01` -> ## 3.9 E6--E8 方法迁移与规模验证路线（v42 锁定）",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v60-e4-taper-utility-registration",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v61-e4-taper-near-retention-implementation",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v60-e4-taper-current-gate",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v61-e4-taper-near-retention-current-gate",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v63-e4-taper-closure-current-gate",
+        "experiments/registry.yaml: experiments[C-U1-E4-TAPER-01, C-U1-E4-TAPER-NEAR-RETENTION-01, C-U1-E4-TAPER-BUDGET-MATCH-01, C-U1-E4-TAPER-CONV-01, C-U1-E4-TAPER-CONFIRM-01]"
+      ]
+    },
+    {
+      "content_contract_evidence": [],
+      "content_contract_topics": [],
+      "deduplicated_source_labels": [],
       "depends_on": [
         "global_core_governance",
         "theory_methods_related_work",
         "terminal_audit"
       ],
       "module_id": "categorical_e5_mechanism",
-      "snapshot_hash": "8a1ad17393e7ea0a385209e3c18bd5c8bf77acfa6f968ca06af65db464ea0a2d",
+      "snapshot_hash": "5d4f0de1a8ac41f3a1f953ab8801fd7d2a77e3852a2c1867b9d75166699f35b1",
       "source_chars": 13825,
-      "source_hash": "7218da3336412e3d8a328c24861d12383c4d1e0f952cc3244930f171ad75b6a8",
+      "source_hash": "f835c3dd52ba5ece0cb8ce5c02bd83455f79e5855650924e91a2a528dbce8ebd",
       "source_labels": [
         "docs/handoff.md: ## 3.7.1 D-U1 / D-Diag E5 长程复核 `D-U1-E5-LONGRUN-RERUN` -> ## 3.7.3 E6 共享语义 pilot `D-U1-E6-SEMANTIC-PILOT-01`",
         "experiments/registry.yaml: experiments[D-U1-E5-LONGRUN-RERUN]"
       ]
     },
     {
+      "content_contract_evidence": [],
+      "content_contract_topics": [],
+      "deduplicated_source_labels": [],
       "depends_on": [
         "global_core_governance",
         "theory_methods_related_work",
@@ -216,17 +320,27 @@
         "categorical_e5_mechanism"
       ],
       "module_id": "categorical_e6_generalization",
-      "snapshot_hash": "ada1fdfc1c1db13b8090def1287ebc2e2052939ad2806e91b5a9183eaa9d861e",
-      "source_chars": 64326,
-      "source_hash": "058db1516006e5dac6f55e6138ea754bea419db1e0da13851cd3453a1f26c236",
+      "snapshot_hash": "9df394698c1ceac228a1d1989c4fbdf64f5f9287ae0ed640769120c508b14465",
+      "source_chars": 64319,
+      "source_hash": "f7cf3048f9a2dcc7123122a406baf71769e9948d8af7a395a57a79d866e20383",
       "source_labels": [
         "docs/handoff.md: ## 3.7.3 E6 共享语义 pilot `D-U1-E6-SEMANTIC-PILOT-01` -> ## 3.8 C-U1 共享实现与二次阶方法实验 `C-U1-E4-TAPER-01`",
-        "docs/handoff.md: HANDOFF-DELTA-BLOCKs matching 'D-U1-E6-'",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v50-stage3-shadow-bootstrap",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v51-du1-e6-semantic-gap-formal",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v55-du1-e6-semantic-gap-result-closure",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v56-e6-parent-closure-route-release",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v55-du1-e6-semantic-gap-current-gate",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v56-e6-parent-closure-current-gate",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v55-du1-e6-semantic-gap-completion-status",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v56-e6-parent-closure-execution-order",
         "experiments/registry.yaml: experiments[D-U1-E6-SEMANTIC-LONGRUN-01, D-U1-E6-SEMANTIC-GAP-LONGRUN-01, D-U1-E6-CONDITIONAL-GAP-01]",
         "experiments/registry.yaml: development_experiment_registrations[D-U1-E6-CONDITIONAL-GAP-DEV-01, D-U1-E6-SEMANTIC-PILOT-01, D-U1-E6-SEMANTIC-FOCUSED-DEV-01, D-U1-E6-TAPER-01]"
       ]
     },
     {
+      "content_contract_evidence": [],
+      "content_contract_topics": [],
+      "deduplicated_source_labels": [],
       "depends_on": [
         "global_core_governance",
         "execution_status_gates",
@@ -235,16 +349,32 @@
         "continuous_mechanism_e1_e3"
       ],
       "module_id": "hopper_e7",
-      "snapshot_hash": "37be3a3a52c3b0e8f057947e1950792d97fa103483b303fc6e8440fe35026f3f",
-      "source_chars": 31501,
-      "source_hash": "ce63a8ca0284b622365d638f1f8756acda32a5f34210c70aa6d8e248ff11499b",
+      "snapshot_hash": "feae078158702943662a1ed96205e77599433b964de2680360e86d3527ec69a6",
+      "source_chars": 31488,
+      "source_hash": "c0af4015e1872464bab64a52b34f90e36b106aaf8afad9912ebadce7ce301bba",
       "source_labels": [
         "docs/handoff.md: # 15. Learned-Critic External Mechanism Validation on D4RL -> # Part V. Bandit 稳定外推子实验的收敛审计（完整保留）",
-        "docs/handoff.md: HANDOFF-DELTA-BLOCKs matching 'EXT-H-E7-'",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v54-e7-canonical-critic-rollout-audit",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v56-e6-parent-closure-route-release",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v57-ext-c-e8-v44-offline-negative-bank",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v58-e7-gymnasium-v4-rollout",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v59-ext-c-e8-v45-offline-bank-tuning",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v62-ext-c-e8-v46-online-offpolicy-replay",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v64-e7-q2-acceptance-pipeline",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v56-e6-parent-closure-current-gate",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v57-countdown-offline-bank-current-gate",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v59-countdown-offline-bank-tuning-current-gate",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v62-countdown-online-offpolicy-current-gate",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v56-e6-parent-closure-execution-order",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v57-e8-offline-bank-execution-order",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v62-countdown-online-offpolicy-execution-order",
         "experiments/registry.yaml: experiments[EXT-H-E7-Q2, EXT-H-E7-BENCH-01]"
       ]
     },
     {
+      "content_contract_evidence": [],
+      "content_contract_topics": [],
+      "deduplicated_source_labels": [],
       "depends_on": [
         "global_core_governance",
         "execution_status_gates",
@@ -254,27 +384,44 @@
         "categorical_e6_generalization"
       ],
       "module_id": "countdown_e8",
-      "snapshot_hash": "992254ca7f26d335efee34f111fe6143d1a5c724e0161c8971567b9d0feafab0",
-      "source_chars": 58899,
-      "source_hash": "1979c8d9d81a1419105d314bc96cad75907c06b76cfaa2f33b5ba61c0a39e927",
+      "snapshot_hash": "b485fcd14bcd3fd8192212c21b901e099fbd6a1e24ef3585eafb2812ef7b0bc9",
+      "source_chars": 58888,
+      "source_hash": "97543e8050de65f28cce7731dcbf379c340e5c8e17f987a516fd4a8044e32fbb",
       "source_labels": [
-        "docs/handoff.md: HANDOFF-DELTA-BLOCKs matching 'EXT-C-E8-'",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v52-ext-c-e8-v43-dynamic-control",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v53-stage3-observation-automation",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v57-ext-c-e8-v44-offline-negative-bank",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v59-ext-c-e8-v45-offline-bank-tuning",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v62-ext-c-e8-v46-online-offpolicy-replay",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v52-countdown-current-gate-override",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v57-countdown-offline-bank-current-gate",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v59-countdown-offline-bank-tuning-current-gate",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v62-countdown-online-offpolicy-current-gate",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v52-e8-route-override",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v57-e8-offline-online-route",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v52-execution-order-override",
         "experiments/registry.yaml: experiments[EXT-C-E8-V4, EXT-C-E8-V4.1, EXT-C-E8-V4.2, EXT-C-E8-V4.3, EXT-C-E8-V4.4-OFFLINE-BANK, EXT-C-E8-V4.5-OFFLINE-BANK-TUNING, EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY, EXT-C-E8-SCALE-01]"
       ]
     },
     {
+      "content_contract_evidence": [],
+      "content_contract_topics": [],
+      "deduplicated_source_labels": [],
       "depends_on": [
         "global_core_governance"
       ],
       "module_id": "history_provenance",
-      "snapshot_hash": "3fce948757b039123acfd43e160795992b5bb3b585cb3ea197f6325b431f0007",
+      "snapshot_hash": "20a307d83153088615e42fc7b9d955b99948e1a8f779d17ef56d0d66e44e4eea",
       "source_chars": 937,
-      "source_hash": "5783b5be11dce39b892605185da320b0dd7f5e961a3f4e2fea7b7014194ad04e",
+      "source_hash": "8e15aa5cabfee1406e51a8d1405de30ae48daf4a4cc20027189c52d12b73c937",
       "source_labels": [
         "docs/handoff.md: # 8. v4-v10 版本审计与恢复策略 -> # 9. 原审稿问题与新论文的硬约束"
       ]
     },
     {
+      "content_contract_evidence": [],
+      "content_contract_topics": [],
+      "deduplicated_source_labels": [],
       "depends_on": [
         "global_core_governance",
         "theory_methods_related_work",
@@ -287,9 +434,9 @@
         "countdown_e8"
       ],
       "module_id": "paper_rewrite",
-      "snapshot_hash": "780ea23c7886e655993c01c2b07520399db2b2a2ab855ed6e7e41b6babdd9704",
+      "snapshot_hash": "6eb5b34f696d7d70a95921c2e6d5f58f16192b20bb53606465c02ac8bb4cda19",
       "source_chars": 25460,
-      "source_hash": "351958aa6be40eb74137f4e986e947de81646d5d3af14b60dea86a669b548563",
+      "source_hash": "84d4e665db0ac281faf2026664ada2b092e9c492488adbf984ca4ddffd6126d2",
       "source_labels": [
         "docs/handoff.md: # Part VI. 论文重写大纲（当前草案，后续须与实验状态同步） -> # 0. 本次恢复的明确结论"
       ]
@@ -298,6 +445,9 @@
   "policy_id": "GOV-HANDOFF-INDEX-01",
   "research_master": "docs/handoff.md",
   "schema_version": 1,
+  "semantic_contract_required_modules": [
+    "terminal_audit"
+  ],
   "structure_change_policy": "suggestion_only_human_approval_required",
   "suggestion_count": 2
 }

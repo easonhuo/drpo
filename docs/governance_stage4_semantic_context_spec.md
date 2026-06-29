@@ -515,3 +515,36 @@ Context Pack 是临时生成的非权威输入，不反向修改模块、handoff
 
 通过这些工程验收只证明按依赖加载的 shadow 闭环可用，不证明初始模块粒度已经最优，
 也不构成 Stage 4A 最终 acceptance 或 authority cutover。
+
+### 13.6 Minimal Context Core 语义完整性加固（2026-06-29）
+
+本轮加固修复一个高风险但不易从依赖图中发现的问题：原 builder 只验证“模块存在、
+source 可读取、依赖闭包正确”，却没有验证模块内容是否真的覆盖其 `responsibility`。
+因此 `terminal_audit` 虽然声明负责收敛、持续漂移、任务性能崩溃、support/variance
+boundary 与 NaN/Inf 分报，实际 source 却只包含统一收敛窗口。只要目标模块依赖了
+`terminal_audit`，结构验收仍会通过，缺失语义只能在后续实验误报时才被发现。
+
+加固后的规则如下：
+
+1. `MODULES.yaml` 通过顶层 `semantic_contract_required_modules` 锁定必须具备语义契约的
+   高风险共享模块；这些模块的整个 `content_contract` 若被删除，builder 立即 fail closed，
+   不能依赖测试人员事后发现。每个 required topic 必须给出稳定 `topic_id`、职责描述、
+   可接受的权威文本锚点和允许提供证据的 source label 范围。
+2. Builder 不再只做整模块关键词搜索，而是为每个 topic 生成确定性的
+   `topic -> matched phrase -> authoritative source` 证据。证据写入模块正文、`source_hash` 和
+   `MODULE_INDEX.json`；锚点出现在错误 source 中也不能蒙混通过。`terminal_audit` 显式映射
+   统一实验验收表、收敛/持续漂移规则，以及任务崩溃、support/variance boundary、NaN/Inf
+   三类事件分离的权威段落，并登记七项 required topics。
+3. 所有 handoff source 记录物理行区间。若 broad `markdown_range` 已覆盖某个 marker block，
+   只保留一份；完全包含的重复 source 会被确定性去重并记录在 module index，部分重叠则
+   fail closed，避免静默剪裁或重复。
+4. 未映射检测同时扫描 canonical `experiments` 与
+   `development_experiment_registrations`。formal development registration 使用高优先级
+   suggestion，pilot/development entry 使用普通 suggestion；两者都只建议，不自动改结构。
+5. 经用户明确批准，原混合 E4 模块拆为 `continuous_e4_extrapolation` 与
+   `continuous_e4_taper`。后者依赖前者；基础 E4 任务不再加载全部 taper follow-up，
+   taper pack 仍保留完整机制基础。
+
+上述加固只提高 Stage 4A shadow Context Builder 的可审计性和 fail-closed 能力。
+`docs/handoff.md` 与 `experiments/registry.yaml` 继续是唯一权威输入，Stage 4B/4C、
+Stage 5 和 authority cutover 仍保持阻塞。

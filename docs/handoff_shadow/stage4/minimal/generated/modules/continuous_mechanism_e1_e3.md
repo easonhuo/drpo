@@ -5,7 +5,9 @@
 
 - Module ID: `continuous_mechanism_e1_e3`
 - Responsibility: Cover continuous far-field gradient-source identification and causal transmission into drift, task collapse, and variance or support contraction.
-- Source hash: `67398f2fb2b5a8ebc7bd4e0f1e27193b23914dd404acab1dcfe0eee46bc562aa`
+- Content contract topics: none
+- Deduplicated overlapping source chunks: 0
+- Source hash: `2205e2fd3efccdce254e1f29b21a97dd35b64d0abc4309d6a958160f64dd08a6`
 
 ## Source 1: docs/handoff.md: # 3. 连续统一环境 C-U1 的详细设计 -> ### 3.6.2 E4：稳定外推—相变—远场控制
 

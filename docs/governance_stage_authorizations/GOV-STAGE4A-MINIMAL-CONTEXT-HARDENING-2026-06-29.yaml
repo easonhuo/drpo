@@ -1,0 +1,33 @@
+schema_version: 1
+authorization_id: GOV-STAGE4A-MINIMAL-CONTEXT-HARDENING-2026-06-29
+kind: stage_transition
+change_class: stage_transition
+claim_id: GOV-HANDOFF-INDEX-01
+approval_record: user_approved_2026-06-29_stage4_minimal_context_semantic_hardening
+base_commit: 7dcde2095e0f0aa4a7302a829667c1955c187738
+stage_ids:
+- stage_4
+authorized_stage_statuses:
+  stage_4: active
+scope:
+- make_terminal_audit_semantically_self_contained
+- add_fail_closed_required_topic_contracts_for_critical_modules
+- deduplicate_fully_contained_authoritative_source_spans
+- fail_closed_on_partial_authoritative_source_overlap
+- detect_unmapped_development_experiment_registrations
+- split_continuous_e4_extrapolation_from_the_taper_follow_up_track
+- preserve_handoff_and_registry_as_the_only_authoritative_inputs
+- keep_stage_4b_stage_4c_stage_5_and_authority_cutover_blocked
+excluded_scope:
+- modify_scientific_experiment_variables_seeds_thresholds_or_results
+- physical_handoff_split
+- automatic_module_add_delete_split_merge_or_dependency_rewrite
+- ai_semantic_proposal_adapter
+- stage3_delta_adapter
+- authority_cutover
+rollback_plan:
+- revert_the_stage4_minimal_context_hardening_commit
+- restore_the_previous_single_e4_module_mapping
+- retain_all_authoritative_handoff_registry_and_historical_stage4_outputs
+manual_handoff_remains_authoritative: true
+authority_cutover_allowed: false

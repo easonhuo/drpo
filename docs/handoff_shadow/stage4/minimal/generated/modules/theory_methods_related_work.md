@@ -5,7 +5,9 @@
 
 - Module ID: `theory_methods_related_work`
 - Responsibility: Provide the shared repulsive-dynamics theory, method definitions, comparison boundaries, and literature positioning.
-- Source hash: `4886ff54562ce038d7a90b9d52b8c99291d0b5ce44ea9a342bcfd8204794dd3a`
+- Content contract topics: none
+- Deduplicated overlapping source chunks: 0
+- Source hash: `d22a238eb96978563624e02419954cce4b0adf858105b0348f574615d6d6c0ee`
 
 ## Source 1: docs/handoff.md: # Part III. v9 Exponential-Family 核心理论补丁（完整保留） -> # Part IV. v10 Hopper Learned-Critic 外部验证记录（完整保留，状态降级）
 

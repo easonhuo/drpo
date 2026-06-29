@@ -100,3 +100,27 @@ python3 scripts/build_stage4_context.py --repo-root . context \
 The module and dependency YAML files are human-reviewed structure. Existing
 module content updates automatically from the authoritative sources; structural
 change suggestions require explicit approval and an ordinary Git update.
+
+### Semantic completeness and overlap hardening
+
+Critical modules are listed in `semantic_contract_required_modules` and must
+retain a non-empty `content_contract.required_topics` declaration. Each topic
+has a human-readable responsibility, accepted text anchors, and an allowed
+source-label scope. The builder records deterministic evidence mapping every
+required topic to the exact authoritative source and matched phrase before any
+generated file is accepted. `terminal_audit` uses this contract so neither a
+present dependency edge nor an unrelated keyword elsewhere can stand in for
+missing collapse or terminal-state semantics.
+
+The builder also tracks physical handoff line spans. Fully contained source
+chunks are emitted once and recorded as deduplicated in `MODULE_INDEX.json`;
+partial overlaps fail closed. Unmapped suggestions cover both canonical
+`experiments` and `development_experiment_registrations`, while remaining
+advisory only.
+
+E4 is intentionally split once by responsibility:
+
+- `continuous_e4_extrapolation`: positive-only ceiling, stable extrapolation,
+  phase transition, variance outcomes, and convergence closure;
+- `continuous_e4_taper`: taper families, fairness controls, long-run resolution,
+  and confirmation, with a dependency on the E4 extrapolation module.

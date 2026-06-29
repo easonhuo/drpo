@@ -29,6 +29,9 @@ CORE_GENERATED_FILES = (
     "DEPENDENCY_GRAPH.md",
     "STRUCTURE_SUGGESTIONS.md",
 )
+MANDATORY_SEMANTIC_CONTRACTS_BY_POLICY = {
+    "GOV-HANDOFF-INDEX-01": frozenset({"terminal_audit"}),
+}
 
 
 class ContextBuildError(ValueError):
@@ -36,10 +39,33 @@ class ContextBuildError(ValueError):
 
 
 @dataclass(frozen=True)
+class SourceSpan:
+    path: str
+    start_line: int
+    end_line: int
+
+    def overlaps(self, other: "SourceSpan") -> bool:
+        return (
+            self.path == other.path
+            and self.start_line < other.end_line
+            and other.start_line < self.end_line
+        )
+
+    def contains(self, other: "SourceSpan") -> bool:
+        return (
+            self.path == other.path
+            and self.start_line <= other.start_line
+            and self.end_line >= other.end_line
+        )
+
+
+@dataclass(frozen=True)
 class SourceChunk:
     label: str
     descriptor: dict[str, Any]
     text: str
+    spans: tuple[SourceSpan, ...] = ()
+    coverage_keys: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -52,6 +78,9 @@ class ModuleSnapshot:
     source_chars: int
     bytes_payload: bytes
     source_labels: tuple[str, ...]
+    deduplicated_source_labels: tuple[str, ...]
+    contract_topics: tuple[str, ...]
+    contract_evidence: tuple[dict[str, str], ...]
 
 
 @dataclass(frozen=True)
@@ -159,7 +188,12 @@ def extract_markdown_range(repo_root: Path, source: dict[str, Any]) -> SourceChu
     }
     end_label = end_literal if end_literal is not None else "<EOF>"
     label = f"{path_value}: {start_literal} -> {end_label}"
-    return SourceChunk(label=label, descriptor=descriptor, text=extracted)
+    return SourceChunk(
+        label=label,
+        descriptor=descriptor,
+        text=extracted,
+        spans=(SourceSpan(path=path_value, start_line=start_index, end_line=end_index),),
+    )
 
 
 def extract_marker_block(repo_root: Path, source: dict[str, Any]) -> SourceChunk:
@@ -188,11 +222,21 @@ def extract_marker_block(repo_root: Path, source: dict[str, Any]) -> SourceChunk
         label=f"{path_value}: HANDOFF-DELTA-BLOCK {block_id}",
         descriptor=descriptor,
         text=extracted,
+        spans=(
+            SourceSpan(
+                path=path_value,
+                start_line=start_index,
+                end_line=end_index + 1,
+            ),
+        ),
+        coverage_keys=(f"handoff-block:{path_value}:{block_id}",),
     )
 
 
 
-def extract_matching_marker_blocks(repo_root: Path, source: dict[str, Any]) -> SourceChunk:
+def extract_matching_marker_blocks(
+    repo_root: Path, source: dict[str, Any]
+) -> tuple[SourceChunk, ...]:
     path_value = source.get("path")
     tokens = source.get("match_any")
     if not isinstance(tokens, list) or not tokens or not all(
@@ -210,7 +254,7 @@ def extract_matching_marker_blocks(repo_root: Path, source: dict[str, Any]) -> S
     start_prefix = "<!-- HANDOFF-DELTA-BLOCK:"
     start_suffix = ":START -->"
     seen_ids: set[str] = set()
-    matched: list[tuple[str, str]] = []
+    matched: list[SourceChunk] = []
     index = 0
     while index < len(lines):
         stripped = lines[index].rstrip("\r\n")
@@ -242,29 +286,36 @@ def extract_matching_marker_blocks(repo_root: Path, source: dict[str, Any]) -> S
         body = "".join(lines[index + 1 : end_index]).strip()
         searchable = block_id + "\n" + body
         if any(token in searchable for token in tokens):
-            matched.append((block_id, body))
+            descriptor = {
+                "kind": "marker_blocks_matching",
+                "path": path_value,
+                "match_any": tokens,
+                "matched_block_id": block_id,
+            }
+            matched.append(
+                SourceChunk(
+                    label=f"{path_value}: HANDOFF-DELTA-BLOCK {block_id}",
+                    descriptor=descriptor,
+                    text=(
+                        f"### Delta block `{block_id}`\n\n{body}".rstrip() + "\n"
+                    ),
+                    spans=(
+                        SourceSpan(
+                            path=path_value,
+                            start_line=index,
+                            end_line=end_index + 1,
+                        ),
+                    ),
+                    coverage_keys=(f"handoff-block:{path_value}:{block_id}",),
+                )
+            )
         index = end_index + 1
     if not matched:
         raise ContextBuildError(
             f"marker_blocks_matching found no blocks in {path_value} for tokens {tokens}"
         )
-    rendered_parts: list[str] = []
-    for block_id, body in matched:
-        rendered_parts.extend([f"### Delta block `{block_id}`", "", body, ""])
-    descriptor = {
-        "kind": "marker_blocks_matching",
-        "path": path_value,
-        "match_any": tokens,
-        "matched_block_ids": [block_id for block_id, _ in matched],
-    }
-    return SourceChunk(
-        label=(
-            f"{path_value}: HANDOFF-DELTA-BLOCKs matching "
-            + ", ".join(repr(token) for token in tokens)
-        ),
-        descriptor=descriptor,
-        text="\n".join(rendered_parts).rstrip() + "\n",
-    )
+    return tuple(matched)
+
 
 def registry_entry_id(entry: dict[str, Any]) -> str | None:
     for key in ("experiment_id", "id", "claim_id"):
@@ -338,20 +389,210 @@ def extract_registry_entries(repo_root: Path, source: dict[str, Any]) -> SourceC
         label=f"{path_value}: {collection}[{', '.join(ids)}]",
         descriptor=descriptor,
         text=rendered,
+        coverage_keys=tuple(
+            f"registry-entry:{path_value}:{collection}:{item_id}" for item_id in ids
+        ),
     )
 
 
-def extract_source(repo_root: Path, source: dict[str, Any]) -> SourceChunk:
+def extract_source(
+    repo_root: Path, source: dict[str, Any]
+) -> tuple[SourceChunk, ...]:
     kind = source.get("kind")
     if kind == "markdown_range":
-        return extract_markdown_range(repo_root, source)
+        return (extract_markdown_range(repo_root, source),)
     if kind == "marker_block":
-        return extract_marker_block(repo_root, source)
+        return (extract_marker_block(repo_root, source),)
     if kind == "marker_blocks_matching":
         return extract_matching_marker_blocks(repo_root, source)
     if kind == "registry_entries":
-        return extract_registry_entries(repo_root, source)
+        return (extract_registry_entries(repo_root, source),)
     raise ContextBuildError(f"unknown module source kind: {kind!r}")
+
+
+def deduplicate_source_chunks(
+    module_id: str, chunks: list[SourceChunk]
+) -> tuple[list[SourceChunk], tuple[str, ...]]:
+    """Remove fully redundant mapped source chunks and reject ambiguous overlaps.
+
+    A broad markdown range may legitimately contain a delta block that is also
+    selected by a future-proof marker matcher.  The same authoritative source
+    span must appear only once in a generated module.  Partial overlaps are not
+    silently rewritten because they usually indicate an incorrect human mapping.
+    """
+
+    keep = [True] * len(chunks)
+    dropped: list[str] = []
+
+    def drop(index: int, covered_by: int) -> None:
+        if not keep[index]:
+            return
+        keep[index] = False
+        dropped.append(f"{chunks[index].label} (covered by {chunks[covered_by].label})")
+
+    for left in range(len(chunks)):
+        if not keep[left]:
+            continue
+        for right in range(left + 1, len(chunks)):
+            if not keep[right]:
+                continue
+            left_chunk = chunks[left]
+            right_chunk = chunks[right]
+            left_keys = set(left_chunk.coverage_keys)
+            right_keys = set(right_chunk.coverage_keys)
+            shared_keys = left_keys & right_keys
+            if shared_keys:
+                if right_keys <= left_keys:
+                    drop(right, left)
+                    continue
+                if left_keys <= right_keys:
+                    drop(left, right)
+                    break
+                raise ContextBuildError(
+                    f"module {module_id} has partially overlapping semantic source keys: "
+                    f"{left_chunk.label!r} vs {right_chunk.label!r}; "
+                    f"shared={sorted(shared_keys)}"
+                )
+
+            if not left_chunk.spans or not right_chunk.spans:
+                continue
+            left_covers_right = all(
+                any(left_span.contains(right_span) for left_span in left_chunk.spans)
+                for right_span in right_chunk.spans
+            )
+            right_covers_left = all(
+                any(right_span.contains(left_span) for right_span in right_chunk.spans)
+                for left_span in left_chunk.spans
+            )
+            if left_covers_right and right_covers_left:
+                drop(right, left)
+                continue
+            if left_covers_right:
+                drop(right, left)
+                continue
+            if right_covers_left:
+                drop(left, right)
+                break
+            if any(
+                left_span.overlaps(right_span)
+                for left_span in left_chunk.spans
+                for right_span in right_chunk.spans
+            ):
+                raise ContextBuildError(
+                    f"module {module_id} has partial source-span overlap: "
+                    f"{left_chunk.label!r} vs {right_chunk.label!r}"
+                )
+
+    selected = [chunk for index, chunk in enumerate(chunks) if keep[index]]
+    if not selected:
+        raise ContextBuildError(f"module {module_id} has no source content after deduplication")
+    return selected, tuple(dropped)
+
+
+def normalize_content_contract(
+    module_id: str, raw: Any
+) -> tuple[dict[str, Any], ...]:
+    if raw is None:
+        return ()
+    if not isinstance(raw, dict):
+        raise ContextBuildError(f"module {module_id} content_contract must be a mapping")
+    topics = raw.get("required_topics")
+    if not isinstance(topics, list) or not topics:
+        raise ContextBuildError(
+            f"module {module_id} content_contract.required_topics must be non-empty"
+        )
+    normalized: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for index, topic in enumerate(topics):
+        if not isinstance(topic, dict):
+            raise ContextBuildError(
+                f"module {module_id} required_topics[{index}] must be a mapping"
+            )
+        topic_id = topic.get("topic_id")
+        description = topic.get("description")
+        tokens = topic.get("match_any")
+        source_label_any = topic.get("source_label_any", [])
+        if not isinstance(topic_id, str) or not topic_id:
+            raise ContextBuildError(
+                f"module {module_id} required_topics[{index}].topic_id must be non-empty"
+            )
+        if topic_id in seen:
+            raise ContextBuildError(
+                f"module {module_id} content contract has duplicate topic_id: {topic_id}"
+            )
+        seen.add(topic_id)
+        if not isinstance(description, str) or not description:
+            raise ContextBuildError(
+                f"module {module_id} required_topics[{index}].description must be non-empty"
+            )
+        if not isinstance(tokens, list) or not tokens or not all(
+            isinstance(token, str) and token for token in tokens
+        ):
+            raise ContextBuildError(
+                f"module {module_id} topic {topic_id} match_any must be a non-empty string list"
+            )
+        if len(tokens) != len(set(tokens)):
+            raise ContextBuildError(
+                f"module {module_id} topic {topic_id} match_any contains duplicates"
+            )
+        if not isinstance(source_label_any, list) or not all(
+            isinstance(value, str) and value for value in source_label_any
+        ):
+            raise ContextBuildError(
+                f"module {module_id} topic {topic_id} source_label_any must be a string list"
+            )
+        if len(source_label_any) != len(set(source_label_any)):
+            raise ContextBuildError(
+                f"module {module_id} topic {topic_id} source_label_any contains duplicates"
+            )
+        normalized.append(
+            {
+                "topic_id": topic_id,
+                "description": description,
+                "match_any": tuple(tokens),
+                "source_label_any": tuple(source_label_any),
+            }
+        )
+    return tuple(normalized)
+
+
+def validate_content_contract(
+    module_id: str, contract: tuple[dict[str, Any], ...], chunks: list[SourceChunk]
+) -> tuple[tuple[str, ...], tuple[dict[str, str], ...]]:
+    missing: list[str] = []
+    evidence: list[dict[str, str]] = []
+    for topic in contract:
+        matched: dict[str, str] | None = None
+        for chunk in chunks:
+            label_filters = topic["source_label_any"]
+            if label_filters and not any(
+                value in chunk.label for value in label_filters
+            ):
+                continue
+            for token in topic["match_any"]:
+                if token in chunk.text:
+                    matched = {
+                        "topic_id": topic["topic_id"],
+                        "description": topic["description"],
+                        "source_label": chunk.label,
+                        "matched_token": token,
+                    }
+                    break
+            if matched is not None:
+                break
+        if matched is None:
+            missing.append(topic["topic_id"])
+        else:
+            evidence.append(matched)
+    if missing:
+        raise ContextBuildError(
+            f"module {module_id} content contract is incomplete; missing topics: "
+            + ", ".join(missing)
+        )
+    return (
+        tuple(topic["topic_id"] for topic in contract),
+        tuple(evidence),
+    )
 
 
 def normalize_modules(payload: dict[str, Any]) -> tuple[list[dict[str, Any]], int]:
@@ -403,7 +644,53 @@ def normalize_modules(payload: dict[str, Any]) -> tuple[list[dict[str, Any]], in
                 "responsibility": responsibility,
                 "sources": sources,
                 "split_suggestion_chars": limit,
+                "content_contract": normalize_content_contract(
+                    module_id, module.get("content_contract")
+                ),
             }
+        )
+    if "semantic_contract_required_modules" not in payload:
+        raise ContextBuildError(
+            "MODULES.yaml must declare semantic_contract_required_modules"
+        )
+    required_contract_modules = payload.get("semantic_contract_required_modules")
+    if not isinstance(required_contract_modules, list) or not all(
+        isinstance(value, str) and value for value in required_contract_modules
+    ):
+        raise ContextBuildError(
+            "semantic_contract_required_modules must be a string list"
+        )
+    if len(required_contract_modules) != len(set(required_contract_modules)):
+        raise ContextBuildError(
+            "semantic_contract_required_modules contains duplicates"
+        )
+    unknown_contract_modules = sorted(set(required_contract_modules) - seen)
+    if unknown_contract_modules:
+        raise ContextBuildError(
+            "semantic_contract_required_modules contains unknown modules: "
+            + ", ".join(unknown_contract_modules)
+        )
+    mandatory_contracts = MANDATORY_SEMANTIC_CONTRACTS_BY_POLICY.get(
+        payload.get("policy_id"), frozenset()
+    )
+    missing_mandatory = sorted(
+        (mandatory_contracts & seen) - set(required_contract_modules)
+    )
+    if missing_mandatory:
+        raise ContextBuildError(
+            "policy requires semantic contracts for modules: "
+            + ", ".join(missing_mandatory)
+        )
+    normalized_by_id = {module["module_id"]: module for module in normalized}
+    missing_contracts = [
+        module_id
+        for module_id in required_contract_modules
+        if not normalized_by_id[module_id]["content_contract"]
+    ]
+    if missing_contracts:
+        raise ContextBuildError(
+            "required semantic contracts are missing for modules: "
+            + ", ".join(missing_contracts)
         )
     return normalized, default_limit
 
@@ -508,17 +795,35 @@ def dependency_closure(
     return tuple(ordered)
 
 
-def render_module(module: dict[str, Any], chunks: list[SourceChunk]) -> ModuleSnapshot:
+def render_module(
+    module: dict[str, Any],
+    chunks: list[SourceChunk],
+    deduplicated_source_labels: tuple[str, ...],
+    contract_topics: tuple[str, ...],
+    contract_evidence: tuple[dict[str, str], ...],
+) -> ModuleSnapshot:
     module_id = module["module_id"]
     source_payload = {
         "module_id": module_id,
         "title": module["title"],
         "responsibility": module["responsibility"],
+        "content_contract": [
+            {
+                "topic_id": topic["topic_id"],
+                "description": topic["description"],
+                "match_any": list(topic["match_any"]),
+                "source_label_any": list(topic["source_label_any"]),
+            }
+            for topic in module["content_contract"]
+        ],
+        "contract_evidence": list(contract_evidence),
+        "deduplicated_source_labels": list(deduplicated_source_labels),
         "sources": [
             {"descriptor": chunk.descriptor, "text": chunk.text} for chunk in chunks
         ],
     }
     source_hash = canonical_hash(source_payload)
+    contract_text = ", ".join(f"`{topic}`" for topic in contract_topics) or "none"
     parts = [
         f"# {module['title']}",
         "",
@@ -527,9 +832,30 @@ def render_module(module: dict[str, Any], chunks: list[SourceChunk]) -> ModuleSn
         "",
         f"- Module ID: `{module_id}`",
         f"- Responsibility: {module['responsibility']}",
+        f"- Content contract topics: {contract_text}",
+        f"- Deduplicated overlapping source chunks: {len(deduplicated_source_labels)}",
         f"- Source hash: `{source_hash}`",
         "",
     ]
+    if contract_evidence:
+        parts.extend(
+            [
+                "## Content contract evidence",
+                "",
+                "| Topic | Required semantic responsibility | Authoritative source | Matched phrase |",
+                "|---|---|---|---|",
+            ]
+        )
+        for item in contract_evidence:
+            values = [
+                item["topic_id"],
+                item["description"],
+                item["source_label"],
+                item["matched_token"],
+            ]
+            escaped = [value.replace("|", "\\|").replace("\n", " ") for value in values]
+            parts.append("| " + " | ".join(escaped) + " |")
+        parts.append("")
     for index, chunk in enumerate(chunks, start=1):
         parts.extend(
             [
@@ -549,7 +875,11 @@ def render_module(module: dict[str, Any], chunks: list[SourceChunk]) -> ModuleSn
         source_chars=sum(len(chunk.text) for chunk in chunks),
         bytes_payload=payload,
         source_labels=tuple(chunk.label for chunk in chunks),
+        deduplicated_source_labels=deduplicated_source_labels,
+        contract_topics=contract_topics,
+        contract_evidence=contract_evidence,
     )
+
 
 
 def render_graph_dot(
@@ -614,20 +944,27 @@ def generate_suggestions(
     snapshots: dict[str, ModuleSnapshot],
     dependencies: dict[str, tuple[str, ...]],
 ) -> tuple[dict[str, Any], ...]:
-    mapped_canonical: set[str] = set()
+    mapped_by_collection: dict[str, set[str]] = {
+        "experiments": set(),
+        "development_experiment_registrations": set(),
+    }
     for module in modules:
         for source in module["sources"]:
             if (
                 source.get("kind") == "registry_entries"
                 and source.get("path") == "experiments/registry.yaml"
-                and source.get("collection", "experiments") == "experiments"
             ):
-                mapped_canonical.update(source.get("experiment_ids", []))
+                collection = source.get("collection", "experiments")
+                if collection in mapped_by_collection:
+                    mapped_by_collection[collection].update(
+                        source.get("experiment_ids", [])
+                    )
+
+    suggestions: list[dict[str, Any]] = []
     canonical_ids = set(
         all_registry_ids(repo_root, "experiments/registry.yaml", "experiments")
     )
-    suggestions: list[dict[str, Any]] = []
-    for experiment_id in sorted(canonical_ids - mapped_canonical):
+    for experiment_id in sorted(canonical_ids - mapped_by_collection["experiments"]):
         suggestions.append(
             {
                 "kind": "candidate_add_or_map_module",
@@ -636,6 +973,50 @@ def generate_suggestions(
                 "automatic_action": False,
             }
         )
+
+    development_entries = load_registry_collection(
+        repo_root,
+        "experiments/registry.yaml",
+        "development_experiment_registrations",
+    )
+    development_index: dict[str, dict[str, Any]] = {}
+    for entry in development_entries:
+        item_id = registry_entry_id(entry)
+        if item_id is None:
+            raise ContextBuildError(
+                "registry entry without ID in experiments/registry.yaml:"
+                "development_experiment_registrations"
+            )
+        if item_id in development_index:
+            raise ContextBuildError(
+                f"duplicate registry ID {item_id!r} in experiments/registry.yaml:"
+                "development_experiment_registrations"
+            )
+        development_index[item_id] = entry
+    unmapped_development = (
+        set(development_index)
+        - mapped_by_collection["development_experiment_registrations"]
+    )
+    for experiment_id in sorted(unmapped_development):
+        execution_class = development_index[experiment_id].get("execution_class")
+        is_formal = execution_class == "formal"
+        suggestions.append(
+            {
+                "kind": (
+                    "candidate_map_development_formal_registration"
+                    if is_formal
+                    else "candidate_map_development_registration"
+                ),
+                "object_id": experiment_id,
+                "reason": (
+                    "formal development registration is not mapped to any minimal module"
+                    if is_formal
+                    else "development or pilot registration is not mapped to any minimal module"
+                ),
+                "automatic_action": False,
+            }
+        )
+
     inbound = {module["module_id"]: 0 for module in modules}
     for values in dependencies.values():
         for dependency in values:
@@ -669,6 +1050,7 @@ def generate_suggestions(
                 }
             )
     return tuple(suggestions)
+
 
 
 def render_suggestions(suggestions: tuple[dict[str, Any], ...]) -> bytes:
@@ -763,8 +1145,18 @@ def build_plan(
     snapshots: dict[str, ModuleSnapshot] = {}
     outputs: dict[Path, bytes] = {}
     for module in modules:
-        chunks = [extract_source(repo_root, source) for source in module["sources"]]
-        snapshot = render_module(module, chunks)
+        extracted: list[SourceChunk] = []
+        for source in module["sources"]:
+            extracted.extend(extract_source(repo_root, source))
+        chunks, deduplicated = deduplicate_source_chunks(
+            module["module_id"], extracted
+        )
+        contract_topics, contract_evidence = validate_content_contract(
+            module["module_id"], module["content_contract"], chunks
+        )
+        snapshot = render_module(
+            module, chunks, deduplicated, contract_topics, contract_evidence
+        )
         snapshots[snapshot.module_id] = snapshot
         outputs[Path("modules") / f"{snapshot.module_id}.md"] = snapshot.bytes_payload
     suggestions = generate_suggestions(repo_root, modules, snapshots, dependencies)
@@ -800,6 +1192,9 @@ def build_plan(
         "authority": "non_authoritative_stage4_minimal_context_shadow",
         "research_master": "docs/handoff.md",
         "structure_change_policy": "suggestion_only_human_approval_required",
+        "semantic_contract_required_modules": modules_payload.get(
+            "semantic_contract_required_modules"
+        ),
         "input_hashes": input_files,
         "graph_hash": graph_hash,
         "module_order": list(module_order),
@@ -810,6 +1205,15 @@ def build_plan(
                 "snapshot_hash": snapshots[module_id].snapshot_hash,
                 "source_chars": snapshots[module_id].source_chars,
                 "source_labels": list(snapshots[module_id].source_labels),
+                "deduplicated_source_labels": list(
+                    snapshots[module_id].deduplicated_source_labels
+                ),
+                "content_contract_topics": list(
+                    snapshots[module_id].contract_topics
+                ),
+                "content_contract_evidence": list(
+                    snapshots[module_id].contract_evidence
+                ),
                 "depends_on": list(dependencies[module_id]),
             }
             for module_id in module_order

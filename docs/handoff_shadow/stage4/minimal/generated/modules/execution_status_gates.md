@@ -5,7 +5,9 @@
 
 - Module ID: `execution_status_gates`
 - Responsibility: Provide the current experiment evidence states, execution ordering, and formal launch gates.
-- Source hash: `c5cd80beb10b67bc50d71ab188d6a613b86833198c881f7a917344ba964bef84`
+- Content contract topics: none
+- Deduplicated overlapping source chunks: 0
+- Source hash: `6b1d1a0d1f8bf189613714ad116ba6fbe33b9f19d6c739658940c5efba6030ea`
 
 ## Source 1: docs/handoff.md: # 5. 当前真实完成状态 -> # 7. 变量治理
 

@@ -5,7 +5,9 @@
 
 - Module ID: `history_provenance`
 - Responsibility: Preserve restoration strategy, superseded statements, historical evidence boundaries, and source recovery rules.
-- Source hash: `5783b5be11dce39b892605185da320b0dd7f5e961a3f4e2fea7b7014194ad04e`
+- Content contract topics: none
+- Deduplicated overlapping source chunks: 0
+- Source hash: `8e15aa5cabfee1406e51a8d1405de30ae48daf4a4cc20027189c52d12b73c937`
 
 ## Source 1: docs/handoff.md: # 8. v4-v10 版本审计与恢复策略 -> # 9. 原审稿问题与新论文的硬约束
 

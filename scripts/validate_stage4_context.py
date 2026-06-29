@@ -49,6 +49,19 @@ def validate(repo_root: Path) -> dict[str, Any]:
         "edge_count": sum(len(values) for values in plan.dependencies.values()),
         "graph_hash": plan.graph_hash,
         "suggestion_count": len(plan.suggestions),
+        "semantic_contract_module_count": sum(
+            1 for snapshot in plan.snapshots.values() if snapshot.contract_topics
+        ),
+        "semantic_contract_topic_count": sum(
+            len(snapshot.contract_topics) for snapshot in plan.snapshots.values()
+        ),
+        "semantic_contract_evidence_count": sum(
+            len(snapshot.contract_evidence) for snapshot in plan.snapshots.values()
+        ),
+        "deduplicated_source_chunk_count": sum(
+            len(snapshot.deduplicated_source_labels)
+            for snapshot in plan.snapshots.values()
+        ),
         "acceptance_targets": list(plan.acceptance_results),
     }
 

@@ -5,7 +5,9 @@
 
 - Module ID: `global_core_governance`
 - Responsibility: Preserve the unique-master rule, terminology, scientific scope, and non-destructive governance constraints.
-- Source hash: `65e16ebbf02028f1117d1926adbe9dab6d51d4e49d93d2a2892bc50a41e41971`
+- Content contract topics: none
+- Deduplicated overlapping source chunks: 0
+- Source hash: `4825a4b8410dbf2bc4fa6e766b5b0a7ea021515f9f7deac69661afbad72bb16c`
 
 ## Source 1: docs/handoff.md: # 0. 研究与执行原则（每次新会话首先阅读） -> # 1. 论文最终目标与两条主工作线
 

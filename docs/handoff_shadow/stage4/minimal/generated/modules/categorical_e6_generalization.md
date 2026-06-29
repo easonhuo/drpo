@@ -5,7 +5,9 @@
 
 - Module ID: `categorical_e6_generalization`
 - Responsibility: Cover positive-only ceiling, controlled local-negative benefit, support-boundary separation, semantic alignment, and structured support-gap successors.
-- Source hash: `058db1516006e5dac6f55e6138ea754bea419db1e0da13851cd3453a1f26c236`
+- Content contract topics: none
+- Deduplicated overlapping source chunks: 0
+- Source hash: `f7cf3048f9a2dcc7123122a406baf71769e9948d8af7a395a57a79d866e20383`
 
 ## Source 1: docs/handoff.md: ## 3.7.3 E6 共享语义 pilot `D-U1-E6-SEMANTIC-PILOT-01` -> ## 3.8 C-U1 共享实现与二次阶方法实验 `C-U1-E4-TAPER-01`
 
@@ -24,7 +26,7 @@
 
 ---
 
-## Source 2: docs/handoff.md: HANDOFF-DELTA-BLOCKs matching 'D-U1-E6-'
+## Source 2: docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v50-stage3-shadow-bootstrap
 
 ### Delta block `after_heading:v50-stage3-shadow-bootstrap`
 
@@ -36,6 +38,8 @@
 > - Fast Gate 对每个 handoff / registry / delta 相关更新执行本地确定性 replay、base/hash、幂等、历史 ID、registry transition 与 candidate/manual exact-match 检查；禁止网络和 LLM 作为阻塞式 oracle。目标 p95 不超过 5 秒，硬上限 15 秒。
 > - Standard Regression 在 schema、renderer、状态机、冲突规则、parser/index 或 operation 变化时运行，目标 60 秒。Full Acceptance 在 shadow 激活前、authority cutover 前、schema 主版本或架构变化、累计 20 次相关更新、7 天内发生相关更新的兜底周期、critical mismatch 修复后运行，目标 15 分钟。
 > - 本更新使用 `GOV-STAGE3-SHADOW-BOOTSTRAP-2026-06-27/HANDOFF_DELTA.yaml` 自举 replay；candidate 与人工 v50 handoff 必须字节级一致。该自举通过只证明实现与门禁可运行，不等于 Stage 3 已验收或可以切换权威路径。
+
+## Source 3: docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v51-du1-e6-semantic-gap-formal
 
 ### Delta block `after_heading:v51-du1-e6-semantic-gap-formal`
 
@@ -52,6 +56,8 @@
 > - 代码复用 `src/drpo/du1_e6_semantic.py`，新增最小差异 validator `src/drpo/du1_e6_semantic_gap.py`、formal entrypoint `src/drpo/du1_e6_semantic_gap_longrun.py`、冻结配置 `configs/du1_e6_semantic_gap_longrun.yaml` 和 hardened wrapper `scripts/run_du1_e6_semantic_gap_longrun.py`。应用并提交本版后，实验状态为 **implemented + ready + active + not_run**；正式训练不得在 dirty worktree 或未匹配 `origin/main` 时启动。
 > - 本更新重基于当前 `main` commit `1fa7f04d4830e4d562ab147dbb11dfa8cecc9b5d`，并保留治理 Pipeline Stage 3 shadow mode 的全部新内容。`D-U1-E6-TAPER-01` 在本 successor terminal-audited、packaged、delivered 之前继续 blocked。
 
+## Source 4: docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v55-du1-e6-semantic-gap-result-closure
+
 ### Delta block `after_heading:v55-du1-e6-semantic-gap-result-closure`
 
 > **v55 增量登记：`D-U1-E6-SEMANTIC-GAP-LONGRUN-01` 正式结果、终态审计与仓库闭环（不删除 v54 及更早内容）**
@@ -67,6 +73,8 @@
 > - `D-U1-E6-TAPER-01` 的 semantic-gap successor delivery blocker 已满足并移除，但 semantic remoteness coordinate、paired protocol、新 untouched seeds 与独立 formal runner 仍未冻结/实现；其状态继续是 **not_run + not_implemented + review-required/blocked**，不得自动启动。
 > - 本仓库闭环更新基于 `main` commit `fa225510e3e3e4616f36d8f586611aa6af79bf6e`；未重跑正式实验，也未修改冻结变量、seeds、阈值或训练协议。
 
+## Source 5: docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v56-e6-parent-closure-route-release
+
 ### Delta block `after_heading:v56-e6-parent-closure-route-release`
 
 > **v56 增量登记：E6 父 claim 关闭与 E7-MECH 路线解锁（不删除 v55 及更早内容）**
@@ -78,23 +86,31 @@
 > - `EXT-H-E7-Q2` 由 `blocked/blocked` 迁移为 **ready/active**，科学状态仍为 `not_run`。该迁移只开放已经冻结和实现的 Hopper mechanism formal protocol，不代表 E7 已运行或已有结果。`EXT-H-E7-BENCH-01` 继续 blocked，但依赖收缩为 E7-Q2 交付和随后冻结 shortlist，不再依赖可选 E6-TAPER。
 > - 本更新只修改研究治理、路线和相应测试/操作说明；未重跑实验，未更改任何冻结变量、数据规模、seeds、阈值、收敛标准或方法职责。
 
+## Source 6: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v55-du1-e6-semantic-gap-current-gate
+
 ### Delta block `section_end:v55-du1-e6-semantic-gap-current-gate`
 
 - **D-U1 v55 覆盖：** `D-U1-E6-SEMANTIC-GAP-LONGRUN-01` 已完成 `100/100` 正式 runs、2× horizon 与终态审计，科学状态为 **有限训练步数验证**；45/100 plateau、55/100 persistent-drift-or-inconclusive，禁止稳态方法排名或无新登记重跑。`D-U1-E6-TAPER-01` 的 successor-delivery 条件已满足，但其四项协议/实现门禁仍未完成，继续 review-required + blocked。
+
+## Source 7: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v56-e6-parent-closure-current-gate
 
 ### Delta block `section_end:v56-e6-parent-closure-current-gate`
 
 - **v56 E6 父 claim 关闭覆盖：** E6 的论文核心 claim 现已范围受限关闭；主 long-run 与两个 gap 子实验的原科学状态分别保持 `long_run_validated / finite_step_validated / finite_step_validated`。`D-U1-E6-TAPER-01` 保留为可选非门禁未来工作。当前下一正式 route item 为 `EXT-H-E7-Q2`，registry 状态为 **implemented + ready + active + not_run**；启动后仍须走 canonical hardened guard，且在 raw-complete、终态审计、打包和交付前不得声称 E7 完成。
 
+## Source 8: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v55-du1-e6-semantic-gap-completion-status
+
 ### Delta block `section_end:v55-du1-e6-semantic-gap-completion-status`
 
 **v55 E6 Semantic-Gap 结果补充：** `D-U1-E6-SEMANTIC-GAP-LONGRUN-01` 已完成 100/100 runs。32k 时 `alpha=0.25/0.50` 均 20/20 胜过 Positive-only；`alpha=1.0` 相对差距随 8k→32k 由 `-0.013741` 扩大至 `-0.061085`，20/20 失败。由于仅 45/100 terminal plateau，论文可用状态限定为有限 horizon trajectory 与 paired finite-step claim，不允许全方法稳态排名。三类失效事件分别为 0/100、0/100、0/100。
+
+## Source 9: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v56-e6-parent-closure-execution-order
 
 ### Delta block `section_end:v56-e6-parent-closure-execution-order`
 
 13. **v56 执行覆盖：** E6 父 claim 已关闭，`D-U1-E6-TAPER-01` 改为可选非门禁 future study；当前直接进入已实现且 registry 为 ready/active 的 `EXT-H-E7-Q2`（E7-MECH）。E7-Q2 仍为 not_run，必须先完成正式运行、终态审计、打包与交付；其后才允许冻结并实施 `EXT-H-E7-BENCH-01`。E8-MECH/V4.3 与 E8-SCALE 的相对顺序不变。
 
-## Source 3: experiments/registry.yaml: experiments[D-U1-E6-SEMANTIC-LONGRUN-01, D-U1-E6-SEMANTIC-GAP-LONGRUN-01, D-U1-E6-CONDITIONAL-GAP-01]
+## Source 10: experiments/registry.yaml: experiments[D-U1-E6-SEMANTIC-LONGRUN-01, D-U1-E6-SEMANTIC-GAP-LONGRUN-01, D-U1-E6-CONDITIONAL-GAP-01]
 
 collection: experiments
 entries:
@@ -1064,7 +1080,7 @@ entries:
       persistent_drift_or_inconclusive_runs: 151
       stable_method_ranking_allowed: false
 
-## Source 4: experiments/registry.yaml: development_experiment_registrations[D-U1-E6-CONDITIONAL-GAP-DEV-01, D-U1-E6-SEMANTIC-PILOT-01, D-U1-E6-SEMANTIC-FOCUSED-DEV-01, D-U1-E6-TAPER-01]
+## Source 11: experiments/registry.yaml: development_experiment_registrations[D-U1-E6-CONDITIONAL-GAP-DEV-01, D-U1-E6-SEMANTIC-PILOT-01, D-U1-E6-SEMANTIC-FOCUSED-DEV-01, D-U1-E6-TAPER-01]
 
 collection: development_experiment_registrations
 entries:

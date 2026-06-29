@@ -5,7 +5,9 @@
 
 - Module ID: `categorical_e5_mechanism`
 - Responsibility: Cover direct-softmax bounded-score analysis and repeated-update transmission to probability or support boundaries.
-- Source hash: `7218da3336412e3d8a328c24861d12383c4d1e0f952cc3244930f171ad75b6a8`
+- Content contract topics: none
+- Deduplicated overlapping source chunks: 0
+- Source hash: `f835c3dd52ba5ece0cb8ce5c02bd83455f79e5855650924e91a2a528dbce8ebd`
 
 ## Source 1: docs/handoff.md: ## 3.7.1 D-U1 / D-Diag E5 长程复核 `D-U1-E5-LONGRUN-RERUN` -> ## 3.7.3 E6 共享语义 pilot `D-U1-E6-SEMANTIC-PILOT-01`
 

@@ -13,11 +13,13 @@ depends_on:
   - global_core_governance
   - theory_methods_related_work
   - terminal_audit
-  continuous_e4_taper:
+  continuous_e4_extrapolation:
   - global_core_governance
   - theory_methods_related_work
   - terminal_audit
   - continuous_mechanism_e1_e3
+  continuous_e4_taper:
+  - continuous_e4_extrapolation
   categorical_e5_mechanism:
   - global_core_governance
   - theory_methods_related_work
@@ -59,6 +61,7 @@ acceptance_targets:
   - theory_methods_related_work
   - terminal_audit
   - continuous_mechanism_e1_e3
+  - continuous_e4_extrapolation
   - continuous_e4_taper
   must_exclude:
   - hopper_e7
@@ -86,3 +89,4 @@ acceptance_targets:
   must_exclude:
   - hopper_e7
   - continuous_e4_taper
+  - continuous_e4_extrapolation

@@ -86,6 +86,7 @@ def make_synthetic_project(tmp_path: Path) -> Path:
             "module_granularity": "independent_research_responsibility",
             "structure_change_policy": "suggestion_only_human_approval_required",
             "default_split_suggestion_chars": 1000,
+            "semantic_contract_required_modules": [],
             "modules": [
                 {
                     "module_id": "core",
@@ -187,7 +188,12 @@ def test_current_repository_generated_outputs_are_exact() -> None:
     [
         (
             "continuous_e4_taper",
-            {"continuous_e4_taper", "continuous_mechanism_e1_e3", "terminal_audit"},
+            {
+                "continuous_e4_taper",
+                "continuous_e4_extrapolation",
+                "continuous_mechanism_e1_e3",
+                "terminal_audit",
+            },
             {"hopper_e7", "countdown_e8"},
         ),
         (
@@ -198,7 +204,7 @@ def test_current_repository_generated_outputs_are_exact() -> None:
         (
             "countdown_e8",
             {"countdown_e8", "categorical_e5_mechanism", "categorical_e6_generalization"},
-            {"hopper_e7", "continuous_e4_taper"},
+            {"hopper_e7", "continuous_e4_taper", "continuous_e4_extrapolation"},
         ),
     ],
 )
@@ -516,3 +522,209 @@ def test_module_index_records_current_authoritative_hashes(tmp_path: Path) -> No
     assert index["input_hashes"]["docs/handoff.md"] == BUILDER.sha256_bytes(
         (repo / "docs/handoff.md").read_bytes()
     )
+
+
+def test_terminal_audit_contract_is_complete_and_self_contained() -> None:
+    current = plan(ROOT)
+    snapshot = current.snapshots["terminal_audit"]
+    assert set(snapshot.contract_topics) == {
+        "convergence_or_persistent_drift",
+        "two_x_continuation",
+        "false_plateau_checks",
+        "task_performance_collapse",
+        "support_or_variance_boundary",
+        "nan_inf_numerical_failure",
+        "separate_failure_reporting",
+    }
+    text = snapshot.bytes_payload.decode("utf-8")
+    assert "任务性能崩溃" in text or "任务效果崩溃" in text
+    assert "support/variance boundary" in text or "support contraction" in text
+    assert "NaN/Inf" in text
+    assert "必须继续分开报告" in text or "继续分报" in text
+    assert len(text) > 1000
+    assert len(snapshot.contract_evidence) == len(snapshot.contract_topics)
+    evidence = {item["topic_id"]: item for item in snapshot.contract_evidence}
+    assert "# 4. 论文机制实验总表与验收标准" in evidence[
+        "task_performance_collapse"
+    ]["source_label"]
+    assert "### 可学习方差：远场路径提前触发支持收缩" in evidence[
+        "separate_failure_reporting"
+    ]["source_label"]
+    assert "## Content contract evidence" in text
+
+
+def test_required_terminal_contract_cannot_be_removed(tmp_path: Path) -> None:
+    repo = copy_current_project(tmp_path)
+    path = repo / BUILDER.DEFAULT_MODULES
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    terminal = next(
+        module for module in payload["modules"] if module["module_id"] == "terminal_audit"
+    )
+    terminal.pop("content_contract")
+    dump_yaml(path, payload)
+    with pytest.raises(
+        BUILDER.ContextBuildError,
+        match="required semantic contracts are missing for modules: terminal_audit",
+    ):
+        plan(repo)
+
+
+def test_terminal_audit_cannot_be_removed_from_required_contract_policy(
+    tmp_path: Path,
+) -> None:
+    repo = copy_current_project(tmp_path)
+    path = repo / BUILDER.DEFAULT_MODULES
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    payload["semantic_contract_required_modules"] = []
+    dump_yaml(path, payload)
+    with pytest.raises(
+        BUILDER.ContextBuildError,
+        match="policy requires semantic contracts for modules: terminal_audit",
+    ):
+        plan(repo)
+
+
+def test_terminal_contract_evidence_is_source_scoped(tmp_path: Path) -> None:
+    repo = copy_current_project(tmp_path)
+    path = repo / BUILDER.DEFAULT_MODULES
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    terminal = next(
+        module for module in payload["modules"] if module["module_id"] == "terminal_audit"
+    )
+    topic = next(
+        item
+        for item in terminal["content_contract"]["required_topics"]
+        if item["topic_id"] == "separate_failure_reporting"
+    )
+    topic["source_label_any"] = ["# 4. 论文机制实验总表与验收标准"]
+    dump_yaml(path, payload)
+    with pytest.raises(BUILDER.ContextBuildError, match="separate_failure_reporting"):
+        plan(repo)
+
+
+def test_terminal_audit_contract_fails_closed_when_mapping_regresses(tmp_path: Path) -> None:
+    repo = copy_current_project(tmp_path)
+    path = repo / BUILDER.DEFAULT_MODULES
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    terminal = next(
+        module for module in payload["modules"] if module["module_id"] == "terminal_audit"
+    )
+    terminal["sources"] = [
+        {
+            "kind": "markdown_range",
+            "path": "docs/handoff.md",
+            "start": "## 4.1 动力学实验统一收敛标准",
+            "end": "# 5. 当前真实完成状态",
+        }
+    ]
+    dump_yaml(path, payload)
+    with pytest.raises(BUILDER.ContextBuildError, match="content contract is incomplete"):
+        plan(repo)
+
+
+def test_current_e4_overlapping_delta_blocks_are_emitted_once() -> None:
+    current = plan(ROOT)
+    snapshot = current.snapshots["continuous_e4_taper"]
+    text = snapshot.bytes_payload.decode("utf-8")
+    assert text.count("### 3.8.10 Near-Retention Matching 正式协议（v61）") == 1
+    assert any(
+        "section_end:v61-e4-taper-near-retention-protocol" in label
+        for label in snapshot.deduplicated_source_labels
+    )
+
+
+def test_fully_contained_source_span_is_deduplicated(tmp_path: Path) -> None:
+    repo = make_synthetic_project(tmp_path)
+    handoff = repo / "docs" / "handoff.md"
+    text = handoff.read_text(encoding="utf-8")
+    old = "# A\na-v1\n\n# B"
+    new = (
+        "# A\na-v1\n"
+        "<!-- HANDOFF-DELTA-BLOCK:section_end:E1-inside:START -->\n"
+        "E1 inside range.\n"
+        "<!-- HANDOFF-DELTA-BLOCK:section_end:E1-inside:END -->\n\n# B"
+    )
+    handoff.write_text(text.replace(old, new), encoding="utf-8")
+    current = plan(repo)
+    snapshot = current.snapshots["a"]
+    assert snapshot.bytes_payload.decode("utf-8").count("E1 inside range.") == 1
+    assert any("E1-inside" in label for label in snapshot.deduplicated_source_labels)
+
+
+def test_partial_source_span_overlap_fails_closed(tmp_path: Path) -> None:
+    repo = make_synthetic_project(tmp_path)
+    handoff = repo / "docs" / "handoff.md"
+    text = handoff.read_text(encoding="utf-8")
+    handoff.write_text(
+        text.replace("# A\na-v1\n\n# B", "# A\na-v1\n\n# Mid\nmid-v1\n\n# B"),
+        encoding="utf-8",
+    )
+    modules_path = repo / BUILDER.DEFAULT_MODULES
+    payload = yaml.safe_load(modules_path.read_text(encoding="utf-8"))
+    module_a = next(module for module in payload["modules"] if module["module_id"] == "a")
+    module_a["sources"].insert(
+        1,
+        {
+            "kind": "markdown_range",
+            "path": "docs/handoff.md",
+            "start": "# Core",
+            "end": "# Mid",
+        },
+    )
+    dump_yaml(modules_path, payload)
+    with pytest.raises(BUILDER.ContextBuildError, match="partial source-span overlap"):
+        plan(repo)
+
+
+def test_unmapped_development_registrations_are_suggested_by_execution_class(
+    tmp_path: Path,
+) -> None:
+    repo = make_synthetic_project(tmp_path)
+    registry_path = repo / "experiments" / "registry.yaml"
+    registry = yaml.safe_load(registry_path.read_text(encoding="utf-8"))
+    registry["development_experiment_registrations"] = [
+        {"id": "DEV-PILOT", "execution_class": "pilot", "status": "pilot"},
+        {"id": "DEV-FORMAL", "execution_class": "formal", "status": "not_run"},
+    ]
+    dump_yaml(registry_path, registry)
+    updated = plan(repo)
+    by_id = {item["object_id"]: item for item in updated.suggestions}
+    assert by_id["DEV-PILOT"]["kind"] == "candidate_map_development_registration"
+    assert (
+        by_id["DEV-FORMAL"]["kind"]
+        == "candidate_map_development_formal_registration"
+    )
+    assert by_id["DEV-PILOT"]["automatic_action"] is False
+    assert by_id["DEV-FORMAL"]["automatic_action"] is False
+
+
+def test_e4_split_preserves_taper_closure_and_isolates_base_context() -> None:
+    current = plan(ROOT)
+    base_closure = set(
+        BUILDER.dependency_closure(
+            "continuous_e4_extrapolation", current.dependencies, current.module_order
+        )
+    )
+    taper_closure = set(
+        BUILDER.dependency_closure(
+            "continuous_e4_taper", current.dependencies, current.module_order
+        )
+    )
+    base_snapshot = current.snapshots["continuous_e4_extrapolation"]
+    taper_snapshot = current.snapshots["continuous_e4_taper"]
+
+    assert "continuous_e4_taper" not in base_closure
+    assert "continuous_e4_extrapolation" in taper_closure
+    assert base_snapshot.source_chars < 30000
+    assert all("C-U1-E4-TAPER" not in label for label in base_snapshot.source_labels)
+    assert any("C-U1-E4-TAPER" in label for label in taper_snapshot.source_labels)
+
+    # Module-size thresholds are advisory structure suggestions, not correctness
+    # gates. Legitimate handoff or registry growth may push the taper module over
+    # its configured threshold without invalidating the approved responsibility split.
+    taper_suggestions = [
+        item
+        for item in current.suggestions
+        if item.get("module_id") == "continuous_e4_taper"
+    ]
+    assert all(item["automatic_action"] is False for item in taper_suggestions)

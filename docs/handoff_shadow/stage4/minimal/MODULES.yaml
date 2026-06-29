@@ -6,6 +6,8 @@ registry: experiments/registry.yaml
 module_granularity: independent_research_responsibility
 structure_change_policy: suggestion_only_human_approval_required
 default_split_suggestion_chars: 50000
+semantic_contract_required_modules:
+- terminal_audit
 modules:
 - module_id: global_core_governance
   title: Global research core and governance boundaries
@@ -40,8 +42,64 @@ modules:
   sources:
   - kind: markdown_range
     path: docs/handoff.md
-    start: '## 4.1 动力学实验统一收敛标准'
+    start: '# 4. 论文机制实验总表与验收标准'
     end: '# 5. 当前真实完成状态'
+  - kind: markdown_range
+    path: docs/handoff.md
+    start: '### 可学习方差：远场路径提前触发支持收缩'
+    end: '### 来源与聚合审计说明'
+  content_contract:
+    required_topics:
+    - topic_id: convergence_or_persistent_drift
+      match_any:
+      - 持续 runaway
+      - 持续漂移
+      - persistent-drift
+      description: Define how terminal convergence is distinguished from persistent drift or runaway.
+      source_label_any:
+      - '# 4. 论文机制实验总表与验收标准'
+    - topic_id: two_x_continuation
+      match_any:
+      - 延长至少 2 倍
+      - 2×
+      description: Require at least a 2x continuation audit before accepting a terminal classification or method ranking.
+      source_label_any:
+      - '# 4. 论文机制实验总表与验收标准'
+    - topic_id: false_plateau_checks
+      match_any:
+      - 假平台
+      - temperature floor
+      - clamp
+      description: Reject false plateaus caused by clamps, temperature floors, or numerical saturation.
+      source_label_any:
+      - '# 4. 论文机制实验总表与验收标准'
+    - topic_id: task_performance_collapse
+      match_any:
+      - 任务效果崩溃、数值训练仍可运行
+      - 任务性能崩溃
+      description: Define and preserve task-performance collapse separately from numerical failure.
+      source_label_any:
+      - '# 4. 论文机制实验总表与验收标准'
+    - topic_id: support_or_variance_boundary
+      match_any:
+      - 支持/方差收缩
+      - support/variance boundary
+      - support contraction
+      description: Track support or variance boundary events as a distinct scientific outcome.
+      source_label_any:
+      - '### 可学习方差：远场路径提前触发支持收缩'
+    - topic_id: nan_inf_numerical_failure
+      match_any:
+      - NaN/Inf
+      description: Track NaN/Inf and other non-finite optimizer failures as numerical collapse.
+      source_label_any:
+      - '# 4. 论文机制实验总表与验收标准'
+    - topic_id: separate_failure_reporting
+      match_any:
+      - 任务性能崩溃、support/variance boundary 与 NaN/Inf 必须继续分开报告
+      description: Require task collapse, support or variance boundary events, and NaN/Inf to be reported separately.
+      source_label_any:
+      - '### 可学习方差：远场路径提前触发支持收缩'
 - module_id: continuous_mechanism_e1_e3
   title: Continuous C-U1 source and causal mechanism E1-E3
   responsibility: Cover continuous far-field gradient-source identification and causal transmission into drift, task collapse,
@@ -57,16 +115,27 @@ modules:
     experiment_ids:
     - C-U1-E3-ADAM-RERUN
     - C-U1-E1-COMP-01
-- module_id: continuous_e4_taper
-  title: Continuous C-U1 E4 extrapolation and taper track
-  responsibility: Cover stable extrapolation, phase transition, taper-family comparisons, fairness controls, and the frozen
-    E4 follow-up order.
-  split_suggestion_chars: 60000
+- module_id: continuous_e4_extrapolation
+  title: Continuous C-U1 E4 stable extrapolation and phase transition
+  responsibility: Cover the positive-only ceiling, bounded extrapolation, phase transition, fixed or learnable variance outcomes,
+    and E4 convergence closure before taper-family follow-ups.
   sources:
   - kind: markdown_range
     path: docs/handoff.md
     start: '### 3.6.2 E4：稳定外推—相变—远场控制'
     end: '## 3.7 D-U1 / E6 开发配置登记（E4 已完成；用户已批准与 E4-TAPER 并行）'
+  - kind: registry_entries
+    path: experiments/registry.yaml
+    collection: experiments
+    experiment_ids:
+    - C-U1-E4-ADAM-RERUN
+    - C-U1-E4-CONV-01
+- module_id: continuous_e4_taper
+  title: Continuous C-U1 E4 taper-family follow-up track
+  responsibility: Cover taper-family mechanism comparisons, near-retention and budget fairness controls, long-run resolution,
+    confirmatory evidence, and the frozen follow-up order.
+  split_suggestion_chars: 50000
+  sources:
   - kind: markdown_range
     path: docs/handoff.md
     start: '## 3.8 C-U1 共享实现与二次阶方法实验 `C-U1-E4-TAPER-01`'
@@ -79,8 +148,6 @@ modules:
     path: experiments/registry.yaml
     collection: experiments
     experiment_ids:
-    - C-U1-E4-ADAM-RERUN
-    - C-U1-E4-CONV-01
     - C-U1-E4-TAPER-01
     - C-U1-E4-TAPER-NEAR-RETENTION-01
     - C-U1-E4-TAPER-BUDGET-MATCH-01

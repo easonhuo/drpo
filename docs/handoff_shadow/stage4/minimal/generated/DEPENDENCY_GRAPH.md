@@ -9,7 +9,8 @@ flowchart LR
   theory_methods_related_work["Theory, method families, and related work"]
   terminal_audit["Terminal-state and collapse audit rules"]
   continuous_mechanism_e1_e3["Continuous C-U1 source and causal mechanism E1-E3"]
-  continuous_e4_taper["Continuous C-U1 E4 extrapolation and taper track"]
+  continuous_e4_extrapolation["Continuous C-U1 E4 stable extrapolation and phase transition"]
+  continuous_e4_taper["Continuous C-U1 E4 taper-family follow-up track"]
   categorical_e5_mechanism["Categorical D-U1 E5 repulsion and support boundary"]
   categorical_e6_generalization["Categorical D-U1 E6 shared-semantic generalization"]
   hopper_e7["Hopper learned-critic external validation E7"]
@@ -22,10 +23,11 @@ flowchart LR
   continuous_mechanism_e1_e3 -->|depends_on| global_core_governance
   continuous_mechanism_e1_e3 -->|depends_on| theory_methods_related_work
   continuous_mechanism_e1_e3 -->|depends_on| terminal_audit
-  continuous_e4_taper -->|depends_on| global_core_governance
-  continuous_e4_taper -->|depends_on| theory_methods_related_work
-  continuous_e4_taper -->|depends_on| terminal_audit
-  continuous_e4_taper -->|depends_on| continuous_mechanism_e1_e3
+  continuous_e4_extrapolation -->|depends_on| global_core_governance
+  continuous_e4_extrapolation -->|depends_on| theory_methods_related_work
+  continuous_e4_extrapolation -->|depends_on| terminal_audit
+  continuous_e4_extrapolation -->|depends_on| continuous_mechanism_e1_e3
+  continuous_e4_taper -->|depends_on| continuous_e4_extrapolation
   categorical_e5_mechanism -->|depends_on| global_core_governance
   categorical_e5_mechanism -->|depends_on| theory_methods_related_work
   categorical_e5_mechanism -->|depends_on| terminal_audit

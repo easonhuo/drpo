@@ -5,7 +5,9 @@
 
 - Module ID: `paper_rewrite`
 - Responsibility: Provide the current manuscript outline, claim hierarchy, figures, tables, limitations, and reproducibility plan.
-- Source hash: `351958aa6be40eb74137f4e986e947de81646d5d3af14b60dea86a669b548563`
+- Content contract topics: none
+- Deduplicated overlapping source chunks: 0
+- Source hash: `84d4e665db0ac281faf2026664ada2b092e9c492488adbf984ca4ddffd6126d2`
 
 ## Source 1: docs/handoff.md: # Part VI. 论文重写大纲（当前草案，后续须与实验状态同步） -> # 0. 本次恢复的明确结论
 
