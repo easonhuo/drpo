@@ -159,6 +159,8 @@ def make_synthetic_project(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
         "policies": {
             "unknown_experiment_module_assignment": "review_queue",
             "missing_experiment_claim_relation": "review_queue",
+            "module_change_requires_version_increment": True,
+            "module_split_merge_requires_supersedes_record": True,
         },
     }
     profile_path = repo / "semantic" / "profile.yaml"
@@ -170,6 +172,7 @@ def make_synthetic_project(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
             "schema_version": 1,
             "profile_id": "minimal-project",
             "profile_version": 1,
+            "override_version": 1,
             "authority": "test_overrides",
             "module_assignments": [],
             "accepted_edges": [],
@@ -193,6 +196,10 @@ def write(repo: Path, profile: Path, overrides: Path, output: Path) -> dict[str,
 
 def read_manifest(output: Path) -> dict:
     return json.loads((output / "GRAPH_MANIFEST.json").read_text(encoding="utf-8"))
+
+
+def bump_override_version(payload: dict) -> None:
+    payload["override_version"] = int(payload.get("override_version", 0)) + 1
 
 
 def test_current_dynamic_graph_is_valid_and_has_no_pending_review() -> None:
@@ -344,6 +351,7 @@ def test_accepted_edge_change_updates_graph_hash_and_visualization(tmp_path: Pat
     first_hash = read_manifest(output)["graph_hash"]
     first_view = (output / "graph" / "CLAIM_EXPERIMENT.md").read_text(encoding="utf-8")
     override_payload = yaml.safe_load(overrides.read_text(encoding="utf-8"))
+    bump_override_version(override_payload)
     override_payload["accepted_edges"].append(
         {
             "source": "experiment:E1",
@@ -435,7 +443,358 @@ def test_duplicate_module_id_fails_closed(tmp_path: Path) -> None:
         build(repo, profile_path, overrides, output)
 
 
+
+def test_rejected_candidate_is_suppressed_and_audited(tmp_path: Path) -> None:
+    repo, profile, overrides, output = make_synthetic_project(tmp_path)
+    registry_path = repo / "experiments" / "registry.yaml"
+    registry = yaml.safe_load(registry_path.read_text(encoding="utf-8"))
+    registry["experiments"].append(
+        {
+            "id": "E2",
+            "name": "Follow-up experiment",
+            "environment": "toy",
+            "role": "controlled_test",
+            "status": "not_run",
+        }
+    )
+    dump_yaml(registry_path, registry)
+    write(repo, profile, overrides, output)
+    queue = yaml.safe_load((output / "REVIEW_QUEUE.yaml").read_text(encoding="utf-8"))
+    candidate = next(
+        item
+        for item in queue["review_queue"]
+        if item["object_id"] == "experiment:E2" and item["kind"] == "claim_relation"
+    )
+
+    payload = yaml.safe_load(overrides.read_text(encoding="utf-8"))
+    bump_override_version(payload)
+    payload["rejected_candidates"].append(
+        {
+            "review_id": candidate["review_id"],
+            "kind": candidate["kind"],
+            "object_id": candidate["object_id"],
+            "reason": candidate["reason"],
+            "candidates": candidate["candidates"],
+            "rationale": "Human rejected a claim relation until stronger evidence exists.",
+            "decision_version": payload["override_version"],
+        }
+    )
+    dump_yaml(overrides, payload)
+    first = write(repo, profile, overrides, output)
+    second = build(repo, profile, overrides, output)
+    assert first == second
+    report = VALIDATOR.validate(repo, profile, overrides, output)
+    assert report["review_queue"] == 0
+    assert report["rejected_candidates"] == 1
+    queue = yaml.safe_load((output / "REVIEW_QUEUE.yaml").read_text(encoding="utf-8"))
+    assert queue["rejected_candidates"][0]["review_id"] == candidate["review_id"]
+    assert queue["rejected_candidates"][0]["match_state"] == "matched_current_candidate"
+
+
+def test_rejected_candidate_signature_must_match_review_id(tmp_path: Path) -> None:
+    repo, profile, overrides, output = make_synthetic_project(tmp_path)
+    payload = yaml.safe_load(overrides.read_text(encoding="utf-8"))
+    payload["rejected_candidates"].append(
+        {
+            "review_id": "review:not-the-right-id",
+            "kind": "claim_relation",
+            "object_id": "experiment:E1",
+            "reason": "experiment has no accepted claim relation",
+            "candidates": [],
+            "rationale": "Invalid mutation.",
+        }
+    )
+    dump_yaml(overrides, payload)
+    with pytest.raises(BUILDER.SemanticGraphError, match="review_id does not match"):
+        build(repo, profile, overrides, output)
+
+
+def test_module_rename_override_updates_version_hash_and_view(tmp_path: Path) -> None:
+    repo, profile, overrides, output = make_synthetic_project(tmp_path)
+    write(repo, profile, overrides, output)
+    first_manifest = read_manifest(output)
+    first_view = (output / "graph" / "OVERVIEW.md").read_text(encoding="utf-8")
+    payload = yaml.safe_load(overrides.read_text(encoding="utf-8"))
+    bump_override_version(payload)
+    payload["module_lifecycle_changes"].append(
+        {
+            "change_id": "rename-core-v2",
+            "operation": "rename",
+            "source_module_ids": ["core"],
+            "target_module_ids": ["core"],
+            "from_versions": {"core": 1},
+            "to_versions": {"core": 2},
+            "new_name": "Research core",
+            "rationale": "Clarify the module scope without changing its stable ID.",
+        }
+    )
+    dump_yaml(overrides, payload)
+    write(repo, profile, overrides, output)
+    report = VALIDATOR.validate(repo, profile, overrides, output)
+    nodes = {
+        node["node_id"]: node
+        for node in yaml.safe_load((output / "NODES.yaml").read_text(encoding="utf-8"))["nodes"]
+    }
+    assert nodes["module:core"]["title"] == "Research core"
+    assert nodes["module:core"]["attributes"]["version"] == 2
+    assert nodes["module:core"]["attributes"]["lifecycle_changes"][0]["change_id"] == "rename-core-v2"
+    second_manifest = read_manifest(output)
+    second_view = (output / "graph" / "OVERVIEW.md").read_text(encoding="utf-8")
+    assert second_manifest["graph_hash"] != first_manifest["graph_hash"]
+    assert second_view != first_view
+    assert report["status"] == "PASS"
+
+
+def test_module_split_override_preserves_old_identity_and_supersedes_edges(tmp_path: Path) -> None:
+    repo, profile_path, overrides, output = make_synthetic_project(tmp_path)
+    profile = yaml.safe_load(profile_path.read_text(encoding="utf-8"))
+    profile["modules"].extend(
+        [
+            {
+                "module_id": "old_topic",
+                "version": 1,
+                "lifecycle_status": "active",
+                "name": "Old topic",
+                "purpose": "Broad historical topic",
+                "default_dependencies": ["core"],
+            },
+            {
+                "module_id": "topic_a",
+                "version": 1,
+                "lifecycle_status": "proposed",
+                "name": "Topic A",
+                "purpose": "First narrower topic",
+                "default_dependencies": ["core"],
+            },
+            {
+                "module_id": "topic_b",
+                "version": 1,
+                "lifecycle_status": "proposed",
+                "name": "Topic B",
+                "purpose": "Second narrower topic",
+                "default_dependencies": ["core"],
+            },
+        ]
+    )
+    dump_yaml(profile_path, profile)
+    write(repo, profile_path, overrides, output)
+    payload = yaml.safe_load(overrides.read_text(encoding="utf-8"))
+    bump_override_version(payload)
+    payload["module_lifecycle_changes"].append(
+        {
+            "change_id": "split-old-topic-v2",
+            "operation": "split",
+            "source_module_ids": ["old_topic"],
+            "target_module_ids": ["topic_a", "topic_b"],
+            "from_versions": {"old_topic": 1, "topic_a": 1, "topic_b": 1},
+            "to_versions": {"old_topic": 2, "topic_a": 2, "topic_b": 2},
+            "rationale": "The broad topic accumulated two independently useful substructures.",
+        }
+    )
+    dump_yaml(overrides, payload)
+    write(repo, profile_path, overrides, output)
+    VALIDATOR.validate(repo, profile_path, overrides, output)
+    nodes = {
+        node["node_id"]: node
+        for node in yaml.safe_load((output / "NODES.yaml").read_text(encoding="utf-8"))["nodes"]
+    }
+    edges = yaml.safe_load((output / "EDGES.yaml").read_text(encoding="utf-8"))["edges"]
+    assert nodes["module:old_topic"]["lifecycle_status"] == "superseded"
+    assert nodes["module:old_topic"]["attributes"]["superseded_by"] == ["topic_a", "topic_b"]
+    for target in ("topic_a", "topic_b"):
+        assert nodes[f"module:{target}"]["lifecycle_status"] == "active"
+        assert nodes[f"module:{target}"]["attributes"]["version"] == 2
+        assert any(
+            edge["source"] == f"module:{target}"
+            and edge["relation"] == "supersedes"
+            and edge["target"] == "module:old_topic"
+            for edge in edges
+        )
+
+
+def test_module_merge_override_preserves_all_source_identities(tmp_path: Path) -> None:
+    repo, profile_path, overrides, output = make_synthetic_project(tmp_path)
+    profile = yaml.safe_load(profile_path.read_text(encoding="utf-8"))
+    profile["modules"].extend(
+        [
+            {
+                "module_id": "topic_a",
+                "version": 1,
+                "lifecycle_status": "active",
+                "name": "Topic A",
+                "purpose": "First source",
+                "default_dependencies": ["core"],
+            },
+            {
+                "module_id": "topic_b",
+                "version": 1,
+                "lifecycle_status": "active",
+                "name": "Topic B",
+                "purpose": "Second source",
+                "default_dependencies": ["core"],
+            },
+            {
+                "module_id": "combined_topic",
+                "version": 1,
+                "lifecycle_status": "proposed",
+                "name": "Combined topic",
+                "purpose": "Merged target",
+                "default_dependencies": ["core"],
+            },
+        ]
+    )
+    dump_yaml(profile_path, profile)
+    write(repo, profile_path, overrides, output)
+    payload = yaml.safe_load(overrides.read_text(encoding="utf-8"))
+    bump_override_version(payload)
+    payload["module_lifecycle_changes"].append(
+        {
+            "change_id": "merge-topics-v2",
+            "operation": "merge",
+            "source_module_ids": ["topic_a", "topic_b"],
+            "target_module_ids": ["combined_topic"],
+            "from_versions": {"topic_a": 1, "topic_b": 1, "combined_topic": 1},
+            "to_versions": {"topic_a": 2, "topic_b": 2, "combined_topic": 2},
+            "rationale": "The two topics no longer have independent semantic roles.",
+        }
+    )
+    dump_yaml(overrides, payload)
+    write(repo, profile_path, overrides, output)
+    nodes = {
+        node["node_id"]: node
+        for node in yaml.safe_load((output / "NODES.yaml").read_text(encoding="utf-8"))["nodes"]
+    }
+    edges = yaml.safe_load((output / "EDGES.yaml").read_text(encoding="utf-8"))["edges"]
+    assert nodes["module:topic_a"]["lifecycle_status"] == "superseded"
+    assert nodes["module:topic_b"]["lifecycle_status"] == "superseded"
+    assert nodes["module:combined_topic"]["lifecycle_status"] == "active"
+    assert {
+        edge["target"]
+        for edge in edges
+        if edge["source"] == "module:combined_topic" and edge["relation"] == "supersedes"
+    } >= {"module:topic_a", "module:topic_b"}
+
+
+def test_override_semantics_change_requires_override_version_increment(tmp_path: Path) -> None:
+    repo, profile, overrides, output = make_synthetic_project(tmp_path)
+    write(repo, profile, overrides, output)
+    payload = yaml.safe_load(overrides.read_text(encoding="utf-8"))
+    payload["accepted_edges"].append(
+        {
+            "source": "experiment:E1",
+            "relation": "supports",
+            "target": "claim:H1",
+            "rationale": "Version policy mutation.",
+        }
+    )
+    dump_yaml(overrides, payload)
+    with pytest.raises(BUILDER.SemanticGraphError, match="override_version increment"):
+        build(repo, profile, overrides, output)
+
+
+def test_profile_and_module_semantics_require_version_increments(tmp_path: Path) -> None:
+    repo, profile_path, overrides, output = make_synthetic_project(tmp_path)
+    write(repo, profile_path, overrides, output)
+    profile = yaml.safe_load(profile_path.read_text(encoding="utf-8"))
+    profile["modules"][0]["name"] = "Changed without version"
+    dump_yaml(profile_path, profile)
+    with pytest.raises(BUILDER.SemanticGraphError, match="profile_version increment"):
+        build(repo, profile_path, overrides, output)
+
+    profile["profile_version"] = 2
+    dump_yaml(profile_path, profile)
+    override_payload = yaml.safe_load(overrides.read_text(encoding="utf-8"))
+    override_payload["profile_version"] = 2
+    dump_yaml(overrides, override_payload)
+    with pytest.raises(BUILDER.SemanticGraphError, match="module core semantics changed"):
+        build(repo, profile_path, overrides, output)
+
+    profile["modules"][0]["version"] = 2
+    dump_yaml(profile_path, profile)
+    write(repo, profile_path, overrides, output)
+    assert VALIDATOR.validate(repo, profile_path, overrides, output)["status"] == "PASS"
+
+
+def test_module_removal_is_rejected_even_with_profile_version_increment(tmp_path: Path) -> None:
+    repo, profile_path, overrides, output = make_synthetic_project(tmp_path)
+    write(repo, profile_path, overrides, output)
+    profile = yaml.safe_load(profile_path.read_text(encoding="utf-8"))
+    profile["profile_version"] = 2
+    profile["modules"] = [m for m in profile["modules"] if m["module_id"] != "core"]
+    dump_yaml(profile_path, profile)
+    payload = yaml.safe_load(overrides.read_text(encoding="utf-8"))
+    payload["profile_version"] = 2
+    dump_yaml(overrides, payload)
+    with pytest.raises(BUILDER.SemanticGraphError, match="may not be destructively removed"):
+        build(repo, profile_path, overrides, output)
+
+
+def test_split_without_version_increment_fails_closed(tmp_path: Path) -> None:
+    repo, profile_path, overrides, output = make_synthetic_project(tmp_path)
+    profile = yaml.safe_load(profile_path.read_text(encoding="utf-8"))
+    profile["modules"].extend(
+        [
+            {
+                "module_id": "a",
+                "version": 1,
+                "lifecycle_status": "active",
+                "name": "A",
+                "purpose": "A",
+                "default_dependencies": [],
+            },
+            {
+                "module_id": "b",
+                "version": 1,
+                "lifecycle_status": "proposed",
+                "name": "B",
+                "purpose": "B",
+                "default_dependencies": [],
+            },
+            {
+                "module_id": "c",
+                "version": 1,
+                "lifecycle_status": "proposed",
+                "name": "C",
+                "purpose": "C",
+                "default_dependencies": [],
+            },
+        ]
+    )
+    dump_yaml(profile_path, profile)
+    payload = yaml.safe_load(overrides.read_text(encoding="utf-8"))
+    payload["module_lifecycle_changes"].append(
+        {
+            "change_id": "invalid-split",
+            "operation": "split",
+            "source_module_ids": ["a"],
+            "target_module_ids": ["b", "c"],
+            "from_versions": {"a": 1, "b": 1, "c": 1},
+            "to_versions": {"a": 1, "b": 2, "c": 2},
+            "rationale": "Invalid version mutation.",
+        }
+    )
+    dump_yaml(overrides, payload)
+    with pytest.raises(BUILDER.SemanticGraphError, match="increment every touched module"):
+        build(repo, profile_path, overrides, output)
+
+
 def test_engine_contains_no_drpo_experiment_or_module_hardcoding() -> None:
     source = BUILDER_PATH.read_text(encoding="utf-8")
     for forbidden in ("C-U1", "D-U1", "Hopper", "Countdown", "E18"):
         assert forbidden not in source
+
+
+def test_validator_rejects_stale_semantic_fingerprint_version(tmp_path: Path) -> None:
+    repo, profile, overrides, output = make_synthetic_project(tmp_path)
+    write(repo, profile, overrides, output)
+    manifest = read_manifest(output)
+    manifest["semantic_fingerprint_version"] = 0
+    (output / "GRAPH_MANIFEST.json").write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(
+        VALIDATOR.SemanticGraphValidationError,
+        match="stale generated file: GRAPH_MANIFEST.json",
+    ):
+        VALIDATOR.validate(repo, profile, overrides, output)

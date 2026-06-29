@@ -1,6 +1,7 @@
 schema_version: 1
 profile_id: drpo-research
 profile_version: 1
+override_version: 1
 authority: non_authoritative_human_approved_semantic_overrides
 module_assignments: []
 accepted_edges: []

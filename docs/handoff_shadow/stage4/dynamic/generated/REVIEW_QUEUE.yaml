@@ -4,7 +4,8 @@ kernel_id: research-semantic-kernel
 kernel_version: 1
 profile_id: drpo-research
 profile_version: 1
-graph_hash: 2f394798ef542770d1056830d925d22ab637473bb086b8f61f502655e2f90205
+override_version: 1
+graph_hash: 1807ff95ded0a21ea9796a3ca5803aabe252ba82697a1ca84459b1a66e5373a3
 sources:
   bootstrap_claims:
     path: docs/handoff_shadow/stage4/inventory/CLAIMS.yaml
@@ -22,3 +23,4 @@ sources:
     path: experiments/registry.yaml
     sha256: 3265b7d8659db352297c44e4373c6bbb3c764cbd7550bcddab3a5f33374e54c9
 review_queue: []
+rejected_candidates: []

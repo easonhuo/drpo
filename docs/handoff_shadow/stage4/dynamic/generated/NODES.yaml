@@ -4,7 +4,8 @@ kernel_id: research-semantic-kernel
 kernel_version: 1
 profile_id: drpo-research
 profile_version: 1
-graph_hash: 2f394798ef542770d1056830d925d22ab637473bb086b8f61f502655e2f90205
+override_version: 1
+graph_hash: 1807ff95ded0a21ea9796a3ca5803aabe252ba82697a1ca84459b1a66e5373a3
 sources:
   bootstrap_claims:
     path: docs/handoff_shadow/stage4/inventory/CLAIMS.yaml
@@ -7484,50 +7485,57 @@ nodes:
   title: Categorical dynamics E5-E6
   module_ids: []
   provenance:
-    kind: project_profile
+    kind: project_profile_with_approved_overrides
     profile_version: 1
+    override_version: 1
   attributes:
     module_id: categorical_e5_e6
     version: 1
     purpose: Organize D-U1 and D-Diag support-boundary, semantic generalization, and controlled negative-signal evidence.
     supersedes: []
     superseded_by: []
+    lifecycle_changes: []
 - node_id: module:continuous_e1_e4
   node_type: module
   lifecycle_status: active
   title: Continuous far-field dynamics E1-E4
   module_ids: []
   provenance:
-    kind: project_profile
+    kind: project_profile_with_approved_overrides
     profile_version: 1
+    override_version: 1
   attributes:
     module_id: continuous_e1_e4
     version: 1
     purpose: Organize C-U1 and historical continuous source, causal, extrapolation, variance, and taper evidence.
     supersedes: []
     superseded_by: []
+    lifecycle_changes: []
 - node_id: module:countdown_e8
   node_type: module
   lifecycle_status: active
   title: Countdown external validation E8
   module_ids: []
   provenance:
-    kind: project_profile
+    kind: project_profile_with_approved_overrides
     profile_version: 1
+    override_version: 1
   attributes:
     module_id: countdown_e8
     version: 1
     purpose: Organize Transformer token-level evidence while preserving the D-U1 non-replacement boundary.
     supersedes: []
     superseded_by: []
+    lifecycle_changes: []
 - node_id: module:execution_status_gates
   node_type: module
   lifecycle_status: active
   title: Current execution status and gates
   module_ids: []
   provenance:
-    kind: project_profile
+    kind: project_profile_with_approved_overrides
     profile_version: 1
+    override_version: 1
   attributes:
     module_id: execution_status_gates
     version: 1
@@ -7535,76 +7543,87 @@ nodes:
       them.
     supersedes: []
     superseded_by: []
+    lifecycle_changes: []
 - node_id: module:global_core_governance
   node_type: module
   lifecycle_status: active
   title: Global research core and governance boundaries
   module_ids: []
   provenance:
-    kind: project_profile
+    kind: project_profile_with_approved_overrides
     profile_version: 1
+    override_version: 1
   attributes:
     module_id: global_core_governance
     version: 1
     purpose: Preserve the unique-master rule, terminology, scientific scope, and non-destructive governance constraints.
     supersedes: []
     superseded_by: []
+    lifecycle_changes: []
 - node_id: module:history_provenance
   node_type: module
   lifecycle_status: active
   title: Historical conclusions and provenance
   module_ids: []
   provenance:
-    kind: project_profile
+    kind: project_profile_with_approved_overrides
     profile_version: 1
+    override_version: 1
   attributes:
     module_id: history_provenance
     version: 1
     purpose: Preserve superseded statements, protocols, audits, source pointers, and reopen conditions.
     supersedes: []
     superseded_by: []
+    lifecycle_changes: []
 - node_id: module:hopper_e7
   node_type: module
   lifecycle_status: active
   title: Hopper external validation E7
   module_ids: []
   provenance:
-    kind: project_profile
+    kind: project_profile_with_approved_overrides
     profile_version: 1
+    override_version: 1
   attributes:
     module_id: hopper_e7
     version: 1
     purpose: Organize learned-critic and D4RL evidence while preserving its external-validity role.
     supersedes: []
     superseded_by: []
+    lifecycle_changes: []
 - node_id: module:paper_rewrite
   node_type: module
   lifecycle_status: active
   title: Paper rewrite and presentation plan
   module_ids: []
   provenance:
-    kind: project_profile
+    kind: project_profile_with_approved_overrides
     profile_version: 1
+    override_version: 1
   attributes:
     module_id: paper_rewrite
     version: 1
     purpose: Organize manuscript structure, claim hierarchy, figures, tables, limitations, and reproducibility.
     supersedes: []
     superseded_by: []
+    lifecycle_changes: []
 - node_id: module:theory_methods_related_work
   node_type: module
   lifecycle_status: active
   title: Theory, method families, and related work
   module_ids: []
   provenance:
-    kind: project_profile
+    kind: project_profile_with_approved_overrides
     profile_version: 1
+    override_version: 1
   attributes:
     module_id: theory_methods_related_work
     version: 1
     purpose: Hold shared theory, method definitions, comparison boundaries, and literature positioning.
     supersedes: []
     superseded_by: []
+    lifecycle_changes: []
 - node_id: project:drpo
   node_type: project
   lifecycle_status: active

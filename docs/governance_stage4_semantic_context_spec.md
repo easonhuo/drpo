@@ -381,3 +381,65 @@ Stage 4A.1 至少验证：
 - 原 Stage 4A inventory validator、治理 stage validator 和现有测试继续通过。
 
 Stage 4A.1 的完成仍不等于 Stage 4A acceptance；Stage 4B 继续由独立 acceptance 更新解锁。
+
+## 12. Stage 4A.2 动态治理闭环加固（2026-06-29）
+
+`GOV-STAGE4A-DYNAMIC-GRAPH-HARDENING-2026-06-29` 只修补 Stage 4A.1
+动态语义图的已识别治理缺口，不授权 Stage 4B、Stage 4C 或 authority cutover。
+跨项目复用与 Stage 3 Delta adapter 继续作为后续目标，不作为本轮验收门禁。
+
+### 12.1 已拒绝语义候选必须持久化
+
+`rejected_candidates` 是人工否决记录，而不是临时过滤器。每条记录必须绑定由
+`kind + object_id + reason + candidates` 确定性计算的 `review_id`，并保存
+`rationale` 与 `decision_version`。当同一候选再次出现时，builder 必须：
+
+- 不再把它放入 pending review queue；
+- 在生成的 `REVIEW_QUEUE.yaml` 中保留 `state: rejected` 的可审计决定；
+- 标记它是再次匹配当前候选，还是仅作为历史决定保留；
+- 将 rejected decision 纳入 canonical graph hash，防止静默丢失。
+
+候选语义签名发生真实变化时应产生新的 review ID；旧拒绝不能模糊匹配或自动扩张
+到不同的研究语义。
+
+### 12.2 模块 lifecycle 通过小型 override 演化
+
+模块不是一次性固定分类，也不得由每次运行重新聚类。经人工批准后，
+`module_lifecycle_changes` 可执行：
+
+- `rename`：稳定 module ID 不变，只改变显示名称；
+- `supersede`：旧模块保留并标记为 superseded；
+- `split`：一个旧模块被多个新模块替代；
+- `merge`：多个旧模块被一个新模块替代。
+
+所有操作必须显式给出 source/target module IDs、变更前后版本和 rationale。
+旧 module ID 不得删除；split/merge/supersede 必须生成 reciprocal lineage，
+并在节点属性和 `supersedes` edges 中同时可审计。可视化和 graph hash 必须随之更新。
+
+### 12.3 Profile、override 与 module 版本必须强制执行
+
+版本号不是说明性字段。builder 必须使用前一版 `GRAPH_MANIFEST.json` 的语义
+fingerprint 强制以下规则：
+
+- project profile 语义改变时，`profile_version` 必须递增；
+- accepted/rejected override 或 lifecycle 决策改变时，`override_version` 必须递增；
+- module 的名称、用途、依赖或 lifecycle 语义改变时，该 module version 必须递增；
+- 已存在 module 不得从 profile 中破坏性移除；只能保留并 supersede；
+- fingerprint 算法自身必须版本化；旧算法 manifest 只允许一次明确迁移，之后严格校验。
+
+版本门禁既约束正常构建，也必须有 mutation tests 覆盖“不升版本修改语义”、
+“无 lineage 删除模块”和“split/merge 未递增所有 touched module version”。
+
+### 12.4 本轮验证边界
+
+本轮必须证明 DRPO 项目内的动态治理闭环，而不宣称已经实现完整跨项目产品化：
+
+- rejected candidate 不重复进入 review；
+- rename/split/merge 保留稳定 ID 和历史 lineage；
+- profile、override、module 版本门禁 fail closed；
+- canonical graph、manifest 与所有可视化保持同步；
+- 原 Stage 4A bootstrap inventory 与 Stage 4A.1 deterministic graph 测试不回归。
+
+Stage 3 Delta 的直接消费、AI proposal adapter、跨项目真实仓库验证和长期 shadow
+precision/recall 仍需后续独立实现与验收。Stage 4B 继续被 Stage 4A 独立 acceptance
+阻塞。

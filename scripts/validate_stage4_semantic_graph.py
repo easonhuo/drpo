@@ -104,8 +104,11 @@ def validate(
     nodes = nodes_payload.get("nodes")
     edges = edges_payload.get("edges")
     review = review_payload.get("review_queue")
+    rejected = review_payload.get("rejected_candidates")
     if not isinstance(nodes, list) or not isinstance(edges, list) or not isinstance(review, list):
         raise SemanticGraphValidationError("generated node, edge, and review payloads must be lists")
+    if not isinstance(rejected, list):
+        raise SemanticGraphValidationError("generated rejected_candidates payload must be a list")
 
     kernel_path = BUILDER.safe_rel_path(
         repo_root,
@@ -168,6 +171,22 @@ def validate(
         if not isinstance(review_id, str) or review_id in review_ids:
             raise SemanticGraphValidationError("review queue contains missing or duplicate review_id")
         review_ids.add(review_id)
+    for item in rejected:
+        if not isinstance(item, dict) or item.get("state") != "rejected":
+            raise SemanticGraphValidationError("rejected candidate entries must be rejected mappings")
+        review_id = item.get("review_id")
+        if not isinstance(review_id, str) or review_id in review_ids:
+            raise SemanticGraphValidationError(
+                "review decisions contain missing or duplicate review_id"
+            )
+        review_ids.add(review_id)
+        if item.get("match_state") not in {
+            "matched_current_candidate",
+            "historical_not_current",
+        }:
+            raise SemanticGraphValidationError("rejected candidate has invalid match_state")
+        if not isinstance(item.get("rationale"), str) or not item.get("rationale"):
+            raise SemanticGraphValidationError("rejected candidate requires rationale")
 
     graph_hashes = {
         nodes_payload.get("graph_hash"),
@@ -187,11 +206,35 @@ def validate(
                 f"generated visualization does not carry current graph_hash: {relative}"
             )
 
+    if manifest.get("semantic_fingerprint_version") != BUILDER.SEMANTIC_FINGERPRINT_VERSION:
+        raise SemanticGraphValidationError("manifest semantic fingerprint version is stale")
+
     counts = manifest.get("counts", {})
     if counts.get("nodes") != len(nodes) or counts.get("edges") != len(edges):
         raise SemanticGraphValidationError("manifest object counts are stale")
     if counts.get("review_queue") != len(review):
         raise SemanticGraphValidationError("manifest review count is stale")
+    if counts.get("rejected_candidates") != len(rejected):
+        raise SemanticGraphValidationError("manifest rejected-candidate count is stale")
+
+    module_state = manifest.get("module_state")
+    if not isinstance(module_state, dict):
+        raise SemanticGraphValidationError("manifest module_state is missing")
+    module_nodes = {
+        node["attributes"]["module_id"]: node
+        for node in nodes
+        if node.get("node_type") == "module"
+    }
+    if set(module_state) != set(module_nodes):
+        raise SemanticGraphValidationError("manifest module_state does not match module nodes")
+    for module_id, state in module_state.items():
+        if not isinstance(state, dict):
+            raise SemanticGraphValidationError("manifest module state entries must be mappings")
+        node = module_nodes[module_id]
+        if state.get("version") != node.get("attributes", {}).get("version"):
+            raise SemanticGraphValidationError(f"module version mismatch: {module_id}")
+        if state.get("lifecycle_status") != node.get("lifecycle_status"):
+            raise SemanticGraphValidationError(f"module lifecycle mismatch: {module_id}")
 
     return {
         "status": "PASS",
@@ -199,6 +242,7 @@ def validate(
         "nodes": len(nodes),
         "edges": len(edges),
         "review_queue": len(review),
+        "rejected_candidates": len(rejected),
         "manual_handoff_remains_authoritative": True,
         "authority_cutover_allowed": False,
     }
@@ -227,7 +271,8 @@ def main(argv: list[str] | None = None) -> int:
         print(
             "Stage 4 dynamic semantic graph: PASS "
             f"(nodes={report['nodes']}, edges={report['edges']}, "
-            f"review={report['review_queue']}, graph={report['graph_hash'][:12]})"
+            f"review={report['review_queue']}, rejected={report['rejected_candidates']}, "
+            f"graph={report['graph_hash'][:12]})"
         )
     return 0
 

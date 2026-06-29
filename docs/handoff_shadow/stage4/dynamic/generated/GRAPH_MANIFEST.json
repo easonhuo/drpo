@@ -7,24 +7,85 @@
     "headings": 374,
     "modules": 9,
     "nodes": 436,
+    "rejected_candidates": 0,
     "review_queue": 0
   },
   "generated_files": {
-    "EDGES.yaml": "1c0ea9595095aeb41dc9a3eaf32c9fdc82b9e5fcacd53bb28f5b98cbe4a07360",
-    "NODES.yaml": "1985dafe8b301df78f40ada7e1bc6e2c231688df51e1b3b9f95f0ae7b6187274",
-    "REVIEW_QUEUE.yaml": "f50322dfea33e96069434b4d1454fc64649a64b6f059c9af8665dd135a90e7ab",
-    "graph/CLAIM_EXPERIMENT.md": "324a0fbbd140dcee7dff05a03210f1217af4d0c8b484efbadfebb9b50fe2f34b",
-    "graph/FULL_GRAPH.dot": "1c2ad8bb375645dfd291e01e3d0ae2fbc1c69532a92e92255a58fad031209f25",
-    "graph/LINEAGE.md": "8289c409f206a0bc49054471bbe35262de410e4406312610e61555a7f46121b2",
-    "graph/OVERVIEW.md": "447fd80eedcece5fe0cabe905a7e58a25ea188fe1e2a7d25b6cb4f3b620b1536"
+    "EDGES.yaml": "b54697f5e6c61f55fd843d447c0b3f2cc73b8bf09b615f6ecd27045a3f3e9b88",
+    "NODES.yaml": "3d18eeed3942854b2e0913a1529e2808a900c5215f8c65d2858135fc550088d6",
+    "REVIEW_QUEUE.yaml": "434920836ab3d9f471d6032aa87abf9775527c09546c376f9b823ce92fb6fe24",
+    "graph/CLAIM_EXPERIMENT.md": "537452d352c4ad7cc67bcc036d9ebdc8cd46a12c46ef77fe5e37621c2a8f252c",
+    "graph/FULL_GRAPH.dot": "3645de3e26138f5971d80ea22b35ef775958b170c74a30c8ac3c341430390a3a",
+    "graph/LINEAGE.md": "94a3d8b78dab3a6f3908b23ec7199d67a791a881416b17974c7a6e2adf9e4549",
+    "graph/OVERVIEW.md": "139e01c7927febae022167a4b2d66775f7873981db78eb627d7c94adf9a8d624"
   },
   "generator": "scripts/build_stage4_semantic_graph.py",
-  "graph_hash": "2f394798ef542770d1056830d925d22ab637473bb086b8f61f502655e2f90205",
+  "graph_hash": "1807ff95ded0a21ea9796a3ca5803aabe252ba82697a1ca84459b1a66e5373a3",
   "kernel_id": "research-semantic-kernel",
   "kernel_version": 1,
+  "module_state": {
+    "categorical_e5_e6": {
+      "lifecycle_status": "active",
+      "semantic_fingerprint": "0fd1b2a609522ff792831fb466c747bbac60e55bc0872588db206c44b4c077a2",
+      "title": "Categorical dynamics E5-E6",
+      "version": 1
+    },
+    "continuous_e1_e4": {
+      "lifecycle_status": "active",
+      "semantic_fingerprint": "0c899415614d3e4696bd1ad0caae1464bfa39022dd8150495feed0e91659cdce",
+      "title": "Continuous far-field dynamics E1-E4",
+      "version": 1
+    },
+    "countdown_e8": {
+      "lifecycle_status": "active",
+      "semantic_fingerprint": "bb2aeb6940a85cb58be695fdeb4bfd2cd3207ffb420417caea943a420953d18c",
+      "title": "Countdown external validation E8",
+      "version": 1
+    },
+    "execution_status_gates": {
+      "lifecycle_status": "active",
+      "semantic_fingerprint": "300d348e70daa34e59c159b5ae6fce241e51a0c9e3ca0f959b4e18a795545182",
+      "title": "Current execution status and gates",
+      "version": 1
+    },
+    "global_core_governance": {
+      "lifecycle_status": "active",
+      "semantic_fingerprint": "cf4ae92fd7232627e61d22b3ef70bbb5b750840b38516ddd98f8ae758260218e",
+      "title": "Global research core and governance boundaries",
+      "version": 1
+    },
+    "history_provenance": {
+      "lifecycle_status": "active",
+      "semantic_fingerprint": "2e8e10d97b84fb6ac752c317af3ddd735fd29b8adb0f825c90b51da909b64d43",
+      "title": "Historical conclusions and provenance",
+      "version": 1
+    },
+    "hopper_e7": {
+      "lifecycle_status": "active",
+      "semantic_fingerprint": "9667aa6ee778d1f894cbb4c55b31a710b0b2937eaee70a1db77db6e85f6a0c74",
+      "title": "Hopper external validation E7",
+      "version": 1
+    },
+    "paper_rewrite": {
+      "lifecycle_status": "active",
+      "semantic_fingerprint": "1571ca8da618d3788fdf92ccb98e8553b755b1f64c7dba5da75598a83d11f1be",
+      "title": "Paper rewrite and presentation plan",
+      "version": 1
+    },
+    "theory_methods_related_work": {
+      "lifecycle_status": "active",
+      "semantic_fingerprint": "ce0c8d1f8ded019d5b5ee5c54ba456e968d3b59384dea105812d07fff2f24e66",
+      "title": "Theory, method families, and related work",
+      "version": 1
+    }
+  },
+  "override_semantic_fingerprint": "82d2e80609223bebbe933a60665946f46880ccf1a1df0ec2adf5c008e02cbf07",
+  "override_version": 1,
   "profile_id": "drpo-research",
+  "profile_semantic_fingerprint": "160a62e5d5dfdda74a9392af4d5eaea4f24b39023a533a64a69942461c477ef8",
   "profile_version": 1,
   "schema_version": 1,
+  "semantic_fingerprint_version": 1,
   "sources": {
     "bootstrap_claims": {
       "path": "docs/handoff_shadow/stage4/inventory/CLAIMS.yaml",
