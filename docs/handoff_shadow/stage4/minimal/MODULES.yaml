@@ -166,6 +166,7 @@ modules:
     - EXT-C-E8-V4.3
     - EXT-C-E8-V4.4-OFFLINE-BANK
     - EXT-C-E8-V4.5-OFFLINE-BANK-TUNING
+    - EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY
     - EXT-C-E8-SCALE-01
 - module_id: history_provenance
   title: Historical conclusions and provenance

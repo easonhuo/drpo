@@ -2749,6 +2749,140 @@ experiments:
     package_sha256: null
     delivered_to_user: false
     applied_commit: null
+- id: EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY
+  environment: EXT-C
+  name: countdown_online_offpolicy_replay_two_by_two_pilot
+  status: not_run
+  claim: >-
+    Test whether policy-refreshed replay changes Countdown outcomes relative to the
+    frozen V4.4 bank, and whether the V4.5-selected controlled negative update adds
+    value beyond online Positive-only when the learner continuously mixes fresh
+    collector data with stale replay from older policy versions.
+  role: external_validity_online_offpolicy_replay_and_negative_utility_diagnostic
+  execution_class: pilot
+  registration_base_commit: 7dcde2095e0f0aa4a7302a829667c1955c187738
+  predecessor: EXT-C-E8-V4.5-OFFLINE-BANK-TUNING
+  frozen_source: EXT-C-E8-V4.4-OFFLINE-BANK
+  pilot_execution:
+    channel_ref: hardened-v1
+    launch_mode: guarded_orchestrator
+    operator_entrypoint: scripts/run_countdown_v46_online_replay.py
+    guard_required: true
+  does_not_replace: [D-U1, D-Diag]
+  code_entrypoint: scripts/run_countdown_v46_online_replay.py
+  one_click_entrypoint: scripts/run_countdown_v46_online_replay.py
+  primary_model: Qwen2.5-0.5B-Instruct
+  parameterization:
+    runner_version: v4.6-online-offpolicy-replay
+    main_comparison: bf16_lora
+    reference_adapter_reused: true
+    train_validation_test_split_reused: true
+    selected_alpha_lambda_inherited_from_v45: true
+    optimizer_state_continuous_across_collection_phases: true
+    scheduler_state_continuous_across_collection_phases: true
+  predecessor_requirements:
+    experiment_id: EXT-C-E8-V4.5-OFFLINE-BANK-TUNING
+    terminal_audit_required: true
+    selected_alpha_lambda_required: true
+    v44_source_inputs_recovered_from_v45_run_config: true
+    input_hashes_checked_before_and_after_run: true
+  design:
+    factorial: 2x2_data_refresh_by_negative_update
+    cells:
+    - frozen_positive_only
+    - frozen_dynamic
+    - online_positive_only
+    - online_dynamic
+    frozen_dynamic_controller: v45_selected_alpha_lambda
+    online_dynamic_controller: same_v45_selected_alpha_lambda
+    optimizer_update_budget_matched_across_cells: true
+    test_split_access: only_after_all_training_cells_finish
+  online_replay_protocol:
+    collection_phases: 4
+    refresh_rows_per_phase: 1000
+    rollouts_per_prompt_per_attempt: 12
+    resample_rounds: 4
+    generated_negative_bank_only: true
+    synthetic_negative_fallback: false
+    negative_bank_size_per_prompt: 16
+    positive_branch: generated_correct_same_oracle_structure_else_oracle_fallback
+    replay_window_collector_versions: 3
+    warmup_phase_stale_fraction: 0.0
+    post_warmup_fresh_fraction: 0.5
+    post_warmup_stale_fraction: 0.5
+    exact_microbatch_mix_after_warmup:
+      fresh: 4
+      stale: 4
+    collector_policy_digest_recorded_each_phase: true
+    replay_age_and_collector_round_recorded_per_row: true
+    current_policy_bank_min_max_reselection_during_training: true
+  confirmation_protocol:
+    training_seeds: [6234, 7234, 8234]
+    checkpoints: [best, terminal]
+    paired_evaluation_seed_per_training_seed: true
+    paired_effects:
+    - online_refresh_effect_with_positive_only
+    - online_refresh_effect_with_dynamic_negative
+    - negative_effect_with_frozen_data
+    - negative_effect_with_online_replay
+    - refresh_by_negative_interaction
+    test_metrics:
+    - greedy_verifier_success
+    - pass_at_k
+    - valid_rate
+    - heldout_pattern_family_coverage
+    - heldout_pattern_family_precision_micro
+  frozen_controls:
+    selected_alpha: inherited_from_v45_RUN_COMPLETE
+    selected_lambda: inherited_from_v45_RUN_COMPLETE
+    surprisal_threshold: 2.0
+    near_mix: 0.5
+    far_mix: 0.5
+    maximum_optimizer_updates: matched_to_v45_six_effective_epochs
+    learning_rate: 5.0e-05
+    warmup_ratio: 0.03
+    maximum_gradient_norm: 1.0
+    gradient_accumulation_microbatches: 8
+  mechanism_diagnostics:
+  - actual_bank_selected_near_far_surprisal
+  - actual_bank_selected_near_far_gradient_norm
+  - actual_bank_selected_positive_negative_cosine
+  - collector_policy_version_and_replay_age
+  - generated_positive_fraction
+  - dynamic_near_far_taper_weights
+  reporting_separation:
+  - task_performance_degradation
+  - support_or_structure_boundary_event
+  - nan_inf_numerical_failure
+  interpretation_limits:
+  - online_data_refresh_and_negative_update_are_separated_by_factorial_cells
+  - method_specific_collectors_make_online_cells_closed_loop_end_to_end_effects
+  - multi_seed_0_5b_pilot_is_not_automatic_formal_ranking
+  - no_state_distribution_ood_claim
+  - countdown_does_not_replace_controlled_causal_identification
+  - no_claim_that_online_refresh_must_make_negative_gradients_useful
+  expected_outputs:
+  - RUN_COMPLETE.json
+  - terminal_audit.json
+  - arena_summary.csv
+  - run_config.json
+  - training/online_positive_only/seed_*/replay/round_*.jsonl
+  - training/online_dynamic/seed_*/replay/round_*.jsonl
+  - training/*/seed_*/dynamic_diagnostics.jsonl
+  formal_run_status: not_run
+  execution:
+    state: registered
+    run_id: null
+    last_heartbeat_utc: null
+    process_exit_code: null
+  evidence:
+    raw_complete: false
+    terminal_audited: false
+    package_created: false
+    package_filename: null
+    package_sha256: null
+    delivered_to_user: false
+    applied_commit: null
 - id: D-U1-E5-LONGRUN-RERUN
   environment: D-U1_and_D-Diag
   name: categorical_repulsion_support_boundary_longrun_reconstruction
@@ -3065,9 +3199,9 @@ experiments:
 - id: EXT-C-E8-SCALE-01
   execution_gate:
     state: blocked
-    blocked_by: [EXT-C-E8-V4.5-OFFLINE-BANK-TUNING, EXT-H-E7-BENCH-01]
+    blocked_by: [EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY, EXT-H-E7-BENCH-01]
     blocking_reason: >-
-      The audited V4.5 validation-only alpha/lambda tuning pilot and the continuous external benchmark
+      The audited V4.6 online off-policy replay pilot and the continuous external benchmark
       must be delivered before model/data scaling uses a frozen method shortlist.
   environment: EXT-C
   name: countdown_large_model_large_data_external_benchmark
@@ -3097,7 +3231,7 @@ experiments:
     runner_archive_policy:
       mode: forbid
   scaling_plan:
-    mechanism_owner: EXT-C-E8-V4.5-OFFLINE-BANK-TUNING
+    mechanism_owner: EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY
     primary_model: Qwen_Instruct_3B
     frozen_confirmation_model: Qwen_Instruct_7B
     dataset: larger_fixed_offline_countdown_dataset

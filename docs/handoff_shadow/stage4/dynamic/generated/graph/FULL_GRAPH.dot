@@ -1,5 +1,5 @@
 digraph stage4_semantic_graph {
-  graph [label="graph_hash=1807ff95ded0a21ea9796a3ca5803aabe252ba82697a1ca84459b1a66e5373a3", labelloc="t"];
+  graph [label="graph_hash=9f7c3484d96a2c33fa25524b1ea3bec5d4601cf2db15a1d86f5494ba75717512", labelloc="t"];
   rankdir=LR;
   node [shape=box];
   "claim:GOV-COLLAPSE-TAXONOMY-01" [label="claim: Task-performance collapse, support or variance boundary events, and NaN/Inf numerical failure must be reported separately."];
@@ -52,9 +52,10 @@ digraph stage4_semantic_graph {
   "experiment:EXT-C-E8-V4.3" [label="experiment: countdown_policy_relative_dynamic_negative_control_pilot"];
   "experiment:EXT-C-E8-V4.4-OFFLINE-BANK" [label="experiment: countdown_fixed_offline_negative_bank_dynamic_selection_pilot"];
   "experiment:EXT-C-E8-V4.5-OFFLINE-BANK-TUNING" [label="experiment: countdown_offline_bank_alpha_lambda_validation_tuning_pilot"];
+  "experiment:EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY" [label="experiment: countdown_online_offpolicy_replay_two_by_two_pilot"];
   "experiment:EXT-H-E7-BENCH-01" [label="experiment: d4rl_mujoco_locomotion_method_benchmark"];
   "experiment:EXT-H-E7-Q2" [label="experiment: hopper_gaussian_log_scale_quadratic_external_validation"];
-  "heading:H0001" [label="source_section: DRPO / SNA2C 远场负梯度动力学研究主文档 v61（E4-TAPER Near-Retention 协议冻结与实现版）"];
+  "heading:H0001" [label="source_section: DRPO / SNA2C 远场负梯度动力学研究主文档 v62（Countdown Online Off-Policy Replay Pilot 实现版）"];
   "heading:H0002" [label="source_section: 0. 研究与执行原则（每次新会话首先阅读）"];
   "heading:H0003" [label="source_section: 0.1 当前执行门禁"];
   "heading:H0004" [label="source_section: 0.2 C-U1 泛化术语覆盖规则（v15 锁定）"];
@@ -503,6 +504,7 @@ digraph stage4_semantic_graph {
   "heading:H0284" -> "module:theory_methods_related_work" [label="member_of"];
   "heading:H0285" -> "module:hopper_e7" [label="member_of"];
   "heading:H0299" -> "module:categorical_e5_e6" [label="member_of"];
+  "experiment:EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY" -> "claim:SCI-COUNTDOWN-ROLE-01" [label="external_validates"];
   "heading:H0346" -> "module:countdown_e8" [label="member_of"];
   "heading:H0144" -> "module:history_provenance" [label="member_of"];
   "experiment:EXT-C-E8-V4.5-OFFLINE-BANK-TUNING" -> "claim:SCI-COUNTDOWN-ROLE-01" [label="external_validates"];
@@ -805,6 +807,7 @@ digraph stage4_semantic_graph {
   "heading:H0060" -> "module:history_provenance" [label="member_of"];
   "heading:H0137" -> "module:countdown_e8" [label="member_of"];
   "heading:H0197" -> "module:continuous_e1_e4" [label="member_of"];
+  "experiment:EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY" -> "module:execution_status_gates" [label="member_of"];
   "heading:H0324" -> "module:paper_rewrite" [label="member_of"];
   "heading:H0343" -> "module:theory_methods_related_work" [label="member_of"];
   "heading:H0345" -> "module:hopper_e7" [label="member_of"];
@@ -1676,6 +1679,7 @@ digraph stage4_semantic_graph {
   "heading:H0305" -> "module:countdown_e8" [label="member_of"];
   "heading:H0292" -> "module:paper_rewrite" [label="member_of"];
   "heading:H0321" -> "module:continuous_e1_e4" [label="member_of"];
+  "experiment:EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY" -> "module:categorical_e5_e6" [label="member_of"];
   "heading:H0249" -> "module:continuous_e1_e4" [label="member_of"];
   "heading:H0297" -> "module:hopper_e7" [label="member_of"];
   "heading:H0326" -> "module:paper_rewrite" [label="member_of"];
@@ -1984,6 +1988,7 @@ digraph stage4_semantic_graph {
   "heading:H0314" -> "module:categorical_e5_e6" [label="member_of"];
   "heading:H0114" -> "module:history_provenance" [label="member_of"];
   "heading:H0008" -> "module:theory_methods_related_work" [label="member_of"];
+  "experiment:EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY" -> "module:countdown_e8" [label="member_of"];
   "heading:H0321" -> "module:countdown_e8" [label="member_of"];
   "heading:H0294" -> "module:hopper_e7" [label="member_of"];
   "heading:H0279" -> "module:theory_methods_related_work" [label="member_of"];
@@ -2031,6 +2036,7 @@ digraph stage4_semantic_graph {
   "experiment:EXT-C-E8-V4.5-OFFLINE-BANK-TUNING" -> "module:countdown_e8" [label="member_of"];
   "heading:H0018" -> "module:continuous_e1_e4" [label="member_of"];
   "heading:H0205" -> "module:theory_methods_related_work" [label="member_of"];
+  "experiment:EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY" -> "claim:SCI-COUNTDOWN-NOT-RUN-01" [label="external_validates"];
   "heading:H0337" -> "module:paper_rewrite" [label="member_of"];
   "heading:H0295" -> "module:continuous_e1_e4" [label="member_of"];
   "heading:H0051" -> "module:execution_status_gates" [label="member_of"];

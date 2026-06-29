@@ -10,5 +10,5 @@
 
 ## candidate_split_module: `countdown_e8`
 
-- Reason: source content has 51208 characters, above the configured 50000 threshold
+- Reason: source content has 58899 characters, above the configured 50000 threshold
 - Automatic action: `false`

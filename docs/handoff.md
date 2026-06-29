@@ -1,4 +1,4 @@
-# DRPO / SNA2C 远场负梯度动力学研究主文档 v61（E4-TAPER Near-Retention 协议冻结与实现版）
+# DRPO / SNA2C 远场负梯度动力学研究主文档 v62（Countdown Online Off-Policy Replay Pilot 实现版）
 <!-- HANDOFF-DELTA-BLOCK:after_heading:v50-stage3-shadow-bootstrap:START -->
 > **v50 增量登记：治理 Pipeline Stage 3 `HANDOFF_DELTA.yaml` shadow mode 启动（不删除 v49 及更早内容）**
 >
@@ -139,6 +139,21 @@
 > - 本实验不匹配总负梯度预算，科学状态上限为 finite-step validated；长期 shortlist 与稳态排名继续由后续 `CONV-01` 负责。当前仅完成实现与 smoke，正式多 seed 尚未启动。
 > - `BUDGET-MATCH-01`、`CONV-01`、`CONFIRM-01` 继续 blocked；只有 Near-Retention 正式结果完成终态审计、打包并交付后，才允许冻结下一项。
 <!-- HANDOFF-DELTA-BLOCK:after_heading:v61-e4-taper-near-retention-implementation:END -->
+<!-- HANDOFF-DELTA-BLOCK:after_heading:v62-ext-c-e8-v46-online-offpolicy-replay:START -->
+> **v62 增量登记：Countdown `EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY` 真正在线 off-policy replay 2×2 pilot（不删除 v61 及更早内容）**
+>
+> **v61（E4-TAPER Near-Retention 协议冻结与实现版）历史标题与全部内容继续保留。**
+>
+> - V4.5 的离线调参职责与结果边界保持不变。用户已批准停止继续扩大 frozen-bank alpha/lambda 网格，转向在线刷新数据；本版登记并实现新的独立 successor，不追溯修改 V4.4/V4.5。
+> - 核心问题拆成 2×2：`frozen_positive_only`、`frozen_dynamic`、`online_positive_only`、`online_dynamic`。它分别识别数据刷新收益、负梯度在冻结数据上的增量、负梯度在在线 replay 上的增量，以及 refresh×negative interaction；禁止只比较 online dynamic 与历史 Positive-only 后把差异全部归因于负梯度。
+> - 在线分支保持一个 learner、optimizer 与全局 scheduler 跨 4 个 collection phases 连续训练。第 0 phase 是 fresh-only warmup；此后每个 optimizer update 精确使用 4 个 fresh microbatches 与 4 个 stale microbatches，stale 数据来自最近 3 个 collector versions 中的旧版本，因此同时满足 online data acquisition 与 off-policy replay reuse。
+> - 每个 phase 从当前 learner 生成新 rollout，verifier 只接收合法且使用全部数字的表达式；16-negative bank 必须全部来自当前 collector 的真实生成，禁止 synthetic negative fallback。正分支优先使用与 oracle canonical structure 相同的当前生成正确答案，缺失时才回退 frozen oracle，并单独报告 generated-positive fraction。
+> - V4.5 选出的 alpha/lambda、surprisal threshold=2、near/far 0.5/0.5、BF16 LoRA、learning rate、总 optimizer-update budget 与 gradient clipping 全部冻结；不在 V4.6 再调参。新 paired training seeds 为 `6234,7234,8234`，test 只在全部四个 cells 训练结束后访问。
+> - 机制审计改为直接测量实际参与训练的 bank-selected current near/far：surprisal、raw/controlled gradient norm、与 positive update 的 cosine、collector version、replay age 和 taper weight。旧 fixed-pair diagnostics 继续保留作 provenance，但不得再代替实际选中样本诊断。
+> - 任务性能退化、valid/support/structure boundary 与 NaN/Inf 数值失败继续分开报告；best 与 terminal checkpoint 同时报。0.5B reference 若仍低于既有 15% greedy floor，本实验即使多 seed 也只形成 pilot，不能自动生成正式方法排名或解锁模型规模结论。
+> - 当前 formal route 不变：`EXT-H-E7-Q2` 仍是下一正式 route item。V4.6 是可独立执行的外部 focused pilot，不替代 C-U1/D-U1 因果识别；`EXT-C-E8-SCALE-01` 的 Countdown blocker 更新为 V4.6 的审计与交付。
+> - 本更新基于用户上传 Git bundle 的 `main` commit `7dcde2095e0f0aa4a7302a829667c1955c187738`；只实现协议、runner、实际选中样本诊断与测试，尚未运行真实 Qwen/CUDA/BF16-LoRA pilot。
+<!-- HANDOFF-DELTA-BLOCK:after_heading:v62-ext-c-e8-v46-online-offpolicy-replay:END -->
 
 > **v49 增量登记：治理 Pipeline Stage 1/2 冻结式关闭（不删除 v48 及更早内容）**
 >
@@ -687,6 +702,9 @@
 <!-- HANDOFF-DELTA-BLOCK:section_end:v61-e4-taper-near-retention-current-gate:START -->
 - **E4-TAPER v61 覆盖：** `C-U1-E4-TAPER-NEAR-RETENTION-01` 已完成协议冻结、独立 runner、formal-channel 登记和工程 smoke，registry 为 **implemented + ready + active + not_run**。允许下一步启动该实验的 canonical guarded formal run，但 smoke/单元测试不构成科学结果。`BUDGET-MATCH-01` 仍必须等待 Near-Retention 的 raw-complete、终态审计、打包与交付；不得提前实现为可运行状态或并行启动。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v61-e4-taper-near-retention-current-gate:END -->
+<!-- HANDOFF-DELTA-BLOCK:section_end:v62-countdown-online-offpolicy-current-gate:START -->
+- **Countdown v62 覆盖：** `EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY` 是当前用户批准并已实现的 Countdown focused successor，状态为 **implemented + not_run**。执行前必须提供完整 V4.5 `RUN_COMPLETE.json`/`terminal_audit.json` 及其指向的 V4.4 frozen inputs；runner fail-closed 校验输入与 reference adapter。它可作为独立 pilot 启动，但不改变 `EXT-H-E7-Q2` 的 formal 优先级，也不自动解锁 `EXT-C-E8-SCALE-01`。
+<!-- HANDOFF-DELTA-BLOCK:section_end:v62-countdown-online-offpolicy-current-gate:END -->
 
 ## 0.2 C-U1 泛化术语覆盖规则（v15 锁定）
 
@@ -1127,6 +1145,9 @@ $$
 <!-- HANDOFF-DELTA-BLOCK:section_end:v59-e8-offline-tuning-route:START -->
 9. **v59 E8 内部路线覆盖：** V4.4 fixed-bank 之后先运行 V4.5 validation-only α×λ 调参，检验当前 dynamic 方法是否只是控制强度偏保守。只有调参仍不能产生稳定收益时，才进入另行登记的 online off-policy successor；不得用 test 反复挑选参数，也不得把 V4.5 变成无界 HPO。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v59-e8-offline-tuning-route:END -->
+<!-- HANDOFF-DELTA-BLOCK:section_end:v62-e8-online-offpolicy-route:START -->
+10. **v62 E8 内部路线覆盖：** V4.5 已完成其“alpha/lambda 是否未调到位”的职责后，不再扩大 frozen-bank HPO。V4.6 用全新 paired seeds 执行 frozen/online × positive/dynamic 2×2；只有 online negative 相对 online Positive-only 的 paired 增量与 refresh×negative interaction 才能支持“动态负样本有额外价值”。若 online 两个 cells 都提高但彼此持平，收益归因于数据刷新；若 online dynamic 仍不占优，不得继续用 bank staleness 解释。
+<!-- HANDOFF-DELTA-BLOCK:section_end:v62-e8-online-offpolicy-route:END -->
 
 # 4. 论文机制实验总表与验收标准
 
@@ -1229,6 +1250,9 @@ $$
 <!-- HANDOFF-DELTA-BLOCK:section_end:v61-e4-taper-near-retention-execution-order:START -->
 17. **v61 E4-TAPER 内部执行覆盖：** `NEAR-RETENTION-01` 已从 blocked 迁移为 implemented + ready + active + not_run，允许作为当前 TAPER track 的下一项正式运行。运行必须使用 hardened guard、正式 seeds 90--109、development-only coefficient calibration 和每 5 seeds checkpoint index；raw-complete 后仍需终态审计、canonical packaging 与交付。`BUDGET-MATCH-01` 在该交付之前继续 blocked，Long-run 与 Confirmation 顺序不变。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v61-e4-taper-near-retention-execution-order:END -->
+<!-- HANDOFF-DELTA-BLOCK:section_end:v62-countdown-online-offpolicy-execution-order:START -->
+18. **v62 Countdown 执行覆盖：** formal 主顺序继续由 v56/v58/v61 控制；`EXT-H-E7-Q2` 优先级不变。V4.6 允许作为独立 guarded pilot 执行，顺序固定为 predecessor/input hash audit -> 四 cell paired training -> 全部训练结束后 test evaluation -> 2×2 paired effect/interaction -> terminal audit -> canonical artifact delivery。任何 online phase 都必须保留 collector manifest、round JSONL、fresh/stale mix 与实际 selected-bank diagnostics；smoke 或单 seed 不得称实验结果。
+<!-- HANDOFF-DELTA-BLOCK:section_end:v62-countdown-online-offpolicy-execution-order:END -->
 
 # 7. 变量治理
 

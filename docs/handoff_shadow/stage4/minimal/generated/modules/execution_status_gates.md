@@ -5,7 +5,7 @@
 
 - Module ID: `execution_status_gates`
 - Responsibility: Provide the current experiment evidence states, execution ordering, and formal launch gates.
-- Source hash: `a7d5a8d05762bfebccfa96c7dc74a7ca1b089be5d56ed7973f39f3feda20280f`
+- Source hash: `98c7eee15b0d2585df2ec4719c593516aaf7b0010938fdd01b9f396b497b2753`
 
 ## Source 1: docs/handoff.md: # 5. 当前真实完成状态 -> # 7. 变量治理
 
@@ -74,3 +74,6 @@
 <!-- HANDOFF-DELTA-BLOCK:section_end:v61-e4-taper-near-retention-execution-order:START -->
 17. **v61 E4-TAPER 内部执行覆盖：** `NEAR-RETENTION-01` 已从 blocked 迁移为 implemented + ready + active + not_run，允许作为当前 TAPER track 的下一项正式运行。运行必须使用 hardened guard、正式 seeds 90--109、development-only coefficient calibration 和每 5 seeds checkpoint index；raw-complete 后仍需终态审计、canonical packaging 与交付。`BUDGET-MATCH-01` 在该交付之前继续 blocked，Long-run 与 Confirmation 顺序不变。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v61-e4-taper-near-retention-execution-order:END -->
+<!-- HANDOFF-DELTA-BLOCK:section_end:v62-countdown-online-offpolicy-execution-order:START -->
+18. **v62 Countdown 执行覆盖：** formal 主顺序继续由 v56/v58/v61 控制；`EXT-H-E7-Q2` 优先级不变。V4.6 允许作为独立 guarded pilot 执行，顺序固定为 predecessor/input hash audit -> 四 cell paired training -> 全部训练结束后 test evaluation -> 2×2 paired effect/interaction -> terminal audit -> canonical artifact delivery。任何 online phase 都必须保留 collector manifest、round JSONL、fresh/stale mix 与实际 selected-bank diagnostics；smoke 或单 seed 不得称实验结果。
+<!-- HANDOFF-DELTA-BLOCK:section_end:v62-countdown-online-offpolicy-execution-order:END -->

@@ -5,23 +5,23 @@ kernel_version: 1
 profile_id: drpo-research
 profile_version: 1
 override_version: 1
-graph_hash: 1807ff95ded0a21ea9796a3ca5803aabe252ba82697a1ca84459b1a66e5373a3
+graph_hash: 9f7c3484d96a2c33fa25524b1ea3bec5d4601cf2db15a1d86f5494ba75717512
 sources:
   bootstrap_claims:
     path: docs/handoff_shadow/stage4/inventory/CLAIMS.yaml
-    sha256: e425e3e68e7dc0bc42ece5b1c3d56e737b7c1ed52c239fe94afaa1430fe3827b
+    sha256: bf49879177a596d16ee614e8d55efd649e1a5ca6cc675d139d7a8c1bb1061f61
   bootstrap_experiments:
     path: docs/handoff_shadow/stage4/inventory/EXPERIMENTS.yaml
-    sha256: b70ef6cad856487808b96d6163673a4ef04aa59115756e4c11b0afbeb03affab
+    sha256: abd07ff4d3f9d619517de5024d8849efec1be52c80b497bbeae8c92134c544ea
   bootstrap_headings:
     path: docs/handoff_shadow/stage4/inventory/HEADINGS.yaml
-    sha256: d919927659f01e9f5d15aa982fcf4e0a863bf128547d7c5663dd182b70c48973
+    sha256: 4812904b69ad0226781eb4b43b7d6453bde5d06b59aec46a577e7199b21ec105
   handoff:
     path: docs/handoff.md
-    sha256: 9a921b8d64ed2f10010c7847b21904931a9e0d976982efc60e05ce63f8124826
+    sha256: 248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb
   registry:
     path: experiments/registry.yaml
-    sha256: 3265b7d8659db352297c44e4373c6bbb3c764cbd7550bcddab3a5f33374e54c9
+    sha256: b760c8db417c7a769ea1d6e3dda5d27d8d7d2d3f31e33a13aa5a42e07083720c
 edges:
 - edge_id: edge:0fe06485441ad90dfbb6
   source: claim:GOV-COLLAPSE-TAXONOMY-01
@@ -1117,6 +1117,41 @@ edges:
   provenance: bootstrap_or_profile_inference
 - edge_id: edge:e2f3c0acc35fa549bf79
   source: experiment:EXT-C-E8-V4.5-OFFLINE-BANK-TUNING
+  relation: member_of
+  target: module:execution_status_gates
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_or_profile_inference
+- edge_id: edge:e043a341c9c3ebe08a45
+  source: experiment:EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY
+  relation: external_validates
+  target: claim:SCI-COUNTDOWN-NOT-RUN-01
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_experiment_inventory
+- edge_id: edge:08782a725d3085e3ec27
+  source: experiment:EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY
+  relation: external_validates
+  target: claim:SCI-COUNTDOWN-ROLE-01
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_experiment_inventory
+- edge_id: edge:aacb6a4793e4c2fe3825
+  source: experiment:EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY
+  relation: member_of
+  target: module:categorical_e5_e6
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_or_profile_inference
+- edge_id: edge:d976c1bd9117831407e7
+  source: experiment:EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY
+  relation: member_of
+  target: module:countdown_e8
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_or_profile_inference
+- edge_id: edge:3354e21bd0a59e65583c
+  source: experiment:EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY
   relation: member_of
   target: module:execution_status_gates
   lifecycle_status: accepted

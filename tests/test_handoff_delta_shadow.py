@@ -354,10 +354,10 @@ def test_historical_cu1_e4_taper_utility_fairness_delta_matches_repository_after
     assert result.report["registry_change_coverage"]["fully_declared"] is True
 
 
-def test_current_cu1_e4_taper_near_retention_delta_matches_manual_handoff() -> None:
+def test_current_countdown_v46_online_replay_delta_matches_manual_handoff() -> None:
     delta = (
         ROOT
-        / "docs/handoff_deltas/CU1-E4-TAPER-NEAR-RETENTION-2026-06-28/HANDOFF_DELTA.yaml"
+        / "docs/handoff_deltas/EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY-2026-06-29/HANDOFF_DELTA.yaml"
     )
     result = MODULE.check_delta(ROOT, delta)
     assert result.report["status"] == "PASS"

@@ -2,25 +2,25 @@
   "authority": "non_authoritative_stage4a_dynamic_shadow_graph",
   "counts": {
     "claims": 28,
-    "edges": 1813,
-    "experiments": 22,
+    "edges": 1818,
+    "experiments": 23,
     "headings": 374,
     "modules": 9,
-    "nodes": 436,
+    "nodes": 437,
     "rejected_candidates": 0,
     "review_queue": 0
   },
   "generated_files": {
-    "EDGES.yaml": "b54697f5e6c61f55fd843d447c0b3f2cc73b8bf09b615f6ecd27045a3f3e9b88",
-    "NODES.yaml": "3d18eeed3942854b2e0913a1529e2808a900c5215f8c65d2858135fc550088d6",
-    "REVIEW_QUEUE.yaml": "434920836ab3d9f471d6032aa87abf9775527c09546c376f9b823ce92fb6fe24",
-    "graph/CLAIM_EXPERIMENT.md": "537452d352c4ad7cc67bcc036d9ebdc8cd46a12c46ef77fe5e37621c2a8f252c",
-    "graph/FULL_GRAPH.dot": "3645de3e26138f5971d80ea22b35ef775958b170c74a30c8ac3c341430390a3a",
-    "graph/LINEAGE.md": "94a3d8b78dab3a6f3908b23ec7199d67a791a881416b17974c7a6e2adf9e4549",
-    "graph/OVERVIEW.md": "139e01c7927febae022167a4b2d66775f7873981db78eb627d7c94adf9a8d624"
+    "EDGES.yaml": "becac0ce6ab27467a9f5243c62997b6871035dac391ccade35347d49e4a2385f",
+    "NODES.yaml": "94a78a6c15f5fd2250e4d84cc9a94d059d9e686c565ab06e18c8dcb18a7c5cf4",
+    "REVIEW_QUEUE.yaml": "f8c649cb1cf1dddb37ac203754409a00dcd0d3ea3a81254857bdd5c0e822cf2f",
+    "graph/CLAIM_EXPERIMENT.md": "0ba8d792b143fa916a6a79d13e1a412e15258c219bff3602ec59ba59db3b1373",
+    "graph/FULL_GRAPH.dot": "518135dec50f2be22dcfcd5592c2191dcb516bd31d24728c584d8da9de30303d",
+    "graph/LINEAGE.md": "738aaf068a672f37b8501e284530333f601beae4a7cfe0ada506d333bdb745c6",
+    "graph/OVERVIEW.md": "e76022344a113b904cdd086fea535d5d653a7069ffa1affb3e9d3d0a1c1581d2"
   },
   "generator": "scripts/build_stage4_semantic_graph.py",
-  "graph_hash": "1807ff95ded0a21ea9796a3ca5803aabe252ba82697a1ca84459b1a66e5373a3",
+  "graph_hash": "9f7c3484d96a2c33fa25524b1ea3bec5d4601cf2db15a1d86f5494ba75717512",
   "kernel_id": "research-semantic-kernel",
   "kernel_version": 1,
   "module_state": {
@@ -89,23 +89,23 @@
   "sources": {
     "bootstrap_claims": {
       "path": "docs/handoff_shadow/stage4/inventory/CLAIMS.yaml",
-      "sha256": "e425e3e68e7dc0bc42ece5b1c3d56e737b7c1ed52c239fe94afaa1430fe3827b"
+      "sha256": "bf49879177a596d16ee614e8d55efd649e1a5ca6cc675d139d7a8c1bb1061f61"
     },
     "bootstrap_experiments": {
       "path": "docs/handoff_shadow/stage4/inventory/EXPERIMENTS.yaml",
-      "sha256": "b70ef6cad856487808b96d6163673a4ef04aa59115756e4c11b0afbeb03affab"
+      "sha256": "abd07ff4d3f9d619517de5024d8849efec1be52c80b497bbeae8c92134c544ea"
     },
     "bootstrap_headings": {
       "path": "docs/handoff_shadow/stage4/inventory/HEADINGS.yaml",
-      "sha256": "d919927659f01e9f5d15aa982fcf4e0a863bf128547d7c5663dd182b70c48973"
+      "sha256": "4812904b69ad0226781eb4b43b7d6453bde5d06b59aec46a577e7199b21ec105"
     },
     "handoff": {
       "path": "docs/handoff.md",
-      "sha256": "9a921b8d64ed2f10010c7847b21904931a9e0d976982efc60e05ce63f8124826"
+      "sha256": "248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb"
     },
     "registry": {
       "path": "experiments/registry.yaml",
-      "sha256": "3265b7d8659db352297c44e4373c6bbb3c764cbd7550bcddab3a5f33374e54c9"
+      "sha256": "b760c8db417c7a769ea1d6e3dda5d27d8d7d2d3f31e33a13aa5a42e07083720c"
     }
   }
 }

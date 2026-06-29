@@ -2860,54 +2860,77 @@ def dynamic_negative_diagnostics(
     positive_grads = torch.autograd.grad(
         -positive["seq_lp"].mean(), trainable, allow_unused=True
     )
-    model.zero_grad(set_to_none=True)
-    near = completion_stats(model, near_batch)
-    near_grads = torch.autograd.grad(
-        near["seq_lp"].mean(), trainable, allow_unused=True
-    )
-    pos_norm, near_norm, pos_near_cosine = _gradient_norm_and_dot(
-        positive_grads, near_grads
-    )
-    del near_grads
+    pos_norm, _, _ = _gradient_norm_and_dot(positive_grads, positive_grads)
 
-    model.zero_grad(set_to_none=True)
-    near = completion_stats(model, near_batch)
-    near_token_weights = detached_token_surprisal_taper(
-        near, exp_lambda, surprisal_threshold
-    )
-    near_controlled_grads = torch.autograd.grad(
-        weighted_sequence_logprob(near, near_token_weights).mean(),
-        trainable,
-        allow_unused=True,
-    )
-    _, near_controlled_norm, pos_near_controlled_cosine = _gradient_norm_and_dot(
-        positive_grads, near_controlled_grads
-    )
-    del near_controlled_grads
+    def branch_metrics(
+        branch_batch: dict[str, torch.Tensor], prefix: str
+    ) -> dict[str, float]:
+        model.zero_grad(set_to_none=True)
+        branch = completion_stats(model, branch_batch)
+        raw_grads = torch.autograd.grad(
+            branch["seq_lp"].mean(), trainable, allow_unused=True
+        )
+        _, raw_norm, raw_cosine = _gradient_norm_and_dot(
+            positive_grads, raw_grads
+        )
+        del raw_grads
 
-    model.zero_grad(set_to_none=True)
-    far = completion_stats(model, far_batch)
-    far_raw_grads = torch.autograd.grad(
-        far["seq_lp"].mean(), trainable, allow_unused=True
-    )
-    _, far_raw_norm, pos_far_raw_cosine = _gradient_norm_and_dot(
-        positive_grads, far_raw_grads
-    )
-    del far_raw_grads
+        model.zero_grad(set_to_none=True)
+        branch = completion_stats(model, branch_batch)
+        token_weights = detached_token_surprisal_taper(
+            branch, exp_lambda, surprisal_threshold
+        )
+        controlled_grads = torch.autograd.grad(
+            weighted_sequence_logprob(branch, token_weights).mean(),
+            trainable,
+            allow_unused=True,
+        )
+        _, controlled_norm, controlled_cosine = _gradient_norm_and_dot(
+            positive_grads, controlled_grads
+        )
+        del controlled_grads
+        return {
+            f"{prefix}_negative_gradient_norm_raw": raw_norm,
+            f"{prefix}_negative_gradient_norm_controlled": controlled_norm,
+            f"positive_{prefix}_raw_update_cosine": raw_cosine,
+            f"positive_{prefix}_controlled_update_cosine": controlled_cosine,
+        }
 
-    model.zero_grad(set_to_none=True)
-    far = completion_stats(model, far_batch)
-    far_token_weights = detached_token_surprisal_taper(
-        far, exp_lambda, surprisal_threshold
-    )
-    far_controlled_grads = torch.autograd.grad(
-        weighted_sequence_logprob(far, far_token_weights).mean(),
-        trainable,
-        allow_unused=True,
-    )
-    _, far_controlled_norm, pos_far_controlled_cosine = _gradient_norm_and_dot(
-        positive_grads, far_controlled_grads
-    )
+    fixed_near_metrics = branch_metrics(near_batch, "near")
+    fixed_far_metrics = branch_metrics(far_batch, "far")
+    near_norm = fixed_near_metrics["near_negative_gradient_norm_raw"]
+    near_controlled_norm = fixed_near_metrics["near_negative_gradient_norm_controlled"]
+    pos_near_cosine = fixed_near_metrics["positive_near_raw_update_cosine"]
+    pos_near_controlled_cosine = fixed_near_metrics[
+        "positive_near_controlled_update_cosine"
+    ]
+    far_raw_norm = fixed_far_metrics["far_negative_gradient_norm_raw"]
+    far_controlled_norm = fixed_far_metrics["far_negative_gradient_norm_controlled"]
+    pos_far_raw_cosine = fixed_far_metrics["positive_far_raw_update_cosine"]
+    pos_far_controlled_cosine = fixed_far_metrics[
+        "positive_far_controlled_update_cosine"
+    ]
+
+    selected_bank_metrics: dict[str, float] = {}
+    bank_size = int(gradient_batch.get("bank_size", 0))
+    if bank_size >= 2 and "bank" in gradient_batch:
+        bank_batch = move_to_device(gradient_batch["bank"], device)
+        selected_near_batch, selected_far_batch, _, _ = current_bank_training_batches(
+            model, bank_batch, len(gradient_rows), bank_size
+        )
+        selected_bank_metrics.update(
+            branch_metrics(selected_near_batch, "bank_selected_near")
+        )
+        selected_bank_metrics.update(
+            branch_metrics(selected_far_batch, "bank_selected_far")
+        )
+        selected_bank_metrics["bank_selected_far_over_near_gradient_norm_ratio"] = (
+            selected_bank_metrics["bank_selected_far_negative_gradient_norm_raw"]
+            / max(
+                selected_bank_metrics["bank_selected_near_negative_gradient_norm_raw"],
+                1e-30,
+            )
+        )
     model.zero_grad(set_to_none=True)
     scale = float(negative_scale) if negative_scale is not None else 1.0
     result = {
@@ -2953,6 +2976,7 @@ def dynamic_negative_diagnostics(
         "positive_near_controlled_update_cosine": pos_near_controlled_cosine,
         "positive_far_raw_update_cosine": pos_far_raw_cosine,
         "positive_far_controlled_update_cosine": pos_far_controlled_cosine,
+        **selected_bank_metrics,
     }
     if was_training:
         model.train()

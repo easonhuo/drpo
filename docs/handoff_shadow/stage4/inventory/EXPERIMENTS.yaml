@@ -3,7 +3,7 @@ policy_id: GOV-HANDOFF-INDEX-01
 authority: non_authoritative_stage4a_shadow_inventory
 source:
   path: experiments/registry.yaml
-  sha256: 3265b7d8659db352297c44e4373c6bbb3c764cbd7550bcddab3a5f33374e54c9
+  sha256: b760c8db417c7a769ea1d6e3dda5d27d8d7d2d3f31e33a13aa5a42e07083720c
 experiments:
 - experiment_id: C-U1-E3-ADAM-RERUN
   registry_index: 1
@@ -19,7 +19,8 @@ experiments:
   - H0042
   - H0044
   classification: resolved_multi
-  classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks also retain their controlled-mechanism dependency.
+  classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks also retain their
+    controlled-mechanism dependency.
 - experiment_id: C-U1-E4-ADAM-RERUN
   registry_index: 2
   environment: C-U1
@@ -35,7 +36,8 @@ experiments:
   - H0042
   - H0044
   classification: resolved_multi
-  classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks also retain their controlled-mechanism dependency.
+  classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks also retain their
+    controlled-mechanism dependency.
 - experiment_id: C-U1-E4-CONV-01
   registry_index: 3
   environment: C-U1
@@ -51,7 +53,8 @@ experiments:
   - H0025
   - H0044
   classification: resolved_multi
-  classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks also retain their controlled-mechanism dependency.
+  classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks also retain their
+    controlled-mechanism dependency.
 - experiment_id: C-U1-E1-COMP-01
   registry_index: 4
   environment: C-U1
@@ -66,7 +69,8 @@ experiments:
   - H0042
   - H0044
   classification: resolved_multi
-  classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks also retain their controlled-mechanism dependency.
+  classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks also retain their
+    controlled-mechanism dependency.
 - experiment_id: C-U1-E4-TAPER-01
   registry_index: 5
   environment: C-U1
@@ -83,7 +87,8 @@ experiments:
   - H0030
   - H0044
   classification: resolved_multi
-  classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks also retain their controlled-mechanism dependency.
+  classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks also retain their
+    controlled-mechanism dependency.
 - experiment_id: C-U1-E4-TAPER-NEAR-RETENTION-01
   registry_index: 6
   environment: C-U1
@@ -104,7 +109,8 @@ experiments:
   - H0038
   - H0040
   classification: resolved_multi
-  classification_rationale: The frozen v61 Near-Retention protocol is indexed under controlled E4-TAPER science, method theory, and the formal execution-gate sequence.
+  classification_rationale: The frozen v61 Near-Retention protocol is indexed under controlled E4-TAPER science, method theory, and the formal
+    execution-gate sequence.
 - experiment_id: C-U1-E4-TAPER-BUDGET-MATCH-01
   registry_index: 7
   environment: C-U1
@@ -179,7 +185,8 @@ experiments:
   - H0044
   - H0228
   classification: resolved_multi
-  classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks also retain their controlled-mechanism dependency.
+  classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks also retain their
+    controlled-mechanism dependency.
 - experiment_id: EXT-C-E8-V4
   registry_index: 11
   environment: EXT-C
@@ -197,7 +204,8 @@ experiments:
   - H0044
   - H0318
   classification: resolved_multi
-  classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks also retain their controlled-mechanism dependency.
+  classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks also retain their
+    controlled-mechanism dependency.
 - experiment_id: EXT-C-E8-V4.1
   registry_index: 12
   environment: EXT-C
@@ -215,7 +223,8 @@ experiments:
   - H0044
   - H0318
   classification: resolved_multi
-  classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks also retain their controlled-mechanism dependency.
+  classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks also retain their
+    controlled-mechanism dependency.
 - experiment_id: EXT-C-E8-V4.2
   registry_index: 13
   environment: EXT-C
@@ -233,7 +242,8 @@ experiments:
   - H0044
   - H0318
   classification: resolved_multi
-  classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks also retain their controlled-mechanism dependency.
+  classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks also retain their
+    controlled-mechanism dependency.
 - experiment_id: EXT-C-E8-V4.3
   registry_index: 14
   environment: EXT-C
@@ -251,7 +261,8 @@ experiments:
   - H0044
   - H0318
   classification: resolved_multi
-  classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks also retain their controlled-mechanism dependency.
+  classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks also retain their
+    controlled-mechanism dependency.
 - experiment_id: EXT-C-E8-V4.4-OFFLINE-BANK
   registry_index: 15
   environment: EXT-C
@@ -269,7 +280,8 @@ experiments:
   - H0044
   - H0318
   classification: resolved_multi
-  classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks also retain their controlled-mechanism dependency.
+  classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks also retain their
+    controlled-mechanism dependency.
 - experiment_id: EXT-C-E8-V4.5-OFFLINE-BANK-TUNING
   registry_index: 16
   environment: EXT-C
@@ -287,9 +299,29 @@ experiments:
   - H0044
   - H0318
   classification: resolved_multi
-  classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks also retain their controlled-mechanism dependency.
-- experiment_id: D-U1-E5-LONGRUN-RERUN
+  classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks also retain their
+    controlled-mechanism dependency.
+- experiment_id: EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY
   registry_index: 17
+  environment: EXT-C
+  registry_status: not_run
+  role: external_validity_online_offpolicy_replay_and_negative_utility_diagnostic
+  module_ids:
+  - countdown_e8
+  - execution_status_gates
+  - categorical_e5_e6
+  claim_ids:
+  - SCI-COUNTDOWN-ROLE-01
+  - SCI-COUNTDOWN-NOT-RUN-01
+  handoff_heading_ids:
+  - H0042
+  - H0044
+  - H0318
+  classification: resolved_multi
+  classification_rationale: The user-approved online replay successor is indexed under Countdown external validity, execution gates, and its controlled
+    categorical non-replacement dependency.
+- experiment_id: D-U1-E5-LONGRUN-RERUN
+  registry_index: 18
   environment: D-U1_and_D-Diag
   registry_status: long_run_validated
   role: controlled_categorical_mechanism_reconstruction_and_provenance_repair
@@ -302,9 +334,10 @@ experiments:
   - H0027
   - H0044
   classification: resolved_multi
-  classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks also retain their controlled-mechanism dependency.
+  classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks also retain their
+    controlled-mechanism dependency.
 - experiment_id: EXT-H-E7-BENCH-01
-  registry_index: 18
+  registry_index: 19
   environment: EXT-H
   registry_status: not_run
   role: external_large_scale_continuous_benchmark
@@ -319,9 +352,10 @@ experiments:
   - H0044
   - H0228
   classification: resolved_multi
-  classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks also retain their controlled-mechanism dependency.
+  classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks also retain their
+    controlled-mechanism dependency.
 - experiment_id: EXT-C-E8-SCALE-01
-  registry_index: 19
+  registry_index: 20
   environment: EXT-C
   registry_status: not_run
   role: external_large_scale_discrete_benchmark
@@ -337,9 +371,10 @@ experiments:
   - H0044
   - H0318
   classification: resolved_multi
-  classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks also retain their controlled-mechanism dependency.
+  classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks also retain their
+    controlled-mechanism dependency.
 - experiment_id: D-U1-E6-SEMANTIC-LONGRUN-01
-  registry_index: 20
+  registry_index: 21
   environment: D-U1
   registry_status: long_run_validated
   role: formal_controlled_shared_semantic_categorical_experiment
@@ -352,9 +387,10 @@ experiments:
   - H0042
   - H0044
   classification: resolved_multi
-  classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks also retain their controlled-mechanism dependency.
+  classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks also retain their
+    controlled-mechanism dependency.
 - experiment_id: D-U1-E6-SEMANTIC-GAP-LONGRUN-01
-  registry_index: 21
+  registry_index: 22
   environment: D-U1
   registry_status: finite_step_validated
   role: formal_minimum_change_controlled_categorical_successor
@@ -367,9 +403,10 @@ experiments:
   - H0042
   - H0044
   classification: resolved_multi
-  classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks also retain their controlled-mechanism dependency.
+  classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks also retain their
+    controlled-mechanism dependency.
 - experiment_id: D-U1-E6-CONDITIONAL-GAP-01
-  registry_index: 22
+  registry_index: 23
   environment: D-U1
   registry_status: finite_step_validated
   role: formal_controlled_categorical_conditional_gap_experiment
@@ -382,4 +419,5 @@ experiments:
   - H0042
   - H0044
   classification: resolved_multi
-  classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks also retain their controlled-mechanism dependency.
+  classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks also retain their
+    controlled-mechanism dependency.

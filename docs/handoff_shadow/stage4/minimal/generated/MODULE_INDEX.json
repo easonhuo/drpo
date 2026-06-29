@@ -94,10 +94,10 @@
   ],
   "graph_hash": "169b59a966fdcbb55a4a7aaa9cea1058ea0446b4be21029f2986498a9603d99a",
   "input_hashes": {
-    "docs/handoff.md": "9a921b8d64ed2f10010c7847b21904931a9e0d976982efc60e05ce63f8124826",
+    "docs/handoff.md": "248be1ddd28074b9722152b2516eef540b1ab248c7bad4dda7f4aaebf3cee5fb",
     "docs/handoff_shadow/stage4/minimal/DEPENDENCIES.yaml": "325d13fa65e7922e1412bf0582588d6c3d32487b8c958a41631dc172f895cbf7",
-    "docs/handoff_shadow/stage4/minimal/MODULES.yaml": "9647f21ef9d4bfabbc2815439b5e9f89dab4d04bb3c46ae1b0f7848d4987b497",
-    "experiments/registry.yaml": "3265b7d8659db352297c44e4373c6bbb3c764cbd7550bcddab3a5f33374e54c9"
+    "docs/handoff_shadow/stage4/minimal/MODULES.yaml": "494908f16c4b0e41dc39b668e6c46b2ea23bc00bbebcdd464c96691dc0abcc9c",
+    "experiments/registry.yaml": "b760c8db417c7a769ea1d6e3dda5d27d8d7d2d3f31e33a13aa5a42e07083720c"
   },
   "module_order": [
     "global_core_governance",
@@ -117,9 +117,9 @@
     {
       "depends_on": [],
       "module_id": "global_core_governance",
-      "snapshot_hash": "dc436952e4a93473a84df42f5e95104e4ae827d2810bb04910927b1625cc92f8",
-      "source_chars": 7160,
-      "source_hash": "b67ec60f18732366e8641a772117d07dbaa363f2d896cd85367e2d472eb3ba0e",
+      "snapshot_hash": "7bad1854735d84514fd2d1a74081fd90a95abd927c7ce3186907e46a9e541a4f",
+      "source_chars": 7676,
+      "source_hash": "9fe36353a77f8888d9d3fbd71dea78d712ca15f20ceeb41574c0c621d69ffbdb",
       "source_labels": [
         "docs/handoff.md: # 0. 研究与执行原则（每次新会话首先阅读） -> # 1. 论文最终目标与两条主工作线"
       ]
@@ -129,9 +129,9 @@
         "global_core_governance"
       ],
       "module_id": "execution_status_gates",
-      "snapshot_hash": "4b08ff925c18854d55341e5d34122c14790c659ed0fe6fd0e6b1a8b2492bab4c",
-      "source_chars": 7873,
-      "source_hash": "a7d5a8d05762bfebccfa96c7dc74a7ca1b089be5d56ed7973f39f3feda20280f",
+      "snapshot_hash": "de081fdf8f978946996aea7cb3c1a12d9629a3f17d26f88b41146de9fdb706ef",
+      "source_chars": 8457,
+      "source_hash": "98c7eee15b0d2585df2ec4719c593516aaf7b0010938fdd01b9f396b497b2753",
       "source_labels": [
         "docs/handoff.md: # 5. 当前真实完成状态 -> # 7. 变量治理"
       ]
@@ -235,9 +235,9 @@
         "continuous_mechanism_e1_e3"
       ],
       "module_id": "hopper_e7",
-      "snapshot_hash": "942acabb6f6d60ce57d4457dc05f7c5347cf7c4d4d88006c867472be5cc381b1",
-      "source_chars": 23675,
-      "source_hash": "5ba68556fdc9f1a1f7ce65f57204fe02083d2834f39632509b9085750527a04f",
+      "snapshot_hash": "75ead2ac52ba555195e315dfe7068f2c66db7a1e909248cb63fe53c1f8befbc1",
+      "source_chars": 26598,
+      "source_hash": "f7a9cfc7c22e6ff3394855d153246d6fcb83510ffb4cb4f79b4856d578ab0523",
       "source_labels": [
         "docs/handoff.md: # 15. Learned-Critic External Mechanism Validation on D4RL -> # Part V. Bandit 稳定外推子实验的收敛审计（完整保留）",
         "docs/handoff.md: HANDOFF-DELTA-BLOCKs matching 'EXT-H-E7-'",
@@ -254,12 +254,12 @@
         "categorical_e6_generalization"
       ],
       "module_id": "countdown_e8",
-      "snapshot_hash": "8dd414114ce848471b40c8180c3182cd3e3a452de45e090d85b2c251935ad9ac",
-      "source_chars": 51208,
-      "source_hash": "43ac4eea05e63b0e1119e11bc8dc0646f2b85be5f1a8ec5d4da3c6abf091e831",
+      "snapshot_hash": "992254ca7f26d335efee34f111fe6143d1a5c724e0161c8971567b9d0feafab0",
+      "source_chars": 58899,
+      "source_hash": "1979c8d9d81a1419105d314bc96cad75907c06b76cfaa2f33b5ba61c0a39e927",
       "source_labels": [
         "docs/handoff.md: HANDOFF-DELTA-BLOCKs matching 'EXT-C-E8-'",
-        "experiments/registry.yaml: experiments[EXT-C-E8-V4, EXT-C-E8-V4.1, EXT-C-E8-V4.2, EXT-C-E8-V4.3, EXT-C-E8-V4.4-OFFLINE-BANK, EXT-C-E8-V4.5-OFFLINE-BANK-TUNING, EXT-C-E8-SCALE-01]"
+        "experiments/registry.yaml: experiments[EXT-C-E8-V4, EXT-C-E8-V4.1, EXT-C-E8-V4.2, EXT-C-E8-V4.3, EXT-C-E8-V4.4-OFFLINE-BANK, EXT-C-E8-V4.5-OFFLINE-BANK-TUNING, EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY, EXT-C-E8-SCALE-01]"
       ]
     },
     {
