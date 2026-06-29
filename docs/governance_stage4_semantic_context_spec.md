@@ -319,3 +319,65 @@ validator 必须 fail closed。
 Stage 4A 代码和 inventory 完成不等于 Stage 4A 已验收，也不会自动解锁 Stage 4B。
 Stage 4B 仍须通过独立 acceptance 更新获得授权；`docs/handoff.md` 继续是唯一权威
 研究 Master。
+
+## 11. Stage 4A.1 动态语义图扩展（2026-06-29）
+
+在 `GOV-STAGE4A-DYNAMIC-SEMANTIC-GRAPH-2026-06-29` 下，Stage 4A 的静态
+inventory 保留为 bootstrap snapshot，但不再被视为最终的持续维护方式。本扩展仍属于
+Stage 4A shadow implementation，不授权 Stage 4B handoff candidate、Stage 4C context
+packer 或任何 authority cutover。
+
+### 11.1 四层分离
+
+Stage 4 动态层必须分为：
+
+1. **Research Semantic Kernel**：跨项目复用的 node、edge、lifecycle、review 和 fail-closed 规则；
+2. **Versioned Project Semantic Profile**：由项目内容逐步形成并可版本化演化的模块、术语和推断规则；
+3. **Human-approved Overrides**：只记录真正有歧义的语义决定、模块 split/merge/supersedes 和人工接受或拒绝；
+4. **Generated Graph and Views**：由相同 canonical graph 数据自动生成的 nodes、edges、review queue、Mermaid 和 DOT 视图。
+
+引擎不得硬编码 `E1--E18`、Hopper、Countdown 或任一 DRPO 模块。新项目允许从一个问题、
+一个假设和一个实验开始；后续实验通过 registry 自动发现，模块通过 profile 逐步增长，而不是
+预分配未来业务结构。
+
+### 11.2 动态更新原则
+
+- 机械发现全自动：Markdown headings、registry experiments、source hashes、stable IDs、重复和悬空引用；
+- 语义建议自动：模块归属、claim relation、模块拆分或合并候选；
+- 歧义决定人工批准：未确认建议只能进入 review queue，不得进入 accepted dependency closure；
+- 节点、边和模块均有 lifecycle；rename/split/merge/supersede 不得破坏旧 ID 和历史 provenance；
+- builder 必须离线、确定性、无网络和无在线 LLM 调用。AI 产生的建议通过可审计 proposal/override 输入进入；
+- Stage 3 Delta 是未来首选增量触发源；全量确定性 rebuild 是回归和恢复路径。
+
+### 11.3 Graph 与可视化
+
+逻辑 graph 的 canonical 数据与显示格式必须分离。仓库只人工维护 kernel、project profile 和
+少量 overrides；`NODES.yaml`、`EDGES.yaml`、review queue、Mermaid Markdown 与 Graphviz DOT
+全部是生成产物，不得手工编辑。
+
+同一 graph 至少生成：
+
+- 模块概览和依赖图；
+- claim--experiment 关系图；
+- supersedes 结论演化图；
+- 可机器读取的完整 DOT 图；
+- source/profile/kernel/graph hash manifest。
+
+任一 accepted edge 或 module lifecycle 变化都必须改变 graph hash 并同步改变相应视图。graph
+hash 已变化但视图未更新时，validator 必须失败。大图只作完整机器视图；人类阅读默认使用过滤后的
+局部视图，避免形成不可读的单一“蜘蛛网”。
+
+### 11.4 验收门禁
+
+Stage 4A.1 至少验证：
+
+- 相同输入两次生成 byte-for-byte 一致；
+- 新增实验时不修改 Python，引擎能自动发现；
+- 新项目只有 Q1/H1/E1 时也能构图，不依赖 DRPO 预设实验编号；
+- 未知或歧义语义进入 review queue，增加 override 后可确定性消解；
+- module split/merge/supersede 保留旧 module identity；
+- 修改 accepted edge 后 graph hash 和可视化同步变化；
+- duplicate ID、dangling edge、unknown type、supersedes cycle、stale source、手工篡改视图均 fail closed；
+- 原 Stage 4A inventory validator、治理 stage validator 和现有测试继续通过。
+
+Stage 4A.1 的完成仍不等于 Stage 4A acceptance；Stage 4B 继续由独立 acceptance 更新解锁。

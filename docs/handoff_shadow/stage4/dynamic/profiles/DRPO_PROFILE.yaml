@@ -1,0 +1,111 @@
+schema_version: 1
+profile_id: drpo-research
+profile_version: 1
+authority: non_authoritative_versioned_project_semantic_profile
+kernel: docs/handoff_shadow/stage4/dynamic/kernel/RESEARCH_SEMANTIC_KERNEL.yaml
+sources:
+  handoff: docs/handoff.md
+  registry: experiments/registry.yaml
+  bootstrap_modules: docs/handoff_shadow/stage4/inventory/MODULES.yaml
+  bootstrap_headings: docs/handoff_shadow/stage4/inventory/HEADINGS.yaml
+  bootstrap_claims: docs/handoff_shadow/stage4/inventory/CLAIMS.yaml
+  bootstrap_experiments: docs/handoff_shadow/stage4/inventory/EXPERIMENTS.yaml
+project:
+  node_id: project:drpo
+  title: DRPO / SNA2C far-field negative-gradient dynamics
+modules:
+- module_id: global_core_governance
+  version: 1
+  lifecycle_status: active
+  name: Global research core and governance boundaries
+  purpose: Preserve the unique-master rule, terminology, scientific scope, and non-destructive governance constraints.
+  default_dependencies: []
+- module_id: execution_status_gates
+  version: 1
+  lifecycle_status: active
+  name: Current execution status and gates
+  purpose: Track experiment ordering, execution evidence states, formal gates, and terminal-audit requirements without changing them.
+  default_dependencies: [global_core_governance]
+- module_id: theory_methods_related_work
+  version: 1
+  lifecycle_status: active
+  name: Theory, method families, and related work
+  purpose: Hold shared theory, method definitions, comparison boundaries, and literature positioning.
+  default_dependencies: [global_core_governance]
+- module_id: continuous_e1_e4
+  version: 1
+  lifecycle_status: active
+  name: Continuous far-field dynamics E1-E4
+  purpose: Organize C-U1 and historical continuous source, causal, extrapolation, variance, and taper evidence.
+  default_dependencies: [global_core_governance, theory_methods_related_work]
+- module_id: categorical_e5_e6
+  version: 1
+  lifecycle_status: active
+  name: Categorical dynamics E5-E6
+  purpose: Organize D-U1 and D-Diag support-boundary, semantic generalization, and controlled negative-signal evidence.
+  default_dependencies: [global_core_governance, theory_methods_related_work]
+- module_id: hopper_e7
+  version: 1
+  lifecycle_status: active
+  name: Hopper external validation E7
+  purpose: Organize learned-critic and D4RL evidence while preserving its external-validity role.
+  default_dependencies: [global_core_governance, execution_status_gates, continuous_e1_e4, theory_methods_related_work]
+- module_id: countdown_e8
+  version: 1
+  lifecycle_status: active
+  name: Countdown external validation E8
+  purpose: Organize Transformer token-level evidence while preserving the D-U1 non-replacement boundary.
+  default_dependencies: [global_core_governance, execution_status_gates, categorical_e5_e6, theory_methods_related_work]
+- module_id: history_provenance
+  version: 1
+  lifecycle_status: active
+  name: Historical conclusions and provenance
+  purpose: Preserve superseded statements, protocols, audits, source pointers, and reopen conditions.
+  default_dependencies: [global_core_governance]
+- module_id: paper_rewrite
+  version: 1
+  lifecycle_status: active
+  name: Paper rewrite and presentation plan
+  purpose: Organize manuscript structure, claim hierarchy, figures, tables, limitations, and reproducibility.
+  default_dependencies: [global_core_governance, theory_methods_related_work, continuous_e1_e4, categorical_e5_e6, hopper_e7, countdown_e8]
+module_inference_rules:
+- rule_id: environment-cu1
+  field: environment
+  equals: C-U1
+  module_id: continuous_e1_e4
+- rule_id: environment-du1
+  field: environment
+  equals: D-U1
+  module_id: categorical_e5_e6
+- rule_id: environment-ddiag
+  field: environment
+  equals: D-Diag
+  module_id: categorical_e5_e6
+- rule_id: environment-ext-h
+  field: environment
+  equals: EXT-H
+  module_id: hopper_e7
+- rule_id: environment-ext-c
+  field: environment
+  equals: EXT-C
+  module_id: countdown_e8
+- rule_id: all-experiments-have-gates
+  field: id
+  regex: .+
+  module_id: execution_status_gates
+explicit_edges:
+- source: module:hopper_e7
+  relation: does_not_replace
+  target: module:continuous_e1_e4
+  rationale: Hopper is external validity and cannot replace controlled continuous causal identification.
+- source: module:countdown_e8
+  relation: does_not_replace
+  target: module:categorical_e5_e6
+  rationale: Countdown is external validity and cannot replace controlled categorical identification.
+policies:
+  bootstrap_inventory_is_seed_not_authority: true
+  unknown_experiment_module_assignment: review_queue
+  missing_experiment_claim_relation: review_queue
+  module_change_requires_version_increment: true
+  module_split_merge_requires_supersedes_record: true
+  generated_files_are_not_manually_editable: true

@@ -1,0 +1,11 @@
+schema_version: 1
+profile_id: drpo-research
+profile_version: 1
+authority: non_authoritative_human_approved_semantic_overrides
+module_assignments: []
+accepted_edges: []
+rejected_candidates: []
+module_lifecycle_changes: []
+notes:
+- Keep this file small; deterministic discovery and the project profile handle routine growth.
+- Add entries only when a semantic suggestion is ambiguous or when a module lifecycle change is explicitly approved.

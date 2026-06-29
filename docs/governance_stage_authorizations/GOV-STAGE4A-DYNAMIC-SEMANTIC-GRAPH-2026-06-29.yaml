@@ -1,0 +1,35 @@
+schema_version: 1
+authorization_id: GOV-STAGE4A-DYNAMIC-SEMANTIC-GRAPH-2026-06-29
+kind: stage_transition
+change_class: stage_transition
+claim_id: GOV-HANDOFF-INDEX-01
+approval_record: user_approved_2026-06-29_dynamic_stage4_semantic_profile_graph_and_validation_before_stage4b
+base_commit: bb06d5ec107c7630adf7100bb9bfb5b95ff7303f
+stage_ids:
+- stage_3
+- stage_4
+- stage_5
+authorized_stage_statuses:
+  stage_3: shadow_active
+  stage_4: active
+  stage_5: blocked_by_predecessor
+scope:
+- preserve_stage_4a_static_inventory_as_bootstrap_snapshot
+- add_general_research_semantic_kernel_and_versioned_project_profile
+- add_deterministic_incremental_semantic_graph_builder
+- add_proposed_review_queue_and_explicit_override_contract
+- generate_repository_visualizations_from_the_same_canonical_graph_data
+- keep_stage_4b_and_stage_4c_blocked
+- keep_manual_handoff_authoritative
+- forbid_authority_cutover_and_scientific_protocol_changes
+authorized_file_hashes: {}
+rollback_plan:
+- remove_docs_handoff_shadow_stage4_dynamic
+- remove_stage4_dynamic_graph_builder_validator_and_tests
+- restore_stage4_spec_and_readme_to_the_stage4a_bootstrap_wording
+- retain_the_existing_stage4a_static_inventory_and_validator
+- keep_docs_handoff_md_and_experiments_registry_yaml_unchanged
+remaining_uncertainties:
+- semantic_suggestions_are_candidates_until_accepted_by_profile_or_override
+- stage_4b_lossless_candidate_remains_unimplemented_and_unauthorized
+- stage_4c_context_assembly_quality_requires_later_real_shadow_validation

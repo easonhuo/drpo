@@ -1,0 +1,54 @@
+schema_version: 1
+kernel_id: research-semantic-kernel
+kernel_version: 1
+authority: non_authoritative_stage4a_dynamic_shadow_contract
+node_types:
+- project
+- module
+- source_section
+- question
+- hypothesis
+- claim
+- assumption
+- experiment
+- evidence
+- method
+- limitation
+- alternative
+- open_issue
+relation_types:
+- member_of
+- depends_on
+- tests
+- supports
+- contradicts
+- supersedes
+- external_validates
+- does_not_replace
+- motivates
+node_lifecycle_statuses:
+- proposed
+- accepted
+- active
+- blocked
+- superseded
+- rejected
+edge_lifecycle_statuses:
+- proposed
+- accepted
+- superseded
+- rejected
+review_states:
+- not_required
+- pending
+- accepted
+- rejected
+rules:
+  accepted_edges_require_existing_nodes: true
+  accepted_edges_may_not_reference_rejected_nodes: true
+  proposed_items_never_enter_accepted_dependency_closure: true
+  supersedes_edges_must_be_acyclic: true
+  generated_visualizations_must_match_graph_hash: true
+  unresolved_semantics_must_enter_review_queue: true
+  source_discovery_must_be_deterministic: true
+  no_network_or_llm_calls_in_deterministic_builder: true
