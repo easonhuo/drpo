@@ -443,3 +443,75 @@ fingerprint 强制以下规则：
 Stage 3 Delta 的直接消费、AI proposal adapter、跨项目真实仓库验证和长期 shadow
 precision/recall 仍需后续独立实现与验收。Stage 4B 继续被 Stage 4A 独立 acceptance
 阻塞。
+
+## 13. Stage 4A Minimal Context Core（2026-06-29）
+
+`GOV-STAGE4A-MINIMAL-CONTEXT-CORE-2026-06-29` 将 Stage 4 的当前主开发路径
+收缩为一个可确定性验证的上下文编译闭环。该更新不删除既有 Stage 4A inventory 或
+动态语义图；后者继续保留为历史 shadow implementation，但不作为本轮 Context Builder
+的运行时依赖。
+
+### 13.1 唯一目标与冻结边界
+
+本轮只回答：如何把持续增长的 `docs/handoff.md` 映射为稳定研究模块，并在处理目标
+任务时只加载该模块及其传递依赖。
+
+冻结边界如下：
+
+- `docs/handoff.md` 与 `experiments/registry.yaml` 继续是权威输入；
+- 不物理拆分 handoff，不反向自动写回 handoff；
+- 模块边界按独立研究职责显式登记，不按每次运行重新聚类；
+- 核心关系只有 `depends_on`；
+- 不实现 AI proposal adapter、Stage 3 Delta adapter、跨项目产品化或 authority cutover；
+- 不实现模块 lifecycle 状态机、多层人工版本号或生成 manifest 充当历史账本；
+- Stage 4B、Stage 4C 与 Stage 5 继续保持原门禁。
+
+### 13.2 内容自动更新，结构只建议不自动执行
+
+已有模块的 mapped source 变化时，builder 自动更新该模块快照。增加、删除、拆分、
+合并、改变职责或重接依赖都属于结构变化：工具只能生成确定性建议报告，不能修改
+`MODULES.yaml` 或 `DEPENDENCIES.yaml`。结构变化必须经用户或研究负责人明确批准后，
+通过普通 Git 更新落库。
+
+### 13.3 简单 dirty-module rebuild
+
+每个模块的 source 内容、模块标题与职责共同形成 `source_hash`：
+
+- source hash 不变且生成快照逐字节一致时，不重写该模块；
+- source hash 变化或快照缺失时，只刷新该模块；
+- 小型依赖图、闭包检查、可视化、索引和结构建议每次从当前配置全量重算；
+- 旧索引丢失只导致必要输出重新生成，不影响正确性；生成文件从不成为 authority。
+
+该机制不是 Stage 3 Delta 驱动的复杂增量状态机，也不维护局部更新传播缓存。
+
+### 13.4 Source mapping 与稳定性
+
+Minimal Core 仅支持四种显式 source：
+
+1. `markdown_range`：由两个必须唯一匹配的精确行界定；
+2. `marker_block`：读取一个明确的 `HANDOFF-DELTA-BLOCK`；
+3. `marker_blocks_matching`：按已登记 experiment ID 前缀自动吸收后续相关 delta block；
+4. `registry_entries`：按明确 experiment ID 提取 registry 条目。
+
+任何边界零匹配、多匹配、反向范围、未知 experiment ID、悬空依赖或依赖环都必须
+fail closed。Builder 不使用“同名标题第几次出现”作为身份，也不自行改变模块粒度。
+
+### 13.5 Context Pack 与验收
+
+给定目标模块，Context Builder 按确定性拓扑顺序输出全部传递依赖，再输出目标模块。
+Context Pack 是临时生成的非权威输入，不反向修改模块、handoff 或 registry。
+
+本轮至少验证：
+
+- E4-TAPER pack 包含治理、理论、终态、E1--E3 因果基础和 E4 模块，不包含 E7/E8；
+- E7 pack 包含连续机制和外部验证边界，不包含 Countdown；
+- E8 pack 包含 categorical E5/E6 基础，不包含 Hopper 与 E4-TAPER；
+- 新模块只改 YAML 即可加入，不修改 Python；
+- 单模块 source 变化只重写对应模块快照；
+- 依赖变化同步改变闭包和两种可视化；
+- 相同输入重复构建得到逐字节相同输出；
+- 自动建议不修改正式模块或依赖配置；
+- handoff 与 registry 在 build 前后逐字节不变。
+
+通过这些工程验收只证明按依赖加载的 shadow 闭环可用，不证明初始模块粒度已经最优，
+也不构成 Stage 4A 最终 acceptance 或 authority cutover。

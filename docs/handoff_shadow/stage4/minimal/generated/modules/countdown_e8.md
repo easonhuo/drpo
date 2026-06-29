@@ -1,0 +1,1242 @@
+# Countdown Transformer external validation E8
+
+> Generated Stage 4 minimal-context shadow module. Do not edit manually.
+> `docs/handoff.md` and `experiments/registry.yaml` remain authoritative.
+
+- Module ID: `countdown_e8`
+- Responsibility: Cover token-level near or far mechanism probes and fixed-offline-bank method pilots without replacing D-U1 controlled identification.
+- Source hash: `43ac4eea05e63b0e1119e11bc8dc0646f2b85be5f1a8ec5d4da3c6abf091e831`
+
+## Source 1: docs/handoff.md: HANDOFF-DELTA-BLOCKs matching 'EXT-C-E8-'
+
+### Delta block `after_heading:v52-ext-c-e8-v43-dynamic-control`
+
+> **v52 增量登记：Countdown `EXT-C-E8-V4.3` 动态负样本 remoteness 控制（不删除 v51 及更早内容）**
+>
+> **v51（D-U1 E6 条件缺口闭环与最小改动正式协议版）历史标题与全部内容继续保留。**
+>
+> - 用户确认：matched near/far pair 继续用于瞬时机制研究，但 near/far 是相对当前策略变化的状态，不能把数据构造时的身份永久用于长期训练控制。V4.2 的静态 `controlled_negative` 只 taper 初始 far 分支；初始 near 在训练中进入 far 区后仍保持未衰减，因而没有真正测试“控制所有当前远场负样本”。
+> - 新执行 ID 为 `EXT-C-E8-V4.3`，状态为 **尚未运行（not_run）**，科学职责为外部有效性的 focused method diagnostic。V4.2 完整保留为 provenance 并登记 superseded；它的 matched-pair mechanism probe 设计不被否定。
+> - V4.3 新增 `dynamic_controlled_negative`：对初始 near 与初始 far 两个负分支都按当前模型 token surprisal 使用同一 detached exponential taper。旧 `controlled_negative` 原样保留为 static-label ablation；同时比较 `positive_only` 与 `uncontrolled_negative`。本轮不扩充 negative bank，不改数据规模、seed、学习率、训练 horizon、taper lambda、threshold、LoRA 配置或共同负梯度尺度。
+> - 0.5B focused pilot 在 reference greedy `>=0.08` 且 valid `>=0.95` 时允许执行四方法，以检验实现修复和初步效果；`15%/95%` 继续作为任何正式方法排名的 floor-effect 门禁。低于 15% 时必须明确标注 single-seed pilot，不得形成方法排名、scale-up 结论或论文方法胜负。
+> - 主要结果仍是 verifier success、pass@k、valid rate、held-out canonical pattern-family coverage/precision 以及 best/terminal 终态。当前 near/far 权重轨迹只是实现证据，用于确认实际运行的是动态控制，不是主要科学结果；即使权重按预期变化但任务指标不改善，方法仍判定无效。
+> - 任务性能退化、support/structure boundary 与 NaN/Inf 数值失败继续分开报告。Countdown 仍不替代 D-U1/D-Diag 的受控因果识别，也不得称 state-distribution OOD generalization。
+> - 本更新重基于 `main` commit `0907c3c0e76fc836c2bf2b752abf554c17f79f22`，保留 v51 的 D-U1 E6 条件缺口正式协议与治理 Stage 3 shadow mode；未运行真实 Qwen/CUDA 实验。
+
+### Delta block `after_heading:v53-stage3-observation-automation`
+
+> **v53 增量登记：治理 Pipeline Stage 3 真实观察记账、报告持久化与 Full Acceptance 自动触发（不删除 v52 及更早内容）**
+>
+> - 本版只优化 `GOV-HANDOFF-INDEX-01` 的 Stage 3 shadow 工程，不改变任何 C-U1、D-U1、Hopper 或 Countdown 的科学变量、seeds、阈值、实验职责、结果状态和执行顺序。人工 `docs/handoff.md` 继续是唯一权威 Master，authority cutover 仍禁止。
+> - `DU1-E6-SEMANTIC-GAP-FORMAL-2026-06-27` 与 `EXT-C-E8-V4.3-DYNAMIC-CONTROL-2026-06-27` 分别登记为第一、第二个真实 shadow observation；其最终 repository commit 由 Git 历史派生。旧报告中的 `head_commit` 只解释为临时 validation-worktree head，不再被误称为最终 repository commit。
+> - observation ledger 不采用容易漂移的人工计数文件，而由不可变 `HANDOFF_DELTA.yaml`、sibling `SHADOW_REPORT.json` 与 Git 历史动态推导。`corpus-check` 会在各 observation 的历史 repository after-image 上重放 delta、复核 stored report，并输出 bootstrap/real 数量、最终 repository commit 与性能统计。
+> - 每个新 delta 必须保存 sibling `SHADOW_REPORT.json`；`auto-check` 会重新执行确定性 replay，并对 stored report 的科学/治理语义字段逐项比对。运行耗时和 validation-worktree commit 不参与语义等价判断；缺失或 stale report 直接 fail closed。V4.3 的历史 schema-v1 delta 在本版补写机器派生报告并加入只读兼容 allowlist。
+> - 新 delta schema 升级到 v2；bootstrap、E6 observation 与 V4.3 observation 继续通过显式 legacy allowlist 使用 v1。v2 对 registry 采用完整 change coverage：新增 experiment、状态机 transition 和其他字段变化均须逐项登记并绑定 evidence；未声明变更、虚假断言和 experiment 删除均拒绝。
+> - 累计 20 次成功相关更新与“距上次 Full 已满 7 天且期间存在未覆盖更新”两项触发条件改为机器计算。普通 Fast Gate 在 Full overdue 时阻塞；Full 报告必须持久化覆盖的 update IDs，完成后才重置计数/时间窗口。无相关更新时不会因日历经过而空跑。
+> - Fast Gate 只完整重放本次被修改的 delta/report，历史 observation 只扫描不可变元数据；全量历史 replay 保留给 `corpus-check` 与 Full Acceptance，避免日常提交成本随历史长度线性增长。v2 Full 报告还会校验 covered IDs、计数、fingerprint、命令返回码/超时与 corpus audit，防止伪造 coverage 跳过重验收。
+> - 本次属于 schema/renderer/acceptance architecture 变化，必须执行 Full Acceptance，并保存 corpus replay、mutation/conflict/idempotence 测试和 coverage report。本更新应用后构成第三个真实 shadow observation，但不等于 Stage 3 已完成验收；后续仍需真实多 session 独立/冲突更新和更多 operation coverage。
+
+### Delta block `after_heading:v57-ext-c-e8-v44-offline-negative-bank`
+
+> **v57 增量登记：Countdown `EXT-C-E8-V4.4-OFFLINE-BANK` 固定离线 negative-bank pilot（不删除 v56 及更早内容）**
+>
+> - 用户确认采用两阶段路线：先完成纯离线固定 negative-bank 实验，再依据离线结果另行讨论并登记 online off-policy successor。本版禁止在方法训练期间重新 rollout、追加 replay 数据或把在线刷新与负样本密度同时改变。
+> - V4.3 的 matched near/far pair 与动态 remoteness 修复继续保留。新实验只检验一个更窄的问题：每个 prompt 只有一对固定负样本时，两者可能很快同时远场化；将固定离线负样本覆盖扩大后，是否能持续提供当前局部负信号并超过 Positive-only。该动机不 retroactively 升级 V4.3 的 repository result status。
+> - 新实验 ID 为 `EXT-C-E8-V4.4-OFFLINE-BANK`，状态为 **尚未运行（not_run）**，执行类别为 single-seed focused pilot。每个训练 prompt 在方法训练前冻结 `16` 个互不重复、格式合法且 verifier 判错的表达式；原 matched near/far pair 继续保存，只承担瞬时机制与 provenance 对照。
+> - 方法训练期间 bank 内容不变。每个 optimizer step 使用当前 learner 对同一固定 bank 重新计分，选择最低 sequence surprisal 为 current near、最高 sequence surprisal 为 current far；选择过程 stop-gradient，随后只对选出的两条 completion 做 train-mode forward/backward，避免建立 16-candidate activation graph。
+> - 冻结比较为 `positive_only`、V4.3 `dynamic_controlled_negative`、`bank_dynamic_controlled_negative`、`bank_global_matched` 与 `bank_uncontrolled_negative`。Bank dynamic 对当前 near/far 使用同一 detached token-surprisal taper；bank global 使用与 bank dynamic 初始实际负梯度 RMS 匹配的统一系数；不得预设任何方法胜出。
+> - 数据规模、SFT/base gate、seed、学习率、训练 horizon、near/far mix、taper lambda、surprisal threshold、LoRA 配置和 best/terminal 审计沿用 V4.3。主要结果仍是 greedy verifier success、pass@k、valid rate 与 held-out canonical pattern-family coverage/precision；bank 槽位轮换、surprisal 和权重仅是实现诊断。
+> - 0.5B 单 seed 只承担 focused pilot。reference greedy `<0.15` 时禁止正式方法排名、online-successor 成功结论或 3B scale-up 结论。任务性能退化、support/structure boundary 与 NaN/Inf 数值失败继续分开报告；不得称 state-distribution OOD generalization。
+> - 本 pilot 的用户批准不改变 v56 锁定的正式路线：`EXT-H-E7-Q2` 仍是下一 formal route item。V4.4 可作为非正式外部诊断执行，但不得越过 E7/E7-BENCH 门禁解锁 `EXT-C-E8-SCALE-01`。
+> - 本更新基于 `main` commit `c2ad7d5f6fe957d6a6297e6987d878cf72dbf7c8`，只完成文档、实现与测试注册；未运行真实 Qwen/CUDA/BF16-LoRA pilot。
+
+### Delta block `after_heading:v59-ext-c-e8-v45-offline-bank-tuning`
+
+> **v59 增量登记：Countdown `EXT-C-E8-V4.5-OFFLINE-BANK-TUNING` validation-only α×λ 调参 pilot（不删除 v58 及更早内容）**
+>
+> - V4.4 的固定 16-negative offline bank、current-policy near/far reselection 与结果边界全部保留。本版只检验一个后续问题：V4.4 从 uncontrolled 到 initialization-matched global 再到 dynamic 的改善趋势停在 Positive-only 附近，是否由整体负梯度强度或指数 taper 速度未落在最佳区间造成。
+> - 新实验复用 V4.4 已冻结并完成终态审计的 reference adapter、train/validation/test split、6000-row offline bank 与初始化梯度 calibration；输入在 V4.5 运行前后均做 SHA-256 校验。训练期间不生成新 rollout、不追加 replay、不改变 bank 内容，也不修改 threshold、数据规模、LoRA、学习率或 horizon。
+> - Stage A 只扫描 calibrated bank negative scale 的全局 multiplier `alpha in {0.5,1.0,1.5,2.0}`，固定 `lambda=0.7`；Stage B 在 Stage A 选出的 alpha 上扫描 `lambda in {0.3,0.7,1.2}`。两个阶段只用 validation，test 在唯一 alpha/lambda 组合冻结后才允许访问。
+> - 调参 seeds 固定为 `1234,2234`。候选选择顺序冻结为 mean best validation greedy success、mean best pass@8、mean terminal validation greedy success、mean best valid rate，再使用保守 tie-break；valid rate `<0.95` 或任何 NaN/Inf 直接使候选失格。
+> - 最终只在 untouched training seeds `3234,4234,5234` 上比较 validation-selected bank dynamic 与 Positive-only，并同时报告 best/terminal checkpoint。0.5B reference 若仍低于 greedy `0.15`，本实验即使多 seed 也只能形成 pilot 证据，不得自动升级为正式方法排名或显著性 claim。
+> - 该调参只回答“力度和 taper 是否未调到位”，不能证明 negative directional utility 已解决。若所有候选仍与 Positive-only 持平或更差，应转向已讨论但尚未登记的 online off-policy successor，而不是继续扩大网格。
+> - 当前 formal route 不变：`EXT-H-E7-Q2` 仍是下一正式实验。V4.5 是外部 focused pilot，不解锁 `EXT-C-E8-SCALE-01`，也不替代 D-U1/E6 的受控因果识别。
+> - 本更新基于用户上传 Git bundle 的 `main` commit `58342ae7809354ef8af0e90a1d9938aa51f3a97d`，只完成协议、runner 支持与测试；未运行真实 Qwen/CUDA/BF16-LoRA 调参。
+
+### Delta block `section_end:v52-countdown-current-gate-override`
+
+- **Countdown v52 覆盖：** `EXT-C-E8-V4.3` 取代 V4.2 成为当前 E8-MECH/focused pilot；V4.2 只保留 matched-pair mechanism provenance。`EXT-C-E8-SCALE-01` 继续等待 V4.3 与 E7-BENCH，不因本次实现自动解锁。
+
+### Delta block `section_end:v57-countdown-offline-bank-current-gate`
+
+- **Countdown v57 覆盖：** `EXT-C-E8-V4.4-OFFLINE-BANK` 是用户批准的当前离线 focused pilot；V4.3 保留为 fixed-pair predecessor。V4.4 只改变固定负样本覆盖与 current-policy near/far reselection，不引入在线数据刷新。`EXT-H-E7-Q2` 仍是下一正式 route item，`EXT-C-E8-SCALE-01` 继续 blocked。
+
+### Delta block `section_end:v59-countdown-offline-bank-tuning-current-gate`
+
+- **Countdown v59 覆盖：** `EXT-C-E8-V4.5-OFFLINE-BANK-TUNING` 是当前用户批准的离线 focused successor；V4.4 作为 frozen-bank predecessor 保留。V4.5 只调 calibrated global negative multiplier 与 exponential taper lambda，禁止在线刷新、方向筛选或模型规模同时变化。`EXT-H-E7-Q2` 仍是下一 formal route item，`EXT-C-E8-SCALE-01` 继续 blocked。
+
+### Delta block `section_end:v52-e8-route-override`
+
+7. **v52 路线覆盖：** 上述第 5 项的当前 E8-MECH owner 更新为 `EXT-C-E8-V4.3`。V4.3 只修复长期训练中的动态 remoteness 控制并保留 V4.2 静态方法作消融；E8-SCALE 的 3B/7B 规模结论仍需后续独立执行。
+
+### Delta block `section_end:v57-e8-offline-online-route`
+
+8. **v57 E8 内部路线覆盖：** 在进入 E8 外部诊断时，先执行 `EXT-C-E8-V4.4-OFFLINE-BANK`，只改变 fixed-bank 密度与每步动态选择；online off-policy 必须作为独立 successor 重新冻结 rollout actor、同步滞后、replay age、seeds 与预算匹配，不能与 V4.4 共用结论。
+
+### Delta block `section_end:v52-execution-order-override`
+
+11. **v52 执行覆盖：** 当锁定路线进入 E8-MECH 时，执行 `EXT-C-E8-V4.3` 而不是 V4.2；当前只完成注册和代码实现，真实 Qwen/CUDA pilot 仍为 not_run。
+
+## Source 2: experiments/registry.yaml: experiments[EXT-C-E8-V4, EXT-C-E8-V4.1, EXT-C-E8-V4.2, EXT-C-E8-V4.3, EXT-C-E8-V4.4-OFFLINE-BANK, EXT-C-E8-V4.5-OFFLINE-BANK-TUNING, EXT-C-E8-SCALE-01]
+
+collection: experiments
+entries:
+- id: EXT-C-E8-V4
+  environment: EXT-C
+  name: countdown_base_first_transformer_external_validation
+  status: superseded
+  claim: Test whether the fixed-negative-advantage near/far remoteness mechanism identified in D-U1 transfers to a shared-parameter
+    Transformer, and whether controlled negative advantages improve held-out structural generalization relative to positive-only
+    and uncontrolled negative updates.
+  role: external_validity
+  execution_class: superseded
+  does_not_replace:
+  - D-U1
+  - D-Diag
+  code_entrypoint: src/drpo/countdown_qwen_arena_onefile.py
+  primary_model: Qwen Instruct 0.5B
+  initialization: &id001
+    protocol: base_first
+    base_gate:
+      greedy_verifier_success_min: 0.15
+      valid_rate_min: 0.8
+    fallback: minimal_sft_only_if_base_gate_fails
+    sft_gate:
+      greedy_verifier_success_min: 0.15
+  data:
+    task: four-number Countdown arithmetic
+    train_validation_test_split: disjoint_canonical_operator_tree_signatures
+    positive_support: training_structures_only
+    negative_reward: 0
+    fixed_negative_advantage: -1.0
+    near_far_matching:
+      surprisal_gap_min: 0.5
+      token_length_difference_max: 2
+      tree_depth_difference_max: 1
+      value_error_ratio_max: 4.0
+  mechanism_probe: &id002
+    matched_pairs_min: 16
+    default_pairs: 32
+    metrics:
+    - token_surprisal
+    - direct_logit_score_norm
+    - trainable_adapter_gradient_norm
+    - target_surprisal_delta_after_equal_negative_updates
+    - correct_answer_collateral_surprisal_delta
+  methods:
+  - positive_only
+  - controlled_negative
+  - uncontrolled_negative
+  pairing:
+    shared_initial_adapter: true
+    shared_offline_data: true
+    shared_training_seed: true
+    shared_evaluation_seed: true
+  primary_metrics:
+  - greedy_verifier_success
+  - pass_at_k
+  - valid_rate
+  - greedy_unseen_structure_success
+  - pass_at_k_unseen_structure
+  reporting_separation: &id003
+  - task_performance
+  - support_or_structure_coverage
+  - nan_inf_numerical_failure
+  model_scaling:
+    qwen_3b: conditional_replication
+    qwen_7b: optional
+  artifact_budget:
+    main_package_hard_limit_mib: 25
+    single_file_main_limit_mib: 10
+    max_retained_checkpoints_per_method: 2
+    checkpoint_roles:
+    - best
+    - latest
+    save_foundation_model_weights: false
+    save_optimizer_state_by_default: false
+    large_checkpoint_delivery: persistent_local_index
+    sidecar_default: false
+    sidecar_only_if_pre_registered: true
+    sidecar_selection: explicit_files_only
+    sidecar_purpose_required: true
+    sidecar_filename_policy: new_versioned_path
+  formal_run_status: not_run
+  execution:
+    state: registered
+    run_id: null
+    last_heartbeat_utc: null
+    process_exit_code: null
+  evidence:
+    raw_complete: false
+    terminal_audited: false
+    package_created: false
+    package_filename: null
+    package_sha256: null
+    delivered_to_user: false
+    applied_commit: null
+  superseded_by: EXT-C-E8-V4.1
+  preserved_for_provenance: true
+  replacement_reason: V4 allowed unmatched pairs in method training, retained only best adapters, used a weaker structural
+    split, and lacked a calibrated equal-budget global control.
+- id: EXT-C-E8-V4.1
+  environment: EXT-C
+  name: countdown_audited_base_first_transformer_external_validation
+  status: not_run
+  claim: Test whether the fixed-negative-advantage near/far remoteness mechanism identified in D-U1 transfers to a shared-parameter
+    Transformer, and whether selective far-negative control improves held-out canonical pattern-family generalization beyond
+    positive-only, uncontrolled negative updates, and an equal-budget global control.
+  role: external_validity
+  execution_class: pilot
+  pilot_execution:
+    channel_ref: hardened-v1
+    launch_mode: guarded_orchestrator
+    operator_entrypoint: scripts/run_countdown_pilot.py
+    guard_required: true
+  does_not_replace:
+  - D-U1
+  - D-Diag
+  code_entrypoint: src/drpo/countdown_qwen_arena_onefile.py
+  one_click_entrypoint: scripts/run_countdown_pilot.py
+  one_click_contract:
+    required_operator_inputs:
+    - model_path
+    - work_dir
+    automatic_decisions:
+    - visible_gpu_selection_up_to_eight
+    - base_gate_and_sft_fallback
+    - safe_stage_gpu_assignment
+    - best_terminal_or_last_finite_evaluation_inventory
+    - terminal_audit
+    - guarded_success_or_failure_artifact_packaging
+    build_offline_parallelism: disabled_to_preserve_registered_rng_stream
+    hardened_guard_required: true
+    required_success_outputs:
+    - RUN_COMPLETE.json
+    - terminal_audit.json
+    - arena_summary.csv
+  primary_model: Qwen Instruct 0.5B
+  initialization: *id001
+  parameterization:
+    runner_version: 4.2.0-one-click-audited-orchestrator
+    pilot: bf16_lora
+    shared_across_methods: true
+    qlora: engineering_smoke_only
+    lora_configuration:
+      rank: 32
+      alpha: 64
+      dropout: 0.05
+      bias: none
+      target_modules:
+      - q_proj
+      - k_proj
+      - v_proj
+      - o_proj
+      - gate_proj
+      - up_proj
+      - down_proj
+    full_finetune_confirmation:
+      model: Qwen Instruct 0.5B
+      gate: only_after_reproducible_lora_pilot_signal
+      implemented_in_current_runner: false
+      requires_separate_registration_before_implementation: true
+      mixed_with_lora_main_comparison: false
+      status: not_run
+  data:
+    task: four-number Countdown arithmetic
+    terminology: held_out_canonical_pattern_family_generalization
+    not_claimed:
+    - state_distribution_ood
+    - latent_subtree_skill_causality
+    generation: canonical_pattern_first_capacity_audited_balanced_core
+    canonical_pattern_catalog_size_for_four_numbers: 96
+    validation_test_holdout: disjoint_three_number_pattern_families_and_four_number_derivatives
+    exclude_heldout_families_from:
+    - training_positive_completions
+    - training_negative_completions
+    negative_reward: 0
+    fixed_negative_advantage: -1.0
+    near_far_matching:
+      surprisal_gap_min: 0.5
+      token_length_difference_max: 2
+      tree_depth_difference_max: 1
+      value_error_ratio_max: 4.0
+      resample_rounds_default: 3
+      unresolved_pair_action: drop_example
+      unmatched_pairs_allowed_in_training: false
+  mechanism_probe: *id002
+  methods:
+  - positive_only
+  - controlled_negative
+  - uncontrolled_negative
+  - global_matched
+  negative_scale_calibration:
+    symbol: beta
+    replaces_unjustified_legacy_default_alpha: 0.7
+    mechanism_probe_advantage_unchanged: -1.0
+    calibration_split: fixed_training_calibration_subset
+    calibration_time: common_initial_adapter_before_any_method_training
+    positive_budget: rms_gradient_norm_of_positive_branch
+    negative_budget: rms_gradient_norm_of_unscaled_uncontrolled_negative_branch
+    formula: beta = positive_rms_gradient_norm / uncontrolled_negative_rms_gradient_norm
+    shared_by_methods:
+    - controlled_negative
+    - uncontrolled_negative
+    - global_matched
+    frozen_after_calibration: true
+    task_metrics_used_for_selection: false
+    validation_data_used_for_calibration: false
+    test_data_used_for_calibration: false
+    failure_action: stop_without_fallback_if_nonfinite_or_nonpositive
+  global_matched:
+    calibration_split: fixed_training_calibration_subset
+    matching_target: rms_negative_gradient_norm_of_controlled_negative
+    gamma_frozen_before_method_training: true
+    reads_near_far_identity: false
+    test_data_used_for_calibration: false
+  pilot_configuration:
+    development_seeds:
+    - 1234
+    formal_held_out_seeds: pending_separate_registration_after_pilot
+    formal_multiseed_gate: blocked_until_held_out_seeds_are_registered
+    data_sizes:
+      train: 6000
+      validation: 500
+      test: 1000
+      offline_matched_rows: 1500
+      rollouts_per_prompt: 12
+    pair_resample_rounds: 3
+    calibration_batches: 16
+    optimization:
+      maximum_steps: 1200
+      minimum_steps_before_early_stop: 400
+      evaluation_interval_steps: 100
+      early_stop_patience_evaluations: 6
+      early_stop_delta: 0.002
+      selection_metric: greedy_success
+      learning_rate: 5.0e-05
+      warmup_ratio: 0.03
+      maximum_gradient_norm: 1.0
+    evaluation:
+      pass_at_k: 8
+      evaluation_examples: 500
+    negative_branches:
+      near_mix: 0.5
+      far_mix: 0.5
+      far_taper_lambda: 0.7
+      surprisal_threshold: 2.0
+  pairing:
+    shared_initial_adapter: true
+    shared_offline_data: true
+    shared_training_seed: true
+    shared_evaluation_seed: true
+    shared_bf16_lora_configuration: true
+  checkpoint_policy:
+    binary_storage: server_local_or_external_persistent_storage_only
+    commit_model_binaries_to_git: false
+    normal_completion:
+    - best_adapter
+    - terminal_adapter
+    nonfinite_failure:
+    - best_adapter
+    - last_finite_adapter
+    last_finite_definition: exact_trainable_adapter_state_before_the_first_nonfinite_optimizer_update
+    last_finite_implementation: cpu_snapshot_of_trainable_lora_parameters_before_each_optimizer_step
+    failure_manifest_fields:
+    - failure_detected_at_step
+    - last_finite_step
+    maximum_retained_per_method: 2
+    repository_records:
+    - checkpoint_manifest
+    - path
+    - step
+    - size_bytes
+    - sha256
+  primary_metrics:
+  - greedy_verifier_success
+  - pass_at_k
+  - valid_rate
+  - greedy_unseen_structure_presence
+  - greedy_unseen_structure_success
+  - pass_at_k_unseen_structure_presence
+  - pass_at_k_unseen_structure_success
+  - heldout_pattern_family_coverage
+  - heldout_pattern_family_precision_micro
+  - heldout_pattern_family_precision_macro
+  - per_pattern_attempts_correct_precision
+  - correct_heldout_patterns
+  structure_metric_semantics:
+    presence: generated_a_valid_completion_with_a_pattern_outside_training_structure_support
+    success: verifier_correct_and_pattern_outside_training_structure_support
+    per_pattern_precision: correct_generations_divided_by_valid_generations_of_that_pattern
+    zero_attempt_precision: null
+    greedy_and_sampled_denominators: separate
+  result_status_propagation:
+    top_level_run_controls_children: true
+    allowed:
+    - pilot
+    - engineering_smoke
+    - standalone_unclassified
+    direct_subcommand_default: standalone_unclassified
+  reporting_separation: *id003
+  model_scaling:
+    qwen_3b: conditional_replication_after_v4_1
+    qwen_7b: optional
+  artifact_budget:
+    main_package_hard_limit_mib: 25
+    single_file_main_limit_mib: 10
+    max_retained_checkpoints_per_method: 2
+    checkpoint_roles:
+    - best_adapter
+    - terminal_adapter_on_normal_completion
+    - last_finite_adapter_on_nonfinite_failure
+    mutually_exclusive_latest_roles: true
+    save_foundation_model_weights: false
+    save_optimizer_state_by_default: false
+    large_checkpoint_delivery: persistent_local_index
+    sidecar_default: false
+    sidecar_only_if_pre_registered: true
+    sidecar_selection: explicit_files_only
+    sidecar_purpose_required: true
+    sidecar_filename_policy: new_versioned_path
+  orchestration:
+    gpu_selection_default: auto_all_visible_up_to_8
+    safe_parallel_stages:
+    - mechanism_probe_and_negative_budget_calibration
+    - four_method_training_one_process_per_gpu
+    - raw_base_and_reference_test_on_spare_gpus
+    - all_best_terminal_last_finite_test_jobs
+    single_gpu_stages:
+    - preflight
+    - pattern_first_data_generation
+    - base_and_reference_gate_evaluation
+    - conditional_sft
+    - build_offline
+    reason_build_offline_not_sharded: preserve_frozen_rng_stream_and_dataset_protocol
+    automatic_decision_log: automatic_decisions.json
+    failure_marker: RUN_FAILED.json
+    terminal_audit: terminal_audit.json
+  formal_run_status: not_run
+  execution:
+    state: registered
+    run_id: null
+    last_heartbeat_utc: null
+    process_exit_code: null
+  evidence:
+    raw_complete: false
+    terminal_audited: false
+    package_created: false
+    package_filename: null
+    package_sha256: null
+    delivered_to_user: false
+    applied_commit: null
+  superseded_by: EXT-C-E8-V4.2
+  preserved_for_provenance: true
+  replacement_reason: V4.2 registers the post-pilot capability gates, balanced 6000-row offline corpus, effective-epoch training,
+    dynamic far-field diagnostics, and isolated full-FT reference diagnostic.
+- id: EXT-C-E8-V4.2
+  environment: EXT-C
+  name: countdown_balanced_offline_dynamic_far_field_external_validation
+  status: superseded
+  claim: Test whether fixed-advantage far negatives exert larger and more damaging policy-relative influence than matched
+    near negatives in a shared-parameter Transformer, and whether selective far-negative control preserves held-out canonical
+    pattern-family performance better than positive-only, uncontrolled negative updates, and an equal-initial-budget global
+    control. Near negatives are not assumed to be universally beneficial.
+  role: external_validity
+  execution_class: superseded
+  registration_base_commit: e8b62dde518f593ff8325c7da94c41406311ca45
+  superseded_by: EXT-C-E8-V4.3
+  preserved_for_provenance: true
+  pilot_execution:
+    channel_ref: hardened-v1
+    launch_mode: guarded_orchestrator
+    operator_entrypoint: scripts/run_countdown_pilot.py
+    guard_required: true
+  does_not_replace:
+  - D-U1
+  - D-Diag
+  supersedes: EXT-C-E8-V4.1
+  preserved_prior_run_note: The dirty-worktree single-seed V4.1 server run is exploratory mechanism evidence only and does
+    not satisfy this registered protocol.
+  code_entrypoint: src/drpo/countdown_qwen_arena_onefile.py
+  one_click_entrypoint: scripts/run_countdown_pilot.py
+  one_click_contract:
+    required_operator_inputs:
+    - model_path
+    - work_dir
+    automatic_decisions:
+    - visible_gpu_selection_up_to_eight
+    - base_gate_and_extended_lora_sft_fallback
+    - mechanism_only_versus_method_effect_capability_gate
+    - isolated_full_ft_reference_diagnostic
+    - safe_stage_gpu_assignment
+    - balanced_offline_construction_and_nested_subsets
+    - best_terminal_or_last_finite_evaluation_inventory
+    - terminal_audit
+    - guarded_success_or_failure_artifact_packaging
+    build_offline_parallelism: disabled_to_preserve_one_rng_stream_and_pattern_quotas
+    hardened_guard_required: true
+    required_success_outputs:
+    - RUN_COMPLETE.json
+    - terminal_audit.json
+    - arena_summary.csv
+  primary_model: Qwen2.5-0.5B-Instruct
+  initialization: *id001
+  parameterization:
+    runner_version: 4.3.0-balanced-offline-diagnostics
+    main_comparison: bf16_lora
+    shared_across_methods: true
+    qlora: engineering_smoke_only
+    lora_configuration:
+      rank: 32
+      alpha: 64
+      dropout: 0.05
+      bias: none
+      target_modules:
+      - q_proj
+      - k_proj
+      - v_proj
+      - o_proj
+      - gate_proj
+      - up_proj
+      - down_proj
+    full_finetune_reference_diagnostic:
+      model: Qwen2.5-0.5B-Instruct
+      implemented: true
+      parameterization: bf16_full_parameter_sft
+      learning_rate: 2.0e-05
+      same_sft_train_validation_split_as_lora: true
+      maximum_epochs: 6
+      minimum_epochs: 3
+      early_stop_patience_epochs: 2
+      role: isolated_parameterization_capacity_diagnostic
+      eligible_to_initialize_four_method_comparison: false
+      mixed_with_lora_main_comparison: false
+      checkpoint_storage: server_local_index_only
+      status: not_run
+  capability_gates:
+    base_first_sft_trigger:
+      greedy_success_min: 0.15
+      valid_rate_min: 0.8
+    mechanism_pilot:
+      greedy_success_min: 0.08
+      valid_rate_min: 0.95
+      failure_action: stop_before_offline_mechanism_interpretation
+    method_effect_comparison:
+      greedy_success_min: 0.15
+      valid_rate_min: 0.95
+      failure_action: complete_mechanism_and_full_ft_diagnostics_but_skip_four_method_ranking
+    threshold_note: Fifteen percent is an operational floor-effect guard rather than a theoretical constant; it may only change
+      in a new registered protocol, not during a run.
+  sft:
+    main_parameterization: lora
+    maximum_epochs: 6
+    minimum_epochs: 3
+    early_stop_patience_epochs: 2
+    selection_metric: greedy_success
+    learning_rate: 0.0002
+    warmup_ratio: 0.03
+    maximum_gradient_norm: 1.0
+    evaluate_each_epoch: true
+    scheduler: cosine_over_the_full_registered_schedule
+  data:
+    task: four-number Countdown arithmetic
+    terminology: held_out_canonical_pattern_family_generalization
+    not_claimed:
+    - state_distribution_ood
+    - universal_benefit_of_near_negatives
+    - latent_subtree_skill_causality
+    generation: canonical_pattern_first_capacity_audited_balanced_core
+    canonical_pattern_catalog_size_for_four_numbers: 96
+    validation_test_holdout: disjoint_three_number_pattern_families_and_four_number_derivatives
+    generated_sizes:
+      train: 6000
+      validation: 500
+      test: 1000
+    exclude_heldout_families_from:
+    - training_positive_completions
+    - training_negative_completions
+    negative_reward: 0
+    fixed_negative_advantage: -1.0
+    offline_matched_dataset:
+      rows: 6000
+      construction_scope: one_matched_row_for_each_registered_training_prompt
+      balance_key: oracle_structure
+      expected_train_patterns: 48
+      expected_rows_per_pattern: 125
+      nested_balanced_subsets:
+      - 1500
+      - 3000
+      - 6000
+      reference_policy_bound: true
+      reusable_across_methods_training_seeds_and_registered_hyperparameter_checks: true
+      must_rebuild_after_reference_model_or_parameterization_change: true
+      build_parallelism: single_gpu_single_rng_stream
+      unresolved_quota_action: fail_closed_and_preserve_partial_diagnostics
+    near_far_matching:
+      surprisal_gap_min: 0.5
+      token_length_difference_max: 2
+      tree_depth_difference_max: 1
+      value_error_ratio_max: 4.0
+      rollouts_per_prompt: 12
+      minimum_negative_candidates: 8
+      resample_rounds_default: 8
+      deterministic_synthetic_rescue_candidates_max: 64
+      rescue_does_not_relax_matching_thresholds: true
+      unmatched_pairs_allowed_in_training: false
+  mechanism_probe: *id002
+  methods:
+  - positive_only
+  - controlled_negative
+  - uncontrolled_negative
+  - global_matched
+  core_interpretation:
+    primary: Far negatives may be more harmful because their fixed-advantage updates have larger policy-relative influence.
+    near_branch: Near negatives may be beneficial, neutral, or harmful; universal benefit is not required by the claim.
+    prohibited_inference: Do not interpret one held-out pattern redistribution as aggregate method superiority.
+  dynamic_diagnostics:
+    cadence: step_zero_and_each_validation_checkpoint
+    fixed_balanced_diagnostic_rows: 32
+    gradient_diagnostic_rows: 8
+    fields:
+    - positive_near_far_surprisal_mean_median_p90
+    - near_fraction_crossing_the_frozen_far_threshold
+    - controlled_far_token_weight
+    - positive_near_far_raw_and_scaled_gradient_norm
+    - far_to_near_gradient_norm_ratio
+    - positive_near_and_positive_far_gradient_cosine
+    - effective_epoch
+    output: methods_each_dynamic_diagnostics_jsonl
+  negative_scale_calibration:
+    symbol: beta
+    mechanism_probe_advantage_unchanged: -1.0
+    calibration_split: fixed_training_calibration_subset
+    calibration_time: common_initial_lora_adapter_before_any_method_training
+    positive_budget: rms_gradient_norm_of_positive_branch
+    negative_budget: rms_gradient_norm_of_unscaled_uncontrolled_negative_branch
+    formula: beta = positive_rms_gradient_norm / uncontrolled_negative_rms_gradient_norm
+    shared_by_methods:
+    - controlled_negative
+    - uncontrolled_negative
+    - global_matched
+    frozen_after_calibration: true
+    task_metrics_used_for_selection: false
+    validation_data_used_for_calibration: false
+    test_data_used_for_calibration: false
+    failure_action: stop_without_fallback_if_nonfinite_or_nonpositive
+  global_matched:
+    calibration_split: fixed_training_calibration_subset
+    matching_target: rms_negative_gradient_norm_of_controlled_negative
+    gamma_frozen_before_method_training: true
+    reads_near_far_identity: false
+    test_data_used_for_calibration: false
+  pilot_configuration:
+    development_seeds:
+    - 1234
+    formal_held_out_seeds: pending_separate_registration_after_pilot
+    formal_multiseed_gate: blocked_until_held_out_seeds_are_registered
+    calibration_batches: 16
+    optimization:
+      duration_unit: effective_offline_epochs
+      maximum_effective_epochs: 6
+      minimum_effective_epochs_before_early_stop: 2
+      evaluation_interval_effective_epochs: 1
+      early_stop_patience_evaluations: 2
+      early_stop_delta: 0.002
+      selection_metric: greedy_success
+      learning_rate: 5.0e-05
+      warmup_ratio: 0.03
+      maximum_gradient_norm: 1.0
+      h20_reference_effective_batch_size: 32
+      h20_reference_updates_per_epoch: 188
+      h20_reference_maximum_steps: 1128
+      h20_reference_minimum_steps: 376
+    evaluation:
+      pass_at_k: 8
+      evaluation_examples: 500
+    negative_branches:
+      near_mix: 0.5
+      far_mix: 0.5
+      far_taper_lambda: 0.7
+      surprisal_threshold: 2.0
+  pairing:
+    shared_initial_lora_adapter: true
+    shared_offline_data: true
+    shared_training_seed: true
+    shared_evaluation_seed: true
+    shared_bf16_lora_configuration: true
+    full_ft_diagnostic_excluded_from_pairing_and_ranking: true
+  checkpoint_policy:
+    binary_storage: server_local_or_external_persistent_storage_only
+    commit_model_binaries_to_git: false
+    lora_normal_completion:
+    - best_adapter
+    - terminal_adapter
+    lora_nonfinite_failure:
+    - best_adapter
+    - last_finite_adapter
+    lora_last_finite_definition: exact_trainable_adapter_state_before_the_first_nonfinite_optimizer_update
+    full_ft_diagnostic_normal_completion:
+    - best_model
+    - terminal_model
+    full_ft_nonfinite_action: fail_closed_with_epoch_checkpoint_semantics
+    maximum_retained_per_main_method: 2
+    lora_tokenizer_storage: reference_registered_model_path_without_per_checkpoint_vocab_duplication
+    full_model_tokenizer_storage: self_describing_checkpoint_metadata
+    repository_records:
+    - checkpoint_manifest
+    - path
+    - step
+    - size_bytes
+    - sha256
+  primary_metrics:
+  - greedy_verifier_success
+  - pass_at_k
+  - valid_rate
+  - greedy_unseen_structure_presence
+  - greedy_unseen_structure_success
+  - pass_at_k_unseen_structure_presence
+  - pass_at_k_unseen_structure_success
+  - heldout_pattern_family_coverage
+  - heldout_pattern_family_precision_micro
+  - heldout_pattern_family_precision_macro
+  - per_pattern_attempts_correct_precision
+  - correct_heldout_patterns
+  reporting_separation: *id003
+  model_scaling:
+    qwen_3b: conditional_after_v4_2_if_reference_capacity_or_cross_seed_confirmation_requires_it
+    qwen_7b: optional
+  orchestration:
+    gpu_selection_default: auto_all_visible_up_to_8
+    safe_parallel_stages:
+    - balanced_offline_build_and_isolated_full_ft_reference_diagnostic_on_different_gpus
+    - mechanism_probe_and_negative_budget_calibration
+    - four_method_training_one_process_per_gpu
+    - raw_base_lora_reference_and_full_ft_reference_test_on_spare_gpus
+    - all_best_terminal_last_finite_test_jobs
+    single_rng_stages:
+    - pattern_first_data_generation
+    - balanced_build_offline
+    reason_build_offline_not_sharded: preserve_one_deterministic_rng_stream_and_pattern_quota_protocol
+    automatic_decision_log: automatic_decisions.json
+    failure_marker: RUN_FAILED.json
+    terminal_audit: terminal_audit.json
+  formal_run_status: not_run
+  execution:
+    state: registered
+    run_id: null
+    last_heartbeat_utc: null
+    process_exit_code: null
+  evidence:
+    raw_complete: false
+    terminal_audited: false
+    package_created: false
+    package_filename: null
+    package_sha256: null
+    delivered_to_user: false
+    applied_commit: null
+- id: EXT-C-E8-V4.3
+  environment: EXT-C
+  name: countdown_policy_relative_dynamic_negative_control_pilot
+  status: not_run
+  claim: Test whether the V4.2 static construction-time near/far labels caused the controlled method to miss negative completions
+    that became far under the moving policy, and whether applying the same current-policy token-surprisal taper to every negative
+    branch improves verifier success and valid rate relative to static control, positive-only, and uncontrolled negatives.
+  role: external_validity_focused_method_diagnostic
+  execution_class: pilot
+  registration_base_commit: 0907c3c0e76fc836c2bf2b752abf554c17f79f22
+  pilot_execution:
+    channel_ref: hardened-v1
+    launch_mode: guarded_orchestrator
+    operator_entrypoint: scripts/run_countdown_pilot.py
+    guard_required: true
+  does_not_replace:
+  - D-U1
+  - D-Diag
+  supersedes: EXT-C-E8-V4.2
+  preserved_v4_2_role: Matched near/far pairs remain valid for the instantaneous fixed-advantage mechanism probe. Only their
+    use as permanent long-run control identities is replaced.
+  code_entrypoint: src/drpo/countdown_qwen_arena_onefile.py
+  one_click_entrypoint: scripts/run_countdown_pilot.py
+  primary_model: Qwen2.5-0.5B-Instruct
+  parameterization:
+    runner_version: 4.4.0-dynamic-negative-control
+    main_comparison: bf16_lora
+    shared_across_methods: true
+    qlora: engineering_smoke_only
+    full_finetune_role: isolated_reference_capacity_diagnostic_only
+  capability_gates:
+    mechanism_and_focused_pilot:
+      greedy_success_min: 0.08
+      valid_rate_min: 0.95
+      failure_action: stop_before_interpreting_negative_control
+    formal_method_ranking:
+      greedy_success_min: 0.15
+      valid_rate_min: 0.95
+      failure_action: Run and report the focused single-seed pilot, but prohibit formal method ranking or scale-up claims.
+    threshold_note: The 0.08 gate permits the approved 0.5B focused diagnostic; the 0.15 gate remains a floor-effect guard
+      for any later ranking claim. Neither threshold may change after results are observed.
+  data:
+    inherited_from: EXT-C-E8-V4.2
+    task: four-number Countdown arithmetic
+    terminology: held_out_canonical_pattern_family_generalization
+    generated_sizes:
+      train: 6000
+      validation: 500
+      test: 1000
+    offline_matched_rows: 6000
+    fixed_negative_advantage: -1.0
+    static_pair_role: instantaneous_mechanism_matching_and_branch_provenance
+    long_run_remoteness_role: recomputed_from_current_policy_each_optimizer_step
+    negative_bank_expansion: not_in_this_update
+  methods:
+  - positive_only
+  - controlled_negative
+  - dynamic_controlled_negative
+  - uncontrolled_negative
+  method_definitions:
+    controlled_negative: 'V4.2 static ablation: initial near branch remains untapered and only the initial far branch receives
+      detached token-surprisal tapering.'
+    dynamic_controlled_negative: Apply the same detached current-policy token-surprisal taper to both initially-near and initially-far
+      negative branches.
+    uncontrolled_negative: Shared calibrated negative scale without surprisal taper.
+  frozen_controls:
+    shared_initial_lora_adapter: true
+    shared_offline_data: true
+    shared_training_seed: true
+    shared_evaluation_seed: true
+    near_mix: 0.5
+    far_mix: 0.5
+    taper_lambda: 0.7
+    surprisal_threshold: 2.0
+    maximum_effective_epochs: 6
+    minimum_effective_epochs_before_early_stop: 2
+    evaluation_interval_effective_epochs: 1
+    early_stop_patience_evaluations: 2
+    early_stop_delta: 0.002
+    selection_metric: greedy_success
+    learning_rate: 5.0e-05
+    warmup_ratio: 0.03
+    maximum_gradient_norm: 1.0
+    development_seed: 1234
+  negative_scale_calibration:
+    inherited_formula: beta_equals_positive_rms_over_uncontrolled_negative_rms
+    calibration_split: fixed_training_subset_before_method_training
+    shared_by:
+    - controlled_negative
+    - dynamic_controlled_negative
+    - uncontrolled_negative
+    task_metrics_used_for_selection: false
+    validation_or_test_used: false
+  primary_metrics:
+  - greedy_verifier_success
+  - pass_at_k
+  - valid_rate
+  - heldout_pattern_family_coverage
+  - heldout_pattern_family_precision_micro
+  - heldout_pattern_family_precision_macro
+  - best_and_terminal_checkpoint_results
+  diagnostics:
+  - initial_near_fraction_currently_above_threshold
+  - current_near_and_far_surprisal
+  - current_near_and_far_taper_weight
+  - raw_and_tapered_near_and_far_gradient_norm
+  - positive_negative_gradient_cosine
+  reporting_separation:
+  - task_performance_degradation
+  - support_or_structure_boundary_event
+  - nan_inf_numerical_failure
+  interpretation_limits:
+  - single_seed_is_pilot_only
+  - weight_trajectory_is_implementation_evidence_not_primary_outcome
+  - no_universal_method_ranking
+  - no_state_distribution_ood_claim
+  - countdown_does_not_replace_controlled_causal_identification
+  expected_outputs:
+  - RUN_COMPLETE.json
+  - terminal_audit.json
+  - arena_summary.csv
+  - methods_each_dynamic_diagnostics_jsonl
+  orchestration:
+    gpu_selection_default: auto_all_visible_up_to_8
+    method_training: one_method_per_gpu_fifo_queue
+    reason_build_offline_not_sharded: preserve_one_deterministic_rng_stream_and_pattern_quota_protocol
+    terminal_audit_required: true
+  formal_run_status: not_run
+  execution:
+    state: registered
+    run_id: null
+    last_heartbeat_utc: null
+    process_exit_code: null
+  evidence:
+    raw_complete: false
+    terminal_audited: false
+    package_created: false
+    package_filename: null
+    package_sha256: null
+    delivered_to_user: false
+    applied_commit: null
+- id: EXT-C-E8-V4.4-OFFLINE-BANK
+  environment: EXT-C
+  name: countdown_fixed_offline_negative_bank_dynamic_selection_pilot
+  status: not_run
+  claim: Test whether one fixed near/far pair per prompt becomes stale too quickly to preserve useful local negative signal,
+    and whether a frozen 16-negative offline bank with current-policy near/far reselection can improve verifier outcomes without
+    the confound of online data refresh.
+  role: external_validity_offline_negative_density_and_dynamic_selection_diagnostic
+  execution_class: pilot
+  registration_base_commit: c2ad7d5f6fe957d6a6297e6987d878cf72dbf7c8
+  predecessor: EXT-C-E8-V4.3
+  pilot_execution:
+    channel_ref: hardened-v1
+    launch_mode: guarded_orchestrator
+    operator_entrypoint: scripts/run_countdown_pilot.py
+    guard_required: true
+  does_not_replace:
+  - D-U1
+  - D-Diag
+  code_entrypoint: src/drpo/countdown_qwen_arena_onefile.py
+  one_click_entrypoint: scripts/run_countdown_pilot.py
+  primary_model: Qwen2.5-0.5B-Instruct
+  parameterization:
+    runner_version: 4.5.0-offline-negative-bank
+    main_comparison: bf16_lora
+    shared_across_methods: true
+    qlora: engineering_smoke_only
+    full_finetune_role: isolated_reference_capacity_diagnostic_only
+  capability_gates:
+    mechanism_and_focused_pilot:
+      greedy_success_min: 0.08
+      valid_rate_min: 0.95
+      failure_action: stop_before_interpreting_negative_bank_control
+    formal_method_ranking:
+      greedy_success_min: 0.15
+      valid_rate_min: 0.95
+      failure_action: Run and report the focused single-seed pilot, but prohibit formal method ranking, online-successor claims,
+        or scale-up claims.
+    threshold_note: The 0.08 gate permits the approved 0.5B focused diagnostic; the 0.15 gate remains a floor-effect guard
+      for any ranking claim.
+  data:
+    inherited_from: EXT-C-E8-V4.3
+    task: four-number Countdown arithmetic
+    terminology: held_out_canonical_pattern_family_generalization
+    generated_sizes:
+      train: 6000
+      validation: 500
+      test: 1000
+    offline_rows: 6000
+    fixed_negative_advantage: -1.0
+    negative_bank_size_per_prompt: 16
+    minimum_unique_negative_candidates: 16
+    bank_generation_time: before_method_training
+    bank_mutability_during_training: frozen
+    online_rollout_during_method_training: false
+    static_pair_role: instantaneous_mechanism_matching_and_branch_provenance
+    bank_selection_rule: recompute current-policy sequence surprisal each optimizer step; select minimum as current near and
+      maximum as current far
+  methods:
+  - positive_only
+  - dynamic_controlled_negative
+  - bank_dynamic_controlled_negative
+  - bank_global_matched
+  - bank_uncontrolled_negative
+  method_definitions:
+    dynamic_controlled_negative: V4.3 two-fixed-branch comparator; both original pair branches receive detached current-policy
+      token-surprisal tapering.
+    bank_dynamic_controlled_negative: Rescore the fixed 16-negative bank every optimizer step, select current near/far, and
+      apply the same detached token-surprisal taper to both selected branches.
+    bank_global_matched: Use the same current near/far bank selection with one fixed global coefficient calibrated to the
+      initial actual negative-gradient RMS of bank_dynamic_controlled_negative.
+    bank_uncontrolled_negative: Use the same current near/far bank selection and shared bank negative scale without selective
+      taper.
+  frozen_controls:
+    shared_initial_lora_adapter: true
+    shared_offline_rows_and_negative_banks: true
+    shared_training_seed: true
+    shared_evaluation_seed: true
+    near_mix: 0.5
+    far_mix: 0.5
+    taper_lambda: 0.7
+    surprisal_threshold: 2.0
+    maximum_effective_epochs: 6
+    minimum_effective_epochs_before_early_stop: 2
+    evaluation_interval_effective_epochs: 1
+    early_stop_patience_evaluations: 2
+    early_stop_delta: 0.002
+    selection_metric: greedy_success
+    learning_rate: 5.0e-05
+    warmup_ratio: 0.03
+    maximum_gradient_norm: 1.0
+    development_seed: 1234
+  negative_scale_calibration:
+    pair_formula: positive_rms_over_pair_uncontrolled_negative_rms
+    bank_formula: positive_rms_over_bank_uncontrolled_negative_rms
+    bank_global_match: bank_dynamic_controlled_initial_actual_negative_gradient_rms
+    calibration_split: fixed_training_subset_before_method_training
+    task_metrics_used_for_selection: false
+    validation_or_test_used: false
+  primary_metrics:
+  - greedy_verifier_success
+  - pass_at_k
+  - valid_rate
+  - heldout_pattern_family_coverage
+  - heldout_pattern_family_precision_micro
+  - heldout_pattern_family_precision_macro
+  - best_and_terminal_checkpoint_results
+  diagnostics:
+  - selected_bank_near_and_far_slot
+  - selected_bank_near_and_far_surprisal
+  - selected_bank_near_and_far_taper_weight
+  - bank_slot_turnover_and_unique_selection_fraction
+  - raw_and_tapered_near_and_far_gradient_norm
+  - positive_negative_gradient_cosine
+  reporting_separation:
+  - task_performance_degradation
+  - support_or_structure_boundary_event
+  - nan_inf_numerical_failure
+  interpretation_limits:
+  - single_seed_is_pilot_only
+  - bank_selection_and_weight_trajectory_are_implementation_evidence_not_primary_outcomes
+  - no_universal_method_ranking
+  - no_state_distribution_ood_claim
+  - no_online_off_policy_claim
+  - countdown_does_not_replace_controlled_causal_identification
+  expected_outputs:
+  - RUN_COMPLETE.json
+  - terminal_audit.json
+  - arena_summary.csv
+  - negative_budget_calibration.json
+  - offline_bank_manifest
+  - methods_each_dynamic_diagnostics_jsonl
+  orchestration:
+    gpu_selection_default: auto_all_visible_up_to_8
+    method_training: one_method_per_gpu_fifo_queue
+    reason_build_offline_not_sharded: preserve_one_deterministic_rng_stream_pattern_quota_and_fixed_bank_protocol
+    terminal_audit_required: true
+  online_successor:
+    status: not_registered
+    may_start_only_after: V4.4_offline_pilot_audited_and_delivered
+    must_freeze_separately:
+    - rollout_actor_sync_lag
+    - replay_age_and_retention
+    - online_seeds
+    - fresh_vs_stale_negative_budget_matching
+  formal_run_status: not_run
+  execution:
+    state: registered
+    run_id: null
+    last_heartbeat_utc: null
+    process_exit_code: null
+  evidence:
+    raw_complete: false
+    terminal_audited: false
+    package_created: false
+    package_filename: null
+    package_sha256: null
+    delivered_to_user: false
+    applied_commit: null
+- id: EXT-C-E8-V4.5-OFFLINE-BANK-TUNING
+  environment: EXT-C
+  name: countdown_offline_bank_alpha_lambda_validation_tuning_pilot
+  status: not_run
+  claim: Test whether the V4.4 ordering from uncontrolled to initialization-matched global scaling to dynamic remoteness control
+    stopped near Positive-only because the calibrated overall negative strength or exponential taper rate was suboptimal,
+    and whether a validation-selected configuration improves held-out verifier outcomes without valid-rate or numerical degradation.
+  role: external_validity_offline_bank_control_hyperparameter_diagnostic
+  execution_class: pilot
+  registration_base_commit: 58342ae7809354ef8af0e90a1d9938aa51f3a97d
+  predecessor: EXT-C-E8-V4.4-OFFLINE-BANK
+  pilot_execution:
+    channel_ref: hardened-v1
+    launch_mode: guarded_orchestrator
+    operator_entrypoint: scripts/run_countdown_v45_tuning.py
+    guard_required: true
+  does_not_replace:
+  - D-U1
+  - D-Diag
+  code_entrypoint: src/drpo/countdown_qwen_arena_onefile.py
+  one_click_entrypoint: scripts/run_countdown_v45_tuning.py
+  primary_model: Qwen2.5-0.5B-Instruct
+  parameterization:
+    runner_version: 4.6.0-offline-negative-bank-tuning-support
+    main_comparison: bf16_lora
+    predecessor_reference_adapter_reused: true
+    predecessor_split_and_bank_reused: true
+    online_rollout_during_training: false
+  predecessor_requirements:
+    experiment_id: EXT-C-E8-V4.4-OFFLINE-BANK
+    terminal_audit_required: true
+    frozen_inputs:
+    - reference_adapter
+    - train_validation_test_split
+    - offline_6000_rows
+    - fixed_16_negative_bank_per_prompt
+    - initial_gradient_calibration
+    input_hashes_checked_before_and_after_run: true
+  capability_gates:
+    inherited_mechanism_gate:
+      greedy_success_min: 0.08
+      valid_rate_min: 0.95
+    formal_method_ranking:
+      greedy_success_min: 0.15
+      valid_rate_min: 0.95
+      failure_action: Complete and report the registered tuning pilot, but prohibit a formal method ranking or significance
+        claim when the inherited reference remains below gate.
+  tuning_protocol:
+    test_split_access: only_after_all_validation_selection_is_frozen
+    stage_a_global_negative_strength:
+      parameter: negative_scale_multiplier
+      interpretation: calibrated_bank_negative_scale_times_multiplier
+      values:
+      - 0.5
+      - 1.0
+      - 1.5
+      - 2.0
+      fixed_taper_lambda: 0.7
+      tuning_seeds:
+      - 1234
+      - 2234
+    stage_b_exponential_taper:
+      parameter: taper_lambda
+      values:
+      - 0.3
+      - 0.7
+      - 1.2
+      global_negative_strength: selected_from_stage_a
+      tuning_seeds:
+      - 1234
+      - 2234
+    selection_order:
+    - mean_best_validation_greedy_success
+    - mean_best_validation_pass_at_k
+    - mean_terminal_validation_greedy_success
+    - mean_best_validation_valid_rate
+    - conservative_tie_break
+    candidate_valid_rate_floor: 0.95
+    numerical_failure_disqualifies_candidate: true
+    threshold_frozen: 2.0
+  confirmation_protocol:
+    untouched_training_seeds:
+    - 3234
+    - 4234
+    - 5234
+    methods:
+    - positive_only
+    - validation_selected_bank_dynamic
+    checkpoints:
+    - best
+    - terminal
+    paired_evaluation_seed_per_training_seed: true
+    test_metrics:
+    - greedy_verifier_success
+    - pass_at_k
+    - valid_rate
+    - heldout_pattern_family_coverage
+    - heldout_pattern_family_precision_micro
+  frozen_controls:
+    negative_bank_size_per_prompt: 16
+    current_policy_min_max_bank_selection: true
+    near_mix: 0.5
+    far_mix: 0.5
+    maximum_effective_epochs: 6
+    minimum_effective_epochs_before_early_stop: 2
+    evaluation_interval_effective_epochs: 1
+    early_stop_patience_evaluations: 2
+    early_stop_delta: 0.002
+    learning_rate: 5.0e-05
+    warmup_ratio: 0.03
+    maximum_gradient_norm: 1.0
+  reporting_separation:
+  - task_performance_degradation
+  - support_or_structure_boundary_event
+  - nan_inf_numerical_failure
+  interpretation_limits:
+  - hyperparameters_selected_on_validation_only
+  - test_not_used_for_selection
+  - multi_seed_0_5b_pilot_is_not_automatic_formal_ranking
+  - no_state_distribution_ood_claim
+  - no_online_off_policy_claim
+  - no_claim_that_tuning_repairs_directional_utility
+  - countdown_does_not_replace_controlled_causal_identification
+  expected_outputs:
+  - RUN_COMPLETE.json
+  - terminal_audit.json
+  - arena_summary.csv
+  - alpha_selection.json
+  - lambda_selection.json
+  - run_config.json
+  formal_run_status: not_run
+  execution:
+    state: registered
+    run_id: null
+    last_heartbeat_utc: null
+    process_exit_code: null
+  evidence:
+    raw_complete: false
+    terminal_audited: false
+    package_created: false
+    package_filename: null
+    package_sha256: null
+    delivered_to_user: false
+    applied_commit: null
+- id: EXT-C-E8-SCALE-01
+  execution_gate:
+    state: blocked
+    blocked_by:
+    - EXT-C-E8-V4.5-OFFLINE-BANK-TUNING
+    - EXT-H-E7-BENCH-01
+    blocking_reason: The audited V4.5 validation-only alpha/lambda tuning pilot and the continuous external benchmark must
+      be delivered before model/data scaling uses a frozen method shortlist.
+  environment: EXT-C
+  name: countdown_large_model_large_data_external_benchmark
+  status: not_run
+  parent_experiment: E8-SCALE
+  registration_base_commit: f64452a7452274a183b03c87c39b847039230c00
+  claim: Validate the frozen controller shortlist on a larger fixed Countdown dataset and larger Transformer models, separating
+    mechanism transfer from scalable task-performance evidence.
+  role: external_large_scale_discrete_benchmark
+  execution_class: formal
+  implementation_state: not_implemented
+  formal_execution:
+    channel_ref: hardened-v1
+    activation_state: blocked
+    entrypoint_status: planned
+    entrypoint: null
+    launch_mode: canonical_guard
+    artifact_owner: canonical_channel
+    guard_entrypoint: scripts/run_experiment_guard_hardened.py
+    package_entrypoint: scripts/package_experiment_hardened.py
+    verify_entrypoint: scripts/verify_experiment_package_hardened.py
+    hardened_core: scripts/artifact_protocol_hardened.py
+    artifact_protocol: docs/formal_experiment_artifact_protocol.md
+    inherit_default_artifact_budget: true
+    runner_archive_policy:
+      mode: forbid
+  scaling_plan:
+    mechanism_owner: EXT-C-E8-V4.5-OFFLINE-BANK-TUNING
+    primary_model: Qwen_Instruct_3B
+    frozen_confirmation_model: Qwen_Instruct_7B
+    dataset: larger_fixed_offline_countdown_dataset
+    exact_sizes_and_seeds: pending_before_implementation
+    retune_method_family_on_scale_tasks: false
+  candidate_methods: frozen_shortlist_from_controlled_and_E7_results
+  reporting_separation:
+  - task_performance_collapse
+  - support_or_entropy_boundary
+  - nan_inf_numerical_failure
+  evidence:
+    code_committed: false
+    run_started: false
+    raw_complete: false
+    terminal_audited: false
+    package_created: false
+    scientific_status: not_run

@@ -1,0 +1,188 @@
+schema_version: 1
+policy_id: GOV-HANDOFF-INDEX-01
+authority: non_authoritative_stage4_minimal_context_shadow
+research_master: docs/handoff.md
+registry: experiments/registry.yaml
+module_granularity: independent_research_responsibility
+structure_change_policy: suggestion_only_human_approval_required
+default_split_suggestion_chars: 50000
+modules:
+- module_id: global_core_governance
+  title: Global research core and governance boundaries
+  responsibility: Preserve the unique-master rule, terminology, scientific scope, and non-destructive governance constraints.
+  sources:
+  - kind: markdown_range
+    path: docs/handoff.md
+    start: '# 0. 研究与执行原则（每次新会话首先阅读）'
+    end: '# 1. 论文最终目标与两条主工作线'
+- module_id: execution_status_gates
+  title: Current execution status and gates
+  responsibility: Provide the current experiment evidence states, execution ordering, and formal launch gates.
+  sources:
+  - kind: markdown_range
+    path: docs/handoff.md
+    start: '# 5. 当前真实完成状态'
+    end: '# 7. 变量治理'
+- module_id: theory_methods_related_work
+  title: Theory, method families, and related work
+  responsibility: Provide the shared repulsive-dynamics theory, method definitions, comparison boundaries, and literature
+    positioning.
+  split_suggestion_chars: 90000
+  sources:
+  - kind: markdown_range
+    path: docs/handoff.md
+    start: '# Part III. v9 Exponential-Family 核心理论补丁（完整保留）'
+    end: '# Part IV. v10 Hopper Learned-Critic 外部验证记录（完整保留，状态降级）'
+- module_id: terminal_audit
+  title: Terminal-state and collapse audit rules
+  responsibility: Define convergence, persistent drift, task-performance collapse, support or variance boundaries, and numerical
+    failure reporting.
+  sources:
+  - kind: markdown_range
+    path: docs/handoff.md
+    start: '## 4.1 动力学实验统一收敛标准'
+    end: '# 5. 当前真实完成状态'
+- module_id: continuous_mechanism_e1_e3
+  title: Continuous C-U1 source and causal mechanism E1-E3
+  responsibility: Cover continuous far-field gradient-source identification and causal transmission into drift, task collapse,
+    and variance or support contraction.
+  sources:
+  - kind: markdown_range
+    path: docs/handoff.md
+    start: '# 3. 连续统一环境 C-U1 的详细设计'
+    end: '### 3.6.2 E4：稳定外推—相变—远场控制'
+  - kind: registry_entries
+    path: experiments/registry.yaml
+    collection: experiments
+    experiment_ids:
+    - C-U1-E3-ADAM-RERUN
+    - C-U1-E1-COMP-01
+- module_id: continuous_e4_taper
+  title: Continuous C-U1 E4 extrapolation and taper track
+  responsibility: Cover stable extrapolation, phase transition, taper-family comparisons, fairness controls, and the frozen
+    E4 follow-up order.
+  split_suggestion_chars: 60000
+  sources:
+  - kind: markdown_range
+    path: docs/handoff.md
+    start: '### 3.6.2 E4：稳定外推—相变—远场控制'
+    end: '## 3.7 D-U1 / E6 开发配置登记（E4 已完成；用户已批准与 E4-TAPER 并行）'
+  - kind: markdown_range
+    path: docs/handoff.md
+    start: '## 3.8 C-U1 共享实现与二次阶方法实验 `C-U1-E4-TAPER-01`'
+    end: '## 3.9 E6--E8 方法迁移与规模验证路线（v42 锁定）'
+  - kind: marker_blocks_matching
+    path: docs/handoff.md
+    match_any:
+    - C-U1-E4-TAPER
+  - kind: registry_entries
+    path: experiments/registry.yaml
+    collection: experiments
+    experiment_ids:
+    - C-U1-E4-ADAM-RERUN
+    - C-U1-E4-CONV-01
+    - C-U1-E4-TAPER-01
+    - C-U1-E4-TAPER-NEAR-RETENTION-01
+    - C-U1-E4-TAPER-BUDGET-MATCH-01
+    - C-U1-E4-TAPER-CONV-01
+    - C-U1-E4-TAPER-CONFIRM-01
+- module_id: categorical_e5_mechanism
+  title: Categorical D-U1 E5 repulsion and support boundary
+  responsibility: Cover direct-softmax bounded-score analysis and repeated-update transmission to probability or support boundaries.
+  sources:
+  - kind: markdown_range
+    path: docs/handoff.md
+    start: '## 3.7.1 D-U1 / D-Diag E5 长程复核 `D-U1-E5-LONGRUN-RERUN`'
+    end: '## 3.7.3 E6 共享语义 pilot `D-U1-E6-SEMANTIC-PILOT-01`'
+  - kind: registry_entries
+    path: experiments/registry.yaml
+    collection: experiments
+    experiment_ids:
+    - D-U1-E5-LONGRUN-RERUN
+- module_id: categorical_e6_generalization
+  title: Categorical D-U1 E6 shared-semantic generalization
+  responsibility: Cover positive-only ceiling, controlled local-negative benefit, support-boundary separation, semantic alignment,
+    and structured support-gap successors.
+  split_suggestion_chars: 65000
+  sources:
+  - kind: markdown_range
+    path: docs/handoff.md
+    start: '## 3.7.3 E6 共享语义 pilot `D-U1-E6-SEMANTIC-PILOT-01`'
+    end: '## 3.8 C-U1 共享实现与二次阶方法实验 `C-U1-E4-TAPER-01`'
+  - kind: marker_blocks_matching
+    path: docs/handoff.md
+    match_any:
+    - D-U1-E6-
+  - kind: registry_entries
+    path: experiments/registry.yaml
+    collection: experiments
+    experiment_ids:
+    - D-U1-E6-SEMANTIC-LONGRUN-01
+    - D-U1-E6-SEMANTIC-GAP-LONGRUN-01
+    - D-U1-E6-CONDITIONAL-GAP-01
+  - kind: registry_entries
+    path: experiments/registry.yaml
+    collection: development_experiment_registrations
+    experiment_ids:
+    - D-U1-E6-CONDITIONAL-GAP-DEV-01
+    - D-U1-E6-SEMANTIC-PILOT-01
+    - D-U1-E6-SEMANTIC-FOCUSED-DEV-01
+    - D-U1-E6-TAPER-01
+- module_id: hopper_e7
+  title: Hopper learned-critic external validation E7
+  responsibility: Cover learned-critic far-field mechanism validation and D4RL method-effect evidence while preserving the
+    external-validity boundary.
+  sources:
+  - kind: markdown_range
+    path: docs/handoff.md
+    start: '# 15. Learned-Critic External Mechanism Validation on D4RL'
+    end: '# Part V. Bandit 稳定外推子实验的收敛审计（完整保留）'
+  - kind: marker_blocks_matching
+    path: docs/handoff.md
+    match_any:
+    - EXT-H-E7-
+  - kind: registry_entries
+    path: experiments/registry.yaml
+    collection: experiments
+    experiment_ids:
+    - EXT-H-E7-Q2
+    - EXT-H-E7-BENCH-01
+- module_id: countdown_e8
+  title: Countdown Transformer external validation E8
+  responsibility: Cover token-level near or far mechanism probes and fixed-offline-bank method pilots without replacing D-U1
+    controlled identification.
+  sources:
+  - kind: marker_blocks_matching
+    path: docs/handoff.md
+    match_any:
+    - EXT-C-E8-
+  - kind: registry_entries
+    path: experiments/registry.yaml
+    collection: experiments
+    experiment_ids:
+    - EXT-C-E8-V4
+    - EXT-C-E8-V4.1
+    - EXT-C-E8-V4.2
+    - EXT-C-E8-V4.3
+    - EXT-C-E8-V4.4-OFFLINE-BANK
+    - EXT-C-E8-V4.5-OFFLINE-BANK-TUNING
+    - EXT-C-E8-SCALE-01
+- module_id: history_provenance
+  title: Historical conclusions and provenance
+  responsibility: Preserve restoration strategy, superseded statements, historical evidence boundaries, and source recovery
+    rules.
+  sources:
+  - kind: markdown_range
+    path: docs/handoff.md
+    start: '# 8. v4-v10 版本审计与恢复策略'
+    end: '# 9. 原审稿问题与新论文的硬约束'
+- module_id: paper_rewrite
+  title: Paper rewrite and presentation plan
+  responsibility: Provide the current manuscript outline, claim hierarchy, figures, tables, limitations, and reproducibility
+    plan.
+  split_suggestion_chars: 90000
+  sources:
+  - kind: markdown_range
+    path: docs/handoff.md
+    start: '# Part VI. 论文重写大纲（当前草案，后续须与实验状态同步）'
+    end: '# 0. 本次恢复的明确结论'

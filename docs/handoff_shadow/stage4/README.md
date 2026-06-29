@@ -66,3 +66,37 @@ semantic change.
 Current hardening validates the DRPO project workflow. Direct Stage 3 Delta
 consumption, an AI proposal adapter, and broader cross-project acceptance remain
 later work and do not authorize Stage 4B or Stage 4C.
+
+## Minimal Context Core
+
+`minimal/` is the preferred simple Stage 4A shadow path for dependency-scoped
+context assembly. It does not replace or delete the bootstrap inventory or the
+older `dynamic/` semantic-graph experiment.
+
+- `minimal/MODULES.yaml` fixes the current research-responsibility boundaries and
+  maps each module to exact handoff ranges, stable or ID-matched delta blocks, and registry IDs.
+- `minimal/DEPENDENCIES.yaml` contains the only runtime relation: `depends_on`.
+- `minimal/generated/modules/` contains disposable module snapshots.
+- `minimal/generated/DEPENDENCY_GRAPH.*` and `MODULE_INDEX.json` are generated
+  from the same current inputs.
+- `minimal/generated/STRUCTURE_SUGGESTIONS.md` is advisory only. The builder never
+  adds, removes, splits, merges, or rewires modules automatically.
+
+Refresh only dirty module snapshots and fully recompute the small dependency view:
+
+```bash
+python3 scripts/build_stage4_context.py --repo-root . build
+python3 scripts/build_stage4_context.py --repo-root . check
+python3 scripts/validate_stage4_context.py --repo-root .
+```
+
+Build an on-demand context pack:
+
+```bash
+python3 scripts/build_stage4_context.py --repo-root . context \
+  --target hopper_e7 --output /tmp/drpo-hopper-e7-context.md
+```
+
+The module and dependency YAML files are human-reviewed structure. Existing
+module content updates automatically from the authoritative sources; structural
+change suggestions require explicit approval and an ordinary Git update.
