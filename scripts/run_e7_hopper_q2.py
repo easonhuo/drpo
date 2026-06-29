@@ -1,15 +1,31 @@
 #!/usr/bin/env python3
-"""Launch EXT-H-E7-Q2 through the canonical hardened execution channel."""
+"""One-command launcher for EXT-H-E7-Q2.
+
+Typical formal use after the dataset has been placed in a standard location::
+
+    python3 scripts/run_e7_hopper_q2.py
+
+The launcher resolves the registered dataset, creates a timestamped persistent
+work directory, and delegates the scientific run plus recovery packaging to the
+canonical hardened guard.  ``--plan-only`` performs all local resolution and
+prints the exact command without starting training.
+"""
 from __future__ import annotations
 
 import argparse
+import json
+import os
+import shlex
 import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 
 EXPERIMENT_ID = "EXT-H-E7-Q2"
 DEFAULT_CONFIG = "configs/e7_hopper_q2_medium_replay_v2.yaml"
+DATASET_BASENAME = "hopper_medium_replay-v2.hdf5"
+DATASET_ENV = "DRPO_HOPPER_MEDIUM_REPLAY"
 
 
 def git_text(repo: Path, *args: str) -> str:
@@ -18,62 +34,134 @@ def git_text(repo: Path, *args: str) -> str:
     ).strip()
 
 
+def utc_stamp() -> str:
+    return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Run the registered Hopper E7-Q2 pipeline under the hardened guard"
+        description=(
+            "Run the registered Hopper E7-Q2 pipeline through the hardened guard; "
+            "formal is the default and requires no interactive decisions"
+        )
     )
-    parser.add_argument("--dataset-path", required=True)
     parser.add_argument(
-        "--work-dir", required=True, help="New or empty persistent run directory"
+        "--run-class", choices=("pilot", "formal"), default="formal"
     )
-    parser.add_argument("--run-class", choices=("pilot", "formal"), required=True)
+    parser.add_argument(
+        "--dataset-path",
+        help=(
+            f"HDF5 path. If omitted, use ${DATASET_ENV} and registered standard locations."
+        ),
+    )
+    parser.add_argument(
+        "--work-dir",
+        help="Persistent run directory. If omitted, create runs/e7_q2/<UTC stamp>_<class>.",
+    )
+    parser.add_argument(
+        "--output-root", default="runs/e7_q2", help="Parent used by automatic work-dir"
+    )
     parser.add_argument("--device", default="auto")
     parser.add_argument("--config", default=DEFAULT_CONFIG)
     parser.add_argument("--artifact-output")
     parser.add_argument(
         "--critic-artifact",
-        help="Optional exact canonical critic artifact directory to verify and reuse",
+        help="Optional exact v4.2 canonical critic artifact to verify and reuse",
     )
     parser.add_argument(
         "--allow-dirty",
         action="store_true",
-        help="Pilot only; the hardened guard captures a bounded launch snapshot",
+        help="Pilot only; formal continues to require a clean current main checkout",
+    )
+    parser.add_argument(
+        "--plan-only",
+        action="store_true",
+        help="Resolve paths and print the hardened command without executing it",
     )
     return parser
 
 
-def main() -> int:
-    args = build_parser().parse_args()
+def resolve_dataset(repo: Path, explicit: str | None) -> tuple[Path, str]:
+    candidates: list[tuple[Path, str]] = []
+    if explicit:
+        candidates.append((Path(explicit).expanduser(), "--dataset-path"))
+    env_value = os.environ.get(DATASET_ENV)
+    if env_value:
+        candidates.append((Path(env_value).expanduser(), f"${DATASET_ENV}"))
+    candidates.extend(
+        [
+            (
+                Path("/root/d4rl/d4rl_datasets/locomotion") / DATASET_BASENAME,
+                "registered server location",
+            ),
+            (
+                Path("/root/d4rl/datasets") / DATASET_BASENAME,
+                "alternate server location",
+            ),
+            (repo / "data" / DATASET_BASENAME, "repository data directory"),
+            (repo.parent / "d4rl_datasets" / DATASET_BASENAME, "sibling data directory"),
+        ]
+    )
+    checked: list[str] = []
+    for candidate, source in candidates:
+        resolved = candidate.resolve()
+        checked.append(str(resolved))
+        if resolved.is_file():
+            return resolved, source
+    raise SystemExit(
+        "Could not resolve the registered Hopper dataset. Set "
+        f"{DATASET_ENV}, pass --dataset-path, or place {DATASET_BASENAME} in a "
+        "registered location. Checked:\n  - " + "\n  - ".join(checked)
+    )
+
+
+def resolve_repo(script: Path) -> Path:
+    try:
+        return Path(git_text(script.parent, "rev-parse", "--show-toplevel")).resolve()
+    except (subprocess.CalledProcessError, FileNotFoundError) as exc:
+        raise SystemExit("This launcher must run from a Git checkout of drpo") from exc
+
+
+def resolve_config(repo: Path, raw: str) -> tuple[Path, Path]:
+    config = Path(raw)
+    config = config.resolve() if config.is_absolute() else (repo / config).resolve()
+    if not config.is_file():
+        raise SystemExit(f"Config does not exist: {config}")
+    try:
+        relative = config.relative_to(repo)
+    except ValueError as exc:
+        raise SystemExit("The E7 config must be inside the repository") from exc
+    try:
+        git_text(repo, "ls-files", "--error-unmatch", str(relative))
+    except subprocess.CalledProcessError as exc:
+        raise SystemExit(f"Config is not tracked by Git: {relative}") from exc
+    return config, relative
+
+
+def build_command(args: argparse.Namespace) -> tuple[list[str], dict[str, str]]:
     script = Path(__file__).resolve()
-    repo = Path(git_text(script.parent, "rev-parse", "--show-toplevel")).resolve()
+    repo = resolve_repo(script)
     head = git_text(repo, "rev-parse", "HEAD")
     if len(head) != 40:
         raise RuntimeError(f"Expected a full Git SHA, got {head!r}")
     if args.run_class == "formal" and args.allow_dirty:
         raise SystemExit("--allow-dirty is forbidden for formal runs")
 
-    dataset = Path(args.dataset_path).expanduser().resolve()
-    work = Path(args.work_dir).expanduser().resolve()
-    config = (
-        (repo / args.config).resolve()
-        if not Path(args.config).is_absolute()
-        else Path(args.config).resolve()
-    )
-    if not dataset.is_file():
-        raise SystemExit(f"Dataset does not exist: {dataset}")
-    if not config.is_file():
-        raise SystemExit(f"Config does not exist: {config}")
-    try:
-        config_relative = config.relative_to(repo)
-    except ValueError as exc:
-        raise SystemExit(
-            "The E7-Q2 config must be a repository-relative tracked file so the "
-            "hardened source snapshot is complete"
-        ) from exc
-    try:
-        git_text(repo, "ls-files", "--error-unmatch", str(config_relative))
-    except subprocess.CalledProcessError as exc:
-        raise SystemExit(f"Config is not tracked by Git: {config_relative}") from exc
+    dataset, dataset_source = resolve_dataset(repo, args.dataset_path)
+    config, config_relative = resolve_config(repo, args.config)
+    if args.work_dir:
+        work = Path(args.work_dir).expanduser().resolve()
+    else:
+        output_root = Path(args.output_root).expanduser()
+        output_root = (
+            output_root.resolve()
+            if output_root.is_absolute()
+            else (repo / output_root).resolve()
+        )
+        work = output_root / f"{utc_stamp()}_{args.run_class}"
+    if work.exists() and any(work.iterdir()):
+        raise SystemExit(f"Work directory must be new or empty: {work}")
+
     artifact = (
         Path(args.artifact_output).expanduser().resolve()
         if args.artifact_output
@@ -84,6 +172,10 @@ def main() -> int:
 
     guard = repo / "scripts" / "run_experiment_guard_hardened.py"
     runner = repo / "src" / "drpo" / "e7_hopper_q2.py"
+    for required in (guard, runner):
+        if not required.is_file():
+            raise SystemExit(f"Required repository file is missing: {required}")
+
     command = [
         sys.executable,
         str(guard),
@@ -161,28 +253,43 @@ def main() -> int:
     if args.critic_artifact:
         critic_artifact = Path(args.critic_artifact).expanduser().resolve()
         if not critic_artifact.is_dir():
-            raise SystemExit(f"Canonical critic artifact does not exist: {critic_artifact}")
+            raise SystemExit(
+                f"Canonical critic artifact does not exist: {critic_artifact}"
+            )
         command.extend(["--critic-artifact", str(critic_artifact)])
     if args.allow_dirty:
         command.append("--allow-dirty")
 
-    print("EXT-H-E7-Q2 is fully specified; no interactive decisions are required.")
-    print(f"Git commit: {head}")
-    print(f"Run class: {args.run_class}")
-    print(f"Dataset: {dataset}")
-    print(f"Run directory: {work}")
-    print(
-        "Canonical critic: "
-        + (str(Path(args.critic_artifact).expanduser().resolve()) if args.critic_artifact else "train once inside this run")
-    )
-    print(f"Result artifact: {artifact}")
-    result = subprocess.run(command, cwd=repo)
+    plan = {
+        "experiment_id": EXPERIMENT_ID,
+        "git_commit": head,
+        "run_class": args.run_class,
+        "dataset": str(dataset),
+        "dataset_resolution": dataset_source,
+        "config": str(config),
+        "work_dir": str(work),
+        "artifact": str(artifact),
+        "critic_artifact": args.critic_artifact or "train_once_inside_run",
+    }
+    return command, plan
+
+
+def main() -> int:
+    args = build_parser().parse_args()
+    command, plan = build_command(args)
+    print(json.dumps(plan, indent=2, sort_keys=True))
+    print("Command:")
+    print("  " + shlex.join(command))
+    if args.plan_only:
+        print("Plan only: no training process was started.")
+        return 0
+    result = subprocess.run(command, cwd=Path(__file__).resolve().parents[1])
     if result.returncode == 0:
-        print(f"Hardened artifact created: {artifact}")
+        print(f"Hardened result artifact created: {plan['artifact']}")
     else:
         print(
             f"E7-Q2 exited with code {result.returncode}; the hardened guard preserved "
-            f"failure evidence in {work} and attempted recovery packaging at {artifact}.",
+            f"failure evidence in {plan['work_dir']} and attempted recovery packaging.",
             file=sys.stderr,
         )
     return result.returncode

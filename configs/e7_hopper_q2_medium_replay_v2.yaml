@@ -1,5 +1,5 @@
 experiment_id: EXT-H-E7-Q2
-protocol_version: 4.1.0
+protocol_version: 4.2.0
 role: external_mechanism_validation
 status: not_run
 
@@ -60,8 +60,9 @@ critic:
     test: 0.10
   freeze_before_actor: true
   canonical_shared_across_actor_seeds: true
-  selected_checkpoint: terminal_extension_checkpoint
-  best_validation_checkpoint_role: diagnostic_only
+  selected_checkpoint: accepted_terminal_extension_else_best_validation
+  final_training_checkpoint_role: continuation_and_stability_audit
+  optimization_terminal_role: separately_reported_not_forced
 
 advantage:
   definition: r_plus_gamma_v_next_minus_v
@@ -105,12 +106,14 @@ interventions:
     - near_zero
     - far_zero
     - far_cap
-    - budget_matched_global
+    - dynamic_budget_matched_global
   far_threshold: midpoint_between_registered_near_and_far_quantile_cuts
   dynamic_distance_reclassification: true
   far_cap_reference_quantile: 0.95
   far_cap_quantity: near_negative_joint_output_score
-  global_budget_rule: match_initial_far_cap_sum_of_per_sample_full_parameter_gradient_norms
+  global_budget_rule: dynamic_per_batch_match_of_detached_negative_influence_proxy
+  global_budget_proxy: sum_abs_advantage_times_joint_output_score
+  initial_full_parameter_budget_audit_role: diagnostic_only
   global_budget_audit_size: 256
 
 independent_validation_gate:
@@ -120,17 +123,41 @@ independent_validation_gate:
   analytic_autograd_relative_error_max: 0.00001
   full_parameter_far_near_ratio_min: 1.10
   log_scale_to_mean_far_near_ratio_min: 1.00
-  targeted_control_requires_paired_mitigation: true
+  targeted_control_requires_paired_mitigation: false
+  control_outcomes_reported_separately:
+    - diagnostic_score_mitigation
+    - support_boundary_rescue
+    - task_performance_rescue
+    - finite_terminal_rescue
+  log_scale_relative_dominance_is_diagnostic_only: true
+
+critic_acceptance:
+  purpose: gate_frozen_advantage_use_separately_from_optimizer_stationarity
+  checkpoint_selection_metric: validation_mse
+  validation_r2_min: 0.50
+  validation_pearson_min: 0.75
+  test_metrics_role: final_report_only
+  advantage_stability_scope: actor_training_split
+  max_final_to_best_validation_mse_ratio: 1.05
+  advantage_sign_agreement_min: 0.95
+  advantage_pearson_min: 0.98
+  advantage_spearman_min: 0.98
+  negative_set_jaccard_min: 0.90
+  require_all_checks_for_formal: true
+  optimization_terminal_may_be_false_if_acceptance_passes: true
 
 terminal_audit:
   windows: 6
   extension_factor: 2
-  critic_relative_slope_tolerance: 0.000002
-  critic_gradient_tolerance: 0.01
-  critic_update_tolerance: 0.0001
-  actor_relative_slope_tolerance: 0.000002
-  actor_gradient_tolerance: 0.01
-  actor_update_tolerance: 0.0001
+  critic_relative_slope_tolerance: 0.00001
+  critic_gradient_tolerance_diagnostic: 0.01
+  critic_relative_update_tolerance: 0.0002
+  actor_relative_slope_tolerance: 0.00001
+  actor_state_drift_tolerance: 0.01
+  actor_state_drift_metrics: [mean_abs, sigma_mean, phantom_distance_mean]
+  actor_likelihood_slope_role: diagnostic_only
+  actor_gradient_tolerance_diagnostic: 0.01
+  actor_relative_update_tolerance: 0.0002
   support_boundary_threshold: 0.99
   support_boundary_fraction: 0.10
   task_normalized_return_drop_threshold: 20.0

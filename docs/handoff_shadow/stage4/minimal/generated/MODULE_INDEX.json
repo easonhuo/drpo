@@ -94,10 +94,10 @@
   ],
   "graph_hash": "169b59a966fdcbb55a4a7aaa9cea1058ea0446b4be21029f2986498a9603d99a",
   "input_hashes": {
-    "docs/handoff.md": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d",
+    "docs/handoff.md": "ffc89242a232de2663bd441bf0615d3894efd44179d955b5ab280649f787ce26",
     "docs/handoff_shadow/stage4/minimal/DEPENDENCIES.yaml": "325d13fa65e7922e1412bf0582588d6c3d32487b8c958a41631dc172f895cbf7",
     "docs/handoff_shadow/stage4/minimal/MODULES.yaml": "494908f16c4b0e41dc39b668e6c46b2ea23bc00bbebcdd464c96691dc0abcc9c",
-    "experiments/registry.yaml": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579"
+    "experiments/registry.yaml": "6a7f2a8009fc0d3c25a86c669601de38ac873480b76edc35711634c92b14b656"
   },
   "module_order": [
     "global_core_governance",
@@ -235,9 +235,9 @@
         "continuous_mechanism_e1_e3"
       ],
       "module_id": "hopper_e7",
-      "snapshot_hash": "75ead2ac52ba555195e315dfe7068f2c66db7a1e909248cb63fe53c1f8befbc1",
-      "source_chars": 26598,
-      "source_hash": "f7a9cfc7c22e6ff3394855d153246d6fcb83510ffb4cb4f79b4856d578ab0523",
+      "snapshot_hash": "37be3a3a52c3b0e8f057947e1950792d97fa103483b303fc6e8440fe35026f3f",
+      "source_chars": 31501,
+      "source_hash": "ce63a8ca0284b622365d638f1f8756acda32a5f34210c70aa6d8e248ff11499b",
       "source_labels": [
         "docs/handoff.md: # 15. Learned-Critic External Mechanism Validation on D4RL -> # Part V. Bandit 稳定外推子实验的收敛审计（完整保留）",
         "docs/handoff.md: HANDOFF-DELTA-BLOCKs matching 'EXT-H-E7-'",

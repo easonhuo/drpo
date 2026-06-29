@@ -43,7 +43,7 @@ except ImportError as exc:  # pragma: no cover - dependency declared by project
     raise SystemExit("PyYAML is required. Install the project with pip install -e .") from exc
 
 EXPERIMENT_ID = "EXT-H-E7-Q2"
-RUNNER_VERSION = "4.1.0-gymnasium-v4-rollout-compatibility"
+RUNNER_VERSION = "4.2.0-acceptance-pipeline"
 EPS = 1e-6
 METHODS = (
     "positive_only",
@@ -51,7 +51,7 @@ METHODS = (
     "near_zero",
     "far_zero",
     "far_cap",
-    "budget_matched_global",
+    "dynamic_budget_matched_global",
 )
 _EVENT_LOG_PATH: Path | None = None
 
@@ -244,11 +244,19 @@ class E7Config:
     analytic_autograd_error_max: float
     full_parameter_ratio_min: float
     log_scale_to_mean_ratio_min: float
+    critic_validation_r2_min: float
+    critic_validation_pearson_min: float
+    critic_max_final_to_best_validation_mse_ratio: float
+    critic_advantage_sign_agreement_min: float
+    critic_advantage_pearson_min: float
+    critic_advantage_spearman_min: float
+    critic_negative_set_jaccard_min: float
     audit_windows: int
     critic_relative_slope_tolerance: float
     critic_gradient_tolerance: float
     critic_update_tolerance: float
     actor_relative_slope_tolerance: float
+    actor_state_drift_tolerance: float
     actor_gradient_tolerance: float
     actor_update_tolerance: float
     support_boundary_fraction: float
@@ -337,17 +345,54 @@ def load_config(path: str | Path) -> E7Config:
         log_scale_to_mean_ratio_min=float(
             gate["log_scale_to_mean_far_near_ratio_min"]
         ),
+        critic_validation_r2_min=float(raw["critic_acceptance"]["validation_r2_min"]),
+        critic_validation_pearson_min=float(raw["critic_acceptance"]["validation_pearson_min"]),
+        critic_max_final_to_best_validation_mse_ratio=float(
+            raw["critic_acceptance"]["max_final_to_best_validation_mse_ratio"]
+        ),
+        critic_advantage_sign_agreement_min=float(
+            raw["critic_acceptance"]["advantage_sign_agreement_min"]
+        ),
+        critic_advantage_pearson_min=float(
+            raw["critic_acceptance"]["advantage_pearson_min"]
+        ),
+        critic_advantage_spearman_min=float(
+            raw["critic_acceptance"]["advantage_spearman_min"]
+        ),
+        critic_negative_set_jaccard_min=float(
+            raw["critic_acceptance"]["negative_set_jaccard_min"]
+        ),
         audit_windows=int(raw["terminal_audit"]["windows"]),
         critic_relative_slope_tolerance=float(
             raw["terminal_audit"]["critic_relative_slope_tolerance"]
         ),
-        critic_gradient_tolerance=float(raw["terminal_audit"]["critic_gradient_tolerance"]),
-        critic_update_tolerance=float(raw["terminal_audit"]["critic_update_tolerance"]),
+        critic_gradient_tolerance=float(
+            raw["terminal_audit"].get("critic_gradient_tolerance_diagnostic", 0.01)
+        ),
+        critic_update_tolerance=float(
+            raw["terminal_audit"].get(
+                "critic_relative_update_tolerance",
+                raw["terminal_audit"].get("critic_update_tolerance", 0.0001),
+            )
+        ),
         actor_relative_slope_tolerance=float(
             raw["terminal_audit"]["actor_relative_slope_tolerance"]
         ),
-        actor_gradient_tolerance=float(raw["terminal_audit"]["actor_gradient_tolerance"]),
-        actor_update_tolerance=float(raw["terminal_audit"]["actor_update_tolerance"]),
+        actor_state_drift_tolerance=float(
+            raw["terminal_audit"].get(
+                "actor_state_drift_tolerance",
+                raw["terminal_audit"]["actor_relative_slope_tolerance"],
+            )
+        ),
+        actor_gradient_tolerance=float(
+            raw["terminal_audit"].get("actor_gradient_tolerance_diagnostic", 0.01)
+        ),
+        actor_update_tolerance=float(
+            raw["terminal_audit"].get(
+                "actor_relative_update_tolerance",
+                raw["terminal_audit"].get("actor_update_tolerance", 0.0001),
+            )
+        ),
         support_boundary_fraction=float(
             raw["terminal_audit"]["support_boundary_fraction"]
         ),
@@ -633,6 +678,28 @@ def relative_slope(rows: Sequence[dict[str, Any]], key: str, windows: int) -> fl
     return abs(slope) / scale
 
 
+def normalized_window_drift(
+    rows: Sequence[dict[str, Any]], key: str, windows: int
+) -> float:
+    """Fitted end-to-end state change over an audit window, scale-normalized.
+
+    The x-axis is the recorded training step, while the normalization uses the
+    median absolute state magnitude. This is stable under stochastic minibatch
+    noise and does not become ill-conditioned when a likelihood crosses zero.
+    """
+    if len(rows) < windows:
+        return float("inf")
+    tail = rows[-windows:]
+    x = np.asarray([float(row["step"]) for row in tail], dtype=np.float64)
+    y = np.asarray([float(row[key]) for row in tail], dtype=np.float64)
+    if not np.all(np.isfinite(x)) or not np.all(np.isfinite(y)) or x[-1] <= x[0]:
+        return float("inf")
+    slope = float(np.polyfit(x - x[0], y, 1)[0])
+    span = float(x[-1] - x[0])
+    scale = max(float(np.median(np.abs(y))), 1e-3)
+    return abs(slope) * span / scale
+
+
 def classify_actor_terminal(
     rows: Sequence[dict[str, Any]],
     config: E7Config,
@@ -640,10 +707,19 @@ def classify_actor_terminal(
     extension_complete: bool,
 ) -> dict[str, Any]:
     last = rows[-1]
+    relative_update_norm = float(
+        last.get("relative_update_norm", last.get("update_norm", float("inf")))
+    )
     nonfinite = any(
         not math.isfinite(float(last[key]))
-        for key in ("loss", "positive_nll", "gradient_norm", "update_norm", "sigma_mean")
-    )
+        for key in (
+            "loss",
+            "positive_nll",
+            "gradient_norm",
+            "update_norm",
+            "sigma_mean",
+        )
+    ) or not math.isfinite(relative_update_norm)
     support_event = (
         float(last["mean_boundary_fraction"]) >= config.support_boundary_fraction
         or float(last["log_std_min_fraction"]) > 0.0
@@ -653,12 +729,18 @@ def classify_actor_terminal(
         key: relative_slope(rows, key, config.audit_windows)
         for key in ("positive_nll", "mean_abs", "sigma_mean", "phantom_distance_mean")
     }
+    state_drifts = {
+        key: normalized_window_drift(rows, key, config.audit_windows)
+        for key in ("mean_abs", "sigma_mean", "phantom_distance_mean")
+    }
     stable = (
         candidate_step is not None
         and extension_complete
-        and all(value <= config.actor_relative_slope_tolerance for value in slopes.values())
-        and float(last["gradient_norm"]) <= config.actor_gradient_tolerance
-        and float(last["update_norm"]) <= config.actor_update_tolerance
+        and all(
+            value <= config.actor_state_drift_tolerance
+            for value in state_drifts.values()
+        )
+        and relative_update_norm <= config.actor_update_tolerance
         and not nonfinite
     )
     rollout_values = [float(row.get("normalized_return", float("nan"))) for row in rows]
@@ -691,7 +773,9 @@ def classify_actor_terminal(
         state = "finite_terminal"
     elif support_event:
         state = "support_or_variance_boundary_event_without_terminal_convergence"
-    elif len(rows) >= config.audit_windows and slopes["mean_abs"] > config.actor_relative_slope_tolerance:
+    elif len(rows) >= config.audit_windows and any(
+        value > config.actor_state_drift_tolerance for value in state_drifts.values()
+    ):
         state = "persistent_or_slow_drift"
     else:
         state = "max_horizon_without_terminal_classification"
@@ -701,6 +785,9 @@ def classify_actor_terminal(
         "candidate_step": candidate_step,
         "extension_complete": extension_complete,
         "slopes": slopes,
+        "state_drifts": state_drifts,
+        "state_drift_tolerance": config.actor_state_drift_tolerance,
+        "relative_update_norm": relative_update_norm,
         "support_boundary_event": support_event,
         "numerical_nonfinite": nonfinite,
         "task_performance_status": task_status,
@@ -1308,14 +1395,130 @@ def tensor(array: np.ndarray, device: torch.device) -> torch.Tensor:
     return torch.as_tensor(array, dtype=torch.float32, device=device)
 
 
-def full_gradient_norm(loss: torch.Tensor, parameters: Iterable[nn.Parameter]) -> float:
-    grads = torch.autograd.grad(loss, list(parameters), retain_graph=False, allow_unused=True)
-    total = torch.zeros((), device=loss.device)
+def parameter_norm(parameters: Iterable[nn.Parameter]) -> float:
+    total = 0.0
+    for parameter in parameters:
+        total += float(parameter.detach().square().sum().cpu())
+    return math.sqrt(total)
+
+
+def full_gradient_statistics(
+    loss: torch.Tensor, parameters: Iterable[nn.Parameter]
+) -> dict[str, float]:
+    parameter_list = list(parameters)
+    grads = torch.autograd.grad(
+        loss, parameter_list, retain_graph=False, allow_unused=True
+    )
+    total_sq = 0.0
+    elements = 0
     for grad in grads:
         if grad is not None:
-            total = total + grad.detach().square().sum()
-    return float(torch.sqrt(total).cpu())
+            total_sq += float(grad.detach().square().sum().cpu())
+            elements += int(grad.numel())
+    raw = math.sqrt(total_sq)
+    rms = raw / math.sqrt(max(elements, 1))
+    relative = raw / max(parameter_norm(parameter_list), EPS)
+    return {
+        "raw": raw,
+        "rms": rms,
+        "relative_to_parameter_norm": relative,
+        "elements": float(elements),
+    }
 
+
+def full_gradient_norm(loss: torch.Tensor, parameters: Iterable[nn.Parameter]) -> float:
+    return full_gradient_statistics(loss, parameters)["raw"]
+
+
+def parameter_update_statistics(
+    previous: Sequence[torch.Tensor],
+    parameters: Iterable[nn.Parameter],
+    elapsed_steps: int,
+) -> dict[str, float]:
+    parameter_list = list(parameters)
+    delta_sq = 0.0
+    elements = 0
+    for old, current in zip(previous, parameter_list):
+        delta_sq += float((current.detach() - old).square().sum().cpu())
+        elements += int(current.numel())
+    elapsed = max(int(elapsed_steps), 1)
+    delta = math.sqrt(delta_sq)
+    raw_per_step = delta / elapsed
+    rms_per_step = delta / math.sqrt(max(elements, 1)) / elapsed
+    relative_per_step = delta / max(parameter_norm(parameter_list), EPS) / elapsed
+    return {
+        "raw_per_step": raw_per_step,
+        "rms_per_step": rms_per_step,
+        "relative_per_step": relative_per_step,
+        "elements": float(elements),
+    }
+
+
+def _rankdata(values: np.ndarray) -> np.ndarray:
+    values = np.asarray(values, dtype=np.float64)
+    order = np.argsort(values, kind="mergesort")
+    ranks = np.empty(len(values), dtype=np.float64)
+    position = 0
+    while position < len(values):
+        stop = position + 1
+        while stop < len(values) and values[order[stop]] == values[order[position]]:
+            stop += 1
+        average_rank = 0.5 * (position + stop - 1) + 1.0
+        ranks[order[position:stop]] = average_rank
+        position = stop
+    return ranks
+
+
+def spearman(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    return pearson(_rankdata(y_true), _rankdata(y_pred))
+
+
+def critic_advantage_arrays(
+    *,
+    critic: ValueNetwork,
+    data: OfflineData,
+    obs_norm: Normalizer,
+    target_norm: Normalizer,
+    gamma: float,
+    standardize: bool,
+    standardization_indices: np.ndarray,
+    device: torch.device,
+) -> dict[str, Any]:
+    obs = obs_norm.transform(data.observations)
+    next_obs = obs_norm.transform(data.next_observations)
+    values: list[np.ndarray] = []
+    next_values: list[np.ndarray] = []
+    critic.eval()
+    with torch.no_grad():
+        for offset in range(0, data.size, 65536):
+            stop = min(data.size, offset + 65536)
+            values.append(critic(tensor(obs[offset:stop], device)).cpu().numpy())
+            next_values.append(
+                critic(tensor(next_obs[offset:stop], device)).cpu().numpy()
+            )
+    value_norm = np.concatenate(values).astype(np.float32)
+    next_value_norm = np.concatenate(next_values).astype(np.float32)
+    value = value_norm * float(target_norm.std[0]) + float(target_norm.mean[0])
+    next_value = (
+        next_value_norm * float(target_norm.std[0]) + float(target_norm.mean[0])
+    )
+    bootstrap_mask = (~(data.terminals | data.timeouts)).astype(np.float32)
+    raw = data.rewards + gamma * bootstrap_mask * next_value - value
+    center = float(np.mean(raw[standardization_indices]))
+    scale = float(np.std(raw[standardization_indices]))
+    if standardize:
+        advantage = ((raw - center) / max(scale, 1e-8)).astype(np.float32)
+    else:
+        advantage = raw.astype(np.float32)
+        center, scale = 0.0, 1.0
+    return {
+        "advantage": advantage,
+        "raw_advantage": raw.astype(np.float32),
+        "value": value.astype(np.float32),
+        "next_value": next_value.astype(np.float32),
+        "center": center,
+        "scale": scale,
+    }
 
 def train_critic(
     *,
@@ -1330,12 +1533,13 @@ def train_critic(
     output_dir: Path,
     heartbeat: Callable[[str, int], None] | None = None,
 ) -> tuple[ValueNetwork, Normalizer, dict[str, Any]]:
-    """Train one critic to an audited terminal checkpoint.
+    """Train and accept a canonical frozen-advantage critic.
 
-    The canonical checkpoint is the model after the registered 2x continuation,
-    not the best transient validation checkpoint.  The best checkpoint is retained
-    only as a diagnostic so the actor stage never silently reintroduces a
-    pre-terminal critic.
+    Optimization stationarity and frozen-advantage suitability are deliberately
+    separate.  Stationarity uses a fixed *training* audit loss, validation-loss
+    slope, relative parameter movement, and an exact 2x continuation.  Checkpoint
+    selection uses validation MSE.  Formal use additionally requires predictive
+    quality plus best/final advantage stability; no field is forced to ``True``.
     """
     output_dir.mkdir(parents=True, exist_ok=True)
     obs = obs_norm.transform(data.observations)
@@ -1350,9 +1554,15 @@ def train_critic(
     best_loss = float("inf")
     best_step = 0
     best_path = output_dir / "best_validation_critic.pt"
-    selected_path = output_dir / "terminal_critic.pt"
+    final_path = output_dir / "final_training_critic.pt"
+    selected_path = output_dir / "canonical_critic.pt"
     candidate_step: int | None = None
     extension_target: int | None = None
+    train_audit = rng.choice(
+        split["train"],
+        size=min(mode.audit_sample_size, len(split["train"])),
+        replace=False,
+    )
     validation_audit = rng.choice(
         split["validation"],
         size=min(mode.audit_sample_size, len(split["validation"])),
@@ -1361,9 +1571,14 @@ def train_critic(
     eval_snapshot = [parameter.detach().clone() for parameter in model.parameters()]
     last_eval_step = 0
 
-    def evaluate(step: int, update_norm: float) -> dict[str, Any]:
+    def evaluate(step: int, update_stats: dict[str, float]) -> dict[str, Any]:
         model.eval()
-        result: dict[str, Any] = {"step": step, "update_norm_per_step": update_norm}
+        result: dict[str, Any] = {
+            "step": step,
+            "update_norm_per_step": update_stats["raw_per_step"],
+            "update_rms_per_step": update_stats["rms_per_step"],
+            "relative_update_norm_per_step": update_stats["relative_per_step"],
+        }
         with torch.no_grad():
             for name in ("train", "validation", "test"):
                 idx = split[name]
@@ -1377,13 +1592,20 @@ def train_critic(
                 result[f"{name}_mse"] = float(np.mean((truth - pred) ** 2))
                 result[f"{name}_r2"] = r2_score(truth, pred)
                 result[f"{name}_pearson"] = pearson(truth, pred)
-        audit_pred = model(tensor(obs[validation_audit], device))
-        audit_target = tensor(normalized_targets[validation_audit], device)
-        audit_loss = F.mse_loss(audit_pred, audit_target)
-        result["validation_audit_loss_normalized"] = float(audit_loss.detach().cpu())
-        result["validation_gradient_norm"] = full_gradient_norm(
-            audit_loss, model.parameters()
-        )
+        for name, audit_indices in (
+            ("train", train_audit),
+            ("validation", validation_audit),
+        ):
+            audit_pred = model(tensor(obs[audit_indices], device))
+            audit_target = tensor(normalized_targets[audit_indices], device)
+            audit_loss = F.mse_loss(audit_pred, audit_target)
+            gradient = full_gradient_statistics(audit_loss, model.parameters())
+            result[f"{name}_audit_loss_normalized"] = float(audit_loss.detach().cpu())
+            result[f"{name}_gradient_norm"] = gradient["raw"]
+            result[f"{name}_gradient_rms"] = gradient["rms"]
+            result[f"{name}_relative_gradient_norm"] = gradient[
+                "relative_to_parameter_norm"
+            ]
         model.train()
         return result
 
@@ -1397,14 +1619,12 @@ def train_critic(
         torch.nn.utils.clip_grad_norm_(model.parameters(), 10.0)
         optimizer.step()
         if step % mode.critic_eval_interval == 0 or step == mode.critic_max_steps:
-            update_sq = 0.0
-            with torch.no_grad():
-                for previous, current in zip(eval_snapshot, model.parameters()):
-                    update_sq += float((current - previous).square().sum().cpu())
-                eval_snapshot = [parameter.detach().clone() for parameter in model.parameters()]
-            update_norm = math.sqrt(update_sq) / max(step - last_eval_step, 1)
+            update_stats = parameter_update_statistics(
+                eval_snapshot, model.parameters(), step - last_eval_step
+            )
+            eval_snapshot = [parameter.detach().clone() for parameter in model.parameters()]
             last_eval_step = step
-            row = evaluate(step, update_norm)
+            row = evaluate(step, update_stats)
             row["train_batch_loss_normalized"] = float(loss.detach().cpu())
             rows.append(row)
             if heartbeat is not None:
@@ -1415,8 +1635,10 @@ def train_critic(
                     "step": step,
                     "validation_mse": row["validation_mse"],
                     "test_r2": row["test_r2"],
-                    "validation_gradient_norm": row["validation_gradient_norm"],
-                    "update_norm_per_step": row["update_norm_per_step"],
+                    "train_gradient_norm_diagnostic": row["train_gradient_norm"],
+                    "relative_update_norm_per_step": row[
+                        "relative_update_norm_per_step"
+                    ],
                 }
             )
             val = float(row["validation_mse"])
@@ -1431,37 +1653,61 @@ def train_critic(
                         "target_mean": target_norm.mean,
                         "target_std": target_norm.std,
                         "step": step,
-                        "checkpoint_role": "best_validation_diagnostic",
+                        "checkpoint_role": "best_validation_candidate",
                     },
                     best_path,
                 )
-            slope = relative_slope(rows, "validation_mse", config.audit_windows)
+            validation_slope = relative_slope(
+                rows, "validation_mse", config.audit_windows
+            )
+            train_audit_slope = relative_slope(
+                rows, "train_audit_loss_normalized", config.audit_windows
+            )
+            extension_possible = 2 * step <= mode.critic_max_steps
             if (
                 candidate_step is None
                 and step >= mode.critic_min_steps
-                and slope <= config.critic_relative_slope_tolerance
-                and float(row["validation_gradient_norm"])
-                <= config.critic_gradient_tolerance
-                and float(row["update_norm_per_step"])
+                and extension_possible
+                and validation_slope <= config.critic_relative_slope_tolerance
+                and train_audit_slope <= config.critic_relative_slope_tolerance
+                and float(row["relative_update_norm_per_step"])
                 <= config.critic_update_tolerance
             ):
                 candidate_step = step
-                extension_target = min(mode.critic_max_steps, 2 * step)
+                extension_target = 2 * step
             if extension_target is not None and step >= extension_target:
                 break
 
-    if not rows:
-        raise RuntimeError("Critic produced no evaluation rows")
+    if not rows or not best_path.is_file():
+        raise RuntimeError("Critic produced no auditable checkpoint")
     final_step = int(rows[-1]["step"])
+    final_metrics = dict(rows[-1])
+    final_state = {key: value.detach().cpu() for key, value in model.state_dict().items()}
+    torch.save(
+        {
+            "model": final_state,
+            "obs_mean": obs_norm.mean,
+            "obs_std": obs_norm.std,
+            "target_mean": target_norm.mean,
+            "target_std": target_norm.std,
+            "step": final_step,
+            "checkpoint_role": "final_training_checkpoint",
+        },
+        final_path,
+    )
     extension_complete = bool(
         candidate_step is not None and final_step >= 2 * candidate_step
     )
-    final_slope = relative_slope(rows, "validation_mse", config.audit_windows)
+    final_validation_slope = relative_slope(
+        rows, "validation_mse", config.audit_windows
+    )
+    final_train_audit_slope = relative_slope(
+        rows, "train_audit_loss_normalized", config.audit_windows
+    )
     final_stationarity_reconfirmed = bool(
-        final_slope <= config.critic_relative_slope_tolerance
-        and float(rows[-1]["validation_gradient_norm"])
-        <= config.critic_gradient_tolerance
-        and float(rows[-1]["update_norm_per_step"])
+        final_validation_slope <= config.critic_relative_slope_tolerance
+        and final_train_audit_slope <= config.critic_relative_slope_tolerance
+        and float(rows[-1]["relative_update_norm_per_step"])
         <= config.critic_update_tolerance
     )
     optimization_terminal = bool(
@@ -1469,13 +1715,116 @@ def train_critic(
         and extension_complete
         and final_stationarity_reconfirmed
     )
-    selected_role = (
-        "terminal_extension_checkpoint"
-        if optimization_terminal
-        else "final_nonterminal_checkpoint_for_pilot_diagnostics"
-    )
-    selected_metrics = evaluate(final_step, float(rows[-1]["update_norm_per_step"]))
+
+    final_advantage = critic_advantage_arrays(
+        critic=model,
+        data=data,
+        obs_norm=obs_norm,
+        target_norm=target_norm,
+        gamma=config.gamma,
+        standardize=config.advantage_standardize,
+        standardization_indices=split["train"],
+        device=device,
+    )["advantage"]
+    best_checkpoint = torch.load(best_path, map_location=device, weights_only=False)
+    model.load_state_dict(best_checkpoint["model"])
     model.eval()
+    selected_metrics = evaluate(
+        best_step,
+        {
+            "raw_per_step": 0.0,
+            "rms_per_step": 0.0,
+            "relative_per_step": 0.0,
+        },
+    )
+    model.eval()
+    best_advantage = critic_advantage_arrays(
+        critic=model,
+        data=data,
+        obs_norm=obs_norm,
+        target_norm=target_norm,
+        gamma=config.gamma,
+        standardize=config.advantage_standardize,
+        standardization_indices=split["train"],
+        device=device,
+    )["advantage"]
+    stability_indices = split["train"]
+    best_advantage_stability = best_advantage[stability_indices]
+    final_advantage_stability = final_advantage[stability_indices]
+    sign_agreement = float(
+        np.mean(
+            np.sign(best_advantage_stability)
+            == np.sign(final_advantage_stability)
+        )
+    )
+    advantage_pearson = pearson(
+        best_advantage_stability, final_advantage_stability
+    )
+    advantage_spearman = spearman(
+        best_advantage_stability, final_advantage_stability
+    )
+    best_negative = best_advantage_stability < 0
+    final_negative = final_advantage_stability < 0
+    union = int(np.sum(best_negative | final_negative))
+    negative_set_jaccard = (
+        float(np.sum(best_negative & final_negative)) / union if union else 1.0
+    )
+    final_to_best_ratio = float(final_metrics["validation_mse"]) / max(
+        float(selected_metrics["validation_mse"]), EPS
+    )
+    terminal_checkpoint_eligible = bool(
+        optimization_terminal
+        and final_to_best_ratio
+        <= config.critic_max_final_to_best_validation_mse_ratio
+    )
+    if terminal_checkpoint_eligible:
+        model.load_state_dict(final_state)
+        model.eval()
+        selected_step = final_step
+        selected_metrics = final_metrics
+        selected_role_base = "terminal_extension_checkpoint"
+    else:
+        selected_step = best_step
+        selected_role_base = "best_validation_checkpoint"
+
+    acceptance_checks = {
+        "finite_selected_metrics": bool(
+            all(
+                math.isfinite(float(selected_metrics[key]))
+                for key in ("validation_mse", "validation_r2", "validation_pearson")
+            )
+        ),
+        "validation_r2": bool(
+            float(selected_metrics["validation_r2"])
+            >= config.critic_validation_r2_min
+        ),
+        "validation_pearson": bool(
+            float(selected_metrics["validation_pearson"])
+            >= config.critic_validation_pearson_min
+        ),
+        "final_to_best_validation_mse_ratio": bool(
+            final_to_best_ratio
+            <= config.critic_max_final_to_best_validation_mse_ratio
+        ),
+        "advantage_sign_agreement": bool(
+            sign_agreement >= config.critic_advantage_sign_agreement_min
+        ),
+        "advantage_pearson": bool(
+            advantage_pearson >= config.critic_advantage_pearson_min
+        ),
+        "advantage_spearman": bool(
+            advantage_spearman >= config.critic_advantage_spearman_min
+        ),
+        "negative_set_jaccard": bool(
+            negative_set_jaccard >= config.critic_negative_set_jaccard_min
+        ),
+    }
+    critic_accepted = all(acceptance_checks.values())
+    selected_role = (
+        selected_role_base
+        if critic_accepted
+        else f"{selected_role_base}_for_pilot_diagnostics"
+    )
     torch.save(
         {
             "model": model.state_dict(),
@@ -1483,10 +1832,11 @@ def train_critic(
             "obs_std": obs_norm.std,
             "target_mean": target_norm.mean,
             "target_std": target_norm.std,
-            "step": final_step,
+            "step": selected_step,
             "candidate_step": candidate_step,
             "extension_complete": extension_complete,
             "optimization_terminal": optimization_terminal,
+            "critic_accepted_for_frozen_advantage": critic_accepted,
             "checkpoint_role": selected_role,
         },
         selected_path,
@@ -1498,15 +1848,40 @@ def train_critic(
         "extension_target": extension_target,
         "extension_complete": extension_complete,
         "final_stationarity_reconfirmed": final_stationarity_reconfirmed,
-        "validation_mse_relative_slope": final_slope,
-        "final_validation_gradient_norm": rows[-1]["validation_gradient_norm"],
-        "final_update_norm_per_step": rows[-1]["update_norm_per_step"],
+        "validation_mse_relative_slope": final_validation_slope,
+        "train_audit_loss_relative_slope": final_train_audit_slope,
+        "final_train_gradient_norm_diagnostic": rows[-1]["train_gradient_norm"],
+        "final_validation_gradient_norm_diagnostic": rows[-1][
+            "validation_gradient_norm"
+        ],
+        "final_update_norm_per_step_raw": rows[-1]["update_norm_per_step"],
+        "final_relative_update_norm_per_step": rows[-1][
+            "relative_update_norm_per_step"
+        ],
         "optimization_terminal": optimization_terminal,
+        "critic_accepted_for_frozen_advantage": critic_accepted,
+        "acceptance_checks": acceptance_checks,
+        "acceptance_metrics": {
+            "final_to_best_validation_mse_ratio": final_to_best_ratio,
+            "advantage_sign_agreement": sign_agreement,
+            "advantage_pearson": advantage_pearson,
+            "advantage_spearman": advantage_spearman,
+            "negative_set_jaccard": negative_set_jaccard,
+            "stability_scope": "actor_training_split",
+            "stability_sample_count": int(len(stability_indices)),
+            "test_r2_report_only": float(selected_metrics["test_r2"]),
+            "test_pearson_report_only": float(selected_metrics["test_pearson"]),
+        },
         "selected_checkpoint_role": selected_role,
+        "selected_checkpoint_step": selected_step,
+        "terminal_checkpoint_eligible": terminal_checkpoint_eligible,
         "selected_checkpoint_metrics": selected_metrics,
         "statistical_note": (
-            "Optimization convergence does not imply a ground-truth value function; "
-            "held-out R2/Pearson are reported to expose critic error."
+            "Optimization terminality is audited separately from frozen-advantage "
+            "acceptance. Validation loss chooses the checkpoint; validation "
+            "predictive quality and best/final training-split advantage stability "
+            "gate formal reuse without forcing optimization_terminal. Test metrics "
+            "are final-report-only."
         ),
         "checkpoint": {
             "path": str(selected_path),
@@ -1517,9 +1892,19 @@ def train_critic(
             "path": str(best_path),
             "sha256": sha256_file(best_path),
             "size_bytes": best_path.stat().st_size,
-            "role": "diagnostic_only_not_used_for_actor_advantages",
+            "role": (
+                "selected_if_no_accepted_terminal_extension"
+                if not terminal_checkpoint_eligible
+                else "validation_selection_comparator"
+            ),
         },
-        "final_training_metrics": rows[-1],
+        "final_training_checkpoint": {
+            "path": str(final_path),
+            "sha256": sha256_file(final_path),
+            "size_bytes": final_path.stat().st_size,
+            "role": "continuation_and_stability_audit",
+        },
+        "final_training_metrics": final_metrics,
     }
     write_csv(output_dir / "critic_metrics.csv", rows)
     atomic_write_json(output_dir / "critic_terminal_audit.json", audit)
@@ -1534,7 +1919,6 @@ def train_critic(
     )
     return model, target_norm, audit
 
-
 def freeze_advantages(
     *,
     critic: ValueNetwork,
@@ -1548,38 +1932,26 @@ def freeze_advantages(
     output_dir: Path,
 ) -> tuple[np.ndarray, dict[str, Any]]:
     output_dir.mkdir(parents=True, exist_ok=True)
-    obs = obs_norm.transform(data.observations)
-    next_obs = obs_norm.transform(data.next_observations)
-    values: list[np.ndarray] = []
-    next_values: list[np.ndarray] = []
-    critic.eval()
-    with torch.no_grad():
-        for start in range(0, data.size, 65536):
-            stop = min(data.size, start + 65536)
-            values.append(critic(tensor(obs[start:stop], device)).cpu().numpy())
-            next_values.append(critic(tensor(next_obs[start:stop], device)).cpu().numpy())
-    value_norm = np.concatenate(values).astype(np.float32)
-    next_value_norm = np.concatenate(next_values).astype(np.float32)
-    value = value_norm * float(target_norm.std[0]) + float(target_norm.mean[0])
-    next_value = next_value_norm * float(target_norm.std[0]) + float(target_norm.mean[0])
-    bootstrap_mask = (~(data.terminals | data.timeouts)).astype(np.float32)
-    raw = data.rewards + gamma * bootstrap_mask * next_value - value
-    center = float(np.mean(raw[standardization_indices]))
-    scale = float(np.std(raw[standardization_indices]))
-    if standardize:
-        advantage = ((raw - center) / max(scale, 1e-8)).astype(np.float32)
-    else:
-        advantage = raw.astype(np.float32)
-        center, scale = 0.0, 1.0
+    arrays = critic_advantage_arrays(
+        critic=critic,
+        data=data,
+        obs_norm=obs_norm,
+        target_norm=target_norm,
+        gamma=gamma,
+        standardize=standardize,
+        standardization_indices=standardization_indices,
+        device=device,
+    )
+    advantage = arrays["advantage"]
     path = output_dir / "frozen_advantages.npz"
     np.savez_compressed(
         path,
         advantage=advantage,
-        raw_advantage=raw.astype(np.float32),
-        value=value,
-        next_value=next_value,
-        center=np.asarray(center, dtype=np.float32),
-        scale=np.asarray(scale, dtype=np.float32),
+        raw_advantage=arrays["raw_advantage"],
+        value=arrays["value"],
+        next_value=arrays["next_value"],
+        center=np.asarray(arrays["center"], dtype=np.float32),
+        scale=np.asarray(arrays["scale"], dtype=np.float32),
     )
     manifest = {
         "path": str(path),
@@ -1589,8 +1961,8 @@ def freeze_advantages(
         "standardized_once": standardize,
         "standardization_population": "critic_train_episode_split_only",
         "standardization_count": int(len(standardization_indices)),
-        "center": center,
-        "scale": scale,
+        "center": arrays["center"],
+        "scale": arrays["scale"],
         "positive_fraction": float(np.mean(advantage > 0)),
         "negative_fraction": float(np.mean(advantage < 0)),
         "zero_fraction": float(np.mean(advantage == 0)),
@@ -1681,7 +2053,7 @@ def _load_canonical_critic_context(
     config: E7Config,
     data: OfflineData,
     device: torch.device,
-    require_terminal: bool,
+    require_accepted: bool,
 ) -> CanonicalCriticContext:
     manifest_path = root / "canonical_critic_manifest.json"
     if not manifest_path.is_file():
@@ -1689,7 +2061,7 @@ def _load_canonical_critic_context(
             f"Canonical critic artifact does not contain {manifest_path.name}: {root}"
         )
     manifest = json.loads(manifest_path.read_text())
-    if manifest.get("schema_version") != 1 or not manifest.get("complete"):
+    if manifest.get("schema_version") != 2 or not manifest.get("complete"):
         raise RuntimeError("Canonical critic artifact is incomplete or has an unsupported schema")
     if manifest.get("identity") != expected_identity:
         raise RuntimeError(
@@ -1708,9 +2080,11 @@ def _load_canonical_critic_context(
     )
 
     critic_audit = json.loads(critic_audit_path.read_text())
-    if require_terminal and not bool(critic_audit.get("optimization_terminal")):
+    if require_accepted and not bool(
+        critic_audit.get("critic_accepted_for_frozen_advantage")
+    ):
         raise RuntimeError(
-            "Formal E7 requires an optimization-terminal canonical critic artifact"
+            "Formal E7 requires a canonical critic accepted for frozen-advantage use"
         )
     split_payload = np.load(split_path)
     split = {
@@ -1778,7 +2152,7 @@ def prepare_canonical_critic_context(
         mode_name=mode_name,
         mode=mode,
     )
-    require_terminal = mode_name == "formal"
+    require_accepted = mode_name == "formal"
     if reuse_root is not None:
         return _load_canonical_critic_context(
             root=reuse_root.resolve(),
@@ -1786,7 +2160,7 @@ def prepare_canonical_critic_context(
             config=config,
             data=data,
             device=device,
-            require_terminal=require_terminal,
+            require_accepted=require_accepted,
         )
     manifest_path = artifact_root / "canonical_critic_manifest.json"
     if manifest_path.is_file():
@@ -1796,7 +2170,7 @@ def prepare_canonical_critic_context(
             config=config,
             data=data,
             device=device,
-            require_terminal=require_terminal,
+            require_accepted=require_accepted,
         )
     if artifact_root.exists() and any(artifact_root.iterdir()):
         raise RuntimeError(
@@ -1840,26 +2214,34 @@ def prepare_canonical_critic_context(
     )
     for parameter in critic.parameters():
         parameter.requires_grad_(False)
-    if require_terminal and not bool(critic_audit.get("optimization_terminal")):
+    if require_accepted and not bool(
+        critic_audit.get("critic_accepted_for_frozen_advantage")
+    ):
         failure_manifest = {
-            "schema_version": 1,
+            "schema_version": 2,
             "complete": False,
             "identity": expected_identity,
             "created_utc": utc_now(),
-            "reason": "critic_failed_registered_terminal_gate",
-            "critic_optimization_terminal": False,
+            "reason": "critic_failed_frozen_advantage_acceptance",
+            "critic_optimization_terminal": bool(
+                critic_audit.get("optimization_terminal")
+            ),
+            "critic_accepted_for_frozen_advantage": False,
+            "acceptance_checks": critic_audit.get("acceptance_checks", {}),
         }
-        atomic_write_json(artifact_root / "canonical_critic_incomplete.json", failure_manifest)
+        atomic_write_json(
+            artifact_root / "canonical_critic_incomplete.json", failure_manifest
+        )
         raise RuntimeError(
-            "Formal E7 gate failed: the canonical critic did not pass the registered "
-            "optimization-terminal and 2x continuation audit"
+            "Formal E7 gate failed: the canonical critic did not pass predictive "
+            "quality and best/final frozen-advantage stability acceptance"
         )
     checkpoint_path = Path(critic_audit["checkpoint"]["path"])
     critic_audit_path = training_dir / "critic_terminal_audit.json"
     advantage_path = artifact_root / "frozen_advantage" / "frozen_advantages.npz"
     advantage_manifest_path = artifact_root / "frozen_advantage" / "advantage_manifest.json"
     manifest = {
-        "schema_version": 1,
+        "schema_version": 2,
         "complete": True,
         "created_utc": utc_now(),
         "identity": expected_identity,
@@ -1868,6 +2250,9 @@ def prepare_canonical_critic_context(
         "critic_updates_during_actor_training": False,
         "advantage_recomputation_during_actor_training": False,
         "critic_optimization_terminal": bool(critic_audit["optimization_terminal"]),
+        "critic_accepted_for_frozen_advantage": bool(
+            critic_audit["critic_accepted_for_frozen_advantage"]
+        ),
         "checkpoint_role": critic_audit["selected_checkpoint_role"],
         "files": {
             "critic_checkpoint": _artifact_file_record(checkpoint_path, artifact_root),
@@ -1904,7 +2289,10 @@ def actor_eval_metrics(
     device: torch.device,
     loss_value: float,
     gradient_norm: float,
+    gradient_rms: float,
+    relative_gradient_norm: float,
     update_norm: float,
+    relative_update_norm: float,
     step: int,
     boundary_threshold: float,
     rollout_metrics: dict[str, float] | None = None,
@@ -1934,7 +2322,10 @@ def actor_eval_metrics(
             "loss": loss_value,
             "positive_nll": positive_nll,
             "gradient_norm": gradient_norm,
+            "gradient_rms": gradient_rms,
+            "relative_gradient_norm": relative_gradient_norm,
             "update_norm": update_norm,
+            "relative_update_norm": relative_update_norm,
             "mean_abs": float(action_mean.abs().mean().cpu()),
             "mean_boundary_fraction": mean_boundary_fraction,
             "sigma_mean": float(sigma.mean().cpu()),
@@ -1993,6 +2384,10 @@ def actor_batch_loss(
     far = negative & (distance > far_threshold)
     near = negative & ~far
     cap_factor = torch.ones_like(weights)
+    dynamic_scale = 1.0
+    proxy_before = 0.0
+    proxy_target = 0.0
+    proxy_after = 0.0
     if method == "positive_only":
         weights = torch.where(weights > 0, weights, torch.zeros_like(weights))
     elif method == "near_zero":
@@ -2005,8 +2400,36 @@ def actor_batch_loss(
             torch.full_like(weights, far_cap_score) / joint_score.clamp_min(EPS),
         )
         weights = torch.where(far, weights * cap_factor, weights)
+    elif method == "dynamic_budget_matched_global":
+        if bool(negative.any()):
+            magnitude = (-weights[negative]).detach()
+            score = joint_score[negative]
+            negative_far = far[negative]
+            target_factor = torch.ones_like(magnitude)
+            target_factor = torch.where(
+                negative_far,
+                torch.minimum(
+                    torch.ones_like(magnitude),
+                    torch.full_like(magnitude, far_cap_score)
+                    / score.clamp_min(EPS),
+                ),
+                target_factor,
+            )
+            proxy_before_t = torch.sum(magnitude * score)
+            proxy_target_t = torch.sum(magnitude * score * target_factor)
+            dynamic_scale = float(
+                torch.clamp(proxy_target_t / proxy_before_t.clamp_min(EPS), 0.0, 1.0)
+                .detach()
+                .cpu()
+            )
+            weights = torch.where(negative, weights * dynamic_scale, weights)
+            proxy_before = float(proxy_before_t.detach().cpu())
+            proxy_target = float(proxy_target_t.detach().cpu())
+            proxy_after = proxy_before * dynamic_scale
     elif method == "budget_matched_global":
+        # Compatibility alias for pre-v4.2 tests/artifacts.  It is not a formal method.
         weights = torch.where(negative, weights * global_scale, weights)
+        dynamic_scale = float(global_scale)
     elif method != "signed":
         raise ValueError(f"Unknown method: {method}")
     active = weights.ne(0)
@@ -2020,9 +2443,12 @@ def actor_batch_loss(
         "far_cap_factor_mean": float(cap_factor[far].mean().detach().cpu())
         if bool(far.any())
         else 1.0,
+        "dynamic_global_scale": dynamic_scale,
+        "negative_influence_proxy_before": proxy_before,
+        "negative_influence_proxy_target": proxy_target,
+        "negative_influence_proxy_after": proxy_after,
     }
     return loss, diagnostics
-
 
 def train_actor_stage(
     *,
@@ -2062,7 +2488,7 @@ def train_actor_stage(
     eval_snapshot = [parameter.detach().clone() for parameter in policy.parameters()]
     last_eval_step = 0
 
-    def evaluate(step: int, update_norm_per_step: float) -> dict[str, Any]:
+    def evaluate(step: int, update_norm_per_step: dict[str, float]) -> dict[str, Any]:
         audit_obs = tensor(obs[audit_indices], device)
         audit_actions = tensor(actions[audit_indices], device)
         audit_advantages = tensor(advantages[audit_indices], device)
@@ -2076,7 +2502,7 @@ def train_actor_stage(
             global_scale,
             far_cap_score,
         )
-        audit_gradient = full_gradient_norm(audit_loss, policy.parameters())
+        audit_gradient = full_gradient_statistics(audit_loss, policy.parameters())
         row = actor_eval_metrics(
             policy=policy,
             obs=obs,
@@ -2086,8 +2512,11 @@ def train_actor_stage(
             fixed_negative_indices=fixed_negative_indices,
             device=device,
             loss_value=float(audit_loss.detach().cpu()),
-            gradient_norm=audit_gradient,
-            update_norm=update_norm_per_step,
+            gradient_norm=audit_gradient["raw"],
+            gradient_rms=audit_gradient["rms"],
+            relative_gradient_norm=audit_gradient["relative_to_parameter_norm"],
+            update_norm=update_norm_per_step["raw_per_step"],
+            relative_update_norm=update_norm_per_step["relative_per_step"],
             step=step,
             boundary_threshold=config.support_boundary_threshold,
             rollout_metrics=(
@@ -2107,7 +2536,9 @@ def train_actor_stage(
         return row
 
     policy.train()
-    initial_row = evaluate(0, 0.0)
+    initial_row = evaluate(
+        0, {"raw_per_step": 0.0, "rms_per_step": 0.0, "relative_per_step": 0.0}
+    )
     rows.append(initial_row)
     if heartbeat is not None:
         heartbeat(f"actor:{method}", 0)
@@ -2146,7 +2577,10 @@ def train_actor_stage(
                 device=device,
                 loss_value=train_batch_loss,
                 gradient_norm=train_batch_gradient,
+                gradient_rms=float("nan"),
+                relative_gradient_norm=float("nan"),
                 update_norm=float("nan"),
+                relative_update_norm=float("nan"),
                 step=step,
                 boundary_threshold=config.support_boundary_threshold,
             )
@@ -2164,14 +2598,12 @@ def train_actor_stage(
             )
             break
         if step % eval_interval == 0 or step == max_steps:
-            update_sq = 0.0
-            with torch.no_grad():
-                for previous, current in zip(eval_snapshot, policy.parameters()):
-                    update_sq += float((current - previous).square().sum().cpu())
-                eval_snapshot = [parameter.detach().clone() for parameter in policy.parameters()]
-            update_norm = math.sqrt(update_sq) / max(step - last_eval_step, 1)
+            update_stats = parameter_update_statistics(
+                eval_snapshot, policy.parameters(), step - last_eval_step
+            )
+            eval_snapshot = [parameter.detach().clone() for parameter in policy.parameters()]
             last_eval_step = step
-            row = evaluate(step, update_norm)
+            row = evaluate(step, update_stats)
             rows.append(row)
             if heartbeat is not None:
                 heartbeat(f"actor:{method}", step)
@@ -2182,22 +2614,27 @@ def train_actor_stage(
                     "audit_loss": row["loss"],
                     "positive_nll": row["positive_nll"],
                     "audit_gradient_norm": row["gradient_norm"],
-                    "update_norm_per_step": row["update_norm"],
+                    "update_norm_per_step_raw": row["update_norm"],
+                    "relative_update_norm_per_step": row["relative_update_norm"],
                 }
             )
-            slopes = [
-                relative_slope(rows, key, config.audit_windows)
-                for key in ("positive_nll", "mean_abs", "sigma_mean", "phantom_distance_mean")
+            state_drifts = [
+                normalized_window_drift(rows, key, config.audit_windows)
+                for key in ("mean_abs", "sigma_mean", "phantom_distance_mean")
             ]
             if (
                 candidate_step is None
                 and step >= min_steps
-                and all(x <= config.actor_relative_slope_tolerance for x in slopes)
-                and float(row["gradient_norm"]) <= config.actor_gradient_tolerance
-                and float(row["update_norm"]) <= config.actor_update_tolerance
+                and 2 * step <= max_steps
+                and all(
+                    value <= config.actor_state_drift_tolerance
+                    for value in state_drifts
+                )
+                and float(row["relative_update_norm"])
+                <= config.actor_update_tolerance
             ):
                 candidate_step = step
-                extension_target = min(max_steps, 2 * step)
+                extension_target = 2 * step
             if extension_target is not None and step >= extension_target:
                 break
 
@@ -2221,6 +2658,11 @@ def train_actor_stage(
             "step": rows[-1]["step"],
             "far_threshold": far_threshold,
             "global_scale": global_scale,
+            "global_scale_semantics": (
+                "dynamic_per_batch_detached_output_score_proxy"
+                if method == "dynamic_budget_matched_global"
+                else "fixed_compatibility_or_unused"
+            ),
             "far_cap_score": far_cap_score,
         },
         checkpoint_path,
@@ -2238,6 +2680,11 @@ def train_actor_stage(
             "extension_target": extension_target,
             "far_threshold": far_threshold,
             "global_scale": global_scale,
+            "global_scale_semantics": (
+                "dynamic_per_batch_detached_output_score_proxy"
+                if method == "dynamic_budget_matched_global"
+                else "fixed_compatibility_or_unused"
+            ),
             "far_cap_score": far_cap_score,
             "checkpoint": {
                 "path": str(checkpoint_path),
@@ -2849,8 +3296,8 @@ def run_seed(
 
     slope = float(gradient_summary["corrected_q_xi_loglog_slope_vs_radius"])
     signed_audit = branch_audits["signed"]
-    mitigation_details: dict[str, bool] = {}
-    for method in ("far_zero", "far_cap", "budget_matched_global"):
+    control_outcomes: dict[str, dict[str, bool]] = {}
+    for method in ("far_zero", "far_cap", "dynamic_budget_matched_global"):
         control = branch_audits[method]
         score_reduced = float(
             control["final_metrics"]["phantom_joint_output_score_mean"]
@@ -2863,7 +3310,22 @@ def run_seed(
         signed_task_collapse = signed_audit["task_performance_collapse"] is True
         control_task_collapse = control["task_performance_collapse"] is True
         task_rescued = signed_task_collapse and not control_task_collapse
-        mitigation_details[method] = bool(score_reduced or support_rescued or task_rescued)
+        finite_terminal_rescued = (
+            signed_audit["state"] != "finite_terminal"
+            and control["state"] == "finite_terminal"
+        )
+        control_outcomes[method] = {
+            "diagnostic_score_mitigation": bool(score_reduced),
+            "support_boundary_rescue": bool(support_rescued),
+            "task_performance_rescue": bool(task_rescued),
+            "finite_terminal_rescue": bool(finite_terminal_rescued),
+            "any_mitigation_observed": bool(
+                score_reduced
+                or support_rescued
+                or task_rescued
+                or finite_terminal_rescued
+            ),
+        }
     terminal_records_complete = all(
         bool(audit.get("terminal_audit_complete")) for audit in branch_audits.values()
     )
@@ -2882,18 +3344,17 @@ def run_seed(
             and abs(slope - config.qxi_slope_target) <= config.qxi_slope_tolerance
             and float(gradient_summary["analytic_autograd_relative_error_max"])
             <= config.analytic_autograd_error_max
-            and float(gradient_summary["log_scale_to_mean_far_near_ratio"])
+        ),
+        "log_scale_relative_dominance_observed": bool(
+            float(gradient_summary["log_scale_to_mean_far_near_ratio"])
             >= config.log_scale_to_mean_ratio_min
         ),
         "measurable_full_parameter_contribution": bool(
             float(gradient_summary["full_parameter_gradient_far_near_ratio"])
             >= config.full_parameter_ratio_min
         ),
-        "targeted_far_control_mitigates_dynamics": bool(
-            mitigation_details.get("far_zero", False)
-            and mitigation_details.get("far_cap", False)
-        ),
-        "control_details": mitigation_details,
+        "control_outcomes": control_outcomes,
+        "targeted_control_outcomes_reported": True,
         "terminal_audit_records_complete": terminal_records_complete,
         "terminal_state_classification_complete": terminal_classification_complete,
         "rollout_available_for_all_methods": rollout_available,
@@ -2902,7 +3363,6 @@ def run_seed(
         "natural_far_field_present",
         "corrected_quadratic_branch_empirically_active",
         "measurable_full_parameter_contribution",
-        "targeted_far_control_mitigates_dynamics",
     )
     seed_gate["all_mechanism_subchecks_passed"] = all(
         bool(seed_gate[key]) for key in core_keys
@@ -2921,6 +3381,7 @@ def run_seed(
         "positive_only_initialization": positive_audit,
         "matching": matching_summary,
         "gradient_probe": gradient_summary,
+        "initial_global_budget_diagnostic": budget,
         "global_budget": budget,
         "mechanism_subchecks": seed_gate,
         # Compatibility alias for pre-v4 result readers.  Root-level audit semantics
@@ -2944,6 +3405,9 @@ def flatten_seed_summary(summary: dict[str, Any]) -> dict[str, Any]:
             "test_pearson"
         ],
         "critic_optimization_terminal": summary["critic"]["optimization_terminal"],
+        "critic_accepted_for_frozen_advantage": summary["critic"][
+            "critic_accepted_for_frozen_advantage"
+        ],
         "positive_fraction": summary["advantage"]["positive_fraction"],
         "matched_pairs": summary["matching"]["pairs"],
         "abs_advantage_far_near_ratio": probe["abs_advantage_far_near_ratio"],
@@ -3098,7 +3562,8 @@ def aggregate_seed_summaries(summaries: Sequence[dict[str, Any]]) -> dict[str, A
         "natural_far_field_present",
         "corrected_quadratic_branch_empirically_active",
         "measurable_full_parameter_contribution",
-        "targeted_far_control_mitigates_dynamics",
+        "log_scale_relative_dominance_observed",
+        "targeted_control_outcomes_reported",
         "terminal_audit_records_complete",
         "terminal_state_classification_complete",
         "rollout_available_for_all_methods",
@@ -3137,7 +3602,6 @@ def build_terminal_audit(
                 "natural_far_field_present",
                 "corrected_quadratic_branch_empirically_active",
                 "measurable_full_parameter_contribution",
-                "targeted_far_control_mitigates_dynamics",
             )
         )
     )
@@ -3178,6 +3642,9 @@ def build_terminal_audit(
     critic_artifact_terminal = bool(
         canonical.critic_audit.get("optimization_terminal")
     )
+    critic_artifact_accepted = bool(
+        canonical.critic_audit.get("critic_accepted_for_frozen_advantage")
+    )
     engineering_pipeline_complete = bool(
         seed_count_complete
         and canonical.artifact_manifest.get("complete")
@@ -3187,7 +3654,7 @@ def build_terminal_audit(
     formal_evidence_prerequisites_complete = bool(
         mode_name == "formal"
         and engineering_pipeline_complete
-        and critic_artifact_terminal
+        and critic_artifact_accepted
         and positive_only_terminal_all_seeds
         and paired_seed_evidence_complete
         and rollout_available_all_required_checkpoints
@@ -3205,6 +3672,7 @@ def build_terminal_audit(
         "engineering_pipeline_complete": engineering_pipeline_complete,
         "mechanism_subchecks_passed_for_completed_seeds": mechanism_subchecks_passed,
         "critic_artifact_terminal": critic_artifact_terminal,
+        "critic_artifact_accepted_for_frozen_advantage": critic_artifact_accepted,
         "critic_artifact_shared_across_all_actor_seeds": True,
         "positive_only_terminal_all_seeds": positive_only_terminal_all_seeds,
         "terminal_audit_records_complete": terminal_audit_records_complete,
@@ -3397,6 +3865,9 @@ def run_experiment(args: argparse.Namespace) -> int:
             "critic_optimization_terminal": canonical.critic_audit[
                 "optimization_terminal"
             ],
+            "critic_accepted_for_frozen_advantage": canonical.critic_audit[
+                "critic_accepted_for_frozen_advantage"
+            ],
             "critic_training_count": canonical.artifact_manifest[
                 "critic_training_count"
             ],
@@ -3413,6 +3884,9 @@ def run_experiment(args: argparse.Namespace) -> int:
                 "canonical_critic_reused": canonical.reused,
                 "canonical_critic_optimization_terminal": canonical.critic_audit[
                     "optimization_terminal"
+                ],
+                "canonical_critic_accepted_for_frozen_advantage": canonical.critic_audit[
+                    "critic_accepted_for_frozen_advantage"
                 ],
             }
         )

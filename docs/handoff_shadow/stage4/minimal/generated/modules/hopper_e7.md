@@ -5,7 +5,7 @@
 
 - Module ID: `hopper_e7`
 - Responsibility: Cover learned-critic far-field mechanism validation and D4RL method-effect evidence while preserving the external-validity boundary.
-- Source hash: `f7a9cfc7c22e6ff3394855d153246d6fcb83510ffb4cb4f79b4856d578ab0523`
+- Source hash: `ce63a8ca0284b622365d638f1f8756acda32a5f34210c70aa6d8e248ff11499b`
 
 ## Source 1: docs/handoff.md: # 15. Learned-Critic External Mechanism Validation on D4RL -> # Part V. Bandit 稳定外推子实验的收敛审计（完整保留）
 
@@ -179,6 +179,19 @@ A<0,\quad \|z\|>1 \Longrightarrow \Delta\log\sigma<0.
 > - 当前 formal route 不变：`EXT-H-E7-Q2` 仍是下一正式 route item。V4.6 是可独立执行的外部 focused pilot，不替代 C-U1/D-U1 因果识别；`EXT-C-E8-SCALE-01` 的 Countdown blocker 更新为 V4.6 的审计与交付。
 > - 本更新基于用户上传 Git bundle 的 `main` commit `7dcde2095e0f0aa4a7302a829667c1955c187738`；只实现协议、runner、实际选中样本诊断与测试，尚未运行真实 Qwen/CUDA/BF16-LoRA pilot。
 
+### Delta block `after_heading:v64-e7-q2-acceptance-pipeline`
+
+> **v64 增量登记：`EXT-H-E7-Q2` acceptance pipeline v4.2 与一键正式运行（不删除 v63 及更早内容）**
+>
+> - 本版完整继承 v63（E4-TAPER Near-Retention 结果沉淀与闭环协议版），本次只修复 Hopper E7-Q2 的 critic/actor 验收语义、控制审计与本地执行入口；不改变数据集、模型结构、学习率、正式 seeds、训练 horizon、near/far matching、far-cap 定义或 E7 的外部机制验证职责。`EXT-H-E7-Q2` 继续保持 **not_run + implemented + ready + active**；用户上传的 formal-scale pilot 只登记为工程与协议诊断，不升级为正式科学结果。
+> - **旧结论与问题：**v54 将 formal critic 绑定到 `optimization_terminal`，并用 held-out validation loss 的参数梯度和未归一化全模型 update norm 判定训练稳态。formal-scale pilot 表明这些绝对阈值与 256×256 MLP 的尺度不匹配，且 validation gradient 并不等价于训练目标 stationarity；同类门禁也阻塞 Positive-only actor。不得通过硬编码 `optimization_terminal=True` 或把 update norm 伪造为 0 绕过审计。
+> - **替代协议：**v4.2 将 optimizer stationarity、checkpoint selection 与 frozen-advantage acceptance 分离。stationarity 使用固定 train-audit loss、validation-MSE slope、相对参数更新以及可容纳时的精确 2× continuation；raw gradient/update 继续保存为诊断。若真实 optimizer terminal 通过且 final/best validation-MSE ratio 仍在门限内，则选择 terminal-extension checkpoint；否则选择最低 validation MSE checkpoint。formal artifact acceptance 使用 validation R² ≥ 0.50、validation Pearson ≥ 0.75、final/best validation-MSE ratio ≤ 1.05，并在 actor training split 上要求 selected-vs-final advantage sign agreement ≥ 0.95、Pearson/Spearman ≥ 0.98、negative-set Jaccard ≥ 0.90；test R²/Pearson 只作最终报告，不参与 checkpoint 选择或门禁。`optimization_terminal` 继续如实单独报告，不得被强制置真。
+> - Actor 终态同样改用相对参数更新与固定 audit window 上的 scale-normalized policy-state drift；核心状态量冻结为 `mean_abs / sigma_mean / phantom_distance_mean`，阈值为窗口拟合总漂移不超过 `0.01`。`positive_nll` 可能跨零且受 minibatch 噪声影响，只保留 slope 诊断，不再阻塞终态。任务性能崩溃、support/variance boundary、NaN/Inf numerical collapse、persistent drift 与 finite terminal 继续分开输出。2× continuation 只在 `2*candidate_step <= max_steps` 时建立候选，避免旧 `min(max_steps, 2*step)` 与 `final>=2*step` 的不可满足组合。
+> - 核心机制 gate 只保留 natural far field、corrected Gaussian log-scale quadratic geometry/analytic-autograd agreement 和 measurable full-parameter far/near amplification。`log-scale 是否每个 seed 都压过 mean` 降为诊断，不再错误地作为二次几何成立的必要条件。 Registry 中旧的聚合 gate 名称仅以 `superseded_by_*` provenance 标记保留，不再参与验收。
+> - 控制结果拆为 diagnostic-score mitigation、support-boundary rescue、task-performance rescue 与 finite-terminal rescue，禁止继续用任一项成立的 OR 布尔量冒充长期救援。旧 initial-only `budget_matched_global` 不再进入正式方法集合；新 `dynamic_budget_matched_global` 在每个 minibatch 上以 detached `sum(|A| × joint_output_score)` proxy 动态匹配同批 Far-cap 保留预算。该 proxy matching 不等同于精确全参数梯度预算匹配，也不得据此预设 Distance/Global 方法排名。
+> - Canonical critic artifact schema 升级为 v2，并继续对 mode、config hash、dataset、transition count、dimensions、canonical seed 与 runner version 做 exact identity 校验；pilot、v4.1 或其他 formal 身份的 artifact fail closed。
+> - 操作入口升级为 Countdown 风格一键命令：在 clean current `main`、已设置 `DRPO_HOPPER_MEDIUM_REPLAY` 或标准数据路径时执行 `python3 scripts/run_e7_hopper_q2.py`，默认 formal、自动创建 timestamped persistent work directory，并由 hardened guard 打包结果。`--plan-only` 只解析和打印完整命令，不启动训练；pilot 仍不得冒充 formal evidence。
+
 ### Delta block `section_end:v56-e6-parent-closure-current-gate`
 
 - **v56 E6 父 claim 关闭覆盖：** E6 的论文核心 claim 现已范围受限关闭；主 long-run 与两个 gap 子实验的原科学状态分别保持 `long_run_validated / finite_step_validated / finite_step_validated`。`D-U1-E6-TAPER-01` 保留为可选非门禁未来工作。当前下一正式 route item 为 `EXT-H-E7-Q2`，registry 状态为 **implemented + ready + active + not_run**；启动后仍须走 canonical hardened guard，且在 raw-complete、终态审计、打包和交付前不得声称 E7 完成。
@@ -246,6 +259,11 @@ entries:
     runner_archive_policy:
       mode: forbid
   implementation_state: implemented
+  protocol_version: 4.2.0
+  pilot_diagnostic:
+    formal_scale_pilot_available: true
+    scientific_status: pilot_only_not_formal_evidence
+    purpose: acceptance_pipeline_and_mechanism_diagnostic
   code_entrypoint: src/drpo/e7_hopper_q2.py
   operator_entrypoint: scripts/run_e7_hopper_q2.py
   config_path: configs/e7_hopper_q2_medium_replay_v2.yaml
@@ -257,6 +275,7 @@ entries:
     --source-file scripts/run_e7_hopper_q2.py --source-file configs/e7_hopper_q2_medium_replay_v2.yaml -- python3 src/drpo/e7_hopper_q2.py
     run --mode formal --dataset-path /ABSOLUTE/PERSISTENT/PATH/hopper_medium_replay-v2.hdf5 --work-dir experiments/results/EXT-H-E7-Q2/run_001
     --config configs/e7_hopper_q2_medium_replay_v2.yaml --repo-root . --device cuda
+  one_command_launch: DRPO_HOPPER_MEDIUM_REPLAY=/ABSOLUTE/PERSISTENT/PATH/hopper_medium_replay-v2.hdf5 python3 scripts/run_e7_hopper_q2.py
   does_not_replace:
   - C-U1-E1-COMP-01
   - C-U1-E1
@@ -302,6 +321,20 @@ entries:
     - 0.1
     gamma: 0.99
     frozen_before_actor: true
+    optimization_stationarity:
+      train_audit_loss: required
+      validation_mse_slope: required
+      relative_parameter_update: required
+      exact_two_times_continuation_when_feasible: required
+      validation_gradient: diagnostic_only
+      raw_full_parameter_update: diagnostic_only
+    checkpoint_selection: accepted_terminal_extension_else_best_validation
+    frozen_advantage_acceptance:
+      validation_predictive_quality: required
+      selected_vs_final_sign_and_rank_stability: required_on_actor_training_split
+      test_predictive_metrics: final_report_only
+      optimization_terminal_forced_true: forbidden
+    canonical_artifact_schema: 2
     terminal_audit: required
   frozen_advantage_protocol:
     definition: r_plus_gamma_v_next_minus_v
@@ -316,6 +349,15 @@ entries:
     - 256
     log_scale_parameterization: global_diagonal
     positive_only_terminal_before_branching: true
+    terminal_candidate:
+      relative_parameter_update: required
+      state_drift_metrics:
+      - mean_abs
+      - sigma_mean
+      - phantom_distance_mean
+      normalized_window_drift_max: 0.01
+      positive_nll_slope: diagnostic_only
+      exact_two_times_continuation_when_feasible: required
     identical_branch_checkpoint: true
     identical_minibatch_stream_across_methods: true
   coordinate_protocol:
@@ -343,7 +385,7 @@ entries:
     - near_zero
     - far_zero
     - far_cap
-    - budget_matched_global
+    - dynamic_budget_matched_global
     paired_seeds: required
     terminal_audit: required
     old_600_step_probe_is_formal_evidence: false
@@ -380,11 +422,23 @@ entries:
   independent_validation_gate:
     natural_far_field_present: required
     corrected_quadratic_branch_empirically_active: required
-    measurable_full_parameter_or_long_run_contribution: required
-    targeted_far_control_mitigates_dynamics: required
+    measurable_full_parameter_contribution: required
+    log_scale_relative_dominance: diagnostic_only
+    control_outcomes:
+      diagnostic_score_mitigation: report_separately
+      support_boundary_rescue: report_separately
+      task_performance_rescue: report_separately
+      finite_terminal_rescue: report_separately
+    measurable_full_parameter_or_long_run_contribution: superseded_by_measurable_full_parameter_contribution
+    targeted_far_control_mitigates_dynamics: superseded_by_separate_control_outcomes
     paired_seed_evidence: required
     terminal_state_audit: required
     identity_only_autograd_check_counts_as_independent_validation: false
+  dynamic_global_control:
+    method: dynamic_budget_matched_global
+    rematch_frequency: every_minibatch
+    detached_proxy: sum_abs_advantage_times_joint_output_score
+    exact_full_parameter_budget_match_claimed: false
   output_contract:
     result_archive_owner: canonical_hardened_channel
     scientific_runner_archive_writes: forbidden

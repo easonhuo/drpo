@@ -1,0 +1,789 @@
+{
+  "affected_selectors": [
+    "DRPO / SNA2C \u8fdc\u573a\u8d1f\u68af\u5ea6\u52a8\u529b\u5b66\u7814\u7a76\u4e3b\u6587\u6863 v63\uff08E4-TAPER Near-Retention \u7ed3\u679c\u6c89\u6dc0\u4e0e\u95ed\u73af\u534f\u8bae\u7248\uff09",
+    "DRPO / SNA2C \u8fdc\u573a\u8d1f\u68af\u5ea6\u52a8\u529b\u5b66\u7814\u7a76\u4e3b\u6587\u6863 v64\uff08E4-TAPER Near-Retention \u7ed3\u679c\u6c89\u6dc0\u4e0e\u95ed\u73af\u534f\u8bae\u7248\uff1bE7-Q2 Acceptance Pipeline v4.2 \u8865\u5145\uff09"
+  ],
+  "base_commit": "bf1437699c2a67c8e6aff725b8658a909353d2d2",
+  "base_handoff_sha256": "4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d",
+  "base_registry_sha256": "ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579",
+  "candidate_replaced_authority": false,
+  "candidate_sha256": "ffc89242a232de2663bd441bf0615d3894efd44179d955b5ab280649f787ce26",
+  "comparison_target": "working_tree",
+  "current_registry_sha256": "6a7f2a8009fc0d3c25a86c669601de38ac873480b76edc35711634c92b14b656",
+  "exact_manual_candidate_match": true,
+  "full_candidate_saved": false,
+  "history_preservation_passed": true,
+  "idempotence_passed": true,
+  "llm_blocking_gate_used": false,
+  "manual_handoff_authoritative": true,
+  "manual_sha256": "ffc89242a232de2663bd441bf0615d3894efd44179d955b5ab280649f787ce26",
+  "mode": "shadow",
+  "network_used": false,
+  "observation_kind": "real",
+  "operation_count": 2,
+  "performance": {
+    "base_validation_ms": 66.857,
+    "comparison_and_registry_ms": 430.76,
+    "hard_limit_ms": 15000.0,
+    "policy_and_schema_ms": 14.119,
+    "render_and_idempotence_ms": 33.414,
+    "target_p95_ms": 5000.0,
+    "total_ms": 545.303,
+    "within_hard_limit": true,
+    "within_target": true
+  },
+  "policy_id": "GOV-HANDOFF-INDEX-01",
+  "registry_change_assertions": [
+    {
+      "change_id": "e7-q2-v42-01-actor-protocol-terminal-candidate",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "ffc89242a232de2663bd441bf0615d3894efd44179d955b5ab280649f787ce26"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "6a7f2a8009fc0d3c25a86c669601de38ac873480b76edc35711634c92b14b656"
+        },
+        {
+          "path": "configs/e7_hopper_q2_medium_replay_v2.yaml",
+          "sha256": "2f4538b80cb31398d8abd049388126e12b8121befd85ab7f764b413dc254a5bc"
+        },
+        {
+          "path": "src/drpo/e7_hopper_q2.py",
+          "sha256": "7f27d79511d5614eff8eaeae4823f293992ca60f31858a82e7f641f2ed64dd2c"
+        },
+        {
+          "path": "scripts/run_e7_hopper_q2.py",
+          "sha256": "c10540d27f307f86805949f371eebebdfa1a22dd7f49ccd1b84ca1476a58455f"
+        },
+        {
+          "path": "docs/README_E7_HOPPER_Q2_ONECLICK.md",
+          "sha256": "1d711a68bfd8651e45f301e91c3e6e9eaee034262e7cbfb9bbe600f6e5d74f3d"
+        },
+        {
+          "path": "tests/test_e7_q2_acceptance_pipeline.py",
+          "sha256": "463a450c85a622c2474d6e638438786803529564064cfe4bc796981251f5f541"
+        },
+        {
+          "path": "tests/test_e7_hopper_q2.py",
+          "sha256": "a5e0ee7fc944136719b35f1785d29a800223d88acec03aaac8c64e47a2ae5d57"
+        }
+      ],
+      "field_path": [
+        "actor_protocol",
+        "terminal_candidate"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Register the E7-Q2 v4.2 acceptance-pipeline and one-command execution contract without changing frozen scientific data, seeds, horizons, or experiment responsibility.",
+      "to": {
+        "exact_two_times_continuation_when_feasible": "required",
+        "normalized_window_drift_max": 0.01,
+        "positive_nll_slope": "diagnostic_only",
+        "relative_parameter_update": "required",
+        "state_drift_metrics": [
+          "mean_abs",
+          "sigma_mean",
+          "phantom_distance_mean"
+        ]
+      }
+    },
+    {
+      "change_id": "e7-q2-v42-02-critic-protocol-canonical-artifact-schema",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "ffc89242a232de2663bd441bf0615d3894efd44179d955b5ab280649f787ce26"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "6a7f2a8009fc0d3c25a86c669601de38ac873480b76edc35711634c92b14b656"
+        },
+        {
+          "path": "configs/e7_hopper_q2_medium_replay_v2.yaml",
+          "sha256": "2f4538b80cb31398d8abd049388126e12b8121befd85ab7f764b413dc254a5bc"
+        },
+        {
+          "path": "src/drpo/e7_hopper_q2.py",
+          "sha256": "7f27d79511d5614eff8eaeae4823f293992ca60f31858a82e7f641f2ed64dd2c"
+        },
+        {
+          "path": "scripts/run_e7_hopper_q2.py",
+          "sha256": "c10540d27f307f86805949f371eebebdfa1a22dd7f49ccd1b84ca1476a58455f"
+        },
+        {
+          "path": "docs/README_E7_HOPPER_Q2_ONECLICK.md",
+          "sha256": "1d711a68bfd8651e45f301e91c3e6e9eaee034262e7cbfb9bbe600f6e5d74f3d"
+        },
+        {
+          "path": "tests/test_e7_q2_acceptance_pipeline.py",
+          "sha256": "463a450c85a622c2474d6e638438786803529564064cfe4bc796981251f5f541"
+        },
+        {
+          "path": "tests/test_e7_hopper_q2.py",
+          "sha256": "a5e0ee7fc944136719b35f1785d29a800223d88acec03aaac8c64e47a2ae5d57"
+        }
+      ],
+      "field_path": [
+        "critic_protocol",
+        "canonical_artifact_schema"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Register the E7-Q2 v4.2 acceptance-pipeline and one-command execution contract without changing frozen scientific data, seeds, horizons, or experiment responsibility.",
+      "to": 2
+    },
+    {
+      "change_id": "e7-q2-v42-03-critic-protocol-checkpoint-selection",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "ffc89242a232de2663bd441bf0615d3894efd44179d955b5ab280649f787ce26"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "6a7f2a8009fc0d3c25a86c669601de38ac873480b76edc35711634c92b14b656"
+        },
+        {
+          "path": "configs/e7_hopper_q2_medium_replay_v2.yaml",
+          "sha256": "2f4538b80cb31398d8abd049388126e12b8121befd85ab7f764b413dc254a5bc"
+        },
+        {
+          "path": "src/drpo/e7_hopper_q2.py",
+          "sha256": "7f27d79511d5614eff8eaeae4823f293992ca60f31858a82e7f641f2ed64dd2c"
+        },
+        {
+          "path": "scripts/run_e7_hopper_q2.py",
+          "sha256": "c10540d27f307f86805949f371eebebdfa1a22dd7f49ccd1b84ca1476a58455f"
+        },
+        {
+          "path": "docs/README_E7_HOPPER_Q2_ONECLICK.md",
+          "sha256": "1d711a68bfd8651e45f301e91c3e6e9eaee034262e7cbfb9bbe600f6e5d74f3d"
+        },
+        {
+          "path": "tests/test_e7_q2_acceptance_pipeline.py",
+          "sha256": "463a450c85a622c2474d6e638438786803529564064cfe4bc796981251f5f541"
+        },
+        {
+          "path": "tests/test_e7_hopper_q2.py",
+          "sha256": "a5e0ee7fc944136719b35f1785d29a800223d88acec03aaac8c64e47a2ae5d57"
+        }
+      ],
+      "field_path": [
+        "critic_protocol",
+        "checkpoint_selection"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Register the E7-Q2 v4.2 acceptance-pipeline and one-command execution contract without changing frozen scientific data, seeds, horizons, or experiment responsibility.",
+      "to": "accepted_terminal_extension_else_best_validation"
+    },
+    {
+      "change_id": "e7-q2-v42-04-critic-protocol-frozen-advantage-acceptance",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "ffc89242a232de2663bd441bf0615d3894efd44179d955b5ab280649f787ce26"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "6a7f2a8009fc0d3c25a86c669601de38ac873480b76edc35711634c92b14b656"
+        },
+        {
+          "path": "configs/e7_hopper_q2_medium_replay_v2.yaml",
+          "sha256": "2f4538b80cb31398d8abd049388126e12b8121befd85ab7f764b413dc254a5bc"
+        },
+        {
+          "path": "src/drpo/e7_hopper_q2.py",
+          "sha256": "7f27d79511d5614eff8eaeae4823f293992ca60f31858a82e7f641f2ed64dd2c"
+        },
+        {
+          "path": "scripts/run_e7_hopper_q2.py",
+          "sha256": "c10540d27f307f86805949f371eebebdfa1a22dd7f49ccd1b84ca1476a58455f"
+        },
+        {
+          "path": "docs/README_E7_HOPPER_Q2_ONECLICK.md",
+          "sha256": "1d711a68bfd8651e45f301e91c3e6e9eaee034262e7cbfb9bbe600f6e5d74f3d"
+        },
+        {
+          "path": "tests/test_e7_q2_acceptance_pipeline.py",
+          "sha256": "463a450c85a622c2474d6e638438786803529564064cfe4bc796981251f5f541"
+        },
+        {
+          "path": "tests/test_e7_hopper_q2.py",
+          "sha256": "a5e0ee7fc944136719b35f1785d29a800223d88acec03aaac8c64e47a2ae5d57"
+        }
+      ],
+      "field_path": [
+        "critic_protocol",
+        "frozen_advantage_acceptance"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Register the E7-Q2 v4.2 acceptance-pipeline and one-command execution contract without changing frozen scientific data, seeds, horizons, or experiment responsibility.",
+      "to": {
+        "optimization_terminal_forced_true": "forbidden",
+        "selected_vs_final_sign_and_rank_stability": "required_on_actor_training_split",
+        "test_predictive_metrics": "final_report_only",
+        "validation_predictive_quality": "required"
+      }
+    },
+    {
+      "change_id": "e7-q2-v42-05-critic-protocol-optimization-stationarity",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "ffc89242a232de2663bd441bf0615d3894efd44179d955b5ab280649f787ce26"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "6a7f2a8009fc0d3c25a86c669601de38ac873480b76edc35711634c92b14b656"
+        },
+        {
+          "path": "configs/e7_hopper_q2_medium_replay_v2.yaml",
+          "sha256": "2f4538b80cb31398d8abd049388126e12b8121befd85ab7f764b413dc254a5bc"
+        },
+        {
+          "path": "src/drpo/e7_hopper_q2.py",
+          "sha256": "7f27d79511d5614eff8eaeae4823f293992ca60f31858a82e7f641f2ed64dd2c"
+        },
+        {
+          "path": "scripts/run_e7_hopper_q2.py",
+          "sha256": "c10540d27f307f86805949f371eebebdfa1a22dd7f49ccd1b84ca1476a58455f"
+        },
+        {
+          "path": "docs/README_E7_HOPPER_Q2_ONECLICK.md",
+          "sha256": "1d711a68bfd8651e45f301e91c3e6e9eaee034262e7cbfb9bbe600f6e5d74f3d"
+        },
+        {
+          "path": "tests/test_e7_q2_acceptance_pipeline.py",
+          "sha256": "463a450c85a622c2474d6e638438786803529564064cfe4bc796981251f5f541"
+        },
+        {
+          "path": "tests/test_e7_hopper_q2.py",
+          "sha256": "a5e0ee7fc944136719b35f1785d29a800223d88acec03aaac8c64e47a2ae5d57"
+        }
+      ],
+      "field_path": [
+        "critic_protocol",
+        "optimization_stationarity"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Register the E7-Q2 v4.2 acceptance-pipeline and one-command execution contract without changing frozen scientific data, seeds, horizons, or experiment responsibility.",
+      "to": {
+        "exact_two_times_continuation_when_feasible": "required",
+        "raw_full_parameter_update": "diagnostic_only",
+        "relative_parameter_update": "required",
+        "train_audit_loss": "required",
+        "validation_gradient": "diagnostic_only",
+        "validation_mse_slope": "required"
+      }
+    },
+    {
+      "change_id": "e7-q2-v42-06-dynamic-global-control",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "ffc89242a232de2663bd441bf0615d3894efd44179d955b5ab280649f787ce26"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "6a7f2a8009fc0d3c25a86c669601de38ac873480b76edc35711634c92b14b656"
+        },
+        {
+          "path": "configs/e7_hopper_q2_medium_replay_v2.yaml",
+          "sha256": "2f4538b80cb31398d8abd049388126e12b8121befd85ab7f764b413dc254a5bc"
+        },
+        {
+          "path": "src/drpo/e7_hopper_q2.py",
+          "sha256": "7f27d79511d5614eff8eaeae4823f293992ca60f31858a82e7f641f2ed64dd2c"
+        },
+        {
+          "path": "scripts/run_e7_hopper_q2.py",
+          "sha256": "c10540d27f307f86805949f371eebebdfa1a22dd7f49ccd1b84ca1476a58455f"
+        },
+        {
+          "path": "docs/README_E7_HOPPER_Q2_ONECLICK.md",
+          "sha256": "1d711a68bfd8651e45f301e91c3e6e9eaee034262e7cbfb9bbe600f6e5d74f3d"
+        },
+        {
+          "path": "tests/test_e7_q2_acceptance_pipeline.py",
+          "sha256": "463a450c85a622c2474d6e638438786803529564064cfe4bc796981251f5f541"
+        },
+        {
+          "path": "tests/test_e7_hopper_q2.py",
+          "sha256": "a5e0ee7fc944136719b35f1785d29a800223d88acec03aaac8c64e47a2ae5d57"
+        }
+      ],
+      "field_path": [
+        "dynamic_global_control"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Register the E7-Q2 v4.2 acceptance-pipeline and one-command execution contract without changing frozen scientific data, seeds, horizons, or experiment responsibility.",
+      "to": {
+        "detached_proxy": "sum_abs_advantage_times_joint_output_score",
+        "exact_full_parameter_budget_match_claimed": false,
+        "method": "dynamic_budget_matched_global",
+        "rematch_frequency": "every_minibatch"
+      }
+    },
+    {
+      "change_id": "e7-q2-v42-07-independent-validation-gate-control-outcomes",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "ffc89242a232de2663bd441bf0615d3894efd44179d955b5ab280649f787ce26"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "6a7f2a8009fc0d3c25a86c669601de38ac873480b76edc35711634c92b14b656"
+        },
+        {
+          "path": "configs/e7_hopper_q2_medium_replay_v2.yaml",
+          "sha256": "2f4538b80cb31398d8abd049388126e12b8121befd85ab7f764b413dc254a5bc"
+        },
+        {
+          "path": "src/drpo/e7_hopper_q2.py",
+          "sha256": "7f27d79511d5614eff8eaeae4823f293992ca60f31858a82e7f641f2ed64dd2c"
+        },
+        {
+          "path": "scripts/run_e7_hopper_q2.py",
+          "sha256": "c10540d27f307f86805949f371eebebdfa1a22dd7f49ccd1b84ca1476a58455f"
+        },
+        {
+          "path": "docs/README_E7_HOPPER_Q2_ONECLICK.md",
+          "sha256": "1d711a68bfd8651e45f301e91c3e6e9eaee034262e7cbfb9bbe600f6e5d74f3d"
+        },
+        {
+          "path": "tests/test_e7_q2_acceptance_pipeline.py",
+          "sha256": "463a450c85a622c2474d6e638438786803529564064cfe4bc796981251f5f541"
+        },
+        {
+          "path": "tests/test_e7_hopper_q2.py",
+          "sha256": "a5e0ee7fc944136719b35f1785d29a800223d88acec03aaac8c64e47a2ae5d57"
+        }
+      ],
+      "field_path": [
+        "independent_validation_gate",
+        "control_outcomes"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Register the E7-Q2 v4.2 acceptance-pipeline and one-command execution contract without changing frozen scientific data, seeds, horizons, or experiment responsibility.",
+      "to": {
+        "diagnostic_score_mitigation": "report_separately",
+        "finite_terminal_rescue": "report_separately",
+        "support_boundary_rescue": "report_separately",
+        "task_performance_rescue": "report_separately"
+      }
+    },
+    {
+      "change_id": "e7-q2-v42-08-independent-validation-gate-log-scale-relative-dominance",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "ffc89242a232de2663bd441bf0615d3894efd44179d955b5ab280649f787ce26"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "6a7f2a8009fc0d3c25a86c669601de38ac873480b76edc35711634c92b14b656"
+        },
+        {
+          "path": "configs/e7_hopper_q2_medium_replay_v2.yaml",
+          "sha256": "2f4538b80cb31398d8abd049388126e12b8121befd85ab7f764b413dc254a5bc"
+        },
+        {
+          "path": "src/drpo/e7_hopper_q2.py",
+          "sha256": "7f27d79511d5614eff8eaeae4823f293992ca60f31858a82e7f641f2ed64dd2c"
+        },
+        {
+          "path": "scripts/run_e7_hopper_q2.py",
+          "sha256": "c10540d27f307f86805949f371eebebdfa1a22dd7f49ccd1b84ca1476a58455f"
+        },
+        {
+          "path": "docs/README_E7_HOPPER_Q2_ONECLICK.md",
+          "sha256": "1d711a68bfd8651e45f301e91c3e6e9eaee034262e7cbfb9bbe600f6e5d74f3d"
+        },
+        {
+          "path": "tests/test_e7_q2_acceptance_pipeline.py",
+          "sha256": "463a450c85a622c2474d6e638438786803529564064cfe4bc796981251f5f541"
+        },
+        {
+          "path": "tests/test_e7_hopper_q2.py",
+          "sha256": "a5e0ee7fc944136719b35f1785d29a800223d88acec03aaac8c64e47a2ae5d57"
+        }
+      ],
+      "field_path": [
+        "independent_validation_gate",
+        "log_scale_relative_dominance"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Register the E7-Q2 v4.2 acceptance-pipeline and one-command execution contract without changing frozen scientific data, seeds, horizons, or experiment responsibility.",
+      "to": "diagnostic_only"
+    },
+    {
+      "change_id": "e7-q2-v42-09-independent-validation-gate-measurable-full-parameter-contribution",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "ffc89242a232de2663bd441bf0615d3894efd44179d955b5ab280649f787ce26"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "6a7f2a8009fc0d3c25a86c669601de38ac873480b76edc35711634c92b14b656"
+        },
+        {
+          "path": "configs/e7_hopper_q2_medium_replay_v2.yaml",
+          "sha256": "2f4538b80cb31398d8abd049388126e12b8121befd85ab7f764b413dc254a5bc"
+        },
+        {
+          "path": "src/drpo/e7_hopper_q2.py",
+          "sha256": "7f27d79511d5614eff8eaeae4823f293992ca60f31858a82e7f641f2ed64dd2c"
+        },
+        {
+          "path": "scripts/run_e7_hopper_q2.py",
+          "sha256": "c10540d27f307f86805949f371eebebdfa1a22dd7f49ccd1b84ca1476a58455f"
+        },
+        {
+          "path": "docs/README_E7_HOPPER_Q2_ONECLICK.md",
+          "sha256": "1d711a68bfd8651e45f301e91c3e6e9eaee034262e7cbfb9bbe600f6e5d74f3d"
+        },
+        {
+          "path": "tests/test_e7_q2_acceptance_pipeline.py",
+          "sha256": "463a450c85a622c2474d6e638438786803529564064cfe4bc796981251f5f541"
+        },
+        {
+          "path": "tests/test_e7_hopper_q2.py",
+          "sha256": "a5e0ee7fc944136719b35f1785d29a800223d88acec03aaac8c64e47a2ae5d57"
+        }
+      ],
+      "field_path": [
+        "independent_validation_gate",
+        "measurable_full_parameter_contribution"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Register the E7-Q2 v4.2 acceptance-pipeline and one-command execution contract without changing frozen scientific data, seeds, horizons, or experiment responsibility.",
+      "to": "required"
+    },
+    {
+      "change_id": "e7-q2-v42-10-independent-validation-gate-measurable-full-parameter-or-long-run-contribution",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "ffc89242a232de2663bd441bf0615d3894efd44179d955b5ab280649f787ce26"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "6a7f2a8009fc0d3c25a86c669601de38ac873480b76edc35711634c92b14b656"
+        },
+        {
+          "path": "configs/e7_hopper_q2_medium_replay_v2.yaml",
+          "sha256": "2f4538b80cb31398d8abd049388126e12b8121befd85ab7f764b413dc254a5bc"
+        },
+        {
+          "path": "src/drpo/e7_hopper_q2.py",
+          "sha256": "7f27d79511d5614eff8eaeae4823f293992ca60f31858a82e7f641f2ed64dd2c"
+        },
+        {
+          "path": "scripts/run_e7_hopper_q2.py",
+          "sha256": "c10540d27f307f86805949f371eebebdfa1a22dd7f49ccd1b84ca1476a58455f"
+        },
+        {
+          "path": "docs/README_E7_HOPPER_Q2_ONECLICK.md",
+          "sha256": "1d711a68bfd8651e45f301e91c3e6e9eaee034262e7cbfb9bbe600f6e5d74f3d"
+        },
+        {
+          "path": "tests/test_e7_q2_acceptance_pipeline.py",
+          "sha256": "463a450c85a622c2474d6e638438786803529564064cfe4bc796981251f5f541"
+        },
+        {
+          "path": "tests/test_e7_hopper_q2.py",
+          "sha256": "a5e0ee7fc944136719b35f1785d29a800223d88acec03aaac8c64e47a2ae5d57"
+        }
+      ],
+      "field_path": [
+        "independent_validation_gate",
+        "measurable_full_parameter_or_long_run_contribution"
+      ],
+      "from": "required",
+      "kind": "update_field",
+      "reason": "Register the E7-Q2 v4.2 acceptance-pipeline and one-command execution contract without changing frozen scientific data, seeds, horizons, or experiment responsibility.",
+      "to": "superseded_by_measurable_full_parameter_contribution"
+    },
+    {
+      "change_id": "e7-q2-v42-11-independent-validation-gate-targeted-far-control-mitigates-dynamics",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "ffc89242a232de2663bd441bf0615d3894efd44179d955b5ab280649f787ce26"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "6a7f2a8009fc0d3c25a86c669601de38ac873480b76edc35711634c92b14b656"
+        },
+        {
+          "path": "configs/e7_hopper_q2_medium_replay_v2.yaml",
+          "sha256": "2f4538b80cb31398d8abd049388126e12b8121befd85ab7f764b413dc254a5bc"
+        },
+        {
+          "path": "src/drpo/e7_hopper_q2.py",
+          "sha256": "7f27d79511d5614eff8eaeae4823f293992ca60f31858a82e7f641f2ed64dd2c"
+        },
+        {
+          "path": "scripts/run_e7_hopper_q2.py",
+          "sha256": "c10540d27f307f86805949f371eebebdfa1a22dd7f49ccd1b84ca1476a58455f"
+        },
+        {
+          "path": "docs/README_E7_HOPPER_Q2_ONECLICK.md",
+          "sha256": "1d711a68bfd8651e45f301e91c3e6e9eaee034262e7cbfb9bbe600f6e5d74f3d"
+        },
+        {
+          "path": "tests/test_e7_q2_acceptance_pipeline.py",
+          "sha256": "463a450c85a622c2474d6e638438786803529564064cfe4bc796981251f5f541"
+        },
+        {
+          "path": "tests/test_e7_hopper_q2.py",
+          "sha256": "a5e0ee7fc944136719b35f1785d29a800223d88acec03aaac8c64e47a2ae5d57"
+        }
+      ],
+      "field_path": [
+        "independent_validation_gate",
+        "targeted_far_control_mitigates_dynamics"
+      ],
+      "from": "required",
+      "kind": "update_field",
+      "reason": "Register the E7-Q2 v4.2 acceptance-pipeline and one-command execution contract without changing frozen scientific data, seeds, horizons, or experiment responsibility.",
+      "to": "superseded_by_separate_control_outcomes"
+    },
+    {
+      "change_id": "e7-q2-v42-12-one-command-launch",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "ffc89242a232de2663bd441bf0615d3894efd44179d955b5ab280649f787ce26"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "6a7f2a8009fc0d3c25a86c669601de38ac873480b76edc35711634c92b14b656"
+        },
+        {
+          "path": "configs/e7_hopper_q2_medium_replay_v2.yaml",
+          "sha256": "2f4538b80cb31398d8abd049388126e12b8121befd85ab7f764b413dc254a5bc"
+        },
+        {
+          "path": "src/drpo/e7_hopper_q2.py",
+          "sha256": "7f27d79511d5614eff8eaeae4823f293992ca60f31858a82e7f641f2ed64dd2c"
+        },
+        {
+          "path": "scripts/run_e7_hopper_q2.py",
+          "sha256": "c10540d27f307f86805949f371eebebdfa1a22dd7f49ccd1b84ca1476a58455f"
+        },
+        {
+          "path": "docs/README_E7_HOPPER_Q2_ONECLICK.md",
+          "sha256": "1d711a68bfd8651e45f301e91c3e6e9eaee034262e7cbfb9bbe600f6e5d74f3d"
+        },
+        {
+          "path": "tests/test_e7_q2_acceptance_pipeline.py",
+          "sha256": "463a450c85a622c2474d6e638438786803529564064cfe4bc796981251f5f541"
+        },
+        {
+          "path": "tests/test_e7_hopper_q2.py",
+          "sha256": "a5e0ee7fc944136719b35f1785d29a800223d88acec03aaac8c64e47a2ae5d57"
+        }
+      ],
+      "field_path": [
+        "one_command_launch"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Register the E7-Q2 v4.2 acceptance-pipeline and one-command execution contract without changing frozen scientific data, seeds, horizons, or experiment responsibility.",
+      "to": "DRPO_HOPPER_MEDIUM_REPLAY=/ABSOLUTE/PERSISTENT/PATH/hopper_medium_replay-v2.hdf5 python3 scripts/run_e7_hopper_q2.py"
+    },
+    {
+      "change_id": "e7-q2-v42-13-pilot-diagnostic",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "ffc89242a232de2663bd441bf0615d3894efd44179d955b5ab280649f787ce26"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "6a7f2a8009fc0d3c25a86c669601de38ac873480b76edc35711634c92b14b656"
+        },
+        {
+          "path": "configs/e7_hopper_q2_medium_replay_v2.yaml",
+          "sha256": "2f4538b80cb31398d8abd049388126e12b8121befd85ab7f764b413dc254a5bc"
+        },
+        {
+          "path": "src/drpo/e7_hopper_q2.py",
+          "sha256": "7f27d79511d5614eff8eaeae4823f293992ca60f31858a82e7f641f2ed64dd2c"
+        },
+        {
+          "path": "scripts/run_e7_hopper_q2.py",
+          "sha256": "c10540d27f307f86805949f371eebebdfa1a22dd7f49ccd1b84ca1476a58455f"
+        },
+        {
+          "path": "docs/README_E7_HOPPER_Q2_ONECLICK.md",
+          "sha256": "1d711a68bfd8651e45f301e91c3e6e9eaee034262e7cbfb9bbe600f6e5d74f3d"
+        },
+        {
+          "path": "tests/test_e7_q2_acceptance_pipeline.py",
+          "sha256": "463a450c85a622c2474d6e638438786803529564064cfe4bc796981251f5f541"
+        },
+        {
+          "path": "tests/test_e7_hopper_q2.py",
+          "sha256": "a5e0ee7fc944136719b35f1785d29a800223d88acec03aaac8c64e47a2ae5d57"
+        }
+      ],
+      "field_path": [
+        "pilot_diagnostic"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Register the E7-Q2 v4.2 acceptance-pipeline and one-command execution contract without changing frozen scientific data, seeds, horizons, or experiment responsibility.",
+      "to": {
+        "formal_scale_pilot_available": true,
+        "purpose": "acceptance_pipeline_and_mechanism_diagnostic",
+        "scientific_status": "pilot_only_not_formal_evidence"
+      }
+    },
+    {
+      "change_id": "e7-q2-v42-14-preregistered-protocol-methods",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "ffc89242a232de2663bd441bf0615d3894efd44179d955b5ab280649f787ce26"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "6a7f2a8009fc0d3c25a86c669601de38ac873480b76edc35711634c92b14b656"
+        },
+        {
+          "path": "configs/e7_hopper_q2_medium_replay_v2.yaml",
+          "sha256": "2f4538b80cb31398d8abd049388126e12b8121befd85ab7f764b413dc254a5bc"
+        },
+        {
+          "path": "src/drpo/e7_hopper_q2.py",
+          "sha256": "7f27d79511d5614eff8eaeae4823f293992ca60f31858a82e7f641f2ed64dd2c"
+        },
+        {
+          "path": "scripts/run_e7_hopper_q2.py",
+          "sha256": "c10540d27f307f86805949f371eebebdfa1a22dd7f49ccd1b84ca1476a58455f"
+        },
+        {
+          "path": "docs/README_E7_HOPPER_Q2_ONECLICK.md",
+          "sha256": "1d711a68bfd8651e45f301e91c3e6e9eaee034262e7cbfb9bbe600f6e5d74f3d"
+        },
+        {
+          "path": "tests/test_e7_q2_acceptance_pipeline.py",
+          "sha256": "463a450c85a622c2474d6e638438786803529564064cfe4bc796981251f5f541"
+        },
+        {
+          "path": "tests/test_e7_hopper_q2.py",
+          "sha256": "a5e0ee7fc944136719b35f1785d29a800223d88acec03aaac8c64e47a2ae5d57"
+        }
+      ],
+      "field_path": [
+        "preregistered_protocol",
+        "methods"
+      ],
+      "from": [
+        "positive_only",
+        "signed",
+        "near_zero",
+        "far_zero",
+        "far_cap",
+        "budget_matched_global"
+      ],
+      "kind": "update_field",
+      "reason": "Register the E7-Q2 v4.2 acceptance-pipeline and one-command execution contract without changing frozen scientific data, seeds, horizons, or experiment responsibility.",
+      "to": [
+        "positive_only",
+        "signed",
+        "near_zero",
+        "far_zero",
+        "far_cap",
+        "dynamic_budget_matched_global"
+      ]
+    },
+    {
+      "change_id": "e7-q2-v42-15-protocol-version",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "ffc89242a232de2663bd441bf0615d3894efd44179d955b5ab280649f787ce26"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "6a7f2a8009fc0d3c25a86c669601de38ac873480b76edc35711634c92b14b656"
+        },
+        {
+          "path": "configs/e7_hopper_q2_medium_replay_v2.yaml",
+          "sha256": "2f4538b80cb31398d8abd049388126e12b8121befd85ab7f764b413dc254a5bc"
+        },
+        {
+          "path": "src/drpo/e7_hopper_q2.py",
+          "sha256": "7f27d79511d5614eff8eaeae4823f293992ca60f31858a82e7f641f2ed64dd2c"
+        },
+        {
+          "path": "scripts/run_e7_hopper_q2.py",
+          "sha256": "c10540d27f307f86805949f371eebebdfa1a22dd7f49ccd1b84ca1476a58455f"
+        },
+        {
+          "path": "docs/README_E7_HOPPER_Q2_ONECLICK.md",
+          "sha256": "1d711a68bfd8651e45f301e91c3e6e9eaee034262e7cbfb9bbe600f6e5d74f3d"
+        },
+        {
+          "path": "tests/test_e7_q2_acceptance_pipeline.py",
+          "sha256": "463a450c85a622c2474d6e638438786803529564064cfe4bc796981251f5f541"
+        },
+        {
+          "path": "tests/test_e7_hopper_q2.py",
+          "sha256": "a5e0ee7fc944136719b35f1785d29a800223d88acec03aaac8c64e47a2ae5d57"
+        }
+      ],
+      "field_path": [
+        "protocol_version"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Register the E7-Q2 v4.2 acceptance-pipeline and one-command execution contract without changing frozen scientific data, seeds, horizons, or experiment responsibility.",
+      "to": "4.2.0"
+    }
+  ],
+  "registry_change_coverage": {
+    "added_entities": [],
+    "changed_field_count": 15,
+    "declared_assertion_count": 15,
+    "fully_declared": true,
+    "mode": "schema2_complete",
+    "removed_entities": []
+  },
+  "registry_transition_assertions": [],
+  "report_schema_version": 2,
+  "repository_commit": null,
+  "schema_version": 1,
+  "status": "PASS",
+  "update_id": "EXT-H-E7-Q2-ACCEPTANCE-PIPELINE-2026-06-29",
+  "validation_worktree_head": "bf1437699c2a67c8e6aff725b8658a909353d2d2"
+}

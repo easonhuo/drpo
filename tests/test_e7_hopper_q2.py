@@ -534,8 +534,13 @@ def test_canonical_critic_is_trained_once_and_strictly_reused(tmp_path: Path) ->
     assert second.reused is True
     assert first.artifact_manifest["critic_training_count"] == 1
     assert second.artifact_manifest["shared_across_all_actor_seeds"] is True
-    assert first.critic_audit["selected_checkpoint_role"] == "terminal_extension_checkpoint"
+    assert (
+        first.critic_audit["selected_checkpoint_role"]
+        == "terminal_extension_checkpoint_for_pilot_diagnostics"
+    )
     assert first.critic_audit["final_stationarity_reconfirmed"] is True
+    assert first.critic_audit["optimization_terminal"] is True
+    assert first.critic_audit["critic_accepted_for_frozen_advantage"] is False
     np.testing.assert_array_equal(first.advantages, second.advantages)
 
 

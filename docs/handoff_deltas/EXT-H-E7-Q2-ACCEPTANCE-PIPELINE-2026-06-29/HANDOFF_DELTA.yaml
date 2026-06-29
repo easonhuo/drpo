@@ -1,0 +1,276 @@
+schema_version: 2
+update_id: EXT-H-E7-Q2-ACCEPTANCE-PIPELINE-2026-06-29
+mode: shadow
+base:
+  commit: bf1437699c2a67c8e6aff725b8658a909353d2d2
+  handoff_sha256: 4a8a5d342f95ad5dccdadd4622f0892e5b4fa940448fd0aadc88bed14fd5aa1d
+  registry_sha256: ddfbad6a24787d183b0f7a0dacfe37cac100c7dcbbe737531c411e6c0241c579
+renderer_version: 1
+operations:
+- operation_id: rename-v63-title-to-v64-e7-q2-acceptance-pipeline
+  op: replace_heading
+  heading_path:
+  - DRPO / SNA2C 远场负梯度动力学研究主文档 v63（E4-TAPER Near-Retention 结果沉淀与闭环协议版）
+  new_heading: DRPO / SNA2C 远场负梯度动力学研究主文档 v64（E4-TAPER Near-Retention 结果沉淀与闭环协议版；E7-Q2 Acceptance Pipeline v4.2 补充）
+  reason: Register the approved E7-Q2 v4.2 acceptance-pipeline repair on top of v63 without deleting historical content or
+    changing frozen experiment variables.
+- operation_id: prepend-v64-e7-q2-acceptance-pipeline
+  op: insert_after_heading
+  heading_path:
+  - DRPO / SNA2C 远场负梯度动力学研究主文档 v64（E4-TAPER Near-Retention 结果沉淀与闭环协议版；E7-Q2 Acceptance Pipeline v4.2 补充）
+  block_id: v64-e7-q2-acceptance-pipeline
+  content: '> **v64 增量登记：`EXT-H-E7-Q2` acceptance pipeline v4.2 与一键正式运行（不删除 v63 及更早内容）**
+
+    >
+
+    > - 本版完整继承 v63（E4-TAPER Near-Retention 结果沉淀与闭环协议版），本次只修复 Hopper E7-Q2 的 critic/actor 验收语义、控制审计与本地执行入口；不改变数据集、模型结构、学习率、正式
+    seeds、训练 horizon、near/far matching、far-cap 定义或 E7 的外部机制验证职责。`EXT-H-E7-Q2` 继续保持 **not_run + implemented + ready + active**；用户上传的
+    formal-scale pilot 只登记为工程与协议诊断，不升级为正式科学结果。
+
+    > - **旧结论与问题：**v54 将 formal critic 绑定到 `optimization_terminal`，并用 held-out validation loss 的参数梯度和未归一化全模型 update norm 判定训练稳态。formal-scale
+    pilot 表明这些绝对阈值与 256×256 MLP 的尺度不匹配，且 validation gradient 并不等价于训练目标 stationarity；同类门禁也阻塞 Positive-only actor。不得通过硬编码 `optimization_terminal=True`
+    或把 update norm 伪造为 0 绕过审计。
+
+    > - **替代协议：**v4.2 将 optimizer stationarity、checkpoint selection 与 frozen-advantage acceptance 分离。stationarity 使用固定 train-audit
+    loss、validation-MSE slope、相对参数更新以及可容纳时的精确 2× continuation；raw gradient/update 继续保存为诊断。若真实 optimizer terminal 通过且 final/best
+    validation-MSE ratio 仍在门限内，则选择 terminal-extension checkpoint；否则选择最低 validation MSE checkpoint。formal artifact acceptance
+    使用 validation R² ≥ 0.50、validation Pearson ≥ 0.75、final/best validation-MSE ratio ≤ 1.05，并在 actor training split 上要求 selected-vs-final
+    advantage sign agreement ≥ 0.95、Pearson/Spearman ≥ 0.98、negative-set Jaccard ≥ 0.90；test R²/Pearson 只作最终报告，不参与 checkpoint
+    选择或门禁。`optimization_terminal` 继续如实单独报告，不得被强制置真。
+
+    > - Actor 终态同样改用相对参数更新与固定 audit window 上的 scale-normalized policy-state drift；核心状态量冻结为 `mean_abs / sigma_mean / phantom_distance_mean`，阈值为窗口拟合总漂移不超过
+    `0.01`。`positive_nll` 可能跨零且受 minibatch 噪声影响，只保留 slope 诊断，不再阻塞终态。任务性能崩溃、support/variance boundary、NaN/Inf numerical collapse、persistent
+    drift 与 finite terminal 继续分开输出。2× continuation 只在 `2*candidate_step <= max_steps` 时建立候选，避免旧 `min(max_steps, 2*step)` 与
+    `final>=2*step` 的不可满足组合。
+
+    > - 核心机制 gate 只保留 natural far field、corrected Gaussian log-scale quadratic geometry/analytic-autograd agreement 和 measurable
+    full-parameter far/near amplification。`log-scale 是否每个 seed 都压过 mean` 降为诊断，不再错误地作为二次几何成立的必要条件。 Registry 中旧的聚合 gate 名称仅以
+    `superseded_by_*` provenance 标记保留，不再参与验收。
+
+    > - 控制结果拆为 diagnostic-score mitigation、support-boundary rescue、task-performance rescue 与 finite-terminal rescue，禁止继续用任一项成立的
+    OR 布尔量冒充长期救援。旧 initial-only `budget_matched_global` 不再进入正式方法集合；新 `dynamic_budget_matched_global` 在每个 minibatch 上以 detached
+    `sum(|A| × joint_output_score)` proxy 动态匹配同批 Far-cap 保留预算。该 proxy matching 不等同于精确全参数梯度预算匹配，也不得据此预设 Distance/Global 方法排名。
+
+    > - Canonical critic artifact schema 升级为 v2，并继续对 mode、config hash、dataset、transition count、dimensions、canonical seed 与
+    runner version 做 exact identity 校验；pilot、v4.1 或其他 formal 身份的 artifact fail closed。
+
+    > - 操作入口升级为 Countdown 风格一键命令：在 clean current `main`、已设置 `DRPO_HOPPER_MEDIUM_REPLAY` 或标准数据路径时执行 `python3 scripts/run_e7_hopper_q2.py`，默认
+    formal、自动创建 timestamped persistent work directory，并由 hardened guard 打包结果。`--plan-only` 只解析和打印完整命令，不启动训练；pilot 仍不得冒充 formal
+    evidence。'
+registry:
+  mode: expected_after
+  expected_after_sha256: 6a7f2a8009fc0d3c25a86c669601de38ac873480b76edc35711634c92b14b656
+  changes:
+  - change_id: e7-q2-v42-01-actor-protocol-terminal-candidate
+    kind: update_field
+    entity_id: EXT-H-E7-Q2
+    field_path:
+    - actor_protocol
+    - terminal_candidate
+    from: null
+    to:
+      relative_parameter_update: required
+      state_drift_metrics:
+      - mean_abs
+      - sigma_mean
+      - phantom_distance_mean
+      normalized_window_drift_max: 0.01
+      positive_nll_slope: diagnostic_only
+      exact_two_times_continuation_when_feasible: required
+    reason: Register the E7-Q2 v4.2 acceptance-pipeline and one-command execution contract without changing frozen scientific
+      data, seeds, horizons, or experiment responsibility.
+    evidence: &id001
+    - docs/handoff.md
+    - experiments/registry.yaml
+    - configs/e7_hopper_q2_medium_replay_v2.yaml
+    - src/drpo/e7_hopper_q2.py
+    - scripts/run_e7_hopper_q2.py
+    - docs/README_E7_HOPPER_Q2_ONECLICK.md
+    - tests/test_e7_q2_acceptance_pipeline.py
+    - tests/test_e7_hopper_q2.py
+  - change_id: e7-q2-v42-02-critic-protocol-canonical-artifact-schema
+    kind: update_field
+    entity_id: EXT-H-E7-Q2
+    field_path:
+    - critic_protocol
+    - canonical_artifact_schema
+    from: null
+    to: 2
+    reason: Register the E7-Q2 v4.2 acceptance-pipeline and one-command execution contract without changing frozen scientific
+      data, seeds, horizons, or experiment responsibility.
+    evidence: *id001
+  - change_id: e7-q2-v42-03-critic-protocol-checkpoint-selection
+    kind: update_field
+    entity_id: EXT-H-E7-Q2
+    field_path:
+    - critic_protocol
+    - checkpoint_selection
+    from: null
+    to: accepted_terminal_extension_else_best_validation
+    reason: Register the E7-Q2 v4.2 acceptance-pipeline and one-command execution contract without changing frozen scientific
+      data, seeds, horizons, or experiment responsibility.
+    evidence: *id001
+  - change_id: e7-q2-v42-04-critic-protocol-frozen-advantage-acceptance
+    kind: update_field
+    entity_id: EXT-H-E7-Q2
+    field_path:
+    - critic_protocol
+    - frozen_advantage_acceptance
+    from: null
+    to:
+      validation_predictive_quality: required
+      selected_vs_final_sign_and_rank_stability: required_on_actor_training_split
+      test_predictive_metrics: final_report_only
+      optimization_terminal_forced_true: forbidden
+    reason: Register the E7-Q2 v4.2 acceptance-pipeline and one-command execution contract without changing frozen scientific
+      data, seeds, horizons, or experiment responsibility.
+    evidence: *id001
+  - change_id: e7-q2-v42-05-critic-protocol-optimization-stationarity
+    kind: update_field
+    entity_id: EXT-H-E7-Q2
+    field_path:
+    - critic_protocol
+    - optimization_stationarity
+    from: null
+    to:
+      train_audit_loss: required
+      validation_mse_slope: required
+      relative_parameter_update: required
+      exact_two_times_continuation_when_feasible: required
+      validation_gradient: diagnostic_only
+      raw_full_parameter_update: diagnostic_only
+    reason: Register the E7-Q2 v4.2 acceptance-pipeline and one-command execution contract without changing frozen scientific
+      data, seeds, horizons, or experiment responsibility.
+    evidence: *id001
+  - change_id: e7-q2-v42-06-dynamic-global-control
+    kind: update_field
+    entity_id: EXT-H-E7-Q2
+    field_path:
+    - dynamic_global_control
+    from: null
+    to:
+      method: dynamic_budget_matched_global
+      rematch_frequency: every_minibatch
+      detached_proxy: sum_abs_advantage_times_joint_output_score
+      exact_full_parameter_budget_match_claimed: false
+    reason: Register the E7-Q2 v4.2 acceptance-pipeline and one-command execution contract without changing frozen scientific
+      data, seeds, horizons, or experiment responsibility.
+    evidence: *id001
+  - change_id: e7-q2-v42-07-independent-validation-gate-control-outcomes
+    kind: update_field
+    entity_id: EXT-H-E7-Q2
+    field_path:
+    - independent_validation_gate
+    - control_outcomes
+    from: null
+    to:
+      diagnostic_score_mitigation: report_separately
+      support_boundary_rescue: report_separately
+      task_performance_rescue: report_separately
+      finite_terminal_rescue: report_separately
+    reason: Register the E7-Q2 v4.2 acceptance-pipeline and one-command execution contract without changing frozen scientific
+      data, seeds, horizons, or experiment responsibility.
+    evidence: *id001
+  - change_id: e7-q2-v42-08-independent-validation-gate-log-scale-relative-dominance
+    kind: update_field
+    entity_id: EXT-H-E7-Q2
+    field_path:
+    - independent_validation_gate
+    - log_scale_relative_dominance
+    from: null
+    to: diagnostic_only
+    reason: Register the E7-Q2 v4.2 acceptance-pipeline and one-command execution contract without changing frozen scientific
+      data, seeds, horizons, or experiment responsibility.
+    evidence: *id001
+  - change_id: e7-q2-v42-09-independent-validation-gate-measurable-full-parameter-contribution
+    kind: update_field
+    entity_id: EXT-H-E7-Q2
+    field_path:
+    - independent_validation_gate
+    - measurable_full_parameter_contribution
+    from: null
+    to: required
+    reason: Register the E7-Q2 v4.2 acceptance-pipeline and one-command execution contract without changing frozen scientific
+      data, seeds, horizons, or experiment responsibility.
+    evidence: *id001
+  - change_id: e7-q2-v42-10-independent-validation-gate-measurable-full-parameter-or-long-run-contribution
+    kind: update_field
+    entity_id: EXT-H-E7-Q2
+    field_path:
+    - independent_validation_gate
+    - measurable_full_parameter_or_long_run_contribution
+    from: required
+    to: superseded_by_measurable_full_parameter_contribution
+    reason: Register the E7-Q2 v4.2 acceptance-pipeline and one-command execution contract without changing frozen scientific
+      data, seeds, horizons, or experiment responsibility.
+    evidence: *id001
+  - change_id: e7-q2-v42-11-independent-validation-gate-targeted-far-control-mitigates-dynamics
+    kind: update_field
+    entity_id: EXT-H-E7-Q2
+    field_path:
+    - independent_validation_gate
+    - targeted_far_control_mitigates_dynamics
+    from: required
+    to: superseded_by_separate_control_outcomes
+    reason: Register the E7-Q2 v4.2 acceptance-pipeline and one-command execution contract without changing frozen scientific
+      data, seeds, horizons, or experiment responsibility.
+    evidence: *id001
+  - change_id: e7-q2-v42-12-one-command-launch
+    kind: update_field
+    entity_id: EXT-H-E7-Q2
+    field_path:
+    - one_command_launch
+    from: null
+    to: DRPO_HOPPER_MEDIUM_REPLAY=/ABSOLUTE/PERSISTENT/PATH/hopper_medium_replay-v2.hdf5 python3 scripts/run_e7_hopper_q2.py
+    reason: Register the E7-Q2 v4.2 acceptance-pipeline and one-command execution contract without changing frozen scientific
+      data, seeds, horizons, or experiment responsibility.
+    evidence: *id001
+  - change_id: e7-q2-v42-13-pilot-diagnostic
+    kind: update_field
+    entity_id: EXT-H-E7-Q2
+    field_path:
+    - pilot_diagnostic
+    from: null
+    to:
+      formal_scale_pilot_available: true
+      scientific_status: pilot_only_not_formal_evidence
+      purpose: acceptance_pipeline_and_mechanism_diagnostic
+    reason: Register the E7-Q2 v4.2 acceptance-pipeline and one-command execution contract without changing frozen scientific
+      data, seeds, horizons, or experiment responsibility.
+    evidence: *id001
+  - change_id: e7-q2-v42-14-preregistered-protocol-methods
+    kind: update_field
+    entity_id: EXT-H-E7-Q2
+    field_path:
+    - preregistered_protocol
+    - methods
+    from:
+    - positive_only
+    - signed
+    - near_zero
+    - far_zero
+    - far_cap
+    - budget_matched_global
+    to:
+    - positive_only
+    - signed
+    - near_zero
+    - far_zero
+    - far_cap
+    - dynamic_budget_matched_global
+    reason: Register the E7-Q2 v4.2 acceptance-pipeline and one-command execution contract without changing frozen scientific
+      data, seeds, horizons, or experiment responsibility.
+    evidence: *id001
+  - change_id: e7-q2-v42-15-protocol-version
+    kind: update_field
+    entity_id: EXT-H-E7-Q2
+    field_path:
+    - protocol_version
+    from: null
+    to: 4.2.0
+    reason: Register the E7-Q2 v4.2 acceptance-pipeline and one-command execution contract without changing frozen scientific
+      data, seeds, horizons, or experiment responsibility.
+    evidence: *id001
+expected:
+  candidate_sha256: ffc89242a232de2663bd441bf0615d3894efd44179d955b5ab280649f787ce26
+  manual_sha256: ffc89242a232de2663bd441bf0615d3894efd44179d955b5ab280649f787ce26

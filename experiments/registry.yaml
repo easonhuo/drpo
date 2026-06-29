@@ -1832,6 +1832,11 @@ experiments:
     runner_archive_policy:
       mode: forbid
   implementation_state: implemented
+  protocol_version: 4.2.0
+  pilot_diagnostic:
+    formal_scale_pilot_available: true
+    scientific_status: pilot_only_not_formal_evidence
+    purpose: acceptance_pipeline_and_mechanism_diagnostic
   code_entrypoint: src/drpo/e7_hopper_q2.py
   operator_entrypoint: scripts/run_e7_hopper_q2.py
   config_path: configs/e7_hopper_q2_medium_replay_v2.yaml
@@ -1851,6 +1856,9 @@ experiments:
     --dataset-path /ABSOLUTE/PERSISTENT/PATH/hopper_medium_replay-v2.hdf5
     --work-dir experiments/results/EXT-H-E7-Q2/run_001
     --config configs/e7_hopper_q2_medium_replay_v2.yaml --repo-root . --device cuda
+  one_command_launch: >-
+    DRPO_HOPPER_MEDIUM_REPLAY=/ABSOLUTE/PERSISTENT/PATH/hopper_medium_replay-v2.hdf5
+    python3 scripts/run_e7_hopper_q2.py
   does_not_replace:
   - C-U1-E1-COMP-01
   - C-U1-E1
@@ -1895,6 +1903,20 @@ experiments:
     episode_split: [0.8, 0.1, 0.1]
     gamma: 0.99
     frozen_before_actor: true
+    optimization_stationarity:
+      train_audit_loss: required
+      validation_mse_slope: required
+      relative_parameter_update: required
+      exact_two_times_continuation_when_feasible: required
+      validation_gradient: diagnostic_only
+      raw_full_parameter_update: diagnostic_only
+    checkpoint_selection: accepted_terminal_extension_else_best_validation
+    frozen_advantage_acceptance:
+      validation_predictive_quality: required
+      selected_vs_final_sign_and_rank_stability: required_on_actor_training_split
+      test_predictive_metrics: final_report_only
+      optimization_terminal_forced_true: forbidden
+    canonical_artifact_schema: 2
     terminal_audit: required
   frozen_advantage_protocol:
     definition: r_plus_gamma_v_next_minus_v
@@ -1907,6 +1929,12 @@ experiments:
     hidden_sizes: [256, 256]
     log_scale_parameterization: global_diagonal
     positive_only_terminal_before_branching: true
+    terminal_candidate:
+      relative_parameter_update: required
+      state_drift_metrics: [mean_abs, sigma_mean, phantom_distance_mean]
+      normalized_window_drift_max: 0.01
+      positive_nll_slope: diagnostic_only
+      exact_two_times_continuation_when_feasible: required
     identical_branch_checkpoint: true
     identical_minibatch_stream_across_methods: true
   coordinate_protocol:
@@ -1934,7 +1962,7 @@ experiments:
     - near_zero
     - far_zero
     - far_cap
-    - budget_matched_global
+    - dynamic_budget_matched_global
     paired_seeds: required
     terminal_audit: required
     old_600_step_probe_is_formal_evidence: false
@@ -1960,11 +1988,23 @@ experiments:
   independent_validation_gate:
     natural_far_field_present: required
     corrected_quadratic_branch_empirically_active: required
-    measurable_full_parameter_or_long_run_contribution: required
-    targeted_far_control_mitigates_dynamics: required
+    measurable_full_parameter_contribution: required
+    log_scale_relative_dominance: diagnostic_only
+    control_outcomes:
+      diagnostic_score_mitigation: report_separately
+      support_boundary_rescue: report_separately
+      task_performance_rescue: report_separately
+      finite_terminal_rescue: report_separately
+    measurable_full_parameter_or_long_run_contribution: superseded_by_measurable_full_parameter_contribution
+    targeted_far_control_mitigates_dynamics: superseded_by_separate_control_outcomes
     paired_seed_evidence: required
     terminal_state_audit: required
     identity_only_autograd_check_counts_as_independent_validation: false
+  dynamic_global_control:
+    method: dynamic_budget_matched_global
+    rematch_frequency: every_minibatch
+    detached_proxy: sum_abs_advantage_times_joint_output_score
+    exact_full_parameter_budget_match_claimed: false
   output_contract:
     result_archive_owner: canonical_hardened_channel
     scientific_runner_archive_writes: forbidden
