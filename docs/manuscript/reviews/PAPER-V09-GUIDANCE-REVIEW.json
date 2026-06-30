@@ -1,0 +1,154 @@
+{
+  "schema_version": 1,
+  "review_id": "PAPER-V09-GUIDANCE-REVIEW",
+  "base_commit": "84edc2aa0b2f258033ddf2ef9aaf98e7a89a6edd",
+  "review_date": "2026-06-30",
+  "guidance_path": "docs/manuscript/RL_PAPER_WRITING_GUIDANCE.md",
+  "guidance_sha256": "b9335596884269bba28e89f26fc6b00b2e9e9475337409aece4b35db72ef8997",
+  "artifacts": [
+    {
+      "path": "docs/paper_rewrite_outline_v0_9.md",
+      "sha256": "2ab085c3d0eafaf22e26e47b155b0d3d7f35f362236ac407f92464d128ad8039"
+    },
+    {
+      "path": "docs/paper_rewrite_intro_blueprint_v0_4.md",
+      "sha256": "8dd1233e9cd5db80ab384e170e6e95e4e40cbee779b832d52374bc5f1f38f7ef"
+    },
+    {
+      "path": "docs/manuscript/hierarchy.yaml",
+      "sha256": "4fa5fde371028a87cb7927db955ab0c662d835f403311d9273283f93d6f7f887"
+    },
+    {
+      "path": "docs/manuscript/README.md",
+      "sha256": "f37aa090dda7f90e18390a633668ee3d168110d58e028787c3e2b58754d83a65"
+    },
+    {
+      "path": "docs/manuscript/issues/PAPER-V09-GUIDANCE-REWRITE-01.yaml",
+      "sha256": "3d05b3c3b84888042333001cd8982262922d68a926a92f2aa0cc1a6eedec72d6"
+    },
+    {
+      "path": "tests/test_manuscript_guidance_review.py",
+      "sha256": "2e06418e38ad8914298faede72a7b07f18f6f3b62a3f059465335a7107cbf88d"
+    },
+    {
+      "path": "tests/test_manuscript_live_hierarchy.py",
+      "sha256": "54fb4e403b1ad04bad7f17d7e402a605936ade6f15b67aaf75655b993a719ce4"
+    }
+  ],
+  "one_sentence_thesis": "Negative feedback enables stable improvement beyond positive-only learning, but far-field reuse can eliminate the finite equilibrium; DRPO preserves useful local repulsion while suppressing the destructive far-field component of the aggregate negative term.",
+  "guidance_driven_optimizations": [
+    "Reclassify Product manifold as historical source-isolation provenance rather than a third primary environment.",
+    "Promote quality-distance isolation to the central identification claim and state the exact matched variables.",
+    "Separate the already-supported output-score result from the still-needed full-parameter same-ray or Jacobian-gain closure.",
+    "Give Theorem 1 one job: explain the Positive-only to stable-extrapolation to boundary/no-finite-equilibrium transition.",
+    "Make DRPO modify the same aggregate negative term named by Theorem 1.",
+    "Order evidence as external reality anchor, controlled identification, theorem phase validation, and external task closure.",
+    "Remove defensive global-convergence and fixed-advantage scope language from the active manuscript story.",
+    "Reserve experiment claims for registered status and keep Hopper/Countdown values TBD until formal terminal audits."
+  ],
+  "gates": [
+    {
+      "id": "G01",
+      "status": "pass",
+      "evidence": "One central useful-to-destructive repulsion tension governs the outline and blueprint."
+    },
+    {
+      "id": "G02",
+      "status": "pass",
+      "evidence": "Every section advances the same causal and methodological arc."
+    },
+    {
+      "id": "G03",
+      "status": "pass",
+      "evidence": "Defensive global-convergence and fixed-advantage scope paragraphs are absent from the active theory story."
+    },
+    {
+      "id": "G04",
+      "status": "pass",
+      "evidence": "Badness-distance isolation is a named Introduction gap, controlled RQ, figure responsibility, and supplementation gate."
+    },
+    {
+      "id": "G05",
+      "status": "pass",
+      "evidence": "Theorem 1 has one job and its detailed proofs are assigned to the appendix."
+    },
+    {
+      "id": "G06",
+      "status": "pass",
+      "evidence": "DRPO maps q m_- to q_lambda m_{-,lambda}, the same term identified by Theorem 1."
+    },
+    {
+      "id": "G07",
+      "status": "pass",
+      "evidence": "Each major claim maps to an environment, RQ, metric, control, and current evidence state."
+    },
+    {
+      "id": "G08",
+      "status": "pass",
+      "evidence": "C-U1 and D-U1 are the primary controlled environments; Product manifold is historical provenance; Hopper and Countdown are external validation."
+    },
+    {
+      "id": "G09",
+      "status": "pass",
+      "evidence": "Task collapse, boundary events, and NaN/Inf numerical failure are kept separate."
+    },
+    {
+      "id": "G10",
+      "status": "pass",
+      "evidence": "Budget matching, paired seeds, best/terminal reporting, and terminal audit remain method-comparison gates."
+    },
+    {
+      "id": "G11",
+      "status": "pass",
+      "evidence": "Related Work claims a missing causal/equilibrium bridge rather than denying prior negative-update research."
+    },
+    {
+      "id": "G12",
+      "status": "pass",
+      "evidence": "The outline preserves current formal statuses and leaves unfinished external results TBD."
+    },
+    {
+      "id": "G13",
+      "status": "pass",
+      "evidence": "Figure 1 and the experiment sequence carry the complete story rather than serving as an inventory."
+    },
+    {
+      "id": "G14",
+      "status": "pass",
+      "evidence": "The six outline and blueprint blocks align in ID, title, order, and parent SHA-256."
+    }
+  ],
+  "findings": {
+    "blocker": [],
+    "major": [],
+    "minor": [
+      "C-U1 E1 currently establishes matched-|A| output-score amplification; a same-state/same-ray radial probe or Jacobian-gain decomposition is still required before full-parameter distance-only attribution.",
+      "D-U1 common/rare comparisons require a paper-facing audit of badness, semantics, count, and base-coefficient matching.",
+      "Hopper and Countdown formal external-anchor results remain unavailable and must stay TBD until terminal audits.",
+      "C-U1 E4 method ranking remains gated by deterministic shortlist freeze, exact actor+Adam continuation, TAPER-CONV, and untouched confirmation seeds."
+    ]
+  },
+  "experiment_supplements": [
+    {
+      "priority": "required_for_full_parameter_source_claim",
+      "item": "C-U1 same-state/same-ray radial probe or Jacobian-gain decomposition",
+      "status": "not_registered_or_run"
+    },
+    {
+      "priority": "required_for_categorical_isolation_claim",
+      "item": "D-U1 common/rare badness-semantics-count matching audit",
+      "status": "audit_pending"
+    },
+    {
+      "priority": "required_for_external_reality_anchor",
+      "item": "Hopper E7 and Countdown formal mechanism diagnostics with terminal audit",
+      "status": "not_run"
+    },
+    {
+      "priority": "already_registered_method_closure",
+      "item": "E4 shortlist freeze, exact actor+Adam continuation, TAPER-CONV, and confirmation seeds 130-149",
+      "status": "pending"
+    }
+  ],
+  "verdict": "PASS"
+}
