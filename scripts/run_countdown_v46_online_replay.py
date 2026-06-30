@@ -263,6 +263,160 @@ def _next_batch(iterator: Any, loader: DataLoader) -> tuple[Any, Any]:
         return next(iterator), iterator
 
 
+def _atomic_jsonl(path: Path, rows: Sequence[dict[str, Any]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    with temporary.open("w") as handle:
+        for row in rows:
+            handle.write(json.dumps(row, ensure_ascii=False) + "\n")
+        handle.flush()
+        os.fsync(handle.fileno())
+    temporary.replace(path)
+
+
+def _atomic_torch_save(path: Path, value: Any) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    torch.save(value, temporary)
+    temporary.replace(path)
+
+
+def _torch_load(path: Path) -> Any:
+    try:
+        return torch.load(path, map_location="cpu", weights_only=False)
+    except TypeError:  # pragma: no cover - compatibility with older torch
+        return torch.load(path, map_location="cpu")
+
+
+def _capture_rng_state() -> dict[str, Any]:
+    return {
+        "python": random.getstate(),
+        "numpy": np.random.get_state(),
+        "torch_cpu": torch.get_rng_state(),
+        "torch_cuda": torch.cuda.get_rng_state_all() if torch.cuda.is_available() else [],
+    }
+
+
+def _restore_rng_state(state: dict[str, Any]) -> None:
+    random.setstate(state["python"])
+    np.random.set_state(state["numpy"])
+    torch.set_rng_state(state["torch_cpu"])
+    if torch.cuda.is_available() and state.get("torch_cuda"):
+        torch.cuda.set_rng_state_all(state["torch_cuda"])
+
+
+def _collector_fingerprint(
+    ordered: Sequence[dict[str, Any]],
+    allowed_patterns: set[str],
+    config: dict[str, Any],
+) -> str:
+    digest = hashlib.sha256()
+    digest.update(json.dumps(config, sort_keys=True).encode())
+    digest.update(json.dumps(sorted(allowed_patterns)).encode())
+    for row in ordered:
+        digest.update(str(row.get("id", "")).encode())
+        digest.update(b"\0")
+        digest.update(str(row.get("prompt", "")).encode())
+        digest.update(b"\n")
+    return digest.hexdigest()
+
+
+def _score_generated_groups(
+    arena: Any,
+    model: Any,
+    tokenizer: Any,
+    states: Sequence[dict[str, Any]],
+    groups: Sequence[Sequence[str]],
+    allowed_patterns: set[str],
+    max_length: int,
+    score_batch_size: int,
+    diagnostics: Counter[str],
+) -> float:
+    """Verify per-prompt candidates, then score every survivor in one GPU batch stream."""
+    pending: list[tuple[int, dict[str, Any]]] = []
+    pairs: list[tuple[str, str]] = []
+    for state_index, (state, texts) in enumerate(zip(states, groups)):
+        row = state["row"]
+        seen = state["seen"]
+        diagnostics["generated_completions"] += len(texts)
+        for text in texts:
+            check = arena.verify_expression(text, row["numbers"], row["target"])
+            expression = check["expression"]
+            if not expression or expression in seen:
+                diagnostics["duplicate_or_empty"] += 1
+                continue
+            seen.add(expression)
+            if not (check["valid_format"] and check["uses_numbers"]):
+                diagnostics["invalid_or_wrong_numbers"] += 1
+                continue
+            try:
+                structure = arena.expression_structure(expression)
+            except Exception:
+                diagnostics["structure_parse_failure"] += 1
+                continue
+            if structure not in allowed_patterns:
+                diagnostics["heldout_pattern_rejected"] += 1
+                continue
+            item = {**check, "target": row["target"], "structure": structure}
+            pending.append((state_index, item))
+            pairs.append((row["prompt"], expression))
+    if not pairs:
+        return 0.0
+    started = time.perf_counter()
+    surprisals = arena.score_completions_batch(
+        model,
+        tokenizer,
+        pairs,
+        max_length,
+        score_batch_size,
+    )
+    elapsed = time.perf_counter() - started
+    for (state_index, item), surprisal in zip(pending, surprisals):
+        item["surprisal"] = float(surprisal)
+        states[state_index]["evaluated"].append(item)
+    diagnostics["scored_candidates"] += len(pairs)
+    return elapsed
+
+
+def _collector_heartbeat(
+    *,
+    collector_round: int,
+    collector_method: str,
+    target_rows: int,
+    source_cursor: int,
+    source_total: int,
+    output_count: int,
+    initial_output_count: int,
+    session_started: float,
+    diagnostics: Counter[str],
+    resumed: bool,
+) -> dict[str, Any]:
+    elapsed = max(time.perf_counter() - session_started, 1e-9)
+    session_rows = max(output_count - initial_output_count, 0)
+    rows_per_hour = session_rows * 3600.0 / elapsed
+    remaining = max(target_rows - output_count, 0)
+    eta_seconds = remaining * 3600.0 / rows_per_hour if rows_per_hour > 0 else None
+    return {
+        "event": "collector_heartbeat",
+        "collector_round": collector_round,
+        "collector_method": collector_method,
+        "attempted_prompts": source_cursor,
+        "source_prompts": source_total,
+        "accepted_rows": output_count,
+        "requested_rows": target_rows,
+        "acceptance_rate": output_count / max(source_cursor, 1),
+        "generated_completions": diagnostics["generated_completions"],
+        "scored_candidates": diagnostics["scored_candidates"],
+        "resample_generation_calls": diagnostics["resample_generation_calls"],
+        "generation_seconds": float(diagnostics["generation_milliseconds"]) / 1000.0,
+        "scoring_seconds": float(diagnostics["scoring_milliseconds"]) / 1000.0,
+        "rows_per_hour_session": rows_per_hour,
+        "eta_seconds": eta_seconds,
+        "resumed_from_partial": resumed,
+        "updated_unix": time.time(),
+    }
+
+
 def collect_online_replay_rows(
     arena: Any,
     model: Any,
@@ -275,146 +429,387 @@ def collect_online_replay_rows(
     collector_step: int,
     collector_seed: int,
     collector_method: str,
+    collector_policy_digest: str,
     bank_size: int,
     rollouts: int,
     resample_rounds: int,
     batch_size: int,
+    score_batch_size: int,
+    partial_path: Path | None = None,
+    progress_path: Path | None = None,
+    state_path: Path | None = None,
+    heartbeat_every: int = 25,
     max_length: int = 256,
     max_new_tokens: int = 80,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    """Collect verifier-labelled replay from the current learner only.
+    """Collect current-policy verifier replay with batched resampling and recovery.
 
-    No synthetic negative is admitted. Correct generated expressions are used
-    when available; otherwise the frozen oracle supplies the positive branch.
+    Scientific variables are unchanged: every prompt receives ``rollouts`` samples
+    per round, up to ``resample_rounds`` extra rounds, and a row is admitted only
+    after a generated wrong bank of ``bank_size`` unique allowed expressions exists.
+    The implementation batches all unresolved prompts in each round, scores only
+    sequence surprisal, emits durable heartbeat/partial artifacts, and restores the
+    exact RNG state at the last checkpoint after interruption.
     """
     if target_rows < 1 or bank_size < 2:
         raise ValueError("target_rows and bank_size must be positive")
-    rng = random.Random(collector_seed)
+    if rollouts < 1 or resample_rounds < 0 or batch_size < 1:
+        raise ValueError(
+            "rollouts/batch_size must be positive and resample_rounds non-negative"
+        )
+    if score_batch_size < 1:
+        raise ValueError("score_batch_size must be positive")
+    if heartbeat_every < 1:
+        raise ValueError("heartbeat_every must be positive")
+    artifact_paths = (partial_path, progress_path, state_path)
+    if any(path is None for path in artifact_paths) and any(
+        path is not None for path in artifact_paths
+    ):
+        raise ValueError(
+            "partial_path, progress_path, and state_path must be supplied together"
+        )
+
+    order_rng = random.Random(collector_seed)
     ordered = list(source_rows)
-    rng.shuffle(ordered)
+    order_rng.shuffle(ordered)
+    config = {
+        "collector_round": collector_round,
+        "collector_step": collector_step,
+        "collector_seed": collector_seed,
+        "collector_method": collector_method,
+        "collector_policy_digest": collector_policy_digest,
+        "target_rows": target_rows,
+        "bank_size": bank_size,
+        "rollouts": rollouts,
+        "resample_rounds": resample_rounds,
+        "batch_size": batch_size,
+        "score_batch_size": score_batch_size,
+        "max_length": max_length,
+        "max_new_tokens": max_new_tokens,
+    }
+    fingerprint = _collector_fingerprint(ordered, allowed_patterns, config)
     diagnostics: Counter[str] = Counter()
     output: list[dict[str, Any]] = []
+    source_cursor = 0
+    resumed = False
+
+    if state_path is not None and state_path.exists():
+        if partial_path is None or not partial_path.exists():
+            raise RuntimeError("Collector state exists without its partial JSONL")
+        state = _torch_load(state_path)
+        if state.get("fingerprint") != fingerprint:
+            raise RuntimeError("Collector partial state does not match the current protocol/policy")
+        partial_rows = arena.read_jsonl(partial_path)
+        output_count = int(state["output_count"])
+        if len(partial_rows) < output_count:
+            raise RuntimeError("Collector partial JSONL is shorter than its durable state")
+        output = partial_rows[:output_count]
+        source_cursor = int(state["source_cursor"])
+        diagnostics.update(state.get("diagnostics", {}))
+        _restore_rng_state(state["rng_state"])
+        resumed = True
+    elif any(path is not None and path.exists() for path in (partial_path, progress_path)):
+        raise RuntimeError("Incomplete collector recovery artifacts; state file is required")
+
+    session_started = time.perf_counter()
+    initial_output_count = len(output)
+    last_checkpoint_cursor = source_cursor
+    last_checkpoint_output_count = len(output)
+    minimum_rounds = math.ceil(bank_size / rollouts)
+    print(
+        json.dumps(
+            {
+                "event": "collector_start",
+                **config,
+                "source_prompts": len(ordered),
+                "minimum_generation_rounds_per_accepted_prompt": minimum_rounds,
+                "minimum_completions_per_accepted_prompt": minimum_rounds * rollouts,
+                "resumed_from_partial": resumed,
+                "resume_source_cursor": source_cursor,
+                "resume_output_count": len(output),
+            }
+        ),
+        flush=True,
+    )
+
+    was_training = bool(model.training)
+    was_gradient_checkpointing = bool(getattr(model, "is_gradient_checkpointing", False))
+    old_use_cache = getattr(getattr(model, "config", None), "use_cache", None)
+    if was_gradient_checkpointing and hasattr(model, "gradient_checkpointing_disable"):
+        model.gradient_checkpointing_disable()
+    if getattr(model, "config", None) is not None:
+        model.config.use_cache = True
     model.eval()
 
-    for start in range(0, len(ordered), max(1, batch_size)):
-        if len(output) >= target_rows:
-            break
-        chunk = ordered[start : start + max(1, batch_size)]
-        groups = arena.generate_outputs(
-            model,
-            tokenizer,
-            [row["prompt"] for row in chunk],
-            max_new_tokens,
-            True,
-            0.8,
-            0.95,
-            rollouts,
+    def checkpoint_progress(force: bool = False) -> None:
+        nonlocal last_checkpoint_cursor, last_checkpoint_output_count
+        if state_path is None or partial_path is None or progress_path is None:
+            return
+        if not force and source_cursor - last_checkpoint_cursor < heartbeat_every:
+            return
+        heartbeat = _collector_heartbeat(
+            collector_round=collector_round,
+            collector_method=collector_method,
+            target_rows=target_rows,
+            source_cursor=source_cursor,
+            source_total=len(ordered),
+            output_count=len(output),
+            initial_output_count=initial_output_count,
+            session_started=session_started,
+            diagnostics=diagnostics,
+            resumed=resumed,
         )
-        for row, initial in zip(chunk, groups):
-            if len(output) >= target_rows:
-                break
-            seen: set[str] = set()
-            evaluated: list[dict[str, Any]] = []
-            for attempt in range(resample_rounds + 1):
-                texts = initial if attempt == 0 else arena.generate_outputs(
+        _atomic_jsonl(partial_path, output)
+        _atomic_torch_save(
+            state_path,
+            {
+                "schema_version": 1,
+                "fingerprint": fingerprint,
+                "source_cursor": source_cursor,
+                "output_count": len(output),
+                "diagnostics": dict(diagnostics),
+                "rng_state": _capture_rng_state(),
+                "saved_unix": time.time(),
+            },
+        )
+        _atomic_json(progress_path, heartbeat)
+        print(json.dumps(heartbeat), flush=True)
+        last_checkpoint_cursor = source_cursor
+        last_checkpoint_output_count = len(output)
+
+    checkpoint_progress(force=True)
+    try:
+        while source_cursor < len(ordered) and len(output) < target_rows:
+            chunk = ordered[source_cursor : source_cursor + batch_size]
+            states = [
+                {"row": row, "seen": set(), "evaluated": []}
+                for row in chunk
+            ]
+            generation_started = time.perf_counter()
+            groups = arena.generate_outputs(
+                model,
+                tokenizer,
+                [row["prompt"] for row in chunk],
+                max_new_tokens,
+                True,
+                0.8,
+                0.95,
+                rollouts,
+            )
+            diagnostics["initial_generation_calls"] += 1
+            diagnostics["generation_milliseconds"] += round(
+                (time.perf_counter() - generation_started) * 1000
+            )
+            scoring_seconds = _score_generated_groups(
+                arena,
+                model,
+                tokenizer,
+                states,
+                groups,
+                allowed_patterns,
+                max_length,
+                score_batch_size,
+                diagnostics,
+            )
+            diagnostics["scoring_milliseconds"] += round(scoring_seconds * 1000)
+
+            for _resample_round in range(1, resample_rounds + 1):
+                unresolved = [
+                    state
+                    for state in states
+                    if sum(not item["correct"] for item in state["evaluated"]) < bank_size
+                ]
+                if not unresolved:
+                    break
+                diagnostics["resample_rounds_used"] += len(unresolved)
+                generation_started = time.perf_counter()
+                groups = arena.generate_outputs(
                     model,
                     tokenizer,
-                    [row["prompt"]],
+                    [state["row"]["prompt"] for state in unresolved],
                     max_new_tokens,
                     True,
                     0.8,
                     0.95,
                     rollouts,
-                )[0]
-                evaluated.extend(
-                    arena._score_new_candidates(
-                        model,
-                        tokenizer,
-                        row,
-                        texts,
-                        seen,
-                        allowed_patterns,
-                        max_length,
-                        max(1, batch_size * 2),
-                        diagnostics,
-                    )
                 )
-                wrong = [item for item in evaluated if not item["correct"]]
-                if len(wrong) >= bank_size:
-                    break
-                diagnostics["resample_rounds_used"] += int(attempt < resample_rounds)
-
-            wrong = [item for item in evaluated if not item["correct"]]
-            if len(wrong) < bank_size:
-                diagnostics["dropped_insufficient_generated_wrong"] += 1
-                continue
-            detailed = [arena.candidate_metadata(item, tokenizer) for item in wrong]
-            detailed.sort(key=lambda item: (float(item["surprisal"]), item["text"]))
-            near_item, far_item = detailed[0], detailed[-1]
-            bank = arena.select_fixed_negative_bank(
-                detailed, near_item, far_item, bank_size
-            )
-            oracle_structure = row.get("oracle_structure") or arena.expression_structure(
-                row["oracle"]
-            )
-            correct = [
-                item
-                for item in evaluated
-                if item["correct"] and item.get("structure") == oracle_structure
-            ]
-            if correct:
-                positive_item = min(correct, key=lambda item: float(item["surprisal"]))
-                positive = positive_item["expression"]
-                positive_surprisal = float(positive_item["surprisal"])
-                positive_source = "collector_generated_correct"
-                diagnostics["generated_positive"] += 1
-            else:
-                positive = row["oracle"]
-                positive_surprisal = arena.score_completions_batch(
+                diagnostics["resample_generation_calls"] += 1
+                diagnostics["generation_milliseconds"] += round(
+                    (time.perf_counter() - generation_started) * 1000
+                )
+                scoring_seconds = _score_generated_groups(
+                    arena,
                     model,
                     tokenizer,
-                    [(row["prompt"], positive)],
+                    unresolved,
+                    groups,
+                    allowed_patterns,
                     max_length,
-                    1,
-                )[0]
-                positive_source = "oracle_fallback"
-                diagnostics["oracle_positive"] += 1
-            output.append(
+                    score_batch_size,
+                    diagnostics,
+                )
+                diagnostics["scoring_milliseconds"] += round(scoring_seconds * 1000)
+
+            prepared: list[dict[str, Any]] = []
+            fallback_pairs: list[tuple[str, str]] = []
+            fallback_slots: list[int] = []
+            for state in states:
+                row = state["row"]
+                evaluated = state["evaluated"]
+                wrong = [item for item in evaluated if not item["correct"]]
+                if len(wrong) < bank_size:
+                    diagnostics["dropped_insufficient_generated_wrong"] += 1
+                    continue
+                detailed = [arena.candidate_metadata(item, tokenizer) for item in wrong]
+                detailed.sort(key=lambda item: (float(item["surprisal"]), item["text"]))
+                near_item, far_item = detailed[0], detailed[-1]
+                bank = arena.select_fixed_negative_bank(
+                    detailed, near_item, far_item, bank_size
+                )
+                oracle_structure = row.get("oracle_structure") or arena.expression_structure(
+                    row["oracle"]
+                )
+                correct = [
+                    item
+                    for item in evaluated
+                    if item["correct"] and item.get("structure") == oracle_structure
+                ]
+                if correct:
+                    positive_item = min(correct, key=lambda item: float(item["surprisal"]))
+                    positive = positive_item["expression"]
+                    positive_surprisal: float | None = float(positive_item["surprisal"])
+                    positive_source = "collector_generated_correct"
+                    diagnostics["generated_positive"] += 1
+                else:
+                    positive = row["oracle"]
+                    positive_surprisal = None
+                    positive_source = "oracle_fallback"
+                    fallback_slots.append(len(prepared))
+                    fallback_pairs.append((row["prompt"], positive))
+                    diagnostics["oracle_positive"] += 1
+                prepared.append(
+                    {
+                        "row": row,
+                        "positive": positive,
+                        "positive_surprisal": positive_surprisal,
+                        "positive_source": positive_source,
+                        "near_item": near_item,
+                        "far_item": far_item,
+                        "bank": bank,
+                    }
+                )
+
+            if fallback_pairs:
+                scoring_started = time.perf_counter()
+                fallback_values = arena.score_completions_batch(
+                    model,
+                    tokenizer,
+                    fallback_pairs,
+                    max_length,
+                    score_batch_size,
+                )
+                diagnostics["scoring_milliseconds"] += round(
+                    (time.perf_counter() - scoring_started) * 1000
+                )
+                diagnostics["scored_oracle_fallbacks"] += len(fallback_pairs)
+                for slot, value in zip(fallback_slots, fallback_values):
+                    prepared[slot]["positive_surprisal"] = float(value)
+
+            for item in prepared:
+                row = item["row"]
+                near_item = item["near_item"]
+                far_item = item["far_item"]
+                positive_surprisal = item["positive_surprisal"]
+                if positive_surprisal is None:
+                    raise AssertionError("Oracle fallback surprisal was not scored")
+                output.append(
+                    {
+                        **row,
+                        "positive": item["positive"],
+                        "positive_base_surprisal": positive_surprisal,
+                        "positive_source": item["positive_source"],
+                        "near_negative": near_item["text"],
+                        "far_negative": far_item["text"],
+                        "near_base_surprisal": float(near_item["surprisal"]),
+                        "far_base_surprisal": float(far_item["surprisal"]),
+                        "negative_bank_size": bank_size,
+                        "negative_bank": arena.serialize_negative_bank(item["bank"]),
+                        "online_replay": True,
+                        "collector_round": collector_round,
+                        "collector_step": collector_step,
+                        "collector_seed": collector_seed,
+                        "collector_method": collector_method,
+                        "generated_only_negative_bank": True,
+                        "pair_matched": True,
+                        "pair_protocol": "online_generated_current_policy_extremes",
+                    }
+                )
+                if len(output) >= target_rows:
+                    break
+
+            source_cursor += len(chunk)
+            checkpoint_progress(force=len(output) >= target_rows)
+        checkpoint_progress(force=True)
+    except BaseException as exc:
+        if progress_path is not None:
+            failure = _collector_heartbeat(
+                collector_round=collector_round,
+                collector_method=collector_method,
+                target_rows=target_rows,
+                source_cursor=last_checkpoint_cursor,
+                source_total=len(ordered),
+                output_count=last_checkpoint_output_count,
+                initial_output_count=initial_output_count,
+                session_started=session_started,
+                diagnostics=diagnostics,
+                resumed=resumed,
+            )
+            failure.update(
                 {
-                    **row,
-                    "positive": positive,
-                    "positive_base_surprisal": positive_surprisal,
-                    "positive_source": positive_source,
-                    "near_negative": near_item["text"],
-                    "far_negative": far_item["text"],
-                    "near_base_surprisal": float(near_item["surprisal"]),
-                    "far_base_surprisal": float(far_item["surprisal"]),
-                    "negative_bank_size": bank_size,
-                    "negative_bank": arena.serialize_negative_bank(bank),
-                    "online_replay": True,
-                    "collector_round": collector_round,
-                    "collector_step": collector_step,
-                    "collector_seed": collector_seed,
-                    "collector_method": collector_method,
-                    "generated_only_negative_bank": True,
-                    "pair_matched": True,
-                    "pair_protocol": "online_generated_current_policy_extremes",
+                    "event": "collector_interrupted",
+                    "error_type": type(exc).__name__,
+                    "error": str(exc),
+                    "durable_source_cursor": last_checkpoint_cursor,
+                    "recovery_state_preserved": bool(
+                        state_path is not None and state_path.exists()
+                    ),
                 }
             )
+            _atomic_json(progress_path, failure)
+            print(json.dumps(failure), flush=True)
+        raise
+    finally:
+        if getattr(model, "config", None) is not None and old_use_cache is not None:
+            model.config.use_cache = old_use_cache
+        if was_gradient_checkpointing and hasattr(model, "gradient_checkpointing_enable"):
+            model.gradient_checkpointing_enable()
+            if hasattr(model, "enable_input_require_grads"):
+                model.enable_input_require_grads()
+        if was_training:
+            model.train()
+        else:
+            model.eval()
 
+    output = output[:target_rows]
+    elapsed_seconds = time.perf_counter() - session_started
     manifest = {
         "collector_round": collector_round,
         "collector_step": collector_step,
         "collector_seed": collector_seed,
         "collector_method": collector_method,
+        "collector_policy_digest": collector_policy_digest,
+        "collector_implementation": "batched_resample_surprisal_only_checkpointed_v2",
         "requested_rows": target_rows,
         "saved_rows": len(output),
+        "attempted_prompts": source_cursor,
         "bank_size": bank_size,
         "rollouts_per_prompt": rollouts,
         "resample_rounds": resample_rounds,
         "generated_only_negative_bank": True,
         "generated_positive_fraction": diagnostics["generated_positive"]
         / max(len(output), 1),
+        "resumed_from_partial": resumed,
+        "collector_elapsed_seconds_this_session": elapsed_seconds,
         **dict(diagnostics),
     }
     if len(output) < target_rows:
@@ -422,6 +817,29 @@ def collect_online_replay_rows(
             f"Online collector produced only {len(output)}/{target_rows} replay rows"
         )
     return output, manifest
+
+
+def _is_phase_zero_collector_recovery(output: Path) -> bool:
+    """Accept only the narrow pre-training state that can be reconstructed exactly."""
+    if not output.is_dir() or not any(output.iterdir()):
+        return False
+    allowed_root = {"best_adapter", "replay"}
+    if {path.name for path in output.iterdir()} - allowed_root:
+        return False
+    replay_dir = output / "replay"
+    if not replay_dir.is_dir():
+        return False
+    allowed_replay = {
+        "round_0.partial.jsonl",
+        "round_0.progress.json",
+        "round_0.collector_state.pt",
+    }
+    replay_names = {path.name for path in replay_dir.iterdir()}
+    if replay_names - allowed_replay:
+        return False
+    state = replay_dir / "round_0.collector_state.pt"
+    partial = replay_dir / "round_0.partial.jsonl"
+    return (state.is_file() and partial.is_file()) or not replay_names
 
 
 def _write_metrics(path: Path, rows: Sequence[dict[str, Any]]) -> None:
@@ -450,11 +868,27 @@ def _inside_online_worker(args: argparse.Namespace, repo: Path) -> int:
     arena.seed_all(seed)
     output = Path(args.output_dir).resolve()
     arena.ensure_checkpoint_output_is_local_or_ignored(output)
-    if output.exists() and any(output.iterdir()):
-        raise RuntimeError("Online worker output_dir must be new or empty")
+    recovering_phase_zero = _is_phase_zero_collector_recovery(output)
+    if output.exists() and any(output.iterdir()) and not recovering_phase_zero:
+        raise RuntimeError(
+            "Online worker output_dir is non-empty and is not a recoverable "
+            "phase-0 collector checkpoint"
+        )
     output.mkdir(parents=True, exist_ok=True)
     replay_dir = output / "replay"
-    replay_dir.mkdir()
+    replay_dir.mkdir(exist_ok=True)
+    if recovering_phase_zero:
+        print(
+            json.dumps(
+                {
+                    "event": "online_worker_phase_zero_resume",
+                    "output_dir": str(output),
+                    "seed": seed,
+                    "method": args.worker_method,
+                }
+            ),
+            flush=True,
+        )
 
     tokenizer = arena.load_tokenizer(args.model_path)
     model = arena.load_model(
@@ -611,6 +1045,9 @@ def _inside_online_worker(args: argparse.Namespace, repo: Path) -> int:
 
     for phase, phase_steps in enumerate(phase_budgets):
         collector_digest = _trainable_digest(trainable)
+        partial_path = replay_dir / f"round_{phase}.partial.jsonl"
+        progress_path = replay_dir / f"round_{phase}.progress.json"
+        state_path = replay_dir / f"round_{phase}.collector_state.pt"
         rows, collector_manifest = collect_online_replay_rows(
             arena,
             model,
@@ -622,16 +1059,22 @@ def _inside_online_worker(args: argparse.Namespace, repo: Path) -> int:
             collector_step=global_step,
             collector_seed=seed + 10000 + phase,
             collector_method=args.worker_method,
+            collector_policy_digest=collector_digest,
             bank_size=args.bank_size,
             rollouts=args.rollouts,
             resample_rounds=args.resample_rounds,
             batch_size=args.rollout_batch,
+            score_batch_size=args.score_batch,
+            partial_path=partial_path,
+            progress_path=progress_path,
+            state_path=state_path,
         )
-        collector_manifest["collector_policy_digest"] = collector_digest
         collector_manifests.append(collector_manifest)
         all_round_rows.append(rows)
         arena.write_jsonl(replay_dir / f"round_{phase}.jsonl", rows)
         _atomic_json(replay_dir / f"round_{phase}.manifest.json", collector_manifest)
+        for transient in (partial_path, progress_path, state_path):
+            transient.unlink(missing_ok=True)
 
         fresh_rows = [
             {**row, "replay_phase": phase, "replay_age": 0}
@@ -1146,6 +1589,8 @@ def _inside_run(args: argparse.Namespace, repo: Path) -> int:
                     str(plan["eval_batch"]),
                     "--rollout_batch",
                     str(plan["rollout_batch"]),
+                    "--score_batch",
+                    str(plan["score_batch"]),
                     "--total_steps",
                     str(total_steps),
                     "--eval_every",
@@ -1385,6 +1830,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--micro_batch", type=int, default=1, help=argparse.SUPPRESS)
     parser.add_argument("--eval_batch", type=int, default=8, help=argparse.SUPPRESS)
     parser.add_argument("--rollout_batch", type=int, default=8, help=argparse.SUPPRESS)
+    parser.add_argument("--score_batch", type=int, default=32, help=argparse.SUPPRESS)
     parser.add_argument("--total_steps", type=int, help=argparse.SUPPRESS)
     parser.add_argument("--eval_every", type=int, help=argparse.SUPPRESS)
     parser.add_argument("--collection_phases", type=int, default=COLLECTION_PHASES, help=argparse.SUPPRESS)

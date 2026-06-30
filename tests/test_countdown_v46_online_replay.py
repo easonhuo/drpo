@@ -162,3 +162,250 @@ def test_online_worker_records_replay_age_and_matches_eval_schedule() -> None:
     assert '"replay_age": 0' in source
     assert "global_step % args.eval_every == 0" in source
     assert '"optimizer_update_budget_exactly_matched"' in source
+
+
+class _FakeModel:
+    def __init__(self) -> None:
+        from types import SimpleNamespace
+
+        self.training = True
+        self.is_gradient_checkpointing = True
+        self.config = SimpleNamespace(use_cache=False)
+        self.disable_calls = 0
+        self.enable_calls = 0
+
+    def eval(self):
+        self.training = False
+        return self
+
+    def train(self):
+        self.training = True
+        return self
+
+    def gradient_checkpointing_disable(self) -> None:
+        self.disable_calls += 1
+        self.is_gradient_checkpointing = False
+
+    def gradient_checkpointing_enable(self) -> None:
+        self.enable_calls += 1
+        self.is_gradient_checkpointing = True
+
+    def enable_input_require_grads(self) -> None:
+        pass
+
+
+class _FakeArena:
+    def __init__(self, fail_first_generate: bool = False) -> None:
+        self.fail_first_generate = fail_first_generate
+        self.generate_calls: list[list[str]] = []
+        self.per_prompt_count: dict[str, int] = {}
+
+    def generate_outputs(
+        self,
+        model,
+        tokenizer,
+        prompts,
+        max_new_tokens,
+        do_sample,
+        temperature,
+        top_p,
+        num_return_sequences,
+    ):
+        self.generate_calls.append(list(prompts))
+        if self.fail_first_generate:
+            self.fail_first_generate = False
+            # Advance all RNG streams to ensure the durable pre-call state, rather
+            # than the interrupted in-memory state, is the recovery authority.
+            import random
+
+            import numpy as np
+            import torch
+
+            random.random()
+            np.random.random()
+            torch.rand(1)
+            raise RuntimeError("synthetic collector interruption")
+        groups = []
+        for prompt in prompts:
+            start = self.per_prompt_count.get(prompt, 0)
+            groups.append(
+                [f"{prompt}_wrong_{start + offset}" for offset in range(num_return_sequences)]
+            )
+            self.per_prompt_count[prompt] = start + num_return_sequences
+        return groups
+
+    @staticmethod
+    def verify_expression(text, numbers, target):
+        return {
+            "expression": text,
+            "valid_format": True,
+            "uses_numbers": True,
+            "correct": text.endswith("_correct"),
+            "value": None,
+        }
+
+    @staticmethod
+    def expression_structure(expression):
+        return "shape"
+
+    @staticmethod
+    def score_completions_batch(model, tokenizer, pairs, max_length, batch_size):
+        values = []
+        for _, expression in pairs:
+            tail = expression.rsplit("_", 1)[-1]
+            values.append(float(tail) if tail.isdigit() else 0.25)
+        return values
+
+    @staticmethod
+    def candidate_metadata(item, tokenizer):
+        return {
+            "text": item["expression"],
+            "surprisal": float(item["surprisal"]),
+            "structure": item["structure"],
+        }
+
+    @staticmethod
+    def select_fixed_negative_bank(candidates, near_item, far_item, bank_size):
+        return list(candidates[:bank_size])
+
+    @staticmethod
+    def serialize_negative_bank(bank):
+        return [dict(item) for item in bank]
+
+    @staticmethod
+    def read_jsonl(path):
+        import json
+
+        return [json.loads(line) for line in Path(path).read_text().splitlines() if line]
+
+
+def _collector_rows(count: int) -> list[dict]:
+    return [
+        {
+            "id": f"row_{index}",
+            "prompt": f"prompt_{index}",
+            "numbers": [1, 2, 3, 4],
+            "target": 10,
+            "oracle": f"oracle_{index}",
+            "oracle_structure": "shape",
+        }
+        for index in range(count)
+    ]
+
+
+def _run_fake_collector(arena, model, rows, **kwargs):
+    return v46.collect_online_replay_rows(
+        arena,
+        model,
+        object(),
+        rows,
+        {"shape"},
+        target_rows=len(rows),
+        collector_round=0,
+        collector_step=0,
+        collector_seed=123,
+        collector_method="online_positive_only",
+        collector_policy_digest="digest",
+        bank_size=2,
+        rollouts=1,
+        resample_rounds=1,
+        batch_size=len(rows),
+        score_batch_size=8,
+        heartbeat_every=1,
+        **kwargs,
+    )
+
+
+def test_collector_resamples_all_unresolved_prompts_as_one_batch() -> None:
+    arena = _FakeArena()
+    model = _FakeModel()
+    rows, manifest = _run_fake_collector(arena, model, _collector_rows(2))
+
+    assert len(rows) == 2
+    assert arena.generate_calls == [
+        ["prompt_1", "prompt_0"],
+        ["prompt_1", "prompt_0"],
+    ]
+    assert manifest["initial_generation_calls"] == 1
+    assert manifest["resample_generation_calls"] == 1
+    assert manifest["collector_implementation"].startswith("batched_resample")
+    assert model.disable_calls == model.enable_calls == 1
+    assert model.training is True
+    assert model.config.use_cache is False
+
+
+def test_collector_preserves_durable_state_and_resumes_after_interruption(tmp_path) -> None:
+    partial = tmp_path / "round_0.partial.jsonl"
+    progress = tmp_path / "round_0.progress.json"
+    state = tmp_path / "round_0.collector_state.pt"
+    rows = _collector_rows(1)
+    interrupted_arena = _FakeArena(fail_first_generate=True)
+
+    with pytest.raises(RuntimeError, match="synthetic collector interruption"):
+        _run_fake_collector(
+            interrupted_arena,
+            _FakeModel(),
+            rows,
+            partial_path=partial,
+            progress_path=progress,
+            state_path=state,
+        )
+
+    assert partial.is_file() and state.is_file() and progress.is_file()
+    failure = __import__("json").loads(progress.read_text())
+    assert failure["event"] == "collector_interrupted"
+    assert failure["durable_source_cursor"] == 0
+    assert failure["recovery_state_preserved"] is True
+
+    resumed_arena = _FakeArena()
+    recovered, manifest = _run_fake_collector(
+        resumed_arena,
+        _FakeModel(),
+        rows,
+        partial_path=partial,
+        progress_path=progress,
+        state_path=state,
+    )
+    assert len(recovered) == 1
+    assert manifest["resumed_from_partial"] is True
+    assert resumed_arena.generate_calls == [["prompt_0"], ["prompt_0"]]
+
+
+def test_sequence_surprisal_only_matches_existing_definition() -> None:
+    import torch
+    from types import SimpleNamespace
+
+    sys.path.insert(0, str(ROOT / "src"))
+    from drpo import countdown_qwen_arena_onefile as arena
+
+    class Model:
+        def __call__(self, input_ids, attention_mask, use_cache=False):
+            batch, length = input_ids.shape
+            logits = torch.arange(
+                batch * length * 7, dtype=torch.float32
+            ).reshape(batch, length, 7) / 11.0
+            return SimpleNamespace(logits=logits)
+
+    batch = {
+        "input_ids": torch.tensor([[1, 2, 3, 4], [2, 3, 4, 5]]),
+        "attention_mask": torch.ones((2, 4), dtype=torch.long),
+        "labels": torch.tensor([[-100, -100, 3, 4], [-100, 3, 4, 5]]),
+    }
+    expected = -arena.completion_stats(Model(), batch)["seq_lp"]
+    actual = arena.sequence_surprisal_only(Model(), batch)
+    torch.testing.assert_close(actual, expected)
+
+
+def test_online_worker_only_accepts_narrow_phase_zero_recovery_shape(tmp_path) -> None:
+    output = tmp_path / "worker"
+    replay = output / "replay"
+    replay.mkdir(parents=True)
+    assert v46._is_phase_zero_collector_recovery(output) is True
+
+    (output / "best_adapter").mkdir()
+    (replay / "round_0.partial.jsonl").write_text("")
+    v46._atomic_torch_save(replay / "round_0.collector_state.pt", {"x": 1})
+    assert v46._is_phase_zero_collector_recovery(output) is True
+
+    (replay / "round_0.jsonl").write_text("")
+    assert v46._is_phase_zero_collector_recovery(output) is False

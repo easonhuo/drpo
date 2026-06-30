@@ -2009,6 +2009,34 @@ def cmd_sft(args: argparse.Namespace) -> None:
     if best_epoch < 0:
         raise RuntimeError("SFT did not produce a valid best checkpoint")
 
+def sequence_surprisal_only(
+    model: Any, batch: dict[str, torch.Tensor]
+) -> torch.Tensor:
+    """Return mean completion-token surprisal without diagnostic-only tensors.
+
+    Collector ranking needs only sequence NLL.  Reusing ``completion_stats``
+    materialized probabilities, entropy, and score-norm tensors over the full
+    vocabulary for every candidate.  The fused cross-entropy path preserves the
+    same mean-token surprisal definition while avoiding those unused tensors.
+    """
+    result = model(
+        input_ids=batch["input_ids"],
+        attention_mask=batch["attention_mask"],
+        use_cache=False,
+    )
+    logits = result.logits[:, :-1, :].float()
+    labels = batch["labels"][:, 1:]
+    token_nll = F.cross_entropy(
+        logits.reshape(-1, logits.shape[-1]),
+        labels.reshape(-1),
+        ignore_index=-100,
+        reduction="none",
+    ).reshape_as(labels)
+    mask = labels.ne(-100)
+    lengths = mask.sum(-1).clamp_min(1)
+    return (token_nll * mask).sum(-1) / lengths
+
+
 def score_completion(
     model: Any, tokenizer: Any, prompt: str, completion: str, max_length: int
 ) -> float:
@@ -2016,7 +2044,7 @@ def score_completion(
     batch = pad_encoded([encoded], tokenizer.pad_token_id)
     batch = move_to_device(batch, next(model.parameters()).device)
     with torch.no_grad():
-        return float((-completion_stats(model, batch)["seq_lp"])[0])
+        return float(sequence_surprisal_only(model, batch)[0])
 
 
 def score_completions_batch(
@@ -2027,6 +2055,8 @@ def score_completions_batch(
     batch_size: int = 16,
 ) -> list[float]:
     """Mean token surprisal for prompt/completion pairs, batched for speed."""
+    if batch_size < 1:
+        raise ValueError("batch_size must be positive")
     out: list[float] = []
     device = next(model.parameters()).device
     for start in range(0, len(prompt_completion), batch_size):
@@ -2037,7 +2067,7 @@ def score_completions_batch(
         ]
         batch = move_to_device(pad_encoded(encoded, tokenizer.pad_token_id), device)
         with torch.no_grad():
-            values = -completion_stats(model, batch)["seq_lp"]
+            values = sequence_surprisal_only(model, batch)
         out.extend(float(x) for x in values.detach().cpu())
     return out
 
