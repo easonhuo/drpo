@@ -72,6 +72,18 @@ Do not start a lower-priority experiment merely because it is easier to run.
 
 Do not run an experiment that the handoff marks as paused, unapproved, or awaiting protocol review.
 
+## Manuscript hierarchy and cascade rule
+
+For paper-writing tasks, the canonical hierarchy is:
+
+1. outline;
+2. paragraph blueprint;
+3. prose.
+
+The outline is the structural contract. The blueprint derives from the outline, and prose derives from the blueprint. When a user reports a manuscript problem, always inspect the matching outline paragraph first, then the blueprint only if the outline is correct, then prose only if both parents are correct. The first failing layer determines the edit root. Propagate every parent-layer correction through all configured downstream layers, and do not rewrite an upstream layer that was explicitly verified as correct.
+
+Do not independently add, remove, reorder, split, merge, or rename paragraphs in a blueprint or prose file. Use stable paragraph IDs, exact cross-layer order/title matching, and parent SHA-256 fingerprints as specified in `docs/manuscript_cascade/README.md`. Before delivering a manuscript update, run `scripts/manuscript_cascade.py` for issue triage, artifact hierarchy validation, and Git cascade validation whenever the relevant manuscript artifacts have been registered in a hierarchy config.
+
 ## Document-before-experiment rule
 
 Before starting a new formal experiment, register:

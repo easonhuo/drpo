@@ -1,0 +1,27 @@
+schema_version: 1
+issue_id: PAPER-INTRO-EXAMPLE-01
+section_id: introduction
+paragraph_ids:
+  - INTRO-P02
+problem: >-
+  Describe the user-reported problem without proposing a downstream-only patch.
+checks:
+  - layer: outline
+    status: fail
+    evidence: >-
+      Explain whether the canonical paragraph responsibility or ordering is wrong.
+  - layer: blueprint
+    status: blocked
+    evidence: >-
+      The blueprint cannot be judged against an outline contract already known to be wrong.
+  - layer: prose
+    status: blocked
+    evidence: >-
+      The prose cannot be judged against an invalid outline and blueprint chain.
+resolution:
+  state: planned
+  required_layers:
+    - outline
+    - blueprint
+    - prose
+  changed_layers: []

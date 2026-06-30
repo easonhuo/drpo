@@ -1,0 +1,8 @@
+schema_version: 1
+manuscript_id: drpo-paper
+sections:
+  - id: introduction
+    layers:
+      outline: docs/manuscript/outline.md
+      blueprint: docs/manuscript/introduction_blueprint.md
+      prose: docs/manuscript/introduction_prose.md
