@@ -5,9 +5,19 @@
 
 - Module ID: `execution_status_gates`
 - Responsibility: Provide the current experiment evidence states, execution ordering, and formal launch gates.
-- Content contract topics: none
+- Content contract topics: `formal_vs_development_evidence`, `single_registered_execution_order`, `blocked_requires_protocol_or_predecessor`, `current_formal_route`, `no_unregistered_experiment`
 - Deduplicated overlapping source chunks: 0
-- Source hash: `6b1d1a0d1f8bf189613714ad116ba6fbe33b9f19d6c739658940c5efba6030ea`
+- Source hash: `d43d9c3377f7af4901299528da51ca2898806b3afab619c50c6d93a87275f0a2`
+
+## Content contract evidence
+
+| Topic | Required semantic responsibility | Authoritative source | Matched phrase |
+|---|---|---|---|
+| formal_vs_development_evidence | Keep development, smoke, and static evidence separate from formal scientific results. | docs/handoff.md: # 5. 当前真实完成状态 -> # 7. 变量治理 | 只提供 development 证据 |
+| single_registered_execution_order | Preserve the registered global execution order instead of selecting an easier route ad hoc. | docs/handoff.md: # 5. 当前真实完成状态 -> # 7. 变量治理 | 接下来唯一执行顺序 |
+| blocked_requires_protocol_or_predecessor | Preserve explicit predecessor and protocol gates for blocked experiments. | docs/handoff.md: # 5. 当前真实完成状态 -> # 7. 变量治理 | review-required + blocked |
+| current_formal_route | Keep the current formal route anchored to the latest handoff override. | docs/handoff.md: # 5. 当前真实完成状态 -> # 7. 变量治理 | 当前直接进入已实现且 registry 为 ready/active 的 `EXT-H-E7-Q2` |
+| no_unregistered_experiment | Forbid unregistered experiments or silent changes to the route. | docs/handoff.md: # 5. 当前真实完成状态 -> # 7. 变量治理 | 任何新增实验必须先说明它补哪一个 claim |
 
 ## Source 1: docs/handoff.md: # 5. 当前真实完成状态 -> # 7. 变量治理
 

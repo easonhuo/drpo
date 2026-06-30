@@ -124,3 +124,15 @@ E4 is intentionally split once by responsibility:
   phase transition, variance outcomes, and convergence closure;
 - `continuous_e4_taper`: taper families, fairness controls, long-run resolution,
   and confirmation, with a dependency on the E4 extrapolation module.
+
+## Stage 4A final acceptance
+
+The accepted Stage 4A after-image is governed by
+`docs/governance_stage4a_acceptance_spec.md` and checked by
+`scripts/run_stage4a_acceptance.py`. Machine-readable evidence is stored in
+`docs/governance_stage4a_acceptance/`.
+
+Acceptance freezes the static inventory, dynamic graph, and minimal-context core
+for bugfix, compatibility, or clarification changes. It does not start Stage 4B,
+create a lossless physical handoff split, activate Stage 4C, or permit authority
+cutover. `docs/handoff.md` and `experiments/registry.yaml` remain authoritative.

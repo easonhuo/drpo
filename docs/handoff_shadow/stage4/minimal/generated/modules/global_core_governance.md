@@ -5,9 +5,19 @@
 
 - Module ID: `global_core_governance`
 - Responsibility: Preserve the unique-master rule, terminology, scientific scope, and non-destructive governance constraints.
-- Content contract topics: none
+- Content contract topics: `unique_master_document`, `document_before_experiment`, `non_destructive_history`, `terminal_audit_governance`, `controlled_external_validity_boundary`
 - Deduplicated overlapping source chunks: 0
-- Source hash: `4825a4b8410dbf2bc4fa6e766b5b0a7ea021515f9f7deac69661afbad72bb16c`
+- Source hash: `632c8bcddc135497141d0faf12248a1179abdb06012d24ce4e9e1cb6054de28b`
+
+## Content contract evidence
+
+| Topic | Required semantic responsibility | Authoritative source | Matched phrase |
+|---|---|---|---|
+| unique_master_document | Keep docs/handoff.md as the unique research master and reject competing status sources. | docs/handoff.md: # 0. 研究与执行原则（每次新会话首先阅读） -> # 1. 论文最终目标与两条主工作线 | 唯一 Master 文档是任务轴 |
+| document_before_experiment | Require claim, environment, data, metrics, convergence, and result placement before execution. | docs/handoff.md: # 0. 研究与执行原则（每次新会话首先阅读） -> # 1. 论文最终目标与两条主工作线 | 文档先于实验 |
+| non_destructive_history | Preserve historical content and record replacement conclusions without destructive deletion. | docs/handoff.md: # 0. 研究与执行原则（每次新会话首先阅读） -> # 1. 论文最终目标与两条主工作线 | 不得破坏性删除 |
+| terminal_audit_governance | Require terminal-state evidence for convergence, collapse, and method ranking claims. | docs/handoff.md: # 0. 研究与执行原则（每次新会话首先阅读） -> # 1. 论文最终目标与两条主工作线 | 动力学必须做终态审计 |
+| controlled_external_validity_boundary | Keep Hopper and Countdown external validity distinct from C-U1 and D-U1 controlled identification. | docs/handoff.md: # 0. 研究与执行原则（每次新会话首先阅读） -> # 1. 论文最终目标与两条主工作线 | 外部实验不能替代理想识别 |
 
 ## Source 1: docs/handoff.md: # 0. 研究与执行原则（每次新会话首先阅读） -> # 1. 论文最终目标与两条主工作线
 

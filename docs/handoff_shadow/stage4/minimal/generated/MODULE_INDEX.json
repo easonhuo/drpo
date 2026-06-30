@@ -6,6 +6,29 @@
         "theory_methods_related_work",
         "terminal_audit",
         "continuous_mechanism_e1_e3",
+        "continuous_e4_extrapolation"
+      ],
+      "must_exclude": [
+        "continuous_e4_taper",
+        "hopper_e7",
+        "countdown_e8"
+      ],
+      "must_include": [
+        "global_core_governance",
+        "theory_methods_related_work",
+        "terminal_audit",
+        "continuous_mechanism_e1_e3",
+        "continuous_e4_extrapolation"
+      ],
+      "status": "pass",
+      "target": "continuous_e4_extrapolation"
+    },
+    {
+      "closure": [
+        "global_core_governance",
+        "theory_methods_related_work",
+        "terminal_audit",
+        "continuous_mechanism_e1_e3",
         "continuous_e4_extrapolation",
         "continuous_e4_taper"
       ],
@@ -23,6 +46,29 @@
       ],
       "status": "pass",
       "target": "continuous_e4_taper"
+    },
+    {
+      "closure": [
+        "global_core_governance",
+        "theory_methods_related_work",
+        "terminal_audit",
+        "categorical_e5_mechanism",
+        "categorical_e6_generalization"
+      ],
+      "must_exclude": [
+        "continuous_e4_taper",
+        "hopper_e7",
+        "countdown_e8"
+      ],
+      "must_include": [
+        "global_core_governance",
+        "theory_methods_related_work",
+        "terminal_audit",
+        "categorical_e5_mechanism",
+        "categorical_e6_generalization"
+      ],
+      "status": "pass",
+      "target": "categorical_e6_generalization"
     },
     {
       "closure": [
@@ -74,6 +120,40 @@
       ],
       "status": "pass",
       "target": "countdown_e8"
+    },
+    {
+      "closure": [
+        "global_core_governance",
+        "execution_status_gates",
+        "theory_methods_related_work",
+        "terminal_audit",
+        "continuous_mechanism_e1_e3",
+        "continuous_e4_extrapolation",
+        "continuous_e4_taper",
+        "categorical_e5_mechanism",
+        "categorical_e6_generalization",
+        "hopper_e7",
+        "countdown_e8",
+        "paper_rewrite"
+      ],
+      "must_exclude": [
+        "history_provenance"
+      ],
+      "must_include": [
+        "global_core_governance",
+        "theory_methods_related_work",
+        "terminal_audit",
+        "continuous_mechanism_e1_e3",
+        "continuous_e4_extrapolation",
+        "continuous_e4_taper",
+        "categorical_e5_mechanism",
+        "categorical_e6_generalization",
+        "hopper_e7",
+        "countdown_e8",
+        "paper_rewrite"
+      ],
+      "status": "pass",
+      "target": "paper_rewrite"
     }
   ],
   "authority": "non_authoritative_stage4_minimal_context_shadow",
@@ -99,8 +179,8 @@
   "graph_hash": "0db2d992b651a2ed85d93d68c298214ba6bdbee1ae15b7b7c48d92162a7fb87c",
   "input_hashes": {
     "docs/handoff.md": "85d2cd1562ff1846b9fcd6ce4f0ce83c7bd7a03aebaf4e258fd69a4a294a4065",
-    "docs/handoff_shadow/stage4/minimal/DEPENDENCIES.yaml": "bb1ad1dc8afdd1a826b23c9fcb763eca260c575fd18636fb549d061490683773",
-    "docs/handoff_shadow/stage4/minimal/MODULES.yaml": "c2c8addc431e2b0502c4f5868c1fcfd57f714127f573bf772e30418bd7e06c93",
+    "docs/handoff_shadow/stage4/minimal/DEPENDENCIES.yaml": "fb19da70ea2db6a35c4320e23a91640d0f21887c46bb79873d9548357271f4da",
+    "docs/handoff_shadow/stage4/minimal/MODULES.yaml": "2481d3b0d1c2ab2b58899d38de012ea1007f02d99f8f1ff568d6c36a2a6a146c",
     "experiments/registry.yaml": "6a7f2a8009fc0d3c25a86c669601de38ac873480b76edc35711634c92b14b656"
   },
   "module_order": [
@@ -120,29 +200,103 @@
   ],
   "modules": [
     {
-      "content_contract_evidence": [],
-      "content_contract_topics": [],
+      "content_contract_evidence": [
+        {
+          "description": "Keep docs/handoff.md as the unique research master and reject competing status sources.",
+          "matched_token": "唯一 Master 文档是任务轴",
+          "source_label": "docs/handoff.md: # 0. 研究与执行原则（每次新会话首先阅读） -> # 1. 论文最终目标与两条主工作线",
+          "topic_id": "unique_master_document"
+        },
+        {
+          "description": "Require claim, environment, data, metrics, convergence, and result placement before execution.",
+          "matched_token": "文档先于实验",
+          "source_label": "docs/handoff.md: # 0. 研究与执行原则（每次新会话首先阅读） -> # 1. 论文最终目标与两条主工作线",
+          "topic_id": "document_before_experiment"
+        },
+        {
+          "description": "Preserve historical content and record replacement conclusions without destructive deletion.",
+          "matched_token": "不得破坏性删除",
+          "source_label": "docs/handoff.md: # 0. 研究与执行原则（每次新会话首先阅读） -> # 1. 论文最终目标与两条主工作线",
+          "topic_id": "non_destructive_history"
+        },
+        {
+          "description": "Require terminal-state evidence for convergence, collapse, and method ranking claims.",
+          "matched_token": "动力学必须做终态审计",
+          "source_label": "docs/handoff.md: # 0. 研究与执行原则（每次新会话首先阅读） -> # 1. 论文最终目标与两条主工作线",
+          "topic_id": "terminal_audit_governance"
+        },
+        {
+          "description": "Keep Hopper and Countdown external validity distinct from C-U1 and D-U1 controlled identification.",
+          "matched_token": "外部实验不能替代理想识别",
+          "source_label": "docs/handoff.md: # 0. 研究与执行原则（每次新会话首先阅读） -> # 1. 论文最终目标与两条主工作线",
+          "topic_id": "controlled_external_validity_boundary"
+        }
+      ],
+      "content_contract_topics": [
+        "unique_master_document",
+        "document_before_experiment",
+        "non_destructive_history",
+        "terminal_audit_governance",
+        "controlled_external_validity_boundary"
+      ],
       "deduplicated_source_labels": [],
       "depends_on": [],
       "module_id": "global_core_governance",
-      "snapshot_hash": "96872367e52b08b2387e6790c659820c208bdaa6fbc6219f62a0644fd0e4a05c",
+      "snapshot_hash": "e645f022f372177009ce31ff92e1becd5a85eca9413992cefe047e31cfc8d3e0",
       "source_chars": 9300,
-      "source_hash": "4825a4b8410dbf2bc4fa6e766b5b0a7ea021515f9f7deac69661afbad72bb16c",
+      "source_hash": "632c8bcddc135497141d0faf12248a1179abdb06012d24ce4e9e1cb6054de28b",
       "source_labels": [
         "docs/handoff.md: # 0. 研究与执行原则（每次新会话首先阅读） -> # 1. 论文最终目标与两条主工作线"
       ]
     },
     {
-      "content_contract_evidence": [],
-      "content_contract_topics": [],
+      "content_contract_evidence": [
+        {
+          "description": "Keep development, smoke, and static evidence separate from formal scientific results.",
+          "matched_token": "只提供 development 证据",
+          "source_label": "docs/handoff.md: # 5. 当前真实完成状态 -> # 7. 变量治理",
+          "topic_id": "formal_vs_development_evidence"
+        },
+        {
+          "description": "Preserve the registered global execution order instead of selecting an easier route ad hoc.",
+          "matched_token": "接下来唯一执行顺序",
+          "source_label": "docs/handoff.md: # 5. 当前真实完成状态 -> # 7. 变量治理",
+          "topic_id": "single_registered_execution_order"
+        },
+        {
+          "description": "Preserve explicit predecessor and protocol gates for blocked experiments.",
+          "matched_token": "review-required + blocked",
+          "source_label": "docs/handoff.md: # 5. 当前真实完成状态 -> # 7. 变量治理",
+          "topic_id": "blocked_requires_protocol_or_predecessor"
+        },
+        {
+          "description": "Keep the current formal route anchored to the latest handoff override.",
+          "matched_token": "当前直接进入已实现且 registry 为 ready/active 的 `EXT-H-E7-Q2`",
+          "source_label": "docs/handoff.md: # 5. 当前真实完成状态 -> # 7. 变量治理",
+          "topic_id": "current_formal_route"
+        },
+        {
+          "description": "Forbid unregistered experiments or silent changes to the route.",
+          "matched_token": "任何新增实验必须先说明它补哪一个 claim",
+          "source_label": "docs/handoff.md: # 5. 当前真实完成状态 -> # 7. 变量治理",
+          "topic_id": "no_unregistered_experiment"
+        }
+      ],
+      "content_contract_topics": [
+        "formal_vs_development_evidence",
+        "single_registered_execution_order",
+        "blocked_requires_protocol_or_predecessor",
+        "current_formal_route",
+        "no_unregistered_experiment"
+      ],
       "deduplicated_source_labels": [],
       "depends_on": [
         "global_core_governance"
       ],
       "module_id": "execution_status_gates",
-      "snapshot_hash": "3765128a97a14e59f8ba581a4886239b777332a54f579abfb1a8a3b3e3b8e95e",
+      "snapshot_hash": "23d8f218160dc5ef284891bbccab690b86195d85fa3b8e1db40677d7f93f90a5",
       "source_chars": 8991,
-      "source_hash": "6b1d1a0d1f8bf189613714ad116ba6fbe33b9f19d6c739658940c5efba6030ea",
+      "source_hash": "d43d9c3377f7af4901299528da51ca2898806b3afab619c50c6d93a87275f0a2",
       "source_labels": [
         "docs/handoff.md: # 5. 当前真实完成状态 -> # 7. 变量治理"
       ]
@@ -446,6 +600,8 @@
   "research_master": "docs/handoff.md",
   "schema_version": 1,
   "semantic_contract_required_modules": [
+    "global_core_governance",
+    "execution_status_gates",
     "terminal_audit"
   ],
   "structure_change_policy": "suggestion_only_human_approval_required",

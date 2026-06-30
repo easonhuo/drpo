@@ -138,14 +138,19 @@ def test_stage3_feature_freeze_cannot_be_silently_relaxed(tmp_path: Path) -> Non
     assert "feature_state must be feature_frozen_bugfix_only" in proc.stderr
 
 
-def test_stage4a_parallel_implementation_is_authorized() -> None:
+def test_stage4a_final_acceptance_is_recorded_without_starting_stage4b() -> None:
     ledger = yaml.safe_load(LEDGER.read_text())
     stage_4 = ledger["stages"]["stage_4"]
 
     assert stage_4["status"] == "active"
-    assert stage_4["implementation_state"] == "stage_4a_authorized"
-    assert stage_4["implementation_allowed"] is True
-    assert stage_4["active_phase"] == "stage_4a_schema_inventory"
+    assert stage_4["implementation_state"] == "stage_4a_accepted"
+    assert stage_4["implementation_allowed"] is False
+    assert stage_4["active_phase"] == "stage_4a_accepted_waiting_stage_4b_authorization"
+    assert stage_4["phase_states"] == {
+        "stage_4a_schema_inventory": "accepted",
+        "stage_4b_lossless_candidate": "ready_for_authorization",
+        "stage_4c_context_assembly_shadow_validation": "blocked_by_stage_4b_acceptance",
+    }
     assert stage_4["depends_on"] == ["stage_3_feature_frozen"]
 
 
@@ -163,7 +168,7 @@ def test_stage4a_cannot_revert_to_stage3_shadow_closure_dependency(
     assert "must depend on Stage 3 feature freeze" in proc.stderr
 
 
-def test_stage4b_cannot_be_enabled_before_stage4a_acceptance(tmp_path: Path) -> None:
+def test_stage4b_cannot_be_enabled_without_separate_authorization(tmp_path: Path) -> None:
     repo = copy_repository(tmp_path)
     ledger_path = repo / "docs" / "governance_pipeline_stage_status.yaml"
     ledger = yaml.safe_load(ledger_path.read_text())
@@ -174,7 +179,7 @@ def test_stage4b_cannot_be_enabled_before_stage4a_acceptance(tmp_path: Path) -> 
 
     proc = run_validator(repo, check=False)
     assert proc.returncode == 2
-    assert "authorize only 4A and keep 4B/4C blocked" in proc.stderr
+    assert "leave 4B awaiting authorization" in proc.stderr
 
 
 def test_stage4c_cannot_be_enabled_before_stage4b_acceptance(tmp_path: Path) -> None:
@@ -188,7 +193,7 @@ def test_stage4c_cannot_be_enabled_before_stage4b_acceptance(tmp_path: Path) -> 
 
     proc = run_validator(repo, check=False)
     assert proc.returncode == 2
-    assert "authorize only 4A and keep 4B/4C blocked" in proc.stderr
+    assert "leave 4B awaiting authorization" in proc.stderr
 
 
 def test_stage4_design_cannot_switch_authority(tmp_path: Path) -> None:
@@ -213,6 +218,16 @@ def test_stage4_phase_order_cannot_be_collapsed(tmp_path: Path) -> None:
     proc = run_validator(repo, check=False)
     assert proc.returncode == 2
     assert "4A/4B/4C sequence" in proc.stderr
+
+
+def test_stage4a_after_image_tamper_is_rejected(tmp_path: Path) -> None:
+    repo = copy_repository(tmp_path)
+    path = repo / "docs/handoff_shadow/stage4/minimal/generated/modules/terminal_audit.md"
+    path.write_bytes(path.read_bytes() + b"\nunauthorized drift\n")
+
+    proc = run_validator(repo, check=False)
+    assert proc.returncode == 2
+    assert "Stage 4A after-image drift" in proc.stderr
 
 
 def test_stage5_waits_for_both_stage3_and_stage4_validation() -> None:

@@ -548,3 +548,18 @@ boundary 与 NaN/Inf 分报，实际 source 却只包含统一收敛窗口。只
 上述加固只提高 Stage 4A shadow Context Builder 的可审计性和 fail-closed 能力。
 `docs/handoff.md` 与 `experiments/registry.yaml` 继续是唯一权威输入，Stage 4B/4C、
 Stage 5 和 authority cutover 仍保持阻塞。
+
+### 13.7 Stage 4A final acceptance closure（2026-06-30）
+
+Stage 4A 的静态 inventory、动态语义图与 Minimal Context Core 通过统一的
+`governance_stage4a_acceptance_spec.md` 进行独立验收。验收入口必须同时执行正向完整性、
+确定性/no-op、权威隔离、六个 context closure、三个高风险共享模块的 source-scoped
+semantic contracts，以及故障注入矩阵。
+
+验收证据写入 `docs/governance_stage4a_acceptance/`，并以 `AFTER_IMAGE.json` 冻结
+Stage 4A 实现。验收通过后只允许 bugfix、compatibility 或 clarification 类修改；职责变化
+或架构扩展需要显式 reopen/新授权。
+
+通过 Stage 4A 只把 `stage_4b_lossless_candidate` 调整为 `ready_for_authorization`，不等于
+Stage 4B 已启动。Stage 4C、Stage 5 与 authority cutover 继续保持阻塞，`docs/handoff.md`
+和 `experiments/registry.yaml` 继续是权威输入。

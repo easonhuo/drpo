@@ -7,6 +7,8 @@ module_granularity: independent_research_responsibility
 structure_change_policy: suggestion_only_human_approval_required
 default_split_suggestion_chars: 50000
 semantic_contract_required_modules:
+- global_core_governance
+- execution_status_gates
 - terminal_audit
 modules:
 - module_id: global_core_governance
@@ -17,6 +19,38 @@ modules:
     path: docs/handoff.md
     start: '# 0. 研究与执行原则（每次新会话首先阅读）'
     end: '# 1. 论文最终目标与两条主工作线'
+  content_contract:
+    required_topics:
+    - topic_id: unique_master_document
+      match_any:
+      - 唯一 Master 文档是任务轴
+      description: Keep docs/handoff.md as the unique research master and reject competing status sources.
+      source_label_any:
+      - '# 0. 研究与执行原则'
+    - topic_id: document_before_experiment
+      match_any:
+      - 文档先于实验
+      description: Require claim, environment, data, metrics, convergence, and result placement before execution.
+      source_label_any:
+      - '# 0. 研究与执行原则'
+    - topic_id: non_destructive_history
+      match_any:
+      - 不得破坏性删除
+      description: Preserve historical content and record replacement conclusions without destructive deletion.
+      source_label_any:
+      - '# 0. 研究与执行原则'
+    - topic_id: terminal_audit_governance
+      match_any:
+      - 动力学必须做终态审计
+      description: Require terminal-state evidence for convergence, collapse, and method ranking claims.
+      source_label_any:
+      - '# 0. 研究与执行原则'
+    - topic_id: controlled_external_validity_boundary
+      match_any:
+      - 外部实验不能替代理想识别
+      description: Keep Hopper and Countdown external validity distinct from C-U1 and D-U1 controlled identification.
+      source_label_any:
+      - '# 0. 研究与执行原则'
 - module_id: execution_status_gates
   title: Current execution status and gates
   responsibility: Provide the current experiment evidence states, execution ordering, and formal launch gates.
@@ -25,6 +59,40 @@ modules:
     path: docs/handoff.md
     start: '# 5. 当前真实完成状态'
     end: '# 7. 变量治理'
+  content_contract:
+    required_topics:
+    - topic_id: formal_vs_development_evidence
+      match_any:
+      - 只提供 development 证据
+      - 静态/CPU 测试
+      description: Keep development, smoke, and static evidence separate from formal scientific results.
+      source_label_any:
+      - '# 5. 当前真实完成状态'
+    - topic_id: single_registered_execution_order
+      match_any:
+      - 接下来唯一执行顺序
+      description: Preserve the registered global execution order instead of selecting an easier route ad hoc.
+      source_label_any:
+      - '# 5. 当前真实完成状态'
+    - topic_id: blocked_requires_protocol_or_predecessor
+      match_any:
+      - review-required + blocked
+      - 继续 blocked
+      description: Preserve explicit predecessor and protocol gates for blocked experiments.
+      source_label_any:
+      - '# 5. 当前真实完成状态'
+    - topic_id: current_formal_route
+      match_any:
+      - 当前直接进入已实现且 registry 为 ready/active 的 `EXT-H-E7-Q2`
+      description: Keep the current formal route anchored to the latest handoff override.
+      source_label_any:
+      - '# 5. 当前真实完成状态'
+    - topic_id: no_unregistered_experiment
+      match_any:
+      - 任何新增实验必须先说明它补哪一个 claim
+      description: Forbid unregistered experiments or silent changes to the route.
+      source_label_any:
+      - '# 5. 当前真实完成状态'
 - module_id: theory_methods_related_work
   title: Theory, method families, and related work
   responsibility: Provide the shared repulsive-dynamics theory, method definitions, comparison boundaries, and literature

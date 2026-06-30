@@ -1,0 +1,121 @@
+{
+  "cases": [
+    {
+      "case_id": "missing_terminal_topic",
+      "diagnostic": "semantic contract terminal_audit topic mismatch; missing=['separate_failure_reporting'], extra=[]",
+      "expected": "missing topic",
+      "status": "PASS"
+    },
+    {
+      "case_id": "terminal_evidence_wrong_source",
+      "diagnostic": "module terminal_audit content contract is incomplete; missing topics: separate_failure_reporting",
+      "expected": "source-scoped evidence failure",
+      "status": "PASS"
+    },
+    {
+      "case_id": "authority_promoted",
+      "diagnostic": "MODULES.yaml authority must remain the non-authoritative shadow",
+      "expected": "shadow authority boundary failure",
+      "status": "PASS"
+    },
+    {
+      "case_id": "automatic_structure_policy",
+      "diagnostic": "module structure changes must remain suggestion-only",
+      "expected": "automatic structure mutation failure",
+      "status": "PASS"
+    },
+    {
+      "case_id": "unknown_dependency",
+      "diagnostic": "depends_on[hopper_e7] references unknown modules: ['unknown_module']",
+      "expected": "unknown dependency failure",
+      "status": "PASS"
+    },
+    {
+      "case_id": "self_dependency",
+      "diagnostic": "module hopper_e7 cannot depend on itself",
+      "expected": "self dependency failure",
+      "status": "PASS"
+    },
+    {
+      "case_id": "dependency_cycle",
+      "diagnostic": "dependency cycle: global_core_governance -> hopper_e7 -> global_core_governance",
+      "expected": "cycle failure",
+      "status": "PASS"
+    },
+    {
+      "case_id": "hopper_leaks_countdown",
+      "diagnostic": "acceptance target hopper_e7 failed: missing=[], leaked=['categorical_e6_generalization', 'countdown_e8']",
+      "expected": "closure leakage failure",
+      "status": "PASS"
+    },
+    {
+      "case_id": "countdown_leaks_hopper",
+      "diagnostic": "acceptance target countdown_e8 failed: missing=[], leaked=['hopper_e7']",
+      "expected": "closure leakage failure",
+      "status": "PASS"
+    },
+    {
+      "case_id": "unmapped_canonical_experiment",
+      "diagnostic": "unmapped registry objects remain: ['candidate_add_or_map_module']",
+      "expected": "unmapped canonical failure",
+      "status": "PASS"
+    },
+    {
+      "case_id": "unmapped_formal_development",
+      "diagnostic": "unmapped registry objects remain: ['candidate_map_development_formal_registration']",
+      "expected": "unmapped formal development failure",
+      "status": "PASS"
+    },
+    {
+      "case_id": "unmapped_pilot_development",
+      "diagnostic": "unmapped registry objects remain: ['candidate_map_development_registration']",
+      "expected": "unmapped pilot development failure",
+      "status": "PASS"
+    },
+    {
+      "case_id": "stale_registry_mapping",
+      "diagnostic": "missing registry IDs in experiments/registry.yaml:experiments: C-U1-E3-ADAM-RERUN",
+      "expected": "stale mapping failure",
+      "status": "PASS"
+    },
+    {
+      "case_id": "partial_source_overlap",
+      "diagnostic": "module global_core_governance has partial source-span overlap: 'docs/handoff.md: # 0. 研究与执行原则（每次新会话首先阅读） -> # 1. 论文最终目标与两条主工作线' vs 'docs/handoff.md: ## 0.1 当前执行门禁 -> # 2. 环境登记表（锁定）'",
+      "expected": "partial overlap failure",
+      "status": "PASS"
+    },
+    {
+      "case_id": "duplicate_marker_block",
+      "diagnostic": "duplicate or empty HANDOFF-DELTA-BLOCK ID in docs/handoff.md: 'after_heading:v50-stage3-shadow-bootstrap'",
+      "expected": "duplicate marker failure",
+      "status": "PASS"
+    },
+    {
+      "case_id": "tampered_generated_output",
+      "diagnostic": "{\n  \"error\": \"stale generated file: MODULE_INDEX.json\",\n  \"status\": \"FAIL\"\n}\n",
+      "expected": "stale output failure",
+      "status": "PASS"
+    },
+    {
+      "case_id": "missing_generated_output",
+      "diagnostic": "{\n  \"error\": \"missing generated file: modules/terminal_audit.md\",\n  \"status\": \"FAIL\"\n}\n",
+      "expected": "missing output failure",
+      "status": "PASS"
+    },
+    {
+      "case_id": "fully_covered_source_dedup",
+      "diagnostic": "deduplicated=1",
+      "expected": "dedup with provenance",
+      "status": "PASS"
+    },
+    {
+      "case_id": "builder_authority_isolation",
+      "diagnostic": "authoritative hashes unchanged",
+      "expected": "no authoritative side effect",
+      "status": "PASS"
+    }
+  ],
+  "passed": 19,
+  "status": "PASS",
+  "total": 19
+}

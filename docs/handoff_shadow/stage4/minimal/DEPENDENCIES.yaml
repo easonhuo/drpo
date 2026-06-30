@@ -55,6 +55,17 @@ depends_on:
   - hopper_e7
   - countdown_e8
 acceptance_targets:
+- target: continuous_e4_extrapolation
+  must_include:
+  - global_core_governance
+  - theory_methods_related_work
+  - terminal_audit
+  - continuous_mechanism_e1_e3
+  - continuous_e4_extrapolation
+  must_exclude:
+  - continuous_e4_taper
+  - hopper_e7
+  - countdown_e8
 - target: continuous_e4_taper
   must_include:
   - global_core_governance
@@ -64,6 +75,17 @@ acceptance_targets:
   - continuous_e4_extrapolation
   - continuous_e4_taper
   must_exclude:
+  - hopper_e7
+  - countdown_e8
+- target: categorical_e6_generalization
+  must_include:
+  - global_core_governance
+  - theory_methods_related_work
+  - terminal_audit
+  - categorical_e5_mechanism
+  - categorical_e6_generalization
+  must_exclude:
+  - continuous_e4_taper
   - hopper_e7
   - countdown_e8
 - target: hopper_e7
@@ -90,3 +112,18 @@ acceptance_targets:
   - hopper_e7
   - continuous_e4_taper
   - continuous_e4_extrapolation
+- target: paper_rewrite
+  must_include:
+  - global_core_governance
+  - theory_methods_related_work
+  - terminal_audit
+  - continuous_mechanism_e1_e3
+  - continuous_e4_extrapolation
+  - continuous_e4_taper
+  - categorical_e5_mechanism
+  - categorical_e6_generalization
+  - hopper_e7
+  - countdown_e8
+  - paper_rewrite
+  must_exclude:
+  - history_provenance
