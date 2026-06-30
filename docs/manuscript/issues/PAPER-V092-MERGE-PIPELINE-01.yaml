@@ -1,0 +1,70 @@
+schema_version: 2
+issue_id: PAPER-V092-MERGE-PIPELINE-01
+section_id: full-paper
+paragraph_ids:
+- ABSTRACT-P01
+- INTRO-P01
+- INTRO-P02
+- INTRO-P03
+- INTRO-P04
+- INTRO-P05
+- INTRO-P06
+- RELATED-P01
+- RELATED-P02
+- RELATED-P03
+- SETUP-P01
+- SETUP-P02
+- THEORY-P01
+- THEORY-P02
+- THEORY-P03
+- THEORY-P04
+- THEORY-P05
+- METHOD-P01
+- METHOD-P02
+- METHOD-P03
+- METHOD-P04
+- EXP-P01
+- EXP-P02
+- EXP-P03
+- EXP-P04
+- EXP-P05
+- EXP-P06
+- DISC-P01
+- DISC-P02
+- DISC-P03
+- APP-PROOF-P01
+- APP-GAUSS-P01
+- APP-CAT-P01
+- APP-ENV-P01
+- APP-PROT-P01
+- APP-RES-P01
+- APP-REPRO-P01
+- APP-DRO-P01
+- APP-CORR-P01
+problem: Merge the user-approved v0.9-review, repository v0.9, and the valid parts of v0.9.1 only after establishing the stable Guidance and operational Playbook; remove the confirmed old-paper-plus-sequel framing; preserve both existing-method positioning and strict badness-distance isolation; and generate a synchronized full-paper outline, blueprint, prose, appendix, Overleaf source, figures, and PDF through a stable-ID bidirectional pipeline.
+change_control:
+  kind: infrastructure_migration
+  reported_layer: outline
+  outline_change_authorized: true
+  authorization_evidence: The user explicitly ordered a merged new version, required the v0.9.1 bugs to be corrected, required the writing system to be built first, and requested fully synchronized outline, blueprint, prose, appendix, TeX, figures, PDF, and Overleaf package generation.
+checks:
+- layer: outline
+  status: fail
+  evidence: The active v0.9.1 outline contains confirmed old-paper-plus-sequel framing and is not a faithful mechanical merge of the user-approved v0.9-review, repository v0.9, and valid v0.9.1 refinements.
+- layer: blueprint
+  status: blocked
+  evidence: The Introduction-only v0.5 blueprint cannot remain active after the full-paper outline merge and pipeline migration.
+- layer: prose
+  status: blocked
+  evidence: No synchronized full-paper prose artifact existed under the active hierarchy.
+resolution:
+  state: completed
+  required_layers:
+  - outline
+  - blueprint
+  - prose
+  changed_layers:
+  - outline
+  - blueprint
+  - prose
+allowed_additional_paragraph_ids: []

@@ -1,0 +1,49 @@
+\section{Distributionally Robust Policy Optimization}
+\label{sec:method}
+
+% MANUSCRIPT-NODE: METHOD-P01
+DRPO applies a policy-relative envelope to the negative component of the signed actor field. Let $r_\theta(s,a)\ge 0$ denote the registered remoteness measure for the policy family and experiment. We define
+\begin{equation}
+w^-_\lambda(s,a)=\exp[-\lambda r_\theta(s,a)],\qquad \lambda\ge 0,
+\label{eq:exp-weight}
+\end{equation}
+and optimize
+\begin{equation}
+\mathbf F_{\mathrm{DRPO}}(\theta)=\mathbb E_\nu\!\left[A^+\nabla\log\pi_\theta-A^-w^-_\lambda\nabla\log\pi_\theta\right].
+\label{eq:drpo-field}
+\end{equation}
+Positive updates are unchanged, nearby negative actions retain substantial influence, and increasingly remote negative actions are attenuated. Sample quality and learner-relative remoteness remain distinct axes: the matched experiments vary remoteness without changing badness, while Appendix~\ref{app:optimistic-dro} states the separate Optimistic-DRO quality-selection result. The main DRPO update does not equate the two controls.
+% END-MANUSCRIPT-NODE: METHOD-P01
+
+% MANUSCRIPT-NODE: METHOD-P02
+In the exponential-family analysis, the uncontrolled negative moment is
+\begin{equation}
+q\mathbf m_-=\mathbb E[A^-T(a)].
+\end{equation}
+DRPO replaces it by
+\begin{equation}
+q_\lambda\mathbf m_{-,\lambda}=\mathbb E[A^-e^{-\lambda r_\theta(s,a)}T(a)],
+\label{eq:weighted-negative-moment}
+\end{equation}
+which induces the controlled target
+\begin{equation}
+\mathbf m_\lambda^\star=\frac{p\mathbf m_+-q_\lambda\mathbf m_{-,\lambda}}{p-q_\lambda}.
+\end{equation}
+The method therefore modifies the same term that first creates stable extrapolation and later drives the signed target toward the boundary. Small $r_\theta$ preserves substantial negative influence; large $r_\theta$ is selectively attenuated.
+% END-MANUSCRIPT-NODE: METHOD-P02
+
+% MANUSCRIPT-NODE: METHOD-P03
+\begin{proposition}[Vanishing weighted far-field gradient]
+\label{prop:vanishing}
+Suppose the policy score satisfies $\|\nabla_\theta\log\pi_\theta(a\mid s)\|\le C(1+r_\theta(s,a))^k$ for finite $C,k$. For any $\lambda>0$,
+\begin{equation}
+e^{-\lambda r_\theta(s,a)}\|\nabla_\theta\log\pi_\theta(a\mid s)\|\rightarrow 0
+\quad\text{as }r_\theta(s,a)\rightarrow\infty.
+\end{equation}
+\end{proposition}
+The exponential form is therefore a gradient-tail envelope derived from the far-field score-growth bound. Directional utility is measured separately in the controlled experiments.
+% END-MANUSCRIPT-NODE: METHOD-P03
+
+% MANUSCRIPT-NODE: METHOD-P04
+We compare DRPO against an uncontrolled signed baseline, Positive-only learning, non-selective global scaling, registered linear or reciprocal tapers, and a hard threshold on the same remoteness coordinate. A quality-based hard filter is reported separately because it controls a different axis. Where the protocol calls for budget matching, methods receive the same pre-optimizer raw negative-gradient norm and are evaluated with paired seeds. No method ranking is assumed in advance; best and terminal checkpoints, local-negative retention, far-field retention, task performance, boundary events, and numerical failures are all reported.
+% END-MANUSCRIPT-NODE: METHOD-P04

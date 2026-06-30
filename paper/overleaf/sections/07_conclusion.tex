@@ -1,0 +1,14 @@
+\section{Implications and Conclusion}
+\label{sec:conclusion}
+
+% MANUSCRIPT-NODE: DISC-P01
+Negative feedback is a policy-improvement resource with a dynamical failure mode. It provides boundary information and can shift a policy beyond the Positive-only target. The failure arises when historical actions remain active after becoming remote from the current learner, so their optimization influence no longer tracks their local relevance. The transferable design principle is therefore to control learner-relative far-field negative influence rather than delete negative feedback as a class.
+% END-MANUSCRIPT-NODE: DISC-P01
+
+% MANUSCRIPT-NODE: DISC-P02
+The continuous and categorical analyses share an aggregate structure but not an identical local law. Gaussian policies can amplify mean scores with standardized distance and couple repulsion to support contraction. Categorical direct-logit scores remain bounded, yet repeated negative updates can persistently suppress probability. In both cases, aggregate positive--negative competition determines whether the policy remains at an interior equilibrium or moves toward a feasibility boundary.
+% END-MANUSCRIPT-NODE: DISC-P02
+
+% MANUSCRIPT-NODE: DISC-P03
+Negative feedback can create stable policy improvement beyond Positive-only learning. By separating badness from policy remoteness, we identify how historical negative actions become far-field, dominate the aggregate update, and move the policy toward a feasibility boundary where a finite equilibrium can disappear. DRPO controls this same negative term, preserving useful local repulsion while suppressing the destructive far-field tail.
+% END-MANUSCRIPT-NODE: DISC-P03

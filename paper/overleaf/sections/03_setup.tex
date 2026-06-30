@@ -1,0 +1,20 @@
+\section{Problem Setup}
+\label{sec:setup}
+
+% MANUSCRIPT-NODE: SETUP-P01
+Let $\nu$ denote the empirical update distribution induced by offline data, replay, or stale trajectories. We study the signed actor field
+\begin{equation}
+\mathbf F(\theta)=\mathbb E_{(s,a)\sim\nu}\!\left[\widehat A(s,a)\nabla_\theta\log\pi_\theta(a\mid s)\right].
+\label{eq:signed-field}
+\end{equation}
+Writing $A^+=\max(\widehat A,0)$ and $A^-=\max(-\widehat A,0)$ gives $\mathbf F=\mathbf F^+-\mathbf F^-$. For a negative sample,
+\begin{equation}
+\|g_i^-\|=A_i^-\,\|\nabla_\theta\log\pi_\theta(a_i\mid s_i)\|.
+\label{eq:factorization}
+\end{equation}
+The first factor is sample badness or severity; the second is learner-relative policy geometry. Sample count, directional coherence, and the network Jacobian determine how individual terms aggregate. Equation~\ref{eq:factorization} motivates matching badness while changing only distance or rarity.
+% END-MANUSCRIPT-NODE: SETUP-P01
+
+% MANUSCRIPT-NODE: SETUP-P02
+We use $r_\theta(s,a)$ as a family-indexed remoteness coordinate. For a Gaussian policy, $r_\theta$ is a registered standardized or Mahalanobis distance (or an equivalent calibrated negative log-density). For a categorical policy, it is action surprisal $-\log\pi_\theta(a\mid s)$; for sequence policies, the registered analogue is normalized token- or completion-level negative log-likelihood. The notation is shared, but the score-growth law is not assumed to be identical across policy families. Crucially, far field is dynamic: a fixed historical action can become remote as the current learner changes.
+% END-MANUSCRIPT-NODE: SETUP-P02

@@ -27,3 +27,13 @@ adapter_model.bin
 **/terminal_adapter/
 **/last_finite_adapter/
 **/.last_finite_adapter_work/
+
+# Generated LaTeX intermediates; keep paper/overleaf/main.pdf as the reviewed output.
+paper/overleaf/*.aux
+paper/overleaf/*.bbl
+paper/overleaf/*.blg
+paper/overleaf/*.fdb_latexmk
+paper/overleaf/*.fls
+paper/overleaf/*.log
+paper/overleaf/*.out
+paper/overleaf/*.synctex.gz

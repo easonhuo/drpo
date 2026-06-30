@@ -1,0 +1,33 @@
+\section{Introduction}
+\label{sec:introduction}
+
+% MANUSCRIPT-NODE: INTRO-P01
+Policy optimization learns not only from successful actions but also from actions that should become less likely. Positive updates reinforce observed successes, whereas negative updates suppress known bad modes and shape the boundary between acceptable and unacceptable behavior. This distinction matters because a learner trained only on positive examples is naturally pulled toward the empirical positive target. When negative repulsion is balanced against that attraction, however, the policy can settle beyond the Positive-only target and improve in regions that were not directly demonstrated by the positive data. The central problem is therefore not whether negative feedback should be used, but how to preserve its policy-improvement value without allowing the same repulsion to become dynamically excessive.
+% END-MANUSCRIPT-NODE: INTRO-P01
+
+% MANUSCRIPT-NODE: INTRO-P02
+The difficulty arises when the data are historical. A negative action may initially lie near the learner and provide relevant local boundary information, but offline logs, replay buffers, stale actors, and asynchronous trajectories can continue to reuse that action after the policy has moved away. Its learner-relative distance or rarity then increases while its negative label continues to generate updates. For Gaussian policies, the score can grow with standardized distance; for categorical policies, the direct-logit score is bounded, yet repeated negative updates continue to reduce the action's log-odds. Historical reuse can therefore transform locally useful feedback into persistent far-field repulsion.
+% END-MANUSCRIPT-NODE: INTRO-P02
+
+% MANUSCRIPT-NODE: INTRO-P03
+Existing methods already regulate negative updates in several ways: positive-only objectives remove them, global coefficients reduce their scale, clipping limits individual ratios, behavior constraints restrict support movement, low-probability controls target rare events, and quality filtering removes selected data. These mechanisms can improve stability, but they do not explain why the same negative feedback is useful near the learner and destructive after it becomes far field. The question is difficult to answer from ordinary logs because low reward, large negative advantage, rarity, and policy distance are typically correlated. We therefore isolate policy remoteness while matching context, action quality or semantic role, reward, negative-advantage magnitude, sample count, base coefficient, and policy stage. This control makes distance or rarity an independently testable amplifier rather than a proxy for samples that are simply worse.
+% END-MANUSCRIPT-NODE: INTRO-P03
+
+% MANUSCRIPT-NODE: INTRO-P04
+Repulsive Dynamics explains the full transition at the level of aggregate policy updates. Positive-only optimization targets the positive moment. A moderate negative contribution shifts the finite equilibrium beyond that target, yielding stable extrapolation. As the negative contribution becomes stronger or more outward, the signed target approaches the feasible boundary of the policy family; beyond that boundary, a finite equilibrium no longer exists. Gaussian and categorical policies share this aggregate phase structure, although they express it differently: Gaussian policies can exhibit distance-amplified scores and coupled mean--support dynamics, whereas categorical policies exhibit bounded but persistent probability suppression toward the simplex boundary.
+% END-MANUSCRIPT-NODE: INTRO-P04
+
+% MANUSCRIPT-NODE: INTRO-P05
+DRPO acts directly on the negative term identified by the theory. It replaces the raw negative contribution with a policy-relative exponential weight, so that nearby negative actions retain substantial influence while increasingly remote actions are attenuated. Under finite-order score growth, the weighted far-field gradient converges to zero. This design is naturally interpreted as distributional control of the empirical actor update: quality-based selection and learner-relative remoteness are distinct axes and are evaluated separately rather than being conflated. The method therefore preserves the local negative feedback responsible for extrapolation while preventing the far-field tail from dominating the aggregate update.
+% END-MANUSCRIPT-NODE: INTRO-P05
+
+% MANUSCRIPT-NODE: INTRO-P06
+We evaluate this account through four questions. First, do far-field or rare negative updates become disproportionately influential in realistic policy learning? Second, when badness is matched, does policy remoteness independently generate large negative influence and causally transmit into drift or boundary events? Third, does training follow the phase sequence predicted by Theorem~\ref{thm:equilibrium}, and can DRPO preserve useful repulsion while preventing the destructive regime under fair gradient budgets? Fourth, does the resulting control improve external tasks? C-U1 and D-U1 provide controlled continuous and categorical identification, whereas registered Hopper/D4RL and Countdown experiments are assigned the external-validation role and remain TBD until formal terminal audit. The paper contributes a theory of Repulsive Dynamics, matched quality--distance and quality--rarity causal identification, DRPO control of the theorem-level negative term, and a pre-registered external--controlled--external evidence chain.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.98\textwidth]{figures/generated/fig1_story.pdf}
+\caption{Paper overview. Negative feedback can move a policy beyond the Positive-only target, but historical reuse can turn local feedback into destructive far-field influence. DRPO attenuates that tail. The evidence chain first establishes external occurrence, then performs matched source and causal identification, and finally returns to external task closure. All curves are conceptual; empirical figures are inserted only after formal terminal-audited completion.}
+\label{fig:story}
+\end{figure*}
+% END-MANUSCRIPT-NODE: INTRO-P06

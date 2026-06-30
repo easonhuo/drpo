@@ -1,0 +1,15 @@
+\section{Optimistic Distributional Selection}
+\label{app:optimistic-dro}
+
+% MANUSCRIPT-NODE: APP-DRO-P01
+Let $P$ denote the empirical data distribution and let $R(s,a)$ be the registered quality signal. The Optimistic-DRO selection problem is
+\begin{equation}
+\begin{aligned}
+\max_Q\quad &\mathbb E_Q[R(s,a)]\\
+\text{s.t.}\quad &Q\ll P,\qquad 0\le \frac{dQ}{dP}\le \frac{1}{\kappa},\\
+&\int dQ=1.
+\end{aligned}
+\label{eq:optimistic-dro}
+\end{equation}
+Its optimum allocates the maximum admissible density to the highest-quality region of $P$, with boundary mass only when needed to satisfy normalization. For a continuous reward distribution this is the top-$\kappa$ hard-selection solution. This result establishes a principled quality-selection operator inside the current DRPO manuscript. It does not identify policy remoteness with low quality and does not derive the exponential envelope in Eq.~\eqref{eq:exp-weight}. Quality selection controls which data are emphasized; remoteness tapering controls how a negative sample's influence changes as the learner moves. The source-isolation experiments keep quality fixed precisely so that the second effect can be identified independently.
+% END-MANUSCRIPT-NODE: APP-DRO-P01

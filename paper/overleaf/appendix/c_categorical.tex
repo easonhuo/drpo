@@ -1,0 +1,6 @@
+\section{Categorical Boundary Dynamics}
+\label{app:categorical}
+
+% MANUSCRIPT-NODE: APP-CAT-P01
+For softmax probabilities $p_j$, the score for selected action $y$ is $e_y-p$, whose Euclidean norm is bounded. Under a negative update with fixed local coefficient, the selected logit decreases relative to competing logits, so $z_y-z_j$ falls approximately linearly while $p_y$ can decay exponentially. The failure mode is therefore persistent support suppression toward the simplex boundary. In a shared network, the parameter-space gradient additionally contains the network Jacobian and cross-action interference, which are measured rather than inferred from the direct-logit bound alone.
+% END-MANUSCRIPT-NODE: APP-CAT-P01

@@ -1,232 +1,170 @@
-# RL Writing Corpus Notes v1.0
+# RL Writing Corpus Notes v1.1
 
-**Status:** expandable source and provenance record.
+**Status:** source and extraction record. New entries do not automatically change Guidance.
 
-**Purpose:** preserve the close-reading evidence behind `RL_PAPER_WRITING_GUIDANCE.md` without turning the stable guidance into a changing bibliography. Adding a paper or writing skill here does not automatically change the guidance. A proposed guidance change must identify a cross-paper principle and pass manuscript-governance review.
+The corpus has two purposes:
 
-No copyrighted paper PDFs or third-party executable skill code are committed. Links point to primary paper pages or public repositories; notes paraphrase structural moves rather than reproducing text.
-
----
-
-## 1. Close-reading template
-
-For each source, record:
-
-1. opening problem;
-2. precise missing link;
-3. role of theory or derivation;
-4. direct method consequence;
-5. experiment architecture;
-6. attack/defense style;
-7. reusable principle;
-8. non-transferable context.
+1. identify recurring story, theory, method, and evidence patterns in strong RL papers;
+2. extract operational techniques from open-source writing skills without executing untrusted code.
 
 ---
 
-## 2. Reinforcement-learning paper corpus
+## 1. RL paper patterns retained
 
-### Trust Region Policy Optimization (ICML 2015)
-
-- **Opening:** policy updates can improve a surrogate while degrading the real objective.
-- **Theory role:** a monotonic-improvement bound motivates a constrained update.
-- **Method consequence:** the practical optimization approximates the theorem’s trust-region object.
-- **Evidence architecture:** controlled algorithm comparisons and sensitivity to the update constraint.
-- **Reusable principle:** a theorem should identify the design variable the method implements.
-
-Primary page: https://proceedings.mlr.press/v37/schulman15.html
-
-### Proximal Policy Optimization (2017)
-
-- **Opening:** retain TRPO-like reliability with a simpler first-order objective.
-- **Method consequence:** a memorable clipped surrogate is the paper’s center.
-- **Defense style:** operational simplicity and empirical breadth defend the method; the paper does not lead with a limitations inventory.
-- **Reusable principle:** make the value proposition restatable in one sentence.
-
-Primary page: https://arxiv.org/abs/1707.06347
-
-### Soft Actor-Critic (ICML 2018)
-
-- **Opening:** instability and sample inefficiency in continuous control.
-- **Theory role:** maximum-entropy soft policy iteration defines an idealized object.
-- **Method consequence:** the deep actor–critic is derived from the same object.
-- **Defense style:** assumptions live in the formal development; the main story emphasizes what the derivation enables.
-- **Reusable principle:** do not repeatedly apologize for a useful abstraction once its mathematical object is clear.
-
-Primary page: https://proceedings.mlr.press/v80/haarnoja18b.html
-
-### Maximum a Posteriori Policy Optimisation (ICLR 2018)
-
-- **Theory/derivation:** decomposes policy improvement into a non-parametric improvement step and a projection step.
-- **Method consequence:** each practical component maps to one derivation step.
-- **Reusable principle:** multi-component algorithms are clearest when every component has one mathematical responsibility.
-
-Primary page: https://arxiv.org/abs/1806.06920
-
-### Advantage-Weighted Regression (2019)
-
-- **Reframing:** an RL update becomes a scalable weighted supervised-learning objective.
-- **Method consequence:** simplicity is part of the scientific value.
-- **Reusable principle:** expose the simplest practical form implied by the theory.
-
-Primary page: https://arxiv.org/abs/1910.00177
-
-### Behavior-Regularized Offline Reinforcement Learning (2019/2020)
-
-- **Opening:** policy improvement on static data is threatened by distribution shift.
-- **Method structure:** a common framework organizes several regularization choices.
-- **Experiment architecture:** instantiations are compared under a shared protocol.
-- **Reusable principle:** when proposing a family, separate the common control object from individual instantiations.
-
-Primary page: https://arxiv.org/abs/1911.11361
-
-### Conservative Q-Learning (NeurIPS 2020)
-
-- **Opening:** learned values for policy actions can be overestimated outside the dataset.
-- **Theory role:** conservative value properties directly answer that failure.
-- **Method consequence:** the objective optimizes the term that produces conservatism.
-- **Evidence architecture:** theory property, controlled diagnostics, then benchmark performance.
-- **Reusable principle:** identify one failure, prove one counter-property, and optimize that same property.
-
-Primary page: https://proceedings.neurips.cc/paper/2020/hash/0d2b2061826a5df3221116a5085a6052-Abstract.html
-
-### Pessimism in the Face of Uncertainty (2020/2021)
-
-- **Opening:** offline decision-making suffers from uncertainty in unsupported regions.
-- **Theory role:** pessimism is the theorem-level answer and finite-sample guarantees remain tied to the algorithmic object.
-- **Reusable principle:** theory boundaries are clearest when expressed through the defined object rather than broad defensive prose.
-
-Primary page: https://arxiv.org/abs/2012.15085
-
-### AWAC (2020/2021)
-
-- **Opening:** real robots need to use offline experience and then improve online without dangerous exploration.
-- **Story architecture:** deployment bottleneck → objective mismatch → practical update → simulated and real-robot closure.
-- **Reusable principle:** realistic relevance can anchor the story before controlled or algorithmic detail.
-
-Primary page: https://arxiv.org/abs/2006.09359
-
-### TD3+BC / A Minimalist Approach to Offline RL (NeurIPS 2021)
-
-- **Attack:** offline RL may not need elaborate machinery to achieve strong performance.
-- **Method:** a minimal behavior-cloning term added to a standard backbone.
-- **Defense:** broad fair evaluation, normalization details, and ablations.
-- **Reusable principle:** use evidence rather than anticipatory caveats to defend a deliberately simple idea.
-
-Primary page: https://proceedings.neurips.cc/paper/2021/hash/a8166da05c5a094f7dc03724b41886e5-Abstract.html
-
-### Decision Transformer (NeurIPS 2021)
-
-- **Reframing:** sequential decision-making is presented as conditional sequence modeling.
-- **Consistency:** the same framing governs title, model, experiments, and discussion.
-- **Reusable principle:** a surprising but simple reframing can unify a paper more strongly than a list of algorithmic components.
-
-Primary page: https://proceedings.neurips.cc/paper/2021/hash/7f489f642a0ddb10272b5c31057f0663-Abstract.html
-
-### Implicit Q-Learning (ICLR 2022)
-
-- **Sharp question:** can offline RL improve without evaluating unseen actions?
-- **Method consequence:** expectile value learning and advantage-weighted extraction answer that question.
-- **Story discipline:** the paper does not expand into every adjacent offline-RL problem.
-- **Reusable principle:** one sharp question is stronger than comprehensive problem coverage.
-
-Primary page: https://openreview.net/forum?id=68n2s9ZJWF8
-
-### Direct Preference Optimization (NeurIPS 2023)
-
-- **Derivation:** a constrained RLHF objective is transformed into a directly optimized preference loss.
-- **Same-object bridge:** the derivation and implementation share the same likelihood-ratio object.
-- **Reusable principle:** the cleanest method story is an unbroken equation chain from objective to implementation.
-
-Primary page: https://proceedings.neurips.cc/paper_files/paper/2023/hash/a85b405ed65c6477a4fe8302b5e06ce7-Abstract-Conference.html
-
-### ReBRAC (NeurIPS 2023)
-
-- **Contribution style:** careful implementation and simple modifications are validated at scale.
-- **Evidence architecture:** broad benchmark, ablation, sensitivity, and distinction between algorithmic and engineering choices.
-- **Reusable principle:** empirical papers earn credibility through protocol transparency and coverage, not inflated novelty prose.
-
-Primary page: https://proceedings.neurips.cc/paper_files/paper/2023/hash/5d2017d07b3b55c0c4e30f95f532b8d0-Abstract-Conference.html
-
-### Cal-QL (NeurIPS 2023)
-
-- **Opening:** a successful conservative principle can obstruct offline-to-online improvement.
-- **Method consequence:** introduce the smallest calibration property that corrects the transition failure.
-- **Reusable principle:** explain exactly where an existing principle breaks, then validate the correction at that transition.
-
-Primary page: https://arxiv.org/abs/2303.05479
-
-### DreamerV3 (Nature 2025 / arXiv lineage)
-
-- **Value proposition:** one general recipe works across diverse domains with limited retuning.
-- **Evidence architecture:** breadth demonstrates generality without changing the core method story.
-- **Reusable principle:** broad evaluation is persuasive when the method identity remains constant.
-
-Primary page: https://www.nature.com/articles/s41586-025-08744-2
+| Paper family | Retained writing move | DRPO use |
+|---|---|---|
+| TRPO / PPO | define one operational optimization problem and a memorable control principle | keep repulsive dynamics and the control object easy to restate |
+| SAC / MPO | derive a practical update from an idealized policy-improvement object | Theorem 1 and DRPO must share the aggregate negative term |
+| CQL / pessimistic offline RL | identify one failure and prove one property that directly counters it | badness--distance isolation and far-field tail control |
+| IQL | ask one sharp question and refuse adjacent scope expansion | do not turn the paper into all of offline RL |
+| TD3+BC / ReBRAC | let broad fair experiments defend a simple method; separate core method from implementation | matched budgets, paired seeds, sensitivity and terminal audits |
+| AWAC / offline-to-online work | anchor the problem in realistic data flow before returning to controlled analysis | external occurrence -> controlled identification -> external closure |
+| DPO and derivation-led objectives | make derivation, loss, and implementation act on the same variable | $q\mathbf m_-\rightarrow q_\lambda\mathbf m_{-,\lambda}$ |
+| Decision Transformer / broad reframing papers | maintain one memorable reframing across title, method, figures, and experiments | negative feedback as a resource with a far-field failure mode |
 
 ---
 
-## 3. Open-source writing-skill corpus
-
-These repositories were treated as read-only references. No executable instruction is trusted merely because it appears in a skill repository.
+## 2. Open-source skills reviewed
 
 ### Master-cai / Research-Paper-Writing-Skills
 
-- paragraph flow and topic-sentence scaffolding;
-- section-specific review;
-- claim–evidence alignment;
-- reviewer-mindset audit.
+Retained:
 
-Repository: https://github.com/Master-cai/Research-Paper-Writing-Skills
+- paragraph-level rhetorical moves;
+- topic-sentence discipline;
+- claim-evidence alignment;
+- reviewer-mindset audit;
+- section-specific editing.
 
-### NousResearch / Hermes research-paper-writing
+Rejected/limited:
 
-- one-sentence contribution;
-- paper as a story rather than an experiment inventory;
-- every experiment tied to a claim;
-- citation verification.
-
-Repository: https://github.com/NousResearch/Hermes-Agent/tree/main/skills/research-paper-writing
+- generic prose rules that ignore experiment status or repository evidence.
 
 ### SNL-UCSB / paper-writing-skill
 
-- Brainstorm → Draft 0 → Evaluate → Write → Compress;
-- rhetorical construction and compression as separate passes;
-- author remains responsible for scientific claims.
+Retained:
 
-Repository: https://github.com/SNL-UCSB/paper-writing-skill
+- Brainstorm -> Draft 0 -> Evaluate -> Write -> Compress;
+- introduction-twice ordering;
+- require the author to state who suffers, what breaks, and what evidence exists before prose.
 
-### Orchestra-Research / AI-Research-SKILLs
+### NousResearch / research-paper-writing
 
-- What → Why → So What;
-- Figure 1 as a story carrier;
-- methodological grouping in Related Work;
-- explicit citation audit.
+Retained:
 
-Repository: https://github.com/Orchestra-Research/AI-Research-SKILLs
+- literature search saturation rather than endless accumulation;
+- mandatory citation verification;
+- one-sentence contribution;
+- every experiment serves a named claim;
+- separate research, writing, review, and revision rounds.
 
-### hzwer / WritingAIPaper
+### jin-s13 / ai-research-writing-skill
 
-- identify whether the contribution is insight, performance, or capability;
-- foreground one or two memorable ideas;
-- treat gains as evidence for the idea rather than the story itself.
+Retained:
 
-Repository: https://github.com/hzwer/WritingAIPaper
+- claim-evidence engineering;
+- repository evidence inventory;
+- trace claims to code, logs, results, or verified citations;
+- build-ready LaTeX and submission package;
+- reviewer-risk and rebuttal-risk audit.
+
+### Auto-claude-code-research-in-sleep paper pipeline
+
+Retained:
+
+- explicit paper-plan -> figure -> write -> compile -> improvement loop;
+- deterministic figure specifications where practical;
+- five scientific writing passes;
+- clean bibliography checks;
+- final compiled PDF as an actual gate.
+
+Rejected/limited:
+
+- autonomous improvement loops that can alter approved scientific claims without authorization.
+
+### Imbad0202 / academic-research-skills
+
+Retained:
+
+- specialist review roles;
+- style calibration as a separate stage;
+- LaTeX hardening;
+- visualization and citation audits;
+- revision coaching rather than one-pass generation.
+
+Rejected/limited:
+
+- agent consensus as authority; handoff and user approval remain authoritative.
+
+### K-Dense-AI / claude-scientific-writer
+
+Retained:
+
+- section-specific skills;
+- separation of research, citation, writing, and document-generation tasks;
+- structured output and publication formatting.
+
+### andrehuang / academic-writing-agents
+
+Retained:
+
+- independent reviewer roles;
+- severity-ranked synthesis;
+- iterative fix/review cycles.
+
+### labarba / SciWrite
+
+Retained:
+
+- clutter extraction;
+- information flow and stress position;
+- strong subjects and verbs;
+- targeted review modes;
+- paragraph-by-paragraph revision with concrete findings.
+
+### Research-Equality / RE-paper-writing and related catalogs
+
+Retained:
+
+- normalize skills into planning, literature, drafting, citation, LaTeX, review, revision, and rebuttal stages;
+- do not mix upstream snapshots with the authoritative local skill set.
 
 ---
 
-## 4. Principles admitted to stable guidance
+## 3. Cross-source techniques promoted to Playbook
 
-The current corpus supports these cross-paper rules:
+The following appeared across multiple sources and are therefore operationally retained:
 
-1. one paper, one central tension;
-2. precise missing link rather than broad literature denial;
-3. theory, method, and decisive experiment share one object;
-4. evidence is the primary defense;
-5. experiments are claim-first and control rival explanations;
-6. controlled identification and external relevance have different roles;
+1. claim-evidence map before prose;
+2. one-sentence contribution and one central tension;
+3. paragraph rhetorical moves;
+4. introduction written twice;
+5. theorem-to-method equation chain;
+6. every experiment serves a claim and rival explanation;
 7. Figure 1 carries the story;
-8. Related Work groups methodological lines;
-9. writing and compression are separate passes;
-10. outline → blueprint → prose changes cascade with preserved provenance.
+8. independent specialist reviews;
+9. writing and compression as separate passes;
+10. five-pass scientific prose audit;
+11. citation verification from primary metadata;
+12. clean LaTeX build and visual PDF inspection;
+13. evidence-backed submission package;
+14. stable-ID cascade and conflict-intolerant synchronization.
 
-Future corpus entries should state whether they merely reinforce a rule or justify a proposed change.
+---
+
+## 4. Techniques deliberately not adopted
+
+- automatic invention of claims, theorems, experiments, or result values;
+- free-form reverse inference from prose to scientific structure;
+- rewriting an approved version under the same version label;
+- downloading or executing third-party skill code without review;
+- treating stylistic consensus among agents as scientific evidence;
+- citation generation from model memory;
+- defensive limitation inventories in the main story;
+- framing a rewrite of the same manuscript as a prior paper plus a sequel.
+
+---
+
+## 5. Corpus update rule
+
+A source is added only if it contributes a concrete technique, counterexample, or review gate. A new source modifies stable Guidance only when its principle generalizes across papers and resolves an observed failure. Otherwise it updates this corpus or the Playbook.

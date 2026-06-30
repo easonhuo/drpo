@@ -1,0 +1,14 @@
+\section{Related Work}
+\label{sec:related}
+
+% MANUSCRIPT-NODE: RELATED-P01
+Advantage-weighted and filtered policy-learning methods use sample quality to emphasize successful behavior or reduce harmful updates~\cite{peng2019advantage,kostrikov2021offline}. Other work on failures and negative reinforcement shows that suppressing known bad behavior can improve decision boundaries, diversity, or long-horizon performance. We build on this evidence rather than treating all negative data as noise. Our focus is the dynamical transition: the same negative action can be informative when it is near the current learner and excessive after repeated off-policy reuse moves it into the far field.
+% END-MANUSCRIPT-NODE: RELATED-P01
+
+% MANUSCRIPT-NODE: RELATED-P02
+Off-policy algorithms commonly use importance correction, clipping, trust regions, or replay design to control distribution mismatch~\cite{schulman2017proximal,haarnoja2018soft}. Recent analyses of stale or low-probability actions emphasize that rare negative events can dominate updates in shared-parameter policies. Repulsive Dynamics complements these views by following a negative action across repeated reuse: learner-relative remoteness changes its score contribution, the contributions aggregate, and the signed target can move to a policy boundary where a finite equilibrium is lost.
+% END-MANUSCRIPT-NODE: RELATED-P02
+
+% MANUSCRIPT-NODE: RELATED-P03
+Conservative and implicit offline-RL methods control extrapolation by pessimistic value estimation, in-support dynamic programming, or explicit behavior regularization~\cite{kumar2020conservative,kostrikov2021offline,fujimoto2019off}. These approaches address central offline-RL failures and provide strong external baselines. DRPO studies a different but compatible object: the signed actor update itself. Its purpose is to retain useful local negative feedback while attenuating the learner-relative far-field component that can dominate the policy dynamics.
+% END-MANUSCRIPT-NODE: RELATED-P03

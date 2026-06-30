@@ -1,55 +1,50 @@
-# Active manuscript hierarchy
+# Active manuscript system
 
-The live manuscript cascade is configured in `docs/manuscript/hierarchy.yaml`.
+## Authority and writing layers
 
-## Governance layers
+1. `docs/handoff.md` and `experiments/registry.yaml` own scientific conclusions, experiment status, frozen protocols, and execution order.
+2. `docs/manuscript/RL_PAPER_WRITING_GUIDANCE.md` is the slow-moving cross-paper quality standard.
+3. `docs/manuscript/DRPO_MANUSCRIPT_STRATEGY.md` owns the current DRPO-specific story and hard identity constraint: this is one manuscript being rewritten, never an old paper plus a sequel.
+4. `docs/manuscript/RL_PAPER_WRITING_PLAYBOOK.md` is the detailed operational handbook distilled from high-quality RL papers and audited external skills.
+5. `docs/manuscript/RL_WRITING_CORPUS_NOTES.md` records source reading and retained or rejected techniques.
+6. `docs/manuscript/paper_graph.yaml` is the stable-ID reconciliation source for outline, blueprint, prose, appendix, TeX, figures, tables, PDF, and Overleaf package.
 
-The manuscript now separates stable principles from evolving paper strategy:
+## Current review candidate
 
-1. **Scientific authority:** `docs/handoff.md` and `experiments/registry.yaml` own conclusions, experiment status, frozen protocols, and execution order.
-2. **Stable writing standard:** `docs/manuscript/RL_PAPER_WRITING_GUIDANCE.md` owns durable writing principles and G01–G14 review gates. It changes only when a general rule is wrong or materially incomplete.
-3. **DRPO manuscript strategy:** `docs/manuscript/DRPO_MANUSCRIPT_STRATEGY.md` owns the current paper lineage, central tension, theorem role, method bridge, environment responsibilities, novelty boundary, and evidence architecture. It may evolve with the science.
-4. **Versioned manuscript artifacts:** outline → paragraph blueprint → prose. These may iterate while preserving parent hashes and superseded versions.
-5. **Source corpus:** `docs/manuscript/RL_WRITING_CORPUS_NOTES.md` records paper/skill close reading. New corpus entries do not automatically modify Guidance.
+- merge audit: `docs/manuscript/V092_MERGE_LEDGER.md`;
+- claim evidence: `docs/manuscript/claim_evidence_matrix.yaml`;
+- outline: `docs/paper_rewrite_outline_v0_9_2.md`;
+- paragraph blueprint: `docs/paper_rewrite_blueprint_v0_6.md`;
+- prose draft: `docs/paper_rewrite_prose_v0_1.md`;
+- active Overleaf source: `paper/overleaf/`;
+- compiled PDF: `paper/overleaf/main.pdf`;
+- direct-upload release: `paper/releases/DRPO_OVERLEAF_DRAFT_V092.zip`.
 
-## Current active artifacts
+`v0.9.2` is a review candidate, not automatically canonical. It mechanically merges the user-approved v0.9-review, the useful corrections in repository v0.9, and the confirmed non-buggy refinements in v0.9.1. The merge ledger records accepted and rejected changes.
 
-- stable quality gate: `docs/manuscript/RL_PAPER_WRITING_GUIDANCE.md`;
-- DRPO strategy: `docs/manuscript/DRPO_MANUSCRIPT_STRATEGY.md`;
-- source notes: `docs/manuscript/RL_WRITING_CORPUS_NOTES.md`;
-- canonical full outline: `docs/paper_rewrite_outline_v0_9_1.md`;
-- Introduction paragraph blueprint: `docs/paper_rewrite_intro_blueprint_v0_5.md`;
-- Introduction prose: not created yet.
+Historical artifacts remain in the repository and must not be destructively deleted.
 
-The v0.9.1 outline is an authorized refinement of v0.9. It makes the original DRPO lineage explicit, removes live experiment status from structural content, removes Product manifold from the main environment table, consolidates six RQs into four, and elevates the aggregate negative term to a mandatory theory–method–experiment observable. The v0.5 blueprint is its six-paragraph Introduction derivation.
+## Generation and synchronization
 
-## Historical artifacts
+See `docs/manuscript/PAPER_PIPELINE.md`.
 
-Historical files remain available and must not be destructively deleted:
+```bash
+python scripts/paper_pipeline.py all --repo-root . \
+  --output paper/releases/DRPO_OVERLEAF_DRAFT_V092.zip
+```
 
-- v0.9/v0.4 are the previous approved parent pair;
-- v0.7/v0.3 are the earlier approved pair;
-- v0.8/v0.2 preserve the superseded invalid reverse-alignment attempt;
-- still earlier outline and blueprint files remain provenance unless separately governed.
+A semantic change is made through a stable block's structured metadata or an explicit delta. Wording-only prose changes remain local. Conflicting edits stop the pipeline.
 
 ## Validation
 
-Before editing or activating manuscript material, run:
-
 ```bash
-python3 scripts/manuscript_cascade.py validate-artifacts \
-  --repo-root . \
-  --config docs/manuscript/hierarchy.yaml
-
-python3 scripts/manuscript_cascade.py validate-issue \
+python scripts/paper_pipeline.py validate --repo-root .
+python scripts/manuscript_cascade.py validate-artifacts \
+  --repo-root . --config docs/manuscript/hierarchy.yaml
+python scripts/manuscript_cascade.py validate-issue \
   --config docs/manuscript/hierarchy.yaml \
-  --issue docs/manuscript/issues/PAPER-V091-STRATEGY-SEPARATION-01.yaml
-
-pytest -q \
+  --issue docs/manuscript/issues/PAPER-V092-MERGE-PIPELINE-01.yaml
+pytest -q tests/test_paper_pipeline.py \
   tests/test_manuscript_guidance_review.py \
   tests/test_manuscript_live_hierarchy.py
 ```
-
-Every new or modified outline, blueprint, prose section, main figure plan, or result narrative requires a review record under `docs/manuscript/reviews/` with all G01–G14 gates passing.
-
-When a manuscript problem is reported, inspect the strategy and outline before changing a child artifact. Change an approved outline only when it is independently wrong and the user authorizes the revision; then cascade the change through every configured downstream layer and preserve the superseded pair.

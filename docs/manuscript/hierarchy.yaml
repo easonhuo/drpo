@@ -1,8 +1,8 @@
 schema_version: 1
 manuscript_id: drpo-paper-rewrite
 sections:
-- id: introduction
+- id: full-paper
   layers:
-    outline: docs/paper_rewrite_outline_v0_9_1.md
-    blueprint: docs/paper_rewrite_intro_blueprint_v0_5.md
-    prose: null
+    outline: docs/paper_rewrite_outline_v0_9_2.md
+    blueprint: docs/paper_rewrite_blueprint_v0_6.md
+    prose: docs/paper_rewrite_prose_v0_1.md

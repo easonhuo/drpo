@@ -1,0 +1,11 @@
+\section{Gaussian Mean--Variance Derivations}
+\label{app:gaussian}
+
+% MANUSCRIPT-NODE: APP-GAUSS-P01
+For a scalar Gaussian with $\xi=\log\sigma$ and $z=(a-\mu)/\sigma$,
+\begin{equation}
+\partial_\mu\log\pi=\frac{a-\mu}{\sigma^2},\qquad
+\partial_\xi\log\pi=z^2-1.
+\end{equation}
+A negative advantage reverses both score directions. It always pushes the mean away from the action, but its effect on scale depends on $|z|$: a near negative action with $|z|<1$ increases $\sigma$, whereas a far negative action with $|z|>1$ decreases $\sigma$. Positive updates have the opposite signs. A full Gaussian terminal state must satisfy both mean and variance equations; a stationary mean with continuing covariance movement is not a complete policy equilibrium.
+% END-MANUSCRIPT-NODE: APP-GAUSS-P01

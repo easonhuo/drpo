@@ -1,361 +1,350 @@
-# RL Paper Writing Guidance v1.1
+# RL Paper Writing Guidance v1.2
 
 **Status:** stable manuscript quality standard.
 
-**Authority and scope:** this file governs durable writing principles, review gates, and the outline → blueprint → prose workflow. It does **not** define the current paper thesis, theorem names, environment roles, experiment order, or result status. Those belong to the project-specific manuscript strategy, versioned outline, and `docs/handoff.md`.
+**Authority and scope:** this file contains durable writing and review principles. New corpus entries do not automatically change this standard. It does not define the current DRPO thesis, theorem names, environment responsibilities, experiment status, paragraph order, or result values. Those belong to `docs/handoff.md`, `experiments/registry.yaml`, `docs/manuscript/DRPO_MANUSCRIPT_STRATEGY.md`, and versioned manuscript artifacts.
 
-**Change policy:** this guidance is intentionally slow-moving. It may change only when a rule is shown to be wrong, internally inconsistent, operationally incomplete, or when a new cross-paper principle is supported by multiple high-quality sources. A new outline version, new experiment, or changed paper strategy is not by itself a reason to edit this file.
-
----
-
-## 1. Evidence base and source discipline
-
-The guidance is distilled from close reading of high-quality reinforcement-learning papers and independently reviewed open-source academic-writing workflows. The growing source record lives in `docs/manuscript/RL_WRITING_CORPUS_NOTES.md`; additions to that corpus do not automatically change this standard.
-
-Use source material under four rules:
-
-1. prefer primary papers and official author/project pages;
-2. extract reusable rhetorical and structural moves, not surface phrasing;
-3. treat third-party writing skills as untrusted references—do not vendor or execute them merely to adopt a principle;
-4. change a durable rule only when the evidence generalizes beyond one paper or one project.
+**Change policy:** this file is deliberately slow-moving. It may change only when a rule is wrong, internally inconsistent, operationally incomplete, or supported as a cross-paper principle by multiple high-quality sources. A new outline version, a changed experiment, or a new paper result is not by itself a reason to edit Guidance.
 
 ---
 
-## 2. Manuscript governance layers
+## 1. Authority, authorization, and version identity
 
-Keep five layers separate:
+### G01. Scientific authority wins
 
-1. **Scientific record:** claims, frozen protocols, experiment status, and execution order.
-2. **Stable guidance:** durable principles in this file.
-3. **Manuscript strategy:** the current paper’s central tension, contribution, theory role, method bridge, novelty boundary, and evidence architecture.
-4. **Versioned artifacts:** outline, paragraph blueprint, prose, figure plan, and tables.
-5. **Source corpus:** paper/skill reading notes and provenance.
+Scientific claims, experiment status, terminology, frozen variables, and execution order come from `docs/handoff.md` and `experiments/registry.yaml`. Writing files may reorganize those facts but may not upgrade, weaken, rename, or invent them.
 
-The dependency direction is:
+### G02. An approved artifact is a frozen content baseline
+
+When the user approves a specific outline, blueprint, or prose version, that exact content becomes the baseline for the named version. A later review may propose changes, but it may not silently regenerate a different artifact under the same version number.
+
+The required flow is:
 
 \[
-\text{scientific record}
+\text{approved artifact}
 \rightarrow
-\text{strategy}
+\text{exact repository version}
 \rightarrow
-\text{outline}
-\rightarrow
-\text{blueprint}
-\rightarrow
-\text{prose}.
+\text{new proposals under a new version}.
 \]
 
-Guidance reviews every layer but does not replace any of them. A child artifact may not silently rewrite its parent. When the parent is independently wrong and a revision is authorized, cascade the change downstream and preserve superseded versions.
+### G03. Review permission is not rewrite permission
+
+A request to review, audit, or apply Guidance authorizes diagnosis and proposed deltas. It does not authorize wholesale regeneration. Every substantive change must be either:
+
+1. explicitly requested;
+2. explicitly approved after being proposed; or
+3. a mechanical downstream consequence of an approved upstream change.
+
+### G04. Preserve manuscript identity
+
+Before writing, establish whether the task is a revision of the same manuscript, a journal extension, or a genuinely new follow-up. Never convert one into another through rhetorical framing. A revision must remain a self-contained current paper; it must not be written as “the old paper” plus “our new sequel” unless that is the actual publication relationship.
+
+### G05. Version names must reflect content boundaries
+
+If content changes after a user-approved version, create a new version. Do not reuse an earlier version label for a newly generated artifact. Every version change must have a human-readable delta and a machine-verifiable parent.
 
 ---
 
-## 3. One paper, one central tension
+## 2. One paper, one central tension
 
-A strong paper can be restated as one unresolved tension and one answer. The introduction, theorem, method, experiments, figures, and conclusion should all advance that same arc.
+### G06. One-sentence contribution test
 
-### 3.1 One-sentence contribution test
+The paper must be restatable as one sentence containing:
 
-Before drafting, write one sentence containing:
-
-- the problem or contradiction;
-- the missing mechanism or property;
-- the proposed answer;
+- the object of study;
+- the unresolved tension or failure;
+- the new explanation or property;
+- the method consequence;
 - the evidence type.
 
-If the sentence requires several unrelated conjunctions, the paper is probably carrying multiple stories.
+Every main-text paragraph, theorem, method component, figure, and experiment must advance that sentence. Material that does not belong moves to the appendix, provenance record, or another paper.
 
-### 3.2 Precise missing-link rule
+### G07. Attack a precise missing link
 
-Attack a specific missing link rather than an entire literature. Prefer:
+Do not claim that an entire topic was ignored. Strong papers identify a missing causal, optimization, or representational link after acknowledging what prior work already established.
 
-> Prior work establishes X and Y, but the causal or optimization bridge between them remains unresolved.
+A good gap statement has four parts:
 
-Avoid claims such as “no prior work studies negative updates,” “all existing methods fail,” or broad novelty statements that a single counterexample can defeat.
+1. what existing methods control;
+2. what they do not explain;
+3. the rival explanation that remains possible;
+4. the decisive control or theorem that resolves it.
 
-### 3.3 Memorable transferable principle
+### G08. Leave one transferable principle
 
-The conclusion should leave one principle that can be remembered without the paper’s notation. It should be more informative than “our method performs better” and more defensible than a universal law.
+The conclusion should leave a principle that readers can reuse, not an inventory of limitations or a restatement of every experiment.
+
+---
+
+## 3. Theory, method, and experiment must share an object
+
+### G09. Theory has one job per theorem
+
+A theorem must answer one named question that changes the paper's logic. The main statement contains the qualitative result; proof details, secondary cases, and routine step-size algebra move to the appendix unless they are essential to understand the contribution.
+
+After every main theorem, provide:
+
+1. a plain-language interpretation;
+2. qualitative regimes or cases;
+3. testable predictions;
+4. the method variable affected by the result.
+
+### G10. The method modifies the theorem's object
+
+The method section must form an unbroken equation chain:
+
+\[
+\text{failure term}
+\rightarrow
+\text{theorem-level object}
+\rightarrow
+\text{method modification}
+\rightarrow
+\text{implemented update}
+\rightarrow
+\text{ablation controls}.
+\]
+
+If the practical algorithm changes a different quantity from the one named by theory, the bridge is incomplete.
+
+### G11. Experiments measure the same object
+
+At least one experiment must measure an empirical proxy for the theorem-level object before and after the method intervention. Performance alone cannot validate a mechanism claim.
+
+### G12. Mathematical continuity may not be invented for narrative convenience
+
+A shared research name or history does not prove that two objectives are mathematical limits, relaxations, or closed-form descendants of one another. Such relations require an explicit derivation. Research continuity and mathematical equivalence are separate claims.
 
 ---
 
 ## 4. Evidence is the primary defense
 
-Do not pre-emptively weaken the paper with inventories of adjacent problems it does not solve. Most defenses should be built into the scientific design:
+### G13. Use evidence, not anticipatory apology
 
-- precise definitions;
-- matched controls;
-- decisive interventions;
-- fair comparisons;
-- primary-source positioning;
-- terminal or convergence audits where required;
-- explicit result-status labels.
+The main text should state what the paper establishes. Do not fill the Introduction or Discussion with unsolicited statements about unrelated guarantees the paper never attempted to prove.
 
-State a boundary only when it prevents a likely misinterpretation of a central claim. Put routine assumptions in the theorem or experiment setup, not in repeated defensive paragraphs. Do not invite irrelevant objections by volunteering guarantees the paper never claims to provide.
+A legitimate boundary belongs in the main text only when it prevents a likely misreading of the central claim. Otherwise place it in the theorem assumptions, experiment responsibility table, appendix, or reviewer-objection map.
 
-Useful defense pattern:
+### G14. Design against the strongest rival explanation
 
-1. name the strongest rival explanation;
-2. design a control that changes only the disputed factor;
-3. measure an observable that separates the explanations;
-4. state exactly what the result establishes.
+For each major claim, maintain an internal objection map:
+
+| Claim | Strongest rival explanation | Decisive control | Observable | Evidence status |
+|---|---|---|---|---|
+
+The paper presents the decisive comparison, not the entire private objection list.
+
+### G15. Claim status and execution status remain separate
+
+Analytically proven, long-run validated, finite-step validated, pilot, not run, and rejected/superseded are scientific statuses. Registered, running, raw-complete, terminal-audited, packaged, delivered, and applied are execution states. Neither may be silently promoted.
+
+### G16. Negative, inconclusive, and failed results are evidence
+
+Do not remove a result because it weakens a ranking. Report when a metric is undefined, a method has no stable candidate, a terminal ranking reverses, or a run fails. Explain the scientific consequence rather than hiding the event.
 
 ---
 
-## 5. Theory–method–experiment same-object rule
+## 5. Claim-first experiment architecture
 
-The theory, method, and decisive experiment should operate on the same identifiable object.
+### G17. Every experiment has one primary claim
 
-### 5.1 Theory
+Before execution or writing, specify:
 
-A main-text theorem must have one job. Before presenting it, state the physical or optimization question it answers. After it, state its testable predictions. Move routine algebra, exceptional cases, and secondary stability details to the appendix unless they change the central conclusion.
+- claim;
+- rival explanation;
+- manipulated variable;
+- matched variables;
+- methods and controls;
+- metrics;
+- seeds and uncertainty;
+- terminal criterion;
+- allowed conclusion;
+- prohibited overclaim.
 
-A theorem earns main-text space only if it does at least one of the following:
+### G18. Controlled and external environments have different duties
 
-- identifies a failure mechanism;
-- reveals a phase boundary or trade-off;
-- derives the method’s control variable;
-- predicts a measurable qualitative transition.
+Controlled environments isolate source, direction, causality, or ground truth. External environments establish relevance, task effect, and robustness under realistic confounds. Neither substitutes for the other.
 
-### 5.2 Method
+### G19. Fair comparison is part of the scientific claim
 
-Start from the term, constraint, or failure identified by theory and show the smallest modification that addresses it. Each design choice must answer:
+Where relevant, use paired seeds, matched update budgets, common initialization, common data, common checkpoint selection, and common terminal audits. Do not assume a proposed method or taper is superior before the registered comparison.
 
-- why this object;
-- why this functional form;
-- what useful signal is retained;
-- which alternative is represented by each ablation.
+### G20. Terminal audit is mandatory for dynamic claims
 
-A method section should not introduce a second independent story after the theory.
+Claims about convergence, persistent drift, collapse, or method ranking require terminal evidence. A fixed number of steps is not convergence. Report best and terminal checkpoints when selection can hide degradation.
 
-### 5.3 Experiment
+### G21. Distinguish failure types
 
-Measure the theoretical object before and after the method intervention. A reward table alone cannot close a mechanistic claim. At least one experiment should connect:
+Task-performance collapse, support or variance-boundary events, and NaN/Inf numerical failure are different outcomes and must be reported separately.
+
+---
+
+## 6. Section contracts
+
+### G22. Abstract
+
+The abstract follows a compact sequence:
+
+1. resource or practical need;
+2. failure or missing link;
+3. theory or diagnosis;
+4. method consequence;
+5. evidence architecture;
+6. transferable implication.
+
+No unfinished result, historical narration, or paper-wide disclaimer enters the abstract.
+
+### G23. Introduction
+
+Each paragraph performs one rhetorical move. A common six-move structure is:
+
+1. establish the useful resource or opportunity;
+2. expose the mechanism that turns it into a problem;
+3. position existing controls and state the missing identification link;
+4. present the theoretical answer;
+5. present the method consequence;
+6. preview evidence and contributions.
+
+Paragraph count follows the story, not a template; the stable rule is one move per paragraph and an explicit transition.
+
+### G24. Related Work
+
+Organize by conceptual or methodological lines, not by paper chronology. Each line ends with a precise relationship to the current paper. Credit prior findings before stating the remaining bridge.
+
+### G25. Theory
+
+Use the order intuition -> formal object -> theorem -> plain-language interpretation -> predictions -> method bridge. Keep notation minimal and stable.
+
+### G26. Method
+
+Begin from the theoretical control object, derive the practical update, define every weight and stop-gradient choice, explain computational cost, and map ablations to design alternatives.
+
+### G27. Experiments
+
+Introduce environment construction and evidence roles before results. Organize result sections by research question, not by a chronology of runs. Each result paragraph states the decisive comparison, uncertainty, mechanism observable, and claim supported.
+
+### G28. Appendix
+
+The appendix is part of the evidence package, not a dumping ground. It contains proofs, environment details, protocols, full results, negative results, implementation details, citation verification, and correction ledgers that would interrupt the main arc.
+
+---
+
+## 7. Paragraph and prose discipline
+
+### G29. One paragraph, one claim
+
+A paragraph has:
+
+1. a topic sentence that states the claim;
+2. a short logical development;
+3. evidence, equation, or citation;
+4. a takeaway or transition.
+
+Do not begin with background and reveal the point only in the final sentence.
+
+### G30. Put old information before new information
+
+Within a sentence and across sentences, begin from the concept already active in the reader's mind and end with the new or emphasized information.
+
+### G31. Use calibrated verbs
+
+- theorem/derivation: prove, derive, imply;
+- decisive controlled evidence: identify, causally support, isolate;
+- external observation: observe, find, associate;
+- finite-step evidence: support, indicate;
+- hypothesis: suggest, motivate.
+
+### G32. Prefer concrete actors and verbs
+
+Name the policy, update, sample, theorem, or method. Avoid empty abstractions such as “the framework facilitates enhancement” when a concrete actor and action can be named.
+
+### G33. Separate drafting from compression
+
+First obtain scientific completeness and correct logic. Then run a separate compression pass for redundancy, notation, sentence length, and page budget. Compression may not delete the premise required by a later conclusion.
+
+---
+
+## 8. Figures, tables, citations, and LaTeX
+
+### G34. Figure 1 carries the paper's causal story
+
+A reader should understand the central tension, missing link, and method intervention from Figure 1 and its caption without reading the full paper.
+
+### G35. One visual, one primary claim
+
+Axes, legends, controls, uncertainty, and status must be readable without searching the prose. Do not use a performance plot as evidence for a mechanism unless the mechanism observable is shown.
+
+### G36. Tables are comparison contracts
+
+Rows and columns must encode the scientific comparison: matched budgets, best versus terminal, mechanism versus task metrics, or failure taxonomy. Avoid decorative tables that merely repeat prose.
+
+### G37. Captions are mini-arguments
+
+A strong caption states:
+
+1. what is manipulated;
+2. what is measured;
+3. the decisive pattern;
+4. the claim the pattern supports.
+
+### G38. Verify every citation
+
+Never create a BibTeX entry from memory. Prefer the published version over an arXiv duplicate, verify title/authors/year/venue, and ensure every citation supports the exact sentence containing it.
+
+### G39. The Overleaf project must compile from a clean checkout
+
+The repository stores the venue template, generated sections, figures, tables, bibliography, build script, and compiled review PDF. Missing images, undefined references, and bibliography errors block activation.
+
+---
+
+## 9. Cascade and automation
+
+### G40. The hierarchy is bidirectional but conflict-intolerant
+
+The registered layers are:
 
 \[
-\text{theoretical quantity}
-\rightarrow
-\text{method modification}
-\rightarrow
-\text{measured dynamical change}
-\rightarrow
-\text{task consequence}.
+\text{strategy}
+\leftrightarrow
+\text{outline}
+\leftrightarrow
+\text{blueprint}
+\leftrightarrow
+\text{prose}
+\leftrightarrow
+\text{TeX/appendix/figures}.
 \]
 
----
+Stable node IDs bind the layers. A change in one layer propagates to all linked layers. If two layers change the same node independently, the pipeline must stop and require an explicit preference; it may not guess which change is authoritative.
 
-## 6. Claim-first experiment design
+### G41. Semantic changes require structured metadata
 
-Every experiment subsection should be planned in this order:
+Free-form prose cannot be reliably reverse-engineered into a new scientific claim. Every prose block therefore carries a structured claim field. Changing the claim through any layer updates the upstream and downstream representations automatically; changing wording without changing the claim leaves the structural parents intact.
 
-1. **Claim:** exact proposition being tested.
-2. **Rival explanation:** strongest alternative interpretation.
-3. **Control/intervention:** variables held fixed and factor changed.
-4. **Observable:** metric that distinguishes the explanations.
-5. **Acceptance criterion:** result pattern required for the claim.
-6. **Status:** formal, long-run, finite-step, pilot, or not run.
-7. **Verdict:** conclusion supported by the actual evidence.
+### G42. Generated artifacts are reproducible projections
 
-Maintain a working matrix:
-
-| Claim | Rival explanation | Control/intervention | Observable | Acceptance criterion | Experiment ID | Status |
-|---|---|---|---|---|---|---|
-
-### 6.1 Environment-role discipline
-
-An environment must be justified by the question it can answer. Controlled environments establish identification and causality; external tasks establish occurrence and practical relevance. A simulator should not be presented as external validity, and an external benchmark should not be asked to isolate a confounded mechanism it cannot control.
-
-Prefer a new diagnostic in an existing registered environment over creating another environment. Add a new environment only when no existing one can answer a necessary claim.
-
-### 6.2 Evidence architecture
-
-For mechanism papers, a strong default architecture is:
-
-1. **reality anchor:** show the signature in a realistic system;
-2. **controlled identification:** isolate source and causal transmission;
-3. **theory prediction:** validate the predicted transition;
-4. **method control:** intervene on the identified quantity under fair budgets;
-5. **reality closure:** show external task benefit.
-
-This is a default, not a fixed outline. Evidence strength determines final ordering.
-
-### 6.3 Fair-comparison rule
-
-Method comparisons should report, as applicable:
-
-- paired seeds and identical initialization/data;
-- matched or explicitly measured optimization budgets;
-- best and terminal outcomes separately;
-- sensitivity and ablations tied to design choices;
-- no prespecified winner in prose or captions.
-
-### 6.4 Terminal-audit rule
-
-Claims about equilibrium, convergence, persistent drift, collapse, or final ranking require terminal evidence rather than an arbitrary fixed-step snapshot. Use registered stopping criteria, residual/slope checks, horizon extension, and clamp/floor contact audits as applicable.
-
-Always separate:
-
-1. task-performance collapse;
-2. support, variance, or feasibility-boundary events;
-3. NaN/Inf numerical failure.
+The manuscript graph stores stable node content and provenance. Outline, blueprint, prose, TeX, appendix, and Overleaf packages are generated projections. Direct edits are allowed only through registered blocks and must be imported by the synchronization command.
 
 ---
 
-## 7. Section contracts
+## 10. Mandatory activation gate
 
-### 7.1 Title and abstract
+A manuscript artifact may become active only when all applicable checks pass:
 
-- The title names the central phenomenon and method, not every domain.
-- The abstract follows: problem → missing link → theory/insight → method → evidence → implication.
-- Every quantitative result must be formal and traceable.
-- Do not use the abstract for caveat inventories, proof details, or implementation history.
+1. **AUTH:** content matches the user-approved version or has explicit new-version authorization;
+2. **IDENTITY:** the manuscript relationship (revision versus follow-up) is correct;
+3. **STORY:** one central tension and contribution sentence remain intact;
+4. **GAP:** existing work and the precise missing link are both present;
+5. **OBJECT:** theory, method, and experiment share a named object;
+6. **CONTROL:** strongest rival explanation has a decisive control;
+7. **STATUS:** every result uses its registered scientific status;
+8. **FAIRNESS:** comparison protocol is matched or differences are explicit;
+9. **TERMINAL:** dynamic claims have terminal evidence;
+10. **FAILURE:** task, boundary, and numerical failures are separated;
+11. **CASCADE:** stable IDs, parent hashes, and all downstream projections align;
+12. **CITATION:** citations and BibTeX are verified;
+13. **LATEX:** clean compilation succeeds and the PDF is visually inspected;
+14. **DELTA:** the version diff is complete, human-readable, and authorized.
 
-### 7.2 Introduction
-
-Each paragraph should perform one rhetorical move. A common six-move pattern is:
-
-1. establish why the resource or goal matters;
-2. reveal the failure under the target setting;
-3. identify the missing link;
-4. state the theoretical explanation;
-5. state the method consequence;
-6. summarize evidence and contributions.
-
-This pattern may change with the paper, but paragraph responsibilities must remain explicit and non-overlapping.
-
-### 7.3 Related Work
-
-Group work by methodological or conceptual line, not chronology. Each paragraph should end with the unresolved link addressed by the paper. A related-work section is positioning, not a bibliography catalog.
-
-### 7.4 Theory
-
-Give intuition before formalism; define every object once; make the theorem’s role proportional to its narrative value; follow the theorem with predictions and the method bridge.
-
-### 7.5 Method
-
-Show how the method follows from the identified object. Separate core mechanism from implementation choices. Defer empirical rankings and ablation conclusions to Experiments.
-
-### 7.6 Experiments
-
-Lead with research questions and evidence roles. Environment descriptions must explain why the design supports the claimed inference. Results should be organized by claims, not by implementation chronology.
-
-### 7.7 Implications and conclusion
-
-Synthesize the transferable lesson. Do not end with a defensive list of all unsolved neighboring problems. Limitations belong only where they materially calibrate a central claim.
-
----
-
-## 8. Figures, tables, and captions
-
-### 8.1 Figure 1 as the story carrier
-
-Figure 1 should communicate the paper’s central tension, mechanism, intervention, and outcome without requiring the theory section. It is not an environment inventory.
-
-### 8.2 One visual, one claim
-
-Each main visual has one primary claim. A standalone caption states:
-
-- setup and control;
-- visible pattern;
-- supported conclusion;
-- evidence status when not formal.
-
-### 8.3 Tables as contracts
-
-Main tables should expose fairness and evidence state, not only peak reward. Include budgets, best/terminal split, uncertainty, and separate failure-event columns when relevant.
-
----
-
-## 9. Language and rhetorical discipline
-
-### 9.1 Evidence-calibrated verbs
-
-- **derive / prove:** mathematical results;
-- **isolate:** controlled source attribution;
-- **causally identify:** targeted intervention with rival explanations controlled;
-- **observe / validate:** external signatures;
-- **improve:** paired task metrics;
-- **suggest:** incomplete evidence only.
-
-### 9.2 Avoid self-sabotaging prose
-
-Delete sentences that merely advertise what the paper does not prove, unless they prevent a likely misreading of a central result. Avoid:
-
-- volunteering an unrelated global guarantee;
-- calling the main controlled setup a “toy” in the main text;
-- claiming one factor is the only cause when the experiment proves independence;
-- turning routine theorem assumptions into a paper-wide scope apology;
-- describing unfinished work as a result.
-
-### 9.3 Direct prose
-
-Prefer subject–verb–object sentences, concrete mechanisms, and one term per concept. Replace noun chains and procedural narration with the causal statement the reader needs.
-
-### 9.4 Separate writing and compression passes
-
-First make the scientific argument complete. Then run a distinct compression pass:
-
-- remove repeated caveats and structural announcements;
-- collapse duplicate definitions;
-- move proof/provenance detail to appendices;
-- preserve controls, status, and evidence boundaries.
-
----
-
-## 10. Mandatory review gate
-
-Every new or modified outline, blueprint, prose section, main figure plan, or result narrative requires a review record under `docs/manuscript/reviews/` before activation.
-
-### 10.1 Hard gates
-
-| Gate | Question |
-|---|---|
-| G01 Thesis | Can the contribution be stated in one sentence consistent with the scientific record? |
-| G02 Central tension | Does the artifact advance one coherent tension rather than several adjacent stories? |
-| G03 Missing link | Is novelty expressed as a precise unresolved bridge rather than denial of prior work? |
-| G04 No defensive drift | Does the artifact avoid unnecessary disclaimers and volunteered adjacent guarantees? |
-| G05 Theory role | Does each main theorem have one clear job and proportional space? |
-| G06 Same-object bridge | Do theory, method, and decisive experiments modify and measure the same object? |
-| G07 Claim–experiment map | Does every major empirical claim have a control, observable, criterion, ID, and status? |
-| G08 Environment roles | Does each environment answer only the question its design supports? |
-| G09 Rival explanations | Are the strongest alternative interpretations explicitly controlled? |
-| G10 Fairness and terminal audit | Are budgets, paired comparisons, best/terminal reporting, and terminal evidence preserved? |
-| G11 Failure separation | Are task failure, boundary events, and numerical failure separate? |
-| G12 Citation and result integrity | Are citations primary/verified and unfinished results not promoted? |
-| G13 Visual story | Does the main visual plan carry the paper arc rather than list components? |
-| G14 Cascade integrity | Are strategy, outline, blueprint, prose, and review hashes aligned? |
-
-### 10.2 Severity
-
-- **Blocker:** contradicts the scientific record, changes a frozen protocol, overclaims status, breaks the central story, or fails a hard gate.
-- **Major:** theory/method/evidence bridge is unclear, a key confound is uncontrolled, or the artifact reads as defense rather than contribution.
-- **Minor:** local wording, order, compression, or caption issue that does not change interpretation.
-
-Any Blocker or Major finding prevents activation.
-
-### 10.3 Required review record
-
-Record:
-
-- artifact path and SHA-256;
-- base commit and review date;
-- strategy version and one-sentence thesis;
-- gate-by-gate pass/fail with evidence;
-- Blocker/Major/Minor findings;
-- unresolved experiment dependencies;
-- final verdict.
-
----
-
-## 11. Pre-activation checklist
-
-Before changing the active hierarchy:
-
-1. read the scientific record and relevant experiment entries;
-2. verify the current base commit;
-3. identify the active manuscript strategy;
-4. validate the outline → blueprint → prose cascade;
-5. complete the guidance review and record hashes;
-6. confirm no unfinished experiment is written as a result;
-7. confirm fair-comparison and terminal requirements survive compression;
-8. preserve superseded artifacts and change records;
-9. activate the new parent and all required children together.
+Critical failure of AUTH, IDENTITY, OBJECT, STATUS, CASCADE, or LATEX blocks activation.

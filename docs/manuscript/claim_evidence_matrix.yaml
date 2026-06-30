@@ -1,0 +1,75 @@
+schema_version: 1
+manuscript_id: drpo-paper-rewrite
+claims:
+- id: CLAIM-NEGATIVE-UTILITY
+  claim: Controlled negative feedback can move the policy beyond the Positive-only target while retaining a finite equilibrium.
+  type: theorem
+  status: analytically_proven
+  owner:
+    theorem: THEORY-P03
+    experiment_ids: [C-U1-E4, D-U1-E6]
+  rival_explanation: Apparent gains are only transient drift rather than a stable extrapolated regime.
+  decisive_control: Terminal slope or field-residual audit plus horizon extension.
+  observable: equilibrium displacement, terminal reward, field residual, boundary state
+  allowed_language: Theorem 1 establishes stable extrapolation under its stated signed-moment conditions; experiments test the corresponding phase.
+  forbidden_language: Negative feedback universally improves every policy.
+- id: CLAIM-DISTANCE-INDEPENDENT
+  claim: At matched badness, learner-relative distance or rarity independently amplifies negative influence.
+  type: mechanism
+  status: finite_step_validated
+  owner:
+    theorem: SETUP-P01
+    experiment_ids: [C-U1-E1, D-U1-E5]
+  rival_explanation: Far or rare samples have larger gradients only because they are worse, more numerous, semantically different, or more heavily weighted.
+  decisive_control: Match context, quality or semantics, reward, advantage magnitude, count, coefficient, and policy stage while changing only remoteness.
+  observable: output score, full-parameter score or gradient, direction coherence, matching diagnostics
+  allowed_language: Distance or rarity is an independent amplifier in the controlled protocol.
+  forbidden_language: Distance is the only source of harmful negative influence.
+- id: CLAIM-FAR-CAUSAL
+  claim: Far-field negative influence is a targeted causal transmission path to drift and boundary events in the controlled environments.
+  type: causal
+  status: finite_step_validated
+  owner:
+    theorem: THEORY-P01
+    experiment_ids: [C-U1-E3, D-U1-E6]
+  rival_explanation: Near-field negatives, total negative mass, or an unrelated numerical artifact causes the failure.
+  decisive_control: Near-zero, far-zero, far-cap, equal-budget global, and registered transfer interventions.
+  observable: onset ordering, reward, policy drift, boundary event, NaN/Inf
+  allowed_language: Targeted far-field intervention changes the controlled outcome while matched near-field intervention does not.
+  forbidden_language: Every external RL failure has a unique far-field cause.
+- id: CLAIM-EQUILIBRIUM-PHASE
+  claim: Aggregate positive and negative moments define Positive-only, stable extrapolation, boundary approach, and loss-of-finite-equilibrium regimes.
+  type: theorem
+  status: analytically_proven
+  owner:
+    theorem: THEORY-P03
+    experiment_ids: [C-U1-E4, D-U1-E6]
+  rival_explanation: The observed regimes are arbitrary training checkpoints with no common dynamical organization.
+  decisive_control: Registered strength sweep, equilibrium or terminal-state measurement, and continuation audit.
+  observable: signed target, equilibrium displacement, boundary coordinate, terminal slope
+  allowed_language: The theorem characterizes the phase under its stated exponential-family signed-field conditions.
+  forbidden_language: The theorem is a global convergence theorem for every actor--critic implementation.
+- id: CLAIM-DRPO-TAIL
+  claim: Exponential remoteness weighting makes the weighted far-field gradient vanish under finite-order score growth.
+  type: theorem
+  status: analytically_proven
+  owner:
+    theorem: METHOD-P03
+    experiment_ids: [C-U1-E4-TAPER-CONV-01, EXT-H-E7-Q2, EXT-C-E8-V4.6]
+  rival_explanation: Exponential weighting merely reduces all negative information or assumes an unproved utility-decay law.
+  decisive_control: Near-retention, far-suppression, matched-budget comparisons, and direct weighted-tail measurement.
+  observable: raw and weighted influence by remoteness, near retention, far retention, task and terminal state
+  allowed_language: The exponential envelope controls the gradient tail; empirical utility is measured separately.
+  forbidden_language: DRPO is guaranteed to outperform every global or hard control.
+- id: CLAIM-EXTERNAL-CLOSURE
+  claim: The mechanism signature and DRPO task effect hold in Hopper/D4RL and Countdown.
+  type: task_effect
+  status: not_run
+  owner:
+    theorem: null
+    experiment_ids: [EXT-H-E7-Q2, EXT-C-E8-V4.6]
+  rival_explanation: The controlled mechanism is a simulator artifact and does not affect realistic learned-critic or shared-parameter policies.
+  decisive_control: Formal registered runs with common initialization, common data, paired seeds, best/terminal reporting, and terminal audits.
+  observable: external gradient signature, normalized return or verifier success, best/terminal gap, failure classification
+  allowed_language: TBD until formal terminal-audited artifacts are frozen.
+  forbidden_language: Any quantitative or ranking claim based only on pilots, smoke tests, or incomplete runs.

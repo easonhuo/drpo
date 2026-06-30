@@ -1,0 +1,16 @@
+\begin{table*}[t]
+\centering
+\caption{Evidence roles are separated by design. Controlled environments identify source and causality; external environments establish relevance and task effect.}
+\label{tab:environment_roles}
+\small
+\begin{tabular}{p{0.14\textwidth}p{0.38\textwidth}p{0.38\textwidth}}
+\toprule
+Environment & Primary responsibility & Complementary boundary \\
+\midrule
+C-U1 & Continuous matched source isolation, near/far causality, and phase transition & External relevance is established in Hopper/D4RL; categorical boundaries are tested in D-U1 \\
+D-U1 & Categorical matched rarity isolation, common/rare causality, and probability boundary & Gaussian score-amplitude dynamics are tested in C-U1 \\
+Hopper/D4RL & External continuous-control occurrence and task effect with a learned critic & Exact badness--distance isolation is supplied by C-U1 \\
+Countdown & External shared-parameter sequence occurrence and task effect & Controlled common/rare causality is supplied by D-U1 \\
+\bottomrule
+\end{tabular}
+\end{table*}
