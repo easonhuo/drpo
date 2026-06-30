@@ -11,10 +11,15 @@ unweighted direction are rescaled by one detached scalar so that their raw
 negative-gradient norm matches the reference target at that exact step.
 
 This does not claim that Adam's parameter-update norm is matched.  The realized
-Adam total parameter-update norm is logged as a secondary diagnostic.  The
-experiment is finite-horizon fairness evidence; long-run terminal resolution is
-owned by C-U1-E4-TAPER-CONV-01.
+Adam total parameter-update norm is logged as a secondary diagnostic.  For
+vanishing exponential tails, a detached common log-weight offset is used only
+as a numerical representation: exact norm matching cancels that common factor,
+so the taper formula, direction, relative near/far allocation, and applied raw
+negative-gradient vector are unchanged.  The reciprocal-linear reference
+schedule is never recentered.  The experiment is finite-horizon fairness
+evidence; long-run terminal resolution is owned by C-U1-E4-TAPER-CONV-01.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -44,8 +49,11 @@ except ImportError:  # direct script execution
 
 
 EXPERIMENT_ID = "C-U1-E4-TAPER-BUDGET-MATCH-01"
-SCRIPT_VERSION = "2026.06.29-stepwise-negative-gradient-l2-v1"
+SCRIPT_VERSION = "2026.06.30-stepwise-negative-gradient-l2-log-stable-v2"
 EPS = 1e-12
+LOG_FLOAT64_MAX = math.log(np.finfo(np.float64).max)
+LOG_FLOAT64_TINY = math.log(np.finfo(np.float64).tiny)
+VANISHING_TAIL_FAMILIES = {"exponential", "squared_distance_exponential"}
 
 
 @dataclass(frozen=True)
@@ -87,6 +95,27 @@ class BudgetMatchProtocol:
 
 
 PROTOCOL = BudgetMatchProtocol()
+
+
+@dataclass(frozen=True)
+class NegativeGradientRepresentation:
+    """One numerically represented candidate negative-gradient direction.
+
+    ``common_log_weight_shift`` is a detached scalar ``m`` such that the
+    represented gradient is ``exp(-m)`` times the mathematical raw gradient.
+    Therefore scaling the represented gradient by ``s`` is exactly equivalent
+    to scaling the mathematical raw gradient by ``s * exp(-m)``.  This common
+    factor cannot change the direction or the relative near/far allocation.
+    """
+
+    gradients: tuple[torch.Tensor | None, ...]
+    matching_norm: float
+    physical_raw_norm: float
+    log_physical_raw_norm: float
+    common_log_weight_shift: float
+    original_loss_value: float
+    represented_loss_value: float
+    stabilization_used: bool
 
 
 def atomic_json(path: Path, value: Any) -> None:
@@ -131,6 +160,175 @@ def coefficient_for_method(
     return coefficients[(family, protocol.target_retention)]
 
 
+def log_taper_weight_from_coefficient(
+    standardized_distance: torch.Tensor,
+    family: str,
+    coefficient: float,
+    reference_distance: float,
+) -> torch.Tensor:
+    """Evaluate the frozen taper in log space without changing its formula."""
+    if coefficient < 0.0 or not math.isfinite(coefficient):
+        raise ValueError("coefficient must be finite and non-negative")
+    u = standardized_distance / reference_distance
+    if family == "reciprocal_linear":
+        return -torch.log1p(coefficient * u)
+    if family == "reciprocal_quadratic":
+        return -torch.log1p(coefficient * u.square())
+    if family == "exponential":
+        return -coefficient * u
+    if family == "squared_distance_exponential":
+        return -coefficient * u.square()
+    if family == "unweighted":
+        return torch.zeros_like(standardized_distance)
+    if family == "positive_only":
+        return torch.full_like(standardized_distance, -torch.inf)
+    raise ValueError(f"unknown taper family: {family}")
+
+
+def _physical_norm_from_log(log_norm: float) -> float:
+    if not math.isfinite(log_norm):
+        return 0.0 if log_norm < 0.0 else float("inf")
+    if log_norm < LOG_FLOAT64_TINY:
+        return 0.0
+    if log_norm > LOG_FLOAT64_MAX:
+        return float("inf")
+    return math.exp(log_norm)
+
+
+def _exp_or_boundary(log_value: float) -> float:
+    if log_value == float("-inf"):
+        return 0.0
+    if log_value > LOG_FLOAT64_MAX:
+        return float("inf")
+    if log_value < LOG_FLOAT64_TINY:
+        return 0.0
+    return math.exp(log_value)
+
+
+def _mean_from_logs(log_values: list[float]) -> tuple[float, float]:
+    """Return arithmetic mean and log-mean without overflowing intermediates."""
+    if not log_values:
+        return 0.0, float("-inf")
+    if any(value == float("inf") for value in log_values):
+        return float("inf"), float("inf")
+    finite = [value for value in log_values if math.isfinite(value)]
+    if not finite:
+        return 0.0, float("-inf")
+    maximum = max(finite)
+    scaled_sum = sum(math.exp(value - maximum) for value in finite)
+    log_mean = maximum + math.log(scaled_sum) - math.log(len(log_values))
+    return _exp_or_boundary(log_mean), log_mean
+
+
+def _weighted_negative_loss_with_log_shift(
+    actor: experiment.GaussianActor,
+    split: experiment.Split,
+    ids: torch.Tensor,
+    method: str,
+    coefficient: float,
+    protocol: BudgetMatchProtocol,
+    common_log_weight_shift: float,
+) -> tuple[torch.Tensor, float]:
+    """Return the weighted loss and detached maximum mathematical log-weight."""
+    family = family_for_method(method)
+    if family == "positive_only":
+        return torch.zeros((), device=experiment.DEVICE), float("-inf")
+    mu, log_std = actor(split.s[ids])
+    actions = split.negative_actions[ids]
+    advantages = split.negative_advantages[ids]
+    log_prob = cu1_core.gaussian_log_prob(mu, log_std, actions, experiment.P.action_dim)
+    distance = cu1_core.standardized_distance(mu, log_std, actions).detach()
+    log_weight = log_taper_weight_from_coefficient(
+        distance,
+        family,
+        coefficient,
+        protocol.reference_distance,
+    ).detach()
+    max_log_weight = float(log_weight.max().item())
+    if not math.isfinite(max_log_weight):
+        raise RuntimeError(f"non-finite taper log-weight for method={method}")
+    weight = torch.exp(log_weight - common_log_weight_shift)
+    return -(advantages * weight * log_prob).mean(), max_log_weight
+
+
+def negative_gradient_representation(
+    actor: experiment.GaussianActor,
+    split: experiment.Split,
+    ids: torch.Tensor,
+    method: str,
+    coefficient: float,
+    protocol: BudgetMatchProtocol,
+    *,
+    force_stabilization: bool = False,
+) -> NegativeGradientRepresentation:
+    """Build a direction-preserving representation of one negative gradient.
+
+    Vanishing exponential tails can make every detached float32 weight exactly
+    zero even though the mathematical weighted gradient is non-zero.  Under a
+    subsequent norm match, multiplying all weights by one detached positive
+    scalar cancels exactly.  We therefore subtract the minibatch maximum
+    log-weight only when the ordinary representation is numerically zero (or
+    when a test explicitly requests the equivalent representation).
+    """
+    loss, max_log_weight = _weighted_negative_loss_with_log_shift(
+        actor,
+        split,
+        ids,
+        method,
+        coefficient,
+        protocol,
+        0.0,
+    )
+    gradients = taper_base.gradient_tuple(loss, actor, retain_graph=False)
+    raw_norm = float(experiment.norm_tuple(gradients).item())
+    original_loss_value = float(loss.detach().item())
+    family = family_for_method(method)
+    needs_stabilization = force_stabilization or (
+        family in VANISHING_TAIL_FAMILIES and (not math.isfinite(raw_norm) or raw_norm <= EPS)
+    )
+    if not needs_stabilization:
+        log_raw_norm = math.log(raw_norm) if raw_norm > 0.0 else float("-inf")
+        return NegativeGradientRepresentation(
+            gradients=gradients,
+            matching_norm=raw_norm,
+            physical_raw_norm=raw_norm,
+            log_physical_raw_norm=log_raw_norm,
+            common_log_weight_shift=0.0,
+            original_loss_value=original_loss_value,
+            represented_loss_value=original_loss_value,
+            stabilization_used=False,
+        )
+
+    stable_loss, repeated_max = _weighted_negative_loss_with_log_shift(
+        actor,
+        split,
+        ids,
+        method,
+        coefficient,
+        protocol,
+        max_log_weight,
+    )
+    if not math.isclose(repeated_max, max_log_weight, rel_tol=0.0, abs_tol=1e-6):
+        raise RuntimeError("detached taper log-weight changed during stabilization")
+    stable_gradients = taper_base.gradient_tuple(stable_loss, actor, retain_graph=False)
+    stable_norm = float(experiment.norm_tuple(stable_gradients).item())
+    if not math.isfinite(stable_norm) or stable_norm <= EPS:
+        raise RuntimeError(
+            f"candidate negative-gradient direction is numerically unavailable for method={method}"
+        )
+    log_raw_norm = math.log(stable_norm) + max_log_weight
+    return NegativeGradientRepresentation(
+        gradients=stable_gradients,
+        matching_norm=stable_norm,
+        physical_raw_norm=_physical_norm_from_log(log_raw_norm),
+        log_physical_raw_norm=log_raw_norm,
+        common_log_weight_shift=max_log_weight,
+        original_loss_value=original_loss_value,
+        represented_loss_value=float(stable_loss.detach().item()),
+        stabilization_used=True,
+    )
+
+
 def calibration_protocol(protocol: BudgetMatchProtocol) -> near_base.NearRetentionProtocol:
     return near_base.NearRetentionProtocol(
         development_seeds=protocol.development_seeds,
@@ -165,18 +363,16 @@ def weighted_negative_loss(
     coefficient: float,
     protocol: BudgetMatchProtocol,
 ) -> torch.Tensor:
-    family = family_for_method(method)
-    if family == "positive_only":
-        return torch.zeros((), device=experiment.DEVICE)
-    mu, log_std = actor(split.s[ids])
-    actions = split.negative_actions[ids]
-    advantages = split.negative_advantages[ids]
-    log_prob = cu1_core.gaussian_log_prob(mu, log_std, actions, experiment.P.action_dim)
-    distance = cu1_core.standardized_distance(mu, log_std, actions)
-    weight = near_base.taper_weight_from_coefficient(
-        distance.detach(), family, coefficient, protocol.reference_distance
+    loss, _ = _weighted_negative_loss_with_log_shift(
+        actor,
+        split,
+        ids,
+        method,
+        coefficient,
+        protocol,
+        0.0,
     )
-    return -(advantages * weight * log_prob).mean()
+    return loss
 
 
 def _parameter_update_norm(before: list[torch.Tensor], actor: experiment.GaussianActor) -> float:
@@ -205,30 +401,104 @@ def _scaled_retention(
     split: experiment.Split,
     method: str,
     coefficient: float,
-    scale: float,
+    effective_original_scale_log: float,
     protocol: BudgetMatchProtocol,
 ) -> dict[str, float]:
-    near_protocol = calibration_protocol(protocol)
-    values = near_base.retention_and_harm_diagnostics(
-        actor,
-        split,
-        family_for_method(method),
-        coefficient,
-        near_protocol,
-    )
-    linear_fields = {
-        "near_region_weight_mean",
-        "far_region_weight_mean",
-        "near_useful_weight_mean",
-        "near_useful_gradient_retention",
-        "far_harmful_influence_retention",
-        "far_harmful_weighted_projection_mean",
-        "far_harmful_weighted_update_norm_mean",
-    }
-    return {
-        key: (float(value) * scale if key in linear_fields else float(value))
-        for key, value in values.items()
-    }
+    """Evaluate effective matched weights in log space without tail underflow."""
+    family = family_for_method(method)
+    actor.eval()
+    with torch.no_grad():
+        mu, log_std = actor(split.s)
+        actions = split.negative_actions
+        distance = cu1_core.standardized_distance(mu, log_std, actions)
+        if family == "positive_only":
+            log_effective_weight = torch.full_like(distance, -torch.inf, dtype=torch.float64)
+        else:
+            log_effective_weight = (
+                log_taper_weight_from_coefficient(
+                    distance.detach().to(dtype=torch.float64),
+                    family,
+                    coefficient,
+                    protocol.reference_distance,
+                )
+                + effective_original_scale_log
+            )
+
+        mu64 = mu.to(dtype=torch.float64)
+        actions64 = actions.to(dtype=torch.float64)
+        log_std64 = log_std.to(dtype=torch.float64)
+        inverse_variance = torch.exp(-2.0 * log_std64)[:, None]
+        advantage_abs = split.negative_advantages.abs().to(dtype=torch.float64)
+        negative_mean_update = (
+            advantage_abs[..., None] * (mu64[:, None, :] - actions64) * inverse_variance[..., None]
+        )
+        oracle_direction = split.a_star.to(dtype=torch.float64) - mu64
+        oracle_unit = oracle_direction / (
+            torch.linalg.vector_norm(oracle_direction, dim=-1, keepdim=True) + EPS
+        )
+        projection = (negative_mean_update * oracle_unit[:, None, :]).sum(-1)
+        update_norm = torch.linalg.vector_norm(negative_mean_update, dim=-1)
+        near = distance <= protocol.near_region_boundary
+        far = ~near
+        useful = projection > 0.0
+        harmful = projection < 0.0
+        near_useful = near & useful
+        far_harmful = far & harmful
+
+        def log_mean_weight(mask: torch.Tensor) -> float:
+            if not mask.any():
+                return float("nan")
+            values = log_effective_weight[mask]
+            return float(torch.logsumexp(values, dim=0).item() - math.log(int(mask.sum().item())))
+
+        def log_weighted_mean(mass: torch.Tensor, mask: torch.Tensor) -> float:
+            if not mask.any():
+                return float("nan")
+            selected = mass[mask]
+            positive = selected > 0.0
+            if not positive.any():
+                return float("-inf")
+            terms = log_effective_weight[mask][positive] + torch.log(selected[positive])
+            return float(torch.logsumexp(terms, dim=0).item() - math.log(int(mask.sum().item())))
+
+        def log_retention_ratio(mass: torch.Tensor, mask: torch.Tensor) -> float:
+            if not mask.any():
+                return float("nan")
+            selected = mass[mask]
+            positive = selected > 0.0
+            if not positive.any():
+                return float("nan")
+            log_mass = torch.log(selected[positive])
+            numerator = torch.logsumexp(log_effective_weight[mask][positive] + log_mass, dim=0)
+            denominator = torch.logsumexp(log_mass, dim=0)
+            return float((numerator - denominator).item())
+
+        def from_log(value: float) -> float:
+            return value if math.isnan(value) else _exp_or_boundary(value)
+
+        near_useful_mass = torch.clamp(projection, min=0.0)
+        far_harmful_mass = torch.clamp(-projection, min=0.0)
+        return {
+            "near_region_weight_mean": from_log(log_mean_weight(near)),
+            "far_region_weight_mean": from_log(log_mean_weight(far)),
+            "near_useful_weight_mean": from_log(log_mean_weight(near_useful)),
+            "near_useful_gradient_retention": from_log(
+                log_retention_ratio(near_useful_mass, near_useful)
+            ),
+            "far_harmful_influence_retention": from_log(
+                log_retention_ratio(far_harmful_mass, far_harmful)
+            ),
+            "far_harmful_weighted_projection_mean": from_log(
+                log_weighted_mean(far_harmful_mass, far_harmful)
+            ),
+            "far_harmful_weighted_update_norm_mean": from_log(
+                log_weighted_mean(update_norm, far_harmful)
+            ),
+            "near_occupancy": float(near.float().mean().item()),
+            "far_occupancy": float(far.float().mean().item()),
+            "near_useful_fraction": float(near_useful.float().mean().item()),
+            "far_harmful_fraction": float(far_harmful.float().mean().item()),
+        }
 
 
 def evaluate_state(
@@ -236,13 +506,15 @@ def evaluate_state(
     environment: experiment.Environment,
     method: str,
     coefficient: float,
-    scale: float,
+    effective_original_scale_log: float,
     protocol: BudgetMatchProtocol,
     initial_reward: float,
 ) -> dict[str, Any]:
     task = experiment.evaluation(actor, environment.test)
     positive = experiment.positive_loss(actor, environment.train)
-    positive_grad = taper_base.gradient_tuple(positive, actor, retain_graph=method != "positive_only")
+    positive_grad = taper_base.gradient_tuple(
+        positive, actor, retain_graph=method != "positive_only"
+    )
     positive_norm = float(experiment.norm_tuple(positive_grad).item())
     if method == "positive_only":
         negative_norm = 0.0
@@ -251,15 +523,33 @@ def evaluate_state(
         stationarity = positive_norm
         stationarity_kind = "absolute_positive_gradient_norm"
         retention = _scaled_retention(
-            actor, environment.train, method, coefficient, 0.0, protocol
+            actor,
+            environment.train,
+            method,
+            coefficient,
+            float("-inf"),
+            protocol,
         )
+        representation = None
+        representation_scale = 0.0
     else:
         all_ids = torch.arange(experiment.P.n_train_states, device=experiment.DEVICE)
-        negative = weighted_negative_loss(
-            actor, environment.train, all_ids, method, coefficient, protocol
+        representation = negative_gradient_representation(
+            actor,
+            environment.train,
+            all_ids,
+            method,
+            coefficient,
+            protocol,
+            force_stabilization=(family_for_method(method) in VANISHING_TAIL_FAMILIES),
         )
-        negative_grad = taper_base.gradient_tuple(negative, actor, retain_graph=False)
-        scaled_negative = experiment.scale_tuple(negative_grad, scale)
+        representation_scale_log = (
+            effective_original_scale_log + representation.common_log_weight_shift
+        )
+        representation_scale = _exp_or_boundary(representation_scale_log)
+        if not math.isfinite(representation_scale):
+            raise RuntimeError(f"non-finite full-batch representation scale for method={method}")
+        scaled_negative = experiment.scale_tuple(representation.gradients, representation_scale)
         total_grad = experiment.add_tuples(positive_grad, scaled_negative)
         negative_norm = float(experiment.norm_tuple(scaled_negative).item())
         total_norm = float(experiment.norm_tuple(total_grad).item())
@@ -267,7 +557,12 @@ def evaluate_state(
         stationarity = residual
         stationarity_kind = "normalized_signed_field_residual"
         retention = _scaled_retention(
-            actor, environment.train, method, coefficient, scale, protocol
+            actor,
+            environment.train,
+            method,
+            coefficient,
+            effective_original_scale_log,
+            protocol,
         )
     finite = experiment.finite_model(actor) and all(
         math.isfinite(float(task[key]))
@@ -283,11 +578,20 @@ def evaluate_state(
         "normalized_field_residual": residual,
         "stationarity_residual": stationarity,
         "stationarity_residual_kind": stationarity_kind,
-        "effective_negative_scale": scale,
+        "effective_negative_scale": _exp_or_boundary(effective_original_scale_log),
+        "effective_negative_scale_log": effective_original_scale_log,
+        "evaluation_representation_scale": representation_scale,
+        "evaluation_common_log_weight_shift": (
+            0.0 if representation is None else representation.common_log_weight_shift
+        ),
+        "evaluation_direction_stabilization_used": (
+            False if representation is None else representation.stabilization_used
+        ),
         "task_performance_collapse_event": reward_retention < protocol.task_failure_retention,
         "support_or_variance_boundary_event": max(
             abs(float(task["log_sigma_min"])), abs(float(task["log_sigma_max"]))
-        ) >= protocol.log_sigma_event_boundary,
+        )
+        >= protocol.log_sigma_event_boundary,
         "nan_inf_numerical_event": not finite,
         **retention,
     }
@@ -323,7 +627,12 @@ def _train_one(
 
     trajectory: list[dict[str, Any]] = []
     realized_negative_norms: list[float] = []
-    applied_scales: list[float] = []
+    representation_scales: list[float] = []
+    effective_original_scales: list[float] = []
+    effective_original_scale_logs: list[float] = []
+    common_log_weight_shifts: list[float] = []
+    stabilization_flags: list[bool] = []
+    log_physical_raw_norms: list[float] = []
     relative_errors: list[float] = []
     parameter_update_norms: list[float] = []
     stable_candidate_step: int | None = None
@@ -331,6 +640,7 @@ def _train_one(
     classification_at_2x: tuple[bool, bool, bool] | None = None
     stop_reason = "maximum_steps"
     last_scale = 0.0 if method == "positive_only" else 1.0
+    last_effective_original_scale_log = float("-inf") if method == "positive_only" else 0.0
     started = time.perf_counter()
 
     for step in range(1, protocol.maximum_steps + 1):
@@ -347,38 +657,64 @@ def _train_one(
         raw_negative_norm = 0.0
         target_norm = 0.0
         scale = 0.0
+        effective_original_scale_log = float("-inf")
+        common_log_weight_shift = 0.0
+        log_physical_raw_norm = float("-inf")
+        stabilization_used = False
+        matching_negative_norm = 0.0
         relative_error = 0.0
         negative_loss_value = 0.0
+        represented_negative_loss_value = 0.0
         if method != "positive_only":
-            negative = weighted_negative_loss(
-                actor, environment.train, ids, method, coefficient, protocol
+            representation = negative_gradient_representation(
+                actor,
+                environment.train,
+                ids,
+                method,
+                coefficient,
+                protocol,
             )
-            negative_grad = taper_base.gradient_tuple(negative, actor, retain_graph=False)
-            raw_negative_norm = float(experiment.norm_tuple(negative_grad).item())
+            raw_negative_norm = representation.physical_raw_norm
+            log_physical_raw_norm = representation.log_physical_raw_norm
+            matching_negative_norm = representation.matching_norm
+            common_log_weight_shift = representation.common_log_weight_shift
+            stabilization_used = representation.stabilization_used
             if method in protocol.matched_methods:
                 if method == "reciprocal_linear" and target_schedule is None:
+                    if stabilization_used or common_log_weight_shift != 0.0:
+                        raise RuntimeError(
+                            "reference schedule must use the unmodified raw "
+                            "reciprocal-linear gradient"
+                        )
                     target_norm = raw_negative_norm
                     scale = 1.0
                 else:
                     if target_schedule is None or len(target_schedule) < step:
-                        raise RuntimeError("reference negative-gradient budget schedule is incomplete")
+                        raise RuntimeError(
+                            "reference negative-gradient budget schedule is incomplete"
+                        )
                     target_norm = float(target_schedule[step - 1])
-                    if raw_negative_norm <= EPS:
+                    if matching_negative_norm <= EPS:
                         if target_norm > protocol.budget_relative_tolerance:
                             raise RuntimeError(
-                                f"zero candidate negative gradient at seed={seed} step={step}"
+                                f"zero candidate negative-gradient direction at "
+                                f"seed={seed} step={step}"
                             )
                         scale = 0.0
                     else:
-                        scale = target_norm / raw_negative_norm
-                realized_norm = raw_negative_norm * scale
+                        scale = target_norm / matching_negative_norm
+                realized_norm = matching_negative_norm * scale
                 relative_error = abs(realized_norm - target_norm) / max(target_norm, EPS)
             else:  # unweighted boundary control is deliberately unmatched
                 target_norm = raw_negative_norm
                 scale = 1.0
-                realized_norm = raw_negative_norm
-            negative_loss_value = float(negative.detach().item())
-            _set_combined_gradient(actor, positive_grad, negative_grad, scale)
+                realized_norm = matching_negative_norm
+            effective_original_scale_log = (
+                math.log(scale) - common_log_weight_shift if scale > 0.0 else float("-inf")
+            )
+            negative_loss_value = representation.original_loss_value
+            represented_negative_loss_value = representation.represented_loss_value
+            _set_combined_gradient(actor, positive_grad, representation.gradients, scale)
         else:
             experiment.set_parameter_grads(list(actor.parameters()), positive_grad)
             realized_norm = 0.0
@@ -387,15 +723,19 @@ def _train_one(
         optimizer.step()
         update_norm = _parameter_update_norm(before, actor)
         realized_negative_norms.append(float(realized_norm))
-        applied_scales.append(float(scale))
+        representation_scales.append(float(scale))
+        effective_original_scales.append(_exp_or_boundary(float(effective_original_scale_log)))
+        effective_original_scale_logs.append(float(effective_original_scale_log))
+        common_log_weight_shifts.append(float(common_log_weight_shift))
+        stabilization_flags.append(bool(stabilization_used))
+        log_physical_raw_norms.append(float(log_physical_raw_norm))
         relative_errors.append(float(relative_error))
         parameter_update_norms.append(update_norm)
         last_scale = float(scale)
+        last_effective_original_scale_log = float(effective_original_scale_log)
 
         should_evaluate = (
-            step == 1
-            or step % protocol.evaluation_interval == 0
-            or step == protocol.maximum_steps
+            step == 1 or step % protocol.evaluation_interval == 0 or step == protocol.maximum_steps
         )
         if not should_evaluate:
             continue
@@ -404,7 +744,7 @@ def _train_one(
             environment,
             method,
             coefficient,
-            last_scale,
+            last_effective_original_scale_log,
             protocol,
             initial_reward,
         )
@@ -415,15 +755,25 @@ def _train_one(
             "coefficient": coefficient,
             "positive_loss": float(positive.detach().item()),
             "negative_loss": negative_loss_value,
+            "represented_negative_loss": represented_negative_loss_value,
             "target_negative_gradient_norm": target_norm,
             "raw_negative_gradient_norm": raw_negative_norm,
+            "log_raw_negative_gradient_norm": log_physical_raw_norm,
+            "matching_negative_gradient_norm": matching_negative_norm,
             "realized_negative_gradient_norm": realized_norm,
             "budget_relative_error": relative_error,
             "negative_scale": scale,
+            "effective_original_negative_scale_log": effective_original_scale_log,
+            "common_log_weight_shift": common_log_weight_shift,
+            "direction_stabilization_used": stabilization_used,
             "total_parameter_update_norm": update_norm,
-            "cumulative_target_negative_gradient_norm": float(sum(
-                target_schedule[:step] if target_schedule is not None else realized_negative_norms
-            )),
+            "cumulative_target_negative_gradient_norm": float(
+                sum(
+                    target_schedule[:step]
+                    if target_schedule is not None
+                    else realized_negative_norms
+                )
+            ),
             "cumulative_realized_negative_gradient_norm": float(sum(realized_negative_norms)),
             "cumulative_total_parameter_update_norm": float(sum(parameter_update_norms)),
             **state,
@@ -457,9 +807,10 @@ def _train_one(
                 if method == "positive_only"
                 else protocol.normalized_field_residual_threshold
             )
-            if max_slope < protocol.normalized_slope_threshold and float(
-                state["stationarity_residual"]
-            ) < threshold:
+            if (
+                max_slope < protocol.normalized_slope_threshold
+                and float(state["stationarity_residual"]) < threshold
+            ):
                 stable_candidate_step = step
                 candidate_classification = classification
         if stable_candidate_step is not None and step == 2 * stable_candidate_step:
@@ -471,7 +822,7 @@ def _train_one(
         environment,
         method,
         coefficient,
-        last_scale,
+        last_effective_original_scale_log,
         protocol,
         initial_reward,
     )
@@ -487,7 +838,9 @@ def _train_one(
             "actor_state_dict": actor.state_dict(),
             "optimizer_state_dict": optimizer.state_dict(),
             "coefficient": coefficient,
-            "last_negative_scale": last_scale,
+            "last_negative_scale": _exp_or_boundary(last_effective_original_scale_log),
+            "last_representation_scale": last_scale,
+            "last_effective_original_negative_scale_log": (last_effective_original_scale_log),
         },
         checkpoint_path,
     )
@@ -504,7 +857,13 @@ def _train_one(
             else "not_matched_boundary_control"
         ),
         "realized_negative_norms": realized_negative_norms,
-        "applied_scales": applied_scales,
+        "applied_scales": effective_original_scales,
+        "applied_effective_original_scales": effective_original_scales,
+        "applied_representation_scales": representation_scales,
+        "effective_original_scale_logs": effective_original_scale_logs,
+        "common_log_weight_shifts": common_log_weight_shifts,
+        "direction_stabilization_flags": stabilization_flags,
+        "log_physical_raw_negative_norms": log_physical_raw_norms,
         "relative_errors": relative_errors,
         "total_parameter_update_norms": parameter_update_norms,
     }
@@ -524,7 +883,22 @@ def _train_one(
         "mean_budget_relative_error": float(np.mean(relative_errors)) if relative_errors else 0.0,
         "cumulative_realized_negative_gradient_norm": float(sum(realized_negative_norms)),
         "cumulative_total_parameter_update_norm": float(sum(parameter_update_norms)),
-        "mean_negative_scale": float(np.mean(applied_scales)) if applied_scales else 0.0,
+        "mean_negative_scale": _mean_from_logs(effective_original_scale_logs)[0],
+        "mean_effective_original_negative_scale_log": _mean_from_logs(
+            effective_original_scale_logs
+        )[1],
+        "mean_representation_scale": (
+            float(np.mean(representation_scales)) if representation_scales else 0.0
+        ),
+        "direction_stabilization_steps": sum(stabilization_flags),
+        "minimum_log_physical_raw_negative_gradient_norm": min(
+            log_physical_raw_norms,
+            default=float("nan"),
+        ),
+        "maximum_effective_original_negative_scale_log": max(
+            effective_original_scale_logs,
+            default=float("nan"),
+        ),
         "terminal_checkpoint": str(checkpoint_path),
         **final_state,
     }
@@ -532,7 +906,9 @@ def _train_one(
     return summary, trajectory, realized_negative_norms
 
 
-def bootstrap_ci(values: list[float], protocol: BudgetMatchProtocol, seed: int) -> tuple[float, float, float]:
+def bootstrap_ci(
+    values: list[float], protocol: BudgetMatchProtocol, seed: int
+) -> tuple[float, float, float]:
     return experiment.mean_ci(values, seed=seed, n_boot=protocol.bootstrap_samples)
 
 
@@ -558,8 +934,12 @@ def aggregate_results(
         item: dict[str, Any] = {
             "method": method,
             "n": len(rows),
-            "task_performance_collapse_events": sum(bool(r["task_performance_collapse_event"]) for r in rows),
-            "support_or_variance_boundary_events": sum(bool(r["support_or_variance_boundary_event"]) for r in rows),
+            "task_performance_collapse_events": sum(
+                bool(r["task_performance_collapse_event"]) for r in rows
+            ),
+            "support_or_variance_boundary_events": sum(
+                bool(r["support_or_variance_boundary_event"]) for r in rows
+            ),
             "nan_inf_numerical_events": sum(bool(r["nan_inf_numerical_event"]) for r in rows),
         }
         for index, field in enumerate(numeric_fields):
@@ -593,8 +973,12 @@ def aggregate_results(
             row = {
                 "seed": seed,
                 "candidate": method,
-                "reward_delta_candidate_minus_linear": float(right["reward"]) - float(left["reward"]),
-                "far_harmful_retention_delta_candidate_minus_linear": float(right["far_harmful_influence_retention"]) - float(left["far_harmful_influence_retention"]),
+                "reward_delta_candidate_minus_linear": float(right["reward"])
+                - float(left["reward"]),
+                "far_harmful_retention_delta_candidate_minus_linear": float(
+                    right["far_harmful_influence_retention"]
+                )
+                - float(left["far_harmful_influence_retention"]),
             }
             paired_rows.append(row)
             reward_delta.append(row["reward_delta_candidate_minus_linear"])
@@ -622,26 +1006,85 @@ def build_terminal_audit(
 ) -> dict[str, Any]:
     expected = len(protocol.formal_seeds) * len(method_names(protocol))
     matched = [row for row in summaries if row["method"] in protocol.matched_methods]
-    max_error = max((float(row["maximum_budget_relative_error"]) for row in matched), default=0.0)
+    max_error = max(
+        (float(row["maximum_budget_relative_error"]) for row in matched),
+        default=0.0,
+    )
+    reference_stabilization_steps = sum(
+        int(row.get("direction_stabilization_steps", 0))
+        for row in summaries
+        if row["method"] == "reciprocal_linear"
+    )
+    disallowed_stabilization_steps = sum(
+        int(row.get("direction_stabilization_steps", 0))
+        for row in summaries
+        if family_for_method(str(row["method"])) not in VANISHING_TAIL_FAMILIES
+    )
+    actual_seeds = sorted({int(row["seed"]) for row in summaries})
+    actual_methods = sorted({str(row["method"]) for row in summaries})
+    numerical_failures = sum(bool(row["nan_inf_numerical_event"]) for row in summaries)
     checks = [
-        {"name": "complete_run_matrix", "passed": len(summaries) == expected, "actual": len(summaries), "expected": expected},
-        {"name": "formal_seed_coverage", "passed": sorted({int(r["seed"]) for r in summaries}) == sorted(protocol.formal_seeds), "actual": sorted({int(r["seed"]) for r in summaries}), "expected": list(protocol.formal_seeds)},
-        {"name": "method_coverage", "passed": sorted({str(r["method"]) for r in summaries}) == sorted(method_names(protocol)), "actual": sorted({str(r["method"]) for r in summaries}), "expected": sorted(method_names(protocol))},
-        {"name": "stepwise_negative_gradient_budget_match", "passed": max_error <= protocol.budget_relative_tolerance, "actual": max_error, "expected_maximum": protocol.budget_relative_tolerance},
-        {"name": "no_nan_inf_numerical_failure", "passed": not any(bool(r["nan_inf_numerical_event"]) for r in summaries), "actual": sum(bool(r["nan_inf_numerical_event"]) for r in summaries), "expected": 0},
+        {
+            "name": "complete_run_matrix",
+            "passed": len(summaries) == expected,
+            "actual": len(summaries),
+            "expected": expected,
+        },
+        {
+            "name": "formal_seed_coverage",
+            "passed": actual_seeds == sorted(protocol.formal_seeds),
+            "actual": actual_seeds,
+            "expected": list(protocol.formal_seeds),
+        },
+        {
+            "name": "method_coverage",
+            "passed": actual_methods == sorted(method_names(protocol)),
+            "actual": actual_methods,
+            "expected": sorted(method_names(protocol)),
+        },
+        {
+            "name": "stepwise_negative_gradient_budget_match",
+            "passed": max_error <= protocol.budget_relative_tolerance,
+            "actual": max_error,
+            "expected_maximum": protocol.budget_relative_tolerance,
+        },
+        {
+            "name": "reference_schedule_not_log_recentered",
+            "passed": reference_stabilization_steps == 0,
+            "actual": reference_stabilization_steps,
+            "expected": 0,
+        },
+        {
+            "name": "log_recentering_limited_to_vanishing_tail_families",
+            "passed": disallowed_stabilization_steps == 0,
+            "actual": disallowed_stabilization_steps,
+            "expected": 0,
+        },
+        {
+            "name": "no_nan_inf_numerical_failure",
+            "passed": numerical_failures == 0,
+            "actual": numerical_failures,
+            "expected": 0,
+        },
     ]
-    coverage = all(bool(check["passed"]) for check in checks[:-1])
+    coverage = all(bool(check["passed"]) for check in checks)
     return {
         "experiment_id": EXPERIMENT_ID,
         "base_commit": base_commit,
         "execution_status": "engineering_smoke" if smoke else "formal_run",
-        "scientific_status": "not run / 尚未运行" if smoke else ("finite-step validated / 有限训练步数验证" if coverage else "not run / 尚未运行"),
+        "scientific_status": "not run / 尚未运行"
+        if smoke
+        else ("finite-step validated / 有限训练步数验证" if coverage else "not run / 尚未运行"),
         "coverage_checks_passed": coverage,
-        "all_checks_passed": all(bool(check["passed"]) for check in checks),
+        "all_checks_passed": coverage,
         "checks": checks,
         "event_counts": {
-            "task_performance_collapse": sum(bool(r["task_performance_collapse_event"]) for r in summaries),
-            "support_or_variance_boundary": sum(bool(r["support_or_variance_boundary_event"]) for r in summaries),
+            "task_performance_collapse": sum(
+                bool(r["task_performance_collapse_event"]) for r in summaries
+            ),
+            "support_or_variance_boundary": sum(
+                bool(r["support_or_variance_boundary_event"]) for r in summaries
+            ),
             "nan_inf_numerical_failure": sum(bool(r["nan_inf_numerical_event"]) for r in summaries),
         },
         "interpretation_boundary": (
@@ -665,6 +1108,26 @@ def write_protocol_freeze(
         "primary_budget_coordinate": "stepwise_raw_negative_gradient_l2_before_Adam",
         "reference_schedule": "paired reciprocal-linear actor, same seed and minibatch indices",
         "matching_rule": "detached scalar target_norm/current_method_negative_gradient_norm",
+        "numerical_representation_contract": {
+            "scope": sorted(VANISHING_TAIL_FAMILIES),
+            "trigger": (
+                "ordinary float32 candidate negative-gradient norm is non-finite "
+                "or <= 1e-12; full-batch terminal diagnostics use the same stable "
+                "representation proactively"
+            ),
+            "transformation": (
+                "subtract one detached minibatch maximum log taper weight from "
+                "all taper log weights before exponentiation"
+            ),
+            "exact_matching_invariance": (
+                "the common positive factor cancels in target_norm/current_norm, "
+                "so the applied raw negative-gradient vector is unchanged"
+            ),
+            "taper_formula_changed": False,
+            "relative_near_far_allocation_changed": False,
+            "gradient_direction_changed": False,
+            "reference_schedule_recentered": False,
+        },
         "global_control": "unweighted negative-gradient direction with the same per-step target norm",
         "Adam_parameter_update_norm": "logged_secondary_not_matched",
         "coefficient_source": "development seeds 0-4, near-retention target 0.75",
@@ -680,13 +1143,17 @@ def write_protocol_freeze(
     atomic_json(output_root / "formal_protocol_freeze.json", payload)
 
 
-def checkpoint_manifest(output_root: Path, completed: list[int], protocol: BudgetMatchProtocol) -> None:
+def checkpoint_manifest(
+    output_root: Path, completed: list[int], protocol: BudgetMatchProtocol
+) -> None:
     atomic_json(
         output_root / "checkpoints" / f"seed_block_{completed[-1]}.json",
         {
             "experiment_id": EXPERIMENT_ID,
             "completed_formal_seeds": completed,
-            "remaining_formal_seeds": [seed for seed in protocol.formal_seeds if seed not in completed],
+            "remaining_formal_seeds": [
+                seed for seed in protocol.formal_seeds if seed not in completed
+            ],
             "checkpoint_kind": "runner_progress_index_not_final_scientific_result",
             "partial_summary": "per_seed_runs_partial.csv",
         },
@@ -704,11 +1171,21 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     output_root = args.output_dir.resolve()
-    supervisor_owned = {"heartbeat.json", "logs", "provenance_launch", "run_manifest.json", "scientific_run_manifest.json"}
+    supervisor_owned = {
+        "heartbeat.json",
+        "logs",
+        "provenance_launch",
+        "run_manifest.json",
+        "scientific_run_manifest.json",
+    }
     if output_root.exists():
-        unexpected = sorted(path.name for path in output_root.iterdir() if path.name not in supervisor_owned)
+        unexpected = sorted(
+            path.name for path in output_root.iterdir() if path.name not in supervisor_owned
+        )
         if unexpected:
-            raise SystemExit("output directory contains non-supervisor files: " + ", ".join(unexpected))
+            raise SystemExit(
+                "output directory contains non-supervisor files: " + ", ".join(unexpected)
+            )
     output_root.mkdir(parents=True, exist_ok=True)
 
     global PROTOCOL
@@ -757,7 +1234,13 @@ def main() -> int:
     atomic_json(output_root / "experiment_manifest.json", manifest)
     source_snapshot = output_root / "source_snapshot"
     source_snapshot.mkdir(parents=True, exist_ok=True)
-    for source in (Path(__file__), Path(near_base.__file__), Path(taper_base.__file__), Path(experiment.__file__), Path(cu1_core.__file__)):
+    for source in (
+        Path(__file__),
+        Path(near_base.__file__),
+        Path(taper_base.__file__),
+        Path(experiment.__file__),
+        Path(cu1_core.__file__),
+    ):
         shutil.copy2(source, source_snapshot / source.name)
 
     audit = experiment.audit_environment(experiment.make_environment(PROTOCOL.formal_seeds[0]))
@@ -766,7 +1249,7 @@ def main() -> int:
         raise SystemExit("shared C-U1 environment audit failed")
 
     near_protocol = calibration_protocol(PROTOCOL)
-    coefficients, calibration = near_base.calibrate_families(output_root, near_protocol)
+    coefficients, _ = near_base.calibrate_families(output_root, near_protocol)
     write_protocol_freeze(output_root, PROTOCOL, coefficients)
 
     summaries: list[dict[str, Any]] = []
@@ -776,7 +1259,12 @@ def main() -> int:
     for index, seed in enumerate(PROTOCOL.formal_seeds, start=1):
         log_message(output_root, f"formal seed={seed} positive-only initialization")
         _, environment, _, positive_summary = experiment.train_positive(seed)
-        positive_rows.append({**positive_summary, "method_initialization_source": "positive_only_adam_2000_step_checkpoint"})
+        positive_rows.append(
+            {
+                **positive_summary,
+                "method_initialization_source": "positive_only_adam_2000_step_checkpoint",
+            }
+        )
         initial_state = copy.deepcopy(experiment.load_initialization_state(seed))
 
         reference_coefficient = coefficient_for_method("reciprocal_linear", coefficients, PROTOCOL)
@@ -810,32 +1298,61 @@ def main() -> int:
             trajectories.extend(rows)
             write_csv(output_root / "per_seed_runs_partial.csv", summaries)
         completed.append(seed)
-        if index % PROTOCOL.checkpoint_every_formal_seeds == 0 or index == len(PROTOCOL.formal_seeds):
+        if index % PROTOCOL.checkpoint_every_formal_seeds == 0 or index == len(
+            PROTOCOL.formal_seeds
+        ):
             checkpoint_manifest(output_root, completed, PROTOCOL)
 
     write_csv(output_root / "positive_summary.csv", positive_rows)
     write_csv(output_root / "per_seed_runs.csv", summaries)
     write_csv(output_root / "all_trajectories.csv", trajectories)
-    aggregate_rows, paired_rows, paired_summary = aggregate_results(summaries, output_root, PROTOCOL)
+    aggregate_rows, paired_rows, paired_summary = aggregate_results(
+        summaries, output_root, PROTOCOL
+    )
     terminal_audit = build_terminal_audit(summaries, PROTOCOL, args.base_commit, args.smoke)
     atomic_json(output_root / "terminal_audit.json", terminal_audit)
+    stabilization_steps_by_method = {
+        method: sum(
+            int(row.get("direction_stabilization_steps", 0))
+            for row in summaries
+            if row["method"] == method
+        )
+        for method in method_names(PROTOCOL)
+    }
     atomic_json(
         output_root / "budget_audit.json",
         {
             "experiment_id": EXPERIMENT_ID,
-            "primary_budget_coordinate": "stepwise_raw_negative_gradient_l2_before_Adam",
+            "primary_budget_coordinate": ("stepwise_raw_negative_gradient_l2_before_Adam"),
             "maximum_relative_error": max(
-                (float(row["maximum_budget_relative_error"]) for row in summaries if row["method"] in PROTOCOL.matched_methods),
+                (
+                    float(row["maximum_budget_relative_error"])
+                    for row in summaries
+                    if row["method"] in PROTOCOL.matched_methods
+                ),
                 default=0.0,
             ),
             "tolerance": PROTOCOL.budget_relative_tolerance,
             "Adam_parameter_update_norm_matched": False,
             "Adam_parameter_update_norm_logged": True,
+            "numerical_direction_stabilization": {
+                "total_steps": sum(stabilization_steps_by_method.values()),
+                "steps_by_method": stabilization_steps_by_method,
+                "reference_reciprocal_linear_steps": (
+                    stabilization_steps_by_method["reciprocal_linear"]
+                ),
+                "common_factor_only": True,
+                "direction_preserved_under_exact_norm_matching": True,
+                "taper_formulas_unchanged": True,
+                "relative_near_far_allocation_unchanged": True,
+            },
         },
     )
     manifest.update(
         {
-            "result_status": "engineering_smoke" if args.smoke else terminal_audit["scientific_status"],
+            "result_status": "engineering_smoke"
+            if args.smoke
+            else terminal_audit["scientific_status"],
             "end_unix": time.time(),
             "elapsed_seconds": time.time() - started,
             "runs_completed": len(summaries),
