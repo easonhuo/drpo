@@ -1,0 +1,8 @@
+schema_version: 1
+manuscript_id: drpo-paper-rewrite
+sections:
+  - id: introduction
+    layers:
+      outline: docs/paper_rewrite_outline_v0_8.md
+      blueprint: docs/paper_rewrite_intro_blueprint_v0_2.md
+      prose: null

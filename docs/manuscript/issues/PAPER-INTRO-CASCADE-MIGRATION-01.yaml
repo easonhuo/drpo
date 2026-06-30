@@ -1,0 +1,37 @@
+schema_version: 1
+issue_id: PAPER-INTRO-CASCADE-MIGRATION-01
+section_id: introduction
+paragraph_ids:
+- INTRO-P01
+- INTRO-P02
+- INTRO-P03
+- INTRO-P04
+- INTRO-P05
+- INTRO-P06
+- INTRO-P07
+- INTRO-P08
+problem: Migrate the previously independent seven-paragraph outline and eight-paragraph
+  Introduction blueprint into one canonical, mechanically aligned outline-to-blueprint
+  hierarchy.
+checks:
+- layer: outline
+  status: fail
+  evidence: The prior active outline had seven Introduction responsibilities and combined
+    theory with method, so it could not be the parent contract for the eight-paragraph
+    blueprint or the corrected story order.
+- layer: blueprint
+  status: blocked
+  evidence: The prior blueprint could not be accepted while its parent outline had
+    a different paragraph count, responsibility split, and order.
+- layer: prose
+  status: not_present
+  evidence: No Introduction prose artifact has been created or registered yet.
+resolution:
+  state: completed
+  required_layers:
+  - outline
+  - blueprint
+  changed_layers:
+  - outline
+  - blueprint
+allowed_additional_paragraph_ids: []
