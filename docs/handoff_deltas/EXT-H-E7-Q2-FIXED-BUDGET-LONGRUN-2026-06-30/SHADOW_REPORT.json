@@ -1,0 +1,1450 @@
+{
+  "affected_selectors": [
+    "0. \u7814\u7a76\u4e0e\u6267\u884c\u539f\u5219\uff08\u6bcf\u6b21\u65b0\u4f1a\u8bdd\u9996\u5148\u9605\u8bfb\uff09"
+  ],
+  "base_commit": "84edc2aa0b2f258033ddf2ef9aaf98e7a89a6edd",
+  "base_handoff_sha256": "3ff6757c86183a274a8ca3986d2a309b9caafc1ec58abf4d1b33f6cbae1f6be7",
+  "base_registry_sha256": "db246ebee08efec3fdf642caac0e7b40fed1d0f80d7f1fe0ba50ecca7185a035",
+  "candidate_replaced_authority": false,
+  "candidate_sha256": "64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7",
+  "comparison_target": "working_tree",
+  "current_registry_sha256": "8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059",
+  "exact_manual_candidate_match": true,
+  "full_candidate_saved": false,
+  "history_preservation_passed": true,
+  "idempotence_passed": true,
+  "llm_blocking_gate_used": false,
+  "manual_handoff_authoritative": true,
+  "manual_sha256": "64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7",
+  "mode": "shadow",
+  "network_used": false,
+  "observation_kind": "real",
+  "operation_count": 1,
+  "performance": {
+    "base_validation_ms": 76.96,
+    "comparison_and_registry_ms": 486.044,
+    "hard_limit_ms": 15000.0,
+    "policy_and_schema_ms": 20.35,
+    "render_and_idempotence_ms": 22.408,
+    "target_p95_ms": 5000.0,
+    "total_ms": 605.964,
+    "within_hard_limit": true,
+    "within_target": true
+  },
+  "policy_id": "GOV-HANDOFF-INDEX-01",
+  "registry_change_assertions": [
+    {
+      "change_id": "e7-q2-v43-01",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059"
+        },
+        {
+          "path": "configs/e7_hopper_q2_medium_replay_v2.yaml",
+          "sha256": "262a2a6df0bdf1027335135a7b13cfbd3746dc9b7bc537eb7428a7cf8b37a96e"
+        },
+        {
+          "path": "src/drpo/e7_hopper_q2.py",
+          "sha256": "3f2fbc6cf96f003b92f75891204556596b92ea7c79569d5ed6dc7806ae8f5f6e"
+        },
+        {
+          "path": "scripts/run_e7_hopper_q2.py",
+          "sha256": "ae00eed0b5d068495849daec6774d632ccf727d009b7b0f1dd73b9147a110ec2"
+        },
+        {
+          "path": "docs/README_E7_HOPPER_Q2_ONECLICK.md",
+          "sha256": "bd8467a047712846d7f79eebc9ea0d130888c590a7fd4919b5372df75dcf7631"
+        },
+        {
+          "path": "tests/test_e7_q2_acceptance_pipeline.py",
+          "sha256": "812daa6b8c7d26e3265337776278f8044ba23df01c906498c2f218e44a4063cd"
+        },
+        {
+          "path": "tests/test_e7_hopper_q2.py",
+          "sha256": "7e102d488b552d7aa6cfdcbf0bf380d24425f0d2681436ae10563387f31cf56e"
+        }
+      ],
+      "field_path": [
+        "actor_protocol",
+        "positive_only_fixed_budget_before_branching"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Register the user-approved E7-Q2 v4.3 fixed-budget long-run protocol, preserve the v4.2 pilot as pilot-only evidence, and remove gate-driven early stopping without changing E7 scientific responsibility, data, model, learning rates, or formal seeds.",
+      "to": true
+    },
+    {
+      "change_id": "e7-q2-v43-02",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059"
+        },
+        {
+          "path": "configs/e7_hopper_q2_medium_replay_v2.yaml",
+          "sha256": "262a2a6df0bdf1027335135a7b13cfbd3746dc9b7bc537eb7428a7cf8b37a96e"
+        },
+        {
+          "path": "src/drpo/e7_hopper_q2.py",
+          "sha256": "3f2fbc6cf96f003b92f75891204556596b92ea7c79569d5ed6dc7806ae8f5f6e"
+        },
+        {
+          "path": "scripts/run_e7_hopper_q2.py",
+          "sha256": "ae00eed0b5d068495849daec6774d632ccf727d009b7b0f1dd73b9147a110ec2"
+        },
+        {
+          "path": "docs/README_E7_HOPPER_Q2_ONECLICK.md",
+          "sha256": "bd8467a047712846d7f79eebc9ea0d130888c590a7fd4919b5372df75dcf7631"
+        },
+        {
+          "path": "tests/test_e7_q2_acceptance_pipeline.py",
+          "sha256": "812daa6b8c7d26e3265337776278f8044ba23df01c906498c2f218e44a4063cd"
+        },
+        {
+          "path": "tests/test_e7_hopper_q2.py",
+          "sha256": "7e102d488b552d7aa6cfdcbf0bf380d24425f0d2681436ae10563387f31cf56e"
+        }
+      ],
+      "field_path": [
+        "actor_protocol",
+        "positive_only_terminal_before_branching"
+      ],
+      "from": true,
+      "kind": "update_field",
+      "reason": "Register the user-approved E7-Q2 v4.3 fixed-budget long-run protocol, preserve the v4.2 pilot as pilot-only evidence, and remove gate-driven early stopping without changing E7 scientific responsibility, data, model, learning rates, or formal seeds.",
+      "to": "superseded_by_positive_only_fixed_budget_before_branching"
+    },
+    {
+      "change_id": "e7-q2-v43-03",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059"
+        },
+        {
+          "path": "configs/e7_hopper_q2_medium_replay_v2.yaml",
+          "sha256": "262a2a6df0bdf1027335135a7b13cfbd3746dc9b7bc537eb7428a7cf8b37a96e"
+        },
+        {
+          "path": "src/drpo/e7_hopper_q2.py",
+          "sha256": "3f2fbc6cf96f003b92f75891204556596b92ea7c79569d5ed6dc7806ae8f5f6e"
+        },
+        {
+          "path": "scripts/run_e7_hopper_q2.py",
+          "sha256": "ae00eed0b5d068495849daec6774d632ccf727d009b7b0f1dd73b9147a110ec2"
+        },
+        {
+          "path": "docs/README_E7_HOPPER_Q2_ONECLICK.md",
+          "sha256": "bd8467a047712846d7f79eebc9ea0d130888c590a7fd4919b5372df75dcf7631"
+        },
+        {
+          "path": "tests/test_e7_q2_acceptance_pipeline.py",
+          "sha256": "812daa6b8c7d26e3265337776278f8044ba23df01c906498c2f218e44a4063cd"
+        },
+        {
+          "path": "tests/test_e7_hopper_q2.py",
+          "sha256": "7e102d488b552d7aa6cfdcbf0bf380d24425f0d2681436ae10563387f31cf56e"
+        }
+      ],
+      "field_path": [
+        "actor_protocol",
+        "stopping"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Register the user-approved E7-Q2 v4.3 fixed-budget long-run protocol, preserve the v4.2 pilot as pilot-only evidence, and remove gate-driven early stopping without changing E7 scientific responsibility, data, model, learning rates, or formal seeds.",
+      "to": {
+        "actor_evaluation_interval": 5000,
+        "branch_formal_steps": 200000,
+        "early_stop": "nan_inf_numerical_failure_only",
+        "equal_branch_horizon": "required",
+        "evaluation_seed_pairing_across_methods": "required",
+        "final_rollout_episodes": 20,
+        "gate_driven_early_stop": "forbidden",
+        "intermediate_rollout_episodes": 5,
+        "positive_only_formal_steps": 100000,
+        "rollout_evaluation_interval": 25000,
+        "rule": "fixed_optimizer_steps"
+      }
+    },
+    {
+      "change_id": "e7-q2-v43-04",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059"
+        },
+        {
+          "path": "configs/e7_hopper_q2_medium_replay_v2.yaml",
+          "sha256": "262a2a6df0bdf1027335135a7b13cfbd3746dc9b7bc537eb7428a7cf8b37a96e"
+        },
+        {
+          "path": "src/drpo/e7_hopper_q2.py",
+          "sha256": "3f2fbc6cf96f003b92f75891204556596b92ea7c79569d5ed6dc7806ae8f5f6e"
+        },
+        {
+          "path": "scripts/run_e7_hopper_q2.py",
+          "sha256": "ae00eed0b5d068495849daec6774d632ccf727d009b7b0f1dd73b9147a110ec2"
+        },
+        {
+          "path": "docs/README_E7_HOPPER_Q2_ONECLICK.md",
+          "sha256": "bd8467a047712846d7f79eebc9ea0d130888c590a7fd4919b5372df75dcf7631"
+        },
+        {
+          "path": "tests/test_e7_q2_acceptance_pipeline.py",
+          "sha256": "812daa6b8c7d26e3265337776278f8044ba23df01c906498c2f218e44a4063cd"
+        },
+        {
+          "path": "tests/test_e7_hopper_q2.py",
+          "sha256": "7e102d488b552d7aa6cfdcbf0bf380d24425f0d2681436ae10563387f31cf56e"
+        }
+      ],
+      "field_path": [
+        "actor_protocol",
+        "superseded_v42_positive_only_terminal_before_branching"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Register the user-approved E7-Q2 v4.3 fixed-budget long-run protocol, preserve the v4.2 pilot as pilot-only evidence, and remove gate-driven early stopping without changing E7 scientific responsibility, data, model, learning rates, or formal seeds.",
+      "to": true
+    },
+    {
+      "change_id": "e7-q2-v43-05",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059"
+        },
+        {
+          "path": "configs/e7_hopper_q2_medium_replay_v2.yaml",
+          "sha256": "262a2a6df0bdf1027335135a7b13cfbd3746dc9b7bc537eb7428a7cf8b37a96e"
+        },
+        {
+          "path": "src/drpo/e7_hopper_q2.py",
+          "sha256": "3f2fbc6cf96f003b92f75891204556596b92ea7c79569d5ed6dc7806ae8f5f6e"
+        },
+        {
+          "path": "scripts/run_e7_hopper_q2.py",
+          "sha256": "ae00eed0b5d068495849daec6774d632ccf727d009b7b0f1dd73b9147a110ec2"
+        },
+        {
+          "path": "docs/README_E7_HOPPER_Q2_ONECLICK.md",
+          "sha256": "bd8467a047712846d7f79eebc9ea0d130888c590a7fd4919b5372df75dcf7631"
+        },
+        {
+          "path": "tests/test_e7_q2_acceptance_pipeline.py",
+          "sha256": "812daa6b8c7d26e3265337776278f8044ba23df01c906498c2f218e44a4063cd"
+        },
+        {
+          "path": "tests/test_e7_hopper_q2.py",
+          "sha256": "7e102d488b552d7aa6cfdcbf0bf380d24425f0d2681436ae10563387f31cf56e"
+        }
+      ],
+      "field_path": [
+        "actor_protocol",
+        "superseded_v42_terminal_candidate_controlled_stopping"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Register the user-approved E7-Q2 v4.3 fixed-budget long-run protocol, preserve the v4.2 pilot as pilot-only evidence, and remove gate-driven early stopping without changing E7 scientific responsibility, data, model, learning rates, or formal seeds.",
+      "to": true
+    },
+    {
+      "change_id": "e7-q2-v43-06",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059"
+        },
+        {
+          "path": "configs/e7_hopper_q2_medium_replay_v2.yaml",
+          "sha256": "262a2a6df0bdf1027335135a7b13cfbd3746dc9b7bc537eb7428a7cf8b37a96e"
+        },
+        {
+          "path": "src/drpo/e7_hopper_q2.py",
+          "sha256": "3f2fbc6cf96f003b92f75891204556596b92ea7c79569d5ed6dc7806ae8f5f6e"
+        },
+        {
+          "path": "scripts/run_e7_hopper_q2.py",
+          "sha256": "ae00eed0b5d068495849daec6774d632ccf727d009b7b0f1dd73b9147a110ec2"
+        },
+        {
+          "path": "docs/README_E7_HOPPER_Q2_ONECLICK.md",
+          "sha256": "bd8467a047712846d7f79eebc9ea0d130888c590a7fd4919b5372df75dcf7631"
+        },
+        {
+          "path": "tests/test_e7_q2_acceptance_pipeline.py",
+          "sha256": "812daa6b8c7d26e3265337776278f8044ba23df01c906498c2f218e44a4063cd"
+        },
+        {
+          "path": "tests/test_e7_hopper_q2.py",
+          "sha256": "7e102d488b552d7aa6cfdcbf0bf380d24425f0d2681436ae10563387f31cf56e"
+        }
+      ],
+      "field_path": [
+        "actor_protocol",
+        "terminal_audit"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Register the user-approved E7-Q2 v4.3 fixed-budget long-run protocol, preserve the v4.2 pilot as pilot-only evidence, and remove gate-driven early stopping without changing E7 scientific responsibility, data, model, learning rates, or formal seeds.",
+      "to": {
+        "exact_two_times_continuation_when_feasible": "finite_terminal_label_only",
+        "fixed_horizon_is_not_convergence": true,
+        "normalized_window_drift_max": 0.01,
+        "positive_nll_slope": "diagnostic_only",
+        "relative_parameter_update": "report",
+        "role": "post_hoc_classification_only",
+        "state_drift_metrics": [
+          "mean_abs",
+          "sigma_mean",
+          "phantom_distance_mean"
+        ]
+      }
+    },
+    {
+      "change_id": "e7-q2-v43-07",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059"
+        },
+        {
+          "path": "configs/e7_hopper_q2_medium_replay_v2.yaml",
+          "sha256": "262a2a6df0bdf1027335135a7b13cfbd3746dc9b7bc537eb7428a7cf8b37a96e"
+        },
+        {
+          "path": "src/drpo/e7_hopper_q2.py",
+          "sha256": "3f2fbc6cf96f003b92f75891204556596b92ea7c79569d5ed6dc7806ae8f5f6e"
+        },
+        {
+          "path": "scripts/run_e7_hopper_q2.py",
+          "sha256": "ae00eed0b5d068495849daec6774d632ccf727d009b7b0f1dd73b9147a110ec2"
+        },
+        {
+          "path": "docs/README_E7_HOPPER_Q2_ONECLICK.md",
+          "sha256": "bd8467a047712846d7f79eebc9ea0d130888c590a7fd4919b5372df75dcf7631"
+        },
+        {
+          "path": "tests/test_e7_q2_acceptance_pipeline.py",
+          "sha256": "812daa6b8c7d26e3265337776278f8044ba23df01c906498c2f218e44a4063cd"
+        },
+        {
+          "path": "tests/test_e7_hopper_q2.py",
+          "sha256": "7e102d488b552d7aa6cfdcbf0bf380d24425f0d2681436ae10563387f31cf56e"
+        }
+      ],
+      "field_path": [
+        "actor_protocol",
+        "terminal_candidate_status"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Register the user-approved E7-Q2 v4.3 fixed-budget long-run protocol, preserve the v4.2 pilot as pilot-only evidence, and remove gate-driven early stopping without changing E7 scientific responsibility, data, model, learning rates, or formal seeds.",
+      "to": "superseded_as_stopping_gate_retained_for_provenance"
+    },
+    {
+      "change_id": "e7-q2-v43-08",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059"
+        },
+        {
+          "path": "configs/e7_hopper_q2_medium_replay_v2.yaml",
+          "sha256": "262a2a6df0bdf1027335135a7b13cfbd3746dc9b7bc537eb7428a7cf8b37a96e"
+        },
+        {
+          "path": "src/drpo/e7_hopper_q2.py",
+          "sha256": "3f2fbc6cf96f003b92f75891204556596b92ea7c79569d5ed6dc7806ae8f5f6e"
+        },
+        {
+          "path": "scripts/run_e7_hopper_q2.py",
+          "sha256": "ae00eed0b5d068495849daec6774d632ccf727d009b7b0f1dd73b9147a110ec2"
+        },
+        {
+          "path": "docs/README_E7_HOPPER_Q2_ONECLICK.md",
+          "sha256": "bd8467a047712846d7f79eebc9ea0d130888c590a7fd4919b5372df75dcf7631"
+        },
+        {
+          "path": "tests/test_e7_q2_acceptance_pipeline.py",
+          "sha256": "812daa6b8c7d26e3265337776278f8044ba23df01c906498c2f218e44a4063cd"
+        },
+        {
+          "path": "tests/test_e7_hopper_q2.py",
+          "sha256": "7e102d488b552d7aa6cfdcbf0bf380d24425f0d2681436ae10563387f31cf56e"
+        }
+      ],
+      "field_path": [
+        "critic_protocol",
+        "canonical_artifact_schema"
+      ],
+      "from": 2,
+      "kind": "update_field",
+      "reason": "Register the user-approved E7-Q2 v4.3 fixed-budget long-run protocol, preserve the v4.2 pilot as pilot-only evidence, and remove gate-driven early stopping without changing E7 scientific responsibility, data, model, learning rates, or formal seeds.",
+      "to": 3
+    },
+    {
+      "change_id": "e7-q2-v43-09",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059"
+        },
+        {
+          "path": "configs/e7_hopper_q2_medium_replay_v2.yaml",
+          "sha256": "262a2a6df0bdf1027335135a7b13cfbd3746dc9b7bc537eb7428a7cf8b37a96e"
+        },
+        {
+          "path": "src/drpo/e7_hopper_q2.py",
+          "sha256": "3f2fbc6cf96f003b92f75891204556596b92ea7c79569d5ed6dc7806ae8f5f6e"
+        },
+        {
+          "path": "scripts/run_e7_hopper_q2.py",
+          "sha256": "ae00eed0b5d068495849daec6774d632ccf727d009b7b0f1dd73b9147a110ec2"
+        },
+        {
+          "path": "docs/README_E7_HOPPER_Q2_ONECLICK.md",
+          "sha256": "bd8467a047712846d7f79eebc9ea0d130888c590a7fd4919b5372df75dcf7631"
+        },
+        {
+          "path": "tests/test_e7_q2_acceptance_pipeline.py",
+          "sha256": "812daa6b8c7d26e3265337776278f8044ba23df01c906498c2f218e44a4063cd"
+        },
+        {
+          "path": "tests/test_e7_hopper_q2.py",
+          "sha256": "7e102d488b552d7aa6cfdcbf0bf380d24425f0d2681436ae10563387f31cf56e"
+        }
+      ],
+      "field_path": [
+        "critic_protocol",
+        "checkpoint_selection"
+      ],
+      "from": "accepted_terminal_extension_else_best_validation",
+      "kind": "update_field",
+      "reason": "Register the user-approved E7-Q2 v4.3 fixed-budget long-run protocol, preserve the v4.2 pilot as pilot-only evidence, and remove gate-driven early stopping without changing E7 scientific responsibility, data, model, learning rates, or formal seeds.",
+      "to": "best_validation_after_fixed_budget"
+    },
+    {
+      "change_id": "e7-q2-v43-10",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059"
+        },
+        {
+          "path": "configs/e7_hopper_q2_medium_replay_v2.yaml",
+          "sha256": "262a2a6df0bdf1027335135a7b13cfbd3746dc9b7bc537eb7428a7cf8b37a96e"
+        },
+        {
+          "path": "src/drpo/e7_hopper_q2.py",
+          "sha256": "3f2fbc6cf96f003b92f75891204556596b92ea7c79569d5ed6dc7806ae8f5f6e"
+        },
+        {
+          "path": "scripts/run_e7_hopper_q2.py",
+          "sha256": "ae00eed0b5d068495849daec6774d632ccf727d009b7b0f1dd73b9147a110ec2"
+        },
+        {
+          "path": "docs/README_E7_HOPPER_Q2_ONECLICK.md",
+          "sha256": "bd8467a047712846d7f79eebc9ea0d130888c590a7fd4919b5372df75dcf7631"
+        },
+        {
+          "path": "tests/test_e7_q2_acceptance_pipeline.py",
+          "sha256": "812daa6b8c7d26e3265337776278f8044ba23df01c906498c2f218e44a4063cd"
+        },
+        {
+          "path": "tests/test_e7_hopper_q2.py",
+          "sha256": "7e102d488b552d7aa6cfdcbf0bf380d24425f0d2681436ae10563387f31cf56e"
+        }
+      ],
+      "field_path": [
+        "critic_protocol",
+        "frozen_advantage_acceptance",
+        "operational_execution_gate"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Register the user-approved E7-Q2 v4.3 fixed-budget long-run protocol, preserve the v4.2 pilot as pilot-only evidence, and remove gate-driven early stopping without changing E7 scientific responsibility, data, model, learning rates, or formal seeds.",
+      "to": {
+        "finite_selected_metrics": "required",
+        "fixed_budget_completed": "required"
+      }
+    },
+    {
+      "change_id": "e7-q2-v43-11",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059"
+        },
+        {
+          "path": "configs/e7_hopper_q2_medium_replay_v2.yaml",
+          "sha256": "262a2a6df0bdf1027335135a7b13cfbd3746dc9b7bc537eb7428a7cf8b37a96e"
+        },
+        {
+          "path": "src/drpo/e7_hopper_q2.py",
+          "sha256": "3f2fbc6cf96f003b92f75891204556596b92ea7c79569d5ed6dc7806ae8f5f6e"
+        },
+        {
+          "path": "scripts/run_e7_hopper_q2.py",
+          "sha256": "ae00eed0b5d068495849daec6774d632ccf727d009b7b0f1dd73b9147a110ec2"
+        },
+        {
+          "path": "docs/README_E7_HOPPER_Q2_ONECLICK.md",
+          "sha256": "bd8467a047712846d7f79eebc9ea0d130888c590a7fd4919b5372df75dcf7631"
+        },
+        {
+          "path": "tests/test_e7_q2_acceptance_pipeline.py",
+          "sha256": "812daa6b8c7d26e3265337776278f8044ba23df01c906498c2f218e44a4063cd"
+        },
+        {
+          "path": "tests/test_e7_hopper_q2.py",
+          "sha256": "7e102d488b552d7aa6cfdcbf0bf380d24425f0d2681436ae10563387f31cf56e"
+        }
+      ],
+      "field_path": [
+        "critic_protocol",
+        "frozen_advantage_acceptance",
+        "selected_vs_final_sign_and_rank_stability"
+      ],
+      "from": "required_on_actor_training_split",
+      "kind": "update_field",
+      "reason": "Register the user-approved E7-Q2 v4.3 fixed-budget long-run protocol, preserve the v4.2 pilot as pilot-only evidence, and remove gate-driven early stopping without changing E7 scientific responsibility, data, model, learning rates, or formal seeds.",
+      "to": "report_only_on_actor_training_split"
+    },
+    {
+      "change_id": "e7-q2-v43-12",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059"
+        },
+        {
+          "path": "configs/e7_hopper_q2_medium_replay_v2.yaml",
+          "sha256": "262a2a6df0bdf1027335135a7b13cfbd3746dc9b7bc537eb7428a7cf8b37a96e"
+        },
+        {
+          "path": "src/drpo/e7_hopper_q2.py",
+          "sha256": "3f2fbc6cf96f003b92f75891204556596b92ea7c79569d5ed6dc7806ae8f5f6e"
+        },
+        {
+          "path": "scripts/run_e7_hopper_q2.py",
+          "sha256": "ae00eed0b5d068495849daec6774d632ccf727d009b7b0f1dd73b9147a110ec2"
+        },
+        {
+          "path": "docs/README_E7_HOPPER_Q2_ONECLICK.md",
+          "sha256": "bd8467a047712846d7f79eebc9ea0d130888c590a7fd4919b5372df75dcf7631"
+        },
+        {
+          "path": "tests/test_e7_q2_acceptance_pipeline.py",
+          "sha256": "812daa6b8c7d26e3265337776278f8044ba23df01c906498c2f218e44a4063cd"
+        },
+        {
+          "path": "tests/test_e7_hopper_q2.py",
+          "sha256": "7e102d488b552d7aa6cfdcbf0bf380d24425f0d2681436ae10563387f31cf56e"
+        }
+      ],
+      "field_path": [
+        "critic_protocol",
+        "frozen_advantage_acceptance",
+        "thresholded_validation_predictive_quality"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Register the user-approved E7-Q2 v4.3 fixed-budget long-run protocol, preserve the v4.2 pilot as pilot-only evidence, and remove gate-driven early stopping without changing E7 scientific responsibility, data, model, learning rates, or formal seeds.",
+      "to": "report_only"
+    },
+    {
+      "change_id": "e7-q2-v43-13",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059"
+        },
+        {
+          "path": "configs/e7_hopper_q2_medium_replay_v2.yaml",
+          "sha256": "262a2a6df0bdf1027335135a7b13cfbd3746dc9b7bc537eb7428a7cf8b37a96e"
+        },
+        {
+          "path": "src/drpo/e7_hopper_q2.py",
+          "sha256": "3f2fbc6cf96f003b92f75891204556596b92ea7c79569d5ed6dc7806ae8f5f6e"
+        },
+        {
+          "path": "scripts/run_e7_hopper_q2.py",
+          "sha256": "ae00eed0b5d068495849daec6774d632ccf727d009b7b0f1dd73b9147a110ec2"
+        },
+        {
+          "path": "docs/README_E7_HOPPER_Q2_ONECLICK.md",
+          "sha256": "bd8467a047712846d7f79eebc9ea0d130888c590a7fd4919b5372df75dcf7631"
+        },
+        {
+          "path": "tests/test_e7_q2_acceptance_pipeline.py",
+          "sha256": "812daa6b8c7d26e3265337776278f8044ba23df01c906498c2f218e44a4063cd"
+        },
+        {
+          "path": "tests/test_e7_hopper_q2.py",
+          "sha256": "7e102d488b552d7aa6cfdcbf0bf380d24425f0d2681436ae10563387f31cf56e"
+        }
+      ],
+      "field_path": [
+        "critic_protocol",
+        "frozen_advantage_acceptance",
+        "validation_predictive_quality"
+      ],
+      "from": "required",
+      "kind": "update_field",
+      "reason": "Register the user-approved E7-Q2 v4.3 fixed-budget long-run protocol, preserve the v4.2 pilot as pilot-only evidence, and remove gate-driven early stopping without changing E7 scientific responsibility, data, model, learning rates, or formal seeds.",
+      "to": "report_only_superseded_required_gate"
+    },
+    {
+      "change_id": "e7-q2-v43-14",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059"
+        },
+        {
+          "path": "configs/e7_hopper_q2_medium_replay_v2.yaml",
+          "sha256": "262a2a6df0bdf1027335135a7b13cfbd3746dc9b7bc537eb7428a7cf8b37a96e"
+        },
+        {
+          "path": "src/drpo/e7_hopper_q2.py",
+          "sha256": "3f2fbc6cf96f003b92f75891204556596b92ea7c79569d5ed6dc7806ae8f5f6e"
+        },
+        {
+          "path": "scripts/run_e7_hopper_q2.py",
+          "sha256": "ae00eed0b5d068495849daec6774d632ccf727d009b7b0f1dd73b9147a110ec2"
+        },
+        {
+          "path": "docs/README_E7_HOPPER_Q2_ONECLICK.md",
+          "sha256": "bd8467a047712846d7f79eebc9ea0d130888c590a7fd4919b5372df75dcf7631"
+        },
+        {
+          "path": "tests/test_e7_q2_acceptance_pipeline.py",
+          "sha256": "812daa6b8c7d26e3265337776278f8044ba23df01c906498c2f218e44a4063cd"
+        },
+        {
+          "path": "tests/test_e7_hopper_q2.py",
+          "sha256": "7e102d488b552d7aa6cfdcbf0bf380d24425f0d2681436ae10563387f31cf56e"
+        }
+      ],
+      "field_path": [
+        "critic_protocol",
+        "optimization_stationarity",
+        "exact_two_times_continuation_when_feasible"
+      ],
+      "from": "required",
+      "kind": "update_field",
+      "reason": "Register the user-approved E7-Q2 v4.3 fixed-budget long-run protocol, preserve the v4.2 pilot as pilot-only evidence, and remove gate-driven early stopping without changing E7 scientific responsibility, data, model, learning rates, or formal seeds.",
+      "to": "report"
+    },
+    {
+      "change_id": "e7-q2-v43-15",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059"
+        },
+        {
+          "path": "configs/e7_hopper_q2_medium_replay_v2.yaml",
+          "sha256": "262a2a6df0bdf1027335135a7b13cfbd3746dc9b7bc537eb7428a7cf8b37a96e"
+        },
+        {
+          "path": "src/drpo/e7_hopper_q2.py",
+          "sha256": "3f2fbc6cf96f003b92f75891204556596b92ea7c79569d5ed6dc7806ae8f5f6e"
+        },
+        {
+          "path": "scripts/run_e7_hopper_q2.py",
+          "sha256": "ae00eed0b5d068495849daec6774d632ccf727d009b7b0f1dd73b9147a110ec2"
+        },
+        {
+          "path": "docs/README_E7_HOPPER_Q2_ONECLICK.md",
+          "sha256": "bd8467a047712846d7f79eebc9ea0d130888c590a7fd4919b5372df75dcf7631"
+        },
+        {
+          "path": "tests/test_e7_q2_acceptance_pipeline.py",
+          "sha256": "812daa6b8c7d26e3265337776278f8044ba23df01c906498c2f218e44a4063cd"
+        },
+        {
+          "path": "tests/test_e7_hopper_q2.py",
+          "sha256": "7e102d488b552d7aa6cfdcbf0bf380d24425f0d2681436ae10563387f31cf56e"
+        }
+      ],
+      "field_path": [
+        "critic_protocol",
+        "optimization_stationarity",
+        "relative_parameter_update"
+      ],
+      "from": "required",
+      "kind": "update_field",
+      "reason": "Register the user-approved E7-Q2 v4.3 fixed-budget long-run protocol, preserve the v4.2 pilot as pilot-only evidence, and remove gate-driven early stopping without changing E7 scientific responsibility, data, model, learning rates, or formal seeds.",
+      "to": "report"
+    },
+    {
+      "change_id": "e7-q2-v43-16",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059"
+        },
+        {
+          "path": "configs/e7_hopper_q2_medium_replay_v2.yaml",
+          "sha256": "262a2a6df0bdf1027335135a7b13cfbd3746dc9b7bc537eb7428a7cf8b37a96e"
+        },
+        {
+          "path": "src/drpo/e7_hopper_q2.py",
+          "sha256": "3f2fbc6cf96f003b92f75891204556596b92ea7c79569d5ed6dc7806ae8f5f6e"
+        },
+        {
+          "path": "scripts/run_e7_hopper_q2.py",
+          "sha256": "ae00eed0b5d068495849daec6774d632ccf727d009b7b0f1dd73b9147a110ec2"
+        },
+        {
+          "path": "docs/README_E7_HOPPER_Q2_ONECLICK.md",
+          "sha256": "bd8467a047712846d7f79eebc9ea0d130888c590a7fd4919b5372df75dcf7631"
+        },
+        {
+          "path": "tests/test_e7_q2_acceptance_pipeline.py",
+          "sha256": "812daa6b8c7d26e3265337776278f8044ba23df01c906498c2f218e44a4063cd"
+        },
+        {
+          "path": "tests/test_e7_hopper_q2.py",
+          "sha256": "7e102d488b552d7aa6cfdcbf0bf380d24425f0d2681436ae10563387f31cf56e"
+        }
+      ],
+      "field_path": [
+        "critic_protocol",
+        "optimization_stationarity",
+        "role"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Register the user-approved E7-Q2 v4.3 fixed-budget long-run protocol, preserve the v4.2 pilot as pilot-only evidence, and remove gate-driven early stopping without changing E7 scientific responsibility, data, model, learning rates, or formal seeds.",
+      "to": "diagnostic_only_never_controls_stopping_or_checkpoint_selection"
+    },
+    {
+      "change_id": "e7-q2-v43-17",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059"
+        },
+        {
+          "path": "configs/e7_hopper_q2_medium_replay_v2.yaml",
+          "sha256": "262a2a6df0bdf1027335135a7b13cfbd3746dc9b7bc537eb7428a7cf8b37a96e"
+        },
+        {
+          "path": "src/drpo/e7_hopper_q2.py",
+          "sha256": "3f2fbc6cf96f003b92f75891204556596b92ea7c79569d5ed6dc7806ae8f5f6e"
+        },
+        {
+          "path": "scripts/run_e7_hopper_q2.py",
+          "sha256": "ae00eed0b5d068495849daec6774d632ccf727d009b7b0f1dd73b9147a110ec2"
+        },
+        {
+          "path": "docs/README_E7_HOPPER_Q2_ONECLICK.md",
+          "sha256": "bd8467a047712846d7f79eebc9ea0d130888c590a7fd4919b5372df75dcf7631"
+        },
+        {
+          "path": "tests/test_e7_q2_acceptance_pipeline.py",
+          "sha256": "812daa6b8c7d26e3265337776278f8044ba23df01c906498c2f218e44a4063cd"
+        },
+        {
+          "path": "tests/test_e7_hopper_q2.py",
+          "sha256": "7e102d488b552d7aa6cfdcbf0bf380d24425f0d2681436ae10563387f31cf56e"
+        }
+      ],
+      "field_path": [
+        "critic_protocol",
+        "optimization_stationarity",
+        "train_audit_loss"
+      ],
+      "from": "required",
+      "kind": "update_field",
+      "reason": "Register the user-approved E7-Q2 v4.3 fixed-budget long-run protocol, preserve the v4.2 pilot as pilot-only evidence, and remove gate-driven early stopping without changing E7 scientific responsibility, data, model, learning rates, or formal seeds.",
+      "to": "report"
+    },
+    {
+      "change_id": "e7-q2-v43-18",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059"
+        },
+        {
+          "path": "configs/e7_hopper_q2_medium_replay_v2.yaml",
+          "sha256": "262a2a6df0bdf1027335135a7b13cfbd3746dc9b7bc537eb7428a7cf8b37a96e"
+        },
+        {
+          "path": "src/drpo/e7_hopper_q2.py",
+          "sha256": "3f2fbc6cf96f003b92f75891204556596b92ea7c79569d5ed6dc7806ae8f5f6e"
+        },
+        {
+          "path": "scripts/run_e7_hopper_q2.py",
+          "sha256": "ae00eed0b5d068495849daec6774d632ccf727d009b7b0f1dd73b9147a110ec2"
+        },
+        {
+          "path": "docs/README_E7_HOPPER_Q2_ONECLICK.md",
+          "sha256": "bd8467a047712846d7f79eebc9ea0d130888c590a7fd4919b5372df75dcf7631"
+        },
+        {
+          "path": "tests/test_e7_q2_acceptance_pipeline.py",
+          "sha256": "812daa6b8c7d26e3265337776278f8044ba23df01c906498c2f218e44a4063cd"
+        },
+        {
+          "path": "tests/test_e7_hopper_q2.py",
+          "sha256": "7e102d488b552d7aa6cfdcbf0bf380d24425f0d2681436ae10563387f31cf56e"
+        }
+      ],
+      "field_path": [
+        "critic_protocol",
+        "optimization_stationarity",
+        "validation_mse_slope"
+      ],
+      "from": "required",
+      "kind": "update_field",
+      "reason": "Register the user-approved E7-Q2 v4.3 fixed-budget long-run protocol, preserve the v4.2 pilot as pilot-only evidence, and remove gate-driven early stopping without changing E7 scientific responsibility, data, model, learning rates, or formal seeds.",
+      "to": "report"
+    },
+    {
+      "change_id": "e7-q2-v43-19",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059"
+        },
+        {
+          "path": "configs/e7_hopper_q2_medium_replay_v2.yaml",
+          "sha256": "262a2a6df0bdf1027335135a7b13cfbd3746dc9b7bc537eb7428a7cf8b37a96e"
+        },
+        {
+          "path": "src/drpo/e7_hopper_q2.py",
+          "sha256": "3f2fbc6cf96f003b92f75891204556596b92ea7c79569d5ed6dc7806ae8f5f6e"
+        },
+        {
+          "path": "scripts/run_e7_hopper_q2.py",
+          "sha256": "ae00eed0b5d068495849daec6774d632ccf727d009b7b0f1dd73b9147a110ec2"
+        },
+        {
+          "path": "docs/README_E7_HOPPER_Q2_ONECLICK.md",
+          "sha256": "bd8467a047712846d7f79eebc9ea0d130888c590a7fd4919b5372df75dcf7631"
+        },
+        {
+          "path": "tests/test_e7_q2_acceptance_pipeline.py",
+          "sha256": "812daa6b8c7d26e3265337776278f8044ba23df01c906498c2f218e44a4063cd"
+        },
+        {
+          "path": "tests/test_e7_hopper_q2.py",
+          "sha256": "7e102d488b552d7aa6cfdcbf0bf380d24425f0d2681436ae10563387f31cf56e"
+        }
+      ],
+      "field_path": [
+        "critic_protocol",
+        "stopping"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Register the user-approved E7-Q2 v4.3 fixed-budget long-run protocol, preserve the v4.2 pilot as pilot-only evidence, and remove gate-driven early stopping without changing E7 scientific responsibility, data, model, learning rates, or formal seeds.",
+      "to": {
+        "early_stop": "nan_inf_numerical_failure_only",
+        "evaluation_interval": 2000,
+        "formal_steps": 100000,
+        "gate_driven_early_stop": "forbidden",
+        "rule": "fixed_optimizer_steps"
+      }
+    },
+    {
+      "change_id": "e7-q2-v43-20",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059"
+        },
+        {
+          "path": "configs/e7_hopper_q2_medium_replay_v2.yaml",
+          "sha256": "262a2a6df0bdf1027335135a7b13cfbd3746dc9b7bc537eb7428a7cf8b37a96e"
+        },
+        {
+          "path": "src/drpo/e7_hopper_q2.py",
+          "sha256": "3f2fbc6cf96f003b92f75891204556596b92ea7c79569d5ed6dc7806ae8f5f6e"
+        },
+        {
+          "path": "scripts/run_e7_hopper_q2.py",
+          "sha256": "ae00eed0b5d068495849daec6774d632ccf727d009b7b0f1dd73b9147a110ec2"
+        },
+        {
+          "path": "docs/README_E7_HOPPER_Q2_ONECLICK.md",
+          "sha256": "bd8467a047712846d7f79eebc9ea0d130888c590a7fd4919b5372df75dcf7631"
+        },
+        {
+          "path": "tests/test_e7_q2_acceptance_pipeline.py",
+          "sha256": "812daa6b8c7d26e3265337776278f8044ba23df01c906498c2f218e44a4063cd"
+        },
+        {
+          "path": "tests/test_e7_hopper_q2.py",
+          "sha256": "7e102d488b552d7aa6cfdcbf0bf380d24425f0d2681436ae10563387f31cf56e"
+        }
+      ],
+      "field_path": [
+        "critic_protocol",
+        "superseded_v42_checkpoint_selection"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Register the user-approved E7-Q2 v4.3 fixed-budget long-run protocol, preserve the v4.2 pilot as pilot-only evidence, and remove gate-driven early stopping without changing E7 scientific responsibility, data, model, learning rates, or formal seeds.",
+      "to": "accepted_terminal_extension_else_best_validation"
+    },
+    {
+      "change_id": "e7-q2-v43-21",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059"
+        },
+        {
+          "path": "configs/e7_hopper_q2_medium_replay_v2.yaml",
+          "sha256": "262a2a6df0bdf1027335135a7b13cfbd3746dc9b7bc537eb7428a7cf8b37a96e"
+        },
+        {
+          "path": "src/drpo/e7_hopper_q2.py",
+          "sha256": "3f2fbc6cf96f003b92f75891204556596b92ea7c79569d5ed6dc7806ae8f5f6e"
+        },
+        {
+          "path": "scripts/run_e7_hopper_q2.py",
+          "sha256": "ae00eed0b5d068495849daec6774d632ccf727d009b7b0f1dd73b9147a110ec2"
+        },
+        {
+          "path": "docs/README_E7_HOPPER_Q2_ONECLICK.md",
+          "sha256": "bd8467a047712846d7f79eebc9ea0d130888c590a7fd4919b5372df75dcf7631"
+        },
+        {
+          "path": "tests/test_e7_q2_acceptance_pipeline.py",
+          "sha256": "812daa6b8c7d26e3265337776278f8044ba23df01c906498c2f218e44a4063cd"
+        },
+        {
+          "path": "tests/test_e7_hopper_q2.py",
+          "sha256": "7e102d488b552d7aa6cfdcbf0bf380d24425f0d2681436ae10563387f31cf56e"
+        }
+      ],
+      "field_path": [
+        "critic_protocol",
+        "superseded_v42_quality_gate"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Register the user-approved E7-Q2 v4.3 fixed-budget long-run protocol, preserve the v4.2 pilot as pilot-only evidence, and remove gate-driven early stopping without changing E7 scientific responsibility, data, model, learning rates, or formal seeds.",
+      "to": "thresholded_quality_and_advantage_stability_required"
+    },
+    {
+      "change_id": "e7-q2-v43-22",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059"
+        },
+        {
+          "path": "configs/e7_hopper_q2_medium_replay_v2.yaml",
+          "sha256": "262a2a6df0bdf1027335135a7b13cfbd3746dc9b7bc537eb7428a7cf8b37a96e"
+        },
+        {
+          "path": "src/drpo/e7_hopper_q2.py",
+          "sha256": "3f2fbc6cf96f003b92f75891204556596b92ea7c79569d5ed6dc7806ae8f5f6e"
+        },
+        {
+          "path": "scripts/run_e7_hopper_q2.py",
+          "sha256": "ae00eed0b5d068495849daec6774d632ccf727d009b7b0f1dd73b9147a110ec2"
+        },
+        {
+          "path": "docs/README_E7_HOPPER_Q2_ONECLICK.md",
+          "sha256": "bd8467a047712846d7f79eebc9ea0d130888c590a7fd4919b5372df75dcf7631"
+        },
+        {
+          "path": "tests/test_e7_q2_acceptance_pipeline.py",
+          "sha256": "812daa6b8c7d26e3265337776278f8044ba23df01c906498c2f218e44a4063cd"
+        },
+        {
+          "path": "tests/test_e7_hopper_q2.py",
+          "sha256": "7e102d488b552d7aa6cfdcbf0bf380d24425f0d2681436ae10563387f31cf56e"
+        }
+      ],
+      "field_path": [
+        "critic_protocol",
+        "terminal_audit"
+      ],
+      "from": "required",
+      "kind": "update_field",
+      "reason": "Register the user-approved E7-Q2 v4.3 fixed-budget long-run protocol, preserve the v4.2 pilot as pilot-only evidence, and remove gate-driven early stopping without changing E7 scientific responsibility, data, model, learning rates, or formal seeds.",
+      "to": "required_post_hoc"
+    },
+    {
+      "change_id": "e7-q2-v43-23",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059"
+        },
+        {
+          "path": "configs/e7_hopper_q2_medium_replay_v2.yaml",
+          "sha256": "262a2a6df0bdf1027335135a7b13cfbd3746dc9b7bc537eb7428a7cf8b37a96e"
+        },
+        {
+          "path": "src/drpo/e7_hopper_q2.py",
+          "sha256": "3f2fbc6cf96f003b92f75891204556596b92ea7c79569d5ed6dc7806ae8f5f6e"
+        },
+        {
+          "path": "scripts/run_e7_hopper_q2.py",
+          "sha256": "ae00eed0b5d068495849daec6774d632ccf727d009b7b0f1dd73b9147a110ec2"
+        },
+        {
+          "path": "docs/README_E7_HOPPER_Q2_ONECLICK.md",
+          "sha256": "bd8467a047712846d7f79eebc9ea0d130888c590a7fd4919b5372df75dcf7631"
+        },
+        {
+          "path": "tests/test_e7_q2_acceptance_pipeline.py",
+          "sha256": "812daa6b8c7d26e3265337776278f8044ba23df01c906498c2f218e44a4063cd"
+        },
+        {
+          "path": "tests/test_e7_hopper_q2.py",
+          "sha256": "7e102d488b552d7aa6cfdcbf0bf380d24425f0d2681436ae10563387f31cf56e"
+        }
+      ],
+      "field_path": [
+        "pilot_diagnostic",
+        "latest_uploaded_artifact_sha256"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Register the user-approved E7-Q2 v4.3 fixed-budget long-run protocol, preserve the v4.2 pilot as pilot-only evidence, and remove gate-driven early stopping without changing E7 scientific responsibility, data, model, learning rates, or formal seeds.",
+      "to": "deefbe216ca5c99622c84831b4546da10203610c07736992c51cf23f679f1017"
+    },
+    {
+      "change_id": "e7-q2-v43-24",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059"
+        },
+        {
+          "path": "configs/e7_hopper_q2_medium_replay_v2.yaml",
+          "sha256": "262a2a6df0bdf1027335135a7b13cfbd3746dc9b7bc537eb7428a7cf8b37a96e"
+        },
+        {
+          "path": "src/drpo/e7_hopper_q2.py",
+          "sha256": "3f2fbc6cf96f003b92f75891204556596b92ea7c79569d5ed6dc7806ae8f5f6e"
+        },
+        {
+          "path": "scripts/run_e7_hopper_q2.py",
+          "sha256": "ae00eed0b5d068495849daec6774d632ccf727d009b7b0f1dd73b9147a110ec2"
+        },
+        {
+          "path": "docs/README_E7_HOPPER_Q2_ONECLICK.md",
+          "sha256": "bd8467a047712846d7f79eebc9ea0d130888c590a7fd4919b5372df75dcf7631"
+        },
+        {
+          "path": "tests/test_e7_q2_acceptance_pipeline.py",
+          "sha256": "812daa6b8c7d26e3265337776278f8044ba23df01c906498c2f218e44a4063cd"
+        },
+        {
+          "path": "tests/test_e7_hopper_q2.py",
+          "sha256": "7e102d488b552d7aa6cfdcbf0bf380d24425f0d2681436ae10563387f31cf56e"
+        }
+      ],
+      "field_path": [
+        "pilot_diagnostic",
+        "mechanism_signal_report_only"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Register the user-approved E7-Q2 v4.3 fixed-budget long-run protocol, preserve the v4.2 pilot as pilot-only evidence, and remove gate-driven early stopping without changing E7 scientific responsibility, data, model, learning rates, or formal seeds.",
+      "to": {
+        "far_zero_support_boundary": "0_of_10",
+        "full_parameter_gradient_far_near_ratio_approx": 3.47,
+        "matched_abs_advantage_far_near_ratio_approx": 0.99992,
+        "near_zero_task_collapse": "10_of_10",
+        "signed_task_collapse": "10_of_10",
+        "standardized_distance_far_near_ratio_approx": 3.596
+      }
+    },
+    {
+      "change_id": "e7-q2-v43-25",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059"
+        },
+        {
+          "path": "configs/e7_hopper_q2_medium_replay_v2.yaml",
+          "sha256": "262a2a6df0bdf1027335135a7b13cfbd3746dc9b7bc537eb7428a7cf8b37a96e"
+        },
+        {
+          "path": "src/drpo/e7_hopper_q2.py",
+          "sha256": "3f2fbc6cf96f003b92f75891204556596b92ea7c79569d5ed6dc7806ae8f5f6e"
+        },
+        {
+          "path": "scripts/run_e7_hopper_q2.py",
+          "sha256": "ae00eed0b5d068495849daec6774d632ccf727d009b7b0f1dd73b9147a110ec2"
+        },
+        {
+          "path": "docs/README_E7_HOPPER_Q2_ONECLICK.md",
+          "sha256": "bd8467a047712846d7f79eebc9ea0d130888c590a7fd4919b5372df75dcf7631"
+        },
+        {
+          "path": "tests/test_e7_q2_acceptance_pipeline.py",
+          "sha256": "812daa6b8c7d26e3265337776278f8044ba23df01c906498c2f218e44a4063cd"
+        },
+        {
+          "path": "tests/test_e7_hopper_q2.py",
+          "sha256": "7e102d488b552d7aa6cfdcbf0bf380d24425f0d2681436ae10563387f31cf56e"
+        }
+      ],
+      "field_path": [
+        "pilot_diagnostic",
+        "observed_pipeline_failure"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Register the user-approved E7-Q2 v4.3 fixed-budget long-run protocol, preserve the v4.2 pilot as pilot-only evidence, and remove gate-driven early stopping without changing E7 scientific responsibility, data, model, learning rates, or formal seeds.",
+      "to": {
+        "actor_methods_ended_at_unequal_horizons": true,
+        "critic_gate_stopped_at_step": 7600,
+        "interpretation": "gate_driven_stopping_is_not_formal_longrun_evidence"
+      }
+    },
+    {
+      "change_id": "e7-q2-v43-26",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059"
+        },
+        {
+          "path": "configs/e7_hopper_q2_medium_replay_v2.yaml",
+          "sha256": "262a2a6df0bdf1027335135a7b13cfbd3746dc9b7bc537eb7428a7cf8b37a96e"
+        },
+        {
+          "path": "src/drpo/e7_hopper_q2.py",
+          "sha256": "3f2fbc6cf96f003b92f75891204556596b92ea7c79569d5ed6dc7806ae8f5f6e"
+        },
+        {
+          "path": "scripts/run_e7_hopper_q2.py",
+          "sha256": "ae00eed0b5d068495849daec6774d632ccf727d009b7b0f1dd73b9147a110ec2"
+        },
+        {
+          "path": "docs/README_E7_HOPPER_Q2_ONECLICK.md",
+          "sha256": "bd8467a047712846d7f79eebc9ea0d130888c590a7fd4919b5372df75dcf7631"
+        },
+        {
+          "path": "tests/test_e7_q2_acceptance_pipeline.py",
+          "sha256": "812daa6b8c7d26e3265337776278f8044ba23df01c906498c2f218e44a4063cd"
+        },
+        {
+          "path": "tests/test_e7_hopper_q2.py",
+          "sha256": "7e102d488b552d7aa6cfdcbf0bf380d24425f0d2681436ae10563387f31cf56e"
+        }
+      ],
+      "field_path": [
+        "pilot_diagnostic",
+        "purpose"
+      ],
+      "from": "acceptance_pipeline_and_mechanism_diagnostic",
+      "kind": "update_field",
+      "reason": "Register the user-approved E7-Q2 v4.3 fixed-budget long-run protocol, preserve the v4.2 pilot as pilot-only evidence, and remove gate-driven early stopping without changing E7 scientific responsibility, data, model, learning rates, or formal seeds.",
+      "to": "fixed_budget_redesign_and_mechanism_diagnostic"
+    },
+    {
+      "change_id": "e7-q2-v43-27",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059"
+        },
+        {
+          "path": "configs/e7_hopper_q2_medium_replay_v2.yaml",
+          "sha256": "262a2a6df0bdf1027335135a7b13cfbd3746dc9b7bc537eb7428a7cf8b37a96e"
+        },
+        {
+          "path": "src/drpo/e7_hopper_q2.py",
+          "sha256": "3f2fbc6cf96f003b92f75891204556596b92ea7c79569d5ed6dc7806ae8f5f6e"
+        },
+        {
+          "path": "scripts/run_e7_hopper_q2.py",
+          "sha256": "ae00eed0b5d068495849daec6774d632ccf727d009b7b0f1dd73b9147a110ec2"
+        },
+        {
+          "path": "docs/README_E7_HOPPER_Q2_ONECLICK.md",
+          "sha256": "bd8467a047712846d7f79eebc9ea0d130888c590a7fd4919b5372df75dcf7631"
+        },
+        {
+          "path": "tests/test_e7_q2_acceptance_pipeline.py",
+          "sha256": "812daa6b8c7d26e3265337776278f8044ba23df01c906498c2f218e44a4063cd"
+        },
+        {
+          "path": "tests/test_e7_hopper_q2.py",
+          "sha256": "7e102d488b552d7aa6cfdcbf0bf380d24425f0d2681436ae10563387f31cf56e"
+        }
+      ],
+      "field_path": [
+        "preregistered_protocol",
+        "fixed_budget_comparability"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Register the user-approved E7-Q2 v4.3 fixed-budget long-run protocol, preserve the v4.2 pilot as pilot-only evidence, and remove gate-driven early stopping without changing E7 scientific responsibility, data, model, learning rates, or formal seeds.",
+      "to": {
+        "branch_steps_each": 200000,
+        "positive_only_steps": 100000,
+        "same_horizon_across_all_branches": "required",
+        "terminal_audit_controls_stopping": false
+      }
+    },
+    {
+      "change_id": "e7-q2-v43-28",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059"
+        },
+        {
+          "path": "configs/e7_hopper_q2_medium_replay_v2.yaml",
+          "sha256": "262a2a6df0bdf1027335135a7b13cfbd3746dc9b7bc537eb7428a7cf8b37a96e"
+        },
+        {
+          "path": "src/drpo/e7_hopper_q2.py",
+          "sha256": "3f2fbc6cf96f003b92f75891204556596b92ea7c79569d5ed6dc7806ae8f5f6e"
+        },
+        {
+          "path": "scripts/run_e7_hopper_q2.py",
+          "sha256": "ae00eed0b5d068495849daec6774d632ccf727d009b7b0f1dd73b9147a110ec2"
+        },
+        {
+          "path": "docs/README_E7_HOPPER_Q2_ONECLICK.md",
+          "sha256": "bd8467a047712846d7f79eebc9ea0d130888c590a7fd4919b5372df75dcf7631"
+        },
+        {
+          "path": "tests/test_e7_q2_acceptance_pipeline.py",
+          "sha256": "812daa6b8c7d26e3265337776278f8044ba23df01c906498c2f218e44a4063cd"
+        },
+        {
+          "path": "tests/test_e7_hopper_q2.py",
+          "sha256": "7e102d488b552d7aa6cfdcbf0bf380d24425f0d2681436ae10563387f31cf56e"
+        }
+      ],
+      "field_path": [
+        "preregistered_protocol",
+        "method_semantics"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Register the user-approved E7-Q2 v4.3 fixed-budget long-run protocol, preserve the v4.2 pilot as pilot-only evidence, and remove gate-driven early stopping without changing E7 scientific responsibility, data, model, learning rates, or formal seeds.",
+      "to": {
+        "dynamic_budget_matched_global": "globally_scale_negative_updates_to_match_far_cap_proxy_each_minibatch",
+        "far_cap": "cap_far_negative_output_score_influence",
+        "far_zero": "remove_far_negative_updates_keep_near_negative_updates",
+        "near_zero": "remove_near_negative_updates_keep_far_negative_updates",
+        "positive_only": "positive_advantage_only_initialization_reference",
+        "signed": "full_signed_advantage_baseline_without_near_far_control"
+      }
+    },
+    {
+      "change_id": "e7-q2-v43-29",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059"
+        },
+        {
+          "path": "configs/e7_hopper_q2_medium_replay_v2.yaml",
+          "sha256": "262a2a6df0bdf1027335135a7b13cfbd3746dc9b7bc537eb7428a7cf8b37a96e"
+        },
+        {
+          "path": "src/drpo/e7_hopper_q2.py",
+          "sha256": "3f2fbc6cf96f003b92f75891204556596b92ea7c79569d5ed6dc7806ae8f5f6e"
+        },
+        {
+          "path": "scripts/run_e7_hopper_q2.py",
+          "sha256": "ae00eed0b5d068495849daec6774d632ccf727d009b7b0f1dd73b9147a110ec2"
+        },
+        {
+          "path": "docs/README_E7_HOPPER_Q2_ONECLICK.md",
+          "sha256": "bd8467a047712846d7f79eebc9ea0d130888c590a7fd4919b5372df75dcf7631"
+        },
+        {
+          "path": "tests/test_e7_q2_acceptance_pipeline.py",
+          "sha256": "812daa6b8c7d26e3265337776278f8044ba23df01c906498c2f218e44a4063cd"
+        },
+        {
+          "path": "tests/test_e7_hopper_q2.py",
+          "sha256": "7e102d488b552d7aa6cfdcbf0bf380d24425f0d2681436ae10563387f31cf56e"
+        }
+      ],
+      "field_path": [
+        "protocol_version"
+      ],
+      "from": "4.2.0",
+      "kind": "update_field",
+      "reason": "Register the user-approved E7-Q2 v4.3 fixed-budget long-run protocol, preserve the v4.2 pilot as pilot-only evidence, and remove gate-driven early stopping without changing E7 scientific responsibility, data, model, learning rates, or formal seeds.",
+      "to": "4.3.0"
+    }
+  ],
+  "registry_change_coverage": {
+    "added_entities": [],
+    "changed_field_count": 29,
+    "declared_assertion_count": 29,
+    "fully_declared": true,
+    "mode": "schema2_complete",
+    "removed_entities": []
+  },
+  "registry_transition_assertions": [],
+  "report_schema_version": 2,
+  "repository_commit": null,
+  "schema_version": 1,
+  "status": "PASS",
+  "update_id": "EXT-H-E7-Q2-FIXED-BUDGET-LONGRUN-2026-06-30",
+  "validation_worktree_head": "01296ecf1c2c561a61b7c5a0bdacad860657beae"
+}

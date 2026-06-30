@@ -1880,11 +1880,23 @@ experiments:
     runner_archive_policy:
       mode: forbid
   implementation_state: implemented
-  protocol_version: 4.2.0
+  protocol_version: 4.3.0
   pilot_diagnostic:
     formal_scale_pilot_available: true
     scientific_status: pilot_only_not_formal_evidence
-    purpose: acceptance_pipeline_and_mechanism_diagnostic
+    purpose: fixed_budget_redesign_and_mechanism_diagnostic
+    latest_uploaded_artifact_sha256: deefbe216ca5c99622c84831b4546da10203610c07736992c51cf23f679f1017
+    observed_pipeline_failure:
+      critic_gate_stopped_at_step: 7600
+      actor_methods_ended_at_unequal_horizons: true
+      interpretation: gate_driven_stopping_is_not_formal_longrun_evidence
+    mechanism_signal_report_only:
+      matched_abs_advantage_far_near_ratio_approx: 0.99992
+      standardized_distance_far_near_ratio_approx: 3.596
+      full_parameter_gradient_far_near_ratio_approx: 3.47
+      signed_task_collapse: 10_of_10
+      near_zero_task_collapse: 10_of_10
+      far_zero_support_boundary: 0_of_10
   code_entrypoint: src/drpo/e7_hopper_q2.py
   operator_entrypoint: scripts/run_e7_hopper_q2.py
   config_path: configs/e7_hopper_q2_medium_replay_v2.yaml
@@ -1951,21 +1963,34 @@ experiments:
     episode_split: [0.8, 0.1, 0.1]
     gamma: 0.99
     frozen_before_actor: true
+    stopping:
+      rule: fixed_optimizer_steps
+      formal_steps: 100000
+      evaluation_interval: 2000
+      early_stop: nan_inf_numerical_failure_only
+      gate_driven_early_stop: forbidden
     optimization_stationarity:
-      train_audit_loss: required
-      validation_mse_slope: required
-      relative_parameter_update: required
-      exact_two_times_continuation_when_feasible: required
+      role: diagnostic_only_never_controls_stopping_or_checkpoint_selection
+      train_audit_loss: report
+      validation_mse_slope: report
+      relative_parameter_update: report
+      exact_two_times_continuation_when_feasible: report
       validation_gradient: diagnostic_only
       raw_full_parameter_update: diagnostic_only
-    checkpoint_selection: accepted_terminal_extension_else_best_validation
+    checkpoint_selection: best_validation_after_fixed_budget
     frozen_advantage_acceptance:
-      validation_predictive_quality: required
-      selected_vs_final_sign_and_rank_stability: required_on_actor_training_split
+      operational_execution_gate:
+        fixed_budget_completed: required
+        finite_selected_metrics: required
+      validation_predictive_quality: report_only_superseded_required_gate
+      thresholded_validation_predictive_quality: report_only
+      selected_vs_final_sign_and_rank_stability: report_only_on_actor_training_split
       test_predictive_metrics: final_report_only
       optimization_terminal_forced_true: forbidden
-    canonical_artifact_schema: 2
-    terminal_audit: required
+    superseded_v42_checkpoint_selection: accepted_terminal_extension_else_best_validation
+    superseded_v42_quality_gate: thresholded_quality_and_advantage_stability_required
+    canonical_artifact_schema: 3
+    terminal_audit: required_post_hoc
   frozen_advantage_protocol:
     definition: r_plus_gamma_v_next_minus_v
     materialize_once: true
@@ -1976,13 +2001,37 @@ experiments:
     family: tanh_squashed_diagonal_gaussian_mlp
     hidden_sizes: [256, 256]
     log_scale_parameterization: global_diagonal
-    positive_only_terminal_before_branching: true
+    stopping:
+      rule: fixed_optimizer_steps
+      positive_only_formal_steps: 100000
+      branch_formal_steps: 200000
+      actor_evaluation_interval: 5000
+      rollout_evaluation_interval: 25000
+      intermediate_rollout_episodes: 5
+      final_rollout_episodes: 20
+      evaluation_seed_pairing_across_methods: required
+      early_stop: nan_inf_numerical_failure_only
+      equal_branch_horizon: required
+      gate_driven_early_stop: forbidden
+    positive_only_fixed_budget_before_branching: true
+    positive_only_terminal_before_branching: superseded_by_positive_only_fixed_budget_before_branching
     terminal_candidate:
       relative_parameter_update: required
       state_drift_metrics: [mean_abs, sigma_mean, phantom_distance_mean]
       normalized_window_drift_max: 0.01
       positive_nll_slope: diagnostic_only
       exact_two_times_continuation_when_feasible: required
+    terminal_candidate_status: superseded_as_stopping_gate_retained_for_provenance
+    terminal_audit:
+      role: post_hoc_classification_only
+      fixed_horizon_is_not_convergence: true
+      relative_parameter_update: report
+      state_drift_metrics: [mean_abs, sigma_mean, phantom_distance_mean]
+      normalized_window_drift_max: 0.01
+      positive_nll_slope: diagnostic_only
+      exact_two_times_continuation_when_feasible: finite_terminal_label_only
+    superseded_v42_positive_only_terminal_before_branching: true
+    superseded_v42_terminal_candidate_controlled_stopping: true
     identical_branch_checkpoint: true
     identical_minibatch_stream_across_methods: true
   coordinate_protocol:
@@ -2011,6 +2060,18 @@ experiments:
     - far_zero
     - far_cap
     - dynamic_budget_matched_global
+    method_semantics:
+      positive_only: positive_advantage_only_initialization_reference
+      signed: full_signed_advantage_baseline_without_near_far_control
+      near_zero: remove_near_negative_updates_keep_far_negative_updates
+      far_zero: remove_far_negative_updates_keep_near_negative_updates
+      far_cap: cap_far_negative_output_score_influence
+      dynamic_budget_matched_global: globally_scale_negative_updates_to_match_far_cap_proxy_each_minibatch
+    fixed_budget_comparability:
+      positive_only_steps: 100000
+      branch_steps_each: 200000
+      same_horizon_across_all_branches: required
+      terminal_audit_controls_stopping: false
     paired_seeds: required
     terminal_audit: required
     old_600_step_probe_is_formal_evidence: false

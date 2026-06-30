@@ -5,23 +5,23 @@ kernel_version: 1
 profile_id: drpo-research
 profile_version: 1
 override_version: 1
-graph_hash: c8f7bc1c168904e58b80c8e5421a1ac9528313af06522fe2ade5598223047f32
+graph_hash: e5195826aa9fe09f096d38a8162a7dd09e6381e72acaa6069e08b85b97911277
 sources:
   bootstrap_claims:
     path: docs/handoff_shadow/stage4/inventory/CLAIMS.yaml
-    sha256: 52e8943d6a073f3e5f286de43fa641c59faea63814e9efd18e42e8a72d69413c
+    sha256: 0512097a4e795e4c3b06440543de9b787c2539aa0279562d16ff7ab879a9b0b6
   bootstrap_experiments:
     path: docs/handoff_shadow/stage4/inventory/EXPERIMENTS.yaml
-    sha256: b132a9bb8247a1361bfc36325017635d8cdbc99f708549d678000c26299fc5bf
+    sha256: aba8762f86dc1a1d693763a952534aa3624974859472823ba0c6f8377d0a21a8
   bootstrap_headings:
     path: docs/handoff_shadow/stage4/inventory/HEADINGS.yaml
-    sha256: 3ac802153e85fcafd9a87c1bf2479f61b0fbcee47b24b2aed80c67e117f835b7
+    sha256: 81ad70b6ce769f4c6cd0e901c52d4efdc057ea97e1bf5d17cff1176ed5807921
   handoff:
     path: docs/handoff.md
-    sha256: 3ff6757c86183a274a8ca3986d2a309b9caafc1ec58abf4d1b33f6cbae1f6be7
+    sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
   registry:
     path: experiments/registry.yaml
-    sha256: db246ebee08efec3fdf642caac0e7b40fed1d0f80d7f1fe0ba50ecca7185a035
+    sha256: 8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059
 edges:
 - edge_id: edge:0fe06485441ad90dfbb6
   source: claim:GOV-COLLAPSE-TAXONOMY-01

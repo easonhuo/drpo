@@ -133,6 +133,7 @@ def test_config_is_bound_to_q2() -> None:
     assert config.rollout_preflight_timeout_seconds == 120
     assert config.rollout_preflight_max_steps == 2000
     assert config.formal.rollout_episodes == 5
+    assert config.formal.final_rollout_episodes == 20
 
 
 def test_legacy_hdf5_loader(tmp_path: Path) -> None:
@@ -174,7 +175,7 @@ def test_registry_releases_implemented_q2_without_claiming_results() -> None:
     assert rollout["process_isolated_preflight"] is True
 
 
-def test_handoff_preserves_v41_boundary_under_v42_route() -> None:
+def test_handoff_preserves_history_under_v43_fixed_budget_route() -> None:
     handoff = (Path(__file__).parents[1] / "docs" / "handoff.md").read_text()
     assert "v42 增量登记：状态机一致性、E7 已实现门禁与 E4--E8 路线锁定" in handoff
     assert "v45（E4-TAPER 结果闭环、环境识别与公平性边界版）" in handoff
@@ -473,6 +474,7 @@ def test_canonical_critic_is_trained_once_and_strictly_reused(tmp_path: Path) ->
         matched_pairs=2,
         audit_sample_size=4,
         rollout_episodes=1,
+        final_rollout_episodes=2,
         rollout_eval_interval=1,
     )
     config = replace(
@@ -536,11 +538,15 @@ def test_canonical_critic_is_trained_once_and_strictly_reused(tmp_path: Path) ->
     assert second.artifact_manifest["shared_across_all_actor_seeds"] is True
     assert (
         first.critic_audit["selected_checkpoint_role"]
-        == "terminal_extension_checkpoint_for_pilot_diagnostics"
+        == "best_validation_checkpoint"
     )
+    assert first.critic_audit["fixed_budget_completed"] is True
+    assert first.critic_audit["stopping_rule"] == "fixed_optimizer_steps"
+    assert first.critic_audit["terminal_audit_controls_stopping"] is False
     assert first.critic_audit["final_stationarity_reconfirmed"] is True
     assert first.critic_audit["optimization_terminal"] is True
-    assert first.critic_audit["critic_accepted_for_frozen_advantage"] is False
+    assert first.critic_audit["critic_accepted_for_frozen_advantage"] is True
+    assert first.critic_audit["critic_quality_audit_passed"] is False
     np.testing.assert_array_equal(first.advantages, second.advantages)
 
 
@@ -568,18 +574,23 @@ def test_pilot_terminal_audit_cannot_report_formal_gate_passed(monkeypatch) -> N
     method_audit = {
         "task_performance_status": "available",
         "state": "persistent_or_slow_drift",
+        "fixed_budget_completed": True,
         "terminal_audit_complete": True,
     }
     summary = {
         "positive_only_initialization": {
             "state": "persistent_or_slow_drift",
+            "fixed_budget_completed": True,
             "terminal_audit_complete": True,
             "task_performance_status": "available",
         },
         "methods": {method: dict(method_audit) for method in mod.METHODS},
     }
     canonical = SimpleNamespace(
-        critic_audit={"optimization_terminal": False},
+        critic_audit={
+            "fixed_budget_completed": True,
+            "optimization_terminal": False,
+        },
         artifact_manifest={"complete": True},
     )
     audit = mod.build_terminal_audit(
@@ -591,6 +602,9 @@ def test_pilot_terminal_audit_cannot_report_formal_gate_passed(monkeypatch) -> N
         rollout_required=True,
     )
     assert audit["engineering_pipeline_complete"] is True
+    assert audit["critic_fixed_budget_completed"] is True
+    assert audit["positive_only_fixed_budget_all_seeds"] is True
+    assert audit["all_actor_fixed_budgets_completed"] is True
     assert audit["mechanism_subchecks_passed_for_completed_seeds"] is True
     assert audit["paired_seed_evidence_complete"] is False
     assert audit["formal_evidence_prerequisites_complete"] is False

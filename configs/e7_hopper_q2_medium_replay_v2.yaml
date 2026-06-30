@@ -1,5 +1,5 @@
 experiment_id: EXT-H-E7-Q2
-protocol_version: 4.2.0
+protocol_version: 4.3.0
 role: external_mechanism_validation
 status: not_run
 
@@ -60,9 +60,12 @@ critic:
     test: 0.10
   freeze_before_actor: true
   canonical_shared_across_actor_seeds: true
-  selected_checkpoint: accepted_terminal_extension_else_best_validation
-  final_training_checkpoint_role: continuation_and_stability_audit
-  optimization_terminal_role: separately_reported_not_forced
+  stopping_rule: fixed_optimizer_steps
+  formal_optimizer_steps: 100000
+  early_stop_rule: nan_inf_numerical_failure_only
+  selected_checkpoint: best_validation_after_fixed_budget
+  final_training_checkpoint_role: fixed_budget_final_and_advantage_stability_comparator
+  optimization_terminal_role: diagnostic_only_never_controls_stopping_or_selection
 
 advantage:
   definition: r_plus_gamma_v_next_minus_v
@@ -79,6 +82,11 @@ actor:
   log_std_max: 2.0
   action_clip_epsilon: 0.000001
   positive_only_before_branching: true
+  positive_only_formal_optimizer_steps: 100000
+  branch_formal_optimizer_steps: 200000
+  equal_horizon_across_methods: true
+  early_stop_rule: nan_inf_numerical_failure_only
+  terminal_audit_role: post_hoc_classification_only
   identical_branch_checkpoint: true
 
 matching:
@@ -132,7 +140,7 @@ independent_validation_gate:
   log_scale_relative_dominance_is_diagnostic_only: true
 
 critic_acceptance:
-  purpose: gate_frozen_advantage_use_separately_from_optimizer_stationarity
+  purpose: fixed_budget_finite_artifact_gate_with_quality_diagnostics
   checkpoint_selection_metric: validation_mse
   validation_r2_min: 0.50
   validation_pearson_min: 0.75
@@ -143,10 +151,15 @@ critic_acceptance:
   advantage_pearson_min: 0.98
   advantage_spearman_min: 0.98
   negative_set_jaccard_min: 0.90
-  require_all_checks_for_formal: true
+  thresholded_quality_checks_role: report_only_not_execution_gate
+  operational_formal_requirements: [fixed_budget_completed, finite_selected_metrics]
+  require_all_checks_for_formal: false
+  fixed_budget_completion_required_for_formal: true
   optimization_terminal_may_be_false_if_acceptance_passes: true
 
 terminal_audit:
+  role: post_hoc_classification_not_stopping
+  fixed_horizon_is_not_automatically_convergence: true
   windows: 6
   extension_factor: 2
   critic_relative_slope_tolerance: 0.00001
@@ -189,18 +202,19 @@ modes:
     max_transitions: null
     seeds: [100, 101, 102, 103, 104, 105, 106, 107, 108, 109]
     canonical_critic_seed: 100
-    critic_max_steps: 20000
-    critic_min_steps: 2000
-    critic_eval_interval: 200
-    positive_max_steps: 20000
-    positive_min_steps: 2000
-    actor_eval_interval: 200
-    branch_max_steps: 20000
-    branch_min_steps: 2000
+    critic_max_steps: 100000
+    critic_min_steps: 10000
+    critic_eval_interval: 2000
+    positive_max_steps: 100000
+    positive_min_steps: 10000
+    actor_eval_interval: 5000
+    branch_max_steps: 200000
+    branch_min_steps: 10000
     matched_pairs: 256
     audit_sample_size: 16384
     rollout_episodes: 5
-    rollout_eval_interval: 2000
+    final_rollout_episodes: 20
+    rollout_eval_interval: 25000
 
 artifact:
   checkpoint_every_formal_seeds: 5

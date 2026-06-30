@@ -1,6 +1,6 @@
 # Generated Stage 4 Semantic Module Overview
 
-Graph hash: `c8f7bc1c168904e58b80c8e5421a1ac9528313af06522fe2ade5598223047f32`
+Graph hash: `e5195826aa9fe09f096d38a8162a7dd09e6381e72acaa6069e08b85b97911277`
 
 > Generated from the canonical semantic graph. Do not edit manually.
 

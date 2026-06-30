@@ -15,6 +15,7 @@ from drpo.e7_hopper_q2 import (
     normalized_window_drift,
     parameter_update_statistics,
     spearman,
+    train_actor_stage,
 )
 
 
@@ -22,7 +23,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CONFIG = ROOT / "configs" / "e7_hopper_q2_medium_replay_v2.yaml"
 
 
-def test_protocol_v42_loads_and_uses_dynamic_global_control() -> None:
+def test_protocol_v43_loads_fixed_longrun_budgets_and_dynamic_global_control() -> None:
     config = load_config(CONFIG)
     assert "dynamic_budget_matched_global" in METHODS
     assert "budget_matched_global" not in METHODS
@@ -30,6 +31,14 @@ def test_protocol_v42_loads_and_uses_dynamic_global_control() -> None:
     assert config.critic_update_tolerance == 0.0002
     assert config.actor_update_tolerance == 0.0002
     assert config.actor_state_drift_tolerance == 0.01
+    assert config.formal.critic_max_steps == 100_000
+    assert config.formal.positive_max_steps == 100_000
+    assert config.formal.branch_max_steps == 200_000
+    assert config.formal.critic_eval_interval == 2_000
+    assert config.formal.actor_eval_interval == 5_000
+    assert config.formal.rollout_eval_interval == 25_000
+    assert config.formal.rollout_episodes == 5
+    assert config.formal.final_rollout_episodes == 20
 
 
 def test_parameter_update_statistics_are_relative_to_model_scale() -> None:
@@ -108,9 +117,15 @@ def test_actor_terminal_uses_relative_update_not_raw_gradient_gate() -> None:
             }
         )
     audit = classify_actor_terminal(
-        rows, config, candidate_step=100, extension_complete=True
+        rows,
+        config,
+        candidate_step=100,
+        extension_complete=True,
+        fixed_budget_completed=True,
     )
     assert audit["state"] == "finite_terminal"
+    assert audit["fixed_budget_completed"] is True
+    assert audit["terminal_audit_controls_stopping"] is False
     assert not audit["numerical_nonfinite"]
 
 
@@ -122,3 +137,83 @@ def test_normalized_window_drift_uses_training_step_and_state_scale() -> None:
     ]
     drift = normalized_window_drift(rows, "value", 3)
     assert 0.009 < drift < 0.011
+
+def test_actor_training_consumes_fixed_budget_after_early_terminal_candidate(
+    tmp_path: Path,
+) -> None:
+    torch.manual_seed(5)
+    config = replace(
+        load_config(CONFIG),
+        hidden_sizes=(4,),
+        actor_batch_size=8,
+        audit_windows=2,
+        actor_state_drift_tolerance=1e9,
+        actor_update_tolerance=1e9,
+    )
+    obs = np.zeros((24, 3), dtype=np.float32)
+    actions = np.zeros((24, 2), dtype=np.float32)
+    advantages = np.ones(24, dtype=np.float32)
+    policy = SquashedGaussianPolicy(3, 2, (4,), -5.0, 2.0, 1e-6)
+    _, audit = train_actor_stage(
+        policy=policy,
+        method="positive_only",
+        obs=obs,
+        actions=actions,
+        advantages=advantages,
+        train_indices=np.arange(24, dtype=np.int64),
+        audit_indices=np.arange(8, dtype=np.int64),
+        fixed_negative_indices=np.arange(8, dtype=np.int64),
+        config=config,
+        min_steps=1,
+        max_steps=4,
+        eval_interval=1,
+        seed=11,
+        device=torch.device("cpu"),
+        output_dir=tmp_path / "actor",
+    )
+    assert audit["candidate_step"] == 1
+    assert audit["extension_complete"] is True
+    assert audit["final_step"] == 4
+    assert audit["fixed_budget_completed"] is True
+    assert audit["stopping_rule"] == "fixed_optimizer_steps"
+    assert audit["terminal_audit_controls_stopping"] is False
+
+
+def test_actor_numerical_failure_stops_before_optimizer_step(tmp_path: Path) -> None:
+    torch.manual_seed(9)
+    config = replace(
+        load_config(CONFIG),
+        hidden_sizes=(4,),
+        actor_batch_size=8,
+        audit_windows=2,
+    )
+    obs = np.zeros((16, 3), dtype=np.float32)
+    actions = np.zeros((16, 2), dtype=np.float32)
+    advantages = np.full(16, np.nan, dtype=np.float32)
+    policy = SquashedGaussianPolicy(3, 2, (4,), -5.0, 2.0, 1e-6)
+    before = {
+        name: parameter.detach().clone()
+        for name, parameter in policy.named_parameters()
+    }
+    _, audit = train_actor_stage(
+        policy=policy,
+        method="signed",
+        obs=obs,
+        actions=actions,
+        advantages=advantages,
+        train_indices=np.arange(16, dtype=np.int64),
+        audit_indices=np.arange(8, dtype=np.int64),
+        fixed_negative_indices=np.arange(8, dtype=np.int64),
+        config=config,
+        min_steps=1,
+        max_steps=4,
+        eval_interval=1,
+        seed=13,
+        device=torch.device("cpu"),
+        output_dir=tmp_path / "actor_nonfinite",
+    )
+    assert audit["fixed_budget_completed"] is False
+    assert audit["early_stop_reason"] == "nonfinite_train_loss"
+    assert audit["numerical_nonfinite"] is True
+    for name, parameter in policy.named_parameters():
+        assert torch.equal(parameter.detach(), before[name])

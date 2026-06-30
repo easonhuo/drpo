@@ -43,7 +43,7 @@ except ImportError as exc:  # pragma: no cover - dependency declared by project
     raise SystemExit("PyYAML is required. Install the project with pip install -e .") from exc
 
 EXPERIMENT_ID = "EXT-H-E7-Q2"
-RUNNER_VERSION = "4.2.0-acceptance-pipeline"
+RUNNER_VERSION = "4.3.0-fixed-budget-longrun"
 EPS = 1e-6
 METHODS = (
     "positive_only",
@@ -198,6 +198,7 @@ class ModeConfig:
     matched_pairs: int
     audit_sample_size: int
     rollout_episodes: int
+    final_rollout_episodes: int
     rollout_eval_interval: int
 
 
@@ -285,6 +286,9 @@ def _mode_from_dict(raw: dict[str, Any]) -> ModeConfig:
         matched_pairs=int(raw["matched_pairs"]),
         audit_sample_size=int(raw["audit_sample_size"]),
         rollout_episodes=int(raw.get("rollout_episodes", 0)),
+        final_rollout_episodes=int(
+            raw.get("final_rollout_episodes", raw.get("rollout_episodes", 0))
+        ),
         rollout_eval_interval=int(raw.get("rollout_eval_interval", 0)),
     )
 
@@ -705,6 +709,7 @@ def classify_actor_terminal(
     config: E7Config,
     candidate_step: int | None,
     extension_complete: bool,
+    fixed_budget_completed: bool = False,
 ) -> dict[str, Any]:
     last = rows[-1]
     relative_update_norm = float(
@@ -777,13 +782,19 @@ def classify_actor_terminal(
         value > config.actor_state_drift_tolerance for value in state_drifts.values()
     ):
         state = "persistent_or_slow_drift"
+    elif fixed_budget_completed:
+        state = "fixed_horizon_inconclusive"
     else:
-        state = "max_horizon_without_terminal_classification"
-    explicit_terminal_classification = state != "max_horizon_without_terminal_classification"
+        state = "training_incomplete_without_terminal_classification"
+    explicit_terminal_classification = (
+        state != "training_incomplete_without_terminal_classification"
+    )
     return {
         "state": state,
         "candidate_step": candidate_step,
         "extension_complete": extension_complete,
+        "fixed_budget_completed": fixed_budget_completed,
+        "terminal_audit_controls_stopping": False,
         "slopes": slopes,
         "state_drifts": state_drifts,
         "state_drift_tolerance": config.actor_state_drift_tolerance,
@@ -1535,11 +1546,13 @@ def train_critic(
 ) -> tuple[ValueNetwork, Normalizer, dict[str, Any]]:
     """Train and accept a canonical frozen-advantage critic.
 
-    Optimization stationarity and frozen-advantage suitability are deliberately
-    separate.  Stationarity uses a fixed *training* audit loss, validation-loss
-    slope, relative parameter movement, and an exact 2x continuation.  Checkpoint
-    selection uses validation MSE.  Formal use additionally requires predictive
-    quality plus best/final advantage stability; no field is forced to ``True``.
+    The critic always consumes the configured fixed optimizer-step budget unless a
+    non-finite loss or gradient makes continuation invalid. Validation MSE selects
+    the canonical checkpoint after the full budget. Optimization-stationarity,
+    predictive-quality, and best/final frozen-advantage-stability diagnostics remain
+    recorded, but they neither stop training nor choose the checkpoint. Formal use
+    requires a completed fixed budget and finite selected metrics; no acceptance
+    field is forced to ``True``.
     """
     output_dir.mkdir(parents=True, exist_ok=True)
     obs = obs_norm.transform(data.observations)
@@ -1558,6 +1571,7 @@ def train_critic(
     selected_path = output_dir / "canonical_critic.pt"
     candidate_step: int | None = None
     extension_target: int | None = None
+    early_stop_reason: str | None = None
     train_audit = rng.choice(
         split["train"],
         size=min(mode.audit_sample_size, len(split["train"])),
@@ -1615,8 +1629,33 @@ def train_critic(
         pred = model(tensor(obs[idx], device))
         loss = F.mse_loss(pred, tensor(normalized_targets[idx], device))
         optimizer.zero_grad(set_to_none=True)
+        loss_value = float(loss.detach().cpu())
+        if not math.isfinite(loss_value):
+            early_stop_reason = "nonfinite_train_loss"
+            emit_event(
+                {
+                    "stage": "canonical_critic",
+                    "step": step,
+                    "train_batch_loss_normalized": loss_value,
+                    "numerical_nonfinite": True,
+                }
+            )
+            break
         loss.backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), 10.0)
+        train_gradient_norm = float(
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 10.0).detach().cpu()
+        )
+        if not math.isfinite(train_gradient_norm):
+            early_stop_reason = "nonfinite_train_gradient"
+            emit_event(
+                {
+                    "stage": "canonical_critic",
+                    "step": step,
+                    "train_batch_gradient_norm": train_gradient_norm,
+                    "numerical_nonfinite": True,
+                }
+            )
+            break
         optimizer.step()
         if step % mode.critic_eval_interval == 0 or step == mode.critic_max_steps:
             update_stats = parameter_update_statistics(
@@ -1625,7 +1664,8 @@ def train_critic(
             eval_snapshot = [parameter.detach().clone() for parameter in model.parameters()]
             last_eval_step = step
             row = evaluate(step, update_stats)
-            row["train_batch_loss_normalized"] = float(loss.detach().cpu())
+            row["train_batch_loss_normalized"] = loss_value
+            row["train_batch_gradient_norm"] = train_gradient_norm
             rows.append(row)
             if heartbeat is not None:
                 heartbeat("canonical_critic", step)
@@ -1675,12 +1715,15 @@ def train_critic(
             ):
                 candidate_step = step
                 extension_target = 2 * step
-            if extension_target is not None and step >= extension_target:
-                break
+            # Candidate/extension fields are post-hoc diagnostics only. Fixed-budget
+            # training never stops because a short window appears stationary.
 
     if not rows or not best_path.is_file():
         raise RuntimeError("Critic produced no auditable checkpoint")
     final_step = int(rows[-1]["step"])
+    fixed_budget_completed = bool(
+        final_step == mode.critic_max_steps and early_stop_reason is None
+    )
     final_metrics = dict(rows[-1])
     final_state = {key: value.detach().cpu() for key, value in model.state_dict().items()}
     torch.save(
@@ -1729,13 +1772,8 @@ def train_critic(
     best_checkpoint = torch.load(best_path, map_location=device, weights_only=False)
     model.load_state_dict(best_checkpoint["model"])
     model.eval()
-    selected_metrics = evaluate(
-        best_step,
-        {
-            "raw_per_step": 0.0,
-            "rms_per_step": 0.0,
-            "relative_per_step": 0.0,
-        },
+    selected_metrics = next(
+        dict(row) for row in rows if int(row["step"]) == best_step
     )
     model.eval()
     best_advantage = critic_advantage_arrays(
@@ -1772,28 +1810,20 @@ def train_critic(
     final_to_best_ratio = float(final_metrics["validation_mse"]) / max(
         float(selected_metrics["validation_mse"]), EPS
     )
-    terminal_checkpoint_eligible = bool(
-        optimization_terminal
-        and final_to_best_ratio
-        <= config.critic_max_final_to_best_validation_mse_ratio
-    )
-    if terminal_checkpoint_eligible:
-        model.load_state_dict(final_state)
-        model.eval()
-        selected_step = final_step
-        selected_metrics = final_metrics
-        selected_role_base = "terminal_extension_checkpoint"
-    else:
-        selected_step = best_step
-        selected_role_base = "best_validation_checkpoint"
+    terminal_checkpoint_eligible = False
+    selected_step = best_step
+    selected_role_base = "best_validation_checkpoint"
 
-    acceptance_checks = {
+    operational_acceptance_checks = {
+        "fixed_budget_completed": fixed_budget_completed,
         "finite_selected_metrics": bool(
             all(
                 math.isfinite(float(selected_metrics[key]))
                 for key in ("validation_mse", "validation_r2", "validation_pearson")
             )
         ),
+    }
+    quality_audit_checks = {
         "validation_r2": bool(
             float(selected_metrics["validation_r2"])
             >= config.critic_validation_r2_min
@@ -1819,7 +1849,8 @@ def train_critic(
             negative_set_jaccard >= config.critic_negative_set_jaccard_min
         ),
     }
-    critic_accepted = all(acceptance_checks.values())
+    critic_accepted = all(operational_acceptance_checks.values())
+    critic_quality_audit_passed = all(quality_audit_checks.values())
     selected_role = (
         selected_role_base
         if critic_accepted
@@ -1835,8 +1866,12 @@ def train_critic(
             "step": selected_step,
             "candidate_step": candidate_step,
             "extension_complete": extension_complete,
+            "fixed_budget_steps": mode.critic_max_steps,
+            "fixed_budget_completed": fixed_budget_completed,
+            "stopping_rule": "fixed_optimizer_steps",
             "optimization_terminal": optimization_terminal,
             "critic_accepted_for_frozen_advantage": critic_accepted,
+            "critic_quality_audit_passed": critic_quality_audit_passed,
             "checkpoint_role": selected_role,
         },
         selected_path,
@@ -1844,6 +1879,11 @@ def train_critic(
     audit = {
         "best_step": best_step,
         "best_validation_mse": best_loss,
+        "stopping_rule": "fixed_optimizer_steps",
+        "fixed_budget_steps": mode.critic_max_steps,
+        "fixed_budget_completed": fixed_budget_completed,
+        "early_stop_reason": early_stop_reason,
+        "terminal_audit_controls_stopping": False,
         "candidate_step": candidate_step,
         "extension_target": extension_target,
         "extension_complete": extension_complete,
@@ -1860,7 +1900,13 @@ def train_critic(
         ],
         "optimization_terminal": optimization_terminal,
         "critic_accepted_for_frozen_advantage": critic_accepted,
-        "acceptance_checks": acceptance_checks,
+        "operational_acceptance_checks": operational_acceptance_checks,
+        "critic_quality_audit_passed": critic_quality_audit_passed,
+        "quality_audit_checks": quality_audit_checks,
+        "acceptance_checks": {
+            **operational_acceptance_checks,
+            **quality_audit_checks,
+        },
         "acceptance_metrics": {
             "final_to_best_validation_mse_ratio": final_to_best_ratio,
             "advantage_sign_agreement": sign_agreement,
@@ -1877,11 +1923,12 @@ def train_critic(
         "terminal_checkpoint_eligible": terminal_checkpoint_eligible,
         "selected_checkpoint_metrics": selected_metrics,
         "statistical_note": (
-            "Optimization terminality is audited separately from frozen-advantage "
-            "acceptance. Validation loss chooses the checkpoint; validation "
-            "predictive quality and best/final training-split advantage stability "
-            "gate formal reuse without forcing optimization_terminal. Test metrics "
-            "are final-report-only."
+            "The fixed optimizer-step budget controls critic stopping. Validation "
+            "MSE always chooses the canonical checkpoint after that budget. "
+            "Optimization terminality and thresholded predictive/advantage-stability "
+            "checks are report-only diagnostics. Formal execution requires only a "
+            "completed finite fixed-budget critic artifact; test metrics remain "
+            "final-report-only."
         ),
         "checkpoint": {
             "path": str(selected_path),
@@ -1892,17 +1939,13 @@ def train_critic(
             "path": str(best_path),
             "sha256": sha256_file(best_path),
             "size_bytes": best_path.stat().st_size,
-            "role": (
-                "selected_if_no_accepted_terminal_extension"
-                if not terminal_checkpoint_eligible
-                else "validation_selection_comparator"
-            ),
+            "role": "canonical_selection_after_fixed_budget",
         },
         "final_training_checkpoint": {
             "path": str(final_path),
             "sha256": sha256_file(final_path),
             "size_bytes": final_path.stat().st_size,
-            "role": "continuation_and_stability_audit",
+            "role": "fixed_budget_final_and_advantage_stability_comparator",
         },
         "final_training_metrics": final_metrics,
     }
@@ -2061,7 +2104,7 @@ def _load_canonical_critic_context(
             f"Canonical critic artifact does not contain {manifest_path.name}: {root}"
         )
     manifest = json.loads(manifest_path.read_text())
-    if manifest.get("schema_version") != 2 or not manifest.get("complete"):
+    if manifest.get("schema_version") != 3 or not manifest.get("complete"):
         raise RuntimeError("Canonical critic artifact is incomplete or has an unsupported schema")
     if manifest.get("identity") != expected_identity:
         raise RuntimeError(
@@ -2218,30 +2261,36 @@ def prepare_canonical_critic_context(
         critic_audit.get("critic_accepted_for_frozen_advantage")
     ):
         failure_manifest = {
-            "schema_version": 2,
+            "schema_version": 3,
             "complete": False,
             "identity": expected_identity,
             "created_utc": utc_now(),
             "reason": "critic_failed_frozen_advantage_acceptance",
+            "critic_fixed_budget_completed": bool(
+                critic_audit.get("fixed_budget_completed")
+            ),
             "critic_optimization_terminal": bool(
                 critic_audit.get("optimization_terminal")
             ),
             "critic_accepted_for_frozen_advantage": False,
-            "acceptance_checks": critic_audit.get("acceptance_checks", {}),
+            "operational_acceptance_checks": critic_audit.get(
+                "operational_acceptance_checks", {}
+            ),
+            "quality_audit_checks": critic_audit.get("quality_audit_checks", {}),
         }
         atomic_write_json(
             artifact_root / "canonical_critic_incomplete.json", failure_manifest
         )
         raise RuntimeError(
-            "Formal E7 gate failed: the canonical critic did not pass predictive "
-            "quality and best/final frozen-advantage stability acceptance"
+            "Formal E7 gate failed: the canonical critic did not complete its "
+            "fixed optimizer-step budget with finite selected metrics"
         )
     checkpoint_path = Path(critic_audit["checkpoint"]["path"])
     critic_audit_path = training_dir / "critic_terminal_audit.json"
     advantage_path = artifact_root / "frozen_advantage" / "frozen_advantages.npz"
     advantage_manifest_path = artifact_root / "frozen_advantage" / "advantage_manifest.json"
     manifest = {
-        "schema_version": 2,
+        "schema_version": 3,
         "complete": True,
         "created_utc": utc_now(),
         "identity": expected_identity,
@@ -2249,9 +2298,15 @@ def prepare_canonical_critic_context(
         "shared_across_all_actor_seeds": True,
         "critic_updates_during_actor_training": False,
         "advantage_recomputation_during_actor_training": False,
+        "critic_fixed_budget_completed": bool(
+            critic_audit["fixed_budget_completed"]
+        ),
         "critic_optimization_terminal": bool(critic_audit["optimization_terminal"]),
         "critic_accepted_for_frozen_advantage": bool(
             critic_audit["critic_accepted_for_frozen_advantage"]
+        ),
+        "critic_quality_audit_passed": bool(
+            critic_audit["critic_quality_audit_passed"]
         ),
         "checkpoint_role": critic_audit["selected_checkpoint_role"],
         "files": {
@@ -2484,6 +2539,7 @@ def train_actor_stage(
     extension_target: int | None = None
     train_batch_loss = float("nan")
     train_batch_gradient = float("inf")
+    early_stop_reason: str | None = None
     last_diag: dict[str, float] = {}
     eval_snapshot = [parameter.detach().clone() for parameter in policy.parameters()]
     last_eval_step = 0
@@ -2558,15 +2614,25 @@ def train_actor_stage(
             far_cap_score,
         )
         optimizer.zero_grad(set_to_none=True)
-        loss.backward()
-        train_batch_gradient = float(
-            torch.nn.utils.clip_grad_norm_(
-                policy.parameters(), config.max_gradient_norm
-            ).cpu()
-        )
-        optimizer.step()
         train_batch_loss = float(loss.detach().cpu())
-        if not math.isfinite(train_batch_loss) or not math.isfinite(train_batch_gradient):
+        if not math.isfinite(train_batch_loss):
+            early_stop_reason = "nonfinite_train_loss"
+            train_batch_gradient = float("nan")
+        else:
+            loss.backward()
+            train_batch_gradient = float(
+                torch.nn.utils.clip_grad_norm_(
+                    policy.parameters(), config.max_gradient_norm
+                ).cpu()
+            )
+            if not math.isfinite(train_batch_gradient):
+                early_stop_reason = "nonfinite_train_gradient"
+            else:
+                optimizer.step()
+        if early_stop_reason is not None:
+            # Do not apply an optimizer step after a non-finite loss/gradient.  The
+            # last finite policy remains available for post-mortem diagnostics.
+            optimizer.zero_grad(set_to_none=True)
             row = actor_eval_metrics(
                 policy=policy,
                 obs=obs,
@@ -2585,6 +2651,7 @@ def train_actor_stage(
                 boundary_threshold=config.support_boundary_threshold,
             )
             row.update(last_diag)
+            row["numerical_failure_reason"] = early_stop_reason
             rows.append(row)
             if heartbeat is not None:
                 heartbeat(f"actor:{method}", step)
@@ -2593,7 +2660,9 @@ def train_actor_stage(
                     "stage": f"actor:{method}",
                     "step": step,
                     "train_batch_loss": train_batch_loss,
+                    "train_batch_gradient_norm": train_batch_gradient,
                     "numerical_nonfinite": True,
+                    "numerical_failure_reason": early_stop_reason,
                 }
             )
             break
@@ -2635,8 +2704,8 @@ def train_actor_stage(
             ):
                 candidate_step = step
                 extension_target = 2 * step
-            if extension_target is not None and step >= extension_target:
-                break
+            # Candidate/extension fields classify the fixed-budget endpoint only.
+            # They never shorten the registered horizon.
 
     parameters_finite = all(
         bool(torch.isfinite(parameter).all()) for parameter in policy.parameters()
@@ -2650,12 +2719,24 @@ def train_actor_stage(
             rollout_evaluator(policy, int(rows[-1]["step"]), method)
         )
 
+    final_step = int(rows[-1]["step"])
+    fixed_budget_completed = bool(
+        final_step == max_steps
+        and early_stop_reason is None
+        and parameters_finite
+        and math.isfinite(float(rows[-1].get("loss", float("nan"))))
+    )
+    if not fixed_budget_completed and early_stop_reason is None:
+        early_stop_reason = "incomplete_fixed_budget_unknown_reason"
     checkpoint_path = output_dir / "terminal_actor.pt"
     torch.save(
         {
             "model": policy.state_dict(),
             "method": method,
-            "step": rows[-1]["step"],
+            "step": final_step,
+            "checkpoint_role": "fixed_budget_final_checkpoint",
+            "fixed_budget_steps": max_steps,
+            "fixed_budget_completed": fixed_budget_completed,
             "far_threshold": far_threshold,
             "global_scale": global_scale,
             "global_scale_semantics": (
@@ -2670,13 +2751,24 @@ def train_actor_stage(
     extension_complete = bool(
         candidate_step is not None and rows[-1]["step"] >= 2 * candidate_step
     )
-    audit = classify_actor_terminal(rows, config, candidate_step, extension_complete)
+    audit = classify_actor_terminal(
+        rows,
+        config,
+        candidate_step,
+        extension_complete,
+        fixed_budget_completed=fixed_budget_completed,
+    )
     audit.update(
         {
             "method": method,
-            "final_step": rows[-1]["step"],
+            "final_step": final_step,
             "max_steps": max_steps,
-            "reached_max_steps": int(rows[-1]["step"]) >= max_steps,
+            "fixed_budget_steps": max_steps,
+            "fixed_budget_completed": fixed_budget_completed,
+            "reached_max_steps": fixed_budget_completed,
+            "stopping_rule": "fixed_optimizer_steps",
+            "early_stop_reason": early_stop_reason,
+            "terminal_audit_controls_stopping": False,
             "extension_target": extension_target,
             "far_threshold": far_threshold,
             "global_scale": global_scale,
@@ -2695,12 +2787,7 @@ def train_actor_stage(
         }
     )
     audit["terminal_audit_complete"] = bool(
-        audit["extension_complete"]
-        or audit["numerical_nonfinite"]
-        or (
-            audit["explicit_terminal_classification"]
-            and audit["reached_max_steps"]
-        )
+        audit["fixed_budget_completed"] or audit["numerical_nonfinite"]
     )
     write_csv(output_dir / "curves.csv", rows)
     atomic_write_json(output_dir / "terminal_audit.json", audit)
@@ -3103,13 +3190,23 @@ def run_seed(
         policy: SquashedGaussianPolicy, step: int, stage: str
     ) -> dict[str, Any]:
         diagnostics = seed_dir / "rollouts" / stage / f"step_{step:08d}.json"
+        registered_final_step = (
+            mode.positive_max_steps
+            if stage == "positive_only"
+            else mode.branch_max_steps
+        )
+        episodes = (
+            mode.final_rollout_episodes
+            if step >= registered_final_step
+            else mode.rollout_episodes
+        )
         return evaluate_d4rl_rollouts(
             policy=policy,
             obs_norm=obs_norm,
             backend=config.env_backend,
             dataset_id=config.rollout_dataset_id,
             env_id=config.env_id,
-            episodes=mode.rollout_episodes,
+            episodes=episodes,
             seed=seed * 100000 + step,
             device=device,
             normalized_score_percent=config.normalized_score_percent,
@@ -3172,10 +3269,13 @@ def run_seed(
         rollout_eval_interval=mode.rollout_eval_interval,
         heartbeat=heartbeat,
     )
-    if formal_mode and positive_audit["state"] != "finite_terminal":
+    if formal_mode and (
+        positive_audit["numerical_nonfinite"]
+        or not positive_audit["fixed_budget_completed"]
+    ):
         raise RuntimeError(
-            "Formal E7 gate failed: Positive-only did not reach a finite terminal "
-            "without a support boundary event"
+            "Formal E7 gate failed: Positive-only did not complete its fixed "
+            "optimizer-step budget with finite parameters"
         )
 
     with torch.no_grad():
@@ -3404,6 +3504,9 @@ def flatten_seed_summary(summary: dict[str, Any]) -> dict[str, Any]:
         "critic_test_pearson": summary["critic"]["selected_checkpoint_metrics"][
             "test_pearson"
         ],
+        "critic_fixed_budget_completed": summary["critic"][
+            "fixed_budget_completed"
+        ],
         "critic_optimization_terminal": summary["critic"]["optimization_terminal"],
         "critic_accepted_for_frozen_advantage": summary["critic"][
             "critic_accepted_for_frozen_advantage"
@@ -3453,6 +3556,9 @@ def flatten_seed_summary(summary: dict[str, Any]) -> dict[str, Any]:
         "rollout_available_for_all_methods": summary["mechanism_subchecks"][
             "rollout_available_for_all_methods"
         ],
+        "positive_only_fixed_budget_completed": summary[
+            "positive_only_initialization"
+        ]["fixed_budget_completed"],
         "positive_only_terminal_state": summary["positive_only_initialization"]["state"],
         "positive_only_terminal_audit_complete": summary["positive_only_initialization"][
             "terminal_audit_complete"
@@ -3463,6 +3569,7 @@ def flatten_seed_summary(summary: dict[str, Any]) -> dict[str, Any]:
     }
     for method, audit in summary["methods"].items():
         final = audit["final_metrics"]
+        row[f"{method}_fixed_budget_completed"] = audit["fixed_budget_completed"]
         row[f"{method}_terminal_state"] = audit["state"]
         row[f"{method}_terminal_audit_complete"] = audit["terminal_audit_complete"]
         row[f"{method}_task_performance_status"] = audit["task_performance_status"]
@@ -3616,11 +3723,28 @@ def build_terminal_audit(
     paired_seed_evidence_complete = bool(
         mode_name == "formal" and expected_seed_count > 1 and seed_count_complete
     )
+    positive_only_fixed_budget_all_seeds = bool(
+        completed > 0
+        and all(
+            summary["positive_only_initialization"]["fixed_budget_completed"]
+            and summary["positive_only_initialization"]["terminal_audit_complete"]
+            for summary in summaries
+        )
+    )
+    all_actor_fixed_budgets_completed = bool(
+        completed > 0
+        and all(
+            all(
+                audit["fixed_budget_completed"]
+                for audit in summary["methods"].values()
+            )
+            for summary in summaries
+        )
+    )
     positive_only_terminal_all_seeds = bool(
         completed > 0
         and all(
             summary["positive_only_initialization"]["state"] == "finite_terminal"
-            and summary["positive_only_initialization"]["terminal_audit_complete"]
             for summary in summaries
         )
     )
@@ -3639,23 +3763,33 @@ def build_terminal_audit(
             )
         )
     )
+    critic_fixed_budget_completed = bool(
+        canonical.critic_audit.get("fixed_budget_completed")
+    )
     critic_artifact_terminal = bool(
         canonical.critic_audit.get("optimization_terminal")
     )
     critic_artifact_accepted = bool(
         canonical.critic_audit.get("critic_accepted_for_frozen_advantage")
     )
+    critic_quality_audit_passed = bool(
+        canonical.critic_audit.get("critic_quality_audit_passed")
+    )
     engineering_pipeline_complete = bool(
         seed_count_complete
         and canonical.artifact_manifest.get("complete")
         and rollout_preflight.get("status") == "passed"
+        and critic_fixed_budget_completed
+        and positive_only_fixed_budget_all_seeds
+        and all_actor_fixed_budgets_completed
         and terminal_audit_records_complete
     )
     formal_evidence_prerequisites_complete = bool(
         mode_name == "formal"
         and engineering_pipeline_complete
         and critic_artifact_accepted
-        and positive_only_terminal_all_seeds
+        and positive_only_fixed_budget_all_seeds
+        and all_actor_fixed_budgets_completed
         and paired_seed_evidence_complete
         and rollout_available_all_required_checkpoints
         and terminal_state_classification_complete
@@ -3671,10 +3805,15 @@ def build_terminal_audit(
         ),
         "engineering_pipeline_complete": engineering_pipeline_complete,
         "mechanism_subchecks_passed_for_completed_seeds": mechanism_subchecks_passed,
+        "critic_fixed_budget_completed": critic_fixed_budget_completed,
         "critic_artifact_terminal": critic_artifact_terminal,
+        "critic_optimization_terminal_role": "diagnostic_only",
         "critic_artifact_accepted_for_frozen_advantage": critic_artifact_accepted,
+        "critic_quality_audit_passed_diagnostic": critic_quality_audit_passed,
         "critic_artifact_shared_across_all_actor_seeds": True,
-        "positive_only_terminal_all_seeds": positive_only_terminal_all_seeds,
+        "positive_only_fixed_budget_all_seeds": positive_only_fixed_budget_all_seeds,
+        "all_actor_fixed_budgets_completed": all_actor_fixed_budgets_completed,
+        "positive_only_terminal_all_seeds_diagnostic": positive_only_terminal_all_seeds,
         "terminal_audit_records_complete": terminal_audit_records_complete,
         "terminal_state_classification_complete": terminal_state_classification_complete,
         "rollout_preflight_passed": rollout_preflight.get("status") == "passed",
@@ -3862,6 +4001,9 @@ def run_experiment(args: argparse.Namespace) -> int:
             "root": str(canonical.root),
             "reused": canonical.reused,
             "identity": canonical.artifact_manifest["identity"],
+            "critic_fixed_budget_completed": canonical.critic_audit[
+                "fixed_budget_completed"
+            ],
             "critic_optimization_terminal": canonical.critic_audit[
                 "optimization_terminal"
             ],
@@ -3882,6 +4024,9 @@ def run_experiment(args: argparse.Namespace) -> int:
                 "rollout_preflight_status": rollout_preflight["status"],
                 "canonical_critic_root": str(canonical.root),
                 "canonical_critic_reused": canonical.reused,
+                "canonical_critic_fixed_budget_completed": canonical.critic_audit[
+                    "fixed_budget_completed"
+                ],
                 "canonical_critic_optimization_terminal": canonical.critic_audit[
                     "optimization_terminal"
                 ],

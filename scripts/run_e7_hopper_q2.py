@@ -66,7 +66,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--artifact-output")
     parser.add_argument(
         "--critic-artifact",
-        help="Optional exact v4.2 canonical critic artifact to verify and reuse",
+        help="Optional exact v4.3 schema-3 canonical critic artifact to verify and reuse",
     )
     parser.add_argument(
         "--allow-dirty",

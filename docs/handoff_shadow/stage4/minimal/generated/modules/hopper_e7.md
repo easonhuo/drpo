@@ -7,7 +7,7 @@
 - Responsibility: Cover learned-critic far-field mechanism validation and D4RL method-effect evidence while preserving the external-validity boundary.
 - Content contract topics: none
 - Deduplicated overlapping source chunks: 0
-- Source hash: `c0af4015e1872464bab64a52b34f90e36b106aaf8afad9912ebadce7ce301bba`
+- Source hash: `e842c24fafe7e11285961152272ef7e2ef48849993c44c79c110b4691a9c2d88`
 
 ## Source 1: docs/handoff.md: # 15. Learned-Critic External Mechanism Validation on D4RL -> # Part V. Bandit 稳定外推子实验的收敛审计（完整保留）
 
@@ -206,49 +206,63 @@ A<0,\quad \|z\|>1 \Longrightarrow \Delta\log\sigma<0.
 > - Canonical critic artifact schema 升级为 v2，并继续对 mode、config hash、dataset、transition count、dimensions、canonical seed 与 runner version 做 exact identity 校验；pilot、v4.1 或其他 formal 身份的 artifact fail closed。
 > - 操作入口升级为 Countdown 风格一键命令：在 clean current `main`、已设置 `DRPO_HOPPER_MEDIUM_REPLAY` 或标准数据路径时执行 `python3 scripts/run_e7_hopper_q2.py`，默认 formal、自动创建 timestamped persistent work directory，并由 hardened guard 打包结果。`--plan-only` 只解析和打印完整命令，不启动训练；pilot 仍不得冒充 formal evidence。
 
-## Source 9: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v56-e6-parent-closure-current-gate
+## Source 9: docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:e7-q2-fixed-budget-longrun-v43
+
+### Delta block `after_heading:e7-q2-fixed-budget-longrun-v43`
+
+> **E7-Q2 v4.3 增量登记：`EXT-H-E7-Q2` fixed-budget long-run v4.3 与重跑协议（不删除此前任何内容）**
+>
+> - 本版继承当前 `main` 及此前全部历史，只修订 Hopper E7-Q2 的训练停止规则、critic canonical checkpoint 选择、终态审计职责和一键执行配置。E7 仍只承担 learned-critic 外部机制验证，不替代 C-U1 受控因果识别，也不构成 D4RL 方法排名。`EXT-H-E7-Q2` 继续是 **not_run + implemented + ready + active**；本版未运行真实 Hopper formal。
+> - **旧协议—问题—新证据：**v4.2 由短窗口 stationarity candidate 和 2× extension 决定 critic/actor 提前停止。用户上传的 formal-scale pilot 中，critic 在 7600 步即被判为 terminal，而上一轮 20000 步 critic 的 test R²/Pearson 仍更高；Positive-only、Far-zero、Far-cap、Dynamic Global 与 Signed/Near-zero 又停在不同 horizon，导致“最终值”不处于相同训练预算。该结果说明短窗口暂时变慢不能代替 D4RL 长程预算，也不能作为方法间公平终态比较。
+> - **Pilot 机制证据边界：**上传包 SHA-256 为 `deefbe216ca5c99622c84831b4546da10203610c07736992c51cf23f679f1017`。该 pilot 中 far/near `|A|` 约为 `0.99992`、标准化距离约为 `3.596×`、全参数负梯度约为 `3.47×`；Signed 与 Near-zero 均出现 `10/10` 任务性能崩溃和 `10/10` support/variance boundary，Far-zero 将 support/variance boundary 降为 `0/10`。这些只登记为 **pilot / finite-horizon mechanism diagnostic**，不升级为 formal result、稳态结论或方法排名。NaN/Inf 与任务崩溃、support/variance boundary 继续分开报告。
+> - **Critic v4.3 固定预算：**formal canonical critic 固定训练 `100000` optimizer steps，每 `2000` 步评估一次；除 loss/gradient/parameter 出现 NaN/Inf 等数值失败外禁止提前停止。跑满后始终选择最低 validation MSE checkpoint 生成 frozen advantage；final checkpoint 仅用于 selected-vs-final 稳定性对照。旧 optimization-terminal、validation R²/Pearson、final/best ratio、advantage sign/rank/Jaccard 阈值继续原样记录，但全部降为 report-only diagnostics，不再阻塞 formal actor 执行。formal operational gate 只要求固定预算完成且 selected checkpoint 指标有限。不得把固定 100k 写成“critic 已收敛”。
+> - **Actor v4.3 固定预算：**Positive-only initialization 固定 `100000` optimizer steps；从同一 fixed-budget checkpoint 分叉的 `signed / near_zero / far_zero / far_cap / dynamic_budget_matched_global` 各固定 `200000` steps，所有分支 horizon 完全相同。actor 每 `5000` 步做 audit、每 `25000` 步以 `5` episodes 做中间 rollout，固定预算末端以 `20` paired episodes 做最终 rollout；只有 NaN/Inf numerical failure 允许提前停止，support boundary、任务退化或持续漂移不得触发早停。`signed` 明确定义为保留正负 advantage、且不做 near/far 控制的 full signed-advantage baseline，不是新算法。
+> - **终态审计职责：**terminal candidate、relative update、state drift 与 2× continuation 只用于训练结束后的分类，不再控制停止。满足 2× confirmation 且无 boundary 才可标为 `finite_terminal`；跑满固定 horizon 但仍漂移时标为 `persistent_or_slow_drift`，无法判定时标为 `fixed_horizon_inconclusive`。固定 horizon 本身不得自动解释为 convergence。根审计分别记录 critic fixed-budget completion、Positive-only fixed-budget completion、所有 branch fixed-budget completion、任务性能崩溃、support/variance boundary、NaN/Inf 与 terminal classification。
+> - Canonical critic artifact schema 升级为 `v3`；v2、pilot、不同 mode/config/dataset/transition count/seed/runner identity 的 artifact 均 fail closed。Countdown 风格入口仍为 `python3 scripts/run_e7_hopper_q2.py`；默认 formal，通过 hardened guard 持久化 heartbeat、失败证据和最终 raw-complete 包。应用本更新后必须从 clean current `main` 重新训练 critic 与全部 actor 分支，旧 v4.2 critic 不得跨 schema 复用。
+
+## Source 10: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v56-e6-parent-closure-current-gate
 
 ### Delta block `section_end:v56-e6-parent-closure-current-gate`
 
 - **v56 E6 父 claim 关闭覆盖：** E6 的论文核心 claim 现已范围受限关闭；主 long-run 与两个 gap 子实验的原科学状态分别保持 `long_run_validated / finite_step_validated / finite_step_validated`。`D-U1-E6-TAPER-01` 保留为可选非门禁未来工作。当前下一正式 route item 为 `EXT-H-E7-Q2`，registry 状态为 **implemented + ready + active + not_run**；启动后仍须走 canonical hardened guard，且在 raw-complete、终态审计、打包和交付前不得声称 E7 完成。
 
-## Source 10: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v57-countdown-offline-bank-current-gate
+## Source 11: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v57-countdown-offline-bank-current-gate
 
 ### Delta block `section_end:v57-countdown-offline-bank-current-gate`
 
 - **Countdown v57 覆盖：** `EXT-C-E8-V4.4-OFFLINE-BANK` 是用户批准的当前离线 focused pilot；V4.3 保留为 fixed-pair predecessor。V4.4 只改变固定负样本覆盖与 current-policy near/far reselection，不引入在线数据刷新。`EXT-H-E7-Q2` 仍是下一正式 route item，`EXT-C-E8-SCALE-01` 继续 blocked。
 
-## Source 11: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v59-countdown-offline-bank-tuning-current-gate
+## Source 12: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v59-countdown-offline-bank-tuning-current-gate
 
 ### Delta block `section_end:v59-countdown-offline-bank-tuning-current-gate`
 
 - **Countdown v59 覆盖：** `EXT-C-E8-V4.5-OFFLINE-BANK-TUNING` 是当前用户批准的离线 focused successor；V4.4 作为 frozen-bank predecessor 保留。V4.5 只调 calibrated global negative multiplier 与 exponential taper lambda，禁止在线刷新、方向筛选或模型规模同时变化。`EXT-H-E7-Q2` 仍是下一 formal route item，`EXT-C-E8-SCALE-01` 继续 blocked。
 
-## Source 12: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v62-countdown-online-offpolicy-current-gate
+## Source 13: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v62-countdown-online-offpolicy-current-gate
 
 ### Delta block `section_end:v62-countdown-online-offpolicy-current-gate`
 
 - **Countdown v62 覆盖：** `EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY` 是当前用户批准并已实现的 Countdown focused successor，状态为 **implemented + not_run**。执行前必须提供完整 V4.5 `RUN_COMPLETE.json`/`terminal_audit.json` 及其指向的 V4.4 frozen inputs；runner fail-closed 校验输入与 reference adapter。它可作为独立 pilot 启动，但不改变 `EXT-H-E7-Q2` 的 formal 优先级，也不自动解锁 `EXT-C-E8-SCALE-01`。
 
-## Source 13: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v56-e6-parent-closure-execution-order
+## Source 14: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v56-e6-parent-closure-execution-order
 
 ### Delta block `section_end:v56-e6-parent-closure-execution-order`
 
 13. **v56 执行覆盖：** E6 父 claim 已关闭，`D-U1-E6-TAPER-01` 改为可选非门禁 future study；当前直接进入已实现且 registry 为 ready/active 的 `EXT-H-E7-Q2`（E7-MECH）。E7-Q2 仍为 not_run，必须先完成正式运行、终态审计、打包与交付；其后才允许冻结并实施 `EXT-H-E7-BENCH-01`。E8-MECH/V4.3 与 E8-SCALE 的相对顺序不变。
 
-## Source 14: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v57-e8-offline-bank-execution-order
+## Source 15: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v57-e8-offline-bank-execution-order
 
 ### Delta block `section_end:v57-e8-offline-bank-execution-order`
 
 14. **v57 执行覆盖：** v56 的 formal 顺序不变，`EXT-H-E7-Q2` 仍是下一正式实验。用户批准的 V4.4 作为 single-seed focused pilot 可独立执行，但必须先完成自身 best/terminal audit 与结果交付，才允许讨论 online off-policy successor；不得一次性同时改变 negative-bank 密度和数据在线刷新机制。
 
-## Source 15: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v62-countdown-online-offpolicy-execution-order
+## Source 16: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v62-countdown-online-offpolicy-execution-order
 
 ### Delta block `section_end:v62-countdown-online-offpolicy-execution-order`
 
 18. **v62 Countdown 执行覆盖：** formal 主顺序继续由 v56/v58/v61 控制；`EXT-H-E7-Q2` 优先级不变。V4.6 允许作为独立 guarded pilot 执行，顺序固定为 predecessor/input hash audit -> 四 cell paired training -> 全部训练结束后 test evaluation -> 2×2 paired effect/interaction -> terminal audit -> canonical artifact delivery。任何 online phase 都必须保留 collector manifest、round JSONL、fresh/stale mix 与实际 selected-bank diagnostics；smoke 或单 seed 不得称实验结果。
 
-## Source 16: experiments/registry.yaml: experiments[EXT-H-E7-Q2, EXT-H-E7-BENCH-01]
+## Source 17: experiments/registry.yaml: experiments[EXT-H-E7-Q2, EXT-H-E7-BENCH-01]
 
 collection: experiments
 entries:
@@ -287,11 +301,23 @@ entries:
     runner_archive_policy:
       mode: forbid
   implementation_state: implemented
-  protocol_version: 4.2.0
+  protocol_version: 4.3.0
   pilot_diagnostic:
     formal_scale_pilot_available: true
     scientific_status: pilot_only_not_formal_evidence
-    purpose: acceptance_pipeline_and_mechanism_diagnostic
+    purpose: fixed_budget_redesign_and_mechanism_diagnostic
+    latest_uploaded_artifact_sha256: deefbe216ca5c99622c84831b4546da10203610c07736992c51cf23f679f1017
+    observed_pipeline_failure:
+      critic_gate_stopped_at_step: 7600
+      actor_methods_ended_at_unequal_horizons: true
+      interpretation: gate_driven_stopping_is_not_formal_longrun_evidence
+    mechanism_signal_report_only:
+      matched_abs_advantage_far_near_ratio_approx: 0.99992
+      standardized_distance_far_near_ratio_approx: 3.596
+      full_parameter_gradient_far_near_ratio_approx: 3.47
+      signed_task_collapse: 10_of_10
+      near_zero_task_collapse: 10_of_10
+      far_zero_support_boundary: 0_of_10
   code_entrypoint: src/drpo/e7_hopper_q2.py
   operator_entrypoint: scripts/run_e7_hopper_q2.py
   config_path: configs/e7_hopper_q2_medium_replay_v2.yaml
@@ -349,21 +375,34 @@ entries:
     - 0.1
     gamma: 0.99
     frozen_before_actor: true
+    stopping:
+      rule: fixed_optimizer_steps
+      formal_steps: 100000
+      evaluation_interval: 2000
+      early_stop: nan_inf_numerical_failure_only
+      gate_driven_early_stop: forbidden
     optimization_stationarity:
-      train_audit_loss: required
-      validation_mse_slope: required
-      relative_parameter_update: required
-      exact_two_times_continuation_when_feasible: required
+      role: diagnostic_only_never_controls_stopping_or_checkpoint_selection
+      train_audit_loss: report
+      validation_mse_slope: report
+      relative_parameter_update: report
+      exact_two_times_continuation_when_feasible: report
       validation_gradient: diagnostic_only
       raw_full_parameter_update: diagnostic_only
-    checkpoint_selection: accepted_terminal_extension_else_best_validation
+    checkpoint_selection: best_validation_after_fixed_budget
     frozen_advantage_acceptance:
-      validation_predictive_quality: required
-      selected_vs_final_sign_and_rank_stability: required_on_actor_training_split
+      operational_execution_gate:
+        fixed_budget_completed: required
+        finite_selected_metrics: required
+      validation_predictive_quality: report_only_superseded_required_gate
+      thresholded_validation_predictive_quality: report_only
+      selected_vs_final_sign_and_rank_stability: report_only_on_actor_training_split
       test_predictive_metrics: final_report_only
       optimization_terminal_forced_true: forbidden
-    canonical_artifact_schema: 2
-    terminal_audit: required
+    superseded_v42_checkpoint_selection: accepted_terminal_extension_else_best_validation
+    superseded_v42_quality_gate: thresholded_quality_and_advantage_stability_required
+    canonical_artifact_schema: 3
+    terminal_audit: required_post_hoc
   frozen_advantage_protocol:
     definition: r_plus_gamma_v_next_minus_v
     materialize_once: true
@@ -376,7 +415,20 @@ entries:
     - 256
     - 256
     log_scale_parameterization: global_diagonal
-    positive_only_terminal_before_branching: true
+    stopping:
+      rule: fixed_optimizer_steps
+      positive_only_formal_steps: 100000
+      branch_formal_steps: 200000
+      actor_evaluation_interval: 5000
+      rollout_evaluation_interval: 25000
+      intermediate_rollout_episodes: 5
+      final_rollout_episodes: 20
+      evaluation_seed_pairing_across_methods: required
+      early_stop: nan_inf_numerical_failure_only
+      equal_branch_horizon: required
+      gate_driven_early_stop: forbidden
+    positive_only_fixed_budget_before_branching: true
+    positive_only_terminal_before_branching: superseded_by_positive_only_fixed_budget_before_branching
     terminal_candidate:
       relative_parameter_update: required
       state_drift_metrics:
@@ -386,6 +438,20 @@ entries:
       normalized_window_drift_max: 0.01
       positive_nll_slope: diagnostic_only
       exact_two_times_continuation_when_feasible: required
+    terminal_candidate_status: superseded_as_stopping_gate_retained_for_provenance
+    terminal_audit:
+      role: post_hoc_classification_only
+      fixed_horizon_is_not_convergence: true
+      relative_parameter_update: report
+      state_drift_metrics:
+      - mean_abs
+      - sigma_mean
+      - phantom_distance_mean
+      normalized_window_drift_max: 0.01
+      positive_nll_slope: diagnostic_only
+      exact_two_times_continuation_when_feasible: finite_terminal_label_only
+    superseded_v42_positive_only_terminal_before_branching: true
+    superseded_v42_terminal_candidate_controlled_stopping: true
     identical_branch_checkpoint: true
     identical_minibatch_stream_across_methods: true
   coordinate_protocol:
@@ -414,6 +480,18 @@ entries:
     - far_zero
     - far_cap
     - dynamic_budget_matched_global
+    method_semantics:
+      positive_only: positive_advantage_only_initialization_reference
+      signed: full_signed_advantage_baseline_without_near_far_control
+      near_zero: remove_near_negative_updates_keep_far_negative_updates
+      far_zero: remove_far_negative_updates_keep_near_negative_updates
+      far_cap: cap_far_negative_output_score_influence
+      dynamic_budget_matched_global: globally_scale_negative_updates_to_match_far_cap_proxy_each_minibatch
+    fixed_budget_comparability:
+      positive_only_steps: 100000
+      branch_steps_each: 200000
+      same_horizon_across_all_branches: required
+      terminal_audit_controls_stopping: false
     paired_seeds: required
     terminal_audit: required
     old_600_step_probe_is_formal_evidence: false

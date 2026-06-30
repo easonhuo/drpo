@@ -38,27 +38,56 @@ python3 scripts/run_e7_hopper_q2.py \
 python3 scripts/run_e7_hopper_q2.py --run-class pilot --allow-dirty
 ```
 
-## Protocol v4.2 acceptance pipeline
+## Protocol v4.3: fixed-budget long-run
 
-The critic pipeline now separates three questions that were previously mixed:
+The formal run no longer lets a short-window stationarity gate decide when
+training stops. Fixed budgets provide equal horizons and reproducibility;
+terminal audits remain mandatory but are post-hoc classifications rather than
+stopping rules.
 
-1. **Optimizer stationarity.** A fixed training-audit loss, validation-MSE slope,
-   relative parameter movement, and exact 2x continuation are reported. Raw
-   whole-network gradients and updates remain diagnostics only.
-2. **Checkpoint selection.** A genuinely terminal extension checkpoint is selected only when it passes stationarity and remains within the registered final/best validation-MSE ratio; otherwise the lowest validation-MSE checkpoint is selected.
-3. **Frozen-advantage acceptance.** Formal use requires held-out predictive
-   quality and stability between the selected and final continuation checkpoints:
-   advantage sign agreement, Pearson/Spearman correlation, and negative-set
-   Jaccard overlap. `optimization_terminal` is never forced to `true`.
+### Canonical critic
 
-The actor terminal audit likewise uses relative parameter movement rather than a
-model-size-dependent raw update norm. Candidate terminality uses scale-normalized
-window drift of the registered policy states (`mean_abs`, `sigma_mean`, and
-`phantom_distance_mean`) and then requires an exact 2x continuation. The
-positive NLL slope remains diagnostic because it can cross zero and fluctuate
-under minibatch evaluation even when the policy state is bounded. Task-performance
-collapse, support/variance-boundary events, NaN/Inf numerical collapse,
-persistent drift, and finite terminal states remain separate outputs.
+- Train for exactly **100,000 optimizer steps**.
+- Evaluate every **2,000 steps**.
+- Stop early only for a non-finite loss, gradient, parameter, or unrecoverable
+  process failure.
+- Select the checkpoint with the lowest validation MSE over the full budget.
+- Preserve the final checkpoint as a comparator.
+- Report validation R²/Pearson, best/final prediction ratios, advantage sign and
+  rank stability, and negative-set overlap as quality diagnostics.
+- Formal operational acceptance requires the fixed budget to complete and the
+  selected metrics to be finite. Fixed-budget completion is not described as
+  optimizer convergence.
+
+The previous stationarity candidate, relative-update, slope, and exact-2x
+extension calculations are retained for diagnosis and historical comparability,
+but they do not stop critic training or choose the canonical checkpoint.
+
+### Actor stages
+
+- Positive-only initialization: exactly **100,000 optimizer steps**.
+- Each downstream branch: exactly **200,000 optimizer steps** from the same
+  Positive-only checkpoint.
+- Actor audit interval: **5,000 steps**.
+- Rollout interval: **25,000 steps** with **5 episodes** at intermediate milestones;
+  the fixed-budget final checkpoint is re-evaluated with **20 paired episodes**.
+- Stop early only for NaN/Inf or another explicit numerical failure.
+
+All five negative-update branches therefore have the same horizon:
+
+- `signed`: the full signed-advantage baseline, retaining both positive and
+  negative advantages without a near/far intervention;
+- `near_zero`;
+- `far_zero`;
+- `far_cap`;
+- `dynamic_budget_matched_global`.
+
+The post-hoc terminal audit separately reports finite terminal behavior,
+persistent or slow drift, fixed-horizon inconclusive behavior, task-performance
+collapse, support/variance-boundary events, and NaN/Inf numerical collapse. A
+fixed horizon by itself never establishes convergence. A finite-terminal label
+still requires a candidate state, exact 2x continuation, and no support-boundary
+event.
 
 ## Mechanism and controls
 
@@ -78,18 +107,20 @@ rescue, and finite-terminal rescue separately.
 `dynamic_budget_matched_global` recomputes a detached global scale for every
 batch so that its negative influence proxy
 `sum(|A| * joint_output_score)` matches what the registered Far-cap would retain
-on that same batch. The old initial-only global match remains only as an audit
-record; this proxy match is not claimed to be exact full-parameter gradient
-budget equality.
+on that same batch. This is a proxy budget match, not a claim of exact
+full-parameter-gradient equality.
 
 ## Artifact compatibility
 
-Canonical critic artifacts use schema version 2 and include the runner version,
-config hash, run class, dataset identity, loaded transition count, dimensions,
-and canonical critic seed. Pilot artifacts, old v4.1 artifacts, or artifacts from
-another formal identity fail closed rather than being silently reused.
-
+Canonical critic artifacts use schema version **3** and include the runner
+version, config hash, run class, dataset identity, loaded transition count,
+dimensions, canonical critic seed, and fixed-budget protocol identity. Schema-2,
+pilot, old v4.1/v4.2, or otherwise mismatched artifacts fail closed rather than
+being silently reused.
 
 ## Validation/test separation
 
-Checkpoint selection and acceptance use validation predictive quality plus best/final advantage stability on the actor-training split. Test R²/Pearson are final-report-only and never select or admit a checkpoint.
+Checkpoint selection uses validation MSE only. Test R²/Pearson remain
+final-report-only and never select or admit a checkpoint. Critic quality and
+advantage-stability diagnostics must be reported even though they no longer
+control the fixed training budget.

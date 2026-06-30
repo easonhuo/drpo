@@ -1,5 +1,5 @@
 digraph stage4_semantic_graph {
-  graph [label="graph_hash=c8f7bc1c168904e58b80c8e5421a1ac9528313af06522fe2ade5598223047f32", labelloc="t"];
+  graph [label="graph_hash=e5195826aa9fe09f096d38a8162a7dd09e6381e72acaa6069e08b85b97911277", labelloc="t"];
   rankdir=LR;
   node [shape=box];
   "claim:GOV-COLLAPSE-TAXONOMY-01" [label="claim: Task-performance collapse, support or variance boundary events, and NaN/Inf numerical failure must be reported separately."];
