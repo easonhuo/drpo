@@ -1,0 +1,171 @@
+{
+  "schema_version": 1,
+  "review_id": "PAPER-V091-GUIDANCE-REVIEW",
+  "base_commit": "445a2e6d129994b2dd48f7c87050206dc705b838",
+  "review_date": "2026-06-30",
+  "guidance_path": "docs/manuscript/RL_PAPER_WRITING_GUIDANCE.md",
+  "guidance_sha256": "869202267c0dce9a966da06148dbf22639bb3699bc016b9396d2ef6d38c27cac",
+  "strategy_path": "docs/manuscript/DRPO_MANUSCRIPT_STRATEGY.md",
+  "strategy_sha256": "832abaac5651e8929cd5843d7e3aec487c2251feef24e2846e4530b52ace86d6",
+  "corpus_path": "docs/manuscript/RL_WRITING_CORPUS_NOTES.md",
+  "corpus_sha256": "1c38cf0329af23867025606e80b0871f4c8b281b5e0390ccbbb26afea104949c",
+  "artifacts": [
+    {
+      "path": "docs/manuscript/RL_PAPER_WRITING_GUIDANCE.md",
+      "sha256": "869202267c0dce9a966da06148dbf22639bb3699bc016b9396d2ef6d38c27cac"
+    },
+    {
+      "path": "docs/manuscript/DRPO_MANUSCRIPT_STRATEGY.md",
+      "sha256": "832abaac5651e8929cd5843d7e3aec487c2251feef24e2846e4530b52ace86d6"
+    },
+    {
+      "path": "docs/manuscript/RL_WRITING_CORPUS_NOTES.md",
+      "sha256": "1c38cf0329af23867025606e80b0871f4c8b281b5e0390ccbbb26afea104949c"
+    },
+    {
+      "path": "docs/paper_rewrite_outline_v0_9_1.md",
+      "sha256": "bd536ad3a351cbcca3549918459b04f8fb898e83f858cabb7a1a8c63aea7ce11"
+    },
+    {
+      "path": "docs/paper_rewrite_intro_blueprint_v0_5.md",
+      "sha256": "ae933a0f3d0f57681f19173dac2f8f34ded45beced5c1318549a68799c54716c"
+    },
+    {
+      "path": "docs/manuscript/hierarchy.yaml",
+      "sha256": "b6048add54e21c5d2683c71997c9bb1e3bb0a01c17b8425f851df1d5d06cd3db"
+    },
+    {
+      "path": "docs/manuscript/README.md",
+      "sha256": "b2b4bd844862cc340ecb33eaabe0a86e07fb179bc126989fa524dad68c2410ce"
+    },
+    {
+      "path": "docs/manuscript/issues/PAPER-V091-STRATEGY-SEPARATION-01.yaml",
+      "sha256": "9b1505aaf6cc9aaf7ecb525ae355bff444baef00c7984e14ca28503cbfc4a408"
+    },
+    {
+      "path": "tests/test_manuscript_guidance_review.py",
+      "sha256": "2fc872f819859001d5a1833e09eb542625fb5fe858ef92063b49d6f8880912fb"
+    },
+    {
+      "path": "tests/test_manuscript_live_hierarchy.py",
+      "sha256": "30923c05289e4dddc0f5976fa7f37de645f361f3758c035269686be3f5cb3898"
+    }
+  ],
+  "one_sentence_thesis": "Negative feedback can move a policy beyond the Positive-only target, but historical reuse can turn remote negatives into excessive aggregate influence; DRPO retains the original curse-of-repulsion research identity while selectively attenuating the far-field component of that same negative term.",
+  "lineage_statement": "The manuscript is the theoretical reconstruction and generalization of the original DRPO paper (arXiv:2602.10430), not a newly named unrelated algorithm.",
+  "strategy_driven_optimizations": [
+    "Separate slow-moving cross-paper writing principles from the evolving DRPO-specific manuscript strategy.",
+    "Record the original Optimistic-DRO/hard-filtering paper as the explicit lineage for the retained DRPO name.",
+    "Remove live experiment state, seed queues, and execution steps from the structural outline.",
+    "Remove historical Product-manifold provenance from the main environment table.",
+    "Consolidate six experiment RQs into four paper-level questions.",
+    "Elevate the empirical aggregate negative term to a mandatory theory-method-experiment observable.",
+    "Preserve matched badness-distance or quality-rarity isolation as the decisive rival-explanation control."
+  ],
+  "gates": [
+    {
+      "id": "G01",
+      "status": "pass",
+      "evidence": "The active strategy and v0.9.1 outline share one concise useful-to-destructive repulsion thesis."
+    },
+    {
+      "id": "G02",
+      "status": "pass",
+      "evidence": "All six Introduction moves, Theorem 1, DRPO, four RQs, and Figure 1 advance the same central tension."
+    },
+    {
+      "id": "G03",
+      "status": "pass",
+      "evidence": "Novelty is the missing bridge from matched badness-distance isolation to causal transmission, equilibrium transition, and selective control."
+    },
+    {
+      "id": "G04",
+      "status": "pass",
+      "evidence": "Unrelated global-guarantee and fixed-field disclaimers are absent; claim calibration is handled through controls and status."
+    },
+    {
+      "id": "G05",
+      "status": "pass",
+      "evidence": "Theorem 1 has one job: characterize Positive-only, stable extrapolation, boundary approach, and loss of finite equilibrium."
+    },
+    {
+      "id": "G06",
+      "status": "pass",
+      "evidence": "Theory names q m_-, DRPO produces q_lambda m_{-,lambda}, and RQ3 measures an empirical M^- proxy."
+    },
+    {
+      "id": "G07",
+      "status": "pass",
+      "evidence": "The four RQs specify controls, observables, fairness, terminal evidence, and environment responsibilities; live statuses remain in handoff/registry."
+    },
+    {
+      "id": "G08",
+      "status": "pass",
+      "evidence": "C-U1 and D-U1 are controlled environments; Hopper/Countdown are external; Product manifold is appendix provenance only."
+    },
+    {
+      "id": "G09",
+      "status": "pass",
+      "evidence": "The main rival explanation—far samples are merely worse—is matched through context, quality, |A|, count, coefficient, and same-ray/Jacobian closure."
+    },
+    {
+      "id": "G10",
+      "status": "pass",
+      "evidence": "Paired seeds, matched or measured budgets, best/terminal reporting, and terminal audit are mandatory."
+    },
+    {
+      "id": "G11",
+      "status": "pass",
+      "evidence": "Task-performance collapse, support/variance/probability boundary events, and NaN/Inf are reported separately."
+    },
+    {
+      "id": "G12",
+      "status": "pass",
+      "evidence": "No unfinished external number is inserted; scientific status remains governed by handoff and registry."
+    },
+    {
+      "id": "G13",
+      "status": "pass",
+      "evidence": "Figure 1 carries Positive-only, stable extrapolation, far-field boundary/drift, matched badness-distance logic, and DRPO recovery."
+    },
+    {
+      "id": "G14",
+      "status": "pass",
+      "evidence": "The six outline and blueprint blocks align in ID, title, order, and parent SHA-256; hierarchy points to v0.9.1/v0.5."
+    }
+  ],
+  "findings": {
+    "blocker": [],
+    "major": [],
+    "minor": [
+      "C-U1 full-parameter distance-only attribution still requires the registered paper-facing same-state/same-ray radial probe or Jacobian-gain closure before prose may state the full claim.",
+      "D-U1 common/rare paper-facing isolation still requires the registered quality/semantics/count/base-coefficient matching audit.",
+      "Hopper and Countdown external-anchor and external-closure claims require formal terminal-audited results before quantitative prose.",
+      "Any steady-state method ranking remains governed by the registered terminal and confirmation audits in the handoff/registry.",
+      "The method chapter must retain a concise mathematical connection between the original Optimistic-DRO hard endpoint and the smooth exponential far-field envelope."
+    ]
+  },
+  "unresolved_experiment_dependencies": [
+    {
+      "claim": "continuous full-parameter distance source attribution",
+      "dependency": "C-U1 same-state/same-ray radial probe or registered Jacobian-gain decomposition",
+      "status_source": "docs/handoff.md / experiments/registry.yaml"
+    },
+    {
+      "claim": "categorical quality-rarity isolation",
+      "dependency": "D-U1 badness/semantics/count/base-coefficient matching audit",
+      "status_source": "docs/handoff.md / experiments/registry.yaml"
+    },
+    {
+      "claim": "external occurrence and task closure",
+      "dependency": "formal Hopper and Countdown terminal-audited runs",
+      "status_source": "docs/handoff.md / experiments/registry.yaml"
+    },
+    {
+      "claim": "terminal method ranking",
+      "dependency": "registered convergence/continuation and confirmation audits",
+      "status_source": "docs/handoff.md / experiments/registry.yaml"
+    }
+  ],
+  "verdict": "PASS"
+}

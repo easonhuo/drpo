@@ -18,7 +18,7 @@ def load_module():
     return module
 
 
-def test_live_introduction_hierarchy_is_aligned_to_v09() -> None:
+def test_live_introduction_hierarchy_is_aligned_to_v091() -> None:
     module = load_module()
     config = module.load_config(ROOT / "docs/manuscript/hierarchy.yaml")
     result = module.validate_artifacts(config, repo_root=ROOT)
@@ -37,11 +37,11 @@ def test_live_introduction_hierarchy_is_aligned_to_v09() -> None:
     assert section["status"] == "pass"
 
 
-def test_v09_guidance_revision_is_explicitly_authorized() -> None:
+def test_v091_strategy_separation_is_explicitly_authorized() -> None:
     module = load_module()
     config = module.load_config(ROOT / "docs/manuscript/hierarchy.yaml")
     issue = module._load_issue(
-        ROOT / "docs/manuscript/issues/PAPER-V09-GUIDANCE-REWRITE-01.yaml"
+        ROOT / "docs/manuscript/issues/PAPER-V091-STRATEGY-SEPARATION-01.yaml"
     )
     root, required, summary = module.validate_issue(issue, config)
 
@@ -51,38 +51,16 @@ def test_v09_guidance_revision_is_explicitly_authorized() -> None:
     assert summary["outline_change_authorized"] is True
 
 
-def test_reverse_alignment_correction_keeps_outline_as_pass() -> None:
-    module = load_module()
-    config = module.load_config(ROOT / "docs/manuscript/hierarchy.yaml")
-    issue = module._load_issue(
-        ROOT
-        / "docs/manuscript/issues/PAPER-INTRO-REVERSE-ALIGNMENT-CORRECTION-02.yaml"
-    )
-    root, required, summary = module.validate_issue(issue, config)
-
-    assert root == "blueprint"
-    assert required == ["blueprint"]
-    assert summary["change_kind"] == "alignment_repair"
-    assert summary["outline_change_authorized"] is False
-
-
-def test_v07_metadata_migration_is_explicitly_authorized() -> None:
-    module = load_module()
-    config = module.load_config(ROOT / "docs/manuscript/hierarchy.yaml")
-    issue = module._load_issue(
-        ROOT / "docs/manuscript/issues/PAPER-INTRO-V07-LIVE-METADATA-01.yaml"
-    )
-    root, required, summary = module.validate_issue(issue, config)
-
-    assert root == "outline"
-    assert required == ["outline", "blueprint"]
-    assert summary["change_kind"] == "infrastructure_migration"
-    assert summary["outline_change_authorized"] is True
-
-
-def test_superseded_reverse_alignment_artifacts_are_not_active() -> None:
+def test_active_hierarchy_uses_v091_and_preserves_historical_pairs() -> None:
     config = (ROOT / "docs/manuscript/hierarchy.yaml").read_text(encoding="utf-8")
-    assert "paper_rewrite_outline_v0_9.md" in config
-    assert "paper_rewrite_intro_blueprint_v0_4.md" in config
-    assert "paper_rewrite_outline_v0_8.md" not in config
-    assert "paper_rewrite_intro_blueprint_v0_2.md" not in config
+    readme = (ROOT / "docs/manuscript/README.md").read_text(encoding="utf-8")
+
+    assert "paper_rewrite_outline_v0_9_1.md" in config
+    assert "paper_rewrite_intro_blueprint_v0_5.md" in config
+    assert "paper_rewrite_outline_v0_9.md" not in config
+    assert "paper_rewrite_intro_blueprint_v0_4.md" not in config
+
+    assert "v0.9/v0.4" in readme
+    assert "must not be destructively deleted" in readme
+    assert "DRPO_MANUSCRIPT_STRATEGY.md" in readme
+    assert "RL_WRITING_CORPUS_NOTES.md" in readme

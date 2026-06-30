@@ -3,6 +3,6 @@ manuscript_id: drpo-paper-rewrite
 sections:
 - id: introduction
   layers:
-    outline: docs/paper_rewrite_outline_v0_9.md
-    blueprint: docs/paper_rewrite_intro_blueprint_v0_4.md
+    outline: docs/paper_rewrite_outline_v0_9_1.md
+    blueprint: docs/paper_rewrite_intro_blueprint_v0_5.md
     prose: null

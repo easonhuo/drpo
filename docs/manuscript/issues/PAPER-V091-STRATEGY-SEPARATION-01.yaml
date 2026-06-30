@@ -1,0 +1,49 @@
+schema_version: 2
+issue_id: PAPER-V091-STRATEGY-SEPARATION-01
+section_id: introduction
+paragraph_ids:
+- INTRO-P01
+- INTRO-P02
+- INTRO-P03
+- INTRO-P04
+- INTRO-P05
+- INTRO-P06
+problem: >-
+  Separate durable RL-paper writing guidance from the evolving DRPO manuscript strategy;
+  preserve the original DRPO research lineage explicitly; remove live experiment status
+  from the canonical outline; consolidate the experiment story into four research
+  questions; remove Product manifold from the main environment table; and elevate the
+  aggregate negative term to the central theory-method-experiment observable.
+change_control:
+  kind: structural_revision
+  reported_layer: outline
+  outline_change_authorized: true
+  authorization_evidence: >-
+    On 2026-06-30 the user confirmed that the DRPO name is inherited from the original
+    DRPO paper, agreed with the proposed Guidance/Strategy separation and v0.9
+    refinements, and explicitly requested a new version.
+checks:
+- layer: outline
+  status: fail
+  evidence: >-
+    v0.9 correctly established the main causal story but mixed live experiment state
+    with structural content, retained historical Product-manifold provenance in the main
+    environment table, fragmented experiments into six RQs, and did not explicitly
+    encode the original DRPO lineage as a manuscript-level strategy constraint.
+- layer: blueprint
+  status: blocked
+  evidence: >-
+    The v0.4 blueprint derives from v0.9 and must be regenerated after the authorized
+    paragraph-content and evidence-architecture changes.
+- layer: prose
+  status: not_present
+  evidence: No Introduction prose artifact is configured in the live hierarchy.
+resolution:
+  state: completed
+  required_layers:
+  - outline
+  - blueprint
+  changed_layers:
+  - outline
+  - blueprint
+allowed_additional_paragraph_ids: []

@@ -7,11 +7,13 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-REVIEW_PATH = ROOT / "docs/manuscript/reviews/PAPER-V09-GUIDANCE-REVIEW.json"
-BASE_COMMIT = "84edc2aa0b2f258033ddf2ef9aaf98e7a89a6edd"
-OUTLINE = ROOT / "docs/paper_rewrite_outline_v0_9.md"
-BLUEPRINT = ROOT / "docs/paper_rewrite_intro_blueprint_v0_4.md"
+BASE_COMMIT = "445a2e6d129994b2dd48f7c87050206dc705b838"
+REVIEW_PATH = ROOT / "docs/manuscript/reviews/PAPER-V091-GUIDANCE-REVIEW.json"
 GUIDANCE = ROOT / "docs/manuscript/RL_PAPER_WRITING_GUIDANCE.md"
+STRATEGY = ROOT / "docs/manuscript/DRPO_MANUSCRIPT_STRATEGY.md"
+CORPUS = ROOT / "docs/manuscript/RL_WRITING_CORPUS_NOTES.md"
+OUTLINE = ROOT / "docs/paper_rewrite_outline_v0_9_1.md"
+BLUEPRINT = ROOT / "docs/paper_rewrite_intro_blueprint_v0_5.md"
 
 BLOCK_RE = re.compile(
     r"<!-- MANUSCRIPT:BEGIN ([A-Z0-9-]+) -->\n(.*?)"
@@ -31,7 +33,9 @@ def load_review() -> dict:
 def parse_blocks(path: Path) -> list[tuple[str, str, str]]:
     blocks: list[tuple[str, str, str]] = []
     for paragraph_id, payload in BLOCK_RE.findall(path.read_text(encoding="utf-8")):
-        heading = next(line for line in payload.splitlines() if line.strip().startswith("## "))
+        heading = next(
+            line for line in payload.splitlines() if line.strip().startswith("## ")
+        )
         title = heading.split("]", 1)[1].strip()
         blocks.append((paragraph_id, title, payload))
     return blocks
@@ -41,9 +45,7 @@ def test_guidance_review_hashes_and_hard_gates_are_current() -> None:
     review = load_review()
     assert review["base_commit"] == BASE_COMMIT
     assert review["verdict"] == "PASS"
-
-    guidance = ROOT / review["guidance_path"]
-    assert sha256(guidance) == review["guidance_sha256"]
+    assert review["strategy_path"] == "docs/manuscript/DRPO_MANUSCRIPT_STRATEGY.md"
 
     for artifact in review["artifacts"]:
         path = ROOT / artifact["path"]
@@ -53,6 +55,47 @@ def test_guidance_review_hashes_and_hard_gates_are_current() -> None:
     assert gates == {f"G{i:02d}": "pass" for i in range(1, 15)}
     assert review["findings"]["blocker"] == []
     assert review["findings"]["major"] == []
+
+
+def test_stable_guidance_is_separate_from_drpo_strategy() -> None:
+    guidance = GUIDANCE.read_text(encoding="utf-8")
+    strategy = STRATEGY.read_text(encoding="utf-8")
+
+    assert "stable manuscript quality standard" in guidance
+    assert "intentionally slow-moving" in guidance
+    assert "DRPO Manuscript Strategy" in strategy
+
+    project_specific_terms = [
+        "C-U1",
+        "D-U1",
+        "Hopper",
+        "Countdown",
+        "Product manifold",
+        "Theorem 1",
+        "q\\mathbf m_-",
+    ]
+    for term in project_specific_terms:
+        assert term not in guidance
+        assert term in strategy
+
+    assert "do not automatically change this standard" in guidance
+    assert "does not automatically change the guidance" in CORPUS.read_text(
+        encoding="utf-8"
+    ).lower()
+
+
+def test_drpo_lineage_is_explicit_and_positive() -> None:
+    strategy = STRATEGY.read_text(encoding="utf-8")
+    outline = OUTLINE.read_text(encoding="utf-8")
+    combined = strategy + "\n" + outline
+
+    assert "Breaking the Curse of Repulsion" in combined
+    assert "Optimistic Distributionally Robust Policy Optimization" in combined
+    assert "arXiv:2602.10430" in combined
+    assert "DRPO is retained by design" in strategy
+    assert "not a newly named algorithm" in strategy
+    assert "lineage commitment" in outline
+    assert "SNA2C" in strategy
 
 
 def test_outline_blueprint_blocks_and_parent_hashes_align() -> None:
@@ -74,78 +117,96 @@ def test_outline_blueprint_blocks_and_parent_hashes_align() -> None:
         assert parent.group(1) == expected[paragraph_id]
 
 
-def test_quality_distance_isolation_is_prominent_and_precise() -> None:
-    guidance = GUIDANCE.read_text(encoding="utf-8")
+def test_experiment_story_is_consolidated_to_four_research_questions() -> None:
     outline = OUTLINE.read_text(encoding="utf-8")
-    blueprint = BLUEPRINT.read_text(encoding="utf-8")
-    combined = "\n".join((guidance, outline, blueprint)).lower()
+    headings = re.findall(r"^## 7\.\d+ RQ(\d) —", outline, flags=re.MULTILINE)
+    assert headings == ["1", "2", "3", "4"]
+    assert "RQ5" not in outline and "RQ6" not in outline
 
-    assert "quality–distance" in combined or "quality-distance" in combined
-    assert "separating badness from distance" in combined
-    assert "distance is an independent" in combined
-    assert "same-ray radial probe" in combined
-    assert "jacobian-gain decomposition" in combined
-    assert "distance is the only cause" in combined  # appears only as a prohibited claim
+    rq1 = outline.index("## 7.2 RQ1")
+    rq2 = outline.index("## 7.3 RQ2")
+    rq3 = outline.index("## 7.4 RQ3")
+    rq4 = outline.index("## 7.5 RQ4")
+    assert rq1 < rq2 < rq3 < rq4
+    assert "external occurrence" in outline.lower()
+    assert "controlled explanation" in outline.lower()
+    assert "external improvement" in outline.lower()
 
 
-def test_product_manifold_is_historical_not_primary() -> None:
-    guidance = GUIDANCE.read_text(encoding="utf-8")
+def test_product_manifold_is_removed_from_main_environment_table() -> None:
     outline = OUTLINE.read_text(encoding="utf-8")
-
-    assert "not a third primary paper environment" in guidance
-    assert "不作为新版论文的第三个主环境" in outline
-    assert "Historical Product-manifold construction" in outline
-    assert "C-U1" in outline and "D-U1" in outline
-    assert "Hopper" in outline and "Countdown" in outline
-
-
-def test_fixed_advantage_stays_out_of_theory_scope() -> None:
-    outline = OUTLINE.read_text(encoding="utf-8")
-    problem_setup = outline[
-        outline.index("# 4. Problem Setup") : outline.index("# 5. Repulsive Dynamics")
+    env_section = outline[
+        outline.index("## 7.1 Environments and evidence roles") : outline.index(
+            "## 7.2 RQ1"
+        )
     ]
+    assert "Product" not in env_section.split("### Required environment description")[0]
+    assert "Historical Product-manifold provenance" in env_section
+    assert "C-U1" in env_section and "D-U1" in env_section
+    assert "Hopper/D4RL" in env_section and "Countdown" in env_section
+
+
+def test_quality_distance_isolation_closes_the_named_rival_explanation() -> None:
+    strategy = STRATEGY.read_text(encoding="utf-8")
+    outline = OUTLINE.read_text(encoding="utf-8")
+    combined = (strategy + "\n" + outline).lower()
+
+    assert "separate badness from distance" in combined
+    assert "far-field samples are worse" in combined
+    assert "negative-advantage severity" in combined
+    assert "sample count" in combined
+    assert "base coefficient" in combined
+    assert "independent amplifier" in combined
+    assert "same-state/same-ray" in combined
+    assert "not the only factor" in combined
+
+
+def test_theory_method_experiment_share_aggregate_negative_term() -> None:
+    outline = OUTLINE.read_text(encoding="utf-8")
+    compact = " ".join(outline.split())
+
+    assert "q\\mathbf m_-" in compact
+    assert "q_\\lambda\\mathbf m_{-,\\lambda}" in compact
+    assert "\\widehat{\\mathbf M}_t^-" in compact
+    assert "This metric is mandatory" in outline
+    assert "raw and weighted norm" in outline
+    assert "equilibrium shift" in outline
+    assert "terminal drift" in outline
+
+
+def test_outline_excludes_live_execution_state_but_preserves_evidence_rules() -> None:
+    outline = OUTLINE.read_text(encoding="utf-8")
+
+    live_state_tokens = [
+        "BUDGET-MATCH-01",
+        "TAPER-CONV-01",
+        "130–149",
+        "140/140",
+        "shortlist-freeze",
+    ]
+    for token in live_state_tokens:
+        assert token not in outline
+
+    assert "hand off" not in outline.lower()  # avoid malformed authority wording
+    assert "handoff" in outline
+    assert "Only formal terminal-audited results" in outline
+    assert "paired seeds" in outline
+    assert "best and terminal" in outline
+
+
+def test_fixed_advantage_stays_out_of_theory_and_failure_types_stay_separate() -> None:
+    outline = OUTLINE.read_text(encoding="utf-8")
     theory = outline[
         outline.index("# 5. Repulsive Dynamics") : outline.index(
             "# 6. Distributionally Robust"
         )
     ]
 
-    assert "fixed advantage" not in problem_setup.lower()
+    assert "fixed advantage" not in theory.lower()
     assert "freeze the empirical update field" not in theory.lower()
     assert "global convergence" not in theory.lower()
-
-
-def test_theorem_method_experiment_bridge_is_explicit() -> None:
-    outline = OUTLINE.read_text(encoding="utf-8")
-    compact = " ".join(outline.split())
-
-    assert "q\\mathbf m_-" in compact
-    assert "q_\\lambda\\mathbf m_{-,\\lambda}" in compact
-    assert "Testable predictions and experiment mapping" in outline
-    assert "Positive-only" in outline
-    assert "stable extrapolation" in outline.lower()
-    assert "boundary" in outline.lower()
-    assert "no finite equilibrium" in outline.lower()
-
-
-def test_experiment_story_uses_external_anchor_controlled_explanation_closure() -> None:
-    outline = OUTLINE.read_text(encoding="utf-8")
-    anchor = outline.index("## 7.2 RQ1: Does the phenomenon appear in external policy learning?")
-    isolation = outline.index("## 7.3 RQ2: Is distance an independent source")
-    causal = outline.index("## 7.4 RQ3: Do far-field negative gradients causally")
-    external_closure = outline.index("## 7.7 RQ6: Does DRPO improve external tasks?")
-    assert anchor < isolation < causal < external_closure
-    assert "reality anchor" in outline.lower()
-    assert "reality closure" in outline.lower()
-    assert "remain `TBD`" in outline
-
-
-def test_current_experiment_statuses_are_not_overclaimed() -> None:
-    outline = OUTLINE.read_text(encoding="utf-8")
-
-    assert "BUDGET-MATCH-01` is completed and finite-step validated" in outline
-    assert "TAPER-CONV-01" in outline
-    assert "untouched seeds `130–149`" in outline
-    assert "Hopper and Countdown remain `TBD`" in outline
-    assert "task collapse, boundary event, and NaN/Inf" in outline
-    assert "held-out-context/unseen-state" in outline
+    assert "task collapse" in outline
+    assert "support/variance/probability boundary" in outline
+    assert "NaN/Inf" in outline
+    assert "held-out-context generalization" in outline
+    assert "OOD generalization" in outline  # appears only as a prohibited term
