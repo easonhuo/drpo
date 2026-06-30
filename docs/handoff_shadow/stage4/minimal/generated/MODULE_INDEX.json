@@ -178,10 +178,10 @@
   ],
   "graph_hash": "0db2d992b651a2ed85d93d68c298214ba6bdbee1ae15b7b7c48d92162a7fb87c",
   "input_hashes": {
-    "docs/handoff.md": "85d2cd1562ff1846b9fcd6ce4f0ce83c7bd7a03aebaf4e258fd69a4a294a4065",
+    "docs/handoff.md": "3ff6757c86183a274a8ca3986d2a309b9caafc1ec58abf4d1b33f6cbae1f6be7",
     "docs/handoff_shadow/stage4/minimal/DEPENDENCIES.yaml": "fb19da70ea2db6a35c4320e23a91640d0f21887c46bb79873d9548357271f4da",
     "docs/handoff_shadow/stage4/minimal/MODULES.yaml": "2481d3b0d1c2ab2b58899d38de012ea1007f02d99f8f1ff568d6c36a2a6a146c",
-    "experiments/registry.yaml": "6a7f2a8009fc0d3c25a86c669601de38ac873480b76edc35711634c92b14b656"
+    "experiments/registry.yaml": "db246ebee08efec3fdf642caac0e7b40fed1d0f80d7f1fe0ba50ecca7185a035"
   },
   "module_order": [
     "global_core_governance",
@@ -242,9 +242,9 @@
       "deduplicated_source_labels": [],
       "depends_on": [],
       "module_id": "global_core_governance",
-      "snapshot_hash": "e645f022f372177009ce31ff92e1becd5a85eca9413992cefe047e31cfc8d3e0",
-      "source_chars": 9300,
-      "source_hash": "632c8bcddc135497141d0faf12248a1179abdb06012d24ce4e9e1cb6054de28b",
+      "snapshot_hash": "37e694b66ce48b0cedf6a847e290ff4acfbc8d4a5b814202c493dd943651b8b8",
+      "source_chars": 10296,
+      "source_hash": "016282ba35c56b9f13b7087f5303ded327d041aa3bd3797c58cfda8fde6a032a",
       "source_labels": [
         "docs/handoff.md: # 0. 研究与执行原则（每次新会话首先阅读） -> # 1. 论文最终目标与两条主工作线"
       ]
@@ -294,9 +294,9 @@
         "global_core_governance"
       ],
       "module_id": "execution_status_gates",
-      "snapshot_hash": "23d8f218160dc5ef284891bbccab690b86195d85fa3b8e1db40677d7f93f90a5",
-      "source_chars": 8991,
-      "source_hash": "d43d9c3377f7af4901299528da51ca2898806b3afab619c50c6d93a87275f0a2",
+      "snapshot_hash": "b91c27a41eb6cb1b36d08b1e9223dff245997c869ef8cafc8a87dbc642d1acfb",
+      "source_chars": 9456,
+      "source_hash": "134040c584696680f62bd50ae09a65995b07e79ecb3af8b97e48561814e56203",
       "source_labels": [
         "docs/handoff.md: # 5. 当前真实完成状态 -> # 7. 变量治理"
       ]
@@ -426,22 +426,25 @@
       "deduplicated_source_labels": [
         "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v60-e4-taper-utility-theory-and-followups (covered by docs/handoff.md: ## 3.8 C-U1 共享实现与二次阶方法实验 `C-U1-E4-TAPER-01` -> ## 3.9 E6--E8 方法迁移与规模验证路线（v42 锁定）)",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v61-e4-taper-near-retention-protocol (covered by docs/handoff.md: ## 3.8 C-U1 共享实现与二次阶方法实验 `C-U1-E4-TAPER-01` -> ## 3.9 E6--E8 方法迁移与规模验证路线（v42 锁定）)",
-        "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v63-e4-taper-near-result-and-closure-protocol (covered by docs/handoff.md: ## 3.8 C-U1 共享实现与二次阶方法实验 `C-U1-E4-TAPER-01` -> ## 3.9 E6--E8 方法迁移与规模验证路线（v42 锁定）)"
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v63-e4-taper-near-result-and-closure-protocol (covered by docs/handoff.md: ## 3.8 C-U1 共享实现与二次阶方法实验 `C-U1-E4-TAPER-01` -> ## 3.9 E6--E8 方法迁移与规模验证路线（v42 锁定）)",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v66-e4-taper-budget-match-result (covered by docs/handoff.md: ## 3.8 C-U1 共享实现与二次阶方法实验 `C-U1-E4-TAPER-01` -> ## 3.9 E6--E8 方法迁移与规模验证路线（v42 锁定）)"
       ],
       "depends_on": [
         "continuous_e4_extrapolation"
       ],
       "module_id": "continuous_e4_taper",
-      "snapshot_hash": "60af093d64b69cf808c7657b45c48519bc0046d9109077aa89641368589a7f9b",
-      "source_chars": 60330,
-      "source_hash": "1ab92bc6f636fa94e90dcdccd132c8e2be0c76a32928eed7d58dedee044fe2db",
+      "snapshot_hash": "5e9f58f7b78dd6431ed4cae4acdb8cf96387a1a6dd4e0b3fd0646ef61c9d5c3d",
+      "source_chars": 68557,
+      "source_hash": "4c80dd69ce9906c52f20cb6f5539f98e3cab42794340c90879e24ccd7eb30405",
       "source_labels": [
         "docs/handoff.md: ## 3.8 C-U1 共享实现与二次阶方法实验 `C-U1-E4-TAPER-01` -> ## 3.9 E6--E8 方法迁移与规模验证路线（v42 锁定）",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v60-e4-taper-utility-registration",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v61-e4-taper-near-retention-implementation",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v66-e4-taper-budget-match-closure",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v60-e4-taper-current-gate",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v61-e4-taper-near-retention-current-gate",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v63-e4-taper-closure-current-gate",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v66-e4-taper-budget-match-current-gate",
         "experiments/registry.yaml: experiments[C-U1-E4-TAPER-01, C-U1-E4-TAPER-NEAR-RETENTION-01, C-U1-E4-TAPER-BUDGET-MATCH-01, C-U1-E4-TAPER-CONV-01, C-U1-E4-TAPER-CONFIRM-01]"
       ]
     },

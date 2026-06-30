@@ -1,0 +1,153 @@
+{
+  "schema_version": 1,
+  "experiment_id": "C-U1-E4-TAPER-BUDGET-MATCH-01",
+  "run_id": "run_003",
+  "run_commit": "1faea3a92f74af5d11409779d96b9ed21fe846ad",
+  "scientific_status": "finite_step_validated",
+  "formal_seed_range": [
+    110,
+    129
+  ],
+  "formal_seed_count": 20,
+  "methods": [
+    "positive_only",
+    "unweighted_boundary",
+    "reciprocal_linear",
+    "reciprocal_quadratic",
+    "exponential",
+    "squared_distance_exponential",
+    "global_stepwise_scale"
+  ],
+  "completed_runs": 140,
+  "expected_runs": 140,
+  "primary_budget_coordinate": "stepwise_raw_negative_gradient_l2_before_Adam",
+  "maximum_budget_relative_error": 2.1179505308403659e-16,
+  "budget_tolerance": 1e-06,
+  "Adam_parameter_update_norm_matched": false,
+  "Adam_parameter_update_norm_logged": true,
+  "mean_held_out_context_reward": {
+    "squared_distance_exponential": 0.7620686501264572,
+    "exponential": 0.7196413516998291,
+    "reciprocal_quadratic": 0.6474635601043701,
+    "positive_only": 0.646857526898384,
+    "reciprocal_linear": 0.6314524501562119,
+    "global_stepwise_scale": 0.624569907784462,
+    "unweighted_boundary": 0.25939831510186195
+  },
+  "paired_vs_reciprocal_linear": {
+    "reciprocal_quadratic": {
+      "reward_delta_mean": 0.016011109948158263,
+      "reward_delta_ci95": [
+        0.01545459695160389,
+        0.016530407518148424
+      ],
+      "reward_positive_seeds": 20,
+      "far_harmful_retention_delta_mean": -0.012527904413906093,
+      "far_harmful_retention_delta_ci95": [
+        -0.012817586439855543,
+        -0.012221175374886659
+      ],
+      "far_harmful_lower_seeds": 20
+    },
+    "exponential": {
+      "reward_delta_mean": 0.08818890154361725,
+      "reward_delta_ci95": [
+        0.08711554124951362,
+        0.08919027149677276
+      ],
+      "reward_positive_seeds": 20,
+      "far_harmful_retention_delta_mean": -0.053565991860345295,
+      "far_harmful_retention_delta_ci95": [
+        -0.05368689713678484,
+        -0.053454848055102505
+      ],
+      "far_harmful_lower_seeds": 20
+    },
+    "squared_distance_exponential": {
+      "reward_delta_mean": 0.13061619997024537,
+      "reward_delta_ci95": [
+        0.12935527734458446,
+        0.13187913089990616
+      ],
+      "reward_positive_seeds": 20,
+      "far_harmful_retention_delta_mean": -0.055866068890362594,
+      "far_harmful_retention_delta_ci95": [
+        -0.05594374144645396,
+        -0.05578825619750236
+      ],
+      "far_harmful_lower_seeds": 20
+    },
+    "global_stepwise_scale": {
+      "reward_delta_mean": -0.006882542371749878,
+      "reward_delta_ci95": [
+        -0.007727598771452904,
+        -0.006103205010294914
+      ],
+      "reward_positive_seeds": 0,
+      "far_harmful_retention_delta_mean": 0.0076588106648223615,
+      "far_harmful_retention_delta_ci95": [
+        0.006599448711417388,
+        0.008729056095487152
+      ],
+      "far_harmful_lower_seeds": 0
+    }
+  },
+  "event_counts": {
+    "task_performance_collapse": 13,
+    "support_or_variance_boundary": 20,
+    "nan_inf_numerical_failure": 0,
+    "event_ownership": "task and support events occurred only in unweighted_boundary"
+  },
+  "numerical_direction_stabilization": {
+    "total_steps": 157050,
+    "steps_by_method": {
+      "positive_only": 0,
+      "unweighted_boundary": 0,
+      "reciprocal_linear": 0,
+      "reciprocal_quadratic": 0,
+      "exponential": 0,
+      "squared_distance_exponential": 157050,
+      "global_stepwise_scale": 0
+    },
+    "reference_reciprocal_linear_steps": 0,
+    "common_factor_only": true,
+    "direction_preserved_under_exact_norm_matching": true,
+    "taper_formulas_unchanged": true,
+    "relative_near_far_allocation_unchanged": true
+  },
+  "terminal_audit_passed": true,
+  "coverage_checks_passed": true,
+  "interpretation": "At an exactly matched per-step raw negative-gradient L2 budget before Adam, the three selective taper families all improved held-out-context reward and reduced harmful-far retention relative to reciprocal-linear on 20/20 paired seeds. The non-selective global stepwise scale was worse than reciprocal-linear on reward and retained more harmful-far influence. Terminal near-useful retention was undefined because its raw positive-projection denominator was zero, so this run does not independently establish greater useful-near allocation. This is finite-horizon harmful-far allocation evidence, not a steady-state, OOD, cross-task, or universal method ranking.",
+  "prohibited_claims": [
+    "steady_state_ranking",
+    "long_run_validated",
+    "OOD_generalization",
+    "universal_method_winner",
+    "cross_task_superiority",
+    "Adam_update_norm_matched"
+  ],
+  "packaging_incident": {
+    "compute_returncode": 0,
+    "provenance_compromised": false,
+    "original_guard_state": "failed_after_compute",
+    "causes": [
+      "runner omitted registered scientific_run_manifest.json",
+      "default 25 MiB package hard limit was exceeded"
+    ],
+    "scientific_outputs_affected": false,
+    "original_failed_run_preserved": true
+  },
+  "full_raw_archive": {
+    "filename": "C-U1-E4-TAPER-BUDGET-MATCH-01_RUN003_FULL_RAW.tar.zst",
+    "sha256": "b635eabe3482fee92225f274292a78b21b8e09bf161dc42f4c151a549df6485d",
+    "contains_original_failed_guard_tree": true,
+    "repository_embedded": false,
+    "delivery_role": "explicit sidecar in final experiment package"
+  },
+  "next_gate": {
+    "experiment_id": "C-U1-E4-TAPER-CONV-01",
+    "state": "blocked_until_budget_match_delivery_is_applied_then_shortlist_is_frozen_and_continuation_runner_is_implemented",
+    "confirmation_seeds_130_149_access": "forbidden"
+  },
+  "near_useful_terminal_metric_status": "undefined_for_non_positive_only_methods_due_zero_raw_positive_projection_denominator"
+}

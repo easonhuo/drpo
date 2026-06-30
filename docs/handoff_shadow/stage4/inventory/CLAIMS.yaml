@@ -3,7 +3,7 @@ policy_id: GOV-HANDOFF-INDEX-01
 authority: non_authoritative_stage4a_shadow_inventory
 source:
   path: docs/handoff.md
-  sha256: 85d2cd1562ff1846b9fcd6ce4f0ce83c7bd7a03aebaf4e258fd69a4a294a4065
+  sha256: 3ff6757c86183a274a8ca3986d2a309b9caafc1ec58abf4d1b33f6cbae1f6be7
 scope: manual_locator_inventory_of_locked_supported_limited_open_and_superseded_claims
 claims:
 - claim_id: GOV-UNIQUE-MASTER-01
@@ -114,7 +114,7 @@ claims:
   - continuous_e1_e4
   source_anchor:
     file: docs/handoff.md
-    heading_id: H0043
+    heading_id: H0044
     text: '**E3 结果状态必须拆分（v12 新增协议细化）：**'
     sha256: daf7cb277faa2200692668d73485f3fecf375a77db78ad209a673e41bcc83547
     occurrence_in_section: 1
@@ -232,7 +232,7 @@ claims:
   - continuous_e1_e4
   source_anchor:
     file: docs/handoff.md
-    heading_id: H0045
+    heading_id: H0046
     text: '| E1 | Product 环境已完成，逻辑严密 | **C-U1 正式 20-seed 已完成**：positive-trained full-gradient far/near 9.093×，aggregate 10.072×；advantage 1.000×
       | 正式机制识别完成；数值倍率仅限本环境 |'
     sha256: 032a957a06e7ef7e29cb3cb403209bad423a22120f6829e682cbb7ad24d6a7dc
@@ -248,7 +248,7 @@ claims:
   - continuous_e1_e4
   source_anchor:
     file: docs/handoff.md
-    heading_id: H0045
+    heading_id: H0046
     text: '| E3 | Product/Collapse 环境与旧 SGD C-U1 结果保留 provenance | **`C-U1-E3-ADAM-RERUN` 已完成并交付**：固定方差 Baseline/Near-zero 20/20 任务崩溃，Far-zero/Far-cap
       0/20；可学习方差 Baseline/Near-zero 20/20 support contraction，远场控制 0/20；NaN/Inf 0/220 | **已长期验证，论文可用**；主文采用四方法 fixed-variance 因果链，learnable-variance
       作互补 panel/附录 |'
@@ -266,7 +266,7 @@ claims:
   - execution_status_gates
   source_anchor:
     file: docs/handoff.md
-    heading_id: H0045
+    heading_id: H0046
     text: '| E4 | 独立 Extrapolation 环境；部分长程审计 | **`C-U1-E4-ADAM-RERUN` 已完成并交付**：有限步 reward 相变、过强压力任务崩溃、learnable-variance support contraction 与
       4000-step controls 均完成；受益分支未通过 20/20 双 residual audit | **有限训练步数验证**；可用于有限步相变图与失稳分支，暂不可写成稳定有益 fixed point |'
     sha256: faf98923b9f2904b5c9ce3702b8ce808eeeb3f4b30f69a99c00c97ac5cc05563
@@ -282,7 +282,7 @@ claims:
   - categorical_e5_e6
   source_anchor:
     file: docs/handoff.md
-    heading_id: H0045
+    heading_id: H0046
     text: '| E5 | 历史解析、direct-softmax 与 20-seed 因果结果保留；旧 runner/raw artifact 未入库 | **`D-U1-E5-LONGRUN-RERUN` 已完成**：direct-softmax 参照通过，120/120
       长程因果 runs 全部分类且 120/120 复现历史 qualitative class，NaN/Inf 0/120 | **已长期验证**；受控 categorical 排斥、支持边界和 near/far 因果链可用于论文，E6 语义泛化仍未完成 |'
     sha256: 2c2925f8f37677043cc4ce8be2f9a6ebfd8615dcb071bf81bb667d326d7c05f9
@@ -298,7 +298,7 @@ claims:
   - categorical_e5_e6
   source_anchor:
     file: docs/handoff.md
-    heading_id: H0045
+    heading_id: H0046
     text: '| E6 | unordered semantic categorical pilot/focused runner 与 formal runner/config 均已实现 | **`D-U1-E6-SEMANTIC-LONGRUN-01` 已完成 360/360
       formal runs**：E6-A 受控 local negatives 在 alpha 0.25/0.50 上 20/20 胜过 positive-only，alpha 0.75 出现 20/20 reward 反转；E6-B task collapse 0、support
       boundary 120；E6-C aligned 在四方法上均 20/20 胜过 shuffled | **已长期验证**；可用于 positive-only ceiling、受控负梯度非单调收益、支持边界分离与 semantic-alignment 排他性，不能称 OOD
@@ -350,7 +350,7 @@ claims:
   - categorical_e5_e6
   source_anchor:
     file: docs/handoff.md
-    heading_id: H0116
+    heading_id: H0117
     text: 其欧氏范数随 1−p_y 增长，但在 p_y→0
     sha256: d742ef061207be077cb713089ed949e59f733e6bd0f06e1c59a71c4f467fc056
     occurrence_in_section: 1
@@ -367,7 +367,7 @@ claims:
   - categorical_e5_e6
   source_anchor:
     file: docs/handoff.md
-    heading_id: H0121
+    heading_id: H0122
     text: 于是出现核心错配：信息价值随距离衰减，优化影响却随距离增长或保持不消失。
     sha256: 67ae3216c26dba6cda47a5e9352aeda7a86413a66b6f75966cfdad4ff274e3c7
     occurrence_in_section: 1
@@ -383,7 +383,7 @@ claims:
   - history_provenance
   source_anchor:
     file: docs/handoff.md
-    heading_id: H0229
+    heading_id: H0230
     text: 这是一项**外部机制验证**，不是 D4RL normalized-return 方法表。
     sha256: 1539eaadbb5af75afbb21a9ad952ebb04b073c2f4d82d3e760802f87fa5e480a
     occurrence_in_section: 1
@@ -399,7 +399,7 @@ claims:
   - execution_status_gates
   source_anchor:
     file: docs/handoff.md
-    heading_id: H0319
+    heading_id: H0320
     text: 当前实验仍未完成真实 Qwen/CUDA/BF16-LoRA 端到端运行。
     sha256: 3904bee414579e4b3d3752ddad5d94df267d0a526e57cb0ba4f5d732aaa8a32f
     occurrence_in_section: 1
@@ -416,7 +416,7 @@ claims:
   - paper_rewrite
   source_anchor:
     file: docs/handoff.md
-    heading_id: H0255
+    heading_id: H0256
     text: '- **从“hard filtering 是必要且唯一方案”改为“负更新存在稳定—泛化折中，方法应控制 policy-relative remoteness”。** Hard filtering 仅保留为零负权重极限、旧方法或强基线。'
     sha256: a772e4986ef9fdb6fe7cd673c6c3ad959639e137f17a0f25d712144214d74361
     occurrence_in_section: 1
@@ -433,7 +433,7 @@ claims:
   - continuous_e1_e4
   source_anchor:
     file: docs/handoff.md
-    heading_id: H0082
+    heading_id: H0083
     text: "Figure 2(b)\n  只能支持梯度敏感度增长，不能支持“Both μ and σ expand”。"
     sha256: 46dfc6f95d05eb4273a8c1a58eab3f2028b2b920afc441e3ccb70aae90420ef0
     occurrence_in_section: 1
@@ -453,7 +453,7 @@ claims:
   - theory_methods_related_work
   source_anchor:
     file: docs/handoff.md
-    heading_id: H0255
+    heading_id: H0256
     text: hard filtering 是必要且唯一方案
     sha256: 334b6c4fbe2f897428ce564474dfab36de046060dbe15e0ea2322c617cd04c48
     occurrence_in_section: 1

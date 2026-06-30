@@ -1,0 +1,25 @@
+{
+  "experiment_id": "C-U1-E4-TAPER-BUDGET-MATCH-01",
+  "primary_budget_coordinate": "stepwise_raw_negative_gradient_l2_before_Adam",
+  "maximum_relative_error": 2.1179505308403659e-16,
+  "tolerance": 1e-06,
+  "Adam_parameter_update_norm_matched": false,
+  "Adam_parameter_update_norm_logged": true,
+  "numerical_direction_stabilization": {
+    "total_steps": 157050,
+    "steps_by_method": {
+      "positive_only": 0,
+      "unweighted_boundary": 0,
+      "reciprocal_linear": 0,
+      "reciprocal_quadratic": 0,
+      "exponential": 0,
+      "squared_distance_exponential": 157050,
+      "global_stepwise_scale": 0
+    },
+    "reference_reciprocal_linear_steps": 0,
+    "common_factor_only": true,
+    "direction_preserved_under_exact_norm_matching": true,
+    "taper_formulas_unchanged": true,
+    "relative_near_far_allocation_unchanged": true
+  }
+}

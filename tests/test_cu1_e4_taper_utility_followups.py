@@ -41,7 +41,7 @@ def test_taper_utility_extension_separates_bounded_and_vanishing_influence() -> 
     assert levels["no_universal_method_winner_assumed"] is True
 
 
-def test_near_result_is_deposited_and_budget_match_is_the_only_active_successor() -> None:
+def test_near_and_budget_results_are_deposited_while_long_run_stays_blocked() -> None:
     experiments = _experiments()
     taper = experiments["C-U1-E4-TAPER-01"]
     followup = taper["followup_evidence_requirements"]
@@ -58,10 +58,11 @@ def test_near_result_is_deposited_and_budget_match_is_the_only_active_successor(
     assert near["paper_use"]["suitable_for_terminally_stable_method_ranking"] is False
 
     budget = experiments[FOLLOWUPS[1]]
-    assert budget["status"] == "not_run"
+    assert budget["status"] == "finite_step_validated"
+    assert budget["scientific_status"] == "finite_step_validated"
     assert budget["implementation_state"] == "implemented"
-    assert budget["execution_gate"]["state"] == "ready"
-    assert budget["formal_execution"]["activation_state"] == "active"
+    assert budget["execution_gate"]["state"] == "blocked"
+    assert budget["formal_execution"]["activation_state"] == "blocked"
     assert budget["formal_execution"]["entrypoint_status"] == "implemented"
     assert budget["formal_execution"]["entrypoint"] == (
         "src/drpo/cu1_taper_budget_match_formal.py"
@@ -71,7 +72,10 @@ def test_near_result_is_deposited_and_budget_match_is_the_only_active_successor(
     )
     assert budget["budget_contract"]["Adam_parameter_update_norm_matched"] is False
     assert budget["protocol"]["formal_paired_seeds"] == list(range(110, 130))
-    assert budget["evidence"]["formal_run_started"] is False
+    assert budget["evidence"]["formal_run_started"] is True
+    assert budget["evidence"]["completed_runs"] == 140
+    assert budget["evidence"]["terminal_audited"] is True
+    assert budget["paper_use"]["suitable_for_terminally_stable_method_ranking"] is False
 
     for experiment_id in FOLLOWUPS[2:]:
         row = experiments[experiment_id]
@@ -107,9 +111,10 @@ def test_followup_dependency_chain_and_seed_firewall_are_explicit() -> None:
         "hyperparameter_retuning_after_confirmation_start"
     ] == "forbidden"
 
-def test_handoff_preserves_history_and_records_v63_closure_route() -> None:
+def test_handoff_preserves_history_and_records_v66_budget_closure_route() -> None:
     handoff = (ROOT / "docs" / "handoff.md").read_text()
     assert "v63（E4-TAPER Near-Retention 结果沉淀与闭环协议版）" in handoff
+    assert "v66（E4-TAPER Budget-Match 正式结果闭环版）" in handoff
     assert "v60" in handoff
     assert "Quadratic bounded influence 与 Exponential vanishing influence" in handoff
     assert "Exponential 的价值在于" in handoff
@@ -122,3 +127,5 @@ def test_handoff_preserves_history_and_records_v63_closure_route() -> None:
     assert "每一步、Adam 之前的 raw negative-gradient L2 norm" in handoff
     assert "seeds `130--149`" in handoff
     assert "260/280" in handoff
+    assert "140/140" in handoff
+    assert "Terminal near-useful retention" in handoff

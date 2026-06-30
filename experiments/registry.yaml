@@ -1409,20 +1409,24 @@ experiments:
     - Adam_optimizer_update_budget_was_matched
 - id: C-U1-E4-TAPER-BUDGET-MATCH-01
   execution_gate:
-    state: ready
-    blocked_by: []
-    blocking_reason: resolved_by_v62_stepwise_raw_negative_gradient_l2_protocol_and_implemented_runner
+    state: blocked
+    blocked_by: [completed_formal_execution_no_rerun_without_new_registration]
+    blocking_reason: completed_formal_execution_terminal_audit_and_delivery_closure
     depends_on_delivered_experiment: C-U1-E4-TAPER-NEAR-RETENTION-01
     protocol_freeze: v62_stepwise_raw_negative_gradient_l2_budget_match
-    reason: Near-Retention is deposited as finite-step validated. The primary budget coordinate, reference schedule,
-      global control, seed firewall, runner, outputs, and interpretation boundary are frozen. Formal execution is active
-      but has not started.
+    reason: The frozen 140-run Budget-Match matrix completed at run commit
+      1faea3a92f74af5d11409779d96b9ed21fe846ad and passed coverage, budget, and terminal audits. The scientific state
+      is finite-step validated. The original guard lifecycle failed only after successful computation because the runner
+      omitted scientific_run_manifest.json and the default package size was exceeded; the original failed tree is
+      preserved and the closure package repairs delivery without rerunning formal seeds. A rerun requires a new registration.
   environment: C-U1
   name: taper_family_negative_update_budget_matched_comparison
-  status: not_run
-  scientific_status: not_run
+  status: finite_step_validated
+  scientific_status: finite_step_validated
   parent_experiment: C-U1-E4-TAPER-01
   predecessor: C-U1-E4-TAPER-NEAR-RETENTION-01
+  run_commit: 1faea3a92f74af5d11409779d96b9ed21fe846ad
+  compact_result_path: outputs/cu1_e4_taper_budget_match/RESULT_SUMMARY.json
   registration_base_commit: 22161a91c0863278765b0d604ea82401d481b5aa
   claim: At the same per-step raw negative-gradient L2 norm before Adam, test whether distance-selective tapering
     allocates more update mass to useful near negatives and less to harmful far negatives than reciprocal-linear and a
@@ -1432,7 +1436,7 @@ experiments:
   implementation_state: implemented
   formal_execution:
     channel_ref: hardened-v1
-    activation_state: active
+    activation_state: blocked
     entrypoint_status: implemented
     entrypoint: src/drpo/cu1_taper_budget_match_formal.py
     launch_mode: canonical_guard
@@ -1468,7 +1472,7 @@ experiments:
     forbidden_reinterpretation: Do not call this cumulative Adam optimizer-update matching.
     required_controls: [global_alpha, reciprocal_linear, reciprocal_quadratic, vanishing_tail_candidate]
     candidate_matching_modes: [stepwise_negative_gradient_norm, cumulative_negative_optimizer_update]
-    exact_primary_mode: pending_protocol_freeze
+    exact_primary_mode: stepwise_raw_negative_gradient_l2_before_Adam
     only_selective_distance_allocation_may_differ: true
   primary_metrics:
   - maximum_stepwise_negative_gradient_budget_matching_error
@@ -1486,11 +1490,28 @@ experiments:
   evidence:
     implementation_tests_passed: true
     engineering_smoke_passed: true
-    formal_run_started: false
-    run_started: false
-    raw_complete: false
-    terminal_audited: false
-    package_created: false
+    formal_run_started: true
+    run_started: true
+    raw_complete: true
+    terminal_audited: true
+    terminal_audit_passed: true
+    completed_runs: 140
+    expected_runs: 140
+    formal_seed_count: 20
+    maximum_budget_relative_error: 2.1179505308403659e-16
+    task_performance_collapse_events: 13
+    support_or_variance_boundary_events: 20
+    nan_inf_numerical_events: 0
+    compact_repository_deposition_created: true
+    original_guard_failed_after_compute: true
+    original_guard_failure_reason:
+    - missing_scientific_run_manifest
+    - default_main_package_exceeded_25_MiB
+    compute_returncode: 0
+    provenance_compromised: false
+    package_created: true
+    package_delivered: true
+    full_raw_archive_sha256: b635eabe3482fee92225f274292a78b21b8e09bf161dc42f4c151a549df6485d
   code_entrypoint: src/drpo/cu1_taper_budget_match_formal.py
   formal_launch_template: python3 scripts/run_experiment_guard_hardened.py --experiment-id C-U1-E4-TAPER-BUDGET-MATCH-01
     --repo-root . --output-root experiments/results/C-U1-E4-TAPER-BUDGET-MATCH-01/run_001 --artifact-output
@@ -1569,20 +1590,47 @@ experiments:
     - task_performance_collapse
     - support_or_variance_boundary
     - nan_inf_numerical_failure
+  result_summary:
+    primary_budget_coordinate: stepwise_raw_negative_gradient_l2_before_Adam
+    maximum_budget_relative_error: 2.1179505308403659e-16
+    reciprocal_quadratic_reward_delta_vs_linear: 0.016011109948158263
+    exponential_reward_delta_vs_linear: 0.08818890154361725
+    squared_distance_exponential_reward_delta_vs_linear: 0.13061619997024537
+    global_stepwise_scale_reward_delta_vs_linear: -0.006882542371749878
+    reciprocal_quadratic_reward_positive_seeds_vs_linear: 20
+    exponential_reward_positive_seeds_vs_linear: 20
+    squared_distance_exponential_reward_positive_seeds_vs_linear: 20
+    global_stepwise_scale_reward_positive_seeds_vs_linear: 0
+    reciprocal_quadratic_far_harmful_lower_seeds_vs_linear: 20
+    exponential_far_harmful_lower_seeds_vs_linear: 20
+    squared_distance_exponential_far_harmful_lower_seeds_vs_linear: 20
+    global_stepwise_scale_far_harmful_lower_seeds_vs_linear: 0
+    interpretation: Under exact finite-horizon raw-negative-gradient budget matching, selective taper shape changed harmful-far
+      allocation and held-out-context reward; terminal useful-near retention was undefined, and this does not establish
+      steady-state or universal ranking.
+  paper_use:
+    suitable_for_finite_horizon_budget_matched_selectivity_claim: true
+    suitable_for_terminally_stable_method_ranking: false
+    prohibited_claims:
+    - long_run_validated
+    - steady_state_ranking
+    - OOD_generalization
+    - universal_method_ranking
+    - cross_task_superiority
+    - Adam_parameter_update_norm_was_matched
   next_gate:
     experiment_id: C-U1-E4-TAPER-CONV-01
-    state: blocked_until_budget_match_delivered_and_shortlist_frozen
+    state: blocked_until_shortlist_frozen_and_continuation_runner_implemented
     automatic_activation_forbidden: true
 - id: C-U1-E4-TAPER-CONV-01
   execution_gate:
     state: blocked
     blocked_by:
-    - C-U1-E4-TAPER-BUDGET-MATCH-01_delivered
     - frozen_shortlist_json_generated_from_preregistered_rule
     - separately_implemented_continuation_runner
-    blocking_reason: Budget-Match must be delivered before its registered shortlist rule is evaluated and frozen. The
-      long-run runner must consume exact actor and Adam optimizer checkpoints; no old 8000-step run may be extended ad
-      hoc.
+    blocking_reason: Budget-Match is delivered as finite-step validated. The next action is a separate, deterministic
+      shortlist-freeze update using the preregistered rule, followed by implementation of a continuation runner that
+      consumes exact actor and Adam optimizer checkpoints. No old 8000-step run may be extended ad hoc.
   environment: C-U1
   name: taper_frozen_shortlist_long_run_terminal_resolution
   status: not_run

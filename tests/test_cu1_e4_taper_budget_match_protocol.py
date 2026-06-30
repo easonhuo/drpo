@@ -204,11 +204,14 @@ def test_terminal_audit_rejects_nan_inf_even_with_complete_coverage() -> None:
     assert numerical["passed"] is False
 
 
-def test_registry_activates_budget_only_and_preserves_later_gates() -> None:
+def test_registry_deposits_budget_result_and_preserves_later_gates() -> None:
     row = _entry(budget.EXPERIMENT_ID)
-    assert row["execution_gate"]["state"] == "ready"
+    assert row["execution_gate"]["state"] == "blocked"
     assert row["implementation_state"] == "implemented"
-    assert row["formal_execution"]["activation_state"] == "active"
+    assert row["formal_execution"]["activation_state"] == "blocked"
+    assert row["scientific_status"] == "finite_step_validated"
+    assert row["evidence"]["completed_runs"] == 140
+    assert row["evidence"]["terminal_audited"] is True
     assert row["formal_execution"]["entrypoint"] == ("src/drpo/cu1_taper_budget_match_formal.py")
     contract = row["budget_contract"]
     assert contract["primary_mode"] == "stepwise_raw_negative_gradient_l2_before_Adam"
@@ -254,12 +257,22 @@ def test_budget_engineering_smoke_writes_complete_non_scientific_artifacts(
         timeout=180,
     )
     complete = json.loads((output / "RUN_COMPLETE.json").read_text())
+    scientific = json.loads((output / "scientific_run_manifest.json").read_text())
     audit = json.loads((output / "terminal_audit.json").read_text())
     budget_audit = json.loads((output / "budget_audit.json").read_text())
     freeze = json.loads((output / "formal_protocol_freeze.json").read_text())
     assert complete["formal_run_started"] is False
     assert complete["result_status"] == "engineering_smoke"
     assert complete["coverage_checks_passed"] is True
+    assert scientific["experiment_id"] == budget.EXPERIMENT_ID
+    assert scientific["base_commit"] == complete["base_commit"]
+    assert scientific["runs_completed"] == 7
+    assert scientific["expected_runs"] == 7
+    assert scientific["primary_budget_coordinate"] == (
+        "stepwise_raw_negative_gradient_l2_before_Adam"
+    )
+    assert scientific["Adam_parameter_update_norm_matched"] is False
+    assert scientific["OOD_claim_allowed"] is False
     assert audit["scientific_status"] == "not run / 尚未运行"
     assert budget_audit["maximum_relative_error"] <= 1e-6
     assert budget_audit["Adam_parameter_update_norm_matched"] is False

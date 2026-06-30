@@ -1361,6 +1361,32 @@ def main() -> int:
     )
     atomic_json(output_root / "experiment_manifest.json", manifest)
     atomic_json(
+        output_root / "scientific_run_manifest.json",
+        {
+            "experiment_id": EXPERIMENT_ID,
+            "base_commit": args.base_commit,
+            "script_version": SCRIPT_VERSION,
+            "result_status": manifest["result_status"],
+            "formal_run_started": not args.smoke,
+            "runs_completed": len(summaries),
+            "expected_runs": len(PROTOCOL.formal_seeds) * len(method_names(PROTOCOL)),
+            "formal_seeds": list(PROTOCOL.formal_seeds),
+            "methods": list(method_names(PROTOCOL)),
+            "primary_budget_coordinate": (
+                "stepwise_raw_negative_gradient_l2_before_Adam"
+            ),
+            "Adam_parameter_update_norm_matched": False,
+            "Adam_parameter_update_norm_logged": True,
+            "coverage_checks_passed": terminal_audit["coverage_checks_passed"],
+            "terminal_audit_passed": terminal_audit["all_checks_passed"],
+            "scientific_status_cap": "finite_step_validated",
+            "held_out_context_scope": True,
+            "OOD_claim_allowed": False,
+            "long_run_ranking_allowed": False,
+            "next_experiment_automatic_activation_allowed": False,
+        },
+    )
+    atomic_json(
         output_root / "RUN_COMPLETE.json",
         {
             "experiment_id": EXPERIMENT_ID,

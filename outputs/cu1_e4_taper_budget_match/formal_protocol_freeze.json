@@ -1,0 +1,115 @@
+{
+  "experiment_id": "C-U1-E4-TAPER-BUDGET-MATCH-01",
+  "script_version": "2026.06.30-stepwise-negative-gradient-l2-log-stable-v2",
+  "protocol": {
+    "development_seeds": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "formal_seeds": [
+      110,
+      111,
+      112,
+      113,
+      114,
+      115,
+      116,
+      117,
+      118,
+      119,
+      120,
+      121,
+      122,
+      123,
+      124,
+      125,
+      126,
+      127,
+      128,
+      129
+    ],
+    "target_retention": 0.75,
+    "reference_distance": 5.0,
+    "near_region_boundary": 5.0,
+    "selective_families": [
+      "reciprocal_linear",
+      "reciprocal_quadratic",
+      "exponential",
+      "squared_distance_exponential"
+    ],
+    "matched_methods": [
+      "reciprocal_linear",
+      "reciprocal_quadratic",
+      "exponential",
+      "squared_distance_exponential",
+      "global_stepwise_scale"
+    ],
+    "boundary_controls": [
+      "positive_only",
+      "unweighted_boundary"
+    ],
+    "learning_rate": 0.0005,
+    "batch_states": 256,
+    "evaluation_interval": 100,
+    "maximum_steps": 8000,
+    "minimum_steps_before_stationarity": 1000,
+    "stable_windows": 10,
+    "normalized_slope_threshold": 0.0001,
+    "normalized_field_residual_threshold": 0.002,
+    "positive_absolute_gradient_threshold": 0.001,
+    "task_failure_retention": 0.45,
+    "log_sigma_event_boundary": 12.0,
+    "calibration_tolerance": 1e-06,
+    "budget_relative_tolerance": 1e-06,
+    "bootstrap_samples": 4000,
+    "checkpoint_every_formal_seeds": 5
+  },
+  "primary_budget_coordinate": "stepwise_raw_negative_gradient_l2_before_Adam",
+  "reference_schedule": "paired reciprocal-linear actor, same seed and minibatch indices",
+  "matching_rule": "detached scalar target_norm/current_method_negative_gradient_norm",
+  "numerical_representation_contract": {
+    "scope": [
+      "exponential",
+      "squared_distance_exponential"
+    ],
+    "trigger": "ordinary float32 candidate negative-gradient norm is non-finite or <= 1e-12; full-batch terminal diagnostics use the same stable representation proactively",
+    "transformation": "subtract one detached minibatch maximum log taper weight from all taper log weights before exponentiation",
+    "exact_matching_invariance": "the common positive factor cancels in target_norm/current_norm, so the applied raw negative-gradient vector is unchanged",
+    "taper_formula_changed": false,
+    "relative_near_far_allocation_changed": false,
+    "gradient_direction_changed": false,
+    "reference_schedule_recentered": false
+  },
+  "global_control": "unweighted negative-gradient direction with the same per-step target norm",
+  "Adam_parameter_update_norm": "logged_secondary_not_matched",
+  "coefficient_source": "development seeds 0-4, near-retention target 0.75",
+  "calibrated_coefficients": [
+    {
+      "family": "exponential",
+      "target_retention": 0.75,
+      "coefficient": 0.374162511054291
+    },
+    {
+      "family": "reciprocal_linear",
+      "target_retention": 0.75,
+      "coefficient": 0.4362580032734791
+    },
+    {
+      "family": "reciprocal_quadratic",
+      "target_retention": 0.75,
+      "coefficient": 0.5520268617673281
+    },
+    {
+      "family": "squared_distance_exponential",
+      "target_retention": 0.75,
+      "coefficient": 0.46629415374943506
+    }
+  ],
+  "held_out_context_is_same_distribution": true,
+  "OOD_claim_allowed": false,
+  "long_run_ranking_allowed": false,
+  "no_method_winner_assumed": true
+}

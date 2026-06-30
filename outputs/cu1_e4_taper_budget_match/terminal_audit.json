@@ -1,0 +1,116 @@
+{
+  "experiment_id": "C-U1-E4-TAPER-BUDGET-MATCH-01",
+  "base_commit": "1faea3a92f74af5d11409779d96b9ed21fe846ad",
+  "execution_status": "formal_run",
+  "scientific_status": "finite-step validated / 有限训练步数验证",
+  "coverage_checks_passed": true,
+  "all_checks_passed": true,
+  "checks": [
+    {
+      "name": "complete_run_matrix",
+      "passed": true,
+      "actual": 140,
+      "expected": 140
+    },
+    {
+      "name": "formal_seed_coverage",
+      "passed": true,
+      "actual": [
+        110,
+        111,
+        112,
+        113,
+        114,
+        115,
+        116,
+        117,
+        118,
+        119,
+        120,
+        121,
+        122,
+        123,
+        124,
+        125,
+        126,
+        127,
+        128,
+        129
+      ],
+      "expected": [
+        110,
+        111,
+        112,
+        113,
+        114,
+        115,
+        116,
+        117,
+        118,
+        119,
+        120,
+        121,
+        122,
+        123,
+        124,
+        125,
+        126,
+        127,
+        128,
+        129
+      ]
+    },
+    {
+      "name": "method_coverage",
+      "passed": true,
+      "actual": [
+        "exponential",
+        "global_stepwise_scale",
+        "positive_only",
+        "reciprocal_linear",
+        "reciprocal_quadratic",
+        "squared_distance_exponential",
+        "unweighted_boundary"
+      ],
+      "expected": [
+        "exponential",
+        "global_stepwise_scale",
+        "positive_only",
+        "reciprocal_linear",
+        "reciprocal_quadratic",
+        "squared_distance_exponential",
+        "unweighted_boundary"
+      ]
+    },
+    {
+      "name": "stepwise_negative_gradient_budget_match",
+      "passed": true,
+      "actual": 2.1179505308403659e-16,
+      "expected_maximum": 1e-06
+    },
+    {
+      "name": "reference_schedule_not_log_recentered",
+      "passed": true,
+      "actual": 0,
+      "expected": 0
+    },
+    {
+      "name": "log_recentering_limited_to_vanishing_tail_families",
+      "passed": true,
+      "actual": 0,
+      "expected": 0
+    },
+    {
+      "name": "no_nan_inf_numerical_failure",
+      "passed": true,
+      "actual": 0,
+      "expected": 0
+    }
+  ],
+  "event_counts": {
+    "task_performance_collapse": 13,
+    "support_or_variance_boundary": 20,
+    "nan_inf_numerical_failure": 0
+  },
+  "interpretation_boundary": "The primary matched coordinate is per-step raw negative-gradient L2 before Adam. Adam parameter-update norms are observed, not matched. This 8000-step experiment cannot establish a steady-state ranking, a universal winner, OOD generalization, or external-task validity."
+}

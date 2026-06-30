@@ -1,0 +1,106 @@
+{
+  "experiment_id": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+  "calibration_scope": "development_seeds_only",
+  "development_seeds": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "formal_or_confirmatory_seed_accessed": false,
+  "checkpoint": "positive_only_adam_2000_step_checkpoint",
+  "near_region": {
+    "distance": "standardized Gaussian distance",
+    "boundary": 5.0,
+    "predicate": "d <= 5.0"
+  },
+  "matching_target": "pooled E[w(d) | d <= 5.0]",
+  "near_distance_count": 61377,
+  "near_distance_mean": 3.8747215270996094,
+  "near_distance_min": 1.7471867799758911,
+  "near_distance_max": 4.998419761657715,
+  "seed_rows": [
+    {
+      "seed": 0,
+      "positive_checkpoint_reward": 0.64670330286026,
+      "negative_samples": 32768,
+      "near_samples": 12276,
+      "near_fraction": 0.3746337890625,
+      "near_distance_mean": 3.8756113052368164,
+      "near_distance_min": 1.7471867799758911,
+      "near_distance_max": 4.986551284790039
+    },
+    {
+      "seed": 1,
+      "positive_checkpoint_reward": 0.6471772193908691,
+      "negative_samples": 32768,
+      "near_samples": 12278,
+      "near_fraction": 0.37469482421875,
+      "near_distance_mean": 3.868807554244995,
+      "near_distance_min": 1.943630337715149,
+      "near_distance_max": 4.984344959259033
+    },
+    {
+      "seed": 2,
+      "positive_checkpoint_reward": 0.647087812423706,
+      "negative_samples": 32768,
+      "near_samples": 12275,
+      "near_fraction": 0.374603271484375,
+      "near_distance_mean": 3.8751752376556396,
+      "near_distance_min": 2.139558792114258,
+      "near_distance_max": 4.98698616027832
+    },
+    {
+      "seed": 3,
+      "positive_checkpoint_reward": 0.6468708515167236,
+      "negative_samples": 32768,
+      "near_samples": 12276,
+      "near_fraction": 0.3746337890625,
+      "near_distance_mean": 3.875286340713501,
+      "near_distance_min": 2.0037922859191895,
+      "near_distance_max": 4.998419761657715
+    },
+    {
+      "seed": 4,
+      "positive_checkpoint_reward": 0.6467756032943726,
+      "negative_samples": 32768,
+      "near_samples": 12272,
+      "near_fraction": 0.37451171875,
+      "near_distance_mean": 3.878727436065674,
+      "near_distance_min": 2.1067395210266113,
+      "near_distance_max": 4.994233131408691
+    }
+  ],
+  "calibrations": [
+    {
+      "family": "reciprocal_linear",
+      "target_retention": 0.75,
+      "coefficient": 0.4362580032734791,
+      "achieved_near_retention": 0.75,
+      "absolute_error": 0.0
+    },
+    {
+      "family": "reciprocal_quadratic",
+      "target_retention": 0.75,
+      "coefficient": 0.5520268617673281,
+      "achieved_near_retention": 0.75,
+      "absolute_error": 0.0
+    },
+    {
+      "family": "exponential",
+      "target_retention": 0.75,
+      "coefficient": 0.374162511054291,
+      "achieved_near_retention": 0.7500000000000001,
+      "absolute_error": 1.1102230246251565e-16
+    },
+    {
+      "family": "squared_distance_exponential",
+      "target_retention": 0.75,
+      "coefficient": 0.46629415374943506,
+      "achieved_near_retention": 0.75,
+      "absolute_error": 0.0
+    }
+  ],
+  "coefficient_freeze": "fixed_for_all_formal_seeds_and_all_training_steps"
+}

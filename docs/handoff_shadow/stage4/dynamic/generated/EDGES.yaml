@@ -5,23 +5,23 @@ kernel_version: 1
 profile_id: drpo-research
 profile_version: 1
 override_version: 1
-graph_hash: 5a9848863a418febe2b3f3c2d8df68bf2f4ba4de04744acd111a4fbc177407d8
+graph_hash: c8f7bc1c168904e58b80c8e5421a1ac9528313af06522fe2ade5598223047f32
 sources:
   bootstrap_claims:
     path: docs/handoff_shadow/stage4/inventory/CLAIMS.yaml
-    sha256: 71c93fa3d745e9c5802fbb0d7fd89e39e55a6f1ead48ef815b164bbf9edd2d69
+    sha256: 52e8943d6a073f3e5f286de43fa641c59faea63814e9efd18e42e8a72d69413c
   bootstrap_experiments:
     path: docs/handoff_shadow/stage4/inventory/EXPERIMENTS.yaml
-    sha256: ca7492fec445c91c99f80b47d1eee83eb1e0913162293d7725380573611eb11e
+    sha256: b132a9bb8247a1361bfc36325017635d8cdbc99f708549d678000c26299fc5bf
   bootstrap_headings:
     path: docs/handoff_shadow/stage4/inventory/HEADINGS.yaml
-    sha256: 38a23fbffa4b590a09bf68df29939c0e4443a0bb51518a0e0772fcaa9d15a896
+    sha256: 3ac802153e85fcafd9a87c1bf2479f61b0fbcee47b24b2aed80c67e117f835b7
   handoff:
     path: docs/handoff.md
-    sha256: 85d2cd1562ff1846b9fcd6ce4f0ce83c7bd7a03aebaf4e258fd69a4a294a4065
+    sha256: 3ff6757c86183a274a8ca3986d2a309b9caafc1ec58abf4d1b33f6cbae1f6be7
   registry:
     path: experiments/registry.yaml
-    sha256: 6a7f2a8009fc0d3c25a86c669601de38ac873480b76edc35711634c92b14b656
+    sha256: db246ebee08efec3fdf642caac0e7b40fed1d0f80d7f1fe0ba50ecca7185a035
 edges:
 - edge_id: edge:0fe06485441ad90dfbb6
   source: claim:GOV-COLLAPSE-TAXONOMY-01
@@ -2039,17 +2039,10 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:e15cd3500e6e8285e289
+- edge_id: edge:511e578693abb0c48aae
   source: heading:H0042
   relation: member_of
-  target: module:categorical_e5_e6
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
-- edge_id: edge:e1dde05397eec626da52
-  source: heading:H0042
-  relation: member_of
-  target: module:countdown_e8
+  target: module:continuous_e1_e4
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -2057,13 +2050,6 @@ edges:
   source: heading:H0042
   relation: member_of
   target: module:execution_status_gates
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
-- edge_id: edge:f77c10fd51e29967e1a8
-  source: heading:H0042
-  relation: member_of
-  target: module:hopper_e7
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -2078,13 +2064,6 @@ edges:
   source: heading:H0043
   relation: member_of
   target: module:categorical_e5_e6
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
-- edge_id: edge:de7005d4d8df2678036a
-  source: heading:H0043
-  relation: member_of
-  target: module:continuous_e1_e4
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -2109,10 +2088,10 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:8b5777f0925def0349c6
+- edge_id: edge:1573da699d79edd1255e
   source: heading:H0043
   relation: member_of
-  target: module:paper_rewrite
+  target: module:theory_methods_related_work
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -2148,6 +2127,13 @@ edges:
   source: heading:H0044
   relation: member_of
   target: module:hopper_e7
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:01a7a3c997a412312e1a
+  source: heading:H0044
+  relation: member_of
+  target: module:paper_rewrite
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -2221,31 +2207,38 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:2963b8d332049c2259b8
+- edge_id: edge:967c7f41ff0eb10d87ed
   source: heading:H0047
   relation: member_of
-  target: module:global_core_governance
+  target: module:categorical_e5_e6
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:0c82a28716d61b4ca7e1
+- edge_id: edge:cd8b046b70e79d357a3e
   source: heading:H0047
   relation: member_of
-  target: module:history_provenance
+  target: module:continuous_e1_e4
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:1cd1bb40b9fb9cf8ab98
+- edge_id: edge:dd4a92fd6a61193ea014
   source: heading:H0047
   relation: member_of
-  target: module:paper_rewrite
+  target: module:countdown_e8
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:632365ff4b6b9d27cdf4
+- edge_id: edge:4e8e1352b5b0e580f81a
   source: heading:H0047
   relation: member_of
-  target: module:theory_methods_related_work
+  target: module:execution_status_gates
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:518ee11480aadcfc5c0e
+  source: heading:H0047
+  relation: member_of
+  target: module:hopper_e7
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -2361,13 +2354,6 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:b9d0d5bc1aa987e1079d
-  source: heading:H0052
-  relation: member_of
-  target: module:execution_status_gates
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
 - edge_id: edge:93dc8c51bace8c73e51c
   source: heading:H0052
   relation: member_of
@@ -2393,6 +2379,13 @@ edges:
   source: heading:H0052
   relation: member_of
   target: module:theory_methods_related_work
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:8a480ccf2105b405c05e
+  source: heading:H0053
+  relation: member_of
+  target: module:execution_status_gates
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -2452,17 +2445,10 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:b5c979815881b7b2c6ef
+- edge_id: edge:0d060754e9f16c37252f
   source: heading:H0055
   relation: member_of
-  target: module:continuous_e1_e4
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
-- edge_id: edge:cc564616b119f2d9be08
-  source: heading:H0055
-  relation: member_of
-  target: module:execution_status_gates
+  target: module:global_core_governance
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -2470,6 +2456,20 @@ edges:
   source: heading:H0055
   relation: member_of
   target: module:history_provenance
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:5d4f49ee85a24cd98c5f
+  source: heading:H0055
+  relation: member_of
+  target: module:paper_rewrite
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:abdcf0092a1c69b5471f
+  source: heading:H0055
+  relation: member_of
+  target: module:theory_methods_related_work
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -2578,13 +2578,6 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:58afa99cd4aad1ff6d29
-  source: heading:H0060
-  relation: member_of
-  target: module:paper_rewrite
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
 - edge_id: edge:633bc1441bb34930f401
   source: heading:H0061
   relation: member_of
@@ -2603,6 +2596,13 @@ edges:
   source: heading:H0061
   relation: member_of
   target: module:history_provenance
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:f4399e28c819d336b011
+  source: heading:H0061
+  relation: member_of
+  target: module:paper_rewrite
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -2641,24 +2641,10 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:8ab134200a3af4f93283
-  source: heading:H0063
-  relation: member_of
-  target: module:global_core_governance
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
 - edge_id: edge:11d3efebbcce7f6d298c
   source: heading:H0063
   relation: member_of
   target: module:history_provenance
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
-- edge_id: edge:a06f875c5537697a6999
-  source: heading:H0063
-  relation: member_of
-  target: module:paper_rewrite
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -2676,10 +2662,24 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
+- edge_id: edge:781b15d3ab7dea6da7af
+  source: heading:H0064
+  relation: member_of
+  target: module:global_core_governance
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
 - edge_id: edge:5a123e658c40a9084f60
   source: heading:H0064
   relation: member_of
   target: module:history_provenance
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:a186a0ce973e9a28b76f
+  source: heading:H0064
+  relation: member_of
+  target: module:paper_rewrite
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -2788,13 +2788,6 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:df19d3fea9fa8395dacc
-  source: heading:H0069
-  relation: member_of
-  target: module:paper_rewrite
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
 - edge_id: edge:0160e4c1194bd9b2e606
   source: heading:H0070
   relation: member_of
@@ -2813,6 +2806,13 @@ edges:
   source: heading:H0070
   relation: member_of
   target: module:history_provenance
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:1d9b754ffe5c66183b13
+  source: heading:H0070
+  relation: member_of
+  target: module:paper_rewrite
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -2837,6 +2837,13 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
+- edge_id: edge:ad965c641baf52695a2b
+  source: heading:H0072
+  relation: member_of
+  target: module:continuous_e1_e4
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
 - edge_id: edge:53a579fa02e6e689865b
   source: heading:H0072
   relation: member_of
@@ -2844,24 +2851,10 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:b67feafc67f2a802a501
-  source: heading:H0072
-  relation: member_of
-  target: module:global_core_governance
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
 - edge_id: edge:d547fbcee4bd99c8a2bf
   source: heading:H0072
   relation: member_of
   target: module:history_provenance
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
-- edge_id: edge:66d231599eff9bdd5c37
-  source: heading:H0072
-  relation: member_of
-  target: module:theory_methods_related_work
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -3054,13 +3047,6 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:a72b3ec31f42bdfc3cf4
-  source: heading:H0079
-  relation: member_of
-  target: module:paper_rewrite
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
 - edge_id: edge:eac0712e1422d70c908d
   source: heading:H0079
   relation: member_of
@@ -3086,6 +3072,13 @@ edges:
   source: heading:H0080
   relation: member_of
   target: module:history_provenance
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:6c78fe9dc9a36e07d462
+  source: heading:H0080
+  relation: member_of
+  target: module:paper_rewrite
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -3124,13 +3117,6 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:92c44643a09ab350b3f0
-  source: heading:H0082
-  relation: member_of
-  target: module:continuous_e1_e4
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
 - edge_id: edge:09679b0ff04481f3729d
   source: heading:H0082
   relation: member_of
@@ -3156,6 +3142,13 @@ edges:
   source: heading:H0082
   relation: member_of
   target: module:theory_methods_related_work
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:1fc6bb9d98149f700e58
+  source: heading:H0083
+  relation: member_of
+  target: module:continuous_e1_e4
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -3208,13 +3201,6 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:21f6d642fb85eaea6728
-  source: heading:H0084
-  relation: member_of
-  target: module:paper_rewrite
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
 - edge_id: edge:22eed49c226e95bcbb99
   source: heading:H0084
   relation: member_of
@@ -3240,6 +3226,13 @@ edges:
   source: heading:H0085
   relation: member_of
   target: module:history_provenance
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:74468069be509d383362
+  source: heading:H0085
+  relation: member_of
+  target: module:paper_rewrite
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -3278,10 +3271,17 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:127fb044174971933c4c
+- edge_id: edge:d8e6e2cd0fa9f42ecd38
   source: heading:H0087
   relation: member_of
-  target: module:continuous_e1_e4
+  target: module:execution_status_gates
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:b25e095f0aea3a3b2493
+  source: heading:H0087
+  relation: member_of
+  target: module:global_core_governance
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -3327,13 +3327,6 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:77e55c8fca4aa8baf721
-  source: heading:H0089
-  relation: member_of
-  target: module:execution_status_gates
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
 - edge_id: edge:1e5d1433c8e24f84a142
   source: heading:H0089
   relation: member_of
@@ -3352,6 +3345,13 @@ edges:
   source: heading:H0090
   relation: member_of
   target: module:continuous_e1_e4
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:b6eaa9d4afe4716d14ef
+  source: heading:H0090
+  relation: member_of
+  target: module:execution_status_gates
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -3439,13 +3439,6 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:77d400decd98ea3e25d5
-  source: heading:H0094
-  relation: member_of
-  target: module:execution_status_gates
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
 - edge_id: edge:91209b0146d295b66bba
   source: heading:H0094
   relation: member_of
@@ -3464,6 +3457,13 @@ edges:
   source: heading:H0095
   relation: member_of
   target: module:continuous_e1_e4
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:14b2b68ff5052249167a
+  source: heading:H0095
+  relation: member_of
+  target: module:execution_status_gates
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -3523,10 +3523,10 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:e7cb78bc5517a18b3aba
+- edge_id: edge:201a366e717832ea2d07
   source: heading:H0098
   relation: member_of
-  target: module:global_core_governance
+  target: module:continuous_e1_e4
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -3537,17 +3537,17 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:09535073b7301e42f355
-  source: heading:H0098
-  relation: member_of
-  target: module:paper_rewrite
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
 - edge_id: edge:f7ea7077a3524fa3a5f9
   source: heading:H0098
   relation: member_of
   target: module:theory_methods_related_work
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:c2756a0c1ac0cb596b2f
+  source: heading:H0099
+  relation: member_of
+  target: module:global_core_governance
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -3782,13 +3782,6 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:31c15b841d05be6f7f70
-  source: heading:H0110
-  relation: member_of
-  target: module:execution_status_gates
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
 - edge_id: edge:d6d436b02d36e778c58d
   source: heading:H0110
   relation: member_of
@@ -3807,6 +3800,13 @@ edges:
   source: heading:H0110
   relation: member_of
   target: module:theory_methods_related_work
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:e579cc3d674a84314b78
+  source: heading:H0111
+  relation: member_of
+  target: module:execution_status_gates
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -3831,24 +3831,17 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:e6e952c76ec74a17d93d
-  source: heading:H0112
-  relation: member_of
-  target: module:categorical_e5_e6
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
-- edge_id: edge:cbd31fd2dc592ba7ed27
-  source: heading:H0112
-  relation: member_of
-  target: module:continuous_e1_e4
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
 - edge_id: edge:d1a590b4bd3dfbcfd3a9
   source: heading:H0112
   relation: member_of
   target: module:history_provenance
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:64a5a2ab1fe7dc50c9cf
+  source: heading:H0112
+  relation: member_of
+  target: module:paper_rewrite
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -4202,10 +4195,10 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:506c3662ffe314b98bbd
+- edge_id: edge:5e5f6036e848c34ed11a
   source: heading:H0125
   relation: member_of
-  target: module:countdown_e8
+  target: module:continuous_e1_e4
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -4213,13 +4206,6 @@ edges:
   source: heading:H0125
   relation: member_of
   target: module:history_provenance
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
-- edge_id: edge:d65c5ed1d609f433ac29
-  source: heading:H0125
-  relation: member_of
-  target: module:paper_rewrite
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -4489,13 +4475,6 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:dff92504d1a685788785
-  source: heading:H0133
-  relation: member_of
-  target: module:global_core_governance
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
 - edge_id: edge:3f8a03d108fb755c72cc
   source: heading:H0133
   relation: member_of
@@ -4531,6 +4510,13 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
+- edge_id: edge:63c680f7229bb0285e48
+  source: heading:H0134
+  relation: member_of
+  target: module:global_core_governance
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
 - edge_id: edge:9ebea6b222fd9f856c39
   source: heading:H0134
   relation: member_of
@@ -4556,13 +4542,6 @@ edges:
   source: heading:H0135
   relation: member_of
   target: module:categorical_e5_e6
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
-- edge_id: edge:00385840266856697fd6
-  source: heading:H0135
-  relation: member_of
-  target: module:continuous_e1_e4
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -4601,17 +4580,17 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
+- edge_id: edge:048fee31c2af383f17cb
+  source: heading:H0136
+  relation: member_of
+  target: module:continuous_e1_e4
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
 - edge_id: edge:3d17e01cd650f6444dcd
   source: heading:H0136
   relation: member_of
   target: module:countdown_e8
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
-- edge_id: edge:35335d28fb788956e05c
-  source: heading:H0136
-  relation: member_of
-  target: module:execution_status_gates
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -4692,6 +4671,13 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
+- edge_id: edge:cdc250cbae968a85d5ef
+  source: heading:H0138
+  relation: member_of
+  target: module:execution_status_gates
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
 - edge_id: edge:481990fafe8bc88fa2f5
   source: heading:H0138
   relation: member_of
@@ -4762,13 +4748,6 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:285eaaea9a17cc18624d
-  source: heading:H0140
-  relation: member_of
-  target: module:execution_status_gates
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
 - edge_id: edge:2460db9e939d462e38a6
   source: heading:H0140
   relation: member_of
@@ -4801,6 +4780,13 @@ edges:
   source: heading:H0141
   relation: member_of
   target: module:countdown_e8
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:3f07385da2ac029fc91b
+  source: heading:H0141
+  relation: member_of
+  target: module:execution_status_gates
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -4902,17 +4888,10 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:180e2acd6cbb159a9311
+- edge_id: edge:2c87c74cbf59f039ce4b
   source: heading:H0144
   relation: member_of
-  target: module:continuous_e1_e4
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
-- edge_id: edge:ccdae95d10ea1c2fd179
-  source: heading:H0144
-  relation: member_of
-  target: module:execution_status_gates
+  target: module:countdown_e8
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -4962,6 +4941,13 @@ edges:
   source: heading:H0145
   relation: member_of
   target: module:history_provenance
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:a4eb55ffa47ab97abc79
+  source: heading:H0145
+  relation: member_of
+  target: module:paper_rewrite
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -5168,13 +5154,6 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:332b911643f18a66d4a5
-  source: heading:H0151
-  relation: member_of
-  target: module:global_core_governance
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
 - edge_id: edge:f6e79ed7c7352443f5c0
   source: heading:H0151
   relation: member_of
@@ -5207,6 +5186,13 @@ edges:
   source: heading:H0152
   relation: member_of
   target: module:execution_status_gates
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:e3d3327dae2621ebbd81
+  source: heading:H0152
+  relation: member_of
+  target: module:global_core_governance
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -5287,13 +5273,6 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:725044f1bb6922fea2dd
-  source: heading:H0154
-  relation: member_of
-  target: module:paper_rewrite
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
 - edge_id: edge:c2525f5f2e26c4aebc24
   source: heading:H0154
   relation: member_of
@@ -5368,6 +5347,13 @@ edges:
   source: heading:H0156
   relation: member_of
   target: module:history_provenance
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:fcd64a6efc611fd179b6
+  source: heading:H0156
+  relation: member_of
+  target: module:paper_rewrite
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -5511,13 +5497,6 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:3ee919b1c2cd0b5cabdf
-  source: heading:H0160
-  relation: member_of
-  target: module:paper_rewrite
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
 - edge_id: edge:3e58b5935cd7038ab551
   source: heading:H0160
   relation: member_of
@@ -5536,6 +5515,27 @@ edges:
   source: heading:H0161
   relation: member_of
   target: module:continuous_e1_e4
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:b3f30379aa77211bd830
+  source: heading:H0161
+  relation: member_of
+  target: module:execution_status_gates
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:3b0f4bd96eb339334e4b
+  source: heading:H0161
+  relation: member_of
+  target: module:history_provenance
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:8e3924fdf000924aa17b
+  source: heading:H0161
+  relation: member_of
+  target: module:paper_rewrite
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -5833,13 +5833,6 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:649655308ffd2576de71
-  source: heading:H0175
-  relation: member_of
-  target: module:global_core_governance
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
 - edge_id: edge:afd70aa2d2953a3b5c0a
   source: heading:H0175
   relation: member_of
@@ -5886,6 +5879,13 @@ edges:
   source: heading:H0177
   relation: member_of
   target: module:continuous_e1_e4
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:373e49b33a1f9054cbd2
+  source: heading:H0177
+  relation: member_of
+  target: module:global_core_governance
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -5952,13 +5952,6 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:f3c16ee3e7234046ebec
-  source: heading:H0180
-  relation: member_of
-  target: module:hopper_e7
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
 - edge_id: edge:0d850ed31bb0e410d67c
   source: heading:H0180
   relation: member_of
@@ -5980,10 +5973,10 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:5b4e210b3f99d55d8844
+- edge_id: edge:f7f94af0be82913833ac
   source: heading:H0181
   relation: member_of
-  target: module:global_core_governance
+  target: module:hopper_e7
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -5994,24 +5987,24 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:bc4587633a6762ac90cd
+- edge_id: edge:31b0f98618883e6cdb4e
   source: heading:H0182
   relation: member_of
-  target: module:execution_status_gates
+  target: module:categorical_e5_e6
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:61ba8c408977bd19de2b
+- edge_id: edge:5401c5e1dc453e10ea2e
   source: heading:H0182
   relation: member_of
-  target: module:history_provenance
+  target: module:continuous_e1_e4
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:eb8f8600911951e4aa43
+- edge_id: edge:34e6a6997660f814beb6
   source: heading:H0182
   relation: member_of
-  target: module:hopper_e7
+  target: module:global_core_governance
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -6022,10 +6015,24 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
+- edge_id: edge:cb0f4185248ed0ae3502
+  source: heading:H0183
+  relation: member_of
+  target: module:execution_status_gates
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
 - edge_id: edge:80298af3992bdcd199b2
   source: heading:H0183
   relation: member_of
   target: module:history_provenance
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:188de5c047d72fce33b5
+  source: heading:H0183
+  relation: member_of
+  target: module:hopper_e7
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -6050,13 +6057,6 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:8f33bc9e8d40a8caae06
-  source: heading:H0185
-  relation: member_of
-  target: module:continuous_e1_e4
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
 - edge_id: edge:e1a662f76a81814c223e
   source: heading:H0185
   relation: member_of
@@ -6071,10 +6071,10 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:20f9b5f0c7c6eb6330c5
+- edge_id: edge:d41e92712fa1de9314fd
   source: heading:H0186
   relation: member_of
-  target: module:categorical_e5_e6
+  target: module:continuous_e1_e4
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -6092,6 +6092,13 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
+- edge_id: edge:bdf15e9d5aec1f9a1935
+  source: heading:H0187
+  relation: member_of
+  target: module:categorical_e5_e6
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
 - edge_id: edge:6aa6da781a87ab79e490
   source: heading:H0187
   relation: member_of
@@ -6106,13 +6113,6 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:4310100cd3de716cc592
-  source: heading:H0188
-  relation: member_of
-  target: module:execution_status_gates
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
 - edge_id: edge:5eb430f07e174213c5bd
   source: heading:H0188
   relation: member_of
@@ -6124,6 +6124,13 @@ edges:
   source: heading:H0188
   relation: member_of
   target: module:theory_methods_related_work
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:a7b777f36a56ebce157b
+  source: heading:H0189
+  relation: member_of
+  target: module:execution_status_gates
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -6225,13 +6232,6 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:4aeb7e8991f65ba5175a
-  source: heading:H0196
-  relation: member_of
-  target: module:continuous_e1_e4
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
 - edge_id: edge:734b5bd485714af76473
   source: heading:H0196
   relation: member_of
@@ -6288,17 +6288,10 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:7c94abe16270b2edf7b1
+- edge_id: edge:8fe5ebbc7aeb5b2260c0
   source: heading:H0199
   relation: member_of
-  target: module:categorical_e5_e6
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
-- edge_id: edge:09b2a7f71335e39903ef
-  source: heading:H0199
-  relation: member_of
-  target: module:global_core_governance
+  target: module:continuous_e1_e4
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -6323,6 +6316,13 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
+- edge_id: edge:1c7e8f409e6145b341f8
+  source: heading:H0200
+  relation: member_of
+  target: module:global_core_governance
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
 - edge_id: edge:96f141dd3bf73dcf4479
   source: heading:H0200
   relation: member_of
@@ -6334,6 +6334,13 @@ edges:
   source: heading:H0200
   relation: member_of
   target: module:theory_methods_related_work
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:f244f062ae5f27f9338e
+  source: heading:H0201
+  relation: member_of
+  target: module:categorical_e5_e6
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -6372,24 +6379,10 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:d3acfe44a8bf1f385838
-  source: heading:H0203
-  relation: member_of
-  target: module:hopper_e7
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
 - edge_id: edge:3a8c6d4753c747cfaa02
   source: heading:H0203
   relation: member_of
   target: module:theory_methods_related_work
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
-- edge_id: edge:958a46749d702a325b41
-  source: heading:H0204
-  relation: member_of
-  target: module:global_core_governance
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -6400,6 +6393,13 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
+- edge_id: edge:b335a7b48c85fa772697
+  source: heading:H0204
+  relation: member_of
+  target: module:hopper_e7
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
 - edge_id: edge:edd11516daf480543582
   source: heading:H0204
   relation: member_of
@@ -6407,10 +6407,10 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:73cabf7764a31563288c
+- edge_id: edge:9b6deb7eb74402f74b90
   source: heading:H0205
   relation: member_of
-  target: module:continuous_e1_e4
+  target: module:global_core_governance
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -6421,13 +6421,6 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:be5afbb17f13e50e2923
-  source: heading:H0205
-  relation: member_of
-  target: module:paper_rewrite
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
 - edge_id: edge:dff188ad5d6c8f8ae3dc
   source: heading:H0205
   relation: member_of
@@ -6435,10 +6428,24 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
+- edge_id: edge:b14f34a31916379327e3
+  source: heading:H0206
+  relation: member_of
+  target: module:continuous_e1_e4
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
 - edge_id: edge:f61d4ce61c9c6a887443
   source: heading:H0206
   relation: member_of
   target: module:history_provenance
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:d7a71c00405cc58852fc
+  source: heading:H0206
+  relation: member_of
+  target: module:paper_rewrite
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -6491,20 +6498,6 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:f765f53c239a553dd31f
-  source: heading:H0210
-  relation: member_of
-  target: module:categorical_e5_e6
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
-- edge_id: edge:5e9d5d84a4f4e795a06f
-  source: heading:H0210
-  relation: member_of
-  target: module:execution_status_gates
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
 - edge_id: edge:97fea42f8c1eb4361a3e
   source: heading:H0210
   relation: member_of
@@ -6526,6 +6519,13 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
+- edge_id: edge:7b2874941d3ea6a93dfb
+  source: heading:H0211
+  relation: member_of
+  target: module:execution_status_gates
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
 - edge_id: edge:dafdd74cdfe06fe1c81b
   source: heading:H0211
   relation: member_of
@@ -6540,6 +6540,13 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
+- edge_id: edge:0abb91fb451a78544ff1
+  source: heading:H0212
+  relation: member_of
+  target: module:categorical_e5_e6
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
 - edge_id: edge:0224196c79150ca557b9
   source: heading:H0212
   relation: member_of
@@ -6551,13 +6558,6 @@ edges:
   source: heading:H0212
   relation: member_of
   target: module:theory_methods_related_work
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
-- edge_id: edge:96b79c3b571d8f96eb29
-  source: heading:H0213
-  relation: member_of
-  target: module:categorical_e5_e6
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -6596,6 +6596,13 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
+- edge_id: edge:6977272277959b7f00da
+  source: heading:H0215
+  relation: member_of
+  target: module:categorical_e5_e6
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
 - edge_id: edge:67b87897c3ea3bdf6cc8
   source: heading:H0215
   relation: member_of
@@ -6607,20 +6614,6 @@ edges:
   source: heading:H0215
   relation: member_of
   target: module:theory_methods_related_work
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
-- edge_id: edge:156dc8238f0afb5cff5f
-  source: heading:H0216
-  relation: member_of
-  target: module:categorical_e5_e6
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
-- edge_id: edge:5c95db0d2bf01383db38
-  source: heading:H0216
-  relation: member_of
-  target: module:continuous_e1_e4
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -6638,17 +6631,24 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
+- edge_id: edge:3b5b9d509227c7da720d
+  source: heading:H0217
+  relation: member_of
+  target: module:categorical_e5_e6
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:88b7880c4710f9d81e12
+  source: heading:H0217
+  relation: member_of
+  target: module:continuous_e1_e4
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
 - edge_id: edge:4761e0e282a9dc184142
   source: heading:H0217
   relation: member_of
   target: module:history_provenance
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
-- edge_id: edge:b5369636a9a21a7dea9f
-  source: heading:H0217
-  relation: member_of
-  target: module:paper_rewrite
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -6666,6 +6666,13 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
+- edge_id: edge:5557181b59de2acf8d9b
+  source: heading:H0218
+  relation: member_of
+  target: module:paper_rewrite
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
 - edge_id: edge:dbf8b3d3bb8c04b9ca44
   source: heading:H0218
   relation: member_of
@@ -6677,13 +6684,6 @@ edges:
   source: heading:H0219
   relation: member_of
   target: module:history_provenance
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
-- edge_id: edge:0745fd72ce7a41af3c23
-  source: heading:H0219
-  relation: member_of
-  target: module:paper_rewrite
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -6701,17 +6701,17 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
+- edge_id: edge:130405a94522a27c95cd
+  source: heading:H0220
+  relation: member_of
+  target: module:paper_rewrite
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
 - edge_id: edge:a0317072dd02a8fc4d2d
   source: heading:H0220
   relation: member_of
   target: module:theory_methods_related_work
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
-- edge_id: edge:621a6241cfc7c4a27542
-  source: heading:H0221
-  relation: member_of
-  target: module:execution_status_gates
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -6729,17 +6729,17 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
+- edge_id: edge:67022aff3c82933a069a
+  source: heading:H0222
+  relation: member_of
+  target: module:execution_status_gates
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
 - edge_id: edge:762d2ec2fe4453300e3a
   source: heading:H0222
   relation: member_of
   target: module:history_provenance
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
-- edge_id: edge:98b4d2adb0991b87836d
-  source: heading:H0222
-  relation: member_of
-  target: module:paper_rewrite
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -6754,6 +6754,13 @@ edges:
   source: heading:H0223
   relation: member_of
   target: module:history_provenance
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:b6d0e9f642c3b4d28f74
+  source: heading:H0223
+  relation: member_of
+  target: module:paper_rewrite
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -6778,13 +6785,6 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:dfd1e5c89e082a56053c
-  source: heading:H0225
-  relation: member_of
-  target: module:execution_status_gates
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
 - edge_id: edge:f27eb5f4f0491b2cb926
   source: heading:H0225
   relation: member_of
@@ -6796,6 +6796,13 @@ edges:
   source: heading:H0225
   relation: member_of
   target: module:theory_methods_related_work
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:6f2673b11ffb6d13c888
+  source: heading:H0226
+  relation: member_of
+  target: module:execution_status_gates
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -6848,13 +6855,6 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:d689f840fc60290f15f8
-  source: heading:H0229
-  relation: member_of
-  target: module:hopper_e7
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
 - edge_id: edge:3818b42ea7eff33867a5
   source: heading:H0229
   relation: member_of
@@ -6869,17 +6869,17 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
+- edge_id: edge:421d878b8288382649ee
+  source: heading:H0230
+  relation: member_of
+  target: module:hopper_e7
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
 - edge_id: edge:31711c8a649e480fff3e
   source: heading:H0230
   relation: member_of
   target: module:theory_methods_related_work
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
-- edge_id: edge:ac8cb8d4558208075a7f
-  source: heading:H0231
-  relation: member_of
-  target: module:continuous_e1_e4
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -6894,6 +6894,13 @@ edges:
   source: heading:H0231
   relation: member_of
   target: module:theory_methods_related_work
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:72a82d4667d14814ac55
+  source: heading:H0232
+  relation: member_of
+  target: module:continuous_e1_e4
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -6946,13 +6953,6 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:e6f3fb544130c9cd1aa8
-  source: heading:H0235
-  relation: member_of
-  target: module:paper_rewrite
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
 - edge_id: edge:8a15b9133e10ad755fb3
   source: heading:H0235
   relation: member_of
@@ -6960,31 +6960,17 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:cfc7cb01cf8d1ed9a2c9
-  source: heading:H0236
-  relation: member_of
-  target: module:categorical_e5_e6
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
-- edge_id: edge:fc94e70833bf66e5d30b
-  source: heading:H0236
-  relation: member_of
-  target: module:continuous_e1_e4
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
-- edge_id: edge:316f549c3f76226f03dd
-  source: heading:H0236
-  relation: member_of
-  target: module:execution_status_gates
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
 - edge_id: edge:767b01c9a48f0baf4edd
   source: heading:H0236
   relation: member_of
   target: module:history_provenance
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:af85e89e0b9ec1b4aa39
+  source: heading:H0236
+  relation: member_of
+  target: module:paper_rewrite
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -7006,6 +6992,13 @@ edges:
   source: heading:H0237
   relation: member_of
   target: module:continuous_e1_e4
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:295ece710580acf62ba3
+  source: heading:H0237
+  relation: member_of
+  target: module:execution_status_gates
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -7044,13 +7037,6 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:b650cc9b2a708a72b5c3
-  source: heading:H0238
-  relation: member_of
-  target: module:paper_rewrite
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
 - edge_id: edge:cdca9e63d713c782735d
   source: heading:H0238
   relation: member_of
@@ -7076,6 +7062,13 @@ edges:
   source: heading:H0239
   relation: member_of
   target: module:history_provenance
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:bfd001f5a8ad565e94a6
+  source: heading:H0239
+  relation: member_of
+  target: module:paper_rewrite
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -7184,13 +7177,6 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:86c69fbc3fdef5ad53ea
-  source: heading:H0243
-  relation: member_of
-  target: module:execution_status_gates
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
 - edge_id: edge:2c90ffe1e8564c6fd3e7
   source: heading:H0243
   relation: member_of
@@ -7216,6 +7202,13 @@ edges:
   source: heading:H0244
   relation: member_of
   target: module:continuous_e1_e4
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:d9dfb8f7739927d4f454
+  source: heading:H0244
+  relation: member_of
+  target: module:execution_status_gates
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -7387,31 +7380,10 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:e369e054a39d59f41148
+- edge_id: edge:c7caeead8f0b0cac8af2
   source: heading:H0250
   relation: member_of
-  target: module:countdown_e8
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
-- edge_id: edge:48bd32c1291dcedc1820
-  source: heading:H0250
-  relation: member_of
-  target: module:execution_status_gates
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
-- edge_id: edge:b71c5b6a950269288794
-  source: heading:H0250
-  relation: member_of
-  target: module:hopper_e7
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
-- edge_id: edge:3b4e139a3262c3d3d433
-  source: heading:H0250
-  relation: member_of
-  target: module:paper_rewrite
+  target: module:history_provenance
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -7440,6 +7412,13 @@ edges:
   source: heading:H0251
   relation: member_of
   target: module:countdown_e8
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:1d89d495fa11ecdd6f01
+  source: heading:H0251
+  relation: member_of
+  target: module:execution_status_gates
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -7485,13 +7464,6 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:054365072d63a71d0d53
-  source: heading:H0252
-  relation: member_of
-  target: module:global_core_governance
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
 - edge_id: edge:67fe88b794fcca69efaf
   source: heading:H0252
   relation: member_of
@@ -7531,6 +7503,13 @@ edges:
   source: heading:H0253
   relation: member_of
   target: module:countdown_e8
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:173844acd6f7520a54d1
+  source: heading:H0253
+  relation: member_of
+  target: module:global_core_governance
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -7660,13 +7639,6 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:2389178b7db7ca4c21e2
-  source: heading:H0256
-  relation: member_of
-  target: module:history_provenance
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
 - edge_id: edge:fcb56e5a5fd728ba522f
   source: heading:H0256
   relation: member_of
@@ -7706,6 +7678,13 @@ edges:
   source: heading:H0257
   relation: member_of
   target: module:countdown_e8
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:985eb35a16b996d0d46a
+  source: heading:H0257
+  relation: member_of
+  target: module:history_provenance
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -8633,13 +8612,6 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:5b3cdc4c0d6d1fa97f7b
-  source: heading:H0279
-  relation: member_of
-  target: module:global_core_governance
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
 - edge_id: edge:79b564d8df8f585d8aa9
   source: heading:H0279
   relation: member_of
@@ -8728,6 +8700,13 @@ edges:
   source: heading:H0281
   relation: member_of
   target: module:countdown_e8
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:401810cb8be682602ce4
+  source: heading:H0281
+  relation: member_of
+  target: module:global_core_governance
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -8941,13 +8920,6 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:f387c77dbfe6bd2c948d
-  source: heading:H0286
-  relation: member_of
-  target: module:history_provenance
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
 - edge_id: edge:64ca1d1da9e2bf9bdd04
   source: heading:H0286
   relation: member_of
@@ -8987,6 +8959,13 @@ edges:
   source: heading:H0287
   relation: member_of
   target: module:countdown_e8
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:5dfe28b1283427210271
+  source: heading:H0287
+  relation: member_of
+  target: module:history_provenance
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -9578,13 +9557,6 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:1e7fd7648794969d7efc
-  source: heading:H0301
-  relation: member_of
-  target: module:global_core_governance
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
 - edge_id: edge:2f41708dca78c7c8e0ed
   source: heading:H0301
   relation: member_of
@@ -9624,6 +9596,13 @@ edges:
   source: heading:H0302
   relation: member_of
   target: module:countdown_e8
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:8d20f20ab7607d22e39a
+  source: heading:H0302
+  relation: member_of
+  target: module:global_core_governance
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -10425,20 +10404,6 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:3c156f8cf451832a5fe1
-  source: heading:H0321
-  relation: member_of
-  target: module:execution_status_gates
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
-- edge_id: edge:9d5ec773ed9b7d9e1e03
-  source: heading:H0321
-  relation: member_of
-  target: module:history_provenance
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
 - edge_id: edge:8eb408efad1a8a99c5ac
   source: heading:H0321
   relation: member_of
@@ -10478,6 +10443,13 @@ edges:
   source: heading:H0322
   relation: member_of
   target: module:countdown_e8
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:88a79a27dd89c9dd63c2
+  source: heading:H0322
+  relation: member_of
+  target: module:execution_status_gates
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -10527,13 +10499,6 @@ edges:
   source: heading:H0323
   relation: member_of
   target: module:countdown_e8
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
-- edge_id: edge:81a31e101cdc8af15164
-  source: heading:H0323
-  relation: member_of
-  target: module:execution_status_gates
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -10642,6 +10607,20 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
+- edge_id: edge:f08e928eae8e0969e891
+  source: heading:H0325
+  relation: member_of
+  target: module:execution_status_gates
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:a8fb73c44d53b493b7b4
+  source: heading:H0325
+  relation: member_of
+  target: module:history_provenance
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
 - edge_id: edge:124992d4efa72248ad3e
   source: heading:H0325
   relation: member_of
@@ -10684,20 +10663,6 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:39714128feb1a4c2f683
-  source: heading:H0326
-  relation: member_of
-  target: module:execution_status_gates
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
-- edge_id: edge:75544619584e2a1d920b
-  source: heading:H0326
-  relation: member_of
-  target: module:history_provenance
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
 - edge_id: edge:818403d57ddd88a54c0e
   source: heading:H0326
   relation: member_of
@@ -10737,6 +10702,20 @@ edges:
   source: heading:H0327
   relation: member_of
   target: module:countdown_e8
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:7deedcbf3a7ba7dfc90e
+  source: heading:H0327
+  relation: member_of
+  target: module:execution_status_gates
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:44d4ae8874e273cf198f
+  source: heading:H0327
+  relation: member_of
+  target: module:history_provenance
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -11160,13 +11139,6 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:f9df580b726c328288ec
-  source: heading:H0337
-  relation: member_of
-  target: module:global_core_governance
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
 - edge_id: edge:5a60f8d660e9b6e1e543
   source: heading:H0337
   relation: member_of
@@ -11206,6 +11178,13 @@ edges:
   source: heading:H0338
   relation: member_of
   target: module:countdown_e8
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:ac60f583fdfcfd3db19f
+  source: heading:H0338
+  relation: member_of
+  target: module:global_core_governance
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -11377,13 +11356,6 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:24b6678fc3820218b1e8
-  source: heading:H0342
-  relation: member_of
-  target: module:global_core_governance
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
 - edge_id: edge:ba486c35906be13a33f0
   source: heading:H0342
   relation: member_of
@@ -11423,6 +11395,13 @@ edges:
   source: heading:H0343
   relation: member_of
   target: module:countdown_e8
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:6d717532f130bdec8da8
+  source: heading:H0343
+  relation: member_of
+  target: module:global_core_governance
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -11930,13 +11909,6 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:dbedda35c263984bdfb8
-  source: heading:H0355
-  relation: member_of
-  target: module:execution_status_gates
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
 - edge_id: edge:224f0279292b34ab69db
   source: heading:H0355
   relation: member_of
@@ -12025,6 +11997,13 @@ edges:
   source: heading:H0357
   relation: member_of
   target: module:countdown_e8
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:5512b320034ed5282672
+  source: heading:H0357
+  relation: member_of
+  target: module:execution_status_gates
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -12154,13 +12133,6 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:30c7228c743b5cd55983
-  source: heading:H0360
-  relation: member_of
-  target: module:history_provenance
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
 - edge_id: edge:a8c81b5ed598a33fcde4
   source: heading:H0360
   relation: member_of
@@ -12200,6 +12172,13 @@ edges:
   source: heading:H0361
   relation: member_of
   target: module:countdown_e8
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:c1cb7b0a64ae73747d50
+  source: heading:H0361
+  relation: member_of
+  target: module:history_provenance
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -12308,6 +12287,13 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
+- edge_id: edge:6f3ba7732c040cd1970d
+  source: heading:H0364
+  relation: member_of
+  target: module:categorical_e5_e6
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
 - edge_id: edge:7dcd28a51b5acfcf254c
   source: heading:H0364
   relation: member_of
@@ -12315,17 +12301,31 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:271552c9d77e242f35cf
+- edge_id: edge:6fc373098c7721e19cfb
   source: heading:H0364
   relation: member_of
-  target: module:global_core_governance
+  target: module:countdown_e8
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:3d6ef4d20cbc34f3c3b2
+- edge_id: edge:9744d3c3a58f9540cf66
   source: heading:H0364
   relation: member_of
-  target: module:history_provenance
+  target: module:hopper_e7
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:9917b7373c0782a7125b
+  source: heading:H0364
+  relation: member_of
+  target: module:paper_rewrite
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:a9a6025829831874d780
+  source: heading:H0364
+  relation: member_of
+  target: module:theory_methods_related_work
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -12476,13 +12476,6 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:02b7e94f5394f5b21c4e
-  source: heading:H0371
-  relation: member_of
-  target: module:theory_methods_related_work
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
 - edge_id: edge:72b0eac89e83ff74d3df
   source: heading:H0372
   relation: member_of
@@ -12501,6 +12494,13 @@ edges:
   source: heading:H0372
   relation: member_of
   target: module:history_provenance
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:67cff41de1c511ef40f7
+  source: heading:H0372
+  relation: member_of
+  target: module:theory_methods_related_work
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
@@ -12532,13 +12532,6 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
-- edge_id: edge:db012fb9707ced6831b1
-  source: heading:H0374
-  relation: member_of
-  target: module:execution_status_gates
-  lifecycle_status: accepted
-  review_state: not_required
-  provenance: bootstrap_heading_inventory
 - edge_id: edge:d28b5b6290179ba1ed9b
   source: heading:H0374
   relation: member_of
@@ -12560,6 +12553,13 @@ edges:
   lifecycle_status: accepted
   review_state: not_required
   provenance: bootstrap_heading_inventory
+- edge_id: edge:707924bd810e28e2ffcb
+  source: heading:H0375
+  relation: member_of
+  target: module:execution_status_gates
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
 - edge_id: edge:5315c6689e7a79f3d42e
   source: heading:H0375
   relation: member_of
@@ -12569,6 +12569,27 @@ edges:
   provenance: bootstrap_heading_inventory
 - edge_id: edge:1da57d1a43fb117d9f32
   source: heading:H0375
+  relation: member_of
+  target: module:history_provenance
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:b7b40ab0adb0065b0fc1
+  source: heading:H0376
+  relation: member_of
+  target: module:continuous_e1_e4
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:5c22a9eb7200a6f79b11
+  source: heading:H0376
+  relation: member_of
+  target: module:global_core_governance
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_heading_inventory
+- edge_id: edge:687e3d72af886cb8a532
+  source: heading:H0376
   relation: member_of
   target: module:history_provenance
   lifecycle_status: accepted

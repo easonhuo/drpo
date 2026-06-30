@@ -7,7 +7,7 @@
 - Responsibility: Provide the current experiment evidence states, execution ordering, and formal launch gates.
 - Content contract topics: `formal_vs_development_evidence`, `single_registered_execution_order`, `blocked_requires_protocol_or_predecessor`, `current_formal_route`, `no_unregistered_experiment`
 - Deduplicated overlapping source chunks: 0
-- Source hash: `d43d9c3377f7af4901299528da51ca2898806b3afab619c50c6d93a87275f0a2`
+- Source hash: `134040c584696680f62bd50ae09a65995b07e79ecb3af8b97e48561814e56203`
 
 ## Content contract evidence
 
@@ -92,3 +92,6 @@
 <!-- HANDOFF-DELTA-BLOCK:section_end:v63-e4-taper-closure-execution-order:START -->
 18. **v63 E4-TAPER 内部执行覆盖：** `NEAR-RETENTION-01` 已完成正式矩阵并沉淀为有限训练步数验证；当前下一项是已冻结且已实现的 `BUDGET-MATCH-01`，正式 seeds 固定为 110--129，只允许按每一步 Adam 之前的 raw negative-gradient L2 norm 做 paired budget matching。`CONV-01` 与 `CONFIRM-01` 虽已完整登记输入输出契约、shortlist 规则和 untouched seeds，但继续 blocked；必须等待 Budget-Match 正式结果完成终态审计、打包、交付并冻结 shortlist 后，才允许实现和启动 Convergence，Confirmation 仍为最后一步。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v63-e4-taper-closure-execution-order:END -->
+<!-- HANDOFF-DELTA-BLOCK:section_end:v66-e4-taper-budget-match-execution-order:START -->
+19. **v66 E4-TAPER 内部执行覆盖：** `BUDGET-MATCH-01` 已完成正式矩阵、终态审计和闭环交付，禁止无新登记重跑。`CONV-01` 仍不允许启动：先用既定规则在独立更新中生成并校验 `FROZEN_CONVERGENCE_SHORTLIST.json`，再实现读取 run_003 exact actor + Adam optimizer state 的 continuation runner；只有这两项通过并另行 activation 后才能运行。`CONFIRM-01` 与 seeds `130--149` 继续保持最后一道防火墙。
+<!-- HANDOFF-DELTA-BLOCK:section_end:v66-e4-taper-budget-match-execution-order:END -->

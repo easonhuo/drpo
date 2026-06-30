@@ -7,7 +7,7 @@
 - Responsibility: Preserve the unique-master rule, terminology, scientific scope, and non-destructive governance constraints.
 - Content contract topics: `unique_master_document`, `document_before_experiment`, `non_destructive_history`, `terminal_audit_governance`, `controlled_external_validity_boundary`
 - Deduplicated overlapping source chunks: 0
-- Source hash: `632c8bcddc135497141d0faf12248a1179abdb06012d24ce4e9e1cb6054de28b`
+- Source hash: `016282ba35c56b9f13b7087f5303ded327d041aa3bd3797c58cfda8fde6a032a`
 
 ## Content contract evidence
 
@@ -71,6 +71,11 @@
 - `C-U1-E4-TAPER-BUDGET-MATCH-01` 在 v63 冻结并实现为下一项 **implemented + ready + active + not_run**。唯一 primary budget coordinate 是每一步、Adam 之前的 raw negative-gradient L2 norm；paired Reciprocal-Linear actor 生成冻结目标 schedule，其他 Distance families 与 non-selective Global stepwise scale 使用 detached scalar 精确匹配该 norm。Adam 实际 parameter-update norm 只记录、不声称匹配。正式 seeds 固定为 `110--129`；seeds `130--149` 继续 untouched，专属最终 confirmation。
 - `C-U1-E4-TAPER-CONV-01` 与 `C-U1-E4-TAPER-CONFIRM-01` 的 seed firewall、输入输出契约、shortlist 冻结规则、32000-step 长程上限、continuous Adam-state 要求、2× terminal audit 与确认分析计划已预登记，但二者继续 blocked。Budget-Match terminal-audited、packaged、delivered 之前不得生成 shortlist 或启动 Convergence；Convergence 交付且 confirmation config 哈希冻结前不得访问 seeds `130--149`。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v63-e4-taper-closure-current-gate:END -->
+<!-- HANDOFF-DELTA-BLOCK:section_end:v66-e4-taper-budget-match-current-gate:START -->
+- **E4-TAPER v66 覆盖：** `C-U1-E4-TAPER-BUDGET-MATCH-01` 已完成 `140/140` 正式 runs、逐步 raw-negative-gradient budget audit 与 terminal audit，科学状态为 **有限训练步数验证**。相同 Adam 前 raw negative-gradient L2 budget 下，三种 selective candidates 相对 Reciprocal-Linear 均在 `20/20` paired seeds 上提高 held-out-context reward 并降低 harmful-far retention；Global stepwise scale 则在 `0/20` seeds 上提高 reward，且保留更多 harmful-far influence。Terminal useful-near retention 因零分母不可评估，不得补写为已证明。
+- 原 guard 只在计算结束后的 required-output/package 阶段失败：return code `0`、provenance 未受损、正式结果和原 failed tree 均保留。v66 修复 runner 漏写 `scientific_run_manifest.json`，并通过 compact deposition + explicit full-raw sidecar 完成交付；不得把 packaging failure 称为实验数值失败。
+- `CONV-01` 仍 blocked；下一项是 Budget-Match 交付后的独立 shortlist-freeze 更新和 continuation runner 实现。不得直接延长 run_003，也不得访问 confirmation seeds `130--149`。
+<!-- HANDOFF-DELTA-BLOCK:section_end:v66-e4-taper-budget-match-current-gate:END -->
 
 ## 0.2 C-U1 泛化术语覆盖规则（v15 锁定）
 

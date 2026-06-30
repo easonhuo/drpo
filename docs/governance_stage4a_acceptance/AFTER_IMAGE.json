@@ -17,35 +17,35 @@
     },
     {
       "path": "docs/handoff_shadow/stage4/dynamic/generated/EDGES.yaml",
-      "sha256": "18552f1bff33c5707a4c7eb7e9dbcb010acd205ea84c295d4e6fbdda99418aa1"
+      "sha256": "821c5aff8203e26846678148cf11535564265508f0760851e0eb13c11115a1da"
     },
     {
       "path": "docs/handoff_shadow/stage4/dynamic/generated/GRAPH_MANIFEST.json",
-      "sha256": "9ef28c73943f7b90e415dd72b88eabd03b422728d6ea672a515e7bb8c2f2786a"
+      "sha256": "c0619163c1e1c2450fa0f5d5f8993fd63fbe36a0a3c235609443dfbec963df52"
     },
     {
       "path": "docs/handoff_shadow/stage4/dynamic/generated/NODES.yaml",
-      "sha256": "52cfc7d03196879915cb6006273a7229f7d842f31613ec55d6c8ad4aaa7262ab"
+      "sha256": "663da4a5bbc9df7e0a46d3ce4d53b151d20a87503d546a69acb3d2cd7cb962fa"
     },
     {
       "path": "docs/handoff_shadow/stage4/dynamic/generated/REVIEW_QUEUE.yaml",
-      "sha256": "472986671bae3c4304f2d789cc51275f806065ff9e61e0608b342a36075dba09"
+      "sha256": "a6c7c356b4c9864669d7f67006ce6f0df694673854137dfdba1d6aaf5ef8491b"
     },
     {
       "path": "docs/handoff_shadow/stage4/dynamic/generated/graph/CLAIM_EXPERIMENT.md",
-      "sha256": "674f27b31282826895e8db6d9bbb48187d61bfa1749ded931dbcf1ef55246786"
+      "sha256": "7713d3d0a51687040e8087f51a9c544b8457c4f3275200f12368aef9a589a30c"
     },
     {
       "path": "docs/handoff_shadow/stage4/dynamic/generated/graph/FULL_GRAPH.dot",
-      "sha256": "e9982edfb2775a910ea056a6ddbdae68b32c7357bb81c801f03d6dbb2802ed71"
+      "sha256": "eb59b85b78e37feef0b1a7a849196e7b8df6ee8a93a5ac02d002b3cf16682741"
     },
     {
       "path": "docs/handoff_shadow/stage4/dynamic/generated/graph/LINEAGE.md",
-      "sha256": "90f0badec74357476cd83ebb709b4c68d038db10754acc268649f0030f03d887"
+      "sha256": "88b24657a1aaa5251985ce9f3023e0967704842e48e4277ccb0bbb9340c59bd0"
     },
     {
       "path": "docs/handoff_shadow/stage4/dynamic/generated/graph/OVERVIEW.md",
-      "sha256": "09fdf8a0201dd2a8f95574b21127468b8dde2a895eb5f14d7b45b8ef6d1fc7b4"
+      "sha256": "41a9e28450d02a57d192127948d11201b3fa23c26b64752183602c011c1ca683"
     },
     {
       "path": "docs/handoff_shadow/stage4/dynamic/kernel/RESEARCH_SEMANTIC_KERNEL.yaml",
@@ -61,15 +61,15 @@
     },
     {
       "path": "docs/handoff_shadow/stage4/inventory/CLAIMS.yaml",
-      "sha256": "71c93fa3d745e9c5802fbb0d7fd89e39e55a6f1ead48ef815b164bbf9edd2d69"
+      "sha256": "52e8943d6a073f3e5f286de43fa641c59faea63814e9efd18e42e8a72d69413c"
     },
     {
       "path": "docs/handoff_shadow/stage4/inventory/EXPERIMENTS.yaml",
-      "sha256": "ca7492fec445c91c99f80b47d1eee83eb1e0913162293d7725380573611eb11e"
+      "sha256": "b132a9bb8247a1361bfc36325017635d8cdbc99f708549d678000c26299fc5bf"
     },
     {
       "path": "docs/handoff_shadow/stage4/inventory/HEADINGS.yaml",
-      "sha256": "38a23fbffa4b590a09bf68df29939c0e4443a0bb51518a0e0772fcaa9d15a896"
+      "sha256": "3ac802153e85fcafd9a87c1bf2479f61b0fbcee47b24b2aed80c67e117f835b7"
     },
     {
       "path": "docs/handoff_shadow/stage4/inventory/MODULES.yaml",
@@ -93,11 +93,11 @@
     },
     {
       "path": "docs/handoff_shadow/stage4/minimal/generated/MODULE_INDEX.json",
-      "sha256": "70273f3e2a87d6593fe962030c89c7796d4eaa10e9db7ae0bac1d56d249b93e8"
+      "sha256": "cc41f4751e311496f96a438cbf2822ec55dcaa1bf8d9452e4c62dd0b8e7e5d5a"
     },
     {
       "path": "docs/handoff_shadow/stage4/minimal/generated/STRUCTURE_SUGGESTIONS.md",
-      "sha256": "86ae9a8c54119c6c9ec4745d8716deba35cbda7036a9bda6e7f0bfadac94755f"
+      "sha256": "94052b55325b16bf0588de34a6f0c0b5a43d0dbedfa05842fc071af1eab251bf"
     },
     {
       "path": "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e5_mechanism.md",
@@ -113,7 +113,7 @@
     },
     {
       "path": "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_taper.md",
-      "sha256": "60af093d64b69cf808c7657b45c48519bc0046d9109077aa89641368589a7f9b"
+      "sha256": "5e9f58f7b78dd6431ed4cae4acdb8cf96387a1a6dd4e0b3fd0646ef61c9d5c3d"
     },
     {
       "path": "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_mechanism_e1_e3.md",
@@ -125,11 +125,11 @@
     },
     {
       "path": "docs/handoff_shadow/stage4/minimal/generated/modules/execution_status_gates.md",
-      "sha256": "23d8f218160dc5ef284891bbccab690b86195d85fa3b8e1db40677d7f93f90a5"
+      "sha256": "b91c27a41eb6cb1b36d08b1e9223dff245997c869ef8cafc8a87dbc642d1acfb"
     },
     {
       "path": "docs/handoff_shadow/stage4/minimal/generated/modules/global_core_governance.md",
-      "sha256": "e645f022f372177009ce31ff92e1becd5a85eca9413992cefe047e31cfc8d3e0"
+      "sha256": "37e694b66ce48b0cedf6a847e290ff4acfbc8d4a5b814202c493dd943651b8b8"
     },
     {
       "path": "docs/handoff_shadow/stage4/minimal/generated/modules/history_provenance.md",
@@ -198,5 +198,5 @@
   ],
   "policy_id": "GOV-HANDOFF-INDEX-01",
   "schema_version": 1,
-  "tree_hash": "2de2449d36708c1cf3f433d3cceb91f5ec670f644fcf4e373c798cf5ffadc550"
+  "tree_hash": "7d0a08a14ec4e847597060e3032764bd8e6df9afab20ad1bc2c4fa230d1d8bd8"
 }

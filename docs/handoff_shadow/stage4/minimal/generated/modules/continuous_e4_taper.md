@@ -6,8 +6,8 @@
 - Module ID: `continuous_e4_taper`
 - Responsibility: Cover taper-family mechanism comparisons, near-retention and budget fairness controls, long-run resolution, confirmatory evidence, and the frozen follow-up order.
 - Content contract topics: none
-- Deduplicated overlapping source chunks: 3
-- Source hash: `1ab92bc6f636fa94e90dcdccd132c8e2be0c76a32928eed7d58dedee044fe2db`
+- Deduplicated overlapping source chunks: 4
+- Source hash: `4c80dd69ce9906c52f20cb6f5539f98e3cab42794340c90879e24ccd7eb30405`
 
 ## Source 1: docs/handoff.md: ## 3.8 C-U1 共享实现与二次阶方法实验 `C-U1-E4-TAPER-01` -> ## 3.9 E6--E8 方法迁移与规模验证路线（v42 锁定）
 
@@ -215,6 +215,29 @@ Convergence 继续使用 seeds `110--129`，从 Budget-Match 8000-step actor 与
 
 **Independent Confirmation 防火墙。** `C-U1-E4-TAPER-CONFIRM-01` 的 untouched seeds 现在冻结为 `130--149`，在 confirmation config 完整冻结前任何代码、校准、smoke 或 exploratory analysis 都不得访问。确认阶段继承最终 shortlist、系数、budget rule、32000-step 上限和终态标准，禁止 retune 或改 primary claim。机制、任务和终态分开判断：near-useful non-inferiority、far-harmful improvement、paired reward vs Linear/Global、terminal classification 与三类 failure 各自报告；最低方向一致性门槛为 `16/20`，并给 paired 95% bootstrap interval。任务 superiority 不成立不能抹除机制结果，机制成立也不能冒充 reward 或稳态 superiority。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v63-e4-taper-near-result-and-closure-protocol:END -->
+<!-- HANDOFF-DELTA-BLOCK:section_end:v66-e4-taper-budget-match-result:START -->
+### 3.8.12 Budget-Match 正式结果与证据边界（v66）
+
+**运行与公平性。** `C-U1-E4-TAPER-BUDGET-MATCH-01` 在 commit `1faea3a92f74af5d11409779d96b9ed21fe846ad` 上完成 seeds `110--129`、7 methods，共 `140/140` runs。每个 paired seed 由 Reciprocal-Linear 先生成逐步 target schedule；Reciprocal-Quadratic、current Exponential、Squared-distance Exponential 与 non-selective Global stepwise scale 在同初始化、同 minibatch stream 下，用 detached scalar 匹配每一步 Adam 前的 raw negative-gradient L2 norm。最大相对误差为 `2.11795e-16`。Adam total parameter-update norm 只是 secondary diagnostic，不在 matched coordinate 内。
+
+| Method | mean held-out-context reward | delta vs Linear | positive paired seeds | mean harmful-far retention | lower harmful-far seeds vs Linear |
+|---|---:|---:|---:|---:|---:|
+| Reciprocal-Linear | 0.631452 | 0 | — | 0.055866 | — |
+| Reciprocal-Quadratic | 0.647464 | +0.016011 | 20/20 | 0.043338 | 20/20 |
+| current Exponential | 0.719641 | +0.088189 | 20/20 | 0.002300 | 20/20 |
+| Squared-distance Exponential | 0.762069 | +0.130616 | 20/20 | 9.28e-40 | 20/20 |
+| Global stepwise scale | 0.624570 | -0.006883 | 0/20 | 0.063525 | 0/20 |
+| Positive-only | 0.646858 | — | — | 0 | — |
+| Unweighted boundary | 0.259398 | — | — | 1.0 | — |
+
+因此，在当前冻结 C-U1 与 8000-step horizon 中，**总 raw negative-gradient norm 相同并不足以复现 selective taper 的结果；把预算从 harmful far field 重新分配的形状差异具有独立有限步信号。** 这不等于 Distance 必然优于任何 Global 方法，因为这里只比较一个严格登记的 non-selective stepwise control，也不等于稳态或跨任务排名。
+
+**未闭合的 near 侧。** `near_useful_gradient_retention` 的 terminal aggregate 在非 Positive-only 方法上为 NaN，原因是 raw useful-near positive-projection denominator 为零。它是不可评估，不是 0，也不是 1。因此 Budget-Match 不能独立闭合“更多预算留给 useful-near”；该子 claim 仍由 Near-Retention 的固定初始 near-region matching 证据承担。后续 shortlist 规则只使用已预登记的 Near-Retention near 条件与本实验的 harmful-far/reward 条件，不得用 NaN 后验补门禁。
+
+**事件与终态。** task-performance collapse 为 `13/140`、support/variance boundary 为 `20/140`、NaN/Inf 为 `0/140`，前两类只出现在 unweighted boundary；controlled methods 全部为 0。`terminal_audit.json` 通过的是 coverage、budget tolerance、reference schedule 未重心化与无 NaN/Inf，不是所有方法已收敛。科学状态固定为 **有限训练步数验证**，长期状态由 `CONV-01` 独立负责。
+
+**收尾故障记录。** 原 guard 在子进程 return code 0 后，因缺少 `scientific_run_manifest.json` 和默认主包超过 25 MiB 而将 lifecycle 写为 failed。问题属于 runner/packaging contract，不是 task collapse、support boundary 或 numerical collapse。原 failed tree 与 failure markers 不删除；v66 只在仓库代码中补写 manifest，并把完整原树作为显式 raw sidecar 交付，compact summary 位于 `outputs/cu1_e4_taper_budget_match/`。
+<!-- HANDOFF-DELTA-BLOCK:section_end:v66-e4-taper-budget-match-result:END -->
 
 ## Source 2: docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v60-e4-taper-utility-registration
 
@@ -244,19 +267,32 @@ Convergence 继续使用 seeds `110--129`，从 Budget-Match 8000-step actor 与
 > - 本实验不匹配总负梯度预算，科学状态上限为 finite-step validated；长期 shortlist 与稳态排名继续由后续 `CONV-01` 负责。当前仅完成实现与 smoke，正式多 seed 尚未启动。
 > - `BUDGET-MATCH-01`、`CONV-01`、`CONFIRM-01` 继续 blocked；只有 Near-Retention 正式结果完成终态审计、打包并交付后，才允许冻结下一项。
 
-## Source 4: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v60-e4-taper-current-gate
+## Source 4: docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v66-e4-taper-budget-match-closure
+
+### Delta block `after_heading:v66-e4-taper-budget-match-closure`
+
+> **v66 增量登记：`C-U1-E4-TAPER-BUDGET-MATCH-01` 正式结果、收尾故障审计与闭环交付（不删除 v65 及更早内容）**
+>
+> - 正式运行绑定 clean `main` commit `1faea3a92f74af5d11409779d96b9ed21fe846ad`，使用冻结 paired seeds `110--129`、7 个条件、每个最多 8000 steps，完成 `140/140` method-seed runs。逐步 Adam 前 raw negative-gradient L2 budget 的最大相对误差为 `2.12e-16`，通过 `1e-6` 门槛；Adam parameter-update norm 仅记录、未匹配。
+> - 以 Reciprocal-Linear 为 reference，Reciprocal-Quadratic、current Exponential、Squared-distance Exponential 的 held-out-context reward 配对均值差分别为 `+0.016011 / +0.088189 / +0.130616`，均为 `20/20` seeds 正差；harmful-far retention 配对差分别为 `-0.012528 / -0.053566 / -0.055866`，均为 `20/20` 更低。Non-selective Global stepwise scale 的 reward 差为 `-0.006883`（`0/20` 正差），harmful-far retention 差为 `+0.007659`（`0/20` 更低）。这支持“相同 raw negative-gradient 总预算下，选择性 taper 的远场分配而非仅总预算大小会改变有限步任务结果”。
+> - Terminal near-useful retention 在非 Positive-only 方法上因 raw positive-projection denominator 为零而为 undefined/NaN，因此本实验不能独立声称 candidate 把更多预算保留给 useful-near；该部分仍由 Near-Retention predecessor 承担。当前 Budget-Match 的强证据是 harmful-far suppression 与 held-out-context reward 的 paired 一致性。
+> - 三类事件严格分报：task-performance collapse `13/140`、support/variance boundary `20/140`、NaN/Inf `0/140`；前两类全部来自 unweighted boundary。所有 matched/controlled 方法三类事件均为 0。固定 8000-step horizon 不证明稳态，科学状态只能是 **有限训练步数验证**；禁止 steady-state winner、universal winner、OOD generalization、跨任务优越或“Adam update 已匹配”表述。
+> - 计算本身 return code 为 0，coverage、budget 与 terminal audit 全部通过；hardened guard 在收尾阶段标记 failed，因为 runner 漏写已登记的 `scientific_run_manifest.json`，且默认 25 MiB 主包超限。该故障不改变数值输出或 provenance。原 failed guard tree 完整保留；闭环包加入 runner manifest 修复、compact repository deposition 与完整 raw sidecar，不重跑正式 seeds。
+> - `C-U1-E4-TAPER-CONV-01` 继续 blocked。Budget-Match 交付后，下一动作必须是独立的 deterministic shortlist-freeze 更新，再实现 exact actor+Adam-state continuation runner；本版不提前生成 shortlist，不自动启动 Convergence。Seeds `130--149` 继续禁止访问。
+
+## Source 5: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v60-e4-taper-current-gate
 
 ### Delta block `section_end:v60-e4-taper-current-gate`
 
 - **E4-TAPER v60 覆盖：** `C-U1-E4-TAPER-01` 仍为 finite-step validated。四个后续 ID 已获用户批准并登记，但全部保持 blocked：先冻结并实现 `NEAR-RETENTION-01`，交付后才允许冻结 `BUDGET-MATCH-01`；二者交付并冻结 shortlist 后才允许 `CONV-01`；最后才用 untouched seeds 执行 `CONFIRM-01`。原实验禁止自动延长，几何 robustness 不作为当前门禁。
 
-## Source 5: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v61-e4-taper-near-retention-current-gate
+## Source 6: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v61-e4-taper-near-retention-current-gate
 
 ### Delta block `section_end:v61-e4-taper-near-retention-current-gate`
 
 - **E4-TAPER v61 覆盖：** `C-U1-E4-TAPER-NEAR-RETENTION-01` 已完成协议冻结、独立 runner、formal-channel 登记和工程 smoke，registry 为 **implemented + ready + active + not_run**。允许下一步启动该实验的 canonical guarded formal run，但 smoke/单元测试不构成科学结果。`BUDGET-MATCH-01` 仍必须等待 Near-Retention 的 raw-complete、终态审计、打包与交付；不得提前实现为可运行状态或并行启动。
 
-## Source 6: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v63-e4-taper-closure-current-gate
+## Source 7: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v63-e4-taper-closure-current-gate
 
 ### Delta block `section_end:v63-e4-taper-closure-current-gate`
 
@@ -265,7 +301,15 @@ Convergence 继续使用 seeds `110--129`，从 Budget-Match 8000-step actor 与
 - `C-U1-E4-TAPER-BUDGET-MATCH-01` 在 v63 冻结并实现为下一项 **implemented + ready + active + not_run**。唯一 primary budget coordinate 是每一步、Adam 之前的 raw negative-gradient L2 norm；paired Reciprocal-Linear actor 生成冻结目标 schedule，其他 Distance families 与 non-selective Global stepwise scale 使用 detached scalar 精确匹配该 norm。Adam 实际 parameter-update norm 只记录、不声称匹配。正式 seeds 固定为 `110--129`；seeds `130--149` 继续 untouched，专属最终 confirmation。
 - `C-U1-E4-TAPER-CONV-01` 与 `C-U1-E4-TAPER-CONFIRM-01` 的 seed firewall、输入输出契约、shortlist 冻结规则、32000-step 长程上限、continuous Adam-state 要求、2× terminal audit 与确认分析计划已预登记，但二者继续 blocked。Budget-Match terminal-audited、packaged、delivered 之前不得生成 shortlist 或启动 Convergence；Convergence 交付且 confirmation config 哈希冻结前不得访问 seeds `130--149`。
 
-## Source 7: experiments/registry.yaml: experiments[C-U1-E4-TAPER-01, C-U1-E4-TAPER-NEAR-RETENTION-01, C-U1-E4-TAPER-BUDGET-MATCH-01, C-U1-E4-TAPER-CONV-01, C-U1-E4-TAPER-CONFIRM-01]
+## Source 8: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v66-e4-taper-budget-match-current-gate
+
+### Delta block `section_end:v66-e4-taper-budget-match-current-gate`
+
+- **E4-TAPER v66 覆盖：** `C-U1-E4-TAPER-BUDGET-MATCH-01` 已完成 `140/140` 正式 runs、逐步 raw-negative-gradient budget audit 与 terminal audit，科学状态为 **有限训练步数验证**。相同 Adam 前 raw negative-gradient L2 budget 下，三种 selective candidates 相对 Reciprocal-Linear 均在 `20/20` paired seeds 上提高 held-out-context reward 并降低 harmful-far retention；Global stepwise scale 则在 `0/20` seeds 上提高 reward，且保留更多 harmful-far influence。Terminal useful-near retention 因零分母不可评估，不得补写为已证明。
+- 原 guard 只在计算结束后的 required-output/package 阶段失败：return code `0`、provenance 未受损、正式结果和原 failed tree 均保留。v66 修复 runner 漏写 `scientific_run_manifest.json`，并通过 compact deposition + explicit full-raw sidecar 完成交付；不得把 packaging failure 称为实验数值失败。
+- `CONV-01` 仍 blocked；下一项是 Budget-Match 交付后的独立 shortlist-freeze 更新和 continuation runner 实现。不得直接延长 run_003，也不得访问 confirmation seeds `130--149`。
+
+## Source 9: experiments/registry.yaml: experiments[C-U1-E4-TAPER-01, C-U1-E4-TAPER-NEAR-RETENTION-01, C-U1-E4-TAPER-BUDGET-MATCH-01, C-U1-E4-TAPER-CONV-01, C-U1-E4-TAPER-CONFIRM-01]
 
 collection: experiments
 entries:
@@ -885,20 +929,25 @@ entries:
     - Adam_optimizer_update_budget_was_matched
 - id: C-U1-E4-TAPER-BUDGET-MATCH-01
   execution_gate:
-    state: ready
-    blocked_by: []
-    blocking_reason: resolved_by_v62_stepwise_raw_negative_gradient_l2_protocol_and_implemented_runner
+    state: blocked
+    blocked_by:
+    - completed_formal_execution_no_rerun_without_new_registration
+    blocking_reason: completed_formal_execution_terminal_audit_and_delivery_closure
     depends_on_delivered_experiment: C-U1-E4-TAPER-NEAR-RETENTION-01
     protocol_freeze: v62_stepwise_raw_negative_gradient_l2_budget_match
-    reason: Near-Retention is deposited as finite-step validated. The primary budget coordinate, reference schedule, global
-      control, seed firewall, runner, outputs, and interpretation boundary are frozen. Formal execution is active but has
-      not started.
+    reason: The frozen 140-run Budget-Match matrix completed at run commit 1faea3a92f74af5d11409779d96b9ed21fe846ad and passed
+      coverage, budget, and terminal audits. The scientific state is finite-step validated. The original guard lifecycle failed
+      only after successful computation because the runner omitted scientific_run_manifest.json and the default package size
+      was exceeded; the original failed tree is preserved and the closure package repairs delivery without rerunning formal
+      seeds. A rerun requires a new registration.
   environment: C-U1
   name: taper_family_negative_update_budget_matched_comparison
-  status: not_run
-  scientific_status: not_run
+  status: finite_step_validated
+  scientific_status: finite_step_validated
   parent_experiment: C-U1-E4-TAPER-01
   predecessor: C-U1-E4-TAPER-NEAR-RETENTION-01
+  run_commit: 1faea3a92f74af5d11409779d96b9ed21fe846ad
+  compact_result_path: outputs/cu1_e4_taper_budget_match/RESULT_SUMMARY.json
   registration_base_commit: 22161a91c0863278765b0d604ea82401d481b5aa
   claim: At the same per-step raw negative-gradient L2 norm before Adam, test whether distance-selective tapering allocates
     more update mass to useful near negatives and less to harmful far negatives than reciprocal-linear and a non-selective
@@ -908,7 +957,7 @@ entries:
   implementation_state: implemented
   formal_execution:
     channel_ref: hardened-v1
-    activation_state: active
+    activation_state: blocked
     entrypoint_status: implemented
     entrypoint: src/drpo/cu1_taper_budget_match_formal.py
     launch_mode: canonical_guard
@@ -950,7 +999,7 @@ entries:
     candidate_matching_modes:
     - stepwise_negative_gradient_norm
     - cumulative_negative_optimizer_update
-    exact_primary_mode: pending_protocol_freeze
+    exact_primary_mode: stepwise_raw_negative_gradient_l2_before_Adam
     only_selective_distance_allocation_may_differ: true
   primary_metrics:
   - maximum_stepwise_negative_gradient_budget_matching_error
@@ -968,11 +1017,28 @@ entries:
   evidence:
     implementation_tests_passed: true
     engineering_smoke_passed: true
-    formal_run_started: false
-    run_started: false
-    raw_complete: false
-    terminal_audited: false
-    package_created: false
+    formal_run_started: true
+    run_started: true
+    raw_complete: true
+    terminal_audited: true
+    terminal_audit_passed: true
+    completed_runs: 140
+    expected_runs: 140
+    formal_seed_count: 20
+    maximum_budget_relative_error: 2.1179505308403659e-16
+    task_performance_collapse_events: 13
+    support_or_variance_boundary_events: 20
+    nan_inf_numerical_events: 0
+    compact_repository_deposition_created: true
+    original_guard_failed_after_compute: true
+    original_guard_failure_reason:
+    - missing_scientific_run_manifest
+    - default_main_package_exceeded_25_MiB
+    compute_returncode: 0
+    provenance_compromised: false
+    package_created: true
+    package_delivered: true
+    full_raw_archive_sha256: b635eabe3482fee92225f274292a78b21b8e09bf161dc42f4c151a549df6485d
   code_entrypoint: src/drpo/cu1_taper_budget_match_formal.py
   formal_launch_template: python3 scripts/run_experiment_guard_hardened.py --experiment-id C-U1-E4-TAPER-BUDGET-MATCH-01 --repo-root
     . --output-root experiments/results/C-U1-E4-TAPER-BUDGET-MATCH-01/run_001 --artifact-output artifacts/C-U1-E4-TAPER-BUDGET-MATCH-01_RAW_COMPLETE.zip
@@ -1049,19 +1115,47 @@ entries:
     - task_performance_collapse
     - support_or_variance_boundary
     - nan_inf_numerical_failure
+  result_summary:
+    primary_budget_coordinate: stepwise_raw_negative_gradient_l2_before_Adam
+    maximum_budget_relative_error: 2.1179505308403659e-16
+    reciprocal_quadratic_reward_delta_vs_linear: 0.016011109948158263
+    exponential_reward_delta_vs_linear: 0.08818890154361725
+    squared_distance_exponential_reward_delta_vs_linear: 0.13061619997024537
+    global_stepwise_scale_reward_delta_vs_linear: -0.006882542371749878
+    reciprocal_quadratic_reward_positive_seeds_vs_linear: 20
+    exponential_reward_positive_seeds_vs_linear: 20
+    squared_distance_exponential_reward_positive_seeds_vs_linear: 20
+    global_stepwise_scale_reward_positive_seeds_vs_linear: 0
+    reciprocal_quadratic_far_harmful_lower_seeds_vs_linear: 20
+    exponential_far_harmful_lower_seeds_vs_linear: 20
+    squared_distance_exponential_far_harmful_lower_seeds_vs_linear: 20
+    global_stepwise_scale_far_harmful_lower_seeds_vs_linear: 0
+    interpretation: Under exact finite-horizon raw-negative-gradient budget matching, selective taper shape changed harmful-far
+      allocation and held-out-context reward; terminal useful-near retention was undefined, and this does not establish steady-state
+      or universal ranking.
+  paper_use:
+    suitable_for_finite_horizon_budget_matched_selectivity_claim: true
+    suitable_for_terminally_stable_method_ranking: false
+    prohibited_claims:
+    - long_run_validated
+    - steady_state_ranking
+    - OOD_generalization
+    - universal_method_ranking
+    - cross_task_superiority
+    - Adam_parameter_update_norm_was_matched
   next_gate:
     experiment_id: C-U1-E4-TAPER-CONV-01
-    state: blocked_until_budget_match_delivered_and_shortlist_frozen
+    state: blocked_until_shortlist_frozen_and_continuation_runner_implemented
     automatic_activation_forbidden: true
 - id: C-U1-E4-TAPER-CONV-01
   execution_gate:
     state: blocked
     blocked_by:
-    - C-U1-E4-TAPER-BUDGET-MATCH-01_delivered
     - frozen_shortlist_json_generated_from_preregistered_rule
     - separately_implemented_continuation_runner
-    blocking_reason: Budget-Match must be delivered before its registered shortlist rule is evaluated and frozen. The long-run
-      runner must consume exact actor and Adam optimizer checkpoints; no old 8000-step run may be extended ad hoc.
+    blocking_reason: Budget-Match is delivered as finite-step validated. The next action is a separate, deterministic shortlist-freeze
+      update using the preregistered rule, followed by implementation of a continuation runner that consumes exact actor and
+      Adam optimizer checkpoints. No old 8000-step run may be extended ad hoc.
   environment: C-U1
   name: taper_frozen_shortlist_long_run_terminal_resolution
   status: not_run

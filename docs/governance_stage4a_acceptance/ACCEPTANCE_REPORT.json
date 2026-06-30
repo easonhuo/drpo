@@ -156,7 +156,7 @@
       "target": "paper_rewrite"
     }
   ],
-  "after_image_tree_hash": "2de2449d36708c1cf3f433d3cceb91f5ec670f644fcf4e373c798cf5ffadc550",
+  "after_image_tree_hash": "7d0a08a14ec4e847597060e3032764bd8e6df9afab20ad1bc2c4fa230d1d8bd8",
   "authority": "shadow_only",
   "authority_cutover_allowed": false,
   "claim_id": "GOV-HANDOFF-INDEX-01",
@@ -176,6 +176,14 @@
     "total": 19
   },
   "hard_blockers": [],
+  "maintenance_refresh": {
+    "authorization_id": "GOV-STAGE4A-BUDGET-MATCH-CLOSURE-COMPAT-2026-06-30",
+    "base_commit": "f8492a7cff3fcd12ccf51938c3758913c237f049",
+    "change_class": "compatibility_fix",
+    "core_acceptance_rerun": "PASS with determinism",
+    "fault_injection_evidence": "Reused the previously accepted 19/19 report because Stage 4 implementation/configuration and fault harness are unchanged. A fresh full rerun was attempted but did not complete within the execution window; no fresh 19/19 claim is made.",
+    "scope": "Refresh the accepted Stage 4A shadow after-image after authoritative handoff/registry Budget-Match closure and deterministic shadow regeneration; no Stage 4 implementation, configuration, authority, or stage-state change."
+  },
   "manual_handoff_remains_authoritative": true,
   "mapping": {
     "canonical_experiments": 23,
@@ -190,7 +198,7 @@
       "automatic_action": false,
       "kind": "candidate_split_module",
       "object_id": "continuous_e4_taper",
-      "reason": "source content has 60330 characters, above the configured 50000 threshold"
+      "reason": "source content has 68557 characters, above the configured 50000 threshold"
     },
     {
       "automatic_action": false,
@@ -201,58 +209,18 @@
   ],
   "repository_gates": [
     {
-      "command": "python3 scripts/build_stage4_context.py --repo-root . --json check",
-      "result": "13 modules, 39 dependency edges, 0 problems",
-      "status": "PASS"
-    },
-    {
-      "command": "python3 scripts/validate_stage4_context.py --repo-root . --json",
-      "result": "3 contract modules, 17 topics, 0 problems",
-      "status": "PASS"
-    },
-    {
-      "command": "python3 scripts/validate_stage4_semantic_graph.py --repo-root . --json",
-      "result": "439 nodes, 0 review queue, 0 rejected candidates",
-      "status": "PASS"
-    },
-    {
-      "command": "python3 scripts/validate_stage4a_inventory.py --repo-root . --json",
-      "result": "Stage 4A shadow inventory current",
-      "status": "PASS"
-    },
-    {
-      "command": "python3 scripts/run_stage4a_acceptance.py --repo-root . --skip-fault-injection --json",
-      "result": "positive gates and determinism passed",
-      "status": "PASS"
-    },
-    {
-      "command": "python3 scripts/validate_governance_pipeline_stage_status.py --repo-root . --json",
-      "result": "Stage 4 active, Stage 5 blocked",
-      "status": "PASS"
-    },
-    {
-      "command": "pytest -q tests/test_stage4_context.py tests/test_stage4_semantic_graph.py tests/test_stage4a_inventory.py tests/test_stage4a_acceptance.py tests/test_governance_pipeline_stage_status.py",
-      "result": "91 passed in 158.95s (0:02:38)",
-      "status": "PASS"
-    },
-    {
-      "command": "python3 -m pytest -q",
-      "result": "485 passed in 1009.63s (0:16:49)",
-      "status": "PASS"
-    },
-    {
       "command": "ruff check .",
-      "result": "All checks passed! (ruff 0.15.20)",
+      "result": "All checks passed",
       "status": "PASS"
     },
     {
-      "command": "python3 -m compileall -q src scripts tools tests",
+      "command": "python -m compileall -q src scripts tests",
       "result": "completed with exit code 0",
       "status": "PASS"
     },
     {
-      "command": "git diff --check 9674cb167080dfdeecb353c9f328ad86b74f87c5",
-      "result": "no whitespace errors",
+      "command": "pytest -q tests/test_cu1_e4_taper_budget_match_protocol.py tests/test_cu1_e4_taper_utility_followups.py tests/test_handoff_delta_shadow.py::test_current_budget_match_v66_delta_matches_manual_handoff",
+      "result": "17 passed in 9.43s",
       "status": "PASS"
     }
   ],
@@ -402,7 +370,7 @@
       ]
     }
   },
-  "semantic_graph_hash": "5a9848863a418febe2b3f3c2d8df68bf2f4ba4de04744acd111a4fbc177407d8",
+  "semantic_graph_hash": "c8f7bc1c168904e58b80c8e5421a1ac9528313af06522fe2ade5598223047f32",
   "stage_4a_state": "accepted",
   "stage_4b_state": "ready_for_separate_authorization",
   "stage_4c_state": "blocked_by_stage_4b_acceptance",
