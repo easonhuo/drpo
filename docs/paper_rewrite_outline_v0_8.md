@@ -1,7 +1,7 @@
 # DRPO 论文重写 v0.8：Canonical 完整大纲、修正账本与下一阶段施工清单
 
-**状态：正式迁移为 manuscript cascade 的 canonical outline。**
-**作用：论文结构的唯一 active contract；`docs/handoff.md` 仍是研究状态唯一权威 Master。**
+**状态：已否定并由 v0.7 恢复版本替代；仅保留为 reverse-alignment 错误的历史 provenance。**
+**作用：历史审计材料，不再是 active manuscript contract；`docs/handoff.md` 仍是研究状态唯一权威 Master。**
 **迁移基线：GitHub `main` commit `3738d09c6cf912ecb85b751fe313e4c79e5974e9`。**
 **本次性质：文档与研究规划沉淀，不构成任何新实验结果。**
 **Introduction 段落级施工图：** `docs/paper_rewrite_intro_blueprint_v0_2.md`。

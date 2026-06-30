@@ -78,7 +78,15 @@ def create_artifacts(tmp_path: Path, *, with_prose: bool = True):
     return config_path
 
 
-def issue_data(root: str, *, state: str = "planned", with_prose: bool = True):
+def issue_data(
+    root: str,
+    *,
+    state: str = "planned",
+    with_prose: bool = True,
+    kind: str | None = None,
+    reported_layer: str | None = None,
+    outline_change_authorized: bool | None = None,
+):
     statuses = {}
     blocked = False
     for layer in mc.LAYER_ORDER:
@@ -97,12 +105,24 @@ def issue_data(root: str, *, state: str = "planned", with_prose: bool = True):
         for layer in mc.LAYER_ORDER[root_index:]
         if not (layer == "prose" and not with_prose)
     ]
+    if kind is None:
+        kind = "alignment_repair" if root != "outline" else "content_revision"
+    if reported_layer is None:
+        reported_layer = root
+    if outline_change_authorized is None:
+        outline_change_authorized = root == "outline"
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "issue_id": "ISSUE-01",
         "section_id": "introduction",
         "paragraph_ids": ["INTRO-P01"],
         "problem": "Reported manuscript problem.",
+        "change_control": {
+            "kind": kind,
+            "reported_layer": reported_layer,
+            "outline_change_authorized": outline_change_authorized,
+            "authorization_evidence": "Explicit test authorization or verified outline pass.",
+        },
         "checks": [
             {
                 "layer": layer,
@@ -118,6 +138,62 @@ def issue_data(root: str, *, state: str = "planned", with_prose: bool = True):
         },
     }
 
+
+
+def test_alignment_mismatch_cannot_be_reclassified_as_outline_failure(tmp_path: Path):
+    config_path = create_artifacts(tmp_path)
+    config = mc.load_config(config_path)
+    issue = issue_data(
+        "outline",
+        kind="alignment_repair",
+        reported_layer="blueprint",
+        outline_change_authorized=False,
+    )
+    with pytest.raises(mc.ManuscriptCascadeError, match="alignment mismatch is not evidence"):
+        mc.validate_issue(issue, config)
+
+
+def test_blueprint_alignment_repair_preserves_outline(tmp_path: Path):
+    config_path = create_artifacts(tmp_path)
+    config = mc.load_config(config_path)
+    issue = issue_data(
+        "blueprint",
+        kind="alignment_repair",
+        reported_layer="blueprint",
+        outline_change_authorized=False,
+    )
+    root, required, summary = mc.validate_issue(issue, config)
+    assert root == "blueprint"
+    assert required == ["blueprint", "prose"]
+    assert summary["outline_change_authorized"] is False
+
+
+def test_outline_content_revision_requires_explicit_authorization(tmp_path: Path):
+    config_path = create_artifacts(tmp_path)
+    config = mc.load_config(config_path)
+    issue = issue_data(
+        "outline",
+        kind="content_revision",
+        reported_layer="blueprint",
+        outline_change_authorized=False,
+    )
+    with pytest.raises(mc.ManuscriptCascadeError, match="explicit outline-change authorization"):
+        mc.validate_issue(issue, config)
+
+
+def test_outline_content_revision_can_cascade_when_authorized(tmp_path: Path):
+    config_path = create_artifacts(tmp_path)
+    config = mc.load_config(config_path)
+    issue = issue_data(
+        "outline",
+        kind="content_revision",
+        reported_layer="blueprint",
+        outline_change_authorized=True,
+    )
+    root, required, summary = mc.validate_issue(issue, config)
+    assert root == "outline"
+    assert required == ["outline", "blueprint", "prose"]
+    assert summary["outline_change_authorized"] is True
 
 def git(repo: Path, *args: str) -> str:
     proc = subprocess.run(

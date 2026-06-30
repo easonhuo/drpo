@@ -1,0 +1,42 @@
+schema_version: 2
+issue_id: PAPER-INTRO-REVERSE-ALIGNMENT-CORRECTION-02
+section_id: introduction
+paragraph_ids:
+- INTRO-P01
+- INTRO-P02
+- INTRO-P03
+- INTRO-P04
+- INTRO-P05
+- INTRO-P06
+- INTRO-P07
+problem: >-
+  Correct the prior reverse-alignment error: the approved v0.7 outline was correct, while
+  the child blueprint had a different paragraph count and responsibility split.
+change_control:
+  kind: alignment_repair
+  reported_layer: blueprint
+  outline_change_authorized: false
+  authorization_evidence: >-
+    The user explicitly confirmed that v0.7 is correct and that the blueprint, not the
+    outline, must be repaired to match it.
+checks:
+- layer: outline
+  status: pass
+  evidence: >-
+    The v0.7 seven-paragraph Introduction structure is the user-approved canonical
+    structural contract.
+- layer: blueprint
+  status: fail
+  evidence: >-
+    The previous active blueprint used eight paragraphs and split theory from method,
+    so it did not derive from v0.7.
+- layer: prose
+  status: not_present
+  evidence: No Introduction prose artifact exists yet.
+resolution:
+  state: completed
+  required_layers:
+  - blueprint
+  changed_layers:
+  - blueprint
+allowed_additional_paragraph_ids: []

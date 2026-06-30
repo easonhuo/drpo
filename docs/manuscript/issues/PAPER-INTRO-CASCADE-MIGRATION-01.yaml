@@ -35,3 +35,6 @@ resolution:
   - outline
   - blueprint
 allowed_additional_paragraph_ids: []
+
+historical_status: superseded
+superseded_by: PAPER-INTRO-REVERSE-ALIGNMENT-CORRECTION-02

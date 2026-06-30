@@ -34,6 +34,38 @@ For every reported manuscript problem:
 This is the first-invalid-layer rule.  It forbids bottom-up patching and prevents a
 child document from silently redefining the manuscript structure.
 
+
+## Parent authority and reverse-alignment guard
+
+A mismatch between a child and its parent does **not** make the parent wrong. The default
+classification is:
+
+- approved outline + mismatched blueprint -> outline `pass`, blueprint `fail`;
+- approved blueprint + mismatched prose -> outline `pass`, blueprint `pass`, prose `fail`.
+
+The parent may change only when its own content is independently diagnosed as wrong or
+when the user explicitly approves a content/structural revision. A useful optimization first
+noticed while reviewing a blueprint is handled in two steps: re-check the outline on the
+merits of that optimization, then either (a) revise the outline and cascade, or (b) keep the
+outline fixed and revise only the blueprint and prose. Never modify an outline solely to make
+a child mismatch disappear.
+
+Active change records use schema version 2 and must include `change_control`:
+
+```yaml
+change_control:
+  kind: alignment_repair  # or content_revision / structural_revision / infrastructure_migration
+  reported_layer: blueprint
+  outline_change_authorized: false
+  authorization_evidence: >-
+    The user confirmed the canonical outline is correct; repair the blueprint only.
+```
+
+`alignment_repair` requires `outline: pass` and forbids outline changes. A content or
+structural revision may mark the outline `fail` only with explicit authorization evidence.
+Legacy schema-version-1 records are historical provenance and cannot drive a new active
+change.
+
 ## Stable paragraph identity
 
 Every paragraph must use the same stable ID and title in all configured layers:

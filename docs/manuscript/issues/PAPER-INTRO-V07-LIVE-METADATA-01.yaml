@@ -1,0 +1,45 @@
+schema_version: 2
+issue_id: PAPER-INTRO-V07-LIVE-METADATA-01
+section_id: introduction
+paragraph_ids:
+- INTRO-P01
+- INTRO-P02
+- INTRO-P03
+- INTRO-P04
+- INTRO-P05
+- INTRO-P06
+- INTRO-P07
+problem: >-
+  Restore the user-approved v0.7 outline as the active contract and add only the stable
+  manuscript block metadata required by the live cascade, without changing its seven
+  Introduction responsibilities or order.
+change_control:
+  kind: infrastructure_migration
+  reported_layer: outline
+  outline_change_authorized: true
+  authorization_evidence: >-
+    The user explicitly confirmed that v0.7 is correct and ordered it to be restored as
+    the canonical outline; only cascade metadata may be added to the approved content.
+checks:
+- layer: outline
+  status: fail
+  evidence: >-
+    The v0.7 content is correct, but the file lacks the stable MANUSCRIPT block metadata
+    required by the live hierarchy validator.
+- layer: blueprint
+  status: blocked
+  evidence: >-
+    The corrected blueprint must be generated after the v0.7 paragraph blocks and hashes
+    are established.
+- layer: prose
+  status: not_present
+  evidence: No Introduction prose artifact exists yet.
+resolution:
+  state: completed
+  required_layers:
+  - outline
+  - blueprint
+  changed_layers:
+  - outline
+  - blueprint
+allowed_additional_paragraph_ids: []

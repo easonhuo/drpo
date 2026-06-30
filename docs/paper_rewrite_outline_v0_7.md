@@ -1,10 +1,10 @@
 # DRPO 论文重写 v0.7：完整大纲、修正账本与下一阶段施工清单
 
-**状态：用户审阅通过，允许落库。**
+**状态：用户审阅通过；现为 manuscript cascade 的 active canonical full outline。**
 **作用：论文正文重写的阶段性唯一详细蓝图；`docs/handoff.md` 仍是研究状态唯一权威 Master。**
 **落库基线：GitHub `main` commit `2054f51719bfd53fe1103a20cfb522b244ad25e0`。**
 **本次性质：文档与研究规划沉淀，不构成任何新实验结果。**
-**Introduction 段落级施工图：** `docs/paper_rewrite_intro_blueprint_v0_1.md`。
+**Introduction 段落级施工图：** `docs/paper_rewrite_intro_blueprint_v0_3.md`。
 
 ---
 
@@ -180,33 +180,47 @@ Introduction 按以下逻辑展开：
 
 > 背景 → 现实问题 → 已有解决方案 → 现有局限 → 本文认识 → DRPO → 贡献与实验
 
-### Paragraph 1：背景与重要性
+<!-- MANUSCRIPT:BEGIN INTRO-P01 -->
+## [INTRO-P01] 背景与重要性
 
 Policy optimization 同时利用成功与失败行为，广泛用于 offline RL、replay-based policy learning、asynchronous policy optimization、continuous control 和 verifier-guided language-model training。相比纯行为克隆，它具有超越行为数据平均质量的潜力。
+<!-- MANUSCRIPT:END INTRO-P01 -->
 
-### Paragraph 2：正负 advantage 的不同作用
+<!-- MANUSCRIPT:BEGIN INTRO-P02 -->
+## [INTRO-P02] 正负 advantage 的不同作用
 
 正优势形成 attraction；负优势形成 repulsion。负更新可以抑制竞争性坏行为、提供局部决策边界、重新分配概率质量，并帮助策略超越 Positive-only 的性能上限。问题是固定负样本被不断推远后，其 score 与负梯度幅度会变化。
+<!-- MANUSCRIPT:END INTRO-P02 -->
 
-### Paragraph 3：为什么 fixed/stale off-policy data 特别危险
+<!-- MANUSCRIPT:BEGIN INTRO-P03 -->
+## [INTRO-P03] 为什么 fixed/stale off-policy data 特别危险
 
 Fresh on-policy data 随当前策略刷新。Fixed offline datasets、replay buffers、stale actors、frozen rollout banks 和 historical trajectory reuse 会让旧样本长期存在。Fully offline + frozen advantages 时 empirical actor objective 完全 stationary；replay/stale 情形只保证 mismatch 可能持续，不保证 objective 完全固定。
+<!-- MANUSCRIPT:END INTRO-P03 -->
 
-### Paragraph 4：已有解决方法
+<!-- MANUSCRIPT:BEGIN INTRO-P04 -->
+## [INTRO-P04] 已有解决方法
 
 简述 positive-only / winner-only、asymmetric negative weighting、global scaling、policy-ratio clipping、low-probability or surprisal-aware weighting、hard filtering。明确这些方法已经认识到负优势主导和低概率负动作风险。
+<!-- MANUSCRIPT:END INTRO-P04 -->
 
-### Paragraph 5：共同缺口
+<!-- MANUSCRIPT:BEGIN INTRO-P05 -->
+## [INTRO-P05] 共同缺口
 
 现有工作通常分别关注 advantage sign、magnitude、probability ratio、low probability、staleness、entropy 或 data quality，但没有同时回答：负更新为何有益、为何在 far field 反转、有限平衡何时存在或消失、Gaussian/categorical 如何统一、如何选择性保留有用负更新。
+<!-- MANUSCRIPT:END INTRO-P05 -->
 
-### Paragraph 6：本文理论与方法
+<!-- MANUSCRIPT:BEGIN INTRO-P06 -->
+## [INTRO-P06] 本文理论与方法
 
 提出 Repulsive Dynamics：finite equilibrium、stable extrapolation、boundary approach、no finite equilibrium/divergence。Gaussian score 可无界增长；categorical direct-logit score 有界但更新持续。提出 DRPO 的 exponential distance/surprisal weighting，用于控制 weighted far-field negative gradient，而非假设负样本效用指数衰减。
+<!-- MANUSCRIPT:END INTRO-P06 -->
 
-### Paragraph 7：实验版图与贡献
+<!-- MANUSCRIPT:BEGIN INTRO-P07 -->
+## [INTRO-P07] 实验版图与贡献
 
 覆盖 continuous controlled mechanism、categorical controlled mechanism、Online、D4RL 和 Countdown high-staleness stress test。
+<!-- MANUSCRIPT:END INTRO-P07 -->
 
 ### Contributions
 

@@ -281,8 +281,8 @@ def validate_artifacts(config: HierarchyConfig, *, repo_root: Path) -> dict[str,
 
 def _load_issue(path: Path) -> dict[str, Any]:
     data = _load_yaml(path)
-    if data.get("schema_version") != 1:
-        raise ManuscriptCascadeError("issue schema_version must be 1")
+    if data.get("schema_version") not in {1, 2}:
+        raise ManuscriptCascadeError("issue schema_version must be 1 or 2")
     for key in ("issue_id", "section_id", "problem", "paragraph_ids", "checks", "resolution"):
         if key not in data:
             raise ManuscriptCascadeError(f"issue is missing required field: {key}")
@@ -307,6 +307,38 @@ def _load_issue(path: Path) -> dict[str, Any]:
 def validate_issue(
     issue: dict[str, Any], config: HierarchyConfig
 ) -> tuple[str, list[str], dict[str, Any]]:
+    if issue.get("schema_version") != 2:
+        raise ManuscriptCascadeError(
+            "legacy schema_version 1 issues are historical only; active triage requires schema_version 2"
+        )
+    change_control = issue.get("change_control")
+    if not isinstance(change_control, dict):
+        raise ManuscriptCascadeError("schema_version 2 issues require change_control")
+    kind = change_control.get("kind")
+    if kind not in {
+        "alignment_repair",
+        "content_revision",
+        "structural_revision",
+        "infrastructure_migration",
+    }:
+        raise ManuscriptCascadeError(
+            "change_control.kind must be alignment_repair, content_revision, "
+            "structural_revision, or infrastructure_migration"
+        )
+    reported_layer = change_control.get("reported_layer")
+    if reported_layer not in LAYER_ORDER:
+        raise ManuscriptCascadeError("change_control.reported_layer must be a known layer")
+    outline_change_authorized = change_control.get("outline_change_authorized")
+    if not isinstance(outline_change_authorized, bool):
+        raise ManuscriptCascadeError(
+            "change_control.outline_change_authorized must be boolean"
+        )
+    authorization_evidence = change_control.get("authorization_evidence")
+    if not isinstance(authorization_evidence, str) or not authorization_evidence.strip():
+        raise ManuscriptCascadeError(
+            "change_control.authorization_evidence must be non-empty"
+        )
+
     section_id = issue["section_id"]
     if section_id not in config.sections:
         raise ManuscriptCascadeError(f"issue references unknown section: {section_id}")
@@ -365,6 +397,30 @@ def validate_issue(
     if root is None:
         raise ManuscriptCascadeError("issue checks contain no failing layer")
 
+    if kind == "alignment_repair":
+        if reported_layer == "outline":
+            raise ManuscriptCascadeError(
+                "alignment_repair must report a downstream layer, not the outline"
+            )
+        if statuses["outline"] != "pass" or root == "outline":
+            raise ManuscriptCascadeError(
+                "a downstream alignment mismatch is not evidence that the outline is wrong; "
+                "alignment_repair requires outline=pass"
+            )
+        if outline_change_authorized:
+            raise ManuscriptCascadeError(
+                "alignment_repair must not authorize an outline change"
+            )
+    elif root == "outline":
+        if not outline_change_authorized:
+            raise ManuscriptCascadeError(
+                "changing a user-approved outline requires explicit outline-change authorization"
+            )
+    elif outline_change_authorized:
+        raise ManuscriptCascadeError(
+            "outline_change_authorized must be false when the outline is verified correct"
+        )
+
     root_index = LAYER_ORDER.index(root)
     required_layers = [
         layer
@@ -401,6 +457,9 @@ def validate_issue(
         "required_layers": required_layers,
         "state": state,
         "paragraph_ids": issue["paragraph_ids"],
+        "change_kind": kind,
+        "reported_layer": reported_layer,
+        "outline_change_authorized": outline_change_authorized,
     }
     return root, required_layers, summary
 

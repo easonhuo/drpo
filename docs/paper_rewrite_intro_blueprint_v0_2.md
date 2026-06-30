@@ -1,8 +1,8 @@
 # DRPO Introduction 段落级施工图 v0.2
 
-**状态：已正式接入 manuscript cascade live hierarchy；本文件从 canonical outline 逐段派生，不是独立大纲。**
-**上位大纲：** `docs/paper_rewrite_outline_v0_8.md`。
-**Live hierarchy：** `docs/manuscript/hierarchy.yaml`。
+**状态：已否定并由 v0.3 替代；本文件错误地反向驱动了大纲改写，仅保留历史 provenance。**
+**上位大纲（历史错误版本）：** `docs/paper_rewrite_outline_v0_8.md`。
+**Live hierarchy：** 已移除；当前 active blueprint 由 `docs/manuscript/hierarchy.yaml` 指向 v0.3。
 **研究状态唯一权威 Master：** `docs/handoff.md`。
 **迁移基线：** GitHub `main` commit `3738d09c6cf912ecb85b751fe313e4c79e5974e9`。
 **证据边界：** planning、静态检查、smoke 或 pilot 不得升级为正式实验结果。
