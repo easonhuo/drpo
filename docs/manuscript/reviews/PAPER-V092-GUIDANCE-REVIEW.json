@@ -31,7 +31,7 @@
     },
     {
       "path": "docs/manuscript/PAPER_PIPELINE.md",
-      "sha256": "cc128fddd55bfc011533c0b6d2e2a96ad7287148ee2f1b8cc6b0a44a39d7cf2b"
+      "sha256": "70c59247f140e873630b54901ff7a18d4e9aea860356a246375be40316a7d612"
     },
     {
       "path": "docs/manuscript/claim_evidence_matrix.yaml",
@@ -63,7 +63,7 @@
     },
     {
       "path": "docs/manuscript/README.md",
-      "sha256": "990dc05faa0ad18787e5869e03777b591d5c4800f05a8c4fa33d2e8239ca1052"
+      "sha256": "10a9a967d48f9066a4f21e86d92a67ea570e8cc3209720b636a010b0a8dff65f"
     },
     {
       "path": "docs/manuscript/issues/PAPER-V092-MERGE-PIPELINE-01.yaml",

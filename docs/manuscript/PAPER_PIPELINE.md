@@ -1,4 +1,7 @@
-# Stable-ID manuscript generation pipeline
+# Legacy v1 stable-ID scaffold pipeline
+
+> **Status:** preserved for historical compatibility. It is not the evidence-first review-draft generator. New Core development is specified in `docs/manuscript/PAPER_PIPELINE_V2_CORE.md` and implemented by `scripts/paper_pipeline_core.py`.
+
 
 ## 1. Purpose
 

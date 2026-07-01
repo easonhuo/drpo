@@ -1,0 +1,52 @@
+schema_version: 1
+spec_id: PAPER-PIPELINE-V2-CORE-01
+profile: core_vertical_slice
+approved_outline: docs/paper_rewrite_outline_v0_9_2.md
+output_root: paper/core_review_v2_core
+experiment:
+  id: C-U1-E3-ADAM-RERUN
+  required_status: long_run_validated
+  registry_path: experiments/registry.yaml
+  artifact_index: outputs/cu1_e3_adam/ARTIFACT_INDEX.json
+  fixed_aggregate: outputs/cu1_e3_adam/fixed_variance_aggregate.csv
+  learnable_aggregate: outputs/cu1_e3_adam/learnable_variance_aggregate.csv
+  terminal_audit: outputs/cu1_e3_adam/TERMINAL_AUDIT.md
+outline_bindings:
+  experiment_node: EXP-P04
+  proposition_node: METHOD-P03
+methods:
+  primary: [baseline, near_zero, far_zero, far_cap]
+  fixed_controls: [global_scale, far_to_near]
+metric_contract:
+  reward:
+    source_column: reward
+    ci_low_column: reward_ci_low
+    ci_high_column: reward_ci_high
+    prose_decimals: 3
+    table_decimals: 3
+  task_collapse:
+    source_column: task_failure_onset_event_rate
+    denominator: 20
+  support_boundary:
+    source_column: support_boundary_onset_event_rate
+    denominator: 20
+  numerical_failure:
+    source: registry.result_summary
+    field: nan_inf_count
+    denominator: 20
+theorem:
+  id: PROP-EXPONENTIAL-FAR-FIELD
+  title: Vanishing weighted far-field gradient
+  status: analytically_proven
+  claim: >
+    If the unweighted score-times-advantage norm grows at most polynomially in
+    policy-relative remoteness, multiplication by exp(-lambda r), lambda > 0,
+    makes the weighted contribution vanish as r tends to infinity.
+  forbidden_inference: The proposition does not assume that sample utility decays exponentially.
+release:
+  kind: core_review_vertical_slice
+  required_pdf_pages: 2
+  forbid_terms:
+    - TBD
+    - OOD generalization
+    - universally superior

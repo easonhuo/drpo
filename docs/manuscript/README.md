@@ -48,3 +48,7 @@ pytest -q tests/test_paper_pipeline.py \
   tests/test_manuscript_guidance_review.py \
   tests/test_manuscript_live_hierarchy.py
 ```
+
+## Evidence-first Core pipeline
+
+The reliable vertical-slice implementation is documented in `PAPER_PIPELINE_V2_CORE.md` and configured by `paper_spec_core.yaml`. The historical `paper_pipeline.py` remains a scaffold/compatibility path and must not be presented as a review-draft generator.

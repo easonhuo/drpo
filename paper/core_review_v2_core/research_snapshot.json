@@ -1,0 +1,258 @@
+{
+  "experiment": {
+    "compact_evidence_trust": "checksum_verified_canonical_aggregate",
+    "environment": "C-U1",
+    "held_out_seed_count": 20,
+    "id": "C-U1-E3-ADAM-RERUN",
+    "raw_evidence_location": {
+      "contains_raw_trajectories": true,
+      "contains_terminal_checkpoints": true,
+      "delivered_to_user": true,
+      "filename": "DRPO_CU1_E3_ADAM_AC286A4_FINAL.zip",
+      "sha256": "2b8bfdbe6f33ed1db9dc1e59f6e9fbdb6c224c7b31b1326a7f2fbaeeaaaf522b"
+    },
+    "reporting_separation": [
+      "nan_inf_numerical_failure",
+      "support_or_variance_contraction",
+      "task_performance_collapse"
+    ],
+    "role": "controlled_mechanism_identification",
+    "run_commit": "ac286a46b8ffad898dfad0e7e9188b1d2e81052a",
+    "status": "long_run_validated",
+    "terminal_audited": true,
+    "terminology": "held_out_context_generalization"
+  },
+  "inputs": {
+    "artifact_index": {
+      "path": "outputs/cu1_e3_adam/ARTIFACT_INDEX.json",
+      "sha256": "86fbe2744928a9303cf62a3c1ba4bfa9a2563f10dfbd8e55f2a641e9752c3b90"
+    },
+    "fixed_aggregate": {
+      "path": "outputs/cu1_e3_adam/fixed_variance_aggregate.csv",
+      "sha256": "fa64ef6fa4a318add9cf739dca232718290415105278f6f792cc0a281ce92c49"
+    },
+    "learnable_aggregate": {
+      "path": "outputs/cu1_e3_adam/learnable_variance_aggregate.csv",
+      "sha256": "2743ba102ad3c32e8daa8d0b265a6fbbef747248007939dc981b3499ec7ee37d"
+    },
+    "outline": {
+      "path": "docs/paper_rewrite_outline_v0_9_2.md",
+      "sha256": "18391d95368188e1b2bda95808f95f99741d14b16b61d227069474e6cb762e7d"
+    },
+    "registry": {
+      "path": "experiments/registry.yaml",
+      "sha256": "8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059"
+    },
+    "spec": {
+      "path": "docs/manuscript/paper_spec_core.yaml",
+      "sha256": "e76a7b41c6b519a820c5f48dc0ed741ee9a9103491b16fd07dbfde974d73fec0"
+    },
+    "terminal_audit": {
+      "path": "outputs/cu1_e3_adam/TERMINAL_AUDIT.md",
+      "sha256": "a4db973c89e9e764db7647aeca0f542dec4432e6fd54b455c32af896389e209e"
+    }
+  },
+  "method_groups": {
+    "fixed_controls": [
+      "global_scale",
+      "far_to_near"
+    ],
+    "primary": [
+      "baseline",
+      "near_zero",
+      "far_zero",
+      "far_cap"
+    ]
+  },
+  "methods": {
+    "baseline": {
+      "display_name": "Baseline",
+      "fixed_variance": {
+        "n": 20,
+        "nan_inf_count": 0,
+        "reward": 2.2246353978516707e-06,
+        "reward_ci95": [
+          2.0996841935527755e-06,
+          2.3514265109270126e-06
+        ],
+        "support_boundary_count": 0,
+        "task_collapse_count": 20
+      },
+      "learnable_variance": {
+        "n": 20,
+        "nan_inf_count": 0,
+        "reward": 0.6032536745071411,
+        "reward_ci95": [
+          0.5938967512547969,
+          0.612490526214242
+        ],
+        "support_boundary_count": 20,
+        "support_onset_mean": 72.9,
+        "task_collapse_count": 0
+      },
+      "paper_role": "primary_intervention"
+    },
+    "far_cap": {
+      "display_name": "Far-cap",
+      "fixed_variance": {
+        "n": 20,
+        "nan_inf_count": 0,
+        "reward": 0.733071705698967,
+        "reward_ci95": [
+          0.7325935684889555,
+          0.7335626026988029
+        ],
+        "support_boundary_count": 0,
+        "task_collapse_count": 0
+      },
+      "learnable_variance": {
+        "n": 20,
+        "nan_inf_count": 0,
+        "reward": 0.6526254385709762,
+        "reward_ci95": [
+          0.6516614080220461,
+          0.6536191026866437
+        ],
+        "support_boundary_count": 0,
+        "support_onset_mean": null,
+        "task_collapse_count": 0
+      },
+      "paper_role": "primary_intervention"
+    },
+    "far_to_near": {
+      "display_name": "Far-to-near",
+      "fixed_variance": {
+        "n": 20,
+        "nan_inf_count": 0,
+        "reward": 0.8753230214118958,
+        "reward_ci95": [
+          0.874994036629796,
+          0.875616224706173
+        ],
+        "support_boundary_count": 0,
+        "task_collapse_count": 0
+      },
+      "learnable_variance": null,
+      "paper_role": "fixed_budget_control"
+    },
+    "far_zero": {
+      "display_name": "Far-zero",
+      "fixed_variance": {
+        "n": 20,
+        "nan_inf_count": 0,
+        "reward": 0.7393616884946823,
+        "reward_ci95": [
+          0.7389015302062034,
+          0.7398365476727485
+        ],
+        "support_boundary_count": 0,
+        "task_collapse_count": 0
+      },
+      "learnable_variance": {
+        "n": 20,
+        "nan_inf_count": 0,
+        "reward": 0.6528868049383163,
+        "reward_ci95": [
+          0.6519451693445444,
+          0.6538414777815342
+        ],
+        "support_boundary_count": 0,
+        "support_onset_mean": null,
+        "task_collapse_count": 0
+      },
+      "paper_role": "primary_intervention"
+    },
+    "global_scale": {
+      "display_name": "Global-scale",
+      "fixed_variance": {
+        "n": 20,
+        "nan_inf_count": 0,
+        "reward": 0.5990572392940521,
+        "reward_ci95": [
+          0.5986343158781529,
+          0.5994747536629439
+        ],
+        "support_boundary_count": 0,
+        "task_collapse_count": 0
+      },
+      "learnable_variance": {
+        "n": 20,
+        "nan_inf_count": 0,
+        "reward": 0.6428674846887589,
+        "reward_ci95": [
+          0.6418588138371706,
+          0.6439274983853103
+        ],
+        "support_boundary_count": 0,
+        "support_onset_mean": null,
+        "task_collapse_count": 0
+      },
+      "paper_role": "fixed_budget_control"
+    },
+    "near_zero": {
+      "display_name": "Near-zero",
+      "fixed_variance": {
+        "n": 20,
+        "nan_inf_count": 0,
+        "reward": 2.17606851151686e-06,
+        "reward_ci95": [
+          2.053808321420547e-06,
+          2.3013711519581647e-06
+        ],
+        "support_boundary_count": 0,
+        "task_collapse_count": 20
+      },
+      "learnable_variance": {
+        "n": 20,
+        "nan_inf_count": 0,
+        "reward": 0.6019915044307709,
+        "reward_ci95": [
+          0.5927847389876842,
+          0.6111193477362394
+        ],
+        "support_boundary_count": 20,
+        "support_onset_mean": 73.1,
+        "task_collapse_count": 0
+      },
+      "paper_role": "primary_intervention"
+    }
+  },
+  "outline_bindings": {
+    "experiment_node": "EXP-P04",
+    "proposition_node": "METHOD-P03"
+  },
+  "profile": "core_vertical_slice",
+  "schema_version": 1,
+  "snapshot_kind": "generated_build_input_not_research_master",
+  "snapshot_sha256": "a313eed8169447239b0e73686c2bc777e52f67ff2eeaae079a6962c608db824d",
+  "task_id": "PAPER-PIPELINE-V2-CORE-01",
+  "theorem": {
+    "claim": "If the unweighted score-times-advantage norm grows at most polynomially in policy-relative remoteness, multiplication by exp(-lambda r), lambda > 0, makes the weighted contribution vanish as r tends to infinity.\n",
+    "forbidden_inference": "The proposition does not assume that sample utility decays exponentially.",
+    "id": "PROP-EXPONENTIAL-FAR-FIELD",
+    "status": "analytically_proven",
+    "title": "Vanishing weighted far-field gradient"
+  },
+  "verified_compact_files": {
+    "RESULT_SUMMARY.md": {
+      "path": "outputs/cu1_e3_adam/RESULT_SUMMARY.md",
+      "sha256": "adaba3e2ab9d29869725639a86213156f85f29f7a6939fa021a456fa668a4b84",
+      "size_bytes": 3849
+    },
+    "TERMINAL_AUDIT.md": {
+      "path": "outputs/cu1_e3_adam/TERMINAL_AUDIT.md",
+      "sha256": "a4db973c89e9e764db7647aeca0f542dec4432e6fd54b455c32af896389e209e",
+      "size_bytes": 2764
+    },
+    "fixed_variance_aggregate.csv": {
+      "path": "outputs/cu1_e3_adam/fixed_variance_aggregate.csv",
+      "sha256": "fa64ef6fa4a318add9cf739dca232718290415105278f6f792cc0a281ce92c49",
+      "size_bytes": 5498
+    },
+    "learnable_variance_aggregate.csv": {
+      "path": "outputs/cu1_e3_adam/learnable_variance_aggregate.csv",
+      "sha256": "2743ba102ad3c32e8daa8d0b265a6fbbef747248007939dc981b3499ec7ee37d",
+      "size_bytes": 4853
+    }
+  }
+}

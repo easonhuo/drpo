@@ -37,3 +37,11 @@ paper/overleaf/*.fls
 paper/overleaf/*.log
 paper/overleaf/*.out
 paper/overleaf/*.synctex.gz
+
+# Generated DRPO Core LaTeX intermediates; keep sources, audit text, and PDF.
+paper/core_review_v2_core/*.aux
+paper/core_review_v2_core/*.fdb_latexmk
+paper/core_review_v2_core/*.fls
+paper/core_review_v2_core/*.log
+paper/core_review_v2_core/*.out
+paper/core_review_v2_core/*.synctex.gz

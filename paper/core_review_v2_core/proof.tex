@@ -1,0 +1,16 @@
+\begin{proof}
+The assumption gives
+\[
+  \lVert\widetilde g(r)\rVert
+  \leq C(1+r)^k e^{-\lambda r}.
+\]
+For integer $m>k$, the exponential series implies
+$e^{\lambda r}\geq (\lambda r)^m/m!$ for $r>0$. Hence
+\[
+  (1+r)^k e^{-\lambda r}
+  \leq \frac{m!(1+r)^k}{(\lambda r)^m},
+\]
+and the right-hand side converges to zero because $m>k$. The squeeze theorem
+proves the result. The proposition controls the weighted gradient tail; it
+makes no assumption that sample utility decays exponentially.
+\end{proof}

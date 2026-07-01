@@ -1,0 +1,140 @@
+{
+  "schema_version": 1,
+  "review_id": "PAPER-PIPELINE-V2-CORE-01",
+  "base_commit": "5ee79b4245a52af3f8caea6b1dd27e3efcd6920a",
+  "scope": "evidence_first_vertical_slice_not_full_manuscript",
+  "experiment_id": "C-U1-E3-ADAM-RERUN",
+  "experiment_status": "long_run_validated",
+  "verdict": "PASS",
+  "gates": {
+    "document_before_code": "pass",
+    "compact_artifact_checksums": "pass",
+    "c_u1_terminology": "pass",
+    "failure_taxonomy_separation": "pass",
+    "budget_controls_present": "pass",
+    "blueprint_information_gain": "pass",
+    "proposition_and_proof": "pass",
+    "no_tbd_or_empty_results": "pass",
+    "deterministic_rebuild": "pass",
+    "exact_two_page_pdf": "pass",
+    "pdf_visual_inspection": "pass",
+    "legacy_pipeline_regression_tests": "pass",
+    "governance_validators": "pass",
+    "portable_validation_without_local_tex": "pass",
+    "read_only_repository_validation": "pass",
+    "isolated_output_rebuild": "pass"
+  },
+  "tests_executed": [
+    "python -m compileall -q src scripts tools tests",
+    "python scripts/paper_pipeline_core.py validate-slice --repo-root .",
+    "python scripts/paper_pipeline_core.py build-slice --repo-root . --output-root <temporary-output> (twice; byte diff)",
+    "python scripts/paper_pipeline_core.py all --repo-root . --output-root <temporary-output> (when latexmk is available)",
+    "python -m pytest -q tests/test_paper_pipeline_core.py",
+    "python -m pytest -q",
+    "python scripts/manuscript_cascade.py validate-artifacts --repo-root . --config docs/manuscript/hierarchy.yaml",
+    "python scripts/validate_governance_pipeline_stage_status.py --repo-root .",
+    "python scripts/validate_formal_execution_channel.py --repo-root .",
+    "python scripts/validate_governance_rule_inventory.py --repo-root .",
+    "git diff --check"
+  ],
+  "artifacts": [
+    {
+      "path": "docs/manuscript/PAPER_PIPELINE_V2_CORE.md",
+      "sha256": "2c54340c3fb0afdeeffaf45b531a539a9c63d952f8984069080c906e522c9268",
+      "size_bytes": 4848
+    },
+    {
+      "path": "docs/manuscript/paper_spec_core.yaml",
+      "sha256": "e76a7b41c6b519a820c5f48dc0ed741ee9a9103491b16fd07dbfde974d73fec0",
+      "size_bytes": 1778
+    },
+    {
+      "path": "docs/manuscript/issues/PAPER-PIPELINE-V2-CORE-01.yaml",
+      "sha256": "8d8d0a299045c8edc57fa65d4381ddf39a0f7f7315ddcd7330792db45429bbd9",
+      "size_bytes": 1305
+    },
+    {
+      "path": "scripts/paper_pipeline_core.py",
+      "sha256": "e18020b24fe75cffa6b27ba7216a11ddec722e75d6d06af42e5c83da3396fad9",
+      "size_bytes": 45092
+    },
+    {
+      "path": "tests/test_paper_pipeline_core.py",
+      "sha256": "2ac2b09ad49fb6e8e2aa9f89507856670f48de2890267ffe7a16f3ba5007397b",
+      "size_bytes": 5684
+    },
+    {
+      "path": "paper/core_review_v2_core/research_snapshot.json",
+      "sha256": "bd5456150dfde277cb96b3e65bb0f2547a6d4a84dd365009a6811e2b030849e9",
+      "size_bytes": 7982
+    },
+    {
+      "path": "paper/core_review_v2_core/blueprint.md",
+      "sha256": "aa3bbe449c5144ac79a6c3fb294fb4b2d7b104fb8770865bfe6fdbb3a7aa3464",
+      "size_bytes": 4329
+    },
+    {
+      "path": "paper/core_review_v2_core/prose.md",
+      "sha256": "60bb82e4d006d89866fba38a11feb49393c9ba7d947c88dd44a2ca92606c0858",
+      "size_bytes": 1564
+    },
+    {
+      "path": "paper/core_review_v2_core/cu1_e3_fixed_reward.csv",
+      "sha256": "3bbf76e2951b2b3241c457f198ff37c37cc292bb84e8c06d4c87ca5d520a9e7e",
+      "size_bytes": 406
+    },
+    {
+      "path": "paper/core_review_v2_core/cu1_e3_fixed_reward.pdf",
+      "sha256": "aa40fec992685fdea60fbfc97e7ff154720b62aae0268cffd19090faf19d9547",
+      "size_bytes": 16345
+    },
+    {
+      "path": "paper/core_review_v2_core/cu1_e3_results.tex",
+      "sha256": "521fdef6053d31aff5e432ae43eec84937e47d6892c2a9907c62ac99c72d7c0f",
+      "size_bytes": 498
+    },
+    {
+      "path": "paper/core_review_v2_core/theorem.tex",
+      "sha256": "f28e2b367e39c428c6cad2b7cc99cae4f116113602b7f1cc194d466343bde989",
+      "size_bytes": 414
+    },
+    {
+      "path": "paper/core_review_v2_core/proof.tex",
+      "sha256": "d38cc4c0af1a790256888784dd0cc4cb08f3445709307ef53ac534499cdcd435",
+      "size_bytes": 504
+    },
+    {
+      "path": "paper/core_review_v2_core/main.tex",
+      "sha256": "82769eeee344dd8eaa505de2a39130838299862af8b51e4238aa04de9602bcf3",
+      "size_bytes": 3844
+    },
+    {
+      "path": "paper/core_review_v2_core/main.pdf",
+      "sha256": "c67f08cba37c0b99678c573843062d5ec9de79050193cfcc72f803c23f55396a",
+      "size_bytes": 255622
+    },
+    {
+      "path": "paper/core_review_v2_core/build_manifest.json",
+      "sha256": "2eb792e3cc33c5995166f5a681f0017db62c18c4b944d915af9d35c85a9bbc2b",
+      "size_bytes": 1799
+    }
+  ],
+  "limitations": [
+    "This validates a two-page Core slice, not a full manuscript or submission candidate.",
+    "The external raw trajectory ZIP is indexed but not copied into the repository; the slice uses checksum-verified compact aggregates and the terminal audit.",
+    "Hopper and Countdown formal external validation remain unfinished and are not represented as completed results.",
+    "A local TeX installation is required only to recompile the PDF; package application and committed-artifact validation do not require latexmk."
+  ],
+  "repair_context": {
+    "diagnostic_head": "5ee79b4245a52af3f8caea6b1dd27e3efcd6920a",
+    "failure_phase": "aggregated_test_gates",
+    "root_cause": "The repository test and package test required latexmk even when validating an already compiled, hash-bound PDF artifact.",
+    "repair": "Keep explicit compile/all strict, make committed-artifact validation read-only and portable, use isolated temporary outputs for rebuild tests, and skip only the optional compile exercise when latexmk is unavailable."
+  },
+  "test_summary": {
+    "targeted_core": "7 passed with TeX tools available",
+    "targeted_core_without_tex": "6 passed, 1 compile-only test skipped",
+    "full_repository": "525 passed",
+    "ruff": "not_available_in_build_environment; package/repository gate remains enabled"
+  }
+}
