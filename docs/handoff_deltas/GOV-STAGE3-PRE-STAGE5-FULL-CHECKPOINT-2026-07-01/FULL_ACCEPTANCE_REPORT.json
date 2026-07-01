@@ -1,0 +1,84 @@
+{
+  "corpus_audit": {
+    "all_stored_reports_revalidated": true,
+    "observation_count": 18
+  },
+  "coverage": {
+    "bootstrap_observation_count": 1,
+    "covered_update_ids": [
+      "C-U1-E4-TAPER-BUDGET-MATCH-CLOSURE-V66-2026-06-30",
+      "C-U1-E4-TAPER-CLOSURE-V63-2026-06-29",
+      "CU1-E4-TAPER-NEAR-RETENTION-2026-06-28",
+      "CU1-E4-TAPER-UTILITY-FAIRNESS-REGISTRATION-2026-06-28",
+      "DU1-E6-PARENT-CLOSURE-2026-06-28",
+      "DU1-E6-SEMANTIC-GAP-CLOSURE-2026-06-28",
+      "DU1-E6-SEMANTIC-GAP-FORMAL-2026-06-27",
+      "EXT-C-E8-V4.3-DYNAMIC-CONTROL-2026-06-27",
+      "EXT-C-E8-V4.4-OFFLINE-BANK-2026-06-28",
+      "EXT-C-E8-V4.5-OFFLINE-BANK-TUNING-2026-06-28",
+      "EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY-2026-06-29",
+      "EXT-H-E7-Q2-ACCEPTANCE-PIPELINE-2026-06-29",
+      "EXT-H-E7-Q2-CANONICAL-CRITIC-ROLLOUT-2026-06-28",
+      "EXT-H-E7-Q2-FIXED-BUDGET-LONGRUN-2026-06-30",
+      "EXT-H-E7-Q2-GYMNASIUM-V4-ROLLOUT-2026-06-28",
+      "GOV-STAGE3-OBSERVATION-AUTOMATION-2026-06-27",
+      "PAPER-REWRITE-V0.7-INTRO-BLUEPRINT-2026-06-29"
+    ],
+    "observation_fingerprint": "fa32cce221e96c1e472596fdcec7e02796ffb06c4f5dd8adc28b010224f3ed49",
+    "successful_real_observation_count": 17
+  },
+  "elapsed_seconds": 60.309,
+  "outcomes": [
+    {
+      "command": [
+        "/opt/pyvenv/bin/python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_handoff_delta_shadow.py"
+      ],
+      "elapsed_seconds": 36.664,
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "................................................                         [100%]\n48 passed in 30.55s\n",
+      "timed_out": false
+    },
+    {
+      "command": [
+        "/opt/pyvenv/bin/python3",
+        "scripts/handoff_delta_shadow.py",
+        "corpus-check",
+        "--repo-root",
+        "."
+      ],
+      "elapsed_seconds": 18.122,
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "HANDOFF_DELTA shadow gate: PASS (command=corpus-check, mode=shadow)\n",
+      "timed_out": false
+    },
+    {
+      "command": [
+        "/opt/pyvenv/bin/python3",
+        "scripts/handoff_delta_shadow.py",
+        "auto-check",
+        "--repo-root",
+        ".",
+        "--allow-full-due"
+      ],
+      "elapsed_seconds": 5.523,
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "HANDOFF_DELTA shadow gate: PASS (command=auto-check, mode=shadow)\n",
+      "timed_out": false
+    }
+  ],
+  "policy_id": "GOV-HANDOFF-INDEX-01",
+  "reasons": [],
+  "report_schema_version": 2,
+  "schema_version": 1,
+  "status": "PASS",
+  "target_seconds": 900.0,
+  "tier": "full",
+  "validation_worktree_head": "5ee79b4245a52af3f8caea6b1dd27e3efcd6920a"
+}
