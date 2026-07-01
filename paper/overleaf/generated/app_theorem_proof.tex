@@ -1,0 +1,33 @@
+
+\subsection{Detailed derivation for Theorem~\ref{thm:equilibrium}}
+\label{app:proof-theorem-equilibrium}
+\begin{proof}
+Let $F(\eta)=p(\mathbf m_+-\nabla\psi(\eta))-q(\mathbf m_--\nabla\psi(\eta))$. Rearranging gives
+\begin{equation}
+F(\eta)=p\mathbf m_+-q\mathbf m_--(p-q)\nabla\psi(\eta).
+\end{equation}
+For $p>q$, $F(\eta)=0$ is equivalent to
+\begin{equation}
+\nabla\psi(\eta)=\mathbf m^\star=\frac{p\mathbf m_+-q\mathbf m_-}{p-q}.
+\end{equation}
+A regular minimal exponential family has strictly convex log-partition $\psi$, so $\nabla\psi$ is one-to-one and maps the natural-parameter space onto the interior of the realizable mean-parameter set. Hence an interior $\mathbf m^\star$ has a unique finite preimage $\eta^\star$. Subtracting $\mathbf m_+$ yields
+\begin{equation}
+\mathbf m^\star-\mathbf m_+=\frac{q}{p-q}(\mathbf m_+-\mathbf m_-),
+\end{equation}
+which is the stable extrapolation displacement. Differentiating the field gives
+\begin{equation}
+J_F(\eta)=-(p-q)\nabla^2\psi(\eta).
+\end{equation}
+At $\eta^\star$, $\nabla^2\psi$ is the covariance of the sufficient statistic and is positive definite; therefore every eigenvalue of $J_F$ is negative and the continuous-time equilibrium is locally asymptotically stable. For discrete step size $h$, local stability requires $\rho(I+hJ_F)<1$. If $\mathbf m^\star$ reaches the feasible boundary, the realizing natural parameter diverges or becomes degenerate; outside the feasible set, no finite equilibrium exists.
+\end{proof}
+
+\subsection{Proof of Proposition~\ref{prop:vanishing}}
+\label{app:proof-far-field}
+\begin{proof}
+Assume the unweighted score satisfies $\|\nabla_\theta\log\pi_\theta(a\mid s)\|\le C(1+r_\theta)^k$ for finite $k$, and let $w_\lambda(r)=\exp(-\lambda r^2)$. Then
+\begin{equation}
+\|w_\lambda(r)A^-\nabla_\theta\log\pi_\theta\|
+\le |A^-|C(1+r)^k e^{-\lambda r^2}.
+\end{equation}
+For every finite $k$ and $\lambda>0$, the Gaussian tail dominates the polynomial factor, so the right-hand side converges to zero as $r\to\infty$. This proves vanishing weighted far-field influence without assuming that the sample's utility decays exponentially.
+\end{proof}

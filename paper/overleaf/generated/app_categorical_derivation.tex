@@ -1,0 +1,7 @@
+
+\subsection{Repeated negative updates and log-odds}
+For softmax logits $z$, $\nabla_z\log p_y=e_y-p$. Under a fixed negative coefficient $c>0$ and small step size $h$, the selected logit changes by $-hc(1-p_y)$ while competitor $j$ changes by $+hc p_j$. Hence
+\begin{equation}
+(z_y-z_j)_{t+1}-(z_y-z_j)_t=-hc(1-p_y+p_j),
+\end{equation}
+which remains negative as $p_y\to0$. The Euclidean score is bounded, but the non-vanishing log-odds decrement yields persistent support suppression and can drive $p_y$ exponentially toward the simplex boundary.

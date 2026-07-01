@@ -1,0 +1,18 @@
+issue_id: PAPER-PIPELINE-V2-FULL-ASSET-COMPILER-03
+status: implemented
+scope: manuscript_infrastructure
+claim: >-
+  The same stable-node transformation engine can compile paragraph blueprints into prose,
+  evidence-backed figures and tables, appendix derivations, citations, and a template-aware
+  two-column paper without changing scientific experiment status.
+parent_issue: PAPER-PIPELINE-V2-INTRO-DOWNSTREAM-02
+base_commit: 9f3dc13551b3ded9b864b183793a4845975b6a61
+scientific_status_change: none
+outputs:
+  - scripts/compile_full_manuscript.py
+  - docs/manuscript/full_paper_assets.yaml
+  - paper/releases/DRPO_FULL_REVIEW_V1.pdf
+constraints:
+  - No Hopper or Countdown pilot may populate a formal external-result cell.
+  - C-U1 terminology remains held-out-context or unseen-state generalization, not OOD.
+  - Task collapse, support/variance boundary, and NaN/Inf failure remain separate.

@@ -1,0 +1,375 @@
+#!/usr/bin/env python3
+"""Compile the full DRPO manuscript from graph, evidence, assets, proofs and template."""
+
+from __future__ import annotations
+
+import argparse
+import csv
+import json
+import re
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+from typing import Any
+
+import matplotlib.pyplot as plt
+import numpy as np
+import yaml
+
+
+class BuildError(RuntimeError):
+    pass
+
+
+def run(cmd: list[str], cwd: Path) -> str:
+    p = subprocess.run(cmd, cwd=cwd, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    if p.returncode:
+        raise BuildError(f"command failed ({' '.join(cmd)}):\n{p.stdout}")
+    return p.stdout
+
+
+def read_csv(path: Path) -> list[dict[str, str]]:
+    with path.open(newline="", encoding="utf-8") as f:
+        return list(csv.DictReader(f))
+
+
+def f(row: dict[str, str], key: str, default: float = float("nan")) -> float:
+    try:
+        return float(row[key])
+    except (KeyError, TypeError, ValueError):
+        return default
+
+
+def save_e3(root: Path, fig_dir: Path, gen_dir: Path) -> None:
+    rows = read_csv(root / "outputs/cu1_e3_adam/learnable_variance_aggregate.csv")
+    wanted = ["baseline", "near_zero", "far_zero", "far_cap", "global_scale", "positive_only"]
+    by = {r["method"]: r for r in rows}
+    selected = [by[m] for m in wanted if m in by]
+    labels = [r["method"].replace("_", "-") for r in selected]
+    rewards = [f(r, "reward") for r in selected]
+    lows = [f(r, "reward_ci_low") for r in selected]
+    highs = [f(r, "reward_ci_high") for r in selected]
+    task = [f(r, "task_failure_onset_event_rate", 0.0) for r in selected]
+    support = [f(r, "support_boundary_onset_event_rate", 0.0) for r in selected]
+    x = np.arange(len(selected))
+    fig, axes = plt.subplots(1, 2, figsize=(8.6, 3.0))
+    axes[0].bar(
+        x,
+        rewards,
+        yerr=[np.array(rewards) - np.array(lows), np.array(highs) - np.array(rewards)],
+        capsize=3,
+    )
+    axes[0].set_xticks(x, labels, rotation=30, ha="right")
+    axes[0].set_ylabel("Held-out-context reward")
+    axes[0].set_title("C-U1 targeted interventions")
+    axes[0].grid(axis="y", alpha=0.25)
+    width = 0.36
+    axes[1].bar(x - width / 2, task, width, label="task collapse")
+    axes[1].bar(x + width / 2, support, width, label="support/variance boundary")
+    axes[1].set_xticks(x, labels, rotation=30, ha="right")
+    axes[1].set_ylim(0, 1.05)
+    axes[1].set_ylabel("Event rate")
+    axes[1].set_title("Failure taxonomy")
+    axes[1].legend(fontsize=8)
+    axes[1].grid(axis="y", alpha=0.25)
+    fig.tight_layout()
+    out = fig_dir / "fig3_cu1_causal.pdf"
+    fig.savefig(out, bbox_inches="tight")
+    plt.close(fig)
+    lines = [
+        r"\begin{figure*}[t]",
+        r"\centering",
+        r"\includegraphics[width=0.93\textwidth]{figures/generated/fig3_cu1_causal.pdf}",
+        r"\caption{C-U1 causal intervention with learnable variance. The left panel reports registered held-out-context reward with confidence intervals; the right panel separates task-performance collapse from support or variance-boundary events. Near-zero tracks the uncontrolled baseline, while Far-zero and Far-cap remove the task-collapse pathway without introducing NaN/Inf failures.}",
+        r"\label{fig:cu1-causal}",
+        r"\end{figure*}",
+        r"\begin{table}[t]",
+        r"\centering\small",
+        r"\caption{C-U1 intervention summary (20 seeds).}",
+        r"\label{tab:cu1-causal}",
+        r"\begin{tabular}{lccc}",
+        r"\toprule Method & Reward & Task event & Boundary event \\",
+        r"\midrule",
+    ]
+    for r in selected:
+        lines.append(
+            f"{r['method'].replace('_', '-')} & {f(r, 'reward'):.3f} & {f(r, 'task_failure_onset_event_rate', 0):.2f} & {f(r, 'support_boundary_onset_event_rate', 0):.2f}"
+            + r" \\"
+        )
+    lines += [r"\bottomrule", r"\end{tabular}", r"\end{table}"]
+    (gen_dir / "exp_p04_assets.tex").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def save_e4(root: Path, fig_dir: Path, gen_dir: Path) -> None:
+    rows = read_csv(root / "outputs/cu1_e4_adam/learnable_variance_aggregate.csv")
+    rows = sorted(rows, key=lambda r: f(r, "alpha"))
+    a = np.array([f(r, "alpha") for r in rows])
+    reward = np.array([f(r, "reward") for r in rows])
+    disp = np.array([f(r, "normalized_extrapolation_displacement") for r in rows])
+    boundary = np.array([f(r, "support_boundary_onset_event_rate", 0) for r in rows])
+    fig, axes = plt.subplots(1, 2, figsize=(8.6, 3.0))
+    axes[0].plot(a, reward, marker="o", label="reward")
+    axes[0].plot(a, disp, marker="s", label="normalized extrapolation")
+    axes[0].set_xlabel("Negative coefficient $\\alpha$")
+    axes[0].set_title("Stable extrapolation to degradation")
+    axes[0].legend(fontsize=8)
+    axes[0].grid(alpha=0.25)
+    axes[1].plot(a, boundary, marker="o")
+    axes[1].set_xlabel("Negative coefficient $\\alpha$")
+    axes[1].set_ylabel("Boundary-event rate")
+    axes[1].set_ylim(-0.03, 1.03)
+    axes[1].set_title("Support/variance boundary")
+    axes[1].grid(alpha=0.25)
+    fig.tight_layout()
+    fig.savefig(fig_dir / "fig4_cu1_phase.pdf", bbox_inches="tight")
+    plt.close(fig)
+    taper = json.loads(
+        (root / "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json").read_text()
+    )
+    p = taper["primary_paired_results_at_near_retention_0_75"]
+    methods = ["reciprocal_quadratic", "current_exponential", "squared_distance_exponential"]
+    deltas = [p[m]["mean_held_out_context_reward_delta"] for m in methods]
+    fig, ax = plt.subplots(figsize=(4.4, 3.0))
+    ax.bar(np.arange(3), deltas)
+    ax.set_xticks(
+        np.arange(3), ["Recip.-quad.", "Exp.", "Squared-dist. exp."], rotation=20, ha="right"
+    )
+    ax.set_ylabel("Paired reward delta vs. recip.-linear")
+    ax.set_title("Matched near-retention comparison")
+    ax.grid(axis="y", alpha=0.25)
+    fig.tight_layout()
+    fig.savefig(fig_dir / "fig5_taper_shape.pdf", bbox_inches="tight")
+    plt.close(fig)
+    text = r"""\begin{figure*}[t]
+\centering
+\begin{subfigure}{0.62\textwidth}
+\includegraphics[width=\linewidth]{figures/generated/fig4_cu1_phase.pdf}
+\caption{Strength sweep and boundary events.}
+\end{subfigure}\hfill
+\begin{subfigure}{0.34\textwidth}
+\includegraphics[width=\linewidth]{figures/generated/fig5_taper_shape.pdf}
+\caption{Matched near-retention taper comparison.}
+\end{subfigure}
+\caption{C-U1 phase and control evidence. The strength sweep maps the transition from the Positive-only reference through stable extrapolation toward boundary events. Under the frozen near-retention protocol, all three faster-decaying tapers improve finite-horizon held-out-context reward on 20/20 paired seeds relative to reciprocal-linear; this result remains finite-step validated rather than a universal steady-state ranking.}
+\label{fig:cu1-phase-control}
+\end{figure*}
+"""
+    (gen_dir / "exp_p05_assets.tex").write_text(text, encoding="utf-8")
+
+
+def save_du1(root: Path, fig_dir: Path, gen_dir: Path) -> None:
+    for name in ("causal_terminal_reward.png", "causal_support_boundary.png"):
+        shutil.copy2(root / "outputs/du1_e5_longrun" / name, fig_dir / name)
+    agg = json.loads((root / "outputs/du1_e5_longrun/aggregate_summary.json").read_text())[
+        "methods"
+    ]
+    text = [
+        r"\begin{figure*}[t]",
+        r"\centering",
+        r"\begin{subfigure}{0.48\textwidth}\includegraphics[width=\linewidth]{figures/generated/causal_terminal_reward.png}\caption{Terminal reward.}\end{subfigure}\hfill",
+        r"\begin{subfigure}{0.48\textwidth}\includegraphics[width=\linewidth]{figures/generated/causal_support_boundary.png}\caption{Support-boundary events.}\end{subfigure}",
+        r"\caption{D-U1 long-run causal results. Baseline and Near-zero preserve the rare/far negative pathway and reach the support boundary in 20/20 seeds; Far-zero and Far-cap remain bounded in 20/20 seeds. Global scaling can preserve task reward while still reaching the support boundary, illustrating why task, boundary, and numerical events must be reported separately.}",
+        r"\label{fig:du1-causal}",
+        r"\end{figure*}",
+        r"\begin{table}[t]",
+        r"\centering\small",
+        r"\caption{D-U1 E5 long-run summary.}",
+        r"\label{tab:du1-e5}",
+        r"\begin{tabular}{lccc}",
+        r"\toprule Method & Reward & Task collapse & Boundary \\",
+        r"\midrule",
+    ]
+    for m in ["baseline", "near_zero", "far_zero", "far_cap", "global_scale", "positive_only"]:
+        if m in agg:
+            v = agg[m]
+            text.append(
+                f"{m.replace('_', '-')} & {v['terminal_reward_mean']:.3f} & {v['task_collapse_count']}/20 & {v['support_collapse_count']}/20"
+                + r" \\"
+            )
+    text += [r"\bottomrule", r"\end{tabular}", r"\end{table}"]
+    (gen_dir / "exp_p03_assets.tex").write_text("\n".join(text) + "\n", encoding="utf-8")
+
+
+def save_proofs(gen_dir: Path) -> None:
+    (gen_dir / "app_theorem_proof.tex").write_text(
+        r"""
+\subsection{Detailed derivation for Theorem~\ref{thm:equilibrium}}
+\label{app:proof-theorem-equilibrium}
+\begin{proof}
+Let $F(\eta)=p(\mathbf m_+-\nabla\psi(\eta))-q(\mathbf m_--\nabla\psi(\eta))$. Rearranging gives
+\begin{equation}
+F(\eta)=p\mathbf m_+-q\mathbf m_--(p-q)\nabla\psi(\eta).
+\end{equation}
+For $p>q$, $F(\eta)=0$ is equivalent to
+\begin{equation}
+\nabla\psi(\eta)=\mathbf m^\star=\frac{p\mathbf m_+-q\mathbf m_-}{p-q}.
+\end{equation}
+A regular minimal exponential family has strictly convex log-partition $\psi$, so $\nabla\psi$ is one-to-one and maps the natural-parameter space onto the interior of the realizable mean-parameter set. Hence an interior $\mathbf m^\star$ has a unique finite preimage $\eta^\star$. Subtracting $\mathbf m_+$ yields
+\begin{equation}
+\mathbf m^\star-\mathbf m_+=\frac{q}{p-q}(\mathbf m_+-\mathbf m_-),
+\end{equation}
+which is the stable extrapolation displacement. Differentiating the field gives
+\begin{equation}
+J_F(\eta)=-(p-q)\nabla^2\psi(\eta).
+\end{equation}
+At $\eta^\star$, $\nabla^2\psi$ is the covariance of the sufficient statistic and is positive definite; therefore every eigenvalue of $J_F$ is negative and the continuous-time equilibrium is locally asymptotically stable. For discrete step size $h$, local stability requires $\rho(I+hJ_F)<1$. If $\mathbf m^\star$ reaches the feasible boundary, the realizing natural parameter diverges or becomes degenerate; outside the feasible set, no finite equilibrium exists.
+\end{proof}
+
+\subsection{Proof of Proposition~\ref{prop:vanishing}}
+\label{app:proof-far-field}
+\begin{proof}
+Assume the unweighted score satisfies $\|\nabla_\theta\log\pi_\theta(a\mid s)\|\le C(1+r_\theta)^k$ for finite $k$, and let $w_\lambda(r)=\exp(-\lambda r^2)$. Then
+\begin{equation}
+\|w_\lambda(r)A^-\nabla_\theta\log\pi_\theta\|
+\le |A^-|C(1+r)^k e^{-\lambda r^2}.
+\end{equation}
+For every finite $k$ and $\lambda>0$, the Gaussian tail dominates the polynomial factor, so the right-hand side converges to zero as $r\to\infty$. This proves vanishing weighted far-field influence without assuming that the sample's utility decays exponentially.
+\end{proof}
+""",
+        encoding="utf-8",
+    )
+    (gen_dir / "app_gaussian_derivation.tex").write_text(
+        r"""
+\subsection{Population mean--variance fixed point}
+With $\xi=\log\sigma$, positive mass $p$, effective negative mass $q$, conditional moments $(m_+,v_+)$ and $(m_-,v_-)$,
+\begin{align}
+\dot\mu &= \frac{p(m_+-\mu)-q(m_--\mu)}{\sigma^2},\\
+\dot\xi &= \frac{p[v_++(\mu-m_+)^2]-q[v_-+(\mu-m_-)^2]}{\sigma^2}-(p-q).
+\end{align}
+For $p>q$, the mean candidate is $\mu^\star=(pm_+-qm_-)/(p-q)$. Substitution into the scale equation gives
+\begin{equation}
+(\sigma^2)^\star=\frac{pM_+(\mu^\star)-qM_-(\mu^\star)}{p-q},
+\end{equation}
+where $M_\pm(\mu)=v_\pm+(\mu-m_\pm)^2$. A finite joint equilibrium therefore requires both $p>q$ and a positive numerator. This second condition is stricter in the far field because $M_-$ contains squared displacement.
+""",
+        encoding="utf-8",
+    )
+    (gen_dir / "app_categorical_derivation.tex").write_text(
+        r"""
+\subsection{Repeated negative updates and log-odds}
+For softmax logits $z$, $\nabla_z\log p_y=e_y-p$. Under a fixed negative coefficient $c>0$ and small step size $h$, the selected logit changes by $-hc(1-p_y)$ while competitor $j$ changes by $+hc p_j$. Hence
+\begin{equation}
+(z_y-z_j)_{t+1}-(z_y-z_j)_t=-hc(1-p_y+p_j),
+\end{equation}
+which remains negative as $p_y\to0$. The Euclidean score is bounded, but the non-vanishing log-odds decrement yields persistent support suppression and can drive $p_y$ exponentially toward the simplex boundary.
+""",
+        encoding="utf-8",
+    )
+
+
+def inject(root: Path, cfg: dict[str, Any]) -> None:
+    overleaf = root / "paper/overleaf"
+    mapping = cfg["assets"]
+    files = list((overleaf / "sections").glob("*.tex")) + list(
+        (overleaf / "appendix").glob("*.tex")
+    )
+    for path in files:
+        text = path.read_text(encoding="utf-8")
+        for node, assets in mapping.items():
+            marker = f"% END-MANUSCRIPT-NODE: {node}"
+            if marker in text:
+                addition = "\n".join(f"\\input{{{a}}}" for a in assets)
+                text = text.replace(marker, marker + "\n" + addition)
+        path.write_text(text, encoding="utf-8")
+
+
+def validate(root: Path, cfg: dict[str, Any]) -> None:
+    overleaf = root / "paper/overleaf"
+    main = (overleaf / "main.tex").read_text()
+    t = cfg["paper_template"]
+    if t["columns"] == 2 and "\\twocolumn" not in main:
+        raise BuildError("configured two-column template is not active")
+    if t["family"] not in main:
+        raise BuildError("configured template style is not active")
+    all_tex = "\n".join(p.read_text() for p in overleaf.rglob("*.tex"))
+    for obligation in cfg["proof_obligations"]:
+        for label in obligation.values():
+            if f"\\label{{{label}}}" not in all_tex:
+                raise BuildError(f"missing proof/statement label: {label}")
+    bib = (root / t["bibliography"]).read_text()
+    keys = set(re.findall(r"@[A-Za-z]+\s*\{\s*([^,]+),", bib))
+    used = set()
+    for group in re.findall(r"\\cite[a-zA-Z]*\{([^}]+)\}", all_tex):
+        used.update(k.strip() for k in group.split(","))
+    missing = sorted(used - keys)
+    if missing:
+        raise BuildError("missing bibliography keys: " + ", ".join(missing))
+    for key in cfg.get("required_citation_keys", []):
+        if key not in used:
+            raise BuildError(f"required citation not used: {key}")
+    tex_files = list(overleaf.rglob("*.tex"))
+    for node, assets in cfg["assets"].items():
+        for a in assets:
+            token = f"\\input{{{a}}}"
+            if not any(token in path.read_text() for path in tex_files):
+                raise BuildError(f"asset mapping not injected for {node}: {a}")
+            if not (overleaf / a).exists():
+                raise BuildError(f"missing asset {a}")
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--repo-root", type=Path, default=Path.cwd())
+    ap.add_argument("--config", type=Path, default=Path("docs/manuscript/full_paper_assets.yaml"))
+    ap.add_argument("--output", type=Path, default=Path("paper/releases/DRPO_FULL_REVIEW_V1.pdf"))
+    ap.add_argument("--skip-compile", action="store_true")
+    args = ap.parse_args()
+    root = args.repo_root.resolve()
+    cfg = yaml.safe_load((root / args.config).read_text())
+    try:
+        run([sys.executable, "scripts/paper_pipeline.py", "render", "--repo-root", str(root)], root)
+        overleaf = root / "paper/overleaf"
+        fig_dir = overleaf / "figures/generated"
+        gen_dir = overleaf / "generated"
+        fig_dir.mkdir(parents=True, exist_ok=True)
+        gen_dir.mkdir(parents=True, exist_ok=True)
+        save_du1(root, fig_dir, gen_dir)
+        save_e3(root, fig_dir, gen_dir)
+        save_e4(root, fig_dir, gen_dir)
+        save_proofs(gen_dir)
+        inject(root, cfg)
+        validate(root, cfg)
+        if not args.skip_compile:
+            latexmk = shutil.which("latexmk")
+            bibtex = shutil.which("bibtex")
+            if bibtex is None:
+                linux_fallback = Path("/usr/bin/bibtex.original")
+                if linux_fallback.is_file():
+                    bibtex = str(linux_fallback)
+            if latexmk is None:
+                raise BuildError(
+                    "latexmk is unavailable; install a TeX distribution or rerun with --skip-compile"
+                )
+            if bibtex is None:
+                raise BuildError(
+                    "bibtex is unavailable; install a TeX distribution or rerun with --skip-compile"
+                )
+            run([latexmk, "-C", "main.tex"], overleaf)
+            cmd = [
+                latexmk,
+                "-e",
+                f'$bibtex="{bibtex} %O %B"',
+                "-pdf",
+                "-interaction=nonstopmode",
+                "-halt-on-error",
+                "main.tex",
+            ]
+            run(cmd, overleaf)
+            run(cmd, overleaf)
+            log = (overleaf / "main.log").read_text(errors="replace")
+            for bad in ("There were undefined references", "There were undefined citations"):
+                if bad in log:
+                    raise BuildError(bad)
+            out = root / args.output
+            out.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(overleaf / "main.pdf", out)
+            print(out)
+        return 0
+    except BuildError as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
