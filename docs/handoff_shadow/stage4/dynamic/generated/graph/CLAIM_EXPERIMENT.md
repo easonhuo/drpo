@@ -1,6 +1,6 @@
 # Generated Claim--Experiment View
 
-Graph hash: `e5195826aa9fe09f096d38a8162a7dd09e6381e72acaa6069e08b85b97911277`
+Graph hash: `392b0201566d0c968a65f8f94ed1ea00118ae3e271ad63ce04c4da5ba6e7556b`
 
 > Generated from accepted edges only. Pending semantic suggestions remain in REVIEW_QUEUE.yaml.
 
@@ -34,6 +34,7 @@ flowchart LR
   n_3fad2f9fa7e6["minimum_change_shared_semantic_conditional_gap_longrun"]
   n_e1319c105cb4["shared_semantic_categorical_extrapolation_longrun"]
   n_18a6128df7c5["countdown_large_model_large_data_external_benchmark"]
+  n_910f7b6fb71a["countdown_continuous_surprisal_taper_common_replay_pilot"]
   n_7053964987d2["countdown_base_first_transformer_external_validation"]
   n_f7f058af94f2["countdown_audited_base_first_transformer_external_validation"]
   n_e7cdb0f7970d["countdown_balanced_offline_dynamic_far_field_external_validation"]
@@ -57,6 +58,7 @@ flowchart LR
   n_78005eca51fb -->|tests| n_6e543aa69f86
   n_becbcc786154 -->|external_validates| n_8779f773aadc
   n_18a6128df7c5 -->|external_validates| n_e02b1aa584bf
+  n_910f7b6fb71a -->|external_validates| n_e02b1aa584bf
   n_03f052b4695b -->|tests| n_160bc66075a8
   n_bec19d99aedd -->|tests| n_160bc66075a8
   n_becbcc786154 -->|external_validates| n_feef39560333

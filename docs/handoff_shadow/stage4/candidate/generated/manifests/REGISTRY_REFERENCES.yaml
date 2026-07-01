@@ -2,7 +2,7 @@ schema_version: 1
 policy_id: GOV-HANDOFF-INDEX-01
 authority: registry_references_only
 registry_path: experiments/registry.yaml
-registry_sha256: 8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059
+registry_sha256: c9fd00b1b198a4963ac07bf854fb8afc746f160c180c808dbf6e5fd0f3b2c8e3
 modules:
 - module_id: global_core_governance
   experiments: []
@@ -62,6 +62,7 @@ modules:
   - EXT-C-E8-V4.4-OFFLINE-BANK
   - EXT-C-E8-V4.5-OFFLINE-BANK-TUNING
   - EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY
+  - EXT-C-E8-TAPER-0.5B-01
   - EXT-C-E8-SCALE-01
   development_experiment_registrations: []
 - module_id: history_provenance

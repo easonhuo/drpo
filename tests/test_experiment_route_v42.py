@@ -125,6 +125,7 @@ def test_e8_offline_bank_precedes_scale_and_keeps_roles_separate() -> None:
     bank = experiments["EXT-C-E8-V4.4-OFFLINE-BANK"]
     tuning = experiments["EXT-C-E8-V4.5-OFFLINE-BANK-TUNING"]
     online = experiments["EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY"]
+    taper = experiments["EXT-C-E8-TAPER-0.5B-01"]
     scale = experiments["EXT-C-E8-SCALE-01"]
     assert prior["execution_class"] == "superseded"
     assert prior["status"] == "superseded"
@@ -173,12 +174,37 @@ def test_e8_offline_bank_precedes_scale_and_keeps_roles_separate() -> None:
     ]
     assert online["online_replay_protocol"]["post_warmup_stale_fraction"] == 0.5
     assert online["confirmation_protocol"]["training_seeds"] == [6234, 7234, 8234]
+    assert taper["execution_class"] == "pilot"
+    assert taper["status"] == "not_run"
+    assert taper["implementation_state"] == "not_implemented"
+    assert taper["execution_gate"]["state"] == "blocked"
+    assert taper["scope_decision"]["countdown_0_5b_mechanism_exploration"] == (
+        "closed_for_current_scope"
+    )
+    assert taper["scope_decision"]["closure_is_result_upgrade"] is False
+    assert taper["calibration_protocol"]["development_seed"] == 9134
+    assert taper["confirmation_protocol"]["paired_training_seeds"] == [
+        9234,
+        10234,
+        11234,
+    ]
+    assert [method["id"] for method in taper["methods"]] == [
+        "positive_only",
+        "uncontrolled_negative",
+        "global_matched",
+        "reciprocal_linear",
+        "exponential",
+        "squared_distance_exponential",
+    ]
     assert scale["execution_gate"]["blocked_by"] == [
-        "EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY",
+        "EXT-C-E8-TAPER-0.5B-01",
         "EXT-H-E7-BENCH-01",
     ]
     assert scale["scaling_plan"]["mechanism_owner"] == (
         "EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY"
+    )
+    assert scale["scaling_plan"]["method_shortlist_owner"] == (
+        "EXT-C-E8-TAPER-0.5B-01"
     )
     assert scale["scaling_plan"]["primary_model"] == "Qwen_Instruct_3B"
     assert scale["scaling_plan"]["frozen_confirmation_model"] == "Qwen_Instruct_7B"
@@ -199,6 +225,8 @@ def test_handoff_preserves_v42_route_and_records_v45_taper_result() -> None:
     assert "EXT-C-E8-V4.5-OFFLINE-BANK-TUNING" in handoff
     assert "v62 增量登记：Countdown `EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY`" in handoff
     assert "EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY" in handoff
+    assert "v67 增量登记：关闭 Countdown 0.5B 机制探索职责" in handoff
+    assert "EXT-C-E8-TAPER-0.5B-01" in handoff
     assert "`EXT-H-E7-Q2` 仍是下一正式 route item" in handoff
     assert "它不再是 E6 父 claim 关闭或 E7-MECH 启动的前置条件" in handoff
     assert "不是原 DRPO 分布鲁棒章节中的 linear weighting" in handoff

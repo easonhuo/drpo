@@ -5,23 +5,23 @@ kernel_version: 1
 profile_id: drpo-research
 profile_version: 1
 override_version: 1
-graph_hash: e5195826aa9fe09f096d38a8162a7dd09e6381e72acaa6069e08b85b97911277
+graph_hash: 392b0201566d0c968a65f8f94ed1ea00118ae3e271ad63ce04c4da5ba6e7556b
 sources:
   bootstrap_claims:
     path: docs/handoff_shadow/stage4/inventory/CLAIMS.yaml
-    sha256: 0512097a4e795e4c3b06440543de9b787c2539aa0279562d16ff7ab879a9b0b6
+    sha256: 696b5ca8026a35d81013ff70433f42b630bf53f3bdf438da656bf86e267bf199
   bootstrap_experiments:
     path: docs/handoff_shadow/stage4/inventory/EXPERIMENTS.yaml
-    sha256: aba8762f86dc1a1d693763a952534aa3624974859472823ba0c6f8377d0a21a8
+    sha256: 5065a5e80ca80dcbb2eeedc0a898d239db2d0eaa7df256cc9db589f1c70e9820
   bootstrap_headings:
     path: docs/handoff_shadow/stage4/inventory/HEADINGS.yaml
-    sha256: 81ad70b6ce769f4c6cd0e901c52d4efdc057ea97e1bf5d17cff1176ed5807921
+    sha256: 62b70ba917521b7011ee591bb0e0efe63cb4292283e6913323946ef29d67513f
   handoff:
     path: docs/handoff.md
-    sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
+    sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
   registry:
     path: experiments/registry.yaml
-    sha256: 8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059
+    sha256: c9fd00b1b198a4963ac07bf854fb8afc746f160c180c808dbf6e5fd0f3b2c8e3
 nodes:
 - node_id: claim:GOV-COLLAPSE-TAXONOMY-01
   node_type: claim
@@ -626,7 +626,7 @@ nodes:
     kind: mechanical_registry_discovery
     source:
       path: experiments/registry.yaml
-      sha256: 8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059
+      sha256: c9fd00b1b198a4963ac07bf854fb8afc746f160c180c808dbf6e5fd0f3b2c8e3
     registry_index: 4
   attributes:
     experiment_id: C-U1-E1-COMP-01
@@ -644,7 +644,7 @@ nodes:
     kind: mechanical_registry_discovery
     source:
       path: experiments/registry.yaml
-      sha256: 8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059
+      sha256: c9fd00b1b198a4963ac07bf854fb8afc746f160c180c808dbf6e5fd0f3b2c8e3
     registry_index: 1
   attributes:
     experiment_id: C-U1-E3-ADAM-RERUN
@@ -662,7 +662,7 @@ nodes:
     kind: mechanical_registry_discovery
     source:
       path: experiments/registry.yaml
-      sha256: 8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059
+      sha256: c9fd00b1b198a4963ac07bf854fb8afc746f160c180c808dbf6e5fd0f3b2c8e3
     registry_index: 2
   attributes:
     experiment_id: C-U1-E4-ADAM-RERUN
@@ -680,7 +680,7 @@ nodes:
     kind: mechanical_registry_discovery
     source:
       path: experiments/registry.yaml
-      sha256: 8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059
+      sha256: c9fd00b1b198a4963ac07bf854fb8afc746f160c180c808dbf6e5fd0f3b2c8e3
     registry_index: 3
   attributes:
     experiment_id: C-U1-E4-CONV-01
@@ -698,7 +698,7 @@ nodes:
     kind: mechanical_registry_discovery
     source:
       path: experiments/registry.yaml
-      sha256: 8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059
+      sha256: c9fd00b1b198a4963ac07bf854fb8afc746f160c180c808dbf6e5fd0f3b2c8e3
     registry_index: 5
   attributes:
     experiment_id: C-U1-E4-TAPER-01
@@ -717,7 +717,7 @@ nodes:
     kind: mechanical_registry_discovery
     source:
       path: experiments/registry.yaml
-      sha256: 8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059
+      sha256: c9fd00b1b198a4963ac07bf854fb8afc746f160c180c808dbf6e5fd0f3b2c8e3
     registry_index: 7
   attributes:
     experiment_id: C-U1-E4-TAPER-BUDGET-MATCH-01
@@ -736,7 +736,7 @@ nodes:
     kind: mechanical_registry_discovery
     source:
       path: experiments/registry.yaml
-      sha256: 8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059
+      sha256: c9fd00b1b198a4963ac07bf854fb8afc746f160c180c808dbf6e5fd0f3b2c8e3
     registry_index: 9
   attributes:
     experiment_id: C-U1-E4-TAPER-CONFIRM-01
@@ -755,7 +755,7 @@ nodes:
     kind: mechanical_registry_discovery
     source:
       path: experiments/registry.yaml
-      sha256: 8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059
+      sha256: c9fd00b1b198a4963ac07bf854fb8afc746f160c180c808dbf6e5fd0f3b2c8e3
     registry_index: 8
   attributes:
     experiment_id: C-U1-E4-TAPER-CONV-01
@@ -774,7 +774,7 @@ nodes:
     kind: mechanical_registry_discovery
     source:
       path: experiments/registry.yaml
-      sha256: 8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059
+      sha256: c9fd00b1b198a4963ac07bf854fb8afc746f160c180c808dbf6e5fd0f3b2c8e3
     registry_index: 6
   attributes:
     experiment_id: C-U1-E4-TAPER-NEAR-RETENTION-01
@@ -792,8 +792,8 @@ nodes:
     kind: mechanical_registry_discovery
     source:
       path: experiments/registry.yaml
-      sha256: 8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059
-    registry_index: 18
+      sha256: c9fd00b1b198a4963ac07bf854fb8afc746f160c180c808dbf6e5fd0f3b2c8e3
+    registry_index: 19
   attributes:
     experiment_id: D-U1-E5-LONGRUN-RERUN
     environment: D-U1_and_D-Diag
@@ -810,8 +810,8 @@ nodes:
     kind: mechanical_registry_discovery
     source:
       path: experiments/registry.yaml
-      sha256: 8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059
-    registry_index: 23
+      sha256: c9fd00b1b198a4963ac07bf854fb8afc746f160c180c808dbf6e5fd0f3b2c8e3
+    registry_index: 24
   attributes:
     experiment_id: D-U1-E6-CONDITIONAL-GAP-01
     environment: D-U1
@@ -828,8 +828,8 @@ nodes:
     kind: mechanical_registry_discovery
     source:
       path: experiments/registry.yaml
-      sha256: 8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059
-    registry_index: 22
+      sha256: c9fd00b1b198a4963ac07bf854fb8afc746f160c180c808dbf6e5fd0f3b2c8e3
+    registry_index: 23
   attributes:
     experiment_id: D-U1-E6-SEMANTIC-GAP-LONGRUN-01
     environment: D-U1
@@ -846,8 +846,8 @@ nodes:
     kind: mechanical_registry_discovery
     source:
       path: experiments/registry.yaml
-      sha256: 8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059
-    registry_index: 21
+      sha256: c9fd00b1b198a4963ac07bf854fb8afc746f160c180c808dbf6e5fd0f3b2c8e3
+    registry_index: 22
   attributes:
     experiment_id: D-U1-E6-SEMANTIC-LONGRUN-01
     environment: D-U1
@@ -865,12 +865,31 @@ nodes:
     kind: mechanical_registry_discovery
     source:
       path: experiments/registry.yaml
-      sha256: 8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059
-    registry_index: 20
+      sha256: c9fd00b1b198a4963ac07bf854fb8afc746f160c180c808dbf6e5fd0f3b2c8e3
+    registry_index: 21
   attributes:
     experiment_id: EXT-C-E8-SCALE-01
     environment: EXT-C
     role: external_large_scale_discrete_benchmark
+    domain_status: not_run
+- node_id: experiment:EXT-C-E8-TAPER-0.5B-01
+  node_type: experiment
+  lifecycle_status: blocked
+  title: countdown_continuous_surprisal_taper_common_replay_pilot
+  module_ids:
+  - categorical_e5_e6
+  - countdown_e8
+  - execution_status_gates
+  provenance:
+    kind: mechanical_registry_discovery
+    source:
+      path: experiments/registry.yaml
+      sha256: c9fd00b1b198a4963ac07bf854fb8afc746f160c180c808dbf6e5fd0f3b2c8e3
+    registry_index: 18
+  attributes:
+    experiment_id: EXT-C-E8-TAPER-0.5B-01
+    environment: EXT-C
+    role: external_validity_continuous_taper_method_pilot
     domain_status: not_run
 - node_id: experiment:EXT-C-E8-V4
   node_type: experiment
@@ -884,7 +903,7 @@ nodes:
     kind: mechanical_registry_discovery
     source:
       path: experiments/registry.yaml
-      sha256: 8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059
+      sha256: c9fd00b1b198a4963ac07bf854fb8afc746f160c180c808dbf6e5fd0f3b2c8e3
     registry_index: 11
   attributes:
     experiment_id: EXT-C-E8-V4
@@ -903,7 +922,7 @@ nodes:
     kind: mechanical_registry_discovery
     source:
       path: experiments/registry.yaml
-      sha256: 8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059
+      sha256: c9fd00b1b198a4963ac07bf854fb8afc746f160c180c808dbf6e5fd0f3b2c8e3
     registry_index: 12
   attributes:
     experiment_id: EXT-C-E8-V4.1
@@ -922,7 +941,7 @@ nodes:
     kind: mechanical_registry_discovery
     source:
       path: experiments/registry.yaml
-      sha256: 8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059
+      sha256: c9fd00b1b198a4963ac07bf854fb8afc746f160c180c808dbf6e5fd0f3b2c8e3
     registry_index: 13
   attributes:
     experiment_id: EXT-C-E8-V4.2
@@ -941,7 +960,7 @@ nodes:
     kind: mechanical_registry_discovery
     source:
       path: experiments/registry.yaml
-      sha256: 8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059
+      sha256: c9fd00b1b198a4963ac07bf854fb8afc746f160c180c808dbf6e5fd0f3b2c8e3
     registry_index: 14
   attributes:
     experiment_id: EXT-C-E8-V4.3
@@ -960,7 +979,7 @@ nodes:
     kind: mechanical_registry_discovery
     source:
       path: experiments/registry.yaml
-      sha256: 8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059
+      sha256: c9fd00b1b198a4963ac07bf854fb8afc746f160c180c808dbf6e5fd0f3b2c8e3
     registry_index: 15
   attributes:
     experiment_id: EXT-C-E8-V4.4-OFFLINE-BANK
@@ -979,7 +998,7 @@ nodes:
     kind: mechanical_registry_discovery
     source:
       path: experiments/registry.yaml
-      sha256: 8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059
+      sha256: c9fd00b1b198a4963ac07bf854fb8afc746f160c180c808dbf6e5fd0f3b2c8e3
     registry_index: 16
   attributes:
     experiment_id: EXT-C-E8-V4.5-OFFLINE-BANK-TUNING
@@ -998,7 +1017,7 @@ nodes:
     kind: mechanical_registry_discovery
     source:
       path: experiments/registry.yaml
-      sha256: 8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059
+      sha256: c9fd00b1b198a4963ac07bf854fb8afc746f160c180c808dbf6e5fd0f3b2c8e3
     registry_index: 17
   attributes:
     experiment_id: EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY
@@ -1017,8 +1036,8 @@ nodes:
     kind: mechanical_registry_discovery
     source:
       path: experiments/registry.yaml
-      sha256: 8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059
-    registry_index: 19
+      sha256: c9fd00b1b198a4963ac07bf854fb8afc746f160c180c808dbf6e5fd0f3b2c8e3
+    registry_index: 20
   attributes:
     experiment_id: EXT-H-E7-BENCH-01
     environment: EXT-H
@@ -1036,7 +1055,7 @@ nodes:
     kind: mechanical_registry_discovery
     source:
       path: experiments/registry.yaml
-      sha256: 8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059
+      sha256: c9fd00b1b198a4963ac07bf854fb8afc746f160c180c808dbf6e5fd0f3b2c8e3
     registry_index: 10
   attributes:
     experiment_id: EXT-H-E7-Q2
@@ -1046,7 +1065,7 @@ nodes:
 - node_id: heading:H0001
   node_type: source_section
   lifecycle_status: accepted
-  title: DRPO / SNA2C 远场负梯度动力学研究主文档 v66（E4-TAPER Budget-Match 正式结果闭环版）
+  title: DRPO / SNA2C 远场负梯度动力学研究主文档 v67（Countdown 0.5B 机制探索关闭与 E8-TAPER 登记版）
   module_ids:
   - categorical_e5_e6
   - continuous_e1_e4
@@ -1061,7 +1080,7 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
     line: 1
     level: 1
     occurrence: 1
@@ -1076,8 +1095,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 700
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 717
     level: 1
     occurrence: 1
 - node_id: heading:H0003
@@ -1091,8 +1110,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 725
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 742
     level: 2
     occurrence: 1
 - node_id: heading:H0004
@@ -1107,8 +1126,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 768
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 785
     level: 2
     occurrence: 1
 - node_id: heading:H0005
@@ -1122,8 +1141,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 777
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 794
     level: 2
     occurrence: 1
 - node_id: heading:H0006
@@ -1137,8 +1156,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 790
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 807
     level: 2
     occurrence: 1
 - node_id: heading:H0007
@@ -1153,8 +1172,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 799
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 816
     level: 1
     occurrence: 1
 - node_id: heading:H0008
@@ -1169,8 +1188,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 801
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 818
     level: 2
     occurrence: 1
 - node_id: heading:H0009
@@ -1185,8 +1204,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 805
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 822
     level: 2
     occurrence: 1
 - node_id: heading:H0010
@@ -1201,8 +1220,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 813
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 830
     level: 2
     occurrence: 1
 - node_id: heading:H0011
@@ -1219,8 +1238,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 822
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 839
     level: 1
     occurrence: 1
 - node_id: heading:H0012
@@ -1234,8 +1253,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 837
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 854
     level: 1
     occurrence: 1
 - node_id: heading:H0013
@@ -1250,8 +1269,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 839
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 856
     level: 2
     occurrence: 1
 - node_id: heading:H0014
@@ -1265,8 +1284,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 845
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 862
     level: 3
     occurrence: 1
 - node_id: heading:H0015
@@ -1280,8 +1299,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 856
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 873
     level: 2
     occurrence: 1
 - node_id: heading:H0016
@@ -1295,8 +1314,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 860
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 877
     level: 2
     occurrence: 1
 - node_id: heading:H0017
@@ -1310,8 +1329,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 867
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 884
     level: 2
     occurrence: 1
 - node_id: heading:H0018
@@ -1325,8 +1344,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 878
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 895
     level: 2
     occurrence: 1
 - node_id: heading:H0019
@@ -1341,8 +1360,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 895
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 912
     level: 2
     occurrence: 1
 - node_id: heading:H0020
@@ -1356,8 +1375,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 897
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 914
     level: 3
     occurrence: 1
 - node_id: heading:H0021
@@ -1371,8 +1390,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 905
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 922
     level: 3
     occurrence: 1
 - node_id: heading:H0022
@@ -1387,8 +1406,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 917
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 934
     level: 3
     occurrence: 1
 - node_id: heading:H0023
@@ -1402,8 +1421,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 930
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 947
     level: 3
     occurrence: 1
 - node_id: heading:H0024
@@ -1418,8 +1437,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 938
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 955
     level: 3
     occurrence: 1
 - node_id: heading:H0025
@@ -1433,8 +1452,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 950
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 967
     level: 3
     occurrence: 1
 - node_id: heading:H0026
@@ -1449,8 +1468,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 964
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 981
     level: 2
     occurrence: 1
 - node_id: heading:H0027
@@ -1464,8 +1483,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 980
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 997
     level: 2
     occurrence: 1
 - node_id: heading:H0028
@@ -1480,8 +1499,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 994
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1011
     level: 2
     occurrence: 1
 - node_id: heading:H0029
@@ -1495,8 +1514,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1003
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1020
     level: 2
     occurrence: 1
 - node_id: heading:H0030
@@ -1511,8 +1530,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1018
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1035
     level: 2
     occurrence: 1
 - node_id: heading:H0031
@@ -1527,8 +1546,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1020
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1037
     level: 3
     occurrence: 1
 - node_id: heading:H0032
@@ -1543,8 +1562,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1024
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1041
     level: 3
     occurrence: 1
 - node_id: heading:H0033
@@ -1559,8 +1578,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1042
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1059
     level: 3
     occurrence: 1
 - node_id: heading:H0034
@@ -1576,8 +1595,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1058
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1075
     level: 3
     occurrence: 1
 - node_id: heading:H0035
@@ -1592,8 +1611,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1067
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1084
     level: 3
     occurrence: 1
 - node_id: heading:H0036
@@ -1607,8 +1626,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1082
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1099
     level: 3
     occurrence: 1
 - node_id: heading:H0037
@@ -1622,8 +1641,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1110
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1127
     level: 3
     occurrence: 1
 - node_id: heading:H0038
@@ -1638,8 +1657,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1136
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1153
     level: 3
     occurrence: 1
 - node_id: heading:H0039
@@ -1653,8 +1672,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1145
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1162
     level: 3
     occurrence: 1
 - node_id: heading:H0040
@@ -1669,8 +1688,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1150
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1167
     level: 3
     occurrence: 1
 - node_id: heading:H0041
@@ -1685,8 +1704,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1186
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1203
     level: 3
     occurrence: 1
 - node_id: heading:H0042
@@ -1701,8 +1720,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1223
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1240
     level: 3
     occurrence: 1
 - node_id: heading:H0043
@@ -1719,8 +1738,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1246
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1263
     level: 2
     occurrence: 1
 - node_id: heading:H0044
@@ -1738,8 +1757,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1271
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1288
     level: 1
     occurrence: 1
 - node_id: heading:H0045
@@ -1756,8 +1775,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1295
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1312
     level: 2
     occurrence: 1
 - node_id: heading:H0046
@@ -1774,8 +1793,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1307
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1324
     level: 1
     occurrence: 1
 - node_id: heading:H0047
@@ -1792,8 +1811,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1334
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1351
     level: 1
     occurrence: 1
 - node_id: heading:H0048
@@ -1809,8 +1828,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1382
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1399
     level: 1
     occurrence: 1
 - node_id: heading:H0049
@@ -1826,8 +1845,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1384
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1401
     level: 2
     occurrence: 1
 - node_id: heading:H0050
@@ -1843,8 +1862,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1388
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1405
     level: 2
     occurrence: 1
 - node_id: heading:H0051
@@ -1860,8 +1879,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1392
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1409
     level: 2
     occurrence: 1
 - node_id: heading:H0052
@@ -1877,8 +1896,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1396
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1413
     level: 2
     occurrence: 1
 - node_id: heading:H0053
@@ -1895,8 +1914,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1402
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1419
     level: 1
     occurrence: 1
 - node_id: heading:H0054
@@ -1912,8 +1931,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1415
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1432
     level: 2
     occurrence: 1
 - node_id: heading:H0055
@@ -1929,8 +1948,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1429
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1446
     level: 1
     occurrence: 1
 - node_id: heading:H0056
@@ -1945,8 +1964,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1444
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1461
     level: 1
     occurrence: 1
 - node_id: heading:H0057
@@ -1961,8 +1980,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1466
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1483
     level: 1
     occurrence: 1
 - node_id: heading:H0058
@@ -1977,8 +1996,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1468
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1485
     level: 2
     occurrence: 1
 - node_id: heading:H0059
@@ -1993,8 +2012,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1474
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1491
     level: 2
     occurrence: 1
 - node_id: heading:H0060
@@ -2009,8 +2028,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1488
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1505
     level: 2
     occurrence: 1
 - node_id: heading:H0061
@@ -2026,8 +2045,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1507
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1524
     level: 2
     occurrence: 1
 - node_id: heading:H0062
@@ -2042,8 +2061,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1511
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1528
     level: 3
     occurrence: 1
 - node_id: heading:H0063
@@ -2058,8 +2077,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1526
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1543
     level: 3
     occurrence: 1
 - node_id: heading:H0064
@@ -2076,8 +2095,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1540
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1557
     level: 3
     occurrence: 1
 - node_id: heading:H0065
@@ -2092,8 +2111,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1548
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1565
     level: 3
     occurrence: 1
 - node_id: heading:H0066
@@ -2108,8 +2127,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1552
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1569
     level: 2
     occurrence: 1
 - node_id: heading:H0067
@@ -2124,8 +2143,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1558
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1575
     level: 3
     occurrence: 1
 - node_id: heading:H0068
@@ -2140,8 +2159,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1564
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1581
     level: 3
     occurrence: 1
 - node_id: heading:H0069
@@ -2156,8 +2175,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1573
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1590
     level: 2
     occurrence: 1
 - node_id: heading:H0070
@@ -2173,8 +2192,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1584
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1601
     level: 2
     occurrence: 1
 - node_id: heading:H0071
@@ -2189,8 +2208,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1586
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1603
     level: 3
     occurrence: 1
 - node_id: heading:H0072
@@ -2205,8 +2224,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1596
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1613
     level: 3
     occurrence: 1
 - node_id: heading:H0073
@@ -2222,8 +2241,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1604
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1621
     level: 1
     occurrence: 1
 - node_id: heading:H0074
@@ -2239,8 +2258,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1648
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1665
     level: 1
     occurrence: 1
 - node_id: heading:H0075
@@ -2256,8 +2275,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1664
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1681
     level: 2
     occurrence: 1
 - node_id: heading:H0076
@@ -2273,8 +2292,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1699
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1716
     level: 1
     occurrence: 1
 - node_id: heading:H0077
@@ -2290,8 +2309,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1703
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1720
     level: 2
     occurrence: 1
 - node_id: heading:H0078
@@ -2307,8 +2326,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1718
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1735
     level: 2
     occurrence: 1
 - node_id: heading:H0079
@@ -2324,8 +2343,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1727
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1744
     level: 2
     occurrence: 1
 - node_id: heading:H0080
@@ -2342,8 +2361,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1742
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1759
     level: 2
     occurrence: 1
 - node_id: heading:H0081
@@ -2359,8 +2378,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1757
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1774
     level: 2
     occurrence: 1
 - node_id: heading:H0082
@@ -2376,8 +2395,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1770
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1787
     level: 2
     occurrence: 1
 - node_id: heading:H0083
@@ -2394,8 +2413,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1802
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1819
     level: 2
     occurrence: 1
 - node_id: heading:H0084
@@ -2411,8 +2430,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1834
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1851
     level: 2
     occurrence: 1
 - node_id: heading:H0085
@@ -2429,8 +2448,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1870
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1887
     level: 1
     occurrence: 1
 - node_id: heading:H0086
@@ -2446,8 +2465,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1907
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1924
     level: 1
     occurrence: 1
 - node_id: heading:H0087
@@ -2463,8 +2482,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1938
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1955
     level: 2
     occurrence: 1
 - node_id: heading:H0088
@@ -2479,8 +2498,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1957
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1974
     level: 1
     occurrence: 1
 - node_id: heading:H0089
@@ -2495,8 +2514,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1959
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1976
     level: 2
     occurrence: 1
 - node_id: heading:H0090
@@ -2512,8 +2531,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 1971
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 1988
     level: 2
     occurrence: 1
 - node_id: heading:H0091
@@ -2528,8 +2547,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2004
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2021
     level: 1
     occurrence: 1
 - node_id: heading:H0092
@@ -2544,8 +2563,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2006
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2023
     level: 2
     occurrence: 1
 - node_id: heading:H0093
@@ -2560,8 +2579,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2019
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2036
     level: 2
     occurrence: 1
 - node_id: heading:H0094
@@ -2576,8 +2595,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2030
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2047
     level: 2
     occurrence: 1
 - node_id: heading:H0095
@@ -2593,8 +2612,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2046
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2063
     level: 2
     occurrence: 1
 - node_id: heading:H0096
@@ -2609,8 +2628,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2064
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2081
     level: 2
     occurrence: 1
 - node_id: heading:H0097
@@ -2625,8 +2644,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2090
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2107
     level: 2
     occurrence: 1
 - node_id: heading:H0098
@@ -2641,8 +2660,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2102
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2119
     level: 2
     occurrence: 1
 - node_id: heading:H0099
@@ -2658,8 +2677,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2115
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2132
     level: 1
     occurrence: 1
 - node_id: heading:H0100
@@ -2674,8 +2693,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2117
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2134
     level: 2
     occurrence: 1
 - node_id: heading:H0101
@@ -2690,8 +2709,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2130
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2147
     level: 2
     occurrence: 1
 - node_id: heading:H0102
@@ -2706,8 +2725,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2144
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2161
     level: 1
     occurrence: 1
 - node_id: heading:H0103
@@ -2722,8 +2741,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2169
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2186
     level: 2
     occurrence: 1
 - node_id: heading:H0104
@@ -2738,8 +2757,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2186
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2203
     level: 2
     occurrence: 1
 - node_id: heading:H0105
@@ -2754,8 +2773,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2195
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2212
     level: 1
     occurrence: 1
 - node_id: heading:H0106
@@ -2770,8 +2789,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2215
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2232
     level: 2
     occurrence: 1
 - node_id: heading:H0107
@@ -2786,8 +2805,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2240
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2257
     level: 1
     occurrence: 1
 - node_id: heading:H0108
@@ -2802,8 +2821,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2242
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2259
     level: 2
     occurrence: 1
 - node_id: heading:H0109
@@ -2818,8 +2837,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2261
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2278
     level: 2
     occurrence: 1
 - node_id: heading:H0110
@@ -2834,8 +2853,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2280
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2297
     level: 2
     occurrence: 1
 - node_id: heading:H0111
@@ -2851,8 +2870,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2308
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2325
     level: 1
     occurrence: 1
 - node_id: heading:H0112
@@ -2867,8 +2886,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2328
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2345
     level: 1
     occurrence: 1
 - node_id: heading:H0113
@@ -2884,8 +2903,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2340
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2357
     level: 2
     occurrence: 1
 - node_id: heading:H0114
@@ -2901,8 +2920,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2359
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2376
     level: 1
     occurrence: 1
 - node_id: heading:H0115
@@ -2918,8 +2937,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2361
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2378
     level: 2
     occurrence: 1
 - node_id: heading:H0116
@@ -2935,8 +2954,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2382
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2399
     level: 2
     occurrence: 1
 - node_id: heading:H0117
@@ -2952,8 +2971,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2390
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2407
     level: 2
     occurrence: 1
 - node_id: heading:H0118
@@ -2969,8 +2988,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2413
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2430
     level: 2
     occurrence: 1
 - node_id: heading:H0119
@@ -2986,8 +3005,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2429
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2446
     level: 1
     occurrence: 1
 - node_id: heading:H0120
@@ -3003,8 +3022,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2436
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2453
     level: 2
     occurrence: 1
 - node_id: heading:H0121
@@ -3020,8 +3039,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2444
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2461
     level: 2
     occurrence: 1
 - node_id: heading:H0122
@@ -3037,8 +3056,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2458
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2475
     level: 2
     occurrence: 1
 - node_id: heading:H0123
@@ -3054,8 +3073,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2477
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2494
     level: 2
     occurrence: 1
 - node_id: heading:H0124
@@ -3071,8 +3090,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2493
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2510
     level: 2
     occurrence: 1
 - node_id: heading:H0125
@@ -3088,8 +3107,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2519
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2536
     level: 2
     occurrence: 1
 - node_id: heading:H0126
@@ -3106,8 +3125,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2569
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2586
     level: 1
     occurrence: 1
 - node_id: heading:H0127
@@ -3124,8 +3143,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2587
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2604
     level: 2
     occurrence: 1
 - node_id: heading:H0128
@@ -3142,8 +3161,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2597
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2614
     level: 2
     occurrence: 1
 - node_id: heading:H0129
@@ -3160,8 +3179,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2606
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2623
     level: 2
     occurrence: 1
 - node_id: heading:H0130
@@ -3178,8 +3197,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2615
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2632
     level: 2
     occurrence: 1
 - node_id: heading:H0131
@@ -3196,8 +3215,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2631
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2648
     level: 2
     occurrence: 1
 - node_id: heading:H0132
@@ -3214,8 +3233,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2659
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2676
     level: 2
     occurrence: 1
 - node_id: heading:H0133
@@ -3232,8 +3251,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2685
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2702
     level: 2
     occurrence: 1
 - node_id: heading:H0134
@@ -3251,8 +3270,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2702
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2719
     level: 2
     occurrence: 1
 - node_id: heading:H0135
@@ -3269,8 +3288,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2722
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2739
     level: 1
     occurrence: 1
 - node_id: heading:H0136
@@ -3288,8 +3307,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2724
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2741
     level: 2
     occurrence: 1
 - node_id: heading:H0137
@@ -3307,8 +3326,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2741
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2758
     level: 2
     occurrence: 1
 - node_id: heading:H0138
@@ -3326,8 +3345,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2758
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2775
     level: 2
     occurrence: 1
 - node_id: heading:H0139
@@ -3344,8 +3363,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2779
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2796
     level: 2
     occurrence: 1
 - node_id: heading:H0140
@@ -3362,8 +3381,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2792
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2809
     level: 2
     occurrence: 1
 - node_id: heading:H0141
@@ -3381,8 +3400,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2808
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2825
     level: 2
     occurrence: 1
 - node_id: heading:H0142
@@ -3399,8 +3418,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2817
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2834
     level: 2
     occurrence: 1
 - node_id: heading:H0143
@@ -3417,8 +3436,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2846
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2863
     level: 2
     occurrence: 1
 - node_id: heading:H0144
@@ -3435,8 +3454,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2873
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2890
     level: 2
     occurrence: 1
 - node_id: heading:H0145
@@ -3454,8 +3473,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2890
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2907
     level: 2
     occurrence: 1
 - node_id: heading:H0146
@@ -3472,8 +3491,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2920
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2937
     level: 1
     occurrence: 1
 - node_id: heading:H0147
@@ -3490,8 +3509,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2966
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2983
     level: 1
     occurrence: 1
 - node_id: heading:H0148
@@ -3508,8 +3527,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 2978
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 2995
     level: 1
     occurrence: 1
 - node_id: heading:H0149
@@ -3526,8 +3545,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 3065
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 3082
     level: 1
     occurrence: 1
 - node_id: heading:H0150
@@ -3544,8 +3563,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 3076
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 3093
     level: 1
     occurrence: 1
 - node_id: heading:H0151
@@ -3562,8 +3581,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 3082
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 3099
     level: 2
     occurrence: 1
 - node_id: heading:H0152
@@ -3581,8 +3600,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 3096
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 3113
     level: 2
     occurrence: 1
 - node_id: heading:H0153
@@ -3599,8 +3618,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 3112
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 3129
     level: 2
     occurrence: 1
 - node_id: heading:H0154
@@ -3617,8 +3636,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 3121
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 3138
     level: 2
     occurrence: 1
 - node_id: heading:H0155
@@ -3636,8 +3655,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 3129
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 3146
     level: 2
     occurrence: 1
 - node_id: heading:H0156
@@ -3655,8 +3674,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 3136
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 3153
     level: 1
     occurrence: 1
 - node_id: heading:H0157
@@ -3673,8 +3692,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 3143
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 3160
     level: 2
     occurrence: 1
 - node_id: heading:H0158
@@ -3691,8 +3710,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 3153
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 3170
     level: 2
     occurrence: 1
 - node_id: heading:H0159
@@ -3709,8 +3728,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 3175
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 3192
     level: 2
     occurrence: 1
 - node_id: heading:H0160
@@ -3727,8 +3746,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 3205
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 3222
     level: 2
     occurrence: 1
 - node_id: heading:H0161
@@ -3746,8 +3765,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 3225
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 3242
     level: 2
     occurrence: 1
 - node_id: heading:H0162
@@ -3762,8 +3781,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 3249
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 3266
     level: 1
     occurrence: 1
 - node_id: heading:H0163
@@ -3778,8 +3797,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 3253
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 3270
     level: 1
     occurrence: 1
 - node_id: heading:H0164
@@ -3794,8 +3813,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 3255
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 3272
     level: 2
     occurrence: 1
 - node_id: heading:H0165
@@ -3810,8 +3829,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 3265
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 3282
     level: 2
     occurrence: 1
 - node_id: heading:H0166
@@ -3826,8 +3845,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 3299
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 3316
     level: 2
     occurrence: 1
 - node_id: heading:H0167
@@ -3842,8 +3861,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 3317
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 3334
     level: 2
     occurrence: 1
 - node_id: heading:H0168
@@ -3858,8 +3877,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 3372
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 3389
     level: 2
     occurrence: 1
 - node_id: heading:H0169
@@ -3874,8 +3893,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 3406
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 3423
     level: 2
     occurrence: 1
 - node_id: heading:H0170
@@ -3890,8 +3909,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 3470
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 3487
     level: 2
     occurrence: 1
 - node_id: heading:H0171
@@ -3906,8 +3925,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 3511
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 3528
     level: 2
     occurrence: 1
 - node_id: heading:H0172
@@ -3922,8 +3941,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 3541
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 3558
     level: 3
     occurrence: 1
 - node_id: heading:H0173
@@ -3938,8 +3957,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 3578
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 3595
     level: 3
     occurrence: 1
 - node_id: heading:H0174
@@ -3954,8 +3973,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 3636
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 3653
     level: 3
     occurrence: 1
 - node_id: heading:H0175
@@ -3970,8 +3989,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 3661
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 3678
     level: 3
     occurrence: 1
 - node_id: heading:H0176
@@ -3987,8 +4006,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 3693
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 3710
     level: 3
     occurrence: 1
 - node_id: heading:H0177
@@ -4004,8 +4023,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 3720
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 3737
     level: 2
     occurrence: 1
 - node_id: heading:H0178
@@ -4020,8 +4039,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 3758
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 3775
     level: 2
     occurrence: 1
 - node_id: heading:H0179
@@ -4036,8 +4055,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 3782
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 3799
     level: 2
     occurrence: 1
 - node_id: heading:H0180
@@ -4052,8 +4071,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 3804
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 3821
     level: 2
     occurrence: 1
 - node_id: heading:H0181
@@ -4069,8 +4088,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 3828
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 3845
     level: 2
     occurrence: 1
 - node_id: heading:H0182
@@ -4086,8 +4105,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 3842
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 3859
     level: 2
     occurrence: 1
 - node_id: heading:H0183
@@ -4103,8 +4122,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 3864
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 3881
     level: 1
     occurrence: 1
 - node_id: heading:H0184
@@ -4118,8 +4137,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 3868
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 3885
     level: 1
     occurrence: 1
 - node_id: heading:H0185
@@ -4133,8 +4152,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 3884
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 3901
     level: 1
     occurrence: 1
 - node_id: heading:H0186
@@ -4149,8 +4168,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 3889
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 3906
     level: 2
     occurrence: 1
 - node_id: heading:H0187
@@ -4165,8 +4184,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 3903
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 3920
     level: 2
     occurrence: 1
 - node_id: heading:H0188
@@ -4180,8 +4199,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 3915
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 3932
     level: 2
     occurrence: 1
 - node_id: heading:H0189
@@ -4196,8 +4215,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 3927
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 3944
     level: 1
     occurrence: 1
 - node_id: heading:H0190
@@ -4211,8 +4230,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 3929
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 3946
     level: 2
     occurrence: 1
 - node_id: heading:H0191
@@ -4226,8 +4245,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 3939
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 3956
     level: 2
     occurrence: 1
 - node_id: heading:H0192
@@ -4241,8 +4260,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 3953
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 3970
     level: 1
     occurrence: 2
 - node_id: heading:H0193
@@ -4256,8 +4275,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 3955
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 3972
     level: 2
     occurrence: 2
 - node_id: heading:H0194
@@ -4271,8 +4290,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 3965
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 3982
     level: 2
     occurrence: 2
 - node_id: heading:H0195
@@ -4286,8 +4305,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 3999
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4016
     level: 2
     occurrence: 2
 - node_id: heading:H0196
@@ -4301,8 +4320,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4017
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4034
     level: 2
     occurrence: 2
 - node_id: heading:H0197
@@ -4317,8 +4336,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4072
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4089
     level: 2
     occurrence: 2
 - node_id: heading:H0198
@@ -4333,8 +4352,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4106
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4123
     level: 2
     occurrence: 2
 - node_id: heading:H0199
@@ -4349,8 +4368,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4170
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4187
     level: 2
     occurrence: 2
 - node_id: heading:H0200
@@ -4366,8 +4385,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4211
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4228
     level: 2
     occurrence: 2
 - node_id: heading:H0201
@@ -4382,8 +4401,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4249
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4266
     level: 2
     occurrence: 2
 - node_id: heading:H0202
@@ -4397,8 +4416,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4273
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4290
     level: 2
     occurrence: 2
 - node_id: heading:H0203
@@ -4412,8 +4431,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4295
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4312
     level: 2
     occurrence: 2
 - node_id: heading:H0204
@@ -4428,8 +4447,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4319
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4336
     level: 2
     occurrence: 2
 - node_id: heading:H0205
@@ -4444,8 +4463,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4333
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4350
     level: 2
     occurrence: 2
 - node_id: heading:H0206
@@ -4461,8 +4480,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4353
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4370
     level: 1
     occurrence: 1
 - node_id: heading:H0207
@@ -4476,8 +4495,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4355
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4372
     level: 2
     occurrence: 1
 - node_id: heading:H0208
@@ -4491,8 +4510,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4368
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4385
     level: 2
     occurrence: 1
 - node_id: heading:H0209
@@ -4506,8 +4525,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4388
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4405
     level: 2
     occurrence: 1
 - node_id: heading:H0210
@@ -4521,8 +4540,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4410
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4427
     level: 2
     occurrence: 1
 - node_id: heading:H0211
@@ -4538,8 +4557,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4426
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4443
     level: 1
     occurrence: 1
 - node_id: heading:H0212
@@ -4554,8 +4573,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4428
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4445
     level: 2
     occurrence: 1
 - node_id: heading:H0213
@@ -4569,8 +4588,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4441
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4458
     level: 2
     occurrence: 1
 - node_id: heading:H0214
@@ -4585,8 +4604,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4454
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4471
     level: 2
     occurrence: 1
 - node_id: heading:H0215
@@ -4601,8 +4620,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4476
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4493
     level: 2
     occurrence: 1
 - node_id: heading:H0216
@@ -4616,8 +4635,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4493
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4510
     level: 2
     occurrence: 1
 - node_id: heading:H0217
@@ -4633,8 +4652,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4509
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4526
     level: 1
     occurrence: 1
 - node_id: heading:H0218
@@ -4649,8 +4668,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4529
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4546
     level: 1
     occurrence: 1
 - node_id: heading:H0219
@@ -4664,8 +4683,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4531
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4548
     level: 2
     occurrence: 1
 - node_id: heading:H0220
@@ -4680,8 +4699,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4545
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4562
     level: 2
     occurrence: 1
 - node_id: heading:H0221
@@ -4695,8 +4714,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4554
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4571
     level: 2
     occurrence: 1
 - node_id: heading:H0222
@@ -4711,8 +4730,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4564
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4581
     level: 1
     occurrence: 1
 - node_id: heading:H0223
@@ -4727,8 +4746,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4566
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4583
     level: 2
     occurrence: 1
 - node_id: heading:H0224
@@ -4742,8 +4761,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4574
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4591
     level: 2
     occurrence: 1
 - node_id: heading:H0225
@@ -4757,8 +4776,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4584
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4601
     level: 2
     occurrence: 1
 - node_id: heading:H0226
@@ -4773,8 +4792,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4597
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4614
     level: 1
     occurrence: 1
 - node_id: heading:H0227
@@ -4788,8 +4807,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4611
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4628
     level: 1
     occurrence: 1
 - node_id: heading:H0228
@@ -4803,8 +4822,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4627
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4644
     level: 1
     occurrence: 1
 - node_id: heading:H0229
@@ -4818,8 +4837,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4634
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4651
     level: 1
     occurrence: 1
 - node_id: heading:H0230
@@ -4834,8 +4853,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4640
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4657
     level: 1
     occurrence: 1
 - node_id: heading:H0231
@@ -4849,8 +4868,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4654
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4671
     level: 2
     occurrence: 1
 - node_id: heading:H0232
@@ -4865,8 +4884,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4665
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4682
     level: 2
     occurrence: 1
 - node_id: heading:H0233
@@ -4880,8 +4899,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4675
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4692
     level: 2
     occurrence: 1
 - node_id: heading:H0234
@@ -4895,8 +4914,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4694
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4711
     level: 2
     occurrence: 1
 - node_id: heading:H0235
@@ -4910,8 +4929,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4698
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4715
     level: 2
     occurrence: 1
 - node_id: heading:H0236
@@ -4926,8 +4945,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4712
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4729
     level: 2
     occurrence: 1
 - node_id: heading:H0237
@@ -4944,8 +4963,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4732
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4749
     level: 1
     occurrence: 1
 - node_id: heading:H0238
@@ -4961,8 +4980,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4736
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4753
     level: 1
     occurrence: 1
 - node_id: heading:H0239
@@ -4979,8 +4998,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4738
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4755
     level: 2
     occurrence: 1
 - node_id: heading:H0240
@@ -4996,8 +5015,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4748
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4765
     level: 2
     occurrence: 1
 - node_id: heading:H0241
@@ -5013,8 +5032,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4750
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4767
     level: 3
     occurrence: 1
 - node_id: heading:H0242
@@ -5030,8 +5049,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4760
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4777
     level: 3
     occurrence: 1
 - node_id: heading:H0243
@@ -5047,8 +5066,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4770
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4787
     level: 3
     occurrence: 1
 - node_id: heading:H0244
@@ -5065,8 +5084,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4774
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4791
     level: 2
     occurrence: 1
 - node_id: heading:H0245
@@ -5082,8 +5101,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4776
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4793
     level: 3
     occurrence: 1
 - node_id: heading:H0246
@@ -5099,8 +5118,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4787
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4804
     level: 3
     occurrence: 1
 - node_id: heading:H0247
@@ -5116,8 +5135,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4799
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4816
     level: 3
     occurrence: 1
 - node_id: heading:H0248
@@ -5133,8 +5152,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4812
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4829
     level: 2
     occurrence: 1
 - node_id: heading:H0249
@@ -5150,8 +5169,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4819
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4836
     level: 2
     occurrence: 1
 - node_id: heading:H0250
@@ -5167,8 +5186,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4825
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4842
     level: 2
     occurrence: 1
 - node_id: heading:H0251
@@ -5187,8 +5206,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4836
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4853
     level: 1
     occurrence: 1
 - node_id: heading:H0252
@@ -5206,8 +5225,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4838
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4855
     level: 1
     occurrence: 1
 - node_id: heading:H0253
@@ -5226,8 +5245,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4842
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4859
     level: 2
     occurrence: 1
 - node_id: heading:H0254
@@ -5245,8 +5264,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4844
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4861
     level: 3
     occurrence: 1
 - node_id: heading:H0255
@@ -5264,8 +5283,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4854
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4871
     level: 3
     occurrence: 1
 - node_id: heading:H0256
@@ -5283,8 +5302,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4858
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4875
     level: 3
     occurrence: 1
 - node_id: heading:H0257
@@ -5303,8 +5322,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4869
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4886
     level: 2
     occurrence: 1
 - node_id: heading:H0258
@@ -5322,8 +5341,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4886
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4903
     level: 2
     occurrence: 1
 - node_id: heading:H0259
@@ -5341,8 +5360,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4888
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4905
     level: 3
     occurrence: 1
 - node_id: heading:H0260
@@ -5360,8 +5379,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4894
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4911
     level: 3
     occurrence: 1
 - node_id: heading:H0261
@@ -5379,8 +5398,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4900
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4917
     level: 3
     occurrence: 1
 - node_id: heading:H0262
@@ -5398,8 +5417,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4904
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4921
     level: 3
     occurrence: 1
 - node_id: heading:H0263
@@ -5417,8 +5436,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4908
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4925
     level: 3
     occurrence: 1
 - node_id: heading:H0264
@@ -5436,8 +5455,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4912
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4929
     level: 3
     occurrence: 1
 - node_id: heading:H0265
@@ -5455,8 +5474,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4916
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4933
     level: 3
     occurrence: 1
 - node_id: heading:H0266
@@ -5474,8 +5493,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4924
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4941
     level: 2
     occurrence: 1
 - node_id: heading:H0267
@@ -5493,8 +5512,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4926
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4943
     level: 3
     occurrence: 1
 - node_id: heading:H0268
@@ -5512,8 +5531,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4932
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4949
     level: 3
     occurrence: 1
 - node_id: heading:H0269
@@ -5531,8 +5550,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4938
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4955
     level: 3
     occurrence: 1
 - node_id: heading:H0270
@@ -5550,8 +5569,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4944
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4961
     level: 3
     occurrence: 1
 - node_id: heading:H0271
@@ -5569,8 +5588,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4953
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4970
     level: 3
     occurrence: 1
 - node_id: heading:H0272
@@ -5588,8 +5607,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4957
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4974
     level: 3
     occurrence: 1
 - node_id: heading:H0273
@@ -5607,8 +5626,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4967
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4984
     level: 3
     occurrence: 1
 - node_id: heading:H0274
@@ -5626,8 +5645,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4971
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 4988
     level: 3
     occurrence: 1
 - node_id: heading:H0275
@@ -5645,8 +5664,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4984
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5001
     level: 2
     occurrence: 1
 - node_id: heading:H0276
@@ -5664,8 +5683,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4986
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5003
     level: 3
     occurrence: 1
 - node_id: heading:H0277
@@ -5683,8 +5702,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4992
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5009
     level: 3
     occurrence: 1
 - node_id: heading:H0278
@@ -5702,8 +5721,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 4998
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5015
     level: 3
     occurrence: 1
 - node_id: heading:H0279
@@ -5721,8 +5740,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5004
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5021
     level: 3
     occurrence: 1
 - node_id: heading:H0280
@@ -5741,8 +5760,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5010
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5027
     level: 3
     occurrence: 1
 - node_id: heading:H0281
@@ -5761,8 +5780,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5019
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5036
     level: 2
     occurrence: 1
 - node_id: heading:H0282
@@ -5780,8 +5799,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5021
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5038
     level: 3
     occurrence: 1
 - node_id: heading:H0283
@@ -5799,8 +5818,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5031
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5048
     level: 3
     occurrence: 1
 - node_id: heading:H0284
@@ -5818,8 +5837,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5037
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5054
     level: 3
     occurrence: 1
 - node_id: heading:H0285
@@ -5837,8 +5856,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5041
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5058
     level: 3
     occurrence: 1
 - node_id: heading:H0286
@@ -5856,8 +5875,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5045
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5062
     level: 3
     occurrence: 1
 - node_id: heading:H0287
@@ -5876,8 +5895,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5051
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5068
     level: 2
     occurrence: 1
 - node_id: heading:H0288
@@ -5895,8 +5914,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5053
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5070
     level: 3
     occurrence: 1
 - node_id: heading:H0289
@@ -5914,8 +5933,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5067
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5084
     level: 3
     occurrence: 1
 - node_id: heading:H0290
@@ -5933,8 +5952,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5075
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5092
     level: 3
     occurrence: 1
 - node_id: heading:H0291
@@ -5952,8 +5971,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5087
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5104
     level: 3
     occurrence: 1
 - node_id: heading:H0292
@@ -5971,8 +5990,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5089
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5106
     level: 4
     occurrence: 1
 - node_id: heading:H0293
@@ -5990,8 +6009,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5093
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5110
     level: 4
     occurrence: 1
 - node_id: heading:H0294
@@ -6009,8 +6028,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5097
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5114
     level: 4
     occurrence: 1
 - node_id: heading:H0295
@@ -6028,8 +6047,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5101
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5118
     level: 4
     occurrence: 1
 - node_id: heading:H0296
@@ -6047,8 +6066,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5105
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5122
     level: 4
     occurrence: 1
 - node_id: heading:H0297
@@ -6066,8 +6085,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5109
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5126
     level: 3
     occurrence: 1
 - node_id: heading:H0298
@@ -6085,8 +6104,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5111
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5128
     level: 4
     occurrence: 1
 - node_id: heading:H0299
@@ -6104,8 +6123,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5115
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5132
     level: 4
     occurrence: 1
 - node_id: heading:H0300
@@ -6123,8 +6142,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5119
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5136
     level: 4
     occurrence: 1
 - node_id: heading:H0301
@@ -6142,8 +6161,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5123
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5140
     level: 4
     occurrence: 1
 - node_id: heading:H0302
@@ -6162,8 +6181,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5127
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5144
     level: 3
     occurrence: 1
 - node_id: heading:H0303
@@ -6181,8 +6200,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5135
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5152
     level: 3
     occurrence: 1
 - node_id: heading:H0304
@@ -6200,8 +6219,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5145
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5162
     level: 2
     occurrence: 1
 - node_id: heading:H0305
@@ -6219,8 +6238,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5147
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5164
     level: 3
     occurrence: 1
 - node_id: heading:H0306
@@ -6238,8 +6257,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5164
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5181
     level: 3
     occurrence: 1
 - node_id: heading:H0307
@@ -6257,8 +6276,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5170
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5187
     level: 3
     occurrence: 1
 - node_id: heading:H0308
@@ -6276,8 +6295,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5176
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5193
     level: 3
     occurrence: 1
 - node_id: heading:H0309
@@ -6295,8 +6314,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5185
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5202
     level: 2
     occurrence: 1
 - node_id: heading:H0310
@@ -6314,8 +6333,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5187
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5204
     level: 3
     occurrence: 1
 - node_id: heading:H0311
@@ -6333,8 +6352,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5197
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5214
     level: 3
     occurrence: 1
 - node_id: heading:H0312
@@ -6352,8 +6371,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5207
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5224
     level: 3
     occurrence: 1
 - node_id: heading:H0313
@@ -6371,8 +6390,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5215
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5232
     level: 3
     occurrence: 1
 - node_id: heading:H0314
@@ -6390,8 +6409,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5221
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5238
     level: 3
     occurrence: 1
 - node_id: heading:H0315
@@ -6409,8 +6428,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5229
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5246
     level: 2
     occurrence: 1
 - node_id: heading:H0316
@@ -6428,8 +6447,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5231
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5248
     level: 3
     occurrence: 1
 - node_id: heading:H0317
@@ -6447,8 +6466,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5235
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5252
     level: 4
     occurrence: 1
 - node_id: heading:H0318
@@ -6466,8 +6485,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5243
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5260
     level: 4
     occurrence: 1
 - node_id: heading:H0319
@@ -6485,8 +6504,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5288
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5305
     level: 4
     occurrence: 1
 - node_id: heading:H0320
@@ -6504,8 +6523,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5292
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5309
     level: 3
     occurrence: 1
 - node_id: heading:H0321
@@ -6523,8 +6542,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5307
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5324
     level: 4
     occurrence: 1
 - node_id: heading:H0322
@@ -6544,8 +6563,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5332
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5349
     level: 4
     occurrence: 1
 - node_id: heading:H0323
@@ -6564,8 +6583,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5347
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5364
     level: 4
     occurrence: 1
 - node_id: heading:H0324
@@ -6585,8 +6604,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5361
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5378
     level: 4
     occurrence: 1
 - node_id: heading:H0325
@@ -6606,8 +6625,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5367
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5384
     level: 4
     occurrence: 1
 - node_id: heading:H0326
@@ -6625,8 +6644,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5371
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5388
     level: 4
     occurrence: 1
 - node_id: heading:H0327
@@ -6646,8 +6665,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5375
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5392
     level: 4
     occurrence: 1
 - node_id: heading:H0328
@@ -6665,8 +6684,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5379
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5396
     level: 3
     occurrence: 1
 - node_id: heading:H0329
@@ -6684,8 +6703,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5387
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5404
     level: 2
     occurrence: 1
 - node_id: heading:H0330
@@ -6703,8 +6722,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5389
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5406
     level: 3
     occurrence: 1
 - node_id: heading:H0331
@@ -6722,8 +6741,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5393
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5410
     level: 3
     occurrence: 1
 - node_id: heading:H0332
@@ -6741,8 +6760,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5397
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5414
     level: 3
     occurrence: 1
 - node_id: heading:H0333
@@ -6760,8 +6779,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5401
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5418
     level: 3
     occurrence: 1
 - node_id: heading:H0334
@@ -6779,8 +6798,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5405
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5422
     level: 3
     occurrence: 1
 - node_id: heading:H0335
@@ -6798,8 +6817,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5409
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5426
     level: 3
     occurrence: 1
 - node_id: heading:H0336
@@ -6817,8 +6836,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5413
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5430
     level: 3
     occurrence: 1
 - node_id: heading:H0337
@@ -6836,8 +6855,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5419
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5436
     level: 2
     occurrence: 1
 - node_id: heading:H0338
@@ -6856,8 +6875,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5421
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5438
     level: 3
     occurrence: 1
 - node_id: heading:H0339
@@ -6875,8 +6894,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5425
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5442
     level: 3
     occurrence: 1
 - node_id: heading:H0340
@@ -6894,8 +6913,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5429
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5446
     level: 3
     occurrence: 1
 - node_id: heading:H0341
@@ -6913,8 +6932,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5433
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5450
     level: 3
     occurrence: 1
 - node_id: heading:H0342
@@ -6932,8 +6951,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5437
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5454
     level: 3
     occurrence: 1
 - node_id: heading:H0343
@@ -6952,8 +6971,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5441
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5458
     level: 3
     occurrence: 1
 - node_id: heading:H0344
@@ -6971,8 +6990,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5447
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5464
     level: 2
     occurrence: 1
 - node_id: heading:H0345
@@ -6990,8 +7009,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5449
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5466
     level: 3
     occurrence: 1
 - node_id: heading:H0346
@@ -7009,8 +7028,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5456
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5473
     level: 3
     occurrence: 1
 - node_id: heading:H0347
@@ -7028,8 +7047,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5462
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5479
     level: 3
     occurrence: 1
 - node_id: heading:H0348
@@ -7047,8 +7066,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5469
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5486
     level: 2
     occurrence: 1
 - node_id: heading:H0349
@@ -7066,8 +7085,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5471
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5488
     level: 3
     occurrence: 1
 - node_id: heading:H0350
@@ -7085,8 +7104,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5475
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5492
     level: 3
     occurrence: 1
 - node_id: heading:H0351
@@ -7104,8 +7123,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5479
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5496
     level: 3
     occurrence: 1
 - node_id: heading:H0352
@@ -7123,8 +7142,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5483
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5500
     level: 3
     occurrence: 1
 - node_id: heading:H0353
@@ -7142,8 +7161,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5487
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5504
     level: 3
     occurrence: 1
 - node_id: heading:H0354
@@ -7161,8 +7180,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5491
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5508
     level: 3
     occurrence: 1
 - node_id: heading:H0355
@@ -7180,8 +7199,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5495
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5512
     level: 3
     occurrence: 1
 - node_id: heading:H0356
@@ -7200,8 +7219,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5499
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5516
     level: 3
     occurrence: 1
 - node_id: heading:H0357
@@ -7220,8 +7239,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5503
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5520
     level: 3
     occurrence: 1
 - node_id: heading:H0358
@@ -7239,8 +7258,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5507
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5524
     level: 3
     occurrence: 1
 - node_id: heading:H0359
@@ -7258,8 +7277,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5513
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5530
     level: 2
     occurrence: 1
 - node_id: heading:H0360
@@ -7277,8 +7296,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5515
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5532
     level: 3
     occurrence: 1
 - node_id: heading:H0361
@@ -7297,8 +7316,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5525
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5542
     level: 3
     occurrence: 1
 - node_id: heading:H0362
@@ -7316,8 +7335,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5532
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5549
     level: 3
     occurrence: 1
 - node_id: heading:H0363
@@ -7335,8 +7354,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5542
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5559
     level: 2
     occurrence: 1
 - node_id: heading:H0364
@@ -7354,8 +7373,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5553
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5570
     level: 2
     occurrence: 1
 - node_id: heading:H0365
@@ -7370,8 +7389,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5588
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5605
     level: 1
     occurrence: 1
 - node_id: heading:H0366
@@ -7386,8 +7405,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5590
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5607
     level: 1
     occurrence: 1
 - node_id: heading:H0367
@@ -7402,8 +7421,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5592
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5609
     level: 2
     occurrence: 1
 - node_id: heading:H0368
@@ -7418,8 +7437,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5601
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5618
     level: 2
     occurrence: 1
 - node_id: heading:H0369
@@ -7434,8 +7453,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5611
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5628
     level: 2
     occurrence: 1
 - node_id: heading:H0370
@@ -7450,8 +7469,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5641
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5658
     level: 2
     occurrence: 1
 - node_id: heading:H0371
@@ -7466,8 +7485,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5651
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5668
     level: 1
     occurrence: 1
 - node_id: heading:H0372
@@ -7483,8 +7502,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5665
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5682
     level: 2
     occurrence: 1
 - node_id: heading:H0373
@@ -7499,8 +7518,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5676
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5693
     level: 1
     occurrence: 1
 - node_id: heading:H0374
@@ -7515,8 +7534,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5678
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5695
     level: 2
     occurrence: 1
 - node_id: heading:H0375
@@ -7532,8 +7551,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5691
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5708
     level: 2
     occurrence: 1
 - node_id: heading:H0376
@@ -7548,8 +7567,8 @@ nodes:
     kind: mechanical_markdown_discovery
     source:
       path: docs/handoff.md
-      sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
-    line: 5700
+      sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+    line: 5717
     level: 2
     occurrence: 1
 - node_id: module:categorical_e5_e6

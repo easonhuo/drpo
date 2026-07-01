@@ -1,5 +1,5 @@
 digraph stage4_semantic_graph {
-  graph [label="graph_hash=e5195826aa9fe09f096d38a8162a7dd09e6381e72acaa6069e08b85b97911277", labelloc="t"];
+  graph [label="graph_hash=392b0201566d0c968a65f8f94ed1ea00118ae3e271ad63ce04c4da5ba6e7556b", labelloc="t"];
   rankdir=LR;
   node [shape=box];
   "claim:GOV-COLLAPSE-TAXONOMY-01" [label="claim: Task-performance collapse, support or variance boundary events, and NaN/Inf numerical failure must be reported separately."];
@@ -47,6 +47,7 @@ digraph stage4_semantic_graph {
   "experiment:D-U1-E6-SEMANTIC-GAP-LONGRUN-01" [label="experiment: minimum_change_shared_semantic_conditional_gap_longrun"];
   "experiment:D-U1-E6-SEMANTIC-LONGRUN-01" [label="experiment: shared_semantic_categorical_extrapolation_longrun"];
   "experiment:EXT-C-E8-SCALE-01" [label="experiment: countdown_large_model_large_data_external_benchmark"];
+  "experiment:EXT-C-E8-TAPER-0.5B-01" [label="experiment: countdown_continuous_surprisal_taper_common_replay_pilot"];
   "experiment:EXT-C-E8-V4" [label="experiment: countdown_base_first_transformer_external_validation"];
   "experiment:EXT-C-E8-V4.1" [label="experiment: countdown_audited_base_first_transformer_external_validation"];
   "experiment:EXT-C-E8-V4.2" [label="experiment: countdown_balanced_offline_dynamic_far_field_external_validation"];
@@ -56,7 +57,7 @@ digraph stage4_semantic_graph {
   "experiment:EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY" [label="experiment: countdown_online_offpolicy_replay_two_by_two_pilot"];
   "experiment:EXT-H-E7-BENCH-01" [label="experiment: d4rl_mujoco_locomotion_method_benchmark"];
   "experiment:EXT-H-E7-Q2" [label="experiment: hopper_gaussian_log_scale_quadratic_external_validation"];
-  "heading:H0001" [label="source_section: DRPO / SNA2C 远场负梯度动力学研究主文档 v66（E4-TAPER Budget-Match 正式结果闭环版）"];
+  "heading:H0001" [label="source_section: DRPO / SNA2C 远场负梯度动力学研究主文档 v67（Countdown 0.5B 机制探索关闭与 E8-TAPER 登记版）"];
   "heading:H0002" [label="source_section: 0. 研究与执行原则（每次新会话首先阅读）"];
   "heading:H0003" [label="source_section: 0.1 当前执行门禁"];
   "heading:H0004" [label="source_section: 0.2 C-U1 泛化术语覆盖规则（v15 锁定）"];
@@ -1069,6 +1070,7 @@ digraph stage4_semantic_graph {
   "heading:H0233" -> "module:theory_methods_related_work" [label="member_of"];
   "heading:H0218" -> "module:paper_rewrite" [label="member_of"];
   "heading:H0356" -> "module:continuous_e1_e4" [label="member_of"];
+  "experiment:EXT-C-E8-TAPER-0.5B-01" -> "module:categorical_e5_e6" [label="member_of"];
   "heading:H0302" -> "module:paper_rewrite" [label="member_of"];
   "claim:HIST-MU-SIGMA-EXPAND-01" -> "module:continuous_e1_e4" [label="member_of"];
   "module:countdown_e8" -> "project:drpo" [label="member_of"];
@@ -1099,6 +1101,7 @@ digraph stage4_semantic_graph {
   "heading:H0350" -> "module:countdown_e8" [label="member_of"];
   "heading:H0181" -> "module:categorical_e5_e6" [label="member_of"];
   "heading:H0031" -> "module:theory_methods_related_work" [label="member_of"];
+  "experiment:EXT-C-E8-TAPER-0.5B-01" -> "claim:SCI-COUNTDOWN-ROLE-01" [label="external_validates"];
   "heading:H0282" -> "module:categorical_e5_e6" [label="member_of"];
   "experiment:EXT-C-E8-SCALE-01" -> "module:categorical_e5_e6" [label="member_of"];
   "heading:H0231" -> "module:history_provenance" [label="member_of"];
@@ -1582,6 +1585,7 @@ digraph stage4_semantic_graph {
   "heading:H0311" -> "module:countdown_e8" [label="member_of"];
   "heading:H0127" -> "module:paper_rewrite" [label="member_of"];
   "heading:H0257" -> "module:paper_rewrite" [label="member_of"];
+  "experiment:EXT-C-E8-TAPER-0.5B-01" -> "module:execution_status_gates" [label="member_of"];
   "heading:H0277" -> "module:theory_methods_related_work" [label="member_of"];
   "heading:H0309" -> "module:countdown_e8" [label="member_of"];
   "experiment:EXT-C-E8-V4.1" -> "claim:SCI-COUNTDOWN-NOT-RUN-01" [label="external_validates"];
@@ -2011,6 +2015,7 @@ digraph stage4_semantic_graph {
   "heading:H0008" -> "module:theory_methods_related_work" [label="member_of"];
   "experiment:EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY" -> "module:countdown_e8" [label="member_of"];
   "heading:H0321" -> "module:countdown_e8" [label="member_of"];
+  "experiment:EXT-C-E8-TAPER-0.5B-01" -> "claim:SCI-COUNTDOWN-NOT-RUN-01" [label="external_validates"];
   "heading:H0244" -> "module:execution_status_gates" [label="member_of"];
   "heading:H0294" -> "module:hopper_e7" [label="member_of"];
   "heading:H0279" -> "module:theory_methods_related_work" [label="member_of"];
@@ -2205,6 +2210,7 @@ digraph stage4_semantic_graph {
   "heading:H0326" -> "module:countdown_e8" [label="member_of"];
   "heading:H0361" -> "module:hopper_e7" [label="member_of"];
   "heading:H0150" -> "module:execution_status_gates" [label="member_of"];
+  "experiment:EXT-C-E8-TAPER-0.5B-01" -> "module:countdown_e8" [label="member_of"];
   "heading:H0151" -> "module:history_provenance" [label="member_of"];
   "heading:H0322" -> "module:countdown_e8" [label="member_of"];
   "experiment:EXT-H-E7-Q2" -> "module:execution_status_gates" [label="member_of"];

@@ -5,23 +5,23 @@ kernel_version: 1
 profile_id: drpo-research
 profile_version: 1
 override_version: 1
-graph_hash: e5195826aa9fe09f096d38a8162a7dd09e6381e72acaa6069e08b85b97911277
+graph_hash: 392b0201566d0c968a65f8f94ed1ea00118ae3e271ad63ce04c4da5ba6e7556b
 sources:
   bootstrap_claims:
     path: docs/handoff_shadow/stage4/inventory/CLAIMS.yaml
-    sha256: 0512097a4e795e4c3b06440543de9b787c2539aa0279562d16ff7ab879a9b0b6
+    sha256: 696b5ca8026a35d81013ff70433f42b630bf53f3bdf438da656bf86e267bf199
   bootstrap_experiments:
     path: docs/handoff_shadow/stage4/inventory/EXPERIMENTS.yaml
-    sha256: aba8762f86dc1a1d693763a952534aa3624974859472823ba0c6f8377d0a21a8
+    sha256: 5065a5e80ca80dcbb2eeedc0a898d239db2d0eaa7df256cc9db589f1c70e9820
   bootstrap_headings:
     path: docs/handoff_shadow/stage4/inventory/HEADINGS.yaml
-    sha256: 81ad70b6ce769f4c6cd0e901c52d4efdc057ea97e1bf5d17cff1176ed5807921
+    sha256: 62b70ba917521b7011ee591bb0e0efe63cb4292283e6913323946ef29d67513f
   handoff:
     path: docs/handoff.md
-    sha256: 64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7
+    sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
   registry:
     path: experiments/registry.yaml
-    sha256: 8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059
+    sha256: c9fd00b1b198a4963ac07bf854fb8afc746f160c180c808dbf6e5fd0f3b2c8e3
 edges:
 - edge_id: edge:0fe06485441ad90dfbb6
   source: claim:GOV-COLLAPSE-TAXONOMY-01
@@ -935,6 +935,41 @@ edges:
   provenance: bootstrap_or_profile_inference
 - edge_id: edge:b5e4e1ad1f62c719eecd
   source: experiment:EXT-C-E8-SCALE-01
+  relation: member_of
+  target: module:execution_status_gates
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_or_profile_inference
+- edge_id: edge:d9a662ca4d87a6ed38e2
+  source: experiment:EXT-C-E8-TAPER-0.5B-01
+  relation: external_validates
+  target: claim:SCI-COUNTDOWN-NOT-RUN-01
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_experiment_inventory
+- edge_id: edge:591432829d6ff29be26a
+  source: experiment:EXT-C-E8-TAPER-0.5B-01
+  relation: external_validates
+  target: claim:SCI-COUNTDOWN-ROLE-01
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_experiment_inventory
+- edge_id: edge:55986196de44bbcc106e
+  source: experiment:EXT-C-E8-TAPER-0.5B-01
+  relation: member_of
+  target: module:categorical_e5_e6
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_or_profile_inference
+- edge_id: edge:f6b6f08338c9e6974d8d
+  source: experiment:EXT-C-E8-TAPER-0.5B-01
+  relation: member_of
+  target: module:countdown_e8
+  lifecycle_status: accepted
+  review_state: not_required
+  provenance: bootstrap_or_profile_inference
+- edge_id: edge:99cc592e0eeb56161162
+  source: experiment:EXT-C-E8-TAPER-0.5B-01
   relation: member_of
   target: module:execution_status_gates
   lifecycle_status: accepted

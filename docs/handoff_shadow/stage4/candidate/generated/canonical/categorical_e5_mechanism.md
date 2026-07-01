@@ -18,7 +18,7 @@
 
 ## Owned source blocks
 
-<!-- STAGE4B-SOURCE-BLOCK:B000057:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000058:START -->
 ## 3.7.1 D-U1 / D-Diag E5 长程复核 `D-U1-E5-LONGRUN-RERUN`
 
 本实验是 E5 历史结果的正式 provenance 重建与长期复核，不是新的方法排名，也不替代 E6。历史代码和 raw artifact 未进入当前 Git 历史，因此本轮只继承已锁定的科学职责、解析初值、方法角色和 qualitative 参照；所有重建参数均在本节和 registry 中一次性冻结。
@@ -33,8 +33,8 @@
 8. **执行与 artifact：** canonical hardened guard 负责监督和打包；runner 只写普通 CSV/JSON/PNG/Markdown 和每 5 seeds checkpoint marker，不写 archive。正式运行完成后先交 raw-complete 包，再做 terminal audit 和仓库闭环更新。
 
 
-<!-- STAGE4B-SOURCE-BLOCK:B000057:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000058:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000058:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000059:START -->
 ## 3.7.2 E5 长程复核结果与论文口径
 
 - **运行身份：** `D-U1-E5-LONGRUN-RERUN`，run commit `22c5823d66169eb90c256de342e27c5391e464c3`，formal seeds 10--29，六方法各 20000 steps，120/120 完整。
@@ -44,4 +44,4 @@
 - **允许论文表述：** “在该受控 categorical reconstruction 中，bounded direct-logit scores under repeated negative updates still induce monotone surprisal/logit-gap growth and simplex-boundary suppression; selective far-negative removal/capping, but not near-negative removal, breaks the harmful path.”
 - **禁止升级：** 不写成旧 runner 逐字节复现、离散欧氏梯度无界、support boundary 等同数值崩溃、E5 已证明未见动作泛化、或 Far-cap/Global-scale 的普遍方法排名。
 
-<!-- STAGE4B-SOURCE-BLOCK:B000058:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000059:END -->

@@ -156,7 +156,7 @@
       "target": "paper_rewrite"
     }
   ],
-  "after_image_tree_hash": "fd4587ea29f165117c59f9ad9abf9900f57557854ac3b8b5ab9df96589fb3393",
+  "after_image_tree_hash": "e00bf720c98ed9ea12b0bc40552d5a43d41d24f46515e662cc5be67b148892ac",
   "authority": "shadow_only",
   "authority_cutover_allowed": false,
   "claim_id": "GOV-HANDOFF-INDEX-01",
@@ -176,17 +176,9 @@
     "total": 19
   },
   "hard_blockers": [],
-  "maintenance_refresh": {
-    "authorization_id": "GOV-STAGE4A-E7-Q2-V43-COMPAT-2026-06-30",
-    "base_commit": "84edc2aa0b2f258033ddf2ef9aaf98e7a89a6edd",
-    "change_class": "compatibility_fix",
-    "core_acceptance_rerun": "PASS with determinism",
-    "fault_injection_evidence": "Reused the previously accepted 19/19 report because Stage 4 implementation/configuration and fault harness are unchanged; no fresh 19/19 claim is made.",
-    "scope": "Refresh the accepted Stage 4A shadow after-image after the authoritative E7-Q2 v4.3 fixed-budget protocol update and deterministic shadow regeneration; no Stage 4 implementation, configuration, authority, or stage-state change."
-  },
   "manual_handoff_remains_authoritative": true,
   "mapping": {
-    "canonical_experiments": 23,
+    "canonical_experiments": 24,
     "development_registrations": 4,
     "unmapped_objects": []
   },
@@ -204,68 +196,48 @@
       "automatic_action": false,
       "kind": "candidate_split_module",
       "object_id": "countdown_e8",
-      "reason": "source content has 58888 characters, above the configured 50000 threshold"
+      "reason": "source content has 68671 characters, above the configured 50000 threshold"
     }
   ],
   "repository_gates": [
     {
       "command": "python -m compileall -q src scripts tools tests",
-      "result": "completed with exit code 0",
+      "result": "completed with exit code 0 on the current candidate",
+      "status": "PASS"
+    },
+    {
+      "command": "ruff check .",
+      "result": "All checks passed in the uploaded repository-gate diagnostic; subsequent changes are generated documentation plus a numeric test expectation update",
+      "status": "PASS"
+    },
+    {
+      "command": "pytest -q tests/test_stage4a_inventory.py tests/test_stage4a_acceptance.py tests/test_experiment_route_v42.py tests/test_formal_execution_channel.py tests/test_handoff_delta_shadow.py",
+      "result": "14 + 28 + 49 targeted tests passed on the current candidate",
       "status": "PASS"
     },
     {
       "command": "python scripts/validate_formal_execution_channel.py --repo-root .",
-      "result": "PASS",
+      "result": "formal execution channel validation passed",
       "status": "PASS"
     },
     {
       "command": "python scripts/validate_governance_rule_inventory.py --repo-root .",
-      "result": "PASS",
-      "status": "PASS"
-    },
-    {
-      "command": "python scripts/validate_governance_pipeline_stage_status.py --repo-root .",
-      "result": "PASS; Stage 4 active and Stage 5 blocked",
-      "status": "PASS"
-    },
-    {
-      "command": "python scripts/handoff_delta_shadow.py auto-check --repo-root .",
-      "result": "PASS",
+      "result": "governance rule inventory validation passed",
       "status": "PASS"
     },
     {
       "command": "python scripts/validate_stage4a_inventory.py --repo-root . --json",
-      "result": "9 modules, 376 headings, 31 claims, 23 experiments",
+      "result": "9 modules, 376 headings, 31 claims, 24 experiments",
       "status": "PASS"
     },
     {
       "command": "python scripts/build_stage4_semantic_graph.py --repo-root . --check --json",
-      "result": "440 nodes, 1828 edges, 0 review queue, 0 rejected candidates",
+      "result": "semantic graph check passed",
       "status": "PASS"
     },
     {
       "command": "python scripts/build_stage4_context.py --repo-root . --json check",
-      "result": "13 modules, 39 dependency edges, 0 problems",
-      "status": "PASS"
-    },
-    {
-      "command": "python scripts/run_stage4a_acceptance.py --repo-root . --skip-fault-injection --json",
-      "result": "positive gates and determinism passed",
-      "status": "PASS"
-    },
-    {
-      "command": "pytest -q tests/test_e7_q2_acceptance_pipeline.py tests/test_e7_hopper_q2.py tests/test_handoff_delta_shadow.py",
-      "result": "74 passed in 20.98s",
-      "status": "PASS"
-    },
-    {
-      "command": "pytest -q tests/test_stage4a_acceptance.py",
-      "result": "3 passed in 12.80s",
-      "status": "PASS"
-    },
-    {
-      "command": "pytest -q tests/test_governance_pipeline_stage_status.py",
-      "result": "18 passed in 30.08s",
+      "result": "minimal-context check passed",
       "status": "PASS"
     }
   ],
@@ -415,7 +387,7 @@
       ]
     }
   },
-  "semantic_graph_hash": "e5195826aa9fe09f096d38a8162a7dd09e6381e72acaa6069e08b85b97911277",
+  "semantic_graph_hash": "392b0201566d0c968a65f8f94ed1ea00118ae3e271ad63ce04c4da5ba6e7556b",
   "stage_4a_state": "accepted",
   "stage_4b_state": "ready_for_separate_authorization",
   "stage_4c_state": "blocked_by_stage_4b_acceptance",

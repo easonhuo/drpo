@@ -7,7 +7,7 @@
 - Responsibility: Cover token-level near or far mechanism probes and fixed-offline-bank method pilots without replacing D-U1 controlled identification.
 - Content contract topics: none
 - Deduplicated overlapping source chunks: 0
-- Source hash: `97543e8050de65f28cce7731dcbf379c340e5c8e17f987a516fd4a8044e32fbb`
+- Source hash: `04746255debc7a1f404bb00a1ab710ea463ce6fd1bdc1afcf52701525b4c0eab`
 
 ## Source 1: docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v52-ext-c-e8-v43-dynamic-control
 
@@ -89,49 +89,69 @@
 > - 当前 formal route 不变：`EXT-H-E7-Q2` 仍是下一正式 route item。V4.6 是可独立执行的外部 focused pilot，不替代 C-U1/D-U1 因果识别；`EXT-C-E8-SCALE-01` 的 Countdown blocker 更新为 V4.6 的审计与交付。
 > - 本更新基于用户上传 Git bundle 的 `main` commit `7dcde2095e0f0aa4a7302a829667c1955c187738`；只实现协议、runner、实际选中样本诊断与测试，尚未运行真实 Qwen/CUDA/BF16-LoRA pilot。
 
-## Source 6: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v52-countdown-current-gate-override
+## Source 6: docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v67-countdown-0p5b-mechanism-close-e8-taper
+
+### Delta block `after_heading:v67-countdown-0p5b-mechanism-close-e8-taper`
+
+> **v67 增量登记：关闭 Countdown 0.5B 机制探索职责并登记 `EXT-C-E8-TAPER-0.5B-01`（不删除 v66 及更早内容）**
+>
+> **历史标题保留：v66（E4-TAPER Budget-Match 正式结果闭环版）。**
+>
+> - **职责关闭而非结果升级。** Countdown/Qwen 0.5B 的机制探索阶段在当前范围内关闭；这一决定只表示现有外部证据已经足以承担 Transformer 共享参数下的机制迁移说明，不把任何 smoke、单 seed、有限步 pilot 或正在运行的 V4.6 自动升级为正式多 seed 结果。C-U1/D-U1 继续承担受控因果识别与 ground truth，Countdown 不替代内部机制实验。
+> - **关闭范围。** 现有证据支持以下范围受限观察：learner-relative surprisal 较高的错误 completion 往往具有更大的 raw negative influence 与共享参数 collateral effect；固定 near/far completion 会随 learner 更新而 stale；current-policy remoteness control 可以显著削弱当前远端影响；uncontrolled negative 可能造成任务性能和 valid/support 退化而不必伴随 NaN/Inf。Near/Far 仅是端点诊断工具，不是最终算法对负样本的天然二分类。
+> - **禁止过度解释。** 本关闭决定不声明某个连续函数普适最优，不声明 Online Dynamic 已稳定超过 Positive-only，不把 0.5B 结果外推为 3B/7B 规模结论，也不把 task-performance degradation、support/structure boundary 与 NaN/Inf numerical failure 混为一类。
+> - **V4.6 保持独立。** `EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY` 继续作为 online refresh × negative update 的独立 2×2 效果 pilot，保留其既有状态和 provenance；其结果无论是否超过 Positive-only，都不得反向改写已经完成的内部机制结论，也不作为本次机制职责关闭的必要门禁。
+> - **新增实验。** 登记 `EXT-C-E8-TAPER-0.5B-01`，只比较同一公共 negative replay、同一 0.5B reference adapter、同一 optimizer/update budget 下，不同连续 surprisal taper 如何分配负梯度预算，以及它们是否带来任务收益或稳定性差异。该实验是外部方法 pilot，不是新的基础机制实验；当前状态为 **not_run + not_implemented + blocked**，在 runner、公共 replay、校准输出和终态审计全部实现并冻结前禁止启动。
+> - **公共 replay 与连续距离。** 固定 reference collector 对相同 Countdown prompts 生成候选，保留全部格式合法、数字使用正确、verifier 判错且 prompt 内唯一的 completion，形成 sample-level replay pool；不再要求每个 prompt 恰好具有 2、4 或 16 个负样本。训练先均匀采样 prompt，再从该 prompt 的候选池采样 completion，避免候选丰富 prompt 获得更大权重。每次更新由当前 learner 重新计算 `d_theta=max(0,-log pi_theta(x|s)-tau)`，不得沿用永久 near/far 标签。
+> - **冻结方法组。** 主比较固定为 Positive-only、Uncontrolled negative、Global matched、Reciprocal-linear、Exponential 和 Squared-distance exponential。不得预设 Exp、Squared-Exp 或 Global 必然更优；Reciprocal-quadratic 若后续需要，只能作为单独登记的附录候选，不能在看到 confirmation/test 后追加。
+> - **公平校准。** 在独立 calibration split 与 development seed `9134` 上，将 Global 与各 taper 的初始化 raw negative-gradient L2 匹配到同一冻结目标预算；校准完成后冻结全部系数。paired confirmation seeds 固定为 `9234/10234/11234`，test split 只在训练和方法选择全部完成后访问，禁止依据 confirmation/test 继续调函数或系数。
+> - **指标与终态。** 同时报告 greedy verifier success、pass@8、valid rate、best 与 terminal checkpoint；按当前 surprisal 分位桶报告 raw/weighted negative-gradient norm、实际权重、positive-negative cosine、correct-completion collateral effect 及各桶预算贡献。任务效果退化、valid/support/entropy boundary 和 NaN/Inf 必须分开审计；不得只用 best checkpoint 宣称胜出。
+> - **解释规则。** 若选择性 taper 超过 Positive-only 且 terminal 不反转、valid/support 不恶化，则支持 0.5B 上的额外负信号价值；若只优于 Uncontrolled/Global 而不超过 Positive-only，则只支持远场伤害控制；若方法接近，则按简单性与理论尾部性质冻结 3B 候选；若全部负梯度方法更差，则关闭 0.5B 方法收益路线，不继续无界 HPO。
+> - **规模路线。** `EXT-C-E8-SCALE-01` 的方法 shortlist 由本实验冻结；3B 主模型与 7B frozen confirmation 仍是独立规模验证，当前不因 0.5B 机制职责关闭而自动解锁。
+
+## Source 7: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v52-countdown-current-gate-override
 
 ### Delta block `section_end:v52-countdown-current-gate-override`
 
 - **Countdown v52 覆盖：** `EXT-C-E8-V4.3` 取代 V4.2 成为当前 E8-MECH/focused pilot；V4.2 只保留 matched-pair mechanism provenance。`EXT-C-E8-SCALE-01` 继续等待 V4.3 与 E7-BENCH，不因本次实现自动解锁。
 
-## Source 7: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v57-countdown-offline-bank-current-gate
+## Source 8: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v57-countdown-offline-bank-current-gate
 
 ### Delta block `section_end:v57-countdown-offline-bank-current-gate`
 
 - **Countdown v57 覆盖：** `EXT-C-E8-V4.4-OFFLINE-BANK` 是用户批准的当前离线 focused pilot；V4.3 保留为 fixed-pair predecessor。V4.4 只改变固定负样本覆盖与 current-policy near/far reselection，不引入在线数据刷新。`EXT-H-E7-Q2` 仍是下一正式 route item，`EXT-C-E8-SCALE-01` 继续 blocked。
 
-## Source 8: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v59-countdown-offline-bank-tuning-current-gate
+## Source 9: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v59-countdown-offline-bank-tuning-current-gate
 
 ### Delta block `section_end:v59-countdown-offline-bank-tuning-current-gate`
 
 - **Countdown v59 覆盖：** `EXT-C-E8-V4.5-OFFLINE-BANK-TUNING` 是当前用户批准的离线 focused successor；V4.4 作为 frozen-bank predecessor 保留。V4.5 只调 calibrated global negative multiplier 与 exponential taper lambda，禁止在线刷新、方向筛选或模型规模同时变化。`EXT-H-E7-Q2` 仍是下一 formal route item，`EXT-C-E8-SCALE-01` 继续 blocked。
 
-## Source 9: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v62-countdown-online-offpolicy-current-gate
+## Source 10: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v62-countdown-online-offpolicy-current-gate
 
 ### Delta block `section_end:v62-countdown-online-offpolicy-current-gate`
 
 - **Countdown v62 覆盖：** `EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY` 是当前用户批准并已实现的 Countdown focused successor，状态为 **implemented + not_run**。执行前必须提供完整 V4.5 `RUN_COMPLETE.json`/`terminal_audit.json` 及其指向的 V4.4 frozen inputs；runner fail-closed 校验输入与 reference adapter。它可作为独立 pilot 启动，但不改变 `EXT-H-E7-Q2` 的 formal 优先级，也不自动解锁 `EXT-C-E8-SCALE-01`。
 
-## Source 10: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v52-e8-route-override
+## Source 11: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v52-e8-route-override
 
 ### Delta block `section_end:v52-e8-route-override`
 
 7. **v52 路线覆盖：** 上述第 5 项的当前 E8-MECH owner 更新为 `EXT-C-E8-V4.3`。V4.3 只修复长期训练中的动态 remoteness 控制并保留 V4.2 静态方法作消融；E8-SCALE 的 3B/7B 规模结论仍需后续独立执行。
 
-## Source 11: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v57-e8-offline-online-route
+## Source 12: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v57-e8-offline-online-route
 
 ### Delta block `section_end:v57-e8-offline-online-route`
 
 8. **v57 E8 内部路线覆盖：** 在进入 E8 外部诊断时，先执行 `EXT-C-E8-V4.4-OFFLINE-BANK`，只改变 fixed-bank 密度与每步动态选择；online off-policy 必须作为独立 successor 重新冻结 rollout actor、同步滞后、replay age、seeds 与预算匹配，不能与 V4.4 共用结论。
 
-## Source 12: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v52-execution-order-override
+## Source 13: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v52-execution-order-override
 
 ### Delta block `section_end:v52-execution-order-override`
 
 11. **v52 执行覆盖：** 当锁定路线进入 E8-MECH 时，执行 `EXT-C-E8-V4.3` 而不是 V4.2；当前只完成注册和代码实现，真实 Qwen/CUDA pilot 仍为 not_run。
 
-## Source 13: experiments/registry.yaml: experiments[EXT-C-E8-V4, EXT-C-E8-V4.1, EXT-C-E8-V4.2, EXT-C-E8-V4.3, EXT-C-E8-V4.4-OFFLINE-BANK, EXT-C-E8-V4.5-OFFLINE-BANK-TUNING, EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY, EXT-C-E8-SCALE-01]
+## Source 14: experiments/registry.yaml: experiments[EXT-C-E8-V4, EXT-C-E8-V4.1, EXT-C-E8-V4.2, EXT-C-E8-V4.3, EXT-C-E8-V4.4-OFFLINE-BANK, EXT-C-E8-V4.5-OFFLINE-BANK-TUNING, EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY, EXT-C-E8-TAPER-0.5B-01, EXT-C-E8-SCALE-01]
 
 collection: experiments
 entries:
@@ -1371,14 +1391,193 @@ entries:
     package_sha256: null
     delivered_to_user: false
     applied_commit: null
+- id: EXT-C-E8-TAPER-0.5B-01
+  environment: EXT-C
+  name: countdown_continuous_surprisal_taper_common_replay_pilot
+  status: not_run
+  claim: Under a common fixed sample-level negative replay pool, matched model and optimizer budget, and initialization-matched
+    raw negative-gradient L2, test whether continuous learner-relative surprisal taper functions allocate negative influence
+    differently and whether that selective allocation improves Countdown task performance or stability relative to Positive-only,
+    uncontrolled negative updates, and a non-selective global control.
+  role: external_validity_continuous_taper_method_pilot
+  execution_class: pilot
+  registration_base_commit: 5ee79b4245a52af3f8caea6b1dd27e3efcd6920a
+  context_predecessor: EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY
+  does_not_replace:
+  - C-U1
+  - D-U1
+  - D-Diag
+  implementation_state: not_implemented
+  execution_gate:
+    state: blocked
+    blocked_by:
+    - implementation_and_protocol_freeze
+    blocking_reason: The common replay builder, calibration output, paired sampler, training runner, continuous-bin diagnostics,
+      and terminal audit must be implemented, tested, and frozen before any training starts.
+  code_entrypoint: null
+  operator_entrypoint: null
+  primary_model: Qwen2.5-0.5B-Instruct
+  scope_decision:
+    countdown_0_5b_mechanism_exploration: closed_for_current_scope
+    closure_is_result_upgrade: false
+    mechanism_owner_remains_controlled_environments:
+    - C-U1
+    - D-U1
+    v46_remains_separate_effect_pilot: true
+  common_replay_protocol:
+    collector_policy: frozen_reference_adapter
+    prompts: same_frozen_countdown_prompt_source_across_methods
+    generated_candidates: fixed_generation_budget_shared_across_methods
+    retain_candidate_when:
+    - valid_expression_format
+    - uses_all_supplied_numbers_exactly_once
+    - verifier_incorrect
+    - unique_within_prompt
+    storage: sample_level_negative_replay_pool
+    fixed_negative_count_per_prompt: false
+    synthetic_negative_fallback: false
+    prompt_balanced_sampling:
+      first_stage: uniform_over_eligible_prompts
+      second_stage: sample_one_negative_completion_within_prompt
+      purpose: prevent_candidate_rich_prompts_from_receiving_more_training_weight
+    paired_sampler_order_across_methods: required
+    replay_pool_hash_recorded: required
+  learner_relative_remoteness:
+    definition: max_0_sequence_surprisal_minus_tau
+    formula: d_theta=max(0,-log_pi_theta(x_given_s)-tau)
+    surprisal_threshold_tau: 2.0
+    recomputed_by_current_learner_each_update: true
+    permanent_near_far_labels: forbidden
+  methods:
+  - id: positive_only
+    weight_function: zero
+    role: stable_reference_without_negative_updates
+  - id: uncontrolled_negative
+    weight_function: one
+    role: negative_pressure_stress_reference
+  - id: global_matched
+    weight_function: constant_gamma
+    role: non_selective_budget_matched_control
+  - id: reciprocal_linear
+    weight_function: 1_over_1_plus_lambda_d
+    role: slow_continuous_tail_decay
+  - id: exponential
+    weight_function: exp_minus_lambda_d
+    role: exponential_tail_decay
+  - id: squared_distance_exponential
+    weight_function: exp_minus_lambda_d_squared
+    role: stronger_high_surprisal_tail_decay
+  excluded_primary_methods:
+  - reciprocal_quadratic_without_separate_registration
+  - sbrc
+  - hybrid
+  calibration_protocol:
+    split: independent_calibration_split
+    development_seed: 9134
+    target: initialization_raw_negative_gradient_l2
+    common_target_budget: inherited_selected_controlled_negative_initialization_budget
+    parameters_calibrated:
+    - global_gamma
+    - taper_lambda
+    test_metric_used_for_calibration: false
+    freeze_before_confirmation: required
+    confirmation_or_test_retuning: forbidden
+  confirmation_protocol:
+    paired_training_seeds:
+    - 9234
+    - 10234
+    - 11234
+    checkpoints:
+    - best
+    - terminal
+    paired_evaluation_seed_per_training_seed: true
+    test_split_access: only_after_all_training_and_selection_complete
+    unbounded_hyperparameter_search: forbidden
+  inherited_training_controls:
+    reference_adapter: same_across_all_methods
+    data_split: same_as_v46
+    optimizer: AdamW
+    learning_rate: 5.0e-05
+    warmup_ratio: 0.03
+    maximum_gradient_norm: 1.0
+    gradient_accumulation_microbatches: 8
+    optimizer_update_budget: matched_across_methods_and_frozen_before_launch
+  task_metrics:
+  - greedy_verifier_success
+  - pass_at_k
+  - valid_rate
+  - best_validation_checkpoint
+  - terminal_checkpoint
+  continuous_diagnostics:
+    binning_axis: current_sequence_surprisal_quantiles
+    fresh_current_learner_recomputation: required
+    metrics:
+    - samples_per_bin
+    - raw_negative_gradient_norm
+    - weighted_negative_gradient_norm
+    - actual_taper_weight
+    - positive_negative_gradient_cosine
+    - correct_completion_collateral_effect
+    - fraction_of_total_negative_gradient_budget
+  terminal_audit:
+    required: true
+    full_training_curves: required
+    best_terminal_gap: required
+    final_window_slopes: required
+    last_finite_checkpoint_on_failure: required
+    finite_loss_gradient_parameter_check: required
+    valid_support_entropy_boundary_check: required
+    fixed_horizon_is_not_automatic_convergence: true
+  reporting_separation:
+  - task_performance_degradation
+  - valid_support_or_entropy_boundary_event
+  - nan_inf_numerical_failure
+  decision_rules:
+    taper_beats_positive_only: Requires paired improvement, no terminal reversal, no material valid-rate degradation, and
+      no additional support or numerical failure.
+    taper_only_beats_uncontrolled_or_global: Supports far-tail harm control but not extra task utility beyond Positive-only.
+    taper_methods_tie: Select the simplest theoretically clear tail envelope for scale validation without claiming a universal
+      0.5B winner.
+    all_negative_methods_lose: Close the 0.5B method-utility route and carry only one frozen simple taper into 3B confirmation
+      without additional 0.5B HPO.
+  interpretation_limits:
+  - external_method_pilot_not_controlled_causal_identification
+  - no_universal_taper_winner_claim
+  - no_assumption_that_negative_updates_beat_positive_only
+  - no_0_5b_to_3b_or_7b_automatic_generalization
+  - countdown_does_not_replace_cu1_or_du1
+  expected_outputs:
+  - RUN_COMPLETE.json
+  - terminal_audit.json
+  - arena_summary.csv
+  - taper_calibration.json
+  - replay_pool_manifest.json
+  - surprisal_bin_diagnostics.csv
+  - run_config.json
+  formal_run_status: not_run
+  execution:
+    state: registered
+    run_id: null
+    last_heartbeat_utc: null
+    process_exit_code: null
+  evidence:
+    code_committed: false
+    run_started: false
+    raw_complete: false
+    terminal_audited: false
+    package_created: false
+    package_filename: null
+    package_sha256: null
+    delivered_to_user: false
+    applied_commit: null
 - id: EXT-C-E8-SCALE-01
   execution_gate:
     state: blocked
     blocked_by:
-    - EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY
+    - EXT-C-E8-TAPER-0.5B-01
     - EXT-H-E7-BENCH-01
-    blocking_reason: The audited V4.6 online off-policy replay pilot and the continuous external benchmark must be delivered
-      before model/data scaling uses a frozen method shortlist.
+    blocking_reason: The audited 0.5B continuous-taper pilot and the continuous external benchmark must be delivered before
+      model/data scaling uses a frozen method shortlist.
   environment: EXT-C
   name: countdown_large_model_large_data_external_benchmark
   status: not_run
@@ -1406,6 +1605,7 @@ entries:
       mode: forbid
   scaling_plan:
     mechanism_owner: EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY
+    method_shortlist_owner: EXT-C-E8-TAPER-0.5B-01
     primary_model: Qwen_Instruct_3B
     frozen_confirmation_model: Qwen_Instruct_7B
     dataset: larger_fixed_offline_countdown_dataset

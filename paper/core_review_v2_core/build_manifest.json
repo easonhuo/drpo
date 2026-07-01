@@ -1,7 +1,7 @@
 {
   "outputs": {
     "blueprint.md": {
-      "sha256": "aa3bbe449c5144ac79a6c3fb294fb4b2d7b104fb8770865bfe6fdbb3a7aa3464",
+      "sha256": "57e7c2d10db3538f4bd9b8ae623ec57ed560d53ef96292daee160b03262e56d1",
       "size_bytes": 4329
     },
     "cu1_e3_fixed_reward.csv": {
@@ -37,7 +37,7 @@
       "size_bytes": 1564
     },
     "research_snapshot.json": {
-      "sha256": "bd5456150dfde277cb96b3e65bb0f2547a6d4a84dd365009a6811e2b030849e9",
+      "sha256": "4a80a95378479b05c6bd7fa5f4be1113726db3d17c75fd4ae4886feabe0f3763",
       "size_bytes": 7982
     },
     "theorem.tex": {
@@ -49,6 +49,6 @@
   "pdf_pages": 2,
   "pdf_status": "compiled",
   "schema_version": 1,
-  "snapshot_sha256": "a313eed8169447239b0e73686c2bc777e52f67ff2eeaae079a6962c608db824d",
+  "snapshot_sha256": "34ba99a5e3cd25d370d3984c51146bb64f4a39d582f602dfdea6338d06c58cd5",
   "task_id": "PAPER-PIPELINE-V2-CORE-01"
 }

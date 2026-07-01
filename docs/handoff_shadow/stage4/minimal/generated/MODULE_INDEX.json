@@ -178,10 +178,10 @@
   ],
   "graph_hash": "0db2d992b651a2ed85d93d68c298214ba6bdbee1ae15b7b7c48d92162a7fb87c",
   "input_hashes": {
-    "docs/handoff.md": "64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7",
+    "docs/handoff.md": "8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71",
     "docs/handoff_shadow/stage4/minimal/DEPENDENCIES.yaml": "fb19da70ea2db6a35c4320e23a91640d0f21887c46bb79873d9548357271f4da",
-    "docs/handoff_shadow/stage4/minimal/MODULES.yaml": "2481d3b0d1c2ab2b58899d38de012ea1007f02d99f8f1ff568d6c36a2a6a146c",
-    "experiments/registry.yaml": "8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059"
+    "docs/handoff_shadow/stage4/minimal/MODULES.yaml": "ad311249e164d12da08108cea9661ad7b57eb10ce13b5d090526d8418e903331",
+    "experiments/registry.yaml": "c9fd00b1b198a4963ac07bf854fb8afc746f160c180c808dbf6e5fd0f3b2c8e3"
   },
   "module_order": [
     "global_core_governance",
@@ -542,15 +542,16 @@
         "categorical_e6_generalization"
       ],
       "module_id": "countdown_e8",
-      "snapshot_hash": "b485fcd14bcd3fd8192212c21b901e099fbd6a1e24ef3585eafb2812ef7b0bc9",
-      "source_chars": 58888,
-      "source_hash": "97543e8050de65f28cce7731dcbf379c340e5c8e17f987a516fd4a8044e32fbb",
+      "snapshot_hash": "d09f5e19fc0824fba88f0e4e5649af916cd85634855c3ab3201580be9163b8a8",
+      "source_chars": 68671,
+      "source_hash": "04746255debc7a1f404bb00a1ab710ea463ce6fd1bdc1afcf52701525b4c0eab",
       "source_labels": [
         "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v52-ext-c-e8-v43-dynamic-control",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v53-stage3-observation-automation",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v57-ext-c-e8-v44-offline-negative-bank",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v59-ext-c-e8-v45-offline-bank-tuning",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v62-ext-c-e8-v46-online-offpolicy-replay",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v67-countdown-0p5b-mechanism-close-e8-taper",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v52-countdown-current-gate-override",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v57-countdown-offline-bank-current-gate",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v59-countdown-offline-bank-tuning-current-gate",
@@ -558,7 +559,7 @@
         "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v52-e8-route-override",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v57-e8-offline-online-route",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v52-execution-order-override",
-        "experiments/registry.yaml: experiments[EXT-C-E8-V4, EXT-C-E8-V4.1, EXT-C-E8-V4.2, EXT-C-E8-V4.3, EXT-C-E8-V4.4-OFFLINE-BANK, EXT-C-E8-V4.5-OFFLINE-BANK-TUNING, EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY, EXT-C-E8-SCALE-01]"
+        "experiments/registry.yaml: experiments[EXT-C-E8-V4, EXT-C-E8-V4.1, EXT-C-E8-V4.2, EXT-C-E8-V4.3, EXT-C-E8-V4.4-OFFLINE-BANK, EXT-C-E8-V4.5-OFFLINE-BANK-TUNING, EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY, EXT-C-E8-TAPER-0.5B-01, EXT-C-E8-SCALE-01]"
       ]
     },
     {

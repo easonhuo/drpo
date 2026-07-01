@@ -1,6 +1,6 @@
 # Executable blueprint: PAPER-PIPELINE-V2-CORE-01
 
-Snapshot: `a313eed8169447239b0e73686c2bc777e52f67ff2eeaae079a6962c608db824d`
+Snapshot: `34ba99a5e3cd25d370d3984c51146bb64f4a39d582f602dfdea6338d06c58cd5`
 
 ## EXP-P04-A - Fixed-variance causal intervention
 

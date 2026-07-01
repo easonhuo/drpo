@@ -132,7 +132,7 @@ def test_current_registry_uses_canonical_channel() -> None:
     assert report["execution_class_counts"] == {
         "formal": 13,
         "historical_formal": 2,
-        "pilot": 6,
+        "pilot": 7,
         "superseded": 2,
     }
     assert report["formal_experiments"] == [
