@@ -1,0 +1,35 @@
+schema_version: 1
+issue_id: PAPER-PIPELINE-V2-CORE-BLUEPRINT-01
+title: Faithful approved-outline to executable-blueprint compiler
+status: implemented_candidate
+user_authorization: explicit_in_chat_2026_07_01
+parent_task: PAPER-PIPELINE-V2-CORE-01
+claim: >
+  Deterministically compiling the approved stable-ID outline into a complete AST,
+  explicit node resolution, and one-to-one structured blueprint will improve
+  structural fidelity and blueprint information content without expanding the
+  Core into a general manuscript platform.
+scientific_result_status: unchanged
+scope:
+  - parse all approved outline nodes and fields into outline_ast.json
+  - resolve every node as enabled or disabled_with_reason
+  - preserve exact stable IDs, order, titles, and parent block hashes
+  - enrich enabled nodes with sentence plans, exact evidence and metric bindings,
+    objections, calibrated conclusions, and transitions
+  - render blueprint.md from validated blueprint.json
+  - restore METHOD-P03 and EXP-P04 one-to-one prose identity
+out_of_scope:
+  - full-manuscript prose generation
+  - automatic merge, split, rename, or outline revision
+  - new experiments or result-status changes
+  - platform-level dependency tracing, waiver, CAS, or migration systems
+acceptance:
+  - all 39 approved outline nodes parse exactly once
+  - enabled outline IDs equal enabled blueprint and prose IDs in exact order
+  - merged or split IDs such as EXP-P04-A are rejected
+  - copied outline claims and generic experiment-only evidence fail information-gain checks
+  - experiment blueprint nodes bind exact metric paths and figure or table assets
+  - Core slice still compiles to exactly two pages and passes prior evidence gates
+rollback:
+  - revert the AST, resolution, structured-blueprint, and one-to-one prose changes
+  - preserve the previously validated evidence snapshot, figure, table, theorem, and proof assets

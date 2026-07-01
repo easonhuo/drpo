@@ -1,0 +1,98 @@
+{
+  "artifacts": [
+    {
+      "path": "docs/manuscript/PAPER_PIPELINE_V2_CORE.md",
+      "sha256": "a408e5cce67207b00539a85084e607fe2704eae07d6426a0aab5d6538f6ce660"
+    },
+    {
+      "path": "docs/manuscript/issues/PAPER-PIPELINE-V2-CORE-BLUEPRINT-01.yaml",
+      "sha256": "d9f9b0cf291f28ec04d9577aeff86a556cac7b78a4c274102096c7c95d9b9ba3"
+    },
+    {
+      "path": "docs/manuscript/paper_spec_core.yaml",
+      "sha256": "a09e202f4bbbd7ab53e132bc46d9d6f5be826930fc3b4dc325e46c0b6895f077"
+    },
+    {
+      "path": "scripts/paper_pipeline_core.py",
+      "sha256": "ca053acb361776dc090e0ebe1b4ecac9c0f859ff1adb30f56263bc4e5cf6164c"
+    },
+    {
+      "path": "tests/test_paper_pipeline_core.py",
+      "sha256": "9175d2babaa406df2bdad3c37d3b2745e9c1fcdfac19c52b7908a64b13082f99"
+    },
+    {
+      "path": "paper/core_review_v2_core/outline_ast.json",
+      "sha256": "2dad73f54f73795d9e26331ffb229ff038e4c2a20cca51d9c7029cdcb550aff7"
+    },
+    {
+      "path": "paper/core_review_v2_core/outline_resolution.json",
+      "sha256": "c2972787f1c83bf0eb6d49699150cf5e3a803d04ee1d401c9b29e549f4b9a700"
+    },
+    {
+      "path": "paper/core_review_v2_core/blueprint.json",
+      "sha256": "de41d51988f54d97821c2fe8737d45b2bdb4cb6e178c17158573da33296ad9bc"
+    },
+    {
+      "path": "paper/core_review_v2_core/blueprint.md",
+      "sha256": "3a2d7e1045d55e3135c5e0bd4ea0ccc8064402cac6639fadcded9040325c1cbe"
+    },
+    {
+      "path": "paper/core_review_v2_core/prose.md",
+      "sha256": "395adc99ea4cde09ab3435e28cf034b15c18d770b8731ff04b1d5a302ee147d1"
+    },
+    {
+      "path": "paper/core_review_v2_core/main.tex",
+      "sha256": "9e6467369aee92c4e85ffd75431d7b4e232a322180067de172c05dd337784c30"
+    },
+    {
+      "path": "paper/core_review_v2_core/main.pdf",
+      "sha256": "bcddacb0110fce4d5a5e8529d5eb48fa1da10e399dfd529650c7e039454b868f"
+    },
+    {
+      "path": "paper/core_review_v2_core/build_manifest.json",
+      "sha256": "ab02dd6d6d172c51a56c796095bd2148b199b2ee4b03c4a6c6651b3d17241b4d"
+    }
+  ],
+  "base_commit": "b30b1cf887e65f19141dbe2fd2c0d6f058dd42f9",
+  "gates": {
+    "all_39_outline_nodes_parsed": "pass",
+    "blueprint_information_gain": "pass",
+    "document_before_code": "pass",
+    "exact_metric_paths_resolve": "pass",
+    "explicit_enabled_or_disabled_resolution": "pass",
+    "formal_execution_channel": "pass",
+    "governance_rule_inventory": "pass",
+    "governance_stage_status": "pass",
+    "manuscript_cascade": "pass",
+    "merge_split_rename_reorder_omission_rejected": "pass",
+    "one_to_one_prose_identity": "pass",
+    "pdf_visual_inspection": "pass",
+    "prior_evidence_and_claim_boundaries": "pass",
+    "stable_evidence_ids_required": "pass",
+    "stable_id_order_title_hash_preserved": "pass",
+    "two_page_pdf_compile": "pass"
+  },
+  "not_completed": [
+    "The full repository pytest suite is not claimed as passed by this rebase repair; package and targeted integration gates are the acceptance basis.",
+    "Ruff is only executed when available in the target environment.",
+    "This increment validates the outline-to-blueprint layer for the two-node Core slice; it does not generate the full manuscript blueprint or prose."
+  ],
+  "parent_task": "PAPER-PIPELINE-V2-CORE-01",
+  "review_id": "PAPER-PIPELINE-V2-CORE-BLUEPRINT-01",
+  "schema_version": 1,
+  "scientific_result_status": "unchanged",
+  "scope": "faithful_outline_to_blueprint_compiler_and_core_slice_alignment",
+  "tests_executed": [
+    "python -m compileall -q src scripts tools tests",
+    "python scripts/paper_pipeline_core.py all --repo-root .",
+    "python scripts/paper_pipeline_core.py validate-blueprint --repo-root .",
+    "python scripts/paper_pipeline_core.py validate-slice --repo-root .",
+    "python -m pytest -q tests/test_paper_pipeline_core.py tests/test_paper_pipeline.py tests/test_manuscript_guidance_review.py tests/test_manuscript_live_hierarchy.py",
+    "python scripts/manuscript_cascade.py validate-artifacts --repo-root . --config docs/manuscript/hierarchy.yaml",
+    "python scripts/validate_governance_pipeline_stage_status.py --repo-root .",
+    "python scripts/validate_formal_execution_channel.py --repo-root .",
+    "python scripts/validate_governance_rule_inventory.py --repo-root .",
+    "PDF render and visual inspection of both pages"
+  ],
+  "verdict": "PASS"
+}

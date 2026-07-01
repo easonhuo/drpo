@@ -1,8 +1,17 @@
 {
+  "blueprint_enabled_node_ids": [
+    "METHOD-P03",
+    "EXP-P04"
+  ],
+  "outline_sha256": "18391d95368188e1b2bda95808f95f99741d14b16b61d227069474e6cb762e7d",
   "outputs": {
+    "blueprint.json": {
+      "sha256": "de41d51988f54d97821c2fe8737d45b2bdb4cb6e178c17158573da33296ad9bc",
+      "size_bytes": 21689
+    },
     "blueprint.md": {
-      "sha256": "57e7c2d10db3538f4bd9b8ae623ec57ed560d53ef96292daee160b03262e56d1",
-      "size_bytes": 4329
+      "sha256": "3a2d7e1045d55e3135c5e0bd4ea0ccc8064402cac6639fadcded9040325c1cbe",
+      "size_bytes": 7762
     },
     "cu1_e3_fixed_reward.csv": {
       "sha256": "3bbf76e2951b2b3241c457f198ff37c37cc292bb84e8c06d4c87ca5d520a9e7e",
@@ -17,27 +26,35 @@
       "size_bytes": 498
     },
     "latex_build.txt": {
-      "sha256": "57249a1e0891e2c8ba0d5cc4e2dc610aa8df2100f08a702e832f2ea121e1bd2c",
+      "sha256": "11266c007c390e94ba03c911077b739a5d6b57078f4ae1164e250d4b186de980",
       "size_bytes": 10424
     },
     "main.pdf": {
-      "sha256": "c67f08cba37c0b99678c573843062d5ec9de79050193cfcc72f803c23f55396a",
-      "size_bytes": 255622
+      "sha256": "bcddacb0110fce4d5a5e8529d5eb48fa1da10e399dfd529650c7e039454b868f",
+      "size_bytes": 261741
     },
     "main.tex": {
-      "sha256": "82769eeee344dd8eaa505de2a39130838299862af8b51e4238aa04de9602bcf3",
-      "size_bytes": 3844
+      "sha256": "9e6467369aee92c4e85ffd75431d7b4e232a322180067de172c05dd337784c30",
+      "size_bytes": 4082
+    },
+    "outline_ast.json": {
+      "sha256": "2dad73f54f73795d9e26331ffb229ff038e4c2a20cca51d9c7029cdcb550aff7",
+      "size_bytes": 40578
+    },
+    "outline_resolution.json": {
+      "sha256": "c2972787f1c83bf0eb6d49699150cf5e3a803d04ee1d401c9b29e549f4b9a700",
+      "size_bytes": 13994
     },
     "proof.tex": {
       "sha256": "d38cc4c0af1a790256888784dd0cc4cb08f3445709307ef53ac534499cdcd435",
       "size_bytes": 504
     },
     "prose.md": {
-      "sha256": "60bb82e4d006d89866fba38a11feb49393c9ba7d947c88dd44a2ca92606c0858",
-      "size_bytes": 1564
+      "sha256": "395adc99ea4cde09ab3435e28cf034b15c18d770b8731ff04b1d5a302ee147d1",
+      "size_bytes": 1876
     },
     "research_snapshot.json": {
-      "sha256": "4a80a95378479b05c6bd7fa5f4be1113726db3d17c75fd4ae4886feabe0f3763",
+      "sha256": "159c0e860d1a686fff1e5053f0de1375ca227c80a64dca34759d1cf7f48718bf",
       "size_bytes": 7982
     },
     "theorem.tex": {
@@ -49,6 +66,6 @@
   "pdf_pages": 2,
   "pdf_status": "compiled",
   "schema_version": 1,
-  "snapshot_sha256": "34ba99a5e3cd25d370d3984c51146bb64f4a39d582f602dfdea6338d06c58cd5",
+  "snapshot_sha256": "5ecdf966b05edd41441c4ecf9c39a1f14dd168aa70b00fad0f3b68d378dd3065",
   "task_id": "PAPER-PIPELINE-V2-CORE-01"
 }

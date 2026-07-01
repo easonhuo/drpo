@@ -1,0 +1,504 @@
+{
+  "enabled_node_ids": [
+    "METHOD-P03",
+    "EXP-P04"
+  ],
+  "node_count": 39,
+  "nodes": [
+    {
+      "disabled_reason": "not_selected_for_core_vertical_slice",
+      "id": "ABSTRACT-P01",
+      "order": 1,
+      "outline_block_sha256": "68037707db36afda0db4ceae7014c3f3241873d74cb7105c5ca1664ff6984739",
+      "section": "Abstract",
+      "status": "disabled_with_reason",
+      "title": "Paper Summary"
+    },
+    {
+      "disabled_reason": "not_selected_for_core_vertical_slice",
+      "id": "INTRO-P01",
+      "order": 2,
+      "outline_block_sha256": "53d8e25bbff12ba009dea935c2f20e0189e51cf34eab25ca4173d5f9a9d25a06",
+      "section": "Introduction",
+      "status": "disabled_with_reason",
+      "title": "Negative Feedback as a Policy-Improvement Resource"
+    },
+    {
+      "disabled_reason": "not_selected_for_core_vertical_slice",
+      "id": "INTRO-P02",
+      "order": 3,
+      "outline_block_sha256": "94fd8b0ab24900f356ef12447dbe8002cb138a24a0df1921c8edb0b9c194e14a",
+      "section": "Introduction",
+      "status": "disabled_with_reason",
+      "title": "Historical Reuse Turns Local Feedback into Persistent Repulsion"
+    },
+    {
+      "disabled_reason": "not_selected_for_core_vertical_slice",
+      "id": "INTRO-P03",
+      "order": 4,
+      "outline_block_sha256": "1e6c963b2e682ebec0525cc6e7a3d62eb195a8829baaf93db81159e2f413110f",
+      "section": "Introduction",
+      "status": "disabled_with_reason",
+      "title": "Existing Controls and the Missing Identification Link"
+    },
+    {
+      "disabled_reason": "not_selected_for_core_vertical_slice",
+      "id": "INTRO-P04",
+      "order": 5,
+      "outline_block_sha256": "454d156a23d8fcedcd51a3bc24dc3b3dc6d37c7bf41b782b29df1a2af01ec6d5",
+      "section": "Introduction",
+      "status": "disabled_with_reason",
+      "title": "Repulsive Dynamics Explains Stable Extrapolation and Equilibrium Loss"
+    },
+    {
+      "disabled_reason": "not_selected_for_core_vertical_slice",
+      "id": "INTRO-P05",
+      "order": 6,
+      "outline_block_sha256": "c5a68760f9839fe76381bed515feb1f93cf2e9c3ef3a5cd89a321a27235c1d3e",
+      "section": "Introduction",
+      "status": "disabled_with_reason",
+      "title": "DRPO Controls the Destabilizing Far-Field Term"
+    },
+    {
+      "disabled_reason": "not_selected_for_core_vertical_slice",
+      "id": "INTRO-P06",
+      "order": 7,
+      "outline_block_sha256": "1878626d7c80e095952b80cb3f2c79421b703f216984b411dfd069fc9a353128",
+      "section": "Introduction",
+      "status": "disabled_with_reason",
+      "title": "Evidence Chain and Contributions"
+    },
+    {
+      "disabled_reason": "not_selected_for_core_vertical_slice",
+      "id": "RELATED-P01",
+      "order": 8,
+      "outline_block_sha256": "c6d5b54f6152b63685ad6c3b8617a410bad4e890e9562041edbe38bf4d6758aa",
+      "section": "Related Work",
+      "status": "disabled_with_reason",
+      "title": "Learning from Negative or Suboptimal Behavior"
+    },
+    {
+      "disabled_reason": "not_selected_for_core_vertical_slice",
+      "id": "RELATED-P02",
+      "order": 9,
+      "outline_block_sha256": "4d8204e4b16cfa815a426757d16c3747f945a743abb844d2aebc3e2e8b32ef3b",
+      "section": "Related Work",
+      "status": "disabled_with_reason",
+      "title": "Off-Policy, Stale, and Low-Probability Updates"
+    },
+    {
+      "disabled_reason": "not_selected_for_core_vertical_slice",
+      "id": "RELATED-P03",
+      "order": 10,
+      "outline_block_sha256": "c39ab2c3b3a6d49bfaa5a53a75420c17a7e796e5964ac4c47aaabdc1b425deda",
+      "section": "Related Work",
+      "status": "disabled_with_reason",
+      "title": "Robust Offline Policy Learning"
+    },
+    {
+      "disabled_reason": "not_selected_for_core_vertical_slice",
+      "id": "SETUP-P01",
+      "order": 11,
+      "outline_block_sha256": "874cb1551b5858175d1beaf9369e0931a2bc47d63a61c575ba8033b5fede8df4",
+      "section": "Problem Setup",
+      "status": "disabled_with_reason",
+      "title": "Signed Actor Update and Influence Factorization"
+    },
+    {
+      "disabled_reason": "not_selected_for_core_vertical_slice",
+      "id": "SETUP-P02",
+      "order": 12,
+      "outline_block_sha256": "a8db2d78ce3634e9b55378df0a81bac4956bf2cce49186a2e9e1341eb9d3ce0d",
+      "section": "Problem Setup",
+      "status": "disabled_with_reason",
+      "title": "Policy-Relative Far Field"
+    },
+    {
+      "disabled_reason": "not_selected_for_core_vertical_slice",
+      "id": "THEORY-P01",
+      "order": 13,
+      "outline_block_sha256": "b4172e57afadce0d4317f875d6c1f5431910f3788d7802d5891890bd5bf7f4b2",
+      "section": "Repulsive Dynamics",
+      "status": "disabled_with_reason",
+      "title": "Per-Sample Far-Field Dynamics"
+    },
+    {
+      "disabled_reason": "not_selected_for_core_vertical_slice",
+      "id": "THEORY-P02",
+      "order": 14,
+      "outline_block_sha256": "ea03a8af375b638d3d94778c21ac98a5626c937af3b1dd11cd6fca6dd72525d5",
+      "section": "Repulsive Dynamics",
+      "status": "disabled_with_reason",
+      "title": "Aggregate Positive--Negative Competition"
+    },
+    {
+      "disabled_reason": "not_selected_for_core_vertical_slice",
+      "id": "THEORY-P03",
+      "order": 15,
+      "outline_block_sha256": "dc2e5e14fe2dc9f3057195ad4f559317ee8fab05834f6959a8130468dc2e45ea",
+      "section": "Repulsive Dynamics",
+      "status": "disabled_with_reason",
+      "title": "Theorem 1: Stable Extrapolation and Loss of Finite Equilibrium"
+    },
+    {
+      "disabled_reason": "not_selected_for_core_vertical_slice",
+      "id": "THEORY-P04",
+      "order": 16,
+      "outline_block_sha256": "99299d60ece285c70432c38942e701ac94c3d9d646e78f47d0180e237a17574b",
+      "section": "Repulsive Dynamics",
+      "status": "disabled_with_reason",
+      "title": "Testable Predictions"
+    },
+    {
+      "disabled_reason": "not_selected_for_core_vertical_slice",
+      "id": "THEORY-P05",
+      "order": 17,
+      "outline_block_sha256": "106a108acbf8f270fc068e757842adaab966fed83e41583621e516d511daefe7",
+      "section": "Repulsive Dynamics",
+      "status": "disabled_with_reason",
+      "title": "Gaussian and Categorical Corollaries"
+    },
+    {
+      "disabled_reason": "not_selected_for_core_vertical_slice",
+      "id": "METHOD-P01",
+      "order": 18,
+      "outline_block_sha256": "b7dce19f0f9bc2a2f03f6cb47662fd1944ae8e895b7559de4471411aa6a391ff",
+      "section": "Distributionally Robust Policy Optimization",
+      "status": "disabled_with_reason",
+      "title": "Distributional Reweighting of Signed Actor Updates"
+    },
+    {
+      "disabled_reason": "not_selected_for_core_vertical_slice",
+      "id": "METHOD-P02",
+      "order": 19,
+      "outline_block_sha256": "f022cd340d47a60f1308d82b300cc5cbc730c3557d884304853b3754afe6a65b",
+      "section": "Distributionally Robust Policy Optimization",
+      "status": "disabled_with_reason",
+      "title": "Direct Bridge to Theorem 1"
+    },
+    {
+      "allowed_conclusions": [
+        "exponential weighting gives a far-field tail guarantee under finite-order score growth"
+      ],
+      "evidence_refs": [
+        "PROP-EXPONENTIAL-FAR-FIELD",
+        "PROOF-EXPONENTIAL-FAR-FIELD"
+      ],
+      "figure_refs": [],
+      "forbidden_conclusions": [
+        "exponential weighting is universally superior to every taper",
+        "sample utility decays exponentially with remoteness"
+      ],
+      "id": "METHOD-P03",
+      "metric_paths": [],
+      "must_avoid": [],
+      "must_include": [
+        "finite-order score-growth condition",
+        "exponential times polynomial tends to zero",
+        "no assumption that sample utility decays exponentially"
+      ],
+      "objection_response": "The proof uses only finite-order score growth; it makes no assumption about utility decay.",
+      "order": 20,
+      "outline_block_sha256": "a28d858a65e1ca1c2d492ae622405d4816d9f956abe0b886a75298c957ba2654",
+      "outline_claim": "An exponential envelope dominates any finite-order score growth, so the weighted negative gradient vanishes in the far field.",
+      "paragraph_claim": "Under the registered finite-order score-growth assumption, the exponential remoteness envelope drives the weighted far-field contribution to zero without asserting that sample utility itself decays exponentially.",
+      "reader_question": "Why use the exponential form rather than an arbitrary taper?",
+      "reviewer_objection": "The exponential form may be an arbitrary utility-decay assumption.",
+      "role": "Provide the method-level tail guarantee without inventing a utility-decay law.",
+      "section": "Distributionally Robust Policy Optimization",
+      "sentence_plan": [
+        {
+          "instruction": "State that the exponential form is chosen for a tail-control property, not a utility model.",
+          "role": "motivation"
+        },
+        {
+          "instruction": "Introduce the finite-order bound C(1+r)^k on the unweighted score-times-advantage norm.",
+          "role": "assumption"
+        },
+        {
+          "instruction": "State that exp(-lambda r) dominates every finite polynomial order and makes the weighted term vanish.",
+          "role": "analytic_result"
+        },
+        {
+          "instruction": "Exclude universal taper rankings and exponential utility-decay interpretations.",
+          "role": "claim_boundary"
+        }
+      ],
+      "status": "enabled",
+      "table_refs": [],
+      "theorem_or_equation_refs": [
+        "PROP-EXPONENTIAL-FAR-FIELD",
+        "EQ-EXPONENTIAL-REMOTE-WEIGHT"
+      ],
+      "title": "Proposition 2: Vanishing Weighted Far-Field Gradient",
+      "transition_to_next": "The empirical intervention then tests whether the controlled far-field path is the instability channel."
+    },
+    {
+      "disabled_reason": "not_selected_for_core_vertical_slice",
+      "id": "METHOD-P04",
+      "order": 21,
+      "outline_block_sha256": "f972d558397bce6f948c07dd4cf0792b275f3b163d4616ba6477da9a552d3bd5",
+      "section": "Distributionally Robust Policy Optimization",
+      "status": "disabled_with_reason",
+      "title": "Controls and Ablations"
+    },
+    {
+      "disabled_reason": "not_selected_for_core_vertical_slice",
+      "id": "EXP-P01",
+      "order": 22,
+      "outline_block_sha256": "911d8672bb4d9ca9e8238ee481f0f2bd8df8f169327d0a4a635f52803d168fe4",
+      "section": "Experiments",
+      "status": "disabled_with_reason",
+      "title": "Environments and Evidence Roles"
+    },
+    {
+      "disabled_reason": "not_selected_for_core_vertical_slice",
+      "id": "EXP-P02",
+      "order": 23,
+      "outline_block_sha256": "dbca74317f5d767afe909bab1b74d760984c251c8c882483e25d5c3ae35862d2",
+      "section": "Experiments",
+      "status": "disabled_with_reason",
+      "title": "RQ1: External Occurrence"
+    },
+    {
+      "disabled_reason": "not_selected_for_core_vertical_slice",
+      "id": "EXP-P03",
+      "order": 24,
+      "outline_block_sha256": "84a1fa0cd982d904b7b61dcc6c2a162e5872c3cda995278294e7f930597791f6",
+      "section": "Experiments",
+      "status": "disabled_with_reason",
+      "title": "RQ2a: Matched Badness--Distance and Badness--Rarity Isolation"
+    },
+    {
+      "allowed_conclusions": [
+        "the far-field component is the dominant causal transmission path in controlled C-U1",
+        "the learnable-variance event is support contraction rather than NaN/Inf failure"
+      ],
+      "evidence_refs": [
+        "EVID-CU1-E3-FIXED",
+        "EVID-CU1-E3-LEARNABLE",
+        "AUDIT-CU1-E3-TERMINAL"
+      ],
+      "figure_refs": [
+        "cu1_e3_fixed_reward.pdf"
+      ],
+      "forbidden_conclusions": [
+        "C-U1 demonstrates OOD generalization",
+        "the intervention proves a universal cause of off-policy collapse",
+        "the controls establish a universal method ranking"
+      ],
+      "id": "EXP-P04",
+      "metric_paths": [
+        "methods.baseline.fixed_variance.reward",
+        "methods.baseline.fixed_variance.task_collapse_count",
+        "methods.near_zero.fixed_variance.reward",
+        "methods.near_zero.fixed_variance.task_collapse_count",
+        "methods.far_zero.fixed_variance.reward",
+        "methods.far_zero.fixed_variance.reward_ci95",
+        "methods.far_zero.fixed_variance.task_collapse_count",
+        "methods.far_cap.fixed_variance.reward",
+        "methods.far_cap.fixed_variance.reward_ci95",
+        "methods.far_cap.fixed_variance.task_collapse_count",
+        "methods.global_scale.fixed_variance.reward",
+        "methods.far_to_near.fixed_variance.reward",
+        "methods.baseline.learnable_variance.support_boundary_count",
+        "methods.baseline.learnable_variance.support_onset_mean",
+        "methods.near_zero.learnable_variance.support_boundary_count",
+        "methods.near_zero.learnable_variance.support_onset_mean",
+        "methods.far_zero.learnable_variance.support_boundary_count",
+        "methods.far_cap.learnable_variance.support_boundary_count",
+        "methods.baseline.learnable_variance.nan_inf_count",
+        "methods.near_zero.learnable_variance.nan_inf_count",
+        "methods.far_zero.learnable_variance.nan_inf_count",
+        "methods.far_cap.learnable_variance.nan_inf_count"
+      ],
+      "must_avoid": [],
+      "must_include": [
+        "uncontrolled signed baseline",
+        "near/common removal",
+        "far/rare removal",
+        "far/rare cap",
+        "global equal-budget control",
+        "budget transfer",
+        "separate failure events"
+      ],
+      "objection_response": "Near-zero removes local negative information without rescue; Far-cap retains bounded far influence, and the registered Global-scale and Far-to-near controls isolate budget effects.",
+      "order": 25,
+      "outline_block_sha256": "16bb56f504d2c47f264351b3f0d160ce052d0d75ad2d26ab00c985df098be976",
+      "outline_claim": "Near/far and common/rare interventions test whether the anomalous remote component is the pathway that transmits negative influence into drift, boundary events, and task collapse.",
+      "paragraph_claim": "In the controlled C-U1 intervention, near-field removal does not rescue the policy, whereas deleting or capping the far-field path prevents fixed-variance task collapse and learnable-variance support contraction under the registered controls.",
+      "reader_question": "Do large far-field updates actually cause the observed instability?",
+      "reviewer_objection": "The rescue may reflect removing all negative information or merely changing the total update budget.",
+      "role": "Move from source identification to causal intervention with equal-budget controls.",
+      "section": "Experiments",
+      "sentence_plan": [
+        {
+          "instruction": "Define the matched four-way intervention, paired held-out seeds, and separate event taxonomy.",
+          "role": "setup"
+        },
+        {
+          "instruction": "Report Baseline and Near-zero reward and task-collapse counts from exact snapshot metrics.",
+          "role": "fixed_variance_failure"
+        },
+        {
+          "instruction": "Report Far-zero and Far-cap reward, confidence intervals, and zero collapse counts.",
+          "role": "fixed_variance_rescue"
+        },
+        {
+          "instruction": "Report Global-scale and Far-to-near as diagnostic fixed-budget controls without turning them into a method ranking.",
+          "role": "budget_controls"
+        },
+        {
+          "instruction": "Report support-boundary counts and onset for Baseline and Near-zero, plus zero events for Far-zero and Far-cap.",
+          "role": "learnable_variance_audit"
+        },
+        {
+          "instruction": "Report NaN/Inf separately and state that parameters remain finite.",
+          "role": "numerical_separation"
+        },
+        {
+          "instruction": "Conclude only that the far-field component is the dominant causal transmission path in this controlled environment.",
+          "role": "calibrated_conclusion"
+        }
+      ],
+      "status": "enabled",
+      "table_refs": [
+        "cu1_e3_results.tex"
+      ],
+      "theorem_or_equation_refs": [],
+      "title": "RQ2b: Targeted Causal Transmission",
+      "transition_to_next": "Later sections must test whether the same mechanism transfers to external tasks before broadening the claim."
+    },
+    {
+      "disabled_reason": "not_selected_for_core_vertical_slice",
+      "id": "EXP-P05",
+      "order": 26,
+      "outline_block_sha256": "61ee39a278ff214d04152a5645d874d6433c0aa9696a3de8dbb0598715df739f",
+      "section": "Experiments",
+      "status": "disabled_with_reason",
+      "title": "RQ3: Phase Transition and DRPO Control"
+    },
+    {
+      "disabled_reason": "not_selected_for_core_vertical_slice",
+      "id": "EXP-P06",
+      "order": 27,
+      "outline_block_sha256": "88580e45d2e808503b1b8cf55ee7cc5fd42e925a28e66e535e9b251d70bab3a5",
+      "section": "Experiments",
+      "status": "disabled_with_reason",
+      "title": "RQ4: External Task Closure"
+    },
+    {
+      "disabled_reason": "not_selected_for_core_vertical_slice",
+      "id": "DISC-P01",
+      "order": 28,
+      "outline_block_sha256": "b58c2837a52ab71c4a814c45e94c781c1c197dacb5dd010cca0e167e726e076d",
+      "section": "Implications and Conclusion",
+      "status": "disabled_with_reason",
+      "title": "Negative Feedback Is a Resource with a Dynamical Failure Mode"
+    },
+    {
+      "disabled_reason": "not_selected_for_core_vertical_slice",
+      "id": "DISC-P02",
+      "order": 29,
+      "outline_block_sha256": "bb9bd1e0d1f36fd67d6e878ce88b9f030bc1d02f7e2e7d9293a699b4e8338bb3",
+      "section": "Implications and Conclusion",
+      "status": "disabled_with_reason",
+      "title": "Continuous and Categorical Synthesis"
+    },
+    {
+      "disabled_reason": "not_selected_for_core_vertical_slice",
+      "id": "DISC-P03",
+      "order": 30,
+      "outline_block_sha256": "cb639ec0985fdaf4c05845bac64b08449e7761deeaa695381b0bf9c0a83451f1",
+      "section": "Implications and Conclusion",
+      "status": "disabled_with_reason",
+      "title": "Conclusion"
+    },
+    {
+      "disabled_reason": "not_selected_for_core_vertical_slice",
+      "id": "APP-PROOF-P01",
+      "order": 31,
+      "outline_block_sha256": "6417ceca714290637770be31be209b7131e524b5be2dd163f03b02416415b7ae",
+      "section": "Proofs for Repulsive Dynamics",
+      "status": "disabled_with_reason",
+      "title": "Proof of Theorem 1"
+    },
+    {
+      "disabled_reason": "not_selected_for_core_vertical_slice",
+      "id": "APP-GAUSS-P01",
+      "order": 32,
+      "outline_block_sha256": "71b0fb4ffc940458ba512b7e03c14a7975b4c8a03f4c1988a9e69eb7bf459ca5",
+      "section": "Gaussian Mean--Variance Derivations",
+      "status": "disabled_with_reason",
+      "title": "Corrected Gaussian Mean and Variance Dynamics"
+    },
+    {
+      "disabled_reason": "not_selected_for_core_vertical_slice",
+      "id": "APP-CAT-P01",
+      "order": 33,
+      "outline_block_sha256": "58bbfe3cc8dbd055898f1627dbb7163af9c12d135ebdfadbc4916b772f62f94f",
+      "section": "Categorical Boundary Dynamics",
+      "status": "disabled_with_reason",
+      "title": "Categorical Log-Odds and Boundary Behavior"
+    },
+    {
+      "disabled_reason": "not_selected_for_core_vertical_slice",
+      "id": "APP-ENV-P01",
+      "order": 34,
+      "outline_block_sha256": "3cc8b9c2f0ea10fc347300a099887aee7ec8da0b7aff0641a1827012f1d3c1a1",
+      "section": "Controlled Environments",
+      "status": "disabled_with_reason",
+      "title": "C-U1 and D-U1 Construction"
+    },
+    {
+      "disabled_reason": "not_selected_for_core_vertical_slice",
+      "id": "APP-PROT-P01",
+      "order": 35,
+      "outline_block_sha256": "68c8ae0ba9d2362e14ccec56b1e53627629452cdb4c348cb8ad7002c86628a8c",
+      "section": "Experimental Protocols and Terminal Audits",
+      "status": "disabled_with_reason",
+      "title": "Stopping, Budget Matching, and Terminal Classification"
+    },
+    {
+      "disabled_reason": "not_selected_for_core_vertical_slice",
+      "id": "APP-RES-P01",
+      "order": 36,
+      "outline_block_sha256": "a017c291cea9bf19231acdbdd619a85cf5eea962cf22ed488e16ef1aa47e3c4f",
+      "section": "Additional Results and Failure Taxonomy",
+      "status": "disabled_with_reason",
+      "title": "Additional Tables, Curves, and Negative Results"
+    },
+    {
+      "disabled_reason": "not_selected_for_core_vertical_slice",
+      "id": "APP-REPRO-P01",
+      "order": 37,
+      "outline_block_sha256": "42164710012fe7cf262a96a46cd4e45960ab35a5d2727b06dfa51d5806fb7d00",
+      "section": "Implementation and Reproducibility",
+      "status": "disabled_with_reason",
+      "title": "Code, Data, and Artifact Provenance"
+    },
+    {
+      "disabled_reason": "not_selected_for_core_vertical_slice",
+      "id": "APP-DRO-P01",
+      "order": 38,
+      "outline_block_sha256": "fd46430511579c9d4be1f30948b8bc8bb4ea665b8dd20d754fba3c4bb74c73aa",
+      "section": "Optimistic Distributional Selection",
+      "status": "disabled_with_reason",
+      "title": "Optimistic-DRO Quality Selection and Its Distinct Role"
+    },
+    {
+      "disabled_reason": "not_selected_for_core_vertical_slice",
+      "id": "APP-CORR-P01",
+      "order": 39,
+      "outline_block_sha256": "d28ea4945802e9a7a538832293499bd862a3e8c4c9b006af182b6ad562f80730",
+      "section": "Additional Theoretical and Reporting Clarifications",
+      "status": "disabled_with_reason",
+      "title": "Additional Theoretical and Reporting Clarifications"
+    }
+  ],
+  "outline_sha256": "18391d95368188e1b2bda95808f95f99741d14b16b61d227069474e6cb762e7d",
+  "profile": "core_vertical_slice",
+  "schema_version": 1,
+  "snapshot_sha256": "5ecdf966b05edd41441c4ecf9c39a1f14dd168aa70b00fad0f3b68d378dd3065",
+  "task_id": "PAPER-PIPELINE-V2-CORE-01"
+}

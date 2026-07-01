@@ -72,12 +72,11 @@ LaTeX Warning: Unused global option(s):
 (/usr/share/texlive/texmf-dist/tex/latex/amsfonts/umsa.fd)
 (/usr/share/texlive/texmf-dist/tex/latex/microtype/mt-msa.cfg)
 (/usr/share/texlive/texmf-dist/tex/latex/amsfonts/umsb.fd)
-(/usr/share/texlive/texmf-dist/tex/latex/microtype/mt-msb.cfg)
-(./cu1_e3_results.tex)
-[1{/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map}{/usr/share/texmf/fonts/en
-c/dvips/cm-super/cm-super-t1.enc} <./cu1_e3_fixed_reward.pdf>] (./theorem.tex)
+(/usr/share/texlive/texmf-dist/tex/latex/microtype/mt-msb.cfg) (./theorem.tex)
 (./proof.tex)
-[2] (./main.aux)
+[1{/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map}{/usr/share/texmf/fonts/en
+c/dvips/cm-super/cm-super-t1.enc}] (./cu1_e3_results.tex)
+[2 <./cu1_e3_fixed_reward.pdf>] (./main.aux)
 
 LaTeX Warning: Label(s) may have changed. Rerun to get cross-references right.
 
@@ -94,7 +93,7 @@ m-super/sfrm1000.pfb></usr/share/texmf/fonts/type1/public/cm-super/sfrm1200.pfb
 ></usr/share/texmf/fonts/type1/public/cm-super/sfrm1728.pfb></usr/share/texmf/f
 onts/type1/public/cm-super/sfti1000.pfb></usr/share/texmf/fonts/type1/public/cm
 -super/sftt1000.pfb>
-Output written on main.pdf (2 pages, 255622 bytes).
+Output written on main.pdf (2 pages, 261741 bytes).
 Transcript written on main.log.
 Latexmk: Getting log file 'main.log'
 Latexmk: Examining 'main.fls'
@@ -170,25 +169,24 @@ LaTeX Warning: Unused global option(s):
 (/usr/share/texlive/texmf-dist/tex/latex/amsfonts/umsa.fd)
 (/usr/share/texlive/texmf-dist/tex/latex/microtype/mt-msa.cfg)
 (/usr/share/texlive/texmf-dist/tex/latex/amsfonts/umsb.fd)
-(/usr/share/texlive/texmf-dist/tex/latex/microtype/mt-msb.cfg)
-(./cu1_e3_results.tex)
-[1{/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map}{/usr/share/texmf/fonts/en
-c/dvips/cm-super/cm-super-t1.enc} <./cu1_e3_fixed_reward.pdf>] (./theorem.tex)
+(/usr/share/texlive/texmf-dist/tex/latex/microtype/mt-msb.cfg) (./theorem.tex)
 (./proof.tex)
-[2] (./main.aux) )</usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm
-/cmex10.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi1
-0.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi7.pfb><
-/usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb></usr/sh
-are/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb></usr/share/te
-xlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy7.pfb></usr/share/texmf/fon
-ts/type1/public/cm-super/sfbx1000.pfb></usr/share/texmf/fonts/type1/public/cm-s
-uper/sfbx1440.pfb></usr/share/texmf/fonts/type1/public/cm-super/sfrm0700.pfb></
-usr/share/texmf/fonts/type1/public/cm-super/sfrm0800.pfb></usr/share/texmf/font
-s/type1/public/cm-super/sfrm1000.pfb></usr/share/texmf/fonts/type1/public/cm-su
-per/sfrm1200.pfb></usr/share/texmf/fonts/type1/public/cm-super/sfrm1728.pfb></u
-sr/share/texmf/fonts/type1/public/cm-super/sfti1000.pfb></usr/share/texmf/fonts
-/type1/public/cm-super/sftt1000.pfb>
-Output written on main.pdf (2 pages, 255622 bytes).
+[1{/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map}{/usr/share/texmf/fonts/en
+c/dvips/cm-super/cm-super-t1.enc}] (./cu1_e3_results.tex)
+[2 <./cu1_e3_fixed_reward.pdf>] (./main.aux) )</usr/share/texlive/texmf-dist/fo
+nts/type1/public/amsfonts/cm/cmex10.pfb></usr/share/texlive/texmf-dist/fonts/ty
+pe1/public/amsfonts/cm/cmmi10.pfb></usr/share/texlive/texmf-dist/fonts/type1/pu
+blic/amsfonts/cm/cmmi7.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/am
+sfonts/cm/cmr10.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/
+cm/cmsy10.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cms
+y7.pfb></usr/share/texmf/fonts/type1/public/cm-super/sfbx1000.pfb></usr/share/t
+exmf/fonts/type1/public/cm-super/sfbx1440.pfb></usr/share/texmf/fonts/type1/pub
+lic/cm-super/sfrm0700.pfb></usr/share/texmf/fonts/type1/public/cm-super/sfrm080
+0.pfb></usr/share/texmf/fonts/type1/public/cm-super/sfrm1000.pfb></usr/share/te
+xmf/fonts/type1/public/cm-super/sfrm1200.pfb></usr/share/texmf/fonts/type1/publ
+ic/cm-super/sfrm1728.pfb></usr/share/texmf/fonts/type1/public/cm-super/sfti1000
+.pfb></usr/share/texmf/fonts/type1/public/cm-super/sftt1000.pfb>
+Output written on main.pdf (2 pages, 261741 bytes).
 Transcript written on main.log.
 Latexmk: Getting log file 'main.log'
 Latexmk: Examining 'main.fls'

@@ -133,3 +133,119 @@ def test_generated_prose_preserves_claim_boundaries() -> None:
     assert "task-performance collapse" in text
     assert "support/variance-contraction" in text
     assert "NaN/Inf" in text
+
+
+def test_outline_compiler_preserves_all_stable_ids_and_fields(tmp_path: Path) -> None:
+    module, paths = prepare_minimal_repo(tmp_path)
+    ast = module.build_outline_ast(paths)
+    ids = [node["id"] for node in ast["nodes"]]
+    assert ast["node_count"] == 39
+    assert len(ids) == len(set(ids))
+    assert ids[0] == "ABSTRACT-P01"
+    assert ids[-1] == "APP-CORR-P01"
+    exp = next(node for node in ast["nodes"] if node["id"] == "EXP-P04")
+    assert exp["section"] == "Experiments"
+    assert exp["title"] == "RQ2b: Targeted Causal Transmission"
+    assert exp["reader_question"] == "Do large far-field updates actually cause the observed instability?"
+    assert "global equal-budget control" in exp["must_include"]
+
+
+def test_outline_resolution_is_explicit_and_one_to_one(tmp_path: Path) -> None:
+    module, paths = prepare_minimal_repo(tmp_path)
+    ast = module.build_outline_ast(paths)
+    resolution = module.build_outline_resolution(paths, ast)
+    assert [node["id"] for node in resolution["nodes"]] == [
+        node["id"] for node in ast["nodes"]
+    ]
+    assert resolution["enabled_node_ids"] == ["METHOD-P03", "EXP-P04"]
+    disabled = [node for node in resolution["nodes"] if node["status"] == "disabled_with_reason"]
+    assert len(disabled) == 37
+    assert all(node["reason"] == "not_selected_for_core_vertical_slice" for node in disabled)
+
+
+def test_blueprint_contract_rejects_merge_split_or_reorder(tmp_path: Path) -> None:
+    module, paths = prepare_minimal_repo(tmp_path)
+    snapshot = module.build_snapshot(paths)
+    blueprint = module.build_blueprint_contract(paths, snapshot=snapshot)
+    ast = module.read_json(paths.outline_ast)
+    resolution = module.read_json(paths.outline_resolution)
+
+    broken = dict(blueprint)
+    broken["nodes"] = [dict(node) for node in blueprint["nodes"]]
+    exp_index = next(index for index, node in enumerate(broken["nodes"]) if node["id"] == "EXP-P04")
+    broken["nodes"][exp_index]["id"] = "EXP-P04-A"
+    with pytest.raises(module.CorePipelineError, match="exactly preserve outline IDs and order"):
+        module.validate_blueprint_payload(ast=ast, resolution=resolution, blueprint=broken)
+
+
+def test_blueprint_contract_rejects_outline_claim_copy(tmp_path: Path) -> None:
+    module, paths = prepare_minimal_repo(tmp_path)
+    snapshot = module.build_snapshot(paths)
+    blueprint = module.build_blueprint_contract(paths, snapshot=snapshot)
+    ast = module.read_json(paths.outline_ast)
+    resolution = module.read_json(paths.outline_resolution)
+    ast_map = {node["id"]: node for node in ast["nodes"]}
+
+    broken = dict(blueprint)
+    broken["nodes"] = [dict(node) for node in blueprint["nodes"]]
+    exp = next(node for node in broken["nodes"] if node["id"] == "EXP-P04")
+    exp["paragraph_claim"] = ast_map["EXP-P04"]["claim"]
+    with pytest.raises(module.CorePipelineError, match="without information gain"):
+        module.validate_blueprint_payload(ast=ast, resolution=resolution, blueprint=broken)
+
+
+def test_blueprint_contract_requires_exact_experiment_metrics(tmp_path: Path) -> None:
+    module, paths = prepare_minimal_repo(tmp_path)
+    snapshot = module.build_snapshot(paths)
+    blueprint = module.build_blueprint_contract(paths, snapshot=snapshot)
+    ast = module.read_json(paths.outline_ast)
+    resolution = module.read_json(paths.outline_resolution)
+
+    broken = dict(blueprint)
+    broken["nodes"] = [dict(node) for node in blueprint["nodes"]]
+    exp = next(node for node in broken["nodes"] if node["id"] == "EXP-P04")
+    exp["metric_paths"] = []
+    with pytest.raises(module.CorePipelineError, match="metric_paths"):
+        module.validate_blueprint_payload(ast=ast, resolution=resolution, blueprint=broken)
+
+
+def test_generated_blueprint_and_prose_preserve_outline_identity() -> None:
+    output = ROOT / "paper/core_review_v2_core"
+    ast = yaml.safe_load((ROOT / "docs/manuscript/paper_spec_core.yaml").read_text(encoding="utf-8"))
+    assert ast["blueprint_contract"]["enabled_nodes"].keys() == {"METHOD-P03", "EXP-P04"}
+    blueprint = (output / "blueprint.md").read_text(encoding="utf-8")
+    prose = (output / "prose.md").read_text(encoding="utf-8")
+    assert "EXP-P04-A" not in blueprint
+    assert "EXP-P04-B" not in blueprint
+    assert "EXP-P04-A" not in prose
+    assert "EXP-P04-B" not in prose
+    assert blueprint.index("## METHOD-P03") < blueprint.index("## EXP-P04")
+    assert prose.index("## [METHOD-P03]") < prose.index("## [EXP-P04]")
+
+
+def test_blueprint_contract_rejects_generic_evidence_labels(tmp_path: Path) -> None:
+    module, paths = prepare_minimal_repo(tmp_path)
+    snapshot = module.build_snapshot(paths)
+    blueprint = module.build_blueprint_contract(paths, snapshot=snapshot)
+    ast = module.read_json(paths.outline_ast)
+    resolution = module.read_json(paths.outline_resolution)
+
+    broken = dict(blueprint)
+    broken["nodes"] = [dict(node) for node in blueprint["nodes"]]
+    exp = next(node for node in broken["nodes"] if node["id"] == "EXP-P04")
+    exp["evidence_refs"] = ["C-U1 E3"]
+    with pytest.raises(module.CorePipelineError, match="generic evidence"):
+        module.validate_blueprint_payload(
+            ast=ast, resolution=resolution, blueprint=broken, snapshot=snapshot
+        )
+
+
+def test_blueprint_contract_rejects_unresolvable_metric_path(tmp_path: Path) -> None:
+    module, paths = prepare_minimal_repo(tmp_path)
+    spec = yaml.safe_load(paths.spec.read_text(encoding="utf-8"))
+    spec["blueprint_contract"]["enabled_nodes"]["EXP-P04"]["metric_paths"][0] = (
+        "methods.baseline.fixed_variance.not_a_metric"
+    )
+    paths.spec.write_text(yaml.safe_dump(spec, sort_keys=False), encoding="utf-8")
+    with pytest.raises(module.CorePipelineError, match="does not resolve"):
+        module.build_blueprint_contract(paths)

@@ -43,6 +43,101 @@ theorem:
     policy-relative remoteness, multiplication by exp(-lambda r), lambda > 0,
     makes the weighted contribution vanish as r tends to infinity.
   forbidden_inference: The proposition does not assume that sample utility decays exponentially.
+blueprint_contract:
+  disabled_reason: not_selected_for_core_vertical_slice
+  enabled_nodes:
+    METHOD-P03:
+      reason: analytic_tail_guarantee_selected_for_core_slice
+      paragraph_claim: >
+        Under the registered finite-order score-growth assumption, the exponential
+        remoteness envelope drives the weighted far-field contribution to zero without
+        asserting that sample utility itself decays exponentially.
+      sentence_plan:
+        - role: motivation
+          instruction: State that the exponential form is chosen for a tail-control property, not a utility model.
+        - role: assumption
+          instruction: Introduce the finite-order bound C(1+r)^k on the unweighted score-times-advantage norm.
+        - role: analytic_result
+          instruction: State that exp(-lambda r) dominates every finite polynomial order and makes the weighted term vanish.
+        - role: claim_boundary
+          instruction: Exclude universal taper rankings and exponential utility-decay interpretations.
+      evidence_refs:
+        - PROP-EXPONENTIAL-FAR-FIELD
+        - PROOF-EXPONENTIAL-FAR-FIELD
+      theorem_or_equation_refs:
+        - PROP-EXPONENTIAL-FAR-FIELD
+        - EQ-EXPONENTIAL-REMOTE-WEIGHT
+      reviewer_objection: The exponential form may be an arbitrary utility-decay assumption.
+      objection_response: The proof uses only finite-order score growth; it makes no assumption about utility decay.
+      allowed_conclusions:
+        - exponential weighting gives a far-field tail guarantee under finite-order score growth
+      forbidden_conclusions:
+        - exponential weighting is universally superior to every taper
+        - sample utility decays exponentially with remoteness
+      transition_to_next: The empirical intervention then tests whether the controlled far-field path is the instability channel.
+    EXP-P04:
+      reason: long_run_validated_c_u1_e3_selected_for_core_slice
+      paragraph_claim: >
+        In the controlled C-U1 intervention, near-field removal does not rescue the policy,
+        whereas deleting or capping the far-field path prevents fixed-variance task collapse
+        and learnable-variance support contraction under the registered controls.
+      sentence_plan:
+        - role: setup
+          instruction: Define the matched four-way intervention, paired held-out seeds, and separate event taxonomy.
+        - role: fixed_variance_failure
+          instruction: Report Baseline and Near-zero reward and task-collapse counts from exact snapshot metrics.
+        - role: fixed_variance_rescue
+          instruction: Report Far-zero and Far-cap reward, confidence intervals, and zero collapse counts.
+        - role: budget_controls
+          instruction: Report Global-scale and Far-to-near as diagnostic fixed-budget controls without turning them into a method ranking.
+        - role: learnable_variance_audit
+          instruction: Report support-boundary counts and onset for Baseline and Near-zero, plus zero events for Far-zero and Far-cap.
+        - role: numerical_separation
+          instruction: Report NaN/Inf separately and state that parameters remain finite.
+        - role: calibrated_conclusion
+          instruction: Conclude only that the far-field component is the dominant causal transmission path in this controlled environment.
+      evidence_refs:
+        - EVID-CU1-E3-FIXED
+        - EVID-CU1-E3-LEARNABLE
+        - AUDIT-CU1-E3-TERMINAL
+      metric_paths:
+        - methods.baseline.fixed_variance.reward
+        - methods.baseline.fixed_variance.task_collapse_count
+        - methods.near_zero.fixed_variance.reward
+        - methods.near_zero.fixed_variance.task_collapse_count
+        - methods.far_zero.fixed_variance.reward
+        - methods.far_zero.fixed_variance.reward_ci95
+        - methods.far_zero.fixed_variance.task_collapse_count
+        - methods.far_cap.fixed_variance.reward
+        - methods.far_cap.fixed_variance.reward_ci95
+        - methods.far_cap.fixed_variance.task_collapse_count
+        - methods.global_scale.fixed_variance.reward
+        - methods.far_to_near.fixed_variance.reward
+        - methods.baseline.learnable_variance.support_boundary_count
+        - methods.baseline.learnable_variance.support_onset_mean
+        - methods.near_zero.learnable_variance.support_boundary_count
+        - methods.near_zero.learnable_variance.support_onset_mean
+        - methods.far_zero.learnable_variance.support_boundary_count
+        - methods.far_cap.learnable_variance.support_boundary_count
+        - methods.baseline.learnable_variance.nan_inf_count
+        - methods.near_zero.learnable_variance.nan_inf_count
+        - methods.far_zero.learnable_variance.nan_inf_count
+        - methods.far_cap.learnable_variance.nan_inf_count
+      figure_refs:
+        - cu1_e3_fixed_reward.pdf
+      table_refs:
+        - cu1_e3_results.tex
+      reviewer_objection: The rescue may reflect removing all negative information or merely changing the total update budget.
+      objection_response: Near-zero removes local negative information without rescue; Far-cap retains bounded far influence, and the registered Global-scale and Far-to-near controls isolate budget effects.
+      allowed_conclusions:
+        - the far-field component is the dominant causal transmission path in controlled C-U1
+        - the learnable-variance event is support contraction rather than NaN/Inf failure
+      forbidden_conclusions:
+        - C-U1 demonstrates OOD generalization
+        - the intervention proves a universal cause of off-policy collapse
+        - the controls establish a universal method ranking
+      transition_to_next: Later sections must test whether the same mechanism transfers to external tasks before broadening the claim.
+
 release:
   kind: core_review_vertical_slice
   required_pdf_pages: 2

@@ -1,74 +1,96 @@
 # Executable blueprint: PAPER-PIPELINE-V2-CORE-01
 
-Snapshot: `34ba99a5e3cd25d370d3984c51146bb64f4a39d582f602dfdea6338d06c58cd5`
+Outline: `18391d95368188e1b2bda95808f95f99741d14b16b61d227069474e6cb762e7d`
+Snapshot: `5ecdf966b05edd41441c4ecf9c39a1f14dd168aa70b00fad0f3b68d378dd3065`
 
-## EXP-P04-A - Fixed-variance causal intervention
+## Resolution summary
 
-- Reader question: Does retaining the far-field negative path cause task collapse in the controlled C-U1 environment?
-- Paragraph claim: Baseline and Near-zero collapse in all paired seeds, whereas Far-zero and Far-cap prevent collapse and retain high terminal reward.
+- Outline nodes: 39
+- Enabled nodes: 2
+- Disabled nodes: 37
+- Structural rule: no merge, split, rename, reorder, or silent omission.
+
+## METHOD-P03 - Proposition 2: Vanishing Weighted Far-Field Gradient
+
+- Parent outline block: `a28d858a65e1ca1c2d492ae622405d4816d9f956abe0b886a75298c957ba2654`
+- Reader question: Why use the exponential form rather than an arbitrary taper?
+- Paragraph claim: Under the registered finite-order score-growth assumption, the exponential remoteness envelope drives the weighted far-field contribution to zero without asserting that sample utility itself decays exponentially.
 - Sentence plan:
-  1. State the matched four-way intervention and the 20 paired held-out seeds.
-  2. Report Baseline and Near-zero terminal reward with task-collapse counts.
-  3. Report Far-zero and Far-cap terminal reward with confidence intervals and collapse counts.
-  4. Report Global-scale and Far-to-near as registered budget controls, not as a universal ranking.
-  5. Conclude only that the far-field path is the dominant causal transmission path in this controlled environment.
-- Reviewer objection: The rescue may reflect removing all negative information.
-- Response: Near-zero removes the near component yet does not rescue; Far-cap retains bounded far influence and rescues.
-- Budget controls: Global-scale and Far-to-near are included from the fixed-variance registered controls.
-- Figure/table: `cu1_e3_fixed_reward.pdf`, `cu1_e3_results.tex`.
+  1. **motivation** — State that the exponential form is chosen for a tail-control property, not a utility model.
+  2. **assumption** — Introduce the finite-order bound C(1+r)^k on the unweighted score-times-advantage norm.
+  3. **analytic_result** — State that exp(-lambda r) dominates every finite polynomial order and makes the weighted term vanish.
+  4. **claim_boundary** — Exclude universal taper rankings and exponential utility-decay interpretations.
+- Evidence refs: `PROP-EXPONENTIAL-FAR-FIELD`, `PROOF-EXPONENTIAL-FAR-FIELD`
+- Metric paths: none
+- Figure refs: none
+- Table refs: none
+- Theorem/equation refs: `PROP-EXPONENTIAL-FAR-FIELD`, `EQ-EXPONENTIAL-REMOTE-WEIGHT`
+- Reviewer objection: The exponential form may be an arbitrary utility-decay assumption.
+- Response: The proof uses only finite-order score growth; it makes no assumption about utility decay.
+- Allowed conclusions: exponential weighting gives a far-field tail guarantee under finite-order score growth
+- Forbidden conclusions: exponential weighting is universally superior to every taper; sample utility decays exponentially with remoteness
+- Transition: The empirical intervention then tests whether the controlled far-field path is the instability channel.
 
-## EXP-P04-B - Learnable-variance boundary audit
+## EXP-P04 - RQ2b: Targeted Causal Transmission
 
-- Reader question: Is the learnable-variance failure task collapse, a support boundary, or numerical failure?
-- Paragraph claim: Baseline and Near-zero reach support contraction in all seeds near step 73, while Far-zero and Far-cap avoid that event; no method produces NaN/Inf.
+- Parent outline block: `16bb56f504d2c47f264351b3f0d160ce052d0d75ad2d26ab00c985df098be976`
+- Reader question: Do large far-field updates actually cause the observed instability?
+- Paragraph claim: In the controlled C-U1 intervention, near-field removal does not rescue the policy, whereas deleting or capping the far-field path prevents fixed-variance task collapse and learnable-variance support contraction under the registered controls.
 - Sentence plan:
-  1. Name the first registered event as support/variance contraction.
-  2. Report the event counts and onset without relabeling it as task or numerical collapse.
-  3. Report the absence of NaN/Inf separately.
-  4. State the bounded controlled-environment conclusion.
-- Reviewer objection: The boundary classification may be a numerical artifact.
-- Response: The terminal audit records finite parameters and zero NaN/Inf events.
+  1. **setup** — Define the matched four-way intervention, paired held-out seeds, and separate event taxonomy.
+  2. **fixed_variance_failure** — Report Baseline and Near-zero reward and task-collapse counts from exact snapshot metrics.
+  3. **fixed_variance_rescue** — Report Far-zero and Far-cap reward, confidence intervals, and zero collapse counts.
+  4. **budget_controls** — Report Global-scale and Far-to-near as diagnostic fixed-budget controls without turning them into a method ranking.
+  5. **learnable_variance_audit** — Report support-boundary counts and onset for Baseline and Near-zero, plus zero events for Far-zero and Far-cap.
+  6. **numerical_separation** — Report NaN/Inf separately and state that parameters remain finite.
+  7. **calibrated_conclusion** — Conclude only that the far-field component is the dominant causal transmission path in this controlled environment.
+- Evidence refs: `EVID-CU1-E3-FIXED`, `EVID-CU1-E3-LEARNABLE`, `AUDIT-CU1-E3-TERMINAL`
+- Metric paths: `methods.baseline.fixed_variance.reward`, `methods.baseline.fixed_variance.task_collapse_count`, `methods.near_zero.fixed_variance.reward`, `methods.near_zero.fixed_variance.task_collapse_count`, `methods.far_zero.fixed_variance.reward`, `methods.far_zero.fixed_variance.reward_ci95`, `methods.far_zero.fixed_variance.task_collapse_count`, `methods.far_cap.fixed_variance.reward`, `methods.far_cap.fixed_variance.reward_ci95`, `methods.far_cap.fixed_variance.task_collapse_count`, `methods.global_scale.fixed_variance.reward`, `methods.far_to_near.fixed_variance.reward`, `methods.baseline.learnable_variance.support_boundary_count`, `methods.baseline.learnable_variance.support_onset_mean`, `methods.near_zero.learnable_variance.support_boundary_count`, `methods.near_zero.learnable_variance.support_onset_mean`, `methods.far_zero.learnable_variance.support_boundary_count`, `methods.far_cap.learnable_variance.support_boundary_count`, `methods.baseline.learnable_variance.nan_inf_count`, `methods.near_zero.learnable_variance.nan_inf_count`, `methods.far_zero.learnable_variance.nan_inf_count`, `methods.far_cap.learnable_variance.nan_inf_count`
+- Figure refs: `cu1_e3_fixed_reward.pdf`
+- Table refs: `cu1_e3_results.tex`
+- Theorem/equation refs: none
+- Reviewer objection: The rescue may reflect removing all negative information or merely changing the total update budget.
+- Response: Near-zero removes local negative information without rescue; Far-cap retains bounded far influence, and the registered Global-scale and Far-to-near controls isolate budget effects.
+- Allowed conclusions: the far-field component is the dominant causal transmission path in controlled C-U1; the learnable-variance event is support contraction rather than NaN/Inf failure
+- Forbidden conclusions: C-U1 demonstrates OOD generalization; the intervention proves a universal cause of off-policy collapse; the controls establish a universal method ranking
+- Transition: Later sections must test whether the same mechanism transfers to external tasks before broadening the claim.
 
-## METHOD-P03 - Proposition 2
+## Disabled nodes
 
-- Reader question: Why does exponential remoteness weighting control a polynomially growing far-field score?
-- Claim: Exponential decay dominates every finite polynomial order.
-- Assumption: The unweighted score-times-advantage norm is at most `C(1+r)^k` for finite `C,k`.
-- Conclusion ceiling: The weighted contribution vanishes; this does not model or assume exponential sample utility.
-
-## Exact metric paths
-
-- `methods.baseline.fixed_variance.reward`
-- `methods.baseline.fixed_variance.reward_ci95`
-- `methods.baseline.fixed_variance.task_collapse_count`
-- `methods.baseline.fixed_variance.nan_inf_count`
-- `methods.baseline.learnable_variance.support_boundary_count`
-- `methods.baseline.learnable_variance.nan_inf_count`
-- `methods.near_zero.fixed_variance.reward`
-- `methods.near_zero.fixed_variance.reward_ci95`
-- `methods.near_zero.fixed_variance.task_collapse_count`
-- `methods.near_zero.fixed_variance.nan_inf_count`
-- `methods.near_zero.learnable_variance.support_boundary_count`
-- `methods.near_zero.learnable_variance.nan_inf_count`
-- `methods.far_zero.fixed_variance.reward`
-- `methods.far_zero.fixed_variance.reward_ci95`
-- `methods.far_zero.fixed_variance.task_collapse_count`
-- `methods.far_zero.fixed_variance.nan_inf_count`
-- `methods.far_zero.learnable_variance.support_boundary_count`
-- `methods.far_zero.learnable_variance.nan_inf_count`
-- `methods.far_cap.fixed_variance.reward`
-- `methods.far_cap.fixed_variance.reward_ci95`
-- `methods.far_cap.fixed_variance.task_collapse_count`
-- `methods.far_cap.fixed_variance.nan_inf_count`
-- `methods.far_cap.learnable_variance.support_boundary_count`
-- `methods.far_cap.learnable_variance.nan_inf_count`
-- `methods.global_scale.fixed_variance.reward`
-- `methods.global_scale.fixed_variance.reward_ci95`
-- `methods.global_scale.fixed_variance.task_collapse_count`
-- `methods.global_scale.fixed_variance.nan_inf_count`
-- `methods.global_scale.learnable_variance.support_boundary_count`
-- `methods.global_scale.learnable_variance.nan_inf_count`
-- `methods.far_to_near.fixed_variance.reward`
-- `methods.far_to_near.fixed_variance.reward_ci95`
-- `methods.far_to_near.fixed_variance.task_collapse_count`
-- `methods.far_to_near.fixed_variance.nan_inf_count`
+- `ABSTRACT-P01` — not_selected_for_core_vertical_slice
+- `INTRO-P01` — not_selected_for_core_vertical_slice
+- `INTRO-P02` — not_selected_for_core_vertical_slice
+- `INTRO-P03` — not_selected_for_core_vertical_slice
+- `INTRO-P04` — not_selected_for_core_vertical_slice
+- `INTRO-P05` — not_selected_for_core_vertical_slice
+- `INTRO-P06` — not_selected_for_core_vertical_slice
+- `RELATED-P01` — not_selected_for_core_vertical_slice
+- `RELATED-P02` — not_selected_for_core_vertical_slice
+- `RELATED-P03` — not_selected_for_core_vertical_slice
+- `SETUP-P01` — not_selected_for_core_vertical_slice
+- `SETUP-P02` — not_selected_for_core_vertical_slice
+- `THEORY-P01` — not_selected_for_core_vertical_slice
+- `THEORY-P02` — not_selected_for_core_vertical_slice
+- `THEORY-P03` — not_selected_for_core_vertical_slice
+- `THEORY-P04` — not_selected_for_core_vertical_slice
+- `THEORY-P05` — not_selected_for_core_vertical_slice
+- `METHOD-P01` — not_selected_for_core_vertical_slice
+- `METHOD-P02` — not_selected_for_core_vertical_slice
+- `METHOD-P04` — not_selected_for_core_vertical_slice
+- `EXP-P01` — not_selected_for_core_vertical_slice
+- `EXP-P02` — not_selected_for_core_vertical_slice
+- `EXP-P03` — not_selected_for_core_vertical_slice
+- `EXP-P05` — not_selected_for_core_vertical_slice
+- `EXP-P06` — not_selected_for_core_vertical_slice
+- `DISC-P01` — not_selected_for_core_vertical_slice
+- `DISC-P02` — not_selected_for_core_vertical_slice
+- `DISC-P03` — not_selected_for_core_vertical_slice
+- `APP-PROOF-P01` — not_selected_for_core_vertical_slice
+- `APP-GAUSS-P01` — not_selected_for_core_vertical_slice
+- `APP-CAT-P01` — not_selected_for_core_vertical_slice
+- `APP-ENV-P01` — not_selected_for_core_vertical_slice
+- `APP-PROT-P01` — not_selected_for_core_vertical_slice
+- `APP-RES-P01` — not_selected_for_core_vertical_slice
+- `APP-REPRO-P01` — not_selected_for_core_vertical_slice
+- `APP-DRO-P01` — not_selected_for_core_vertical_slice
+- `APP-CORR-P01` — not_selected_for_core_vertical_slice

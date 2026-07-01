@@ -8,7 +8,7 @@
 \newtheorem{proposition}{Proposition}
 \setlength{\parindent}{0pt}
 \setlength{\parskip}{0.35em}
-\title{\vspace{-2.2em}DRPO Pipeline v2.3 Core: Evidence-First Vertical Slice}
+\title{\vspace{-2.2em}DRPO Pipeline v2.3 Core: Faithful Outline-to-Blueprint Slice}
 \author{Anonymous review artifact}
 \date{}
 \begin{document}
@@ -16,12 +16,25 @@
 \vspace{-2.0em}
 \textbf{Scope.}
 This two-page artifact validates the manuscript pipeline, not a new experiment.
-It uses the long-run-validated C-U1-E3-ADAM-RERUN compact
-repository evidence. C-U1 evaluates same-distribution held-out-context
-generalization. Task-performance collapse, support or variance-boundary events,
-and NaN/Inf numerical failures are reported separately.
+It preserves the approved paragraph identities \texttt{METHOD-P03} and
+\texttt{EXP-P04} without merge, split, rename, or reorder. It uses the
+long-run-validated C-U1-E3-ADAM-RERUN compact repository evidence.
+C-U1 evaluates same-distribution held-out-context generalization, and task,
+boundary, and NaN/Inf events remain separate.
 
-\section*{Targeted Causal Transmission}
+\section*{Proposition 2: Vanishing Weighted Far-Field Gradient}
+The exponential envelope is selected for a precise tail property rather than an assumed utility-decay law. Under the finite-order score-growth condition in Proposition 2, multiplying the unweighted score-times-advantage contribution by exp(-lambda r) drives the weighted far-field term to zero as policy-relative remoteness grows. This is a method-level tail guarantee: it neither ranks all tapers nor claims that sample utility itself decays exponentially.
+\setcounter{proposition}{1}
+\input{theorem.tex}
+\input{proof.tex}
+
+\textbf{Claim boundary.}
+The proposition controls the weighted gradient tail under finite-order score
+growth. It does not assume exponential utility decay and does not establish a
+universal ranking among taper families.
+
+\clearpage
+\section*{RQ2b: Targeted Causal Transmission}
 \vspace{-0.5em}
 \begin{center}
 \begin{minipage}[t]{0.49\textwidth}
@@ -42,26 +55,13 @@ and NaN/Inf numerical failures are reported separately.
 \end{center}
 \vspace{-0.4em}
 
-We test the transmission path with four matched interventions over 20 paired held-out seeds. The uncontrolled Baseline and Near-zero variants finish at rewards 2.22e-06 and 2.18e-06 and undergo task-performance collapse in 20/20 and 20/20 seeds. Removing the far-field contribution instead yields 0.739 [0.739, 0.740] for Far-zero, while capping it yields 0.733 [0.733, 0.734] for Far-cap; neither intervention collapses in any seed. The registered fixed-variance budget controls also remain non-collapsed: Global-scale reaches 0.599, and transferring the far budget to the near component reaches 0.875. These controls are diagnostic and do not define a method ranking. Near-field removal is therefore not a rescue, whereas deleting or bounding the far-field path is. Within this controlled same-distribution held-out-context setting, the comparison identifies the far-field component as the dominant causal transmission path; it does not establish a universal method ranking.
-
-The learnable-variance branch separates the type of failure. Baseline and Near-zero reach the registered support/variance-contraction boundary in 20/20 and 20/20 seeds, with mean onsets at steps 72.9 and 73.1. Far-zero and Far-cap record 0/20 and 0/20 support-boundary events. All four methods keep finite parameters and record 0/20 NaN/Inf failures. Thus this branch is evidence for support contraction rather than numerical collapse, and the intervention again isolates far-field negative influence as the removable path in C-U1.
-
-\clearpage
-\section*{Tail-Control Guarantee}
-\input{theorem.tex}
-\input{proof.tex}
-
-\textbf{Evidence and claim boundary.}
-The empirical intervention establishes a controlled C-U1 causal transmission
-result. The proposition establishes only a tail bound under finite-order score
-growth. Neither component asserts that exponential weighting is universally
-superior, and the proposition is not a utility-decay model.
+We test the registered transmission path with four matched interventions over 20 paired held-out seeds and report task, boundary, and numerical events separately. In the fixed-variance branch, Baseline and Near-zero finish at rewards 2.22e-06 and 2.18e-06 and undergo task-performance collapse in 20/20 and 20/20 seeds. Far-zero instead reaches 0.739 [0.739, 0.740], and Far-cap reaches 0.733 [0.733, 0.734], with no task collapse. The registered budget controls also remain non-collapsed: Global-scale reaches 0.599, while transferring the far budget to the near component reaches 0.875; these controls diagnose the pathway rather than establish a universal method ranking. The learnable-variance branch reaches the support/variance-contraction boundary in 20/20 Baseline and 20/20 Near-zero seeds, with mean onsets at steps 72.9 and 73.1, whereas Far-zero and Far-cap record 0/20 and 0/20 such events. All four methods retain finite parameters and record 0/20 NaN/Inf failures. Within this controlled same-distribution held-out-context setting, the near-removal non-rescue, far removal/capping rescue, and fixed-budget controls identify the far-field component as the dominant causal transmission path without extending that conclusion to universal off-policy behavior.
 
 \section*{Pipeline audit}
-Every number in the result paragraphs is rendered from
-\texttt{research\_snapshot.json}. The snapshot verifies the registered status,
-artifact checksums, held-out seed count, terminal audit, and terminology before
-any prose or figure is produced. A missing input fails closed rather than
-creating an empty table or placeholder result.
+The approved outline is compiled into a 39-node AST. Every node receives an
+explicit enabled or disabled status; the two enabled nodes map one-to-one into
+the blueprint and prose. Every empirical number is rendered from
+\texttt{research\_snapshot.json}. Missing evidence fails closed rather than
+creating a placeholder result.
 
 \end{document}

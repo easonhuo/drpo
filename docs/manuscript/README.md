@@ -52,3 +52,8 @@ pytest -q tests/test_paper_pipeline.py \
 ## Evidence-first Core pipeline
 
 The reliable vertical-slice implementation is documented in `PAPER_PIPELINE_V2_CORE.md` and configured by `paper_spec_core.yaml`. The historical `paper_pipeline.py` remains a scaffold/compatibility path and must not be presented as a review-draft generator.
+
+The Core now includes a faithful outline compiler. `parse-outline` produces a
+39-node AST and explicit resolution; `build-blueprint` creates a one-to-one
+structured blueprint and rejects merge, split, rename, reorder, omission, and
+claim-copy regressions before prose generation.

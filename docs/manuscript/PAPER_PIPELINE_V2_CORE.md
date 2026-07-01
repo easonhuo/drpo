@@ -5,6 +5,7 @@
 - Task: `PAPER-PIPELINE-V2-CORE-01`
 - Scope: first reliable implementation of the evidence-first manuscript core
 - Build profile: `core_vertical_slice`
+- Outline compiler increment: `PAPER-PIPELINE-V2-CORE-BLUEPRINT-01`
 - Scientific result status: unchanged; this pipeline is manuscript infrastructure, not a new experiment
 
 ## Goal
@@ -57,6 +58,40 @@ approved outline -> blueprint -> prose -> TeX/PDF
 
 A child-layer problem may create a proposal but may not rewrite a verified parent.
 
+
+## Faithful outline-to-blueprint compiler
+
+The approved Markdown outline is compiled deterministically before any semantic
+blueprint enrichment:
+
+```text
+approved outline
+  -> outline_ast.json
+  -> outline_resolution.json
+  -> one-to-one blueprint.json
+  -> rendered blueprint.md
+```
+
+The compiler enforces the following hard rules:
+
+- every stable outline ID appears exactly once and in the same order in the AST,
+  resolution, and blueprint;
+- the current build profile may only mark a node `enabled` or
+  `disabled_with_reason`; merge, split, rename, reorder, and silent omission are
+  rejected;
+- every enabled node carries its parent block SHA-256;
+- an enabled blueprint claim may not be a normalized copy of the outline claim;
+- experiment nodes require exact metric paths and a figure or table binding;
+- theory or method nodes require theorem/equation bindings;
+- all enabled nodes require an executable sentence plan, evidence refs, a
+  reviewer objection and response, calibrated conclusions, and a transition.
+
+For the Core slice, the 39-node approved outline resolves to exactly two enabled
+nodes: `METHOD-P03` and `EXP-P04`. The earlier `EXP-P04-A` / `EXP-P04-B` split is
+invalid and is replaced by one evidence-bearing `EXP-P04` paragraph. The other
+37 nodes remain present with explicit disabled reasons; they are not silently
+dropped.
+
 ## Evidence gate
 
 The Core slice is enabled only when all of the following are true:
@@ -74,6 +109,9 @@ A missing or conflicting input fails closed. The pipeline does not emit `TBD` re
 
 ```bash
 python scripts/paper_pipeline_core.py snapshot --repo-root .
+python scripts/paper_pipeline_core.py parse-outline --repo-root .
+python scripts/paper_pipeline_core.py build-blueprint --repo-root .
+python scripts/paper_pipeline_core.py validate-blueprint --repo-root .
 python scripts/paper_pipeline_core.py build-slice --repo-root .
 python scripts/paper_pipeline_core.py validate-slice --repo-root .
 python scripts/paper_pipeline_core.py all --repo-root .
@@ -89,7 +127,9 @@ The vertical slice passes only when:
 - the four primary fixed-variance interventions and the two registered fixed-budget controls are present;
 - reported means and confidence intervals exactly match the verified compact aggregate;
 - the figure and table are regenerated from the snapshot;
+- the 39-node outline AST, explicit resolution, and one-to-one blueprint validate;
 - the blueprint names exact metric paths and contains a nontrivial sentence plan;
+- no outline paragraph is merged, split, renamed, reordered, or silently omitted;
 - the prose contains no `TBD`, no OOD claim for C-U1, and no universal method ranking;
 - task collapse, boundary events, and NaN/Inf are reported separately;
 - Proposition 2 states a finite-order score-growth assumption and proves exponential domination without asserting exponential utility decay;
