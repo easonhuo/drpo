@@ -31,7 +31,7 @@ def run(
 
 def test_helper_reports_version():
     proc = run([str(HELPER_DIR / "drpo-update"), "--version"])
-    assert proc.stdout.strip() == "drpo-update 2.3.1"
+    assert proc.stdout.strip() == "drpo-update 2.4.0"
 
 
 def test_installer_defaults_to_repository_symlink(tmp_path: Path):
@@ -59,7 +59,7 @@ def test_installer_defaults_to_repository_symlink(tmp_path: Path):
     assert (home / ".config" / "drpo-update" / "repo_path").read_text().strip() == str(
         repo.resolve()
     )
-    assert "drpo-update 2.3.1" in proc.stdout
+    assert "drpo-update 2.4.0" in proc.stdout
 
 
 def test_installer_copy_mode_installs_runtime_siblings_and_runs(tmp_path: Path):
@@ -86,7 +86,7 @@ def test_installer_copy_mode_installs_runtime_siblings_and_runs(tmp_path: Path):
     assert (home / "bin" / "drpo_update.py").is_file()
     assert (home / "bin" / "test_selection.py").is_file()
     version = run([str(installed), "--version"], env=env)
-    assert version.stdout.strip() == "drpo-update 2.3.1"
+    assert version.stdout.strip() == "drpo-update 2.4.0"
     assert "Mode:       copy" in proc.stdout
 
 
@@ -141,3 +141,38 @@ def test_recovery_artifact_is_rejected_with_actionable_message(tmp_path: Path):
         match=r"recovery/evidence package.*Do not pass it to drpo-update",
     ):
         updater.extract_package(package, tmp_path / "extract")
+
+
+def test_stage5_handoff_normalization_is_noop_in_manual_mode(tmp_path: Path):
+    updater = _load_update_module()
+    repo = tmp_path / "repo"
+    import shutil
+
+    shutil.copytree(
+        REPO_ROOT,
+        repo,
+        ignore=shutil.ignore_patterns(".git", "__pycache__", ".pytest_cache", "*.pyc"),
+    )
+    run(["git", "init", "-q", str(repo)])
+    run(["git", "-C", str(repo), "config", "user.name", "Stage5 Test"])
+    run(["git", "-C", str(repo), "config", "user.email", "stage5@test.invalid"])
+    run(["git", "-C", str(repo), "add", "-A"])
+    run(["git", "-C", str(repo), "commit", "-q", "-m", "base"])
+    current = run(["git", "-C", str(repo), "rev-parse", "HEAD"]).stdout.strip()
+    report = updater.ApplyReport(package="test", repository=str(repo))
+    normalized = updater.run_handoff_normalization(
+        repo,
+        repo,
+        current=current,
+        base=current,
+        source_patch_commit=None,
+        report=report,
+        log_dir=tmp_path / "logs",
+    )
+    assert normalized == current
+    assert report.handoff_normalization == {
+        "status": "PASS",
+        "mode": "manual",
+        "normalization": "not_applicable",
+        "authority_transitioned": False,
+    }

@@ -17,7 +17,9 @@
     "tools/drpo-update/test_impact_map.json",
     "scripts/select_update_tests.py",
     "scripts/package_update.py",
-    "scripts/verify_update_package.py"
+    "scripts/verify_update_package.py",
+    "scripts/handoff_authority.py",
+    "docs/handoff_versions/AUTHORITY.yaml"
   ],
   "groups": [
     {
@@ -165,10 +167,14 @@
         "docs/handoff_delta_protocol.md",
         "scripts/handoff_delta_shadow.py",
         "scripts/run_handoff_delta_acceptance.py",
-        "tests/test_handoff_delta_shadow.py"
+        "tests/test_handoff_delta_shadow.py",
+        "scripts/handoff_authority.py",
+        "docs/handoff_versions/**",
+        "tests/test_handoff_authority.py"
       ],
       "pytest_targets": [
-        "tests/test_handoff_delta_shadow.py"
+        "tests/test_handoff_delta_shadow.py",
+        "tests/test_handoff_authority.py"
       ],
       "validators": [
         [
@@ -177,6 +183,35 @@
           "auto-check",
           "--repo-root",
           "."
+        ]
+      ]
+    },
+    {
+      "id": "handoff_authority_candidate",
+      "risk": "high",
+      "patterns": [
+        "docs/governance_stage5_versioned_handoff_spec.md",
+        "docs/handoff_versions/**",
+        "scripts/handoff_authority.py",
+        "tests/test_handoff_authority.py",
+        "tests/stage5_candidate_integration.py"
+      ],
+      "pytest_targets": [
+        "tests/test_handoff_authority.py",
+        "tests/test_governance_pipeline_stage_status.py",
+        "tests/test_drpo_update_helper.py::test_helper_reports_version"
+      ],
+      "validators": [
+        [
+          "{python}",
+          "scripts/handoff_authority.py",
+          "verify",
+          "--repo-root",
+          "."
+        ],
+        [
+          "{python}",
+          "tests/stage5_candidate_integration.py"
         ]
       ]
     },

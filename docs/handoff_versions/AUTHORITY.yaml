@@ -1,0 +1,23 @@
+schema_version: 1
+policy_id: GOV-HANDOFF-AUTHORITY-CUTOVER-01
+mode: manual
+read_master: docs/handoff.md
+registry_write_authority: experiments/registry.yaml
+
+delta_authority:
+  checkpoint_manifest: null
+  activation_parent_commit: null
+  current_schema_version: 3
+  report_filename: MATERIALIZATION_REPORT.json
+  maximum_deltas_per_update: 1
+
+generated_views:
+  stage4a_minimal_refresh: false
+  stage4a_output_root: docs/handoff_shadow/stage4/minimal/generated
+
+safety:
+  direct_handoff_edit_forbidden: false
+  immutable_checkpoint: true
+  immutable_accepted_deltas: true
+  trusted_normalizer_from_current_main: true
+  authority_transition_requires_explicit_flag: true

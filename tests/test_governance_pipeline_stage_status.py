@@ -94,7 +94,7 @@ def test_current_repository_stage_closure_is_valid() -> None:
     assert "Stage 2=closed_maintenance_only" in proc.stdout
     assert "Stage 3=shadow_active" in proc.stdout
     assert "Stage 4=active" in proc.stdout
-    assert "Stage 5=blocked_by_predecessor" in proc.stdout
+    assert "Stage 5=active" in proc.stdout
 
 
 def test_protected_file_tamper_is_rejected() -> None:
@@ -244,10 +244,12 @@ def test_stage4b_after_image_tamper_is_rejected(tmp_path: Path) -> None:
         VALIDATOR.validate_stage4b_after_image(repo, relative)
 
 
-def test_stage5_waits_for_both_stage3_and_stage4_validation() -> None:
+def test_stage5_candidate_preserves_manual_authority_and_dependencies() -> None:
     ledger = yaml.safe_load(LEDGER.read_text(encoding="utf-8"))
     stage_5 = ledger["stages"]["stage_5"]
-    assert stage_5["status"] == "blocked_by_predecessor"
+    assert stage_5["status"] == "active"
+    assert stage_5["candidate_only"] is True
+    assert stage_5["current_write_authority"] == "manual_handoff"
     assert stage_5["implementation_allowed"] is False
     assert stage_5["authority_cutover_allowed"] is False
     assert stage_5["depends_on"] == ["stage_3_shadow_validation", "stage_4_lossless_validation"]
@@ -257,7 +259,7 @@ def test_stage5_cannot_drop_stage3_shadow_validation_dependency(tmp_path: Path) 
     assert_ledger_invalid(
         tmp_path,
         lambda x: x["stages"]["stage_5"].__setitem__("depends_on", ["stage_4_lossless_validation"]),
-        "wait for both Stage 3 and Stage 4 validation",
+        "preserve Stage 3/4 validation dependencies",
     )
 
 
@@ -267,3 +269,31 @@ def test_stage5_cannot_enable_authority_cutover(tmp_path: Path) -> None:
         lambda x: x["stages"]["stage_5"].__setitem__("authority_cutover_allowed", True),
         "must forbid authority cutover",
     )
+
+
+def test_stage5_authority_config_cannot_activate_cutover() -> None:
+    repo = hardlink_repository()
+    try:
+        path = repo / "docs/handoff_versions/AUTHORITY.yaml"
+        payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+        payload["mode"] = "delta"
+        replace_bytes(path, yaml.safe_dump(payload, sort_keys=False).encode("utf-8"))
+        proc = run_validator(repo, check=False)
+        assert proc.returncode == 2
+        assert "must remain manual candidate mode" in proc.stderr
+    finally:
+        shutil.rmtree(repo, ignore_errors=True)
+
+
+def test_stage5_candidate_cannot_enable_dynamic_refresh_on_main() -> None:
+    repo = hardlink_repository()
+    try:
+        path = repo / "docs/handoff_versions/AUTHORITY.yaml"
+        payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+        payload["generated_views"]["stage4a_minimal_refresh"] = True
+        replace_bytes(path, yaml.safe_dump(payload, sort_keys=False).encode("utf-8"))
+        proc = run_validator(repo, check=False)
+        assert proc.returncode == 2
+        assert "illegally activates cutover behavior" in proc.stderr
+    finally:
+        shutil.rmtree(repo, ignore_errors=True)

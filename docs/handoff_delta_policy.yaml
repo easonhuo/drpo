@@ -12,6 +12,7 @@ delta_schema:
   - 1
   - 2
   current_version: 2
+  candidate_authoritative_version: 3
   legacy_schema1_update_ids:
   - GOV-STAGE3-SHADOW-BOOTSTRAP-2026-06-27
   - DU1-E6-SEMANTIC-GAP-FORMAL-2026-06-27
@@ -20,6 +21,7 @@ authority:
   manual_handoff_remains_authoritative: true
   generated_candidate_may_replace_manual_handoff: false
   switch_requires_separate_user_approved_stage_transition: true
+  candidate_authority_config: docs/handoff_versions/AUTHORITY.yaml
 safety:
   allow_network: false
   allow_llm_blocking_gate: false
@@ -27,6 +29,7 @@ safety:
   require_base_handoff_sha256: true
   require_base_registry_sha256: true
   require_exact_manual_candidate_match: true
+  schema_v3_is_inactive_until_authority_mode_delta: true
   preserve_unaddressed_bytes: true
   preserve_historical_identifiers: true
   unknown_operation_policy: reject

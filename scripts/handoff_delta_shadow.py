@@ -36,6 +36,9 @@ SUPPORTED_OPERATIONS = {"replace_heading", "insert_after_heading", "append_to_se
 DELTA_FILENAME = "HANDOFF_DELTA.yaml"
 REPORT_FILENAME = "SHADOW_REPORT.json"
 FULL_REPORT_FILENAME = "FULL_ACCEPTANCE_REPORT.json"
+AUTHORITY_FILE = "docs/handoff_versions/AUTHORITY.yaml"
+AUTHORITY_REPORT_FILENAME = "MATERIALIZATION_REPORT.json"
+AUTHORITATIVE_DELTA_SCHEMA_VERSION = 3
 CURRENT_DELTA_SCHEMA_VERSION = 2
 LEGACY_DELTA_SCHEMA_VERSION = 1
 CURRENT_REPORT_SCHEMA_VERSION = 2
@@ -994,6 +997,73 @@ def validate_registry(
         },
     }
 
+def authority_mode(repo_root: Path) -> str:
+    path = repo_root / AUTHORITY_FILE
+    if not path.is_file():
+        return "manual"
+    payload = load_yaml(path, "handoff authority")
+    mode = payload.get("mode")
+    if mode not in {"manual", "delta"}:
+        raise HandoffDeltaError("handoff authority mode must be manual or delta")
+    return mode
+
+
+def verify_authoritative_state(repo_root: Path) -> dict[str, Any]:
+    script = repo_root / "scripts/handoff_authority.py"
+    result = subprocess.run(
+        [sys.executable, str(script), "verify", "--repo-root", str(repo_root), "--json"],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise HandoffDeltaError(
+            "Stage 5 authoritative state verification failed: "
+            + (result.stderr or result.stdout).strip()
+        )
+    try:
+        payload = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        raise HandoffDeltaError("Stage 5 authority verifier returned invalid JSON") from exc
+    if payload.get("status") != "PASS":
+        raise HandoffDeltaError("Stage 5 authority verifier did not return PASS")
+    return payload
+
+
+def authoritative_report_metadata(repo_root: Path, delta_path: Path) -> dict[str, Any]:
+    report_path = delta_path.parent / AUTHORITY_REPORT_FILENAME
+    report = load_json(report_path, "materialization report")
+    if report.get("report_schema_version") != 1 or report.get("status") != "PASS":
+        raise HandoffDeltaError("materialization report schema/status mismatch")
+    if report.get("mode") != "authoritative":
+        raise HandoffDeltaError("materialization report must be authoritative")
+    if report.get("update_id") != delta_path.parent.name:
+        raise HandoffDeltaError("materialization report update_id mismatch")
+    repository_commit = repository_commit_for_added_path(repo_root, delta_path)
+    report_commit = repository_commit_for_added_path(repo_root, report_path)
+    if repository_commit is None or report_commit != repository_commit:
+        raise HandoffDeltaError("authoritative delta/report must enter Git in the same commit")
+    delta_touches = git_text(
+        repo_root, "log", "--format=%H", "--", delta_path.relative_to(repo_root).as_posix()
+    ).splitlines()
+    report_touches = git_text(
+        repo_root, "log", "--format=%H", "--", report_path.relative_to(repo_root).as_posix()
+    ).splitlines()
+    if delta_touches != [repository_commit] or report_touches != [repository_commit]:
+        raise HandoffDeltaError("authoritative delta/report must remain immutable")
+    if report.get("delta_sha256") != sha256_file(delta_path):
+        raise HandoffDeltaError("materialization report delta hash mismatch")
+    return {
+        "path": report_path.relative_to(repo_root).as_posix(),
+        "sha256": sha256_file(report_path),
+        "repository_commit": repository_commit,
+        "validation_worktree_head": repository_commit,
+        "legacy_head_commit_field": None,
+        "performance_total_ms": None,
+    }
+
+
 def classify_observation(update_id: str) -> str:
     if update_id.startswith("GOV-STAGE3-SHADOW-BOOTSTRAP-"):
         return "bootstrap"
@@ -1362,27 +1432,39 @@ def observation_records(
     policy = load_policy(repo_root)
     root = repo_root / "docs" / "handoff_deltas"
     records: list[dict[str, Any]] = []
+    authoritative_verified = False
     for delta_path in sorted(root.glob(f"*/{DELTA_FILENAME}")):
         delta = load_yaml(delta_path, "handoff delta")
-        validate_delta_shape(delta, delta_path, policy)
-        repository_commit = repository_commit_for_added_path(repo_root, delta_path)
-        if repository_commit is None:
-            continue
-        if replay:
-            result = check_delta(
-                repo_root,
-                delta_path,
-                enforce_performance=False,
-                target_commit=repository_commit,
-            )
-            report_meta = validate_stored_report(repo_root, delta_path, result.report)
+        if delta.get("schema_version") == AUTHORITATIVE_DELTA_SCHEMA_VERSION:
+            if authority_mode(repo_root) != "delta":
+                raise HandoffDeltaError(
+                    "schema-v3 authoritative delta exists while authority mode is not delta"
+                )
+            if replay and not authoritative_verified:
+                verify_authoritative_state(repo_root)
+                authoritative_verified = True
+            report_meta = authoritative_report_metadata(repo_root, delta_path)
+            repository_commit = report_meta["repository_commit"]
         else:
-            report_meta = stored_report_metadata(repo_root, delta_path)
-            stored = report_meta.pop("stored")
-            if stored.get("update_id") != delta["update_id"]:
-                raise HandoffDeltaError("Stored shadow report update_id does not match delta")
-            if stored.get("base_commit") != delta["base"]["commit"]:
-                raise HandoffDeltaError("Stored shadow report base_commit does not match delta")
+            validate_delta_shape(delta, delta_path, policy)
+            repository_commit = repository_commit_for_added_path(repo_root, delta_path)
+            if repository_commit is None:
+                continue
+            if replay:
+                result = check_delta(
+                    repo_root,
+                    delta_path,
+                    enforce_performance=False,
+                    target_commit=repository_commit,
+                )
+                report_meta = validate_stored_report(repo_root, delta_path, result.report)
+            else:
+                report_meta = stored_report_metadata(repo_root, delta_path)
+                stored = report_meta.pop("stored")
+                if stored.get("update_id") != delta["update_id"]:
+                    raise HandoffDeltaError("Stored shadow report update_id does not match delta")
+                if stored.get("base_commit") != delta["base"]["commit"]:
+                    raise HandoffDeltaError("Stored shadow report base_commit does not match delta")
         records.append(
             {
                 "update_id": delta["update_id"],
@@ -1573,10 +1655,13 @@ def acceptance_status(repo_root: Path, *, as_of: str | None = None) -> dict[str,
 
 
 def corpus_check(repo_root: Path) -> dict[str, Any]:
+    mode = authority_mode(repo_root)
+    authority_report = verify_authoritative_state(repo_root) if mode == "delta" else None
     observations = observation_records(repo_root)
     return {
         "status": "PASS",
-        "mode": "shadow",
+        "mode": mode if mode == "delta" else "shadow",
+        "authority_report": authority_report,
         "observation_count": len(observations),
         "bootstrap_count": sum(item["kind"] == "bootstrap" for item in observations),
         "real_count": sum(item["kind"] == "real" for item in observations),
@@ -1630,6 +1715,21 @@ def discover_changed_full_reports(repo_root: Path, paths: Iterable[str]) -> list
 def auto_check(repo_root: Path, *, allow_full_due: bool = False) -> dict[str, Any]:
     repo_root = repo_root.resolve()
     policy = load_policy(repo_root)
+    if authority_mode(repo_root) == "delta":
+        authority_report = verify_authoritative_state(repo_root)
+        acceptance = acceptance_status(repo_root)
+        if acceptance["full_acceptance_due"] and not allow_full_due:
+            raise HandoffDeltaError(
+                "Full Acceptance is due before this update can pass: "
+                + ", ".join(acceptance["full_acceptance_due_reasons"])
+            )
+        return {
+            "status": "PASS",
+            "mode": "delta",
+            "changed_paths": sorted(changed_paths(repo_root)),
+            "authority_report": authority_report,
+            "acceptance_status": acceptance,
+        }
     paths = changed_paths(repo_root)
     relevant_authority_change = bool({"docs/handoff.md", "experiments/registry.yaml"} & paths)
     deltas = discover_changed_deltas(repo_root, paths)

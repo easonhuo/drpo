@@ -46,6 +46,22 @@ append-oriented: it supports heading replacement, insertion immediately after
 a heading, and append-only blocks at the end of a section. It does not support
 arbitrary text replacement or destructive section deletion.
 
+
+## 2.2 Stage 5 schema-v3 candidate
+
+Stage 5 candidate implementation registers schema version 3 for a future
+`mode: authoritative` write source. It is inactive while
+`docs/handoff_versions/AUTHORITY.yaml` remains `mode: manual`; new repository
+updates must therefore continue to use schema version 2 and the ordinary shadow
+workflow. Schema-v3 parsing, trusted normalization, stale-base conflict checks,
+and materialization reports are implemented by
+`scripts/handoff_authority.py`. Activating v3 requires a separate user-approved
+cutover and an immutable checkpoint.
+
+The Stage 5 candidate does not event-source the experiment registry. Registry
+changes remain direct YAML changes: clean Git merges receive complete semantic
+coverage validation, while textual conflicts fail closed.
+
 ## 3. Supported operations
 
 ### `replace_heading`

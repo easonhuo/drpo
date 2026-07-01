@@ -1,0 +1,46 @@
+schema_version: 1
+authorization_id: GOV-STAGE5-CANDIDATE-IMPLEMENTATION-2026-07-01
+kind: reopen
+change_class: reopen
+claim_id: GOV-HANDOFF-AUTHORITY-CUTOVER-01
+approval_record: user_approved_2026-07-01_implement_stage5_minimal_versioned_handoff_candidate_without_cutover
+base_commit: 4ad8b09ca80bc4b98aebffc6540f9be29440ba28
+stage_ids:
+- stage_1
+- stage_3
+- stage_4
+- stage_5
+authorized_stage_statuses:
+  stage_1: closed_maintenance_only
+  stage_3: shadow_active
+  stage_4: active
+  stage_5: active
+scope:
+- implement_schema_v3_candidate_validation_while_schema_v2_remains_the_live_shadow_schema
+- add_trusted_handoff_normalization_and_materialization_reports
+- narrowly_reopen_stage_1_to_add_post_integration_normalization_before_tests
+- refresh_only_stage4a_minimal_generated_views_in_future_delta_mode
+- prepare_stage4a_minimal_dynamic_refresh_in_the_candidate_normalizer_without_activating_it_on_main
+- implement_stale_base_commutativity_conflict_atomicity_and_rollback_tests
+- preserve_manual_handoff_authority_and_forbid_cutover
+- preserve_registry_as_a_directly_maintained_authoritative_file
+excluded_scope:
+- authority_cutover
+- final_cutover_checkpoint_creation
+- registry_event_sourcing
+- stage4b_runtime_refresh
+- agents_compaction
+- scientific_experiment_or_result_changes
+authorized_file_hashes:
+  tools/drpo-update/drpo_update.py: 409ff83bb75e5fae1a287cd62d9cb6867fc197af21bcabd401925c3f3be03345
+  tools/drpo-update/test_impact_map.json: 495949359c37fd1f58ec95981838f34e48b464e164e4066646199336c7795ec9
+rollback_plan:
+- remove_the_stage5_candidate_script_spec_authority_config_and_tests
+- restore_drpo_update_and_test_impact_map_to_commit_4ad8b09ca80bc4b98aebffc6540f9be29440ba28
+- restore_the_governance_validator_and_stage_ledger_to_the_pre_stage5_state
+- restore_stage5_to_blocked_by_predecessor
+- keep_docs_handoff_md_manually_authoritative
+remaining_uncertainties:
+- final_cutover_checkpoint_does_not_exist
+- production_schema_v3_has_not_processed_a_real_repository_update
+- authority_transition_requires_a_separate_user_authorization

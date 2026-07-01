@@ -40,7 +40,7 @@ from test_selection import (  # noqa: E402
     select_test_plan,
 )
 
-VERSION = "2.3.1"
+VERSION = "2.4.0"
 EXPECTED_REMOTE_FRAGMENTS = ("github.com/easonhuo/drpo", "github.com:easonhuo/drpo")
 FULL_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 RECOVERY_ARTIFACT_KINDS = {
@@ -81,7 +81,9 @@ class ApplyReport:
     integration_mode: str = ""
     tests: list[str] = field(default_factory=list)
     conflicts: list[str] = field(default_factory=list)
+    source_integrated_commit_pre_normalization: str | None = None
     integrated_commit: str | None = None
+    handoff_normalization: dict[str, object] | None = None
     head_after: str | None = None
     pushed: bool = False
     remote_head_after_push: str | None = None
@@ -209,6 +211,23 @@ def append_test_outcome(report: ApplyReport, outcome: CommandOutcome) -> None:
     if outcome.log_file:
         payload["log_file"] = Path(outcome.log_file).name
     report.test_commands.append(payload)
+
+
+def logged_command_output(outcome: CommandOutcome) -> str:
+    """Return command output captured by ``run_logged_command`` without log framing."""
+    if not outcome.log_file:
+        return outcome.error or ""
+    path = Path(outcome.log_file)
+    if not path.is_file():
+        return outcome.error or ""
+    lines = path.read_text(encoding="utf-8").splitlines()
+    if lines and lines[0].startswith("$ "):
+        lines = lines[1:]
+    if lines and lines[-1].startswith("[exit_code]"):
+        lines = lines[:-1]
+    while lines and not lines[-1].strip():
+        lines.pop()
+    return "\n".join(lines)
 
 
 def git(
@@ -446,13 +465,119 @@ def verify_bundle_and_patch(repo: Path, package: Package, base: str, temp_root: 
         git(repo, "update-ref", "-d", imported_ref, check=False)
 
 
+def run_handoff_normalization(
+    repo: Path,
+    worktree: Path,
+    *,
+    current: str,
+    base: str,
+    source_patch_commit: str | None,
+    report: ApplyReport,
+    log_dir: Path,
+) -> str:
+    """Run the trusted Stage 5 normalizer and amend generated artifacts atomically.
+
+    The executable and authority policy come from pre-integration current main
+    (``repo``), not from the candidate worktree.  In the current manual mode the
+    command is a deterministic no-op.  Future delta mode requires a bundle-backed
+    source commit so exact-base intent can be checked independently of the
+    normalized integration commit.
+    """
+    authority_file = repo / "docs" / "handoff_versions" / "AUTHORITY.yaml"
+    normalizer = repo / "scripts" / "handoff_authority.py"
+    if not authority_file.is_file() or not normalizer.is_file():
+        report.handoff_normalization = {
+            "status": "not_configured",
+            "mode": "legacy_manual",
+        }
+        return git_text(worktree, "rev-parse", "HEAD")
+
+    import yaml
+
+    authority = yaml.safe_load(authority_file.read_text(encoding="utf-8"))
+    mode = authority.get("mode") if isinstance(authority, dict) else None
+    if mode == "delta" and source_patch_commit is None:
+        raise UpdateError(
+            "delta-authority update packages must be bundle-backed so exact-base "
+            "intent can be verified"
+        )
+    source_commit = source_patch_commit or git_text(worktree, "rev-parse", "HEAD")
+    command = [
+        sys.executable,
+        str(normalizer),
+        "normalize",
+        "--repo-root",
+        str(worktree),
+        "--trusted-repo-root",
+        str(repo),
+        "--current-before",
+        current,
+        "--source-base",
+        base,
+        "--source-patch-commit",
+        source_commit,
+        "--json",
+    ]
+    outcome = run_logged_command(
+        tuple(command),
+        cwd=worktree,
+        log_path=log_dir / "handoff-normalization.log",
+    )
+    append_test_outcome(report, outcome)
+    output = logged_command_output(outcome)
+    if not outcome.passed:
+        raise UpdateError(
+            "trusted handoff normalization failed; main was not modified: "
+            + output.strip()
+        )
+    try:
+        payload = json.loads(output)
+    except json.JSONDecodeError as exc:
+        raise UpdateError("trusted handoff normalizer returned invalid JSON") from exc
+    if payload.get("status") != "PASS":
+        raise UpdateError("trusted handoff normalizer did not return PASS")
+    report.handoff_normalization = payload
+
+    status = git(worktree, "status", "--porcelain", check=False).stdout
+    if status.strip():
+        git(worktree, "add", "-A")
+        git(worktree, "commit", "--amend", "--no-edit", capture=False)
+    normalized = git_text(worktree, "rev-parse", "HEAD")
+
+    if mode == "delta":
+        verify_outcome = run_logged_command(
+            (
+                sys.executable,
+                str(normalizer),
+                "verify",
+                "--repo-root",
+                str(worktree),
+                "--json",
+            ),
+            cwd=worktree,
+            log_path=log_dir / "handoff-normalization-verify.log",
+        )
+        append_test_outcome(report, verify_outcome)
+        if not verify_outcome.passed:
+            raise UpdateError(
+                "normalized handoff state failed deterministic verification; main was not modified"
+            )
+        verify_output = logged_command_output(verify_outcome)
+        try:
+            verify_payload = json.loads(verify_output)
+        except json.JSONDecodeError as exc:
+            raise UpdateError("handoff authority verifier returned invalid JSON") from exc
+        report.handoff_normalization["post_amend_verify"] = verify_payload
+    return normalized
+
+
 def run_package_tests(
     worktree: Path,
     test_file: Path | None,
     report: ApplyReport,
     log_dir: Path,
 ) -> UpdateError | None:
-    print("[5/10] Running package tests in isolated worktree...")
+    print("[6/11] Running package tests in isolated worktree...")
     if test_file:
         report.tests.append("TEST_COMMANDS.sh")
         outcome = run_logged_command(
@@ -484,7 +609,7 @@ def run_selected_tests(
     report: ApplyReport,
     log_dir: Path,
 ) -> UpdateError | None:
-    print("[6/10] Selecting and running repository integration tests...")
+    print("[7/11] Selecting and running repository integration tests...")
     impact_map = repo / "tools" / "drpo-update" / "test_impact_map.json"
     if not impact_map.is_file():
         raise UpdateError(f"trusted test impact map is missing from current main: {impact_map}")
@@ -1073,8 +1198,22 @@ def apply_update(args: argparse.Namespace) -> int:
                 message,
                 report,
             )
+        report.source_integrated_commit_pre_normalization = integrated
+        print("[4/11] Candidate source integration created; main is still untouched.")
+
+        phase = "handoff_normalization"
+        with timed_phase(report, phase):
+            integrated = run_handoff_normalization(
+                repo,
+                integration_worktree,
+                current=current,
+                base=base,
+                source_patch_commit=patch_commit,
+                report=report,
+                log_dir=logs_dir,
+            )
         report.integrated_commit = integrated
-        print("[4/10] Candidate integration created; main is still untouched.")
+        print("[5/11] Trusted handoff normalization complete; main is still untouched.")
 
         gate_errors: list[UpdateError] = []
         phase = "package_tests"
@@ -1125,7 +1264,7 @@ def apply_update(args: argparse.Namespace) -> int:
                 print(f"Stopped before changing main. Report: {path}")
                 return 0
 
-        print("[8/10] Fast-forwarding verified commit onto main...")
+        print("[9/11] Fast-forwarding verified commit onto main...")
         phase = "main_fast_forward"
         with timed_phase(report, phase):
             git(repo, "merge", "--ff-only", integrated, capture=False)
@@ -1133,11 +1272,11 @@ def apply_update(args: argparse.Namespace) -> int:
         report.status = "committed_local"
 
         if args.no_push:
-            print("[9/10] Push skipped (--no-push).")
+            print("[10/11] Push skipped (--no-push).")
             report.main_bundle_export_skipped = "no_push"
             report.status = "success_no_push"
         else:
-            print("[9/10] Pushing origin/main...")
+            print("[10/11] Pushing origin/main...")
             phase = "push"
             with timed_phase(report, phase):
                 push = git(repo, "push", "origin", "main", check=False, capture=False)
@@ -1156,10 +1295,10 @@ def apply_update(args: argparse.Namespace) -> int:
                     f"local={report.head_after} remote={remote_head}"
                 )
             if args.no_export_main_bundle:
-                print("[10/10] Main bundle export skipped (--no-export-main-bundle).")
+                print("[11/11] Main bundle export skipped (--no-export-main-bundle).")
                 report.main_bundle_export_skipped = "disabled_by_flag"
             else:
-                print("[10/10] Exporting verified origin/main bundle to Downloads...")
+                print("[11/11] Exporting verified origin/main bundle to Downloads...")
                 phase = "main_bundle_export"
                 try:
                     with timed_phase(report, phase):

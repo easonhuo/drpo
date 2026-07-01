@@ -66,8 +66,8 @@ stages:
       sha256: fb4eb274fe45bcae53983c77a9cb7f6837319c92e7669f097da19e40216afff2
       authorized_by: GOV-PIPELINE-STAGE12-CLOSURE-2026-06-27
     - path: tools/drpo-update/drpo_update.py
-      sha256: 3c93eacfd58f64bc3e346b416b4f50b3f9b91edbba9cdbb333502e35be57f2a8
-      authorized_by: GOV-PIPELINE-STAGE12-CLOSURE-2026-06-27
+      sha256: 409ff83bb75e5fae1a287cd62d9cb6867fc197af21bcabd401925c3f3be03345
+      authorized_by: GOV-STAGE5-CANDIDATE-IMPLEMENTATION-2026-07-01
     - path: tools/drpo-update/install.sh
       sha256: f82d3a49e1f11195ab8cc268679b263425750198c0deca9fe5537b1e57fe890c
       authorized_by: GOV-PIPELINE-STAGE12-CLOSURE-2026-06-27
@@ -75,8 +75,8 @@ stages:
       sha256: c7b305d73a6649c8012492f66e40edf0f234663fa72146bdb5ae59e495e5ad37
       authorized_by: GOV-PIPELINE-STAGE12-CLOSURE-2026-06-27
     - path: tools/drpo-update/test_impact_map.json
-      sha256: 86cae7c12c63128634a11916fef8ce0b2947e6e2f6252788c0f2b7db204b17e6
-      authorized_by: GOV-STAGE1-STAGE3-TEST-INTEGRATION-2026-06-27
+      sha256: 495949359c37fd1f58ec95981838f34e48b464e164e4066646199336c7795ec9
+      authorized_by: GOV-STAGE5-CANDIDATE-IMPLEMENTATION-2026-07-01
     - path: scripts/package_update.py
       sha256: c1adf8a162d9ce596d610326ff3103bc00ee108ea89cc7e86ee4f74390083a52
       authorized_by: GOV-PIPELINE-STAGE12-CLOSURE-2026-06-27
@@ -169,6 +169,10 @@ stages:
     report_persistence: required_and_revalidated
     full_trigger_enforcement: automatic_on_fast_gate
     current_delta_schema_version: 2
+    candidate_authoritative_delta_schema_version: 3
+    candidate_authority_config: docs/handoff_versions/AUTHORITY.yaml
+    candidate_authority_engine: scripts/handoff_authority.py
+    candidate_implementation_authorization: GOV-STAGE5-CANDIDATE-IMPLEMENTATION-2026-07-01
     manual_handoff_remains_authoritative: true
     authority_cutover_allowed: false
   stage_4:
@@ -217,13 +221,19 @@ stages:
     stage4b_validator: scripts/validate_stage4b_candidate.py
   stage_5:
     number: 5
-    name: controlled_handoff_switch_and_agents_compaction
-    responsibility: Switch authority only after shadow evidence and compact AGENTS details already enforced
-      elsewhere.
-    status: blocked_by_predecessor
-    status_authorization: GOV-STAGE4B-FINAL-ACCEPTANCE-2026-07-01
-    implementation_state: blocked_by_predecessor
+    name: versioned_handoff_write_authority_cutover
+    responsibility: Promote the validated Stage 3 delta engine into a trusted candidate write-source pipeline without changing authority until a separate cutover authorization.
+    status: active
+    status_authorization: GOV-STAGE5-CANDIDATE-IMPLEMENTATION-2026-07-01
+    implementation_state: candidate_implemented_pending_pre_cutover_acceptance
     implementation_allowed: false
+    candidate_only: true
+    candidate_spec: docs/governance_stage5_versioned_handoff_spec.md
+    candidate_authority_config: docs/handoff_versions/AUTHORITY.yaml
+    candidate_engine: scripts/handoff_authority.py
+    candidate_authorization: GOV-STAGE5-CANDIDATE-IMPLEMENTATION-2026-07-01
+    stage3_pre_stage5_full_acceptance_report: docs/handoff_deltas/GOV-STAGE3-PRE-STAGE5-FULL-CHECKPOINT-2026-07-01/FULL_ACCEPTANCE_REPORT.json
+    current_write_authority: manual_handoff
     authority_cutover_allowed: false
     cutover_requires_independent_user_authorization: true
     depends_on:
