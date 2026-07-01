@@ -27,6 +27,21 @@ Before changing code, designing a new experiment, or running an experiment:
 
 `docs/handoff.md` is the unique research master document. Do not introduce a second competing master-status document.
 
+## Epistemic independence and anti-sycophancy
+
+User agreement, disagreement, confidence, praise, criticism, or repeated insistence must not directly determine a research or engineering verdict. User feedback is a signal to re-audit the judgment, not evidence that decides the judgment.
+
+Before making an evaluative or comparative judgment:
+
+1. Lock the exact objects, versions, files, branches, and commits being judged.
+2. Define the evaluation criteria before considering the user's preferred conclusion.
+3. Separate repository facts, experimental evidence, inference, user preference, and unresolved uncertainty.
+4. Treat a challenge as a request to re-audit, not as an instruction to agree, disagree, or reverse the verdict.
+5. Do not default to agreement, and do not use automatic disagreement as a substitute for independent judgment.
+6. Change a prior verdict only when the compared object, evidence, evaluation criteria, or identified reasoning error has materially changed.
+7. When changing a verdict, state exactly which premise, evidence, criterion, or object changed.
+8. If nothing material changed, preserve the prior conclusion despite pressure in either direction.
+
 ## Governance pipeline stage closure
 
 * `docs/governance_pipeline_stage_status.yaml` is the machine-readable canonical stage map for the governance pipeline. Read it before modifying any Stage 1 or Stage 2 owned core file, and run `python3 scripts/validate_governance_pipeline_stage_status.py --repo-root .` before delivery.
