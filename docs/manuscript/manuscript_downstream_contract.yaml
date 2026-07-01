@@ -1,0 +1,223 @@
+schema_version: 1
+task_id: PAPER-PIPELINE-V2-BLUEPRINT-DOWNSTREAM-01
+output_root: paper/core_review_v2_core/downstream_v1
+source:
+  blueprint: paper/core_review_v2_core/blueprint.json
+  snapshot: paper/core_review_v2_core/research_snapshot.json
+
+nodes:
+  METHOD-P03:
+    sentence_bindings:
+      motivation:
+        evidence_refs:
+          - PROP-EXPONENTIAL-FAR-FIELD
+          - PROOF-EXPONENTIAL-FAR-FIELD
+        metrics: {}
+        figure_bindings: []
+        table_bindings: []
+        template: >-
+          The exponential envelope is selected for a tail-control guarantee, not as a model of how sample utility changes with policy-relative remoteness.
+      assumption:
+        evidence_refs:
+          - PROP-EXPONENTIAL-FAR-FIELD
+          - PROOF-EXPONENTIAL-FAR-FIELD
+        metrics: {}
+        figure_bindings: []
+        table_bindings: []
+        template: >-
+          The registered proposition assumes only that the unweighted score-times-advantage norm is bounded by a finite-order term C(1+r)^k.
+      analytic_result:
+        evidence_refs:
+          - PROP-EXPONENTIAL-FAR-FIELD
+          - PROOF-EXPONENTIAL-FAR-FIELD
+        metrics: {}
+        figure_bindings: []
+        table_bindings: []
+        template: >-
+          Multiplication by exp(-lambda r) therefore dominates every finite polynomial order and drives the weighted far-field contribution to zero as r grows.
+      claim_boundary:
+        evidence_refs:
+          - PROP-EXPONENTIAL-FAR-FIELD
+          - PROOF-EXPONENTIAL-FAR-FIELD
+        metrics: {}
+        figure_bindings: []
+        table_bindings: []
+        template: >-
+          This result supplies a tail guarantee for the exponential form, but it neither assumes exponential utility decay nor establishes a universal ranking over taper functions.
+    visual_products: []
+
+  EXP-P04:
+    sentence_bindings:
+      setup:
+        evidence_refs:
+          - EVID-CU1-E3-FIXED
+          - EVID-CU1-E3-LEARNABLE
+          - AUDIT-CU1-E3-TERMINAL
+        metrics: {}
+        figure_bindings:
+          - FIG-EXP-P04-CAUSAL
+        table_bindings:
+          - cu1_e3_results.tex
+        template: >-
+          In C-U1 E3, the matched Baseline, Near-zero, Far-zero, and Far-cap interventions use paired held-out seeds, while task-performance collapse, support-boundary events, and NaN/Inf failure are audited as separate outcomes.
+      fixed_variance_failure:
+        evidence_refs:
+          - EVID-CU1-E3-FIXED
+          - AUDIT-CU1-E3-TERMINAL
+        metrics:
+          baseline_reward: methods.baseline.fixed_variance.reward
+          baseline_collapse: methods.baseline.fixed_variance.task_collapse_count
+          near_reward: methods.near_zero.fixed_variance.reward
+          near_collapse: methods.near_zero.fixed_variance.task_collapse_count
+        figure_bindings:
+          - FIG-EXP-P04-CAUSAL
+        table_bindings: []
+        template: >-
+          Under fixed variance, Baseline ends at reward {baseline_reward:.3f} with {baseline_collapse:.0f} task-collapse events, and Near-zero remains comparably poor at {near_reward:.3f} with {near_collapse:.0f} events, so removing local negative updates does not rescue the policy.
+      fixed_variance_rescue:
+        evidence_refs:
+          - EVID-CU1-E3-FIXED
+          - AUDIT-CU1-E3-TERMINAL
+        metrics:
+          far_zero_reward: methods.far_zero.fixed_variance.reward
+          far_zero_ci_low: methods.far_zero.fixed_variance.reward_ci95.0
+          far_zero_ci_high: methods.far_zero.fixed_variance.reward_ci95.1
+          far_zero_collapse: methods.far_zero.fixed_variance.task_collapse_count
+          far_cap_reward: methods.far_cap.fixed_variance.reward
+          far_cap_ci_low: methods.far_cap.fixed_variance.reward_ci95.0
+          far_cap_ci_high: methods.far_cap.fixed_variance.reward_ci95.1
+          far_cap_collapse: methods.far_cap.fixed_variance.task_collapse_count
+        figure_bindings:
+          - FIG-EXP-P04-CAUSAL
+        table_bindings: []
+        template: >-
+          By contrast, Far-zero reaches {far_zero_reward:.3f} (95% CI {far_zero_ci_low:.3f}--{far_zero_ci_high:.3f}) with {far_zero_collapse:.0f} task-collapse events, and Far-cap reaches {far_cap_reward:.3f} (95% CI {far_cap_ci_low:.3f}--{far_cap_ci_high:.3f}) with {far_cap_collapse:.0f} events.
+      budget_controls:
+        evidence_refs:
+          - EVID-CU1-E3-FIXED
+          - AUDIT-CU1-E3-TERMINAL
+        metrics:
+          global_reward: methods.global_scale.fixed_variance.reward
+          transfer_reward: methods.far_to_near.fixed_variance.reward
+        figure_bindings:
+          - FIG-EXP-P04-CAUSAL
+        table_bindings: []
+        template: >-
+          The registered fixed-budget diagnostics finish at {global_reward:.3f} for Global-scale and {transfer_reward:.3f} for Far-to-near; they isolate update-budget effects and are not used to assert a universal method ranking.
+      learnable_variance_audit:
+        evidence_refs:
+          - EVID-CU1-E3-LEARNABLE
+          - AUDIT-CU1-E3-TERMINAL
+        metrics:
+          baseline_boundary: methods.baseline.learnable_variance.support_boundary_count
+          baseline_onset: methods.baseline.learnable_variance.support_onset_mean
+          near_boundary: methods.near_zero.learnable_variance.support_boundary_count
+          near_onset: methods.near_zero.learnable_variance.support_onset_mean
+          far_zero_boundary: methods.far_zero.learnable_variance.support_boundary_count
+          far_cap_boundary: methods.far_cap.learnable_variance.support_boundary_count
+        figure_bindings:
+          - FIG-EXP-P04-CAUSAL
+        table_bindings: []
+        template: >-
+          With learnable variance, Baseline and Near-zero register {baseline_boundary:.0f} and {near_boundary:.0f} support-boundary events at mean onsets {baseline_onset:.1f} and {near_onset:.1f}, whereas Far-zero and Far-cap register {far_zero_boundary:.0f} and {far_cap_boundary:.0f} such events.
+      numerical_separation:
+        evidence_refs:
+          - EVID-CU1-E3-LEARNABLE
+          - AUDIT-CU1-E3-TERMINAL
+        metrics:
+          baseline_nan: methods.baseline.learnable_variance.nan_inf_count
+          near_nan: methods.near_zero.learnable_variance.nan_inf_count
+          far_zero_nan: methods.far_zero.learnable_variance.nan_inf_count
+          far_cap_nan: methods.far_cap.learnable_variance.nan_inf_count
+        figure_bindings:
+          - FIG-EXP-P04-CAUSAL
+        table_bindings: []
+        template: >-
+          NaN/Inf counts remain separately recorded as {baseline_nan:.0f}, {near_nan:.0f}, {far_zero_nan:.0f}, and {far_cap_nan:.0f} for Baseline, Near-zero, Far-zero, and Far-cap, respectively, so support contraction is not relabeled as numerical failure.
+      calibrated_conclusion:
+        evidence_refs:
+          - EVID-CU1-E3-FIXED
+          - EVID-CU1-E3-LEARNABLE
+          - AUDIT-CU1-E3-TERMINAL
+        metrics: {}
+        figure_bindings:
+          - FIG-EXP-P04-CAUSAL
+        table_bindings: []
+        template: >-
+          These targeted interventions support only the calibrated conclusion that the far-field component is the dominant causal transmission path in this controlled environment; external-task transfer remains a separate question.
+    visual_products:
+      - figure_id: FIG-EXP-P04-CAUSAL
+        kind: empirical
+        renderer: bar_panels
+        output_files:
+          - exp_p04_causal_mapping.pdf
+          - exp_p04_causal_mapping.png
+        supports_roles:
+          - setup
+          - fixed_variance_failure
+          - fixed_variance_rescue
+          - budget_controls
+          - learnable_variance_audit
+          - numerical_separation
+          - calibrated_conclusion
+        caption: >-
+          C-U1 E3 targeted interventions. Reward and task-collapse outcomes are reported under fixed variance, while support-boundary and NaN/Inf events are reported separately under learnable variance. The plot supports a controlled-environment causal-path claim, not a universal method ranking.
+        panels:
+          - panel_id: A
+            question: Which interventions rescue fixed-variance task performance?
+            title: Fixed-variance reward
+            ylabel: Held-out-context reward
+            series:
+              - label: Baseline
+                value_path: methods.baseline.fixed_variance.reward
+              - label: Near-zero
+                value_path: methods.near_zero.fixed_variance.reward
+              - label: Far-zero
+                value_path: methods.far_zero.fixed_variance.reward
+                ci_path: methods.far_zero.fixed_variance.reward_ci95
+              - label: Far-cap
+                value_path: methods.far_cap.fixed_variance.reward
+                ci_path: methods.far_cap.fixed_variance.reward_ci95
+              - label: Global-scale
+                value_path: methods.global_scale.fixed_variance.reward
+              - label: Far-to-near
+                value_path: methods.far_to_near.fixed_variance.reward
+          - panel_id: B
+            question: Does targeted far-field control prevent task-performance collapse?
+            title: Task-performance collapse
+            ylabel: Event count
+            series:
+              - label: Baseline
+                value_path: methods.baseline.fixed_variance.task_collapse_count
+              - label: Near-zero
+                value_path: methods.near_zero.fixed_variance.task_collapse_count
+              - label: Far-zero
+                value_path: methods.far_zero.fixed_variance.task_collapse_count
+              - label: Far-cap
+                value_path: methods.far_cap.fixed_variance.task_collapse_count
+          - panel_id: C
+            question: Are learnable-variance boundary events prevented by far-field control?
+            title: Support-boundary events
+            ylabel: Event count
+            series:
+              - label: Baseline
+                value_path: methods.baseline.learnable_variance.support_boundary_count
+              - label: Near-zero
+                value_path: methods.near_zero.learnable_variance.support_boundary_count
+              - label: Far-zero
+                value_path: methods.far_zero.learnable_variance.support_boundary_count
+              - label: Far-cap
+                value_path: methods.far_cap.learnable_variance.support_boundary_count
+          - panel_id: D
+            question: Are the observed boundary events NaN/Inf numerical failures?
+            title: NaN/Inf failures
+            ylabel: Event count
+            series:
+              - label: Baseline
+                value_path: methods.baseline.learnable_variance.nan_inf_count
+              - label: Near-zero
+                value_path: methods.near_zero.learnable_variance.nan_inf_count
+              - label: Far-zero
+                value_path: methods.far_zero.learnable_variance.nan_inf_count
+              - label: Far-cap
+                value_path: methods.far_cap.learnable_variance.nan_inf_count

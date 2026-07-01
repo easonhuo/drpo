@@ -1,0 +1,36 @@
+schema_version: 1
+issue_id: PAPER-PIPELINE-V2-BLUEPRINT-DOWNSTREAM-01
+title: Reuse the graph compiler for blueprint-to-prose and blueprint-to-visual mapping
+status: implemented_candidate
+user_authorization: explicit_in_chat_2026_07_01
+parent_task: PAPER-PIPELINE-V2-CORE-01
+claim: >
+  The existing stable-ID graph-compilation pattern can be reused downstream so
+  that an executable paragraph blueprint deterministically produces sentence
+  units, evidence-bound prose packets, a first-pass manuscript draft, and
+  metric-bound figure specifications without creating a second pipeline.
+scientific_result_status: unchanged
+scope:
+  - preserve every blueprint node, ID, order, status, and parent outline hash
+  - compile each enabled sentence-plan role into one stable sentence unit
+  - bind exact evidence IDs and snapshot metric paths to each sentence unit
+  - render a deterministic first-pass paragraph and an LLM refinement packet
+  - compile metric-bound multi-panel figure specifications and empirical figures
+  - fail closed on omissions, extra metrics, unsupported claims, and C-U1 OOD wording
+out_of_scope:
+  - changing the approved outline or executable blueprint
+  - changing experiment registrations, results, seeds, thresholds, or method rankings
+  - claiming that deterministic template prose is the final camera-ready manuscript
+  - automatic redesign of arbitrary figure types beyond the registered renderer
+acceptance:
+  - downstream node IDs and order exactly equal the source blueprint
+  - disabled nodes remain present with their reasons
+  - enabled sentence-plan roles map one-to-one to stable sentence IDs
+  - all blueprint metric paths are assigned exactly once or explicitly waived
+  - source figure and table references are covered by downstream products
+  - prose, caption, and visual products preserve allowed and forbidden conclusions
+  - task collapse, support-boundary events, and NaN/Inf remain separate
+  - unit tests and the Core integration command pass
+rollback:
+  - remove the downstream transformer, adapter contract, documentation, and tests
+  - preserve the existing outline, blueprint, Core snapshot, prose, figures, and PDF
