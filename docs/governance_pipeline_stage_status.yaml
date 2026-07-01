@@ -30,16 +30,14 @@ stages:
   stage_0:
     number: 0
     name: rule_migration_safety_and_assurance
-    responsibility: Preserve governance rules, fingerprints, assurance mappings, and
-      direct test evidence.
+    responsibility: Preserve governance rules, fingerprints, assurance mappings, and direct test evidence.
     status: closed
     status_authorization: GOV-PIPELINE-STAGE12-CLOSURE-2026-06-27
     protected_files: []
   stage_1:
     number: 1
     name: bundle_backed_update_integration_pipeline
-    responsibility: Produce, verify, integrate, test, diagnose, and export canonical
-      code-update packages.
+    responsibility: Produce, verify, integrate, test, diagnose, and export canonical code-update packages.
     status: closed_maintenance_only
     status_authorization: GOV-STAGE1-STAGE3-TEST-INTEGRATION-2026-06-27
     closure_evidence:
@@ -97,8 +95,8 @@ stages:
   stage_2:
     number: 2
     name: canonical_formal_experiment_channel
-    responsibility: Enforce the single guarded formal execution, packaging, verification,
-      and anti-bypass channel.
+    responsibility: Enforce the single guarded formal execution, packaging, verification, and anti-bypass
+      channel.
     status: closed_maintenance_only
     status_authorization: GOV-PIPELINE-STAGE12-CLOSURE-2026-06-27
     production_acceptance_experiment: D-U1-E6-SEMANTIC-LONGRUN-01
@@ -146,8 +144,8 @@ stages:
   stage_3:
     number: 3
     name: handoff_delta_shadow_mode
-    responsibility: Add structured HANDOFF_DELTA generation, replay, candidate rendering,
-      and shadow comparison without switching authority.
+    responsibility: Add structured HANDOFF_DELTA generation, replay, candidate rendering, and shadow comparison
+      without switching authority.
     status: shadow_active
     status_authorization: GOV-STAGE3-SHADOW-ACTIVATION-2026-06-27
     depends_on:
@@ -176,17 +174,17 @@ stages:
   stage_4:
     number: 4
     name: lossless_handoff_history_split_shadow_mode
-    responsibility: Generate a compact current handoff plus immutable indexed history
-      while preserving all bytes and headings.
+    responsibility: Generate a compact current handoff plus immutable indexed history while preserving
+      all bytes and headings.
     status: active
-    status_authorization: GOV-STAGE4A-FINAL-ACCEPTANCE-2026-06-30
+    status_authorization: GOV-STAGE4B-FINAL-ACCEPTANCE-2026-07-01
     design_state: specification_authorized
     design_authorization: GOV-STAGE3-FREEZE-STAGE4-DESIGN-2026-06-28
     semantic_context_spec: docs/governance_stage4_semantic_context_spec.md
-    implementation_state: stage_4a_accepted
+    implementation_state: stage_4b_accepted
     implementation_allowed: false
-    implementation_authorization: GOV-STAGE4A-PARALLEL-IMPLEMENTATION-2026-06-28
-    active_phase: stage_4a_accepted_waiting_stage_4b_authorization
+    implementation_authorization: GOV-STAGE4B-FINAL-ACCEPTANCE-2026-07-01
+    active_phase: stage_4b_accepted_waiting_stage_4c_authorization
     shadow_candidate_only: true
     manual_handoff_remains_authoritative: true
     authority_cutover_allowed: false
@@ -196,24 +194,34 @@ stages:
     - stage_4c_context_assembly_shadow_validation
     phase_states:
       stage_4a_schema_inventory: accepted
-      stage_4b_lossless_candidate: ready_for_authorization
-      stage_4c_context_assembly_shadow_validation: blocked_by_stage_4b_acceptance
+      stage_4b_lossless_candidate: accepted
+      stage_4c_context_assembly_shadow_validation: ready_for_authorization
     depends_on:
     - stage_3_feature_frozen
     protected_files: []
-    acceptance_authorization: GOV-STAGE4A-FINAL-ACCEPTANCE-2026-06-30
-    acceptance_entrypoint: scripts/run_stage4a_acceptance.py
-    acceptance_spec: docs/governance_stage4a_acceptance_spec.md
-    acceptance_report: docs/governance_stage4a_acceptance/ACCEPTANCE_REPORT.json
-    acceptance_after_image: docs/governance_stage4a_acceptance/AFTER_IMAGE.json
-    feature_state: feature_frozen_bugfix_compatibility_clarification_only
+    acceptance_authorization: GOV-STAGE4B-FINAL-ACCEPTANCE-2026-07-01
+    acceptance_entrypoint: scripts/run_stage4b_acceptance.py
+    acceptance_spec: docs/governance_stage4b_lossless_source_promotion_spec.md
+    acceptance_report: docs/governance_stage4b_acceptance/ACCEPTANCE_REPORT.json
+    acceptance_after_image: docs/governance_stage4b_acceptance/AFTER_IMAGE.json
+    feature_state: stage_4b_feature_frozen_bugfix_compatibility_clarification_only
+    stage4a_implementation_authorization: GOV-STAGE4A-PARALLEL-IMPLEMENTATION-2026-06-28
+    stage4a_acceptance_authorization: GOV-STAGE4A-FINAL-ACCEPTANCE-2026-06-30
+    stage4a_acceptance_spec: docs/governance_stage4a_acceptance_spec.md
+    stage4a_acceptance_entrypoint: scripts/run_stage4a_acceptance.py
+    stage4a_acceptance_report: docs/governance_stage4a_acceptance/ACCEPTANCE_REPORT.json
+    stage4a_acceptance_after_image: docs/governance_stage4a_acceptance/AFTER_IMAGE.json
+    stage4b_spec: docs/governance_stage4b_lossless_source_promotion_spec.md
+    stage4b_config: docs/handoff_shadow/stage4/candidate/STAGE4B_CONFIG.yaml
+    stage4b_builder: scripts/build_stage4b_candidate.py
+    stage4b_validator: scripts/validate_stage4b_candidate.py
   stage_5:
     number: 5
     name: controlled_handoff_switch_and_agents_compaction
-    responsibility: Switch authority only after shadow evidence and compact AGENTS
-      details already enforced elsewhere.
+    responsibility: Switch authority only after shadow evidence and compact AGENTS details already enforced
+      elsewhere.
     status: blocked_by_predecessor
-    status_authorization: GOV-STAGE4A-FINAL-ACCEPTANCE-2026-06-30
+    status_authorization: GOV-STAGE4B-FINAL-ACCEPTANCE-2026-07-01
     implementation_state: blocked_by_predecessor
     implementation_allowed: false
     authority_cutover_allowed: false

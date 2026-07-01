@@ -1,0 +1,256 @@
+{
+  "authority": "shadow_only",
+  "dependency_hash": "1c163dc3089a713fb57bee639bb1701f41e71845abfc22c8029bde540899646e",
+  "depends_on": {
+    "categorical_e5_mechanism": [
+      "global_core_governance",
+      "theory_methods_related_work",
+      "terminal_audit"
+    ],
+    "categorical_e6_generalization": [
+      "global_core_governance",
+      "theory_methods_related_work",
+      "terminal_audit",
+      "categorical_e5_mechanism"
+    ],
+    "continuous_e4_extrapolation": [
+      "global_core_governance",
+      "theory_methods_related_work",
+      "terminal_audit",
+      "continuous_mechanism_e1_e3"
+    ],
+    "continuous_e4_taper": [
+      "continuous_e4_extrapolation"
+    ],
+    "continuous_mechanism_e1_e3": [
+      "global_core_governance",
+      "theory_methods_related_work",
+      "terminal_audit"
+    ],
+    "countdown_e8": [
+      "global_core_governance",
+      "execution_status_gates",
+      "theory_methods_related_work",
+      "terminal_audit",
+      "categorical_e5_mechanism",
+      "categorical_e6_generalization"
+    ],
+    "execution_status_gates": [
+      "global_core_governance"
+    ],
+    "global_core_governance": [],
+    "history_provenance": [
+      "global_core_governance"
+    ],
+    "hopper_e7": [
+      "global_core_governance",
+      "execution_status_gates",
+      "theory_methods_related_work",
+      "terminal_audit",
+      "continuous_mechanism_e1_e3"
+    ],
+    "paper_rewrite": [
+      "global_core_governance",
+      "theory_methods_related_work",
+      "terminal_audit",
+      "continuous_mechanism_e1_e3",
+      "continuous_e4_taper",
+      "categorical_e5_mechanism",
+      "categorical_e6_generalization",
+      "hopper_e7",
+      "countdown_e8"
+    ],
+    "terminal_audit": [
+      "global_core_governance"
+    ],
+    "theory_methods_related_work": [
+      "global_core_governance"
+    ]
+  },
+  "inherits_stage4a_module_ids": [
+    "global_core_governance",
+    "execution_status_gates",
+    "theory_methods_related_work",
+    "terminal_audit",
+    "continuous_mechanism_e1_e3",
+    "continuous_e4_extrapolation",
+    "continuous_e4_taper",
+    "categorical_e5_mechanism",
+    "categorical_e6_generalization",
+    "hopper_e7",
+    "countdown_e8",
+    "history_provenance",
+    "paper_rewrite"
+  ],
+  "ownership_overlap_resolutions": [
+    {
+      "basis": "explicit_owner_priority_resolution",
+      "block_id": "B000008",
+      "owner": "categorical_e6_generalization",
+      "references": [
+        "hopper_e7"
+      ]
+    },
+    {
+      "basis": "explicit_owner_priority_resolution",
+      "block_id": "B000009",
+      "owner": "hopper_e7",
+      "references": [
+        "countdown_e8"
+      ]
+    },
+    {
+      "basis": "explicit_owner_priority_resolution",
+      "block_id": "B000011",
+      "owner": "hopper_e7",
+      "references": [
+        "countdown_e8"
+      ]
+    },
+    {
+      "basis": "explicit_owner_priority_resolution",
+      "block_id": "B000014",
+      "owner": "hopper_e7",
+      "references": [
+        "countdown_e8"
+      ]
+    },
+    {
+      "basis": "explicit_owner_priority_resolution",
+      "block_id": "B000020",
+      "owner": "global_core_governance",
+      "references": [
+        "hopper_e7"
+      ]
+    },
+    {
+      "basis": "explicit_owner_priority_resolution",
+      "block_id": "B000023",
+      "owner": "global_core_governance",
+      "references": [
+        "countdown_e8"
+      ]
+    },
+    {
+      "basis": "explicit_owner_priority_resolution",
+      "block_id": "B000024",
+      "owner": "global_core_governance",
+      "references": [
+        "categorical_e6_generalization"
+      ]
+    },
+    {
+      "basis": "explicit_owner_priority_resolution",
+      "block_id": "B000025",
+      "owner": "global_core_governance",
+      "references": [
+        "categorical_e6_generalization",
+        "hopper_e7"
+      ]
+    },
+    {
+      "basis": "explicit_owner_priority_resolution",
+      "block_id": "B000026",
+      "owner": "global_core_governance",
+      "references": [
+        "hopper_e7",
+        "countdown_e8"
+      ]
+    },
+    {
+      "basis": "explicit_owner_priority_resolution",
+      "block_id": "B000027",
+      "owner": "global_core_governance",
+      "references": [
+        "hopper_e7",
+        "countdown_e8"
+      ]
+    },
+    {
+      "basis": "explicit_owner_priority_resolution",
+      "block_id": "B000028",
+      "owner": "global_core_governance",
+      "references": [
+        "continuous_e4_taper"
+      ]
+    },
+    {
+      "basis": "explicit_owner_priority_resolution",
+      "block_id": "B000029",
+      "owner": "global_core_governance",
+      "references": [
+        "continuous_e4_taper"
+      ]
+    },
+    {
+      "basis": "explicit_owner_priority_resolution",
+      "block_id": "B000030",
+      "owner": "global_core_governance",
+      "references": [
+        "hopper_e7",
+        "countdown_e8"
+      ]
+    },
+    {
+      "basis": "explicit_owner_priority_resolution",
+      "block_id": "B000031",
+      "owner": "global_core_governance",
+      "references": [
+        "continuous_e4_taper"
+      ]
+    },
+    {
+      "basis": "explicit_owner_priority_resolution",
+      "block_id": "B000032",
+      "owner": "global_core_governance",
+      "references": [
+        "continuous_e4_taper"
+      ]
+    },
+    {
+      "basis": "explicit_owner_priority_resolution",
+      "block_id": "B000080",
+      "owner": "execution_status_gates",
+      "references": [
+        "categorical_e6_generalization"
+      ]
+    },
+    {
+      "basis": "explicit_owner_priority_resolution",
+      "block_id": "B000084",
+      "owner": "execution_status_gates",
+      "references": [
+        "countdown_e8"
+      ]
+    },
+    {
+      "basis": "explicit_owner_priority_resolution",
+      "block_id": "B000086",
+      "owner": "execution_status_gates",
+      "references": [
+        "categorical_e6_generalization",
+        "hopper_e7"
+      ]
+    },
+    {
+      "basis": "explicit_owner_priority_resolution",
+      "block_id": "B000087",
+      "owner": "execution_status_gates",
+      "references": [
+        "hopper_e7"
+      ]
+    },
+    {
+      "basis": "explicit_owner_priority_resolution",
+      "block_id": "B000091",
+      "owner": "execution_status_gates",
+      "references": [
+        "hopper_e7"
+      ]
+    }
+  ],
+  "policy_id": "GOV-HANDOFF-INDEX-01",
+  "schema_version": 1,
+  "semantic_graph_hash": "e5195826aa9fe09f096d38a8162a7dd09e6381e72acaa6069e08b85b97911277",
+  "taxonomy_changes": []
+}

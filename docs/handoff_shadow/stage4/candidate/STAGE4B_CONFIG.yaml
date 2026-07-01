@@ -1,0 +1,36 @@
+schema_version: 1
+policy_id: GOV-HANDOFF-INDEX-01
+authority: non_authoritative_stage4b_shadow_candidate
+research_master: docs/handoff.md
+registry: experiments/registry.yaml
+stage4a_modules: docs/handoff_shadow/stage4/minimal/MODULES.yaml
+stage4a_dependencies: docs/handoff_shadow/stage4/minimal/DEPENDENCIES.yaml
+stage4a_module_index: docs/handoff_shadow/stage4/minimal/generated/MODULE_INDEX.json
+stage4a_semantic_manifest: docs/handoff_shadow/stage4/dynamic/generated/GRAPH_MANIFEST.json
+output_root: docs/handoff_shadow/stage4/candidate/generated
+manual_handoff_remains_authoritative: true
+authority_cutover_allowed: false
+single_write_source:
+  current: docs/handoff.md
+  candidate_editable: false
+  generated_compatibility_handoff_editable: false
+history_boundary: '# Part II. v7 全量累积研究记录（原文保留）'
+history_owner:
+  owner_type: history_record
+  owner: legacy_handoff_history
+  path: history/archive/legacy_handoff_history.md
+current_fallback_owner: paper_rewrite
+owner_priority:
+- global_core_governance
+- execution_status_gates
+- terminal_audit
+- continuous_e4_taper
+- continuous_e4_extrapolation
+- continuous_mechanism_e1_e3
+- categorical_e6_generalization
+- categorical_e5_mechanism
+- hopper_e7
+- countdown_e8
+- theory_methods_related_work
+- history_provenance
+- paper_rewrite

@@ -158,13 +158,59 @@ def validate_stage4a_after_image(repo_root: Path, path_value: str) -> dict[str, 
             )
         canonical.append({"path": relative, "sha256": digest})
     expected_tree = hashlib.sha256(
-        (json.dumps(canonical, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8")
+        (
+            json.dumps(canonical, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n"
+        ).encode("utf-8")
     ).hexdigest()
     if payload.get("tree_hash") != expected_tree:
         raise StageStatusError("Stage 4A after-image tree_hash mismatch")
     if payload.get("file_count") != len(entries):
         raise StageStatusError("Stage 4A after-image file_count mismatch")
     return {"file_count": len(entries), "tree_hash": expected_tree}
+
+
+def validate_stage4b_after_image(repo_root: Path, path_value: str) -> dict[str, Any]:
+    path = safe_repo_path(repo_root, path_value, "stage_4b acceptance after-image")
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise StageStatusError(f"invalid Stage 4B after-image: {exc}") from exc
+    if not isinstance(payload, dict) or payload.get("schema_version") != 1:
+        raise StageStatusError("Stage 4B after-image schema_version must be 1")
+    if (
+        payload.get("policy_id") != "GOV-HANDOFF-INDEX-01"
+        or payload.get("authority") != "shadow_only"
+    ):
+        raise StageStatusError("Stage 4B after-image authority/policy mismatch")
+    if payload.get("base_commit") != "cf775893b9885ba893278437556abb4d1d5dd1a8":
+        raise StageStatusError("Stage 4B after-image base_commit mismatch")
+    entries = payload.get("files")
+    if not isinstance(entries, list) or not entries:
+        raise StageStatusError("Stage 4B after-image files must be non-empty")
+    seen = set()
+    canonical = []
+    for index, entry in enumerate(entries):
+        if not isinstance(entry, dict):
+            raise StageStatusError(f"Stage 4B after-image files[{index}] must be a mapping")
+        relative = require_string(entry.get("path"), f"Stage 4B after-image files[{index}].path")
+        digest = require_string(entry.get("sha256"), f"Stage 4B after-image {relative} sha256")
+        if not SHA256_RE.fullmatch(digest):
+            raise StageStatusError(f"Stage 4B after-image invalid SHA-256 for {relative}")
+        if relative in seen:
+            raise StageStatusError(f"Stage 4B after-image duplicate path: {relative}")
+        seen.add(relative)
+        actual = sha256(safe_repo_path(repo_root, relative, "Stage 4B after-image file"))
+        if actual != digest:
+            raise StageStatusError(
+                f"Stage 4B after-image drift for {relative}; expected {digest}, got {actual}"
+            )
+        canonical.append({"path": relative, "sha256": digest})
+    expected = hashlib.sha256(
+        json.dumps(canonical, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    if payload.get("tree_hash") != expected or payload.get("file_count") != len(entries):
+        raise StageStatusError("Stage 4B after-image tree/file_count mismatch")
+    return {"file_count": len(entries), "tree_hash": expected}
 
 
 def require_string(value: Any, label: str) -> str:
@@ -353,16 +399,15 @@ def validate(repo_root: Path, ledger_path: Path) -> dict[str, Any]:
                 "renderer": "scripts/handoff_delta_shadow.py",
                 "acceptance_entrypoint": "scripts/run_handoff_delta_acceptance.py",
                 "bootstrap_delta": (
-                    "docs/handoff_deltas/GOV-STAGE3-SHADOW-BOOTSTRAP-2026-06-27/"
-                    "HANDOFF_DELTA.yaml"
+                    "docs/handoff_deltas/GOV-STAGE3-SHADOW-BOOTSTRAP-2026-06-27/HANDOFF_DELTA.yaml"
                 ),
             }
             if stage.get("implementation_state") != "implemented":
-                raise StageStatusError("stage_3 shadow_active requires implementation_state=implemented")
-            if stage.get("feature_state") != "feature_frozen_bugfix_only":
                 raise StageStatusError(
-                    "stage_3 feature_state must be feature_frozen_bugfix_only"
+                    "stage_3 shadow_active requires implementation_state=implemented"
                 )
+            if stage.get("feature_state") != "feature_frozen_bugfix_only":
+                raise StageStatusError("stage_3 feature_state must be feature_frozen_bugfix_only")
             freeze_auth_id = require_string(
                 stage.get("freeze_authorization"), "stage_3 freeze_authorization"
             )
@@ -389,7 +434,9 @@ def validate(repo_root: Path, ledger_path: Path) -> dict[str, Any]:
                 )
             safe_repo_path(repo_root, checkpoint, "stage_3 freeze Full Acceptance report")
             if stage.get("manual_handoff_remains_authoritative") is not True:
-                raise StageStatusError("stage_3 shadow mode must keep the manual handoff authoritative")
+                raise StageStatusError(
+                    "stage_3 shadow mode must keep the manual handoff authoritative"
+                )
             if stage.get("authority_cutover_allowed") is not False:
                 raise StageStatusError("stage_3 shadow mode must forbid authority cutover")
             acceptance_state = require_string(
@@ -432,115 +479,146 @@ def validate(repo_root: Path, ledger_path: Path) -> dict[str, Any]:
 
         if stage_id == "stage_4":
             if status != "active":
-                raise StageStatusError("stage_4 must remain active while Stage 4B awaits authorization")
+                raise StageStatusError("stage_4 must remain active after Stage 4B acceptance")
             if stage.get("design_state") != "specification_authorized":
                 raise StageStatusError("stage_4 design_state must be specification_authorized")
-            design_auth_id = require_string(stage.get("design_authorization"), "stage_4 design_authorization")
-            expected_design_auth_id = "GOV-STAGE3-FREEZE-STAGE4-DESIGN-2026-06-28"
-            if design_auth_id != expected_design_auth_id:
-                raise StageStatusError(f"stage_4 design_authorization must remain {expected_design_auth_id}")
-            design_auth = authorizations.get(design_auth_id)
-            if design_auth is None or design_auth.get("kind") != "stage_transition":
-                raise StageStatusError("stage_4 design requires its registered stage_transition authorization")
-
-            implementation_auth_id = require_string(
-                stage.get("implementation_authorization"), "stage_4 implementation_authorization"
+            design_auth_id = require_string(
+                stage.get("design_authorization"), "stage_4 design authorization"
             )
-            expected_implementation_auth_id = "GOV-STAGE4A-PARALLEL-IMPLEMENTATION-2026-06-28"
-            if implementation_auth_id != expected_implementation_auth_id:
-                raise StageStatusError("stage_4 implementation_authorization is not the approved Stage 4A record")
-            implementation_auth = authorizations.get(implementation_auth_id)
-            if implementation_auth is None or implementation_auth.get("kind") != "stage_transition":
-                raise StageStatusError("stage_4 implementation requires a stage_transition authorization")
-            if implementation_auth["authorized_stage_statuses"].get("stage_3") != "shadow_active":
-                raise StageStatusError("stage_4 implementation authorization must preserve Stage 3 shadow_active")
-
-            acceptance_auth_id = require_string(
-                stage.get("acceptance_authorization"), "stage_4 acceptance_authorization"
-            )
-            expected_acceptance_auth_id = "GOV-STAGE4A-FINAL-ACCEPTANCE-2026-06-30"
-            if acceptance_auth_id != expected_acceptance_auth_id or status_auth_id != expected_acceptance_auth_id:
-                raise StageStatusError(
-                    "stage_4 status and acceptance must use GOV-STAGE4A-FINAL-ACCEPTANCE-2026-06-30"
+            if design_auth_id != "GOV-STAGE3-FREEZE-STAGE4-DESIGN-2026-06-28":
+                raise StageStatusError("stage_4 design_authorization changed")
+            expected = "GOV-STAGE4B-FINAL-ACCEPTANCE-2026-07-01"
+            if (
+                require_string(
+                    stage.get("implementation_authorization"),
+                    "stage_4 implementation authorization",
                 )
-            acceptance_auth = authorizations.get(acceptance_auth_id)
-            if acceptance_auth is None or acceptance_auth.get("kind") != "stage_transition":
-                raise StageStatusError("stage_4 acceptance requires a stage_transition authorization")
-
-            exact_paths = {
+                != expected
+                or require_string(
+                    stage.get("acceptance_authorization"), "stage_4 acceptance authorization"
+                )
+                != expected
+                or status_auth_id != expected
+            ):
+                raise StageStatusError(
+                    "stage_4 status, implementation, and acceptance must use the Stage 4B authorization"
+                )
+            auth = authorizations.get(expected)
+            if (
+                auth is None
+                or auth.get("kind") != "stage_transition"
+                or auth.get("base_commit") != "cf775893b9885ba893278437556abb4d1d5dd1a8"
+            ):
+                raise StageStatusError("Stage 4B authorization missing or invalid")
+            if (
+                stage.get("stage4a_implementation_authorization")
+                != "GOV-STAGE4A-PARALLEL-IMPLEMENTATION-2026-06-28"
+                or stage.get("stage4a_acceptance_authorization")
+                != "GOV-STAGE4A-FINAL-ACCEPTANCE-2026-06-30"
+            ):
+                raise StageStatusError("Stage 4A authorization history changed")
+            paths = {
                 "semantic_context_spec": "docs/governance_stage4_semantic_context_spec.md",
-                "acceptance_spec": "docs/governance_stage4a_acceptance_spec.md",
-                "acceptance_entrypoint": "scripts/run_stage4a_acceptance.py",
-                "acceptance_report": "docs/governance_stage4a_acceptance/ACCEPTANCE_REPORT.json",
-                "acceptance_after_image": "docs/governance_stage4a_acceptance/AFTER_IMAGE.json",
+                "stage4a_acceptance_spec": "docs/governance_stage4a_acceptance_spec.md",
+                "stage4a_acceptance_entrypoint": "scripts/run_stage4a_acceptance.py",
+                "stage4a_acceptance_report": "docs/governance_stage4a_acceptance/ACCEPTANCE_REPORT.json",
+                "stage4a_acceptance_after_image": "docs/governance_stage4a_acceptance/AFTER_IMAGE.json",
+                "stage4b_spec": "docs/governance_stage4b_lossless_source_promotion_spec.md",
+                "stage4b_config": "docs/handoff_shadow/stage4/candidate/STAGE4B_CONFIG.yaml",
+                "stage4b_builder": "scripts/build_stage4b_candidate.py",
+                "stage4b_validator": "scripts/validate_stage4b_candidate.py",
+                "acceptance_spec": "docs/governance_stage4b_lossless_source_promotion_spec.md",
+                "acceptance_entrypoint": "scripts/run_stage4b_acceptance.py",
+                "acceptance_report": "docs/governance_stage4b_acceptance/ACCEPTANCE_REPORT.json",
+                "acceptance_after_image": "docs/governance_stage4b_acceptance/AFTER_IMAGE.json",
             }
-            for key, expected_path in exact_paths.items():
+            for key, expected_path in paths.items():
                 value = require_string(stage.get(key), f"stage_4 {key}")
                 if value != expected_path:
                     raise StageStatusError(f"stage_4 {key} must be {expected_path}")
                 safe_repo_path(repo_root, value, f"stage_4 {key}")
-
-            if stage.get("implementation_state") != "stage_4a_accepted":
-                raise StageStatusError("stage_4 implementation_state must be stage_4a_accepted")
-            if stage.get("implementation_allowed") is not False:
-                raise StageStatusError("stage_4 implementation must pause until separate Stage 4B authorization")
-            if stage.get("active_phase") != "stage_4a_accepted_waiting_stage_4b_authorization":
-                raise StageStatusError("stage_4 active_phase must wait for separate Stage 4B authorization")
-            if stage.get("feature_state") != "feature_frozen_bugfix_compatibility_clarification_only":
-                raise StageStatusError("stage_4 Stage 4A after-image must be feature-frozen")
+            if (
+                stage.get("implementation_state") != "stage_4b_accepted"
+                or stage.get("implementation_allowed") is not False
+            ):
+                raise StageStatusError(
+                    "stage_4 must record accepted Stage 4B and pause implementation"
+                )
+            if stage.get("active_phase") != "stage_4b_accepted_waiting_stage_4c_authorization":
+                raise StageStatusError("stage_4 must wait for separate Stage 4C authorization")
+            if (
+                stage.get("feature_state")
+                != "stage_4b_feature_frozen_bugfix_compatibility_clarification_only"
+            ):
+                raise StageStatusError("stage_4b feature state changed")
             if stage.get("depends_on") != ["stage_3_feature_frozen"]:
                 raise StageStatusError("stage_4 must depend on Stage 3 feature freeze")
-            if stage.get("shadow_candidate_only") is not True:
-                raise StageStatusError("stage_4 outputs must remain shadow candidates")
-            if stage.get("manual_handoff_remains_authoritative") is not True:
-                raise StageStatusError("stage_4 must keep the manual handoff authoritative")
-            if stage.get("authority_cutover_allowed") is not False:
-                raise StageStatusError("stage_4 must forbid authority cutover")
-            expected_phases = [
+            if (
+                stage.get("shadow_candidate_only") is not True
+                or stage.get("manual_handoff_remains_authoritative") is not True
+                or stage.get("authority_cutover_allowed") is not False
+            ):
+                raise StageStatusError("stage_4 shadow authority boundary changed")
+            if stage.get("phase_plan") != [
                 "stage_4a_schema_inventory",
                 "stage_4b_lossless_candidate",
                 "stage_4c_context_assembly_shadow_validation",
-            ]
-            if stage.get("phase_plan") != expected_phases:
-                raise StageStatusError("stage_4 phase_plan must preserve the registered 4A/4B/4C sequence")
-            expected_phase_states = {
-                "stage_4a_schema_inventory": "accepted",
-                "stage_4b_lossless_candidate": "ready_for_authorization",
-                "stage_4c_context_assembly_shadow_validation": "blocked_by_stage_4b_acceptance",
-            }
-            if stage.get("phase_states") != expected_phase_states:
+            ]:
                 raise StageStatusError(
-                    "stage_4 phase_states must accept only 4A, leave 4B awaiting authorization, and keep 4C blocked"
+                    "stage_4 phase_plan must preserve the registered 4A/4B/4C sequence"
                 )
-
-            report_path = safe_repo_path(
-                repo_root, stage["acceptance_report"], "stage_4 acceptance report"
+            if stage.get("phase_states") != {
+                "stage_4a_schema_inventory": "accepted",
+                "stage_4b_lossless_candidate": "accepted",
+                "stage_4c_context_assembly_shadow_validation": "ready_for_authorization",
+            }:
+                raise StageStatusError(
+                    "stage_4 phase states must accept 4A/4B and only make 4C ready"
+                )
+            p4a = safe_repo_path(
+                repo_root, stage["stage4a_acceptance_report"], "stage_4a acceptance report"
             )
-            try:
-                acceptance_report = json.loads(report_path.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError) as exc:
-                raise StageStatusError(f"invalid Stage 4A acceptance report: {exc}") from exc
-            if not isinstance(acceptance_report, dict) or acceptance_report.get("status") != "PASS":
-                raise StageStatusError("Stage 4A acceptance report must be PASS")
-            if acceptance_report.get("policy_id") != "GOV-HANDOFF-INDEX-01":
-                raise StageStatusError("Stage 4A acceptance report policy_id mismatch")
-            if acceptance_report.get("authority") != "shadow_only":
-                raise StageStatusError("Stage 4A acceptance report must remain shadow_only")
-            if acceptance_report.get("authority_cutover_allowed") is not False:
-                raise StageStatusError("Stage 4A acceptance report must forbid authority cutover")
-            if acceptance_report.get("evaluated_base_commit") != "9674cb167080dfdeecb353c9f328ad86b74f87c5":
-                raise StageStatusError("Stage 4A acceptance report base commit mismatch")
-            if acceptance_report.get("hard_blockers") != []:
-                raise StageStatusError("Stage 4A acceptance report contains hard blockers")
-            fault = acceptance_report.get("fault_injection", {})
-            if not isinstance(fault, dict) or fault.get("status") != "PASS" or fault.get("total") != fault.get("passed"):
-                raise StageStatusError("Stage 4A fault-injection acceptance is incomplete")
-            after = validate_stage4a_after_image(repo_root, stage["acceptance_after_image"])
-            if acceptance_report.get("after_image_tree_hash") != after["tree_hash"]:
+            r4a = json.loads(p4a.read_text())
+            if (
+                r4a.get("status") != "PASS"
+                or r4a.get("evaluated_base_commit") != "9674cb167080dfdeecb353c9f328ad86b74f87c5"
+            ):
+                raise StageStatusError("Stage 4A acceptance report changed")
+            a4a = validate_stage4a_after_image(repo_root, stage["stage4a_acceptance_after_image"])
+            if r4a.get("after_image_tree_hash") != a4a["tree_hash"]:
                 raise StageStatusError("Stage 4A acceptance report after-image hash mismatch")
+            rp = safe_repo_path(repo_root, stage["acceptance_report"], "stage_4b acceptance report")
+            report = json.loads(rp.read_text())
+            if (
+                report.get("status") != "PASS"
+                or report.get("policy_id") != "GOV-HANDOFF-INDEX-01"
+                or report.get("authority") != "non_authoritative_stage4b_shadow_candidate"
+            ):
+                raise StageStatusError("Stage 4B acceptance report invalid")
+            if (
+                report.get("authority_cutover_allowed") is not False
+                or report.get("manual_handoff_remains_authoritative") is not True
+                or report.get("evaluated_base_commit") != "cf775893b9885ba893278437556abb4d1d5dd1a8"
+                or report.get("hard_blockers") != []
+                or report.get("stage_4c_state") != "ready_for_authorization"
+            ):
+                raise StageStatusError("Stage 4B acceptance boundary/state invalid")
+            fault = report.get("fault_injection", {})
+            if fault.get("status") != "PASS" or fault.get("passed") != fault.get("total"):
+                raise StageStatusError("Stage 4B fault injection incomplete")
+            if report.get("coverage") != {
+                "unmapped_count": 0,
+                "multi_owner_conflict_count": 0,
+                "unresolved_overlap_count": 0,
+                "missing_history_count": 0,
+            }:
+                raise StageStatusError("Stage 4B coverage blockers are not zero")
+            after = validate_stage4b_after_image(repo_root, stage["acceptance_after_image"])
+            if report.get("after_image_tree_hash") != after["tree_hash"]:
+                raise StageStatusError("Stage 4B acceptance report after-image hash mismatch")
 
         if stage_id == "stage_5":
-            expected_stage5_auth_id = "GOV-STAGE4A-FINAL-ACCEPTANCE-2026-06-30"
+            expected_stage5_auth_id = "GOV-STAGE4B-FINAL-ACCEPTANCE-2026-07-01"
             if status_auth_id != expected_stage5_auth_id:
                 raise StageStatusError(
                     f"stage_5 status_authorization must be {expected_stage5_auth_id}"
@@ -562,9 +640,7 @@ def validate(repo_root: Path, ledger_path: Path) -> dict[str, Any]:
                 "stage_4_lossless_validation",
             ]
             if stage.get("depends_on") != expected_stage5_dependencies:
-                raise StageStatusError(
-                    "stage_5 must wait for both Stage 3 and Stage 4 validation"
-                )
+                raise StageStatusError("stage_5 must wait for both Stage 3 and Stage 4 validation")
 
         file_reports: list[dict[str, str]] = []
         for entry in protected:

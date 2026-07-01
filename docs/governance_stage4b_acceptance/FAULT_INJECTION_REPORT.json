@@ -1,0 +1,115 @@
+{
+  "cases": [
+    {
+      "case_id": "authority_cutover_enabled",
+      "diagnostic": "Stage 4B config authority_cutover_allowed must remain False",
+      "expected": "authority boundary",
+      "status": "PASS"
+    },
+    {
+      "case_id": "manual_handoff_demoted",
+      "diagnostic": "Stage 4B config manual_handoff_remains_authoritative must remain True",
+      "expected": "manual authority",
+      "status": "PASS"
+    },
+    {
+      "case_id": "candidate_editable",
+      "diagnostic": "single-write-source contract changed",
+      "expected": "dual write",
+      "status": "PASS"
+    },
+    {
+      "case_id": "compat_handoff_editable",
+      "diagnostic": "single-write-source contract changed",
+      "expected": "generated edit",
+      "status": "PASS"
+    },
+    {
+      "case_id": "output_root_escaped",
+      "diagnostic": "Stage 4B config output_root must remain 'docs/handoff_shadow/stage4/candidate/generated'",
+      "expected": "shadow root",
+      "status": "PASS"
+    },
+    {
+      "case_id": "owner_priority_missing",
+      "diagnostic": "owner_priority must exactly cover accepted Stage 4A modules",
+      "expected": "owner coverage",
+      "status": "PASS"
+    },
+    {
+      "case_id": "owner_priority_unknown",
+      "diagnostic": "owner_priority must exactly cover accepted Stage 4A modules",
+      "expected": "unknown owner",
+      "status": "PASS"
+    },
+    {
+      "case_id": "owner_priority_duplicate",
+      "diagnostic": "owner_priority must be a non-empty unique list",
+      "expected": "duplicate owner",
+      "status": "PASS"
+    },
+    {
+      "case_id": "history_boundary_missing",
+      "diagnostic": "history_boundary must match exactly once",
+      "expected": "history boundary",
+      "status": "PASS"
+    },
+    {
+      "case_id": "fallback_owner_unknown",
+      "diagnostic": "current_fallback_owner is unknown",
+      "expected": "fallback owner",
+      "status": "PASS"
+    },
+    {
+      "case_id": "canonical_tamper",
+      "diagnostic": "stale or tampered generated file: canonical/countdown_e8.md",
+      "expected": "generated protection",
+      "status": "PASS"
+    },
+    {
+      "case_id": "compat_tamper",
+      "diagnostic": "stale or tampered generated file: generated/handoff_compat.md",
+      "expected": "compat protection",
+      "status": "PASS"
+    },
+    {
+      "case_id": "history_deleted",
+      "diagnostic": "missing generated file: history/archive/legacy_handoff_history.md",
+      "expected": "history missing",
+      "status": "PASS"
+    },
+    {
+      "case_id": "reconstruction_tamper",
+      "diagnostic": "stale or tampered generated file: manifests/RECONSTRUCTION.json",
+      "expected": "reconstruction",
+      "status": "PASS"
+    },
+    {
+      "case_id": "handoff_changed_without_refresh",
+      "diagnostic": "stale or tampered generated file: generated/handoff_compat.md; stale or tampered generated file: history/archive/legacy_handoff_history.md; stale or tampered generated file: manifests/COVERAGE.json; stale or tampered generated file: manifests/GENERATED_FILES.json; stale or tampered generated file: manifests/OWNERSHIP.yaml; stale or tampered generated file: manifests/RECONSTRUCTION.json",
+      "expected": "stale source",
+      "status": "PASS"
+    },
+    {
+      "case_id": "registry_changed_without_refresh",
+      "diagnostic": "stale or tampered generated file: manifests/GENERATED_FILES.json; stale or tampered generated file: manifests/REGISTRY_REFERENCES.yaml",
+      "expected": "registry drift",
+      "status": "PASS"
+    },
+    {
+      "case_id": "generated_symlink",
+      "diagnostic": "generated output may not contain symlinks: <repo>/docs/handoff_shadow/stage4/candidate/generated/canonical/countdown_e8.md",
+      "expected": "symlink",
+      "status": "PASS"
+    },
+    {
+      "case_id": "stage4a_order_drift",
+      "diagnostic": "Stage 4A module IDs/order drifted",
+      "expected": "Stage 4A taxonomy",
+      "status": "PASS"
+    }
+  ],
+  "passed": 18,
+  "status": "PASS",
+  "total": 18
+}

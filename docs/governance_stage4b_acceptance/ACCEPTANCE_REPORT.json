@@ -1,0 +1,85 @@
+{
+  "after_image_tree_hash": "3ccd69052f6156a17aa905b43a9c9366266b87df3888302325b4812a27859df4",
+  "authoritative_inputs_unchanged": true,
+  "authority": "non_authoritative_stage4b_shadow_candidate",
+  "authority_cutover_allowed": false,
+  "claim_id": "GOV-HANDOFF-INDEX-01",
+  "core_validation": {
+    "authority": "non_authoritative_stage4b_shadow_candidate",
+    "authority_cutover_allowed": false,
+    "block_count": 423,
+    "compatibility_handoff_exact_match": true,
+    "dependency_hash": "1c163dc3089a713fb57bee639bb1701f41e71845abfc22c8029bde540899646e",
+    "exact_reconstruction": true,
+    "generated_file_count": 21,
+    "manual_handoff_remains_authoritative": true,
+    "missing_history_count": 0,
+    "module_count": 13,
+    "multi_owner_conflict_count": 0,
+    "policy_id": "GOV-HANDOFF-INDEX-01",
+    "registry_sha256": "8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059",
+    "semantic_graph_hash": "e5195826aa9fe09f096d38a8162a7dd09e6381e72acaa6069e08b85b97911277",
+    "source_sha256": "64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7",
+    "status": "PASS",
+    "unmapped_count": 0
+  },
+  "coverage": {
+    "missing_history_count": 0,
+    "multi_owner_conflict_count": 0,
+    "unmapped_count": 0,
+    "unresolved_overlap_count": 0
+  },
+  "evaluated_base_commit": "cf775893b9885ba893278437556abb4d1d5dd1a8",
+  "fault_injection": {
+    "passed": 18,
+    "status": "PASS",
+    "total": 18
+  },
+  "hard_blockers": [],
+  "incremental_refresh": {
+    "local_dirty_refresh": {
+      "changed_canonical_files": [
+        "canonical/countdown_e8.md"
+      ],
+      "dirty_owner": "countdown_e8",
+      "unrelated_canonical_files_reused": 12
+    },
+    "no_op": {
+      "all_files_reused": true,
+      "file_count": 21
+    }
+  },
+  "manual_handoff_remains_authoritative": true,
+  "policy_id": "GOV-HANDOFF-INDEX-01",
+  "remaining_advisories": [
+    "Canonical modules remain generated shadow artifacts until a separately authorized cutover stage.",
+    "This governance acceptance is not a scientific experiment result."
+  ],
+  "repository_gates": {
+    "commands": [
+      {
+        "command": "{python} scripts/validate_stage4a_inventory.py --repo-root . --json",
+        "status": "PASS"
+      },
+      {
+        "command": "{python} scripts/validate_stage4_semantic_graph.py --repo-root . --json",
+        "status": "PASS"
+      },
+      {
+        "command": "{python} scripts/validate_stage4_context.py --repo-root . --json",
+        "status": "PASS"
+      },
+      {
+        "command": "{python} scripts/validate_stage4b_candidate.py --repo-root . --json",
+        "status": "PASS"
+      }
+    ],
+    "status": "PASS"
+  },
+  "schema_version": 1,
+  "stage_4a_state": "accepted",
+  "stage_4b_state": "accepted",
+  "stage_4c_state": "ready_for_authorization",
+  "stage_5_state": "blocked_by_predecessor",
+  "status": "PASS"
+}

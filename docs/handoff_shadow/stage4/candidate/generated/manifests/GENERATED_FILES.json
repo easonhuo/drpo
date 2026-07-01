@@ -1,0 +1,110 @@
+{
+  "authority": "shadow_only_generated_files",
+  "files_excluding_this_manifest": [
+    {
+      "bytes": 5151,
+      "path": "canonical/categorical_e5_mechanism.md",
+      "sha256": "713e7b2045e2c47fc603afe1bcb058368ce7e8fbd3598e4dabd770d557ae9003"
+    },
+    {
+      "bytes": 16358,
+      "path": "canonical/categorical_e6_generalization.md",
+      "sha256": "10f8f9ed0d2c42118e16be4394b3bcc8291abf6c888738689d1207a3bd6494f0"
+    },
+    {
+      "bytes": 10606,
+      "path": "canonical/continuous_e4_extrapolation.md",
+      "sha256": "10a0308146ae502f51376fd6ec26bd480983722ba3fbefc8ac1cf34813668991"
+    },
+    {
+      "bytes": 34844,
+      "path": "canonical/continuous_e4_taper.md",
+      "sha256": "df365b3837ce92cae262c3efe6a541c98d3235d709ef55424007ddf8623fdadb"
+    },
+    {
+      "bytes": 8717,
+      "path": "canonical/continuous_mechanism_e1_e3.md",
+      "sha256": "b3892deb45cf2980561ae1f2617b2c10286e7faa5a8ea27904358c3e927f4b13"
+    },
+    {
+      "bytes": 7927,
+      "path": "canonical/countdown_e8.md",
+      "sha256": "a136c49beecb0c9dd4c354f01fe4b34f512274dd7accc1acf2c63761af0350c7"
+    },
+    {
+      "bytes": 15804,
+      "path": "canonical/execution_status_gates.md",
+      "sha256": "8755cd4dd8efe6ebfc8dcf379332ceb8db4b5b754130154f87979da1a0c3e0cb"
+    },
+    {
+      "bytes": 22323,
+      "path": "canonical/global_core_governance.md",
+      "sha256": "ba5d51d0caf6deba1faa666a05dfd7639cedad68a09c473a5411f81d7891f698"
+    },
+    {
+      "bytes": 2819,
+      "path": "canonical/history_provenance.md",
+      "sha256": "7d1ef9662b80fc0c0c9f7d8503785dd0b097801668d0dadffd82f3f27e19d4c4"
+    },
+    {
+      "bytes": 24614,
+      "path": "canonical/hopper_e7.md",
+      "sha256": "68e6fda8a9fe470e2772eadf5db86068d024530d088b308e5e5b3b68612819fb"
+    },
+    {
+      "bytes": 182292,
+      "path": "canonical/paper_rewrite.md",
+      "sha256": "0259df7cb6ac6048b324841b917beb8776cc7c8adb6c6684dacf3ceda08a756a"
+    },
+    {
+      "bytes": 7522,
+      "path": "canonical/terminal_audit.md",
+      "sha256": "afade7662f83e8a07330d7aa8f2aa04e6b4a6fa130fd128364f0dc627690239d"
+    },
+    {
+      "bytes": 29462,
+      "path": "canonical/theory_methods_related_work.md",
+      "sha256": "acc18222baa6f3a6abc678a95efccdbec47d657cc8de8c1258e5cc2d7676351e"
+    },
+    {
+      "bytes": 486147,
+      "path": "generated/handoff_compat.md",
+      "sha256": "64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7"
+    },
+    {
+      "bytes": 166271,
+      "path": "history/archive/legacy_handoff_history.md",
+      "sha256": "aada9e381752c2dba6568e4f604eaa0a95029fd0d022b9e414399f29cef5c0af"
+    },
+    {
+      "bytes": 1099,
+      "path": "manifests/COVERAGE.json",
+      "sha256": "3f56cc14ad36e565fd143ac53c107e4e2d9c3b02ec70fafd8b384e78ff5b8672"
+    },
+    {
+      "bytes": 6412,
+      "path": "manifests/LINEAGE.json",
+      "sha256": "6c7abdd45eae4b9acbd24daec011512b99525d9fb11ae3387dda335b959e1f06"
+    },
+    {
+      "bytes": 266370,
+      "path": "manifests/OWNERSHIP.yaml",
+      "sha256": "d97bdd4d0729c8bdb99e55338133a9b5e7ee71b39ca3e44e012c2c51313218b3"
+    },
+    {
+      "bytes": 100553,
+      "path": "manifests/RECONSTRUCTION.json",
+      "sha256": "6e28ca0e2ef6a40524f2c512af5656317823470bb882cf4857d436342da23308"
+    },
+    {
+      "bytes": 2151,
+      "path": "manifests/REGISTRY_REFERENCES.yaml",
+      "sha256": "706a12e30c9d1b55920439e5a19b869e98a07a564e790445fa16488fa4edd0a9"
+    }
+  ],
+  "policy_id": "GOV-HANDOFF-INDEX-01",
+  "registry_sha256": "8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059",
+  "schema_version": 1,
+  "source_sha256": "64ca018275edc05cfdaf22287ce72f28bfa3acf91aedbea8ebe65efba03f66b7",
+  "tree_hash": "0419e3864dacb21784c6ae90fd5071cad56545534751b99f0afc9feaf920c2cd"
+}

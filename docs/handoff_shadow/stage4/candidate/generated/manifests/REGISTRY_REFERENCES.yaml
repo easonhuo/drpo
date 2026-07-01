@@ -1,0 +1,72 @@
+schema_version: 1
+policy_id: GOV-HANDOFF-INDEX-01
+authority: registry_references_only
+registry_path: experiments/registry.yaml
+registry_sha256: 8ab92461361293a3cd8fc20c2c7cab7514ed07027f5873b2c0cabfa1fe1d2059
+modules:
+- module_id: global_core_governance
+  experiments: []
+  development_experiment_registrations: []
+- module_id: execution_status_gates
+  experiments: []
+  development_experiment_registrations: []
+- module_id: theory_methods_related_work
+  experiments: []
+  development_experiment_registrations: []
+- module_id: terminal_audit
+  experiments: []
+  development_experiment_registrations: []
+- module_id: continuous_mechanism_e1_e3
+  experiments:
+  - C-U1-E3-ADAM-RERUN
+  - C-U1-E1-COMP-01
+  development_experiment_registrations: []
+- module_id: continuous_e4_extrapolation
+  experiments:
+  - C-U1-E4-ADAM-RERUN
+  - C-U1-E4-CONV-01
+  development_experiment_registrations: []
+- module_id: continuous_e4_taper
+  experiments:
+  - C-U1-E4-TAPER-01
+  - C-U1-E4-TAPER-NEAR-RETENTION-01
+  - C-U1-E4-TAPER-BUDGET-MATCH-01
+  - C-U1-E4-TAPER-CONV-01
+  - C-U1-E4-TAPER-CONFIRM-01
+  development_experiment_registrations: []
+- module_id: categorical_e5_mechanism
+  experiments:
+  - D-U1-E5-LONGRUN-RERUN
+  development_experiment_registrations: []
+- module_id: categorical_e6_generalization
+  experiments:
+  - D-U1-E6-SEMANTIC-LONGRUN-01
+  - D-U1-E6-SEMANTIC-GAP-LONGRUN-01
+  - D-U1-E6-CONDITIONAL-GAP-01
+  development_experiment_registrations:
+  - D-U1-E6-CONDITIONAL-GAP-DEV-01
+  - D-U1-E6-SEMANTIC-PILOT-01
+  - D-U1-E6-SEMANTIC-FOCUSED-DEV-01
+  - D-U1-E6-TAPER-01
+- module_id: hopper_e7
+  experiments:
+  - EXT-H-E7-Q2
+  - EXT-H-E7-BENCH-01
+  development_experiment_registrations: []
+- module_id: countdown_e8
+  experiments:
+  - EXT-C-E8-V4
+  - EXT-C-E8-V4.1
+  - EXT-C-E8-V4.2
+  - EXT-C-E8-V4.3
+  - EXT-C-E8-V4.4-OFFLINE-BANK
+  - EXT-C-E8-V4.5-OFFLINE-BANK-TUNING
+  - EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY
+  - EXT-C-E8-SCALE-01
+  development_experiment_registrations: []
+- module_id: history_provenance
+  experiments: []
+  development_experiment_registrations: []
+- module_id: paper_rewrite
+  experiments: []
+  development_experiment_registrations: []
