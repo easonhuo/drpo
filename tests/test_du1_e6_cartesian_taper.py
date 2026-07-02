@@ -242,7 +242,7 @@ def test_registry_and_handoff_register_joint_successor() -> None:
     assert old["implementation_state"] == "not_implemented"
     assert entry["supersedes_preregistration"] == "D-U1-E6-TAPER-01"
     handoff = (REPO_ROOT / "docs" / "handoff.md").read_text()
-    assert "v70（D-U1 E6 utility × surprisal 笛卡尔积与 TAPER 联合登记版）" in handoff
+    assert "HANDOFF-DELTA-BLOCK:after_heading:v70-du1-e6-cartesian-taper:START" in handoff
     assert "D-U1-E6-CARTESIAN-TAPER-01" in handoff
     assert "v70-du1-e6-cartesian-taper-current-gate" in handoff
     assert "v70-du1-e6-cartesian-taper-execution-order" in handoff

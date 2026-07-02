@@ -2,7 +2,7 @@ schema_version: 1
 policy_id: GOV-HANDOFF-INDEX-01
 authority: shadow_only
 source_path: docs/handoff.md
-source_sha256: 7f7584abf036f78cee96161fa89c872f6d43cb6fc5e7609227f3f8be81b3b03d
+source_sha256: 669a31a5fa1c03c65163c16843edbb26ee5b8b8dbe0778e0022d61d8a1798f7a
 single_owner_required: true
 owners:
 - block_id: B000001
@@ -11,13 +11,13 @@ owners:
     path: docs/handoff.md
     start_line: 1
     end_line_exclusive: 2
-    bytes: 131
-    sha256: 7642c07e714b5499681f6110979af308abac9b9141817b68c8d39abc04525ac9
+    bytes: 111
+    sha256: 8c1bb53976a4b821dacdd1f085481b9aacacc8dcf1a958c3a508eac6f72c4883
     kind: heading_block
     marker_id: null
     heading_titles:
-    - '# DRPO / SNA2C 远场负梯度动力学研究主文档 v70（D-U1 E6 utility × surprisal 笛卡尔积与 TAPER 联合登记版）'
-    first_nonblank: '# DRPO / SNA2C 远场负梯度动力学研究主文档 v70（D-U1 E6 utility × surprisal 笛卡尔积与 TAPER 联合登记版）'
+    - '# DRPO / SNA2C 远场负梯度动力学研究主文档 v71（E7-BENCH 长预算等时并行 Pilot 修正版）'
+    first_nonblank: '# DRPO / SNA2C 远场负梯度动力学研究主文档 v71（E7-BENCH 长预算等时并行 Pilot 修正版）'
   owner_type: canonical_module
   owner: paper_rewrite
   candidate_path: canonical/paper_rewrite.md
@@ -483,7 +483,28 @@ owners:
   source:
     path: docs/handoff.md
     start_line: 766
-    end_line_exclusive: 778
+    end_line_exclusive: 779
+    bytes: 3929
+    sha256: 416de867c5977d72827d994463a746670d8615d35a445ec33e8d284510b5553e
+    kind: marker_block
+    marker_id: after_heading:v71-e7-bench-long-budget-parallel-pilot
+    heading_titles: []
+    first_nonblank: <!-- HANDOFF-DELTA-BLOCK:after_heading:v71-e7-bench-long-budget-parallel-pilot:START -->
+  owner_type: canonical_module
+  owner: global_core_governance
+  candidate_path: canonical/global_core_governance.md
+  ownership_basis: explicit_owner_priority_resolution
+  stage4a_candidate_modules:
+  - global_core_governance
+  - hopper_e7
+  references:
+  - hopper_e7
+- block_id: B000026
+  ordinal: 26
+  source:
+    path: docs/handoff.md
+    start_line: 779
+    end_line_exclusive: 791
     bytes: 1453
     sha256: 6b7d69ea71d60a72c14200e324ffc047c7c695749c4c3b8a0a08035d2404cee5
     kind: preamble
@@ -497,12 +518,12 @@ owners:
   stage4a_candidate_modules:
   - global_core_governance
   references: []
-- block_id: B000026
-  ordinal: 26
+- block_id: B000027
+  ordinal: 27
   source:
     path: docs/handoff.md
-    start_line: 778
-    end_line_exclusive: 785
+    start_line: 791
+    end_line_exclusive: 798
     bytes: 1584
     sha256: 92ddbcb5c17e0edf101f05c0add5891cb3b3449247ebc855f78f4054b48b4f96
     kind: heading_block
@@ -517,12 +538,12 @@ owners:
   stage4a_candidate_modules:
   - global_core_governance
   references: []
-- block_id: B000027
-  ordinal: 27
+- block_id: B000028
+  ordinal: 28
   source:
     path: docs/handoff.md
-    start_line: 785
-    end_line_exclusive: 788
+    start_line: 798
+    end_line_exclusive: 801
     bytes: 397
     sha256: b12640d13ca53a7109d033ee7916cb15c08a290c772e50a9d224ea96dabbe495
     kind: marker_block
@@ -538,12 +559,12 @@ owners:
   - countdown_e8
   references:
   - countdown_e8
-- block_id: B000028
-  ordinal: 28
+- block_id: B000029
+  ordinal: 29
   source:
     path: docs/handoff.md
-    start_line: 788
-    end_line_exclusive: 791
+    start_line: 801
+    end_line_exclusive: 804
     bytes: 585
     sha256: 012288647644dc64cc20b3a623274f131f1207462e12c0b8517853c50aba5588
     kind: marker_block
@@ -559,12 +580,12 @@ owners:
   - categorical_e6_generalization
   references:
   - categorical_e6_generalization
-- block_id: B000029
-  ordinal: 29
+- block_id: B000030
+  ordinal: 30
   source:
     path: docs/handoff.md
-    start_line: 791
-    end_line_exclusive: 794
+    start_line: 804
+    end_line_exclusive: 807
     bytes: 690
     sha256: 62ed3a1543285a74e6ac7d45586d7b8daece2a7ec918f5c43e554759bef84381
     kind: marker_block
@@ -582,12 +603,12 @@ owners:
   references:
   - categorical_e6_generalization
   - hopper_e7
-- block_id: B000030
-  ordinal: 30
+- block_id: B000031
+  ordinal: 31
   source:
     path: docs/handoff.md
-    start_line: 794
-    end_line_exclusive: 797
+    start_line: 807
+    end_line_exclusive: 810
     bytes: 509
     sha256: 059de93ad130f525d89cc3ea9f72648a7092538bfbc9b5c9ff92f193c0acec89
     kind: marker_block
@@ -605,12 +626,12 @@ owners:
   references:
   - hopper_e7
   - countdown_e8
-- block_id: B000031
-  ordinal: 31
+- block_id: B000032
+  ordinal: 32
   source:
     path: docs/handoff.md
-    start_line: 797
-    end_line_exclusive: 800
+    start_line: 810
+    end_line_exclusive: 813
     bytes: 577
     sha256: 8932e6ea9edcc5bff99610e37069dbc0f7abca242200329a6cfd38c5d9207b17
     kind: marker_block
@@ -628,12 +649,12 @@ owners:
   references:
   - hopper_e7
   - countdown_e8
-- block_id: B000032
-  ordinal: 32
+- block_id: B000033
+  ordinal: 33
   source:
     path: docs/handoff.md
-    start_line: 800
-    end_line_exclusive: 803
+    start_line: 813
+    end_line_exclusive: 816
     bytes: 562
     sha256: 7bd0d0abd77f4128ed4b7e491c5dc67fd6da609a4a41f6ea45f678cd43c5be13
     kind: marker_block
@@ -649,12 +670,12 @@ owners:
   - continuous_e4_taper
   references:
   - continuous_e4_taper
-- block_id: B000033
-  ordinal: 33
+- block_id: B000034
+  ordinal: 34
   source:
     path: docs/handoff.md
-    start_line: 803
-    end_line_exclusive: 806
+    start_line: 816
+    end_line_exclusive: 819
     bytes: 641
     sha256: 53b358a51340cff8fa71a92815688bf8acea5f471d846a37aac857349eab0448
     kind: marker_block
@@ -670,12 +691,12 @@ owners:
   - continuous_e4_taper
   references:
   - continuous_e4_taper
-- block_id: B000034
-  ordinal: 34
+- block_id: B000035
+  ordinal: 35
   source:
     path: docs/handoff.md
-    start_line: 806
-    end_line_exclusive: 809
+    start_line: 819
+    end_line_exclusive: 822
     bytes: 648
     sha256: b171d5b14c4c8851892ff6798e86612d3b9be28d78dfb34c4a3d3b41992f2644
     kind: marker_block
@@ -693,12 +714,12 @@ owners:
   references:
   - hopper_e7
   - countdown_e8
-- block_id: B000035
-  ordinal: 35
+- block_id: B000036
+  ordinal: 36
   source:
     path: docs/handoff.md
-    start_line: 809
-    end_line_exclusive: 815
+    start_line: 822
+    end_line_exclusive: 828
     bytes: 2239
     sha256: a9a78ab685a9cc432c760126eb4c31c4803cfb3c5fc27143675ff48907ab617d
     kind: marker_block
@@ -714,12 +735,12 @@ owners:
   - continuous_e4_taper
   references:
   - continuous_e4_taper
-- block_id: B000036
-  ordinal: 36
+- block_id: B000037
+  ordinal: 37
   source:
     path: docs/handoff.md
-    start_line: 815
-    end_line_exclusive: 820
+    start_line: 828
+    end_line_exclusive: 833
     bytes: 1316
     sha256: 832cba757d60c8d4418bec0b610b746ce661518fa22ec3d2e28fcc849b10c201
     kind: marker_block
@@ -735,12 +756,12 @@ owners:
   - continuous_e4_taper
   references:
   - continuous_e4_taper
-- block_id: B000037
-  ordinal: 37
+- block_id: B000038
+  ordinal: 38
   source:
     path: docs/handoff.md
-    start_line: 820
-    end_line_exclusive: 823
+    start_line: 833
+    end_line_exclusive: 836
     bytes: 682
     sha256: 74a6e0f565ba1d88b54f11d3317309cb7fcf32a7ab125c82a22d7f0bf25225d5
     kind: marker_block
@@ -756,12 +777,12 @@ owners:
   - categorical_e6_generalization
   references:
   - categorical_e6_generalization
-- block_id: B000038
-  ordinal: 38
+- block_id: B000039
+  ordinal: 39
   source:
     path: docs/handoff.md
-    start_line: 823
-    end_line_exclusive: 824
+    start_line: 836
+    end_line_exclusive: 837
     bytes: 1
     sha256: 01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b
     kind: preamble
@@ -775,12 +796,12 @@ owners:
   stage4a_candidate_modules:
   - global_core_governance
   references: []
-- block_id: B000039
-  ordinal: 39
+- block_id: B000040
+  ordinal: 40
   source:
     path: docs/handoff.md
-    start_line: 824
-    end_line_exclusive: 833
+    start_line: 837
+    end_line_exclusive: 846
     bytes: 1066
     sha256: c772578043b766067fb51d4ec7a7f0f838e93aaebfe5c4dfa31f789edb44a5b2
     kind: heading_block
@@ -795,12 +816,12 @@ owners:
   stage4a_candidate_modules:
   - global_core_governance
   references: []
-- block_id: B000040
-  ordinal: 40
+- block_id: B000041
+  ordinal: 41
   source:
     path: docs/handoff.md
-    start_line: 833
-    end_line_exclusive: 846
+    start_line: 846
+    end_line_exclusive: 859
     bytes: 2356
     sha256: a7e57ca57230aaa05cb283c8f4769066d40fcae5e4ad60bd41b39ddfb6a7bd61
     kind: heading_block
@@ -815,12 +836,12 @@ owners:
   stage4a_candidate_modules:
   - global_core_governance
   references: []
-- block_id: B000041
-  ordinal: 41
+- block_id: B000042
+  ordinal: 42
   source:
     path: docs/handoff.md
-    start_line: 846
-    end_line_exclusive: 855
+    start_line: 859
+    end_line_exclusive: 868
     bytes: 917
     sha256: 24b06c39b104565579938d15e36db460b7950344bb20c8ff0b965af9895f4f48
     kind: heading_block
@@ -835,12 +856,12 @@ owners:
   stage4a_candidate_modules:
   - global_core_governance
   references: []
-- block_id: B000042
-  ordinal: 42
+- block_id: B000043
+  ordinal: 43
   source:
     path: docs/handoff.md
-    start_line: 855
-    end_line_exclusive: 857
+    start_line: 868
+    end_line_exclusive: 870
     bytes: 46
     sha256: f562d325923a563d92a656d022ae373feeb753ab38f4a706fd77ee8c0492c2b0
     kind: heading_block
@@ -854,12 +875,12 @@ owners:
   ownership_basis: explicit_current_fallback_owner
   stage4a_candidate_modules: []
   references: []
-- block_id: B000043
-  ordinal: 43
+- block_id: B000044
+  ordinal: 44
   source:
     path: docs/handoff.md
-    start_line: 857
-    end_line_exclusive: 861
+    start_line: 870
+    end_line_exclusive: 874
     bytes: 247
     sha256: 0830a060075532396c63c398c16f9e041dd11863e085cc92579251f6455fc4b4
     kind: heading_block
@@ -873,12 +894,12 @@ owners:
   ownership_basis: explicit_current_fallback_owner
   stage4a_candidate_modules: []
   references: []
-- block_id: B000044
-  ordinal: 44
+- block_id: B000045
+  ordinal: 45
   source:
     path: docs/handoff.md
-    start_line: 861
-    end_line_exclusive: 869
+    start_line: 874
+    end_line_exclusive: 882
     bytes: 843
     sha256: f4aa1078a7f479f324d55a0e693f74b7c9b65b90cd4a8be96a2c069b4c0cdcd7
     kind: heading_block
@@ -892,12 +913,12 @@ owners:
   ownership_basis: explicit_current_fallback_owner
   stage4a_candidate_modules: []
   references: []
-- block_id: B000045
-  ordinal: 45
+- block_id: B000046
+  ordinal: 46
   source:
     path: docs/handoff.md
-    start_line: 869
-    end_line_exclusive: 878
+    start_line: 882
+    end_line_exclusive: 891
     bytes: 342
     sha256: 3ecbdd6b1ccd9ac53daf0a5b7d7c1e51d8c9f3ff65348f00322804f30ae0c7e3
     kind: heading_block
@@ -911,12 +932,12 @@ owners:
   ownership_basis: explicit_current_fallback_owner
   stage4a_candidate_modules: []
   references: []
-- block_id: B000046
-  ordinal: 46
+- block_id: B000047
+  ordinal: 47
   source:
     path: docs/handoff.md
-    start_line: 878
-    end_line_exclusive: 893
+    start_line: 891
+    end_line_exclusive: 906
     bytes: 990
     sha256: 0eb9775158c80d3c5ad5cb21afdae4a5d10bdc9366cf2d88adb63e9d358f6826
     kind: heading_block
@@ -930,12 +951,12 @@ owners:
   ownership_basis: explicit_current_fallback_owner
   stage4a_candidate_modules: []
   references: []
-- block_id: B000047
-  ordinal: 47
+- block_id: B000048
+  ordinal: 48
   source:
     path: docs/handoff.md
-    start_line: 893
-    end_line_exclusive: 895
+    start_line: 906
+    end_line_exclusive: 908
     bytes: 46
     sha256: b26566a6196c2153ed64199f44eb2fd121f434bbf8636bb3bc922651bc1314b4
     kind: heading_block
@@ -950,12 +971,12 @@ owners:
   stage4a_candidate_modules:
   - continuous_mechanism_e1_e3
   references: []
-- block_id: B000048
-  ordinal: 48
+- block_id: B000049
+  ordinal: 49
   source:
     path: docs/handoff.md
-    start_line: 895
-    end_line_exclusive: 901
+    start_line: 908
+    end_line_exclusive: 914
     bytes: 307
     sha256: 8742b2c404075e5a986cc35aa449635bea76ce3b71a32ac8a28bf7a677c1120c
     kind: heading_block
@@ -970,12 +991,12 @@ owners:
   stage4a_candidate_modules:
   - continuous_mechanism_e1_e3
   references: []
-- block_id: B000049
-  ordinal: 49
+- block_id: B000050
+  ordinal: 50
   source:
     path: docs/handoff.md
-    start_line: 901
-    end_line_exclusive: 912
+    start_line: 914
+    end_line_exclusive: 925
     bytes: 1319
     sha256: ea5ceffb43ae6d574fc83ffe92f5ff42adfbaa5013cd8227b9c00671a51f69bd
     kind: heading_block
@@ -990,12 +1011,12 @@ owners:
   stage4a_candidate_modules:
   - continuous_mechanism_e1_e3
   references: []
-- block_id: B000050
-  ordinal: 50
+- block_id: B000051
+  ordinal: 51
   source:
     path: docs/handoff.md
-    start_line: 912
-    end_line_exclusive: 916
+    start_line: 925
+    end_line_exclusive: 929
     bytes: 336
     sha256: 683bf7e4918636cf87242c0356b1bc86ae3eeb64261ada77e4fa4de4a3203183
     kind: heading_block
@@ -1010,12 +1031,12 @@ owners:
   stage4a_candidate_modules:
   - continuous_mechanism_e1_e3
   references: []
-- block_id: B000051
-  ordinal: 51
+- block_id: B000052
+  ordinal: 52
   source:
     path: docs/handoff.md
-    start_line: 916
-    end_line_exclusive: 923
+    start_line: 929
+    end_line_exclusive: 936
     bytes: 469
     sha256: 11f1c9996b62ae68cfd8f377e6d3478a2cff7948803d12339d2cb909ab8e9168
     kind: heading_block
@@ -1030,12 +1051,12 @@ owners:
   stage4a_candidate_modules:
   - continuous_mechanism_e1_e3
   references: []
-- block_id: B000052
-  ordinal: 52
+- block_id: B000053
+  ordinal: 53
   source:
     path: docs/handoff.md
-    start_line: 923
-    end_line_exclusive: 934
+    start_line: 936
+    end_line_exclusive: 947
     bytes: 504
     sha256: 12afe6cf13e10dbcafe8f5d5acba6c626703c5393675ee18046aa328a82f77a0
     kind: heading_block
@@ -1050,12 +1071,12 @@ owners:
   stage4a_candidate_modules:
   - continuous_mechanism_e1_e3
   references: []
-- block_id: B000053
-  ordinal: 53
+- block_id: B000054
+  ordinal: 54
   source:
     path: docs/handoff.md
-    start_line: 934
-    end_line_exclusive: 951
+    start_line: 947
+    end_line_exclusive: 964
     bytes: 3055
     sha256: 253ff0c02a9f03e3605c7452800e86ba84bcfb9e351990dec18cc82f565e933c
     kind: heading_block
@@ -1070,12 +1091,12 @@ owners:
   stage4a_candidate_modules:
   - continuous_mechanism_e1_e3
   references: []
-- block_id: B000054
-  ordinal: 54
+- block_id: B000055
+  ordinal: 55
   source:
     path: docs/handoff.md
-    start_line: 951
-    end_line_exclusive: 953
+    start_line: 964
+    end_line_exclusive: 966
     bytes: 53
     sha256: a4df1011ede3de8d3df92d1c78774a2ed21a4d3b4a66301968a06c062f011323
     kind: heading_block
@@ -1090,12 +1111,12 @@ owners:
   stage4a_candidate_modules:
   - continuous_mechanism_e1_e3
   references: []
-- block_id: B000055
-  ordinal: 55
+- block_id: B000056
+  ordinal: 56
   source:
     path: docs/handoff.md
-    start_line: 953
-    end_line_exclusive: 961
+    start_line: 966
+    end_line_exclusive: 974
     bytes: 998
     sha256: 06dd8b87b9498bfcb7cc52ec1f022f5f8d4b90f926f6b5571bfbdf158fa4c6f4
     kind: heading_block
@@ -1110,12 +1131,12 @@ owners:
   stage4a_candidate_modules:
   - continuous_mechanism_e1_e3
   references: []
-- block_id: B000056
-  ordinal: 56
+- block_id: B000057
+  ordinal: 57
   source:
     path: docs/handoff.md
-    start_line: 961
-    end_line_exclusive: 973
+    start_line: 974
+    end_line_exclusive: 986
     bytes: 2440
     sha256: 39e364a937807ba03919fc0c9f4abbdf185f6b47c35ff3ed9d3c8b8f57009c1e
     kind: heading_block
@@ -1130,12 +1151,12 @@ owners:
   stage4a_candidate_modules:
   - continuous_e4_extrapolation
   references: []
-- block_id: B000057
-  ordinal: 57
+- block_id: B000058
+  ordinal: 58
   source:
     path: docs/handoff.md
-    start_line: 973
-    end_line_exclusive: 986
+    start_line: 986
+    end_line_exclusive: 999
     bytes: 2232
     sha256: 2ce45b787c2436b89e8f6a561500e1b50a8760739d670fae9dc9fad6739afa03
     kind: heading_block
@@ -1150,12 +1171,12 @@ owners:
   stage4a_candidate_modules:
   - continuous_e4_extrapolation
   references: []
-- block_id: B000058
-  ordinal: 58
+- block_id: B000059
+  ordinal: 59
   source:
     path: docs/handoff.md
-    start_line: 986
-    end_line_exclusive: 994
+    start_line: 999
+    end_line_exclusive: 1007
     bytes: 1110
     sha256: fb663695a6662ddfd0471b72fdda240e682b47e9f9983892db58bcf01b02d07b
     kind: heading_block
@@ -1170,12 +1191,12 @@ owners:
   stage4a_candidate_modules:
   - continuous_e4_extrapolation
   references: []
-- block_id: B000059
-  ordinal: 59
+- block_id: B000060
+  ordinal: 60
   source:
     path: docs/handoff.md
-    start_line: 994
-    end_line_exclusive: 1006
+    start_line: 1007
+    end_line_exclusive: 1019
     bytes: 1692
     sha256: 402013932c006f83f27f8f0c0f18bafadef367549c76fd57be2263fbb7a7dd9b
     kind: heading_block
@@ -1190,12 +1211,12 @@ owners:
   stage4a_candidate_modules:
   - continuous_e4_extrapolation
   references: []
-- block_id: B000060
-  ordinal: 60
+- block_id: B000061
+  ordinal: 61
   source:
     path: docs/handoff.md
-    start_line: 1006
-    end_line_exclusive: 1020
+    start_line: 1019
+    end_line_exclusive: 1033
     bytes: 1779
     sha256: 22245ebd5d0fa1c2e423a26ec73165ad1da1c5b53f0a059b377cb67120cf43ec
     kind: heading_block
@@ -1210,12 +1231,12 @@ owners:
   stage4a_candidate_modules:
   - continuous_e4_extrapolation
   references: []
-- block_id: B000061
-  ordinal: 61
+- block_id: B000062
+  ordinal: 62
   source:
     path: docs/handoff.md
-    start_line: 1020
-    end_line_exclusive: 1036
+    start_line: 1033
+    end_line_exclusive: 1049
     bytes: 2401
     sha256: e30afd3fc21d065584140e222eef35b8e3a98007c06d266142f0f486a0f0916b
     kind: heading_block
@@ -1229,12 +1250,12 @@ owners:
   ownership_basis: explicit_current_fallback_owner
   stage4a_candidate_modules: []
   references: []
-- block_id: B000062
-  ordinal: 62
+- block_id: B000063
+  ordinal: 63
   source:
     path: docs/handoff.md
-    start_line: 1036
-    end_line_exclusive: 1050
+    start_line: 1049
+    end_line_exclusive: 1063
     bytes: 2638
     sha256: fa3df4af27fbd7331fc6eba702de91dfc60c556afa0ccd34e3677b3a05145b54
     kind: heading_block
@@ -1249,12 +1270,12 @@ owners:
   stage4a_candidate_modules:
   - categorical_e5_mechanism
   references: []
-- block_id: B000063
-  ordinal: 63
+- block_id: B000064
+  ordinal: 64
   source:
     path: docs/handoff.md
-    start_line: 1050
-    end_line_exclusive: 1059
+    start_line: 1063
+    end_line_exclusive: 1072
     bytes: 1533
     sha256: 064fbcd54c6a6578aa8a0af0db770ea00bfd9f40f24b891fb33f9005aef5e12d
     kind: heading_block
@@ -1269,12 +1290,12 @@ owners:
   stage4a_candidate_modules:
   - categorical_e5_mechanism
   references: []
-- block_id: B000064
-  ordinal: 64
+- block_id: B000065
+  ordinal: 65
   source:
     path: docs/handoff.md
-    start_line: 1059
-    end_line_exclusive: 1074
+    start_line: 1072
+    end_line_exclusive: 1087
     bytes: 3009
     sha256: b013b7a28d0ccd435587ec46298bb84a02a1532ef7da1a38a8025423aeefc9ea
     kind: heading_block
@@ -1289,12 +1310,12 @@ owners:
   stage4a_candidate_modules:
   - categorical_e6_generalization
   references: []
-- block_id: B000065
-  ordinal: 65
+- block_id: B000066
+  ordinal: 66
   source:
     path: docs/handoff.md
-    start_line: 1074
-    end_line_exclusive: 1076
+    start_line: 1087
+    end_line_exclusive: 1089
     bytes: 69
     sha256: 424ad0672aff09c5cbc2f12c794c0402ee181df4d43737ca5ad82fb814ebac13
     kind: heading_block
@@ -1309,12 +1330,12 @@ owners:
   stage4a_candidate_modules:
   - continuous_e4_taper
   references: []
-- block_id: B000066
-  ordinal: 66
+- block_id: B000067
+  ordinal: 67
   source:
     path: docs/handoff.md
-    start_line: 1076
-    end_line_exclusive: 1080
+    start_line: 1089
+    end_line_exclusive: 1093
     bytes: 636
     sha256: d90d12e8621fa5061fba3bbe79fdfdf9791b238d4513bfbe88f0af0937d6f171
     kind: heading_block
@@ -1329,12 +1350,12 @@ owners:
   stage4a_candidate_modules:
   - continuous_e4_taper
   references: []
-- block_id: B000067
-  ordinal: 67
+- block_id: B000068
+  ordinal: 68
   source:
     path: docs/handoff.md
-    start_line: 1080
-    end_line_exclusive: 1098
+    start_line: 1093
+    end_line_exclusive: 1111
     bytes: 781
     sha256: ada86107d0e0e6cd13b1d6417c1df5d332e59f7ede726a78e130cd75158db7f1
     kind: heading_block
@@ -1349,12 +1370,12 @@ owners:
   stage4a_candidate_modules:
   - continuous_e4_taper
   references: []
-- block_id: B000068
-  ordinal: 68
+- block_id: B000069
+  ordinal: 69
   source:
     path: docs/handoff.md
-    start_line: 1098
-    end_line_exclusive: 1114
+    start_line: 1111
+    end_line_exclusive: 1127
     bytes: 2556
     sha256: cb9603ff5d9eae779a0447dcc01573a13249b38f78f0148806546c69a16f2f42
     kind: heading_block
@@ -1369,12 +1390,12 @@ owners:
   stage4a_candidate_modules:
   - continuous_e4_taper
   references: []
-- block_id: B000069
-  ordinal: 69
+- block_id: B000070
+  ordinal: 70
   source:
     path: docs/handoff.md
-    start_line: 1114
-    end_line_exclusive: 1123
+    start_line: 1127
+    end_line_exclusive: 1136
     bytes: 2056
     sha256: 66073c5c45ef122926166d79bfa7908a76d89aa9b00871bdf6001caf28e06c84
     kind: heading_block
@@ -1389,12 +1410,12 @@ owners:
   stage4a_candidate_modules:
   - continuous_e4_taper
   references: []
-- block_id: B000070
-  ordinal: 70
+- block_id: B000071
+  ordinal: 71
   source:
     path: docs/handoff.md
-    start_line: 1123
-    end_line_exclusive: 1137
+    start_line: 1136
+    end_line_exclusive: 1150
     bytes: 2173
     sha256: 646627bb05df24f015f2d4b4f06397955e6c2dc669e6f383949149582a6c9eb4
     kind: heading_block
@@ -1409,12 +1430,12 @@ owners:
   stage4a_candidate_modules:
   - continuous_e4_taper
   references: []
-- block_id: B000071
-  ordinal: 71
+- block_id: B000072
+  ordinal: 72
   source:
     path: docs/handoff.md
-    start_line: 1137
-    end_line_exclusive: 1205
+    start_line: 1150
+    end_line_exclusive: 1218
     bytes: 4956
     sha256: 4a456952fbc1ef8cad9cd746a3b6b6ceda04ee722ddc3cb18ae734e41926bf28
     kind: marker_block
@@ -1432,12 +1453,12 @@ owners:
   stage4a_candidate_modules:
   - continuous_e4_taper
   references: []
-- block_id: B000072
-  ordinal: 72
+- block_id: B000073
+  ordinal: 73
   source:
     path: docs/handoff.md
-    start_line: 1205
-    end_line_exclusive: 1241
+    start_line: 1218
+    end_line_exclusive: 1254
     bytes: 3538
     sha256: b0e8f765005b62c3a6da23818cd0362c30e9791a425fcfb394e6cbbecdce2849
     kind: marker_block
@@ -1452,12 +1473,12 @@ owners:
   stage4a_candidate_modules:
   - continuous_e4_taper
   references: []
-- block_id: B000073
-  ordinal: 73
+- block_id: B000074
+  ordinal: 74
   source:
     path: docs/handoff.md
-    start_line: 1241
-    end_line_exclusive: 1278
+    start_line: 1254
+    end_line_exclusive: 1291
     bytes: 5551
     sha256: 3e3e5c44db7f5e6c82fded5097b2732144f8f83e792afff98b2e9d00c255da02
     kind: marker_block
@@ -1472,12 +1493,12 @@ owners:
   stage4a_candidate_modules:
   - continuous_e4_taper
   references: []
-- block_id: B000074
-  ordinal: 74
+- block_id: B000075
+  ordinal: 75
   source:
     path: docs/handoff.md
-    start_line: 1278
-    end_line_exclusive: 1301
+    start_line: 1291
+    end_line_exclusive: 1314
     bytes: 3390
     sha256: 76d6864353183327e83c138a8fa201db41c571f72e63ebce035c7b93edfedf2e
     kind: marker_block
@@ -1492,12 +1513,12 @@ owners:
   stage4a_candidate_modules:
   - continuous_e4_taper
   references: []
-- block_id: B000075
-  ordinal: 75
+- block_id: B000076
+  ordinal: 76
   source:
     path: docs/handoff.md
-    start_line: 1301
-    end_line_exclusive: 1302
+    start_line: 1314
+    end_line_exclusive: 1315
     bytes: 1
     sha256: 01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b
     kind: preamble
@@ -1511,12 +1532,12 @@ owners:
   stage4a_candidate_modules:
   - continuous_e4_taper
   references: []
-- block_id: B000076
-  ordinal: 76
+- block_id: B000077
+  ordinal: 77
   source:
     path: docs/handoff.md
-    start_line: 1302
-    end_line_exclusive: 1314
+    start_line: 1315
+    end_line_exclusive: 1327
     bytes: 2486
     sha256: 90a31e128f5f48abc3a875fbc95251f18f656de29886170a0a87de67489029d7
     kind: heading_block
@@ -1530,12 +1551,12 @@ owners:
   ownership_basis: explicit_current_fallback_owner
   stage4a_candidate_modules: []
   references: []
-- block_id: B000077
-  ordinal: 77
+- block_id: B000078
+  ordinal: 78
   source:
     path: docs/handoff.md
-    start_line: 1314
-    end_line_exclusive: 1317
+    start_line: 1327
+    end_line_exclusive: 1330
     bytes: 384
     sha256: 85e5a524db8a2c9fcaf4734302ca651fc689bae8277fb3f561c688e28e6ed2e1
     kind: marker_block
@@ -1549,12 +1570,12 @@ owners:
   stage4a_candidate_modules:
   - countdown_e8
   references: []
-- block_id: B000078
-  ordinal: 78
+- block_id: B000079
+  ordinal: 79
   source:
     path: docs/handoff.md
-    start_line: 1317
-    end_line_exclusive: 1320
+    start_line: 1330
+    end_line_exclusive: 1333
     bytes: 466
     sha256: a65e3254f72be2930a90f634983c935dabfee72d6c782518ad39a5c4b82cd945
     kind: marker_block
@@ -1568,12 +1589,12 @@ owners:
   stage4a_candidate_modules:
   - countdown_e8
   references: []
-- block_id: B000079
-  ordinal: 79
+- block_id: B000080
+  ordinal: 80
   source:
     path: docs/handoff.md
-    start_line: 1320
-    end_line_exclusive: 1323
+    start_line: 1333
+    end_line_exclusive: 1336
     bytes: 490
     sha256: 6ce9e350a3edd571aa4d810cdf47fd16a327fbd0ef1187008203520778664465
     kind: marker_block
@@ -1586,12 +1607,12 @@ owners:
   ownership_basis: explicit_current_fallback_owner
   stage4a_candidate_modules: []
   references: []
-- block_id: B000080
-  ordinal: 80
+- block_id: B000081
+  ordinal: 81
   source:
     path: docs/handoff.md
-    start_line: 1323
-    end_line_exclusive: 1326
+    start_line: 1336
+    end_line_exclusive: 1339
     bytes: 674
     sha256: 41deb38139944b79c245ca2fc5d4607f0b6c2f0238e071f14ab8e14a14a55716
     kind: marker_block
@@ -1604,12 +1625,12 @@ owners:
   ownership_basis: explicit_current_fallback_owner
   stage4a_candidate_modules: []
   references: []
-- block_id: B000081
-  ordinal: 81
+- block_id: B000082
+  ordinal: 82
   source:
     path: docs/handoff.md
-    start_line: 1326
-    end_line_exclusive: 1327
+    start_line: 1339
+    end_line_exclusive: 1340
     bytes: 1
     sha256: 01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b
     kind: preamble
@@ -1622,12 +1643,12 @@ owners:
   ownership_basis: explicit_current_fallback_owner
   stage4a_candidate_modules: []
   references: []
-- block_id: B000082
-  ordinal: 82
+- block_id: B000083
+  ordinal: 83
   source:
     path: docs/handoff.md
-    start_line: 1327
-    end_line_exclusive: 1351
+    start_line: 1340
+    end_line_exclusive: 1364
     bytes: 3618
     sha256: 59b342205f89d2d0f4e43bf3857d996d7af6acf398c1151094446e86fbd8bdd9
     kind: heading_block
@@ -1642,12 +1663,12 @@ owners:
   stage4a_candidate_modules:
   - terminal_audit
   references: []
-- block_id: B000083
-  ordinal: 83
+- block_id: B000084
+  ordinal: 84
   source:
     path: docs/handoff.md
-    start_line: 1351
-    end_line_exclusive: 1363
+    start_line: 1364
+    end_line_exclusive: 1376
     bytes: 489
     sha256: e831d38a6b27e3b6f0fe7601216a040eac471ddfb1493b7a8eb46750ac0633c5
     kind: heading_block
@@ -1662,12 +1683,12 @@ owners:
   stage4a_candidate_modules:
   - terminal_audit
   references: []
-- block_id: B000084
-  ordinal: 84
+- block_id: B000085
+  ordinal: 85
   source:
     path: docs/handoff.md
-    start_line: 1363
-    end_line_exclusive: 1383
+    start_line: 1376
+    end_line_exclusive: 1396
     bytes: 4300
     sha256: 4ffc65f2d2030bcd0e448a8dcfeca0b3c19769a8fa00418898657b3a7b1d99ab
     kind: heading_block
@@ -1682,12 +1703,12 @@ owners:
   stage4a_candidate_modules:
   - execution_status_gates
   references: []
-- block_id: B000085
-  ordinal: 85
+- block_id: B000086
+  ordinal: 86
   source:
     path: docs/handoff.md
-    start_line: 1383
-    end_line_exclusive: 1386
+    start_line: 1396
+    end_line_exclusive: 1399
     bytes: 632
     sha256: e8313ca4e64b802201c0edcdba3ed7ef59f1be8d8d269c7239022a20fd4035f4
     kind: marker_block
@@ -1703,12 +1724,12 @@ owners:
   - categorical_e6_generalization
   references:
   - categorical_e6_generalization
-- block_id: B000086
-  ordinal: 86
+- block_id: B000087
+  ordinal: 87
   source:
     path: docs/handoff.md
-    start_line: 1386
-    end_line_exclusive: 1389
+    start_line: 1399
+    end_line_exclusive: 1402
     bytes: 740
     sha256: 36c7d1347d44525b653588acf18317e65e16932c593aa23b2f987a6a76cd4cb2
     kind: marker_block
@@ -1722,12 +1743,12 @@ owners:
   stage4a_candidate_modules:
   - execution_status_gates
   references: []
-- block_id: B000087
-  ordinal: 87
+- block_id: B000088
+  ordinal: 88
   source:
     path: docs/handoff.md
-    start_line: 1389
-    end_line_exclusive: 1390
+    start_line: 1402
+    end_line_exclusive: 1403
     bytes: 1
     sha256: 01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b
     kind: preamble
@@ -1741,12 +1762,12 @@ owners:
   stage4a_candidate_modules:
   - execution_status_gates
   references: []
-- block_id: B000088
-  ordinal: 88
+- block_id: B000089
+  ordinal: 89
   source:
     path: docs/handoff.md
-    start_line: 1390
-    end_line_exclusive: 1407
+    start_line: 1403
+    end_line_exclusive: 1420
     bytes: 1945
     sha256: b4c8b1af3358aafd4920b0f6f62640307005feb2501df08d82b41871ba84c3b2
     kind: heading_block
@@ -1761,12 +1782,12 @@ owners:
   stage4a_candidate_modules:
   - execution_status_gates
   references: []
-- block_id: B000089
-  ordinal: 89
+- block_id: B000090
+  ordinal: 90
   source:
     path: docs/handoff.md
-    start_line: 1407
-    end_line_exclusive: 1410
+    start_line: 1420
+    end_line_exclusive: 1423
     bytes: 334
     sha256: 991a541bc0d17b98476098f9d1dd1fe35027d34f47af0a7fd5f26dd59737f6a1
     kind: marker_block
@@ -1782,12 +1803,12 @@ owners:
   - countdown_e8
   references:
   - countdown_e8
-- block_id: B000090
-  ordinal: 90
+- block_id: B000091
+  ordinal: 91
   source:
     path: docs/handoff.md
-    start_line: 1410
-    end_line_exclusive: 1413
+    start_line: 1423
+    end_line_exclusive: 1426
     bytes: 524
     sha256: 0835291a456e7ba6a187eb4409a1b4775903ce9afe00bca89830ce6ee934f28e
     kind: marker_block
@@ -1801,12 +1822,12 @@ owners:
   stage4a_candidate_modules:
   - execution_status_gates
   references: []
-- block_id: B000091
-  ordinal: 91
+- block_id: B000092
+  ordinal: 92
   source:
     path: docs/handoff.md
-    start_line: 1413
-    end_line_exclusive: 1416
+    start_line: 1426
+    end_line_exclusive: 1429
     bytes: 557
     sha256: 96cfc9b78c745c8a5053569890d6b6e378385df19955f614bc376b23e250aa4c
     kind: marker_block
@@ -1824,12 +1845,12 @@ owners:
   references:
   - categorical_e6_generalization
   - hopper_e7
-- block_id: B000092
-  ordinal: 92
+- block_id: B000093
+  ordinal: 93
   source:
     path: docs/handoff.md
-    start_line: 1416
-    end_line_exclusive: 1419
+    start_line: 1429
+    end_line_exclusive: 1432
     bytes: 523
     sha256: 98906ab8b458bb740fe7a3c2b67a5d4ed8fc01060c39b3b6bc30e8d4e5d38332
     kind: marker_block
@@ -1845,12 +1866,12 @@ owners:
   - hopper_e7
   references:
   - hopper_e7
-- block_id: B000093
-  ordinal: 93
+- block_id: B000094
+  ordinal: 94
   source:
     path: docs/handoff.md
-    start_line: 1419
-    end_line_exclusive: 1422
+    start_line: 1432
+    end_line_exclusive: 1435
     bytes: 526
     sha256: 530f134411348c72958e5f1272b1bb36ebce1a60e800ab36707d44f3fe5f6764
     kind: marker_block
@@ -1864,12 +1885,12 @@ owners:
   stage4a_candidate_modules:
   - execution_status_gates
   references: []
-- block_id: B000094
-  ordinal: 94
+- block_id: B000095
+  ordinal: 95
   source:
     path: docs/handoff.md
-    start_line: 1422
-    end_line_exclusive: 1425
+    start_line: 1435
+    end_line_exclusive: 1438
     bytes: 664
     sha256: 77fe25f2cbfae0a66460e02665adbc1abe360dce9fe819658f302578380b0359
     kind: marker_block
@@ -1883,12 +1904,12 @@ owners:
   stage4a_candidate_modules:
   - execution_status_gates
   references: []
-- block_id: B000095
-  ordinal: 95
+- block_id: B000096
+  ordinal: 96
   source:
     path: docs/handoff.md
-    start_line: 1425
-    end_line_exclusive: 1428
+    start_line: 1438
+    end_line_exclusive: 1441
     bytes: 665
     sha256: 0f572727e7a937c4055f31de5932a6cc40fdb0bcea30ba4011e2ad1b63e74d20
     kind: marker_block
@@ -1902,12 +1923,12 @@ owners:
   stage4a_candidate_modules:
   - execution_status_gates
   references: []
-- block_id: B000096
-  ordinal: 96
+- block_id: B000097
+  ordinal: 97
   source:
     path: docs/handoff.md
-    start_line: 1428
-    end_line_exclusive: 1431
+    start_line: 1441
+    end_line_exclusive: 1444
     bytes: 717
     sha256: 25b942b42eb50df5d50132f866fb476f0eac0a5e1652405731c89a6c3b9fb28b
     kind: marker_block
@@ -1923,12 +1944,12 @@ owners:
   - hopper_e7
   references:
   - hopper_e7
-- block_id: B000097
-  ordinal: 97
+- block_id: B000098
+  ordinal: 98
   source:
     path: docs/handoff.md
-    start_line: 1431
-    end_line_exclusive: 1434
+    start_line: 1444
+    end_line_exclusive: 1447
     bytes: 780
     sha256: 267adff11ffb1710ba7883d7e5f5f2c6bf6f754ec229e57406e21e325c64b7f6
     kind: marker_block
@@ -1942,12 +1963,12 @@ owners:
   stage4a_candidate_modules:
   - execution_status_gates
   references: []
-- block_id: B000098
-  ordinal: 98
+- block_id: B000099
+  ordinal: 99
   source:
     path: docs/handoff.md
-    start_line: 1434
-    end_line_exclusive: 1437
+    start_line: 1447
+    end_line_exclusive: 1450
     bytes: 655
     sha256: 9bee433246a5153003f99ef57463bd5388c4d0cbe858ae9773b43477eedb35db
     kind: marker_block
@@ -1961,12 +1982,12 @@ owners:
   stage4a_candidate_modules:
   - execution_status_gates
   references: []
-- block_id: B000099
-  ordinal: 99
+- block_id: B000100
+  ordinal: 100
   source:
     path: docs/handoff.md
-    start_line: 1437
-    end_line_exclusive: 1440
+    start_line: 1450
+    end_line_exclusive: 1453
     bytes: 634
     sha256: f1a08ca29c163204085b54e49440ceaf8ad8dee9f96a5851e7293c980e8fbb0b
     kind: marker_block
@@ -1982,12 +2003,12 @@ owners:
   - categorical_e6_generalization
   references:
   - categorical_e6_generalization
-- block_id: B000100
-  ordinal: 100
+- block_id: B000101
+  ordinal: 101
   source:
     path: docs/handoff.md
-    start_line: 1440
-    end_line_exclusive: 1441
+    start_line: 1453
+    end_line_exclusive: 1454
     bytes: 1
     sha256: 01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b
     kind: preamble
@@ -2001,12 +2022,12 @@ owners:
   stage4a_candidate_modules:
   - execution_status_gates
   references: []
-- block_id: B000101
-  ordinal: 101
+- block_id: B000102
+  ordinal: 102
   source:
     path: docs/handoff.md
-    start_line: 1441
-    end_line_exclusive: 1443
+    start_line: 1454
+    end_line_exclusive: 1456
     bytes: 19
     sha256: 94748fa4849eca1f1f3e5e497e96253ca7f9b1eabde439260143bbd2c238dd5c
     kind: heading_block
@@ -2020,12 +2041,12 @@ owners:
   ownership_basis: explicit_current_fallback_owner
   stage4a_candidate_modules: []
   references: []
-- block_id: B000102
-  ordinal: 102
+- block_id: B000103
+  ordinal: 103
   source:
     path: docs/handoff.md
-    start_line: 1443
-    end_line_exclusive: 1447
+    start_line: 1456
+    end_line_exclusive: 1460
     bytes: 146
     sha256: fb680f468667eb78e7c2330fdb87a7f5b9dfe5e52fd5d7835004a62a46137db0
     kind: heading_block
@@ -2039,12 +2060,12 @@ owners:
   ownership_basis: explicit_current_fallback_owner
   stage4a_candidate_modules: []
   references: []
-- block_id: B000103
-  ordinal: 103
+- block_id: B000104
+  ordinal: 104
   source:
     path: docs/handoff.md
-    start_line: 1447
-    end_line_exclusive: 1451
+    start_line: 1460
+    end_line_exclusive: 1464
     bytes: 216
     sha256: d99c6ced177d383a0eddba05b011f65e7a1f830f8e64b8148fe3e40de9af151c
     kind: heading_block
@@ -2058,12 +2079,12 @@ owners:
   ownership_basis: explicit_current_fallback_owner
   stage4a_candidate_modules: []
   references: []
-- block_id: B000104
-  ordinal: 104
+- block_id: B000105
+  ordinal: 105
   source:
     path: docs/handoff.md
-    start_line: 1451
-    end_line_exclusive: 1455
+    start_line: 1464
+    end_line_exclusive: 1468
     bytes: 232
     sha256: 8f44cd6484faae68a1d43d3b31e2a34dc17beb862516418d577dd6e13ff4173d
     kind: heading_block
@@ -2077,12 +2098,12 @@ owners:
   ownership_basis: explicit_current_fallback_owner
   stage4a_candidate_modules: []
   references: []
-- block_id: B000105
-  ordinal: 105
+- block_id: B000106
+  ordinal: 106
   source:
     path: docs/handoff.md
-    start_line: 1455
-    end_line_exclusive: 1461
+    start_line: 1468
+    end_line_exclusive: 1474
     bytes: 257
     sha256: 42bc65def4d1780092369c78429acb76b9f879d7916ed8115bf19102337ef877
     kind: heading_block
@@ -2096,12 +2117,12 @@ owners:
   ownership_basis: explicit_current_fallback_owner
   stage4a_candidate_modules: []
   references: []
-- block_id: B000106
-  ordinal: 106
+- block_id: B000107
+  ordinal: 107
   source:
     path: docs/handoff.md
-    start_line: 1461
-    end_line_exclusive: 1474
+    start_line: 1474
+    end_line_exclusive: 1487
     bytes: 1284
     sha256: fed5533d5ce628faa3e4fd85ea2427ed72658b3e742ec5b1d959e7cb0daa7664
     kind: heading_block
@@ -2116,12 +2137,12 @@ owners:
   stage4a_candidate_modules:
   - history_provenance
   references: []
-- block_id: B000107
-  ordinal: 107
+- block_id: B000108
+  ordinal: 108
   source:
     path: docs/handoff.md
-    start_line: 1474
-    end_line_exclusive: 1488
+    start_line: 1487
+    end_line_exclusive: 1501
     bytes: 644
     sha256: 0815e4427590326d3f84fb5034691ab79aafa292e71849fa28de74f1b909568e
     kind: heading_block
@@ -2136,12 +2157,12 @@ owners:
   stage4a_candidate_modules:
   - history_provenance
   references: []
-- block_id: B000108
-  ordinal: 108
+- block_id: B000109
+  ordinal: 109
   source:
     path: docs/handoff.md
-    start_line: 1488
-    end_line_exclusive: 1503
+    start_line: 1501
+    end_line_exclusive: 1516
     bytes: 799
     sha256: c9b19c4397cc02b11ee901d2280653e1d08c2493416d9e2dc00039bc3057631e
     kind: heading_block
@@ -2155,12 +2176,12 @@ owners:
   ownership_basis: explicit_current_fallback_owner
   stage4a_candidate_modules: []
   references: []
-- block_id: B000109
-  ordinal: 109
+- block_id: B000110
+  ordinal: 110
   source:
     path: docs/handoff.md
-    start_line: 1503
-    end_line_exclusive: 1525
+    start_line: 1516
+    end_line_exclusive: 1538
     bytes: 579
     sha256: f00284de230a7e1e5fea34df03b6551a271d0f30e261e74d3f4931f6f05aa753
     kind: heading_block
@@ -2174,12 +2195,12 @@ owners:
   ownership_basis: explicit_current_fallback_owner
   stage4a_candidate_modules: []
   references: []
-- block_id: B000110
-  ordinal: 110
+- block_id: B000111
+  ordinal: 111
   source:
     path: docs/handoff.md
-    start_line: 1525
-    end_line_exclusive: 1527
+    start_line: 1538
+    end_line_exclusive: 1540
     bytes: 30
     sha256: 0e7522501c6e21fa306ae198e237e9ebf25a65588d6f3fc71299c881f14f3935
     kind: heading_block
@@ -2193,12 +2214,12 @@ owners:
   ownership_basis: explicit_current_fallback_owner
   stage4a_candidate_modules: []
   references: []
-- block_id: B000111
-  ordinal: 111
+- block_id: B000112
+  ordinal: 112
   source:
     path: docs/handoff.md
-    start_line: 1527
-    end_line_exclusive: 1533
+    start_line: 1540
+    end_line_exclusive: 1546
     bytes: 528
     sha256: d2de329cdda8ee1c6458e7c8ac56640f64d653d8bc9a2e9267c28762df474120
     kind: heading_block
@@ -2212,12 +2233,12 @@ owners:
   ownership_basis: explicit_current_fallback_owner
   stage4a_candidate_modules: []
   references: []
-- block_id: B000112
-  ordinal: 112
+- block_id: B000113
+  ordinal: 113
   source:
     path: docs/handoff.md
-    start_line: 1533
-    end_line_exclusive: 1547
+    start_line: 1546
+    end_line_exclusive: 1560
     bytes: 1149
     sha256: 8a4fca9557552c0d6e669795edd74f11946bed9e335d2d6b053922dcc8896114
     kind: heading_block
@@ -2231,12 +2252,12 @@ owners:
   ownership_basis: explicit_current_fallback_owner
   stage4a_candidate_modules: []
   references: []
-- block_id: B000113
-  ordinal: 113
+- block_id: B000114
+  ordinal: 114
   source:
     path: docs/handoff.md
-    start_line: 1547
-    end_line_exclusive: 1566
+    start_line: 1560
+    end_line_exclusive: 1579
     bytes: 1592
     sha256: 8796468e30b2a4bddfd6466f8c6cea396854cb67ec6f326dac9035bd742716cb
     kind: heading_block
@@ -2250,12 +2271,12 @@ owners:
   ownership_basis: explicit_current_fallback_owner
   stage4a_candidate_modules: []
   references: []
-- block_id: B000114
-  ordinal: 114
+- block_id: B000115
+  ordinal: 115
   source:
     path: docs/handoff.md
-    start_line: 1566
-    end_line_exclusive: 1570
+    start_line: 1579
+    end_line_exclusive: 1583
     bytes: 527
     sha256: c81ea546c835ceeca109e646c1111749eeb500824dc8958440e51b339d55f25a
     kind: heading_block
@@ -2269,12 +2290,12 @@ owners:
   ownership_basis: explicit_current_fallback_owner
   stage4a_candidate_modules: []
   references: []
-- block_id: B000115
-  ordinal: 115
+- block_id: B000116
+  ordinal: 116
   source:
     path: docs/handoff.md
-    start_line: 1570
-    end_line_exclusive: 1585
+    start_line: 1583
+    end_line_exclusive: 1598
     bytes: 913
     sha256: 335f8674d26ae3c3a010a0f961fcebd1226869ca1e255d31107c986738536bbf
     kind: heading_block
@@ -2288,12 +2309,12 @@ owners:
   ownership_basis: explicit_current_fallback_owner
   stage4a_candidate_modules: []
   references: []
-- block_id: B000116
-  ordinal: 116
+- block_id: B000117
+  ordinal: 117
   source:
     path: docs/handoff.md
-    start_line: 1585
-    end_line_exclusive: 1599
+    start_line: 1598
+    end_line_exclusive: 1612
     bytes: 1041
     sha256: de6d2adf5497dca3688a9af6e441ced7c0e85baa31d06cbb5cb83c4fd3570e3b
     kind: heading_block
@@ -2308,12 +2329,12 @@ owners:
   stage4a_candidate_modules:
   - terminal_audit
   references: []
-- block_id: B000117
-  ordinal: 117
+- block_id: B000118
+  ordinal: 118
   source:
     path: docs/handoff.md
-    start_line: 1599
-    end_line_exclusive: 1607
+    start_line: 1612
+    end_line_exclusive: 1620
     bytes: 1101
     sha256: a444b69c0a57d0380636dcf7c5d6c2d50188d096c55610d1366ea1c65f7eb1dd
     kind: heading_block
@@ -2328,12 +2349,12 @@ owners:
   stage4a_candidate_modules:
   - terminal_audit
   references: []
-- block_id: B000118
-  ordinal: 118
+- block_id: B000119
+  ordinal: 119
   source:
     path: docs/handoff.md
-    start_line: 1607
-    end_line_exclusive: 1611
+    start_line: 1620
+    end_line_exclusive: 1624
     bytes: 515
     sha256: db157530fe50ed2c19a7f1a7b42c3b657691cadf82a50dbca7d190ef136dbedd
     kind: heading_block
@@ -2347,12 +2368,12 @@ owners:
   ownership_basis: explicit_current_fallback_owner
   stage4a_candidate_modules: []
   references: []
-- block_id: B000119
-  ordinal: 119
+- block_id: B000120
+  ordinal: 120
   source:
     path: docs/handoff.md
-    start_line: 1611
-    end_line_exclusive: 1617
+    start_line: 1624
+    end_line_exclusive: 1630
     bytes: 676
     sha256: 93dd9fe9c072051e5c759ec25393298b4d3e7b29a69c75e7490bc25ef1c89f00
     kind: heading_block
@@ -2366,12 +2387,12 @@ owners:
   ownership_basis: explicit_current_fallback_owner
   stage4a_candidate_modules: []
   references: []
-- block_id: B000120
-  ordinal: 120
+- block_id: B000121
+  ordinal: 121
   source:
     path: docs/handoff.md
-    start_line: 1617
-    end_line_exclusive: 1623
+    start_line: 1630
+    end_line_exclusive: 1636
     bytes: 842
     sha256: 55c16b1f1d1a5fff1bf3099ab6e82d00112627b48c3a8255f7101d74369b5b3e
     kind: heading_block
@@ -2385,12 +2406,12 @@ owners:
   ownership_basis: explicit_current_fallback_owner
   stage4a_candidate_modules: []
   references: []
-- block_id: B000121
-  ordinal: 121
+- block_id: B000122
+  ordinal: 122
   source:
     path: docs/handoff.md
-    start_line: 1623
-    end_line_exclusive: 1632
+    start_line: 1636
+    end_line_exclusive: 1645
     bytes: 920
     sha256: 38a17ec452266e7a23a33c65b04cbc9cbcb47339e35526114560a61df849a59a
     kind: heading_block
@@ -2404,12 +2425,12 @@ owners:
   ownership_basis: explicit_current_fallback_owner
   stage4a_candidate_modules: []
   references: []
-- block_id: B000122
-  ordinal: 122
+- block_id: B000123
+  ordinal: 123
   source:
     path: docs/handoff.md
-    start_line: 1632
-    end_line_exclusive: 1643
+    start_line: 1645
+    end_line_exclusive: 1656
     bytes: 1664
     sha256: 9b897a5cf0ad6bac9e898394a39fe43c3abaa20e92aa4f9e7990ebdf2ce65954
     kind: heading_block
@@ -2423,12 +2444,12 @@ owners:
   ownership_basis: explicit_current_fallback_owner
   stage4a_candidate_modules: []
   references: []
-- block_id: B000123
-  ordinal: 123
+- block_id: B000124
+  ordinal: 124
   source:
     path: docs/handoff.md
-    start_line: 1643
-    end_line_exclusive: 1645
+    start_line: 1656
+    end_line_exclusive: 1658
     bytes: 67
     sha256: 5c403aa2bb003464d56e9e335408d98a03407f96848c9ee188209a1174188415
     kind: heading_block
@@ -2442,12 +2463,12 @@ owners:
   ownership_basis: explicit_current_fallback_owner
   stage4a_candidate_modules: []
   references: []
-- block_id: B000124
-  ordinal: 124
+- block_id: B000125
+  ordinal: 125
   source:
     path: docs/handoff.md
-    start_line: 1645
-    end_line_exclusive: 1655
+    start_line: 1658
+    end_line_exclusive: 1668
     bytes: 1363
     sha256: a6720650d55e72adcefd193d10092e4738b62d9d8c0ece9302892f9c16690f29
     kind: heading_block
@@ -2461,12 +2482,12 @@ owners:
   ownership_basis: explicit_current_fallback_owner
   stage4a_candidate_modules: []
   references: []
-- block_id: B000125
-  ordinal: 125
+- block_id: B000126
+  ordinal: 126
   source:
     path: docs/handoff.md
-    start_line: 1655
-    end_line_exclusive: 1663
+    start_line: 1668
+    end_line_exclusive: 1676
     bytes: 994
     sha256: eba8955c371deb41c9720652e32863d974b096bf6994a4810476cfbd3f693844
     kind: heading_block
@@ -2480,12 +2501,12 @@ owners:
   ownership_basis: explicit_current_fallback_owner
   stage4a_candidate_modules: []
   references: []
-- block_id: B000126
-  ordinal: 126
+- block_id: B000127
+  ordinal: 127
   source:
     path: docs/handoff.md
-    start_line: 1663
-    end_line_exclusive: 1707
+    start_line: 1676
+    end_line_exclusive: 1720
     bytes: 2318
     sha256: bfc2a3d5486213a46fcbe9a8f46b5453b932e3de5a365b1e5eafde79a503edf8
     kind: heading_block
@@ -2499,12 +2520,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000127
-  ordinal: 127
+- block_id: B000128
+  ordinal: 128
   source:
     path: docs/handoff.md
-    start_line: 1707
-    end_line_exclusive: 1723
+    start_line: 1720
+    end_line_exclusive: 1736
     bytes: 419
     sha256: 53a926975a24ddb67455a4ba94610e2a31b8abc9f283b6bf0599d586f1b162dd
     kind: heading_block
@@ -2518,12 +2539,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000128
-  ordinal: 128
+- block_id: B000129
+  ordinal: 129
   source:
     path: docs/handoff.md
-    start_line: 1723
-    end_line_exclusive: 1758
+    start_line: 1736
+    end_line_exclusive: 1771
     bytes: 1526
     sha256: 7a062a71bc4ed331899b0836f9196146dddb11b66741096fdcb2ab4e88681950
     kind: heading_block
@@ -2537,12 +2558,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000129
-  ordinal: 129
+- block_id: B000130
+  ordinal: 130
   source:
     path: docs/handoff.md
-    start_line: 1758
-    end_line_exclusive: 1762
+    start_line: 1771
+    end_line_exclusive: 1775
     bytes: 255
     sha256: d7959ebfff3d767c2a1accb72d3757ce656cc37d6b23b24c1e83540311d1191d
     kind: heading_block
@@ -2556,12 +2577,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000130
-  ordinal: 130
+- block_id: B000131
+  ordinal: 131
   source:
     path: docs/handoff.md
-    start_line: 1762
-    end_line_exclusive: 1777
+    start_line: 1775
+    end_line_exclusive: 1790
     bytes: 846
     sha256: e9d6fb1ae36c8ebbc79fd8c4abf8386868448cfa40490db8c77e652944ce4323
     kind: heading_block
@@ -2575,12 +2596,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000131
-  ordinal: 131
+- block_id: B000132
+  ordinal: 132
   source:
     path: docs/handoff.md
-    start_line: 1777
-    end_line_exclusive: 1786
+    start_line: 1790
+    end_line_exclusive: 1799
     bytes: 1286
     sha256: 46c2ba135ed6ea3cd70765582b5e0311371e9d8701cba1a608331fcb001a07af
     kind: heading_block
@@ -2594,12 +2615,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000132
-  ordinal: 132
+- block_id: B000133
+  ordinal: 133
   source:
     path: docs/handoff.md
-    start_line: 1786
-    end_line_exclusive: 1801
+    start_line: 1799
+    end_line_exclusive: 1814
     bytes: 749
     sha256: 2df282fd8f39f94f0572c6db982e6f04c1949c6531a20ff4a170093c967bf79b
     kind: heading_block
@@ -2613,12 +2634,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000133
-  ordinal: 133
+- block_id: B000134
+  ordinal: 134
   source:
     path: docs/handoff.md
-    start_line: 1801
-    end_line_exclusive: 1816
+    start_line: 1814
+    end_line_exclusive: 1829
     bytes: 1434
     sha256: ead4cbc7329f7e733d82a46f0d6ba2f95bcd18a7a2570b11b6e753f76bcb4adf
     kind: heading_block
@@ -2632,12 +2653,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000134
-  ordinal: 134
+- block_id: B000135
+  ordinal: 135
   source:
     path: docs/handoff.md
-    start_line: 1816
-    end_line_exclusive: 1829
+    start_line: 1829
+    end_line_exclusive: 1842
     bytes: 750
     sha256: e4968b52ff41bcd78dae9f7ce0997e4bca9aa9519a82a2df6db8deb535246b1c
     kind: heading_block
@@ -2651,12 +2672,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000135
-  ordinal: 135
+- block_id: B000136
+  ordinal: 136
   source:
     path: docs/handoff.md
-    start_line: 1829
-    end_line_exclusive: 1861
+    start_line: 1842
+    end_line_exclusive: 1874
     bytes: 1892
     sha256: 0b0c9931b8eae39d43d5dfe463e52d1c529b8c82b6177e6c073d75f2334d0efa
     kind: heading_block
@@ -2670,12 +2691,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000136
-  ordinal: 136
+- block_id: B000137
+  ordinal: 137
   source:
     path: docs/handoff.md
-    start_line: 1861
-    end_line_exclusive: 1893
+    start_line: 1874
+    end_line_exclusive: 1906
     bytes: 1900
     sha256: 6d68bf6d103d23904f6d0c59ade38b985220002c17a64e6fb00b3d536643f7d3
     kind: heading_block
@@ -2689,12 +2710,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000137
-  ordinal: 137
+- block_id: B000138
+  ordinal: 138
   source:
     path: docs/handoff.md
-    start_line: 1893
-    end_line_exclusive: 1929
+    start_line: 1906
+    end_line_exclusive: 1942
     bytes: 2101
     sha256: a36102970a7e98ee178d547c09f8c9229636ca01a47b0b0c4335c80da6ffb1f1
     kind: heading_block
@@ -2708,12 +2729,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000138
-  ordinal: 138
+- block_id: B000139
+  ordinal: 139
   source:
     path: docs/handoff.md
-    start_line: 1929
-    end_line_exclusive: 1966
+    start_line: 1942
+    end_line_exclusive: 1979
     bytes: 2436
     sha256: bf84aa2e3826a6f2f101473c79cdda8c4a8e97fd11fb097452b4aa06ac4ead92
     kind: heading_block
@@ -2727,12 +2748,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000139
-  ordinal: 139
+- block_id: B000140
+  ordinal: 140
   source:
     path: docs/handoff.md
-    start_line: 1966
-    end_line_exclusive: 1997
+    start_line: 1979
+    end_line_exclusive: 2010
     bytes: 1288
     sha256: baeb892ebcfc4affc2e7269277d8bc021e1a905b15eec587402268e1c26849a2
     kind: heading_block
@@ -2746,12 +2767,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000140
-  ordinal: 140
+- block_id: B000141
+  ordinal: 141
   source:
     path: docs/handoff.md
-    start_line: 1997
-    end_line_exclusive: 2016
+    start_line: 2010
+    end_line_exclusive: 2029
     bytes: 847
     sha256: d8822522112c5191ad7ffce28b2267173e9def4dffcd55ac4fbd28e63c4213bf
     kind: heading_block
@@ -2765,12 +2786,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000141
-  ordinal: 141
+- block_id: B000142
+  ordinal: 142
   source:
     path: docs/handoff.md
-    start_line: 2016
-    end_line_exclusive: 2018
+    start_line: 2029
+    end_line_exclusive: 2031
     bytes: 74
     sha256: 6085ef93eaa90d148d1e9bb18c53eee1181afc4d8c26b7efdc654c91b4d3e1fa
     kind: heading_block
@@ -2784,12 +2805,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000142
-  ordinal: 142
+- block_id: B000143
+  ordinal: 143
   source:
     path: docs/handoff.md
-    start_line: 2018
-    end_line_exclusive: 2030
+    start_line: 2031
+    end_line_exclusive: 2043
     bytes: 532
     sha256: 32411d1e84ce26c21adf05e54b189e1d95681b3d9210cd4b55859e80d315e35f
     kind: heading_block
@@ -2803,12 +2824,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000143
-  ordinal: 143
+- block_id: B000144
+  ordinal: 144
   source:
     path: docs/handoff.md
-    start_line: 2030
-    end_line_exclusive: 2063
+    start_line: 2043
+    end_line_exclusive: 2076
     bytes: 1389
     sha256: bda67e145c2cc578d59bdfee20e7a1398dbe3e0976e9e79bced0c7a965d65373
     kind: heading_block
@@ -2822,12 +2843,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000144
-  ordinal: 144
+- block_id: B000145
+  ordinal: 145
   source:
     path: docs/handoff.md
-    start_line: 2063
-    end_line_exclusive: 2065
+    start_line: 2076
+    end_line_exclusive: 2078
     bytes: 62
     sha256: 235a525666d2de72f7766cb4b8507a2dcabca7dbc36e5047f8af7b8e0ac0d96c
     kind: heading_block
@@ -2841,12 +2862,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000145
-  ordinal: 145
+- block_id: B000146
+  ordinal: 146
   source:
     path: docs/handoff.md
-    start_line: 2065
-    end_line_exclusive: 2078
+    start_line: 2078
+    end_line_exclusive: 2091
     bytes: 628
     sha256: 44540aca2c3b2ea3904943f15d1025d7a6cfc64da12bac25e017af19917251e4
     kind: heading_block
@@ -2860,12 +2881,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000146
-  ordinal: 146
+- block_id: B000147
+  ordinal: 147
   source:
     path: docs/handoff.md
-    start_line: 2078
-    end_line_exclusive: 2089
+    start_line: 2091
+    end_line_exclusive: 2102
     bytes: 1070
     sha256: 1a6467b28b20fb57a3eb2b8a396d2b1060f87dff9e479016e9e8004ac1c668ea
     kind: heading_block
@@ -2879,12 +2900,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000147
-  ordinal: 147
+- block_id: B000148
+  ordinal: 148
   source:
     path: docs/handoff.md
-    start_line: 2089
-    end_line_exclusive: 2105
+    start_line: 2102
+    end_line_exclusive: 2118
     bytes: 1088
     sha256: ec69638c0b737bc3c43874e2a72d0e4995e82caacd5172bbd1b8eaf12d169fa8
     kind: heading_block
@@ -2898,12 +2919,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000148
-  ordinal: 148
+- block_id: B000149
+  ordinal: 149
   source:
     path: docs/handoff.md
-    start_line: 2105
-    end_line_exclusive: 2123
+    start_line: 2118
+    end_line_exclusive: 2136
     bytes: 1070
     sha256: 4c82f997bbff4fd3000a3a0c7ed88ad59fa257665a5e3b0657476a11d16669a0
     kind: heading_block
@@ -2917,12 +2938,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000149
-  ordinal: 149
+- block_id: B000150
+  ordinal: 150
   source:
     path: docs/handoff.md
-    start_line: 2123
-    end_line_exclusive: 2149
+    start_line: 2136
+    end_line_exclusive: 2162
     bytes: 1207
     sha256: 99b8210518606c121efd0324251100d3695339e29c6fbc92945d2d0e715116a5
     kind: heading_block
@@ -2936,12 +2957,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000150
-  ordinal: 150
+- block_id: B000151
+  ordinal: 151
   source:
     path: docs/handoff.md
-    start_line: 2149
-    end_line_exclusive: 2161
+    start_line: 2162
+    end_line_exclusive: 2174
     bytes: 472
     sha256: 538fc7d8e66b3185bdde02219772669500a0448226e96c7bb1a9c185c6ec1901
     kind: heading_block
@@ -2955,12 +2976,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000151
-  ordinal: 151
+- block_id: B000152
+  ordinal: 152
   source:
     path: docs/handoff.md
-    start_line: 2161
-    end_line_exclusive: 2174
+    start_line: 2174
+    end_line_exclusive: 2187
     bytes: 568
     sha256: b043ef2b628b631f5f9e3f9de3a5325e235136076dbfa8008c5f35dcd47634a9
     kind: heading_block
@@ -2974,12 +2995,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000152
-  ordinal: 152
+- block_id: B000153
+  ordinal: 153
   source:
     path: docs/handoff.md
-    start_line: 2174
-    end_line_exclusive: 2176
+    start_line: 2187
+    end_line_exclusive: 2189
     bytes: 58
     sha256: e070cb4c44a9cd73740a43e4f79be288eed81d5bae08bed6a217f79168fcae42
     kind: heading_block
@@ -2993,12 +3014,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000153
-  ordinal: 153
+- block_id: B000154
+  ordinal: 154
   source:
     path: docs/handoff.md
-    start_line: 2176
-    end_line_exclusive: 2189
+    start_line: 2189
+    end_line_exclusive: 2202
     bytes: 630
     sha256: 8aa636f4a68d52d9d4133e612b40e6042e48d7835fd6db153f8e3f83876dbf32
     kind: heading_block
@@ -3012,12 +3033,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000154
-  ordinal: 154
+- block_id: B000155
+  ordinal: 155
   source:
     path: docs/handoff.md
-    start_line: 2189
-    end_line_exclusive: 2203
+    start_line: 2202
+    end_line_exclusive: 2216
     bytes: 749
     sha256: 13c3262151aae5440857ffb0e2145786fd23b748f4fd21f7f6ba9d3cf8db8c2b
     kind: heading_block
@@ -3031,12 +3052,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000155
-  ordinal: 155
+- block_id: B000156
+  ordinal: 156
   source:
     path: docs/handoff.md
-    start_line: 2203
-    end_line_exclusive: 2228
+    start_line: 2216
+    end_line_exclusive: 2241
     bytes: 899
     sha256: bcf4dae918868d7fcbdfb5e5c2a650cd5c6caef8fbb932a691d79ebb93c9fc30
     kind: heading_block
@@ -3050,12 +3071,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000156
-  ordinal: 156
+- block_id: B000157
+  ordinal: 157
   source:
     path: docs/handoff.md
-    start_line: 2228
-    end_line_exclusive: 2245
+    start_line: 2241
+    end_line_exclusive: 2258
     bytes: 717
     sha256: 6f64c310e96a7b4483e2eb389b25fa0cdb66727f575a822b57ea226ccf71d1f3
     kind: heading_block
@@ -3069,12 +3090,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000157
-  ordinal: 157
+- block_id: B000158
+  ordinal: 158
   source:
     path: docs/handoff.md
-    start_line: 2245
-    end_line_exclusive: 2254
+    start_line: 2258
+    end_line_exclusive: 2267
     bytes: 959
     sha256: 6154cb3d63735ccbc175aeb8a9e8550d00aadaa3bc2c378865977197b8d3bfa3
     kind: heading_block
@@ -3088,12 +3109,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000158
-  ordinal: 158
+- block_id: B000159
+  ordinal: 159
   source:
     path: docs/handoff.md
-    start_line: 2254
-    end_line_exclusive: 2274
+    start_line: 2267
+    end_line_exclusive: 2287
     bytes: 2783
     sha256: 8c6276ad3e08e2cdb4fca195f0594b876d473a80159fac55b3c7ee22a5fb69d2
     kind: heading_block
@@ -3107,12 +3128,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000159
-  ordinal: 159
+- block_id: B000160
+  ordinal: 160
   source:
     path: docs/handoff.md
-    start_line: 2274
-    end_line_exclusive: 2299
+    start_line: 2287
+    end_line_exclusive: 2312
     bytes: 814
     sha256: 10f86916a862b04fedf9256a4a3f39956feb4d0039c65b2f4595e70234ca9e6b
     kind: heading_block
@@ -3126,12 +3147,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000160
-  ordinal: 160
+- block_id: B000161
+  ordinal: 161
   source:
     path: docs/handoff.md
-    start_line: 2299
-    end_line_exclusive: 2301
+    start_line: 2312
+    end_line_exclusive: 2314
     bytes: 65
     sha256: 80466a4ef3fdf2c36e0d20e80d26220f778180e9ff2f1874982df5a4e005a82b
     kind: heading_block
@@ -3145,12 +3166,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000161
-  ordinal: 161
+- block_id: B000162
+  ordinal: 162
   source:
     path: docs/handoff.md
-    start_line: 2301
-    end_line_exclusive: 2320
+    start_line: 2314
+    end_line_exclusive: 2333
     bytes: 767
     sha256: ab8fece91f1dfe031fd3de95aa71eade9e504762a1d0320b16c5ad11118b12db
     kind: heading_block
@@ -3164,12 +3185,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000162
-  ordinal: 162
+- block_id: B000163
+  ordinal: 163
   source:
     path: docs/handoff.md
-    start_line: 2320
-    end_line_exclusive: 2339
+    start_line: 2333
+    end_line_exclusive: 2352
     bytes: 665
     sha256: c3730067909ea37c161d7d89f029847a9fc1ffb1ce015c261e7197d7014ad66b
     kind: heading_block
@@ -3183,12 +3204,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000163
-  ordinal: 163
+- block_id: B000164
+  ordinal: 164
   source:
     path: docs/handoff.md
-    start_line: 2339
-    end_line_exclusive: 2367
+    start_line: 2352
+    end_line_exclusive: 2380
     bytes: 1194
     sha256: b617ec2e1f6297907c230dfe0ba6f8579db76c6f35f049c8a9965b0e656f6acc
     kind: heading_block
@@ -3202,12 +3223,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000164
-  ordinal: 164
+- block_id: B000165
+  ordinal: 165
   source:
     path: docs/handoff.md
-    start_line: 2367
-    end_line_exclusive: 2387
+    start_line: 2380
+    end_line_exclusive: 2400
     bytes: 1114
     sha256: 1b8df9c109eb9b726dbda8e485e4536dd665012c83f71d7c9e5020ff411fd4e9
     kind: heading_block
@@ -3221,12 +3242,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000165
-  ordinal: 165
+- block_id: B000166
+  ordinal: 166
   source:
     path: docs/handoff.md
-    start_line: 2387
-    end_line_exclusive: 2399
+    start_line: 2400
+    end_line_exclusive: 2412
     bytes: 753
     sha256: 150d9ef0bb85289c47e072748340e1cb3888338da36f2fa5b34aceca194a7e4f
     kind: heading_block
@@ -3240,12 +3261,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000166
-  ordinal: 166
+- block_id: B000167
+  ordinal: 167
   source:
     path: docs/handoff.md
-    start_line: 2399
-    end_line_exclusive: 2418
+    start_line: 2412
+    end_line_exclusive: 2431
     bytes: 853
     sha256: 9676c21f8b97bf4ec79b11a7698ae3aade4e8384d173ee44260a9225d86237dc
     kind: heading_block
@@ -3259,12 +3280,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000167
-  ordinal: 167
+- block_id: B000168
+  ordinal: 168
   source:
     path: docs/handoff.md
-    start_line: 2418
-    end_line_exclusive: 2420
+    start_line: 2431
+    end_line_exclusive: 2433
     bytes: 61
     sha256: 6c06fb167b04ad403321aa6360862de37eec17b2366cb7c760eec3bdb5dba4ba
     kind: heading_block
@@ -3278,12 +3299,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000168
-  ordinal: 168
+- block_id: B000169
+  ordinal: 169
   source:
     path: docs/handoff.md
-    start_line: 2420
-    end_line_exclusive: 2441
+    start_line: 2433
+    end_line_exclusive: 2454
     bytes: 1065
     sha256: 7f444a083b359387c0fe31dfe2128e2d7e2a2143e98196b53d15e2f41d8abe03
     kind: heading_block
@@ -3297,12 +3318,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000169
-  ordinal: 169
+- block_id: B000170
+  ordinal: 170
   source:
     path: docs/handoff.md
-    start_line: 2441
-    end_line_exclusive: 2449
+    start_line: 2454
+    end_line_exclusive: 2462
     bytes: 479
     sha256: 9f10c378e03a4efd826e50c1c741bf21911b3a2b1c06010c3ed0cf7e4a1d6dbe
     kind: heading_block
@@ -3316,12 +3337,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000170
-  ordinal: 170
+- block_id: B000171
+  ordinal: 171
   source:
     path: docs/handoff.md
-    start_line: 2449
-    end_line_exclusive: 2472
+    start_line: 2462
+    end_line_exclusive: 2485
     bytes: 1812
     sha256: 865a9ee458bfd291e8976950646e0e5d1f9cb942da557cdaf570c05b2110ed8c
     kind: heading_block
@@ -3335,12 +3356,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000171
-  ordinal: 171
+- block_id: B000172
+  ordinal: 172
   source:
     path: docs/handoff.md
-    start_line: 2472
-    end_line_exclusive: 2488
+    start_line: 2485
+    end_line_exclusive: 2501
     bytes: 560
     sha256: 56beec524c6fd03aa8318a0b9413ce0ad79836f16c0573942eafef0f047d0592
     kind: heading_block
@@ -3354,12 +3375,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000172
-  ordinal: 172
+- block_id: B000173
+  ordinal: 173
   source:
     path: docs/handoff.md
-    start_line: 2488
-    end_line_exclusive: 2495
+    start_line: 2501
+    end_line_exclusive: 2508
     bytes: 417
     sha256: f8e75b8ff5d975c05b8f8a2ef2c8f92031c6c4863b2408fc4e78f49fa740cbf8
     kind: heading_block
@@ -3373,12 +3394,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000173
-  ordinal: 173
+- block_id: B000174
+  ordinal: 174
   source:
     path: docs/handoff.md
-    start_line: 2495
-    end_line_exclusive: 2503
+    start_line: 2508
+    end_line_exclusive: 2516
     bytes: 408
     sha256: 69b297c898fe93ffddb0bc54f02d799b79c02873d8fa7c4f62186d0a7139498e
     kind: heading_block
@@ -3392,12 +3413,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000174
-  ordinal: 174
+- block_id: B000175
+  ordinal: 175
   source:
     path: docs/handoff.md
-    start_line: 2503
-    end_line_exclusive: 2517
+    start_line: 2516
+    end_line_exclusive: 2530
     bytes: 1061
     sha256: 615f654a3c076c7c05926e2363cf89c6cd84e5b50cea2b1eabf95a8be3495dcc
     kind: heading_block
@@ -3411,12 +3432,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000175
-  ordinal: 175
+- block_id: B000176
+  ordinal: 176
   source:
     path: docs/handoff.md
-    start_line: 2517
-    end_line_exclusive: 2536
+    start_line: 2530
+    end_line_exclusive: 2549
     bytes: 833
     sha256: 64392e1f379b2ec19cc78e8b0d96e450e7f4e9c1a73357999fe2334b9ddef6ad
     kind: heading_block
@@ -3430,12 +3451,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000176
-  ordinal: 176
+- block_id: B000177
+  ordinal: 177
   source:
     path: docs/handoff.md
-    start_line: 2536
-    end_line_exclusive: 2552
+    start_line: 2549
+    end_line_exclusive: 2565
     bytes: 656
     sha256: 733f4e4dc8e2c0481838f3e967c8efa87477c6751a27d321a55573c4c80d733b
     kind: heading_block
@@ -3449,12 +3470,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000177
-  ordinal: 177
+- block_id: B000178
+  ordinal: 178
   source:
     path: docs/handoff.md
-    start_line: 2552
-    end_line_exclusive: 2578
+    start_line: 2565
+    end_line_exclusive: 2591
     bytes: 1373
     sha256: a8a12ddcddfdc5ae8a7edc24b0699cd3dfff00d9ae770f252478d57dd30b904b
     kind: heading_block
@@ -3468,12 +3489,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000178
-  ordinal: 178
+- block_id: B000179
+  ordinal: 179
   source:
     path: docs/handoff.md
-    start_line: 2578
-    end_line_exclusive: 2628
+    start_line: 2591
+    end_line_exclusive: 2641
     bytes: 2347
     sha256: df41adb4345a54e151ce9932984826f7d0e44353d883b75420065a6808a79bc3
     kind: heading_block
@@ -3487,12 +3508,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000179
-  ordinal: 179
+- block_id: B000180
+  ordinal: 180
   source:
     path: docs/handoff.md
-    start_line: 2628
-    end_line_exclusive: 2646
+    start_line: 2641
+    end_line_exclusive: 2659
     bytes: 3470
     sha256: 8f3d48e5a2748a141390f4e993d3dd4ac72929bc1d1547a7434f1c76324460a3
     kind: heading_block
@@ -3506,12 +3527,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000180
-  ordinal: 180
+- block_id: B000181
+  ordinal: 181
   source:
     path: docs/handoff.md
-    start_line: 2646
-    end_line_exclusive: 2656
+    start_line: 2659
+    end_line_exclusive: 2669
     bytes: 484
     sha256: e6ca19239285c6a5f3f775e6634e8b1339af3a2da258ae2afb1284e2ad363d2d
     kind: heading_block
@@ -3525,12 +3546,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000181
-  ordinal: 181
+- block_id: B000182
+  ordinal: 182
   source:
     path: docs/handoff.md
-    start_line: 2656
-    end_line_exclusive: 2665
+    start_line: 2669
+    end_line_exclusive: 2678
     bytes: 515
     sha256: e9409d3145ec6b6693890731d2f5bcb544e73ce852de56e7ae6eb1bac9ebdb13
     kind: heading_block
@@ -3544,12 +3565,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000182
-  ordinal: 182
+- block_id: B000183
+  ordinal: 183
   source:
     path: docs/handoff.md
-    start_line: 2665
-    end_line_exclusive: 2674
+    start_line: 2678
+    end_line_exclusive: 2687
     bytes: 518
     sha256: 295e773894e0bab2c02e9424df5c7ea0ae80ad895a0417c03acce84b4c83a80f
     kind: heading_block
@@ -3563,12 +3584,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000183
-  ordinal: 183
+- block_id: B000184
+  ordinal: 184
   source:
     path: docs/handoff.md
-    start_line: 2674
-    end_line_exclusive: 2690
+    start_line: 2687
+    end_line_exclusive: 2703
     bytes: 802
     sha256: 345d70b296980b42ca0920993f578a9a0ea5a712078c528c56b95c53fa847c9c
     kind: heading_block
@@ -3582,12 +3603,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000184
-  ordinal: 184
+- block_id: B000185
+  ordinal: 185
   source:
     path: docs/handoff.md
-    start_line: 2690
-    end_line_exclusive: 2718
+    start_line: 2703
+    end_line_exclusive: 2731
     bytes: 2509
     sha256: bb7f431e7730a16661eca813a05d394fb906f57f9634c606167c52b1535dee4a
     kind: heading_block
@@ -3601,12 +3622,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000185
-  ordinal: 185
+- block_id: B000186
+  ordinal: 186
   source:
     path: docs/handoff.md
-    start_line: 2718
-    end_line_exclusive: 2744
+    start_line: 2731
+    end_line_exclusive: 2757
     bytes: 1596
     sha256: 32fead5be33fac576d62e7792924a560416c2278634c87a1318979fa43614fa3
     kind: heading_block
@@ -3620,12 +3641,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000186
-  ordinal: 186
+- block_id: B000187
+  ordinal: 187
   source:
     path: docs/handoff.md
-    start_line: 2744
-    end_line_exclusive: 2761
+    start_line: 2757
+    end_line_exclusive: 2774
     bytes: 2293
     sha256: 21fbe850ec5b2bd62547fa02bb6689d4f929dcbe3d747fcfb3fd82df45face98
     kind: heading_block
@@ -3639,12 +3660,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000187
-  ordinal: 187
+- block_id: B000188
+  ordinal: 188
   source:
     path: docs/handoff.md
-    start_line: 2761
-    end_line_exclusive: 2781
+    start_line: 2774
+    end_line_exclusive: 2794
     bytes: 1214
     sha256: b06c65131253dbb16dc98e05994840c4a822373ff2fce848ab3d48b341802b4f
     kind: heading_block
@@ -3658,12 +3679,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000188
-  ordinal: 188
+- block_id: B000189
+  ordinal: 189
   source:
     path: docs/handoff.md
-    start_line: 2781
-    end_line_exclusive: 2783
+    start_line: 2794
+    end_line_exclusive: 2796
     bytes: 47
     sha256: ed0e83a049eb426f29a24951222b3a884d64414f6def63649d7830d6a87e385b
     kind: heading_block
@@ -3677,12 +3698,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000189
-  ordinal: 189
+- block_id: B000190
+  ordinal: 190
   source:
     path: docs/handoff.md
-    start_line: 2783
-    end_line_exclusive: 2800
+    start_line: 2796
+    end_line_exclusive: 2813
     bytes: 670
     sha256: db9d16cf787c1eac1093251eef0544c41c9a805f7ed29dc4d74e3284bbdca5fb
     kind: heading_block
@@ -3696,12 +3717,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000190
-  ordinal: 190
+- block_id: B000191
+  ordinal: 191
   source:
     path: docs/handoff.md
-    start_line: 2800
-    end_line_exclusive: 2817
+    start_line: 2813
+    end_line_exclusive: 2830
     bytes: 725
     sha256: 37cbec224fef712b8044c1ce2324a2b3b52443cf4db1453fe70f5c8dc0a10b33
     kind: heading_block
@@ -3715,12 +3736,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000191
-  ordinal: 191
+- block_id: B000192
+  ordinal: 192
   source:
     path: docs/handoff.md
-    start_line: 2817
-    end_line_exclusive: 2838
+    start_line: 2830
+    end_line_exclusive: 2851
     bytes: 976
     sha256: ad0dcf479b023c2154548b7099a285a2c72ae8c2326309be2ce3cd5270328446
     kind: heading_block
@@ -3734,12 +3755,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000192
-  ordinal: 192
+- block_id: B000193
+  ordinal: 193
   source:
     path: docs/handoff.md
-    start_line: 2838
-    end_line_exclusive: 2851
+    start_line: 2851
+    end_line_exclusive: 2864
     bytes: 534
     sha256: 705bf2bf36e65ac4d3e03f6ed8e3f945ed208a12e5d808cf04af72540e5a12cc
     kind: heading_block
@@ -3753,12 +3774,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000193
-  ordinal: 193
+- block_id: B000194
+  ordinal: 194
   source:
     path: docs/handoff.md
-    start_line: 2851
-    end_line_exclusive: 2867
+    start_line: 2864
+    end_line_exclusive: 2880
     bytes: 606
     sha256: daa1aea1cfc149d10ff53ee181a85fcb6fe3f5561e10bd8bb4b9c783d402728e
     kind: heading_block
@@ -3772,12 +3793,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000194
-  ordinal: 194
+- block_id: B000195
+  ordinal: 195
   source:
     path: docs/handoff.md
-    start_line: 2867
-    end_line_exclusive: 2876
+    start_line: 2880
+    end_line_exclusive: 2889
     bytes: 1010
     sha256: 78f99adf4e79652a8754dcac49c9f6b8e0d82f63c30911dba01946008fae3b39
     kind: heading_block
@@ -3791,12 +3812,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000195
-  ordinal: 195
+- block_id: B000196
+  ordinal: 196
   source:
     path: docs/handoff.md
-    start_line: 2876
-    end_line_exclusive: 2905
+    start_line: 2889
+    end_line_exclusive: 2918
     bytes: 1746
     sha256: c37f6b876c8c737417de24f395f6b40382a894ff45fb0a2219cff98ab9d58dde
     kind: heading_block
@@ -3810,12 +3831,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000196
-  ordinal: 196
+- block_id: B000197
+  ordinal: 197
   source:
     path: docs/handoff.md
-    start_line: 2905
-    end_line_exclusive: 2932
+    start_line: 2918
+    end_line_exclusive: 2945
     bytes: 1529
     sha256: 03ffc6005a1023213fc3e441c5314d9c564cde0616f9a073ec2c1e2689d346f2
     kind: heading_block
@@ -3829,12 +3850,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000197
-  ordinal: 197
+- block_id: B000198
+  ordinal: 198
   source:
     path: docs/handoff.md
-    start_line: 2932
-    end_line_exclusive: 2949
+    start_line: 2945
+    end_line_exclusive: 2962
     bytes: 799
     sha256: e1dcf2cac003b4469f02dfd3f923af5a9420f7c85db034b535be9181b3a85a70
     kind: heading_block
@@ -3848,12 +3869,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000198
-  ordinal: 198
+- block_id: B000199
+  ordinal: 199
   source:
     path: docs/handoff.md
-    start_line: 2949
-    end_line_exclusive: 2979
+    start_line: 2962
+    end_line_exclusive: 2992
     bytes: 1778
     sha256: 92f3f0deecb55928903246d9e8276e1aa0611fb1b7a8cf923318eae5995d9aa3
     kind: heading_block
@@ -3867,12 +3888,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000199
-  ordinal: 199
+- block_id: B000200
+  ordinal: 200
   source:
     path: docs/handoff.md
-    start_line: 2979
-    end_line_exclusive: 3025
+    start_line: 2992
+    end_line_exclusive: 3038
     bytes: 2537
     sha256: 7fa019a78bd0743f5ba80404465fe3b734c666002be8a5a8dde09ee2d2e776f8
     kind: heading_block
@@ -3886,12 +3907,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000200
-  ordinal: 200
+- block_id: B000201
+  ordinal: 201
   source:
     path: docs/handoff.md
-    start_line: 3025
-    end_line_exclusive: 3037
+    start_line: 3038
+    end_line_exclusive: 3050
     bytes: 779
     sha256: 605e72b4a220d24c87a56a220955c7c6360eb176d3495068dfaa2b14fa9aade8
     kind: heading_block
@@ -3905,12 +3926,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000201
-  ordinal: 201
+- block_id: B000202
+  ordinal: 202
   source:
     path: docs/handoff.md
-    start_line: 3037
-    end_line_exclusive: 3124
+    start_line: 3050
+    end_line_exclusive: 3137
     bytes: 3837
     sha256: a56840b6fa33540ff97672bf54fe53876118e67012ddfc8f6bdee4851188848f
     kind: heading_block
@@ -3924,12 +3945,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000202
-  ordinal: 202
+- block_id: B000203
+  ordinal: 203
   source:
     path: docs/handoff.md
-    start_line: 3124
-    end_line_exclusive: 3135
+    start_line: 3137
+    end_line_exclusive: 3148
     bytes: 1264
     sha256: f32c38c26e81cee032e404fc2ff432a9d045d5e06cb7a2fb524e083631f7021b
     kind: heading_block
@@ -3943,12 +3964,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000203
-  ordinal: 203
+- block_id: B000204
+  ordinal: 204
   source:
     path: docs/handoff.md
-    start_line: 3135
-    end_line_exclusive: 3141
+    start_line: 3148
+    end_line_exclusive: 3154
     bytes: 291
     sha256: aeb4ebac49ce670795f8dea5b24d3ef6add9f47f82be382e78a30ee39844a520
     kind: heading_block
@@ -3962,12 +3983,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000204
-  ordinal: 204
+- block_id: B000205
+  ordinal: 205
   source:
     path: docs/handoff.md
-    start_line: 3141
-    end_line_exclusive: 3155
+    start_line: 3154
+    end_line_exclusive: 3168
     bytes: 811
     sha256: 999cd9a840489a4e7bea10843b9cbd69a4e67ee16bd85c55c2eac8b30747ce86
     kind: heading_block
@@ -3981,12 +4002,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000205
-  ordinal: 205
+- block_id: B000206
+  ordinal: 206
   source:
     path: docs/handoff.md
-    start_line: 3155
-    end_line_exclusive: 3171
+    start_line: 3168
+    end_line_exclusive: 3184
     bytes: 696
     sha256: 0a0fe21e5fdcc727ddc26d95eeadeef9ba4100e05984ad923988b3f4c4a006cd
     kind: heading_block
@@ -4000,12 +4021,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000206
-  ordinal: 206
+- block_id: B000207
+  ordinal: 207
   source:
     path: docs/handoff.md
-    start_line: 3171
-    end_line_exclusive: 3180
+    start_line: 3184
+    end_line_exclusive: 3193
     bytes: 485
     sha256: c58b2e2674946aa715526444fab96a6a6dd621a793b6f97ee97198b7a8bcfad7
     kind: heading_block
@@ -4019,12 +4040,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000207
-  ordinal: 207
+- block_id: B000208
+  ordinal: 208
   source:
     path: docs/handoff.md
-    start_line: 3180
-    end_line_exclusive: 3188
+    start_line: 3193
+    end_line_exclusive: 3201
     bytes: 433
     sha256: ec0a9f534452bddf4fdacc47b0167efc0bbdcbde4d22b26c112b57d908613cdd
     kind: heading_block
@@ -4038,12 +4059,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000208
-  ordinal: 208
+- block_id: B000209
+  ordinal: 209
   source:
     path: docs/handoff.md
-    start_line: 3188
-    end_line_exclusive: 3195
+    start_line: 3201
+    end_line_exclusive: 3208
     bytes: 385
     sha256: bd561994c6bbc622ee3ed5296e0a937a0be3e17225127f75dbc731cb29cec4dd
     kind: heading_block
@@ -4057,12 +4078,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000209
-  ordinal: 209
+- block_id: B000210
+  ordinal: 210
   source:
     path: docs/handoff.md
-    start_line: 3195
-    end_line_exclusive: 3202
+    start_line: 3208
+    end_line_exclusive: 3215
     bytes: 386
     sha256: 704baa1ed0b60692b24d7a2d7b7339bfbf968643176b11ba751ff7bb0ad75e8d
     kind: heading_block
@@ -4076,12 +4097,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000210
-  ordinal: 210
+- block_id: B000211
+  ordinal: 211
   source:
     path: docs/handoff.md
-    start_line: 3202
-    end_line_exclusive: 3212
+    start_line: 3215
+    end_line_exclusive: 3225
     bytes: 663
     sha256: d9ff64e5b8dda6f2bf415730b795860dcc69981c08e4d814e17d4ae474cee25c
     kind: heading_block
@@ -4095,12 +4116,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000211
-  ordinal: 211
+- block_id: B000212
+  ordinal: 212
   source:
     path: docs/handoff.md
-    start_line: 3212
-    end_line_exclusive: 3234
+    start_line: 3225
+    end_line_exclusive: 3247
     bytes: 1299
     sha256: d15e999819371e7a1bd604c76d66d0cd33c293326153579fa9a735735256d63b
     kind: heading_block
@@ -4114,12 +4135,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000212
-  ordinal: 212
+- block_id: B000213
+  ordinal: 213
   source:
     path: docs/handoff.md
-    start_line: 3234
-    end_line_exclusive: 3264
+    start_line: 3247
+    end_line_exclusive: 3277
     bytes: 1970
     sha256: 05b53d013957b2ccd3863af3e2128014571a48b9242c0b3c438cbbc01fb3c499
     kind: heading_block
@@ -4133,12 +4154,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000213
-  ordinal: 213
+- block_id: B000214
+  ordinal: 214
   source:
     path: docs/handoff.md
-    start_line: 3264
-    end_line_exclusive: 3284
+    start_line: 3277
+    end_line_exclusive: 3297
     bytes: 1064
     sha256: b93489674353361e2e19d7ad3911deef89a9db22424ca6acbafdd63664f8e487
     kind: heading_block
@@ -4152,12 +4173,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000214
-  ordinal: 214
+- block_id: B000215
+  ordinal: 215
   source:
     path: docs/handoff.md
-    start_line: 3284
-    end_line_exclusive: 3308
+    start_line: 3297
+    end_line_exclusive: 3321
     bytes: 1034
     sha256: fbbee327649a70f09bd9fc29a9921f591b6500cd839fff2518c4d5b41ce99197
     kind: heading_block
@@ -4171,12 +4192,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000215
-  ordinal: 215
+- block_id: B000216
+  ordinal: 216
   source:
     path: docs/handoff.md
-    start_line: 3308
-    end_line_exclusive: 3312
+    start_line: 3321
+    end_line_exclusive: 3325
     bytes: 303
     sha256: e39a7c27671633de951044deb57b7e1e05cc107e11b8eb82a93db095bd8699a9
     kind: heading_block
@@ -4191,12 +4212,12 @@ owners:
   stage4a_candidate_modules:
   - theory_methods_related_work
   references: []
-- block_id: B000216
-  ordinal: 216
+- block_id: B000217
+  ordinal: 217
   source:
     path: docs/handoff.md
-    start_line: 3312
-    end_line_exclusive: 3314
+    start_line: 3325
+    end_line_exclusive: 3327
     bytes: 57
     sha256: 356625d8cccbae1827dc95c6fc522e3cda0f90a6f64c833b368f13e627badbe9
     kind: heading_block
@@ -4211,12 +4232,12 @@ owners:
   stage4a_candidate_modules:
   - theory_methods_related_work
   references: []
-- block_id: B000217
-  ordinal: 217
+- block_id: B000218
+  ordinal: 218
   source:
     path: docs/handoff.md
-    start_line: 3314
-    end_line_exclusive: 3324
+    start_line: 3327
+    end_line_exclusive: 3337
     bytes: 936
     sha256: 2585331e56834d3c99b219226de5f75fa25aca6c198f6ebb7ef1d77a4599827c
     kind: heading_block
@@ -4231,12 +4252,12 @@ owners:
   stage4a_candidate_modules:
   - theory_methods_related_work
   references: []
-- block_id: B000218
-  ordinal: 218
+- block_id: B000219
+  ordinal: 219
   source:
     path: docs/handoff.md
-    start_line: 3324
-    end_line_exclusive: 3358
+    start_line: 3337
+    end_line_exclusive: 3371
     bytes: 977
     sha256: 185188e34f2ee16a584feebdae78fa58f75cd71c40eaed7e2162f0db71e47e8f
     kind: heading_block
@@ -4251,12 +4272,12 @@ owners:
   stage4a_candidate_modules:
   - theory_methods_related_work
   references: []
-- block_id: B000219
-  ordinal: 219
+- block_id: B000220
+  ordinal: 220
   source:
     path: docs/handoff.md
-    start_line: 3358
-    end_line_exclusive: 3376
+    start_line: 3371
+    end_line_exclusive: 3389
     bytes: 800
     sha256: fc7c8d0b08611cd96df310dec90a08c5b09dbe1d7db60d5f04b9b5489ae3953d
     kind: heading_block
@@ -4271,12 +4292,12 @@ owners:
   stage4a_candidate_modules:
   - theory_methods_related_work
   references: []
-- block_id: B000220
-  ordinal: 220
+- block_id: B000221
+  ordinal: 221
   source:
     path: docs/handoff.md
-    start_line: 3376
-    end_line_exclusive: 3431
+    start_line: 3389
+    end_line_exclusive: 3444
     bytes: 2545
     sha256: 358b07957d805fb6537d79bad49d5d7d9304f29af6006dfbe50453692eb9de90
     kind: heading_block
@@ -4291,12 +4312,12 @@ owners:
   stage4a_candidate_modules:
   - theory_methods_related_work
   references: []
-- block_id: B000221
-  ordinal: 221
+- block_id: B000222
+  ordinal: 222
   source:
     path: docs/handoff.md
-    start_line: 3431
-    end_line_exclusive: 3465
+    start_line: 3444
+    end_line_exclusive: 3478
     bytes: 963
     sha256: 454d51a40549f29b003a15a2453fe589cf75d33bbbbd4dfc1a697783a62cff6c
     kind: heading_block
@@ -4311,12 +4332,12 @@ owners:
   stage4a_candidate_modules:
   - theory_methods_related_work
   references: []
-- block_id: B000222
-  ordinal: 222
+- block_id: B000223
+  ordinal: 223
   source:
     path: docs/handoff.md
-    start_line: 3465
-    end_line_exclusive: 3529
+    start_line: 3478
+    end_line_exclusive: 3542
     bytes: 1309
     sha256: 9aabd22ba7ea21d5bda3868a8f53dd90fa0fb497249588c371e2ddb4231a7b0f
     kind: heading_block
@@ -4331,12 +4352,12 @@ owners:
   stage4a_candidate_modules:
   - theory_methods_related_work
   references: []
-- block_id: B000223
-  ordinal: 223
+- block_id: B000224
+  ordinal: 224
   source:
     path: docs/handoff.md
-    start_line: 3529
-    end_line_exclusive: 3570
+    start_line: 3542
+    end_line_exclusive: 3583
     bytes: 1878
     sha256: 63274ec8e66fb0238f095eb566d5f009d6ffbba1155440981423d07639cdb94c
     kind: heading_block
@@ -4351,12 +4372,12 @@ owners:
   stage4a_candidate_modules:
   - theory_methods_related_work
   references: []
-- block_id: B000224
-  ordinal: 224
+- block_id: B000225
+  ordinal: 225
   source:
     path: docs/handoff.md
-    start_line: 3570
-    end_line_exclusive: 3600
+    start_line: 3583
+    end_line_exclusive: 3613
     bytes: 936
     sha256: a08e7541785f67dc78b273bab202b8bfb5f271f2f9e0db396f60329b4a1f920d
     kind: heading_block
@@ -4371,12 +4392,12 @@ owners:
   stage4a_candidate_modules:
   - theory_methods_related_work
   references: []
-- block_id: B000225
-  ordinal: 225
+- block_id: B000226
+  ordinal: 226
   source:
     path: docs/handoff.md
-    start_line: 3600
-    end_line_exclusive: 3637
+    start_line: 3613
+    end_line_exclusive: 3650
     bytes: 1153
     sha256: 49b8c07a53809c3c5e0bea087f7194acc03bf69a3b7990d3ec00404feed5665f
     kind: heading_block
@@ -4391,12 +4412,12 @@ owners:
   stage4a_candidate_modules:
   - theory_methods_related_work
   references: []
-- block_id: B000226
-  ordinal: 226
+- block_id: B000227
+  ordinal: 227
   source:
     path: docs/handoff.md
-    start_line: 3637
-    end_line_exclusive: 3695
+    start_line: 3650
+    end_line_exclusive: 3708
     bytes: 1451
     sha256: e321c056c8a2fe242f388a2d15d97db658ad6aa1e41982b3028716b202021049
     kind: heading_block
@@ -4411,12 +4432,12 @@ owners:
   stage4a_candidate_modules:
   - theory_methods_related_work
   references: []
-- block_id: B000227
-  ordinal: 227
+- block_id: B000228
+  ordinal: 228
   source:
     path: docs/handoff.md
-    start_line: 3695
-    end_line_exclusive: 3720
+    start_line: 3708
+    end_line_exclusive: 3733
     bytes: 738
     sha256: 38e5a69ef34879e247c5fed65b5e79220e81395859d75d2ad1a4a4bbd07a7eca
     kind: heading_block
@@ -4431,12 +4452,12 @@ owners:
   stage4a_candidate_modules:
   - theory_methods_related_work
   references: []
-- block_id: B000228
-  ordinal: 228
+- block_id: B000229
+  ordinal: 229
   source:
     path: docs/handoff.md
-    start_line: 3720
-    end_line_exclusive: 3752
+    start_line: 3733
+    end_line_exclusive: 3765
     bytes: 836
     sha256: d2764dc88b804f5ca798ae455d797d6f178d031bc98bea82b1dd35294980083c
     kind: heading_block
@@ -4451,12 +4472,12 @@ owners:
   stage4a_candidate_modules:
   - theory_methods_related_work
   references: []
-- block_id: B000229
-  ordinal: 229
+- block_id: B000230
+  ordinal: 230
   source:
     path: docs/handoff.md
-    start_line: 3752
-    end_line_exclusive: 3779
+    start_line: 3765
+    end_line_exclusive: 3792
     bytes: 1761
     sha256: d48a7ab12d0ee97101fdf8d1af4f02a6e31acb90b759b2eaa1f5170cca24e08a
     kind: heading_block
@@ -4471,12 +4492,12 @@ owners:
   stage4a_candidate_modules:
   - theory_methods_related_work
   references: []
-- block_id: B000230
-  ordinal: 230
+- block_id: B000231
+  ordinal: 231
   source:
     path: docs/handoff.md
-    start_line: 3779
-    end_line_exclusive: 3817
+    start_line: 3792
+    end_line_exclusive: 3830
     bytes: 1364
     sha256: 0d49489663258257bacf062533066f79ab44abd8dea79a9a82c2c50bb129db5b
     kind: heading_block
@@ -4491,12 +4512,12 @@ owners:
   stage4a_candidate_modules:
   - theory_methods_related_work
   references: []
-- block_id: B000231
-  ordinal: 231
+- block_id: B000232
+  ordinal: 232
   source:
     path: docs/handoff.md
-    start_line: 3817
-    end_line_exclusive: 3841
+    start_line: 3830
+    end_line_exclusive: 3854
     bytes: 1353
     sha256: 05041e40a0b7eca52616d6cf339aea047ebfcb9f3fcb8b496ecdaa0520784678
     kind: heading_block
@@ -4511,12 +4532,12 @@ owners:
   stage4a_candidate_modules:
   - theory_methods_related_work
   references: []
-- block_id: B000232
-  ordinal: 232
+- block_id: B000233
+  ordinal: 233
   source:
     path: docs/handoff.md
-    start_line: 3841
-    end_line_exclusive: 3863
+    start_line: 3854
+    end_line_exclusive: 3876
     bytes: 1108
     sha256: 28685cc3915382490a03a95f621deaa19e84e41d217fcd941454ad128f085dc1
     kind: heading_block
@@ -4531,12 +4552,12 @@ owners:
   stage4a_candidate_modules:
   - theory_methods_related_work
   references: []
-- block_id: B000233
-  ordinal: 233
+- block_id: B000234
+  ordinal: 234
   source:
     path: docs/handoff.md
-    start_line: 3863
-    end_line_exclusive: 3887
+    start_line: 3876
+    end_line_exclusive: 3900
     bytes: 1739
     sha256: da8b7a6fa0550efa64ca0478257b867f0086f0092a6e892057ccb2d8c95b155e
     kind: heading_block
@@ -4551,12 +4572,12 @@ owners:
   stage4a_candidate_modules:
   - theory_methods_related_work
   references: []
-- block_id: B000234
-  ordinal: 234
+- block_id: B000235
+  ordinal: 235
   source:
     path: docs/handoff.md
-    start_line: 3887
-    end_line_exclusive: 3901
+    start_line: 3900
+    end_line_exclusive: 3914
     bytes: 818
     sha256: 7e11dacf6e970061ee9bd19e1195722d4c5c938ef7c76c9c08b1e69fb3f8d566
     kind: heading_block
@@ -4571,12 +4592,12 @@ owners:
   stage4a_candidate_modules:
   - theory_methods_related_work
   references: []
-- block_id: B000235
-  ordinal: 235
+- block_id: B000236
+  ordinal: 236
   source:
     path: docs/handoff.md
-    start_line: 3901
-    end_line_exclusive: 3923
+    start_line: 3914
+    end_line_exclusive: 3936
     bytes: 3894
     sha256: 2bea39a526d94b8ded89a2a1c438e377546511f7d60d98d565ded52f36f178df
     kind: heading_block
@@ -4591,12 +4612,12 @@ owners:
   stage4a_candidate_modules:
   - theory_methods_related_work
   references: []
-- block_id: B000236
-  ordinal: 236
+- block_id: B000237
+  ordinal: 237
   source:
     path: docs/handoff.md
-    start_line: 3923
-    end_line_exclusive: 3927
+    start_line: 3936
+    end_line_exclusive: 3940
     bytes: 262
     sha256: 3660155bf890f2624a06a60bb55c7bf1060ebdfcdf827f6a08b240093339a981
     kind: heading_block
@@ -4610,12 +4631,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000237
-  ordinal: 237
+- block_id: B000238
+  ordinal: 238
   source:
     path: docs/handoff.md
-    start_line: 3927
-    end_line_exclusive: 3943
+    start_line: 3940
+    end_line_exclusive: 3956
     bytes: 1066
     sha256: 62e871c96697d08d0b4708db81448463bbbbddb286dd4d8f508bfed61da5fe69
     kind: heading_block
@@ -4629,12 +4650,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000238
-  ordinal: 238
+- block_id: B000239
+  ordinal: 239
   source:
     path: docs/handoff.md
-    start_line: 3943
-    end_line_exclusive: 3948
+    start_line: 3956
+    end_line_exclusive: 3961
     bytes: 350
     sha256: 871cf406459f7eede581a330e635210acd96795c3566e68ff0eee31d98a5d19e
     kind: heading_block
@@ -4648,12 +4669,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000239
-  ordinal: 239
+- block_id: B000240
+  ordinal: 240
   source:
     path: docs/handoff.md
-    start_line: 3948
-    end_line_exclusive: 3962
+    start_line: 3961
+    end_line_exclusive: 3975
     bytes: 829
     sha256: 38bd83bad37c3d9502e27098246deb6384d2d82d013d20e6f2c659c33366d7fa
     kind: heading_block
@@ -4667,12 +4688,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000240
-  ordinal: 240
+- block_id: B000241
+  ordinal: 241
   source:
     path: docs/handoff.md
-    start_line: 3962
-    end_line_exclusive: 3974
+    start_line: 3975
+    end_line_exclusive: 3987
     bytes: 839
     sha256: a0f9802a9252441f5caef7619fd5e77f08088b74de66f5354411ffafd0d7aad3
     kind: heading_block
@@ -4686,12 +4707,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000241
-  ordinal: 241
+- block_id: B000242
+  ordinal: 242
   source:
     path: docs/handoff.md
-    start_line: 3974
-    end_line_exclusive: 3986
+    start_line: 3987
+    end_line_exclusive: 3999
     bytes: 345
     sha256: 8f6d0db42f5c16d1c3e6f4584ef3676fe93705a3ef1134b5a5ffc909f421e530
     kind: heading_block
@@ -4705,12 +4726,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000242
-  ordinal: 242
+- block_id: B000243
+  ordinal: 243
   source:
     path: docs/handoff.md
-    start_line: 3986
-    end_line_exclusive: 3988
+    start_line: 3999
+    end_line_exclusive: 4001
     bytes: 34
     sha256: af8502de78345d86112e969d0ddf889b716a478a53909e40321a79d704b62265
     kind: heading_block
@@ -4724,12 +4745,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000243
-  ordinal: 243
+- block_id: B000244
+  ordinal: 244
   source:
     path: docs/handoff.md
-    start_line: 3988
-    end_line_exclusive: 3998
+    start_line: 4001
+    end_line_exclusive: 4011
     bytes: 492
     sha256: 4600b5fa102654726f7c1c969889d045bb07dfcff99dc3e1ee02f1fe561c1cd7
     kind: heading_block
@@ -4743,12 +4764,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000244
-  ordinal: 244
+- block_id: B000245
+  ordinal: 245
   source:
     path: docs/handoff.md
-    start_line: 3998
-    end_line_exclusive: 4012
+    start_line: 4011
+    end_line_exclusive: 4025
     bytes: 1192
     sha256: c7b27ed09114e99f28b88f111ada44cf101698c2e057debd54a28e20ddf96b01
     kind: heading_block
@@ -4762,12 +4783,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000245
-  ordinal: 245
+- block_id: B000246
+  ordinal: 246
   source:
     path: docs/handoff.md
-    start_line: 4012
-    end_line_exclusive: 4014
+    start_line: 4025
+    end_line_exclusive: 4027
     bytes: 57
     sha256: 356625d8cccbae1827dc95c6fc522e3cda0f90a6f64c833b368f13e627badbe9
     kind: heading_block
@@ -4781,12 +4802,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000246
-  ordinal: 246
+- block_id: B000247
+  ordinal: 247
   source:
     path: docs/handoff.md
-    start_line: 4014
-    end_line_exclusive: 4024
+    start_line: 4027
+    end_line_exclusive: 4037
     bytes: 936
     sha256: 2585331e56834d3c99b219226de5f75fa25aca6c198f6ebb7ef1d77a4599827c
     kind: heading_block
@@ -4800,12 +4821,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000247
-  ordinal: 247
+- block_id: B000248
+  ordinal: 248
   source:
     path: docs/handoff.md
-    start_line: 4024
-    end_line_exclusive: 4058
+    start_line: 4037
+    end_line_exclusive: 4071
     bytes: 977
     sha256: 185188e34f2ee16a584feebdae78fa58f75cd71c40eaed7e2162f0db71e47e8f
     kind: heading_block
@@ -4819,12 +4840,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000248
-  ordinal: 248
+- block_id: B000249
+  ordinal: 249
   source:
     path: docs/handoff.md
-    start_line: 4058
-    end_line_exclusive: 4076
+    start_line: 4071
+    end_line_exclusive: 4089
     bytes: 800
     sha256: fc7c8d0b08611cd96df310dec90a08c5b09dbe1d7db60d5f04b9b5489ae3953d
     kind: heading_block
@@ -4838,12 +4859,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000249
-  ordinal: 249
+- block_id: B000250
+  ordinal: 250
   source:
     path: docs/handoff.md
-    start_line: 4076
-    end_line_exclusive: 4131
+    start_line: 4089
+    end_line_exclusive: 4144
     bytes: 2545
     sha256: 358b07957d805fb6537d79bad49d5d7d9304f29af6006dfbe50453692eb9de90
     kind: heading_block
@@ -4857,12 +4878,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000250
-  ordinal: 250
+- block_id: B000251
+  ordinal: 251
   source:
     path: docs/handoff.md
-    start_line: 4131
-    end_line_exclusive: 4165
+    start_line: 4144
+    end_line_exclusive: 4178
     bytes: 963
     sha256: 454d51a40549f29b003a15a2453fe589cf75d33bbbbd4dfc1a697783a62cff6c
     kind: heading_block
@@ -4876,12 +4897,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000251
-  ordinal: 251
+- block_id: B000252
+  ordinal: 252
   source:
     path: docs/handoff.md
-    start_line: 4165
-    end_line_exclusive: 4229
+    start_line: 4178
+    end_line_exclusive: 4242
     bytes: 1309
     sha256: 9aabd22ba7ea21d5bda3868a8f53dd90fa0fb497249588c371e2ddb4231a7b0f
     kind: heading_block
@@ -4895,12 +4916,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000252
-  ordinal: 252
+- block_id: B000253
+  ordinal: 253
   source:
     path: docs/handoff.md
-    start_line: 4229
-    end_line_exclusive: 4270
+    start_line: 4242
+    end_line_exclusive: 4283
     bytes: 1878
     sha256: 63274ec8e66fb0238f095eb566d5f009d6ffbba1155440981423d07639cdb94c
     kind: heading_block
@@ -4914,12 +4935,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000253
-  ordinal: 253
+- block_id: B000254
+  ordinal: 254
   source:
     path: docs/handoff.md
-    start_line: 4270
-    end_line_exclusive: 4308
+    start_line: 4283
+    end_line_exclusive: 4321
     bytes: 1364
     sha256: 0d49489663258257bacf062533066f79ab44abd8dea79a9a82c2c50bb129db5b
     kind: heading_block
@@ -4933,12 +4954,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000254
-  ordinal: 254
+- block_id: B000255
+  ordinal: 255
   source:
     path: docs/handoff.md
-    start_line: 4308
-    end_line_exclusive: 4332
+    start_line: 4321
+    end_line_exclusive: 4345
     bytes: 1353
     sha256: 05041e40a0b7eca52616d6cf339aea047ebfcb9f3fcb8b496ecdaa0520784678
     kind: heading_block
@@ -4952,12 +4973,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000255
-  ordinal: 255
+- block_id: B000256
+  ordinal: 256
   source:
     path: docs/handoff.md
-    start_line: 4332
-    end_line_exclusive: 4354
+    start_line: 4345
+    end_line_exclusive: 4367
     bytes: 1108
     sha256: 28685cc3915382490a03a95f621deaa19e84e41d217fcd941454ad128f085dc1
     kind: heading_block
@@ -4971,12 +4992,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000256
-  ordinal: 256
+- block_id: B000257
+  ordinal: 257
   source:
     path: docs/handoff.md
-    start_line: 4354
-    end_line_exclusive: 4378
+    start_line: 4367
+    end_line_exclusive: 4391
     bytes: 1739
     sha256: da8b7a6fa0550efa64ca0478257b867f0086f0092a6e892057ccb2d8c95b155e
     kind: heading_block
@@ -4990,12 +5011,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000257
-  ordinal: 257
+- block_id: B000258
+  ordinal: 258
   source:
     path: docs/handoff.md
-    start_line: 4378
-    end_line_exclusive: 4392
+    start_line: 4391
+    end_line_exclusive: 4405
     bytes: 818
     sha256: 7e11dacf6e970061ee9bd19e1195722d4c5c938ef7c76c9c08b1e69fb3f8d566
     kind: heading_block
@@ -5009,12 +5030,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000258
-  ordinal: 258
+- block_id: B000259
+  ordinal: 259
   source:
     path: docs/handoff.md
-    start_line: 4392
-    end_line_exclusive: 4412
+    start_line: 4405
+    end_line_exclusive: 4425
     bytes: 3889
     sha256: 8a2af30357adb5c3facc3cd0f215058a344211b4b0cf34ea89f6a1db08bf9cde
     kind: heading_block
@@ -5028,12 +5049,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000259
-  ordinal: 259
+- block_id: B000260
+  ordinal: 260
   source:
     path: docs/handoff.md
-    start_line: 4412
-    end_line_exclusive: 4414
+    start_line: 4425
+    end_line_exclusive: 4427
     bytes: 53
     sha256: 0bff727402c3345ecbd857cfbafaa890021b78afef8e4cc6b228e1b13b803331
     kind: heading_block
@@ -5047,12 +5068,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000260
-  ordinal: 260
+- block_id: B000261
+  ordinal: 261
   source:
     path: docs/handoff.md
-    start_line: 4414
-    end_line_exclusive: 4427
+    start_line: 4427
+    end_line_exclusive: 4440
     bytes: 755
     sha256: 75ab181eb720db530ccca36b6adfc6ed71a71b459e264932b8baf76ae1b448a9
     kind: heading_block
@@ -5066,12 +5087,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000261
-  ordinal: 261
+- block_id: B000262
+  ordinal: 262
   source:
     path: docs/handoff.md
-    start_line: 4427
-    end_line_exclusive: 4447
+    start_line: 4440
+    end_line_exclusive: 4460
     bytes: 1139
     sha256: 52b1a8ea13cce57037b071034557d3035042116e98d2f63d3fc7938d4b03eb3a
     kind: heading_block
@@ -5085,12 +5106,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000262
-  ordinal: 262
+- block_id: B000263
+  ordinal: 263
   source:
     path: docs/handoff.md
-    start_line: 4447
-    end_line_exclusive: 4469
+    start_line: 4460
+    end_line_exclusive: 4482
     bytes: 1417
     sha256: bbf79770243744d383547863533d30f2ea0edd6491ff3fb56ac4c331592a075c
     kind: heading_block
@@ -5104,12 +5125,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000263
-  ordinal: 263
+- block_id: B000264
+  ordinal: 264
   source:
     path: docs/handoff.md
-    start_line: 4469
-    end_line_exclusive: 4485
+    start_line: 4482
+    end_line_exclusive: 4498
     bytes: 930
     sha256: 00af38387eb2b731f0a2e49bbfb1d0c3ad1f8391500ca36fa66b57756de6a9f9
     kind: heading_block
@@ -5123,12 +5144,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000264
-  ordinal: 264
+- block_id: B000265
+  ordinal: 265
   source:
     path: docs/handoff.md
-    start_line: 4485
-    end_line_exclusive: 4487
+    start_line: 4498
+    end_line_exclusive: 4500
     bytes: 59
     sha256: bdd26fd29f7b67f6c557f97c0b2284e2a2e4d7e56eedd9be74d196e58638a270
     kind: heading_block
@@ -5142,12 +5163,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000265
-  ordinal: 265
+- block_id: B000266
+  ordinal: 266
   source:
     path: docs/handoff.md
-    start_line: 4487
-    end_line_exclusive: 4500
+    start_line: 4500
+    end_line_exclusive: 4513
     bytes: 794
     sha256: 93fa4c8404ea54268f269ea42e0d5d451810ab9d8f81c350f1dff3b3a064a946
     kind: heading_block
@@ -5161,12 +5182,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000266
-  ordinal: 266
+- block_id: B000267
+  ordinal: 267
   source:
     path: docs/handoff.md
-    start_line: 4500
-    end_line_exclusive: 4513
+    start_line: 4513
+    end_line_exclusive: 4526
     bytes: 714
     sha256: 76e81bd07059c8f9b4795465022366bae7d1ee04d5ae65eb3e3642a5cc342868
     kind: heading_block
@@ -5180,12 +5201,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000267
-  ordinal: 267
+- block_id: B000268
+  ordinal: 268
   source:
     path: docs/handoff.md
-    start_line: 4513
-    end_line_exclusive: 4535
+    start_line: 4526
+    end_line_exclusive: 4548
     bytes: 1450
     sha256: 75c07023734b1e2b1e499cffc02ee44f87ef0c5182437bcd715187623dd174e6
     kind: heading_block
@@ -5199,12 +5220,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000268
-  ordinal: 268
+- block_id: B000269
+  ordinal: 269
   source:
     path: docs/handoff.md
-    start_line: 4535
-    end_line_exclusive: 4552
+    start_line: 4548
+    end_line_exclusive: 4565
     bytes: 1158
     sha256: 4a4df55a1f62478452f178a52726135fdc1eceb0a5290247f82e84d954deb98a
     kind: heading_block
@@ -5218,12 +5239,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000269
-  ordinal: 269
+- block_id: B000270
+  ordinal: 270
   source:
     path: docs/handoff.md
-    start_line: 4552
-    end_line_exclusive: 4568
+    start_line: 4565
+    end_line_exclusive: 4581
     bytes: 936
     sha256: e29c3b0c44d6b2b4eb2322929471089539cff0a48e6129e7f9a63655cefd0f7d
     kind: heading_block
@@ -5237,12 +5258,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000270
-  ordinal: 270
+- block_id: B000271
+  ordinal: 271
   source:
     path: docs/handoff.md
-    start_line: 4568
-    end_line_exclusive: 4588
+    start_line: 4581
+    end_line_exclusive: 4601
     bytes: 1568
     sha256: 3fb4e4dfe6203c44e29a7460a03cbf94a3c4513fc30cd5f7a11ebc63069734c6
     kind: heading_block
@@ -5256,12 +5277,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000271
-  ordinal: 271
+- block_id: B000272
+  ordinal: 272
   source:
     path: docs/handoff.md
-    start_line: 4588
-    end_line_exclusive: 4590
+    start_line: 4601
+    end_line_exclusive: 4603
     bytes: 41
     sha256: c45c65f1f97e07b7ffeed86e00b4becb29e2f5809ef0dd3edfc0e969f46bfb8e
     kind: heading_block
@@ -5275,12 +5296,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000272
-  ordinal: 272
+- block_id: B000273
+  ordinal: 273
   source:
     path: docs/handoff.md
-    start_line: 4590
-    end_line_exclusive: 4604
+    start_line: 4603
+    end_line_exclusive: 4617
     bytes: 797
     sha256: 24e0b795f635f677f91da3218fe486eca3a85aadb7f8bd23585373154df11cb4
     kind: heading_block
@@ -5294,12 +5315,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000273
-  ordinal: 273
+- block_id: B000274
+  ordinal: 274
   source:
     path: docs/handoff.md
-    start_line: 4604
-    end_line_exclusive: 4613
+    start_line: 4617
+    end_line_exclusive: 4626
     bytes: 985
     sha256: 07a2a614136318b5a0fc67ca0462f5887e506a4f7d5997e0b3cdefafa17fd736
     kind: heading_block
@@ -5313,12 +5334,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000274
-  ordinal: 274
+- block_id: B000275
+  ordinal: 275
   source:
     path: docs/handoff.md
-    start_line: 4613
-    end_line_exclusive: 4623
+    start_line: 4626
+    end_line_exclusive: 4636
     bytes: 563
     sha256: fca464c8fc43f5fbe0ca315ab3baa485041f99341c99178e972df8bee622fa54
     kind: heading_block
@@ -5332,12 +5353,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000275
-  ordinal: 275
+- block_id: B000276
+  ordinal: 276
   source:
     path: docs/handoff.md
-    start_line: 4623
-    end_line_exclusive: 4625
+    start_line: 4636
+    end_line_exclusive: 4638
     bytes: 43
     sha256: acf574d1e997fd6ef49dc26c0e4cbecb0787d370abec0f89ddb56ce572ab84f9
     kind: heading_block
@@ -5351,12 +5372,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000276
-  ordinal: 276
+- block_id: B000277
+  ordinal: 277
   source:
     path: docs/handoff.md
-    start_line: 4625
-    end_line_exclusive: 4633
+    start_line: 4638
+    end_line_exclusive: 4646
     bytes: 464
     sha256: c425fbd1ba780e7ac3391b6673b28d6a6e01f0885585441c9a5f9c945a92aa34
     kind: heading_block
@@ -5370,12 +5391,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000277
-  ordinal: 277
+- block_id: B000278
+  ordinal: 278
   source:
     path: docs/handoff.md
-    start_line: 4633
-    end_line_exclusive: 4643
+    start_line: 4646
+    end_line_exclusive: 4656
     bytes: 766
     sha256: f461d1ebcc2e9bd3a484e04a22ed36d942d4b96b0c81b6f10e9edcd5e733fbdd
     kind: heading_block
@@ -5389,12 +5410,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000278
-  ordinal: 278
+- block_id: B000279
+  ordinal: 279
   source:
     path: docs/handoff.md
-    start_line: 4643
-    end_line_exclusive: 4656
+    start_line: 4656
+    end_line_exclusive: 4669
     bytes: 459
     sha256: 0b7be12f2f4745d3a71da60cf8c2ce6dc6ba81092a54c576e6857be8cddb1e3b
     kind: heading_block
@@ -5408,12 +5429,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000279
-  ordinal: 279
+- block_id: B000280
+  ordinal: 280
   source:
     path: docs/handoff.md
-    start_line: 4656
-    end_line_exclusive: 4670
+    start_line: 4669
+    end_line_exclusive: 4683
     bytes: 1095
     sha256: be91d7e322fe5f5b5fe24abc42bc7053dc65be32f077ee4dad543c8356df6729
     kind: heading_block
@@ -5427,12 +5448,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000280
-  ordinal: 280
+- block_id: B000281
+  ordinal: 281
   source:
     path: docs/handoff.md
-    start_line: 4670
-    end_line_exclusive: 4686
+    start_line: 4683
+    end_line_exclusive: 4699
     bytes: 653
     sha256: 2d2895277cfbebc6afbbe6b4718b0512fb01a2545c6857765c89ab8ab481999a
     kind: heading_block
@@ -5446,12 +5467,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000281
-  ordinal: 281
+- block_id: B000282
+  ordinal: 282
   source:
     path: docs/handoff.md
-    start_line: 4686
-    end_line_exclusive: 4693
+    start_line: 4699
+    end_line_exclusive: 4706
     bytes: 745
     sha256: 2d07b38c2c52cd4a8b10d0847e43bfa09474e78ae997780325bed2bb00a04b0c
     kind: heading_block
@@ -5465,12 +5486,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000282
-  ordinal: 282
+- block_id: B000283
+  ordinal: 283
   source:
     path: docs/handoff.md
-    start_line: 4693
-    end_line_exclusive: 4699
+    start_line: 4706
+    end_line_exclusive: 4712
     bytes: 350
     sha256: 1af028e93e662fed30d1b1dff9214882eab2b501028959dcc755cfb2aae713e3
     kind: heading_block
@@ -5484,12 +5505,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000283
-  ordinal: 283
+- block_id: B000284
+  ordinal: 284
   source:
     path: docs/handoff.md
-    start_line: 4699
-    end_line_exclusive: 4713
+    start_line: 4712
+    end_line_exclusive: 4726
     bytes: 1017
     sha256: 22abf7956ef0d5313210df83d0101ac084a4b60a41b3283aca49aaae9513f76e
     kind: heading_block
@@ -5504,12 +5525,12 @@ owners:
   stage4a_candidate_modules:
   - hopper_e7
   references: []
-- block_id: B000284
-  ordinal: 284
+- block_id: B000285
+  ordinal: 285
   source:
     path: docs/handoff.md
-    start_line: 4713
-    end_line_exclusive: 4724
+    start_line: 4726
+    end_line_exclusive: 4737
     bytes: 565
     sha256: ac6ce6b0794ad216be2eec552d937b5d69e00749f9754fecb59573287176d027
     kind: heading_block
@@ -5524,12 +5545,12 @@ owners:
   stage4a_candidate_modules:
   - hopper_e7
   references: []
-- block_id: B000285
-  ordinal: 285
+- block_id: B000286
+  ordinal: 286
   source:
     path: docs/handoff.md
-    start_line: 4724
-    end_line_exclusive: 4734
+    start_line: 4737
+    end_line_exclusive: 4747
     bytes: 525
     sha256: f7330546b918fbf503ed0491449b8b28f5c01d8a7b24fc3548f2ac57697ec56e
     kind: heading_block
@@ -5544,12 +5565,12 @@ owners:
   stage4a_candidate_modules:
   - hopper_e7
   references: []
-- block_id: B000286
-  ordinal: 286
+- block_id: B000287
+  ordinal: 287
   source:
     path: docs/handoff.md
-    start_line: 4734
-    end_line_exclusive: 4753
+    start_line: 4747
+    end_line_exclusive: 4766
     bytes: 1076
     sha256: bcf4771d5c551f7d7d0a2bedb47328920d2ad5b99d544fe988755ba92026d8ab
     kind: heading_block
@@ -5564,12 +5585,12 @@ owners:
   stage4a_candidate_modules:
   - hopper_e7
   references: []
-- block_id: B000287
-  ordinal: 287
+- block_id: B000288
+  ordinal: 288
   source:
     path: docs/handoff.md
-    start_line: 4753
-    end_line_exclusive: 4757
+    start_line: 4766
+    end_line_exclusive: 4770
     bytes: 396
     sha256: 81e71917de685b00782c17f5d426e81b7b4b5b275d324999414e331302aed387
     kind: heading_block
@@ -5584,12 +5605,12 @@ owners:
   stage4a_candidate_modules:
   - hopper_e7
   references: []
-- block_id: B000288
-  ordinal: 288
+- block_id: B000289
+  ordinal: 289
   source:
     path: docs/handoff.md
-    start_line: 4757
-    end_line_exclusive: 4771
+    start_line: 4770
+    end_line_exclusive: 4784
     bytes: 464
     sha256: 668d75021995c325801015140bddf7313c2400ea596fdc55d8b19f2f04882aa0
     kind: heading_block
@@ -5604,12 +5625,12 @@ owners:
   stage4a_candidate_modules:
   - hopper_e7
   references: []
-- block_id: B000289
-  ordinal: 289
+- block_id: B000290
+  ordinal: 290
   source:
     path: docs/handoff.md
-    start_line: 4771
-    end_line_exclusive: 4791
+    start_line: 4784
+    end_line_exclusive: 4804
     bytes: 683
     sha256: 2eb348ad74f94566ac54ade4d99afb4aa0349d1b6014cb8472d478ffe40b4750
     kind: heading_block
@@ -5624,12 +5645,12 @@ owners:
   stage4a_candidate_modules:
   - hopper_e7
   references: []
-- block_id: B000290
-  ordinal: 290
+- block_id: B000291
+  ordinal: 291
   source:
     path: docs/handoff.md
-    start_line: 4791
-    end_line_exclusive: 4795
+    start_line: 4804
+    end_line_exclusive: 4808
     bytes: 225
     sha256: 40df0d272fe9863dc2fff7328900e12a5d6d9b8463ad071156bc975d02814cb6
     kind: heading_block
@@ -5643,12 +5664,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000291
-  ordinal: 291
+- block_id: B000292
+  ordinal: 292
   source:
     path: docs/handoff.md
-    start_line: 4795
-    end_line_exclusive: 4797
+    start_line: 4808
+    end_line_exclusive: 4810
     bytes: 40
     sha256: 0f60e001216dccb2c7ee0a7d850aa652f6a0cb4522d1c5e4cce1fbf06a127f1a
     kind: heading_block
@@ -5662,12 +5683,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000292
-  ordinal: 292
+- block_id: B000293
+  ordinal: 293
   source:
     path: docs/handoff.md
-    start_line: 4797
-    end_line_exclusive: 4807
+    start_line: 4810
+    end_line_exclusive: 4820
     bytes: 888
     sha256: 67df41d924f47a6176d947a192d4027f45b60f45b9a2c93cc2cab5c3f6238525
     kind: heading_block
@@ -5681,12 +5702,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000293
-  ordinal: 293
+- block_id: B000294
+  ordinal: 294
   source:
     path: docs/handoff.md
-    start_line: 4807
-    end_line_exclusive: 4809
+    start_line: 4820
+    end_line_exclusive: 4822
     bytes: 20
     sha256: 9620266e9be052fd722a69b8cedfe397bf947f249282c23f8986c30c99d91d79
     kind: heading_block
@@ -5700,12 +5721,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000294
-  ordinal: 294
+- block_id: B000295
+  ordinal: 295
   source:
     path: docs/handoff.md
-    start_line: 4809
-    end_line_exclusive: 4819
+    start_line: 4822
+    end_line_exclusive: 4832
     bytes: 334
     sha256: 097d46135018aac8952503f6680d920542157b199f48abfad5d95678ec3090c8
     kind: heading_block
@@ -5719,12 +5740,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000295
-  ordinal: 295
+- block_id: B000296
+  ordinal: 296
   source:
     path: docs/handoff.md
-    start_line: 4819
-    end_line_exclusive: 4829
+    start_line: 4832
+    end_line_exclusive: 4842
     bytes: 331
     sha256: b90be8b519b7d09102365b5904245152a401808eb00780685ff57fd2907338ed
     kind: heading_block
@@ -5738,12 +5759,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000296
-  ordinal: 296
+- block_id: B000297
+  ordinal: 297
   source:
     path: docs/handoff.md
-    start_line: 4829
-    end_line_exclusive: 4833
+    start_line: 4842
+    end_line_exclusive: 4846
     bytes: 274
     sha256: a7ad1ab980baa63e14925fd75016b45580f1bcc6fd9b1c093a080815adfff623
     kind: heading_block
@@ -5757,12 +5778,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000297
-  ordinal: 297
+- block_id: B000298
+  ordinal: 298
   source:
     path: docs/handoff.md
-    start_line: 4833
-    end_line_exclusive: 4835
+    start_line: 4846
+    end_line_exclusive: 4848
     bytes: 57
     sha256: 4e9404edb428cba7deb0e593c6eb2319e2770f2b2c9896965e984ce1769029b6
     kind: heading_block
@@ -5776,12 +5797,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000298
-  ordinal: 298
+- block_id: B000299
+  ordinal: 299
   source:
     path: docs/handoff.md
-    start_line: 4835
-    end_line_exclusive: 4846
+    start_line: 4848
+    end_line_exclusive: 4859
     bytes: 638
     sha256: 2799a6c81cbb66a0680f13dc5e9f0a6ab463406cc60bb3f956b1e05d01843ac7
     kind: heading_block
@@ -5795,12 +5816,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000299
-  ordinal: 299
+- block_id: B000300
+  ordinal: 300
   source:
     path: docs/handoff.md
-    start_line: 4846
-    end_line_exclusive: 4858
+    start_line: 4859
+    end_line_exclusive: 4871
     bytes: 800
     sha256: 7fd412afb0d5dc10588bf46c21cf758a56badd0a6876840a7726add1aaa3930c
     kind: heading_block
@@ -5814,12 +5835,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000300
-  ordinal: 300
+- block_id: B000301
+  ordinal: 301
   source:
     path: docs/handoff.md
-    start_line: 4858
-    end_line_exclusive: 4871
+    start_line: 4871
+    end_line_exclusive: 4884
     bytes: 912
     sha256: d26d1e106efe535d582fa88522f368488fa74f902be1447d258be47c8abf18a7
     kind: heading_block
@@ -5833,12 +5854,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000301
-  ordinal: 301
+- block_id: B000302
+  ordinal: 302
   source:
     path: docs/handoff.md
-    start_line: 4871
-    end_line_exclusive: 4878
+    start_line: 4884
+    end_line_exclusive: 4891
     bytes: 597
     sha256: 62a7cffcb57892463b6d09e9ad805a67d4b2276e81f73e28bc4b433950ca7161
     kind: heading_block
@@ -5852,12 +5873,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000302
-  ordinal: 302
+- block_id: B000303
+  ordinal: 303
   source:
     path: docs/handoff.md
-    start_line: 4878
-    end_line_exclusive: 4884
+    start_line: 4891
+    end_line_exclusive: 4897
     bytes: 448
     sha256: c73322850e49b008df032477cf1503f534f8e744fac46a651bf5f8f5e7fc0ac1
     kind: heading_block
@@ -5871,12 +5892,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000303
-  ordinal: 303
+- block_id: B000304
+  ordinal: 304
   source:
     path: docs/handoff.md
-    start_line: 4884
-    end_line_exclusive: 4895
+    start_line: 4897
+    end_line_exclusive: 4908
     bytes: 671
     sha256: 887a2d5a0e68201d3a4d63c9a713b4e2bcf332155e73ea78dad0b083f8780070
     kind: heading_block
@@ -5890,12 +5911,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000304
-  ordinal: 304
+- block_id: B000305
+  ordinal: 305
   source:
     path: docs/handoff.md
-    start_line: 4895
-    end_line_exclusive: 4897
+    start_line: 4908
+    end_line_exclusive: 4910
     bytes: 82
     sha256: 15ddfe5d326801e236fb5ebb0e37428e7cd96265d8d87dea01d3d43746b93c70
     kind: heading_block
@@ -5910,12 +5931,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000305
-  ordinal: 305
+- block_id: B000306
+  ordinal: 306
   source:
     path: docs/handoff.md
-    start_line: 4897
-    end_line_exclusive: 4901
+    start_line: 4910
+    end_line_exclusive: 4914
     bytes: 367
     sha256: bd96725f309d2efbb537a6edc9a05045b12437c91d02253ee5ba4ac1fb372b89
     kind: heading_block
@@ -5930,12 +5951,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000306
-  ordinal: 306
+- block_id: B000307
+  ordinal: 307
   source:
     path: docs/handoff.md
-    start_line: 4901
-    end_line_exclusive: 4903
+    start_line: 4914
+    end_line_exclusive: 4916
     bytes: 53
     sha256: 1bcb870119118ba971c265a8be5233738fc794666907d21bd7ed6862e639034e
     kind: heading_block
@@ -5950,12 +5971,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000307
-  ordinal: 307
+- block_id: B000308
+  ordinal: 308
   source:
     path: docs/handoff.md
-    start_line: 4903
-    end_line_exclusive: 4913
+    start_line: 4916
+    end_line_exclusive: 4926
     bytes: 407
     sha256: 3e35ca51cdfd71156a9fd57216b2fe1ece3ee9b555a8b370b6140b1f1bba5a3e
     kind: heading_block
@@ -5970,12 +5991,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000308
-  ordinal: 308
+- block_id: B000309
+  ordinal: 309
   source:
     path: docs/handoff.md
-    start_line: 4913
-    end_line_exclusive: 4917
+    start_line: 4926
+    end_line_exclusive: 4930
     bytes: 433
     sha256: 42c20718eed9857b51e3e779a3beea5506435475081177d8dcf9658717a1d7bb
     kind: heading_block
@@ -5990,12 +6011,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000309
-  ordinal: 309
+- block_id: B000310
+  ordinal: 310
   source:
     path: docs/handoff.md
-    start_line: 4917
-    end_line_exclusive: 4928
+    start_line: 4930
+    end_line_exclusive: 4941
     bytes: 1083
     sha256: 9bbdd99e060d39a8dc02027c6f46c79bb89db0d604e99d010d0c179cdf4e188d
     kind: heading_block
@@ -6010,12 +6031,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000310
-  ordinal: 310
+- block_id: B000311
+  ordinal: 311
   source:
     path: docs/handoff.md
-    start_line: 4928
-    end_line_exclusive: 4945
+    start_line: 4941
+    end_line_exclusive: 4958
     bytes: 2565
     sha256: ec2883da4871feffbe142fc331014f1da2d00cc49a5c0cc0640cfc3429c5593f
     kind: heading_block
@@ -6030,12 +6051,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000311
-  ordinal: 311
+- block_id: B000312
+  ordinal: 312
   source:
     path: docs/handoff.md
-    start_line: 4945
-    end_line_exclusive: 4947
+    start_line: 4958
+    end_line_exclusive: 4960
     bytes: 59
     sha256: d03ca238d0d9505493a8e9eb2ea2bef318489209b18fa3995334ecbf0da3cad1
     kind: heading_block
@@ -6050,12 +6071,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000312
-  ordinal: 312
+- block_id: B000313
+  ordinal: 313
   source:
     path: docs/handoff.md
-    start_line: 4947
-    end_line_exclusive: 4953
+    start_line: 4960
+    end_line_exclusive: 4966
     bytes: 268
     sha256: c3e8a773f00cf3198a88b5860ae60bcae21969ee6f91d34adb3f037d9f17540b
     kind: heading_block
@@ -6070,12 +6091,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000313
-  ordinal: 313
+- block_id: B000314
+  ordinal: 314
   source:
     path: docs/handoff.md
-    start_line: 4953
-    end_line_exclusive: 4959
+    start_line: 4966
+    end_line_exclusive: 4972
     bytes: 297
     sha256: d70c120028d708bed131b1a916aae51c476dc1382f9349b16cc61fb3ce81727a
     kind: heading_block
@@ -6090,12 +6111,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000314
-  ordinal: 314
+- block_id: B000315
+  ordinal: 315
   source:
     path: docs/handoff.md
-    start_line: 4959
-    end_line_exclusive: 4963
+    start_line: 4972
+    end_line_exclusive: 4976
     bytes: 256
     sha256: b08194aeb4e99749deb13b235160b6fc137a1306600b7a355fab4688bafa9b79
     kind: heading_block
@@ -6110,12 +6131,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000315
-  ordinal: 315
+- block_id: B000316
+  ordinal: 316
   source:
     path: docs/handoff.md
-    start_line: 4963
-    end_line_exclusive: 4967
+    start_line: 4976
+    end_line_exclusive: 4980
     bytes: 217
     sha256: 97c46c5e8db376a66447d031cacbad1555edaec279a03a35ec8f6f9ad65a5144
     kind: heading_block
@@ -6130,12 +6151,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000316
-  ordinal: 316
+- block_id: B000317
+  ordinal: 317
   source:
     path: docs/handoff.md
-    start_line: 4967
-    end_line_exclusive: 4971
+    start_line: 4980
+    end_line_exclusive: 4984
     bytes: 236
     sha256: 9bd1ed9358bd2edda705ceba2c8479a73b87a5165d4aacdc639683d90a2647c6
     kind: heading_block
@@ -6150,12 +6171,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000317
-  ordinal: 317
+- block_id: B000318
+  ordinal: 318
   source:
     path: docs/handoff.md
-    start_line: 4971
-    end_line_exclusive: 4975
+    start_line: 4984
+    end_line_exclusive: 4988
     bytes: 199
     sha256: 09b98551a949048f0552995b02cd7dfaf6362c2fd82a2e799ad717d11b5bfc9a
     kind: heading_block
@@ -6170,12 +6191,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000318
-  ordinal: 318
+- block_id: B000319
+  ordinal: 319
   source:
     path: docs/handoff.md
-    start_line: 4975
-    end_line_exclusive: 4983
+    start_line: 4988
+    end_line_exclusive: 4996
     bytes: 377
     sha256: ba32d2f43d03977ff19cc711bc48b3e4d4ec5bc9e3b5edb74688467f0779cb6e
     kind: heading_block
@@ -6190,12 +6211,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000319
-  ordinal: 319
+- block_id: B000320
+  ordinal: 320
   source:
     path: docs/handoff.md
-    start_line: 4983
-    end_line_exclusive: 4985
+    start_line: 4996
+    end_line_exclusive: 4998
     bytes: 41
     sha256: c885fadd855b123d7a05813c5540cb762398592af04d8357cc3ee5cb3bfc0f70
     kind: heading_block
@@ -6210,12 +6231,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000320
-  ordinal: 320
+- block_id: B000321
+  ordinal: 321
   source:
     path: docs/handoff.md
-    start_line: 4985
-    end_line_exclusive: 4991
+    start_line: 4998
+    end_line_exclusive: 5004
     bytes: 413
     sha256: b2e83b7915272630a032b7088b8e18cb8e1abfc6a4804384470503060862c09c
     kind: heading_block
@@ -6230,12 +6251,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000321
-  ordinal: 321
+- block_id: B000322
+  ordinal: 322
   source:
     path: docs/handoff.md
-    start_line: 4991
-    end_line_exclusive: 4997
+    start_line: 5004
+    end_line_exclusive: 5010
     bytes: 384
     sha256: e37c6a5b60e143d70759251dbb14e6123f6426233dda3af7f2e8d5b4fc4a9ada
     kind: heading_block
@@ -6250,12 +6271,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000322
-  ordinal: 322
+- block_id: B000323
+  ordinal: 323
   source:
     path: docs/handoff.md
-    start_line: 4997
-    end_line_exclusive: 5003
+    start_line: 5010
+    end_line_exclusive: 5016
     bytes: 378
     sha256: 7170604c386ccb92ac60084f8e368a8173c05cf254f0b1b817a0047411d761fc
     kind: heading_block
@@ -6270,12 +6291,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000323
-  ordinal: 323
+- block_id: B000324
+  ordinal: 324
   source:
     path: docs/handoff.md
-    start_line: 5003
-    end_line_exclusive: 5012
+    start_line: 5016
+    end_line_exclusive: 5025
     bytes: 363
     sha256: 174b9e0687d2b0bfbb030cc53df900dc62bd80ffcdd86b9e5ec86e28e9876519
     kind: heading_block
@@ -6290,12 +6311,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000324
-  ordinal: 324
+- block_id: B000325
+  ordinal: 325
   source:
     path: docs/handoff.md
-    start_line: 5012
-    end_line_exclusive: 5016
+    start_line: 5025
+    end_line_exclusive: 5029
     bytes: 228
     sha256: ca3ba55952881e44138cc3b883dc44c6e3805bee7096eae49e013964e7a632ba
     kind: heading_block
@@ -6310,12 +6331,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000325
-  ordinal: 325
+- block_id: B000326
+  ordinal: 326
   source:
     path: docs/handoff.md
-    start_line: 5016
-    end_line_exclusive: 5026
+    start_line: 5029
+    end_line_exclusive: 5039
     bytes: 396
     sha256: 57ee0eed8e661e57a3dcb17cb550f65c2dc32dd0e078fcfca62e145bd938f2b6
     kind: heading_block
@@ -6330,12 +6351,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000326
-  ordinal: 326
+- block_id: B000327
+  ordinal: 327
   source:
     path: docs/handoff.md
-    start_line: 5026
-    end_line_exclusive: 5030
+    start_line: 5039
+    end_line_exclusive: 5043
     bytes: 282
     sha256: 56f66eb949368a44dc68be613cc71e8102e14677ebb9297cbf3e9cbcf5199657
     kind: heading_block
@@ -6350,12 +6371,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000327
-  ordinal: 327
+- block_id: B000328
+  ordinal: 328
   source:
     path: docs/handoff.md
-    start_line: 5030
-    end_line_exclusive: 5043
+    start_line: 5043
+    end_line_exclusive: 5056
     bytes: 517
     sha256: 0a3322c3a516811580ff99798233ff76fff53b997b901c25f41fcf97b4bc9368
     kind: heading_block
@@ -6370,12 +6391,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000328
-  ordinal: 328
+- block_id: B000329
+  ordinal: 329
   source:
     path: docs/handoff.md
-    start_line: 5043
-    end_line_exclusive: 5045
+    start_line: 5056
+    end_line_exclusive: 5058
     bytes: 60
     sha256: 93aa50fde527fa2e5f3077a8bf5fe241a79fb51e1e726aa5c3618f7d4acaeb0f
     kind: heading_block
@@ -6390,12 +6411,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000329
-  ordinal: 329
+- block_id: B000330
+  ordinal: 330
   source:
     path: docs/handoff.md
-    start_line: 5045
-    end_line_exclusive: 5051
+    start_line: 5058
+    end_line_exclusive: 5064
     bytes: 279
     sha256: 46f05670e6f9c699c41ab30af9981d9922382d7eafa713c241a74b28d019ce83
     kind: heading_block
@@ -6410,12 +6431,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000330
-  ordinal: 330
+- block_id: B000331
+  ordinal: 331
   source:
     path: docs/handoff.md
-    start_line: 5051
-    end_line_exclusive: 5057
+    start_line: 5064
+    end_line_exclusive: 5070
     bytes: 373
     sha256: 9be01dc61637cd0419de261afd47b515a7d0b71665a448f9e2f9731c4a7e6dda
     kind: heading_block
@@ -6430,12 +6451,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000331
-  ordinal: 331
+- block_id: B000332
+  ordinal: 332
   source:
     path: docs/handoff.md
-    start_line: 5057
-    end_line_exclusive: 5063
+    start_line: 5070
+    end_line_exclusive: 5076
     bytes: 368
     sha256: 3d3a7e4ab8a56e113496d837260a6eec10af288d0af6fc41f0a454d593ccce9c
     kind: heading_block
@@ -6450,12 +6471,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000332
-  ordinal: 332
+- block_id: B000333
+  ordinal: 333
   source:
     path: docs/handoff.md
-    start_line: 5063
-    end_line_exclusive: 5069
+    start_line: 5076
+    end_line_exclusive: 5082
     bytes: 244
     sha256: f76412172dc6965664c72b6349bd0534e7f97e4d8c807d0a0203e3e11c8eb5d4
     kind: heading_block
@@ -6470,12 +6491,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000333
-  ordinal: 333
+- block_id: B000334
+  ordinal: 334
   source:
     path: docs/handoff.md
-    start_line: 5069
-    end_line_exclusive: 5078
+    start_line: 5082
+    end_line_exclusive: 5091
     bytes: 352
     sha256: 049367e05b9001d74a9cd3162748da4ffcea287ac5167864be3bb86f3f007d55
     kind: heading_block
@@ -6490,12 +6511,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000334
-  ordinal: 334
+- block_id: B000335
+  ordinal: 335
   source:
     path: docs/handoff.md
-    start_line: 5078
-    end_line_exclusive: 5080
+    start_line: 5091
+    end_line_exclusive: 5093
     bytes: 52
     sha256: 009408f9f67c8c11fa3ff7479d7025db4c239b93b6296ddbd73ddc4de9281829
     kind: heading_block
@@ -6510,12 +6531,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000335
-  ordinal: 335
+- block_id: B000336
+  ordinal: 336
   source:
     path: docs/handoff.md
-    start_line: 5080
-    end_line_exclusive: 5090
+    start_line: 5093
+    end_line_exclusive: 5103
     bytes: 280
     sha256: 2c567f9c637e46170720ecd839d2ee52d2e5d59a6a944ee32c36923fc2045bfb
     kind: heading_block
@@ -6530,12 +6551,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000336
-  ordinal: 336
+- block_id: B000337
+  ordinal: 337
   source:
     path: docs/handoff.md
-    start_line: 5090
-    end_line_exclusive: 5096
+    start_line: 5103
+    end_line_exclusive: 5109
     bytes: 348
     sha256: 828a4cf2b85c2ab22048e8a1cb0cc2ab09add955e0df070dfe0aba237bf38079
     kind: heading_block
@@ -6550,12 +6571,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000337
-  ordinal: 337
+- block_id: B000338
+  ordinal: 338
   source:
     path: docs/handoff.md
-    start_line: 5096
-    end_line_exclusive: 5100
+    start_line: 5109
+    end_line_exclusive: 5113
     bytes: 251
     sha256: ba2d7c1c05b830a1a73e7e23501ad97c83e10ae19188fe20884954fa70b1243c
     kind: heading_block
@@ -6570,12 +6591,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000338
-  ordinal: 338
+- block_id: B000339
+  ordinal: 339
   source:
     path: docs/handoff.md
-    start_line: 5100
-    end_line_exclusive: 5104
+    start_line: 5113
+    end_line_exclusive: 5117
     bytes: 137
     sha256: 66df8cbb8e3f10e15da036f6986b2a34ba9a890c3c5239cf1872132e21d2379e
     kind: heading_block
@@ -6590,12 +6611,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000339
-  ordinal: 339
+- block_id: B000340
+  ordinal: 340
   source:
     path: docs/handoff.md
-    start_line: 5104
-    end_line_exclusive: 5110
+    start_line: 5117
+    end_line_exclusive: 5123
     bytes: 240
     sha256: 554605bd36b7e71f0d6339a7f6d23c423a260f916c947b7e84a42f25c5096b22
     kind: heading_block
@@ -6610,12 +6631,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000340
-  ordinal: 340
+- block_id: B000341
+  ordinal: 341
   source:
     path: docs/handoff.md
-    start_line: 5110
-    end_line_exclusive: 5112
+    start_line: 5123
+    end_line_exclusive: 5125
     bytes: 63
     sha256: 4bbe1bc36a53ab5e798530f176428bc174670c0d120d954a39f51aa2e9447e63
     kind: heading_block
@@ -6630,12 +6651,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000341
-  ordinal: 341
+- block_id: B000342
+  ordinal: 342
   source:
     path: docs/handoff.md
-    start_line: 5112
-    end_line_exclusive: 5126
+    start_line: 5125
+    end_line_exclusive: 5139
     bytes: 500
     sha256: d373f6efcd471a8e3507c2f0c498d6cca06fb50716d74ac79ea8192f18ff6db9
     kind: heading_block
@@ -6650,12 +6671,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000342
-  ordinal: 342
+- block_id: B000343
+  ordinal: 343
   source:
     path: docs/handoff.md
-    start_line: 5126
-    end_line_exclusive: 5134
+    start_line: 5139
+    end_line_exclusive: 5147
     bytes: 373
     sha256: 74b8333777964958c1e250579d65ef43091c840470feb7b43d572d6c7b57718f
     kind: heading_block
@@ -6670,12 +6691,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000343
-  ordinal: 343
+- block_id: B000344
+  ordinal: 344
   source:
     path: docs/handoff.md
-    start_line: 5134
-    end_line_exclusive: 5146
+    start_line: 5147
+    end_line_exclusive: 5159
     bytes: 549
     sha256: 5a05566611bd7fc2c03b5620f68a26866e4fb59d56021b8808198b2d128048f0
     kind: heading_block
@@ -6690,12 +6711,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000344
-  ordinal: 344
+- block_id: B000345
+  ordinal: 345
   source:
     path: docs/handoff.md
-    start_line: 5146
-    end_line_exclusive: 5148
+    start_line: 5159
+    end_line_exclusive: 5161
     bytes: 25
     sha256: d8613b2c90161c436e89b53a23ac4f96c4aba164a2efa084bc68c1bf1767c75f
     kind: heading_block
@@ -6710,12 +6731,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000345
-  ordinal: 345
+- block_id: B000346
+  ordinal: 346
   source:
     path: docs/handoff.md
-    start_line: 5148
-    end_line_exclusive: 5152
+    start_line: 5161
+    end_line_exclusive: 5165
     bytes: 181
     sha256: f58541fd50dad3c5d2db568d87ce0d660f2a0c343391ed07a0e092327a4b440c
     kind: heading_block
@@ -6730,12 +6751,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000346
-  ordinal: 346
+- block_id: B000347
+  ordinal: 347
   source:
     path: docs/handoff.md
-    start_line: 5152
-    end_line_exclusive: 5156
+    start_line: 5165
+    end_line_exclusive: 5169
     bytes: 149
     sha256: 051463cea3e78914ad49053ecce20342fee6c1dc7d0709995b4d209eecc6d62c
     kind: heading_block
@@ -6750,12 +6771,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000347
-  ordinal: 347
+- block_id: B000348
+  ordinal: 348
   source:
     path: docs/handoff.md
-    start_line: 5156
-    end_line_exclusive: 5160
+    start_line: 5169
+    end_line_exclusive: 5173
     bytes: 155
     sha256: e6c1d775d87ecc978e115e8711fc514dca2221fc5341f70531fd7078e752b274
     kind: heading_block
@@ -6770,12 +6791,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000348
-  ordinal: 348
+- block_id: B000349
+  ordinal: 349
   source:
     path: docs/handoff.md
-    start_line: 5160
-    end_line_exclusive: 5164
+    start_line: 5173
+    end_line_exclusive: 5177
     bytes: 174
     sha256: 77bf19b86a9a9372f790a0449e056ee104d49b2a117a275ff436886feaf9ea77
     kind: heading_block
@@ -6790,12 +6811,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000349
-  ordinal: 349
+- block_id: B000350
+  ordinal: 350
   source:
     path: docs/handoff.md
-    start_line: 5164
-    end_line_exclusive: 5168
+    start_line: 5177
+    end_line_exclusive: 5181
     bytes: 237
     sha256: 2bc0483e0b5de0609fa1405c80397606fba67f8dde5dda9b9f43f655d3195c4b
     kind: heading_block
@@ -6810,12 +6831,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000350
-  ordinal: 350
+- block_id: B000351
+  ordinal: 351
   source:
     path: docs/handoff.md
-    start_line: 5168
-    end_line_exclusive: 5170
+    start_line: 5181
+    end_line_exclusive: 5183
     bytes: 28
     sha256: 7d5b559c5de36034096d8d30212ed759d304f1afe4b9a1ca28f243df09e20320
     kind: heading_block
@@ -6830,12 +6851,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000351
-  ordinal: 351
+- block_id: B000352
+  ordinal: 352
   source:
     path: docs/handoff.md
-    start_line: 5170
-    end_line_exclusive: 5174
+    start_line: 5183
+    end_line_exclusive: 5187
     bytes: 159
     sha256: b41c4dad7dd68f46d0c0d48f44e15e447981cee3b5cc634abf06f099d2d83739
     kind: heading_block
@@ -6850,12 +6871,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000352
-  ordinal: 352
+- block_id: B000353
+  ordinal: 353
   source:
     path: docs/handoff.md
-    start_line: 5174
-    end_line_exclusive: 5178
+    start_line: 5187
+    end_line_exclusive: 5191
     bytes: 177
     sha256: 88f9c1a90e7448df71143407f2685ea550ac7a842115a3636303c6ea263ee971
     kind: heading_block
@@ -6870,12 +6891,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000353
-  ordinal: 353
+- block_id: B000354
+  ordinal: 354
   source:
     path: docs/handoff.md
-    start_line: 5178
-    end_line_exclusive: 5182
+    start_line: 5191
+    end_line_exclusive: 5195
     bytes: 127
     sha256: 34abfa988cd44b83772dad1d08465f3154de9222a13523aa6e771a721e47cacf
     kind: heading_block
@@ -6890,12 +6911,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000354
-  ordinal: 354
+- block_id: B000355
+  ordinal: 355
   source:
     path: docs/handoff.md
-    start_line: 5182
-    end_line_exclusive: 5186
+    start_line: 5195
+    end_line_exclusive: 5199
     bytes: 198
     sha256: 0240a0393dbe44ef190e7efc62f082a1f9407e57a20de2073254d1748f4a2ca4
     kind: heading_block
@@ -6910,12 +6931,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000355
-  ordinal: 355
+- block_id: B000356
+  ordinal: 356
   source:
     path: docs/handoff.md
-    start_line: 5186
-    end_line_exclusive: 5194
+    start_line: 5199
+    end_line_exclusive: 5207
     bytes: 347
     sha256: 64e1cef5f6e06be2126db475df3648c2a1d224d351f4aecd36abb98b6398c740
     kind: heading_block
@@ -6930,12 +6951,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000356
-  ordinal: 356
+- block_id: B000357
+  ordinal: 357
   source:
     path: docs/handoff.md
-    start_line: 5194
-    end_line_exclusive: 5204
+    start_line: 5207
+    end_line_exclusive: 5217
     bytes: 310
     sha256: abee4daf46c339376b125ef7d07ba97fade605c4c29d8a58720a3044dabb66b9
     kind: heading_block
@@ -6950,12 +6971,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000357
-  ordinal: 357
+- block_id: B000358
+  ordinal: 358
   source:
     path: docs/handoff.md
-    start_line: 5204
-    end_line_exclusive: 5206
+    start_line: 5217
+    end_line_exclusive: 5219
     bytes: 77
     sha256: 5edc5ffb720eba1fa78f3e4574fa1d3c1c1145e183ef5f54923934faff5a2314
     kind: heading_block
@@ -6970,12 +6991,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000358
-  ordinal: 358
+- block_id: B000359
+  ordinal: 359
   source:
     path: docs/handoff.md
-    start_line: 5206
-    end_line_exclusive: 5223
+    start_line: 5219
+    end_line_exclusive: 5236
     bytes: 649
     sha256: ee26d9dc0a7d76e051aa71a428c9713ffd1e86ed5c35515acbfa0c434de0e8c8
     kind: heading_block
@@ -6990,12 +7011,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000359
-  ordinal: 359
+- block_id: B000360
+  ordinal: 360
   source:
     path: docs/handoff.md
-    start_line: 5223
-    end_line_exclusive: 5229
+    start_line: 5236
+    end_line_exclusive: 5242
     bytes: 372
     sha256: 3b4cf89ccf22452dea8b5f753dd9fcb95981e151f9ed2e11bb0149a0449ff988
     kind: heading_block
@@ -7010,12 +7031,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000360
-  ordinal: 360
+- block_id: B000361
+  ordinal: 361
   source:
     path: docs/handoff.md
-    start_line: 5229
-    end_line_exclusive: 5235
+    start_line: 5242
+    end_line_exclusive: 5248
     bytes: 327
     sha256: bece7717531580173a393f5dbdc1dee53ffed56c59c3d11e7a1fc3aafc01977c
     kind: heading_block
@@ -7030,12 +7051,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000361
-  ordinal: 361
+- block_id: B000362
+  ordinal: 362
   source:
     path: docs/handoff.md
-    start_line: 5235
-    end_line_exclusive: 5244
+    start_line: 5248
+    end_line_exclusive: 5257
     bytes: 441
     sha256: 78d417fbcf0c72358d58cd9cb2ba40733b7a4e5629996b90260a02b2f221cf58
     kind: heading_block
@@ -7050,12 +7071,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000362
-  ordinal: 362
+- block_id: B000363
+  ordinal: 363
   source:
     path: docs/handoff.md
-    start_line: 5244
-    end_line_exclusive: 5246
+    start_line: 5257
+    end_line_exclusive: 5259
     bytes: 51
     sha256: 6e31e439ef6a73f74996ae54299d7e5289e7662e21183fceeabb5232237879cd
     kind: heading_block
@@ -7070,12 +7091,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000363
-  ordinal: 363
+- block_id: B000364
+  ordinal: 364
   source:
     path: docs/handoff.md
-    start_line: 5246
-    end_line_exclusive: 5256
+    start_line: 5259
+    end_line_exclusive: 5269
     bytes: 422
     sha256: dcde4e04cbd1249b5eaa7bd7f3d7d185e9e90d3dc68c211ca50470e1795c492d
     kind: heading_block
@@ -7090,12 +7111,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000364
-  ordinal: 364
+- block_id: B000365
+  ordinal: 365
   source:
     path: docs/handoff.md
-    start_line: 5256
-    end_line_exclusive: 5266
+    start_line: 5269
+    end_line_exclusive: 5279
     bytes: 399
     sha256: 0ed38e575b3d4cfd50bb6148ec132da1132c027587f70e69e7821e535550edd8
     kind: heading_block
@@ -7110,12 +7131,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000365
-  ordinal: 365
+- block_id: B000366
+  ordinal: 366
   source:
     path: docs/handoff.md
-    start_line: 5266
-    end_line_exclusive: 5274
+    start_line: 5279
+    end_line_exclusive: 5287
     bytes: 315
     sha256: 22bd7bc0504741d0397df3471cb78067a27532f70c9dfb441104dfab32353cac
     kind: heading_block
@@ -7130,12 +7151,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000366
-  ordinal: 366
+- block_id: B000367
+  ordinal: 367
   source:
     path: docs/handoff.md
-    start_line: 5274
-    end_line_exclusive: 5280
+    start_line: 5287
+    end_line_exclusive: 5293
     bytes: 287
     sha256: b1f3cc4e2c12658fd7c74ba9c04e21c738556105266a29e4055d050dae237729
     kind: heading_block
@@ -7150,12 +7171,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000367
-  ordinal: 367
+- block_id: B000368
+  ordinal: 368
   source:
     path: docs/handoff.md
-    start_line: 5280
-    end_line_exclusive: 5288
+    start_line: 5293
+    end_line_exclusive: 5301
     bytes: 285
     sha256: 05b1abbc20abd82dda998b5206b6bb9f73e799c6575854733ccc7cb68d6a1607
     kind: heading_block
@@ -7170,12 +7191,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000368
-  ordinal: 368
+- block_id: B000369
+  ordinal: 369
   source:
     path: docs/handoff.md
-    start_line: 5288
-    end_line_exclusive: 5290
+    start_line: 5301
+    end_line_exclusive: 5303
     bytes: 54
     sha256: d22d11deeaf40ffeb2d791c367566972b3008c459133b97e24afbecbadfafd46
     kind: heading_block
@@ -7190,12 +7211,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000369
-  ordinal: 369
+- block_id: B000370
+  ordinal: 370
   source:
     path: docs/handoff.md
-    start_line: 5290
-    end_line_exclusive: 5294
+    start_line: 5303
+    end_line_exclusive: 5307
     bytes: 488
     sha256: a9fcf497a6ba453212b024ac91a65a9b59ec3dcdf05580572109707f8da6bc50
     kind: heading_block
@@ -7210,12 +7231,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000370
-  ordinal: 370
+- block_id: B000371
+  ordinal: 371
   source:
     path: docs/handoff.md
-    start_line: 5294
-    end_line_exclusive: 5302
+    start_line: 5307
+    end_line_exclusive: 5315
     bytes: 464
     sha256: d668ea9b89d454071aa653f8c7c53dd56c4376f1302367dc4f04dc9a78ddcc82
     kind: heading_block
@@ -7230,12 +7251,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000371
-  ordinal: 371
+- block_id: B000372
+  ordinal: 372
   source:
     path: docs/handoff.md
-    start_line: 5302
-    end_line_exclusive: 5347
+    start_line: 5315
+    end_line_exclusive: 5360
     bytes: 3401
     sha256: eb2c15b56859cc0afb878dfd044c2b6cd1bc7df3dd5d5552a8eb78d4b16da708
     kind: heading_block
@@ -7250,12 +7271,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000372
-  ordinal: 372
+- block_id: B000373
+  ordinal: 373
   source:
     path: docs/handoff.md
-    start_line: 5347
-    end_line_exclusive: 5351
+    start_line: 5360
+    end_line_exclusive: 5364
     bytes: 235
     sha256: 14d77980b07f7fd734aef505dadccad2917b4864ce17f5bb96cb441b4674419f
     kind: heading_block
@@ -7270,12 +7291,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000373
-  ordinal: 373
+- block_id: B000374
+  ordinal: 374
   source:
     path: docs/handoff.md
-    start_line: 5351
-    end_line_exclusive: 5366
+    start_line: 5364
+    end_line_exclusive: 5379
     bytes: 651
     sha256: da586eef62d5e69702e8c6a978438a53af72d331f4d116da29ca048c852fe422
     kind: heading_block
@@ -7290,12 +7311,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000374
-  ordinal: 374
+- block_id: B000375
+  ordinal: 375
   source:
     path: docs/handoff.md
-    start_line: 5366
-    end_line_exclusive: 5391
+    start_line: 5379
+    end_line_exclusive: 5404
     bytes: 2589
     sha256: 3d821bacbd005d75ab0c78049e21a432f673732c0614d0f9fa4e8cd808c48a0c
     kind: heading_block
@@ -7310,12 +7331,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000375
-  ordinal: 375
+- block_id: B000376
+  ordinal: 376
   source:
     path: docs/handoff.md
-    start_line: 5391
-    end_line_exclusive: 5406
+    start_line: 5404
+    end_line_exclusive: 5419
     bytes: 1784
     sha256: 1a035b5c85eb675b0e1239e2e6e7abb5566e033e15f2d8825874e7ea304b3836
     kind: heading_block
@@ -7330,12 +7351,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000376
-  ordinal: 376
+- block_id: B000377
+  ordinal: 377
   source:
     path: docs/handoff.md
-    start_line: 5406
-    end_line_exclusive: 5420
+    start_line: 5419
+    end_line_exclusive: 5433
     bytes: 2360
     sha256: de29c425a442b6f4ef87947243dd07a8f833dce2a4c2d5398efffc17dc6a5b7a
     kind: heading_block
@@ -7350,12 +7371,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000377
-  ordinal: 377
+- block_id: B000378
+  ordinal: 378
   source:
     path: docs/handoff.md
-    start_line: 5420
-    end_line_exclusive: 5426
+    start_line: 5433
+    end_line_exclusive: 5439
     bytes: 219
     sha256: ecd018f2aaac71e963005bb7f124268a1e767ca205b52804e10b881ffcd33068
     kind: heading_block
@@ -7370,12 +7391,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000378
-  ordinal: 378
+- block_id: B000379
+  ordinal: 379
   source:
     path: docs/handoff.md
-    start_line: 5426
-    end_line_exclusive: 5430
+    start_line: 5439
+    end_line_exclusive: 5443
     bytes: 247
     sha256: e4f359e346f218685c29e09bd8dda0950c511239e1bc7d1ff68e4b092df73d73
     kind: heading_block
@@ -7390,12 +7411,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000379
-  ordinal: 379
+- block_id: B000380
+  ordinal: 380
   source:
     path: docs/handoff.md
-    start_line: 5430
-    end_line_exclusive: 5434
+    start_line: 5443
+    end_line_exclusive: 5447
     bytes: 200
     sha256: c1509027b22aefd9d5e29be551bd6036034f705b37788601acb46f61391b13c2
     kind: heading_block
@@ -7410,12 +7431,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000380
-  ordinal: 380
+- block_id: B000381
+  ordinal: 381
   source:
     path: docs/handoff.md
-    start_line: 5434
-    end_line_exclusive: 5438
+    start_line: 5447
+    end_line_exclusive: 5451
     bytes: 230
     sha256: 63fca3bcdcf9473271df7d1ba5728dc4c4bf61112ffe3acfbe2c003af6240ec7
     kind: heading_block
@@ -7430,12 +7451,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000381
-  ordinal: 381
+- block_id: B000382
+  ordinal: 382
   source:
     path: docs/handoff.md
-    start_line: 5438
-    end_line_exclusive: 5446
+    start_line: 5451
+    end_line_exclusive: 5459
     bytes: 447
     sha256: b89a6b6a9440d4114ecaa95a521b2a061b4f1de53991d5fcbf70fdd7d6f09d05
     kind: heading_block
@@ -7450,12 +7471,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000382
-  ordinal: 382
+- block_id: B000383
+  ordinal: 383
   source:
     path: docs/handoff.md
-    start_line: 5446
-    end_line_exclusive: 5448
+    start_line: 5459
+    end_line_exclusive: 5461
     bytes: 40
     sha256: a1c60036a8809efffd322a1b8ff730517cd7f9a9432a4c4a77e96b0594e94822
     kind: heading_block
@@ -7470,12 +7491,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000383
-  ordinal: 383
+- block_id: B000384
+  ordinal: 384
   source:
     path: docs/handoff.md
-    start_line: 5448
-    end_line_exclusive: 5452
+    start_line: 5461
+    end_line_exclusive: 5465
     bytes: 158
     sha256: f4c1d405a9d1d467b30c6b50f9b7f6fd40451151d2259f562a9b6599014a7539
     kind: heading_block
@@ -7490,12 +7511,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000384
-  ordinal: 384
+- block_id: B000385
+  ordinal: 385
   source:
     path: docs/handoff.md
-    start_line: 5452
-    end_line_exclusive: 5456
+    start_line: 5465
+    end_line_exclusive: 5469
     bytes: 110
     sha256: d3b4d164c1c59ccc7768cdb5c1a76dd025ee5c29b6a2ae48eb5b24f64ae13b42
     kind: heading_block
@@ -7510,12 +7531,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000385
-  ordinal: 385
+- block_id: B000386
+  ordinal: 386
   source:
     path: docs/handoff.md
-    start_line: 5456
-    end_line_exclusive: 5460
+    start_line: 5469
+    end_line_exclusive: 5473
     bytes: 125
     sha256: 6258a224a8e2de61b249d1a3e620383de95f4f145a371221c81ad46d8c541fe0
     kind: heading_block
@@ -7530,12 +7551,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000386
-  ordinal: 386
+- block_id: B000387
+  ordinal: 387
   source:
     path: docs/handoff.md
-    start_line: 5460
-    end_line_exclusive: 5464
+    start_line: 5473
+    end_line_exclusive: 5477
     bytes: 123
     sha256: 571ccf0f8e378b775b05910a3b270ef85e600f491f316907c5d64e6138c1802f
     kind: heading_block
@@ -7550,12 +7571,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000387
-  ordinal: 387
+- block_id: B000388
+  ordinal: 388
   source:
     path: docs/handoff.md
-    start_line: 5464
-    end_line_exclusive: 5468
+    start_line: 5477
+    end_line_exclusive: 5481
     bytes: 83
     sha256: ca6509f52ebcb5c6ac9bdd751e032232bdc33a1a6feaa9c77e39b399e64a5a4c
     kind: heading_block
@@ -7570,12 +7591,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000388
-  ordinal: 388
+- block_id: B000389
+  ordinal: 389
   source:
     path: docs/handoff.md
-    start_line: 5468
-    end_line_exclusive: 5472
+    start_line: 5481
+    end_line_exclusive: 5485
     bytes: 91
     sha256: e537ca9b6056837470274207286727688548ddc3c6207e1e4ea014ec3fd69a8e
     kind: heading_block
@@ -7590,12 +7611,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000389
-  ordinal: 389
+- block_id: B000390
+  ordinal: 390
   source:
     path: docs/handoff.md
-    start_line: 5472
-    end_line_exclusive: 5478
+    start_line: 5485
+    end_line_exclusive: 5491
     bytes: 137
     sha256: ce0688241f0665bca560d33bcbe9bab80a2c613b92aa7be60869de7c7e193b07
     kind: heading_block
@@ -7610,12 +7631,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000390
-  ordinal: 390
+- block_id: B000391
+  ordinal: 391
   source:
     path: docs/handoff.md
-    start_line: 5478
-    end_line_exclusive: 5480
+    start_line: 5491
+    end_line_exclusive: 5493
     bytes: 56
     sha256: f2e996c0505cf698f4d59ae2c0ecd14ebcd03007261b23fcf502269a9d1c7be5
     kind: heading_block
@@ -7630,12 +7651,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000391
-  ordinal: 391
+- block_id: B000392
+  ordinal: 392
   source:
     path: docs/handoff.md
-    start_line: 5480
-    end_line_exclusive: 5484
+    start_line: 5493
+    end_line_exclusive: 5497
     bytes: 150
     sha256: dcecd00f664492beb757ffccc30a042f67ce240d921f001abc47a1f63bb97622
     kind: heading_block
@@ -7650,12 +7671,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000392
-  ordinal: 392
+- block_id: B000393
+  ordinal: 393
   source:
     path: docs/handoff.md
-    start_line: 5484
-    end_line_exclusive: 5488
+    start_line: 5497
+    end_line_exclusive: 5501
     bytes: 165
     sha256: 0642a4dc19bb0d0b0be1de6685602a07f0bc1344e595f33ec0c02593c59ad492
     kind: heading_block
@@ -7670,12 +7691,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000393
-  ordinal: 393
+- block_id: B000394
+  ordinal: 394
   source:
     path: docs/handoff.md
-    start_line: 5488
-    end_line_exclusive: 5492
+    start_line: 5501
+    end_line_exclusive: 5505
     bytes: 154
     sha256: 5aeb99b3b6abc13220adc4d86068e7bada465ed12d1429b2f0a638747fdc3057
     kind: heading_block
@@ -7690,12 +7711,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000394
-  ordinal: 394
+- block_id: B000395
+  ordinal: 395
   source:
     path: docs/handoff.md
-    start_line: 5492
-    end_line_exclusive: 5496
+    start_line: 5505
+    end_line_exclusive: 5509
     bytes: 136
     sha256: 1a0f94078373e8ed8f9d3d36e73550969f10c67b80432fa4a6bd8f34ecfe9744
     kind: heading_block
@@ -7710,12 +7731,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000395
-  ordinal: 395
+- block_id: B000396
+  ordinal: 396
   source:
     path: docs/handoff.md
-    start_line: 5496
-    end_line_exclusive: 5500
+    start_line: 5509
+    end_line_exclusive: 5513
     bytes: 145
     sha256: dbf1667284526eb09d8ffb86b8595ecb9051a65a3cc08c79f4f9891c60019856
     kind: heading_block
@@ -7730,12 +7751,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000396
-  ordinal: 396
+- block_id: B000397
+  ordinal: 397
   source:
     path: docs/handoff.md
-    start_line: 5500
-    end_line_exclusive: 5506
+    start_line: 5513
+    end_line_exclusive: 5519
     bytes: 165
     sha256: e3c8e2ee18634bf8da98d67e659cb68955d70efa79826804af01a0c505b617a0
     kind: heading_block
@@ -7750,12 +7771,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000397
-  ordinal: 397
+- block_id: B000398
+  ordinal: 398
   source:
     path: docs/handoff.md
-    start_line: 5506
-    end_line_exclusive: 5508
+    start_line: 5519
+    end_line_exclusive: 5521
     bytes: 35
     sha256: e85197c54dc5e98fc3a9de49215141325c169e978bd8f6cdd10a6acfe0036480
     kind: heading_block
@@ -7770,12 +7791,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000398
-  ordinal: 398
+- block_id: B000399
+  ordinal: 399
   source:
     path: docs/handoff.md
-    start_line: 5508
-    end_line_exclusive: 5515
+    start_line: 5521
+    end_line_exclusive: 5528
     bytes: 387
     sha256: f8a193e80455ad3501d5f1dcccae82387aa6fe76d8ad769820dcf9546c1fa19b
     kind: heading_block
@@ -7790,12 +7811,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000399
-  ordinal: 399
+- block_id: B000400
+  ordinal: 400
   source:
     path: docs/handoff.md
-    start_line: 5515
-    end_line_exclusive: 5521
+    start_line: 5528
+    end_line_exclusive: 5534
     bytes: 258
     sha256: fa59881932d1d70f089000294e5fc944c507fa13d33108731aba0ee3ca0be98e
     kind: heading_block
@@ -7810,12 +7831,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000400
-  ordinal: 400
+- block_id: B000401
+  ordinal: 401
   source:
     path: docs/handoff.md
-    start_line: 5521
-    end_line_exclusive: 5528
+    start_line: 5534
+    end_line_exclusive: 5541
     bytes: 221
     sha256: 6675d3864927076b74fe6bff706f47ed4edfcd6cb7dcdea8675a34aa01c81464
     kind: heading_block
@@ -7830,12 +7851,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000401
-  ordinal: 401
+- block_id: B000402
+  ordinal: 402
   source:
     path: docs/handoff.md
-    start_line: 5528
-    end_line_exclusive: 5530
+    start_line: 5541
+    end_line_exclusive: 5543
     bytes: 30
     sha256: 1448cc91628f04729406093e22b7456f3ca0358b0e0c9cf6edbd64b7979f151d
     kind: heading_block
@@ -7850,12 +7871,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000402
-  ordinal: 402
+- block_id: B000403
+  ordinal: 403
   source:
     path: docs/handoff.md
-    start_line: 5530
-    end_line_exclusive: 5534
+    start_line: 5543
+    end_line_exclusive: 5547
     bytes: 191
     sha256: 71fb435ea063c13fea432b1ba088e1468d87a61adbdd7b54f1ffc30423a35056
     kind: heading_block
@@ -7870,12 +7891,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000403
-  ordinal: 403
+- block_id: B000404
+  ordinal: 404
   source:
     path: docs/handoff.md
-    start_line: 5534
-    end_line_exclusive: 5538
+    start_line: 5547
+    end_line_exclusive: 5551
     bytes: 105
     sha256: 3ed8fa8c0a737c0d845d9dc2223f624b4791cb5579f5e8e2f7ba9c5e311592d0
     kind: heading_block
@@ -7890,12 +7911,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000404
-  ordinal: 404
+- block_id: B000405
+  ordinal: 405
   source:
     path: docs/handoff.md
-    start_line: 5538
-    end_line_exclusive: 5542
+    start_line: 5551
+    end_line_exclusive: 5555
     bytes: 121
     sha256: a89876a68a1b30540318a8df127e295e47d2baca8c131f0f877f9ba984b11659
     kind: heading_block
@@ -7910,12 +7931,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000405
-  ordinal: 405
+- block_id: B000406
+  ordinal: 406
   source:
     path: docs/handoff.md
-    start_line: 5542
-    end_line_exclusive: 5546
+    start_line: 5555
+    end_line_exclusive: 5559
     bytes: 142
     sha256: aac0d763f46045825689c5a2736f0a1c875e59e3a791b06e41000a7c9dbf2880
     kind: heading_block
@@ -7930,12 +7951,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000406
-  ordinal: 406
+- block_id: B000407
+  ordinal: 407
   source:
     path: docs/handoff.md
-    start_line: 5546
-    end_line_exclusive: 5550
+    start_line: 5559
+    end_line_exclusive: 5563
     bytes: 136
     sha256: ced69c56e5b4c7cd1bc1e1ae67ff7064c13a31530fdb6ea68c99a3419e7da596
     kind: heading_block
@@ -7950,12 +7971,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000407
-  ordinal: 407
+- block_id: B000408
+  ordinal: 408
   source:
     path: docs/handoff.md
-    start_line: 5550
-    end_line_exclusive: 5554
+    start_line: 5563
+    end_line_exclusive: 5567
     bytes: 147
     sha256: 04bddac2e726f9c8e19822b7fc717ca226c288d5a8de9f67a6c6c18d4e06314e
     kind: heading_block
@@ -7970,12 +7991,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000408
-  ordinal: 408
+- block_id: B000409
+  ordinal: 409
   source:
     path: docs/handoff.md
-    start_line: 5554
-    end_line_exclusive: 5558
+    start_line: 5567
+    end_line_exclusive: 5571
     bytes: 135
     sha256: d827a9cc35a9af69a120bb015216602708ab60b957ff86190ee3c6d5276fbfe9
     kind: heading_block
@@ -7990,12 +8011,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000409
-  ordinal: 409
+- block_id: B000410
+  ordinal: 410
   source:
     path: docs/handoff.md
-    start_line: 5558
-    end_line_exclusive: 5562
+    start_line: 5571
+    end_line_exclusive: 5575
     bytes: 61
     sha256: eed3e47185ffad187ab76b2516ed5c40af1822ca21aa8380ef0f8b107a516046
     kind: heading_block
@@ -8010,12 +8031,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000410
-  ordinal: 410
+- block_id: B000411
+  ordinal: 411
   source:
     path: docs/handoff.md
-    start_line: 5562
-    end_line_exclusive: 5566
+    start_line: 5575
+    end_line_exclusive: 5579
     bytes: 99
     sha256: b99659cfa85a5341d08fe1bdcc70dfff28537c56becd1e4febf3f29b568c376f
     kind: heading_block
@@ -8030,12 +8051,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000411
-  ordinal: 411
+- block_id: B000412
+  ordinal: 412
   source:
     path: docs/handoff.md
-    start_line: 5566
-    end_line_exclusive: 5572
+    start_line: 5579
+    end_line_exclusive: 5585
     bytes: 115
     sha256: 1a4697e57f897343d2c2e4090fa336116729c0768da3c99a565fb64abdb40eba
     kind: heading_block
@@ -8050,12 +8071,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000412
-  ordinal: 412
+- block_id: B000413
+  ordinal: 413
   source:
     path: docs/handoff.md
-    start_line: 5572
-    end_line_exclusive: 5574
+    start_line: 5585
+    end_line_exclusive: 5587
     bytes: 54
     sha256: d239250fe198e44943e3bd5f4c40b70a34e8e82b6b529c9ad7be60878bf4685f
     kind: heading_block
@@ -8070,12 +8091,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000413
-  ordinal: 413
+- block_id: B000414
+  ordinal: 414
   source:
     path: docs/handoff.md
-    start_line: 5574
-    end_line_exclusive: 5584
+    start_line: 5587
+    end_line_exclusive: 5597
     bytes: 417
     sha256: c1ebac2b26070f128655200996d5b79eace26e641f9770debedd02910740c712
     kind: heading_block
@@ -8090,12 +8111,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000414
-  ordinal: 414
+- block_id: B000415
+  ordinal: 415
   source:
     path: docs/handoff.md
-    start_line: 5584
-    end_line_exclusive: 5591
+    start_line: 5597
+    end_line_exclusive: 5604
     bytes: 224
     sha256: 09da84a4f10692c812fb61dc185d753fbaaeee37a20f71dc7e465f425dae4f13
     kind: heading_block
@@ -8110,12 +8131,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000415
-  ordinal: 415
+- block_id: B000416
+  ordinal: 416
   source:
     path: docs/handoff.md
-    start_line: 5591
-    end_line_exclusive: 5601
+    start_line: 5604
+    end_line_exclusive: 5614
     bytes: 277
     sha256: 4a8c07232fa65d6a71fcc77fd320fb36662161d7beac66095abe3e5017b496f8
     kind: heading_block
@@ -8130,12 +8151,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000416
-  ordinal: 416
+- block_id: B000417
+  ordinal: 417
   source:
     path: docs/handoff.md
-    start_line: 5601
-    end_line_exclusive: 5612
+    start_line: 5614
+    end_line_exclusive: 5625
     bytes: 746
     sha256: 190f8bbbab3d119fbaee7c93a5acc3d3103dd0705c937d328d1d98dbe47e92d2
     kind: heading_block
@@ -8150,12 +8171,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000417
-  ordinal: 417
+- block_id: B000418
+  ordinal: 418
   source:
     path: docs/handoff.md
-    start_line: 5612
-    end_line_exclusive: 5647
+    start_line: 5625
+    end_line_exclusive: 5660
     bytes: 886
     sha256: 1eb742f0c0fc70155e932580c5618186d25542423625b72bcad86af75cc9ae0d
     kind: heading_block
@@ -8170,12 +8191,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000418
-  ordinal: 418
+- block_id: B000419
+  ordinal: 419
   source:
     path: docs/handoff.md
-    start_line: 5647
-    end_line_exclusive: 5649
+    start_line: 5660
+    end_line_exclusive: 5662
     bytes: 64
     sha256: d629703096abeafc2f84eb36012bcd343b0201ad124fbdc3e75b3d846fe3afce
     kind: heading_block
@@ -8190,12 +8211,12 @@ owners:
   stage4a_candidate_modules:
   - paper_rewrite
   references: []
-- block_id: B000419
-  ordinal: 419
+- block_id: B000420
+  ordinal: 420
   source:
     path: docs/handoff.md
-    start_line: 5649
-    end_line_exclusive: 5651
+    start_line: 5662
+    end_line_exclusive: 5664
     bytes: 34
     sha256: acf986a29a2de0687d77599bd0290ce477e75039cb51ab13ab00146637591318
     kind: heading_block
@@ -8209,12 +8230,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000420
-  ordinal: 420
+- block_id: B000421
+  ordinal: 421
   source:
     path: docs/handoff.md
-    start_line: 5651
-    end_line_exclusive: 5660
+    start_line: 5664
+    end_line_exclusive: 5673
     bytes: 635
     sha256: b9118cf91c6aae8c0f29c81783314f194535271fd31dd67f048fe19f3c9ffc47
     kind: heading_block
@@ -8228,12 +8249,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000421
-  ordinal: 421
+- block_id: B000422
+  ordinal: 422
   source:
     path: docs/handoff.md
-    start_line: 5660
-    end_line_exclusive: 5670
+    start_line: 5673
+    end_line_exclusive: 5683
     bytes: 600
     sha256: d4d0ec5267f2c41b5d13bfdc8bc6f119ba3a8603287e3e58304bef36153a35ac
     kind: heading_block
@@ -8247,12 +8268,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000422
-  ordinal: 422
+- block_id: B000423
+  ordinal: 423
   source:
     path: docs/handoff.md
-    start_line: 5670
-    end_line_exclusive: 5700
+    start_line: 5683
+    end_line_exclusive: 5713
     bytes: 1865
     sha256: 95cced997c2f7fcf9ee3df38e9e2eb20cbd42235938debae9cd7c4fff0631705
     kind: heading_block
@@ -8266,12 +8287,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000423
-  ordinal: 423
+- block_id: B000424
+  ordinal: 424
   source:
     path: docs/handoff.md
-    start_line: 5700
-    end_line_exclusive: 5710
+    start_line: 5713
+    end_line_exclusive: 5723
     bytes: 804
     sha256: d2c64d04655cc0fa778bd596a390094f07b7879561fa2cdd61aca51b95d7419d
     kind: heading_block
@@ -8285,12 +8306,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000424
-  ordinal: 424
+- block_id: B000425
+  ordinal: 425
   source:
     path: docs/handoff.md
-    start_line: 5710
-    end_line_exclusive: 5724
+    start_line: 5723
+    end_line_exclusive: 5737
     bytes: 401
     sha256: a317c930de6d55bc993c271c72085b94d188ec22f50ee2a333828945685aab31
     kind: heading_block
@@ -8304,12 +8325,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000425
-  ordinal: 425
+- block_id: B000426
+  ordinal: 426
   source:
     path: docs/handoff.md
-    start_line: 5724
-    end_line_exclusive: 5735
+    start_line: 5737
+    end_line_exclusive: 5748
     bytes: 2052
     sha256: 85eda3ac68ed1e1a52b3d2d73090f2c3bbb5fd2811c1fb64022a9d43a3a10932
     kind: heading_block
@@ -8323,12 +8344,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000426
-  ordinal: 426
+- block_id: B000427
+  ordinal: 427
   source:
     path: docs/handoff.md
-    start_line: 5735
-    end_line_exclusive: 5737
+    start_line: 5748
+    end_line_exclusive: 5750
     bytes: 65
     sha256: 2b15a9febb3053b9d21cd61b096dc5b98196660047820c8be4faf0c60a9d644d
     kind: heading_block
@@ -8342,12 +8363,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000427
-  ordinal: 427
+- block_id: B000428
+  ordinal: 428
   source:
     path: docs/handoff.md
-    start_line: 5737
-    end_line_exclusive: 5750
+    start_line: 5750
+    end_line_exclusive: 5763
     bytes: 846
     sha256: 78f5c2f770757cbe142201e381d4c6ebba1de69fbf8809efa9b6cd370da91581
     kind: heading_block
@@ -8361,12 +8382,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000428
-  ordinal: 428
+- block_id: B000429
+  ordinal: 429
   source:
     path: docs/handoff.md
-    start_line: 5750
-    end_line_exclusive: 5759
+    start_line: 5763
+    end_line_exclusive: 5772
     bytes: 659
     sha256: 2708a21a288a2f15eab9e783b5ba7bd765a72e84abca59e38e961b7795cd3f56
     kind: heading_block
@@ -8380,12 +8401,12 @@ owners:
   ownership_basis: explicit_post_boundary_history_fallback
   stage4a_candidate_modules: []
   references: []
-- block_id: B000429
-  ordinal: 429
+- block_id: B000430
+  ordinal: 430
   source:
     path: docs/handoff.md
-    start_line: 5759
-    end_line_exclusive: 5762
+    start_line: 5772
+    end_line_exclusive: 5775
     bytes: 429
     sha256: 8d3371e3e2884e77c3d335ab99b83c1d9753e4233397fcabfa53c82f710eec0f
     kind: heading_block

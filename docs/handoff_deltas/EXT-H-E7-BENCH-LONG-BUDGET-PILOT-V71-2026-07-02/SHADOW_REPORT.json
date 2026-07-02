@@ -1,0 +1,888 @@
+{
+  "affected_selectors": [
+    "DRPO / SNA2C \u8fdc\u573a\u8d1f\u68af\u5ea6\u52a8\u529b\u5b66\u7814\u7a76\u4e3b\u6587\u6863 v70\uff08D-U1 E6 utility \u00d7 surprisal \u7b1b\u5361\u5c14\u79ef\u4e0e TAPER \u8054\u5408\u767b\u8bb0\u7248\uff09",
+    "0. \u7814\u7a76\u4e0e\u6267\u884c\u539f\u5219\uff08\u6bcf\u6b21\u65b0\u4f1a\u8bdd\u9996\u5148\u9605\u8bfb\uff09"
+  ],
+  "base_commit": "4510e4cbc73b845d35e89ff520401db9a3e4a310",
+  "base_handoff_sha256": "7f7584abf036f78cee96161fa89c872f6d43cb6fc5e7609227f3f8be81b3b03d",
+  "base_registry_sha256": "7e87c022b167d0e9d356d159fa05684ae77947b2ef40358480f0f5c18ac5d723",
+  "candidate_replaced_authority": false,
+  "candidate_sha256": "669a31a5fa1c03c65163c16843edbb26ee5b8b8dbe0778e0022d61d8a1798f7a",
+  "comparison_target": "working_tree",
+  "current_registry_sha256": "061f8bdcfbbfd7b013ad1a18cc282440329ed502bbd6769f2d7c9d6498e3e747",
+  "exact_manual_candidate_match": true,
+  "full_candidate_saved": false,
+  "history_preservation_passed": true,
+  "idempotence_passed": true,
+  "llm_blocking_gate_used": false,
+  "manual_handoff_authoritative": true,
+  "manual_sha256": "669a31a5fa1c03c65163c16843edbb26ee5b8b8dbe0778e0022d61d8a1798f7a",
+  "mode": "shadow",
+  "network_used": false,
+  "observation_kind": "real",
+  "operation_count": 2,
+  "performance": {
+    "base_validation_ms": 76.957,
+    "comparison_and_registry_ms": 496.511,
+    "hard_limit_ms": 15000.0,
+    "policy_and_schema_ms": 14.3,
+    "render_and_idempotence_ms": 30.382,
+    "target_p95_ms": 5000.0,
+    "total_ms": 618.326,
+    "within_hard_limit": true,
+    "within_target": true
+  },
+  "policy_id": "GOV-HANDOFF-INDEX-01",
+  "registry_change_assertions": [
+    {
+      "change_id": "e7-bench-v71-01",
+      "entity_id": "EXT-H-E7-BENCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "669a31a5fa1c03c65163c16843edbb26ee5b8b8dbe0778e0022d61d8a1798f7a"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "061f8bdcfbbfd7b013ad1a18cc282440329ed502bbd6769f2d7c9d6498e3e747"
+        },
+        {
+          "path": "configs/e7_bench_pilot.yaml",
+          "sha256": "52ad9262139295990b3f10df9fb8b1c9e3e4b52e25c47a49b05c2fa75358d25f"
+        },
+        {
+          "path": "docs/e7_bench_pilot.md",
+          "sha256": "0667d58bf94aef04d3b4aa9699e1a2a5b59a31641cd07e9ed704f8b23dadf431"
+        },
+        {
+          "path": "src/drpo/e7_bench.py",
+          "sha256": "f20fa2dda4d7aea6b2bc3553c99eaadfcf6a47dde98de5b9943e07d9212401a3"
+        },
+        {
+          "path": "tests/test_e7_bench.py",
+          "sha256": "ffb50099ca93ebac4efb8c5946e04bbd2b7cb1f0bc36cc7b13b5bbc1139b17ea"
+        }
+      ],
+      "field_path": [
+        "formal_parallel_contract",
+        "identical_positive_warmstart_per_task_seed"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Carry equal-horizon continuation and exact resume identity requirements into the formal nine-task parallel contract.",
+      "to": true
+    },
+    {
+      "change_id": "e7-bench-v71-02",
+      "entity_id": "EXT-H-E7-BENCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "669a31a5fa1c03c65163c16843edbb26ee5b8b8dbe0778e0022d61d8a1798f7a"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "061f8bdcfbbfd7b013ad1a18cc282440329ed502bbd6769f2d7c9d6498e3e747"
+        },
+        {
+          "path": "configs/e7_bench_pilot.yaml",
+          "sha256": "52ad9262139295990b3f10df9fb8b1c9e3e4b52e25c47a49b05c2fa75358d25f"
+        },
+        {
+          "path": "docs/e7_bench_pilot.md",
+          "sha256": "0667d58bf94aef04d3b4aa9699e1a2a5b59a31641cd07e9ed704f8b23dadf431"
+        },
+        {
+          "path": "src/drpo/e7_bench.py",
+          "sha256": "f20fa2dda4d7aea6b2bc3553c99eaadfcf6a47dde98de5b9943e07d9212401a3"
+        },
+        {
+          "path": "tests/test_e7_bench.py",
+          "sha256": "ffb50099ca93ebac4efb8c5946e04bbd2b7cb1f0bc36cc7b13b5bbc1139b17ea"
+        }
+      ],
+      "field_path": [
+        "formal_parallel_contract",
+        "positive_only_is_equal_horizon_continuation_branch"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Carry equal-horizon continuation and exact resume identity requirements into the formal nine-task parallel contract.",
+      "to": true
+    },
+    {
+      "change_id": "e7-bench-v71-03",
+      "entity_id": "EXT-H-E7-BENCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "669a31a5fa1c03c65163c16843edbb26ee5b8b8dbe0778e0022d61d8a1798f7a"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "061f8bdcfbbfd7b013ad1a18cc282440329ed502bbd6769f2d7c9d6498e3e747"
+        },
+        {
+          "path": "configs/e7_bench_pilot.yaml",
+          "sha256": "52ad9262139295990b3f10df9fb8b1c9e3e4b52e25c47a49b05c2fa75358d25f"
+        },
+        {
+          "path": "docs/e7_bench_pilot.md",
+          "sha256": "0667d58bf94aef04d3b4aa9699e1a2a5b59a31641cd07e9ed704f8b23dadf431"
+        },
+        {
+          "path": "src/drpo/e7_bench.py",
+          "sha256": "f20fa2dda4d7aea6b2bc3553c99eaadfcf6a47dde98de5b9943e07d9212401a3"
+        },
+        {
+          "path": "tests/test_e7_bench.py",
+          "sha256": "ffb50099ca93ebac4efb8c5946e04bbd2b7cb1f0bc36cc7b13b5bbc1139b17ea"
+        }
+      ],
+      "field_path": [
+        "formal_parallel_contract",
+        "resume_identity_must_bind_protocol_budget_and_method_parameters"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Carry equal-horizon continuation and exact resume identity requirements into the formal nine-task parallel contract.",
+      "to": true
+    },
+    {
+      "change_id": "e7-bench-v71-04",
+      "entity_id": "EXT-H-E7-BENCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "669a31a5fa1c03c65163c16843edbb26ee5b8b8dbe0778e0022d61d8a1798f7a"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "061f8bdcfbbfd7b013ad1a18cc282440329ed502bbd6769f2d7c9d6498e3e747"
+        },
+        {
+          "path": "configs/e7_bench_pilot.yaml",
+          "sha256": "52ad9262139295990b3f10df9fb8b1c9e3e4b52e25c47a49b05c2fa75358d25f"
+        },
+        {
+          "path": "docs/e7_bench_pilot.md",
+          "sha256": "0667d58bf94aef04d3b4aa9699e1a2a5b59a31641cd07e9ed704f8b23dadf431"
+        },
+        {
+          "path": "src/drpo/e7_bench.py",
+          "sha256": "f20fa2dda4d7aea6b2bc3553c99eaadfcf6a47dde98de5b9943e07d9212401a3"
+        },
+        {
+          "path": "tests/test_e7_bench.py",
+          "sha256": "ffb50099ca93ebac4efb8c5946e04bbd2b7cb1f0bc36cc7b13b5bbc1139b17ea"
+        }
+      ],
+      "field_path": [
+        "pilot_execution",
+        "fixed_budget",
+        "branch_optimizer_steps"
+      ],
+      "from": 40000,
+      "kind": "update_field",
+      "reason": "Restore E7-Q2-scale optimization and equalize the total actor horizon across all six Pilot methods.",
+      "to": 200000
+    },
+    {
+      "change_id": "e7-bench-v71-05",
+      "entity_id": "EXT-H-E7-BENCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "669a31a5fa1c03c65163c16843edbb26ee5b8b8dbe0778e0022d61d8a1798f7a"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "061f8bdcfbbfd7b013ad1a18cc282440329ed502bbd6769f2d7c9d6498e3e747"
+        },
+        {
+          "path": "configs/e7_bench_pilot.yaml",
+          "sha256": "52ad9262139295990b3f10df9fb8b1c9e3e4b52e25c47a49b05c2fa75358d25f"
+        },
+        {
+          "path": "docs/e7_bench_pilot.md",
+          "sha256": "0667d58bf94aef04d3b4aa9699e1a2a5b59a31641cd07e9ed704f8b23dadf431"
+        },
+        {
+          "path": "src/drpo/e7_bench.py",
+          "sha256": "f20fa2dda4d7aea6b2bc3553c99eaadfcf6a47dde98de5b9943e07d9212401a3"
+        },
+        {
+          "path": "tests/test_e7_bench.py",
+          "sha256": "ffb50099ca93ebac4efb8c5946e04bbd2b7cb1f0bc36cc7b13b5bbc1139b17ea"
+        }
+      ],
+      "field_path": [
+        "pilot_execution",
+        "fixed_budget",
+        "critic_optimizer_steps"
+      ],
+      "from": 20000,
+      "kind": "update_field",
+      "reason": "Restore E7-Q2-scale optimization and equalize the total actor horizon across all six Pilot methods.",
+      "to": 100000
+    },
+    {
+      "change_id": "e7-bench-v71-06",
+      "entity_id": "EXT-H-E7-BENCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "669a31a5fa1c03c65163c16843edbb26ee5b8b8dbe0778e0022d61d8a1798f7a"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "061f8bdcfbbfd7b013ad1a18cc282440329ed502bbd6769f2d7c9d6498e3e747"
+        },
+        {
+          "path": "configs/e7_bench_pilot.yaml",
+          "sha256": "52ad9262139295990b3f10df9fb8b1c9e3e4b52e25c47a49b05c2fa75358d25f"
+        },
+        {
+          "path": "docs/e7_bench_pilot.md",
+          "sha256": "0667d58bf94aef04d3b4aa9699e1a2a5b59a31641cd07e9ed704f8b23dadf431"
+        },
+        {
+          "path": "src/drpo/e7_bench.py",
+          "sha256": "f20fa2dda4d7aea6b2bc3553c99eaadfcf6a47dde98de5b9943e07d9212401a3"
+        },
+        {
+          "path": "tests/test_e7_bench.py",
+          "sha256": "ffb50099ca93ebac4efb8c5946e04bbd2b7cb1f0bc36cc7b13b5bbc1139b17ea"
+        }
+      ],
+      "field_path": [
+        "pilot_execution",
+        "fixed_budget",
+        "legacy_budget_field_semantics"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Restore E7-Q2-scale optimization and equalize the total actor horizon across all six Pilot methods.",
+      "to": {
+        "branch_optimizer_steps": "method_continuation_only",
+        "positive_only_optimizer_steps": "total_actor_horizon_including_shared_warmstart"
+      }
+    },
+    {
+      "change_id": "e7-bench-v71-07",
+      "entity_id": "EXT-H-E7-BENCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "669a31a5fa1c03c65163c16843edbb26ee5b8b8dbe0778e0022d61d8a1798f7a"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "061f8bdcfbbfd7b013ad1a18cc282440329ed502bbd6769f2d7c9d6498e3e747"
+        },
+        {
+          "path": "configs/e7_bench_pilot.yaml",
+          "sha256": "52ad9262139295990b3f10df9fb8b1c9e3e4b52e25c47a49b05c2fa75358d25f"
+        },
+        {
+          "path": "docs/e7_bench_pilot.md",
+          "sha256": "0667d58bf94aef04d3b4aa9699e1a2a5b59a31641cd07e9ed704f8b23dadf431"
+        },
+        {
+          "path": "src/drpo/e7_bench.py",
+          "sha256": "f20fa2dda4d7aea6b2bc3553c99eaadfcf6a47dde98de5b9943e07d9212401a3"
+        },
+        {
+          "path": "tests/test_e7_bench.py",
+          "sha256": "ffb50099ca93ebac4efb8c5946e04bbd2b7cb1f0bc36cc7b13b5bbc1139b17ea"
+        }
+      ],
+      "field_path": [
+        "pilot_execution",
+        "fixed_budget",
+        "method_continuation_steps_each"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Restore E7-Q2-scale optimization and equalize the total actor horizon across all six Pilot methods.",
+      "to": 200000
+    },
+    {
+      "change_id": "e7-bench-v71-08",
+      "entity_id": "EXT-H-E7-BENCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "669a31a5fa1c03c65163c16843edbb26ee5b8b8dbe0778e0022d61d8a1798f7a"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "061f8bdcfbbfd7b013ad1a18cc282440329ed502bbd6769f2d7c9d6498e3e747"
+        },
+        {
+          "path": "configs/e7_bench_pilot.yaml",
+          "sha256": "52ad9262139295990b3f10df9fb8b1c9e3e4b52e25c47a49b05c2fa75358d25f"
+        },
+        {
+          "path": "docs/e7_bench_pilot.md",
+          "sha256": "0667d58bf94aef04d3b4aa9699e1a2a5b59a31641cd07e9ed704f8b23dadf431"
+        },
+        {
+          "path": "src/drpo/e7_bench.py",
+          "sha256": "f20fa2dda4d7aea6b2bc3553c99eaadfcf6a47dde98de5b9943e07d9212401a3"
+        },
+        {
+          "path": "tests/test_e7_bench.py",
+          "sha256": "ffb50099ca93ebac4efb8c5946e04bbd2b7cb1f0bc36cc7b13b5bbc1139b17ea"
+        }
+      ],
+      "field_path": [
+        "pilot_execution",
+        "fixed_budget",
+        "positive_only_optimizer_steps"
+      ],
+      "from": 20000,
+      "kind": "update_field",
+      "reason": "Restore E7-Q2-scale optimization and equalize the total actor horizon across all six Pilot methods.",
+      "to": 300000
+    },
+    {
+      "change_id": "e7-bench-v71-09",
+      "entity_id": "EXT-H-E7-BENCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "669a31a5fa1c03c65163c16843edbb26ee5b8b8dbe0778e0022d61d8a1798f7a"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "061f8bdcfbbfd7b013ad1a18cc282440329ed502bbd6769f2d7c9d6498e3e747"
+        },
+        {
+          "path": "configs/e7_bench_pilot.yaml",
+          "sha256": "52ad9262139295990b3f10df9fb8b1c9e3e4b52e25c47a49b05c2fa75358d25f"
+        },
+        {
+          "path": "docs/e7_bench_pilot.md",
+          "sha256": "0667d58bf94aef04d3b4aa9699e1a2a5b59a31641cd07e9ed704f8b23dadf431"
+        },
+        {
+          "path": "src/drpo/e7_bench.py",
+          "sha256": "f20fa2dda4d7aea6b2bc3553c99eaadfcf6a47dde98de5b9943e07d9212401a3"
+        },
+        {
+          "path": "tests/test_e7_bench.py",
+          "sha256": "ffb50099ca93ebac4efb8c5946e04bbd2b7cb1f0bc36cc7b13b5bbc1139b17ea"
+        }
+      ],
+      "field_path": [
+        "pilot_execution",
+        "fixed_budget",
+        "positive_only_receives_equal_continuation"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Restore E7-Q2-scale optimization and equalize the total actor horizon across all six Pilot methods.",
+      "to": true
+    },
+    {
+      "change_id": "e7-bench-v71-10",
+      "entity_id": "EXT-H-E7-BENCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "669a31a5fa1c03c65163c16843edbb26ee5b8b8dbe0778e0022d61d8a1798f7a"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "061f8bdcfbbfd7b013ad1a18cc282440329ed502bbd6769f2d7c9d6498e3e747"
+        },
+        {
+          "path": "configs/e7_bench_pilot.yaml",
+          "sha256": "52ad9262139295990b3f10df9fb8b1c9e3e4b52e25c47a49b05c2fa75358d25f"
+        },
+        {
+          "path": "docs/e7_bench_pilot.md",
+          "sha256": "0667d58bf94aef04d3b4aa9699e1a2a5b59a31641cd07e9ed704f8b23dadf431"
+        },
+        {
+          "path": "src/drpo/e7_bench.py",
+          "sha256": "f20fa2dda4d7aea6b2bc3553c99eaadfcf6a47dde98de5b9943e07d9212401a3"
+        },
+        {
+          "path": "tests/test_e7_bench.py",
+          "sha256": "ffb50099ca93ebac4efb8c5946e04bbd2b7cb1f0bc36cc7b13b5bbc1139b17ea"
+        }
+      ],
+      "field_path": [
+        "pilot_execution",
+        "fixed_budget",
+        "shared_positive_only_warmstart_steps"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Restore E7-Q2-scale optimization and equalize the total actor horizon across all six Pilot methods.",
+      "to": 100000
+    },
+    {
+      "change_id": "e7-bench-v71-11",
+      "entity_id": "EXT-H-E7-BENCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "669a31a5fa1c03c65163c16843edbb26ee5b8b8dbe0778e0022d61d8a1798f7a"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "061f8bdcfbbfd7b013ad1a18cc282440329ed502bbd6769f2d7c9d6498e3e747"
+        },
+        {
+          "path": "configs/e7_bench_pilot.yaml",
+          "sha256": "52ad9262139295990b3f10df9fb8b1c9e3e4b52e25c47a49b05c2fa75358d25f"
+        },
+        {
+          "path": "docs/e7_bench_pilot.md",
+          "sha256": "0667d58bf94aef04d3b4aa9699e1a2a5b59a31641cd07e9ed704f8b23dadf431"
+        },
+        {
+          "path": "src/drpo/e7_bench.py",
+          "sha256": "f20fa2dda4d7aea6b2bc3553c99eaadfcf6a47dde98de5b9943e07d9212401a3"
+        },
+        {
+          "path": "tests/test_e7_bench.py",
+          "sha256": "ffb50099ca93ebac4efb8c5946e04bbd2b7cb1f0bc36cc7b13b5bbc1139b17ea"
+        }
+      ],
+      "field_path": [
+        "pilot_execution",
+        "fixed_budget",
+        "total_actor_optimizer_steps_each"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Restore E7-Q2-scale optimization and equalize the total actor horizon across all six Pilot methods.",
+      "to": 300000
+    },
+    {
+      "change_id": "e7-bench-v71-12",
+      "entity_id": "EXT-H-E7-BENCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "669a31a5fa1c03c65163c16843edbb26ee5b8b8dbe0778e0022d61d8a1798f7a"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "061f8bdcfbbfd7b013ad1a18cc282440329ed502bbd6769f2d7c9d6498e3e747"
+        },
+        {
+          "path": "configs/e7_bench_pilot.yaml",
+          "sha256": "52ad9262139295990b3f10df9fb8b1c9e3e4b52e25c47a49b05c2fa75358d25f"
+        },
+        {
+          "path": "docs/e7_bench_pilot.md",
+          "sha256": "0667d58bf94aef04d3b4aa9699e1a2a5b59a31641cd07e9ed704f8b23dadf431"
+        },
+        {
+          "path": "src/drpo/e7_bench.py",
+          "sha256": "f20fa2dda4d7aea6b2bc3553c99eaadfcf6a47dde98de5b9943e07d9212401a3"
+        },
+        {
+          "path": "tests/test_e7_bench.py",
+          "sha256": "ffb50099ca93ebac4efb8c5946e04bbd2b7cb1f0bc36cc7b13b5bbc1139b17ea"
+        }
+      ],
+      "field_path": [
+        "pilot_execution",
+        "parallel_execution",
+        "branch_cpus_per_worker"
+      ],
+      "from": 8,
+      "kind": "update_field",
+      "reason": "Run all 48 task-seed-method continuations in parallel while preserving explicit compatibility aliases and exact protocol identity.",
+      "to": 7
+    },
+    {
+      "change_id": "e7-bench-v71-13",
+      "entity_id": "EXT-H-E7-BENCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "669a31a5fa1c03c65163c16843edbb26ee5b8b8dbe0778e0022d61d8a1798f7a"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "061f8bdcfbbfd7b013ad1a18cc282440329ed502bbd6769f2d7c9d6498e3e747"
+        },
+        {
+          "path": "configs/e7_bench_pilot.yaml",
+          "sha256": "52ad9262139295990b3f10df9fb8b1c9e3e4b52e25c47a49b05c2fa75358d25f"
+        },
+        {
+          "path": "docs/e7_bench_pilot.md",
+          "sha256": "0667d58bf94aef04d3b4aa9699e1a2a5b59a31641cd07e9ed704f8b23dadf431"
+        },
+        {
+          "path": "src/drpo/e7_bench.py",
+          "sha256": "f20fa2dda4d7aea6b2bc3553c99eaadfcf6a47dde98de5b9943e07d9212401a3"
+        },
+        {
+          "path": "tests/test_e7_bench.py",
+          "sha256": "ffb50099ca93ebac4efb8c5946e04bbd2b7cb1f0bc36cc7b13b5bbc1139b17ea"
+        }
+      ],
+      "field_path": [
+        "pilot_execution",
+        "parallel_execution",
+        "branch_workers"
+      ],
+      "from": 40,
+      "kind": "update_field",
+      "reason": "Run all 48 task-seed-method continuations in parallel while preserving explicit compatibility aliases and exact protocol identity.",
+      "to": 48
+    },
+    {
+      "change_id": "e7-bench-v71-14",
+      "entity_id": "EXT-H-E7-BENCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "669a31a5fa1c03c65163c16843edbb26ee5b8b8dbe0778e0022d61d8a1798f7a"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "061f8bdcfbbfd7b013ad1a18cc282440329ed502bbd6769f2d7c9d6498e3e747"
+        },
+        {
+          "path": "configs/e7_bench_pilot.yaml",
+          "sha256": "52ad9262139295990b3f10df9fb8b1c9e3e4b52e25c47a49b05c2fa75358d25f"
+        },
+        {
+          "path": "docs/e7_bench_pilot.md",
+          "sha256": "0667d58bf94aef04d3b4aa9699e1a2a5b59a31641cd07e9ed704f8b23dadf431"
+        },
+        {
+          "path": "src/drpo/e7_bench.py",
+          "sha256": "f20fa2dda4d7aea6b2bc3553c99eaadfcf6a47dde98de5b9943e07d9212401a3"
+        },
+        {
+          "path": "tests/test_e7_bench.py",
+          "sha256": "ffb50099ca93ebac4efb8c5946e04bbd2b7cb1f0bc36cc7b13b5bbc1139b17ea"
+        }
+      ],
+      "field_path": [
+        "pilot_execution",
+        "parallel_execution",
+        "legacy_parallel_field_semantics"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Run all 48 task-seed-method continuations in parallel while preserving explicit compatibility aliases and exact protocol identity.",
+      "to": {
+        "positive_cpus_per_worker": "alias_of_warmstart_cpus_per_worker",
+        "positive_workers": "alias_of_warmstart_workers"
+      }
+    },
+    {
+      "change_id": "e7-bench-v71-15",
+      "entity_id": "EXT-H-E7-BENCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "669a31a5fa1c03c65163c16843edbb26ee5b8b8dbe0778e0022d61d8a1798f7a"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "061f8bdcfbbfd7b013ad1a18cc282440329ed502bbd6769f2d7c9d6498e3e747"
+        },
+        {
+          "path": "configs/e7_bench_pilot.yaml",
+          "sha256": "52ad9262139295990b3f10df9fb8b1c9e3e4b52e25c47a49b05c2fa75358d25f"
+        },
+        {
+          "path": "docs/e7_bench_pilot.md",
+          "sha256": "0667d58bf94aef04d3b4aa9699e1a2a5b59a31641cd07e9ed704f8b23dadf431"
+        },
+        {
+          "path": "src/drpo/e7_bench.py",
+          "sha256": "f20fa2dda4d7aea6b2bc3553c99eaadfcf6a47dde98de5b9943e07d9212401a3"
+        },
+        {
+          "path": "tests/test_e7_bench.py",
+          "sha256": "ffb50099ca93ebac4efb8c5946e04bbd2b7cb1f0bc36cc7b13b5bbc1139b17ea"
+        }
+      ],
+      "field_path": [
+        "pilot_execution",
+        "parallel_execution",
+        "mismatched_workdir_policy"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Run all 48 task-seed-method continuations in parallel while preserving explicit compatibility aliases and exact protocol identity.",
+      "to": "fail_closed_require_new_workdir"
+    },
+    {
+      "change_id": "e7-bench-v71-16",
+      "entity_id": "EXT-H-E7-BENCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "669a31a5fa1c03c65163c16843edbb26ee5b8b8dbe0778e0022d61d8a1798f7a"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "061f8bdcfbbfd7b013ad1a18cc282440329ed502bbd6769f2d7c9d6498e3e747"
+        },
+        {
+          "path": "configs/e7_bench_pilot.yaml",
+          "sha256": "52ad9262139295990b3f10df9fb8b1c9e3e4b52e25c47a49b05c2fa75358d25f"
+        },
+        {
+          "path": "docs/e7_bench_pilot.md",
+          "sha256": "0667d58bf94aef04d3b4aa9699e1a2a5b59a31641cd07e9ed704f8b23dadf431"
+        },
+        {
+          "path": "src/drpo/e7_bench.py",
+          "sha256": "f20fa2dda4d7aea6b2bc3553c99eaadfcf6a47dde98de5b9943e07d9212401a3"
+        },
+        {
+          "path": "tests/test_e7_bench.py",
+          "sha256": "ffb50099ca93ebac4efb8c5946e04bbd2b7cb1f0bc36cc7b13b5bbc1139b17ea"
+        }
+      ],
+      "field_path": [
+        "pilot_execution",
+        "parallel_execution",
+        "peak_registered_cpu_threads"
+      ],
+      "from": 320,
+      "kind": "update_field",
+      "reason": "Run all 48 task-seed-method continuations in parallel while preserving explicit compatibility aliases and exact protocol identity.",
+      "to": 336
+    },
+    {
+      "change_id": "e7-bench-v71-17",
+      "entity_id": "EXT-H-E7-BENCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "669a31a5fa1c03c65163c16843edbb26ee5b8b8dbe0778e0022d61d8a1798f7a"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "061f8bdcfbbfd7b013ad1a18cc282440329ed502bbd6769f2d7c9d6498e3e747"
+        },
+        {
+          "path": "configs/e7_bench_pilot.yaml",
+          "sha256": "52ad9262139295990b3f10df9fb8b1c9e3e4b52e25c47a49b05c2fa75358d25f"
+        },
+        {
+          "path": "docs/e7_bench_pilot.md",
+          "sha256": "0667d58bf94aef04d3b4aa9699e1a2a5b59a31641cd07e9ed704f8b23dadf431"
+        },
+        {
+          "path": "src/drpo/e7_bench.py",
+          "sha256": "f20fa2dda4d7aea6b2bc3553c99eaadfcf6a47dde98de5b9943e07d9212401a3"
+        },
+        {
+          "path": "tests/test_e7_bench.py",
+          "sha256": "ffb50099ca93ebac4efb8c5946e04bbd2b7cb1f0bc36cc7b13b5bbc1139b17ea"
+        }
+      ],
+      "field_path": [
+        "pilot_execution",
+        "parallel_execution",
+        "resume_identity_bindings"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Run all 48 task-seed-method continuations in parallel while preserving explicit compatibility aliases and exact protocol identity.",
+      "to": [
+        "exact_pilot_config_sha256",
+        "exact_base_config_sha256",
+        "runner_and_protocol_versions",
+        "dataset_sha256",
+        "stage_budget",
+        "method_and_taper_parameters"
+      ]
+    },
+    {
+      "change_id": "e7-bench-v71-18",
+      "entity_id": "EXT-H-E7-BENCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "669a31a5fa1c03c65163c16843edbb26ee5b8b8dbe0778e0022d61d8a1798f7a"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "061f8bdcfbbfd7b013ad1a18cc282440329ed502bbd6769f2d7c9d6498e3e747"
+        },
+        {
+          "path": "configs/e7_bench_pilot.yaml",
+          "sha256": "52ad9262139295990b3f10df9fb8b1c9e3e4b52e25c47a49b05c2fa75358d25f"
+        },
+        {
+          "path": "docs/e7_bench_pilot.md",
+          "sha256": "0667d58bf94aef04d3b4aa9699e1a2a5b59a31641cd07e9ed704f8b23dadf431"
+        },
+        {
+          "path": "src/drpo/e7_bench.py",
+          "sha256": "f20fa2dda4d7aea6b2bc3553c99eaadfcf6a47dde98de5b9943e07d9212401a3"
+        },
+        {
+          "path": "tests/test_e7_bench.py",
+          "sha256": "ffb50099ca93ebac4efb8c5946e04bbd2b7cb1f0bc36cc7b13b5bbc1139b17ea"
+        }
+      ],
+      "field_path": [
+        "pilot_execution",
+        "parallel_execution",
+        "stages"
+      ],
+      "from": [
+        "parallel_canonical_critics",
+        "parallel_positive_checkpoints",
+        "parallel_task_seed_method_branches"
+      ],
+      "kind": "update_field",
+      "reason": "Run all 48 task-seed-method continuations in parallel while preserving explicit compatibility aliases and exact protocol identity.",
+      "to": [
+        "parallel_canonical_critics",
+        "parallel_shared_positive_warmstarts",
+        "parallel_equal_horizon_method_continuations"
+      ]
+    },
+    {
+      "change_id": "e7-bench-v71-19",
+      "entity_id": "EXT-H-E7-BENCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "669a31a5fa1c03c65163c16843edbb26ee5b8b8dbe0778e0022d61d8a1798f7a"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "061f8bdcfbbfd7b013ad1a18cc282440329ed502bbd6769f2d7c9d6498e3e747"
+        },
+        {
+          "path": "configs/e7_bench_pilot.yaml",
+          "sha256": "52ad9262139295990b3f10df9fb8b1c9e3e4b52e25c47a49b05c2fa75358d25f"
+        },
+        {
+          "path": "docs/e7_bench_pilot.md",
+          "sha256": "0667d58bf94aef04d3b4aa9699e1a2a5b59a31641cd07e9ed704f8b23dadf431"
+        },
+        {
+          "path": "src/drpo/e7_bench.py",
+          "sha256": "f20fa2dda4d7aea6b2bc3553c99eaadfcf6a47dde98de5b9943e07d9212401a3"
+        },
+        {
+          "path": "tests/test_e7_bench.py",
+          "sha256": "ffb50099ca93ebac4efb8c5946e04bbd2b7cb1f0bc36cc7b13b5bbc1139b17ea"
+        }
+      ],
+      "field_path": [
+        "pilot_execution",
+        "parallel_execution",
+        "warmstart_cpus_per_worker"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Run all 48 task-seed-method continuations in parallel while preserving explicit compatibility aliases and exact protocol identity.",
+      "to": 32
+    },
+    {
+      "change_id": "e7-bench-v71-20",
+      "entity_id": "EXT-H-E7-BENCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "669a31a5fa1c03c65163c16843edbb26ee5b8b8dbe0778e0022d61d8a1798f7a"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "061f8bdcfbbfd7b013ad1a18cc282440329ed502bbd6769f2d7c9d6498e3e747"
+        },
+        {
+          "path": "configs/e7_bench_pilot.yaml",
+          "sha256": "52ad9262139295990b3f10df9fb8b1c9e3e4b52e25c47a49b05c2fa75358d25f"
+        },
+        {
+          "path": "docs/e7_bench_pilot.md",
+          "sha256": "0667d58bf94aef04d3b4aa9699e1a2a5b59a31641cd07e9ed704f8b23dadf431"
+        },
+        {
+          "path": "src/drpo/e7_bench.py",
+          "sha256": "f20fa2dda4d7aea6b2bc3553c99eaadfcf6a47dde98de5b9943e07d9212401a3"
+        },
+        {
+          "path": "tests/test_e7_bench.py",
+          "sha256": "ffb50099ca93ebac4efb8c5946e04bbd2b7cb1f0bc36cc7b13b5bbc1139b17ea"
+        }
+      ],
+      "field_path": [
+        "pilot_execution",
+        "parallel_execution",
+        "warmstart_workers"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Run all 48 task-seed-method continuations in parallel while preserving explicit compatibility aliases and exact protocol identity.",
+      "to": 8
+    },
+    {
+      "change_id": "e7-bench-v71-21",
+      "entity_id": "EXT-H-E7-BENCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "669a31a5fa1c03c65163c16843edbb26ee5b8b8dbe0778e0022d61d8a1798f7a"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "061f8bdcfbbfd7b013ad1a18cc282440329ed502bbd6769f2d7c9d6498e3e747"
+        },
+        {
+          "path": "configs/e7_bench_pilot.yaml",
+          "sha256": "52ad9262139295990b3f10df9fb8b1c9e3e4b52e25c47a49b05c2fa75358d25f"
+        },
+        {
+          "path": "docs/e7_bench_pilot.md",
+          "sha256": "0667d58bf94aef04d3b4aa9699e1a2a5b59a31641cd07e9ed704f8b23dadf431"
+        },
+        {
+          "path": "src/drpo/e7_bench.py",
+          "sha256": "f20fa2dda4d7aea6b2bc3553c99eaadfcf6a47dde98de5b9943e07d9212401a3"
+        },
+        {
+          "path": "tests/test_e7_bench.py",
+          "sha256": "ffb50099ca93ebac4efb8c5946e04bbd2b7cb1f0bc36cc7b13b5bbc1139b17ea"
+        }
+      ],
+      "field_path": [
+        "protocol_lock_status"
+      ],
+      "from": "pilot_frozen_and_implemented_formal_exact_versions_seeds_optimizer_base_algorithm_pending",
+      "kind": "update_field",
+      "reason": "Distinguish the corrected long-budget scientific Pilot from the superseded short engineering-smoke design.",
+      "to": "long_budget_pilot_frozen_and_implemented_formal_exact_versions_seeds_optimizer_base_algorithm_pending"
+    }
+  ],
+  "registry_change_coverage": {
+    "added_entities": [],
+    "changed_field_count": 21,
+    "declared_assertion_count": 21,
+    "fully_declared": true,
+    "mode": "schema2_complete",
+    "removed_entities": []
+  },
+  "registry_transition_assertions": [],
+  "report_schema_version": 2,
+  "repository_commit": null,
+  "schema_version": 1,
+  "status": "PASS",
+  "update_id": "EXT-H-E7-BENCH-LONG-BUDGET-PILOT-V71-2026-07-02",
+  "validation_worktree_head": "4510e4cbc73b845d35e89ff520401db9a3e4a310"
+}

@@ -1,0 +1,296 @@
+schema_version: 2
+update_id: EXT-H-E7-BENCH-LONG-BUDGET-PILOT-V71-2026-07-02
+mode: shadow
+base:
+  commit: 4510e4cbc73b845d35e89ff520401db9a3e4a310
+  handoff_sha256: 7f7584abf036f78cee96161fa89c872f6d43cb6fc5e7609227f3f8be81b3b03d
+  registry_sha256: 7e87c022b167d0e9d356d159fa05684ae77947b2ef40358480f0f5c18ac5d723
+renderer_version: 1
+operations:
+- operation_id: rename-v70-title-to-v71-e7-bench-long-budget-pilot
+  op: replace_heading
+  heading_path:
+  - DRPO / SNA2C 远场负梯度动力学研究主文档 v70（D-U1 E6 utility × surprisal 笛卡尔积与 TAPER 联合登记版）
+  new_heading: DRPO / SNA2C 远场负梯度动力学研究主文档 v71（E7-BENCH 长预算等时并行 Pilot 修正版）
+  reason: Preserve the completed D-U1 v70 registration while recording the user-approved E7-BENCH long-budget correction.
+- operation_id: insert-v71-e7-bench-long-budget-parallel-pilot
+  op: insert_after_heading
+  heading_path:
+  - 0. 研究与执行原则（每次新会话首先阅读）
+  block_id: v71-e7-bench-long-budget-parallel-pilot
+  content: '> **v71 增量登记：`EXT-H-E7-BENCH-01` 长预算、等 actor horizon 与强 resume identity 修正（不删除 v70 及更早内容）**
+
+    >
+
+    > - **旧设计：**v69 将 Pilot 冻结为 critic `20k`、Positive-only `20k`、其余分支 `40k`。该设计只适合作为 engineering smoke，不足以承担用户要求的科学 Pilot；同时 Positive-only 总 actor horizon 只有 `20k`，其余方法为 `60k`，比较预算不公平。
+
+    > - **问题与修正依据：**已完成的 E7-Q2 formal long-run 使用 critic `100k`、Positive-only initialization `100k`、每分支 continuation `200k`。当前 Pilot 既要初步观察连续 taper 方向，又不得以并行缩短单 worker 科学预算，因此恢复到同一训练量级。v69 短预算尚未产生科学结果，不登记为被否定结果，只保留为 superseded engineering-smoke design。
+
+    > - **新冻结预算：**每数据集 canonical critic 固定 `100000` optimizer steps；每 `(dataset, seed)` 先训练共享 Positive-only warm-start `100000` steps；随后 `Positive-only / Signed / Global alpha / Reciprocal-Linear / Reciprocal-Quadratic / Exponential` 六种方法都从同一 warm-start 并行 continuation `200000` steps。每个比较方法总 actor horizon 因而统一为 `300000` steps。只有 NaN/Inf numerical failure 可提前终止，固定 horizon 仍不等于收敛。
+
+    > - **并行修正：**三阶段改为 `2` 个 critic workers、`8` 个 shared warm-start workers、`48` 个 `(dataset, seed, method)` continuation workers。线程分配为 `64 / 32 / 7`，峰值 `336` threads，在 384 核服务器上保留 `48` threads 余量。Positive-only 不再作为第二阶段终点结果，而是第三阶段中的完整等时 continuation 分支。seed 与 method 顶层串行继续被禁止。
+
+    > - **恢复身份修正：**每个 run 和 worker 必须绑定 exact Pilot config SHA-256、E7-Q2 base-config SHA-256、runner/protocol version、dataset SHA-256、stage budget、method identity 与 taper 参数。旧 `20k/20k/40k` work directory 不允许在新协议下 `--resume`；coordinator 必须 fail closed 并要求新 work directory。相同 run identity 下的 incomplete worker 先归档，再仅重跑对应 task-seed-method 单元。
+
+    > - **并行失败与预算记账修正：**runner `0.2.1` 在任一 worker 失败后主动终止仍在运行的 peer subprocesses，避免其余几十个 200k-step worker 继续空耗。canonical critic 与共享 Positive-only warm-start 必须完整达到各自冻结预算，才允许进入下游阶段；method continuation 仅允许因 NaN/Inf 提前终止，并分别记录 scheduled horizon 与 actually executed steps，不能把数值失败伪装成完成 300k actor path。
+
+    > - **Taper 公式锁定：**令 `u=d/5` 为标准化 Gaussian distance，Reciprocal-Linear 为 `1/(1+c u)`，Reciprocal-Quadratic 为 `1/(1+c u^2)`，Exponential 为 `exp(-c u)`。其中 quadratic 指 distance-squared，即 Gaussian surprisal-order proxy；不得误写为 reciprocal-squared-surprisal 对应的四次距离形式。
+
+    > - **正式 E7-BENCH 并行约束同步：**正式 9-task benchmark 继续以 `task_seed_method` 为 continuation 调度单元，Positive-only 也必须是 equal-horizon continuation branch；formal exact seeds、D4RL versions、base algorithm、optimizer 与 full budget 仍未冻结，因此 formal activation 继续 blocked。本修正不等于正式实验可以启动。
+
+    > - Pilot 仍只允许形成 `pilot` 证据：不得据此按 D4RL task 更换函数族或系数，不得填入正式 9-task 主表，不得声称有限稳态、通用方法排名或当前 taper 必然超过 Positive-only。任务性能崩溃、support/variance boundary 与 NaN/Inf numerical failure 继续分开报告。'
+registry:
+  mode: expected_after
+  expected_after_sha256: 061f8bdcfbbfd7b013ad1a18cc282440329ed502bbd6769f2d7c9d6498e3e747
+  changes:
+  - change_id: e7-bench-v71-01
+    kind: update_field
+    entity_id: EXT-H-E7-BENCH-01
+    field_path:
+    - formal_parallel_contract
+    - identical_positive_warmstart_per_task_seed
+    from: null
+    to: true
+    reason: Carry equal-horizon continuation and exact resume identity requirements into the formal nine-task parallel contract.
+    evidence: &id001
+    - docs/handoff.md
+    - experiments/registry.yaml
+    - configs/e7_bench_pilot.yaml
+    - docs/e7_bench_pilot.md
+    - src/drpo/e7_bench.py
+    - tests/test_e7_bench.py
+  - change_id: e7-bench-v71-02
+    kind: update_field
+    entity_id: EXT-H-E7-BENCH-01
+    field_path:
+    - formal_parallel_contract
+    - positive_only_is_equal_horizon_continuation_branch
+    from: null
+    to: true
+    reason: Carry equal-horizon continuation and exact resume identity requirements into the formal nine-task parallel contract.
+    evidence: *id001
+  - change_id: e7-bench-v71-03
+    kind: update_field
+    entity_id: EXT-H-E7-BENCH-01
+    field_path:
+    - formal_parallel_contract
+    - resume_identity_must_bind_protocol_budget_and_method_parameters
+    from: null
+    to: true
+    reason: Carry equal-horizon continuation and exact resume identity requirements into the formal nine-task parallel contract.
+    evidence: *id001
+  - change_id: e7-bench-v71-04
+    kind: update_field
+    entity_id: EXT-H-E7-BENCH-01
+    field_path:
+    - pilot_execution
+    - fixed_budget
+    - branch_optimizer_steps
+    from: 40000
+    to: 200000
+    reason: Restore E7-Q2-scale optimization and equalize the total actor horizon across all six Pilot methods.
+    evidence: *id001
+  - change_id: e7-bench-v71-05
+    kind: update_field
+    entity_id: EXT-H-E7-BENCH-01
+    field_path:
+    - pilot_execution
+    - fixed_budget
+    - critic_optimizer_steps
+    from: 20000
+    to: 100000
+    reason: Restore E7-Q2-scale optimization and equalize the total actor horizon across all six Pilot methods.
+    evidence: *id001
+  - change_id: e7-bench-v71-06
+    kind: update_field
+    entity_id: EXT-H-E7-BENCH-01
+    field_path:
+    - pilot_execution
+    - fixed_budget
+    - legacy_budget_field_semantics
+    from: null
+    to:
+      positive_only_optimizer_steps: total_actor_horizon_including_shared_warmstart
+      branch_optimizer_steps: method_continuation_only
+    reason: Restore E7-Q2-scale optimization and equalize the total actor horizon across all six Pilot methods.
+    evidence: *id001
+  - change_id: e7-bench-v71-07
+    kind: update_field
+    entity_id: EXT-H-E7-BENCH-01
+    field_path:
+    - pilot_execution
+    - fixed_budget
+    - method_continuation_steps_each
+    from: null
+    to: 200000
+    reason: Restore E7-Q2-scale optimization and equalize the total actor horizon across all six Pilot methods.
+    evidence: *id001
+  - change_id: e7-bench-v71-08
+    kind: update_field
+    entity_id: EXT-H-E7-BENCH-01
+    field_path:
+    - pilot_execution
+    - fixed_budget
+    - positive_only_optimizer_steps
+    from: 20000
+    to: 300000
+    reason: Restore E7-Q2-scale optimization and equalize the total actor horizon across all six Pilot methods.
+    evidence: *id001
+  - change_id: e7-bench-v71-09
+    kind: update_field
+    entity_id: EXT-H-E7-BENCH-01
+    field_path:
+    - pilot_execution
+    - fixed_budget
+    - positive_only_receives_equal_continuation
+    from: null
+    to: true
+    reason: Restore E7-Q2-scale optimization and equalize the total actor horizon across all six Pilot methods.
+    evidence: *id001
+  - change_id: e7-bench-v71-10
+    kind: update_field
+    entity_id: EXT-H-E7-BENCH-01
+    field_path:
+    - pilot_execution
+    - fixed_budget
+    - shared_positive_only_warmstart_steps
+    from: null
+    to: 100000
+    reason: Restore E7-Q2-scale optimization and equalize the total actor horizon across all six Pilot methods.
+    evidence: *id001
+  - change_id: e7-bench-v71-11
+    kind: update_field
+    entity_id: EXT-H-E7-BENCH-01
+    field_path:
+    - pilot_execution
+    - fixed_budget
+    - total_actor_optimizer_steps_each
+    from: null
+    to: 300000
+    reason: Restore E7-Q2-scale optimization and equalize the total actor horizon across all six Pilot methods.
+    evidence: *id001
+  - change_id: e7-bench-v71-12
+    kind: update_field
+    entity_id: EXT-H-E7-BENCH-01
+    field_path:
+    - pilot_execution
+    - parallel_execution
+    - branch_cpus_per_worker
+    from: 8
+    to: 7
+    reason: Run all 48 task-seed-method continuations in parallel while preserving explicit compatibility aliases and exact protocol identity.
+    evidence: *id001
+  - change_id: e7-bench-v71-13
+    kind: update_field
+    entity_id: EXT-H-E7-BENCH-01
+    field_path:
+    - pilot_execution
+    - parallel_execution
+    - branch_workers
+    from: 40
+    to: 48
+    reason: Run all 48 task-seed-method continuations in parallel while preserving explicit compatibility aliases and exact protocol identity.
+    evidence: *id001
+  - change_id: e7-bench-v71-14
+    kind: update_field
+    entity_id: EXT-H-E7-BENCH-01
+    field_path:
+    - pilot_execution
+    - parallel_execution
+    - legacy_parallel_field_semantics
+    from: null
+    to:
+      positive_workers: alias_of_warmstart_workers
+      positive_cpus_per_worker: alias_of_warmstart_cpus_per_worker
+    reason: Run all 48 task-seed-method continuations in parallel while preserving explicit compatibility aliases and exact protocol identity.
+    evidence: *id001
+  - change_id: e7-bench-v71-15
+    kind: update_field
+    entity_id: EXT-H-E7-BENCH-01
+    field_path:
+    - pilot_execution
+    - parallel_execution
+    - mismatched_workdir_policy
+    from: null
+    to: fail_closed_require_new_workdir
+    reason: Run all 48 task-seed-method continuations in parallel while preserving explicit compatibility aliases and exact protocol identity.
+    evidence: *id001
+  - change_id: e7-bench-v71-16
+    kind: update_field
+    entity_id: EXT-H-E7-BENCH-01
+    field_path:
+    - pilot_execution
+    - parallel_execution
+    - peak_registered_cpu_threads
+    from: 320
+    to: 336
+    reason: Run all 48 task-seed-method continuations in parallel while preserving explicit compatibility aliases and exact protocol identity.
+    evidence: *id001
+  - change_id: e7-bench-v71-17
+    kind: update_field
+    entity_id: EXT-H-E7-BENCH-01
+    field_path:
+    - pilot_execution
+    - parallel_execution
+    - resume_identity_bindings
+    from: null
+    to:
+    - exact_pilot_config_sha256
+    - exact_base_config_sha256
+    - runner_and_protocol_versions
+    - dataset_sha256
+    - stage_budget
+    - method_and_taper_parameters
+    reason: Run all 48 task-seed-method continuations in parallel while preserving explicit compatibility aliases and exact protocol identity.
+    evidence: *id001
+  - change_id: e7-bench-v71-18
+    kind: update_field
+    entity_id: EXT-H-E7-BENCH-01
+    field_path:
+    - pilot_execution
+    - parallel_execution
+    - stages
+    from:
+    - parallel_canonical_critics
+    - parallel_positive_checkpoints
+    - parallel_task_seed_method_branches
+    to:
+    - parallel_canonical_critics
+    - parallel_shared_positive_warmstarts
+    - parallel_equal_horizon_method_continuations
+    reason: Run all 48 task-seed-method continuations in parallel while preserving explicit compatibility aliases and exact protocol identity.
+    evidence: *id001
+  - change_id: e7-bench-v71-19
+    kind: update_field
+    entity_id: EXT-H-E7-BENCH-01
+    field_path:
+    - pilot_execution
+    - parallel_execution
+    - warmstart_cpus_per_worker
+    from: null
+    to: 32
+    reason: Run all 48 task-seed-method continuations in parallel while preserving explicit compatibility aliases and exact protocol identity.
+    evidence: *id001
+  - change_id: e7-bench-v71-20
+    kind: update_field
+    entity_id: EXT-H-E7-BENCH-01
+    field_path:
+    - pilot_execution
+    - parallel_execution
+    - warmstart_workers
+    from: null
+    to: 8
+    reason: Run all 48 task-seed-method continuations in parallel while preserving explicit compatibility aliases and exact protocol identity.
+    evidence: *id001
+  - change_id: e7-bench-v71-21
+    kind: update_field
+    entity_id: EXT-H-E7-BENCH-01
+    field_path:
+    - protocol_lock_status
+    from: pilot_frozen_and_implemented_formal_exact_versions_seeds_optimizer_base_algorithm_pending
+    to: long_budget_pilot_frozen_and_implemented_formal_exact_versions_seeds_optimizer_base_algorithm_pending
+    reason: Distinguish the corrected long-budget scientific Pilot from the superseded short engineering-smoke design.
+    evidence: *id001
+expected:
+  candidate_sha256: 669a31a5fa1c03c65163c16843edbb26ee5b8b8dbe0778e0022d61d8a1798f7a
+  manual_sha256: 669a31a5fa1c03c65163c16843edbb26ee5b8b8dbe0778e0022d61d8a1798f7a

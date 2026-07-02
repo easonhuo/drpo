@@ -5,12 +5,14 @@ The pilot is a registered substage of the existing benchmark ID. It runs two
 Hopper offline datasets and four development seeds through three parallel stages:
 
 1. one canonical frozen-advantage critic per dataset (2 workers);
-2. one Positive-only checkpoint per ``(dataset, seed)`` pair (8 workers);
-3. one non-positive branch per ``(dataset, seed, method)`` tuple (40 workers).
+2. one shared Positive-only warm-start per ``(dataset, seed)`` pair (8 workers);
+3. one equal-horizon continuation per ``(dataset, seed, method)`` tuple
+   (48 workers, including Positive-only).
 
-Both seeds and method branches are parallel at the coordinator level. Every
-non-positive branch verifies and loads the same Positive-only checkpoint for its
-dataset/seed pair, preserving paired initialization without serializing methods.
+Both seeds and all six method continuations are parallel at the coordinator
+level. Every continuation verifies and loads the same 100k Positive-only
+warm-start for its dataset/seed pair, preserving paired initialization without
+serializing methods or giving Positive-only a shorter total actor horizon.
 The formal nine-cell benchmark registers the same ``task_seed_method`` topology,
 but remains fail-closed until its exact versions, seeds, base algorithm, optimizer,
 and full budgets are frozen.
@@ -29,8 +31,10 @@ import json
 import math
 import os
 import shutil
+import signal
 import subprocess
 import sys
+import threading
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -48,8 +52,9 @@ if __package__ in (None, ""):
 from drpo import e7_hopper_q2 as q2
 
 EXPERIMENT_ID = "EXT-H-E7-BENCH-01"
-RUNNER_VERSION = "0.1.0-parallel-pilot"
+RUNNER_VERSION = "0.2.1-long-budget-parallel-pilot"
 PILOT_STATUS = "pilot"
+WARMSTART_METHOD = "positive_only_warmstart"
 PILOT_METHODS = (
     "positive_only",
     "signed",
@@ -136,8 +141,9 @@ class PilotBudget:
     max_transitions: int | None
     critic_steps: int
     critic_eval_interval: int
-    positive_steps: int
-    branch_steps: int
+    shared_positive_warmstart_steps: int
+    method_continuation_steps: int
+    total_actor_steps_per_method: int
     actor_eval_interval: int
     rollout_eval_interval: int
     rollout_episodes: int
@@ -148,10 +154,10 @@ class PilotBudget:
 @dataclass(frozen=True)
 class ParallelConfig:
     critic_workers: int
-    positive_workers: int
+    warmstart_workers: int
     branch_workers: int
     critic_cpus_per_worker: int
-    positive_cpus_per_worker: int
+    warmstart_cpus_per_worker: int
     branch_cpus_per_worker: int
     device_pool: tuple[str, ...]
     serial_seed_loop_forbidden: bool
@@ -182,10 +188,13 @@ class BenchConfig:
     formal_serial_seed_loop_forbidden: bool
     formal_serial_method_loop_forbidden: bool
     formal_task_count: int
+    config_sha256: str
+    base_config_sha256: str
 
 
 def load_bench_config(path: str | Path) -> BenchConfig:
-    raw = yaml.safe_load(Path(path).read_text())
+    source_path = Path(path).expanduser().resolve()
+    raw = yaml.safe_load(source_path.read_text())
     if raw.get("experiment_id") != EXPERIMENT_ID:
         raise ValueError(f"experiment_id must be {EXPERIMENT_ID}")
     datasets = tuple(
@@ -223,8 +232,11 @@ def load_bench_config(path: str | Path) -> BenchConfig:
         ),
         critic_steps=int(budget_raw["critic_steps"]),
         critic_eval_interval=int(budget_raw["critic_eval_interval"]),
-        positive_steps=int(budget_raw["positive_steps"]),
-        branch_steps=int(budget_raw["branch_steps"]),
+        shared_positive_warmstart_steps=int(
+            budget_raw["shared_positive_warmstart_steps"]
+        ),
+        method_continuation_steps=int(budget_raw["method_continuation_steps"]),
+        total_actor_steps_per_method=int(budget_raw["total_actor_steps_per_method"]),
         actor_eval_interval=int(budget_raw["actor_eval_interval"]),
         rollout_eval_interval=int(budget_raw["rollout_eval_interval"]),
         rollout_episodes=int(budget_raw["rollout_episodes"]),
@@ -234,10 +246,10 @@ def load_bench_config(path: str | Path) -> BenchConfig:
     parallel_raw = raw["execution"]["pilot_parallel"]
     parallel = ParallelConfig(
         critic_workers=int(parallel_raw["critic_workers"]),
-        positive_workers=int(parallel_raw["positive_workers"]),
+        warmstart_workers=int(parallel_raw["warmstart_workers"]),
         branch_workers=int(parallel_raw["branch_workers"]),
         critic_cpus_per_worker=int(parallel_raw["critic_cpus_per_worker"]),
-        positive_cpus_per_worker=int(parallel_raw["positive_cpus_per_worker"]),
+        warmstart_cpus_per_worker=int(parallel_raw["warmstart_cpus_per_worker"]),
         branch_cpus_per_worker=int(parallel_raw["branch_cpus_per_worker"]),
         device_pool=tuple(str(x) for x in parallel_raw["device_pool"]),
         serial_seed_loop_forbidden=bool(parallel_raw["serial_seed_loop_forbidden"]),
@@ -253,6 +265,12 @@ def load_bench_config(path: str | Path) -> BenchConfig:
         d4rl_retuning_allowed=bool(method_raw["d4rl_retuning_allowed"]),
     )
     formal = raw["formal_parallel_contract"]
+    base_path = Path(str(raw["pilot"]["base_config_path"]))
+    if not base_path.is_absolute():
+        repo_root = Path(__file__).resolve().parents[2]
+        base_path = (repo_root / base_path).resolve()
+    if not base_path.is_file():
+        raise FileNotFoundError(f"base config does not exist: {base_path}")
     config = BenchConfig(
         experiment_id=str(raw["experiment_id"]),
         protocol_version=str(raw["protocol_version"]),
@@ -266,6 +284,8 @@ def load_bench_config(path: str | Path) -> BenchConfig:
         formal_serial_seed_loop_forbidden=bool(formal["serial_seed_loop_forbidden"]),
         formal_serial_method_loop_forbidden=bool(formal["serial_method_loop_forbidden"]),
         formal_task_count=int(formal["task_count"]),
+        config_sha256=sha256_file(source_path),
+        base_config_sha256=sha256_file(base_path),
     )
     validate_bench_config(config)
     return config
@@ -281,10 +301,10 @@ def validate_bench_config(config: BenchConfig) -> None:
     if not config.parallel.serial_seed_loop_forbidden:
         raise ValueError("pilot must forbid top-level serial seed or method loops")
     task_seed_jobs = len(config.datasets) * len(config.budget.seeds)
-    branch_jobs = task_seed_jobs * (len(PILOT_METHODS) - 1)
-    if config.parallel.positive_workers < task_seed_jobs:
+    branch_jobs = task_seed_jobs * len(PILOT_METHODS)
+    if config.parallel.warmstart_workers < task_seed_jobs:
         raise ValueError(
-            f"pilot positive_workers must cover all {task_seed_jobs} task-seed jobs"
+            f"pilot warmstart_workers must cover all {task_seed_jobs} task-seed jobs"
         )
     if config.parallel.branch_workers < branch_jobs:
         raise ValueError(
@@ -292,7 +312,7 @@ def validate_bench_config(config: BenchConfig) -> None:
         )
     for value in (
         config.parallel.critic_cpus_per_worker,
-        config.parallel.positive_cpus_per_worker,
+        config.parallel.warmstart_cpus_per_worker,
         config.parallel.branch_cpus_per_worker,
     ):
         if value < 1:
@@ -311,6 +331,182 @@ def validate_bench_config(config: BenchConfig) -> None:
         raise ValueError("pilot taper coefficients must cover the frozen three-family shortlist")
     if not (0.0 < config.methods.global_alpha <= 1.0):
         raise ValueError("global_alpha must be in (0, 1]")
+    if config.budget.critic_steps != 100000:
+        raise ValueError("pilot critic_steps must remain frozen at 100000")
+    if config.budget.shared_positive_warmstart_steps != 100000:
+        raise ValueError("pilot shared Positive-only warm-start must remain 100000 steps")
+    if config.budget.method_continuation_steps != 200000:
+        raise ValueError("pilot method continuation must remain 200000 steps")
+    expected_total = (
+        config.budget.shared_positive_warmstart_steps
+        + config.budget.method_continuation_steps
+    )
+    if config.budget.total_actor_steps_per_method != expected_total:
+        raise ValueError(
+            "total_actor_steps_per_method must equal warm-start plus continuation"
+        )
+
+
+def canonical_json_sha256(payload: Any) -> str:
+    encoded = json.dumps(
+        payload,
+        sort_keys=True,
+        separators=(",", ":"),
+        default=_json_default,
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def run_identity_payload(config: BenchConfig) -> dict[str, Any]:
+    return {
+        "experiment_id": EXPERIMENT_ID,
+        "runner_version": RUNNER_VERSION,
+        "protocol_version": config.protocol_version,
+        "config_sha256": config.config_sha256,
+        "base_config_sha256": config.base_config_sha256,
+        "datasets": [
+            {
+                "id": spec.id,
+                "sha256": spec.sha256,
+                "format": spec.format,
+                "env_id": spec.env_id,
+                "score_protocol": spec.score_protocol,
+            }
+            for spec in config.datasets
+        ],
+        "seeds": list(config.budget.seeds),
+        "canonical_critic_seed": config.budget.canonical_critic_seed,
+        "budget": dataclasses.asdict(config.budget),
+        "methods": {
+            "ids": list(PILOT_METHODS),
+            **dataclasses.asdict(config.methods),
+        },
+        "parallel": dataclasses.asdict(config.parallel),
+    }
+
+
+def run_identity_sha256(config: BenchConfig) -> str:
+    return canonical_json_sha256(run_identity_payload(config))
+
+
+def worker_identity_payload(
+    config: BenchConfig,
+    spec: DatasetSpec,
+    *,
+    worker: str,
+    seed: int | None = None,
+    method: str | None = None,
+) -> dict[str, Any]:
+    if worker not in {"critic", "warmstart", "branch"}:
+        raise ValueError(f"unknown worker identity type: {worker}")
+    if worker == "critic":
+        stage_budget = {
+            "optimizer_steps": config.budget.critic_steps,
+            "eval_interval": config.budget.critic_eval_interval,
+        }
+    elif worker == "warmstart":
+        stage_budget = {
+            "optimizer_steps": config.budget.shared_positive_warmstart_steps,
+            "actor_eval_interval": config.budget.actor_eval_interval,
+            "rollout_eval_interval": config.budget.rollout_eval_interval,
+            "rollout_episodes": config.budget.rollout_episodes,
+            "final_rollout_episodes": config.budget.final_rollout_episodes,
+        }
+    else:
+        stage_budget = {
+            "optimizer_steps": config.budget.method_continuation_steps,
+            "actor_eval_interval": config.budget.actor_eval_interval,
+            "rollout_eval_interval": config.budget.rollout_eval_interval,
+            "rollout_episodes": config.budget.rollout_episodes,
+            "final_rollout_episodes": config.budget.final_rollout_episodes,
+        }
+    return {
+        "run_identity_sha256": run_identity_sha256(config),
+        "worker": worker,
+        "dataset_id": spec.id,
+        "dataset_sha256": spec.sha256,
+        "seed": seed,
+        "method": method,
+        "stage_budget": stage_budget,
+        "method_parameters": dataclasses.asdict(config.methods),
+    }
+
+
+def worker_identity_sha256(
+    config: BenchConfig,
+    spec: DatasetSpec,
+    *,
+    worker: str,
+    seed: int | None = None,
+    method: str | None = None,
+) -> str:
+    return canonical_json_sha256(
+        worker_identity_payload(
+            config,
+            spec,
+            worker=worker,
+            seed=seed,
+            method=method,
+        )
+    )
+
+
+def ensure_run_identity(work_dir: Path, config: BenchConfig, *, resume: bool) -> str:
+    identity = run_identity_sha256(config)
+    path = work_dir / "RUN_IDENTITY.json"
+    payload = {
+        **run_identity_payload(config),
+        "run_identity_sha256": identity,
+        "created_utc": utc_now(),
+        "resume_contract": (
+            "Exact identity match is required. Budget, config, base config, dataset, "
+            "runner, or taper changes require a new work directory."
+        ),
+    }
+    if path.is_file():
+        existing = json.loads(path.read_text())
+        if existing.get("run_identity_sha256") != identity:
+            raise RuntimeError(
+                "work directory belongs to a different E7-BENCH protocol identity; "
+                "use a new work directory instead of resuming stale short-budget outputs"
+            )
+        if not resume:
+            raise RuntimeError(
+                "work directory already contains this run identity; pass --resume or use a new directory"
+            )
+        return identity
+    existing = [child for child in work_dir.iterdir() if child.name != path.name]
+    if existing:
+        raise RuntimeError(
+            "non-empty work directory has no RUN_IDENTITY.json; refusing to mix or overwrite artifacts"
+        )
+    atomic_write_json(path, payload)
+    return identity
+
+
+def verify_worker_identity(
+    args: argparse.Namespace,
+    config: BenchConfig,
+    spec: DatasetSpec,
+    *,
+    worker: str,
+    seed: int | None = None,
+    method: str | None = None,
+) -> tuple[str, dict[str, Any]]:
+    payload = worker_identity_payload(
+        config,
+        spec,
+        worker=worker,
+        seed=seed,
+        method=method,
+    )
+    identity = canonical_json_sha256(payload)
+    expected = str(args.expected_worker_identity_sha256)
+    if identity != expected:
+        raise RuntimeError(
+            f"{worker} worker protocol identity changed after scheduling: expected {expected}, got {identity}"
+        )
+    return identity, payload
 
 
 def build_execution_plan(config: BenchConfig, mode: str) -> dict[str, Any]:
@@ -326,20 +522,25 @@ def build_execution_plan(config: BenchConfig, mode: str) -> dict[str, Any]:
             for dataset in config.datasets
             for seed in config.budget.seeds
             for method in PILOT_METHODS
-            if method != "positive_only"
         ]
         return {
             "mode": mode,
             "scientific_status": PILOT_STATUS,
             "critic_parallel_stage": critics,
-            "positive_parallel_stage": positives,
+            "warmstart_parallel_stage": positives,
             "branch_parallel_stage": branches,
             "critic_workers": config.parallel.critic_workers,
-            "positive_workers": config.parallel.positive_workers,
+            "warmstart_workers": config.parallel.warmstart_workers,
             "branch_workers": config.parallel.branch_workers,
             "critic_cpus_per_worker": config.parallel.critic_cpus_per_worker,
-            "positive_cpus_per_worker": config.parallel.positive_cpus_per_worker,
+            "warmstart_cpus_per_worker": config.parallel.warmstart_cpus_per_worker,
             "branch_cpus_per_worker": config.parallel.branch_cpus_per_worker,
+            "shared_positive_warmstart_steps": (
+                config.budget.shared_positive_warmstart_steps
+            ),
+            "method_continuation_steps": config.budget.method_continuation_steps,
+            "total_actor_steps_per_method": config.budget.total_actor_steps_per_method,
+            "method_continuation_count": len(branches),
             "parallel_unit": config.parallel.parallel_unit,
             "top_level_serial_seed_loop": False,
             "top_level_serial_method_loop": False,
@@ -403,7 +604,7 @@ def worker_dataset_manifest(
     spec: DatasetSpec,
     validated_manifest_path: str | None,
 ) -> dict[str, Any]:
-    """Reuse the coordinator's one-time SHA check without 40 concurrent re-hashes."""
+    """Reuse the coordinator's one-time SHA check without 48 concurrent re-hashes."""
     if not validated_manifest_path:
         return validate_dataset_file(dataset_root, spec)
     manifest_path = Path(validated_manifest_path).expanduser().resolve()
@@ -434,10 +635,10 @@ def preflight_pilot_runtime(
         "parallel_canonical_critics": (
             config.parallel.critic_workers * config.parallel.critic_cpus_per_worker
         ),
-        "parallel_positive_checkpoints": (
-            config.parallel.positive_workers * config.parallel.positive_cpus_per_worker
+        "parallel_shared_positive_warmstarts": (
+            config.parallel.warmstart_workers * config.parallel.warmstart_cpus_per_worker
         ),
-        "parallel_task_seed_method_branches": (
+        "parallel_equal_horizon_method_continuations": (
             config.parallel.branch_workers * config.parallel.branch_cpus_per_worker
         ),
     }
@@ -579,11 +780,11 @@ def make_q2_config(
         critic_max_steps=budget.critic_steps,
         critic_min_steps=max(1, budget.critic_steps // 4),
         critic_eval_interval=budget.critic_eval_interval,
-        positive_max_steps=budget.positive_steps,
-        positive_min_steps=max(1, budget.positive_steps // 4),
+        positive_max_steps=budget.shared_positive_warmstart_steps,
+        positive_min_steps=max(1, budget.shared_positive_warmstart_steps // 4),
         actor_eval_interval=budget.actor_eval_interval,
-        branch_max_steps=budget.branch_steps,
-        branch_min_steps=max(1, budget.branch_steps // 4),
+        branch_max_steps=budget.method_continuation_steps,
+        branch_min_steps=max(1, budget.method_continuation_steps // 4),
         matched_pairs=0,
         audit_sample_size=budget.audit_sample_size,
         rollout_episodes=budget.rollout_episodes,
@@ -806,6 +1007,22 @@ def _policy_eval_row(
     return row
 
 
+def _apply_training_failure_to_terminal(
+    terminal: dict[str, Any], failure_reason: str | None
+) -> dict[str, Any]:
+    if failure_reason is None:
+        return terminal
+    terminal.update(
+        {
+            "state": "nan_inf_numerical_collapse",
+            "numerical_nonfinite": True,
+            "fixed_budget_completed": False,
+            "explicit_terminal_classification": True,
+        }
+    )
+    return terminal
+
+
 def train_policy_method(
     *,
     policy: q2.SquashedGaussianPolicy,
@@ -944,6 +1161,11 @@ def train_policy_method(
         bool(extension_target is not None and final_step >= extension_target),
         fixed_budget_completed=fixed_budget_completed,
     )
+    # The shared E7 terminal classifier inspects the latest recorded audit row.
+    # A non-finite loss/gradient can occur between audit rows, so explicitly carry
+    # the training-loop failure into the terminal classification instead of
+    # misreporting the last finite audit as a non-numerical stop.
+    terminal = _apply_training_failure_to_terminal(terminal, failure_reason)
     terminal.update(
         {
             "method": method,
@@ -973,6 +1195,7 @@ def train_policy_method(
         "task_performance_collapse": terminal["task_performance_collapse"],
         "support_boundary_event": terminal["support_boundary_event"],
         "numerical_nonfinite": terminal["numerical_nonfinite"],
+        "failure_reason": failure_reason,
         "rollout_return_mean": rows[-1].get("rollout_return_mean"),
         "normalized_return": rows[-1].get("normalized_return"),
         "normalized_return_available": rows[-1].get("normalized_return_available"),
@@ -991,6 +1214,12 @@ def critic_worker(args: argparse.Namespace) -> int:
     config = load_bench_config(args.config)
     configure_worker_threads(args.cpus_per_worker)
     spec = next(item for item in config.datasets if item.id == args.dataset_id)
+    worker_identity, identity_payload = verify_worker_identity(
+        args,
+        config,
+        spec,
+        worker="critic",
+    )
     dataset_root = Path(args.dataset_root).expanduser().resolve()
     dataset_manifest = worker_dataset_manifest(
         dataset_root, spec, getattr(args, "validated_datasets_manifest", None)
@@ -1046,6 +1275,10 @@ def critic_worker(args: argparse.Namespace) -> int:
         "worker": "critic",
         "experiment_id": EXPERIMENT_ID,
         "runner_version": RUNNER_VERSION,
+        "protocol_version": config.protocol_version,
+        "run_identity_sha256": run_identity_sha256(config),
+        "worker_identity_sha256": worker_identity,
+        "worker_identity_payload": identity_payload,
         "scientific_status": PILOT_STATUS,
         "dataset": dataset_manifest,
         "transitions": data.size,
@@ -1055,6 +1288,18 @@ def critic_worker(args: argparse.Namespace) -> int:
         "negative_fraction": float(np.mean(advantage < 0)),
         "completed_utc": utc_now(),
     }
+    if not bool(critic_audit["fixed_budget_completed"]):
+        atomic_write_json(
+            output_dir / "WORKER_FAILED.json",
+            {
+                **complete,
+                "worker_status": "failed_before_downstream_branching",
+                "failure_reason": "canonical_critic_fixed_budget_incomplete",
+            },
+        )
+        raise RuntimeError(
+            f"canonical critic did not complete the frozen {config.budget.critic_steps}-step budget"
+        )
     atomic_write_json(output_dir / "WORKER_COMPLETE.json", complete)
     return 0
 
@@ -1134,7 +1379,7 @@ def _actor_worker_context(
     )
 
 
-def positive_worker(args: argparse.Namespace) -> int:
+def warmstart_worker(args: argparse.Namespace) -> int:
     (
         config,
         spec,
@@ -1150,6 +1395,14 @@ def positive_worker(args: argparse.Namespace) -> int:
         device,
     ) = _actor_worker_context(args)
     seed = int(args.seed)
+    worker_identity, identity_payload = verify_worker_identity(
+        args,
+        config,
+        spec,
+        worker="warmstart",
+        seed=seed,
+        method=WARMSTART_METHOD,
+    )
     output_dir = Path(args.output_dir).expanduser().resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
     policy = q2.SquashedGaussianPolicy(
@@ -1171,7 +1424,7 @@ def positive_worker(args: argparse.Namespace) -> int:
         negative_indices=negative_indices,
         q2_config=q2_config,
         method_config=config.methods,
-        max_steps=config.budget.positive_steps,
+        max_steps=config.budget.shared_positive_warmstart_steps,
         eval_interval=config.budget.actor_eval_interval,
         rollout_eval_interval=config.budget.rollout_eval_interval,
         rollout_episodes=config.budget.rollout_episodes,
@@ -1182,18 +1435,32 @@ def positive_worker(args: argparse.Namespace) -> int:
         spec=spec,
         obs_norm=obs_norm,
     )
-    summary.update({"dataset_id": spec.id, "seed": seed})
+    summary.update(
+        {
+            "dataset_id": spec.id,
+            "seed": seed,
+            "stage_role": "shared_positive_only_warmstart",
+            "total_actor_steps_at_stage_end": (
+                config.budget.shared_positive_warmstart_steps
+            ),
+        }
+    )
     atomic_write_json(output_dir / "summary.json", summary)
     checkpoint = output_dir / "method" / "terminal_actor.pt"
     complete = {
-        "worker": "positive",
+        "worker": "warmstart",
         "experiment_id": EXPERIMENT_ID,
         "runner_version": RUNNER_VERSION,
+        "protocol_version": config.protocol_version,
+        "run_identity_sha256": run_identity_sha256(config),
+        "worker_identity_sha256": worker_identity,
+        "worker_identity_payload": identity_payload,
         "scientific_status": PILOT_STATUS,
         "formal_evidence_allowed": False,
         "dataset": dataset_manifest,
         "seed": seed,
-        "method": "positive_only",
+        "method": WARMSTART_METHOD,
+        "training_objective": "positive_only",
         "summary": summary,
         "branch_checkpoint": {
             "path": str(checkpoint),
@@ -1201,12 +1468,25 @@ def positive_worker(args: argparse.Namespace) -> int:
         },
         "completed_utc": utc_now(),
     }
+    if not bool(summary["fixed_budget_completed"]):
+        atomic_write_json(
+            output_dir / "WORKER_FAILED.json",
+            {
+                **complete,
+                "worker_status": "failed_before_method_branching",
+                "failure_reason": summary.get("failure_reason")
+                or "shared_warmstart_fixed_budget_incomplete",
+            },
+        )
+        raise RuntimeError(
+            "shared Positive-only warm-start did not complete its frozen fixed budget"
+        )
     atomic_write_json(output_dir / "WORKER_COMPLETE.json", complete)
     return 0
 
 
 def branch_worker(args: argparse.Namespace) -> int:
-    if args.method not in PILOT_METHODS or args.method == "positive_only":
+    if args.method not in PILOT_METHODS:
         raise ValueError(f"invalid branch method: {args.method}")
     (
         config,
@@ -1223,14 +1503,36 @@ def branch_worker(args: argparse.Namespace) -> int:
         device,
     ) = _actor_worker_context(args)
     seed = int(args.seed)
-    positive_dir = Path(args.positive_dir).expanduser().resolve()
-    marker = positive_dir / "WORKER_COMPLETE.json"
+    worker_identity, identity_payload = verify_worker_identity(
+        args,
+        config,
+        spec,
+        worker="branch",
+        seed=seed,
+        method=args.method,
+    )
+    warmstart_dir = Path(args.warmstart_dir).expanduser().resolve()
+    marker = warmstart_dir / "WORKER_COMPLETE.json"
     if not marker.is_file():
-        raise FileNotFoundError(f"positive checkpoint worker is incomplete: {marker}")
-    positive_payload = json.loads(marker.read_text())
-    checkpoint = Path(positive_payload["branch_checkpoint"]["path"])
-    if sha256_file(checkpoint) != positive_payload["branch_checkpoint"]["sha256"]:
-        raise RuntimeError("positive checkpoint SHA-256 mismatch")
+        raise FileNotFoundError(f"shared warm-start worker is incomplete: {marker}")
+    warmstart_payload = json.loads(marker.read_text())
+    expected_warmstart_identity = worker_identity_sha256(
+        config,
+        spec,
+        worker="warmstart",
+        seed=seed,
+        method=WARMSTART_METHOD,
+    )
+    if warmstart_payload.get("worker_identity_sha256") != expected_warmstart_identity:
+        raise RuntimeError("shared warm-start identity does not match this branch protocol")
+    warmstart_summary = warmstart_payload.get("summary", {})
+    if not bool(warmstart_summary.get("fixed_budget_completed")):
+        raise RuntimeError("shared Positive-only warm-start did not complete its fixed budget")
+    if int(warmstart_summary.get("step", -1)) != config.budget.shared_positive_warmstart_steps:
+        raise RuntimeError("shared Positive-only warm-start step count does not match protocol")
+    checkpoint = Path(warmstart_payload["branch_checkpoint"]["path"])
+    if sha256_file(checkpoint) != warmstart_payload["branch_checkpoint"]["sha256"]:
+        raise RuntimeError("shared warm-start checkpoint SHA-256 mismatch")
     payload = torch.load(checkpoint, map_location="cpu", weights_only=False)
     policy = q2.SquashedGaussianPolicy(
         obs.shape[1],
@@ -1254,7 +1556,7 @@ def branch_worker(args: argparse.Namespace) -> int:
         negative_indices=negative_indices,
         q2_config=q2_config,
         method_config=config.methods,
-        max_steps=config.budget.branch_steps,
+        max_steps=config.budget.method_continuation_steps,
         eval_interval=config.budget.actor_eval_interval,
         rollout_eval_interval=config.budget.rollout_eval_interval,
         rollout_episodes=config.budget.rollout_episodes,
@@ -1265,12 +1567,28 @@ def branch_worker(args: argparse.Namespace) -> int:
         spec=spec,
         obs_norm=obs_norm,
     )
-    summary.update({"dataset_id": spec.id, "seed": seed})
+    summary.update(
+        {
+            "dataset_id": spec.id,
+            "seed": seed,
+            "scheduled_continuation_steps": config.budget.method_continuation_steps,
+            "executed_continuation_steps": int(summary["step"]),
+            "shared_warmstart_steps": config.budget.shared_positive_warmstart_steps,
+            "scheduled_total_actor_steps": config.budget.total_actor_steps_per_method,
+            "executed_total_actor_steps": (
+                config.budget.shared_positive_warmstart_steps + int(summary["step"])
+            ),
+        }
+    )
     atomic_write_json(output_dir / "summary.json", summary)
     complete = {
         "worker": "branch",
         "experiment_id": EXPERIMENT_ID,
         "runner_version": RUNNER_VERSION,
+        "protocol_version": config.protocol_version,
+        "run_identity_sha256": run_identity_sha256(config),
+        "worker_identity_sha256": worker_identity,
+        "worker_identity_payload": identity_payload,
         "scientific_status": PILOT_STATUS,
         "formal_evidence_allowed": False,
         "method_ranking_claim_allowed": False,
@@ -1278,7 +1596,8 @@ def branch_worker(args: argparse.Namespace) -> int:
         "seed": seed,
         "method": args.method,
         "summary": summary,
-        "source_positive_checkpoint_sha256": positive_payload["branch_checkpoint"]["sha256"],
+        "source_warmstart_checkpoint_sha256": warmstart_payload["branch_checkpoint"]["sha256"],
+        "source_warmstart_worker_identity_sha256": expected_warmstart_identity,
         "completed_utc": utc_now(),
     }
     atomic_write_json(output_dir / "WORKER_COMPLETE.json", complete)
@@ -1292,6 +1611,7 @@ def _worker_complete(
     seed: int | None = None,
     method: str | None = None,
     worker: str | None = None,
+    expected_worker_identity_sha256: str | None = None,
 ) -> bool:
     marker = path / "WORKER_COMPLETE.json"
     if not marker.is_file():
@@ -1310,7 +1630,49 @@ def _worker_complete(
         return False
     if worker is not None and payload.get("worker") != worker:
         return False
+    if (
+        expected_worker_identity_sha256 is not None
+        and payload.get("worker_identity_sha256") != expected_worker_identity_sha256
+    ):
+        return False
     return True
+
+
+def prepare_worker_output(
+    path: Path,
+    *,
+    resume: bool,
+    dataset_id: str,
+    expected_worker_identity_sha256: str,
+    seed: int | None = None,
+    method: str | None = None,
+    worker: str,
+) -> bool:
+    if _worker_complete(
+        path,
+        dataset_id=dataset_id,
+        seed=seed,
+        method=method,
+        worker=worker,
+        expected_worker_identity_sha256=expected_worker_identity_sha256,
+    ):
+        if not resume:
+            raise RuntimeError(
+                f"completed worker output already exists at {path}; pass --resume or use a new work directory"
+            )
+        return True
+    if path.exists() and any(path.iterdir()):
+        if not resume:
+            raise RuntimeError(
+                f"incomplete or stale worker output exists at {path}; pass --resume or use a new work directory"
+            )
+        archive_root = path.parent / "_stale_worker_outputs"
+        archive_root.mkdir(parents=True, exist_ok=True)
+        archive = archive_root / (
+            f"{worker}_{dataset_id}_seed_{seed}_method_{method}_{time.time_ns()}"
+        )
+        shutil.move(str(path), str(archive))
+    return False
 
 def _device_for_job(pool: tuple[str, ...], index: int) -> str:
     if not pool:
@@ -1318,11 +1680,33 @@ def _device_for_job(pool: tuple[str, ...], index: int) -> str:
     return pool[index % len(pool)]
 
 
+def _terminate_subprocess(proc: subprocess.Popen[str]) -> None:
+    if proc.poll() is not None:
+        return
+    try:
+        if os.name == "posix":
+            os.killpg(proc.pid, signal.SIGTERM)
+        else:
+            proc.terminate()
+        proc.wait(timeout=5)
+    except (ProcessLookupError, subprocess.TimeoutExpired):
+        if proc.poll() is None:
+            try:
+                if os.name == "posix":
+                    os.killpg(proc.pid, signal.SIGKILL)
+                else:
+                    proc.kill()
+            except ProcessLookupError:
+                pass
+            proc.wait(timeout=5)
+
+
 def _run_subprocess_job(
     *,
     command: list[str],
     log_path: Path,
     cpus_per_worker: int,
+    stop_event: threading.Event,
 ) -> dict[str, Any]:
     log_path.parent.mkdir(parents=True, exist_ok=True)
     env = os.environ.copy()
@@ -1330,20 +1714,36 @@ def _run_subprocess_job(
     for key in ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
         env[key] = threads
     started = time.time()
+    if stop_event.is_set():
+        return {
+            "command": command,
+            "returncode": 143,
+            "elapsed_seconds": 0.0,
+            "log": str(log_path),
+            "cancelled_by_peer_failure": True,
+        }
     with log_path.open("w") as log:
-        proc = subprocess.run(
+        proc = subprocess.Popen(
             command,
             stdout=log,
             stderr=subprocess.STDOUT,
             text=True,
             env=env,
-            check=False,
+            start_new_session=(os.name == "posix"),
         )
+        cancelled = False
+        while proc.poll() is None:
+            if stop_event.wait(timeout=0.25):
+                cancelled = True
+                _terminate_subprocess(proc)
+                break
+        returncode = int(proc.wait())
     return {
         "command": command,
-        "returncode": proc.returncode,
+        "returncode": returncode,
         "elapsed_seconds": time.time() - started,
         "log": str(log_path),
+        "cancelled_by_peer_failure": cancelled,
     }
 
 
@@ -1362,6 +1762,8 @@ def run_parallel_stage(
         )
     max_workers = min(max_workers, len(jobs))
     results: list[dict[str, Any]] = []
+    stop_event = threading.Event()
+    first_failure: tuple[dict[str, Any], dict[str, Any]] | None = None
     atomic_write_json(
         heartbeat_path,
         {"stage": stage, "state": "running", "jobs": len(jobs), "completed": 0, "utc": utc_now()},
@@ -1373,12 +1775,32 @@ def run_parallel_stage(
                 command=job["command"],
                 log_path=job["log_path"],
                 cpus_per_worker=cpus_per_worker,
+                stop_event=stop_event,
             ): job
             for job in jobs
         }
         for future in concurrent.futures.as_completed(futures):
             job = futures[future]
-            result = future.result()
+            if future.cancelled():
+                result = {
+                    "command": job["command"],
+                    "returncode": 143,
+                    "elapsed_seconds": 0.0,
+                    "log": str(job["log_path"]),
+                    "cancelled_by_peer_failure": True,
+                }
+            else:
+                try:
+                    result = future.result()
+                except Exception as exc:
+                    result = {
+                        "command": job["command"],
+                        "returncode": 1,
+                        "elapsed_seconds": 0.0,
+                        "log": str(job["log_path"]),
+                        "cancelled_by_peer_failure": False,
+                        "coordinator_exception": repr(exc),
+                    }
             result["job_id"] = job["job_id"]
             results.append(result)
             atomic_write_json(
@@ -1392,13 +1814,31 @@ def run_parallel_stage(
                     "utc": utc_now(),
                 },
             )
-            if result["returncode"] != 0:
-                for pending in futures:
-                    pending.cancel()
-                raise RuntimeError(
-                    f"parallel worker failed: {job['job_id']} returncode={result['returncode']} "
-                    f"log={result['log']}"
-                )
+            if result["returncode"] != 0 and not result.get("cancelled_by_peer_failure"):
+                if first_failure is None:
+                    first_failure = (job, result)
+                    stop_event.set()
+                    for pending in futures:
+                        pending.cancel()
+    if first_failure is not None:
+        job, result = first_failure
+        atomic_write_json(
+            heartbeat_path,
+            {
+                "stage": stage,
+                "state": "failed",
+                "jobs": len(jobs),
+                "completed": len(results),
+                "failed_job_id": job["job_id"],
+                "returncode": result["returncode"],
+                "log": result["log"],
+                "utc": utc_now(),
+            },
+        )
+        raise RuntimeError(
+            f"parallel worker failed: {job['job_id']} returncode={result['returncode']} "
+            f"log={result['log']}; peer workers were terminated"
+        )
     atomic_write_json(
         heartbeat_path,
         {"stage": stage, "state": "complete", "jobs": len(jobs), "completed": len(results), "utc": utc_now()},
@@ -1410,24 +1850,57 @@ def aggregate_pilot(work_dir: Path, config: BenchConfig) -> dict[str, Any]:
     rows: list[dict[str, Any]] = []
     for spec in config.datasets:
         for seed in config.budget.seeds:
-            positive_path = work_dir / "positive" / spec.id / f"seed_{seed}" / "summary.json"
-            if not positive_path.is_file():
-                raise FileNotFoundError(f"missing positive summary: {positive_path}")
-            rows.append(json.loads(positive_path.read_text()))
             for method in PILOT_METHODS:
-                if method == "positive_only":
-                    continue
-                branch_path = (
+                branch_dir = (
                     work_dir
                     / "branches"
                     / spec.id
                     / f"seed_{seed}"
                     / method
-                    / "summary.json"
                 )
+                expected_identity = worker_identity_sha256(
+                    config,
+                    spec,
+                    worker="branch",
+                    seed=seed,
+                    method=method,
+                )
+                if not _worker_complete(
+                    branch_dir,
+                    dataset_id=spec.id,
+                    seed=seed,
+                    method=method,
+                    worker="branch",
+                    expected_worker_identity_sha256=expected_identity,
+                ):
+                    raise RuntimeError(
+                        "cannot aggregate incomplete or stale branch output: "
+                        f"{branch_dir}"
+                    )
+                branch_path = branch_dir / "summary.json"
                 if not branch_path.is_file():
                     raise FileNotFoundError(f"missing branch summary: {branch_path}")
-                rows.append(json.loads(branch_path.read_text()))
+                row = json.loads(branch_path.read_text())
+                if int(row.get("scheduled_total_actor_steps", -1)) != (
+                    config.budget.total_actor_steps_per_method
+                ):
+                    raise RuntimeError(
+                        "branch summary does not report the frozen equal scheduled actor horizon: "
+                        f"{branch_path}"
+                    )
+                executed = int(row.get("executed_total_actor_steps", -1))
+                if bool(row.get("fixed_budget_completed")):
+                    if executed != config.budget.total_actor_steps_per_method:
+                        raise RuntimeError(
+                            "fixed-budget branch has an inconsistent executed actor step count: "
+                            f"{branch_path}"
+                        )
+                elif not bool(row.get("numerical_nonfinite")):
+                    raise RuntimeError(
+                        "branch stopped before the fixed budget without a registered NaN/Inf exception: "
+                        f"{branch_path}"
+                    )
+                rows.append(row)
     write_csv(work_dir / "pilot_method_seed_summary.csv", rows)
     payload = {
         "experiment_id": EXPERIMENT_ID,
@@ -1440,8 +1913,16 @@ def aggregate_pilot(work_dir: Path, config: BenchConfig) -> dict[str, Any]:
         "methods": list(PILOT_METHODS),
         "task_seed_jobs": len(config.datasets) * len(config.budget.seeds),
         "task_seed_method_branch_jobs": (
-            len(config.datasets) * len(config.budget.seeds) * (len(PILOT_METHODS) - 1)
+            len(config.datasets) * len(config.budget.seeds) * len(PILOT_METHODS)
         ),
+        "shared_positive_warmstart_steps": (
+            config.budget.shared_positive_warmstart_steps
+        ),
+        "method_continuation_steps": config.budget.method_continuation_steps,
+        "total_actor_steps_per_method": config.budget.total_actor_steps_per_method,
+        "equal_scheduled_actor_horizon_across_methods": True,
+        "early_termination_exception": "nan_inf_numerical_failure_only",
+        "run_identity_sha256": run_identity_sha256(config),
         "parallel_contract": build_execution_plan(config, "pilot"),
         "reporting_separation": [
             "task_performance_collapse",
@@ -1464,6 +1945,10 @@ def run_pilot(args: argparse.Namespace) -> int:
     work_dir = Path(args.work_dir).expanduser().resolve()
     dataset_root = Path(args.dataset_root).expanduser().resolve()
     work_dir.mkdir(parents=True, exist_ok=True)
+    run_identity = ensure_run_identity(work_dir, config, resume=args.resume)
+    resolved_config = work_dir / "resolved_config.yaml"
+    shutil.copy2(args.config, resolved_config)
+
     manifests = [validate_dataset_file(dataset_root, spec) for spec in config.datasets]
     atomic_write_json(work_dir / "DATASETS.json", manifests)
     atomic_write_json(work_dir / "EXECUTION_PLAN.json", plan)
@@ -1471,15 +1956,19 @@ def run_pilot(args: argparse.Namespace) -> int:
         work_dir / "PREFLIGHT.json",
         preflight_pilot_runtime(config, manifests),
     )
-    shutil.copy2(args.config, work_dir / "resolved_config.yaml")
     python = sys.executable
     runner_path = str(Path(__file__).resolve())
 
     critic_jobs: list[dict[str, Any]] = []
     for index, spec in enumerate(config.datasets):
         output = work_dir / "critics" / spec.id
-        if args.resume and _worker_complete(
-            output, dataset_id=spec.id, worker="critic"
+        expected_identity = worker_identity_sha256(config, spec, worker="critic")
+        if prepare_worker_output(
+            output,
+            resume=args.resume,
+            dataset_id=spec.id,
+            worker="critic",
+            expected_worker_identity_sha256=expected_identity,
         ):
             continue
         critic_jobs.append(
@@ -1491,7 +1980,7 @@ def run_pilot(args: argparse.Namespace) -> int:
                     runner_path,
                     "critic-worker",
                     "--config",
-                    str(Path(args.config).resolve()),
+                    str(resolved_config),
                     "--dataset-root",
                     str(dataset_root),
                     "--validated-datasets-manifest",
@@ -1504,6 +1993,8 @@ def run_pilot(args: argparse.Namespace) -> int:
                     _device_for_job(config.parallel.device_pool, index),
                     "--cpus-per-worker",
                     str(config.parallel.critic_cpus_per_worker),
+                    "--expected-worker-identity-sha256",
+                    expected_identity,
                 ],
             }
         )
@@ -1516,33 +2007,48 @@ def run_pilot(args: argparse.Namespace) -> int:
             heartbeat_path=work_dir / "critic_stage_heartbeat.json",
         )
 
-    positive_jobs: list[dict[str, Any]] = []
+    warmstart_jobs: list[dict[str, Any]] = []
     job_index = 0
     for spec in config.datasets:
         critic_dir = work_dir / "critics" / spec.id
-        if not _worker_complete(critic_dir, dataset_id=spec.id, worker="critic"):
+        critic_identity = worker_identity_sha256(config, spec, worker="critic")
+        if not _worker_complete(
+            critic_dir,
+            dataset_id=spec.id,
+            worker="critic",
+            expected_worker_identity_sha256=critic_identity,
+        ):
             raise RuntimeError(f"canonical critic is incomplete for {spec.id}")
         for seed in config.budget.seeds:
-            output = work_dir / "positive" / spec.id / f"seed_{seed}"
-            if args.resume and _worker_complete(
+            output = work_dir / "warmstarts" / spec.id / f"seed_{seed}"
+            expected_identity = worker_identity_sha256(
+                config,
+                spec,
+                worker="warmstart",
+                seed=seed,
+                method=WARMSTART_METHOD,
+            )
+            if prepare_worker_output(
                 output,
+                resume=args.resume,
                 dataset_id=spec.id,
                 seed=seed,
-                method="positive_only",
-                worker="positive",
+                method=WARMSTART_METHOD,
+                worker="warmstart",
+                expected_worker_identity_sha256=expected_identity,
             ):
                 job_index += 1
                 continue
-            positive_jobs.append(
+            warmstart_jobs.append(
                 {
-                    "job_id": f"positive:{spec.id}:seed_{seed}",
-                    "log_path": work_dir / "logs" / f"positive_{spec.id}_seed_{seed}.log",
+                    "job_id": f"warmstart:{spec.id}:seed_{seed}",
+                    "log_path": work_dir / "logs" / f"warmstart_{spec.id}_seed_{seed}.log",
                     "command": [
                         python,
                         runner_path,
-                        "positive-worker",
+                        "warmstart-worker",
                         "--config",
-                        str(Path(args.config).resolve()),
+                        str(resolved_config),
                         "--dataset-root",
                         str(dataset_root),
                         "--validated-datasets-manifest",
@@ -1558,18 +2064,20 @@ def run_pilot(args: argparse.Namespace) -> int:
                         "--device",
                         _device_for_job(config.parallel.device_pool, job_index),
                         "--cpus-per-worker",
-                        str(config.parallel.positive_cpus_per_worker),
+                        str(config.parallel.warmstart_cpus_per_worker),
+                        "--expected-worker-identity-sha256",
+                        expected_identity,
                     ],
                 }
             )
             job_index += 1
-    if positive_jobs:
+    if warmstart_jobs:
         run_parallel_stage(
-            positive_jobs,
-            max_workers=config.parallel.positive_workers,
-            cpus_per_worker=config.parallel.positive_cpus_per_worker,
-            stage="parallel_positive_checkpoints",
-            heartbeat_path=work_dir / "positive_stage_heartbeat.json",
+            warmstart_jobs,
+            max_workers=config.parallel.warmstart_workers,
+            cpus_per_worker=config.parallel.warmstart_cpus_per_worker,
+            stage="parallel_shared_positive_warmstarts",
+            heartbeat_path=work_dir / "warmstart_stage_heartbeat.json",
         )
 
     branch_jobs: list[dict[str, Any]] = []
@@ -1577,27 +2085,42 @@ def run_pilot(args: argparse.Namespace) -> int:
     for spec in config.datasets:
         critic_dir = work_dir / "critics" / spec.id
         for seed in config.budget.seeds:
-            positive_dir = work_dir / "positive" / spec.id / f"seed_{seed}"
+            warmstart_dir = work_dir / "warmstarts" / spec.id / f"seed_{seed}"
+            warmstart_identity = worker_identity_sha256(
+                config,
+                spec,
+                worker="warmstart",
+                seed=seed,
+                method=WARMSTART_METHOD,
+            )
             if not _worker_complete(
-                positive_dir,
+                warmstart_dir,
                 dataset_id=spec.id,
                 seed=seed,
-                method="positive_only",
-                worker="positive",
+                method=WARMSTART_METHOD,
+                worker="warmstart",
+                expected_worker_identity_sha256=warmstart_identity,
             ):
                 raise RuntimeError(
-                    f"positive checkpoint is incomplete for {spec.id} seed {seed}"
+                    f"shared Positive-only warm-start is incomplete for {spec.id} seed {seed}"
                 )
             for method in PILOT_METHODS:
-                if method == "positive_only":
-                    continue
                 output = work_dir / "branches" / spec.id / f"seed_{seed}" / method
-                if args.resume and _worker_complete(
+                expected_identity = worker_identity_sha256(
+                    config,
+                    spec,
+                    worker="branch",
+                    seed=seed,
+                    method=method,
+                )
+                if prepare_worker_output(
                     output,
+                    resume=args.resume,
                     dataset_id=spec.id,
                     seed=seed,
                     method=method,
                     worker="branch",
+                    expected_worker_identity_sha256=expected_identity,
                 ):
                     job_index += 1
                     continue
@@ -1614,7 +2137,7 @@ def run_pilot(args: argparse.Namespace) -> int:
                             runner_path,
                             "branch-worker",
                             "--config",
-                            str(Path(args.config).resolve()),
+                            str(resolved_config),
                             "--dataset-root",
                             str(dataset_root),
                             "--validated-datasets-manifest",
@@ -1627,14 +2150,16 @@ def run_pilot(args: argparse.Namespace) -> int:
                             method,
                             "--critic-dir",
                             str(critic_dir),
-                            "--positive-dir",
-                            str(positive_dir),
+                            "--warmstart-dir",
+                            str(warmstart_dir),
                             "--output-dir",
                             str(output),
                             "--device",
                             _device_for_job(config.parallel.device_pool, job_index),
                             "--cpus-per-worker",
                             str(config.parallel.branch_cpus_per_worker),
+                            "--expected-worker-identity-sha256",
+                            expected_identity,
                         ],
                     }
                 )
@@ -1644,11 +2169,14 @@ def run_pilot(args: argparse.Namespace) -> int:
             branch_jobs,
             max_workers=config.parallel.branch_workers,
             cpus_per_worker=config.parallel.branch_cpus_per_worker,
-            stage="parallel_task_seed_method_branches",
+            stage="parallel_equal_horizon_method_continuations",
             heartbeat_path=work_dir / "branch_stage_heartbeat.json",
         )
+    if run_identity != run_identity_sha256(config):
+        raise RuntimeError("run identity changed during coordinator execution")
     aggregate_pilot(work_dir, config)
     return 0
+
 
 def inspect_command(args: argparse.Namespace) -> int:
     config = load_bench_config(args.config)
@@ -1694,28 +2222,31 @@ def build_parser() -> argparse.ArgumentParser:
     critic.add_argument("--output-dir", required=True)
     critic.add_argument("--device", required=True)
     critic.add_argument("--cpus-per-worker", type=int, required=True)
-    positive = sub.add_parser("positive-worker", help=argparse.SUPPRESS)
-    positive.add_argument("--config", required=True)
-    positive.add_argument("--dataset-root", required=True)
-    positive.add_argument("--validated-datasets-manifest")
-    positive.add_argument("--dataset-id", required=True)
-    positive.add_argument("--seed", type=int, required=True)
-    positive.add_argument("--critic-dir", required=True)
-    positive.add_argument("--output-dir", required=True)
-    positive.add_argument("--device", required=True)
-    positive.add_argument("--cpus-per-worker", type=int, required=True)
+    critic.add_argument("--expected-worker-identity-sha256", required=True)
+    warmstart = sub.add_parser("warmstart-worker", help=argparse.SUPPRESS)
+    warmstart.add_argument("--config", required=True)
+    warmstart.add_argument("--dataset-root", required=True)
+    warmstart.add_argument("--validated-datasets-manifest")
+    warmstart.add_argument("--dataset-id", required=True)
+    warmstart.add_argument("--seed", type=int, required=True)
+    warmstart.add_argument("--critic-dir", required=True)
+    warmstart.add_argument("--output-dir", required=True)
+    warmstart.add_argument("--device", required=True)
+    warmstart.add_argument("--cpus-per-worker", type=int, required=True)
+    warmstart.add_argument("--expected-worker-identity-sha256", required=True)
     branch = sub.add_parser("branch-worker", help=argparse.SUPPRESS)
     branch.add_argument("--config", required=True)
     branch.add_argument("--dataset-root", required=True)
     branch.add_argument("--validated-datasets-manifest")
     branch.add_argument("--dataset-id", required=True)
     branch.add_argument("--seed", type=int, required=True)
-    branch.add_argument("--method", required=True, choices=PILOT_METHODS[1:])
+    branch.add_argument("--method", required=True, choices=PILOT_METHODS)
     branch.add_argument("--critic-dir", required=True)
-    branch.add_argument("--positive-dir", required=True)
+    branch.add_argument("--warmstart-dir", required=True)
     branch.add_argument("--output-dir", required=True)
     branch.add_argument("--device", required=True)
     branch.add_argument("--cpus-per-worker", type=int, required=True)
+    branch.add_argument("--expected-worker-identity-sha256", required=True)
     return parser
 
 
@@ -1728,8 +2259,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return inspect_command(args)
     if args.command == "critic-worker":
         return critic_worker(args)
-    if args.command == "positive-worker":
-        return positive_worker(args)
+    if args.command == "warmstart-worker":
+        return warmstart_worker(args)
     if args.command == "branch-worker":
         return branch_worker(args)
     if args.mode == "formal":

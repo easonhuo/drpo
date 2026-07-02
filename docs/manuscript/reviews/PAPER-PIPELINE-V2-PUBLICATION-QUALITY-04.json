@@ -1,12 +1,5 @@
 {
-  "schema_version": 1,
-  "review_id": "PAPER-PIPELINE-V2-PUBLICATION-QUALITY-04",
-  "base_commit": "cd6c42db337d8f261840850a58bf60a83c37e6bd",
-  "review_date": "2026-07-02",
-  "guidance_path": "docs/manuscript/RL_PAPER_WRITING_GUIDANCE.md",
-  "playbook_path": "docs/manuscript/RL_PAPER_WRITING_PLAYBOOK.md",
-  "strategy_path": "docs/manuscript/DRPO_MANUSCRIPT_STRATEGY.md",
-  "corpus_path": "docs/manuscript/RL_WRITING_CORPUS_NOTES.md",
+  "artifact_refresh_note": "The E7-Q2 repository closure refreshed only the generated Core research snapshot provenance to bind the current experiments/registry.yaml. The publication-quality prose, figures, PDF, guidance, playbook, strategy, and review gates were unchanged; this record refreshes the snapshot artifact hash so the acceptance review remains current.",
   "artifacts": [
     {
       "path": "docs/manuscript/RL_PAPER_WRITING_GUIDANCE.md",
@@ -78,228 +71,15 @@
     },
     {
       "path": "paper/core_review_v2_core/research_snapshot.json",
-      "sha256": "efda7c502603b29e746127e7b74ba6d13f7921a24546765c6338c64bbbf76d32"
+      "sha256": "2b3c4f8aa50fc428d6b4781530fa481ae887717ce75b5fe7e9267158ba6bb9a6"
     },
     {
       "path": "paper/releases/DRPO_FULL_REVIEW_V1.pdf",
       "sha256": "cc9c0b5fdfab53e5c552cd4f392fe5e49e37817cbec98dbf6a6d3e030451ac0a"
     }
   ],
-  "one_sentence_thesis": "Negative feedback can create stable improvement beyond Positive-only learning, but historical negative actions can become learner-relative far field and drive the aggregate policy target toward a feasibility boundary; DRPO attenuates that far-field contribution while retaining useful local repulsion.",
-  "identity_statement": "This is one DRPO manuscript being rewritten. The first four chapters now use an executable outline--sentence-unit blueprint--prose contract; Optimistic-DRO quality selection remains separate from learner-relative remoteness control.",
-  "merge_statement": "The v0.9.3 publication-quality revision preserves stable IDs and historical versions while strengthening outline obligations, theory decomposition, prose realization, proof bindings, and release gates.",
-  "gates": [
-    {
-      "id": "G01",
-      "status": "pass",
-      "evidence": "Scientific claims and experiment states remain governed by handoff and registry."
-    },
-    {
-      "id": "G02",
-      "status": "pass",
-      "evidence": "The approved v0.9-review is recorded as the content baseline rather than an inspiration for silent rewriting."
-    },
-    {
-      "id": "G03",
-      "status": "pass",
-      "evidence": "The merge ledger distinguishes review from rewrite and records every imported or rejected change."
-    },
-    {
-      "id": "G04",
-      "status": "pass",
-      "evidence": "Strategy, graph, outline, prose, and correction appendix encode one DRPO manuscript being rewritten."
-    },
-    {
-      "id": "G05",
-      "status": "pass",
-      "evidence": "The new merged artifact is versioned v0.9.2 rather than silently replacing v0.9 or v0.9.1."
-    },
-    {
-      "id": "G06",
-      "status": "pass",
-      "evidence": "The one-sentence contribution connects useful negative feedback, far-field amplification, equilibrium loss, and DRPO control."
-    },
-    {
-      "id": "G07",
-      "status": "pass",
-      "evidence": "The missing link is strict badness--distance or badness--rarity isolation."
-    },
-    {
-      "id": "G08",
-      "status": "pass",
-      "evidence": "The transferable principle is to control excessive learner-relative far-field negative influence while retaining local utility."
-    },
-    {
-      "id": "G09",
-      "status": "pass",
-      "evidence": "Theorem 1 has one job: stable extrapolation, boundary approach, and loss of finite equilibrium."
-    },
-    {
-      "id": "G10",
-      "status": "pass",
-      "evidence": "DRPO modifies the theorem-level aggregate negative contribution."
-    },
-    {
-      "id": "G11",
-      "status": "pass",
-      "evidence": "RQ3 requires direct measurement of raw and weighted aggregate negative influence."
-    },
-    {
-      "id": "G12",
-      "status": "pass",
-      "evidence": "Optimistic-DRO quality selection and exponential remoteness tapering are stated as distinct results; no hard-to-Exp derivation is invented."
-    },
-    {
-      "id": "G13",
-      "status": "pass",
-      "evidence": "Main prose removes anticipatory global-convergence and frozen-advantage disclaimers."
-    },
-    {
-      "id": "G14",
-      "status": "pass",
-      "evidence": "P03 names the strongest rival explanation and the decisive matched control."
-    },
-    {
-      "id": "G15",
-      "status": "pass",
-      "evidence": "Claim evidence matrix separates scientific status from execution state."
-    },
-    {
-      "id": "G16",
-      "status": "pass",
-      "evidence": "Negative, TBD, and failed results remain explicit and are assigned appendix or table slots."
-    },
-    {
-      "id": "G17",
-      "status": "pass",
-      "evidence": "Each RQ and graph node has a primary claim and evidence owner."
-    },
-    {
-      "id": "G18",
-      "status": "pass",
-      "evidence": "C-U1/D-U1 are controlled; Hopper/Countdown are external."
-    },
-    {
-      "id": "G19",
-      "status": "pass",
-      "evidence": "Paired seeds, common data, matched budgets, and best/terminal reporting are required."
-    },
-    {
-      "id": "G20",
-      "status": "pass",
-      "evidence": "Dynamic claims require terminal or continuation audit."
-    },
-    {
-      "id": "G21",
-      "status": "pass",
-      "evidence": "Task collapse, policy-family boundary, and NaN/Inf are separate fields."
-    },
-    {
-      "id": "G22",
-      "status": "pass",
-      "evidence": "The abstract follows resource, failure, theory, method, evidence, implication."
-    },
-    {
-      "id": "G23",
-      "status": "pass",
-      "evidence": "The Introduction uses six moves; P03 combines existing controls and matched isolation."
-    },
-    {
-      "id": "G24",
-      "status": "pass",
-      "evidence": "Related Work is organized by method lines with precise relationship statements."
-    },
-    {
-      "id": "G25",
-      "status": "pass",
-      "evidence": "Theory now follows static remoteness, repeated reuse, aggregate equilibrium, policy-family manifestations, predictions, and method bridge, with one proof binding per formal result."
-    },
-    {
-      "id": "G26",
-      "status": "pass",
-      "evidence": "Method follows raw term, weighting, controlled term, proposition, and ablations."
-    },
-    {
-      "id": "G27",
-      "status": "pass",
-      "evidence": "Experiments use external occurrence, controlled explanation, phase/control, and external closure."
-    },
-    {
-      "id": "G28",
-      "status": "pass",
-      "evidence": "The appendix contains complete proofs for the static score proposition, reuse theorem, aggregate equilibrium theorem, policy-family runaway theorem, and far-field vanishing proposition."
-    },
-    {
-      "id": "G29",
-      "status": "pass",
-      "evidence": "Every stable node has one claim and one reader question."
-    },
-    {
-      "id": "G30",
-      "status": "pass",
-      "evidence": "Paragraphs move from established context to new claim."
-    },
-    {
-      "id": "G31",
-      "status": "pass",
-      "evidence": "Claim verbs are calibrated through claim-evidence status records."
-    },
-    {
-      "id": "G32",
-      "status": "pass",
-      "evidence": "Prose uses concrete policy, update, sample, theorem, and method actors."
-    },
-    {
-      "id": "G33",
-      "status": "pass",
-      "evidence": "Scientific-completeness prose and compression are separate passes."
-    },
-    {
-      "id": "G34",
-      "status": "pass",
-      "evidence": "Figure 1 carries the useful-to-destructive arc and evidence architecture."
-    },
-    {
-      "id": "G35",
-      "status": "pass",
-      "evidence": "Each generated visual has one primary claim and is labeled schematic."
-    },
-    {
-      "id": "G36",
-      "status": "pass",
-      "evidence": "Tables encode environment roles, controlled comparisons, and external closure."
-    },
-    {
-      "id": "G37",
-      "status": "pass",
-      "evidence": "Captions state claim, comparison, status, and interpretation."
-    },
-    {
-      "id": "G38",
-      "status": "pass",
-      "evidence": "Current citations compile from the included bibliography; no placeholder citation is introduced."
-    },
-    {
-      "id": "G39",
-      "status": "pass",
-      "evidence": "The supplied ICML/Overleaf project compiles cleanly and a direct-upload ZIP is generated."
-    },
-    {
-      "id": "G40",
-      "status": "pass",
-      "evidence": "Stable-ID sync is bidirectional and same-node conflicts fail closed."
-    },
-    {
-      "id": "G41",
-      "status": "pass",
-      "evidence": "Semantic prose edits expose structured Claim, Reader question, Role, Logical moves, and Evidence fields."
-    },
-    {
-      "id": "G42",
-      "status": "pass",
-      "evidence": "Outline, rich sentence-unit blueprint, prose, TeX, appendix proofs, figures, PDF, and quality reports are reproducible graph projections."
-    }
-  ],
+  "base_commit": "cd6c42db337d8f261840850a58bf60a83c37e6bd",
+  "corpus_path": "docs/manuscript/RL_WRITING_CORPUS_NOTES.md",
   "findings": {
     "blocker": [],
     "major": [],
@@ -309,6 +89,237 @@
       "Scientific-completeness prose still requires user content review before canonical paper activation."
     ]
   },
+  "gates": [
+    {
+      "evidence": "Scientific claims and experiment states remain governed by handoff and registry.",
+      "id": "G01",
+      "status": "pass"
+    },
+    {
+      "evidence": "The approved v0.9-review is recorded as the content baseline rather than an inspiration for silent rewriting.",
+      "id": "G02",
+      "status": "pass"
+    },
+    {
+      "evidence": "The merge ledger distinguishes review from rewrite and records every imported or rejected change.",
+      "id": "G03",
+      "status": "pass"
+    },
+    {
+      "evidence": "Strategy, graph, outline, prose, and correction appendix encode one DRPO manuscript being rewritten.",
+      "id": "G04",
+      "status": "pass"
+    },
+    {
+      "evidence": "The new merged artifact is versioned v0.9.2 rather than silently replacing v0.9 or v0.9.1.",
+      "id": "G05",
+      "status": "pass"
+    },
+    {
+      "evidence": "The one-sentence contribution connects useful negative feedback, far-field amplification, equilibrium loss, and DRPO control.",
+      "id": "G06",
+      "status": "pass"
+    },
+    {
+      "evidence": "The missing link is strict badness--distance or badness--rarity isolation.",
+      "id": "G07",
+      "status": "pass"
+    },
+    {
+      "evidence": "The transferable principle is to control excessive learner-relative far-field negative influence while retaining local utility.",
+      "id": "G08",
+      "status": "pass"
+    },
+    {
+      "evidence": "Theorem 1 has one job: stable extrapolation, boundary approach, and loss of finite equilibrium.",
+      "id": "G09",
+      "status": "pass"
+    },
+    {
+      "evidence": "DRPO modifies the theorem-level aggregate negative contribution.",
+      "id": "G10",
+      "status": "pass"
+    },
+    {
+      "evidence": "RQ3 requires direct measurement of raw and weighted aggregate negative influence.",
+      "id": "G11",
+      "status": "pass"
+    },
+    {
+      "evidence": "Optimistic-DRO quality selection and exponential remoteness tapering are stated as distinct results; no hard-to-Exp derivation is invented.",
+      "id": "G12",
+      "status": "pass"
+    },
+    {
+      "evidence": "Main prose removes anticipatory global-convergence and frozen-advantage disclaimers.",
+      "id": "G13",
+      "status": "pass"
+    },
+    {
+      "evidence": "P03 names the strongest rival explanation and the decisive matched control.",
+      "id": "G14",
+      "status": "pass"
+    },
+    {
+      "evidence": "Claim evidence matrix separates scientific status from execution state.",
+      "id": "G15",
+      "status": "pass"
+    },
+    {
+      "evidence": "Negative, TBD, and failed results remain explicit and are assigned appendix or table slots.",
+      "id": "G16",
+      "status": "pass"
+    },
+    {
+      "evidence": "Each RQ and graph node has a primary claim and evidence owner.",
+      "id": "G17",
+      "status": "pass"
+    },
+    {
+      "evidence": "C-U1/D-U1 are controlled; Hopper/Countdown are external.",
+      "id": "G18",
+      "status": "pass"
+    },
+    {
+      "evidence": "Paired seeds, common data, matched budgets, and best/terminal reporting are required.",
+      "id": "G19",
+      "status": "pass"
+    },
+    {
+      "evidence": "Dynamic claims require terminal or continuation audit.",
+      "id": "G20",
+      "status": "pass"
+    },
+    {
+      "evidence": "Task collapse, policy-family boundary, and NaN/Inf are separate fields.",
+      "id": "G21",
+      "status": "pass"
+    },
+    {
+      "evidence": "The abstract follows resource, failure, theory, method, evidence, implication.",
+      "id": "G22",
+      "status": "pass"
+    },
+    {
+      "evidence": "The Introduction uses six moves; P03 combines existing controls and matched isolation.",
+      "id": "G23",
+      "status": "pass"
+    },
+    {
+      "evidence": "Related Work is organized by method lines with precise relationship statements.",
+      "id": "G24",
+      "status": "pass"
+    },
+    {
+      "evidence": "Theory now follows static remoteness, repeated reuse, aggregate equilibrium, policy-family manifestations, predictions, and method bridge, with one proof binding per formal result.",
+      "id": "G25",
+      "status": "pass"
+    },
+    {
+      "evidence": "Method follows raw term, weighting, controlled term, proposition, and ablations.",
+      "id": "G26",
+      "status": "pass"
+    },
+    {
+      "evidence": "Experiments use external occurrence, controlled explanation, phase/control, and external closure.",
+      "id": "G27",
+      "status": "pass"
+    },
+    {
+      "evidence": "The appendix contains complete proofs for the static score proposition, reuse theorem, aggregate equilibrium theorem, policy-family runaway theorem, and far-field vanishing proposition.",
+      "id": "G28",
+      "status": "pass"
+    },
+    {
+      "evidence": "Every stable node has one claim and one reader question.",
+      "id": "G29",
+      "status": "pass"
+    },
+    {
+      "evidence": "Paragraphs move from established context to new claim.",
+      "id": "G30",
+      "status": "pass"
+    },
+    {
+      "evidence": "Claim verbs are calibrated through claim-evidence status records.",
+      "id": "G31",
+      "status": "pass"
+    },
+    {
+      "evidence": "Prose uses concrete policy, update, sample, theorem, and method actors.",
+      "id": "G32",
+      "status": "pass"
+    },
+    {
+      "evidence": "Scientific-completeness prose and compression are separate passes.",
+      "id": "G33",
+      "status": "pass"
+    },
+    {
+      "evidence": "Figure 1 carries the useful-to-destructive arc and evidence architecture.",
+      "id": "G34",
+      "status": "pass"
+    },
+    {
+      "evidence": "Each generated visual has one primary claim and is labeled schematic.",
+      "id": "G35",
+      "status": "pass"
+    },
+    {
+      "evidence": "Tables encode environment roles, controlled comparisons, and external closure.",
+      "id": "G36",
+      "status": "pass"
+    },
+    {
+      "evidence": "Captions state claim, comparison, status, and interpretation.",
+      "id": "G37",
+      "status": "pass"
+    },
+    {
+      "evidence": "Current citations compile from the included bibliography; no placeholder citation is introduced.",
+      "id": "G38",
+      "status": "pass"
+    },
+    {
+      "evidence": "The supplied ICML/Overleaf project compiles cleanly and a direct-upload ZIP is generated.",
+      "id": "G39",
+      "status": "pass"
+    },
+    {
+      "evidence": "Stable-ID sync is bidirectional and same-node conflicts fail closed.",
+      "id": "G40",
+      "status": "pass"
+    },
+    {
+      "evidence": "Semantic prose edits expose structured Claim, Reader question, Role, Logical moves, and Evidence fields.",
+      "id": "G41",
+      "status": "pass"
+    },
+    {
+      "evidence": "Outline, rich sentence-unit blueprint, prose, TeX, appendix proofs, figures, PDF, and quality reports are reproducible graph projections.",
+      "id": "G42",
+      "status": "pass"
+    }
+  ],
+  "generated_outputs": [
+    {
+      "path": "paper/publication_quality_v1/quality_report.json",
+      "validation": "16 front-four nodes pass outline, sentence-unit, citation, formula, proof, terminology, claim-boundary, and word-budget gates"
+    },
+    {
+      "path": "paper/releases/DRPO_FULL_REVIEW_V1.pdf",
+      "validation": "12-page ICML two-column PDF compiles without undefined references or overfull boxes and includes the strengthened first four chapters and complete registered proofs"
+    }
+  ],
+  "guidance_path": "docs/manuscript/RL_PAPER_WRITING_GUIDANCE.md",
+  "identity_statement": "This is one DRPO manuscript being rewritten. The first four chapters now use an executable outline--sentence-unit blueprint--prose contract; Optimistic-DRO quality selection remains separate from learner-relative remoteness control.",
+  "merge_statement": "The v0.9.3 publication-quality revision preserves stable IDs and historical versions while strengthening outline obligations, theory decomposition, prose realization, proof bindings, and release gates.",
+  "one_sentence_thesis": "Negative feedback can create stable improvement beyond Positive-only learning, but historical negative actions can become learner-relative far field and drive the aggregate policy target toward a feasibility boundary; DRPO attenuates that far-field contribution while retaining useful local repulsion.",
+  "playbook_path": "docs/manuscript/RL_PAPER_WRITING_PLAYBOOK.md",
+  "review_date": "2026-07-02",
+  "review_id": "PAPER-PIPELINE-V2-PUBLICATION-QUALITY-04",
+  "schema_version": 1,
+  "strategy_path": "docs/manuscript/DRPO_MANUSCRIPT_STRATEGY.md",
   "unresolved_experiment_dependencies": [
     {
       "claim": "continuous full-parameter distance source attribution",
@@ -331,16 +342,5 @@
       "status": "not completed in this package"
     }
   ],
-  "verdict": "PASS",
-  "generated_outputs": [
-    {
-      "path": "paper/publication_quality_v1/quality_report.json",
-      "validation": "16 front-four nodes pass outline, sentence-unit, citation, formula, proof, terminology, claim-boundary, and word-budget gates"
-    },
-    {
-      "path": "paper/releases/DRPO_FULL_REVIEW_V1.pdf",
-      "validation": "12-page ICML two-column PDF compiles without undefined references or overfull boxes and includes the strengthened first four chapters and complete registered proofs"
-    }
-  ],
-  "artifact_refresh_note": "The E7-Q2 repository closure refreshed only the generated Core research snapshot provenance to bind the current experiments/registry.yaml. The publication-quality prose, figures, PDF, guidance, playbook, strategy, and review gates were unchanged; this record refreshes the snapshot artifact hash so the acceptance review remains current."
+  "verdict": "PASS"
 }

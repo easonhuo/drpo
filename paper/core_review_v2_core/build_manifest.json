@@ -6,11 +6,11 @@
   "outline_sha256": "b96c343682e90ea7c7d581cbebe68de3d16b972c9f9355af8aa50f9d800c3dcd",
   "outputs": {
     "blueprint.json": {
-      "sha256": "5d16c8a4e3aad8922729baf3a065c7774c97911462b595d427111011b8a23d33",
+      "sha256": "61bb4d988be45cde253e10e94f3b0ab1acf63e32c612686c3e33cc7d9cf520d9",
       "size_bytes": 21745
     },
     "blueprint.md": {
-      "sha256": "0904e4e2b5adab25936c0ab532d6948c6de0f3047dfcd1ac386b9089d27d623f",
+      "sha256": "991f98b2e748e96c94920826969d6f5959793d22866e78eadffb2b9147f55548",
       "size_bytes": 7762
     },
     "cu1_e3_fixed_reward.csv": {
@@ -54,7 +54,7 @@
       "size_bytes": 1876
     },
     "research_snapshot.json": {
-      "sha256": "6b04617c717355b54a1dd0faaf0c7068d4407a47cadf41637bdc5ba0270f5971",
+      "sha256": "2b3c4f8aa50fc428d6b4781530fa481ae887717ce75b5fe7e9267158ba6bb9a6",
       "size_bytes": 7982
     },
     "theorem.tex": {
@@ -66,6 +66,6 @@
   "pdf_pages": 2,
   "pdf_status": "compiled",
   "schema_version": 1,
-  "snapshot_sha256": "6b04617c717355b54a1dd0faaf0c7068d4407a47cadf41637bdc5ba0270f5971",
+  "snapshot_sha256": "ffac9895183a431b8bd0dbbfee5eaf3d99cfcce3f55d2c6db638225eb9d466f1",
   "task_id": "PAPER-PIPELINE-V2-CORE-01"
 }

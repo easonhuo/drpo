@@ -1,10 +1,26 @@
-# EXT-H-E7-BENCH-01 Parallel Pilot Protocol
+# EXT-H-E7-BENCH-01 Long-Budget Parallel Pilot Protocol
 
 ## Scope
 
-This is a pilot substage under the existing `EXT-H-E7-BENCH-01` ID. It does not create a second top-level experiment. The pilot checks the benchmark implementation, runtime, artifact volume, paired method branching, rollout evaluation, and task/support/numerical audit plumbing.
+This is a `pilot` substage under the existing `EXT-H-E7-BENCH-01` ID. It does not create a second top-level experiment. The pilot checks the benchmark implementation, runtime, artifact volume, paired method branching, rollout evaluation, terminal-state audit, and whether the frozen continuous taper families show a reproducible preliminary direction under a D4RL-scale training budget.
 
-The formal benchmark remains the registered nine-cell D4RL MuJoCo suite. Pilot output is never formal evidence and may not be used to select a new taper family or tune a task-specific coefficient.
+The formal benchmark remains the registered nine-cell D4RL MuJoCo suite. Pilot output is not formal nine-task evidence and may not be used to select a new taper family or tune a task-specific coefficient.
+
+## Correction of the superseded short-budget design
+
+The first implementation registered `20k` critic steps, a `20k` Positive-only checkpoint, and `40k` non-positive branches. That design was suitable only as an engineering smoke test. It had two scientific defects:
+
+1. every stage was one fifth of the already audited E7-Q2 long-run budget; and
+2. Positive-only stopped after `20k`, while the other methods received another `40k`, so the baseline and controlled methods did not have equal actor horizons.
+
+No scientific pilot result was produced under that design. This protocol replaces it with the E7-Q2 long-run scale and an equal-horizon comparison:
+
+- canonical critic: `100k` optimizer steps per dataset;
+- shared Positive-only warm-start: `100k` steps per `(dataset, seed)`;
+- method continuation: `200k` steps for **all six methods**, including Positive-only;
+- total actor horizon: `300k` steps for every compared method.
+
+Only NaN/Inf numerical failure may stop a worker early. A fixed horizon is not treated as convergence.
 
 ## Pilot matrix
 
@@ -12,7 +28,7 @@ The formal benchmark remains the registered nine-cell D4RL MuJoCo suite. Pilot o
 - Six methods: Positive-only, Signed, Global alpha, Reciprocal-Linear, Reciprocal-Quadratic, and Exponential.
 - Taper coefficients are copied without D4RL retuning from the frozen C-U1 near-retention calibration.
 - Two uploaded data cells:
-  - `hopper-medium-minari-v0`: the exact uploaded `mujoco/hopper/medium-v0` file. Metadata identifies it as Minari/Hopper-v5, not D4RL Hopper-medium-v2. It is therefore plumbing-only and is not eligible for the formal nine-cell table.
+  - `hopper-medium-minari-v0`: the exact uploaded `mujoco/hopper/medium-v0` file. Metadata identifies it as Minari/Hopper-v5, not D4RL Hopper-medium-v2. It is plumbing/pilot-only and is not eligible for the formal nine-cell table.
   - `hopper-medium-expert-v2`: the exact uploaded D4RL-v2 legacy HDF5 cell.
 
 The version distinction is deliberate. The code refuses to relabel the Minari medium file as D4RL and reports raw Hopper-v5 return for that pilot cell. A formal Hopper-medium result still requires a separately frozen exact D4RL dataset version.
@@ -21,34 +37,64 @@ The version distinction is deliberate. The code refuses to relabel the Minari me
 
 The coordinator uses three fail-fast subprocess stages:
 
-1. Two dataset-level canonical critics run concurrently.
-2. Eight `(dataset, seed)` Positive-only checkpoints run concurrently.
-3. Forty `(dataset, seed, method)` branches run concurrently from the corresponding identical Positive-only checkpoint.
+1. Two dataset-level canonical critics run concurrently: `2 × 64 = 128` CPU threads.
+2. Eight `(dataset, seed)` shared Positive-only warm-starts run concurrently: `8 × 32 = 256` CPU threads.
+3. Forty-eight `(dataset, seed, method)` equal-horizon continuations run concurrently: `48 × 7 = 336` CPU threads.
 
-This structure does not serialize either seeds or method branches. It preserves paired initialization because every branch verifies and loads the same Positive-only checkpoint for its dataset and seed. It also uses isolated outputs, so one failed method branch can be retried without rerunning the other 39 branches.
+The third stage includes Positive-only itself. Every method loads the same 100k warm-start for its dataset and seed, creates a fresh optimizer, and receives the same 200k continuation budget. This removes the former 20k-versus-60k comparison asymmetry.
 
-The default CPU allocation is stage-specific: 2 critic workers × 64 threads, 8 Positive-only workers × 32 threads, and 40 branch workers × 8 threads. Peak allocation is 320 threads, leaving operating-system and I/O headroom on a 384-core server. Resume granularity is `(dataset, seed, method)`.
+The taper definitions are fixed and explicit. For standardized Gaussian distance
+`u = d / 5`, Reciprocal-Linear uses `1 / (1 + c u)`, Reciprocal-Quadratic uses
+`1 / (1 + c u^2)`, and Exponential uses `exp(-c u)`. “Quadratic” here refers to
+the squared standardized distance, which is the Gaussian surprisal-order proxy;
+it is not the quartic form that would arise from reciprocal-squared-surprisal.
 
-Before starting the 20k-step critics, the coordinator performs one SHA-256 pass per dataset, checks that the machine exposes at least the registered 320 peak CPU threads, opens both Gymnasium/MuJoCo evaluation environments, and verifies dataset/environment observation and action dimensions. Worker processes reuse the coordinator's immutable dataset manifest and check path, size, and mtime rather than launching 40 simultaneous hashes of the same HDF5 files.
+The peak registered allocation is 336 threads, leaving 48 threads of headroom on a 384-core server. Seeds and methods are never executed by a top-level serial loop. Every worker has an isolated output directory, and shared aggregate files are written only by the coordinator.
 
-The formal nine-cell registration freezes the same topology: `task_seed_method` is the branch parallel unit, both serial seed and serial method loops are forbidden, and every branch starts from an identical per-task-seed Positive-only checkpoint. Formal launch remains fail-closed until exact formal seeds, D4RL versions, base algorithm, optimizer, and full budgets are registered.
+The formal nine-cell registration freezes the same topology: `task_seed_method` is the continuation parallel unit, both serial seed and serial method loops are forbidden, Positive-only is an equal-horizon continuation branch, and each method starts from an identical per-task-seed Positive-only warm-start. Formal launch remains fail-closed until exact formal seeds, D4RL versions, base algorithm, optimizer, and full budgets are registered.
 
-## Budgets and interpretation
+## Resume and stale-output protection
 
-The pilot uses 20k critic steps, 20k Positive-only steps, and 40k steps per branch. These are pilot budgets, not convergence claims. Only NaN/Inf can stop a branch early. Terminal audit still separates:
+Resume identity is not based only on dataset, seed, and method names. Every run and worker binds:
+
+- exact Pilot config SHA-256;
+- exact E7-Q2 base-config SHA-256;
+- runner and protocol versions;
+- dataset SHA-256;
+- stage-specific training budget;
+- method identity and all taper parameters.
+
+A work directory from the superseded `20k/20k/40k` design cannot be resumed under this protocol. The coordinator fails closed and requires a new work directory. Within a matching run identity, incomplete worker directories are preserved under a `_stale_worker_outputs` archive before that worker alone is retried.
+
+If one worker fails, the coordinator terminates active peer subprocesses instead
+of waiting for dozens of 200k-step workers to finish. Canonical critics and shared
+warm-starts must complete their full frozen budgets before downstream branching.
+Method continuations may stop early only for NaN/Inf; summaries record scheduled
+and actually executed actor steps separately, so a numerical failure cannot be
+misreported as a completed 300k path.
+
+## Interpretation
+
+The long budget makes this a meaningful scientific pilot rather than a plumbing smoke, but it still does not establish:
+
+- a stable finite terminal state;
+- a universal method ranking;
+- superiority over Positive-only;
+- formal nine-task D4RL performance;
+- permission to change the frozen taper families or coefficients.
+
+The terminal audit continues to report separately:
 
 - task-performance collapse;
 - support or variance-boundary events;
 - NaN/Inf numerical failure;
 - persistent/slow drift or unresolved fixed-horizon state.
 
-A pilot method may look promising, but the result cannot establish a stable terminal ranking, a universal controller winner, or superiority over Positive-only.
-
 ## Commands
 
-The runtime environment must provide the E7-Q2 PyTorch/HDF5 stack plus `gymnasium` with MuJoCo support for `Hopper-v4` and `Hopper-v5`. The runner fails before long critic training when this rollout dependency is unavailable.
+The runtime environment must provide the E7-Q2 PyTorch/HDF5 stack plus `gymnasium` with MuJoCo support for `Hopper-v4` and `Hopper-v5`. The runner fails before the 100k critics when this rollout dependency is unavailable.
 
-After extracting the registered dataset bundle into one directory:
+After extracting the registered dataset bundle into one directory, use a **new** work directory for this long-budget protocol:
 
 ```bash
 python3 scripts/run_e7_bench.py inspect \
@@ -59,8 +105,7 @@ python3 scripts/run_e7_bench.py run \
   --mode pilot \
   --dataset-root "$DATASET_ROOT" \
   --work-dir "$WORK_DIR" \
-  --config configs/e7_bench_pilot.yaml \
-  --resume
+  --config configs/e7_bench_pilot.yaml
 ```
 
-`DATASET_ROOT` and `WORK_DIR` are runtime environment variables chosen by the operator; the repository stores exact internal relative paths and SHA-256 values, not machine-specific absolute paths.
+For interruption recovery, rerun the same command with `--resume`. `DATASET_ROOT` and `WORK_DIR` are runtime environment variables chosen by the operator; the repository stores exact internal relative paths and SHA-256 values, not machine-specific absolute paths.

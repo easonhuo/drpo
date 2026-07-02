@@ -13,6 +13,11 @@
 - Reason: source content has 76277 characters, above the configured 65000 threshold
 - Automatic action: `false`
 
+## candidate_split_module: `hopper_e7`
+
+- Reason: source content has 52511 characters, above the configured 50000 threshold
+- Automatic action: `false`
+
 ## candidate_split_module: `countdown_e8`
 
 - Reason: source content has 68671 characters, above the configured 50000 threshold

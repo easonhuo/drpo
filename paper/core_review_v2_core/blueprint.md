@@ -1,7 +1,7 @@
 # Executable blueprint: PAPER-PIPELINE-V2-CORE-01
 
 Outline: `b96c343682e90ea7c7d581cbebe68de3d16b972c9f9355af8aa50f9d800c3dcd`
-Snapshot: `42dd7d442e49d6c790987296788bd9d617d74e24bffad29028aa4f0d53957d93`
+Snapshot: `ffac9895183a431b8bd0dbbfee5eaf3d99cfcce3f55d2c6db638225eb9d466f1`
 
 ## Resolution summary
 

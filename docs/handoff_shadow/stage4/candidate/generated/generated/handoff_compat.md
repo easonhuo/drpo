@@ -1,4 +1,4 @@
-# DRPO / SNA2C 远场负梯度动力学研究主文档 v70（D-U1 E6 utility × surprisal 笛卡尔积与 TAPER 联合登记版）
+# DRPO / SNA2C 远场负梯度动力学研究主文档 v71（E7-BENCH 长预算等时并行 Pilot 修正版）
 <!-- HANDOFF-DELTA-BLOCK:after_heading:v50-stage3-shadow-bootstrap:START -->
 > **v50 增量登记：治理 Pipeline Stage 3 `HANDOFF_DELTA.yaml` shadow mode 启动（不删除 v49 及更早内容）**
 >
@@ -763,6 +763,19 @@
 > - 任务性能崩溃、support boundary 与 NaN/Inf numerical failure继续分开报告。categorical direct-logit score 有界；本实验不声称 Gaussian 式无界梯度、Transformer 外部有效性、跨任务方法排名或任何 taper 必然最优。
 > - 新实现为 `src/drpo/du1_e6_cartesian_taper.py`，冻结配置 `configs/du1_e6_cartesian_taper.yaml`，一键入口 `scripts/run_du1_e6_cartesian_taper.py`。正式协议固定 CPU、8 个 seed workers；正式启动必须经过 hardened guard，要求 clean worktree、权威 `origin/main` 匹配、每 seed 持久化 trajectories/summary/audit/calibration 后再写 checkpoint marker、完整终态审计和 durable raw-complete artifact。应用本更新后状态为 **implemented + ready + active + not_run**；smoke/unit/static 结果不构成正式科学结果。
 <!-- HANDOFF-DELTA-BLOCK:after_heading:v70-du1-e6-cartesian-taper:END -->
+<!-- HANDOFF-DELTA-BLOCK:after_heading:v71-e7-bench-long-budget-parallel-pilot:START -->
+> **v71 增量登记：`EXT-H-E7-BENCH-01` 长预算、等 actor horizon 与强 resume identity 修正（不删除 v70 及更早内容）**
+>
+> - **旧设计：**v69 将 Pilot 冻结为 critic `20k`、Positive-only `20k`、其余分支 `40k`。该设计只适合作为 engineering smoke，不足以承担用户要求的科学 Pilot；同时 Positive-only 总 actor horizon 只有 `20k`，其余方法为 `60k`，比较预算不公平。
+> - **问题与修正依据：**已完成的 E7-Q2 formal long-run 使用 critic `100k`、Positive-only initialization `100k`、每分支 continuation `200k`。当前 Pilot 既要初步观察连续 taper 方向，又不得以并行缩短单 worker 科学预算，因此恢复到同一训练量级。v69 短预算尚未产生科学结果，不登记为被否定结果，只保留为 superseded engineering-smoke design。
+> - **新冻结预算：**每数据集 canonical critic 固定 `100000` optimizer steps；每 `(dataset, seed)` 先训练共享 Positive-only warm-start `100000` steps；随后 `Positive-only / Signed / Global alpha / Reciprocal-Linear / Reciprocal-Quadratic / Exponential` 六种方法都从同一 warm-start 并行 continuation `200000` steps。每个比较方法总 actor horizon 因而统一为 `300000` steps。只有 NaN/Inf numerical failure 可提前终止，固定 horizon 仍不等于收敛。
+> - **并行修正：**三阶段改为 `2` 个 critic workers、`8` 个 shared warm-start workers、`48` 个 `(dataset, seed, method)` continuation workers。线程分配为 `64 / 32 / 7`，峰值 `336` threads，在 384 核服务器上保留 `48` threads 余量。Positive-only 不再作为第二阶段终点结果，而是第三阶段中的完整等时 continuation 分支。seed 与 method 顶层串行继续被禁止。
+> - **恢复身份修正：**每个 run 和 worker 必须绑定 exact Pilot config SHA-256、E7-Q2 base-config SHA-256、runner/protocol version、dataset SHA-256、stage budget、method identity 与 taper 参数。旧 `20k/20k/40k` work directory 不允许在新协议下 `--resume`；coordinator 必须 fail closed 并要求新 work directory。相同 run identity 下的 incomplete worker 先归档，再仅重跑对应 task-seed-method 单元。
+> - **并行失败与预算记账修正：**runner `0.2.1` 在任一 worker 失败后主动终止仍在运行的 peer subprocesses，避免其余几十个 200k-step worker 继续空耗。canonical critic 与共享 Positive-only warm-start 必须完整达到各自冻结预算，才允许进入下游阶段；method continuation 仅允许因 NaN/Inf 提前终止，并分别记录 scheduled horizon 与 actually executed steps，不能把数值失败伪装成完成 300k actor path。
+> - **Taper 公式锁定：**令 `u=d/5` 为标准化 Gaussian distance，Reciprocal-Linear 为 `1/(1+c u)`，Reciprocal-Quadratic 为 `1/(1+c u^2)`，Exponential 为 `exp(-c u)`。其中 quadratic 指 distance-squared，即 Gaussian surprisal-order proxy；不得误写为 reciprocal-squared-surprisal 对应的四次距离形式。
+> - **正式 E7-BENCH 并行约束同步：**正式 9-task benchmark 继续以 `task_seed_method` 为 continuation 调度单元，Positive-only 也必须是 equal-horizon continuation branch；formal exact seeds、D4RL versions、base algorithm、optimizer 与 full budget 仍未冻结，因此 formal activation 继续 blocked。本修正不等于正式实验可以启动。
+> - Pilot 仍只允许形成 `pilot` 证据：不得据此按 D4RL task 更换函数族或系数，不得填入正式 9-task 主表，不得声称有限稳态、通用方法排名或当前 taper 必然超过 Positive-only。任务性能崩溃、support/variance boundary 与 NaN/Inf numerical failure 继续分开报告。
+<!-- HANDOFF-DELTA-BLOCK:after_heading:v71-e7-bench-long-budget-parallel-pilot:END -->
 
 1. **唯一 Master 文档是任务轴。** 新理论、新实验、新变量、代码入口和结果状态必须先登记，再执行。
 2. **文档先于实验。** 未写明 claim、环境、数据、指标、收敛条件和结果落点的实验，严格禁止启动。

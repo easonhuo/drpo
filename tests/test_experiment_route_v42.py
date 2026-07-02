@@ -132,9 +132,20 @@ def test_e7_benchmark_scope_is_exactly_nine_locomotion_tasks() -> None:
     parallel = bench["pilot_execution"]["parallel_execution"]
     assert parallel["parallel_unit"] == "dataset_seed_method"
     assert parallel["critic_workers"] == 2
+    # Backward-compatible aliases remain present for Stage 3 schema stability.
     assert parallel["positive_workers"] == 8
-    assert parallel["branch_workers"] == 40
-    assert parallel["peak_registered_cpu_threads"] == 320
+    assert parallel["warmstart_workers"] == 8
+    assert parallel["positive_cpus_per_worker"] == 32
+    assert parallel["warmstart_cpus_per_worker"] == 32
+    assert parallel["branch_workers"] == 48
+    assert parallel["branch_cpus_per_worker"] == 7
+    assert parallel["peak_registered_cpu_threads"] == 336
+    budget = bench["pilot_execution"]["fixed_budget"]
+    assert budget["critic_optimizer_steps"] == 100_000
+    assert budget["shared_positive_only_warmstart_steps"] == 100_000
+    assert budget["method_continuation_steps_each"] == 200_000
+    assert budget["total_actor_optimizer_steps_each"] == 300_000
+    assert budget["positive_only_receives_equal_continuation"] is True
     assert parallel["serial_seed_loop_forbidden"] is True
     assert parallel["serial_method_loop_forbidden"] is True
     formal_parallel = bench["formal_parallel_contract"]

@@ -56,17 +56,17 @@
 > - `C-U1-E4-TAPER-CONV-01` 继续 blocked。Budget-Match 交付后，下一动作必须是独立的 deterministic shortlist-freeze 更新，再实现 exact actor+Adam-state continuation runner；本版不提前生成 shortlist，不自动启动 Convergence。Seeds `130--149` 继续禁止访问。
 <!-- HANDOFF-DELTA-BLOCK:after_heading:v66-e4-taper-budget-match-closure:END -->
 <!-- STAGE4B-SOURCE-BLOCK:B000017:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000065:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000066:START -->
 ## 3.8 C-U1 共享实现与二次阶方法实验 `C-U1-E4-TAPER-01`
 
-<!-- STAGE4B-SOURCE-BLOCK:B000065:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000066:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000066:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000067:START -->
 ### 3.8.1 代码单一来源
 
 C-U1 的环境与 actor 不再允许嵌入新实验文件。唯一共享实现为 `src/drpo/cu1_core.py`，包含 state-to-geometry 映射、正/负轮廓、`Split/Environment`、Gaussian actor、log-probability、标准化距离和输出 score 分解。`drpo_cu1_e1_e4_oneclick.py` 只保留冻结 protocol、训练、干预、审计与报告；`cu1_e1_componentwise_rerun.py` 和 taper runner 只导入共享实现。重构必须用确定性张量、actor 初始化、log-probability、环境不变量和 smoke run 做等价回归，不能以“代码更整洁”为由改变任何冻结科学变量。
 
-<!-- STAGE4B-SOURCE-BLOCK:B000066:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000067:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000067:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000068:START -->
 ### 3.8.2 唯一距离与方法公式
 
 对当前 isotropic Gaussian actor，定义唯一方法距离
@@ -85,8 +85,8 @@ $$
 
 共同参考衰减为 `w(u=1)=rho`，故 reciprocal 两族使用 `lambda=rho^{-1}-1`，指数族使用 `lambda_exp=-log rho`。这不是 gradient-budget matching；所有方法读取同一数据、固定 advantage、actor、初始化和 minibatch index stream，只改变以上函数。
 
-<!-- STAGE4B-SOURCE-BLOCK:B000067:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000068:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000068:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000069:START -->
 ### 3.8.3 正式协议
 
 - **Experiment ID：** `C-U1-E4-TAPER-01`；补充 E4 的方法阶数 claim，不替代 E1--E4。
@@ -103,8 +103,8 @@ $$
 - **Linear 名称边界：** `w_lin` 是本研究在同一标准化距离上的内部 `p=1` reciprocal control，不是原 DRPO 分布鲁棒章节中的 linear weighting，也不以复现任何外部方法为前置条件。clipped-linear、surprisal-linear 或不同距离上的线性族属于其他方法，必须另行登记，不能更名替换本实验。
 
 
-<!-- STAGE4B-SOURCE-BLOCK:B000068:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000069:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000069:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000070:START -->
 ### 3.8.4 环境连续性、质量匹配与方向效用边界（v44 澄清）
 
 1. **连续环境与有限离线支持必须区分。** C-U1 的动作空间是 `R^2`，reward 对任意动作连续可计算；负样本集合来自以 `a_star(s)` 为圆心、半径 1.20 的连续等值圆周。正式数据每状态只取 8 个均匀角度，是有限 offline dataset 的支持设计，不是分段或不连续 reward。
@@ -114,8 +114,8 @@ $$
 5. **禁止的普遍化。** 不得写成“near negative 必然有益”“far negative 必然有害”或“distance 在任何任务中都是 oracle utility”。真实任务中的 utility--distance 关系必须由多几何稳健性和 Hopper/Countdown/推荐外部验证测量。
 6. **未来透明化材料。** 论文附录至少报告：负 advantage 对 distance 的水平匹配；未加权 score/influence 随 distance 的变化；负更新与 oracle improvement direction 的 cosine；各 taper 后的有效 `utility x influence`。这属于解释与审计，不改变 v43 的冻结结果。
 
-<!-- STAGE4B-SOURCE-BLOCK:B000069:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000070:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000070:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000071:START -->
 ### 3.8.5 函数族公平性、解析阶数与后续验证（v44 澄清）
 
 1. **当前比较匹配了什么。** 三个 family 共享 `w(d_ref)=rho`、同一距离、同一初始化、同一 advantage、同一 minibatch stream。它们没有匹配 `w'(d_ref)`、near-bin 平均权重、总负梯度 norm 或累计 optimizer update。
@@ -130,8 +130,8 @@ $$
    - 保持原 Adam 做长程状态审计，并在必要时另用预注册 full-batch polish/root finding 检查 objective stationary solution。
 6. **执行门禁。** 上述项目尚无可运行 experiment ID；不得复用 seeds 70--89 作为新的 confirmatory set，也不得擅自修改 horizon、optimizer、阈值或当前 E4-TAPER 定义。任何执行必须先给出独立 ID、冻结参数和对既有路线的影响。
 
-<!-- STAGE4B-SOURCE-BLOCK:B000070:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000071:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000071:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000072:START -->
 <!-- HANDOFF-DELTA-BLOCK:section_end:v60-e4-taper-utility-theory-and-followups:START -->
 ### 3.8.6 负样本 alignment utility、正交代价与净效用假设（v60）
 
@@ -200,8 +200,8 @@ $$
 
 当前 E4-TAPER 已完成机制层阶段闭环：anchor-normalized protocol 下 Quadratic 相对 Linear 的 far-field suppression order 获得正式 paired evidence，并清楚记录终态未解析和公平性限制。新四项用于升级公平方法比较和长期/确认性证据，不是修复一个已知致命漏洞。连续角度、随机 phase、轮廓分辨率、薄圆环 jitter 与 reward-bin matching 的几何 robustness extension 保持低优先级 optional study；有时间可增强附录，没有执行也不阻塞当前四项路线。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v60-e4-taper-utility-theory-and-followups:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000071:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000072:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000072:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000073:START -->
 <!-- HANDOFF-DELTA-BLOCK:section_end:v61-e4-taper-near-retention-protocol:START -->
 ### 3.8.10 Near-Retention Matching 正式协议（v61）
 
@@ -238,8 +238,8 @@ $$
 
 **主统计与非结论。** 主保持率 `0.75` 下，以 reciprocal-linear 为 reference，对其余三个 family 做 20-seed paired bootstrap；`0.50/0.25` 只作形状敏感性。far-risk、near-retention 与 reward 同时报；不预注册 reward winner，不预设 Exponential、Squared-Exponential、Quadratic 或 Linear 获胜，也不得由该实验声称 Distance 优于 Global alpha。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v61-e4-taper-near-retention-protocol:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000072:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000073:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000073:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000074:START -->
 <!-- HANDOFF-DELTA-BLOCK:section_end:v63-e4-taper-near-result-and-closure-protocol:START -->
 ### 3.8.11 Near-Retention 结果沉淀与闭环实验协议（v63）
 
@@ -277,8 +277,8 @@ Convergence 继续使用 seeds `110--129`，从 Budget-Match 8000-step actor 与
 
 **Independent Confirmation 防火墙。** `C-U1-E4-TAPER-CONFIRM-01` 的 untouched seeds 现在冻结为 `130--149`，在 confirmation config 完整冻结前任何代码、校准、smoke 或 exploratory analysis 都不得访问。确认阶段继承最终 shortlist、系数、budget rule、32000-step 上限和终态标准，禁止 retune 或改 primary claim。机制、任务和终态分开判断：near-useful non-inferiority、far-harmful improvement、paired reward vs Linear/Global、terminal classification 与三类 failure 各自报告；最低方向一致性门槛为 `16/20`，并给 paired 95% bootstrap interval。任务 superiority 不成立不能抹除机制结果，机制成立也不能冒充 reward 或稳态 superiority。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v63-e4-taper-near-result-and-closure-protocol:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000073:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000074:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000074:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000075:START -->
 <!-- HANDOFF-DELTA-BLOCK:section_end:v66-e4-taper-budget-match-result:START -->
 ### 3.8.12 Budget-Match 正式结果与证据边界（v66）
 
@@ -302,7 +302,7 @@ Convergence 继续使用 seeds `110--129`，从 Budget-Match 8000-step actor 与
 
 **收尾故障记录。** 原 guard 在子进程 return code 0 后，因缺少 `scientific_run_manifest.json` 和默认主包超过 25 MiB 而将 lifecycle 写为 failed。问题属于 runner/packaging contract，不是 task collapse、support boundary 或 numerical collapse。原 failed tree 与 failure markers 不删除；v66 只在仓库代码中补写 manifest，并把完整原树作为显式 raw sidecar 交付，compact summary 位于 `outputs/cu1_e4_taper_budget_match/`。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v66-e4-taper-budget-match-result:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000074:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000075:START -->
-
 <!-- STAGE4B-SOURCE-BLOCK:B000075:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000076:START -->
+
+<!-- STAGE4B-SOURCE-BLOCK:B000076:END -->

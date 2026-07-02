@@ -3978,29 +3978,49 @@ experiments:
       metric: d4rl_v2_normalized_return_percent
       formal_nine_task_cell_eligible: true
     fixed_budget:
-      critic_optimizer_steps: 20000
-      positive_only_optimizer_steps: 20000
-      branch_optimizer_steps: 40000
+      critic_optimizer_steps: 100000
+      positive_only_optimizer_steps: 300000
+      branch_optimizer_steps: 200000
+      shared_positive_only_warmstart_steps: 100000
+      method_continuation_steps_each: 200000
+      total_actor_optimizer_steps_each: 300000
+      positive_only_receives_equal_continuation: true
+      legacy_budget_field_semantics:
+        positive_only_optimizer_steps: total_actor_horizon_including_shared_warmstart
+        branch_optimizer_steps: method_continuation_only
       early_stop_rule: nan_inf_numerical_failure_only
       fixed_horizon_is_not_convergence: true
     parallel_execution:
       scheduler: three_stage_subprocess_worker_pool
       stages:
       - parallel_canonical_critics
-      - parallel_positive_checkpoints
-      - parallel_task_seed_method_branches
+      - parallel_shared_positive_warmstarts
+      - parallel_equal_horizon_method_continuations
       parallel_unit: dataset_seed_method
       critic_workers: 2
       positive_workers: 8
-      branch_workers: 40
+      warmstart_workers: 8
+      branch_workers: 48
       critic_cpus_per_worker: 64
       positive_cpus_per_worker: 32
-      branch_cpus_per_worker: 8
-      peak_registered_cpu_threads: 320
+      warmstart_cpus_per_worker: 32
+      branch_cpus_per_worker: 7
+      peak_registered_cpu_threads: 336
       server_cpu_capacity: 384
       serial_seed_loop_forbidden: true
       serial_method_loop_forbidden: true
       resume_granularity: dataset_seed_method
+      resume_identity_bindings:
+      - exact_pilot_config_sha256
+      - exact_base_config_sha256
+      - runner_and_protocol_versions
+      - dataset_sha256
+      - stage_budget
+      - method_and_taper_parameters
+      mismatched_workdir_policy: fail_closed_require_new_workdir
+      legacy_parallel_field_semantics:
+        positive_workers: alias_of_warmstart_workers
+        positive_cpus_per_worker: alias_of_warmstart_cpus_per_worker
   formal_parallel_contract:
     state: registered_required_topology
     task_count: 9
@@ -4009,8 +4029,11 @@ experiments:
     serial_seed_loop_forbidden: true
     serial_method_loop_forbidden: true
     identical_positive_checkpoint_per_task_seed: true
+    identical_positive_warmstart_per_task_seed: true
+    positive_only_is_equal_horizon_continuation_branch: true
     isolated_output_per_task_seed_method: true
     resume_granularity: task_seed_method
+    resume_identity_must_bind_protocol_budget_and_method_parameters: true
     exact_worker_counts: pending_with_formal_seed_freeze
   primary_metrics:
   - normalized_return
@@ -4020,7 +4043,7 @@ experiments:
   - task_performance_collapse_events
   - support_or_variance_boundary_events
   - nan_inf_numerical_events
-  protocol_lock_status: pilot_frozen_and_implemented_formal_exact_versions_seeds_optimizer_base_algorithm_pending
+  protocol_lock_status: long_budget_pilot_frozen_and_implemented_formal_exact_versions_seeds_optimizer_base_algorithm_pending
   evidence:
     code_committed: true
     run_started: false
