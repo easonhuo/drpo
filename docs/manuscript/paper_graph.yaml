@@ -1,6 +1,6 @@
-schema_version: 1
+schema_version: 2
 manuscript_id: drpo-paper-rewrite
-version: 0.9.2
+version: 0.9.3-publication-quality
 metadata:
   title: 'Breaking the Curse of Repulsion: Distributionally Robust Policy Optimization for Off-Policy Learning'
   running_title: DRPO for Off-Policy Learning
@@ -25,24 +25,35 @@ artifacts:
   prose: docs/paper_rewrite_prose_v0_1.md
   state: docs/manuscript/paper_pipeline_state.json
   overleaf_root: paper/overleaf
-  outline_header: '# DRPO paper rewrite v0.9.2: merged review candidate
+  outline_header: '# DRPO paper rewrite v0.9.3: publication-quality outline
 
 
-    Status: generated after the writing system was established. This version mechanically merges the user-approved v0.9-review, the useful corrections in repository v0.9, and the confirmed non-buggy refinements in v0.9.1. It is one DRPO manuscript being rewritten. The merge ledger records every accepted and rejected change.
-
-    '
-  blueprint_header: '# DRPO full-paper paragraph blueprint v0.6
+    Parent: v0.9.2 remains preserved in Git history. This revision strengthens the first four chapters with explicit definition, theorem, citation, appendix, boundary, and word-budget obligations while preserving stable paragraph IDs and manuscript order.
 
 
-    Parent: `docs/paper_rewrite_outline_v0_9_2.md`. Every block is generated from the stable-ID manuscript graph and retains its parent hash.
+    This is one DRPO manuscript being rewritten, not an old paper followed by a sequel.
 
     '
-  prose_header: '# DRPO full-paper prose draft v0.1
+  blueprint_header: '# DRPO full-paper paragraph blueprint v0.7
 
 
-    Parent: `docs/paper_rewrite_blueprint_v0_6.md`. This is an automatically generated scientific-completeness draft. Formal external results remain explicit TBDs. Structured metadata inside each block supports bidirectional synchronization.
+    Parent: `docs/paper_rewrite_outline_v0_9_2.md`. The first four chapters now carry sentence-unit plans, citation and theorem bindings, appendix links, reviewer objections, and publication word budgets.
+
+
+    This is one DRPO manuscript being rewritten, not an old paper followed by a sequel.
 
     '
+  prose_header: '# DRPO full-paper prose draft v0.2
+
+
+    Parent: `docs/paper_rewrite_blueprint_v0_6.md`. The first four chapters are publication-quality candidates generated and gated from detailed sentence-unit blueprints; unclosed external results remain explicit TBDs.
+
+
+    This is one DRPO manuscript being rewritten, not an old paper followed by a sequel.
+
+    '
+  publication_quality_contract: docs/manuscript/publication_quality_contract.yaml
+  publication_quality_output: paper/publication_quality_v1
 sections:
 - id: abstract
   title: Abstract
@@ -173,517 +184,1620 @@ nodes:
   order: 1
   title: Negative Feedback as a Policy-Improvement Resource
   kind: paragraph
-  claim: 'Negative feedback is not merely noise: balanced against positive attraction, it can suppress bad modes and shift a policy beyond the Positive-only target.'
-  reader_question: Why should policy optimization retain negative feedback at all?
-  role: Open with the constructive role of failures and establish Positive-only as a stable but limited reference.
-  must_include: &id003
-  - positive attraction reinforces observed successes
-  - negative feedback suppresses known bad modes
-  - balanced repulsion can shift the equilibrium beyond observed positive behavior
-  - 'central question: preserve benefit without excessive repulsion'
+  claim: Off-policy policy optimization needs both attraction toward successful behavior and suppression of known failures, but the latter must remain dynamically controlled.
+  reader_question: Why is negative feedback a necessary policy-improvement signal rather than disposable noise?
+  role: Establish the broad off-policy setting, the complementary roles of positive and negative feedback, and the paper's governing question.
+  must_include:
+  - off-policy reuse across offline, replay, recommendation, and post-training settings
+  - positive attraction toward observed successes
+  - negative suppression of known failures and competing modes
+  - Positive-only as a stable but potentially limited reference
+  - central question of preserving useful negative feedback without excessive repulsion
   must_avoid: []
-  evidence: &id004
-  - Theorem 1 stable-extrapolation regime
-  - controlled Positive-only comparison
+  evidence: &id003
+  - offline-RL and off-policy policy-optimization literature
+  - advantage-weighted and critic-regularized actor fitting
+  - Theorem 3 stable-extrapolation regime
   evidence_status: available
   blueprint:
-    topic_sentence: 'Negative feedback is not merely noise: balanced against positive attraction, it can suppress bad modes and shift a policy beyond the Positive-only target.'
-    moves: *id003
-    evidence_use: *id004
-    transition: Historical reuse explains how initially relevant repulsion becomes excessive.
-  prose: Policy optimization learns not only from successful actions but also from actions that should become less likely. Positive updates reinforce observed successes, whereas negative updates suppress known bad modes and shape the boundary between acceptable and unacceptable behavior. This distinction matters because a learner trained only on positive examples is naturally pulled toward the empirical positive target. When negative repulsion is balanced against that attraction, however, the policy can settle beyond the Positive-only target and improve in regions that were not directly demonstrated by the positive data. The central problem is therefore not whether negative feedback should be used, but how to preserve its policy-improvement value without allowing the same repulsion to become dynamically excessive.
+    topic_sentence: Historical data are useful precisely because they contain both successful behavior to reinforce and failed behavior to suppress.
+    moves:
+    - Open with the role of historical data in offline, replay-based, recommendation, and post-training policy optimization.
+    - Explain positive attraction toward observed successful actions.
+    - Explain why negative feedback suppresses known failures and competing modes.
+    - Position Positive-only as stable but potentially limited to the observed positive target.
+    - 'State the paper''s central problem: retain useful negative information without allowing repulsion to become excessive.'
+    evidence_use: *id003
+    transition: The next paragraph explains why historical reuse changes the character of the same negative signal.
+    sentence_plan:
+    - role: context
+      instruction: Open with the role of historical data in offline, replay-based, recommendation, and post-training policy optimization.
+      anchors:
+      - historical data
+      - off-policy
+    - role: positive_role
+      instruction: Explain positive attraction toward observed successful actions.
+      anchors:
+      - positive updates
+      - successful
+    - role: negative_role
+      instruction: Explain why negative feedback suppresses known failures and competing modes.
+      anchors:
+      - negative feedback
+      - suppress
+    - role: limitation
+      instruction: Position Positive-only as stable but potentially limited to the observed positive target.
+      anchors:
+      - Positive-only
+      - empirical positive target
+    - role: question
+      instruction: 'State the paper''s central problem: retain useful negative information without allowing repulsion to become excessive.'
+      anchors:
+      - central question
+      - excessive repulsion
+    citation_refs:
+    - levine2020offline
+    - fujimoto2019off
+    - peng2019advantage
+    - wang2020critic
+    theorem_or_equation_refs: []
+    appendix_bindings: []
+    allowed_conclusions:
+    - negative feedback can be informative
+    - Positive-only is a stable reference with a possible imitation ceiling
+    forbidden_conclusions:
+    - all negative feedback is harmful
+    - Positive-only is universally inferior
+    reviewer_objection: The opening could sound as though failures are always useful or that Positive-only is an inadequate baseline by definition.
+    objection_response: State complementarity and a conditional limitation, not a universal ranking.
+    word_budget:
+    - 125
+    - 220
+  prose: Off-policy policy optimization improves a current policy by reusing behavior collected by earlier, stale, or heterogeneous policies. This paradigm is central to offline reinforcement learning, replay-based control, recommender systems, and model post-training because it reduces the need for fresh interaction and exploits experience accumulated across policy iterations~\cite{levine2020offline,fujimoto2019off}. Historical data contain two complementary signals. Positive updates increase the likelihood of observed successful actions, whereas negative feedback suppresses known failures and competing modes~\cite{peng2019advantage,wang2020critic}. The Positive-only endpoint, which removes every negative update, therefore yields a useful stability reference but can restrict the learner to attraction toward the empirical positive target. Balanced repulsion can instead reshape the decision boundary and move the aggregate equilibrium beyond that target. The central question is not whether
+    negative feedback should be kept or discarded wholesale, but how to preserve its policy-improvement value without allowing repeated reuse to turn it into excessive repulsion.
 - id: INTRO-P02
   section: introduction
   order: 2
   title: Historical Reuse Turns Local Feedback into Persistent Repulsion
   kind: paragraph
-  claim: Offline logs, replay, stale actors, and asynchronous trajectories continue to reuse negative actions after the current learner has moved away, turning local feedback into persistent far-field repulsion.
-  reader_question: How does useful negative feedback become dangerous in off-policy learning?
-  role: Introduce the temporal mechanism shared by offline, replay-based, stale-policy, and asynchronous training.
-  must_include: &id005
-  - negative actions can initially be locally informative
-  - historical reuse persists after policy movement
-  - Gaussian scores can grow with standardized distance
-  - categorical scores are bounded but suppression persists
+  claim: 'Repeated reuse makes negative influence learner-relative: as the current policy moves away from a fixed historical action, the same label can become persistent or self-amplifying far-field repulsion.'
+  reader_question: How can locally informative negative feedback become dynamically dangerous?
+  role: Introduce historical reuse as the temporal mechanism and distinguish Gaussian amplification from categorical persistent suppression.
+  must_include:
+  - fixed historical action reused while learner changes
+  - initially local negative information
+  - learner-relative remoteness increases after repulsion
+  - Gaussian score growth with standardized distance
+  - categorical bounded score with persistent support suppression
   - useful-local to destructive-far-field transition
   must_avoid: []
-  evidence: &id006
+  evidence: &id004
   - Gaussian score identity
+  - repeated-reuse theorem
   - categorical log-odds dynamics
-  - external occurrence diagnostics
   evidence_status: available
   blueprint:
-    topic_sentence: Offline logs, replay, stale actors, and asynchronous trajectories continue to reuse negative actions after the current learner has moved away, turning local feedback into persistent far-field repulsion.
-    moves: *id005
-    evidence_use: *id006
-    transition: The next paragraph identifies the confounding factor that prevents this mechanism from being inferred directly in realistic data.
-  prose: The difficulty arises when the data are historical. A negative action may initially lie near the learner and provide relevant local boundary information, but offline logs, replay buffers, stale actors, and asynchronous trajectories can continue to reuse that action after the policy has moved away. Its learner-relative distance or rarity then increases while its negative label continues to generate updates. For Gaussian policies, the score can grow with standardized distance; for categorical policies, the direct-logit score is bounded, yet repeated negative updates continue to reduce the action's log-odds. Historical reuse can therefore transform locally useful feedback into persistent far-field repulsion.
+    topic_sentence: The difficulty appears when a fixed negative action is reused after the learner has moved.
+    moves:
+    - Describe offline logs, replay buffers, stale actors, and asynchronous trajectories as fixed or delayed update sources.
+    - Explain that a negative action can initially supply locally relevant boundary information.
+    - Show that repulsion increases learner-relative distance while the historical label remains active.
+    - State that Gaussian mean scores can grow with standardized distance.
+    - State that categorical direct-logit scores are bounded but repeated suppression persists.
+    - Name the useful-local to destructive-far-field transition and hand off to prior controls.
+    evidence_use: *id004
+    transition: Existing methods control several symptoms of this mismatch, but do not isolate the repeated remoteness feedback loop.
+    sentence_plan:
+    - role: historical_setting
+      instruction: Describe offline logs, replay buffers, stale actors, and asynchronous trajectories as fixed or delayed update sources.
+      anchors:
+      - offline logs
+      - replay
+    - role: local_value
+      instruction: Explain that a negative action can initially supply locally relevant boundary information.
+      anchors:
+      - locally informative
+      - boundary
+    - role: reuse_mechanism
+      instruction: Show that repulsion increases learner-relative distance while the historical label remains active.
+      anchors:
+      - learner-relative
+      - distance
+    - role: gaussian_case
+      instruction: State that Gaussian mean scores can grow with standardized distance.
+      anchors:
+      - Gaussian
+      - standardized distance
+    - role: categorical_case
+      instruction: State that categorical direct-logit scores are bounded but repeated suppression persists.
+      anchors:
+      - categorical
+      - bounded
+      - suppression
+    - role: transition
+      instruction: Name the useful-local to destructive-far-field transition and hand off to prior controls.
+      anchors:
+      - far-field
+      - transition
+    citation_refs:
+    - schulman2017proximal
+    - haarnoja2018soft
+    theorem_or_equation_refs: []
+    appendix_bindings: []
+    allowed_conclusions:
+    - historical reuse can change a sample's influence
+    - Gaussian and categorical manifestations differ
+    forbidden_conclusions:
+    - categorical per-sample gradients diverge without bound
+    - every off-policy update necessarily collapses
+    reviewer_objection: The mechanism might be mistaken for ordinary distribution shift or a one-time large update.
+    objection_response: Emphasize the repeated feedback loop and policy-family-specific response laws.
+    word_budget:
+    - 125
+    - 220
+  prose: The difficulty appears when negative actions are historical rather than freshly sampled. Offline logs, replay buffers, stale actors, and asynchronous trajectories can keep presenting the same action after the current learner has changed~\cite{schulman2017proximal,haarnoja2018soft}. A negative sample may initially lie near the policy and provide locally informative boundary information. Its update then pushes the learner away, increasing the action's learner-relative distance or surprisal while the stored negative label remains active. In Gaussian policies, the mean score can grow with standardized distance, so subsequent reuse produces progressively larger repulsion. In categorical policies, the direct-logit score is bounded, yet repeated negative updates continue to lower the selected action's log-odds and can drive its probability toward the support boundary. Historical reuse therefore creates a policy-family-dependent transition from useful local feedback to destructive far-field
+    influence, rather than merely exposing the learner to one unusually large update.
 - id: INTRO-P03
   section: introduction
   order: 3
   title: Existing Controls and the Missing Identification Link
   kind: paragraph
-  claim: Existing controls regulate sign, scale, ratio, support, staleness, or data quality, but they neither explain the useful-to-destructive transition nor isolate policy remoteness from sample badness.
-  reader_question: What do existing methods address, what remains unresolved, and why is strict badness--distance isolation necessary?
-  role: Combine prior-method positioning with the decisive identification control instead of replacing one with the other.
-  must_include: &id007
-  - positive-only, global scaling, clipping, support constraints, low-probability controls, and quality filtering
-  - their stabilizing value
-  - unresolved transition from useful local repulsion to destructive far-field influence
-  - realistic correlation among reward, negative advantage, rarity, and distance
-  - matched control holding context, semantics, reward, advantage, count, coefficient, and policy stage fixed
+  claim: Existing controls stabilize off-policy learning, but the causal role of learner-relative remoteness remains unidentified when quality, advantage magnitude, rarity, and distance are entangled.
+  reader_question: What do existing controls solve, and what identification gap remains?
+  role: Acknowledge established stabilization methods, isolate the missing dynamic claim, and motivate matched quality--distance controls.
+  must_include:
+  - positive-only filtering, global scaling, clipping, support constraints, rarity controls, and quality filtering
+  - their established stabilization value
+  - lack of a useful-local to destructive-far-field explanation
+  - realistic confounding among reward, advantage, rarity, and distance
+  - matched controls holding quality and coefficient fixed
+  - source and causal interventions as separate responsibilities
   must_avoid:
   - dropping the existing-method gap
   - claiming distance is the only factor
-  evidence: &id008
-  - Related-work synthesis
-  - C-U1 E1 quality--distance factorization
-  - D-U1 common/rare matched analogue
+  evidence: &id005
+  - related-work synthesis
+  - C-U1 E1 source isolation
+  - C-U1 E3 targeted intervention
+  - D-U1 common/rare analogue
   evidence_status: available
   blueprint:
-    topic_sentence: Existing controls regulate sign, scale, ratio, support, staleness, or data quality, but they neither explain the useful-to-destructive transition nor isolate policy remoteness from sample badness.
-    moves: *id007
-    evidence_use: *id008
-    transition: With the confound removed, Repulsive Dynamics can characterize the aggregate transition.
-  prose: 'Existing methods already regulate negative updates in several ways: positive-only objectives remove them, global coefficients reduce their scale, clipping limits individual ratios, behavior constraints restrict support movement, low-probability controls target rare events, and quality filtering removes selected data. These mechanisms can improve stability, but they do not explain why the same negative feedback is useful near the learner and destructive after it becomes far field. The question is difficult to answer from ordinary logs because low reward, large negative advantage, rarity, and policy distance are typically correlated. We therefore isolate policy remoteness while matching context, action quality or semantic role, reward, negative-advantage magnitude, sample count, base coefficient, and policy stage. This control makes distance or rarity an independently testable amplifier rather than a proxy for samples that are simply worse.'
+    topic_sentence: Current stabilization methods show that negative updates require control, but they do not identify why repeated remoteness changes their influence.
+    moves:
+    - Enumerate positive-only, global scaling, clipping, behavior constraints, rarity-aware control, and quality filtering.
+    - Acknowledge that these controls can stabilize learning and should not be dismissed as tricks.
+    - Specify the missing explanation of the local-benefit to far-field-harm transition.
+    - Explain that quality, negative advantage, rarity, and distance are correlated in ordinary logs.
+    - Describe matched controls that hold context, semantics, reward, coefficient, and policy stage fixed.
+    - Separate source isolation from causal transmission and lead into the theory.
+    evidence_use: *id005
+    transition: A theory of repulsive dynamics is needed to connect single-sample remoteness to aggregate equilibria.
+    sentence_plan:
+    - role: method_landscape
+      instruction: Enumerate positive-only, global scaling, clipping, behavior constraints, rarity-aware control, and quality filtering.
+      anchors:
+      - positive-only
+      - clipping
+      - quality filtering
+    - role: acknowledged_value
+      instruction: Acknowledge that these controls can stabilize learning and should not be dismissed as tricks.
+      anchors:
+      - stabilize
+      - controls
+    - role: unresolved_gap
+      instruction: Specify the missing explanation of the local-benefit to far-field-harm transition.
+      anchors:
+      - useful local
+      - far-field
+    - role: confounding
+      instruction: Explain that quality, negative advantage, rarity, and distance are correlated in ordinary logs.
+      anchors:
+      - advantage magnitude
+      - rarity
+      - distance
+    - role: identification
+      instruction: Describe matched controls that hold context, semantics, reward, coefficient, and policy stage fixed.
+      anchors:
+      - matched
+      - policy stage
+    - role: transition
+      instruction: Separate source isolation from causal transmission and lead into the theory.
+      anchors:
+      - source identification
+      - intervention protocol
+    citation_refs:
+    - schulman2017proximal
+    - kumar2020conservative
+    - kostrikov2021offline
+    - peng2019advantage
+    theorem_or_equation_refs: []
+    appendix_bindings: []
+    allowed_conclusions:
+    - prior controls have genuine stabilizing value
+    - remoteness requires separate causal identification
+    forbidden_conclusions:
+    - prior methods ignore off-policy mismatch
+    - distance is the only source of instability
+    reviewer_objection: The claimed gap could be a relabeling of clipping, rarity weighting, or conservative offline RL.
+    objection_response: Define the gap as repeated learner-relative dynamics under matched sample quality and then test source and transmission separately.
+    word_budget:
+    - 145
+    - 250
+  prose: Existing methods already regulate negative or off-policy updates in several principled ways. Positive-only objectives remove negative terms; global coefficients and clipping reduce their scale; trust regions and behavior constraints restrict policy movement; rarity-aware rules target low-probability events; and quality filtering removes selected data~\cite{schulman2017proximal,kumar2020conservative,kostrikov2021offline,peng2019advantage}. These controls can improve stability, but they do not by themselves explain why the same negative action can be useful near the learner and destructive in the far field after repeated reuse. The issue is difficult to identify in ordinary logs because low reward, large negative advantage, rarity, and learner-relative distance are typically correlated. We therefore construct matched controls that use matching context and semantic role, holding negative-advantage magnitude, sample count, base coefficient, and policy stage fixed to isolate policy remoteness.
+    The source-identification protocol tests whether remoteness independently changes gradient scale; a separate intervention protocol tests whether the resulting far-field influence transmits into drift, support-boundary events, and task-performance collapse. This separation motivates an aggregate theory rather than another static weighting heuristic.
 - id: INTRO-P04
   section: introduction
   order: 4
   title: Repulsive Dynamics Explains Stable Extrapolation and Equilibrium Loss
   kind: paragraph
-  claim: Positive attraction and negative repulsion define a phase sequence from the Positive-only target to stable extrapolation, boundary approach, and loss of finite equilibrium.
-  reader_question: What theoretical structure unifies beneficial and harmful negative updates?
-  role: Preview Theorem 1 and the continuous--categorical distinction without proof details.
-  must_include: &id009
-  - Positive-only target
-  - moderate negative contribution produces stable extrapolation
-  - stronger or more outward contribution moves the signed target toward a feasible boundary
-  - finite equilibrium can disappear
-  - Gaussian and categorical manifestations differ
+  claim: Repulsive Dynamics unifies stable extrapolation, persistent drift, and instability through the aggregate balance of positive and negative update masses and moments.
+  reader_question: What theoretical structure connects beneficial and harmful negative updates?
+  role: Preview the static score relation, repeated-reuse asymmetry, aggregate equilibrium theorem, and policy-family manifestations.
+  must_include:
+  - learner-relative remoteness and score response
+  - positive self-attenuation and negative self-amplification
+  - positive-dominant stable extrapolation
+  - critical persistent drift
+  - negative-dominant instability
+  - Gaussian unbounded scores versus categorical bounded boundary degeneration
   must_avoid: []
-  evidence: &id010
-  - Theorem 1
-  - Gaussian and categorical corollaries
-  - E4/E6 phase tests
+  evidence: &id006
+  - Proposition on remoteness and score response
+  - reuse theorem
+  - aggregate equilibrium theorem
+  - policy-family runaway theorem
   evidence_status: available
   blueprint:
-    topic_sentence: Positive attraction and negative repulsion define a phase sequence from the Positive-only target to stable extrapolation, boundary approach, and loss of finite equilibrium.
-    moves: *id009
-    evidence_use: *id010
-    transition: The method follows by controlling the same aggregate negative term that drives this phase transition.
-  prose: 'Repulsive Dynamics explains the full transition at the level of aggregate policy updates. Positive-only optimization targets the positive moment. A moderate negative contribution shifts the finite equilibrium beyond that target, yielding stable extrapolation. As the negative contribution becomes stronger or more outward, the signed target approaches the feasible boundary of the policy family; beyond that boundary, a finite equilibrium no longer exists. Gaussian and categorical policies share this aggregate phase structure, although they express it differently: Gaussian policies can exhibit distance-amplified scores and coupled mean--support dynamics, whereas categorical policies exhibit bounded but persistent probability suppression toward the simplex boundary.'
+    topic_sentence: 'Repulsive Dynamics separates three layers that are often conflated: static score geometry, repeated sample reuse, and aggregate equilibrium.'
+    moves:
+    - Introduce the three-layer theoretical decomposition.
+    - Explain finite stable extrapolation beyond the Positive-only target under positive dominance.
+    - Explain boundary approach, persistent drift, and loss of finite stability.
+    - Contrast Gaussian unbounded score growth with categorical bounded-gradient boundary degeneration.
+    - State that negative feedback is neither uniformly beneficial nor uniformly harmful.
+    - Connect the theoretical failure term to the method design.
+    evidence_use: *id006
+    transition: DRPO is then defined as a control of the far-field contribution in the aggregate negative term.
+    sentence_plan:
+    - role: theory_object
+      instruction: Introduce the three-layer theoretical decomposition.
+      anchors:
+      - learner-relative remoteness
+      - aggregate
+    - role: stable_regime
+      instruction: Explain finite stable extrapolation beyond the Positive-only target under positive dominance.
+      anchors:
+      - stable extrapolation
+      - Positive-only
+    - role: boundary_regime
+      instruction: Explain boundary approach, persistent drift, and loss of finite stability.
+      anchors:
+      - persistent drift
+      - finite
+    - role: family_difference
+      instruction: Contrast Gaussian unbounded score growth with categorical bounded-gradient boundary degeneration.
+      anchors:
+      - Gaussian
+      - categorical
+      - bounded
+    - role: implication
+      instruction: State that negative feedback is neither uniformly beneficial nor uniformly harmful.
+      anchors:
+      - neither
+      - beneficial
+      - harmful
+    - role: transition
+      instruction: Connect the theoretical failure term to the method design.
+      anchors:
+      - method
+      - far-field
+    citation_refs: []
+    theorem_or_equation_refs: []
+    appendix_bindings:
+    - app:proof-score-remoteness
+    - app:proof-reuse
+    - app:proof-theorem-equilibrium
+    - app:proof-family-runaway
+    allowed_conclusions:
+    - moderate aggregate repulsion can produce a finite extrapolated equilibrium
+    - policy-family manifestations differ
+    forbidden_conclusions:
+    - advantage sign alone determines all joint-parameter directions
+    - all negative-dominant trajectories produce NaN/Inf
+    reviewer_objection: A single equilibrium theorem could hide the distinction between per-sample amplification and aggregate stability.
+    objection_response: Preview the static, repeated-reuse, and aggregate results as separate logical layers.
+    word_budget:
+    - 135
+    - 235
+  prose: 'Repulsive Dynamics separates three layers that are often conflated. First, learner-relative remoteness determines the score response of a fixed historical action. Second, repeated reuse creates an asymmetry: positive updates make a successful action more compatible with the learner and attenuate its score, whereas negative updates make a rejected action more remote and preserve or amplify its response. Third, positive and negative contributions aggregate into a signed policy field. When positive mass dominates and the signed target remains inside the feasible mean-parameter space, the policy has a finite stable equilibrium beyond the Positive-only target. At the critical balance the field can produce persistent drift, while negative dominance makes any finite stationary point unstable. The terminal manifestation depends on the policy family: Gaussian mean runaway yields unbounded far-field scores, whereas categorical policies approach the simplex boundary with bounded per-sample
+    logit scores. Negative feedback is therefore neither uniformly beneficial nor uniformly harmful; its value depends on aggregate balance and learner-relative location.'
 - id: INTRO-P05
   section: introduction
   order: 5
   title: DRPO Controls the Destabilizing Far-Field Term
   kind: paragraph
-  claim: DRPO reweights the aggregate negative contribution with a policy-relative exponential envelope, retaining local negative feedback while making the weighted far-field gradient vanish under finite-order score growth.
-  reader_question: How does the method act on the theoretical failure mechanism?
-  role: Present DRPO as the current paper's unified method, not as a sequel or a revision appended to an older paper.
-  must_include: &id011
-  - distributional reweighting of the empirical actor update
-  - exponential distance/surprisal weight
-  - direct modification of the Theorem 1 negative term
-  - far-field vanishing proposition
-  - quality selection and remoteness control are distinct axes
+  claim: DRPO preserves informative local negative feedback while attenuating the learner-relative far-field tail that drives the unstable aggregate regime.
+  reader_question: How does the method intervene on the mechanism rather than merely discard negative data?
+  role: Introduce the method target, local-preservation principle, tail guarantee, and distinction between quality selection and remoteness control.
+  must_include:
+  - negative-term reweighting in the empirical actor field
+  - learner-relative distance or surprisal
+  - near-field weights remain substantial
+  - far-field weights decay nonlinearly
+  - finite-order score-growth tail guarantee
+  - quality selection and remoteness control as separate axes
   must_avoid:
   - original formulation versus revised formulation
   - old paper followed by a new algorithm
   - claim that quality hard filtering is mathematically identical to distance tapering
-  evidence: &id012
-  - method equations
-  - Proposition 2
-  - controlled method comparisons
+  evidence: &id007
+  - DRPO objective
+  - vanishing weighted far-field proposition
+  - controlled global and selective controls
   evidence_status: available
   blueprint:
-    topic_sentence: DRPO reweights the aggregate negative contribution with a policy-relative exponential envelope, retaining local negative feedback while making the weighted far-field gradient vanish under finite-order score growth.
-    moves: *id011
-    evidence_use: *id012
-    transition: The evidence chain tests occurrence, mechanism, transition, control, and external task effect.
-  prose: 'DRPO acts directly on the negative term identified by the theory. It replaces the raw negative contribution with a policy-relative exponential weight, so that nearby negative actions retain substantial influence while increasingly remote actions are attenuated. Under finite-order score growth, the weighted far-field gradient converges to zero. This design is naturally interpreted as distributional control of the empirical actor update: quality-based selection and learner-relative remoteness are distinct axes and are evaluated separately rather than being conflated. The method therefore preserves the local negative feedback responsible for extrapolation while preventing the far-field tail from dominating the aggregate update.'
+    topic_sentence: DRPO acts on the far-field component of the signed actor update rather than deleting negative feedback as a class.
+    moves:
+    - Identify the aggregate negative term as the intervention target.
+    - Explain why nearby negative actions retain substantial weight.
+    - Explain nonlinear attenuation with distance or surprisal.
+    - State the finite-order score-growth tail guarantee.
+    - Separate remoteness control from quality-based data selection.
+    - Lead to the layered empirical program without ranking all tapers in advance.
+    evidence_use: *id007
+    transition: The experiments separately test occurrence, source, causal transmission, phase behavior, and external task value.
+    sentence_plan:
+    - role: method_target
+      instruction: Identify the aggregate negative term as the intervention target.
+      anchors:
+      - negative term
+      - actor update
+    - role: local_preservation
+      instruction: Explain why nearby negative actions retain substantial weight.
+      anchors:
+      - nearby
+      - retain
+    - role: far_attenuation
+      instruction: Explain nonlinear attenuation with distance or surprisal.
+      anchors:
+      - distance
+      - surprisal
+      - attenuation
+    - role: guarantee
+      instruction: State the finite-order score-growth tail guarantee.
+      anchors:
+      - finite-order
+      - vanish
+    - role: distinction
+      instruction: Separate remoteness control from quality-based data selection.
+      anchors:
+      - quality
+      - separate axes
+    - role: transition
+      instruction: Lead to the layered empirical program without ranking all tapers in advance.
+      anchors:
+      - empirical
+      - ranking
+    citation_refs: []
+    theorem_or_equation_refs: []
+    appendix_bindings:
+    - app:proof-far-field
+    allowed_conclusions:
+    - the exponential envelope has a vanishing-tail guarantee under finite-order score growth
+    - local negative feedback is retained
+    forbidden_conclusions:
+    - the exponential taper is universally optimal
+    - distance control must outperform global scaling
+    reviewer_objection: The exponential envelope could appear to assume that negative-sample utility decays exponentially.
+    objection_response: Ground the choice in domination of finite-order score growth, not in an assumed utility curve.
+    word_budget:
+    - 120
+    - 215
+  prose: 'DRPO acts on the mechanism identified by the theory rather than treating every negative sample as toxic. Starting from the signed empirical actor field, it reweights the aggregate negative term by learner-relative distance or surprisal. Nearby negative actions retain substantial weight and can continue to shape local boundaries or suppress competing bad modes. As an action becomes increasingly remote, the weight decays nonlinearly, preventing the far-field tail from dominating the positive attraction. The exponential envelope is chosen for a precise tail property: under finite-order growth of the unweighted score-times-advantage contribution, the weighted contribution vanishes as remoteness increases. This guarantee does not assume that a sample''s utility decays exponentially and does not establish a universal ranking over all tapers. Quality-based selection and learner-relative remoteness control are distinct axes; the experiments evaluate them and global scaling under matched
+    conditions rather than presuming that one control must always win.'
 - id: INTRO-P06
   section: introduction
   order: 6
   title: Evidence Chain and Contributions
   kind: paragraph
-  claim: The paper uses an external--controlled--external evidence chain to establish occurrence, identify source and causality, test the phase transition and DRPO control, and close on external task performance.
-  reader_question: How are the claims divided across environments and experiments?
-  role: End the Introduction with four research questions and four concise contributions.
-  must_include: &id013
-  - RQ1 external occurrence in Hopper and Countdown
-  - RQ2 matched source isolation plus targeted causal intervention
-  - RQ3 phase transition, aggregate-term measurement, and controlled method comparison
+  claim: The evidence chain assigns occurrence, controlled source identification, causal transmission, phase testing, and external validity to distinct experiments and reports terminal outcomes with a separated failure taxonomy.
+  reader_question: How do the experiments jointly support the paper without conflating controlled mechanisms and external validity?
+  role: State the four research questions, environment responsibilities, reporting discipline, and contributions.
+  must_include:
+  - RQ1 external occurrence
+  - RQ2 matched source and causal identification
+  - RQ3 phase transition and control
   - RQ4 external task closure
-  - C-U1/D-U1 controlled roles and Hopper/Countdown external roles
-  - terminal audit and separate failure events
+  - C-U1/D-U1 controlled responsibilities
+  - Hopper/Countdown external-validity responsibilities
+  - task, support-boundary, and NaN/Inf separation
+  - four concise contributions
   must_avoid: []
-  evidence: &id014
+  evidence: &id008
   - environment responsibility table
-  - registered experiments
-  - best and terminal metrics
+  - registered controlled experiments
+  - terminal-audited result manifests
+  - external protocols marked TBD until formal closure
   evidence_status: available
   blueprint:
-    topic_sentence: The paper uses an external--controlled--external evidence chain to establish occurrence, identify source and causality, test the phase transition and DRPO control, and close on external task performance.
-    moves: *id013
-    evidence_use: *id014
-    transition: ''
-  prose: 'We evaluate this account through four questions. First, do far-field or rare negative updates become disproportionately influential in realistic policy learning? Second, when badness is matched, does policy remoteness independently generate large negative influence and causally transmit into drift or boundary events? Third, does training follow the phase sequence predicted by Theorem~\ref{thm:equilibrium}, and can DRPO preserve useful repulsion while preventing the destructive regime under fair gradient budgets? Fourth, does the resulting control improve external tasks? C-U1 and D-U1 provide controlled continuous and categorical identification, whereas registered Hopper/D4RL and Countdown experiments are assigned the external-validation role and remain TBD until formal terminal audit. The paper contributes a theory of Repulsive Dynamics, matched quality--distance and quality--rarity causal identification, DRPO control of the theorem-level negative term, and a pre-registered external--controlled--external
-    evidence chain.
-
-
-    \begin{figure*}[t]
-
-    \centering
-
-    \includegraphics[width=0.98\textwidth]{figures/generated/fig1_story.pdf}
-
-    \caption{Paper overview. Negative feedback can move a policy beyond the Positive-only target, but historical reuse can turn local feedback into destructive far-field influence. DRPO attenuates that tail. The evidence chain first establishes external occurrence, then performs matched source and causal identification, and finally returns to external task closure. All curves are conceptual; empirical figures are inserted only after formal terminal-audited completion.}
-
-    \label{fig:story}
-
-    \end{figure*}'
+    topic_sentence: The empirical program follows the same decomposition as the theory and assigns each claim to a specific environment.
+    moves:
+    - State the external occurrence question.
+    - State the matched source and targeted causal question.
+    - State the phase and control question.
+    - State the external task-performance question.
+    - Separate C-U1/D-U1 controlled roles from Hopper/Countdown external validity and mention terminal audit.
+    - Summarize the theory, identification, method, and evidence contributions.
+    evidence_use: *id008
+    transition: Related work next locates each component against prior approaches.
+    sentence_plan:
+    - role: rq1
+      instruction: State the external occurrence question.
+      anchors:
+      - First
+      - realistic
+    - role: rq2
+      instruction: State the matched source and targeted causal question.
+      anchors:
+      - Second
+      - matched
+    - role: rq3
+      instruction: State the phase and control question.
+      anchors:
+      - Third
+      - phase
+    - role: rq4
+      instruction: State the external task-performance question.
+      anchors:
+      - Fourth
+      - external
+    - role: environment_roles
+      instruction: Separate C-U1/D-U1 controlled roles from Hopper/Countdown external validity and mention terminal audit.
+      anchors:
+      - C-U1
+      - D-U1
+      - Hopper
+      - Countdown
+    - role: contributions
+      instruction: Summarize the theory, identification, method, and evidence contributions.
+      anchors:
+      - contribute
+      - theory
+      - causal
+    citation_refs: []
+    theorem_or_equation_refs: []
+    appendix_bindings: []
+    allowed_conclusions:
+    - controlled experiments identify mechanisms
+    - external experiments test external validity
+    forbidden_conclusions:
+    - controlled environments alone establish universal task superiority
+    - pilot external results are formal closure
+    reviewer_objection: A long experiment list could blur which environment supports which claim.
+    objection_response: Frame the experiments as four questions and explicitly separate controlled identification from external validation.
+    word_budget:
+    - 150
+    - 270
+  prose: The empirical program follows the same decomposition as the theory. First, we ask whether far-field or rare negative updates become disproportionately influential in realistic policy learning. Second, using matched quality--distance and quality--rarity controls, we test whether remoteness independently changes negative influence and whether targeted far-field interventions interrupt drift or boundary events. Third, we test the predicted sequence from the Positive-only platform through stable extrapolation to persistent drift or instability, and compare selective attenuation with global and budget-matched controls. Fourth, we evaluate whether the resulting control improves external tasks. C-U1 and D-U1 provide controlled continuous and categorical identification; Hopper/D4RL and Countdown provide external validity and do not replace those controlled mechanisms. Every dynamics claim is terminal-audited, and task-performance collapse, support or variance-boundary events, and NaN/Inf
+    numerical failure are reported separately. We contribute a layered theory of repeated repulsion, matched causal identification of learner-relative remoteness, DRPO control of the far-field negative term, and an evidence chain that keeps mechanism claims distinct from external task claims.
 - id: RELATED-P01
   section: related
   order: 1
   title: Learning from Negative or Suboptimal Behavior
   kind: paragraph
-  claim: Prior work establishes that negative or suboptimal data can be useful, but does not characterize the learner-relative transition from useful local repulsion to destructive far-field influence.
-  reader_question: How does the paper differ from positive-only, advantage-weighted, and failure-learning work?
-  role: Credit prior evidence for negative-feedback value and position the new transition.
-  must_include: &id015
-  - positive-only filtering
-  - advantage-weighted regression
-  - failure learning and negative reinforcement
-  - useful information in negative data
-  - missing dynamics across learner-relative distance
+  claim: Prior work shows both that negative updates can be filtered for stability and that failures can carry useful learning signal; the missing object is how the same negative action changes as it becomes remote from the learner.
+  reader_question: What is already known about learning from positive, negative, and suboptimal behavior?
+  role: Synthesize filtering and negative-information literatures, state the established fact, and isolate the repeated-remoteness gap.
+  must_include:
+  - advantage-weighted regression and critic-regularized regression
+  - positive-only and filtering approaches
+  - evidence that suboptimal behavior can suppress bad modes or improve boundaries
+  - negative feedback as informative rather than merely noisy
+  - missing learner-relative temporal dynamics
   must_avoid: []
-  evidence: &id016
-  - AWR and related actor fitting
-  - negative-feedback literature
+  evidence: &id009
+  - AWR
+  - IQL
+  - CRR
+  - offline policy-fitting literature
   evidence_status: available
   blueprint:
-    topic_sentence: Prior work establishes that negative or suboptimal data can be useful, but does not characterize the learner-relative transition from useful local repulsion to destructive far-field influence.
-    moves: *id015
-    evidence_use: *id016
-    transition: ''
-  prose: 'Advantage-weighted and filtered policy-learning methods use sample quality to emphasize successful behavior or reduce harmful updates~\cite{peng2019advantage,kostrikov2021offline}. Other work on failures and negative reinforcement shows that suppressing known bad behavior can improve decision boundaries, diversity, or long-horizon performance. We build on this evidence rather than treating all negative data as noise. Our focus is the dynamical transition: the same negative action can be informative when it is near the current learner and excessive after repeated off-policy reuse moves it into the far field.'
+    topic_sentence: Policy-learning methods disagree less about whether quality matters than about how negative information should be used.
+    moves:
+    - Introduce quality-aware actor fitting as the broad family.
+    - Describe weighting and filtering of low-advantage actions.
+    - Explain why failed behavior can still suppress undesirable modes or refine boundaries.
+    - Synthesize the shared conclusion that negative feedback is potentially informative but risky.
+    - Identify the missing repeated learner-relative transition.
+    - Position this paper as dynamics and control, not a rejection of prior filtering.
+    evidence_use: *id009
+    transition: The next family controls behavior--learner mismatch and stale or low-probability updates.
+    sentence_plan:
+    - role: prior_family
+      instruction: Introduce quality-aware actor fitting as the broad family.
+      anchors:
+      - quality-aware
+      - actor
+    - role: positive_filtering
+      instruction: Describe weighting and filtering of low-advantage actions.
+      anchors:
+      - advantage-weighted
+      - filter
+    - role: negative_value
+      instruction: Explain why failed behavior can still suppress undesirable modes or refine boundaries.
+      anchors:
+      - failed
+      - boundaries
+    - role: established_fact
+      instruction: Synthesize the shared conclusion that negative feedback is potentially informative but risky.
+      anchors:
+      - informative
+      - risk
+    - role: unresolved_gap
+      instruction: Identify the missing repeated learner-relative transition.
+      anchors:
+      - repeated
+      - learner-relative
+    - role: positioning
+      instruction: Position this paper as dynamics and control, not a rejection of prior filtering.
+      anchors:
+      - dynamics
+      - complement
+    citation_refs:
+    - peng2019advantage
+    - kostrikov2021offline
+    - wang2020critic
+    - zhuang2023behavior
+    theorem_or_equation_refs: []
+    appendix_bindings: []
+    allowed_conclusions:
+    - prior work establishes both stabilization and information value
+    - this paper studies the transition across remoteness
+    forbidden_conclusions:
+    - prior work treats all failures as noise
+    - this is the first use of negative feedback
+    reviewer_objection: The novelty claim could ignore extensive work on positive-only filtering and negative examples.
+    objection_response: Credit both lines and define the contribution as repeated learner-relative dynamics and matched causal isolation.
+    word_budget:
+    - 145
+    - 250
+  prose: 'Quality-aware policy fitting already provides several ways to use or suppress suboptimal behavior. Advantage-weighted regression, implicit value learning, critic-regularized regression, and proximal behavior objectives emphasize actions estimated to be better while reducing the impact of lower-quality data~\cite{peng2019advantage,kostrikov2021offline,wang2020critic,zhuang2023behavior}. Positive-only and hard-filtering variants take the conservative endpoint and remove selected negative updates altogether. At the same time, failed or suboptimal behavior can remain informative: it can suppress competing bad modes, sharpen a decision boundary, or release probability mass for alternatives represented by the model. The established picture is therefore not that negative feedback is simply noise, but that it combines information value with optimization risk. What remains under-characterized is the temporal relation to the current learner. A fixed negative action can begin as relevant
+    local feedback and become increasingly remote after repeated reuse. We study that transition and its aggregate consequences, complementing rather than dismissing prior weighting and filtering methods.'
 - id: RELATED-P02
   section: related
   order: 2
   title: Off-Policy, Stale, and Low-Probability Updates
   kind: paragraph
-  claim: Clipping, importance correction, stale-policy control, and rare-event regulation address mismatch or scale, while this paper connects repeated learner-relative movement to aggregate repulsion and equilibrium loss.
-  reader_question: How does the paper relate to standard off-policy stabilization?
-  role: Position the far-field mechanism as complementary to ratio, staleness, and probability controls.
-  must_include: &id017
-  - PPO-style clipping
-  - off-policy correction
-  - stale-policy and asynchronous updates
-  - low-probability actions or tokens
+  claim: Importance correction, clipping, trust regions, stale-policy controls, and rarity-aware rules regulate mismatch or update scale, but usually treat remoteness as a static signal rather than an endogenous repeated-reuse process.
+  reader_question: How does this work differ from established off-policy, stale-policy, and low-probability update controls?
+  role: Credit mismatch controls, state what they establish, and isolate the dynamic feedback-loop distinction.
+  must_include:
+  - importance weighting and off-policy correction
+  - PPO-style clipping and trust regions
+  - replay and stale-policy control
+  - low-probability or surprisal-aware regulation
+  - static versus endogenous remoteness
   - aggregate equilibrium consequence
   must_avoid: []
-  evidence: &id018
-  - PPO and off-policy references
-  - Countdown diagnostics
+  evidence: &id010
+  - PPO
+  - SAC and replay-based control
+  - offline-RL review
+  - D4RL external setting
   evidence_status: available
   blueprint:
-    topic_sentence: Clipping, importance correction, stale-policy control, and rare-event regulation address mismatch or scale, while this paper connects repeated learner-relative movement to aggregate repulsion and equilibrium loss.
-    moves: *id017
-    evidence_use: *id018
-    transition: ''
-  prose: 'Off-policy algorithms commonly use importance correction, clipping, trust regions, or replay design to control distribution mismatch~\cite{schulman2017proximal,haarnoja2018soft}. Recent analyses of stale or low-probability actions emphasize that rare negative events can dominate updates in shared-parameter policies. Repulsive Dynamics complements these views by following a negative action across repeated reuse: learner-relative remoteness changes its score contribution, the contributions aggregate, and the signed target can move to a policy boundary where a finite equilibrium is lost.'
+    topic_sentence: Off-policy learning has long controlled mismatch between the behavior distribution and the current policy.
+    moves:
+    - Describe importance correction, clipping, and trust regions.
+    - Describe replay-based, stale-policy, and asynchronous reuse.
+    - Explain why low probability or surprisal can guide selective attenuation.
+    - State that these methods establish the importance of learner-relative mismatch.
+    - Distinguish static weighting from remoteness increased by the negative update itself.
+    - Position the aggregate-equilibrium analysis as complementary.
+    evidence_use: *id010
+    transition: Conservative offline RL addresses a complementary value and support problem.
+    sentence_plan:
+    - role: mismatch_controls
+      instruction: Describe importance correction, clipping, and trust regions.
+      anchors:
+      - importance
+      - clipping
+      - trust
+    - role: stale_updates
+      instruction: Describe replay-based, stale-policy, and asynchronous reuse.
+      anchors:
+      - replay
+      - stale
+    - role: rarity_controls
+      instruction: Explain why low probability or surprisal can guide selective attenuation.
+      anchors:
+      - low-probability
+      - surprisal
+    - role: established_fact
+      instruction: State that these methods establish the importance of learner-relative mismatch.
+      anchors:
+      - learner-relative
+      - mismatch
+    - role: dynamic_gap
+      instruction: Distinguish static weighting from remoteness increased by the negative update itself.
+      anchors:
+      - endogenous
+      - repeated
+    - role: positioning
+      instruction: Position the aggregate-equilibrium analysis as complementary.
+      anchors:
+      - aggregate
+      - complement
+    citation_refs:
+    - schulman2017proximal
+    - haarnoja2018soft
+    - levine2020offline
+    - fu2020d4rl
+    theorem_or_equation_refs: []
+    appendix_bindings: []
+    allowed_conclusions:
+    - mismatch and rarity are established control signals
+    - repeated negative reuse adds an endogenous feedback loop
+    forbidden_conclusions:
+    - clipping and importance weighting are ineffective
+    - staleness is identical to far-field distance
+    reviewer_objection: Far-field control may look like a renamed probability or importance-ratio heuristic.
+    objection_response: Separate the measured coordinate from the dynamic claim that negative reuse increases that coordinate and alters the aggregate equilibrium.
+    word_budget:
+    - 145
+    - 250
+  prose: Off-policy learning has long controlled mismatch between the behavior distribution and the current policy. Importance correction, PPO-style clipping, and trust regions limit the effect of samples collected by another policy~\cite{schulman2017proximal}. Replay-based algorithms and maximum-entropy off-policy control likewise manage repeated data reuse while the learner evolves~\cite{haarnoja2018soft}. Offline-RL analyses make the same mismatch explicit when no new interaction is available~\cite{levine2020offline,fu2020d4rl}. Low action probability or high surprisal can therefore serve as a useful learner-relative warning signal. These approaches establish that mismatch and rarity matter; our distinction concerns how they arise. We treat remoteness not only as a static property used to choose a weight, but as an endogenous state variable that a negative update increases and subsequent reuse feeds back into the next update. We then connect that per-sample process to aggregate equilibria
+    and targeted causal interventions. This perspective complements clipping and stale-policy control rather than asserting that they are ineffective.
 - id: RELATED-P03
   section: related
   order: 3
   title: Robust Offline Policy Learning
   kind: paragraph
-  claim: Offline RL controls value extrapolation, policy support, or data quality; DRPO instead targets the far-field component of signed actor updates while retaining useful local negatives.
-  reader_question: How is DRPO positioned against conservative and behavior-regularized offline RL?
-  role: Distinguish the actor-dynamics object without dismissing established offline-RL solutions.
-  must_include: &id019
-  - CQL and pessimism
-  - IQL and in-support value learning
-  - behavior regularization and TD3+BC-style simplicity
-  - data filtering
-  - signed actor update as the distinct object
+  claim: Conservative value learning, in-support dynamic programming, behavior regularization, and data selection address major offline-RL failures, while DRPO focuses on the signed actor field and selectively preserves local negative information.
+  reader_question: How is DRPO related to conservative and behavior-regularized offline reinforcement learning?
+  role: Differentiate value extrapolation, policy support, data selection, and signed-actor dynamics while explaining compatibility.
+  must_include:
+  - CQL-style pessimism
+  - IQL-style in-support value learning
+  - behavior regularization and proximal objectives
+  - quality selection
+  - signed actor field as distinct object
+  - compatibility with value-side safeguards
   must_avoid: []
-  evidence: &id020
-  - CQL/IQL citations
-  - external D4RL evaluation
+  evidence: &id011
+  - CQL
+  - IQL
+  - off-policy without exploration
+  - CRR and BPPO
   evidence_status: available
   blueprint:
-    topic_sentence: Offline RL controls value extrapolation, policy support, or data quality; DRPO instead targets the far-field component of signed actor updates while retaining useful local negatives.
-    moves: *id019
-    evidence_use: *id020
-    transition: ''
-  prose: 'Conservative and implicit offline-RL methods control extrapolation by pessimistic value estimation, in-support dynamic programming, or explicit behavior regularization~\cite{kumar2020conservative,kostrikov2021offline,fujimoto2019off}. These approaches address central offline-RL failures and provide strong external baselines. DRPO studies a different but compatible object: the signed actor update itself. Its purpose is to retain useful local negative feedback while attenuating the learner-relative far-field component that can dominate the policy dynamics.'
+    topic_sentence: Offline reinforcement learning contains several distinct failure channels, and far-field signed actor dynamics is only one of them.
+    moves:
+    - Describe pessimistic value learning and extrapolation-error control.
+    - Describe in-support or implicit value learning.
+    - Describe behavior regularization and proximal actor constraints.
+    - Describe filtering or quality selection as another axis.
+    - Define the signed actor field as this paper's object.
+    - Explain that DRPO can be combined with value-side safeguards and is not a universal offline-RL replacement.
+    evidence_use: *id011
+    transition: The setup now formalizes the historical signed actor field and learner-relative remoteness.
+    sentence_plan:
+    - role: pessimism
+      instruction: Describe pessimistic value learning and extrapolation-error control.
+      anchors:
+      - pessimistic
+      - value
+    - role: in_support_learning
+      instruction: Describe in-support or implicit value learning.
+      anchors:
+      - in-support
+      - implicit
+    - role: behavior_regularization
+      instruction: Describe behavior regularization and proximal actor constraints.
+      anchors:
+      - behavior
+      - proximal
+    - role: data_selection
+      instruction: Describe filtering or quality selection as another axis.
+      anchors:
+      - selection
+      - quality
+    - role: distinct_object
+      instruction: Define the signed actor field as this paper's object.
+      anchors:
+      - signed actor
+      - negative
+    - role: compatibility
+      instruction: Explain that DRPO can be combined with value-side safeguards and is not a universal offline-RL replacement.
+      anchors:
+      - combined
+      - not replace
+    citation_refs:
+    - kumar2020conservative
+    - kostrikov2021offline
+    - fujimoto2019off
+    - wang2020critic
+    - zhuang2023behavior
+    theorem_or_equation_refs: []
+    appendix_bindings: []
+    allowed_conclusions:
+    - DRPO studies a distinct actor-side mechanism
+    - value-side and actor-side controls can be combined
+    forbidden_conclusions:
+    - far-field repulsion explains every offline-RL failure
+    - DRPO replaces conservative value learning
+    reviewer_objection: The paper could overclaim a complete explanation of offline-RL instability.
+    objection_response: Explicitly bound the contribution to signed actor dynamics and describe compatibility with value-side methods.
+    word_budget:
+    - 145
+    - 255
+  prose: 'Offline reinforcement learning contains several distinct failure channels, and far-field signed actor dynamics is only one of them. Conservative Q-learning controls value extrapolation by assigning pessimistic values to unsupported actions~\cite{kumar2020conservative}. Implicit Q-learning avoids querying out-of-distribution actions during value improvement and then fits an actor to supported high-value behavior~\cite{kostrikov2021offline}. Behavior-constrained and proximal approaches instead keep the learned policy close to the data or a behavior reference~\cite{fujimoto2019off,wang2020critic,zhuang2023behavior}. Data selection adds another axis by changing which transitions participate in learning. DRPO focuses on the signed actor field after an advantage-like signal has been supplied: it asks how negative actor updates change as historical actions become remote, and how to preserve their local information without allowing their far-field contribution to dominate. This actor-side
+    control can be combined with pessimistic critics, in-support value learning, or behavior regularization. It is not presented as a replacement for those safeguards or as a complete explanation of every offline-RL failure.'
 - id: SETUP-P01
   section: setup
   order: 1
   title: Signed Actor Update and Influence Factorization
   kind: paragraph
-  claim: A negative sample's influence factors into advantage severity and policy-score geometry, while count and directional coherence determine aggregation.
-  reader_question: What is the mathematical object shared by theory, method, and experiments?
-  role: Define the signed update and isolate badness from geometry.
-  must_include: &id021
+  claim: The analysis studies a historical signed actor field whose per-sample negative influence factors into advantage severity and score geometry, while frequency and directional coherence determine aggregation.
+  reader_question: What exact update field is analyzed, what is held fixed during an actor step, and how are positive and negative contributions separated?
+  role: Define the historical update distribution, fixed actor-step scope, sign decomposition, influence factorization, aggregation variables, and conclusion boundary.
+  must_include:
+  - historical update distribution nu
+  - fixed advantage-like signal during an actor step
   - signed empirical actor field
-  - positive and negative advantage parts
-  - per-sample norm factorization
-  - aggregation factors
+  - positive and negative decomposition
+  - per-sample severity times score factorization
+  - sample count and directional coherence
+  - not assumed to equal exact on-policy gradient
   must_avoid: []
-  evidence: &id022
-  - policy-gradient identity
-  - per-sample and aggregate diagnostics
+  evidence: &id012
+  - Equation signed-field
+  - Equation influence-factorization
+  - registered fixed-advantage mechanism scope
   evidence_status: available
   blueprint:
-    topic_sentence: A negative sample's influence factors into advantage severity and policy-score geometry, while count and directional coherence determine aggregation.
-    moves: *id021
-    evidence_use: *id022
-    transition: ''
-  prose: 'Let $\nu$ denote the empirical update distribution induced by offline data, replay, or stale trajectories. We study the signed actor field
+    topic_sentence: We analyze the actor-side field generated by repeatedly applying signed updates from a historical distribution.
+    moves:
+    - Define the historical update distribution over state--action pairs.
+    - Define the signed empirical actor field and discrete update.
+    - State that the update distribution and advantage-like labels are fixed with respect to theta during the actor step.
+    - Define positive and negative advantage components.
+    - Factor negative per-sample magnitude into severity and score geometry.
+    - Name frequency and directional coherence as aggregate factors.
+    - Clarify that the field is not assumed to be the exact on-policy policy gradient.
+    evidence_use: *id012
+    transition: The next setup paragraph defines the common learner-relative remoteness coordinate without equating policy families.
+    sentence_plan:
+    - role: historical_distribution
+      instruction: Define the historical update distribution over state--action pairs.
+      anchors:
+      - historical update distribution
+      - nu
+    - role: actor_field
+      instruction: Define the signed empirical actor field and discrete update.
+      anchors:
+      - mathbf F
+      - discrete update
+    - role: fixed_step_scope
+      instruction: State that the update distribution and advantage-like labels are fixed with respect to theta during the actor step.
+      anchors:
+      - treated as fixed
+      - actor step
+    - role: sign_split
+      instruction: Define positive and negative advantage components.
+      anchors:
+      - A^+
+      - A^-
+    - role: influence_factorization
+      instruction: Factor negative per-sample magnitude into severity and score geometry.
+      anchors:
+      - severity
+      - score geometry
+    - role: aggregation
+      instruction: Name frequency and directional coherence as aggregate factors.
+      anchors:
+      - frequency
+      - directional coherence
+    - role: boundary
+      instruction: Clarify that the field is not assumed to be the exact on-policy policy gradient.
+      anchors:
+      - not assumed
+      - on-policy
+    citation_refs:
+    - sutton1999policy
+    - levine2020offline
+    theorem_or_equation_refs:
+    - eq:signed-field
+    - eq:sign-split
+    - eq:influence-factorization
+    appendix_bindings: []
+    allowed_conclusions:
+    - fixed labels isolate actor-score dynamics
+    - negative influence has separable severity and geometry factors
+    forbidden_conclusions:
+    - the setup represents every actor--critic algorithm globally
+    - critic error is necessary for the mechanism
+    reviewer_objection: Freezing the update distribution and advantage could be mistaken for a claim about all of RL.
+    objection_response: State it as an actor-step mechanism analysis and separate extensions with evolving critics or ratios.
+    word_budget:
+    - 190
+    - 340
+  prose: 'We analyze the actor-side dynamics generated by repeatedly reusing signed feedback from a historical update distribution. Let $\nu$ denote a distribution over state--action pairs, representing an offline dataset, a replay buffer, or trajectories collected by earlier or stale policies, and let $\widehat A(s,a)$ be the advantage-like coefficient supplied to the actor. During one actor step, both $\nu$ and $\widehat A$ are treated as fixed with respect to $\theta$. The resulting empirical actor field and discrete update are
 
     \begin{equation}
 
-    \mathbf F(\theta)=\mathbb E_{(s,a)\sim\nu}\!\left[\widehat A(s,a)\nabla_\theta\log\pi_\theta(a\mid s)\right].
+    \begin{aligned}
+
+    \mathbf F(\theta)
+
+    &=\mathbb E_{(s,a)\sim\nu}\!\left[\widehat A(s,a)\nabla_\theta\log\pi_\theta(a\mid s)\right],\\
+
+    \theta_{t+1}&=\theta_t+\eta\mathbf F(\theta_t).
+
+    \end{aligned}
 
     \label{eq:signed-field}
 
     \end{equation}
 
-    Writing $A^+=\max(\widehat A,0)$ and $A^-=\max(-\widehat A,0)$ gives $\mathbf F=\mathbf F^+-\mathbf F^-$. For a negative sample,
+    This field is not assumed to equal the exact on-policy policy gradient, because $\nu$ need not match the current state--action distribution~\cite{sutton1999policy,levine2020offline}. Define the positive and negative components
 
     \begin{equation}
 
-    \|g_i^-\|=A_i^-\,\|\nabla_\theta\log\pi_\theta(a_i\mid s_i)\|.
+    \widehat A^+=\max(\widehat A,0),\qquad \widehat A^-=\max(-\widehat A,0),
 
-    \label{eq:factorization}
+    \label{eq:sign-split}
 
     \end{equation}
 
-    The first factor is sample badness or severity; the second is learner-relative policy geometry. Sample count, directional coherence, and the network Jacobian determine how individual terms aggregate. Equation~\ref{eq:factorization} motivates matching badness while changing only distance or rarity.'
+    so that $\mathbf F$ decomposes into attraction from $\widehat A^+$ and repulsion from $\widehat A^-$. For one negative sample, the update magnitude factorizes as
+
+    \begin{equation}
+
+    \left\|\widehat A^-\nabla_\theta\log\pi_\theta(a\mid s)\right\|_2
+
+    =\widehat A^-\left\|\nabla_\theta\log\pi_\theta(a\mid s)\right\|_2.
+
+    \label{eq:influence-factorization}
+
+    \end{equation}
+
+    The first factor measures disadvantage severity; the second is learner-relative score geometry. At the aggregate level, sample frequency and directional coherence further determine whether these contributions cancel or reinforce. Freezing $\nu$ and $\widehat A$ is therefore a mechanism-isolation device: it asks what the actor score alone can do under historical reuse, without claiming that critic error, importance ratios, or jointly evolving actor--critic dynamics are absent in full algorithms.'
 - id: SETUP-P02
   section: setup
   order: 2
   title: Policy-Relative Far Field
   kind: paragraph
-  claim: Far field is a dynamic relation between a historical action and the current learner, realized by standardized distance for Gaussian policies and surprisal for categorical policies.
-  reader_question: How is remoteness defined across continuous and categorical policies?
-  role: Define family-specific remoteness without claiming identical amplification laws.
-  must_include: &id023
-  - Gaussian standardized or Mahalanobis distance
-  - categorical surprisal
-  - sequence normalized token/completion NLL
-  - dynamic rather than permanent label
+  claim: Learner-relative remoteness is negative log probability under the current policy; it maps to Mahalanobis distance for Gaussian policies and surprisal for categorical policies without implying identical amplification laws.
+  reader_question: How is far field defined across continuous, categorical, and sequence policies?
+  role: Define remoteness and score response, give policy-family mappings, state their dynamic status, and prevent false continuous--discrete equivalence.
+  must_include:
+  - negative log-probability definition
+  - squared output-coordinate score response
+  - Gaussian Mahalanobis-distance mapping
+  - categorical action surprisal
+  - sequence normalized NLL analogue
+  - dynamic learner-relative quantity
+  - shared coordinate but distinct response laws
   must_avoid: []
-  evidence: &id024
-  - C-U1 distance coordinate
-  - D-U1 rarity coordinate
-  - Countdown NLL coordinate
+  evidence: &id013
+  - Equations remoteness and score-response
+  - Gaussian and categorical specializations
   evidence_status: available
   blueprint:
-    topic_sentence: Far field is a dynamic relation between a historical action and the current learner, realized by standardized distance for Gaussian policies and surprisal for categorical policies.
-    moves: *id023
-    evidence_use: *id024
-    transition: ''
-  prose: 'We use $r_\theta(s,a)$ as a family-indexed remoteness coordinate. For a Gaussian policy, $r_\theta$ is a registered standardized or Mahalanobis distance (or an equivalent calibrated negative log-density). For a categorical policy, it is action surprisal $-\log\pi_\theta(a\mid s)$; for sequence policies, the registered analogue is normalized token- or completion-level negative log-likelihood. The notation is shared, but the score-growth law is not assumed to be identical across policy families. Crucially, far field is dynamic: a fixed historical action can become remote as the current learner changes.'
+    topic_sentence: The common coordinate is how unlikely a historical action is under the current learner, not raw action-space distance.
+    moves:
+    - Define remoteness as negative log probability under the current policy.
+    - Map Gaussian remoteness to a covariance constant plus squared Mahalanobis distance.
+    - Map categorical remoteness to selected-action surprisal.
+    - Describe normalized token or completion NLL for sequence policies.
+    - Explain that remoteness changes as theta changes even when data are fixed.
+    - Define squared score response and warn that its law differs by policy family.
+    - Lead to the static score-remoteness proposition.
+    evidence_use: *id013
+    transition: We first derive the static remoteness--score relation before analyzing repeated reuse.
+    sentence_plan:
+    - role: definition
+      instruction: Define remoteness as negative log probability under the current policy.
+      anchors:
+      - D_theta
+      - negative log
+    - role: gaussian_mapping
+      instruction: Map Gaussian remoteness to a covariance constant plus squared Mahalanobis distance.
+      anchors:
+      - Mahalanobis
+      - Gaussian
+    - role: categorical_mapping
+      instruction: Map categorical remoteness to selected-action surprisal.
+      anchors:
+      - categorical
+      - surprisal
+    - role: sequence_mapping
+      instruction: Describe normalized token or completion NLL for sequence policies.
+      anchors:
+      - sequence
+      - normalized
+    - role: dynamic_status
+      instruction: Explain that remoteness changes as theta changes even when data are fixed.
+      anchors:
+      - dynamic
+      - theta
+    - role: non_equivalence
+      instruction: Define squared score response and warn that its law differs by policy family.
+      anchors:
+      - no universal relation
+      - not assumed
+    - role: transition
+      instruction: Lead to the static score-remoteness proposition.
+      anchors:
+      - Proposition
+      - score
+    citation_refs: []
+    theorem_or_equation_refs:
+    - eq:remoteness
+    - eq:score-response
+    appendix_bindings: []
+    allowed_conclusions:
+    - negative log probability provides a shared learner-relative coordinate
+    - policy families have different score-response laws
+    forbidden_conclusions:
+    - Euclidean action distance is universal
+    - categorical and Gaussian gradients share the same unbounded law
+    reviewer_objection: A common remoteness notation could conceal incompatible continuous and discrete geometries.
+    objection_response: Define the common probabilistic coordinate while deriving each family's response separately.
+    word_budget:
+    - 170
+    - 300
+  prose: 'To compare continuous and categorical policies without forcing them to share the same amplification law, we use a common learner-relative coordinate. For a fixed context $s$ and historical action $a$, define the negative log probability
+
+    \begin{equation}
+
+    D_\theta(s,a)=-\log\pi_\theta(a\mid s).
+
+    \label{eq:remoteness}
+
+    \end{equation}
+
+    For a Gaussian policy, $D_\theta$ equals a scale-dependent constant plus one half of the squared Mahalanobis distance from the policy mean. For a categorical policy, it is exactly the selected action''s surprisal. In sequence models the same quantity may be evaluated at token level or normalized across a completion, but the normalization must be fixed before comparing examples. Crucially, remoteness is dynamic: the historical action and its label remain fixed while $D_\theta(s,a)$ changes as the learner moves. We separately define the squared score response
+
+    \begin{equation}
+
+    R_\theta(s,a)=\left\|\nabla_\theta\log\pi_\theta(a\mid s)\right\|_2^2.
+
+    \label{eq:score-response}
+
+    \end{equation}
+
+    The notation is shared, but no universal relation between $D_\theta$ and $R_\theta$ is assumed. Gaussian mean coordinates can have unbounded response, categorical direct-logit scores are bounded, and shared neural parameters introduce an additional Jacobian. Proposition~\ref{prop:score-remoteness} therefore derives the policy-family-specific static relation before we analyze repeated reuse.'
 - id: THEORY-P01
   section: theory
   order: 1
-  title: Per-Sample Far-Field Dynamics
+  title: Learner-Relative Remoteness and Static Score Response
   kind: paragraph
-  claim: Gaussian negative updates can amplify with standardized distance, while categorical negative updates remain bounded in direct-logit norm but persistently suppress probability.
-  reader_question: What happens to one negative action under repeated updates?
-  role: Establish the family-specific local mechanisms before the aggregate theorem.
-  must_include: &id025
-  - Gaussian mean score identity
-  - corrected variance sign depends on standardized location
-  - categorical direct-logit score bound
-  - log-odds suppression
+  claim: At a fixed policy, Gaussian mean-score magnitude grows without bound with Mahalanobis remoteness, whereas categorical selected-logit response increases with surprisal but saturates.
+  reader_question: How does learner-relative remoteness determine the strength of a single score contribution before any repeated update is considered?
+  role: Define the static geometry, state the Gaussian and categorical proposition, interpret both cases, and prevent a premature divergence claim.
+  must_include:
+  - fixed-context output coordinates
+  - Gaussian lower and upper eigenvalue bounds
+  - isotropic exact relation
+  - categorical selected-logit response 1-exp(-D)
+  - full categorical score bounded
+  - static geometry does not imply aggregate divergence
   must_avoid: []
-  evidence: &id026
-  - analytic derivations in appendices B and C
+  evidence: &id014
+  - Proposition score-remoteness
+  - Appendix proof score-remoteness
   evidence_status: available
   blueprint:
-    topic_sentence: Gaussian negative updates can amplify with standardized distance, while categorical negative updates remain bounded in direct-logit norm but persistently suppress probability.
-    moves: *id025
-    evidence_use: *id026
-    transition: ''
-  prose: 'For a Gaussian policy with mean $\mu$ and covariance $\Sigma$,
+    topic_sentence: 'We begin with a static relation: at a fixed learner, remoteness controls the score response of a historical action.'
+    moves:
+    - Explain why static score geometry must be isolated before repeated dynamics.
+    - Recall remoteness and score response at a fixed context.
+    - State the Gaussian covariance-eigenvalue bounds and isotropic exact ordering.
+    - Interpret the Gaussian response as unbounded mean-score growth with remoteness.
+    - State the categorical selected-logit formula and full-score bound.
+    - Interpret rarity as stronger but saturating direct-logit suppression.
+    - State that a static relation alone does not imply global training divergence.
+    - Lead to repeated reuse of one fixed sample.
+    evidence_use: *id014
+    transition: The next theorem turns the static relation into a temporal feedback loop under repeated reuse.
+    sentence_plan:
+    - role: motivation
+      instruction: Explain why static score geometry must be isolated before repeated dynamics.
+      anchors:
+      - static relation
+      - fixed learner
+    - role: definitions
+      instruction: Recall remoteness and score response at a fixed context.
+      anchors:
+      - D_
+      - R_
+    - role: gaussian_statement
+      instruction: State the Gaussian covariance-eigenvalue bounds and isotropic exact ordering.
+      anchors:
+      - lambda_{\min}
+      - lambda_{\max}
+      - isotropic
+    - role: gaussian_interpretation
+      instruction: Interpret the Gaussian response as unbounded mean-score growth with remoteness.
+      anchors:
+      - unbounded
+      - Gaussian mean score
+    - role: categorical_statement
+      instruction: State the categorical selected-logit formula and full-score bound.
+      anchors:
+      - 1-e
+      - bounded
+    - role: categorical_interpretation
+      instruction: Interpret rarity as stronger but saturating direct-logit suppression.
+      anchors:
+      - saturat
+      - suppression
+    - role: limitation
+      instruction: State that a static relation alone does not imply global training divergence.
+      anchors:
+      - does not
+      - divergence
+    - role: transition
+      instruction: Lead to repeated reuse of one fixed sample.
+      anchors:
+      - repeated reuse
+      - next
+    citation_refs: []
+    theorem_or_equation_refs:
+    - prop:score-remoteness
+    - eq:remoteness
+    - eq:score-response
+    appendix_bindings:
+    - app:proof-score-remoteness
+    allowed_conclusions:
+    - Gaussian mean scores are unbounded in far field
+    - categorical direct-logit scores remain bounded
+    forbidden_conclusions:
+    - static remoteness alone proves task collapse
+    - categorical direct-logit gradients explode without bound
+    reviewer_objection: A cross-family proposition might falsely imply identical growth laws.
+    objection_response: State separate formulas and use only learner-relative ordering as the common abstraction.
+    word_budget:
+    - 250
+    - 450
+  prose: 'We begin with a static relation: at a fixed learner, remoteness controls the score response of a historical action. Fix a context and write $u$ for the policy-output coordinates. Recall from Equations~\eqref{eq:remoteness}--\eqref{eq:score-response} that $D_u(a)=-\log\pi_u(a)$ and $R_u(a)=\|\nabla_u\log\pi_u(a)\|_2^2$.
+
+    \begin{proposition}[Learner-relative remoteness and score response]
+
+    \label{prop:score-remoteness}
+
+    For $\pi_\mu=\mathcal N(\mu,\Sigma)$ with fixed $\Sigma\succ0$ and $C_\Sigma=\tfrac d2\log(2\pi)+\tfrac12\log|\Sigma|$,
 
     \begin{equation}
 
-    \nabla_\mu\log\pi(a\mid s)=\Sigma^{-1}(a-\mu),
+    \begin{aligned}
 
-    \label{eq:gaussian-score}
+    R_\mu(a)&\ge2\lambda_{\min}(\Sigma^{-1})(D_\mu-C_\Sigma),\\
+
+    R_\mu(a)&\le2\lambda_{\max}(\Sigma^{-1})(D_\mu-C_\Sigma).
+
+    \end{aligned}
+
+    \label{eq:gaussian-score-bounds}
 
     \end{equation}
 
-    so the mean-score magnitude grows with standardized distance. When covariance is learned, the variance direction depends on standardized location: the dangerous far-field chain is mean repulsion together with support contraction, not universal expansion of both mean and variance. For categorical logits $z$,
+    Along any fixed direction the relation is exactly linear in $D_\mu-C_\Sigma$; in the isotropic case $\Sigma=\sigma^2I$, it reduces to $R_\mu(a)=2(D_\mu-C_\Sigma)/\sigma^2$. For a categorical policy with selected-action probability $p_a=e^{-D_z(a)}$,
 
     \begin{equation}
 
-    \nabla_z\log\pi(a\mid s)=e_a-\pi(\cdot\mid s).
+    \left|\partial_{z_a}\log\pi_z(a)\right|=1-e^{-D_z(a)},
 
-    \label{eq:categorical-score}
+    \qquad \|\nabla_z\log\pi_z(a)\|_2^2\le2.
+
+    \label{eq:categorical-score-bound}
 
     \end{equation}
 
-    This direct-logit score is bounded, but repeated negative updates continue to decrease the selected action''s log-odds. The shared phenomenon is persistent movement toward a policy-family boundary, not an identical Euclidean gradient law.'
+    \end{proposition}
+
+    The Gaussian mean score is therefore unbounded as Mahalanobis remoteness increases, with the covariance eigenvalues controlling the amplification rate. Under isotropic covariance, remoteness and Gaussian mean-score magnitude have the same global ordering; under anisotropic covariance the ordering remains bounded by the two eigenvalue slopes. Categorical rarity also strengthens selected-logit suppression, but the response saturates: low probability does not imply an unbounded direct-logit gradient. This distinction matters because a categorical policy may still undergo persistent support suppression even though every per-sample score is finite. Proposition~\ref{prop:score-remoteness} is only a comparison at one fixed learner. It does not establish aggregate divergence, task-performance collapse, or NaN/Inf failure; Appendix~\ref{app:proof-score-remoteness} gives the complete derivation. We next study how repeated reuse changes both remoteness and score response over time.'
 - id: THEORY-P02
   section: theory
   order: 2
-  title: Aggregate Positive--Negative Competition
+  title: Self-Attenuation and Self-Amplification under Reuse
   kind: paragraph
-  claim: For an exponential-family policy, the signed actor field is governed by positive and negative update masses and their sufficient-statistic moments.
-  reader_question: How do per-sample effects combine into a tractable equilibrium model?
-  role: Define the exact signed objective used by Theorem 1 without paper-wide fixed-advantage disclaimers.
-  must_include: &id027
-  - regular minimal exponential family
-  - positive and negative masses p and q
-  - moments m+ and m-
-  - signed field formula
+  claim: For a convex negative log-likelihood along the update path, repeated negative reuse increases remoteness and cannot decrease score response, while sufficiently small positive reuse decreases both.
+  reader_question: How does repeatedly reusing one fixed historical action turn static geometry into a feedback process?
+  role: State the repeated-reuse theorem, its assumptions, family-specific consequences, and its limit as a single-sample result.
+  must_include:
+  - fixed historical action and coefficient
+  - negative reuse ascent in negative log likelihood
+  - positive reuse descent with smoothness condition
+  - convexity in Gaussian mean and categorical natural coordinates
+  - Gaussian unbounded versus categorical persistent consequence
+  - single-sample result does not settle aggregate balance
   must_avoid: []
-  evidence: &id028
-  - exponential-family algebra
+  evidence: &id015
+  - Theorem reuse
+  - Appendix proof reuse
   evidence_status: available
   blueprint:
-    topic_sentence: For an exponential-family policy, the signed actor field is governed by positive and negative update masses and their sufficient-statistic moments.
-    moves: *id027
-    evidence_use: *id028
-    transition: ''
-  prose: 'Consider a regular minimal exponential-family policy
+    topic_sentence: Historical reuse converts the static score relation into opposite positive and negative feedback loops.
+    moves:
+    - Define one fixed action, negative log likelihood, score response, and repeated update.
+    - State monotone remoteness increase and non-decreasing response for negative reuse.
+    - State remoteness decrease and non-increasing response for sufficiently small positive reuse.
+    - Explain where convexity holds and what coordinate system is intended.
+    - Connect the theorem to unbounded Gaussian mean-score amplification.
+    - Connect it to bounded but persistent categorical suppression.
+    - State that individual-sample amplification does not determine the full aggregate trajectory.
+    - Lead to aggregate positive--negative competition.
+    evidence_use: *id015
+    transition: Aggregate positive attraction can counter this per-sample repulsion, so the next result solves their balance.
+    sentence_plan:
+    - role: reuse_setup
+      instruction: Define one fixed action, negative log likelihood, score response, and repeated update.
+      anchors:
+      - fixed historical action
+      - D_t
+      - R_t
+    - role: negative_statement
+      instruction: State monotone remoteness increase and non-decreasing response for negative reuse.
+      anchors:
+      - D_{t+1}
+      - negative reuse
+    - role: positive_statement
+      instruction: State remoteness decrease and non-increasing response for sufficiently small positive reuse.
+      anchors:
+      - positive reuse
+      - L-Lipschitz
+    - role: convexity_scope
+      instruction: Explain where convexity holds and what coordinate system is intended.
+      anchors:
+      - convexity
+      - natural coordinates
+    - role: gaussian_consequence
+      instruction: Connect the theorem to unbounded Gaussian mean-score amplification.
+      anchors:
+      - Gaussian
+      - unbounded
+    - role: categorical_consequence
+      instruction: Connect it to bounded but persistent categorical suppression.
+      anchors:
+      - categorical
+      - persistent
+    - role: limitation
+      instruction: State that individual-sample amplification does not determine the full aggregate trajectory.
+      anchors:
+      - does not determine
+      - aggregate
+    - role: transition
+      instruction: Lead to aggregate positive--negative competition.
+      anchors:
+      - aggregate
+      - balance
+    citation_refs: []
+    theorem_or_equation_refs:
+    - thm:reuse
+    - eq:reuse-update
+    appendix_bindings:
+    - app:proof-reuse
+    allowed_conclusions:
+    - negative reuse monotonically increases remoteness under the assumptions
+    - positive reuse self-attenuates at a valid step size
+    forbidden_conclusions:
+    - one negative sample guarantees global divergence
+    - the theorem covers arbitrary jointly evolving critics without qualification
+    reviewer_objection: The theorem may be read as a global claim about every neural policy parameterization.
+    objection_response: State the convex path and coordinate assumptions, then reserve shared-network effects for empirical measurement.
+    word_budget:
+    - 260
+    - 470
+  prose: 'Historical reuse converts the static score relation into opposite positive and negative feedback loops. Fix a historical action $a$, write $D(u)=-\log\pi_u(a)$ and $R(u)=\|\nabla_uD(u)\|_2^2$, and consider the repeated update
 
     \begin{equation}
 
-    \pi_\eta(a)=h(a)\exp\{\eta^\top T(a)-\psi(\eta)\}.
+    u_{t+1}=u_t-\eta\widehat A\nabla_uD(u_t).
+
+    \label{eq:reuse-update}
 
     \end{equation}
 
-    Let $p,q\ge 0$ denote aggregate positive and negative update mass, and let $\mathbf m_+$ and $\mathbf m_-$ denote their normalized sufficient-statistic moments. The population signed field is
+    The action and its signed coefficient remain fixed over the reuse window; only the learner coordinates change.
+
+    \begin{theorem}[Self-attenuation and self-amplification under reuse]
+
+    \label{thm:reuse}
+
+    Assume that $D$ is differentiable and convex along the update path. If $\widehat A<0$, then every negative reuse step satisfies
 
     \begin{equation}
 
-    \mathbf F(\eta)=p\mathbf m_+-q\mathbf m_--(p-q)\nabla\psi(\eta).
+    D_{t+1}\ge D_t+\eta|\widehat A|R_t,
+
+    \qquad R_{t+1}\ge R_t.
+
+    \end{equation}
+
+    If $\widehat A>0$, $\nabla D$ is $L$-Lipschitz, and $0<\eta\widehat A\le1/L$, then positive reuse satisfies
+
+    \begin{equation}
+
+    D_{t+1}\le D_t-\tfrac{\eta\widehat A}{2}R_t,
+
+    \qquad R_{t+1}\le R_t.
+
+    \end{equation}
+
+    \end{theorem}
+
+    The first pair of inequalities says that negative reuse makes the fixed historical action more remote and cannot weaken its subsequent score response. The second pair gives the complementary positive mechanism: sufficiently small positive reuse makes the successful action more compatible with the learner and attenuates its response. Convexity holds for fixed-covariance Gaussian mean coordinates and categorical logits, and for regular exponential families in natural coordinates because $\nabla^2D$ is a covariance matrix. Combining this theorem with Proposition~\ref{prop:score-remoteness} yields unbounded Gaussian mean-score amplification but bounded, persistent categorical suppression. The result does not determine the aggregate policy trajectory: positive samples regain attractive force as the learner moves, and updates from different samples may cancel. Appendix~\ref{app:proof-reuse} proves the inequalities and the score monotonicity. We therefore turn from the single-sample loop to
+    the aggregate balance of positive and negative historical updates.'
+- id: THEORY-P03
+  section: theory
+  order: 3
+  title: Aggregate Attraction--Repulsion Equilibria
+  kind: paragraph
+  claim: In a regular exponential family, positive dominance yields a unique stable finite equilibrium when the signed target is feasible, equality yields persistent drift, and negative dominance admits no stable finite equilibrium.
+  reader_question: When do positive attraction and negative repulsion aggregate into stable extrapolation, drift, or instability?
+  role: Derive the aggregate field, state all three regimes, interpret extrapolation, give stability conditions, and connect feasibility to boundary loss.
+  must_include:
+  - regular minimal exponential family
+  - positive and negative masses and moments
+  - signed field derivation
+  - positive-dominant interior equilibrium
+  - extrapolation identity beyond positive target
+  - critical constant field
+  - negative-dominant repelling stationary point
+  - discrete step-size condition
+  - feasible boundary and no finite equilibrium
+  must_avoid: []
+  evidence: &id016
+  - Theorem aggregate equilibrium
+  - Appendix detailed proof
+  evidence_status: available
+  blueprint:
+    topic_sentence: Per-sample amplification does not imply global divergence because the full field balances all positive and negative historical updates.
+    moves:
+    - Define the exponential-family policy and positive/negative masses and moments.
+    - Derive the signed aggregate field.
+    - State unique finite equilibrium under positive dominance and feasibility.
+    - Interpret the displacement beyond the Positive-only target.
+    - Explain boundary approach and loss of finite realization.
+    - State persistent drift when p=q and moments differ.
+    - State instability of finite stationary points when p<q.
+    - Give continuous and discrete local stability conditions.
+    - Lead to policy-family manifestations under negative dominance.
+    evidence_use: *id016
+    transition: The same aggregate instability has different terminal signatures in Gaussian and categorical policies.
+    sentence_plan:
+    - role: aggregate_setup
+      instruction: Define the exponential-family policy and positive/negative masses and moments.
+      anchors:
+      - exponential-family
+      - p
+      - q
+    - role: field_derivation
+      instruction: Derive the signed aggregate field.
+      anchors:
+      - aggregate field
+      - policy-dependent mean parameter
+    - role: positive_regime
+      instruction: State unique finite equilibrium under positive dominance and feasibility.
+      anchors:
+      - p>q
+      - unique finite
+    - role: extrapolation_identity
+      instruction: Interpret the displacement beyond the Positive-only target.
+      anchors:
+      - m^star-m_+
+      - beyond
+    - role: boundary_case
+      instruction: Explain boundary approach and loss of finite realization.
+      anchors:
+      - boundary
+      - no finite
+    - role: critical_regime
+      instruction: State persistent drift when p=q and moments differ.
+      anchors:
+      - p=q
+      - persistent drift
+    - role: negative_regime
+      instruction: State instability of finite stationary points when p<q.
+      anchors:
+      - p<q
+      - unstable
+    - role: stability
+      instruction: Give continuous and discrete local stability conditions.
+      anchors:
+      - Jacobian
+      - step size
+    - role: transition
+      instruction: Lead to policy-family manifestations under negative dominance.
+      anchors:
+      - policy-family
+      - manifestations
+    citation_refs: []
+    theorem_or_equation_refs:
+    - thm:equilibrium
+    - eq:aggregate-field
+    - eq:signed-target
+    appendix_bindings:
+    - app:proof-theorem-equilibrium
+    allowed_conclusions:
+    - moderate negative feedback can shift a stable equilibrium beyond the positive target
+    - negative dominance has no stable finite equilibrium
+    forbidden_conclusions:
+    - extrapolation automatically improves task utility
+    - p<q necessarily causes NaN/Inf
+    reviewer_objection: The extrapolation identity could be mistaken for a performance theorem.
+    objection_response: Separate geometric equilibrium displacement from task utility and require experiments for the latter.
+    word_budget:
+    - 330
+    - 620
+  prose: 'Per-sample amplification does not imply global divergence because the full field balances all positive and negative historical updates. At a fixed context, consider a regular minimal exponential-family policy $\pi_\eta(a)=h(a)\exp\{\eta^\top T(a)-\psi(\eta)\}$. Let $p=\mathbb E_\nu[\widehat A^+]$ and $q=\mathbb E_\nu[\widehat A^-]$ denote the effective positive and negative masses, and let $m_+$ and $m_-$ be their normalized sufficient-statistic moments. Expanding the signed objective gives the aggregate field
+
+    \begin{equation}
+
+    \mathbf F(\eta)=pm_+-qm_--(p-q)\nabla\psi(\eta).
 
     \label{eq:aggregate-field}
 
     \end{equation}
 
-    These quantities define the aggregate positive--negative competition analyzed by the equilibrium theorem.'
-- id: THEORY-P03
-  section: theory
-  order: 3
-  title: 'Theorem 1: Stable Extrapolation and Loss of Finite Equilibrium'
-  kind: paragraph
-  claim: The aggregate field admits a stable finite equilibrium beyond the Positive-only target when the signed moment remains interior, and loses that equilibrium at or beyond the feasible boundary.
-  reader_question: When does negative feedback help, and when does the same force remove a finite equilibrium?
-  role: Serve as the theoretical hinge connecting useful negative feedback, phase transition, and the method target.
-  must_include: &id029
-  - Positive-only limit
-  - stable extrapolation formula
-  - boundary approach
-  - no finite equilibrium
-  - local stability statement
-  must_avoid: []
-  evidence: &id030
-  - proof in Appendix A
-  - phase tests in E4/E6
-  evidence_status: available
-  blueprint:
-    topic_sentence: The aggregate field admits a stable finite equilibrium beyond the Positive-only target when the signed moment remains interior, and loses that equilibrium at or beyond the feasible boundary.
-    moves: *id029
-    evidence_use: *id030
-    transition: ''
-  prose: '\begin{theorem}[Stable extrapolation and loss of finite equilibrium]
+    This expression separates the fixed signed target $pm_+-qm_-$ from the policy-dependent mean parameter $\nabla\psi(\eta)$. It is the exact population field for the frozen signed-update model.
+
+    \begin{theorem}[Aggregate attraction--repulsion equilibria]
 
     \label{thm:equilibrium}
 
-    Assume $p>q$ in~\eqref{eq:aggregate-field}. Define the signed target
+    If $p>q$, define
 
     \begin{equation}
 
-    \mathbf m^\star=\frac{p\mathbf m_+-q\mathbf m_-}{p-q}.
+    m^\star=\frac{pm_+-qm_-}{p-q}.
 
     \label{eq:signed-target}
 
     \end{equation}
 
-    If $\mathbf m^\star$ lies in the interior of the mean-parameter space, there is a unique finite equilibrium $\eta^\star$ satisfying $\nabla\psi(\eta^\star)=\mathbf m^\star$. Moreover,
+    When $m^\star$ lies in the interior mean-parameter space, there is a unique finite equilibrium $\eta^\star$ satisfying $\nabla\psi(\eta^\star)=m^\star$. It is locally asymptotically stable in continuous time and locally stable for a sufficiently small discrete step size. Moreover,
 
     \begin{equation}
 
-    \mathbf m^\star-\mathbf m_+=\frac{q}{p-q}(\mathbf m_+-\mathbf m_-),
+    m^\star-m_+=\frac{q}{p-q}(m_+-m_-),
 
     \end{equation}
 
-    so negative repulsion moves the equilibrium beyond the Positive-only target in the direction away from the negative moment. As $\mathbf m^\star$ approaches the feasible boundary, the corresponding natural parameter becomes degenerate or unbounded; if the signed target lies outside the feasible mean-parameter space, no finite equilibrium exists. At an interior equilibrium, $J_F(\eta^\star)=-(p-q)\nabla^2\psi(\eta^\star)$ is negative definite.
+    so negative feedback moves the equilibrium beyond the Positive-only target in the direction away from the negative moment. As $m^\star$ approaches the feasible boundary, the realizing natural parameter leaves every compact set; outside the feasible set no finite equilibrium exists. If $p=q$ and $m_+\ne m_-$, the field is constant and produces persistent drift. If $p<q$, any finite stationary point is unstable in continuous and discrete time.
 
     \end{theorem}
 
-    The theorem gives one phase sequence: Positive-only, stable extrapolation, boundary approach, and loss of finite equilibrium. The experiments align this phase classification with separate measurements of task performance, policy-family boundaries, and numerical state.'
+    The positive-dominant regime therefore permits finite stable extrapolation, but only while the signed target remains realizable. The extrapolation identity is geometric: moving beyond $m_+$ does not by itself guarantee greater task utility. At the critical regime $p=q$, attraction and repulsion cancel only in total mass, leaving a nonzero moment difference that drives linear drift. Under negative dominance, the objective becomes locally convex rather than concave around any stationary point, making that point repelling. Formally, the local Jacobian for $p>q$ is $-(p-q)\nabla^2\psi(\eta^\star)$, while the discrete step requires $\rho(I+\alpha J_F)<1$. Appendix~\ref{app:proof-theorem-equilibrium} gives the existence, boundary, and exact step-size arguments. The theorem classifies the aggregate regimes; the next result derives their policy-family manifestations.'
 - id: THEORY-P04
   section: theory
   order: 4
-  title: Testable Predictions
+  title: Policy-Family Manifestations of Negative Dominance
   kind: paragraph
-  claim: The theorem predicts distinct observable regimes and a targeted recovery when the far-field component of the aggregate negative term is attenuated.
-  reader_question: How is Theorem 1 connected to actual experiments?
-  role: Map each mathematical regime to a pre-specified intervention and terminal observable.
-  must_include: &id031
-  - Positive-only platform
-  - controlled negative stable platform
-  - boundary event
-  - persistent drift or non-vanishing residual
-  - DRPO recovery
+  claim: Negative dominance produces unbounded Gaussian mean displacement and far-field scores, but categorical policies approach the simplex boundary while each direct-logit score remains bounded.
+  reader_question: What does aggregate instability look like in Gaussian and categorical policies, and which failure labels are justified?
+  role: Derive family-specific runaway, distinguish gradient explosion from bounded-gradient boundary degeneration, and preserve reporting boundaries.
+  must_include:
+  - negative-dominant aggregate condition
+  - Gaussian affine repelling field
+  - unbounded mean and fixed-action score
+  - categorical gauge-fixed logits
+  - simplex-boundary subsequence
+  - bounded full categorical score
+  - learned covariance as optional amplifier
+  - task collapse and NaN/Inf not implied
   must_avoid: []
-  evidence: &id032
-  - E4 continuous phase sweep
-  - E6 categorical phase sweep
-  - terminal slope/residual
-  - support and probability boundaries
+  evidence: &id017
+  - Theorem family runaway
+  - Gaussian derivation
+  - categorical derivation
   evidence_status: available
   blueprint:
-    topic_sentence: The theorem predicts distinct observable regimes and a targeted recovery when the far-field component of the aggregate negative term is attenuated.
-    moves: *id031
-    evidence_use: *id032
-    transition: ''
-  prose: 'Theorem~\ref{thm:equilibrium} yields direct experimental predictions. Removing negative updates should produce a stable Positive-only platform. Adding moderate negative influence should move the policy beyond that platform while retaining a finite terminal state. Increasing negative strength or outward moment should approach a covariance, support, or probability boundary; beyond the feasible region, the policy should exhibit persistent drift or a non-vanishing field residual. Finally, selective attenuation of the far-field component should restore a finite regime while retaining part of the extrapolation benefit. We test these predictions in C-U1 and D-U1, reporting task-performance collapse, support or variance boundaries, and NaN/Inf failures as separate outcomes.
+    topic_sentence: The aggregate instability in Theorem 3 is shared, but its observable signature depends on the policy family.
+    moves:
+    - Restate negative dominance and the shared absence of a stable finite equilibrium.
+    - Give the Gaussian affine field around the repelling point.
+    - Derive unbounded mean displacement and fixed-action score.
+    - Describe gauge-fixed categorical logits and convex ascent.
+    - State escape to the simplex boundary with bounded per-sample score.
+    - Name Gaussian gradient-amplitude runaway versus categorical support degeneration.
+    - State that neither result alone proves task collapse or NaN/Inf failure.
+    - Lead to empirically testable regimes and separated event reporting.
+    evidence_use: *id017
+    transition: These family-specific signatures yield a concrete set of experimental predictions.
+    sentence_plan:
+    - role: shared_instability
+      instruction: Restate negative dominance and the shared absence of a stable finite equilibrium.
+      anchors:
+      - negative dominance
+      - finite stable equilibrium
+    - role: gaussian_form
+      instruction: Give the Gaussian affine field around the repelling point.
+      anchors:
+      - aggregate mean field
+      - mu^\dagger
+    - role: gaussian_consequence
+      instruction: Derive unbounded mean displacement and fixed-action score.
+      anchors:
+      - to infinity
+      - score
+    - role: categorical_form
+      instruction: Describe gauge-fixed categorical logits and convex ascent.
+      anchors:
+      - gauge
+      - logits
+    - role: categorical_consequence
+      instruction: State escape to the simplex boundary with bounded per-sample score.
+      anchors:
+      - simplex boundary
+      - less than or equal
+    - role: distinction
+      instruction: Name Gaussian gradient-amplitude runaway versus categorical support degeneration.
+      anchors:
+      - gradient-amplitude
+      - support
+    - role: reporting_boundary
+      instruction: State that neither result alone proves task collapse or NaN/Inf failure.
+      anchors:
+      - task-performance
+      - NaN/Inf
+    - role: transition
+      instruction: Lead to empirically testable regimes and separated event reporting.
+      anchors:
+      - predictions
+      - separate
+    citation_refs: []
+    theorem_or_equation_refs:
+    - thm:family-runaway
+    - eq:gaussian-runaway
+    - eq:categorical-bound
+    appendix_bindings:
+    - app:proof-family-runaway
+    - app:gaussian
+    - app:categorical
+    allowed_conclusions:
+    - Gaussian fixed-covariance mean runaway is sufficient for unbounded scores
+    - categorical degeneration can occur with bounded direct-logit scores
+    forbidden_conclusions:
+    - both Gaussian mean and variance always expand
+    - categorical boundary degeneration is numerical collapse
+    reviewer_objection: Calling both cases collapse could erase the distinction between gradient amplitude, support, task, and numerical events.
+    objection_response: Use separate theorem statements and preserve the project failure taxonomy.
+    word_budget:
+    - 300
+    - 540
+  prose: 'Theorem~\ref{thm:equilibrium} shows that negative dominance admits no finite stable equilibrium, but it does not determine how runaway appears in a particular policy family. Gaussian and categorical policies share the aggregate instability while differing sharply in gradient amplitude and boundary behavior. The distinction is structural.
 
+    \begin{theorem}[Unbounded Gaussian and bounded-score categorical runaway]
 
-    \begin{figure}[t]
+    \label{thm:family-runaway}
 
-    \centering
+    Assume $p<q$ and let $r=q-p>0$. For a fixed-covariance Gaussian policy, define $\mu^\dagger=(q\mu_--p\mu_+)/r$. The aggregate mean field is
 
-    \includegraphics[width=\columnwidth]{figures/generated/fig2_phase_map.pdf}
+    \begin{equation}
 
-    \caption{Schematic phase map induced by Theorem~\ref{thm:equilibrium}. The empirical tests separately identify the Positive-only target, stable extrapolation, boundary approach, and persistent drift or loss of a finite equilibrium.}
+    \mathbf F_\mu(\mu)=r\Sigma^{-1}(\mu-\mu^\dagger).
 
-    \label{fig:phase-map}
+    \label{eq:gaussian-runaway}
 
-    \end{figure}'
+    \end{equation}
+
+    Unless initialized exactly at $\mu^\dagger$, continuous and discrete trajectories satisfy $\|\mu\|_2\to\infty$, and for every fixed historical action $a$, $\|\nabla_\mu\log\pi_\mu(a)\|_2\to\infty$. For a categorical policy with gauge-fixed logits, every nonstationary aggregate trajectory leaves each compact subset of logit space and has a subsequence approaching the simplex boundary, while
+
+    \begin{equation}
+
+    \|\nabla_z\log\pi_z(a)\|_2^2=\|e_a-\pi_z\|_2^2\le2.
+
+    \label{eq:categorical-bound}
+
+    \end{equation}
+
+    \end{theorem}
+
+    In the Gaussian case, $\mu^\dagger$ is a repelling point and the positive-definite matrix $r\Sigma^{-1}$ expands every nonzero displacement. Increasing separation from any fixed action then converts directly into gradient-amplitude runaway. In the categorical case, fixing the additive-logit gauge reveals strictly convex ascent away from any finite stationary point. The logits become unbounded and probabilities approach the simplex boundary, but each direct-logit score remains less than or equal to $\sqrt{2}$. Categorical degeneration is therefore support suppression, not Gaussian-style gradient explosion. This bounded-score distinction also prevents us from interpreting a probability-boundary event as evidence of floating-point overflow or an unbounded Euclidean token gradient. A learned Gaussian covariance can further amplify standardized distance when support contracts, but covariance learning is not required for the fixed-covariance mean result. Neither theorem branch alone establishes
+    task-performance collapse or NaN/Inf numerical failure; those events require separate empirical tests. Appendix~\ref{app:proof-family-runaway} provides both derivations, with additional Gaussian and categorical details in Appendices~\ref{app:gaussian} and~\ref{app:categorical}. These distinctions lead directly to the predictions below.'
 - id: THEORY-P05
   section: theory
   order: 5
-  title: Gaussian and Categorical Corollaries
+  title: Observable Regimes and Experimental Predictions
   kind: paragraph
-  claim: Gaussian and categorical policies instantiate the same aggregate boundary principle through different score and feasibility geometries.
-  reader_question: What is shared and what remains family-specific?
-  role: Prevent an invalid claim that categorical policies exhibit the same unbounded Euclidean gradient explosion as Gaussian policies.
-  must_include: &id033
-  - Gaussian finite mean/covariance and boundary behavior
-  - categorical finite logits and simplex boundary
-  - shared aggregate competition
-  - different amplification laws
+  claim: The theory predicts a sequence from a Positive-only platform through stable controlled extrapolation to boundary approach or persistent runaway, with targeted far-field attenuation restoring a finite terminal regime when that path is causal.
+  reader_question: Which observable outcomes would support or contradict the theory?
+  role: Translate the theory into falsifiable predictions, intervention logic, and a separated failure taxonomy.
+  must_include:
+  - Positive-only finite platform
+  - moderate negative stable extrapolation
+  - boundary approach under stronger or more outward negative moments
+  - persistent drift or non-vanishing residual beyond feasibility
+  - near-removal versus far-removal/capping intervention
+  - separate task, support-boundary, and numerical events
+  - controlled versus external responsibilities
   must_avoid: []
-  evidence: &id034
-  - Appendices B and C
+  evidence: &id018
+  - C-U1 E2--E4
+  - D-U1 E5--E6
+  - Hopper E7
+  - Countdown E8
   evidence_status: available
   blueprint:
-    topic_sentence: Gaussian and categorical policies instantiate the same aggregate boundary principle through different score and feasibility geometries.
-    moves: *id033
-    evidence_use: *id034
-    transition: ''
-  prose: For Gaussian policies, an interior signed target corresponds to finite mean and covariance parameters; far-field negative updates can increase standardized displacement and contract support, causing score amplification and boundary approach. For categorical policies, an interior target corresponds to finite logits, whereas a boundary target drives selected probabilities toward zero or one. Direct-logit score norms remain bounded, but suppression persists. Thus the transferable principle is aggregate repulsion toward a feasibility boundary, while the local amplification law remains policy-family specific.
+    topic_sentence: The preceding results imply a falsifiable phase sequence rather than a generic prediction that negative updates are bad.
+    moves:
+    - Predict the finite Positive-only platform.
+    - Predict finite stable extrapolation under moderate negative influence.
+    - Predict support or variance boundary approach as the signed target moves outward.
+    - Predict persistent drift or non-vanishing residual after equilibrium loss.
+    - Predict that far removal or capping rescues when the far path is causal, while near removal does not.
+    - Require separate task, support-boundary, and NaN/Inf reporting.
+    - Assign controlled identification to C-U1/D-U1 and external validity to Hopper/Countdown.
+    evidence_use: *id018
+    transition: The method section now operationalizes selective far-field control and the experiments test each prediction.
+    sentence_plan:
+    - role: prediction_positive_only
+      instruction: Predict the finite Positive-only platform.
+      anchors:
+      - Positive-only
+      - platform
+    - role: prediction_controlled_negative
+      instruction: Predict finite stable extrapolation under moderate negative influence.
+      anchors:
+      - moderate
+      - stable extrapolation
+    - role: prediction_boundary
+      instruction: Predict support or variance boundary approach as the signed target moves outward.
+      anchors:
+      - boundary
+      - outward
+    - role: prediction_runaway
+      instruction: Predict persistent drift or non-vanishing residual after equilibrium loss.
+      anchors:
+      - persistent drift
+      - residual
+    - role: prediction_intervention
+      instruction: Predict that far removal or capping rescues when the far path is causal, while near removal does not.
+      anchors:
+      - far
+      - near
+      - rescue
+    - role: failure_taxonomy
+      instruction: Require separate task, support-boundary, and NaN/Inf reporting.
+      anchors:
+      - task-performance
+      - support
+      - NaN/Inf
+    - role: handoff
+      instruction: Assign controlled identification to C-U1/D-U1 and external validity to Hopper/Countdown.
+      anchors:
+      - C-U1
+      - D-U1
+      - Hopper
+      - Countdown
+    citation_refs: []
+    theorem_or_equation_refs:
+    - thm:reuse
+    - thm:equilibrium
+    - thm:family-runaway
+    - prop:vanishing
+    appendix_bindings:
+    - app:proof-reuse
+    - app:proof-theorem-equilibrium
+    - app:proof-family-runaway
+    - app:proof-far-field
+    allowed_conclusions:
+    - the theory yields falsifiable regime and intervention predictions
+    - separate environments answer separate claims
+    forbidden_conclusions:
+    - a finite fixed training horizon proves equilibrium
+    - controlled evidence substitutes for external validity
+    reviewer_objection: A broad theoretical narrative could become unfalsifiable if every poor outcome is called repulsion.
+    objection_response: Pre-register terminal regimes, targeted interventions, and distinct event classes that can contradict the theory.
+    word_budget:
+    - 180
+    - 330
+  prose: 'The preceding results imply a falsifiable phase sequence rather than a generic prediction that negative updates are bad. Positive-only training should reach a finite platform determined by the observed positive target. Under Theorem~\ref{thm:equilibrium}, moderate negative influence should produce stable extrapolation to a second finite platform when the signed moment remains feasible. Increasing negative mass or moving its moment outward should bring the policy toward a support, variance, or probability boundary; after equilibrium loss, Theorems~\ref{thm:reuse}--\ref{thm:family-runaway} predict persistent drift or a non-vanishing terminal residual rather than a genuine stationary state. The causal prediction is selective: if the far-field component transmits the instability, removing or capping the far path should rescue a finite terminal regime, whereas removing only near-field negatives should not. Global scaling and budget-matched transfers then test whether total magnitude
+    or learner-relative location is the operative mediator. Proposition~\ref{prop:vanishing} predicts that the DRPO envelope removes any finite-order far-field tail, but it does not pre-rank all taper shapes at finite distance. Every experiment must separately report task-performance collapse, support or variance-boundary events, and NaN/Inf numerical failure. C-U1 and D-U1 provide controlled ground-truth tests of these predictions; Hopper and Countdown assess external validity under learned critics and shared sequence parameters. The controlled environments do not substitute for the external tasks, and finite-step external pilots do not establish terminal method rankings.'
 - id: METHOD-P01
   section: method
   order: 1
@@ -744,19 +1858,19 @@ nodes:
   claim: DRPO replaces the same aggregate negative moment that moves the equilibrium, allowing the method to preserve local displacement while reducing boundary-driving far-field mass.
   reader_question: Which exact theorem object does DRPO modify?
   role: Create an unbroken theory--method equation chain.
-  must_include: &id035
+  must_include: &id019
   - uncontrolled negative moment
   - weighted negative moment
   - controlled signed target
   - local retention and far attenuation
   must_avoid: []
-  evidence: &id036
+  evidence: &id020
   - aggregate-moment diagnostics
   evidence_status: available
   blueprint:
     topic_sentence: DRPO replaces the same aggregate negative moment that moves the equilibrium, allowing the method to preserve local displacement while reducing boundary-driving far-field mass.
-    moves: *id035
-    evidence_use: *id036
+    moves: *id019
+    evidence_use: *id020
     transition: ''
   prose: 'In the exponential-family analysis, the uncontrolled negative moment is
 
@@ -793,19 +1907,19 @@ nodes:
   claim: An exponential envelope dominates any finite-order score growth, so the weighted negative gradient vanishes in the far field.
   reader_question: Why use the exponential form rather than an arbitrary taper?
   role: Provide the method-level tail guarantee without inventing a utility-decay law.
-  must_include: &id037
+  must_include: &id021
   - finite-order score-growth condition
   - exponential times polynomial tends to zero
   - no assumption that sample utility decays exponentially
   must_avoid: []
-  evidence: &id038
+  evidence: &id022
   - analytic proposition
   - distance-binned gradient diagnostics
   evidence_status: available
   blueprint:
     topic_sentence: An exponential envelope dominates any finite-order score growth, so the weighted negative gradient vanishes in the far field.
-    moves: *id037
-    evidence_use: *id038
+    moves: *id021
+    evidence_use: *id022
     transition: ''
   prose: '\begin{proposition}[Vanishing weighted far-field gradient]
 
@@ -832,7 +1946,7 @@ nodes:
   claim: Positive-only, global scaling, hard thresholds, linear tapers, and exponential DRPO isolate which benefits come from retaining local negatives, selecting distance, and controlling total gradient budget.
   reader_question: How will the method be tested against simpler controls?
   role: Define comparisons without predeclaring a winner or conflating quality and distance thresholds.
-  must_include: &id039
+  must_include: &id023
   - uncontrolled signed baseline
   - Positive-only
   - global negative scaling
@@ -840,15 +1954,15 @@ nodes:
   - hard distance threshold
   - matched raw negative-gradient budgets
   must_avoid: []
-  evidence: &id040
+  evidence: &id024
   - C-U1 method matrix
   - D-U1 analogues
   - terminal audit
   evidence_status: available
   blueprint:
     topic_sentence: Positive-only, global scaling, hard thresholds, linear tapers, and exponential DRPO isolate which benefits come from retaining local negatives, selecting distance, and controlling total gradient budget.
-    moves: *id039
-    evidence_use: *id040
+    moves: *id023
+    evidence_use: *id024
     transition: ''
   prose: We compare DRPO against an uncontrolled signed baseline, Positive-only learning, non-selective global scaling, registered linear or reciprocal tapers, and a hard threshold on the same remoteness coordinate. A quality-based hard filter is reported separately because it controls a different axis. Where the protocol calls for budget matching, methods receive the same pre-optimizer raw negative-gradient norm and are evaluated with paired seeds. No method ranking is assumed in advance; best and terminal checkpoints, local-negative retention, far-field retention, task performance, boundary events, and numerical failures are all reported.
 - id: EXP-P01
@@ -859,7 +1973,7 @@ nodes:
   claim: C-U1 and D-U1 provide controlled identification, while Hopper/D4RL and Countdown provide external validity; no environment substitutes for another's scientific responsibility.
   reader_question: Why are these environments sufficient and what does each one prove?
   role: Introduce environment construction before reporting results so the claims cannot appear manufactured by an opaque simulator.
-  must_include: &id041
+  must_include: &id025
   - C-U1 6D context and 2D action
   - D-U1 shared semantic categorical actor
   - same-distribution held-out contexts
@@ -867,13 +1981,13 @@ nodes:
   - Countdown shared parameters
   - environment responsibility table
   must_avoid: []
-  evidence: &id042
+  evidence: &id026
   - Appendix D full specifications
   evidence_status: available
   blueprint:
     topic_sentence: C-U1 and D-U1 provide controlled identification, while Hopper/D4RL and Countdown provide external validity; no environment substitutes for another's scientific responsibility.
-    moves: *id041
-    evidence_use: *id042
+    moves: *id025
+    evidence_use: *id026
     transition: ''
   prose: 'We use two primary controlled environments and two external families. C-U1 is a nonlinear state-conditioned Gaussian environment with six-dimensional numerical contexts, two-dimensional actions, a known state-dependent optimum, and independently sampled train and test contexts from the same distribution. It supports matched quality--distance probes, near/far intervention, and mean--support terminal audits. D-U1 is a shared-network categorical environment with unordered semantic actions and a known reward structure; it supports matched quality--rarity probes, common/rare intervention, and probability-boundary audits. We report C-U1 using the precise term held-out-context or unseen-state generalization. Hopper/D4RL adds a learned critic and long-horizon continuous control, while Countdown adds shared Transformer parameters and sequence-level verification. External tasks establish relevance; controlled environments establish source and causality.
 
@@ -887,21 +2001,21 @@ nodes:
   claim: Hopper and Countdown test whether far-field or rare negative influence becomes disproportionately large before task degradation in realistic policy learning.
   reader_question: Does the phenomenon occur outside controlled environments?
   role: Use external evidence as a reality anchor without treating it as the causal isolation experiment.
-  must_include: &id043
+  must_include: &id027
   - distance/surprisal bins
   - positive/negative imbalance
   - temporal ordering
   - best and terminal checkpoints
   - TBD until formal results close
   must_avoid: []
-  evidence: &id044
+  evidence: &id028
   - EXT-H-E7-Q2 terminal-audited outputs
   - Countdown formal outputs
   evidence_status: tbd
   blueprint:
     topic_sentence: Hopper and Countdown test whether far-field or rare negative influence becomes disproportionately large before task degradation in realistic policy learning.
-    moves: *id043
-    evidence_use: *id044
+    moves: *id027
+    evidence_use: *id028
     transition: ''
   prose: '\paragraph{Hopper/D4RL.} We train the registered learned critic, freeze its selected checkpoint, and audit negative actor gradients by current-policy distance. The formal report will include far/near negative-gradient ratios, positive/negative imbalance, policy drift, rollout return, and terminal classification. \textbf{TBD:} insert only terminal-audited formal results from the registered E7 package.
 
@@ -915,7 +2029,7 @@ nodes:
   claim: When quality, advantage, semantics, count, coefficient, and policy stage are matched, learner-relative distance or rarity independently changes negative influence.
   reader_question: Are far or rare gradients larger because the samples are farther, or merely because they are worse?
   role: Close the paper's decisive rival explanation with a transparent matched protocol.
-  must_include: &id045
+  must_include: &id029
   - same context and quality coordinate
   - same reward and advantage magnitude
   - same count and base weight
@@ -923,14 +2037,14 @@ nodes:
   - score and full-parameter gradients
   - direction coherence
   must_avoid: []
-  evidence: &id046
+  evidence: &id030
   - C-U1 E1
   - D-U1 matched analogue
   evidence_status: available
   blueprint:
     topic_sentence: When quality, advantage, semantics, count, coefficient, and policy stage are matched, learner-relative distance or rarity independently changes negative influence.
-    moves: *id045
-    evidence_use: *id046
+    moves: *id029
+    evidence_use: *id030
     transition: ''
   prose: The source-isolation protocol holds sample badness fixed. In C-U1, negative actions share the same state, reward, advantage magnitude, quality coordinate, count, coefficient, and policy parameters while varying only learner-relative radius. We report output-space score norms, full-parameter per-sample gradients, aggregate gradients, and directional coherence. In D-U1, common and rare actions are matched in semantic role, reward, negative advantage, count, and base coefficient while initial probability or current surprisal changes. A far/near or rare/common gap under these controls identifies policy remoteness as an independent amplifier; it does not imply that distance is the only factor in real data.
 - id: EXP-P04
@@ -941,7 +2055,7 @@ nodes:
   claim: Near/far and common/rare interventions test whether the anomalous remote component is the pathway that transmits negative influence into drift, boundary events, and task collapse.
   reader_question: Do large far-field updates actually cause the observed instability?
   role: Move from source identification to causal intervention with equal-budget controls.
-  must_include: &id047
+  must_include: &id031
   - uncontrolled signed baseline
   - near/common removal
   - far/rare removal
@@ -950,14 +2064,14 @@ nodes:
   - budget transfer
   - separate failure events
   must_avoid: []
-  evidence: &id048
+  evidence: &id032
   - C-U1 E3
   - D-U1 causal protocol
   evidence_status: available
   blueprint:
     topic_sentence: Near/far and common/rare interventions test whether the anomalous remote component is the pathway that transmits negative influence into drift, boundary events, and task collapse.
-    moves: *id047
-    evidence_use: *id048
+    moves: *id031
+    evidence_use: *id032
     transition: ''
   prose: We next intervene on the location of negative influence. The continuous comparison includes the uncontrolled signed baseline, Near-zero, Far-zero, Far-cap, a non-selective global control matched to the retained raw negative-gradient budget, and a registered budget-transfer control. The categorical analogue suppresses common or rare negatives under matched counts and budgets. We record the onset order of remote influence, parameter drift, support or probability boundaries, and task performance. A selective far/rare rescue together with an ineffective near/common removal supports the remote component as a causal transmission pathway; task-performance collapse, boundary events, and NaN/Inf remain distinct labels.
 - id: EXP-P05
@@ -968,7 +2082,7 @@ nodes:
   claim: Strength sweeps map the regimes of Theorem 1, while DRPO and matched controls test whether selective far-field attenuation preserves stable extrapolation.
   reader_question: When does negative feedback become destructive, and can DRPO control that transition?
   role: Unify theorem validation, aggregate-term measurement, and method comparison in one result section.
-  must_include: &id049
+  must_include: &id033
   - Positive-only to stable extrapolation to boundary/drift
   - continuous and categorical phase maps
   - aggregate negative moment proxy
@@ -976,15 +2090,15 @@ nodes:
   - paired seeds and raw-budget matching
   - best and terminal reporting
   must_avoid: []
-  evidence: &id050
+  evidence: &id034
   - C-U1 E4
   - D-U1 E6
   - registered taper experiments
   evidence_status: tbd
   blueprint:
     topic_sentence: Strength sweeps map the regimes of Theorem 1, while DRPO and matched controls test whether selective far-field attenuation preserves stable extrapolation.
-    moves: *id049
-    evidence_use: *id050
+    moves: *id033
+    evidence_use: *id034
     transition: ''
   prose: 'We sweep the effective negative strength from zero through controlled repulsion and into the unstable regime. The primary test is not a single endpoint score but the phase sequence predicted by Theorem~\ref{thm:equilibrium}: Positive-only, stable extrapolation, boundary approach, and persistent drift or loss of finite equilibrium. We measure a family-specific empirical proxy for the aggregate negative term in~\eqref{eq:weighted-negative-moment}, together with its distance or rarity bins, direction, and relationship to equilibrium displacement. DRPO is compared with Positive-only, global scaling, and registered distance controls under paired seeds and explicit raw-gradient budgets. Results are reported at both selected and terminal checkpoints. \textbf{TBD:} populate the final table only from the current terminal-audited repository artifacts and preserve each result''s formal status.
 
@@ -998,21 +2112,21 @@ nodes:
   claim: External D4RL and Countdown evaluations test whether controlling remote negative influence improves actual task performance without sacrificing the useful negative signal.
   reader_question: Does the mechanism-targeted control matter on public and sequence tasks?
   role: Close the external--controlled--external evidence chain.
-  must_include: &id051
+  must_include: &id035
   - D4RL locomotion datasets
   - Countdown model scales and common data bank
   - same initialization and selection rules
   - best and terminal metrics
   - mechanism diagnostics beside performance
   must_avoid: []
-  evidence: &id052
+  evidence: &id036
   - EXT-H-E7-BENCH-01
   - EXT-C-E8-SCALE-01
   evidence_status: tbd
   blueprint:
     topic_sentence: External D4RL and Countdown evaluations test whether controlling remote negative influence improves actual task performance without sacrificing the useful negative signal.
-    moves: *id051
-    evidence_use: *id052
+    moves: *id035
+    evidence_use: *id036
     transition: ''
   prose: 'The final evaluation returns to external tasks. On D4RL locomotion, methods share dataset, critic protocol, initialization, seeds, evaluation horizon, and selection rule; we report normalized return, uncertainty, best and terminal checkpoints, and distance-binned negative influence. On Countdown, methods share the SFT initialization, rollout or replay bank, verifier, seeds, and checkpoint-selection protocol; we report greedy success, pass@$k$, validity, terminal degradation, and rare-negative diagnostics. \textbf{TBD:} the main external tables remain unfilled until the corresponding registered formal experiments are terminal-audited and delivered.
 
@@ -1026,18 +2140,18 @@ nodes:
   claim: The transferable lesson is to control learner-relative far-field negative influence rather than classify all negative feedback as harmful.
   reader_question: What should readers remember beyond the specific method?
   role: State the positive principle rather than a list of disclaimers.
-  must_include: &id053
+  must_include: &id037
   - negative feedback supports extrapolation
   - historical reuse changes its relevance and magnitude
   - control object is remote negative influence
   must_avoid: []
-  evidence: &id054
+  evidence: &id038
   - theory and controlled evidence
   evidence_status: available
   blueprint:
     topic_sentence: The transferable lesson is to control learner-relative far-field negative influence rather than classify all negative feedback as harmful.
-    moves: *id053
-    evidence_use: *id054
+    moves: *id037
+    evidence_use: *id038
     transition: ''
   prose: Negative feedback is a policy-improvement resource with a dynamical failure mode. It provides boundary information and can shift a policy beyond the Positive-only target. The failure arises when historical actions remain active after becoming remote from the current learner, so their optimization influence no longer tracks their local relevance. The transferable design principle is therefore to control learner-relative far-field negative influence rather than delete negative feedback as a class.
 - id: DISC-P02
@@ -1048,19 +2162,19 @@ nodes:
   claim: Gaussian and categorical policies share aggregate boundary dynamics while differing in local score growth and failure manifestation.
   reader_question: What is genuinely unified across policy families?
   role: Leave one accurate cross-family synthesis.
-  must_include: &id055
+  must_include: &id039
   - Gaussian distance-amplified score and support dynamics
   - categorical bounded persistent suppression
   - shared feasibility-boundary transition
   must_avoid: []
-  evidence: &id056
+  evidence: &id040
   - family corollaries
   - C-U1/D-U1 evidence
   evidence_status: available
   blueprint:
     topic_sentence: Gaussian and categorical policies share aggregate boundary dynamics while differing in local score growth and failure manifestation.
-    moves: *id055
-    evidence_use: *id056
+    moves: *id039
+    evidence_use: *id040
     transition: ''
   prose: The continuous and categorical analyses share an aggregate structure but not an identical local law. Gaussian policies can amplify mean scores with standardized distance and couple repulsion to support contraction. Categorical direct-logit scores remain bounded, yet repeated negative updates can persistently suppress probability. In both cases, aggregate positive--negative competition determines whether the policy remains at an interior equilibrium or moves toward a feasibility boundary.
 - id: DISC-P03
@@ -1071,19 +2185,19 @@ nodes:
   claim: DRPO preserves useful negative feedback by attenuating the remote component of the aggregate term that drives equilibrium loss.
   reader_question: What is the final three-sentence contribution?
   role: Close with theory, identification, and method consequence.
-  must_include: &id057
+  must_include: &id041
   - stable extrapolation
   - badness--distance isolation
   - far-field causal pathway
   - DRPO recovery
   must_avoid: []
-  evidence: &id058
+  evidence: &id042
   - all main claims
   evidence_status: available
   blueprint:
     topic_sentence: DRPO preserves useful negative feedback by attenuating the remote component of the aggregate term that drives equilibrium loss.
-    moves: *id057
-    evidence_use: *id058
+    moves: *id041
+    evidence_use: *id042
     transition: ''
   prose: Negative feedback can create stable policy improvement beyond Positive-only learning. By separating badness from policy remoteness, we identify how historical negative actions become far-field, dominate the aggregate update, and move the policy toward a feasibility boundary where a finite equilibrium can disappear. DRPO controls this same negative term, preserving useful local repulsion while suppressing the destructive far-field tail.
 - id: APP-PROOF-P01
@@ -1094,19 +2208,19 @@ nodes:
   claim: The equilibrium theorem follows from the diffeomorphism between natural and mean parameters in a regular minimal exponential family.
   reader_question: What are the exact existence, uniqueness, boundary, and stability arguments?
   role: Provide the full proof outside the main narrative.
-  must_include: &id059
+  must_include: &id043
   - derive aggregate field
   - interior mean-space existence
   - boundary divergence
   - Jacobian
   must_avoid: []
-  evidence: &id060
+  evidence: &id044
   - standard exponential-family properties
   evidence_status: available
   blueprint:
     topic_sentence: The equilibrium theorem follows from the diffeomorphism between natural and mean parameters in a regular minimal exponential family.
-    moves: *id059
-    evidence_use: *id060
+    moves: *id043
+    evidence_use: *id044
     transition: ''
   prose: For a regular minimal exponential family, $\nabla\psi$ maps the natural-parameter space diffeomorphically onto the interior of the mean-parameter space. Setting~\eqref{eq:aggregate-field} to zero with $p>q$ gives~\eqref{eq:signed-target}. If $\mathbf m^\star$ is interior, uniqueness follows from strict convexity of $\psi$. The displacement identity follows by subtracting $\mathbf m_+$ from~\eqref{eq:signed-target}. If $\mathbf m^\star$ approaches the boundary, no finite natural parameter realizes it; if it lies outside the closure, no policy in the family realizes the target. Differentiating~\eqref{eq:aggregate-field} gives $J_F=-(p-q)\nabla^2\psi$, which is negative definite at an interior point because the Hessian is the positive-definite covariance of the sufficient statistic. The discrete update is locally stable for step sizes whose transition matrix has spectral radius below one.
 - id: APP-GAUSS-P01
@@ -1117,19 +2231,19 @@ nodes:
   claim: Far-field negative advantages repel the mean and tend to contract variance when standardized distance exceeds one.
   reader_question: What corrects the earlier mean-and-variance expansion account?
   role: Record the exact score signs and joint equilibrium condition.
-  must_include: &id061
+  must_include: &id045
   - mean score
   - log-standard-deviation score
   - four sign/location quadrants
   - joint equilibrium
   must_avoid: []
-  evidence: &id062
+  evidence: &id046
   - analytic Gaussian score
   evidence_status: available
   blueprint:
     topic_sentence: Far-field negative advantages repel the mean and tend to contract variance when standardized distance exceeds one.
-    moves: *id061
-    evidence_use: *id062
+    moves: *id045
+    evidence_use: *id046
     transition: ''
   prose: 'For a scalar Gaussian with $\xi=\log\sigma$ and $z=(a-\mu)/\sigma$,
 
@@ -1150,19 +2264,19 @@ nodes:
   claim: Repeated negative updates produce persistent log-odds decay even though the direct-logit score norm is bounded.
   reader_question: Why is categorical instability not an unbounded Euclidean gradient explosion?
   role: Derive the probability-boundary mechanism accurately.
-  must_include: &id063
+  must_include: &id047
   - softmax score bound
   - log-odds update
   - probability decay
   - shared-parameter caveat
   must_avoid: []
-  evidence: &id064
+  evidence: &id048
   - categorical algebra
   evidence_status: available
   blueprint:
     topic_sentence: Repeated negative updates produce persistent log-odds decay even though the direct-logit score norm is bounded.
-    moves: *id063
-    evidence_use: *id064
+    moves: *id047
+    evidence_use: *id048
     transition: ''
   prose: For softmax probabilities $p_j$, the score for selected action $y$ is $e_y-p$, whose Euclidean norm is bounded. Under a negative update with fixed local coefficient, the selected logit decreases relative to competing logits, so $z_y-z_j$ falls approximately linearly while $p_y$ can decay exponentially. The failure mode is therefore persistent support suppression toward the simplex boundary. In a shared network, the parameter-space gradient additionally contains the network Jacobian and cross-action interference, which are measured rather than inferred from the direct-logit bound alone.
 - id: APP-ENV-P01
@@ -1173,20 +2287,20 @@ nodes:
   claim: The controlled environments expose ground truth and permit matched isolation without claiming that construction alone establishes external validity.
   reader_question: How exactly are the controlled environments generated?
   role: Provide enough detail for reproducibility and reviewer inspection.
-  must_include: &id065
+  must_include: &id049
   - C-U1 states/actions/reward/hidden optimum
   - train/test same distribution
   - D-U1 semantic actions
   - matched probes
   - dynamic near/far
   must_avoid: []
-  evidence: &id066
+  evidence: &id050
   - environment code and manifests
   evidence_status: available
   blueprint:
     topic_sentence: The controlled environments expose ground truth and permit matched isolation without claiming that construction alone establishes external validity.
-    moves: *id065
-    evidence_use: *id066
+    moves: *id049
+    evidence_use: *id050
     transition: ''
   prose: C-U1 samples numerical contexts $s\sim\mathcal N(0,I_6)$ independently for training and testing. A fixed generator maps each state to a positive action, hidden optimal action, negative quality coordinate, and reward surface in $\mathbb R^2$. Source-isolation probes replicate reward and advantage across radii while retaining the same state and quality coordinate. Near/far membership for causal interventions is computed relative to the current policy according to the registered metric. D-U1 uses a shared state-conditioned categorical network over unordered semantic actions; quality/semantics and rarity are factorized so that common/rare probes can be matched in reward, advantage, count, and coefficient. Complete constants, seeds, and invariants are taken from the registered experiment configurations.
 - id: APP-PROT-P01
@@ -1197,20 +2311,20 @@ nodes:
   claim: All dynamic and ranking claims require fixed protocol ownership, paired seeds, explicit budgets, and terminal audits.
   reader_question: How are false convergence and unfair comparisons prevented?
   role: Centralize experiment governance details.
-  must_include: &id067
+  must_include: &id051
   - maximum horizon
   - terminal slopes/residuals
   - 2x continuation where registered
   - raw pre-optimizer negative-gradient budget
   - best and terminal
   must_avoid: []
-  evidence: &id068
+  evidence: &id052
   - handoff and registry
   evidence_status: available
   blueprint:
     topic_sentence: All dynamic and ranking claims require fixed protocol ownership, paired seeds, explicit budgets, and terminal audits.
-    moves: *id067
-    evidence_use: *id068
+    moves: *id051
+    evidence_use: *id052
     transition: ''
   prose: Formal protocols specify maximum horizons, evaluation cadence, paired development and held-out seeds, and a terminal audit before execution. A fixed horizon is not itself called convergence. Depending on the registered experiment, terminal classification uses state slopes, update residuals, boundary checks, and a continuation horizon. Budget-matched comparisons use the pre-optimizer raw negative-gradient $\ell_2$ norm unless another coordinate is explicitly frozen. Adam parameter-update norms are recorded separately. Best-validation and terminal checkpoints are both reported, and task-performance collapse, support or variance boundaries, and NaN/Inf failures remain distinct fields.
 - id: APP-RES-P01
@@ -1221,20 +2335,20 @@ nodes:
   claim: Appendix results preserve uncertainty, failed runs, and non-ranking outcomes instead of presenting only favorable endpoints.
   reader_question: What evidence is needed beyond the main figures?
   role: Provide placeholders for complete result deposition.
-  must_include: &id069
+  must_include: &id053
   - per-seed tables
   - full trajectories
   - sensitivity
   - negative results
   - failure inventory
   must_avoid: []
-  evidence: &id070
+  evidence: &id054
   - formal artifact packages
   evidence_status: tbd
   blueprint:
     topic_sentence: Appendix results preserve uncertainty, failed runs, and non-ranking outcomes instead of presenting only favorable endpoints.
-    moves: *id069
-    evidence_use: *id070
+    moves: *id053
+    evidence_use: *id054
     transition: ''
   prose: This appendix will contain per-seed results, full training trajectories, confidence intervals, sensitivity analyses, and terminal classifications for every main comparison. Failed or inconclusive formal runs are indexed rather than silently removed. \textbf{TBD:} populate these materials from the durable formal packages after repository closure; smoke tests, static checks, and focused pilots are not promoted to formal evidence.
 - id: APP-REPRO-P01
@@ -1245,20 +2359,20 @@ nodes:
   claim: Every formal claim is bound to code, configuration, seeds, raw outputs, terminal audit, and a source commit.
   reader_question: How can the study be reproduced and audited?
   role: Connect the paper to repository provenance without embedding live status in the outline.
-  must_include: &id071
+  must_include: &id055
   - repository paths
   - run manifests
   - checksums
   - formal package lifecycle
   - Overleaf build
   must_avoid: []
-  evidence: &id072
+  evidence: &id056
   - repository scripts and artifacts
   evidence_status: available
   blueprint:
     topic_sentence: Every formal claim is bound to code, configuration, seeds, raw outputs, terminal audit, and a source commit.
-    moves: *id071
-    evidence_use: *id072
+    moves: *id055
+    evidence_use: *id056
     transition: ''
   prose: The repository records experiment IDs, configurations, seeds, code entry points, result manifests, raw curves, logs, terminal audits, checksums, and source commits. Formal runs progress through registered, running, raw-complete, terminal-audited, packaged, delivered, and applied states. The paper source is generated from the stable-ID manuscript graph, compiled in the imported ICML/Overleaf project, and packaged with a reproducible build command. Exact repository paths and commit hashes will be inserted at submission freeze.
 - id: APP-DRO-P01
@@ -1318,7 +2432,7 @@ nodes:
   claim: The manuscript consistently uses corrected Gaussian scale dynamics, the Jacobian of the actual signed field, held-out-context terminology for C-U1, and separate reporting of task, boundary, and numerical failures.
   reader_question: Which technical conventions must remain consistent across the main text and appendix?
   role: Collect the technical conventions that prevent contradictory statements across theory, experiments, and reporting.
-  must_include: &id073
+  must_include: &id057
   - Gaussian mean repulsion with location-dependent scale dynamics
   - actual signed-field Jacobian rather than expected Fisher as the stability object
   - held-out-context or unseen-state generalization for C-U1
@@ -1327,15 +2441,15 @@ nodes:
   must_avoid:
   - historical chronology
   - defensive discussion of manuscript versions
-  evidence: &id074
+  evidence: &id058
   - corrected Gaussian derivation
   - registered reporting protocol
   - terminal-audit governance
   evidence_status: available
   blueprint:
     topic_sentence: The manuscript consistently uses corrected Gaussian scale dynamics, the Jacobian of the actual signed field, held-out-context terminology for C-U1, and separate reporting of task, boundary, and numerical failures.
-    moves: *id073
-    evidence_use: *id074
+    moves: *id057
+    evidence_use: *id058
     transition: ''
   prose: The manuscript uses the following technical conventions throughout. Far-field negative Gaussian updates combine mean repulsion with location-dependent scale dynamics and commonly support contraction; they do not universally expand both mean and variance. The expected Fisher matrix describes policy geometry but does not by itself determine stability of a fixed off-policy signed field; local stability is evaluated with the Jacobian of the actual aggregate field. C-U1 test states are independently sampled from the same state distribution and are described as held-out-context or unseen-state generalization, not OOD generalization. Task-performance collapse, support or variance boundaries, and NaN/Inf numerical failure are reported separately. Finally, finite-horizon evidence is not relabeled as convergence or long-run validation without the registered terminal audit.
 merge_policy:

@@ -13,6 +13,7 @@ and ``prose`` fields as JSON.  Without that command, the deterministic backend
 produces a conservative compilable scaffold and never invents experimental
 results.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -154,6 +155,48 @@ def _parse_bullets(lines: list[str], start: int) -> tuple[list[str], int]:
     return out, i
 
 
+def _json_bullets(values: list[Any]) -> list[str]:
+    return [json.dumps(item, ensure_ascii=False, sort_keys=True) for item in values]
+
+
+def _decode_json_bullets(values: Any, *, field: str) -> list[Any]:
+    if values is None:
+        return []
+    if not isinstance(values, list):
+        raise PipelineError(f"{field} must be a bullet list")
+    decoded: list[Any] = []
+    for item in values:
+        if not isinstance(item, str):
+            raise PipelineError(f"{field} contains a non-string bullet")
+        try:
+            decoded.append(json.loads(item))
+        except json.JSONDecodeError as exc:
+            raise PipelineError(f"{field} contains invalid JSON: {item}") from exc
+    return decoded
+
+
+def _parse_word_budget(value: Any) -> list[int]:
+    if isinstance(value, list) and len(value) == 2 and all(isinstance(x, int) for x in value):
+        return value
+    if isinstance(value, str):
+        match = re.fullmatch(r"\s*(\d+)\s*(?:--|-|to)\s*(\d+)\s*", value)
+        if match:
+            return [int(match.group(1)), int(match.group(2))]
+    raise PipelineError(f"invalid word budget: {value!r}")
+
+
+def _render_list_field(
+    lines: list[str], label: str, values: Any, *, json_items: bool = False
+) -> None:
+    lines += [f"**{label}:**"]
+    items = values or []
+    if json_items:
+        items = _json_bullets(list(items))
+    for item in items:
+        lines.append(f"- {item}")
+    lines.append("")
+
+
 def parse_outline_block(block: ParsedBlock) -> dict[str, Any]:
     lines = block.payload.splitlines()[1:]
     fields: dict[str, Any] = {"title": block.title}
@@ -269,28 +312,51 @@ def outline_payload(node: dict[str, Any]) -> str:
 
 def blueprint_payload(node: dict[str, Any], parent_hash: str) -> str:
     bp = node.get("blueprint", {}) or {}
+    budget = bp.get("word_budget", [])
+    budget_text = (
+        f"{budget[0]}--{budget[1]}" if isinstance(budget, list) and len(budget) == 2 else ""
+    )
     lines = [
         f"## [{node['id']}] {node['title']}",
         f"Parent-Outline-SHA256: `{parent_hash}`",
         "",
         f"**Claim:** {node.get('claim', '')}",
         "",
+        f"**Reader question:** {node.get('reader_question', '')}",
+        "",
+        f"**Role:** {node.get('role', '')}",
+        "",
         f"**Topic sentence:** {bp.get('topic_sentence', node.get('claim', ''))}",
         "",
-        "**Logical moves:**",
     ]
-    for item in bp.get("moves", node.get("must_include", [])) or []:
-        lines.append(f"- {item}")
-    lines += ["", "**Evidence use:**"]
-    for item in bp.get("evidence_use", node.get("evidence", [])) or []:
-        lines.append(f"- {item}")
-    lines += ["", f"**Transition:** {bp.get('transition', '')}", ""]
+    _render_list_field(lines, "Logical moves", bp.get("moves", node.get("must_include", [])))
+    _render_list_field(lines, "Sentence plan", bp.get("sentence_plan", []), json_items=True)
+    _render_list_field(lines, "Evidence use", bp.get("evidence_use", node.get("evidence", [])))
+    _render_list_field(lines, "Citation refs", bp.get("citation_refs", []))
+    _render_list_field(lines, "Theorem or equation refs", bp.get("theorem_or_equation_refs", []))
+    _render_list_field(lines, "Appendix bindings", bp.get("appendix_bindings", []))
+    _render_list_field(lines, "Allowed conclusions", bp.get("allowed_conclusions", []))
+    _render_list_field(lines, "Forbidden conclusions", bp.get("forbidden_conclusions", []))
+    lines += [
+        f"**Reviewer objection:** {bp.get('reviewer_objection', '')}",
+        "",
+        f"**Objection response:** {bp.get('objection_response', '')}",
+        "",
+        f"**Word budget:** {budget_text}",
+        "",
+        f"**Transition:** {bp.get('transition', '')}",
+        "",
+    ]
     return normalize_payload(lines)
 
 
 def prose_payload(node: dict[str, Any], parent_hash: str) -> str:
     body = str(node.get("prose", "")).strip()
     bp = node.get("blueprint", {}) or {}
+    budget = bp.get("word_budget", [])
+    budget_text = (
+        f"{budget[0]}--{budget[1]}" if isinstance(budget, list) and len(budget) == 2 else ""
+    )
     lines = [
         f"## [{node['id']}] {node['title']}",
         f"Parent-Blueprint-SHA256: `{parent_hash}`",
@@ -301,14 +367,23 @@ def prose_payload(node: dict[str, Any], parent_hash: str) -> str:
         "",
         f"**Role:** {node.get('role', '')}",
         "",
-        "**Logical moves:**",
+        f"**Topic sentence:** {bp.get('topic_sentence', '')}",
+        "",
     ]
-    for item in bp.get("moves", node.get("must_include", [])) or []:
-        lines.append(f"- {item}")
-    lines += ["", "**Evidence use:**"]
-    for item in bp.get("evidence_use", node.get("evidence", [])) or []:
-        lines.append(f"- {item}")
-    lines += ["", BODY_MARKER, "", body, ""]
+    _render_list_field(lines, "Logical moves", bp.get("moves", node.get("must_include", [])))
+    _render_list_field(lines, "Sentence plan", bp.get("sentence_plan", []), json_items=True)
+    _render_list_field(lines, "Evidence use", bp.get("evidence_use", node.get("evidence", [])))
+    _render_list_field(lines, "Citation refs", bp.get("citation_refs", []))
+    _render_list_field(lines, "Theorem or equation refs", bp.get("theorem_or_equation_refs", []))
+    _render_list_field(lines, "Appendix bindings", bp.get("appendix_bindings", []))
+    lines += [
+        f"**Word budget:** {budget_text}",
+        "",
+        BODY_MARKER,
+        "",
+        body,
+        "",
+    ]
     return normalize_payload(lines)
 
 
@@ -330,7 +405,12 @@ def render_markdown(graph: dict[str, Any], layer: str) -> str:
                 oh = sha256_text(op)
                 bp = blueprint_payload(node, oh)
                 payload = bp if layer == "blueprint" else prose_payload(node, sha256_text(bp))
-            chunks += [f"<!-- MANUSCRIPT:BEGIN {node['id']} -->", payload.rstrip(), f"<!-- MANUSCRIPT:END {node['id']} -->", ""]
+            chunks += [
+                f"<!-- MANUSCRIPT:BEGIN {node['id']} -->",
+                payload.rstrip(),
+                f"<!-- MANUSCRIPT:END {node['id']} -->",
+                "",
+            ]
     return "\n".join(chunks).rstrip() + "\n"
 
 
@@ -365,7 +445,12 @@ def render_tex_sections(graph: dict[str, Any], root: Path) -> None:
             if section.get("label"):
                 body.append(f"\\label{{{section['label']}}}")
         for node in grouped.get(sid, []):
-            body += ["", f"% MANUSCRIPT-NODE: {node['id']}", str(node.get("prose", "")).strip(), f"% END-MANUSCRIPT-NODE: {node['id']}"]
+            body += [
+                "",
+                f"% MANUSCRIPT-NODE: {node['id']}",
+                str(node.get("prose", "")).strip(),
+                f"% END-MANUSCRIPT-NODE: {node['id']}",
+            ]
         if sid == "abstract":
             body.append("\\end{abstract}")
         path.write_text("\n".join(body).rstrip() + "\n", encoding="utf-8")
@@ -381,9 +466,7 @@ def render_tex_sections(graph: dict[str, Any], root: Path) -> None:
         f"    \\icmlauthor{{{row['name']}}}{{{row.get('affiliation', 'comp')}}}" for row in authors
     )
     main_input_lines = "\n".join(f"\\input{{{path}}}" for path in main_inputs)
-    appendix_input_lines = "\n".join(
-        f"\\input{{{path}}}" for path in appendix_inputs
-    )
+    appendix_input_lines = "\n".join(f"\\input{{{path}}}" for path in appendix_inputs)
     main_tex = rf"""\documentclass{{article}}
 \usepackage{{microtype}}
 \usepackage{{graphicx}}
@@ -404,17 +487,17 @@ def render_tex_sections(graph: dict[str, Any], root: Path) -> None:
 \newtheorem{{assumption}}[theorem]{{Assumption}}
 \theoremstyle{{remark}}
 \newtheorem{{remark}}[theorem]{{Remark}}
-\icmltitlerunning{{{metadata.get('running_title', 'DRPO for Off-Policy Learning')}}}
+\icmltitlerunning{{{metadata.get("running_title", "DRPO for Off-Policy Learning")}}}
 \begin{{document}}
 \twocolumn[
-\icmltitle{{{metadata['title']}}}
+\icmltitle{{{metadata["title"]}}}
 \icmlsetsymbol{{equal}}{{*}}
 \begin{{icmlauthorlist}}
 {author_rows}
 \end{{icmlauthorlist}}
-\icmlaffiliation{{comp}}{{{metadata.get('affiliation', 'Tencent Inc, China')}}}
-\icmlcorrespondingauthor{{{metadata.get('corresponding_name', 'Jun Zhang')}}}{{{metadata.get('corresponding_email', 'neoxzhang@tencent.com')}}}
-\icmlkeywords{{{metadata.get('keywords', 'Reinforcement Learning, Offline RL, Policy Optimization')}}}
+\icmlaffiliation{{comp}}{{{metadata.get("affiliation", "Tencent Inc, China")}}}
+\icmlcorrespondingauthor{{{metadata.get("corresponding_name", "Jun Zhang")}}}{{{metadata.get("corresponding_email", "neoxzhang@tencent.com")}}}
+\icmlkeywords{{{metadata.get("keywords", "Reinforcement Learning, Offline RL, Policy Optimization")}}}
 \vskip 0.3in
 ]
 \printAffiliationsAndNotice{{\icmlEqualContribution}}
@@ -440,17 +523,29 @@ def deterministic_regenerate(node: dict[str, Any], source_layer: str) -> None:
     include = [str(x) for x in node.get("must_include", []) or []]
     evidence = [str(x) for x in node.get("evidence", []) or []]
     blueprint = node.setdefault("blueprint", {})
-    blueprint["topic_sentence"] = claim
-    blueprint["moves"] = include
-    blueprint["evidence_use"] = evidence
+    blueprint.setdefault("topic_sentence", claim)
+    blueprint.setdefault("moves", include)
+    blueprint.setdefault("evidence_use", evidence)
+    blueprint.setdefault("sentence_plan", [])
     if not blueprint.get("transition"):
         blueprint["transition"] = "The next block develops the consequence of this claim."
     if source_layer != "prose":
-        sentences = [claim.rstrip(".") + "."] if claim else []
-        sentences.extend(item.rstrip(".") + "." for item in include)
-        if evidence:
-            sentences.append("The corresponding evidence is reported only where the registered result status permits it.")
-        node["prose"] = " ".join(sentences)
+        plan = blueprint.get("sentence_plan") or []
+        drafted = [
+            str(step.get("draft", "")).strip()
+            for step in plan
+            if isinstance(step, dict) and str(step.get("draft", "")).strip()
+        ]
+        if drafted:
+            node["prose"] = " ".join(sentence.rstrip(".") + "." for sentence in drafted)
+        else:
+            sentences = [claim.rstrip(".") + "."] if claim else []
+            sentences.extend(item.rstrip(".") + "." for item in include)
+            if evidence:
+                sentences.append(
+                    "The corresponding evidence is reported only where the registered result status permits it."
+                )
+            node["prose"] = " ".join(sentences)
 
 
 def command_regenerate(node: dict[str, Any], source_layer: str, command: str) -> None:
@@ -493,38 +588,72 @@ def apply_outline_import(node: dict[str, Any], fields: dict[str, Any]) -> None:
 
 
 def apply_blueprint_import(node: dict[str, Any], fields: dict[str, Any]) -> None:
-    if fields.get("title"):
-        node["title"] = fields["title"]
-    if fields.get("claim"):
-        node["claim"] = fields["claim"]
-    bp = node.setdefault("blueprint", {})
     for src, dst in (
-        ("topic_sentence", "topic_sentence"),
-        ("logical_moves", "moves"),
-        ("evidence_use", "evidence_use"),
-        ("transition", "transition"),
+        ("title", "title"),
+        ("claim", "claim"),
+        ("reader_question", "reader_question"),
+        ("role", "role"),
     ):
+        if fields.get(src):
+            node[dst] = fields[src]
+    bp = node.setdefault("blueprint", {})
+    simple = {
+        "topic_sentence": "topic_sentence",
+        "logical_moves": "moves",
+        "evidence_use": "evidence_use",
+        "citation_refs": "citation_refs",
+        "theorem_or_equation_refs": "theorem_or_equation_refs",
+        "appendix_bindings": "appendix_bindings",
+        "allowed_conclusions": "allowed_conclusions",
+        "forbidden_conclusions": "forbidden_conclusions",
+        "reviewer_objection": "reviewer_objection",
+        "objection_response": "objection_response",
+        "transition": "transition",
+    }
+    for src, dst in simple.items():
         if src in fields:
             bp[dst] = fields[src]
+    if "sentence_plan" in fields:
+        decoded = _decode_json_bullets(fields["sentence_plan"], field="sentence_plan")
+        if not all(isinstance(item, dict) for item in decoded):
+            raise PipelineError("sentence_plan bullets must decode to mappings")
+        bp["sentence_plan"] = decoded
+    if "word_budget" in fields:
+        bp["word_budget"] = _parse_word_budget(fields["word_budget"])
     node["must_include"] = list(bp.get("moves", []))
     node["evidence"] = list(bp.get("evidence_use", []))
 
 
 def apply_prose_import(node: dict[str, Any], fields: dict[str, Any]) -> None:
-    if fields.get("title"):
-        node["title"] = fields["title"]
-    for src, dst in (("claim", "claim"), ("reader_question", "reader_question"), ("role", "role")):
+    for src, dst in (
+        ("title", "title"),
+        ("claim", "claim"),
+        ("reader_question", "reader_question"),
+        ("role", "role"),
+    ):
         if fields.get(src):
             node[dst] = fields[src]
     bp = node.setdefault("blueprint", {})
-    if fields.get("claim"):
-        bp["topic_sentence"] = fields["claim"]
-    if "logical_moves" in fields:
-        bp["moves"] = list(fields["logical_moves"])
-        node["must_include"] = list(fields["logical_moves"])
-    if "evidence_use" in fields:
-        bp["evidence_use"] = list(fields["evidence_use"])
-        node["evidence"] = list(fields["evidence_use"])
+    if fields.get("topic_sentence"):
+        bp["topic_sentence"] = fields["topic_sentence"]
+    for src, dst in (
+        ("logical_moves", "moves"),
+        ("evidence_use", "evidence_use"),
+        ("citation_refs", "citation_refs"),
+        ("theorem_or_equation_refs", "theorem_or_equation_refs"),
+        ("appendix_bindings", "appendix_bindings"),
+    ):
+        if src in fields:
+            bp[dst] = list(fields[src])
+    if "sentence_plan" in fields:
+        decoded = _decode_json_bullets(fields["sentence_plan"], field="sentence_plan")
+        if not all(isinstance(item, dict) for item in decoded):
+            raise PipelineError("sentence_plan bullets must decode to mappings")
+        bp["sentence_plan"] = decoded
+    if "word_budget" in fields:
+        bp["word_budget"] = _parse_word_budget(fields["word_budget"])
+    node["must_include"] = list(bp.get("moves", []))
+    node["evidence"] = list(bp.get("evidence_use", []))
     node["prose"] = fields.get("body", "")
 
 
@@ -544,7 +673,11 @@ def render(graph: dict[str, Any], root: Path) -> dict[str, Any]:
         paths[layer].parent.mkdir(parents=True, exist_ok=True)
         paths[layer].write_text(render_markdown(graph, layer), encoding="utf-8")
     render_tex_sections(graph, root)
-    state = {"schema_version": 1, "graph_sha256": sha256_file(root / graph["graph_path"]), "layers": {}}
+    state = {
+        "schema_version": 1,
+        "graph_sha256": sha256_file(root / graph["graph_path"]),
+        "layers": {},
+    }
     for layer in ("outline", "blueprint", "prose"):
         blocks = parse_blocks(paths[layer])
         state["layers"][layer] = {
@@ -563,7 +696,9 @@ def load_state(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def sync(graph: dict[str, Any], root: Path, generator_cmd: str | None, prefer: str | None) -> list[str]:
+def sync(
+    graph: dict[str, Any], root: Path, generator_cmd: str | None, prefer: str | None
+) -> list[str]:
     paths = artifact_paths(graph, root)
     state = load_state(paths["state"])
     current: dict[str, dict[str, ParsedBlock]] = {}
@@ -609,7 +744,9 @@ def sync(graph: dict[str, Any], root: Path, generator_cmd: str | None, prefer: s
     return imported
 
 
-def apply_delta(graph: dict[str, Any], root: Path, delta_path: Path, generator_cmd: str | None) -> list[str]:
+def apply_delta(
+    graph: dict[str, Any], root: Path, delta_path: Path, generator_cmd: str | None
+) -> list[str]:
     payload = read_yaml(delta_path)
     changes = payload.get("changes")
     if not isinstance(changes, list) or not changes:
@@ -617,8 +754,16 @@ def apply_delta(graph: dict[str, Any], root: Path, delta_path: Path, generator_c
     nodes = node_map(graph)
     applied: list[str] = []
     allowed = {
-        "title", "claim", "reader_question", "role", "evidence", "must_include",
-        "must_avoid", "evidence_status", "blueprint", "prose",
+        "title",
+        "claim",
+        "reader_question",
+        "role",
+        "evidence",
+        "must_include",
+        "must_avoid",
+        "evidence_status",
+        "blueprint",
+        "prose",
     }
     for row in changes:
         if not isinstance(row, dict) or not row.get("id"):
@@ -664,7 +809,9 @@ def validate(graph: dict[str, Any], root: Path) -> dict[str, Any]:
         for field in ("title", "claim", "reader_question", "role", "prose"):
             if not str(node.get(field, "")).strip():
                 errors.append(f"node {node_id} missing {field}")
-        text = " ".join(str(node.get(field, "")) for field in ("title", "claim", "role", "prose")).lower()
+        text = " ".join(
+            str(node.get(field, "")) for field in ("title", "claim", "role", "prose")
+        ).lower()
         for phrase in FORBIDDEN_MAIN_TEXT:
             if phrase in text:
                 errors.append(f"node {node_id} contains forbidden framing: {phrase}")
@@ -710,12 +857,16 @@ def validate(graph: dict[str, Any], root: Path) -> dict[str, Any]:
     if not main_tex.exists():
         errors.append("missing generated Overleaf main.tex")
     else:
-        tex_text = "\n".join(
-            path.read_text(encoding="utf-8")
-            for path in sorted((overleaf / "sections").glob("*.tex"))
-        ) + "\n" + "\n".join(
-            path.read_text(encoding="utf-8")
-            for path in sorted((overleaf / "appendix").glob("*.tex"))
+        tex_text = (
+            "\n".join(
+                path.read_text(encoding="utf-8")
+                for path in sorted((overleaf / "sections").glob("*.tex"))
+            )
+            + "\n"
+            + "\n".join(
+                path.read_text(encoding="utf-8")
+                for path in sorted((overleaf / "appendix").glob("*.tex"))
+            )
         )
         for node_id in expected_ids:
             if tex_text.count(f"% MANUSCRIPT-NODE: {node_id}") != 1:
@@ -726,7 +877,9 @@ def validate(graph: dict[str, Any], root: Path) -> dict[str, Any]:
 
 
 def run_checked(command: list[str], cwd: Path) -> None:
-    proc = subprocess.run(command, cwd=cwd, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    proc = subprocess.run(
+        command, cwd=cwd, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+    )
     if proc.returncode != 0:
         raise PipelineError(f"command failed ({' '.join(command)}):\n{proc.stdout}")
     print(proc.stdout, end="")
@@ -744,8 +897,13 @@ def compile_pdf(graph: dict[str, Any], root: Path) -> Path:
     )
     bibtex_rule = '$bibtex="/usr/bin/bibtex.original %O %B"'
     command = [
-        "latexmk", "-e", bibtex_rule, "-pdf", "-interaction=nonstopmode",
-        "-halt-on-error", "main.tex",
+        "latexmk",
+        "-e",
+        bibtex_rule,
+        "-pdf",
+        "-interaction=nonstopmode",
+        "-halt-on-error",
+        "main.tex",
     ]
     run_checked(command, overleaf)
     run_checked(command, overleaf)
@@ -779,35 +937,49 @@ def package_overleaf(graph: dict[str, Any], root: Path, output: Path) -> Path:
     """
     overleaf = root / graph["artifacts"]["overleaf_root"]
     output.parent.mkdir(parents=True, exist_ok=True)
-    with zipfile.ZipFile(
-        output, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9
-    ) as archive:
+    with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
         for path in sorted(overleaf.rglob("*")):
             if not path.is_file():
                 continue
             rel = path.relative_to(overleaf)
             if rel.parts and rel.parts[0] in {"legacy_source", "build", "releases"}:
                 continue
-            if path.suffix in {".aux", ".bbl", ".blg", ".fdb_latexmk", ".fls", ".log", ".out", ".synctex.gz"}:
+            if path.suffix in {
+                ".aux",
+                ".bbl",
+                ".blg",
+                ".fdb_latexmk",
+                ".fls",
+                ".log",
+                ".out",
+                ".synctex.gz",
+            }:
                 continue
             info = zipfile.ZipInfo(rel.as_posix(), date_time=ZIP_EPOCH)
             info.create_system = 3
             mode = stat.S_IMODE(path.stat().st_mode)
             info.external_attr = (stat.S_IFREG | mode) << 16
             info.compress_type = zipfile.ZIP_DEFLATED
-            archive.writestr(info, path.read_bytes(), compress_type=zipfile.ZIP_DEFLATED, compresslevel=9)
+            archive.writestr(
+                info, path.read_bytes(), compress_type=zipfile.ZIP_DEFLATED, compresslevel=9
+            )
     return output
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=("render", "sync", "apply-delta", "validate", "compile", "package-overleaf", "all"))
+    parser.add_argument(
+        "command",
+        choices=("render", "sync", "apply-delta", "validate", "compile", "package-overleaf", "all"),
+    )
     parser.add_argument("--repo-root", type=Path, default=Path.cwd())
     parser.add_argument("--graph", type=Path, default=Path("docs/manuscript/paper_graph.yaml"))
     parser.add_argument("--generator-cmd")
     parser.add_argument("--prefer", choices=("outline", "blueprint", "prose"))
     parser.add_argument("--delta", type=Path)
-    parser.add_argument("--output", type=Path, default=Path("paper/releases/DRPO_OVERLEAF_DRAFT_V092.zip"))
+    parser.add_argument(
+        "--output", type=Path, default=Path("paper/releases/DRPO_OVERLEAF_DRAFT_V092.zip")
+    )
     return parser.parse_args()
 
 

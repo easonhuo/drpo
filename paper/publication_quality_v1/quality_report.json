@@ -1,0 +1,1459 @@
+{
+  "schema_version": 1,
+  "profile": "front-four-publication-quality-v1",
+  "node_count": 16,
+  "status": "PASS",
+  "nodes": [
+    {
+      "id": "INTRO-P01",
+      "section": "introduction",
+      "word_count": 144,
+      "sentence_count": 7,
+      "trace": [
+        {
+          "sid": "INTRO-P01-S01",
+          "role": "context",
+          "anchors": [
+            "historical data",
+            "off-policy"
+          ],
+          "matched": [
+            "historical data",
+            "off-policy"
+          ]
+        },
+        {
+          "sid": "INTRO-P01-S02",
+          "role": "positive_role",
+          "anchors": [
+            "positive updates",
+            "successful"
+          ],
+          "matched": [
+            "positive updates",
+            "successful"
+          ]
+        },
+        {
+          "sid": "INTRO-P01-S03",
+          "role": "negative_role",
+          "anchors": [
+            "negative feedback",
+            "suppress"
+          ],
+          "matched": [
+            "negative feedback",
+            "suppress"
+          ]
+        },
+        {
+          "sid": "INTRO-P01-S04",
+          "role": "limitation",
+          "anchors": [
+            "Positive-only",
+            "empirical positive target"
+          ],
+          "matched": [
+            "Positive-only",
+            "empirical positive target"
+          ]
+        },
+        {
+          "sid": "INTRO-P01-S05",
+          "role": "question",
+          "anchors": [
+            "central question",
+            "excessive repulsion"
+          ],
+          "matched": [
+            "central question",
+            "excessive repulsion"
+          ]
+        }
+      ],
+      "status": "PASS",
+      "errors": []
+    },
+    {
+      "id": "INTRO-P02",
+      "section": "introduction",
+      "word_count": 141,
+      "sentence_count": 7,
+      "trace": [
+        {
+          "sid": "INTRO-P02-S01",
+          "role": "historical_setting",
+          "anchors": [
+            "offline logs",
+            "replay"
+          ],
+          "matched": [
+            "offline logs",
+            "replay"
+          ]
+        },
+        {
+          "sid": "INTRO-P02-S02",
+          "role": "local_value",
+          "anchors": [
+            "locally informative",
+            "boundary"
+          ],
+          "matched": [
+            "locally informative",
+            "boundary"
+          ]
+        },
+        {
+          "sid": "INTRO-P02-S03",
+          "role": "reuse_mechanism",
+          "anchors": [
+            "learner-relative",
+            "distance"
+          ],
+          "matched": [
+            "learner-relative",
+            "distance"
+          ]
+        },
+        {
+          "sid": "INTRO-P02-S04",
+          "role": "gaussian_case",
+          "anchors": [
+            "Gaussian",
+            "standardized distance"
+          ],
+          "matched": [
+            "Gaussian",
+            "standardized distance"
+          ]
+        },
+        {
+          "sid": "INTRO-P02-S05",
+          "role": "categorical_case",
+          "anchors": [
+            "categorical",
+            "bounded",
+            "suppression"
+          ],
+          "matched": [
+            "categorical",
+            "bounded"
+          ]
+        },
+        {
+          "sid": "INTRO-P02-S06",
+          "role": "transition",
+          "anchors": [
+            "far-field",
+            "transition"
+          ],
+          "matched": [
+            "far-field",
+            "transition"
+          ]
+        }
+      ],
+      "status": "PASS",
+      "errors": []
+    },
+    {
+      "id": "INTRO-P03",
+      "section": "introduction",
+      "word_count": 164,
+      "sentence_count": 7,
+      "trace": [
+        {
+          "sid": "INTRO-P03-S01",
+          "role": "method_landscape",
+          "anchors": [
+            "positive-only",
+            "clipping",
+            "quality filtering"
+          ],
+          "matched": [
+            "positive-only",
+            "clipping",
+            "quality filtering"
+          ]
+        },
+        {
+          "sid": "INTRO-P03-S02",
+          "role": "acknowledged_value",
+          "anchors": [
+            "stabilize",
+            "controls"
+          ],
+          "matched": [
+            "controls"
+          ]
+        },
+        {
+          "sid": "INTRO-P03-S03",
+          "role": "unresolved_gap",
+          "anchors": [
+            "useful local",
+            "far-field"
+          ],
+          "matched": [
+            "far-field"
+          ]
+        },
+        {
+          "sid": "INTRO-P03-S04",
+          "role": "confounding",
+          "anchors": [
+            "advantage magnitude",
+            "rarity",
+            "distance"
+          ],
+          "matched": [
+            "advantage magnitude",
+            "rarity",
+            "distance"
+          ]
+        },
+        {
+          "sid": "INTRO-P03-S05",
+          "role": "identification",
+          "anchors": [
+            "matched",
+            "policy stage"
+          ],
+          "matched": [
+            "matched",
+            "policy stage"
+          ]
+        },
+        {
+          "sid": "INTRO-P03-S06",
+          "role": "transition",
+          "anchors": [
+            "source identification",
+            "intervention protocol"
+          ],
+          "matched": [
+            "intervention protocol"
+          ]
+        }
+      ],
+      "status": "PASS",
+      "errors": []
+    },
+    {
+      "id": "INTRO-P04",
+      "section": "introduction",
+      "word_count": 158,
+      "sentence_count": 8,
+      "trace": [
+        {
+          "sid": "INTRO-P04-S01",
+          "role": "theory_object",
+          "anchors": [
+            "learner-relative remoteness",
+            "aggregate"
+          ],
+          "matched": [
+            "learner-relative remoteness",
+            "aggregate"
+          ]
+        },
+        {
+          "sid": "INTRO-P04-S02",
+          "role": "stable_regime",
+          "anchors": [
+            "stable extrapolation",
+            "Positive-only"
+          ],
+          "matched": [
+            "Positive-only"
+          ]
+        },
+        {
+          "sid": "INTRO-P04-S03",
+          "role": "boundary_regime",
+          "anchors": [
+            "persistent drift",
+            "finite"
+          ],
+          "matched": [
+            "persistent drift",
+            "finite"
+          ]
+        },
+        {
+          "sid": "INTRO-P04-S04",
+          "role": "family_difference",
+          "anchors": [
+            "Gaussian",
+            "categorical",
+            "bounded"
+          ],
+          "matched": [
+            "Gaussian",
+            "categorical",
+            "bounded"
+          ]
+        },
+        {
+          "sid": "INTRO-P04-S05",
+          "role": "implication",
+          "anchors": [
+            "neither",
+            "beneficial",
+            "harmful"
+          ],
+          "matched": [
+            "neither",
+            "beneficial",
+            "harmful"
+          ]
+        },
+        {
+          "sid": "INTRO-P04-S06",
+          "role": "transition",
+          "anchors": [
+            "method",
+            "far-field"
+          ],
+          "matched": [
+            "far-field"
+          ]
+        }
+      ],
+      "status": "PASS",
+      "errors": []
+    },
+    {
+      "id": "INTRO-P05",
+      "section": "introduction",
+      "word_count": 146,
+      "sentence_count": 7,
+      "trace": [
+        {
+          "sid": "INTRO-P05-S01",
+          "role": "method_target",
+          "anchors": [
+            "negative term",
+            "actor update"
+          ],
+          "matched": [
+            "negative term"
+          ]
+        },
+        {
+          "sid": "INTRO-P05-S02",
+          "role": "local_preservation",
+          "anchors": [
+            "nearby",
+            "retain"
+          ],
+          "matched": [
+            "nearby",
+            "retain"
+          ]
+        },
+        {
+          "sid": "INTRO-P05-S03",
+          "role": "far_attenuation",
+          "anchors": [
+            "distance",
+            "surprisal",
+            "attenuation"
+          ],
+          "matched": [
+            "distance",
+            "surprisal"
+          ]
+        },
+        {
+          "sid": "INTRO-P05-S04",
+          "role": "guarantee",
+          "anchors": [
+            "finite-order",
+            "vanish"
+          ],
+          "matched": [
+            "finite-order",
+            "vanish"
+          ]
+        },
+        {
+          "sid": "INTRO-P05-S05",
+          "role": "distinction",
+          "anchors": [
+            "quality",
+            "separate axes"
+          ],
+          "matched": [
+            "quality"
+          ]
+        },
+        {
+          "sid": "INTRO-P05-S06",
+          "role": "transition",
+          "anchors": [
+            "empirical",
+            "ranking"
+          ],
+          "matched": [
+            "empirical",
+            "ranking"
+          ]
+        }
+      ],
+      "status": "PASS",
+      "errors": []
+    },
+    {
+      "id": "INTRO-P06",
+      "section": "introduction",
+      "word_count": 167,
+      "sentence_count": 8,
+      "trace": [
+        {
+          "sid": "INTRO-P06-S01",
+          "role": "rq1",
+          "anchors": [
+            "First",
+            "realistic"
+          ],
+          "matched": [
+            "First",
+            "realistic"
+          ]
+        },
+        {
+          "sid": "INTRO-P06-S02",
+          "role": "rq2",
+          "anchors": [
+            "Second",
+            "matched"
+          ],
+          "matched": [
+            "Second",
+            "matched"
+          ]
+        },
+        {
+          "sid": "INTRO-P06-S03",
+          "role": "rq3",
+          "anchors": [
+            "Third",
+            "phase"
+          ],
+          "matched": [
+            "Third"
+          ]
+        },
+        {
+          "sid": "INTRO-P06-S04",
+          "role": "rq4",
+          "anchors": [
+            "Fourth",
+            "external"
+          ],
+          "matched": [
+            "Fourth",
+            "external"
+          ]
+        },
+        {
+          "sid": "INTRO-P06-S05",
+          "role": "environment_roles",
+          "anchors": [
+            "C-U1",
+            "D-U1",
+            "Hopper",
+            "Countdown"
+          ],
+          "matched": [
+            "C-U1",
+            "D-U1",
+            "Hopper",
+            "Countdown"
+          ]
+        },
+        {
+          "sid": "INTRO-P06-S06",
+          "role": "contributions",
+          "anchors": [
+            "contribute",
+            "theory",
+            "causal"
+          ],
+          "matched": [
+            "contribute",
+            "theory",
+            "causal"
+          ]
+        }
+      ],
+      "status": "PASS",
+      "errors": []
+    },
+    {
+      "id": "RELATED-P01",
+      "section": "related",
+      "word_count": 148,
+      "sentence_count": 8,
+      "trace": [
+        {
+          "sid": "RELATED-P01-S01",
+          "role": "prior_family",
+          "anchors": [
+            "quality-aware",
+            "actor"
+          ],
+          "matched": [
+            "quality-aware"
+          ]
+        },
+        {
+          "sid": "RELATED-P01-S02",
+          "role": "positive_filtering",
+          "anchors": [
+            "advantage-weighted",
+            "filter"
+          ],
+          "matched": [
+            "advantage-weighted",
+            "filter"
+          ]
+        },
+        {
+          "sid": "RELATED-P01-S03",
+          "role": "negative_value",
+          "anchors": [
+            "failed",
+            "boundaries"
+          ],
+          "matched": [
+            "failed"
+          ]
+        },
+        {
+          "sid": "RELATED-P01-S04",
+          "role": "established_fact",
+          "anchors": [
+            "informative",
+            "risk"
+          ],
+          "matched": [
+            "informative",
+            "risk"
+          ]
+        },
+        {
+          "sid": "RELATED-P01-S05",
+          "role": "unresolved_gap",
+          "anchors": [
+            "repeated",
+            "learner-relative"
+          ],
+          "matched": [
+            "repeated"
+          ]
+        },
+        {
+          "sid": "RELATED-P01-S06",
+          "role": "positioning",
+          "anchors": [
+            "dynamics",
+            "complement"
+          ],
+          "matched": [
+            "complement"
+          ]
+        }
+      ],
+      "status": "PASS",
+      "errors": []
+    },
+    {
+      "id": "RELATED-P02",
+      "section": "related",
+      "word_count": 148,
+      "sentence_count": 9,
+      "trace": [
+        {
+          "sid": "RELATED-P02-S01",
+          "role": "mismatch_controls",
+          "anchors": [
+            "importance",
+            "clipping",
+            "trust"
+          ],
+          "matched": [
+            "importance",
+            "clipping",
+            "trust"
+          ]
+        },
+        {
+          "sid": "RELATED-P02-S02",
+          "role": "stale_updates",
+          "anchors": [
+            "replay",
+            "stale"
+          ],
+          "matched": [
+            "replay",
+            "stale"
+          ]
+        },
+        {
+          "sid": "RELATED-P02-S03",
+          "role": "rarity_controls",
+          "anchors": [
+            "low-probability",
+            "surprisal"
+          ],
+          "matched": [
+            "surprisal"
+          ]
+        },
+        {
+          "sid": "RELATED-P02-S04",
+          "role": "established_fact",
+          "anchors": [
+            "learner-relative",
+            "mismatch"
+          ],
+          "matched": [
+            "learner-relative",
+            "mismatch"
+          ]
+        },
+        {
+          "sid": "RELATED-P02-S05",
+          "role": "dynamic_gap",
+          "anchors": [
+            "endogenous",
+            "repeated"
+          ],
+          "matched": [
+            "endogenous",
+            "repeated"
+          ]
+        },
+        {
+          "sid": "RELATED-P02-S06",
+          "role": "positioning",
+          "anchors": [
+            "aggregate",
+            "complement"
+          ],
+          "matched": [
+            "aggregate",
+            "complement"
+          ]
+        }
+      ],
+      "status": "PASS",
+      "errors": []
+    },
+    {
+      "id": "RELATED-P03",
+      "section": "related",
+      "word_count": 151,
+      "sentence_count": 8,
+      "trace": [
+        {
+          "sid": "RELATED-P03-S01",
+          "role": "pessimism",
+          "anchors": [
+            "pessimistic",
+            "value"
+          ],
+          "matched": [
+            "pessimistic",
+            "value"
+          ]
+        },
+        {
+          "sid": "RELATED-P03-S02",
+          "role": "in_support_learning",
+          "anchors": [
+            "in-support",
+            "implicit"
+          ],
+          "matched": [
+            "in-support",
+            "implicit"
+          ]
+        },
+        {
+          "sid": "RELATED-P03-S03",
+          "role": "behavior_regularization",
+          "anchors": [
+            "behavior",
+            "proximal"
+          ],
+          "matched": [
+            "behavior",
+            "proximal"
+          ]
+        },
+        {
+          "sid": "RELATED-P03-S04",
+          "role": "data_selection",
+          "anchors": [
+            "selection",
+            "quality"
+          ],
+          "matched": [
+            "selection"
+          ]
+        },
+        {
+          "sid": "RELATED-P03-S05",
+          "role": "distinct_object",
+          "anchors": [
+            "signed actor",
+            "negative"
+          ],
+          "matched": [
+            "signed actor",
+            "negative"
+          ]
+        },
+        {
+          "sid": "RELATED-P03-S06",
+          "role": "compatibility",
+          "anchors": [
+            "combined",
+            "not replace"
+          ],
+          "matched": [
+            "combined"
+          ]
+        }
+      ],
+      "status": "PASS",
+      "errors": []
+    },
+    {
+      "id": "SETUP-P01",
+      "section": "setup",
+      "word_count": 219,
+      "sentence_count": 11,
+      "trace": [
+        {
+          "sid": "SETUP-P01-S01",
+          "role": "historical_distribution",
+          "anchors": [
+            "historical update distribution",
+            "nu"
+          ],
+          "matched": [
+            "historical update distribution"
+          ]
+        },
+        {
+          "sid": "SETUP-P01-S02",
+          "role": "actor_field",
+          "anchors": [
+            "mathbf F",
+            "discrete update"
+          ],
+          "matched": [
+            "discrete update"
+          ]
+        },
+        {
+          "sid": "SETUP-P01-S03",
+          "role": "fixed_step_scope",
+          "anchors": [
+            "treated as fixed",
+            "actor step"
+          ],
+          "matched": [
+            "treated as fixed",
+            "actor step"
+          ]
+        },
+        {
+          "sid": "SETUP-P01-S04",
+          "role": "sign_split",
+          "anchors": [
+            "A^+",
+            "A^-"
+          ],
+          "matched": [
+            "A^+",
+            "A^-"
+          ]
+        },
+        {
+          "sid": "SETUP-P01-S05",
+          "role": "influence_factorization",
+          "anchors": [
+            "severity",
+            "score geometry"
+          ],
+          "matched": [
+            "severity",
+            "score geometry"
+          ]
+        },
+        {
+          "sid": "SETUP-P01-S06",
+          "role": "aggregation",
+          "anchors": [
+            "frequency",
+            "directional coherence"
+          ],
+          "matched": [
+            "frequency",
+            "directional coherence"
+          ]
+        },
+        {
+          "sid": "SETUP-P01-S07",
+          "role": "boundary",
+          "anchors": [
+            "not assumed",
+            "on-policy"
+          ],
+          "matched": [
+            "not assumed",
+            "on-policy"
+          ]
+        }
+      ],
+      "status": "PASS",
+      "errors": []
+    },
+    {
+      "id": "SETUP-P02",
+      "section": "setup",
+      "word_count": 183,
+      "sentence_count": 10,
+      "trace": [
+        {
+          "sid": "SETUP-P02-S01",
+          "role": "definition",
+          "anchors": [
+            "D_theta",
+            "negative log"
+          ],
+          "matched": [
+            "negative log"
+          ]
+        },
+        {
+          "sid": "SETUP-P02-S02",
+          "role": "gaussian_mapping",
+          "anchors": [
+            "Mahalanobis",
+            "Gaussian"
+          ],
+          "matched": [
+            "Mahalanobis",
+            "Gaussian"
+          ]
+        },
+        {
+          "sid": "SETUP-P02-S03",
+          "role": "categorical_mapping",
+          "anchors": [
+            "categorical",
+            "surprisal"
+          ],
+          "matched": [
+            "categorical",
+            "surprisal"
+          ]
+        },
+        {
+          "sid": "SETUP-P02-S04",
+          "role": "sequence_mapping",
+          "anchors": [
+            "sequence",
+            "normalized"
+          ],
+          "matched": [
+            "sequence",
+            "normalized"
+          ]
+        },
+        {
+          "sid": "SETUP-P02-S05",
+          "role": "dynamic_status",
+          "anchors": [
+            "dynamic",
+            "theta"
+          ],
+          "matched": [
+            "dynamic"
+          ]
+        },
+        {
+          "sid": "SETUP-P02-S06",
+          "role": "non_equivalence",
+          "anchors": [
+            "no universal relation",
+            "not assumed"
+          ],
+          "matched": [
+            "no universal relation"
+          ]
+        },
+        {
+          "sid": "SETUP-P02-S07",
+          "role": "transition",
+          "anchors": [
+            "Proposition",
+            "score"
+          ],
+          "matched": [
+            "Proposition",
+            "score"
+          ]
+        }
+      ],
+      "status": "PASS",
+      "errors": []
+    },
+    {
+      "id": "THEORY-P01",
+      "section": "theory",
+      "word_count": 256,
+      "sentence_count": 13,
+      "trace": [
+        {
+          "sid": "THEORY-P01-S01",
+          "role": "motivation",
+          "anchors": [
+            "static relation",
+            "fixed learner"
+          ],
+          "matched": [
+            "static relation",
+            "fixed learner"
+          ]
+        },
+        {
+          "sid": "THEORY-P01-S02",
+          "role": "definitions",
+          "anchors": [
+            "D_",
+            "R_"
+          ],
+          "matched": [
+            "D_",
+            "R_"
+          ]
+        },
+        {
+          "sid": "THEORY-P01-S03",
+          "role": "gaussian_statement",
+          "anchors": [
+            "lambda_{\\min}",
+            "lambda_{\\max}",
+            "isotropic"
+          ],
+          "matched": [
+            "isotropic"
+          ]
+        },
+        {
+          "sid": "THEORY-P01-S04",
+          "role": "gaussian_interpretation",
+          "anchors": [
+            "unbounded",
+            "Gaussian mean score"
+          ],
+          "matched": [
+            "unbounded",
+            "Gaussian mean score"
+          ]
+        },
+        {
+          "sid": "THEORY-P01-S05",
+          "role": "categorical_statement",
+          "anchors": [
+            "1-e",
+            "bounded"
+          ],
+          "matched": [
+            "1-e",
+            "bounded"
+          ]
+        },
+        {
+          "sid": "THEORY-P01-S06",
+          "role": "categorical_interpretation",
+          "anchors": [
+            "saturat",
+            "suppression"
+          ],
+          "matched": [
+            "saturat",
+            "suppression"
+          ]
+        },
+        {
+          "sid": "THEORY-P01-S07",
+          "role": "limitation",
+          "anchors": [
+            "does not",
+            "divergence"
+          ],
+          "matched": [
+            "does not",
+            "divergence"
+          ]
+        },
+        {
+          "sid": "THEORY-P01-S08",
+          "role": "transition",
+          "anchors": [
+            "repeated reuse",
+            "next"
+          ],
+          "matched": [
+            "repeated reuse",
+            "next"
+          ]
+        }
+      ],
+      "status": "PASS",
+      "errors": []
+    },
+    {
+      "id": "THEORY-P02",
+      "section": "theory",
+      "word_count": 271,
+      "sentence_count": 13,
+      "trace": [
+        {
+          "sid": "THEORY-P02-S01",
+          "role": "reuse_setup",
+          "anchors": [
+            "fixed historical action",
+            "D_t",
+            "R_t"
+          ],
+          "matched": [
+            "fixed historical action",
+            "D_t",
+            "R_t"
+          ]
+        },
+        {
+          "sid": "THEORY-P02-S02",
+          "role": "negative_statement",
+          "anchors": [
+            "D_{t+1}",
+            "negative reuse"
+          ],
+          "matched": [
+            "D_{t+1}",
+            "negative reuse"
+          ]
+        },
+        {
+          "sid": "THEORY-P02-S03",
+          "role": "positive_statement",
+          "anchors": [
+            "positive reuse",
+            "L-Lipschitz"
+          ],
+          "matched": [
+            "positive reuse"
+          ]
+        },
+        {
+          "sid": "THEORY-P02-S04",
+          "role": "convexity_scope",
+          "anchors": [
+            "convexity",
+            "natural coordinates"
+          ],
+          "matched": [
+            "convexity",
+            "natural coordinates"
+          ]
+        },
+        {
+          "sid": "THEORY-P02-S05",
+          "role": "gaussian_consequence",
+          "anchors": [
+            "Gaussian",
+            "unbounded"
+          ],
+          "matched": [
+            "Gaussian",
+            "unbounded"
+          ]
+        },
+        {
+          "sid": "THEORY-P02-S06",
+          "role": "categorical_consequence",
+          "anchors": [
+            "categorical",
+            "persistent"
+          ],
+          "matched": [
+            "categorical",
+            "persistent"
+          ]
+        },
+        {
+          "sid": "THEORY-P02-S07",
+          "role": "limitation",
+          "anchors": [
+            "does not determine",
+            "aggregate"
+          ],
+          "matched": [
+            "does not determine",
+            "aggregate"
+          ]
+        },
+        {
+          "sid": "THEORY-P02-S08",
+          "role": "transition",
+          "anchors": [
+            "aggregate",
+            "balance"
+          ],
+          "matched": [
+            "aggregate",
+            "balance"
+          ]
+        }
+      ],
+      "status": "PASS",
+      "errors": []
+    },
+    {
+      "id": "THEORY-P03",
+      "section": "theory",
+      "word_count": 335,
+      "sentence_count": 20,
+      "trace": [
+        {
+          "sid": "THEORY-P03-S01",
+          "role": "aggregate_setup",
+          "anchors": [
+            "exponential-family",
+            "p",
+            "q"
+          ],
+          "matched": [
+            "exponential-family",
+            "p",
+            "q"
+          ]
+        },
+        {
+          "sid": "THEORY-P03-S02",
+          "role": "field_derivation",
+          "anchors": [
+            "aggregate field",
+            "policy-dependent mean parameter"
+          ],
+          "matched": [
+            "aggregate field",
+            "policy-dependent mean parameter"
+          ]
+        },
+        {
+          "sid": "THEORY-P03-S03",
+          "role": "positive_regime",
+          "anchors": [
+            "p>q",
+            "unique finite"
+          ],
+          "matched": [
+            "p>q",
+            "unique finite"
+          ]
+        },
+        {
+          "sid": "THEORY-P03-S04",
+          "role": "extrapolation_identity",
+          "anchors": [
+            "m^star-m_+",
+            "beyond"
+          ],
+          "matched": [
+            "beyond"
+          ]
+        },
+        {
+          "sid": "THEORY-P03-S05",
+          "role": "boundary_case",
+          "anchors": [
+            "boundary",
+            "no finite"
+          ],
+          "matched": [
+            "boundary",
+            "no finite"
+          ]
+        },
+        {
+          "sid": "THEORY-P03-S06",
+          "role": "critical_regime",
+          "anchors": [
+            "p=q",
+            "persistent drift"
+          ],
+          "matched": [
+            "p=q",
+            "persistent drift"
+          ]
+        },
+        {
+          "sid": "THEORY-P03-S07",
+          "role": "negative_regime",
+          "anchors": [
+            "p<q",
+            "unstable"
+          ],
+          "matched": [
+            "p<q",
+            "unstable"
+          ]
+        },
+        {
+          "sid": "THEORY-P03-S08",
+          "role": "stability",
+          "anchors": [
+            "Jacobian",
+            "step size"
+          ],
+          "matched": [
+            "Jacobian",
+            "step size"
+          ]
+        },
+        {
+          "sid": "THEORY-P03-S09",
+          "role": "transition",
+          "anchors": [
+            "policy-family",
+            "manifestations"
+          ],
+          "matched": [
+            "policy-family",
+            "manifestations"
+          ]
+        }
+      ],
+      "status": "PASS",
+      "errors": []
+    },
+    {
+      "id": "THEORY-P04",
+      "section": "theory",
+      "word_count": 301,
+      "sentence_count": 18,
+      "trace": [
+        {
+          "sid": "THEORY-P04-S01",
+          "role": "shared_instability",
+          "anchors": [
+            "negative dominance",
+            "finite stable equilibrium"
+          ],
+          "matched": [
+            "negative dominance",
+            "finite stable equilibrium"
+          ]
+        },
+        {
+          "sid": "THEORY-P04-S02",
+          "role": "gaussian_form",
+          "anchors": [
+            "aggregate mean field",
+            "mu^\\dagger"
+          ],
+          "matched": [
+            "aggregate mean field"
+          ]
+        },
+        {
+          "sid": "THEORY-P04-S03",
+          "role": "gaussian_consequence",
+          "anchors": [
+            "to infinity",
+            "score"
+          ],
+          "matched": [
+            "score"
+          ]
+        },
+        {
+          "sid": "THEORY-P04-S04",
+          "role": "categorical_form",
+          "anchors": [
+            "gauge",
+            "logits"
+          ],
+          "matched": [
+            "gauge",
+            "logits"
+          ]
+        },
+        {
+          "sid": "THEORY-P04-S05",
+          "role": "categorical_consequence",
+          "anchors": [
+            "simplex boundary",
+            "less than or equal"
+          ],
+          "matched": [
+            "simplex boundary",
+            "less than or equal"
+          ]
+        },
+        {
+          "sid": "THEORY-P04-S06",
+          "role": "distinction",
+          "anchors": [
+            "gradient-amplitude",
+            "support"
+          ],
+          "matched": [
+            "gradient-amplitude",
+            "support"
+          ]
+        },
+        {
+          "sid": "THEORY-P04-S07",
+          "role": "reporting_boundary",
+          "anchors": [
+            "task-performance",
+            "NaN/Inf"
+          ],
+          "matched": [
+            "task-performance",
+            "NaN/Inf"
+          ]
+        },
+        {
+          "sid": "THEORY-P04-S08",
+          "role": "transition",
+          "anchors": [
+            "predictions",
+            "separate"
+          ],
+          "matched": [
+            "predictions",
+            "separate"
+          ]
+        }
+      ],
+      "status": "PASS",
+      "errors": []
+    },
+    {
+      "id": "THEORY-P05",
+      "section": "theory",
+      "word_count": 217,
+      "sentence_count": 10,
+      "trace": [
+        {
+          "sid": "THEORY-P05-S01",
+          "role": "prediction_positive_only",
+          "anchors": [
+            "Positive-only",
+            "platform"
+          ],
+          "matched": [
+            "Positive-only",
+            "platform"
+          ]
+        },
+        {
+          "sid": "THEORY-P05-S02",
+          "role": "prediction_controlled_negative",
+          "anchors": [
+            "moderate",
+            "stable extrapolation"
+          ],
+          "matched": [
+            "moderate",
+            "stable extrapolation"
+          ]
+        },
+        {
+          "sid": "THEORY-P05-S03",
+          "role": "prediction_boundary",
+          "anchors": [
+            "boundary",
+            "outward"
+          ],
+          "matched": [
+            "boundary",
+            "outward"
+          ]
+        },
+        {
+          "sid": "THEORY-P05-S04",
+          "role": "prediction_runaway",
+          "anchors": [
+            "persistent drift",
+            "residual"
+          ],
+          "matched": [
+            "persistent drift",
+            "residual"
+          ]
+        },
+        {
+          "sid": "THEORY-P05-S05",
+          "role": "prediction_intervention",
+          "anchors": [
+            "far",
+            "near",
+            "rescue"
+          ],
+          "matched": [
+            "far",
+            "near",
+            "rescue"
+          ]
+        },
+        {
+          "sid": "THEORY-P05-S06",
+          "role": "failure_taxonomy",
+          "anchors": [
+            "task-performance",
+            "support",
+            "NaN/Inf"
+          ],
+          "matched": [
+            "task-performance",
+            "support",
+            "NaN/Inf"
+          ]
+        },
+        {
+          "sid": "THEORY-P05-S07",
+          "role": "handoff",
+          "anchors": [
+            "C-U1",
+            "D-U1",
+            "Hopper",
+            "Countdown"
+          ],
+          "matched": [
+            "C-U1",
+            "D-U1",
+            "Hopper",
+            "Countdown"
+          ]
+        }
+      ],
+      "status": "PASS",
+      "errors": []
+    }
+  ],
+  "errors": []
+}

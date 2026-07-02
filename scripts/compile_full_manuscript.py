@@ -22,6 +22,14 @@ class BuildError(RuntimeError):
     pass
 
 
+DETERMINISTIC_PDF_METADATA = {
+    "Creator": "drpo manuscript pipeline",
+    "Producer": "matplotlib",
+    "CreationDate": None,
+    "ModDate": None,
+}
+
+
 def run(cmd: list[str], cwd: Path) -> str:
     p = subprocess.run(cmd, cwd=cwd, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     if p.returncode:
@@ -75,7 +83,7 @@ def save_e3(root: Path, fig_dir: Path, gen_dir: Path) -> None:
     axes[1].grid(axis="y", alpha=0.25)
     fig.tight_layout()
     out = fig_dir / "fig3_cu1_causal.pdf"
-    fig.savefig(out, bbox_inches="tight")
+    fig.savefig(out, bbox_inches="tight", metadata=DETERMINISTIC_PDF_METADATA)
     plt.close(fig)
     lines = [
         r"\begin{figure*}[t]",
@@ -122,7 +130,11 @@ def save_e4(root: Path, fig_dir: Path, gen_dir: Path) -> None:
     axes[1].set_title("Support/variance boundary")
     axes[1].grid(alpha=0.25)
     fig.tight_layout()
-    fig.savefig(fig_dir / "fig4_cu1_phase.pdf", bbox_inches="tight")
+    fig.savefig(
+        fig_dir / "fig4_cu1_phase.pdf",
+        bbox_inches="tight",
+        metadata=DETERMINISTIC_PDF_METADATA,
+    )
     plt.close(fig)
     taper = json.loads(
         (root / "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json").read_text()
@@ -139,7 +151,11 @@ def save_e4(root: Path, fig_dir: Path, gen_dir: Path) -> None:
     ax.set_title("Matched near-retention comparison")
     ax.grid(axis="y", alpha=0.25)
     fig.tight_layout()
-    fig.savefig(fig_dir / "fig5_taper_shape.pdf", bbox_inches="tight")
+    fig.savefig(
+        fig_dir / "fig5_taper_shape.pdf",
+        bbox_inches="tight",
+        metadata=DETERMINISTIC_PDF_METADATA,
+    )
     plt.close(fig)
     text = r"""\begin{figure*}[t]
 \centering
@@ -194,26 +210,122 @@ def save_du1(root: Path, fig_dir: Path, gen_dir: Path) -> None:
 def save_proofs(gen_dir: Path) -> None:
     (gen_dir / "app_theorem_proof.tex").write_text(
         r"""
+\subsection{Proof of Proposition~\ref{prop:score-remoteness}}
+\label{app:proof-score-remoteness}
+\begin{proof}
+Let $\delta=a-\mu$. For a Gaussian with fixed covariance,
+\begin{equation}
+\begin{aligned}
+D_\mu(a)-C_\Sigma&=\tfrac12\delta^\top\Sigma^{-1}\delta,\\
+R_\mu(a)&=\|\Sigma^{-1}\delta\|_2^2
+=\delta^\top\Sigma^{-2}\delta.
+\end{aligned}
+\end{equation}
+With $x=\Sigma^{-1/2}\delta$, these become
+$D_\mu-C_\Sigma=\|x\|_2^2/2$ and $R_\mu=x^\top\Sigma^{-1}x$.
+The Rayleigh quotient therefore gives
+\begin{equation}
+\begin{aligned}
+R_\mu(a)&\ge2\lambda_{\min}(\Sigma^{-1})(D_\mu-C_\Sigma),\\
+R_\mu(a)&\le2\lambda_{\max}(\Sigma^{-1})(D_\mu-C_\Sigma).
+\end{aligned}
+\end{equation}
+If $\delta=rv$ for a fixed direction, eliminating $r^2$ gives the exact directional coefficient; when $\Sigma=\sigma^2I$, it reduces to $2/\sigma^2$.
+For a categorical policy, $\nabla_z\log\pi_z(a)=e_a-\pi_z$. Writing $p_a=e^{-D_z(a)}$ yields
+$|\partial_{z_a}\log\pi_z(a)|=1-p_a=1-e^{-D_z(a)}$.
+Moreover,
+\begin{equation}
+\|e_a-\pi_z\|_2^2=(1-p_a)^2+\sum_{j\ne a}\pi_z(j)^2
+\le 2(1-p_a)^2\le2.
+\end{equation}
+Thus the selected-logit response increases with surprisal but remains bounded.
+\end{proof}
+
+\subsection{Proof of Theorem~\ref{thm:reuse}}
+\label{app:proof-reuse}
+\begin{proof}
+Write $f(u)=D(u)$, $g_t=\nabla f(u_t)$, and $R_t=\|g_t\|_2^2$.
+For a negative coefficient $\widehat A=-c$ with $c>0$, the update is $u_{t+1}=u_t+\alpha g_t$, where $\alpha=\eta c$.
+Convexity gives
+\begin{equation}
+f(u_{t+1})\ge f(u_t)+g_t^\top(u_{t+1}-u_t)
+=f(u_t)+\alpha\|g_t\|_2^2.
+\end{equation}
+The gradient of a differentiable convex function is monotone, hence
+$(g_{t+1}-g_t)^\top(u_{t+1}-u_t)\ge0$.
+Substituting $u_{t+1}-u_t=\alpha g_t$ gives
+$g_{t+1}^\top g_t\ge\|g_t\|_2^2$; Cauchy--Schwarz then implies
+$\|g_{t+1}\|_2\ge\|g_t\|_2$.
+For a positive coefficient $\widehat A=c>0$, the update is $u_{t+1}=u_t-\alpha g_t$.
+The descent lemma yields
+\begin{equation}
+f(u_{t+1})\le f(u_t)-\alpha(1-L\alpha/2)\|g_t\|_2^2
+\le f(u_t)-\tfrac\alpha2R_t
+\end{equation}
+when $\alpha\le1/L$.
+For a convex function with $L$-Lipschitz gradient, cocoercivity gives
+$(g_t-g_{t+1})^\top(u_t-u_{t+1})\ge L^{-1}\|g_t-g_{t+1}\|_2^2$.
+Using $u_t-u_{t+1}=\alpha g_t$ and expanding $\|g_{t+1}\|_2^2$ proves
+$R_{t+1}\le R_t$ for $\alpha L\le1$.
+\end{proof}
+
 \subsection{Detailed derivation for Theorem~\ref{thm:equilibrium}}
 \label{app:proof-theorem-equilibrium}
 \begin{proof}
-Let $F(\eta)=p(\mathbf m_+-\nabla\psi(\eta))-q(\mathbf m_--\nabla\psi(\eta))$. Rearranging gives
+The signed population objective is
 \begin{equation}
-F(\eta)=p\mathbf m_+-q\mathbf m_--(p-q)\nabla\psi(\eta).
+L(\eta)=(p\mathbf m_+-q\mathbf m_-)^\top\eta-(p-q)\psi(\eta)+C,
 \end{equation}
+so
+$F(\eta)=\nabla L(\eta)=p\mathbf m_+-q\mathbf m_--(p-q)\nabla\psi(\eta)$ and
+$\nabla^2L(\eta)=-(p-q)\nabla^2\psi(\eta)$.
 For $p>q$, $F(\eta)=0$ is equivalent to
 \begin{equation}
 \nabla\psi(\eta)=\mathbf m^\star=\frac{p\mathbf m_+-q\mathbf m_-}{p-q}.
 \end{equation}
-A regular minimal exponential family has strictly convex log-partition $\psi$, so $\nabla\psi$ is one-to-one and maps the natural-parameter space onto the interior of the realizable mean-parameter set. Hence an interior $\mathbf m^\star$ has a unique finite preimage $\eta^\star$. Subtracting $\mathbf m_+$ yields
+A regular minimal exponential family has strictly convex log-partition $\psi$, so $\nabla\psi$ is one-to-one and maps the natural-parameter space onto the interior mean-parameter set. An interior $\mathbf m^\star$ therefore has a unique finite preimage $\eta^\star$. Subtracting $\mathbf m_+$ yields
 \begin{equation}
-\mathbf m^\star-\mathbf m_+=\frac{q}{p-q}(\mathbf m_+-\mathbf m_-),
+\mathbf m^\star-\mathbf m_+=\frac{q}{p-q}(\mathbf m_+-\mathbf m_-).
 \end{equation}
-which is the stable extrapolation displacement. Differentiating the field gives
+The field Jacobian is $J_F(\eta^\star)=-(p-q)\nabla^2\psi(\eta^\star)\prec0$, proving continuous-time local asymptotic stability. The discrete Jacobian is
+$I-\alpha(p-q)\nabla^2\psi(\eta^\star)$, whose spectral radius is below one whenever
 \begin{equation}
-J_F(\eta)=-(p-q)\nabla^2\psi(\eta).
+0<\alpha<\frac{2}{(p-q)\lambda_{\max}(\nabla^2\psi(\eta^\star))}.
 \end{equation}
-At $\eta^\star$, $\nabla^2\psi$ is the covariance of the sufficient statistic and is positive definite; therefore every eigenvalue of $J_F$ is negative and the continuous-time equilibrium is locally asymptotically stable. For discrete step size $h$, local stability requires $\rho(I+hJ_F)<1$. If $\mathbf m^\star$ reaches the feasible boundary, the realizing natural parameter diverges or becomes degenerate; outside the feasible set, no finite equilibrium exists.
+If $\mathbf m^\star$ approaches the feasible boundary, continuity and invertibility imply that its natural parameter leaves every compact subset; outside the feasible set no finite solution exists.
+When $p=q$, the field is the constant $p(\mathbf m_+-\mathbf m_-)$. It produces linear drift if the moments differ and a non-isolated stationary continuum otherwise.
+When $p<q$, $\nabla^2L=(q-p)\nabla^2\psi\succ0$; any finite stationary point has a positive-definite continuous Jacobian and a discrete Jacobian with eigenvalues strictly larger than one, so it is unstable.
+\end{proof}
+
+\subsection{Proof of Theorem~\ref{thm:family-runaway}}
+\label{app:proof-family-runaway}
+\begin{proof}
+Let $r=q-p>0$. For the fixed-covariance Gaussian,
+\begin{equation}
+F_\mu(\mu)=\Sigma^{-1}[p\mu_+-q\mu_--(p-q)\mu]
+=r\Sigma^{-1}(\mu-\mu^\dagger).
+\end{equation}
+With $\delta=\mu-\mu^\dagger$, continuous time gives
+$\dot\delta=r\Sigma^{-1}\delta$ and hence
+$\delta(t)=\exp(r\Sigma^{-1}t)\delta(0)$.
+Every nonzero displacement grows at least as
+$\exp(r\lambda_{\min}(\Sigma^{-1})t)$.
+The discrete recurrence is
+$\delta_{t+1}=(I+\alpha r\Sigma^{-1})\delta_t$, whose eigenvalues exceed one for every $\alpha>0$.
+Thus every nonstationary trajectory diverges. For fixed $a$,
+$\|\nabla_\mu\log\pi_\mu(a)\|_2=\|\Sigma^{-1}(a-\mu)\|_2\to\infty$.
+
+For the categorical policy, fix the gauge $\mathbf1^\top z=0$ and write the signed objective as
+\begin{equation}
+L(z)=b^\top z+r\log\sum_j e^{z_j}+C.
+\end{equation}
+Its Hessian on the gauge-fixed subspace is
+$r(\operatorname{Diag}(\pi_z)-\pi_z\pi_z^\top)\succ0$, so $L$ is strictly convex there.
+Along continuous gradient ascent, $dL/dt=\|\nabla L\|_2^2$; along the discrete update, convexity gives
+$L(z_{t+1})\ge L(z_t)+\alpha\|\nabla L(z_t)\|_2^2$.
+A bounded nonstationary trajectory would therefore have an accumulation point with zero gradient. If a finite stationary point exists, strict convexity makes it unique and the squared distance from it increases under ascent; if none exists, zero-gradient accumulation is impossible. Hence every nonstationary trajectory leaves each compact set.
+On the gauge-fixed subspace, probabilities bounded away from zero imply bounded logits, so an unbounded trajectory has a subsequence approaching the simplex boundary. Finally,
+$\|e_a-\pi_z\|_2^2\le2(1-\pi_z(a))^2\le2$, proving bounded per-sample scores.
 \end{proof}
 
 \subsection{Proof of Proposition~\ref{prop:vanishing}}
@@ -232,16 +344,16 @@ For every finite $k$ and $\lambda>0$, the Gaussian tail dominates the polynomial
     (gen_dir / "app_gaussian_derivation.tex").write_text(
         r"""
 \subsection{Population mean--variance fixed point}
-With $\xi=\log\sigma$, positive mass $p$, effective negative mass $q$, conditional moments $(m_+,v_+)$ and $(m_-,v_-)$,
+With $\xi=\log\sigma$, positive mass $p$, effective negative mass $q$, conditional moments $(m_+,v_+)$ and $(m_-,v_-)$. Define $M_\pm(\mu)=v_\pm+(\mu-m_\pm)^2$. Then
 \begin{align}
 \dot\mu &= \frac{p(m_+-\mu)-q(m_--\mu)}{\sigma^2},\\
-\dot\xi &= \frac{p[v_++(\mu-m_+)^2]-q[v_-+(\mu-m_-)^2]}{\sigma^2}-(p-q).
+\dot\xi &= \frac{pM_+(\mu)-qM_-(\mu)}{\sigma^2}-(p-q).
 \end{align}
 For $p>q$, the mean candidate is $\mu^\star=(pm_+-qm_-)/(p-q)$. Substitution into the scale equation gives
 \begin{equation}
 (\sigma^2)^\star=\frac{pM_+(\mu^\star)-qM_-(\mu^\star)}{p-q},
 \end{equation}
-where $M_\pm(\mu)=v_\pm+(\mu-m_\pm)^2$. A finite joint equilibrium therefore requires both $p>q$ and a positive numerator. This second condition is stricter in the far field because $M_-$ contains squared displacement.
+A finite joint equilibrium therefore requires both $p>q$ and a positive numerator. This second condition is stricter in the far field because $M_-$ contains squared displacement.
 """,
         encoding="utf-8",
     )
@@ -329,6 +441,18 @@ def main() -> int:
         save_e4(root, fig_dir, gen_dir)
         save_proofs(gen_dir)
         inject(root, cfg)
+        run(
+            [
+                sys.executable,
+                "scripts/manuscript_publication_pipeline.py",
+                "all",
+                "--repo-root",
+                str(root),
+                "--contract",
+                str(cfg["publication_quality_contract"]),
+            ],
+            root,
+        )
         validate(root, cfg)
         if not args.skip_compile:
             latexmk = shutil.which("latexmk")

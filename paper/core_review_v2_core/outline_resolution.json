@@ -17,7 +17,7 @@
     {
       "id": "INTRO-P01",
       "order": 2,
-      "outline_block_sha256": "53d8e25bbff12ba009dea935c2f20e0189e51cf34eab25ca4173d5f9a9d25a06",
+      "outline_block_sha256": "a7cd4a6d085c2e65bb81e73f740ab9e3e89a96fa2e23d9fab42f9817c761b1dd",
       "reason": "not_selected_for_core_vertical_slice",
       "section": "Introduction",
       "status": "disabled_with_reason",
@@ -26,7 +26,7 @@
     {
       "id": "INTRO-P02",
       "order": 3,
-      "outline_block_sha256": "94fd8b0ab24900f356ef12447dbe8002cb138a24a0df1921c8edb0b9c194e14a",
+      "outline_block_sha256": "c3a88d84e1dab0f4f340a71a79fa4e2d7950d69fe6e3bffb870758ffad9654a2",
       "reason": "not_selected_for_core_vertical_slice",
       "section": "Introduction",
       "status": "disabled_with_reason",
@@ -35,7 +35,7 @@
     {
       "id": "INTRO-P03",
       "order": 4,
-      "outline_block_sha256": "1e6c963b2e682ebec0525cc6e7a3d62eb195a8829baaf93db81159e2f413110f",
+      "outline_block_sha256": "4044ce3da95303db92fa096a44487f42b5d5cc0d00963351d613a71723317698",
       "reason": "not_selected_for_core_vertical_slice",
       "section": "Introduction",
       "status": "disabled_with_reason",
@@ -44,7 +44,7 @@
     {
       "id": "INTRO-P04",
       "order": 5,
-      "outline_block_sha256": "454d156a23d8fcedcd51a3bc24dc3b3dc6d37c7bf41b782b29df1a2af01ec6d5",
+      "outline_block_sha256": "78fa788bf8b81d2d985c5d619b384f91a0c7c15a8991a81311e1227a7e51f546",
       "reason": "not_selected_for_core_vertical_slice",
       "section": "Introduction",
       "status": "disabled_with_reason",
@@ -53,7 +53,7 @@
     {
       "id": "INTRO-P05",
       "order": 6,
-      "outline_block_sha256": "c5a68760f9839fe76381bed515feb1f93cf2e9c3ef3a5cd89a321a27235c1d3e",
+      "outline_block_sha256": "4299d56ae0f3d5e0a0e6412c747d0be8435bb499f81c984abda90b35c179429f",
       "reason": "not_selected_for_core_vertical_slice",
       "section": "Introduction",
       "status": "disabled_with_reason",
@@ -62,7 +62,7 @@
     {
       "id": "INTRO-P06",
       "order": 7,
-      "outline_block_sha256": "1878626d7c80e095952b80cb3f2c79421b703f216984b411dfd069fc9a353128",
+      "outline_block_sha256": "bc285bcac56e25abb6e6bebaaf6f0f9c2818c4d4ffcc2af2650bdacb41c13ef7",
       "reason": "not_selected_for_core_vertical_slice",
       "section": "Introduction",
       "status": "disabled_with_reason",
@@ -71,7 +71,7 @@
     {
       "id": "RELATED-P01",
       "order": 8,
-      "outline_block_sha256": "c6d5b54f6152b63685ad6c3b8617a410bad4e890e9562041edbe38bf4d6758aa",
+      "outline_block_sha256": "9f2c7cfd6a0c7204efb92ad40fb7fca8d456d08d1dafc4e327e1f3924d4c3b03",
       "reason": "not_selected_for_core_vertical_slice",
       "section": "Related Work",
       "status": "disabled_with_reason",
@@ -80,7 +80,7 @@
     {
       "id": "RELATED-P02",
       "order": 9,
-      "outline_block_sha256": "4d8204e4b16cfa815a426757d16c3747f945a743abb844d2aebc3e2e8b32ef3b",
+      "outline_block_sha256": "62bd34389b421554abebf28ed56c2e69e36d2a7466d8fe557c3fe747ad25d004",
       "reason": "not_selected_for_core_vertical_slice",
       "section": "Related Work",
       "status": "disabled_with_reason",
@@ -89,7 +89,7 @@
     {
       "id": "RELATED-P03",
       "order": 10,
-      "outline_block_sha256": "c39ab2c3b3a6d49bfaa5a53a75420c17a7e796e5964ac4c47aaabdc1b425deda",
+      "outline_block_sha256": "79d67e60df76ef147429f3d6e7b729c23c9d9bdfd17351ab778fc13a34272066",
       "reason": "not_selected_for_core_vertical_slice",
       "section": "Related Work",
       "status": "disabled_with_reason",
@@ -98,7 +98,7 @@
     {
       "id": "SETUP-P01",
       "order": 11,
-      "outline_block_sha256": "874cb1551b5858175d1beaf9369e0931a2bc47d63a61c575ba8033b5fede8df4",
+      "outline_block_sha256": "0762e3dae95390cb5d771737eddf7edd7ddf23610dcda84d1c432502bec32049",
       "reason": "not_selected_for_core_vertical_slice",
       "section": "Problem Setup",
       "status": "disabled_with_reason",
@@ -107,7 +107,7 @@
     {
       "id": "SETUP-P02",
       "order": 12,
-      "outline_block_sha256": "a8db2d78ce3634e9b55378df0a81bac4956bf2cce49186a2e9e1341eb9d3ce0d",
+      "outline_block_sha256": "91382f2829b087edf495fc99fb07b8a0c5d4aa7efc249590a446005744f1f203",
       "reason": "not_selected_for_core_vertical_slice",
       "section": "Problem Setup",
       "status": "disabled_with_reason",
@@ -116,47 +116,47 @@
     {
       "id": "THEORY-P01",
       "order": 13,
-      "outline_block_sha256": "b4172e57afadce0d4317f875d6c1f5431910f3788d7802d5891890bd5bf7f4b2",
+      "outline_block_sha256": "a2a151d54e1715c3e8d11b3d280b4b9a20abce3b34a5897233f309a34b9a82d6",
       "reason": "not_selected_for_core_vertical_slice",
       "section": "Repulsive Dynamics",
       "status": "disabled_with_reason",
-      "title": "Per-Sample Far-Field Dynamics"
+      "title": "Learner-Relative Remoteness and Static Score Response"
     },
     {
       "id": "THEORY-P02",
       "order": 14,
-      "outline_block_sha256": "ea03a8af375b638d3d94778c21ac98a5626c937af3b1dd11cd6fca6dd72525d5",
+      "outline_block_sha256": "b268086022f29b885ce7f7407cbfc838c652af857fcbc7fb6df8036f54999106",
       "reason": "not_selected_for_core_vertical_slice",
       "section": "Repulsive Dynamics",
       "status": "disabled_with_reason",
-      "title": "Aggregate Positive--Negative Competition"
+      "title": "Self-Attenuation and Self-Amplification under Reuse"
     },
     {
       "id": "THEORY-P03",
       "order": 15,
-      "outline_block_sha256": "dc2e5e14fe2dc9f3057195ad4f559317ee8fab05834f6959a8130468dc2e45ea",
+      "outline_block_sha256": "4091895993a5507e70963a0a549e1f29c53b2261f153e16239a3dcad62bfb56d",
       "reason": "not_selected_for_core_vertical_slice",
       "section": "Repulsive Dynamics",
       "status": "disabled_with_reason",
-      "title": "Theorem 1: Stable Extrapolation and Loss of Finite Equilibrium"
+      "title": "Aggregate Attraction--Repulsion Equilibria"
     },
     {
       "id": "THEORY-P04",
       "order": 16,
-      "outline_block_sha256": "99299d60ece285c70432c38942e701ac94c3d9d646e78f47d0180e237a17574b",
+      "outline_block_sha256": "340496d576d3f6ac7fbe5746725e49c8450e23a42f51894577cae648143a8bba",
       "reason": "not_selected_for_core_vertical_slice",
       "section": "Repulsive Dynamics",
       "status": "disabled_with_reason",
-      "title": "Testable Predictions"
+      "title": "Policy-Family Manifestations of Negative Dominance"
     },
     {
       "id": "THEORY-P05",
       "order": 17,
-      "outline_block_sha256": "106a108acbf8f270fc068e757842adaab966fed83e41583621e516d511daefe7",
+      "outline_block_sha256": "34f56aefe69cd8681ffb8204d8d70afaf0463381f1dd36e5dd7922e0b89c6705",
       "reason": "not_selected_for_core_vertical_slice",
       "section": "Repulsive Dynamics",
       "status": "disabled_with_reason",
-      "title": "Gaussian and Categorical Corollaries"
+      "title": "Observable Regimes and Experimental Predictions"
     },
     {
       "id": "METHOD-P01",
@@ -357,7 +357,7 @@
       "title": "Additional Theoretical and Reporting Clarifications"
     }
   ],
-  "outline_sha256": "18391d95368188e1b2bda95808f95f99741d14b16b61d227069474e6cb762e7d",
+  "outline_sha256": "b96c343682e90ea7c7d581cbebe68de3d16b972c9f9355af8aa50f9d800c3dcd",
   "profile": "core_vertical_slice",
   "schema_version": 1
 }

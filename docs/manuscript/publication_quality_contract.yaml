@@ -1,0 +1,104 @@
+schema_version: 1
+profile: front-four-publication-quality-v1
+bibliography: paper/overleaf/references.bib
+scope:
+  node_ids:
+    - INTRO-P01
+    - INTRO-P02
+    - INTRO-P03
+    - INTRO-P04
+    - INTRO-P05
+    - INTRO-P06
+    - RELATED-P01
+    - RELATED-P02
+    - RELATED-P03
+    - SETUP-P01
+    - SETUP-P02
+    - THEORY-P01
+    - THEORY-P02
+    - THEORY-P03
+    - THEORY-P04
+    - THEORY-P05
+section_profiles:
+  introduction:
+    required_outline_fields: [claim, reader_question, role, evidence]
+    min_outline_obligations: 4
+    required_blueprint_fields:
+      - topic_sentence
+      - sentence_plan
+      - evidence_use
+      - citation_refs
+      - allowed_conclusions
+      - forbidden_conclusions
+      - reviewer_objection
+      - objection_response
+      - word_budget
+      - transition
+    min_sentence_units: 5
+    min_prose_sentences: 5
+  related:
+    required_outline_fields: [claim, reader_question, role, evidence]
+    min_outline_obligations: 4
+    required_blueprint_fields:
+      - topic_sentence
+      - sentence_plan
+      - evidence_use
+      - citation_refs
+      - allowed_conclusions
+      - forbidden_conclusions
+      - reviewer_objection
+      - objection_response
+      - word_budget
+      - transition
+    min_sentence_units: 6
+    min_prose_sentences: 6
+  setup:
+    required_outline_fields: [claim, reader_question, role, evidence]
+    min_outline_obligations: 4
+    required_blueprint_fields:
+      - topic_sentence
+      - sentence_plan
+      - evidence_use
+      - theorem_or_equation_refs
+      - allowed_conclusions
+      - forbidden_conclusions
+      - reviewer_objection
+      - objection_response
+      - word_budget
+      - transition
+    min_sentence_units: 7
+    min_prose_sentences: 6
+  theory:
+    required_outline_fields: [claim, reader_question, role, evidence]
+    min_outline_obligations: 4
+    required_blueprint_fields:
+      - topic_sentence
+      - sentence_plan
+      - evidence_use
+      - theorem_or_equation_refs
+      - appendix_bindings
+      - allowed_conclusions
+      - forbidden_conclusions
+      - reviewer_objection
+      - objection_response
+      - word_budget
+      - transition
+    min_sentence_units: 7
+    min_prose_sentences: 6
+required_roles:
+  INTRO-P01: [context, positive_role, negative_role, limitation, question]
+  INTRO-P02: [historical_setting, local_value, reuse_mechanism, gaussian_case, categorical_case, transition]
+  INTRO-P03: [method_landscape, acknowledged_value, unresolved_gap, confounding, identification, transition]
+  INTRO-P04: [theory_object, stable_regime, boundary_regime, family_difference, implication, transition]
+  INTRO-P05: [method_target, local_preservation, far_attenuation, guarantee, distinction, transition]
+  INTRO-P06: [rq1, rq2, rq3, rq4, environment_roles, contributions]
+  RELATED-P01: [prior_family, positive_filtering, negative_value, established_fact, unresolved_gap, positioning]
+  RELATED-P02: [mismatch_controls, stale_updates, rarity_controls, established_fact, dynamic_gap, positioning]
+  RELATED-P03: [pessimism, in_support_learning, behavior_regularization, data_selection, distinct_object, compatibility]
+  SETUP-P01: [historical_distribution, actor_field, fixed_step_scope, sign_split, influence_factorization, aggregation, boundary]
+  SETUP-P02: [definition, gaussian_mapping, categorical_mapping, sequence_mapping, dynamic_status, non_equivalence, transition]
+  THEORY-P01: [motivation, definitions, gaussian_statement, gaussian_interpretation, categorical_statement, categorical_interpretation, limitation, transition]
+  THEORY-P02: [reuse_setup, negative_statement, positive_statement, convexity_scope, gaussian_consequence, categorical_consequence, limitation, transition]
+  THEORY-P03: [aggregate_setup, field_derivation, positive_regime, extrapolation_identity, boundary_case, critical_regime, negative_regime, stability, transition]
+  THEORY-P04: [shared_instability, gaussian_form, gaussian_consequence, categorical_form, categorical_consequence, distinction, reporting_boundary, transition]
+  THEORY-P05: [prediction_positive_only, prediction_controlled_negative, prediction_boundary, prediction_runaway, prediction_intervention, failure_taxonomy, handoff]

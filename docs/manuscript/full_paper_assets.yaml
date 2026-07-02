@@ -9,26 +9,33 @@ paper_template:
   preprint: true
 assets:
   EXP-P03:
-    - generated/exp_p03_assets.tex
+  - generated/exp_p03_assets.tex
   EXP-P04:
-    - generated/exp_p04_assets.tex
+  - generated/exp_p04_assets.tex
   EXP-P05:
-    - generated/exp_p05_assets.tex
+  - generated/exp_p05_assets.tex
   APP-PROOF-P01:
-    - generated/app_theorem_proof.tex
+  - generated/app_theorem_proof.tex
   APP-GAUSS-P01:
-    - generated/app_gaussian_derivation.tex
+  - generated/app_gaussian_derivation.tex
   APP-CAT-P01:
-    - generated/app_categorical_derivation.tex
+  - generated/app_categorical_derivation.tex
 proof_obligations:
-  - statement_label: thm:equilibrium
-    appendix_label: app:proof-theorem-equilibrium
-  - statement_label: prop:vanishing
-    appendix_label: app:proof-far-field
+- statement_label: prop:score-remoteness
+  proof_label: app:proof-score-remoteness
+- statement_label: thm:reuse
+  proof_label: app:proof-reuse
+- statement_label: thm:equilibrium
+  proof_label: app:proof-theorem-equilibrium
+- statement_label: thm:family-runaway
+  proof_label: app:proof-family-runaway
+- statement_label: prop:vanishing
+  proof_label: app:proof-far-field
 required_citation_keys:
-  - peng2019advantage
-  - kostrikov2021offline
-  - schulman2017proximal
-  - haarnoja2018soft
-  - kumar2020conservative
-  - fujimoto2019off
+- peng2019advantage
+- kostrikov2021offline
+- schulman2017proximal
+- haarnoja2018soft
+- kumar2020conservative
+- fujimoto2019off
+publication_quality_contract: docs/manuscript/publication_quality_contract.yaml

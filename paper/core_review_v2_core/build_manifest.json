@@ -3,14 +3,14 @@
     "METHOD-P03",
     "EXP-P04"
   ],
-  "outline_sha256": "18391d95368188e1b2bda95808f95f99741d14b16b61d227069474e6cb762e7d",
+  "outline_sha256": "b96c343682e90ea7c7d581cbebe68de3d16b972c9f9355af8aa50f9d800c3dcd",
   "outputs": {
     "blueprint.json": {
-      "sha256": "de41d51988f54d97821c2fe8737d45b2bdb4cb6e178c17158573da33296ad9bc",
-      "size_bytes": 21689
+      "sha256": "5d16c8a4e3aad8922729baf3a065c7774c97911462b595d427111011b8a23d33",
+      "size_bytes": 21745
     },
     "blueprint.md": {
-      "sha256": "3a2d7e1045d55e3135c5e0bd4ea0ccc8064402cac6639fadcded9040325c1cbe",
+      "sha256": "0904e4e2b5adab25936c0ab532d6948c6de0f3047dfcd1ac386b9089d27d623f",
       "size_bytes": 7762
     },
     "cu1_e3_fixed_reward.csv": {
@@ -38,12 +38,12 @@
       "size_bytes": 4082
     },
     "outline_ast.json": {
-      "sha256": "2dad73f54f73795d9e26331ffb229ff038e4c2a20cca51d9c7029cdcb550aff7",
-      "size_bytes": 40578
+      "sha256": "55000ed722acd7a742f966691c8cbf0133a5ea141951dd5e60fdf335adf96407",
+      "size_bytes": 44254
     },
     "outline_resolution.json": {
-      "sha256": "c2972787f1c83bf0eb6d49699150cf5e3a803d04ee1d401c9b29e549f4b9a700",
-      "size_bytes": 13994
+      "sha256": "ab22284af29b087e0caf24c7ea9066b0aaa9a2ff2bb16445cf08619c691637f1",
+      "size_bytes": 14050
     },
     "proof.tex": {
       "sha256": "d38cc4c0af1a790256888784dd0cc4cb08f3445709307ef53ac534499cdcd435",
@@ -54,7 +54,7 @@
       "size_bytes": 1876
     },
     "research_snapshot.json": {
-      "sha256": "159c0e860d1a686fff1e5053f0de1375ca227c80a64dca34759d1cf7f48718bf",
+      "sha256": "bf58eec5758f5a0b42dc397d1a52105b04c760e77b9dc99589cc208985317a00",
       "size_bytes": 7982
     },
     "theorem.tex": {
@@ -66,6 +66,6 @@
   "pdf_pages": 2,
   "pdf_status": "compiled",
   "schema_version": 1,
-  "snapshot_sha256": "5ecdf966b05edd41441c4ecf9c39a1f14dd168aa70b00fad0f3b68d378dd3065",
+  "snapshot_sha256": "42dd7d442e49d6c790987296788bd9d617d74e24bffad29028aa4f0d53957d93",
   "task_id": "PAPER-PIPELINE-V2-CORE-01"
 }

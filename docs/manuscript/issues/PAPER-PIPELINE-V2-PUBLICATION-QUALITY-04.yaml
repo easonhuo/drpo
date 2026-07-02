@@ -1,0 +1,21 @@
+issue_id: PAPER-PIPELINE-V2-PUBLICATION-QUALITY-04
+status: implemented
+scope: manuscript_infrastructure
+claim: >-
+  The existing stable-node graph can support publication-quality generation by
+  strengthening outline obligations, expanding paragraph blueprints into ordered
+  sentence units, and gating prose against citations, formal statements, appendix
+  proofs, claim boundaries, and word budgets.
+parent_issue: PAPER-PIPELINE-V2-FULL-ASSET-COMPILER-03
+base_commit: cd6c42db337d8f261840850a58bf60a83c37e6bd
+scientific_status_change: none
+outputs:
+  - docs/manuscript/publication_quality_contract.yaml
+  - scripts/manuscript_publication_pipeline.py
+  - paper/publication_quality_v1/quality_report.json
+  - docs/manuscript/PUBLICATION_QUALITY_PIPELINE.md
+constraints:
+  - No experiment status, seed, threshold, convergence rule, or method ranking is changed.
+  - C-U1 is held-out-context or unseen-state generalization, not OOD generalization.
+  - Controlled mechanism evidence and external validity retain separate duties.
+  - Task collapse, support/variance boundary, and NaN/Inf failure remain separate.

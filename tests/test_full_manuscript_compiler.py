@@ -50,3 +50,16 @@ def test_compiler_uses_portable_tex_tool_discovery():
     assert 'shutil.which("bibtex")' in source
     assert 'bibtex = shutil.which("bibtex")' in source
     assert "--skip-compile" in source
+
+
+def test_compiler_runs_publication_quality_gate():
+    source = (ROOT / "scripts/compile_full_manuscript.py").read_text()
+    assert "scripts/manuscript_publication_pipeline.py" in source
+    cfg = yaml.safe_load((ROOT / "docs/manuscript/full_paper_assets.yaml").read_text())
+    assert (
+        cfg["publication_quality_contract"] == "docs/manuscript/publication_quality_contract.yaml"
+    )
+    obligations = {row["statement_label"]: row["proof_label"] for row in cfg["proof_obligations"]}
+    assert obligations["prop:score-remoteness"] == "app:proof-score-remoteness"
+    assert obligations["thm:reuse"] == "app:proof-reuse"
+    assert obligations["thm:family-runaway"] == "app:proof-family-runaway"

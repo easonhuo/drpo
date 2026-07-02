@@ -6,8 +6,8 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-BASE_COMMIT = "0680298f45e901a223d5fee5b954b386c5698cc5"
-REVIEW_PATH = ROOT / "docs/manuscript/reviews/PAPER-V092-GUIDANCE-REVIEW.json"
+BASE_COMMIT = "cd6c42db337d8f261840850a58bf60a83c37e6bd"
+REVIEW_PATH = ROOT / "docs/manuscript/reviews/PAPER-PIPELINE-V2-PUBLICATION-QUALITY-04.json"
 GUIDANCE = ROOT / "docs/manuscript/RL_PAPER_WRITING_GUIDANCE.md"
 PLAYBOOK = ROOT / "docs/manuscript/RL_PAPER_WRITING_PLAYBOOK.md"
 STRATEGY = ROOT / "docs/manuscript/DRPO_MANUSCRIPT_STRATEGY.md"
@@ -54,8 +54,7 @@ def test_stable_guidance_playbook_strategy_and_corpus_are_separate() -> None:
 
 def test_same_manuscript_rule_and_no_invented_hard_to_exp_continuity() -> None:
     combined = "\n".join(
-        path.read_text(encoding="utf-8")
-        for path in (STRATEGY, OUTLINE, BLUEPRINT, PROSE)
+        path.read_text(encoding="utf-8") for path in (STRATEGY, OUTLINE, BLUEPRINT, PROSE)
     ).lower()
     assert "one drpo manuscript" in combined
     assert "old drpo paper" in combined and "sequel" in combined  # appears only as a prohibition
@@ -78,9 +77,20 @@ def test_p03_combines_existing_methods_and_matched_isolation() -> None:
     )
     assert block is not None
     p03 = block.group(1).lower()
-    for term in ["positive-only", "global coefficients", "clipping", "behavior constraints", "quality filtering"]:
+    for term in [
+        "positive-only",
+        "global coefficients",
+        "clipping",
+        "behavior constraints",
+        "quality filtering",
+    ]:
         assert term in p03
-    for term in ["matching context", "negative-advantage magnitude", "sample count", "base coefficient"]:
+    for term in [
+        "matching context",
+        "negative-advantage magnitude",
+        "sample count",
+        "base coefficient",
+    ]:
         assert term in p03
     assert "useful near the learner and destructive" in p03
 
@@ -90,18 +100,30 @@ def test_guidance_is_detailed_and_playbook_is_operational() -> None:
     playbook = PLAYBOOK.read_text(encoding="utf-8")
     assert len(re.findall(r"^### G\d{2}\.", guidance, flags=re.M)) == 42
     required = [
-        "End-to-end workflow", "Claim-evidence engineering", "Abstract construction",
-        "Introduction paragraph recipes", "Theory construction",
-        "Method construction", "Experiment and results construction",
-        "Figures and tables", "Appendix construction",
-        "Multi-reviewer audit", "Automated manuscript pipeline",
+        "End-to-end workflow",
+        "Claim-evidence engineering",
+        "Abstract construction",
+        "Introduction paragraph recipes",
+        "Theory construction",
+        "Method construction",
+        "Experiment and results construction",
+        "Figures and tables",
+        "Appendix construction",
+        "Multi-reviewer audit",
+        "Automated manuscript pipeline",
     ]
     for heading in required:
         assert heading.lower() in playbook.lower()
 
 
 def test_generated_layers_and_overleaf_outputs_exist() -> None:
-    for path in [OUTLINE, BLUEPRINT, PROSE, ROOT / "paper/overleaf/main.tex", ROOT / "paper/overleaf/main.pdf"]:
+    for path in [
+        OUTLINE,
+        BLUEPRINT,
+        PROSE,
+        ROOT / "paper/overleaf/main.tex",
+        ROOT / "paper/overleaf/main.pdf",
+    ]:
         assert path.exists() and path.stat().st_size > 0
     assert (ROOT / "paper/overleaf/appendix/optimistic_dro.tex").exists()
     assert (ROOT / "paper/overleaf/figures/generated/fig1_story.pdf").exists()

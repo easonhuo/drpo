@@ -54,7 +54,7 @@ def test_repository_graph_renders_and_validates() -> None:
 def test_outline_edit_propagates_to_blueprint_prose_and_tex(tmp_path: Path) -> None:
     module, graph, root = prepare_root(tmp_path)
     outline = root / graph["artifacts"]["outline"]
-    old = "Negative feedback is not merely noise: balanced against positive attraction, it can suppress bad modes and shift a policy beyond the Positive-only target."
+    old = "Off-policy policy optimization needs both attraction toward successful behavior and suppression of known failures, but the latter must remain dynamically controlled."
     new = "Approved test claim propagated from the outline."
     replace_once(outline, old, new)
     imported = module.sync(graph, root, generator_cmd=None, prefer=None)
@@ -70,7 +70,7 @@ def test_outline_edit_propagates_to_blueprint_prose_and_tex(tmp_path: Path) -> N
 def test_structured_prose_edit_propagates_upstream(tmp_path: Path) -> None:
     module, graph, root = prepare_root(tmp_path)
     prose = root / graph["artifacts"]["prose"]
-    old = "Negative feedback is not merely noise: balanced against positive attraction, it can suppress bad modes and shift a policy beyond the Positive-only target."
+    old = "Off-policy policy optimization needs both attraction toward successful behavior and suppression of known failures, but the latter must remain dynamically controlled."
     new = "Approved semantic change authored in the prose layer."
     replace_once(prose, old, new)
     imported = module.sync(graph, root, generator_cmd=None, prefer=None)
@@ -86,7 +86,7 @@ def test_conflicting_same_node_edits_fail_closed(tmp_path: Path) -> None:
     module, graph, root = prepare_root(tmp_path)
     outline = root / graph["artifacts"]["outline"]
     prose = root / graph["artifacts"]["prose"]
-    phrase = "Negative feedback is not merely noise: balanced against positive attraction, it can suppress bad modes and shift a policy beyond the Positive-only target."
+    phrase = "Off-policy policy optimization needs both attraction toward successful behavior and suppression of known failures, but the latter must remain dynamically controlled."
     replace_once(outline, phrase, "Outline conflict claim.")
     replace_once(prose, phrase, "Prose conflict claim.")
     with pytest.raises(module.PipelineError, match="conflicting edits"):
@@ -149,6 +149,17 @@ def test_overleaf_package_is_byte_reproducible(tmp_path: Path) -> None:
     assert first.read_bytes() == second.read_bytes()
     with zipfile.ZipFile(first) as archive:
         assert {info.date_time for info in archive.infolist()} == {module.ZIP_EPOCH}
+
+
+def test_rich_blueprint_projection_preserves_sentence_and_proof_contracts(tmp_path: Path) -> None:
+    module, graph, root = prepare_root(tmp_path)
+    blueprint = (root / graph["artifacts"]["blueprint"]).read_text()
+    assert "**Sentence plan:**" in blueprint
+    assert '"role": "aggregate_setup"' in blueprint
+    assert "**Theorem or equation refs:**" in blueprint
+    assert "thm:equilibrium" in blueprint
+    assert "**Appendix bindings:**" in blueprint
+    assert "app:proof-theorem-equilibrium" in blueprint
 
 
 def test_tracked_overleaf_text_has_no_diff_check_whitespace() -> None:

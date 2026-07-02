@@ -2,60 +2,91 @@
 \label{sec:theory}
 
 % MANUSCRIPT-NODE: THEORY-P01
-For a Gaussian policy with mean $\mu$ and covariance $\Sigma$,
+We begin with a static relation: at a fixed learner, remoteness controls the score response of a historical action. Fix a context and write $u$ for the policy-output coordinates. Recall from Equations~\eqref{eq:remoteness}--\eqref{eq:score-response} that $D_u(a)=-\log\pi_u(a)$ and $R_u(a)=\|\nabla_u\log\pi_u(a)\|_2^2$.
+\begin{proposition}[Learner-relative remoteness and score response]
+\label{prop:score-remoteness}
+For $\pi_\mu=\mathcal N(\mu,\Sigma)$ with fixed $\Sigma\succ0$ and $C_\Sigma=\tfrac d2\log(2\pi)+\tfrac12\log|\Sigma|$,
 \begin{equation}
-\nabla_\mu\log\pi(a\mid s)=\Sigma^{-1}(a-\mu),
-\label{eq:gaussian-score}
+\begin{aligned}
+R_\mu(a)&\ge2\lambda_{\min}(\Sigma^{-1})(D_\mu-C_\Sigma),\\
+R_\mu(a)&\le2\lambda_{\max}(\Sigma^{-1})(D_\mu-C_\Sigma).
+\end{aligned}
+\label{eq:gaussian-score-bounds}
 \end{equation}
-so the mean-score magnitude grows with standardized distance. When covariance is learned, the variance direction depends on standardized location: the dangerous far-field chain is mean repulsion together with support contraction, not universal expansion of both mean and variance. For categorical logits $z$,
+Along any fixed direction the relation is exactly linear in $D_\mu-C_\Sigma$; in the isotropic case $\Sigma=\sigma^2I$, it reduces to $R_\mu(a)=2(D_\mu-C_\Sigma)/\sigma^2$. For a categorical policy with selected-action probability $p_a=e^{-D_z(a)}$,
 \begin{equation}
-\nabla_z\log\pi(a\mid s)=e_a-\pi(\cdot\mid s).
-\label{eq:categorical-score}
+\left|\partial_{z_a}\log\pi_z(a)\right|=1-e^{-D_z(a)},
+\qquad \|\nabla_z\log\pi_z(a)\|_2^2\le2.
+\label{eq:categorical-score-bound}
 \end{equation}
-This direct-logit score is bounded, but repeated negative updates continue to decrease the selected action's log-odds. The shared phenomenon is persistent movement toward a policy-family boundary, not an identical Euclidean gradient law.
+\end{proposition}
+The Gaussian mean score is therefore unbounded as Mahalanobis remoteness increases, with the covariance eigenvalues controlling the amplification rate. Under isotropic covariance, remoteness and Gaussian mean-score magnitude have the same global ordering; under anisotropic covariance the ordering remains bounded by the two eigenvalue slopes. Categorical rarity also strengthens selected-logit suppression, but the response saturates: low probability does not imply an unbounded direct-logit gradient. This distinction matters because a categorical policy may still undergo persistent support suppression even though every per-sample score is finite. Proposition~\ref{prop:score-remoteness} is only a comparison at one fixed learner. It does not establish aggregate divergence, task-performance collapse, or NaN/Inf failure; Appendix~\ref{app:proof-score-remoteness} gives the complete derivation. We next study how repeated reuse changes both remoteness and score response over time.
 % END-MANUSCRIPT-NODE: THEORY-P01
 
 % MANUSCRIPT-NODE: THEORY-P02
-Consider a regular minimal exponential-family policy
+Historical reuse converts the static score relation into opposite positive and negative feedback loops. Fix a historical action $a$, write $D(u)=-\log\pi_u(a)$ and $R(u)=\|\nabla_uD(u)\|_2^2$, and consider the repeated update
 \begin{equation}
-\pi_\eta(a)=h(a)\exp\{\eta^\top T(a)-\psi(\eta)\}.
+u_{t+1}=u_t-\eta\widehat A\nabla_uD(u_t).
+\label{eq:reuse-update}
 \end{equation}
-Let $p,q\ge 0$ denote aggregate positive and negative update mass, and let $\mathbf m_+$ and $\mathbf m_-$ denote their normalized sufficient-statistic moments. The population signed field is
+The action and its signed coefficient remain fixed over the reuse window; only the learner coordinates change.
+\begin{theorem}[Self-attenuation and self-amplification under reuse]
+\label{thm:reuse}
+Assume that $D$ is differentiable and convex along the update path. If $\widehat A<0$, then every negative reuse step satisfies
 \begin{equation}
-\mathbf F(\eta)=p\mathbf m_+-q\mathbf m_--(p-q)\nabla\psi(\eta).
-\label{eq:aggregate-field}
+D_{t+1}\ge D_t+\eta|\widehat A|R_t,
+\qquad R_{t+1}\ge R_t.
 \end{equation}
-These quantities define the aggregate positive--negative competition analyzed by the equilibrium theorem.
+If $\widehat A>0$, $\nabla D$ is $L$-Lipschitz, and $0<\eta\widehat A\le1/L$, then positive reuse satisfies
+\begin{equation}
+D_{t+1}\le D_t-\tfrac{\eta\widehat A}{2}R_t,
+\qquad R_{t+1}\le R_t.
+\end{equation}
+\end{theorem}
+The first pair of inequalities says that negative reuse makes the fixed historical action more remote and cannot weaken its subsequent score response. The second pair gives the complementary positive mechanism: sufficiently small positive reuse makes the successful action more compatible with the learner and attenuates its response. Convexity holds for fixed-covariance Gaussian mean coordinates and categorical logits, and for regular exponential families in natural coordinates because $\nabla^2D$ is a covariance matrix. Combining this theorem with Proposition~\ref{prop:score-remoteness} yields unbounded Gaussian mean-score amplification but bounded, persistent categorical suppression. The result does not determine the aggregate policy trajectory: positive samples regain attractive force as the learner moves, and updates from different samples may cancel. Appendix~\ref{app:proof-reuse} proves the inequalities and the score monotonicity. We therefore turn from the single-sample loop to the aggregate balance of positive and negative historical updates.
 % END-MANUSCRIPT-NODE: THEORY-P02
 
 % MANUSCRIPT-NODE: THEORY-P03
-\begin{theorem}[Stable extrapolation and loss of finite equilibrium]
-\label{thm:equilibrium}
-Assume $p>q$ in~\eqref{eq:aggregate-field}. Define the signed target
+Per-sample amplification does not imply global divergence because the full field balances all positive and negative historical updates. At a fixed context, consider a regular minimal exponential-family policy $\pi_\eta(a)=h(a)\exp\{\eta^\top T(a)-\psi(\eta)\}$. Let $p=\mathbb E_\nu[\widehat A^+]$ and $q=\mathbb E_\nu[\widehat A^-]$ denote the effective positive and negative masses, and let $m_+$ and $m_-$ be their normalized sufficient-statistic moments. Expanding the signed objective gives the aggregate field
 \begin{equation}
-\mathbf m^\star=\frac{p\mathbf m_+-q\mathbf m_-}{p-q}.
+\mathbf F(\eta)=pm_+-qm_--(p-q)\nabla\psi(\eta).
+\label{eq:aggregate-field}
+\end{equation}
+This expression separates the fixed signed target $pm_+-qm_-$ from the policy-dependent mean parameter $\nabla\psi(\eta)$. It is the exact population field for the frozen signed-update model.
+\begin{theorem}[Aggregate attraction--repulsion equilibria]
+\label{thm:equilibrium}
+If $p>q$, define
+\begin{equation}
+m^\star=\frac{pm_+-qm_-}{p-q}.
 \label{eq:signed-target}
 \end{equation}
-If $\mathbf m^\star$ lies in the interior of the mean-parameter space, there is a unique finite equilibrium $\eta^\star$ satisfying $\nabla\psi(\eta^\star)=\mathbf m^\star$. Moreover,
+When $m^\star$ lies in the interior mean-parameter space, there is a unique finite equilibrium $\eta^\star$ satisfying $\nabla\psi(\eta^\star)=m^\star$. It is locally asymptotically stable in continuous time and locally stable for a sufficiently small discrete step size. Moreover,
 \begin{equation}
-\mathbf m^\star-\mathbf m_+=\frac{q}{p-q}(\mathbf m_+-\mathbf m_-),
+m^\star-m_+=\frac{q}{p-q}(m_+-m_-),
 \end{equation}
-so negative repulsion moves the equilibrium beyond the Positive-only target in the direction away from the negative moment. As $\mathbf m^\star$ approaches the feasible boundary, the corresponding natural parameter becomes degenerate or unbounded; if the signed target lies outside the feasible mean-parameter space, no finite equilibrium exists. At an interior equilibrium, $J_F(\eta^\star)=-(p-q)\nabla^2\psi(\eta^\star)$ is negative definite.
+so negative feedback moves the equilibrium beyond the Positive-only target in the direction away from the negative moment. As $m^\star$ approaches the feasible boundary, the realizing natural parameter leaves every compact set; outside the feasible set no finite equilibrium exists. If $p=q$ and $m_+\ne m_-$, the field is constant and produces persistent drift. If $p<q$, any finite stationary point is unstable in continuous and discrete time.
 \end{theorem}
-The theorem gives one phase sequence: Positive-only, stable extrapolation, boundary approach, and loss of finite equilibrium. The experiments align this phase classification with separate measurements of task performance, policy-family boundaries, and numerical state.
+The positive-dominant regime therefore permits finite stable extrapolation, but only while the signed target remains realizable. The extrapolation identity is geometric: moving beyond $m_+$ does not by itself guarantee greater task utility. At the critical regime $p=q$, attraction and repulsion cancel only in total mass, leaving a nonzero moment difference that drives linear drift. Under negative dominance, the objective becomes locally convex rather than concave around any stationary point, making that point repelling. Formally, the local Jacobian for $p>q$ is $-(p-q)\nabla^2\psi(\eta^\star)$, while the discrete step requires $\rho(I+\alpha J_F)<1$. Appendix~\ref{app:proof-theorem-equilibrium} gives the existence, boundary, and exact step-size arguments. The theorem classifies the aggregate regimes; the next result derives their policy-family manifestations.
 % END-MANUSCRIPT-NODE: THEORY-P03
 
 % MANUSCRIPT-NODE: THEORY-P04
-Theorem~\ref{thm:equilibrium} yields direct experimental predictions. Removing negative updates should produce a stable Positive-only platform. Adding moderate negative influence should move the policy beyond that platform while retaining a finite terminal state. Increasing negative strength or outward moment should approach a covariance, support, or probability boundary; beyond the feasible region, the policy should exhibit persistent drift or a non-vanishing field residual. Finally, selective attenuation of the far-field component should restore a finite regime while retaining part of the extrapolation benefit. We test these predictions in C-U1 and D-U1, reporting task-performance collapse, support or variance boundaries, and NaN/Inf failures as separate outcomes.
-
-\begin{figure}[t]
-\centering
-\includegraphics[width=\columnwidth]{figures/generated/fig2_phase_map.pdf}
-\caption{Schematic phase map induced by Theorem~\ref{thm:equilibrium}. The empirical tests separately identify the Positive-only target, stable extrapolation, boundary approach, and persistent drift or loss of a finite equilibrium.}
-\label{fig:phase-map}
-\end{figure}
+Theorem~\ref{thm:equilibrium} shows that negative dominance admits no finite stable equilibrium, but it does not determine how runaway appears in a particular policy family. Gaussian and categorical policies share the aggregate instability while differing sharply in gradient amplitude and boundary behavior. The distinction is structural.
+\begin{theorem}[Unbounded Gaussian and bounded-score categorical runaway]
+\label{thm:family-runaway}
+Assume $p<q$ and let $r=q-p>0$. For a fixed-covariance Gaussian policy, define $\mu^\dagger=(q\mu_--p\mu_+)/r$. The aggregate mean field is
+\begin{equation}
+\mathbf F_\mu(\mu)=r\Sigma^{-1}(\mu-\mu^\dagger).
+\label{eq:gaussian-runaway}
+\end{equation}
+Unless initialized exactly at $\mu^\dagger$, continuous and discrete trajectories satisfy $\|\mu\|_2\to\infty$, and for every fixed historical action $a$, $\|\nabla_\mu\log\pi_\mu(a)\|_2\to\infty$. For a categorical policy with gauge-fixed logits, every nonstationary aggregate trajectory leaves each compact subset of logit space and has a subsequence approaching the simplex boundary, while
+\begin{equation}
+\|\nabla_z\log\pi_z(a)\|_2^2=\|e_a-\pi_z\|_2^2\le2.
+\label{eq:categorical-bound}
+\end{equation}
+\end{theorem}
+In the Gaussian case, $\mu^\dagger$ is a repelling point and the positive-definite matrix $r\Sigma^{-1}$ expands every nonzero displacement. Increasing separation from any fixed action then converts directly into gradient-amplitude runaway. In the categorical case, fixing the additive-logit gauge reveals strictly convex ascent away from any finite stationary point. The logits become unbounded and probabilities approach the simplex boundary, but each direct-logit score remains less than or equal to $\sqrt{2}$. Categorical degeneration is therefore support suppression, not Gaussian-style gradient explosion. This bounded-score distinction also prevents us from interpreting a probability-boundary event as evidence of floating-point overflow or an unbounded Euclidean token gradient. A learned Gaussian covariance can further amplify standardized distance when support contracts, but covariance learning is not required for the fixed-covariance mean result. Neither theorem branch alone establishes task-performance collapse or NaN/Inf numerical failure; those events require separate empirical tests. Appendix~\ref{app:proof-family-runaway} provides both derivations, with additional Gaussian and categorical details in Appendices~\ref{app:gaussian} and~\ref{app:categorical}. These distinctions lead directly to the predictions below.
 % END-MANUSCRIPT-NODE: THEORY-P04
 
 % MANUSCRIPT-NODE: THEORY-P05
-For Gaussian policies, an interior signed target corresponds to finite mean and covariance parameters; far-field negative updates can increase standardized displacement and contract support, causing score amplification and boundary approach. For categorical policies, an interior target corresponds to finite logits, whereas a boundary target drives selected probabilities toward zero or one. Direct-logit score norms remain bounded, but suppression persists. Thus the transferable principle is aggregate repulsion toward a feasibility boundary, while the local amplification law remains policy-family specific.
+The preceding results imply a falsifiable phase sequence rather than a generic prediction that negative updates are bad. Positive-only training should reach a finite platform determined by the observed positive target. Under Theorem~\ref{thm:equilibrium}, moderate negative influence should produce stable extrapolation to a second finite platform when the signed moment remains feasible. Increasing negative mass or moving its moment outward should bring the policy toward a support, variance, or probability boundary; after equilibrium loss, Theorems~\ref{thm:reuse}--\ref{thm:family-runaway} predict persistent drift or a non-vanishing terminal residual rather than a genuine stationary state. The causal prediction is selective: if the far-field component transmits the instability, removing or capping the far path should rescue a finite terminal regime, whereas removing only near-field negatives should not. Global scaling and budget-matched transfers then test whether total magnitude or learner-relative location is the operative mediator. Proposition~\ref{prop:vanishing} predicts that the DRPO envelope removes any finite-order far-field tail, but it does not pre-rank all taper shapes at finite distance. Every experiment must separately report task-performance collapse, support or variance-boundary events, and NaN/Inf numerical failure. C-U1 and D-U1 provide controlled ground-truth tests of these predictions; Hopper and Countdown assess external validity under learned critics and shared sequence parameters. The controlled environments do not substitute for the external tasks, and finite-step external pilots do not establish terminal method rankings.
 % END-MANUSCRIPT-NODE: THEORY-P05
