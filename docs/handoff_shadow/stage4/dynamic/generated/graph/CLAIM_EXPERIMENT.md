@@ -1,6 +1,6 @@
 # Generated Claim--Experiment View
 
-Graph hash: `ba3854eae8f16ffdfa39a2ba35d0034b7c35b72994354c23185a5ef9af45a9e2`
+Graph hash: `17713071fbc8b8cc4d4de6a2efb147ddfe785b16c3afafbd059360f35b7ca045`
 
 > Generated from accepted edges only. Pending semantic suggestions remain in REVIEW_QUEUE.yaml.
 
@@ -8,6 +8,7 @@ Graph hash: `ba3854eae8f16ffdfa39a2ba35d0034b7c35b72994354c23185a5ef9af45a9e2`
 flowchart LR
   n_31220683b4ee["The four approved E4-TAPER follow-ups remain blocked and must execute in the frozen order: near-rete"]
   n_160bc66075a8["Steady-state, collapse, and method-ranking claims require terminal-state auditing rather than arbitr"]
+  n_0a02fda6290f["Direct softmax logit score is bounded as token probability approaches zero, while repeated negatives"]
   n_e02b1aa584bf["EXT-C/Countdown provides token-level discrete external validation rather than replacing D-U1."]
   n_93128d5421b6["C-U1 E1 identifies far-field score geometry as an independent source of larger negative gradients at"]
   n_707c42ed88f4["C-U1 E3 long-run evidence supports far-field negative gradients as the causal path to task collapse "]
@@ -30,6 +31,7 @@ flowchart LR
   n_03f052b4695b["taper_frozen_shortlist_long_run_terminal_resolution"]
   n_5bb3c13685ab["taper_family_near_negative_retention_matched_comparison"]
   n_78005eca51fb["categorical_repulsion_support_boundary_longrun_reconstruction"]
+  n_ed7390dc78bd["utility_surprisal_cartesian_shared_semantic_and_taper"]
   n_d30db95bf5c2["structured_conditional_support_gap_categorical_longrun"]
   n_3fad2f9fa7e6["minimum_change_shared_semantic_conditional_gap_longrun"]
   n_e1319c105cb4["shared_semantic_categorical_extrapolation_longrun"]
@@ -55,10 +57,12 @@ flowchart LR
   n_7053964987d2 -->|external_validates| n_e02b1aa584bf
   n_265054fdd670 -->|external_validates| n_e02b1aa584bf
   n_b306a2ad51e7 -->|tests| n_237e5cc010a0
+  n_ed7390dc78bd -->|tests| n_0a02fda6290f
   n_78005eca51fb -->|tests| n_6e543aa69f86
   n_becbcc786154 -->|external_validates| n_8779f773aadc
   n_18a6128df7c5 -->|external_validates| n_e02b1aa584bf
   n_910f7b6fb71a -->|external_validates| n_e02b1aa584bf
+  n_ed7390dc78bd -->|tests| n_083a4a1007fc
   n_03f052b4695b -->|tests| n_160bc66075a8
   n_bec19d99aedd -->|tests| n_160bc66075a8
   n_becbcc786154 -->|external_validates| n_feef39560333
@@ -67,6 +71,7 @@ flowchart LR
   n_684cc40787c6 -->|tests| n_bc8cd768c956
   n_513963b1392c -->|external_validates| n_e02b1aa584bf
   n_e7cdb0f7970d -->|external_validates| n_e02b1aa584bf
+  n_ed7390dc78bd -->|tests| n_ed9ebb420865
   n_5bb3c13685ab -->|tests| n_31220683b4ee
   n_8a45c33d6842 -->|tests| n_ed9ebb420865
   n_5bb3c13685ab -->|tests| n_e0a5582344a5

@@ -13,7 +13,7 @@
 
 ## Registry references
 
-- `experiments`: `D-U1-E6-SEMANTIC-LONGRUN-01`, `D-U1-E6-SEMANTIC-GAP-LONGRUN-01`, `D-U1-E6-CONDITIONAL-GAP-01`
+- `experiments`: `D-U1-E6-SEMANTIC-LONGRUN-01`, `D-U1-E6-SEMANTIC-GAP-LONGRUN-01`, `D-U1-E6-CONDITIONAL-GAP-01`, `D-U1-E6-CARTESIAN-TAPER-01`
 - `development_experiment_registrations`: `D-U1-E6-CONDITIONAL-GAP-DEV-01`, `D-U1-E6-SEMANTIC-PILOT-01`, `D-U1-E6-SEMANTIC-FOCUSED-DEV-01`, `D-U1-E6-TAPER-01`
 
 ## Owned source blocks
@@ -74,7 +74,7 @@
 > - 本更新只修改研究治理、路线和相应测试/操作说明；未重跑实验，未更改任何冻结变量、数据规模、seeds、阈值、收敛标准或方法职责。
 <!-- HANDOFF-DELTA-BLOCK:after_heading:v56-e6-parent-closure-route-release:END -->
 <!-- STAGE4B-SOURCE-BLOCK:B000008:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000062:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000064:START -->
 ## 3.7.3 E6 共享语义 pilot `D-U1-E6-SEMANTIC-PILOT-01`
 
 1. **实验职责：** E6 不重复 E5 的 direct-softmax/support-boundary 结论。它检验共享 semantic representation 下，受控 local negative 是否能把策略从 positive demonstrations 推向训练中未展示的 hidden optimal action，并检验 far pressure 是否导致 task failure 或 support/temperature boundary。
@@ -90,4 +90,4 @@
 
 ---
 
-<!-- STAGE4B-SOURCE-BLOCK:B000062:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000064:END -->

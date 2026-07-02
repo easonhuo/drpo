@@ -7,7 +7,7 @@
 - Responsibility: Provide the current experiment evidence states, execution ordering, and formal launch gates.
 - Content contract topics: `formal_vs_development_evidence`, `single_registered_execution_order`, `blocked_requires_protocol_or_predecessor`, `current_formal_route`, `no_unregistered_experiment`
 - Deduplicated overlapping source chunks: 0
-- Source hash: `134040c584696680f62bd50ae09a65995b07e79ecb3af8b97e48561814e56203`
+- Source hash: `691bba82b3ffad8a9373e9db2fd5b052b79406b639eef9eed4ff985bbe28e2ca`
 
 ## Content contract evidence
 
@@ -95,3 +95,6 @@
 <!-- HANDOFF-DELTA-BLOCK:section_end:v66-e4-taper-budget-match-execution-order:START -->
 19. **v66 E4-TAPER 内部执行覆盖：** `BUDGET-MATCH-01` 已完成正式矩阵、终态审计和闭环交付，禁止无新登记重跑。`CONV-01` 仍不允许启动：先用既定规则在独立更新中生成并校验 `FROZEN_CONVERGENCE_SHORTLIST.json`，再实现读取 run_003 exact actor + Adam optimizer state 的 continuation runner；只有这两项通过并另行 activation 后才能运行。`CONFIRM-01` 与 seeds `130--149` 继续保持最后一道防火墙。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v66-e4-taper-budget-match-execution-order:END -->
+<!-- HANDOFF-DELTA-BLOCK:section_end:v70-du1-e6-cartesian-taper-execution-order:START -->
+10. **v70 D-U1 successor 覆盖：** `D-U1-E6-CARTESIAN-TAPER-01` 作为一个联合 formal experiment 执行，顺序固定为 environment/preflight audit → E6-Cartesian mechanism methods → preregistered TAPER methods → paired aggregation → 2× terminal audit → hardened packaging/delivery。禁止先查看正式机制结果后修改 taper family、retention、seeds 或阈值；原 `D-U1-E6-TAPER-01` 不再作为独立 runnable experiment。
+<!-- HANDOFF-DELTA-BLOCK:section_end:v70-du1-e6-cartesian-taper-execution-order:END -->

@@ -8,7 +8,7 @@
 - Responsibility: Preserve the unique-master rule, terminology, scientific scope, and non-destructive governance constraints.
 - Dependencies: none
 - Content-contract topics: `unique_master_document`, `document_before_experiment`, `non_destructive_history`, `terminal_audit_governance`, `controlled_external_validity_boundary`
-- Owned source blocks: 20
+- Owned source blocks: 22
 - Registry references are pointers only; `experiments/registry.yaml` remains the sole editable registry source.
 
 ## Registry references
@@ -62,6 +62,22 @@
 <!-- HANDOFF-DELTA-BLOCK:after_heading:v69-e7-bench-parallel-pilot:END -->
 <!-- STAGE4B-SOURCE-BLOCK:B000023:END -->
 <!-- STAGE4B-SOURCE-BLOCK:B000024:START -->
+<!-- HANDOFF-DELTA-BLOCK:after_heading:v70-du1-e6-cartesian-taper:START -->
+> **v70 增量登记：D-U1 E6 `utility × surprisal` 二维笛卡尔积重构与 E6-TAPER 联合正式协议（不删除 v69 及更早内容）**
+>
+> - 旧 `D-U1-E6-SEMANTIC-LONGRUN-01` 的长期结果完整保留，继续只支持“共享语义表示下，适度方向可靠负信号可突破 Positive-only ceiling，过强负压力会反转”的历史结论。重新审计发现：旧 E6 把 `local/far` 同时用于语义方向角色，未把 directional utility 与 learner-relative rarity/surprisal 做成严格二维笛卡尔积，因此它不能单独承担 E4 的离散对应，也不能直接作为 surprisal taper 的严格方法证据。
+> - 原未实现、未运行的 `D-U1-E6-TAPER-01` development preregistration 原样保留，不改写其历史字段；新正式 successor `D-U1-E6-CARTESIAN-TAPER-01` 取代其后续执行职责，并在同一个 D-U1 环境和一次正式执行中分开报告 E6-Cartesian 机制块与 E6-TAPER 方法块。该合并避免先看正式机制结果再调 taper，同时满足“文档先于实验”和 formal artifact 串行交付门禁。
+> - 新环境使用 32 个 semantic prototypes，每个 prototype 复制为 `common/rare` 两个 unordered categorical action，共 64 actions。复制对具有完全相同的 reward embedding、directional utility 与 fixed negative advantage。策略从 trainable semantic logits 中减去冻结的初始化 reference logits，使 step 0 的 useful/unhelpful 在同一 rarity level 上概率逐状态精确相等；唯一初始 rarity 差异是 trainable action-logit bias 的固定 `4.0` gap。由此形成四格：`useful_common / useful_rare / unhelpful_common / unhelpful_rare`，每个 context 每格一个负样本，数量与 advantage 严格匹配。
+> - utility 轴定义为：在策略方向位于 `t_plus` 附近时，排斥该 semantic prototype 的方向在 `t_plus -> t_star` 上的投影；每个 context 分别选择最大 utility 与最小 utility prototype。rarity 轴只由当前 categorical policy 的 surprisal `-log pi_theta(a|s)` 定义：每次 forward 都在同一 semantic replica pair 内把较高概率成员动态标为 common、较低概率成员动态标为 rare，离散选择 stop-gradient；不再用固定 action ID 或 semantic distance 冒充 policy remoteness。
+> - E6-Cartesian 机制块比较 `positive_only`、四个单格方法、`useful_all / unhelpful_all / common_all / rare_all / all_negative`，回答同一 utility 下 rare 是否更危险、同一 rarity 下 useful 是否更有益，以及 utility × rarity 是否存在交互。子集干预只把未选 cell 置零，保留 cell 始终维持其在四格总体中的 `1/4` 系数，禁止因删除其他 cell 而自动重归一化负梯度预算。
+> - E6-TAPER 方法块在同一四格数据、同一初始化、同一 minibatch stream 与同一 seeds 上比较 `global_matched / reciprocal_linear / reciprocal_quadratic / exponential`。所有 taper 使用同一个 detached normalized excess surprisal：每 seed 在训练前以 common median 为 threshold、以 rare-minus-common median 为 scale 并冻结校准常数；surprisal 本身在每个 optimizer step 由当前 learner 重新计算。
+> - 公平性冻结：common reference coordinate `u=0` 时四种选择性方法 retention 均为 `1`；reference rare coordinate `u=1` 时 reciprocal-linear、reciprocal-quadratic、exponential retention 均为 `0.25`，对应系数分别为 `3.0 / 3.0 / ln(4)`。`global_matched` 只在 step 0 用训练 audit subset 匹配 exponential 的 raw negative-gradient norm，随后冻结；不得匹配 Adam update 或 test metric。
+> - 正式 seeds 冻结为 untouched `200--219`，20 seeds；6D context、4D semantic prototype、2048 train / 2048 test contexts、fixed concentration `8.0`、Adam `lr=1e-3`、negative alpha `0.25`、8000 steps 与 `4000--6000 / 6000--8000` 终态窗口全部预注册。train/test context 独立采样自同一分布，只称 same-distribution held-out-context generalization，不称 OOD。
+> - 任务性能崩溃、support boundary 与 NaN/Inf numerical failure继续分开报告。categorical direct-logit score 有界；本实验不声称 Gaussian 式无界梯度、Transformer 外部有效性、跨任务方法排名或任何 taper 必然最优。
+> - 新实现为 `src/drpo/du1_e6_cartesian_taper.py`，冻结配置 `configs/du1_e6_cartesian_taper.yaml`，一键入口 `scripts/run_du1_e6_cartesian_taper.py`。正式协议固定 CPU、8 个 seed workers；正式启动必须经过 hardened guard，要求 clean worktree、权威 `origin/main` 匹配、每 seed 持久化 trajectories/summary/audit/calibration 后再写 checkpoint marker、完整终态审计和 durable raw-complete artifact。应用本更新后状态为 **implemented + ready + active + not_run**；smoke/unit/static 结果不构成正式科学结果。
+<!-- HANDOFF-DELTA-BLOCK:after_heading:v70-du1-e6-cartesian-taper:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000024:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000025:START -->
 
 1. **唯一 Master 文档是任务轴。** 新理论、新实验、新变量、代码入口和结果状态必须先登记，再执行。
 2. **文档先于实验。** 未写明 claim、环境、数据、指标、收敛条件和结果落点的实验，严格禁止启动。
@@ -74,8 +90,8 @@
 9. **正式环境数量锁定。** 主要受控环境只有一个连续 C-U1 和一个离散 D-U1；历史小环境只作证明、回归和 provenance。
 10. **外部实验不能替代理想识别。** Hopper/Countdown 回答外部有效性；C-U1/D-U1 回答可控因果与 ground truth。
 
-<!-- STAGE4B-SOURCE-BLOCK:B000024:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000025:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000025:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000026:START -->
 ## 0.1 当前执行门禁
 
 - C-U1 E1/E2/E3：现有正式状态保留。`C-U1-E4-ADAM-RERUN` 保留“有限训练步数验证”；`C-U1-E4-CONV-01` 经用户明确审阅，在保留原 18/20 门禁失败事实的前提下，按 15/20、16/20、15/20 目标状态、0/60 明确相反终态与 60/60 长程科学角色不反转，闭合为“已长期验证”。`C-U1-E4-TAPER-01` 已完成 `220/220` 正式 runs、终态审计与交付；20/20 paired seeds 支持 Quadratic 在 anchor-normalized protocol 下比 Linear 更强抑制远场负梯度，但 200 controlled/positive runs 未形成稳定候选，故科学状态为 **有限训练步数验证**，不得称 long-run validated 或形成 universal method ranking。
@@ -83,66 +99,71 @@
 - Hopper/D4RL：`EXT-H-E7-Q2` 是 E7-MECH，runner/config 已实现但 formal launch 仍等待受控 taper 阶段交付；`EXT-H-E7-BENCH-01` 是 D4RL MuJoCo locomotion 9-task 方法效果表，等待 E7-MECH 与受控方法 shortlist 冻结。
 - Countdown：`EXT-C-E8-V4.2` 是当前 E8-MECH/pilot；`EXT-C-E8-V4.1` 仅保留 provenance；`EXT-C-E8-SCALE-01` 是更大固定数据与模型规模验证，等待 E8-MECH 和 E7-BENCH。
 
-<!-- STAGE4B-SOURCE-BLOCK:B000025:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000026:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000026:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000027:START -->
 <!-- HANDOFF-DELTA-BLOCK:section_end:v52-countdown-current-gate-override:START -->
 - **Countdown v52 覆盖：** `EXT-C-E8-V4.3` 取代 V4.2 成为当前 E8-MECH/focused pilot；V4.2 只保留 matched-pair mechanism provenance。`EXT-C-E8-SCALE-01` 继续等待 V4.3 与 E7-BENCH，不因本次实现自动解锁。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v52-countdown-current-gate-override:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000026:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000027:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000027:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000028:START -->
 <!-- HANDOFF-DELTA-BLOCK:section_end:v55-du1-e6-semantic-gap-current-gate:START -->
 - **D-U1 v55 覆盖：** `D-U1-E6-SEMANTIC-GAP-LONGRUN-01` 已完成 `100/100` 正式 runs、2× horizon 与终态审计，科学状态为 **有限训练步数验证**；45/100 plateau、55/100 persistent-drift-or-inconclusive，禁止稳态方法排名或无新登记重跑。`D-U1-E6-TAPER-01` 的 successor-delivery 条件已满足，但其四项协议/实现门禁仍未完成，继续 review-required + blocked。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v55-du1-e6-semantic-gap-current-gate:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000027:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000028:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000028:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000029:START -->
 <!-- HANDOFF-DELTA-BLOCK:section_end:v56-e6-parent-closure-current-gate:START -->
 - **v56 E6 父 claim 关闭覆盖：** E6 的论文核心 claim 现已范围受限关闭；主 long-run 与两个 gap 子实验的原科学状态分别保持 `long_run_validated / finite_step_validated / finite_step_validated`。`D-U1-E6-TAPER-01` 保留为可选非门禁未来工作。当前下一正式 route item 为 `EXT-H-E7-Q2`，registry 状态为 **implemented + ready + active + not_run**；启动后仍须走 canonical hardened guard，且在 raw-complete、终态审计、打包和交付前不得声称 E7 完成。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v56-e6-parent-closure-current-gate:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000028:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000029:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000029:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000030:START -->
 <!-- HANDOFF-DELTA-BLOCK:section_end:v57-countdown-offline-bank-current-gate:START -->
 - **Countdown v57 覆盖：** `EXT-C-E8-V4.4-OFFLINE-BANK` 是用户批准的当前离线 focused pilot；V4.3 保留为 fixed-pair predecessor。V4.4 只改变固定负样本覆盖与 current-policy near/far reselection，不引入在线数据刷新。`EXT-H-E7-Q2` 仍是下一正式 route item，`EXT-C-E8-SCALE-01` 继续 blocked。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v57-countdown-offline-bank-current-gate:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000029:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000030:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000030:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000031:START -->
 <!-- HANDOFF-DELTA-BLOCK:section_end:v59-countdown-offline-bank-tuning-current-gate:START -->
 - **Countdown v59 覆盖：** `EXT-C-E8-V4.5-OFFLINE-BANK-TUNING` 是当前用户批准的离线 focused successor；V4.4 作为 frozen-bank predecessor 保留。V4.5 只调 calibrated global negative multiplier 与 exponential taper lambda，禁止在线刷新、方向筛选或模型规模同时变化。`EXT-H-E7-Q2` 仍是下一 formal route item，`EXT-C-E8-SCALE-01` 继续 blocked。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v59-countdown-offline-bank-tuning-current-gate:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000030:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000031:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000031:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000032:START -->
 <!-- HANDOFF-DELTA-BLOCK:section_end:v60-e4-taper-current-gate:START -->
 - **E4-TAPER v60 覆盖：** `C-U1-E4-TAPER-01` 仍为 finite-step validated。四个后续 ID 已获用户批准并登记，但全部保持 blocked：先冻结并实现 `NEAR-RETENTION-01`，交付后才允许冻结 `BUDGET-MATCH-01`；二者交付并冻结 shortlist 后才允许 `CONV-01`；最后才用 untouched seeds 执行 `CONFIRM-01`。原实验禁止自动延长，几何 robustness 不作为当前门禁。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v60-e4-taper-current-gate:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000031:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000032:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000032:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000033:START -->
 <!-- HANDOFF-DELTA-BLOCK:section_end:v61-e4-taper-near-retention-current-gate:START -->
 - **E4-TAPER v61 覆盖：** `C-U1-E4-TAPER-NEAR-RETENTION-01` 已完成协议冻结、独立 runner、formal-channel 登记和工程 smoke，registry 为 **implemented + ready + active + not_run**。允许下一步启动该实验的 canonical guarded formal run，但 smoke/单元测试不构成科学结果。`BUDGET-MATCH-01` 仍必须等待 Near-Retention 的 raw-complete、终态审计、打包与交付；不得提前实现为可运行状态或并行启动。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v61-e4-taper-near-retention-current-gate:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000032:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000033:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000033:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000034:START -->
 <!-- HANDOFF-DELTA-BLOCK:section_end:v62-countdown-online-offpolicy-current-gate:START -->
 - **Countdown v62 覆盖：** `EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY` 是当前用户批准并已实现的 Countdown focused successor，状态为 **implemented + not_run**。执行前必须提供完整 V4.5 `RUN_COMPLETE.json`/`terminal_audit.json` 及其指向的 V4.4 frozen inputs；runner fail-closed 校验输入与 reference adapter。它可作为独立 pilot 启动，但不改变 `EXT-H-E7-Q2` 的 formal 优先级，也不自动解锁 `EXT-C-E8-SCALE-01`。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v62-countdown-online-offpolicy-current-gate:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000033:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000034:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000034:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000035:START -->
 <!-- HANDOFF-DELTA-BLOCK:section_end:v63-e4-taper-closure-current-gate:START -->
 - **E4-TAPER v63 覆盖：** `C-U1-E4-TAPER-NEAR-RETENTION-01` 已完成 `280/280` method-seed runs 与终态审计，科学状态沉淀为 **有限训练步数验证**。主保持率 `0.75` 下，Reciprocal-Quadratic、current Exponential、Squared-distance Exponential 相对 Reciprocal-Linear 的 held-out-context reward 配对均值差分别为 `+0.012002 / +0.015619 / +0.036134`，三者均为 `20/20` seeds 正差；Squared-distance Exponential 的 harmful-far retention 为 `0.010382`，低于 Reciprocal-Linear 的 `0.055886`。该结果只支持当前冻结矩阵中的有限步函数形状信号；`260/280` runs 在 8000 steps 时未获严格终态解析，禁止稳态、普遍方法排名或 OOD 表述。
 - 三类事件继续严格分报：task-performance collapse `13/280`、support/variance boundary `20/280`、NaN/Inf `0/280`；前两类全部来自 unweighted control。v63 仓库只保存 compact result deposition；本次构建会话没有原始 280-run raw-complete artifact 及其哈希，禁止伪造，归档发布前必须从原交付包恢复。
 - `C-U1-E4-TAPER-BUDGET-MATCH-01` 在 v63 冻结并实现为下一项 **implemented + ready + active + not_run**。唯一 primary budget coordinate 是每一步、Adam 之前的 raw negative-gradient L2 norm；paired Reciprocal-Linear actor 生成冻结目标 schedule，其他 Distance families 与 non-selective Global stepwise scale 使用 detached scalar 精确匹配该 norm。Adam 实际 parameter-update norm 只记录、不声称匹配。正式 seeds 固定为 `110--129`；seeds `130--149` 继续 untouched，专属最终 confirmation。
 - `C-U1-E4-TAPER-CONV-01` 与 `C-U1-E4-TAPER-CONFIRM-01` 的 seed firewall、输入输出契约、shortlist 冻结规则、32000-step 长程上限、continuous Adam-state 要求、2× terminal audit 与确认分析计划已预登记，但二者继续 blocked。Budget-Match terminal-audited、packaged、delivered 之前不得生成 shortlist 或启动 Convergence；Convergence 交付且 confirmation config 哈希冻结前不得访问 seeds `130--149`。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v63-e4-taper-closure-current-gate:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000034:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000035:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000035:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000036:START -->
 <!-- HANDOFF-DELTA-BLOCK:section_end:v66-e4-taper-budget-match-current-gate:START -->
 - **E4-TAPER v66 覆盖：** `C-U1-E4-TAPER-BUDGET-MATCH-01` 已完成 `140/140` 正式 runs、逐步 raw-negative-gradient budget audit 与 terminal audit，科学状态为 **有限训练步数验证**。相同 Adam 前 raw negative-gradient L2 budget 下，三种 selective candidates 相对 Reciprocal-Linear 均在 `20/20` paired seeds 上提高 held-out-context reward 并降低 harmful-far retention；Global stepwise scale 则在 `0/20` seeds 上提高 reward，且保留更多 harmful-far influence。Terminal useful-near retention 因零分母不可评估，不得补写为已证明。
 - 原 guard 只在计算结束后的 required-output/package 阶段失败：return code `0`、provenance 未受损、正式结果和原 failed tree 均保留。v66 修复 runner 漏写 `scientific_run_manifest.json`，并通过 compact deposition + explicit full-raw sidecar 完成交付；不得把 packaging failure 称为实验数值失败。
 - `CONV-01` 仍 blocked；下一项是 Budget-Match 交付后的独立 shortlist-freeze 更新和 continuation runner 实现。不得直接延长 run_003，也不得访问 confirmation seeds `130--149`。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v66-e4-taper-budget-match-current-gate:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000035:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000036:START -->
-
 <!-- STAGE4B-SOURCE-BLOCK:B000036:END -->
 <!-- STAGE4B-SOURCE-BLOCK:B000037:START -->
+<!-- HANDOFF-DELTA-BLOCK:section_end:v70-du1-e6-cartesian-taper-current-gate:START -->
+- **D-U1 v70 覆盖：** 原 `D-U1-E6-TAPER-01` development preregistration 原样保留、不得启动；其执行职责由用户批准的 `D-U1-E6-CARTESIAN-TAPER-01` 取代。新 successor 已冻结 utility × surprisal 2×2 Cartesian protocol、独立 runner、正式 seeds 与终态审计，registry 状态为 **implemented + ready + active + not_run**。它在一个 formal artifact 中先报告 Cartesian 机制块、再报告预注册 taper 方法块；smoke/unit/static 结果不构成科学结果。
+<!-- HANDOFF-DELTA-BLOCK:section_end:v70-du1-e6-cartesian-taper-current-gate:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000037:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000038:START -->
+
+<!-- STAGE4B-SOURCE-BLOCK:B000038:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000039:START -->
 ## 0.2 C-U1 泛化术语覆盖规则（v15 锁定）
 
 1. C-U1 的训练状态与测试状态使用同一生成分布 `s ~ N(0,I_6)`，只在样本身份上独立；因此 E1-E4 报告的是 **同分布 held-out-context generalization（未见状态泛化）**。
@@ -152,8 +173,8 @@
 5. “策略漂移到低 reward 区域”与“数据分布 OOD”严格区分。前者是策略相对任务最优的几何漂移，不意味着测试状态来自分布外。
 6. Part II 历史记录中的 OOD 旧措辞不删除，但全部由本节覆盖。新论文若需要 OOD 结论，必须另外登记并运行显式状态分布偏移实验。
 
-<!-- STAGE4B-SOURCE-BLOCK:B000037:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000038:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000039:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000040:START -->
 ## 0.3 正式实验守护与可持久交付门禁（v19 锁定）
 
 1. **计算结束不等于实验完成。** 正式实验必须依次经历 `registered`、`running`、`raw_complete`、`terminal_audited`、`packaged`、`delivered`；仓库闭环还需 `applied_to_repository`。科学状态标签与该执行证据状态分开维护。
@@ -167,8 +188,8 @@
 9. **包大小策略。** 默认最终实验包警戒线为 25 MiB；允许压缩轨迹和去除冗余 optimizer state，但不得删除逐 seed 摘要、核心轨迹、终态审计、失败索引和来源校验。
 10. **详细规范唯一引用。** 具体 package kinds、命令和校验规则见 `docs/formal_experiment_artifact_protocol.md`；若其与本节冲突，以本节和 `AGENTS.md` 为准。
 
-<!-- STAGE4B-SOURCE-BLOCK:B000038:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000039:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000040:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000041:START -->
 ## 0.4 Registry 执行状态一致性（v42 锁定）
 
 1. `execution_gate.state` 表示科学/依赖门禁，`formal_execution.activation_state` 表示 operational 启动状态；两者不得相互矛盾。
@@ -178,4 +199,4 @@
 5. `entrypoint_status=planned`、`implementation_state=not_implemented` 的正式实验允许保持 blocked，但不得因此绕过 claim、职责和后续 protocol-freeze 登记。
 6. `scripts/validate_formal_execution_channel.py` 对 canonical experiments 与 development registrations 中的 formal 条目执行 fail-closed 校验；registry 更新和 `drpo-update` 测试必须运行它。
 
-<!-- STAGE4B-SOURCE-BLOCK:B000039:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000041:END -->

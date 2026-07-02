@@ -7,7 +7,7 @@
 - Responsibility: Preserve the unique-master rule, terminology, scientific scope, and non-destructive governance constraints.
 - Content contract topics: `unique_master_document`, `document_before_experiment`, `non_destructive_history`, `terminal_audit_governance`, `controlled_external_validity_boundary`
 - Deduplicated overlapping source chunks: 0
-- Source hash: `96e7cd8825d0fef113dc9c7a1dc776af4dc1b13627add94ddd302e01f02b5eab`
+- Source hash: `eb54cd72e382e51a57a0ffb47b22e9511eacc10355ba57b21e71a9f03061fb8b`
 
 ## Content contract evidence
 
@@ -56,6 +56,20 @@
 > - 正式 9-task E7-BENCH 同步登记为 staged resource-pool 并行，branch scheduling unit 为 `task_seed_method`，禁止 serial seed loop 与 serial method loop；但正式 exact D4RL versions、formal seeds、offline-RL base、optimizer 和 full budget 尚未冻结，故 formal activation 继续 blocked。Pilot ready 不等于 formal ready。
 > - 新入口为 `src/drpo/e7_bench.py`、`scripts/run_e7_bench.py`，配置为 `configs/e7_bench_pilot.yaml`，协议说明为 `docs/e7_bench_pilot.md`。当前仅完成实现、静态/单元、真实数据 loader 与 canonical critic 短程 smoke；当前环境缺少 `gymnasium`，因此 actor/rollout 短程 smoke 未执行。该限制不等于 Pilot 已运行，更不支持任何方法优于 Positive-only。正式启动时 runner 会在长程 critic 之前预检 384 核线程预算、Gymnasium/MuJoCo 环境及数据—环境维度一致性。
 <!-- HANDOFF-DELTA-BLOCK:after_heading:v69-e7-bench-parallel-pilot:END -->
+<!-- HANDOFF-DELTA-BLOCK:after_heading:v70-du1-e6-cartesian-taper:START -->
+> **v70 增量登记：D-U1 E6 `utility × surprisal` 二维笛卡尔积重构与 E6-TAPER 联合正式协议（不删除 v69 及更早内容）**
+>
+> - 旧 `D-U1-E6-SEMANTIC-LONGRUN-01` 的长期结果完整保留，继续只支持“共享语义表示下，适度方向可靠负信号可突破 Positive-only ceiling，过强负压力会反转”的历史结论。重新审计发现：旧 E6 把 `local/far` 同时用于语义方向角色，未把 directional utility 与 learner-relative rarity/surprisal 做成严格二维笛卡尔积，因此它不能单独承担 E4 的离散对应，也不能直接作为 surprisal taper 的严格方法证据。
+> - 原未实现、未运行的 `D-U1-E6-TAPER-01` development preregistration 原样保留，不改写其历史字段；新正式 successor `D-U1-E6-CARTESIAN-TAPER-01` 取代其后续执行职责，并在同一个 D-U1 环境和一次正式执行中分开报告 E6-Cartesian 机制块与 E6-TAPER 方法块。该合并避免先看正式机制结果再调 taper，同时满足“文档先于实验”和 formal artifact 串行交付门禁。
+> - 新环境使用 32 个 semantic prototypes，每个 prototype 复制为 `common/rare` 两个 unordered categorical action，共 64 actions。复制对具有完全相同的 reward embedding、directional utility 与 fixed negative advantage。策略从 trainable semantic logits 中减去冻结的初始化 reference logits，使 step 0 的 useful/unhelpful 在同一 rarity level 上概率逐状态精确相等；唯一初始 rarity 差异是 trainable action-logit bias 的固定 `4.0` gap。由此形成四格：`useful_common / useful_rare / unhelpful_common / unhelpful_rare`，每个 context 每格一个负样本，数量与 advantage 严格匹配。
+> - utility 轴定义为：在策略方向位于 `t_plus` 附近时，排斥该 semantic prototype 的方向在 `t_plus -> t_star` 上的投影；每个 context 分别选择最大 utility 与最小 utility prototype。rarity 轴只由当前 categorical policy 的 surprisal `-log pi_theta(a|s)` 定义：每次 forward 都在同一 semantic replica pair 内把较高概率成员动态标为 common、较低概率成员动态标为 rare，离散选择 stop-gradient；不再用固定 action ID 或 semantic distance 冒充 policy remoteness。
+> - E6-Cartesian 机制块比较 `positive_only`、四个单格方法、`useful_all / unhelpful_all / common_all / rare_all / all_negative`，回答同一 utility 下 rare 是否更危险、同一 rarity 下 useful 是否更有益，以及 utility × rarity 是否存在交互。子集干预只把未选 cell 置零，保留 cell 始终维持其在四格总体中的 `1/4` 系数，禁止因删除其他 cell 而自动重归一化负梯度预算。
+> - E6-TAPER 方法块在同一四格数据、同一初始化、同一 minibatch stream 与同一 seeds 上比较 `global_matched / reciprocal_linear / reciprocal_quadratic / exponential`。所有 taper 使用同一个 detached normalized excess surprisal：每 seed 在训练前以 common median 为 threshold、以 rare-minus-common median 为 scale 并冻结校准常数；surprisal 本身在每个 optimizer step 由当前 learner 重新计算。
+> - 公平性冻结：common reference coordinate `u=0` 时四种选择性方法 retention 均为 `1`；reference rare coordinate `u=1` 时 reciprocal-linear、reciprocal-quadratic、exponential retention 均为 `0.25`，对应系数分别为 `3.0 / 3.0 / ln(4)`。`global_matched` 只在 step 0 用训练 audit subset 匹配 exponential 的 raw negative-gradient norm，随后冻结；不得匹配 Adam update 或 test metric。
+> - 正式 seeds 冻结为 untouched `200--219`，20 seeds；6D context、4D semantic prototype、2048 train / 2048 test contexts、fixed concentration `8.0`、Adam `lr=1e-3`、negative alpha `0.25`、8000 steps 与 `4000--6000 / 6000--8000` 终态窗口全部预注册。train/test context 独立采样自同一分布，只称 same-distribution held-out-context generalization，不称 OOD。
+> - 任务性能崩溃、support boundary 与 NaN/Inf numerical failure继续分开报告。categorical direct-logit score 有界；本实验不声称 Gaussian 式无界梯度、Transformer 外部有效性、跨任务方法排名或任何 taper 必然最优。
+> - 新实现为 `src/drpo/du1_e6_cartesian_taper.py`，冻结配置 `configs/du1_e6_cartesian_taper.yaml`，一键入口 `scripts/run_du1_e6_cartesian_taper.py`。正式协议固定 CPU、8 个 seed workers；正式启动必须经过 hardened guard，要求 clean worktree、权威 `origin/main` 匹配、每 seed 持久化 trajectories/summary/audit/calibration 后再写 checkpoint marker、完整终态审计和 durable raw-complete artifact。应用本更新后状态为 **implemented + ready + active + not_run**；smoke/unit/static 结果不构成正式科学结果。
+<!-- HANDOFF-DELTA-BLOCK:after_heading:v70-du1-e6-cartesian-taper:END -->
 
 1. **唯一 Master 文档是任务轴。** 新理论、新实验、新变量、代码入口和结果状态必须先登记，再执行。
 2. **文档先于实验。** 未写明 claim、环境、数据、指标、收敛条件和结果落点的实验，严格禁止启动。
@@ -110,6 +124,9 @@
 - 原 guard 只在计算结束后的 required-output/package 阶段失败：return code `0`、provenance 未受损、正式结果和原 failed tree 均保留。v66 修复 runner 漏写 `scientific_run_manifest.json`，并通过 compact deposition + explicit full-raw sidecar 完成交付；不得把 packaging failure 称为实验数值失败。
 - `CONV-01` 仍 blocked；下一项是 Budget-Match 交付后的独立 shortlist-freeze 更新和 continuation runner 实现。不得直接延长 run_003，也不得访问 confirmation seeds `130--149`。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v66-e4-taper-budget-match-current-gate:END -->
+<!-- HANDOFF-DELTA-BLOCK:section_end:v70-du1-e6-cartesian-taper-current-gate:START -->
+- **D-U1 v70 覆盖：** 原 `D-U1-E6-TAPER-01` development preregistration 原样保留、不得启动；其执行职责由用户批准的 `D-U1-E6-CARTESIAN-TAPER-01` 取代。新 successor 已冻结 utility × surprisal 2×2 Cartesian protocol、独立 runner、正式 seeds 与终态审计，registry 状态为 **implemented + ready + active + not_run**。它在一个 formal artifact 中先报告 Cartesian 机制块、再报告预注册 taper 方法块；smoke/unit/static 结果不构成科学结果。
+<!-- HANDOFF-DELTA-BLOCK:section_end:v70-du1-e6-cartesian-taper-current-gate:END -->
 
 ## 0.2 C-U1 泛化术语覆盖规则（v15 锁定）
 

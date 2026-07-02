@@ -1,5 +1,5 @@
 digraph stage4_semantic_graph {
-  graph [label="graph_hash=ba3854eae8f16ffdfa39a2ba35d0034b7c35b72994354c23185a5ef9af45a9e2", labelloc="t"];
+  graph [label="graph_hash=17713071fbc8b8cc4d4de6a2efb147ddfe785b16c3afafbd059360f35b7ca045", labelloc="t"];
   rankdir=LR;
   node [shape=box];
   "claim:GOV-COLLAPSE-TAXONOMY-01" [label="claim: Task-performance collapse, support or variance boundary events, and NaN/Inf numerical failure must be reported separately."];
@@ -43,6 +43,7 @@ digraph stage4_semantic_graph {
   "experiment:C-U1-E4-TAPER-CONV-01" [label="experiment: taper_frozen_shortlist_long_run_terminal_resolution"];
   "experiment:C-U1-E4-TAPER-NEAR-RETENTION-01" [label="experiment: taper_family_near_negative_retention_matched_comparison"];
   "experiment:D-U1-E5-LONGRUN-RERUN" [label="experiment: categorical_repulsion_support_boundary_longrun_reconstruction"];
+  "experiment:D-U1-E6-CARTESIAN-TAPER-01" [label="experiment: utility_surprisal_cartesian_shared_semantic_and_taper"];
   "experiment:D-U1-E6-CONDITIONAL-GAP-01" [label="experiment: structured_conditional_support_gap_categorical_longrun"];
   "experiment:D-U1-E6-SEMANTIC-GAP-LONGRUN-01" [label="experiment: minimum_change_shared_semantic_conditional_gap_longrun"];
   "experiment:D-U1-E6-SEMANTIC-LONGRUN-01" [label="experiment: shared_semantic_categorical_extrapolation_longrun"];
@@ -57,7 +58,7 @@ digraph stage4_semantic_graph {
   "experiment:EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY" [label="experiment: countdown_online_offpolicy_replay_two_by_two_pilot"];
   "experiment:EXT-H-E7-BENCH-01" [label="experiment: d4rl_mujoco_locomotion_method_benchmark"];
   "experiment:EXT-H-E7-Q2" [label="experiment: hopper_gaussian_log_scale_quadratic_external_validation"];
-  "heading:H0001" [label="source_section: DRPO / SNA2C 远场负梯度动力学研究主文档 v69（E7-BENCH 并行 Pilot 注册与实现版）"];
+  "heading:H0001" [label="source_section: DRPO / SNA2C 远场负梯度动力学研究主文档 v70（D-U1 E6 utility × surprisal 笛卡尔积与 TAPER 联合登记版）"];
   "heading:H0002" [label="source_section: 0. 研究与执行原则（每次新会话首先阅读）"];
   "heading:H0003" [label="source_section: 0.1 当前执行门禁"];
   "heading:H0004" [label="source_section: 0.2 C-U1 泛化术语覆盖规则（v15 锁定）"];
@@ -1038,6 +1039,7 @@ digraph stage4_semantic_graph {
   "heading:H0041" -> "module:theory_methods_related_work" [label="member_of"];
   "heading:H0357" -> "module:continuous_e1_e4" [label="member_of"];
   "heading:H0366" -> "module:continuous_e1_e4" [label="member_of"];
+  "experiment:D-U1-E6-CARTESIAN-TAPER-01" -> "claim:SCI-CATEGORICAL-BOUNDED-SCORE-01" [label="tests"];
   "heading:H0198" -> "module:continuous_e1_e4" [label="member_of"];
   "heading:H0042" -> "module:continuous_e1_e4" [label="member_of"];
   "heading:H0047" -> "module:hopper_e7" [label="member_of"];
@@ -1151,6 +1153,7 @@ digraph stage4_semantic_graph {
   "heading:H0347" -> "module:theory_methods_related_work" [label="member_of"];
   "heading:H0270" -> "module:theory_methods_related_work" [label="member_of"];
   "claim:GOV-EXTERNAL-DOES-NOT-REPLACE-01" -> "module:countdown_e8" [label="member_of"];
+  "experiment:D-U1-E6-CARTESIAN-TAPER-01" -> "claim:SCI-DU1-E6-GENERALIZATION-01" [label="tests"];
   "heading:H0347" -> "module:paper_rewrite" [label="member_of"];
   "experiment:EXT-C-E8-V4.4-OFFLINE-BANK" -> "claim:SCI-COUNTDOWN-NOT-RUN-01" [label="external_validates"];
   "heading:H0100" -> "module:theory_methods_related_work" [label="member_of"];
@@ -1528,6 +1531,7 @@ digraph stage4_semantic_graph {
   "experiment:D-U1-E5-LONGRUN-RERUN" -> "module:categorical_e5_e6" [label="member_of"];
   "heading:H0317" -> "module:theory_methods_related_work" [label="member_of"];
   "heading:H0315" -> "module:categorical_e5_e6" [label="member_of"];
+  "experiment:D-U1-E6-CARTESIAN-TAPER-01" -> "module:execution_status_gates" [label="member_of"];
   "heading:H0253" -> "module:theory_methods_related_work" [label="member_of"];
   "heading:H0130" -> "module:paper_rewrite" [label="member_of"];
   "heading:H0142" -> "module:paper_rewrite" [label="member_of"];
@@ -1544,6 +1548,7 @@ digraph stage4_semantic_graph {
   "heading:H0118" -> "module:theory_methods_related_work" [label="member_of"];
   "experiment:C-U1-E4-TAPER-NEAR-RETENTION-01" -> "module:theory_methods_related_work" [label="member_of"];
   "heading:H0052" -> "module:global_core_governance" [label="member_of"];
+  "experiment:D-U1-E6-CARTESIAN-TAPER-01" -> "module:categorical_e5_e6" [label="member_of"];
   "heading:H0157" -> "module:continuous_e1_e4" [label="member_of"];
   "heading:H0278" -> "module:theory_methods_related_work" [label="member_of"];
   "heading:H0318" -> "module:theory_methods_related_work" [label="member_of"];
@@ -1707,6 +1712,7 @@ digraph stage4_semantic_graph {
   "heading:H0013" -> "module:execution_status_gates" [label="member_of"];
   "heading:H0310" -> "module:countdown_e8" [label="member_of"];
   "heading:H0055" -> "module:theory_methods_related_work" [label="member_of"];
+  "experiment:D-U1-E6-CARTESIAN-TAPER-01" -> "claim:SCI-NEGATIVE-DUAL-ROLE-01" [label="tests"];
   "heading:H0243" -> "module:categorical_e5_e6" [label="member_of"];
   "heading:H0193" -> "module:history_provenance" [label="member_of"];
   "heading:H0239" -> "module:history_provenance" [label="member_of"];

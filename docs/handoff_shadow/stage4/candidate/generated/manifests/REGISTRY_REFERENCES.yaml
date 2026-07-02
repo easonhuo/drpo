@@ -2,7 +2,7 @@ schema_version: 1
 policy_id: GOV-HANDOFF-INDEX-01
 authority: registry_references_only
 registry_path: experiments/registry.yaml
-registry_sha256: 7d17711b217e12ecbf426db4917c20fb643d4ac8357d838d4a7e71062ab7a4fa
+registry_sha256: 7e87c022b167d0e9d356d159fa05684ae77947b2ef40358480f0f5c18ac5d723
 modules:
 - module_id: global_core_governance
   experiments: []
@@ -43,6 +43,7 @@ modules:
   - D-U1-E6-SEMANTIC-LONGRUN-01
   - D-U1-E6-SEMANTIC-GAP-LONGRUN-01
   - D-U1-E6-CONDITIONAL-GAP-01
+  - D-U1-E6-CARTESIAN-TAPER-01
   development_experiment_registrations:
   - D-U1-E6-CONDITIONAL-GAP-DEV-01
   - D-U1-E6-SEMANTIC-PILOT-01

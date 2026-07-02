@@ -70,7 +70,7 @@ def test_current_stage4a_inventory_is_valid_and_deterministic() -> None:
     assert first["module_count"] == 9
     assert first["heading_count"] > 300
     assert first["claim_count"] >= 20
-    assert first["experiment_count"] == 24
+    assert first["experiment_count"] == 25
 
 
 

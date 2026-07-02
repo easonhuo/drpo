@@ -1,5 +1,5 @@
 {
-  "after_image_tree_hash": "632cb47c6863fa7ae41ddbacd117ae3c48406b6ff54839281440acf28e24507f",
+  "after_image_tree_hash": "f11926daf34d6bad2fa813833da8fd24702926694a141d0196078fd1f2689e12",
   "authoritative_inputs_unchanged": true,
   "authority": "non_authoritative_stage4b_shadow_candidate",
   "authority_cutover_allowed": false,
@@ -7,7 +7,7 @@
   "core_validation": {
     "authority": "non_authoritative_stage4b_shadow_candidate",
     "authority_cutover_allowed": false,
-    "block_count": 426,
+    "block_count": 429,
     "compatibility_handoff_exact_match": true,
     "dependency_hash": "1c163dc3089a713fb57bee639bb1701f41e71845abfc22c8029bde540899646e",
     "exact_reconstruction": true,
@@ -17,9 +17,9 @@
     "module_count": 13,
     "multi_owner_conflict_count": 0,
     "policy_id": "GOV-HANDOFF-INDEX-01",
-    "registry_sha256": "7d17711b217e12ecbf426db4917c20fb643d4ac8357d838d4a7e71062ab7a4fa",
-    "semantic_graph_hash": "ba3854eae8f16ffdfa39a2ba35d0034b7c35b72994354c23185a5ef9af45a9e2",
-    "source_sha256": "8b5639b5292571370ea57994e73cc6b4a579d23b1978296829e1faa65c50d90a",
+    "registry_sha256": "7e87c022b167d0e9d356d159fa05684ae77947b2ef40358480f0f5c18ac5d723",
+    "semantic_graph_hash": "17713071fbc8b8cc4d4de6a2efb147ddfe785b16c3afafbd059360f35b7ca045",
+    "source_sha256": "7f7584abf036f78cee96161fa89c872f6d43cb6fc5e7609227f3f8be81b3b03d",
     "status": "PASS",
     "unmapped_count": 0
   },

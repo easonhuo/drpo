@@ -156,7 +156,7 @@
       "target": "paper_rewrite"
     }
   ],
-  "after_image_tree_hash": "6720c9be21415e2a8c6245998ee209ff9a69f53ba9e500c3f024b9e12b330ca3",
+  "after_image_tree_hash": "b1fe9eb7d12fa6abc53e2bbfac514498da77c971790d258e2040e82704d0d938",
   "authority": "shadow_only",
   "authority_cutover_allowed": false,
   "claim_id": "GOV-HANDOFF-INDEX-01",
@@ -178,7 +178,7 @@
   "hard_blockers": [],
   "manual_handoff_remains_authoritative": true,
   "mapping": {
-    "canonical_experiments": 24,
+    "canonical_experiments": 25,
     "development_registrations": 4,
     "unmapped_objects": []
   },
@@ -195,49 +195,27 @@
     {
       "automatic_action": false,
       "kind": "candidate_split_module",
+      "object_id": "categorical_e6_generalization",
+      "reason": "source content has 76277 characters, above the configured 65000 threshold"
+    },
+    {
+      "automatic_action": false,
+      "kind": "candidate_split_module",
       "object_id": "countdown_e8",
       "reason": "source content has 68671 characters, above the configured 50000 threshold"
     }
   ],
   "repository_gates": [
     {
-      "command": "python -m compileall -q src scripts tools tests",
-      "result": "completed with exit code 0 on the current candidate",
+      "command": "python3 -m compileall -q src scripts tests",
       "status": "PASS"
     },
     {
       "command": "ruff check .",
-      "result": "All checks passed in the uploaded repository-gate diagnostic; subsequent changes are generated documentation plus a numeric test expectation update",
       "status": "PASS"
     },
     {
-      "command": "pytest -q tests/test_stage4a_inventory.py tests/test_stage4a_acceptance.py tests/test_experiment_route_v42.py tests/test_formal_execution_channel.py tests/test_handoff_delta_shadow.py",
-      "result": "14 + 28 + 49 targeted tests passed on the current candidate",
-      "status": "PASS"
-    },
-    {
-      "command": "python scripts/validate_formal_execution_channel.py --repo-root .",
-      "result": "formal execution channel validation passed",
-      "status": "PASS"
-    },
-    {
-      "command": "python scripts/validate_governance_rule_inventory.py --repo-root .",
-      "result": "governance rule inventory validation passed",
-      "status": "PASS"
-    },
-    {
-      "command": "python scripts/validate_stage4a_inventory.py --repo-root . --json",
-      "result": "9 modules, 376 headings, 31 claims, 24 experiments",
-      "status": "PASS"
-    },
-    {
-      "command": "python scripts/build_stage4_semantic_graph.py --repo-root . --check --json",
-      "result": "semantic graph check passed",
-      "status": "PASS"
-    },
-    {
-      "command": "python scripts/build_stage4_context.py --repo-root . --json check",
-      "result": "minimal-context check passed",
+      "command": "PYTHONPATH=src python3 -m pytest -q tests/test_du1_e6_cartesian_taper.py tests/test_formal_execution_channel.py tests/test_e7_bench.py tests/test_experiment_route_v42.py",
       "status": "PASS"
     }
   ],
@@ -387,7 +365,7 @@
       ]
     }
   },
-  "semantic_graph_hash": "ba3854eae8f16ffdfa39a2ba35d0034b7c35b72994354c23185a5ef9af45a9e2",
+  "semantic_graph_hash": "17713071fbc8b8cc4d4de6a2efb147ddfe785b16c3afafbd059360f35b7ca045",
   "stage_4a_state": "accepted",
   "stage_4b_state": "ready_for_separate_authorization",
   "stage_4c_state": "blocked_by_stage_4b_acceptance",

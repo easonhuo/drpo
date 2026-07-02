@@ -4907,6 +4907,192 @@ experiments:
       persistent_drift_or_inconclusive_runs: 151
       stable_method_ranking_allowed: false
 
+- id: D-U1-E6-CARTESIAN-TAPER-01
+  environment: D-U1
+  name: utility_surprisal_cartesian_shared_semantic_and_taper
+  status: not_run
+  parent_experiments: [E6, E6-TAPER]
+  predecessors:
+  - D-U1-E5-LONGRUN-RERUN
+  - D-U1-E6-SEMANTIC-LONGRUN-01
+  supersedes_preregistration: D-U1-E6-TAPER-01
+  registration_base_commit: 3b138f0a6f8cf5713f4d8de57ae374cd15b7c0b7
+  claim: >-
+    In one shared-semantic categorical environment where ground-truth directional
+    utility and learner-relative rarity are an exact 2x2 Cartesian product, test
+    whether useful negative signals improve same-distribution held-out-context
+    performance, whether rare negative signals create stronger support suppression
+    independently of utility, and whether current-surprisal tapering preserves
+    useful negative information better than uncontrolled and matched-global controls.
+  role: formal_controlled_categorical_cartesian_mechanism_and_taper_comparison
+  execution_class: formal
+  implementation_state: implemented
+  registry_scope: canonical_formal_execution
+  execution_gate:
+    state: ready
+    blocked_by: []
+    approval_record: user_approved_2026-07-02_utility_x_surprisal_cartesian_joint_protocol
+    blocking_reason: null
+  formal_execution:
+    channel_ref: hardened-v1
+    activation_state: active
+    entrypoint_status: implemented
+    entrypoint: src/drpo/du1_e6_cartesian_taper.py
+    launch_mode: canonical_guard
+    artifact_owner: canonical_channel
+    guard_entrypoint: scripts/run_experiment_guard_hardened.py
+    package_entrypoint: scripts/package_experiment_hardened.py
+    verify_entrypoint: scripts/verify_experiment_package_hardened.py
+    hardened_core: scripts/artifact_protocol_hardened.py
+    artifact_protocol: docs/formal_experiment_artifact_protocol.md
+    inherit_default_artifact_budget: true
+    runner_archive_policy: {mode: forbid}
+  code_entrypoint: src/drpo/du1_e6_cartesian_taper.py
+  one_click_entrypoint: scripts/run_du1_e6_cartesian_taper.py
+  config_path: configs/du1_e6_cartesian_taper.yaml
+  formal_launch_template: >-
+    python3 scripts/run_experiment_guard_hardened.py
+    --experiment-id D-U1-E6-CARTESIAN-TAPER-01
+    --repo-root .
+    --output-root experiments/results/D-U1-E6-CARTESIAN-TAPER-01/run_001
+    --artifact-output artifacts/D-U1-E6-CARTESIAN-TAPER-01_RAW_COMPLETE.zip
+    --run-class formal
+    --expected-commit "$(git rev-parse HEAD)"
+    --require-origin-main-match
+    --required-output RUN_COMPLETE.json
+    --required-output terminal_audit.json
+    --required-output aggregate_summary.json
+    --required-output mechanism_summary.json
+    --required-output taper_summary.json
+    --required-output per_run_summary.csv
+    --required-output formal_protocol_freeze.json
+    --source-file src/drpo/du1_e6_cartesian_taper.py
+    --source-file configs/du1_e6_cartesian_taper.yaml
+    --progress-glob checkpoints/*/CHECKPOINT_COMPLETE.json
+    -- python3 src/drpo/du1_e6_cartesian_taper.py
+    --config configs/du1_e6_cartesian_taper.yaml
+    --output-root experiments/results/D-U1-E6-CARTESIAN-TAPER-01/run_001
+    --stage formal
+    --device cpu
+  formal_parameter_freeze: true
+  freeze_approval:
+    approved_by_user: true
+    approval_date: '2026-07-02'
+    source: explicit_cartesian_environment_and_joint_implementation_request
+    automatic_retuning_allowed: false
+  development_seeds_forbidden_in_formal_aggregation: [0, 1, 2, 3, 4]
+  held_out_seeds: [200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216, 217, 218, 219]
+  protocol:
+    fixed_advantage: true
+    critic_or_value_network: false
+    importance_sampling: false
+    state_dim: 6
+    semantic_dim: 4
+    semantic_prototypes: 32
+    rarity_replicas_per_prototype: 2
+    action_count: 64
+    train_states: 2048
+    test_states: 2048
+    state_distribution: standard_normal
+    train_test_relation: independent_same_distribution
+    terminology: same_distribution_held_out_context_generalization
+    positive_prototypes_per_state: 4
+    negative_samples_per_cartesian_cell: 1
+    cartesian_axes:
+      utility: ground_truth_directional_utility_of_repulsion
+      rarity: current_policy_surprisal
+    cartesian_cells: [useful_common, useful_rare, unhelpful_common, unhelpful_rare]
+    exact_decoupling:
+      common_rare_pair_same_semantic_prototype: true
+      common_rare_pair_same_reward: true
+      common_rare_pair_same_directional_utility: true
+      all_negative_advantages_equal: true
+      all_cell_sample_counts_equal: true
+      frozen_initial_semantic_reference_subtracted: true
+      useful_unhelpful_probability_matched_within_rarity_at_step_0: true
+      initial_rarity_gap_source: trainable_action_logit_bias
+      initial_rarity_logit_gap: 4.0
+      rarity_roles_reassigned_from_current_pair_surprisal_each_forward: true
+      subset_cells_zeroed_without_remaining_cell_renormalization: true
+    optimizer: Adam
+    learning_rate: 0.001
+    batch_size: 128
+    maximum_steps: 8000
+    evaluation_interval_steps: 100
+    audit_states: 512
+    formal_device: cpu
+    parallel_seed_workers: 8
+    fixed_concentration: 8.0
+    negative_alpha: 0.25
+    methods: [positive_only, useful_common_only, useful_rare_only, unhelpful_common_only, unhelpful_rare_only, useful_all, unhelpful_all, common_all, rare_all, all_negative, global_matched, reciprocal_linear, reciprocal_quadratic, exponential]
+    taper_coordinate:
+      definition: relu((current_surprisal - initial_common_median) / initial_rare_minus_common_median)
+      calibration_split: training_audit_subset_only
+      recalibrated_during_training: false
+      current_surprisal_recomputed_each_optimizer_step: true
+      dynamic_common_rare_assignment_within_semantic_pair: true
+      detached: true
+    taper_fairness:
+      common_reference_retention: 1.0
+      rare_reference_coordinate: 1.0
+      rare_reference_retention: 0.25
+      reciprocal_linear_coefficient: 3.0
+      reciprocal_quadratic_coefficient: 3.0
+      exponential_coefficient: 1.3862943611198906
+      global_control: initial_raw_negative_gradient_norm_matched_to_exponential
+    no_method_winner_assumed: true
+  events:
+    task_collapse_ratio_to_paired_positive_only: 0.2
+    effective_support_boundary: 1.5
+  terminal_audit:
+    mode: formal_two_x_windows
+    formal_horizon_steps: 8000
+    window_1_steps: [4000, 6000]
+    window_2_steps: [6000, 8000]
+    metric_window_mean_abs_tolerances:
+      expected_semantic_reward: 0.01
+      hidden_optimal_family_probability: 0.02
+      entropy_mean: 0.08
+      action_bias_gap_mean: 0.20
+    scientific_failure_outcomes_are_results: true
+  checkpointing:
+    seed_block_size: 5
+    persistence: persistent_local
+    write_checkpoint_after_each_completed_seed: true
+    per_seed_payloads: [trajectories.jsonl, per_run_summary.json, environment_audit.json, coordinate_calibration.json]
+  reporting_separation:
+  - task_performance_collapse
+  - support_boundary
+  - nan_inf_numerical_failure
+  required_outputs:
+  - RUN_COMPLETE.json
+  - scientific_run_manifest.json
+  - environment_audits.json
+  - coordinate_calibration.json
+  - trajectories.jsonl
+  - per_run_summary.json
+  - per_run_summary.csv
+  - aggregate_summary.json
+  - mechanism_summary.json
+  - taper_summary.json
+  - terminal_audit.json
+  - formal_protocol_freeze.json
+  - run_manifest.json
+  non_claims:
+  - OOD_generalization
+  - Gaussian_unbounded_gradient_law_for_categorical_logits
+  - Transformer_external_validity
+  - cross_task_method_superiority
+  - predeclared_taper_winner
+  evidence:
+    implementation_tests_passed: true
+    run_started: false
+    raw_complete: false
+    terminal_audited: false
+    package_created: false
+    delivered_to_user: false
+    scientific_status: not_run
+
 development_experiment_registrations:
 - id: D-U1-E6-CONDITIONAL-GAP-DEV-01
   environment: D-U1

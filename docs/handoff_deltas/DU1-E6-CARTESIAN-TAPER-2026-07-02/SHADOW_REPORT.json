@@ -1,0 +1,96 @@
+{
+  "affected_selectors": [
+    "DRPO / SNA2C \u8fdc\u573a\u8d1f\u68af\u5ea6\u52a8\u529b\u5b66\u7814\u7a76\u4e3b\u6587\u6863 v69\uff08E7-BENCH \u5e76\u884c Pilot \u6ce8\u518c\u4e0e\u5b9e\u73b0\u7248\uff09",
+    "0. \u7814\u7a76\u4e0e\u6267\u884c\u539f\u5219\uff08\u6bcf\u6b21\u65b0\u4f1a\u8bdd\u9996\u5148\u9605\u8bfb\uff09",
+    "0. \u7814\u7a76\u4e0e\u6267\u884c\u539f\u5219\uff08\u6bcf\u6b21\u65b0\u4f1a\u8bdd\u9996\u5148\u9605\u8bfb\uff09 / 0.1 \u5f53\u524d\u6267\u884c\u95e8\u7981",
+    "6. \u63a5\u4e0b\u6765\u552f\u4e00\u6267\u884c\u987a\u5e8f"
+  ],
+  "base_commit": "3b138f0a6f8cf5713f4d8de57ae374cd15b7c0b7",
+  "base_handoff_sha256": "8b5639b5292571370ea57994e73cc6b4a579d23b1978296829e1faa65c50d90a",
+  "base_registry_sha256": "7d17711b217e12ecbf426db4917c20fb643d4ac8357d838d4a7e71062ab7a4fa",
+  "candidate_replaced_authority": false,
+  "candidate_sha256": "7f7584abf036f78cee96161fa89c872f6d43cb6fc5e7609227f3f8be81b3b03d",
+  "comparison_target": "working_tree",
+  "current_registry_sha256": "7e87c022b167d0e9d356d159fa05684ae77947b2ef40358480f0f5c18ac5d723",
+  "exact_manual_candidate_match": true,
+  "full_candidate_saved": false,
+  "history_preservation_passed": true,
+  "idempotence_passed": true,
+  "llm_blocking_gate_used": false,
+  "manual_handoff_authoritative": true,
+  "manual_sha256": "7f7584abf036f78cee96161fa89c872f6d43cb6fc5e7609227f3f8be81b3b03d",
+  "mode": "shadow",
+  "network_used": false,
+  "observation_kind": "real",
+  "operation_count": 4,
+  "performance": {
+    "base_validation_ms": 101.553,
+    "comparison_and_registry_ms": 509.621,
+    "hard_limit_ms": 15000.0,
+    "policy_and_schema_ms": 6.927,
+    "render_and_idempotence_ms": 55.759,
+    "target_p95_ms": 5000.0,
+    "total_ms": 674.052,
+    "within_hard_limit": true,
+    "within_target": true
+  },
+  "policy_id": "GOV-HANDOFF-INDEX-01",
+  "registry_change_assertions": [
+    {
+      "change_id": "du1-e6-cartesian-add-joint-successor",
+      "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "7f7584abf036f78cee96161fa89c872f6d43cb6fc5e7609227f3f8be81b3b03d"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "7e87c022b167d0e9d356d159fa05684ae77947b2ef40358480f0f5c18ac5d723"
+        },
+        {
+          "path": "src/drpo/du1_e6_cartesian_taper.py",
+          "sha256": "bb5dd664ead2c6e91e5d714b223e011921c2d2c1463c0ab6b1e3274fdd105358"
+        },
+        {
+          "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+          "sha256": "4dc261480de49da7d3bc067e99f31786d3d22e87fc587fd7b1747214531f7dc7"
+        },
+        {
+          "path": "configs/du1_e6_cartesian_taper.yaml",
+          "sha256": "f6dfe9035653c6edcc282b8aed2101421e6b96fbe8d7cb2633f6bd641c3cdd5c"
+        },
+        {
+          "path": "scripts/run_du1_e6_cartesian_taper.py",
+          "sha256": "5be0cd487a1c8abbd0418d9225f3c05ba568e28642abf50608559d6717509cce"
+        },
+        {
+          "path": "tests/test_du1_e6_cartesian_taper.py",
+          "sha256": "7027db403f6b2906a077ba9cb73420eb45e350c8cedbf90b6c0b988f83001673"
+        },
+        {
+          "path": "tests/test_formal_execution_channel.py",
+          "sha256": "8e7fd20dadf3f8a13979539a3687c18f20a988d7e046189a34d3188c37bd3854"
+        }
+      ],
+      "kind": "add_entity"
+    }
+  ],
+  "registry_change_coverage": {
+    "added_entities": [
+      "D-U1-E6-CARTESIAN-TAPER-01"
+    ],
+    "changed_field_count": 0,
+    "declared_assertion_count": 1,
+    "fully_declared": true,
+    "mode": "schema2_complete",
+    "removed_entities": []
+  },
+  "registry_transition_assertions": [],
+  "report_schema_version": 2,
+  "repository_commit": null,
+  "schema_version": 1,
+  "status": "PASS",
+  "update_id": "DU1-E6-CARTESIAN-TAPER-2026-07-02",
+  "validation_worktree_head": "3b138f0a6f8cf5713f4d8de57ae374cd15b7c0b7"
+}

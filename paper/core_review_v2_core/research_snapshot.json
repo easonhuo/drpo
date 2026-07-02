@@ -41,7 +41,7 @@
     },
     "registry": {
       "path": "experiments/registry.yaml",
-      "sha256": "7d17711b217e12ecbf426db4917c20fb643d4ac8357d838d4a7e71062ab7a4fa"
+      "sha256": "7e87c022b167d0e9d356d159fa05684ae77947b2ef40358480f0f5c18ac5d723"
     },
     "spec": {
       "path": "docs/manuscript/paper_spec_core.yaml",
@@ -224,7 +224,7 @@
   "profile": "core_vertical_slice",
   "schema_version": 1,
   "snapshot_kind": "generated_build_input_not_research_master",
-  "snapshot_sha256": "d6dbff47fd05ec7db143259c92a23211c9a93686dcc71dde3c0baadd6599dfbf",
+  "snapshot_sha256": "2901282456b0330cd7010287b3dfdde7e589b6cc5d380d73f5a1731c35e18f42",
   "task_id": "PAPER-PIPELINE-V2-CORE-01",
   "theorem": {
     "claim": "If the unweighted score-times-advantage norm grows at most polynomially in policy-relative remoteness, multiplication by exp(-lambda r), lambda > 0, makes the weighted contribution vanish as r tends to infinity.\n",

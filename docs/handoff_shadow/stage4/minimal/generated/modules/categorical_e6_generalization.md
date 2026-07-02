@@ -7,7 +7,7 @@
 - Responsibility: Cover positive-only ceiling, controlled local-negative benefit, support-boundary separation, semantic alignment, and structured support-gap successors.
 - Content contract topics: none
 - Deduplicated overlapping source chunks: 0
-- Source hash: `f7cf3048f9a2dcc7123122a406baf71769e9948d8af7a395a57a79d866e20383`
+- Source hash: `7cdd882c607bda438036aca201875500cf5e5f13e972f8fcf9b1acca12c31a45`
 
 ## Source 1: docs/handoff.md: ## 3.7.3 E6 共享语义 pilot `D-U1-E6-SEMANTIC-PILOT-01` -> ## 3.8 C-U1 共享实现与二次阶方法实验 `C-U1-E4-TAPER-01`
 
@@ -86,31 +86,60 @@
 > - `EXT-H-E7-Q2` 由 `blocked/blocked` 迁移为 **ready/active**，科学状态仍为 `not_run`。该迁移只开放已经冻结和实现的 Hopper mechanism formal protocol，不代表 E7 已运行或已有结果。`EXT-H-E7-BENCH-01` 继续 blocked，但依赖收缩为 E7-Q2 交付和随后冻结 shortlist，不再依赖可选 E6-TAPER。
 > - 本更新只修改研究治理、路线和相应测试/操作说明；未重跑实验，未更改任何冻结变量、数据规模、seeds、阈值、收敛标准或方法职责。
 
-## Source 6: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v55-du1-e6-semantic-gap-current-gate
+## Source 6: docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v70-du1-e6-cartesian-taper
+
+### Delta block `after_heading:v70-du1-e6-cartesian-taper`
+
+> **v70 增量登记：D-U1 E6 `utility × surprisal` 二维笛卡尔积重构与 E6-TAPER 联合正式协议（不删除 v69 及更早内容）**
+>
+> - 旧 `D-U1-E6-SEMANTIC-LONGRUN-01` 的长期结果完整保留，继续只支持“共享语义表示下，适度方向可靠负信号可突破 Positive-only ceiling，过强负压力会反转”的历史结论。重新审计发现：旧 E6 把 `local/far` 同时用于语义方向角色，未把 directional utility 与 learner-relative rarity/surprisal 做成严格二维笛卡尔积，因此它不能单独承担 E4 的离散对应，也不能直接作为 surprisal taper 的严格方法证据。
+> - 原未实现、未运行的 `D-U1-E6-TAPER-01` development preregistration 原样保留，不改写其历史字段；新正式 successor `D-U1-E6-CARTESIAN-TAPER-01` 取代其后续执行职责，并在同一个 D-U1 环境和一次正式执行中分开报告 E6-Cartesian 机制块与 E6-TAPER 方法块。该合并避免先看正式机制结果再调 taper，同时满足“文档先于实验”和 formal artifact 串行交付门禁。
+> - 新环境使用 32 个 semantic prototypes，每个 prototype 复制为 `common/rare` 两个 unordered categorical action，共 64 actions。复制对具有完全相同的 reward embedding、directional utility 与 fixed negative advantage。策略从 trainable semantic logits 中减去冻结的初始化 reference logits，使 step 0 的 useful/unhelpful 在同一 rarity level 上概率逐状态精确相等；唯一初始 rarity 差异是 trainable action-logit bias 的固定 `4.0` gap。由此形成四格：`useful_common / useful_rare / unhelpful_common / unhelpful_rare`，每个 context 每格一个负样本，数量与 advantage 严格匹配。
+> - utility 轴定义为：在策略方向位于 `t_plus` 附近时，排斥该 semantic prototype 的方向在 `t_plus -> t_star` 上的投影；每个 context 分别选择最大 utility 与最小 utility prototype。rarity 轴只由当前 categorical policy 的 surprisal `-log pi_theta(a|s)` 定义：每次 forward 都在同一 semantic replica pair 内把较高概率成员动态标为 common、较低概率成员动态标为 rare，离散选择 stop-gradient；不再用固定 action ID 或 semantic distance 冒充 policy remoteness。
+> - E6-Cartesian 机制块比较 `positive_only`、四个单格方法、`useful_all / unhelpful_all / common_all / rare_all / all_negative`，回答同一 utility 下 rare 是否更危险、同一 rarity 下 useful 是否更有益，以及 utility × rarity 是否存在交互。子集干预只把未选 cell 置零，保留 cell 始终维持其在四格总体中的 `1/4` 系数，禁止因删除其他 cell 而自动重归一化负梯度预算。
+> - E6-TAPER 方法块在同一四格数据、同一初始化、同一 minibatch stream 与同一 seeds 上比较 `global_matched / reciprocal_linear / reciprocal_quadratic / exponential`。所有 taper 使用同一个 detached normalized excess surprisal：每 seed 在训练前以 common median 为 threshold、以 rare-minus-common median 为 scale 并冻结校准常数；surprisal 本身在每个 optimizer step 由当前 learner 重新计算。
+> - 公平性冻结：common reference coordinate `u=0` 时四种选择性方法 retention 均为 `1`；reference rare coordinate `u=1` 时 reciprocal-linear、reciprocal-quadratic、exponential retention 均为 `0.25`，对应系数分别为 `3.0 / 3.0 / ln(4)`。`global_matched` 只在 step 0 用训练 audit subset 匹配 exponential 的 raw negative-gradient norm，随后冻结；不得匹配 Adam update 或 test metric。
+> - 正式 seeds 冻结为 untouched `200--219`，20 seeds；6D context、4D semantic prototype、2048 train / 2048 test contexts、fixed concentration `8.0`、Adam `lr=1e-3`、negative alpha `0.25`、8000 steps 与 `4000--6000 / 6000--8000` 终态窗口全部预注册。train/test context 独立采样自同一分布，只称 same-distribution held-out-context generalization，不称 OOD。
+> - 任务性能崩溃、support boundary 与 NaN/Inf numerical failure继续分开报告。categorical direct-logit score 有界；本实验不声称 Gaussian 式无界梯度、Transformer 外部有效性、跨任务方法排名或任何 taper 必然最优。
+> - 新实现为 `src/drpo/du1_e6_cartesian_taper.py`，冻结配置 `configs/du1_e6_cartesian_taper.yaml`，一键入口 `scripts/run_du1_e6_cartesian_taper.py`。正式协议固定 CPU、8 个 seed workers；正式启动必须经过 hardened guard，要求 clean worktree、权威 `origin/main` 匹配、每 seed 持久化 trajectories/summary/audit/calibration 后再写 checkpoint marker、完整终态审计和 durable raw-complete artifact。应用本更新后状态为 **implemented + ready + active + not_run**；smoke/unit/static 结果不构成正式科学结果。
+
+## Source 7: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v55-du1-e6-semantic-gap-current-gate
 
 ### Delta block `section_end:v55-du1-e6-semantic-gap-current-gate`
 
 - **D-U1 v55 覆盖：** `D-U1-E6-SEMANTIC-GAP-LONGRUN-01` 已完成 `100/100` 正式 runs、2× horizon 与终态审计，科学状态为 **有限训练步数验证**；45/100 plateau、55/100 persistent-drift-or-inconclusive，禁止稳态方法排名或无新登记重跑。`D-U1-E6-TAPER-01` 的 successor-delivery 条件已满足，但其四项协议/实现门禁仍未完成，继续 review-required + blocked。
 
-## Source 7: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v56-e6-parent-closure-current-gate
+## Source 8: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v56-e6-parent-closure-current-gate
 
 ### Delta block `section_end:v56-e6-parent-closure-current-gate`
 
 - **v56 E6 父 claim 关闭覆盖：** E6 的论文核心 claim 现已范围受限关闭；主 long-run 与两个 gap 子实验的原科学状态分别保持 `long_run_validated / finite_step_validated / finite_step_validated`。`D-U1-E6-TAPER-01` 保留为可选非门禁未来工作。当前下一正式 route item 为 `EXT-H-E7-Q2`，registry 状态为 **implemented + ready + active + not_run**；启动后仍须走 canonical hardened guard，且在 raw-complete、终态审计、打包和交付前不得声称 E7 完成。
 
-## Source 8: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v55-du1-e6-semantic-gap-completion-status
+## Source 9: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v70-du1-e6-cartesian-taper-current-gate
+
+### Delta block `section_end:v70-du1-e6-cartesian-taper-current-gate`
+
+- **D-U1 v70 覆盖：** 原 `D-U1-E6-TAPER-01` development preregistration 原样保留、不得启动；其执行职责由用户批准的 `D-U1-E6-CARTESIAN-TAPER-01` 取代。新 successor 已冻结 utility × surprisal 2×2 Cartesian protocol、独立 runner、正式 seeds 与终态审计，registry 状态为 **implemented + ready + active + not_run**。它在一个 formal artifact 中先报告 Cartesian 机制块、再报告预注册 taper 方法块；smoke/unit/static 结果不构成科学结果。
+
+## Source 10: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v55-du1-e6-semantic-gap-completion-status
 
 ### Delta block `section_end:v55-du1-e6-semantic-gap-completion-status`
 
 **v55 E6 Semantic-Gap 结果补充：** `D-U1-E6-SEMANTIC-GAP-LONGRUN-01` 已完成 100/100 runs。32k 时 `alpha=0.25/0.50` 均 20/20 胜过 Positive-only；`alpha=1.0` 相对差距随 8k→32k 由 `-0.013741` 扩大至 `-0.061085`，20/20 失败。由于仅 45/100 terminal plateau，论文可用状态限定为有限 horizon trajectory 与 paired finite-step claim，不允许全方法稳态排名。三类失效事件分别为 0/100、0/100、0/100。
 
-## Source 9: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v56-e6-parent-closure-execution-order
+## Source 11: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v56-e6-parent-closure-execution-order
 
 ### Delta block `section_end:v56-e6-parent-closure-execution-order`
 
 13. **v56 执行覆盖：** E6 父 claim 已关闭，`D-U1-E6-TAPER-01` 改为可选非门禁 future study；当前直接进入已实现且 registry 为 ready/active 的 `EXT-H-E7-Q2`（E7-MECH）。E7-Q2 仍为 not_run，必须先完成正式运行、终态审计、打包与交付；其后才允许冻结并实施 `EXT-H-E7-BENCH-01`。E8-MECH/V4.3 与 E8-SCALE 的相对顺序不变。
 
-## Source 10: experiments/registry.yaml: experiments[D-U1-E6-SEMANTIC-LONGRUN-01, D-U1-E6-SEMANTIC-GAP-LONGRUN-01, D-U1-E6-CONDITIONAL-GAP-01]
+## Source 12: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v70-du1-e6-cartesian-taper-execution-order
+
+### Delta block `section_end:v70-du1-e6-cartesian-taper-execution-order`
+
+10. **v70 D-U1 successor 覆盖：** `D-U1-E6-CARTESIAN-TAPER-01` 作为一个联合 formal experiment 执行，顺序固定为 environment/preflight audit → E6-Cartesian mechanism methods → preregistered TAPER methods → paired aggregation → 2× terminal audit → hardened packaging/delivery。禁止先查看正式机制结果后修改 taper family、retention、seeds 或阈值；原 `D-U1-E6-TAPER-01` 不再作为独立 runnable experiment。
+
+## Source 13: experiments/registry.yaml: experiments[D-U1-E6-SEMANTIC-LONGRUN-01, D-U1-E6-SEMANTIC-GAP-LONGRUN-01, D-U1-E6-CONDITIONAL-GAP-01, D-U1-E6-CARTESIAN-TAPER-01]
 
 collection: experiments
 entries:
@@ -1079,8 +1108,228 @@ entries:
       terminal_plateau_runs: 49
       persistent_drift_or_inconclusive_runs: 151
       stable_method_ranking_allowed: false
+- id: D-U1-E6-CARTESIAN-TAPER-01
+  environment: D-U1
+  name: utility_surprisal_cartesian_shared_semantic_and_taper
+  status: not_run
+  parent_experiments:
+  - E6
+  - E6-TAPER
+  predecessors:
+  - D-U1-E5-LONGRUN-RERUN
+  - D-U1-E6-SEMANTIC-LONGRUN-01
+  supersedes_preregistration: D-U1-E6-TAPER-01
+  registration_base_commit: 3b138f0a6f8cf5713f4d8de57ae374cd15b7c0b7
+  claim: In one shared-semantic categorical environment where ground-truth directional utility and learner-relative rarity
+    are an exact 2x2 Cartesian product, test whether useful negative signals improve same-distribution held-out-context performance,
+    whether rare negative signals create stronger support suppression independently of utility, and whether current-surprisal
+    tapering preserves useful negative information better than uncontrolled and matched-global controls.
+  role: formal_controlled_categorical_cartesian_mechanism_and_taper_comparison
+  execution_class: formal
+  implementation_state: implemented
+  registry_scope: canonical_formal_execution
+  execution_gate:
+    state: ready
+    blocked_by: []
+    approval_record: user_approved_2026-07-02_utility_x_surprisal_cartesian_joint_protocol
+    blocking_reason: null
+  formal_execution:
+    channel_ref: hardened-v1
+    activation_state: active
+    entrypoint_status: implemented
+    entrypoint: src/drpo/du1_e6_cartesian_taper.py
+    launch_mode: canonical_guard
+    artifact_owner: canonical_channel
+    guard_entrypoint: scripts/run_experiment_guard_hardened.py
+    package_entrypoint: scripts/package_experiment_hardened.py
+    verify_entrypoint: scripts/verify_experiment_package_hardened.py
+    hardened_core: scripts/artifact_protocol_hardened.py
+    artifact_protocol: docs/formal_experiment_artifact_protocol.md
+    inherit_default_artifact_budget: true
+    runner_archive_policy:
+      mode: forbid
+  code_entrypoint: src/drpo/du1_e6_cartesian_taper.py
+  one_click_entrypoint: scripts/run_du1_e6_cartesian_taper.py
+  config_path: configs/du1_e6_cartesian_taper.yaml
+  formal_launch_template: python3 scripts/run_experiment_guard_hardened.py --experiment-id D-U1-E6-CARTESIAN-TAPER-01 --repo-root
+    . --output-root experiments/results/D-U1-E6-CARTESIAN-TAPER-01/run_001 --artifact-output artifacts/D-U1-E6-CARTESIAN-TAPER-01_RAW_COMPLETE.zip
+    --run-class formal --expected-commit "$(git rev-parse HEAD)" --require-origin-main-match --required-output RUN_COMPLETE.json
+    --required-output terminal_audit.json --required-output aggregate_summary.json --required-output mechanism_summary.json
+    --required-output taper_summary.json --required-output per_run_summary.csv --required-output formal_protocol_freeze.json
+    --source-file src/drpo/du1_e6_cartesian_taper.py --source-file configs/du1_e6_cartesian_taper.yaml --progress-glob checkpoints/*/CHECKPOINT_COMPLETE.json
+    -- python3 src/drpo/du1_e6_cartesian_taper.py --config configs/du1_e6_cartesian_taper.yaml --output-root experiments/results/D-U1-E6-CARTESIAN-TAPER-01/run_001
+    --stage formal --device cpu
+  formal_parameter_freeze: true
+  freeze_approval:
+    approved_by_user: true
+    approval_date: '2026-07-02'
+    source: explicit_cartesian_environment_and_joint_implementation_request
+    automatic_retuning_allowed: false
+  development_seeds_forbidden_in_formal_aggregation:
+  - 0
+  - 1
+  - 2
+  - 3
+  - 4
+  held_out_seeds:
+  - 200
+  - 201
+  - 202
+  - 203
+  - 204
+  - 205
+  - 206
+  - 207
+  - 208
+  - 209
+  - 210
+  - 211
+  - 212
+  - 213
+  - 214
+  - 215
+  - 216
+  - 217
+  - 218
+  - 219
+  protocol:
+    fixed_advantage: true
+    critic_or_value_network: false
+    importance_sampling: false
+    state_dim: 6
+    semantic_dim: 4
+    semantic_prototypes: 32
+    rarity_replicas_per_prototype: 2
+    action_count: 64
+    train_states: 2048
+    test_states: 2048
+    state_distribution: standard_normal
+    train_test_relation: independent_same_distribution
+    terminology: same_distribution_held_out_context_generalization
+    positive_prototypes_per_state: 4
+    negative_samples_per_cartesian_cell: 1
+    cartesian_axes:
+      utility: ground_truth_directional_utility_of_repulsion
+      rarity: current_policy_surprisal
+    cartesian_cells:
+    - useful_common
+    - useful_rare
+    - unhelpful_common
+    - unhelpful_rare
+    exact_decoupling:
+      common_rare_pair_same_semantic_prototype: true
+      common_rare_pair_same_reward: true
+      common_rare_pair_same_directional_utility: true
+      all_negative_advantages_equal: true
+      all_cell_sample_counts_equal: true
+      frozen_initial_semantic_reference_subtracted: true
+      useful_unhelpful_probability_matched_within_rarity_at_step_0: true
+      initial_rarity_gap_source: trainable_action_logit_bias
+      initial_rarity_logit_gap: 4.0
+      rarity_roles_reassigned_from_current_pair_surprisal_each_forward: true
+      subset_cells_zeroed_without_remaining_cell_renormalization: true
+    optimizer: Adam
+    learning_rate: 0.001
+    batch_size: 128
+    maximum_steps: 8000
+    evaluation_interval_steps: 100
+    audit_states: 512
+    formal_device: cpu
+    parallel_seed_workers: 8
+    fixed_concentration: 8.0
+    negative_alpha: 0.25
+    methods:
+    - positive_only
+    - useful_common_only
+    - useful_rare_only
+    - unhelpful_common_only
+    - unhelpful_rare_only
+    - useful_all
+    - unhelpful_all
+    - common_all
+    - rare_all
+    - all_negative
+    - global_matched
+    - reciprocal_linear
+    - reciprocal_quadratic
+    - exponential
+    taper_coordinate:
+      definition: relu((current_surprisal - initial_common_median) / initial_rare_minus_common_median)
+      calibration_split: training_audit_subset_only
+      recalibrated_during_training: false
+      current_surprisal_recomputed_each_optimizer_step: true
+      dynamic_common_rare_assignment_within_semantic_pair: true
+      detached: true
+    taper_fairness:
+      common_reference_retention: 1.0
+      rare_reference_coordinate: 1.0
+      rare_reference_retention: 0.25
+      reciprocal_linear_coefficient: 3.0
+      reciprocal_quadratic_coefficient: 3.0
+      exponential_coefficient: 1.3862943611198906
+      global_control: initial_raw_negative_gradient_norm_matched_to_exponential
+    no_method_winner_assumed: true
+  events:
+    task_collapse_ratio_to_paired_positive_only: 0.2
+    effective_support_boundary: 1.5
+  terminal_audit:
+    mode: formal_two_x_windows
+    formal_horizon_steps: 8000
+    window_1_steps:
+    - 4000
+    - 6000
+    window_2_steps:
+    - 6000
+    - 8000
+    metric_window_mean_abs_tolerances:
+      expected_semantic_reward: 0.01
+      hidden_optimal_family_probability: 0.02
+      entropy_mean: 0.08
+      action_bias_gap_mean: 0.2
+    scientific_failure_outcomes_are_results: true
+  checkpointing:
+    seed_block_size: 5
+    persistence: persistent_local
+    write_checkpoint_after_each_completed_seed: true
+    per_seed_payloads:
+    - trajectories.jsonl
+    - per_run_summary.json
+    - environment_audit.json
+    - coordinate_calibration.json
+  reporting_separation:
+  - task_performance_collapse
+  - support_boundary
+  - nan_inf_numerical_failure
+  required_outputs:
+  - RUN_COMPLETE.json
+  - scientific_run_manifest.json
+  - environment_audits.json
+  - coordinate_calibration.json
+  - trajectories.jsonl
+  - per_run_summary.json
+  - per_run_summary.csv
+  - aggregate_summary.json
+  - mechanism_summary.json
+  - taper_summary.json
+  - terminal_audit.json
+  - formal_protocol_freeze.json
+  - run_manifest.json
+  non_claims:
+  - OOD_generalization
+  - Gaussian_unbounded_gradient_law_for_categorical_logits
+  - Transformer_external_validity
+  - cross_task_method_superiority
+  - predeclared_taper_winner
+  evidence:
+    implementation_tests_passed: true
+    run_started: false
+    raw_complete: false
+    terminal_audited: false
+    package_created: false
+    delivered_to_user: false
+    scientific_status: not_run
 
-## Source 11: experiments/registry.yaml: development_experiment_registrations[D-U1-E6-CONDITIONAL-GAP-DEV-01, D-U1-E6-SEMANTIC-PILOT-01, D-U1-E6-SEMANTIC-FOCUSED-DEV-01, D-U1-E6-TAPER-01]
+## Source 14: experiments/registry.yaml: development_experiment_registrations[D-U1-E6-CONDITIONAL-GAP-DEV-01, D-U1-E6-SEMANTIC-PILOT-01, D-U1-E6-SEMANTIC-FOCUSED-DEV-01, D-U1-E6-TAPER-01]
 
 collection: development_experiment_registrations
 entries:

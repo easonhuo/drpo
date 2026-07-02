@@ -3,7 +3,7 @@ policy_id: GOV-HANDOFF-INDEX-01
 authority: non_authoritative_stage4a_shadow_inventory
 source:
   path: experiments/registry.yaml
-  sha256: 7d17711b217e12ecbf426db4917c20fb643d4ac8357d838d4a7e71062ab7a4fa
+  sha256: 7e87c022b167d0e9d356d159fa05684ae77947b2ef40358480f0f5c18ac5d723
 experiments:
 - experiment_id: C-U1-E3-ADAM-RERUN
   registry_index: 1
@@ -452,3 +452,24 @@ experiments:
   classification: resolved_multi
   classification_rationale: Experiment is indexed under its scientific domain and the execution-gate module; external tasks
     also retain their controlled-mechanism dependency.
+- experiment_id: D-U1-E6-CARTESIAN-TAPER-01
+  registry_index: 25
+  environment: D-U1
+  registry_status: not_run
+  role: formal_controlled_categorical_cartesian_mechanism_and_taper_comparison
+  module_ids:
+  - categorical_e5_e6
+  - execution_status_gates
+  claim_ids:
+  - SCI-DU1-E6-GENERALIZATION-01
+  - SCI-NEGATIVE-DUAL-ROLE-01
+  - SCI-CATEGORICAL-BOUNDED-SCORE-01
+  handoff_heading_ids:
+  - H0001
+  - H0003
+  - H0026
+  - H0044
+  - H0046
+  classification: resolved_multi
+  classification_rationale: Experiment is indexed under categorical E5/E6 and the execution-gate module; the Cartesian successor
+    preserves the controlled D-U1 role while separating utility from learner-relative surprisal.

@@ -178,10 +178,10 @@
   ],
   "graph_hash": "0db2d992b651a2ed85d93d68c298214ba6bdbee1ae15b7b7c48d92162a7fb87c",
   "input_hashes": {
-    "docs/handoff.md": "8b5639b5292571370ea57994e73cc6b4a579d23b1978296829e1faa65c50d90a",
+    "docs/handoff.md": "7f7584abf036f78cee96161fa89c872f6d43cb6fc5e7609227f3f8be81b3b03d",
     "docs/handoff_shadow/stage4/minimal/DEPENDENCIES.yaml": "fb19da70ea2db6a35c4320e23a91640d0f21887c46bb79873d9548357271f4da",
-    "docs/handoff_shadow/stage4/minimal/MODULES.yaml": "ad311249e164d12da08108cea9661ad7b57eb10ce13b5d090526d8418e903331",
-    "experiments/registry.yaml": "7d17711b217e12ecbf426db4917c20fb643d4ac8357d838d4a7e71062ab7a4fa"
+    "docs/handoff_shadow/stage4/minimal/MODULES.yaml": "9eb67303232bb2362b8a4571f383687aca0cfd2c25eeb9b8e68733c84b3701e8",
+    "experiments/registry.yaml": "7e87c022b167d0e9d356d159fa05684ae77947b2ef40358480f0f5c18ac5d723"
   },
   "module_order": [
     "global_core_governance",
@@ -242,9 +242,9 @@
       "deduplicated_source_labels": [],
       "depends_on": [],
       "module_id": "global_core_governance",
-      "snapshot_hash": "9cd1234aa006173ab621226593f03750076dfda3be5ec6a8d7f163213d1945c0",
-      "source_chars": 17505,
-      "source_hash": "96e7cd8825d0fef113dc9c7a1dc776af4dc1b13627add94ddd302e01f02b5eab",
+      "snapshot_hash": "79bddceb9306f370f3b5f46e467024a5fa49692a7061a076cc312a1195240d51",
+      "source_chars": 21409,
+      "source_hash": "eb54cd72e382e51a57a0ffb47b22e9511eacc10355ba57b21e71a9f03061fb8b",
       "source_labels": [
         "docs/handoff.md: # 0. 研究与执行原则（每次新会话首先阅读） -> # 1. 论文最终目标与两条主工作线"
       ]
@@ -294,9 +294,9 @@
         "global_core_governance"
       ],
       "module_id": "execution_status_gates",
-      "snapshot_hash": "b91c27a41eb6cb1b36d08b1e9223dff245997c869ef8cafc8a87dbc642d1acfb",
-      "source_chars": 9456,
-      "source_hash": "134040c584696680f62bd50ae09a65995b07e79ecb3af8b97e48561814e56203",
+      "snapshot_hash": "344b0d1efcf4b782449f21d206fec9027fca61affa18113be05269b2bb127090",
+      "source_chars": 9987,
+      "source_hash": "691bba82b3ffad8a9373e9db2fd5b052b79406b639eef9eed4ff985bbe28e2ca",
       "source_labels": [
         "docs/handoff.md: # 5. 当前真实完成状态 -> # 7. 变量治理"
       ]
@@ -478,20 +478,23 @@
         "categorical_e5_mechanism"
       ],
       "module_id": "categorical_e6_generalization",
-      "snapshot_hash": "9df394698c1ceac228a1d1989c4fbdf64f5f9287ae0ed640769120c508b14465",
-      "source_chars": 64319,
-      "source_hash": "f7cf3048f9a2dcc7123122a406baf71769e9948d8af7a395a57a79d866e20383",
+      "snapshot_hash": "2f39c8b1344bcb5eaef4f5932ebebaf6a6f5d3ce67f15937d276556e6f5e8f72",
+      "source_chars": 76277,
+      "source_hash": "7cdd882c607bda438036aca201875500cf5e5f13e972f8fcf9b1acca12c31a45",
       "source_labels": [
         "docs/handoff.md: ## 3.7.3 E6 共享语义 pilot `D-U1-E6-SEMANTIC-PILOT-01` -> ## 3.8 C-U1 共享实现与二次阶方法实验 `C-U1-E4-TAPER-01`",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v50-stage3-shadow-bootstrap",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v51-du1-e6-semantic-gap-formal",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v55-du1-e6-semantic-gap-result-closure",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v56-e6-parent-closure-route-release",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v70-du1-e6-cartesian-taper",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v55-du1-e6-semantic-gap-current-gate",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v56-e6-parent-closure-current-gate",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v70-du1-e6-cartesian-taper-current-gate",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v55-du1-e6-semantic-gap-completion-status",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v56-e6-parent-closure-execution-order",
-        "experiments/registry.yaml: experiments[D-U1-E6-SEMANTIC-LONGRUN-01, D-U1-E6-SEMANTIC-GAP-LONGRUN-01, D-U1-E6-CONDITIONAL-GAP-01]",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v70-du1-e6-cartesian-taper-execution-order",
+        "experiments/registry.yaml: experiments[D-U1-E6-SEMANTIC-LONGRUN-01, D-U1-E6-SEMANTIC-GAP-LONGRUN-01, D-U1-E6-CONDITIONAL-GAP-01, D-U1-E6-CARTESIAN-TAPER-01]",
         "experiments/registry.yaml: development_experiment_registrations[D-U1-E6-CONDITIONAL-GAP-DEV-01, D-U1-E6-SEMANTIC-PILOT-01, D-U1-E6-SEMANTIC-FOCUSED-DEV-01, D-U1-E6-TAPER-01]"
       ]
     },
@@ -613,5 +616,5 @@
     "terminal_audit"
   ],
   "structure_change_policy": "suggestion_only_human_approval_required",
-  "suggestion_count": 2
+  "suggestion_count": 3
 }

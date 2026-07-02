@@ -18,7 +18,7 @@
 
 ## Owned source blocks
 
-<!-- STAGE4B-SOURCE-BLOCK:B000103:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000106:START -->
 # 8. v4-v10 版本审计与恢复策略
 
 | 版本 | 主要新增 | 是否保持累加 | 当前处理 |
@@ -32,8 +32,8 @@
 | v10 | Hopper learned-critic probe | 独立报告 | 合入外部验证状态；明确 600-step 限制 |
 | saturation audit | 部分稳定外推子实验长程复核 | 独立报告 | 合入收敛规范与修正结果；不得冒充全部实验审计 |
 
-<!-- STAGE4B-SOURCE-BLOCK:B000103:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000104:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000106:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000107:START -->
 ## 8.1 为什么 v8 删除是不合理的
 
 当时将“压缩重复”错误实现为“删除历史环境、related work、实验 provenance 和多版计划”。这些内容对于论文定位、避免重复劳动和追踪结论来源都是必要的。正确方式应是：
@@ -48,4 +48,4 @@
 
 ---
 
-<!-- STAGE4B-SOURCE-BLOCK:B000104:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000107:END -->

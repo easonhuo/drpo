@@ -18,7 +18,7 @@
 
 ## Owned source blocks
 
-<!-- STAGE4B-SOURCE-BLOCK:B000054:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000056:START -->
 ### 3.6.2 E4：稳定外推—相变—远场控制
 
 1. **正式 seeds：** 开发 seeds 5–9 只用于确定扫描区间、学习率和 far-pressure 强度；正式 held-out seeds 50–69，所有方法配对。
@@ -31,8 +31,8 @@
 8. **方向与影响诊断：** 逐负动作报告其梯度与真实 improvement update 的 cosine、score norm、全参数 influence；检验局部有益方向与远场低/反向 utility 是否同时伴随更大 influence。
 9. **正式验收：** （a）20/20 或统计显著多数策略越过 `a_plus`；（b）held-out `a_star` reward 高于 positive-only；（c）reward 对负推力呈倒 U 型或存在明确相变；（d）Far-cap 在远场压力下恢复有益外推且不崩溃；（e）相对等预算 global 的差异用 paired bootstrap CI 报告，不预设 Distance 必然胜出。
 
-<!-- STAGE4B-SOURCE-BLOCK:B000054:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000055:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000056:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000057:START -->
 ### 3.6.3 E4 数值配置冻结与一次执行流程纠正
 
 开发 seeds 5–9 得到以下预注册配置：
@@ -46,8 +46,8 @@
 
 **执行流程纠正：** 在本小节写入前曾误启动固定方差正式 driver，产生 12 个未完成结果。发现“精确网格尚未先回写文档”后立即停止；这些文件未删除，整体移动到 `e4_pre_freeze_fixed_pilot_091632/`，只作 provenance，不进入正式统计。正式 E4 必须在本小节冻结后从空目录重新运行。
 
-<!-- STAGE4B-SOURCE-BLOCK:B000055:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000056:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000057:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000058:START -->
 ### 3.6.4 E4 控制分支的精确长程配置
 
 - `positive_only` 与 `local_only(alpha=1.0)` 直接复用同 seeds 的正式局部扫描结果，不重复训练。
@@ -56,8 +56,8 @@
 - `budget_matched_global` 在每一步将原始全部负梯度统一缩放，使其 post-control norm 与 Far-cap 完全相同；允许缩放系数大于 1，因为原始 local/far 分量可能方向抵消。该对照匹配的是实际净负梯度预算，而不是预设“只能缩小”。
 - 正式方向诊断在 positive-only 初始化处对 8 个等 advantage 负动作分别计算全参数 update norm、标准化距离及与真实 improvement update 的 cosine；20 seeds 配对汇总。
 
-<!-- STAGE4B-SOURCE-BLOCK:B000056:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000057:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000058:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000059:START -->
 ### 3.6.5 v29 统一 Adam 执行覆盖（当前有效协议）
 
 本节覆盖 3.6.3、3.6.4 和 11.4 中的 SGD/LBFGS 执行细节；旧内容保留作 provenance。
@@ -70,8 +70,8 @@
 6. 主文只保留最短因果链和倒 U 型相变；Global、Far-to-near、budget-matched controls 进入附录，不把优化器细节拆成多条主叙事。
 7. 正式命令必须按 stage 分开执行；`--stage all` 只允许 smoke。
 
-<!-- STAGE4B-SOURCE-BLOCK:B000057:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000058:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000059:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000060:START -->
 ### 3.6.6 `C-U1-E4-CONV-01` 长程终态确认（v33 当前有效协议）
 
 1. **实验职责：** 仅确认原 E4 固定方差 `alpha=0.75/1.00/1.25` 的长期状态是否反转。它不重跑可学习方差、控制方法、`alpha=1.50/1.75`，也不新增方法排名。
@@ -86,4 +86,4 @@
 
 ---
 
-<!-- STAGE4B-SOURCE-BLOCK:B000058:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000060:END -->
