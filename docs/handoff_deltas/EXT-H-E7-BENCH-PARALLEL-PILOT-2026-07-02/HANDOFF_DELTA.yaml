@@ -1,0 +1,380 @@
+schema_version: 2
+update_id: EXT-H-E7-BENCH-PARALLEL-PILOT-2026-07-02
+mode: shadow
+base:
+  commit: da5488ce13d0d6512b211ba4c68c9cdcd3fa49fc
+  handoff_sha256: 2c8c0ca7ced80ee0a90a7aa5defab461125d1b5002144713488ca1a7edeff548
+  registry_sha256: a5c28b65f172db571f3f1aedba0a37a1863bcb9704f82a815bbdc0d37192c89d
+renderer_version: 1
+operations:
+- operation_id: rename-v68-title-to-v69-e7-bench-pilot
+  op: replace_heading
+  heading_path:
+  - DRPO / SNA2C 远场负梯度动力学研究主文档 v68（Hopper E7-Q2 长程机制结果闭环版）
+  new_heading: DRPO / SNA2C 远场负梯度动力学研究主文档 v69（E7-BENCH 并行 Pilot 注册与实现版）
+  reason: Register the E7-BENCH pilot and parallel execution topology without changing
+    completed E7-Q2 evidence.
+- operation_id: insert-v69-e7-bench-parallel-pilot
+  op: insert_after_heading
+  heading_path:
+  - 0. 研究与执行原则（每次新会话首先阅读）
+  block_id: v69-e7-bench-parallel-pilot
+  content: '> **v69 增量登记：`EXT-H-E7-BENCH-01` 两数据集并行 Pilot 与正式并行拓扑（不删除 v68 及更早内容）**
+
+    >
+
+    > - 本版不新增顶层实验 ID；在既有 `EXT-H-E7-BENCH-01` 下登记一个 **pilot** 子阶段。Pilot 只检查数据加载、learned-critic/actor/rollout
+    链路、连续 taper 实现、运行成本、artifact 体积、断点恢复及初步 paired direction，不得填入正式 9-task 主表，不得据此更换方法族、按任务调参或升级正式科学状态。
+
+    > - Pilot development seeds 冻结为 `200, 201, 202, 203`。方法冻结为 `Positive-only`、`Signed`、`Global
+    alpha=0.75`、`Reciprocal-Linear`、`Reciprocal-Quadratic`、`Exponential`。三种 taper
+    沿用 `C-U1-E4-TAPER-NEAR-RETENTION-01` development seeds `0--4` 的冻结系数：`0.4362580032734791`、`0.5520268617673281`、`0.374162511054291`；标准化距离
+    reference/near boundary 均为 `5.0`，禁止 D4RL 后验重调。
+
+    > - 两个上传数据单元必须按真实 provenance 区分：`hopper-medium-expert-v2` 是 legacy D4RL-v2 HDF5，使用
+    Hopper-v4 与 D4RL-v2 normalized return；上传的 `mujoco/hopper/medium-v0` metadata 明确属于
+    **Minari Hopper-v5**，不是 D4RL `hopper-medium-v2`，因此只作为 pilot/plumbing cell、只报告
+    raw return，不能计入正式 D4RL 9-task 主表。正式 Hopper-medium cell 仍需另行冻结精确 D4RL 版本。
+
+    > - Pilot 固定预算为：每数据集一个 canonical critic `20k` optimizer steps、每 `(dataset, seed)`
+    Positive-only `20k` steps、其余每个 method branch `40k` steps；只有 NaN/Inf 可提前终止。固定 horizon
+    不等于收敛，仍需分开报告任务性能崩溃、support/variance boundary、NaN/Inf 与 persistent/slow drift。
+
+    > - 为使用 384 核 CPU，执行器冻结为三阶段并行：`2` 个 dataset critic workers 并行；`8` 个 `(dataset,
+    seed)` Positive-only workers 并行；`40` 个 `(dataset, seed, method)` branch workers
+    并行。线程预算分别为 `64/32/8`，峰值 `320` threads，保留系统和 I/O 余量。seed 与 method 均禁止顶层串行；每个 branch
+    从对应的同一 Positive-only checkpoint 分叉，输出目录隔离，resume 粒度为 `dataset_seed_method`。
+
+    > - 正式 9-task E7-BENCH 同步登记为 staged resource-pool 并行，branch scheduling unit 为
+    `task_seed_method`，禁止 serial seed loop 与 serial method loop；但正式 exact D4RL versions、formal
+    seeds、offline-RL base、optimizer 和 full budget 尚未冻结，故 formal activation 继续 blocked。Pilot
+    ready 不等于 formal ready。
+
+    > - 新入口为 `src/drpo/e7_bench.py`、`scripts/run_e7_bench.py`，配置为 `configs/e7_bench_pilot.yaml`，协议说明为
+    `docs/e7_bench_pilot.md`。当前仅完成实现、静态/单元、真实数据 loader 与 canonical critic 短程 smoke；当前环境缺少
+    `gymnasium`，因此 actor/rollout 短程 smoke 未执行。该限制不等于 Pilot 已运行，更不支持任何方法优于 Positive-only。正式启动时
+    runner 会在长程 critic 之前预检 384 核线程预算、Gymnasium/MuJoCo 环境及数据—环境维度一致性。'
+registry:
+  mode: expected_after
+  expected_after_sha256: 7d17711b217e12ecbf426db4917c20fb643d4ac8357d838d4a7e71062ab7a4fa
+  changes:
+  - change_id: e7-bench-pilot-01
+    kind: update_field
+    entity_id: EXT-H-E7-BENCH-01
+    field_path:
+    - code_entrypoint
+    from: null
+    to: src/drpo/e7_bench.py
+    reason: Register and implement the two-dataset four-seed pilot under the existing
+      E7-BENCH ID, freeze the controlled taper shortlist without D4RL retuning, and
+      require staged task-seed-method parallelism for pilot and formal execution.
+    evidence: &id001
+    - docs/handoff.md
+    - experiments/registry.yaml
+    - configs/e7_bench_pilot.yaml
+    - docs/e7_bench_pilot.md
+    - src/drpo/e7_bench.py
+    - scripts/run_e7_bench.py
+    - outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json
+  - change_id: e7-bench-pilot-02
+    kind: update_field
+    entity_id: EXT-H-E7-BENCH-01
+    field_path:
+    - controlled_shortlist_freeze
+    from: null
+    to:
+      state: satisfied
+      source_experiment: C-U1-E4-TAPER-NEAR-RETENTION-01
+      source_scope: development_seeds_0_to_4_only
+      target_average_near_retention: 0.75
+      standardized_distance_reference: 5.0
+      coefficients:
+        reciprocal_linear: 0.4362580032734791
+        reciprocal_quadratic: 0.5520268617673281
+        exponential: 0.374162511054291
+      global_alpha: 0.75
+      d4rl_retuning_allowed: false
+    reason: Register and implement the two-dataset four-seed pilot under the existing
+      E7-BENCH ID, freeze the controlled taper shortlist without D4RL retuning, and
+      require staged task-seed-method parallelism for pilot and formal execution.
+    evidence: *id001
+  - change_id: e7-bench-pilot-03
+    kind: update_field
+    entity_id: EXT-H-E7-BENCH-01
+    field_path:
+    - evidence
+    - code_committed
+    from: false
+    to: true
+    reason: Register and implement the two-dataset four-seed pilot under the existing
+      E7-BENCH ID, freeze the controlled taper shortlist without D4RL retuning, and
+      require staged task-seed-method parallelism for pilot and formal execution.
+    evidence: *id001
+  - change_id: e7-bench-pilot-04
+    kind: update_field
+    entity_id: EXT-H-E7-BENCH-01
+    field_path:
+    - evidence
+    - formal_run_started
+    from: null
+    to: false
+    reason: Register and implement the two-dataset four-seed pilot under the existing
+      E7-BENCH ID, freeze the controlled taper shortlist without D4RL retuning, and
+      require staged task-seed-method parallelism for pilot and formal execution.
+    evidence: *id001
+  - change_id: e7-bench-pilot-05
+    kind: update_field
+    entity_id: EXT-H-E7-BENCH-01
+    field_path:
+    - evidence
+    - pilot_run_started
+    from: null
+    to: false
+    reason: Register and implement the two-dataset four-seed pilot under the existing
+      E7-BENCH ID, freeze the controlled taper shortlist without D4RL retuning, and
+      require staged task-seed-method parallelism for pilot and formal execution.
+    evidence: *id001
+  - change_id: e7-bench-pilot-06
+    kind: update_field
+    entity_id: EXT-H-E7-BENCH-01
+    field_path:
+    - execution_gate
+    - blocked_by
+    from:
+    - controlled_method_shortlist_freeze
+    to:
+    - formal_protocol_lock
+    reason: Register and implement the two-dataset four-seed pilot under the existing
+      E7-BENCH ID, freeze the controlled taper shortlist without D4RL retuning, and
+      require staged task-seed-method parallelism for pilot and formal execution.
+    evidence: *id001
+  - change_id: e7-bench-pilot-07
+    kind: update_field
+    entity_id: EXT-H-E7-BENCH-01
+    field_path:
+    - execution_gate
+    - blocking_reason
+    from: EXT-H-E7-Q2 is now terminal-audited, delivered, and scientifically closed.
+      The large public benchmark remains blocked until the controlled-method shortlist
+      is frozen without D4RL retuning and the benchmark implementation/protocol versions
+      are registered.
+    to: EXT-H-E7-Q2 is scientifically closed and the controlled three-family taper
+      shortlist is now frozen without D4RL retuning. The registered two-dataset pilot
+      is ready, but the formal nine-task benchmark remains blocked until exact D4RL
+      versions, formal seeds, base algorithm, optimizer, and full budgets are frozen.
+    reason: Register and implement the two-dataset four-seed pilot under the existing
+      E7-BENCH ID, freeze the controlled taper shortlist without D4RL retuning, and
+      require staged task-seed-method parallelism for pilot and formal execution.
+    evidence: *id001
+  - change_id: e7-bench-pilot-08
+    kind: update_field
+    entity_id: EXT-H-E7-BENCH-01
+    field_path:
+    - formal_execution
+    - entrypoint
+    from: null
+    to: src/drpo/e7_bench.py
+    reason: Register and implement the two-dataset four-seed pilot under the existing
+      E7-BENCH ID, freeze the controlled taper shortlist without D4RL retuning, and
+      require staged task-seed-method parallelism for pilot and formal execution.
+    evidence: *id001
+  - change_id: e7-bench-pilot-09
+    kind: update_field
+    entity_id: EXT-H-E7-BENCH-01
+    field_path:
+    - formal_execution
+    - entrypoint_status
+    from: planned
+    to: implemented
+    reason: Register and implement the two-dataset four-seed pilot under the existing
+      E7-BENCH ID, freeze the controlled taper shortlist without D4RL retuning, and
+      require staged task-seed-method parallelism for pilot and formal execution.
+    evidence: *id001
+  - change_id: e7-bench-pilot-10
+    kind: update_field
+    entity_id: EXT-H-E7-BENCH-01
+    field_path:
+    - formal_parallel_contract
+    from: null
+    to:
+      state: registered_required_topology
+      task_count: 9
+      parallel_unit: task_seed_method
+      scheduler: staged_resource_pool_subprocess_workers
+      serial_seed_loop_forbidden: true
+      serial_method_loop_forbidden: true
+      identical_positive_checkpoint_per_task_seed: true
+      isolated_output_per_task_seed_method: true
+      resume_granularity: task_seed_method
+      exact_worker_counts: pending_with_formal_seed_freeze
+    reason: Register and implement the two-dataset four-seed pilot under the existing
+      E7-BENCH ID, freeze the controlled taper shortlist without D4RL retuning, and
+      require staged task-seed-method parallelism for pilot and formal execution.
+    evidence: *id001
+  - change_id: e7-bench-pilot-11
+    kind: update_field
+    entity_id: EXT-H-E7-BENCH-01
+    field_path:
+    - implementation_state
+    from: not_implemented
+    to: pilot_implemented_formal_parallel_scaffold
+    reason: Register and implement the two-dataset four-seed pilot under the existing
+      E7-BENCH ID, freeze the controlled taper shortlist without D4RL retuning, and
+      require staged task-seed-method parallelism for pilot and formal execution.
+    evidence: *id001
+  - change_id: e7-bench-pilot-12
+    kind: update_field
+    entity_id: EXT-H-E7-BENCH-01
+    field_path:
+    - one_click_entrypoint
+    from: null
+    to: scripts/run_e7_bench.py
+    reason: Register and implement the two-dataset four-seed pilot under the existing
+      E7-BENCH ID, freeze the controlled taper shortlist without D4RL retuning, and
+      require staged task-seed-method parallelism for pilot and formal execution.
+    evidence: *id001
+  - change_id: e7-bench-pilot-13
+    kind: update_field
+    entity_id: EXT-H-E7-BENCH-01
+    field_path:
+    - pilot_config_path
+    from: null
+    to: configs/e7_bench_pilot.yaml
+    reason: Register and implement the two-dataset four-seed pilot under the existing
+      E7-BENCH ID, freeze the controlled taper shortlist without D4RL retuning, and
+      require staged task-seed-method parallelism for pilot and formal execution.
+    evidence: *id001
+  - change_id: e7-bench-pilot-14
+    kind: update_field
+    entity_id: EXT-H-E7-BENCH-01
+    field_path:
+    - pilot_execution
+    from: null
+    to:
+      execution_class: pilot
+      scientific_status: not_run
+      execution_gate:
+        state: ready
+        blocked_by: []
+      purpose:
+      - verify_two_dataset_loading_and_rollout_compatibility
+      - verify_frozen_taper_method_implementation
+      - estimate_runtime_and_artifact_volume
+      - verify_terminal_audit_and_parallel_resume
+      formal_evidence_allowed: false
+      method_family_or_coefficient_retuning_allowed: false
+      development_seeds:
+      - 200
+      - 201
+      - 202
+      - 203
+      methods:
+      - positive_only
+      - signed
+      - global_alpha
+      - reciprocal_linear
+      - reciprocal_quadratic
+      - exponential
+      datasets:
+      - id: hopper-medium-minari-v0
+        exact_sha256: 17c1b07d01ce461bb9b2866ad0356c542678b66b886b5ed6c066733a75c52c84
+        format: minari_episode_hdf5
+        environment: Hopper-v5
+        metric: raw_return_only
+        formal_nine_task_cell_eligible: false
+        reason: uploaded medium file is Minari Hopper-v5 rather than D4RL hopper-medium-v2
+      - id: hopper-medium-expert-v2
+        exact_sha256: 9d51ad87f8c905be3880d84c6140bcdb7fbf39a19e046a237f238ba34fec9e26
+        format: legacy_d4rl_hdf5
+        environment: Hopper-v4
+        metric: d4rl_v2_normalized_return_percent
+        formal_nine_task_cell_eligible: true
+      fixed_budget:
+        critic_optimizer_steps: 20000
+        positive_only_optimizer_steps: 20000
+        branch_optimizer_steps: 40000
+        early_stop_rule: nan_inf_numerical_failure_only
+        fixed_horizon_is_not_convergence: true
+      parallel_execution:
+        scheduler: three_stage_subprocess_worker_pool
+        stages:
+        - parallel_canonical_critics
+        - parallel_positive_checkpoints
+        - parallel_task_seed_method_branches
+        parallel_unit: dataset_seed_method
+        critic_workers: 2
+        positive_workers: 8
+        branch_workers: 40
+        critic_cpus_per_worker: 64
+        positive_cpus_per_worker: 32
+        branch_cpus_per_worker: 8
+        peak_registered_cpu_threads: 320
+        server_cpu_capacity: 384
+        serial_seed_loop_forbidden: true
+        serial_method_loop_forbidden: true
+        resume_granularity: dataset_seed_method
+    reason: Register and implement the two-dataset four-seed pilot under the existing
+      E7-BENCH ID, freeze the controlled taper shortlist without D4RL retuning, and
+      require staged task-seed-method parallelism for pilot and formal execution.
+    evidence: *id001
+  - change_id: e7-bench-pilot-15
+    kind: update_field
+    entity_id: EXT-H-E7-BENCH-01
+    field_path:
+    - pilot_protocol_document
+    from: null
+    to: docs/e7_bench_pilot.md
+    reason: Register and implement the two-dataset four-seed pilot under the existing
+      E7-BENCH ID, freeze the controlled taper shortlist without D4RL retuning, and
+      require staged task-seed-method parallelism for pilot and formal execution.
+    evidence: *id001
+  - change_id: e7-bench-pilot-16
+    kind: update_field
+    entity_id: EXT-H-E7-BENCH-01
+    field_path:
+    - prerequisite_status
+    - controlled_method_shortlist_freeze
+    from: pending
+    to: satisfied_without_d4rl_retuning
+    reason: Register and implement the two-dataset four-seed pilot under the existing
+      E7-BENCH ID, freeze the controlled taper shortlist without D4RL retuning, and
+      require staged task-seed-method parallelism for pilot and formal execution.
+    evidence: *id001
+  - change_id: e7-bench-pilot-17
+    kind: update_field
+    entity_id: EXT-H-E7-BENCH-01
+    field_path:
+    - prerequisite_status
+    - formal_protocol_lock
+    from: null
+    to: pending
+    reason: Register and implement the two-dataset four-seed pilot under the existing
+      E7-BENCH ID, freeze the controlled taper shortlist without D4RL retuning, and
+      require staged task-seed-method parallelism for pilot and formal execution.
+    evidence: *id001
+  - change_id: e7-bench-pilot-18
+    kind: update_field
+    entity_id: EXT-H-E7-BENCH-01
+    field_path:
+    - prerequisite_status
+    - pilot_execution
+    from: null
+    to: ready_not_run
+    reason: Register and implement the two-dataset four-seed pilot under the existing
+      E7-BENCH ID, freeze the controlled taper shortlist without D4RL retuning, and
+      require staged task-seed-method parallelism for pilot and formal execution.
+    evidence: *id001
+  - change_id: e7-bench-pilot-19
+    kind: update_field
+    entity_id: EXT-H-E7-BENCH-01
+    field_path:
+    - protocol_lock_status
+    from: seeds_optimizer_base_algorithm_and_exact_versions_pending_before_implementation
+    to: pilot_frozen_and_implemented_formal_exact_versions_seeds_optimizer_base_algorithm_pending
+    reason: Register and implement the two-dataset four-seed pilot under the existing
+      E7-BENCH ID, freeze the controlled taper shortlist without D4RL retuning, and
+      require staged task-seed-method parallelism for pilot and formal execution.
+    evidence: *id001
+expected:
+  candidate_sha256: 8b5639b5292571370ea57994e73cc6b4a579d23b1978296829e1faa65c50d90a
+  manual_sha256: 8b5639b5292571370ea57994e73cc6b4a579d23b1978296829e1faa65c50d90a

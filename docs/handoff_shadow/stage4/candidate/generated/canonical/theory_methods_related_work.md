@@ -18,17 +18,17 @@
 
 ## Owned source blocks
 
-<!-- STAGE4B-SOURCE-BLOCK:B000211:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000212:START -->
 # Part III. v9 Exponential-Family 核心理论补丁（完整保留）
 
 > 本节保留 v9 理论正文。它是原 DRPO repulsive dynamics 的统一数学升级，不是另起一套与原理论无关的框架。涉及过多符号的部分在后续论文精简时调整，但研究主文档不删除。
 
-<!-- STAGE4B-SOURCE-BLOCK:B000211:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000212:START -->
-# 2. 大一统理论：Repulsive Signed-Moment Dynamics
-
 <!-- STAGE4B-SOURCE-BLOCK:B000212:END -->
 <!-- STAGE4B-SOURCE-BLOCK:B000213:START -->
+# 2. 大一统理论：Repulsive Signed-Moment Dynamics
+
+<!-- STAGE4B-SOURCE-BLOCK:B000213:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000214:START -->
 ## 2.1 研究对象、记号与结论层级
 
 对每个状态 s 条件化后，把正优势和负优势样本分别写成加权分布 P₊(a\|s)、P₋(a\|s)。令正质量 p(s)=E\[A₊\|s\]，负质量 q(s)=E\[(-A)₊\|s\]；全局 α、样本权重或方法控制均被吸收到 q 和 P₋ 中。基础理论先假设 actor step 内 advantage stop-gradient，随后再讨论 value/Q 随时间变化。
@@ -39,8 +39,8 @@ $$
 
 理论分成三层：第一层是任意可微策略都成立的单样本 surprisal 递推；第二层是在正则最小指数族中成立的 signed-moment 平衡定理；第三层才是 Gaussian、categorical、神经网络与具体控制方法的分叉推论。这样既保留 general 形式，也避免把 expected Fisher 当成固定样本动力学。
 
-<!-- STAGE4B-SOURCE-BLOCK:B000213:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000214:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000214:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000215:START -->
 ## 2.2 定理 1：单个负优势更新必然提高该样本 surprisal
 
 令 z=(s,a)，Sθ(z)=−logπθ(a\|s)，gθ(z)=∇θlogπθ(a\|s)。对固定负优势 A(z)=−c\<0，单样本梯度上升为：
@@ -75,8 +75,8 @@ $$
 
 这一定理是连续与离散的共同主干：负更新不是“静态降低概率”，而是把同一样本沿当前策略的 score geometry 持续推向更低支持。
 
-<!-- STAGE4B-SOURCE-BLOCK:B000214:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000215:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000215:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000216:START -->
 ## 2.3 批量更新：自项、跨样本干涉与方向一致性
 
 单样本单调性不能无条件提升为“batch 中每个负样本 surprisal 都单调增加”。令 batch field F=ΣⱼAⱼgⱼ，则样本 i 的首阶变化为：
@@ -95,8 +95,8 @@ $$
 $$
 
 
-<!-- STAGE4B-SOURCE-BLOCK:B000215:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000216:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000216:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000217:START -->
 ## 2.4 定理 2：正则最小指数族中的 signed-moment 平衡
 
 考虑固定状态下的正则最小指数族：
@@ -152,8 +152,8 @@ $$
 | full softmax categorical     | one-hot eₐ        | 概率单纯形      | 某些 signed probability≤0，logit gap→∞                         |
 | feature / energy categorical | 动作特征 φ(a)     | 特征凸包内部    | 目标 feature moment 越界或贴边，support / temperature collapse |
 
-<!-- STAGE4B-SOURCE-BLOCK:B000216:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000217:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000217:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000218:START -->
 ## 2.5 Gaussian 推论 A：固定方差下的稳定外推与均值相变
 
 对 π=N(μ,σ²)，固定 σ。设正负动作均值为 m₊、m₋，有效质量为 p、q。均值动力学为：
@@ -188,8 +188,8 @@ $$
 
 稳定步长要求 0\<h(p−q)/σ²\<2。q=p 时若 m₊≠m₋，吸引与排斥曲率抵消，出现持续漂移；q\>p 时均值固定点失去稳定性并产生 runaway。
 
-<!-- STAGE4B-SOURCE-BLOCK:B000217:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000218:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000218:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000219:START -->
 ## 2.6 Gaussian 推论 B：可学习方差的联合稳态与提前失稳
 
 令 ξ=logσ，正负条件方差分别为 v₊、v₋，并定义 M±(μ)=v±+(μ−m±)²。精确动力学为：
@@ -254,8 +254,8 @@ $$
 
 所以只要内部解存在且 p\>q，均值和 log-std 都局部稳定；实验中观察到的“方差先坍缩”不是固定点不稳定，而是 signed target 先离开 Gaussian 可行 moment 域，使有限固定点直接消失。
 
-<!-- STAGE4B-SOURCE-BLOCK:B000218:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000219:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000219:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000220:START -->
 ## 2.7 Gaussian 推论 C：方差四象限、单样本 MLE 与远场幅度放大
 
 $$
@@ -297,8 +297,8 @@ $$
 
 固定 σ 且只重复一个负样本时，δₜ=μₜ−a 满足精确递推 δₜ₊₁=(1+hc/σ²)δₜ，故均值距离和 mean-score 关于训练步数几何增长。可学习方差时，远场负样本同时使 μ 远离、σ 收缩，通常进一步放大标准化距离；但不应再无条件声称 μ 与 σ 都“expand”。
 
-<!-- STAGE4B-SOURCE-BLOCK:B000219:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000220:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000220:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000221:START -->
 ## 2.7A Gaussian 远场负梯度的二次临界衰减定理（v30，已解析证明）
 
 本节只证明同一 Gaussian 标准化距离上的控制阶数，不把 surprisal 替换成距离，也不把任务 reward 排名写进定理。考虑动作维数为 `D` 的 isotropic Gaussian：
@@ -329,8 +329,8 @@ $$
 }
 $$
 
-<!-- STAGE4B-SOURCE-BLOCK:B000220:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000221:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000221:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000222:START -->
 ### 定理 3（pre-boundary 区域中的二次远场界）
 
 假设负优势幅度满足 `0<c_min<=c<=c_max<infinity`，并且只在 support/variance boundary 之前的正则区域讨论，即存在 `sigma_min>0` 使 `sigma_theta(s)>=sigma_min`。令 `d>=d_0=max{1,sqrt(2D)}`，则存在与 `d` 无关的正常数 `C_1,C_2`，使
@@ -368,8 +368,8 @@ $$
 
 该定理说的是**固定时刻、同一标准化距离上的单样本输出梯度**。它不等同于 advantage 自身二次增长，也不声称神经网络全参数梯度无条件具有严格二次下界。
 
-<!-- STAGE4B-SOURCE-BLOCK:B000221:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000222:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000222:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000223:START -->
 ### 定理 4（reciprocal-polynomial 的二次临界阶）
 
 令距离权重 stop-gradient，并定义
@@ -428,8 +428,8 @@ $$
 
 由 `d^2e^{-lambda d/d_ref}->0`，加权影响趋零。
 
-<!-- STAGE4B-SOURCE-BLOCK:B000222:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000223:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000223:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000224:START -->
 ### 命题 5（同一参考衰减下的有限距离选择性）
 
 固定 `rho in (0,1)`，令 `lambda=rho^{-1}-1`、`u=d/d_ref`，则
@@ -455,8 +455,8 @@ $$
 
 因此在相同 `d_ref` 和参考强度下，二次方法同时具有“近场保留更多、远场压制更强”的解析性质。该命题不需要渐近极限，但仍不推出任务 reward 必然更高。
 
-<!-- STAGE4B-SOURCE-BLOCK:B000223:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000224:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000224:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000225:START -->
 ### 对角 Gaussian 推论
 
 对一般 diagonal Gaussian，令
@@ -489,8 +489,8 @@ $$
 
 当 `d^2>=2D` 时，log-scale 联合分支被上下界为常数倍 `d^2`。若各维 `sigma_j>=sigma_min>0`，mean 分支也至多为 `O(d^2)`，故 diagonal Gaussian 的联合 policy-output 梯度仍为 `Theta(d^2)`，定理 4 的临界阶 `p=2` 不变。该推论覆盖后续 state-conditioned diagonal Gaussian 外部验证；tanh-squashed actor 必须在 frozen inverse-squash/base-Gaussian 坐标中使用此距离。
 
-<!-- STAGE4B-SOURCE-BLOCK:B000224:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000225:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000225:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000226:START -->
 ### 神经网络 pullback、例外与可声明边界
 
 令 `J_theta(s)=partial(mu_theta,xi_theta)/partial theta`，则
@@ -518,8 +518,8 @@ $$
 7. 本定理证明控制强度和有界性，不证明 Quadratic、Exp 或其他方法的任务性能排名。
 
 
-<!-- STAGE4B-SOURCE-BLOCK:B000225:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000226:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000226:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000227:START -->
 ## 2.8 Categorical 推论 A：有界单步 score 仍可把策略推到 simplex 边界
 
 对 K 类 full-softmax，logits 为 z，π=softmax(z)。单独重复负更新动作 j，A=−c：
@@ -558,8 +558,8 @@ $$
 
 Entropy 不是这一动力学的充分统计量：抑制高概率负动作时 entropy 可以先升高，抑制低概率负动作时 entropy 可直接下降；两种路径都可能最终损伤任务支持。因此 entropy control 是必要 baseline，但不能替代对具体危险负更新的选择性诊断。
 
-<!-- STAGE4B-SOURCE-BLOCK:B000226:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000227:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000227:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000228:START -->
 ## 2.9 Categorical 推论 B：未见动作外推为何需要语义结构，而不需要“动作有序”
 
 对完全饱和的独立 logits，训练中从未出现的动作在经验 signed target 中通常为 0；纯最大似然/负强化不会凭空知道应把概率放到哪个未见动作。方向性外推必须来自共享参数、预训练先验或动作特征，而不是 token ID 顺序。
@@ -584,8 +584,8 @@ $$
 
 一维 ordinal catalogue 仅保留为可解析的 T=(x,x²) 桥梁；generic categorical 的主要证据应使用随机动作 ID + semantic embedding，而不是人为数轴。
 
-<!-- STAGE4B-SOURCE-BLOCK:B000227:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000228:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000228:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000229:START -->
 ## 2.10 神经网络共享参数：指数族输出场的 pullback
 
 令网络输出自然参数 ηθ(s)，Jacobian 为 Jθ(s)=∂ηθ(s)/∂θ。输出空间残差为 r_s(η)=p_s t₊(s)−q_s t₋(s)−(p_s−q_s)m(η)。参数场为：
@@ -608,8 +608,8 @@ $$
 
 这一推导说明矩阵形式完全可以保留：真正 general 的对象是 signed off-policy field Jacobian，而不是把 on-policy expected Fisher 直接当作固定样本转移矩阵。
 
-<!-- STAGE4B-SOURCE-BLOCK:B000228:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000229:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000229:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000230:START -->
 ## 2.11 方法推论：Global α、Exp-remoteness 与 stability budget
 
 Global α 只改变总负质量 q，简单、稳定，但会无差别削弱近场有用信息。选择性方法令负样本权重依赖当前 policy-relative remoteness。定义连续/离散统一的 remoteness：
@@ -634,8 +634,8 @@ $$
 
 Gaussian 中可用 p−γq_c\>0 与 σ²\*(γ)≥σ²min 两个闭式条件，计算只需 batch reductions；full-softmax 可约束所有 signed probabilities≥ε。一般 feature policy 的凸包距离较难精确计算，因此 SBRC-Lite 只能使用 score/moment proxy，理论保证相应减弱。
 
-<!-- STAGE4B-SOURCE-BLOCK:B000229:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000230:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000230:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000231:START -->
 ## 2.12 Learned critic / value network：瞬时适用与移动目标
 
 在 DRPO-Q、IQL 或一般 actor-critic 中，A_t=Qφ(s,a)−Vψ(s) 会随 critic 更新。只要 actor step 使用 A_t.detach()，上述理论对每一步的瞬时 signed field 仍成立；但整个系统变成非自治动力学，不能把固定 advantage 的全局固定点直接照搬。
@@ -650,8 +650,8 @@ $$
 
 因此 critic 越慢、稳定裕度越大，actor 越能跟踪；但任何梯度控制都不能修复 critic 给错 advantage 符号的问题，只能限制错误信号被 score geometry 放大的破坏。
 
-<!-- STAGE4B-SOURCE-BLOCK:B000230:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000231:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000231:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000232:START -->
 ## 2.13 自我审查：反例挑战、修正与最终可声明边界
 
 | **挑战**                                       | **审查结果**                                                     | **最终处理**                                                            |
@@ -674,4 +674,4 @@ $$
 
 ---
 
-<!-- STAGE4B-SOURCE-BLOCK:B000231:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000232:END -->

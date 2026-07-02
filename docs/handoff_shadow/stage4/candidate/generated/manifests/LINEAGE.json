@@ -133,10 +133,11 @@
     },
     {
       "basis": "explicit_owner_priority_resolution",
-      "block_id": "B000025",
+      "block_id": "B000023",
       "owner": "global_core_governance",
       "references": [
-        "countdown_e8"
+        "continuous_e4_taper",
+        "hopper_e7"
       ]
     },
     {
@@ -144,7 +145,7 @@
       "block_id": "B000026",
       "owner": "global_core_governance",
       "references": [
-        "categorical_e6_generalization"
+        "countdown_e8"
       ]
     },
     {
@@ -152,8 +153,7 @@
       "block_id": "B000027",
       "owner": "global_core_governance",
       "references": [
-        "categorical_e6_generalization",
-        "hopper_e7"
+        "categorical_e6_generalization"
       ]
     },
     {
@@ -161,8 +161,8 @@
       "block_id": "B000028",
       "owner": "global_core_governance",
       "references": [
-        "hopper_e7",
-        "countdown_e8"
+        "categorical_e6_generalization",
+        "hopper_e7"
       ]
     },
     {
@@ -179,7 +179,8 @@
       "block_id": "B000030",
       "owner": "global_core_governance",
       "references": [
-        "continuous_e4_taper"
+        "hopper_e7",
+        "countdown_e8"
       ]
     },
     {
@@ -195,8 +196,7 @@
       "block_id": "B000032",
       "owner": "global_core_governance",
       "references": [
-        "hopper_e7",
-        "countdown_e8"
+        "continuous_e4_taper"
       ]
     },
     {
@@ -204,7 +204,8 @@
       "block_id": "B000033",
       "owner": "global_core_governance",
       "references": [
-        "continuous_e4_taper"
+        "hopper_e7",
+        "countdown_e8"
       ]
     },
     {
@@ -217,7 +218,15 @@
     },
     {
       "basis": "explicit_owner_priority_resolution",
-      "block_id": "B000082",
+      "block_id": "B000035",
+      "owner": "global_core_governance",
+      "references": [
+        "continuous_e4_taper"
+      ]
+    },
+    {
+      "basis": "explicit_owner_priority_resolution",
+      "block_id": "B000083",
       "owner": "execution_status_gates",
       "references": [
         "categorical_e6_generalization"
@@ -225,7 +234,7 @@
     },
     {
       "basis": "explicit_owner_priority_resolution",
-      "block_id": "B000086",
+      "block_id": "B000087",
       "owner": "execution_status_gates",
       "references": [
         "countdown_e8"
@@ -233,7 +242,7 @@
     },
     {
       "basis": "explicit_owner_priority_resolution",
-      "block_id": "B000088",
+      "block_id": "B000089",
       "owner": "execution_status_gates",
       "references": [
         "categorical_e6_generalization",
@@ -242,7 +251,7 @@
     },
     {
       "basis": "explicit_owner_priority_resolution",
-      "block_id": "B000089",
+      "block_id": "B000090",
       "owner": "execution_status_gates",
       "references": [
         "hopper_e7"
@@ -250,7 +259,7 @@
     },
     {
       "basis": "explicit_owner_priority_resolution",
-      "block_id": "B000093",
+      "block_id": "B000094",
       "owner": "execution_status_gates",
       "references": [
         "hopper_e7"
@@ -259,6 +268,6 @@
   ],
   "policy_id": "GOV-HANDOFF-INDEX-01",
   "schema_version": 1,
-  "semantic_graph_hash": "c148acdc600dcd74886a912823427a0070530e20cb625b9b3bc90e74514ff47e",
+  "semantic_graph_hash": "ba3854eae8f16ffdfa39a2ba35d0034b7c35b72994354c23185a5ef9af45a9e2",
   "taxonomy_changes": []
 }

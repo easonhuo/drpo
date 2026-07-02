@@ -54,7 +54,7 @@
       "size_bytes": 1876
     },
     "research_snapshot.json": {
-      "sha256": "5fe91a698dcd1d896629679fbf125efc349ee741599c35810112ff51c0eb0098",
+      "sha256": "efda7c502603b29e746127e7b74ba6d13f7921a24546765c6338c64bbbf76d32",
       "size_bytes": 7982
     },
     "theorem.tex": {
@@ -66,6 +66,6 @@
   "pdf_pages": 2,
   "pdf_status": "compiled",
   "schema_version": 1,
-  "snapshot_sha256": "51c59cdc7b44add572639b6c88a2f92dd04dc5a16ad7102087e8773163fa7444",
+  "snapshot_sha256": "d6dbff47fd05ec7db143259c92a23211c9a93686dcc71dde3c0baadd6599dfbf",
   "task_id": "PAPER-PIPELINE-V2-CORE-01"
 }

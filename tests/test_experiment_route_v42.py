@@ -89,18 +89,25 @@ def test_e7_mechanism_is_delivered_and_closed_to_unregistered_reruns() -> None:
     assert (ROOT / entry["formal_execution"]["entrypoint"]).is_file()
 
 
-def test_unimplemented_external_scale_entries_are_planned_and_fail_closed() -> None:
+def test_external_scale_entry_remains_planned_and_e7_bench_pilot_is_implemented() -> None:
     experiments = _experiments()
-    for experiment_id in ["EXT-H-E7-BENCH-01", "EXT-C-E8-SCALE-01"]:
-        entry = experiments[experiment_id]
-        assert entry["status"] == "not_run"
-        assert entry["implementation_state"] == "not_implemented"
-        assert entry["execution_gate"]["state"] == "blocked"
-        assert entry["execution_gate"].get("blocked_by")
-        assert entry["execution_gate"].get("blocking_reason")
-        assert entry["formal_execution"]["activation_state"] == "blocked"
-        assert entry["formal_execution"]["entrypoint_status"] == "planned"
-        assert entry["formal_execution"]["entrypoint"] is None
+    scale = experiments["EXT-C-E8-SCALE-01"]
+    assert scale["status"] == "not_run"
+    assert scale["implementation_state"] == "not_implemented"
+    assert scale["execution_gate"]["state"] == "blocked"
+    assert scale["formal_execution"]["activation_state"] == "blocked"
+    assert scale["formal_execution"]["entrypoint_status"] == "planned"
+    assert scale["formal_execution"]["entrypoint"] is None
+
+    bench = experiments["EXT-H-E7-BENCH-01"]
+    assert bench["status"] == "not_run"
+    assert bench["implementation_state"] == "pilot_implemented_formal_parallel_scaffold"
+    assert bench["execution_gate"]["state"] == "blocked"
+    assert bench["formal_execution"]["activation_state"] == "blocked"
+    assert bench["formal_execution"]["entrypoint_status"] == "implemented"
+    assert bench["formal_execution"]["entrypoint"] == "src/drpo/e7_bench.py"
+    assert (ROOT / bench["formal_execution"]["entrypoint"]).is_file()
+    assert bench["pilot_execution"]["execution_gate"]["state"] == "ready"
 
 
 def test_e7_benchmark_scope_is_exactly_nine_locomotion_tasks() -> None:
@@ -114,12 +121,26 @@ def test_e7_benchmark_scope_is_exactly_nine_locomotion_tasks() -> None:
         "medium_expert",
     ]
     assert suite["task_count"] == 9
-    assert bench["execution_gate"]["blocked_by"] == [
-        "controlled_method_shortlist_freeze"
-    ]
+    assert bench["execution_gate"]["blocked_by"] == ["formal_protocol_lock"]
     assert bench["prerequisite_status"]["EXT-H-E7-Q2"] == (
         "satisfied_long_run_validated"
     )
+    assert bench["prerequisite_status"]["controlled_method_shortlist_freeze"] == (
+        "satisfied_without_d4rl_retuning"
+    )
+    assert bench["pilot_execution"]["development_seeds"] == [200, 201, 202, 203]
+    parallel = bench["pilot_execution"]["parallel_execution"]
+    assert parallel["parallel_unit"] == "dataset_seed_method"
+    assert parallel["critic_workers"] == 2
+    assert parallel["positive_workers"] == 8
+    assert parallel["branch_workers"] == 40
+    assert parallel["peak_registered_cpu_threads"] == 320
+    assert parallel["serial_seed_loop_forbidden"] is True
+    assert parallel["serial_method_loop_forbidden"] is True
+    formal_parallel = bench["formal_parallel_contract"]
+    assert formal_parallel["parallel_unit"] == "task_seed_method"
+    assert formal_parallel["serial_seed_loop_forbidden"] is True
+    assert formal_parallel["serial_method_loop_forbidden"] is True
     assert bench["shortlist_rule"] == (
         "freeze_after_E4_E6_core_closure_and_E7_mechanism_without_D4RL_retuning"
     )

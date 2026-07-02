@@ -1,0 +1,111 @@
+experiment_id: EXT-H-E7-BENCH-01
+protocol_version: 0.1.0-parallel-pilot
+execution_class: pilot_substage
+scientific_status: pilot
+
+claim_boundary:
+  - This pilot checks implementation, runtime, and preliminary paired direction only.
+  - It does not populate the formal nine-task table or establish a method ranking.
+  - Pilot outcomes may not change the registered taper families or tune parameters per D4RL task.
+
+pilot:
+  base_config_path: configs/e7_hopper_q2_medium_replay_v2.yaml
+  seeds: [200, 201, 202, 203]
+  canonical_critic_seed: 200
+  datasets:
+    - id: hopper-medium-minari-v0
+      relative_path: mujoco/hopper/medium-v0/data/main_data.hdf5
+      sha256: 17c1b07d01ce461bb9b2866ad0356c542678b66b886b5ed6c066733a75c52c84
+      format: minari_episode_hdf5
+      env_id: Hopper-v5
+      dataset_family: minari_mujoco
+      score_protocol: raw_return_only
+      reference_min_score: null
+      reference_max_score: null
+      formal_cell_eligible: false
+      provenance_note: >-
+        Exact uploaded medium dataset is Minari mujoco/hopper/medium-v0 generated in Hopper-v5,
+        not D4RL hopper-medium-v2. It is admitted only as a pilot/plumbing cell and may not be
+        counted as the formal D4RL hopper-medium cell.
+    - id: hopper-medium-expert-v2
+      relative_path: hopper_medium_expert-v2.hdf5
+      sha256: 9d51ad87f8c905be3880d84c6140bcdb7fbf39a19e046a237f238ba34fec9e26
+      format: legacy_d4rl_hdf5
+      env_id: Hopper-v4
+      dataset_family: d4rl_v2
+      score_protocol: d4rl_v2_percent
+      reference_min_score: -20.272305
+      reference_max_score: 3234.3
+      formal_cell_eligible: true
+      provenance_note: Exact uploaded legacy D4RL hopper-medium-expert-v2 HDF5.
+  budget:
+    max_transitions: null
+    critic_steps: 20000
+    critic_eval_interval: 1000
+    positive_steps: 20000
+    branch_steps: 40000
+    actor_eval_interval: 2000
+    rollout_eval_interval: 10000
+    rollout_episodes: 5
+    final_rollout_episodes: 10
+    audit_sample_size: 8192
+
+methods:
+  ids:
+    - positive_only
+    - signed
+    - global_alpha
+    - reciprocal_linear
+    - reciprocal_quadratic
+    - exponential
+  global_alpha: 0.75
+  reference_distance: 5.0
+  near_region_boundary: 5.0
+  coefficients:
+    reciprocal_linear: 0.4362580032734791
+    reciprocal_quadratic: 0.5520268617673281
+    exponential: 0.374162511054291
+  coefficient_source: C-U1-E4-TAPER-NEAR-RETENTION-01 development seeds 0-4, frozen target average near retention 0.75
+  d4rl_retuning_allowed: false
+
+execution:
+  scheduler: three_stage_subprocess_worker_pool
+  stages:
+    - parallel_canonical_critics
+    - parallel_positive_checkpoints
+    - parallel_task_seed_method_branches
+  pilot_parallel:
+    parallel_unit: dataset_seed_method
+    critic_workers: 2
+    positive_workers: 8
+    branch_workers: 40
+    critic_cpus_per_worker: 64
+    positive_cpus_per_worker: 32
+    branch_cpus_per_worker: 8
+    device_pool: [cpu]
+    serial_seed_loop_forbidden: true
+    server_capacity_note: >-
+      Critic stage uses at most 128 CPU threads, Positive-only stage 256, and the 40-way
+      branch stage 320, leaving headroom on a 384-core server.
+  method_branching:
+    inside_worker: false
+    source_checkpoint: identical_positive_only_checkpoint_per_dataset_seed
+    reason: Use the 384-core server instead of serializing five method branches per seed.
+  resume_granularity: dataset_seed_method
+  shared_output_writes: coordinator_only
+
+formal_parallel_contract:
+  protocol_locked: false
+  task_count: 9
+  parallel_unit: task_seed_method
+  scheduler: staged_resource_pool_subprocess_workers
+  serial_seed_loop_forbidden: true
+  serial_method_loop_forbidden: true
+  worker_isolation: one_output_directory_per_task_seed_method
+  method_branching: parallel_after_identical_positive_only_checkpoint
+  resume_granularity: task_seed_method
+  formal_seeds: pending_registration
+  exact_dataset_versions: pending_registration
+  base_algorithm: pending_registration
+  optimizer_and_full_budget: pending_registration
+  launch_allowed: false

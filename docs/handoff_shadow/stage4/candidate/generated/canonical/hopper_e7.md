@@ -102,7 +102,7 @@
 > - 操作入口升级为 Countdown 风格一键命令：在 clean current `main`、已设置 `DRPO_HOPPER_MEDIUM_REPLAY` 或标准数据路径时执行 `python3 scripts/run_e7_hopper_q2.py`，默认 formal、自动创建 timestamped persistent work directory，并由 hardened guard 打包结果。`--plan-only` 只解析和打印完整命令，不启动训练；pilot 仍不得冒充 formal evidence。
 <!-- HANDOFF-DELTA-BLOCK:after_heading:v64-e7-q2-acceptance-pipeline:END -->
 <!-- STAGE4B-SOURCE-BLOCK:B000015:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000279:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000280:START -->
 # 15. Learned-Critic External Mechanism Validation on D4RL
 
 
@@ -117,8 +117,8 @@
 
 这是一项**外部机制验证**，不是 D4RL normalized-return 方法表。
 
-<!-- STAGE4B-SOURCE-BLOCK:B000279:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000280:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000280:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000281:START -->
 ## 1. learned advantage 下的来源隔离
 
 在 Positive-only actor 拟合过程中：
@@ -130,8 +130,8 @@
 
 因此，大梯度不是因为 far 样本具有更大的 negative advantage。Positive-only 拟合让固定坏动作相对当前策略进一步远场化，标准化距离约翻倍，score 放大随之增强。
 
-<!-- STAGE4B-SOURCE-BLOCK:B000280:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000281:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000281:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000282:START -->
 ## 2. 方差方向与修正理论一致
 
 在所有正式 seeds 和所有记录 checkpoint 中，匹配 far negatives 对 `log sigma` 的 signed ascent direction 都为负，即：
@@ -142,8 +142,8 @@ A<0,\quad \|z\|>1 \Longrightarrow \Delta\log\sigma<0.
 
 所以 far negative 的实际作用是**均值排斥 + 方差/支持收缩**，而不是旧稿中的 “mu 与 sigma 同时扩张”。Near negatives 在初期通常推动 sigma 扩张；随着策略移动，一部分 near negatives 跨过标准化距离边界后也转为收缩。
 
-<!-- STAGE4B-SOURCE-BLOCK:B000281:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000282:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000282:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000283:START -->
 ## 3. 10-seed 定点干预
 
 | 方法 | 最终均值饱和率 | 正样本 NLL | 平均 sigma | far-negative surprisal |
@@ -163,14 +163,14 @@ A<0,\quad \|z\|>1 \Longrightarrow \Delta\log\sigma<0.
 - Global scaling 同样大幅救援，说明异常 repulsive magnitude 是直接中介；far-field 是其主要自然来源，但并不是唯一可行控制方式。
 - 当前固定参数的 Far-cap 和 Exp 只有部分救援，说明 toy 环境超参不能直接迁移；这反而支持使用稳定边界自适应确定 taper 强度。
 
-<!-- STAGE4B-SOURCE-BLOCK:B000282:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000283:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000283:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000284:START -->
 ## 4. 相变而非 sign-only 法则
 
 开发 seed 的 alpha 扫描显示：负梯度系数从 0.5 增至 1.0 时，均值饱和和正样本 NLL 出现明显恶化，之后继续走向边界。因此失稳取决于正负 signed field 的净平衡，而不是“只要 A<0 就必然联合发散”。这直接支持 v9 的 signed-field / moment-domain 理论，否定旧版 sign-only SPD 论证。
 
-<!-- STAGE4B-SOURCE-BLOCK:B000283:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000284:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000284:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000285:START -->
 ## 5. Advantage estimator 稳健性
 
 额外 3 seeds 使用 `return-to-go - V(s)` 而非 TD residual，仍得到同一排序：
@@ -185,8 +185,8 @@ A<0,\quad \|z\|>1 \Longrightarrow \Delta\log\sigma<0.
 
 因此，主结论并非某一种 advantage estimator 的偶然产物。
 
-<!-- STAGE4B-SOURCE-BLOCK:B000284:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000285:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000285:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000286:START -->
 ## 6. 论文中的正确使用方式
 
 可以写入机制与外部有效性章节：
@@ -207,4 +207,4 @@ A<0,\quad \|z\|>1 \Longrightarrow \Delta\log\sigma<0.
 
 ---
 
-<!-- STAGE4B-SOURCE-BLOCK:B000285:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000286:END -->

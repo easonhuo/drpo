@@ -459,10 +459,25 @@ def test_historical_e7_q2_v43_delta_matches_repository_after_image() -> None:
     assert result.report["registry_change_coverage"]["fully_declared"] is True
 
 
-def test_current_e7_q2_v68_closure_delta_matches_manual_handoff() -> None:
+def test_historical_e7_q2_v68_closure_delta_matches_repository_after_image() -> None:
     delta = (
         ROOT
         / "docs/handoff_deltas/EXT-H-E7-Q2-CLOSURE-2026-07-02/HANDOFF_DELTA.yaml"
+    )
+    result = MODULE.check_delta(
+        ROOT, delta, target_commit="da5488ce13d0d6512b211ba4c68c9cdcd3fa49fc"
+    )
+    assert result.report["status"] == "PASS"
+    assert result.report["exact_manual_candidate_match"] is True
+    assert result.report["idempotence_passed"] is True
+    assert result.report["candidate_replaced_authority"] is False
+    assert result.report["registry_change_coverage"]["fully_declared"] is True
+
+
+def test_current_e7_bench_v69_parallel_pilot_delta_matches_manual_handoff() -> None:
+    delta = (
+        ROOT
+        / "docs/handoff_deltas/EXT-H-E7-BENCH-PARALLEL-PILOT-2026-07-02/HANDOFF_DELTA.yaml"
     )
     result = MODULE.check_delta(ROOT, delta)
     assert result.report["status"] == "PASS"

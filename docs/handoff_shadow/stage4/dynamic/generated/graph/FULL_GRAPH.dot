@@ -1,5 +1,5 @@
 digraph stage4_semantic_graph {
-  graph [label="graph_hash=c148acdc600dcd74886a912823427a0070530e20cb625b9b3bc90e74514ff47e", labelloc="t"];
+  graph [label="graph_hash=ba3854eae8f16ffdfa39a2ba35d0034b7c35b72994354c23185a5ef9af45a9e2", labelloc="t"];
   rankdir=LR;
   node [shape=box];
   "claim:GOV-COLLAPSE-TAXONOMY-01" [label="claim: Task-performance collapse, support or variance boundary events, and NaN/Inf numerical failure must be reported separately."];
@@ -57,7 +57,7 @@ digraph stage4_semantic_graph {
   "experiment:EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY" [label="experiment: countdown_online_offpolicy_replay_two_by_two_pilot"];
   "experiment:EXT-H-E7-BENCH-01" [label="experiment: d4rl_mujoco_locomotion_method_benchmark"];
   "experiment:EXT-H-E7-Q2" [label="experiment: hopper_gaussian_log_scale_quadratic_external_validation"];
-  "heading:H0001" [label="source_section: DRPO / SNA2C 远场负梯度动力学研究主文档 v68（Hopper E7-Q2 长程机制结果闭环版）"];
+  "heading:H0001" [label="source_section: DRPO / SNA2C 远场负梯度动力学研究主文档 v69（E7-BENCH 并行 Pilot 注册与实现版）"];
   "heading:H0002" [label="source_section: 0. 研究与执行原则（每次新会话首先阅读）"];
   "heading:H0003" [label="source_section: 0.1 当前执行门禁"];
   "heading:H0004" [label="source_section: 0.2 C-U1 泛化术语覆盖规则（v15 锁定）"];

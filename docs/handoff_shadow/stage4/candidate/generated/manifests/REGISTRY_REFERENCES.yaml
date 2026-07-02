@@ -2,7 +2,7 @@ schema_version: 1
 policy_id: GOV-HANDOFF-INDEX-01
 authority: registry_references_only
 registry_path: experiments/registry.yaml
-registry_sha256: a5c28b65f172db571f3f1aedba0a37a1863bcb9704f82a815bbdc0d37192c89d
+registry_sha256: 7d17711b217e12ecbf426db4917c20fb643d4ac8357d838d4a7e71062ab7a4fa
 modules:
 - module_id: global_core_governance
   experiments: []

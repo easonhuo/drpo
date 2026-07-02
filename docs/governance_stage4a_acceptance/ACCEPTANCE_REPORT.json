@@ -156,7 +156,7 @@
       "target": "paper_rewrite"
     }
   ],
-  "after_image_tree_hash": "95f5569846021b511dd0569ad5ad11b96b980a81665a0f191448e41bd34e3e67",
+  "after_image_tree_hash": "6720c9be21415e2a8c6245998ee209ff9a69f53ba9e500c3f024b9e12b330ca3",
   "authority": "shadow_only",
   "authority_cutover_allowed": false,
   "claim_id": "GOV-HANDOFF-INDEX-01",
@@ -176,14 +176,6 @@
     "total": 19
   },
   "hard_blockers": [],
-  "maintenance_refresh": {
-    "authorization_id": "GOV-STAGE4AB-E7-Q2-LONGRUN-CLOSURE-COMPAT-2026-07-02",
-    "base_commit": "cd6c42db337d8f261840850a58bf60a83c37e6bd",
-    "change_class": "compatibility_fix",
-    "core_acceptance_rerun": "PASS with determinism",
-    "fault_injection_evidence": "Retained the previously accepted 19/19 fail-closed evidence because Stage 4A builders, configuration, semantic contracts, and fault harness are unchanged; no fresh 19/19 claim is made.",
-    "scope": "Refresh the accepted Stage 4A shadow after-image after the authoritative EXT-H-E7-Q2 long-run closure and deterministic shadow regeneration; no Stage 4 architecture, authority, module taxonomy, dependency, or stage-state change."
-  },
   "manual_handoff_remains_authoritative": true,
   "mapping": {
     "canonical_experiments": 24,
@@ -198,7 +190,7 @@
       "automatic_action": false,
       "kind": "candidate_split_module",
       "object_id": "continuous_e4_taper",
-      "reason": "source content has 68557 characters, above the configured 50000 threshold"
+      "reason": "source content has 70748 characters, above the configured 50000 threshold"
     },
     {
       "automatic_action": false,
@@ -395,9 +387,9 @@
       ]
     }
   },
-  "semantic_graph_hash": "c148acdc600dcd74886a912823427a0070530e20cb625b9b3bc90e74514ff47e",
+  "semantic_graph_hash": "ba3854eae8f16ffdfa39a2ba35d0034b7c35b72994354c23185a5ef9af45a9e2",
   "stage_4a_state": "accepted",
-  "stage_4b_state": "accepted",
-  "stage_4c_state": "ready_for_authorization",
+  "stage_4b_state": "ready_for_separate_authorization",
+  "stage_4c_state": "blocked_by_stage_4b_acceptance",
   "status": "PASS"
 }

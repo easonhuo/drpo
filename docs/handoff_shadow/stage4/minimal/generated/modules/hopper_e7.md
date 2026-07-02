@@ -7,7 +7,7 @@
 - Responsibility: Cover learned-critic far-field mechanism validation and D4RL method-effect evidence while preserving the external-validity boundary.
 - Content contract topics: none
 - Deduplicated overlapping source chunks: 0
-- Source hash: `08169ced028bedb7ffc417243761b7016f286c094a7a266148885fc14d8d5537`
+- Source hash: `c39379e7e852e08939683c2fa723b85fac5a13fb00dc455d61ff7099d8c49732`
 
 ## Source 1: docs/handoff.md: # 15. Learned-Critic External Mechanism Validation on D4RL -> # Part V. Bandit 稳定外推子实验的收敛审计（完整保留）
 
@@ -235,49 +235,63 @@ A<0,\quad \|z\|>1 \Longrightarrow \Delta\log\sigma<0.
 > - Compact closure evidence 位于 `outputs/e7_hopper_q2/`。`EXT-H-E7-BENCH-01` 的 E7-Q2 前置条件已满足，但仍因 controlled-method shortlist 未在不使用 D4RL 调参的条件下冻结而保持 blocked；本闭环不自动启动 benchmark。
 > - v67 已登记的 `E8-TAPER` 路线与门禁保持不变；本次 E7-Q2 闭环不修改 Countdown 方法实验职责或执行顺序。
 
-## Source 11: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v56-e6-parent-closure-current-gate
+## Source 11: docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v69-e7-bench-parallel-pilot
+
+### Delta block `after_heading:v69-e7-bench-parallel-pilot`
+
+> **v69 增量登记：`EXT-H-E7-BENCH-01` 两数据集并行 Pilot 与正式并行拓扑（不删除 v68 及更早内容）**
+>
+> - 本版不新增顶层实验 ID；在既有 `EXT-H-E7-BENCH-01` 下登记一个 **pilot** 子阶段。Pilot 只检查数据加载、learned-critic/actor/rollout 链路、连续 taper 实现、运行成本、artifact 体积、断点恢复及初步 paired direction，不得填入正式 9-task 主表，不得据此更换方法族、按任务调参或升级正式科学状态。
+> - Pilot development seeds 冻结为 `200, 201, 202, 203`。方法冻结为 `Positive-only`、`Signed`、`Global alpha=0.75`、`Reciprocal-Linear`、`Reciprocal-Quadratic`、`Exponential`。三种 taper 沿用 `C-U1-E4-TAPER-NEAR-RETENTION-01` development seeds `0--4` 的冻结系数：`0.4362580032734791`、`0.5520268617673281`、`0.374162511054291`；标准化距离 reference/near boundary 均为 `5.0`，禁止 D4RL 后验重调。
+> - 两个上传数据单元必须按真实 provenance 区分：`hopper-medium-expert-v2` 是 legacy D4RL-v2 HDF5，使用 Hopper-v4 与 D4RL-v2 normalized return；上传的 `mujoco/hopper/medium-v0` metadata 明确属于 **Minari Hopper-v5**，不是 D4RL `hopper-medium-v2`，因此只作为 pilot/plumbing cell、只报告 raw return，不能计入正式 D4RL 9-task 主表。正式 Hopper-medium cell 仍需另行冻结精确 D4RL 版本。
+> - Pilot 固定预算为：每数据集一个 canonical critic `20k` optimizer steps、每 `(dataset, seed)` Positive-only `20k` steps、其余每个 method branch `40k` steps；只有 NaN/Inf 可提前终止。固定 horizon 不等于收敛，仍需分开报告任务性能崩溃、support/variance boundary、NaN/Inf 与 persistent/slow drift。
+> - 为使用 384 核 CPU，执行器冻结为三阶段并行：`2` 个 dataset critic workers 并行；`8` 个 `(dataset, seed)` Positive-only workers 并行；`40` 个 `(dataset, seed, method)` branch workers 并行。线程预算分别为 `64/32/8`，峰值 `320` threads，保留系统和 I/O 余量。seed 与 method 均禁止顶层串行；每个 branch 从对应的同一 Positive-only checkpoint 分叉，输出目录隔离，resume 粒度为 `dataset_seed_method`。
+> - 正式 9-task E7-BENCH 同步登记为 staged resource-pool 并行，branch scheduling unit 为 `task_seed_method`，禁止 serial seed loop 与 serial method loop；但正式 exact D4RL versions、formal seeds、offline-RL base、optimizer 和 full budget 尚未冻结，故 formal activation 继续 blocked。Pilot ready 不等于 formal ready。
+> - 新入口为 `src/drpo/e7_bench.py`、`scripts/run_e7_bench.py`，配置为 `configs/e7_bench_pilot.yaml`，协议说明为 `docs/e7_bench_pilot.md`。当前仅完成实现、静态/单元、真实数据 loader 与 canonical critic 短程 smoke；当前环境缺少 `gymnasium`，因此 actor/rollout 短程 smoke 未执行。该限制不等于 Pilot 已运行，更不支持任何方法优于 Positive-only。正式启动时 runner 会在长程 critic 之前预检 384 核线程预算、Gymnasium/MuJoCo 环境及数据—环境维度一致性。
+
+## Source 12: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v56-e6-parent-closure-current-gate
 
 ### Delta block `section_end:v56-e6-parent-closure-current-gate`
 
 - **v56 E6 父 claim 关闭覆盖：** E6 的论文核心 claim 现已范围受限关闭；主 long-run 与两个 gap 子实验的原科学状态分别保持 `long_run_validated / finite_step_validated / finite_step_validated`。`D-U1-E6-TAPER-01` 保留为可选非门禁未来工作。当前下一正式 route item 为 `EXT-H-E7-Q2`，registry 状态为 **implemented + ready + active + not_run**；启动后仍须走 canonical hardened guard，且在 raw-complete、终态审计、打包和交付前不得声称 E7 完成。
 
-## Source 12: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v57-countdown-offline-bank-current-gate
+## Source 13: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v57-countdown-offline-bank-current-gate
 
 ### Delta block `section_end:v57-countdown-offline-bank-current-gate`
 
 - **Countdown v57 覆盖：** `EXT-C-E8-V4.4-OFFLINE-BANK` 是用户批准的当前离线 focused pilot；V4.3 保留为 fixed-pair predecessor。V4.4 只改变固定负样本覆盖与 current-policy near/far reselection，不引入在线数据刷新。`EXT-H-E7-Q2` 仍是下一正式 route item，`EXT-C-E8-SCALE-01` 继续 blocked。
 
-## Source 13: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v59-countdown-offline-bank-tuning-current-gate
+## Source 14: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v59-countdown-offline-bank-tuning-current-gate
 
 ### Delta block `section_end:v59-countdown-offline-bank-tuning-current-gate`
 
 - **Countdown v59 覆盖：** `EXT-C-E8-V4.5-OFFLINE-BANK-TUNING` 是当前用户批准的离线 focused successor；V4.4 作为 frozen-bank predecessor 保留。V4.5 只调 calibrated global negative multiplier 与 exponential taper lambda，禁止在线刷新、方向筛选或模型规模同时变化。`EXT-H-E7-Q2` 仍是下一 formal route item，`EXT-C-E8-SCALE-01` 继续 blocked。
 
-## Source 14: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v62-countdown-online-offpolicy-current-gate
+## Source 15: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v62-countdown-online-offpolicy-current-gate
 
 ### Delta block `section_end:v62-countdown-online-offpolicy-current-gate`
 
 - **Countdown v62 覆盖：** `EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY` 是当前用户批准并已实现的 Countdown focused successor，状态为 **implemented + not_run**。执行前必须提供完整 V4.5 `RUN_COMPLETE.json`/`terminal_audit.json` 及其指向的 V4.4 frozen inputs；runner fail-closed 校验输入与 reference adapter。它可作为独立 pilot 启动，但不改变 `EXT-H-E7-Q2` 的 formal 优先级，也不自动解锁 `EXT-C-E8-SCALE-01`。
 
-## Source 15: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v56-e6-parent-closure-execution-order
+## Source 16: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v56-e6-parent-closure-execution-order
 
 ### Delta block `section_end:v56-e6-parent-closure-execution-order`
 
 13. **v56 执行覆盖：** E6 父 claim 已关闭，`D-U1-E6-TAPER-01` 改为可选非门禁 future study；当前直接进入已实现且 registry 为 ready/active 的 `EXT-H-E7-Q2`（E7-MECH）。E7-Q2 仍为 not_run，必须先完成正式运行、终态审计、打包与交付；其后才允许冻结并实施 `EXT-H-E7-BENCH-01`。E8-MECH/V4.3 与 E8-SCALE 的相对顺序不变。
 
-## Source 16: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v57-e8-offline-bank-execution-order
+## Source 17: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v57-e8-offline-bank-execution-order
 
 ### Delta block `section_end:v57-e8-offline-bank-execution-order`
 
 14. **v57 执行覆盖：** v56 的 formal 顺序不变，`EXT-H-E7-Q2` 仍是下一正式实验。用户批准的 V4.4 作为 single-seed focused pilot 可独立执行，但必须先完成自身 best/terminal audit 与结果交付，才允许讨论 online off-policy successor；不得一次性同时改变 negative-bank 密度和数据在线刷新机制。
 
-## Source 17: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v62-countdown-online-offpolicy-execution-order
+## Source 18: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v62-countdown-online-offpolicy-execution-order
 
 ### Delta block `section_end:v62-countdown-online-offpolicy-execution-order`
 
 18. **v62 Countdown 执行覆盖：** formal 主顺序继续由 v56/v58/v61 控制；`EXT-H-E7-Q2` 优先级不变。V4.6 允许作为独立 guarded pilot 执行，顺序固定为 predecessor/input hash audit -> 四 cell paired training -> 全部训练结束后 test evaluation -> 2×2 paired effect/interaction -> terminal audit -> canonical artifact delivery。任何 online phase 都必须保留 collector manifest、round JSONL、fresh/stale mix 与实际 selected-bank diagnostics；smoke 或单 seed 不得称实验结果。
 
-## Source 18: experiments/registry.yaml: experiments[EXT-H-E7-Q2, EXT-H-E7-BENCH-01]
+## Source 19: experiments/registry.yaml: experiments[EXT-H-E7-Q2, EXT-H-E7-BENCH-01]
 
 collection: experiments
 entries:
@@ -685,10 +699,10 @@ entries:
   execution_gate:
     state: blocked
     blocked_by:
-    - controlled_method_shortlist_freeze
-    blocking_reason: EXT-H-E7-Q2 is now terminal-audited, delivered, and scientifically closed. The large public benchmark
-      remains blocked until the controlled-method shortlist is frozen without D4RL retuning and the benchmark implementation/protocol
-      versions are registered.
+    - formal_protocol_lock
+    blocking_reason: EXT-H-E7-Q2 is scientifically closed and the controlled three-family taper shortlist is now frozen without
+      D4RL retuning. The registered two-dataset pilot is ready, but the formal nine-task benchmark remains blocked until exact
+      D4RL versions, formal seeds, base algorithm, optimizer, and full budgets are frozen.
   environment: EXT-H
   name: d4rl_mujoco_locomotion_method_benchmark
   status: not_run
@@ -698,12 +712,16 @@ entries:
     on the public D4RL MuJoCo locomotion suite, without per-task method-family retuning.
   role: external_large_scale_continuous_benchmark
   execution_class: formal
-  implementation_state: not_implemented
+  implementation_state: pilot_implemented_formal_parallel_scaffold
+  code_entrypoint: src/drpo/e7_bench.py
+  one_click_entrypoint: scripts/run_e7_bench.py
+  pilot_config_path: configs/e7_bench_pilot.yaml
+  pilot_protocol_document: docs/e7_bench_pilot.md
   formal_execution:
     channel_ref: hardened-v1
     activation_state: blocked
-    entrypoint_status: planned
-    entrypoint: null
+    entrypoint_status: implemented
+    entrypoint: src/drpo/e7_bench.py
     launch_mode: canonical_guard
     artifact_owner: canonical_channel
     guard_entrypoint: scripts/run_experiment_guard_hardened.py
@@ -738,7 +756,93 @@ entries:
   - reciprocal_linear
   - reciprocal_quadratic
   - exponential
+  controlled_shortlist_freeze:
+    state: satisfied
+    source_experiment: C-U1-E4-TAPER-NEAR-RETENTION-01
+    source_scope: development_seeds_0_to_4_only
+    target_average_near_retention: 0.75
+    standardized_distance_reference: 5.0
+    coefficients:
+      reciprocal_linear: 0.4362580032734791
+      reciprocal_quadratic: 0.5520268617673281
+      exponential: 0.374162511054291
+    global_alpha: 0.75
+    d4rl_retuning_allowed: false
   shortlist_rule: freeze_after_E4_E6_core_closure_and_E7_mechanism_without_D4RL_retuning
+  pilot_execution:
+    execution_class: pilot
+    scientific_status: not_run
+    execution_gate:
+      state: ready
+      blocked_by: []
+    purpose:
+    - verify_two_dataset_loading_and_rollout_compatibility
+    - verify_frozen_taper_method_implementation
+    - estimate_runtime_and_artifact_volume
+    - verify_terminal_audit_and_parallel_resume
+    formal_evidence_allowed: false
+    method_family_or_coefficient_retuning_allowed: false
+    development_seeds:
+    - 200
+    - 201
+    - 202
+    - 203
+    methods:
+    - positive_only
+    - signed
+    - global_alpha
+    - reciprocal_linear
+    - reciprocal_quadratic
+    - exponential
+    datasets:
+    - id: hopper-medium-minari-v0
+      exact_sha256: 17c1b07d01ce461bb9b2866ad0356c542678b66b886b5ed6c066733a75c52c84
+      format: minari_episode_hdf5
+      environment: Hopper-v5
+      metric: raw_return_only
+      formal_nine_task_cell_eligible: false
+      reason: uploaded medium file is Minari Hopper-v5 rather than D4RL hopper-medium-v2
+    - id: hopper-medium-expert-v2
+      exact_sha256: 9d51ad87f8c905be3880d84c6140bcdb7fbf39a19e046a237f238ba34fec9e26
+      format: legacy_d4rl_hdf5
+      environment: Hopper-v4
+      metric: d4rl_v2_normalized_return_percent
+      formal_nine_task_cell_eligible: true
+    fixed_budget:
+      critic_optimizer_steps: 20000
+      positive_only_optimizer_steps: 20000
+      branch_optimizer_steps: 40000
+      early_stop_rule: nan_inf_numerical_failure_only
+      fixed_horizon_is_not_convergence: true
+    parallel_execution:
+      scheduler: three_stage_subprocess_worker_pool
+      stages:
+      - parallel_canonical_critics
+      - parallel_positive_checkpoints
+      - parallel_task_seed_method_branches
+      parallel_unit: dataset_seed_method
+      critic_workers: 2
+      positive_workers: 8
+      branch_workers: 40
+      critic_cpus_per_worker: 64
+      positive_cpus_per_worker: 32
+      branch_cpus_per_worker: 8
+      peak_registered_cpu_threads: 320
+      server_cpu_capacity: 384
+      serial_seed_loop_forbidden: true
+      serial_method_loop_forbidden: true
+      resume_granularity: dataset_seed_method
+  formal_parallel_contract:
+    state: registered_required_topology
+    task_count: 9
+    parallel_unit: task_seed_method
+    scheduler: staged_resource_pool_subprocess_workers
+    serial_seed_loop_forbidden: true
+    serial_method_loop_forbidden: true
+    identical_positive_checkpoint_per_task_seed: true
+    isolated_output_per_task_seed_method: true
+    resume_granularity: task_seed_method
+    exact_worker_counts: pending_with_formal_seed_freeze
   primary_metrics:
   - normalized_return
   - paired_multiseed_confidence_interval
@@ -747,15 +851,19 @@ entries:
   - task_performance_collapse_events
   - support_or_variance_boundary_events
   - nan_inf_numerical_events
-  protocol_lock_status: seeds_optimizer_base_algorithm_and_exact_versions_pending_before_implementation
+  protocol_lock_status: pilot_frozen_and_implemented_formal_exact_versions_seeds_optimizer_base_algorithm_pending
   evidence:
-    code_committed: false
+    code_committed: true
     run_started: false
+    pilot_run_started: false
+    formal_run_started: false
     raw_complete: false
     terminal_audited: false
     package_created: false
     scientific_status: not_run
   prerequisite_status:
     EXT-H-E7-Q2: satisfied_long_run_validated
-    controlled_method_shortlist_freeze: pending
+    controlled_method_shortlist_freeze: satisfied_without_d4rl_retuning
+    pilot_execution: ready_not_run
+    formal_protocol_lock: pending
     d4rl_retuning_allowed: false

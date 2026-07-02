@@ -1,0 +1,945 @@
+{
+  "affected_selectors": [
+    "DRPO / SNA2C \u8fdc\u573a\u8d1f\u68af\u5ea6\u52a8\u529b\u5b66\u7814\u7a76\u4e3b\u6587\u6863 v68\uff08Hopper E7-Q2 \u957f\u7a0b\u673a\u5236\u7ed3\u679c\u95ed\u73af\u7248\uff09",
+    "0. \u7814\u7a76\u4e0e\u6267\u884c\u539f\u5219\uff08\u6bcf\u6b21\u65b0\u4f1a\u8bdd\u9996\u5148\u9605\u8bfb\uff09"
+  ],
+  "base_commit": "da5488ce13d0d6512b211ba4c68c9cdcd3fa49fc",
+  "base_handoff_sha256": "2c8c0ca7ced80ee0a90a7aa5defab461125d1b5002144713488ca1a7edeff548",
+  "base_registry_sha256": "a5c28b65f172db571f3f1aedba0a37a1863bcb9704f82a815bbdc0d37192c89d",
+  "candidate_replaced_authority": false,
+  "candidate_sha256": "8b5639b5292571370ea57994e73cc6b4a579d23b1978296829e1faa65c50d90a",
+  "comparison_target": "working_tree",
+  "current_registry_sha256": "7d17711b217e12ecbf426db4917c20fb643d4ac8357d838d4a7e71062ab7a4fa",
+  "exact_manual_candidate_match": true,
+  "full_candidate_saved": false,
+  "history_preservation_passed": true,
+  "idempotence_passed": true,
+  "llm_blocking_gate_used": false,
+  "manual_handoff_authoritative": true,
+  "manual_sha256": "8b5639b5292571370ea57994e73cc6b4a579d23b1978296829e1faa65c50d90a",
+  "mode": "shadow",
+  "network_used": false,
+  "observation_kind": "real",
+  "operation_count": 2,
+  "performance": {
+    "base_validation_ms": 75.287,
+    "comparison_and_registry_ms": 482.927,
+    "hard_limit_ms": 15000.0,
+    "policy_and_schema_ms": 15.611,
+    "render_and_idempotence_ms": 34.166,
+    "target_p95_ms": 5000.0,
+    "total_ms": 608.158,
+    "within_hard_limit": true,
+    "within_target": true
+  },
+  "policy_id": "GOV-HANDOFF-INDEX-01",
+  "registry_change_assertions": [
+    {
+      "change_id": "e7-bench-pilot-01",
+      "entity_id": "EXT-H-E7-BENCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "8b5639b5292571370ea57994e73cc6b4a579d23b1978296829e1faa65c50d90a"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "7d17711b217e12ecbf426db4917c20fb643d4ac8357d838d4a7e71062ab7a4fa"
+        },
+        {
+          "path": "configs/e7_bench_pilot.yaml",
+          "sha256": "f003c06ac3af6afb08a5fc2cf54aeed94f6609c621ec7bd3178bd62019a5064a"
+        },
+        {
+          "path": "docs/e7_bench_pilot.md",
+          "sha256": "2eea1c3b9310e2f5094f1cffaaa7a34c6fe013fe70957631b2ada3469ab7646f"
+        },
+        {
+          "path": "src/drpo/e7_bench.py",
+          "sha256": "78b80c2f1897e1b90f6c65ec8ed29157fbe1fe006d0a1980fc2c611e92a7671a"
+        },
+        {
+          "path": "scripts/run_e7_bench.py",
+          "sha256": "0fa51fa2f7a9b1036eb87cb704b093e201bd313efccbe4668c5739e3a7ebdd32"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        }
+      ],
+      "field_path": [
+        "code_entrypoint"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Register and implement the two-dataset four-seed pilot under the existing E7-BENCH ID, freeze the controlled taper shortlist without D4RL retuning, and require staged task-seed-method parallelism for pilot and formal execution.",
+      "to": "src/drpo/e7_bench.py"
+    },
+    {
+      "change_id": "e7-bench-pilot-02",
+      "entity_id": "EXT-H-E7-BENCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "8b5639b5292571370ea57994e73cc6b4a579d23b1978296829e1faa65c50d90a"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "7d17711b217e12ecbf426db4917c20fb643d4ac8357d838d4a7e71062ab7a4fa"
+        },
+        {
+          "path": "configs/e7_bench_pilot.yaml",
+          "sha256": "f003c06ac3af6afb08a5fc2cf54aeed94f6609c621ec7bd3178bd62019a5064a"
+        },
+        {
+          "path": "docs/e7_bench_pilot.md",
+          "sha256": "2eea1c3b9310e2f5094f1cffaaa7a34c6fe013fe70957631b2ada3469ab7646f"
+        },
+        {
+          "path": "src/drpo/e7_bench.py",
+          "sha256": "78b80c2f1897e1b90f6c65ec8ed29157fbe1fe006d0a1980fc2c611e92a7671a"
+        },
+        {
+          "path": "scripts/run_e7_bench.py",
+          "sha256": "0fa51fa2f7a9b1036eb87cb704b093e201bd313efccbe4668c5739e3a7ebdd32"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        }
+      ],
+      "field_path": [
+        "controlled_shortlist_freeze"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Register and implement the two-dataset four-seed pilot under the existing E7-BENCH ID, freeze the controlled taper shortlist without D4RL retuning, and require staged task-seed-method parallelism for pilot and formal execution.",
+      "to": {
+        "coefficients": {
+          "exponential": 0.374162511054291,
+          "reciprocal_linear": 0.4362580032734791,
+          "reciprocal_quadratic": 0.5520268617673281
+        },
+        "d4rl_retuning_allowed": false,
+        "global_alpha": 0.75,
+        "source_experiment": "C-U1-E4-TAPER-NEAR-RETENTION-01",
+        "source_scope": "development_seeds_0_to_4_only",
+        "standardized_distance_reference": 5.0,
+        "state": "satisfied",
+        "target_average_near_retention": 0.75
+      }
+    },
+    {
+      "change_id": "e7-bench-pilot-03",
+      "entity_id": "EXT-H-E7-BENCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "8b5639b5292571370ea57994e73cc6b4a579d23b1978296829e1faa65c50d90a"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "7d17711b217e12ecbf426db4917c20fb643d4ac8357d838d4a7e71062ab7a4fa"
+        },
+        {
+          "path": "configs/e7_bench_pilot.yaml",
+          "sha256": "f003c06ac3af6afb08a5fc2cf54aeed94f6609c621ec7bd3178bd62019a5064a"
+        },
+        {
+          "path": "docs/e7_bench_pilot.md",
+          "sha256": "2eea1c3b9310e2f5094f1cffaaa7a34c6fe013fe70957631b2ada3469ab7646f"
+        },
+        {
+          "path": "src/drpo/e7_bench.py",
+          "sha256": "78b80c2f1897e1b90f6c65ec8ed29157fbe1fe006d0a1980fc2c611e92a7671a"
+        },
+        {
+          "path": "scripts/run_e7_bench.py",
+          "sha256": "0fa51fa2f7a9b1036eb87cb704b093e201bd313efccbe4668c5739e3a7ebdd32"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "code_committed"
+      ],
+      "from": false,
+      "kind": "update_field",
+      "reason": "Register and implement the two-dataset four-seed pilot under the existing E7-BENCH ID, freeze the controlled taper shortlist without D4RL retuning, and require staged task-seed-method parallelism for pilot and formal execution.",
+      "to": true
+    },
+    {
+      "change_id": "e7-bench-pilot-04",
+      "entity_id": "EXT-H-E7-BENCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "8b5639b5292571370ea57994e73cc6b4a579d23b1978296829e1faa65c50d90a"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "7d17711b217e12ecbf426db4917c20fb643d4ac8357d838d4a7e71062ab7a4fa"
+        },
+        {
+          "path": "configs/e7_bench_pilot.yaml",
+          "sha256": "f003c06ac3af6afb08a5fc2cf54aeed94f6609c621ec7bd3178bd62019a5064a"
+        },
+        {
+          "path": "docs/e7_bench_pilot.md",
+          "sha256": "2eea1c3b9310e2f5094f1cffaaa7a34c6fe013fe70957631b2ada3469ab7646f"
+        },
+        {
+          "path": "src/drpo/e7_bench.py",
+          "sha256": "78b80c2f1897e1b90f6c65ec8ed29157fbe1fe006d0a1980fc2c611e92a7671a"
+        },
+        {
+          "path": "scripts/run_e7_bench.py",
+          "sha256": "0fa51fa2f7a9b1036eb87cb704b093e201bd313efccbe4668c5739e3a7ebdd32"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "formal_run_started"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Register and implement the two-dataset four-seed pilot under the existing E7-BENCH ID, freeze the controlled taper shortlist without D4RL retuning, and require staged task-seed-method parallelism for pilot and formal execution.",
+      "to": false
+    },
+    {
+      "change_id": "e7-bench-pilot-05",
+      "entity_id": "EXT-H-E7-BENCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "8b5639b5292571370ea57994e73cc6b4a579d23b1978296829e1faa65c50d90a"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "7d17711b217e12ecbf426db4917c20fb643d4ac8357d838d4a7e71062ab7a4fa"
+        },
+        {
+          "path": "configs/e7_bench_pilot.yaml",
+          "sha256": "f003c06ac3af6afb08a5fc2cf54aeed94f6609c621ec7bd3178bd62019a5064a"
+        },
+        {
+          "path": "docs/e7_bench_pilot.md",
+          "sha256": "2eea1c3b9310e2f5094f1cffaaa7a34c6fe013fe70957631b2ada3469ab7646f"
+        },
+        {
+          "path": "src/drpo/e7_bench.py",
+          "sha256": "78b80c2f1897e1b90f6c65ec8ed29157fbe1fe006d0a1980fc2c611e92a7671a"
+        },
+        {
+          "path": "scripts/run_e7_bench.py",
+          "sha256": "0fa51fa2f7a9b1036eb87cb704b093e201bd313efccbe4668c5739e3a7ebdd32"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "pilot_run_started"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Register and implement the two-dataset four-seed pilot under the existing E7-BENCH ID, freeze the controlled taper shortlist without D4RL retuning, and require staged task-seed-method parallelism for pilot and formal execution.",
+      "to": false
+    },
+    {
+      "change_id": "e7-bench-pilot-06",
+      "entity_id": "EXT-H-E7-BENCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "8b5639b5292571370ea57994e73cc6b4a579d23b1978296829e1faa65c50d90a"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "7d17711b217e12ecbf426db4917c20fb643d4ac8357d838d4a7e71062ab7a4fa"
+        },
+        {
+          "path": "configs/e7_bench_pilot.yaml",
+          "sha256": "f003c06ac3af6afb08a5fc2cf54aeed94f6609c621ec7bd3178bd62019a5064a"
+        },
+        {
+          "path": "docs/e7_bench_pilot.md",
+          "sha256": "2eea1c3b9310e2f5094f1cffaaa7a34c6fe013fe70957631b2ada3469ab7646f"
+        },
+        {
+          "path": "src/drpo/e7_bench.py",
+          "sha256": "78b80c2f1897e1b90f6c65ec8ed29157fbe1fe006d0a1980fc2c611e92a7671a"
+        },
+        {
+          "path": "scripts/run_e7_bench.py",
+          "sha256": "0fa51fa2f7a9b1036eb87cb704b093e201bd313efccbe4668c5739e3a7ebdd32"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        }
+      ],
+      "field_path": [
+        "execution_gate",
+        "blocked_by"
+      ],
+      "from": [
+        "controlled_method_shortlist_freeze"
+      ],
+      "kind": "update_field",
+      "reason": "Register and implement the two-dataset four-seed pilot under the existing E7-BENCH ID, freeze the controlled taper shortlist without D4RL retuning, and require staged task-seed-method parallelism for pilot and formal execution.",
+      "to": [
+        "formal_protocol_lock"
+      ]
+    },
+    {
+      "change_id": "e7-bench-pilot-07",
+      "entity_id": "EXT-H-E7-BENCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "8b5639b5292571370ea57994e73cc6b4a579d23b1978296829e1faa65c50d90a"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "7d17711b217e12ecbf426db4917c20fb643d4ac8357d838d4a7e71062ab7a4fa"
+        },
+        {
+          "path": "configs/e7_bench_pilot.yaml",
+          "sha256": "f003c06ac3af6afb08a5fc2cf54aeed94f6609c621ec7bd3178bd62019a5064a"
+        },
+        {
+          "path": "docs/e7_bench_pilot.md",
+          "sha256": "2eea1c3b9310e2f5094f1cffaaa7a34c6fe013fe70957631b2ada3469ab7646f"
+        },
+        {
+          "path": "src/drpo/e7_bench.py",
+          "sha256": "78b80c2f1897e1b90f6c65ec8ed29157fbe1fe006d0a1980fc2c611e92a7671a"
+        },
+        {
+          "path": "scripts/run_e7_bench.py",
+          "sha256": "0fa51fa2f7a9b1036eb87cb704b093e201bd313efccbe4668c5739e3a7ebdd32"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        }
+      ],
+      "field_path": [
+        "execution_gate",
+        "blocking_reason"
+      ],
+      "from": "EXT-H-E7-Q2 is now terminal-audited, delivered, and scientifically closed. The large public benchmark remains blocked until the controlled-method shortlist is frozen without D4RL retuning and the benchmark implementation/protocol versions are registered.",
+      "kind": "update_field",
+      "reason": "Register and implement the two-dataset four-seed pilot under the existing E7-BENCH ID, freeze the controlled taper shortlist without D4RL retuning, and require staged task-seed-method parallelism for pilot and formal execution.",
+      "to": "EXT-H-E7-Q2 is scientifically closed and the controlled three-family taper shortlist is now frozen without D4RL retuning. The registered two-dataset pilot is ready, but the formal nine-task benchmark remains blocked until exact D4RL versions, formal seeds, base algorithm, optimizer, and full budgets are frozen."
+    },
+    {
+      "change_id": "e7-bench-pilot-08",
+      "entity_id": "EXT-H-E7-BENCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "8b5639b5292571370ea57994e73cc6b4a579d23b1978296829e1faa65c50d90a"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "7d17711b217e12ecbf426db4917c20fb643d4ac8357d838d4a7e71062ab7a4fa"
+        },
+        {
+          "path": "configs/e7_bench_pilot.yaml",
+          "sha256": "f003c06ac3af6afb08a5fc2cf54aeed94f6609c621ec7bd3178bd62019a5064a"
+        },
+        {
+          "path": "docs/e7_bench_pilot.md",
+          "sha256": "2eea1c3b9310e2f5094f1cffaaa7a34c6fe013fe70957631b2ada3469ab7646f"
+        },
+        {
+          "path": "src/drpo/e7_bench.py",
+          "sha256": "78b80c2f1897e1b90f6c65ec8ed29157fbe1fe006d0a1980fc2c611e92a7671a"
+        },
+        {
+          "path": "scripts/run_e7_bench.py",
+          "sha256": "0fa51fa2f7a9b1036eb87cb704b093e201bd313efccbe4668c5739e3a7ebdd32"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        }
+      ],
+      "field_path": [
+        "formal_execution",
+        "entrypoint"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Register and implement the two-dataset four-seed pilot under the existing E7-BENCH ID, freeze the controlled taper shortlist without D4RL retuning, and require staged task-seed-method parallelism for pilot and formal execution.",
+      "to": "src/drpo/e7_bench.py"
+    },
+    {
+      "change_id": "e7-bench-pilot-09",
+      "entity_id": "EXT-H-E7-BENCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "8b5639b5292571370ea57994e73cc6b4a579d23b1978296829e1faa65c50d90a"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "7d17711b217e12ecbf426db4917c20fb643d4ac8357d838d4a7e71062ab7a4fa"
+        },
+        {
+          "path": "configs/e7_bench_pilot.yaml",
+          "sha256": "f003c06ac3af6afb08a5fc2cf54aeed94f6609c621ec7bd3178bd62019a5064a"
+        },
+        {
+          "path": "docs/e7_bench_pilot.md",
+          "sha256": "2eea1c3b9310e2f5094f1cffaaa7a34c6fe013fe70957631b2ada3469ab7646f"
+        },
+        {
+          "path": "src/drpo/e7_bench.py",
+          "sha256": "78b80c2f1897e1b90f6c65ec8ed29157fbe1fe006d0a1980fc2c611e92a7671a"
+        },
+        {
+          "path": "scripts/run_e7_bench.py",
+          "sha256": "0fa51fa2f7a9b1036eb87cb704b093e201bd313efccbe4668c5739e3a7ebdd32"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        }
+      ],
+      "field_path": [
+        "formal_execution",
+        "entrypoint_status"
+      ],
+      "from": "planned",
+      "kind": "update_field",
+      "reason": "Register and implement the two-dataset four-seed pilot under the existing E7-BENCH ID, freeze the controlled taper shortlist without D4RL retuning, and require staged task-seed-method parallelism for pilot and formal execution.",
+      "to": "implemented"
+    },
+    {
+      "change_id": "e7-bench-pilot-10",
+      "entity_id": "EXT-H-E7-BENCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "8b5639b5292571370ea57994e73cc6b4a579d23b1978296829e1faa65c50d90a"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "7d17711b217e12ecbf426db4917c20fb643d4ac8357d838d4a7e71062ab7a4fa"
+        },
+        {
+          "path": "configs/e7_bench_pilot.yaml",
+          "sha256": "f003c06ac3af6afb08a5fc2cf54aeed94f6609c621ec7bd3178bd62019a5064a"
+        },
+        {
+          "path": "docs/e7_bench_pilot.md",
+          "sha256": "2eea1c3b9310e2f5094f1cffaaa7a34c6fe013fe70957631b2ada3469ab7646f"
+        },
+        {
+          "path": "src/drpo/e7_bench.py",
+          "sha256": "78b80c2f1897e1b90f6c65ec8ed29157fbe1fe006d0a1980fc2c611e92a7671a"
+        },
+        {
+          "path": "scripts/run_e7_bench.py",
+          "sha256": "0fa51fa2f7a9b1036eb87cb704b093e201bd313efccbe4668c5739e3a7ebdd32"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        }
+      ],
+      "field_path": [
+        "formal_parallel_contract"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Register and implement the two-dataset four-seed pilot under the existing E7-BENCH ID, freeze the controlled taper shortlist without D4RL retuning, and require staged task-seed-method parallelism for pilot and formal execution.",
+      "to": {
+        "exact_worker_counts": "pending_with_formal_seed_freeze",
+        "identical_positive_checkpoint_per_task_seed": true,
+        "isolated_output_per_task_seed_method": true,
+        "parallel_unit": "task_seed_method",
+        "resume_granularity": "task_seed_method",
+        "scheduler": "staged_resource_pool_subprocess_workers",
+        "serial_method_loop_forbidden": true,
+        "serial_seed_loop_forbidden": true,
+        "state": "registered_required_topology",
+        "task_count": 9
+      }
+    },
+    {
+      "change_id": "e7-bench-pilot-11",
+      "entity_id": "EXT-H-E7-BENCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "8b5639b5292571370ea57994e73cc6b4a579d23b1978296829e1faa65c50d90a"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "7d17711b217e12ecbf426db4917c20fb643d4ac8357d838d4a7e71062ab7a4fa"
+        },
+        {
+          "path": "configs/e7_bench_pilot.yaml",
+          "sha256": "f003c06ac3af6afb08a5fc2cf54aeed94f6609c621ec7bd3178bd62019a5064a"
+        },
+        {
+          "path": "docs/e7_bench_pilot.md",
+          "sha256": "2eea1c3b9310e2f5094f1cffaaa7a34c6fe013fe70957631b2ada3469ab7646f"
+        },
+        {
+          "path": "src/drpo/e7_bench.py",
+          "sha256": "78b80c2f1897e1b90f6c65ec8ed29157fbe1fe006d0a1980fc2c611e92a7671a"
+        },
+        {
+          "path": "scripts/run_e7_bench.py",
+          "sha256": "0fa51fa2f7a9b1036eb87cb704b093e201bd313efccbe4668c5739e3a7ebdd32"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        }
+      ],
+      "field_path": [
+        "implementation_state"
+      ],
+      "from": "not_implemented",
+      "kind": "update_field",
+      "reason": "Register and implement the two-dataset four-seed pilot under the existing E7-BENCH ID, freeze the controlled taper shortlist without D4RL retuning, and require staged task-seed-method parallelism for pilot and formal execution.",
+      "to": "pilot_implemented_formal_parallel_scaffold"
+    },
+    {
+      "change_id": "e7-bench-pilot-12",
+      "entity_id": "EXT-H-E7-BENCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "8b5639b5292571370ea57994e73cc6b4a579d23b1978296829e1faa65c50d90a"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "7d17711b217e12ecbf426db4917c20fb643d4ac8357d838d4a7e71062ab7a4fa"
+        },
+        {
+          "path": "configs/e7_bench_pilot.yaml",
+          "sha256": "f003c06ac3af6afb08a5fc2cf54aeed94f6609c621ec7bd3178bd62019a5064a"
+        },
+        {
+          "path": "docs/e7_bench_pilot.md",
+          "sha256": "2eea1c3b9310e2f5094f1cffaaa7a34c6fe013fe70957631b2ada3469ab7646f"
+        },
+        {
+          "path": "src/drpo/e7_bench.py",
+          "sha256": "78b80c2f1897e1b90f6c65ec8ed29157fbe1fe006d0a1980fc2c611e92a7671a"
+        },
+        {
+          "path": "scripts/run_e7_bench.py",
+          "sha256": "0fa51fa2f7a9b1036eb87cb704b093e201bd313efccbe4668c5739e3a7ebdd32"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        }
+      ],
+      "field_path": [
+        "one_click_entrypoint"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Register and implement the two-dataset four-seed pilot under the existing E7-BENCH ID, freeze the controlled taper shortlist without D4RL retuning, and require staged task-seed-method parallelism for pilot and formal execution.",
+      "to": "scripts/run_e7_bench.py"
+    },
+    {
+      "change_id": "e7-bench-pilot-13",
+      "entity_id": "EXT-H-E7-BENCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "8b5639b5292571370ea57994e73cc6b4a579d23b1978296829e1faa65c50d90a"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "7d17711b217e12ecbf426db4917c20fb643d4ac8357d838d4a7e71062ab7a4fa"
+        },
+        {
+          "path": "configs/e7_bench_pilot.yaml",
+          "sha256": "f003c06ac3af6afb08a5fc2cf54aeed94f6609c621ec7bd3178bd62019a5064a"
+        },
+        {
+          "path": "docs/e7_bench_pilot.md",
+          "sha256": "2eea1c3b9310e2f5094f1cffaaa7a34c6fe013fe70957631b2ada3469ab7646f"
+        },
+        {
+          "path": "src/drpo/e7_bench.py",
+          "sha256": "78b80c2f1897e1b90f6c65ec8ed29157fbe1fe006d0a1980fc2c611e92a7671a"
+        },
+        {
+          "path": "scripts/run_e7_bench.py",
+          "sha256": "0fa51fa2f7a9b1036eb87cb704b093e201bd313efccbe4668c5739e3a7ebdd32"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        }
+      ],
+      "field_path": [
+        "pilot_config_path"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Register and implement the two-dataset four-seed pilot under the existing E7-BENCH ID, freeze the controlled taper shortlist without D4RL retuning, and require staged task-seed-method parallelism for pilot and formal execution.",
+      "to": "configs/e7_bench_pilot.yaml"
+    },
+    {
+      "change_id": "e7-bench-pilot-14",
+      "entity_id": "EXT-H-E7-BENCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "8b5639b5292571370ea57994e73cc6b4a579d23b1978296829e1faa65c50d90a"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "7d17711b217e12ecbf426db4917c20fb643d4ac8357d838d4a7e71062ab7a4fa"
+        },
+        {
+          "path": "configs/e7_bench_pilot.yaml",
+          "sha256": "f003c06ac3af6afb08a5fc2cf54aeed94f6609c621ec7bd3178bd62019a5064a"
+        },
+        {
+          "path": "docs/e7_bench_pilot.md",
+          "sha256": "2eea1c3b9310e2f5094f1cffaaa7a34c6fe013fe70957631b2ada3469ab7646f"
+        },
+        {
+          "path": "src/drpo/e7_bench.py",
+          "sha256": "78b80c2f1897e1b90f6c65ec8ed29157fbe1fe006d0a1980fc2c611e92a7671a"
+        },
+        {
+          "path": "scripts/run_e7_bench.py",
+          "sha256": "0fa51fa2f7a9b1036eb87cb704b093e201bd313efccbe4668c5739e3a7ebdd32"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        }
+      ],
+      "field_path": [
+        "pilot_execution"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Register and implement the two-dataset four-seed pilot under the existing E7-BENCH ID, freeze the controlled taper shortlist without D4RL retuning, and require staged task-seed-method parallelism for pilot and formal execution.",
+      "to": {
+        "datasets": [
+          {
+            "environment": "Hopper-v5",
+            "exact_sha256": "17c1b07d01ce461bb9b2866ad0356c542678b66b886b5ed6c066733a75c52c84",
+            "formal_nine_task_cell_eligible": false,
+            "format": "minari_episode_hdf5",
+            "id": "hopper-medium-minari-v0",
+            "metric": "raw_return_only",
+            "reason": "uploaded medium file is Minari Hopper-v5 rather than D4RL hopper-medium-v2"
+          },
+          {
+            "environment": "Hopper-v4",
+            "exact_sha256": "9d51ad87f8c905be3880d84c6140bcdb7fbf39a19e046a237f238ba34fec9e26",
+            "formal_nine_task_cell_eligible": true,
+            "format": "legacy_d4rl_hdf5",
+            "id": "hopper-medium-expert-v2",
+            "metric": "d4rl_v2_normalized_return_percent"
+          }
+        ],
+        "development_seeds": [
+          200,
+          201,
+          202,
+          203
+        ],
+        "execution_class": "pilot",
+        "execution_gate": {
+          "blocked_by": [],
+          "state": "ready"
+        },
+        "fixed_budget": {
+          "branch_optimizer_steps": 40000,
+          "critic_optimizer_steps": 20000,
+          "early_stop_rule": "nan_inf_numerical_failure_only",
+          "fixed_horizon_is_not_convergence": true,
+          "positive_only_optimizer_steps": 20000
+        },
+        "formal_evidence_allowed": false,
+        "method_family_or_coefficient_retuning_allowed": false,
+        "methods": [
+          "positive_only",
+          "signed",
+          "global_alpha",
+          "reciprocal_linear",
+          "reciprocal_quadratic",
+          "exponential"
+        ],
+        "parallel_execution": {
+          "branch_cpus_per_worker": 8,
+          "branch_workers": 40,
+          "critic_cpus_per_worker": 64,
+          "critic_workers": 2,
+          "parallel_unit": "dataset_seed_method",
+          "peak_registered_cpu_threads": 320,
+          "positive_cpus_per_worker": 32,
+          "positive_workers": 8,
+          "resume_granularity": "dataset_seed_method",
+          "scheduler": "three_stage_subprocess_worker_pool",
+          "serial_method_loop_forbidden": true,
+          "serial_seed_loop_forbidden": true,
+          "server_cpu_capacity": 384,
+          "stages": [
+            "parallel_canonical_critics",
+            "parallel_positive_checkpoints",
+            "parallel_task_seed_method_branches"
+          ]
+        },
+        "purpose": [
+          "verify_two_dataset_loading_and_rollout_compatibility",
+          "verify_frozen_taper_method_implementation",
+          "estimate_runtime_and_artifact_volume",
+          "verify_terminal_audit_and_parallel_resume"
+        ],
+        "scientific_status": "not_run"
+      }
+    },
+    {
+      "change_id": "e7-bench-pilot-15",
+      "entity_id": "EXT-H-E7-BENCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "8b5639b5292571370ea57994e73cc6b4a579d23b1978296829e1faa65c50d90a"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "7d17711b217e12ecbf426db4917c20fb643d4ac8357d838d4a7e71062ab7a4fa"
+        },
+        {
+          "path": "configs/e7_bench_pilot.yaml",
+          "sha256": "f003c06ac3af6afb08a5fc2cf54aeed94f6609c621ec7bd3178bd62019a5064a"
+        },
+        {
+          "path": "docs/e7_bench_pilot.md",
+          "sha256": "2eea1c3b9310e2f5094f1cffaaa7a34c6fe013fe70957631b2ada3469ab7646f"
+        },
+        {
+          "path": "src/drpo/e7_bench.py",
+          "sha256": "78b80c2f1897e1b90f6c65ec8ed29157fbe1fe006d0a1980fc2c611e92a7671a"
+        },
+        {
+          "path": "scripts/run_e7_bench.py",
+          "sha256": "0fa51fa2f7a9b1036eb87cb704b093e201bd313efccbe4668c5739e3a7ebdd32"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        }
+      ],
+      "field_path": [
+        "pilot_protocol_document"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Register and implement the two-dataset four-seed pilot under the existing E7-BENCH ID, freeze the controlled taper shortlist without D4RL retuning, and require staged task-seed-method parallelism for pilot and formal execution.",
+      "to": "docs/e7_bench_pilot.md"
+    },
+    {
+      "change_id": "e7-bench-pilot-16",
+      "entity_id": "EXT-H-E7-BENCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "8b5639b5292571370ea57994e73cc6b4a579d23b1978296829e1faa65c50d90a"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "7d17711b217e12ecbf426db4917c20fb643d4ac8357d838d4a7e71062ab7a4fa"
+        },
+        {
+          "path": "configs/e7_bench_pilot.yaml",
+          "sha256": "f003c06ac3af6afb08a5fc2cf54aeed94f6609c621ec7bd3178bd62019a5064a"
+        },
+        {
+          "path": "docs/e7_bench_pilot.md",
+          "sha256": "2eea1c3b9310e2f5094f1cffaaa7a34c6fe013fe70957631b2ada3469ab7646f"
+        },
+        {
+          "path": "src/drpo/e7_bench.py",
+          "sha256": "78b80c2f1897e1b90f6c65ec8ed29157fbe1fe006d0a1980fc2c611e92a7671a"
+        },
+        {
+          "path": "scripts/run_e7_bench.py",
+          "sha256": "0fa51fa2f7a9b1036eb87cb704b093e201bd313efccbe4668c5739e3a7ebdd32"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        }
+      ],
+      "field_path": [
+        "prerequisite_status",
+        "controlled_method_shortlist_freeze"
+      ],
+      "from": "pending",
+      "kind": "update_field",
+      "reason": "Register and implement the two-dataset four-seed pilot under the existing E7-BENCH ID, freeze the controlled taper shortlist without D4RL retuning, and require staged task-seed-method parallelism for pilot and formal execution.",
+      "to": "satisfied_without_d4rl_retuning"
+    },
+    {
+      "change_id": "e7-bench-pilot-17",
+      "entity_id": "EXT-H-E7-BENCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "8b5639b5292571370ea57994e73cc6b4a579d23b1978296829e1faa65c50d90a"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "7d17711b217e12ecbf426db4917c20fb643d4ac8357d838d4a7e71062ab7a4fa"
+        },
+        {
+          "path": "configs/e7_bench_pilot.yaml",
+          "sha256": "f003c06ac3af6afb08a5fc2cf54aeed94f6609c621ec7bd3178bd62019a5064a"
+        },
+        {
+          "path": "docs/e7_bench_pilot.md",
+          "sha256": "2eea1c3b9310e2f5094f1cffaaa7a34c6fe013fe70957631b2ada3469ab7646f"
+        },
+        {
+          "path": "src/drpo/e7_bench.py",
+          "sha256": "78b80c2f1897e1b90f6c65ec8ed29157fbe1fe006d0a1980fc2c611e92a7671a"
+        },
+        {
+          "path": "scripts/run_e7_bench.py",
+          "sha256": "0fa51fa2f7a9b1036eb87cb704b093e201bd313efccbe4668c5739e3a7ebdd32"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        }
+      ],
+      "field_path": [
+        "prerequisite_status",
+        "formal_protocol_lock"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Register and implement the two-dataset four-seed pilot under the existing E7-BENCH ID, freeze the controlled taper shortlist without D4RL retuning, and require staged task-seed-method parallelism for pilot and formal execution.",
+      "to": "pending"
+    },
+    {
+      "change_id": "e7-bench-pilot-18",
+      "entity_id": "EXT-H-E7-BENCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "8b5639b5292571370ea57994e73cc6b4a579d23b1978296829e1faa65c50d90a"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "7d17711b217e12ecbf426db4917c20fb643d4ac8357d838d4a7e71062ab7a4fa"
+        },
+        {
+          "path": "configs/e7_bench_pilot.yaml",
+          "sha256": "f003c06ac3af6afb08a5fc2cf54aeed94f6609c621ec7bd3178bd62019a5064a"
+        },
+        {
+          "path": "docs/e7_bench_pilot.md",
+          "sha256": "2eea1c3b9310e2f5094f1cffaaa7a34c6fe013fe70957631b2ada3469ab7646f"
+        },
+        {
+          "path": "src/drpo/e7_bench.py",
+          "sha256": "78b80c2f1897e1b90f6c65ec8ed29157fbe1fe006d0a1980fc2c611e92a7671a"
+        },
+        {
+          "path": "scripts/run_e7_bench.py",
+          "sha256": "0fa51fa2f7a9b1036eb87cb704b093e201bd313efccbe4668c5739e3a7ebdd32"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        }
+      ],
+      "field_path": [
+        "prerequisite_status",
+        "pilot_execution"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Register and implement the two-dataset four-seed pilot under the existing E7-BENCH ID, freeze the controlled taper shortlist without D4RL retuning, and require staged task-seed-method parallelism for pilot and formal execution.",
+      "to": "ready_not_run"
+    },
+    {
+      "change_id": "e7-bench-pilot-19",
+      "entity_id": "EXT-H-E7-BENCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "8b5639b5292571370ea57994e73cc6b4a579d23b1978296829e1faa65c50d90a"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "7d17711b217e12ecbf426db4917c20fb643d4ac8357d838d4a7e71062ab7a4fa"
+        },
+        {
+          "path": "configs/e7_bench_pilot.yaml",
+          "sha256": "f003c06ac3af6afb08a5fc2cf54aeed94f6609c621ec7bd3178bd62019a5064a"
+        },
+        {
+          "path": "docs/e7_bench_pilot.md",
+          "sha256": "2eea1c3b9310e2f5094f1cffaaa7a34c6fe013fe70957631b2ada3469ab7646f"
+        },
+        {
+          "path": "src/drpo/e7_bench.py",
+          "sha256": "78b80c2f1897e1b90f6c65ec8ed29157fbe1fe006d0a1980fc2c611e92a7671a"
+        },
+        {
+          "path": "scripts/run_e7_bench.py",
+          "sha256": "0fa51fa2f7a9b1036eb87cb704b093e201bd313efccbe4668c5739e3a7ebdd32"
+        },
+        {
+          "path": "outputs/cu1_e4_taper_near_retention/RESULT_SUMMARY.json",
+          "sha256": "c87f3c2d25d6b902650beff30f3b47575d15c87159db1f3e094d40893dc282d0"
+        }
+      ],
+      "field_path": [
+        "protocol_lock_status"
+      ],
+      "from": "seeds_optimizer_base_algorithm_and_exact_versions_pending_before_implementation",
+      "kind": "update_field",
+      "reason": "Register and implement the two-dataset four-seed pilot under the existing E7-BENCH ID, freeze the controlled taper shortlist without D4RL retuning, and require staged task-seed-method parallelism for pilot and formal execution.",
+      "to": "pilot_frozen_and_implemented_formal_exact_versions_seeds_optimizer_base_algorithm_pending"
+    }
+  ],
+  "registry_change_coverage": {
+    "added_entities": [],
+    "changed_field_count": 19,
+    "declared_assertion_count": 19,
+    "fully_declared": true,
+    "mode": "schema2_complete",
+    "removed_entities": []
+  },
+  "registry_transition_assertions": [],
+  "report_schema_version": 2,
+  "repository_commit": null,
+  "schema_version": 1,
+  "status": "PASS",
+  "update_id": "EXT-H-E7-BENCH-PARALLEL-PILOT-2026-07-02",
+  "validation_worktree_head": "da5488ce13d0d6512b211ba4c68c9cdcd3fa49fc"
+}

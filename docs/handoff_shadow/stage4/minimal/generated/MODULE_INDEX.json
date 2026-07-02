@@ -178,10 +178,10 @@
   ],
   "graph_hash": "0db2d992b651a2ed85d93d68c298214ba6bdbee1ae15b7b7c48d92162a7fb87c",
   "input_hashes": {
-    "docs/handoff.md": "2c8c0ca7ced80ee0a90a7aa5defab461125d1b5002144713488ca1a7edeff548",
+    "docs/handoff.md": "8b5639b5292571370ea57994e73cc6b4a579d23b1978296829e1faa65c50d90a",
     "docs/handoff_shadow/stage4/minimal/DEPENDENCIES.yaml": "fb19da70ea2db6a35c4320e23a91640d0f21887c46bb79873d9548357271f4da",
     "docs/handoff_shadow/stage4/minimal/MODULES.yaml": "ad311249e164d12da08108cea9661ad7b57eb10ce13b5d090526d8418e903331",
-    "experiments/registry.yaml": "a5c28b65f172db571f3f1aedba0a37a1863bcb9704f82a815bbdc0d37192c89d"
+    "experiments/registry.yaml": "7d17711b217e12ecbf426db4917c20fb643d4ac8357d838d4a7e71062ab7a4fa"
   },
   "module_order": [
     "global_core_governance",
@@ -242,9 +242,9 @@
       "deduplicated_source_labels": [],
       "depends_on": [],
       "module_id": "global_core_governance",
-      "snapshot_hash": "f43f2ac8066f498dce04eda5addf803ff2a5b0e6ffe61d675478686b0c0cc6d2",
-      "source_chars": 15223,
-      "source_hash": "1a8ee94e3f06c3971da25628eae155b9e96d62977c6db725ef447321b47936f4",
+      "snapshot_hash": "9cd1234aa006173ab621226593f03750076dfda3be5ec6a8d7f163213d1945c0",
+      "source_chars": 17505,
+      "source_hash": "96e7cd8825d0fef113dc9c7a1dc776af4dc1b13627add94ddd302e01f02b5eab",
       "source_labels": [
         "docs/handoff.md: # 0. 研究与执行原则（每次新会话首先阅读） -> # 1. 论文最终目标与两条主工作线"
       ]
@@ -433,14 +433,15 @@
         "continuous_e4_extrapolation"
       ],
       "module_id": "continuous_e4_taper",
-      "snapshot_hash": "5e9f58f7b78dd6431ed4cae4acdb8cf96387a1a6dd4e0b3fd0646ef61c9d5c3d",
-      "source_chars": 68557,
-      "source_hash": "4c80dd69ce9906c52f20cb6f5539f98e3cab42794340c90879e24ccd7eb30405",
+      "snapshot_hash": "aa5d0ae1c78cbb9644659b7b27215b8ac278c68c616b33509dfd2cd1be052919",
+      "source_chars": 70748,
+      "source_hash": "3547ad0867e1954a83b448af85d904790a5b15ae06e733d2396013556f7de744",
       "source_labels": [
         "docs/handoff.md: ## 3.8 C-U1 共享实现与二次阶方法实验 `C-U1-E4-TAPER-01` -> ## 3.9 E6--E8 方法迁移与规模验证路线（v42 锁定）",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v60-e4-taper-utility-registration",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v61-e4-taper-near-retention-implementation",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v66-e4-taper-budget-match-closure",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v69-e7-bench-parallel-pilot",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v60-e4-taper-current-gate",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v61-e4-taper-near-retention-current-gate",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v63-e4-taper-closure-current-gate",
@@ -506,9 +507,9 @@
         "continuous_mechanism_e1_e3"
       ],
       "module_id": "hopper_e7",
-      "snapshot_hash": "0b204656517047d7c2191985a861154da9839712203707a883ba531629cc222b",
-      "source_chars": 43187,
-      "source_hash": "08169ced028bedb7ffc417243761b7016f286c094a7a266148885fc14d8d5537",
+      "snapshot_hash": "6b121d06fb9efbc4c643fd5b8a2919c25c4658f824049685fefbbf256835e410",
+      "source_chars": 48823,
+      "source_hash": "c39379e7e852e08939683c2fa723b85fac5a13fb00dc455d61ff7099d8c49732",
       "source_labels": [
         "docs/handoff.md: # 15. Learned-Critic External Mechanism Validation on D4RL -> # Part V. Bandit 稳定外推子实验的收敛审计（完整保留）",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v54-e7-canonical-critic-rollout-audit",
@@ -520,6 +521,7 @@
         "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v64-e7-q2-acceptance-pipeline",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:e7-q2-fixed-budget-longrun-v43",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v68-ext-h-e7-q2-longrun-closure",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v69-e7-bench-parallel-pilot",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v56-e6-parent-closure-current-gate",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v57-countdown-offline-bank-current-gate",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v59-countdown-offline-bank-tuning-current-gate",
