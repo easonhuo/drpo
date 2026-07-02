@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Bidirectional DRPO manuscript pipeline.
+"""Bidirectional domain-agnostic manuscript pipeline.
 
 The pipeline treats a stable-ID manuscript graph as the reconciliation layer among
 outline, paragraph blueprint, prose, LaTeX, appendix, figures, and the Overleaf
@@ -38,15 +38,6 @@ PARENT_BLUEPRINT_RE = re.compile(r"^Parent-Blueprint-SHA256:\s*`?([0-9a-f]{64})`
 FIELD_RE = re.compile(r"^\*\*([^*]+):\*\*\s*(.*)$")
 BODY_MARKER = "**Body:**"
 
-FORBIDDEN_MAIN_TEXT = (
-    "old paper + new sequel",
-    "old paper and new sequel",
-    "original formulation and revised formulation",
-    "original drpo and the revised paper",
-    "follow-up to the original drpo",
-    "both mean and variance expand",
-)
-
 
 class PipelineError(RuntimeError):
     pass
@@ -80,6 +71,52 @@ def write_yaml(path: Path, data: dict[str, Any]) -> None:
         yaml.safe_dump(data, allow_unicode=True, sort_keys=False, width=1000),
         encoding="utf-8",
     )
+
+
+def load_project_profile(graph: dict[str, Any], root: Path) -> dict[str, Any]:
+    artifacts = graph.get("artifacts", {})
+    configured = artifacts.get("project_profile")
+    if not configured:
+        contract_ref = artifacts.get("publication_quality_contract")
+        if contract_ref:
+            contract_path = root / str(contract_ref)
+            if not contract_path.is_file():
+                raise PipelineError(f"missing publication-quality contract: {contract_path}")
+            contract = read_yaml(contract_path)
+            configured = contract.get("project_profile")
+    if not configured:
+        return {}
+    path = root / str(configured)
+    if not path.is_file():
+        raise PipelineError(f"missing manuscript project profile: {path}")
+    return read_yaml(path)
+
+
+def project_validation_errors(node: dict[str, Any], profile: dict[str, Any]) -> list[str]:
+    rules = profile.get("validation_rules", {})
+    if not isinstance(rules, dict):
+        raise PipelineError("project profile validation_rules must be a mapping")
+    node_id = str(node.get("id", ""))
+    text = " ".join(
+        str(node.get(field, "")) for field in ("title", "claim", "role", "prose")
+    ).lower()
+    errors: list[str] = []
+    for phrase in rules.get("forbidden_phrases", []):
+        token = str(phrase).strip().lower()
+        if token and token in text:
+            errors.append(f"node {node_id} contains project-forbidden framing: {phrase}")
+    for rule in rules.get("conditional_forbidden", []):
+        if not isinstance(rule, dict):
+            raise PipelineError("conditional_forbidden rules must be mappings")
+        trigger = str(rule.get("trigger", "")).strip().lower()
+        forbidden = str(rule.get("forbidden", "")).strip().lower()
+        exemptions = [str(item).strip().lower() for item in rule.get("exemptions", [])]
+        if trigger and forbidden and trigger in text and forbidden in text:
+            if not any(item and item in text for item in exemptions):
+                errors.append(
+                    f"node {node_id} violates project terminology rule: {rule.get('forbidden')}"
+                )
+    return errors
 
 
 def normalize_payload(lines: list[str]) -> str:
@@ -487,7 +524,7 @@ def render_tex_sections(graph: dict[str, Any], root: Path) -> None:
 \newtheorem{{assumption}}[theorem]{{Assumption}}
 \theoremstyle{{remark}}
 \newtheorem{{remark}}[theorem]{{Remark}}
-\icmltitlerunning{{{metadata.get("running_title", "DRPO for Off-Policy Learning")}}}
+\icmltitlerunning{{{metadata.get("running_title", metadata.get("title", "Manuscript"))}}}
 \begin{{document}}
 \twocolumn[
 \icmltitle{{{metadata["title"]}}}
@@ -495,9 +532,9 @@ def render_tex_sections(graph: dict[str, Any], root: Path) -> None:
 \begin{{icmlauthorlist}}
 {author_rows}
 \end{{icmlauthorlist}}
-\icmlaffiliation{{comp}}{{{metadata.get("affiliation", "Tencent Inc, China")}}}
-\icmlcorrespondingauthor{{{metadata.get("corresponding_name", "Jun Zhang")}}}{{{metadata.get("corresponding_email", "neoxzhang@tencent.com")}}}
-\icmlkeywords{{{metadata.get("keywords", "Reinforcement Learning, Offline RL, Policy Optimization")}}}
+\icmlaffiliation{{comp}}{{{metadata.get("affiliation", "Anonymous Institution")}}}
+\icmlcorrespondingauthor{{{metadata.get("corresponding_name", "Corresponding Author")}}}{{{metadata.get("corresponding_email", "corresponding@example.com")}}}
+\icmlkeywords{{{metadata.get("keywords", "Machine Learning")}}}
 \vskip 0.3in
 ]
 \printAffiliationsAndNotice{{\icmlEqualContribution}}
@@ -794,6 +831,7 @@ def apply_delta(
 
 def validate(graph: dict[str, Any], root: Path) -> dict[str, Any]:
     errors: list[str] = []
+    project_profile = load_project_profile(graph, root)
     sections = section_map(graph)
     nodes = nodes_sorted(graph)
     ids: set[str] = set()
@@ -809,19 +847,7 @@ def validate(graph: dict[str, Any], root: Path) -> dict[str, Any]:
         for field in ("title", "claim", "reader_question", "role", "prose"):
             if not str(node.get(field, "")).strip():
                 errors.append(f"node {node_id} missing {field}")
-        text = " ".join(
-            str(node.get(field, "")) for field in ("title", "claim", "role", "prose")
-        ).lower()
-        for phrase in FORBIDDEN_MAIN_TEXT:
-            if phrase in text:
-                errors.append(f"node {node_id} contains forbidden framing: {phrase}")
-        if (
-            "c-u1" in text
-            and "ood generalization" in text
-            and "not ood generalization" not in text
-            and "never ood generalization" not in text
-        ):
-            errors.append(f"node {node_id} mislabels C-U1 as OOD generalization")
+        errors.extend(project_validation_errors(node, project_profile))
         if node.get("evidence_status") in {"tbd", "not_run"}:
             numeric = re.search(r"\b\d+(?:\.\d+)?(?:%|x|×)\b", str(node.get("prose", "")), re.I)
             if numeric and "TBD" not in str(node.get("prose", "")):
@@ -978,7 +1004,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--prefer", choices=("outline", "blueprint", "prose"))
     parser.add_argument("--delta", type=Path)
     parser.add_argument(
-        "--output", type=Path, default=Path("paper/releases/DRPO_OVERLEAF_DRAFT_V092.zip")
+        "--output", type=Path, default=Path("paper/releases/manuscript_overleaf.zip")
     )
     return parser.parse_args()
 

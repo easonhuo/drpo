@@ -1,0 +1,30 @@
+schema_version: 2
+contract_id: sensor-scheduling-generic-fixture
+project_id: sensor-scheduling-fixture
+quality_profile: docs/manuscript/generic_publication_quality_profile.yaml
+project_profile: tests/fixtures/generic_manuscript/project_profile.yaml
+bibliography: tests/fixtures/generic_manuscript/references.bib
+tex_root: tests/fixtures/generic_manuscript/tex
+scope:
+  node_ids: [INTRO-F01, THEORY-F01]
+section_archetype_map:
+  introduction: introduction
+  theory: theoretical_analysis
+required_roles:
+  INTRO-F01: [deployment_context, resource_motivation, unresolved_tradeoff, proposed_direction, bridge]
+  THEORY-F01: [analysis_goal, formal_statement, proof_idea, operational_meaning, scope_limit, bridge]
+role_functions:
+  deployment_context: context
+  resource_motivation: motivation
+  unresolved_tradeoff: gap
+  proposed_direction: contribution
+  bridge: transition
+  analysis_goal: motivation
+  formal_statement: statement
+  proof_idea: reasoning
+  operational_meaning: interpretation
+  scope_limit: limitation
+reference_independence:
+  sources: [tests/fixtures/generic_manuscript/reference.txt]
+  ngram_size: 6
+  max_overlap_ratio: 0.25

@@ -44,21 +44,21 @@ def test_release_pdf_is_committed_and_nontrivial():
     assert pdf.stat().st_size > 100_000
 
 
-def test_compiler_uses_portable_tex_tool_discovery():
-    source = (ROOT / "scripts/compile_full_manuscript.py").read_text()
+def test_release_engine_uses_portable_tex_tool_discovery():
+    source = (ROOT / "scripts/manuscript_release_pipeline.py").read_text()
     assert 'shutil.which("latexmk")' in source
     assert 'shutil.which("bibtex")' in source
     assert 'bibtex = shutil.which("bibtex")' in source
     assert "--skip-compile" in source
 
 
-def test_compiler_runs_publication_quality_gate():
-    source = (ROOT / "scripts/compile_full_manuscript.py").read_text()
-    assert "scripts/manuscript_publication_pipeline.py" in source
+def test_compiler_runs_publication_quality_gate_through_generic_release_manifest():
+    wrapper = (ROOT / "scripts/compile_full_manuscript.py").read_text()
+    assert "manuscript_release_pipeline.py" in wrapper
     cfg = yaml.safe_load((ROOT / "docs/manuscript/full_paper_assets.yaml").read_text())
-    assert (
-        cfg["publication_quality_contract"] == "docs/manuscript/publication_quality_contract.yaml"
-    )
+    assert cfg["quality_gate"]["script"] == "scripts/manuscript_publication_pipeline.py"
+    assert cfg["quality_gate"]["contract"] == "docs/manuscript/publication_quality_contract.yaml"
+    assert cfg["asset_build_commands"][0][1] == "scripts/projects/drpo/build_manuscript_assets.py"
     obligations = {row["statement_label"]: row["proof_label"] for row in cfg["proof_obligations"]}
     assert obligations["prop:score-remoteness"] == "app:proof-score-remoteness"
     assert obligations["thm:reuse"] == "app:proof-reuse"

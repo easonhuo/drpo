@@ -1,0 +1,80 @@
+schema_version: 2
+issue_id: PAPER-PIPELINE-V2-DOMAIN-AGNOSTIC-05
+section_id: full-paper
+paragraph_ids:
+- ABSTRACT-P01
+- INTRO-P01
+- INTRO-P02
+- INTRO-P03
+- INTRO-P04
+- INTRO-P05
+- INTRO-P06
+- RELATED-P01
+- RELATED-P02
+- RELATED-P03
+- SETUP-P01
+- SETUP-P02
+- THEORY-P01
+- THEORY-P02
+- THEORY-P03
+- THEORY-P04
+- THEORY-P05
+- METHOD-P01
+- METHOD-P02
+- METHOD-P03
+- METHOD-P04
+- EXP-P01
+- EXP-P02
+- EXP-P03
+- EXP-P04
+- EXP-P05
+- EXP-P06
+- DISC-P01
+- DISC-P02
+- DISC-P03
+- APP-PROOF-P01
+- APP-GAUSS-P01
+- APP-CAT-P01
+- APP-ENV-P01
+- APP-PROT-P01
+- APP-RES-P01
+- APP-REPRO-P01
+- APP-DRO-P01
+- APP-CORR-P01
+problem: The publication-quality pipeline mixed reusable rhetorical and evidence checks with paper-specific terminology, sentence roles, figures, captions, proofs, and release defaults. That coupling could make future generated prose imitate the current manuscript instead of deriving high-quality content from each project's own outline, evidence, and blueprint.
+change_control:
+  kind: infrastructure_migration
+  reported_layer: prose
+  outline_change_authorized: false
+  authorization_evidence: The user explicitly required a general-purpose paper-generation pipeline and authorized removing business-specific rules while preserving publication quality.
+checks:
+- layer: outline
+  status: pass
+  evidence: The registered outline remains the project-specific scientific contract and does not need semantic revision for this infrastructure change.
+- layer: blueprint
+  status: pass
+  evidence: The registered blueprint content remains valid project input; project roles only need to be interpreted through a separate project contract.
+- layer: prose
+  status: fail
+  evidence: The downstream generation and release path could inherit paper-specific rules from core code, so future prose was not guaranteed to be domain independent.
+resolution:
+  state: completed
+  required_layers:
+  - prose
+  changed_layers:
+  - prose
+allowed_additional_paragraph_ids: []
+scientific_status_change: none
+outputs:
+- docs/manuscript/generic_publication_quality_profile.yaml
+- docs/manuscript/projects/drpo_profile.yaml
+- scripts/manuscript_publication_pipeline.py
+- scripts/manuscript_release_pipeline.py
+- scripts/projects/drpo/build_manuscript_assets.py
+- tests/fixtures/generic_manuscript/graph.yaml
+- tests/test_manuscript_release_pipeline.py
+constraints:
+- No experiment status, seed, threshold, convergence rule, method ranking, or scientific conclusion is changed.
+- Reference manuscripts are quality rubrics only and cannot supply project wording, entities, claims, theorem sequence, or experimental narrative.
+- The generic core must contain no registered project business terms.
+- The existing project and an unrelated distributed-sensor fixture must both pass the same quality engine.

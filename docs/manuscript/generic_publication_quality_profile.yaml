@@ -1,0 +1,67 @@
+schema_version: 1
+profile: generic-research-manuscript-v1
+description: >-
+  Domain-agnostic quality requirements for converting a research-paper outline
+  into paragraph blueprints and prose. This file defines rhetorical and
+  evidentiary obligations only; it must not define project claims, entities,
+  experiments, methods, theorem contents, or terminology.
+required_outline_fields: [claim, reader_question, role, evidence]
+required_blueprint_fields:
+  - topic_sentence
+  - sentence_plan
+  - evidence_use
+  - citation_refs
+  - theorem_or_equation_refs
+  - appendix_bindings
+  - allowed_conclusions
+  - forbidden_conclusions
+  - reviewer_objection
+  - objection_response
+  - word_budget
+  - transition
+section_archetypes:
+  introduction:
+    min_outline_obligations: 4
+    min_sentence_units: 5
+    min_prose_sentences: 5
+    required_functions: [context, motivation, gap, contribution, transition]
+  literature_synthesis:
+    min_outline_obligations: 4
+    min_sentence_units: 6
+    min_prose_sentences: 6
+    required_functions: [prior_work, synthesis, limitation, positioning, transition]
+  formal_setup:
+    min_outline_obligations: 4
+    min_sentence_units: 6
+    min_prose_sentences: 6
+    required_functions: [scope, definition, formulation, interpretation, boundary, transition]
+  theoretical_analysis:
+    min_outline_obligations: 4
+    min_sentence_units: 7
+    min_prose_sentences: 6
+    required_functions: [motivation, statement, reasoning, interpretation, limitation, transition]
+  methodology:
+    min_outline_obligations: 4
+    min_sentence_units: 6
+    min_prose_sentences: 6
+    required_functions: [objective, construction, mechanism, distinction, complexity, transition]
+  empirical_analysis:
+    min_outline_obligations: 4
+    min_sentence_units: 6
+    min_prose_sentences: 6
+    required_functions: [question, protocol, evidence, interpretation, limitation, transition]
+  discussion:
+    min_outline_obligations: 3
+    min_sentence_units: 5
+    min_prose_sentences: 5
+    required_functions: [summary, implication, limitation, future_work, closure]
+prompt_principles:
+  - Treat the project outline, evidence registry, and paragraph blueprint as the only sources of paper-specific content.
+  - Treat reference papers and exemplars only as quality rubrics; never import their wording, entities, claims, theorem sequence, or experimental narrative unless independently present in the project inputs.
+  - Explain definitions, results, evidence, interpretation, and limitations as distinct rhetorical moves instead of compressing them into a summary sentence.
+  - Preserve registered claim boundaries and evidence status; do not invent results, citations, formulas, or universality claims.
+  - Prefer a coherent argument over superficial stylistic similarity to any reference paper.
+reference_independence_defaults:
+  ngram_size: 8
+  max_overlap_ratio: 0.18
+  min_reference_tokens: 40

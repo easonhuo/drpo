@@ -1,4 +1,4 @@
-schema_version: 1
+schema_version: 2
 experiment_or_claim: PAPER-PIPELINE-V2-FULL-ASSET-COMPILER-03
 paper_template:
   family: icml2026
@@ -7,6 +7,7 @@ paper_template:
   bibliography: paper/overleaf/references.bib
   columns: 2
   preprint: true
+  root: paper/overleaf
 assets:
   EXP-P03:
   - generated/exp_p03_assets.tex
@@ -39,3 +40,20 @@ required_citation_keys:
 - kumar2020conservative
 - fujimoto2019off
 publication_quality_contract: docs/manuscript/publication_quality_contract.yaml
+project_id: drpo
+graph_render_command:
+- '{python}'
+- scripts/paper_pipeline.py
+- render
+- --repo-root
+- '{repo_root}'
+asset_build_commands:
+- - '{python}'
+  - scripts/projects/drpo/build_manuscript_assets.py
+  - --repo-root
+  - '{repo_root}'
+quality_gate:
+  script: scripts/manuscript_publication_pipeline.py
+  contract: docs/manuscript/publication_quality_contract.yaml
+  output: paper/publication_quality_v1
+project_profile: docs/manuscript/projects/drpo_profile.yaml

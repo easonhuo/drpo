@@ -1,0 +1,97 @@
+schema_version: 2
+manuscript_id: sensor-scheduling-fixture
+metadata:
+  title: Adaptive Query Scheduling for Distributed Sensors
+sections:
+  - id: introduction
+    title: Introduction
+    order: 10
+  - id: theory
+    title: Analysis
+    order: 20
+nodes:
+  - id: INTRO-F01
+    section: introduction
+    order: 10
+    title: Motivation and gap
+    claim: Battery-aware query scheduling should adapt acquisition frequency to uncertainty without violating device budgets.
+    reader_question: Why is a new scheduling rule needed when fixed-rate sensing is simple?
+    role: Establish the practical tradeoff and the paper contribution.
+    evidence: [deployment constraints, prior resource-aware sensing]
+    must_include: [distributed sensors, battery budget, uncertainty, fixed-rate limitation]
+    blueprint:
+      topic_sentence: Distributed sensing systems must decide when another measurement is worth its energy cost.
+      sentence_plan:
+        - role: deployment_context
+          instruction: Introduce intermittent sensing deployments and their resource constraints.
+          anchors: [distributed sensing, energy]
+        - role: resource_motivation
+          instruction: Explain why acquisition frequency affects both information quality and battery life.
+          anchors: [measurement quality, battery]
+        - role: unresolved_tradeoff
+          instruction: State why fixed-rate schedules cannot adapt to changing uncertainty.
+          anchors: [fixed-rate, uncertainty]
+        - role: proposed_direction
+          instruction: Present adaptive query scheduling as the paper's response.
+          anchors: [adaptive scheduling, budget]
+        - role: bridge
+          instruction: Transition from motivation to formal analysis.
+          anchors: [formal analysis]
+      evidence_use: [cite prior resource-aware sensing without importing its method]
+      citation_refs: [lee2024sensing]
+      theorem_or_equation_refs: []
+      appendix_bindings: []
+      allowed_conclusions: [the method targets a measurable resource-information tradeoff]
+      forbidden_conclusions: [the method is universally optimal]
+      reviewer_objection: The motivation could be satisfied by a fixed heuristic.
+      objection_response: Explain the changing uncertainty that a fixed schedule ignores.
+      word_budget: [95, 180]
+      transition: Define the scheduling model and its stability condition.
+    prose: >-
+      Distributed sensing deployments collect measurements across devices that operate under tight energy limits. Each additional sample can improve measurement quality, yet it also consumes battery and communication capacity. A fixed-rate policy cannot respond when predictive uncertainty changes across time or devices. We therefore study adaptive scheduling that allocates queries according to uncertainty while respecting a registered budget. This objective is motivated by resource-aware sensing rather than by an assumption that more measurements are always beneficial \cite{lee2024sensing}. The resulting problem exposes a measurable tradeoff between information gain and device lifetime. The next section turns this tradeoff into a formal analysis.
+  - id: THEORY-F01
+    section: theory
+    order: 20
+    title: Budget-stability result
+    claim: A potential-based update remains feasible when its per-round allocation and correction terms satisfy the registered bound.
+    reader_question: Under what condition does adaptive scheduling avoid exhausting the resource budget?
+    role: State, explain, and delimit the central analytical result.
+    evidence: [potential argument, appendix proof]
+    must_include: [allocation bound, potential decrease, feasibility, finite horizon]
+    blueprint:
+      topic_sentence: The central analytical question is whether adaptation can remain inside the cumulative budget.
+      sentence_plan:
+        - role: analysis_goal
+          instruction: State the feasibility question and the finite-horizon setting.
+          anchors: [feasibility, finite horizon]
+        - role: formal_statement
+          instruction: State the budget-stability theorem and its condition.
+          anchors: [budget-stability, thm:budget-stability]
+        - role: proof_idea
+          instruction: Explain the bounded potential argument without replacing the appendix proof.
+          anchors: [potential, correction]
+        - role: operational_meaning
+          instruction: Interpret the condition as a limit on aggressive query allocation.
+          anchors: [aggressive allocation, resource]
+        - role: scope_limit
+          instruction: Delimit the result to the registered model and assumptions.
+          anchors: [registered assumptions, not universal]
+        - role: bridge
+          instruction: Point to the appendix and downstream experiments.
+          anchors: [app:budget-proof, experiments]
+        - role: consequence
+          function: interpretation
+          instruction: Explain what violation of the condition predicts.
+          anchors: [budget violation]
+      evidence_use: [main theorem statement, appendix proof]
+      citation_refs: []
+      theorem_or_equation_refs: [thm:budget-stability]
+      appendix_bindings: [app:budget-proof]
+      allowed_conclusions: [feasibility holds under the stated finite-horizon assumptions]
+      forbidden_conclusions: [the theorem proves optimal scheduling for all deployments]
+      reviewer_objection: A sufficient condition may be mistaken for a universal characterization.
+      objection_response: State sufficiency and scope explicitly.
+      word_budget: [120, 220]
+      transition: Use experiments to test the predicted budget boundary.
+    prose: >-
+      We analyze feasibility over a finite horizon rather than claiming unrestricted lifetime operation. The budget-stability result in Theorem~\ref{thm:budget-stability} requires the per-round allocation and correction terms to remain within the registered bound. Its proof tracks a potential that decreases after accounting for both query cost and the correction applied to future allocations. Operationally, the condition prevents an aggressive allocation from consuming resources faster than later rounds can compensate. When the condition is violated, the analysis predicts a budget violation rather than a numerical failure of the optimizer. The statement is sufficient only for the registered model and assumptions, not universal across deployments. Appendix~\ref{app:budget-proof} gives the full argument, and the experiments test the corresponding boundary. This separation lets the empirical section test feasibility and utility independently.

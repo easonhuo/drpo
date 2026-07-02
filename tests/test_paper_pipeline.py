@@ -29,6 +29,10 @@ def prepare_root(tmp_path: Path) -> tuple[object, dict, Path]:
     graph_dst = tmp_path / "docs/manuscript/paper_graph.yaml"
     graph_dst.parent.mkdir(parents=True)
     shutil.copy2(graph_src, graph_dst)
+    profile_src = ROOT / "docs/manuscript/projects/drpo_profile.yaml"
+    profile_dst = tmp_path / "docs/manuscript/projects/drpo_profile.yaml"
+    profile_dst.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(profile_src, profile_dst)
     (tmp_path / "paper/overleaf/sections").mkdir(parents=True)
     (tmp_path / "paper/overleaf/appendix").mkdir(parents=True)
     graph = module.read_yaml(graph_dst)

@@ -35,6 +35,8 @@ def prepare_root(tmp_path: Path) -> Path:
     for rel in (
         "docs/manuscript/paper_graph.yaml",
         "docs/manuscript/publication_quality_contract.yaml",
+        "docs/manuscript/generic_publication_quality_profile.yaml",
+        "docs/manuscript/projects/drpo_profile.yaml",
         "paper/overleaf/references.bib",
     ):
         dst = tmp_path / rel
@@ -59,7 +61,11 @@ def test_build_emits_auditable_generation_packets(tmp_path: Path) -> None:
     module = load_module()
     root = prepare_root(tmp_path)
     result = module.build(paths_for(module, root))
-    assert result == {"status": "BUILT", "node_count": 16, "generated_count": 0}
+    assert result["status"] == "BUILT"
+    assert result["node_count"] == 16
+    assert result["generated_count"] == 0
+    assert result["quality_profile"] == "generic-research-manuscript-v1"
+    assert result["project_id"] == "drpo"
     packet_file = root / "paper/publication_quality_v1/prose_packets.json"
     packets = json.loads(packet_file.read_text())["packets"]
     theory = next(row for row in packets if row["id"] == "THEORY-P03")
@@ -102,3 +108,78 @@ def test_gate_fails_for_missing_appendix_proof_label(tmp_path: Path) -> None:
     graph_path.write_text(yaml.safe_dump(graph, sort_keys=False, width=1000))
     with pytest.raises(module.PublicationQualityError, match="appendix binding has no label"):
         module.validate(paths_for(module, root))
+
+
+def generic_fixture_paths(module, output: Path):
+    fixture = ROOT / "tests/fixtures/generic_manuscript"
+    return module.Paths(
+        root=ROOT,
+        graph=fixture / "graph.yaml",
+        contract=fixture / "contract.yaml",
+        output=output,
+    )
+
+
+def test_same_engine_validates_unrelated_research_fixture(tmp_path: Path) -> None:
+    module = load_module()
+    paths = generic_fixture_paths(module, tmp_path / "generic-output")
+    built = module.build(paths)
+    checked = module.validate(paths)
+    assert built["project_id"] == "sensor-scheduling-fixture"
+    assert checked["status"] == "PASS"
+    packets = json.loads((paths.output / "prose_packets.json").read_text())["packets"]
+    text = json.dumps(packets, ensure_ascii=False).lower()
+    assert "distributed sensing" in text
+    assert "drpo" not in text
+    assert "c-u1" not in text
+    assert "far-field" not in text
+
+
+def test_reference_exemplar_is_rubric_not_copy_source(tmp_path: Path) -> None:
+    module = load_module()
+    fixture = ROOT / "tests/fixtures/generic_manuscript"
+    graph = yaml.safe_load((fixture / "graph.yaml").read_text())
+    reference = (fixture / "reference.txt").read_text().strip()
+    node = next(row for row in graph["nodes"] if row["id"] == "INTRO-F01")
+    node["prose"] = (
+        reference
+        + " "
+        + " ".join(
+            [
+                "distributed sensing",
+                "energy",
+                "measurement quality",
+                "battery",
+                "fixed-rate",
+                "uncertainty",
+                "adaptive scheduling",
+                "budget",
+                "formal analysis",
+            ]
+        )
+    )
+    graph_path = tmp_path / "graph.yaml"
+    graph_path.write_text(yaml.safe_dump(graph, sort_keys=False, width=1000))
+    paths = module.Paths(
+        root=ROOT,
+        graph=graph_path,
+        contract=fixture / "contract.yaml",
+        output=tmp_path / "output",
+    )
+    with pytest.raises(module.PublicationQualityError, match="overfits reference wording"):
+        module.validate(paths)
+
+
+def test_generic_core_and_quality_profile_do_not_contain_project_business_terms() -> None:
+    profile = yaml.safe_load((ROOT / "docs/manuscript/projects/drpo_profile.yaml").read_text())
+    terms = [term.lower() for term in profile["business_terms_for_core_leak_check"]]
+    generic_paths = [
+        ROOT / "scripts/manuscript_publication_pipeline.py",
+        ROOT / "scripts/manuscript_release_pipeline.py",
+        ROOT / "scripts/paper_pipeline.py",
+        ROOT / "docs/manuscript/generic_publication_quality_profile.yaml",
+    ]
+    for path in generic_paths:
+        text = path.read_text().lower()
+        leaked = [term for term in terms if term in text]
+        assert not leaked, f"{path} leaks project terms: {leaked}"

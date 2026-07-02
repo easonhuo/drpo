@@ -6,8 +6,8 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-BASE_COMMIT = "cd6c42db337d8f261840850a58bf60a83c37e6bd"
-REVIEW_PATH = ROOT / "docs/manuscript/reviews/PAPER-PIPELINE-V2-PUBLICATION-QUALITY-04.json"
+BASE_COMMIT = "da5488ce13d0d6512b211ba4c68c9cdcd3fa49fc"
+REVIEW_PATH = ROOT / "docs/manuscript/reviews/PAPER-PIPELINE-V2-DOMAIN-AGNOSTIC-05.json"
 GUIDANCE = ROOT / "docs/manuscript/RL_PAPER_WRITING_GUIDANCE.md"
 PLAYBOOK = ROOT / "docs/manuscript/RL_PAPER_WRITING_PLAYBOOK.md"
 STRATEGY = ROOT / "docs/manuscript/DRPO_MANUSCRIPT_STRATEGY.md"
@@ -35,6 +35,8 @@ def test_guidance_review_hashes_and_all_gates_are_current() -> None:
     assert gates == {f"G{i:02d}": "pass" for i in range(1, 43)}
     assert review["findings"]["blocker"] == []
     assert review["findings"]["major"] == []
+    architecture = {gate["id"]: gate["status"] for gate in review["architecture_gates"]}
+    assert architecture == {f"A{i:02d}": "pass" for i in range(1, 8)}
 
 
 def test_stable_guidance_playbook_strategy_and_corpus_are_separate() -> None:

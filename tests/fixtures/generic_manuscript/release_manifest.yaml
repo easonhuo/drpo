@@ -1,0 +1,18 @@
+schema_version: 1
+project_id: sensor-scheduling-fixture
+paper_template:
+  family: ""
+  main_tex: tests/fixtures/generic_manuscript/tex/main.tex
+  bibliography: tests/fixtures/generic_manuscript/references.bib
+  columns: 1
+  root: tests/fixtures/generic_manuscript/tex
+assets: {}
+proof_obligations:
+  - statement_label: thm:budget-stability
+    proof_label: app:budget-proof
+required_citation_keys: []
+asset_build_commands: []
+quality_gate:
+  script: scripts/manuscript_publication_pipeline.py
+  contract: tests/fixtures/generic_manuscript/contract.yaml
+  graph: tests/fixtures/generic_manuscript/graph.yaml

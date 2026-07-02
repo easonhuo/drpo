@@ -1,0 +1,35 @@
+schema_version: 1
+project_id: drpo
+profile_kind: manuscript_project_profile
+quality_reference_policy: rubric_only
+content_sources:
+  outline: docs/manuscript/paper_graph.yaml
+  research_authority: docs/handoff.md
+  experiment_registry: experiments/registry.yaml
+validation_rules:
+  forbidden_phrases:
+    - old paper + new sequel
+    - old paper and new sequel
+    - original formulation and revised formulation
+    - original drpo and the revised paper
+    - follow-up to the original drpo
+    - both mean and variance expand
+  conditional_forbidden:
+    - trigger: c-u1
+      forbidden: ood generalization
+      exemptions:
+        - not ood generalization
+        - never ood generalization
+business_terms_for_core_leak_check:
+  - DRPO
+  - C-U1
+  - D-U1
+  - Hopper
+  - Countdown
+  - far-field
+  - negative advantage
+  - held-out-context
+  - support/variance boundary
+release:
+  manifest: docs/manuscript/full_paper_assets.yaml
+  default_pdf: paper/releases/DRPO_FULL_REVIEW_V1.pdf

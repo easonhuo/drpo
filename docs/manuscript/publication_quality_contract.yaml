@@ -1,104 +1,282 @@
-schema_version: 1
-profile: front-four-publication-quality-v1
+schema_version: 2
+profile_kind: manuscript_project_contract
+contract_id: drpo-front-four-publication-quality-v2
+project_id: drpo
+quality_profile: docs/manuscript/generic_publication_quality_profile.yaml
+project_profile: docs/manuscript/projects/drpo_profile.yaml
 bibliography: paper/overleaf/references.bib
+tex_root: paper/overleaf
 scope:
   node_ids:
-    - INTRO-P01
-    - INTRO-P02
-    - INTRO-P03
-    - INTRO-P04
-    - INTRO-P05
-    - INTRO-P06
-    - RELATED-P01
-    - RELATED-P02
-    - RELATED-P03
-    - SETUP-P01
-    - SETUP-P02
-    - THEORY-P01
-    - THEORY-P02
-    - THEORY-P03
-    - THEORY-P04
-    - THEORY-P05
-section_profiles:
-  introduction:
-    required_outline_fields: [claim, reader_question, role, evidence]
-    min_outline_obligations: 4
-    required_blueprint_fields:
-      - topic_sentence
-      - sentence_plan
-      - evidence_use
-      - citation_refs
-      - allowed_conclusions
-      - forbidden_conclusions
-      - reviewer_objection
-      - objection_response
-      - word_budget
-      - transition
-    min_sentence_units: 5
-    min_prose_sentences: 5
-  related:
-    required_outline_fields: [claim, reader_question, role, evidence]
-    min_outline_obligations: 4
-    required_blueprint_fields:
-      - topic_sentence
-      - sentence_plan
-      - evidence_use
-      - citation_refs
-      - allowed_conclusions
-      - forbidden_conclusions
-      - reviewer_objection
-      - objection_response
-      - word_budget
-      - transition
-    min_sentence_units: 6
-    min_prose_sentences: 6
-  setup:
-    required_outline_fields: [claim, reader_question, role, evidence]
-    min_outline_obligations: 4
-    required_blueprint_fields:
-      - topic_sentence
-      - sentence_plan
-      - evidence_use
-      - theorem_or_equation_refs
-      - allowed_conclusions
-      - forbidden_conclusions
-      - reviewer_objection
-      - objection_response
-      - word_budget
-      - transition
-    min_sentence_units: 7
-    min_prose_sentences: 6
-  theory:
-    required_outline_fields: [claim, reader_question, role, evidence]
-    min_outline_obligations: 4
-    required_blueprint_fields:
-      - topic_sentence
-      - sentence_plan
-      - evidence_use
-      - theorem_or_equation_refs
-      - appendix_bindings
-      - allowed_conclusions
-      - forbidden_conclusions
-      - reviewer_objection
-      - objection_response
-      - word_budget
-      - transition
-    min_sentence_units: 7
-    min_prose_sentences: 6
+  - INTRO-P01
+  - INTRO-P02
+  - INTRO-P03
+  - INTRO-P04
+  - INTRO-P05
+  - INTRO-P06
+  - RELATED-P01
+  - RELATED-P02
+  - RELATED-P03
+  - SETUP-P01
+  - SETUP-P02
+  - THEORY-P01
+  - THEORY-P02
+  - THEORY-P03
+  - THEORY-P04
+  - THEORY-P05
+section_archetype_map:
+  introduction: introduction
+  related: literature_synthesis
+  setup: formal_setup
+  theory: theoretical_analysis
 required_roles:
-  INTRO-P01: [context, positive_role, negative_role, limitation, question]
-  INTRO-P02: [historical_setting, local_value, reuse_mechanism, gaussian_case, categorical_case, transition]
-  INTRO-P03: [method_landscape, acknowledged_value, unresolved_gap, confounding, identification, transition]
-  INTRO-P04: [theory_object, stable_regime, boundary_regime, family_difference, implication, transition]
-  INTRO-P05: [method_target, local_preservation, far_attenuation, guarantee, distinction, transition]
-  INTRO-P06: [rq1, rq2, rq3, rq4, environment_roles, contributions]
-  RELATED-P01: [prior_family, positive_filtering, negative_value, established_fact, unresolved_gap, positioning]
-  RELATED-P02: [mismatch_controls, stale_updates, rarity_controls, established_fact, dynamic_gap, positioning]
-  RELATED-P03: [pessimism, in_support_learning, behavior_regularization, data_selection, distinct_object, compatibility]
-  SETUP-P01: [historical_distribution, actor_field, fixed_step_scope, sign_split, influence_factorization, aggregation, boundary]
-  SETUP-P02: [definition, gaussian_mapping, categorical_mapping, sequence_mapping, dynamic_status, non_equivalence, transition]
-  THEORY-P01: [motivation, definitions, gaussian_statement, gaussian_interpretation, categorical_statement, categorical_interpretation, limitation, transition]
-  THEORY-P02: [reuse_setup, negative_statement, positive_statement, convexity_scope, gaussian_consequence, categorical_consequence, limitation, transition]
-  THEORY-P03: [aggregate_setup, field_derivation, positive_regime, extrapolation_identity, boundary_case, critical_regime, negative_regime, stability, transition]
-  THEORY-P04: [shared_instability, gaussian_form, gaussian_consequence, categorical_form, categorical_consequence, distinction, reporting_boundary, transition]
-  THEORY-P05: [prediction_positive_only, prediction_controlled_negative, prediction_boundary, prediction_runaway, prediction_intervention, failure_taxonomy, handoff]
+  INTRO-P01:
+  - context
+  - positive_role
+  - negative_role
+  - limitation
+  - question
+  INTRO-P02:
+  - historical_setting
+  - local_value
+  - reuse_mechanism
+  - gaussian_case
+  - categorical_case
+  - transition
+  INTRO-P03:
+  - method_landscape
+  - acknowledged_value
+  - unresolved_gap
+  - confounding
+  - identification
+  - transition
+  INTRO-P04:
+  - theory_object
+  - stable_regime
+  - boundary_regime
+  - family_difference
+  - implication
+  - transition
+  INTRO-P05:
+  - method_target
+  - local_preservation
+  - far_attenuation
+  - guarantee
+  - distinction
+  - transition
+  INTRO-P06:
+  - rq1
+  - rq2
+  - rq3
+  - rq4
+  - environment_roles
+  - contributions
+  RELATED-P01:
+  - prior_family
+  - positive_filtering
+  - negative_value
+  - established_fact
+  - unresolved_gap
+  - positioning
+  RELATED-P02:
+  - mismatch_controls
+  - stale_updates
+  - rarity_controls
+  - established_fact
+  - dynamic_gap
+  - positioning
+  RELATED-P03:
+  - pessimism
+  - in_support_learning
+  - behavior_regularization
+  - data_selection
+  - distinct_object
+  - compatibility
+  SETUP-P01:
+  - historical_distribution
+  - actor_field
+  - fixed_step_scope
+  - sign_split
+  - influence_factorization
+  - aggregation
+  - boundary
+  SETUP-P02:
+  - definition
+  - gaussian_mapping
+  - categorical_mapping
+  - sequence_mapping
+  - dynamic_status
+  - non_equivalence
+  - transition
+  THEORY-P01:
+  - motivation
+  - definitions
+  - gaussian_statement
+  - gaussian_interpretation
+  - categorical_statement
+  - categorical_interpretation
+  - limitation
+  - transition
+  THEORY-P02:
+  - reuse_setup
+  - negative_statement
+  - positive_statement
+  - convexity_scope
+  - gaussian_consequence
+  - categorical_consequence
+  - limitation
+  - transition
+  THEORY-P03:
+  - aggregate_setup
+  - field_derivation
+  - positive_regime
+  - extrapolation_identity
+  - boundary_case
+  - critical_regime
+  - negative_regime
+  - stability
+  - transition
+  THEORY-P04:
+  - shared_instability
+  - gaussian_form
+  - gaussian_consequence
+  - categorical_form
+  - categorical_consequence
+  - distinction
+  - reporting_boundary
+  - transition
+  THEORY-P05:
+  - prediction_positive_only
+  - prediction_controlled_negative
+  - prediction_boundary
+  - prediction_runaway
+  - prediction_intervention
+  - failure_taxonomy
+  - handoff
+role_functions:
+  context: context
+  positive_role: motivation
+  negative_role:
+  - motivation
+  - contribution
+  limitation: limitation
+  question:
+  - gap
+  - transition
+  historical_setting: context
+  local_value: motivation
+  reuse_mechanism: gap
+  gaussian_case: contribution
+  categorical_case: contribution
+  transition: transition
+  method_landscape: context
+  acknowledged_value: motivation
+  unresolved_gap: limitation
+  confounding: gap
+  identification: contribution
+  theory_object: context
+  stable_regime: motivation
+  boundary_regime: gap
+  family_difference: contribution
+  implication: contribution
+  method_target: context
+  local_preservation: motivation
+  far_attenuation: contribution
+  guarantee: contribution
+  distinction:
+  - interpretation
+  - gap
+  rq1: context
+  rq2: motivation
+  rq3: gap
+  rq4: contribution
+  environment_roles: contribution
+  contributions:
+  - contribution
+  - transition
+  prior_family: prior_work
+  positive_filtering: prior_work
+  negative_value: synthesis
+  established_fact: synthesis
+  positioning:
+  - positioning
+  - transition
+  mismatch_controls: prior_work
+  stale_updates: prior_work
+  rarity_controls: synthesis
+  dynamic_gap: limitation
+  pessimism: prior_work
+  in_support_learning: prior_work
+  behavior_regularization: synthesis
+  data_selection: synthesis
+  distinct_object: limitation
+  compatibility:
+  - positioning
+  - transition
+  historical_distribution: scope
+  actor_field: formulation
+  fixed_step_scope: scope
+  sign_split: definition
+  influence_factorization: interpretation
+  aggregation: formulation
+  boundary:
+  - boundary
+  - transition
+  definition:
+  - definition
+  - scope
+  gaussian_mapping:
+  - interpretation
+  - formulation
+  categorical_mapping: interpretation
+  sequence_mapping: interpretation
+  dynamic_status: boundary
+  non_equivalence: boundary
+  motivation: motivation
+  definitions:
+  - statement
+  - reasoning
+  gaussian_statement:
+  - statement
+  - reasoning
+  gaussian_interpretation: interpretation
+  categorical_statement:
+  - statement
+  - reasoning
+  categorical_interpretation: interpretation
+  reuse_setup: motivation
+  negative_statement: statement
+  positive_statement:
+  - statement
+  - interpretation
+  convexity_scope: reasoning
+  gaussian_consequence: interpretation
+  categorical_consequence: interpretation
+  aggregate_setup: motivation
+  field_derivation: reasoning
+  positive_regime: statement
+  extrapolation_identity: reasoning
+  boundary_case: limitation
+  critical_regime: statement
+  negative_regime: statement
+  stability: interpretation
+  shared_instability:
+  - motivation
+  - statement
+  gaussian_form: reasoning
+  categorical_form: reasoning
+  reporting_boundary: limitation
+  prediction_positive_only: motivation
+  prediction_controlled_negative:
+  - statement
+  - interpretation
+  prediction_boundary: statement
+  prediction_runaway: statement
+  prediction_intervention: reasoning
+  failure_taxonomy: limitation
+  handoff: transition
+reference_independence:
+  sources: []
+  ngram_size: 8
+  max_overlap_ratio: 0.18
+  note: Reference papers are quality rubrics only. Add a normalized text source here to enable lexical-overlap gating; never use a reference as a source of project claims.

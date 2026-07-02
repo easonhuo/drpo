@@ -1,8 +1,11 @@
 {
-  "schema_version": 1,
-  "profile": "front-four-publication-quality-v1",
+  "schema_version": 2,
+  "engine": "domain-agnostic-publication-quality",
+  "quality_profile": "generic-research-manuscript-v1",
+  "project_id": "drpo",
   "node_count": 16,
   "status": "PASS",
+  "architecture_separation": "PASS",
   "nodes": [
     {
       "id": "INTRO-P01",
@@ -71,6 +74,12 @@
           ]
         }
       ],
+      "reference_overlap": {
+        "source": null,
+        "overlap_ratio": 0.0,
+        "ngram_size": 8,
+        "max_allowed": 0.18
+      },
       "status": "PASS",
       "errors": []
     },
@@ -154,6 +163,12 @@
           ]
         }
       ],
+      "reference_overlap": {
+        "source": null,
+        "overlap_ratio": 0.0,
+        "ngram_size": 8,
+        "max_allowed": 0.18
+      },
       "status": "PASS",
       "errors": []
     },
@@ -237,6 +252,12 @@
           ]
         }
       ],
+      "reference_overlap": {
+        "source": null,
+        "overlap_ratio": 0.0,
+        "ngram_size": 8,
+        "max_allowed": 0.18
+      },
       "status": "PASS",
       "errors": []
     },
@@ -321,6 +342,12 @@
           ]
         }
       ],
+      "reference_overlap": {
+        "source": null,
+        "overlap_ratio": 0.0,
+        "ngram_size": 8,
+        "max_allowed": 0.18
+      },
       "status": "PASS",
       "errors": []
     },
@@ -402,6 +429,12 @@
           ]
         }
       ],
+      "reference_overlap": {
+        "source": null,
+        "overlap_ratio": 0.0,
+        "ngram_size": 8,
+        "max_allowed": 0.18
+      },
       "status": "PASS",
       "errors": []
     },
@@ -489,6 +522,12 @@
           ]
         }
       ],
+      "reference_overlap": {
+        "source": null,
+        "overlap_ratio": 0.0,
+        "ngram_size": 8,
+        "max_allowed": 0.18
+      },
       "status": "PASS",
       "errors": []
     },
@@ -567,6 +606,12 @@
           ]
         }
       ],
+      "reference_overlap": {
+        "source": null,
+        "overlap_ratio": 0.0,
+        "ngram_size": 8,
+        "max_allowed": 0.18
+      },
       "status": "PASS",
       "errors": []
     },
@@ -650,6 +695,12 @@
           ]
         }
       ],
+      "reference_overlap": {
+        "source": null,
+        "overlap_ratio": 0.0,
+        "ngram_size": 8,
+        "max_allowed": 0.18
+      },
       "status": "PASS",
       "errors": []
     },
@@ -730,6 +781,12 @@
           ]
         }
       ],
+      "reference_overlap": {
+        "source": null,
+        "overlap_ratio": 0.0,
+        "ngram_size": 8,
+        "max_allowed": 0.18
+      },
       "status": "PASS",
       "errors": []
     },
@@ -822,6 +879,12 @@
           ]
         }
       ],
+      "reference_overlap": {
+        "source": null,
+        "overlap_ratio": 0.0,
+        "ngram_size": 8,
+        "max_allowed": 0.18
+      },
       "status": "PASS",
       "errors": []
     },
@@ -913,6 +976,12 @@
           ]
         }
       ],
+      "reference_overlap": {
+        "source": null,
+        "overlap_ratio": 0.0,
+        "ngram_size": 8,
+        "max_allowed": 0.18
+      },
       "status": "PASS",
       "errors": []
     },
@@ -1019,6 +1088,12 @@
           ]
         }
       ],
+      "reference_overlap": {
+        "source": null,
+        "overlap_ratio": 0.0,
+        "ngram_size": 8,
+        "max_allowed": 0.18
+      },
       "status": "PASS",
       "errors": []
     },
@@ -1126,6 +1201,12 @@
           ]
         }
       ],
+      "reference_overlap": {
+        "source": null,
+        "overlap_ratio": 0.0,
+        "ngram_size": 8,
+        "max_allowed": 0.18
+      },
       "status": "PASS",
       "errors": []
     },
@@ -1245,6 +1326,12 @@
           ]
         }
       ],
+      "reference_overlap": {
+        "source": null,
+        "overlap_ratio": 0.0,
+        "ngram_size": 8,
+        "max_allowed": 0.18
+      },
       "status": "PASS",
       "errors": []
     },
@@ -1349,6 +1436,12 @@
           ]
         }
       ],
+      "reference_overlap": {
+        "source": null,
+        "overlap_ratio": 0.0,
+        "ngram_size": 8,
+        "max_allowed": 0.18
+      },
       "status": "PASS",
       "errors": []
     },
@@ -1451,6 +1544,12 @@
           ]
         }
       ],
+      "reference_overlap": {
+        "source": null,
+        "overlap_ratio": 0.0,
+        "ngram_size": 8,
+        "max_allowed": 0.18
+      },
       "status": "PASS",
       "errors": []
     }
