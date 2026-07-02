@@ -18,19 +18,19 @@
 
 ## Owned source blocks
 
-<!-- STAGE4B-SOURCE-BLOCK:B000043:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000044:START -->
 # 3. 连续统一环境 C-U1 的详细设计
 
-<!-- STAGE4B-SOURCE-BLOCK:B000043:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000044:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000044:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000045:START -->
 ## 3.1 状态与动作
 
 - 状态：`s in R^6`；训练集和测试集分别采样，使用同一生成函数。
 - 动作：`a in R^2`；策略为 state-conditioned Gaussian，均值与方差共同学习。
 - 每个状态产生 state-dependent 的 `a_plus(s)`、`a_star(s)`、任务方向和正交方向。
 
-<!-- STAGE4B-SOURCE-BLOCK:B000044:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000045:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000045:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000046:START -->
 ### 3.1.1 “context/state”在小网络中的具体含义
 
 这里的 context 不是自然语言上下文，而是输入给 MLP 的 6 维数值向量。每一个状态 `s` 代表一个不同的一步决策条件；环境通过固定生成函数把 `s` 映射为该条件下的 `a_plus(s)`、`a_star(s)` 和奖励地形。小网络学习的是函数 `s -> (mu(s), sigma(s))`，而不是记忆一个全局动作。
@@ -42,14 +42,14 @@
 
 训练/测试状态拆分的唯一目的，是验证 state-conditioned 网络对未见数值输入的函数泛化。E1 的距离—梯度来源识别主要按状态聚合，不把同一状态的多个复制动作当作独立样本。
 
-<!-- STAGE4B-SOURCE-BLOCK:B000045:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000046:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000046:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000047:START -->
 ## 3.2 数据与奖励
 
 Ground-truth reward 由动作到 `a_star(s)` 的二维距离决定，因此 `a_star` 是唯一最优动作。正样本分布位于 `a_plus` 周围；负样本位于经过 `a_minus` 的等奖励轮廓。等奖励轮廓上的所有负样本 reward/advantage 精确相同，但相对当前策略的距离不同。
 
-<!-- STAGE4B-SOURCE-BLOCK:B000046:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000047:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000047:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000048:START -->
 ## 3.3 同一环境如何支持四个实验
 
 - E1 直接读取同一状态下等 advantage 的轮廓负样本，比较距离与梯度；
@@ -57,8 +57,8 @@ Ground-truth reward 由动作到 `a_star(s)` 的二维距离决定，因此 `a_s
 - E3 应用正负梯度，并按当前策略距离动态划分 near/far 进行干预；
 - E4 重点使用 `a_minus` 及其邻近负样本提供指向 `a_star` 的有益排斥，再加入远场轮廓样本观察从外推到失稳的转折。
 
-<!-- STAGE4B-SOURCE-BLOCK:B000047:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000048:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000048:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000049:START -->
 ## 3.4 需要预先讨论而不能擅自决定的设计项
 
 1. 负轮廓角度数量与距离范围；
@@ -70,8 +70,8 @@ Ground-truth reward 由动作到 `a_star(s)` 的二维距离决定，因此 `a_s
 在这些项目冻结前只做 invariant/smoke test，不宣称正式结果。
 
 
-<!-- STAGE4B-SOURCE-BLOCK:B000048:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000049:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000049:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000050:START -->
 ## 3.5 v13 冻结后的 C-U1 正式配置
 
 用户已授权冻结以下配置并开始正式执行：
@@ -89,12 +89,12 @@ Ground-truth reward 由动作到 `a_star(s)` 的二维距离决定，因此 `a_s
 
 该配置替代第 3.4 节中的“待讨论”状态；第 3.4 节保留作为决策 provenance，不删除。
 
-<!-- STAGE4B-SOURCE-BLOCK:B000049:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000050:START -->
-## 3.6 v13 执行期勘误与 E4 正式协议冻结
-
 <!-- STAGE4B-SOURCE-BLOCK:B000050:END -->
 <!-- STAGE4B-SOURCE-BLOCK:B000051:START -->
+## 3.6 v13 执行期勘误与 E4 正式协议冻结
+
+<!-- STAGE4B-SOURCE-BLOCK:B000051:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000052:START -->
 ### 3.6.1 正样本几何勘误（不破坏性覆盖）
 
 - **原登记：** 第 3.5(3) 写成“四个正动作位于 `a_plus ±0.18u` 与 `a_plus ±0.18v`”。
@@ -103,4 +103,4 @@ Ground-truth reward 由动作到 `a_star(s)` 的二维距离决定，因此 `a_s
 - **证据：** C-U1 invariant、E1 与 E2 均使用该等 reward 实现；E2 的 20-seed 最终平均 `sigma=0.190419`，与解析值一致。
 - **处理：** 第 3.5(3) 作为错误 provenance 保留，本节为正式替代记录；后续实验不改动已运行的数据生成器。
 
-<!-- STAGE4B-SOURCE-BLOCK:B000051:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000052:END -->

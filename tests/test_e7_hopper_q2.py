@@ -150,23 +150,30 @@ def test_legacy_hdf5_loader(tmp_path: Path) -> None:
     np.testing.assert_array_equal(data.episode_ids, np.array([0, 0, 1, 1, 1, 1]))
 
 
-def test_registry_releases_implemented_q2_without_claiming_results() -> None:
+def test_registry_records_completed_q2_without_claiming_method_ranking() -> None:
     import yaml
 
     root = Path(__file__).parents[1]
     registry = yaml.safe_load((root / "experiments" / "registry.yaml").read_text())
     entry = next(item for item in registry["experiments"] if item["id"] == "EXT-H-E7-Q2")
-    assert entry["status"] == "not_run"
-    assert entry["scientific_status"] == "not_run"
+    assert entry["status"] == "long_run_validated"
+    assert entry["scientific_status"] == "long_run_validated"
     assert entry["implementation_state"] == "implemented"
-    assert entry["execution_gate"]["state"] == "ready"
-    assert entry["execution_gate"]["blocked_by"] == []
-    assert entry["formal_execution"]["activation_state"] == "active"
+    assert entry["execution_gate"]["state"] == "blocked"
+    assert entry["execution_gate"]["blocked_by"] == [
+        "completed_formal_execution_no_rerun_without_new_registration"
+    ]
+    assert entry["formal_execution"]["activation_state"] == "blocked"
     assert entry["formal_execution"]["entrypoint"] == "src/drpo/e7_hopper_q2.py"
     assert entry["formal_execution"]["runner_archive_policy"]["mode"] == "forbid"
     assert entry["evidence"]["code_committed"] is True
     assert entry["evidence"]["implementation_tests_passed"] is True
-    assert entry["evidence"]["run_started"] is False
+    assert entry["evidence"]["run_started"] is True
+    assert entry["evidence"]["raw_complete"] is True
+    assert entry["evidence"]["terminal_audited"] is True
+    assert entry["evidence"]["formal_seeds_completed"] == 10
+    assert entry["closure"]["method_ranking_claim_allowed"] is False
+    assert entry["closure"]["finite_terminal_claim_allowed"] is False
     rollout = entry["rollout_evaluation"]
     assert rollout["offline_dataset_id"] == "hopper-medium-replay-v2"
     assert rollout["evaluation_env_id"] == "Hopper-v4"

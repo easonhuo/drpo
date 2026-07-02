@@ -1,0 +1,131 @@
+{
+  "acceptance": {
+    "fixed_budgets_complete": true,
+    "formal_seeds_complete": true,
+    "mechanism_subchecks_passed_seeds": 10,
+    "paired_seed_evidence_complete": true,
+    "provenance_compromised": false,
+    "terminal_audit_records_complete": true
+  },
+  "accepted_claim": "After matching negative-advantage magnitude, naturally far Hopper samples occupy a larger standardized-distance regime, activate the Gaussian quadratic log-scale branch, and contribute larger full-parameter negative gradients. Signed and Near-zero share severe support contraction and task collapse, while far-field controls improve paired long-run outcomes; this supports far-field anomalous negative gradients as a major transmission path in this Hopper learned-critic setting.",
+  "experiment_id": "EXT-H-E7-Q2",
+  "forbidden_claims": [
+    "universal method ranking",
+    "finite stable terminal state for the compared methods",
+    "far-field is the unique cause of all real-world off-policy collapse",
+    "current controls outperform Positive-only",
+    "NaN/Inf numerical collapse occurred",
+    "exact legacy D4RL mujoco-py leaderboard reproduction"
+  ],
+  "mechanism_metrics": {
+    "abs_advantage_far_near_ratio_mean": 0.9997699141502381,
+    "analytic_autograd_relative_error_max_mean": 6.599849733390784e-08,
+    "corrected_q_xi_far_near_ratio_mean": 14.546895980834961,
+    "corrected_q_xi_loglog_slope_mean": 2.0000000000188645,
+    "full_parameter_gradient_far_near_ratio_mean": 4.205860980379491,
+    "mean_output_score_far_near_ratio_mean": 3.8686749219894407,
+    "standardized_distance_far_near_ratio_mean": 3.8445521116256716
+  },
+  "paired_vs_signed": {
+    "dynamic_budget_matched_global": {
+      "losses": 0,
+      "mean_difference": 14.779317432621857,
+      "median_difference": 13.698970215608671,
+      "reference": "signed",
+      "seed_count": 10,
+      "ties": 0,
+      "wilcoxon_two_sided_p": 0.001953125,
+      "wins": 10
+    },
+    "far_cap": {
+      "losses": 0,
+      "mean_difference": 10.484045244771938,
+      "median_difference": 11.856656143429513,
+      "reference": "signed",
+      "seed_count": 10,
+      "ties": 0,
+      "wilcoxon_two_sided_p": 0.001953125,
+      "wins": 10
+    },
+    "far_zero": {
+      "losses": 0,
+      "mean_difference": 21.54559806232983,
+      "median_difference": 22.516986048421828,
+      "reference": "signed",
+      "seed_count": 10,
+      "ties": 0,
+      "wilcoxon_two_sided_p": 0.001953125,
+      "wins": 10
+    },
+    "near_zero": {
+      "losses": 2,
+      "mean_difference": 0.13873780250396103,
+      "median_difference": 0.02431984066390036,
+      "reference": "signed",
+      "seed_count": 10,
+      "ties": 0,
+      "wilcoxon_two_sided_p": 0.130859375,
+      "wins": 8
+    }
+  },
+  "positive_only_role": "stable deletion-all-negative reference, not the primary E7 mechanism baseline",
+  "primary_mechanism_baseline": "signed",
+  "repository_closure_base_commit": "cd6c42db337d8f261840850a58bf60a83c37e6bd",
+  "review_date_utc": "2026-07-02",
+  "run_commit": "c5c638b47c945f5a3ecb8243f679caa31a129f9e",
+  "run_id": "formal-20260630T105458Z",
+  "schema_version": 1,
+  "scientific_status": "long_run_validated",
+  "scope": "Hopper medium-replay-v2 learned-critic external mechanism validation",
+  "task_results": {
+    "dynamic_budget_matched_global": {
+      "mean_boundary_fraction": 0.189849853515625,
+      "nan_inf_count": 0,
+      "normalized_return_mean": 15.766050787826316,
+      "sigma_mean": 0.5315154492855072,
+      "support_or_variance_boundary_count": 10,
+      "task_collapse_count": 6
+    },
+    "far_cap": {
+      "mean_boundary_fraction": 0.1821044921875,
+      "nan_inf_count": 0,
+      "normalized_return_mean": 11.470778599976397,
+      "sigma_mean": 0.4747990697622299,
+      "support_or_variance_boundary_count": 10,
+      "task_collapse_count": 7
+    },
+    "far_zero": {
+      "mean_boundary_fraction": 0.121490478515625,
+      "nan_inf_count": 0,
+      "normalized_return_mean": 22.532331417534287,
+      "sigma_mean": 0.5809865593910217,
+      "support_or_variance_boundary_count": 10,
+      "task_collapse_count": 3
+    },
+    "near_zero": {
+      "mean_boundary_fraction": 0.99990234375,
+      "nan_inf_count": 0,
+      "normalized_return_mean": 1.1254711577084202,
+      "sigma_mean": 0.0067379469983279705,
+      "support_or_variance_boundary_count": 10,
+      "task_collapse_count": 10
+    },
+    "positive_only": {
+      "mean_boundary_fraction": 0.112298583984375,
+      "nan_inf_count": 0,
+      "normalized_return_mean": 32.23070328887839,
+      "sigma_mean": 0.5587466299533844,
+      "support_or_variance_boundary_count": 9,
+      "task_collapse_count": 0
+    },
+    "signed": {
+      "mean_boundary_fraction": 0.999725341796875,
+      "nan_inf_count": 0,
+      "normalized_return_mean": 0.9867333552044592,
+      "sigma_mean": 0.0067379469983279705,
+      "support_or_variance_boundary_count": 10,
+      "task_collapse_count": 10
+    }
+  },
+  "terminal_interpretation": "Fixed budgets and post-hoc terminal audits were completed, but no finite steady-state method ranking is authorized."
+}

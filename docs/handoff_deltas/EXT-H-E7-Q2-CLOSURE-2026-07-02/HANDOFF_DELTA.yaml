@@ -1,0 +1,517 @@
+schema_version: 2
+update_id: EXT-H-E7-Q2-CLOSURE-2026-07-02
+mode: shadow
+base:
+  commit: cd6c42db337d8f261840850a58bf60a83c37e6bd
+  handoff_sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+  registry_sha256: c9fd00b1b198a4963ac07bf854fb8afc746f160c180c808dbf6e5fd0f3b2c8e3
+renderer_version: 1
+operations:
+- operation_id: rename-v67-title-to-v68-e7-q2-closure
+  op: replace_heading
+  heading_path:
+  - DRPO / SNA2C 远场负梯度动力学研究主文档 v67（Countdown 0.5B 机制探索关闭与 E8-TAPER 登记版）
+  new_heading: DRPO / SNA2C 远场负梯度动力学研究主文档 v68（Hopper E7-Q2 长程机制结果闭环版）
+  reason: Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence while preserving
+    the registered claim boundary and leaving E7-BENCH blocked pending shortlist freeze.
+- operation_id: insert-v68-e7-q2-closure-under-execution-principles
+  op: insert_after_heading
+  heading_path:
+  - 0. 研究与执行原则（每次新会话首先阅读）
+  block_id: v68-ext-h-e7-q2-longrun-closure
+  content: '> **v68 增量登记：`EXT-H-E7-Q2` Hopper learned-critic 长程机制结果闭环（不删除 v67 及更早内容）**
+
+    >
+
+    > - 正式运行绑定 clean detached commit `c5c638b47c945f5a3ecb8243f679caa31a129f9e`，运行开始时权威 `origin/main` 与本地 HEAD 一致；`hopper-medium-replay-v2`
+    数据 SHA-256 为 `e121c5f7c9857a307baa9edc6a2c3b48e85fedb9ac316ecddd0f48ca7ef4e39b`。共享 critic 固定 100k steps、Positive-only
+    固定 100k steps、五个分支各固定 200k steps，seeds `100--109` 全部完成，终态记录齐全，NaN/Inf 为 `0/60`。
+
+    > - Advantage 匹配通过：far/near `|A|` 均值比为 `0.999770x`。自然 far negatives 的标准化距离、corrected `Q_xi` 与全参数负梯度 far/near 均值比分别为 `3.845x`、`14.547x`
+    和 `4.206x`；`Q_xi` 对 radius 的 log-log slope 为 `2.000000000019`，解析式与 autograd 最大相对误差均值为 `6.600e-08`。
+
+    > - `Signed` 与 `Near-zero` 均为 `10/10` 任务性能崩溃、sigma 触底并接近完整动作边界饱和；删除 near negatives 没有救援。`Far-zero`、`Far-cap` 与 dynamic
+    budget-matched Global 均在 `10/10` paired seeds 中高于 Signed，平均终态 return 增益分别为 `+21.546`、`+10.484` 和 `+14.779`。这支持远场异常负梯度是该
+    Hopper learned-critic 设置中 support contraction 与任务性能失败的主要传导路径之一。
+
+    > - 三类事件严格分报：task-performance collapse、support/variance boundary 与 NaN/Inf numerical failure 不得互换。二值 boundary event 也不得替代严重度：Signed/Near-zero
+    的 mean boundary fraction 约为 `1.0`，Far-zero 为 `0.1215`，接近 Positive-only 的 `0.1123`。
+
+    > - E7-Q2 的科学状态登记为 **long_run_validated**，范围仅限 Hopper external mechanism validation。Positive-only 是删除全部负信号的稳定参考，不是本机制实验的主
+    baseline；主 baseline 是 Signed，Near-zero 是负向因果对照，Far-zero/Far-cap 是定点干预，Global 是幅度中介对照。
+
+    > - 本结果不授权有限稳态、通用方法排名、当前控制超过 Positive-only、远场是所有真实任务唯一失稳原因，或 exact legacy D4RL leaderboard reproduction。near/far 二分只用于机制识别；连续
+    taper 和方法收益由后续独立实验承担。
+
+    > - Compact closure evidence 位于 `outputs/e7_hopper_q2/`。`EXT-H-E7-BENCH-01` 的 E7-Q2 前置条件已满足，但仍因 controlled-method shortlist
+    未在不使用 D4RL 调参的条件下冻结而保持 blocked；本闭环不自动启动 benchmark。
+
+    > - v67 已登记的 `E8-TAPER` 路线与门禁保持不变；本次 E7-Q2 闭环不修改 Countdown 方法实验职责或执行顺序。'
+registry:
+  mode: expected_after
+  expected_after_sha256: a5c28b65f172db571f3f1aedba0a37a1863bcb9704f82a815bbdc0d37192c89d
+  changes:
+  - change_id: e7-q2-close-01
+    kind: update_field
+    entity_id: EXT-H-E7-BENCH-01
+    field_path:
+    - execution_gate
+    - blocked_by
+    from:
+    - EXT-H-E7-Q2
+    to:
+    - controlled_method_shortlist_freeze
+    reason: Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact
+      provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist
+      without D4RL retuning.
+    evidence: &id001
+    - docs/handoff.md
+    - experiments/registry.yaml
+    - outputs/e7_hopper_q2/RESULT_SUMMARY.md
+    - outputs/e7_hopper_q2/SCIENTIFIC_REVIEW.json
+    - outputs/e7_hopper_q2/aggregate_summary.json
+    - outputs/e7_hopper_q2/per_seed_summary.csv
+    - outputs/e7_hopper_q2/terminal_audit.json
+  - change_id: e7-q2-close-02
+    kind: update_field
+    entity_id: EXT-H-E7-BENCH-01
+    field_path:
+    - execution_gate
+    - blocking_reason
+    from: The large public benchmark remains blocked until EXT-H-E7-Q2 is terminal-audited, packaged, delivered, and the controlled-method
+      shortlist is frozen without D4RL retuning. Optional D-U1-E6-TAPER-01 is not a prerequisite.
+    to: EXT-H-E7-Q2 is now terminal-audited, delivered, and scientifically closed. The large public benchmark remains blocked
+      until the controlled-method shortlist is frozen without D4RL retuning and the benchmark implementation/protocol versions
+      are registered.
+    reason: Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact
+      provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist
+      without D4RL retuning.
+    evidence: *id001
+  - change_id: e7-q2-close-03
+    kind: update_field
+    entity_id: EXT-H-E7-BENCH-01
+    field_path:
+    - prerequisite_status
+    from: null
+    to:
+      EXT-H-E7-Q2: satisfied_long_run_validated
+      controlled_method_shortlist_freeze: pending
+      d4rl_retuning_allowed: false
+    reason: Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact
+      provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist
+      without D4RL retuning.
+    evidence: *id001
+  - change_id: e7-q2-close-04
+    kind: update_field
+    entity_id: EXT-H-E7-Q2
+    field_path:
+    - closure
+    from: null
+    to:
+      accepted_claim: Far-field anomalous negative gradients are a major transmission path into support contraction and task-performance
+        failure in this Hopper learned-critic setting.
+      primary_baseline: signed
+      positive_only_role: stable_reference_not_primary_mechanism_baseline
+      method_ranking_claim_allowed: false
+      finite_terminal_claim_allowed: false
+      universal_causality_claim_allowed: false
+      continuous_taper_benefit_requires_separate_experiment: true
+    reason: Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact
+      provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist
+      without D4RL retuning.
+    evidence: *id001
+  - change_id: e7-q2-close-05
+    kind: update_field
+    entity_id: EXT-H-E7-Q2
+    field_path:
+    - evidence
+    - compact_result_path
+    from: null
+    to: outputs/e7_hopper_q2
+    reason: Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact
+      provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist
+      without D4RL retuning.
+    evidence: *id001
+  - change_id: e7-q2-close-06
+    kind: update_field
+    entity_id: EXT-H-E7-Q2
+    field_path:
+    - evidence
+    - delivered_to_user
+    from: false
+    to: true
+    reason: Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact
+      provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist
+      without D4RL retuning.
+    evidence: *id001
+  - change_id: e7-q2-close-07
+    kind: update_field
+    entity_id: EXT-H-E7-Q2
+    field_path:
+    - evidence
+    - fixed_budgets_completed
+    from: null
+    to: true
+    reason: Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact
+      provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist
+      without D4RL retuning.
+    evidence: *id001
+  - change_id: e7-q2-close-08
+    kind: update_field
+    entity_id: EXT-H-E7-Q2
+    field_path:
+    - evidence
+    - formal_seeds_completed
+    from: null
+    to: 10
+    reason: Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact
+      provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist
+      without D4RL retuning.
+    evidence: *id001
+  - change_id: e7-q2-close-09
+    kind: update_field
+    entity_id: EXT-H-E7-Q2
+    field_path:
+    - evidence
+    - formal_seeds_expected
+    from: null
+    to: 10
+    reason: Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact
+      provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist
+      without D4RL retuning.
+    evidence: *id001
+  - change_id: e7-q2-close-10
+    kind: update_field
+    entity_id: EXT-H-E7-Q2
+    field_path:
+    - evidence
+    - mechanism_subchecks_passed_seeds
+    from: null
+    to: 10
+    reason: Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact
+      provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist
+      without D4RL retuning.
+    evidence: *id001
+  - change_id: e7-q2-close-11
+    kind: update_field
+    entity_id: EXT-H-E7-Q2
+    field_path:
+    - evidence
+    - package_created
+    from: false
+    to: true
+    reason: Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact
+      provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist
+      without D4RL retuning.
+    evidence: *id001
+  - change_id: e7-q2-close-12
+    kind: update_field
+    entity_id: EXT-H-E7-Q2
+    field_path:
+    - evidence
+    - package_filename
+    from: null
+    to: e7_q2_formal_v43_EXT-H-E7-Q2_formal.zip
+    reason: Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact
+      provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist
+      without D4RL retuning.
+    evidence: *id001
+  - change_id: e7-q2-close-13
+    kind: update_field
+    entity_id: EXT-H-E7-Q2
+    field_path:
+    - evidence
+    - package_sha256
+    from: null
+    to: 5db9c092f2b6e68f42de364f4e85cd3c2691e4dad472b5527a2dce11987f58b5
+    reason: Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact
+      provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist
+      without D4RL retuning.
+    evidence: *id001
+  - change_id: e7-q2-close-14
+    kind: update_field
+    entity_id: EXT-H-E7-Q2
+    field_path:
+    - evidence
+    - post_run_scientific_review_completed
+    from: null
+    to: true
+    reason: Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact
+      provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist
+      without D4RL retuning.
+    evidence: *id001
+  - change_id: e7-q2-close-15
+    kind: update_field
+    entity_id: EXT-H-E7-Q2
+    field_path:
+    - evidence
+    - raw_complete
+    from: false
+    to: true
+    reason: Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact
+      provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist
+      without D4RL retuning.
+    evidence: *id001
+  - change_id: e7-q2-close-16
+    kind: update_field
+    entity_id: EXT-H-E7-Q2
+    field_path:
+    - evidence
+    - run_started
+    from: false
+    to: true
+    reason: Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact
+      provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist
+      without D4RL retuning.
+    evidence: *id001
+  - change_id: e7-q2-close-17
+    kind: update_field
+    entity_id: EXT-H-E7-Q2
+    field_path:
+    - evidence
+    - scientific_status
+    from: not_run
+    to: long_run_validated
+    reason: Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact
+      provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist
+      without D4RL retuning.
+    evidence: *id001
+  - change_id: e7-q2-close-18
+    kind: update_field
+    entity_id: EXT-H-E7-Q2
+    field_path:
+    - evidence
+    - terminal_audit_records_complete
+    from: null
+    to: true
+    reason: Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact
+      provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist
+      without D4RL retuning.
+    evidence: *id001
+  - change_id: e7-q2-close-19
+    kind: update_field
+    entity_id: EXT-H-E7-Q2
+    field_path:
+    - evidence
+    - terminal_audited
+    from: false
+    to: true
+    reason: Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact
+      provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist
+      without D4RL retuning.
+    evidence: *id001
+  - change_id: e7-q2-close-20
+    kind: update_field
+    entity_id: EXT-H-E7-Q2
+    field_path:
+    - execution
+    - note
+    from: null
+    to: All fixed budgets completed; scientific review accepted the external mechanism claim without authorizing steady-state
+      or method-ranking claims.
+    reason: Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact
+      provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist
+      without D4RL retuning.
+    evidence: *id001
+  - change_id: e7-q2-close-21
+    kind: update_field
+    entity_id: EXT-H-E7-Q2
+    field_path:
+    - execution
+    - process_exit_code
+    from: null
+    to: 0
+    reason: Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact
+      provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist
+      without D4RL retuning.
+    evidence: *id001
+  - change_id: e7-q2-close-22
+    kind: update_field
+    entity_id: EXT-H-E7-Q2
+    field_path:
+    - execution
+    - run_id
+    from: null
+    to: formal-20260630T105458Z
+    reason: Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact
+      provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist
+      without D4RL retuning.
+    evidence: *id001
+  - change_id: e7-q2-close-23
+    kind: update_field
+    entity_id: EXT-H-E7-Q2
+    field_path:
+    - execution
+    - state
+    from: registered
+    to: delivered
+    reason: Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact
+      provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist
+      without D4RL retuning.
+    evidence: *id001
+  - change_id: e7-q2-close-24
+    kind: update_field
+    entity_id: EXT-H-E7-Q2
+    field_path:
+    - execution_gate
+    - blocked_by
+    from: []
+    to:
+    - completed_formal_execution_no_rerun_without_new_registration
+    reason: Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact
+      provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist
+      without D4RL retuning.
+    evidence: *id001
+  - change_id: e7-q2-close-25
+    kind: update_field
+    entity_id: EXT-H-E7-Q2
+    field_path:
+    - execution_gate
+    - blocking_reason
+    from: E6 parent claims are closed; the implemented Hopper mechanism experiment is the next registered formal route item.
+      No E7 scientific run has started.
+    to: The frozen formal v4.3.0 run is complete, scientifically reviewed, compactly archived, and delivered. Any rerun requires
+      a separately registered protocol.
+    reason: Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact
+      provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist
+      without D4RL retuning.
+    evidence: *id001
+  - change_id: e7-q2-close-26
+    kind: update_field
+    entity_id: EXT-H-E7-Q2
+    field_path:
+    - execution_gate
+    - state
+    from: ready
+    to: blocked
+    reason: Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact
+      provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist
+      without D4RL retuning.
+    evidence: *id001
+  - change_id: e7-q2-close-27
+    kind: update_field
+    entity_id: EXT-H-E7-Q2
+    field_path:
+    - formal_execution
+    - activation_state
+    from: active
+    to: blocked
+    reason: Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact
+      provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist
+      without D4RL retuning.
+    evidence: *id001
+  - change_id: e7-q2-close-28
+    kind: update_field
+    entity_id: EXT-H-E7-Q2
+    field_path:
+    - provenance
+    from: null
+    to:
+      run_commit: c5c638b47c945f5a3ecb8243f679caa31a129f9e
+      repository_closure_base_commit: cd6c42db337d8f261840850a58bf60a83c37e6bd
+      run_id: formal-20260630T105458Z
+      dataset_sha256: e121c5f7c9857a307baa9edc6a2c3b48e85fedb9ac316ecddd0f48ca7ef4e39b
+      runner_version: 4.3.0-fixed-budget-longrun
+      origin_main_matched_at_launch: true
+      git_dirty_at_launch: false
+      provenance_compromised: false
+      evaluation_environment: Gymnasium Hopper-v4 compatibility environment with frozen D4RL-v2 reference normalization
+    reason: Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact
+      provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist
+      without D4RL retuning.
+    evidence: *id001
+  - change_id: e7-q2-close-29
+    kind: update_field
+    entity_id: EXT-H-E7-Q2
+    field_path:
+    - result_summary
+    from: null
+    to:
+      mechanism:
+        abs_advantage_far_near_ratio_mean: 0.9997699141502381
+        standardized_distance_far_near_ratio_mean: 3.8445521116256716
+        corrected_q_xi_far_near_ratio_mean: 14.546895980834961
+        corrected_q_xi_loglog_slope_mean: 2.0000000000188645
+        full_parameter_gradient_far_near_ratio_mean: 4.205860980379491
+        analytic_autograd_relative_error_max_mean: 6.599849733390784e-08
+      terminal_normalized_return_mean:
+        positive_only: 32.23070328887839
+        signed: 0.9867333552044592
+        near_zero: 1.1254711577084202
+        far_zero: 22.532331417534287
+        far_cap: 11.470778599976397
+        dynamic_budget_matched_global: 15.766050787826316
+      task_collapse_count:
+        positive_only: 0
+        signed: 10
+        near_zero: 10
+        far_zero: 3
+        far_cap: 7
+        dynamic_budget_matched_global: 6
+      support_or_variance_boundary_count:
+        positive_only: 9
+        signed: 10
+        near_zero: 10
+        far_zero: 10
+        far_cap: 10
+        dynamic_budget_matched_global: 10
+      nan_inf_count:
+        positive_only: 0
+        signed: 0
+        near_zero: 0
+        far_zero: 0
+        far_cap: 0
+        dynamic_budget_matched_global: 0
+      mean_boundary_fraction:
+        positive_only: 0.112298583984375
+        signed: 0.999725341796875
+        near_zero: 0.99990234375
+        far_zero: 0.121490478515625
+        far_cap: 0.1821044921875
+        dynamic_budget_matched_global: 0.189849853515625
+      paired_vs_signed:
+        near_zero:
+          mean_return_difference: 0.13873780250396103
+          wins: 8
+          wilcoxon_two_sided_p: 0.130859375
+        far_zero:
+          mean_return_difference: 21.54559806232983
+          wins: 10
+          wilcoxon_two_sided_p: 0.001953125
+        far_cap:
+          mean_return_difference: 10.484045244771938
+          wins: 10
+          wilcoxon_two_sided_p: 0.001953125
+        dynamic_budget_matched_global:
+          mean_return_difference: 14.779317432621857
+          wins: 10
+          wilcoxon_two_sided_p: 0.001953125
+    reason: Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact
+      provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist
+      without D4RL retuning.
+    evidence: *id001
+  - change_id: e7-q2-close-30
+    kind: update_field
+    entity_id: EXT-H-E7-Q2
+    field_path:
+    - scientific_status
+    from: not_run
+    to: long_run_validated
+    reason: Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact
+      provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist
+      without D4RL retuning.
+    evidence: *id001
+  - change_id: e7-q2-close-31
+    kind: update_field
+    entity_id: EXT-H-E7-Q2
+    field_path:
+    - status
+    from: not_run
+    to: long_run_validated
+    reason: Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact
+      provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist
+      without D4RL retuning.
+    evidence: *id001
+expected:
+  candidate_sha256: 2c8c0ca7ced80ee0a90a7aa5defab461125d1b5002144713488ca1a7edeff548
+  manual_sha256: 2c8c0ca7ced80ee0a90a7aa5defab461125d1b5002144713488ca1a7edeff548

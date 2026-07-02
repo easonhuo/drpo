@@ -156,7 +156,7 @@
       "target": "paper_rewrite"
     }
   ],
-  "after_image_tree_hash": "e00bf720c98ed9ea12b0bc40552d5a43d41d24f46515e662cc5be67b148892ac",
+  "after_image_tree_hash": "95f5569846021b511dd0569ad5ad11b96b980a81665a0f191448e41bd34e3e67",
   "authority": "shadow_only",
   "authority_cutover_allowed": false,
   "claim_id": "GOV-HANDOFF-INDEX-01",
@@ -176,6 +176,14 @@
     "total": 19
   },
   "hard_blockers": [],
+  "maintenance_refresh": {
+    "authorization_id": "GOV-STAGE4AB-E7-Q2-LONGRUN-CLOSURE-COMPAT-2026-07-02",
+    "base_commit": "cd6c42db337d8f261840850a58bf60a83c37e6bd",
+    "change_class": "compatibility_fix",
+    "core_acceptance_rerun": "PASS with determinism",
+    "fault_injection_evidence": "Retained the previously accepted 19/19 fail-closed evidence because Stage 4A builders, configuration, semantic contracts, and fault harness are unchanged; no fresh 19/19 claim is made.",
+    "scope": "Refresh the accepted Stage 4A shadow after-image after the authoritative EXT-H-E7-Q2 long-run closure and deterministic shadow regeneration; no Stage 4 architecture, authority, module taxonomy, dependency, or stage-state change."
+  },
   "manual_handoff_remains_authoritative": true,
   "mapping": {
     "canonical_experiments": 24,
@@ -387,9 +395,9 @@
       ]
     }
   },
-  "semantic_graph_hash": "392b0201566d0c968a65f8f94ed1ea00118ae3e271ad63ce04c4da5ba6e7556b",
+  "semantic_graph_hash": "c148acdc600dcd74886a912823427a0070530e20cb625b9b3bc90e74514ff47e",
   "stage_4a_state": "accepted",
-  "stage_4b_state": "ready_for_separate_authorization",
-  "stage_4c_state": "blocked_by_stage_4b_acceptance",
+  "stage_4b_state": "accepted",
+  "stage_4c_state": "ready_for_authorization",
   "status": "PASS"
 }

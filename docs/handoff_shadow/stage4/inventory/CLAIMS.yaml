@@ -3,7 +3,7 @@ policy_id: GOV-HANDOFF-INDEX-01
 authority: non_authoritative_stage4a_shadow_inventory
 source:
   path: docs/handoff.md
-  sha256: 8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71
+  sha256: 2c8c0ca7ced80ee0a90a7aa5defab461125d1b5002144713488ca1a7edeff548
 scope: manual_locator_inventory_of_locked_supported_limited_open_and_superseded_claims
 claims:
 - claim_id: GOV-UNIQUE-MASTER-01

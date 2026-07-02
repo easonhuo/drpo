@@ -1843,30 +1843,24 @@ experiments:
     failure_of_task_superiority_does_not_erase_mechanism_result: true
 - id: EXT-H-E7-Q2
   execution_gate:
-    state: ready
-    blocked_by: []
-    blocking_reason: >-
-      E6 parent claims are closed; the implemented Hopper mechanism experiment is
-      the next registered formal route item. No E7 scientific run has started.
+    state: blocked
+    blocked_by:
+    - completed_formal_execution_no_rerun_without_new_registration
+    blocking_reason: The frozen formal v4.3.0 run is complete, scientifically reviewed, compactly archived, and delivered. Any rerun requires a separately registered protocol.
   environment: EXT-H
   name: hopper_gaussian_log_scale_quadratic_external_validation
-  status: not_run
-  scientific_status: not_run
+  status: long_run_validated
+  scientific_status: long_run_validated
   parent_experiment: E7-MECH
   registration_base_commit: c7fd41ac663380de71bcd839b76ab4d1e52ae8d0
   implementation_base_commit: 2e04f6dba6d4e87f61920bedb1c464656906bf2b
   implementation_commit: f64452a7452274a183b03c87c39b847039230c00
-  claim: >-
-    In real D4RL Hopper data with a learned critic and an independently trained
-    state-conditioned Gaussian actor, naturally far negative samples enter a
-    regime where the corrected log-scale score grows with squared standardized
-    distance, contributes measurably to full-parameter gradients or long-run
-    support/task dynamics, and is selectively mitigated by far-field controls.
+  claim: In real D4RL Hopper data with a learned critic and an independently trained state-conditioned Gaussian actor, naturally far negative samples enter a regime where the corrected log-scale score grows with squared standardized distance, contributes measurably to full-parameter gradients or long-run support/task dynamics, and is selectively mitigated by far-field controls.
   role: external_mechanism_validation
   execution_class: formal
   formal_execution:
     channel_ref: hardened-v1
-    activation_state: active
+    activation_state: blocked
     entrypoint_status: implemented
     entrypoint: src/drpo/e7_hopper_q2.py
     launch_mode: canonical_guard
@@ -1901,24 +1895,8 @@ experiments:
   operator_entrypoint: scripts/run_e7_hopper_q2.py
   config_path: configs/e7_hopper_q2_medium_replay_v2.yaml
   operator_guide: docs/README_E7_HOPPER_Q2_ONECLICK.md
-  formal_launch_template: >-
-    python3 scripts/run_experiment_guard_hardened.py --run-class formal
-    --expected-commit "$(git rev-parse HEAD)" --require-origin-main-match
-    --experiment-id EXT-H-E7-Q2 --repo-root .
-    --output-root experiments/results/EXT-H-E7-Q2/run_001
-    --artifact-output artifacts/EXT-H-E7-Q2_RAW_COMPLETE.zip
-    --required-output RUN_COMPLETE.json --required-output terminal_audit.json
-    --required-output aggregate_summary.json --required-output per_seed_summary.csv
-    --source-file src/drpo/e7_hopper_q2.py
-    --source-file scripts/run_e7_hopper_q2.py
-    --source-file configs/e7_hopper_q2_medium_replay_v2.yaml --
-    python3 src/drpo/e7_hopper_q2.py run --mode formal
-    --dataset-path /ABSOLUTE/PERSISTENT/PATH/hopper_medium_replay-v2.hdf5
-    --work-dir experiments/results/EXT-H-E7-Q2/run_001
-    --config configs/e7_hopper_q2_medium_replay_v2.yaml --repo-root . --device cuda
-  one_command_launch: >-
-    DRPO_HOPPER_MEDIUM_REPLAY=/ABSOLUTE/PERSISTENT/PATH/hopper_medium_replay-v2.hdf5
-    python3 scripts/run_e7_hopper_q2.py
+  formal_launch_template: python3 scripts/run_experiment_guard_hardened.py --run-class formal --expected-commit "$(git rev-parse HEAD)" --require-origin-main-match --experiment-id EXT-H-E7-Q2 --repo-root . --output-root experiments/results/EXT-H-E7-Q2/run_001 --artifact-output artifacts/EXT-H-E7-Q2_RAW_COMPLETE.zip --required-output RUN_COMPLETE.json --required-output terminal_audit.json --required-output aggregate_summary.json --required-output per_seed_summary.csv --source-file src/drpo/e7_hopper_q2.py --source-file scripts/run_e7_hopper_q2.py --source-file configs/e7_hopper_q2_medium_replay_v2.yaml -- python3 src/drpo/e7_hopper_q2.py run --mode formal --dataset-path /ABSOLUTE/PERSISTENT/PATH/hopper_medium_replay-v2.hdf5 --work-dir experiments/results/EXT-H-E7-Q2/run_001 --config configs/e7_hopper_q2_medium_replay_v2.yaml --repo-root . --device cuda
+  one_command_launch: DRPO_HOPPER_MEDIUM_REPLAY=/ABSOLUTE/PERSISTENT/PATH/hopper_medium_replay-v2.hdf5 python3 scripts/run_e7_hopper_q2.py
   does_not_replace:
   - C-U1-E1-COMP-01
   - C-U1-E1
@@ -1953,14 +1931,13 @@ experiments:
       reference_min_score: -20.272305
       reference_max_score: 3234.3
       output_scale: percent
-    interpretation: >-
-      Offline training still uses the D4RL Hopper medium-replay-v2 HDF5 dataset.
-      Policy interaction is evaluated locally in Gymnasium Hopper-v4 and normalized
-      with the frozen D4RL-v2 reference scores; this is a compatibility evaluation,
-      not an exact legacy mujoco-py leaderboard reproduction.
+    interpretation: Offline training still uses the D4RL Hopper medium-replay-v2 HDF5 dataset. Policy interaction is evaluated locally in Gymnasium Hopper-v4 and normalized with the frozen D4RL-v2 reference scores; this is a compatibility evaluation, not an exact legacy mujoco-py leaderboard reproduction.
   critic_protocol:
     target: discounted_monte_carlo_return
-    episode_split: [0.8, 0.1, 0.1]
+    episode_split:
+    - 0.8
+    - 0.1
+    - 0.1
     gamma: 0.99
     frozen_before_actor: true
     stopping:
@@ -1999,7 +1976,9 @@ experiments:
     critic_updates_during_actor_training: false
   actor_protocol:
     family: tanh_squashed_diagonal_gaussian_mlp
-    hidden_sizes: [256, 256]
+    hidden_sizes:
+    - 256
+    - 256
     log_scale_parameterization: global_diagonal
     stopping:
       rule: fixed_optimizer_steps
@@ -2017,7 +1996,10 @@ experiments:
     positive_only_terminal_before_branching: superseded_by_positive_only_fixed_budget_before_branching
     terminal_candidate:
       relative_parameter_update: required
-      state_drift_metrics: [mean_abs, sigma_mean, phantom_distance_mean]
+      state_drift_metrics:
+      - mean_abs
+      - sigma_mean
+      - phantom_distance_mean
       normalized_window_drift_max: 0.01
       positive_nll_slope: diagnostic_only
       exact_two_times_continuation_when_feasible: required
@@ -2026,7 +2008,10 @@ experiments:
       role: post_hoc_classification_only
       fixed_horizon_is_not_convergence: true
       relative_parameter_update: report
-      state_drift_metrics: [mean_abs, sigma_mean, phantom_distance_mean]
+      state_drift_metrics:
+      - mean_abs
+      - sigma_mean
+      - phantom_distance_mean
       normalized_window_drift_max: 0.01
       positive_nll_slope: diagnostic_only
       exact_two_times_continuation_when_feasible: finite_terminal_label_only
@@ -2076,8 +2061,19 @@ experiments:
     terminal_audit: required
     old_600_step_probe_is_formal_evidence: false
   seeds:
-    pilot: [42]
-    formal: [100, 101, 102, 103, 104, 105, 106, 107, 108, 109]
+    pilot:
+    - 42
+    formal:
+    - 100
+    - 101
+    - 102
+    - 103
+    - 104
+    - 105
+    - 106
+    - 107
+    - 108
+    - 109
   metrics:
   - mean_output_score_norm_by_distance_bin
   - raw_log_scale_output_score_norm_by_distance_bin
@@ -2125,31 +2121,110 @@ experiments:
     - scientific_run_manifest.json
     upload_instruction: upload_guard_generated_zip_unchanged
     large_checkpoint_policy: persistent_local_index
-  reporting_boundary: >-
-    Passing the gate supports independent external validation that real Hopper
-    training enters and is affected by the Gaussian quadratic log-scale
-    far-field regime. It does not independently prove the Gaussian identity,
-    establish a quadratic law for neural-network parameter gradients, replace
-    C-U1 causal identification, or rank Exp, Linear, Global alpha, SBRC, Hybrid,
-    or Positive-only methods.
+  reporting_boundary: Passing the gate supports independent external validation that real Hopper training enters and is affected by the Gaussian quadratic log-scale far-field regime. It does not independently prove the Gaussian identity, establish a quadratic law for neural-network parameter gradients, replace C-U1 causal identification, or rank Exp, Linear, Global alpha, SBRC, Hybrid, or Positive-only methods.
   execution:
-    state: registered
-    run_id: null
+    state: delivered
+    run_id: formal-20260630T105458Z
     last_heartbeat_utc: null
-    process_exit_code: null
+    process_exit_code: 0
+    note: All fixed budgets completed; scientific review accepted the external mechanism claim without authorizing steady-state or method-ranking claims.
   evidence:
     code_committed: true
     implementation_tests_passed: true
-    run_started: false
-    raw_complete: false
-    terminal_audited: false
-    package_created: false
-    package_filename: null
-    package_sha256: null
-    delivered_to_user: false
+    run_started: true
+    raw_complete: true
+    terminal_audited: true
+    formal_seeds_expected: 10
+    formal_seeds_completed: 10
+    fixed_budgets_completed: true
+    terminal_audit_records_complete: true
+    mechanism_subchecks_passed_seeds: 10
+    post_run_scientific_review_completed: true
+    package_created: true
+    package_filename: e7_q2_formal_v43_EXT-H-E7-Q2_formal.zip
+    package_sha256: 5db9c092f2b6e68f42de364f4e85cd3c2691e4dad472b5527a2dce11987f58b5
+    delivered_to_user: true
     applied_commit: null
-    scientific_status: not_run
-
+    scientific_status: long_run_validated
+    compact_result_path: outputs/e7_hopper_q2
+  provenance:
+    run_commit: c5c638b47c945f5a3ecb8243f679caa31a129f9e
+    repository_closure_base_commit: cd6c42db337d8f261840850a58bf60a83c37e6bd
+    run_id: formal-20260630T105458Z
+    dataset_sha256: e121c5f7c9857a307baa9edc6a2c3b48e85fedb9ac316ecddd0f48ca7ef4e39b
+    runner_version: 4.3.0-fixed-budget-longrun
+    origin_main_matched_at_launch: true
+    git_dirty_at_launch: false
+    provenance_compromised: false
+    evaluation_environment: Gymnasium Hopper-v4 compatibility environment with frozen D4RL-v2 reference normalization
+  result_summary:
+    mechanism:
+      abs_advantage_far_near_ratio_mean: 0.9997699141502381
+      standardized_distance_far_near_ratio_mean: 3.8445521116256716
+      corrected_q_xi_far_near_ratio_mean: 14.546895980834961
+      corrected_q_xi_loglog_slope_mean: 2.0000000000188645
+      full_parameter_gradient_far_near_ratio_mean: 4.205860980379491
+      analytic_autograd_relative_error_max_mean: 6.599849733390784e-08
+    terminal_normalized_return_mean:
+      positive_only: 32.23070328887839
+      signed: 0.9867333552044592
+      near_zero: 1.1254711577084202
+      far_zero: 22.532331417534287
+      far_cap: 11.470778599976397
+      dynamic_budget_matched_global: 15.766050787826316
+    task_collapse_count:
+      positive_only: 0
+      signed: 10
+      near_zero: 10
+      far_zero: 3
+      far_cap: 7
+      dynamic_budget_matched_global: 6
+    support_or_variance_boundary_count:
+      positive_only: 9
+      signed: 10
+      near_zero: 10
+      far_zero: 10
+      far_cap: 10
+      dynamic_budget_matched_global: 10
+    nan_inf_count:
+      positive_only: 0
+      signed: 0
+      near_zero: 0
+      far_zero: 0
+      far_cap: 0
+      dynamic_budget_matched_global: 0
+    mean_boundary_fraction:
+      positive_only: 0.112298583984375
+      signed: 0.999725341796875
+      near_zero: 0.99990234375
+      far_zero: 0.121490478515625
+      far_cap: 0.1821044921875
+      dynamic_budget_matched_global: 0.189849853515625
+    paired_vs_signed:
+      near_zero:
+        mean_return_difference: 0.13873780250396103
+        wins: 8
+        wilcoxon_two_sided_p: 0.130859375
+      far_zero:
+        mean_return_difference: 21.54559806232983
+        wins: 10
+        wilcoxon_two_sided_p: 0.001953125
+      far_cap:
+        mean_return_difference: 10.484045244771938
+        wins: 10
+        wilcoxon_two_sided_p: 0.001953125
+      dynamic_budget_matched_global:
+        mean_return_difference: 14.779317432621857
+        wins: 10
+        wilcoxon_two_sided_p: 0.001953125
+  closure:
+    accepted_claim: Far-field anomalous negative gradients are a major transmission path into support contraction and task-performance failure in this Hopper learned-critic setting.
+    primary_baseline: signed
+    positive_only_role: stable_reference_not_primary_mechanism_baseline
+    method_ranking_claim_allowed: false
+    finite_terminal_claim_allowed: false
+    universal_causality_claim_allowed: false
+    continuous_taper_benefit_requires_separate_experiment: true
 - id: EXT-C-E8-V4
   environment: EXT-C
   name: countdown_base_first_transformer_external_validation
@@ -3789,20 +3864,15 @@ experiments:
 - id: EXT-H-E7-BENCH-01
   execution_gate:
     state: blocked
-    blocked_by: [EXT-H-E7-Q2]
-    blocking_reason: >-
-      The large public benchmark remains blocked until EXT-H-E7-Q2 is
-      terminal-audited, packaged, delivered, and the controlled-method shortlist
-      is frozen without D4RL retuning. Optional D-U1-E6-TAPER-01 is not a prerequisite.
+    blocked_by:
+    - controlled_method_shortlist_freeze
+    blocking_reason: EXT-H-E7-Q2 is now terminal-audited, delivered, and scientifically closed. The large public benchmark remains blocked until the controlled-method shortlist is frozen without D4RL retuning and the benchmark implementation/protocol versions are registered.
   environment: EXT-H
   name: d4rl_mujoco_locomotion_method_benchmark
   status: not_run
   parent_experiment: E7-BENCH
   registration_base_commit: f64452a7452274a183b03c87c39b847039230c00
-  claim: >-
-    Test whether the controller shortlist selected in controlled bandits improves
-    multi-seed normalized return and stability on the public D4RL MuJoCo
-    locomotion suite, without per-task method-family retuning.
+  claim: Test whether the controller shortlist selected in controlled bandits improves multi-seed normalized return and stability on the public D4RL MuJoCo locomotion suite, without per-task method-family retuning.
   role: external_large_scale_continuous_benchmark
   execution_class: formal
   implementation_state: not_implemented
@@ -3823,12 +3893,28 @@ experiments:
       mode: forbid
   suite:
     name: D4RL_MuJoCo_locomotion
-    environments: [hopper, walker2d, halfcheetah]
-    dataset_qualities: [medium, medium_replay, medium_expert]
+    environments:
+    - hopper
+    - walker2d
+    - halfcheetah
+    dataset_qualities:
+    - medium
+    - medium_replay
+    - medium_expert
     task_count: 9
-    excludes_from_primary_suite: [antmaze, kitchen, adroit]
-  mandatory_baselines: [offline_rl_base, positive_only, uncontrolled_negative, global_alpha]
-  candidate_controllers: [reciprocal_linear, reciprocal_quadratic, exponential]
+    excludes_from_primary_suite:
+    - antmaze
+    - kitchen
+    - adroit
+  mandatory_baselines:
+  - offline_rl_base
+  - positive_only
+  - uncontrolled_negative
+  - global_alpha
+  candidate_controllers:
+  - reciprocal_linear
+  - reciprocal_quadratic
+  - exponential
   shortlist_rule: freeze_after_E4_E6_core_closure_and_E7_mechanism_without_D4RL_retuning
   primary_metrics:
   - normalized_return
@@ -3846,6 +3932,10 @@ experiments:
     terminal_audited: false
     package_created: false
     scientific_status: not_run
+  prerequisite_status:
+    EXT-H-E7-Q2: satisfied_long_run_validated
+    controlled_method_shortlist_freeze: pending
+    d4rl_retuning_allowed: false
 - id: EXT-C-E8-SCALE-01
   execution_gate:
     state: blocked

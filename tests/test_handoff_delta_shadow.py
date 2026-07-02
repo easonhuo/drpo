@@ -459,10 +459,10 @@ def test_historical_e7_q2_v43_delta_matches_repository_after_image() -> None:
     assert result.report["registry_change_coverage"]["fully_declared"] is True
 
 
-def test_current_e8_taper_v67_delta_matches_manual_handoff() -> None:
+def test_current_e7_q2_v68_closure_delta_matches_manual_handoff() -> None:
     delta = (
         ROOT
-        / "docs/handoff_deltas/EXT-C-E8-TAPER-0.5B-REGISTRATION-2026-07-01/HANDOFF_DELTA.yaml"
+        / "docs/handoff_deltas/EXT-H-E7-Q2-CLOSURE-2026-07-02/HANDOFF_DELTA.yaml"
     )
     result = MODULE.check_delta(ROOT, delta)
     assert result.report["status"] == "PASS"

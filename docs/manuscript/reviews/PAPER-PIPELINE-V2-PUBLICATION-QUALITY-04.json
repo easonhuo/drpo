@@ -78,7 +78,7 @@
     },
     {
       "path": "paper/core_review_v2_core/research_snapshot.json",
-      "sha256": "bf58eec5758f5a0b42dc397d1a52105b04c760e77b9dc99589cc208985317a00"
+      "sha256": "5fe91a698dcd1d896629679fbf125efc349ee741599c35810112ff51c0eb0098"
     },
     {
       "path": "paper/releases/DRPO_FULL_REVIEW_V1.pdf",
@@ -341,5 +341,6 @@
       "path": "paper/releases/DRPO_FULL_REVIEW_V1.pdf",
       "validation": "12-page ICML two-column PDF compiles without undefined references or overfull boxes and includes the strengthened first four chapters and complete registered proofs"
     }
-  ]
+  ],
+  "artifact_refresh_note": "The E7-Q2 repository closure refreshed only the generated Core research snapshot provenance to bind the current experiments/registry.yaml. The publication-quality prose, figures, PDF, guidance, playbook, strategy, and review gates were unchanged; this record refreshes the snapshot artifact hash so the acceptance review remains current."
 }

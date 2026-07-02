@@ -73,15 +73,17 @@ def test_e6_longrun_is_delivered_and_taper_remains_review_blocked() -> None:
     assert taper["blocked_by"]
 
 
-def test_e7_mechanism_is_implemented_ready_and_still_not_run() -> None:
+def test_e7_mechanism_is_delivered_and_closed_to_unregistered_reruns() -> None:
     entry = _experiments()["EXT-H-E7-Q2"]
-    assert entry["status"] == "not_run"
-    assert entry["scientific_status"] == "not_run"
+    assert entry["status"] == "long_run_validated"
+    assert entry["scientific_status"] == "long_run_validated"
     assert entry["implementation_state"] == "implemented"
     assert entry["implementation_commit"] == ("f64452a7452274a183b03c87c39b847039230c00")
-    assert entry["execution_gate"]["state"] == "ready"
-    assert entry["execution_gate"]["blocked_by"] == []
-    assert entry["formal_execution"]["activation_state"] == "active"
+    assert entry["execution_gate"]["state"] == "blocked"
+    assert entry["execution_gate"]["blocked_by"] == [
+        "completed_formal_execution_no_rerun_without_new_registration"
+    ]
+    assert entry["formal_execution"]["activation_state"] == "blocked"
     assert entry["formal_execution"]["entrypoint_status"] == "implemented"
     assert entry["formal_execution"]["entrypoint"] == "src/drpo/e7_hopper_q2.py"
     assert (ROOT / entry["formal_execution"]["entrypoint"]).is_file()
@@ -112,7 +114,12 @@ def test_e7_benchmark_scope_is_exactly_nine_locomotion_tasks() -> None:
         "medium_expert",
     ]
     assert suite["task_count"] == 9
-    assert bench["execution_gate"]["blocked_by"] == ["EXT-H-E7-Q2"]
+    assert bench["execution_gate"]["blocked_by"] == [
+        "controlled_method_shortlist_freeze"
+    ]
+    assert bench["prerequisite_status"]["EXT-H-E7-Q2"] == (
+        "satisfied_long_run_validated"
+    )
     assert bench["shortlist_rule"] == (
         "freeze_after_E4_E6_core_closure_and_E7_mechanism_without_D4RL_retuning"
     )

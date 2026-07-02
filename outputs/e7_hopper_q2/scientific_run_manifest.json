@@ -1,0 +1,40 @@
+{
+  "canonical_critic_accepted_for_frozen_advantage": true,
+  "canonical_critic_fixed_budget_completed": true,
+  "canonical_critic_optimization_terminal": true,
+  "canonical_critic_reuse_request": null,
+  "canonical_critic_reused": false,
+  "canonical_critic_root": "/root/e7_q2_formal_v43/canonical_critic",
+  "canonical_critic_seed": 100,
+  "claim_boundary": "External mechanism validation with diagnostic normalized-return trajectories; not a standard offline-RL method-ranking table.",
+  "completed_utc": "2026-07-01T11:57:53.362131+00:00",
+  "dataset": {
+    "basename": "hopper_medium_replay-v2.hdf5",
+    "path": "/root/d4rl/d4rl_datasets/locomotion/hopper_medium_replay-v2.hdf5",
+    "sha256": "e121c5f7c9857a307baa9edc6a2c3b48e85fedb9ac316ecddd0f48ca7ef4e39b",
+    "size_bytes": 75854457
+  },
+  "device_request": "cpu",
+  "experiment_id": "EXT-H-E7-Q2",
+  "mode": "formal",
+  "repo_root": "/root/d4rl2",
+  "rollout_preflight_status": "passed",
+  "run_commit": "c5c638b47c945f5a3ecb8243f679caa31a129f9e",
+  "run_id": "formal-20260630T105458Z",
+  "runner_version": "4.3.0-fixed-budget-longrun",
+  "seeds": [
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    107,
+    108,
+    109
+  ],
+  "seeds_completed": 10,
+  "started_utc": "2026-06-30T10:55:02.034395+00:00",
+  "state": "raw_complete"
+}

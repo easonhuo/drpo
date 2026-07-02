@@ -66,13 +66,13 @@
 > - **规模路线。** `EXT-C-E8-SCALE-01` 的方法 shortlist 由本实验冻结；3B 主模型与 7B frozen confirmation 仍是独立规模验证，当前不因 0.5B 机制职责关闭而自动解锁。
 <!-- HANDOFF-DELTA-BLOCK:after_heading:v67-countdown-0p5b-mechanism-close-e8-taper:END -->
 <!-- STAGE4B-SOURCE-BLOCK:B000018:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000073:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000074:START -->
 <!-- HANDOFF-DELTA-BLOCK:section_end:v52-e8-route-override:START -->
 7. **v52 路线覆盖：** 上述第 5 项的当前 E8-MECH owner 更新为 `EXT-C-E8-V4.3`。V4.3 只修复长期训练中的动态 remoteness 控制并保留 V4.2 静态方法作消融；E8-SCALE 的 3B/7B 规模结论仍需后续独立执行。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v52-e8-route-override:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000073:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000074:START -->
+<!-- STAGE4B-SOURCE-BLOCK:B000074:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000075:START -->
 <!-- HANDOFF-DELTA-BLOCK:section_end:v57-e8-offline-online-route:START -->
 8. **v57 E8 内部路线覆盖：** 在进入 E8 外部诊断时，先执行 `EXT-C-E8-V4.4-OFFLINE-BANK`，只改变 fixed-bank 密度与每步动态选择；online off-policy 必须作为独立 successor 重新冻结 rollout actor、同步滞后、replay age、seeds 与预算匹配，不能与 V4.4 共用结论。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v57-e8-offline-online-route:END -->
-<!-- STAGE4B-SOURCE-BLOCK:B000074:END -->
+<!-- STAGE4B-SOURCE-BLOCK:B000075:END -->

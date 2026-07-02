@@ -1,0 +1,46 @@
+{
+  "comparisons": {
+    "dynamic_budget_matched_global": {
+      "losses": 0,
+      "mean_difference": 14.779317432621857,
+      "median_difference": 13.698970215608671,
+      "reference": "signed",
+      "seed_count": 10,
+      "ties": 0,
+      "wilcoxon_two_sided_p": 0.001953125,
+      "wins": 10
+    },
+    "far_cap": {
+      "losses": 0,
+      "mean_difference": 10.484045244771938,
+      "median_difference": 11.856656143429513,
+      "reference": "signed",
+      "seed_count": 10,
+      "ties": 0,
+      "wilcoxon_two_sided_p": 0.001953125,
+      "wins": 10
+    },
+    "far_zero": {
+      "losses": 0,
+      "mean_difference": 21.54559806232983,
+      "median_difference": 22.516986048421828,
+      "reference": "signed",
+      "seed_count": 10,
+      "ties": 0,
+      "wilcoxon_two_sided_p": 0.001953125,
+      "wins": 10
+    },
+    "near_zero": {
+      "losses": 2,
+      "mean_difference": 0.13873780250396103,
+      "median_difference": 0.02431984066390036,
+      "reference": "signed",
+      "seed_count": 10,
+      "ties": 0,
+      "wilcoxon_two_sided_p": 0.130859375,
+      "wins": 8
+    }
+  },
+  "experiment_id": "EXT-H-E7-Q2",
+  "schema_version": 1
+}

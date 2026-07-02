@@ -1,0 +1,12 @@
+{
+  "completed_utc": "2026-07-01T11:57:53.361886+00:00",
+  "experiment_id": "EXT-H-E7-Q2",
+  "formal_evidence_prerequisites_complete": true,
+  "formal_result_claim": false,
+  "mode": "formal",
+  "process_exit_code": 0,
+  "provenance_compromised": false,
+  "result_status": "raw_complete_pending_review",
+  "run_id": "formal-20260630T105458Z",
+  "seeds_completed": 10
+}

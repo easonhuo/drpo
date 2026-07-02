@@ -1,0 +1,86 @@
+{
+  "all_actor_fixed_budgets_completed": true,
+  "critic_artifact_accepted_for_frozen_advantage": true,
+  "critic_artifact_shared_across_all_actor_seeds": true,
+  "critic_artifact_terminal": true,
+  "critic_fixed_budget_completed": true,
+  "critic_optimization_terminal_role": "diagnostic_only",
+  "critic_quality_audit_passed_diagnostic": false,
+  "engineering_pipeline_complete": true,
+  "experiment_id": "EXT-H-E7-Q2",
+  "formal_claim_requires_post_run_review": true,
+  "formal_evidence_prerequisites_complete": true,
+  "formal_scientific_gate_passed": false,
+  "formal_scientific_gate_reason": "post_run_scientific_review_required",
+  "gate_counts": {
+    "all_mechanism_subchecks_passed": 10,
+    "corrected_quadratic_branch_empirically_active": 10,
+    "log_scale_relative_dominance_observed": 10,
+    "measurable_full_parameter_contribution": 10,
+    "natural_far_field_present": 10,
+    "rollout_available_for_all_methods": 10,
+    "targeted_control_outcomes_reported": 10,
+    "terminal_audit_records_complete": 10,
+    "terminal_state_classification_complete": 10
+  },
+  "independent_validation_gate_all_seeds": true,
+  "independent_validation_gate_all_seeds_deprecated_semantics": "Compatibility field. It is false for pilot runs and only mirrors formal_evidence_prerequisites_complete; it is not a final scientific claim.",
+  "mechanism_subchecks_passed_for_completed_seeds": true,
+  "method_ranking_claim_allowed": false,
+  "mode": "formal",
+  "paired_seed_evidence_complete": true,
+  "positive_only_fixed_budget_all_seeds": true,
+  "positive_only_terminal_all_seeds_diagnostic": false,
+  "provenance_compromised": false,
+  "reporting_separation": {
+    "dynamic_budget_matched_global": {
+      "nan_inf_numerical_count": 0,
+      "support_or_variance_boundary_count": 10,
+      "task_performance_available_count": 10,
+      "task_performance_collapse_count": 6,
+      "task_performance_unavailable_count": 0
+    },
+    "far_cap": {
+      "nan_inf_numerical_count": 0,
+      "support_or_variance_boundary_count": 10,
+      "task_performance_available_count": 10,
+      "task_performance_collapse_count": 7,
+      "task_performance_unavailable_count": 0
+    },
+    "far_zero": {
+      "nan_inf_numerical_count": 0,
+      "support_or_variance_boundary_count": 10,
+      "task_performance_available_count": 10,
+      "task_performance_collapse_count": 3,
+      "task_performance_unavailable_count": 0
+    },
+    "near_zero": {
+      "nan_inf_numerical_count": 0,
+      "support_or_variance_boundary_count": 10,
+      "task_performance_available_count": 10,
+      "task_performance_collapse_count": 10,
+      "task_performance_unavailable_count": 0
+    },
+    "positive_only": {
+      "nan_inf_numerical_count": 0,
+      "support_or_variance_boundary_count": 9,
+      "task_performance_available_count": 10,
+      "task_performance_collapse_count": 0,
+      "task_performance_unavailable_count": 0
+    },
+    "signed": {
+      "nan_inf_numerical_count": 0,
+      "support_or_variance_boundary_count": 10,
+      "task_performance_available_count": 10,
+      "task_performance_collapse_count": 10,
+      "task_performance_unavailable_count": 0
+    }
+  },
+  "rollout_available_all_required_checkpoints": true,
+  "rollout_preflight_passed": true,
+  "scientific_status": "raw_complete_pending_review",
+  "seeds_audited": 10,
+  "seeds_expected": 10,
+  "terminal_audit_records_complete": true,
+  "terminal_state_classification_complete": true
+}

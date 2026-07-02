@@ -1,0 +1,1448 @@
+{
+  "affected_selectors": [
+    "DRPO / SNA2C \u8fdc\u573a\u8d1f\u68af\u5ea6\u52a8\u529b\u5b66\u7814\u7a76\u4e3b\u6587\u6863 v67\uff08Countdown 0.5B \u673a\u5236\u63a2\u7d22\u5173\u95ed\u4e0e E8-TAPER \u767b\u8bb0\u7248\uff09",
+    "0. \u7814\u7a76\u4e0e\u6267\u884c\u539f\u5219\uff08\u6bcf\u6b21\u65b0\u4f1a\u8bdd\u9996\u5148\u9605\u8bfb\uff09"
+  ],
+  "base_commit": "cd6c42db337d8f261840850a58bf60a83c37e6bd",
+  "base_handoff_sha256": "8124213879d404646c7d0ea5753d7c05ba89a0bc7bde369db72b110eca6b8e71",
+  "base_registry_sha256": "c9fd00b1b198a4963ac07bf854fb8afc746f160c180c808dbf6e5fd0f3b2c8e3",
+  "candidate_replaced_authority": false,
+  "candidate_sha256": "2c8c0ca7ced80ee0a90a7aa5defab461125d1b5002144713488ca1a7edeff548",
+  "comparison_target": "working_tree",
+  "current_registry_sha256": "a5c28b65f172db571f3f1aedba0a37a1863bcb9704f82a815bbdc0d37192c89d",
+  "exact_manual_candidate_match": true,
+  "full_candidate_saved": false,
+  "history_preservation_passed": true,
+  "idempotence_passed": true,
+  "llm_blocking_gate_used": false,
+  "manual_handoff_authoritative": true,
+  "manual_sha256": "2c8c0ca7ced80ee0a90a7aa5defab461125d1b5002144713488ca1a7edeff548",
+  "mode": "shadow",
+  "network_used": false,
+  "observation_kind": "real",
+  "operation_count": 2,
+  "performance": {
+    "base_validation_ms": 91.743,
+    "comparison_and_registry_ms": 505.571,
+    "hard_limit_ms": 15000.0,
+    "policy_and_schema_ms": 24.935,
+    "render_and_idempotence_ms": 34.405,
+    "target_p95_ms": 5000.0,
+    "total_ms": 656.866,
+    "within_hard_limit": true,
+    "within_target": true
+  },
+  "policy_id": "GOV-HANDOFF-INDEX-01",
+  "registry_change_assertions": [
+    {
+      "change_id": "e7-q2-close-01",
+      "entity_id": "EXT-H-E7-BENCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "2c8c0ca7ced80ee0a90a7aa5defab461125d1b5002144713488ca1a7edeff548"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "a5c28b65f172db571f3f1aedba0a37a1863bcb9704f82a815bbdc0d37192c89d"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/RESULT_SUMMARY.md",
+          "sha256": "11d46a69f85f2aabb6cace23ea9ce1ea0b8d9389bfbcf83a58fd76ed86039a35"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/SCIENTIFIC_REVIEW.json",
+          "sha256": "9c39460daf5213f9435d7bbffc887e705a657da76dfc6668b3dab0374abe046a"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/aggregate_summary.json",
+          "sha256": "16e30ae73a6ea7391b2cf0164afe86d97ca16e178285acf21b89e60c5741fb7c"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/per_seed_summary.csv",
+          "sha256": "3788812bd7c98c8df32f8afad8348fdc9c7ed9ca57bc208709a3ad032988c1d3"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/terminal_audit.json",
+          "sha256": "d79ff47352280bc29ba57e463066dd34872ab761fa682003f24883e20b173635"
+        }
+      ],
+      "field_path": [
+        "execution_gate",
+        "blocked_by"
+      ],
+      "from": [
+        "EXT-H-E7-Q2"
+      ],
+      "kind": "update_field",
+      "reason": "Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist without D4RL retuning.",
+      "to": [
+        "controlled_method_shortlist_freeze"
+      ]
+    },
+    {
+      "change_id": "e7-q2-close-02",
+      "entity_id": "EXT-H-E7-BENCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "2c8c0ca7ced80ee0a90a7aa5defab461125d1b5002144713488ca1a7edeff548"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "a5c28b65f172db571f3f1aedba0a37a1863bcb9704f82a815bbdc0d37192c89d"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/RESULT_SUMMARY.md",
+          "sha256": "11d46a69f85f2aabb6cace23ea9ce1ea0b8d9389bfbcf83a58fd76ed86039a35"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/SCIENTIFIC_REVIEW.json",
+          "sha256": "9c39460daf5213f9435d7bbffc887e705a657da76dfc6668b3dab0374abe046a"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/aggregate_summary.json",
+          "sha256": "16e30ae73a6ea7391b2cf0164afe86d97ca16e178285acf21b89e60c5741fb7c"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/per_seed_summary.csv",
+          "sha256": "3788812bd7c98c8df32f8afad8348fdc9c7ed9ca57bc208709a3ad032988c1d3"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/terminal_audit.json",
+          "sha256": "d79ff47352280bc29ba57e463066dd34872ab761fa682003f24883e20b173635"
+        }
+      ],
+      "field_path": [
+        "execution_gate",
+        "blocking_reason"
+      ],
+      "from": "The large public benchmark remains blocked until EXT-H-E7-Q2 is terminal-audited, packaged, delivered, and the controlled-method shortlist is frozen without D4RL retuning. Optional D-U1-E6-TAPER-01 is not a prerequisite.",
+      "kind": "update_field",
+      "reason": "Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist without D4RL retuning.",
+      "to": "EXT-H-E7-Q2 is now terminal-audited, delivered, and scientifically closed. The large public benchmark remains blocked until the controlled-method shortlist is frozen without D4RL retuning and the benchmark implementation/protocol versions are registered."
+    },
+    {
+      "change_id": "e7-q2-close-03",
+      "entity_id": "EXT-H-E7-BENCH-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "2c8c0ca7ced80ee0a90a7aa5defab461125d1b5002144713488ca1a7edeff548"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "a5c28b65f172db571f3f1aedba0a37a1863bcb9704f82a815bbdc0d37192c89d"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/RESULT_SUMMARY.md",
+          "sha256": "11d46a69f85f2aabb6cace23ea9ce1ea0b8d9389bfbcf83a58fd76ed86039a35"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/SCIENTIFIC_REVIEW.json",
+          "sha256": "9c39460daf5213f9435d7bbffc887e705a657da76dfc6668b3dab0374abe046a"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/aggregate_summary.json",
+          "sha256": "16e30ae73a6ea7391b2cf0164afe86d97ca16e178285acf21b89e60c5741fb7c"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/per_seed_summary.csv",
+          "sha256": "3788812bd7c98c8df32f8afad8348fdc9c7ed9ca57bc208709a3ad032988c1d3"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/terminal_audit.json",
+          "sha256": "d79ff47352280bc29ba57e463066dd34872ab761fa682003f24883e20b173635"
+        }
+      ],
+      "field_path": [
+        "prerequisite_status"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist without D4RL retuning.",
+      "to": {
+        "EXT-H-E7-Q2": "satisfied_long_run_validated",
+        "controlled_method_shortlist_freeze": "pending",
+        "d4rl_retuning_allowed": false
+      }
+    },
+    {
+      "change_id": "e7-q2-close-04",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "2c8c0ca7ced80ee0a90a7aa5defab461125d1b5002144713488ca1a7edeff548"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "a5c28b65f172db571f3f1aedba0a37a1863bcb9704f82a815bbdc0d37192c89d"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/RESULT_SUMMARY.md",
+          "sha256": "11d46a69f85f2aabb6cace23ea9ce1ea0b8d9389bfbcf83a58fd76ed86039a35"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/SCIENTIFIC_REVIEW.json",
+          "sha256": "9c39460daf5213f9435d7bbffc887e705a657da76dfc6668b3dab0374abe046a"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/aggregate_summary.json",
+          "sha256": "16e30ae73a6ea7391b2cf0164afe86d97ca16e178285acf21b89e60c5741fb7c"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/per_seed_summary.csv",
+          "sha256": "3788812bd7c98c8df32f8afad8348fdc9c7ed9ca57bc208709a3ad032988c1d3"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/terminal_audit.json",
+          "sha256": "d79ff47352280bc29ba57e463066dd34872ab761fa682003f24883e20b173635"
+        }
+      ],
+      "field_path": [
+        "closure"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist without D4RL retuning.",
+      "to": {
+        "accepted_claim": "Far-field anomalous negative gradients are a major transmission path into support contraction and task-performance failure in this Hopper learned-critic setting.",
+        "continuous_taper_benefit_requires_separate_experiment": true,
+        "finite_terminal_claim_allowed": false,
+        "method_ranking_claim_allowed": false,
+        "positive_only_role": "stable_reference_not_primary_mechanism_baseline",
+        "primary_baseline": "signed",
+        "universal_causality_claim_allowed": false
+      }
+    },
+    {
+      "change_id": "e7-q2-close-05",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "2c8c0ca7ced80ee0a90a7aa5defab461125d1b5002144713488ca1a7edeff548"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "a5c28b65f172db571f3f1aedba0a37a1863bcb9704f82a815bbdc0d37192c89d"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/RESULT_SUMMARY.md",
+          "sha256": "11d46a69f85f2aabb6cace23ea9ce1ea0b8d9389bfbcf83a58fd76ed86039a35"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/SCIENTIFIC_REVIEW.json",
+          "sha256": "9c39460daf5213f9435d7bbffc887e705a657da76dfc6668b3dab0374abe046a"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/aggregate_summary.json",
+          "sha256": "16e30ae73a6ea7391b2cf0164afe86d97ca16e178285acf21b89e60c5741fb7c"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/per_seed_summary.csv",
+          "sha256": "3788812bd7c98c8df32f8afad8348fdc9c7ed9ca57bc208709a3ad032988c1d3"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/terminal_audit.json",
+          "sha256": "d79ff47352280bc29ba57e463066dd34872ab761fa682003f24883e20b173635"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "compact_result_path"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist without D4RL retuning.",
+      "to": "outputs/e7_hopper_q2"
+    },
+    {
+      "change_id": "e7-q2-close-06",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "2c8c0ca7ced80ee0a90a7aa5defab461125d1b5002144713488ca1a7edeff548"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "a5c28b65f172db571f3f1aedba0a37a1863bcb9704f82a815bbdc0d37192c89d"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/RESULT_SUMMARY.md",
+          "sha256": "11d46a69f85f2aabb6cace23ea9ce1ea0b8d9389bfbcf83a58fd76ed86039a35"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/SCIENTIFIC_REVIEW.json",
+          "sha256": "9c39460daf5213f9435d7bbffc887e705a657da76dfc6668b3dab0374abe046a"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/aggregate_summary.json",
+          "sha256": "16e30ae73a6ea7391b2cf0164afe86d97ca16e178285acf21b89e60c5741fb7c"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/per_seed_summary.csv",
+          "sha256": "3788812bd7c98c8df32f8afad8348fdc9c7ed9ca57bc208709a3ad032988c1d3"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/terminal_audit.json",
+          "sha256": "d79ff47352280bc29ba57e463066dd34872ab761fa682003f24883e20b173635"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "delivered_to_user"
+      ],
+      "from": false,
+      "kind": "update_field",
+      "reason": "Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist without D4RL retuning.",
+      "to": true
+    },
+    {
+      "change_id": "e7-q2-close-07",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "2c8c0ca7ced80ee0a90a7aa5defab461125d1b5002144713488ca1a7edeff548"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "a5c28b65f172db571f3f1aedba0a37a1863bcb9704f82a815bbdc0d37192c89d"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/RESULT_SUMMARY.md",
+          "sha256": "11d46a69f85f2aabb6cace23ea9ce1ea0b8d9389bfbcf83a58fd76ed86039a35"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/SCIENTIFIC_REVIEW.json",
+          "sha256": "9c39460daf5213f9435d7bbffc887e705a657da76dfc6668b3dab0374abe046a"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/aggregate_summary.json",
+          "sha256": "16e30ae73a6ea7391b2cf0164afe86d97ca16e178285acf21b89e60c5741fb7c"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/per_seed_summary.csv",
+          "sha256": "3788812bd7c98c8df32f8afad8348fdc9c7ed9ca57bc208709a3ad032988c1d3"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/terminal_audit.json",
+          "sha256": "d79ff47352280bc29ba57e463066dd34872ab761fa682003f24883e20b173635"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "fixed_budgets_completed"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist without D4RL retuning.",
+      "to": true
+    },
+    {
+      "change_id": "e7-q2-close-08",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "2c8c0ca7ced80ee0a90a7aa5defab461125d1b5002144713488ca1a7edeff548"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "a5c28b65f172db571f3f1aedba0a37a1863bcb9704f82a815bbdc0d37192c89d"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/RESULT_SUMMARY.md",
+          "sha256": "11d46a69f85f2aabb6cace23ea9ce1ea0b8d9389bfbcf83a58fd76ed86039a35"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/SCIENTIFIC_REVIEW.json",
+          "sha256": "9c39460daf5213f9435d7bbffc887e705a657da76dfc6668b3dab0374abe046a"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/aggregate_summary.json",
+          "sha256": "16e30ae73a6ea7391b2cf0164afe86d97ca16e178285acf21b89e60c5741fb7c"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/per_seed_summary.csv",
+          "sha256": "3788812bd7c98c8df32f8afad8348fdc9c7ed9ca57bc208709a3ad032988c1d3"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/terminal_audit.json",
+          "sha256": "d79ff47352280bc29ba57e463066dd34872ab761fa682003f24883e20b173635"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "formal_seeds_completed"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist without D4RL retuning.",
+      "to": 10
+    },
+    {
+      "change_id": "e7-q2-close-09",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "2c8c0ca7ced80ee0a90a7aa5defab461125d1b5002144713488ca1a7edeff548"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "a5c28b65f172db571f3f1aedba0a37a1863bcb9704f82a815bbdc0d37192c89d"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/RESULT_SUMMARY.md",
+          "sha256": "11d46a69f85f2aabb6cace23ea9ce1ea0b8d9389bfbcf83a58fd76ed86039a35"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/SCIENTIFIC_REVIEW.json",
+          "sha256": "9c39460daf5213f9435d7bbffc887e705a657da76dfc6668b3dab0374abe046a"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/aggregate_summary.json",
+          "sha256": "16e30ae73a6ea7391b2cf0164afe86d97ca16e178285acf21b89e60c5741fb7c"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/per_seed_summary.csv",
+          "sha256": "3788812bd7c98c8df32f8afad8348fdc9c7ed9ca57bc208709a3ad032988c1d3"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/terminal_audit.json",
+          "sha256": "d79ff47352280bc29ba57e463066dd34872ab761fa682003f24883e20b173635"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "formal_seeds_expected"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist without D4RL retuning.",
+      "to": 10
+    },
+    {
+      "change_id": "e7-q2-close-10",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "2c8c0ca7ced80ee0a90a7aa5defab461125d1b5002144713488ca1a7edeff548"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "a5c28b65f172db571f3f1aedba0a37a1863bcb9704f82a815bbdc0d37192c89d"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/RESULT_SUMMARY.md",
+          "sha256": "11d46a69f85f2aabb6cace23ea9ce1ea0b8d9389bfbcf83a58fd76ed86039a35"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/SCIENTIFIC_REVIEW.json",
+          "sha256": "9c39460daf5213f9435d7bbffc887e705a657da76dfc6668b3dab0374abe046a"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/aggregate_summary.json",
+          "sha256": "16e30ae73a6ea7391b2cf0164afe86d97ca16e178285acf21b89e60c5741fb7c"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/per_seed_summary.csv",
+          "sha256": "3788812bd7c98c8df32f8afad8348fdc9c7ed9ca57bc208709a3ad032988c1d3"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/terminal_audit.json",
+          "sha256": "d79ff47352280bc29ba57e463066dd34872ab761fa682003f24883e20b173635"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "mechanism_subchecks_passed_seeds"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist without D4RL retuning.",
+      "to": 10
+    },
+    {
+      "change_id": "e7-q2-close-11",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "2c8c0ca7ced80ee0a90a7aa5defab461125d1b5002144713488ca1a7edeff548"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "a5c28b65f172db571f3f1aedba0a37a1863bcb9704f82a815bbdc0d37192c89d"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/RESULT_SUMMARY.md",
+          "sha256": "11d46a69f85f2aabb6cace23ea9ce1ea0b8d9389bfbcf83a58fd76ed86039a35"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/SCIENTIFIC_REVIEW.json",
+          "sha256": "9c39460daf5213f9435d7bbffc887e705a657da76dfc6668b3dab0374abe046a"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/aggregate_summary.json",
+          "sha256": "16e30ae73a6ea7391b2cf0164afe86d97ca16e178285acf21b89e60c5741fb7c"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/per_seed_summary.csv",
+          "sha256": "3788812bd7c98c8df32f8afad8348fdc9c7ed9ca57bc208709a3ad032988c1d3"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/terminal_audit.json",
+          "sha256": "d79ff47352280bc29ba57e463066dd34872ab761fa682003f24883e20b173635"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "package_created"
+      ],
+      "from": false,
+      "kind": "update_field",
+      "reason": "Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist without D4RL retuning.",
+      "to": true
+    },
+    {
+      "change_id": "e7-q2-close-12",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "2c8c0ca7ced80ee0a90a7aa5defab461125d1b5002144713488ca1a7edeff548"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "a5c28b65f172db571f3f1aedba0a37a1863bcb9704f82a815bbdc0d37192c89d"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/RESULT_SUMMARY.md",
+          "sha256": "11d46a69f85f2aabb6cace23ea9ce1ea0b8d9389bfbcf83a58fd76ed86039a35"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/SCIENTIFIC_REVIEW.json",
+          "sha256": "9c39460daf5213f9435d7bbffc887e705a657da76dfc6668b3dab0374abe046a"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/aggregate_summary.json",
+          "sha256": "16e30ae73a6ea7391b2cf0164afe86d97ca16e178285acf21b89e60c5741fb7c"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/per_seed_summary.csv",
+          "sha256": "3788812bd7c98c8df32f8afad8348fdc9c7ed9ca57bc208709a3ad032988c1d3"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/terminal_audit.json",
+          "sha256": "d79ff47352280bc29ba57e463066dd34872ab761fa682003f24883e20b173635"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "package_filename"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist without D4RL retuning.",
+      "to": "e7_q2_formal_v43_EXT-H-E7-Q2_formal.zip"
+    },
+    {
+      "change_id": "e7-q2-close-13",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "2c8c0ca7ced80ee0a90a7aa5defab461125d1b5002144713488ca1a7edeff548"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "a5c28b65f172db571f3f1aedba0a37a1863bcb9704f82a815bbdc0d37192c89d"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/RESULT_SUMMARY.md",
+          "sha256": "11d46a69f85f2aabb6cace23ea9ce1ea0b8d9389bfbcf83a58fd76ed86039a35"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/SCIENTIFIC_REVIEW.json",
+          "sha256": "9c39460daf5213f9435d7bbffc887e705a657da76dfc6668b3dab0374abe046a"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/aggregate_summary.json",
+          "sha256": "16e30ae73a6ea7391b2cf0164afe86d97ca16e178285acf21b89e60c5741fb7c"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/per_seed_summary.csv",
+          "sha256": "3788812bd7c98c8df32f8afad8348fdc9c7ed9ca57bc208709a3ad032988c1d3"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/terminal_audit.json",
+          "sha256": "d79ff47352280bc29ba57e463066dd34872ab761fa682003f24883e20b173635"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "package_sha256"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist without D4RL retuning.",
+      "to": "5db9c092f2b6e68f42de364f4e85cd3c2691e4dad472b5527a2dce11987f58b5"
+    },
+    {
+      "change_id": "e7-q2-close-14",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "2c8c0ca7ced80ee0a90a7aa5defab461125d1b5002144713488ca1a7edeff548"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "a5c28b65f172db571f3f1aedba0a37a1863bcb9704f82a815bbdc0d37192c89d"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/RESULT_SUMMARY.md",
+          "sha256": "11d46a69f85f2aabb6cace23ea9ce1ea0b8d9389bfbcf83a58fd76ed86039a35"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/SCIENTIFIC_REVIEW.json",
+          "sha256": "9c39460daf5213f9435d7bbffc887e705a657da76dfc6668b3dab0374abe046a"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/aggregate_summary.json",
+          "sha256": "16e30ae73a6ea7391b2cf0164afe86d97ca16e178285acf21b89e60c5741fb7c"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/per_seed_summary.csv",
+          "sha256": "3788812bd7c98c8df32f8afad8348fdc9c7ed9ca57bc208709a3ad032988c1d3"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/terminal_audit.json",
+          "sha256": "d79ff47352280bc29ba57e463066dd34872ab761fa682003f24883e20b173635"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "post_run_scientific_review_completed"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist without D4RL retuning.",
+      "to": true
+    },
+    {
+      "change_id": "e7-q2-close-15",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "2c8c0ca7ced80ee0a90a7aa5defab461125d1b5002144713488ca1a7edeff548"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "a5c28b65f172db571f3f1aedba0a37a1863bcb9704f82a815bbdc0d37192c89d"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/RESULT_SUMMARY.md",
+          "sha256": "11d46a69f85f2aabb6cace23ea9ce1ea0b8d9389bfbcf83a58fd76ed86039a35"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/SCIENTIFIC_REVIEW.json",
+          "sha256": "9c39460daf5213f9435d7bbffc887e705a657da76dfc6668b3dab0374abe046a"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/aggregate_summary.json",
+          "sha256": "16e30ae73a6ea7391b2cf0164afe86d97ca16e178285acf21b89e60c5741fb7c"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/per_seed_summary.csv",
+          "sha256": "3788812bd7c98c8df32f8afad8348fdc9c7ed9ca57bc208709a3ad032988c1d3"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/terminal_audit.json",
+          "sha256": "d79ff47352280bc29ba57e463066dd34872ab761fa682003f24883e20b173635"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "raw_complete"
+      ],
+      "from": false,
+      "kind": "update_field",
+      "reason": "Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist without D4RL retuning.",
+      "to": true
+    },
+    {
+      "change_id": "e7-q2-close-16",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "2c8c0ca7ced80ee0a90a7aa5defab461125d1b5002144713488ca1a7edeff548"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "a5c28b65f172db571f3f1aedba0a37a1863bcb9704f82a815bbdc0d37192c89d"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/RESULT_SUMMARY.md",
+          "sha256": "11d46a69f85f2aabb6cace23ea9ce1ea0b8d9389bfbcf83a58fd76ed86039a35"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/SCIENTIFIC_REVIEW.json",
+          "sha256": "9c39460daf5213f9435d7bbffc887e705a657da76dfc6668b3dab0374abe046a"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/aggregate_summary.json",
+          "sha256": "16e30ae73a6ea7391b2cf0164afe86d97ca16e178285acf21b89e60c5741fb7c"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/per_seed_summary.csv",
+          "sha256": "3788812bd7c98c8df32f8afad8348fdc9c7ed9ca57bc208709a3ad032988c1d3"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/terminal_audit.json",
+          "sha256": "d79ff47352280bc29ba57e463066dd34872ab761fa682003f24883e20b173635"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "run_started"
+      ],
+      "from": false,
+      "kind": "update_field",
+      "reason": "Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist without D4RL retuning.",
+      "to": true
+    },
+    {
+      "change_id": "e7-q2-close-17",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "2c8c0ca7ced80ee0a90a7aa5defab461125d1b5002144713488ca1a7edeff548"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "a5c28b65f172db571f3f1aedba0a37a1863bcb9704f82a815bbdc0d37192c89d"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/RESULT_SUMMARY.md",
+          "sha256": "11d46a69f85f2aabb6cace23ea9ce1ea0b8d9389bfbcf83a58fd76ed86039a35"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/SCIENTIFIC_REVIEW.json",
+          "sha256": "9c39460daf5213f9435d7bbffc887e705a657da76dfc6668b3dab0374abe046a"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/aggregate_summary.json",
+          "sha256": "16e30ae73a6ea7391b2cf0164afe86d97ca16e178285acf21b89e60c5741fb7c"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/per_seed_summary.csv",
+          "sha256": "3788812bd7c98c8df32f8afad8348fdc9c7ed9ca57bc208709a3ad032988c1d3"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/terminal_audit.json",
+          "sha256": "d79ff47352280bc29ba57e463066dd34872ab761fa682003f24883e20b173635"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "scientific_status"
+      ],
+      "from": "not_run",
+      "kind": "update_field",
+      "reason": "Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist without D4RL retuning.",
+      "to": "long_run_validated"
+    },
+    {
+      "change_id": "e7-q2-close-18",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "2c8c0ca7ced80ee0a90a7aa5defab461125d1b5002144713488ca1a7edeff548"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "a5c28b65f172db571f3f1aedba0a37a1863bcb9704f82a815bbdc0d37192c89d"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/RESULT_SUMMARY.md",
+          "sha256": "11d46a69f85f2aabb6cace23ea9ce1ea0b8d9389bfbcf83a58fd76ed86039a35"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/SCIENTIFIC_REVIEW.json",
+          "sha256": "9c39460daf5213f9435d7bbffc887e705a657da76dfc6668b3dab0374abe046a"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/aggregate_summary.json",
+          "sha256": "16e30ae73a6ea7391b2cf0164afe86d97ca16e178285acf21b89e60c5741fb7c"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/per_seed_summary.csv",
+          "sha256": "3788812bd7c98c8df32f8afad8348fdc9c7ed9ca57bc208709a3ad032988c1d3"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/terminal_audit.json",
+          "sha256": "d79ff47352280bc29ba57e463066dd34872ab761fa682003f24883e20b173635"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "terminal_audit_records_complete"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist without D4RL retuning.",
+      "to": true
+    },
+    {
+      "change_id": "e7-q2-close-19",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "2c8c0ca7ced80ee0a90a7aa5defab461125d1b5002144713488ca1a7edeff548"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "a5c28b65f172db571f3f1aedba0a37a1863bcb9704f82a815bbdc0d37192c89d"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/RESULT_SUMMARY.md",
+          "sha256": "11d46a69f85f2aabb6cace23ea9ce1ea0b8d9389bfbcf83a58fd76ed86039a35"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/SCIENTIFIC_REVIEW.json",
+          "sha256": "9c39460daf5213f9435d7bbffc887e705a657da76dfc6668b3dab0374abe046a"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/aggregate_summary.json",
+          "sha256": "16e30ae73a6ea7391b2cf0164afe86d97ca16e178285acf21b89e60c5741fb7c"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/per_seed_summary.csv",
+          "sha256": "3788812bd7c98c8df32f8afad8348fdc9c7ed9ca57bc208709a3ad032988c1d3"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/terminal_audit.json",
+          "sha256": "d79ff47352280bc29ba57e463066dd34872ab761fa682003f24883e20b173635"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "terminal_audited"
+      ],
+      "from": false,
+      "kind": "update_field",
+      "reason": "Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist without D4RL retuning.",
+      "to": true
+    },
+    {
+      "change_id": "e7-q2-close-20",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "2c8c0ca7ced80ee0a90a7aa5defab461125d1b5002144713488ca1a7edeff548"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "a5c28b65f172db571f3f1aedba0a37a1863bcb9704f82a815bbdc0d37192c89d"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/RESULT_SUMMARY.md",
+          "sha256": "11d46a69f85f2aabb6cace23ea9ce1ea0b8d9389bfbcf83a58fd76ed86039a35"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/SCIENTIFIC_REVIEW.json",
+          "sha256": "9c39460daf5213f9435d7bbffc887e705a657da76dfc6668b3dab0374abe046a"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/aggregate_summary.json",
+          "sha256": "16e30ae73a6ea7391b2cf0164afe86d97ca16e178285acf21b89e60c5741fb7c"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/per_seed_summary.csv",
+          "sha256": "3788812bd7c98c8df32f8afad8348fdc9c7ed9ca57bc208709a3ad032988c1d3"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/terminal_audit.json",
+          "sha256": "d79ff47352280bc29ba57e463066dd34872ab761fa682003f24883e20b173635"
+        }
+      ],
+      "field_path": [
+        "execution",
+        "note"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist without D4RL retuning.",
+      "to": "All fixed budgets completed; scientific review accepted the external mechanism claim without authorizing steady-state or method-ranking claims."
+    },
+    {
+      "change_id": "e7-q2-close-21",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "2c8c0ca7ced80ee0a90a7aa5defab461125d1b5002144713488ca1a7edeff548"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "a5c28b65f172db571f3f1aedba0a37a1863bcb9704f82a815bbdc0d37192c89d"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/RESULT_SUMMARY.md",
+          "sha256": "11d46a69f85f2aabb6cace23ea9ce1ea0b8d9389bfbcf83a58fd76ed86039a35"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/SCIENTIFIC_REVIEW.json",
+          "sha256": "9c39460daf5213f9435d7bbffc887e705a657da76dfc6668b3dab0374abe046a"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/aggregate_summary.json",
+          "sha256": "16e30ae73a6ea7391b2cf0164afe86d97ca16e178285acf21b89e60c5741fb7c"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/per_seed_summary.csv",
+          "sha256": "3788812bd7c98c8df32f8afad8348fdc9c7ed9ca57bc208709a3ad032988c1d3"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/terminal_audit.json",
+          "sha256": "d79ff47352280bc29ba57e463066dd34872ab761fa682003f24883e20b173635"
+        }
+      ],
+      "field_path": [
+        "execution",
+        "process_exit_code"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist without D4RL retuning.",
+      "to": 0
+    },
+    {
+      "change_id": "e7-q2-close-22",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "2c8c0ca7ced80ee0a90a7aa5defab461125d1b5002144713488ca1a7edeff548"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "a5c28b65f172db571f3f1aedba0a37a1863bcb9704f82a815bbdc0d37192c89d"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/RESULT_SUMMARY.md",
+          "sha256": "11d46a69f85f2aabb6cace23ea9ce1ea0b8d9389bfbcf83a58fd76ed86039a35"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/SCIENTIFIC_REVIEW.json",
+          "sha256": "9c39460daf5213f9435d7bbffc887e705a657da76dfc6668b3dab0374abe046a"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/aggregate_summary.json",
+          "sha256": "16e30ae73a6ea7391b2cf0164afe86d97ca16e178285acf21b89e60c5741fb7c"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/per_seed_summary.csv",
+          "sha256": "3788812bd7c98c8df32f8afad8348fdc9c7ed9ca57bc208709a3ad032988c1d3"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/terminal_audit.json",
+          "sha256": "d79ff47352280bc29ba57e463066dd34872ab761fa682003f24883e20b173635"
+        }
+      ],
+      "field_path": [
+        "execution",
+        "run_id"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist without D4RL retuning.",
+      "to": "formal-20260630T105458Z"
+    },
+    {
+      "change_id": "e7-q2-close-23",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "2c8c0ca7ced80ee0a90a7aa5defab461125d1b5002144713488ca1a7edeff548"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "a5c28b65f172db571f3f1aedba0a37a1863bcb9704f82a815bbdc0d37192c89d"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/RESULT_SUMMARY.md",
+          "sha256": "11d46a69f85f2aabb6cace23ea9ce1ea0b8d9389bfbcf83a58fd76ed86039a35"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/SCIENTIFIC_REVIEW.json",
+          "sha256": "9c39460daf5213f9435d7bbffc887e705a657da76dfc6668b3dab0374abe046a"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/aggregate_summary.json",
+          "sha256": "16e30ae73a6ea7391b2cf0164afe86d97ca16e178285acf21b89e60c5741fb7c"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/per_seed_summary.csv",
+          "sha256": "3788812bd7c98c8df32f8afad8348fdc9c7ed9ca57bc208709a3ad032988c1d3"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/terminal_audit.json",
+          "sha256": "d79ff47352280bc29ba57e463066dd34872ab761fa682003f24883e20b173635"
+        }
+      ],
+      "field_path": [
+        "execution",
+        "state"
+      ],
+      "from": "registered",
+      "kind": "update_field",
+      "reason": "Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist without D4RL retuning.",
+      "to": "delivered"
+    },
+    {
+      "change_id": "e7-q2-close-24",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "2c8c0ca7ced80ee0a90a7aa5defab461125d1b5002144713488ca1a7edeff548"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "a5c28b65f172db571f3f1aedba0a37a1863bcb9704f82a815bbdc0d37192c89d"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/RESULT_SUMMARY.md",
+          "sha256": "11d46a69f85f2aabb6cace23ea9ce1ea0b8d9389bfbcf83a58fd76ed86039a35"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/SCIENTIFIC_REVIEW.json",
+          "sha256": "9c39460daf5213f9435d7bbffc887e705a657da76dfc6668b3dab0374abe046a"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/aggregate_summary.json",
+          "sha256": "16e30ae73a6ea7391b2cf0164afe86d97ca16e178285acf21b89e60c5741fb7c"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/per_seed_summary.csv",
+          "sha256": "3788812bd7c98c8df32f8afad8348fdc9c7ed9ca57bc208709a3ad032988c1d3"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/terminal_audit.json",
+          "sha256": "d79ff47352280bc29ba57e463066dd34872ab761fa682003f24883e20b173635"
+        }
+      ],
+      "field_path": [
+        "execution_gate",
+        "blocked_by"
+      ],
+      "from": [],
+      "kind": "update_field",
+      "reason": "Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist without D4RL retuning.",
+      "to": [
+        "completed_formal_execution_no_rerun_without_new_registration"
+      ]
+    },
+    {
+      "change_id": "e7-q2-close-25",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "2c8c0ca7ced80ee0a90a7aa5defab461125d1b5002144713488ca1a7edeff548"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "a5c28b65f172db571f3f1aedba0a37a1863bcb9704f82a815bbdc0d37192c89d"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/RESULT_SUMMARY.md",
+          "sha256": "11d46a69f85f2aabb6cace23ea9ce1ea0b8d9389bfbcf83a58fd76ed86039a35"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/SCIENTIFIC_REVIEW.json",
+          "sha256": "9c39460daf5213f9435d7bbffc887e705a657da76dfc6668b3dab0374abe046a"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/aggregate_summary.json",
+          "sha256": "16e30ae73a6ea7391b2cf0164afe86d97ca16e178285acf21b89e60c5741fb7c"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/per_seed_summary.csv",
+          "sha256": "3788812bd7c98c8df32f8afad8348fdc9c7ed9ca57bc208709a3ad032988c1d3"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/terminal_audit.json",
+          "sha256": "d79ff47352280bc29ba57e463066dd34872ab761fa682003f24883e20b173635"
+        }
+      ],
+      "field_path": [
+        "execution_gate",
+        "blocking_reason"
+      ],
+      "from": "E6 parent claims are closed; the implemented Hopper mechanism experiment is the next registered formal route item. No E7 scientific run has started.",
+      "kind": "update_field",
+      "reason": "Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist without D4RL retuning.",
+      "to": "The frozen formal v4.3.0 run is complete, scientifically reviewed, compactly archived, and delivered. Any rerun requires a separately registered protocol."
+    },
+    {
+      "change_id": "e7-q2-close-26",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "2c8c0ca7ced80ee0a90a7aa5defab461125d1b5002144713488ca1a7edeff548"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "a5c28b65f172db571f3f1aedba0a37a1863bcb9704f82a815bbdc0d37192c89d"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/RESULT_SUMMARY.md",
+          "sha256": "11d46a69f85f2aabb6cace23ea9ce1ea0b8d9389bfbcf83a58fd76ed86039a35"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/SCIENTIFIC_REVIEW.json",
+          "sha256": "9c39460daf5213f9435d7bbffc887e705a657da76dfc6668b3dab0374abe046a"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/aggregate_summary.json",
+          "sha256": "16e30ae73a6ea7391b2cf0164afe86d97ca16e178285acf21b89e60c5741fb7c"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/per_seed_summary.csv",
+          "sha256": "3788812bd7c98c8df32f8afad8348fdc9c7ed9ca57bc208709a3ad032988c1d3"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/terminal_audit.json",
+          "sha256": "d79ff47352280bc29ba57e463066dd34872ab761fa682003f24883e20b173635"
+        }
+      ],
+      "field_path": [
+        "execution_gate",
+        "state"
+      ],
+      "from": "ready",
+      "kind": "update_field",
+      "reason": "Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist without D4RL retuning.",
+      "to": "blocked"
+    },
+    {
+      "change_id": "e7-q2-close-27",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "2c8c0ca7ced80ee0a90a7aa5defab461125d1b5002144713488ca1a7edeff548"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "a5c28b65f172db571f3f1aedba0a37a1863bcb9704f82a815bbdc0d37192c89d"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/RESULT_SUMMARY.md",
+          "sha256": "11d46a69f85f2aabb6cace23ea9ce1ea0b8d9389bfbcf83a58fd76ed86039a35"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/SCIENTIFIC_REVIEW.json",
+          "sha256": "9c39460daf5213f9435d7bbffc887e705a657da76dfc6668b3dab0374abe046a"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/aggregate_summary.json",
+          "sha256": "16e30ae73a6ea7391b2cf0164afe86d97ca16e178285acf21b89e60c5741fb7c"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/per_seed_summary.csv",
+          "sha256": "3788812bd7c98c8df32f8afad8348fdc9c7ed9ca57bc208709a3ad032988c1d3"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/terminal_audit.json",
+          "sha256": "d79ff47352280bc29ba57e463066dd34872ab761fa682003f24883e20b173635"
+        }
+      ],
+      "field_path": [
+        "formal_execution",
+        "activation_state"
+      ],
+      "from": "active",
+      "kind": "update_field",
+      "reason": "Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist without D4RL retuning.",
+      "to": "blocked"
+    },
+    {
+      "change_id": "e7-q2-close-28",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "2c8c0ca7ced80ee0a90a7aa5defab461125d1b5002144713488ca1a7edeff548"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "a5c28b65f172db571f3f1aedba0a37a1863bcb9704f82a815bbdc0d37192c89d"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/RESULT_SUMMARY.md",
+          "sha256": "11d46a69f85f2aabb6cace23ea9ce1ea0b8d9389bfbcf83a58fd76ed86039a35"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/SCIENTIFIC_REVIEW.json",
+          "sha256": "9c39460daf5213f9435d7bbffc887e705a657da76dfc6668b3dab0374abe046a"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/aggregate_summary.json",
+          "sha256": "16e30ae73a6ea7391b2cf0164afe86d97ca16e178285acf21b89e60c5741fb7c"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/per_seed_summary.csv",
+          "sha256": "3788812bd7c98c8df32f8afad8348fdc9c7ed9ca57bc208709a3ad032988c1d3"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/terminal_audit.json",
+          "sha256": "d79ff47352280bc29ba57e463066dd34872ab761fa682003f24883e20b173635"
+        }
+      ],
+      "field_path": [
+        "provenance"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist without D4RL retuning.",
+      "to": {
+        "dataset_sha256": "e121c5f7c9857a307baa9edc6a2c3b48e85fedb9ac316ecddd0f48ca7ef4e39b",
+        "evaluation_environment": "Gymnasium Hopper-v4 compatibility environment with frozen D4RL-v2 reference normalization",
+        "git_dirty_at_launch": false,
+        "origin_main_matched_at_launch": true,
+        "provenance_compromised": false,
+        "repository_closure_base_commit": "cd6c42db337d8f261840850a58bf60a83c37e6bd",
+        "run_commit": "c5c638b47c945f5a3ecb8243f679caa31a129f9e",
+        "run_id": "formal-20260630T105458Z",
+        "runner_version": "4.3.0-fixed-budget-longrun"
+      }
+    },
+    {
+      "change_id": "e7-q2-close-29",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "2c8c0ca7ced80ee0a90a7aa5defab461125d1b5002144713488ca1a7edeff548"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "a5c28b65f172db571f3f1aedba0a37a1863bcb9704f82a815bbdc0d37192c89d"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/RESULT_SUMMARY.md",
+          "sha256": "11d46a69f85f2aabb6cace23ea9ce1ea0b8d9389bfbcf83a58fd76ed86039a35"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/SCIENTIFIC_REVIEW.json",
+          "sha256": "9c39460daf5213f9435d7bbffc887e705a657da76dfc6668b3dab0374abe046a"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/aggregate_summary.json",
+          "sha256": "16e30ae73a6ea7391b2cf0164afe86d97ca16e178285acf21b89e60c5741fb7c"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/per_seed_summary.csv",
+          "sha256": "3788812bd7c98c8df32f8afad8348fdc9c7ed9ca57bc208709a3ad032988c1d3"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/terminal_audit.json",
+          "sha256": "d79ff47352280bc29ba57e463066dd34872ab761fa682003f24883e20b173635"
+        }
+      ],
+      "field_path": [
+        "result_summary"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist without D4RL retuning.",
+      "to": {
+        "mean_boundary_fraction": {
+          "dynamic_budget_matched_global": 0.189849853515625,
+          "far_cap": 0.1821044921875,
+          "far_zero": 0.121490478515625,
+          "near_zero": 0.99990234375,
+          "positive_only": 0.112298583984375,
+          "signed": 0.999725341796875
+        },
+        "mechanism": {
+          "abs_advantage_far_near_ratio_mean": 0.9997699141502381,
+          "analytic_autograd_relative_error_max_mean": 6.599849733390784e-08,
+          "corrected_q_xi_far_near_ratio_mean": 14.546895980834961,
+          "corrected_q_xi_loglog_slope_mean": 2.0000000000188645,
+          "full_parameter_gradient_far_near_ratio_mean": 4.205860980379491,
+          "standardized_distance_far_near_ratio_mean": 3.8445521116256716
+        },
+        "nan_inf_count": {
+          "dynamic_budget_matched_global": 0,
+          "far_cap": 0,
+          "far_zero": 0,
+          "near_zero": 0,
+          "positive_only": 0,
+          "signed": 0
+        },
+        "paired_vs_signed": {
+          "dynamic_budget_matched_global": {
+            "mean_return_difference": 14.779317432621857,
+            "wilcoxon_two_sided_p": 0.001953125,
+            "wins": 10
+          },
+          "far_cap": {
+            "mean_return_difference": 10.484045244771938,
+            "wilcoxon_two_sided_p": 0.001953125,
+            "wins": 10
+          },
+          "far_zero": {
+            "mean_return_difference": 21.54559806232983,
+            "wilcoxon_two_sided_p": 0.001953125,
+            "wins": 10
+          },
+          "near_zero": {
+            "mean_return_difference": 0.13873780250396103,
+            "wilcoxon_two_sided_p": 0.130859375,
+            "wins": 8
+          }
+        },
+        "support_or_variance_boundary_count": {
+          "dynamic_budget_matched_global": 10,
+          "far_cap": 10,
+          "far_zero": 10,
+          "near_zero": 10,
+          "positive_only": 9,
+          "signed": 10
+        },
+        "task_collapse_count": {
+          "dynamic_budget_matched_global": 6,
+          "far_cap": 7,
+          "far_zero": 3,
+          "near_zero": 10,
+          "positive_only": 0,
+          "signed": 10
+        },
+        "terminal_normalized_return_mean": {
+          "dynamic_budget_matched_global": 15.766050787826316,
+          "far_cap": 11.470778599976397,
+          "far_zero": 22.532331417534287,
+          "near_zero": 1.1254711577084202,
+          "positive_only": 32.23070328887839,
+          "signed": 0.9867333552044592
+        }
+      }
+    },
+    {
+      "change_id": "e7-q2-close-30",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "2c8c0ca7ced80ee0a90a7aa5defab461125d1b5002144713488ca1a7edeff548"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "a5c28b65f172db571f3f1aedba0a37a1863bcb9704f82a815bbdc0d37192c89d"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/RESULT_SUMMARY.md",
+          "sha256": "11d46a69f85f2aabb6cace23ea9ce1ea0b8d9389bfbcf83a58fd76ed86039a35"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/SCIENTIFIC_REVIEW.json",
+          "sha256": "9c39460daf5213f9435d7bbffc887e705a657da76dfc6668b3dab0374abe046a"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/aggregate_summary.json",
+          "sha256": "16e30ae73a6ea7391b2cf0164afe86d97ca16e178285acf21b89e60c5741fb7c"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/per_seed_summary.csv",
+          "sha256": "3788812bd7c98c8df32f8afad8348fdc9c7ed9ca57bc208709a3ad032988c1d3"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/terminal_audit.json",
+          "sha256": "d79ff47352280bc29ba57e463066dd34872ab761fa682003f24883e20b173635"
+        }
+      ],
+      "field_path": [
+        "scientific_status"
+      ],
+      "from": "not_run",
+      "kind": "update_field",
+      "reason": "Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist without D4RL retuning.",
+      "to": "long_run_validated"
+    },
+    {
+      "change_id": "e7-q2-close-31",
+      "entity_id": "EXT-H-E7-Q2",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "2c8c0ca7ced80ee0a90a7aa5defab461125d1b5002144713488ca1a7edeff548"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "a5c28b65f172db571f3f1aedba0a37a1863bcb9704f82a815bbdc0d37192c89d"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/RESULT_SUMMARY.md",
+          "sha256": "11d46a69f85f2aabb6cace23ea9ce1ea0b8d9389bfbcf83a58fd76ed86039a35"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/SCIENTIFIC_REVIEW.json",
+          "sha256": "9c39460daf5213f9435d7bbffc887e705a657da76dfc6668b3dab0374abe046a"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/aggregate_summary.json",
+          "sha256": "16e30ae73a6ea7391b2cf0164afe86d97ca16e178285acf21b89e60c5741fb7c"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/per_seed_summary.csv",
+          "sha256": "3788812bd7c98c8df32f8afad8348fdc9c7ed9ca57bc208709a3ad032988c1d3"
+        },
+        {
+          "path": "outputs/e7_hopper_q2/terminal_audit.json",
+          "sha256": "d79ff47352280bc29ba57e463066dd34872ab761fa682003f24883e20b173635"
+        }
+      ],
+      "field_path": [
+        "status"
+      ],
+      "from": "not_run",
+      "kind": "update_field",
+      "reason": "Close the completed EXT-H-E7-Q2 formal v4.3.0 run as long-run validated external mechanism evidence, bind compact provenance and terminal audit, block unregistered reruns, and leave E7-BENCH blocked on the controlled-method shortlist without D4RL retuning.",
+      "to": "long_run_validated"
+    }
+  ],
+  "registry_change_coverage": {
+    "added_entities": [],
+    "changed_field_count": 31,
+    "declared_assertion_count": 31,
+    "fully_declared": true,
+    "mode": "schema2_complete",
+    "removed_entities": []
+  },
+  "registry_transition_assertions": [],
+  "report_schema_version": 2,
+  "repository_commit": null,
+  "schema_version": 1,
+  "status": "PASS",
+  "update_id": "EXT-H-E7-Q2-CLOSURE-2026-07-02",
+  "validation_worktree_head": "c52cf388185322d834ca3f22c4c06391c4f16923"
+}

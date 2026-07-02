@@ -7,7 +7,7 @@
 - Responsibility: Cover learned-critic far-field mechanism validation and D4RL method-effect evidence while preserving the external-validity boundary.
 - Content contract topics: none
 - Deduplicated overlapping source chunks: 0
-- Source hash: `e842c24fafe7e11285961152272ef7e2ef48849993c44c79c110b4691a9c2d88`
+- Source hash: `08169ced028bedb7ffc417243761b7016f286c094a7a266148885fc14d8d5537`
 
 ## Source 1: docs/handoff.md: # 15. Learned-Critic External Mechanism Validation on D4RL -> # Part V. Bandit 稳定外推子实验的收敛审计（完整保留）
 
@@ -220,62 +220,78 @@ A<0,\quad \|z\|>1 \Longrightarrow \Delta\log\sigma<0.
 > - **终态审计职责：**terminal candidate、relative update、state drift 与 2× continuation 只用于训练结束后的分类，不再控制停止。满足 2× confirmation 且无 boundary 才可标为 `finite_terminal`；跑满固定 horizon 但仍漂移时标为 `persistent_or_slow_drift`，无法判定时标为 `fixed_horizon_inconclusive`。固定 horizon 本身不得自动解释为 convergence。根审计分别记录 critic fixed-budget completion、Positive-only fixed-budget completion、所有 branch fixed-budget completion、任务性能崩溃、support/variance boundary、NaN/Inf 与 terminal classification。
 > - Canonical critic artifact schema 升级为 `v3`；v2、pilot、不同 mode/config/dataset/transition count/seed/runner identity 的 artifact 均 fail closed。Countdown 风格入口仍为 `python3 scripts/run_e7_hopper_q2.py`；默认 formal，通过 hardened guard 持久化 heartbeat、失败证据和最终 raw-complete 包。应用本更新后必须从 clean current `main` 重新训练 critic 与全部 actor 分支，旧 v4.2 critic 不得跨 schema 复用。
 
-## Source 10: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v56-e6-parent-closure-current-gate
+## Source 10: docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v68-ext-h-e7-q2-longrun-closure
+
+### Delta block `after_heading:v68-ext-h-e7-q2-longrun-closure`
+
+> **v68 增量登记：`EXT-H-E7-Q2` Hopper learned-critic 长程机制结果闭环（不删除 v67 及更早内容）**
+>
+> - 正式运行绑定 clean detached commit `c5c638b47c945f5a3ecb8243f679caa31a129f9e`，运行开始时权威 `origin/main` 与本地 HEAD 一致；`hopper-medium-replay-v2` 数据 SHA-256 为 `e121c5f7c9857a307baa9edc6a2c3b48e85fedb9ac316ecddd0f48ca7ef4e39b`。共享 critic 固定 100k steps、Positive-only 固定 100k steps、五个分支各固定 200k steps，seeds `100--109` 全部完成，终态记录齐全，NaN/Inf 为 `0/60`。
+> - Advantage 匹配通过：far/near `|A|` 均值比为 `0.999770x`。自然 far negatives 的标准化距离、corrected `Q_xi` 与全参数负梯度 far/near 均值比分别为 `3.845x`、`14.547x` 和 `4.206x`；`Q_xi` 对 radius 的 log-log slope 为 `2.000000000019`，解析式与 autograd 最大相对误差均值为 `6.600e-08`。
+> - `Signed` 与 `Near-zero` 均为 `10/10` 任务性能崩溃、sigma 触底并接近完整动作边界饱和；删除 near negatives 没有救援。`Far-zero`、`Far-cap` 与 dynamic budget-matched Global 均在 `10/10` paired seeds 中高于 Signed，平均终态 return 增益分别为 `+21.546`、`+10.484` 和 `+14.779`。这支持远场异常负梯度是该 Hopper learned-critic 设置中 support contraction 与任务性能失败的主要传导路径之一。
+> - 三类事件严格分报：task-performance collapse、support/variance boundary 与 NaN/Inf numerical failure 不得互换。二值 boundary event 也不得替代严重度：Signed/Near-zero 的 mean boundary fraction 约为 `1.0`，Far-zero 为 `0.1215`，接近 Positive-only 的 `0.1123`。
+> - E7-Q2 的科学状态登记为 **long_run_validated**，范围仅限 Hopper external mechanism validation。Positive-only 是删除全部负信号的稳定参考，不是本机制实验的主 baseline；主 baseline 是 Signed，Near-zero 是负向因果对照，Far-zero/Far-cap 是定点干预，Global 是幅度中介对照。
+> - 本结果不授权有限稳态、通用方法排名、当前控制超过 Positive-only、远场是所有真实任务唯一失稳原因，或 exact legacy D4RL leaderboard reproduction。near/far 二分只用于机制识别；连续 taper 和方法收益由后续独立实验承担。
+> - Compact closure evidence 位于 `outputs/e7_hopper_q2/`。`EXT-H-E7-BENCH-01` 的 E7-Q2 前置条件已满足，但仍因 controlled-method shortlist 未在不使用 D4RL 调参的条件下冻结而保持 blocked；本闭环不自动启动 benchmark。
+> - v67 已登记的 `E8-TAPER` 路线与门禁保持不变；本次 E7-Q2 闭环不修改 Countdown 方法实验职责或执行顺序。
+
+## Source 11: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v56-e6-parent-closure-current-gate
 
 ### Delta block `section_end:v56-e6-parent-closure-current-gate`
 
 - **v56 E6 父 claim 关闭覆盖：** E6 的论文核心 claim 现已范围受限关闭；主 long-run 与两个 gap 子实验的原科学状态分别保持 `long_run_validated / finite_step_validated / finite_step_validated`。`D-U1-E6-TAPER-01` 保留为可选非门禁未来工作。当前下一正式 route item 为 `EXT-H-E7-Q2`，registry 状态为 **implemented + ready + active + not_run**；启动后仍须走 canonical hardened guard，且在 raw-complete、终态审计、打包和交付前不得声称 E7 完成。
 
-## Source 11: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v57-countdown-offline-bank-current-gate
+## Source 12: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v57-countdown-offline-bank-current-gate
 
 ### Delta block `section_end:v57-countdown-offline-bank-current-gate`
 
 - **Countdown v57 覆盖：** `EXT-C-E8-V4.4-OFFLINE-BANK` 是用户批准的当前离线 focused pilot；V4.3 保留为 fixed-pair predecessor。V4.4 只改变固定负样本覆盖与 current-policy near/far reselection，不引入在线数据刷新。`EXT-H-E7-Q2` 仍是下一正式 route item，`EXT-C-E8-SCALE-01` 继续 blocked。
 
-## Source 12: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v59-countdown-offline-bank-tuning-current-gate
+## Source 13: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v59-countdown-offline-bank-tuning-current-gate
 
 ### Delta block `section_end:v59-countdown-offline-bank-tuning-current-gate`
 
 - **Countdown v59 覆盖：** `EXT-C-E8-V4.5-OFFLINE-BANK-TUNING` 是当前用户批准的离线 focused successor；V4.4 作为 frozen-bank predecessor 保留。V4.5 只调 calibrated global negative multiplier 与 exponential taper lambda，禁止在线刷新、方向筛选或模型规模同时变化。`EXT-H-E7-Q2` 仍是下一 formal route item，`EXT-C-E8-SCALE-01` 继续 blocked。
 
-## Source 13: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v62-countdown-online-offpolicy-current-gate
+## Source 14: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v62-countdown-online-offpolicy-current-gate
 
 ### Delta block `section_end:v62-countdown-online-offpolicy-current-gate`
 
 - **Countdown v62 覆盖：** `EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY` 是当前用户批准并已实现的 Countdown focused successor，状态为 **implemented + not_run**。执行前必须提供完整 V4.5 `RUN_COMPLETE.json`/`terminal_audit.json` 及其指向的 V4.4 frozen inputs；runner fail-closed 校验输入与 reference adapter。它可作为独立 pilot 启动，但不改变 `EXT-H-E7-Q2` 的 formal 优先级，也不自动解锁 `EXT-C-E8-SCALE-01`。
 
-## Source 14: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v56-e6-parent-closure-execution-order
+## Source 15: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v56-e6-parent-closure-execution-order
 
 ### Delta block `section_end:v56-e6-parent-closure-execution-order`
 
 13. **v56 执行覆盖：** E6 父 claim 已关闭，`D-U1-E6-TAPER-01` 改为可选非门禁 future study；当前直接进入已实现且 registry 为 ready/active 的 `EXT-H-E7-Q2`（E7-MECH）。E7-Q2 仍为 not_run，必须先完成正式运行、终态审计、打包与交付；其后才允许冻结并实施 `EXT-H-E7-BENCH-01`。E8-MECH/V4.3 与 E8-SCALE 的相对顺序不变。
 
-## Source 15: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v57-e8-offline-bank-execution-order
+## Source 16: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v57-e8-offline-bank-execution-order
 
 ### Delta block `section_end:v57-e8-offline-bank-execution-order`
 
 14. **v57 执行覆盖：** v56 的 formal 顺序不变，`EXT-H-E7-Q2` 仍是下一正式实验。用户批准的 V4.4 作为 single-seed focused pilot 可独立执行，但必须先完成自身 best/terminal audit 与结果交付，才允许讨论 online off-policy successor；不得一次性同时改变 negative-bank 密度和数据在线刷新机制。
 
-## Source 16: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v62-countdown-online-offpolicy-execution-order
+## Source 17: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v62-countdown-online-offpolicy-execution-order
 
 ### Delta block `section_end:v62-countdown-online-offpolicy-execution-order`
 
 18. **v62 Countdown 执行覆盖：** formal 主顺序继续由 v56/v58/v61 控制；`EXT-H-E7-Q2` 优先级不变。V4.6 允许作为独立 guarded pilot 执行，顺序固定为 predecessor/input hash audit -> 四 cell paired training -> 全部训练结束后 test evaluation -> 2×2 paired effect/interaction -> terminal audit -> canonical artifact delivery。任何 online phase 都必须保留 collector manifest、round JSONL、fresh/stale mix 与实际 selected-bank diagnostics；smoke 或单 seed 不得称实验结果。
 
-## Source 17: experiments/registry.yaml: experiments[EXT-H-E7-Q2, EXT-H-E7-BENCH-01]
+## Source 18: experiments/registry.yaml: experiments[EXT-H-E7-Q2, EXT-H-E7-BENCH-01]
 
 collection: experiments
 entries:
 - id: EXT-H-E7-Q2
   execution_gate:
-    state: ready
-    blocked_by: []
-    blocking_reason: E6 parent claims are closed; the implemented Hopper mechanism experiment is the next registered formal
-      route item. No E7 scientific run has started.
+    state: blocked
+    blocked_by:
+    - completed_formal_execution_no_rerun_without_new_registration
+    blocking_reason: The frozen formal v4.3.0 run is complete, scientifically reviewed, compactly archived, and delivered.
+      Any rerun requires a separately registered protocol.
   environment: EXT-H
   name: hopper_gaussian_log_scale_quadratic_external_validation
-  status: not_run
-  scientific_status: not_run
+  status: long_run_validated
+  scientific_status: long_run_validated
   parent_experiment: E7-MECH
   registration_base_commit: c7fd41ac663380de71bcd839b76ab4d1e52ae8d0
   implementation_base_commit: 2e04f6dba6d4e87f61920bedb1c464656906bf2b
@@ -287,7 +303,7 @@ entries:
   execution_class: formal
   formal_execution:
     channel_ref: hardened-v1
-    activation_state: active
+    activation_state: blocked
     entrypoint_status: implemented
     entrypoint: src/drpo/e7_hopper_q2.py
     launch_mode: canonical_guard
@@ -561,29 +577,118 @@ entries:
     a quadratic law for neural-network parameter gradients, replace C-U1 causal identification, or rank Exp, Linear, Global
     alpha, SBRC, Hybrid, or Positive-only methods.
   execution:
-    state: registered
-    run_id: null
+    state: delivered
+    run_id: formal-20260630T105458Z
     last_heartbeat_utc: null
-    process_exit_code: null
+    process_exit_code: 0
+    note: All fixed budgets completed; scientific review accepted the external mechanism claim without authorizing steady-state
+      or method-ranking claims.
   evidence:
     code_committed: true
     implementation_tests_passed: true
-    run_started: false
-    raw_complete: false
-    terminal_audited: false
-    package_created: false
-    package_filename: null
-    package_sha256: null
-    delivered_to_user: false
+    run_started: true
+    raw_complete: true
+    terminal_audited: true
+    formal_seeds_expected: 10
+    formal_seeds_completed: 10
+    fixed_budgets_completed: true
+    terminal_audit_records_complete: true
+    mechanism_subchecks_passed_seeds: 10
+    post_run_scientific_review_completed: true
+    package_created: true
+    package_filename: e7_q2_formal_v43_EXT-H-E7-Q2_formal.zip
+    package_sha256: 5db9c092f2b6e68f42de364f4e85cd3c2691e4dad472b5527a2dce11987f58b5
+    delivered_to_user: true
     applied_commit: null
-    scientific_status: not_run
+    scientific_status: long_run_validated
+    compact_result_path: outputs/e7_hopper_q2
+  provenance:
+    run_commit: c5c638b47c945f5a3ecb8243f679caa31a129f9e
+    repository_closure_base_commit: cd6c42db337d8f261840850a58bf60a83c37e6bd
+    run_id: formal-20260630T105458Z
+    dataset_sha256: e121c5f7c9857a307baa9edc6a2c3b48e85fedb9ac316ecddd0f48ca7ef4e39b
+    runner_version: 4.3.0-fixed-budget-longrun
+    origin_main_matched_at_launch: true
+    git_dirty_at_launch: false
+    provenance_compromised: false
+    evaluation_environment: Gymnasium Hopper-v4 compatibility environment with frozen D4RL-v2 reference normalization
+  result_summary:
+    mechanism:
+      abs_advantage_far_near_ratio_mean: 0.9997699141502381
+      standardized_distance_far_near_ratio_mean: 3.8445521116256716
+      corrected_q_xi_far_near_ratio_mean: 14.546895980834961
+      corrected_q_xi_loglog_slope_mean: 2.0000000000188645
+      full_parameter_gradient_far_near_ratio_mean: 4.205860980379491
+      analytic_autograd_relative_error_max_mean: 6.599849733390784e-08
+    terminal_normalized_return_mean:
+      positive_only: 32.23070328887839
+      signed: 0.9867333552044592
+      near_zero: 1.1254711577084202
+      far_zero: 22.532331417534287
+      far_cap: 11.470778599976397
+      dynamic_budget_matched_global: 15.766050787826316
+    task_collapse_count:
+      positive_only: 0
+      signed: 10
+      near_zero: 10
+      far_zero: 3
+      far_cap: 7
+      dynamic_budget_matched_global: 6
+    support_or_variance_boundary_count:
+      positive_only: 9
+      signed: 10
+      near_zero: 10
+      far_zero: 10
+      far_cap: 10
+      dynamic_budget_matched_global: 10
+    nan_inf_count:
+      positive_only: 0
+      signed: 0
+      near_zero: 0
+      far_zero: 0
+      far_cap: 0
+      dynamic_budget_matched_global: 0
+    mean_boundary_fraction:
+      positive_only: 0.112298583984375
+      signed: 0.999725341796875
+      near_zero: 0.99990234375
+      far_zero: 0.121490478515625
+      far_cap: 0.1821044921875
+      dynamic_budget_matched_global: 0.189849853515625
+    paired_vs_signed:
+      near_zero:
+        mean_return_difference: 0.13873780250396103
+        wins: 8
+        wilcoxon_two_sided_p: 0.130859375
+      far_zero:
+        mean_return_difference: 21.54559806232983
+        wins: 10
+        wilcoxon_two_sided_p: 0.001953125
+      far_cap:
+        mean_return_difference: 10.484045244771938
+        wins: 10
+        wilcoxon_two_sided_p: 0.001953125
+      dynamic_budget_matched_global:
+        mean_return_difference: 14.779317432621857
+        wins: 10
+        wilcoxon_two_sided_p: 0.001953125
+  closure:
+    accepted_claim: Far-field anomalous negative gradients are a major transmission path into support contraction and task-performance
+      failure in this Hopper learned-critic setting.
+    primary_baseline: signed
+    positive_only_role: stable_reference_not_primary_mechanism_baseline
+    method_ranking_claim_allowed: false
+    finite_terminal_claim_allowed: false
+    universal_causality_claim_allowed: false
+    continuous_taper_benefit_requires_separate_experiment: true
 - id: EXT-H-E7-BENCH-01
   execution_gate:
     state: blocked
     blocked_by:
-    - EXT-H-E7-Q2
-    blocking_reason: The large public benchmark remains blocked until EXT-H-E7-Q2 is terminal-audited, packaged, delivered,
-      and the controlled-method shortlist is frozen without D4RL retuning. Optional D-U1-E6-TAPER-01 is not a prerequisite.
+    - controlled_method_shortlist_freeze
+    blocking_reason: EXT-H-E7-Q2 is now terminal-audited, delivered, and scientifically closed. The large public benchmark
+      remains blocked until the controlled-method shortlist is frozen without D4RL retuning and the benchmark implementation/protocol
+      versions are registered.
   environment: EXT-H
   name: d4rl_mujoco_locomotion_method_benchmark
   status: not_run
@@ -650,3 +755,7 @@ entries:
     terminal_audited: false
     package_created: false
     scientific_status: not_run
+  prerequisite_status:
+    EXT-H-E7-Q2: satisfied_long_run_validated
+    controlled_method_shortlist_freeze: pending
+    d4rl_retuning_allowed: false

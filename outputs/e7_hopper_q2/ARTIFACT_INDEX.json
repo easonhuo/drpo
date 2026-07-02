@@ -1,0 +1,75 @@
+{
+  "closure_base_commit": "cd6c42db337d8f261840850a58bf60a83c37e6bd",
+  "experiment_id": "EXT-H-E7-Q2",
+  "files": [
+    {
+      "path": "outputs/e7_hopper_q2/PROVENANCE_NOTE.md",
+      "role": "compact_repository_evidence",
+      "sha256": "cfe8e8ad6e9267f763b6212b8eecd2544707072f08673b750f79e4e8e2e444b6",
+      "size_bytes": 656
+    },
+    {
+      "path": "outputs/e7_hopper_q2/RESULT_SUMMARY.md",
+      "role": "compact_repository_evidence",
+      "sha256": "11d46a69f85f2aabb6cace23ea9ce1ea0b8d9389bfbcf83a58fd76ed86039a35",
+      "size_bytes": 3058
+    },
+    {
+      "path": "outputs/e7_hopper_q2/RUN_COMPLETE.json",
+      "role": "compact_repository_evidence",
+      "sha256": "d07ea4edd712c9a8c08ccffa17d496b3fad0332aa7533d987816e0f777793553",
+      "size_bytes": 369
+    },
+    {
+      "path": "outputs/e7_hopper_q2/SCIENTIFIC_REVIEW.json",
+      "role": "compact_repository_evidence",
+      "sha256": "9c39460daf5213f9435d7bbffc887e705a657da76dfc6668b3dab0374abe046a",
+      "size_bytes": 5097
+    },
+    {
+      "path": "outputs/e7_hopper_q2/aggregate_summary.json",
+      "role": "compact_repository_evidence",
+      "sha256": "16e30ae73a6ea7391b2cf0164afe86d97ca16e178285acf21b89e60c5741fb7c",
+      "size_bytes": 17051
+    },
+    {
+      "path": "outputs/e7_hopper_q2/paired_comparisons.json",
+      "role": "compact_repository_evidence",
+      "sha256": "2a1c5dcf841d23e3ede6588d14a16a95faed56d3653db532e97073ed79cb8d76",
+      "size_bytes": 1168
+    },
+    {
+      "path": "outputs/e7_hopper_q2/per_seed_summary.csv",
+      "role": "compact_repository_evidence",
+      "sha256": "3788812bd7c98c8df32f8afad8348fdc9c7ed9ca57bc208709a3ad032988c1d3",
+      "size_bytes": 19629
+    },
+    {
+      "path": "outputs/e7_hopper_q2/resolved_config.yaml",
+      "role": "compact_repository_evidence",
+      "sha256": "262a2a6df0bdf1027335135a7b13cfbd3746dc9b7bc537eb7428a7cf8b37a96e",
+      "size_bytes": 7318
+    },
+    {
+      "path": "outputs/e7_hopper_q2/run_manifest.json",
+      "role": "compact_repository_evidence",
+      "sha256": "5553e41826e2f331312c587a5aa1481f5d4a929be1d506e32f06b736f58951eb",
+      "size_bytes": 2358
+    },
+    {
+      "path": "outputs/e7_hopper_q2/scientific_run_manifest.json",
+      "role": "compact_repository_evidence",
+      "sha256": "cd4aa9bbb38e8eebc29b2763de7fd55e7859509fee53672a3e0595a0975adf21",
+      "size_bytes": 1315
+    },
+    {
+      "path": "outputs/e7_hopper_q2/terminal_audit.json",
+      "role": "compact_repository_evidence",
+      "sha256": "d79ff47352280bc29ba57e463066dd34872ab761fa682003f24883e20b173635",
+      "size_bytes": 3447
+    }
+  ],
+  "run_commit": "c5c638b47c945f5a3ecb8243f679caa31a129f9e",
+  "run_id": "formal-20260630T105458Z",
+  "schema_version": 1
+}

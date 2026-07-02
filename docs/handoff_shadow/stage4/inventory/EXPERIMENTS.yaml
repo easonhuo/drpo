@@ -3,7 +3,7 @@ policy_id: GOV-HANDOFF-INDEX-01
 authority: non_authoritative_stage4a_shadow_inventory
 source:
   path: experiments/registry.yaml
-  sha256: c9fd00b1b198a4963ac07bf854fb8afc746f160c180c808dbf6e5fd0f3b2c8e3
+  sha256: a5c28b65f172db571f3f1aedba0a37a1863bcb9704f82a815bbdc0d37192c89d
 experiments:
 - experiment_id: C-U1-E3-ADAM-RERUN
   registry_index: 1
@@ -182,7 +182,7 @@ experiments:
 - experiment_id: EXT-H-E7-Q2
   registry_index: 10
   environment: EXT-H
-  registry_status: not_run
+  registry_status: long_run_validated
   role: external_mechanism_validation
   module_ids:
   - hopper_e7
