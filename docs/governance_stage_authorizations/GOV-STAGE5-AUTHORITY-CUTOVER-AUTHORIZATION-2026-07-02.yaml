@@ -1,0 +1,38 @@
+schema_version: 1
+authorization_id: GOV-STAGE5-AUTHORITY-CUTOVER-AUTHORIZATION-2026-07-02
+kind: stage_transition
+change_class: stage_transition
+claim_id: GOV-HANDOFF-AUTHORITY-CUTOVER-01
+approval_record: user_approved_2026-07-02_proceed_to_stage5_manual_to_delta_authority_cutover_after_local_gates_passed
+base_commit: 4510e4cbc73b845d35e89ff520401db9a3e4a310
+cutover_checkpoint_id: GOV-STAGE5-AUTHORITY-CUTOVER-2026-07-02
+
+stage_ids:
+  - stage_5
+
+authorized_stage_statuses:
+  stage_5: active
+
+scope:
+  - activate_delta_handoff_authority
+  - create_cutover_checkpoint
+  - enable_manual_to_delta_cutover_transaction
+
+excluded_scope:
+  - execute_cutover_in_this_authorization_commit
+  - modify_docs_handoff_md_or_experiments_registry_yaml
+  - add_the_first_production_schema_v3_delta
+  - event_source_experiments_registry_yaml
+  - make_stage4b_a_runtime_generated_view
+  - compact_agents_md
+  - change_scientific_claims_experiment_parameters_seeds_thresholds_gates_or_results
+
+rollback_plan:
+  - preserve_the_authorization_record_as_immutable_governance_history
+  - use_the_stage5_delta_to_manual_rollback_transaction_if_post_cutover_verification_fails
+  - preserve_current_materialized_handoff_and_registry_bytes_during_rollback
+  - preserve_all_checkpoints_deltas_reports_and_research_history
+
+remaining_uncertainties:
+  - production_cutover_has_not_yet_been_executed
+  - the_first_production_schema_v3_delta_has_not_yet_been_applied
