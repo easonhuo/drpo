@@ -227,18 +227,23 @@ stages:
     responsibility: Promote the validated Stage 3 delta engine into a trusted candidate
       write-source pipeline without changing authority until a separate cutover authorization.
     status: active
-    status_authorization: GOV-STAGE5-CANDIDATE-IMPLEMENTATION-2026-07-01
-    implementation_state: candidate_hardened_ready_for_pre_cutover_acceptance
+    status_authorization: GOV-STAGE5-PRE-CUTOVER-ACCEPTANCE-CLOSURE-2026-07-02
+    implementation_state: candidate_hardened_pre_cutover_accepted
     implementation_allowed: false
     pre_cutover_hardening_authorization: GOV-STAGE5-PRE-CUTOVER-HARDENING-2026-07-02
-    pre_cutover_acceptance_state: ready_for_independent_acceptance
+    pre_cutover_acceptance_authorization: GOV-STAGE5-PRE-CUTOVER-ACCEPTANCE-CLOSURE-2026-07-02
+    pre_cutover_acceptance_state: independently_accepted
+    repository_pre_cutover_closure: complete
+    accepted_candidate_commit: 65fc7539e89d6ff4405dde09174224f8ef69228e
+    pre_cutover_acceptance_report: docs/governance_stage5_acceptance/ACCEPTANCE_REPORT.json
+    pre_cutover_acceptance_summary: docs/governance_stage5_acceptance/ACCEPTANCE_SUMMARY.md
     confirmed_blockers_open: []
     candidate_only: true
     candidate_spec: docs/governance_stage5_versioned_handoff_spec.md
     candidate_authority_config: docs/handoff_versions/AUTHORITY.yaml
     candidate_engine: scripts/handoff_authority.py
     candidate_authorization: GOV-STAGE5-CANDIDATE-IMPLEMENTATION-2026-07-01
-    stage3_pre_stage5_full_acceptance_report: docs/handoff_deltas/GOV-STAGE3-PRE-STAGE5-FULL-CHECKPOINT-2026-07-01/FULL_ACCEPTANCE_REPORT.json
+    stage3_pre_stage5_full_acceptance_report: docs/handoff_deltas/GOV-STAGE5-PRE-CUTOVER-ACCEPTANCE-CLOSURE-2026-07-02/FULL_ACCEPTANCE_REPORT.json
     current_write_authority: manual_handoff
     authority_cutover_allowed: false
     cutover_requires_independent_user_authorization: true
@@ -254,18 +259,30 @@ stages:
     - stage_4_lossless_validation
     protected_files:
     - path: scripts/handoff_authority.py
-      sha256: 83ed98865b105d1472990556c2b90c9e042ed613500c8914336ea79ca63fd700
-      authorized_by: GOV-STAGE5-PRE-CUTOVER-HARDENING-2026-07-02
+      sha256: 1d051b0eabb71534cd271aef0101fdaaf0a998d6574524cf862baeecf85db5fd
+      authorized_by: GOV-STAGE5-PRE-CUTOVER-ACCEPTANCE-CLOSURE-2026-07-02
     - path: scripts/validate_governance_pipeline_stage_status.py
-      sha256: 4335fb716595523c3b643fa123b6b1deeac545c0d2462dd56750b8011e28d542
-      authorized_by: GOV-STAGE5-PRE-CUTOVER-HARDENING-2026-07-02
+      sha256: 68c960f576a032a25c5c4d1b9cab37535b58d3f821d17cf8fc25249d4e67fff1
+      authorized_by: GOV-STAGE5-PRE-CUTOVER-ACCEPTANCE-CLOSURE-2026-07-02
     - path: docs/governance_stage5_versioned_handoff_spec.md
-      sha256: 4e3704be0ab44719419dfaac1e3d7a0f35f9a9a69030098bd7560777a91a5669
-      authorized_by: GOV-STAGE5-PRE-CUTOVER-HARDENING-2026-07-02
+      sha256: c6bc626b47ef7b0354300061cd9f5d1b5c85c27f2245bba31ce643cbe5dd5063
+      authorized_by: GOV-STAGE5-PRE-CUTOVER-ACCEPTANCE-CLOSURE-2026-07-02
     - path: tests/stage5_candidate_integration.py
-      sha256: eb6204370e81cdaaa7a32d3ab729f39255e79f8cc63f55aefc41c2153d1993e7
-      authorized_by: GOV-STAGE5-PRE-CUTOVER-HARDENING-2026-07-02
+      sha256: 7044c6a5ef11dee46069cf4f364d95846ec2da31a143e4e7606dbdee6bc186ca
+      authorized_by: GOV-STAGE5-PRE-CUTOVER-ACCEPTANCE-CLOSURE-2026-07-02
     - path: tests/test_governance_pipeline_stage_status.py
-      sha256: 81353cf01de675d60324fe4f8a307eff57f5f2f8a661b0e7dc2f47f77f92804b
-      authorized_by: GOV-STAGE5-PRE-CUTOVER-HARDENING-2026-07-02
+      sha256: 1c89ed6c60f5c883549fb45864bc5e20a95b262acbbfed942506ddd2af3cd7ae
+      authorized_by: GOV-STAGE5-PRE-CUTOVER-ACCEPTANCE-CLOSURE-2026-07-02
+    - path: docs/governance_stage5_acceptance/ACCEPTANCE_REPORT.json
+      sha256: c5b787ac05199b1d78efe70b52a0c7b8b8d4af3abe6b2c5267195f6168009dd0
+      authorized_by: GOV-STAGE5-PRE-CUTOVER-ACCEPTANCE-CLOSURE-2026-07-02
+    - path: docs/governance_stage5_acceptance/ACCEPTANCE_SUMMARY.md
+      sha256: 4bef266c2e7c9f312091d3dd0a33690b9449a010d006384925c443b87c6751bf
+      authorized_by: GOV-STAGE5-PRE-CUTOVER-ACCEPTANCE-CLOSURE-2026-07-02
+    - path: docs/governance_stage5_acceptance/CHECKSUMS.sha256
+      sha256: b9dabee0f42ca7d18a9d277ce93c3e8775e2d01bcf80211d1a202c96ee13ac88
+      authorized_by: GOV-STAGE5-PRE-CUTOVER-ACCEPTANCE-CLOSURE-2026-07-02
+    - path: docs/handoff_deltas/GOV-STAGE5-PRE-CUTOVER-ACCEPTANCE-CLOSURE-2026-07-02/FULL_ACCEPTANCE_REPORT.json
+      sha256: d753dc23f1ade8c7d082916992d294287644d6715c787693d7e493df2c4d6d54
+      authorized_by: GOV-STAGE5-PRE-CUTOVER-ACCEPTANCE-CLOSURE-2026-07-02
     stage3_full_acceptance_current_at_cutover_required: true

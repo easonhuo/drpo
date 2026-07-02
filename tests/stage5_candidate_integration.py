@@ -546,6 +546,15 @@ def run_code_only_noop_and_rollback(tmp_path: Path) -> None:
     run(rollback_repo, "commit", "-q", "-m", "rollback to manual authority")
     verified = authority.verify_current_state(rollback_repo)
     assert verified["mode"] == "manual"
+    ledger = yaml.safe_load(
+        (rollback_repo / "docs/governance_pipeline_stage_status.yaml").read_text(
+            encoding="utf-8"
+        )
+    )
+    stage5 = ledger["stages"]["stage_5"]
+    assert stage5["implementation_state"] == "candidate_hardened_pre_cutover_accepted"
+    assert stage5["pre_cutover_acceptance_state"] == "independently_accepted"
+    assert stage5["repository_pre_cutover_closure"] == "complete"
     assert_governance_valid(rollback_repo)
     assert (rollback_repo / "docs/handoff.md").read_bytes() == handoff_before
 
@@ -571,6 +580,16 @@ def run_cutover_requires_independent_authorization(tmp_path: Path) -> None:
 
 def run_checkpoint_gate_rejections(tmp_path: Path) -> None:
     stale = copy_repository(tmp_path / "checkpoint-report-stale")
+    stale_base = git_text(stale, "rev-parse", "HEAD")
+    make_source_delta(
+        stale,
+        branch="main",
+        base_commit=stale_base,
+        update_id="STAGE5-TEST-UNCOVERED-OBSERVATION",
+        block_id="stage5-test-uncovered-observation",
+        content="Stage 5 test-only uncovered observation.",
+        target_path=heading_path(stale),
+    )
     stale_checkpoint_id = "STAGE5-TEST-CHECKPOINT-REPORT-STALE"
     stale_auth = add_test_cutover_authorization(
         stale,
@@ -593,7 +612,7 @@ def run_checkpoint_gate_rejections(tmp_path: Path) -> None:
     failing = copy_repository(tmp_path / "checkpoint-report-fail")
     report_path = (
         failing
-        / "docs/handoff_deltas/GOV-STAGE3-PRE-STAGE5-FULL-CHECKPOINT-2026-07-01/"
+        / "docs/handoff_deltas/GOV-STAGE5-PRE-CUTOVER-ACCEPTANCE-CLOSURE-2026-07-02/"
         "FULL_ACCEPTANCE_REPORT.json"
     )
     report = json.loads(report_path.read_text(encoding="utf-8"))

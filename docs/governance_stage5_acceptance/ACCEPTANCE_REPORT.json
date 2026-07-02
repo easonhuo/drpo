@@ -1,0 +1,70 @@
+{
+  "acceptance_results": {
+    "authority_verify_manual": "PASS",
+    "candidate_worktree_clean": true,
+    "compileall": "PASS",
+    "drpo_update_doctor": {
+      "reason": "the standalone doctor exceeded the shell execution window; updater transactional coverage passed through the full pytest and Stage 5 integration suites",
+      "status": "NOT_COMPLETED_IN_CLOSURE_RUNTIME"
+    },
+    "full_pytest": {
+      "elapsed_seconds": 405.86,
+      "passed": 586,
+      "skipped": 0,
+      "status": "PASS"
+    },
+    "git_diff_check": "PASS",
+    "governance_validator": "PASS",
+    "ruff": {
+      "reason": "ruff is unavailable in this sandbox; the update package retains the repository Ruff gate for user-side application",
+      "status": "NOT_RERUN_IN_CLOSURE_RUNTIME"
+    },
+    "stage3_full_acceptance": "PASS",
+    "stage3_shadow_auto_check": "PASS",
+    "stage4a_current_source_determinism": "PASS",
+    "stage5_integration": "PASS"
+  },
+  "acceptance_scope": [
+    "code-only delta-mode normalization no-op",
+    "current-source deterministic Stage 4A validation",
+    "checkpoint provenance and source-parent coverage gates",
+    "manual-to-delta cutover rehearsal",
+    "delta-to-manual rollback rehearsal",
+    "real bundle-backed stale-base drpo-update path",
+    "macOS /var and /private/var canonical path handling"
+  ],
+  "accepted_files": {
+    "docs/governance_stage5_versioned_handoff_spec.md": "c6bc626b47ef7b0354300061cd9f5d1b5c85c27f2245bba31ce643cbe5dd5063",
+    "scripts/handoff_authority.py": "1d051b0eabb71534cd271aef0101fdaaf0a998d6574524cf862baeecf85db5fd",
+    "scripts/validate_governance_pipeline_stage_status.py": "68c960f576a032a25c5c4d1b9cab37535b58d3f821d17cf8fc25249d4e67fff1",
+    "tests/stage5_candidate_integration.py": "7044c6a5ef11dee46069cf4f364d95846ec2da31a143e4e7606dbdee6bc186ca",
+    "tests/test_governance_pipeline_stage_status.py": "1c89ed6c60f5c883549fb45864bc5e20a95b262acbbfed942506ddd2af3cd7ae"
+  },
+  "authority_mode": "manual",
+  "branch": "main",
+  "candidate_implementation_acceptance": "PASS",
+  "claim_id": "GOV-HANDOFF-AUTHORITY-CUTOVER-01",
+  "evaluated_commit": "65fc7539e89d6ff4405dde09174224f8ef69228e",
+  "isolated_cutover_rollback_rehearsal": "PASS",
+  "production_cutover_authorized": false,
+  "production_cutover_executed": false,
+  "remaining_constraints": [
+    "authority remains manual",
+    "no production cutover authorization exists",
+    "no production checkpoint has been created",
+    "Ruff and standalone updater doctor must run again in the user-side repository gate when this closure package is applied"
+  ],
+  "repository": "easonhuo/drpo",
+  "repository_pre_cutover_closure": "PASS",
+  "schema_version": 1,
+  "stage3_full_acceptance": {
+    "elapsed_seconds": 32.017,
+    "observation_count": 22,
+    "path": "docs/handoff_deltas/GOV-STAGE5-PRE-CUTOVER-ACCEPTANCE-CLOSURE-2026-07-02/FULL_ACCEPTANCE_REPORT.json",
+    "sha256": "d753dc23f1ade8c7d082916992d294287644d6715c787693d7e493df2c4d6d54",
+    "status": "PASS",
+    "successful_real_observation_count": 21,
+    "test_count": 51
+  },
+  "status": "PASS"
+}

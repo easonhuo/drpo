@@ -1,7 +1,7 @@
 # Stage 5 — Versioned Handoff Write-Authority Candidate
 
 **Governance claim:** `GOV-HANDOFF-AUTHORITY-CUTOVER-01`
-**Implementation state:** hardened candidate; ready for pre-cutover acceptance; no authority cutover
+**Implementation state:** hardened candidate; independent pre-cutover acceptance recorded; no authority cutover
 **Original design base:** `4ad8b09ca80bc4b98aebffc6540f9be29440ba28`
 **Pre-cutover hardening base:** `dacddafbf3e3caf560e87c145ab92d35b8d7fef1`
 
@@ -22,7 +22,7 @@ direct_handoff_edit_forbidden: false
 authority_cutover_allowed: false
 ```
 
-The hardened candidate implements the lifecycle commands and acceptance tests, but it does not execute a transition on `main`. A real cutover still requires a separate, already-committed `stage_transition` authorization whose scope explicitly permits the manual-to-delta transaction and names the checkpoint ID.
+The hardened candidate implements the lifecycle commands and acceptance tests, and its independent pre-cutover acceptance is now recorded against commit `65fc7539e89d6ff4405dde09174224f8ef69228e`. It does not execute a transition on `main`. A real cutover still requires a separate, already-committed `stage_transition` authorization whose scope explicitly permits the manual-to-delta transaction and names the checkpoint ID.
 
 This work does not:
 
@@ -198,4 +198,6 @@ The two previously confirmed blockers are closed by:
 - verified no-op normalization for packages with no handoff/registry authority change;
 - current-source deterministic validation for dynamic Stage 4A generated outputs instead of permanent equality to historical generated hashes.
 
-The hardened candidate also contains lifecycle preparation, strong checkpoint provenance checks, cutover/first-delta separation, rollback simulation, and real updater-path coverage. Formal authority activation remains forbidden until an independent pre-cutover acceptance is recorded and a separate user-approved cutover authorization is committed.
+The hardened candidate also contains lifecycle preparation, strong checkpoint provenance checks, cutover/first-delta separation, rollback simulation, and real updater-path coverage. Independent pre-cutover acceptance is recorded under `docs/governance_stage5_acceptance/`, with a fresh Stage 3 Full Acceptance covering every real observation present at the accepted candidate commit. The lifecycle now requires this committed acceptance state and its content-addressed report before cutover preparation can begin.
+
+Formal authority activation remains forbidden until a separate user-approved `stage_transition` authorization is committed. The acceptance closure does not create a production checkpoint, does not activate schema-v3 write authority, and does not modify `docs/handoff.md` or `experiments/registry.yaml`. After an authorized rollback, the repository returns to the independently accepted manual boundary rather than regressing to a pre-acceptance state.

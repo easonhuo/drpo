@@ -120,7 +120,7 @@ def test_stage5_hardened_control_plane_tamper_is_rejected() -> None:
         replace_bytes(path, path.read_bytes() + b"\n# unauthorized Stage 5 drift\n")
         proc = run_validator(repo, check=False)
         assert proc.returncode == 2
-        assert "protected file hash changed without authorization" in proc.stderr
+        assert "Stage 5 accepted candidate file drift" in proc.stderr
     finally:
         shutil.rmtree(repo, ignore_errors=True)
 
@@ -313,10 +313,12 @@ def test_stage5_candidate_preserves_manual_authority_and_dependencies() -> None:
     assert stage_5["candidate_only"] is True
     assert stage_5["current_write_authority"] == "manual_handoff"
     assert stage_5["implementation_allowed"] is False
-    assert stage_5["implementation_state"] == (
-        "candidate_hardened_ready_for_pre_cutover_acceptance"
+    assert stage_5["implementation_state"] == "candidate_hardened_pre_cutover_accepted"
+    assert stage_5["pre_cutover_acceptance_state"] == "independently_accepted"
+    assert stage_5["repository_pre_cutover_closure"] == "complete"
+    assert stage_5["accepted_candidate_commit"] == (
+        "65fc7539e89d6ff4405dde09174224f8ef69228e"
     )
-    assert stage_5["pre_cutover_acceptance_state"] == "ready_for_independent_acceptance"
     assert stage_5["confirmed_blockers_open"] == []
     assert stage_5["authority_cutover_allowed"] is False
     assert stage_5["code_only_normalization"] == "verified_no_op"
@@ -325,6 +327,38 @@ def test_stage5_candidate_preserves_manual_authority_and_dependencies() -> None:
     assert stage_5["stage3_full_acceptance_current_at_cutover_required"] is True
     assert stage_5["production_cutover_executed"] is False
     assert stage_5["depends_on"] == ["stage_3_shadow_validation", "stage_4_lossless_validation"]
+
+
+def test_stage5_cannot_regress_independent_acceptance_state(tmp_path: Path) -> None:
+    assert_ledger_invalid(
+        tmp_path,
+        lambda x: x["stages"]["stage_5"].__setitem__(
+            "pre_cutover_acceptance_state", "ready_for_independent_acceptance"
+        ),
+        "independently accepted manual boundary",
+    )
+
+
+def test_stage5_acceptance_report_tamper_is_rejected(tmp_path: Path) -> None:
+    repo = hardlink_repository()
+    try:
+        path = repo / "docs/governance_stage5_acceptance/ACCEPTANCE_REPORT.json"
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        payload["repository_pre_cutover_closure"] = "FAIL"
+        replace_bytes(
+            path,
+            (json.dumps(payload, indent=2, sort_keys=True) + "\n").encode("utf-8"),
+        )
+        with pytest.raises(
+            VALIDATOR.StageStatusError,
+            match="independent pre-cutover acceptance report invalid",
+        ):
+            VALIDATOR.validate(
+                repo,
+                repo / "docs/governance_pipeline_stage_status.yaml",
+            )
+    finally:
+        shutil.rmtree(repo)
 
 
 def test_stage5_cannot_drop_stage3_shadow_validation_dependency(tmp_path: Path) -> None:

@@ -38,7 +38,7 @@ CHECKPOINT_MANIFEST_SCHEMA_VERSION = 2
 CHECKPOINT_AUDIT_SCHEMA_VERSION = 1
 ROLLBACK_REPORT_SCHEMA_VERSION = 1
 DEFAULT_STAGE3_FULL_ACCEPTANCE_REPORT = Path(
-    "docs/handoff_deltas/GOV-STAGE3-PRE-STAGE5-FULL-CHECKPOINT-2026-07-01/"
+    "docs/handoff_deltas/GOV-STAGE5-PRE-CUTOVER-ACCEPTANCE-CLOSURE-2026-07-02/"
     "FULL_ACCEPTANCE_REPORT.json"
 )
 DEFAULT_STAGE4B_ACCEPTANCE_REPORT = Path(
@@ -775,11 +775,15 @@ def _stage5_cutover_ledger_payload(
         stage5.get("current_write_authority") != "manual_handoff"
         or stage5.get("authority_cutover_allowed") is not False
         or stage5.get("production_cutover_executed") is not False
+        or stage5.get("implementation_state")
+        != "candidate_hardened_pre_cutover_accepted"
         or stage5.get("pre_cutover_acceptance_state")
-        != "ready_for_independent_acceptance"
+        != "independently_accepted"
+        or stage5.get("repository_pre_cutover_closure") != "complete"
+        or not isinstance(stage5.get("pre_cutover_acceptance_report"), str)
     ):
         raise HandoffAuthorityError(
-            "stage ledger is not at the hardened manual pre-cutover boundary"
+            "stage ledger is not at the independently accepted manual pre-cutover boundary"
         )
     stage5["status_authorization"] = authorization_id
     stage5["implementation_state"] = "production_delta_authority_active"
@@ -807,12 +811,13 @@ def _stage5_rollback_ledger_payload(
         or stage5.get("cutover_authorization") != previous_cutover_authorization
     ):
         raise HandoffAuthorityError("stage ledger is not at an active delta cutover state")
-    stage5["status_authorization"] = "GOV-STAGE5-CANDIDATE-IMPLEMENTATION-2026-07-01"
-    stage5["implementation_state"] = (
-        "candidate_hardened_ready_for_pre_cutover_acceptance"
+    stage5["status_authorization"] = _string(
+        stage5.get("pre_cutover_acceptance_authorization"),
+        "Stage 5 pre-cutover acceptance authorization",
     )
+    stage5["implementation_state"] = "candidate_hardened_pre_cutover_accepted"
     stage5["candidate_only"] = True
-    stage5["pre_cutover_acceptance_state"] = "ready_for_independent_acceptance"
+    stage5["pre_cutover_acceptance_state"] = "independently_accepted"
     stage5["current_write_authority"] = "manual_handoff"
     stage5["authority_cutover_allowed"] = False
     stage5["production_cutover_executed"] = False
@@ -821,6 +826,78 @@ def _stage5_rollback_ledger_payload(
     stage5["cutover_checkpoint_manifest"] = None
     stage5["last_rollback_report"] = rollback_report
     return ledger
+
+
+def _validate_stage5_pre_cutover_acceptance(
+    repo_root: Path, *, source_parent: str
+) -> tuple[Path, dict[str, Any]]:
+    """Require committed independent acceptance before preparing a cutover."""
+
+    _ledger, stage5 = _load_stage5_ledger(repo_root)
+    relative = _string(
+        stage5.get("pre_cutover_acceptance_report"),
+        "Stage 5 pre-cutover acceptance report",
+    )
+    path = _safe_path(repo_root, relative, "Stage 5 pre-cutover acceptance report")
+    report = _load_json(path, "Stage 5 pre-cutover acceptance report")
+    evaluated_commit = _string(
+        report.get("evaluated_commit"), "Stage 5 acceptance evaluated_commit"
+    )
+    if (
+        report.get("schema_version") != 1
+        or report.get("claim_id") != "GOV-HANDOFF-AUTHORITY-CUTOVER-01"
+        or report.get("status") != "PASS"
+        or report.get("authority_mode") != "manual"
+        or report.get("candidate_implementation_acceptance") != "PASS"
+        or report.get("isolated_cutover_rollback_rehearsal") != "PASS"
+        or report.get("repository_pre_cutover_closure") != "PASS"
+        or report.get("production_cutover_authorized") is not False
+        or report.get("production_cutover_executed") is not False
+        or stage5.get("accepted_candidate_commit") != evaluated_commit
+    ):
+        raise HandoffAuthorityError(
+            "Stage 5 independent pre-cutover acceptance report is invalid"
+        )
+    if not shadow.GIT_SHA_RE.fullmatch(evaluated_commit):
+        raise HandoffAuthorityError(
+            "Stage 5 acceptance evaluated_commit must be a full Git SHA"
+        )
+    accepted_files = _mapping(
+        report.get("accepted_files"), "Stage 5 acceptance accepted_files"
+    )
+    if not accepted_files:
+        raise HandoffAuthorityError(
+            "Stage 5 acceptance report must bind accepted candidate files"
+        )
+    for relative_file, expected_hash in accepted_files.items():
+        relative_file = _string(
+            relative_file, "Stage 5 acceptance accepted file path"
+        )
+        expected_hash = _string(
+            expected_hash, f"Stage 5 acceptance hash for {relative_file}"
+        )
+        if not shadow.SHA256_RE.fullmatch(expected_hash):
+            raise HandoffAuthorityError(
+                f"Stage 5 acceptance hash is invalid for {relative_file}"
+            )
+        accepted_path = _safe_path(
+            repo_root, relative_file, "Stage 5 accepted candidate file"
+        )
+        if shadow.sha256_file(accepted_path) != expected_hash:
+            raise HandoffAuthorityError(
+                f"Stage 5 accepted candidate file drifted: {relative_file}"
+            )
+    relative_path = Path(
+        _repo_relative(repo_root, path, "Stage 5 pre-cutover acceptance report")
+    )
+    if (
+        _source_parent_file_hash(repo_root, source_parent, relative_path)
+        != shadow.sha256_file(path)
+    ):
+        raise HandoffAuthorityError(
+            "Stage 5 pre-cutover acceptance report bytes do not match source parent"
+        )
+    return path, report
 
 
 def _validate_cutover_authorization(
@@ -901,6 +978,9 @@ def prepare_cutover(
         raise HandoffAuthorityError(f"invalid checkpoint_id: {checkpoint_id!r}")
 
     source_parent = _git_text(repo_root, "rev-parse", "HEAD")
+    _validate_stage5_pre_cutover_acceptance(
+        repo_root, source_parent=source_parent
+    )
     cutover_auth_path, cutover_auth = _validate_cutover_authorization(
         repo_root,
         authorization_record,
