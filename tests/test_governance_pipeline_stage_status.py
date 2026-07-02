@@ -111,6 +111,20 @@ def test_protected_file_tamper_is_rejected() -> None:
         shutil.rmtree(repo, ignore_errors=True)
 
 
+def test_stage5_hardened_control_plane_tamper_is_rejected() -> None:
+    repo = hardlink_repository()
+    try:
+        ledger = yaml.safe_load((repo / "docs/governance_pipeline_stage_status.yaml").read_text())
+        protected = ledger["stages"]["stage_5"]["protected_files"][0]["path"]
+        path = repo / protected
+        replace_bytes(path, path.read_bytes() + b"\n# unauthorized Stage 5 drift\n")
+        proc = run_validator(repo, check=False)
+        assert proc.returncode == 2
+        assert "protected file hash changed without authorization" in proc.stderr
+    finally:
+        shutil.rmtree(repo, ignore_errors=True)
+
+
 def test_protected_file_symlink_is_rejected_even_when_target_bytes_match() -> None:
     repo = hardlink_repository()
     try:
@@ -235,6 +249,54 @@ def test_stage4a_after_image_tamper_is_rejected(tmp_path: Path) -> None:
         VALIDATOR.validate_stage4a_after_image(repo, relative)
 
 
+def test_stage4a_dynamic_outputs_use_current_source_determinism_not_frozen_hash(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    shutil.copytree(
+        REPO_ROOT,
+        repo,
+        ignore=shutil.ignore_patterns(".git", "__pycache__", ".pytest_cache", "*.pyc"),
+    )
+    handoff = repo / "docs/handoff.md"
+    handoff.write_text(
+        handoff.read_text(encoding="utf-8")
+        + "\n<!-- stage4a-current-source-determinism-probe -->\n",
+        encoding="utf-8",
+    )
+    build = subprocess.run(
+        [
+            sys.executable,
+            str(repo / "scripts/build_stage4_context.py"),
+            "--repo-root",
+            str(repo),
+            "--json",
+            "build",
+        ],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    assert build.returncode == 0, build.stderr or build.stdout
+    result = VALIDATOR.validate_stage4a_after_image(
+        repo,
+        "docs/governance_stage4a_acceptance/AFTER_IMAGE.json",
+    )
+    assert result["dynamic_file_count"] > 0
+
+    dynamic = repo / "docs/handoff_shadow/stage4/minimal/generated/MODULE_INDEX.json"
+    dynamic.write_text(dynamic.read_text(encoding="utf-8") + "\n", encoding="utf-8")
+    with pytest.raises(
+        VALIDATOR.StageStatusError,
+        match="dynamic outputs are not deterministic current-source materializations",
+    ):
+        VALIDATOR.validate_stage4a_after_image(
+            repo,
+            "docs/governance_stage4a_acceptance/AFTER_IMAGE.json",
+        )
+
+
 def test_stage4b_after_image_tamper_is_rejected(tmp_path: Path) -> None:
     relative = "docs/governance_stage4b_acceptance/AFTER_IMAGE.json"
     repo, payload = after_image_fixture(tmp_path, relative)
@@ -251,7 +313,17 @@ def test_stage5_candidate_preserves_manual_authority_and_dependencies() -> None:
     assert stage_5["candidate_only"] is True
     assert stage_5["current_write_authority"] == "manual_handoff"
     assert stage_5["implementation_allowed"] is False
+    assert stage_5["implementation_state"] == (
+        "candidate_hardened_ready_for_pre_cutover_acceptance"
+    )
+    assert stage_5["pre_cutover_acceptance_state"] == "ready_for_independent_acceptance"
+    assert stage_5["confirmed_blockers_open"] == []
     assert stage_5["authority_cutover_allowed"] is False
+    assert stage_5["code_only_normalization"] == "verified_no_op"
+    assert stage_5["stage4a_generated_validation"] == "current_source_deterministic"
+    assert stage_5["checkpoint_manifest_schema_version"] == 2
+    assert stage_5["stage3_full_acceptance_current_at_cutover_required"] is True
+    assert stage_5["production_cutover_executed"] is False
     assert stage_5["depends_on"] == ["stage_3_shadow_validation", "stage_4_lossless_validation"]
 
 

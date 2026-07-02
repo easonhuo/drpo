@@ -9,6 +9,7 @@ reuses the Stage 3 renderer core rather than creating a second document engine.
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
 import json
 import re
 import subprocess
@@ -22,11 +23,30 @@ import yaml
 import handoff_delta_shadow as shadow
 
 AUTHORITY_PATH = Path("docs/handoff_versions/AUTHORITY.yaml")
+STAGE_LEDGER_PATH = Path("docs/governance_pipeline_stage_status.yaml")
 HANDOFF_PATH = Path("docs/handoff.md")
 REGISTRY_PATH = Path("experiments/registry.yaml")
 DELTA_ROOT = Path("docs/handoff_deltas")
 DELTA_FILENAME = "HANDOFF_DELTA.yaml"
 REPORT_FILENAME = "MATERIALIZATION_REPORT.json"
+CHECKPOINT_ROOT = Path("docs/handoff_versions/checkpoints")
+ROLLBACK_ROOT = Path("docs/handoff_versions/rollbacks")
+CHECKPOINT_MANIFEST_FILENAME = "CHECKPOINT_MANIFEST.json"
+CHECKPOINT_AUDIT_FILENAME = "STAGE4B_CUTOVER_AUDIT.json"
+ROLLBACK_REPORT_FILENAME = "ROLLBACK_REPORT.json"
+CHECKPOINT_MANIFEST_SCHEMA_VERSION = 2
+CHECKPOINT_AUDIT_SCHEMA_VERSION = 1
+ROLLBACK_REPORT_SCHEMA_VERSION = 1
+DEFAULT_STAGE3_FULL_ACCEPTANCE_REPORT = Path(
+    "docs/handoff_deltas/GOV-STAGE3-PRE-STAGE5-FULL-CHECKPOINT-2026-07-01/"
+    "FULL_ACCEPTANCE_REPORT.json"
+)
+DEFAULT_STAGE4B_ACCEPTANCE_REPORT = Path(
+    "docs/governance_stage4b_acceptance/ACCEPTANCE_REPORT.json"
+)
+DEFAULT_STAGE4B_AFTER_IMAGE = Path(
+    "docs/governance_stage4b_acceptance/AFTER_IMAGE.json"
+)
 SOURCE_AUTHORED_REPORT_NAMES = {
     REPORT_FILENAME,
     "SHADOW_REPORT.json",
@@ -116,6 +136,44 @@ def _load_yaml(path: Path, label: str) -> dict[str, Any]:
     except (OSError, yaml.YAMLError) as exc:
         raise HandoffAuthorityError(f"Could not read {label} {path}: {exc}") from exc
     return _mapping(payload, label)
+
+
+def _load_json(path: Path, label: str) -> dict[str, Any]:
+    if path.is_symlink():
+        raise HandoffAuthorityError(f"{label} may not be a symlink: {path}")
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise HandoffAuthorityError(f"Could not read {label} {path}: {exc}") from exc
+    return _mapping(payload, label)
+
+
+def _utc_timestamp(value: str | None = None) -> str:
+    if value is None:
+        return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise HandoffAuthorityError("timestamp must be ISO-8601") from exc
+    if parsed.tzinfo is None:
+        raise HandoffAuthorityError("timestamp must include a timezone")
+    return parsed.astimezone(timezone.utc).replace(microsecond=0).isoformat()
+
+
+def _require_clean_worktree(repo_root: Path, label: str) -> None:
+    status = _git_text(repo_root, "status", "--porcelain")
+    if status:
+        raise HandoffAuthorityError(f"{label} requires a clean Git worktree")
+
+
+def _write_yaml(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp = path.with_name(path.name + ".tmp")
+    temp.write_text(
+        yaml.safe_dump(payload, sort_keys=False, allow_unicode=True),
+        encoding="utf-8",
+    )
+    temp.replace(path)
 
 
 def _repo_relative(repo_root: Path, path: Path, label: str) -> str:
@@ -586,62 +644,713 @@ def _run_stage4a_refresh(target_repo: Path, trusted_repo: Path) -> tuple[list[st
     return refreshed, reused
 
 
+def _validate_stage3_full_acceptance_report(
+    repo_root: Path, relative: str
+) -> tuple[Path, dict[str, Any]]:
+    path = _safe_path(repo_root, relative, "Stage 3 Full Acceptance report")
+    report = _load_json(path, "Stage 3 Full Acceptance report")
+    coverage = _mapping(report.get("coverage"), "Stage 3 Full Acceptance coverage")
+    covered = _list(
+        coverage.get("covered_update_ids"),
+        "Stage 3 Full Acceptance covered_update_ids",
+    )
+    count = coverage.get("successful_real_observation_count")
+    covered_are_strings = all(isinstance(item, str) and item for item in covered)
+    if (
+        report.get("status") != "PASS"
+        or report.get("tier") != "full"
+        or report.get("policy_id") != "GOV-HANDOFF-INDEX-01"
+        or not isinstance(count, int)
+        or count <= 0
+        or not covered_are_strings
+        or len(covered) != count
+        or len(set(covered)) != len(covered)
+    ):
+        raise HandoffAuthorityError("Stage 3 Full Acceptance report is not a passing full report")
+    return path, report
+
+
+def _source_parent_real_update_ids(repo_root: Path, source_parent: str) -> list[str]:
+    listing = _git(
+        repo_root,
+        "ls-tree",
+        "-r",
+        "--name-only",
+        source_parent,
+        "--",
+        DELTA_ROOT.as_posix(),
+    ).stdout.splitlines()
+    update_ids: list[str] = []
+    for relative in sorted(listing):
+        if not relative.endswith(f"/{DELTA_FILENAME}"):
+            continue
+        try:
+            payload = yaml.safe_load(_git_show(repo_root, source_parent, Path(relative)))
+        except yaml.YAMLError as exc:
+            raise HandoffAuthorityError(
+                f"source-parent handoff delta is invalid YAML: {relative}"
+            ) from exc
+        mapping = _mapping(payload, f"source-parent handoff delta {relative}")
+        update_id = _string(mapping.get("update_id"), f"source-parent update_id {relative}")
+        if shadow.classify_observation(update_id) == "real":
+            update_ids.append(update_id)
+    if len(update_ids) != len(set(update_ids)):
+        raise HandoffAuthorityError("source parent contains duplicate real handoff update IDs")
+    return sorted(update_ids)
+
+
+def _validate_stage3_full_acceptance_covers_source_parent(
+    repo_root: Path,
+    *,
+    source_parent: str,
+    report: dict[str, Any],
+) -> list[str]:
+    covered = _list(
+        _mapping(report.get("coverage"), "Stage 3 Full Acceptance coverage").get(
+            "covered_update_ids"
+        ),
+        "Stage 3 Full Acceptance covered_update_ids",
+    )
+    covered_ids = [_string(value, "Stage 3 covered update ID") for value in covered]
+    expected_ids = _source_parent_real_update_ids(repo_root, source_parent)
+    if covered_ids != expected_ids:
+        missing = sorted(set(expected_ids) - set(covered_ids))
+        extra = sorted(set(covered_ids) - set(expected_ids))
+        raise HandoffAuthorityError(
+            "Stage 3 Full Acceptance report does not cover all real observations "
+            f"at the cutover source parent (missing={missing}, extra={extra})"
+        )
+    return expected_ids
+
+
+def _validate_stage4b_acceptance_report(
+    repo_root: Path, relative: str
+) -> tuple[Path, dict[str, Any], Path, dict[str, Any]]:
+    report_path = _safe_path(repo_root, relative, "Stage 4B acceptance report")
+    report = _load_json(report_path, "Stage 4B acceptance report")
+    if (
+        report.get("status") != "PASS"
+        or report.get("policy_id") != "GOV-HANDOFF-INDEX-01"
+        or report.get("authority") != "non_authoritative_stage4b_shadow_candidate"
+        or report.get("manual_handoff_remains_authoritative") is not True
+        or report.get("authority_cutover_allowed") is not False
+        or report.get("hard_blockers") != []
+    ):
+        raise HandoffAuthorityError("Stage 4B acceptance report is not PASS at its frozen boundary")
+    after_path = _safe_path(
+        repo_root,
+        DEFAULT_STAGE4B_AFTER_IMAGE.as_posix(),
+        "Stage 4B acceptance after-image",
+    )
+    after = _load_json(after_path, "Stage 4B acceptance after-image")
+    if (
+        after.get("schema_version") != 1
+        or after.get("policy_id") != "GOV-HANDOFF-INDEX-01"
+        or after.get("authority") != "shadow_only"
+        or report.get("after_image_tree_hash") != after.get("tree_hash")
+    ):
+        raise HandoffAuthorityError("Stage 4B acceptance after-image binding is invalid")
+    return report_path, report, after_path, after
+
+
+def _source_parent_file_hash(repo_root: Path, source_parent: str, relative: Path) -> str:
+    return shadow.sha256_text(_git_show(repo_root, source_parent, relative))
+
+
+def _load_stage5_ledger(repo_root: Path) -> tuple[dict[str, Any], dict[str, Any]]:
+    ledger = _load_yaml(repo_root / STAGE_LEDGER_PATH, "governance stage ledger")
+    stages = _mapping(ledger.get("stages"), "governance stage ledger stages")
+    stage5 = _mapping(stages.get("stage_5"), "governance stage ledger stage_5")
+    return ledger, stage5
+
+
+def _stage5_cutover_ledger_payload(
+    repo_root: Path,
+    *,
+    authorization_id: str,
+    checkpoint_manifest: str,
+) -> dict[str, Any]:
+    ledger, stage5 = _load_stage5_ledger(repo_root)
+    if (
+        stage5.get("current_write_authority") != "manual_handoff"
+        or stage5.get("authority_cutover_allowed") is not False
+        or stage5.get("production_cutover_executed") is not False
+        or stage5.get("pre_cutover_acceptance_state")
+        != "ready_for_independent_acceptance"
+    ):
+        raise HandoffAuthorityError(
+            "stage ledger is not at the hardened manual pre-cutover boundary"
+        )
+    stage5["status_authorization"] = authorization_id
+    stage5["implementation_state"] = "production_delta_authority_active"
+    stage5["candidate_only"] = False
+    stage5["pre_cutover_acceptance_state"] = "accepted_by_cutover_authorization"
+    stage5["current_write_authority"] = "schema_v3_delta"
+    stage5["authority_cutover_allowed"] = True
+    stage5["production_cutover_executed"] = True
+    stage5["cutover_authorization"] = authorization_id
+    stage5["cutover_checkpoint_manifest"] = checkpoint_manifest
+    stage5["last_rollback_report"] = None
+    return ledger
+
+
+def _stage5_rollback_ledger_payload(
+    repo_root: Path,
+    *,
+    rollback_report: str,
+    previous_cutover_authorization: str,
+) -> dict[str, Any]:
+    ledger, stage5 = _load_stage5_ledger(repo_root)
+    if (
+        stage5.get("current_write_authority") != "schema_v3_delta"
+        or stage5.get("production_cutover_executed") is not True
+        or stage5.get("cutover_authorization") != previous_cutover_authorization
+    ):
+        raise HandoffAuthorityError("stage ledger is not at an active delta cutover state")
+    stage5["status_authorization"] = "GOV-STAGE5-CANDIDATE-IMPLEMENTATION-2026-07-01"
+    stage5["implementation_state"] = (
+        "candidate_hardened_ready_for_pre_cutover_acceptance"
+    )
+    stage5["candidate_only"] = True
+    stage5["pre_cutover_acceptance_state"] = "ready_for_independent_acceptance"
+    stage5["current_write_authority"] = "manual_handoff"
+    stage5["authority_cutover_allowed"] = False
+    stage5["production_cutover_executed"] = False
+    stage5["last_cutover_authorization"] = previous_cutover_authorization
+    stage5["cutover_authorization"] = None
+    stage5["cutover_checkpoint_manifest"] = None
+    stage5["last_rollback_report"] = rollback_report
+    return ledger
+
+
+def _validate_cutover_authorization(
+    repo_root: Path,
+    relative: str,
+    *,
+    checkpoint_id: str,
+    source_parent: str,
+) -> tuple[Path, dict[str, Any]]:
+    path = _safe_path(repo_root, relative, "cutover authorization record")
+    payload = _load_yaml(path, "cutover authorization record")
+    required_scope = {
+        "activate_delta_handoff_authority",
+        "create_cutover_checkpoint",
+        "enable_manual_to_delta_cutover_transaction",
+    }
+    scope_items = _list(payload.get("scope"), "cutover authorization scope")
+    rollback = _list(payload.get("rollback_plan"), "cutover authorization rollback_plan")
+    stage_items = _list(payload.get("stage_ids"), "cutover authorization stage_ids")
+    excluded_items = _list(
+        payload.get("excluded_scope", []), "cutover authorization excluded_scope"
+    )
+    if not all(isinstance(item, str) and item for item in scope_items + rollback + stage_items + excluded_items):
+        raise HandoffAuthorityError("cutover authorization lists must contain strings")
+    scope = set(scope_items)
+    stage_ids = set(stage_items)
+    excluded_scope = set(excluded_items)
+    base_commit = _string(payload.get("base_commit"), "cutover authorization base_commit")
+    authorization_id = _string(
+        payload.get("authorization_id"), "cutover authorization_id"
+    )
+    statuses = _mapping(
+        payload.get("authorized_stage_statuses"),
+        "cutover authorization authorized_stage_statuses",
+    )
+    if (
+        payload.get("schema_version") != 1
+        or payload.get("kind") != "stage_transition"
+        or payload.get("change_class") != "stage_transition"
+        or payload.get("claim_id") != "GOV-HANDOFF-AUTHORITY-CUTOVER-01"
+        or payload.get("cutover_checkpoint_id") != checkpoint_id
+        or "stage_5" not in stage_ids
+        or statuses.get("stage_5") != "active"
+        or not required_scope.issubset(scope)
+        or bool(required_scope & excluded_scope)
+        or not rollback
+        or path.stem != authorization_id
+        or not shadow.GIT_SHA_RE.fullmatch(base_commit)
+    ):
+        raise HandoffAuthorityError(
+            "cutover requires a separate passing Stage 5 stage-transition authorization"
+        )
+    _string(payload.get("approval_record"), "cutover authorization approval_record")
+    _git(repo_root, "merge-base", "--is-ancestor", base_commit, source_parent)
+    relative_path = Path(_repo_relative(repo_root, path, "cutover authorization record"))
+    if _source_parent_file_hash(repo_root, source_parent, relative_path) != shadow.sha256_file(path):
+        raise HandoffAuthorityError("cutover authorization bytes do not match source parent")
+    return path, payload
+
+
+def prepare_cutover(
+    repo_root: Path,
+    *,
+    checkpoint_id: str,
+    authorization_record: str,
+    stage3_report: str = DEFAULT_STAGE3_FULL_ACCEPTANCE_REPORT.as_posix(),
+    stage4b_report: str = DEFAULT_STAGE4B_ACCEPTANCE_REPORT.as_posix(),
+    created_at_utc: str | None = None,
+) -> dict[str, Any]:
+    """Prepare, but do not commit, one authority cutover transaction."""
+
+    repo_root = repo_root.resolve()
+    _require_clean_worktree(repo_root, "cutover preparation")
+    authority = load_authority(repo_root)
+    if authority["mode"] != "manual":
+        raise HandoffAuthorityError("cutover preparation requires manual authority mode")
+    if not shadow.UPDATE_ID_RE.fullmatch(checkpoint_id):
+        raise HandoffAuthorityError(f"invalid checkpoint_id: {checkpoint_id!r}")
+
+    source_parent = _git_text(repo_root, "rev-parse", "HEAD")
+    cutover_auth_path, cutover_auth = _validate_cutover_authorization(
+        repo_root,
+        authorization_record,
+        checkpoint_id=checkpoint_id,
+        source_parent=source_parent,
+    )
+    checkpoint_dir = repo_root / CHECKPOINT_ROOT / checkpoint_id
+    if checkpoint_dir.exists():
+        raise HandoffAuthorityError(f"checkpoint already exists: {checkpoint_id}")
+    manifest_relative = (checkpoint_dir / CHECKPOINT_MANIFEST_FILENAME).relative_to(
+        repo_root
+    ).as_posix()
+    cutover_ledger = _stage5_cutover_ledger_payload(
+        repo_root,
+        authorization_id=cutover_auth["authorization_id"],
+        checkpoint_manifest=manifest_relative,
+    )
+
+    stage3_path, stage3_payload = _validate_stage3_full_acceptance_report(
+        repo_root, stage3_report
+    )
+    stage3_covered_update_ids = _validate_stage3_full_acceptance_covers_source_parent(
+        repo_root, source_parent=source_parent, report=stage3_payload
+    )
+    stage4b_path, stage4b_payload, after_path, after_payload = (
+        _validate_stage4b_acceptance_report(repo_root, stage4b_report)
+    )
+    for path, label in (
+        (stage3_path, "Stage 3 Full Acceptance report"),
+        (stage4b_path, "Stage 4B acceptance report"),
+        (after_path, "Stage 4B acceptance after-image"),
+    ):
+        relative = Path(_repo_relative(repo_root, path, label))
+        if _source_parent_file_hash(repo_root, source_parent, relative) != shadow.sha256_file(path):
+            raise HandoffAuthorityError(f"{label} bytes do not match source parent")
+
+    handoff_text = (repo_root / HANDOFF_PATH).read_text(encoding="utf-8")
+    registry_text = (repo_root / REGISTRY_PATH).read_text(encoding="utf-8")
+    handoff_hash = shadow.sha256_text(handoff_text)
+    registry_hash = shadow.sha256_text(registry_text)
+    if _source_parent_file_hash(repo_root, source_parent, HANDOFF_PATH) != handoff_hash:
+        raise HandoffAuthorityError("current handoff bytes do not match source parent")
+    if _source_parent_file_hash(repo_root, source_parent, REGISTRY_PATH) != registry_hash:
+        raise HandoffAuthorityError("current registry bytes do not match source parent")
+
+    checkpoint_dir.mkdir(parents=True)
+    checkpoint_handoff = checkpoint_dir / "handoff.md"
+    checkpoint_handoff.write_text(handoff_text, encoding="utf-8")
+    timestamp = _utc_timestamp(created_at_utc)
+    audit_path = checkpoint_dir / CHECKPOINT_AUDIT_FILENAME
+    audit = {
+        "schema_version": CHECKPOINT_AUDIT_SCHEMA_VERSION,
+        "policy_id": "GOV-HANDOFF-AUTHORITY-CUTOVER-01",
+        "audit_type": "stage4b_checkpoint_binding",
+        "status": "PASS",
+        "checkpoint_id": checkpoint_id,
+        "source_parent_commit": source_parent,
+        "cutover_authorization_id": cutover_auth["authorization_id"],
+        "cutover_authorization_record": _repo_relative(
+            repo_root, cutover_auth_path, "cutover authorization record"
+        ),
+        "cutover_authorization_record_sha256": shadow.sha256_file(cutover_auth_path),
+        "checkpoint_handoff_sha256": handoff_hash,
+        "checkpoint_registry_sha256": registry_hash,
+        "stage3_full_acceptance_report": _repo_relative(
+            repo_root, stage3_path, "Stage 3 Full Acceptance report"
+        ),
+        "stage3_full_acceptance_report_sha256": shadow.sha256_file(stage3_path),
+        "stage3_successful_real_observation_count": stage3_payload["coverage"][
+            "successful_real_observation_count"
+        ],
+        "stage3_covered_update_ids_fingerprint": shadow.observation_fingerprint(
+            stage3_covered_update_ids
+        ),
+        "stage3_uncovered_real_observation_count": 0,
+        "stage3_current_at_source_parent": True,
+        "stage4b_acceptance_report": _repo_relative(
+            repo_root, stage4b_path, "Stage 4B acceptance report"
+        ),
+        "stage4b_acceptance_report_sha256": shadow.sha256_file(stage4b_path),
+        "stage4b_after_image": _repo_relative(
+            repo_root, after_path, "Stage 4B acceptance after-image"
+        ),
+        "stage4b_after_image_sha256": shadow.sha256_file(after_path),
+        "stage4b_after_image_tree_hash": after_payload["tree_hash"],
+        "stage4b_acceptance_evaluated_base_commit": stage4b_payload[
+            "evaluated_base_commit"
+        ],
+        "created_at_utc": timestamp,
+    }
+    shadow.write_json(audit_path, audit)
+
+    manifest_path = checkpoint_dir / CHECKPOINT_MANIFEST_FILENAME
+    manifest = {
+        "schema_version": CHECKPOINT_MANIFEST_SCHEMA_VERSION,
+        "policy_id": "GOV-HANDOFF-AUTHORITY-CUTOVER-01",
+        "checkpoint_id": checkpoint_id,
+        "source_parent_commit": source_parent,
+        "cutover_authorization_id": cutover_auth["authorization_id"],
+        "cutover_authorization_record": audit["cutover_authorization_record"],
+        "cutover_authorization_record_sha256": audit[
+            "cutover_authorization_record_sha256"
+        ],
+        "handoff_path": _repo_relative(repo_root, checkpoint_handoff, "checkpoint handoff"),
+        "handoff_sha256": handoff_hash,
+        "registry_sha256_for_provenance": registry_hash,
+        "stage3_full_acceptance_report": audit["stage3_full_acceptance_report"],
+        "stage3_full_acceptance_report_sha256": audit[
+            "stage3_full_acceptance_report_sha256"
+        ],
+        "stage4b_cutover_audit_report": _repo_relative(
+            repo_root, audit_path, "Stage 4B cutover audit report"
+        ),
+        "stage4b_cutover_audit_report_sha256": shadow.sha256_file(audit_path),
+        "created_at_utc": timestamp,
+    }
+    shadow.write_json(manifest_path, manifest)
+
+    authority["mode"] = "delta"
+    authority["delta_authority"]["checkpoint_manifest"] = _repo_relative(
+        repo_root, manifest_path, "checkpoint manifest"
+    )
+    authority["delta_authority"]["activation_parent_commit"] = source_parent
+    authority["generated_views"]["stage4a_minimal_refresh"] = True
+    authority["safety"]["direct_handoff_edit_forbidden"] = True
+    _write_yaml(repo_root / AUTHORITY_PATH, authority)
+    _write_yaml(repo_root / STAGE_LEDGER_PATH, cutover_ledger)
+    return {
+        "status": "PASS",
+        "mode": "cutover_prepared",
+        "checkpoint_id": checkpoint_id,
+        "source_parent_commit": source_parent,
+        "cutover_authorization_id": cutover_auth["authorization_id"],
+        "checkpoint_manifest": manifest_path.relative_to(repo_root).as_posix(),
+        "checkpoint_handoff_sha256": handoff_hash,
+        "checkpoint_registry_sha256": registry_hash,
+        "requires_commit": True,
+        "production_delta_in_cutover_commit_forbidden": True,
+    }
+
+
+def prepare_rollback(
+    repo_root: Path,
+    *,
+    rollback_id: str,
+    reason: str,
+    created_at_utc: str | None = None,
+) -> dict[str, Any]:
+    """Prepare a delta-to-manual rollback while preserving current handoff bytes."""
+
+    repo_root = repo_root.resolve()
+    _require_clean_worktree(repo_root, "rollback preparation")
+    authority = load_authority(repo_root)
+    if authority["mode"] != "delta":
+        raise HandoffAuthorityError("rollback preparation requires delta authority mode")
+    if not shadow.UPDATE_ID_RE.fullmatch(rollback_id):
+        raise HandoffAuthorityError(f"invalid rollback_id: {rollback_id!r}")
+    reason = _string(reason, "rollback reason")
+    verified = verify_current_state(repo_root)
+    rollback_dir = repo_root / ROLLBACK_ROOT / rollback_id
+    if rollback_dir.exists():
+        raise HandoffAuthorityError(f"rollback record already exists: {rollback_id}")
+    handoff_hash = shadow.sha256_file(repo_root / HANDOFF_PATH)
+    registry_hash = shadow.sha256_file(repo_root / REGISTRY_PATH)
+    previous_manifest = authority["delta_authority"]["checkpoint_manifest"]
+    previous_activation_parent = authority["delta_authority"]["activation_parent_commit"]
+    _, stage5 = _load_stage5_ledger(repo_root)
+    previous_cutover_authorization = _string(
+        stage5.get("cutover_authorization"), "active cutover authorization"
+    )
+    report_path = rollback_dir / ROLLBACK_REPORT_FILENAME
+    rollback_ledger = _stage5_rollback_ledger_payload(
+        repo_root,
+        rollback_report=report_path.relative_to(repo_root).as_posix(),
+        previous_cutover_authorization=previous_cutover_authorization,
+    )
+    rollback_dir.mkdir(parents=True)
+    report = {
+        "schema_version": ROLLBACK_REPORT_SCHEMA_VERSION,
+        "policy_id": "GOV-HANDOFF-AUTHORITY-CUTOVER-01",
+        "status": "PASS",
+        "rollback_id": rollback_id,
+        "reason": reason,
+        "delta_head_commit": _git_text(repo_root, "rev-parse", "HEAD"),
+        "previous_checkpoint_manifest": previous_manifest,
+        "previous_activation_parent_commit": previous_activation_parent,
+        "previous_cutover_authorization": previous_cutover_authorization,
+        "accepted_authoritative_update_ids": verified["authoritative_update_ids"],
+        "preserved_handoff_sha256": handoff_hash,
+        "preserved_registry_sha256": registry_hash,
+        "target_authority_mode": "manual",
+        "created_at_utc": _utc_timestamp(created_at_utc),
+    }
+    shadow.write_json(report_path, report)
+
+    authority["mode"] = "manual"
+    authority["delta_authority"]["checkpoint_manifest"] = None
+    authority["delta_authority"]["activation_parent_commit"] = None
+    authority["generated_views"]["stage4a_minimal_refresh"] = False
+    authority["safety"]["direct_handoff_edit_forbidden"] = False
+    _write_yaml(repo_root / AUTHORITY_PATH, authority)
+    _write_yaml(repo_root / STAGE_LEDGER_PATH, rollback_ledger)
+    return {
+        "status": "PASS",
+        "mode": "rollback_prepared",
+        "rollback_id": rollback_id,
+        "rollback_report": report_path.relative_to(repo_root).as_posix(),
+        "preserved_handoff_sha256": handoff_hash,
+        "preserved_registry_sha256": registry_hash,
+        "requires_commit": True,
+    }
+
+
+def _validate_checkpoint_audit(
+    repo_root: Path,
+    *,
+    audit_path: Path,
+    manifest: dict[str, Any],
+    source_parent: str,
+    checkpoint_handoff_hash: str,
+    checkpoint_registry_hash: str,
+) -> dict[str, Any]:
+    audit = _load_json(audit_path, "Stage 4B cutover audit report")
+    allowed = {
+        "schema_version",
+        "policy_id",
+        "audit_type",
+        "status",
+        "checkpoint_id",
+        "source_parent_commit",
+        "cutover_authorization_id",
+        "cutover_authorization_record",
+        "cutover_authorization_record_sha256",
+        "checkpoint_handoff_sha256",
+        "checkpoint_registry_sha256",
+        "stage3_full_acceptance_report",
+        "stage3_full_acceptance_report_sha256",
+        "stage3_successful_real_observation_count",
+        "stage3_covered_update_ids_fingerprint",
+        "stage3_uncovered_real_observation_count",
+        "stage3_current_at_source_parent",
+        "stage4b_acceptance_report",
+        "stage4b_acceptance_report_sha256",
+        "stage4b_after_image",
+        "stage4b_after_image_sha256",
+        "stage4b_after_image_tree_hash",
+        "stage4b_acceptance_evaluated_base_commit",
+        "created_at_utc",
+    }
+    _reject_unknown(audit, allowed, "Stage 4B cutover audit report")
+    if (
+        audit.get("schema_version") != CHECKPOINT_AUDIT_SCHEMA_VERSION
+        or audit.get("policy_id") != "GOV-HANDOFF-AUTHORITY-CUTOVER-01"
+        or audit.get("audit_type") != "stage4b_checkpoint_binding"
+        or audit.get("status") != "PASS"
+        or audit.get("checkpoint_id") != manifest["checkpoint_id"]
+        or audit.get("source_parent_commit") != source_parent
+        or audit.get("cutover_authorization_id") != manifest["cutover_authorization_id"]
+        or audit.get("cutover_authorization_record")
+        != manifest["cutover_authorization_record"]
+        or audit.get("cutover_authorization_record_sha256")
+        != manifest["cutover_authorization_record_sha256"]
+        or audit.get("checkpoint_handoff_sha256") != checkpoint_handoff_hash
+        or audit.get("checkpoint_registry_sha256") != checkpoint_registry_hash
+    ):
+        raise HandoffAuthorityError("Stage 4B cutover audit does not bind checkpoint bytes")
+    _utc_timestamp(_string(audit.get("created_at_utc"), "cutover audit created_at_utc"))
+
+    stage3_relative = _string(
+        audit.get("stage3_full_acceptance_report"),
+        "cutover audit Stage 3 Full Acceptance report",
+    )
+    if stage3_relative != manifest["stage3_full_acceptance_report"]:
+        raise HandoffAuthorityError("checkpoint manifest and cutover audit disagree on Stage 3 report")
+    stage3_path, stage3 = _validate_stage3_full_acceptance_report(repo_root, stage3_relative)
+    stage3_covered_update_ids = _validate_stage3_full_acceptance_covers_source_parent(
+        repo_root, source_parent=source_parent, report=stage3
+    )
+    stage3_hash = shadow.sha256_file(stage3_path)
+    if (
+        stage3_hash != audit.get("stage3_full_acceptance_report_sha256")
+        or stage3_hash != manifest["stage3_full_acceptance_report_sha256"]
+        or _source_parent_file_hash(repo_root, source_parent, Path(stage3_relative)) != stage3_hash
+        or audit.get("stage3_successful_real_observation_count")
+        != stage3["coverage"]["successful_real_observation_count"]
+        or audit.get("stage3_covered_update_ids_fingerprint")
+        != shadow.observation_fingerprint(stage3_covered_update_ids)
+        or audit.get("stage3_uncovered_real_observation_count") != 0
+        or audit.get("stage3_current_at_source_parent") is not True
+    ):
+        raise HandoffAuthorityError("Stage 3 Full Acceptance report provenance mismatch")
+
+    stage4b_relative = _string(
+        audit.get("stage4b_acceptance_report"),
+        "cutover audit Stage 4B acceptance report",
+    )
+    stage4b_path, stage4b, after_path, after = _validate_stage4b_acceptance_report(
+        repo_root, stage4b_relative
+    )
+    after_relative = _repo_relative(repo_root, after_path, "Stage 4B acceptance after-image")
+    stage4b_hash = shadow.sha256_file(stage4b_path)
+    after_hash = shadow.sha256_file(after_path)
+    if (
+        stage4b_hash != audit.get("stage4b_acceptance_report_sha256")
+        or _source_parent_file_hash(repo_root, source_parent, Path(stage4b_relative))
+        != stage4b_hash
+        or after_relative != audit.get("stage4b_after_image")
+        or after_hash != audit.get("stage4b_after_image_sha256")
+        or _source_parent_file_hash(repo_root, source_parent, Path(after_relative)) != after_hash
+        or after.get("tree_hash") != audit.get("stage4b_after_image_tree_hash")
+        or stage4b.get("after_image_tree_hash") != after.get("tree_hash")
+        or stage4b.get("evaluated_base_commit")
+        != audit.get("stage4b_acceptance_evaluated_base_commit")
+    ):
+        raise HandoffAuthorityError("Stage 4B cutover audit provenance mismatch")
+    return audit
+
+
 def _load_checkpoint(repo_root: Path, authority: dict[str, Any]) -> tuple[dict[str, Any], str]:
     manifest_path = _safe_path(
         repo_root,
         authority["delta_authority"]["checkpoint_manifest"],
         "checkpoint manifest",
     )
-    try:
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise HandoffAuthorityError(f"Invalid checkpoint manifest: {exc}") from exc
-    if not isinstance(manifest, dict) or manifest.get("schema_version") != 1:
-        raise HandoffAuthorityError("checkpoint manifest schema_version must be 1")
+    manifest = _load_json(manifest_path, "checkpoint manifest")
+    if manifest.get("schema_version") != CHECKPOINT_MANIFEST_SCHEMA_VERSION:
+        raise HandoffAuthorityError(
+            f"checkpoint manifest schema_version must be {CHECKPOINT_MANIFEST_SCHEMA_VERSION}"
+        )
     allowed = {
         "schema_version",
+        "policy_id",
         "checkpoint_id",
         "source_parent_commit",
+        "cutover_authorization_id",
+        "cutover_authorization_record",
+        "cutover_authorization_record_sha256",
         "handoff_path",
         "handoff_sha256",
         "registry_sha256_for_provenance",
         "stage3_full_acceptance_report",
+        "stage3_full_acceptance_report_sha256",
         "stage4b_cutover_audit_report",
+        "stage4b_cutover_audit_report_sha256",
         "created_at_utc",
     }
     _reject_unknown(manifest, allowed, "checkpoint manifest")
+    if manifest.get("policy_id") != "GOV-HANDOFF-AUTHORITY-CUTOVER-01":
+        raise HandoffAuthorityError("checkpoint manifest policy_id mismatch")
+    checkpoint_id = _string(manifest.get("checkpoint_id"), "checkpoint_id")
+    if not shadow.UPDATE_ID_RE.fullmatch(checkpoint_id):
+        raise HandoffAuthorityError("checkpoint_id is invalid")
+    expected_checkpoint_dir = CHECKPOINT_ROOT / checkpoint_id
+    manifest_checkpoint_dir = Path(
+        _repo_relative(repo_root, manifest_path.parent, "checkpoint manifest directory")
+    )
+    if manifest_checkpoint_dir != expected_checkpoint_dir:
+        raise HandoffAuthorityError("checkpoint manifest is outside its checkpoint directory")
+
     source_parent = _string(manifest.get("source_parent_commit"), "source_parent_commit")
     if not shadow.GIT_SHA_RE.fullmatch(source_parent):
         raise HandoffAuthorityError("checkpoint source_parent_commit must be a full Git SHA")
     if source_parent != authority["delta_authority"]["activation_parent_commit"]:
         raise HandoffAuthorityError("checkpoint source parent must equal activation parent")
+
+    cutover_auth_id = _string(
+        manifest.get("cutover_authorization_id"), "cutover_authorization_id"
+    )
+    cutover_auth_relative = _string(
+        manifest.get("cutover_authorization_record"), "cutover_authorization_record"
+    )
+    cutover_auth_hash = _string(
+        manifest.get("cutover_authorization_record_sha256"),
+        "cutover_authorization_record_sha256",
+    )
+    if not shadow.SHA256_RE.fullmatch(cutover_auth_hash):
+        raise HandoffAuthorityError("cutover authorization hash must be SHA-256")
+    cutover_auth_path, cutover_auth = _validate_cutover_authorization(
+        repo_root,
+        cutover_auth_relative,
+        checkpoint_id=checkpoint_id,
+        source_parent=source_parent,
+    )
+    if (
+        cutover_auth["authorization_id"] != cutover_auth_id
+        or shadow.sha256_file(cutover_auth_path) != cutover_auth_hash
+    ):
+        raise HandoffAuthorityError("cutover authorization provenance mismatch")
+
     handoff_file = _safe_path(
         repo_root,
         _string(manifest.get("handoff_path"), "handoff_path"),
         "checkpoint handoff",
     )
+    if handoff_file.parent != manifest_path.parent or handoff_file.name != "handoff.md":
+        raise HandoffAuthorityError("checkpoint handoff must live beside its manifest")
     text = handoff_file.read_text(encoding="utf-8")
-    if shadow.sha256_text(text) != manifest.get("handoff_sha256"):
+    handoff_hash = shadow.sha256_text(text)
+    if handoff_hash != manifest.get("handoff_sha256"):
         raise HandoffAuthorityError("checkpoint handoff SHA-256 mismatch")
+    if _git_show(repo_root, source_parent, HANDOFF_PATH) != text:
+        raise HandoffAuthorityError("checkpoint bytes do not match source parent handoff")
+
     registry_hash = _string(
         manifest.get("registry_sha256_for_provenance"),
         "registry_sha256_for_provenance",
     )
     if not shadow.SHA256_RE.fullmatch(registry_hash):
         raise HandoffAuthorityError("checkpoint registry provenance hash must be SHA-256")
-    _safe_path(
-        repo_root,
-        _string(manifest.get("stage3_full_acceptance_report"), "stage3_full_acceptance_report"),
-        "Stage 3 Full Acceptance report",
+    source_registry_hash = shadow.sha256_text(
+        _git_show(repo_root, source_parent, REGISTRY_PATH)
     )
-    _safe_path(
+    if registry_hash != source_registry_hash:
+        raise HandoffAuthorityError(
+            "checkpoint registry provenance hash does not match source-parent registry"
+        )
+
+    stage3_relative = _string(
+        manifest.get("stage3_full_acceptance_report"),
+        "stage3_full_acceptance_report",
+    )
+    stage3_hash = _string(
+        manifest.get("stage3_full_acceptance_report_sha256"),
+        "stage3_full_acceptance_report_sha256",
+    )
+    if not shadow.SHA256_RE.fullmatch(stage3_hash):
+        raise HandoffAuthorityError("Stage 3 Full Acceptance report hash must be SHA-256")
+
+    audit_path = _safe_path(
         repo_root,
         _string(manifest.get("stage4b_cutover_audit_report"), "stage4b_cutover_audit_report"),
         "Stage 4B cutover audit report",
     )
-    _string(manifest.get("created_at_utc"), "created_at_utc")
-    if _git_show(repo_root, source_parent, HANDOFF_PATH) != text:
-        raise HandoffAuthorityError("checkpoint bytes do not match source parent handoff")
+    if audit_path.parent != manifest_path.parent or audit_path.name != CHECKPOINT_AUDIT_FILENAME:
+        raise HandoffAuthorityError("Stage 4B cutover audit must live beside checkpoint manifest")
+    audit_hash = _string(
+        manifest.get("stage4b_cutover_audit_report_sha256"),
+        "stage4b_cutover_audit_report_sha256",
+    )
+    if not shadow.SHA256_RE.fullmatch(audit_hash) or shadow.sha256_file(audit_path) != audit_hash:
+        raise HandoffAuthorityError("Stage 4B cutover audit SHA-256 mismatch")
+    _validate_checkpoint_audit(
+        repo_root,
+        audit_path=audit_path,
+        manifest=manifest,
+        source_parent=source_parent,
+        checkpoint_handoff_hash=handoff_hash,
+        checkpoint_registry_hash=registry_hash,
+    )
+    _utc_timestamp(_string(manifest.get("created_at_utc"), "created_at_utc"))
 
     head = _git_text(repo_root, "rev-parse", "HEAD")
     activation_commits = _git_text(
@@ -654,7 +1363,39 @@ def _load_checkpoint(repo_root: Path, authority: dict[str, Any]) -> tuple[dict[s
     if not activation_commits:
         raise HandoffAuthorityError("delta mode lacks an authority activation commit")
     activation_commit = activation_commits[0]
-    for protected in (manifest_path, handoff_file, repo_root / AUTHORITY_PATH):
+    activation_paths = _git_text(
+        repo_root,
+        "diff-tree",
+        "--no-commit-id",
+        "--name-only",
+        "-r",
+        activation_commit,
+    ).splitlines()
+    if HANDOFF_PATH.as_posix() in activation_paths or REGISTRY_PATH.as_posix() in activation_paths:
+        raise HandoffAuthorityError("cutover commit may not modify handoff or registry bytes")
+    delta_paths = [
+        path
+        for path in activation_paths
+        if path.startswith(f"{DELTA_ROOT.as_posix()}/") and path.endswith(f"/{DELTA_FILENAME}")
+    ]
+    if delta_paths:
+        raise HandoffAuthorityError(
+            "cutover commit may not include the first production schema-v3 delta"
+        )
+
+    cutover_auth_touches = _git_text(
+        repo_root,
+        "log",
+        "--format=%H",
+        f"{source_parent}..{head}",
+        "--",
+        cutover_auth_relative,
+    ).splitlines()
+    if cutover_auth_touches:
+        raise HandoffAuthorityError("cutover authorization record is not immutable")
+
+    protected_assets = (manifest_path, handoff_file, audit_path, repo_root / AUTHORITY_PATH)
+    for protected in protected_assets:
         relative = _repo_relative(repo_root, protected, "protected authority asset")
         touches = _git_text(
             repo_root,
@@ -668,8 +1409,10 @@ def _load_checkpoint(repo_root: Path, authority: dict[str, Any]) -> tuple[dict[s
             raise HandoffAuthorityError(
                 f"cutover checkpoint/authority asset is not immutable: {relative}"
             )
+    stage3_path = _safe_path(repo_root, stage3_relative, "Stage 3 Full Acceptance report")
+    if shadow.sha256_file(stage3_path) != stage3_hash:
+        raise HandoffAuthorityError("Stage 3 Full Acceptance report SHA-256 mismatch")
     return manifest, text
-
 
 def _first_parent_positions(repo_root: Path, activation: str, head: str) -> dict[str, int]:
     commits = _git_text(
@@ -863,6 +1606,28 @@ def normalize_update(
             "content package modifies trusted control-plane paths: " + ", ".join(control_changes)
         )
 
+    changed_delta_files = sorted(
+        path
+        for path in changed
+        if path.startswith(f"{DELTA_ROOT.as_posix()}/")
+        and path.endswith(f"/{DELTA_FILENAME}")
+    )
+    if not changed_delta_files:
+        if REGISTRY_PATH.as_posix() in changed:
+            raise HandoffAuthorityError(
+                "registry changes in delta mode require exactly one newly added schema-v3 delta"
+            )
+        verified_target = verify_current_state(target_repo)
+        return {
+            "status": "PASS",
+            "mode": "delta",
+            "normalization": "no_op",
+            "authority_transitioned": False,
+            "handoff_sha256": verified_target["handoff_sha256"],
+            "authoritative_delta_count": verified_target["authoritative_delta_count"],
+            "reason": "source package does not change handoff or registry authority state",
+        }
+
     delta_path = _find_new_v3_delta(target_repo, changed)
     intent = validate_exact_base_intent(
         target_repo, delta_path, source_patch_commit=source_patch_commit
@@ -974,6 +1739,34 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     normalize.add_argument("--source-patch-commit", required=True)
     normalize.add_argument("--allow-authority-transition", action="store_true")
     normalize.add_argument("--json", action="store_true")
+
+    cutover = sub.add_parser(
+        "cutover",
+        help="prepare checkpoint plus manual-to-delta authority transition without committing",
+    )
+    cutover.add_argument("--repo-root", type=Path, default=Path.cwd())
+    cutover.add_argument("--checkpoint-id", required=True)
+    cutover.add_argument("--authorization-record", required=True)
+    cutover.add_argument(
+        "--stage3-full-acceptance-report",
+        default=DEFAULT_STAGE3_FULL_ACCEPTANCE_REPORT.as_posix(),
+    )
+    cutover.add_argument(
+        "--stage4b-acceptance-report",
+        default=DEFAULT_STAGE4B_ACCEPTANCE_REPORT.as_posix(),
+    )
+    cutover.add_argument("--created-at-utc")
+    cutover.add_argument("--json", action="store_true")
+
+    rollback = sub.add_parser(
+        "rollback",
+        help="prepare delta-to-manual authority rollback while preserving current materialized bytes",
+    )
+    rollback.add_argument("--repo-root", type=Path, default=Path.cwd())
+    rollback.add_argument("--rollback-id", required=True)
+    rollback.add_argument("--reason", required=True)
+    rollback.add_argument("--created-at-utc")
+    rollback.add_argument("--json", action="store_true")
     return parser.parse_args(argv)
 
 
@@ -1005,6 +1798,22 @@ def main(argv: Sequence[str] | None = None) -> int:
                 source_base=args.source_base,
                 source_patch_commit=args.source_patch_commit,
                 allow_authority_transition=args.allow_authority_transition,
+            )
+        elif args.command == "cutover":
+            payload = prepare_cutover(
+                args.repo_root,
+                checkpoint_id=args.checkpoint_id,
+                authorization_record=args.authorization_record,
+                stage3_report=args.stage3_full_acceptance_report,
+                stage4b_report=args.stage4b_acceptance_report,
+                created_at_utc=args.created_at_utc,
+            )
+        elif args.command == "rollback":
+            payload = prepare_rollback(
+                args.repo_root,
+                rollback_id=args.rollback_id,
+                reason=args.reason,
+                created_at_utc=args.created_at_utc,
             )
         else:  # pragma: no cover
             raise AssertionError(args.command)

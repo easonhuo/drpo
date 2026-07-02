@@ -14,6 +14,7 @@ import argparse
 import hashlib
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -67,6 +68,7 @@ ALLOWED_STAGE3_ACCEPTANCE_STATES = {
     "critical_mismatch_open",
     "shadow_validation_complete",
 }
+STAGE4A_DYNAMIC_PREFIX = "docs/handoff_shadow/stage4/minimal/generated/"
 
 EXPECTED_HISTORICAL_RENUMBERING = {
     "historical_stage_2_handoff_delta": "stage_3",
@@ -122,7 +124,33 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def validate_stage4a_after_image(repo_root: Path, path_value: str) -> dict[str, Any]:
+def validate_stage4a_current_source(repo_root: Path) -> None:
+    builder = repo_root / "scripts/build_stage4_context.py"
+    proc = subprocess.run(
+        [
+            sys.executable,
+            str(builder),
+            "--repo-root",
+            str(repo_root),
+            "--json",
+            "check",
+        ],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+        timeout=120,
+    )
+    if proc.returncode != 0:
+        raise StageStatusError(
+            "Stage 4A dynamic outputs are not deterministic current-source materializations: "
+            + (proc.stderr or proc.stdout).strip()
+        )
+
+
+def validate_stage4a_after_image(
+    repo_root: Path, path_value: str, *, check_dynamic: bool = True
+) -> dict[str, Any]:
     path = safe_repo_path(repo_root, path_value, "stage_4 acceptance after-image")
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
@@ -141,6 +169,7 @@ def validate_stage4a_after_image(repo_root: Path, path_value: str) -> dict[str, 
         raise StageStatusError("Stage 4A after-image files must be non-empty")
     seen: set[str] = set()
     canonical: list[dict[str, str]] = []
+    dynamic_count = 0
     for index, entry in enumerate(entries):
         if not isinstance(entry, dict):
             raise StageStatusError(f"Stage 4A after-image files[{index}] must be a mapping")
@@ -151,11 +180,15 @@ def validate_stage4a_after_image(repo_root: Path, path_value: str) -> dict[str, 
         if relative in seen:
             raise StageStatusError(f"Stage 4A after-image duplicate path: {relative}")
         seen.add(relative)
-        actual = sha256(safe_repo_path(repo_root, relative, "Stage 4A after-image file"))
-        if actual != digest:
-            raise StageStatusError(
-                f"Stage 4A after-image drift for {relative}; expected {digest}, got {actual}"
-            )
+        current_path = safe_repo_path(repo_root, relative, "Stage 4A after-image file")
+        if relative.startswith(STAGE4A_DYNAMIC_PREFIX):
+            dynamic_count += 1
+        else:
+            actual = sha256(current_path)
+            if actual != digest:
+                raise StageStatusError(
+                    f"Stage 4A after-image drift for {relative}; expected {digest}, got {actual}"
+                )
         canonical.append({"path": relative, "sha256": digest})
     expected_tree = hashlib.sha256(
         (
@@ -166,7 +199,13 @@ def validate_stage4a_after_image(repo_root: Path, path_value: str) -> dict[str, 
         raise StageStatusError("Stage 4A after-image tree_hash mismatch")
     if payload.get("file_count") != len(entries):
         raise StageStatusError("Stage 4A after-image file_count mismatch")
-    return {"file_count": len(entries), "tree_hash": expected_tree}
+    if dynamic_count and check_dynamic:
+        validate_stage4a_current_source(repo_root)
+    return {
+        "file_count": len(entries),
+        "tree_hash": expected_tree,
+        "dynamic_file_count": dynamic_count,
+    }
 
 
 def validate_stage4b_after_image(repo_root: Path, path_value: str) -> dict[str, Any]:
@@ -344,6 +383,7 @@ def validate(repo_root: Path, ledger_path: Path) -> dict[str, Any]:
 
     protected_paths: dict[str, str] = {}
     stage_reports: dict[str, Any] = {}
+    stage4a_dynamic_check_required = False
     for stage_id in STAGE_IDS:
         stage = stages[stage_id]
         if not isinstance(stage, dict):
@@ -388,8 +428,8 @@ def validate(repo_root: Path, ledger_path: Path) -> dict[str, Any]:
                 raise StageStatusError(f"{stage_id}: reopen requirements changed")
             if not isinstance(protected, list) or not protected:
                 raise StageStatusError(f"{stage_id}: protected_files must be non-empty")
-        elif protected:
-            raise StageStatusError(f"{stage_id}: only Stage 1/2 may own protected_files")
+        elif not isinstance(protected, list):
+            raise StageStatusError(f"{stage_id}: protected_files must be a list")
 
         if stage_id == "stage_3" and status == "shadow_active":
             required_stage3_files = {
@@ -606,7 +646,12 @@ def validate(repo_root: Path, ledger_path: Path) -> dict[str, Any]:
                 or r4a.get("evaluated_base_commit") != "9674cb167080dfdeecb353c9f328ad86b74f87c5"
             ):
                 raise StageStatusError("Stage 4A acceptance report changed")
-            a4a = validate_stage4a_after_image(repo_root, stage["stage4a_acceptance_after_image"])
+            a4a = validate_stage4a_after_image(
+                repo_root,
+                stage["stage4a_acceptance_after_image"],
+                check_dynamic=False,
+            )
+            stage4a_dynamic_check_required = a4a["dynamic_file_count"] > 0
             if r4a.get("after_image_tree_hash") != a4a["tree_hash"]:
                 raise StageStatusError("Stage 4A acceptance report after-image hash mismatch")
             rp = safe_repo_path(repo_root, stage["acceptance_report"], "stage_4b acceptance report")
@@ -640,29 +685,35 @@ def validate(repo_root: Path, ledger_path: Path) -> dict[str, Any]:
                 raise StageStatusError("Stage 4B acceptance report after-image hash mismatch")
 
         if stage_id == "stage_5":
-            expected_stage5_auth_id = "GOV-STAGE5-CANDIDATE-IMPLEMENTATION-2026-07-01"
-            if status_auth_id != expected_stage5_auth_id:
-                raise StageStatusError(
-                    f"stage_5 status_authorization must be {expected_stage5_auth_id}"
-                )
-            auth = authorizations.get(expected_stage5_auth_id)
+            original_auth_id = "GOV-STAGE5-CANDIDATE-IMPLEMENTATION-2026-07-01"
+            original_auth = authorizations.get(original_auth_id)
             if (
-                auth is None
-                or auth.get("kind") != "reopen"
-                or auth.get("base_commit")
+                original_auth is None
+                or original_auth.get("kind") != "reopen"
+                or original_auth.get("base_commit")
                 != "4ad8b09ca80bc4b98aebffc6540f9be29440ba28"
-                or auth.get("claim_id") != "GOV-HANDOFF-AUTHORITY-CUTOVER-01"
+                or original_auth.get("claim_id")
+                != "GOV-HANDOFF-AUTHORITY-CUTOVER-01"
             ):
                 raise StageStatusError("Stage 5 candidate authorization missing or invalid")
-            if status != "active":
-                raise StageStatusError("stage_5 candidate implementation must be active")
+
+            hardening_auth_id = "GOV-STAGE5-PRE-CUTOVER-HARDENING-2026-07-02"
+            if stage.get("pre_cutover_hardening_authorization") != hardening_auth_id:
+                raise StageStatusError("stage_5 pre-cutover hardening authorization mismatch")
+            hardening_auth = authorizations.get(hardening_auth_id)
             if (
-                stage.get("implementation_state")
-                != "candidate_implemented_pending_pre_cutover_acceptance"
-                or stage.get("implementation_allowed") is not False
-                or stage.get("candidate_only") is not True
+                hardening_auth is None
+                or hardening_auth.get("kind") != "reopen"
+                or hardening_auth.get("base_commit")
+                != "dacddafbf3e3caf560e87c145ab92d35b8d7fef1"
+                or hardening_auth.get("claim_id")
+                != "GOV-HANDOFF-AUTHORITY-CUTOVER-01"
+                or set(hardening_auth.get("stage_ids", [])) != {"stage_4", "stage_5"}
             ):
-                raise StageStatusError("stage_5 candidate implementation boundary is invalid")
+                raise StageStatusError("Stage 5 pre-cutover hardening authorization invalid")
+            if status != "active":
+                raise StageStatusError("stage_5 lifecycle must remain active")
+
             expected_paths = {
                 "candidate_spec": "docs/governance_stage5_versioned_handoff_spec.md",
                 "candidate_authority_config": "docs/handoff_versions/AUTHORITY.yaml",
@@ -673,8 +724,9 @@ def validate(repo_root: Path, ledger_path: Path) -> dict[str, Any]:
                 if value != expected_path:
                     raise StageStatusError(f"stage_5 {key} must be {expected_path}")
                 safe_repo_path(repo_root, value, f"stage_5 {key}")
-            if stage.get("candidate_authorization") != expected_stage5_auth_id:
+            if stage.get("candidate_authorization") != original_auth_id:
                 raise StageStatusError("stage_5 candidate_authorization mismatch")
+
             checkpoint_report_value = require_string(
                 stage.get("stage3_pre_stage5_full_acceptance_report"),
                 "stage_5 Stage 3 pre-Stage 5 Full Acceptance report",
@@ -700,20 +752,31 @@ def validate(repo_root: Path, ledger_path: Path) -> dict[str, Any]:
                 or len(coverage.get("covered_update_ids", [])) != 17
             ):
                 raise StageStatusError("stage_5 requires the current 17-observation Full Acceptance")
-            if stage.get("current_write_authority") != "manual_handoff":
-                raise StageStatusError("stage_5 candidate must preserve manual handoff write authority")
-            if stage.get("authority_cutover_allowed") is not False:
-                raise StageStatusError("stage_5 candidate must forbid authority cutover")
             if stage.get("cutover_requires_independent_user_authorization") is not True:
                 raise StageStatusError(
                     "stage_5 cutover must require independent user authorization"
                 )
+            expected_hardening_state = {
+                "code_only_normalization": "verified_no_op",
+                "stage4a_generated_validation": "current_source_deterministic",
+                "checkpoint_manifest_schema_version": 2,
+                "stage3_full_acceptance_current_at_cutover_required": True,
+                "cutover_lifecycle_state": "implemented_not_executed",
+                "rollback_lifecycle_state": "implemented_not_executed",
+                "real_delta_mode_updater_test": "implemented",
+            }
+            for key, expected_value in expected_hardening_state.items():
+                if stage.get(key) != expected_value:
+                    raise StageStatusError(
+                        f"stage_5 hardened lifecycle field {key} must be {expected_value!r}"
+                    )
             expected_stage5_dependencies = [
                 "stage_3_shadow_validation",
                 "stage_4_lossless_validation",
             ]
             if stage.get("depends_on") != expected_stage5_dependencies:
                 raise StageStatusError("stage_5 must preserve Stage 3/4 validation dependencies")
+
             authority_config = load_mapping(
                 repo_root / "docs/handoff_versions/AUTHORITY.yaml",
                 "Stage 5 authority config",
@@ -722,25 +785,113 @@ def validate(repo_root: Path, ledger_path: Path) -> dict[str, Any]:
                 authority_config.get("schema_version") != 1
                 or authority_config.get("policy_id")
                 != "GOV-HANDOFF-AUTHORITY-CUTOVER-01"
-                or authority_config.get("mode") != "manual"
                 or authority_config.get("read_master") != "docs/handoff.md"
                 or authority_config.get("registry_write_authority")
                 != "experiments/registry.yaml"
             ):
-                raise StageStatusError("Stage 5 authority config must remain manual candidate mode")
+                raise StageStatusError("Stage 5 authority config schema/read boundary is invalid")
+            mode = authority_config.get("mode")
             delta_authority = authority_config.get("delta_authority", {})
             safety = authority_config.get("safety", {})
             generated = authority_config.get("generated_views", {})
             if (
-                delta_authority.get("checkpoint_manifest") is not None
-                or delta_authority.get("activation_parent_commit") is not None
-                or delta_authority.get("current_schema_version") != 3
+                delta_authority.get("current_schema_version") != 3
                 or delta_authority.get("maximum_deltas_per_update") != 1
-                or generated.get("stage4a_minimal_refresh") is not False
-                or safety.get("direct_handoff_edit_forbidden") is not False
                 or safety.get("authority_transition_requires_explicit_flag") is not True
             ):
-                raise StageStatusError("Stage 5 candidate config illegally activates cutover behavior")
+                raise StageStatusError("Stage 5 authority lifecycle invariants changed")
+
+            if mode == "manual":
+                if stage.get("authority_cutover_allowed") is not False:
+                    raise StageStatusError("stage_5 candidate must forbid authority cutover")
+                if status_auth_id != original_auth_id:
+                    raise StageStatusError(
+                        f"stage_5 manual status_authorization must be {original_auth_id}"
+                    )
+                if (
+                    stage.get("implementation_state")
+                    != "candidate_hardened_ready_for_pre_cutover_acceptance"
+                    or stage.get("implementation_allowed") is not False
+                    or stage.get("candidate_only") is not True
+                    or stage.get("pre_cutover_acceptance_state")
+                    != "ready_for_independent_acceptance"
+                    or stage.get("confirmed_blockers_open") != []
+                    or stage.get("current_write_authority") != "manual_handoff"
+                    or stage.get("production_cutover_executed") is not False
+                ):
+                    raise StageStatusError("stage_5 hardened manual candidate boundary is invalid")
+                if (
+                    delta_authority.get("checkpoint_manifest") is not None
+                    or delta_authority.get("activation_parent_commit") is not None
+                    or generated.get("stage4a_minimal_refresh") is not False
+                    or safety.get("direct_handoff_edit_forbidden") is not False
+                ):
+                    raise StageStatusError(
+                        "Stage 5 candidate config illegally activates cutover behavior"
+                    )
+            elif mode == "delta":
+                cutover_auth_value = stage.get("cutover_authorization")
+                if not isinstance(cutover_auth_value, str) or not cutover_auth_value:
+                    raise StageStatusError(
+                        "Stage 5 authority config must remain manual candidate mode unless "
+                        "the ledger records a complete authorized delta cutover"
+                    )
+                cutover_auth_id = cutover_auth_value
+                cutover_auth = authorizations.get(cutover_auth_id)
+                required_scope = {
+                    "activate_delta_handoff_authority",
+                    "create_cutover_checkpoint",
+                    "enable_manual_to_delta_cutover_transaction",
+                }
+                if (
+                    status_auth_id != cutover_auth_id
+                    or cutover_auth is None
+                    or cutover_auth.get("kind") != "stage_transition"
+                    or cutover_auth.get("claim_id")
+                    != "GOV-HANDOFF-AUTHORITY-CUTOVER-01"
+                    or "stage_5" not in cutover_auth.get("stage_ids", [])
+                    or not required_scope.issubset(set(cutover_auth.get("scope", [])))
+                ):
+                    raise StageStatusError("Stage 5 delta cutover authorization invalid")
+                checkpoint_manifest = require_string(
+                    stage.get("cutover_checkpoint_manifest"),
+                    "stage_5 cutover checkpoint manifest",
+                )
+                activation_parent = delta_authority.get("activation_parent_commit")
+                if (
+                    stage.get("implementation_state")
+                    != "production_delta_authority_active"
+                    or stage.get("implementation_allowed") is not False
+                    or stage.get("candidate_only") is not False
+                    or stage.get("pre_cutover_acceptance_state")
+                    != "accepted_by_cutover_authorization"
+                    or stage.get("current_write_authority") != "schema_v3_delta"
+                    or stage.get("authority_cutover_allowed") is not True
+                    or stage.get("production_cutover_executed") is not True
+                    or checkpoint_manifest != delta_authority.get("checkpoint_manifest")
+                    or not isinstance(activation_parent, str)
+                    or not GIT_SHA_RE.fullmatch(activation_parent)
+                    or generated.get("stage4a_minimal_refresh") is not True
+                    or safety.get("direct_handoff_edit_forbidden") is not True
+                ):
+                    raise StageStatusError(
+                        "Stage 5 authority config must remain manual candidate mode unless "
+                        "the ledger records a complete authorized delta cutover"
+                    )
+                manifest_path = safe_repo_path(
+                    repo_root, checkpoint_manifest, "stage_5 cutover checkpoint manifest"
+                )
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                if (
+                    manifest.get("schema_version") != 2
+                    or manifest.get("policy_id")
+                    != "GOV-HANDOFF-AUTHORITY-CUTOVER-01"
+                    or manifest.get("cutover_authorization_id") != cutover_auth_id
+                    or manifest.get("source_parent_commit") != activation_parent
+                ):
+                    raise StageStatusError("Stage 5 cutover checkpoint manifest binding invalid")
+            else:
+                raise StageStatusError(f"unsupported Stage 5 authority mode: {mode!r}")
 
         file_reports: list[dict[str, str]] = []
         for entry in protected:
@@ -781,6 +932,9 @@ def validate(repo_root: Path, ledger_path: Path) -> dict[str, Any]:
             "status_authorization": status_auth_id,
             "protected_files": file_reports,
         }
+
+    if stage4a_dynamic_check_required:
+        validate_stage4a_current_source(repo_root)
 
     return {
         "matched": True,

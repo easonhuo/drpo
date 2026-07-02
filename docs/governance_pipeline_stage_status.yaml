@@ -30,14 +30,16 @@ stages:
   stage_0:
     number: 0
     name: rule_migration_safety_and_assurance
-    responsibility: Preserve governance rules, fingerprints, assurance mappings, and direct test evidence.
+    responsibility: Preserve governance rules, fingerprints, assurance mappings, and
+      direct test evidence.
     status: closed
     status_authorization: GOV-PIPELINE-STAGE12-CLOSURE-2026-06-27
     protected_files: []
   stage_1:
     number: 1
     name: bundle_backed_update_integration_pipeline
-    responsibility: Produce, verify, integrate, test, diagnose, and export canonical code-update packages.
+    responsibility: Produce, verify, integrate, test, diagnose, and export canonical
+      code-update packages.
     status: closed_maintenance_only
     status_authorization: GOV-STAGE1-STAGE3-TEST-INTEGRATION-2026-06-27
     closure_evidence:
@@ -95,8 +97,8 @@ stages:
   stage_2:
     number: 2
     name: canonical_formal_experiment_channel
-    responsibility: Enforce the single guarded formal execution, packaging, verification, and anti-bypass
-      channel.
+    responsibility: Enforce the single guarded formal execution, packaging, verification,
+      and anti-bypass channel.
     status: closed_maintenance_only
     status_authorization: GOV-PIPELINE-STAGE12-CLOSURE-2026-06-27
     production_acceptance_experiment: D-U1-E6-SEMANTIC-LONGRUN-01
@@ -144,8 +146,8 @@ stages:
   stage_3:
     number: 3
     name: handoff_delta_shadow_mode
-    responsibility: Add structured HANDOFF_DELTA generation, replay, candidate rendering, and shadow comparison
-      without switching authority.
+    responsibility: Add structured HANDOFF_DELTA generation, replay, candidate rendering,
+      and shadow comparison without switching authority.
     status: shadow_active
     status_authorization: GOV-STAGE3-SHADOW-ACTIVATION-2026-06-27
     depends_on:
@@ -178,8 +180,8 @@ stages:
   stage_4:
     number: 4
     name: lossless_handoff_history_split_shadow_mode
-    responsibility: Generate a compact current handoff plus immutable indexed history while preserving
-      all bytes and headings.
+    responsibility: Generate a compact current handoff plus immutable indexed history
+      while preserving all bytes and headings.
     status: active
     status_authorization: GOV-STAGE4B-FINAL-ACCEPTANCE-2026-07-01
     design_state: specification_authorized
@@ -222,11 +224,15 @@ stages:
   stage_5:
     number: 5
     name: versioned_handoff_write_authority_cutover
-    responsibility: Promote the validated Stage 3 delta engine into a trusted candidate write-source pipeline without changing authority until a separate cutover authorization.
+    responsibility: Promote the validated Stage 3 delta engine into a trusted candidate
+      write-source pipeline without changing authority until a separate cutover authorization.
     status: active
     status_authorization: GOV-STAGE5-CANDIDATE-IMPLEMENTATION-2026-07-01
-    implementation_state: candidate_implemented_pending_pre_cutover_acceptance
+    implementation_state: candidate_hardened_ready_for_pre_cutover_acceptance
     implementation_allowed: false
+    pre_cutover_hardening_authorization: GOV-STAGE5-PRE-CUTOVER-HARDENING-2026-07-02
+    pre_cutover_acceptance_state: ready_for_independent_acceptance
+    confirmed_blockers_open: []
     candidate_only: true
     candidate_spec: docs/governance_stage5_versioned_handoff_spec.md
     candidate_authority_config: docs/handoff_versions/AUTHORITY.yaml
@@ -236,7 +242,30 @@ stages:
     current_write_authority: manual_handoff
     authority_cutover_allowed: false
     cutover_requires_independent_user_authorization: true
+    code_only_normalization: verified_no_op
+    stage4a_generated_validation: current_source_deterministic
+    checkpoint_manifest_schema_version: 2
+    cutover_lifecycle_state: implemented_not_executed
+    rollback_lifecycle_state: implemented_not_executed
+    real_delta_mode_updater_test: implemented
+    production_cutover_executed: false
     depends_on:
     - stage_3_shadow_validation
     - stage_4_lossless_validation
-    protected_files: []
+    protected_files:
+    - path: scripts/handoff_authority.py
+      sha256: 83ed98865b105d1472990556c2b90c9e042ed613500c8914336ea79ca63fd700
+      authorized_by: GOV-STAGE5-PRE-CUTOVER-HARDENING-2026-07-02
+    - path: scripts/validate_governance_pipeline_stage_status.py
+      sha256: 4335fb716595523c3b643fa123b6b1deeac545c0d2462dd56750b8011e28d542
+      authorized_by: GOV-STAGE5-PRE-CUTOVER-HARDENING-2026-07-02
+    - path: docs/governance_stage5_versioned_handoff_spec.md
+      sha256: 4e3704be0ab44719419dfaac1e3d7a0f35f9a9a69030098bd7560777a91a5669
+      authorized_by: GOV-STAGE5-PRE-CUTOVER-HARDENING-2026-07-02
+    - path: tests/stage5_candidate_integration.py
+      sha256: eb6204370e81cdaaa7a32d3ab729f39255e79f8cc63f55aefc41c2153d1993e7
+      authorized_by: GOV-STAGE5-PRE-CUTOVER-HARDENING-2026-07-02
+    - path: tests/test_governance_pipeline_stage_status.py
+      sha256: 81353cf01de675d60324fe4f8a307eff57f5f2f8a661b0e7dc2f47f77f92804b
+      authorized_by: GOV-STAGE5-PRE-CUTOVER-HARDENING-2026-07-02
+    stage3_full_acceptance_current_at_cutover_required: true
