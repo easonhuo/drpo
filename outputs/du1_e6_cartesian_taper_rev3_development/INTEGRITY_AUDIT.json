@@ -1,0 +1,24 @@
+{
+  "all_positive_only_grid_copies_identical": true,
+  "class_counts": {
+    "support_boundary": 5,
+    "terminal_plateau": 115
+  },
+  "environment_validity_failures": 0,
+  "issues": [],
+  "max_stepwise_budget_match_error": 4.440892098500626e-16,
+  "method_counts": {
+    "all_negative": 20,
+    "exponential_quadratic_distance": 20,
+    "global_matched": 20,
+    "positive_only": 20,
+    "reciprocal_linear_distance": 20,
+    "reciprocal_quadratic_distance": 20
+  },
+  "minimum_utility_oracle_sign_valid_fraction": 1.0,
+  "nan_inf_numerical_failures": 0,
+  "quartic_runs": [],
+  "run_count": 120,
+  "support_boundary_events": 5,
+  "task_performance_collapse_events": 0
+}

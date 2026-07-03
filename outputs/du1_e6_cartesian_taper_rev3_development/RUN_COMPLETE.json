@@ -1,0 +1,10 @@
+{
+  "actual_runs": 120,
+  "completed": true,
+  "expected_runs": 120,
+  "experiment_id": "D-U1-E6-CARTESIAN-TAPER-01",
+  "formal_result": false,
+  "method_ranking_allowed": false,
+  "stage": "development_calibration",
+  "status": "complete"
+}

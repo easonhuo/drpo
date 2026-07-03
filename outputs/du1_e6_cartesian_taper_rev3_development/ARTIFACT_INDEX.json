@@ -1,0 +1,47 @@
+{
+  "experiment_id": "D-U1-E6-CARTESIAN-TAPER-01",
+  "files": [
+    {
+      "path": "DEVELOPMENT_EFFECTS.json",
+      "sha256": "6d98b4dedd1df1c06f3c7f5f336a48107a8df5a2741980b8b53a54e821ba099e",
+      "size_bytes": 19839
+    },
+    {
+      "path": "INTEGRITY_AUDIT.json",
+      "sha256": "13b483f88787dff5974b767111e191496f9393e49581cb7aa81446fa093645ef",
+      "size_bytes": 672
+    },
+    {
+      "path": "PROVENANCE.json",
+      "sha256": "90afd7d5d26174f6ebfa4233a3b238aef9241b5b1c2582a3db93f4daed50be85",
+      "size_bytes": 578
+    },
+    {
+      "path": "PROVENANCE_NOTE.md",
+      "sha256": "9fc8702f69475d8206ef22e4af3f6e1f91897ea17890fdfd9accacda4aad05ac",
+      "size_bytes": 768
+    },
+    {
+      "path": "RESULT_SUMMARY.md",
+      "sha256": "1ac402b44fd45543b4c3fc41702b2950a79a7b9ff6f67cf91424db930589c151",
+      "size_bytes": 3877
+    },
+    {
+      "path": "RUN_COMPLETE.json",
+      "sha256": "9304bb8fd4a66ca5d5f25cd354b16712d723ba8ab961f18e5b430a543a2dcb88",
+      "size_bytes": 242
+    },
+    {
+      "path": "grid_summary.csv",
+      "sha256": "1be8f61ca8210cb06a6c7606cff8706bf2799136ef22c09ad64c4683ed0fa067",
+      "size_bytes": 3824
+    },
+    {
+      "path": "terminal_audit.json",
+      "sha256": "e270842437bddbe33cbee2ed444ca9a23a7d7c7a7a9b14181d15485ef5d07934",
+      "size_bytes": 425
+    }
+  ],
+  "formal_result": false,
+  "stage": "development_calibration"
+}

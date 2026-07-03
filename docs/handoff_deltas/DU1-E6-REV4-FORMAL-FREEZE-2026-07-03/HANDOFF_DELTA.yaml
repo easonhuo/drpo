@@ -1,0 +1,1207 @@
+schema_version: 3
+update_id: DU1-E6-REV4-FORMAL-FREEZE-2026-07-03
+mode: authoritative
+base:
+  commit: c2175257140de31d09753d09d7bc2c62aee96219
+  handoff_sha256: 1ae5566da0d28ee55975955e465b180be1e2891396d3ea80fe61753136293791
+  registry_sha256: 33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b
+renderer_version: 1
+operations:
+- operation_id: rename-v74-du1-e6-rev4
+  op: replace_heading
+  heading_path:
+  - DRPO / SNA2C 远场负梯度动力学研究主文档 v73（Countdown E8-TAPER 距离坐标与执行链修正版）
+  new_heading: DRPO / SNA2C 远场负梯度动力学研究主文档 v74（D-U1 E6 revision-4 正式协议冻结版）
+  reason: Record the revision-4 formal freeze without deleting v72 history.
+- operation_id: insert-v74-du1-e6-rev4
+  op: insert_after_heading
+  heading_path:
+  - DRPO / SNA2C 远场负梯度动力学研究主文档 v74（D-U1 E6 revision-4 正式协议冻结版）
+  block_id: v74-du1-e6-rev4-formal-freeze
+  content: '> **v74 增量登记：D-U1 E6 revision-3 开发校准闭环与 revision-4 正式协议冻结（不删除 v73 及更早内容）**
+
+    >
+
+    > - 实验 ID 继续为 `D-U1-E6-CARTESIAN-TAPER-01`。revision 2 的 observed common/rare 副本虽然实现概率笛卡尔积，但 rare 副本被压低时可能由同 reward 的 common
+    副本代偿，且固定几何 utility 标签可能在策略移动后失效；因此旧环境只保留为工程历史，不再承担正式方法比较。
+
+    > - revision 3 新增 16 个 evaluation-only hidden high-reward rare actions，使共享 rarity support 收缩真实降低 hidden-optimal probability
+    与 expected reward；同时在训练全过程用当前 expected-reward derivative sign 审计 useful/unhelpful 标签。环境失效、任务性能崩溃、支持边界和 NaN/Inf 必须分别报告。
+
+    > - development seeds `0--4` 完成用户批准的 120-run 校准：6 方法 × 5 seeds × `alpha∈{0.25,0.5}` × `anchor∈{0.25,0.1}` × `rho=0.25`，每
+    run 8000 steps。该证据身份仅为 **pilot / development calibration**，不得作为正式方法排名；formal seeds `200--219` 未访问。
+
+    > - 参数选择规则在方法排名之外预先固定为“已执行候选中负压力最强、同时通过环境有效性、support、数值与终态门禁的点”。据此冻结 `negative_alpha=0.5`、`rarity_logit_anchor_coefficient=0.25`、`reference_rare_retention=0.25`。`anchor=0.1`
+    在 `alpha=0.5` 下令 All-negative 5/5 触发 support boundary，因此被稳定性门禁排除。选择规则不以 Exp 是否第一为条件。
+
+    > - Quartic 的历史代码与开发结果保留，但因缺少独立实验职责，自 revision 4 起退出 active formal matrix。正式方法为 Positive-only、All-negative、Global matched、Reciprocal-linear、Reciprocal-quadratic、Exponential-quadratic；不得预设
+    Exp 或任何方法胜出。
+
+    > - revision 4 正式协议冻结为 20 个 held-out seeds `200--219` × 6 方法 × 8000 steps，共 120 runs；数据几何、优化器、阈值、双终态窗口、seed blocks 与方法公式不得在正式启动后调整。结果仍为
+    `not_run`，只有 guarded formal run、终态审计、持久打包与 commit 绑定完成后才能升级证据状态。'
+- operation_id: append-v74-du1-e6-gate
+  op: append_to_section
+  heading_path:
+  - 0. 研究与执行原则（每次新会话首先阅读）
+  - 0.1 当前执行门禁
+  block_id: v74-du1-e6-rev4-current-gate
+  content: '> **D-U1 E6 当前门禁（v74）：** `D-U1-E6-CARTESIAN-TAPER-01` 的 revision-3 development calibration 已完成，revision-4 formal
+    protocol 已获用户批准并冻结，registry execution gate 为 `ready`、formal activation 为 `active`、科学状态仍为 `not_run`。下一步只能在 exact frozen
+    commit 上通过 hardened guard 运行 seeds `200--219`；不得重新访问 development seeds 进行选参，也不得在看到 formal 结果后修改 `alpha=0.5 / anchor=0.25
+    / rho=0.25`、方法集合或终态标准。'
+- operation_id: append-v74-du1-e6-order
+  op: append_to_section
+  heading_path:
+  - 6. 接下来唯一执行顺序
+  block_id: v74-du1-e6-rev4-execution-order
+  content: '> **v74 唯一执行顺序覆盖：** 先应用并验证本 revision-4 freeze 更新；随后运行 `D-U1-E6-CARTESIAN-TAPER-01` 的 120 个 formal runs（6 methods
+    × seeds `200--219`），每 5 seeds 形成持久 checkpoint；raw complete 后执行两窗口终态审计、三类崩溃分报加 environment-validity 分报、正式 artifact 打包与仓库结果登记。正式包交付前不得启动下一个依赖该结论的实验，也不得把
+    development pilot 宣称为正式排名。'
+registry:
+  mode: expected_after
+  exact_base_after_sha256: 67ac91bfe3113f74fdcc7373b079d3593136f817b2e19f78896cea17b6ab2e31
+  changes:
+  - change_id: du1-rev4-001-checkpointing-seed-blocks
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - checkpointing
+    - seed_blocks
+    from: null
+    to:
+    - - 200
+      - 201
+      - 202
+      - 203
+      - 204
+    - - 205
+      - 206
+      - 207
+      - 208
+      - 209
+    - - 210
+      - 211
+      - 212
+      - 213
+      - 214
+    - - 215
+      - 216
+      - 217
+      - 218
+      - 219
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-002-claim
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - claim
+    from: In one shared-semantic categorical environment where ground-truth directional utility and learner-relative rarity
+      form an exact 2x2 Cartesian product through an orthogonal shared contextual rarity coordinate, test whether useful negative
+      signals improve same-distribution held-out-context performance, whether rare negative signals create stronger shared-parameter
+      support suppression independently of utility, and whether current-surprisal tapering preserves useful negative information
+      better than uncontrolled and stepwise budget-matched global controls.
+    to: In one shared-semantic categorical environment where observed negative utility and learner-relative rarity form an
+      exact 2x2 Cartesian product and evaluation-only hidden high-reward actions make rare-support contraction task-visible,
+      test on same-distribution held-out contexts whether selective current-surprisal tapering preserves useful negative information
+      better than uncontrolled and stepwise budget-matched global controls.
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-003-code-entrypoint
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - code_entrypoint
+    from: src/drpo/du1_e6_cartesian_taper.py
+    to: src/drpo/du1_e6_cartesian_taper_v4.py
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-004-config-path
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - config_path
+    from: configs/du1_e6_cartesian_taper.yaml
+    to: configs/du1_e6_cartesian_taper_v4.yaml
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-005-development-calibration-compact-output
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - development_calibration_compact_output
+    from: null
+    to: outputs/du1_e6_cartesian_taper_rev3_development
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-006-development-calibration-config
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - development_calibration_config
+    from: null
+    to: configs/du1_e6_separation_grid.yaml
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-007-development-calibration-entrypoint
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - development_calibration_entrypoint
+    from: null
+    to: scripts/run_du1_e6_separation_grid.py
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-008-evidence-development-calibration-compact-output
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - evidence
+    - development_calibration_compact_output
+    from: null
+    to: outputs/du1_e6_cartesian_taper_rev3_development
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-009-evidence-development-calibration-complete
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - evidence
+    - development_calibration_complete
+    from: false
+    to: true
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-010-evidence-development-calibration-metrics
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - evidence
+    - development_calibration_metrics
+    from: null
+    to:
+      actual_runs: 120
+      terminal_plateau_runs: 115
+      support_boundary_runs: 5
+      support_boundary_location: all_negative_alpha_0.5_anchor_0.1_only
+      environment_validity_failures: 0
+      nan_inf_failures: 0
+      task_performance_collapse_events: 0
+      minimum_dynamic_utility_oracle_valid_fraction: 1.0
+      maximum_stepwise_global_budget_match_error: 4.440892098500626e-16
+      quartic_active_runs: 0
+      selected_point:
+        negative_alpha: 0.5
+        rarity_logit_anchor_coefficient: 0.25
+        reference_rare_retention: 0.25
+        runs: 30
+        terminal_plateau_runs: 30
+        support_boundary_events: 0
+        environment_validity_failures: 0
+        nan_inf_failures: 0
+        method_ranking_allowed: false
+      selection_not_conditioned_on_exponential_winning: true
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-011-evidence-development-calibration-scope
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - evidence
+    - development_calibration_scope
+    from: null
+    to: pilot_only_seeds_0_4_120_runs_8000_steps
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-012-evidence-environment-revision-3-implemented
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - evidence
+    - environment_revision_3_implemented
+    from: null
+    to: true
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-013-evidence-formal-protocol
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - evidence
+    - formal_protocol
+    from: null
+    to:
+      revision: 4
+      held_out_seeds:
+      - 200
+      - 201
+      - 202
+      - 203
+      - 204
+      - 205
+      - 206
+      - 207
+      - 208
+      - 209
+      - 210
+      - 211
+      - 212
+      - 213
+      - 214
+      - 215
+      - 216
+      - 217
+      - 218
+      - 219
+      methods:
+      - positive_only
+      - all_negative
+      - global_matched
+      - reciprocal_linear_distance
+      - reciprocal_quadratic_distance
+      - exponential_quadratic_distance
+      maximum_steps: 8000
+      expected_runs: 120
+      automatic_retuning_allowed: false
+      no_method_winner_assumed: true
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-014-evidence-formal-protocol-frozen
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - evidence
+    - formal_protocol_frozen
+    from: false
+    to: true
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-015-evidence-formal-seeds-accessed
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - evidence
+    - formal_seeds_accessed
+    from: null
+    to: false
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-016-execution-gate-approval-record
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - execution_gate
+    - approval_record
+    from: user_approved_2026-07-02_shared_rarity_environment_repair
+    to: user_approved_2026-07-03_revision_4_formal_freeze
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-017-execution-gate-blocked-by
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - execution_gate
+    - blocked_by
+    from:
+    - development_calibration
+    - separate_formal_protocol_freeze
+    to: []
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-018-execution-gate-blocking-reason
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - execution_gate
+    - blocking_reason
+    from: Protocol revision 2 repairs the environment but formal alpha, retention, rarity-logit anchor coefficient, horizon,
+      and terminal thresholds remain unfrozen. Development seeds 0-4 must complete the preregistered calibration before formal
+      seeds 200-219 may be accessed.
+    to: Revision 4 is frozen and ready; formal seeds 200-219 remain unaccessed until guarded launch.
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-019-execution-gate-state
+    kind: transition
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - execution_gate
+    - state
+    from: blocked
+    to: ready
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    machine: execution_gate
+  - change_id: du1-rev4-020-formal-execution-activation-state
+    kind: transition
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - formal_execution
+    - activation_state
+    from: blocked
+    to: active
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    machine: activation_state
+  - change_id: du1-rev4-021-formal-execution-entrypoint
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - formal_execution
+    - entrypoint
+    from: src/drpo/du1_e6_cartesian_taper.py
+    to: src/drpo/du1_e6_cartesian_taper_v4.py
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-022-formal-launch-template
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - formal_launch_template
+    from: python3 scripts/run_experiment_guard_hardened.py --experiment-id D-U1-E6-CARTESIAN-TAPER-01 --repo-root . --output-root
+      experiments/results/D-U1-E6-CARTESIAN-TAPER-01/run_001 --artifact-output artifacts/D-U1-E6-CARTESIAN-TAPER-01_RAW_COMPLETE.zip
+      --run-class formal --expected-commit "$(git rev-parse HEAD)" --require-origin-main-match --required-output RUN_COMPLETE.json
+      --required-output terminal_audit.json --required-output aggregate_summary.json --required-output mechanism_summary.json
+      --required-output taper_summary.json --required-output per_run_summary.csv --required-output formal_protocol_freeze.json
+      --source-file src/drpo/du1_e6_cartesian_taper.py --source-file configs/du1_e6_cartesian_taper.yaml --progress-glob checkpoints/*/CHECKPOINT_COMPLETE.json
+      -- python3 src/drpo/du1_e6_cartesian_taper.py --config configs/du1_e6_cartesian_taper.yaml --output-root experiments/results/D-U1-E6-CARTESIAN-TAPER-01/run_001
+      --stage formal --device cpu
+    to: python3 scripts/run_experiment_guard_hardened.py --experiment-id D-U1-E6-CARTESIAN-TAPER-01 --repo-root . --output-root
+      experiments/results/D-U1-E6-CARTESIAN-TAPER-01/run_001 --artifact-output artifacts/D-U1-E6-CARTESIAN-TAPER-01_RAW_COMPLETE.zip
+      --run-class formal --expected-commit "$(git rev-parse HEAD)" --require-origin-main-match --required-output RUN_COMPLETE.json
+      --required-output terminal_audit.json --required-output aggregate_summary.json --required-output mechanism_summary.json
+      --required-output taper_summary.json --required-output per_run_summary.csv --required-output formal_protocol_freeze.json
+      --source-file src/drpo/du1_e6_cartesian_taper_v4.py --source-file configs/du1_e6_cartesian_taper_v4.yaml --progress-glob
+      checkpoints/*/CHECKPOINT_COMPLETE.json -- python3 src/drpo/du1_e6_cartesian_taper_v4.py --config configs/du1_e6_cartesian_taper_v4.yaml
+      --output-root experiments/results/D-U1-E6-CARTESIAN-TAPER-01/run_001 --stage formal --device cpu
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-023-formal-parameter-freeze
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - formal_parameter_freeze
+    from: false
+    to: true
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-024-freeze-approval-approval-date
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - freeze_approval
+    - approval_date
+    from: '2026-07-02'
+    to: '2026-07-03'
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-025-freeze-approval-formal-hyperparameters-approved
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - freeze_approval
+    - formal_hyperparameters_approved
+    from: false
+    to: true
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-026-freeze-approval-source
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - freeze_approval
+    - source
+    from: explicit_environment_repair_request
+    to: explicit_revision_4_formal_registration_after_revision_3_development_calibration
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-027-name
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - name
+    from: utility_surprisal_cartesian_shared_semantic_and_taper
+    to: utility_surprisal_cartesian_hidden_support_and_taper_formal_rev4
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-028-non-claims
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - non_claims
+    from:
+    - OOD_generalization
+    - Gaussian_unbounded_gradient_law_for_categorical_logits
+    - Transformer_external_validity
+    - cross_task_method_superiority
+    - predeclared_taper_winner
+    - protocol_revision_1_pilot_method_ranking
+    to:
+    - OOD_generalization
+    - Gaussian_unbounded_gradient_law_for_categorical_logits
+    - Transformer_external_validity
+    - cross_task_method_superiority
+    - predeclared_taper_winner
+    - protocol_revision_1_pilot_method_ranking
+    - development_seed_method_ranking_as_formal_evidence
+    - quartic_active_formal_comparison
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-029-protocol-action-count
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - action_count
+    from: 64
+    to: 80
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-030-protocol-cartesian-axes-rarity
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - cartesian_axes
+    - rarity
+    from: current_policy_surprisal
+    to: current_policy_surprisal_with_shared_contextual_rarity_coordinate
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-031-protocol-cartesian-axes-utility
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - cartesian_axes
+    - utility
+    from: ground_truth_directional_utility_of_repulsion
+    to: current_expected_reward_derivative_sign_audited_during_training
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-032-protocol-development-calibration-candidate-negative-alpha
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - development_calibration
+    - candidate_negative_alpha
+    from:
+    - 0.1
+    - 0.25
+    - 0.5
+    to:
+    - 0.25
+    - 0.5
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-033-protocol-development-calibration-candidate-rarity-logit-anchor-coefficient
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - development_calibration
+    - candidate_rarity_logit_anchor_coefficient
+    from:
+    - 0.1
+    - 0.25
+    - 0.5
+    to:
+    - 0.25
+    - 0.1
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-034-protocol-development-calibration-candidate-reference-rare-retention
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - development_calibration
+    - candidate_reference_rare_retention
+    from:
+    - 0.25
+    - 0.5
+    - 0.75
+    to:
+    - 0.25
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-035-protocol-development-calibration-complete
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - development_calibration
+    - complete
+    from: null
+    to: true
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-036-protocol-development-calibration-executed-run-count
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - development_calibration
+    - executed_run_count
+    from: null
+    to: 120
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-037-protocol-development-calibration-formal-method-ranking-allowed
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - development_calibration
+    - formal_method_ranking_allowed
+    from: null
+    to: false
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-038-protocol-development-calibration-formal-seed-access-allowed
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - development_calibration
+    - formal_seed_access_allowed
+    from: false
+    to: true
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-039-protocol-development-calibration-selected-negative-alpha
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - development_calibration
+    - selected_negative_alpha
+    from: null
+    to: 0.5
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-040-protocol-development-calibration-selected-rarity-logit-anchor-coefficient
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - development_calibration
+    - selected_rarity_logit_anchor_coefficient
+    from: null
+    to: 0.25
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-041-protocol-development-calibration-selected-reference-rare-retention
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - development_calibration
+    - selected_reference_rare_retention
+    from: null
+    to: 0.25
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-042-protocol-development-calibration-selection-not-conditioned-on-exponential-winning
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - development_calibration
+    - selection_not_conditioned_on_exponential_winning
+    from: null
+    to: true
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-043-protocol-development-calibration-selection-rule
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - development_calibration
+    - selection_rule
+    from: null
+    to: strongest_registered_negative_pressure_that_passed_environment_support_numerical_and_terminal_gates
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-044-protocol-development-calibration-user-approved-reduced-matrix-before-execution
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - development_calibration
+    - user_approved_reduced_matrix_before_execution
+    from: null
+    to: true
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-045-protocol-exact-decoupling-environment-invalid-runs-reported-separately
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - exact_decoupling
+    - environment_invalid_runs_reported_separately
+    from: null
+    to: true
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-046-protocol-exact-decoupling-hidden-actions-excluded-from-training-cells
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - exact_decoupling
+    - hidden_actions_excluded_from_training_cells
+    from: null
+    to: true
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-047-protocol-exact-decoupling-hidden-high-reward-actions-share-rare-coordinate
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - exact_decoupling
+    - hidden_high_reward_actions_share_rare_coordinate
+    from: null
+    to: true
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-048-protocol-exact-decoupling-rarity-contraction-has-task-visible-cost
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - exact_decoupling
+    - rarity_contraction_has_task_visible_cost
+    from: null
+    to: true
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-049-protocol-exact-decoupling-runtime-utility-oracle-sign-audit-required
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - exact_decoupling
+    - runtime_utility_oracle_sign_audit_required
+    from: null
+    to: true
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-050-protocol-formal-method-count
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - formal_method_count
+    from: null
+    to: 6
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-051-protocol-formal-run-count
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - formal_run_count
+    from: null
+    to: 120
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-052-protocol-formal-seed-count
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - formal_seed_count
+    from: null
+    to: 20
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-053-protocol-hidden-action-count
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - hidden_action_count
+    from: null
+    to: 16
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-054-protocol-hidden-optimal-actions-per-state
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - hidden_optimal_actions_per_state
+    from: null
+    to: 4
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-055-protocol-hidden-rare-channel-task-role
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - hidden_rare_channel_task_role
+    from: null
+    to: high_reward_support_audit
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-056-protocol-hidden-rare-channel-training-role
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - hidden_rare_channel_training_role
+    from: null
+    to: evaluation_only
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-057-protocol-hidden-semantic-prototypes
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - hidden_semantic_prototypes
+    from: null
+    to: 16
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-058-protocol-historical-development-methods
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - historical_development_methods
+    from: null
+    to:
+    - positive_only
+    - useful_common_only
+    - useful_rare_only
+    - unhelpful_common_only
+    - unhelpful_rare_only
+    - useful_all
+    - unhelpful_all
+    - common_all
+    - rare_all
+    - all_negative
+    - global_matched
+    - reciprocal_linear_distance
+    - reciprocal_quadratic_distance
+    - reciprocal_quartic_distance
+    - exponential_quadratic_distance
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-059-protocol-methods
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - methods
+    from:
+    - positive_only
+    - useful_common_only
+    - useful_rare_only
+    - unhelpful_common_only
+    - unhelpful_rare_only
+    - useful_all
+    - unhelpful_all
+    - common_all
+    - rare_all
+    - all_negative
+    - global_matched
+    - reciprocal_linear_distance
+    - reciprocal_quadratic_distance
+    - reciprocal_quartic_distance
+    - exponential_quadratic_distance
+    to:
+    - positive_only
+    - all_negative
+    - global_matched
+    - reciprocal_linear_distance
+    - reciprocal_quadratic_distance
+    - exponential_quadratic_distance
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-060-protocol-negative-alpha
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - negative_alpha
+    from: 0.25
+    to: 0.5
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-061-protocol-observed-action-count
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - observed_action_count
+    from: null
+    to: 64
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-062-protocol-positive-objective
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - positive_objective
+    from: semantic_family_log_probability
+    to: observed_semantic_family_log_probability_rarity_neutral
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-063-protocol-positive-warm-start-steps
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - positive_warm_start_steps
+    from: null
+    to: 0
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-064-protocol-protocol-revision
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - protocol_revision
+    from: 2
+    to: 4
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-065-protocol-taper-fairness-historical-excluded-methods
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - taper_fairness
+    - historical_excluded_methods
+    from: null
+    to:
+    - reciprocal_quartic_distance
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-066-protocol-taper-fairness-legacy-field-interpretation
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - taper_fairness
+    - legacy_field_interpretation
+    from: v70 aliases retained for non-destructive history; protocol revision 2 method-specific fields are authoritative
+    to: revision-2 quartic and alias fields are preserved as non-destructive history; revision-4 active formal methods exclude
+      Quartic
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-067-protocol-taper-fairness-quartic-active
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - taper_fairness
+    - quartic_active
+    from: null
+    to: false
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-068-protocol-revision
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol_revision
+    from: 2
+    to: 4
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-069-reporting-separation
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - reporting_separation
+    from:
+    - task_performance_collapse
+    - support_boundary
+    - nan_inf_numerical_failure
+    to:
+    - task_performance_collapse
+    - support_boundary
+    - nan_inf_numerical_failure
+    - environment_validity_failure
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-070-revision-base-commit
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - revision_base_commit
+    from: 60e014384f85f88ae18da18f4bf6d3db1d808200
+    to: c2175257140de31d09753d09d7bc2c62aee96219
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-071-role
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - role
+    from: formal_controlled_categorical_cartesian_mechanism_and_taper_comparison
+    to: formal_controlled_categorical_taper_comparison_after_development_calibration
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-072-supersedes-protocol-revision
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - supersedes_protocol_revision
+    from: 1
+    to: 3
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-073-terminal-audit-environment-validity-required
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - terminal_audit
+    - environment_validity_required
+    from: null
+    to: true
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+  - change_id: du1-rev4-074-terminal-audit-method-ranking-requires-all-registered-runs-and-terminal-audit
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - terminal_audit
+    - method_ranking_requires_all_registered_runs_and_terminal_audit
+    from: null
+    to: true
+    evidence:
+    - configs/du1_e6_cartesian_taper_v4.yaml
+    - outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    reason: Register the user-approved revision-4 formal freeze and its development-calibration provenance.
+expected:
+  exact_base_candidate_sha256: 2f6606883499eda6d36c1fceec0cb3cb1fe856f920c581b6f37d281422102c24

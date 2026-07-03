@@ -1,0 +1,15 @@
+{
+  "actual_runs": 120,
+  "all_registered_runs_present": true,
+  "environment_validity_failures": 0,
+  "expected_runs": 120,
+  "experiment_id": "D-U1-E6-CARTESIAN-TAPER-01",
+  "failed_runs": [],
+  "formal_result": false,
+  "method_ranking_allowed": false,
+  "missing_runs": [],
+  "nan_inf_numerical_failures": 0,
+  "stage": "development_calibration",
+  "support_boundary_events": 5,
+  "task_performance_collapse_events": 0
+}

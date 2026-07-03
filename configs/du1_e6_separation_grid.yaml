@@ -1,0 +1,49 @@
+experiment_id: D-U1-E6-CARTESIAN-TAPER-01
+stage: development_calibration
+scientific_status: pilot
+formal_result: false
+formal_seed_access_allowed: false
+base_config: configs/du1_e6_cartesian_taper_v4.yaml
+source_module: src/drpo/du1_e6_cartesian_taper_v4.py
+
+seeds: [0, 1, 2, 3, 4]
+methods:
+  - positive_only
+  - all_negative
+  - global_matched
+  - reciprocal_linear_distance
+  - reciprocal_quadratic_distance
+  - exponential_quadratic_distance
+
+# Quartic is intentionally excluded from the active calibration matrix.
+# Historical code and prior pilot evidence remain preserved.
+grid:
+  negative_alpha: [0.25, 0.5]
+  rarity_logit_anchor_coefficient: [0.25, 0.1]
+  reference_rare_retention: [0.25]
+
+training:
+  maximum_steps: 8000
+  evaluation_interval_steps: 100
+  device: cpu
+  cpu_threads_per_run: 1
+  max_parallel_runs: 20
+
+events:
+  task_collapse_ratio_to_paired_positive_only: 0.2
+
+terminal_audit:
+  required: true
+  window_1_steps: [4000, 6000]
+  window_2_steps: [6000, 8000]
+  separate_event_reporting:
+    - task_performance_collapse
+    - support_boundary
+    - nan_inf_numerical_failure
+
+selection_rules:
+  no_method_winner_assumed: true
+  do_not_select_for_exp_win: true
+  require_all_runs_present: true
+  require_environment_validity: true
+  formal_method_ranking_allowed: false

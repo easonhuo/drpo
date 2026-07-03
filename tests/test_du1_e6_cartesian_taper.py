@@ -310,19 +310,28 @@ def test_registry_and_handoff_register_joint_successor() -> None:
     entry = canonical["D-U1-E6-CARTESIAN-TAPER-01"]
     assert entry["status"] == "not_run"
     assert entry["implementation_state"] == "implemented"
-    assert entry["execution_gate"]["state"] == "blocked"
-    assert entry["formal_execution"]["activation_state"] == "blocked"
+    assert entry["execution_gate"]["state"] == "ready"
+    assert entry["formal_execution"]["activation_state"] == "active"
     assert entry["protocol"]["cartesian_cells"] == list(CELL_NAMES)
-    assert entry["protocol"]["methods"] == list(ALL_METHODS)
-    assert entry["protocol_revision"] == 2
+    assert entry["protocol"]["methods"] == [
+        "positive_only",
+        "all_negative",
+        "global_matched",
+        "reciprocal_linear_distance",
+        "reciprocal_quadratic_distance",
+        "exponential_quadratic_distance",
+    ]
+    assert entry["protocol_revision"] == 4
     assert entry["protocol"]["exact_decoupling"]["initial_rarity_gap_source"] == "shared_contextual_rarity_residual_head"
-    assert entry["protocol"]["positive_objective"] == "semantic_family_log_probability"
+    assert entry["protocol"]["positive_objective"] == "observed_semantic_family_log_probability_rarity_neutral"
+    assert "reciprocal_quartic_distance" not in entry["protocol"]["methods"]
     old = development["D-U1-E6-TAPER-01"]
     assert old["status"] == "not_run"
     assert old["implementation_state"] == "not_implemented"
     assert entry["supersedes_preregistration"] == "D-U1-E6-TAPER-01"
     handoff = (REPO_ROOT / "docs" / "handoff.md").read_text()
     assert "HANDOFF-DELTA-BLOCK:after_heading:v70-du1-e6-cartesian-taper:START" in handoff
+    assert "HANDOFF-DELTA-BLOCK:after_heading:v74-du1-e6-rev4-formal-freeze:START" in handoff
     assert "HANDOFF-DELTA-BLOCK:section_end:v72-du1-e6-shared-rarity-repair-current-gate:START" in handoff
     assert "D-U1-E6-CARTESIAN-TAPER-01" in handoff
     assert "v72-du1-e6-shared-rarity-repair-current-gate" in handoff

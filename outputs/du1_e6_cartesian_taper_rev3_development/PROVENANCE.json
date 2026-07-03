@@ -1,0 +1,9 @@
+{
+  "base_commit": "828b7db5fcdf8ee7ad9b0d87693955081e39c27e",
+  "experiment_id": "D-U1-E6-CARTESIAN-TAPER-01",
+  "formal_result": false,
+  "formal_seeds_accessed": false,
+  "protocol_revision": 3,
+  "quartic_excluded_from_active_matrix": true,
+  "runtime_note": "The revision-3 scientific core was recovered from the prior-session transcript after runtime reset. Its alpha=0.25/anchor=0.25 six-method cell exactly reproduces the previously completed pilot means, but this runtime source is not asserted to be byte-identical to the previously expected canonical source hash."
+}

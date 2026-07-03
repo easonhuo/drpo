@@ -7,7 +7,7 @@
 - Responsibility: Provide the current experiment evidence states, execution ordering, and formal launch gates.
 - Content contract topics: `formal_vs_development_evidence`, `single_registered_execution_order`, `blocked_requires_protocol_or_predecessor`, `current_formal_route`, `no_unregistered_experiment`
 - Deduplicated overlapping source chunks: 0
-- Source hash: `b47026b90a438d678c84bf3d9ba4d57e982b1680517f5523ba1f2b775c637b56`
+- Source hash: `e54c281c302a0b18f0b99c8e0a7f9ec40027d42ca21289d26a2d709eb239e112`
 
 ## Content contract evidence
 
@@ -104,3 +104,6 @@
 <!-- HANDOFF-DELTA-BLOCK:section_end:v73-e8-taper-execution-order:START -->
 12. **v73 Countdown E8-TAPER 执行覆盖：**应用本更新并通过 trusted normalization 后，先执行 one-click preflight、reference gate、独立 replay/calibration freeze，再按相同 sampler plan 并行运行 6 methods × 3 paired seeds。全部训练完成前禁止读取 test；结果必须同时提交 best、terminal、final-window slopes、surprisal-bin allocation 和三类失败分报。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v73-e8-taper-execution-order:END -->
+<!-- HANDOFF-DELTA-BLOCK:section_end:v74-du1-e6-rev4-execution-order:START -->
+> **v74 唯一执行顺序覆盖：** 先应用并验证本 revision-4 freeze 更新；随后运行 `D-U1-E6-CARTESIAN-TAPER-01` 的 120 个 formal runs（6 methods × seeds `200--219`），每 5 seeds 形成持久 checkpoint；raw complete 后执行两窗口终态审计、三类崩溃分报加 environment-validity 分报、正式 artifact 打包与仓库结果登记。正式包交付前不得启动下一个依赖该结论的实验，也不得把 development pilot 宣称为正式排名。
+<!-- HANDOFF-DELTA-BLOCK:section_end:v74-du1-e6-rev4-execution-order:END -->

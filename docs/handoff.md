@@ -1,4 +1,4 @@
-# DRPO / SNA2C 远场负梯度动力学研究主文档 v73（Countdown E8-TAPER 距离坐标与执行链修正版）
+# DRPO / SNA2C 远场负梯度动力学研究主文档 v74（D-U1 E6 revision-4 正式协议冻结版）
 <!-- HANDOFF-DELTA-BLOCK:after_heading:v50-stage3-shadow-bootstrap:START -->
 > **v50 增量登记：治理 Pipeline Stage 3 `HANDOFF_DELTA.yaml` shadow mode 启动（不删除 v49 及更早内容）**
 >
@@ -207,6 +207,16 @@
 > - **解释规则。** 若选择性 taper 超过 Positive-only 且 terminal 不反转、valid/support 不恶化，则支持 0.5B 上的额外负信号价值；若只优于 Uncontrolled/Global 而不超过 Positive-only，则只支持远场伤害控制；若方法接近，则按简单性与理论尾部性质冻结 3B 候选；若全部负梯度方法更差，则关闭 0.5B 方法收益路线，不继续无界 HPO。
 > - **规模路线。** `EXT-C-E8-SCALE-01` 的方法 shortlist 由本实验冻结；3B 主模型与 7B frozen confirmation 仍是独立规模验证，当前不因 0.5B 机制职责关闭而自动解锁。
 <!-- HANDOFF-DELTA-BLOCK:after_heading:v67-countdown-0p5b-mechanism-close-e8-taper:END -->
+<!-- HANDOFF-DELTA-BLOCK:after_heading:v74-du1-e6-rev4-formal-freeze:START -->
+> **v74 增量登记：D-U1 E6 revision-3 开发校准闭环与 revision-4 正式协议冻结（不删除 v73 及更早内容）**
+>
+> - 实验 ID 继续为 `D-U1-E6-CARTESIAN-TAPER-01`。revision 2 的 observed common/rare 副本虽然实现概率笛卡尔积，但 rare 副本被压低时可能由同 reward 的 common 副本代偿，且固定几何 utility 标签可能在策略移动后失效；因此旧环境只保留为工程历史，不再承担正式方法比较。
+> - revision 3 新增 16 个 evaluation-only hidden high-reward rare actions，使共享 rarity support 收缩真实降低 hidden-optimal probability 与 expected reward；同时在训练全过程用当前 expected-reward derivative sign 审计 useful/unhelpful 标签。环境失效、任务性能崩溃、支持边界和 NaN/Inf 必须分别报告。
+> - development seeds `0--4` 完成用户批准的 120-run 校准：6 方法 × 5 seeds × `alpha∈{0.25,0.5}` × `anchor∈{0.25,0.1}` × `rho=0.25`，每 run 8000 steps。该证据身份仅为 **pilot / development calibration**，不得作为正式方法排名；formal seeds `200--219` 未访问。
+> - 参数选择规则在方法排名之外预先固定为“已执行候选中负压力最强、同时通过环境有效性、support、数值与终态门禁的点”。据此冻结 `negative_alpha=0.5`、`rarity_logit_anchor_coefficient=0.25`、`reference_rare_retention=0.25`。`anchor=0.1` 在 `alpha=0.5` 下令 All-negative 5/5 触发 support boundary，因此被稳定性门禁排除。选择规则不以 Exp 是否第一为条件。
+> - Quartic 的历史代码与开发结果保留，但因缺少独立实验职责，自 revision 4 起退出 active formal matrix。正式方法为 Positive-only、All-negative、Global matched、Reciprocal-linear、Reciprocal-quadratic、Exponential-quadratic；不得预设 Exp 或任何方法胜出。
+> - revision 4 正式协议冻结为 20 个 held-out seeds `200--219` × 6 方法 × 8000 steps，共 120 runs；数据几何、优化器、阈值、双终态窗口、seed blocks 与方法公式不得在正式启动后调整。结果仍为 `not_run`，只有 guarded formal run、终态审计、持久打包与 commit 绑定完成后才能升级证据状态。
+<!-- HANDOFF-DELTA-BLOCK:after_heading:v74-du1-e6-rev4-formal-freeze:END -->
 
 > **v49 增量登记：治理 Pipeline Stage 1/2 冻结式关闭（不删除 v48 及更早内容）**
 >
@@ -862,6 +872,9 @@
 <!-- HANDOFF-DELTA-BLOCK:section_end:v73-e8-taper-current-gate:START -->
 - **Countdown E8-TAPER v73 覆盖：**`EXT-C-E8-TAPER-0.5B-01` 已实现 corrected `S -> d=sqrt(S)` 坐标、独立冻结尺度、deterministic detached weighting、paired sampler 身份校验和终态审计，当前为 **implemented + ready + not_run**。只允许先运行登记的 0.5B pilot；不得将 smoke/static test 写成科学结果，也不得预设 Exp、Global 或任何 taper 获胜。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v73-e8-taper-current-gate:END -->
+<!-- HANDOFF-DELTA-BLOCK:section_end:v74-du1-e6-rev4-current-gate:START -->
+> **D-U1 E6 当前门禁（v74）：** `D-U1-E6-CARTESIAN-TAPER-01` 的 revision-3 development calibration 已完成，revision-4 formal protocol 已获用户批准并冻结，registry execution gate 为 `ready`、formal activation 为 `active`、科学状态仍为 `not_run`。下一步只能在 exact frozen commit 上通过 hardened guard 运行 seeds `200--219`；不得重新访问 development seeds 进行选参，也不得在看到 formal 结果后修改 `alpha=0.5 / anchor=0.25 / rho=0.25`、方法集合或终态标准。
+<!-- HANDOFF-DELTA-BLOCK:section_end:v74-du1-e6-rev4-current-gate:END -->
 
 ## 0.2 C-U1 泛化术语覆盖规则（v15 锁定）
 
@@ -1485,6 +1498,9 @@ Convergence 继续使用 seeds `110--129`，从 Budget-Match 8000-step actor 与
 <!-- HANDOFF-DELTA-BLOCK:section_end:v73-e8-taper-execution-order:START -->
 12. **v73 Countdown E8-TAPER 执行覆盖：**应用本更新并通过 trusted normalization 后，先执行 one-click preflight、reference gate、独立 replay/calibration freeze，再按相同 sampler plan 并行运行 6 methods × 3 paired seeds。全部训练完成前禁止读取 test；结果必须同时提交 best、terminal、final-window slopes、surprisal-bin allocation 和三类失败分报。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v73-e8-taper-execution-order:END -->
+<!-- HANDOFF-DELTA-BLOCK:section_end:v74-du1-e6-rev4-execution-order:START -->
+> **v74 唯一执行顺序覆盖：** 先应用并验证本 revision-4 freeze 更新；随后运行 `D-U1-E6-CARTESIAN-TAPER-01` 的 120 个 formal runs（6 methods × seeds `200--219`），每 5 seeds 形成持久 checkpoint；raw complete 后执行两窗口终态审计、三类崩溃分报加 environment-validity 分报、正式 artifact 打包与仓库结果登记。正式包交付前不得启动下一个依赖该结论的实验，也不得把 development pilot 宣称为正式排名。
+<!-- HANDOFF-DELTA-BLOCK:section_end:v74-du1-e6-rev4-execution-order:END -->
 
 # 7. 变量治理
 

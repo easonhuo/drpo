@@ -1,0 +1,4392 @@
+{
+  "current_before_commit": "c2175257140de31d09753d09d7bc2c62aee96219",
+  "current_handoff_before_sha256": "1ae5566da0d28ee55975955e465b180be1e2891396d3ea80fe61753136293791",
+  "current_registry_validation": {
+    "assertions": [
+      {
+        "change_id": "du1-rev4-001-checkpointing-seed-blocks",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "checkpointing",
+          "seed_blocks"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": [
+          [
+            200,
+            201,
+            202,
+            203,
+            204
+          ],
+          [
+            205,
+            206,
+            207,
+            208,
+            209
+          ],
+          [
+            210,
+            211,
+            212,
+            213,
+            214
+          ],
+          [
+            215,
+            216,
+            217,
+            218,
+            219
+          ]
+        ]
+      },
+      {
+        "change_id": "du1-rev4-002-claim",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "claim"
+        ],
+        "from": "In one shared-semantic categorical environment where ground-truth directional utility and learner-relative rarity form an exact 2x2 Cartesian product through an orthogonal shared contextual rarity coordinate, test whether useful negative signals improve same-distribution held-out-context performance, whether rare negative signals create stronger shared-parameter support suppression independently of utility, and whether current-surprisal tapering preserves useful negative information better than uncontrolled and stepwise budget-matched global controls.",
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": "In one shared-semantic categorical environment where observed negative utility and learner-relative rarity form an exact 2x2 Cartesian product and evaluation-only hidden high-reward actions make rare-support contraction task-visible, test on same-distribution held-out contexts whether selective current-surprisal tapering preserves useful negative information better than uncontrolled and stepwise budget-matched global controls."
+      },
+      {
+        "change_id": "du1-rev4-003-code-entrypoint",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "code_entrypoint"
+        ],
+        "from": "src/drpo/du1_e6_cartesian_taper.py",
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": "src/drpo/du1_e6_cartesian_taper_v4.py"
+      },
+      {
+        "change_id": "du1-rev4-004-config-path",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "config_path"
+        ],
+        "from": "configs/du1_e6_cartesian_taper.yaml",
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": "configs/du1_e6_cartesian_taper_v4.yaml"
+      },
+      {
+        "change_id": "du1-rev4-005-development-calibration-compact-output",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "development_calibration_compact_output"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": "outputs/du1_e6_cartesian_taper_rev3_development"
+      },
+      {
+        "change_id": "du1-rev4-006-development-calibration-config",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "development_calibration_config"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": "configs/du1_e6_separation_grid.yaml"
+      },
+      {
+        "change_id": "du1-rev4-007-development-calibration-entrypoint",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "development_calibration_entrypoint"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": "scripts/run_du1_e6_separation_grid.py"
+      },
+      {
+        "change_id": "du1-rev4-008-evidence-development-calibration-compact-output",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "evidence",
+          "development_calibration_compact_output"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": "outputs/du1_e6_cartesian_taper_rev3_development"
+      },
+      {
+        "change_id": "du1-rev4-009-evidence-development-calibration-complete",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "evidence",
+          "development_calibration_complete"
+        ],
+        "from": false,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": true
+      },
+      {
+        "change_id": "du1-rev4-010-evidence-development-calibration-metrics",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "evidence",
+          "development_calibration_metrics"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": {
+          "actual_runs": 120,
+          "environment_validity_failures": 0,
+          "maximum_stepwise_global_budget_match_error": 4.440892098500626e-16,
+          "minimum_dynamic_utility_oracle_valid_fraction": 1.0,
+          "nan_inf_failures": 0,
+          "quartic_active_runs": 0,
+          "selected_point": {
+            "environment_validity_failures": 0,
+            "method_ranking_allowed": false,
+            "nan_inf_failures": 0,
+            "negative_alpha": 0.5,
+            "rarity_logit_anchor_coefficient": 0.25,
+            "reference_rare_retention": 0.25,
+            "runs": 30,
+            "support_boundary_events": 0,
+            "terminal_plateau_runs": 30
+          },
+          "selection_not_conditioned_on_exponential_winning": true,
+          "support_boundary_location": "all_negative_alpha_0.5_anchor_0.1_only",
+          "support_boundary_runs": 5,
+          "task_performance_collapse_events": 0,
+          "terminal_plateau_runs": 115
+        }
+      },
+      {
+        "change_id": "du1-rev4-011-evidence-development-calibration-scope",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "evidence",
+          "development_calibration_scope"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": "pilot_only_seeds_0_4_120_runs_8000_steps"
+      },
+      {
+        "change_id": "du1-rev4-012-evidence-environment-revision-3-implemented",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "evidence",
+          "environment_revision_3_implemented"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": true
+      },
+      {
+        "change_id": "du1-rev4-013-evidence-formal-protocol",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "evidence",
+          "formal_protocol"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": {
+          "automatic_retuning_allowed": false,
+          "expected_runs": 120,
+          "held_out_seeds": [
+            200,
+            201,
+            202,
+            203,
+            204,
+            205,
+            206,
+            207,
+            208,
+            209,
+            210,
+            211,
+            212,
+            213,
+            214,
+            215,
+            216,
+            217,
+            218,
+            219
+          ],
+          "maximum_steps": 8000,
+          "methods": [
+            "positive_only",
+            "all_negative",
+            "global_matched",
+            "reciprocal_linear_distance",
+            "reciprocal_quadratic_distance",
+            "exponential_quadratic_distance"
+          ],
+          "no_method_winner_assumed": true,
+          "revision": 4
+        }
+      },
+      {
+        "change_id": "du1-rev4-014-evidence-formal-protocol-frozen",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "evidence",
+          "formal_protocol_frozen"
+        ],
+        "from": false,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": true
+      },
+      {
+        "change_id": "du1-rev4-015-evidence-formal-seeds-accessed",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "evidence",
+          "formal_seeds_accessed"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": false
+      },
+      {
+        "change_id": "du1-rev4-016-execution-gate-approval-record",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "execution_gate",
+          "approval_record"
+        ],
+        "from": "user_approved_2026-07-02_shared_rarity_environment_repair",
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": "user_approved_2026-07-03_revision_4_formal_freeze"
+      },
+      {
+        "change_id": "du1-rev4-017-execution-gate-blocked-by",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "execution_gate",
+          "blocked_by"
+        ],
+        "from": [
+          "development_calibration",
+          "separate_formal_protocol_freeze"
+        ],
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": []
+      },
+      {
+        "change_id": "du1-rev4-018-execution-gate-blocking-reason",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "execution_gate",
+          "blocking_reason"
+        ],
+        "from": "Protocol revision 2 repairs the environment but formal alpha, retention, rarity-logit anchor coefficient, horizon, and terminal thresholds remain unfrozen. Development seeds 0-4 must complete the preregistered calibration before formal seeds 200-219 may be accessed.",
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": "Revision 4 is frozen and ready; formal seeds 200-219 remain unaccessed until guarded launch."
+      },
+      {
+        "change_id": "du1-rev4-019-execution-gate-state",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "execution_gate",
+          "state"
+        ],
+        "from": "blocked",
+        "kind": "transition",
+        "machine": "execution_gate",
+        "to": "ready"
+      },
+      {
+        "change_id": "du1-rev4-020-formal-execution-activation-state",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "formal_execution",
+          "activation_state"
+        ],
+        "from": "blocked",
+        "kind": "transition",
+        "machine": "activation_state",
+        "to": "active"
+      },
+      {
+        "change_id": "du1-rev4-021-formal-execution-entrypoint",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "formal_execution",
+          "entrypoint"
+        ],
+        "from": "src/drpo/du1_e6_cartesian_taper.py",
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": "src/drpo/du1_e6_cartesian_taper_v4.py"
+      },
+      {
+        "change_id": "du1-rev4-022-formal-launch-template",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "formal_launch_template"
+        ],
+        "from": "python3 scripts/run_experiment_guard_hardened.py --experiment-id D-U1-E6-CARTESIAN-TAPER-01 --repo-root . --output-root experiments/results/D-U1-E6-CARTESIAN-TAPER-01/run_001 --artifact-output artifacts/D-U1-E6-CARTESIAN-TAPER-01_RAW_COMPLETE.zip --run-class formal --expected-commit \"$(git rev-parse HEAD)\" --require-origin-main-match --required-output RUN_COMPLETE.json --required-output terminal_audit.json --required-output aggregate_summary.json --required-output mechanism_summary.json --required-output taper_summary.json --required-output per_run_summary.csv --required-output formal_protocol_freeze.json --source-file src/drpo/du1_e6_cartesian_taper.py --source-file configs/du1_e6_cartesian_taper.yaml --progress-glob checkpoints/*/CHECKPOINT_COMPLETE.json -- python3 src/drpo/du1_e6_cartesian_taper.py --config configs/du1_e6_cartesian_taper.yaml --output-root experiments/results/D-U1-E6-CARTESIAN-TAPER-01/run_001 --stage formal --device cpu",
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": "python3 scripts/run_experiment_guard_hardened.py --experiment-id D-U1-E6-CARTESIAN-TAPER-01 --repo-root . --output-root experiments/results/D-U1-E6-CARTESIAN-TAPER-01/run_001 --artifact-output artifacts/D-U1-E6-CARTESIAN-TAPER-01_RAW_COMPLETE.zip --run-class formal --expected-commit \"$(git rev-parse HEAD)\" --require-origin-main-match --required-output RUN_COMPLETE.json --required-output terminal_audit.json --required-output aggregate_summary.json --required-output mechanism_summary.json --required-output taper_summary.json --required-output per_run_summary.csv --required-output formal_protocol_freeze.json --source-file src/drpo/du1_e6_cartesian_taper_v4.py --source-file configs/du1_e6_cartesian_taper_v4.yaml --progress-glob checkpoints/*/CHECKPOINT_COMPLETE.json -- python3 src/drpo/du1_e6_cartesian_taper_v4.py --config configs/du1_e6_cartesian_taper_v4.yaml --output-root experiments/results/D-U1-E6-CARTESIAN-TAPER-01/run_001 --stage formal --device cpu"
+      },
+      {
+        "change_id": "du1-rev4-023-formal-parameter-freeze",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "formal_parameter_freeze"
+        ],
+        "from": false,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": true
+      },
+      {
+        "change_id": "du1-rev4-024-freeze-approval-approval-date",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "freeze_approval",
+          "approval_date"
+        ],
+        "from": "2026-07-02",
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": "2026-07-03"
+      },
+      {
+        "change_id": "du1-rev4-025-freeze-approval-formal-hyperparameters-approved",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "freeze_approval",
+          "formal_hyperparameters_approved"
+        ],
+        "from": false,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": true
+      },
+      {
+        "change_id": "du1-rev4-026-freeze-approval-source",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "freeze_approval",
+          "source"
+        ],
+        "from": "explicit_environment_repair_request",
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": "explicit_revision_4_formal_registration_after_revision_3_development_calibration"
+      },
+      {
+        "change_id": "du1-rev4-027-name",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "name"
+        ],
+        "from": "utility_surprisal_cartesian_shared_semantic_and_taper",
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": "utility_surprisal_cartesian_hidden_support_and_taper_formal_rev4"
+      },
+      {
+        "change_id": "du1-rev4-028-non-claims",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "non_claims"
+        ],
+        "from": [
+          "OOD_generalization",
+          "Gaussian_unbounded_gradient_law_for_categorical_logits",
+          "Transformer_external_validity",
+          "cross_task_method_superiority",
+          "predeclared_taper_winner",
+          "protocol_revision_1_pilot_method_ranking"
+        ],
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": [
+          "OOD_generalization",
+          "Gaussian_unbounded_gradient_law_for_categorical_logits",
+          "Transformer_external_validity",
+          "cross_task_method_superiority",
+          "predeclared_taper_winner",
+          "protocol_revision_1_pilot_method_ranking",
+          "development_seed_method_ranking_as_formal_evidence",
+          "quartic_active_formal_comparison"
+        ]
+      },
+      {
+        "change_id": "du1-rev4-029-protocol-action-count",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "action_count"
+        ],
+        "from": 64,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": 80
+      },
+      {
+        "change_id": "du1-rev4-030-protocol-cartesian-axes-rarity",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "cartesian_axes",
+          "rarity"
+        ],
+        "from": "current_policy_surprisal",
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": "current_policy_surprisal_with_shared_contextual_rarity_coordinate"
+      },
+      {
+        "change_id": "du1-rev4-031-protocol-cartesian-axes-utility",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "cartesian_axes",
+          "utility"
+        ],
+        "from": "ground_truth_directional_utility_of_repulsion",
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": "current_expected_reward_derivative_sign_audited_during_training"
+      },
+      {
+        "change_id": "du1-rev4-032-protocol-development-calibration-candidate-negative-alpha",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "development_calibration",
+          "candidate_negative_alpha"
+        ],
+        "from": [
+          0.1,
+          0.25,
+          0.5
+        ],
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": [
+          0.25,
+          0.5
+        ]
+      },
+      {
+        "change_id": "du1-rev4-033-protocol-development-calibration-candidate-rarity-logit-anchor-coefficient",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "development_calibration",
+          "candidate_rarity_logit_anchor_coefficient"
+        ],
+        "from": [
+          0.1,
+          0.25,
+          0.5
+        ],
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": [
+          0.25,
+          0.1
+        ]
+      },
+      {
+        "change_id": "du1-rev4-034-protocol-development-calibration-candidate-reference-rare-retention",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "development_calibration",
+          "candidate_reference_rare_retention"
+        ],
+        "from": [
+          0.25,
+          0.5,
+          0.75
+        ],
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": [
+          0.25
+        ]
+      },
+      {
+        "change_id": "du1-rev4-035-protocol-development-calibration-complete",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "development_calibration",
+          "complete"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": true
+      },
+      {
+        "change_id": "du1-rev4-036-protocol-development-calibration-executed-run-count",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "development_calibration",
+          "executed_run_count"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": 120
+      },
+      {
+        "change_id": "du1-rev4-037-protocol-development-calibration-formal-method-ranking-allowed",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "development_calibration",
+          "formal_method_ranking_allowed"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": false
+      },
+      {
+        "change_id": "du1-rev4-038-protocol-development-calibration-formal-seed-access-allowed",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "development_calibration",
+          "formal_seed_access_allowed"
+        ],
+        "from": false,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": true
+      },
+      {
+        "change_id": "du1-rev4-039-protocol-development-calibration-selected-negative-alpha",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "development_calibration",
+          "selected_negative_alpha"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": 0.5
+      },
+      {
+        "change_id": "du1-rev4-040-protocol-development-calibration-selected-rarity-logit-anchor-coefficient",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "development_calibration",
+          "selected_rarity_logit_anchor_coefficient"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": 0.25
+      },
+      {
+        "change_id": "du1-rev4-041-protocol-development-calibration-selected-reference-rare-retention",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "development_calibration",
+          "selected_reference_rare_retention"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": 0.25
+      },
+      {
+        "change_id": "du1-rev4-042-protocol-development-calibration-selection-not-conditioned-on-exponential-winning",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "development_calibration",
+          "selection_not_conditioned_on_exponential_winning"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": true
+      },
+      {
+        "change_id": "du1-rev4-043-protocol-development-calibration-selection-rule",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "development_calibration",
+          "selection_rule"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": "strongest_registered_negative_pressure_that_passed_environment_support_numerical_and_terminal_gates"
+      },
+      {
+        "change_id": "du1-rev4-044-protocol-development-calibration-user-approved-reduced-matrix-before-execution",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "development_calibration",
+          "user_approved_reduced_matrix_before_execution"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": true
+      },
+      {
+        "change_id": "du1-rev4-045-protocol-exact-decoupling-environment-invalid-runs-reported-separately",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "exact_decoupling",
+          "environment_invalid_runs_reported_separately"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": true
+      },
+      {
+        "change_id": "du1-rev4-046-protocol-exact-decoupling-hidden-actions-excluded-from-training-cells",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "exact_decoupling",
+          "hidden_actions_excluded_from_training_cells"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": true
+      },
+      {
+        "change_id": "du1-rev4-047-protocol-exact-decoupling-hidden-high-reward-actions-share-rare-coordinate",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "exact_decoupling",
+          "hidden_high_reward_actions_share_rare_coordinate"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": true
+      },
+      {
+        "change_id": "du1-rev4-048-protocol-exact-decoupling-rarity-contraction-has-task-visible-cost",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "exact_decoupling",
+          "rarity_contraction_has_task_visible_cost"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": true
+      },
+      {
+        "change_id": "du1-rev4-049-protocol-exact-decoupling-runtime-utility-oracle-sign-audit-required",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "exact_decoupling",
+          "runtime_utility_oracle_sign_audit_required"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": true
+      },
+      {
+        "change_id": "du1-rev4-050-protocol-formal-method-count",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "formal_method_count"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": 6
+      },
+      {
+        "change_id": "du1-rev4-051-protocol-formal-run-count",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "formal_run_count"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": 120
+      },
+      {
+        "change_id": "du1-rev4-052-protocol-formal-seed-count",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "formal_seed_count"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": 20
+      },
+      {
+        "change_id": "du1-rev4-053-protocol-hidden-action-count",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "hidden_action_count"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": 16
+      },
+      {
+        "change_id": "du1-rev4-054-protocol-hidden-optimal-actions-per-state",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "hidden_optimal_actions_per_state"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": 4
+      },
+      {
+        "change_id": "du1-rev4-055-protocol-hidden-rare-channel-task-role",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "hidden_rare_channel_task_role"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": "high_reward_support_audit"
+      },
+      {
+        "change_id": "du1-rev4-056-protocol-hidden-rare-channel-training-role",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "hidden_rare_channel_training_role"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": "evaluation_only"
+      },
+      {
+        "change_id": "du1-rev4-057-protocol-hidden-semantic-prototypes",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "hidden_semantic_prototypes"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": 16
+      },
+      {
+        "change_id": "du1-rev4-058-protocol-historical-development-methods",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "historical_development_methods"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": [
+          "positive_only",
+          "useful_common_only",
+          "useful_rare_only",
+          "unhelpful_common_only",
+          "unhelpful_rare_only",
+          "useful_all",
+          "unhelpful_all",
+          "common_all",
+          "rare_all",
+          "all_negative",
+          "global_matched",
+          "reciprocal_linear_distance",
+          "reciprocal_quadratic_distance",
+          "reciprocal_quartic_distance",
+          "exponential_quadratic_distance"
+        ]
+      },
+      {
+        "change_id": "du1-rev4-059-protocol-methods",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "methods"
+        ],
+        "from": [
+          "positive_only",
+          "useful_common_only",
+          "useful_rare_only",
+          "unhelpful_common_only",
+          "unhelpful_rare_only",
+          "useful_all",
+          "unhelpful_all",
+          "common_all",
+          "rare_all",
+          "all_negative",
+          "global_matched",
+          "reciprocal_linear_distance",
+          "reciprocal_quadratic_distance",
+          "reciprocal_quartic_distance",
+          "exponential_quadratic_distance"
+        ],
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": [
+          "positive_only",
+          "all_negative",
+          "global_matched",
+          "reciprocal_linear_distance",
+          "reciprocal_quadratic_distance",
+          "exponential_quadratic_distance"
+        ]
+      },
+      {
+        "change_id": "du1-rev4-060-protocol-negative-alpha",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "negative_alpha"
+        ],
+        "from": 0.25,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": 0.5
+      },
+      {
+        "change_id": "du1-rev4-061-protocol-observed-action-count",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "observed_action_count"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": 64
+      },
+      {
+        "change_id": "du1-rev4-062-protocol-positive-objective",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "positive_objective"
+        ],
+        "from": "semantic_family_log_probability",
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": "observed_semantic_family_log_probability_rarity_neutral"
+      },
+      {
+        "change_id": "du1-rev4-063-protocol-positive-warm-start-steps",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "positive_warm_start_steps"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": 0
+      },
+      {
+        "change_id": "du1-rev4-064-protocol-protocol-revision",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "protocol_revision"
+        ],
+        "from": 2,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": 4
+      },
+      {
+        "change_id": "du1-rev4-065-protocol-taper-fairness-historical-excluded-methods",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "taper_fairness",
+          "historical_excluded_methods"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": [
+          "reciprocal_quartic_distance"
+        ]
+      },
+      {
+        "change_id": "du1-rev4-066-protocol-taper-fairness-legacy-field-interpretation",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "taper_fairness",
+          "legacy_field_interpretation"
+        ],
+        "from": "v70 aliases retained for non-destructive history; protocol revision 2 method-specific fields are authoritative",
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": "revision-2 quartic and alias fields are preserved as non-destructive history; revision-4 active formal methods exclude Quartic"
+      },
+      {
+        "change_id": "du1-rev4-067-protocol-taper-fairness-quartic-active",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "taper_fairness",
+          "quartic_active"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": false
+      },
+      {
+        "change_id": "du1-rev4-068-protocol-revision",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol_revision"
+        ],
+        "from": 2,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": 4
+      },
+      {
+        "change_id": "du1-rev4-069-reporting-separation",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "reporting_separation"
+        ],
+        "from": [
+          "task_performance_collapse",
+          "support_boundary",
+          "nan_inf_numerical_failure"
+        ],
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": [
+          "task_performance_collapse",
+          "support_boundary",
+          "nan_inf_numerical_failure",
+          "environment_validity_failure"
+        ]
+      },
+      {
+        "change_id": "du1-rev4-070-revision-base-commit",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "revision_base_commit"
+        ],
+        "from": "60e014384f85f88ae18da18f4bf6d3db1d808200",
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": "c2175257140de31d09753d09d7bc2c62aee96219"
+      },
+      {
+        "change_id": "du1-rev4-071-role",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "role"
+        ],
+        "from": "formal_controlled_categorical_cartesian_mechanism_and_taper_comparison",
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": "formal_controlled_categorical_taper_comparison_after_development_calibration"
+      },
+      {
+        "change_id": "du1-rev4-072-supersedes-protocol-revision",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "supersedes_protocol_revision"
+        ],
+        "from": 1,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": 3
+      },
+      {
+        "change_id": "du1-rev4-073-terminal-audit-environment-validity-required",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "terminal_audit",
+          "environment_validity_required"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": true
+      },
+      {
+        "change_id": "du1-rev4-074-terminal-audit-method-ranking-requires-all-registered-runs-and-terminal-audit",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "terminal_audit",
+          "method_ranking_requires_all_registered_runs_and_terminal_audit"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": true
+      }
+    ],
+    "coverage": {
+      "added_entities": [],
+      "changed_field_count": 74,
+      "declared_assertion_count": 74,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": [
+      {
+        "assertion_id": "du1-rev4-019-execution-gate-state",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "execution_gate",
+          "state"
+        ],
+        "from": "blocked",
+        "machine": "execution_gate",
+        "to": "ready"
+      },
+      {
+        "assertion_id": "du1-rev4-020-formal-execution-activation-state",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "formal_execution",
+          "activation_state"
+        ],
+        "from": "blocked",
+        "machine": "activation_state",
+        "to": "active"
+      }
+    ]
+  },
+  "delta_sha256": "bd07ba776a3461757eb2eb0e3f3e669e66b1b12f6cd0fa4573e41903c0b7eace",
+  "exact_base_candidate_sha256": "2f6606883499eda6d36c1fceec0cb3cb1fe856f920c581b6f37d281422102c24",
+  "exact_base_registry_validation": {
+    "assertions": [
+      {
+        "change_id": "du1-rev4-001-checkpointing-seed-blocks",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "checkpointing",
+          "seed_blocks"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": [
+          [
+            200,
+            201,
+            202,
+            203,
+            204
+          ],
+          [
+            205,
+            206,
+            207,
+            208,
+            209
+          ],
+          [
+            210,
+            211,
+            212,
+            213,
+            214
+          ],
+          [
+            215,
+            216,
+            217,
+            218,
+            219
+          ]
+        ]
+      },
+      {
+        "change_id": "du1-rev4-002-claim",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "claim"
+        ],
+        "from": "In one shared-semantic categorical environment where ground-truth directional utility and learner-relative rarity form an exact 2x2 Cartesian product through an orthogonal shared contextual rarity coordinate, test whether useful negative signals improve same-distribution held-out-context performance, whether rare negative signals create stronger shared-parameter support suppression independently of utility, and whether current-surprisal tapering preserves useful negative information better than uncontrolled and stepwise budget-matched global controls.",
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": "In one shared-semantic categorical environment where observed negative utility and learner-relative rarity form an exact 2x2 Cartesian product and evaluation-only hidden high-reward actions make rare-support contraction task-visible, test on same-distribution held-out contexts whether selective current-surprisal tapering preserves useful negative information better than uncontrolled and stepwise budget-matched global controls."
+      },
+      {
+        "change_id": "du1-rev4-003-code-entrypoint",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "code_entrypoint"
+        ],
+        "from": "src/drpo/du1_e6_cartesian_taper.py",
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": "src/drpo/du1_e6_cartesian_taper_v4.py"
+      },
+      {
+        "change_id": "du1-rev4-004-config-path",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "config_path"
+        ],
+        "from": "configs/du1_e6_cartesian_taper.yaml",
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": "configs/du1_e6_cartesian_taper_v4.yaml"
+      },
+      {
+        "change_id": "du1-rev4-005-development-calibration-compact-output",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "development_calibration_compact_output"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": "outputs/du1_e6_cartesian_taper_rev3_development"
+      },
+      {
+        "change_id": "du1-rev4-006-development-calibration-config",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "development_calibration_config"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": "configs/du1_e6_separation_grid.yaml"
+      },
+      {
+        "change_id": "du1-rev4-007-development-calibration-entrypoint",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "development_calibration_entrypoint"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": "scripts/run_du1_e6_separation_grid.py"
+      },
+      {
+        "change_id": "du1-rev4-008-evidence-development-calibration-compact-output",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "evidence",
+          "development_calibration_compact_output"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": "outputs/du1_e6_cartesian_taper_rev3_development"
+      },
+      {
+        "change_id": "du1-rev4-009-evidence-development-calibration-complete",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "evidence",
+          "development_calibration_complete"
+        ],
+        "from": false,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": true
+      },
+      {
+        "change_id": "du1-rev4-010-evidence-development-calibration-metrics",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "evidence",
+          "development_calibration_metrics"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": {
+          "actual_runs": 120,
+          "environment_validity_failures": 0,
+          "maximum_stepwise_global_budget_match_error": 4.440892098500626e-16,
+          "minimum_dynamic_utility_oracle_valid_fraction": 1.0,
+          "nan_inf_failures": 0,
+          "quartic_active_runs": 0,
+          "selected_point": {
+            "environment_validity_failures": 0,
+            "method_ranking_allowed": false,
+            "nan_inf_failures": 0,
+            "negative_alpha": 0.5,
+            "rarity_logit_anchor_coefficient": 0.25,
+            "reference_rare_retention": 0.25,
+            "runs": 30,
+            "support_boundary_events": 0,
+            "terminal_plateau_runs": 30
+          },
+          "selection_not_conditioned_on_exponential_winning": true,
+          "support_boundary_location": "all_negative_alpha_0.5_anchor_0.1_only",
+          "support_boundary_runs": 5,
+          "task_performance_collapse_events": 0,
+          "terminal_plateau_runs": 115
+        }
+      },
+      {
+        "change_id": "du1-rev4-011-evidence-development-calibration-scope",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "evidence",
+          "development_calibration_scope"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": "pilot_only_seeds_0_4_120_runs_8000_steps"
+      },
+      {
+        "change_id": "du1-rev4-012-evidence-environment-revision-3-implemented",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "evidence",
+          "environment_revision_3_implemented"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": true
+      },
+      {
+        "change_id": "du1-rev4-013-evidence-formal-protocol",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "evidence",
+          "formal_protocol"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": {
+          "automatic_retuning_allowed": false,
+          "expected_runs": 120,
+          "held_out_seeds": [
+            200,
+            201,
+            202,
+            203,
+            204,
+            205,
+            206,
+            207,
+            208,
+            209,
+            210,
+            211,
+            212,
+            213,
+            214,
+            215,
+            216,
+            217,
+            218,
+            219
+          ],
+          "maximum_steps": 8000,
+          "methods": [
+            "positive_only",
+            "all_negative",
+            "global_matched",
+            "reciprocal_linear_distance",
+            "reciprocal_quadratic_distance",
+            "exponential_quadratic_distance"
+          ],
+          "no_method_winner_assumed": true,
+          "revision": 4
+        }
+      },
+      {
+        "change_id": "du1-rev4-014-evidence-formal-protocol-frozen",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "evidence",
+          "formal_protocol_frozen"
+        ],
+        "from": false,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": true
+      },
+      {
+        "change_id": "du1-rev4-015-evidence-formal-seeds-accessed",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "evidence",
+          "formal_seeds_accessed"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": false
+      },
+      {
+        "change_id": "du1-rev4-016-execution-gate-approval-record",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "execution_gate",
+          "approval_record"
+        ],
+        "from": "user_approved_2026-07-02_shared_rarity_environment_repair",
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": "user_approved_2026-07-03_revision_4_formal_freeze"
+      },
+      {
+        "change_id": "du1-rev4-017-execution-gate-blocked-by",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "execution_gate",
+          "blocked_by"
+        ],
+        "from": [
+          "development_calibration",
+          "separate_formal_protocol_freeze"
+        ],
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": []
+      },
+      {
+        "change_id": "du1-rev4-018-execution-gate-blocking-reason",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "execution_gate",
+          "blocking_reason"
+        ],
+        "from": "Protocol revision 2 repairs the environment but formal alpha, retention, rarity-logit anchor coefficient, horizon, and terminal thresholds remain unfrozen. Development seeds 0-4 must complete the preregistered calibration before formal seeds 200-219 may be accessed.",
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": "Revision 4 is frozen and ready; formal seeds 200-219 remain unaccessed until guarded launch."
+      },
+      {
+        "change_id": "du1-rev4-019-execution-gate-state",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "execution_gate",
+          "state"
+        ],
+        "from": "blocked",
+        "kind": "transition",
+        "machine": "execution_gate",
+        "to": "ready"
+      },
+      {
+        "change_id": "du1-rev4-020-formal-execution-activation-state",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "formal_execution",
+          "activation_state"
+        ],
+        "from": "blocked",
+        "kind": "transition",
+        "machine": "activation_state",
+        "to": "active"
+      },
+      {
+        "change_id": "du1-rev4-021-formal-execution-entrypoint",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "formal_execution",
+          "entrypoint"
+        ],
+        "from": "src/drpo/du1_e6_cartesian_taper.py",
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": "src/drpo/du1_e6_cartesian_taper_v4.py"
+      },
+      {
+        "change_id": "du1-rev4-022-formal-launch-template",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "formal_launch_template"
+        ],
+        "from": "python3 scripts/run_experiment_guard_hardened.py --experiment-id D-U1-E6-CARTESIAN-TAPER-01 --repo-root . --output-root experiments/results/D-U1-E6-CARTESIAN-TAPER-01/run_001 --artifact-output artifacts/D-U1-E6-CARTESIAN-TAPER-01_RAW_COMPLETE.zip --run-class formal --expected-commit \"$(git rev-parse HEAD)\" --require-origin-main-match --required-output RUN_COMPLETE.json --required-output terminal_audit.json --required-output aggregate_summary.json --required-output mechanism_summary.json --required-output taper_summary.json --required-output per_run_summary.csv --required-output formal_protocol_freeze.json --source-file src/drpo/du1_e6_cartesian_taper.py --source-file configs/du1_e6_cartesian_taper.yaml --progress-glob checkpoints/*/CHECKPOINT_COMPLETE.json -- python3 src/drpo/du1_e6_cartesian_taper.py --config configs/du1_e6_cartesian_taper.yaml --output-root experiments/results/D-U1-E6-CARTESIAN-TAPER-01/run_001 --stage formal --device cpu",
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": "python3 scripts/run_experiment_guard_hardened.py --experiment-id D-U1-E6-CARTESIAN-TAPER-01 --repo-root . --output-root experiments/results/D-U1-E6-CARTESIAN-TAPER-01/run_001 --artifact-output artifacts/D-U1-E6-CARTESIAN-TAPER-01_RAW_COMPLETE.zip --run-class formal --expected-commit \"$(git rev-parse HEAD)\" --require-origin-main-match --required-output RUN_COMPLETE.json --required-output terminal_audit.json --required-output aggregate_summary.json --required-output mechanism_summary.json --required-output taper_summary.json --required-output per_run_summary.csv --required-output formal_protocol_freeze.json --source-file src/drpo/du1_e6_cartesian_taper_v4.py --source-file configs/du1_e6_cartesian_taper_v4.yaml --progress-glob checkpoints/*/CHECKPOINT_COMPLETE.json -- python3 src/drpo/du1_e6_cartesian_taper_v4.py --config configs/du1_e6_cartesian_taper_v4.yaml --output-root experiments/results/D-U1-E6-CARTESIAN-TAPER-01/run_001 --stage formal --device cpu"
+      },
+      {
+        "change_id": "du1-rev4-023-formal-parameter-freeze",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "formal_parameter_freeze"
+        ],
+        "from": false,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": true
+      },
+      {
+        "change_id": "du1-rev4-024-freeze-approval-approval-date",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "freeze_approval",
+          "approval_date"
+        ],
+        "from": "2026-07-02",
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": "2026-07-03"
+      },
+      {
+        "change_id": "du1-rev4-025-freeze-approval-formal-hyperparameters-approved",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "freeze_approval",
+          "formal_hyperparameters_approved"
+        ],
+        "from": false,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": true
+      },
+      {
+        "change_id": "du1-rev4-026-freeze-approval-source",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "freeze_approval",
+          "source"
+        ],
+        "from": "explicit_environment_repair_request",
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": "explicit_revision_4_formal_registration_after_revision_3_development_calibration"
+      },
+      {
+        "change_id": "du1-rev4-027-name",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "name"
+        ],
+        "from": "utility_surprisal_cartesian_shared_semantic_and_taper",
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": "utility_surprisal_cartesian_hidden_support_and_taper_formal_rev4"
+      },
+      {
+        "change_id": "du1-rev4-028-non-claims",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "non_claims"
+        ],
+        "from": [
+          "OOD_generalization",
+          "Gaussian_unbounded_gradient_law_for_categorical_logits",
+          "Transformer_external_validity",
+          "cross_task_method_superiority",
+          "predeclared_taper_winner",
+          "protocol_revision_1_pilot_method_ranking"
+        ],
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": [
+          "OOD_generalization",
+          "Gaussian_unbounded_gradient_law_for_categorical_logits",
+          "Transformer_external_validity",
+          "cross_task_method_superiority",
+          "predeclared_taper_winner",
+          "protocol_revision_1_pilot_method_ranking",
+          "development_seed_method_ranking_as_formal_evidence",
+          "quartic_active_formal_comparison"
+        ]
+      },
+      {
+        "change_id": "du1-rev4-029-protocol-action-count",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "action_count"
+        ],
+        "from": 64,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": 80
+      },
+      {
+        "change_id": "du1-rev4-030-protocol-cartesian-axes-rarity",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "cartesian_axes",
+          "rarity"
+        ],
+        "from": "current_policy_surprisal",
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": "current_policy_surprisal_with_shared_contextual_rarity_coordinate"
+      },
+      {
+        "change_id": "du1-rev4-031-protocol-cartesian-axes-utility",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "cartesian_axes",
+          "utility"
+        ],
+        "from": "ground_truth_directional_utility_of_repulsion",
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": "current_expected_reward_derivative_sign_audited_during_training"
+      },
+      {
+        "change_id": "du1-rev4-032-protocol-development-calibration-candidate-negative-alpha",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "development_calibration",
+          "candidate_negative_alpha"
+        ],
+        "from": [
+          0.1,
+          0.25,
+          0.5
+        ],
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": [
+          0.25,
+          0.5
+        ]
+      },
+      {
+        "change_id": "du1-rev4-033-protocol-development-calibration-candidate-rarity-logit-anchor-coefficient",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "development_calibration",
+          "candidate_rarity_logit_anchor_coefficient"
+        ],
+        "from": [
+          0.1,
+          0.25,
+          0.5
+        ],
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": [
+          0.25,
+          0.1
+        ]
+      },
+      {
+        "change_id": "du1-rev4-034-protocol-development-calibration-candidate-reference-rare-retention",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "development_calibration",
+          "candidate_reference_rare_retention"
+        ],
+        "from": [
+          0.25,
+          0.5,
+          0.75
+        ],
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": [
+          0.25
+        ]
+      },
+      {
+        "change_id": "du1-rev4-035-protocol-development-calibration-complete",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "development_calibration",
+          "complete"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": true
+      },
+      {
+        "change_id": "du1-rev4-036-protocol-development-calibration-executed-run-count",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "development_calibration",
+          "executed_run_count"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": 120
+      },
+      {
+        "change_id": "du1-rev4-037-protocol-development-calibration-formal-method-ranking-allowed",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "development_calibration",
+          "formal_method_ranking_allowed"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": false
+      },
+      {
+        "change_id": "du1-rev4-038-protocol-development-calibration-formal-seed-access-allowed",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "development_calibration",
+          "formal_seed_access_allowed"
+        ],
+        "from": false,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": true
+      },
+      {
+        "change_id": "du1-rev4-039-protocol-development-calibration-selected-negative-alpha",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "development_calibration",
+          "selected_negative_alpha"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": 0.5
+      },
+      {
+        "change_id": "du1-rev4-040-protocol-development-calibration-selected-rarity-logit-anchor-coefficient",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "development_calibration",
+          "selected_rarity_logit_anchor_coefficient"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": 0.25
+      },
+      {
+        "change_id": "du1-rev4-041-protocol-development-calibration-selected-reference-rare-retention",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "development_calibration",
+          "selected_reference_rare_retention"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": 0.25
+      },
+      {
+        "change_id": "du1-rev4-042-protocol-development-calibration-selection-not-conditioned-on-exponential-winning",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "development_calibration",
+          "selection_not_conditioned_on_exponential_winning"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": true
+      },
+      {
+        "change_id": "du1-rev4-043-protocol-development-calibration-selection-rule",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "development_calibration",
+          "selection_rule"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": "strongest_registered_negative_pressure_that_passed_environment_support_numerical_and_terminal_gates"
+      },
+      {
+        "change_id": "du1-rev4-044-protocol-development-calibration-user-approved-reduced-matrix-before-execution",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "development_calibration",
+          "user_approved_reduced_matrix_before_execution"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": true
+      },
+      {
+        "change_id": "du1-rev4-045-protocol-exact-decoupling-environment-invalid-runs-reported-separately",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "exact_decoupling",
+          "environment_invalid_runs_reported_separately"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": true
+      },
+      {
+        "change_id": "du1-rev4-046-protocol-exact-decoupling-hidden-actions-excluded-from-training-cells",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "exact_decoupling",
+          "hidden_actions_excluded_from_training_cells"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": true
+      },
+      {
+        "change_id": "du1-rev4-047-protocol-exact-decoupling-hidden-high-reward-actions-share-rare-coordinate",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "exact_decoupling",
+          "hidden_high_reward_actions_share_rare_coordinate"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": true
+      },
+      {
+        "change_id": "du1-rev4-048-protocol-exact-decoupling-rarity-contraction-has-task-visible-cost",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "exact_decoupling",
+          "rarity_contraction_has_task_visible_cost"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": true
+      },
+      {
+        "change_id": "du1-rev4-049-protocol-exact-decoupling-runtime-utility-oracle-sign-audit-required",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "exact_decoupling",
+          "runtime_utility_oracle_sign_audit_required"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": true
+      },
+      {
+        "change_id": "du1-rev4-050-protocol-formal-method-count",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "formal_method_count"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": 6
+      },
+      {
+        "change_id": "du1-rev4-051-protocol-formal-run-count",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "formal_run_count"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": 120
+      },
+      {
+        "change_id": "du1-rev4-052-protocol-formal-seed-count",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "formal_seed_count"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": 20
+      },
+      {
+        "change_id": "du1-rev4-053-protocol-hidden-action-count",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "hidden_action_count"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": 16
+      },
+      {
+        "change_id": "du1-rev4-054-protocol-hidden-optimal-actions-per-state",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "hidden_optimal_actions_per_state"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": 4
+      },
+      {
+        "change_id": "du1-rev4-055-protocol-hidden-rare-channel-task-role",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "hidden_rare_channel_task_role"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": "high_reward_support_audit"
+      },
+      {
+        "change_id": "du1-rev4-056-protocol-hidden-rare-channel-training-role",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "hidden_rare_channel_training_role"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": "evaluation_only"
+      },
+      {
+        "change_id": "du1-rev4-057-protocol-hidden-semantic-prototypes",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "hidden_semantic_prototypes"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": 16
+      },
+      {
+        "change_id": "du1-rev4-058-protocol-historical-development-methods",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "historical_development_methods"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": [
+          "positive_only",
+          "useful_common_only",
+          "useful_rare_only",
+          "unhelpful_common_only",
+          "unhelpful_rare_only",
+          "useful_all",
+          "unhelpful_all",
+          "common_all",
+          "rare_all",
+          "all_negative",
+          "global_matched",
+          "reciprocal_linear_distance",
+          "reciprocal_quadratic_distance",
+          "reciprocal_quartic_distance",
+          "exponential_quadratic_distance"
+        ]
+      },
+      {
+        "change_id": "du1-rev4-059-protocol-methods",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "methods"
+        ],
+        "from": [
+          "positive_only",
+          "useful_common_only",
+          "useful_rare_only",
+          "unhelpful_common_only",
+          "unhelpful_rare_only",
+          "useful_all",
+          "unhelpful_all",
+          "common_all",
+          "rare_all",
+          "all_negative",
+          "global_matched",
+          "reciprocal_linear_distance",
+          "reciprocal_quadratic_distance",
+          "reciprocal_quartic_distance",
+          "exponential_quadratic_distance"
+        ],
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": [
+          "positive_only",
+          "all_negative",
+          "global_matched",
+          "reciprocal_linear_distance",
+          "reciprocal_quadratic_distance",
+          "exponential_quadratic_distance"
+        ]
+      },
+      {
+        "change_id": "du1-rev4-060-protocol-negative-alpha",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "negative_alpha"
+        ],
+        "from": 0.25,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": 0.5
+      },
+      {
+        "change_id": "du1-rev4-061-protocol-observed-action-count",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "observed_action_count"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": 64
+      },
+      {
+        "change_id": "du1-rev4-062-protocol-positive-objective",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "positive_objective"
+        ],
+        "from": "semantic_family_log_probability",
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": "observed_semantic_family_log_probability_rarity_neutral"
+      },
+      {
+        "change_id": "du1-rev4-063-protocol-positive-warm-start-steps",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "positive_warm_start_steps"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": 0
+      },
+      {
+        "change_id": "du1-rev4-064-protocol-protocol-revision",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "protocol_revision"
+        ],
+        "from": 2,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": 4
+      },
+      {
+        "change_id": "du1-rev4-065-protocol-taper-fairness-historical-excluded-methods",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "taper_fairness",
+          "historical_excluded_methods"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": [
+          "reciprocal_quartic_distance"
+        ]
+      },
+      {
+        "change_id": "du1-rev4-066-protocol-taper-fairness-legacy-field-interpretation",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "taper_fairness",
+          "legacy_field_interpretation"
+        ],
+        "from": "v70 aliases retained for non-destructive history; protocol revision 2 method-specific fields are authoritative",
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": "revision-2 quartic and alias fields are preserved as non-destructive history; revision-4 active formal methods exclude Quartic"
+      },
+      {
+        "change_id": "du1-rev4-067-protocol-taper-fairness-quartic-active",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol",
+          "taper_fairness",
+          "quartic_active"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": false
+      },
+      {
+        "change_id": "du1-rev4-068-protocol-revision",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "protocol_revision"
+        ],
+        "from": 2,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": 4
+      },
+      {
+        "change_id": "du1-rev4-069-reporting-separation",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "reporting_separation"
+        ],
+        "from": [
+          "task_performance_collapse",
+          "support_boundary",
+          "nan_inf_numerical_failure"
+        ],
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": [
+          "task_performance_collapse",
+          "support_boundary",
+          "nan_inf_numerical_failure",
+          "environment_validity_failure"
+        ]
+      },
+      {
+        "change_id": "du1-rev4-070-revision-base-commit",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "revision_base_commit"
+        ],
+        "from": "60e014384f85f88ae18da18f4bf6d3db1d808200",
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": "c2175257140de31d09753d09d7bc2c62aee96219"
+      },
+      {
+        "change_id": "du1-rev4-071-role",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "role"
+        ],
+        "from": "formal_controlled_categorical_cartesian_mechanism_and_taper_comparison",
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": "formal_controlled_categorical_taper_comparison_after_development_calibration"
+      },
+      {
+        "change_id": "du1-rev4-072-supersedes-protocol-revision",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "supersedes_protocol_revision"
+        ],
+        "from": 1,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": 3
+      },
+      {
+        "change_id": "du1-rev4-073-terminal-audit-environment-validity-required",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "terminal_audit",
+          "environment_validity_required"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": true
+      },
+      {
+        "change_id": "du1-rev4-074-terminal-audit-method-ranking-requires-all-registered-runs-and-terminal-audit",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "terminal_audit",
+          "method_ranking_requires_all_registered_runs_and_terminal_audit"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the user-approved revision-4 formal freeze and its development-calibration provenance.",
+        "to": true
+      }
+    ],
+    "coverage": {
+      "added_entities": [],
+      "changed_field_count": 74,
+      "declared_assertion_count": 74,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": [
+      {
+        "assertion_id": "du1-rev4-019-execution-gate-state",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "execution_gate",
+          "state"
+        ],
+        "from": "blocked",
+        "machine": "execution_gate",
+        "to": "ready"
+      },
+      {
+        "assertion_id": "du1-rev4-020-formal-execution-activation-state",
+        "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+        "evidence": [
+          {
+            "path": "configs/du1_e6_cartesian_taper_v4.yaml",
+            "sha256": "32b2332ef691a0f8c38aaf8a8b7af479dd0afee6429355e39cf76583f740f557"
+          },
+          {
+            "path": "outputs/du1_e6_cartesian_taper_rev3_development/ARTIFACT_INDEX.json",
+            "sha256": "9a4388bdcf311a75a5ecabad47d2f8de836c82e001bb2fc1ed5cc653be2f3512"
+          },
+          {
+            "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+            "sha256": "7e8400fce0e46cf456b3e1d56999445c9ed3fcc99f233c371437b93040221792"
+          }
+        ],
+        "field_path": [
+          "formal_execution",
+          "activation_state"
+        ],
+        "from": "blocked",
+        "machine": "activation_state",
+        "to": "active"
+      }
+    ]
+  },
+  "history_preservation_passed": true,
+  "idempotence_passed": true,
+  "materialized_handoff_after_sha256": "2f6606883499eda6d36c1fceec0cb3cb1fe856f920c581b6f37d281422102c24",
+  "mode": "authoritative",
+  "network_used": false,
+  "policy_id": "GOV-HANDOFF-AUTHORITY-CUTOVER-01",
+  "registry_after_sha256": "67ac91bfe3113f74fdcc7373b079d3593136f817b2e19f78896cea17b6ab2e31",
+  "registry_before_sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b",
+  "report_schema_version": 1,
+  "source_base_commit": "c2175257140de31d09753d09d7bc2c62aee96219",
+  "source_patch_commit": "781e758e05d451d0d2a223fb2714f2d1e81a8c49",
+  "stage4a_refresh": {
+    "refreshed": [
+      "docs/handoff_shadow/stage4/minimal/generated/MODULE_INDEX.json",
+      "docs/handoff_shadow/stage4/minimal/generated/STRUCTURE_SUGGESTIONS.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e6_generalization.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/execution_status_gates.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/global_core_governance.md"
+    ],
+    "reused": [
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.dot",
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e5_mechanism.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_extrapolation.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_taper.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_mechanism_e1_e3.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/countdown_e8.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/history_provenance.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/hopper_e7.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/paper_rewrite.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/terminal_audit.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/theory_methods_related_work.md"
+    ]
+  },
+  "status": "PASS",
+  "structural_lint_passed": true,
+  "trusted_engine_sha256": "a6532ba4c1bb9c4af24d79f027267de518c3832b347dba47e8319dee7a3ebe2c",
+  "trusted_policy_sha256": "508f6bbb6ee9bb6da5be041a23e25cd569b95475523bb6af7127cb84ea3466ad",
+  "trusted_renderer_sha256": "39a7566e91c77784822148bb18ae32e44dfcc1745fbdc1cbf14a88ce6c6a13e5",
+  "update_id": "DU1-E6-REV4-FORMAL-FREEZE-2026-07-03"
+}

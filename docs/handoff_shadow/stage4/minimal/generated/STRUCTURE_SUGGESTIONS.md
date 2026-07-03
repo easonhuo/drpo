@@ -10,7 +10,7 @@
 
 ## candidate_split_module: `categorical_e6_generalization`
 
-- Reason: source content has 82952 characters, above the configured 65000 threshold
+- Reason: source content has 88784 characters, above the configured 65000 threshold
 - Automatic action: `false`
 
 ## candidate_split_module: `hopper_e7`

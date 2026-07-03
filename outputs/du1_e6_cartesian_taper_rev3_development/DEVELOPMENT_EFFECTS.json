@@ -1,0 +1,694 @@
+{
+  "alpha_0p25__anchor_0p1__rho_0p25": {
+    "all_negative": {
+      "delta_values": [
+        -0.0016734004020690918,
+        -0.005777537822723389,
+        -0.016137421131134033,
+        -0.004278719425201416,
+        -0.04550337791442871
+      ],
+      "delta_vs_positive_ci95": [
+        -0.031385254859924314,
+        -0.0035363554954528807
+      ],
+      "delta_vs_positive_mean": -0.014674091339111328,
+      "hidden_mean": 0.00013965773141535464,
+      "prototype_support_mean": 9.340819931030273,
+      "rare_mass_mean": 0.0002908202615799382,
+      "reward_mean": 0.5833582043647766,
+      "support_boundary_events": 0,
+      "terminal_plateaus": 5,
+      "wins_vs_positive": 0
+    },
+    "exp_minus_global_matched": {
+      "ci95": [
+        0.0027819156646728517,
+        0.011558079719543457
+      ],
+      "mean": 0.00593496561050415,
+      "values": [
+        0.002610504627227783,
+        0.0035676956176757812,
+        0.0037893056869506836,
+        0.002560436725616455,
+        0.01714688539505005
+      ],
+      "wins": 5
+    },
+    "exp_minus_reciprocal_linear_distance": {
+      "ci95": [
+        0.0025131821632385252,
+        0.008767819404602051
+      ],
+      "mean": 0.004924416542053223,
+      "values": [
+        0.002772688865661621,
+        0.00330430269241333,
+        0.0042768120765686035,
+        0.0018581151962280273,
+        0.012410163879394531
+      ],
+      "wins": 5
+    },
+    "exp_minus_reciprocal_quadratic_distance": {
+      "ci95": [
+        0.0015628457069396973,
+        0.005269622802734375
+      ],
+      "mean": 0.0029749274253845215,
+      "values": [
+        0.0017005205154418945,
+        0.0021512508392333984,
+        0.0024546384811401367,
+        0.0011705756187438965,
+        0.007397651672363281
+      ],
+      "wins": 5
+    },
+    "exponential_quadratic_distance": {
+      "delta_values": [
+        -0.002488374710083008,
+        -0.0006185770034790039,
+        -0.0027802586555480957,
+        -0.0008476972579956055,
+        -0.0007612109184265137
+      ],
+      "delta_vs_positive_ci95": [
+        -0.002318072319030762,
+        -0.0007214546203613281
+      ],
+      "delta_vs_positive_mean": -0.0014992237091064453,
+      "hidden_mean": 0.009636369906365872,
+      "prototype_support_mean": 11.63171443939209,
+      "rare_mass_mean": 0.022390951588749885,
+      "reward_mean": 0.5965330719947814,
+      "support_boundary_events": 0,
+      "terminal_plateaus": 5,
+      "wins_vs_positive": 0
+    },
+    "global_matched": {
+      "delta_values": [
+        -0.005098879337310791,
+        -0.004186272621154785,
+        -0.006569564342498779,
+        -0.0034081339836120605,
+        -0.017908096313476562
+      ],
+      "delta_vs_positive_ci95": [
+        -0.012740397453308105,
+        -0.004057538509368896
+      ],
+      "delta_vs_positive_mean": -0.007434189319610596,
+      "hidden_mean": 0.006644402584061027,
+      "prototype_support_mean": 11.775976371765136,
+      "rare_mass_mean": 0.01567004658281803,
+      "reward_mean": 0.5905981063842773,
+      "support_boundary_events": 0,
+      "terminal_plateaus": 5,
+      "wins_vs_positive": 0
+    },
+    "positive_only": {
+      "delta_values": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "delta_vs_positive_ci95": [
+        0.0,
+        0.0
+      ],
+      "delta_vs_positive_mean": 0.0,
+      "hidden_mean": 0.011788502335548401,
+      "prototype_support_mean": 12.634905815124512,
+      "rare_mass_mean": 0.032724685966968536,
+      "reward_mean": 0.5980322957038879,
+      "support_boundary_events": 0,
+      "terminal_plateaus": 5,
+      "wins_vs_positive": 0
+    },
+    "reciprocal_linear_distance": {
+      "delta_values": [
+        -0.005261063575744629,
+        -0.003922879695892334,
+        -0.007057070732116699,
+        -0.002705812454223633,
+        -0.013171374797821045
+      ],
+      "delta_vs_positive_ci95": [
+        -0.010007250308990478,
+        -0.0037036895751953124
+      ],
+      "delta_vs_positive_mean": -0.006423640251159668,
+      "hidden_mean": 0.006741742533631623,
+      "prototype_support_mean": 11.543672370910645,
+      "rare_mass_mean": 0.014922696724534034,
+      "reward_mean": 0.5916086554527282,
+      "support_boundary_events": 0,
+      "terminal_plateaus": 5,
+      "wins_vs_positive": 0
+    },
+    "reciprocal_quadratic_distance": {
+      "delta_values": [
+        -0.004188895225524902,
+        -0.0027698278427124023,
+        -0.005234897136688232,
+        -0.002018272876739502,
+        -0.008158862590789795
+      ],
+      "delta_vs_positive_ci95": [
+        -0.006404483318328857,
+        -0.002753019332885742
+      ],
+      "delta_vs_positive_mean": -0.004474151134490967,
+      "hidden_mean": 0.007818900654092431,
+      "prototype_support_mean": 11.547495079040527,
+      "rare_mass_mean": 0.017632698640227318,
+      "reward_mean": 0.5935581445693969,
+      "support_boundary_events": 0,
+      "terminal_plateaus": 5,
+      "wins_vs_positive": 0
+    }
+  },
+  "alpha_0p25__anchor_0p25__rho_0p25": {
+    "all_negative": {
+      "delta_values": [
+        0.0010136961936950684,
+        -0.003533601760864258,
+        -0.013218224048614502,
+        -0.00373154878616333,
+        -0.022152423858642578
+      ],
+      "delta_vs_positive_ci95": [
+        -0.0166418194770813,
+        -0.0017542719841003418
+      ],
+      "delta_vs_positive_mean": -0.00832442045211792,
+      "hidden_mean": 0.003778714721556753,
+      "prototype_support_mean": 9.428677558898926,
+      "rare_mass_mean": 0.006836502812802792,
+      "reward_mean": 0.58970787525177,
+      "support_boundary_events": 0,
+      "terminal_plateaus": 5,
+      "wins_vs_positive": 1
+    },
+    "exp_minus_global_matched": {
+      "ci95": [
+        0.0014907360076904298,
+        0.00577164888381958
+      ],
+      "mean": 0.003094303607940674,
+      "values": [
+        0.0011031031608581543,
+        0.0018138885498046875,
+        0.0023592114448547363,
+        0.0017851591110229492,
+        0.008410155773162842
+      ],
+      "wins": 5
+    },
+    "exp_minus_reciprocal_linear_distance": {
+      "ci95": [
+        0.0011641740798950194,
+        0.0037629365921020507
+      ],
+      "mean": 0.0022245407104492187,
+      "values": [
+        0.001391768455505371,
+        0.0012874603271484375,
+        0.002330780029296875,
+        0.0009270906448364258,
+        0.005185604095458984
+      ],
+      "wins": 5
+    },
+    "exp_minus_reciprocal_quadratic_distance": {
+      "ci95": [
+        0.0006659746170043946,
+        0.002181518077850342
+      ],
+      "mean": 0.0012547612190246583,
+      "values": [
+        0.0007303953170776367,
+        0.0006847381591796875,
+        0.0012192130088806152,
+        0.0006150007247924805,
+        0.003024458885192871
+      ],
+      "wins": 5
+    },
+    "exponential_quadratic_distance": {
+      "delta_values": [
+        0.0004665851593017578,
+        0.002001643180847168,
+        0.0002498626708984375,
+        0.0013267993927001953,
+        0.002850055694580078
+      ],
+      "delta_vs_positive_ci95": [
+        0.0005519390106201172,
+        0.0022060394287109373
+      ],
+      "delta_vs_positive_mean": 0.0013789892196655273,
+      "hidden_mean": 0.010923441126942634,
+      "prototype_support_mean": 11.722749519348145,
+      "rare_mass_mean": 0.027734801173210144,
+      "reward_mean": 0.5994112849235534,
+      "support_boundary_events": 0,
+      "terminal_plateaus": 5,
+      "wins_vs_positive": 5
+    },
+    "global_matched": {
+      "delta_values": [
+        -0.0006365180015563965,
+        0.00018775463104248047,
+        -0.002109348773956299,
+        -0.0004583597183227539,
+        -0.005560100078582764
+      ],
+      "delta_vs_positive_ci95": [
+        -0.003720378875732422,
+        -0.00023554563522338868
+      ],
+      "delta_vs_positive_mean": -0.0017153143882751465,
+      "hidden_mean": 0.009598275832831859,
+      "prototype_support_mean": 11.904989051818848,
+      "rare_mass_mean": 0.024518803507089616,
+      "reward_mean": 0.5963169813156128,
+      "support_boundary_events": 0,
+      "terminal_plateaus": 5,
+      "wins_vs_positive": 1
+    },
+    "positive_only": {
+      "delta_values": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "delta_vs_positive_ci95": [
+        0.0,
+        0.0
+      ],
+      "delta_vs_positive_mean": 0.0,
+      "hidden_mean": 0.011788502335548401,
+      "prototype_support_mean": 12.634905815124512,
+      "rare_mass_mean": 0.032724685966968536,
+      "reward_mean": 0.5980322957038879,
+      "support_boundary_events": 0,
+      "terminal_plateaus": 5,
+      "wins_vs_positive": 0
+    },
+    "reciprocal_linear_distance": {
+      "delta_values": [
+        -0.0009251832962036133,
+        0.0007141828536987305,
+        -0.0020809173583984375,
+        0.00039970874786376953,
+        -0.0023355484008789062
+      ],
+      "delta_vs_positive_ci95": [
+        -0.0019516229629516601,
+        0.00026051998138427735
+      ],
+      "delta_vs_positive_mean": -0.0008455514907836914,
+      "hidden_mean": 0.00958619536831975,
+      "prototype_support_mean": 11.685251426696777,
+      "rare_mass_mean": 0.023914159461855888,
+      "reward_mean": 0.5971867442131042,
+      "support_boundary_events": 0,
+      "terminal_plateaus": 5,
+      "wins_vs_positive": 2
+    },
+    "reciprocal_quadratic_distance": {
+      "delta_values": [
+        -0.0002638101577758789,
+        0.0013169050216674805,
+        -0.0009693503379821777,
+        0.0007117986679077148,
+        -0.00017440319061279297
+      ],
+      "delta_vs_positive_ci95": [
+        -0.0005281448364257812,
+        0.000832819938659668
+      ],
+      "delta_vs_positive_mean": 0.00012422800064086913,
+      "hidden_mean": 0.010103366058319806,
+      "prototype_support_mean": 11.67106761932373,
+      "rare_mass_mean": 0.025362620875239373,
+      "reward_mean": 0.5981565237045288,
+      "support_boundary_events": 0,
+      "terminal_plateaus": 5,
+      "wins_vs_positive": 2
+    }
+  },
+  "alpha_0p5__anchor_0p1__rho_0p25": {
+    "all_negative": {
+      "delta_values": [
+        0.0018178820610046387,
+        -0.013790786266326904,
+        -0.024573683738708496,
+        -0.01118999719619751,
+        -0.05432099103927612
+      ],
+      "delta_vs_positive_ci95": [
+        -0.03810890913009644,
+        -0.006062006950378418
+      ],
+      "delta_vs_positive_mean": -0.02041151523590088,
+      "hidden_mean": 7.902469178588945e-07,
+      "prototype_support_mean": 7.427264976501465,
+      "rare_mass_mean": 1.8179235894422163e-06,
+      "reward_mean": 0.577620780467987,
+      "support_boundary_events": 5,
+      "terminal_plateaus": 0,
+      "wins_vs_positive": 1
+    },
+    "exp_minus_global_matched": {
+      "ci95": [
+        0.003279125690460205,
+        0.02062865495681763
+      ],
+      "mean": 0.009984123706817626,
+      "values": [
+        0.0019527077674865723,
+        0.005236566066741943,
+        0.008214473724365234,
+        0.0036268234252929688,
+        0.030890047550201416
+      ],
+      "wins": 5
+    },
+    "exp_minus_reciprocal_linear_distance": {
+      "ci95": [
+        0.002897953987121582,
+        0.016974127292633055
+      ],
+      "mean": 0.00852198600769043,
+      "values": [
+        0.0023935437202453613,
+        0.00542294979095459,
+        0.007741808891296387,
+        0.002139866352081299,
+        0.02491176128387451
+      ],
+      "wins": 5
+    },
+    "exp_minus_reciprocal_quadratic_distance": {
+      "ci95": [
+        0.0019492030143737793,
+        0.010090744495391846
+      ],
+      "mean": 0.0052830100059509276,
+      "values": [
+        0.0017316937446594238,
+        0.003667294979095459,
+        0.005201578140258789,
+        0.001307666301727295,
+        0.014506816864013672
+      ],
+      "wins": 5
+    },
+    "exponential_quadratic_distance": {
+      "delta_values": [
+        -0.003692030906677246,
+        -0.00031119585037231445,
+        -0.0017595291137695312,
+        -0.0004938244819641113,
+        0.0012905001640319824
+      ],
+      "delta_vs_positive_ci95": [
+        -0.002412748336791992,
+        0.0003294825553894043
+      ],
+      "delta_vs_positive_mean": -0.0009932160377502442,
+      "hidden_mean": 0.008813518472015858,
+      "prototype_support_mean": 10.910099220275878,
+      "rare_mass_mean": 0.018086594343185425,
+      "reward_mean": 0.5970390796661377,
+      "support_boundary_events": 0,
+      "terminal_plateaus": 5,
+      "wins_vs_positive": 1
+    },
+    "global_matched": {
+      "delta_values": [
+        -0.005644738674163818,
+        -0.005547761917114258,
+        -0.009974002838134766,
+        -0.00412064790725708,
+        -0.029599547386169434
+      ],
+      "delta_vs_positive_ci95": [
+        -0.020578658580780028,
+        -0.004996311664581299
+      ],
+      "delta_vs_positive_mean": -0.010977339744567872,
+      "hidden_mean": 0.0037867320235818623,
+      "prototype_support_mean": 11.240739822387695,
+      "rare_mass_mean": 0.00825303578749299,
+      "reward_mean": 0.5870549559593201,
+      "support_boundary_events": 0,
+      "terminal_plateaus": 5,
+      "wins_vs_positive": 0
+    },
+    "positive_only": {
+      "delta_values": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "delta_vs_positive_ci95": [
+        0.0,
+        0.0
+      ],
+      "delta_vs_positive_mean": 0.0,
+      "hidden_mean": 0.011788502335548401,
+      "prototype_support_mean": 12.634905815124512,
+      "rare_mass_mean": 0.032724685966968536,
+      "reward_mean": 0.5980322957038879,
+      "support_boundary_events": 0,
+      "terminal_plateaus": 5,
+      "wins_vs_positive": 0
+    },
+    "reciprocal_linear_distance": {
+      "delta_values": [
+        -0.006085574626922607,
+        -0.005734145641326904,
+        -0.009501338005065918,
+        -0.00263369083404541,
+        -0.02362126111984253
+      ],
+      "delta_vs_positive_ci95": [
+        -0.01660698652267456,
+        -0.004564249515533447
+      ],
+      "delta_vs_positive_mean": -0.009515202045440674,
+      "hidden_mean": 0.003804506896995008,
+      "prototype_support_mean": 10.779754257202148,
+      "rare_mass_mean": 0.0072388055734336374,
+      "reward_mean": 0.5885170936584473,
+      "support_boundary_events": 0,
+      "terminal_plateaus": 5,
+      "wins_vs_positive": 0
+    },
+    "reciprocal_quadratic_distance": {
+      "delta_values": [
+        -0.00542372465133667,
+        -0.0039784908294677734,
+        -0.00696110725402832,
+        -0.0018014907836914062,
+        -0.01321631669998169
+      ],
+      "delta_vs_positive_ci95": [
+        -0.009810233116149902,
+        -0.0032688140869140624
+      ],
+      "delta_vs_positive_mean": -0.006276226043701172,
+      "hidden_mean": 0.005666193063370883,
+      "prototype_support_mean": 10.784911155700684,
+      "rare_mass_mean": 0.010890191700309516,
+      "reward_mean": 0.5917560696601868,
+      "support_boundary_events": 0,
+      "terminal_plateaus": 5,
+      "wins_vs_positive": 0
+    }
+  },
+  "alpha_0p5__anchor_0p25__rho_0p25": {
+    "all_negative": {
+      "delta_values": [
+        -0.0013598799705505371,
+        -0.013415217399597168,
+        -0.02319943904876709,
+        -0.011869251728057861,
+        -0.051460862159729004
+      ],
+      "delta_vs_positive_ci95": [
+        -0.03593341112136841,
+        -0.007829666137695312
+      ],
+      "delta_vs_positive_mean": -0.020260930061340332,
+      "hidden_mean": 0.0003136751503916457,
+      "prototype_support_mean": 7.464802551269531,
+      "rare_mass_mean": 0.0007302862999495119,
+      "reward_mean": 0.5777713656425476,
+      "support_boundary_events": 0,
+      "terminal_plateaus": 5,
+      "wins_vs_positive": 0
+    },
+    "exp_minus_global_matched": {
+      "ci95": [
+        0.0018759369850158691,
+        0.010952293872833252
+      ],
+      "mean": 0.005759048461914063,
+      "values": [
+        0.0003281831741333008,
+        0.0031939148902893066,
+        0.0065460205078125,
+        0.0027647018432617188,
+        0.015962421894073486
+      ],
+      "wins": 5
+    },
+    "exp_minus_reciprocal_linear_distance": {
+      "ci95": [
+        0.0018160223960876464,
+        0.008070158958435058
+      ],
+      "mean": 0.004656362533569336,
+      "values": [
+        0.001295924186706543,
+        0.003439009189605713,
+        0.0060059428215026855,
+        0.0015246272087097168,
+        0.011016309261322021
+      ],
+      "wins": 5
+    },
+    "exp_minus_reciprocal_quadratic_distance": {
+      "ci95": [
+        0.001073765754699707,
+        0.004425406455993652
+      ],
+      "mean": 0.002634298801422119,
+      "values": [
+        0.0007990002632141113,
+        0.0020170211791992188,
+        0.0035927891731262207,
+        0.0008769035339355469,
+        0.005885779857635498
+      ],
+      "wins": 5
+    },
+    "exponential_quadratic_distance": {
+      "delta_values": [
+        -5.4836273193359375e-05,
+        0.003095388412475586,
+        0.0020029544830322266,
+        0.0019695162773132324,
+        0.0062340497970581055
+      ],
+      "delta_vs_positive_ci95": [
+        0.000986766815185547,
+        0.004541611671447754
+      ],
+      "delta_vs_positive_mean": 0.0026494145393371584,
+      "hidden_mean": 0.010476009175181388,
+      "prototype_support_mean": 10.999247169494629,
+      "rare_mass_mean": 0.024590539932250976,
+      "reward_mean": 0.6006817102432251,
+      "support_boundary_events": 0,
+      "terminal_plateaus": 5,
+      "wins_vs_positive": 4
+    },
+    "global_matched": {
+      "delta_values": [
+        -0.00038301944732666016,
+        -9.85264778137207e-05,
+        -0.0045430660247802734,
+        -0.0007951855659484863,
+        -0.00972837209701538
+      ],
+      "delta_vs_positive_ci95": [
+        -0.006765341758728028,
+        -0.0003516554832458496
+      ],
+      "delta_vs_positive_mean": -0.0031096339225769043,
+      "hidden_mean": 0.008038596948608756,
+      "prototype_support_mean": 11.371019744873047,
+      "rare_mass_mean": 0.01922045983374119,
+      "reward_mean": 0.594922661781311,
+      "support_boundary_events": 0,
+      "terminal_plateaus": 5,
+      "wins_vs_positive": 0
+    },
+    "positive_only": {
+      "delta_values": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "delta_vs_positive_ci95": [
+        0.0,
+        0.0
+      ],
+      "delta_vs_positive_mean": 0.0,
+      "hidden_mean": 0.011788502335548401,
+      "prototype_support_mean": 12.634905815124512,
+      "rare_mass_mean": 0.032724685966968536,
+      "reward_mean": 0.5980322957038879,
+      "support_boundary_events": 0,
+      "terminal_plateaus": 5,
+      "wins_vs_positive": 0
+    },
+    "reciprocal_linear_distance": {
+      "delta_values": [
+        -0.0013507604598999023,
+        -0.00034362077713012695,
+        -0.004002988338470459,
+        0.0004448890686035156,
+        -0.004782259464263916
+      ],
+      "delta_vs_positive_ci95": [
+        -0.0037842512130737303,
+        -0.000229644775390625
+      ],
+      "delta_vs_positive_mean": -0.0020069479942321777,
+      "hidden_mean": 0.007908322522416711,
+      "prototype_support_mean": 10.919544792175293,
+      "rare_mass_mean": 0.01783501524478197,
+      "reward_mean": 0.5960253477096558,
+      "support_boundary_events": 0,
+      "terminal_plateaus": 5,
+      "wins_vs_positive": 1
+    },
+    "reciprocal_quadratic_distance": {
+      "delta_values": [
+        -0.0008538365364074707,
+        0.0010783672332763672,
+        -0.0015898346900939941,
+        0.0010926127433776855,
+        0.0003482699394226074
+      ],
+      "delta_vs_positive_ci95": [
+        -0.0009089946746826172,
+        0.0009380459785461425
+      ],
+      "delta_vs_positive_mean": 1.5115737915039062e-05,
+      "hidden_mean": 0.008976813964545726,
+      "prototype_support_mean": 10.907966423034669,
+      "rare_mass_mean": 0.02045791018754244,
+      "reward_mean": 0.598047411441803,
+      "support_boundary_events": 0,
+      "terminal_plateaus": 5,
+      "wins_vs_positive": 3
+    }
+  }
+}
