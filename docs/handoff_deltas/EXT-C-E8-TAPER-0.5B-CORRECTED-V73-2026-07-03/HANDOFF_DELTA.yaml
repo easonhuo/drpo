@@ -1,0 +1,521 @@
+schema_version: 3
+update_id: EXT-C-E8-TAPER-0.5B-CORRECTED-V73-2026-07-03
+mode: authoritative
+base:
+  commit: 365ca32545f9205fdf20f0cd084c8c674ae98a45
+  handoff_sha256: 974228eff0ff57542f91bc5e0a6a36e143301a96618bb03cca4511a664bd87e5
+  registry_sha256: f8eab3aa8ba3f2d3b6e888f9e05597f08fc8385a11f985d3338f66f296821b6d
+renderer_version: 1
+operations:
+- operation_id: rename-v72-title-to-v73-e8-taper-corrected
+  op: replace_heading
+  heading_path:
+  - DRPO / SNA2C 远场负梯度动力学研究主文档 v72（D-U1 E6 shared-rarity 环境修复版）
+  new_heading: DRPO / SNA2C 远场负梯度动力学研究主文档 v73（Countdown E8-TAPER 距离坐标与执行链修正版）
+  reason: Record the corrected E8-TAPER distance coordinate and hardened execution chain without deleting historical
+    E6 or Countdown records.
+- operation_id: insert-v73-e8-taper-corrected
+  op: insert_after_heading
+  heading_path:
+  - 0. 研究与执行原则（每次新会话首先阅读）
+  block_id: v73-e8-taper-corrected
+  content: '> **v73 增量登记：Countdown E8-TAPER 距离坐标与执行链修正（不删除 v72 及更早内容）**
+
+    >
+
+    > - **旧定义—问题—修正：**v67 将 `max(0, sequence_surprisal - tau)` 直接记作距离 `d`。E6-TAPER 的方法命名审计已经确认 surprisal 对应距离平方量级；沿用旧定义会把
+    reciprocal-linear 实际做成 quadratic-distance，把 squared-distance exponential 实际做成 quartic-distance。E8 现统一定义 `S=max(0,(sequence_surprisal-tau)/c_cal)`、`d=sqrt(S)`，并只在负样本分支使用
+    detached 权重。
+
+    > - **冻结尺度：**保留已登记 `tau=2.0`。`c_cal` 只由独立 calibration replay 和 seed `9134` 在 reference initialization 计算：将校准
+    surprisal 排序为 lower/upper rarity halves，取两半中位数之差；该尺度在 confirmation 前冻结，若非有限或小于 `1e-6` 则 fail closed。不得用 validation/test
+    或确认 seeds 重调。
+
+    > - **方法公式：**`reciprocal_linear=1/(1+lambda d)`；`exponential=exp(-lambda d)`；`squared_distance_exponential=exp(-lambda
+    d^2)=exp(-lambda S)`。`global_matched` 仍是不区分距离的常数控制；`uncontrolled_negative` 表示在所有方法共享的 frozen negative base scale
+    下不施加 taper，不等于原始系数恒为 1 的跨协议比较。
+
+    > - **确定性与身份修复：**calibration gradient measurement、learner-relative coordinate 和 teacher-forced audit 均关闭 dropout。训练使用
+    eval/no-grad 的 deterministic coordinate pass 与 train-mode gradient pass 分离。config、reference adapter、replay、sampler
+    seed/plan hash 和 experiment ID 全部执行 fail-closed 身份校验。
+
+    > - **梯度预算口径修复：**共享负尺度的实际定义是 positive aggregate gradient L2 除以 uncontrolled-negative aggregate gradient L2，不再误称
+    per-sample RMS。Global 与 taper 的 initialization matching 继续比较 aggregate raw negative-gradient L2；Adam update
+    不宣称匹配。
+
+    > - **状态边界：**本次只完成实现和门禁修复，未运行 Qwen/CUDA pilot，未产生任何方法排名。`EXT-C-E8-TAPER-0.5B-01` 状态为 `not_run + implemented
+    + ready`；任务性能退化、valid/support/entropy boundary 和 NaN/Inf 仍必须分开报告，fixed 1200-update horizon 不自动称为收敛。'
+- operation_id: append-v73-e8-taper-current-gate
+  op: append_to_section
+  heading_path:
+  - 0. 研究与执行原则（每次新会话首先阅读）
+  - 0.1 当前执行门禁
+  block_id: v73-e8-taper-current-gate
+  content: '- **Countdown E8-TAPER v73 覆盖：**`EXT-C-E8-TAPER-0.5B-01` 已实现 corrected `S -> d=sqrt(S)` 坐标、独立冻结尺度、deterministic
+    detached weighting、paired sampler 身份校验和终态审计，当前为 **implemented + ready + not_run**。只允许先运行登记的 0.5B pilot；不得将 smoke/static
+    test 写成科学结果，也不得预设 Exp、Global 或任何 taper 获胜。'
+- operation_id: append-v73-e8-taper-execution-order
+  op: append_to_section
+  heading_path:
+  - 6. 接下来唯一执行顺序
+  block_id: v73-e8-taper-execution-order
+  content: 12. **v73 Countdown E8-TAPER 执行覆盖：**应用本更新并通过 trusted normalization 后，先执行 one-click preflight、reference
+    gate、独立 replay/calibration freeze，再按相同 sampler plan 并行运行 6 methods × 3 paired seeds。全部训练完成前禁止读取 test；结果必须同时提交
+    best、terminal、final-window slopes、surprisal-bin allocation 和三类失败分报。
+registry:
+  mode: expected_after
+  exact_base_after_sha256: 33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b
+  changes:
+  - change_id: e8-taper-corrected-001
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path:
+    - artifact_identity_guards
+    from: null
+    to:
+      config_hash_match_calibration: required
+      reference_adapter_hash_match_calibration: required
+      sampler_experiment_id_seed_replay_and_plan_hash_match: required
+    reason: Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution
+      gate.
+    evidence: &id001
+    - configs/countdown_e8_taper_0p5b.yaml
+    - experiments/registry.yaml
+    - scripts/run_countdown_e8_taper.py
+    - src/drpo/countdown_e8_taper.py
+    - tests/test_countdown_e8_taper.py
+  - change_id: e8-taper-corrected-002
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path:
+    - calibration_protocol
+    - common_target_budget
+    from: inherited_selected_controlled_negative_initialization_budget
+    to: corrected_exponential_linear_distance_lambda_0.7_initialization_gradient_l2
+    reason: Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution
+      gate.
+    evidence: *id001
+  - change_id: e8-taper-corrected-003
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path:
+    - calibration_protocol
+    - dropout_mode
+    from: null
+    to: disabled_during_calibration_gradient_measurement
+    reason: Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution
+      gate.
+    evidence: *id001
+  - change_id: e8-taper-corrected-004
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path:
+    - calibration_protocol
+    - inherited_reference_lambda
+    from: null
+    to: 0.7
+    reason: Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution
+      gate.
+    evidence: *id001
+  - change_id: e8-taper-corrected-005
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path:
+    - calibration_protocol
+    - inherited_reference_method
+    from: null
+    to: exponential
+    reason: Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution
+      gate.
+    evidence: *id001
+  - change_id: e8-taper-corrected-006
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path:
+    - calibration_protocol
+    - shared_negative_scale
+    from: null
+    to: positive_aggregate_gradient_l2_over_uncontrolled_negative_aggregate_gradient_l2
+    reason: Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution
+      gate.
+    evidence: *id001
+  - change_id: e8-taper-corrected-007
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path:
+    - calibration_protocol
+    - surprisal_scale_rule
+    from: null
+    to: calibration_upper_half_median_minus_lower_half_median
+    reason: Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution
+      gate.
+    evidence: *id001
+  - change_id: e8-taper-corrected-008
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path:
+    - calibration_protocol
+    - surprisal_threshold_tau
+    from: null
+    to: 2.0
+    reason: Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution
+      gate.
+    evidence: *id001
+  - change_id: e8-taper-corrected-009
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path:
+    - code_entrypoint
+    from: null
+    to: src/drpo/countdown_e8_taper.py
+    reason: Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution
+      gate.
+    evidence: *id001
+  - change_id: e8-taper-corrected-010
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path:
+    - common_replay_protocol
+    - collector_only_candidate_reserve
+    from: null
+    to:
+      train: 1800
+      calibration: 32
+    reason: Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution
+      gate.
+    evidence: *id001
+  - change_id: e8-taper-corrected-011
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path:
+    - common_replay_protocol
+    - final_calibration_prompt_rows
+    from: null
+    to: 16
+    reason: Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution
+      gate.
+    evidence: *id001
+  - change_id: e8-taper-corrected-012
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path:
+    - common_replay_protocol
+    - final_train_prompt_rows
+    from: null
+    to: 1500
+    reason: Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution
+      gate.
+    evidence: *id001
+  - change_id: e8-taper-corrected-013
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path:
+    - config_entrypoint
+    from: null
+    to: configs/countdown_e8_taper_0p5b.yaml
+    reason: Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution
+      gate.
+    evidence: *id001
+  - change_id: e8-taper-corrected-014
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path:
+    - continuous_diagnostics
+    - deterministic_teacher_forced_audit
+    from: null
+    to: true
+    reason: Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution
+      gate.
+    evidence: *id001
+  - change_id: e8-taper-corrected-015
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path:
+    - evidence
+    - implementation_complete
+    from: null
+    to: true
+    reason: Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution
+      gate.
+    evidence: *id001
+  - change_id: e8-taper-corrected-016
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path:
+    - evidence
+    - implementation_tests_passed
+    from: null
+    to: true
+    reason: Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution
+      gate.
+    evidence: *id001
+  - change_id: e8-taper-corrected-017
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path:
+    - evidence
+    - real_qwen_cuda_run_completed
+    from: null
+    to: false
+    reason: Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution
+      gate.
+    evidence: *id001
+  - change_id: e8-taper-corrected-018
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path:
+    - execution_gate
+    - blocked_by
+    from:
+    - implementation_and_protocol_freeze
+    to: []
+    reason: Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution
+      gate.
+    evidence: *id001
+  - change_id: e8-taper-corrected-019
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path:
+    - execution_gate
+    - blocking_reason
+    from: The common replay builder, calibration output, paired sampler, training runner, continuous-bin diagnostics,
+      and terminal audit must be implemented, tested, and frozen before any training starts.
+    to: null
+    reason: Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution
+      gate.
+    evidence: *id001
+  - change_id: e8-taper-corrected-020
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path:
+    - execution_gate
+    - readiness_basis
+    from: null
+    to: Corrected normalized-distance implementation, deterministic detached remoteness, common replay, independent
+      calibration, paired sampler, fixed-budget training, current-surprisal diagnostics, hardened artifact identity
+      checks, one-click launch, and terminal audit are implemented and tested.
+    reason: Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution
+      gate.
+    evidence: *id001
+  - change_id: e8-taper-corrected-021
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path:
+    - execution_gate
+    - state
+    from: blocked
+    to: ready
+    reason: Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution
+      gate.
+    evidence: *id001
+  - change_id: e8-taper-corrected-022
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path:
+    - expected_outputs
+    from:
+    - RUN_COMPLETE.json
+    - terminal_audit.json
+    - arena_summary.csv
+    - taper_calibration.json
+    - replay_pool_manifest.json
+    - surprisal_bin_diagnostics.csv
+    - run_config.json
+    to:
+    - RUN_COMPLETE.json
+    - terminal_audit.json
+    - arena_summary.csv
+    - taper_calibration.json
+    - replay_pool_manifest.json
+    - surprisal_bin_diagnostics.csv
+    - run_config.json
+    - scientific_run_manifest.json
+    reason: Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution
+      gate.
+    evidence: *id001
+  - change_id: e8-taper-corrected-023
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path:
+    - implementation_state
+    from: not_implemented
+    to: implemented
+    reason: Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution
+      gate.
+    evidence: *id001
+  - change_id: e8-taper-corrected-024
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path:
+    - implementation_version
+    from: null
+    to: 1.1.0-normalized-distance-deterministic-audit
+    reason: Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution
+      gate.
+    evidence: *id001
+  - change_id: e8-taper-corrected-025
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path:
+    - inherited_training_controls
+    - fixed_horizon_is_not_automatic_convergence
+    from: null
+    to: true
+    reason: Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution
+      gate.
+    evidence: *id001
+  - change_id: e8-taper-corrected-026
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path:
+    - inherited_training_controls
+    - optimizer_update_budget
+    from: matched_across_methods_and_frozen_before_launch
+    to: 1200
+    reason: Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution
+      gate.
+    evidence: *id001
+  - change_id: e8-taper-corrected-027
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path:
+    - inherited_training_controls
+    - test_split_access
+    from: null
+    to: only_after_all_method_training_and_selection_complete
+    reason: Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution
+      gate.
+    evidence: *id001
+  - change_id: e8-taper-corrected-028
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path:
+    - learner_relative_remoteness
+    - definition
+    from: max_0_sequence_surprisal_minus_tau
+    to: normalized_excess_surprisal_then_square_root_distance
+    reason: Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution
+      gate.
+    evidence: *id001
+  - change_id: e8-taper-corrected-029
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path:
+    - learner_relative_remoteness
+    - deterministic_eval_mode_for_weight_coordinate
+    from: null
+    to: true
+    reason: Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution
+      gate.
+    evidence: *id001
+  - change_id: e8-taper-corrected-030
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path:
+    - learner_relative_remoteness
+    - distance_formula
+    from: null
+    to: d_theta=sqrt(S_theta)
+    reason: Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution
+      gate.
+    evidence: *id001
+  - change_id: e8-taper-corrected-031
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path:
+    - learner_relative_remoteness
+    - formula
+    from: d_theta=max(0,-log_pi_theta(x_given_s)-tau)
+    to: d_theta=max(0,-log_pi_theta(x_given_s)-tau) [deprecated_v67_raw_excess_not_distance]
+    reason: Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution
+      gate.
+    evidence: *id001
+  - change_id: e8-taper-corrected-032
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path:
+    - learner_relative_remoteness
+    - normalized_excess_formula
+    from: null
+    to: S_theta=max(0,(-log_pi_theta(x_given_s)-tau)/c_cal)
+    reason: Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution
+      gate.
+    evidence: *id001
+  - change_id: e8-taper-corrected-033
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path:
+    - learner_relative_remoteness
+    - surprisal_scale_frozen_before_confirmation
+    from: null
+    to: true
+    reason: Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution
+      gate.
+    evidence: *id001
+  - change_id: e8-taper-corrected-034
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path:
+    - learner_relative_remoteness
+    - surprisal_scale_rule
+    from: null
+    to: calibration_upper_half_median_minus_lower_half_median
+    reason: Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution
+      gate.
+    evidence: *id001
+  - change_id: e8-taper-corrected-035
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path:
+    - learner_relative_remoteness
+    - weight_stop_gradient
+    from: null
+    to: true
+    reason: Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution
+      gate.
+    evidence: *id001
+  - change_id: e8-taper-corrected-036
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path:
+    - operator_entrypoint
+    from: null
+    to: scripts/run_countdown_e8_taper.py
+    reason: Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution
+      gate.
+    evidence: *id001
+  - change_id: e8-taper-corrected-037
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path:
+    - terminal_audit
+    - entropy_boundary_reporting
+    from: null
+    to: continuous_metric_without_separate_binary_threshold
+    reason: Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution
+      gate.
+    evidence: *id001
+  - change_id: e8-taper-corrected-038
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path:
+    - terminal_audit
+    - valid_structure_boundary_rate
+    from: null
+    to: 0.95
+    reason: Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution
+      gate.
+    evidence: *id001
+  - change_id: e8-taper-corrected-039
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path:
+    - terminal_audit
+    - valid_structure_boundary_threshold_source
+    from: null
+    to: inherited_reference_valid_rate_gate
+    reason: Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution
+      gate.
+    evidence: *id001
+expected:
+  exact_base_candidate_sha256: 1ae5566da0d28ee55975955e465b180be1e2891396d3ea80fe61753136293791

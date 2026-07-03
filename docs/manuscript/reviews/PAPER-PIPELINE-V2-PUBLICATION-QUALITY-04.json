@@ -1,5 +1,5 @@
 {
-  "artifact_refresh_note": "The E7-Q2 repository closure refreshed only the generated Core research snapshot provenance to bind the current experiments/registry.yaml. The publication-quality prose, figures, PDF, guidance, playbook, strategy, and review gates were unchanged; this record refreshes the snapshot artifact hash so the acceptance review remains current.",
+  "artifact_refresh_note": "The EXT-C-E8-TAPER-0.5B-01 registration refreshed only the generated Core research snapshot provenance to bind the current experiments/registry.yaml. The publication-quality prose, figures, PDF, guidance, playbook, strategy, and review gates were unchanged; this record refreshes the snapshot artifact hash so the acceptance review remains current.",
   "artifacts": [
     {
       "path": "docs/manuscript/RL_PAPER_WRITING_GUIDANCE.md",
@@ -71,7 +71,7 @@
     },
     {
       "path": "paper/core_review_v2_core/research_snapshot.json",
-      "sha256": "8039cfc14dc4a4e0c568e79c862787594c1435200aa9ee08278ae21488fb8272"
+      "sha256": "49c4a1f70211fb5cd7f67db7ec8bb14b39da4e02ce8a4f5547747b2b74fb4aa7"
     },
     {
       "path": "paper/releases/DRPO_FULL_REVIEW_V1.pdf",

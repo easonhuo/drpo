@@ -215,8 +215,15 @@ def test_e8_offline_bank_precedes_scale_and_keeps_roles_separate() -> None:
     assert online["confirmation_protocol"]["training_seeds"] == [6234, 7234, 8234]
     assert taper["execution_class"] == "pilot"
     assert taper["status"] == "not_run"
-    assert taper["implementation_state"] == "not_implemented"
-    assert taper["execution_gate"]["state"] == "blocked"
+    assert taper["implementation_state"] == "implemented"
+    assert taper["execution_gate"]["state"] == "ready"
+    assert taper["code_entrypoint"] == "src/drpo/countdown_e8_taper.py"
+    assert taper["operator_entrypoint"] == "scripts/run_countdown_e8_taper.py"
+    remoteness = taper["learner_relative_remoteness"]
+    assert remoteness["normalized_excess_formula"] == (
+        "S_theta=max(0,(-log_pi_theta(x_given_s)-tau)/c_cal)"
+    )
+    assert remoteness["distance_formula"] == "d_theta=sqrt(S_theta)"
     assert taper["scope_decision"]["countdown_0_5b_mechanism_exploration"] == (
         "closed_for_current_scope"
     )

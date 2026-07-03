@@ -519,12 +519,14 @@ def test_historical_du1_e6_cartesian_taper_v70_delta_matches_repository_after_im
     assert result.report["registry_change_coverage"]["fully_declared"] is True
 
 
-def test_current_du1_e6_shared_rarity_v72_delta_matches_manual_handoff() -> None:
+def test_historical_du1_e6_shared_rarity_v72_delta_matches_repository_after_image() -> None:
     delta = (
         ROOT
         / "docs/handoff_deltas/DU1-E6-SHARED-RARITY-REPAIR-V72-2026-07-02/HANDOFF_DELTA.yaml"
     )
-    result = MODULE.check_delta(ROOT, delta)
+    result = MODULE.check_delta(
+        ROOT, delta, target_commit="828b7db5fcdf8ee7ad9b0d87693955081e39c27e"
+    )
     assert result.report["status"] == "PASS"
     assert result.report["exact_manual_candidate_match"] is True
     assert result.report["idempotence_passed"] is True

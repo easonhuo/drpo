@@ -1,0 +1,2762 @@
+{
+  "current_before_commit": "7d07d35302e49f5586ca2f2cd2fee78869903b20",
+  "current_handoff_before_sha256": "974228eff0ff57542f91bc5e0a6a36e143301a96618bb03cca4511a664bd87e5",
+  "current_registry_validation": {
+    "assertions": [
+      {
+        "change_id": "e8-taper-corrected-001",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "artifact_identity_guards"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": {
+          "config_hash_match_calibration": "required",
+          "reference_adapter_hash_match_calibration": "required",
+          "sampler_experiment_id_seed_replay_and_plan_hash_match": "required"
+        }
+      },
+      {
+        "change_id": "e8-taper-corrected-002",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "calibration_protocol",
+          "common_target_budget"
+        ],
+        "from": "inherited_selected_controlled_negative_initialization_budget",
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": "corrected_exponential_linear_distance_lambda_0.7_initialization_gradient_l2"
+      },
+      {
+        "change_id": "e8-taper-corrected-003",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "calibration_protocol",
+          "dropout_mode"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": "disabled_during_calibration_gradient_measurement"
+      },
+      {
+        "change_id": "e8-taper-corrected-004",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "calibration_protocol",
+          "inherited_reference_lambda"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": 0.7
+      },
+      {
+        "change_id": "e8-taper-corrected-005",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "calibration_protocol",
+          "inherited_reference_method"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": "exponential"
+      },
+      {
+        "change_id": "e8-taper-corrected-006",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "calibration_protocol",
+          "shared_negative_scale"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": "positive_aggregate_gradient_l2_over_uncontrolled_negative_aggregate_gradient_l2"
+      },
+      {
+        "change_id": "e8-taper-corrected-007",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "calibration_protocol",
+          "surprisal_scale_rule"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": "calibration_upper_half_median_minus_lower_half_median"
+      },
+      {
+        "change_id": "e8-taper-corrected-008",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "calibration_protocol",
+          "surprisal_threshold_tau"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": 2.0
+      },
+      {
+        "change_id": "e8-taper-corrected-009",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "code_entrypoint"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": "src/drpo/countdown_e8_taper.py"
+      },
+      {
+        "change_id": "e8-taper-corrected-010",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "common_replay_protocol",
+          "collector_only_candidate_reserve"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": {
+          "calibration": 32,
+          "train": 1800
+        }
+      },
+      {
+        "change_id": "e8-taper-corrected-011",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "common_replay_protocol",
+          "final_calibration_prompt_rows"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": 16
+      },
+      {
+        "change_id": "e8-taper-corrected-012",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "common_replay_protocol",
+          "final_train_prompt_rows"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": 1500
+      },
+      {
+        "change_id": "e8-taper-corrected-013",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "config_entrypoint"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": "configs/countdown_e8_taper_0p5b.yaml"
+      },
+      {
+        "change_id": "e8-taper-corrected-014",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "continuous_diagnostics",
+          "deterministic_teacher_forced_audit"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": true
+      },
+      {
+        "change_id": "e8-taper-corrected-015",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "evidence",
+          "implementation_complete"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": true
+      },
+      {
+        "change_id": "e8-taper-corrected-016",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "evidence",
+          "implementation_tests_passed"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": true
+      },
+      {
+        "change_id": "e8-taper-corrected-017",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "evidence",
+          "real_qwen_cuda_run_completed"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": false
+      },
+      {
+        "change_id": "e8-taper-corrected-018",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "execution_gate",
+          "blocked_by"
+        ],
+        "from": [
+          "implementation_and_protocol_freeze"
+        ],
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": []
+      },
+      {
+        "change_id": "e8-taper-corrected-019",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "execution_gate",
+          "blocking_reason"
+        ],
+        "from": "The common replay builder, calibration output, paired sampler, training runner, continuous-bin diagnostics, and terminal audit must be implemented, tested, and frozen before any training starts.",
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": null
+      },
+      {
+        "change_id": "e8-taper-corrected-020",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "execution_gate",
+          "readiness_basis"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": "Corrected normalized-distance implementation, deterministic detached remoteness, common replay, independent calibration, paired sampler, fixed-budget training, current-surprisal diagnostics, hardened artifact identity checks, one-click launch, and terminal audit are implemented and tested."
+      },
+      {
+        "change_id": "e8-taper-corrected-021",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "execution_gate",
+          "state"
+        ],
+        "from": "blocked",
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": "ready"
+      },
+      {
+        "change_id": "e8-taper-corrected-022",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "expected_outputs"
+        ],
+        "from": [
+          "RUN_COMPLETE.json",
+          "terminal_audit.json",
+          "arena_summary.csv",
+          "taper_calibration.json",
+          "replay_pool_manifest.json",
+          "surprisal_bin_diagnostics.csv",
+          "run_config.json"
+        ],
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": [
+          "RUN_COMPLETE.json",
+          "terminal_audit.json",
+          "arena_summary.csv",
+          "taper_calibration.json",
+          "replay_pool_manifest.json",
+          "surprisal_bin_diagnostics.csv",
+          "run_config.json",
+          "scientific_run_manifest.json"
+        ]
+      },
+      {
+        "change_id": "e8-taper-corrected-023",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "implementation_state"
+        ],
+        "from": "not_implemented",
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": "implemented"
+      },
+      {
+        "change_id": "e8-taper-corrected-024",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "implementation_version"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": "1.1.0-normalized-distance-deterministic-audit"
+      },
+      {
+        "change_id": "e8-taper-corrected-025",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "inherited_training_controls",
+          "fixed_horizon_is_not_automatic_convergence"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": true
+      },
+      {
+        "change_id": "e8-taper-corrected-026",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "inherited_training_controls",
+          "optimizer_update_budget"
+        ],
+        "from": "matched_across_methods_and_frozen_before_launch",
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": 1200
+      },
+      {
+        "change_id": "e8-taper-corrected-027",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "inherited_training_controls",
+          "test_split_access"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": "only_after_all_method_training_and_selection_complete"
+      },
+      {
+        "change_id": "e8-taper-corrected-028",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "learner_relative_remoteness",
+          "definition"
+        ],
+        "from": "max_0_sequence_surprisal_minus_tau",
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": "normalized_excess_surprisal_then_square_root_distance"
+      },
+      {
+        "change_id": "e8-taper-corrected-029",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "learner_relative_remoteness",
+          "deterministic_eval_mode_for_weight_coordinate"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": true
+      },
+      {
+        "change_id": "e8-taper-corrected-030",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "learner_relative_remoteness",
+          "distance_formula"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": "d_theta=sqrt(S_theta)"
+      },
+      {
+        "change_id": "e8-taper-corrected-031",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "learner_relative_remoteness",
+          "formula"
+        ],
+        "from": "d_theta=max(0,-log_pi_theta(x_given_s)-tau)",
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": "d_theta=max(0,-log_pi_theta(x_given_s)-tau) [deprecated_v67_raw_excess_not_distance]"
+      },
+      {
+        "change_id": "e8-taper-corrected-032",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "learner_relative_remoteness",
+          "normalized_excess_formula"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": "S_theta=max(0,(-log_pi_theta(x_given_s)-tau)/c_cal)"
+      },
+      {
+        "change_id": "e8-taper-corrected-033",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "learner_relative_remoteness",
+          "surprisal_scale_frozen_before_confirmation"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": true
+      },
+      {
+        "change_id": "e8-taper-corrected-034",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "learner_relative_remoteness",
+          "surprisal_scale_rule"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": "calibration_upper_half_median_minus_lower_half_median"
+      },
+      {
+        "change_id": "e8-taper-corrected-035",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "learner_relative_remoteness",
+          "weight_stop_gradient"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": true
+      },
+      {
+        "change_id": "e8-taper-corrected-036",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "operator_entrypoint"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": "scripts/run_countdown_e8_taper.py"
+      },
+      {
+        "change_id": "e8-taper-corrected-037",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "terminal_audit",
+          "entropy_boundary_reporting"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": "continuous_metric_without_separate_binary_threshold"
+      },
+      {
+        "change_id": "e8-taper-corrected-038",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "terminal_audit",
+          "valid_structure_boundary_rate"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": 0.95
+      },
+      {
+        "change_id": "e8-taper-corrected-039",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "terminal_audit",
+          "valid_structure_boundary_threshold_source"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": "inherited_reference_valid_rate_gate"
+      }
+    ],
+    "coverage": {
+      "added_entities": [],
+      "changed_field_count": 39,
+      "declared_assertion_count": 39,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "delta_sha256": "1d05ba9cfba0370ef0c3a322ce171d7fc00dc04aa6c10965f6ce0b1d2ae1ba79",
+  "exact_base_candidate_sha256": "1ae5566da0d28ee55975955e465b180be1e2891396d3ea80fe61753136293791",
+  "exact_base_registry_validation": {
+    "assertions": [
+      {
+        "change_id": "e8-taper-corrected-001",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "artifact_identity_guards"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": {
+          "config_hash_match_calibration": "required",
+          "reference_adapter_hash_match_calibration": "required",
+          "sampler_experiment_id_seed_replay_and_plan_hash_match": "required"
+        }
+      },
+      {
+        "change_id": "e8-taper-corrected-002",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "calibration_protocol",
+          "common_target_budget"
+        ],
+        "from": "inherited_selected_controlled_negative_initialization_budget",
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": "corrected_exponential_linear_distance_lambda_0.7_initialization_gradient_l2"
+      },
+      {
+        "change_id": "e8-taper-corrected-003",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "calibration_protocol",
+          "dropout_mode"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": "disabled_during_calibration_gradient_measurement"
+      },
+      {
+        "change_id": "e8-taper-corrected-004",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "calibration_protocol",
+          "inherited_reference_lambda"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": 0.7
+      },
+      {
+        "change_id": "e8-taper-corrected-005",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "calibration_protocol",
+          "inherited_reference_method"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": "exponential"
+      },
+      {
+        "change_id": "e8-taper-corrected-006",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "calibration_protocol",
+          "shared_negative_scale"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": "positive_aggregate_gradient_l2_over_uncontrolled_negative_aggregate_gradient_l2"
+      },
+      {
+        "change_id": "e8-taper-corrected-007",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "calibration_protocol",
+          "surprisal_scale_rule"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": "calibration_upper_half_median_minus_lower_half_median"
+      },
+      {
+        "change_id": "e8-taper-corrected-008",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "calibration_protocol",
+          "surprisal_threshold_tau"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": 2.0
+      },
+      {
+        "change_id": "e8-taper-corrected-009",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "code_entrypoint"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": "src/drpo/countdown_e8_taper.py"
+      },
+      {
+        "change_id": "e8-taper-corrected-010",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "common_replay_protocol",
+          "collector_only_candidate_reserve"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": {
+          "calibration": 32,
+          "train": 1800
+        }
+      },
+      {
+        "change_id": "e8-taper-corrected-011",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "common_replay_protocol",
+          "final_calibration_prompt_rows"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": 16
+      },
+      {
+        "change_id": "e8-taper-corrected-012",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "common_replay_protocol",
+          "final_train_prompt_rows"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": 1500
+      },
+      {
+        "change_id": "e8-taper-corrected-013",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "config_entrypoint"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": "configs/countdown_e8_taper_0p5b.yaml"
+      },
+      {
+        "change_id": "e8-taper-corrected-014",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "continuous_diagnostics",
+          "deterministic_teacher_forced_audit"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": true
+      },
+      {
+        "change_id": "e8-taper-corrected-015",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "evidence",
+          "implementation_complete"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": true
+      },
+      {
+        "change_id": "e8-taper-corrected-016",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "evidence",
+          "implementation_tests_passed"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": true
+      },
+      {
+        "change_id": "e8-taper-corrected-017",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "evidence",
+          "real_qwen_cuda_run_completed"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": false
+      },
+      {
+        "change_id": "e8-taper-corrected-018",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "execution_gate",
+          "blocked_by"
+        ],
+        "from": [
+          "implementation_and_protocol_freeze"
+        ],
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": []
+      },
+      {
+        "change_id": "e8-taper-corrected-019",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "execution_gate",
+          "blocking_reason"
+        ],
+        "from": "The common replay builder, calibration output, paired sampler, training runner, continuous-bin diagnostics, and terminal audit must be implemented, tested, and frozen before any training starts.",
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": null
+      },
+      {
+        "change_id": "e8-taper-corrected-020",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "execution_gate",
+          "readiness_basis"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": "Corrected normalized-distance implementation, deterministic detached remoteness, common replay, independent calibration, paired sampler, fixed-budget training, current-surprisal diagnostics, hardened artifact identity checks, one-click launch, and terminal audit are implemented and tested."
+      },
+      {
+        "change_id": "e8-taper-corrected-021",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "execution_gate",
+          "state"
+        ],
+        "from": "blocked",
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": "ready"
+      },
+      {
+        "change_id": "e8-taper-corrected-022",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "expected_outputs"
+        ],
+        "from": [
+          "RUN_COMPLETE.json",
+          "terminal_audit.json",
+          "arena_summary.csv",
+          "taper_calibration.json",
+          "replay_pool_manifest.json",
+          "surprisal_bin_diagnostics.csv",
+          "run_config.json"
+        ],
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": [
+          "RUN_COMPLETE.json",
+          "terminal_audit.json",
+          "arena_summary.csv",
+          "taper_calibration.json",
+          "replay_pool_manifest.json",
+          "surprisal_bin_diagnostics.csv",
+          "run_config.json",
+          "scientific_run_manifest.json"
+        ]
+      },
+      {
+        "change_id": "e8-taper-corrected-023",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "implementation_state"
+        ],
+        "from": "not_implemented",
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": "implemented"
+      },
+      {
+        "change_id": "e8-taper-corrected-024",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "implementation_version"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": "1.1.0-normalized-distance-deterministic-audit"
+      },
+      {
+        "change_id": "e8-taper-corrected-025",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "inherited_training_controls",
+          "fixed_horizon_is_not_automatic_convergence"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": true
+      },
+      {
+        "change_id": "e8-taper-corrected-026",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "inherited_training_controls",
+          "optimizer_update_budget"
+        ],
+        "from": "matched_across_methods_and_frozen_before_launch",
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": 1200
+      },
+      {
+        "change_id": "e8-taper-corrected-027",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "inherited_training_controls",
+          "test_split_access"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": "only_after_all_method_training_and_selection_complete"
+      },
+      {
+        "change_id": "e8-taper-corrected-028",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "learner_relative_remoteness",
+          "definition"
+        ],
+        "from": "max_0_sequence_surprisal_minus_tau",
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": "normalized_excess_surprisal_then_square_root_distance"
+      },
+      {
+        "change_id": "e8-taper-corrected-029",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "learner_relative_remoteness",
+          "deterministic_eval_mode_for_weight_coordinate"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": true
+      },
+      {
+        "change_id": "e8-taper-corrected-030",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "learner_relative_remoteness",
+          "distance_formula"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": "d_theta=sqrt(S_theta)"
+      },
+      {
+        "change_id": "e8-taper-corrected-031",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "learner_relative_remoteness",
+          "formula"
+        ],
+        "from": "d_theta=max(0,-log_pi_theta(x_given_s)-tau)",
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": "d_theta=max(0,-log_pi_theta(x_given_s)-tau) [deprecated_v67_raw_excess_not_distance]"
+      },
+      {
+        "change_id": "e8-taper-corrected-032",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "learner_relative_remoteness",
+          "normalized_excess_formula"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": "S_theta=max(0,(-log_pi_theta(x_given_s)-tau)/c_cal)"
+      },
+      {
+        "change_id": "e8-taper-corrected-033",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "learner_relative_remoteness",
+          "surprisal_scale_frozen_before_confirmation"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": true
+      },
+      {
+        "change_id": "e8-taper-corrected-034",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "learner_relative_remoteness",
+          "surprisal_scale_rule"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": "calibration_upper_half_median_minus_lower_half_median"
+      },
+      {
+        "change_id": "e8-taper-corrected-035",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "learner_relative_remoteness",
+          "weight_stop_gradient"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": true
+      },
+      {
+        "change_id": "e8-taper-corrected-036",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "operator_entrypoint"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": "scripts/run_countdown_e8_taper.py"
+      },
+      {
+        "change_id": "e8-taper-corrected-037",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "terminal_audit",
+          "entropy_boundary_reporting"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": "continuous_metric_without_separate_binary_threshold"
+      },
+      {
+        "change_id": "e8-taper-corrected-038",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "terminal_audit",
+          "valid_structure_boundary_rate"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": 0.95
+      },
+      {
+        "change_id": "e8-taper-corrected-039",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "bcd253a62d9111b2a813a989ff4216cbb112dc915405bfa944d1cdc1e9d2c345"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b"
+          },
+          {
+            "path": "scripts/run_countdown_e8_taper.py",
+            "sha256": "e0b7632730bee7b84da7a9235e3cf3ec37c9880e29b4026c7eeb779808939bdc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "474a12055763e5a00b5534cdb08d7c69e4c37819d1bfe99b84fd0f9b4384b9a8"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "26d005503dec1a31a6699e530911f7ae44fd896afabb1e72609bff14b3d7bd0c"
+          }
+        ],
+        "field_path": [
+          "terminal_audit",
+          "valid_structure_boundary_threshold_source"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Synchronize the corrected normalized-distance E8-TAPER implementation and ready-but-not-run execution gate.",
+        "to": "inherited_reference_valid_rate_gate"
+      }
+    ],
+    "coverage": {
+      "added_entities": [],
+      "changed_field_count": 39,
+      "declared_assertion_count": 39,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "history_preservation_passed": true,
+  "idempotence_passed": true,
+  "materialized_handoff_after_sha256": "1ae5566da0d28ee55975955e465b180be1e2891396d3ea80fe61753136293791",
+  "mode": "authoritative",
+  "network_used": false,
+  "policy_id": "GOV-HANDOFF-AUTHORITY-CUTOVER-01",
+  "registry_after_sha256": "33ff914aa8ddc041535320f06b502815a2cd25ae5264a79ab6693b189455338b",
+  "registry_before_sha256": "f8eab3aa8ba3f2d3b6e888f9e05597f08fc8385a11f985d3338f66f296821b6d",
+  "report_schema_version": 1,
+  "source_base_commit": "365ca32545f9205fdf20f0cd084c8c674ae98a45",
+  "source_patch_commit": "e602c262b3ee1130bcecf381644291090e586b93",
+  "stage4a_refresh": {
+    "refreshed": [
+      "docs/handoff_shadow/stage4/minimal/generated/MODULE_INDEX.json",
+      "docs/handoff_shadow/stage4/minimal/generated/STRUCTURE_SUGGESTIONS.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/countdown_e8.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/execution_status_gates.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/global_core_governance.md"
+    ],
+    "reused": [
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.dot",
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e5_mechanism.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e6_generalization.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_extrapolation.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_taper.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_mechanism_e1_e3.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/history_provenance.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/hopper_e7.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/paper_rewrite.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/terminal_audit.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/theory_methods_related_work.md"
+    ]
+  },
+  "status": "PASS",
+  "structural_lint_passed": true,
+  "trusted_engine_sha256": "a6532ba4c1bb9c4af24d79f027267de518c3832b347dba47e8319dee7a3ebe2c",
+  "trusted_policy_sha256": "508f6bbb6ee9bb6da5be041a23e25cd569b95475523bb6af7127cb84ea3466ad",
+  "trusted_renderer_sha256": "39a7566e91c77784822148bb18ae32e44dfcc1745fbdc1cbf14a88ce6c6a13e5",
+  "update_id": "EXT-C-E8-TAPER-0.5B-CORRECTED-V73-2026-07-03"
+}

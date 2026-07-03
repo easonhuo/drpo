@@ -7,7 +7,7 @@
 - Responsibility: Provide the current experiment evidence states, execution ordering, and formal launch gates.
 - Content contract topics: `formal_vs_development_evidence`, `single_registered_execution_order`, `blocked_requires_protocol_or_predecessor`, `current_formal_route`, `no_unregistered_experiment`
 - Deduplicated overlapping source chunks: 0
-- Source hash: `c932dcf995cc5705c22c3c5ee5323b76ccbb1a980a69b7dcc64e29e0f11b9f8f`
+- Source hash: `b47026b90a438d678c84bf3d9ba4d57e982b1680517f5523ba1f2b775c637b56`
 
 ## Content contract evidence
 
@@ -101,3 +101,6 @@
 <!-- HANDOFF-DELTA-BLOCK:section_end:v72-du1-e6-shared-rarity-repair-execution-order:START -->
 11. **v72 D-U1 执行覆盖：**禁止直接运行 protocol revision 1 或未冻结的 protocol revision 2 formal。下一步固定为 protocol-revision-2 environment audit → development seeds `0--4` 的预登记校准 → 独立 formal-freeze 更新 → 才允许 guarded formal。校准前不得使用 held-out seeds `200--219`，不得根据 Countdown 或旧 pilot 预设 taper winner。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v72-du1-e6-shared-rarity-repair-execution-order:END -->
+<!-- HANDOFF-DELTA-BLOCK:section_end:v73-e8-taper-execution-order:START -->
+12. **v73 Countdown E8-TAPER 执行覆盖：**应用本更新并通过 trusted normalization 后，先执行 one-click preflight、reference gate、独立 replay/calibration freeze，再按相同 sampler plan 并行运行 6 methods × 3 paired seeds。全部训练完成前禁止读取 test；结果必须同时提交 best、terminal、final-window slopes、surprisal-bin allocation 和三类失败分报。
+<!-- HANDOFF-DELTA-BLOCK:section_end:v73-e8-taper-execution-order:END -->

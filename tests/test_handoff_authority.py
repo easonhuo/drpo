@@ -59,6 +59,21 @@ def test_current_repository_authority_phase_verifies() -> None:
         assert verified["mode"] == "delta"
 
 
+
+def test_current_e8_taper_v73_delta_matches_materialized_state() -> None:
+    delta = (
+        REPO_ROOT
+        / "docs/handoff_deltas/EXT-C-E8-TAPER-0.5B-CORRECTED-V73-2026-07-03/HANDOFF_DELTA.yaml"
+    )
+    intent = authority.validate_exact_base_intent(REPO_ROOT, delta)
+    assert intent.delta["update_id"] == (
+        "EXT-C-E8-TAPER-0.5B-CORRECTED-V73-2026-07-03"
+    )
+    assert (REPO_ROOT / authority.HANDOFF_PATH).read_text(encoding="utf-8") == (
+        intent.candidate
+    )
+    assert intent.registry_report["coverage"]["fully_declared"] is True
+
 def test_schema_v3_rejects_reserved_marker_injection(tmp_path: Path) -> None:
     path = tmp_path / "BAD" / "HANDOFF_DELTA.yaml"
     path.parent.mkdir()

@@ -323,7 +323,7 @@ def test_registry_and_handoff_register_joint_successor() -> None:
     assert entry["supersedes_preregistration"] == "D-U1-E6-TAPER-01"
     handoff = (REPO_ROOT / "docs" / "handoff.md").read_text()
     assert "HANDOFF-DELTA-BLOCK:after_heading:v70-du1-e6-cartesian-taper:START" in handoff
-    assert "v72（D-U1 E6 shared-rarity 环境修复版）" in handoff
+    assert "HANDOFF-DELTA-BLOCK:section_end:v72-du1-e6-shared-rarity-repair-current-gate:START" in handoff
     assert "D-U1-E6-CARTESIAN-TAPER-01" in handoff
     assert "v72-du1-e6-shared-rarity-repair-current-gate" in handoff
     assert "v72-du1-e6-shared-rarity-repair-execution-order" in handoff

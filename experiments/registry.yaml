@@ -3436,33 +3436,30 @@ experiments:
   environment: EXT-C
   name: countdown_continuous_surprisal_taper_common_replay_pilot
   status: not_run
-  claim: >-
-    Under a common fixed sample-level negative replay pool, matched model and
-    optimizer budget, and initialization-matched raw negative-gradient L2,
-    test whether continuous learner-relative surprisal taper functions allocate
-    negative influence differently and whether that selective allocation improves
-    Countdown task performance or stability relative to Positive-only,
-    uncontrolled negative updates, and a non-selective global control.
+  claim: Under a common fixed sample-level negative replay pool, matched model and optimizer budget, and initialization-matched raw negative-gradient L2, test whether continuous learner-relative surprisal taper functions allocate negative influence differently and whether that selective allocation improves Countdown task performance or stability relative to Positive-only, uncontrolled negative updates, and a non-selective global control.
   role: external_validity_continuous_taper_method_pilot
   execution_class: pilot
   registration_base_commit: 5ee79b4245a52af3f8caea6b1dd27e3efcd6920a
   context_predecessor: EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY
-  does_not_replace: [C-U1, D-U1, D-Diag]
-  implementation_state: not_implemented
+  does_not_replace:
+  - C-U1
+  - D-U1
+  - D-Diag
+  implementation_state: implemented
   execution_gate:
-    state: blocked
-    blocked_by: [implementation_and_protocol_freeze]
-    blocking_reason: >-
-      The common replay builder, calibration output, paired sampler, training
-      runner, continuous-bin diagnostics, and terminal audit must be implemented,
-      tested, and frozen before any training starts.
-  code_entrypoint: null
-  operator_entrypoint: null
+    state: ready
+    blocked_by: []
+    blocking_reason: null
+    readiness_basis: Corrected normalized-distance implementation, deterministic detached remoteness, common replay, independent calibration, paired sampler, fixed-budget training, current-surprisal diagnostics, hardened artifact identity checks, one-click launch, and terminal audit are implemented and tested.
+  code_entrypoint: src/drpo/countdown_e8_taper.py
+  operator_entrypoint: scripts/run_countdown_e8_taper.py
   primary_model: Qwen2.5-0.5B-Instruct
   scope_decision:
     countdown_0_5b_mechanism_exploration: closed_for_current_scope
     closure_is_result_upgrade: false
-    mechanism_owner_remains_controlled_environments: [C-U1, D-U1]
+    mechanism_owner_remains_controlled_environments:
+    - C-U1
+    - D-U1
     v46_remains_separate_effect_pilot: true
   common_replay_protocol:
     collector_policy: frozen_reference_adapter
@@ -3482,12 +3479,23 @@ experiments:
       purpose: prevent_candidate_rich_prompts_from_receiving_more_training_weight
     paired_sampler_order_across_methods: required
     replay_pool_hash_recorded: required
+    final_train_prompt_rows: 1500
+    final_calibration_prompt_rows: 16
+    collector_only_candidate_reserve:
+      train: 1800
+      calibration: 32
   learner_relative_remoteness:
-    definition: max_0_sequence_surprisal_minus_tau
-    formula: d_theta=max(0,-log_pi_theta(x_given_s)-tau)
+    definition: normalized_excess_surprisal_then_square_root_distance
+    normalized_excess_formula: S_theta=max(0,(-log_pi_theta(x_given_s)-tau)/c_cal)
+    distance_formula: d_theta=sqrt(S_theta)
     surprisal_threshold_tau: 2.0
+    surprisal_scale_rule: calibration_upper_half_median_minus_lower_half_median
+    surprisal_scale_frozen_before_confirmation: true
     recomputed_by_current_learner_each_update: true
+    deterministic_eval_mode_for_weight_coordinate: true
+    weight_stop_gradient: true
     permanent_near_far_labels: forbidden
+    formula: d_theta=max(0,-log_pi_theta(x_given_s)-tau) [deprecated_v67_raw_excess_not_distance]
   methods:
   - id: positive_only
     weight_function: zero
@@ -3515,14 +3523,27 @@ experiments:
     split: independent_calibration_split
     development_seed: 9134
     target: initialization_raw_negative_gradient_l2
-    common_target_budget: inherited_selected_controlled_negative_initialization_budget
-    parameters_calibrated: [global_gamma, taper_lambda]
+    common_target_budget: corrected_exponential_linear_distance_lambda_0.7_initialization_gradient_l2
+    parameters_calibrated:
+    - global_gamma
+    - taper_lambda
     test_metric_used_for_calibration: false
     freeze_before_confirmation: required
     confirmation_or_test_retuning: forbidden
+    inherited_reference_method: exponential
+    inherited_reference_lambda: 0.7
+    surprisal_threshold_tau: 2.0
+    surprisal_scale_rule: calibration_upper_half_median_minus_lower_half_median
+    shared_negative_scale: positive_aggregate_gradient_l2_over_uncontrolled_negative_aggregate_gradient_l2
+    dropout_mode: disabled_during_calibration_gradient_measurement
   confirmation_protocol:
-    paired_training_seeds: [9234, 10234, 11234]
-    checkpoints: [best, terminal]
+    paired_training_seeds:
+    - 9234
+    - 10234
+    - 11234
+    checkpoints:
+    - best
+    - terminal
     paired_evaluation_seed_per_training_seed: true
     test_split_access: only_after_all_training_and_selection_complete
     unbounded_hyperparameter_search: forbidden
@@ -3534,7 +3555,9 @@ experiments:
     warmup_ratio: 0.03
     maximum_gradient_norm: 1.0
     gradient_accumulation_microbatches: 8
-    optimizer_update_budget: matched_across_methods_and_frozen_before_launch
+    optimizer_update_budget: 1200
+    fixed_horizon_is_not_automatic_convergence: true
+    test_split_access: only_after_all_method_training_and_selection_complete
   task_metrics:
   - greedy_verifier_success
   - pass_at_k
@@ -3552,6 +3575,7 @@ experiments:
     - positive_negative_gradient_cosine
     - correct_completion_collateral_effect
     - fraction_of_total_negative_gradient_budget
+    deterministic_teacher_forced_audit: true
   terminal_audit:
     required: true
     full_training_curves: required
@@ -3561,22 +3585,18 @@ experiments:
     finite_loss_gradient_parameter_check: required
     valid_support_entropy_boundary_check: required
     fixed_horizon_is_not_automatic_convergence: true
+    valid_structure_boundary_rate: 0.95
+    valid_structure_boundary_threshold_source: inherited_reference_valid_rate_gate
+    entropy_boundary_reporting: continuous_metric_without_separate_binary_threshold
   reporting_separation:
   - task_performance_degradation
   - valid_support_or_entropy_boundary_event
   - nan_inf_numerical_failure
   decision_rules:
-    taper_beats_positive_only: >-
-      Requires paired improvement, no terminal reversal, no material valid-rate
-      degradation, and no additional support or numerical failure.
-    taper_only_beats_uncontrolled_or_global: >-
-      Supports far-tail harm control but not extra task utility beyond Positive-only.
-    taper_methods_tie: >-
-      Select the simplest theoretically clear tail envelope for scale validation
-      without claiming a universal 0.5B winner.
-    all_negative_methods_lose: >-
-      Close the 0.5B method-utility route and carry only one frozen simple taper
-      into 3B confirmation without additional 0.5B HPO.
+    taper_beats_positive_only: Requires paired improvement, no terminal reversal, no material valid-rate degradation, and no additional support or numerical failure.
+    taper_only_beats_uncontrolled_or_global: Supports far-tail harm control but not extra task utility beyond Positive-only.
+    taper_methods_tie: Select the simplest theoretically clear tail envelope for scale validation without claiming a universal 0.5B winner.
+    all_negative_methods_lose: Close the 0.5B method-utility route and carry only one frozen simple taper into 3B confirmation without additional 0.5B HPO.
   interpretation_limits:
   - external_method_pilot_not_controlled_causal_identification
   - no_universal_taper_winner_claim
@@ -3591,6 +3611,7 @@ experiments:
   - replay_pool_manifest.json
   - surprisal_bin_diagnostics.csv
   - run_config.json
+  - scientific_run_manifest.json
   formal_run_status: not_run
   execution:
     state: registered
@@ -3607,7 +3628,15 @@ experiments:
     package_sha256: null
     delivered_to_user: false
     applied_commit: null
-
+    implementation_complete: true
+    implementation_tests_passed: true
+    real_qwen_cuda_run_completed: false
+  config_entrypoint: configs/countdown_e8_taper_0p5b.yaml
+  implementation_version: 1.1.0-normalized-distance-deterministic-audit
+  artifact_identity_guards:
+    config_hash_match_calibration: required
+    reference_adapter_hash_match_calibration: required
+    sampler_experiment_id_seed_replay_and_plan_hash_match: required
 - id: D-U1-E5-LONGRUN-RERUN
   environment: D-U1_and_D-Diag
   name: categorical_repulsion_support_boundary_longrun_reconstruction
