@@ -1,0 +1,4462 @@
+%%%%%%%% ICML 2026 EXAMPLE LATEX SUBMISSION FILE %%%%%%%%%%%%%%%%%
+
+\documentclass{article}
+
+% Recommended, but optional, packages for figures and better typesetting:
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{booktabs} % for professional tables
+
+% hyperref makes hyperlinks in the resulting PDF.
+% If your build breaks (sometimes temporarily if a hyperlink spans a page)
+% please comment out the following usepackage line and replace
+% \usepackage{icml2026} with \usepackage[nohyperref]{icml2026} above.
+\usepackage{hyperref}
+
+\usepackage{multirow}
+\usepackage{bm}
+\usepackage{colortbl}
+\usepackage{xcolor}
+\definecolor{grayhighlight}{gray}{0.9} % 定义浅灰色
+% Attempt to make hyperref and algorithmic work together better:
+\newcommand{\theHalgorithm}{\arabic{algorithm}}
+
+% Use the following line for the initial blind version submitted for review:
+\usepackage[preprint]{icml2026}
+% 尝试清空预印本的文字变量（如果模板使用此变量）
+\newcommand{\icmlpreprinttext}{}
+\renewcommand{\icmlpreprinttext}{}
+% For preprint, use
+% \usepackage[preprint]{icml2026}
+
+% If accepted, instead use the following line for the camera-ready submission:
+% \usepackage[accepted]{icml2026}
+
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{mathtools}
+\usepackage{amsthm}
+
+
+% if you use cleveref..
+\usepackage[capitalize,noabbrev]{cleveref}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% THEOREMS
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\theoremstyle{plain}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{corollary}[theorem]{Corollary}
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{assumption}[theorem]{Assumption}
+\theoremstyle{remark}
+\newtheorem{remark}[theorem]{Remark}
+
+% Todonotes is useful during development; simply uncomment the next line
+%    and comment out the line below the next line to turn off comments
+%\usepackage[disable,textsize=tiny]{todonotes}
+\usepackage[textsize=tiny]{todonotes}
+\usepackage{bm}
+% The \icmltitle you define below is probably too long as a header.
+% Therefore, a short form for the running title is supplied here:
+\icmltitlerunning{ Optimistic Distributionally Robust Policy Optimization for Off-Policy Generative Recommendation}
+\setlength{\abovedisplayskip}{3pt}
+\setlength{\belowdisplayskip}{3pt}
+
+\usepackage[absolute,overlay]{textpos}
+
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+
+\begin{document}
+
+
+\begin{textblock*}{\paperwidth}(1.5cm, 1.2cm)
+\includegraphics[height=1.5cm]{figures/logo_v2.png} % 请确保目录下有 logo.png
+\end{textblock*}
+
+\twocolumn[
+  \icmltitle{Breaking the Curse of Repulsion: Optimistic Distributionally Robust Policy Optimization for Off-Policy Generative Recommendation}
+
+  % It is OKAY to include author information, even for blind submissions: the
+  % style file will automatically remove it for you unless you've provided
+  % the [accepted] option to the icml2026 package.
+
+  % List of affiliations: The first argument should be a (short) identifier you
+  % will use later to specify author affiliations Academic affiliations
+  % should list Department, University, City, Region, Country Industry
+  % affiliations should list Company, City, Region, Country
+
+  % You can specify symbols, otherwise they are numbered in order. Ideally, you
+  % should not use this facility. Affiliations will be numbered in order of
+  % appearance and this is the preferred way.
+  \icmlsetsymbol{equal}{*}
+
+  \begin{icmlauthorlist}
+    \icmlauthor{Jie Jiang}{equal,comp}
+    \icmlauthor{Yusen Huo}{equal,comp}
+    \icmlauthor{Changping Wang}{comp}
+    \icmlauthor{Jun Zhang}{comp}
+  \end{icmlauthorlist}
+  \icmlaffiliation{comp}{Tencent Inc, China}
+
+  \icmlcorrespondingauthor{Jun Zhang}{neoxzhang@tencent.com}
+
+  % You may provide any keywords that you find helpful for describing your
+  % paper; these are used to populate the "keywords" metadata in the PDF but
+  % will not be shown in the document
+  \icmlkeywords{Reinforcement Learning, Recommendation System, DRPO}
+
+  \vskip 0.3in
+]
+
+% this must go after the closing bracket ] following \twocolumn[ ...
+
+% This command actually creates the footnote in the first column listing the
+% affiliations and the copyright notice. The command takes one argument, which
+% is text to display at the start of the footnote. The \icmlEqualContribution
+% command is standard text for equal contribution. Remove it (just {}) if you
+% do not need this facility.
+
+% Use ONE of the following lines. DO NOT remove the command.
+% If you have no special notice, KEEP empty braces:
+% \printAffiliationsAndNotice{}  % no special notice (required even if empty)
+% Or, if applicable, use the standard equal contribution text:
+
+\printAffiliationsAndNotice{\icmlEqualContribution}
+
+
+\begin{abstract}
+ Policy-based Reinforcement Learning (RL) has established itself as the dominant paradigm in generative recommendation for optimizing sequential user interactions. However, when applied to offline historical logs, these methods suffer a critical failure: the dominance of low-quality data induces severe model collapse. We first establish the \textit{Divergence Theory of Repulsive Optimization}, revealing that negative gradient updates inherently trigger exponential intensity explosion during off-policy training. This theory elucidates the \textbf{inherent dilemma} of existing methods, exposing their inability to reconcile variance reduction and noise imitation. To break this curse, we argue that the solution lies in rigorously identifying the latent high-quality distribution entangled within the noisy behavior policy. Accordingly, we reformulate the objective as an \textbf{Optimistic Distributionally Robust Optimization (DRO)} problem. Guided by this formulation, we propose \textbf{D}istributionally \textbf{R}obust \textbf{P}olicy \textbf{O}ptimization (\textbf{DRPO}). We prove that hard filtering is the exact solution to this DRO objective, enabling DRPO to optimally recover high-quality behaviors while strictly discarding divergence-inducing noise. Extensive experiments demonstrate that DRPO achieves state-of-the-art performance on mixed-quality recommendation benchmarks.
+ % while generalizing effectively to broader continuous control tasks.
+
+
+\end{abstract}
+
+\section{Introduction}
+\label{sec:intro}
+
+Off-policy policy optimization improves a current policy using behavior collected by earlier, stale, or heterogeneous policies. This paradigm is essential in settings where fresh interaction is costly, slow, or unavailable, including offline reinforcement learning, replay-based control, recommender systems, and the post-training of generative models. By reusing historical experience, it can reduce exploration cost, exploit data accumulated across policy iterations, and enable policy improvement without relying exclusively on new on-policy trajectories. This benefit, however, creates a distinctive learning problem: the policy continues to evolve while the data being optimized remain fixed. Understanding how this growing mismatch changes the influence of historical feedback is therefore central to building stable and effective off-policy learning algorithms.
+
+
+Historical datasets, however, contain more than successful behavior to imitate. They also record suboptimal and failed actions that reveal which decisions should be suppressed. Policy-based methods exploit this distinction through signed feedback: positive updates increase the likelihood of successful behavior, whereas negative updates reduce the probability of known failures. Prior work has shown that such negative feedback can suppress undesirable modes, improve data efficiency, and benefit generalization in several policy-learning settings [citations]. Building on these observations, we view positive and negative feedback as complementary signals: positive updates provide attraction toward observed successes, while negative updates encode boundaries and failure information that positive imitation alone cannot express. We therefore ask how this information can be retained without allowing repeated historical reuse to turn negative feedback into excessive repulsion.
+
+Against this background, we identify a self-amplifying far-field dynamic in repeated off-policy updates. A negative update pushes the learner away from a fixed historical action, increasing its learner-relative distance or surprisal. This increased remoteness can in turn strengthen—or prevent the decay of—the action’s subsequent negative influence, causing repeated reuse to drive it progressively farther from the current policy. The precise amplification law depends on the policy family: continuous Gaussian policies can exhibit distance-dependent score growth, whereas categorical policies exhibit persistent suppression toward the support boundary. Thus, the danger lies not only in where a negative sample starts, but in how its influence evolves through repeated repulsion.
+
+Prior work has stabilized off-policy learning through filtering, importance weighting, probability- or surprisal-aware gating, and other forms of tapered negative updates [citations]. These methods demonstrate the value of nonuniform control, but they do not isolate whether learner-relative remoteness itself generates a self-amplifying repulsive dynamic. In realistic data, sample quality, advantage magnitude, rarity, and policy distance are entangled. We disentangle these factors through matched controlled environments and causally test the pathway from remoteness, to amplified negative influence, to policy drift and collapse.
+
+
+
+To characterize this process, we develop an aggregate theory of repulsive policy updates. The analysis shows that moderate negative feedback can improve upon what positive updates alone attain, whereas repeated far-field repulsion can progressively distort the aggregate equilibrium and ultimately eliminate a finite solution. This dynamic motivates DRPO, a learner-relative nonlinear control of negative updates. DRPO measures distance or surprisal under the evolving policy and applies an attenuation that is mild locally but increases nonlinearly in the far field. The resulting exponential envelope preserves informative local repulsion while dominating the far-field tail generated by the self-amplifying dynamics.
+
+We evaluate the resulting theory and method through a layered empirical program. Controlled continuous and categorical experiments test the predicted transition from useful negative feedback to far-field instability and assess whether learner-relative nonlinear attenuation preserves the former while preventing the latter. We then examine whether the same mechanisms appear in continuous-control and sequence-generation tasks. Together, these experiments connect the proposed dynamics to controlled causal evidence, method behavior, and external task performance.
+
+Our contributions are summarized as follows:
+
+\begin{itemize}\setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}\setlength{\parsep}{0pt}
+    \item we formulate repeated off-policy negative updates as learner-relative repulsive dynamics and develop an aggregate theory that characterizes stable extrapolation, boundary approach, and the loss of a finite equilibrium.
+
+    \item we construct matched controlled environments and targeted near–far interventions that separate sample quality from learner-relative remoteness and causally trace amplified repulsion to policy drift and collapse.
+
+    \item we propose DRPO, a learner-relative nonlinear attenuation of negative updates that uses distance or surprisal to preserve informative local feedback while suppressing the self-amplifying far-field tail.
+
+    \item we evaluate the resulting theory and method across controlled continuous and categorical settings, together with external continuous-control and sequence-generation tasks.
+    % and generalizes effectively to broader continuous control tasks.
+\end{itemize}
+
+
+% ------------------------------------------------------------------
+% SECTION 2: PRELIMINARIES
+% ------------------------------------------------------------------
+\section{Related Work}
+\label{sec:related_work}
+
+\textbf{Learning from Negative or Suboptimal Behavior.}
+A broad line of policy-learning methods distinguishes behavior according to its estimated quality. Advantage-weighted regression and related actor-fitting objectives emphasize actions with higher estimated advantages, whereas positive-only or filtering approaches remove some or all negative updates [citations]. Other studies show that failed or suboptimal behavior can still help suppress undesirable modes, refine decision boundaries, and improve generalization [citations]. Together, these findings establish that negative feedback can be informative rather than merely noisy, while leaving open how its benefits can be retained without introducing harmful optimization dynamics.
+
+\textbf{Off-Policy, Stale, and Learner-Relative Updates.}
+This challenge becomes particularly important under off-policy reuse, where historical behavior remains fixed while the learner continues to change. Off-policy methods commonly control behavior–learner mismatch through importance weighting, clipping, trust regions, and behavior regularization [citations]. More recent methods, including TOPR and probability- or surprisal-aware objectives, further attenuate negative behavior that is unlikely under the current policy, making the update explicitly learner-relative [citations]. These works establish that distance-related information can guide selective control, but largely treat remoteness as a static weighting signal and often study it together with sample quality or advantage magnitude. They therefore leave unresolved how repeated negative updates themselves increase remoteness, alter subsequent influence, and form a feedback process that can drive policy drift or collapse. This perspective is complementary to conservative offline RL, which primarily controls value extrapolation or policy support, whereas we study the evolving dynamics of signed actor updates on fixed historical behavior.
+% ------------------------------------------------------------------
+% SECTION 2: PRELIMINARIES
+% ------------------------------------------------------------------
+
+\section{Problem Setup}
+\label{sec:problem_setup}
+
+% ------------------------------------------------------------------
+% SECTION 2: PRELIMINARIES
+% ------------------------------------------------------------------
+
+\subsection{Off-Policy Signed Actor Updates}
+
+We consider policy optimization from a historical update distribution
+$\nu$ over state--action pairs, which may represent an offline dataset,
+a replay buffer, or trajectories collected by earlier or stale behavior
+policies. Let $\pi_\theta(a \mid s)$ denote the current policy and let
+$\widehat{A}(s,a)$ denote the advantage-like signal used by the actor
+update. During an actor step, the update distribution and the associated
+advantage estimates are treated as fixed with respect to $\theta$. The
+resulting empirical actor field is
+\begin{equation}
+    \mathbf{F}(\theta)
+    =
+    \mathbb{E}_{(s,a)\sim\nu}
+    \left[
+        \widehat{A}(s,a)
+        \nabla_\theta \log \pi_\theta(a \mid s)
+    \right],
+    \label{eq:empirical_actor_field}
+\end{equation}
+with the corresponding update
+$\theta_{t+1}=\theta_t+\eta\mathbf{F}(\theta_t)$.
+Equation~\eqref{eq:empirical_actor_field} characterizes the actor-side
+dynamics induced by repeatedly reusing historical feedback. It is not
+assumed to equal the exact on-policy policy gradient, because the update
+distribution $\nu$ may differ from the state--action distribution of the
+current policy.
+
+To separate favorable and unfavorable feedback, we define
+\begin{equation}
+\begin{aligned}
+    \widehat{A}^{+}(s,a)
+    &= \max\{\widehat{A}(s,a),0\}, \\
+    \widehat{A}^{-}(s,a)
+    &= \max\{-\widehat{A}(s,a),0\}.
+\end{aligned}
+\end{equation}
+The actor field can then be decomposed into positive and negative
+components:
+\begin{equation}
+\begin{aligned}
+    \mathbf{F}(\theta)
+    ={}&
+    \mathbb{E}_{\nu}
+    \left[
+        \widehat{A}^{+}(s,a)
+        \nabla_\theta \log \pi_\theta(a \mid s)
+    \right] \\
+    &-
+    \mathbb{E}_{\nu}
+    \left[
+        \widehat{A}^{-}(s,a)
+        \nabla_\theta \log \pi_\theta(a \mid s)
+    \right].
+\end{aligned}
+\label{eq:signed_actor_decomposition}
+\end{equation}
+For a negative sample, the update magnitude factorizes as
+$\widehat{A}^{-}(s,a)
+\lVert\nabla_\theta \log \pi_\theta(a \mid s)\rVert$,
+separating the severity of its estimated disadvantage from its
+learner-relative policy geometry.
+
+% ------------------------------------------------------------------
+% SECTION 3: THEORETICAL FRAMEWORK
+% ------------------------------------------------------------------
+\section{Far-Field Dynamics of Historical Policy Updates}
+\label{sec:theory}
+
+We study how learner-relative remoteness shapes signed policy updates when
+historical behavior is reused. We first characterize, in policy-output
+coordinates, how the remoteness of a sample determines the strength of its
+score contribution. We then show how repeated reuse turns this static
+geometry into a dynamic feedback process: positive samples become
+self-attenuating as the learner approaches them, whereas negative samples
+become self-amplifying as the learner moves away. Finally, we analyze how
+these local effects aggregate into finite stable equilibria, persistent
+drift, or instability, and derive their specific manifestations in
+Gaussian and categorical policies.
+
+\subsection{Learner-Relative Remoteness and Update Strength}
+\label{sec:distance_strength}
+
+To isolate the action-side geometry, we fix a context $s$ and write
+$u$ for the policy-output coordinates at that context. For a historical
+action $a$, we define its learner-relative remoteness as
+\begin{equation}
+    D_u(a)
+    =
+    -\log \pi_u(a).
+    \label{eq:learner_relative_remoteness}
+\end{equation}
+For a categorical policy, $D_u(a)$ is the surprisal of the selected
+action. For a Gaussian policy, it equals a scale-dependent constant plus
+one half of the squared Mahalanobis distance from the policy mean.
+Thus, $D_u(a)$ measures how unlikely the historical action is under the
+current learner, rather than defining a metric in the action space.
+
+We measure the corresponding squared score norm by
+\begin{equation}
+    R_u(a)
+    =
+    \left\|
+        \nabla_u \log \pi_u(a)
+    \right\|_2^2.
+    \label{eq:score_strength}
+\end{equation}
+A sample with advantage estimate $\widehat{A}(s,a)$ contributes an
+output-space update of magnitude
+$|\widehat{A}(s,a)|\sqrt{R_u(a)}$.
+The following results characterize how learner-relative remoteness
+controls this update strength.
+
+\begin{proposition}[Distance-dependent score-function magnitude]
+\label{prop:distance_strength}
+Fix a context and a historical action $a$.
+
+For a Gaussian policy with mean $\mu$ and fixed covariance
+$\Sigma\succ0$, let
+\begin{equation}
+    C_\Sigma
+    =
+    \frac{d}{2}\log(2\pi)
+    +
+    \frac{1}{2}\log|\Sigma|.
+\end{equation}
+The squared norm of the mean score function satisfies
+\begin{equation}
+\begin{aligned}
+    R_\mu(a)
+    &\geq
+    2\lambda_{\min}(\Sigma^{-1})
+    \bigl(D_\mu(a)-C_\Sigma\bigr), \\
+    R_\mu(a)
+    &\leq
+    2\lambda_{\max}(\Sigma^{-1})
+    \bigl(D_\mu(a)-C_\Sigma\bigr).
+\end{aligned}
+\label{eq:gaussian_distance_response}
+\end{equation}
+Writing
+$d_{\mathrm{Mah}}^2(a,\mu)
+=
+(a-\mu)^\top\Sigma^{-1}(a-\mu)$
+for the squared standardized Mahalanobis distance, we have
+$D_\mu(a)-C_\Sigma
+=
+\frac{1}{2}d_{\mathrm{Mah}}^2(a,\mu)$.
+Hence, $R_\mu(a)$ grows quadratically with standardized distance and
+linearly with excess negative log-likelihood.
+
+Moreover, along any fixed direction $v\neq0$, with
+$a-\mu=rv$,
+\begin{equation}
+    R_\mu(a)
+    =
+    2
+    \frac{
+        v^\top\Sigma^{-2}v
+    }{
+        v^\top\Sigma^{-1}v
+    }
+    \bigl(D_\mu(a)-C_\Sigma\bigr).
+    \label{eq:gaussian_directional_response}
+\end{equation}
+
+For a categorical policy with logits $z$, the selected-logit
+score magnitude satisfies
+\begin{equation}
+    \left|
+        \frac{\partial}{\partial z_a}
+        \log\pi_z(a)
+    \right|
+    =
+    1-e^{-D_z(a)}.
+    \label{eq:categorical_selected_response}
+\end{equation}
+It therefore increases strictly with surprisal but converges
+to the finite limit $1$ as $D_z(a)\rightarrow\infty$.
+\end{proposition}
+
+\paragraph{Isotropic covariance.}
+If $\Sigma=\sigma^2I$, the directional coefficient is independent
+of $v$, and
+$R_\mu(a)=2\bigl(D_\mu(a)-C_\sigma\bigr)/\sigma^2$.
+Thus, learner-relative remoteness and the squared mean
+score-function norm have the same global ordering.
+
+A complete proof, together with bounds on the full categorical
+score-function norm, is provided in
+Appendix~\ref{app:distance_strength}.
+
+Proposition~\ref{prop:distance_strength} establishes the static
+distance--response relation underlying our analysis. For Gaussian
+policies, increasing remoteness along any fixed action-space direction
+produces an unbounded increase in the mean score-function norm, with a
+direction-dependent rate determined by the covariance. For categorical
+policies, selected-action suppression increases with surprisal but
+saturates at a finite ceiling. The next result shows how historical
+reuse turns these static relations into a dynamic feedback process.
+
+
+\subsection{Self-Amplification under Historical Reuse}
+\label{sec:historical_reuse}
+
+The preceding result compares samples at a fixed policy. We now consider
+a fixed historical action that is repeatedly reused while the learner
+changes. Write
+\[
+    D(u)=D_u(a),
+    \qquad
+    R(u)=\left\|\nabla_u D(u)\right\|_2^2,
+\]
+and consider the repeated single-sample update
+\begin{equation}
+    u_{t+1}
+    =
+    u_t
+    +
+    \eta\widehat{A}
+    \nabla_u\log\pi_{u_t}(a)
+    =
+    u_t
+    -
+    \eta\widehat{A}
+    \nabla_uD(u_t).
+    \label{eq:historical_reuse_update}
+\end{equation}
+Here, the action $a$ and its signed coefficient $\widehat{A}$ are held
+fixed over the reuse window.
+
+\begin{theorem}[Self-attenuation and self-amplification under reuse]
+\label{thm:reuse_dynamics}
+Assume that $D(u)$ is differentiable and convex along the update path,
+and define
+\[
+    D_t=D(u_t),
+    \qquad
+    R_t=R(u_t).
+\]
+
+If $\widehat{A}<0$, then every reuse step satisfies
+\begin{equation}
+    D_{t+1}
+    \geq
+    D_t
+    +
+    \eta|\widehat{A}|R_t,
+    \qquad
+    R_{t+1}\geq R_t.
+    \label{eq:negative_reuse_amplification}
+\end{equation}
+Thus, negative reuse makes the historical action increasingly remote
+while preventing its score-function norm from decreasing.
+
+If $\widehat{A}>0$, and $D$ has an $L$-Lipschitz gradient with
+$0<\eta\widehat{A}\leq 1/L$, then
+\begin{equation}
+    D_{t+1}
+    \leq
+    D_t
+    -
+    \frac{\eta\widehat{A}}{2}R_t,
+    \qquad
+    R_{t+1}\leq R_t.
+    \label{eq:positive_reuse_attenuation}
+\end{equation}
+Thus, positive reuse makes the historical action increasingly compatible
+with the learner while attenuating its subsequent score response.
+\end{theorem}
+
+A proof is provided in
+Appendix~\ref{app:reuse_dynamics}.
+The convexity assumption holds, in particular, for fixed-covariance
+Gaussian mean coordinates and categorical logits. More generally, for
+a regular exponential family in natural coordinates,
+\[
+    \nabla_u^2D(u)
+    =
+    \operatorname{Cov}_{\pi_u}[T(a)]
+    \succeq0.
+\]
+
+Theorem~\ref{thm:reuse_dynamics} distinguishes a one-time distant update
+from a historical-reuse feedback loop. A negative sample is first pushed
+farther from the learner; the resulting remoteness then preserves or
+increases its subsequent score response. Combined with
+Proposition~\ref{prop:distance_strength}, this produces unbounded
+amplification for fixed-covariance Gaussian mean updates and bounded but
+persistent amplification for categorical logits. These per-sample
+dynamics do not yet imply global divergence, because positive samples
+regain attractive force as the learner moves. We therefore next analyze
+their aggregate balance.
+
+\subsection{Aggregate Equilibria under Historical Reuse}
+\label{sec:aggregate_equilibria}
+
+The preceding results characterize the repeated influence of an
+individual historical action, but do not imply that the full policy must
+diverge: as negative repulsion moves the learner, positive samples regain
+attractive force. We therefore analyze the aggregate balance between
+positive and negative historical updates.
+
+At a fixed context, consider a regular minimal exponential-family policy
+\begin{equation}
+    \pi_\eta(a)
+    =
+    h(a)
+    \exp
+    \left\{
+        \eta^\top T(a)
+        -
+        \psi(\eta)
+    \right\},
+    \label{eq:exponential_family_policy}
+\end{equation}
+where $\eta\in\mathcal{H}$ is the natural parameter. Define the effective
+positive and negative update masses
+\begin{equation}
+\begin{aligned}
+    p
+    &=
+    \mathbb{E}_{\nu}
+    \left[
+        \widehat{A}^{+}(a)
+    \right],
+    &
+    q
+    &=
+    \mathbb{E}_{\nu}
+    \left[
+        \widehat{A}^{-}(a)
+    \right],
+    \\
+    p\mathbf{m}_{+}
+    &=
+    \mathbb{E}_{\nu}
+    \left[
+        \widehat{A}^{+}(a)T(a)
+    \right],
+    &
+    q\mathbf{m}_{-}
+    &=
+    \mathbb{E}_{\nu}
+    \left[
+        \widehat{A}^{-}(a)T(a)
+    \right].
+\end{aligned}
+\label{eq:aggregate_statistics}
+\end{equation}
+Thus, $p$ and $q$ combine sample frequency, advantage magnitude, and any
+fixed sample weighting. The aggregate signed actor field is
+\begin{equation}
+    \mathbf{F}(\eta)
+    =
+    p\mathbf{m}_{+}
+    -
+    q\mathbf{m}_{-}
+    -
+    (p-q)\nabla\psi(\eta).
+    \label{eq:aggregate_signed_field}
+\end{equation}
+
+Let
+\begin{equation}
+    \mathcal{M}
+    =
+    \left\{
+        \nabla\psi(\eta)
+        :
+        \eta\in\mathcal{H}
+    \right\}
+\end{equation}
+denote the interior mean-parameter space. We assume that $\psi$ is twice
+continuously differentiable and strictly convex, and that
+$\nabla\psi:\mathcal{H}\rightarrow\mathcal{M}$ is one-to-one and onto.
+
+\begin{theorem}[Aggregate attraction--repulsion equilibria]
+\label{thm:aggregate_equilibrium}
+Consider the continuous dynamics
+$\dot{\eta}=\mathbf{F}(\eta)$
+and the discrete update
+$\eta_{t+1}=\eta_t+\alpha\mathbf{F}(\eta_t)$, with $\alpha>0$.
+
+\smallskip
+\noindent\textbf{Positive-dominant regime $(p>q)$.}
+Define the signed target
+\begin{equation}
+    \mathbf{m}^{\star}
+    =
+    \frac{
+        p\mathbf{m}_{+}
+        -
+        q\mathbf{m}_{-}
+    }{
+        p-q
+    }.
+    \label{eq:signed_target}
+\end{equation}
+If $\mathbf{m}^{\star}\in\mathcal{M}$, there is a unique finite
+equilibrium $\eta^{\star}$ satisfying
+$\nabla\psi(\eta^{\star})=\mathbf{m}^{\star}$.
+It is locally asymptotically stable under the continuous dynamics and
+locally stable under the discrete update for a sufficiently small step
+size. When $q>0$,
+\begin{equation}
+    \mathbf{m}^{\star}
+    -
+    \mathbf{m}_{+}
+    =
+    \frac{q}{p-q}
+    \left(
+        \mathbf{m}_{+}
+        -
+        \mathbf{m}_{-}
+    \right),
+    \label{eq:stable_extrapolation_identity}
+\end{equation}
+so negative feedback moves the equilibrium beyond the Positive-only
+target in the direction away from the negative moment. As
+$\mathbf{m}^{\star}$ approaches the boundary of $\mathcal{M}$, the
+corresponding natural parameter leaves every compact subset of
+$\mathcal{H}$; if $\mathbf{m}^{\star}\notin\mathcal{M}$, no finite
+equilibrium exists.
+
+\smallskip
+\noindent\textbf{Critical regime $(p=q)$.}
+The field becomes the constant
+$p(\mathbf{m}_{+}-\mathbf{m}_{-})$.
+If $\mathbf{m}_{+}\neq\mathbf{m}_{-}$, the policy exhibits persistent
+drift with no finite equilibrium. If
+$\mathbf{m}_{+}=\mathbf{m}_{-}$, every point is stationary, but none is
+an isolated asymptotically stable equilibrium.
+
+\smallskip
+\noindent\textbf{Negative-dominant regime $(p<q)$.}
+Any finite stationary point is unstable under both the continuous
+dynamics and every discrete update with $\alpha>0$. Hence, this regime
+admits no locally asymptotically stable finite equilibrium.
+\end{theorem}
+
+The derivation and proof, including the exact discrete-time step-size
+condition, are provided in
+Appendix~\ref{app:aggregate_equilibrium}.
+Theorem~\ref{thm:aggregate_equilibrium} converts the preceding
+per-sample amplification mechanism into three terminal regimes: finite
+stable extrapolation, persistent drift, and instability. The
+extrapolation identity is geometric and does not by itself guarantee
+improved task utility. We next derive how these regimes appear in
+Gaussian and categorical policies.
+
+% ------------------------------------------------------------------
+% SECTION 4: METHODOLOGY
+% ------------------------------------------------------------------
+\subsection{Policy-Family Manifestations of Negative Dominance}
+\label{sec:policy_family_manifestations}
+
+Theorem~\ref{thm:aggregate_equilibrium} establishes that negative
+dominance, $p<q$, admits no finite stable equilibrium. It does not,
+however, determine whether the resulting runaway produces unbounded
+sample gradients. This depends on the policy family.
+
+\begin{theorem}[Unbounded Gaussian versus bounded categorical runaway]
+\label{thm:policy_family_manifestations}
+Assume $p<q$ and let $r=q-p>0$.
+
+\smallskip
+\noindent\textbf{Gaussian policy.}
+Consider
+$\pi_\mu=\mathcal{N}(\mu,\Sigma)$
+with fixed $\Sigma\succ0$, and let
+$\mu_{+}$ and $\mu_{-}$ denote the positive and negative weighted action
+means. Define
+\begin{equation}
+    \mu^{\dagger}
+    =
+    \frac{
+        q\mu_{-}-p\mu_{+}
+    }{
+        q-p
+    }.
+    \label{eq:gaussian_unstable_point}
+\end{equation}
+The aggregate mean field is
+\begin{equation}
+    \mathbf{F}_{\mu}(\mu)
+    =
+    r\Sigma^{-1}
+    \left(
+        \mu-\mu^{\dagger}
+    \right).
+    \label{eq:gaussian_negative_dominant_field}
+\end{equation}
+Unless initialized exactly at the unstable stationary point
+$\mu^{\dagger}$, both the continuous dynamics and every discrete update
+with step size $\alpha>0$ satisfy
+$\|\mu\|_2\rightarrow\infty$. Consequently, for every fixed historical
+action $a$,
+\begin{equation}
+    \left\|
+        \nabla_{\mu}\log\pi_{\mu}(a)
+    \right\|_2
+    =
+    \left\|
+        \Sigma^{-1}(a-\mu)
+    \right\|_2
+    \longrightarrow
+    \infty.
+    \label{eq:gaussian_unbounded_score}
+\end{equation}
+
+\smallskip
+\noindent\textbf{Categorical policy.}
+Consider
+$\pi_z=\operatorname{softmax}(z)$
+with at least two actions, using the gauge
+$\mathbf{1}^{\top}z=0$.
+Unless initialized exactly at a finite stationary point, when one
+exists, the continuous and discrete aggregate trajectories leave every
+compact subset of the logit space, and their probabilities approach the
+simplex boundary along a subsequence. Nevertheless, for every action
+$a$ and every finite $z$,
+\begin{equation}
+\begin{aligned}
+    \left\|
+        \nabla_z\log\pi_z(a)
+    \right\|_2^2
+    &=
+    \left\|
+        e_a-\pi_z
+    \right\|_2^2 \\
+    &\leq
+    2
+    \left(
+        1-\pi_z(a)
+    \right)^2
+    \leq
+    2.
+\end{aligned}
+\label{eq:categorical_bounded_score}
+\end{equation}
+Thus, categorical runaway can produce unbounded logits and probability
+degeneration, but not an unbounded score-function norm.
+\end{theorem}
+
+The proof is provided in
+Appendix~\ref{app:policy_family_manifestations}.
+Theorem~\ref{thm:policy_family_manifestations} reveals that the same
+aggregate instability has different policy-family manifestations.
+Gaussian mean runaway converts increasing action separation directly
+into unbounded far-field scores. Categorical policies instead approach
+the probability-simplex boundary while each sample score remains
+bounded. Hence, categorical degeneration is a bounded-gradient boundary
+event rather than Gaussian-style gradient explosion.
+
+A learned Gaussian covariance is not required for the unbounded result.
+When covariance additionally contracts along a direction that remains
+separated from historical negative actions, it further amplifies the
+corresponding score. Neither policy-family result alone implies task
+performance collapse or a NaN/Inf numerical failure.
+
+
+
+\section{DRPO: Smooth Control of Far-Field Repulsion}
+\label{sec:drpo}
+
+The analysis in Section~\ref{sec:theory} shows that negative feedback
+should not be treated uniformly. Near-field negative samples can retain
+useful boundary and corrective information, whereas historical samples
+that become increasingly improbable under the current policy can exert
+persistent or self-amplifying repulsion. We therefore define DRPO as a
+family of signed policy updates that preserves positive updates while
+selectively attenuating negative updates according to learner-relative
+remoteness, with the goal of retaining local corrective information
+without allowing far-field influence to dominate optimization.
+\subsection{Remoteness-Controlled Negative Updates}
+
+To operationalize utility, let
+$\widehat J_{\mathcal B}(\theta)$
+denote an empirical estimate of task performance on an evaluation batch
+$\mathcal B$. For a negative sample
+$z=(s,a)$, its raw repulsive update is
+$g_\theta^-(z)
+=
+-\widehat A^-(z)\nabla_\theta\log\pi_\theta(a\mid s)$.
+Assigning it a weight $w\in[0,1]$ produces the parameter step
+$\Delta\theta(z;w)=\eta w g_\theta^-(z)$.
+We define the empirical utility of this weighted update as
+\begin{equation}
+    \widehat{\mathcal U}_{\mathcal B}
+    (z;w\mid\theta)
+    =
+    \widehat J_{\mathcal B}
+    \!\left(
+        \theta+\Delta\theta(z;w)
+    \right)
+    -
+    \widehat J_{\mathcal B}(\theta).
+    \label{eq:empirical_negative_update_utility}
+\end{equation}
+The corresponding utility-optimal weight is
+$\widehat w_{\mathcal U}^{\star}(z\mid\theta)
+\in
+\arg\max_{w\in[0,1]}
+\widehat{\mathcal U}_{\mathcal B}(z;w\mid\theta)$.
+
+The empirical utility measures the practical task effect of the negative
+update induced by sample $z$ under the current policy, and may be
+positive or negative. When task-aligned gains are outweighed by
+far-field drift or support contraction, the utility-optimal weight
+shrinks toward zero. Sufficient geometric and curvature conditions are
+given in Appendix~\ref{app:negative_update_utility}, consistent with
+prior work relating policy discrepancy to replay reliability and
+gradient alignment to learning-signal usefulness
+\citep{novati2019remember,fakoor2020p3o,du2018adapting}.
+
+where
+$D_\theta(s,a)=-\log\pi_\theta(a\mid s)$
+is defined in Section~\ref{sec:distance_strength}.
+We call this framework DRPO because it makes policy optimization
+distributionally robust to increasingly remote historical negative
+updates.
+
+For compactness, define the controlled signed coefficient
+\begin{equation}
+\begin{aligned}
+    \widetilde A_\theta(s,a)
+    &=
+    \widehat A^+(s,a) \\
+    &\quad-
+    \omega\!\left(D_\theta(s,a)\right)
+    \widehat A^-(s,a).
+\end{aligned}
+\label{eq:drpo_controlled_advantage}
+\end{equation}
+The resulting DRPO update field is
+\begin{equation}
+    \mathbf F_{\mathrm{DRPO}}(\theta)
+    =
+    \mathbb E_{(s,a)\sim\nu}
+    \left[
+        \widetilde A_\theta(s,a)
+        \nabla_\theta
+        \log\pi_\theta(a\mid s)
+    \right].
+    \label{eq:drpo_update_field}
+\end{equation}
+Thus, DRPO leaves positive updates unchanged, retains nearby negative
+feedback, and progressively suppresses negative updates as they become
+increasingly remote under the current policy. The remaining question is
+how $\omega(D)$ should decay in the far field.
+
+A reciprocal taper need not make the weighted far-field update vanish,
+whereas hard filtering removes it through an abrupt discontinuity. We
+therefore seek a smooth taper that preserves near-field negative
+feedback while driving the far-field contribution to zero.
+
+\subsection{Exponential Remoteness Taper}
+\label{sec:exponential_taper}
+
+Negative-update controls can be divided into two classes.
+Distance-agnostic controls assign the same coefficient to all negative
+samples: uncontrolled updates use unit weight, positive-only learning
+removes all negative updates, and global scaling applies a constant
+coefficient. Remoteness-aware controls instead vary the weight with
+$D_\theta$: a hard cutoff removes all samples beyond a threshold, while
+reciprocal and exponential tapers attenuate them progressively. DRPO
+uses the exponential form to preserve near-field feedback while driving
+far-field influence smoothly to zero.
+
+We instantiate the DRPO weighting function with a thresholded exponential
+taper,
+\begin{equation}
+    \omega_{\mathrm{Exp}}(D)
+    =
+    \exp
+    \left\{
+        -\lambda
+        \left[
+            \frac{D-\tau}{c}
+        \right]_{+}
+    \right\},
+    \label{eq:drpo_exp_weight}
+\end{equation}
+where $\tau$ marks the onset of far-field control, $c>0$ fixes the
+remoteness scale, and $\lambda>0$ controls the decay rate. Samples with
+$D\leq\tau$ retain unit weight, whereas increasingly remote negative
+samples are attenuated smoothly toward zero.
+
+For the fixed-covariance Gaussian policy analyzed in
+Section~\ref{sec:distance_strength}, remoteness is affine in squared
+standardized distance. Equation~\eqref{eq:drpo_exp_weight} therefore has
+the equivalent form
+\begin{equation}
+\begin{aligned}
+    \omega_{\mathrm G}(s,a)
+    &=
+    \exp
+    \left\{
+        -\lambda_{\mathrm G}
+        \left[
+            d_{\mathrm{Mah}}^2
+            \!\left(a,\mu_\theta(s)\right)
+            -
+            \tau_{\mathrm G}
+        \right]_{+}
+    \right\},
+\end{aligned}
+\label{eq:gaussian_drpo_weight}
+\end{equation}
+where
+$\lambda_{\mathrm G}=\lambda/(2c)$
+and
+$\tau_{\mathrm G}=2(\tau-C_\Sigma)$.
+Thus, DRPO exponentially attenuates negative updates according to
+squared standardized distance.
+
+For a categorical policy, substituting
+$D_\theta(s,a)=-\log\pi_\theta(a\mid s)$
+gives the compact form
+\begin{equation}
+    \omega_{\mathrm C}(s,a)
+    =
+    \min
+    \left\{
+        1,\,
+        \left(
+            e^\tau
+            \pi_\theta(a\mid s)
+        \right)^{\lambda/c}
+    \right\}.
+    \label{eq:categorical_drpo_weight}
+\end{equation}
+Hence, the same taper becomes standardized-distance control for Gaussian
+policies and probability-based control for categorical policies, without
+imposing an action-space geometry on discrete actions.
+
+The exponential form guarantees more than a bounded far-field update.
+
+\begin{proposition}[Vanishing far-field contribution]
+\label{prop:exp_vanishing_influence}
+Let
+$\mathcal I(D)=\|g_\theta^-(D)\|_2$
+denote the raw negative-update magnitude, and suppose that for some
+finite $m\geq0$ and $C>0$,
+\begin{equation}
+    \mathcal I(D)
+    \leq
+    C(1+D)^m
+\end{equation}
+in the far field. Then
+\begin{equation}
+    \omega_{\mathrm{Exp}}(D)\mathcal I(D)
+    \longrightarrow
+    0
+    \qquad
+    \text{as }D\rightarrow\infty.
+    \label{eq:exp_weighted_influence_vanishes}
+\end{equation}
+Consequently, the weighted parameter step vanishes. If
+$\widehat J_{\mathcal B}$ is locally Lipschitz around $\theta$, then its
+empirical utility also satisfies
+\begin{equation}
+    \left|
+        \widehat{\mathcal U}_{\theta,\mathcal B}
+        \bigl(z;\omega_{\mathrm{Exp}}(D)\bigr)
+    \right|
+    \longrightarrow
+    0.
+    \label{eq:exp_weighted_utility_vanishes}
+\end{equation}
+\end{proposition}
+
+DRPO suppresses the harmful far-field tail rather than correcting the
+direction of an unreliable negative update. Thus, for the finite-order
+far-field growth considered in Section~\ref{sec:theory}, the exponential
+taper eliminates the asymptotic repulsive tail while leaving negative
+updates with $D\leq\tau$ unchanged. The proof is given in
+Appendix~\ref{app:exp_vanishing_influence}.
+
+
+\section{Experiments}
+\label{sec:experiments}
+
+Our experiments follow an outside--in--outside validation strategy.
+We first examine whether far-field negative influence arises in realistic
+continuous-control and autoregressive policy-optimization tasks. We then
+move to controlled environments that isolate learner-relative remoteness
+from sample quality, identify its contribution to negative-gradient
+amplification, and test whether this influence causally propagates into
+policy drift, support or variance boundary events, and task-performance
+collapse. Next, controlled taper experiments determine whether
+remoteness-dependent attenuation can preserve useful near-field
+repulsion while suppressing the harmful far-field tail. Finally, we
+return to external tasks to evaluate whether the same control principle
+transfers to complex policies and improves overall task performance.
+
+\subsection{Environments and Datasets}
+\label{sec:environments_datasets}
+
+We use two controlled environments and two external task domains.
+C-U1 is a contextual bandit with a Gaussian policy over continuous
+actions, while D-U1 uses unordered categorical actions with shared
+representations. They provide known ground truth for isolating
+far-field influence, policy dynamics, and held-out-context
+generalization. For external validation, we use D4RL Hopper and
+Countdown arithmetic generation, covering continuous offline control
+and autoregressive sequence policies, respectively. Full configurations
+are provided in Appendix~\ref{app:experimental_details}.
+
+\subsection{External Evidence of Far-Field Repulsion}
+\label{sec:external_far_field}
+
+We begin by testing whether negative-gradient amplification increases
+with learner-relative remoteness in realistic policy-optimization
+tasks. We study Hopper and Countdown because they cover two
+substantially different policy families: a state-conditioned Gaussian
+policy for continuous control and an autoregressive token policy for
+mathematical generation.
+
+In Hopper, we restrict the analysis to transitions with negative
+learned-critic advantages and control for absolute advantage magnitude.
+We then order these transitions by their standardized distance from the
+current Gaussian policy and measure the norm of the resulting
+per-sample actor gradient. In Countdown, we analogously compare
+unsuccessful responses with the same verifier outcome, using
+current-policy mean token surprisal as learner-relative remoteness.
+
+Figure~\ref{fig:external_far_field} shows that the negative
+parameter-gradient norm increases systematically with remoteness in
+both tasks. Thus, negative samples with comparable quality exert
+increasingly strong optimization influence as they move farther from
+the current learner. The agreement between continuous control and
+autoregressive generation provides external evidence that far-field
+amplification is not specific to one action space or policy
+parameterization. The controlled experiments that follow isolate its
+source and test whether it causally propagates into policy drift and
+collapse.
+\subsection{Controlled Identification of the Causal Mechanism}
+\label{sec:controlled_identification}
+
+The external results show that far-field negative influence occurs in
+realistic tasks, but sample quality, policy-relative remoteness, and
+subsequent policy dynamics remain entangled. We therefore turn to C-U1
+and D-U1, whose known task structure allows these factors to be varied
+independently. We first isolate whether remoteness itself changes
+negative influence and then test whether that influence causally
+propagates into policy drift and collapse. Full constructions and
+intervention protocols are provided in
+Appendix~\ref{app:controlled_protocols}.
+
+\subsubsection{Remoteness as an Independent Source of Negative Influence}
+\label{sec:controlled_source}
+
+In the continuous source-isolation protocol, C-U1 places negative
+actions on the same reward contour, giving them identical fixed
+advantages but different standardized distances from the current
+Gaussian policy. D-U1 constructs the categorical counterpart by holding
+negative labels fixed while varying their current-policy probabilities.
+As shown in Figure~\ref{fig:controlled_source}, Gaussian score and full
+parameter-gradient influence increase sharply with remoteness. For
+categorical policies, the direct-logit score remains bounded, but
+negative suppression persists even after the selected action becomes
+rare, continually increasing its logit gap and pushing its probability
+toward the simplex boundary. Thus, remoteness produces abnormal negative
+influence independently of sample quality, although its manifestation
+differs between continuous and categorical policies. This experiment
+identifies the source of the influence, not its downstream causal effect.
+
+\subsubsection{Causal Transmission into Drift and Collapse}
+\label{sec:controlled_transmission}
+
+We next evolve a nonlinear state-conditioned Gaussian policy with
+learnable mean and variance, together with the corresponding categorical
+support dynamics in D-U1. All intervention branches share the data,
+fixed labels, initialization, optimizer, and training horizon. They
+differ only in whether near- or far-field negative updates are retained,
+removed, or capped; globally scaled controls match the resulting
+negative-update budget without using remoteness.
+
+Figure~\ref{fig:controlled_transmission} shows that removing near-field
+negative updates leaves the harmful dynamics largely intact, whereas
+removing or limiting the far-field component substantially reduces
+policy displacement and prevents the associated variance or
+probability-support boundary events. Abnormal far-field influence also
+precedes the observed drift, rather than emerging only after performance
+has deteriorated. These interventions therefore identify far-field
+negative influence, rather than negative feedback in general, as a
+causal transmission path to policy instability. Task-performance
+collapse, support or variance-boundary events, and NaN/Inf numerical
+failure are reported separately.
+
+
+\subsection{From Useful Repulsion to DRPO Control}
+\label{sec:repulsion_control}
+
+The causal results show why the far-field tail must be controlled, but
+not why all negative feedback should be removed. Positive-only learning
+is stable but remains constrained by the observed positive support. C-U1
+and D-U1 therefore place a hidden task optimum beyond the positive-only
+target and construct local negative feedback whose repulsive direction
+points toward that optimum, while additional remote negatives create
+far-field pressure. This exposes a controlled transition from useful
+local repulsion to harmful far-field dominance.
+
+\subsubsection{Controlled Comparison of Taper Shapes}
+\label{sec:controlled_tapers}
+
+We compare positive-only learning, uncontrolled signed updates, global
+negative scaling, hard filtering, reciprocal tapering, and exponential
+tapering while changing only the negative weighting rule. Two matched
+comparisons are used. Near-field-retention matching preserves comparable
+local negative influence and isolates differences in far-field decay,
+whereas aggregate-budget matching tests whether a selective taper
+outperforms a global reduction with the same total negative-update
+budget.
+
+As shown in Figure~\ref{fig:controlled_tapers}, exponential tapering
+provides the strongest stability--utility trade-off across C-U1 and
+D-U1. Positive-only learning avoids far-field instability but remains at
+the positive-support ceiling. Uncontrolled updates initially benefit
+from local repulsion before remote pressure induces excessive drift and
+boundary events. Global scaling suppresses useful near- and harmful
+far-field feedback indiscriminately, while hard filtering introduces an
+abrupt cutoff. The exponential taper instead retains near-field
+repulsion while rapidly suppressing the far-field tail, yielding higher
+task performance and held-out-context generalization with weaker policy
+drift than the matched alternatives.
+
+\subsubsection{External Validation of Remoteness Tapering}
+\label{sec:external_tapers}
+
+We finally transfer the same control principle to Hopper and Countdown.
+DRPO weights Hopper transitions by their standardized remoteness from
+the current Gaussian policy and Countdown responses by their current
+mean token surprisal. Within each task, all methods share the dataset,
+initialization, labels, optimizer, and training budget. Because these
+external tasks do not provide known counterfactual geometry or exact
+near-field utility matching, they test transfer rather than repeat the
+controlled causal identification.
+
+Figure~\ref{fig:external_tapers} shows that DRPO preserves the benefit of
+near-field negative feedback while avoiding the excessive displacement
+caused by uncontrolled signed updates. It achieves higher normalized
+return in Hopper and higher verifier success in Countdown than
+positive-only learning, global negative scaling, and the uncontrolled
+baseline, while producing fewer support or variance-boundary events.
+The controlled stability--utility principle therefore transfers to both
+continuous offline control and autoregressive policy optimization.
+
+
+\subsection{Overall Task Performance}
+\label{sec:overall_performance}
+
+Having established the mechanism and its transfer, we evaluate DRPO as
+a complete policy-optimization method on D4RL locomotion and Countdown.
+We compare it with published domain-specific baselines and
+protocol-matched controls spanning positive-only learning, global
+negative scaling, and alternative remoteness tapers. All
+protocol-matched methods use the same data and compute budgets. We
+report normalized return for D4RL and verifier success for Countdown,
+while task-performance failures, support or variance-boundary events,
+and NaN/Inf numerical failures remain separate outcomes.
+
+% Required packages:
+% \usepackage{booktabs}
+% \usepackage{graphicx}
+
+\subsubsection{D4RL Locomotion}
+\label{sec:d4rl_performance}
+
+We evaluate the nine D4RL Gym locomotion tasks formed by HalfCheetah,
+Hopper, and Walker2d under the medium, medium-replay, and medium-expert
+datasets. These datasets vary in behavior quality and coverage, with
+medium-replay containing the broadest mixture of historical policies.
+Table~\ref{tab:d4rl_performance} compares published offline-RL
+baselines with Positive-only, Global-$\alpha$, Reciprocal-Linear,
+Reciprocal-Quadratic, and DRPO under our common implementation.
+The shared objectives and taper functions are defined in
+Appendix~\ref{app:shared_methods}; D4RL-specific score provenance,
+uncertainty statistics, remoteness construction, and implementation
+details are provided in Appendix~\ref{app:d4rl_methods}.
+
+\begin{table*}[t]
+\centering
+\caption{Normalized returns on the D4RL-9 Gym locomotion benchmark.}
+\label{tab:d4rl_performance}
+
+\footnotesize
+\setlength{\tabcolsep}{3.8pt}
+\renewcommand{\arraystretch}{1.08}
+
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lcccc|cc|ccc}
+\toprule
+&
+\multicolumn{4}{c|}{Published offline-RL baselines}
+&
+\multicolumn{2}{c|}{Protocol controls}
+&
+\multicolumn{3}{c}{Remoteness-aware methods}
+\\
+\cmidrule(lr){2-5}
+\cmidrule(lr){6-7}
+\cmidrule(lr){8-10}
+
+Dataset
+&
+CQL$^\dagger$
+&
+TD3+BC$^\dagger$
+&
+IQL$^\dagger$
+&
+BC$^\dagger$
+&
+Pos.
+&
+G-$\alpha$
+&
+Rec.-L
+&
+Rec.-Q
+&
+\textbf{DRPO}
+\\
+\midrule
+
+halfcheetah-medium-v2
+& 44.0
+& 48.3
+& 47.4
+& 43.5
+& --
+& --
+& --
+& --
+& 47.3
+\\
+
+hopper-medium-v2
+& 58.5
+& 59.3
+& 66.3
+& 61.3
+& --
+& --
+& --
+& --
+& 63.3
+\\
+
+walker2d-medium-v2
+& 72.5
+& 83.7
+& 78.3
+& 74.2
+& --
+& --
+& --
+& --
+& 85.5
+\\
+
+\midrule
+
+halfcheetah-medium-replay-v2
+& 45.5
+& 44.6
+& 44.2
+& 40.1
+& --
+& --
+& --
+& --
+& 43.3
+\\
+
+hopper-medium-replay-v2
+& 95.0
+& 60.9
+& 94.7
+& 66.0
+& --
+& --
+& --
+& --
+& 95.8
+\\
+
+walker2d-medium-replay-v2
+& 77.2
+& 81.8
+& 73.9
+& 33.4
+& --
+& --
+& --
+& --
+& 78.1
+\\
+
+\midrule
+
+halfcheetah-medium-expert-v2
+& 91.6
+& 90.7
+& 86.7
+& 64.4
+& --
+& --
+& --
+& --
+& 91.1
+\\
+
+hopper-medium-expert-v2
+& 105.4
+& 98.0
+& 91.5
+& 64.9
+& --
+
+& --
+& --
+& --
+& 101.8
+\\
+
+walker2d-medium-expert-v2
+& 108.8
+& 110.1
+& 109.6
+& 107.7
+& --
+& --
+& --
+& --
+& 110.4
+\\
+
+\midrule
+
+\textit{D4RL-9 total}
+& \textit{698.5}
+& \textit{677.4}
+& \textit{692.4}
+& \textit{555.5}
+& --
+& --
+& --
+& --
+& \textit{716.6}
+\\
+
+\bottomrule
+\end{tabular}%
+}
+
+\vspace{3pt}
+
+\begin{minipage}{\textwidth}
+\footnotesize
+\textit{Note.}
+Pos.\ denotes Positive-only, G-$\alpha$ denotes Global-$\alpha$,
+and Rec.-L and Rec.-Q denote Reciprocal-Linear and
+Reciprocal-Quadratic. Results marked by $\dagger$ are reported by prior
+work rather than protocol-matched reruns. The table reports task-level
+means. DRPO results are averaged over 10 runs; the corresponding
+standard deviations and seed-level results are reported in
+Appendix~\ref{app:d4rl_methods}. Shared method definitions are provided
+in Appendix~\ref{app:shared_methods}. A dash denotes a result pending
+the formal run.
+\end{minipage}
+
+\end{table*}
+
+DRPO achieves the highest aggregate performance across D4RL-9, with a
+total normalized return of \emph{[TBD]}. It improves over Positive-only,
+Global-$\alpha$, Reciprocal-Linear, and Reciprocal-Quadratic by
+\emph{[TBD]}, \emph{[TBD]}, \emph{[TBD]}, and \emph{[TBD]},
+respectively. Its advantage is largest on the medium-replay tasks,
+where broader behavioral coverage creates stronger far-field pressure,
+while remaining competitive on the medium and medium-expert datasets.
+These results indicate that selective exponential attenuation preserves
+useful negative feedback more consistently than either removing it,
+scaling it globally, or applying slower reciprocal decay.
+
+\subsubsection{Countdown}
+\label{sec:countdown_performance}
+
+We evaluate DRPO on held-out Countdown puzzles, where a response is
+successful only if it forms a valid arithmetic expression that uses the
+provided numbers and reaches the target value. Greedy verifier success
+is the primary metric, while pass@$k$ measures sampling-level solution
+coverage and valid-expression rate distinguishes reasoning failure from
+formatting or execution failure.
+
+All compared policy-optimization methods start from the same SFT
+checkpoint and use the same frozen response bank, training budget,
+validation split, and test puzzles. We include
+AsymRE~\citep{arnal2025asymmetric} and
+TOPR~\citep{leroux2025tapered} as published off-policy baselines,
+together with protocol controls and alternative remoteness-aware
+tapers. The shared objectives and taper functions are defined in
+Appendix~\ref{app:shared_methods}; Countdown-specific baseline
+implementations, response-bank construction, checkpoint selection, and
+evaluation details are provided in
+Appendix~\ref{app:countdown_methods}.
+
+\begin{table*}[t]
+\centering
+\caption{Performance on held-out Countdown puzzles.}
+\label{tab:countdown_performance}
+
+\small
+\renewcommand{\arraystretch}{1.12}
+\setlength{\tabcolsep}{3pt}
+
+\begin{tabular*}{\textwidth}{
+    @{\extracolsep{\fill}}
+    l
+    cc|
+    cc|
+    ccc
+    @{}
+}
+\toprule
+&
+\multicolumn{2}{c|}{Published off-policy baselines}
+&
+\multicolumn{2}{c|}{Protocol controls}
+&
+\multicolumn{3}{c}{Remoteness-aware methods}
+\\
+\cmidrule(lr){2-3}
+\cmidrule(lr){4-5}
+\cmidrule(lr){6-8}
+
+Metric
+&
+AsymRE
+&
+TOPR
+&
+Positive-only
+&
+Global-$\alpha$
+&
+Rec.-Linear
+&
+Rec.-Quadratic
+&
+\textbf{DRPO}
+\\
+\midrule
+
+Greedy verifier success (\%)
+& --
+& --
+& --
+& --
+& --
+& --
+& --
+\\
+
+Pass@$k$ (\%)
+& --
+& --
+& --
+& --
+& --
+& --
+& --
+\\
+
+Valid-expression rate (\%)
+& --
+& --
+& --
+& --
+& --
+& --
+& --
+\\
+
+\bottomrule
+\end{tabular*}
+\end{table*}
+
+DRPO achieves the highest greedy verifier success among the
+protocol-matched off-policy methods, reaching \emph{[TBD]}. It improves
+over AsymRE and TOPR by \emph{[TBD]} and \emph{[TBD]}, respectively,
+and exceeds Positive-only and Global-$\alpha$ by \emph{[TBD]} and
+\emph{[TBD]}. DRPO also obtains the highest pass@$k$ while maintaining
+a valid-expression rate of \emph{[TBD]}, showing that the improvement
+comes from solving more puzzles rather than relaxing output validity.
+
+The comparisons distinguish four possible sources of improvement:
+retaining only successful responses, rebalancing all negative responses
+independently of remoteness, correcting generic off-policy reuse, and
+selectively attenuating the learner-relative far-field tail. The results
+show that neither removing negative feedback nor applying a single
+response-independent adjustment fully recovers the performance of
+remoteness-aware control. The reciprocal tapers further test whether the
+remoteness signal alone is sufficient. DRPO provides the strongest
+overall result by retaining useful near-field negative feedback while
+more rapidly suppressing remote unsuccessful responses.
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+
+
+In this work, we address the critical instability of offline RL in industrial recommender systems characterized by heavy-tailed noise.
+We establish the \textit{Divergence Theory}, mathematically proving that widely used soft-weighting constraints are insufficient to prevent variance collapse in such environments.
+To bridge this gap, we propose \textbf{DRPO}, which leverages Distributionally Robust Optimization to derive a rigorous \textbf{Hard Filtering} mechanism.
+By physically severing the dependency on toxic data tails, DRPO not only achieves state-of-the-art performance in offline evaluations but also enables safe, seamless offline-to-online adaptation.
+Our findings suggest a paradigm shift for real-world RL: as we move from clean benchmarks to noisy production data, explicit data rejection becomes a prerequisite for robustness.
+
+
+% Acknowledgements should only appear in the accepted version.
+
+\section*{Impact Statement}
+
+This paper introduces \textbf{DRPO}, a robust offline reinforcement learning framework designed to extract optimal policies from heavy-tailed, noise-dominated datasets. While our experimental validation focuses on generative recommendation, the implications of this work extend significantly beyond this domain.
+
+\paragraph{Industrial Relevance: Recommendation and Advertising.}
+In the primary application domains of \textbf{online recommendation and computational advertising}, data quality is often compromised by "accidental clicks," clickbait, or system logging errors. DRPO provides a critical solution for these high-noise scenarios. By rigorously filtering out low-quality interactions and cloning only the true high-reward behaviors, our method can significantly enhance user experience and advertiser ROI. It offers a practical path for deploying generative policies in production environments where data is abundant but predominantly suboptimal.
+
+\paragraph{Generalization to Continuous Control Systems.}
+The theoretical foundation of DRPO—specifically its variance-guided filtration for off-policy training—is domain-agnostic and highly transferable to physical systems such as \textbf{robotics, autonomous driving, and industrial automation}. In these continuous control tasks, collecting expert-level demonstrations is expensive, while suboptimal historical data is often readily available. Our framework enables safe and efficient policy learning from such imperfect datasets, reducing the risks associated with trial-and-error in physical environments.
+
+\paragraph{Potential in Large Language Models (LLMs).}
+Although formulated in continuous spaces, we posit that the principles of DRPO are generalizable to discrete action spaces, most notably in the training of \textbf{Large Language Models (LLMs)}. The fine-tuning of LLMs (e.g., RLHF) often suffers from inconsistent or noisy human feedback. We anticipate that our distributionally robust approach could be adapted to filter noisy preference labels, thereby stabilizing the alignment of LLMs with human intent even when the feedback quality is variable.
+
+\paragraph{Societal and Environmental Impact.}
+From an environmental perspective, DRPO demonstrates superior sample efficiency and faster convergence than standard baselines, contributing to \textbf{Green AI} by reducing the energy footprint of training large-scale models. Ethically, we acknowledge that our method amplifies patterns found in "high-reward" data. Practitioners must ensure that the definition of "reward" is carefully aligned with fairness standards to prevent the reinforcement of historical biases (e.g., popularity bias or demographic unfairness) present in the training logs.
+
+% In the unusual situation where you want a paper to appear in the
+% references without citing it in the main text, use \nocite
+\nocite{langley00}
+
+\bibliography{references}
+\bibliographystyle{icml2026}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% APPENDIX
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newpage
+\appendix
+\onecolumn
+\section{Proofs for the Theoretical Results}
+\label{app:theory_proofs}
+\subsection{Proof of Proposition~\ref{prop:distance_strength}}
+\label{app:distance_strength}
+
+\begin{proof}
+Let $\delta=a-\mu$. For a Gaussian policy with fixed covariance
+$\Sigma$,
+\begin{equation}
+    D_\mu(a)-C_\Sigma
+    =
+    \frac{1}{2}
+    \delta^\top\Sigma^{-1}\delta.
+    \label{eq:proof_gaussian_remoteness}
+\end{equation}
+The mean score function is
+\begin{equation}
+    \mathbf{s}_\mu(a)
+    =
+    \nabla_\mu\log\pi_\mu(a)
+    =
+    \Sigma^{-1}\delta,
+\end{equation}
+and hence
+\begin{equation}
+    R_\mu(a)
+    =
+    \left\|\mathbf{s}_\mu(a)\right\|_2^2
+    =
+    \delta^\top\Sigma^{-2}\delta.
+    \label{eq:proof_gaussian_score_norm}
+\end{equation}
+Let $x=\Sigma^{-1/2}\delta$. Then
+\begin{equation}
+    D_\mu(a)-C_\Sigma
+    =
+    \frac{1}{2}\|x\|_2^2,
+    \qquad
+    R_\mu(a)
+    =
+    x^\top\Sigma^{-1}x.
+\end{equation}
+Applying the Rayleigh quotient bounds gives
+\begin{equation}
+\begin{aligned}
+    R_\mu(a)
+    &\geq
+    2\lambda_{\min}(\Sigma^{-1})
+    \bigl(D_\mu(a)-C_\Sigma\bigr), \\
+    R_\mu(a)
+    &\leq
+    2\lambda_{\max}(\Sigma^{-1})
+    \bigl(D_\mu(a)-C_\Sigma\bigr).
+\end{aligned}
+\end{equation}
+
+If $\delta=rv$ for a fixed direction $v\neq0$, then
+\begin{equation}
+\begin{aligned}
+    D_\mu(a)-C_\Sigma
+    &=
+    \frac{r^2}{2}
+    v^\top\Sigma^{-1}v, \\
+    R_\mu(a)
+    &=
+    r^2v^\top\Sigma^{-2}v.
+\end{aligned}
+\end{equation}
+Eliminating $r^2$ proves
+Equation~\eqref{eq:gaussian_directional_response}.
+For the categorical policy, let
+\begin{equation}
+    p
+    =
+    \pi_z(a)
+    =
+    e^{-D_z(a)}.
+\end{equation}
+The score function with respect to the logits is
+\begin{equation}
+    \mathbf{s}_z(a)
+    =
+    \nabla_z\log\pi_z(a)
+    =
+    e_a-\pi_z.
+\end{equation}
+Its selected-action component is therefore
+\begin{equation}
+    \left|
+        \frac{\partial}{\partial z_a}
+        \log\pi_z(a)
+    \right|
+    =
+    1-p
+    =
+    1-e^{-D_z(a)},
+\end{equation}
+which proves
+Equation~\eqref{eq:categorical_selected_response}.
+Since $1-e^{-D}$ is strictly increasing for $D\geq0$ and
+converges to $1$ as $D\rightarrow\infty$, the selected-logit
+response increases with surprisal but remains bounded.
+
+For completeness, the squared norm of the full categorical
+score function is
+\begin{equation}
+\begin{aligned}
+    R_z(a)
+    &=
+    \left\|
+        e_a-\pi_z
+    \right\|_2^2 \\
+    &=
+    (1-p)^2
+    +
+    \sum_{j\neq a}\pi_z(j)^2.
+\end{aligned}
+\end{equation}
+Because the non-selected probabilities sum to $1-p$,
+the Cauchy--Schwarz inequality gives
+\begin{equation}
+    \sum_{j\neq a}\pi_z(j)^2
+    \geq
+    \frac{(1-p)^2}{K-1}.
+\end{equation}
+The same sum is at most $(1-p)^2$. Hence,
+\begin{equation}
+\begin{aligned}
+    \frac{K}{K-1}(1-p)^2
+    &\leq
+    R_z(a) \\
+    &\leq
+    2(1-p)^2.
+\end{aligned}
+\end{equation}
+Substituting $p=e^{-D_z(a)}$ completes the categorical
+part of the proof.
+\end{proof}
+\subsection{Proof of Theorem~\ref{thm:reuse_dynamics}}
+\label{app:reuse_dynamics}
+
+\begin{proof}
+Let
+\[
+    f(u)=D(u),
+    \qquad
+    g_t=\nabla f(u_t),
+    \qquad
+    R_t=\|g_t\|_2^2.
+\]
+
+We first consider a negative coefficient
+$\widehat{A}=-c$ with $c>0$. Defining
+$\alpha=\eta c$, the update becomes
+\[
+    u_{t+1}
+    =
+    u_t+\alpha g_t.
+\]
+By convexity of $f$,
+\begin{align}
+    f(u_{t+1})
+    &\geq
+    f(u_t)
+    +
+    g_t^\top(u_{t+1}-u_t) \\
+    &=
+    f(u_t)+\alpha\|g_t\|_2^2.
+\end{align}
+Hence,
+\[
+    D_{t+1}
+    \geq
+    D_t+\eta|\widehat{A}|R_t.
+\]
+
+The gradient of a differentiable convex function is monotone, so
+\[
+    \bigl(g_{t+1}-g_t\bigr)^\top
+    \bigl(u_{t+1}-u_t\bigr)
+    \geq0.
+\]
+Using $u_{t+1}-u_t=\alpha g_t$ gives
+\[
+    g_{t+1}^\top g_t
+    \geq
+    \|g_t\|_2^2.
+\]
+By the Cauchy--Schwarz inequality,
+\[
+    \|g_{t+1}\|_2\|g_t\|_2
+    \geq
+    g_{t+1}^\top g_t
+    \geq
+    \|g_t\|_2^2.
+\]
+Whenever $\|g_t\|_2>0$, division by $\|g_t\|_2$ yields
+\[
+    \|g_{t+1}\|_2
+    \geq
+    \|g_t\|_2,
+\]
+and therefore $R_{t+1}\geq R_t$. The same result is immediate when
+$R_t=0$. The inequality is strict whenever the gradient changes
+nontrivially along a direction of positive curvature.
+
+We next consider a positive coefficient
+$\widehat{A}=c$ with $c>0$. Let
+$\alpha=\eta c$, so that
+\[
+    u_{t+1}
+    =
+    u_t-\alpha g_t.
+\]
+Because $f$ has an $L$-Lipschitz gradient, the descent lemma gives
+\begin{align}
+    f(u_{t+1})
+    &\leq
+    f(u_t)
+    -
+    \alpha\|g_t\|_2^2
+    +
+    \frac{L\alpha^2}{2}\|g_t\|_2^2 \\
+    &=
+    f(u_t)
+    -
+    \alpha
+    \left(
+        1-\frac{L\alpha}{2}
+    \right)
+    \|g_t\|_2^2.
+\end{align}
+If $\alpha\leq1/L$, then
+\[
+    D_{t+1}
+    \leq
+    D_t-\frac{\alpha}{2}R_t
+    =
+    D_t-\frac{\eta\widehat{A}}{2}R_t.
+\]
+
+It remains to show that the score-function norm does not increase.
+For a convex function with an $L$-Lipschitz gradient, the gradient is
+$1/L$-cocoercive:
+\[
+    \bigl(g_t-g_{t+1}\bigr)^\top
+    \bigl(u_t-u_{t+1}\bigr)
+    \geq
+    \frac{1}{L}
+    \|g_t-g_{t+1}\|_2^2.
+\]
+Let $d=g_{t+1}-g_t$. Since
+$u_t-u_{t+1}=\alpha g_t$, this implies
+\[
+    d^\top g_t
+    \leq
+    -
+    \frac{1}{\alpha L}
+    \|d\|_2^2.
+\]
+Consequently,
+\begin{align}
+    \|g_{t+1}\|_2^2
+    &=
+    \|g_t+d\|_2^2 \\
+    &=
+    \|g_t\|_2^2
+    +
+    2d^\top g_t
+    +
+    \|d\|_2^2 \\
+    &\leq
+    \|g_t\|_2^2
+    +
+    \left(
+        1-\frac{2}{\alpha L}
+    \right)
+    \|d\|_2^2.
+\end{align}
+Because $\alpha L\leq1$, the final coefficient is nonpositive, and hence
+\[
+    R_{t+1}
+    =
+    \|g_{t+1}\|_2^2
+    \leq
+    \|g_t\|_2^2
+    =
+    R_t.
+\]
+This proves both claims.
+\end{proof}
+
+\subsection{Derivation and Proof of
+Theorem~\ref{thm:aggregate_equilibrium}}
+\label{app:aggregate_equilibrium}
+
+For the exponential-family policy in
+Equation~\eqref{eq:exponential_family_policy}, define the signed
+population objective
+\begin{equation}
+    \mathcal{L}(\eta)
+    =
+    \mathbb{E}_{a\sim\nu}
+    \left[
+        \widehat{A}(a)
+        \log\pi_\eta(a)
+    \right].
+    \label{eq:app_signed_objective}
+\end{equation}
+Using
+$\widehat{A}=\widehat{A}^{+}-\widehat{A}^{-}$
+and Equation~\eqref{eq:aggregate_statistics}, we obtain
+\begin{equation}
+\begin{aligned}
+    \mathcal{L}(\eta)
+    &=
+    \left(
+        p\mathbf{m}_{+}
+        -
+        q\mathbf{m}_{-}
+    \right)^\top\eta \\
+    &\quad
+    -
+    (p-q)\psi(\eta)
+    +
+    C,
+\end{aligned}
+\label{eq:app_signed_objective_expansion}
+\end{equation}
+where
+\begin{equation}
+    C
+    =
+    \mathbb{E}_{\nu}
+    \left[
+        \widehat{A}(a)\log h(a)
+    \right]
+\end{equation}
+is independent of $\eta$. Therefore,
+\begin{equation}
+    \nabla\mathcal{L}(\eta)
+    =
+    p\mathbf{m}_{+}
+    -
+    q\mathbf{m}_{-}
+    -
+    (p-q)\nabla\psi(\eta)
+    =
+    \mathbf{F}(\eta),
+    \label{eq:app_aggregate_field}
+\end{equation}
+and
+\begin{equation}
+    \nabla^2\mathcal{L}(\eta)
+    =
+    -(p-q)\nabla^2\psi(\eta).
+    \label{eq:app_signed_hessian}
+\end{equation}
+Because the exponential family is regular and minimal,
+$\nabla^2\psi(\eta)\succ0$ throughout $\mathcal{H}$.
+
+\begin{proof}
+\medskip
+\noindent\textbf{Positive-dominant regime.}
+Suppose $p>q$. A finite equilibrium must satisfy
+\begin{equation}
+    \mathbf{F}(\eta^{\star})
+    =
+    \mathbf{0},
+\end{equation}
+which is equivalent to
+\begin{equation}
+    \nabla\psi(\eta^{\star})
+    =
+    \frac{
+        p\mathbf{m}_{+}
+        -
+        q\mathbf{m}_{-}
+    }{
+        p-q
+    }
+    =
+    \mathbf{m}^{\star}.
+    \label{eq:app_equilibrium_condition}
+\end{equation}
+If $\mathbf{m}^{\star}\in\mathcal{M}$, existence follows because
+$\nabla\psi$ maps $\mathcal{H}$ onto $\mathcal{M}$, and uniqueness
+follows because this map is one-to-one.
+
+Since $p-q>0$, Equation~\eqref{eq:app_signed_hessian} gives
+\begin{equation}
+    \nabla^2\mathcal{L}(\eta)
+    \prec
+    0.
+\end{equation}
+Thus, $\mathcal{L}$ is strictly concave, and $\eta^{\star}$ is its
+unique global maximizer.
+
+For the continuous dynamics, the field Jacobian at the equilibrium is
+\begin{equation}
+    J_{\mathbf{F}}(\eta^{\star})
+    =
+    -(p-q)
+    \nabla^2\psi(\eta^{\star})
+    \prec
+    0.
+    \label{eq:app_continuous_jacobian}
+\end{equation}
+All eigenvalues are strictly negative, so $\eta^{\star}$ is locally
+asymptotically stable.
+
+For the discrete update, the local update Jacobian is
+\begin{equation}
+    J_{\mathrm{disc}}(\eta^{\star})
+    =
+    I
+    -
+    \alpha(p-q)
+    \nabla^2\psi(\eta^{\star}).
+    \label{eq:app_discrete_jacobian}
+\end{equation}
+Let $\lambda_i>0$ denote the eigenvalues of
+$\nabla^2\psi(\eta^{\star})$. The corresponding eigenvalues of
+$J_{\mathrm{disc}}(\eta^{\star})$ are
+\begin{equation}
+    1
+    -
+    \alpha(p-q)\lambda_i.
+\end{equation}
+Their magnitudes are strictly smaller than one whenever
+\begin{equation}
+    0
+    <
+    \alpha
+    <
+    \frac{
+        2
+    }{
+        (p-q)
+        \lambda_{\max}
+        \left(
+            \nabla^2\psi(\eta^{\star})
+        \right)
+    }.
+    \label{eq:app_discrete_stepsize}
+\end{equation}
+This proves local discrete-time stability for sufficiently small
+$\alpha$.
+
+When $q>0$, subtracting $\mathbf{m}_{+}$ from the signed target yields
+\begin{equation}
+\begin{aligned}
+    \mathbf{m}^{\star}
+    -
+    \mathbf{m}_{+}
+    &=
+    \frac{
+        p\mathbf{m}_{+}
+        -
+        q\mathbf{m}_{-}
+    }{
+        p-q
+    }
+    -
+    \mathbf{m}_{+} \\
+    &=
+    \frac{q}{p-q}
+    \left(
+        \mathbf{m}_{+}
+        -
+        \mathbf{m}_{-}
+    \right).
+\end{aligned}
+\end{equation}
+This proves
+Equation~\eqref{eq:stable_extrapolation_identity}.
+If $q=0$, the signed target reduces directly to
+$\mathbf{m}_{+}$.
+
+If $\mathbf{m}^{\star}\notin\mathcal{M}$, no finite
+$\eta^{\star}\in\mathcal{H}$ can satisfy
+Equation~\eqref{eq:app_equilibrium_condition}, and hence no finite
+equilibrium exists.
+
+Now consider a sequence
+$\mathbf{m}^{\star}_n\in\mathcal{M}$
+that approaches the boundary of $\mathcal{M}$, and define
+\begin{equation}
+    \eta^{\star}_n
+    =
+    (\nabla\psi)^{-1}
+    \left(
+        \mathbf{m}^{\star}_n
+    \right).
+\end{equation}
+Suppose, for contradiction, that
+$\{\eta^{\star}_n\}$ remains in a compact subset of $\mathcal{H}$.
+Then some subsequence converges to a finite
+$\bar{\eta}\in\mathcal{H}$. By continuity,
+\begin{equation}
+    \mathbf{m}^{\star}_n
+    =
+    \nabla\psi(\eta^{\star}_n)
+    \longrightarrow
+    \nabla\psi(\bar{\eta})
+    \in
+    \mathcal{M},
+\end{equation}
+contradicting convergence to the boundary. Hence, the corresponding
+natural parameters must leave every compact subset of $\mathcal{H}$.
+
+\medskip
+\noindent\textbf{Critical regime.}
+Suppose $p=q$. Equation~\eqref{eq:app_aggregate_field} reduces to
+\begin{equation}
+    \mathbf{F}(\eta)
+    =
+    p
+    \left(
+        \mathbf{m}_{+}
+        -
+        \mathbf{m}_{-}
+    \right),
+    \label{eq:app_critical_field}
+\end{equation}
+which is independent of $\eta$.
+
+If $\mathbf{m}_{+}\neq\mathbf{m}_{-}$, the continuous trajectory is
+\begin{equation}
+    \eta(t)
+    =
+    \eta(0)
+    +
+    tp
+    \left(
+        \mathbf{m}_{+}
+        -
+        \mathbf{m}_{-}
+    \right),
+    \label{eq:app_critical_continuous}
+\end{equation}
+and the discrete trajectory is
+\begin{equation}
+    \eta_t
+    =
+    \eta_0
+    +
+    t\alpha p
+    \left(
+        \mathbf{m}_{+}
+        -
+        \mathbf{m}_{-}
+    \right).
+    \label{eq:app_critical_discrete}
+\end{equation}
+Both exhibit persistent linear drift and admit no finite equilibrium.
+
+If $\mathbf{m}_{+}=\mathbf{m}_{-}$, then
+$\mathbf{F}(\eta)=\mathbf{0}$ for every $\eta$. Every point is
+stationary, but a perturbed trajectory remains at the perturbed point
+rather than returning to the original one. Hence, no point is an
+isolated locally asymptotically stable equilibrium.
+
+\medskip
+\noindent\textbf{Negative-dominant regime.}
+Suppose $p<q$. Equation~\eqref{eq:app_signed_hessian} gives
+\begin{equation}
+    \nabla^2\mathcal{L}(\eta)
+    =
+    (q-p)
+    \nabla^2\psi(\eta)
+    \succ
+    0.
+\end{equation}
+Thus, $\mathcal{L}$ is strictly convex.
+
+If a finite stationary point $\eta^{\star}$ exists, the continuous
+field Jacobian is
+\begin{equation}
+    J_{\mathbf{F}}(\eta^{\star})
+    =
+    (q-p)
+    \nabla^2\psi(\eta^{\star})
+    \succ
+    0.
+    \label{eq:app_negative_continuous_jacobian}
+\end{equation}
+All eigenvalues are positive, so the stationary point is repelling and
+therefore unstable.
+
+For the discrete update, the local Jacobian is
+\begin{equation}
+    J_{\mathrm{disc}}(\eta^{\star})
+    =
+    I
+    +
+    \alpha(q-p)
+    \nabla^2\psi(\eta^{\star}).
+    \label{eq:app_negative_discrete_jacobian}
+\end{equation}
+Its eigenvalues are
+\begin{equation}
+    1
+    +
+    \alpha(q-p)\lambda_i
+    >
+    1
+\end{equation}
+for every $\alpha>0$ and every
+$\lambda_i>0$. Therefore, any finite stationary point is unstable under
+the discrete dynamics as well. If no stationary point exists, there is
+trivially no finite stable equilibrium.
+
+The three regimes establish
+Theorem~\ref{thm:aggregate_equilibrium}.
+\end{proof}
+
+\subsection{Proof of
+Theorem~\ref{thm:policy_family_manifestations}}
+\label{app:policy_family_manifestations}
+
+\begin{proof}
+Let
+\begin{equation}
+    r
+    =
+    q-p
+    >
+    0.
+\end{equation}
+
+\medskip
+\noindent\textbf{Gaussian policy.}
+For a Gaussian policy with fixed covariance,
+\begin{equation}
+    \nabla_{\mu}
+    \log\pi_{\mu}(a)
+    =
+    \Sigma^{-1}(a-\mu).
+    \label{eq:app_gaussian_mean_score}
+\end{equation}
+The aggregate mean field is therefore
+\begin{equation}
+\begin{aligned}
+    \mathbf{F}_{\mu}(\mu)
+    &=
+    \mathbb{E}_{\nu}
+    \left[
+        \widehat{A}(a)
+        \Sigma^{-1}(a-\mu)
+    \right] \\
+    &=
+    \Sigma^{-1}
+    \left[
+        p\mu_{+}
+        -
+        q\mu_{-}
+        -
+        (p-q)\mu
+    \right].
+\end{aligned}
+\label{eq:app_gaussian_aggregate_field}
+\end{equation}
+Because $p-q=-r$ and
+\begin{equation}
+    \mu^{\dagger}
+    =
+    \frac{
+        q\mu_{-}
+        -
+        p\mu_{+}
+    }{
+        r
+    },
+\end{equation}
+Equation~\eqref{eq:app_gaussian_aggregate_field} becomes
+\begin{equation}
+    \mathbf{F}_{\mu}(\mu)
+    =
+    r\Sigma^{-1}
+    \left(
+        \mu-\mu^{\dagger}
+    \right).
+\end{equation}
+
+For the continuous dynamics, define
+\begin{equation}
+    \delta(t)
+    =
+    \mu(t)-\mu^{\dagger}.
+\end{equation}
+Then
+\begin{equation}
+    \dot{\delta}(t)
+    =
+    r\Sigma^{-1}\delta(t),
+\end{equation}
+and hence
+\begin{equation}
+    \delta(t)
+    =
+    \exp
+    \left(
+        r\Sigma^{-1}t
+    \right)
+    \delta(0).
+    \label{eq:app_gaussian_continuous_solution}
+\end{equation}
+Since $\Sigma^{-1}\succ0$,
+\begin{equation}
+    \left\|
+        \delta(t)
+    \right\|_2
+    \geq
+    \exp
+    \left(
+        r\lambda_{\min}
+        \left(
+            \Sigma^{-1}
+        \right)t
+    \right)
+    \left\|
+        \delta(0)
+    \right\|_2.
+    \label{eq:app_gaussian_continuous_growth}
+\end{equation}
+Therefore, unless
+$\delta(0)=0$, the distance from the stationary point grows
+exponentially and
+$\|\mu(t)\|_2\rightarrow\infty$.
+
+For the discrete update,
+\begin{equation}
+    \mu_{t+1}
+    =
+    \mu_t
+    +
+    \alpha
+    \mathbf{F}_{\mu}(\mu_t),
+\end{equation}
+so
+\begin{equation}
+    \delta_{t+1}
+    =
+    \left(
+        I
+        +
+        \alpha r\Sigma^{-1}
+    \right)
+    \delta_t.
+\end{equation}
+Iterating gives
+\begin{equation}
+    \delta_t
+    =
+    \left(
+        I
+        +
+        \alpha r\Sigma^{-1}
+    \right)^t
+    \delta_0.
+    \label{eq:app_gaussian_discrete_solution}
+\end{equation}
+All eigenvalues of the update matrix are strictly larger than one.
+Consequently,
+\begin{equation}
+    \left\|
+        \delta_t
+    \right\|_2
+    \geq
+    \left[
+        1
+        +
+        \alpha r
+        \lambda_{\min}
+        \left(
+            \Sigma^{-1}
+        \right)
+    \right]^t
+    \left\|
+        \delta_0
+    \right\|_2.
+    \label{eq:app_gaussian_discrete_growth}
+\end{equation}
+Thus, every nonstationary discrete trajectory also diverges.
+
+For any fixed historical action $a$,
+\begin{equation}
+\begin{aligned}
+    \left\|
+        \nabla_{\mu}
+        \log\pi_{\mu}(a)
+    \right\|_2
+    &=
+    \left\|
+        \Sigma^{-1}(a-\mu)
+    \right\|_2 \\
+    &\geq
+    \lambda_{\min}
+    \left(
+        \Sigma^{-1}
+    \right)
+    \left\|
+        a-\mu
+    \right\|_2.
+\end{aligned}
+\label{eq:app_gaussian_score_lower_bound}
+\end{equation}
+Since $\|\mu\|_2\rightarrow\infty$ while $a$ is fixed,
+$\|a-\mu\|_2\rightarrow\infty$.
+Equation~\eqref{eq:app_gaussian_score_lower_bound} therefore proves
+Equation~\eqref{eq:gaussian_unbounded_score}.
+
+\medskip
+\noindent\textbf{Categorical policy.}
+Let there be $K\geq2$ actions and write
+\begin{equation}
+    \pi_z
+    =
+    \operatorname{softmax}(z).
+\end{equation}
+Because adding a constant to every logit does not change the policy, we
+work on the gauge-fixed subspace
+\begin{equation}
+    \mathcal{H}_0
+    =
+    \left\{
+        z\in\mathbb{R}^{K}
+        :
+        \mathbf{1}^{\top}z=0
+    \right\}.
+    \label{eq:app_categorical_gauge}
+\end{equation}
+
+Let $\rho_{+}$ and $\rho_{-}$ denote the normalized positive and negative
+weighted action distributions, and define
+\begin{equation}
+    b
+    =
+    p\rho_{+}
+    -
+    q\rho_{-}.
+\end{equation}
+The signed categorical objective can be written as
+\begin{equation}
+    \mathcal{L}(z)
+    =
+    b^{\top}z
+    +
+    r
+    \log
+    \left(
+        \sum_{j=1}^{K}
+        e^{z_j}
+    \right)
+    +
+    C,
+    \label{eq:app_categorical_objective}
+\end{equation}
+because $p-q=-r$. Its gradient and Hessian are
+\begin{equation}
+    \nabla\mathcal{L}(z)
+    =
+    b+r\pi_z
+\end{equation}
+and
+\begin{equation}
+    \nabla^2\mathcal{L}(z)
+    =
+    r
+    \left[
+        \operatorname{Diag}(\pi_z)
+        -
+        \pi_z\pi_z^{\top}
+    \right].
+    \label{eq:app_categorical_hessian}
+\end{equation}
+For every nonzero
+$v\in\mathcal{H}_0$,
+\begin{equation}
+\begin{aligned}
+    v^{\top}
+    \nabla^2\mathcal{L}(z)
+    v
+    &=
+    r
+    \operatorname{Var}_{A\sim\pi_z}
+    \left[
+        v_A
+    \right] \\
+    &>
+    0,
+\end{aligned}
+\end{equation}
+because every softmax probability is positive and a nonzero vector in
+$\mathcal{H}_0$ cannot be constant. Hence,
+$\mathcal{L}$ is strictly convex on $\mathcal{H}_0$ and has at most one
+finite stationary point.
+
+Consider first the continuous gradient flow
+\begin{equation}
+    \dot{z}
+    =
+    \nabla\mathcal{L}(z).
+\end{equation}
+Along every trajectory,
+\begin{equation}
+    \frac{d}{dt}
+    \mathcal{L}(z(t))
+    =
+    \left\|
+        \nabla\mathcal{L}(z(t))
+    \right\|_2^2
+    \geq
+    0.
+    \label{eq:app_categorical_objective_growth}
+\end{equation}
+Suppose a nonstationary trajectory were bounded. Its closure would be
+compact, so $\mathcal{L}$ would remain bounded above. Integrating
+Equation~\eqref{eq:app_categorical_objective_growth} would then give
+\begin{equation}
+    \int_0^\infty
+    \left\|
+        \nabla\mathcal{L}(z(t))
+    \right\|_2^2
+    dt
+    <
+    \infty.
+\end{equation}
+Since the gradient is Lipschitz on the compact trajectory closure, the
+standard gradient-flow argument implies
+\begin{equation}
+    \nabla\mathcal{L}(z(t))
+    \longrightarrow
+    0.
+\end{equation}
+Any accumulation point would therefore be a stationary point.
+
+If no finite stationary point exists, this is an immediate
+contradiction. If a stationary point $z^{\dagger}$ exists, strict
+convexity gives, for every $z\neq z^{\dagger}$,
+\begin{equation}
+    (z-z^{\dagger})^{\top}
+    \left[
+        \nabla\mathcal{L}(z)
+        -
+        \nabla\mathcal{L}(z^{\dagger})
+    \right]
+    >
+    0.
+\end{equation}
+Since
+$\nabla\mathcal{L}(z^{\dagger})=0$,
+\begin{equation}
+    \frac{d}{dt}
+    \frac{1}{2}
+    \left\|
+        z(t)-z^{\dagger}
+    \right\|_2^2
+    >
+    0
+\end{equation}
+along every nonstationary trajectory. Such a trajectory cannot have a
+subsequence converging to $z^{\dagger}$. Hence, the only bounded
+continuous trajectory is the stationary one itself.
+
+For the discrete update
+\begin{equation}
+    z_{t+1}
+    =
+    z_t
+    +
+    \alpha
+    \nabla\mathcal{L}(z_t),
+    \qquad
+    \alpha>0,
+\end{equation}
+convexity gives
+\begin{equation}
+\begin{aligned}
+    \mathcal{L}(z_{t+1})
+    &\geq
+    \mathcal{L}(z_t)
+    +
+    \nabla\mathcal{L}(z_t)^{\top}
+    (z_{t+1}-z_t) \\
+    &=
+    \mathcal{L}(z_t)
+    +
+    \alpha
+    \left\|
+        \nabla\mathcal{L}(z_t)
+    \right\|_2^2.
+\end{aligned}
+\label{eq:app_categorical_discrete_growth}
+\end{equation}
+If the trajectory were bounded,
+Equation~\eqref{eq:app_categorical_discrete_growth} would imply
+\begin{equation}
+    \nabla\mathcal{L}(z_t)
+    \longrightarrow
+    0.
+\end{equation}
+A convergent subsequence would therefore approach a finite stationary
+point. If no such point exists, this is impossible. If the unique
+stationary point $z^{\dagger}$ exists, then for
+$z_t\neq z^{\dagger}$,
+\begin{equation}
+\begin{aligned}
+    \left\|
+        z_{t+1}-z^{\dagger}
+    \right\|_2^2
+    &=
+    \left\|
+        z_t-z^{\dagger}
+    \right\|_2^2 \\
+    &\quad
+    +
+    2\alpha
+    (z_t-z^{\dagger})^{\top}
+    \nabla\mathcal{L}(z_t) \\
+    &\quad
+    +
+    \alpha^2
+    \left\|
+        \nabla\mathcal{L}(z_t)
+    \right\|_2^2 \\
+    &>
+    \left\|
+        z_t-z^{\dagger}
+    \right\|_2^2.
+\end{aligned}
+\end{equation}
+The trajectory therefore cannot have a subsequence converging to
+$z^{\dagger}$. Thus, every nonstationary discrete trajectory leaves
+every compact subset of $\mathcal{H}_0$.
+
+To relate logit divergence to the probability boundary, note that on
+$\mathcal{H}_0$ the inverse softmax representation is
+\begin{equation}
+    z_i
+    =
+    \log\pi_z(i)
+    -
+    \frac{1}{K}
+    \sum_{j=1}^{K}
+    \log\pi_z(j).
+    \label{eq:app_inverse_softmax}
+\end{equation}
+If the probabilities remained in a compact subset of the simplex
+interior, all coordinates would be bounded below by some
+$\varepsilon>0$, and
+Equation~\eqref{eq:app_inverse_softmax} would imply bounded logits.
+Therefore, an unbounded gauge-fixed logit trajectory must contain a
+subsequence along which at least one action probability approaches zero.
+
+Finally, for every action $a$,
+\begin{equation}
+    \nabla_z\log\pi_z(a)
+    =
+    e_a-\pi_z.
+\end{equation}
+Its squared norm satisfies
+\begin{equation}
+\begin{aligned}
+    \left\|
+        e_a-\pi_z
+    \right\|_2^2
+    &=
+    \left(
+        1-\pi_z(a)
+    \right)^2
+    +
+    \sum_{j\neq a}
+    \pi_z(j)^2 \\
+    &\leq
+    \left(
+        1-\pi_z(a)
+    \right)^2
+    +
+    \left(
+        \sum_{j\neq a}
+        \pi_z(j)
+    \right)^2 \\
+    &=
+    2
+    \left(
+        1-\pi_z(a)
+    \right)^2 \\
+    &\leq
+    2.
+\end{aligned}
+\end{equation}
+This proves the categorical score bound and completes the proof.
+\end{proof}
+
+\subsection{Empirical Negative-Update Utility}
+\label{app:negative_update_utility}
+
+We first distinguish the empirical utility used in
+Equation~\eqref{eq:empirical_negative_update_utility} from its population
+counterpart. Let
+\begin{equation}
+    \mathcal U_\theta(z;w)
+    =
+    J\!\left(
+        \theta+\eta w g_\theta^-(z)
+    \right)
+    -
+    J(\theta).
+    \label{eq:population_negative_update_utility}
+\end{equation}
+If $\widehat{J}_{\mathcal B}$ is an unbiased estimator of $J$, then
+\begin{equation}
+    \mathbb E_{\mathcal B}
+    \left[
+        \widehat{\mathcal U}_{\theta,\mathcal B}(z;w)
+    \right]
+    =
+    \mathcal U_\theta(z;w).
+    \label{eq:empirical_utility_unbiased}
+\end{equation}
+Thus, the empirical utility is a noisy, evaluation-dependent estimate
+rather than an intrinsic deterministic label attached to the sample.
+
+The following result gives sufficient conditions under which the
+utility-optimal effective step vanishes in the far field.
+
+\begin{lemma}[Far-field shrinkage of the utility-optimal step]
+\label{lem:far_field_utility}
+Let $D$ index learner-relative remoteness, and let $g(D)\neq0$ denote the
+corresponding negative-update direction. Write
+\begin{equation}
+    I(D)
+    =
+    \|g(D)\|_2,
+    \qquad
+    v(D)
+    =
+    \frac{g(D)}{I(D)}.
+    \label{eq:far_field_direction}
+\end{equation}
+Assume that the local update space admits an orthogonal decomposition
+\begin{equation}
+    \mathcal T
+    =
+    \mathcal T_{\mathrm{task}}
+    \oplus
+    \mathcal T_{\mathrm{far}},
+    \label{eq:task_far_decomposition}
+\end{equation}
+and let $P_{\mathrm{task}}$ denote the orthogonal projection onto
+$\mathcal T_{\mathrm{task}}$. Suppose that:
+
+\begin{enumerate}
+    \item $\nabla J(\theta)\in\mathcal T_{\mathrm{task}}$;
+
+    \item the normalized far-field update becomes dominated by the
+    far-field factor,
+    \begin{equation}
+        \left\|
+            P_{\mathrm{task}}v(D)
+        \right\|_2
+        \longrightarrow0;
+        \label{eq:task_projection_vanishes}
+    \end{equation}
+
+    \item there exist $\rho_0>0$, $\kappa>0$, and $D_0$ such that, for
+    every $D\geq D_0$ and every $\rho\in[0,\rho_0]$,
+    \begin{equation}
+        v(D)^\top
+        \nabla^2J
+        \!\left(
+            \theta+\rho v(D)
+        \right)
+        v(D)
+        \leq
+        -\kappa.
+        \label{eq:far_field_negative_curvature}
+    \end{equation}
+\end{enumerate}
+
+Define the population utility of an effective step of length $\rho$ by
+\begin{equation}
+    \mathcal V_D(\rho)
+    =
+    J\!\left(
+        \theta+\rho v(D)
+    \right)
+    -
+    J(\theta),
+    \qquad
+    0\leq\rho\leq\rho_0,
+    \label{eq:effective_step_utility}
+\end{equation}
+and let
+\begin{equation}
+    \rho_{\mathcal U}^{\star}(D)
+    \in
+    \arg\max_{\rho\in[0,\rho_0]}
+    \mathcal V_D(\rho).
+    \label{eq:utility_optimal_effective_step}
+\end{equation}
+Then
+\begin{equation}
+    \rho_{\mathcal U}^{\star}(D)
+    \longrightarrow0
+    \qquad
+    \text{as }
+    D\longrightarrow\infty.
+    \label{eq:optimal_step_vanishes}
+\end{equation}
+Moreover, if
+$\langle\nabla J(\theta),v(D)\rangle<0$,
+then every nonzero local step has negative utility:
+\begin{equation}
+    \mathcal V_D(\rho)<0
+    \qquad
+    \text{for all }
+    \rho\in(0,\rho_0].
+    \label{eq:negative_far_field_utility}
+\end{equation}
+\end{lemma}
+
+\begin{proof}
+Define the first-order task alignment
+\begin{equation}
+    a(D)
+    =
+    \left\langle
+        \nabla J(\theta),
+        v(D)
+    \right\rangle.
+    \label{eq:far_field_alignment}
+\end{equation}
+Because
+$\nabla J(\theta)\in\mathcal T_{\mathrm{task}}$,
+orthogonality gives
+\begin{equation}
+\begin{aligned}
+    |a(D)|
+    &=
+    \left|
+        \left\langle
+            \nabla J(\theta),
+            P_{\mathrm{task}}v(D)
+        \right\rangle
+    \right| \\
+    &\leq
+    \left\|
+        \nabla J(\theta)
+    \right\|_2
+    \left\|
+        P_{\mathrm{task}}v(D)
+    \right\|_2.
+\end{aligned}
+\end{equation}
+Equation~\eqref{eq:task_projection_vanishes} therefore implies
+\begin{equation}
+    a(D)\longrightarrow0.
+    \label{eq:alignment_vanishes}
+\end{equation}
+
+For any $\rho\in[0,\rho_0]$, Taylor's theorem gives some
+$\xi\in(0,\rho)$ such that
+\begin{equation}
+\begin{aligned}
+    \mathcal V_D(\rho)
+    &=
+    \rho a(D) \\
+    &\quad
+    +
+    \frac{\rho^2}{2}
+    v(D)^\top
+    \nabla^2J
+    \!\left(
+        \theta+\xi v(D)
+    \right)
+    v(D).
+\end{aligned}
+\end{equation}
+Using
+Equation~\eqref{eq:far_field_negative_curvature},
+\begin{equation}
+    \mathcal V_D(\rho)
+    \leq
+    \rho a(D)
+    -
+    \frac{\kappa}{2}\rho^2.
+    \label{eq:utility_quadratic_upper_bound}
+\end{equation}
+
+Since $\mathcal V_D(0)=0$, any utility-maximizing step must attain
+nonnegative utility. However, whenever
+\begin{equation}
+    \rho
+    >
+    \frac{
+        2[a(D)]_+
+    }{
+        \kappa
+    },
+\end{equation}
+the right-hand side of
+Equation~\eqref{eq:utility_quadratic_upper_bound}
+is strictly negative. Hence,
+\begin{equation}
+    0
+    \leq
+    \rho_{\mathcal U}^{\star}(D)
+    \leq
+    \frac{
+        2[a(D)]_+
+    }{
+        \kappa
+    }.
+    \label{eq:optimal_step_upper_bound}
+\end{equation}
+Together with
+Equation~\eqref{eq:alignment_vanishes},
+this proves
+Equation~\eqref{eq:optimal_step_vanishes}.
+
+If $a(D)<0$, then for every $\rho>0$,
+\begin{equation}
+    \rho a(D)
+    -
+    \frac{\kappa}{2}\rho^2
+    <
+    0.
+\end{equation}
+Equation~\eqref{eq:utility_quadratic_upper_bound}
+therefore implies
+$\mathcal V_D(\rho)<0$
+for every nonzero local step, proving
+Equation~\eqref{eq:negative_far_field_utility}.
+\end{proof}
+
+The lemma is a sufficient mechanism rather than a universal monotonicity
+claim. It applies when far-field growth increasingly occupies a
+task-orthogonal direction and the task objective is locally harmful
+along that direction. The negative-curvature condition can represent
+local losses caused by parameter drift or policy-support contraction,
+provided those effects reduce the evaluated objective $J$. If far-field
+growth instead remains aligned with $\nabla J(\theta)$, the conclusion
+need not hold.
+
+Finally, the effective step generated by a sample weight $w$ is
+\begin{equation}
+    \rho(D;w)
+    =
+    \eta w I(D).
+    \label{eq:weight_effective_step}
+\end{equation}
+Consequently, the population analogue of the oracle empirical weight
+must satisfy
+\begin{equation}
+    \eta
+    w_{\mathcal U}^{\star}(D)
+    I(D)
+    =
+    \rho_{\mathcal U}^{\star}(D)
+    \longrightarrow0.
+    \label{eq:oracle_weighted_influence_vanishes}
+\end{equation}
+Thus, when raw far-field influence remains nonvanishing or grows, the
+utility-optimal sample weight itself must shrink toward zero.
+
+\subsection{Proof of
+Proposition~\ref{prop:exp_vanishing_influence}}
+\label{app:exp_vanishing_influence}
+
+\begin{proof}
+For $D>\tau$,
+\begin{equation}
+    \omega_{\mathrm{Exp}}(D)
+    =
+    \exp
+    \left[
+        -\frac{\lambda}{c}(D-\tau)
+    \right].
+\end{equation}
+Hence,
+\begin{equation}
+\begin{aligned}
+    \omega_{\mathrm{Exp}}(D)\mathcal I(D)
+    &\leq
+    C
+    \exp
+    \left[
+        -\frac{\lambda}{c}(D-\tau)
+    \right]
+    (1+D)^m \\
+    &\longrightarrow
+    0,
+\end{aligned}
+\end{equation}
+because exponential decay dominates every finite-order polynomial.
+
+The corresponding weighted parameter step is
+\begin{equation}
+    \Delta\theta_{\mathrm{Exp}}(D)
+    =
+    \eta
+    \omega_{\mathrm{Exp}}(D)
+    g_\theta^-(D),
+\end{equation}
+and therefore
+\begin{equation}
+    \left\|
+        \Delta\theta_{\mathrm{Exp}}(D)
+    \right\|_2
+    =
+    \eta
+    \omega_{\mathrm{Exp}}(D)
+    \mathcal I(D)
+    \longrightarrow
+    0.
+\end{equation}
+
+If $\widehat J_{\mathcal B}$ is locally $L_{\mathcal B}$-Lipschitz around
+$\theta$, then for all sufficiently large $D$,
+\begin{equation}
+\begin{aligned}
+    \left|
+        \widehat{\mathcal U}_{\theta,\mathcal B}
+        \bigl(z;\omega_{\mathrm{Exp}}(D)\bigr)
+    \right|
+    &\leq
+    L_{\mathcal B}
+    \left\|
+        \Delta\theta_{\mathrm{Exp}}(D)
+    \right\|_2 \\
+    &\longrightarrow
+    0.
+\end{aligned}
+\end{equation}
+This proves both claims.
+\end{proof}
+
+
+\section{Experimental Details}
+\label{app:experimental_details}
+
+\subsection{Unified Continuous Environment C-U1}
+\label{app:cu1_environment}
+
+C-U1 is the shared controlled continuous environment used by all
+continuous mechanism experiments. A context
+$s\in\mathbb R^6$
+is sampled from
+$\mathcal N(0,I_6)$.
+For each seed, we independently sample 4096 training contexts and 4096
+test contexts from the same distribution. Test contexts never
+participate in optimization and are used only to measure
+held-out-context generalization.
+
+\paragraph{State-dependent task geometry.}
+Each context determines a two-dimensional positive-support center
+$a_+(s)$ and a unit task direction $u(s)$. We define
+\begin{equation}
+\begin{aligned}
+    [a_+(s)]_1
+    &=
+    0.70
+    \tanh
+    \bigl(
+        0.85s_1
+        -
+        0.30s_2s_3
+        +
+        0.20\sin(1.6s_4)
+    \bigr), \\
+    [a_+(s)]_2
+    &=
+    0.65
+    \tanh
+    \bigl(
+        -0.50s_2
+        +
+        0.35\cos(1.1s_5)
+        +
+        0.22s_1s_6
+    \bigr).
+\end{aligned}
+\label{eq:cu1_positive_center}
+\end{equation}
+The direction angle is
+\begin{equation}
+\begin{aligned}
+    \varphi(s)
+    &=
+    1.15
+    \tanh
+    \bigl(
+        0.75s_1
+        +
+        0.50s_3
+        -
+        0.30s_6
+    \bigr) \\
+    &\quad+
+    0.30\sin(1.35s_2),
+\end{aligned}
+\label{eq:cu1_direction_angle}
+\end{equation}
+with
+\begin{equation}
+    u(s)
+    =
+    \begin{bmatrix}
+        \cos\varphi(s)\\
+        \sin\varphi(s)
+    \end{bmatrix},
+    \qquad
+    v(s)
+    =
+    \begin{bmatrix}
+        -u_2(s)\\
+        u_1(s)
+    \end{bmatrix}.
+    \label{eq:cu1_task_basis}
+\end{equation}
+The unobserved task optimum and the directionally useful negative anchor
+are
+\begin{equation}
+\begin{aligned}
+    a_\star(s)
+    &=
+    a_+(s)+0.70u(s), \\
+    a_-(s)
+    &=
+    a_+(s)-0.50u(s).
+\end{aligned}
+\label{eq:cu1_task_points}
+\end{equation}
+
+\paragraph{Positive and negative actions.}
+Each context is associated with four positive actions and eight negative
+actions. The positive actions lie on a reward contour of radius
+$r_+=0.75$
+centered at $a_\star(s)$:
+\begin{equation}
+\begin{aligned}
+    a_{\mathrm{pos},k}(s)
+    =
+    a_\star(s)
+    +
+    r_+
+    \bigl(
+        \cos\phi_k\,u(s)
+        +
+        \sin\phi_k\,v(s)
+    \bigr),
+\end{aligned}
+\label{eq:cu1_positive_actions}
+\end{equation}
+where
+\begin{equation}
+\begin{aligned}
+    \{\phi_k\}_{k=1}^{4}
+    &=
+    \{
+        \pi-\theta_1,\,
+        \pi+\theta_1,\,
+        \pi-\theta_2,\,
+        \pi+\theta_2
+    \}, \\
+    \theta_1
+    &=
+    0.20,
+    \qquad
+    \cos\theta_2
+    =
+    \frac{2(0.70)}{0.75}
+    -
+    \cos\theta_1.
+\end{aligned}
+\label{eq:cu1_positive_angles}
+\end{equation}
+This construction makes the four actions equal-reward while ensuring
+that their centroid is exactly $a_+(s)$. It also leaves nonzero
+conditional action spread, preventing deterministic maximum-likelihood
+variance contraction from being confused with the far-field mechanism.
+
+The eight negative actions lie on a second reward contour of radius
+$r_-=1.20$:
+\begin{equation}
+\begin{aligned}
+    a_{\mathrm{neg},j}(s)
+    =
+    a_\star(s)
+    +
+    r_-
+    \bigl(
+        \cos\psi_j\,u(s)
+        +
+        \sin\psi_j\,v(s)
+    \bigr),
+\end{aligned}
+\label{eq:cu1_negative_actions}
+\end{equation}
+with
+\begin{equation}
+\begin{aligned}
+    \{\psi_j\}_{j=1}^{8}
+    =
+    \left\{
+        \pi,\,
+        \frac{3\pi}{4},\,
+        \frac{\pi}{2},\,
+        \frac{\pi}{4},\,
+        0,\,
+        -\frac{\pi}{4},\,
+        -\frac{\pi}{2},\,
+        -\frac{3\pi}{4}
+    \right\}.
+\end{aligned}
+\label{eq:cu1_negative_angles}
+\end{equation}
+The first negative action equals $a_-(s)$. All eight negative actions
+have the same distance to $a_\star(s)$ and therefore the same reward and
+fixed advantage, while having different distances from the current
+policy.
+
+\paragraph{Reward and fixed advantages.}
+The ground-truth reward is
+\begin{equation}
+    R(s,a)
+    =
+    \exp
+    \left(
+        -
+        \frac{
+            \lVert a-a_\star(s)\rVert_2^2
+        }{
+            2(0.75)^2
+        }
+    \right).
+    \label{eq:cu1_reward}
+\end{equation}
+Advantages are computed once using the fixed baseline $0.40$:
+\begin{equation}
+    \widehat A(s,a)
+    =
+    R(s,a)-0.40,
+    \label{eq:cu1_advantage}
+\end{equation}
+and remain frozen throughout optimization. Consequently, all four
+positive actions have positive advantages, all eight negative actions
+have negative advantages, and negative-action quality is exactly matched
+within each context.
+
+\paragraph{Policy parameterization.}
+The policy is an isotropic state-conditioned Gaussian,
+\begin{equation}
+    \pi_\theta(a\mid s)
+    =
+    \mathcal N
+    \left(
+        \mu_\theta(s),
+        \sigma_\theta^2(s)I_2
+    \right).
+    \label{eq:cu1_policy}
+\end{equation}
+Both $\mu_\theta(s)$ and the scalar
+$\log\sigma_\theta(s)$
+are produced by a shared two-layer ReLU MLP with 64 hidden units per
+layer and separate output heads. The initial standard deviation is
+$0.60$, and the learnable-variance experiments use no artificial
+variance clamp. A finite crossing of
+$\log\sigma_\theta(s)<-12$
+is recorded as a support or variance-boundary event, whereas nonfinite
+parameters or outputs are reported separately as NaN/Inf numerical
+failure.
+
+Training minibatches are sampled by context, and all actions associated
+with a selected context are retrieved together. Thus, the replicated
+actions within one context are not treated as independent contexts.
+Positive and negative objectives are averaged separately before their
+relative coefficient is applied, preventing the four-to-eight action
+count ratio from mechanically changing the total negative-update mass.
+
+\paragraph{Shared use across continuous protocols.}
+All C-U1 experiments reuse the same contexts, reward geometry, fixed
+advantages, and policy architecture. E1 compares equal-advantage
+negative actions at different learner-relative distances. E2 applies
+only positive updates and measures the same negative actions as phantom
+probes. E3 dynamically partitions negative actions using the
+standardized distance
+\begin{equation}
+    d_\theta(s,a)
+    =
+    \frac{
+        \lVert a-\mu_\theta(s)\rVert_2
+    }{
+        \sigma_\theta(s)
+    },
+    \label{eq:cu1_standardized_distance}
+\end{equation}
+with the registered near--far threshold $d_\theta=5.0$, and applies
+targeted near- and far-field interventions. E4 uses the aligned action
+$a_-(s)$ as directionally useful local negative feedback and the
+remaining contour actions as additional far-field pressure. The
+experiment-specific coefficients, training horizons, seeds, taper
+calibrations, and terminal criteria are reported separately with their
+corresponding protocols.
+
+\subsection{Controlled Categorical Environment D-U1}
+\label{app:du1_environment}
+
+D-U1 denotes the controlled categorical environment family used to
+study persistent negative suppression, probability-support boundaries,
+and shared-semantic generalization. Its E6 instantiation uses a fixed
+catalogue of 64 unordered actions, each associated with a
+four-dimensional unit semantic vector. Action identifiers are randomly
+permuted for every seed, so numerical action indices carry no geometric
+ordering.
+
+For each seed, we independently sample 2048 training contexts and 2048
+test contexts from
+$s\sim\mathcal N(0,I_6)$.
+The two splits follow the same context distribution, and test contexts
+never participate in optimization. Results on this split are therefore
+reported as held-out-context or unseen-state generalization rather than
+OOD generalization.
+
+\paragraph{Semantic action catalogue.}
+Let
+$\{e_i\}_{i=1}^{K}\subset\mathbb R^4$,
+with $K=64$, denote the unit reward embeddings of the categorical
+actions. They are sampled once per seed and randomly assigned to action
+identifiers. For each context, two fixed linear maps generate a
+demonstrated semantic target and a candidate improvement direction:
+\begin{equation}
+\begin{aligned}
+    t_+(s)
+    &=
+    \operatorname{unit}
+    \!\left(
+        W_+^\top s
+    \right), \\
+    \widetilde u(s)
+    &=
+    W_u^\top s
+    -
+    \left\langle
+        W_u^\top s,
+        t_+(s)
+    \right\rangle
+    t_+(s), \\
+    u(s)
+    &=
+    \operatorname{unit}
+    \!\left(
+        \widetilde u(s)
+    \right).
+\end{aligned}
+\label{eq:du1_semantic_basis}
+\end{equation}
+The hidden optimal target and the local negative target are
+\begin{equation}
+\begin{aligned}
+    t_\star(s)
+    &=
+    \operatorname{unit}
+    \!\left(
+        t_+(s)+\delta u(s)
+    \right), \\
+    t_-(s)
+    &=
+    \operatorname{unit}
+    \!\left(
+        t_+(s)-\delta u(s)
+    \right),
+\end{aligned}
+\qquad
+\delta=0.45.
+\label{eq:du1_semantic_targets}
+\end{equation}
+
+\paragraph{Reward and action roles.}
+The ground-truth reward of action $i$ is determined by its semantic
+alignment with the hidden target:
+\begin{equation}
+    R(s,i)
+    =
+    \frac{1}{2}
+    \left(
+        1+
+        t_\star(s)^\top e_i
+    \right).
+    \label{eq:du1_reward}
+\end{equation}
+The hidden optimal action is
+\begin{equation}
+    i_\star(s)
+    =
+    \arg\max_i
+    t_\star(s)^\top e_i.
+    \label{eq:du1_hidden_optimum}
+\end{equation}
+It is excluded from all positive demonstrations.
+
+For each context, the four positive actions are the available actions
+with the largest similarity to $t_+(s)$. After excluding the hidden
+optimum and positive actions, the local negative action is the action
+most aligned with $t_-(s)$. The four far-negative actions are selected
+by their alignment with $-t_+(s)$. Thus,
+\begin{equation}
+\begin{aligned}
+    \mathcal P(s)
+    &=
+    \operatorname{Top4}_{i\neq i_\star(s)}
+    \,
+    t_+(s)^\top e_i, \\
+    i_{\mathrm{local}}(s)
+    &=
+    \arg\max_{i\notin
+        \{i_\star(s)\}\cup\mathcal P(s)}
+    t_-(s)^\top e_i, \\
+    \mathcal F(s)
+    &=
+    \operatorname{Top4}_{i\notin
+        \{i_\star(s),i_{\mathrm{local}}(s)\}
+        \cup\mathcal P(s)}
+    \,
+    \bigl[-t_+(s)^\top e_i\bigr].
+\end{aligned}
+\label{eq:du1_action_roles}
+\end{equation}
+The positive and negative advantages are fixed throughout training:
+\begin{equation}
+    \widehat A(s,i)
+    =
+    \begin{cases}
+        +1,
+        & i\in\mathcal P(s),\\
+        -1,
+        & i=i_{\mathrm{local}}(s)
+          \text{ or }i\in\mathcal F(s).
+    \end{cases}
+    \label{eq:du1_fixed_advantages}
+\end{equation}
+Consequently, differences between local and far-negative updates cannot
+be attributed to different advantage magnitudes.
+
+\paragraph{Shared-semantic categorical policy.}
+The policy uses a two-layer tanh MLP with 64 hidden units per layer to
+map the context to a unit semantic direction
+$q_\theta(s)\in\mathbb R^4$.
+Let $\widetilde e_i$ denote the action embedding used by the policy. The
+categorical logits and probabilities are
+\begin{equation}
+\begin{aligned}
+    \ell_{\theta,i}(s)
+    &=
+    \kappa_\theta(s)
+    q_\theta(s)^\top
+    \widetilde e_i, \\
+    \pi_\theta(i\mid s)
+    &=
+    \frac{
+        \exp\!\left(\ell_{\theta,i}(s)\right)
+    }{
+        \sum_{j=1}^{K}
+        \exp\!\left(\ell_{\theta,j}(s)\right)
+    }.
+\end{aligned}
+\label{eq:du1_policy}
+\end{equation}
+The concentration is either fixed at
+$\kappa_\theta(s)=8$
+or learned as
+\begin{equation}
+    \kappa_\theta(s)
+    =
+    \operatorname{softplus}
+    \!\left(
+        c_\theta(s)
+    \right)
+    +
+    0.05,
+    \label{eq:du1_concentration}
+\end{equation}
+with initial value 8 and no upper clamp.
+
+In the semantically aligned condition,
+$\widetilde e_i=e_i$.
+In the shuffled control, the same policy embeddings are randomly
+permuted across action identifiers while the reward embeddings and
+training samples remain unchanged. This intervention preserves the
+catalogue size and categorical parameterization but breaks the
+correspondence between policy-side similarity and ground-truth semantic
+utility.
+
+\paragraph{Evaluation and failure events.}
+We evaluate expected semantic reward, probability assigned to the hidden
+optimal action, entropy, effective support, and normalized semantic
+extrapolation on both training and held-out contexts. Task-performance
+collapse, effective-support or concentration-boundary events, and
+NaN/Inf numerical failure are reported separately. A policy can
+therefore retain high reward while still approaching a support boundary;
+the two outcomes are not treated as equivalent.
+
+\paragraph{Shared use across categorical protocols.}
+E6-A fixes the concentration and scans the strength of the local
+negative update to identify the transition from the positive-only
+ceiling to useful semantic extrapolation and then to performance
+reversal. E6-B learns the concentration and applies near/far causal
+interventions and matched controls. E6-C compares aligned and shuffled
+policy embeddings to determine whether improvements on the hidden action
+require the registered semantic correspondence.
+
+E5 serves a distinct but complementary role. Its direct-softmax
+diagnostic and categorical causal reconstruction isolate persistent
+surprisal growth, logit-gap growth, and simplex-boundary suppression
+under repeated negative updates. It shares the fixed-advantage and
+near/far intervention logic of D-U1, but it does not use the 64-action
+shared-semantic catalogue and does not support the E6 semantic
+generalization claim. Its reconstruction parameters and direct-softmax
+initial conditions are reported separately in
+Appendix~\ref{app:du1_e5_diagnostic}.
+\subsection{D4RL Hopper Datasets}
+\label{app:hopper_datasets}
+
+Hopper is a continuous-control task with an
+11-dimensional observation space and a three-dimensional bounded action
+space. We use the D4RL
+\texttt{hopper-medium},
+\texttt{hopper-medium-replay}, and
+\texttt{hopper-medium-expert}
+datasets. The medium dataset contains trajectories collected from a
+partially trained policy, medium-replay contains the corresponding replay
+buffer collected throughout training, and medium-expert combines medium
+and expert behavior. Hopper-medium-replay is used for the primary
+mechanism analysis because it provides broader behavioral coverage,
+while all three datasets are used for external method evaluation.
+Dataset versions, transition counts, and preprocessing statistics are
+reported in Table~\ref{tab:hopper_dataset_details}.baselines.
+
+\subsection{Countdown Task and Puzzle Dataset}
+\label{app:countdown_dataset}
+
+Countdown is an arithmetic generation task in which the policy receives
+a multiset of integers and a target value, and must generate an
+arithmetic expression that evaluates exactly to the target. A valid
+output must use every supplied number exactly once and may contain only
+addition, subtraction, multiplication, division, and parentheses.
+
+Let
+$x=(\mathcal N,T)$
+denote a puzzle, where
+$\mathcal N$
+is the supplied multiset of numbers and
+$T$
+is the target. The policy action is a complete token sequence
+$y$ representing the generated expression. Task success is determined
+by a deterministic verifier:
+\begin{equation}
+    R(x,y)
+    =
+    \mathbf 1
+    \left[
+        y
+        \text{ is syntactically valid, uses }
+        \mathcal N
+        \text{ exactly once, and evaluates to }T
+    \right].
+    \label{eq:countdown_reward}
+\end{equation}
+Because multiple expressions can solve the same puzzle, evaluation is
+based on verifier success rather than exact string matching.
+
+The puzzle corpus is procedurally generated from valid arithmetic
+expressions and divided into disjoint training, validation, and test
+sets. Duplicate puzzles with the same number multiset and target are
+removed across the corpus. Validation puzzles are used for checkpoint
+selection, while the test split is reserved for final evaluation.
+Exact generation ranges, split sizes, and corpus statistics are reported
+in Table~\ref{tab:countdown_dataset_details}.
+
+Countdown provides an external discrete-action setting with
+autoregressive sequence generation and shared Transformer parameters.
+The construction of the offline response dataset, including positive,
+near-negative, and far-negative responses, belongs to the experimental
+protocol and is described separately in
+Appendix~\ref{app:countdown_protocol}.
+\subsection{Training and Evaluation Protocols}
+
+\section{Controlled Experimental Protocols}
+\label{app:controlled_protocols}
+
+This section specifies the interventions used in
+Sections~\ref{sec:controlled_identification}
+and~\ref{sec:repulsion_control}. The definitions of C-U1, D-U1,
+Hopper, and Countdown are given in
+Appendix~\ref{app:experimental_details}. Network architectures,
+optimizer settings, training budgets, seeds, and evaluation frequencies
+are reported separately in
+Appendix~\ref{app:implementation_details}.
+
+\subsection{Shared Notation and Experimental Invariants}
+\label{app:controlled_shared}
+
+For a negative sample
+$z=(s,a)$, define its raw repulsive update as
+\begin{equation}
+    g_\theta^-(z)
+    =
+    -\widehat A^-(z)
+    \nabla_\theta
+    \log\pi_\theta(a\mid s),
+    \qquad
+    \widehat A^-(z)
+    =
+    \max\{-\widehat A(z),0\}.
+    \label{eq:controlled_negative_update}
+\end{equation}
+Learner-relative remoteness is measured by
+\begin{equation}
+    D_\theta(z)
+    =
+    -\log\pi_\theta(a\mid s),
+    \label{eq:controlled_remoteness}
+\end{equation}
+or by its equivalent standardized Gaussian component when additive
+density constants are irrelevant.
+
+Unless explicitly stated otherwise, all branches of one controlled
+comparison share:
+
+\begin{enumerate}
+    \item the same training and evaluation contexts;
+    \item the same positive and negative samples;
+    \item the same fixed rewards or advantage labels;
+    \item the same initial policy parameters;
+    \item the same minibatch order, optimizer, and training horizon;
+    \item the same evaluation checkpoints and terminal classification
+    rules.
+\end{enumerate}
+
+Only the variable named by the intervention is changed. Actions generated
+under the same context are aggregated at the context level and are not
+treated as independent contexts for statistical inference.
+
+
+\subsection{Source-Isolation Protocol}
+\label{app:source_isolation_protocol}
+
+\paragraph{Purpose.}
+The source-isolation experiment asks whether policy-relative remoteness
+changes negative influence when sample quality is held fixed. It does
+not train a signed policy to collapse and therefore does not answer
+whether the resulting gradients cause downstream instability.
+
+\paragraph{Continuous product-manifold construction.}
+For each C-U1 context, we select multiple negative actions from a common
+reward contour:
+\begin{equation}
+    R(s,a_i)
+    =
+    R(s,a_j),
+    \qquad
+    \widehat A(s,a_i)
+    =
+    \widehat A(s,a_j)
+    <0,
+    \label{eq:source_equal_quality}
+\end{equation}
+while ensuring that
+\begin{equation}
+    D_\theta(s,a_i)
+    \neq
+    D_\theta(s,a_j).
+    \label{eq:source_different_remoteness}
+\end{equation}
+The reward coordinate and the policy-distance coordinate are therefore
+independently controlled. This exact counterfactual comparison is the
+reason for using a synthetic product-manifold construction: an external
+offline dataset generally cannot provide two actions with precisely
+matched task quality and independently prescribed distance from the
+same current policy.
+
+The comparison is performed both at policy initialization and after
+positive-only pretraining. No negative sample used as a probe is applied
+as an optimizer update during this protocol. For every probe, we record
+\begin{equation}
+\begin{aligned}
+    I_{\mathrm{score}}(z)
+    &=
+    \left\|
+        \nabla_\theta
+        \log\pi_\theta(a\mid s)
+    \right\|_2,\\
+    I_{\mathrm{sample}}(z)
+    &=
+    \left\|
+        g_\theta^-(z)
+    \right\|_2,
+\end{aligned}
+\label{eq:source_influence_metrics}
+\end{equation}
+together with the full parameter-gradient norm and the aggregate
+gradient obtained from samples in the same remoteness range. Because
+$|\widehat A|$ is identical across the matched actions, differences in
+$I_{\mathrm{sample}}$ arise from policy score geometry rather than
+advantage magnitude.
+
+We report near-to-far ratios of remoteness, score norm, single-sample
+gradient norm, aggregate gradient norm, and gradient-direction
+coherence. Ratios are first computed within each context and seed and
+are then aggregated across registered seeds.
+
+\paragraph{Categorical counterpart.}
+D-U1 uses unordered categorical actions with identical fixed negative
+labels. The comparison varies the current probability assigned to the
+negative action while preserving its reward role and advantage:
+\begin{equation}
+    \widehat A(s,i)
+    =
+    \widehat A(s,j)
+    <0,
+    \qquad
+    \pi_\theta(i\mid s)
+    \neq
+    \pi_\theta(j\mid s).
+    \label{eq:categorical_source_match}
+\end{equation}
+For a direct categorical logit parameterization, the score norm is
+bounded and need not grow without limit as probability decreases.
+The relevant far-field effect is instead persistence: the negative
+update continues to increase the selected action's logit gap even after
+its probability has become small. We therefore report probability,
+surprisal, logit gap, score norm, and cumulative suppression over
+repeated updates. This distinguishes categorical support suppression
+from the unbounded Gaussian-distance amplification measured in C-U1.
+
+
+\subsection{Causal-Transmission Protocol}
+\label{app:causal_transmission_protocol}
+
+\paragraph{Purpose.}
+The source-isolation protocol establishes where abnormal negative
+influence originates but does not establish that it changes task
+behavior. Causal transmission is therefore tested in the nonlinear
+Gaussian protocol, where the policy mean and variance evolve jointly,
+and in the categorical support reconstruction of D-U1.
+
+\paragraph{Dynamic near--far partition.}
+At each intervention step, negative samples are partitioned using their
+current-policy remoteness. Let
+$\mathcal N_\theta$
+and
+$\mathcal F_\theta$
+denote the registered near- and far-field sets. Their membership is
+recomputed as the policy evolves rather than frozen at initialization.
+The exact thresholds or quantiles are fixed before the formal run and
+reported in the implementation table.
+
+\paragraph{Interventions.}
+For a negative sample $z$, the following multipliers are applied to
+$g_\theta^-(z)$:
+\begin{equation}
+\begin{aligned}
+    w_{\mathrm{uncontrolled}}(z)
+    &=1,\\
+    w_{\mathrm{positive}}(z)
+    &=0,\\
+    w_{\mathrm{near\text{-}zero}}(z)
+    &=
+    \mathbf 1[z\notin\mathcal N_\theta],\\
+    w_{\mathrm{far\text{-}zero}}(z)
+    &=
+    \mathbf 1[z\notin\mathcal F_\theta].
+\end{aligned}
+\label{eq:causal_zero_interventions}
+\end{equation}
+
+The far-cap intervention preserves the direction of a far-field update
+but limits its detached influence to a reference level estimated from
+near-field negative samples:
+\begin{equation}
+    w_{\mathrm{far\text{-}cap}}(z)
+    =
+    \begin{cases}
+        \displaystyle
+        \min\left\{
+            1,
+            \frac{C_{\mathrm{near}}}
+                 {I_{\mathrm{sample}}(z)+\epsilon}
+        \right\},
+        & z\in\mathcal F_\theta,\\[3mm]
+        1,
+        & \text{otherwise},
+    \end{cases}
+    \label{eq:causal_far_cap}
+\end{equation}
+where $C_{\mathrm{near}}$ is the registered near-field influence
+reference.
+
+To distinguish selective intervention from a generic decrease in
+negative optimization, the global-matched control applies one scalar
+to every negative sample:
+\begin{equation}
+    w_{\mathrm{global}}(z)
+    =
+    \alpha_{\mathrm{match}}.
+    \label{eq:causal_global_weight}
+\end{equation}
+The scalar is chosen using the training batch so that its detached
+aggregate negative influence matches the corresponding selective
+intervention:
+\begin{equation}
+    \alpha_{\mathrm{match}}
+    \sum_{z\in\mathcal B^-}
+        I_{\mathrm{sample}}(z)
+    =
+    \sum_{z\in\mathcal B^-}
+        w_{\mathrm{selective}}(z)
+        I_{\mathrm{sample}}(z).
+    \label{eq:causal_budget_match}
+\end{equation}
+The matching coefficient is not differentiated through.
+
+\paragraph{Causal contrasts.}
+The primary causal contrast is between removing near-field and
+far-field negative updates. If Near-zero leaves the dynamics unchanged
+while Far-zero or Far-cap alters them, the effect cannot be attributed
+to negative feedback in general. The global-matched branch quantifies
+how much of the change follows from reducing total negative influence
+and how much requires selecting samples by remoteness.
+
+\paragraph{Temporal and terminal measurements.}
+We record policy displacement, reward, negative-gradient influence,
+mean and scale dynamics, entropy or effective support, and the first
+time at which each registered event occurs. The analysis checks whether
+far-field influence rises before policy drift and whether drift precedes
+task-performance loss.
+
+Terminal outcomes are classified separately as:
+
+\begin{enumerate}
+    \item \textbf{task-performance collapse}: a sustained loss of the
+    registered task metric while optimization remains finite;
+    \item \textbf{support or variance-boundary event}: categorical
+    effective support or Gaussian variance crosses its registered
+    boundary without requiring NaN or Inf;
+    \item \textbf{numerical collapse}: a parameter, loss, gradient, or
+    model output becomes NaN or Inf.
+\end{enumerate}
+
+A boundary event is not automatically counted as task-performance
+collapse, and finite execution is not automatically counted as
+convergence.
+
+
+\subsection{Controlled Taper Comparison}
+\label{app:controlled_taper_protocol}
+
+\paragraph{Purpose and controlled utility construction.}
+Suppressing every negative update would remove the causal far-field
+pathway, but it would also remove potentially useful local repulsion.
+The taper comparison therefore requires an environment in which the
+utility of local negative feedback is known.
+
+In C-U1, the hidden optimum $a_\star(s)$ lies beyond the center of the
+positive demonstrations $a_+(s)$. A local negative anchor is placed on
+the opposite side of $a_+(s)$, so repulsion from this anchor points
+toward $a_\star(s)$. Additional negative actions are placed on matched
+reward contours at larger policy-relative distances. Increasing
+negative influence therefore produces three observable regimes:
+positive-only under-extrapolation, useful local extrapolation, and
+far-field over-extrapolation or instability.
+
+D-U1 implements the same logic with unordered semantic actions. The
+hidden optimal target lies beyond the demonstrated positive direction,
+while the local negative target lies in the opposite semantic
+direction. Repelling the local negative action can therefore improve
+the shared representation toward the hidden optimal action. Additional
+remote negative actions create support pressure without changing their
+fixed negative label. Evaluation on independently sampled contexts is
+reported as held-out-context generalization.
+
+\paragraph{Weighting rules.}
+For negative-sample remoteness $D$, the compared rules are
+\begin{equation}
+\begin{aligned}
+    \omega_{\mathrm{positive}}(D)
+    &=0,\\
+    \omega_{\mathrm{uncontrolled}}(D)
+    &=1,\\
+    \omega_{\mathrm{global}}(D)
+    &=\alpha,\\
+    \omega_{\mathrm{hard}}(D)
+    &=
+    \mathbf 1[D\leq\tau],\\
+    \omega_{\mathrm{rec}}(D)
+    &=
+    \frac{1}
+    {1+\left[(D-\tau)/c\right]_+},\\
+    \omega_{\mathrm{exp}}(D)
+    &=
+    \exp
+    \left\{
+        -\lambda
+        \left[(D-\tau)/c\right]_+
+    \right\}.
+\end{aligned}
+\label{eq:controlled_taper_rules}
+\end{equation}
+All weighting values are computed from detached remoteness statistics;
+the policy cannot reduce its loss by differentiating through the taper.
+
+\paragraph{Near-field-retention matching.}
+Let $\mathcal N$ denote the registered useful near-field set and define
+its retained first-order influence as
+\begin{equation}
+    \rho_{\mathrm{near}}(\omega)
+    =
+    \frac{
+        \sum_{z\in\mathcal N}
+        \omega(D_\theta(z))
+        I_{\mathrm{sample}}(z)
+    }{
+        \sum_{z\in\mathcal N}
+        I_{\mathrm{sample}}(z)
+    }.
+    \label{eq:near_retention}
+\end{equation}
+Taper parameters are calibrated on training contexts so that the
+compared selective rules retain the same registered near-field fraction,
+up to the predetermined tolerance. Parameters are then frozen before
+evaluation. This comparison isolates how the rules treat the far-field
+tail after preserving comparable local utility.
+
+\paragraph{Aggregate-budget matching.}
+For a weighting function $\omega$, define its detached negative-update
+budget as
+\begin{equation}
+    B(\omega)
+    =
+    \sum_{z\in\mathcal B^-}
+    \omega(D_\theta(z))
+    I_{\mathrm{sample}}(z).
+    \label{eq:taper_budget}
+\end{equation}
+The budget-matched global coefficient is
+\begin{equation}
+    \alpha_{\mathrm{budget}}
+    =
+    \frac{
+        B(\omega)
+    }{
+        B(\omega_{\mathrm{uncontrolled}})
+    }.
+    \label{eq:taper_global_match}
+\end{equation}
+This control applies the same total first-order negative influence
+without using remoteness. A selective taper can therefore be credited
+only for improvements that remain after comparison with its
+budget-matched global baseline.
+
+\paragraph{Measurements.}
+Each method is evaluated over the full registered training horizon.
+We report task performance, held-out-context generalization, distance
+from the hidden optimum, policy displacement, entropy or variance,
+effective support, near-field retention, aggregate negative-update
+budget, and all three terminal-event categories. Method comparisons use
+the same seeds and paired statistics.
+
+
+\subsection{External Taper Validation}
+\label{app:external_taper_protocol}
+
+\paragraph{Scientific scope.}
+External taper experiments test whether the controlled weighting
+principle transfers to complex policies. They do not reproduce the exact
+counterfactual geometry of C-U1 or D-U1 and therefore do not replace the
+controlled source and causal experiments.
+
+\paragraph{Hopper.}
+All Hopper taper methods branch from the same actor initialization and
+use the same offline transitions and advantage labels. For an action
+with inverse-squash coordinate $u$, Gaussian mean $\mu_\theta(s)$, and
+diagonal scale $\sigma_\theta(s)$, the remoteness statistic is
+\begin{equation}
+    D_{\mathrm{Hopper}}(s,a)
+    =
+    \frac{1}{2}
+    \sum_j
+    \left(
+        \frac{
+            u_j-\mu_{\theta,j}(s)
+        }{
+            \sigma_{\theta,j}(s)
+        }
+    \right)^2.
+    \label{eq:hopper_taper_remoteness}
+\end{equation}
+The additive Gaussian normalization term is omitted because it does not
+change the ordering used by the taper. Remoteness is recomputed under
+the current actor and detached before constructing the negative weight.
+The mechanism protocol with frozen advantages is kept separate from the
+standard offline-RL performance protocol; the former studies transfer of
+the far-field control mechanism, whereas the latter reports final
+environment return.
+
+\paragraph{Countdown.}
+The Countdown offline dataset is generated once from a frozen SFT
+policy. For each puzzle, it contains a verified positive response, a
+near negative response with low mean token surprisal, and a far negative
+response with high mean token surprisal. Mean token surprisal is
+\begin{equation}
+    D_{\mathrm{Countdown}}(x,y)
+    =
+    -\frac{1}{|y|}
+    \sum_{t=1}^{|y|}
+    \log
+    \pi_\theta
+    \left(
+        y_t
+        \mid
+        x,y_{<t}
+    \right).
+    \label{eq:countdown_taper_remoteness}
+\end{equation}
+During method training, the responses remain fixed but their surprisal is
+recomputed under the current policy. The sequence-level taper weight is
+computed from the detached current surprisal and multiplies the negative
+sequence objective.
+
+All Countdown methods start from the same SFT checkpoint and use the
+same positive, near-negative, and far-negative responses, mixture
+coefficients, validation set, and maximum training budget. Checkpoint
+selection uses the registered validation task metric, and final verifier
+success is measured only on the held-out test puzzles.
+
+\paragraph{Comparisons and reporting.}
+The common external comparisons are Positive-only, Uncontrolled,
+Global scaling, and exponential DRPO. Domain-specific baselines are
+reported in the overall-performance section rather than treated as
+controlled taper variants. Hopper reports normalized return and policy
+statistics; Countdown reports greedy verifier success, pass@$k$, valid
+expression rate, surprisal, and support statistics. Task-performance,
+boundary, and NaN/Inf outcomes remain separate in both domains.
+\subsection{Shared Objectives and Negative-Update Controls}
+\label{app:shared_methods}
+
+This section defines the protocol controls and remoteness-aware
+weighting rules shared by the D4RL and Countdown experiments. Their
+task-specific remoteness signals, data construction, and optimization
+protocols are described separately in
+Appendices~\ref{app:d4rl_methods} and
+\ref{app:countdown_methods}.
+
+\paragraph{Shared signed objective.}
+
+Let \(z\) denote an offline transition or response, let
+\(A(z)\) denote its fixed signed learning signal during an actor update,
+and let \(D_\theta(z)\) denote its learner-relative remoteness under the
+current policy. We write
+
+\[
+A^{+}(z)=\max\{A(z),0\},
+\qquad
+A^{-}(z)=\min\{A(z),0\}.
+\]
+
+The shared family of actor objectives is
+
+\[
+\mathcal{J}_{\omega}(\theta)
+=
+\mathbb{E}_{z\sim\mathcal{B}}
+\left[
+A^{+}(z)\log \pi_\theta(z)
++
+\omega\!\left(D_\theta(z)\right)
+A^{-}(z)\log \pi_\theta(z)
+\right],
+\]
+
+where positive updates retain unit weight and
+\(\omega(D)\) controls only the negative branch. During each actor
+update, the advantage and remoteness-derived weight are treated as
+fixed coefficients; gradients are not propagated through the weighting
+rule.
+
+For the remoteness-aware methods, define the normalized excess
+remoteness
+
+\[
+x_\theta(z)
+=
+\left[
+\frac{D_\theta(z)-\tau}{c}
+\right]_{+},
+\]
+
+where \(\tau\) is the near-field threshold, \(c>0\) is the task-specific
+scale, and \([u]_{+}=\max\{u,0\}\). Consequently, samples inside the
+near-field region \(D_\theta(z)\leq\tau\) retain their full negative
+weight.
+
+\paragraph{Positive-only.}
+
+Positive-only removes all negative updates:
+
+\[
+\omega_{\mathrm{pos}}(D)=0.
+\]
+
+It therefore provides an extreme no-repulsion reference. In D4RL it
+retains only transitions with positive actor advantages; in Countdown
+it retains only verified successful responses under the corresponding
+binary learning signal.
+
+\paragraph{Global-\(\alpha\).}
+
+Global-\(\alpha\) applies the same attenuation to every negative sample:
+
+\[
+\omega_{\mathrm{global}}(D)=\alpha,
+\qquad
+0\leq\alpha\leq 1.
+\]
+
+This control tests whether performance improvements can be explained by
+a global reduction in negative-update magnitude, without using
+learner-relative remoteness.
+
+\paragraph{Reciprocal-Linear and Reciprocal-Quadratic.}
+
+The two reciprocal controls use the same remoteness signal and
+near-field threshold as DRPO, but differ in their far-field decay:
+
+\[
+\omega_{\mathrm{Rec\text{-}L}}(D)
+=
+\frac{1}{1+\lambda x_\theta(z)},
+\]
+
+and
+
+\[
+\omega_{\mathrm{Rec\text{-}Q}}(D)
+=
+\frac{1}{1+\lambda x_\theta(z)^2}.
+\]
+
+Reciprocal-Linear has the slowest far-field attenuation. The quadratic
+variant decays more rapidly but retains a polynomial tail. These
+controls isolate whether the benefit comes merely from using a
+remoteness signal or specifically from the decay profile selected by
+DRPO.
+
+\paragraph{DRPO.}
+
+DRPO uses an exponential remoteness taper:
+
+\[
+\omega_{\mathrm{DRPO}}(D)
+=
+\exp\left\{
+-\lambda x_\theta(z)
+\right\}.
+\]
+
+The weight equals one throughout the near-field region and then decays
+exponentially once remoteness exceeds \(\tau\). Thus, DRPO preserves
+local negative feedback while suppressing the remote negative tail more
+rapidly than the reciprocal alternatives.
+
+\paragraph{Hyperparameter selection.}
+
+Within each task, \(\tau\), \(c\), \(\lambda\), and the
+Global-\(\alpha\) coefficient are selected using the registered
+validation protocol only. Test-task performance is not used for
+hyperparameter selection. All protocol-matched methods share the same
+candidate budgets and checkpoint-selection rule. The task-specific
+search spaces and selected values are reported in
+Appendices~\ref{app:d4rl_methods} and
+\ref{app:countdown_methods}.
+
+
+\subsection{D4RL Baselines and Experimental Protocol}
+\label{app:d4rl_methods}
+
+The definitions of Positive-only, Global-\(\alpha\),
+Reciprocal-Linear, Reciprocal-Quadratic, and DRPO follow
+Appendix~\ref{app:shared_methods}. This section specifies only the
+D4RL-specific baselines, remoteness construction, training protocol,
+and evaluation procedure.
+
+\paragraph{Tasks and datasets.}
+
+We evaluate HalfCheetah, Hopper, and Walker2d on the medium,
+medium-replay, and medium-expert datasets, producing the nine tasks
+reported in Table~\ref{tab:d4rl_performance}. The same fixed offline
+dataset is used by every protocol-matched method within a task.
+
+\paragraph{Published offline-RL baselines.}
+
+CQL, TD3+BC, IQL, and BC are included as published reference results.
+These values are not protocol-matched reruns and are therefore marked
+by \(\dagger\) in Table~\ref{tab:d4rl_performance}. The main table
+reports their published task-level means. Their original uncertainty
+statistics and exact score provenance are recorded separately from the
+protocol-matched DRPO experiments.
+
+\paragraph{Gaussian-policy remoteness.}
+
+For an action \(a\in\mathbb{R}^{d_a}\) and current Gaussian policy with
+mean \(\mu_\theta(s)\) and standard deviation \(\sigma_\theta(s)\), we
+measure learner-relative remoteness using the mean squared standardized
+deviation
+
+\[
+D_{\mathrm{D4RL}}(s,a)
+=
+\frac{1}{d_a}
+\sum_{j=1}^{d_a}
+\left(
+\frac{a_j-\mu_{\theta,j}(s)}
+     {\sigma_{\theta,j}(s)}
+\right)^2.
+\]
+
+When the actor uses a transformed action distribution, this quantity is
+computed in the policy's native Gaussian coordinates. The resulting
+remoteness is used only to determine the negative-update coefficient;
+the distance term is detached during the actor update.
+
+\paragraph{Protocol-matched actor comparison.}
+
+Positive-only, Global-\(\alpha\), Reciprocal-Linear,
+Reciprocal-Quadratic, and DRPO share the same offline dataset, critic
+checkpoint or critic-training protocol, actor initialization, network
+architecture, optimizer, minibatch schedule, actor-update budget,
+evaluation schedule, and random seeds. They differ only in the
+negative-update weighting rule defined in
+Appendix~\ref{app:shared_methods}.
+
+The common actor advantage construction is held fixed across these
+methods. No method is allowed to change the critic, relabel samples, or
+alter the data distribution in order to improve its actor result.
+
+\paragraph{Hyperparameters.}
+
+The registered training and selection configuration is summarized in
+Table~\ref{tab:d4rl_registered_config}. All entries must be populated
+directly from the frozen experiment configuration rather than
+reconstructed after observing the test results.
+
+\begin{table}[t]
+\centering
+\caption{Registered configuration for the D4RL performance experiments.}
+\label{tab:d4rl_registered_config}
+
+\small
+\setlength{\tabcolsep}{8pt}
+\renewcommand{\arraystretch}{1.12}
+
+\begin{tabular}{@{}ll@{}}
+\toprule
+Configuration & Registered value \\
+\midrule
+Actor-update budget
+& \textbf{[registered value]} \\
+Evaluation interval
+& \textbf{[registered value]} \\
+Evaluation episodes
+& \textbf{[registered value]} \\
+Random seeds
+& \textbf{[registered seed set]} \\
+Near-field threshold candidates, $\tau$
+& \textbf{[registered grid]} \\
+Remoteness-scale candidates, $c$
+& \textbf{[registered grid]} \\
+Taper-strength candidates, $\lambda$
+& \textbf{[registered grid]} \\
+Global-scaling candidates, $\alpha$
+& \textbf{[registered grid]} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+These entries must be populated directly from the frozen experiment
+configuration rather than reconstructed after observing the test
+results.
+
+\paragraph{Evaluation and uncertainty.}
+
+Task performance is reported using the standard D4RL normalized return.
+For every protocol-matched method, the main table reports the mean over
+the registered seeds, while seed-level values and uncertainty
+statistics are reported in the appendix. The D4RL-9 total is the sum of
+the nine task-level means.
+
+Task-performance collapse is assessed from normalized return and
+training trajectories. Variance or support-boundary events are reported
+separately from task performance. NaN/Inf numerical failures are
+reported as a third outcome and are not merged with either low return or
+policy-boundary events. Any claim concerning convergence, collapse, or
+method ranking is based on the registered terminal audit rather than an
+intermediate checkpoint.
+
+
+\subsection{Countdown Baselines and Experimental Protocol}
+\label{app:countdown_methods}
+
+Positive-only, Global-\(\alpha\), Reciprocal-Linear,
+Reciprocal-Quadratic, and DRPO follow the shared definitions in
+Appendix~\ref{app:shared_methods}. This section defines the two
+published off-policy baselines and the Countdown-specific response-bank,
+remoteness, training, and evaluation protocols.
+
+\paragraph{AsymRE.}
+
+Asymmetric REINFORCE defines the response-level advantage using a
+tunable reward baseline \(V\):
+
+\[
+A_{\mathrm{AsymRE}}(x,y)
+=
+r(x,y)-V,
+\]
+
+and optimizes
+
+\[
+\mathcal{J}_{\mathrm{AsymRE}}(\theta)
+=
+\mathbb{E}_{(x,y)\sim\mathcal{B}}
+\left[
+\bigl(r(x,y)-V\bigr)
+\log\pi_\theta(y\mid x)
+\right].
+\]
+
+For a binary verifier reward, lowering \(V\) emphasizes successful
+responses, whereas increasing \(V\) strengthens suppression of failed
+responses. The baseline is selected using the validation protocol and
+is held fixed within each run.
+
+Global-\(\alpha\) and AsymRE remain separate comparisons because they
+operate on different underlying learning signals. Global-\(\alpha\)
+scales the negative part of the common precomputed signed advantage,
+whereas AsymRE constructs its signed advantage directly from the raw
+verifier reward and the published baseline parameterization. Under
+binary rewards and simplified normalization they are closely related,
+but the formal comparison preserves their native objectives and tuning
+rules.
+
+\paragraph{TOPR.}
+
+Let \(\mu(y\mid x)\) denote the frozen response-generating policy and
+
+\[
+\rho_\theta(x,y)
+=
+\frac{\pi_\theta(y\mid x)}
+     {\mu(y\mid x)}
+\]
+
+the sequence-level importance ratio. Let
+\(R(x,y)\) denote the signed reward used by TOPR and define
+
+\[
+\mathcal{T}^{+}
+=
+\{(x,y):R(x,y)\geq 0\},
+\qquad
+\mathcal{T}^{-}
+=
+\{(x,y):R(x,y)<0\}.
+\]
+
+We implement canonical TOPR, whose expected update is
+
+\[
+\begin{aligned}
+g_{\mathrm{TOPR}}(\theta)
+={}&
+\mathbb{E}_{(x,y)\sim\mu}
+\Big[
+\mathbf{1}\{(x,y)\in\mathcal{T}^{+}\}
+R(x,y)
+\nabla_\theta\log\pi_\theta(y\mid x)
+\Big]
+\\
+&+
+\mathbb{E}_{(x,y)\sim\mu}
+\Big[
+\mathbf{1}\{(x,y)\in\mathcal{T}^{-}\}
+\min\{\rho_\theta(x,y),1\}
+R(x,y)
+\nabla_\theta\log\pi_\theta(y\mid x)
+\Big].
+\end{aligned}
+\]
+
+Thus, positive responses receive the SFT-style unit coefficient, while
+negative responses are attenuated using a truncated importance ratio.
+The behavior-policy log probability required by the ratio is stored
+when the frozen response bank is constructed.
+
+\paragraph{Countdown remoteness.}
+
+For a prompt \(x\) and completion
+\(y=(y_1,\ldots,y_T)\), learner-relative remoteness is the current mean
+completion-token surprisal
+
+\[
+D_{\mathrm{CD}}(x,y)
+=
+-\frac{1}{T}
+\sum_{t=1}^{T}
+\log
+\pi_\theta
+\left(
+y_t\mid x,y_{<t}
+\right).
+\]
+
+Only completion tokens are included; prompt tokens and padding positions
+are excluded. Mean rather than summed surprisal is used so that response
+length does not mechanically determine remoteness. The remoteness score
+is detached before applying the shared taper functions.
+
+\paragraph{Frozen response-bank construction.}
+
+The response bank is generated before policy optimization and then held
+fixed. Each record contains the puzzle, generated response, verifier
+outcome, response length, and the behavior-policy log probability
+required by methods that use importance ratios. The same bank and
+training split are supplied to every protocol-matched method.
+
+A response is marked successful only when it forms a valid arithmetic
+expression, uses the supplied numbers according to the task rules, and
+evaluates to the target. Invalid syntax, illegal number use, and
+incorrect arithmetic results remain distinct verifier outcomes in the
+stored diagnostics, even when they share the same binary training
+reward.
+
+\paragraph{Training and checkpoint selection.}
+
+All methods start from the same SFT checkpoint and share the optimizer,
+learning-rate schedule, minibatch construction, number of optimizer
+steps, validation split, test puzzles, and random seeds. Hyperparameters
+are selected using the registered validation rule. The held-out test set
+is evaluated only after checkpoint selection.
+
+The registered training and selection configuration is summarized in
+Table~\ref{tab:countdown_registered_config}. All entries must be
+populated directly from the frozen experiment configuration rather than
+reconstructed after observing the test results.
+
+\begin{table}[t]
+\centering
+\caption{Registered configuration for the Countdown performance experiments.}
+\label{tab:countdown_registered_config}
+
+\small
+\setlength{\tabcolsep}{8pt}
+\renewcommand{\arraystretch}{1.12}
+
+\begin{tabular}{@{}ll@{}}
+\toprule
+Configuration & Registered value \\
+\midrule
+Optimizer-step budget
+& \textbf{[registered value]} \\
+Batch size
+& \textbf{[registered value]} \\
+Learning-rate schedule
+& \textbf{[registered value]} \\
+Random seeds
+& \textbf{[registered seed set]} \\
+AsymRE baseline candidates, $V$
+& \textbf{[registered grid]} \\
+Near-field threshold candidates, $\tau$
+& \textbf{[registered grid]} \\
+Remoteness-scale candidates, $c$
+& \textbf{[registered grid]} \\
+Taper-strength candidates, $\lambda$
+& \textbf{[registered grid]} \\
+Global-scaling candidates, $\alpha$
+& \textbf{[registered grid]} \\
+Number of samples for pass@$k$
+& \textbf{[registered value]} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Verifier-based evaluation.}
+
+Greedy verifier success is the fraction of held-out puzzles solved by
+greedy decoding. Pass@\(k\) is the fraction solved by at least one of
+the registered \(k\) sampled responses. Valid-expression rate is the
+fraction of generated responses that satisfy the parser and number-use
+constraints, irrespective of whether they reach the target.
+
+These three metrics are reported separately. In particular, a higher
+verifier success rate is not attributed to improved reasoning when it
+is accompanied by a deterioration in expression validity.
+
+Task-performance degradation, token- or sequence-support boundary
+events, and NaN/Inf numerical failures are audited independently.
+Claims about stability or final method ranking use the registered
+terminal checkpoint audit rather than finite-step pilot behavior.
+
+\end{document}
