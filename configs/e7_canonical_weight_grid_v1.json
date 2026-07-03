@@ -1,0 +1,66 @@
+{
+  "experiment_id": "EXT-H-E7-BENCH-01",
+  "run_kind": "pilot",
+  "scientific_status": "lineage_recovery_weight_sweep_pilot_only",
+  "canonical_alpha": 0.11,
+  "reference_distance": 2.0,
+  "coefficients": {
+    "reciprocal_linear": 0.4362580032734791,
+    "reciprocal_quadratic": 0.5520268617673281,
+    "exponential": 0.374162511054291
+  },
+  "negative_scale_grid": {
+    "global": [
+      0.0001,
+      0.0003,
+      0.001,
+      0.003,
+      0.01,
+      0.03,
+      0.1,
+      0.3
+    ],
+    "reciprocal_linear": [
+      0.001,
+      0.003,
+      0.01,
+      0.03,
+      0.1,
+      0.3,
+      1.0
+    ],
+    "reciprocal_quadratic": [
+      0.001,
+      0.003,
+      0.01,
+      0.03,
+      0.1,
+      0.3,
+      1.0
+    ],
+    "exponential": [
+      0.001,
+      0.003,
+      0.01,
+      0.03,
+      0.1,
+      0.3,
+      1.0
+    ]
+  },
+  "anchors": {
+    "positive_only": {
+      "negative_scale": 0.0
+    },
+    "canonical_signed": {
+      "negative_scale": 1.0
+    }
+  },
+  "branch_count_per_dataset_seed": 31,
+  "notes": [
+    "Effective negative coefficient equals canonical_alpha times negative_scale times the taper shape.",
+    "Positive advantages and the full-batch loss denominator are identical in every injected branch.",
+    "Quartic is intentionally excluded.",
+    "This is a pilot grid for recovering a usable scale interval, not a formal D4RL method ranking."
+  ]
+}
