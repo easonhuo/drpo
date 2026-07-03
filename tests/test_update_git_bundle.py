@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import sys
 import zipfile
 from pathlib import Path
 
@@ -87,7 +88,7 @@ def make_patch(repo: Path, package: Path, new_text: str, *, test_command: str = 
 
 
 def build_bundle(repo: Path, package: Path) -> str:
-    run(["python3", str(BUILDER), "--repo", str(repo), "--package-root", str(package)])
+    run([sys.executable, str(BUILDER), "--repo", str(repo), "--package-root", str(package)])
     return (package / "PATCH_COMMIT.txt").read_text().strip()
 
 
@@ -100,6 +101,7 @@ def helper_env(repo: Path, report_dir: Path) -> dict[str, str]:
             "DRPO_UPDATE_SKIP_FETCH": "1",
             "DRPO_UPDATE_REPORT_DIR": str(report_dir),
             "DRPO_UPDATE_DIAGNOSTIC_DIR": str(report_dir.parent / "diagnostics"),
+            "DRPO_PYTHON": sys.executable,
         }
     )
     return env
@@ -110,7 +112,7 @@ def test_bundle_verifier_proves_patch_tree_equivalence(git_fixture, tmp_path: Pa
     package = tmp_path / "package"
     make_patch(repo, package, "bundle\n")
     patch_commit = build_bundle(repo, package)
-    proc = run(["python3", str(VERIFIER), "--repo", str(repo), "--package", str(package), "--json"])
+    proc = run([sys.executable, str(VERIFIER), "--repo", str(repo), "--package", str(package), "--json"])
     report = json.loads(proc.stdout)
     assert report["status"] == "PASS"
     assert report["patch_commit"] == patch_commit
@@ -188,7 +190,7 @@ def test_patch_bundle_mismatch_is_rejected(git_fixture, tmp_path: Path):
     text = (package / "update.patch").read_text().replace("+bundle", "+different")
     (package / "update.patch").write_text(text)
     proc = run(
-        ["python3", str(VERIFIER), "--repo", str(repo), "--package", str(package)],
+        [sys.executable, str(VERIFIER), "--repo", str(repo), "--package", str(package)],
         check=False,
     )
     assert proc.returncode != 0

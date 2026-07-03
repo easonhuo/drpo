@@ -46,6 +46,8 @@ trusted normalizer
 
 The normalizer uses the implementation and policy from the pre-integration current-main checkout. Ordinary content packages may not modify the authority config, checkpoint, accepted v3 delta, accepted materialization report, normalizer, delta policy, updater normalization hook, Stage 4A taxonomy, stage ledger, authorization records, or `AGENTS.md`.
 
+The updater and its nested Python subprocesses use one selected interpreter. `DRPO_PYTHON` has highest priority, followed by the active virtual environment, the configured repository virtual environment, the repository-local `.venv`, and only then a system fallback. This prevents an outer `.venv` run from silently delegating tests to an unrelated system Python.
+
 ## 4. Schema v3
 
 A future authoritative delta has:
@@ -159,7 +161,7 @@ The first production v3 delta must therefore be a later, independently auditable
 
 ## 10. Cutover and rollback commands
 
-Preparation commands write a complete transaction into the worktree but never commit it automatically:
+Preparation commands write a complete transaction into the worktree but never commit it automatically. Verification has two non-overlapping phases:
 
 ```bash
 python3 scripts/handoff_authority.py cutover \
@@ -167,11 +169,25 @@ python3 scripts/handoff_authority.py cutover \
   --checkpoint-id <registered-checkpoint-id> \
   --authorization-record docs/governance_stage_authorizations/<cutover-authorization>.yaml
 
-git diff --check
+# Before commit: verify exact worktree boundary, checkpoint bytes, provenance,
+# unchanged handoff/registry, ledger after-image, and current Stage 4A outputs.
+python3 scripts/handoff_authority.py verify --repo-root . --prepared
+# The checkpoint handoff is an exact historical byte snapshot and may preserve
+# legacy trailing spaces. Check every generated change except that snapshot; do
+# not reformat or normalize the checkpoint copy.
+git diff --check -- . \
+  ':(exclude)docs/handoff_versions/checkpoints/*/handoff.md'
+
+# Create the activation commit only after prepared verification passes.
 git add docs/handoff_versions docs/governance_pipeline_stage_status.yaml
 git commit -m "Activate delta handoff authority"
+
+# Before push: verify activation history, cutover/first-delta separation,
+# protected-asset immutability, materialized handoff, and Stage 4A outputs.
 python3 scripts/handoff_authority.py verify --repo-root .
 ```
+
+Prepared verification intentionally does not require an activation commit that does not yet exist. Committed verification intentionally does require that commit and remains the final pre-push authority check. An ambiguous or mixed worktree fails closed rather than being assigned a guessed lifecycle phase.
 
 The cutover authorization must already be committed and must be a separate Stage 5 `stage_transition` authorization. The current hardening authorization explicitly excludes executing cutover and cannot satisfy this gate.
 
@@ -198,6 +214,8 @@ The two previously confirmed blockers are closed by:
 - verified no-op normalization for packages with no handoff/registry authority change;
 - current-source deterministic validation for dynamic Stage 4A generated outputs instead of permanent equality to historical generated hashes.
 
-The hardened candidate also contains lifecycle preparation, strong checkpoint provenance checks, cutover/first-delta separation, rollback simulation, and real updater-path coverage. Independent pre-cutover acceptance is recorded under `docs/governance_stage5_acceptance/`, with a fresh Stage 3 Full Acceptance covering every real observation present at the accepted candidate commit. The lifecycle now requires this committed acceptance state and its content-addressed report before cutover preparation can begin.
+The hardened candidate also contains lifecycle preparation, strong checkpoint provenance checks, cutover/first-delta separation, rollback simulation, and real updater-path coverage. Independent pre-cutover acceptance is recorded under `docs/governance_stage5_acceptance/`, with a fresh Stage 3 Full Acceptance covering every real observation present at the accepted candidate commit. The lifecycle requires this committed acceptance event before cutover preparation can begin.
+
+That acceptance record separates two historical facts: `evaluated_commit` identifies the candidate on which the acceptance run was performed, while `accepted_files` binds the protected snapshot committed with the acceptance report (or an explicit future `accepted_files_commit`). Neither fact permanently freezes every later authorized maintenance revision. Current protected implementation bytes are instead bound by the current governance ledger and the authorization that approved their exact hashes, and the complete lifecycle suite is rerun on the current source. This preserves historical evidence without forcing a new acceptance closure merely because an explicitly authorized compatibility bugfix changed the engine or its tests.
 
 Formal authority activation remains forbidden until a separate user-approved `stage_transition` authorization is committed. The acceptance closure does not create a production checkpoint, does not activate schema-v3 write authority, and does not modify `docs/handoff.md` or `experiments/registry.yaml`. After an authorized rollback, the repository returns to the independently accepted manual boundary rather than regressing to a pre-acceptance state.

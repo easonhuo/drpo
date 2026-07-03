@@ -65,8 +65,8 @@ stages:
     - rollback_plan
     protected_files:
     - path: tools/drpo-update/drpo-update
-      sha256: fb4eb274fe45bcae53983c77a9cb7f6837319c92e7669f097da19e40216afff2
-      authorized_by: GOV-PIPELINE-STAGE12-CLOSURE-2026-06-27
+      sha256: 6856f04c01af91aac8a96602368f705b9d38be4ce14c9877996f8b32221fa4d3
+      authorized_by: GOV-STAGE5-CUTOVER-COMPATIBILITY-BUGFIX-2026-07-03
     - path: tools/drpo-update/drpo_update.py
       sha256: 409ff83bb75e5fae1a287cd62d9cb6867fc197af21bcabd401925c3f3be03345
       authorized_by: GOV-STAGE5-CANDIDATE-IMPLEMENTATION-2026-07-01
@@ -259,20 +259,20 @@ stages:
     - stage_4_lossless_validation
     protected_files:
     - path: scripts/handoff_authority.py
-      sha256: 1d051b0eabb71534cd271aef0101fdaaf0a998d6574524cf862baeecf85db5fd
-      authorized_by: GOV-STAGE5-PRE-CUTOVER-ACCEPTANCE-CLOSURE-2026-07-02
+      sha256: a6532ba4c1bb9c4af24d79f027267de518c3832b347dba47e8319dee7a3ebe2c
+      authorized_by: GOV-STAGE5-CUTOVER-COMPATIBILITY-BUGFIX-2026-07-03
     - path: scripts/validate_governance_pipeline_stage_status.py
-      sha256: 68c960f576a032a25c5c4d1b9cab37535b58d3f821d17cf8fc25249d4e67fff1
-      authorized_by: GOV-STAGE5-PRE-CUTOVER-ACCEPTANCE-CLOSURE-2026-07-02
+      sha256: ce2acefdd257c2a4c04a3182abbb5e6f7b21a7ea00306da0a76ade06e750ae69
+      authorized_by: GOV-STAGE5-CUTOVER-COMPATIBILITY-BUGFIX-2026-07-03
     - path: docs/governance_stage5_versioned_handoff_spec.md
-      sha256: c6bc626b47ef7b0354300061cd9f5d1b5c85c27f2245bba31ce643cbe5dd5063
-      authorized_by: GOV-STAGE5-PRE-CUTOVER-ACCEPTANCE-CLOSURE-2026-07-02
+      sha256: 74fe7980ad300be58140c1b14a13c51d5a25f5d26ca6c1a10ffeafd234bbb6de
+      authorized_by: GOV-STAGE5-CUTOVER-COMPATIBILITY-BUGFIX-2026-07-03
     - path: tests/stage5_candidate_integration.py
-      sha256: 7044c6a5ef11dee46069cf4f364d95846ec2da31a143e4e7606dbdee6bc186ca
-      authorized_by: GOV-STAGE5-PRE-CUTOVER-ACCEPTANCE-CLOSURE-2026-07-02
+      sha256: f3788d281557298b4a2715fd9d50103467b7075e786708b32656b6583d93b1e3
+      authorized_by: GOV-STAGE5-CUTOVER-COMPATIBILITY-BUGFIX-2026-07-03
     - path: tests/test_governance_pipeline_stage_status.py
-      sha256: 1c89ed6c60f5c883549fb45864bc5e20a95b262acbbfed942506ddd2af3cd7ae
-      authorized_by: GOV-STAGE5-PRE-CUTOVER-ACCEPTANCE-CLOSURE-2026-07-02
+      sha256: acac892803dc9d50f17d905c8390ee4e7bec9e17aab075d815cfd017e26b40ca
+      authorized_by: GOV-STAGE5-CUTOVER-COMPATIBILITY-BUGFIX-2026-07-03
     - path: docs/governance_stage5_acceptance/ACCEPTANCE_REPORT.json
       sha256: c5b787ac05199b1d78efe70b52a0c7b8b8d4af3abe6b2c5267195f6168009dd0
       authorized_by: GOV-STAGE5-PRE-CUTOVER-ACCEPTANCE-CLOSURE-2026-07-02

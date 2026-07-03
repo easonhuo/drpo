@@ -12,4 +12,48 @@ while [[ -h "$SOURCE" ]]; do
   fi
 done
 SCRIPT_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
-exec python3 "$SCRIPT_DIR/drpo_update.py" "$@"
+
+select_python() {
+  if [[ -n "${DRPO_PYTHON:-}" ]]; then
+    [[ -x "$DRPO_PYTHON" ]] || {
+      echo "ERROR: DRPO_PYTHON is not executable: $DRPO_PYTHON" >&2
+      return 1
+    }
+    printf '%s\n' "$DRPO_PYTHON"
+    return 0
+  fi
+
+  if [[ -n "${VIRTUAL_ENV:-}" && -x "$VIRTUAL_ENV/bin/python" ]]; then
+    printf '%s\n' "$VIRTUAL_ENV/bin/python"
+    return 0
+  fi
+
+  local repo_candidate=""
+  if [[ -f "${HOME:-}/.config/drpo-update/repo_path" ]]; then
+    repo_candidate="$(head -n 1 "$HOME/.config/drpo-update/repo_path")"
+    if [[ -x "$repo_candidate/.venv/bin/python" ]]; then
+      printf '%s\n' "$repo_candidate/.venv/bin/python"
+      return 0
+    fi
+  fi
+
+  repo_candidate="$(cd "$SCRIPT_DIR/../.." 2>/dev/null && pwd || true)"
+  if [[ -n "$repo_candidate" && -x "$repo_candidate/.venv/bin/python" ]]; then
+    printf '%s\n' "$repo_candidate/.venv/bin/python"
+    return 0
+  fi
+
+  if command -v python3 >/dev/null 2>&1; then
+    command -v python3
+    return 0
+  fi
+  if command -v python >/dev/null 2>&1; then
+    command -v python
+    return 0
+  fi
+  echo "ERROR: no usable Python interpreter found" >&2
+  return 1
+}
+
+PYTHON_BIN="$(select_python)"
+exec "$PYTHON_BIN" "$SCRIPT_DIR/drpo_update.py" "$@"

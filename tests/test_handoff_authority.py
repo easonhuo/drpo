@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import sys
+
+import yaml
 from pathlib import Path
 from typing import Any
 
@@ -14,14 +16,47 @@ if str(SCRIPTS) not in sys.path:
 import handoff_authority as authority  # noqa: E402
 
 
-def test_manual_mode_is_safe_noop() -> None:
-    payload = authority.verify_current_state(REPO_ROOT)
-    assert payload == {
+def test_manual_mode_is_safe_noop(tmp_path: Path) -> None:
+    repo = tmp_path / "manual-repo"
+    config = repo / authority.AUTHORITY_PATH
+    config.parent.mkdir(parents=True)
+    payload = yaml.safe_load(
+        (REPO_ROOT / authority.AUTHORITY_PATH).read_text(encoding="utf-8")
+    )
+    payload["mode"] = "manual"
+    payload["delta_authority"]["checkpoint_manifest"] = None
+    payload["delta_authority"]["activation_parent_commit"] = None
+    payload["generated_views"]["stage4a_minimal_refresh"] = False
+    payload["safety"]["direct_handoff_edit_forbidden"] = False
+    config.write_text(
+        yaml.safe_dump(payload, sort_keys=False, allow_unicode=True),
+        encoding="utf-8",
+    )
+
+    verified = authority.verify_current_state(repo)
+    assert verified == {
         "status": "PASS",
         "mode": "manual",
         "manual_handoff_authoritative": True,
         "authority_cutover_allowed": False,
     }
+
+
+def test_current_repository_authority_phase_verifies() -> None:
+    config = authority.load_authority(REPO_ROOT)
+    if config["mode"] == "manual":
+        verified = authority.verify_current_state(REPO_ROOT)
+        assert verified["mode"] == "manual"
+        return
+
+    head = authority._git_text(REPO_ROOT, "rev-parse", "HEAD")
+    activation_parent = config["delta_authority"]["activation_parent_commit"]
+    if head == activation_parent:
+        verified = authority.verify_prepared_cutover(REPO_ROOT)
+        assert verified["mode"] == "cutover_prepared"
+    else:
+        verified = authority.verify_current_state(REPO_ROOT)
+        assert verified["mode"] == "delta"
 
 
 def test_schema_v3_rejects_reserved_marker_injection(tmp_path: Path) -> None:

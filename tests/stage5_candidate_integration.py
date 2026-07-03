@@ -55,33 +55,87 @@ def assert_governance_valid(repo: Path) -> None:
 
 
 def copy_repository(destination: Path) -> Path:
-    shutil.copytree(
-        REPO_ROOT,
-        destination,
-        ignore=shutil.ignore_patterns(
-            ".git", "__pycache__", ".pytest_cache", "*.pyc", ".ruff_cache"
-        ),
+    """Create a history-preserving fixture with the current worktree overlaid.
+
+    Stage 5 pre-cutover acceptance is historical evidence bound to an older
+    commit.  Re-initializing a one-commit synthetic repository discards that
+    evidence and no longer models the real lifecycle.  Clone the local history,
+    then apply the current uncommitted candidate diff and untracked files as one
+    fixture-only maintenance commit.
+    """
+
+    source_head = git_text(REPO_ROOT, "rev-parse", "HEAD")
+    committed_authority = yaml.safe_load(
+        run(REPO_ROOT, "show", f"{source_head}:docs/handoff_versions/AUTHORITY.yaml").stdout
     )
-    run(destination, "init", "-q")
+    fixture_source = source_head
+    if committed_authority["mode"] == "delta":
+        fixture_source = committed_authority["delta_authority"][
+            "activation_parent_commit"
+        ]
+
+    clone = subprocess.run(
+        ["git", "clone", "-q", "--no-hardlinks", str(REPO_ROOT), str(destination)],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+        timeout=120,
+    )
+    assert clone.returncode == 0, clone.stderr or clone.stdout
+    run(destination, "checkout", "-q", "-B", "main", fixture_source)
+    run(destination, "remote", "remove", "origin")
     run(destination, "config", "user.name", "Stage5 Test")
     run(destination, "config", "user.email", "stage5@test.invalid")
+
+    patch = subprocess.run(
+        ["git", "-C", str(REPO_ROOT), "diff", "--binary", "HEAD"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+        timeout=120,
+    )
+    assert patch.returncode == 0, patch.stderr.decode(errors="replace")
+    untracked = git_text(REPO_ROOT, "ls-files", "--others", "--exclude-standard")
+    if fixture_source != source_head and (patch.stdout or untracked):
+        raise AssertionError(
+            "delta-mode Stage 5 integration fixtures require a clean committed source"
+        )
+    if patch.stdout:
+        applied = subprocess.run(
+            ["git", "-C", str(destination), "apply", "--binary", "-"],
+            input=patch.stdout,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+            timeout=120,
+        )
+        assert applied.returncode == 0, applied.stderr.decode(errors="replace")
+
+    for relative in untracked.splitlines():
+        if not relative:
+            continue
+        source = REPO_ROOT / relative
+        target = destination / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if source.is_dir():
+            shutil.copytree(source, target, dirs_exist_ok=True)
+        else:
+            shutil.copy2(source, target)
+
     run(destination, "add", "-A")
-    run(destination, "commit", "-q", "-m", "base")
-    run(destination, "branch", "-M", "main")
+    staged = run(destination, "diff", "--cached", "--quiet", check=False)
+    if staged.returncode == 1:
+        run(destination, "commit", "-q", "-m", "fixture current maintenance candidate")
+    elif staged.returncode != 0:
+        raise AssertionError(staged.stderr or staged.stdout)
     return destination
 
 
 def add_test_current_full_acceptance(repo: Path) -> str:
     observations = shadow.observation_records(repo, replay=False)
-    real_ids = sorted(
-        str(item["update_id"])
-        for item in observations
-        if item.get("kind") == "real"
-    )
-    relative = (
-        "docs/handoff_deltas/STAGE5-TEST-PRE-CUTOVER-FULL/"
-        "FULL_ACCEPTANCE_REPORT.json"
-    )
+    real_ids = sorted(str(item["update_id"]) for item in observations if item.get("kind") == "real")
+    relative = "docs/handoff_deltas/STAGE5-TEST-PRE-CUTOVER-FULL/FULL_ACCEPTANCE_REPORT.json"
     path = repo / relative
     path.parent.mkdir(parents=True, exist_ok=True)
     policy = yaml.safe_load((repo / "docs/handoff_delta_policy.yaml").read_text())
@@ -128,9 +182,7 @@ def add_test_current_full_acceptance(repo: Path) -> str:
     return relative
 
 
-def add_test_cutover_authorization(
-    repo: Path, *, checkpoint_id: str, authorization_id: str
-) -> str:
+def add_test_cutover_authorization(repo: Path, *, checkpoint_id: str, authorization_id: str) -> str:
     base = git_text(repo, "rev-parse", "HEAD")
     relative = f"docs/governance_stage_authorizations/{authorization_id}.yaml"
     path = repo / relative
@@ -155,9 +207,7 @@ def add_test_cutover_authorization(
         "rollback_plan": ["run_the_registered_delta_to_manual_rollback_transaction"],
         "remaining_uncertainties": ["test_only_authorization"],
     }
-    path.write_text(
-        yaml.safe_dump(payload, sort_keys=False, allow_unicode=True), encoding="utf-8"
-    )
+    path.write_text(yaml.safe_dump(payload, sort_keys=False, allow_unicode=True), encoding="utf-8")
     run(repo, "add", relative)
     run(repo, "commit", "-q", "-m", "authorize test cutover")
     return relative
@@ -180,6 +230,10 @@ def activate_delta_mode(repo: Path) -> tuple[str, str]:
         created_at_utc="2026-07-01T00:00:00+00:00",
     )
     assert prepared["mode"] == "cutover_prepared"
+    prepared_report = authority.verify_prepared_cutover(repo)
+    assert prepared_report["status"] == "PASS"
+    assert prepared_report["mode"] == "cutover_prepared"
+    assert prepared_report["source_parent_commit"] == git_text(repo, "rev-parse", "HEAD")
     run(repo, "add", "-A")
     run(repo, "commit", "-q", "-m", "activate delta authority")
     cutover = git_text(repo, "rev-parse", "HEAD")
@@ -247,8 +301,6 @@ def make_source_delta(
     return git_text(repo, "rev-parse", "HEAD")
 
 
-
-
 def amend_source_file(repo: Path, source_commit: str, relative: str, text: str) -> str:
     run(repo, "checkout", "-q", source_commit)
     path = repo / relative
@@ -256,6 +308,7 @@ def amend_source_file(repo: Path, source_commit: str, relative: str, text: str) 
     run(repo, "add", relative)
     run(repo, "commit", "--amend", "--no-edit", "-q")
     return git_text(repo, "rev-parse", "HEAD")
+
 
 def add_worktree(repo: Path, destination: Path, commit: str, branch: str) -> Path:
     run(repo, "worktree", "add", "-q", "-b", branch, str(destination), commit)
@@ -547,9 +600,7 @@ def run_code_only_noop_and_rollback(tmp_path: Path) -> None:
     verified = authority.verify_current_state(rollback_repo)
     assert verified["mode"] == "manual"
     ledger = yaml.safe_load(
-        (rollback_repo / "docs/governance_pipeline_stage_status.yaml").read_text(
-            encoding="utf-8"
-        )
+        (rollback_repo / "docs/governance_pipeline_stage_status.yaml").read_text(encoding="utf-8")
     )
     stage5 = ledger["stages"]["stage_5"]
     assert stage5["implementation_state"] == "candidate_hardened_pre_cutover_accepted"
@@ -557,6 +608,33 @@ def run_code_only_noop_and_rollback(tmp_path: Path) -> None:
     assert stage5["repository_pre_cutover_closure"] == "complete"
     assert_governance_valid(rollback_repo)
     assert (rollback_repo / "docs/handoff.md").read_bytes() == handoff_before
+
+
+def run_prepared_cutover_rejects_unexpected_worktree_file(
+    tmp_path: Path,
+) -> None:
+    repo = copy_repository(tmp_path / "prepared-boundary")
+    stage3_report = add_test_current_full_acceptance(repo)
+    checkpoint_id = "STAGE5-TEST-PREPARED-BOUNDARY"
+    authorization_record = add_test_cutover_authorization(
+        repo,
+        checkpoint_id=checkpoint_id,
+        authorization_id="GOV-STAGE5-TEST-PREPARED-BOUNDARY-AUTH",
+    )
+    authority.prepare_cutover(
+        repo,
+        checkpoint_id=checkpoint_id,
+        authorization_record=authorization_record,
+        stage3_report=stage3_report,
+        created_at_utc="2026-07-01T00:00:00+00:00",
+    )
+    (repo / "unexpected.txt").write_text("not part of cutover\n", encoding="utf-8")
+    try:
+        authority.verify_prepared_cutover(repo)
+    except authority.HandoffAuthorityError as exc:
+        assert "worktree boundary mismatch" in str(exc)
+    else:
+        raise AssertionError("prepared verification accepted an unexpected file")
 
 
 def run_cutover_requires_independent_authorization(tmp_path: Path) -> None:
@@ -611,8 +689,7 @@ def run_checkpoint_gate_rejections(tmp_path: Path) -> None:
 
     failing = copy_repository(tmp_path / "checkpoint-report-fail")
     report_path = (
-        failing
-        / "docs/handoff_deltas/GOV-STAGE5-PRE-CUTOVER-ACCEPTANCE-CLOSURE-2026-07-02/"
+        failing / "docs/handoff_deltas/GOV-STAGE5-PRE-CUTOVER-ACCEPTANCE-CLOSURE-2026-07-02/"
         "FULL_ACCEPTANCE_REPORT.json"
     )
     report = json.loads(report_path.read_text(encoding="utf-8"))
@@ -675,10 +752,7 @@ def run_cutover_commit_rejects_first_delta(tmp_path: Path) -> None:
         stage3_report=stage3_report,
         created_at_utc="2026-07-01T02:00:00+00:00",
     )
-    delta_path = (
-        repo
-        / "docs/handoff_deltas/STAGE5-FIRST-DELTA-IN-CUTOVER/HANDOFF_DELTA.yaml"
-    )
+    delta_path = repo / "docs/handoff_deltas/STAGE5-FIRST-DELTA-IN-CUTOVER/HANDOFF_DELTA.yaml"
     delta_path.parent.mkdir(parents=True)
     delta_path.write_text(
         "schema_version: 3\nupdate_id: STAGE5-FIRST-DELTA-IN-CUTOVER\n",
@@ -794,8 +868,7 @@ def run_real_drpo_update_delta_mode_stale_bundle(tmp_path: Path) -> None:
     run(repo, "checkout", "-q", "-B", "source-code-only-package", cutover)
     readme = repo / "README.md"
     readme.write_text(
-        readme.read_text(encoding="utf-8")
-        + "\nStage 5 real delta-mode code-only updater probe.\n",
+        readme.read_text(encoding="utf-8") + "\nStage 5 real delta-mode code-only updater probe.\n",
         encoding="utf-8",
     )
     run(repo, "add", "README.md")
@@ -852,15 +925,13 @@ def run_real_drpo_update_delta_mode_stale_bundle(tmp_path: Path) -> None:
     handoff = (repo / "docs/handoff.md").read_text(encoding="utf-8")
     assert "stage5-real-updater-v3" in handoff
     materialization = (
-        repo
-        / "docs/handoff_deltas/STAGE5-REAL-UPDATER-V3/MATERIALIZATION_REPORT.json"
+        repo / "docs/handoff_deltas/STAGE5-REAL-UPDATER-V3/MATERIALIZATION_REPORT.json"
     )
     assert materialization.is_file()
     delta_normalization = delta_report["handoff_normalization"]
     assert delta_normalization["normalization"] == "materialized"
     assert delta_normalization["post_amend_verify"]["status"] == "PASS"
     assert_governance_valid(repo)
-
 
 
 def run_checkpoint_path_alias_is_canonicalized(tmp_path: Path) -> None:
@@ -895,6 +966,10 @@ def main() -> int:
             ("stale", run_stale_independent_updates_commute_and_same_block_conflicts),
             ("noop", run_code_only_noop_and_rollback),
             ("cutover-auth", run_cutover_requires_independent_authorization),
+            (
+                "prepared-boundary",
+                run_prepared_cutover_rejects_unexpected_worktree_file,
+            ),
             ("checkpoint-gates", run_checkpoint_gate_rejections),
             ("path-alias", run_checkpoint_path_alias_is_canonicalized),
             ("cutover", run_cutover_commit_rejects_first_delta),

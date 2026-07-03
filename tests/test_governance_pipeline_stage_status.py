@@ -18,6 +18,7 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parents[1]
 VALIDATOR_PATH = REPO_ROOT / "scripts" / "validate_governance_pipeline_stage_status.py"
 LEDGER = REPO_ROOT / "docs" / "governance_pipeline_stage_status.yaml"
+AUTHORITY = REPO_ROOT / "docs" / "handoff_versions" / "AUTHORITY.yaml"
 
 _SPEC = importlib.util.spec_from_file_location("stage_status_validator", VALIDATOR_PATH)
 assert _SPEC is not None and _SPEC.loader is not None
@@ -120,7 +121,7 @@ def test_stage5_hardened_control_plane_tamper_is_rejected() -> None:
         replace_bytes(path, path.read_bytes() + b"\n# unauthorized Stage 5 drift\n")
         proc = run_validator(repo, check=False)
         assert proc.returncode == 2
-        assert "Stage 5 accepted candidate file drift" in proc.stderr
+        assert "protected file hash changed without authorization" in proc.stderr
     finally:
         shutil.rmtree(repo, ignore_errors=True)
 
@@ -306,37 +307,103 @@ def test_stage4b_after_image_tamper_is_rejected(tmp_path: Path) -> None:
         VALIDATOR.validate_stage4b_after_image(repo, relative)
 
 
-def test_stage5_candidate_preserves_manual_authority_and_dependencies() -> None:
+def _current_stage5_mode() -> str:
+    payload = yaml.safe_load(AUTHORITY.read_text(encoding="utf-8"))
+    return payload["mode"]
+
+
+def test_stage5_authority_state_matches_mode_and_dependencies() -> None:
     ledger = yaml.safe_load(LEDGER.read_text(encoding="utf-8"))
     stage_5 = ledger["stages"]["stage_5"]
+    mode = _current_stage5_mode()
+
     assert stage_5["status"] == "active"
-    assert stage_5["candidate_only"] is True
-    assert stage_5["current_write_authority"] == "manual_handoff"
     assert stage_5["implementation_allowed"] is False
-    assert stage_5["implementation_state"] == "candidate_hardened_pre_cutover_accepted"
-    assert stage_5["pre_cutover_acceptance_state"] == "independently_accepted"
     assert stage_5["repository_pre_cutover_closure"] == "complete"
-    assert stage_5["accepted_candidate_commit"] == (
-        "65fc7539e89d6ff4405dde09174224f8ef69228e"
-    )
+    assert stage_5["accepted_candidate_commit"] == ("65fc7539e89d6ff4405dde09174224f8ef69228e")
     assert stage_5["confirmed_blockers_open"] == []
-    assert stage_5["authority_cutover_allowed"] is False
     assert stage_5["code_only_normalization"] == "verified_no_op"
     assert stage_5["stage4a_generated_validation"] == "current_source_deterministic"
     assert stage_5["checkpoint_manifest_schema_version"] == 2
     assert stage_5["stage3_full_acceptance_current_at_cutover_required"] is True
-    assert stage_5["production_cutover_executed"] is False
-    assert stage_5["depends_on"] == ["stage_3_shadow_validation", "stage_4_lossless_validation"]
+    assert stage_5["depends_on"] == [
+        "stage_3_shadow_validation",
+        "stage_4_lossless_validation",
+    ]
+
+    if mode == "manual":
+        assert stage_5["candidate_only"] is True
+        assert stage_5["current_write_authority"] == "manual_handoff"
+        assert stage_5["implementation_state"] == "candidate_hardened_pre_cutover_accepted"
+        assert stage_5["pre_cutover_acceptance_state"] == "independently_accepted"
+        assert stage_5["authority_cutover_allowed"] is False
+        assert stage_5["production_cutover_executed"] is False
+    elif mode == "delta":
+        authority = yaml.safe_load(AUTHORITY.read_text(encoding="utf-8"))
+        assert stage_5["candidate_only"] is False
+        assert stage_5["current_write_authority"] == "schema_v3_delta"
+        assert stage_5["implementation_state"] == "production_delta_authority_active"
+        assert stage_5["pre_cutover_acceptance_state"] == "accepted_by_cutover_authorization"
+        assert stage_5["authority_cutover_allowed"] is True
+        assert stage_5["production_cutover_executed"] is True
+        assert (
+            stage_5["cutover_checkpoint_manifest"]
+            == authority["delta_authority"]["checkpoint_manifest"]
+        )
+    else:  # pragma: no cover - the validator rejects this first
+        raise AssertionError(f"unsupported authority mode: {mode}")
 
 
-def test_stage5_cannot_regress_independent_acceptance_state(tmp_path: Path) -> None:
+def test_stage5_acceptance_state_cannot_desynchronize_from_authority_mode(
+    tmp_path: Path,
+) -> None:
+    mode = _current_stage5_mode()
+    replacement = (
+        "ready_for_independent_acceptance" if mode == "manual" else "independently_accepted"
+    )
+    message = (
+        "independently accepted manual boundary"
+        if mode == "manual"
+        else "complete authorized delta cutover"
+    )
     assert_ledger_invalid(
         tmp_path,
-        lambda x: x["stages"]["stage_5"].__setitem__(
-            "pre_cutover_acceptance_state", "ready_for_independent_acceptance"
-        ),
-        "independently accepted manual boundary",
+        lambda x: x["stages"]["stage_5"].__setitem__("pre_cutover_acceptance_state", replacement),
+        message,
     )
+
+
+def test_safe_repo_path_accepts_canonical_repo_root_alias(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    report = repo / "docs" / "report.json"
+    report.parent.mkdir(parents=True)
+    report.write_text("{}\n", encoding="utf-8")
+    alias = tmp_path / "repo-alias"
+    alias.symlink_to(repo, target_is_directory=True)
+
+    resolved = VALIDATOR.safe_repo_path(alias, "docs/report.json", "alias probe")
+
+    assert resolved == report.resolve()
+
+
+def test_stage5_historical_acceptance_does_not_freeze_current_bytes() -> None:
+    repo = hardlink_repository()
+    try:
+        accepted = repo / "scripts/handoff_authority.py"
+        replace_bytes(accepted, accepted.read_bytes() + b"\n# authorized maintenance probe\n")
+        ledger = yaml.safe_load(
+            (repo / "docs/governance_pipeline_stage_status.yaml").read_text(encoding="utf-8")
+        )
+        stage_5 = ledger["stages"]["stage_5"]
+        result = VALIDATOR.validate_stage5_pre_cutover_acceptance(
+            repo,
+            report_path_value=stage_5["pre_cutover_acceptance_report"],
+            stage3_report_path_value=stage_5["stage3_pre_stage5_full_acceptance_report"],
+            accepted_commit=stage_5["accepted_candidate_commit"],
+        )
+        assert result["accepted_file_count"] > 0
+    finally:
+        shutil.rmtree(repo, ignore_errors=True)
 
 
 def test_stage5_acceptance_report_tamper_is_rejected(tmp_path: Path) -> None:
@@ -369,37 +436,55 @@ def test_stage5_cannot_drop_stage3_shadow_validation_dependency(tmp_path: Path) 
     )
 
 
-def test_stage5_cannot_enable_authority_cutover(tmp_path: Path) -> None:
+def test_stage5_authority_cutover_flag_cannot_desynchronize(
+    tmp_path: Path,
+) -> None:
+    mode = _current_stage5_mode()
+    replacement = mode == "manual"
+    message = (
+        "must forbid authority cutover" if mode == "manual" else "complete authorized delta cutover"
+    )
     assert_ledger_invalid(
         tmp_path,
-        lambda x: x["stages"]["stage_5"].__setitem__("authority_cutover_allowed", True),
-        "must forbid authority cutover",
+        lambda x: x["stages"]["stage_5"].__setitem__("authority_cutover_allowed", replacement),
+        message,
     )
 
 
-def test_stage5_authority_config_cannot_activate_cutover() -> None:
+def test_stage5_authority_config_cannot_change_mode_without_complete_transaction() -> None:
     repo = hardlink_repository()
     try:
         path = repo / "docs/handoff_versions/AUTHORITY.yaml"
         payload = yaml.safe_load(path.read_text(encoding="utf-8"))
-        payload["mode"] = "delta"
+        if payload["mode"] == "manual":
+            payload["mode"] = "delta"
+            expected = "must remain manual candidate mode"
+        else:
+            payload["mode"] = "manual"
+            expected = "candidate must forbid authority cutover"
         replace_bytes(path, yaml.safe_dump(payload, sort_keys=False).encode("utf-8"))
         proc = run_validator(repo, check=False)
         assert proc.returncode == 2
-        assert "must remain manual candidate mode" in proc.stderr
+        assert expected in proc.stderr
     finally:
         shutil.rmtree(repo, ignore_errors=True)
 
 
-def test_stage5_candidate_cannot_enable_dynamic_refresh_on_main() -> None:
+def test_stage5_dynamic_refresh_must_match_authority_mode() -> None:
     repo = hardlink_repository()
     try:
         path = repo / "docs/handoff_versions/AUTHORITY.yaml"
         payload = yaml.safe_load(path.read_text(encoding="utf-8"))
-        payload["generated_views"]["stage4a_minimal_refresh"] = True
+        mode = payload["mode"]
+        payload["generated_views"]["stage4a_minimal_refresh"] = mode == "manual"
         replace_bytes(path, yaml.safe_dump(payload, sort_keys=False).encode("utf-8"))
         proc = run_validator(repo, check=False)
         assert proc.returncode == 2
-        assert "illegally activates cutover behavior" in proc.stderr
+        expected = (
+            "illegally activates cutover behavior"
+            if mode == "manual"
+            else "complete authorized delta cutover"
+        )
+        assert expected in proc.stderr
     finally:
         shutil.rmtree(repo, ignore_errors=True)

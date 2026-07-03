@@ -9,6 +9,7 @@ import zipfile
 from pathlib import Path
 
 import pytest
+import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 HELPER_DIR = REPO_ROOT / "tools" / "drpo-update"
@@ -31,6 +32,36 @@ def run(
 
 def test_helper_reports_version():
     proc = run([str(HELPER_DIR / "drpo-update"), "--version"])
+    assert proc.stdout.strip() == "drpo-update 2.4.0"
+
+
+def test_wrapper_prefers_repository_virtualenv_over_bare_python3(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    helper = repo / "tools/drpo-update"
+    helper.mkdir(parents=True)
+    for name in ("drpo-update", "drpo_update.py", "test_selection.py"):
+        source = HELPER_DIR / name
+        target = helper / name
+        target.write_bytes(source.read_bytes())
+        os.chmod(target, source.stat().st_mode)
+
+    venv_bin = repo / ".venv/bin"
+    venv_bin.mkdir(parents=True)
+    (venv_bin / "python").symlink_to(Path(sys.executable))
+
+    fake_bin = tmp_path / "fake-bin"
+    fake_bin.mkdir()
+    fake_python = fake_bin / "python3"
+    fake_python.write_text("#!/usr/bin/env bash\nexit 97\n", encoding="utf-8")
+    fake_python.chmod(0o755)
+
+    env = os.environ.copy()
+    env.pop("DRPO_PYTHON", None)
+    env.pop("VIRTUAL_ENV", None)
+    env["PATH"] = f"{fake_bin}:{env['PATH']}"
+    proc = run(["bash", str(helper / "drpo-update"), "--version"], env=env)
     assert proc.stdout.strip() == "drpo-update 2.4.0"
 
 
@@ -98,9 +129,12 @@ def test_provenance_records_user_verified_original_hash():
 
 def test_doctor_runs_non_destructive_transaction_self_tests(tmp_path: Path):
     # The doctor invokes only synthetic temporary-repository tests.
+    env = os.environ.copy()
+    env["DRPO_PYTHON"] = sys.executable
     proc = run(
         [str(HELPER_DIR / "drpo-update"), "--doctor", "--repo", str(REPO_ROOT)],
         cwd=REPO_ROOT,
+        env=env,
     )
     assert "DOCTOR PYTHON COMPILE: PASS" in proc.stdout
     assert "DOCTOR SHELL SYNTAX: PASS" in proc.stdout
@@ -152,6 +186,17 @@ def test_stage5_handoff_normalization_is_noop_in_manual_mode(tmp_path: Path):
         REPO_ROOT,
         repo,
         ignore=shutil.ignore_patterns(".git", "__pycache__", ".pytest_cache", "*.pyc"),
+    )
+    authority_path = repo / "docs/handoff_versions/AUTHORITY.yaml"
+    authority_payload = yaml.safe_load(authority_path.read_text(encoding="utf-8"))
+    authority_payload["mode"] = "manual"
+    authority_payload["delta_authority"]["checkpoint_manifest"] = None
+    authority_payload["delta_authority"]["activation_parent_commit"] = None
+    authority_payload["generated_views"]["stage4a_minimal_refresh"] = False
+    authority_payload["safety"]["direct_handoff_edit_forbidden"] = False
+    authority_path.write_text(
+        yaml.safe_dump(authority_payload, sort_keys=False, allow_unicode=True),
+        encoding="utf-8",
     )
     run(["git", "init", "-q", str(repo)])
     run(["git", "-C", str(repo), "config", "user.name", "Stage5 Test"])

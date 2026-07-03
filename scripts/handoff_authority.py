@@ -228,6 +228,34 @@ def _git_show(repo_root: Path, commit: str, relative: Path) -> str:
     return proc.stdout
 
 
+def _worktree_changed_paths(repo_root: Path) -> set[str]:
+    """Return tracked, staged, and untracked paths changed from ``HEAD``."""
+
+    changed: set[str] = set()
+    for args in (("diff", "--name-only"), ("diff", "--cached", "--name-only")):
+        changed.update(line for line in _git_text(repo_root, *args).splitlines() if line.strip())
+    changed.update(
+        line
+        for line in _git_text(repo_root, "ls-files", "--others", "--exclude-standard").splitlines()
+        if line.strip()
+    )
+    return changed
+
+
+def _verify_stage4a_current_source(repo_root: Path) -> None:
+    builder = repo_root / "scripts/build_stage4_context.py"
+    proc = subprocess.run(
+        [sys.executable, str(builder), "--repo-root", str(repo_root), "--json", "check"],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    if proc.returncode != 0:
+        raise HandoffAuthorityError(
+            "Stage 4A minimal views are stale: " + (proc.stderr or proc.stdout).strip()
+        )
+
+
 def load_authority(repo_root: Path) -> dict[str, Any]:
     path = repo_root / AUTHORITY_PATH
     payload = _load_yaml(path, "handoff authority")
@@ -831,7 +859,13 @@ def _stage5_rollback_ledger_payload(
 def _validate_stage5_pre_cutover_acceptance(
     repo_root: Path, *, source_parent: str
 ) -> tuple[Path, dict[str, Any]]:
-    """Require committed independent acceptance before preparing a cutover."""
+    """Require committed independent acceptance before preparing a cutover.
+
+    ``evaluated_commit`` identifies the tested candidate, while
+    ``accepted_files`` binds the snapshot committed with the acceptance report.
+    Neither permanently freezes later, separately authorized maintenance bytes;
+    those remain governed by the current stage ledger and test gates.
+    """
 
     _ledger, stage5 = _load_stage5_ledger(repo_root)
     relative = _string(
@@ -855,24 +889,49 @@ def _validate_stage5_pre_cutover_acceptance(
         or report.get("production_cutover_executed") is not False
         or stage5.get("accepted_candidate_commit") != evaluated_commit
     ):
-        raise HandoffAuthorityError(
-            "Stage 5 independent pre-cutover acceptance report is invalid"
-        )
+        raise HandoffAuthorityError("Stage 5 independent pre-cutover acceptance report is invalid")
     if not shadow.GIT_SHA_RE.fullmatch(evaluated_commit):
-        raise HandoffAuthorityError(
-            "Stage 5 acceptance evaluated_commit must be a full Git SHA"
+        raise HandoffAuthorityError("Stage 5 acceptance evaluated_commit must be a full Git SHA")
+    _git(repo_root, "merge-base", "--is-ancestor", evaluated_commit, source_parent)
+
+    accepted_files_commit_value = report.get("accepted_files_commit")
+    if accepted_files_commit_value is None:
+        introduction_commits = _git_text(
+            repo_root,
+            "log",
+            "--format=%H",
+            "--diff-filter=A",
+            "--reverse",
+            source_parent,
+            "--",
+            relative,
+        ).splitlines()
+        if len(introduction_commits) != 1:
+            raise HandoffAuthorityError(
+                "Stage 5 acceptance report introduction commit is ambiguous"
+            )
+        accepted_files_commit = introduction_commits[0]
+    else:
+        accepted_files_commit = _string(
+            accepted_files_commit_value, "Stage 5 acceptance accepted_files_commit"
         )
-    accepted_files = _mapping(
-        report.get("accepted_files"), "Stage 5 acceptance accepted_files"
+    if not shadow.GIT_SHA_RE.fullmatch(accepted_files_commit):
+        raise HandoffAuthorityError(
+            "Stage 5 acceptance accepted_files_commit must be a full Git SHA"
+        )
+    _git(
+        repo_root,
+        "merge-base",
+        "--is-ancestor",
+        accepted_files_commit,
+        source_parent,
     )
+
+    accepted_files = _mapping(report.get("accepted_files"), "Stage 5 acceptance accepted_files")
     if not accepted_files:
-        raise HandoffAuthorityError(
-            "Stage 5 acceptance report must bind accepted candidate files"
-        )
+        raise HandoffAuthorityError("Stage 5 acceptance report must bind accepted candidate files")
     for relative_file, expected_hash in accepted_files.items():
-        relative_file = _string(
-            relative_file, "Stage 5 acceptance accepted file path"
-        )
+        relative_file = _string(relative_file, "Stage 5 acceptance accepted file path")
         expected_hash = _string(
             expected_hash, f"Stage 5 acceptance hash for {relative_file}"
         )
@@ -880,19 +939,28 @@ def _validate_stage5_pre_cutover_acceptance(
             raise HandoffAuthorityError(
                 f"Stage 5 acceptance hash is invalid for {relative_file}"
             )
-        accepted_path = _safe_path(
-            repo_root, relative_file, "Stage 5 accepted candidate file"
-        )
-        if shadow.sha256_file(accepted_path) != expected_hash:
+        accepted_relative = Path(relative_file)
+        if accepted_relative.is_absolute() or ".." in accepted_relative.parts:
             raise HandoffAuthorityError(
-                f"Stage 5 accepted candidate file drifted: {relative_file}"
+                f"Stage 5 acceptance path is unsafe: {relative_file}"
             )
-    relative_path = Path(
-        _repo_relative(repo_root, path, "Stage 5 pre-cutover acceptance report")
-    )
-    if (
-        _source_parent_file_hash(repo_root, source_parent, relative_path)
-        != shadow.sha256_file(path)
+        try:
+            accepted_text = _git_show(
+                repo_root, accepted_files_commit, accepted_relative
+            )
+        except HandoffAuthorityError as exc:
+            raise HandoffAuthorityError(
+                f"Stage 5 accepted candidate file is absent at "
+                f"{accepted_files_commit}: {relative_file}"
+            ) from exc
+        if shadow.sha256_text(accepted_text) != expected_hash:
+            raise HandoffAuthorityError(
+                f"Stage 5 historical acceptance hash mismatch: {relative_file}"
+            )
+
+    relative_path = Path(_repo_relative(repo_root, path, "Stage 5 pre-cutover acceptance report"))
+    if _source_parent_file_hash(repo_root, source_parent, relative_path) != shadow.sha256_file(
+        path
     ):
         raise HandoffAuthorityError(
             "Stage 5 pre-cutover acceptance report bytes do not match source parent"
@@ -1299,7 +1367,80 @@ def _validate_checkpoint_audit(
     return audit
 
 
-def _load_checkpoint(repo_root: Path, authority: dict[str, Any]) -> tuple[dict[str, Any], str]:
+def _verify_committed_checkpoint_history(
+    repo_root: Path,
+    *,
+    source_parent: str,
+    cutover_auth_relative: str,
+    manifest_path: Path,
+    handoff_file: Path,
+    audit_path: Path,
+) -> None:
+    head = _git_text(repo_root, "rev-parse", "HEAD")
+    activation_commits = _git_text(
+        repo_root,
+        "rev-list",
+        "--first-parent",
+        "--reverse",
+        f"{source_parent}..{head}",
+    ).splitlines()
+    if not activation_commits:
+        raise HandoffAuthorityError("delta mode lacks an authority activation commit")
+    activation_commit = activation_commits[0]
+    activation_paths = _git_text(
+        repo_root,
+        "diff-tree",
+        "--no-commit-id",
+        "--name-only",
+        "-r",
+        activation_commit,
+    ).splitlines()
+    if HANDOFF_PATH.as_posix() in activation_paths or REGISTRY_PATH.as_posix() in activation_paths:
+        raise HandoffAuthorityError("cutover commit may not modify handoff or registry bytes")
+    delta_paths = [
+        path
+        for path in activation_paths
+        if path.startswith(f"{DELTA_ROOT.as_posix()}/") and path.endswith(f"/{DELTA_FILENAME}")
+    ]
+    if delta_paths:
+        raise HandoffAuthorityError(
+            "cutover commit may not include the first production schema-v3 delta"
+        )
+
+    cutover_auth_touches = _git_text(
+        repo_root,
+        "log",
+        "--format=%H",
+        f"{source_parent}..{head}",
+        "--",
+        cutover_auth_relative,
+    ).splitlines()
+    if cutover_auth_touches:
+        raise HandoffAuthorityError("cutover authorization record is not immutable")
+
+    protected_assets = (manifest_path, handoff_file, audit_path, repo_root / AUTHORITY_PATH)
+    for protected in protected_assets:
+        relative = _repo_relative(repo_root, protected, "protected authority asset")
+        touches = _git_text(
+            repo_root,
+            "log",
+            "--format=%H",
+            f"{source_parent}..{head}",
+            "--",
+            relative,
+        ).splitlines()
+        if touches != [activation_commit]:
+            raise HandoffAuthorityError(
+                f"cutover checkpoint/authority asset is not immutable: {relative}"
+            )
+
+
+def _load_checkpoint(
+    repo_root: Path,
+    authority: dict[str, Any],
+    *,
+    require_activation_commit: bool = True,
+) -> tuple[dict[str, Any], str]:
     manifest_path = _safe_path(
         repo_root,
         authority["delta_authority"]["checkpoint_manifest"],
@@ -1432,67 +1573,20 @@ def _load_checkpoint(repo_root: Path, authority: dict[str, Any]) -> tuple[dict[s
     )
     _utc_timestamp(_string(manifest.get("created_at_utc"), "created_at_utc"))
 
-    head = _git_text(repo_root, "rev-parse", "HEAD")
-    activation_commits = _git_text(
-        repo_root,
-        "rev-list",
-        "--first-parent",
-        "--reverse",
-        f"{source_parent}..{head}",
-    ).splitlines()
-    if not activation_commits:
-        raise HandoffAuthorityError("delta mode lacks an authority activation commit")
-    activation_commit = activation_commits[0]
-    activation_paths = _git_text(
-        repo_root,
-        "diff-tree",
-        "--no-commit-id",
-        "--name-only",
-        "-r",
-        activation_commit,
-    ).splitlines()
-    if HANDOFF_PATH.as_posix() in activation_paths or REGISTRY_PATH.as_posix() in activation_paths:
-        raise HandoffAuthorityError("cutover commit may not modify handoff or registry bytes")
-    delta_paths = [
-        path
-        for path in activation_paths
-        if path.startswith(f"{DELTA_ROOT.as_posix()}/") and path.endswith(f"/{DELTA_FILENAME}")
-    ]
-    if delta_paths:
-        raise HandoffAuthorityError(
-            "cutover commit may not include the first production schema-v3 delta"
-        )
-
-    cutover_auth_touches = _git_text(
-        repo_root,
-        "log",
-        "--format=%H",
-        f"{source_parent}..{head}",
-        "--",
-        cutover_auth_relative,
-    ).splitlines()
-    if cutover_auth_touches:
-        raise HandoffAuthorityError("cutover authorization record is not immutable")
-
-    protected_assets = (manifest_path, handoff_file, audit_path, repo_root / AUTHORITY_PATH)
-    for protected in protected_assets:
-        relative = _repo_relative(repo_root, protected, "protected authority asset")
-        touches = _git_text(
-            repo_root,
-            "log",
-            "--format=%H",
-            f"{source_parent}..{head}",
-            "--",
-            relative,
-        ).splitlines()
-        if touches != [activation_commit]:
-            raise HandoffAuthorityError(
-                f"cutover checkpoint/authority asset is not immutable: {relative}"
-            )
     stage3_path = _safe_path(repo_root, stage3_relative, "Stage 3 Full Acceptance report")
     if shadow.sha256_file(stage3_path) != stage3_hash:
         raise HandoffAuthorityError("Stage 3 Full Acceptance report SHA-256 mismatch")
+    if require_activation_commit:
+        _verify_committed_checkpoint_history(
+            repo_root,
+            source_parent=source_parent,
+            cutover_auth_relative=cutover_auth_relative,
+            manifest_path=manifest_path,
+            handoff_file=handoff_file,
+            audit_path=audit_path,
+        )
     return manifest, text
+
 
 def _first_parent_positions(repo_root: Path, activation: str, head: str) -> dict[str, int]:
     commits = _git_text(
@@ -1595,6 +1689,106 @@ def materialize_all(repo_root: Path, authority: dict[str, Any]) -> tuple[str, li
     return text, update_ids
 
 
+def verify_prepared_cutover(repo_root: Path, *, check_stage4a: bool = True) -> dict[str, Any]:
+    """Verify an uncommitted cutover transaction without requiring Git history.
+
+    This phase validates the exact worktree boundary plus all checkpoint and
+    provenance bindings.  The normal committed verifier remains responsible
+    for proving activation-commit history and post-activation immutability.
+    """
+
+    repo_root = repo_root.resolve()
+    authority = load_authority(repo_root)
+    if authority["mode"] != "delta":
+        raise HandoffAuthorityError(
+            "prepared cutover verification requires delta authority in the worktree"
+        )
+    manifest, checkpoint_text = _load_checkpoint(
+        repo_root, authority, require_activation_commit=False
+    )
+    source_parent = _string(manifest.get("source_parent_commit"), "source_parent_commit")
+    head = _git_text(repo_root, "rev-parse", "HEAD")
+    if head != source_parent:
+        raise HandoffAuthorityError("prepared cutover must remain uncommitted at its source parent")
+
+    manifest_path = Path(authority["delta_authority"]["checkpoint_manifest"])
+    checkpoint_dir = repo_root / manifest_path.parent
+    expected_paths = {
+        AUTHORITY_PATH.as_posix(),
+        STAGE_LEDGER_PATH.as_posix(),
+        manifest_path.as_posix(),
+        _string(manifest.get("handoff_path"), "handoff_path"),
+        _string(
+            manifest.get("stage4b_cutover_audit_report"),
+            "stage4b_cutover_audit_report",
+        ),
+    }
+    changed_paths = _worktree_changed_paths(repo_root)
+    if changed_paths != expected_paths:
+        missing = sorted(expected_paths - changed_paths)
+        unexpected = sorted(changed_paths - expected_paths)
+        raise HandoffAuthorityError(
+            "prepared cutover worktree boundary mismatch "
+            f"(missing={missing}, unexpected={unexpected})"
+        )
+    checkpoint_files = {
+        path.relative_to(repo_root).as_posix()
+        for path in checkpoint_dir.iterdir()
+        if path.is_file()
+    }
+    expected_checkpoint_files = expected_paths - {
+        AUTHORITY_PATH.as_posix(),
+        STAGE_LEDGER_PATH.as_posix(),
+    }
+    if checkpoint_files != expected_checkpoint_files:
+        raise HandoffAuthorityError(
+            "prepared cutover checkpoint directory contains unexpected files"
+        )
+
+    current_handoff = (repo_root / HANDOFF_PATH).read_text(encoding="utf-8")
+    current_registry = (repo_root / REGISTRY_PATH).read_text(encoding="utf-8")
+    if _git_show(repo_root, head, HANDOFF_PATH) != current_handoff:
+        raise HandoffAuthorityError("prepared cutover may not modify docs/handoff.md")
+    if _git_show(repo_root, head, REGISTRY_PATH) != current_registry:
+        raise HandoffAuthorityError("prepared cutover may not modify experiments/registry.yaml")
+    if current_handoff != checkpoint_text:
+        raise HandoffAuthorityError(
+            "prepared cutover checkpoint does not preserve current handoff bytes"
+        )
+
+    _ledger, stage5 = _load_stage5_ledger(repo_root)
+    cutover_auth = _string(manifest.get("cutover_authorization_id"), "cutover_authorization_id")
+    if (
+        stage5.get("status_authorization") != cutover_auth
+        or stage5.get("implementation_state") != "production_delta_authority_active"
+        or stage5.get("candidate_only") is not False
+        or stage5.get("pre_cutover_acceptance_state") != "accepted_by_cutover_authorization"
+        or stage5.get("current_write_authority") != "schema_v3_delta"
+        or stage5.get("authority_cutover_allowed") is not True
+        or stage5.get("production_cutover_executed") is not True
+        or stage5.get("cutover_authorization") != cutover_auth
+        or stage5.get("cutover_checkpoint_manifest") != manifest_path.as_posix()
+    ):
+        raise HandoffAuthorityError(
+            "prepared cutover ledger does not match the authority transaction"
+        )
+
+    if check_stage4a:
+        _verify_stage4a_current_source(repo_root)
+    return {
+        "status": "PASS",
+        "mode": "cutover_prepared",
+        "source_parent_commit": source_parent,
+        "checkpoint_id": manifest["checkpoint_id"],
+        "cutover_authorization_id": cutover_auth,
+        "changed_paths": sorted(changed_paths),
+        "handoff_sha256": shadow.sha256_text(current_handoff),
+        "registry_sha256": shadow.sha256_text(current_registry),
+        "stage4a_checked": check_stage4a,
+        "requires_commit": True,
+    }
+
+
 def verify_current_state(repo_root: Path, *, check_stage4a: bool = True) -> dict[str, Any]:
     authority = load_authority(repo_root)
     if authority["mode"] == "manual":
@@ -1609,17 +1803,7 @@ def verify_current_state(repo_root: Path, *, check_stage4a: bool = True) -> dict
     if current != expected:
         raise HandoffAuthorityError("tracked handoff is stale or was directly edited")
     if check_stage4a:
-        builder = repo_root / "scripts/build_stage4_context.py"
-        proc = subprocess.run(
-            [sys.executable, str(builder), "--repo-root", str(repo_root), "--json", "check"],
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-        if proc.returncode != 0:
-            raise HandoffAuthorityError(
-                "Stage 4A minimal views are stale: " + (proc.stderr or proc.stdout).strip()
-            )
+        _verify_stage4a_current_source(repo_root)
     return {
         "status": "PASS",
         "mode": "delta",
@@ -1802,6 +1986,11 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 
     verify = sub.add_parser("verify")
     verify.add_argument("--repo-root", type=Path, default=Path.cwd())
+    verify.add_argument(
+        "--prepared",
+        action="store_true",
+        help="verify an uncommitted cutover transaction before creating its activation commit",
+    )
     verify.add_argument("--skip-stage4a", action="store_true")
     verify.add_argument("--json", action="store_true")
 
@@ -1854,7 +2043,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
     try:
         if args.command == "verify":
-            payload = verify_current_state(
+            verifier = verify_prepared_cutover if args.prepared else verify_current_state
+            payload = verifier(
                 args.repo_root.resolve(), check_stage4a=not args.skip_stage4a
             )
         elif args.command == "validate-delta":
