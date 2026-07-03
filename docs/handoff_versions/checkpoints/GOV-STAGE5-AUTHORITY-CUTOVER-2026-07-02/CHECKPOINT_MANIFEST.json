@@ -1,0 +1,17 @@
+{
+  "checkpoint_id": "GOV-STAGE5-AUTHORITY-CUTOVER-2026-07-02",
+  "created_at_utc": "2026-07-03T04:34:24+00:00",
+  "cutover_authorization_id": "GOV-STAGE5-AUTHORITY-CUTOVER-AUTHORIZATION-2026-07-02",
+  "cutover_authorization_record": "docs/governance_stage_authorizations/GOV-STAGE5-AUTHORITY-CUTOVER-AUTHORIZATION-2026-07-02.yaml",
+  "cutover_authorization_record_sha256": "0a8db3ec1f3b617138885a56ad6de1c7b62c6af32f8ef63841db230ec9411aa9",
+  "handoff_path": "docs/handoff_versions/checkpoints/GOV-STAGE5-AUTHORITY-CUTOVER-2026-07-02/handoff.md",
+  "handoff_sha256": "974228eff0ff57542f91bc5e0a6a36e143301a96618bb03cca4511a664bd87e5",
+  "policy_id": "GOV-HANDOFF-AUTHORITY-CUTOVER-01",
+  "registry_sha256_for_provenance": "f8eab3aa8ba3f2d3b6e888f9e05597f08fc8385a11f985d3338f66f296821b6d",
+  "schema_version": 2,
+  "source_parent_commit": "0b8a5e1ce8d0fb6aac5036701f51729da97eb9ec",
+  "stage3_full_acceptance_report": "docs/handoff_deltas/GOV-STAGE5-CUTOVER-FULL-ACCEPTANCE-639D752B-2026-07-03/FULL_ACCEPTANCE_REPORT.json",
+  "stage3_full_acceptance_report_sha256": "16f8c35a939e79ab096dc3d629bad9e9dabbcf88264be68135f99635641014bc",
+  "stage4b_cutover_audit_report": "docs/handoff_versions/checkpoints/GOV-STAGE5-AUTHORITY-CUTOVER-2026-07-02/STAGE4B_CUTOVER_AUDIT.json",
+  "stage4b_cutover_audit_report_sha256": "66482c4dab398bb1bccf852ac5a1b32f6ca46204b029582491f502cdf1850c94"
+}

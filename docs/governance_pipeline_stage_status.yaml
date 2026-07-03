@@ -227,25 +227,25 @@ stages:
     responsibility: Promote the validated Stage 3 delta engine into a trusted candidate
       write-source pipeline without changing authority until a separate cutover authorization.
     status: active
-    status_authorization: GOV-STAGE5-PRE-CUTOVER-ACCEPTANCE-CLOSURE-2026-07-02
-    implementation_state: candidate_hardened_pre_cutover_accepted
+    status_authorization: GOV-STAGE5-AUTHORITY-CUTOVER-AUTHORIZATION-2026-07-02
+    implementation_state: production_delta_authority_active
     implementation_allowed: false
     pre_cutover_hardening_authorization: GOV-STAGE5-PRE-CUTOVER-HARDENING-2026-07-02
     pre_cutover_acceptance_authorization: GOV-STAGE5-PRE-CUTOVER-ACCEPTANCE-CLOSURE-2026-07-02
-    pre_cutover_acceptance_state: independently_accepted
+    pre_cutover_acceptance_state: accepted_by_cutover_authorization
     repository_pre_cutover_closure: complete
     accepted_candidate_commit: 65fc7539e89d6ff4405dde09174224f8ef69228e
     pre_cutover_acceptance_report: docs/governance_stage5_acceptance/ACCEPTANCE_REPORT.json
     pre_cutover_acceptance_summary: docs/governance_stage5_acceptance/ACCEPTANCE_SUMMARY.md
     confirmed_blockers_open: []
-    candidate_only: true
+    candidate_only: false
     candidate_spec: docs/governance_stage5_versioned_handoff_spec.md
     candidate_authority_config: docs/handoff_versions/AUTHORITY.yaml
     candidate_engine: scripts/handoff_authority.py
     candidate_authorization: GOV-STAGE5-CANDIDATE-IMPLEMENTATION-2026-07-01
     stage3_pre_stage5_full_acceptance_report: docs/handoff_deltas/GOV-STAGE5-PRE-CUTOVER-ACCEPTANCE-CLOSURE-2026-07-02/FULL_ACCEPTANCE_REPORT.json
-    current_write_authority: manual_handoff
-    authority_cutover_allowed: false
+    current_write_authority: schema_v3_delta
+    authority_cutover_allowed: true
     cutover_requires_independent_user_authorization: true
     code_only_normalization: verified_no_op
     stage4a_generated_validation: current_source_deterministic
@@ -253,7 +253,7 @@ stages:
     cutover_lifecycle_state: implemented_not_executed
     rollback_lifecycle_state: implemented_not_executed
     real_delta_mode_updater_test: implemented
-    production_cutover_executed: false
+    production_cutover_executed: true
     depends_on:
     - stage_3_shadow_validation
     - stage_4_lossless_validation
@@ -286,3 +286,6 @@ stages:
       sha256: d753dc23f1ade8c7d082916992d294287644d6715c787693d7e493df2c4d6d54
       authorized_by: GOV-STAGE5-PRE-CUTOVER-ACCEPTANCE-CLOSURE-2026-07-02
     stage3_full_acceptance_current_at_cutover_required: true
+    cutover_authorization: GOV-STAGE5-AUTHORITY-CUTOVER-AUTHORIZATION-2026-07-02
+    cutover_checkpoint_manifest: docs/handoff_versions/checkpoints/GOV-STAGE5-AUTHORITY-CUTOVER-2026-07-02/CHECKPOINT_MANIFEST.json
+    last_rollback_report: null
