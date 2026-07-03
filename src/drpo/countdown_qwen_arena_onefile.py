@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Countdown fixed-offline-negative-bank arena for local Qwen Instruct models (v4.5.0).
+"""Countdown fixed-offline-negative-bank arena for local Qwen Instruct models (v4.6.1).
 
 One-command run
 ---------------
@@ -88,7 +88,23 @@ SYSTEM_PROMPT = (
 )
 
 EXPERIMENT_ID = "EXT-C-E8-V4.4-OFFLINE-BANK"
-VERSION = "4.6.0-offline-negative-bank-tuning-support"
+VERSION = "4.6.1-gradient-probe"
+GRADIENT_PROBE_FIELDS = (
+    "seed",
+    "puzzle_id",
+    "response_role",
+    "response",
+    "token_count",
+    "valid_format",
+    "uses_numbers",
+    "correct",
+    "verifier_category",
+    "mean_token_surprisal",
+    "stored_base_surprisal",
+    "direct_logit_score",
+    "negative_coefficient_abs",
+    "trainable_parameter_gradient_norm",
+)
 
 
 def read_model_metadata(model_path: str) -> dict[str, Any]:
@@ -381,6 +397,16 @@ def verify_expression(text: str, numbers: Sequence[int], target: int) -> dict[st
         pass
     return result
 
+
+def verifier_category(check: dict[str, Any]) -> str:
+    """Map verifier outcomes to the mutually exclusive gradient-probe categories."""
+    if bool(check.get("correct")):
+        return "correct"
+    if not bool(check.get("valid_format")):
+        return "invalid_format"
+    if not bool(check.get("uses_numbers")):
+        return "number_mismatch"
+    return "arithmetic_wrong"
 
 
 _AST_OP = {
@@ -3731,23 +3757,80 @@ def cmd_init_adapter(args: argparse.Namespace) -> None:
     print(json.dumps({"initialized_adapter": str(output), "training_updates": 0}, indent=2))
 
 
+def _trainable_parameter_digest(
+    trainable: Sequence[tuple[str, torch.nn.Parameter]],
+) -> str:
+    """Hash trainable tensors without changing their device or gradient state."""
+    digest = hashlib.sha256()
+    for name, parameter in trainable:
+        value = parameter.detach().contiguous().cpu()
+        digest.update(name.encode("utf-8"))
+        digest.update(str(tuple(value.shape)).encode("ascii"))
+        digest.update(str(value.dtype).encode("ascii"))
+        digest.update(value.reshape(-1).view(torch.uint8).numpy().tobytes())
+    return digest.hexdigest()
+
+
+def _directory_tree_digest(path: str | Path) -> str:
+    """Hash adapter files so a diagnostic run can prove it did not overwrite them."""
+    root = Path(path).expanduser().resolve()
+    if not root.is_dir():
+        raise FileNotFoundError(f"Adapter directory does not exist: {root}")
+    digest = hashlib.sha256()
+    for item in sorted(candidate for candidate in root.rglob("*") if candidate.is_file()):
+        relative = item.relative_to(root).as_posix()
+        digest.update(relative.encode("utf-8"))
+        digest.update(str(item.stat().st_size).encode("ascii"))
+        digest.update(_sha256_file(item).encode("ascii"))
+    return digest.hexdigest()
+
+
+def _single_response_gradient_metrics(
+    model: Any,
+    batch: dict[str, torch.Tensor],
+    trainable: Sequence[torch.nn.Parameter],
+) -> dict[str, float | int]:
+    """Measure one completion's mean-log-prob gradient over trainable parameters."""
+    if batch["input_ids"].shape[0] != 1:
+        raise ValueError("Gradient probe requires exactly one response per backward pass")
+    model.zero_grad(set_to_none=True)
+    stats = completion_stats(model, batch)
+    if stats["seq_lp"].numel() != 1:
+        raise ValueError("Gradient probe expected exactly one sequence log-probability")
+    mean_log_prob = stats["seq_lp"].reshape(())
+    grads = torch.autograd.grad(mean_log_prob, list(trainable), allow_unused=True)
+    norm_sq = torch.zeros((), device=batch["input_ids"].device, dtype=torch.float32)
+    for grad in grads:
+        if grad is not None:
+            norm_sq = norm_sq + grad.detach().float().square().sum()
+    metrics: dict[str, float | int] = {
+        "token_count": int(stats["lengths"].detach().reshape(-1)[0]),
+        "mean_token_surprisal": float(-mean_log_prob.detach()),
+        "direct_logit_score": float(stats["score"].detach().reshape(-1)[0]),
+        "trainable_parameter_gradient_norm": float(torch.sqrt(norm_sq)),
+    }
+    numeric_values = [
+        float(metrics["mean_token_surprisal"]),
+        float(metrics["direct_logit_score"]),
+        float(metrics["trainable_parameter_gradient_norm"]),
+    ]
+    if not all(math.isfinite(value) for value in numeric_values):
+        raise RuntimeError(f"Non-finite gradient-probe metrics: {metrics}")
+    if float(metrics["trainable_parameter_gradient_norm"]) < 0.0:
+        raise RuntimeError(f"Negative gradient norm is impossible: {metrics}")
+    return metrics
+
+
 def _gradient_norm_for_negative_completion(
     model: Any,
     batch: dict[str, torch.Tensor],
     trainable: list[torch.nn.Parameter],
 ) -> tuple[float, float, float]:
-    stats = completion_stats(model, batch)
-    # For fixed A=-1, minimizing log pi(y|x) is the negative-advantage update.
-    loss = stats["seq_lp"].mean()
-    grads = torch.autograd.grad(loss, trainable, allow_unused=True)
-    norm_sq = torch.zeros((), device=batch["input_ids"].device, dtype=torch.float32)
-    for grad in grads:
-        if grad is not None:
-            norm_sq = norm_sq + grad.detach().float().square().sum()
+    metrics = _single_response_gradient_metrics(model, batch, trainable)
     return (
-        float(torch.sqrt(norm_sq)),
-        float((-stats["seq_lp"].detach()).mean()),
-        float(stats["score"].detach().mean()),
+        float(metrics["trainable_parameter_gradient_norm"]),
+        float(metrics["mean_token_surprisal"]),
+        float(metrics["direct_logit_score"]),
     )
 
 
@@ -3796,6 +3879,196 @@ def _negative_update_dynamics(
         "positive_surprisal_after": after_positive,
         "positive_collateral_delta": after_positive - before_positive,
     }
+
+
+def _stored_base_surprisal(row: dict[str, Any], role: str) -> float:
+    key = f"{role}_base_surprisal"
+    if key not in row:
+        raise KeyError(f"Offline row {row.get('id', '<unknown>')} is missing {key}")
+    value = float(row[key])
+    if not math.isfinite(value):
+        raise ValueError(f"Offline row {row.get('id', '<unknown>')} has non-finite {key}")
+    return value
+
+
+def cmd_probe_gradients(args: argparse.Namespace) -> None:
+    """Export per-response surprisal and trainable-parameter gradient diagnostics."""
+    if args.max_examples < 0:
+        raise ValueError("--max_examples must be zero or positive")
+    if args.max_stored_surprisal_delta < 0.0:
+        raise ValueError("--max_stored_surprisal_delta must be non-negative")
+    if args.gpu not in {None, "auto"}:
+        os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu)
+    seed_all(args.seed)
+    adapter_path = Path(args.sft_adapter).expanduser().resolve()
+    output_csv = Path(args.output_csv).expanduser().resolve()
+    manifest_path = (
+        Path(args.manifest_json).expanduser().resolve()
+        if args.manifest_json
+        else Path(str(output_csv) + ".manifest.json")
+    )
+    if manifest_path == output_csv:
+        raise ValueError("The manifest path must differ from the output CSV path")
+    for label, path in (("output CSV", output_csv), ("manifest", manifest_path)):
+        if path == adapter_path or path.is_relative_to(adapter_path):
+            raise ValueError(f"The {label} must be outside the SFT adapter directory")
+    adapter_digest_before = _directory_tree_digest(adapter_path)
+    tokenizer = load_tokenizer(args.model_path)
+    model = load_model(
+        args.model_path,
+        str(adapter_path),
+        trainable_adapter=True,
+        load_in_4bit=args.load_in_4bit,
+        dtype=args.dtype,
+        gradient_checkpointing=False,
+    )
+    model.eval()
+    device = next(model.parameters()).device
+    trainable_named = [
+        (name, parameter)
+        for name, parameter in model.named_parameters()
+        if parameter.requires_grad
+    ]
+    if not trainable_named:
+        raise RuntimeError("The loaded SFT adapter exposes no trainable parameters")
+    trainable = [parameter for _, parameter in trainable_named]
+    parameter_digest_before = _trainable_parameter_digest(trainable_named)
+
+    rows = read_jsonl(args.offline_data)
+    if args.max_examples > 0:
+        rows = rows[: args.max_examples]
+    if not rows:
+        raise RuntimeError("No offline rows are available for the gradient probe")
+
+    output_rows: list[dict[str, Any]] = []
+    deltas: list[float] = []
+    for row_index, row in enumerate(rows):
+        for role in ("near", "far"):
+            response_key = f"{role}_negative"
+            if response_key not in row:
+                raise KeyError(
+                    f"Offline row {row.get('id', row_index)} is missing {response_key}"
+                )
+            response = str(row[response_key])
+            encoded = encode_prompt_completion(
+                tokenizer, row["prompt"], response, args.max_length
+            )
+            batch = move_to_device(
+                pad_encoded([encoded], tokenizer.pad_token_id), device
+            )
+            metrics = _single_response_gradient_metrics(model, batch, trainable)
+            check = verify_expression(response, row["numbers"], int(row["target"]))
+            stored = _stored_base_surprisal(row, role)
+            delta = abs(float(metrics["mean_token_surprisal"]) - stored)
+            deltas.append(delta)
+            output_rows.append(
+                {
+                    "seed": int(args.seed),
+                    "puzzle_id": str(row.get("id", row_index)),
+                    "response_role": role,
+                    "response": response,
+                    "token_count": int(metrics["token_count"]),
+                    "valid_format": bool(check["valid_format"]),
+                    "uses_numbers": bool(check["uses_numbers"]),
+                    "correct": bool(check["correct"]),
+                    "verifier_category": verifier_category(check),
+                    "mean_token_surprisal": float(
+                        metrics["mean_token_surprisal"]
+                    ),
+                    "stored_base_surprisal": stored,
+                    "direct_logit_score": float(metrics["direct_logit_score"]),
+                    "negative_coefficient_abs": 1.0,
+                    "trainable_parameter_gradient_norm": float(
+                        metrics["trainable_parameter_gradient_norm"]
+                    ),
+                }
+            )
+        print(f"gradient probe {row_index + 1}/{len(rows)}", flush=True)
+
+    parameter_digest_after = _trainable_parameter_digest(trainable_named)
+    adapter_digest_after = _directory_tree_digest(adapter_path)
+    grad_buffers_populated = any(parameter.grad is not None for parameter in trainable)
+    if grad_buffers_populated:
+        raise RuntimeError("Gradient probe unexpectedly populated parameter .grad buffers")
+    if parameter_digest_after != parameter_digest_before:
+        raise RuntimeError("Gradient probe mutated trainable model parameters")
+    if adapter_digest_after != adapter_digest_before:
+        raise RuntimeError("Gradient probe modified files in the SFT adapter directory")
+    max_delta = max(deltas)
+    if max_delta > args.max_stored_surprisal_delta:
+        raise RuntimeError(
+            "Recomputed surprisal does not match the stored frozen-policy value: "
+            f"max_abs_delta={max_delta:.8g} > "
+            f"{args.max_stored_surprisal_delta:.8g}. Check model/adapter identity."
+        )
+
+    output_csv.parent.mkdir(parents=True, exist_ok=True)
+    with output_csv.open("w", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(GRADIENT_PROBE_FIELDS))
+        writer.writeheader()
+        writer.writerows(output_rows)
+
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    category_counts = Counter(row["verifier_category"] for row in output_rows)
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "version": VERSION,
+                "experiment_scope": "Countdown external-validity diagnostic export",
+                "claim": (
+                    "With a fixed verifier-derived negative coefficient, test whether "
+                    "learner-relative completion surprisal covaries with the gradient "
+                    "norm over all trainable parameters."
+                ),
+                "gradient_definition": (
+                    "L2 norm of the gradient of mean completion-token log probability "
+                    "over every parameter with requires_grad=True"
+                ),
+                "negative_coefficient_abs": 1.0,
+                "arguments": serializable_namespace(args),
+                "model_path": str(Path(args.model_path).expanduser().resolve()),
+                "sft_adapter": str(adapter_path),
+                "offline_data": str(Path(args.offline_data).expanduser().resolve()),
+                "output_csv": str(output_csv),
+                "puzzle_count": len(rows),
+                "response_count": len(output_rows),
+                "response_roles": ["near", "far"],
+                "verifier_category_counts": dict(sorted(category_counts.items())),
+                "trainable_parameter_count": int(
+                    sum(parameter.numel() for parameter in trainable)
+                ),
+                "trainable_tensor_count": len(trainable),
+                "trainable_parameter_digest_before": parameter_digest_before,
+                "trainable_parameter_digest_after": parameter_digest_after,
+                "adapter_tree_digest_before": adapter_digest_before,
+                "adapter_tree_digest_after": adapter_digest_after,
+                "max_abs_stored_surprisal_delta": max_delta,
+                "mean_abs_stored_surprisal_delta": float(np.mean(deltas)),
+                "stored_surprisal_tolerance": args.max_stored_surprisal_delta,
+                "parameter_updates_executed": 0,
+                "parameter_grad_buffers_populated": grad_buffers_populated,
+                "optimizer_created": False,
+                "checkpoint_written": False,
+                "plot_generated": False,
+                "result_status": "diagnostic_export_only",
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n"
+    )
+    print(
+        json.dumps(
+            {
+                "output_csv": str(output_csv),
+                "manifest_json": str(manifest_path),
+                "puzzles": len(rows),
+                "responses": len(output_rows),
+                "max_abs_stored_surprisal_delta": max_delta,
+            },
+            indent=2,
+        )
+    )
 
 
 def cmd_mechanism_probe(args: argparse.Namespace) -> None:
@@ -5000,6 +5273,27 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--max_length", type=int, default=256)
     ap.add_argument("--seed", type=int, default=1284)
     ap.set_defaults(func=cmd_mechanism_probe)
+
+    ap = sub.add_parser(
+        "probe_gradients",
+        help="Export per-response surprisal and trainable-parameter gradient norms",
+    )
+    common_model_args(ap)
+    ap.add_argument(
+        "--sft_adapter",
+        "--reference_adapter",
+        dest="sft_adapter",
+        required=True,
+    )
+    ap.add_argument("--offline_data", required=True)
+    ap.add_argument("--output_csv", required=True)
+    ap.add_argument("--manifest_json", default=None)
+    ap.add_argument("--gpu", default=None)
+    ap.add_argument("--max_examples", type=int, default=0, help="0 means all")
+    ap.add_argument("--max_length", type=int, default=256)
+    ap.add_argument("--max_stored_surprisal_delta", type=float, default=0.01)
+    ap.add_argument("--seed", type=int, default=100)
+    ap.set_defaults(func=cmd_probe_gradients)
 
     ap = sub.add_parser("train_method")
     common_model_args(ap)
