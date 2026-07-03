@@ -293,14 +293,8 @@ def validate_stage5_pre_cutover_acceptance(
         if not isinstance(relative, str) or not relative:
             raise StageStatusError("Stage 5 acceptance accepted_files path is invalid")
         relative_path = Path(relative)
-        if (
-            relative_path.is_absolute()
-            or not relative_path.parts
-            or ".." in relative_path.parts
-        ):
-            raise StageStatusError(
-                "Stage 5 acceptance accepted_files path is unsafe"
-            )
+        if relative_path.is_absolute() or not relative_path.parts or ".." in relative_path.parts:
+            raise StageStatusError("Stage 5 acceptance accepted_files path is unsafe")
         if not isinstance(expected_hash, str) or not SHA256_RE.fullmatch(expected_hash):
             raise StageStatusError(
                 f"Stage 5 acceptance accepted_files hash is invalid for {relative}"
@@ -336,8 +330,7 @@ def validate_stage5_pre_cutover_acceptance(
         or not isinstance(count, int)
         or count != len(covered_ids)
         or count != 21
-        or stage3.get("corpus_audit", {}).get("all_stored_reports_revalidated")
-        is not True
+        or stage3.get("corpus_audit", {}).get("all_stored_reports_revalidated") is not True
     ):
         raise StageStatusError("Stage 3 pre-cutover Full Acceptance report invalid")
 
@@ -367,9 +360,7 @@ def validate_stage5_pre_cutover_acceptance(
         value = results.get(key)
         status = value.get("status") if isinstance(value, dict) else value
         if status != "PASS":
-            raise StageStatusError(
-                f"Stage 5 acceptance result {key} must be PASS"
-            )
+            raise StageStatusError(f"Stage 5 acceptance result {key} must be PASS")
     return {
         "report_sha256": sha256(report_path),
         "stage3_report_sha256": sha256(stage3_path),
@@ -630,8 +621,7 @@ def validate(repo_root: Path, ledger_path: Path) -> dict[str, Any]:
                     "stage_3 candidate_authoritative_delta_schema_version must be 3"
                 )
             if (
-                stage.get("candidate_authority_config")
-                != "docs/handoff_versions/AUTHORITY.yaml"
+                stage.get("candidate_authority_config") != "docs/handoff_versions/AUTHORITY.yaml"
                 or stage.get("candidate_authority_engine") != "scripts/handoff_authority.py"
                 or stage.get("candidate_implementation_authorization")
                 != "GOV-STAGE5-CANDIDATE-IMPLEMENTATION-2026-07-01"
@@ -682,7 +672,8 @@ def validate(repo_root: Path, ledger_path: Path) -> dict[str, Any]:
                 )
                 != expected
                 or require_string(
-                    stage.get("acceptance_authorization"), "stage_4 acceptance authorization"
+                    stage.get("acceptance_authorization"),
+                    "stage_4 acceptance authorization",
                 )
                 != expected
                 or status_auth_id != expected
@@ -763,7 +754,9 @@ def validate(repo_root: Path, ledger_path: Path) -> dict[str, Any]:
                     "stage_4 phase states must accept 4A/4B and only make 4C ready"
                 )
             p4a = safe_repo_path(
-                repo_root, stage["stage4a_acceptance_report"], "stage_4a acceptance report"
+                repo_root,
+                stage["stage4a_acceptance_report"],
+                "stage_4a acceptance report",
             )
             r4a = json.loads(p4a.read_text())
             if (
@@ -815,10 +808,8 @@ def validate(repo_root: Path, ledger_path: Path) -> dict[str, Any]:
             if (
                 original_auth is None
                 or original_auth.get("kind") != "reopen"
-                or original_auth.get("base_commit")
-                != "4ad8b09ca80bc4b98aebffc6540f9be29440ba28"
-                or original_auth.get("claim_id")
-                != "GOV-HANDOFF-AUTHORITY-CUTOVER-01"
+                or original_auth.get("base_commit") != "4ad8b09ca80bc4b98aebffc6540f9be29440ba28"
+                or original_auth.get("claim_id") != "GOV-HANDOFF-AUTHORITY-CUTOVER-01"
             ):
                 raise StageStatusError("Stage 5 candidate authorization missing or invalid")
 
@@ -829,15 +820,16 @@ def validate(repo_root: Path, ledger_path: Path) -> dict[str, Any]:
             if (
                 hardening_auth is None
                 or hardening_auth.get("kind") != "reopen"
-                or hardening_auth.get("base_commit")
-                != "dacddafbf3e3caf560e87c145ab92d35b8d7fef1"
-                or hardening_auth.get("claim_id")
-                != "GOV-HANDOFF-AUTHORITY-CUTOVER-01"
+                or hardening_auth.get("base_commit") != "dacddafbf3e3caf560e87c145ab92d35b8d7fef1"
+                or hardening_auth.get("claim_id") != "GOV-HANDOFF-AUTHORITY-CUTOVER-01"
                 or set(hardening_auth.get("stage_ids", [])) != {"stage_4", "stage_5"}
             ):
                 raise StageStatusError("Stage 5 pre-cutover hardening authorization invalid")
-            if status != "active":
-                raise StageStatusError("stage_5 lifecycle must remain active")
+            if status not in {"active", "closed_maintenance_only"}:
+                raise StageStatusError(
+                    "stage_5 lifecycle must be active before closure or "
+                    "closed_maintenance_only after verified cutover"
+                )
 
             expected_paths = {
                 "candidate_spec": "docs/governance_stage5_versioned_handoff_spec.md",
@@ -852,22 +844,16 @@ def validate(repo_root: Path, ledger_path: Path) -> dict[str, Any]:
             if stage.get("candidate_authorization") != original_auth_id:
                 raise StageStatusError("stage_5 candidate_authorization mismatch")
 
-            acceptance_auth_id = (
-                "GOV-STAGE5-PRE-CUTOVER-ACCEPTANCE-CLOSURE-2026-07-02"
-            )
+            acceptance_auth_id = "GOV-STAGE5-PRE-CUTOVER-ACCEPTANCE-CLOSURE-2026-07-02"
             if stage.get("pre_cutover_acceptance_authorization") != acceptance_auth_id:
-                raise StageStatusError(
-                    "stage_5 pre-cutover acceptance authorization mismatch"
-                )
+                raise StageStatusError("stage_5 pre-cutover acceptance authorization mismatch")
             acceptance_auth = authorizations.get(acceptance_auth_id)
             if (
                 acceptance_auth is None
                 or acceptance_auth.get("kind") != "closure"
                 or acceptance_auth.get("change_class") != "closure"
-                or acceptance_auth.get("base_commit")
-                != "65fc7539e89d6ff4405dde09174224f8ef69228e"
-                or acceptance_auth.get("claim_id")
-                != "GOV-HANDOFF-AUTHORITY-CUTOVER-01"
+                or acceptance_auth.get("base_commit") != "65fc7539e89d6ff4405dde09174224f8ef69228e"
+                or acceptance_auth.get("claim_id") != "GOV-HANDOFF-AUTHORITY-CUTOVER-01"
                 or set(acceptance_auth.get("stage_ids", [])) != {"stage_5"}
             ):
                 raise StageStatusError(
@@ -884,20 +870,14 @@ def validate(repo_root: Path, ledger_path: Path) -> dict[str, Any]:
                 "FULL_ACCEPTANCE_REPORT.json"
             )
             if checkpoint_report_value != expected_checkpoint_report:
-                raise StageStatusError(
-                    "stage_5 pre-cutover Full Acceptance report path changed"
-                )
+                raise StageStatusError("stage_5 pre-cutover Full Acceptance report path changed")
             acceptance_report_value = require_string(
                 stage.get("pre_cutover_acceptance_report"),
                 "stage_5 pre-cutover acceptance report",
             )
-            expected_acceptance_report = (
-                "docs/governance_stage5_acceptance/ACCEPTANCE_REPORT.json"
-            )
+            expected_acceptance_report = "docs/governance_stage5_acceptance/ACCEPTANCE_REPORT.json"
             if acceptance_report_value != expected_acceptance_report:
-                raise StageStatusError(
-                    "stage_5 pre-cutover acceptance report path changed"
-                )
+                raise StageStatusError("stage_5 pre-cutover acceptance report path changed")
             accepted_commit = require_string(
                 stage.get("accepted_candidate_commit"),
                 "stage_5 accepted candidate commit",
@@ -917,7 +897,6 @@ def validate(repo_root: Path, ledger_path: Path) -> dict[str, Any]:
                 "stage4a_generated_validation": "current_source_deterministic",
                 "checkpoint_manifest_schema_version": 2,
                 "stage3_full_acceptance_current_at_cutover_required": True,
-                "cutover_lifecycle_state": "implemented_not_executed",
                 "rollback_lifecycle_state": "implemented_not_executed",
                 "real_delta_mode_updater_test": "implemented",
             }
@@ -939,11 +918,9 @@ def validate(repo_root: Path, ledger_path: Path) -> dict[str, Any]:
             )
             if (
                 authority_config.get("schema_version") != 1
-                or authority_config.get("policy_id")
-                != "GOV-HANDOFF-AUTHORITY-CUTOVER-01"
+                or authority_config.get("policy_id") != "GOV-HANDOFF-AUTHORITY-CUTOVER-01"
                 or authority_config.get("read_master") != "docs/handoff.md"
-                or authority_config.get("registry_write_authority")
-                != "experiments/registry.yaml"
+                or authority_config.get("registry_write_authority") != "experiments/registry.yaml"
             ):
                 raise StageStatusError("Stage 5 authority config schema/read boundary is invalid")
             mode = authority_config.get("mode")
@@ -958,20 +935,25 @@ def validate(repo_root: Path, ledger_path: Path) -> dict[str, Any]:
                 raise StageStatusError("Stage 5 authority lifecycle invariants changed")
 
             if mode == "manual":
+                if status != "active":
+                    raise StageStatusError(
+                        "Stage 5 manual candidate mode cannot be closed before cutover"
+                    )
+                if stage.get("cutover_lifecycle_state") != "implemented_not_executed":
+                    raise StageStatusError(
+                        "Stage 5 manual candidate cutover lifecycle must remain unexecuted"
+                    )
                 if stage.get("authority_cutover_allowed") is not False:
                     raise StageStatusError("stage_5 candidate must forbid authority cutover")
                 if status_auth_id != acceptance_auth_id:
                     raise StageStatusError(
-                        "stage_5 manual accepted status_authorization must be "
-                        f"{acceptance_auth_id}"
+                        f"stage_5 manual accepted status_authorization must be {acceptance_auth_id}"
                     )
                 if (
-                    stage.get("implementation_state")
-                    != "candidate_hardened_pre_cutover_accepted"
+                    stage.get("implementation_state") != "candidate_hardened_pre_cutover_accepted"
                     or stage.get("implementation_allowed") is not False
                     or stage.get("candidate_only") is not True
-                    or stage.get("pre_cutover_acceptance_state")
-                    != "independently_accepted"
+                    or stage.get("pre_cutover_acceptance_state") != "independently_accepted"
                     or stage.get("repository_pre_cutover_closure") != "complete"
                     or stage.get("confirmed_blockers_open") != []
                     or stage.get("current_write_authority") != "manual_handoff"
@@ -1004,23 +986,80 @@ def validate(repo_root: Path, ledger_path: Path) -> dict[str, Any]:
                     "enable_manual_to_delta_cutover_transaction",
                 }
                 if (
-                    status_auth_id != cutover_auth_id
-                    or cutover_auth is None
+                    cutover_auth is None
                     or cutover_auth.get("kind") != "stage_transition"
-                    or cutover_auth.get("claim_id")
-                    != "GOV-HANDOFF-AUTHORITY-CUTOVER-01"
+                    or cutover_auth.get("claim_id") != "GOV-HANDOFF-AUTHORITY-CUTOVER-01"
                     or "stage_5" not in cutover_auth.get("stage_ids", [])
                     or not required_scope.issubset(set(cutover_auth.get("scope", [])))
                 ):
                     raise StageStatusError("Stage 5 delta cutover authorization invalid")
+
+                if status == "active":
+                    if (
+                        status_auth_id != cutover_auth_id
+                        or stage.get("cutover_lifecycle_state") != "implemented_not_executed"
+                    ):
+                        raise StageStatusError(
+                            "Stage 5 active delta mode must remain bound to the cutover "
+                            "authorization until closure"
+                        )
+                else:
+                    closure_auth = authorizations.get(status_auth_id)
+                    closure_scope = {
+                        (
+                            "close_stage_5_in_maintenance_only_mode_after_verified_"
+                            "production_authority_activation"
+                        ),
+                        "record_the_completed_and_verified_manual_to_delta_cutover_lifecycle",
+                        "preserve_schema_v3_delta_as_the_production_handoff_write_authority",
+                        (
+                            "bind_the_existing_stage_5_protected_after_image_to_this_"
+                            "closure_authorization"
+                        ),
+                    }
+                    evidence = (
+                        closure_auth.get("closure_evidence", {})
+                        if isinstance(closure_auth, dict)
+                        else {}
+                    )
+                    if (
+                        closure_auth is None
+                        or closure_auth.get("kind") != "closure"
+                        or closure_auth.get("change_class") != "closure"
+                        or closure_auth.get("claim_id") != "GOV-HANDOFF-AUTHORITY-CUTOVER-01"
+                        or closure_auth.get("base_commit")
+                        != "e33a3d1ce8de8ebaf0969a2ec9830a031f7a6c04"
+                        or "stage_5" not in closure_auth.get("stage_ids", [])
+                        or closure_auth.get("authorized_stage_statuses", {}).get("stage_5")
+                        != "closed_maintenance_only"
+                        or not closure_scope.issubset(set(closure_auth.get("scope", [])))
+                        or stage.get("cutover_lifecycle_state") != "executed_verified"
+                        or evidence.get("full_acceptance_commit")
+                        != "0b8a5e1ce8d0fb6aac5036701f51729da97eb9ec"
+                        or evidence.get("activation_commit")
+                        != "e33a3d1ce8de8ebaf0969a2ec9830a031f7a6c04"
+                        or evidence.get("authority_mode") != "delta"
+                        or evidence.get("authority_verify") != "PASS"
+                        or evidence.get("ruff") != "PASS"
+                        or evidence.get("doctor") != "PASS"
+                        or evidence.get("stage5_integration") != "PASS"
+                        or evidence.get("pytest") != "608_passed_1_skipped"
+                        or evidence.get("local_head_matches_origin_main") is not True
+                        or evidence.get("worktree_clean") is not True
+                        or evidence.get("scientific_experiments_or_configurations_modified")
+                        is not False
+                    ):
+                        raise StageStatusError(
+                            "Stage 5 closed delta mode requires the verified closure "
+                            "authorization and activation evidence"
+                        )
                 checkpoint_manifest = require_string(
                     stage.get("cutover_checkpoint_manifest"),
                     "stage_5 cutover checkpoint manifest",
                 )
                 activation_parent = delta_authority.get("activation_parent_commit")
                 if (
-                    stage.get("implementation_state")
-                    != "production_delta_authority_active"
+                    stage.get("implementation_state") != "production_delta_authority_active"
                     or stage.get("implementation_allowed") is not False
                     or stage.get("candidate_only") is not False
                     or stage.get("pre_cutover_acceptance_state")
@@ -1039,13 +1078,14 @@ def validate(repo_root: Path, ledger_path: Path) -> dict[str, Any]:
                         "the ledger records a complete authorized delta cutover"
                     )
                 manifest_path = safe_repo_path(
-                    repo_root, checkpoint_manifest, "stage_5 cutover checkpoint manifest"
+                    repo_root,
+                    checkpoint_manifest,
+                    "stage_5 cutover checkpoint manifest",
                 )
                 manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
                 if (
                     manifest.get("schema_version") != 2
-                    or manifest.get("policy_id")
-                    != "GOV-HANDOFF-AUTHORITY-CUTOVER-01"
+                    or manifest.get("policy_id") != "GOV-HANDOFF-AUTHORITY-CUTOVER-01"
                     or manifest.get("cutover_authorization_id") != cutover_auth_id
                     or manifest.get("source_parent_commit") != activation_parent
                 ):

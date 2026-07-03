@@ -224,10 +224,11 @@ stages:
   stage_5:
     number: 5
     name: versioned_handoff_write_authority_cutover
-    responsibility: Promote the validated Stage 3 delta engine into a trusted candidate
-      write-source pipeline without changing authority until a separate cutover authorization.
-    status: active
-    status_authorization: GOV-STAGE5-AUTHORITY-CUTOVER-AUTHORIZATION-2026-07-02
+    responsibility: Operate the production schema-v3 delta write-authority pipeline
+      for docs/handoff.md with checkpointed rollback and verified code-only no-op
+      normalization.
+    status: closed_maintenance_only
+    status_authorization: GOV-STAGE5-CLOSURE-2026-07-03
     implementation_state: production_delta_authority_active
     implementation_allowed: false
     pre_cutover_hardening_authorization: GOV-STAGE5-PRE-CUTOVER-HARDENING-2026-07-02
@@ -250,7 +251,7 @@ stages:
     code_only_normalization: verified_no_op
     stage4a_generated_validation: current_source_deterministic
     checkpoint_manifest_schema_version: 2
-    cutover_lifecycle_state: implemented_not_executed
+    cutover_lifecycle_state: executed_verified
     rollback_lifecycle_state: implemented_not_executed
     real_delta_mode_updater_test: implemented
     production_cutover_executed: true
@@ -260,31 +261,31 @@ stages:
     protected_files:
     - path: scripts/handoff_authority.py
       sha256: a6532ba4c1bb9c4af24d79f027267de518c3832b347dba47e8319dee7a3ebe2c
-      authorized_by: GOV-STAGE5-CUTOVER-COMPATIBILITY-BUGFIX-2026-07-03
+      authorized_by: GOV-STAGE5-CLOSURE-2026-07-03
     - path: scripts/validate_governance_pipeline_stage_status.py
-      sha256: ce2acefdd257c2a4c04a3182abbb5e6f7b21a7ea00306da0a76ade06e750ae69
-      authorized_by: GOV-STAGE5-CUTOVER-COMPATIBILITY-BUGFIX-2026-07-03
+      sha256: dc47015449b1fa2c806229a6dd1bfd64b06a6015dec3d151c6cc59390727a8f6
+      authorized_by: GOV-STAGE5-CLOSURE-2026-07-03
     - path: docs/governance_stage5_versioned_handoff_spec.md
       sha256: 74fe7980ad300be58140c1b14a13c51d5a25f5d26ca6c1a10ffeafd234bbb6de
-      authorized_by: GOV-STAGE5-CUTOVER-COMPATIBILITY-BUGFIX-2026-07-03
+      authorized_by: GOV-STAGE5-CLOSURE-2026-07-03
     - path: tests/stage5_candidate_integration.py
       sha256: f3788d281557298b4a2715fd9d50103467b7075e786708b32656b6583d93b1e3
-      authorized_by: GOV-STAGE5-CUTOVER-COMPATIBILITY-BUGFIX-2026-07-03
+      authorized_by: GOV-STAGE5-CLOSURE-2026-07-03
     - path: tests/test_governance_pipeline_stage_status.py
-      sha256: acac892803dc9d50f17d905c8390ee4e7bec9e17aab075d815cfd017e26b40ca
-      authorized_by: GOV-STAGE5-CUTOVER-COMPATIBILITY-BUGFIX-2026-07-03
+      sha256: b7e576ee511466055cb402c417df973cac0fd6dbea746f18b5b2ef5e67c7d1b9
+      authorized_by: GOV-STAGE5-CLOSURE-2026-07-03
     - path: docs/governance_stage5_acceptance/ACCEPTANCE_REPORT.json
       sha256: c5b787ac05199b1d78efe70b52a0c7b8b8d4af3abe6b2c5267195f6168009dd0
-      authorized_by: GOV-STAGE5-PRE-CUTOVER-ACCEPTANCE-CLOSURE-2026-07-02
+      authorized_by: GOV-STAGE5-CLOSURE-2026-07-03
     - path: docs/governance_stage5_acceptance/ACCEPTANCE_SUMMARY.md
       sha256: 4bef266c2e7c9f312091d3dd0a33690b9449a010d006384925c443b87c6751bf
-      authorized_by: GOV-STAGE5-PRE-CUTOVER-ACCEPTANCE-CLOSURE-2026-07-02
+      authorized_by: GOV-STAGE5-CLOSURE-2026-07-03
     - path: docs/governance_stage5_acceptance/CHECKSUMS.sha256
       sha256: b9dabee0f42ca7d18a9d277ce93c3e8775e2d01bcf80211d1a202c96ee13ac88
-      authorized_by: GOV-STAGE5-PRE-CUTOVER-ACCEPTANCE-CLOSURE-2026-07-02
+      authorized_by: GOV-STAGE5-CLOSURE-2026-07-03
     - path: docs/handoff_deltas/GOV-STAGE5-PRE-CUTOVER-ACCEPTANCE-CLOSURE-2026-07-02/FULL_ACCEPTANCE_REPORT.json
       sha256: d753dc23f1ade8c7d082916992d294287644d6715c787693d7e493df2c4d6d54
-      authorized_by: GOV-STAGE5-PRE-CUTOVER-ACCEPTANCE-CLOSURE-2026-07-02
+      authorized_by: GOV-STAGE5-CLOSURE-2026-07-03
     stage3_full_acceptance_current_at_cutover_required: true
     cutover_authorization: GOV-STAGE5-AUTHORITY-CUTOVER-AUTHORIZATION-2026-07-02
     cutover_checkpoint_manifest: docs/handoff_versions/checkpoints/GOV-STAGE5-AUTHORITY-CUTOVER-2026-07-02/CHECKPOINT_MANIFEST.json

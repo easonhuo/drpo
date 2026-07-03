@@ -514,14 +514,30 @@ rules:
     type: machine
     implementation_paths:
     - scripts/validate_governance_pipeline_stage_status.py
-    - scripts/handoff_delta_shadow.py
     pytest_nodes:
-    - tests/test_governance_pipeline_stage_status.py::test_protected_file_tamper_is_rejected
+    - tests/test_governance_pipeline_stage_status.py::test_current_repository_stage_closure_is_valid
     - tests/test_governance_pipeline_stage_status.py::test_closed_stage_cannot_be_reopened_by_editing_only_the_ledger
     - tests/test_governance_pipeline_stage_status.py::test_ledger_hash_edit_without_matching_authorization_is_rejected
-    - tests/test_governance_pipeline_stage_status.py::test_shadow_active_stage_keeps_manual_authority_and_forbids_cutover
-    - tests/test_handoff_delta_shadow.py::test_historical_bootstrap_delta_matches_golden_candidate
-    - tests/test_handoff_delta_shadow.py::test_current_repository_semantic_gap_delta_matches_manual_handoff
-    - tests/test_handoff_delta_shadow.py::test_standard_replay_is_idempotent
-    - tests/test_handoff_delta_shadow.py::test_standard_manual_undeclared_change_is_rejected
+    coverage_level: direct
+  GOV-PIPELINE-CLOSURE-003:
+    type: machine
+    implementation_paths:
+    - scripts/handoff_authority.py
+    - scripts/validate_governance_pipeline_stage_status.py
+    pytest_nodes:
+    - tests/test_handoff_authority.py::test_current_repository_authority_phase_verifies
+    - tests/test_handoff_authority.py::test_delta_mode_rejects_new_legacy_schema
+    - tests/test_governance_pipeline_stage_status.py::test_stage5_authority_state_matches_mode_and_dependencies
+    - tests/test_governance_pipeline_stage_status.py::test_stage5_authority_cutover_flag_cannot_desynchronize
+    - tests/test_governance_pipeline_stage_status.py::test_stage5_dynamic_refresh_must_match_authority_mode
+    coverage_level: direct
+  GOV-PIPELINE-CLOSURE-004:
+    type: machine
+    implementation_paths:
+    - scripts/validate_governance_pipeline_stage_status.py
+    - scripts/handoff_authority.py
+    pytest_nodes:
+    - tests/test_handoff_authority.py::test_current_repository_authority_phase_verifies
+    - tests/test_governance_pipeline_stage_status.py::test_stage5_authority_state_matches_mode_and_dependencies
+    - tests/test_governance_pipeline_stage_status.py::test_stage5_acceptance_state_cannot_desynchronize_from_authority_mode
     coverage_level: direct

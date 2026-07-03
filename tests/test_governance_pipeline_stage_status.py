@@ -28,7 +28,12 @@ _SPEC.loader.exec_module(VALIDATOR)
 
 def run_validator(repo: Path, *, check: bool = True) -> subprocess.CompletedProcess[str]:
     proc = subprocess.run(
-        [sys.executable, str(repo / "scripts" / VALIDATOR_PATH.name), "--repo-root", str(repo)],
+        [
+            sys.executable,
+            str(repo / "scripts" / VALIDATOR_PATH.name),
+            "--repo-root",
+            str(repo),
+        ],
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -95,7 +100,8 @@ def test_current_repository_stage_closure_is_valid() -> None:
     assert "Stage 2=closed_maintenance_only" in proc.stdout
     assert "Stage 3=shadow_active" in proc.stdout
     assert "Stage 4=active" in proc.stdout
-    assert "Stage 5=active" in proc.stdout
+    ledger = yaml.safe_load(LEDGER.read_text(encoding="utf-8"))
+    assert f"Stage 5={ledger['stages']['stage_5']['status']}" in proc.stdout
 
 
 def test_protected_file_tamper_is_rejected() -> None:
@@ -143,7 +149,9 @@ def test_protected_file_symlink_is_rejected_even_when_target_bytes_match() -> No
         shutil.rmtree(repo, ignore_errors=True)
 
 
-def test_closed_stage_cannot_be_reopened_by_editing_only_the_ledger(tmp_path: Path) -> None:
+def test_closed_stage_cannot_be_reopened_by_editing_only_the_ledger(
+    tmp_path: Path,
+) -> None:
     assert_ledger_invalid(
         tmp_path,
         lambda x: x["stages"]["stage_1"].__setitem__("status", "reopened"),
@@ -151,14 +159,18 @@ def test_closed_stage_cannot_be_reopened_by_editing_only_the_ledger(tmp_path: Pa
     )
 
 
-def test_ledger_hash_edit_without_matching_authorization_is_rejected(tmp_path: Path) -> None:
+def test_ledger_hash_edit_without_matching_authorization_is_rejected(
+    tmp_path: Path,
+) -> None:
     def mutate(x: dict[str, Any]) -> None:
         x["stages"]["stage_2"]["protected_files"][0]["sha256"] = "0" * 64
 
     assert_ledger_invalid(tmp_path, mutate, "ledger hash is not bound by authorization")
 
 
-def test_shadow_active_stage_keeps_manual_authority_and_forbids_cutover(tmp_path: Path) -> None:
+def test_shadow_active_stage_keeps_manual_authority_and_forbids_cutover(
+    tmp_path: Path,
+) -> None:
     assert_ledger_invalid(
         tmp_path,
         lambda x: x["stages"]["stage_3"].__setitem__("authority_cutover_allowed", True),
@@ -166,7 +178,9 @@ def test_shadow_active_stage_keeps_manual_authority_and_forbids_cutover(tmp_path
     )
 
 
-def test_shadow_active_stage_requires_derived_observation_ledger(tmp_path: Path) -> None:
+def test_shadow_active_stage_requires_derived_observation_ledger(
+    tmp_path: Path,
+) -> None:
     assert_ledger_invalid(
         tmp_path,
         lambda x: x["stages"]["stage_3"].__setitem__("observation_ledger_mode", "manual_counter"),
@@ -199,7 +213,9 @@ def test_stage4b_final_acceptance_is_recorded_without_starting_stage4c() -> None
     assert stage_4["authority_cutover_allowed"] is False
 
 
-def test_stage4a_cannot_revert_to_stage3_shadow_closure_dependency(tmp_path: Path) -> None:
+def test_stage4a_cannot_revert_to_stage3_shadow_closure_dependency(
+    tmp_path: Path,
+) -> None:
     assert_ledger_invalid(
         tmp_path,
         lambda x: x["stages"]["stage_4"].__setitem__("depends_on", ["stage_3_shadow_validation"]),
@@ -207,7 +223,9 @@ def test_stage4a_cannot_revert_to_stage3_shadow_closure_dependency(tmp_path: Pat
     )
 
 
-def test_stage4b_acceptance_cannot_be_reverted_by_editing_only_the_ledger(tmp_path: Path) -> None:
+def test_stage4b_acceptance_cannot_be_reverted_by_editing_only_the_ledger(
+    tmp_path: Path,
+) -> None:
     def mutate(x: dict[str, Any]) -> None:
         x["stages"]["stage_4"]["phase_states"]["stage_4b_lossless_candidate"] = (
             "ready_for_authorization"
@@ -317,7 +335,6 @@ def test_stage5_authority_state_matches_mode_and_dependencies() -> None:
     stage_5 = ledger["stages"]["stage_5"]
     mode = _current_stage5_mode()
 
-    assert stage_5["status"] == "active"
     assert stage_5["implementation_allowed"] is False
     assert stage_5["repository_pre_cutover_closure"] == "complete"
     assert stage_5["accepted_candidate_commit"] == ("65fc7539e89d6ff4405dde09174224f8ef69228e")
@@ -332,6 +349,8 @@ def test_stage5_authority_state_matches_mode_and_dependencies() -> None:
     ]
 
     if mode == "manual":
+        assert stage_5["status"] == "active"
+        assert stage_5["cutover_lifecycle_state"] == "implemented_not_executed"
         assert stage_5["candidate_only"] is True
         assert stage_5["current_write_authority"] == "manual_handoff"
         assert stage_5["implementation_state"] == "candidate_hardened_pre_cutover_accepted"
@@ -340,6 +359,23 @@ def test_stage5_authority_state_matches_mode_and_dependencies() -> None:
         assert stage_5["production_cutover_executed"] is False
     elif mode == "delta":
         authority = yaml.safe_load(AUTHORITY.read_text(encoding="utf-8"))
+        assert stage_5["status"] in {"active", "closed_maintenance_only"}
+        if stage_5["status"] == "active":
+            assert stage_5["cutover_lifecycle_state"] == "implemented_not_executed"
+            assert stage_5["status_authorization"] == stage_5["cutover_authorization"]
+        else:
+            assert stage_5["cutover_lifecycle_state"] == "executed_verified"
+            closure_path = (
+                REPO_ROOT
+                / "docs/governance_stage_authorizations"
+                / f"{stage_5['status_authorization']}.yaml"
+            )
+            closure = yaml.safe_load(closure_path.read_text(encoding="utf-8"))
+            assert closure["kind"] == "closure"
+            assert closure["authorized_stage_statuses"]["stage_5"] == "closed_maintenance_only"
+            assert closure["closure_evidence"]["activation_commit"] == (
+                "e33a3d1ce8de8ebaf0969a2ec9830a031f7a6c04"
+            )
         assert stage_5["candidate_only"] is False
         assert stage_5["current_write_authority"] == "schema_v3_delta"
         assert stage_5["implementation_state"] == "production_delta_authority_active"
@@ -352,6 +388,41 @@ def test_stage5_authority_state_matches_mode_and_dependencies() -> None:
         )
     else:  # pragma: no cover - the validator rejects this first
         raise AssertionError(f"unsupported authority mode: {mode}")
+
+
+def test_stage5_closed_delta_rejects_unverified_lifecycle(tmp_path: Path) -> None:
+    ledger = yaml.safe_load(LEDGER.read_text(encoding="utf-8"))
+    if (
+        _current_stage5_mode() != "delta"
+        or ledger["stages"]["stage_5"]["status"] != "closed_maintenance_only"
+    ):
+        pytest.skip("current repository is not in closed Stage 5 delta mode")
+    assert_ledger_invalid(
+        tmp_path,
+        lambda x: x["stages"]["stage_5"].__setitem__(
+            "cutover_lifecycle_state", "implemented_not_executed"
+        ),
+        "verified closure authorization and activation evidence",
+    )
+
+
+def test_stage5_closed_delta_rejects_cutover_authorization_as_status_authorization(
+    tmp_path: Path,
+) -> None:
+    ledger = yaml.safe_load(LEDGER.read_text(encoding="utf-8"))
+    if (
+        _current_stage5_mode() != "delta"
+        or ledger["stages"]["stage_5"]["status"] != "closed_maintenance_only"
+    ):
+        pytest.skip("current repository is not in closed Stage 5 delta mode")
+    assert_ledger_invalid(
+        tmp_path,
+        lambda x: x["stages"]["stage_5"].__setitem__(
+            "status_authorization",
+            x["stages"]["stage_5"]["cutover_authorization"],
+        ),
+        "does not authorize status closed_maintenance_only",
+    )
 
 
 def test_stage5_acceptance_state_cannot_desynchronize_from_authority_mode(
@@ -461,7 +532,12 @@ def test_stage5_authority_config_cannot_change_mode_without_complete_transaction
             expected = "must remain manual candidate mode"
         else:
             payload["mode"] = "manual"
-            expected = "candidate must forbid authority cutover"
+            ledger = yaml.safe_load(LEDGER.read_text(encoding="utf-8"))
+            expected = (
+                "manual candidate mode cannot be closed before cutover"
+                if ledger["stages"]["stage_5"]["status"] == "closed_maintenance_only"
+                else "candidate must forbid authority cutover"
+            )
         replace_bytes(path, yaml.safe_dump(payload, sort_keys=False).encode("utf-8"))
         proc = run_validator(repo, check=False)
         assert proc.returncode == 2
