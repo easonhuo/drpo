@@ -489,12 +489,14 @@ def test_historical_e7_bench_v69_parallel_pilot_delta_matches_repository_after_i
     assert result.report["registry_change_coverage"]["fully_declared"] is True
 
 
-def test_current_e7_bench_v71_long_budget_pilot_delta_matches_manual_handoff() -> None:
+def test_historical_e7_bench_v71_long_budget_pilot_delta_matches_repository_after_image() -> None:
     delta = (
         ROOT
         / "docs/handoff_deltas/EXT-H-E7-BENCH-LONG-BUDGET-PILOT-V71-2026-07-02/HANDOFF_DELTA.yaml"
     )
-    result = MODULE.check_delta(ROOT, delta)
+    result = MODULE.check_delta(
+        ROOT, delta, target_commit="60e014384f85f88ae18da18f4bf6d3db1d808200"
+    )
     assert result.report["status"] == "PASS"
     assert result.report["exact_manual_candidate_match"] is True
     assert result.report["idempotence_passed"] is True
@@ -502,7 +504,7 @@ def test_current_e7_bench_v71_long_budget_pilot_delta_matches_manual_handoff() -
     assert result.report["registry_change_coverage"]["fully_declared"] is True
 
 
-def test_current_du1_e6_cartesian_taper_v70_delta_matches_manual_handoff() -> None:
+def test_historical_du1_e6_cartesian_taper_v70_delta_matches_repository_after_image() -> None:
     delta = (
         ROOT
         / "docs/handoff_deltas/DU1-E6-CARTESIAN-TAPER-2026-07-02/HANDOFF_DELTA.yaml"
@@ -510,6 +512,19 @@ def test_current_du1_e6_cartesian_taper_v70_delta_matches_manual_handoff() -> No
     result = MODULE.check_delta(
         ROOT, delta, target_commit="4510e4cbc73b845d35e89ff520401db9a3e4a310"
     )
+    assert result.report["status"] == "PASS"
+    assert result.report["exact_manual_candidate_match"] is True
+    assert result.report["idempotence_passed"] is True
+    assert result.report["candidate_replaced_authority"] is False
+    assert result.report["registry_change_coverage"]["fully_declared"] is True
+
+
+def test_current_du1_e6_shared_rarity_v72_delta_matches_manual_handoff() -> None:
+    delta = (
+        ROOT
+        / "docs/handoff_deltas/DU1-E6-SHARED-RARITY-REPAIR-V72-2026-07-02/HANDOFF_DELTA.yaml"
+    )
+    result = MODULE.check_delta(ROOT, delta)
     assert result.report["status"] == "PASS"
     assert result.report["exact_manual_candidate_match"] is True
     assert result.report["idempotence_passed"] is True

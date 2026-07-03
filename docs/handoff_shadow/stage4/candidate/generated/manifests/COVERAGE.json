@@ -1,8 +1,8 @@
 {
   "authority": "shadow_only",
-  "block_count": 430,
-  "canonical_block_count": 269,
-  "canonical_bytes": 355646,
+  "block_count": 433,
+  "canonical_block_count": 272,
+  "canonical_bytes": 361555,
   "compatibility_handoff_exact_match": true,
   "exact_partition": true,
   "exact_reconstruction": true,
@@ -16,8 +16,8 @@
     "continuous_e4_taper": 14,
     "continuous_mechanism_e1_e3": 9,
     "countdown_e8": 5,
-    "execution_status_gates": 17,
-    "global_core_governance": 23,
+    "execution_status_gates": 18,
+    "global_core_governance": 25,
     "history_provenance": 2,
     "hopper_e7": 13,
     "paper_rewrite": 149,
@@ -25,14 +25,14 @@
     "theory_methods_related_work": 21
   },
   "multi_owner_conflict_count": 0,
-  "owned_bytes": 507404,
+  "owned_bytes": 513313,
   "policy_id": "GOV-HANDOFF-INDEX-01",
   "schema_version": 1,
   "source": {
-    "bytes": 507404,
-    "lines": 5774,
+    "bytes": 513313,
+    "lines": 5793,
     "path": "docs/handoff.md",
-    "sha256": "669a31a5fa1c03c65163c16843edbb26ee5b8b8dbe0778e0022d61d8a1798f7a"
+    "sha256": "974228eff0ff57542f91bc5e0a6a36e143301a96618bb03cca4511a664bd87e5"
   },
   "unmapped_count": 0,
   "unresolved_overlap_count": 0

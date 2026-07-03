@@ -158,15 +158,7 @@
     },
     {
       "basis": "explicit_owner_priority_resolution",
-      "block_id": "B000028",
-      "owner": "global_core_governance",
-      "references": [
-        "countdown_e8"
-      ]
-    },
-    {
-      "basis": "explicit_owner_priority_resolution",
-      "block_id": "B000029",
+      "block_id": "B000026",
       "owner": "global_core_governance",
       "references": [
         "categorical_e6_generalization"
@@ -174,11 +166,18 @@
     },
     {
       "basis": "explicit_owner_priority_resolution",
+      "block_id": "B000029",
+      "owner": "global_core_governance",
+      "references": [
+        "countdown_e8"
+      ]
+    },
+    {
+      "basis": "explicit_owner_priority_resolution",
       "block_id": "B000030",
       "owner": "global_core_governance",
       "references": [
-        "categorical_e6_generalization",
-        "hopper_e7"
+        "categorical_e6_generalization"
       ]
     },
     {
@@ -186,8 +185,8 @@
       "block_id": "B000031",
       "owner": "global_core_governance",
       "references": [
-        "hopper_e7",
-        "countdown_e8"
+        "categorical_e6_generalization",
+        "hopper_e7"
       ]
     },
     {
@@ -204,7 +203,8 @@
       "block_id": "B000033",
       "owner": "global_core_governance",
       "references": [
-        "continuous_e4_taper"
+        "hopper_e7",
+        "countdown_e8"
       ]
     },
     {
@@ -220,8 +220,7 @@
       "block_id": "B000035",
       "owner": "global_core_governance",
       "references": [
-        "hopper_e7",
-        "countdown_e8"
+        "continuous_e4_taper"
       ]
     },
     {
@@ -229,7 +228,8 @@
       "block_id": "B000036",
       "owner": "global_core_governance",
       "references": [
-        "continuous_e4_taper"
+        "hopper_e7",
+        "countdown_e8"
       ]
     },
     {
@@ -245,12 +245,28 @@
       "block_id": "B000038",
       "owner": "global_core_governance",
       "references": [
+        "continuous_e4_taper"
+      ]
+    },
+    {
+      "basis": "explicit_owner_priority_resolution",
+      "block_id": "B000039",
+      "owner": "global_core_governance",
+      "references": [
         "categorical_e6_generalization"
       ]
     },
     {
       "basis": "explicit_owner_priority_resolution",
-      "block_id": "B000086",
+      "block_id": "B000040",
+      "owner": "global_core_governance",
+      "references": [
+        "categorical_e6_generalization"
+      ]
+    },
+    {
+      "basis": "explicit_owner_priority_resolution",
+      "block_id": "B000088",
       "owner": "execution_status_gates",
       "references": [
         "categorical_e6_generalization"
@@ -258,7 +274,7 @@
     },
     {
       "basis": "explicit_owner_priority_resolution",
-      "block_id": "B000090",
+      "block_id": "B000092",
       "owner": "execution_status_gates",
       "references": [
         "countdown_e8"
@@ -266,7 +282,7 @@
     },
     {
       "basis": "explicit_owner_priority_resolution",
-      "block_id": "B000092",
+      "block_id": "B000094",
       "owner": "execution_status_gates",
       "references": [
         "categorical_e6_generalization",
@@ -275,7 +291,7 @@
     },
     {
       "basis": "explicit_owner_priority_resolution",
-      "block_id": "B000093",
+      "block_id": "B000095",
       "owner": "execution_status_gates",
       "references": [
         "hopper_e7"
@@ -283,7 +299,7 @@
     },
     {
       "basis": "explicit_owner_priority_resolution",
-      "block_id": "B000097",
+      "block_id": "B000099",
       "owner": "execution_status_gates",
       "references": [
         "hopper_e7"
@@ -291,7 +307,7 @@
     },
     {
       "basis": "explicit_owner_priority_resolution",
-      "block_id": "B000100",
+      "block_id": "B000102",
       "owner": "execution_status_gates",
       "references": [
         "categorical_e6_generalization"
@@ -300,6 +316,6 @@
   ],
   "policy_id": "GOV-HANDOFF-INDEX-01",
   "schema_version": 1,
-  "semantic_graph_hash": "050a7a03b0566e231ad85dae29a4e4d57404d3ce988cfaa19d3b49e82ae98eea",
+  "semantic_graph_hash": "5f30506ba4372d5267441f86088e5635f10831481110a70949831e25bfb85aba",
   "taxonomy_changes": []
 }

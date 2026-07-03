@@ -3,15 +3,15 @@ policy_id: GOV-HANDOFF-INDEX-01
 authority: non_authoritative_stage4a_shadow_inventory
 source:
   path: docs/handoff.md
-  sha256: 669a31a5fa1c03c65163c16843edbb26ee5b8b8dbe0778e0022d61d8a1798f7a
+  sha256: 974228eff0ff57542f91bc5e0a6a36e143301a96618bb03cca4511a664bd87e5
 classification_method: manual_reviewed_semantic_mapping_with_conservative_multi_module_assignment
 headings:
 - heading_id: H0001
   ordinal: 1
   level: 1
   line: 1
-  title: DRPO / SNA2C 远场负梯度动力学研究主文档 v71（E7-BENCH 长预算等时并行 Pilot 修正版）
-  slug: drpo-sna2c-远场负梯度动力学研究主文档-v71-e7-bench-长预算等时并行-pilot-修正版
+  title: DRPO / SNA2C 远场负梯度动力学研究主文档 v72（D-U1 E6 shared-rarity 环境修复版）
+  slug: drpo-sna2c-远场负梯度动力学研究主文档-v72-d-u1-e6-shared-rarity-环境修复版
   occurrence: 1
   module_ids:
   - categorical_e5_e6
@@ -44,7 +44,7 @@ headings:
 - heading_id: H0003
   ordinal: 3
   level: 2
-  line: 791
+  line: 804
   title: 0.1 当前执行门禁
   slug: 0-1-当前执行门禁
   occurrence: 1
@@ -58,7 +58,7 @@ headings:
 - heading_id: H0004
   ordinal: 4
   level: 2
-  line: 837
+  line: 853
   title: 0.2 C-U1 泛化术语覆盖规则（v15 锁定）
   slug: 0-2-c-u1-泛化术语覆盖规则-v15-锁定
   occurrence: 1
@@ -73,7 +73,7 @@ headings:
 - heading_id: H0005
   ordinal: 5
   level: 2
-  line: 846
+  line: 862
   title: 0.3 正式实验守护与可持久交付门禁（v19 锁定）
   slug: 0-3-正式实验守护与可持久交付门禁-v19-锁定
   occurrence: 1
@@ -87,7 +87,7 @@ headings:
 - heading_id: H0006
   ordinal: 6
   level: 2
-  line: 859
+  line: 875
   title: 0.4 Registry 执行状态一致性（v42 锁定）
   slug: 0-4-registry-执行状态一致性-v42-锁定
   occurrence: 1
@@ -101,7 +101,7 @@ headings:
 - heading_id: H0007
   ordinal: 7
   level: 1
-  line: 868
+  line: 884
   title: 1. 论文最终目标与两条主工作线
   slug: 1-论文最终目标与两条主工作线
   occurrence: 1
@@ -116,7 +116,7 @@ headings:
 - heading_id: H0008
   ordinal: 8
   level: 2
-  line: 870
+  line: 886
   title: 1.1 论文目标
   slug: 1-1-论文目标
   occurrence: 1
@@ -131,7 +131,7 @@ headings:
 - heading_id: H0009
   ordinal: 9
   level: 2
-  line: 874
+  line: 890
   title: 1.2 理论修改主线
   slug: 1-2-理论修改主线
   occurrence: 1
@@ -146,7 +146,7 @@ headings:
 - heading_id: H0010
   ordinal: 10
   level: 2
-  line: 882
+  line: 898
   title: 1.3 新实验主线
   slug: 1-3-新实验主线
   occurrence: 1
@@ -161,7 +161,7 @@ headings:
 - heading_id: H0011
   ordinal: 11
   level: 1
-  line: 891
+  line: 907
   title: 2. 环境登记表（锁定）
   slug: 2-环境登记表-锁定
   occurrence: 1
@@ -178,7 +178,7 @@ headings:
 - heading_id: H0012
   ordinal: 12
   level: 1
-  line: 906
+  line: 922
   title: 3. 连续统一环境 C-U1 的详细设计
   slug: 3-连续统一环境-c-u1-的详细设计
   occurrence: 1
@@ -192,7 +192,7 @@ headings:
 - heading_id: H0013
   ordinal: 13
   level: 2
-  line: 908
+  line: 924
   title: 3.1 状态与动作
   slug: 3-1-状态与动作
   occurrence: 1
@@ -207,7 +207,7 @@ headings:
 - heading_id: H0014
   ordinal: 14
   level: 3
-  line: 914
+  line: 930
   title: 3.1.1 “context/state”在小网络中的具体含义
   slug: 3-1-1-context-state-在小网络中的具体含义
   occurrence: 1
@@ -221,7 +221,7 @@ headings:
 - heading_id: H0015
   ordinal: 15
   level: 2
-  line: 925
+  line: 941
   title: 3.2 数据与奖励
   slug: 3-2-数据与奖励
   occurrence: 1
@@ -235,7 +235,7 @@ headings:
 - heading_id: H0016
   ordinal: 16
   level: 2
-  line: 929
+  line: 945
   title: 3.3 同一环境如何支持四个实验
   slug: 3-3-同一环境如何支持四个实验
   occurrence: 1
@@ -249,7 +249,7 @@ headings:
 - heading_id: H0017
   ordinal: 17
   level: 2
-  line: 936
+  line: 952
   title: 3.4 需要预先讨论而不能擅自决定的设计项
   slug: 3-4-需要预先讨论而不能擅自决定的设计项
   occurrence: 1
@@ -263,7 +263,7 @@ headings:
 - heading_id: H0018
   ordinal: 18
   level: 2
-  line: 947
+  line: 963
   title: 3.5 v13 冻结后的 C-U1 正式配置
   slug: 3-5-v13-冻结后的-c-u1-正式配置
   occurrence: 1
@@ -277,7 +277,7 @@ headings:
 - heading_id: H0019
   ordinal: 19
   level: 2
-  line: 964
+  line: 980
   title: 3.6 v13 执行期勘误与 E4 正式协议冻结
   slug: 3-6-v13-执行期勘误与-e4-正式协议冻结
   occurrence: 1
@@ -292,7 +292,7 @@ headings:
 - heading_id: H0020
   ordinal: 20
   level: 3
-  line: 966
+  line: 982
   title: 3.6.1 正样本几何勘误（不破坏性覆盖）
   slug: 3-6-1-正样本几何勘误-不破坏性覆盖
   occurrence: 1
@@ -306,7 +306,7 @@ headings:
 - heading_id: H0021
   ordinal: 21
   level: 3
-  line: 974
+  line: 990
   title: 3.6.2 E4：稳定外推—相变—远场控制
   slug: 3-6-2-e4-稳定外推-相变-远场控制
   occurrence: 1
@@ -320,7 +320,7 @@ headings:
 - heading_id: H0022
   ordinal: 22
   level: 3
-  line: 986
+  line: 1002
   title: 3.6.3 E4 数值配置冻结与一次执行流程纠正
   slug: 3-6-3-e4-数值配置冻结与一次执行流程纠正
   occurrence: 1
@@ -335,7 +335,7 @@ headings:
 - heading_id: H0023
   ordinal: 23
   level: 3
-  line: 999
+  line: 1015
   title: 3.6.4 E4 控制分支的精确长程配置
   slug: 3-6-4-e4-控制分支的精确长程配置
   occurrence: 1
@@ -349,7 +349,7 @@ headings:
 - heading_id: H0024
   ordinal: 24
   level: 3
-  line: 1007
+  line: 1023
   title: 3.6.5 v29 统一 Adam 执行覆盖（当前有效协议）
   slug: 3-6-5-v29-统一-adam-执行覆盖-当前有效协议
   occurrence: 1
@@ -364,7 +364,7 @@ headings:
 - heading_id: H0025
   ordinal: 25
   level: 3
-  line: 1019
+  line: 1035
   title: 3.6.6 `C-U1-E4-CONV-01` 长程终态确认（v33 当前有效协议）
   slug: 3-6-6-c-u1-e4-conv-01-长程终态确认-v33-当前有效协议
   occurrence: 1
@@ -378,7 +378,7 @@ headings:
 - heading_id: H0026
   ordinal: 26
   level: 2
-  line: 1033
+  line: 1049
   title: 3.7 D-U1 / E6 开发配置登记（E4 已完成；用户已批准与 E4-TAPER 并行）
   slug: 3-7-d-u1-e6-开发配置登记-e4-已完成-用户已批准与-e4-taper-并行
   occurrence: 1
@@ -393,7 +393,7 @@ headings:
 - heading_id: H0027
   ordinal: 27
   level: 2
-  line: 1049
+  line: 1065
   title: 3.7.1 D-U1 / D-Diag E5 长程复核 `D-U1-E5-LONGRUN-RERUN`
   slug: 3-7-1-d-u1-d-diag-e5-长程复核-d-u1-e5-longrun-rerun
   occurrence: 1
@@ -407,7 +407,7 @@ headings:
 - heading_id: H0028
   ordinal: 28
   level: 2
-  line: 1063
+  line: 1079
   title: 3.7.2 E5 长程复核结果与论文口径
   slug: 3-7-2-e5-长程复核结果与论文口径
   occurrence: 1
@@ -422,7 +422,7 @@ headings:
 - heading_id: H0029
   ordinal: 29
   level: 2
-  line: 1072
+  line: 1088
   title: 3.7.3 E6 共享语义 pilot `D-U1-E6-SEMANTIC-PILOT-01`
   slug: 3-7-3-e6-共享语义-pilot-d-u1-e6-semantic-pilot-01
   occurrence: 1
@@ -436,7 +436,7 @@ headings:
 - heading_id: H0030
   ordinal: 30
   level: 2
-  line: 1087
+  line: 1103
   title: 3.8 C-U1 共享实现与二次阶方法实验 `C-U1-E4-TAPER-01`
   slug: 3-8-c-u1-共享实现与二次阶方法实验-c-u1-e4-taper-01
   occurrence: 1
@@ -451,7 +451,7 @@ headings:
 - heading_id: H0031
   ordinal: 31
   level: 3
-  line: 1089
+  line: 1105
   title: 3.8.1 代码单一来源
   slug: 3-8-1-代码单一来源
   occurrence: 1
@@ -466,7 +466,7 @@ headings:
 - heading_id: H0032
   ordinal: 32
   level: 3
-  line: 1093
+  line: 1109
   title: 3.8.2 唯一距离与方法公式
   slug: 3-8-2-唯一距离与方法公式
   occurrence: 1
@@ -481,7 +481,7 @@ headings:
 - heading_id: H0033
   ordinal: 33
   level: 3
-  line: 1111
+  line: 1127
   title: 3.8.3 正式协议
   slug: 3-8-3-正式协议
   occurrence: 1
@@ -496,7 +496,7 @@ headings:
 - heading_id: H0034
   ordinal: 34
   level: 3
-  line: 1127
+  line: 1143
   title: 3.8.4 环境连续性、质量匹配与方向效用边界（v44 澄清）
   slug: 3-8-4-环境连续性-质量匹配与方向效用边界-v44-澄清
   occurrence: 1
@@ -512,7 +512,7 @@ headings:
 - heading_id: H0035
   ordinal: 35
   level: 3
-  line: 1136
+  line: 1152
   title: 3.8.5 函数族公平性、解析阶数与后续验证（v44 澄清）
   slug: 3-8-5-函数族公平性-解析阶数与后续验证-v44-澄清
   occurrence: 1
@@ -527,7 +527,7 @@ headings:
 - heading_id: H0036
   ordinal: 36
   level: 3
-  line: 1151
+  line: 1167
   title: 3.8.6 负样本 alignment utility、正交代价与净效用假设（v60）
   slug: 3-8-6-负样本-alignment-utility-正交代价与净效用假设-v60
   occurrence: 1
@@ -541,7 +541,7 @@ headings:
 - heading_id: H0037
   ordinal: 37
   level: 3
-  line: 1179
+  line: 1195
   title: 3.8.7 Quadratic bounded influence 与 Exponential vanishing influence（v60）
   slug: 3-8-7-quadratic-bounded-influence-与-exponential-vanishing-influence-v60
   occurrence: 1
@@ -555,7 +555,7 @@ headings:
 - heading_id: H0038
   ordinal: 38
   level: 3
-  line: 1205
+  line: 1221
   title: 3.8.8 四项后续实验登记与职责拆分（v60）
   slug: 3-8-8-四项后续实验登记与职责拆分-v60
   occurrence: 1
@@ -570,7 +570,7 @@ headings:
 - heading_id: H0039
   ordinal: 39
   level: 3
-  line: 1214
+  line: 1230
   title: 3.8.9 当前阶段闭环与低优先级项目（v60）
   slug: 3-8-9-当前阶段闭环与低优先级项目-v60
   occurrence: 1
@@ -584,7 +584,7 @@ headings:
 - heading_id: H0040
   ordinal: 40
   level: 3
-  line: 1219
+  line: 1235
   title: 3.8.10 Near-Retention Matching 正式协议（v61）
   slug: 3-8-10-near-retention-matching-正式协议-v61
   occurrence: 1
@@ -599,7 +599,7 @@ headings:
 - heading_id: H0041
   ordinal: 41
   level: 3
-  line: 1255
+  line: 1271
   title: 3.8.11 Near-Retention 结果沉淀与闭环实验协议（v63）
   slug: 3-8-11-near-retention-结果沉淀与闭环实验协议-v63
   occurrence: 1
@@ -614,7 +614,7 @@ headings:
 - heading_id: H0042
   ordinal: 42
   level: 3
-  line: 1292
+  line: 1308
   title: 3.8.12 Budget-Match 正式结果与证据边界（v66）
   slug: 3-8-12-budget-match-正式结果与证据边界-v66
   occurrence: 1
@@ -629,7 +629,7 @@ headings:
 - heading_id: H0043
   ordinal: 43
   level: 2
-  line: 1315
+  line: 1331
   title: 3.9 E6--E8 方法迁移与规模验证路线（v42 锁定）
   slug: 3-9-e6-e8-方法迁移与规模验证路线-v42-锁定
   occurrence: 1
@@ -646,7 +646,7 @@ headings:
 - heading_id: H0044
   ordinal: 44
   level: 1
-  line: 1340
+  line: 1356
   title: 4. 论文机制实验总表与验收标准
   slug: 4-论文机制实验总表与验收标准
   occurrence: 1
@@ -664,7 +664,7 @@ headings:
 - heading_id: H0045
   ordinal: 45
   level: 2
-  line: 1364
+  line: 1380
   title: 4.1 动力学实验统一收敛标准
   slug: 4-1-动力学实验统一收敛标准
   occurrence: 1
@@ -681,7 +681,7 @@ headings:
 - heading_id: H0046
   ordinal: 46
   level: 1
-  line: 1376
+  line: 1392
   title: 5. 当前真实完成状态
   slug: 5-当前真实完成状态
   occurrence: 1
@@ -698,7 +698,7 @@ headings:
 - heading_id: H0047
   ordinal: 47
   level: 1
-  line: 1403
+  line: 1419
   title: 6. 接下来唯一执行顺序
   slug: 6-接下来唯一执行顺序
   occurrence: 1
@@ -715,7 +715,7 @@ headings:
 - heading_id: H0048
   ordinal: 48
   level: 1
-  line: 1454
+  line: 1473
   title: 7. 变量治理
   slug: 7-变量治理
   occurrence: 1
@@ -731,7 +731,7 @@ headings:
 - heading_id: H0049
   ordinal: 49
   level: 2
-  line: 1456
+  line: 1475
   title: 7.1 原体系保留的核心变量
   slug: 7-1-原体系保留的核心变量
   occurrence: 1
@@ -747,7 +747,7 @@ headings:
 - heading_id: H0050
   ordinal: 50
   level: 2
-  line: 1460
+  line: 1479
   title: 7.2 Exponential-family 核心定理所需新增符号
   slug: 7-2-exponential-family-核心定理所需新增符号
   occurrence: 1
@@ -763,7 +763,7 @@ headings:
 - heading_id: H0051
   ordinal: 51
   level: 2
-  line: 1464
+  line: 1483
   title: 7.3 共同负对数概率
   slug: 7-3-共同负对数概率
   occurrence: 1
@@ -779,7 +779,7 @@ headings:
 - heading_id: H0052
   ordinal: 52
   level: 2
-  line: 1468
+  line: 1487
   title: 7.4 撤出主体系的符号
   slug: 7-4-撤出主体系的符号
   occurrence: 1
@@ -795,7 +795,7 @@ headings:
 - heading_id: H0053
   ordinal: 53
   level: 1
-  line: 1474
+  line: 1493
   title: 8. v4-v10 版本审计与恢复策略
   slug: 8-v4-v10-版本审计与恢复策略
   occurrence: 1
@@ -812,7 +812,7 @@ headings:
 - heading_id: H0054
   ordinal: 54
   level: 2
-  line: 1487
+  line: 1506
   title: 8.1 为什么 v8 删除是不合理的
   slug: 8-1-为什么-v8-删除是不合理的
   occurrence: 1
@@ -828,7 +828,7 @@ headings:
 - heading_id: H0055
   ordinal: 55
   level: 1
-  line: 1501
+  line: 1520
   title: 9. 原审稿问题与新论文的硬约束
   slug: 9-原审稿问题与新论文的硬约束
   occurrence: 1
@@ -844,7 +844,7 @@ headings:
 - heading_id: H0056
   ordinal: 56
   level: 1
-  line: 1516
+  line: 1535
   title: 10. 当前新环境原型的审计结果
   slug: 10-当前新环境原型的审计结果
   occurrence: 1
@@ -859,7 +859,7 @@ headings:
 - heading_id: H0057
   ordinal: 57
   level: 1
-  line: 1538
+  line: 1557
   title: 11. v13 正式执行日志
   slug: 11-v13-正式执行日志
   occurrence: 1
@@ -874,7 +874,7 @@ headings:
 - heading_id: H0058
   ordinal: 58
   level: 2
-  line: 1540
+  line: 1559
   title: 11.1 C-U1 单 seed 回归（2026-06-24）
   slug: 11-1-c-u1-单-seed-回归-2026-06-24
   occurrence: 1
@@ -889,7 +889,7 @@ headings:
 - heading_id: H0059
   ordinal: 59
   level: 2
-  line: 1546
+  line: 1565
   title: 11.2 E1：统一环境中的瞬时梯度来源隔离（2026-06-24）
   slug: 11-2-e1-统一环境中的瞬时梯度来源隔离-2026-06-24
   occurrence: 1
@@ -904,7 +904,7 @@ headings:
 - heading_id: H0060
   ordinal: 60
   level: 2
-  line: 1560
+  line: 1579
   title: 11.3 E2：Positive-only 完整动力学与终态审计（2026-06-24）
   slug: 11-3-e2-positive-only-完整动力学与终态审计-2026-06-24
   occurrence: 1
@@ -919,7 +919,7 @@ headings:
 - heading_id: H0061
   ordinal: 61
   level: 2
-  line: 1579
+  line: 1598
   title: 11.4 E3：C-U1 统一 Adam Near/Far 因果干预（2026-06-25，当前论文结果）
   slug: 11-4-e3-c-u1-统一-adam-near-far-因果干预-2026-06-25-当前论文结果
   occurrence: 1
@@ -935,7 +935,7 @@ headings:
 - heading_id: H0062
   ordinal: 62
   level: 3
-  line: 1583
+  line: 1602
   title: 固定方差：远场路径传导为任务性能崩溃
   slug: 固定方差-远场路径传导为任务性能崩溃
   occurrence: 1
@@ -950,7 +950,7 @@ headings:
 - heading_id: H0063
   ordinal: 63
   level: 3
-  line: 1598
+  line: 1617
   title: 可学习方差：远场路径提前触发支持收缩
   slug: 可学习方差-远场路径提前触发支持收缩
   occurrence: 1
@@ -965,7 +965,7 @@ headings:
 - heading_id: H0064
   ordinal: 64
   level: 3
-  line: 1612
+  line: 1631
   title: 因果结论、论文位置与边界
   slug: 因果结论-论文位置与边界
   occurrence: 1
@@ -982,7 +982,7 @@ headings:
 - heading_id: H0065
   ordinal: 65
   level: 3
-  line: 1620
+  line: 1639
   title: 来源与聚合审计说明
   slug: 来源与聚合审计说明
   occurrence: 1
@@ -997,7 +997,7 @@ headings:
 - heading_id: H0066
   ordinal: 66
   level: 2
-  line: 1624
+  line: 1643
   title: 11.4 E3：C-U1 长期 Near/Far 因果干预（2026-06-24，历史 SGD 证据）
   slug: 11-4-e3-c-u1-长期-near-far-因果干预-2026-06-24-历史-sgd-证据
   occurrence: 1
@@ -1012,7 +1012,7 @@ headings:
 - heading_id: H0067
   ordinal: 67
   level: 3
-  line: 1630
+  line: 1649
   title: 固定方差任务崩溃分支
   slug: 固定方差任务崩溃分支
   occurrence: 1
@@ -1027,7 +1027,7 @@ headings:
 - heading_id: H0068
   ordinal: 68
   level: 3
-  line: 1636
+  line: 1655
   title: 可学习方差精度坍缩分支
   slug: 可学习方差精度坍缩分支
   occurrence: 1
@@ -1042,7 +1042,7 @@ headings:
 - heading_id: H0069
   ordinal: 69
   level: 2
-  line: 1645
+  line: 1664
   title: 11.4 E3 历史 SGD 协议冻结补充：均值任务崩溃与可学习方差提前失稳
   slug: 11-4-e3-历史-sgd-协议冻结补充-均值任务崩溃与可学习方差提前失稳
   occurrence: 1
@@ -1057,7 +1057,7 @@ headings:
 - heading_id: H0070
   ordinal: 70
   level: 2
-  line: 1656
+  line: 1675
   title: 11.7 C-U1 论文成熟度与剩余漏洞审计（2026-06-24）
   slug: 11-7-c-u1-论文成熟度与剩余漏洞审计-2026-06-24
   occurrence: 1
@@ -1073,7 +1073,7 @@ headings:
 - heading_id: H0071
   ordinal: 71
   level: 3
-  line: 1658
+  line: 1677
   title: 当前判断
   slug: 当前判断
   occurrence: 1
@@ -1088,7 +1088,7 @@ headings:
 - heading_id: H0072
   ordinal: 72
   level: 3
-  line: 1668
+  line: 1687
   title: 需要优先补强的漏洞
   slug: 需要优先补强的漏洞
   occurrence: 1
@@ -1103,7 +1103,7 @@ headings:
 - heading_id: H0073
   ordinal: 73
   level: 1
-  line: 1676
+  line: 1695
   title: Part II. v7 全量累积研究记录（原文保留）
   slug: part-ii-v7-全量累积研究记录-原文保留
   occurrence: 1
@@ -1119,7 +1119,7 @@ headings:
 - heading_id: H0074
   ordinal: 74
   level: 1
-  line: 1720
+  line: 1739
   title: 文档结构
   slug: 文档结构
   occurrence: 1
@@ -1135,7 +1135,7 @@ headings:
 - heading_id: H0075
   ordinal: 75
   level: 2
-  line: 1736
+  line: 1755
   title: 2.1 机制分析的 fixed-advantage naive-PG 假设
   slug: 2-1-机制分析的-fixed-advantage-naive-pg-假设
   occurrence: 1
@@ -1151,7 +1151,7 @@ headings:
 - heading_id: H0076
   ordinal: 76
   level: 1
-  line: 1771
+  line: 1790
   title: 0. 新会话交接：必须继承的共识与阅读顺序
   slug: 0-新会话交接-必须继承的共识与阅读顺序
   occurrence: 1
@@ -1167,7 +1167,7 @@ headings:
 - heading_id: H0077
   ordinal: 77
   level: 2
-  line: 1775
+  line: 1794
   title: 0.1 两套环境必须严格区分
   slug: 0-1-两套环境必须严格区分
   occurrence: 1
@@ -1183,7 +1183,7 @@ headings:
 - heading_id: H0078
   ordinal: 78
   level: 2
-  line: 1790
+  line: 1809
   title: 0.2 已锁定、未锁定与后续可变结论
   slug: 0-2-已锁定-未锁定与后续可变结论
   occurrence: 1
@@ -1199,7 +1199,7 @@ headings:
 - heading_id: H0079
   ordinal: 79
   level: 2
-  line: 1799
+  line: 1818
   title: 0.3 三个容易误判、但不应再反复争论的问题
   slug: 0-3-三个容易误判-但不应再反复争论的问题
   occurrence: 1
@@ -1215,7 +1215,7 @@ headings:
 - heading_id: H0080
   ordinal: 80
   level: 2
-  line: 1814
+  line: 1833
   title: 0.4 当前论文主线与执行优先级
   slug: 0-4-当前论文主线与执行优先级
   occurrence: 1
@@ -1232,7 +1232,7 @@ headings:
 - heading_id: H0081
   ordinal: 81
   level: 2
-  line: 1829
+  line: 1848
   title: 0.5 方法族的稳定解释
   slug: 0-5-方法族的稳定解释
   occurrence: 1
@@ -1248,7 +1248,7 @@ headings:
 - heading_id: H0082
   ordinal: 82
   level: 2
-  line: 1842
+  line: 1861
   title: 0.6 P0 的固定 advantage 假设与未来环境统一（必须继承）
   slug: 0-6-p0-的固定-advantage-假设与未来环境统一-必须继承
   occurrence: 1
@@ -1264,7 +1264,7 @@ headings:
 - heading_id: H0083
   ordinal: 83
   level: 2
-  line: 1874
+  line: 1893
   title: 0.7 Gaussian 方差动力学修正与联合稳态（必须继承）
   slug: 0-7-gaussian-方差动力学修正与联合稳态-必须继承
   occurrence: 1
@@ -1281,7 +1281,7 @@ headings:
 - heading_id: H0084
   ordinal: 84
   level: 2
-  line: 1906
+  line: 1925
   title: 0.8 统一 benchmark 的新锁定结论（必须继承）
   slug: 0-8-统一-benchmark-的新锁定结论-必须继承
   occurrence: 1
@@ -1297,7 +1297,7 @@ headings:
 - heading_id: H0085
   ordinal: 85
   level: 1
-  line: 1942
+  line: 1961
   title: 1. 执行摘要与最终判断
   slug: 1-执行摘要与最终判断
   occurrence: 1
@@ -1314,7 +1314,7 @@ headings:
 - heading_id: H0086
   ordinal: 86
   level: 1
-  line: 1979
+  line: 1998
   title: 2. 理论命题与需要闭合的因果链
   slug: 2-理论命题与需要闭合的因果链
   occurrence: 1
@@ -1330,7 +1330,7 @@ headings:
 - heading_id: H0087
   ordinal: 87
   level: 2
-  line: 2010
+  line: 2029
   title: 2.2 从 expected Fisher 改为 signed off-policy 动力场 Jacobian
   slug: 2-2-从-expected-fisher-改为-signed-off-policy-动力场-jacobian
   occurrence: 1
@@ -1346,7 +1346,7 @@ headings:
 - heading_id: H0088
   ordinal: 88
   level: 1
-  line: 2029
+  line: 2048
   title: 3. 实验一：badness–distance 严格解耦下的梯度来源分解
   slug: 3-实验一-badness-distance-严格解耦下的梯度来源分解
   occurrence: 1
@@ -1361,7 +1361,7 @@ headings:
 - heading_id: H0089
   ordinal: 89
   level: 2
-  line: 2031
+  line: 2050
   title: 3.1 乘积流形构造
   slug: 3-1-乘积流形构造
   occurrence: 1
@@ -1376,7 +1376,7 @@ headings:
 - heading_id: H0090
   ordinal: 90
   level: 2
-  line: 2043
+  line: 2062
   title: 3.2 梯度分解结果
   slug: 3-2-梯度分解结果
   occurrence: 1
@@ -1392,7 +1392,7 @@ headings:
 - heading_id: H0091
   ordinal: 91
   level: 1
-  line: 2076
+  line: 2095
   title: 4. 实验二：非线性 Gaussian actor 中的因果干预
   slug: 4-实验二-非线性-gaussian-actor-中的因果干预
   occurrence: 1
@@ -1407,7 +1407,7 @@ headings:
 - heading_id: H0092
   ordinal: 92
   level: 2
-  line: 2078
+  line: 2097
   title: 4.1 环境与预注册式选择
   slug: 4-1-环境与预注册式选择
   occurrence: 1
@@ -1422,7 +1422,7 @@ headings:
 - heading_id: H0093
   ordinal: 93
   level: 2
-  line: 2091
+  line: 2110
   title: 4.2 五类关键干预
   slug: 4-2-五类关键干预
   occurrence: 1
@@ -1437,7 +1437,7 @@ headings:
 - heading_id: H0094
   ordinal: 94
   level: 2
-  line: 2102
+  line: 2121
   title: 4.3 初始机制诊断
   slug: 4-3-初始机制诊断
   occurrence: 1
@@ -1452,7 +1452,7 @@ headings:
 - heading_id: H0095
   ordinal: 95
   level: 2
-  line: 2118
+  line: 2137
   title: 4.4 20-seed held-out 主结果
   slug: 4-4-20-seed-held-out-主结果
   occurrence: 1
@@ -1468,7 +1468,7 @@ headings:
 - heading_id: H0096
   ordinal: 96
   level: 2
-  line: 2136
+  line: 2155
   title: 4.5 配对因果效应
   slug: 4-5-配对因果效应
   occurrence: 1
@@ -1483,7 +1483,7 @@ headings:
 - heading_id: H0097
   ordinal: 97
   level: 2
-  line: 2162
+  line: 2181
   title: 4.6 时序中介与 OOD 漂移
   slug: 4-6-时序中介与-ood-漂移
   occurrence: 1
@@ -1498,7 +1498,7 @@ headings:
 - heading_id: H0098
   ordinal: 98
   level: 2
-  line: 2174
+  line: 2193
   title: 4.7 稳健性与实现验证
   slug: 4-7-稳健性与实现验证
   occurrence: 1
@@ -1513,7 +1513,7 @@ headings:
 - heading_id: H0099
   ordinal: 99
   level: 1
-  line: 2187
+  line: 2206
   title: 5. 证据强度、结论边界与仍未证明的内容
   slug: 5-证据强度-结论边界与仍未证明的内容
   occurrence: 1
@@ -1529,7 +1529,7 @@ headings:
 - heading_id: H0100
   ordinal: 100
   level: 2
-  line: 2189
+  line: 2208
   title: 5.1 当前可以强声明的内容
   slug: 5-1-当前可以强声明的内容
   occurrence: 1
@@ -1544,7 +1544,7 @@ headings:
 - heading_id: H0101
   ordinal: 101
   level: 2
-  line: 2202
+  line: 2221
   title: 5.2 仍不可直接声称的内容
   slug: 5-2-仍不可直接声称的内容
   occurrence: 1
@@ -1559,7 +1559,7 @@ headings:
 - heading_id: H0102
   ordinal: 102
   level: 1
-  line: 2216
+  line: 2235
   title: 6. 对 DRPO 论文贡献的含义
   slug: 6-对-drpo-论文贡献的含义
   occurrence: 1
@@ -1574,7 +1574,7 @@ headings:
 - heading_id: H0103
   ordinal: 103
   level: 2
-  line: 2241
+  line: 2260
   title: 6.1 可形成的论文贡献组合
   slug: 6-1-可形成的论文贡献组合
   occurrence: 1
@@ -1589,7 +1589,7 @@ headings:
 - heading_id: H0104
   ordinal: 104
   level: 2
-  line: 2258
+  line: 2277
   title: 6.2 对原论文 claim 的增强与修正
   slug: 6-2-对原论文-claim-的增强与修正
   occurrence: 1
@@ -1604,7 +1604,7 @@ headings:
 - heading_id: H0105
   ordinal: 105
   level: 1
-  line: 2267
+  line: 2286
   title: 7. 与相关工作的关系及 novelty 定位
   slug: 7-与相关工作的关系及-novelty-定位
   occurrence: 1
@@ -1619,7 +1619,7 @@ headings:
 - heading_id: H0106
   ordinal: 106
   level: 2
-  line: 2287
+  line: 2306
   title: 7.1 推荐 novelty 表述
   slug: 7-1-推荐-novelty-表述
   occurrence: 1
@@ -1634,7 +1634,7 @@ headings:
 - heading_id: H0107
   ordinal: 107
   level: 1
-  line: 2312
+  line: 2331
   title: 8. 建议写入论文的核心 claims、图表与段落结构
   slug: 8-建议写入论文的核心-claims-图表与段落结构
   occurrence: 1
@@ -1649,7 +1649,7 @@ headings:
 - heading_id: H0108
   ordinal: 108
   level: 2
-  line: 2314
+  line: 2333
   title: 8.1 建议的核心 claims
   slug: 8-1-建议的核心-claims
   occurrence: 1
@@ -1664,7 +1664,7 @@ headings:
 - heading_id: H0109
   ordinal: 109
   level: 2
-  line: 2333
+  line: 2352
   title: 8.2 建议的实验章节结构
   slug: 8-2-建议的实验章节结构
   occurrence: 1
@@ -1679,7 +1679,7 @@ headings:
 - heading_id: H0110
   ordinal: 110
   level: 2
-  line: 2352
+  line: 2371
   title: 8.3 论文中需要避免的过度表述
   slug: 8-3-论文中需要避免的过度表述
   occurrence: 1
@@ -1694,7 +1694,7 @@ headings:
 - heading_id: H0111
   ordinal: 111
   level: 1
-  line: 2380
+  line: 2399
   title: 9. 旧阶段路线回顾与更新后的执行顺序
   slug: 9-旧阶段路线回顾与更新后的执行顺序
   occurrence: 1
@@ -1710,7 +1710,7 @@ headings:
 - heading_id: H0112
   ordinal: 112
   level: 1
-  line: 2400
+  line: 2419
   title: 10. 从推荐扩展到通用 Off-Policy Policy Optimization
   slug: 10-从推荐扩展到通用-off-policy-policy-optimization
   occurrence: 1
@@ -1725,7 +1725,7 @@ headings:
 - heading_id: H0113
   ordinal: 113
   level: 2
-  line: 2412
+  line: 2431
   title: 建议的总框架：
   slug: 建议的总框架
   occurrence: 1
@@ -1741,7 +1741,7 @@ headings:
 - heading_id: H0114
   ordinal: 114
   level: 1
-  line: 2431
+  line: 2450
   title: 11. 连续—离散统一的 Repulsive Surprisal Dynamics
   slug: 11-连续-离散统一的-repulsive-surprisal-dynamics
   occurrence: 1
@@ -1757,7 +1757,7 @@ headings:
 - heading_id: H0115
   ordinal: 115
   level: 2
-  line: 2433
+  line: 2452
   title: 11.1 与动作空间无关的一阶动力学恒等式
   slug: 11-1-与动作空间无关的一阶动力学恒等式
   occurrence: 1
@@ -1773,7 +1773,7 @@ headings:
 - heading_id: H0116
   ordinal: 116
   level: 2
-  line: 2454
+  line: 2473
   title: 11.2 连续 Gaussian：梯度幅度自增强
   slug: 11-2-连续-gaussian-梯度幅度自增强
   occurrence: 1
@@ -1789,7 +1789,7 @@ headings:
 - heading_id: H0117
   ordinal: 117
   level: 2
-  line: 2462
+  line: 2481
   title: 11.3 离散 softmax：持续排斥与支持集坍缩
   slug: 11-3-离散-softmax-持续排斥与支持集坍缩
   occurrence: 1
@@ -1805,7 +1805,7 @@ headings:
 - heading_id: H0118
   ordinal: 118
   level: 2
-  line: 2485
+  line: 2504
   title: 11.4 统一理论的潜在贡献
   slug: 11-4-统一理论的潜在贡献
   occurrence: 1
@@ -1821,7 +1821,7 @@ headings:
 - heading_id: H0119
   ordinal: 119
   level: 1
-  line: 2501
+  line: 2520
   title: 12. 为什么负梯度并不总是有害：局部泛化与远场失稳
   slug: 12-为什么负梯度并不总是有害-局部泛化与远场失稳
   occurrence: 1
@@ -1837,7 +1837,7 @@ headings:
 - heading_id: H0120
   ordinal: 120
   level: 2
-  line: 2508
+  line: 2527
   title: 12.1 正优势提供 attraction，但存在 imitation ceiling
   slug: 12-1-正优势提供-attraction-但存在-imitation-ceiling
   occurrence: 1
@@ -1853,7 +1853,7 @@ headings:
 - heading_id: H0121
   ordinal: 121
   level: 2
-  line: 2516
+  line: 2535
   title: 12.2 受控负优势提供 boundary shaping 与 mode suppression
   slug: 12-2-受控负优势提供-boundary-shaping-与-mode-suppression
   occurrence: 1
@@ -1869,7 +1869,7 @@ headings:
 - heading_id: H0122
   ordinal: 122
   level: 2
-  line: 2530
+  line: 2549
   title: 12.3 为什么远场负梯度会从有益变为有害
   slug: 12-3-为什么远场负梯度会从有益变为有害
   occurrence: 1
@@ -1885,7 +1885,7 @@ headings:
 - heading_id: H0123
   ordinal: 123
   level: 2
-  line: 2549
+  line: 2568
   title: 12.4 建议的形式化方向
   slug: 12-4-建议的形式化方向
   occurrence: 1
@@ -1901,7 +1901,7 @@ headings:
 - heading_id: H0124
   ordinal: 124
   level: 2
-  line: 2565
+  line: 2584
   title: 12.5 一维 Gaussian 的稳定外推闭式模型
   slug: 12-5-一维-gaussian-的稳定外推闭式模型
   occurrence: 1
@@ -1917,7 +1917,7 @@ headings:
 - heading_id: H0125
   ordinal: 125
   level: 2
-  line: 2591
+  line: 2610
   title: 12.6 可学习方差下的联合均值—方差稳态
   slug: 12-6-可学习方差下的联合均值-方差稳态
   occurrence: 1
@@ -1933,7 +1933,7 @@ headings:
 - heading_id: H0126
   ordinal: 126
   level: 1
-  line: 2641
+  line: 2660
   title: 13. 最新相关工作的机制对照
   slug: 13-最新相关工作的机制对照
   occurrence: 1
@@ -1950,7 +1950,7 @@ headings:
 - heading_id: H0127
   ordinal: 127
   level: 2
-  line: 2659
+  line: 2678
   title: 13.1 WAPO 的真正含义
   slug: 13-1-wapo-的真正含义
   occurrence: 1
@@ -1967,7 +1967,7 @@ headings:
 - heading_id: H0128
   ordinal: 128
   level: 2
-  line: 2669
+  line: 2688
   title: 13.2 STARE 比 WAPO 更接近“打压危险部分、保留其余”
   slug: 13-2-stare-比-wapo-更接近-打压危险部分-保留其余
   occurrence: 1
@@ -1984,7 +1984,7 @@ headings:
 - heading_id: H0129
   ordinal: 129
   level: 2
-  line: 2678
+  line: 2697
   title: 13.3 Mu-GRPO 已经触及重复排斥，但尚未统一
   slug: 13-3-mu-grpo-已经触及重复排斥-但尚未统一
   occurrence: 1
@@ -2001,7 +2001,7 @@ headings:
 - heading_id: H0130
   ordinal: 130
   level: 2
-  line: 2687
+  line: 2706
   title: 13.4 现有证据已经支持负梯度的泛化价值
   slug: 13-4-现有证据已经支持负梯度的泛化价值
   occurrence: 1
@@ -2018,7 +2018,7 @@ headings:
 - heading_id: H0131
   ordinal: 131
   level: 2
-  line: 2703
+  line: 2722
   title: 13.5 OGPO：强外部证据，但尚未闭合负梯度外推机制
   slug: 13-5-ogpo-强外部证据-但尚未闭合负梯度外推机制
   occurrence: 1
@@ -2035,7 +2035,7 @@ headings:
 - heading_id: H0132
   ordinal: 132
   level: 2
-  line: 2731
+  line: 2750
   title: 13.6 建议重点深化的三条前序工作线
   slug: 13-6-建议重点深化的三条前序工作线
   occurrence: 1
@@ -2052,7 +2052,7 @@ headings:
 - heading_id: H0133
   ordinal: 133
   level: 2
-  line: 2757
+  line: 2776
   title: 13.7 2026 年新增相关工作与 novelty 风险检查
   slug: 13-7-2026-年新增相关工作与-novelty-风险检查
   occurrence: 1
@@ -2069,7 +2069,7 @@ headings:
 - heading_id: H0134
   ordinal: 134
   level: 2
-  line: 2774
+  line: 2793
   title: 13.8 BAPO 与 Low-Probability Tokens：证据边界必须写清
   slug: 13-8-bapo-与-low-probability-tokens-证据边界必须写清
   occurrence: 1
@@ -2087,7 +2087,7 @@ headings:
 - heading_id: H0135
   ordinal: 135
   level: 1
-  line: 2794
+  line: 2813
   title: 14. 下一阶段理论与实验增强计划
   slug: 14-下一阶段理论与实验增强计划
   occurrence: 1
@@ -2104,7 +2104,7 @@ headings:
 - heading_id: H0136
   ordinal: 136
   level: 2
-  line: 2796
+  line: 2815
   title: 14.1 理论并行任务：完成连续—离散统一定理
   slug: 14-1-理论并行任务-完成连续-离散统一定理
   occurrence: 1
@@ -2122,7 +2122,7 @@ headings:
 - heading_id: H0137
   ordinal: 137
   level: 2
-  line: 2813
+  line: 2832
   title: 14.2 P1：Categorical bandit 严格隔离实验（第二优先级）
   slug: 14-2-p1-categorical-bandit-严格隔离实验-第二优先级
   occurrence: 1
@@ -2140,7 +2140,7 @@ headings:
 - heading_id: H0138
   ordinal: 138
   level: 2
-  line: 2830
+  line: 2849
   title: 14.3 P0：验证负梯度为何能超越 positive-only（第一优先级）
   slug: 14-3-p0-验证负梯度为何能超越-positive-only-第一优先级
   occurrence: 1
@@ -2158,7 +2158,7 @@ headings:
 - heading_id: H0139
   ordinal: 139
   level: 2
-  line: 2851
+  line: 2870
   title: 14.4 P2：小型 Transformer 序列实验
   slug: 14-4-p2-小型-transformer-序列实验
   occurrence: 1
@@ -2175,7 +2175,7 @@ headings:
 - heading_id: H0140
   ordinal: 140
   level: 2
-  line: 2864
+  line: 2883
   title: 14.5 论文重构建议
   slug: 14-5-论文重构建议
   occurrence: 1
@@ -2192,7 +2192,7 @@ headings:
 - heading_id: H0141
   ordinal: 141
   level: 2
-  line: 2880
+  line: 2899
   title: 14.6 更新后的实验优先级（v4）
   slug: 14-6-更新后的实验优先级-v4
   occurrence: 1
@@ -2210,7 +2210,7 @@ headings:
 - heading_id: H0142
   ordinal: 142
   level: 2
-  line: 2889
+  line: 2908
   title: 14.7 P0 实验：负梯度的稳定外推—临界失稳—距离控制
   slug: 14-7-p0-实验-负梯度的稳定外推-临界失稳-距离控制
   occurrence: 1
@@ -2227,7 +2227,7 @@ headings:
 - heading_id: H0143
   ordinal: 143
   level: 2
-  line: 2918
+  line: 2937
   title: 14.8 理论升级清单
   slug: 14-8-理论升级清单
   occurrence: 1
@@ -2244,7 +2244,7 @@ headings:
 - heading_id: H0144
   ordinal: 144
   level: 2
-  line: 2945
+  line: 2964
   title: 14.9 论文重构后的主线
   slug: 14-9-论文重构后的主线
   occurrence: 1
@@ -2261,7 +2261,7 @@ headings:
 - heading_id: H0145
   ordinal: 145
   level: 2
-  line: 2962
+  line: 2981
   title: 14.10 未来统一实验环境：论文定稿前的必做重构
   slug: 14-10-未来统一实验环境-论文定稿前的必做重构
   occurrence: 1
@@ -2279,7 +2279,7 @@ headings:
 - heading_id: H0146
   ordinal: 146
   level: 1
-  line: 2992
+  line: 3011
   title: 15. 最终结论
   slug: 15-最终结论
   occurrence: 1
@@ -2296,7 +2296,7 @@ headings:
 - heading_id: H0147
   ordinal: 147
   level: 1
-  line: 3038
+  line: 3057
   title: 附录 A　主要数值结果
   slug: 附录-a-主要数值结果
   occurrence: 1
@@ -2313,7 +2313,7 @@ headings:
 - heading_id: H0148
   ordinal: 148
   level: 1
-  line: 3050
+  line: 3069
   title: 附录 B　参考文献与相关工作
   slug: 附录-b-参考文献与相关工作
   occurrence: 1
@@ -2330,7 +2330,7 @@ headings:
 - heading_id: H0149
   ordinal: 149
   level: 1
-  line: 3137
+  line: 3156
   title: 附录 C　新会话核心文件索引
   slug: 附录-c-新会话核心文件索引
   occurrence: 1
@@ -2347,7 +2347,7 @@ headings:
 - heading_id: H0150
   ordinal: 150
   level: 1
-  line: 3148
+  line: 3167
   title: 附录 D　P0 可学习方差：闭式稳态与快速实验验证
   slug: 附录-d-p0-可学习方差-闭式稳态与快速实验验证
   occurrence: 1
@@ -2364,7 +2364,7 @@ headings:
 - heading_id: H0151
   ordinal: 151
   level: 2
-  line: 3154
+  line: 3173
   title: D.1 直接参数化 (μ,log σ) 的解析—数值一致性
   slug: d-1-直接参数化-μ-log-σ-的解析-数值一致性
   occurrence: 1
@@ -2381,7 +2381,7 @@ headings:
 - heading_id: H0152
   ordinal: 152
   level: 2
-  line: 3168
+  line: 3187
   title: D.2 距离移动方差临界边界
   slug: d-2-距离移动方差临界边界
   occurrence: 1
@@ -2399,7 +2399,7 @@ headings:
 - heading_id: H0153
   ordinal: 153
   level: 2
-  line: 3184
+  line: 3203
   title: D.3 非线性参数化与控制方法
   slug: d-3-非线性参数化与控制方法
   occurrence: 1
@@ -2416,7 +2416,7 @@ headings:
 - heading_id: H0154
   ordinal: 154
   level: 2
-  line: 3193
+  line: 3212
   title: D.4 原始 gradient-explode 代码诊断
   slug: d-4-原始-gradient-explode-代码诊断
   occurrence: 1
@@ -2433,7 +2433,7 @@ headings:
 - heading_id: H0155
   ordinal: 155
   level: 2
-  line: 3201
+  line: 3220
   title: D.5 论文写作结论
   slug: d-5-论文写作结论
   occurrence: 1
@@ -2451,7 +2451,7 @@ headings:
 - heading_id: H0156
   ordinal: 156
   level: 1
-  line: 3208
+  line: 3227
   title: 附录 E　统一非线性 benchmark：论文级正式结果
   slug: 附录-e-统一非线性-benchmark-论文级正式结果
   occurrence: 1
@@ -2469,7 +2469,7 @@ headings:
 - heading_id: H0157
   ordinal: 157
   level: 2
-  line: 3215
+  line: 3234
   title: E.1 Protocol A：严格来源隔离
   slug: e-1-protocol-a-严格来源隔离
   occurrence: 1
@@ -2486,7 +2486,7 @@ headings:
 - heading_id: H0158
   ordinal: 158
   level: 2
-  line: 3225
+  line: 3244
   title: E.2 Protocol B：远场 collapse 因果干预
   slug: e-2-protocol-b-远场-collapse-因果干预
   occurrence: 1
@@ -2503,7 +2503,7 @@ headings:
 - heading_id: H0159
   ordinal: 159
   level: 2
-  line: 3247
+  line: 3266
   title: E.3 Protocol C：稳定外推与联合均值—方差相变
   slug: e-3-protocol-c-稳定外推与联合均值-方差相变
   occurrence: 1
@@ -2520,7 +2520,7 @@ headings:
 - heading_id: H0160
   ordinal: 160
   level: 2
-  line: 3277
+  line: 3296
   title: E.4 控制方法与等预算识别
   slug: e-4-控制方法与等预算识别
   occurrence: 1
@@ -2537,7 +2537,7 @@ headings:
 - heading_id: H0161
   ordinal: 161
   level: 2
-  line: 3297
+  line: 3316
   title: E.5 论文呈现与代码索引
   slug: e-5-论文呈现与代码索引
   occurrence: 1
@@ -2555,7 +2555,7 @@ headings:
 - heading_id: H0162
   ordinal: 162
   level: 1
-  line: 3321
+  line: 3340
   title: Part III. v9 Exponential-Family 核心理论补丁（完整保留）
   slug: part-iii-v9-exponential-family-核心理论补丁-完整保留
   occurrence: 1
@@ -2570,7 +2570,7 @@ headings:
 - heading_id: H0163
   ordinal: 163
   level: 1
-  line: 3325
+  line: 3344
   title: 2. 大一统理论：Repulsive Signed-Moment Dynamics
   slug: 2-大一统理论-repulsive-signed-moment-dynamics
   occurrence: 1
@@ -2585,7 +2585,7 @@ headings:
 - heading_id: H0164
   ordinal: 164
   level: 2
-  line: 3327
+  line: 3346
   title: 2.1 研究对象、记号与结论层级
   slug: 2-1-研究对象-记号与结论层级
   occurrence: 1
@@ -2600,7 +2600,7 @@ headings:
 - heading_id: H0165
   ordinal: 165
   level: 2
-  line: 3337
+  line: 3356
   title: 2.2 定理 1：单个负优势更新必然提高该样本 surprisal
   slug: 2-2-定理-1-单个负优势更新必然提高该样本-surprisal
   occurrence: 1
@@ -2615,7 +2615,7 @@ headings:
 - heading_id: H0166
   ordinal: 166
   level: 2
-  line: 3371
+  line: 3390
   title: 2.3 批量更新：自项、跨样本干涉与方向一致性
   slug: 2-3-批量更新-自项-跨样本干涉与方向一致性
   occurrence: 1
@@ -2630,7 +2630,7 @@ headings:
 - heading_id: H0167
   ordinal: 167
   level: 2
-  line: 3389
+  line: 3408
   title: 2.4 定理 2：正则最小指数族中的 signed-moment 平衡
   slug: 2-4-定理-2-正则最小指数族中的-signed-moment-平衡
   occurrence: 1
@@ -2645,7 +2645,7 @@ headings:
 - heading_id: H0168
   ordinal: 168
   level: 2
-  line: 3444
+  line: 3463
   title: 2.5 Gaussian 推论 A：固定方差下的稳定外推与均值相变
   slug: 2-5-gaussian-推论-a-固定方差下的稳定外推与均值相变
   occurrence: 1
@@ -2660,7 +2660,7 @@ headings:
 - heading_id: H0169
   ordinal: 169
   level: 2
-  line: 3478
+  line: 3497
   title: 2.6 Gaussian 推论 B：可学习方差的联合稳态与提前失稳
   slug: 2-6-gaussian-推论-b-可学习方差的联合稳态与提前失稳
   occurrence: 1
@@ -2675,7 +2675,7 @@ headings:
 - heading_id: H0170
   ordinal: 170
   level: 2
-  line: 3542
+  line: 3561
   title: 2.7 Gaussian 推论 C：方差四象限、单样本 MLE 与远场幅度放大
   slug: 2-7-gaussian-推论-c-方差四象限-单样本-mle-与远场幅度放大
   occurrence: 1
@@ -2690,7 +2690,7 @@ headings:
 - heading_id: H0171
   ordinal: 171
   level: 2
-  line: 3583
+  line: 3602
   title: 2.7A Gaussian 远场负梯度的二次临界衰减定理（v30，已解析证明）
   slug: 2-7a-gaussian-远场负梯度的二次临界衰减定理-v30-已解析证明
   occurrence: 1
@@ -2705,7 +2705,7 @@ headings:
 - heading_id: H0172
   ordinal: 172
   level: 3
-  line: 3613
+  line: 3632
   title: 定理 3（pre-boundary 区域中的二次远场界）
   slug: 定理-3-pre-boundary-区域中的二次远场界
   occurrence: 1
@@ -2720,7 +2720,7 @@ headings:
 - heading_id: H0173
   ordinal: 173
   level: 3
-  line: 3650
+  line: 3669
   title: 定理 4（reciprocal-polynomial 的二次临界阶）
   slug: 定理-4-reciprocal-polynomial-的二次临界阶
   occurrence: 1
@@ -2735,7 +2735,7 @@ headings:
 - heading_id: H0174
   ordinal: 174
   level: 3
-  line: 3708
+  line: 3727
   title: 命题 5（同一参考衰减下的有限距离选择性）
   slug: 命题-5-同一参考衰减下的有限距离选择性
   occurrence: 1
@@ -2750,7 +2750,7 @@ headings:
 - heading_id: H0175
   ordinal: 175
   level: 3
-  line: 3733
+  line: 3752
   title: 对角 Gaussian 推论
   slug: 对角-gaussian-推论
   occurrence: 1
@@ -2765,7 +2765,7 @@ headings:
 - heading_id: H0176
   ordinal: 176
   level: 3
-  line: 3765
+  line: 3784
   title: 神经网络 pullback、例外与可声明边界
   slug: 神经网络-pullback-例外与可声明边界
   occurrence: 1
@@ -2781,7 +2781,7 @@ headings:
 - heading_id: H0177
   ordinal: 177
   level: 2
-  line: 3792
+  line: 3811
   title: 2.8 Categorical 推论 A：有界单步 score 仍可把策略推到 simplex 边界
   slug: 2-8-categorical-推论-a-有界单步-score-仍可把策略推到-simplex-边界
   occurrence: 1
@@ -2797,7 +2797,7 @@ headings:
 - heading_id: H0178
   ordinal: 178
   level: 2
-  line: 3830
+  line: 3849
   title: 2.9 Categorical 推论 B：未见动作外推为何需要语义结构，而不需要“动作有序”
   slug: 2-9-categorical-推论-b-未见动作外推为何需要语义结构-而不需要-动作有序
   occurrence: 1
@@ -2812,7 +2812,7 @@ headings:
 - heading_id: H0179
   ordinal: 179
   level: 2
-  line: 3854
+  line: 3873
   title: 2.10 神经网络共享参数：指数族输出场的 pullback
   slug: 2-10-神经网络共享参数-指数族输出场的-pullback
   occurrence: 1
@@ -2827,7 +2827,7 @@ headings:
 - heading_id: H0180
   ordinal: 180
   level: 2
-  line: 3876
+  line: 3895
   title: 2.11 方法推论：Global α、Exp-remoteness 与 stability budget
   slug: 2-11-方法推论-global-α-exp-remoteness-与-stability-budget
   occurrence: 1
@@ -2842,7 +2842,7 @@ headings:
 - heading_id: H0181
   ordinal: 181
   level: 2
-  line: 3900
+  line: 3919
   title: 2.12 Learned critic / value network：瞬时适用与移动目标
   slug: 2-12-learned-critic-value-network-瞬时适用与移动目标
   occurrence: 1
@@ -2858,7 +2858,7 @@ headings:
 - heading_id: H0182
   ordinal: 182
   level: 2
-  line: 3914
+  line: 3933
   title: 2.13 自我审查：反例挑战、修正与最终可声明边界
   slug: 2-13-自我审查-反例挑战-修正与最终可声明边界
   occurrence: 1
@@ -2874,7 +2874,7 @@ headings:
 - heading_id: H0183
   ordinal: 183
   level: 1
-  line: 3936
+  line: 3955
   title: Part IV. v10 Hopper Learned-Critic 外部验证记录（完整保留，状态降级）
   slug: part-iv-v10-hopper-learned-critic-外部验证记录-完整保留-状态降级
   occurrence: 1
@@ -2890,7 +2890,7 @@ headings:
 - heading_id: H0184
   ordinal: 184
   level: 1
-  line: 3940
+  line: 3959
   title: DRPO / SNA2C 统一理论与实验备忘录 v9
   slug: drpo-sna2c-统一理论与实验备忘录-v9
   occurrence: 1
@@ -2904,7 +2904,7 @@ headings:
 - heading_id: H0185
   ordinal: 185
   level: 1
-  line: 3956
+  line: 3975
   title: 0. 新会话必须继承的锁定结论
   slug: 0-新会话必须继承的锁定结论
   occurrence: 1
@@ -2918,7 +2918,7 @@ headings:
 - heading_id: H0186
   ordinal: 186
   level: 2
-  line: 3961
+  line: 3980
   title: 0.1 连续 Gaussian
   slug: 0-1-连续-gaussian
   occurrence: 1
@@ -2933,7 +2933,7 @@ headings:
 - heading_id: H0187
   ordinal: 187
   level: 2
-  line: 3975
+  line: 3994
   title: 0.2 离散 categorical
   slug: 0-2-离散-categorical
   occurrence: 1
@@ -2948,7 +2948,7 @@ headings:
 - heading_id: H0188
   ordinal: 188
   level: 2
-  line: 3987
+  line: 4006
   title: 0.3 明确不可声称
   slug: 0-3-明确不可声称
   occurrence: 1
@@ -2962,7 +2962,7 @@ headings:
 - heading_id: H0189
   ordinal: 189
   level: 1
-  line: 3999
+  line: 4018
   title: 1. 文档审计与结论固化
   slug: 1-文档审计与结论固化
   occurrence: 1
@@ -2977,7 +2977,7 @@ headings:
 - heading_id: H0190
   ordinal: 190
   level: 2
-  line: 4001
+  line: 4020
   title: 1.1 v7 的主要问题
   slug: 1-1-v7-的主要问题
   occurrence: 1
@@ -2991,7 +2991,7 @@ headings:
 - heading_id: H0191
   ordinal: 191
   level: 2
-  line: 4011
+  line: 4030
   title: 1.2 v8 的删除与替换规则
   slug: 1-2-v8-的删除与替换规则
   occurrence: 1
@@ -3005,7 +3005,7 @@ headings:
 - heading_id: H0192
   ordinal: 192
   level: 1
-  line: 4025
+  line: 4044
   title: 2. 大一统理论：Repulsive Signed-Moment Dynamics
   slug: 2-大一统理论-repulsive-signed-moment-dynamics
   occurrence: 2
@@ -3019,7 +3019,7 @@ headings:
 - heading_id: H0193
   ordinal: 193
   level: 2
-  line: 4027
+  line: 4046
   title: 2.1 研究对象、记号与结论层级
   slug: 2-1-研究对象-记号与结论层级
   occurrence: 2
@@ -3033,7 +3033,7 @@ headings:
 - heading_id: H0194
   ordinal: 194
   level: 2
-  line: 4037
+  line: 4056
   title: 2.2 定理 1：单个负优势更新必然提高该样本 surprisal
   slug: 2-2-定理-1-单个负优势更新必然提高该样本-surprisal
   occurrence: 2
@@ -3047,7 +3047,7 @@ headings:
 - heading_id: H0195
   ordinal: 195
   level: 2
-  line: 4071
+  line: 4090
   title: 2.3 批量更新：自项、跨样本干涉与方向一致性
   slug: 2-3-批量更新-自项-跨样本干涉与方向一致性
   occurrence: 2
@@ -3061,7 +3061,7 @@ headings:
 - heading_id: H0196
   ordinal: 196
   level: 2
-  line: 4089
+  line: 4108
   title: 2.4 定理 2：正则最小指数族中的 signed-moment 平衡
   slug: 2-4-定理-2-正则最小指数族中的-signed-moment-平衡
   occurrence: 2
@@ -3075,7 +3075,7 @@ headings:
 - heading_id: H0197
   ordinal: 197
   level: 2
-  line: 4144
+  line: 4163
   title: 2.5 Gaussian 推论 A：固定方差下的稳定外推与均值相变
   slug: 2-5-gaussian-推论-a-固定方差下的稳定外推与均值相变
   occurrence: 2
@@ -3090,7 +3090,7 @@ headings:
 - heading_id: H0198
   ordinal: 198
   level: 2
-  line: 4178
+  line: 4197
   title: 2.6 Gaussian 推论 B：可学习方差的联合稳态与提前失稳
   slug: 2-6-gaussian-推论-b-可学习方差的联合稳态与提前失稳
   occurrence: 2
@@ -3105,7 +3105,7 @@ headings:
 - heading_id: H0199
   ordinal: 199
   level: 2
-  line: 4242
+  line: 4261
   title: 2.7 Gaussian 推论 C：方差四象限、单样本 MLE 与远场幅度放大
   slug: 2-7-gaussian-推论-c-方差四象限-单样本-mle-与远场幅度放大
   occurrence: 2
@@ -3120,7 +3120,7 @@ headings:
 - heading_id: H0200
   ordinal: 200
   level: 2
-  line: 4283
+  line: 4302
   title: 2.8 Categorical 推论 A：有界单步 score 仍可把策略推到 simplex 边界
   slug: 2-8-categorical-推论-a-有界单步-score-仍可把策略推到-simplex-边界
   occurrence: 2
@@ -3136,7 +3136,7 @@ headings:
 - heading_id: H0201
   ordinal: 201
   level: 2
-  line: 4321
+  line: 4340
   title: 2.9 Categorical 推论 B：未见动作外推为何需要语义结构，而不需要“动作有序”
   slug: 2-9-categorical-推论-b-未见动作外推为何需要语义结构-而不需要-动作有序
   occurrence: 2
@@ -3151,7 +3151,7 @@ headings:
 - heading_id: H0202
   ordinal: 202
   level: 2
-  line: 4345
+  line: 4364
   title: 2.10 神经网络共享参数：指数族输出场的 pullback
   slug: 2-10-神经网络共享参数-指数族输出场的-pullback
   occurrence: 2
@@ -3165,7 +3165,7 @@ headings:
 - heading_id: H0203
   ordinal: 203
   level: 2
-  line: 4367
+  line: 4386
   title: 2.11 方法推论：Global α、Exp-remoteness 与 stability budget
   slug: 2-11-方法推论-global-α-exp-remoteness-与-stability-budget
   occurrence: 2
@@ -3179,7 +3179,7 @@ headings:
 - heading_id: H0204
   ordinal: 204
   level: 2
-  line: 4391
+  line: 4410
   title: 2.12 Learned critic / value network：瞬时适用与移动目标
   slug: 2-12-learned-critic-value-network-瞬时适用与移动目标
   occurrence: 2
@@ -3194,7 +3194,7 @@ headings:
 - heading_id: H0205
   ordinal: 205
   level: 2
-  line: 4405
+  line: 4424
   title: 2.13 自我审查：反例挑战、修正与最终可声明边界
   slug: 2-13-自我审查-反例挑战-修正与最终可声明边界
   occurrence: 2
@@ -3209,7 +3209,7 @@ headings:
 - heading_id: H0206
   ordinal: 206
   level: 1
-  line: 4425
+  line: 4444
   title: 3. 连续统一 benchmark：正式论文级证据
   slug: 3-连续统一-benchmark-正式论文级证据
   occurrence: 1
@@ -3225,7 +3225,7 @@ headings:
 - heading_id: H0207
   ordinal: 207
   level: 2
-  line: 4427
+  line: 4446
   title: 3.1 Protocol A：来源隔离
   slug: 3-1-protocol-a-来源隔离
   occurrence: 1
@@ -3239,7 +3239,7 @@ headings:
 - heading_id: H0208
   ordinal: 208
   level: 2
-  line: 4440
+  line: 4459
   title: 3.2 Protocol B：因果 collapse 干预
   slug: 3-2-protocol-b-因果-collapse-干预
   occurrence: 1
@@ -3253,7 +3253,7 @@ headings:
 - heading_id: H0209
   ordinal: 209
   level: 2
-  line: 4460
+  line: 4479
   title: 3.3 Protocol C：稳定外推与联合相变
   slug: 3-3-protocol-c-稳定外推与联合相变
   occurrence: 1
@@ -3267,7 +3267,7 @@ headings:
 - heading_id: H0210
   ordinal: 210
   level: 2
-  line: 4482
+  line: 4501
   title: 3.4 控制方法与等预算识别
   slug: 3-4-控制方法与等预算识别
   occurrence: 1
@@ -3281,7 +3281,7 @@ headings:
 - heading_id: H0211
   ordinal: 211
   level: 1
-  line: 4498
+  line: 4517
   title: 4. 离散 categorical benchmark：理论与正式结果
   slug: 4-离散-categorical-benchmark-理论与正式结果
   occurrence: 1
@@ -3297,7 +3297,7 @@ headings:
 - heading_id: H0212
   ordinal: 212
   level: 2
-  line: 4500
+  line: 4519
   title: 4.1 小环境：direct softmax 的精确结论
   slug: 4-1-小环境-direct-softmax-的精确结论
   occurrence: 1
@@ -3312,7 +3312,7 @@ headings:
 - heading_id: H0213
   ordinal: 213
   level: 2
-  line: 4513
+  line: 4532
   title: 4.2 来源隔离：rarity 使梯度更大但幅度有界
   slug: 4-2-来源隔离-rarity-使梯度更大但幅度有界
   occurrence: 1
@@ -3326,7 +3326,7 @@ headings:
 - heading_id: H0214
   ordinal: 214
   level: 2
-  line: 4526
+  line: 4545
   title: 4.3 结构化 categorical 外推：解析桥梁与无序语义动作
   slug: 4-3-结构化-categorical-外推-解析桥梁与无序语义动作
   occurrence: 1
@@ -3341,7 +3341,7 @@ headings:
 - heading_id: H0215
   ordinal: 215
   level: 2
-  line: 4548
+  line: 4567
   title: 4.4 categorical near/far 因果干预
   slug: 4-4-categorical-near-far-因果干预
   occurrence: 1
@@ -3356,7 +3356,7 @@ headings:
 - heading_id: H0216
   ordinal: 216
   level: 2
-  line: 4565
+  line: 4584
   title: 4.5 控制方法：反对“distance 永远更优”的过度 claim
   slug: 4-5-控制方法-反对-distance-永远更优-的过度-claim
   occurrence: 1
@@ -3370,7 +3370,7 @@ headings:
 - heading_id: H0217
   ordinal: 217
   level: 1
-  line: 4581
+  line: 4600
   title: 5. 连续—离散统一解释
   slug: 5-连续-离散统一解释
   occurrence: 1
@@ -3386,7 +3386,7 @@ headings:
 - heading_id: H0218
   ordinal: 218
   level: 1
-  line: 4601
+  line: 4620
   title: 6. 论文贡献与推荐 claim 结构
   slug: 6-论文贡献与推荐-claim-结构
   occurrence: 1
@@ -3401,7 +3401,7 @@ headings:
 - heading_id: H0219
   ordinal: 219
   level: 2
-  line: 4603
+  line: 4622
   title: 6.1 当前已经形成的贡献栈
   slug: 6-1-当前已经形成的贡献栈
   occurrence: 1
@@ -3415,7 +3415,7 @@ headings:
 - heading_id: H0220
   ordinal: 220
   level: 2
-  line: 4617
+  line: 4636
   title: 6.2 论文主文建议
   slug: 6-2-论文主文建议
   occurrence: 1
@@ -3430,7 +3430,7 @@ headings:
 - heading_id: H0221
   ordinal: 221
   level: 2
-  line: 4626
+  line: 4645
   title: 6.3 推荐用语
   slug: 6-3-推荐用语
   occurrence: 1
@@ -3444,7 +3444,7 @@ headings:
 - heading_id: H0222
   ordinal: 222
   level: 1
-  line: 4636
+  line: 4655
   title: 7. 接下来唯一保留的任务清单
   slug: 7-接下来唯一保留的任务清单
   occurrence: 1
@@ -3459,7 +3459,7 @@ headings:
 - heading_id: H0223
   ordinal: 223
   level: 2
-  line: 4638
+  line: 4657
   title: P0：统一理论已完成；转入论文 LaTeX 化与定理精简
   slug: p0-统一理论已完成-转入论文-latex-化与定理精简
   occurrence: 1
@@ -3474,7 +3474,7 @@ headings:
 - heading_id: H0224
   ordinal: 224
   level: 2
-  line: 4646
+  line: 4665
   title: P1：方法创新与外部有效性（下一实验主线）
   slug: p1-方法创新与外部有效性-下一实验主线
   occurrence: 1
@@ -3488,7 +3488,7 @@ headings:
 - heading_id: H0225
   ordinal: 225
   level: 2
-  line: 4656
+  line: 4675
   title: P2：当前不做或降级为 future work
   slug: p2-当前不做或降级为-future-work
   occurrence: 1
@@ -3502,7 +3502,7 @@ headings:
 - heading_id: H0226
   ordinal: 226
   level: 1
-  line: 4669
+  line: 4688
   title: 8. 复现入口与文件索引
   slug: 8-复现入口与文件索引
   occurrence: 1
@@ -3517,7 +3517,7 @@ headings:
 - heading_id: H0227
   ordinal: 227
   level: 1
-  line: 4683
+  line: 4702
   title: 附录 A. 旧实验的保留规则
   slug: 附录-a-旧实验的保留规则
   occurrence: 1
@@ -3531,7 +3531,7 @@ headings:
 - heading_id: H0228
   ordinal: 228
   level: 1
-  line: 4699
+  line: 4718
   title: 附录 B. 最终研究判断
   slug: 附录-b-最终研究判断
   occurrence: 1
@@ -3545,7 +3545,7 @@ headings:
 - heading_id: H0229
   ordinal: 229
   level: 1
-  line: 4706
+  line: 4725
   title: 附录 C. 公式自检与机器验证
   slug: 附录-c-公式自检与机器验证
   occurrence: 1
@@ -3559,7 +3559,7 @@ headings:
 - heading_id: H0230
   ordinal: 230
   level: 1
-  line: 4712
+  line: 4731
   title: 15. Learned-Critic External Mechanism Validation on D4RL
   slug: 15-learned-critic-external-mechanism-validation-on-d4rl
   occurrence: 1
@@ -3574,7 +3574,7 @@ headings:
 - heading_id: H0231
   ordinal: 231
   level: 2
-  line: 4726
+  line: 4745
   title: 1. learned advantage 下的来源隔离
   slug: 1-learned-advantage-下的来源隔离
   occurrence: 1
@@ -3588,7 +3588,7 @@ headings:
 - heading_id: H0232
   ordinal: 232
   level: 2
-  line: 4737
+  line: 4756
   title: 2. 方差方向与修正理论一致
   slug: 2-方差方向与修正理论一致
   occurrence: 1
@@ -3603,7 +3603,7 @@ headings:
 - heading_id: H0233
   ordinal: 233
   level: 2
-  line: 4747
+  line: 4766
   title: 3. 10-seed 定点干预
   slug: 3-10-seed-定点干预
   occurrence: 1
@@ -3617,7 +3617,7 @@ headings:
 - heading_id: H0234
   ordinal: 234
   level: 2
-  line: 4766
+  line: 4785
   title: 4. 相变而非 sign-only 法则
   slug: 4-相变而非-sign-only-法则
   occurrence: 1
@@ -3631,7 +3631,7 @@ headings:
 - heading_id: H0235
   ordinal: 235
   level: 2
-  line: 4770
+  line: 4789
   title: 5. Advantage estimator 稳健性
   slug: 5-advantage-estimator-稳健性
   occurrence: 1
@@ -3645,7 +3645,7 @@ headings:
 - heading_id: H0236
   ordinal: 236
   level: 2
-  line: 4784
+  line: 4803
   title: 6. 论文中的正确使用方式
   slug: 6-论文中的正确使用方式
   occurrence: 1
@@ -3660,7 +3660,7 @@ headings:
 - heading_id: H0237
   ordinal: 237
   level: 1
-  line: 4804
+  line: 4823
   title: Part V. Bandit 稳定外推子实验的收敛审计（完整保留）
   slug: part-v-bandit-稳定外推子实验的收敛审计-完整保留
   occurrence: 1
@@ -3677,7 +3677,7 @@ headings:
 - heading_id: H0238
   ordinal: 238
   level: 1
-  line: 4808
+  line: 4827
   title: DRPO Bandit Saturation Re-audit (v1)
   slug: drpo-bandit-saturation-re-audit-v1
   occurrence: 1
@@ -3693,7 +3693,7 @@ headings:
 - heading_id: H0239
   ordinal: 239
   level: 2
-  line: 4810
+  line: 4829
   title: 结论摘要
   slug: 结论摘要
   occurrence: 1
@@ -3710,7 +3710,7 @@ headings:
 - heading_id: H0240
   ordinal: 240
   level: 2
-  line: 4820
+  line: 4839
   title: 1. Ground truth
   slug: 1-ground-truth
   occurrence: 1
@@ -3726,7 +3726,7 @@ headings:
 - heading_id: H0241
   ordinal: 241
   level: 3
-  line: 4822
+  line: 4841
   title: Continuous, fixed variance
   slug: continuous-fixed-variance
   occurrence: 1
@@ -3742,7 +3742,7 @@ headings:
 - heading_id: H0242
   ordinal: 242
   level: 3
-  line: 4832
+  line: 4851
   title: Continuous, learnable variance
   slug: continuous-learnable-variance
   occurrence: 1
@@ -3758,7 +3758,7 @@ headings:
 - heading_id: H0243
   ordinal: 243
   level: 3
-  line: 4842
+  line: 4861
   title: Categorical energy policy
   slug: categorical-energy-policy
   occurrence: 1
@@ -3774,7 +3774,7 @@ headings:
 - heading_id: H0244
   ordinal: 244
   level: 2
-  line: 4846
+  line: 4865
   title: 2. 重新训练后的关键结果（seeds 10–12）
   slug: 2-重新训练后的关键结果-seeds-10-12
   occurrence: 1
@@ -3791,7 +3791,7 @@ headings:
 - heading_id: H0245
   ordinal: 245
   level: 3
-  line: 4848
+  line: 4867
   title: Continuous fixed variance
   slug: continuous-fixed-variance
   occurrence: 1
@@ -3807,7 +3807,7 @@ headings:
 - heading_id: H0246
   ordinal: 246
   level: 3
-  line: 4859
+  line: 4878
   title: Continuous learnable variance
   slug: continuous-learnable-variance
   occurrence: 1
@@ -3823,7 +3823,7 @@ headings:
 - heading_id: H0247
   ordinal: 247
   level: 3
-  line: 4871
+  line: 4890
   title: Categorical
   slug: categorical
   occurrence: 1
@@ -3839,7 +3839,7 @@ headings:
 - heading_id: H0248
   ordinal: 248
   level: 2
-  line: 4884
+  line: 4903
   title: 3. 对旧结论的处理
   slug: 3-对旧结论的处理
   occurrence: 1
@@ -3855,7 +3855,7 @@ headings:
 - heading_id: H0249
   ordinal: 249
   level: 2
-  line: 4891
+  line: 4910
   title: 4. 哪些实验不以训练收敛为验收条件
   slug: 4-哪些实验不以训练收敛为验收条件
   occurrence: 1
@@ -3871,7 +3871,7 @@ headings:
 - heading_id: H0250
   ordinal: 250
   level: 2
-  line: 4897
+  line: 4916
   title: 5. 现在可防守的 solid 结论
   slug: 5-现在可防守的-solid-结论
   occurrence: 1
@@ -3887,7 +3887,7 @@ headings:
 - heading_id: H0251
   ordinal: 251
   level: 1
-  line: 4908
+  line: 4927
   title: Part VI. 论文重写大纲（当前草案，后续须与实验状态同步）
   slug: part-vi-论文重写大纲-当前草案-后续须与实验状态同步
   occurrence: 1
@@ -3906,7 +3906,7 @@ headings:
 - heading_id: H0252
   ordinal: 252
   level: 1
-  line: 4910
+  line: 4929
   title: 论文重写大纲 v1：从推荐专属 DRPO 到通用 Repulsive Policy Dynamics
   slug: 论文重写大纲-v1-从推荐专属-drpo-到通用-repulsive-policy-dynamics
   occurrence: 1
@@ -3924,7 +3924,7 @@ headings:
 - heading_id: H0253
   ordinal: 253
   level: 2
-  line: 4914
+  line: 4933
   title: 0. 一句话定位与非谈不可的重写原则
   slug: 0-一句话定位与非谈不可的重写原则
   occurrence: 1
@@ -3943,7 +3943,7 @@ headings:
 - heading_id: H0254
   ordinal: 254
   level: 3
-  line: 4916
+  line: 4935
   title: 建议主标题
   slug: 建议主标题
   occurrence: 1
@@ -3961,7 +3961,7 @@ headings:
 - heading_id: H0255
   ordinal: 255
   level: 3
-  line: 4926
+  line: 4945
   title: 一句话主张
   slug: 一句话主张
   occurrence: 1
@@ -3979,7 +3979,7 @@ headings:
 - heading_id: H0256
   ordinal: 256
   level: 3
-  line: 4930
+  line: 4949
   title: 必须完成的根本重写
   slug: 必须完成的根本重写
   occurrence: 1
@@ -3997,7 +3997,7 @@ headings:
 - heading_id: H0257
   ordinal: 257
   level: 2
-  line: 4941
+  line: 4960
   title: 1. 旧审稿意见到新稿设计的逐项映射
   slug: 1-旧审稿意见到新稿设计的逐项映射
   occurrence: 1
@@ -4016,7 +4016,7 @@ headings:
 - heading_id: H0258
   ordinal: 258
   level: 2
-  line: 4958
+  line: 4977
   title: 2. 摘要：建议按 7 句话写成一个紧凑段落
   slug: 2-摘要-建议按-7-句话写成一个紧凑段落
   occurrence: 1
@@ -4034,7 +4034,7 @@ headings:
 - heading_id: H0259
   ordinal: 259
   level: 3
-  line: 4960
+  line: 4979
   title: 句 1：通用问题
   slug: 句-1-通用问题
   occurrence: 1
@@ -4052,7 +4052,7 @@ headings:
 - heading_id: H0260
   ordinal: 260
   level: 3
-  line: 4966
+  line: 4985
   title: 句 2：核心悖论
   slug: 句-2-核心悖论
   occurrence: 1
@@ -4070,7 +4070,7 @@ headings:
 - heading_id: H0261
   ordinal: 261
   level: 3
-  line: 4972
+  line: 4991
   title: 句 3：统一理论
   slug: 句-3-统一理论
   occurrence: 1
@@ -4088,7 +4088,7 @@ headings:
 - heading_id: H0262
   ordinal: 262
   level: 3
-  line: 4976
+  line: 4995
   title: 句 4：策略族分叉
   slug: 句-4-策略族分叉
   occurrence: 1
@@ -4106,7 +4106,7 @@ headings:
 - heading_id: H0263
   ordinal: 263
   level: 3
-  line: 4980
+  line: 4999
   title: 句 5：因果证据
   slug: 句-5-因果证据
   occurrence: 1
@@ -4124,7 +4124,7 @@ headings:
 - heading_id: H0264
   ordinal: 264
   level: 3
-  line: 4984
+  line: 5003
   title: 句 6：方法
   slug: 句-6-方法
   occurrence: 1
@@ -4142,7 +4142,7 @@ headings:
 - heading_id: H0265
   ordinal: 265
   level: 3
-  line: 4988
+  line: 5007
   title: 句 7：外部验证
   slug: 句-7-外部验证
   occurrence: 1
@@ -4160,7 +4160,7 @@ headings:
 - heading_id: H0266
   ordinal: 266
   level: 2
-  line: 4996
+  line: 5015
   title: 3. Introduction：建议 8 个段落
   slug: 3-introduction-建议-8-个段落
   occurrence: 1
@@ -4178,7 +4178,7 @@ headings:
 - heading_id: H0267
   ordinal: 267
   level: 3
-  line: 4998
+  line: 5017
   title: P1：从 off-policy actor learning 的普遍结构切入
   slug: p1-从-off-policy-actor-learning-的普遍结构切入
   occurrence: 1
@@ -4196,7 +4196,7 @@ headings:
 - heading_id: H0268
   ordinal: 268
   level: 3
-  line: 5004
+  line: 5023
   title: P2：解释负优势的双重价值
   slug: p2-解释负优势的双重价值
   occurrence: 1
@@ -4214,7 +4214,7 @@ headings:
 - heading_id: H0269
   ordinal: 269
   level: 3
-  line: 5010
+  line: 5029
   title: P3：提出真正的未解问题
   slug: p3-提出真正的未解问题
   occurrence: 1
@@ -4232,7 +4232,7 @@ headings:
 - heading_id: H0270
   ordinal: 270
   level: 3
-  line: 5016
+  line: 5035
   title: P4：机制概览
   slug: p4-机制概览
   occurrence: 1
@@ -4250,7 +4250,7 @@ headings:
 - heading_id: H0271
   ordinal: 271
   level: 3
-  line: 5025
+  line: 5044
   title: P5：理论贡献概览
   slug: p5-理论贡献概览
   occurrence: 1
@@ -4268,7 +4268,7 @@ headings:
 - heading_id: H0272
   ordinal: 272
   level: 3
-  line: 5029
+  line: 5048
   title: P6：证据链概览
   slug: p6-证据链概览
   occurrence: 1
@@ -4286,7 +4286,7 @@ headings:
 - heading_id: H0273
   ordinal: 273
   level: 3
-  line: 5039
+  line: 5058
   title: P7：方法概览
   slug: p7-方法概览
   occurrence: 1
@@ -4304,7 +4304,7 @@ headings:
 - heading_id: H0274
   ordinal: 274
   level: 3
-  line: 5043
+  line: 5062
   title: P8：贡献列表
   slug: p8-贡献列表
   occurrence: 1
@@ -4322,7 +4322,7 @@ headings:
 - heading_id: H0275
   ordinal: 275
   level: 2
-  line: 5056
+  line: 5075
   title: 4. Related Work：建议 4 个小节，每节 2–3 段
   slug: 4-related-work-建议-4-个小节-每节-2-3-段
   occurrence: 1
@@ -4340,7 +4340,7 @@ headings:
 - heading_id: H0276
   ordinal: 276
   level: 3
-  line: 5058
+  line: 5077
   title: 4.1 Offline policy optimization and distribution shift
   slug: 4-1-offline-policy-optimization-and-distribution-shift
   occurrence: 1
@@ -4358,7 +4358,7 @@ headings:
 - heading_id: H0277
   ordinal: 277
   level: 3
-  line: 5064
+  line: 5083
   title: 4.2 Negative-advantage and low-probability update dynamics
   slug: 4-2-negative-advantage-and-low-probability-update-dynamics
   occurrence: 1
@@ -4376,7 +4376,7 @@ headings:
 - heading_id: H0278
   ordinal: 278
   level: 3
-  line: 5070
+  line: 5089
   title: 4.3 Negative data for generalization and mode suppression
   slug: 4-3-negative-data-for-generalization-and-mode-suppression
   occurrence: 1
@@ -4394,7 +4394,7 @@ headings:
 - heading_id: H0279
   ordinal: 279
   level: 3
-  line: 5076
+  line: 5095
   title: 4.4 Entropy and support control
   slug: 4-4-entropy-and-support-control
   occurrence: 1
@@ -4412,7 +4412,7 @@ headings:
 - heading_id: H0280
   ordinal: 280
   level: 3
-  line: 5082
+  line: 5101
   title: 引用治理规则
   slug: 引用治理规则
   occurrence: 1
@@ -4431,7 +4431,7 @@ headings:
 - heading_id: H0281
   ordinal: 281
   level: 2
-  line: 5091
+  line: 5110
   title: 5. Problem Setup and Scope：建议 5 个段落
   slug: 5-problem-setup-and-scope-建议-5-个段落
   occurrence: 1
@@ -4450,7 +4450,7 @@ headings:
 - heading_id: H0282
   ordinal: 282
   level: 3
-  line: 5093
+  line: 5112
   title: P1：分析对象
   slug: p1-分析对象
   occurrence: 1
@@ -4468,7 +4468,7 @@ headings:
 - heading_id: H0283
   ordinal: 283
   level: 3
-  line: 5103
+  line: 5122
   title: P2：不要把它伪装成无偏 policy-gradient theorem
   slug: p2-不要把它伪装成无偏-policy-gradient-theorem
   occurrence: 1
@@ -4486,7 +4486,7 @@ headings:
 - heading_id: H0284
   ordinal: 284
   level: 3
-  line: 5109
+  line: 5128
   title: P3：advantage 条件
   slug: p3-advantage-条件
   occurrence: 1
@@ -4504,7 +4504,7 @@ headings:
 - heading_id: H0285
   ordinal: 285
   level: 3
-  line: 5113
+  line: 5132
   title: P4：正负质量与条件分布
   slug: p4-正负质量与条件分布
   occurrence: 1
@@ -4522,7 +4522,7 @@ headings:
 - heading_id: H0286
   ordinal: 286
   level: 3
-  line: 5117
+  line: 5136
   title: P5：claim 层级
   slug: p5-claim-层级
   occurrence: 1
@@ -4540,7 +4540,7 @@ headings:
 - heading_id: H0287
   ordinal: 287
   level: 2
-  line: 5123
+  line: 5142
   title: 6. Theory：正文建议 4–5 页，完整证明放附录
   slug: 6-theory-正文建议-4-5-页-完整证明放附录
   occurrence: 1
@@ -4559,7 +4559,7 @@ headings:
 - heading_id: H0288
   ordinal: 288
   level: 3
-  line: 5125
+  line: 5144
   title: 6.1 Theorem 1：Single-sample repulsive surprisal dynamics
   slug: 6-1-theorem-1-single-sample-repulsive-surprisal-dynamics
   occurrence: 1
@@ -4577,7 +4577,7 @@ headings:
 - heading_id: H0289
   ordinal: 289
   level: 3
-  line: 5139
+  line: 5158
   title: 6.2 Batch interference and directional coherence
   slug: 6-2-batch-interference-and-directional-coherence
   occurrence: 1
@@ -4595,7 +4595,7 @@ headings:
 - heading_id: H0290
   ordinal: 290
   level: 3
-  line: 5147
+  line: 5166
   title: 6.3 Theorem 2：Signed-moment equilibrium in exponential families
   slug: 6-3-theorem-2-signed-moment-equilibrium-in-exponential-families
   occurrence: 1
@@ -4613,7 +4613,7 @@ headings:
 - heading_id: H0291
   ordinal: 291
   level: 3
-  line: 5159
+  line: 5178
   title: 6.4 Gaussian branch
   slug: 6-4-gaussian-branch
   occurrence: 1
@@ -4631,7 +4631,7 @@ headings:
 - heading_id: H0292
   ordinal: 292
   level: 4
-  line: 5161
+  line: 5180
   title: P1：fixed variance mean equilibrium
   slug: p1-fixed-variance-mean-equilibrium
   occurrence: 1
@@ -4649,7 +4649,7 @@ headings:
 - heading_id: H0293
   ordinal: 293
   level: 4
-  line: 5165
+  line: 5184
   title: P2：learnable variance joint equilibrium
   slug: p2-learnable-variance-joint-equilibrium
   occurrence: 1
@@ -4667,7 +4667,7 @@ headings:
 - heading_id: H0294
   ordinal: 294
   level: 4
-  line: 5169
+  line: 5188
   title: P3：variance four quadrants
   slug: p3-variance-four-quadrants
   occurrence: 1
@@ -4685,7 +4685,7 @@ headings:
 - heading_id: H0295
   ordinal: 295
   level: 4
-  line: 5173
+  line: 5192
   title: P4：fixed-sample Hessian correction
   slug: p4-fixed-sample-hessian-correction
   occurrence: 1
@@ -4703,7 +4703,7 @@ headings:
 - heading_id: H0296
   ordinal: 296
   level: 4
-  line: 5177
+  line: 5196
   title: P5：far-field amplitude law
   slug: p5-far-field-amplitude-law
   occurrence: 1
@@ -4721,7 +4721,7 @@ headings:
 - heading_id: H0297
   ordinal: 297
   level: 3
-  line: 5181
+  line: 5200
   title: 6.5 Categorical branch
   slug: 6-5-categorical-branch
   occurrence: 1
@@ -4739,7 +4739,7 @@ headings:
 - heading_id: H0298
   ordinal: 298
   level: 4
-  line: 5183
+  line: 5202
   title: P1：direct-logit score boundedness
   slug: p1-direct-logit-score-boundedness
   occurrence: 1
@@ -4757,7 +4757,7 @@ headings:
 - heading_id: H0299
   ordinal: 299
   level: 4
-  line: 5187
+  line: 5206
   title: P2：support boundary dynamics
   slug: p2-support-boundary-dynamics
   occurrence: 1
@@ -4775,7 +4775,7 @@ headings:
 - heading_id: H0300
   ordinal: 300
   level: 4
-  line: 5191
+  line: 5210
   title: P3：categorical signed target
   slug: p3-categorical-signed-target
   occurrence: 1
@@ -4793,7 +4793,7 @@ headings:
 - heading_id: H0301
   ordinal: 301
   level: 4
-  line: 5195
+  line: 5214
   title: P4：semantic feature policy
   slug: p4-semantic-feature-policy
   occurrence: 1
@@ -4811,7 +4811,7 @@ headings:
 - heading_id: H0302
   ordinal: 302
   level: 3
-  line: 5199
+  line: 5218
   title: 6.6 Neural-network pullback and scope
   slug: 6-6-neural-network-pullback-and-scope
   occurrence: 1
@@ -4830,7 +4830,7 @@ headings:
 - heading_id: H0303
   ordinal: 303
   level: 3
-  line: 5207
+  line: 5226
   title: 6.7 Moving critics and stale advantages
   slug: 6-7-moving-critics-and-stale-advantages
   occurrence: 1
@@ -4848,7 +4848,7 @@ headings:
 - heading_id: H0304
   ordinal: 304
   level: 2
-  line: 5217
+  line: 5236
   title: 7. Method：先保留两个候选，外部实验后只选一个主方法
   slug: 7-method-先保留两个候选-外部实验后只选一个主方法
   occurrence: 1
@@ -4866,7 +4866,7 @@ headings:
 - heading_id: H0305
   ordinal: 305
   level: 3
-  line: 5219
+  line: 5238
   title: 7.1 Candidate A：Exponential Remoteness Taper
   slug: 7-1-candidate-a-exponential-remoteness-taper
   occurrence: 1
@@ -4884,7 +4884,7 @@ headings:
 - heading_id: H0306
   ordinal: 306
   level: 3
-  line: 5236
+  line: 5255
   title: 7.2 Candidate B：Safety-only Stability-Budgeted Taper
   slug: 7-2-candidate-b-safety-only-stability-budgeted-taper
   occurrence: 1
@@ -4902,7 +4902,7 @@ headings:
 - heading_id: H0307
   ordinal: 307
   level: 3
-  line: 5242
+  line: 5261
   title: 7.3 主方法选择规则
   slug: 7-3-主方法选择规则
   occurrence: 1
@@ -4920,7 +4920,7 @@ headings:
 - heading_id: H0308
   ordinal: 308
   level: 3
-  line: 5248
+  line: 5267
   title: 7.4 Hard filtering / DRPO 的新位置
   slug: 7-4-hard-filtering-drpo-的新位置
   occurrence: 1
@@ -4938,7 +4938,7 @@ headings:
 - heading_id: H0309
   ordinal: 309
   level: 2
-  line: 5257
+  line: 5276
   title: 8. Controlled Experiments：正文机制证据
   slug: 8-controlled-experiments-正文机制证据
   occurrence: 1
@@ -4956,7 +4956,7 @@ headings:
 - heading_id: H0310
   ordinal: 310
   level: 3
-  line: 5259
+  line: 5278
   title: 8.1 Protocol A：Source isolation
   slug: 8-1-protocol-a-source-isolation
   occurrence: 1
@@ -4974,7 +4974,7 @@ headings:
 - heading_id: H0311
   ordinal: 311
   level: 3
-  line: 5269
+  line: 5288
   title: 8.2 Protocol B：Causal collapse
   slug: 8-2-protocol-b-causal-collapse
   occurrence: 1
@@ -4992,7 +4992,7 @@ headings:
 - heading_id: H0312
   ordinal: 312
   level: 3
-  line: 5279
+  line: 5298
   title: 8.3 Protocol C：Stable extrapolation and phase transition
   slug: 8-3-protocol-c-stable-extrapolation-and-phase-transition
   occurrence: 1
@@ -5010,7 +5010,7 @@ headings:
 - heading_id: H0313
   ordinal: 313
   level: 3
-  line: 5287
+  line: 5306
   title: 8.4 Generic categorical with unordered IDs
   slug: 8-4-generic-categorical-with-unordered-ids
   occurrence: 1
@@ -5028,7 +5028,7 @@ headings:
 - heading_id: H0314
   ordinal: 314
   level: 3
-  line: 5293
+  line: 5312
   title: 8.5 Entropy-matched controls
   slug: 8-5-entropy-matched-controls
   occurrence: 1
@@ -5046,7 +5046,7 @@ headings:
 - heading_id: H0315
   ordinal: 315
   level: 2
-  line: 5301
+  line: 5320
   title: 9. External Validation：至少两类公共任务
   slug: 9-external-validation-至少两类公共任务
   occurrence: 1
@@ -5064,7 +5064,7 @@ headings:
 - heading_id: H0316
   ordinal: 316
   level: 3
-  line: 5303
+  line: 5322
   title: 9.1 D4RL / Hopper
   slug: 9-1-d4rl-hopper
   occurrence: 1
@@ -5082,7 +5082,7 @@ headings:
 - heading_id: H0317
   ordinal: 317
   level: 4
-  line: 5307
+  line: 5326
   title: Mechanism subsection
   slug: mechanism-subsection
   occurrence: 1
@@ -5100,7 +5100,7 @@ headings:
 - heading_id: H0318
   ordinal: 318
   level: 4
-  line: 5315
+  line: 5334
   title: E7-Q2：Gaussian 二次 log-scale 分支的独立外部验证
   slug: e7-q2-gaussian-二次-log-scale-分支的独立外部验证
   occurrence: 1
@@ -5118,7 +5118,7 @@ headings:
 - heading_id: H0319
   ordinal: 319
   level: 4
-  line: 5360
+  line: 5379
   title: Method subsection
   slug: method-subsection
   occurrence: 1
@@ -5136,7 +5136,7 @@ headings:
 - heading_id: H0320
   ordinal: 320
   level: 3
-  line: 5364
+  line: 5383
   title: 9.2 Countdown token arena
   slug: 9-2-countdown-token-arena
   occurrence: 1
@@ -5154,7 +5154,7 @@ headings:
 - heading_id: H0321
   ordinal: 321
   level: 4
-  line: 5379
+  line: 5398
   title: v28 当前协议覆盖：v4.2.0 一键 BF16-LoRA pilot
   slug: v28-当前协议覆盖-v4-2-0-一键-bf16-lora-pilot
   occurrence: 1
@@ -5172,7 +5172,7 @@ headings:
 - heading_id: H0322
   ordinal: 322
   level: 4
-  line: 5404
+  line: 5423
   title: v21 历史协议：v4.1 审计式 BF16-LoRA pilot（由 v22 覆盖 alpha 与配置登记）
   slug: v21-历史协议-v4-1-审计式-bf16-lora-pilot-由-v22-覆盖-alpha-与配置登记
   occurrence: 1
@@ -5192,7 +5192,7 @@ headings:
 - heading_id: H0323
   ordinal: 323
   level: 4
-  line: 5419
+  line: 5438
   title: v18 历史协议：Base-first 0.5B 最小实验（由 v21/v22 覆盖）
   slug: v18-历史协议-base-first-0-5b-最小实验-由-v21-v22-覆盖
   occurrence: 1
@@ -5211,7 +5211,7 @@ headings:
 - heading_id: H0324
   ordinal: 324
   level: 4
-  line: 5433
+  line: 5452
   title: 历史模型阶梯（v12，已由 v22 替换，不得执行）
   slug: 历史模型阶梯-v12-已由-v22-替换-不得执行
   occurrence: 1
@@ -5231,7 +5231,7 @@ headings:
 - heading_id: H0325
   ordinal: 325
   level: 4
-  line: 5439
+  line: 5458
   title: 历史正式流程（v12，已由 v22 替换，不得执行）
   slug: 历史正式流程-v12-已由-v22-替换-不得执行
   occurrence: 1
@@ -5251,7 +5251,7 @@ headings:
 - heading_id: H0326
   ordinal: 326
   level: 4
-  line: 5443
+  line: 5462
   title: 主指标
   slug: 主指标
   occurrence: 1
@@ -5269,7 +5269,7 @@ headings:
 - heading_id: H0327
   ordinal: 327
   level: 4
-  line: 5447
+  line: 5466
   title: 历史 Baselines（v12，已由 v22 替换，不得执行）
   slug: 历史-baselines-v12-已由-v22-替换-不得执行
   occurrence: 1
@@ -5289,7 +5289,7 @@ headings:
 - heading_id: H0328
   ordinal: 328
   level: 3
-  line: 5451
+  line: 5470
   title: 9.3 Recommendation application（可选但有价值）
   slug: 9-3-recommendation-application-可选但有价值
   occurrence: 1
@@ -5307,7 +5307,7 @@ headings:
 - heading_id: H0329
   ordinal: 329
   level: 2
-  line: 5459
+  line: 5478
   title: 10. Results section 的段落顺序
   slug: 10-results-section-的段落顺序
   occurrence: 1
@@ -5325,7 +5325,7 @@ headings:
 - heading_id: H0330
   ordinal: 330
   level: 3
-  line: 5461
+  line: 5480
   title: P1：先回答机制是否存在
   slug: p1-先回答机制是否存在
   occurrence: 1
@@ -5343,7 +5343,7 @@ headings:
 - heading_id: H0331
   ordinal: 331
   level: 3
-  line: 5465
+  line: 5484
   title: P2：再回答是否因果导致 collapse
   slug: p2-再回答是否因果导致-collapse
   occurrence: 1
@@ -5361,7 +5361,7 @@ headings:
 - heading_id: H0332
   ordinal: 332
   level: 3
-  line: 5469
+  line: 5488
   title: P3：回答负梯度是否有益
   slug: p3-回答负梯度是否有益
   occurrence: 1
@@ -5379,7 +5379,7 @@ headings:
 - heading_id: H0333
   ordinal: 333
   level: 3
-  line: 5473
+  line: 5492
   title: P4：回答连续—离散是否统一
   slug: p4-回答连续-离散是否统一
   occurrence: 1
@@ -5397,7 +5397,7 @@ headings:
 - heading_id: H0334
   ordinal: 334
   level: 3
-  line: 5477
+  line: 5496
   title: P5：回答方法是否不仅仅维持 entropy
   slug: p5-回答方法是否不仅仅维持-entropy
   occurrence: 1
@@ -5415,7 +5415,7 @@ headings:
 - heading_id: H0335
   ordinal: 335
   level: 3
-  line: 5481
+  line: 5500
   title: P6：回答是否外部有效
   slug: p6-回答是否外部有效
   occurrence: 1
@@ -5433,7 +5433,7 @@ headings:
 - heading_id: H0336
   ordinal: 336
   level: 3
-  line: 5485
+  line: 5504
   title: P7：超参和计算开销
   slug: p7-超参和计算开销
   occurrence: 1
@@ -5451,7 +5451,7 @@ headings:
 - heading_id: H0337
   ordinal: 337
   level: 2
-  line: 5491
+  line: 5510
   title: 11. Discussion and Limitations：主文必须单设
   slug: 11-discussion-and-limitations-主文必须单设
   occurrence: 1
@@ -5469,7 +5469,7 @@ headings:
 - heading_id: H0338
   ordinal: 338
   level: 3
-  line: 5493
+  line: 5512
   title: 段落 1：机制边界
   slug: 段落-1-机制边界
   occurrence: 1
@@ -5488,7 +5488,7 @@ headings:
 - heading_id: H0339
   ordinal: 339
   level: 3
-  line: 5497
+  line: 5516
   title: 段落 2：方向可靠性
   slug: 段落-2-方向可靠性
   occurrence: 1
@@ -5506,7 +5506,7 @@ headings:
 - heading_id: H0340
   ordinal: 340
   level: 3
-  line: 5501
+  line: 5520
   title: 段落 3：critic 与 optimizer
   slug: 段落-3-critic-与-optimizer
   occurrence: 1
@@ -5524,7 +5524,7 @@ headings:
 - heading_id: H0341
   ordinal: 341
   level: 3
-  line: 5505
+  line: 5524
   title: 段落 4：神经网络全局性
   slug: 段落-4-神经网络全局性
   occurrence: 1
@@ -5542,7 +5542,7 @@ headings:
 - heading_id: H0342
   ordinal: 342
   level: 3
-  line: 5509
+  line: 5528
   title: 段落 5：reward 与 support
   slug: 段落-5-reward-与-support
   occurrence: 1
@@ -5560,7 +5560,7 @@ headings:
 - heading_id: H0343
   ordinal: 343
   level: 3
-  line: 5513
+  line: 5532
   title: 段落 6：方法边界
   slug: 段落-6-方法边界
   occurrence: 1
@@ -5579,7 +5579,7 @@ headings:
 - heading_id: H0344
   ordinal: 344
   level: 2
-  line: 5519
+  line: 5538
   title: 12. Reproducibility and Ethics
   slug: 12-reproducibility-and-ethics
   occurrence: 1
@@ -5597,7 +5597,7 @@ headings:
 - heading_id: H0345
   ordinal: 345
   level: 3
-  line: 5521
+  line: 5540
   title: Reproducibility
   slug: reproducibility
   occurrence: 1
@@ -5615,7 +5615,7 @@ headings:
 - heading_id: H0346
   ordinal: 346
   level: 3
-  line: 5528
+  line: 5547
   title: Reference integrity
   slug: reference-integrity
   occurrence: 1
@@ -5633,7 +5633,7 @@ headings:
 - heading_id: H0347
   ordinal: 347
   level: 3
-  line: 5534
+  line: 5553
   title: Ethics
   slug: ethics
   occurrence: 1
@@ -5651,7 +5651,7 @@ headings:
 - heading_id: H0348
   ordinal: 348
   level: 2
-  line: 5541
+  line: 5560
   title: 13. 主图与主表蓝图
   slug: 13-主图与主表蓝图
   occurrence: 1
@@ -5669,7 +5669,7 @@ headings:
 - heading_id: H0349
   ordinal: 349
   level: 3
-  line: 5543
+  line: 5562
   title: Figure 1：统一机制示意图
   slug: figure-1-统一机制示意图
   occurrence: 1
@@ -5687,7 +5687,7 @@ headings:
 - heading_id: H0350
   ordinal: 350
   level: 3
-  line: 5547
+  line: 5566
   title: Figure 2：Source isolation
   slug: figure-2-source-isolation
   occurrence: 1
@@ -5705,7 +5705,7 @@ headings:
 - heading_id: H0351
   ordinal: 351
   level: 3
-  line: 5551
+  line: 5570
   title: Figure 3：Causal intervention
   slug: figure-3-causal-intervention
   occurrence: 1
@@ -5723,7 +5723,7 @@ headings:
 - heading_id: H0352
   ordinal: 352
   level: 3
-  line: 5555
+  line: 5574
   title: Figure 4：Stable extrapolation phase diagram
   slug: figure-4-stable-extrapolation-phase-diagram
   occurrence: 1
@@ -5741,7 +5741,7 @@ headings:
 - heading_id: H0353
   ordinal: 353
   level: 3
-  line: 5559
+  line: 5578
   title: Figure 5：Categorical support dynamics
   slug: figure-5-categorical-support-dynamics
   occurrence: 1
@@ -5759,7 +5759,7 @@ headings:
 - heading_id: H0354
   ordinal: 354
   level: 3
-  line: 5563
+  line: 5582
   title: Figure 6：External validation
   slug: figure-6-external-validation
   occurrence: 1
@@ -5777,7 +5777,7 @@ headings:
 - heading_id: H0355
   ordinal: 355
   level: 3
-  line: 5567
+  line: 5586
   title: Table 1：理论对象与分叉
   slug: table-1-理论对象与分叉
   occurrence: 1
@@ -5795,7 +5795,7 @@ headings:
 - heading_id: H0356
   ordinal: 356
   level: 3
-  line: 5571
+  line: 5590
   title: Table 2：受控因果结果
   slug: table-2-受控因果结果
   occurrence: 1
@@ -5814,7 +5814,7 @@ headings:
 - heading_id: H0357
   ordinal: 357
   level: 3
-  line: 5575
+  line: 5594
   title: Table 3：D4RL 方法结果
   slug: table-3-d4rl-方法结果
   occurrence: 1
@@ -5833,7 +5833,7 @@ headings:
 - heading_id: H0358
   ordinal: 358
   level: 3
-  line: 5579
+  line: 5598
   title: Table 4：Countdown arena
   slug: table-4-countdown-arena
   occurrence: 1
@@ -5851,7 +5851,7 @@ headings:
 - heading_id: H0359
   ordinal: 359
   level: 2
-  line: 5585
+  line: 5604
   title: 14. 原稿内容的删除、降级和复用清单
   slug: 14-原稿内容的删除-降级和复用清单
   occurrence: 1
@@ -5869,7 +5869,7 @@ headings:
 - heading_id: H0360
   ordinal: 360
   level: 3
-  line: 5587
+  line: 5606
   title: 完全删除
   slug: 完全删除
   occurrence: 1
@@ -5887,7 +5887,7 @@ headings:
 - heading_id: H0361
   ordinal: 361
   level: 3
-  line: 5597
+  line: 5616
   title: 降级到附录或历史背景
   slug: 降级到附录或历史背景
   occurrence: 1
@@ -5906,7 +5906,7 @@ headings:
 - heading_id: H0362
   ordinal: 362
   level: 3
-  line: 5604
+  line: 5623
   title: 直接复用但需重写叙事
   slug: 直接复用但需重写叙事
   occurrence: 1
@@ -5924,7 +5924,7 @@ headings:
 - heading_id: H0363
   ordinal: 363
   level: 2
-  line: 5614
+  line: 5633
   title: 15. 写正文前的决策门槛
   slug: 15-写正文前的决策门槛
   occurrence: 1
@@ -5942,7 +5942,7 @@ headings:
 - heading_id: H0364
   ordinal: 364
   level: 2
-  line: 5625
+  line: 5644
   title: 16. 建议的最终章节目录
   slug: 16-建议的最终章节目录
   occurrence: 1
@@ -5960,7 +5960,7 @@ headings:
 - heading_id: H0365
   ordinal: 365
   level: 1
-  line: 5660
+  line: 5679
   title: 附录 A：v11 恢复记录（原第 0 节，完整保留）
   slug: 附录-a-v11-恢复记录-原第-0-节-完整保留
   occurrence: 1
@@ -5975,7 +5975,7 @@ headings:
 - heading_id: H0366
   ordinal: 366
   level: 1
-  line: 5662
+  line: 5681
   title: 0. 本次恢复的明确结论
   slug: 0-本次恢复的明确结论
   occurrence: 1
@@ -5990,7 +5990,7 @@ headings:
 - heading_id: H0367
   ordinal: 367
   level: 2
-  line: 5664
+  line: 5683
   title: 0.1 “大一统连续环境”当前是否已经实现
   slug: 0-1-大一统连续环境-当前是否已经实现
   occurrence: 1
@@ -6005,7 +6005,7 @@ headings:
 - heading_id: H0368
   ordinal: 368
   level: 2
-  line: 5673
+  line: 5692
   title: 0.2 Product 与 Extrapolation 能否真正合并
   slug: 0-2-product-与-extrapolation-能否真正合并
   occurrence: 1
@@ -6020,7 +6020,7 @@ headings:
 - heading_id: H0369
   ordinal: 369
   level: 2
-  line: 5683
+  line: 5702
   title: 0.3 真正统一的解决方案：等奖励轮廓构造
   slug: 0-3-真正统一的解决方案-等奖励轮廓构造
   occurrence: 1
@@ -6035,7 +6035,7 @@ headings:
 - heading_id: H0370
   ordinal: 370
   level: 2
-  line: 5713
+  line: 5732
   title: 0.4 从昨日下午到现在是否“白忙活”
   slug: 0-4-从昨日下午到现在是否-白忙活
   occurrence: 1
@@ -6050,7 +6050,7 @@ headings:
 - heading_id: H0371
   ordinal: 371
   level: 1
-  line: 5723
+  line: 5742
   title: 附录：本恢复版之后的变更协议
   slug: 附录-本恢复版之后的变更协议
   occurrence: 1
@@ -6065,7 +6065,7 @@ headings:
 - heading_id: H0372
   ordinal: 372
   level: 2
-  line: 5737
+  line: 5756
   title: 11.6 用户审阅后的 E4 变量治理与结论边界修正（2026-06-24）
   slug: 11-6-用户审阅后的-e4-变量治理与结论边界修正-2026-06-24
   occurrence: 1
@@ -6081,7 +6081,7 @@ headings:
 - heading_id: H0373
   ordinal: 373
   level: 1
-  line: 5748
+  line: 5767
   title: v15 附录：上传环境代码兼容性与一键重建登记
   slug: v15-附录-上传环境代码兼容性与一键重建登记
   occurrence: 1
@@ -6096,7 +6096,7 @@ headings:
 - heading_id: H0374
   ordinal: 374
   level: 2
-  line: 5750
+  line: 5769
   title: A. 上传 `drpo_unified_continuous_environment_v1 (1).py` 与正式 C-U1 的差异
   slug: a-上传-drpo-unified-continuous-environment-v1-1-py-与正式-c-u1-的差异
   occurrence: 1
@@ -6111,7 +6111,7 @@ headings:
 - heading_id: H0375
   ordinal: 375
   level: 2
-  line: 5763
+  line: 5782
   title: B. 重建代码状态
   slug: b-重建代码状态
   occurrence: 1
@@ -6127,7 +6127,7 @@ headings:
 - heading_id: H0376
   ordinal: 376
   level: 2
-  line: 5772
+  line: 5791
   title: C. 重新登记的任务失效判据
   slug: c-重新登记的任务失效判据
   occurrence: 1

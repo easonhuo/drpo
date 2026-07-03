@@ -7,7 +7,7 @@
 - Responsibility: Preserve the unique-master rule, terminology, scientific scope, and non-destructive governance constraints.
 - Content contract topics: `unique_master_document`, `document_before_experiment`, `non_destructive_history`, `terminal_audit_governance`, `controlled_external_validity_boundary`
 - Deduplicated overlapping source chunks: 0
-- Source hash: `e6ddde132ed88e4de09e9a8c2dc180e358f20b96c31e56c2ee8668fa384cd447`
+- Source hash: `e3d98cfec5bf95ed408ca8807000bf75736328cfc8c95820fb17b2d7811ae703`
 
 ## Content contract evidence
 
@@ -83,6 +83,19 @@
 > - **正式 E7-BENCH 并行约束同步：**正式 9-task benchmark 继续以 `task_seed_method` 为 continuation 调度单元，Positive-only 也必须是 equal-horizon continuation branch；formal exact seeds、D4RL versions、base algorithm、optimizer 与 full budget 仍未冻结，因此 formal activation 继续 blocked。本修正不等于正式实验可以启动。
 > - Pilot 仍只允许形成 `pilot` 证据：不得据此按 D4RL task 更换函数族或系数，不得填入正式 9-task 主表，不得声称有限稳态、通用方法排名或当前 taper 必然超过 Positive-only。任务性能崩溃、support/variance boundary 与 NaN/Inf numerical failure 继续分开报告。
 <!-- HANDOFF-DELTA-BLOCK:after_heading:v71-e7-bench-long-budget-parallel-pilot:END -->
+<!-- HANDOFF-DELTA-BLOCK:after_heading:v72-du1-e6-shared-rarity-repair:START -->
+> **v72 增量登记：D-U1 E6 shared-rarity 环境修复与正式门禁回收（不删除 v71 及更早内容）**
+>
+> - **旧设计—问题—替代：**v70 的四格标签在 reward、advantage 和语义 utility 上确实解耦，但 common/rare 只是同一 semantic action 的两个副本，初始概率差主要由 64 维 trainable per-action bias 制造。开发 pilot 进一步表明：common/rare 的共享语义参数梯度几乎相同，Positive-only 自身会扩大副本 bias gap，action-ID support 下降又可能只是在删除无任务差异的冗余副本。因此 v70 pilot 只能保留为工程/问题发现证据，禁止用于 All-negative、Global 或 taper 方法排名。
+> - **修复后的 rarity 轴：**保留 32 semantic prototypes × 2 categorical replicas，但删除 trainable per-action bias。每个 replica 在与任务 semantic space 正交的 policy-only rarity coordinate 上取 `+1/-1`；策略使用一个对所有 action/context 共享的 contextual rarity residual head，叠加冻结的初始 half-gap。common/rare 仍具有完全相同 reward、advantage 和 directional utility，但负更新现在通过共享 rarity head 改变整个 common/rare 分区，而不是只改某个动作私有 bias。
+> - **Positive-only 中性化：**正样本按 semantic family 训练，目标为一对 common/rare 概率之和的 log-probability。由于所有 prototype 使用相同的正交 rarity factor，该 family likelihood 对 within-pair rarity coordinate 精确不变；rarity residual head 零初始化，Positive-only 不再自己制造或消除 rarity gap。启动前必须通过 positive rarity-gradient 近零和 family-likelihood invariance 审计。
+> - **共享梯度门禁：**环境 preflight 除 v70 的 reward/utility/advantage 笛卡尔积不变量外，新增 common/rare shared-rarity gradient audit。reference gap `4.0` 下，rare negative 在共享 rarity head 上的 gradient norm 必须至少为 common 的 `5×`；否则 fail closed，不允许 pilot 或 formal。categorical direct-logit score 仍有界，本实验研究 persistent support suppression，不升级为 Gaussian 无界梯度命题。
+> - **支持指标修复：**action-ID entropy/support 与 prototype-family entropy/support 分开记录；support boundary 由 prototype support 或 common/rare 总概率质量触底分别触发。不得再把冗余 replica 被压低直接写成任务语义支持坍缩。
+> - **有限状态与公平 control：**所有方法加入同一 shared-rarity quadratic trust-region anchor。该 anchor 对初始 rarity gap 的残差为零，并随偏移平方增长；负 log-probability 压力只随 rarity coordinate 线性增长，因此任意正系数都给出有限的 output-level 最优点。此前 forward-KL 草案在 reference rare mass 已很小时恢复力过弱，已在实现前撤回。anchor 系数仍需 development calibration。`global_matched` 从 step-0 单次匹配改为每个 optimizer step、同一当前模型和 minibatch 上匹配 Exponential 的 Adam 前 raw negative-gradient L2 norm，并保存逐步误差。Adam update 仍只记录，不声称匹配。
+> - **方法命名修正：**`reciprocal_linear_distance = 1/(1+lambda sqrt(S))`、`reciprocal_quadratic_distance = 1/(1+lambda S)`、`reciprocal_quartic_distance = 1/(1+lambda S^2)`、`exponential_quadratic_distance = exp(-lambda S)`，其中 `S` 是 normalized excess surprisal。v70 旧命名/解释由本节覆盖，但旧文件与 pilot provenance 不删除。
+> - **门禁回收：**`D-U1-E6-CARTESIAN-TAPER-01` 保持 `not_run + implemented`，但从 `ready + active` 回收为 **blocked**。development seeds `0--4` 必须先完成 `negative alpha × rare retention × rarity-logit anchor` 校准并另行冻结正式 horizon、终态阈值和方法矩阵；在独立 formal-freeze 更新前禁止访问 seeds `200--219`。本次只修环境、实现审计和门禁，不产生方法排名。
+> - **环境修复工程验收（非科学结果）：**development seeds `0--2`、6 个核心方法、8000 steps 的独立诊断中，Positive-only rarity gradient 与 family-likelihood shift error 均为 `0`，rare/common shared-rarity gradient ratio 最低 `54.60×`，Global 的逐步 raw-gradient budget match 最大误差 `8.88e-16`；18/18 runs 均达到登记窗口 terminal plateau，prototype-support boundary、rarity-mass boundary 与 NaN/Inf 均为 `0`。该诊断只确认旧环境缺陷已被修复，不完成超参校准，也不构成方法排名。
+<!-- HANDOFF-DELTA-BLOCK:after_heading:v72-du1-e6-shared-rarity-repair:END -->
 
 1. **唯一 Master 文档是任务轴。** 新理论、新实验、新变量、代码入口和结果状态必须先登记，再执行。
 2. **文档先于实验。** 未写明 claim、环境、数据、指标、收敛条件和结果落点的实验，严格禁止启动。
@@ -140,6 +153,9 @@
 <!-- HANDOFF-DELTA-BLOCK:section_end:v70-du1-e6-cartesian-taper-current-gate:START -->
 - **D-U1 v70 覆盖：** 原 `D-U1-E6-TAPER-01` development preregistration 原样保留、不得启动；其执行职责由用户批准的 `D-U1-E6-CARTESIAN-TAPER-01` 取代。新 successor 已冻结 utility × surprisal 2×2 Cartesian protocol、独立 runner、正式 seeds 与终态审计，registry 状态为 **implemented + ready + active + not_run**。它在一个 formal artifact 中先报告 Cartesian 机制块、再报告预注册 taper 方法块；smoke/unit/static 结果不构成科学结果。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v70-du1-e6-cartesian-taper-current-gate:END -->
+<!-- HANDOFF-DELTA-BLOCK:section_end:v72-du1-e6-shared-rarity-repair-current-gate:START -->
+- **D-U1 v72 覆盖：** `D-U1-E6-CARTESIAN-TAPER-01` protocol revision 2 已实现 shared contextual rarity coordinate、Positive-only rarity-neutral family objective、prototype/action support 分报、quadratic rarity-logit anchor 与 stepwise raw-gradient matched Global。原 v70 formal activation 撤回；当前状态为 **implemented + blocked + not_run**，blocked by development calibration and separate formal protocol freeze。正式 seeds `200--219` 继续 untouched。
+<!-- HANDOFF-DELTA-BLOCK:section_end:v72-du1-e6-shared-rarity-repair-current-gate:END -->
 
 ## 0.2 C-U1 泛化术语覆盖规则（v15 锁定）
 

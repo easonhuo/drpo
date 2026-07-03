@@ -1,0 +1,1818 @@
+{
+  "affected_selectors": [
+    "DRPO / SNA2C \u8fdc\u573a\u8d1f\u68af\u5ea6\u52a8\u529b\u5b66\u7814\u7a76\u4e3b\u6587\u6863 v71\uff08E7-BENCH \u957f\u9884\u7b97\u7b49\u65f6\u5e76\u884c Pilot \u4fee\u6b63\u7248\uff09",
+    "0. \u7814\u7a76\u4e0e\u6267\u884c\u539f\u5219\uff08\u6bcf\u6b21\u65b0\u4f1a\u8bdd\u9996\u5148\u9605\u8bfb\uff09",
+    "0. \u7814\u7a76\u4e0e\u6267\u884c\u539f\u5219\uff08\u6bcf\u6b21\u65b0\u4f1a\u8bdd\u9996\u5148\u9605\u8bfb\uff09 / 0.1 \u5f53\u524d\u6267\u884c\u95e8\u7981",
+    "6. \u63a5\u4e0b\u6765\u552f\u4e00\u6267\u884c\u987a\u5e8f"
+  ],
+  "base_commit": "60e014384f85f88ae18da18f4bf6d3db1d808200",
+  "base_handoff_sha256": "669a31a5fa1c03c65163c16843edbb26ee5b8b8dbe0778e0022d61d8a1798f7a",
+  "base_registry_sha256": "061f8bdcfbbfd7b013ad1a18cc282440329ed502bbd6769f2d7c9d6498e3e747",
+  "candidate_replaced_authority": false,
+  "candidate_sha256": "974228eff0ff57542f91bc5e0a6a36e143301a96618bb03cca4511a664bd87e5",
+  "comparison_target": "working_tree",
+  "current_registry_sha256": "f8eab3aa8ba3f2d3b6e888f9e05597f08fc8385a11f985d3338f66f296821b6d",
+  "exact_manual_candidate_match": true,
+  "full_candidate_saved": false,
+  "history_preservation_passed": true,
+  "idempotence_passed": true,
+  "llm_blocking_gate_used": false,
+  "manual_handoff_authoritative": true,
+  "manual_sha256": "974228eff0ff57542f91bc5e0a6a36e143301a96618bb03cca4511a664bd87e5",
+  "mode": "shadow",
+  "network_used": false,
+  "observation_kind": "real",
+  "operation_count": 4,
+  "performance": {
+    "base_validation_ms": 77.682,
+    "comparison_and_registry_ms": 536.046,
+    "hard_limit_ms": 15000.0,
+    "policy_and_schema_ms": 24.889,
+    "render_and_idempotence_ms": 52.152,
+    "target_p95_ms": 5000.0,
+    "total_ms": 690.931,
+    "within_hard_limit": true,
+    "within_target": true
+  },
+  "policy_id": "GOV-HANDOFF-INDEX-01",
+  "registry_change_assertions": [
+    {
+      "change_id": "du1-e6-shared-rarity-repair-001",
+      "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "974228eff0ff57542f91bc5e0a6a36e143301a96618bb03cca4511a664bd87e5"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "f8eab3aa8ba3f2d3b6e888f9e05597f08fc8385a11f985d3338f66f296821b6d"
+        },
+        {
+          "path": "src/drpo/du1_e6_cartesian_taper.py",
+          "sha256": "7e02c093428616ec2a3ffc7ffbc0cdafda0692f41945a1a09b5847048218a114"
+        },
+        {
+          "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+          "sha256": "302bca1dab25b38278c50d9c9ef54b893f82e272ead31ea57b19229a4f4c661e"
+        },
+        {
+          "path": "configs/du1_e6_cartesian_taper.yaml",
+          "sha256": "8f02aaad085c13f21e9ce12ececc95baa84632af5bc7a4939929fa2d23b963b8"
+        },
+        {
+          "path": "tests/test_du1_e6_cartesian_taper.py",
+          "sha256": "da93b85bccb6f5024ac9d53609e8c395e4f518e29180446226b07fa75ac47f7c"
+        }
+      ],
+      "field_path": [
+        "claim"
+      ],
+      "from": "In one shared-semantic categorical environment where ground-truth directional utility and learner-relative rarity are an exact 2x2 Cartesian product, test whether useful negative signals improve same-distribution held-out-context performance, whether rare negative signals create stronger support suppression independently of utility, and whether current-surprisal tapering preserves useful negative information better than uncontrolled and matched-global controls.",
+      "kind": "update_field",
+      "reason": "Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance before any formal execution.",
+      "to": "In one shared-semantic categorical environment where ground-truth directional utility and learner-relative rarity form an exact 2x2 Cartesian product through an orthogonal shared contextual rarity coordinate, test whether useful negative signals improve same-distribution held-out-context performance, whether rare negative signals create stronger shared-parameter support suppression independently of utility, and whether current-surprisal tapering preserves useful negative information better than uncontrolled and stepwise budget-matched global controls."
+    },
+    {
+      "change_id": "du1-e6-shared-rarity-repair-002",
+      "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "974228eff0ff57542f91bc5e0a6a36e143301a96618bb03cca4511a664bd87e5"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "f8eab3aa8ba3f2d3b6e888f9e05597f08fc8385a11f985d3338f66f296821b6d"
+        },
+        {
+          "path": "src/drpo/du1_e6_cartesian_taper.py",
+          "sha256": "7e02c093428616ec2a3ffc7ffbc0cdafda0692f41945a1a09b5847048218a114"
+        },
+        {
+          "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+          "sha256": "302bca1dab25b38278c50d9c9ef54b893f82e272ead31ea57b19229a4f4c661e"
+        },
+        {
+          "path": "configs/du1_e6_cartesian_taper.yaml",
+          "sha256": "8f02aaad085c13f21e9ce12ececc95baa84632af5bc7a4939929fa2d23b963b8"
+        },
+        {
+          "path": "tests/test_du1_e6_cartesian_taper.py",
+          "sha256": "da93b85bccb6f5024ac9d53609e8c395e4f518e29180446226b07fa75ac47f7c"
+        }
+      ],
+      "field_path": [
+        "events",
+        "prototype_effective_support_boundary"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance before any formal execution.",
+      "to": 1.5
+    },
+    {
+      "change_id": "du1-e6-shared-rarity-repair-003",
+      "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "974228eff0ff57542f91bc5e0a6a36e143301a96618bb03cca4511a664bd87e5"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "f8eab3aa8ba3f2d3b6e888f9e05597f08fc8385a11f985d3338f66f296821b6d"
+        },
+        {
+          "path": "src/drpo/du1_e6_cartesian_taper.py",
+          "sha256": "7e02c093428616ec2a3ffc7ffbc0cdafda0692f41945a1a09b5847048218a114"
+        },
+        {
+          "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+          "sha256": "302bca1dab25b38278c50d9c9ef54b893f82e272ead31ea57b19229a4f4c661e"
+        },
+        {
+          "path": "configs/du1_e6_cartesian_taper.yaml",
+          "sha256": "8f02aaad085c13f21e9ce12ececc95baa84632af5bc7a4939929fa2d23b963b8"
+        },
+        {
+          "path": "tests/test_du1_e6_cartesian_taper.py",
+          "sha256": "da93b85bccb6f5024ac9d53609e8c395e4f518e29180446226b07fa75ac47f7c"
+        }
+      ],
+      "field_path": [
+        "events",
+        "rarity_mass_boundary"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance before any formal execution.",
+      "to": 0.0001
+    },
+    {
+      "change_id": "du1-e6-shared-rarity-repair-004",
+      "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "974228eff0ff57542f91bc5e0a6a36e143301a96618bb03cca4511a664bd87e5"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "f8eab3aa8ba3f2d3b6e888f9e05597f08fc8385a11f985d3338f66f296821b6d"
+        },
+        {
+          "path": "src/drpo/du1_e6_cartesian_taper.py",
+          "sha256": "7e02c093428616ec2a3ffc7ffbc0cdafda0692f41945a1a09b5847048218a114"
+        },
+        {
+          "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+          "sha256": "302bca1dab25b38278c50d9c9ef54b893f82e272ead31ea57b19229a4f4c661e"
+        },
+        {
+          "path": "configs/du1_e6_cartesian_taper.yaml",
+          "sha256": "8f02aaad085c13f21e9ce12ececc95baa84632af5bc7a4939929fa2d23b963b8"
+        },
+        {
+          "path": "tests/test_du1_e6_cartesian_taper.py",
+          "sha256": "da93b85bccb6f5024ac9d53609e8c395e4f518e29180446226b07fa75ac47f7c"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "development_calibration_complete"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance before any formal execution.",
+      "to": false
+    },
+    {
+      "change_id": "du1-e6-shared-rarity-repair-005",
+      "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "974228eff0ff57542f91bc5e0a6a36e143301a96618bb03cca4511a664bd87e5"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "f8eab3aa8ba3f2d3b6e888f9e05597f08fc8385a11f985d3338f66f296821b6d"
+        },
+        {
+          "path": "src/drpo/du1_e6_cartesian_taper.py",
+          "sha256": "7e02c093428616ec2a3ffc7ffbc0cdafda0692f41945a1a09b5847048218a114"
+        },
+        {
+          "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+          "sha256": "302bca1dab25b38278c50d9c9ef54b893f82e272ead31ea57b19229a4f4c661e"
+        },
+        {
+          "path": "configs/du1_e6_cartesian_taper.yaml",
+          "sha256": "8f02aaad085c13f21e9ce12ececc95baa84632af5bc7a4939929fa2d23b963b8"
+        },
+        {
+          "path": "tests/test_du1_e6_cartesian_taper.py",
+          "sha256": "da93b85bccb6f5024ac9d53609e8c395e4f518e29180446226b07fa75ac47f7c"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "environment_repair_diagnostic_metrics"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance before any formal execution.",
+      "to": {
+        "method_ranking_allowed": false,
+        "minimum_rare_common_shared_rarity_gradient_ratio": 54.598209392523415,
+        "nan_inf_failures": 0,
+        "positive_family_shift_error_max": 0.0,
+        "positive_rarity_gradient_max": 0.0,
+        "prototype_support_boundary_events": 0,
+        "rarity_mass_boundary_events": 0,
+        "stepwise_global_budget_match_max_error": 8.881784197001252e-16,
+        "terminal_plateau_runs": 18,
+        "total_diagnostic_runs": 18
+      }
+    },
+    {
+      "change_id": "du1-e6-shared-rarity-repair-006",
+      "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "974228eff0ff57542f91bc5e0a6a36e143301a96618bb03cca4511a664bd87e5"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "f8eab3aa8ba3f2d3b6e888f9e05597f08fc8385a11f985d3338f66f296821b6d"
+        },
+        {
+          "path": "src/drpo/du1_e6_cartesian_taper.py",
+          "sha256": "7e02c093428616ec2a3ffc7ffbc0cdafda0692f41945a1a09b5847048218a114"
+        },
+        {
+          "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+          "sha256": "302bca1dab25b38278c50d9c9ef54b893f82e272ead31ea57b19229a4f4c661e"
+        },
+        {
+          "path": "configs/du1_e6_cartesian_taper.yaml",
+          "sha256": "8f02aaad085c13f21e9ce12ececc95baa84632af5bc7a4939929fa2d23b963b8"
+        },
+        {
+          "path": "tests/test_du1_e6_cartesian_taper.py",
+          "sha256": "da93b85bccb6f5024ac9d53609e8c395e4f518e29180446226b07fa75ac47f7c"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "environment_repair_diagnostic_passed"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance before any formal execution.",
+      "to": true
+    },
+    {
+      "change_id": "du1-e6-shared-rarity-repair-007",
+      "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "974228eff0ff57542f91bc5e0a6a36e143301a96618bb03cca4511a664bd87e5"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "f8eab3aa8ba3f2d3b6e888f9e05597f08fc8385a11f985d3338f66f296821b6d"
+        },
+        {
+          "path": "src/drpo/du1_e6_cartesian_taper.py",
+          "sha256": "7e02c093428616ec2a3ffc7ffbc0cdafda0692f41945a1a09b5847048218a114"
+        },
+        {
+          "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+          "sha256": "302bca1dab25b38278c50d9c9ef54b893f82e272ead31ea57b19229a4f4c661e"
+        },
+        {
+          "path": "configs/du1_e6_cartesian_taper.yaml",
+          "sha256": "8f02aaad085c13f21e9ce12ececc95baa84632af5bc7a4939929fa2d23b963b8"
+        },
+        {
+          "path": "tests/test_du1_e6_cartesian_taper.py",
+          "sha256": "da93b85bccb6f5024ac9d53609e8c395e4f518e29180446226b07fa75ac47f7c"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "environment_repair_diagnostic_scope"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance before any formal execution.",
+      "to": "engineering_only_development_seeds_0_2_six_core_methods_8000_steps"
+    },
+    {
+      "change_id": "du1-e6-shared-rarity-repair-008",
+      "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "974228eff0ff57542f91bc5e0a6a36e143301a96618bb03cca4511a664bd87e5"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "f8eab3aa8ba3f2d3b6e888f9e05597f08fc8385a11f985d3338f66f296821b6d"
+        },
+        {
+          "path": "src/drpo/du1_e6_cartesian_taper.py",
+          "sha256": "7e02c093428616ec2a3ffc7ffbc0cdafda0692f41945a1a09b5847048218a114"
+        },
+        {
+          "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+          "sha256": "302bca1dab25b38278c50d9c9ef54b893f82e272ead31ea57b19229a4f4c661e"
+        },
+        {
+          "path": "configs/du1_e6_cartesian_taper.yaml",
+          "sha256": "8f02aaad085c13f21e9ce12ececc95baa84632af5bc7a4939929fa2d23b963b8"
+        },
+        {
+          "path": "tests/test_du1_e6_cartesian_taper.py",
+          "sha256": "da93b85bccb6f5024ac9d53609e8c395e4f518e29180446226b07fa75ac47f7c"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "environment_revision_2_implemented"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance before any formal execution.",
+      "to": true
+    },
+    {
+      "change_id": "du1-e6-shared-rarity-repair-009",
+      "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "974228eff0ff57542f91bc5e0a6a36e143301a96618bb03cca4511a664bd87e5"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "f8eab3aa8ba3f2d3b6e888f9e05597f08fc8385a11f985d3338f66f296821b6d"
+        },
+        {
+          "path": "src/drpo/du1_e6_cartesian_taper.py",
+          "sha256": "7e02c093428616ec2a3ffc7ffbc0cdafda0692f41945a1a09b5847048218a114"
+        },
+        {
+          "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+          "sha256": "302bca1dab25b38278c50d9c9ef54b893f82e272ead31ea57b19229a4f4c661e"
+        },
+        {
+          "path": "configs/du1_e6_cartesian_taper.yaml",
+          "sha256": "8f02aaad085c13f21e9ce12ececc95baa84632af5bc7a4939929fa2d23b963b8"
+        },
+        {
+          "path": "tests/test_du1_e6_cartesian_taper.py",
+          "sha256": "da93b85bccb6f5024ac9d53609e8c395e4f518e29180446226b07fa75ac47f7c"
+        }
+      ],
+      "field_path": [
+        "evidence",
+        "formal_protocol_frozen"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance before any formal execution.",
+      "to": false
+    },
+    {
+      "change_id": "du1-e6-shared-rarity-repair-010",
+      "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "974228eff0ff57542f91bc5e0a6a36e143301a96618bb03cca4511a664bd87e5"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "f8eab3aa8ba3f2d3b6e888f9e05597f08fc8385a11f985d3338f66f296821b6d"
+        },
+        {
+          "path": "src/drpo/du1_e6_cartesian_taper.py",
+          "sha256": "7e02c093428616ec2a3ffc7ffbc0cdafda0692f41945a1a09b5847048218a114"
+        },
+        {
+          "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+          "sha256": "302bca1dab25b38278c50d9c9ef54b893f82e272ead31ea57b19229a4f4c661e"
+        },
+        {
+          "path": "configs/du1_e6_cartesian_taper.yaml",
+          "sha256": "8f02aaad085c13f21e9ce12ececc95baa84632af5bc7a4939929fa2d23b963b8"
+        },
+        {
+          "path": "tests/test_du1_e6_cartesian_taper.py",
+          "sha256": "da93b85bccb6f5024ac9d53609e8c395e4f518e29180446226b07fa75ac47f7c"
+        }
+      ],
+      "field_path": [
+        "execution_gate",
+        "approval_record"
+      ],
+      "from": "user_approved_2026-07-02_utility_x_surprisal_cartesian_joint_protocol",
+      "kind": "update_field",
+      "reason": "Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance before any formal execution.",
+      "to": "user_approved_2026-07-02_shared_rarity_environment_repair"
+    },
+    {
+      "change_id": "du1-e6-shared-rarity-repair-011",
+      "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "974228eff0ff57542f91bc5e0a6a36e143301a96618bb03cca4511a664bd87e5"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "f8eab3aa8ba3f2d3b6e888f9e05597f08fc8385a11f985d3338f66f296821b6d"
+        },
+        {
+          "path": "src/drpo/du1_e6_cartesian_taper.py",
+          "sha256": "7e02c093428616ec2a3ffc7ffbc0cdafda0692f41945a1a09b5847048218a114"
+        },
+        {
+          "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+          "sha256": "302bca1dab25b38278c50d9c9ef54b893f82e272ead31ea57b19229a4f4c661e"
+        },
+        {
+          "path": "configs/du1_e6_cartesian_taper.yaml",
+          "sha256": "8f02aaad085c13f21e9ce12ececc95baa84632af5bc7a4939929fa2d23b963b8"
+        },
+        {
+          "path": "tests/test_du1_e6_cartesian_taper.py",
+          "sha256": "da93b85bccb6f5024ac9d53609e8c395e4f518e29180446226b07fa75ac47f7c"
+        }
+      ],
+      "field_path": [
+        "execution_gate",
+        "blocked_by"
+      ],
+      "from": [],
+      "kind": "update_field",
+      "reason": "Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance before any formal execution.",
+      "to": [
+        "development_calibration",
+        "separate_formal_protocol_freeze"
+      ]
+    },
+    {
+      "change_id": "du1-e6-shared-rarity-repair-012",
+      "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "974228eff0ff57542f91bc5e0a6a36e143301a96618bb03cca4511a664bd87e5"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "f8eab3aa8ba3f2d3b6e888f9e05597f08fc8385a11f985d3338f66f296821b6d"
+        },
+        {
+          "path": "src/drpo/du1_e6_cartesian_taper.py",
+          "sha256": "7e02c093428616ec2a3ffc7ffbc0cdafda0692f41945a1a09b5847048218a114"
+        },
+        {
+          "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+          "sha256": "302bca1dab25b38278c50d9c9ef54b893f82e272ead31ea57b19229a4f4c661e"
+        },
+        {
+          "path": "configs/du1_e6_cartesian_taper.yaml",
+          "sha256": "8f02aaad085c13f21e9ce12ececc95baa84632af5bc7a4939929fa2d23b963b8"
+        },
+        {
+          "path": "tests/test_du1_e6_cartesian_taper.py",
+          "sha256": "da93b85bccb6f5024ac9d53609e8c395e4f518e29180446226b07fa75ac47f7c"
+        }
+      ],
+      "field_path": [
+        "execution_gate",
+        "blocking_reason"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance before any formal execution.",
+      "to": "Protocol revision 2 repairs the environment but formal alpha, retention, rarity-logit anchor coefficient, horizon, and terminal thresholds remain unfrozen. Development seeds 0-4 must complete the preregistered calibration before formal seeds 200-219 may be accessed."
+    },
+    {
+      "change_id": "du1-e6-shared-rarity-repair-013",
+      "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "974228eff0ff57542f91bc5e0a6a36e143301a96618bb03cca4511a664bd87e5"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "f8eab3aa8ba3f2d3b6e888f9e05597f08fc8385a11f985d3338f66f296821b6d"
+        },
+        {
+          "path": "src/drpo/du1_e6_cartesian_taper.py",
+          "sha256": "7e02c093428616ec2a3ffc7ffbc0cdafda0692f41945a1a09b5847048218a114"
+        },
+        {
+          "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+          "sha256": "302bca1dab25b38278c50d9c9ef54b893f82e272ead31ea57b19229a4f4c661e"
+        },
+        {
+          "path": "configs/du1_e6_cartesian_taper.yaml",
+          "sha256": "8f02aaad085c13f21e9ce12ececc95baa84632af5bc7a4939929fa2d23b963b8"
+        },
+        {
+          "path": "tests/test_du1_e6_cartesian_taper.py",
+          "sha256": "da93b85bccb6f5024ac9d53609e8c395e4f518e29180446226b07fa75ac47f7c"
+        }
+      ],
+      "field_path": [
+        "execution_gate",
+        "state"
+      ],
+      "from": "ready",
+      "kind": "update_field",
+      "reason": "Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance before any formal execution.",
+      "to": "blocked"
+    },
+    {
+      "change_id": "du1-e6-shared-rarity-repair-014",
+      "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "974228eff0ff57542f91bc5e0a6a36e143301a96618bb03cca4511a664bd87e5"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "f8eab3aa8ba3f2d3b6e888f9e05597f08fc8385a11f985d3338f66f296821b6d"
+        },
+        {
+          "path": "src/drpo/du1_e6_cartesian_taper.py",
+          "sha256": "7e02c093428616ec2a3ffc7ffbc0cdafda0692f41945a1a09b5847048218a114"
+        },
+        {
+          "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+          "sha256": "302bca1dab25b38278c50d9c9ef54b893f82e272ead31ea57b19229a4f4c661e"
+        },
+        {
+          "path": "configs/du1_e6_cartesian_taper.yaml",
+          "sha256": "8f02aaad085c13f21e9ce12ececc95baa84632af5bc7a4939929fa2d23b963b8"
+        },
+        {
+          "path": "tests/test_du1_e6_cartesian_taper.py",
+          "sha256": "da93b85bccb6f5024ac9d53609e8c395e4f518e29180446226b07fa75ac47f7c"
+        }
+      ],
+      "field_path": [
+        "formal_execution",
+        "activation_state"
+      ],
+      "from": "active",
+      "kind": "update_field",
+      "reason": "Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance before any formal execution.",
+      "to": "blocked"
+    },
+    {
+      "change_id": "du1-e6-shared-rarity-repair-015",
+      "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "974228eff0ff57542f91bc5e0a6a36e143301a96618bb03cca4511a664bd87e5"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "f8eab3aa8ba3f2d3b6e888f9e05597f08fc8385a11f985d3338f66f296821b6d"
+        },
+        {
+          "path": "src/drpo/du1_e6_cartesian_taper.py",
+          "sha256": "7e02c093428616ec2a3ffc7ffbc0cdafda0692f41945a1a09b5847048218a114"
+        },
+        {
+          "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+          "sha256": "302bca1dab25b38278c50d9c9ef54b893f82e272ead31ea57b19229a4f4c661e"
+        },
+        {
+          "path": "configs/du1_e6_cartesian_taper.yaml",
+          "sha256": "8f02aaad085c13f21e9ce12ececc95baa84632af5bc7a4939929fa2d23b963b8"
+        },
+        {
+          "path": "tests/test_du1_e6_cartesian_taper.py",
+          "sha256": "da93b85bccb6f5024ac9d53609e8c395e4f518e29180446226b07fa75ac47f7c"
+        }
+      ],
+      "field_path": [
+        "formal_parameter_freeze"
+      ],
+      "from": true,
+      "kind": "update_field",
+      "reason": "Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance before any formal execution.",
+      "to": false
+    },
+    {
+      "change_id": "du1-e6-shared-rarity-repair-016",
+      "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "974228eff0ff57542f91bc5e0a6a36e143301a96618bb03cca4511a664bd87e5"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "f8eab3aa8ba3f2d3b6e888f9e05597f08fc8385a11f985d3338f66f296821b6d"
+        },
+        {
+          "path": "src/drpo/du1_e6_cartesian_taper.py",
+          "sha256": "7e02c093428616ec2a3ffc7ffbc0cdafda0692f41945a1a09b5847048218a114"
+        },
+        {
+          "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+          "sha256": "302bca1dab25b38278c50d9c9ef54b893f82e272ead31ea57b19229a4f4c661e"
+        },
+        {
+          "path": "configs/du1_e6_cartesian_taper.yaml",
+          "sha256": "8f02aaad085c13f21e9ce12ececc95baa84632af5bc7a4939929fa2d23b963b8"
+        },
+        {
+          "path": "tests/test_du1_e6_cartesian_taper.py",
+          "sha256": "da93b85bccb6f5024ac9d53609e8c395e4f518e29180446226b07fa75ac47f7c"
+        }
+      ],
+      "field_path": [
+        "freeze_approval",
+        "environment_revision_approved"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance before any formal execution.",
+      "to": true
+    },
+    {
+      "change_id": "du1-e6-shared-rarity-repair-017",
+      "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "974228eff0ff57542f91bc5e0a6a36e143301a96618bb03cca4511a664bd87e5"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "f8eab3aa8ba3f2d3b6e888f9e05597f08fc8385a11f985d3338f66f296821b6d"
+        },
+        {
+          "path": "src/drpo/du1_e6_cartesian_taper.py",
+          "sha256": "7e02c093428616ec2a3ffc7ffbc0cdafda0692f41945a1a09b5847048218a114"
+        },
+        {
+          "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+          "sha256": "302bca1dab25b38278c50d9c9ef54b893f82e272ead31ea57b19229a4f4c661e"
+        },
+        {
+          "path": "configs/du1_e6_cartesian_taper.yaml",
+          "sha256": "8f02aaad085c13f21e9ce12ececc95baa84632af5bc7a4939929fa2d23b963b8"
+        },
+        {
+          "path": "tests/test_du1_e6_cartesian_taper.py",
+          "sha256": "da93b85bccb6f5024ac9d53609e8c395e4f518e29180446226b07fa75ac47f7c"
+        }
+      ],
+      "field_path": [
+        "freeze_approval",
+        "formal_hyperparameters_approved"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance before any formal execution.",
+      "to": false
+    },
+    {
+      "change_id": "du1-e6-shared-rarity-repair-018",
+      "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "974228eff0ff57542f91bc5e0a6a36e143301a96618bb03cca4511a664bd87e5"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "f8eab3aa8ba3f2d3b6e888f9e05597f08fc8385a11f985d3338f66f296821b6d"
+        },
+        {
+          "path": "src/drpo/du1_e6_cartesian_taper.py",
+          "sha256": "7e02c093428616ec2a3ffc7ffbc0cdafda0692f41945a1a09b5847048218a114"
+        },
+        {
+          "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+          "sha256": "302bca1dab25b38278c50d9c9ef54b893f82e272ead31ea57b19229a4f4c661e"
+        },
+        {
+          "path": "configs/du1_e6_cartesian_taper.yaml",
+          "sha256": "8f02aaad085c13f21e9ce12ececc95baa84632af5bc7a4939929fa2d23b963b8"
+        },
+        {
+          "path": "tests/test_du1_e6_cartesian_taper.py",
+          "sha256": "da93b85bccb6f5024ac9d53609e8c395e4f518e29180446226b07fa75ac47f7c"
+        }
+      ],
+      "field_path": [
+        "freeze_approval",
+        "source"
+      ],
+      "from": "explicit_cartesian_environment_and_joint_implementation_request",
+      "kind": "update_field",
+      "reason": "Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance before any formal execution.",
+      "to": "explicit_environment_repair_request"
+    },
+    {
+      "change_id": "du1-e6-shared-rarity-repair-019",
+      "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "974228eff0ff57542f91bc5e0a6a36e143301a96618bb03cca4511a664bd87e5"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "f8eab3aa8ba3f2d3b6e888f9e05597f08fc8385a11f985d3338f66f296821b6d"
+        },
+        {
+          "path": "src/drpo/du1_e6_cartesian_taper.py",
+          "sha256": "7e02c093428616ec2a3ffc7ffbc0cdafda0692f41945a1a09b5847048218a114"
+        },
+        {
+          "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+          "sha256": "302bca1dab25b38278c50d9c9ef54b893f82e272ead31ea57b19229a4f4c661e"
+        },
+        {
+          "path": "configs/du1_e6_cartesian_taper.yaml",
+          "sha256": "8f02aaad085c13f21e9ce12ececc95baa84632af5bc7a4939929fa2d23b963b8"
+        },
+        {
+          "path": "tests/test_du1_e6_cartesian_taper.py",
+          "sha256": "da93b85bccb6f5024ac9d53609e8c395e4f518e29180446226b07fa75ac47f7c"
+        }
+      ],
+      "field_path": [
+        "non_claims"
+      ],
+      "from": [
+        "OOD_generalization",
+        "Gaussian_unbounded_gradient_law_for_categorical_logits",
+        "Transformer_external_validity",
+        "cross_task_method_superiority",
+        "predeclared_taper_winner"
+      ],
+      "kind": "update_field",
+      "reason": "Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance before any formal execution.",
+      "to": [
+        "OOD_generalization",
+        "Gaussian_unbounded_gradient_law_for_categorical_logits",
+        "Transformer_external_validity",
+        "cross_task_method_superiority",
+        "predeclared_taper_winner",
+        "protocol_revision_1_pilot_method_ranking"
+      ]
+    },
+    {
+      "change_id": "du1-e6-shared-rarity-repair-020",
+      "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "974228eff0ff57542f91bc5e0a6a36e143301a96618bb03cca4511a664bd87e5"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "f8eab3aa8ba3f2d3b6e888f9e05597f08fc8385a11f985d3338f66f296821b6d"
+        },
+        {
+          "path": "src/drpo/du1_e6_cartesian_taper.py",
+          "sha256": "7e02c093428616ec2a3ffc7ffbc0cdafda0692f41945a1a09b5847048218a114"
+        },
+        {
+          "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+          "sha256": "302bca1dab25b38278c50d9c9ef54b893f82e272ead31ea57b19229a4f4c661e"
+        },
+        {
+          "path": "configs/du1_e6_cartesian_taper.yaml",
+          "sha256": "8f02aaad085c13f21e9ce12ececc95baa84632af5bc7a4939929fa2d23b963b8"
+        },
+        {
+          "path": "tests/test_du1_e6_cartesian_taper.py",
+          "sha256": "da93b85bccb6f5024ac9d53609e8c395e4f518e29180446226b07fa75ac47f7c"
+        }
+      ],
+      "field_path": [
+        "protocol",
+        "development_calibration"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance before any formal execution.",
+      "to": {
+        "candidate_negative_alpha": [
+          0.1,
+          0.25,
+          0.5
+        ],
+        "candidate_rarity_logit_anchor_coefficient": [
+          0.1,
+          0.25,
+          0.5
+        ],
+        "candidate_reference_rare_retention": [
+          0.25,
+          0.5,
+          0.75
+        ],
+        "development_seeds": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "formal_seed_access_allowed": false,
+        "required_before_formal": true
+      }
+    },
+    {
+      "change_id": "du1-e6-shared-rarity-repair-021",
+      "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "974228eff0ff57542f91bc5e0a6a36e143301a96618bb03cca4511a664bd87e5"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "f8eab3aa8ba3f2d3b6e888f9e05597f08fc8385a11f985d3338f66f296821b6d"
+        },
+        {
+          "path": "src/drpo/du1_e6_cartesian_taper.py",
+          "sha256": "7e02c093428616ec2a3ffc7ffbc0cdafda0692f41945a1a09b5847048218a114"
+        },
+        {
+          "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+          "sha256": "302bca1dab25b38278c50d9c9ef54b893f82e272ead31ea57b19229a4f4c661e"
+        },
+        {
+          "path": "configs/du1_e6_cartesian_taper.yaml",
+          "sha256": "8f02aaad085c13f21e9ce12ececc95baa84632af5bc7a4939929fa2d23b963b8"
+        },
+        {
+          "path": "tests/test_du1_e6_cartesian_taper.py",
+          "sha256": "da93b85bccb6f5024ac9d53609e8c395e4f518e29180446226b07fa75ac47f7c"
+        }
+      ],
+      "field_path": [
+        "protocol",
+        "exact_decoupling",
+        "initial_rarity_gap_source"
+      ],
+      "from": "trainable_action_logit_bias",
+      "kind": "update_field",
+      "reason": "Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance before any formal execution.",
+      "to": "shared_contextual_rarity_residual_head"
+    },
+    {
+      "change_id": "du1-e6-shared-rarity-repair-022",
+      "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "974228eff0ff57542f91bc5e0a6a36e143301a96618bb03cca4511a664bd87e5"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "f8eab3aa8ba3f2d3b6e888f9e05597f08fc8385a11f985d3338f66f296821b6d"
+        },
+        {
+          "path": "src/drpo/du1_e6_cartesian_taper.py",
+          "sha256": "7e02c093428616ec2a3ffc7ffbc0cdafda0692f41945a1a09b5847048218a114"
+        },
+        {
+          "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+          "sha256": "302bca1dab25b38278c50d9c9ef54b893f82e272ead31ea57b19229a4f4c661e"
+        },
+        {
+          "path": "configs/du1_e6_cartesian_taper.yaml",
+          "sha256": "8f02aaad085c13f21e9ce12ececc95baa84632af5bc7a4939929fa2d23b963b8"
+        },
+        {
+          "path": "tests/test_du1_e6_cartesian_taper.py",
+          "sha256": "da93b85bccb6f5024ac9d53609e8c395e4f518e29180446226b07fa75ac47f7c"
+        }
+      ],
+      "field_path": [
+        "protocol",
+        "exact_decoupling",
+        "orthogonal_policy_rarity_coordinate"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance before any formal execution.",
+      "to": true
+    },
+    {
+      "change_id": "du1-e6-shared-rarity-repair-023",
+      "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "974228eff0ff57542f91bc5e0a6a36e143301a96618bb03cca4511a664bd87e5"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "f8eab3aa8ba3f2d3b6e888f9e05597f08fc8385a11f985d3338f66f296821b6d"
+        },
+        {
+          "path": "src/drpo/du1_e6_cartesian_taper.py",
+          "sha256": "7e02c093428616ec2a3ffc7ffbc0cdafda0692f41945a1a09b5847048218a114"
+        },
+        {
+          "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+          "sha256": "302bca1dab25b38278c50d9c9ef54b893f82e272ead31ea57b19229a4f4c661e"
+        },
+        {
+          "path": "configs/du1_e6_cartesian_taper.yaml",
+          "sha256": "8f02aaad085c13f21e9ce12ececc95baa84632af5bc7a4939929fa2d23b963b8"
+        },
+        {
+          "path": "tests/test_du1_e6_cartesian_taper.py",
+          "sha256": "da93b85bccb6f5024ac9d53609e8c395e4f518e29180446226b07fa75ac47f7c"
+        }
+      ],
+      "field_path": [
+        "protocol",
+        "exact_decoupling",
+        "positive_family_objective_rarity_neutral"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance before any formal execution.",
+      "to": true
+    },
+    {
+      "change_id": "du1-e6-shared-rarity-repair-024",
+      "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "974228eff0ff57542f91bc5e0a6a36e143301a96618bb03cca4511a664bd87e5"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "f8eab3aa8ba3f2d3b6e888f9e05597f08fc8385a11f985d3338f66f296821b6d"
+        },
+        {
+          "path": "src/drpo/du1_e6_cartesian_taper.py",
+          "sha256": "7e02c093428616ec2a3ffc7ffbc0cdafda0692f41945a1a09b5847048218a114"
+        },
+        {
+          "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+          "sha256": "302bca1dab25b38278c50d9c9ef54b893f82e272ead31ea57b19229a4f4c661e"
+        },
+        {
+          "path": "configs/du1_e6_cartesian_taper.yaml",
+          "sha256": "8f02aaad085c13f21e9ce12ececc95baa84632af5bc7a4939929fa2d23b963b8"
+        },
+        {
+          "path": "tests/test_du1_e6_cartesian_taper.py",
+          "sha256": "da93b85bccb6f5024ac9d53609e8c395e4f518e29180446226b07fa75ac47f7c"
+        }
+      ],
+      "field_path": [
+        "protocol",
+        "exact_decoupling",
+        "positive_only_initial_rarity_gap_preserved"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance before any formal execution.",
+      "to": true
+    },
+    {
+      "change_id": "du1-e6-shared-rarity-repair-025",
+      "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "974228eff0ff57542f91bc5e0a6a36e143301a96618bb03cca4511a664bd87e5"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "f8eab3aa8ba3f2d3b6e888f9e05597f08fc8385a11f985d3338f66f296821b6d"
+        },
+        {
+          "path": "src/drpo/du1_e6_cartesian_taper.py",
+          "sha256": "7e02c093428616ec2a3ffc7ffbc0cdafda0692f41945a1a09b5847048218a114"
+        },
+        {
+          "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+          "sha256": "302bca1dab25b38278c50d9c9ef54b893f82e272ead31ea57b19229a4f4c661e"
+        },
+        {
+          "path": "configs/du1_e6_cartesian_taper.yaml",
+          "sha256": "8f02aaad085c13f21e9ce12ececc95baa84632af5bc7a4939929fa2d23b963b8"
+        },
+        {
+          "path": "tests/test_du1_e6_cartesian_taper.py",
+          "sha256": "da93b85bccb6f5024ac9d53609e8c395e4f518e29180446226b07fa75ac47f7c"
+        }
+      ],
+      "field_path": [
+        "protocol",
+        "exact_decoupling",
+        "shared_rarity_gradient_audit_required"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance before any formal execution.",
+      "to": true
+    },
+    {
+      "change_id": "du1-e6-shared-rarity-repair-026",
+      "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "974228eff0ff57542f91bc5e0a6a36e143301a96618bb03cca4511a664bd87e5"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "f8eab3aa8ba3f2d3b6e888f9e05597f08fc8385a11f985d3338f66f296821b6d"
+        },
+        {
+          "path": "src/drpo/du1_e6_cartesian_taper.py",
+          "sha256": "7e02c093428616ec2a3ffc7ffbc0cdafda0692f41945a1a09b5847048218a114"
+        },
+        {
+          "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+          "sha256": "302bca1dab25b38278c50d9c9ef54b893f82e272ead31ea57b19229a4f4c661e"
+        },
+        {
+          "path": "configs/du1_e6_cartesian_taper.yaml",
+          "sha256": "8f02aaad085c13f21e9ce12ececc95baa84632af5bc7a4939929fa2d23b963b8"
+        },
+        {
+          "path": "tests/test_du1_e6_cartesian_taper.py",
+          "sha256": "da93b85bccb6f5024ac9d53609e8c395e4f518e29180446226b07fa75ac47f7c"
+        }
+      ],
+      "field_path": [
+        "protocol",
+        "exact_decoupling",
+        "trainable_per_action_bias"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance before any formal execution.",
+      "to": false
+    },
+    {
+      "change_id": "du1-e6-shared-rarity-repair-027",
+      "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "974228eff0ff57542f91bc5e0a6a36e143301a96618bb03cca4511a664bd87e5"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "f8eab3aa8ba3f2d3b6e888f9e05597f08fc8385a11f985d3338f66f296821b6d"
+        },
+        {
+          "path": "src/drpo/du1_e6_cartesian_taper.py",
+          "sha256": "7e02c093428616ec2a3ffc7ffbc0cdafda0692f41945a1a09b5847048218a114"
+        },
+        {
+          "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+          "sha256": "302bca1dab25b38278c50d9c9ef54b893f82e272ead31ea57b19229a4f4c661e"
+        },
+        {
+          "path": "configs/du1_e6_cartesian_taper.yaml",
+          "sha256": "8f02aaad085c13f21e9ce12ececc95baa84632af5bc7a4939929fa2d23b963b8"
+        },
+        {
+          "path": "tests/test_du1_e6_cartesian_taper.py",
+          "sha256": "da93b85bccb6f5024ac9d53609e8c395e4f518e29180446226b07fa75ac47f7c"
+        }
+      ],
+      "field_path": [
+        "protocol",
+        "methods"
+      ],
+      "from": [
+        "positive_only",
+        "useful_common_only",
+        "useful_rare_only",
+        "unhelpful_common_only",
+        "unhelpful_rare_only",
+        "useful_all",
+        "unhelpful_all",
+        "common_all",
+        "rare_all",
+        "all_negative",
+        "global_matched",
+        "reciprocal_linear",
+        "reciprocal_quadratic",
+        "exponential"
+      ],
+      "kind": "update_field",
+      "reason": "Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance before any formal execution.",
+      "to": [
+        "positive_only",
+        "useful_common_only",
+        "useful_rare_only",
+        "unhelpful_common_only",
+        "unhelpful_rare_only",
+        "useful_all",
+        "unhelpful_all",
+        "common_all",
+        "rare_all",
+        "all_negative",
+        "global_matched",
+        "reciprocal_linear_distance",
+        "reciprocal_quadratic_distance",
+        "reciprocal_quartic_distance",
+        "exponential_quadratic_distance"
+      ]
+    },
+    {
+      "change_id": "du1-e6-shared-rarity-repair-028",
+      "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "974228eff0ff57542f91bc5e0a6a36e143301a96618bb03cca4511a664bd87e5"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "f8eab3aa8ba3f2d3b6e888f9e05597f08fc8385a11f985d3338f66f296821b6d"
+        },
+        {
+          "path": "src/drpo/du1_e6_cartesian_taper.py",
+          "sha256": "7e02c093428616ec2a3ffc7ffbc0cdafda0692f41945a1a09b5847048218a114"
+        },
+        {
+          "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+          "sha256": "302bca1dab25b38278c50d9c9ef54b893f82e272ead31ea57b19229a4f4c661e"
+        },
+        {
+          "path": "configs/du1_e6_cartesian_taper.yaml",
+          "sha256": "8f02aaad085c13f21e9ce12ececc95baa84632af5bc7a4939929fa2d23b963b8"
+        },
+        {
+          "path": "tests/test_du1_e6_cartesian_taper.py",
+          "sha256": "da93b85bccb6f5024ac9d53609e8c395e4f518e29180446226b07fa75ac47f7c"
+        }
+      ],
+      "field_path": [
+        "protocol",
+        "positive_objective"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance before any formal execution.",
+      "to": "semantic_family_log_probability"
+    },
+    {
+      "change_id": "du1-e6-shared-rarity-repair-029",
+      "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "974228eff0ff57542f91bc5e0a6a36e143301a96618bb03cca4511a664bd87e5"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "f8eab3aa8ba3f2d3b6e888f9e05597f08fc8385a11f985d3338f66f296821b6d"
+        },
+        {
+          "path": "src/drpo/du1_e6_cartesian_taper.py",
+          "sha256": "7e02c093428616ec2a3ffc7ffbc0cdafda0692f41945a1a09b5847048218a114"
+        },
+        {
+          "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+          "sha256": "302bca1dab25b38278c50d9c9ef54b893f82e272ead31ea57b19229a4f4c661e"
+        },
+        {
+          "path": "configs/du1_e6_cartesian_taper.yaml",
+          "sha256": "8f02aaad085c13f21e9ce12ececc95baa84632af5bc7a4939929fa2d23b963b8"
+        },
+        {
+          "path": "tests/test_du1_e6_cartesian_taper.py",
+          "sha256": "da93b85bccb6f5024ac9d53609e8c395e4f518e29180446226b07fa75ac47f7c"
+        }
+      ],
+      "field_path": [
+        "protocol",
+        "protocol_revision"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance before any formal execution.",
+      "to": 2
+    },
+    {
+      "change_id": "du1-e6-shared-rarity-repair-030",
+      "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "974228eff0ff57542f91bc5e0a6a36e143301a96618bb03cca4511a664bd87e5"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "f8eab3aa8ba3f2d3b6e888f9e05597f08fc8385a11f985d3338f66f296821b6d"
+        },
+        {
+          "path": "src/drpo/du1_e6_cartesian_taper.py",
+          "sha256": "7e02c093428616ec2a3ffc7ffbc0cdafda0692f41945a1a09b5847048218a114"
+        },
+        {
+          "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+          "sha256": "302bca1dab25b38278c50d9c9ef54b893f82e272ead31ea57b19229a4f4c661e"
+        },
+        {
+          "path": "configs/du1_e6_cartesian_taper.yaml",
+          "sha256": "8f02aaad085c13f21e9ce12ececc95baa84632af5bc7a4939929fa2d23b963b8"
+        },
+        {
+          "path": "tests/test_du1_e6_cartesian_taper.py",
+          "sha256": "da93b85bccb6f5024ac9d53609e8c395e4f518e29180446226b07fa75ac47f7c"
+        }
+      ],
+      "field_path": [
+        "protocol",
+        "rarity_logit_anchor"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance before any formal execution.",
+      "to": "quadratic_shared_rarity_residual_to_initial_gap"
+    },
+    {
+      "change_id": "du1-e6-shared-rarity-repair-031",
+      "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "974228eff0ff57542f91bc5e0a6a36e143301a96618bb03cca4511a664bd87e5"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "f8eab3aa8ba3f2d3b6e888f9e05597f08fc8385a11f985d3338f66f296821b6d"
+        },
+        {
+          "path": "src/drpo/du1_e6_cartesian_taper.py",
+          "sha256": "7e02c093428616ec2a3ffc7ffbc0cdafda0692f41945a1a09b5847048218a114"
+        },
+        {
+          "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+          "sha256": "302bca1dab25b38278c50d9c9ef54b893f82e272ead31ea57b19229a4f4c661e"
+        },
+        {
+          "path": "configs/du1_e6_cartesian_taper.yaml",
+          "sha256": "8f02aaad085c13f21e9ce12ececc95baa84632af5bc7a4939929fa2d23b963b8"
+        },
+        {
+          "path": "tests/test_du1_e6_cartesian_taper.py",
+          "sha256": "da93b85bccb6f5024ac9d53609e8c395e4f518e29180446226b07fa75ac47f7c"
+        }
+      ],
+      "field_path": [
+        "protocol",
+        "rarity_logit_anchor_coefficient"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance before any formal execution.",
+      "to": 0.25
+    },
+    {
+      "change_id": "du1-e6-shared-rarity-repair-032",
+      "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "974228eff0ff57542f91bc5e0a6a36e143301a96618bb03cca4511a664bd87e5"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "f8eab3aa8ba3f2d3b6e888f9e05597f08fc8385a11f985d3338f66f296821b6d"
+        },
+        {
+          "path": "src/drpo/du1_e6_cartesian_taper.py",
+          "sha256": "7e02c093428616ec2a3ffc7ffbc0cdafda0692f41945a1a09b5847048218a114"
+        },
+        {
+          "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+          "sha256": "302bca1dab25b38278c50d9c9ef54b893f82e272ead31ea57b19229a4f4c661e"
+        },
+        {
+          "path": "configs/du1_e6_cartesian_taper.yaml",
+          "sha256": "8f02aaad085c13f21e9ce12ececc95baa84632af5bc7a4939929fa2d23b963b8"
+        },
+        {
+          "path": "tests/test_du1_e6_cartesian_taper.py",
+          "sha256": "da93b85bccb6f5024ac9d53609e8c395e4f518e29180446226b07fa75ac47f7c"
+        }
+      ],
+      "field_path": [
+        "protocol",
+        "rarity_logit_anchor_finite_output_objective"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance before any formal execution.",
+      "to": true
+    },
+    {
+      "change_id": "du1-e6-shared-rarity-repair-033",
+      "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "974228eff0ff57542f91bc5e0a6a36e143301a96618bb03cca4511a664bd87e5"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "f8eab3aa8ba3f2d3b6e888f9e05597f08fc8385a11f985d3338f66f296821b6d"
+        },
+        {
+          "path": "src/drpo/du1_e6_cartesian_taper.py",
+          "sha256": "7e02c093428616ec2a3ffc7ffbc0cdafda0692f41945a1a09b5847048218a114"
+        },
+        {
+          "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+          "sha256": "302bca1dab25b38278c50d9c9ef54b893f82e272ead31ea57b19229a4f4c661e"
+        },
+        {
+          "path": "configs/du1_e6_cartesian_taper.yaml",
+          "sha256": "8f02aaad085c13f21e9ce12ececc95baa84632af5bc7a4939929fa2d23b963b8"
+        },
+        {
+          "path": "tests/test_du1_e6_cartesian_taper.py",
+          "sha256": "da93b85bccb6f5024ac9d53609e8c395e4f518e29180446226b07fa75ac47f7c"
+        }
+      ],
+      "field_path": [
+        "protocol",
+        "taper_fairness",
+        "exponential_quadratic_distance_coefficient"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance before any formal execution.",
+      "to": 1.3862943611198906
+    },
+    {
+      "change_id": "du1-e6-shared-rarity-repair-034",
+      "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "974228eff0ff57542f91bc5e0a6a36e143301a96618bb03cca4511a664bd87e5"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "f8eab3aa8ba3f2d3b6e888f9e05597f08fc8385a11f985d3338f66f296821b6d"
+        },
+        {
+          "path": "src/drpo/du1_e6_cartesian_taper.py",
+          "sha256": "7e02c093428616ec2a3ffc7ffbc0cdafda0692f41945a1a09b5847048218a114"
+        },
+        {
+          "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+          "sha256": "302bca1dab25b38278c50d9c9ef54b893f82e272ead31ea57b19229a4f4c661e"
+        },
+        {
+          "path": "configs/du1_e6_cartesian_taper.yaml",
+          "sha256": "8f02aaad085c13f21e9ce12ececc95baa84632af5bc7a4939929fa2d23b963b8"
+        },
+        {
+          "path": "tests/test_du1_e6_cartesian_taper.py",
+          "sha256": "da93b85bccb6f5024ac9d53609e8c395e4f518e29180446226b07fa75ac47f7c"
+        }
+      ],
+      "field_path": [
+        "protocol",
+        "taper_fairness",
+        "global_control"
+      ],
+      "from": "initial_raw_negative_gradient_norm_matched_to_exponential",
+      "kind": "update_field",
+      "reason": "Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance before any formal execution.",
+      "to": "stepwise_raw_negative_gradient_norm_matched_to_exponential_on_same_current_model_and_batch"
+    },
+    {
+      "change_id": "du1-e6-shared-rarity-repair-035",
+      "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "974228eff0ff57542f91bc5e0a6a36e143301a96618bb03cca4511a664bd87e5"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "f8eab3aa8ba3f2d3b6e888f9e05597f08fc8385a11f985d3338f66f296821b6d"
+        },
+        {
+          "path": "src/drpo/du1_e6_cartesian_taper.py",
+          "sha256": "7e02c093428616ec2a3ffc7ffbc0cdafda0692f41945a1a09b5847048218a114"
+        },
+        {
+          "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+          "sha256": "302bca1dab25b38278c50d9c9ef54b893f82e272ead31ea57b19229a4f4c661e"
+        },
+        {
+          "path": "configs/du1_e6_cartesian_taper.yaml",
+          "sha256": "8f02aaad085c13f21e9ce12ececc95baa84632af5bc7a4939929fa2d23b963b8"
+        },
+        {
+          "path": "tests/test_du1_e6_cartesian_taper.py",
+          "sha256": "da93b85bccb6f5024ac9d53609e8c395e4f518e29180446226b07fa75ac47f7c"
+        }
+      ],
+      "field_path": [
+        "protocol",
+        "taper_fairness",
+        "legacy_field_interpretation"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance before any formal execution.",
+      "to": "v70 aliases retained for non-destructive history; protocol revision 2 method-specific fields are authoritative"
+    },
+    {
+      "change_id": "du1-e6-shared-rarity-repair-036",
+      "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "974228eff0ff57542f91bc5e0a6a36e143301a96618bb03cca4511a664bd87e5"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "f8eab3aa8ba3f2d3b6e888f9e05597f08fc8385a11f985d3338f66f296821b6d"
+        },
+        {
+          "path": "src/drpo/du1_e6_cartesian_taper.py",
+          "sha256": "7e02c093428616ec2a3ffc7ffbc0cdafda0692f41945a1a09b5847048218a114"
+        },
+        {
+          "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+          "sha256": "302bca1dab25b38278c50d9c9ef54b893f82e272ead31ea57b19229a4f4c661e"
+        },
+        {
+          "path": "configs/du1_e6_cartesian_taper.yaml",
+          "sha256": "8f02aaad085c13f21e9ce12ececc95baa84632af5bc7a4939929fa2d23b963b8"
+        },
+        {
+          "path": "tests/test_du1_e6_cartesian_taper.py",
+          "sha256": "da93b85bccb6f5024ac9d53609e8c395e4f518e29180446226b07fa75ac47f7c"
+        }
+      ],
+      "field_path": [
+        "protocol",
+        "taper_fairness",
+        "reciprocal_linear_distance_coefficient"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance before any formal execution.",
+      "to": 3.0
+    },
+    {
+      "change_id": "du1-e6-shared-rarity-repair-037",
+      "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "974228eff0ff57542f91bc5e0a6a36e143301a96618bb03cca4511a664bd87e5"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "f8eab3aa8ba3f2d3b6e888f9e05597f08fc8385a11f985d3338f66f296821b6d"
+        },
+        {
+          "path": "src/drpo/du1_e6_cartesian_taper.py",
+          "sha256": "7e02c093428616ec2a3ffc7ffbc0cdafda0692f41945a1a09b5847048218a114"
+        },
+        {
+          "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+          "sha256": "302bca1dab25b38278c50d9c9ef54b893f82e272ead31ea57b19229a4f4c661e"
+        },
+        {
+          "path": "configs/du1_e6_cartesian_taper.yaml",
+          "sha256": "8f02aaad085c13f21e9ce12ececc95baa84632af5bc7a4939929fa2d23b963b8"
+        },
+        {
+          "path": "tests/test_du1_e6_cartesian_taper.py",
+          "sha256": "da93b85bccb6f5024ac9d53609e8c395e4f518e29180446226b07fa75ac47f7c"
+        }
+      ],
+      "field_path": [
+        "protocol",
+        "taper_fairness",
+        "reciprocal_quadratic_distance_coefficient"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance before any formal execution.",
+      "to": 3.0
+    },
+    {
+      "change_id": "du1-e6-shared-rarity-repair-038",
+      "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "974228eff0ff57542f91bc5e0a6a36e143301a96618bb03cca4511a664bd87e5"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "f8eab3aa8ba3f2d3b6e888f9e05597f08fc8385a11f985d3338f66f296821b6d"
+        },
+        {
+          "path": "src/drpo/du1_e6_cartesian_taper.py",
+          "sha256": "7e02c093428616ec2a3ffc7ffbc0cdafda0692f41945a1a09b5847048218a114"
+        },
+        {
+          "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+          "sha256": "302bca1dab25b38278c50d9c9ef54b893f82e272ead31ea57b19229a4f4c661e"
+        },
+        {
+          "path": "configs/du1_e6_cartesian_taper.yaml",
+          "sha256": "8f02aaad085c13f21e9ce12ececc95baa84632af5bc7a4939929fa2d23b963b8"
+        },
+        {
+          "path": "tests/test_du1_e6_cartesian_taper.py",
+          "sha256": "da93b85bccb6f5024ac9d53609e8c395e4f518e29180446226b07fa75ac47f7c"
+        }
+      ],
+      "field_path": [
+        "protocol",
+        "taper_fairness",
+        "reciprocal_quartic_distance_coefficient"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance before any formal execution.",
+      "to": 3.0
+    },
+    {
+      "change_id": "du1-e6-shared-rarity-repair-039",
+      "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "974228eff0ff57542f91bc5e0a6a36e143301a96618bb03cca4511a664bd87e5"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "f8eab3aa8ba3f2d3b6e888f9e05597f08fc8385a11f985d3338f66f296821b6d"
+        },
+        {
+          "path": "src/drpo/du1_e6_cartesian_taper.py",
+          "sha256": "7e02c093428616ec2a3ffc7ffbc0cdafda0692f41945a1a09b5847048218a114"
+        },
+        {
+          "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+          "sha256": "302bca1dab25b38278c50d9c9ef54b893f82e272ead31ea57b19229a4f4c661e"
+        },
+        {
+          "path": "configs/du1_e6_cartesian_taper.yaml",
+          "sha256": "8f02aaad085c13f21e9ce12ececc95baa84632af5bc7a4939929fa2d23b963b8"
+        },
+        {
+          "path": "tests/test_du1_e6_cartesian_taper.py",
+          "sha256": "da93b85bccb6f5024ac9d53609e8c395e4f518e29180446226b07fa75ac47f7c"
+        }
+      ],
+      "field_path": [
+        "protocol_revision"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance before any formal execution.",
+      "to": 2
+    },
+    {
+      "change_id": "du1-e6-shared-rarity-repair-040",
+      "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "974228eff0ff57542f91bc5e0a6a36e143301a96618bb03cca4511a664bd87e5"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "f8eab3aa8ba3f2d3b6e888f9e05597f08fc8385a11f985d3338f66f296821b6d"
+        },
+        {
+          "path": "src/drpo/du1_e6_cartesian_taper.py",
+          "sha256": "7e02c093428616ec2a3ffc7ffbc0cdafda0692f41945a1a09b5847048218a114"
+        },
+        {
+          "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+          "sha256": "302bca1dab25b38278c50d9c9ef54b893f82e272ead31ea57b19229a4f4c661e"
+        },
+        {
+          "path": "configs/du1_e6_cartesian_taper.yaml",
+          "sha256": "8f02aaad085c13f21e9ce12ececc95baa84632af5bc7a4939929fa2d23b963b8"
+        },
+        {
+          "path": "tests/test_du1_e6_cartesian_taper.py",
+          "sha256": "da93b85bccb6f5024ac9d53609e8c395e4f518e29180446226b07fa75ac47f7c"
+        }
+      ],
+      "field_path": [
+        "revision_base_commit"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance before any formal execution.",
+      "to": "60e014384f85f88ae18da18f4bf6d3db1d808200"
+    },
+    {
+      "change_id": "du1-e6-shared-rarity-repair-041",
+      "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "974228eff0ff57542f91bc5e0a6a36e143301a96618bb03cca4511a664bd87e5"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "f8eab3aa8ba3f2d3b6e888f9e05597f08fc8385a11f985d3338f66f296821b6d"
+        },
+        {
+          "path": "src/drpo/du1_e6_cartesian_taper.py",
+          "sha256": "7e02c093428616ec2a3ffc7ffbc0cdafda0692f41945a1a09b5847048218a114"
+        },
+        {
+          "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+          "sha256": "302bca1dab25b38278c50d9c9ef54b893f82e272ead31ea57b19229a4f4c661e"
+        },
+        {
+          "path": "configs/du1_e6_cartesian_taper.yaml",
+          "sha256": "8f02aaad085c13f21e9ce12ececc95baa84632af5bc7a4939929fa2d23b963b8"
+        },
+        {
+          "path": "tests/test_du1_e6_cartesian_taper.py",
+          "sha256": "da93b85bccb6f5024ac9d53609e8c395e4f518e29180446226b07fa75ac47f7c"
+        }
+      ],
+      "field_path": [
+        "supersedes_protocol_revision"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance before any formal execution.",
+      "to": 1
+    },
+    {
+      "change_id": "du1-e6-shared-rarity-repair-042",
+      "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "974228eff0ff57542f91bc5e0a6a36e143301a96618bb03cca4511a664bd87e5"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "f8eab3aa8ba3f2d3b6e888f9e05597f08fc8385a11f985d3338f66f296821b6d"
+        },
+        {
+          "path": "src/drpo/du1_e6_cartesian_taper.py",
+          "sha256": "7e02c093428616ec2a3ffc7ffbc0cdafda0692f41945a1a09b5847048218a114"
+        },
+        {
+          "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+          "sha256": "302bca1dab25b38278c50d9c9ef54b893f82e272ead31ea57b19229a4f4c661e"
+        },
+        {
+          "path": "configs/du1_e6_cartesian_taper.yaml",
+          "sha256": "8f02aaad085c13f21e9ce12ececc95baa84632af5bc7a4939929fa2d23b963b8"
+        },
+        {
+          "path": "tests/test_du1_e6_cartesian_taper.py",
+          "sha256": "da93b85bccb6f5024ac9d53609e8c395e4f518e29180446226b07fa75ac47f7c"
+        }
+      ],
+      "field_path": [
+        "terminal_audit",
+        "legacy_metric_interpretation"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance before any formal execution.",
+      "to": "v70 aliases retained for history; prototype_entropy_mean and rarity_logit_gap_mean are revision-2 authoritative metrics"
+    },
+    {
+      "change_id": "du1-e6-shared-rarity-repair-043",
+      "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "974228eff0ff57542f91bc5e0a6a36e143301a96618bb03cca4511a664bd87e5"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "f8eab3aa8ba3f2d3b6e888f9e05597f08fc8385a11f985d3338f66f296821b6d"
+        },
+        {
+          "path": "src/drpo/du1_e6_cartesian_taper.py",
+          "sha256": "7e02c093428616ec2a3ffc7ffbc0cdafda0692f41945a1a09b5847048218a114"
+        },
+        {
+          "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+          "sha256": "302bca1dab25b38278c50d9c9ef54b893f82e272ead31ea57b19229a4f4c661e"
+        },
+        {
+          "path": "configs/du1_e6_cartesian_taper.yaml",
+          "sha256": "8f02aaad085c13f21e9ce12ececc95baa84632af5bc7a4939929fa2d23b963b8"
+        },
+        {
+          "path": "tests/test_du1_e6_cartesian_taper.py",
+          "sha256": "da93b85bccb6f5024ac9d53609e8c395e4f518e29180446226b07fa75ac47f7c"
+        }
+      ],
+      "field_path": [
+        "terminal_audit",
+        "metric_window_mean_abs_tolerances",
+        "prototype_entropy_mean"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance before any formal execution.",
+      "to": 0.08
+    },
+    {
+      "change_id": "du1-e6-shared-rarity-repair-044",
+      "entity_id": "D-U1-E6-CARTESIAN-TAPER-01",
+      "evidence": [
+        {
+          "path": "docs/handoff.md",
+          "sha256": "974228eff0ff57542f91bc5e0a6a36e143301a96618bb03cca4511a664bd87e5"
+        },
+        {
+          "path": "experiments/registry.yaml",
+          "sha256": "f8eab3aa8ba3f2d3b6e888f9e05597f08fc8385a11f985d3338f66f296821b6d"
+        },
+        {
+          "path": "src/drpo/du1_e6_cartesian_taper.py",
+          "sha256": "7e02c093428616ec2a3ffc7ffbc0cdafda0692f41945a1a09b5847048218a114"
+        },
+        {
+          "path": "src/drpo/README_DU1_E6_CARTESIAN_TAPER.md",
+          "sha256": "302bca1dab25b38278c50d9c9ef54b893f82e272ead31ea57b19229a4f4c661e"
+        },
+        {
+          "path": "configs/du1_e6_cartesian_taper.yaml",
+          "sha256": "8f02aaad085c13f21e9ce12ececc95baa84632af5bc7a4939929fa2d23b963b8"
+        },
+        {
+          "path": "tests/test_du1_e6_cartesian_taper.py",
+          "sha256": "da93b85bccb6f5024ac9d53609e8c395e4f518e29180446226b07fa75ac47f7c"
+        }
+      ],
+      "field_path": [
+        "terminal_audit",
+        "metric_window_mean_abs_tolerances",
+        "rarity_logit_gap_mean"
+      ],
+      "from": null,
+      "kind": "update_field",
+      "reason": "Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance before any formal execution.",
+      "to": 0.2
+    }
+  ],
+  "registry_change_coverage": {
+    "added_entities": [],
+    "changed_field_count": 44,
+    "declared_assertion_count": 44,
+    "fully_declared": true,
+    "mode": "schema2_complete",
+    "removed_entities": []
+  },
+  "registry_transition_assertions": [],
+  "report_schema_version": 2,
+  "repository_commit": null,
+  "schema_version": 1,
+  "status": "PASS",
+  "update_id": "DU1-E6-SHARED-RARITY-REPAIR-V72-2026-07-02",
+  "validation_worktree_head": "60e014384f85f88ae18da18f4bf6d3db1d808200"
+}

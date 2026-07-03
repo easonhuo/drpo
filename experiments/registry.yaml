@@ -4934,31 +4934,35 @@ experiments:
   environment: D-U1
   name: utility_surprisal_cartesian_shared_semantic_and_taper
   status: not_run
-  parent_experiments: [E6, E6-TAPER]
+  parent_experiments:
+  - E6
+  - E6-TAPER
   predecessors:
   - D-U1-E5-LONGRUN-RERUN
   - D-U1-E6-SEMANTIC-LONGRUN-01
   supersedes_preregistration: D-U1-E6-TAPER-01
   registration_base_commit: 3b138f0a6f8cf5713f4d8de57ae374cd15b7c0b7
-  claim: >-
-    In one shared-semantic categorical environment where ground-truth directional
-    utility and learner-relative rarity are an exact 2x2 Cartesian product, test
-    whether useful negative signals improve same-distribution held-out-context
-    performance, whether rare negative signals create stronger support suppression
-    independently of utility, and whether current-surprisal tapering preserves
-    useful negative information better than uncontrolled and matched-global controls.
+  claim: In one shared-semantic categorical environment where ground-truth directional utility and learner-relative rarity
+    form an exact 2x2 Cartesian product through an orthogonal shared contextual rarity coordinate, test whether useful negative
+    signals improve same-distribution held-out-context performance, whether rare negative signals create stronger shared-parameter
+    support suppression independently of utility, and whether current-surprisal tapering preserves useful negative information
+    better than uncontrolled and stepwise budget-matched global controls.
   role: formal_controlled_categorical_cartesian_mechanism_and_taper_comparison
   execution_class: formal
   implementation_state: implemented
   registry_scope: canonical_formal_execution
   execution_gate:
-    state: ready
-    blocked_by: []
-    approval_record: user_approved_2026-07-02_utility_x_surprisal_cartesian_joint_protocol
-    blocking_reason: null
+    state: blocked
+    blocked_by:
+    - development_calibration
+    - separate_formal_protocol_freeze
+    approval_record: user_approved_2026-07-02_shared_rarity_environment_repair
+    blocking_reason: Protocol revision 2 repairs the environment but formal alpha, retention, rarity-logit anchor coefficient,
+      horizon, and terminal thresholds remain unfrozen. Development seeds 0-4 must complete the preregistered calibration
+      before formal seeds 200-219 may be accessed.
   formal_execution:
     channel_ref: hardened-v1
-    activation_state: active
+    activation_state: blocked
     entrypoint_status: implemented
     entrypoint: src/drpo/du1_e6_cartesian_taper.py
     launch_mode: canonical_guard
@@ -4969,42 +4973,54 @@ experiments:
     hardened_core: scripts/artifact_protocol_hardened.py
     artifact_protocol: docs/formal_experiment_artifact_protocol.md
     inherit_default_artifact_budget: true
-    runner_archive_policy: {mode: forbid}
+    runner_archive_policy:
+      mode: forbid
   code_entrypoint: src/drpo/du1_e6_cartesian_taper.py
   one_click_entrypoint: scripts/run_du1_e6_cartesian_taper.py
   config_path: configs/du1_e6_cartesian_taper.yaml
-  formal_launch_template: >-
-    python3 scripts/run_experiment_guard_hardened.py
-    --experiment-id D-U1-E6-CARTESIAN-TAPER-01
-    --repo-root .
-    --output-root experiments/results/D-U1-E6-CARTESIAN-TAPER-01/run_001
-    --artifact-output artifacts/D-U1-E6-CARTESIAN-TAPER-01_RAW_COMPLETE.zip
-    --run-class formal
-    --expected-commit "$(git rev-parse HEAD)"
-    --require-origin-main-match
-    --required-output RUN_COMPLETE.json
-    --required-output terminal_audit.json
-    --required-output aggregate_summary.json
-    --required-output mechanism_summary.json
-    --required-output taper_summary.json
-    --required-output per_run_summary.csv
-    --required-output formal_protocol_freeze.json
-    --source-file src/drpo/du1_e6_cartesian_taper.py
-    --source-file configs/du1_e6_cartesian_taper.yaml
-    --progress-glob checkpoints/*/CHECKPOINT_COMPLETE.json
-    -- python3 src/drpo/du1_e6_cartesian_taper.py
-    --config configs/du1_e6_cartesian_taper.yaml
-    --output-root experiments/results/D-U1-E6-CARTESIAN-TAPER-01/run_001
-    --stage formal
-    --device cpu
-  formal_parameter_freeze: true
+  formal_launch_template: python3 scripts/run_experiment_guard_hardened.py --experiment-id D-U1-E6-CARTESIAN-TAPER-01 --repo-root
+    . --output-root experiments/results/D-U1-E6-CARTESIAN-TAPER-01/run_001 --artifact-output artifacts/D-U1-E6-CARTESIAN-TAPER-01_RAW_COMPLETE.zip
+    --run-class formal --expected-commit "$(git rev-parse HEAD)" --require-origin-main-match --required-output RUN_COMPLETE.json
+    --required-output terminal_audit.json --required-output aggregate_summary.json --required-output mechanism_summary.json
+    --required-output taper_summary.json --required-output per_run_summary.csv --required-output formal_protocol_freeze.json
+    --source-file src/drpo/du1_e6_cartesian_taper.py --source-file configs/du1_e6_cartesian_taper.yaml --progress-glob checkpoints/*/CHECKPOINT_COMPLETE.json
+    -- python3 src/drpo/du1_e6_cartesian_taper.py --config configs/du1_e6_cartesian_taper.yaml --output-root experiments/results/D-U1-E6-CARTESIAN-TAPER-01/run_001
+    --stage formal --device cpu
+  formal_parameter_freeze: false
   freeze_approval:
     approved_by_user: true
     approval_date: '2026-07-02'
-    source: explicit_cartesian_environment_and_joint_implementation_request
+    source: explicit_environment_repair_request
+    environment_revision_approved: true
+    formal_hyperparameters_approved: false
     automatic_retuning_allowed: false
-  development_seeds_forbidden_in_formal_aggregation: [0, 1, 2, 3, 4]
-  held_out_seeds: [200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216, 217, 218, 219]
+  development_seeds_forbidden_in_formal_aggregation:
+  - 0
+  - 1
+  - 2
+  - 3
+  - 4
+  held_out_seeds:
+  - 200
+  - 201
+  - 202
+  - 203
+  - 204
+  - 205
+  - 206
+  - 207
+  - 208
+  - 209
+  - 210
+  - 211
+  - 212
+  - 213
+  - 214
+  - 215
+  - 216
+  - 217
+  - 218
+  - 219
   protocol:
     fixed_advantage: true
     critic_or_value_network: false
@@ -5024,7 +5040,11 @@ experiments:
     cartesian_axes:
       utility: ground_truth_directional_utility_of_repulsion
       rarity: current_policy_surprisal
-    cartesian_cells: [useful_common, useful_rare, unhelpful_common, unhelpful_rare]
+    cartesian_cells:
+    - useful_common
+    - useful_rare
+    - unhelpful_common
+    - unhelpful_rare
     exact_decoupling:
       common_rare_pair_same_semantic_prototype: true
       common_rare_pair_same_reward: true
@@ -5033,10 +5053,15 @@ experiments:
       all_cell_sample_counts_equal: true
       frozen_initial_semantic_reference_subtracted: true
       useful_unhelpful_probability_matched_within_rarity_at_step_0: true
-      initial_rarity_gap_source: trainable_action_logit_bias
+      initial_rarity_gap_source: shared_contextual_rarity_residual_head
       initial_rarity_logit_gap: 4.0
       rarity_roles_reassigned_from_current_pair_surprisal_each_forward: true
       subset_cells_zeroed_without_remaining_cell_renormalization: true
+      trainable_per_action_bias: false
+      orthogonal_policy_rarity_coordinate: true
+      positive_family_objective_rarity_neutral: true
+      positive_only_initial_rarity_gap_preserved: true
+      shared_rarity_gradient_audit_required: true
     optimizer: Adam
     learning_rate: 0.001
     batch_size: 128
@@ -5047,7 +5072,22 @@ experiments:
     parallel_seed_workers: 8
     fixed_concentration: 8.0
     negative_alpha: 0.25
-    methods: [positive_only, useful_common_only, useful_rare_only, unhelpful_common_only, unhelpful_rare_only, useful_all, unhelpful_all, common_all, rare_all, all_negative, global_matched, reciprocal_linear, reciprocal_quadratic, exponential]
+    methods:
+    - positive_only
+    - useful_common_only
+    - useful_rare_only
+    - unhelpful_common_only
+    - unhelpful_rare_only
+    - useful_all
+    - unhelpful_all
+    - common_all
+    - rare_all
+    - all_negative
+    - global_matched
+    - reciprocal_linear_distance
+    - reciprocal_quadratic_distance
+    - reciprocal_quartic_distance
+    - exponential_quadratic_distance
     taper_coordinate:
       definition: relu((current_surprisal - initial_common_median) / initial_rare_minus_common_median)
       calibration_split: training_audit_subset_only
@@ -5059,30 +5099,76 @@ experiments:
       common_reference_retention: 1.0
       rare_reference_coordinate: 1.0
       rare_reference_retention: 0.25
+      reciprocal_linear_distance_coefficient: 3.0
+      reciprocal_quadratic_distance_coefficient: 3.0
+      reciprocal_quartic_distance_coefficient: 3.0
+      exponential_quadratic_distance_coefficient: 1.3862943611198906
+      global_control: stepwise_raw_negative_gradient_norm_matched_to_exponential_on_same_current_model_and_batch
       reciprocal_linear_coefficient: 3.0
       reciprocal_quadratic_coefficient: 3.0
       exponential_coefficient: 1.3862943611198906
-      global_control: initial_raw_negative_gradient_norm_matched_to_exponential
+      legacy_field_interpretation: v70 aliases retained for non-destructive history; protocol revision 2 method-specific fields
+        are authoritative
     no_method_winner_assumed: true
+    protocol_revision: 2
+    positive_objective: semantic_family_log_probability
+    rarity_logit_anchor_coefficient: 0.25
+    development_calibration:
+      required_before_formal: true
+      development_seeds:
+      - 0
+      - 1
+      - 2
+      - 3
+      - 4
+      candidate_negative_alpha:
+      - 0.1
+      - 0.25
+      - 0.5
+      candidate_reference_rare_retention:
+      - 0.25
+      - 0.5
+      - 0.75
+      candidate_rarity_logit_anchor_coefficient:
+      - 0.1
+      - 0.25
+      - 0.5
+      formal_seed_access_allowed: false
+    rarity_logit_anchor: quadratic_shared_rarity_residual_to_initial_gap
+    rarity_logit_anchor_finite_output_objective: true
   events:
     task_collapse_ratio_to_paired_positive_only: 0.2
+    prototype_effective_support_boundary: 1.5
+    rarity_mass_boundary: 0.0001
     effective_support_boundary: 1.5
   terminal_audit:
     mode: formal_two_x_windows
     formal_horizon_steps: 8000
-    window_1_steps: [4000, 6000]
-    window_2_steps: [6000, 8000]
+    window_1_steps:
+    - 4000
+    - 6000
+    window_2_steps:
+    - 6000
+    - 8000
     metric_window_mean_abs_tolerances:
       expected_semantic_reward: 0.01
       hidden_optimal_family_probability: 0.02
+      prototype_entropy_mean: 0.08
+      rarity_logit_gap_mean: 0.2
       entropy_mean: 0.08
-      action_bias_gap_mean: 0.20
+      action_bias_gap_mean: 0.2
     scientific_failure_outcomes_are_results: true
+    legacy_metric_interpretation: v70 aliases retained for history; prototype_entropy_mean and rarity_logit_gap_mean are revision-2
+      authoritative metrics
   checkpointing:
     seed_block_size: 5
     persistence: persistent_local
     write_checkpoint_after_each_completed_seed: true
-    per_seed_payloads: [trajectories.jsonl, per_run_summary.json, environment_audit.json, coordinate_calibration.json]
+    per_seed_payloads:
+    - trajectories.jsonl
+    - per_run_summary.json
+    - environment_audit.json
+    - coordinate_calibration.json
   reporting_separation:
   - task_performance_collapse
   - support_boundary
@@ -5107,6 +5193,7 @@ experiments:
   - Transformer_external_validity
   - cross_task_method_superiority
   - predeclared_taper_winner
+  - protocol_revision_1_pilot_method_ranking
   evidence:
     implementation_tests_passed: true
     run_started: false
@@ -5115,7 +5202,25 @@ experiments:
     package_created: false
     delivered_to_user: false
     scientific_status: not_run
-
+    environment_revision_2_implemented: true
+    development_calibration_complete: false
+    formal_protocol_frozen: false
+    environment_repair_diagnostic_passed: true
+    environment_repair_diagnostic_scope: engineering_only_development_seeds_0_2_six_core_methods_8000_steps
+    environment_repair_diagnostic_metrics:
+      positive_rarity_gradient_max: 0.0
+      positive_family_shift_error_max: 0.0
+      minimum_rare_common_shared_rarity_gradient_ratio: 54.598209392523415
+      stepwise_global_budget_match_max_error: 8.881784197001252e-16
+      terminal_plateau_runs: 18
+      total_diagnostic_runs: 18
+      prototype_support_boundary_events: 0
+      rarity_mass_boundary_events: 0
+      nan_inf_failures: 0
+      method_ranking_allowed: false
+  protocol_revision: 2
+  supersedes_protocol_revision: 1
+  revision_base_commit: 60e014384f85f88ae18da18f4bf6d3db1d808200
 development_experiment_registrations:
 - id: D-U1-E6-CONDITIONAL-GAP-DEV-01
   environment: D-U1

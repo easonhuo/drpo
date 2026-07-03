@@ -1,0 +1,665 @@
+schema_version: 2
+update_id: DU1-E6-SHARED-RARITY-REPAIR-V72-2026-07-02
+mode: shadow
+base:
+  commit: 60e014384f85f88ae18da18f4bf6d3db1d808200
+  handoff_sha256: 669a31a5fa1c03c65163c16843edbb26ee5b8b8dbe0778e0022d61d8a1798f7a
+  registry_sha256: 061f8bdcfbbfd7b013ad1a18cc282440329ed502bbd6769f2d7c9d6498e3e747
+renderer_version: 1
+operations:
+- operation_id: rename-v71-title-to-v72-shared-rarity-repair
+  op: replace_heading
+  heading_path:
+  - DRPO / SNA2C 远场负梯度动力学研究主文档 v71（E7-BENCH 长预算等时并行 Pilot 修正版）
+  new_heading: DRPO / SNA2C 远场负梯度动力学研究主文档 v72（D-U1 E6 shared-rarity 环境修复版）
+  reason: Repair the approved D-U1 categorical rarity environment before formal execution while preserving all historical
+    results.
+- operation_id: insert-v72-du1-e6-shared-rarity-repair
+  op: insert_after_heading
+  heading_path:
+  - 0. 研究与执行原则（每次新会话首先阅读）
+  block_id: v72-du1-e6-shared-rarity-repair
+  content: '> **v72 增量登记：D-U1 E6 shared-rarity 环境修复与正式门禁回收（不删除 v71 及更早内容）**
+
+    >
+
+    > - **旧设计—问题—替代：**v70 的四格标签在 reward、advantage 和语义 utility 上确实解耦，但 common/rare 只是同一 semantic action 的两个副本，初始概率差主要由 64 维
+    trainable per-action bias 制造。开发 pilot 进一步表明：common/rare 的共享语义参数梯度几乎相同，Positive-only 自身会扩大副本 bias gap，action-ID support
+    下降又可能只是在删除无任务差异的冗余副本。因此 v70 pilot 只能保留为工程/问题发现证据，禁止用于 All-negative、Global 或 taper 方法排名。
+
+    > - **修复后的 rarity 轴：**保留 32 semantic prototypes × 2 categorical replicas，但删除 trainable per-action bias。每个 replica 在与任务
+    semantic space 正交的 policy-only rarity coordinate 上取 `+1/-1`；策略使用一个对所有 action/context 共享的 contextual rarity residual head，叠加冻结的初始
+    half-gap。common/rare 仍具有完全相同 reward、advantage 和 directional utility，但负更新现在通过共享 rarity head 改变整个 common/rare 分区，而不是只改某个动作私有
+    bias。
+
+    > - **Positive-only 中性化：**正样本按 semantic family 训练，目标为一对 common/rare 概率之和的 log-probability。由于所有 prototype 使用相同的正交 rarity
+    factor，该 family likelihood 对 within-pair rarity coordinate 精确不变；rarity residual head 零初始化，Positive-only 不再自己制造或消除 rarity
+    gap。启动前必须通过 positive rarity-gradient 近零和 family-likelihood invariance 审计。
+
+    > - **共享梯度门禁：**环境 preflight 除 v70 的 reward/utility/advantage 笛卡尔积不变量外，新增 common/rare shared-rarity gradient audit。reference
+    gap `4.0` 下，rare negative 在共享 rarity head 上的 gradient norm 必须至少为 common 的 `5×`；否则 fail closed，不允许 pilot 或 formal。categorical
+    direct-logit score 仍有界，本实验研究 persistent support suppression，不升级为 Gaussian 无界梯度命题。
+
+    > - **支持指标修复：**action-ID entropy/support 与 prototype-family entropy/support 分开记录；support boundary 由 prototype support
+    或 common/rare 总概率质量触底分别触发。不得再把冗余 replica 被压低直接写成任务语义支持坍缩。
+
+    > - **有限状态与公平 control：**所有方法加入同一 shared-rarity quadratic trust-region anchor。该 anchor 对初始 rarity gap 的残差为零，并随偏移平方增长；负
+    log-probability 压力只随 rarity coordinate 线性增长，因此任意正系数都给出有限的 output-level 最优点。此前 forward-KL 草案在 reference rare mass 已很小时恢复力过弱，已在实现前撤回。anchor
+    系数仍需 development calibration。`global_matched` 从 step-0 单次匹配改为每个 optimizer step、同一当前模型和 minibatch 上匹配 Exponential 的 Adam
+    前 raw negative-gradient L2 norm，并保存逐步误差。Adam update 仍只记录，不声称匹配。
+
+    > - **方法命名修正：**`reciprocal_linear_distance = 1/(1+lambda sqrt(S))`、`reciprocal_quadratic_distance = 1/(1+lambda S)`、`reciprocal_quartic_distance
+    = 1/(1+lambda S^2)`、`exponential_quadratic_distance = exp(-lambda S)`，其中 `S` 是 normalized excess surprisal。v70 旧命名/解释由本节覆盖，但旧文件与
+    pilot provenance 不删除。
+
+    > - **门禁回收：**`D-U1-E6-CARTESIAN-TAPER-01` 保持 `not_run + implemented`，但从 `ready + active` 回收为 **blocked**。development seeds
+    `0--4` 必须先完成 `negative alpha × rare retention × rarity-logit anchor` 校准并另行冻结正式 horizon、终态阈值和方法矩阵；在独立 formal-freeze 更新前禁止访问
+    seeds `200--219`。本次只修环境、实现审计和门禁，不产生方法排名。
+
+    > - **环境修复工程验收（非科学结果）：**development seeds `0--2`、6 个核心方法、8000 steps 的独立诊断中，Positive-only rarity gradient 与 family-likelihood
+    shift error 均为 `0`，rare/common shared-rarity gradient ratio 最低 `54.60×`，Global 的逐步 raw-gradient budget match 最大误差 `8.88e-16`；18/18
+    runs 均达到登记窗口 terminal plateau，prototype-support boundary、rarity-mass boundary 与 NaN/Inf 均为 `0`。该诊断只确认旧环境缺陷已被修复，不完成超参校准，也不构成方法排名。'
+- operation_id: append-v72-du1-e6-current-gate
+  op: append_to_section
+  heading_path:
+  - 0. 研究与执行原则（每次新会话首先阅读）
+  - 0.1 当前执行门禁
+  block_id: v72-du1-e6-shared-rarity-repair-current-gate
+  content: '- **D-U1 v72 覆盖：** `D-U1-E6-CARTESIAN-TAPER-01` protocol revision 2 已实现 shared contextual rarity coordinate、Positive-only
+    rarity-neutral family objective、prototype/action support 分报、quadratic rarity-logit anchor 与 stepwise raw-gradient matched
+    Global。原 v70 formal activation 撤回；当前状态为 **implemented + blocked + not_run**，blocked by development calibration and separate
+    formal protocol freeze。正式 seeds `200--219` 继续 untouched。'
+- operation_id: append-v72-du1-e6-execution-order
+  op: append_to_section
+  heading_path:
+  - 6. 接下来唯一执行顺序
+  block_id: v72-du1-e6-shared-rarity-repair-execution-order
+  content: 11. **v72 D-U1 执行覆盖：**禁止直接运行 protocol revision 1 或未冻结的 protocol revision 2 formal。下一步固定为 protocol-revision-2 environment
+    audit → development seeds `0--4` 的预登记校准 → 独立 formal-freeze 更新 → 才允许 guarded formal。校准前不得使用 held-out seeds `200--219`，不得根据
+    Countdown 或旧 pilot 预设 taper winner。
+registry:
+  mode: expected_after
+  expected_after_sha256: f8eab3aa8ba3f2d3b6e888f9e05597f08fc8385a11f985d3338f66f296821b6d
+  changes:
+  - change_id: du1-e6-shared-rarity-repair-001
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - claim
+    from: In one shared-semantic categorical environment where ground-truth directional utility and learner-relative rarity
+      are an exact 2x2 Cartesian product, test whether useful negative signals improve same-distribution held-out-context
+      performance, whether rare negative signals create stronger support suppression independently of utility, and whether
+      current-surprisal tapering preserves useful negative information better than uncontrolled and matched-global controls.
+    to: In one shared-semantic categorical environment where ground-truth directional utility and learner-relative rarity
+      form an exact 2x2 Cartesian product through an orthogonal shared contextual rarity coordinate, test whether useful negative
+      signals improve same-distribution held-out-context performance, whether rare negative signals create stronger shared-parameter
+      support suppression independently of utility, and whether current-surprisal tapering preserves useful negative information
+      better than uncontrolled and stepwise budget-matched global controls.
+    reason: Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance
+      before any formal execution.
+    evidence: &id001
+    - docs/handoff.md
+    - experiments/registry.yaml
+    - src/drpo/du1_e6_cartesian_taper.py
+    - src/drpo/README_DU1_E6_CARTESIAN_TAPER.md
+    - configs/du1_e6_cartesian_taper.yaml
+    - tests/test_du1_e6_cartesian_taper.py
+  - change_id: du1-e6-shared-rarity-repair-002
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - events
+    - prototype_effective_support_boundary
+    from: null
+    to: 1.5
+    reason: Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance
+      before any formal execution.
+    evidence: *id001
+  - change_id: du1-e6-shared-rarity-repair-003
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - events
+    - rarity_mass_boundary
+    from: null
+    to: 0.0001
+    reason: Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance
+      before any formal execution.
+    evidence: *id001
+  - change_id: du1-e6-shared-rarity-repair-004
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - evidence
+    - development_calibration_complete
+    from: null
+    to: false
+    reason: Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance
+      before any formal execution.
+    evidence: *id001
+  - change_id: du1-e6-shared-rarity-repair-005
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - evidence
+    - environment_repair_diagnostic_metrics
+    from: null
+    to:
+      positive_rarity_gradient_max: 0.0
+      positive_family_shift_error_max: 0.0
+      minimum_rare_common_shared_rarity_gradient_ratio: 54.598209392523415
+      stepwise_global_budget_match_max_error: 8.881784197001252e-16
+      terminal_plateau_runs: 18
+      total_diagnostic_runs: 18
+      prototype_support_boundary_events: 0
+      rarity_mass_boundary_events: 0
+      nan_inf_failures: 0
+      method_ranking_allowed: false
+    reason: Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance
+      before any formal execution.
+    evidence: *id001
+  - change_id: du1-e6-shared-rarity-repair-006
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - evidence
+    - environment_repair_diagnostic_passed
+    from: null
+    to: true
+    reason: Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance
+      before any formal execution.
+    evidence: *id001
+  - change_id: du1-e6-shared-rarity-repair-007
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - evidence
+    - environment_repair_diagnostic_scope
+    from: null
+    to: engineering_only_development_seeds_0_2_six_core_methods_8000_steps
+    reason: Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance
+      before any formal execution.
+    evidence: *id001
+  - change_id: du1-e6-shared-rarity-repair-008
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - evidence
+    - environment_revision_2_implemented
+    from: null
+    to: true
+    reason: Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance
+      before any formal execution.
+    evidence: *id001
+  - change_id: du1-e6-shared-rarity-repair-009
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - evidence
+    - formal_protocol_frozen
+    from: null
+    to: false
+    reason: Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance
+      before any formal execution.
+    evidence: *id001
+  - change_id: du1-e6-shared-rarity-repair-010
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - execution_gate
+    - approval_record
+    from: user_approved_2026-07-02_utility_x_surprisal_cartesian_joint_protocol
+    to: user_approved_2026-07-02_shared_rarity_environment_repair
+    reason: Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance
+      before any formal execution.
+    evidence: *id001
+  - change_id: du1-e6-shared-rarity-repair-011
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - execution_gate
+    - blocked_by
+    from: []
+    to:
+    - development_calibration
+    - separate_formal_protocol_freeze
+    reason: Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance
+      before any formal execution.
+    evidence: *id001
+  - change_id: du1-e6-shared-rarity-repair-012
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - execution_gate
+    - blocking_reason
+    from: null
+    to: Protocol revision 2 repairs the environment but formal alpha, retention, rarity-logit anchor coefficient, horizon,
+      and terminal thresholds remain unfrozen. Development seeds 0-4 must complete the preregistered calibration before formal
+      seeds 200-219 may be accessed.
+    reason: Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance
+      before any formal execution.
+    evidence: *id001
+  - change_id: du1-e6-shared-rarity-repair-013
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - execution_gate
+    - state
+    from: ready
+    to: blocked
+    reason: Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance
+      before any formal execution.
+    evidence: *id001
+  - change_id: du1-e6-shared-rarity-repair-014
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - formal_execution
+    - activation_state
+    from: active
+    to: blocked
+    reason: Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance
+      before any formal execution.
+    evidence: *id001
+  - change_id: du1-e6-shared-rarity-repair-015
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - formal_parameter_freeze
+    from: true
+    to: false
+    reason: Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance
+      before any formal execution.
+    evidence: *id001
+  - change_id: du1-e6-shared-rarity-repair-016
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - freeze_approval
+    - environment_revision_approved
+    from: null
+    to: true
+    reason: Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance
+      before any formal execution.
+    evidence: *id001
+  - change_id: du1-e6-shared-rarity-repair-017
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - freeze_approval
+    - formal_hyperparameters_approved
+    from: null
+    to: false
+    reason: Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance
+      before any formal execution.
+    evidence: *id001
+  - change_id: du1-e6-shared-rarity-repair-018
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - freeze_approval
+    - source
+    from: explicit_cartesian_environment_and_joint_implementation_request
+    to: explicit_environment_repair_request
+    reason: Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance
+      before any formal execution.
+    evidence: *id001
+  - change_id: du1-e6-shared-rarity-repair-019
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - non_claims
+    from:
+    - OOD_generalization
+    - Gaussian_unbounded_gradient_law_for_categorical_logits
+    - Transformer_external_validity
+    - cross_task_method_superiority
+    - predeclared_taper_winner
+    to:
+    - OOD_generalization
+    - Gaussian_unbounded_gradient_law_for_categorical_logits
+    - Transformer_external_validity
+    - cross_task_method_superiority
+    - predeclared_taper_winner
+    - protocol_revision_1_pilot_method_ranking
+    reason: Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance
+      before any formal execution.
+    evidence: *id001
+  - change_id: du1-e6-shared-rarity-repair-020
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - development_calibration
+    from: null
+    to:
+      required_before_formal: true
+      development_seeds:
+      - 0
+      - 1
+      - 2
+      - 3
+      - 4
+      candidate_negative_alpha:
+      - 0.1
+      - 0.25
+      - 0.5
+      candidate_reference_rare_retention:
+      - 0.25
+      - 0.5
+      - 0.75
+      candidate_rarity_logit_anchor_coefficient:
+      - 0.1
+      - 0.25
+      - 0.5
+      formal_seed_access_allowed: false
+    reason: Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance
+      before any formal execution.
+    evidence: *id001
+  - change_id: du1-e6-shared-rarity-repair-021
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - exact_decoupling
+    - initial_rarity_gap_source
+    from: trainable_action_logit_bias
+    to: shared_contextual_rarity_residual_head
+    reason: Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance
+      before any formal execution.
+    evidence: *id001
+  - change_id: du1-e6-shared-rarity-repair-022
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - exact_decoupling
+    - orthogonal_policy_rarity_coordinate
+    from: null
+    to: true
+    reason: Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance
+      before any formal execution.
+    evidence: *id001
+  - change_id: du1-e6-shared-rarity-repair-023
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - exact_decoupling
+    - positive_family_objective_rarity_neutral
+    from: null
+    to: true
+    reason: Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance
+      before any formal execution.
+    evidence: *id001
+  - change_id: du1-e6-shared-rarity-repair-024
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - exact_decoupling
+    - positive_only_initial_rarity_gap_preserved
+    from: null
+    to: true
+    reason: Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance
+      before any formal execution.
+    evidence: *id001
+  - change_id: du1-e6-shared-rarity-repair-025
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - exact_decoupling
+    - shared_rarity_gradient_audit_required
+    from: null
+    to: true
+    reason: Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance
+      before any formal execution.
+    evidence: *id001
+  - change_id: du1-e6-shared-rarity-repair-026
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - exact_decoupling
+    - trainable_per_action_bias
+    from: null
+    to: false
+    reason: Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance
+      before any formal execution.
+    evidence: *id001
+  - change_id: du1-e6-shared-rarity-repair-027
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - methods
+    from:
+    - positive_only
+    - useful_common_only
+    - useful_rare_only
+    - unhelpful_common_only
+    - unhelpful_rare_only
+    - useful_all
+    - unhelpful_all
+    - common_all
+    - rare_all
+    - all_negative
+    - global_matched
+    - reciprocal_linear
+    - reciprocal_quadratic
+    - exponential
+    to:
+    - positive_only
+    - useful_common_only
+    - useful_rare_only
+    - unhelpful_common_only
+    - unhelpful_rare_only
+    - useful_all
+    - unhelpful_all
+    - common_all
+    - rare_all
+    - all_negative
+    - global_matched
+    - reciprocal_linear_distance
+    - reciprocal_quadratic_distance
+    - reciprocal_quartic_distance
+    - exponential_quadratic_distance
+    reason: Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance
+      before any formal execution.
+    evidence: *id001
+  - change_id: du1-e6-shared-rarity-repair-028
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - positive_objective
+    from: null
+    to: semantic_family_log_probability
+    reason: Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance
+      before any formal execution.
+    evidence: *id001
+  - change_id: du1-e6-shared-rarity-repair-029
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - protocol_revision
+    from: null
+    to: 2
+    reason: Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance
+      before any formal execution.
+    evidence: *id001
+  - change_id: du1-e6-shared-rarity-repair-030
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - rarity_logit_anchor
+    from: null
+    to: quadratic_shared_rarity_residual_to_initial_gap
+    reason: Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance
+      before any formal execution.
+    evidence: *id001
+  - change_id: du1-e6-shared-rarity-repair-031
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - rarity_logit_anchor_coefficient
+    from: null
+    to: 0.25
+    reason: Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance
+      before any formal execution.
+    evidence: *id001
+  - change_id: du1-e6-shared-rarity-repair-032
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - rarity_logit_anchor_finite_output_objective
+    from: null
+    to: true
+    reason: Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance
+      before any formal execution.
+    evidence: *id001
+  - change_id: du1-e6-shared-rarity-repair-033
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - taper_fairness
+    - exponential_quadratic_distance_coefficient
+    from: null
+    to: 1.3862943611198906
+    reason: Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance
+      before any formal execution.
+    evidence: *id001
+  - change_id: du1-e6-shared-rarity-repair-034
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - taper_fairness
+    - global_control
+    from: initial_raw_negative_gradient_norm_matched_to_exponential
+    to: stepwise_raw_negative_gradient_norm_matched_to_exponential_on_same_current_model_and_batch
+    reason: Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance
+      before any formal execution.
+    evidence: *id001
+  - change_id: du1-e6-shared-rarity-repair-035
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - taper_fairness
+    - legacy_field_interpretation
+    from: null
+    to: v70 aliases retained for non-destructive history; protocol revision 2 method-specific fields are authoritative
+    reason: Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance
+      before any formal execution.
+    evidence: *id001
+  - change_id: du1-e6-shared-rarity-repair-036
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - taper_fairness
+    - reciprocal_linear_distance_coefficient
+    from: null
+    to: 3.0
+    reason: Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance
+      before any formal execution.
+    evidence: *id001
+  - change_id: du1-e6-shared-rarity-repair-037
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - taper_fairness
+    - reciprocal_quadratic_distance_coefficient
+    from: null
+    to: 3.0
+    reason: Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance
+      before any formal execution.
+    evidence: *id001
+  - change_id: du1-e6-shared-rarity-repair-038
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol
+    - taper_fairness
+    - reciprocal_quartic_distance_coefficient
+    from: null
+    to: 3.0
+    reason: Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance
+      before any formal execution.
+    evidence: *id001
+  - change_id: du1-e6-shared-rarity-repair-039
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - protocol_revision
+    from: null
+    to: 2
+    reason: Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance
+      before any formal execution.
+    evidence: *id001
+  - change_id: du1-e6-shared-rarity-repair-040
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - revision_base_commit
+    from: null
+    to: 60e014384f85f88ae18da18f4bf6d3db1d808200
+    reason: Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance
+      before any formal execution.
+    evidence: *id001
+  - change_id: du1-e6-shared-rarity-repair-041
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - supersedes_protocol_revision
+    from: null
+    to: 1
+    reason: Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance
+      before any formal execution.
+    evidence: *id001
+  - change_id: du1-e6-shared-rarity-repair-042
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - terminal_audit
+    - legacy_metric_interpretation
+    from: null
+    to: v70 aliases retained for history; prototype_entropy_mean and rarity_logit_gap_mean are revision-2 authoritative metrics
+    reason: Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance
+      before any formal execution.
+    evidence: *id001
+  - change_id: du1-e6-shared-rarity-repair-043
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - terminal_audit
+    - metric_window_mean_abs_tolerances
+    - prototype_entropy_mean
+    from: null
+    to: 0.08
+    reason: Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance
+      before any formal execution.
+    evidence: *id001
+  - change_id: du1-e6-shared-rarity-repair-044
+    kind: update_field
+    entity_id: D-U1-E6-CARTESIAN-TAPER-01
+    field_path:
+    - terminal_audit
+    - metric_window_mean_abs_tolerances
+    - rarity_logit_gap_mean
+    from: null
+    to: 0.2
+    reason: Synchronize the user-approved protocol-revision-2 shared-rarity environment repair and its engineering acceptance
+      before any formal execution.
+    evidence: *id001
+expected:
+  candidate_sha256: 974228eff0ff57542f91bc5e0a6a36e143301a96618bb03cca4511a664bd87e5
+  manual_sha256: 974228eff0ff57542f91bc5e0a6a36e143301a96618bb03cca4511a664bd87e5

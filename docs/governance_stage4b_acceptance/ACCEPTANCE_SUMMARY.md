@@ -3,7 +3,7 @@
 - Policy / claim: `GOV-HANDOFF-INDEX-01`
 - Base commit: `cf775893b9885ba893278437556abb4d1d5dd1a8`
 - Result: **PASS**
-- Source blocks: 430
+- Source blocks: 433
 - Promoted Stage 4A modules: 13
 - Fault injections: 18/18 passed fail-closed
 - Reconstruction: byte-identical

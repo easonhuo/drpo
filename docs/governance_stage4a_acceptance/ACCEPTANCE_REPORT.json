@@ -156,7 +156,7 @@
       "target": "paper_rewrite"
     }
   ],
-  "after_image_tree_hash": "d68624753617b52db84328b0aa3728463cc6b0c411f2bdf1e9a6b24e06e0ca10",
+  "after_image_tree_hash": "f8cb3a22ce5252919cfbf2e5d39dffbac53f8c7fc9355ce7fa6e99c2380a6dc3",
   "authority": "shadow_only",
   "authority_cutover_allowed": false,
   "claim_id": "GOV-HANDOFF-INDEX-01",
@@ -196,7 +196,7 @@
       "automatic_action": false,
       "kind": "candidate_split_module",
       "object_id": "categorical_e6_generalization",
-      "reason": "source content has 76277 characters, above the configured 65000 threshold"
+      "reason": "source content has 82952 characters, above the configured 65000 threshold"
     },
     {
       "automatic_action": false,
@@ -213,15 +213,23 @@
   ],
   "repository_gates": [
     {
+      "command": "python3 -m ruff check .",
+      "scope": "repository_lint",
+      "status": "PASS"
+    },
+    {
       "command": "python3 -m compileall -q src scripts tests",
+      "scope": "repository_compile",
       "status": "PASS"
     },
     {
-      "command": "ruff check .",
+      "command": "OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 python3 -m pytest -q tests/test_du1_e6_cartesian_taper.py",
+      "scope": "changed_e6_protocol_tests_13_passed",
       "status": "PASS"
     },
     {
-      "command": "PYTHONPATH=src python3 -m pytest -q tests/test_du1_e6_cartesian_taper.py tests/test_formal_execution_channel.py tests/test_e7_bench.py tests/test_experiment_route_v42.py",
+      "command": "OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 python3 -m pytest -q tests/test_handoff_delta_shadow.py",
+      "scope": "changed_handoff_delta_tests_53_passed",
       "status": "PASS"
     }
   ],
@@ -371,7 +379,7 @@
       ]
     }
   },
-  "semantic_graph_hash": "050a7a03b0566e231ad85dae29a4e4d57404d3ce988cfaa19d3b49e82ae98eea",
+  "semantic_graph_hash": "5f30506ba4372d5267441f86088e5635f10831481110a70949831e25bfb85aba",
   "stage_4a_state": "accepted",
   "stage_4b_state": "ready_for_separate_authorization",
   "stage_4c_state": "blocked_by_stage_4b_acceptance",

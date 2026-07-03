@@ -178,10 +178,10 @@
   ],
   "graph_hash": "0db2d992b651a2ed85d93d68c298214ba6bdbee1ae15b7b7c48d92162a7fb87c",
   "input_hashes": {
-    "docs/handoff.md": "669a31a5fa1c03c65163c16843edbb26ee5b8b8dbe0778e0022d61d8a1798f7a",
+    "docs/handoff.md": "974228eff0ff57542f91bc5e0a6a36e143301a96618bb03cca4511a664bd87e5",
     "docs/handoff_shadow/stage4/minimal/DEPENDENCIES.yaml": "fb19da70ea2db6a35c4320e23a91640d0f21887c46bb79873d9548357271f4da",
     "docs/handoff_shadow/stage4/minimal/MODULES.yaml": "9eb67303232bb2362b8a4571f383687aca0cfd2c25eeb9b8e68733c84b3701e8",
-    "experiments/registry.yaml": "061f8bdcfbbfd7b013ad1a18cc282440329ed502bbd6769f2d7c9d6498e3e747"
+    "experiments/registry.yaml": "f8eab3aa8ba3f2d3b6e888f9e05597f08fc8385a11f985d3338f66f296821b6d"
   },
   "module_order": [
     "global_core_governance",
@@ -242,9 +242,9 @@
       "deduplicated_source_labels": [],
       "depends_on": [],
       "module_id": "global_core_governance",
-      "snapshot_hash": "7e9d7744028d1b133bad7968b4f624e08553a2b3bd8418a6cbb3bc1e54cd0315",
-      "source_chars": 24100,
-      "source_hash": "e6ddde132ed88e4de09e9a8c2dc180e358f20b96c31e56c2ee8668fa384cd447",
+      "snapshot_hash": "335e15c0aaa4d73456bf214b88326d880ae6f778e754a3cb46373298bd6ee045",
+      "source_chars": 27866,
+      "source_hash": "e3d98cfec5bf95ed408ca8807000bf75736328cfc8c95820fb17b2d7811ae703",
       "source_labels": [
         "docs/handoff.md: # 0. 研究与执行原则（每次新会话首先阅读） -> # 1. 论文最终目标与两条主工作线"
       ]
@@ -294,9 +294,9 @@
         "global_core_governance"
       ],
       "module_id": "execution_status_gates",
-      "snapshot_hash": "344b0d1efcf4b782449f21d206fec9027fca61affa18113be05269b2bb127090",
-      "source_chars": 9987,
-      "source_hash": "691bba82b3ffad8a9373e9db2fd5b052b79406b639eef9eed4ff985bbe28e2ca",
+      "snapshot_hash": "6061c8a6d63e4fd3030dd88d0b76266b08e7d369d662812e41e53ffd99c45541",
+      "source_chars": 10454,
+      "source_hash": "c932dcf995cc5705c22c3c5ee5323b76ccbb1a980a69b7dcc64e29e0f11b9f8f",
       "source_labels": [
         "docs/handoff.md: # 5. 当前真实完成状态 -> # 7. 变量治理"
       ]
@@ -478,9 +478,9 @@
         "categorical_e5_mechanism"
       ],
       "module_id": "categorical_e6_generalization",
-      "snapshot_hash": "2f39c8b1344bcb5eaef4f5932ebebaf6a6f5d3ce67f15937d276556e6f5e8f72",
-      "source_chars": 76277,
-      "source_hash": "7cdd882c607bda438036aca201875500cf5e5f13e972f8fcf9b1acca12c31a45",
+      "snapshot_hash": "c552d67ab84f93c7ecebdb6c1c73bf1f8702e307a57587c5d067b5ab58001ba6",
+      "source_chars": 82952,
+      "source_hash": "ab1f36d5ab19176ddc7faf73a0f73b2910cacdbf4aa5fafc560b91e88ba31c70",
       "source_labels": [
         "docs/handoff.md: ## 3.7.3 E6 共享语义 pilot `D-U1-E6-SEMANTIC-PILOT-01` -> ## 3.8 C-U1 共享实现与二次阶方法实验 `C-U1-E4-TAPER-01`",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v50-stage3-shadow-bootstrap",
@@ -488,9 +488,11 @@
         "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v55-du1-e6-semantic-gap-result-closure",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v56-e6-parent-closure-route-release",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v70-du1-e6-cartesian-taper",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v72-du1-e6-shared-rarity-repair",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v55-du1-e6-semantic-gap-current-gate",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v56-e6-parent-closure-current-gate",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v70-du1-e6-cartesian-taper-current-gate",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v72-du1-e6-shared-rarity-repair-current-gate",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v55-du1-e6-semantic-gap-completion-status",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v56-e6-parent-closure-execution-order",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v70-du1-e6-cartesian-taper-execution-order",

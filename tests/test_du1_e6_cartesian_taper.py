@@ -29,6 +29,8 @@ from drpo.du1_e6_cartesian_taper import (  # noqa: E402
     main,
     mechanism_report,
     method_specs,
+    policy_geometry_audit,
+    rarity_logit_anchor_loss,
     run_seed_bundle,
     taper_report,
     taper_coefficients,
@@ -100,23 +102,92 @@ def test_rarity_roles_are_reassigned_from_current_logits() -> None:
     model = CartesianPolicy(config, environment)
     index = torch.tensor([0])
     _, before, _ = cell_log_probs(model, environment, environment.train, index)
-    useful_pair = environment.train["useful_pair"][0]
-    initial_common = int(useful_pair[0])
-    initial_rare = int(useful_pair[1])
     assert before["useful_common"].item() > before["useful_rare"].item()
     with torch.no_grad():
-        model.action_bias[initial_common] = -10.0
-        model.action_bias[initial_rare] = 10.0
+        model.rarity_residual_head.bias.fill_(-4.5)
     _, after, _ = cell_log_probs(model, environment, environment.train, index)
+    gather_pair = environment.train["useful_pair"][index]
     logits, _ = model(environment.train["states"][index], environment.action_embeddings)
     log_probs = torch.log_softmax(logits, dim=-1)
-    assert after["useful_common"].item() == pytest.approx(
-        log_probs[0, initial_rare].item()
-    )
-    assert after["useful_rare"].item() == pytest.approx(
-        log_probs[0, initial_common].item()
-    )
+    pair_lp = log_probs.gather(1, gather_pair.reshape(1, -1)).reshape(1, 2)
+    assert after["useful_common"].item() == pytest.approx(pair_lp.max().item())
+    assert after["useful_rare"].item() == pytest.approx(pair_lp.min().item())
 
+
+def test_shared_rarity_geometry_and_positive_neutrality_audit_pass() -> None:
+    config = tiny_config()
+    environment = CartesianSemanticEnvironment(config, seed=3)
+    torch.manual_seed(3)
+    model = CartesianPolicy(config, environment)
+    audit = policy_geometry_audit(model, environment, config)
+    assert audit["passed"] is True
+    assert audit["trainable_per_action_bias"] is False
+    assert audit["positive_rarity_gradient_norm"] <= 1.0e-6
+    assert audit["positive_family_rarity_shift_max_error"] <= 2.0e-6
+    assert audit["useful_rare_to_common_shared_rarity_gradient_ratio"] >= 5.0
+    assert audit["unhelpful_rare_to_common_shared_rarity_gradient_ratio"] >= 5.0
+
+
+def test_quadratic_rarity_anchor_is_zero_at_reference_and_coercive() -> None:
+    config = tiny_config()
+    environment = CartesianSemanticEnvironment(config, seed=4)
+    torch.manual_seed(4)
+    model = CartesianPolicy(config, environment)
+    states = environment.train["states"][:16]
+    baseline = float(rarity_logit_anchor_loss(model, states).detach())
+    with torch.no_grad():
+        model.rarity_residual_head.bias.fill_(8.0)
+    displaced = float(rarity_logit_anchor_loss(model, states).detach())
+    assert baseline == pytest.approx(0.0, abs=1.0e-7)
+    assert displaced == pytest.approx(32.0, rel=1.0e-6)
+
+
+
+def test_positive_family_objective_preserves_initial_rarity_gap() -> None:
+    config = tiny_config()
+    environment = CartesianSemanticEnvironment(config, seed=5)
+    torch.manual_seed(5)
+    model = CartesianPolicy(config, environment)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1.0e-3)
+    states = environment.train["states"][:8]
+    index = torch.arange(8)
+    initial_gap = 2.0 * model.rarity_coordinate(states).abs().mean().item()
+    for _ in range(3):
+        positive_lp, _, _ = cell_log_probs(model, environment, environment.train, index)
+        anchor = rarity_logit_anchor_loss(model, states)
+        loss = -positive_lp.mean() + 0.25 * anchor
+        optimizer.zero_grad(set_to_none=True)
+        loss.backward()
+        optimizer.step()
+    final_gap = 2.0 * model.rarity_coordinate(states).abs().mean().item()
+    assert final_gap == pytest.approx(initial_gap, abs=2.0e-6)
+    assert float(rarity_logit_anchor_loss(model, states).detach()) <= 1.0e-10
+
+
+def test_quadratic_anchor_makes_all_negative_rarity_objective_coercive() -> None:
+    config = tiny_config()
+    environment = CartesianSemanticEnvironment(config, seed=6)
+    torch.manual_seed(6)
+    model = CartesianPolicy(config, environment)
+    index = torch.arange(8)
+    coefficients = taper_coefficients(0.25)
+    calibration = coordinate_calibration(model, environment, config)
+    spec = MethodSpec("all_negative", CELL_NAMES)
+
+    def objective(residual: float) -> float:
+        with torch.no_grad():
+            model.rarity_residual_head.weight.zero_()
+            model.rarity_residual_head.bias.fill_(residual)
+        positive_lp, cells, _ = cell_log_probs(model, environment, environment.train, index)
+        negative_loss, _ = active_cell_loss(cells, spec, calibration, coefficients, 1.0)
+        anchor = rarity_logit_anchor_loss(model, environment.train["states"][index])
+        return float((-positive_lp.mean() + 0.25 * negative_loss + 0.25 * anchor).detach())
+
+    center = objective(0.0)
+    moderate = objective(4.0)
+    far = objective(12.0)
+    assert far > moderate
+    assert far > center
 
 def test_subset_interventions_zero_cells_without_renormalizing() -> None:
     cells = {name: torch.ones(4, requires_grad=True) for name in CELL_NAMES}
@@ -148,15 +219,20 @@ def test_taper_families_match_common_and_reference_rare_retention() -> None:
     for family, coefficient in coefficients.items():
         assert taper_weight(zero, family, coefficient).item() == pytest.approx(1.0)
         assert taper_weight(one, family, coefficient).item() == pytest.approx(rho)
-    assert coefficients["reciprocal_linear"] == pytest.approx(3.0)
-    assert coefficients["reciprocal_quadratic"] == pytest.approx(3.0)
-    assert coefficients["exponential"] == pytest.approx(math.log(4.0))
+    assert coefficients["reciprocal_linear_distance"] == pytest.approx(3.0)
+    assert coefficients["reciprocal_quadratic_distance"] == pytest.approx(3.0)
+    assert coefficients["reciprocal_quartic_distance"] == pytest.approx(3.0)
+    assert coefficients["exponential_quadratic_distance"] == pytest.approx(math.log(4.0))
 
 
-def test_formal_freeze_rejects_silent_protocol_changes() -> None:
+def test_formal_launch_is_blocked_until_development_calibration_freezes_protocol() -> None:
     config = load_config(CONFIG)
-    validate_config(config, "formal")
+    with pytest.raises(RuntimeError, match="formal_parameter_freeze"):
+        validate_config(config, "formal")
     tampered = load_config(CONFIG)
+    tampered["formal_parameter_freeze"] = True
+    tampered["formal_gate"]["enabled"] = True
+    tampered["approval"]["formal_hyperparameters_approved"] = True
     tampered["taper"]["dynamic_rarity_role_assignment"] = False
     with pytest.raises(RuntimeError, match="dynamic_rarity_role_assignment"):
         validate_config(tampered, "formal")
@@ -174,7 +250,7 @@ def test_full_joint_matrix_builds_factorial_and_taper_contrasts() -> None:
     assert mechanism["paired_contrasts"]["rarity_effect_at_useful"][
         "final_expected_semantic_reward"
     ]["seeds"] == [0]
-    assert taper["paired_contrasts"]["exponential_minus_global_matched"][
+    assert taper["paired_contrasts"]["exponential_quadratic_distance_minus_global_matched"][
         "final_expected_semantic_reward"
     ]["seeds"] == [0]
 
@@ -200,7 +276,7 @@ def test_cpu_smoke_writes_joint_mechanism_and_taper_outputs(tmp_path: Path) -> N
     freeze = json.loads((output / "formal_protocol_freeze.json").read_text())
     assert complete["completed"] is True
     assert complete["formal_result"] is False
-    assert complete["actual_runs"] == 8
+    assert complete["actual_runs"] == 9
     assert audit[0]["passed"] is True
     assert set(aggregate) == {
         "positive_only",
@@ -208,9 +284,10 @@ def test_cpu_smoke_writes_joint_mechanism_and_taper_outputs(tmp_path: Path) -> N
         "useful_rare_only",
         "all_negative",
         "global_matched",
-        "reciprocal_linear",
-        "reciprocal_quadratic",
-        "exponential",
+        "reciprocal_linear_distance",
+        "reciprocal_quadratic_distance",
+        "reciprocal_quartic_distance",
+        "exponential_quadratic_distance",
     }
     assert freeze["four_cells"] == list(CELL_NAMES)
     mechanism = json.loads((output / "mechanism_summary.json").read_text())
@@ -233,16 +310,20 @@ def test_registry_and_handoff_register_joint_successor() -> None:
     entry = canonical["D-U1-E6-CARTESIAN-TAPER-01"]
     assert entry["status"] == "not_run"
     assert entry["implementation_state"] == "implemented"
-    assert entry["execution_gate"]["state"] == "ready"
-    assert entry["formal_execution"]["activation_state"] == "active"
+    assert entry["execution_gate"]["state"] == "blocked"
+    assert entry["formal_execution"]["activation_state"] == "blocked"
     assert entry["protocol"]["cartesian_cells"] == list(CELL_NAMES)
     assert entry["protocol"]["methods"] == list(ALL_METHODS)
+    assert entry["protocol_revision"] == 2
+    assert entry["protocol"]["exact_decoupling"]["initial_rarity_gap_source"] == "shared_contextual_rarity_residual_head"
+    assert entry["protocol"]["positive_objective"] == "semantic_family_log_probability"
     old = development["D-U1-E6-TAPER-01"]
     assert old["status"] == "not_run"
     assert old["implementation_state"] == "not_implemented"
     assert entry["supersedes_preregistration"] == "D-U1-E6-TAPER-01"
     handoff = (REPO_ROOT / "docs" / "handoff.md").read_text()
     assert "HANDOFF-DELTA-BLOCK:after_heading:v70-du1-e6-cartesian-taper:START" in handoff
+    assert "v72（D-U1 E6 shared-rarity 环境修复版）" in handoff
     assert "D-U1-E6-CARTESIAN-TAPER-01" in handoff
-    assert "v70-du1-e6-cartesian-taper-current-gate" in handoff
-    assert "v70-du1-e6-cartesian-taper-execution-order" in handoff
+    assert "v72-du1-e6-shared-rarity-repair-current-gate" in handoff
+    assert "v72-du1-e6-shared-rarity-repair-execution-order" in handoff

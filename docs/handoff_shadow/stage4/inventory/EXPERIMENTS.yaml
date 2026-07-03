@@ -3,7 +3,7 @@ policy_id: GOV-HANDOFF-INDEX-01
 authority: non_authoritative_stage4a_shadow_inventory
 source:
   path: experiments/registry.yaml
-  sha256: 061f8bdcfbbfd7b013ad1a18cc282440329ed502bbd6769f2d7c9d6498e3e747
+  sha256: f8eab3aa8ba3f2d3b6e888f9e05597f08fc8385a11f985d3338f66f296821b6d
 experiments:
 - experiment_id: C-U1-E3-ADAM-RERUN
   registry_index: 1

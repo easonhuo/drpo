@@ -42,6 +42,7 @@ import yaml
 
 
 EXPERIMENT_ID = "D-U1-E6-CARTESIAN-TAPER-01"
+PROTOCOL_REVISION = 2
 EPS = 1.0e-12
 CELL_NAMES = (
     "useful_common",
@@ -63,9 +64,10 @@ MECHANISM_METHODS = (
 )
 TAPER_METHODS = (
     "global_matched",
-    "reciprocal_linear",
-    "reciprocal_quadratic",
-    "exponential",
+    "reciprocal_linear_distance",
+    "reciprocal_quadratic_distance",
+    "reciprocal_quartic_distance",
+    "exponential_quadratic_distance",
 )
 ALL_METHODS = MECHANISM_METHODS + TAPER_METHODS
 
@@ -193,8 +195,10 @@ def formal_expected() -> dict[str, Any]:
         "policy.hidden_dim": 64,
         "policy.fixed_concentration": 8.0,
         "policy.activation": "tanh",
-        "policy.trainable_action_bias": True,
+        "policy.trainable_action_bias": False,
+        "policy.rarity_parameterization": "shared_contextual_residual_head",
         "policy.initial_rarity_logit_gap": 4.0,
+        "policy.rarity_residual_head_zero_initialized": True,
         "policy.frozen_initial_semantic_reference": True,
         "policy.initial_semantic_logit_residual_zero": True,
         "optimization.optimizer": "Adam",
@@ -208,6 +212,7 @@ def formal_expected() -> dict[str, Any]:
         "optimization.cpu_threads_per_run": 1,
         "optimization.parallel_workers": 8,
         "optimization.negative_alpha": 0.25,
+        "optimization.rarity_logit_anchor_coefficient": 0.25,
         "taper.coordinate": "normalized_excess_current_surprisal",
         "taper.threshold_rule": "pretraining_common_median",
         "taper.scale_rule": "pretraining_rare_minus_common_median",
@@ -215,11 +220,12 @@ def formal_expected() -> dict[str, Any]:
         "taper.initial_cartesian_tolerance": 1.0e-6,
         "taper.reference_normalized_rare_coordinate": 1.0,
         "taper.reference_rare_retention": 0.25,
-        "taper.global_control": "initial_raw_negative_gradient_norm_matched_to_exponential",
+        "taper.global_control": "stepwise_raw_negative_gradient_norm_matched_to_exponential",
         "taper.detach_surprisal_weight": True,
         "taper.dynamic_rarity_role_assignment": True,
         "events.task_collapse_ratio_to_paired_positive_only": 0.2,
-        "events.effective_support_boundary": 1.5,
+        "events.prototype_effective_support_boundary": 1.5,
+        "events.rarity_mass_boundary": 1.0e-4,
         "terminal_audit.mode": "formal_two_x_windows",
         "terminal_audit.formal_horizon_steps": 8000,
         "terminal_audit.window_1_steps": [4000, 6000],
@@ -227,8 +233,8 @@ def formal_expected() -> dict[str, Any]:
         "terminal_audit.metric_window_mean_abs_tolerances": {
             "expected_semantic_reward": 0.01,
             "hidden_optimal_family_probability": 0.02,
-            "entropy_mean": 0.08,
-            "action_bias_gap_mean": 0.20,
+            "prototype_entropy_mean": 0.08,
+            "rarity_logit_gap_mean": 0.20,
         },
         "seeds.held_out_formal": list(range(200, 220)),
         "methods": list(ALL_METHODS),
@@ -251,9 +257,15 @@ def validate_config(config: Mapping[str, Any], stage: str) -> None:
         raise ValueError("this protocol requires exactly common/rare replicas")
     if list(config.get("methods", [])) != list(ALL_METHODS):
         raise ValueError("method order must match the frozen protocol")
+    if float(nested(config, "optimization", "rarity_logit_anchor_coefficient")) <= 0.0:
+        raise ValueError("rarity_logit_anchor_coefficient must be positive")
     if stage == "formal":
         if not bool(config.get("formal_parameter_freeze")):
             raise RuntimeError("formal_parameter_freeze must be true")
+        if not bool(nested(config, "formal_gate", "enabled")):
+            raise RuntimeError("formal_gate.enabled must be true")
+        if not bool(nested(config, "approval", "formal_hyperparameters_approved")):
+            raise RuntimeError("formal hyperparameters require explicit approval")
         for key, expected in formal_expected().items():
             actual = _config_value(config, key)
             if actual != expected:
@@ -297,9 +309,10 @@ def method_specs() -> list[MethodSpec]:
         MethodSpec("rare_all", ("useful_rare", "unhelpful_rare")),
         MethodSpec("all_negative", CELL_NAMES),
         MethodSpec("global_matched", CELL_NAMES, "global"),
-        MethodSpec("reciprocal_linear", CELL_NAMES, "reciprocal_linear"),
-        MethodSpec("reciprocal_quadratic", CELL_NAMES, "reciprocal_quadratic"),
-        MethodSpec("exponential", CELL_NAMES, "exponential"),
+        MethodSpec("reciprocal_linear_distance", CELL_NAMES, "reciprocal_linear_distance"),
+        MethodSpec("reciprocal_quadratic_distance", CELL_NAMES, "reciprocal_quadratic_distance"),
+        MethodSpec("reciprocal_quartic_distance", CELL_NAMES, "reciprocal_quartic_distance"),
+        MethodSpec("exponential_quadratic_distance", CELL_NAMES, "exponential_quadratic_distance"),
     ]
 
 
@@ -331,6 +344,13 @@ class CartesianSemanticEnvironment:
         self.prototype_embeddings = prototypes[permutation].contiguous()
         self.action_prototype = torch.arange(self.prototype_count).repeat_interleave(2)
         self.action_rarity = torch.tensor([0, 1], dtype=torch.long).repeat(self.prototype_count)
+        # Policy-side rarity is an orthogonal product coordinate.  Common and
+        # rare replicas share task semantics/reward but have opposite signs on
+        # one shared contextual rarity axis.  No per-action trainable bias is
+        # used.
+        self.action_rarity_sign = torch.where(
+            self.action_rarity == 0, torch.tensor(1.0), torch.tensor(-1.0)
+        )
         self.action_embeddings = self.prototype_embeddings[self.action_prototype]
 
         geom = torch.Generator(device="cpu").manual_seed(420_003 + self.seed)
@@ -382,7 +402,12 @@ class CartesianSemanticEnvironment:
         banned.scatter_(1, useful_proto[:, None], True)
         unhelpful_proto = self._topk_excluding(-utility, banned, 1).squeeze(1)
 
-        positive = self.action_id(positive_proto, 0)  # positive demonstrations use common replicas only
+        # Positive evidence is defined at semantic-family level.  The policy
+        # objective sums the common/rare replica probabilities for each positive
+        # prototype, so Positive-only is exactly neutral to the rarity axis.
+        positive_pairs = torch.stack(
+            [self.action_id(positive_proto, 0), self.action_id(positive_proto, 1)], dim=-1
+        )
         hidden_actions = torch.stack(
             [self.action_id(hidden_proto, 0), self.action_id(hidden_proto, 1)], dim=1
         )
@@ -408,7 +433,8 @@ class CartesianSemanticEnvironment:
             "reward_matrix": reward_matrix,
             "hidden_proto": hidden_proto,
             "hidden_actions": hidden_actions,
-            "positive": positive,
+            "positive_proto": positive_proto,
+            "positive_pairs": positive_pairs,
             "positive_advantage": torch.full((count, self.n_positive), self.positive_advantage),
             "useful_proto": useful_proto,
             "unhelpful_proto": unhelpful_proto,
@@ -421,11 +447,8 @@ class CartesianSemanticEnvironment:
             **{f"{name}_advantage": torch.full((count,), self.negative_advantage) for name in CELL_NAMES},
         }
 
-    def initial_action_bias(self) -> torch.Tensor:
-        gap = float(nested(self.config, "policy", "initial_rarity_logit_gap"))
-        common = gap / 2.0
-        rare = -gap / 2.0
-        return torch.where(self.action_rarity == 0, torch.tensor(common), torch.tensor(rare)).float()
+    def initial_rarity_half_gap(self) -> float:
+        return float(nested(self.config, "policy", "initial_rarity_logit_gap")) / 2.0
 
     def audit(self) -> dict[str, Any]:
         result: dict[str, Any] = {"seed": self.seed, "splits": {}}
@@ -480,17 +503,14 @@ class CartesianSemanticEnvironment:
                 "mean_useful_utility": float(split["useful_utility"].mean()),
                 "mean_unhelpful_utility": float(split["unhelpful_utility"].mean()),
             }
-        bias = self.initial_action_bias()
-        pair_gap = bias[0::2] - bias[1::2]
         expected_gap = float(nested(self.config, "policy", "initial_rarity_logit_gap"))
-        bias_error = float((pair_gap - expected_gap).abs().max())
-        passed = passed and bias_error <= 1.0e-7
         result.update(
             {
                 "passed": passed,
                 "prototype_count": self.prototype_count,
                 "action_count": self.action_count,
-                "rarity_bias_gap_max_error": bias_error,
+                "rarity_coordinate_source": "shared_contextual_residual_head",
+                "trainable_per_action_bias": False,
                 "expected_rarity_logit_gap": expected_gap,
             }
         )
@@ -498,6 +518,14 @@ class CartesianSemanticEnvironment:
 
 
 class CartesianPolicy(nn.Module):
+    """Shared categorical policy with orthogonal semantic and rarity coordinates.
+
+    The frozen half-gap creates the initial common/rare probability separation.
+    A zero-initialized contextual rarity residual is shared by every action and
+    context; action-specific negative updates therefore have collateral effects
+    on the whole common/rare partition rather than only on one private bias.
+    """
+
     def __init__(self, config: Mapping[str, Any], environment: CartesianSemanticEnvironment):
         super().__init__()
         hidden_dim = int(nested(config, "policy", "hidden_dim"))
@@ -508,24 +536,51 @@ class CartesianPolicy(nn.Module):
             nn.Tanh(),
         )
         self.direction_head = nn.Linear(hidden_dim, environment.semantic_dim)
+        self.rarity_residual_head = nn.Linear(hidden_dim, 1)
+        nn.init.zeros_(self.rarity_residual_head.weight)
+        nn.init.zeros_(self.rarity_residual_head.bias)
+
         self.reference_trunk = copy.deepcopy(self.trunk)
         self.reference_direction_head = copy.deepcopy(self.direction_head)
         for parameter in self.reference_trunk.parameters():
             parameter.requires_grad_(False)
         for parameter in self.reference_direction_head.parameters():
             parameter.requires_grad_(False)
-        self.fixed_concentration = float(nested(config, "policy", "fixed_concentration"))
-        self.action_bias = nn.Parameter(environment.initial_action_bias())
 
-    def forward(self, states: torch.Tensor, action_embeddings: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        direction = unit(self.direction_head(self.trunk(states)))
+        self.fixed_concentration = float(nested(config, "policy", "fixed_concentration"))
+        self.initial_rarity_half_gap = environment.initial_rarity_half_gap()
+        self.register_buffer(
+            "action_rarity_sign", environment.action_rarity_sign.clone().float()
+        )
+
+    def semantic_residual(
+        self, states: torch.Tensor, action_embeddings: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        features = self.trunk(states)
+        direction = unit(self.direction_head(features))
         with torch.no_grad():
             reference_direction = unit(
                 self.reference_direction_head(self.reference_trunk(states))
             )
-        semantic_residual = (direction - reference_direction) @ action_embeddings.T
-        logits = self.fixed_concentration * semantic_residual + self.action_bias
+        residual = self.fixed_concentration * (
+            (direction - reference_direction) @ action_embeddings.T
+        )
+        return residual, direction, features
+
+    def forward(
+        self, states: torch.Tensor, action_embeddings: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        semantic_logits, direction, features = self.semantic_residual(
+            states, action_embeddings
+        )
+        rarity_residual = self.rarity_residual_head(features).squeeze(-1)
+        rarity_coordinate = self.initial_rarity_half_gap + rarity_residual
+        logits = semantic_logits + rarity_coordinate[:, None] * self.action_rarity_sign[None, :]
         return logits, direction
+
+    def rarity_coordinate(self, states: torch.Tensor) -> torch.Tensor:
+        features = self.trunk(states)
+        return self.initial_rarity_half_gap + self.rarity_residual_head(features).squeeze(-1)
 
 
 def trainable_parameters(model: nn.Module) -> tuple[nn.Parameter, ...]:
@@ -540,26 +595,31 @@ def batch_indices(seed: int, step: int, count: int, batch_size: int) -> torch.Te
 def gather_log_probs(log_probs: torch.Tensor, actions: torch.Tensor) -> torch.Tensor:
     if actions.ndim == 1:
         return log_probs.gather(1, actions[:, None]).squeeze(1)
-    return log_probs.gather(1, actions)
+    flat = actions.reshape(actions.shape[0], -1)
+    gathered = log_probs.gather(1, flat)
+    return gathered.reshape(actions.shape)
 
 
 def taper_coefficients(rho: float) -> dict[str, float]:
     if not 0.0 < rho < 1.0:
         raise ValueError("reference retention must be in (0,1)")
     return {
-        "reciprocal_linear": 1.0 / rho - 1.0,
-        "reciprocal_quadratic": 1.0 / rho - 1.0,
-        "exponential": -math.log(rho),
+        "reciprocal_linear_distance": 1.0 / rho - 1.0,
+        "reciprocal_quadratic_distance": 1.0 / rho - 1.0,
+        "reciprocal_quartic_distance": 1.0 / rho - 1.0,
+        "exponential_quadratic_distance": -math.log(rho),
     }
 
 
 def taper_weight(u: torch.Tensor, family: str, coefficient: float) -> torch.Tensor:
     u = torch.clamp(u.detach(), min=0.0)
-    if family == "reciprocal_linear":
+    if family == "reciprocal_linear_distance":
+        return 1.0 / (1.0 + coefficient * torch.sqrt(u))
+    if family == "reciprocal_quadratic_distance":
         return 1.0 / (1.0 + coefficient * u)
-    if family == "reciprocal_quadratic":
+    if family == "reciprocal_quartic_distance":
         return 1.0 / (1.0 + coefficient * u.square())
-    if family == "exponential":
+    if family == "exponential_quadratic_distance":
         return torch.exp(-coefficient * u)
     raise ValueError(f"unknown taper family: {family}")
 
@@ -571,9 +631,19 @@ def cell_log_probs(
     index: torch.Tensor,
 ) -> tuple[torch.Tensor, dict[str, torch.Tensor], torch.Tensor]:
     states = split["states"][index]
+    semantic_logits, _, _ = model.semantic_residual(states, environment.action_embeddings)
     logits, _ = model(states, environment.action_embeddings)
     log_probs = F.log_softmax(logits, dim=-1)
-    positive = gather_log_probs(log_probs, split["positive"][index]).mean(1)
+    # Compute the positive semantic-family objective directly in prototype
+    # space.  Algebraically this equals the sum of the two replica
+    # probabilities, but the direct form removes the rarity head from the
+    # autograd graph exactly instead of relying on floating-point cancellation
+    # through action-level softmax/logsumexp.
+    prototype_logits = semantic_logits[:, 0::2]
+    prototype_log_probs = F.log_softmax(prototype_logits, dim=-1)
+    positive = gather_log_probs(
+        prototype_log_probs, split["positive_proto"][index]
+    ).mean(1)
     useful_pair = gather_log_probs(log_probs, split["useful_pair"][index])
     unhelpful_pair = gather_log_probs(log_probs, split["unhelpful_pair"][index])
     # Rarity is defined relative to the current learner. Reassign common/rare
@@ -587,6 +657,94 @@ def cell_log_probs(
         "unhelpful_rare": unhelpful_pair.min(dim=1).values,
     }
     return positive, cells, logits
+
+
+def _grad_norm_from_tensors(grads: Sequence[torch.Tensor | None]) -> float:
+    total = torch.zeros((), dtype=torch.float64)
+    for grad in grads:
+        if grad is not None:
+            total += grad.detach().double().square().sum().cpu()
+    return float(torch.sqrt(total))
+
+
+def policy_geometry_audit(
+    model: CartesianPolicy,
+    environment: CartesianSemanticEnvironment,
+    config: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Fail-closed checks for the repaired rarity coordinate.
+
+    The audit verifies that Positive-only is neutral to within-family rarity,
+    while rare/common negatives differ through a shared contextual head rather
+    than private action biases.
+    """
+
+    count = min(int(nested(config, "optimization", "audit_states")), environment.train_count)
+    index = torch.arange(count)
+    positive_lp, cells, _ = cell_log_probs(model, environment, environment.train, index)
+    rarity_params = tuple(model.rarity_residual_head.parameters())
+    full_params = trainable_parameters(model)
+
+    positive_grads = torch.autograd.grad(
+        -positive_lp.mean(), rarity_params, retain_graph=True, allow_unused=True
+    )
+    positive_rarity_grad_norm = _grad_norm_from_tensors(positive_grads)
+
+    cell_rarity_norms: dict[str, float] = {}
+    cell_full_norms: dict[str, float] = {}
+    for idx, cell in enumerate(CELL_NAMES):
+        retain = idx < len(CELL_NAMES) - 1
+        loss = cells[cell].mean()
+        rarity_grads = torch.autograd.grad(
+            loss, rarity_params, retain_graph=True, allow_unused=True
+        )
+        full_grads = torch.autograd.grad(
+            loss, full_params, retain_graph=retain, allow_unused=True
+        )
+        cell_rarity_norms[cell] = _grad_norm_from_tensors(rarity_grads)
+        cell_full_norms[cell] = _grad_norm_from_tensors(full_grads)
+
+    useful_ratio = cell_rarity_norms["useful_rare"] / max(
+        cell_rarity_norms["useful_common"], EPS
+    )
+    unhelpful_ratio = cell_rarity_norms["unhelpful_rare"] / max(
+        cell_rarity_norms["unhelpful_common"], EPS
+    )
+
+    # The semantic-family positive likelihood must be invariant to a global
+    # within-pair rarity shift.
+    with torch.no_grad():
+        original_bias = model.rarity_residual_head.bias.detach().clone()
+        baseline_positive, _, _ = cell_log_probs(
+            model, environment, environment.train, index
+        )
+        model.rarity_residual_head.bias.add_(0.75)
+        shifted_positive, _, _ = cell_log_probs(
+            model, environment, environment.train, index
+        )
+        model.rarity_residual_head.bias.copy_(original_bias)
+    positive_family_shift_error = float(
+        (baseline_positive - shifted_positive).abs().max()
+    )
+
+    passed = bool(
+        positive_rarity_grad_norm <= 1.0e-6
+        and positive_family_shift_error <= 2.0e-6
+        and useful_ratio >= 5.0
+        and unhelpful_ratio >= 5.0
+        and cell_rarity_norms["useful_rare"] > 0.0
+        and cell_rarity_norms["unhelpful_rare"] > 0.0
+    )
+    return {
+        "passed": passed,
+        "positive_rarity_gradient_norm": positive_rarity_grad_norm,
+        "positive_family_rarity_shift_max_error": positive_family_shift_error,
+        "cell_shared_rarity_gradient_norms": cell_rarity_norms,
+        "cell_full_parameter_gradient_norms": cell_full_norms,
+        "useful_rare_to_common_shared_rarity_gradient_ratio": useful_ratio,
+        "unhelpful_rare_to_common_shared_rarity_gradient_ratio": unhelpful_ratio,
+        "trainable_per_action_bias": False,
+    }
 
 
 def coordinate_calibration(
@@ -653,6 +811,26 @@ def normalized_excess_surprisal(log_prob: torch.Tensor, calibration: Mapping[str
     return F.relu((surprisal - float(calibration["threshold"])) / float(calibration["scale"]))
 
 
+def rarity_logit_anchor_loss(
+    model: CartesianPolicy,
+    states: torch.Tensor,
+) -> torch.Tensor:
+    """Quadratic trust region around the frozen initial rarity logit gap.
+
+    The old repair draft used forward KL from the already-low-probability
+    reference replica.  Its asymptotic restoring gradient is proportional to
+    the tiny reference rare mass and can be weaker than the negative objective,
+    so the combined loss can remain unbounded.  Penalizing the shared rarity
+    residual directly is zero at initialization, leaves Positive-only exactly
+    rarity-neutral, and grows quadratically while the negative log-probability
+    objective grows only linearly in the rarity coordinate.  Any positive
+    coefficient therefore yields a finite output-level optimum.
+    """
+
+    residual = model.rarity_coordinate(states) - model.initial_rarity_half_gap
+    return 0.5 * residual.square().mean()
+
+
 def active_cell_loss(
     cells: Mapping[str, torch.Tensor],
     spec: MethodSpec,
@@ -704,7 +882,9 @@ def calibrate_global_match(
     _, cells, _ = cell_log_probs(model, environment, environment.train, index)
     params = trainable_parameters(model)
     all_spec = MethodSpec("all_negative", CELL_NAMES)
-    exp_spec = MethodSpec("exponential", CELL_NAMES, "exponential")
+    exp_spec = MethodSpec(
+        "exponential_quadratic_distance", CELL_NAMES, "exponential_quadratic_distance"
+    )
     raw_loss, _ = active_cell_loss(cells, all_spec, calibration, coefficients, 1.0)
     exp_loss, _ = active_cell_loss(cells, exp_spec, calibration, coefficients, 1.0)
     raw_norm = flat_grad_norm(raw_loss, params, retain_graph=True)
@@ -712,7 +892,7 @@ def calibrate_global_match(
     scale = exp_norm / max(raw_norm, EPS)
     return {
         "raw_negative_gradient_norm": raw_norm,
-        "exponential_negative_gradient_norm": exp_norm,
+        "exponential_quadratic_distance_negative_gradient_norm": exp_norm,
         "global_scale": scale,
         "matched_norm_error": abs(scale * raw_norm - exp_norm),
     }
@@ -730,18 +910,40 @@ def evaluate(
         probs = log_probs.exp()
         expected_reward = (probs * split["reward_matrix"]).sum(1).mean()
         hidden_prob = probs.gather(1, split["hidden_actions"]).sum(1).mean()
-        positive_prob = probs.gather(1, split["positive"]).sum(1).mean()
-        entropy = -(probs * log_probs).sum(1).mean()
-        effective_support = entropy.exp()
+        positive_pair_probs = gather_log_probs(probs.log(), split["positive_pairs"]).exp()
+        positive_prob = positive_pair_probs.sum(-1).sum(-1).mean()
+
+        action_entropy = -(probs * log_probs).sum(1)
+        action_effective_support = action_entropy.exp()
+        prototype_probs = probs.reshape(
+            probs.shape[0], environment.prototype_count, environment.rarity_replicas
+        ).sum(-1)
+        prototype_log_probs = prototype_probs.clamp_min(EPS).log()
+        prototype_entropy = -(prototype_probs * prototype_log_probs).sum(1)
+        prototype_effective_support = prototype_entropy.exp()
+
+        common_mass = probs[:, 0::2].sum(1)
+        rare_mass = probs[:, 1::2].sum(1)
+        rarity_coordinate = model.rarity_coordinate(split["states"])
+        rarity_gap = 2.0 * rarity_coordinate.abs()
+
         result = {
             "expected_semantic_reward": float(expected_reward),
             "hidden_optimal_family_probability": float(hidden_prob),
             "positive_support_probability": float(positive_prob),
-            "entropy_mean": float(entropy),
-            "effective_support": float(effective_support),
-            "action_bias_common_mean": float(model.action_bias[0::2].mean()),
-            "action_bias_rare_mean": float(model.action_bias[1::2].mean()),
-            "action_bias_gap_mean": float((model.action_bias[0::2] - model.action_bias[1::2]).mean()),
+            "action_entropy_mean": float(action_entropy.mean()),
+            "action_effective_support": float(action_effective_support.mean()),
+            "prototype_entropy_mean": float(prototype_entropy.mean()),
+            "prototype_effective_support": float(prototype_effective_support.mean()),
+            "common_total_probability": float(common_mass.mean()),
+            "rare_total_probability": float(rare_mass.mean()),
+            "rarity_mass_gap_mean": float((common_mass - rare_mass).abs().mean()),
+            "rarity_coordinate_mean": float(rarity_coordinate.mean()),
+            "rarity_coordinate_abs_mean": float(rarity_coordinate.abs().mean()),
+            "rarity_logit_gap_mean": float(rarity_gap.mean()),
+            "rarity_residual_head_weight_norm": float(
+                model.rarity_residual_head.weight.detach().norm()
+            ),
         }
         useful_pair_lp = gather_log_probs(log_probs, split["useful_pair"])
         unhelpful_pair_lp = gather_log_probs(log_probs, split["unhelpful_pair"])
@@ -819,8 +1021,9 @@ def run_one(
         for key, value in list(split.items()):
             if isinstance(value, torch.Tensor):
                 split[key] = value.to(device)
+    params = trainable_parameters(model)
     optimizer = torch.optim.Adam(
-        trainable_parameters(model),
+        params,
         lr=float(nested(config, "optimization", "learning_rate")),
         betas=tuple(float(x) for x in nested(config, "optimization", "betas")),
         eps=float(nested(config, "optimization", "eps")),
@@ -829,14 +1032,37 @@ def run_one(
     eval_every = int(nested(config, "optimization", "evaluation_interval_steps"))
     batch_size = int(nested(config, "optimization", "batch_size"))
     alpha = float(nested(config, "optimization", "negative_alpha"))
+    anchor_coefficient = float(
+        nested(config, "optimization", "rarity_logit_anchor_coefficient")
+    )
     coefficients = taper_coefficients(float(nested(config, "taper", "reference_rare_retention")))
-    support_threshold = float(nested(config, "events", "effective_support_boundary"))
+    prototype_support_threshold = float(
+        nested(config, "events", "prototype_effective_support_boundary")
+    )
+    rarity_mass_boundary = float(nested(config, "events", "rarity_mass_boundary"))
     trajectory: list[dict[str, Any]] = []
     last_update_norm = 0.0
     last_diag = {f"weight_{cell}": 0.0 for cell in CELL_NAMES}
+    last_diag.update(
+        {
+            "rarity_logit_anchor_loss": 0.0,
+            "negative_raw_gradient_norm": 0.0,
+            "negative_target_gradient_norm": 0.0,
+            "negative_applied_gradient_norm": 0.0,
+            "stepwise_budget_match_error": 0.0,
+            "stepwise_global_scale": 0.0,
+        }
+    )
 
     def record(step: int, numerical_failure: bool = False) -> None:
         metrics = evaluate(model, environment, environment.test, calibration)
+        prototype_boundary = bool(
+            metrics["prototype_effective_support"] < prototype_support_threshold
+        )
+        rarity_boundary = bool(
+            min(metrics["common_total_probability"], metrics["rare_total_probability"])
+            < rarity_mass_boundary
+        )
         row: dict[str, Any] = {
             "seed": seed,
             "method": spec.method,
@@ -844,27 +1070,70 @@ def run_one(
             **metrics,
             **last_diag,
             "adam_parameter_update_norm": last_update_norm,
-            "support_boundary_event": bool(metrics["effective_support"] < support_threshold),
+            "prototype_support_boundary_event": prototype_boundary,
+            "rarity_mass_boundary_event": rarity_boundary,
+            "support_boundary_event": bool(prototype_boundary or rarity_boundary),
             "nan_inf_numerical_failure": numerical_failure,
         }
         trajectory.append(row)
 
     record(0)
     numerical_failure = False
+    raw_spec = MethodSpec("all_negative", CELL_NAMES)
+    exp_spec = MethodSpec(
+        "exponential_quadratic_distance",
+        CELL_NAMES,
+        "exponential_quadratic_distance",
+    )
     for step in range(1, maximum_steps + 1):
         index = batch_indices(seed, step, environment.train_count, batch_size).to(device)
         measure_update = step % eval_every == 0 or step == maximum_steps
         before = parameter_vector(model) if measure_update else None
-        positive_lp, cells, _ = cell_log_probs(model, environment, environment.train, index)
-        positive_loss = -positive_lp.mean()
-        negative_loss, last_diag = active_cell_loss(
-            cells,
-            spec,
-            calibration,
-            coefficients,
-            float(global_match["global_scale"]),
+        states = environment.train["states"][index]
+        positive_lp, cells, _ = cell_log_probs(
+            model, environment, environment.train, index
         )
-        loss = positive_loss + alpha * negative_loss
+        positive_loss = -positive_lp.mean()
+
+        if spec.taper_family == "global":
+            raw_loss, _ = active_cell_loss(
+                cells, raw_spec, calibration, coefficients, 1.0
+            )
+            target_loss, _ = active_cell_loss(
+                cells, exp_spec, calibration, coefficients, 1.0
+            )
+            raw_norm = flat_grad_norm(raw_loss, params, retain_graph=True)
+            target_norm = flat_grad_norm(target_loss, params, retain_graph=True)
+            scale = target_norm / max(raw_norm, EPS)
+            negative_loss, cell_diag = active_cell_loss(
+                cells, spec, calibration, coefficients, scale
+            )
+            applied_norm = scale * raw_norm
+            budget_error = abs(applied_norm - target_norm)
+            last_diag = {
+                **cell_diag,
+                "negative_raw_gradient_norm": raw_norm,
+                "negative_target_gradient_norm": target_norm,
+                "negative_applied_gradient_norm": applied_norm,
+                "stepwise_budget_match_error": budget_error,
+                "stepwise_global_scale": scale,
+            }
+        else:
+            negative_loss, cell_diag = active_cell_loss(
+                cells, spec, calibration, coefficients, 1.0
+            )
+            last_diag = {
+                **cell_diag,
+                "negative_raw_gradient_norm": 0.0,
+                "negative_target_gradient_norm": 0.0,
+                "negative_applied_gradient_norm": 0.0,
+                "stepwise_budget_match_error": 0.0,
+                "stepwise_global_scale": 1.0 if spec.active_cells else 0.0,
+            }
+
+        anchor_loss = rarity_logit_anchor_loss(model, states)
+        last_diag["rarity_logit_anchor_loss"] = float(anchor_loss.detach())
+        loss = positive_loss + alpha * negative_loss + anchor_coefficient * anchor_loss
         optimizer.zero_grad(set_to_none=True)
         loss.backward()
         finite = bool(torch.isfinite(loss.detach())) and all(
@@ -897,15 +1166,32 @@ def run_one(
         "steps_completed": int(final["step"]),
         "terminal_class": terminal["class"],
         "terminal_formal_acceptance": bool(terminal["formal_acceptance"]),
-        "task_performance_collapse": False,  # paired label is assigned after all methods finish
-        "support_boundary_event": any(bool(row["support_boundary_event"]) for row in trajectory),
+        "task_performance_collapse": False,
+        "prototype_support_boundary_event": any(
+            bool(row["prototype_support_boundary_event"]) for row in trajectory
+        ),
+        "rarity_mass_boundary_event": any(
+            bool(row["rarity_mass_boundary_event"]) for row in trajectory
+        ),
+        "support_boundary_event": any(
+            bool(row["support_boundary_event"]) for row in trajectory
+        ),
         "nan_inf_numerical_failure": numerical_failure,
         "final_expected_semantic_reward": float(final["expected_semantic_reward"]),
-        "final_hidden_optimal_family_probability": float(final["hidden_optimal_family_probability"]),
-        "final_effective_support": float(final["effective_support"]),
-        "final_action_bias_gap_mean": float(final["action_bias_gap_mean"]),
+        "final_hidden_optimal_family_probability": float(
+            final["hidden_optimal_family_probability"]
+        ),
+        "final_action_effective_support": float(final["action_effective_support"]),
+        "final_prototype_effective_support": float(
+            final["prototype_effective_support"]
+        ),
+        "final_rare_total_probability": float(final["rare_total_probability"]),
+        "final_rarity_logit_gap_mean": float(final["rarity_logit_gap_mean"]),
+        "max_stepwise_budget_match_error": float(
+            max(float(row["stepwise_budget_match_error"]) for row in trajectory)
+        ),
         "coordinate_calibration": dict(calibration),
-        "global_match": dict(global_match),
+        "global_match_initial_audit": dict(global_match),
         "terminal_audit": terminal,
     }
     return trajectory, summary
@@ -921,9 +1207,13 @@ def run_seed_bundle(
     seed_all(seed)
     environment = CartesianSemanticEnvironment(config, seed)
     audit = environment.audit()
+    model = CartesianPolicy(config, environment)
+    geometry_audit = policy_geometry_audit(model, environment, config)
+    audit["policy_geometry"] = geometry_audit
+    audit["passed"] = bool(audit["passed"] and geometry_audit["passed"])
     if not audit["passed"]:
         raise RuntimeError(f"environment audit failed for seed {seed}")
-    model = CartesianPolicy(config, environment).to(device)
+    model = model.to(device)
     environment.action_embeddings = environment.action_embeddings.to(device)
     for split in (environment.train, environment.test):
         for key, value in list(split.items()):
@@ -1001,7 +1291,15 @@ def aggregate(summaries: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
             "hidden_probability_mean": float(
                 np.mean([float(row["final_hidden_optimal_family_probability"]) for row in rows])
             ),
-            "effective_support_mean": float(np.mean([float(row["final_effective_support"]) for row in rows])),
+            "action_effective_support_mean": float(
+                np.mean([float(row["final_action_effective_support"]) for row in rows])
+            ),
+            "prototype_effective_support_mean": float(
+                np.mean([float(row["final_prototype_effective_support"]) for row in rows])
+            ),
+            "rare_total_probability_mean": float(
+                np.mean([float(row["final_rare_total_probability"]) for row in rows])
+            ),
             "task_performance_collapse_events": sum(bool(row["task_performance_collapse"]) for row in rows),
             "support_boundary_events": sum(bool(row["support_boundary_event"]) for row in rows),
             "nan_inf_numerical_failures": sum(bool(row["nan_inf_numerical_failure"]) for row in rows),
@@ -1042,7 +1340,9 @@ def mechanism_report(
     metrics = (
         "final_expected_semantic_reward",
         "final_hidden_optimal_family_probability",
-        "final_effective_support",
+        "final_action_effective_support",
+        "final_prototype_effective_support",
+        "final_rare_total_probability",
     )
     pairs = {
         "rarity_effect_at_useful": ("useful_rare_only", "useful_common_only"),
@@ -1104,14 +1404,17 @@ def taper_report(
         "positive_only",
         "all_negative",
         "global_matched",
-        "reciprocal_linear",
-        "reciprocal_quadratic",
-        "exponential",
+        "reciprocal_linear_distance",
+        "reciprocal_quadratic_distance",
+        "reciprocal_quartic_distance",
+        "exponential_quadratic_distance",
     )
     metrics = (
         "final_expected_semantic_reward",
         "final_hidden_optimal_family_probability",
-        "final_effective_support",
+        "final_action_effective_support",
+        "final_prototype_effective_support",
+        "final_rare_total_probability",
     )
     contrasts: dict[str, Any] = {}
     for candidate in TAPER_METHODS[1:]:
@@ -1164,8 +1467,9 @@ def execute(config: Mapping[str, Any], output_root: Path, stage: str, device: to
     if stage == "smoke":
         smoke_methods = {
             "positive_only", "useful_common_only", "useful_rare_only",
-            "all_negative", "global_matched", "reciprocal_linear",
-            "reciprocal_quadratic", "exponential",
+            "all_negative", "global_matched", "reciprocal_linear_distance",
+            "reciprocal_quadratic_distance", "reciprocal_quartic_distance",
+            "exponential_quadratic_distance",
         }
         specs = [spec for spec in specs if spec.method in smoke_methods]
     expected_runs = len(seeds) * len(specs)
@@ -1255,8 +1559,18 @@ def execute(config: Mapping[str, Any], output_root: Path, stage: str, device: to
             for label in sorted({row["terminal_class"] for row in summaries})
         },
         "task_performance_collapse_events": sum(bool(row["task_performance_collapse"]) for row in summaries),
-        "support_boundary_events": sum(bool(row["support_boundary_event"]) for row in summaries),
-        "nan_inf_numerical_failures": sum(bool(row["nan_inf_numerical_failure"]) for row in summaries),
+        "prototype_support_boundary_events": sum(
+            bool(row["prototype_support_boundary_event"]) for row in summaries
+        ),
+        "rarity_mass_boundary_events": sum(
+            bool(row["rarity_mass_boundary_event"]) for row in summaries
+        ),
+        "support_boundary_events": sum(
+            bool(row["support_boundary_event"]) for row in summaries
+        ),
+        "nan_inf_numerical_failures": sum(
+            bool(row["nan_inf_numerical_failure"]) for row in summaries
+        ),
         "formal_scientific_acceptance": bool(
             stage == "formal"
             and len(summaries) == expected_runs
@@ -1270,11 +1584,18 @@ def execute(config: Mapping[str, Any], output_root: Path, stage: str, device: to
     }
     protocol_freeze = {
         "experiment_id": EXPERIMENT_ID,
+        "protocol_revision": PROTOCOL_REVISION,
         "cartesian_axes": {
             "utility": "ground_truth_directional_utility_of_repulsion",
-            "rarity": "current_policy_surprisal_with_exact_common_rare_logit_bias_replica",
+            "rarity": "current_policy_surprisal_from_shared_contextual_rarity_coordinate",
         },
         "initial_semantic_logit_rule": "subtract_frozen_initialized_semantic_reference",
+        "rarity_parameterization": "frozen_initial_half_gap_plus_zero_initialized_shared_contextual_residual_head",
+        "positive_objective": "semantic_family_log_probability_neutral_to_rarity_axis",
+        "rarity_logit_anchor_coefficient": float(
+            nested(effective, "optimization", "rarity_logit_anchor_coefficient")
+        ),
+        "global_budget_control": "stepwise_raw_negative_gradient_norm_matched_to_exponential",
         "initial_probability_matching": "useful_equals_unhelpful_within_each_rarity_level_per_context",
         "dynamic_rarity_role_assignment": "higher_pair_probability_is_common_lower_is_rare_each_forward_stop_gradient",
         "subset_intervention_normalization": "inactive_cells_zeroed_remaining_cells_keep_one_quarter_coefficient",
@@ -1313,6 +1634,10 @@ def execute(config: Mapping[str, Any], output_root: Path, stage: str, device: to
         "actual_runs": len(summaries),
         "terminal_audit_all_checks_passed": terminal["formal_scientific_acceptance"],
         "task_performance_collapse_events": terminal["task_performance_collapse_events"],
+        "prototype_support_boundary_events": terminal[
+            "prototype_support_boundary_events"
+        ],
+        "rarity_mass_boundary_events": terminal["rarity_mass_boundary_events"],
         "support_boundary_events": terminal["support_boundary_events"],
         "nan_inf_numerical_failures": terminal["nan_inf_numerical_failures"],
     }

@@ -1,9 +1,11 @@
 experiment_id: D-U1-E6-CARTESIAN-TAPER-01
-parent_experiments: [E6, E6-TAPER]
+parent_experiments:
+- E6
+- E6-TAPER
 environment: D-U1
 scientific_status: not_run
-execution_mode: formal_joint_cartesian_taper
-formal_parameter_freeze: true
+execution_mode: development_calibration_then_formal_freeze
+formal_parameter_freeze: false
 predecessors:
 - D-U1-E6-SEMANTIC-LONGRUN-01
 - D-U1-E5-LONGRUN-RERUN
@@ -11,14 +13,14 @@ supersedes_preregistration: D-U1-E6-TAPER-01
 approval:
   user_approved: true
   approval_date: '2026-07-02'
-  approval_scope: utility_x_surprisal_cartesian_environment_and_joint_e6_taper_implementation
-claim: >-
-  In one shared-semantic categorical environment where directional utility and
+  approval_scope: repair_shared_rarity_environment_and_require_development_calibration_before_formal
+  formal_hyperparameters_approved: false
+claim: In one shared-semantic categorical environment where directional utility and
   learner-relative rarity are an exact 2x2 Cartesian product, test whether useful
   negative signals improve same-distribution held-out-context performance, whether
-  rare negative signals create stronger support suppression independently of
-  utility, and whether learner-relative surprisal tapering preserves useful
-  negative information better than uncontrolled and matched-global controls.
+  rare negative signals create stronger support suppression independently of utility,
+  and whether learner-relative surprisal tapering preserves useful negative information
+  better than uncontrolled and matched-global controls.
 non_claims:
 - no_ood_generalization_claim
 - no_gaussian_unbounded_gradient_claim_for_categorical_logits
@@ -26,8 +28,33 @@ non_claims:
 - no_cross_task_method_superiority
 - no_predeclared_taper_winner
 seeds:
-  development: []
-  held_out_formal: [200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216, 217, 218, 219]
+  development:
+  - 0
+  - 1
+  - 2
+  - 3
+  - 4
+  held_out_formal: &id001
+  - 200
+  - 201
+  - 202
+  - 203
+  - 204
+  - 205
+  - 206
+  - 207
+  - 208
+  - 209
+  - 210
+  - 211
+  - 212
+  - 213
+  - 214
+  - 215
+  - 216
+  - 217
+  - 218
+  - 219
 data:
   state_dim: 6
   semantic_dim: 4
@@ -52,15 +79,20 @@ policy:
   hidden_dim: 64
   fixed_concentration: 8.0
   activation: tanh
-  trainable_action_bias: true
+  trainable_action_bias: false
+  rarity_parameterization: shared_contextual_residual_head
   initial_rarity_logit_gap: 4.0
+  rarity_residual_head_zero_initialized: true
   frozen_initial_semantic_reference: true
   initial_semantic_logit_residual_zero: true
+  positive_objective: semantic_family_log_probability
 optimization:
   optimizer: Adam
   learning_rate: 0.001
-  betas: [0.9, 0.999]
-  eps: 1.0e-8
+  betas:
+  - 0.9
+  - 0.999
+  eps: 1.0e-08
   batch_size: 128
   maximum_steps: 8000
   evaluation_interval_steps: 100
@@ -68,6 +100,8 @@ optimization:
   cpu_threads_per_run: 1
   parallel_workers: 8
   negative_alpha: 0.25
+  rarity_logit_anchor_coefficient: 0.25
+  rarity_logit_anchor: quadratic_shared_rarity_residual_to_initial_gap
 methods:
 - positive_only
 - useful_common_only
@@ -80,35 +114,44 @@ methods:
 - rare_all
 - all_negative
 - global_matched
-- reciprocal_linear
-- reciprocal_quadratic
-- exponential
+- reciprocal_linear_distance
+- reciprocal_quadratic_distance
+- reciprocal_quartic_distance
+- exponential_quadratic_distance
 taper:
   coordinate: normalized_excess_current_surprisal
   threshold_rule: pretraining_common_median
   scale_rule: pretraining_rare_minus_common_median
   minimum_calibration_gap: 1.0
-  initial_cartesian_tolerance: 1.0e-6
+  initial_cartesian_tolerance: 1.0e-06
   reference_normalized_rare_coordinate: 1.0
   reference_rare_retention: 0.25
   coefficient_rules:
-    reciprocal_linear: 1_over_rho_minus_1
-    reciprocal_quadratic: 1_over_rho_minus_1
-    exponential: negative_log_rho
-  global_control: initial_raw_negative_gradient_norm_matched_to_exponential
+    reciprocal_linear_distance: 1_over_rho_minus_1_on_sqrt_surprisal
+    reciprocal_quadratic_distance: 1_over_rho_minus_1_on_surprisal
+    reciprocal_quartic_distance: 1_over_rho_minus_1_on_squared_surprisal
+    exponential_quadratic_distance: negative_log_rho_on_surprisal
+  global_control: stepwise_raw_negative_gradient_norm_matched_to_exponential
   detach_surprisal_weight: true
   dynamic_rarity_role_assignment: true
+  global_match_recomputed_each_optimizer_step: true
 metrics:
 - expected_semantic_reward
 - hidden_optimal_family_probability
 - positive_support_probability
-- entropy
-- effective_support
-- action_bias_common_rare_gap
+- action_entropy
+- action_effective_support
+- prototype_entropy
+- prototype_effective_support
+- common_total_probability
+- rare_total_probability
+- rarity_logit_gap
 - per_cell_current_surprisal
 - per_cell_probability
 - per_cell_normalized_excess_surprisal
 - taper_weights
+- stepwise_raw_negative_gradient_budget
+- rarity_logit_anchor
 - adam_parameter_update_norm
 reporting_separation:
 - task_performance_collapse
@@ -116,32 +159,53 @@ reporting_separation:
 - nan_inf_numerical_failure
 events:
   task_collapse_ratio_to_paired_positive_only: 0.2
-  effective_support_boundary: 1.5
+  prototype_effective_support_boundary: 1.5
+  rarity_mass_boundary: 0.0001
 checkpointing:
   seed_block_size: 5
   seed_blocks:
-  - [200, 201, 202, 203, 204]
-  - [205, 206, 207, 208, 209]
-  - [210, 211, 212, 213, 214]
-  - [215, 216, 217, 218, 219]
+  - - 200
+    - 201
+    - 202
+    - 203
+    - 204
+  - - 205
+    - 206
+    - 207
+    - 208
+    - 209
+  - - 210
+    - 211
+    - 212
+    - 213
+    - 214
+  - - 215
+    - 216
+    - 217
+    - 218
+    - 219
   persistence: persistent_local
 terminal_audit:
   mode: formal_two_x_windows
   formal_horizon_steps: 8000
-  window_1_steps: [4000, 6000]
-  window_2_steps: [6000, 8000]
+  window_1_steps:
+  - 4000
+  - 6000
+  window_2_steps:
+  - 6000
+  - 8000
   metric_window_mean_abs_tolerances:
     expected_semantic_reward: 0.01
     hidden_optimal_family_probability: 0.02
-    entropy_mean: 0.08
-    action_bias_gap_mean: 0.20
+    prototype_entropy_mean: 0.08
+    rarity_logit_gap_mean: 0.2
   require_all_registered_runs: true
   allow_scientific_failure_outcomes: true
 formal_gate:
-  enabled: true
-  approval_record: user_approved_2026-07-02_utility_x_surprisal_cartesian_joint_protocol
+  enabled: false
+  blocking_reason: protocol_revision_2_requires_development_calibration_and_separate_formal_freeze
   frozen_protocol_path: configs/du1_e6_cartesian_taper.yaml
-  held_out_seeds: [200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216, 217, 218, 219]
+  held_out_seeds: *id001
 outputs:
   required:
   - resolved_config.yaml
@@ -158,3 +222,27 @@ outputs:
   - formal_protocol_freeze.json
   - run_manifest.json
   - RUN_COMPLETE.json
+protocol_revision: 2
+supersedes_protocol_revision: 1
+development_calibration:
+  required_before_formal: true
+  development_seeds:
+  - 0
+  - 1
+  - 2
+  - 3
+  - 4
+  candidate_negative_alpha:
+  - 0.1
+  - 0.25
+  - 0.5
+  candidate_reference_rare_retention:
+  - 0.25
+  - 0.5
+  - 0.75
+  candidate_rarity_logit_anchor_coefficient:
+  - 0.1
+  - 0.25
+  - 0.5
+  selection_rule: predeclare_after_environment_diagnostic_before_formal_seed_access
+  formal_seed_access_allowed: false

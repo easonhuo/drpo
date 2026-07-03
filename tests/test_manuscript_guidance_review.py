@@ -8,6 +8,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 BASE_COMMIT = "da5488ce13d0d6512b211ba4c68c9cdcd3fa49fc"
 REVIEW_PATH = ROOT / "docs/manuscript/reviews/PAPER-PIPELINE-V2-DOMAIN-AGNOSTIC-05.json"
+PUBLICATION_REVIEW_PATH = ROOT / "docs/manuscript/reviews/PAPER-PIPELINE-V2-PUBLICATION-QUALITY-04.json"
+RESEARCH_SNAPSHOT = ROOT / "paper/core_review_v2_core/research_snapshot.json"
 GUIDANCE = ROOT / "docs/manuscript/RL_PAPER_WRITING_GUIDANCE.md"
 PLAYBOOK = ROOT / "docs/manuscript/RL_PAPER_WRITING_PLAYBOOK.md"
 STRATEGY = ROOT / "docs/manuscript/DRPO_MANUSCRIPT_STRATEGY.md"
@@ -37,6 +39,17 @@ def test_guidance_review_hashes_and_all_gates_are_current() -> None:
     assert review["findings"]["major"] == []
     architecture = {gate["id"]: gate["status"] for gate in review["architecture_gates"]}
     assert architecture == {f"A{i:02d}": "pass" for i in range(1, 8)}
+
+
+def test_publication_review_tracks_current_research_snapshot() -> None:
+    review = json.loads(PUBLICATION_REVIEW_PATH.read_text(encoding="utf-8"))
+    matches = [
+        artifact
+        for artifact in review["artifacts"]
+        if artifact["path"] == "paper/core_review_v2_core/research_snapshot.json"
+    ]
+    assert len(matches) == 1
+    assert matches[0]["sha256"] == sha256(RESEARCH_SNAPSHOT)
 
 
 def test_stable_guidance_playbook_strategy_and_corpus_are_separate() -> None:

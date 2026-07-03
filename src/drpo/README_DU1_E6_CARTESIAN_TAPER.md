@@ -1,16 +1,26 @@
 # D-U1 E6 utility × surprisal Cartesian + TAPER
 
-Formal experiment: `D-U1-E6-CARTESIAN-TAPER-01`
+Experiment: `D-U1-E6-CARTESIAN-TAPER-01`
 
-This successor preserves the historical E6 result and fixes its identification
-confound. The old environment used semantic `local/far` roles, so directional
-utility and policy rarity were not an exact Cartesian product. The new environment
-uses 32 semantic prototypes, each duplicated into a common and rare categorical
-action. A replica pair has identical reward embedding, directional utility, and
-fixed negative advantage. A frozen copy of the initialized semantic policy is
-subtracted from the trainable semantic logits, so the initial useful/unhelpful
-probabilities are exactly matched within each rarity level; only the fixed
-common/rare action-logit bias differs.
+Protocol revision 2 repairs the protocol-revision-1 pilot environment before any
+formal run. The historical E6 result is preserved. The old Cartesian pilot used
+two semantically identical action IDs separated by a trainable per-action bias.
+That construction did match reward and utility, but rarity mostly acted through a
+private bias coordinate, Positive-only itself widened the replica gap, and an
+action-ID support loss could merely delete a redundant copy. Those pilot results
+remain engineering provenance and are not eligible for method ranking.
+
+## Repaired Cartesian environment
+
+There are 32 semantic prototypes and two categorical replicas per prototype. Each
+common/rare pair has exactly the same reward, fixed advantage, and ground-truth
+directional utility. Rarity is now an orthogonal **shared contextual coordinate**:
+
+- the policy contains no trainable per-action bias;
+- a shared state-conditioned rarity head shifts all common/rare pairs;
+- the head is zero-initialized around a fixed initial logit gap;
+- rare/common negative updates therefore act through shared parameters and may
+  affect other actions rather than only their own private bias.
 
 The four negative cells are:
 
@@ -19,71 +29,71 @@ The four negative cells are:
 - `unhelpful_common`
 - `unhelpful_rare`
 
-Each context contains one sample in every cell. All four negative advantages are
-exactly `-1`, and sample counts are matched.
+All four advantages equal `-1`, all cell counts match, and common/rare roles are
+reassigned from the current pair probabilities at every update. The role assignment
+and taper weight are stop-gradient.
 
-`common` and `rare` are learner-relative roles, not permanent action labels. At
-every update the higher-probability member of each utility-matched replica pair is
-the current common action and the lower-probability member is the current rare
-action. The discrete role selection is stop-gradient. When mechanism methods zero
-cells, the remaining cells keep their original one-quarter coefficient; they are
-not renormalized upward.
+Positive training is replica-neutral. It maximizes the probability of the semantic
+family by taking `logsumexp` over both replicas, so Positive-only does not create a
+common/rare preference by construction.
 
-## Scientific blocks
+## Mandatory environment gates
 
-The mechanism block compares Positive-only, each cell alone, each utility/rareness
-marginal, and all negatives. It asks whether rarity is harmful at fixed utility and
-whether utility is beneficial at fixed rarity.
+Before training, every seed must pass:
 
-The method block uses the same data, initialization, batch stream, and seeds. It
-compares:
+1. no trainable per-action bias;
+2. positive-family loss has zero rarity-head gradient within tolerance;
+3. positive-family probability is invariant to a shared rarity shift;
+4. rare/common negative samples have matched reward, utility, advantage, and count;
+5. rare negative updates produce a materially larger gradient on the shared rarity
+   head than common negative updates.
 
-- `global_matched`
-- `reciprocal_linear`
-- `reciprocal_quadratic`
-- `exponential`
+Evaluation reports both action-ID support and semantic-prototype support, plus total
+common/rare probability mass. Task collapse, prototype-support boundary,
+rarity-mass boundary, and NaN/Inf failure remain separate events.
 
-The calibration constants are estimated once per seed before training, while the
-surprisal itself is recomputed from the current learner at every update:
+A quadratic trust-region anchor on the shared rarity residual gives the
+development protocol a finite output-level objective without changing the initial
+common/rare gap. The anchor is zero at initialization and grows quadratically,
+whereas repeated negative log-probability pressure grows only linearly in the
+rarity coordinate. This replaces the earlier forward-KL draft, whose restoring
+force was too weak when the reference rare mass was already small. The anchor
+coefficient, negative alpha, rarity retention, horizon, and terminal tolerances
+are not yet formally frozen.
+
+## Taper definitions
+
+Let
 
 ```text
-u = relu((surprisal - common_median) / (rare_median - common_median))
+S = relu((current_surprisal - initial_common_median)
+         / (initial_rare_median - initial_common_median))
 ```
 
-The coordinate is then frozen across paired methods. All selective tapers retain
-weight `1` at `u=0` and weight `0.25` at `u=1`. The matched-global control freezes a
-single scalar whose initial raw negative-gradient norm matches the exponential
-method.
+The method names follow their continuous-distance interpretation, using
+`surprisal ∝ distance²`:
 
-## Formal launch
+- `reciprocal_linear_distance`: `1 / (1 + lambda * sqrt(S))`
+- `reciprocal_quadratic_distance`: `1 / (1 + lambda * S)`
+- `reciprocal_quartic_distance`: `1 / (1 + lambda * S²)`
+- `exponential_quadratic_distance`: `exp(-lambda * S)`
 
-After this update is applied and committed on clean `main`:
+All methods retain weight `1` at `S=0` and the configured reference retention at
+`S=1`. `global_matched` recomputes a detached scalar every optimizer step so that
+its raw negative-gradient L2 norm matches the exponential method on the same
+current model and minibatch. Adam parameter-update norms are recorded but are not
+claimed to be matched.
 
-```bash
-python3 scripts/run_experiment_guard_hardened.py \
-  --experiment-id D-U1-E6-CARTESIAN-TAPER-01 \
-  --repo-root . \
-  --output-root experiments/results/D-U1-E6-CARTESIAN-TAPER-01/run_001 \
-  --artifact-output artifacts/D-U1-E6-CARTESIAN-TAPER-01_RAW_COMPLETE.zip \
-  --run-class formal \
-  --expected-commit "$(git rev-parse HEAD)" \
-  --require-origin-main-match \
-  --required-output RUN_COMPLETE.json \
-  --required-output terminal_audit.json \
-  --required-output aggregate_summary.json \
-  --required-output mechanism_summary.json \
-  --required-output taper_summary.json \
-  --required-output per_run_summary.csv \
-  --required-output formal_protocol_freeze.json \
-  --source-file src/drpo/du1_e6_cartesian_taper.py \
-  --source-file configs/du1_e6_cartesian_taper.yaml \
-  --progress-glob 'checkpoints/*/CHECKPOINT_COMPLETE.json' \
-  -- python3 src/drpo/du1_e6_cartesian_taper.py \
-  --config configs/du1_e6_cartesian_taper.yaml \
-  --output-root experiments/results/D-U1-E6-CARTESIAN-TAPER-01/run_001 \
-  --stage formal \
-  --device cpu
-```
+## Current execution gate
 
-Do not call the formal runner directly. Unit tests and smoke runs are engineering
-evidence only and do not change the experiment status from `not_run`.
+Formal execution is intentionally blocked. Development seeds `0--4` must first run
+the registered calibration over candidate negative alpha, reference rarity
+retention, and rarity-logit-anchor coefficient. Formal seeds `200--219` must remain
+untouched until an independent formal-freeze update records the selected values,
+horizon, and terminal thresholds.
+
+Smoke and unit tests are engineering evidence only. They neither select a method nor
+change the experiment status from `not_run`.
+## Protocol-revision-2 engineering acceptance
+
+The repaired environment was checked on development seeds `0,1,2` with six core arms for 8000 steps. This is an engineering diagnostic, not a scientific result or method ranking. The checks observed exact Positive-only neutrality on the rarity coordinate, zero family-likelihood shift error, a minimum rare/common shared-rarity gradient ratio of `54.60x`, stepwise Global raw-gradient matching error below `8.9e-16`, 18/18 terminal plateaus, and no prototype-support, rarity-mass, or NaN/Inf event. Formal execution remains blocked until the registered development calibration and a separate formal freeze are complete.
