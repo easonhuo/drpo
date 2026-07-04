@@ -38,19 +38,6 @@ Options:
 --version               print the installed helper version
 ```
 
-## Optional macOS double-click launcher
-
-On macOS, install the thin Finder launcher once:
-
-```bash
-bash tools/drpo-update-macos/install.sh
-```
-
-Future canonical ZIP packages may use the `.drpoupdate` suffix. Double-clicking
-them opens Terminal and delegates to this same `drpo-update` command. The app
-does not implement another validation or Git integration path. See
-`tools/drpo-update-macos/README.md`.
-
 ## Package production and compatibility
 
 ### Canonical producer for every new package
@@ -177,28 +164,11 @@ The diagnostic ZIP is created before the isolated worktree is removed, so
 conflict stages and failed candidate state are preserved without extra user
 commands.
 
-## Exact-base preflight
-
-Before applying a patch or running package tests, `drpo-update` fetches
-`origin/main` and checks, in order:
-
-1. the current branch is `main`;
-2. the worktree is clean;
-3. local `HEAD` equals `origin/main`;
-4. package `BASE_COMMIT.txt` equals that synchronized HEAD.
-
-Failures print `DRPO_UPDATE_PREFLIGHT_FAILED` immediately, followed by a stable
-reason code, current values, dirty paths when applicable, and manual repair
-commands. The same structured fields are retained in the apply report and
-diagnostic ZIP. The helper never switches branches, stashes, discards local
-changes, or rebases an outdated package automatically.
-
 ## Successful push main-bundle export
 
-After tests pass, local `main` advances, and push succeeds, the helper runs
-`git fetch origin main` and requires local `HEAD` to equal `origin/main`. It
-then creates and verifies temporary bundles before atomically publishing these
-files to `~/Downloads` by default:
+After tests pass, local `main` advances, push succeeds, and a fresh `ls-remote`
+confirms that `origin/main` equals local HEAD, the helper atomically writes to
+`~/Downloads` by default:
 
 ```text
 DRPO_MAIN_<12-char-SHA>.bundle
@@ -210,10 +180,6 @@ DRPO_MAIN_LATEST.bundle.sha256
 Use `--main-bundle-dir PATH` or `DRPO_UPDATE_MAIN_BUNDLE_DIR` to change the
 directory. `--no-push` never creates an official main bundle. Use
 `--no-export-main-bundle` to suppress export after a verified push.
-
-If push succeeds but export fails, the pushed commit is not rolled back. The
-command exits nonzero, prints `UPDATE_PUSHED_BUNDLE_FAILED`, and creates the
-normal failure diagnostic ZIP.
 
 ## Local doctor
 
