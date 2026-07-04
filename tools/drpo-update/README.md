@@ -38,6 +38,19 @@ Options:
 --version               print the installed helper version
 ```
 
+## Optional macOS double-click launcher
+
+On macOS, install the thin Finder launcher once:
+
+```bash
+bash tools/drpo-update-macos/install.sh
+```
+
+Future canonical ZIP packages may use the `.drpoupdate` suffix. Double-clicking
+them opens Terminal and delegates to this same `drpo-update` command. The app
+does not implement another validation or Git integration path. See
+`tools/drpo-update-macos/README.md`.
+
 ## Package production and compatibility
 
 ### Canonical producer for every new package

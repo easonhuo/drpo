@@ -48,6 +48,7 @@ stages:
     - fast_full_repository_gates_and_diagnostics
     - post_push_main_bundle_export
     - drpo_update_doctor_transaction_matrix
+    - macos_double_click_drpoupdate_launcher
     allowed_change_classes:
     - bugfix
     - security_fix
@@ -94,6 +95,21 @@ stages:
     - path: scripts/select_update_tests.py
       sha256: 6b502e9d059505489cb757c85a3c255e7023c33c9ddcb4715e0a49417602ad1d
       authorized_by: GOV-PIPELINE-STAGE12-CLOSURE-2026-06-27
+    - path: tools/drpo-update-macos/install.sh
+      sha256: e467cdb93c2b35184157450f7cf51371417ab66719705e5dbb9ca93c22d8c451
+      authorized_by: GOV-DRPO-UPDATE-MACOS-LAUNCHER-2026-07-03
+    - path: tools/drpo-update-macos/uninstall.sh
+      sha256: 999cddc29a516a532c5f814f5fb7b8c519f2d974de998661e502e29f0cef8042
+      authorized_by: GOV-DRPO-UPDATE-MACOS-LAUNCHER-2026-07-03
+    - path: tools/drpo-update-macos/run_update.sh
+      sha256: 19891e1d1d3910e8179c37e9cfd4f523c386010c3373dd369e752092f410e8f5
+      authorized_by: GOV-DRPO-UPDATE-MACOS-LAUNCHER-2026-07-03
+    - path: tools/drpo-update-macos/launcher.applescript
+      sha256: 03ff4a7d1d153371f9e4fd08fe7d6ce4d5213ac5ea39370b57175571d14c92a0
+      authorized_by: GOV-DRPO-UPDATE-MACOS-LAUNCHER-2026-07-03
+    - path: tools/drpo-update-macos/Info.plist
+      sha256: 2c677ef9fdc2b09d94e3eed3f39b60ea6c96a2e9ee71467431ff9ed8d8f328c8
+      authorized_by: GOV-DRPO-UPDATE-MACOS-LAUNCHER-2026-07-03
   stage_2:
     number: 2
     name: canonical_formal_experiment_channel
