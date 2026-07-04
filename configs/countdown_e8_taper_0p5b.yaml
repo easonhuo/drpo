@@ -16,6 +16,13 @@ dataset:
 reference:
   base_greedy_success_gate: 0.15
   base_valid_rate_gate: 0.80
+  # Two-stage reference policy gates.  The 0.5B focused pilot may continue
+  # once the reusable reference reaches 8% greedy success and 95% valid rate.
+  # The historical 15% gate remains the formal-ranking / scale-up unlock gate.
+  pilot_greedy_success_gate: 0.08
+  pilot_valid_rate_gate: 0.95
+  formal_greedy_success_gate: 0.15
+  formal_valid_rate_gate: 0.95
   trained_greedy_success_gate: 0.15
   trained_valid_rate_gate: 0.95
   sft_epochs: 6

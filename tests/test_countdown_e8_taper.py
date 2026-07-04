@@ -63,6 +63,56 @@ def test_frozen_config_matches_registered_protocol() -> None:
     assert config["replay"]["train_candidate_prompt_rows"] >= 1500
     assert config["replay"]["calibration_candidate_prompt_rows"] >= 16
     assert config["replay"]["synthetic_negative_fallback"] is False
+    assert config["reference"]["pilot_greedy_success_gate"] == pytest.approx(0.08)
+    assert config["reference"]["formal_greedy_success_gate"] == pytest.approx(0.15)
+
+
+def test_reference_gate_status_separates_pilot_from_formal_ranking() -> None:
+    config = module.load_config(ROOT / "configs" / "countdown_e8_taper_0p5b.yaml")
+    status = module.reference_gate_status(
+        {"greedy_success": 0.12, "valid_rate": 0.998}, config
+    )
+    assert status["method_training_allowed"] is True
+    assert status["formal_scientific_gate_passed"] is False
+    assert status["method_ranking_allowed"] is False
+    assert status["scale_up_unlock_allowed"] is False
+    failed = module.reference_gate_status(
+        {"greedy_success": 0.079, "valid_rate": 0.998}, config
+    )
+    assert failed["method_training_allowed"] is False
+    formal = module.reference_gate_status(
+        {"greedy_success": 0.15, "valid_rate": 0.95}, config
+    )
+    assert formal["method_training_allowed"] is True
+    assert formal["method_ranking_allowed"] is True
+
+
+def test_reference_cache_manifest_requires_identity_and_pilot_gate(tmp_path: Path) -> None:
+    adapter = tmp_path / "adapter_src"
+    adapter.mkdir()
+    (adapter / "adapter_config.json").write_text("{}")
+    (adapter / "adapter_model.safetensors").write_bytes(b"weights")
+    identity = {"cache_key": "abc", "schema_version": 1}
+    metrics = {"greedy_success": 0.12, "valid_rate": 0.998}
+    config = module.load_config(ROOT / "configs" / "countdown_e8_taper_0p5b.yaml")
+    gate_status = module.reference_gate_status(metrics, config)
+    cache = tmp_path / "cache"
+    module._publish_reference_cache(
+        source_adapter=adapter,
+        cache_dir=cache,
+        identity=identity,
+        reference_metrics=metrics,
+        gate_status=gate_status,
+        initialization_mode="sft_fallback_lora",
+    )
+    valid, reason, manifest = module._validate_cached_reference(cache, identity)
+    assert valid is True
+    assert reason == "valid"
+    assert manifest is not None
+    bad_identity = {"cache_key": "different", "schema_version": 1}
+    valid, reason, _ = module._validate_cached_reference(cache, bad_identity)
+    assert valid is False
+    assert reason == "identity_mismatch"
 
 
 def test_continuous_tapers_have_registered_shapes() -> None:

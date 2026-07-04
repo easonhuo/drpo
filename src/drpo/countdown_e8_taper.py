@@ -50,7 +50,7 @@ except ImportError:  # pragma: no cover - direct execution from src/drpo
 
 
 EXPERIMENT_ID = "EXT-C-E8-TAPER-0.5B-01"
-VERSION = "1.1.0-normalized-distance-deterministic-audit"
+VERSION = "1.2.0-reference-cache-two-stage-gates"
 DEFAULT_CONFIG = Path(__file__).resolve().parents[2] / "configs" / "countdown_e8_taper_0p5b.yaml"
 METHODS = (
     "positive_only",
@@ -1820,9 +1820,200 @@ def _model_flags(model_path: Path, dtype: str, load_in_4bit: bool) -> list[str]:
 
 def _reference_adapter_from_sft(output: Path) -> Path:
     candidate = output / "best_adapter"
-    if not (candidate / "adapter_config.json").is_file():
-        raise RuntimeError(f"SFT best adapter is missing: {candidate}")
+    if not _reference_adapter_files_present(candidate):
+        raise RuntimeError(f"SFT best adapter is missing or incomplete: {candidate}")
     return candidate
+
+
+def _reference_adapter_files_present(path: Path) -> bool:
+    if not path.is_dir():
+        return False
+    if not (path / "adapter_config.json").is_file():
+        return False
+    return (path / "adapter_model.safetensors").is_file() or (path / "adapter_model.bin").is_file()
+
+
+def reference_gate_status(
+    metrics: Mapping[str, Any],
+    config: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Evaluate the two registered reference gates.
+
+    The 0.5B focused pilot gate controls whether method training may continue.
+    The higher formal-ranking gate controls only interpretation: formal method
+    ranking, scale-up unlock, and paper-strength claims remain forbidden unless
+    it passes.  This prevents a 12%/99.8% reference from being incorrectly
+    treated as unusable while still preserving the old 15% scientific gate.
+    """
+    reference = config["reference"]
+    pilot_greedy_gate = float(
+        reference.get(
+            "pilot_greedy_success_gate",
+            reference.get("trained_greedy_success_gate", 0.15),
+        )
+    )
+    pilot_valid_gate = float(
+        reference.get(
+            "pilot_valid_rate_gate",
+            reference.get("trained_valid_rate_gate", 0.95),
+        )
+    )
+    formal_greedy_gate = float(
+        reference.get(
+            "formal_greedy_success_gate",
+            reference.get("trained_greedy_success_gate", pilot_greedy_gate),
+        )
+    )
+    formal_valid_gate = float(
+        reference.get(
+            "formal_valid_rate_gate",
+            reference.get("trained_valid_rate_gate", pilot_valid_gate),
+        )
+    )
+    greedy_success = float(metrics["greedy_success"])
+    valid_rate = float(metrics["valid_rate"])
+    pilot_passed = bool(
+        greedy_success >= pilot_greedy_gate and valid_rate >= pilot_valid_gate
+    )
+    formal_passed = bool(
+        greedy_success >= formal_greedy_gate and valid_rate >= formal_valid_gate
+    )
+    return {
+        "greedy_success": greedy_success,
+        "valid_rate": valid_rate,
+        "pilot_gate": {
+            "greedy_success_gate": pilot_greedy_gate,
+            "valid_rate_gate": pilot_valid_gate,
+            "passed": pilot_passed,
+        },
+        "formal_ranking_gate": {
+            "greedy_success_gate": formal_greedy_gate,
+            "valid_rate_gate": formal_valid_gate,
+            "passed": formal_passed,
+        },
+        "method_training_allowed": pilot_passed,
+        "method_ranking_allowed": formal_passed,
+        "scale_up_unlock_allowed": formal_passed,
+        "formal_scientific_gate_passed": formal_passed,
+    }
+
+
+def _model_identity(model_path: Path) -> dict[str, Any]:
+    """Hash stable local model metadata without copying foundation weights."""
+    members: dict[str, str | None] = {}
+    for name in (
+        "config.json",
+        "tokenizer.json",
+        "tokenizer_config.json",
+        "special_tokens_map.json",
+        "generation_config.json",
+    ):
+        item = model_path / name
+        members[name] = _sha256_file(item) if item.is_file() else None
+    return {
+        "model_path": str(model_path),
+        "metadata_hashes": members,
+    }
+
+
+def _reference_cache_identity(
+    *,
+    model_path: Path,
+    config_path: Path,
+    config: Mapping[str, Any],
+    train_file: Path,
+    val_file: Path,
+    test_file: Path,
+) -> dict[str, Any]:
+    identity = {
+        "schema_version": 1,
+        "experiment_id": EXPERIMENT_ID,
+        "runner_version": VERSION,
+        "model_identity": _model_identity(model_path),
+        "config_sha256": _sha256_file(config_path),
+        "split_sha256": {
+            "train": _sha256_file(train_file),
+            "validation": _sha256_file(val_file),
+            "test": _sha256_file(test_file),
+        },
+        "reference_config": config["reference"],
+        "dataset_config": config["dataset"],
+        "prompt_template_source_sha256": _sha256_file(Path(arena.__file__).resolve()),
+    }
+    identity["cache_key"] = _stable_hash(identity)
+    return identity
+
+
+def _default_reference_cache_dir(work_dir: Path, cache_key: str) -> Path:
+    return (
+        work_dir.parent
+        / "reference_cache"
+        / EXPERIMENT_ID
+        / "qwen2p5-0p5b"
+        / cache_key
+    )
+
+
+def _validate_cached_reference(
+    cache_dir: Path,
+    expected_identity: Mapping[str, Any],
+) -> tuple[bool, str, dict[str, Any] | None]:
+    manifest_path = cache_dir / "reference_cache_manifest.json"
+    adapter_dir = cache_dir / "adapter"
+    if not manifest_path.is_file():
+        return False, "missing_manifest", None
+    if not _reference_adapter_files_present(adapter_dir):
+        return False, "missing_adapter_files", None
+    try:
+        manifest = _read_metrics_json(manifest_path)
+    except Exception as exc:  # pragma: no cover - defensive manifest parsing path
+        return False, f"invalid_manifest:{exc}", None
+    if manifest.get("identity") != dict(expected_identity):
+        return False, "identity_mismatch", manifest
+    gates = manifest.get("reference_gate_status", {})
+    if not bool(gates.get("method_training_allowed")):
+        return False, "cached_reference_below_pilot_gate", manifest
+    return True, "valid", manifest
+
+
+def _publish_reference_cache(
+    *,
+    source_adapter: Path,
+    cache_dir: Path,
+    identity: Mapping[str, Any],
+    reference_metrics: Mapping[str, Any],
+    gate_status: Mapping[str, Any],
+    initialization_mode: str,
+) -> dict[str, Any]:
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    adapter_dir = cache_dir / "adapter"
+    tmp_adapter = cache_dir / "adapter.tmp"
+    if tmp_adapter.exists():
+        shutil.rmtree(tmp_adapter)
+    if adapter_dir.exists():
+        shutil.rmtree(adapter_dir)
+    shutil.copytree(source_adapter, tmp_adapter)
+    tmp_adapter.replace(adapter_dir)
+    manifest = {
+        "schema_version": 1,
+        "experiment_id": EXPERIMENT_ID,
+        "identity": dict(identity),
+        "adapter_hashes": _hash_tree(adapter_dir),
+        "reference_validation": dict(reference_metrics),
+        "reference_gate_status": dict(gate_status),
+        "initialization_mode": initialization_mode,
+        "created_unix": time.time(),
+        "storage": "persistent_local_cache",
+        "foundation_model_weights_copied": False,
+    }
+    _atomic_json(cache_dir / "reference_cache_manifest.json", manifest)
+    return manifest
+
+
+def _copy_reference_adapter(source: Path, destination: Path) -> None:
+    if destination.exists():
+        shutil.rmtree(destination)
+    shutil.copytree(source, destination)
 
 
 def _read_metrics_json(path: Path) -> dict[str, Any]:
@@ -2014,6 +2205,11 @@ def cmd_run(args: argparse.Namespace) -> int:
         "config": config,
         "test_split_access": "after_all_method_training_only",
         "source_provenance": source_provenance(),
+        "reference_cache_args": {
+            "reference_cache_dir": args.reference_cache_dir,
+            "force_retrain_reference": bool(args.force_retrain_reference),
+            "no_reference_cache": bool(args.no_reference_cache),
+        },
     }
     _atomic_json(root / "run_config.json", run_config)
 
@@ -2096,180 +2292,170 @@ def cmd_run(args: argparse.Namespace) -> int:
         and float(base_metrics["valid_rate"])
         >= float(config["reference"]["base_valid_rate_gate"])
     )
-    if base_pass:
-        _run_task(
-            StageTask(
-                "init_adapter",
-                [
-                    sys.executable,
-                    str(arena_script),
-                    "init_adapter",
-                    *model_flags,
-                    "--output_dir",
-                    str(reference_dir),
-                    "--seed",
-                    str(config["dataset"]["generation_seed"]),
-                ],
-                logs / "04_init_adapter.log",
-                gpu_ids[0],
-            ),
-            repo,
-        )
-        initialization_mode = "base_first_untrained_lora"
-    else:
-        sft_root = root / "sft_adapter"
-        _run_task(
-            StageTask(
-                "sft_reference",
-                [
-                    sys.executable,
-                    str(arena_script),
-                    "sft",
-                    *model_flags,
-                    "--train_data",
-                    str(train_file),
-                    "--val_data",
-                    str(val_file),
-                    "--output_dir",
-                    str(sft_root),
-                    "--epochs",
-                    str(config["reference"]["sft_epochs"]),
-                    "--min_epochs",
-                    str(config["reference"]["sft_min_epochs"]),
-                    "--early_stop_patience",
-                    str(config["reference"]["sft_early_stop_patience"]),
-                    "--micro_batch",
-                    str(config["reference"]["sft_micro_batch"]),
-                    "--grad_accum",
-                    str(config["reference"]["sft_gradient_accumulation"]),
-                    "--lr",
-                    str(config["reference"]["sft_learning_rate"]),
-                    "--warmup_ratio",
-                    str(config["reference"]["sft_warmup_ratio"]),
-                    "--max_grad_norm",
-                    str(config["reference"]["sft_max_gradient_norm"]),
-                    "--eval_examples",
-                    str(config["dataset"]["validation_rows"]),
-                    "--eval_batch",
-                    str(config["training"]["evaluation_batch_size"]),
-                    "--pass_k",
-                    str(config["training"]["pass_at_k"]),
-                    "--eval_seed",
-                    "5000",
-                    "--seed",
-                    str(config["dataset"]["generation_seed"]),
-                    "--result_status",
-                    "pilot",
-                ],
-                logs / "04_sft_reference.log",
-                gpu_ids[0],
-            ),
-            repo,
-        )
-        source_adapter = _reference_adapter_from_sft(sft_root)
-        shutil.copytree(source_adapter, reference_dir)
-        initialization_mode = "sft_fallback_lora"
-
-    reference_val_json = root / "reference_validation.json"
-    _run_task(
-        StageTask(
-            "reference_validation",
-            [
-                sys.executable,
-                str(arena_script),
-                "evaluate",
-                *model_flags,
-                "--adapter",
-                str(reference_dir),
-                "--data",
-                str(val_file),
-                "--structure_reference_data",
-                str(train_file),
-                "--batch_size",
-                str(config["training"]["evaluation_batch_size"]),
-                "--pass_k",
-                str(config["training"]["pass_at_k"]),
-                "--seed",
-                "5000",
-                "--output_json",
-                str(reference_val_json),
-            ],
-            logs / "05_reference_validation.log",
-            gpu_ids[0],
-        ),
-        repo,
+    cache_identity = _reference_cache_identity(
+        model_path=model_path,
+        config_path=config_path,
+        config=config,
+        train_file=train_file,
+        val_file=val_file,
+        test_file=test_file,
     )
-    reference_metrics = _read_metrics_json(reference_val_json)
+    requested_cache_dir = (
+        Path(args.reference_cache_dir).expanduser().resolve()
+        if args.reference_cache_dir
+        else _default_reference_cache_dir(root, str(cache_identity["cache_key"]))
+    )
+    cache_record: dict[str, Any] = {
+        "enabled": not bool(args.no_reference_cache),
+        "force_retrain_reference": bool(args.force_retrain_reference),
+        "cache_dir": str(requested_cache_dir),
+        "cache_key": cache_identity["cache_key"],
+        "attempted": False,
+        "hit": False,
+        "used": False,
+        "valid": False,
+        "reason": "not_attempted",
+    }
+    initialization_mode = "uninitialized"
+    reference_metrics: dict[str, Any] | None = None
+    gate_status: dict[str, Any] | None = None
 
-    def reference_passes(metrics: Mapping[str, Any]) -> bool:
-        return bool(
-            float(metrics["greedy_success"])
-            >= float(config["reference"]["trained_greedy_success_gate"])
-            and float(metrics["valid_rate"])
-            >= float(config["reference"]["trained_valid_rate_gate"])
+    if not args.no_reference_cache and not args.force_retrain_reference:
+        cache_record["attempted"] = True
+        valid_cache, reason, cache_manifest = _validate_cached_reference(
+            requested_cache_dir, cache_identity
         )
+        cache_record.update(
+            {
+                "hit": cache_manifest is not None or requested_cache_dir.exists(),
+                "valid": valid_cache,
+                "reason": reason,
+            }
+        )
+        if valid_cache:
+            _copy_reference_adapter(requested_cache_dir / "adapter", reference_dir)
+            initialization_mode = "cached_reference_adapter"
+            _run_task(
+                StageTask(
+                    "reference_validation_cached",
+                    [
+                        sys.executable,
+                        str(arena_script),
+                        "evaluate",
+                        *model_flags,
+                        "--adapter",
+                        str(reference_dir),
+                        "--data",
+                        str(val_file),
+                        "--structure_reference_data",
+                        str(train_file),
+                        "--batch_size",
+                        str(config["training"]["evaluation_batch_size"]),
+                        "--pass_k",
+                        str(config["training"]["pass_at_k"]),
+                        "--seed",
+                        "5000",
+                        "--output_json",
+                        str(root / "reference_validation.json"),
+                    ],
+                    logs / "05_reference_validation_cached.log",
+                    gpu_ids[0],
+                ),
+                repo,
+            )
+            reference_metrics = _read_metrics_json(root / "reference_validation.json")
+            gate_status = reference_gate_status(reference_metrics, config)
+            cache_record["used"] = bool(gate_status["method_training_allowed"])
+            cache_record["reason"] = (
+                "used_cached_reference"
+                if cache_record["used"]
+                else "cached_reference_failed_fresh_validation"
+            )
+            if not cache_record["used"]:
+                if reference_dir.exists():
+                    shutil.rmtree(reference_dir)
+                reference_metrics = None
+                gate_status = None
 
-    reference_gate = reference_passes(reference_metrics)
-    if base_pass and not reference_gate:
-        # The lower base-first gate only decides whether an untrained LoRA should
-        # be tried. If it misses the final method-pilot gate, run the already
-        # registered SFT fallback instead of failing an otherwise recoverable run.
-        sft_root = root / "sft_adapter_after_base_gate"
+    if reference_metrics is None:
+        if base_pass:
+            _run_task(
+                StageTask(
+                    "init_adapter",
+                    [
+                        sys.executable,
+                        str(arena_script),
+                        "init_adapter",
+                        *model_flags,
+                        "--output_dir",
+                        str(reference_dir),
+                        "--seed",
+                        str(config["dataset"]["generation_seed"]),
+                    ],
+                    logs / "04_init_adapter.log",
+                    gpu_ids[0],
+                ),
+                repo,
+            )
+            initialization_mode = "base_first_untrained_lora"
+        else:
+            sft_root = root / "sft_adapter"
+            _run_task(
+                StageTask(
+                    "sft_reference",
+                    [
+                        sys.executable,
+                        str(arena_script),
+                        "sft",
+                        *model_flags,
+                        "--train_data",
+                        str(train_file),
+                        "--val_data",
+                        str(val_file),
+                        "--output_dir",
+                        str(sft_root),
+                        "--epochs",
+                        str(config["reference"]["sft_epochs"]),
+                        "--min_epochs",
+                        str(config["reference"]["sft_min_epochs"]),
+                        "--early_stop_patience",
+                        str(config["reference"]["sft_early_stop_patience"]),
+                        "--micro_batch",
+                        str(config["reference"]["sft_micro_batch"]),
+                        "--grad_accum",
+                        str(config["reference"]["sft_gradient_accumulation"]),
+                        "--lr",
+                        str(config["reference"]["sft_learning_rate"]),
+                        "--warmup_ratio",
+                        str(config["reference"]["sft_warmup_ratio"]),
+                        "--max_grad_norm",
+                        str(config["reference"]["sft_max_gradient_norm"]),
+                        "--eval_examples",
+                        str(config["dataset"]["validation_rows"]),
+                        "--eval_batch",
+                        str(config["training"]["evaluation_batch_size"]),
+                        "--pass_k",
+                        str(config["training"]["pass_at_k"]),
+                        "--eval_seed",
+                        "5000",
+                        "--seed",
+                        str(config["dataset"]["generation_seed"]),
+                        "--result_status",
+                        "pilot",
+                    ],
+                    logs / "04_sft_reference.log",
+                    gpu_ids[0],
+                ),
+                repo,
+            )
+            source_adapter = _reference_adapter_from_sft(sft_root)
+            _copy_reference_adapter(source_adapter, reference_dir)
+            initialization_mode = "sft_fallback_lora"
+
+        reference_val_json = root / "reference_validation.json"
         _run_task(
             StageTask(
-                "sft_reference_after_base_gate",
-                [
-                    sys.executable,
-                    str(arena_script),
-                    "sft",
-                    *model_flags,
-                    "--train_data",
-                    str(train_file),
-                    "--val_data",
-                    str(val_file),
-                    "--output_dir",
-                    str(sft_root),
-                    "--epochs",
-                    str(config["reference"]["sft_epochs"]),
-                    "--min_epochs",
-                    str(config["reference"]["sft_min_epochs"]),
-                    "--early_stop_patience",
-                    str(config["reference"]["sft_early_stop_patience"]),
-                    "--micro_batch",
-                    str(config["reference"]["sft_micro_batch"]),
-                    "--grad_accum",
-                    str(config["reference"]["sft_gradient_accumulation"]),
-                    "--lr",
-                    str(config["reference"]["sft_learning_rate"]),
-                    "--warmup_ratio",
-                    str(config["reference"]["sft_warmup_ratio"]),
-                    "--max_grad_norm",
-                    str(config["reference"]["sft_max_gradient_norm"]),
-                    "--eval_examples",
-                    str(config["dataset"]["validation_rows"]),
-                    "--eval_batch",
-                    str(config["training"]["evaluation_batch_size"]),
-                    "--pass_k",
-                    str(config["training"]["pass_at_k"]),
-                    "--eval_seed",
-                    "5000",
-                    "--seed",
-                    str(config["dataset"]["generation_seed"]),
-                    "--result_status",
-                    "pilot",
-                ],
-                logs / "05b_sft_reference_after_base_gate.log",
-                gpu_ids[0],
-            ),
-            repo,
-        )
-        if reference_dir.exists():
-            shutil.rmtree(reference_dir)
-        shutil.copytree(_reference_adapter_from_sft(sft_root), reference_dir)
-        initialization_mode = "base_attempt_then_sft_fallback_lora"
-        _run_task(
-            StageTask(
-                "reference_validation_after_sft_fallback",
+                "reference_validation",
                 [
                     sys.executable,
                     str(arena_script),
@@ -2290,13 +2476,121 @@ def cmd_run(args: argparse.Namespace) -> int:
                     "--output_json",
                     str(reference_val_json),
                 ],
-                logs / "05c_reference_validation_after_sft_fallback.log",
+                logs / "05_reference_validation.log",
                 gpu_ids[0],
             ),
             repo,
         )
         reference_metrics = _read_metrics_json(reference_val_json)
-        reference_gate = reference_passes(reference_metrics)
+        gate_status = reference_gate_status(reference_metrics, config)
+
+        if base_pass and not bool(gate_status["method_training_allowed"]):
+            # The lower base-first gate only decides whether an untrained LoRA should
+            # be tried. If it misses the focused-pilot gate, run the already
+            # registered SFT fallback instead of failing an otherwise recoverable run.
+            sft_root = root / "sft_adapter_after_base_gate"
+            _run_task(
+                StageTask(
+                    "sft_reference_after_base_gate",
+                    [
+                        sys.executable,
+                        str(arena_script),
+                        "sft",
+                        *model_flags,
+                        "--train_data",
+                        str(train_file),
+                        "--val_data",
+                        str(val_file),
+                        "--output_dir",
+                        str(sft_root),
+                        "--epochs",
+                        str(config["reference"]["sft_epochs"]),
+                        "--min_epochs",
+                        str(config["reference"]["sft_min_epochs"]),
+                        "--early_stop_patience",
+                        str(config["reference"]["sft_early_stop_patience"]),
+                        "--micro_batch",
+                        str(config["reference"]["sft_micro_batch"]),
+                        "--grad_accum",
+                        str(config["reference"]["sft_gradient_accumulation"]),
+                        "--lr",
+                        str(config["reference"]["sft_learning_rate"]),
+                        "--warmup_ratio",
+                        str(config["reference"]["sft_warmup_ratio"]),
+                        "--max_grad_norm",
+                        str(config["reference"]["sft_max_gradient_norm"]),
+                        "--eval_examples",
+                        str(config["dataset"]["validation_rows"]),
+                        "--eval_batch",
+                        str(config["training"]["evaluation_batch_size"]),
+                        "--pass_k",
+                        str(config["training"]["pass_at_k"]),
+                        "--eval_seed",
+                        "5000",
+                        "--seed",
+                        str(config["dataset"]["generation_seed"]),
+                        "--result_status",
+                        "pilot",
+                    ],
+                    logs / "05b_sft_reference_after_base_gate.log",
+                    gpu_ids[0],
+                ),
+                repo,
+            )
+            _copy_reference_adapter(_reference_adapter_from_sft(sft_root), reference_dir)
+            initialization_mode = "base_attempt_then_sft_fallback_lora"
+            _run_task(
+                StageTask(
+                    "reference_validation_after_sft_fallback",
+                    [
+                        sys.executable,
+                        str(arena_script),
+                        "evaluate",
+                        *model_flags,
+                        "--adapter",
+                        str(reference_dir),
+                        "--data",
+                        str(val_file),
+                        "--structure_reference_data",
+                        str(train_file),
+                        "--batch_size",
+                        str(config["training"]["evaluation_batch_size"]),
+                        "--pass_k",
+                        str(config["training"]["pass_at_k"]),
+                        "--seed",
+                        "5000",
+                        "--output_json",
+                        str(reference_val_json),
+                    ],
+                    logs / "05c_reference_validation_after_sft_fallback.log",
+                    gpu_ids[0],
+                ),
+                repo,
+            )
+            reference_metrics = _read_metrics_json(reference_val_json)
+            gate_status = reference_gate_status(reference_metrics, config)
+
+    assert reference_metrics is not None
+    assert gate_status is not None
+    if bool(gate_status["method_training_allowed"]):
+        if not args.no_reference_cache:
+            # A forced retrain ignores the old cache for lookup, but the newly
+            # validated reference is still the canonical reusable 0.5B cache for
+            # later taper sweeps unless caching is explicitly disabled.
+            cache_record["published"] = True
+            cache_record["published_manifest"] = _publish_reference_cache(
+                source_adapter=reference_dir,
+                cache_dir=requested_cache_dir,
+                identity=cache_identity,
+                reference_metrics=reference_metrics,
+                gate_status=gate_status,
+                initialization_mode=initialization_mode,
+            )
+            if args.force_retrain_reference:
+                cache_record["reason"] = "force_retrained_and_published"
+        else:
+            cache_record["published"] = False
+            cache_record["reason"] = "reference_cache_disabled"
 
     _atomic_json(
         root / "reference_gate.json",
@@ -2304,13 +2598,17 @@ def cmd_run(args: argparse.Namespace) -> int:
             "initialization_mode": initialization_mode,
             "base_validation": base_metrics,
             "reference_validation": reference_metrics,
-            "gate_passed": reference_gate,
+            "gate_status": gate_status,
+            "gate_passed": bool(gate_status["method_training_allowed"]),
+            "reference_cache": cache_record,
         },
     )
-    if not reference_gate:
+    if not bool(gate_status["method_training_allowed"]):
         raise RuntimeError(
-            "Reference policy failed the registered 15% greedy / 95% valid gate; "
-            "method training is blocked."
+            "Reference policy failed the registered focused-pilot gate "
+            f"({gate_status['pilot_gate']['greedy_success_gate']:.0%} greedy / "
+            f"{gate_status['pilot_gate']['valid_rate_gate']:.0%} valid); "
+            "method training is blocked. The 15% gate controls formal ranking only."
         )
 
     replay_train = replay / "train_replay.jsonl"
@@ -2488,7 +2786,9 @@ def cmd_run(args: argparse.Namespace) -> int:
         "schema_version": 1,
         "experiment_id": EXPERIMENT_ID,
         "base_commit": head,
-        "reference_gate_passed": reference_gate,
+        "reference_gate_passed": bool(gate_status["method_training_allowed"]),
+        "reference_gate_status": gate_status,
+        "reference_cache": cache_record,
         "common_replay_hash": _read_metrics_json(replay_manifest)["replay_pool_hash"],
         "calibration": _read_metrics_json(calibration_json),
         "fixed_optimizer_update_budget": {
@@ -2551,6 +2851,8 @@ def cmd_run(args: argparse.Namespace) -> int:
         "result_status": "pilot",
         "model_path": str(model_path),
         "reference_adapter_hashes": _hash_tree(reference_dir),
+        "reference_gate_status": gate_status,
+        "reference_cache": cache_record,
         "config_sha256": _sha256_file(config_path),
         "data_sha256": {
             "train": _sha256_file(train_file),
@@ -2575,6 +2877,12 @@ def cmd_run(args: argparse.Namespace) -> int:
         "result_status": "pilot",
         "initialization_mode": initialization_mode,
         "reference_validation": reference_metrics,
+        "reference_gate_status": gate_status,
+        "reference_cache": cache_record,
+        "method_training_allowed": bool(gate_status["method_training_allowed"]),
+        "formal_scientific_gate_passed": bool(gate_status["formal_scientific_gate_passed"]),
+        "method_ranking_allowed": bool(gate_status["method_ranking_allowed"]),
+        "scale_up_unlock_allowed": bool(gate_status["scale_up_unlock_allowed"]),
         "methods": list(METHODS),
         "paired_training_seeds": seeds,
         "fixed_update_budget_complete": exact_budget,
@@ -2692,6 +3000,24 @@ def build_parser() -> argparse.ArgumentParser:
     item.add_argument("--work_dir", required=True)
     item.add_argument("--gpus", default="auto")
     item.add_argument("--config", default=str(DEFAULT_CONFIG))
+    item.add_argument(
+        "--reference_cache_dir",
+        default=None,
+        help=(
+            "Persistent cache directory for the reusable 0.5B SFT/reference adapter. "
+            "Default: sibling reference_cache/<experiment>/<model>/<cache_key>."
+        ),
+    )
+    item.add_argument(
+        "--force_retrain_reference",
+        action="store_true",
+        help="Ignore an existing cached reference adapter and retrain/rewrite it.",
+    )
+    item.add_argument(
+        "--no_reference_cache",
+        action="store_true",
+        help="Disable reference adapter cache lookup and publication for this run.",
+    )
     item.set_defaults(func=cmd_run)
     return parser
 

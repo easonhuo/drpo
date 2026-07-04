@@ -31,6 +31,24 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--model_path", required=True)
     parser.add_argument("--work_dir", required=True, help="New persistent run directory")
     parser.add_argument("--gpus", default="auto", help="Visible GPU ids or auto")
+    parser.add_argument(
+        "--reference_cache_dir",
+        default=None,
+        help=(
+            "Persistent reusable SFT/reference adapter cache. "
+            "Default: sibling reference_cache under the work_dir parent."
+        ),
+    )
+    parser.add_argument(
+        "--force_retrain_reference",
+        action="store_true",
+        help="Ignore any cached reference adapter and retrain it.",
+    )
+    parser.add_argument(
+        "--no_reference_cache",
+        action="store_true",
+        help="Disable reference adapter cache lookup and publication.",
+    )
     parser.add_argument("--artifact_output", default=None)
     parser.add_argument("--allow_dirty", action="store_true", help="Pilot-only dirty launch with captured diff")
     return parser
@@ -128,6 +146,12 @@ def main() -> int:
             str(config),
         ]
     )
+    if args.reference_cache_dir:
+        command.extend(["--reference_cache_dir", str(Path(args.reference_cache_dir).resolve())])
+    if args.force_retrain_reference:
+        command.append("--force_retrain_reference")
+    if args.no_reference_cache:
+        command.append("--no_reference_cache")
     print("Countdown E8 TAPER is fully specified; no interactive choices are required.")
     print(f"Git commit: {head}")
     print(f"Run directory: {work}")
