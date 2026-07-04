@@ -177,6 +177,22 @@ The diagnostic ZIP is created before the isolated worktree is removed, so
 conflict stages and failed candidate state are preserved without extra user
 commands.
 
+## Exact-base preflight
+
+Before applying a patch or running package tests, `drpo-update` fetches
+`origin/main` and checks, in order:
+
+1. the current branch is `main`;
+2. the worktree is clean;
+3. local `HEAD` equals `origin/main`;
+4. package `BASE_COMMIT.txt` equals that synchronized HEAD.
+
+Failures print `DRPO_UPDATE_PREFLIGHT_FAILED` immediately, followed by a stable
+reason code, current values, dirty paths when applicable, and manual repair
+commands. The same structured fields are retained in the apply report and
+diagnostic ZIP. The helper never switches branches, stashes, discards local
+changes, or rebases an outdated package automatically.
+
 ## Successful push main-bundle export
 
 After tests pass, local `main` advances, and push succeeds, the helper runs

@@ -32,7 +32,7 @@ def run(
 
 def test_helper_reports_version():
     proc = run([str(HELPER_DIR / "drpo-update"), "--version"])
-    assert proc.stdout.strip() == "drpo-update 2.4.1"
+    assert proc.stdout.strip() == "drpo-update 2.4.2"
 
 
 def test_wrapper_prefers_repository_virtualenv_over_bare_python3(
@@ -62,7 +62,7 @@ def test_wrapper_prefers_repository_virtualenv_over_bare_python3(
     env.pop("VIRTUAL_ENV", None)
     env["PATH"] = f"{fake_bin}:{env['PATH']}"
     proc = run(["bash", str(helper / "drpo-update"), "--version"], env=env)
-    assert proc.stdout.strip() == "drpo-update 2.4.1"
+    assert proc.stdout.strip() == "drpo-update 2.4.2"
 
 
 def test_installer_defaults_to_repository_symlink(tmp_path: Path):
@@ -90,7 +90,7 @@ def test_installer_defaults_to_repository_symlink(tmp_path: Path):
     assert (home / ".config" / "drpo-update" / "repo_path").read_text().strip() == str(
         repo.resolve()
     )
-    assert "drpo-update 2.4.1" in proc.stdout
+    assert "drpo-update 2.4.2" in proc.stdout
 
 
 def test_installer_copy_mode_installs_runtime_siblings_and_runs(tmp_path: Path):
@@ -117,7 +117,7 @@ def test_installer_copy_mode_installs_runtime_siblings_and_runs(tmp_path: Path):
     assert (home / "bin" / "drpo_update.py").is_file()
     assert (home / "bin" / "test_selection.py").is_file()
     version = run([str(installed), "--version"], env=env)
-    assert version.stdout.strip() == "drpo-update 2.4.1"
+    assert version.stdout.strip() == "drpo-update 2.4.2"
     assert "Mode:       copy" in proc.stdout
 
 

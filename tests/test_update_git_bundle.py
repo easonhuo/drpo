@@ -138,39 +138,48 @@ def test_bundle_verifier_proves_patch_tree_equivalence(git_fixture, tmp_path: Pa
     assert report["patch_commit"] == patch_commit
 
 
-def test_stale_ancestral_bundle_merges_nonconflicting_main(git_fixture, tmp_path: Path):
-    _, repo, base = git_fixture
+def test_stale_ancestral_bundle_fails_preflight_without_applying(git_fixture, tmp_path: Path):
+    origin, repo, base = git_fixture
     package = tmp_path / "package"
     make_patch(repo, package, "bundle\n", test_command='test "$(cat tracked.txt)" = bundle')
     build_bundle(repo, package)
 
     (repo / "other.txt").write_text("new main work\n")
     current = commit_all(repo, "advance main")
+    git(repo, "push", "origin", "main")
     assert current != base
     report_dir = tmp_path / "reports"
     proc = run(
         [str(HELPER), str(package), "--yes", "--no-push"],
         env=helper_env(repo, report_dir),
+        check=False,
     )
-    assert "git-bundle-three-way" in proc.stdout
-    assert (repo / "tracked.txt").read_text() == "bundle\n"
+    assert proc.returncode != 0
+    assert "DRPO_UPDATE_PREFLIGHT_FAILED" in proc.stderr
+    assert "Code: DRPO_UPDATE_PACKAGE_BASE_OUTDATED" in proc.stderr
+    assert f"Package BASE_COMMIT: {base}" in proc.stderr
+    assert f"Current main HEAD: {current}" in proc.stderr
+    assert "regenerate this .drpoupdate package from current main" in proc.stderr
+    assert (repo / "tracked.txt").read_text() == "base\n"
     assert (repo / "other.txt").read_text() == "new main work\n"
     assert git_text(repo, "status", "--porcelain") == ""
+    assert git_text(origin, "rev-parse", "refs/heads/main") == current
     reports = list(report_dir.glob("*.json"))
     assert len(reports) == 1
     report = json.loads(reports[0].read_text())
-    assert report["package_base"] == base
-    assert report["head_before"] == current
-    assert report["integration_mode"] == "git-bundle-three-way"
-    assert report["status"] == "success_no_push"
-    assert report["selected_test_mode"] == "fast"
-    assert report["test_selection"]["matched_groups"] == ["fixture_tracked_file"]
-    assert report["timings_seconds"]["integration"] >= 0
-    assert report["timings_seconds"]["repository_test_gate"] >= 0
-    assert report["timings_seconds"]["total"] >= 0
+    assert report["preflight_code"] == "DRPO_UPDATE_PACKAGE_BASE_OUTDATED"
+    assert report["package_base_sha"] == base
+    assert report["head_sha"] == current
+    assert report["origin_main_sha"] == current
+    assert report["test_commands"] == []
+    diagnostic = next((tmp_path / "diagnostics").glob("DRPO_DIAGNOSTIC_*.zip"))
+    with zipfile.ZipFile(diagnostic) as archive:
+        diagnostic_report = json.loads(archive.read("apply_report.json"))
+    assert diagnostic_report["preflight_code"] == "DRPO_UPDATE_PACKAGE_BASE_OUTDATED"
+    assert diagnostic_report["package_base_sha"] == base
 
 
-def test_non_main_origin_main_alias_is_recovered_before_apply(git_fixture, tmp_path: Path):
+def test_non_main_origin_main_alias_fails_preflight_without_recovery(git_fixture, tmp_path: Path):
     _, repo, base = git_fixture
     package = tmp_path / "package"
     make_patch(repo, package, "bundle\n", test_command='test "$(cat tracked.txt)" = bundle')
@@ -188,20 +197,23 @@ def test_non_main_origin_main_alias_is_recovered_before_apply(git_fixture, tmp_p
     proc = run(
         [str(HELPER), str(package), "--yes", "--no-push"],
         env=helper_env(repo, report_dir),
+        check=False,
     )
 
-    assert "Recovering clean checkout" in proc.stdout
-    assert git_text(repo, "branch", "--show-current") == "main"
-    assert git_text(repo, "rev-parse", "refs/heads/main") == git_text(
-        repo, "rev-parse", "HEAD"
-    )
-    assert (repo / "tracked.txt").read_text() == "bundle\n"
+    assert proc.returncode != 0
+    assert "DRPO_UPDATE_PREFLIGHT_FAILED" in proc.stderr
+    assert "Code: DRPO_UPDATE_NOT_ON_MAIN" in proc.stderr
+    assert "Current branch: codex/post-push-bundle-export" in proc.stderr
+    assert "Required branch: main" in proc.stderr
+    assert git_text(repo, "branch", "--show-current") == "codex/post-push-bundle-export"
+    assert git_text(repo, "rev-parse", "refs/heads/main") == base
+    assert (repo / "tracked.txt").read_text() == "base\n"
     assert (repo / "other.txt").read_text() == "already pushed main work\n"
     assert git_text(repo, "status", "--porcelain") == ""
     report = json.loads(next(report_dir.glob("*.json")).read_text())
-    assert report["head_before"] == current
-    assert report["package_base"] == base
-    assert report["status"] == "success_no_push"
+    assert report["preflight_code"] == "DRPO_UPDATE_NOT_ON_MAIN"
+    assert report["current_branch"] == "codex/post-push-bundle-export"
+    assert report["test_commands"] == []
 
 
 def test_unrelated_non_main_branch_still_fails_closed(git_fixture, tmp_path: Path):
@@ -221,12 +233,136 @@ def test_unrelated_non_main_branch_still_fails_closed(git_fixture, tmp_path: Pat
     )
 
     assert proc.returncode != 0
-    assert "expected branch main, found feature/local-only" in proc.stderr
+    assert "Code: DRPO_UPDATE_NOT_ON_MAIN" in proc.stderr
+    assert "Current branch: feature/local-only" in proc.stderr
     assert git_text(repo, "branch", "--show-current") == "feature/local-only"
     assert git_text(repo, "rev-parse", "HEAD") == before
 
 
-def test_bundle_conflict_fails_without_modifying_main(git_fixture, tmp_path: Path):
+def test_dirty_worktree_lists_files_and_does_not_apply(git_fixture, tmp_path: Path):
+    _, repo, before = git_fixture
+    package = tmp_path / "package"
+    make_patch(repo, package, "bundle\n")
+    build_bundle(repo, package)
+    (repo / "local-notes.txt").write_text("keep me\n")
+
+    report_dir = tmp_path / "reports"
+    proc = run(
+        [str(HELPER), str(package), "--yes", "--no-push"],
+        env=helper_env(repo, report_dir),
+        check=False,
+    )
+
+    assert proc.returncode != 0
+    assert "Code: DRPO_UPDATE_DIRTY_WORKTREE" in proc.stderr
+    assert "Reason: repository has uncommitted changes" in proc.stderr
+    assert "?? local-notes.txt" in proc.stderr
+    assert "commit them, stash them, or restore them manually" in proc.stderr
+    assert git_text(repo, "rev-parse", "HEAD") == before
+    assert (repo / "tracked.txt").read_text() == "base\n"
+    report = json.loads(next(report_dir.glob("*.json")).read_text())
+    assert report["preflight_code"] == "DRPO_UPDATE_DIRTY_WORKTREE"
+    assert report["dirty_files"] == ["?? local-notes.txt"]
+    assert report["test_commands"] == []
+
+
+def test_local_main_ahead_of_origin_fails_preflight(git_fixture, tmp_path: Path):
+    _, repo, base = git_fixture
+    package = tmp_path / "package"
+    make_patch(repo, package, "bundle\n")
+    build_bundle(repo, package)
+    (repo / "local.txt").write_text("local ahead\n")
+    local_head = commit_all(repo, "local ahead")
+
+    proc = run(
+        [str(HELPER), str(package), "--yes", "--no-push"],
+        env=helper_env(repo, tmp_path / "reports"),
+        check=False,
+    )
+
+    assert proc.returncode != 0
+    assert "Code: DRPO_UPDATE_MAIN_NOT_SYNCED" in proc.stderr
+    assert f"HEAD: {local_head}" in proc.stderr
+    assert f"origin/main: {base}" in proc.stderr
+    assert git_text(repo, "rev-parse", "HEAD") == local_head
+    assert (repo / "tracked.txt").read_text() == "base\n"
+
+
+def test_local_main_behind_origin_fails_preflight(git_fixture, tmp_path: Path):
+    origin, repo, base = git_fixture
+    package = tmp_path / "package"
+    make_patch(repo, package, "bundle\n")
+    build_bundle(repo, package)
+    peer = tmp_path / "peer"
+    run(["git", "clone", str(origin), str(peer)])
+    (peer / "remote.txt").write_text("remote ahead\n")
+    remote_head = commit_all(peer, "remote ahead")
+    git(peer, "push", "origin", "main")
+    git(repo, "fetch", "origin", "main")
+
+    proc = run(
+        [str(HELPER), str(package), "--yes", "--no-push"],
+        env=helper_env(repo, tmp_path / "reports"),
+        check=False,
+    )
+
+    assert proc.returncode != 0
+    assert "Code: DRPO_UPDATE_MAIN_NOT_SYNCED" in proc.stderr
+    assert f"HEAD: {base}" in proc.stderr
+    assert f"origin/main: {remote_head}" in proc.stderr
+    assert git_text(repo, "rev-parse", "HEAD") == base
+
+
+def test_local_main_diverged_from_origin_fails_preflight(git_fixture, tmp_path: Path):
+    origin, repo, base = git_fixture
+    package = tmp_path / "package"
+    make_patch(repo, package, "bundle\n")
+    build_bundle(repo, package)
+    peer = tmp_path / "peer"
+    run(["git", "clone", str(origin), str(peer)])
+    (repo / "local.txt").write_text("local side\n")
+    local_head = commit_all(repo, "local side")
+    (peer / "remote.txt").write_text("remote side\n")
+    remote_head = commit_all(peer, "remote side")
+    git(peer, "push", "origin", "main")
+    git(repo, "fetch", "origin", "main")
+    assert local_head != remote_head != base
+
+    proc = run(
+        [str(HELPER), str(package), "--yes", "--no-push"],
+        env=helper_env(repo, tmp_path / "reports"),
+        check=False,
+    )
+
+    assert proc.returncode != 0
+    assert "Code: DRPO_UPDATE_MAIN_NOT_SYNCED" in proc.stderr
+    assert f"HEAD: {local_head}" in proc.stderr
+    assert f"origin/main: {remote_head}" in proc.stderr
+    assert git_text(repo, "rev-parse", "HEAD") == local_head
+
+
+def test_invalid_package_uses_structured_preflight_error(git_fixture, tmp_path: Path):
+    _, repo, before = git_fixture
+    package = tmp_path / "invalid-package"
+    package.mkdir()
+
+    report_dir = tmp_path / "reports"
+    proc = run(
+        [str(HELPER), str(package), "--yes", "--no-push"],
+        env=helper_env(repo, report_dir),
+        check=False,
+    )
+
+    assert proc.returncode != 0
+    assert "Code: DRPO_UPDATE_PACKAGE_INVALID" in proc.stderr
+    assert "Reason: update package is invalid" in proc.stderr
+    report = json.loads(next(report_dir.glob("*.json")).read_text())
+    assert report["preflight_code"] == "DRPO_UPDATE_PACKAGE_INVALID"
+    assert report["test_commands"] == []
+    assert git_text(repo, "rev-parse", "HEAD") == before
+
+
+def test_conflicting_stale_bundle_fails_preflight_without_apply(git_fixture, tmp_path: Path):
     _, repo, _ = git_fixture
     package = tmp_path / "package"
     make_patch(repo, package, "package side\n")
@@ -234,12 +370,14 @@ def test_bundle_conflict_fails_without_modifying_main(git_fixture, tmp_path: Pat
 
     (repo / "tracked.txt").write_text("main side\n")
     before = commit_all(repo, "conflicting main")
+    git(repo, "push", "origin", "main")
     proc = run(
         [str(HELPER), str(package), "--yes", "--no-push"],
         env=helper_env(repo, tmp_path / "reports"),
         check=False,
     )
     assert proc.returncode != 0
+    assert "Code: DRPO_UPDATE_PACKAGE_BASE_OUTDATED" in proc.stderr
     assert git_text(repo, "rev-parse", "HEAD") == before
     assert (repo / "tracked.txt").read_text() == "main side\n"
     assert git_text(repo, "status", "--porcelain") == ""
@@ -249,13 +387,11 @@ def test_bundle_conflict_fails_without_modifying_main(git_fixture, tmp_path: Pat
         names = set(archive.namelist())
         assert "apply_report.json" in names
         assert "git/repository.bundle" in names
-        assert "candidate/conflicts/tracked.txt/base" in names
-        assert "candidate/conflicts/tracked.txt/ours" in names
-        assert "candidate/conflicts/tracked.txt/theirs" in names
-        assert "candidate/conflicts/tracked.txt/worktree" in names
+        assert not any(name.startswith("candidate/conflicts/") for name in names)
         report = json.loads(archive.read("apply_report.json"))
-        assert report["failure_phase"] == "integration"
-        assert report["conflicts"] == ["tracked.txt"]
+        assert report["failure_phase"] == "repository_preflight"
+        assert report["preflight_code"] == "DRPO_UPDATE_PACKAGE_BASE_OUTDATED"
+        assert report["conflicts"] == []
 
 
 def test_patch_bundle_mismatch_is_rejected(git_fixture, tmp_path: Path):
@@ -279,13 +415,15 @@ def test_stale_legacy_package_remains_rejected(git_fixture, tmp_path: Path):
     make_patch(repo, package, "legacy\n")
     (repo / "other.txt").write_text("advance\n")
     before = commit_all(repo, "advance")
+    git(repo, "push", "origin", "main")
     proc = run(
         [str(HELPER), str(package), "--yes", "--no-push"],
         env=helper_env(repo, tmp_path / "reports"),
         check=False,
     )
     assert proc.returncode != 0
-    assert "no Git bundle is present" in proc.stderr
+    assert "Code: DRPO_UPDATE_PACKAGE_BASE_OUTDATED" in proc.stderr
+    assert "regenerate this .drpoupdate package from current main" in proc.stderr
     assert git_text(repo, "rev-parse", "HEAD") == before
 
 

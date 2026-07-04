@@ -40,7 +40,7 @@ from test_selection import (  # noqa: E402
     select_test_plan,
 )
 
-VERSION = "2.4.1"
+VERSION = "2.4.2"
 EXPECTED_REMOTE_FRAGMENTS = ("github.com/easonhuo/drpo", "github.com:easonhuo/drpo")
 FULL_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 RECOVERY_ARTIFACT_KINDS = {
@@ -53,6 +53,23 @@ APPLICABLE_ARTIFACT_KINDS = {"governance", "experiment-final"}
 
 class UpdateError(RuntimeError):
     """Expected validation or integration failure."""
+
+
+@dataclass
+class PreflightResult:
+    ok: bool
+    code: str
+    message: str
+    details: dict[str, object] = field(default_factory=dict)
+    suggested_commands: list[str] = field(default_factory=list)
+
+
+class PreflightError(UpdateError):
+    """Fail-closed repository/package preflight with user-facing structure."""
+
+    def __init__(self, result: PreflightResult):
+        self.result = result
+        super().__init__(format_preflight_failure(result))
 
 
 @dataclass
@@ -94,6 +111,14 @@ class ApplyReport:
     main_bundle_latest_checksum_path: str | None = None
     main_bundle_sha256: str | None = None
     main_bundle_export_skipped: str | None = None
+    preflight_code: str | None = None
+    preflight_message: str | None = None
+    current_branch: str | None = None
+    head_sha: str | None = None
+    origin_main_sha: str | None = None
+    package_base_sha: str | None = None
+    dirty_files: list[str] = field(default_factory=list)
+    suggested_commands: list[str] = field(default_factory=list)
     status: str = "started"
     error: str | None = None
     requested_test_mode: str = "auto"
@@ -383,76 +408,177 @@ def _rev_parse_or_none(repo: Path, ref: str) -> str | None:
     return value if FULL_SHA_RE.fullmatch(value) else None
 
 
-def recover_main_checkout_if_possible(repo: Path, branch: str) -> bool:
-    """Recover a clean checkout accidentally left on an origin/main alias.
-
-    Older post-push flows can leave the worktree on a temporary/topic branch whose
-    HEAD is already the verified origin/main commit while the local ``main`` ref
-    remains stale.  The applicator requires ``main`` before it can fetch/merge and
-    export official bundles, so repair only that exact clean, provenance-safe
-    shape.  Any ambiguous branch state still fails closed.
-    """
-
-    current = _rev_parse_or_none(repo, "HEAD^{commit}")
-    origin_main = _rev_parse_or_none(repo, "refs/remotes/origin/main^{commit}")
-    if not current or not origin_main or current != origin_main:
-        return False
-
-    print(
-        "Recovering clean checkout: current branch "
-        f"{branch or '<detached>'} already equals origin/main; "
-        "updating local main and switching to it."
+def format_preflight_failure(result: PreflightResult) -> str:
+    lines = [
+        "DRPO_UPDATE_PREFLIGHT_FAILED",
+        f"Code: {result.code}",
+        f"Reason: {result.message}",
+    ]
+    labels = (
+        ("current_branch", "Current branch"),
+        ("required_branch", "Required branch"),
+        ("head_sha", "HEAD"),
+        ("origin_main_sha", "origin/main"),
+        ("package_base_sha", "Package BASE_COMMIT"),
+        ("current_head_sha", "Current main HEAD"),
     )
-    create_or_move = git(repo, "branch", "-f", "main", current, check=False)
-    if create_or_move.returncode != 0:
-        detail = (create_or_move.stderr or create_or_move.stdout).strip()
-        raise UpdateError(
-            "current HEAD equals origin/main, but local main could not be updated; "
-            "switch to main manually or close other worktrees first:\n" + detail
-        )
-    checkout = git(repo, "checkout", "main", check=False, capture=False)
-    if checkout.returncode != 0:
-        raise UpdateError(
-            "current HEAD equals origin/main, but checkout main failed; "
-            "switch to main manually before applying the package"
-        )
-    set_upstream = git(
-        repo,
-        "branch",
-        "--set-upstream-to=origin/main",
-        "main",
-        check=False,
+    for key, label in labels:
+        value = result.details.get(key)
+        if value:
+            lines.append(f"{label}: {value}")
+    dirty_files = result.details.get("dirty_files")
+    if isinstance(dirty_files, list) and dirty_files:
+        lines.extend(["", "Dirty files:"])
+        lines.extend(f"  {path}" for path in dirty_files)
+    if result.suggested_commands:
+        lines.extend(["", "Fix:"])
+        lines.extend(f"  {command}" for command in result.suggested_commands)
+    return "\n".join(lines)
+
+
+def record_preflight(report: ApplyReport, result: PreflightResult) -> None:
+    report.preflight_code = result.code
+    report.preflight_message = result.message
+    report.current_branch = str(result.details.get("current_branch") or "") or None
+    report.head_sha = str(result.details.get("head_sha") or "") or None
+    report.origin_main_sha = (
+        str(result.details.get("origin_main_sha") or "") or None
     )
-    if set_upstream.returncode != 0:
-        print(
-            "WARNING: could not set main upstream to origin/main; continuing because "
-            "the checkout is now on main.",
-            file=sys.stderr,
-        )
-    return True
+    report.package_base_sha = (
+        str(result.details.get("package_base_sha") or "") or None
+    )
+    dirty = result.details.get("dirty_files")
+    report.dirty_files = list(dirty) if isinstance(dirty, list) else []
+    report.suggested_commands = list(result.suggested_commands)
 
 
-def validate_repo(repo: Path) -> None:
-    if git_text(repo, "status", "--porcelain"):
-        raise UpdateError("repository has uncommitted changes; commit or stash them first")
+def raise_preflight(report: ApplyReport, result: PreflightResult) -> None:
+    record_preflight(report, result)
+    error = PreflightError(result)
+    print(str(error), file=sys.stderr, flush=True)
+    raise error
+
+
+def run_repository_preflight(
+    repo: Path,
+    package_base: str,
+    report: ApplyReport,
+) -> PreflightResult:
     remote = git_text(repo, "remote", "get-url", "origin")
     if os.environ.get("DRPO_UPDATE_ALLOW_ANY_REMOTE") != "1":
         if not any(fragment in remote for fragment in EXPECTED_REMOTE_FRAGMENTS):
             raise UpdateError(f"origin is not easonhuo/drpo: {remote}")
+
+    if os.environ.get("DRPO_UPDATE_SKIP_FETCH") != "1":
+        print("[1/10] Fetching origin/main for repository preflight...")
+        fetch = git(repo, "fetch", "origin", "main", check=False, capture=False)
+        if fetch.returncode != 0:
+            raise UpdateError("git fetch origin main failed during repository preflight")
+
     branch = git_text(repo, "branch", "--show-current")
+    head = _rev_parse_or_none(repo, "HEAD^{commit}")
+    origin_main = _rev_parse_or_none(repo, "refs/remotes/origin/main^{commit}")
     if branch != "main":
-        if not recover_main_checkout_if_possible(repo, branch):
-            raise UpdateError(f"expected branch main, found {branch or '<detached>'}")
-    if git_text(repo, "branch", "--show-current") != "main":
-        raise UpdateError("repository preflight could not switch to main")
+        raise_preflight(
+            report,
+            PreflightResult(
+                ok=False,
+                code="DRPO_UPDATE_NOT_ON_MAIN",
+                message="current branch is not main",
+                details={
+                    "current_branch": branch or "<detached>",
+                    "required_branch": "main",
+                    "head_sha": head or "<unavailable>",
+                    "origin_main_sha": origin_main or "<unavailable>",
+                    "package_base_sha": package_base,
+                },
+                suggested_commands=[
+                    "git switch main",
+                    "git fetch origin main",
+                    "git pull --ff-only origin main",
+                ],
+            ),
+        )
 
+    dirty_files = git(
+        repo, "status", "--short", "--untracked-files=all"
+    ).stdout.splitlines()
+    if dirty_files:
+        raise_preflight(
+            report,
+            PreflightResult(
+                ok=False,
+                code="DRPO_UPDATE_DIRTY_WORKTREE",
+                message="repository has uncommitted changes",
+                details={
+                    "current_branch": branch,
+                    "head_sha": head or "<unavailable>",
+                    "origin_main_sha": origin_main or "<unavailable>",
+                    "package_base_sha": package_base,
+                    "dirty_files": dirty_files,
+                },
+                suggested_commands=[
+                    "review these files first",
+                    "commit them, stash them, or restore them manually",
+                ],
+            ),
+        )
 
-def refresh_main(repo: Path) -> None:
-    if os.environ.get("DRPO_UPDATE_SKIP_FETCH") == "1":
-        return
-    print("[1/10] Updating local main...")
-    git(repo, "fetch", "origin", "main", capture=False)
-    git(repo, "merge", "--ff-only", "origin/main", capture=False)
+    if head is None:
+        raise UpdateError("could not resolve repository HEAD during preflight")
+    if origin_main != head:
+        raise_preflight(
+            report,
+            PreflightResult(
+                ok=False,
+                code="DRPO_UPDATE_MAIN_NOT_SYNCED",
+                message="local main is not synchronized with origin/main",
+                details={
+                    "current_branch": branch,
+                    "head_sha": head,
+                    "origin_main_sha": origin_main or "<unavailable>",
+                    "package_base_sha": package_base,
+                },
+                suggested_commands=[
+                    "git fetch origin main",
+                    "git pull --ff-only origin main",
+                ],
+            ),
+        )
+
+    if package_base != head:
+        raise_preflight(
+            report,
+            PreflightResult(
+                ok=False,
+                code="DRPO_UPDATE_PACKAGE_BASE_OUTDATED",
+                message="package base commit is outdated",
+                details={
+                    "current_branch": branch,
+                    "head_sha": head,
+                    "origin_main_sha": origin_main,
+                    "package_base_sha": package_base,
+                    "current_head_sha": head,
+                },
+                suggested_commands=[
+                    "regenerate this .drpoupdate package from current main"
+                ],
+            ),
+        )
+
+    result = PreflightResult(
+        ok=True,
+        code="DRPO_UPDATE_PREFLIGHT_OK",
+        message="repository and package base are synchronized",
+        details={
+            "current_branch": branch,
+            "head_sha": head,
+            "origin_main_sha": origin_main,
+            "package_base_sha": package_base,
+        },
+    )
+    record_preflight(report, result)
+    return result
 
 
 def resolve_commit(repo: Path, sha: str, label: str) -> str:
@@ -1275,18 +1401,30 @@ def apply_update(args: argparse.Namespace) -> int:
         report.repository = str(repo)
 
         phase = "package_extract"
-        with timed_phase(report, phase):
-            package = extract_package(package_source, temp_root)
+        try:
+            with timed_phase(report, phase):
+                package = extract_package(package_source, temp_root)
+                base_requested = read_full_sha(package.base_file, "BASE_COMMIT.txt")
+        except UpdateError as exc:
+            raise_preflight(
+                report,
+                PreflightResult(
+                    ok=False,
+                    code="DRPO_UPDATE_PACKAGE_INVALID",
+                    message="update package is invalid",
+                    details={},
+                    suggested_commands=[
+                        "download or regenerate a valid .drpoupdate package",
+                        f"package error: {exc}",
+                    ],
+                ),
+            )
         phase = "repository_preflight"
         with timed_phase(report, phase):
-            validate_repo(repo)
-        phase = "refresh_main"
-        with timed_phase(report, phase):
-            refresh_main(repo)
+            preflight = run_repository_preflight(repo, base_requested, report)
         phase = "base_resolution"
         with timed_phase(report, phase):
-            current = git_text(repo, "rev-parse", "HEAD")
-            base_requested = read_full_sha(package.base_file, "BASE_COMMIT.txt")
+            current = str(preflight.details["head_sha"])
             base = resolve_commit(repo, base_requested, "BASE_COMMIT.txt")
         report.package_base = base
         report.head_before = current
@@ -1297,17 +1435,6 @@ def apply_update(args: argparse.Namespace) -> int:
             with timed_phase(report, phase):
                 patch_commit = verify_bundle_and_patch(repo, package, base, temp_root)
             report.patch_commit = patch_commit
-            ancestry = git(repo, "merge-base", "--is-ancestor", base, current, check=False)
-            if ancestry.returncode != 0:
-                raise UpdateError(
-                    "BASE_COMMIT.txt is not an ancestor of current main; "
-                    "automatic integration is intentionally disabled"
-                )
-        elif current != base:
-            raise UpdateError(
-                "bundle base commit does not match current main and no Git bundle is present\n"
-                f"  package base: {base}\n  current HEAD: {current}"
-            )
         else:
             print("[2/10] Legacy package detected; exact-base patch path will be used.")
 
@@ -1611,8 +1738,9 @@ def run_doctor(args: argparse.Namespace) -> int:
     # synthetic repositories and any child test gates isolated from one another.
     transaction_nodes = [
         "tests/test_update_git_bundle.py::test_bundle_verifier_proves_patch_tree_equivalence",
-        "tests/test_update_git_bundle.py::test_stale_ancestral_bundle_merges_nonconflicting_main",
-        "tests/test_update_git_bundle.py::test_bundle_conflict_fails_without_modifying_main",
+        "tests/test_update_git_bundle.py::test_stale_ancestral_bundle_fails_preflight_without_applying",
+        "tests/test_update_git_bundle.py::test_dirty_worktree_lists_files_and_does_not_apply",
+        "tests/test_update_git_bundle.py::test_conflicting_stale_bundle_fails_preflight_without_apply",
         "tests/test_update_git_bundle.py::test_failed_package_tests_leave_main_untouched",
         "tests/test_update_git_bundle.py::test_default_failure_diagnostic_is_written_to_downloads",
         "tests/test_update_git_bundle.py::test_successful_push_defaults_versioned_and_latest_main_bundles_to_downloads",

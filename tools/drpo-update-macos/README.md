@@ -43,6 +43,12 @@ runs:
 drpo-update <package> --yes
 ```
 
+Repository branch, dirty-worktree, local/remote synchronization, and package
+base failures are printed directly in that Terminal window with
+`DRPO_UPDATE_PREFLIGHT_FAILED`, concrete values, affected files, and repair
+commands. The diagnostic ZIP remains available for deeper audit but is not the
+only place where the preflight reason appears.
+
 and reports the resulting commit on success. On failure it prints the launcher
 log and the new diagnostic ZIP path when one was produced. Diagnostics are first
 written to a private per-run staging directory and then published to `Downloads`,

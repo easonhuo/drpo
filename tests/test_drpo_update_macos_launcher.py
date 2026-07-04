@@ -274,7 +274,19 @@ while [[ $# -gt 0 ]]; do
 done
 printf '%s\n' "$diagnostic_dir" > "$DRPO_TEST_CAPTURE"
 touch "$diagnostic_dir/DRPO_DIAGNOSTIC_test.zip"
-echo updater-failed >&2
+cat >&2 <<'EOF'
+DRPO_UPDATE_PREFLIGHT_FAILED
+Code: DRPO_UPDATE_DIRTY_WORKTREE
+Reason: repository has uncommitted changes
+
+Dirty files:
+  M docs/governance_pipeline_stage_status.yaml
+  ?? local-notes.txt
+
+Fix:
+  review these files first
+  commit them, stash them, or restore them manually
+EOF
 exit 7
 """,
         encoding="utf-8",
@@ -298,6 +310,9 @@ exit 7
     assert proc.returncode == 7
     assert "Update failed with exit code 7" in proc.stderr
     assert "DRPO_DIAGNOSTIC_test.zip" in proc.stderr
+    assert "DRPO_UPDATE_PREFLIGHT_FAILED" in proc.stdout
+    assert "M docs/governance_pipeline_stage_status.yaml" in proc.stdout
+    assert "?? local-notes.txt" in proc.stdout
     staging_dir = Path(diagnostic_dir_capture.read_text(encoding="utf-8").strip())
     assert staging_dir.parent == config_dir
     assert staging_dir != downloads
@@ -305,6 +320,76 @@ exit 7
     assert (downloads / "DRPO_DIAGNOSTIC_test.zip").is_file()
     log = next((config_dir / "launcher-logs").glob("*.log"))
     assert "Update failed with exit code 7" in log.read_text(encoding="utf-8")
+    assert "DRPO_UPDATE_PREFLIGHT_FAILED" in log.read_text(encoding="utf-8")
+    assert "?? local-notes.txt" in log.read_text(encoding="utf-8")
+
+
+def test_runner_surfaces_base_mismatch_and_diagnostic_path(tmp_path: Path) -> None:
+    home = tmp_path / "home"
+    home.mkdir()
+    repo = tmp_path / "repo"
+    init_repo(repo)
+    package = tmp_path / "stale.drpoupdate"
+    package.write_bytes(b"fake")
+    config_dir = home / ".config/drpo-update"
+    config_dir.mkdir(parents=True)
+    (config_dir / "repo_path").write_text(str(repo) + "\n", encoding="utf-8")
+    downloads = home / "Downloads"
+    downloads.mkdir()
+
+    fake_updater = tmp_path / "drpo-update"
+    fake_updater.write_text(
+        """#!/usr/bin/env bash
+set -u
+diagnostic_dir=""
+while [[ $# -gt 0 ]]; do
+  if [[ "$1" == "--diagnostic-dir" ]]; then
+    diagnostic_dir="$2"
+    shift 2
+  else
+    shift
+  fi
+done
+touch "$diagnostic_dir/DRPO_DIAGNOSTIC_base.zip"
+cat >&2 <<'EOF'
+DRPO_UPDATE_PREFLIGHT_FAILED
+Code: DRPO_UPDATE_PACKAGE_BASE_OUTDATED
+Reason: package base commit is outdated
+Package BASE_COMMIT: 1111111111111111111111111111111111111111
+Current main HEAD: 2222222222222222222222222222222222222222
+
+Fix:
+  regenerate this .drpoupdate package from current main
+EOF
+exit 12
+""",
+        encoding="utf-8",
+    )
+    fake_updater.chmod(0o755)
+
+    env = os.environ.copy()
+    env.update(
+        {
+            "HOME": str(home),
+            "DRPO_LAUNCHER_UPDATER": str(fake_updater),
+            "DRPO_LAUNCHER_NO_NOTIFY": "1",
+        }
+    )
+    proc = run(
+        ["bash", str(TOOL_DIR / "run_update.sh"), str(package)],
+        env=env,
+        check=False,
+    )
+
+    assert proc.returncode == 12
+    assert "Code: DRPO_UPDATE_PACKAGE_BASE_OUTDATED" in proc.stdout
+    assert "Package BASE_COMMIT: " + "1" * 40 in proc.stdout
+    assert "Current main HEAD: " + "2" * 40 in proc.stdout
+    assert "DRPO_DIAGNOSTIC_base.zip" in proc.stderr
+    log = next((config_dir / "launcher-logs").glob("*.log"))
+    log_text = log.read_text(encoding="utf-8")
+    assert "DRPO_UPDATE_PREFLIGHT_FAILED" in log_text
+    assert "regenerate this .drpoupdate package from current main" in log_text
 
 
 def test_runner_preserves_existing_same_named_diagnostic(tmp_path: Path) -> None:
