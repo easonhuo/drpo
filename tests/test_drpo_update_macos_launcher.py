@@ -236,6 +236,7 @@ def test_runner_success_path_handles_spaces_and_reports_commit(tmp_path: Path) -
     assert forwarded_payload.read_bytes() == package.read_bytes()
     assert "--yes" in args
     assert "--diagnostic-dir" in args
+    assert "--no-export-main-bundle" not in args
     logs = list((config_dir / "launcher-logs").glob("*.log"))
     assert len(logs) == 1
     assert "updater-success" in logs[0].read_text(encoding="utf-8")

@@ -90,6 +90,8 @@ class ApplyReport:
     main_bundle_exported: bool = False
     main_bundle_path: str | None = None
     main_bundle_latest_path: str | None = None
+    main_bundle_checksum_path: str | None = None
+    main_bundle_latest_checksum_path: str | None = None
     main_bundle_sha256: str | None = None
     main_bundle_export_skipped: str | None = None
     status: str = "started"
@@ -767,64 +769,133 @@ def remote_main_sha(repo: Path) -> str:
     return sha
 
 
-def _atomic_write_text(path: Path, text: str) -> None:
-    temp = path.with_name(f".{path.name}.tmp-{uuid.uuid4().hex}")
-    temp.write_text(text)
-    os.replace(temp, path)
-
-
-def _atomic_copy(source: Path, destination: Path) -> None:
-    temp = destination.with_name(f".{destination.name}.tmp-{uuid.uuid4().hex}")
-    shutil.copy2(source, temp)
-    os.replace(temp, destination)
-
-
 def export_main_bundle(repo: Path, output_dir: Path, head: str) -> dict[str, str]:
     """Atomically export the pushed main ref as versioned and stable bundles."""
 
     if git_text(repo, "branch", "--show-current") != "main":
         raise UpdateError("main bundle export requires the checked-out main branch")
-    if git_text(repo, "rev-parse", "HEAD") != head:
+    fetch = git(repo, "fetch", "origin", "main", check=False)
+    if fetch.returncode != 0:
+        raise UpdateError(
+            "could not fetch origin/main before main bundle export:\n"
+            + (fetch.stderr or fetch.stdout or "git fetch failed").strip()
+        )
+    local_head = git_text(repo, "rev-parse", "HEAD")
+    remote_head = git_text(repo, "rev-parse", "origin/main")
+    if local_head != head:
         raise UpdateError("main bundle export HEAD changed unexpectedly")
+    if remote_head != local_head:
+        raise UpdateError(
+            "main bundle export requires HEAD to equal origin/main after fetch; "
+            f"local={local_head} remote={remote_head}"
+        )
+
     output_dir.mkdir(parents=True, exist_ok=True)
-    temp_root = Path(tempfile.mkdtemp(prefix="drpo-main-bundle-", dir=output_dir))
+    short_head = head[:12]
+    versioned = output_dir / f"DRPO_MAIN_{short_head}.bundle"
+    latest = output_dir / "DRPO_MAIN_LATEST.bundle"
+    versioned_sha = output_dir / f"{versioned.name}.sha256"
+    latest_sha = output_dir / f"{latest.name}.sha256"
+    pid = os.getpid()
+    latest_temp = output_dir / f"{latest.name}.tmp.{pid}"
+    versioned_temp = output_dir / f"{versioned.name}.tmp.{pid}"
+    latest_sha_temp = output_dir / f"{latest_sha.name}.tmp.{pid}"
+    versioned_sha_temp = output_dir / f"{versioned_sha.name}.tmp.{pid}"
+    temporary_paths = (
+        latest_temp,
+        versioned_temp,
+        latest_sha_temp,
+        versioned_sha_temp,
+    )
     try:
-        candidate = temp_root / "candidate.bundle"
-        created = git(repo, "bundle", "create", str(candidate), "main", check=False)
+        for path in temporary_paths:
+            path.unlink(missing_ok=True)
+
+        created = git(repo, "bundle", "create", str(latest_temp), "main", check=False)
         if created.returncode != 0:
             raise UpdateError(
                 "git bundle create failed:\n"
                 + (created.stderr or created.stdout or "unknown error").strip()
             )
-        verified = git(repo, "bundle", "verify", str(candidate), check=False)
+        verified = git(repo, "bundle", "verify", str(latest_temp), check=False)
         if verified.returncode != 0:
             raise UpdateError(
                 "created main bundle failed verification:\n"
                 + (verified.stderr or verified.stdout or "unknown error").strip()
             )
-        heads = git(repo, "bundle", "list-heads", str(candidate), check=False)
+        heads = git(repo, "bundle", "list-heads", str(latest_temp), check=False)
         expected = f"{head} refs/heads/main"
         if heads.returncode != 0 or expected not in heads.stdout.splitlines():
             raise UpdateError(
                 "created main bundle does not advertise the verified main ref; "
                 f"expected '{expected}'"
             )
-        digest = _sha256(candidate)
-        versioned = output_dir / f"DRPO_MAIN_{head[:12]}.bundle"
-        latest = output_dir / "DRPO_MAIN_LATEST.bundle"
-        versioned_sha = versioned.with_name(versioned.name + ".sha256")
-        latest_sha = latest.with_name(latest.name + ".sha256")
-        _atomic_copy(candidate, versioned)
-        _atomic_write_text(versioned_sha, f"{digest}  {versioned.name}\n")
-        _atomic_copy(candidate, latest)
-        _atomic_write_text(latest_sha, f"{digest}  {latest.name}\n")
+
+        shutil.copy2(latest_temp, versioned_temp)
+        versioned_verified = git(
+            repo, "bundle", "verify", str(versioned_temp), check=False
+        )
+        if versioned_verified.returncode != 0:
+            raise UpdateError(
+                "versioned main bundle candidate failed verification:\n"
+                + (
+                    versioned_verified.stderr
+                    or versioned_verified.stdout
+                    or "unknown error"
+                ).strip()
+            )
+
+        latest_checksum = run(
+            ["shasum", "-a", "256", str(latest_temp)],
+            cwd=repo,
+            check=False,
+        )
+        if latest_checksum.returncode != 0:
+            raise UpdateError(
+                "shasum failed for main bundle candidate:\n"
+                + (
+                    latest_checksum.stderr
+                    or latest_checksum.stdout
+                    or "unknown error"
+                ).strip()
+            )
+        versioned_checksum = run(
+            ["shasum", "-a", "256", str(versioned_temp)],
+            cwd=repo,
+            check=False,
+        )
+        if versioned_checksum.returncode != 0:
+            raise UpdateError(
+                "shasum failed for versioned main bundle candidate:\n"
+                + (
+                    versioned_checksum.stderr
+                    or versioned_checksum.stdout
+                    or "unknown error"
+                ).strip()
+            )
+        digest = latest_checksum.stdout.split()[0]
+        versioned_digest = versioned_checksum.stdout.split()[0]
+        if not re.fullmatch(r"[0-9a-f]{64}", digest):
+            raise UpdateError("shasum returned an invalid SHA-256 digest")
+        if versioned_digest != digest:
+            raise UpdateError("latest and versioned main bundle candidates differ")
+        versioned_sha_temp.write_text(f"{digest}  {versioned.name}\n")
+        latest_sha_temp.write_text(f"{digest}  {latest.name}\n")
+
+        os.replace(versioned_temp, versioned)
+        os.replace(versioned_sha_temp, versioned_sha)
+        os.replace(latest_temp, latest)
+        os.replace(latest_sha_temp, latest_sha)
         return {
             "versioned": str(versioned),
+            "versioned_sha256": str(versioned_sha),
             "latest": str(latest),
+            "latest_sha256": str(latest_sha),
             "sha256": digest,
         }
     finally:
-        shutil.rmtree(temp_root, ignore_errors=True)
+        for path in temporary_paths:
+            path.unlink(missing_ok=True)
 
 
 def _sha256(path: Path) -> str:
@@ -1310,15 +1381,22 @@ def apply_update(args: argparse.Namespace) -> int:
                 except Exception as exc:
                     report.status = "pushed_main_bundle_export_failed"
                     raise UpdateError(
-                        "origin/main was pushed and verified, but automatic main bundle "
-                        f"export failed: {exc}"
+                        "UPDATE_PUSHED_BUNDLE_FAILED: origin/main was pushed and verified, "
+                        f"but automatic main bundle export failed: {exc}"
                     ) from exc
                 report.main_bundle_exported = True
                 report.main_bundle_path = exported["versioned"]
                 report.main_bundle_latest_path = exported["latest"]
+                report.main_bundle_checksum_path = exported["versioned_sha256"]
+                report.main_bundle_latest_checksum_path = exported["latest_sha256"]
                 report.main_bundle_sha256 = exported["sha256"]
                 print(f"Main bundle: {report.main_bundle_path}")
+                print(f"Main bundle SHA-256: {report.main_bundle_checksum_path}")
                 print(f"Latest bundle: {report.main_bundle_latest_path}")
+                print(
+                    "Latest bundle SHA-256: "
+                    f"{report.main_bundle_latest_checksum_path}"
+                )
             report.status = "success"
         finalize_total_timing(report, total_started)
         path = write_report(report)

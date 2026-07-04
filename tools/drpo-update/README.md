@@ -179,9 +179,10 @@ commands.
 
 ## Successful push main-bundle export
 
-After tests pass, local `main` advances, push succeeds, and a fresh `ls-remote`
-confirms that `origin/main` equals local HEAD, the helper atomically writes to
-`~/Downloads` by default:
+After tests pass, local `main` advances, and push succeeds, the helper runs
+`git fetch origin main` and requires local `HEAD` to equal `origin/main`. It
+then creates and verifies temporary bundles before atomically publishing these
+files to `~/Downloads` by default:
 
 ```text
 DRPO_MAIN_<12-char-SHA>.bundle
@@ -193,6 +194,10 @@ DRPO_MAIN_LATEST.bundle.sha256
 Use `--main-bundle-dir PATH` or `DRPO_UPDATE_MAIN_BUNDLE_DIR` to change the
 directory. `--no-push` never creates an official main bundle. Use
 `--no-export-main-bundle` to suppress export after a verified push.
+
+If push succeeds but export fails, the pushed commit is not rolled back. The
+command exits nonzero, prints `UPDATE_PUSHED_BUNDLE_FAILED`, and creates the
+normal failure diagnostic ZIP.
 
 ## Local doctor
 

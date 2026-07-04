@@ -69,8 +69,8 @@ stages:
       sha256: 6856f04c01af91aac8a96602368f705b9d38be4ce14c9877996f8b32221fa4d3
       authorized_by: GOV-STAGE5-CUTOVER-COMPATIBILITY-BUGFIX-2026-07-03
     - path: tools/drpo-update/drpo_update.py
-      sha256: 409ff83bb75e5fae1a287cd62d9cb6867fc197af21bcabd401925c3f3be03345
-      authorized_by: GOV-STAGE5-CANDIDATE-IMPLEMENTATION-2026-07-01
+      sha256: 995d6e76fa5434056add36cae0750358c85a867d63e83ff902633491a1836391
+      authorized_by: GOV-DRPO-UPDATE-POST-PUSH-BUNDLE-2026-07-04
     - path: tools/drpo-update/install.sh
       sha256: f82d3a49e1f11195ab8cc268679b263425750198c0deca9fe5537b1e57fe890c
       authorized_by: GOV-PIPELINE-STAGE12-CLOSURE-2026-06-27
