@@ -51,6 +51,11 @@ An existing same-named diagnostic is preserved rather than overwritten.
 If the canonical helper cannot create a diagnostic, the launcher publishes a
 small fallback ZIP containing the launcher log and repository state.
 
+Because the app delegates to the CLI without disabling its defaults, a
+successful push also publishes the versioned and `DRPO_MAIN_LATEST` bundle plus
+their SHA-256 files in `Downloads`. A post-push export failure remains a failure
+in the app log and diagnostic, but it never rolls back the already pushed commit.
+
 The launcher also accepts `.zip` when invoked explicitly, but `.drpoupdate` is
 the registered double-click format.
 

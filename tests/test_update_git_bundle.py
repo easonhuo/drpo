@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 import subprocess
 import sys
@@ -15,10 +16,16 @@ VERIFIER = REPO_ROOT / "scripts" / "verify_update_git_bundle.py"
 HELPER = REPO_ROOT / "tools" / "drpo-update" / "drpo-update"
 
 
-def run(cmd: list[str], cwd: Path | None = None, env: dict[str, str] | None = None, check: bool = True):
-    proc = subprocess.run(cmd, cwd=cwd, env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+def run(
+    cmd: list[str], cwd: Path | None = None, env: dict[str, str] | None = None, check: bool = True
+):
+    proc = subprocess.run(
+        cmd, cwd=cwd, env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
     if check and proc.returncode != 0:
-        raise AssertionError(f"command failed: {' '.join(cmd)}\nstdout={proc.stdout}\nstderr={proc.stderr}")
+        raise AssertionError(
+            f"command failed: {' '.join(cmd)}\nstdout={proc.stdout}\nstderr={proc.stderr}"
+        )
     return proc
 
 
@@ -32,7 +39,16 @@ def git_text(repo: Path, *args: str) -> str:
 
 def commit_all(repo: Path, message: str) -> str:
     git(repo, "add", "-A")
-    git(repo, "-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-m", message)
+    git(
+        repo,
+        "-c",
+        "user.name=Test",
+        "-c",
+        "user.email=test@example.invalid",
+        "commit",
+        "-m",
+        message,
+    )
     return git_text(repo, "rev-parse", "HEAD")
 
 
@@ -51,7 +67,7 @@ def git_fixture(tmp_path: Path):
             {
                 "schema_version": 1,
                 "unknown_path_policy": "full",
-                "full_commands": [["{python}", "-c", "print(\"synthetic full gate\")"]],
+                "full_commands": [["{python}", "-c", 'print("synthetic full gate")']],
                 "control_plane_patterns": ["tools/drpo-update/test_impact_map.json"],
                 "groups": [
                     {
@@ -82,7 +98,9 @@ def make_patch(repo: Path, package: Path, new_text: str, *, test_command: str = 
     (repo / "tracked.txt").write_text("base\n")
     (package / "update.patch").write_text(patch)
     (package / "CHANGE_SUMMARY.md").write_text("# Bundle test update\n")
-    (package / "TEST_COMMANDS.sh").write_text(f"#!/usr/bin/env bash\nset -euo pipefail\n{test_command}\n")
+    (package / "TEST_COMMANDS.sh").write_text(
+        f"#!/usr/bin/env bash\nset -euo pipefail\n{test_command}\n"
+    )
     os.chmod(package / "TEST_COMMANDS.sh", 0o755)
     (package / "BASE_COMMIT.txt").write_text(git_text(repo, "rev-parse", "HEAD") + "\n")
 
@@ -112,7 +130,9 @@ def test_bundle_verifier_proves_patch_tree_equivalence(git_fixture, tmp_path: Pa
     package = tmp_path / "package"
     make_patch(repo, package, "bundle\n")
     patch_commit = build_bundle(repo, package)
-    proc = run([sys.executable, str(VERIFIER), "--repo", str(repo), "--package", str(package), "--json"])
+    proc = run(
+        [sys.executable, str(VERIFIER), "--repo", str(repo), "--package", str(package), "--json"]
+    )
     report = json.loads(proc.stdout)
     assert report["status"] == "PASS"
     assert report["patch_commit"] == patch_commit
@@ -323,6 +343,7 @@ def test_fast_override_cannot_downgrade_unknown_path(git_fixture, tmp_path: Path
     assert "fast mode cannot override" in proc.stderr
     assert git_text(repo, "rev-parse", "HEAD") == before
 
+
 def test_unknown_changed_path_escalates_to_full_suite(git_fixture, tmp_path: Path):
     _, repo, _ = git_fixture
     package = tmp_path / "package"
@@ -369,12 +390,22 @@ def test_successful_push_defaults_versioned_and_latest_main_bundles_to_downloads
     assert git_text(origin, "rev-parse", "refs/heads/main") == head
     versioned = downloads / f"DRPO_MAIN_{head[:12]}.bundle"
     latest = downloads / "DRPO_MAIN_LATEST.bundle"
+    versioned_sha = downloads / f"{versioned.name}.sha256"
+    latest_sha = downloads / f"{latest.name}.sha256"
     assert versioned.is_file()
     assert latest.is_file()
-    assert (downloads / f"{versioned.name}.sha256").is_file()
-    assert (downloads / f"{latest.name}.sha256").is_file()
+    assert versioned_sha.is_file()
+    assert latest_sha.is_file()
+    assert versioned.read_bytes() == latest.read_bytes()
+    digest = versioned_sha.read_text().split()[0]
+    assert digest == hashlib.sha256(versioned.read_bytes()).hexdigest()
+    assert latest_sha.read_text() == f"{digest}  {latest.name}\n"
+    assert versioned_sha.read_text() == f"{digest}  {versioned.name}\n"
+    assert not list(downloads.glob("*.tmp.*"))
     assert f"Main bundle: {versioned}" in proc.stdout
+    assert f"Main bundle SHA-256: {versioned_sha}" in proc.stdout
     assert f"Latest bundle: {latest}" in proc.stdout
+    assert f"Latest bundle SHA-256: {latest_sha}" in proc.stdout
     listed = git(repo, "bundle", "list-heads", str(versioned)).stdout.splitlines()
     assert f"{head} refs/heads/main" in listed
     report = json.loads(next(report_dir.glob("*.json")).read_text())
@@ -383,6 +414,9 @@ def test_successful_push_defaults_versioned_and_latest_main_bundles_to_downloads
     assert report["main_bundle_exported"] is True
     assert report["main_bundle_path"] == str(versioned)
     assert report["main_bundle_latest_path"] == str(latest)
+    assert report["main_bundle_checksum_path"] == str(versioned_sha)
+    assert report["main_bundle_latest_checksum_path"] == str(latest_sha)
+    assert report["main_bundle_sha256"] == digest
 
 
 def test_no_push_never_exports_official_main_bundle(git_fixture, tmp_path: Path):
@@ -432,11 +466,16 @@ def test_post_push_export_failure_generates_diagnostic_without_rolling_back_push
     package = tmp_path / "package"
     make_patch(repo, package, "bundle\n")
     build_bundle(repo, package)
-    blocker = tmp_path / "not-a-directory"
-    blocker.write_text("block")
+    downloads = tmp_path / "downloads"
+    fake_bin = tmp_path / "fake-bin"
+    fake_bin.mkdir()
+    fake_shasum = fake_bin / "shasum"
+    fake_shasum.write_text("#!/usr/bin/env bash\nexit 19\n")
+    fake_shasum.chmod(0o755)
     report_dir = tmp_path / "reports"
     env = helper_env(repo, report_dir)
-    env["DRPO_UPDATE_MAIN_BUNDLE_DIR"] = str(blocker)
+    env["DRPO_UPDATE_MAIN_BUNDLE_DIR"] = str(downloads)
+    env["PATH"] = f"{fake_bin}{os.pathsep}{env['PATH']}"
     proc = run([str(HELPER), str(package), "--yes"], env=env, check=False)
     assert proc.returncode != 0
     local_head = git_text(repo, "rev-parse", "HEAD")
@@ -448,6 +487,9 @@ def test_post_push_export_failure_generates_diagnostic_without_rolling_back_push
     assert report["pushed"] is True
     assert report["remote_head_after_push"] == local_head
     assert report["main_bundle_exported"] is False
+    assert "UPDATE_PUSHED_BUNDLE_FAILED" in proc.stderr
+    assert not list(downloads.glob("DRPO_MAIN_*.bundle"))
+    assert not list(downloads.glob("*.tmp.*"))
     diagnostics = list((tmp_path / "diagnostics").glob("DRPO_DIAGNOSTIC_*.zip"))
     assert len(diagnostics) == 1
     assert f"Diagnostic ZIP: {diagnostics[0]}" in proc.stderr
