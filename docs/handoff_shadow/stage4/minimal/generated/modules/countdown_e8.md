@@ -7,7 +7,7 @@
 - Responsibility: Cover token-level near or far mechanism probes and fixed-offline-bank method pilots without replacing D-U1 controlled identification.
 - Content contract topics: none
 - Deduplicated overlapping source chunks: 0
-- Source hash: `1606053637a649c963ee3f1a29d25ba3b19070a47805464151f6abbcbade43fe`
+- Source hash: `81fff9ef8f3a3ba8ba76618e5ab3f575e83c93ad1e5206f04c6dfdf66222e2d1`
 
 ## Source 1: docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v52-ext-c-e8-v43-dynamic-control
 
@@ -164,13 +164,19 @@
 
 8. **v57 E8 内部路线覆盖：** 在进入 E8 外部诊断时，先执行 `EXT-C-E8-V4.4-OFFLINE-BANK`，只改变 fixed-bank 密度与每步动态选择；online off-policy 必须作为独立 successor 重新冻结 rollout actor、同步滞后、replay age、seeds 与预算匹配，不能与 V4.4 共用结论。
 
-## Source 15: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v52-execution-order-override
+## Source 15: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v75-countdown-status-note
+
+### Delta block `section_end:v75-countdown-status-note`
+
+- **v75 Countdown 逐样本机制诊断补记：**`EXT-C` 已完成一个 single-seed full-bank `arithmetic_wrong` response diagnostic：`6000` puzzles × near/far = `12000` rows，固定 `negative_coefficient_abs=1.0`，观察到 surprisal 与 trainable-parameter gradient norm 的正相关、near/far 配对增益和 decile 平台化趋势。该补记只把 Countdown 机制观察从 10-puzzle smoke 升级为 full-bank pilot；不升级 `EXT-C-E8-TAPER-0.5B-01` 或 `EXT-C-E8-SCALE-01` 的 formal 状态，也不改变 Countdown 不能替代 D-U1/C-U1 因果识别的边界。
+
+## Source 16: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v52-execution-order-override
 
 ### Delta block `section_end:v52-execution-order-override`
 
 11. **v52 执行覆盖：** 当锁定路线进入 E8-MECH 时，执行 `EXT-C-E8-V4.3` 而不是 V4.2；当前只完成注册和代码实现，真实 Qwen/CUDA pilot 仍为 not_run。
 
-## Source 16: experiments/registry.yaml: experiments[EXT-C-E8-V4, EXT-C-E8-V4.1, EXT-C-E8-V4.2, EXT-C-E8-V4.3, EXT-C-E8-V4.4-OFFLINE-BANK, EXT-C-E8-V4.5-OFFLINE-BANK-TUNING, EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY, EXT-C-E8-TAPER-0.5B-01, EXT-C-E8-SCALE-01]
+## Source 17: experiments/registry.yaml: experiments[EXT-C-E8-V4, EXT-C-E8-V4.1, EXT-C-E8-V4.2, EXT-C-E8-V4.3, EXT-C-E8-V4.4-OFFLINE-BANK, EXT-C-E8-V4.5-OFFLINE-BANK-TUNING, EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY, EXT-C-E8-TAPER-0.5B-01, EXT-C-E8-SCALE-01]
 
 collection: experiments
 entries:

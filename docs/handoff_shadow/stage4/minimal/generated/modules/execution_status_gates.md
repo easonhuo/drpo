@@ -7,7 +7,7 @@
 - Responsibility: Provide the current experiment evidence states, execution ordering, and formal launch gates.
 - Content contract topics: `formal_vs_development_evidence`, `single_registered_execution_order`, `blocked_requires_protocol_or_predecessor`, `current_formal_route`, `no_unregistered_experiment`
 - Deduplicated overlapping source chunks: 0
-- Source hash: `e54c281c302a0b18f0b99c8e0a7f9ec40027d42ca21289d26a2d709eb239e112`
+- Source hash: `fb4d44a26e581dafd8d70a65d7179e1753810faf03add068ed5c4cccc90d7333`
 
 ## Content contract evidence
 
@@ -47,6 +47,9 @@
 <!-- HANDOFF-DELTA-BLOCK:section_end:v56-e6-parent-closure-completion-status:START -->
 **v56 E6 父实验关闭判断：** E6 已达到当前论文所需的机制与泛化证据闭环：主语义 long-run 给出 Positive-only ceiling、适度负信号收益、过强压力反转与 semantic-alignment 排他性；semantic-gap successor 复现中等 alpha 收益和 `alpha=1` 随 horizon 扩大的退化；conditional-gap stress diagnostic 证明更强支持缺口下局部收益与 overall trade-off、强压力任务崩溃及控制救援。关闭的是上述父 claim，不是把所有子运行宣称为稳态，也不是冻结 universal 方法排名。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v56-e6-parent-closure-completion-status:END -->
+<!-- HANDOFF-DELTA-BLOCK:section_end:v75-countdown-status-note:START -->
+- **v75 Countdown 逐样本机制诊断补记：**`EXT-C` 已完成一个 single-seed full-bank `arithmetic_wrong` response diagnostic：`6000` puzzles × near/far = `12000` rows，固定 `negative_coefficient_abs=1.0`，观察到 surprisal 与 trainable-parameter gradient norm 的正相关、near/far 配对增益和 decile 平台化趋势。该补记只把 Countdown 机制观察从 10-puzzle smoke 升级为 full-bank pilot；不升级 `EXT-C-E8-TAPER-0.5B-01` 或 `EXT-C-E8-SCALE-01` 的 formal 状态，也不改变 Countdown 不能替代 D-U1/C-U1 因果识别的边界。
+<!-- HANDOFF-DELTA-BLOCK:section_end:v75-countdown-status-note:END -->
 
 # 6. 接下来唯一执行顺序
 
@@ -107,3 +110,6 @@
 <!-- HANDOFF-DELTA-BLOCK:section_end:v74-du1-e6-rev4-execution-order:START -->
 > **v74 唯一执行顺序覆盖：** 先应用并验证本 revision-4 freeze 更新；随后运行 `D-U1-E6-CARTESIAN-TAPER-01` 的 120 个 formal runs（6 methods × seeds `200--219`），每 5 seeds 形成持久 checkpoint；raw complete 后执行两窗口终态审计、三类崩溃分报加 environment-validity 分报、正式 artifact 打包与仓库结果登记。正式包交付前不得启动下一个依赖该结论的实验，也不得把 development pilot 宣称为正式排名。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v74-du1-e6-rev4-execution-order:END -->
+<!-- HANDOFF-DELTA-BLOCK:section_end:v75-countdown-execution-order:START -->
+13. **v75 Countdown full-bank diagnostic 后续门禁：**若需要把该外部机制诊断从 pilot 升级为正式证据，下一步不是调参，而是补跑多个独立 SFT/offline seeds 的同一 `probe_gradients` 导出并做 seed-level bootstrap。现有 single-seed 结果可用于论文候选图的 pilot 数值与口径设计，但禁止写成 multi-seed formal、方法排名或 scale-up 结论；E7 同口径逐样本统计仍需另行重导出。
+<!-- HANDOFF-DELTA-BLOCK:section_end:v75-countdown-execution-order:END -->

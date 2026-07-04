@@ -1,4 +1,4 @@
-# DRPO / SNA2C 远场负梯度动力学研究主文档 v74（D-U1 E6 revision-4 正式协议冻结版）
+# DRPO / SNA2C 远场负梯度动力学研究主文档 v75（Countdown full-bank surprisal-gradient pilot 落库版）
 <!-- HANDOFF-DELTA-BLOCK:after_heading:v50-stage3-shadow-bootstrap:START -->
 > **v50 增量登记：治理 Pipeline Stage 3 `HANDOFF_DELTA.yaml` shadow mode 启动（不删除 v49 及更早内容）**
 >
@@ -809,6 +809,18 @@
 > - **梯度预算口径修复：**共享负尺度的实际定义是 positive aggregate gradient L2 除以 uncontrolled-negative aggregate gradient L2，不再误称 per-sample RMS。Global 与 taper 的 initialization matching 继续比较 aggregate raw negative-gradient L2；Adam update 不宣称匹配。
 > - **状态边界：**本次只完成实现和门禁修复，未运行 Qwen/CUDA pilot，未产生任何方法排名。`EXT-C-E8-TAPER-0.5B-01` 状态为 `not_run + implemented + ready`；任务性能退化、valid/support/entropy boundary 和 NaN/Inf 仍必须分开报告，fixed 1200-update horizon 不自动称为收敛。
 <!-- HANDOFF-DELTA-BLOCK:after_heading:v73-e8-taper-corrected:END -->
+<!-- HANDOFF-DELTA-BLOCK:after_heading:v75-countdown-fullbank-gradient-pilot:START -->
+> **v75 增量登记：Countdown full-bank 连续 surprisal--gradient 诊断 pilot（不删除 v74 及更早内容）**
+>
+> - **旧缺口与修正：**v67 已关闭 Countdown 0.5B 机制探索职责，并登记“learner-relative surprisal 较高的错误 completion 往往具有更大的 raw negative influence”的范围受限观察；但当时缺少 full-bank 逐 response 的 trainable-parameter gradient norm 统计。本次补入一个 single-seed full-bank pilot，只回答外部 Transformer 诊断问题：在 verifier outcome 与 negative coefficient 固定时，当前 SFT/reference policy 下的 completion surprisal 是否对应更大的实际可训练参数梯度。
+> - **数据身份：**用户提供的 `countdown_gradient_samples_seed100_full.csv` 为 seed `100`、`6000` 个 Countdown puzzles、near/far 各 `6000` 条，共 `12000` 条逐 response 记录。所有样本均为 `verifier_category=arithmetic_wrong`，`valid_format=True`，`uses_numbers=True`，`correct=False`，`negative_coefficient_abs=1.0`。该文件是 full-bank pilot，不是 multi-seed formal result；raw CSV 尚未作为 repository artifact 入库。
+> - **数据质量审计：**`mean_token_surprisal`、`direct_logit_score` 与 `trainable_parameter_gradient_norm` 全部有限；gradient norm 非负，范围 `0.650949--438.303528`；surprisal 范围 `0.008992--13.829518`。重新计算 surprisal 与 stored base surprisal 的绝对差异中位数为 `0`，`97.38%` 行完全一致，最大差异 `0.034105`，可作为小规模重算/数值差异而非数据错位信号。
+> - **样本级相关：**在全部 `12000` 条 arithmetic-wrong responses 上，surprisal 与 trainable-parameter gradient norm 的 Pearson correlation 为 `0.363`，puzzle-cluster bootstrap 95% CI `[0.343,0.381]`；Spearman correlation 为 `0.445`，95% CI `[0.426,0.463]`。direct-logit score 与 gradient norm 的 Pearson/Spearman 分别为 `0.498/0.568`。
+> - **near/far 配对统计：**`far_surprisal > near_surprisal` 为 `6000/6000`，`far_direct_logit_score > near_direct_logit_score` 为 `98.73%`，`far_gradient_norm > near_gradient_norm` 为 `68.55%`。near/far 平均 gradient norm 分别为 `82.294/95.185`，配对均值差 `+12.891`，cluster bootstrap 95% CI `[+11.505,+14.188]`；far/near gradient norm 中位数比为 `1.316`，95% CI `[1.294,1.340]`；Wilcoxon paired p-value 约 `1.27e-128`。
+> - **连续分桶趋势：**按 surprisal 做 `10` 个等样本量 bin（每 bin `1200` 条）后，最低 bin 平均 gradient norm 为 `40.274`。中高 surprisal bins 上升到约 `99.91--102.40`，相对最低 bin 为 `2.48--2.54x`，最高 bin 为 `98.56`（`2.45x`）。bin-level Pearson/Spearman 为 `0.829/0.818`。因此图形口径应写成“随 learner-relative surprisal 系统上升并在高 surprisal 区间平台化”，不得写成逐样本严格单调或无界爆炸。
+> - **控制项回归：**在 log-gradient 回归中同时控制 `token_count` 与 near/far role 后，surprisal 每增加 `1`，trainable-parameter gradient norm 的乘性因子约为 `1.0275`。这支持“固定 negative coefficient magnitude 不变时，实际参数空间中的负梯度仍随 learner-relative surprisal 增强”的外部诊断结论。
+> - **结论边界：**本结果状态为 **pilot / single-seed full-bank diagnostic**。它不能提供 seed-level CI，不能称为正式 Countdown 结果，不能替代 D-U1/D-Diag 的受控因果识别，也不能说明某个 taper 方法必然改善任务性能。若要升级为正式外部证据，必须运行多个独立 SFT/offline seeds，并使用 seed-level bootstrap；E7 若要同图同口径比较，也仍需重新导出逐样本 distance/surprisal--gradient 统计。
+<!-- HANDOFF-DELTA-BLOCK:after_heading:v75-countdown-fullbank-gradient-pilot:END -->
 
 1. **唯一 Master 文档是任务轴。** 新理论、新实验、新变量、代码入口和结果状态必须先登记，再执行。
 2. **文档先于实验。** 未写明 claim、环境、数据、指标、收敛条件和结果落点的实验，严格禁止启动。
@@ -1441,6 +1453,9 @@ Convergence 继续使用 seeds `110--129`，从 Budget-Match 8000-step actor 与
 <!-- HANDOFF-DELTA-BLOCK:section_end:v56-e6-parent-closure-completion-status:START -->
 **v56 E6 父实验关闭判断：** E6 已达到当前论文所需的机制与泛化证据闭环：主语义 long-run 给出 Positive-only ceiling、适度负信号收益、过强压力反转与 semantic-alignment 排他性；semantic-gap successor 复现中等 alpha 收益和 `alpha=1` 随 horizon 扩大的退化；conditional-gap stress diagnostic 证明更强支持缺口下局部收益与 overall trade-off、强压力任务崩溃及控制救援。关闭的是上述父 claim，不是把所有子运行宣称为稳态，也不是冻结 universal 方法排名。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v56-e6-parent-closure-completion-status:END -->
+<!-- HANDOFF-DELTA-BLOCK:section_end:v75-countdown-status-note:START -->
+- **v75 Countdown 逐样本机制诊断补记：**`EXT-C` 已完成一个 single-seed full-bank `arithmetic_wrong` response diagnostic：`6000` puzzles × near/far = `12000` rows，固定 `negative_coefficient_abs=1.0`，观察到 surprisal 与 trainable-parameter gradient norm 的正相关、near/far 配对增益和 decile 平台化趋势。该补记只把 Countdown 机制观察从 10-puzzle smoke 升级为 full-bank pilot；不升级 `EXT-C-E8-TAPER-0.5B-01` 或 `EXT-C-E8-SCALE-01` 的 formal 状态，也不改变 Countdown 不能替代 D-U1/C-U1 因果识别的边界。
+<!-- HANDOFF-DELTA-BLOCK:section_end:v75-countdown-status-note:END -->
 
 # 6. 接下来唯一执行顺序
 
@@ -1501,6 +1516,9 @@ Convergence 继续使用 seeds `110--129`，从 Budget-Match 8000-step actor 与
 <!-- HANDOFF-DELTA-BLOCK:section_end:v74-du1-e6-rev4-execution-order:START -->
 > **v74 唯一执行顺序覆盖：** 先应用并验证本 revision-4 freeze 更新；随后运行 `D-U1-E6-CARTESIAN-TAPER-01` 的 120 个 formal runs（6 methods × seeds `200--219`），每 5 seeds 形成持久 checkpoint；raw complete 后执行两窗口终态审计、三类崩溃分报加 environment-validity 分报、正式 artifact 打包与仓库结果登记。正式包交付前不得启动下一个依赖该结论的实验，也不得把 development pilot 宣称为正式排名。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v74-du1-e6-rev4-execution-order:END -->
+<!-- HANDOFF-DELTA-BLOCK:section_end:v75-countdown-execution-order:START -->
+13. **v75 Countdown full-bank diagnostic 后续门禁：**若需要把该外部机制诊断从 pilot 升级为正式证据，下一步不是调参，而是补跑多个独立 SFT/offline seeds 的同一 `probe_gradients` 导出并做 seed-level bootstrap。现有 single-seed 结果可用于论文候选图的 pilot 数值与口径设计，但禁止写成 multi-seed formal、方法排名或 scale-up 结论；E7 同口径逐样本统计仍需另行重导出。
+<!-- HANDOFF-DELTA-BLOCK:section_end:v75-countdown-execution-order:END -->
 
 # 7. 变量治理
 
