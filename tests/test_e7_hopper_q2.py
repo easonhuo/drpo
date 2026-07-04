@@ -134,6 +134,30 @@ def test_config_is_bound_to_q2() -> None:
     assert config.rollout_preflight_max_steps == 2000
     assert config.formal.rollout_episodes == 5
     assert config.formal.final_rollout_episodes == 20
+    assert config.activation == "tanh"
+    assert config.init_scheme == "default"
+    assert config.init_gain == 1.0
+
+
+def test_network_builder_supports_recovered_relu_orthogonal_profile() -> None:
+    torch.manual_seed(0)
+    policy = mod.SquashedGaussianPolicy(
+        3,
+        2,
+        (8,),
+        -5.0,
+        2.0,
+        1e-6,
+        activation="relu",
+        init_scheme="orthogonal",
+        init_gain=float(np.sqrt(2)),
+    )
+    assert any(isinstance(layer, torch.nn.ReLU) for layer in policy.mean_net.modules())
+    assert not any(isinstance(layer, torch.nn.Tanh) for layer in policy.mean_net.modules())
+    first = next(layer for layer in policy.mean_net.modules() if isinstance(layer, torch.nn.Linear))
+    gram = first.weight.detach().T @ first.weight.detach()
+    expected = torch.eye(gram.shape[0]) * 2.0
+    torch.testing.assert_close(gram, expected, atol=1e-5, rtol=1e-5)
 
 
 def test_legacy_hdf5_loader(tmp_path: Path) -> None:

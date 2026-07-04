@@ -2,9 +2,9 @@
 
 ## Scope
 
-This is a `pilot` substage under the existing `EXT-H-E7-BENCH-01` ID. It does not create a second top-level experiment. The pilot checks the benchmark implementation, runtime, artifact volume, paired method branching, rollout evaluation, terminal-state audit, and whether the frozen continuous taper families show a reproducible preliminary direction under a D4RL-scale training budget.
+This is a `pilot` substage under the existing `EXT-H-E7-BENCH-01` ID. It does not create a second top-level experiment. The pilot checks the benchmark implementation, runtime, artifact volume, paired method branching, rollout evaluation, terminal-state audit, and method-specific parameter sensitivity under a D4RL-scale training budget.
 
-The formal benchmark remains the registered nine-cell D4RL MuJoCo suite. Pilot output is not formal nine-task evidence and may not be used to select a new taper family or tune a task-specific coefficient.
+The formal benchmark remains the registered nine-cell D4RL MuJoCo suite. Pilot output is not formal nine-task evidence and may not be used to select a new method family, tune a task-specific coefficient, or populate a formal method ranking. A later freeze update is required before any selected scalar can be promoted to a formal benchmark setting.
 
 ## Correction of the superseded short-budget design
 
@@ -22,11 +22,12 @@ No scientific pilot result was produced under that design. This protocol replace
 
 Only NaN/Inf numerical failure may stop a worker early. A fixed horizon is not treated as convergence.
 
-## Pilot matrix
+## Pilot parameter-sweep matrix
 
-- Four development seeds: `200, 201, 202, 203`.
-- Six methods: Positive-only, Signed, Global alpha, Reciprocal-Linear, Reciprocal-Quadratic, and Exponential.
-- Taper coefficients are copied without D4RL retuning from the frozen C-U1 near-retention calibration.
+- Two development seeds: `200, 201`. The seed count is intentionally reduced from four to two so the same server budget can cover more method-specific scalar settings.
+- Six method families remain fixed: Positive-only, Signed, Global alpha, Reciprocal-Linear, Reciprocal-Quadratic, and Exponential.
+- The pilot expands these into 22 method variants: one Positive-only, one Signed, five Global-alpha scalars, five Reciprocal-Linear coefficients, five Reciprocal-Quadratic coefficients, and five Exponential coefficients.
+- The old C-U1 near-retention scalars remain present as baseline variants, but the surrounding grid is a pilot sensitivity search only; it does not authorize per-task D4RL retuning or formal coefficient promotion.
 - Two uploaded data cells:
   - `hopper-medium-minari-v0`: the exact uploaded `mujoco/hopper/medium-v0` file. Metadata identifies it as Minari/Hopper-v5, not D4RL Hopper-medium-v2. It is plumbing/pilot-only and is not eligible for the formal nine-cell table.
   - `hopper-medium-expert-v2`: the exact uploaded D4RL-v2 legacy HDF5 cell.
@@ -38,10 +39,10 @@ The version distinction is deliberate. The code refuses to relabel the Minari me
 The coordinator uses three fail-fast subprocess stages:
 
 1. Two dataset-level canonical critics run concurrently: `2 × 64 = 128` CPU threads.
-2. Eight `(dataset, seed)` shared Positive-only warm-starts run concurrently: `8 × 32 = 256` CPU threads.
-3. Forty-eight `(dataset, seed, method)` equal-horizon continuations run concurrently: `48 × 7 = 336` CPU threads.
+2. Four `(dataset, seed)` shared Positive-only warm-starts run concurrently: `4 × 64 = 256` CPU threads.
+3. Eighty-eight `(dataset, seed, method_variant)` equal-horizon continuations run concurrently: `88 × 4 = 352` CPU threads.
 
-The third stage includes Positive-only itself. Every method loads the same 100k warm-start for its dataset and seed, creates a fresh optimizer, and receives the same 200k continuation budget. This removes the former 20k-versus-60k comparison asymmetry.
+The third stage includes Positive-only itself. Every method variant loads the same 100k warm-start for its dataset and seed, creates a fresh optimizer, and receives the same 200k continuation budget. This removes the former 20k-versus-60k comparison asymmetry while allowing method-specific scalar search.
 
 The taper definitions are fixed and explicit. For standardized Gaussian distance
 `u = d / 5`, Reciprocal-Linear uses `1 / (1 + c u)`, Reciprocal-Quadratic uses
@@ -49,7 +50,7 @@ The taper definitions are fixed and explicit. For standardized Gaussian distance
 the squared standardized distance, which is the Gaussian surprisal-order proxy;
 it is not the quartic form that would arise from reciprocal-squared-surprisal.
 
-The peak registered allocation is 336 threads, leaving 48 threads of headroom on a 384-core server. Seeds and methods are never executed by a top-level serial loop. Every worker has an isolated output directory, and shared aggregate files are written only by the coordinator.
+The peak registered allocation is 352 threads, leaving 32 threads of headroom on a 384-core server. Seeds and method variants are never executed by a top-level serial loop. Every worker has an isolated output directory, and shared aggregate files are written only by the coordinator.
 
 The formal nine-cell registration freezes the same topology: `task_seed_method` is the continuation parallel unit, both serial seed and serial method loops are forbidden, Positive-only is an equal-horizon continuation branch, and each method starts from an identical per-task-seed Positive-only warm-start. Formal launch remains fail-closed until exact formal seeds, D4RL versions, base algorithm, optimizer, and full budgets are registered.
 
@@ -62,7 +63,7 @@ Resume identity is not based only on dataset, seed, and method names. Every run 
 - runner and protocol versions;
 - dataset SHA-256;
 - stage-specific training budget;
-- method identity and all taper parameters.
+- method variant identity and all scalar/taper parameters.
 
 A work directory from the superseded `20k/20k/40k` design cannot be resumed under this protocol. The coordinator fails closed and requires a new work directory. Within a matching run identity, incomplete worker directories are preserved under a `_stale_worker_outputs` archive before that worker alone is retried.
 
@@ -81,7 +82,7 @@ The long budget makes this a meaningful scientific pilot rather than a plumbing 
 - a universal method ranking;
 - superiority over Positive-only;
 - formal nine-task D4RL performance;
-- permission to change the frozen taper families or coefficients.
+- permission to change method families, tune per-task coefficients, or promote a scalar into the formal benchmark without a separate freeze update.
 
 The terminal audit continues to report separately:
 

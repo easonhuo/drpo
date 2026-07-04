@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 """Parallel pilot/scaffold runner for EXT-H-E7-BENCH-01.
 
-The pilot is a registered substage of the existing benchmark ID. It runs two
-Hopper offline datasets and four development seeds through three parallel stages:
+The parameter-sweep pilot is a registered substage of the existing benchmark ID. It
+runs two Hopper offline datasets and two development seeds through three parallel
+stages while sweeping method-specific parameters:
 
 1. one canonical frozen-advantage critic per dataset (2 workers);
-2. one shared Positive-only warm-start per ``(dataset, seed)`` pair (8 workers);
-3. one equal-horizon continuation per ``(dataset, seed, method)`` tuple
-   (48 workers, including Positive-only).
+2. one shared Positive-only warm-start per ``(dataset, seed)`` pair (4 workers);
+3. one equal-horizon continuation per ``(dataset, seed, method_variant)`` tuple
+   (88 workers for the registered 22-variant sweep, including Positive-only).
 
-Both seeds and all six method continuations are parallel at the coordinator
+Both seeds and all method-variant continuations are parallel at the coordinator
 level. Every continuation verifies and loads the same 100k Positive-only
 warm-start for its dataset/seed pair, preserving paired initialization without
 serializing methods or giving Positive-only a shorter total actor horizon.
@@ -17,8 +18,10 @@ The formal nine-cell benchmark registers the same ``task_seed_method`` topology,
 but remains fail-closed until its exact versions, seeds, base algorithm, optimizer,
 and full budgets are frozen.
 
-Pilot results are pilot evidence only. They may not be used to retune method
-families or per-task hyperparameters for the formal benchmark.
+Pilot sweep results are pilot evidence only. They may be used to choose a
+separate follow-up candidate configuration, but they may not populate the formal
+nine-task table, retune per D4RL task, or become a formal method ranking without a
+separately registered freeze and terminal audit.
 """
 from __future__ import annotations
 
@@ -52,10 +55,10 @@ if __package__ in (None, ""):
 from drpo import e7_hopper_q2 as q2
 
 EXPERIMENT_ID = "EXT-H-E7-BENCH-01"
-RUNNER_VERSION = "0.2.1-long-budget-parallel-pilot"
+RUNNER_VERSION = "0.2.3-recovered-network-profile-param-sweep"
 PILOT_STATUS = "pilot"
 WARMSTART_METHOD = "positive_only_warmstart"
-PILOT_METHODS = (
+PILOT_METHOD_FAMILIES = (
     "positive_only",
     "signed",
     "global_alpha",
@@ -63,6 +66,8 @@ PILOT_METHODS = (
     "reciprocal_quadratic",
     "exponential",
 )
+# Backward-compatible alias: these are method *families*, not sweep variants.
+PILOT_METHODS = PILOT_METHOD_FAMILIES
 TAPER_METHODS = (
     "reciprocal_linear",
     "reciprocal_quadratic",
@@ -165,6 +170,26 @@ class ParallelConfig:
 
 
 @dataclass(frozen=True)
+class NetworkProfile:
+    source: str
+    hidden_sizes: tuple[int, ...]
+    activation: str
+    init_scheme: str
+    init_gain: float
+    log_std_mode: str
+    log_std_min: float
+    log_std_max: float
+
+
+@dataclass(frozen=True)
+class MethodVariant:
+    id: str
+    family: str
+    global_alpha: float | None = None
+    coefficient: float | None = None
+
+
+@dataclass(frozen=True)
 class MethodConfig:
     global_alpha: float
     reference_distance: float
@@ -172,6 +197,13 @@ class MethodConfig:
     coefficients: dict[str, float]
     coefficient_source: str
     d4rl_retuning_allowed: bool
+    pilot_parameter_search_enabled: bool
+    per_task_retuning_allowed: bool
+    variants: tuple[MethodVariant, ...]
+
+    @property
+    def ids(self) -> tuple[str, ...]:
+        return tuple(variant.id for variant in self.variants)
 
 
 @dataclass(frozen=True)
@@ -182,6 +214,7 @@ class BenchConfig:
     datasets: tuple[DatasetSpec, ...]
     budget: PilotBudget
     parallel: ParallelConfig
+    network_profile: NetworkProfile
     methods: MethodConfig
     formal_protocol_locked: bool
     formal_parallel_unit: str
@@ -255,14 +288,58 @@ def load_bench_config(path: str | Path) -> BenchConfig:
         serial_seed_loop_forbidden=bool(parallel_raw["serial_seed_loop_forbidden"]),
         parallel_unit=str(parallel_raw["parallel_unit"]),
     )
+    profile_raw = raw["model_profile"]
+    network_profile = NetworkProfile(
+        source=str(profile_raw["source"]),
+        hidden_sizes=tuple(int(x) for x in profile_raw["hidden_sizes"]),
+        activation=str(profile_raw["activation"]),
+        init_scheme=str(profile_raw["init"]),
+        init_gain=float(profile_raw["init_gain"]),
+        log_std_mode=str(profile_raw["log_std_mode"]),
+        log_std_min=float(profile_raw["log_std_min"]),
+        log_std_max=float(profile_raw["log_std_max"]),
+    )
     method_raw = raw["methods"]
+    coefficients = {str(k): float(v) for k, v in method_raw["coefficients"].items()}
+    search_raw = method_raw.get("pilot_parameter_search", {}) or {}
+    variants_raw = search_raw.get("variants") or []
+    variants = tuple(
+        MethodVariant(
+            id=str(item["id"]),
+            family=str(item["family"]),
+            global_alpha=(
+                None if item.get("global_alpha") is None else float(item["global_alpha"])
+            ),
+            coefficient=(
+                None if item.get("coefficient") is None else float(item["coefficient"])
+            ),
+        )
+        for item in variants_raw
+    )
+    if not variants:
+        variants = (
+            MethodVariant(id="positive_only", family="positive_only"),
+            MethodVariant(id="signed", family="signed"),
+            MethodVariant(
+                id="global_alpha",
+                family="global_alpha",
+                global_alpha=float(method_raw["global_alpha"]),
+            ),
+            *(
+                MethodVariant(id=name, family=name, coefficient=value)
+                for name, value in coefficients.items()
+            ),
+        )
     methods = MethodConfig(
         global_alpha=float(method_raw["global_alpha"]),
         reference_distance=float(method_raw["reference_distance"]),
         near_region_boundary=float(method_raw["near_region_boundary"]),
-        coefficients={str(k): float(v) for k, v in method_raw["coefficients"].items()},
+        coefficients=coefficients,
         coefficient_source=str(method_raw["coefficient_source"]),
         d4rl_retuning_allowed=bool(method_raw["d4rl_retuning_allowed"]),
+        pilot_parameter_search_enabled=bool(search_raw.get("enabled", False)),
+        per_task_retuning_allowed=bool(search_raw.get("per_task_retuning_allowed", False)),
+        variants=variants,
     )
     formal = raw["formal_parallel_contract"]
     base_path = Path(str(raw["pilot"]["base_config_path"]))
@@ -278,6 +355,7 @@ def load_bench_config(path: str | Path) -> BenchConfig:
         datasets=datasets,
         budget=budget,
         parallel=parallel,
+        network_profile=network_profile,
         methods=methods,
         formal_protocol_locked=bool(formal["protocol_locked"]),
         formal_parallel_unit=str(formal["parallel_unit"]),
@@ -294,14 +372,14 @@ def load_bench_config(path: str | Path) -> BenchConfig:
 def validate_bench_config(config: BenchConfig) -> None:
     if len(config.datasets) != 2:
         raise ValueError("pilot must contain exactly two registered dataset cells")
-    if len(config.budget.seeds) != 4 or len(set(config.budget.seeds)) != 4:
-        raise ValueError("pilot must contain exactly four unique development seeds")
-    if config.parallel.parallel_unit != "dataset_seed_method":
-        raise ValueError("pilot parallel_unit must be dataset_seed_method")
+    if len(config.budget.seeds) != 2 or len(set(config.budget.seeds)) != 2:
+        raise ValueError("parameter-sweep pilot must contain exactly two unique development seeds")
+    if config.parallel.parallel_unit != "dataset_seed_method_variant":
+        raise ValueError("parameter-sweep pilot parallel_unit must be dataset_seed_method_variant")
     if not config.parallel.serial_seed_loop_forbidden:
         raise ValueError("pilot must forbid top-level serial seed or method loops")
     task_seed_jobs = len(config.datasets) * len(config.budget.seeds)
-    branch_jobs = task_seed_jobs * len(PILOT_METHODS)
+    branch_jobs = task_seed_jobs * len(config.methods.variants)
     if config.parallel.warmstart_workers < task_seed_jobs:
         raise ValueError(
             f"pilot warmstart_workers must cover all {task_seed_jobs} task-seed jobs"
@@ -325,12 +403,50 @@ def validate_bench_config(config: BenchConfig) -> None:
         raise ValueError("formal benchmark must forbid serial method execution")
     if config.formal_task_count != 9:
         raise ValueError("formal benchmark must retain exactly nine task cells")
+    if config.network_profile.hidden_sizes != (256, 256):
+        raise ValueError("recovered E7 network profile must retain 2x256 hidden sizes")
+    if config.network_profile.activation.strip().lower() != "relu":
+        raise ValueError("recovered E7 network profile must use ReLU activations")
+    if config.network_profile.init_scheme.strip().lower() != "orthogonal":
+        raise ValueError("recovered E7 network profile must use orthogonal initialization")
+    if config.network_profile.log_std_mode != "independent_global_diagonal":
+        raise ValueError("recovered E7 network profile must retain independent global diagonal log_std")
+    if config.network_profile.log_std_min != -5.0 or config.network_profile.log_std_max != 2.0:
+        raise ValueError("recovered E7 network profile must retain log_std clamp [-5, 2]")
     if config.methods.d4rl_retuning_allowed:
-        raise ValueError("D4RL retuning must remain disabled")
+        raise ValueError("formal D4RL retuning must remain disabled")
+    if config.methods.per_task_retuning_allowed:
+        raise ValueError("per-task D4RL retuning is forbidden for this pilot sweep")
     if set(config.methods.coefficients) != set(TAPER_METHODS):
-        raise ValueError("pilot taper coefficients must cover the frozen three-family shortlist")
+        raise ValueError("pilot taper coefficients must retain the frozen three-family baseline")
     if not (0.0 < config.methods.global_alpha <= 1.0):
-        raise ValueError("global_alpha must be in (0, 1]")
+        raise ValueError("global_alpha baseline must be in (0, 1]")
+    variant_ids = config.methods.ids
+    if len(set(variant_ids)) != len(variant_ids):
+        raise ValueError("method variant ids must be unique")
+    if len(variant_ids) < len(PILOT_METHOD_FAMILIES):
+        raise ValueError("method parameter sweep must include more than the six family baselines")
+    families = {variant.family for variant in config.methods.variants}
+    if families != set(PILOT_METHOD_FAMILIES):
+        raise ValueError("method parameter sweep must cover exactly the registered families")
+    if not config.methods.pilot_parameter_search_enabled:
+        raise ValueError("pilot parameter search must be explicitly enabled")
+    for variant in config.methods.variants:
+        if variant.family in {"positive_only", "signed"}:
+            if variant.global_alpha is not None or variant.coefficient is not None:
+                raise ValueError(f"{variant.family} variant must not carry a tunable scalar")
+        elif variant.family == "global_alpha":
+            if variant.global_alpha is None or not (0.0 < variant.global_alpha <= 1.0):
+                raise ValueError("global_alpha variants must define a scalar in (0, 1]")
+            if variant.coefficient is not None:
+                raise ValueError("global_alpha variants must not define a taper coefficient")
+        elif variant.family in TAPER_METHODS:
+            if variant.coefficient is None or variant.coefficient <= 0.0:
+                raise ValueError("taper variants must define a positive coefficient")
+            if variant.global_alpha is not None:
+                raise ValueError("taper variants must not define global_alpha")
+        else:
+            raise ValueError(f"unknown method family: {variant.family}")
     if config.budget.critic_steps != 100000:
         raise ValueError("pilot critic_steps must remain frozen at 100000")
     if config.budget.shared_positive_warmstart_steps != 100000:
@@ -377,8 +493,9 @@ def run_identity_payload(config: BenchConfig) -> dict[str, Any]:
         "seeds": list(config.budget.seeds),
         "canonical_critic_seed": config.budget.canonical_critic_seed,
         "budget": dataclasses.asdict(config.budget),
+        "network_profile": dataclasses.asdict(config.network_profile),
         "methods": {
-            "ids": list(PILOT_METHODS),
+            "family_ids": list(PILOT_METHOD_FAMILIES),
             **dataclasses.asdict(config.methods),
         },
         "parallel": dataclasses.asdict(config.parallel),
@@ -428,6 +545,7 @@ def worker_identity_payload(
         "seed": seed,
         "method": method,
         "stage_budget": stage_budget,
+        "network_profile": dataclasses.asdict(config.network_profile),
         "method_parameters": dataclasses.asdict(config.methods),
     }
 
@@ -521,7 +639,7 @@ def build_execution_plan(config: BenchConfig, mode: str) -> dict[str, Any]:
             {"dataset_id": dataset.id, "seed": seed, "method": method}
             for dataset in config.datasets
             for seed in config.budget.seeds
-            for method in PILOT_METHODS
+            for method in config.methods.ids
         ]
         return {
             "mode": mode,
@@ -804,6 +922,12 @@ def make_q2_config(
         normalized_score_reference_min=reference_min,
         normalized_score_reference_max=reference_max,
         pilot=mode,
+        hidden_sizes=config.network_profile.hidden_sizes,
+        activation=config.network_profile.activation,
+        init_scheme=config.network_profile.init_scheme,
+        init_gain=config.network_profile.init_gain,
+        log_std_min=config.network_profile.log_std_min,
+        log_std_max=config.network_profile.log_std_max,
     )
     return adapted, mode
 
@@ -819,28 +943,39 @@ def configure_worker_threads(cpus_per_worker: int) -> None:
         pass
 
 
+def get_method_variant(method: str, methods: MethodConfig) -> MethodVariant:
+    for variant in methods.variants:
+        if variant.id == method:
+            return variant
+    raise ValueError(f"unknown benchmark method variant: {method}")
+
+
 def taper_weight(
     distance: torch.Tensor,
     method: str,
     methods: MethodConfig,
 ) -> torch.Tensor:
-    if method == "signed":
+    variant = get_method_variant(method, methods)
+    family = variant.family
+    if family == "signed":
         return torch.ones_like(distance)
-    if method == "global_alpha":
-        return torch.full_like(distance, methods.global_alpha)
-    if method == "positive_only":
+    if family == "global_alpha":
+        if variant.global_alpha is None:
+            raise ValueError(f"global_alpha variant lacks scalar: {method}")
+        return torch.full_like(distance, float(variant.global_alpha))
+    if family == "positive_only":
         return torch.zeros_like(distance)
-    coefficient = methods.coefficients.get(method)
+    coefficient = variant.coefficient
     if coefficient is None:
-        raise ValueError(f"unknown benchmark method: {method}")
+        raise ValueError(f"taper variant lacks coefficient: {method}")
     u = distance / methods.reference_distance
-    if method == "reciprocal_linear":
+    if family == "reciprocal_linear":
         return 1.0 / (1.0 + coefficient * u)
-    if method == "reciprocal_quadratic":
+    if family == "reciprocal_quadratic":
         return 1.0 / (1.0 + coefficient * u.square())
-    if method == "exponential":
+    if family == "exponential":
         return torch.exp(-coefficient * u)
-    raise ValueError(f"unknown taper family: {method}")
+    raise ValueError(f"unknown taper family: {family}")
 
 
 def benchmark_actor_loss(
@@ -854,8 +989,9 @@ def benchmark_actor_loss(
     log_prob = policy.log_prob(obs_t, actions_t)
     negative = advantages_t < 0
     distance = policy.standardized_distance(obs_t, actions_t).detach()
+    variant = get_method_variant(method, methods)
     factor = torch.ones_like(advantages_t)
-    if method == "positive_only":
+    if variant.family == "positive_only":
         factor = torch.where(negative, torch.zeros_like(factor), factor)
     else:
         factor = torch.where(negative, taper_weight(distance, method, methods), factor)
@@ -881,6 +1017,13 @@ def benchmark_actor_loss(
         "near_negative_fraction": float(near.float().mean().detach().cpu()),
         "far_negative_fraction": float(far.float().mean().detach().cpu()),
         "reference_distance": methods.reference_distance,
+        "method_family": variant.family,
+        "method_global_alpha": (
+            float(variant.global_alpha) if variant.global_alpha is not None else float("nan")
+        ),
+        "method_coefficient": (
+            float(variant.coefficient) if variant.coefficient is not None else float("nan")
+        ),
     }
 
 
@@ -1394,6 +1537,8 @@ def warmstart_worker(args: argparse.Namespace) -> int:
         negative_indices,
         device,
     ) = _actor_worker_context(args)
+    if args.method not in config.methods.ids:
+        raise ValueError(f"invalid branch method variant: {args.method}")
     seed = int(args.seed)
     worker_identity, identity_payload = verify_worker_identity(
         args,
@@ -1412,6 +1557,9 @@ def warmstart_worker(args: argparse.Namespace) -> int:
         q2_config.log_std_min,
         q2_config.log_std_max,
         q2_config.action_clip_epsilon,
+        q2_config.activation,
+        q2_config.init_scheme,
+        q2_config.init_gain,
     ).to(device)
     summary = train_policy_method(
         policy=policy,
@@ -1486,8 +1634,6 @@ def warmstart_worker(args: argparse.Namespace) -> int:
 
 
 def branch_worker(args: argparse.Namespace) -> int:
-    if args.method not in PILOT_METHODS:
-        raise ValueError(f"invalid branch method: {args.method}")
     (
         config,
         spec,
@@ -1502,6 +1648,8 @@ def branch_worker(args: argparse.Namespace) -> int:
         negative_indices,
         device,
     ) = _actor_worker_context(args)
+    if args.method not in config.methods.ids:
+        raise ValueError(f"invalid branch method variant: {args.method}")
     seed = int(args.seed)
     worker_identity, identity_payload = verify_worker_identity(
         args,
@@ -1541,6 +1689,9 @@ def branch_worker(args: argparse.Namespace) -> int:
         q2_config.log_std_min,
         q2_config.log_std_max,
         q2_config.action_clip_epsilon,
+        q2_config.activation,
+        q2_config.init_scheme,
+        q2_config.init_gain,
     ).to(device)
     policy.load_state_dict(payload["model"])
     output_dir = Path(args.output_dir).expanduser().resolve()
@@ -1850,7 +2001,7 @@ def aggregate_pilot(work_dir: Path, config: BenchConfig) -> dict[str, Any]:
     rows: list[dict[str, Any]] = []
     for spec in config.datasets:
         for seed in config.budget.seeds:
-            for method in PILOT_METHODS:
+            for method in config.methods.ids:
                 branch_dir = (
                     work_dir
                     / "branches"
@@ -1910,10 +2061,11 @@ def aggregate_pilot(work_dir: Path, config: BenchConfig) -> dict[str, Any]:
         "method_ranking_claim_allowed": False,
         "datasets": [spec.id for spec in config.datasets],
         "seeds": list(config.budget.seeds),
-        "methods": list(PILOT_METHODS),
+        "method_variants": list(config.methods.ids),
+        "method_families": list(PILOT_METHOD_FAMILIES),
         "task_seed_jobs": len(config.datasets) * len(config.budget.seeds),
         "task_seed_method_branch_jobs": (
-            len(config.datasets) * len(config.budget.seeds) * len(PILOT_METHODS)
+            len(config.datasets) * len(config.budget.seeds) * len(config.methods.ids)
         ),
         "shared_positive_warmstart_steps": (
             config.budget.shared_positive_warmstart_steps
@@ -2104,7 +2256,7 @@ def run_pilot(args: argparse.Namespace) -> int:
                 raise RuntimeError(
                     f"shared Positive-only warm-start is incomplete for {spec.id} seed {seed}"
                 )
-            for method in PILOT_METHODS:
+            for method in config.methods.ids:
                 output = work_dir / "branches" / spec.id / f"seed_{seed}" / method
                 expected_identity = worker_identity_sha256(
                     config,
@@ -2240,7 +2392,7 @@ def build_parser() -> argparse.ArgumentParser:
     branch.add_argument("--validated-datasets-manifest")
     branch.add_argument("--dataset-id", required=True)
     branch.add_argument("--seed", type=int, required=True)
-    branch.add_argument("--method", required=True, choices=PILOT_METHODS)
+    branch.add_argument("--method", required=True)
     branch.add_argument("--critic-dir", required=True)
     branch.add_argument("--warmstart-dir", required=True)
     branch.add_argument("--output-dir", required=True)

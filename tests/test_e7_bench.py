@@ -25,15 +25,15 @@ def test_pilot_plan_uses_all_384_core_server_parallelism_without_serial_loops() 
     config = e7_bench.load_bench_config(CONFIG)
     plan = e7_bench.build_execution_plan(config, "pilot")
     assert len(plan["critic_parallel_stage"]) == 2
-    assert len(plan["warmstart_parallel_stage"]) == 8
-    assert len(plan["branch_parallel_stage"]) == 48
-    assert sum(row["method"] == "positive_only" for row in plan["branch_parallel_stage"]) == 8
+    assert len(plan["warmstart_parallel_stage"]) == 4
+    assert len(plan["branch_parallel_stage"]) == 88
+    assert sum(row["method"] == "positive_only" for row in plan["branch_parallel_stage"]) == 4
     assert plan["critic_workers"] == 2
-    assert plan["warmstart_workers"] == 8
-    assert plan["branch_workers"] == 48
+    assert plan["warmstart_workers"] == 4
+    assert plan["branch_workers"] == 88
     assert plan["critic_workers"] * plan["critic_cpus_per_worker"] == 128
     assert plan["warmstart_workers"] * plan["warmstart_cpus_per_worker"] == 256
-    assert plan["branch_workers"] * plan["branch_cpus_per_worker"] == 336
+    assert plan["branch_workers"] * plan["branch_cpus_per_worker"] == 352
     assert plan["shared_positive_warmstart_steps"] == 100000
     assert plan["method_continuation_steps"] == 200000
     assert plan["total_actor_steps_per_method"] == 300000
@@ -64,9 +64,9 @@ def test_formal_plan_is_parallel_but_fail_closed_until_protocol_lock() -> None:
     assert plan["protocol_locked"] is False
 
 
-def test_frozen_method_list_and_coefficients_match_controlled_calibration() -> None:
+def test_parameter_sweep_keeps_families_but_expands_method_variants() -> None:
     config = e7_bench.load_bench_config(CONFIG)
-    assert e7_bench.PILOT_METHODS == (
+    assert e7_bench.PILOT_METHOD_FAMILIES == (
         "positive_only",
         "signed",
         "global_alpha",
@@ -74,6 +74,21 @@ def test_frozen_method_list_and_coefficients_match_controlled_calibration() -> N
         "reciprocal_quadratic",
         "exponential",
     )
+    assert config.budget.seeds == (200, 201)
+    assert config.methods.pilot_parameter_search_enabled is True
+    assert config.methods.per_task_retuning_allowed is False
+    assert config.methods.d4rl_retuning_allowed is False
+    assert len(config.methods.variants) == 22
+    families = [variant.family for variant in config.methods.variants]
+    assert families.count("positive_only") == 1
+    assert families.count("signed") == 1
+    assert families.count("global_alpha") == 5
+    assert families.count("reciprocal_linear") == 5
+    assert families.count("reciprocal_quadratic") == 5
+    assert families.count("exponential") == 5
+    assert "global_alpha_a0p05" in config.methods.ids
+    assert "reciprocal_linear_c3p00" in config.methods.ids
+    assert "exponential_c0p374163" in config.methods.ids
     assert config.methods.global_alpha == pytest.approx(0.75)
     assert config.methods.reference_distance == pytest.approx(5.0)
     assert config.methods.coefficients == {
@@ -81,20 +96,33 @@ def test_frozen_method_list_and_coefficients_match_controlled_calibration() -> N
         "reciprocal_quadratic": pytest.approx(0.5520268617673281),
         "exponential": pytest.approx(0.374162511054291),
     }
-    assert config.methods.d4rl_retuning_allowed is False
+
+
+def test_recovered_network_profile_does_not_change_method_weights() -> None:
+    config = e7_bench.load_bench_config(CONFIG)
+    assert config.network_profile.hidden_sizes == (256, 256)
+    assert config.network_profile.activation == "relu"
+    assert config.network_profile.init_scheme == "orthogonal"
+    assert config.network_profile.init_gain == pytest.approx(np.sqrt(2))
+    assert config.network_profile.log_std_mode == "independent_global_diagonal"
+    assert config.network_profile.log_std_min == pytest.approx(-5.0)
+    assert config.network_profile.log_std_max == pytest.approx(2.0)
+    assert config.methods.global_alpha == pytest.approx(0.75)
+    assert not hasattr(config.methods, "canonical_negative_alpha")
+    assert config.methods.pilot_parameter_search_enabled is True
 
 
 def test_taper_weights_are_continuous_and_monotone() -> None:
     config = e7_bench.load_bench_config(CONFIG)
     d = torch.tensor([0.0, 2.5, 5.0, 10.0, 20.0])
-    for method in e7_bench.TAPER_METHODS:
+    for method in ("reciprocal_linear_c0p436258", "reciprocal_quadratic_c0p552027", "exponential_c0p374163"):
         weight = e7_bench.taper_weight(d, method, config.methods)
         assert weight[0].item() == pytest.approx(1.0)
         assert torch.all(weight[:-1] >= weight[1:])
         assert torch.all(weight > 0)
         assert torch.all(weight <= 1)
     assert torch.allclose(
-        e7_bench.taper_weight(d, "global_alpha", config.methods),
+        e7_bench.taper_weight(d, "global_alpha_a0p75", config.methods),
         torch.full_like(d, 0.75),
     )
 
@@ -106,7 +134,7 @@ def test_benchmark_loss_only_tapers_negative_advantages() -> None:
     actions = torch.tensor([[0.1, 0.2], [0.2, -0.3], [0.8, 0.5], [-0.9, 0.4]])
     advantage = torch.tensor([1.0, -1.0, 2.0, -2.0])
     loss, diag = e7_bench.benchmark_actor_loss(
-        policy, obs, actions, advantage, "exponential", config.methods
+        policy, obs, actions, advantage, "exponential_c0p374163", config.methods
     )
     assert torch.isfinite(loss)
     assert diag["active_fraction"] == pytest.approx(1.0)
@@ -199,7 +227,7 @@ def test_worker_identity_binds_budget_and_taper_parameters() -> None:
         spec,
         worker="branch",
         seed=200,
-        method="exponential",
+        method="exponential_c0p374163",
     )
     shorter_budget = dataclasses.replace(
         config,
@@ -210,21 +238,24 @@ def test_worker_identity_binds_budget_and_taper_parameters() -> None:
         spec,
         worker="branch",
         seed=200,
-        method="exponential",
+        method="exponential_c0p374163",
     ) != original
+    changed_variants = tuple(
+        dataclasses.replace(variant, coefficient=0.5)
+        if variant.id == "exponential_c0p374163"
+        else variant
+        for variant in config.methods.variants
+    )
     changed_taper = dataclasses.replace(
         config,
-        methods=dataclasses.replace(
-            config.methods,
-            coefficients={**config.methods.coefficients, "exponential": 0.5},
-        ),
+        methods=dataclasses.replace(config.methods, variants=changed_variants),
     )
     assert e7_bench.worker_identity_sha256(
         changed_taper,
         spec,
         worker="branch",
         seed=200,
-        method="exponential",
+        method="exponential_c0p374163",
     ) != original
 
 
@@ -359,7 +390,7 @@ def test_aggregate_pilot_rejects_stale_branch_identity(tmp_path: Path) -> None:
     config = e7_bench.load_bench_config(CONFIG)
     for spec in config.datasets:
         for seed in config.budget.seeds:
-            for method in e7_bench.PILOT_METHODS:
+            for method in config.methods.ids:
                 branch_dir = (
                     tmp_path / "branches" / spec.id / f"seed_{seed}" / method
                 )
@@ -405,7 +436,7 @@ def test_aggregate_pilot_rejects_stale_branch_identity(tmp_path: Path) -> None:
         / "branches"
         / config.datasets[0].id
         / f"seed_{config.budget.seeds[0]}"
-        / e7_bench.PILOT_METHODS[0]
+        / config.methods.ids[0]
         / "WORKER_COMPLETE.json"
     )
     payload = json.loads(stale.read_text())
@@ -420,7 +451,7 @@ def test_aggregate_allows_only_nan_inf_as_early_stop_exception(tmp_path: Path) -
     config = e7_bench.load_bench_config(CONFIG)
     for spec in config.datasets:
         for seed in config.budget.seeds:
-            for method in e7_bench.PILOT_METHODS:
+            for method in config.methods.ids:
                 branch_dir = tmp_path / "branches" / spec.id / f"seed_{seed}" / method
                 branch_dir.mkdir(parents=True)
                 identity = e7_bench.worker_identity_sha256(
@@ -459,7 +490,7 @@ def test_aggregate_allows_only_nan_inf_as_early_stop_exception(tmp_path: Path) -
         / "branches"
         / config.datasets[0].id
         / f"seed_{config.budget.seeds[0]}"
-        / e7_bench.PILOT_METHODS[0]
+        / config.methods.ids[0]
         / "summary.json"
     )
     row = json.loads(bad.read_text())

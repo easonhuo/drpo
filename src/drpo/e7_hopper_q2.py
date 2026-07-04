@@ -43,7 +43,7 @@ except ImportError as exc:  # pragma: no cover - dependency declared by project
     raise SystemExit("PyYAML is required. Install the project with pip install -e .") from exc
 
 EXPERIMENT_ID = "EXT-H-E7-Q2"
-RUNNER_VERSION = "4.3.0-fixed-budget-longrun"
+RUNNER_VERSION = "4.3.1-network-profile-config"
 EPS = 1e-6
 METHODS = (
     "positive_only",
@@ -222,6 +222,9 @@ class E7Config:
     train_fraction: float
     validation_fraction: float
     hidden_sizes: tuple[int, ...]
+    activation: str
+    init_scheme: str
+    init_gain: float
     critic_lr: float
     actor_lr: float
     critic_batch_size: int
@@ -320,6 +323,9 @@ def load_config(path: str | Path) -> E7Config:
         train_fraction=float(raw["critic"]["episode_split"]["train"]),
         validation_fraction=float(raw["critic"]["episode_split"]["validation"]),
         hidden_sizes=tuple(int(x) for x in raw["model"]["hidden_sizes"]),
+        activation=str(raw["model"].get("activation", "tanh")),
+        init_scheme=str(raw["model"].get("init", "default")),
+        init_gain=float(raw["model"].get("init_gain", 1.0)),
         critic_lr=float(raw["critic"]["learning_rate"]),
         actor_lr=float(raw["actor"]["learning_rate"]),
         critic_batch_size=int(raw["critic"]["batch_size"]),
@@ -554,20 +560,57 @@ class Normalizer:
 # ---------------------------------------------------------------------------
 
 
-def make_mlp(input_dim: int, output_dim: int, hidden_sizes: Sequence[int]) -> nn.Sequential:
+def activation_layer(name: str) -> nn.Module:
+    normalized = name.strip().lower()
+    if normalized == "tanh":
+        return nn.Tanh()
+    if normalized == "relu":
+        return nn.ReLU()
+    raise ValueError(f"unsupported E7 network activation: {name}")
+
+
+def apply_orthogonal_init(module: nn.Module, gain: float) -> None:
+    for layer in module.modules():
+        if isinstance(layer, nn.Linear):
+            nn.init.orthogonal_(layer.weight, gain=float(gain))
+            if layer.bias is not None:
+                nn.init.zeros_(layer.bias)
+
+
+def make_mlp(
+    input_dim: int,
+    output_dim: int,
+    hidden_sizes: Sequence[int],
+    activation: str = "tanh",
+    init_scheme: str = "default",
+    init_gain: float = 1.0,
+) -> nn.Sequential:
     layers: list[nn.Module] = []
     width = input_dim
     for hidden in hidden_sizes:
-        layers.extend([nn.Linear(width, hidden), nn.Tanh()])
+        layers.extend([nn.Linear(width, hidden), activation_layer(activation)])
         width = hidden
     layers.append(nn.Linear(width, output_dim))
-    return nn.Sequential(*layers)
+    net = nn.Sequential(*layers)
+    init_name = init_scheme.strip().lower()
+    if init_name == "orthogonal":
+        apply_orthogonal_init(net, init_gain)
+    elif init_name != "default":
+        raise ValueError(f"unsupported E7 init scheme: {init_scheme}")
+    return net
 
 
 class ValueNetwork(nn.Module):
-    def __init__(self, obs_dim: int, hidden_sizes: Sequence[int]):
+    def __init__(
+        self,
+        obs_dim: int,
+        hidden_sizes: Sequence[int],
+        activation: str = "tanh",
+        init_scheme: str = "default",
+        init_gain: float = 1.0,
+    ):
         super().__init__()
-        self.net = make_mlp(obs_dim, 1, hidden_sizes)
+        self.net = make_mlp(obs_dim, 1, hidden_sizes, activation, init_scheme, init_gain)
 
     def forward(self, obs: torch.Tensor) -> torch.Tensor:
         return self.net(obs).squeeze(-1)
@@ -582,9 +625,14 @@ class SquashedGaussianPolicy(nn.Module):
         log_std_min: float,
         log_std_max: float,
         action_clip_epsilon: float,
+        activation: str = "tanh",
+        init_scheme: str = "default",
+        init_gain: float = 1.0,
     ):
         super().__init__()
-        self.mean_net = make_mlp(obs_dim, action_dim, hidden_sizes)
+        self.mean_net = make_mlp(
+            obs_dim, action_dim, hidden_sizes, activation, init_scheme, init_gain
+        )
         self.log_std = nn.Parameter(torch.zeros(action_dim))
         self.log_std_min = float(log_std_min)
         self.log_std_max = float(log_std_max)
@@ -1558,7 +1606,13 @@ def train_critic(
     obs = obs_norm.transform(data.observations)
     target_norm = Normalizer.fit(returns[split["train"]].reshape(-1, 1))
     normalized_targets = target_norm.transform(returns.reshape(-1, 1)).reshape(-1)
-    model = ValueNetwork(obs.shape[1], config.hidden_sizes).to(device)
+    model = ValueNetwork(
+        obs.shape[1],
+        config.hidden_sizes,
+        config.activation,
+        config.init_scheme,
+        config.init_gain,
+    ).to(device)
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=config.critic_lr, weight_decay=config.weight_decay
     )
@@ -2147,7 +2201,13 @@ def _load_canonical_critic_context(
         mean=np.asarray(checkpoint["target_mean"], dtype=np.float32),
         std=np.asarray(checkpoint["target_std"], dtype=np.float32),
     )
-    critic = ValueNetwork(data.observations.shape[1], config.hidden_sizes).to(device)
+    critic = ValueNetwork(
+        data.observations.shape[1],
+        config.hidden_sizes,
+        config.activation,
+        config.init_scheme,
+        config.init_gain,
+    ).to(device)
     critic.load_state_dict(checkpoint["model"])
     critic.eval()
     for parameter in critic.parameters():
@@ -3160,6 +3220,9 @@ def copy_policy(policy: SquashedGaussianPolicy, config: E7Config, obs_dim: int, 
         config.log_std_min,
         config.log_std_max,
         config.action_clip_epsilon,
+        config.activation,
+        config.init_scheme,
+        config.init_gain,
     ).to(device)
     clone.load_state_dict(policy.state_dict())
     return clone
@@ -3248,6 +3311,9 @@ def run_seed(
         config.log_std_min,
         config.log_std_max,
         config.action_clip_epsilon,
+        config.activation,
+        config.init_scheme,
+        config.init_gain,
     ).to(device)
     positive_policy, positive_audit = train_actor_stage(
         policy=base_policy,
