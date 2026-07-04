@@ -170,6 +170,62 @@ def test_stale_ancestral_bundle_merges_nonconflicting_main(git_fixture, tmp_path
     assert report["timings_seconds"]["total"] >= 0
 
 
+def test_non_main_origin_main_alias_is_recovered_before_apply(git_fixture, tmp_path: Path):
+    _, repo, base = git_fixture
+    package = tmp_path / "package"
+    make_patch(repo, package, "bundle\n", test_command='test "$(cat tracked.txt)" = bundle')
+    build_bundle(repo, package)
+
+    git(repo, "checkout", "-b", "codex/post-push-bundle-export")
+    (repo / "other.txt").write_text("already pushed main work\n")
+    current = commit_all(repo, "advance temporary branch")
+    git(repo, "push", "origin", "HEAD:main")
+    assert git_text(repo, "rev-parse", "refs/heads/main") == base
+    assert git_text(repo, "rev-parse", "refs/remotes/origin/main") == current
+    assert git_text(repo, "branch", "--show-current") == "codex/post-push-bundle-export"
+
+    report_dir = tmp_path / "reports"
+    proc = run(
+        [str(HELPER), str(package), "--yes", "--no-push"],
+        env=helper_env(repo, report_dir),
+    )
+
+    assert "Recovering clean checkout" in proc.stdout
+    assert git_text(repo, "branch", "--show-current") == "main"
+    assert git_text(repo, "rev-parse", "refs/heads/main") == git_text(
+        repo, "rev-parse", "HEAD"
+    )
+    assert (repo / "tracked.txt").read_text() == "bundle\n"
+    assert (repo / "other.txt").read_text() == "already pushed main work\n"
+    assert git_text(repo, "status", "--porcelain") == ""
+    report = json.loads(next(report_dir.glob("*.json")).read_text())
+    assert report["head_before"] == current
+    assert report["package_base"] == base
+    assert report["status"] == "success_no_push"
+
+
+def test_unrelated_non_main_branch_still_fails_closed(git_fixture, tmp_path: Path):
+    _, repo, _ = git_fixture
+    package = tmp_path / "package"
+    make_patch(repo, package, "bundle\n")
+    build_bundle(repo, package)
+
+    git(repo, "checkout", "-b", "feature/local-only")
+    (repo / "other.txt").write_text("local only\n")
+    before = commit_all(repo, "local only branch")
+
+    proc = run(
+        [str(HELPER), str(package), "--yes", "--no-push"],
+        env=helper_env(repo, tmp_path / "reports"),
+        check=False,
+    )
+
+    assert proc.returncode != 0
+    assert "expected branch main, found feature/local-only" in proc.stderr
+    assert git_text(repo, "branch", "--show-current") == "feature/local-only"
+    assert git_text(repo, "rev-parse", "HEAD") == before
+
+
 def test_bundle_conflict_fails_without_modifying_main(git_fixture, tmp_path: Path):
     _, repo, _ = git_fixture
     package = tmp_path / "package"

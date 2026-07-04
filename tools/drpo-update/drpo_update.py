@@ -40,7 +40,7 @@ from test_selection import (  # noqa: E402
     select_test_plan,
 )
 
-VERSION = "2.4.0"
+VERSION = "2.4.1"
 EXPECTED_REMOTE_FRAGMENTS = ("github.com/easonhuo/drpo", "github.com:easonhuo/drpo")
 FULL_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 RECOVERY_ARTIFACT_KINDS = {
@@ -375,16 +375,76 @@ def read_full_sha(path: Path, label: str) -> str:
     return value
 
 
+def _rev_parse_or_none(repo: Path, ref: str) -> str | None:
+    proc = git(repo, "rev-parse", "--verify", ref, check=False)
+    if proc.returncode != 0:
+        return None
+    value = proc.stdout.strip()
+    return value if FULL_SHA_RE.fullmatch(value) else None
+
+
+def recover_main_checkout_if_possible(repo: Path, branch: str) -> bool:
+    """Recover a clean checkout accidentally left on an origin/main alias.
+
+    Older post-push flows can leave the worktree on a temporary/topic branch whose
+    HEAD is already the verified origin/main commit while the local ``main`` ref
+    remains stale.  The applicator requires ``main`` before it can fetch/merge and
+    export official bundles, so repair only that exact clean, provenance-safe
+    shape.  Any ambiguous branch state still fails closed.
+    """
+
+    current = _rev_parse_or_none(repo, "HEAD^{commit}")
+    origin_main = _rev_parse_or_none(repo, "refs/remotes/origin/main^{commit}")
+    if not current or not origin_main or current != origin_main:
+        return False
+
+    print(
+        "Recovering clean checkout: current branch "
+        f"{branch or '<detached>'} already equals origin/main; "
+        "updating local main and switching to it."
+    )
+    create_or_move = git(repo, "branch", "-f", "main", current, check=False)
+    if create_or_move.returncode != 0:
+        detail = (create_or_move.stderr or create_or_move.stdout).strip()
+        raise UpdateError(
+            "current HEAD equals origin/main, but local main could not be updated; "
+            "switch to main manually or close other worktrees first:\n" + detail
+        )
+    checkout = git(repo, "checkout", "main", check=False, capture=False)
+    if checkout.returncode != 0:
+        raise UpdateError(
+            "current HEAD equals origin/main, but checkout main failed; "
+            "switch to main manually before applying the package"
+        )
+    set_upstream = git(
+        repo,
+        "branch",
+        "--set-upstream-to=origin/main",
+        "main",
+        check=False,
+    )
+    if set_upstream.returncode != 0:
+        print(
+            "WARNING: could not set main upstream to origin/main; continuing because "
+            "the checkout is now on main.",
+            file=sys.stderr,
+        )
+    return True
+
+
 def validate_repo(repo: Path) -> None:
     if git_text(repo, "status", "--porcelain"):
         raise UpdateError("repository has uncommitted changes; commit or stash them first")
-    branch = git_text(repo, "branch", "--show-current")
-    if branch != "main":
-        raise UpdateError(f"expected branch main, found {branch or '<detached>'}")
     remote = git_text(repo, "remote", "get-url", "origin")
     if os.environ.get("DRPO_UPDATE_ALLOW_ANY_REMOTE") != "1":
         if not any(fragment in remote for fragment in EXPECTED_REMOTE_FRAGMENTS):
             raise UpdateError(f"origin is not easonhuo/drpo: {remote}")
+    branch = git_text(repo, "branch", "--show-current")
+    if branch != "main":
+        if not recover_main_checkout_if_possible(repo, branch):
+            raise UpdateError(f"expected branch main, found {branch or '<detached>'}")
+    if git_text(repo, "branch", "--show-current") != "main":
+        raise UpdateError("repository preflight could not switch to main")
 
 
 def refresh_main(repo: Path) -> None:
