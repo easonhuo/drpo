@@ -7,7 +7,7 @@
 - Responsibility: Preserve the unique-master rule, terminology, scientific scope, and non-destructive governance constraints.
 - Content contract topics: `unique_master_document`, `document_before_experiment`, `non_destructive_history`, `terminal_audit_governance`, `controlled_external_validity_boundary`
 - Deduplicated overlapping source chunks: 0
-- Source hash: `b2714dad3aa9bbee4b5df6e5618917e145de793f202739a67eaa7720419edcab`
+- Source hash: `8f7602177931c8640a0d930bc00f9f3d72a7cab56036c20991d507d1be53c6c2`
 
 ## Content contract evidence
 
@@ -184,6 +184,9 @@
 <!-- HANDOFF-DELTA-BLOCK:section_end:v74-du1-e6-rev4-current-gate:START -->
 > **D-U1 E6 当前门禁（v74）：** `D-U1-E6-CARTESIAN-TAPER-01` 的 revision-3 development calibration 已完成，revision-4 formal protocol 已获用户批准并冻结，registry execution gate 为 `ready`、formal activation 为 `active`、科学状态仍为 `not_run`。下一步只能在 exact frozen commit 上通过 hardened guard 运行 seeds `200--219`；不得重新访问 development seeds 进行选参，也不得在看到 formal 结果后修改 `alpha=0.5 / anchor=0.25 / rho=0.25`、方法集合或终态标准。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v74-du1-e6-rev4-current-gate:END -->
+<!-- HANDOFF-DELTA-BLOCK:section_end:v76-current-gate-rules:START -->
+> **v76 常驻协作规则覆盖：**DRPO figure/plot/chart/panel/画图 默认走代码绘图，不自动 image generation；在线轮询必须在当前 assistant 轮次内阻塞式检查到终态或明确无法继续，不得把后台进程或间歇查询冒充轮询；未来 DRPO 更新包默认只交付 canonical bundle-backed package，patch-only runnable 包仅在用户明确要求 immediate exact-base 临时包时允许。
+<!-- HANDOFF-DELTA-BLOCK:section_end:v76-current-gate-rules:END -->
 
 ## 0.2 C-U1 泛化术语覆盖规则（v15 锁定）
 

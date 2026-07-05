@@ -1,4 +1,4 @@
-# DRPO / SNA2C 远场负梯度动力学研究主文档 v75（Countdown full-bank surprisal-gradient pilot 落库版）
+# DRPO / SNA2C 远场负梯度动力学研究主文档 v76（规则路由、在线轮询与 Phase 2 backlog 登记版）
 <!-- HANDOFF-DELTA-BLOCK:after_heading:v50-stage3-shadow-bootstrap:START -->
 > **v50 增量登记：治理 Pipeline Stage 3 `HANDOFF_DELTA.yaml` shadow mode 启动（不删除 v49 及更早内容）**
 >
@@ -217,6 +217,15 @@
 > - Quartic 的历史代码与开发结果保留，但因缺少独立实验职责，自 revision 4 起退出 active formal matrix。正式方法为 Positive-only、All-negative、Global matched、Reciprocal-linear、Reciprocal-quadratic、Exponential-quadratic；不得预设 Exp 或任何方法胜出。
 > - revision 4 正式协议冻结为 20 个 held-out seeds `200--219` × 6 方法 × 8000 steps，共 120 runs；数据几何、优化器、阈值、双终态窗口、seed blocks 与方法公式不得在正式启动后调整。结果仍为 `not_run`，只有 guarded formal run、终态审计、持久打包与 commit 绑定完成后才能升级证据状态。
 <!-- HANDOFF-DELTA-BLOCK:after_heading:v74-du1-e6-rev4-formal-freeze:END -->
+<!-- HANDOFF-DELTA-BLOCK:after_heading:v76-rules-phase2-backlog:START -->
+> **v76 增量登记：低成本常驻规则、Phase 2 backlog 与更新包交付硬约束（不删除 v75 及更早内容）**
+>
+> - 本版只登记工程/协作规则和 pipeline 二期规划，不运行实验，不修改任何实验状态、冻结变量、seeds、阈值、训练 horizon、终态门禁或科研结论。
+> - DRPO 论文图、实验图、paper figure、plot、chart、panel、visualization、`画图`、`图片`、`生成图` 默认解释为代码绘图任务，优先使用 Python/Matplotlib/LaTeX/PGF/SVG/repository scripts；不得仅因出现图片相关词汇就调用 image generation。只有用户明确要求 AI 生图、艺术插图、照片编辑或风格迁移时，才允许使用 image generation；不确定时先问。
+> - 在线轮询规则作为跨项目执行语义登记：用户说“轮询/在线轮询/盯着跑/一直等到结果/跑完再汇报/不要停/别报初步结果/等终态再说”等表达时，表示同一轮内阻塞式工具检查到成功、失败、卡死、用户停止或工具/会话限制；后台运行不等于在线轮询，用户下次问一次再查一次也不等于在线轮询，final 之后不得声称仍在持续监控。
+> - DRPO 更新包交付硬规则：默认必须交付 canonical bundle-backed package；patch-only runnable package 不再作为正常交付格式。即使生成包时拿到最新 `main`，也不能假设用户应用前 `main` 不会被其他提交推进。除非用户明确要求临时 exact-base patch-only 立即应用，否则不得交付 patch-only runnable 包；无法生成并验证 bundle-backed 包时，只能交付方案、非运行 diff 草案或要求最新 Git bundle/diagnostic。
+> - Pipeline Phase 2 backlog 正式记录：最大挑战是 handoff 拆分/模块化与上下文装配；需要维护 implemented、shadow-only、partial、paused、reverted、future backlog 等状态分类。`.drpoupdate` macOS 双击入口暂停并归入二期，只能在未来作为 old CLI 薄壳 wrapper 重新评估，且不得修改 `drpo-update` 核心语义、base mismatch、stale-package recovery 或 bundle-backed integration。
+<!-- HANDOFF-DELTA-BLOCK:after_heading:v76-rules-phase2-backlog:END -->
 
 > **v49 增量登记：治理 Pipeline Stage 1/2 冻结式关闭（不删除 v48 及更早内容）**
 >
@@ -887,6 +896,9 @@
 <!-- HANDOFF-DELTA-BLOCK:section_end:v74-du1-e6-rev4-current-gate:START -->
 > **D-U1 E6 当前门禁（v74）：** `D-U1-E6-CARTESIAN-TAPER-01` 的 revision-3 development calibration 已完成，revision-4 formal protocol 已获用户批准并冻结，registry execution gate 为 `ready`、formal activation 为 `active`、科学状态仍为 `not_run`。下一步只能在 exact frozen commit 上通过 hardened guard 运行 seeds `200--219`；不得重新访问 development seeds 进行选参，也不得在看到 formal 结果后修改 `alpha=0.5 / anchor=0.25 / rho=0.25`、方法集合或终态标准。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v74-du1-e6-rev4-current-gate:END -->
+<!-- HANDOFF-DELTA-BLOCK:section_end:v76-current-gate-rules:START -->
+> **v76 常驻协作规则覆盖：**DRPO figure/plot/chart/panel/画图 默认走代码绘图，不自动 image generation；在线轮询必须在当前 assistant 轮次内阻塞式检查到终态或明确无法继续，不得把后台进程或间歇查询冒充轮询；未来 DRPO 更新包默认只交付 canonical bundle-backed package，patch-only runnable 包仅在用户明确要求 immediate exact-base 临时包时允许。
+<!-- HANDOFF-DELTA-BLOCK:section_end:v76-current-gate-rules:END -->
 
 ## 0.2 C-U1 泛化术语覆盖规则（v15 锁定）
 
