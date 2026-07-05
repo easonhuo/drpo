@@ -1,0 +1,25 @@
+row,source,remoteness_bin,relative_value
+C-U1 coefficient,empirical,near,1.0
+C-U1 coefficient,empirical,Q2,1.0
+C-U1 coefficient,empirical,Q3,1.0
+C-U1 coefficient,empirical,Q4,1.0
+C-U1 coefficient,empirical,Q5,1.0
+C-U1 coefficient,empirical,far,1.0
+C-U1 score / |A|,empirical,near,1.0
+C-U1 score / |A|,empirical,Q2,5.171542643262314
+C-U1 score / |A|,empirical,Q3,10.090587120632401
+C-U1 score / |A|,empirical,Q4,15.070923147203116
+C-U1 score / |A|,empirical,Q5,20.020187902233165
+C-U1 score / |A|,empirical,far,24.95048377520733
+D-U1 coefficient,analytic_reference,near,1.0
+D-U1 coefficient,analytic_reference,Q2,1.0
+D-U1 coefficient,analytic_reference,Q3,1.0
+D-U1 coefficient,analytic_reference,Q4,1.0
+D-U1 coefficient,analytic_reference,Q5,1.0
+D-U1 coefficient,analytic_reference,far,1.0
+D-U1 logit score,analytic_reference,near,1.0
+D-U1 logit score,analytic_reference,Q2,1.2913056686360438
+D-U1 logit score,analytic_reference,Q3,1.4965853037914096
+D-U1 logit score,analytic_reference,Q4,1.6412434177471988
+D-U1 logit score,analytic_reference,Q5,1.7663307176658711
+D-U1 logit score,analytic_reference,far,1.8875351450574542

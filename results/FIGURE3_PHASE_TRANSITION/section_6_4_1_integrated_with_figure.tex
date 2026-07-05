@@ -1,0 +1,56 @@
+\subsubsection{Stable Extrapolation from Controlled Negative Feedback}
+\label{sec:controlled_negative_strength}
+
+The causal interventions in Section~\ref{sec:controlled_transmission}
+show that far-field negative influence must be controlled. They do not
+imply that all negative feedback should be removed. The remaining
+question is whether controlled repulsion has a useful regime before
+far-field dominance takes over.
+
+We test this by sweeping the effective negative strength relative to
+positive attraction, denoted by $q/p$, while keeping the data, labels,
+initialization, optimizer, and training horizon fixed. The positive-only
+setting corresponds to $q/p=0$. Increasing $q/p$ retains more negative
+feedback and increases the repulsive component of the aggregate update.
+In the controlled C-U1 geometry, positive attraction anchors the policy
+near the observed positive support, while controlled negative repulsion
+can push it toward the hidden task optimum; excessive repulsion
+over-shoots that useful region.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[
+        width=0.95\columnwidth
+    ]{figures/fig_6_4_1_phase_transition.pdf}
+
+    \vspace{-0.35em}
+    \caption{
+        \textbf{Stable extrapolation from controlled negative feedback.}
+        Increasing the effective negative strength $q/p$ first improves
+        held-out-context reward beyond the positive-only ceiling, showing
+        that controlled negative feedback can be useful. Larger $q/p$
+        then produces over-extrapolation and task-performance collapse.
+        Policy shift measures displacement from the positive-only target.
+        The color strip reports task collapse, boundary events, and
+        NaN/Inf failures separately; each block shows the seed count.
+    }
+    \label{fig:phase_transition_6_4_1}
+\end{figure}
+
+Figure~\ref{fig:phase_transition_6_4_1} shows the resulting transition.
+For small and moderate $q/p$, held-out-context reward rises above the
+positive-only ceiling. Thus, negative feedback is not merely a source of
+instability: when controlled, it can improve beyond the positive-support
+solution. As $q/p$ increases further, policy shift continues to grow
+while reward falls, indicating over-extrapolation rather than additional
+useful generalization. At the largest strengths, task-performance
+collapse and boundary events appear, while NaN/Inf failures remain
+reported separately.
+
+This strength sweep supplies the missing link between causal rescue and
+tapered control. Section~\ref{sec:controlled_transmission} shows that
+uncontrolled far-field influence can transmit into collapse. Here, we
+show why positive-only learning is not the solution: negative feedback
+has a beneficial intermediate regime. Remoteness-aware control should
+therefore keep the aggregate update in this useful-repulsion regime while
+preventing the far-field tail from dominating.

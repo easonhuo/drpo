@@ -1,0 +1,15 @@
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{figures/figure1_hopper_countdown_raw_deciles.pdf}
+\caption{
+\textbf{External far-field gradient evidence in continuous control and Countdown.}
+\textbf{Left:} Hopper per-sample gradient evidence, normalized to the near-distance
+reference bin. The trainable gradient norm increases with policy-relative distance,
+whereas the advantage magnitude remains approximately flat.
+\textbf{Right:} Countdown per-response gradient evidence, binned by current-policy
+mean-token surprisal and normalized to the lowest-surprisal bin. The negative
+coefficient magnitude is fixed, while the trainable-parameter gradient norm increases
+with learner-relative surprisal.
+}
+\label{fig:external_gradient_evidence}
+\end{figure}

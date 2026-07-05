@@ -1,0 +1,14 @@
+{
+  "figure": "Figure 1",
+  "claim": "External far-field gradient evidence in continuous Hopper and discrete Countdown.",
+  "hopper_plot_data": "hopper_e7_q2_plot_data.csv",
+  "countdown_plot_data": "countdown_gradient_deciles_seed100.csv",
+  "script": "../../scripts/figures/plot_figure1_external_gradient.py",
+  "outputs": [
+    "paper/figures/figure1_external_gradient.pdf",
+    "paper/figures/figure1_external_gradient.svg"
+  ],
+  "raw_data_policy": "Only plot-ready data is staged for Git; raw Countdown CSV remains in user external archive.",
+  "data_status": "real-data-backed external diagnostics; Countdown is single-seed full-bank pilot and Hopper is E7-Q2 external mechanism diagnostic",
+  "repository_policy": "Plot-ready deciles/summaries are stored in Git; raw Countdown CSV remains external and is indexed by sha256 under results/EXT-C-E8-V75/gradient_probe."
+}

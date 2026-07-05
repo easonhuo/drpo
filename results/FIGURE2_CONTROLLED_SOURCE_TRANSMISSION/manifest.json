@@ -1,0 +1,17 @@
+{
+  "figure": "Figure 2",
+  "claim": "Controlled source isolation and causal transmission.",
+  "source_package": "DRPO_6_3_FIGURE_DRAFTS_V7_NO_CLIP",
+  "plot_data": [
+    "fig_6_3_1_source_heatmap_data.csv",
+    "fig_6_3_2_causal_summary.csv",
+    "fig_6_3_2_paired_causal_effects.csv"
+  ],
+  "scripts": [
+    "../../scripts/figures/plot_figure2_controlled_source_heatmap.py",
+    "../../scripts/figures/plot_figure2_controlled_rescue_plot.py"
+  ],
+  "notes": "C rows are controlled continuous data; D rows are direct-softmax reference. Collapse strip is task-performance collapse only.",
+  "data_status": "controlled real-data-backed mechanism summary",
+  "repository_policy": "Plot-ready summary tables are stored in Git; raw long curves remain external unless separately packaged."
+}

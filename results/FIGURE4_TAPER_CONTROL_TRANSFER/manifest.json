@@ -1,0 +1,14 @@
+{
+  "figure": "Figure 4",
+  "claim": "Controlled taper comparison and external transfer.",
+  "source_packages": [
+    "DRPO_6_4_2_LEFTFIG_V13_BIGTEXT_PANELB_FIX",
+    "DRPO_6_4_COMPOSITE_TEX_V14_TITLE_SPACE",
+    "DRPO_6_4_3_EXTERNAL_DRAFT_V1"
+  ],
+  "left_panel_data": "fig_6_4_2_leftfig_template.csv",
+  "left_panel_script": "../../scripts/figures/plot_figure4_taper_left_panel.py",
+  "right_panel_data": "fig_6_4_3_external_template.csv",
+  "composite_tex": "figure4_composite_tex_snippet.tex",
+  "data_status": "6.4.2/6.4.3 values are layout/template until formal aggregates are substituted."
+}

@@ -1,0 +1,34 @@
+{
+  "experiment_id": "EXT-C-E8-V75",
+  "claim": "Countdown surprisal-gradient external evidence for Figure 1",
+  "seed": 100,
+  "n_puzzles": 6000,
+  "n_responses": 12000,
+  "plot_data": "countdown_gradient_deciles_seed100.csv",
+  "summary": "countdown_gradient_summary_seed100.json",
+  "binning": "equal-count deciles over mean_token_surprisal",
+  "normalization": "relative to lowest surprisal decile",
+  "bootstrap": {
+    "mode": "cluster_by_puzzle_id_6000_clusters_x_2_responses",
+    "replicates": 400
+  },
+  "raw_full_status": "external_user_archive",
+  "raw_lite_status": "external_user_archive",
+  "raw_references": {
+    "countdown_full_raw_with_response": {
+      "filename": "2a1e618b-fe0c-4deb-8188-d661bcad66ae.csv",
+      "bytes": 1970056,
+      "sha256": "15990e33771c750ae725423a1d720e1de59492767b79ddb0a3722fc1bf77d152",
+      "status": "external_user_archive_not_in_git"
+    },
+    "countdown_lite_no_response": {
+      "filename": "countdown_minimal_no_response.csv",
+      "bytes": 1722809,
+      "sha256": "452bd17e36ce0c98d2a29c0ea4eef57ebbf94c39026dd183a9911064270da6a9",
+      "status": "external_user_archive_not_in_git"
+    }
+  },
+  "regenerate_current_figure_without_raw": true,
+  "regenerate_alternative_binning_requires_raw": true,
+  "status": "single-seed full-bank gradient probe; not multi-seed formal method result"
+}

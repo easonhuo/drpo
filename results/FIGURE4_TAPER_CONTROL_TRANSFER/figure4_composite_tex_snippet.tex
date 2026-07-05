@@ -1,0 +1,57 @@
+\begin{figure}[t]
+\centering
+
+\begin{minipage}[t]{0.68\columnwidth}
+    \centering
+    \vspace{0pt}
+    \textbf{(a) Controlled taper comparison}\\[0.22em]
+    \includegraphics[
+        width=\linewidth
+    ]{figures/fig_6_4_2_leftfig_bigtext_legend_protocol.pdf}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.28\columnwidth}
+    \centering
+    \vspace{0pt}
+    \textbf{(b) Transfer}\\[0.22em]
+    \scriptsize
+    \setlength{\tabcolsep}{2.2pt}
+    \renewcommand{\arraystretch}{0.94}
+    \resizebox{\linewidth}{!}{
+    \begin{tabular}{lcc}
+    \toprule
+    Method & Hop. & Cnt. \\
+    \midrule
+    Pos.        & \texttt{--} & \texttt{--} \\
+    G-$\alpha$  & \texttt{--} & \texttt{--} \\
+    Rec.-L      & \texttt{--} & \texttt{--} \\
+    Rec.-Q      & \texttt{--} & \texttt{--} \\
+    EXP         & \textbf{\texttt{--}} & \textbf{\texttt{--}} \\
+    \bottomrule
+    \end{tabular}
+    }
+
+    \vspace{0.25em}
+    {\scriptsize
+    Hop.: Hopper return.\\
+    Cnt.: Countdown success.
+    }
+\end{minipage}
+
+\vspace{-0.25em}
+\caption{
+\textbf{Controlled taper comparison and external transfer.}
+\textbf{(a)} Matched operating-point comparison in the controlled taper
+protocol. For each method, the left bar is the near-field-retention
+matched operating point (N) and the right bar is the aggregate-budget
+matched operating point (B). Bars decompose retained negative influence
+into near- and far-field components, and dashed traces report
+held-out-context reward. Task-performance collapse counts are omitted
+from the panel because collapse is rare in these matched operating
+points and is audited separately.
+\textbf{(b)} External validation summary on Hopper and Countdown. The
+right panel reports only final task-level outcomes; operating-point and
+matching details are shown in the controlled comparison.
+}
+\label{fig:taper_control_and_transfer}
+\end{figure}

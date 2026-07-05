@@ -1,0 +1,9 @@
+{
+  "figure": "Figure 3",
+  "claim": "Stable extrapolation from controlled negative feedback.",
+  "source_package": "DRPO_6_4_1_PHASE_TRANSITION_V4_LARGEFONT_TEXT",
+  "plot_data": "fig_6_4_1_phase_transition_template.csv",
+  "script": "../../scripts/figures/plot_figure3_phase_transition.py",
+  "data_status": "layout/template curve unless replaced by formal C-U1 phase-scan aggregates",
+  "required_formal_data_note": "Use EXPERIMENTS_TO_RUN_6_4_1.md for exact experiments to run before final paper claim."
+}

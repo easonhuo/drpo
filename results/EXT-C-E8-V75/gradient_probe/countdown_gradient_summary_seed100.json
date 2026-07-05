@@ -1,0 +1,37 @@
+{
+  "uploaded_csv": "2a1e618b-fe0c-4deb-8188-d661bcad66ae.csv",
+  "raw_shape": [
+    12000,
+    14
+  ],
+  "filtered_rows": 12000,
+  "filter": "arithmetic_wrong & valid_format & uses_numbers & not correct & finite surprisal/gradient/coefficient",
+  "response_role_counts": {
+    "near": 6000,
+    "far": 6000
+  },
+  "negative_coefficient_abs_unique": [
+    1.0
+  ],
+  "pearson_surprisal_gradient": 0.3625487896218549,
+  "spearman_surprisal_gradient": 0.44549212357096935,
+  "paired_near_far": {
+    "n_pairs": 6000,
+    "far_surprisal_gt_near": 6000,
+    "far_gradient_gt_near": 4113,
+    "far_surprisal_gt_near_fraction": 1.0,
+    "far_gradient_gt_near_fraction": 0.6855,
+    "near_gradient_mean": 82.29423603218794,
+    "far_gradient_mean": 95.1849781867663,
+    "paired_gradient_mean_diff": 12.890742154578367,
+    "median_far_near_gradient_ratio": 1.3161744744664023
+  },
+  "decile_gradient_lowest_mean": 40.27405265897512,
+  "decile_gradient_highest_mean": 98.56251072247824,
+  "decile_gradient_highest_relative": 2.4472955715946174,
+  "decile_gradient_max_relative": 2.542568614467395,
+  "bootstrap": {
+    "mode": "cluster_by_puzzle_id_6000_clusters_x_2_responses",
+    "replicates": 400
+  }
+}
