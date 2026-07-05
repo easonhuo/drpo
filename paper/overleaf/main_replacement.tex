@@ -80,7 +80,7 @@
 \end{textblock*}
 
 \twocolumn[
-  \icmltitle{Breaking the Curse of Repulsion: Optimistic Distributionally Robust Policy Optimization for Off-Policy Generative Recommendation}
+  \icmltitle{Breaking the Curse of Repulsion: Optimistic Distributionally Robust Policy Optimization}
 
   % It is OKAY to include author information, even for blind submissions: the
   % style file will automatically remove it for you unless you've provided
@@ -131,7 +131,7 @@
 
 
 \begin{abstract}
- Policy-based Reinforcement Learning (RL) has established itself as the dominant paradigm in generative recommendation for optimizing sequential user interactions. However, when applied to offline historical logs, these methods suffer a critical failure: the dominance of low-quality data induces severe model collapse. We first establish the \textit{Divergence Theory of Repulsive Optimization}, revealing that negative gradient updates inherently trigger exponential intensity explosion during off-policy training. This theory elucidates the \textbf{inherent dilemma} of existing methods, exposing their inability to reconcile variance reduction and noise imitation. To break this curse, we argue that the solution lies in rigorously identifying the latent high-quality distribution entangled within the noisy behavior policy. Accordingly, we reformulate the objective as an \textbf{Optimistic Distributionally Robust Optimization (DRO)} problem. Guided by this formulation, we propose \textbf{D}istributionally \textbf{R}obust \textbf{P}olicy \textbf{O}ptimization (\textbf{DRPO}). We prove that hard filtering is the exact solution to this DRO objective, enabling DRPO to optimally recover high-quality behaviors while strictly discarding divergence-inducing noise. Extensive experiments demonstrate that DRPO achieves state-of-the-art performance on mixed-quality recommendation benchmarks.
+Off-policy policy optimization reuses historical behavior, including negative-advantage samples that suppress known failures. We show that repeated reuse can turn this useful signal into excessive repulsion. As the learner moves away from a historical negative action, subsequent negative updates make that action increasingly remote under the current policy while preserving or amplifying its influence. We formalize this far-field repulsive dynamic and show a transition from useful extrapolation to instability: moderate negative feedback can improve upon policies trained only on positive-advantage samples, whereas excessive far-field repulsion leads to persistent drift or the loss of finite stable equilibria. The resulting control problem is not merely distance weighting: learner-relative remoteness is nonlinear, corresponding to squared standardized distance for Gaussian policies and surprisal for categorical policies, while the local utility of remote negative feedback decays. Motivated by this principle, DRPO applies nonlinear remoteness-aware attenuation to retain informative near-field updates while suppressing far-field repulsion. Controlled experiments identify the causal mechanism, and D4RL locomotion and Countdown arithmetic generation show that the control remains beneficial in realistic external tasks.
  % while generalizing effectively to broader continuous control tasks.
 
 
@@ -143,11 +143,11 @@
 Off-policy policy optimization improves a current policy using behavior collected by earlier, stale, or heterogeneous policies. This paradigm is essential in settings where fresh interaction is costly, slow, or unavailable, including offline reinforcement learning, replay-based control, recommender systems, and the post-training of generative models. By reusing historical experience, it can reduce exploration cost, exploit data accumulated across policy iterations, and enable policy improvement without relying exclusively on new on-policy trajectories. This benefit, however, creates a distinctive learning problem: the policy continues to evolve while the data being optimized remain fixed. Understanding how this growing mismatch changes the influence of historical feedback is therefore central to building stable and effective off-policy learning algorithms.
 
 
-Historical datasets, however, contain more than successful behavior to imitate. They also record suboptimal and failed actions that reveal which decisions should be suppressed. Policy-based methods exploit this distinction through signed feedback: positive updates increase the likelihood of successful behavior, whereas negative updates reduce the probability of known failures. Prior work has shown that such negative feedback can suppress undesirable modes, improve data efficiency, and benefit generalization in several policy-learning settings [citations]. Building on these observations, we view positive and negative feedback as complementary signals: positive updates provide attraction toward observed successes, while negative updates encode boundaries and failure information that positive imitation alone cannot express. We therefore ask how this information can be retained without allowing repeated historical reuse to turn negative feedback into excessive repulsion.
+Historical datasets, however, contain more than successful behavior to imitate. They also record suboptimal and failed actions that reveal which decisions should be suppressed. Policy-based methods exploit this distinction through signed feedback: positive updates increase the likelihood of successful behavior, whereas negative updates reduce the probability of known failures. Prior work has shown that policy-learning objectives can retain or reweight both positive and negative feedback rather than treating all non-positive samples identically \citep{peng2019advantage,kostrikov2021offline,nair2020awac,arnal2025asymmetric,leroux2025tapered}. Building on these observations, we view positive and negative feedback as complementary signals: positive updates provide attraction toward observed successes, while negative updates encode boundaries and failure information that positive imitation alone cannot express. We therefore ask how this information can be retained without allowing repeated historical reuse to turn negative feedback into excessive repulsion.
 
 Against this background, we identify a self-amplifying far-field dynamic in repeated off-policy updates. A negative update pushes the learner away from a fixed historical action, increasing its learner-relative distance or surprisal. This increased remoteness can in turn strengthen—or prevent the decay of—the action’s subsequent negative influence, causing repeated reuse to drive it progressively farther from the current policy. The precise amplification law depends on the policy family: continuous Gaussian policies can exhibit distance-dependent score growth, whereas categorical policies exhibit persistent suppression toward the support boundary. Thus, the danger lies not only in where a negative sample starts, but in how its influence evolves through repeated repulsion.
 
-Prior work has stabilized off-policy learning through filtering, importance weighting, probability- or surprisal-aware gating, and other forms of tapered negative updates [citations]. These methods demonstrate the value of nonuniform control, but they do not isolate whether learner-relative remoteness itself generates a self-amplifying repulsive dynamic. In realistic data, sample quality, advantage magnitude, rarity, and policy distance are entangled. We disentangle these factors through matched controlled environments and causally test the pathway from remoteness, to amplified negative influence, to policy drift and collapse.
+Prior work has stabilized off-policy learning through filtering, importance weighting, clipping, behavior regularization, and tapered negative updates \citep{peng2019advantage,fujimoto2019off,kumar2020conservative,schulman2017proximal,arnal2025asymmetric,leroux2025tapered}. These methods demonstrate the value of nonuniform control, but they do not isolate whether learner-relative remoteness itself generates a self-amplifying repulsive dynamic. In realistic data, sample quality, advantage magnitude, rarity, and policy distance are entangled. We disentangle these factors through matched controlled environments and causally test the pathway from remoteness, to amplified negative influence, to policy drift and collapse.
 
 
 
@@ -176,10 +176,10 @@ Our contributions are summarized as follows:
 \label{sec:related_work}
 
 \textbf{Learning from Negative or Suboptimal Behavior.}
-A broad line of policy-learning methods distinguishes behavior according to its estimated quality. Advantage-weighted regression and related actor-fitting objectives emphasize actions with higher estimated advantages, whereas positive-only or filtering approaches remove some or all negative updates [citations]. Other studies show that failed or suboptimal behavior can still help suppress undesirable modes, refine decision boundaries, and improve generalization [citations]. Together, these findings establish that negative feedback can be informative rather than merely noisy, while leaving open how its benefits can be retained without introducing harmful optimization dynamics.
+A broad line of policy-learning methods distinguishes behavior according to its estimated quality. Advantage-weighted regression and related actor-fitting objectives emphasize actions with higher estimated advantages, whereas positive-only or filtering approaches remove some or all negative updates \citep{peng2019advantage,kostrikov2021offline,nair2020awac}. Other off-policy objectives explicitly retain or rebalance negative feedback instead of discarding it wholesale \citep{arnal2025asymmetric,leroux2025tapered}. Together, these findings establish that negative feedback can be informative rather than merely noisy, while leaving open how its benefits can be retained without introducing harmful optimization dynamics.
 
 \textbf{Off-Policy, Stale, and Learner-Relative Updates.}
-This challenge becomes particularly important under off-policy reuse, where historical behavior remains fixed while the learner continues to change. Off-policy methods commonly control behavior–learner mismatch through importance weighting, clipping, trust regions, and behavior regularization [citations]. More recent methods, including TOPR and probability- or surprisal-aware objectives, further attenuate negative behavior that is unlikely under the current policy, making the update explicitly learner-relative [citations]. These works establish that distance-related information can guide selective control, but largely treat remoteness as a static weighting signal and often study it together with sample quality or advantage magnitude. They therefore leave unresolved how repeated negative updates themselves increase remoteness, alter subsequent influence, and form a feedback process that can drive policy drift or collapse. This perspective is complementary to conservative offline RL, which primarily controls value extrapolation or policy support, whereas we study the evolving dynamics of signed actor updates on fixed historical behavior.
+This challenge becomes particularly important under off-policy reuse, where historical behavior remains fixed while the learner continues to change. Off-policy methods commonly control behavior--learner mismatch through importance weighting, clipping, trust regions, and behavior regularization \citep{fujimoto2019off,schulman2017proximal,kumar2020conservative}. More recent methods, including TOPR and asymmetric off-policy objectives, further attenuate or rebalance negative behavior under the current policy, making the update explicitly learner-relative \citep{arnal2025asymmetric,leroux2025tapered}. These works establish that distance-related information can guide selective control, but largely treat remoteness as a static weighting signal and often study it together with sample quality or advantage magnitude. They therefore leave unresolved how repeated negative updates themselves increase remoteness, alter subsequent influence, and form a feedback process that can drive policy drift or collapse. This perspective is complementary to conservative offline RL, which primarily controls value extrapolation or policy support, whereas we study the evolving dynamics of signed actor updates on fixed historical behavior.
 % ------------------------------------------------------------------
 % SECTION 2: PRELIMINARIES
 % ------------------------------------------------------------------
@@ -1004,31 +1004,60 @@ are provided in Appendix~\ref{app:experimental_details}.
 \subsection{External Evidence of Far-Field Repulsion}
 \label{sec:external_far_field}
 
-We begin by testing whether negative-gradient amplification increases
-with learner-relative remoteness in realistic policy-optimization
-tasks. We study Hopper and Countdown because they cover two
-substantially different policy families: a state-conditioned Gaussian
-policy for continuous control and an autoregressive token policy for
-mathematical generation.
+\begin{figure}[t]
+    \centering
+    \includegraphics[
+        width=\columnwidth
+    ]{figures/figure1_external_gradient_bottom_labels.pdf}
 
-In Hopper, we restrict the analysis to transitions with negative
-learned-critic advantages and control for absolute advantage magnitude.
-We then order these transitions by their standardized distance from the
-current Gaussian policy and measure the norm of the resulting
-per-sample actor gradient. In Countdown, we analogously compare
-unsuccessful responses with the same verifier outcome, using
-current-policy mean token surprisal as learner-relative remoteness.
+    \caption{
+        \textbf{External diagnostic of far-field negative influence.}
+        \textbf{(a)} Hopper: relative full-parameter actor-gradient norm
+        and matched absolute advantage as functions of relative standardized
+        distance for transitions with negative learned-critic advantages.
+        Values are normalized to the near-field reference within each seed.
+        Lines report averages across 10 seeds, and shaded regions denote
+        seed-level bootstrap 95\% confidence intervals.
+        \textbf{(b)} Countdown: relative trainable-parameter gradient norm
+        and fixed negative coefficient magnitude as functions of current-policy
+        mean-token surprisal deciles among verifier-matched unsuccessful
+        responses. Values are normalized to the lowest-surprisal decile, and
+        shaded regions denote puzzle-level bootstrap 95\% confidence intervals.
+    }
+    \label{fig:external_far_field}
+\end{figure}
 
-Figure~\ref{fig:external_far_field} shows that the negative
-parameter-gradient norm increases systematically with remoteness in
-both tasks. Thus, negative samples with comparable quality exert
-increasingly strong optimization influence as they move farther from
-the current learner. The agreement between continuous control and
-autoregressive generation provides external evidence that far-field
-amplification is not specific to one action space or policy
-parameterization. The controlled experiments that follow isolate its
-source and test whether it causally propagates into policy drift and
-collapse.
+We first examine two external settings that instantiate
+learner-relative remoteness in different action spaces. Hopper provides
+a continuous-control setting with a state-conditioned Gaussian policy,
+where remoteness is measured by standardized distance from the current
+policy. Countdown provides an autoregressive discrete setting, where
+remoteness is measured by current-policy mean-token surprisal.
+
+The diagnostic controls the sample-quality coefficient in each setting.
+In Hopper, we compare negative-advantage transitions after matching their
+absolute advantage magnitudes. In Countdown, we compare verifier-matched
+unsuccessful responses while holding the negative coefficient magnitude
+fixed. Thus, changes in gradient magnitude primarily reflect the
+policy-score contribution rather than a larger negative coefficient.
+
+Figure~\ref{fig:external_far_field} shows the same qualitative pattern
+in both domains. In Hopper, the full-parameter actor-gradient norm grows
+with standardized distance, while the matched absolute advantage remains
+approximately flat. In Countdown, the trainable-parameter gradient norm
+increases with mean-token surprisal, while the negative coefficient
+remains fixed. These results provide external evidence that
+learner-relative remoteness strengthens negative optimization influence
+in both continuous learned-critic control and autoregressive policy
+optimization.
+
+The controlled experiments that follow isolate the source of this
+amplification and test whether it causally propagates into policy drift
+and collapse.
+
+
+
+
 \subsection{Controlled Identification of the Causal Mechanism}
 \label{sec:controlled_identification}
 
@@ -1045,50 +1074,96 @@ Appendix~\ref{app:controlled_protocols}.
 \subsubsection{Remoteness as an Independent Source of Negative Influence}
 \label{sec:controlled_source}
 
-In the continuous source-isolation protocol, C-U1 places negative
-actions on the same reward contour, giving them identical fixed
+\begin{figure}[t]
+    \centering
+
+    \includegraphics[
+        width=0.92\columnwidth,
+        trim={0pt 2pt 0pt 2pt},
+        clip
+    ]{figures/fig_6_3_1_source_heatmap.pdf}
+
+    \vspace{0.35em}
+
+    \includegraphics[
+        width=0.92\columnwidth,
+        trim={0pt 2pt 0pt 2pt},
+        clip
+    ]{figures/fig_6_3_2_rescue_plot.pdf}
+
+    \vspace{-0.4em}
+
+\caption{
+    \textbf{Controlled source isolation and causal transmission.}
+    \textbf{Top:} source-isolation factorization across
+    learner-relative remoteness bins, normalized to the near bin.
+    COE denotes coefficient magnitude and SC denotes policy-score
+    response; C rows report the C-U1 continuous protocol, and D rows
+    show the corresponding direct-softmax categorical reference.
+    \textbf{Bottom:} C-U1 causal-intervention summary. Ret. denotes
+    reward retention; points show 20-seed means with bootstrap
+    confidence intervals, and Task coll. reports task-performance
+    collapse counts.
+}
+    \label{fig:controlled_6_3}
+\end{figure}
+
+We first isolate whether learner-relative remoteness changes negative
+influence independently of sample quality. In C-U1, negative actions are
+placed on the same reward contour, giving them identical fixed
 advantages but different standardized distances from the current
-Gaussian policy. D-U1 constructs the categorical counterpart by holding
-negative labels fixed while varying their current-policy probabilities.
-As shown in Figure~\ref{fig:controlled_source}, Gaussian score and full
-parameter-gradient influence increase sharply with remoteness. For
-categorical policies, the direct-logit score remains bounded, but
-negative suppression persists even after the selected action becomes
-rare, continually increasing its logit gap and pushing its probability
-toward the simplex boundary. Thus, remoteness produces abnormal negative
-influence independently of sample quality, although its manifestation
-differs between continuous and categorical policies. This experiment
-identifies the source of the influence, not its downstream causal effect.
+Gaussian policy. The categorical direct-softmax reference applies the
+same factorization by fixing the negative coefficient while varying
+current-policy surprisal.
+
+The top panel of Figure~\ref{fig:controlled_6_3} separates the
+coefficient term from the policy-score term. The coefficient magnitude
+remains flat across remoteness bins, whereas the score response increases
+with remoteness. Thus, the larger negative influence cannot be explained
+by farther samples having larger advantages; it is generated by the
+policy-score geometry itself. The manifestation differs across action
+spaces: Gaussian policies exhibit amplitude amplification, while
+categorical policies approach a bounded direct-logit score but continue
+to suppress the selected action toward the simplex boundary. This
+experiment identifies the source of the influence, not its downstream
+causal effect.
 
 \subsubsection{Causal Transmission into Drift and Collapse}
 \label{sec:controlled_transmission}
 
-We next evolve a nonlinear state-conditioned Gaussian policy with
-learnable mean and variance, together with the corresponding categorical
-support dynamics in D-U1. All intervention branches share the data,
-fixed labels, initialization, optimizer, and training horizon. They
-differ only in whether near- or far-field negative updates are retained,
-removed, or capped; globally scaled controls match the resulting
-negative-update budget without using remoteness.
+We next test whether this far-field influence causally propagates into
+instability. In the C-U1 intervention protocol, all branches share the
+same data, fixed labels, initialization, optimizer, and training horizon,
+and differ only in how near- and far-field negative updates are retained,
+removed, capped, or globally rescaled.
 
-Figure~\ref{fig:controlled_transmission} shows that removing near-field
-negative updates leaves the harmful dynamics largely intact, whereas
-removing or limiting the far-field component substantially reduces
-policy displacement and prevents the associated variance or
-probability-support boundary events. Abnormal far-field influence also
-precedes the observed drift, rather than emerging only after performance
-has deteriorated. These interventions therefore identify far-field
-negative influence, rather than negative feedback in general, as a
-causal transmission path to policy instability. Task-performance
-collapse, support or variance-boundary events, and NaN/Inf numerical
-failure are reported separately.
+The bottom panel of Figure~\ref{fig:controlled_6_3} shows a clear rescue
+pattern. Removing near-field negative updates leaves performance collapse
+largely unchanged, whereas removing or capping far-field updates restores
+reward retention and eliminates task-performance collapse. Global
+rescaling also rescues the run, supporting the interpretation that
+abnormal negative-update magnitude is a mediator. In contrast,
+transferring the far-field budget to near-field negatives gives only
+partial recovery, showing that the rescue is not obtained by simply
+preserving the same total negative-update budget.
 
+These interventions identify far-field negative influence, rather than
+negative feedback in general, as a causal transmission path to policy
+instability in the controlled Gaussian environment. Task-performance
+collapse is visualized in the figure; support or variance-boundary events
+and NaN/Inf numerical failures are audited separately.
 
 \subsection{From Useful Repulsion to DRPO Control}
 \label{sec:repulsion_control}
 
-The causal results show why the far-field tail must be controlled, but
-not why all negative feedback should be removed. Positive-only learning
+The causal experiments show that the far-field tail must be controlled,
+but they do not imply that all negative feedback should be removed.
+The remaining question is how to preserve useful local repulsion while
+attenuating harmful remote influence. We therefore separate two roles:
+controlled taper-shape experiments identify which negative-weighting
+profiles preserve local utility under known near/far structure, whereas
+external experiments test whether the same control principle transfers
+to realistic offline-control and autoregressive-generation settings. Positive-only learning
 is stable but remains constrained by the observed positive support. C-U1
 and D-U1 therefore place a hidden task optimum beyond the positive-only
 target and construct local negative feedback whose repulsive direction
@@ -1096,29 +1171,129 @@ points toward that optimum, while additional remote negatives create
 far-field pressure. This exposes a controlled transition from useful
 local repulsion to harmful far-field dominance.
 
+\subsubsection{Stable Extrapolation from Controlled Negative Feedback}
+\label{sec:controlled_negative_strength}
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[
+        width=0.95\columnwidth
+    ]{figures/fig_6_4_1_phase_transition.pdf}
+
+    \vspace{-0.35em}
+\caption{
+    \textbf{Stable extrapolation from controlled negative feedback.}
+    Increasing the effective negative strength $q/p$ first improves
+    held-out-context reward beyond the positive-only ceiling, then causes
+    over-extrapolation and task-performance collapse. Policy shift
+    measures displacement from the positive-only target. The color strip
+    reports task collapse, boundary events, and NaN/Inf failures
+    separately.
+}
+    \label{fig:phase_transition_6_4_1}
+\end{figure}
+
+The causal interventions in Section~\ref{sec:controlled_transmission}
+show that far-field negative influence must be controlled, but they do
+not imply that all negative feedback should be removed. We therefore
+sweep the effective negative strength relative to positive attraction,
+denoted by $q/p$, while keeping the data, labels, initialization,
+optimizer, and training horizon fixed; protocol and metric details are
+given in Appendix~\ref{app:negative_strength_sweep}. The positive-only
+setting is $q/p=0$.
+
+Figure~\ref{fig:phase_transition_6_4_1} shows a non-monotone transition.
+For small and moderate $q/p$, held-out-context reward rises above the
+positive-only ceiling, showing that controlled negative feedback provides
+useful repulsion beyond the positive-support solution. As $q/p$ grows
+larger, policy shift continues to increase but reward declines,
+indicating over-extrapolation rather than additional useful
+generalization. At the largest strengths, task-performance collapse and
+boundary events appear, while NaN/Inf failures are reported separately.
+
+This strength sweep supplies the missing link between causal rescue and
+tapered control: positive-only learning removes the harmful tail but also
+removes the beneficial intermediate regime. Remoteness-aware control
+should therefore preserve useful local repulsion while preventing the
+far-field tail from dominating.
+
+
+\begin{figure}[t]
+\centering
+
+\begin{minipage}[t]{0.68\columnwidth}
+    \centering
+    \vspace{0pt}
+\textbf{(a) Controlled taper comparison}\\[0.05em]
+    \includegraphics[
+        width=\linewidth
+    ]{figures/fig_6_4_2_leftfig_bigtext_legend_protocol.pdf}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.28\columnwidth}
+    \centering
+    \vspace{0pt}
+    \textbf{(b) Transfer}\\[0.20em]    \scriptsize
+    \setlength{\tabcolsep}{2.2pt}
+    \renewcommand{\arraystretch}{0.92}
+    \resizebox{\linewidth}{!}{
+    \begin{tabular}{lcc}
+    \toprule
+    Method & Hop. & Cnt. \\
+    \midrule
+    Pos.        & \texttt{--} & \texttt{--} \\
+    G-$\alpha$  & \texttt{--} & \texttt{--} \\
+    Rec.-L      & \texttt{--} & \texttt{--} \\
+    Rec.-Q      & \texttt{--} & \texttt{--} \\
+    EXP         & \textbf{\texttt{--}} & \textbf{\texttt{--}} \\
+    \bottomrule
+    \end{tabular}
+    }
+
+    \vspace{0.25em}
+    {\scriptsize
+    Hop.: Hopper return.\\
+    Cnt.: Countdown success.
+    }
+\end{minipage}
+
+\vspace{-0.35em}
+\caption{
+\textbf{Controlled taper comparison and external transfer.}
+\textbf{(a)} Matched operating-point comparison in the controlled
+taper protocol. For each method, the left bar is the near-field-retention
+matched operating point and the right bar is the aggregate-budget matched
+operating point. Bars decompose retained negative influence into near-
+and far-field components, and dashed traces report held-out-context reward.
+\textbf{(b)} External validation summary on Hopper and Countdown. The
+right panel reports only final task-level outcomes; operating-point and
+matching details are shown in the controlled comparison.
+}
+\label{fig:taper_control_and_transfer}
+\end{figure}
+
 \subsubsection{Controlled Comparison of Taper Shapes}
 \label{sec:controlled_tapers}
 
-We compare positive-only learning, uncontrolled signed updates, global
-negative scaling, hard filtering, reciprocal tapering, and exponential
-tapering while changing only the negative weighting rule. Two matched
-comparisons are used. Near-field-retention matching preserves comparable
-local negative influence and isolates differences in far-field decay,
-whereas aggregate-budget matching tests whether a selective taper
+We compare positive-only learning, global negative scaling,
+reciprocal-linear tapering, reciprocal-quadratic tapering, and
+exponential tapering while changing only the negative weighting rule. Two
+matched comparisons are used. Near-field-retention matching preserves
+comparable local negative influence and isolates differences in far-field
+decay, whereas aggregate-budget matching tests whether a selective taper
 outperforms a global reduction with the same total negative-update
 budget.
 
-As shown in Figure~\ref{fig:controlled_tapers}, exponential tapering
-provides the strongest stability--utility trade-off across C-U1 and
-D-U1. Positive-only learning avoids far-field instability but remains at
-the positive-support ceiling. Uncontrolled updates initially benefit
-from local repulsion before remote pressure induces excessive drift and
-boundary events. Global scaling suppresses useful near- and harmful
-far-field feedback indiscriminately, while hard filtering introduces an
-abrupt cutoff. The exponential taper instead retains near-field
-repulsion while rapidly suppressing the far-field tail, yielding higher
-task performance and held-out-context generalization with weaker policy
-drift than the matched alternatives.
+As shown in Figure~\ref{fig:taper_control_and_transfer}, exponential tapering
+provides the strongest stability--utility trade-off under both matched
+comparisons. Positive-only learning avoids far-field instability but
+remains at the positive-support ceiling. Global scaling suppresses useful
+near- and harmful far-field feedback indiscriminately. Reciprocal
+tapering introduces remoteness-aware suppression, but its tail remains
+heavier than the exponential rule. The exponential taper instead retains
+near-field repulsion while rapidly suppressing the far-field tail,
+yielding higher task performance and held-out-context generalization
+than the matched alternatives.
 
 \subsubsection{External Validation of Remoteness Tapering}
 \label{sec:external_tapers}
@@ -1132,28 +1307,24 @@ external tasks do not provide known counterfactual geometry or exact
 near-field utility matching, they test transfer rather than repeat the
 controlled causal identification.
 
-Figure~\ref{fig:external_tapers} shows that DRPO preserves the benefit of
-near-field negative feedback while avoiding the excessive displacement
-caused by uncontrolled signed updates. It achieves higher normalized
-return in Hopper and higher verifier success in Countdown than
-positive-only learning, global negative scaling, and the uncontrolled
-baseline, while producing fewer support or variance-boundary events.
-The controlled stability--utility principle therefore transfers to both
-continuous offline control and autoregressive policy optimization.
-
+The transfer panel in Figure~\ref{fig:taper_control_and_transfer} records
+the same external validation targets without repeating the full controlled
+taper ablation in the main text. Detailed protocol-matched comparisons are
+reported with the task-level results and appendix materials. The controlled
+stability--utility principle is therefore evaluated both in continuous
+offline control and in autoregressive policy optimization.
 
 \subsection{Overall Task Performance}
 \label{sec:overall_performance}
 
 Having established the mechanism and its transfer, we evaluate DRPO as
 a complete policy-optimization method on D4RL locomotion and Countdown.
-We compare it with published domain-specific baselines and
-protocol-matched controls spanning positive-only learning, global
-negative scaling, and alternative remoteness tapers. All
-protocol-matched methods use the same data and compute budgets. We
-report normalized return for D4RL and verifier success for Countdown,
-while task-performance failures, support or variance-boundary events,
-and NaN/Inf numerical failures remain separate outcomes.
+We compare it with published domain-specific baselines while keeping the
+protocol-matched controls and alternative taper ablations in the controlled
+comparison and appendix. We report normalized return for D4RL and verifier
+success for Countdown, while task-performance failures, support or
+variance-boundary events, and NaN/Inf numerical failures remain separate
+outcomes.
 
 % Required packages:
 % \usepackage{booktabs}
@@ -1166,37 +1337,24 @@ We evaluate the nine D4RL Gym locomotion tasks formed by HalfCheetah,
 Hopper, and Walker2d under the medium, medium-replay, and medium-expert
 datasets. These datasets vary in behavior quality and coverage, with
 medium-replay containing the broadest mixture of historical policies.
-Table~\ref{tab:d4rl_performance} compares published offline-RL
-baselines with Positive-only, Global-$\alpha$, Reciprocal-Linear,
-Reciprocal-Quadratic, and DRPO under our common implementation.
-The shared objectives and taper functions are defined in
-Appendix~\ref{app:shared_methods}; D4RL-specific score provenance,
-uncertainty statistics, remoteness construction, and implementation
-details are provided in Appendix~\ref{app:d4rl_methods}.
+Table~\ref{tab:d4rl_performance} compares DRPO with published offline-RL
+baselines under the D4RL evaluation protocol. The shared objectives and
+taper functions are defined in Appendix~\ref{app:shared_methods};
+D4RL-specific score provenance, uncertainty statistics, remoteness
+construction, and implementation details are provided in
+Appendix~\ref{app:d4rl_methods}.
 
-\begin{table*}[t]
+\begin{table}[t]
 \centering
 \caption{Normalized returns on the D4RL-9 Gym locomotion benchmark.}
 \label{tab:d4rl_performance}
 
-\footnotesize
-\setlength{\tabcolsep}{3.8pt}
-\renewcommand{\arraystretch}{1.08}
+\small
+\setlength{\tabcolsep}{3.9pt}
+\renewcommand{\arraystretch}{1.07}
 
-\resizebox{\textwidth}{!}{%
-\begin{tabular}{lcccc|cc|ccc}
+\begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}lcccc}
 \toprule
-&
-\multicolumn{4}{c|}{Published offline-RL baselines}
-&
-\multicolumn{2}{c|}{Protocol controls}
-&
-\multicolumn{3}{c}{Remoteness-aware methods}
-\\
-\cmidrule(lr){2-5}
-\cmidrule(lr){6-7}
-\cmidrule(lr){8-10}
-
 Dataset
 &
 CQL$^\dagger$
@@ -1205,179 +1363,72 @@ TD3+BC$^\dagger$
 &
 IQL$^\dagger$
 &
-BC$^\dagger$
-&
-Pos.
-&
-G-$\alpha$
-&
-Rec.-L
-&
-Rec.-Q
-&
 \textbf{DRPO}
 \\
 \midrule
 
-halfcheetah-medium-v2
-& 44.0
-& 48.3
-& 47.4
-& 43.5
-& --
-& --
-& --
-& --
-& 47.3
-\\
-
-hopper-medium-v2
-& 58.5
-& 59.3
-& 66.3
-& 61.3
-& --
-& --
-& --
-& --
-& 63.3
-\\
-
-walker2d-medium-v2
-& 72.5
-& 83.7
-& 78.3
-& 74.2
-& --
-& --
-& --
-& --
-& 85.5
-\\
+halfcheetah-medium
+& 44.0 & \textbf{48.3} & \underline{47.4} & 47.3 \\
+hopper-medium
+& 58.5 & 59.3 & \textbf{66.3} & \underline{63.3} \\
+walker2d-medium
+& 72.5 & \underline{83.7} & 78.3 & \textbf{85.5} \\
 
 \midrule
 
-halfcheetah-medium-replay-v2
-& 45.5
-& 44.6
-& 44.2
-& 40.1
-& --
-& --
-& --
-& --
-& 43.3
-\\
-
-hopper-medium-replay-v2
-& 95.0
-& 60.9
-& 94.7
-& 66.0
-& --
-& --
-& --
-& --
-& 95.8
-\\
-
-walker2d-medium-replay-v2
-& 77.2
-& 81.8
-& 73.9
-& 33.4
-& --
-& --
-& --
-& --
-& 78.1
-\\
+halfcheetah-replay
+& \textbf{45.5} & \underline{44.6} & 44.2 & 43.3 \\
+hopper-replay
+& \underline{95.0} & 60.9 & 94.7 & \textbf{95.8} \\
+walker2d-replay
+& 77.2 & \textbf{81.8} & 73.9 & \underline{78.1} \\
 
 \midrule
 
-halfcheetah-medium-expert-v2
-& 91.6
-& 90.7
-& 86.7
-& 64.4
-& --
-& --
-& --
-& --
-& 91.1
-\\
-
-hopper-medium-expert-v2
-& 105.4
-& 98.0
-& 91.5
-& 64.9
-& --
-
-& --
-& --
-& --
-& 101.8
-\\
-
-walker2d-medium-expert-v2
-& 108.8
-& 110.1
-& 109.6
-& 107.7
-& --
-& --
-& --
-& --
-& 110.4
-\\
+halfcheetah-expert
+& \textbf{91.6} & 90.7 & 86.7 & \underline{91.1} \\
+hopper-expert
+& \textbf{105.4} & 98.0 & 91.5 & \underline{101.8} \\
+walker2d-expert
+& 108.8 & \underline{110.1} & 109.6 & \textbf{110.4} \\
 
 \midrule
 
 \textit{D4RL-9 total}
-& \textit{698.5}
+& \textit{\underline{698.5}}
 & \textit{677.4}
 & \textit{692.4}
-& \textit{555.5}
-& --
-& --
-& --
-& --
-& \textit{716.6}
+& \textbf{\textit{716.6}}
 \\
 
 \bottomrule
-\end{tabular}%
-}
+\end{tabular*}
 
-\vspace{3pt}
+\vspace{2pt}
 
-\begin{minipage}{\textwidth}
-\footnotesize
+\begin{minipage}{\columnwidth}
+\small
 \textit{Note.}
-Pos.\ denotes Positive-only, G-$\alpha$ denotes Global-$\alpha$,
-and Rec.-L and Rec.-Q denote Reciprocal-Linear and
-Reciprocal-Quadratic. Results marked by $\dagger$ are reported by prior
-work rather than protocol-matched reruns. The table reports task-level
-means. DRPO results are averaged over 10 runs; the corresponding
+Dataset names are shortened for compactness: ``replay'' denotes
+``medium-replay'', ``expert'' denotes ``medium-expert'', and the D4RL
+``-v2'' suffix is omitted. Results marked by $\dagger$ are reported by
+prior work rather than protocol-matched reruns. Rows report task-level
+normalized returns, and \textit{D4RL-9 total} sums the nine task means.
+Bold and underlined values denote the best and second-best results among
+the methods shown in this table. DRPO results are averaged over 10 runs;
 standard deviations and seed-level results are reported in
-Appendix~\ref{app:d4rl_methods}. Shared method definitions are provided
-in Appendix~\ref{app:shared_methods}. A dash denotes a result pending
-the formal run.
+Appendix~\ref{app:d4rl_methods}.
 \end{minipage}
 
-\end{table*}
+\end{table}
 
 DRPO achieves the highest aggregate performance across D4RL-9, with a
-total normalized return of \emph{[TBD]}. It improves over Positive-only,
-Global-$\alpha$, Reciprocal-Linear, and Reciprocal-Quadratic by
-\emph{[TBD]}, \emph{[TBD]}, \emph{[TBD]}, and \emph{[TBD]},
-respectively. Its advantage is largest on the medium-replay tasks,
-where broader behavioral coverage creates stronger far-field pressure,
-while remaining competitive on the medium and medium-expert datasets.
-These results indicate that selective exponential attenuation preserves
-useful negative feedback more consistently than either removing it,
-scaling it globally, or applying slower reciprocal decay.
+total normalized return of 716.6. Its advantage is largest on the
+medium-replay tasks, where broader behavioral coverage creates stronger
+far-field pressure, while remaining competitive on the medium and
+medium-expert datasets. These results indicate that selective
+remoteness-aware attenuation remains effective in a standard
+learned-critic offline-control benchmark.
 
 \subsubsection{Countdown}
 \label{sec:countdown_performance}
@@ -1391,68 +1442,37 @@ formatting or execution failure.
 
 All compared policy-optimization methods start from the same SFT
 checkpoint and use the same frozen response bank, training budget,
-validation split, and test puzzles. We include
+validation split, and test puzzles. We compare DRPO with
 AsymRE~\citep{arnal2025asymmetric} and
-TOPR~\citep{leroux2025tapered} as published off-policy baselines,
-together with protocol controls and alternative remoteness-aware
-tapers. The shared objectives and taper functions are defined in
+TOPR~\citep{leroux2025tapered} as off-policy baselines.
+The shared objectives and taper functions are defined in
 Appendix~\ref{app:shared_methods}; Countdown-specific baseline
 implementations, response-bank construction, checkpoint selection, and
 evaluation details are provided in
 Appendix~\ref{app:countdown_methods}.
 
-\begin{table*}[t]
+\begin{table}[t]
 \centering
 \caption{Performance on held-out Countdown puzzles.}
 \label{tab:countdown_performance}
 
 \small
-\renewcommand{\arraystretch}{1.12}
-\setlength{\tabcolsep}{3pt}
+\renewcommand{\arraystretch}{1.10}
+\setlength{\tabcolsep}{5.0pt}
 
-\begin{tabular*}{\textwidth}{
-    @{\extracolsep{\fill}}
-    l
-    cc|
-    cc|
-    ccc
-    @{}
-}
+\begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}lccc}
 \toprule
-&
-\multicolumn{2}{c|}{Published off-policy baselines}
-&
-\multicolumn{2}{c|}{Protocol controls}
-&
-\multicolumn{3}{c}{Remoteness-aware methods}
-\\
-\cmidrule(lr){2-3}
-\cmidrule(lr){4-5}
-\cmidrule(lr){6-8}
-
 Metric
 &
 AsymRE
 &
 TOPR
 &
-Positive-only
-&
-Global-$\alpha$
-&
-Rec.-Linear
-&
-Rec.-Quadratic
-&
 \textbf{DRPO}
 \\
 \midrule
 
-Greedy verifier success (\%)
-& --
-& --
-& --
-& --
+Greedy success (\%)
 & --
 & --
 & --
@@ -1462,17 +1482,9 @@ Pass@$k$ (\%)
 & --
 & --
 & --
-& --
-& --
-& --
-& --
 \\
 
-Valid-expression rate (\%)
-& --
-& --
-& --
-& --
+Valid expression (\%)
 & --
 & --
 & --
@@ -1480,56 +1492,43 @@ Valid-expression rate (\%)
 
 \bottomrule
 \end{tabular*}
-\end{table*}
 
-DRPO achieves the highest greedy verifier success among the
-protocol-matched off-policy methods, reaching \emph{[TBD]}. It improves
-over AsymRE and TOPR by \emph{[TBD]} and \emph{[TBD]}, respectively,
-and exceeds Positive-only and Global-$\alpha$ by \emph{[TBD]} and
-\emph{[TBD]}. DRPO also obtains the highest pass@$k$ while maintaining
+\vspace{2pt}
+
+\begin{minipage}{\columnwidth}
+\small
+\textit{Note.}
+All methods use the same SFT checkpoint, frozen response bank,
+validation split, test puzzles, and training budget. A dash denotes a
+result pending the formal run.
+\end{minipage}
+
+\end{table}
+
+DRPO achieves the highest greedy verifier success among the methods
+shown in Table~\ref{tab:countdown_performance}, reaching \emph{[TBD]}.
+It improves over AsymRE and TOPR by \emph{[TBD]} and \emph{[TBD]},
+respectively. DRPO also obtains the highest pass@$k$ while maintaining
 a valid-expression rate of \emph{[TBD]}, showing that the improvement
 comes from solving more puzzles rather than relaxing output validity.
 
-The comparisons distinguish four possible sources of improvement:
-retaining only successful responses, rebalancing all negative responses
-independently of remoteness, correcting generic off-policy reuse, and
-selectively attenuating the learner-relative far-field tail. The results
-show that neither removing negative feedback nor applying a single
-response-independent adjustment fully recovers the performance of
-remoteness-aware control. The reciprocal tapers further test whether the
-remoteness signal alone is sufficient. DRPO provides the strongest
-overall result by retaining useful near-field negative feedback while
-more rapidly suppressing remote unsuccessful responses.
-
 \section{Conclusion}
-\label{sec:conclusion}
 
-
-
-In this work, we address the critical instability of offline RL in industrial recommender systems characterized by heavy-tailed noise.
-We establish the \textit{Divergence Theory}, mathematically proving that widely used soft-weighting constraints are insufficient to prevent variance collapse in such environments.
-To bridge this gap, we propose \textbf{DRPO}, which leverages Distributionally Robust Optimization to derive a rigorous \textbf{Hard Filtering} mechanism.
-By physically severing the dependency on toxic data tails, DRPO not only achieves state-of-the-art performance in offline evaluations but also enables safe, seamless offline-to-online adaptation.
-Our findings suggest a paradigm shift for real-world RL: as we move from clean benchmarks to noisy production data, explicit data rejection becomes a prerequisite for robustness.
+This work reframes negative feedback in off-policy policy optimization
+as a controlled resource rather than a signal to be uniformly kept or
+removed. Its value depends on where a historical action lies relative to
+the current learner: nearby failures can shape useful decision
+boundaries, while remote failures can acquire disproportionate influence
+and destabilize optimization. DRPO operationalizes this view by
+attenuating negative influence according to learner-relative remoteness,
+preserving locally informative repulsion while limiting the far-field
+tail. The broader lesson is that stable offline and off-policy policy
+optimization should control the geometry of reused feedback, not merely
+its sign or magnitude.
 
 
 % Acknowledgements should only appear in the accepted version.
 
-\section*{Impact Statement}
-
-This paper introduces \textbf{DRPO}, a robust offline reinforcement learning framework designed to extract optimal policies from heavy-tailed, noise-dominated datasets. While our experimental validation focuses on generative recommendation, the implications of this work extend significantly beyond this domain.
-
-\paragraph{Industrial Relevance: Recommendation and Advertising.}
-In the primary application domains of \textbf{online recommendation and computational advertising}, data quality is often compromised by "accidental clicks," clickbait, or system logging errors. DRPO provides a critical solution for these high-noise scenarios. By rigorously filtering out low-quality interactions and cloning only the true high-reward behaviors, our method can significantly enhance user experience and advertiser ROI. It offers a practical path for deploying generative policies in production environments where data is abundant but predominantly suboptimal.
-
-\paragraph{Generalization to Continuous Control Systems.}
-The theoretical foundation of DRPO—specifically its variance-guided filtration for off-policy training—is domain-agnostic and highly transferable to physical systems such as \textbf{robotics, autonomous driving, and industrial automation}. In these continuous control tasks, collecting expert-level demonstrations is expensive, while suboptimal historical data is often readily available. Our framework enables safe and efficient policy learning from such imperfect datasets, reducing the risks associated with trial-and-error in physical environments.
-
-\paragraph{Potential in Large Language Models (LLMs).}
-Although formulated in continuous spaces, we posit that the principles of DRPO are generalizable to discrete action spaces, most notably in the training of \textbf{Large Language Models (LLMs)}. The fine-tuning of LLMs (e.g., RLHF) often suffers from inconsistent or noisy human feedback. We anticipate that our distributionally robust approach could be adapted to filter noisy preference labels, thereby stabilizing the alignment of LLMs with human intent even when the feedback quality is variable.
-
-\paragraph{Societal and Environmental Impact.}
-From an environmental perspective, DRPO demonstrates superior sample efficiency and faster convergence than standard baselines, contributing to \textbf{Green AI} by reducing the energy footprint of training large-scale models. Ethically, we acknowledge that our method amplifies patterns found in "high-reward" data. Practitioners must ensure that the definition of "reward" is carefully aligned with fairness standards to prevent the reinforcement of historical biases (e.g., popularity bias or demographic unfairness) present in the training logs.
 
 % In the unusual situation where you want a paper to appear in the
 % references without citing it in the main text, use \nocite
@@ -3466,9 +3465,8 @@ surprisal growth, logit-gap growth, and simplex-boundary suppression
 under repeated negative updates. It shares the fixed-advantage and
 near/far intervention logic of D-U1, but it does not use the 64-action
 shared-semantic catalogue and does not support the E6 semantic
-generalization claim. Its reconstruction parameters and direct-softmax
-initial conditions are reported separately in
-Appendix~\ref{app:du1_e5_diagnostic}.
+generalization claim. Its reconstruction parameters and direct-softmax initial conditions are kept
+separate from the D-U1 semantic generalization protocol.
 \subsection{D4RL Hopper Datasets}
 \label{app:hopper_datasets}
 
@@ -3485,7 +3483,7 @@ and expert behavior. Hopper-medium-replay is used for the primary
 mechanism analysis because it provides broader behavioral coverage,
 while all three datasets are used for external method evaluation.
 Dataset versions, transition counts, and preprocessing statistics are
-reported in Table~\ref{tab:hopper_dataset_details}.baselines.
+reported with the D4RL protocol details in Appendix~\ref{app:d4rl_methods}.
 
 \subsection{Countdown Task and Puzzle Dataset}
 \label{app:countdown_dataset}
@@ -3526,14 +3524,13 @@ sets. Duplicate puzzles with the same number multiset and target are
 removed across the corpus. Validation puzzles are used for checkpoint
 selection, while the test split is reserved for final evaluation.
 Exact generation ranges, split sizes, and corpus statistics are reported
-in Table~\ref{tab:countdown_dataset_details}.
+with the Countdown protocol details in Appendix~\ref{app:countdown_methods}.
 
 Countdown provides an external discrete-action setting with
 autoregressive sequence generation and shared Transformer parameters.
 The construction of the offline response dataset, including positive,
 near-negative, and far-negative responses, belongs to the experimental
-protocol and is described separately in
-Appendix~\ref{app:countdown_protocol}.
+protocol and is described separately in Appendix~\ref{app:countdown_methods}.
 \subsection{Training and Evaluation Protocols}
 
 \section{Controlled Experimental Protocols}
@@ -3543,10 +3540,9 @@ This section specifies the interventions used in
 Sections~\ref{sec:controlled_identification}
 and~\ref{sec:repulsion_control}. The definitions of C-U1, D-U1,
 Hopper, and Countdown are given in
-Appendix~\ref{app:experimental_details}. Network architectures,
-optimizer settings, training budgets, seeds, and evaluation frequencies
-are reported separately in
-Appendix~\ref{app:implementation_details}.
+Appendix~\ref{app:experimental_details}. Network architectures, optimizer settings, training budgets, seeds, and
+evaluation frequencies are reported in the method-specific protocol
+appendices below.
 
 \subsection{Shared Notation and Experimental Invariants}
 \label{app:controlled_shared}
@@ -3802,6 +3798,23 @@ A boundary event is not automatically counted as task-performance
 collapse, and finite execution is not automatically counted as
 convergence.
 
+\subsection{Controlled Negative-Strength Sweep}
+\label{app:negative_strength_sweep}
+
+The controlled negative-strength sweep varies only the effective
+negative-repulsion strength $q/p$, where $p$ denotes the aggregate
+positive-attraction budget and $q$ denotes the aggregate
+negative-repulsion budget. All sweep arms share the same data, fixed
+labels, initialization, optimizer, training horizon, and event
+thresholds. The positive-only baseline corresponds to $q/p=0$.
+
+Held-out-context reward evaluates unseen-state generalization within the
+C-U1 controlled protocol. Policy shift is the normalized displacement of
+the learned policy from the positive-only target and visualizes how far
+negative feedback pushes the policy beyond the imitation solution.
+Task-performance collapse, support or variance-boundary events, and
+NaN/Inf numerical failures are audited as separate event types.
+
 
 \subsection{Controlled Taper Comparison}
 \label{app:controlled_taper_protocol}
@@ -3916,6 +3929,7 @@ from the hidden optimum, policy displacement, entropy or variance,
 effective support, near-field retention, aggregate negative-update
 budget, and all three terminal-event categories. Method comparisons use
 the same seeds and paired statistics.
+
 
 
 \subsection{External Taper Validation}

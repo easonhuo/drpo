@@ -1,0 +1,8 @@
+strength_q_over_p,heldout_reward,heldout_ci_low,heldout_ci_high,policy_shift,positive_only_ceiling,task_collapse_count,boundary_event_count,nan_inf_count,n_seeds,phase,is_placeholder
+0.0,0.52,0.48,0.56,0.0,0.52,0,0,0,20,positive-only,1
+0.1,0.68,0.62,0.74,0.18,0.52,0,0,0,20,useful,1
+0.35,0.91,0.85,0.97,0.55,0.52,0,1,0,20,useful,1
+0.5,1.0,0.94,1.06,0.72,0.52,0,2,0,20,best,1
+1.0,0.63,0.53,0.73,1.2,0.52,5,8,0,20,over-extrapolation,1
+1.5,0.28,0.18,0.38,1.55,0.52,14,15,1,20,collapse,1
+2.0,0.15,0.08,0.22,1.9,0.52,19,18,3,20,collapse,1
