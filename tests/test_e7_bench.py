@@ -26,14 +26,14 @@ def test_pilot_plan_uses_all_384_core_server_parallelism_without_serial_loops() 
     plan = e7_bench.build_execution_plan(config, "pilot")
     assert len(plan["critic_parallel_stage"]) == 2
     assert len(plan["warmstart_parallel_stage"]) == 4
-    assert len(plan["branch_parallel_stage"]) == 80
+    assert len(plan["branch_parallel_stage"]) == 84
     assert sum(row["method"] == "positive_only" for row in plan["branch_parallel_stage"]) == 4
     assert plan["critic_workers"] == 2
     assert plan["warmstart_workers"] == 4
-    assert plan["branch_workers"] == 80
+    assert plan["branch_workers"] == 84
     assert plan["critic_workers"] * plan["critic_cpus_per_worker"] == 128
     assert plan["warmstart_workers"] * plan["warmstart_cpus_per_worker"] == 256
-    assert plan["branch_workers"] * plan["branch_cpus_per_worker"] == 320
+    assert plan["branch_workers"] * plan["branch_cpus_per_worker"] == 336
     assert plan["shared_positive_warmstart_steps"] == 100000
     assert plan["method_continuation_steps"] == 200000
     assert plan["total_actor_steps_per_method"] == 300000
@@ -78,18 +78,21 @@ def test_parameter_sweep_keeps_families_but_expands_method_variants() -> None:
     assert config.methods.pilot_parameter_search_enabled is True
     assert config.methods.per_task_retuning_allowed is False
     assert config.methods.d4rl_retuning_allowed is False
-    assert len(config.methods.variants) == 20
+    assert len(config.methods.variants) == 21
     families = [variant.family for variant in config.methods.variants]
     assert families.count("positive_only") == 1
     assert families.count("signed") == 1
-    assert families.count("global_alpha") == 3
-    assert families.count("reciprocal_linear") == 5
-    assert families.count("reciprocal_quadratic") == 5
-    assert families.count("exponential") == 5
-    assert "global_alpha_a0p05" in config.methods.ids
+    assert families.count("global_alpha") == 4
+    assert families.count("reciprocal_linear") == 4
+    assert families.count("reciprocal_quadratic") == 4
+    assert families.count("exponential") == 7
+    assert "global_alpha_a0p40" in config.methods.ids
+    assert "global_alpha_a0p05" not in config.methods.ids
     assert "global_alpha_a0p75" not in config.methods.ids
-    assert "reciprocal_linear_c6p00" in config.methods.ids
-    assert "exponential_c8p00" in config.methods.ids
+    assert "reciprocal_linear_c20p00" in config.methods.ids
+    assert "reciprocal_quadratic_c20p00" in config.methods.ids
+    assert "exponential_c5p00" in config.methods.ids
+    assert "exponential_c12p00" in config.methods.ids
     assert "exponential_c0p374163" not in config.methods.ids
     assert config.methods.global_alpha == pytest.approx(0.75)
     assert config.methods.reference_distance == pytest.approx(5.0)
@@ -178,7 +181,7 @@ def test_warmstart_worker_is_method_agnostic_but_branch_worker_validates_method(
 def test_taper_weights_are_continuous_and_monotone() -> None:
     config = e7_bench.load_bench_config(CONFIG)
     d = torch.tensor([0.0, 2.5, 5.0, 10.0, 20.0])
-    for method in ("reciprocal_linear_c3p00", "reciprocal_quadratic_c3p00", "exponential_c3p00"):
+    for method in ("reciprocal_linear_c8p00", "reciprocal_quadratic_c8p00", "exponential_c8p00"):
         weight = e7_bench.taper_weight(d, method, config.methods)
         assert weight[0].item() == pytest.approx(1.0)
         assert torch.all(weight[:-1] >= weight[1:])
@@ -197,7 +200,7 @@ def test_benchmark_loss_only_tapers_negative_advantages() -> None:
     actions = torch.tensor([[0.1, 0.2], [0.2, -0.3], [0.8, 0.5], [-0.9, 0.4]])
     advantage = torch.tensor([1.0, -1.0, 2.0, -2.0])
     loss, diag = e7_bench.benchmark_actor_loss(
-        policy, obs, actions, advantage, "exponential_c3p00", config.methods
+        policy, obs, actions, advantage, "exponential_c8p00", config.methods
     )
     assert torch.isfinite(loss)
     assert diag["active_fraction"] == pytest.approx(1.0)
@@ -290,7 +293,7 @@ def test_worker_identity_binds_budget_and_taper_parameters() -> None:
         spec,
         worker="branch",
         seed=200,
-        method="exponential_c3p00",
+        method="exponential_c8p00",
     )
     shorter_budget = dataclasses.replace(
         config,
@@ -301,11 +304,11 @@ def test_worker_identity_binds_budget_and_taper_parameters() -> None:
         spec,
         worker="branch",
         seed=200,
-        method="exponential_c3p00",
+        method="exponential_c8p00",
     ) != original
     changed_variants = tuple(
         dataclasses.replace(variant, coefficient=0.5)
-        if variant.id == "exponential_c3p00"
+        if variant.id == "exponential_c8p00"
         else variant
         for variant in config.methods.variants
     )
@@ -318,7 +321,7 @@ def test_worker_identity_binds_budget_and_taper_parameters() -> None:
         spec,
         worker="branch",
         seed=200,
-        method="exponential_c3p00",
+        method="exponential_c8p00",
     ) != original
 
 

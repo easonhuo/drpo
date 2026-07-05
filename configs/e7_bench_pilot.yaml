@@ -1,5 +1,5 @@
 experiment_id: EXT-H-E7-BENCH-01
-protocol_version: 0.2.4-stronger-taper-followup-warmstart-fix
+protocol_version: 0.2.5-balanced-taper-followup-warmstart-fix
 execution_class: pilot_substage
 scientific_status: pilot
 
@@ -87,7 +87,7 @@ methods:
     scope: pilot_followup_stronger_taper_search_not_formal_retuning
     basis: EXT-H-E7-BENCH-01 pilot 2026-07-05 showed weak and mid-strength taper coefficients were underpowered; stronger taper variants are pilot-only follow-up probes.
     per_task_retuning_allowed: false
-    variant_count: 20
+    variant_count: 21
     variants:
       - id: positive_only
         family: positive_only
@@ -96,57 +96,60 @@ methods:
       - id: global_alpha_a0p25
         family: global_alpha
         global_alpha: 0.25
-      - id: global_alpha_a0p10
+      - id: global_alpha_a0p30
         family: global_alpha
-        global_alpha: 0.10
-      - id: global_alpha_a0p05
+        global_alpha: 0.30
+      - id: global_alpha_a0p35
         family: global_alpha
-        global_alpha: 0.05
-      - id: reciprocal_linear_c1p50
-        family: reciprocal_linear
-        coefficient: 1.50
-      - id: reciprocal_linear_c2p00
-        family: reciprocal_linear
-        coefficient: 2.00
-      - id: reciprocal_linear_c3p00
-        family: reciprocal_linear
-        coefficient: 3.00
-      - id: reciprocal_linear_c4p00
-        family: reciprocal_linear
-        coefficient: 4.00
+        global_alpha: 0.35
+      - id: global_alpha_a0p40
+        family: global_alpha
+        global_alpha: 0.40
       - id: reciprocal_linear_c6p00
         family: reciprocal_linear
         coefficient: 6.00
-      - id: reciprocal_quadratic_c1p50
-        family: reciprocal_quadratic
-        coefficient: 1.50
-      - id: reciprocal_quadratic_c2p00
-        family: reciprocal_quadratic
-        coefficient: 2.00
-      - id: reciprocal_quadratic_c3p00
-        family: reciprocal_quadratic
-        coefficient: 3.00
-      - id: reciprocal_quadratic_c4p00
-        family: reciprocal_quadratic
-        coefficient: 4.00
+      - id: reciprocal_linear_c8p00
+        family: reciprocal_linear
+        coefficient: 8.00
+      - id: reciprocal_linear_c12p00
+        family: reciprocal_linear
+        coefficient: 12.00
+      - id: reciprocal_linear_c20p00
+        family: reciprocal_linear
+        coefficient: 20.00
       - id: reciprocal_quadratic_c6p00
         family: reciprocal_quadratic
         coefficient: 6.00
-      - id: exponential_c2p00
+      - id: reciprocal_quadratic_c8p00
+        family: reciprocal_quadratic
+        coefficient: 8.00
+      - id: reciprocal_quadratic_c12p00
+        family: reciprocal_quadratic
+        coefficient: 12.00
+      - id: reciprocal_quadratic_c20p00
+        family: reciprocal_quadratic
+        coefficient: 20.00
+      - id: exponential_c5p00
         family: exponential
-        coefficient: 2.00
-      - id: exponential_c3p00
-        family: exponential
-        coefficient: 3.00
-      - id: exponential_c4p00
-        family: exponential
-        coefficient: 4.00
+        coefficient: 5.00
       - id: exponential_c6p00
         family: exponential
         coefficient: 6.00
+      - id: exponential_c7p00
+        family: exponential
+        coefficient: 7.00
       - id: exponential_c8p00
         family: exponential
         coefficient: 8.00
+      - id: exponential_c9p00
+        family: exponential
+        coefficient: 9.00
+      - id: exponential_c10p00
+        family: exponential
+        coefficient: 10.00
+      - id: exponential_c12p00
+        family: exponential
+        coefficient: 12.00
 
 execution:
   scheduler: three_stage_subprocess_worker_pool
@@ -158,7 +161,7 @@ execution:
     parallel_unit: dataset_seed_method_variant
     critic_workers: 2
     warmstart_workers: 4
-    branch_workers: 80
+    branch_workers: 84
     critic_cpus_per_worker: 64
     warmstart_cpus_per_worker: 64
     branch_cpus_per_worker: 4
@@ -166,7 +169,7 @@ execution:
     serial_seed_loop_forbidden: true
     server_capacity_note: >-
       Critic stage uses at most 128 CPU threads, shared warm-start stage 256, and the
-      80-way equal-horizon method-variant stage 320, leaving 64 CPU threads of headroom
+      84-way equal-horizon method-variant stage 336, leaving 48 CPU threads of headroom
       on a 384-core server.
   method_branching:
     inside_worker: false
@@ -175,23 +178,24 @@ execution:
       - positive_only
       - signed
       - global_alpha_a0p25
-      - global_alpha_a0p10
-      - global_alpha_a0p05
-      - reciprocal_linear_c1p50
-      - reciprocal_linear_c2p00
-      - reciprocal_linear_c3p00
-      - reciprocal_linear_c4p00
+      - global_alpha_a0p30
+      - global_alpha_a0p35
+      - global_alpha_a0p40
       - reciprocal_linear_c6p00
-      - reciprocal_quadratic_c1p50
-      - reciprocal_quadratic_c2p00
-      - reciprocal_quadratic_c3p00
-      - reciprocal_quadratic_c4p00
+      - reciprocal_linear_c8p00
+      - reciprocal_linear_c12p00
+      - reciprocal_linear_c20p00
       - reciprocal_quadratic_c6p00
-      - exponential_c2p00
-      - exponential_c3p00
-      - exponential_c4p00
+      - reciprocal_quadratic_c8p00
+      - reciprocal_quadratic_c12p00
+      - reciprocal_quadratic_c20p00
+      - exponential_c5p00
       - exponential_c6p00
+      - exponential_c7p00
       - exponential_c8p00
+      - exponential_c9p00
+      - exponential_c10p00
+      - exponential_c12p00
     continuation_steps_each: 200000
     reason: >-
       Use the 384-core server while giving Positive-only and every negative-control method

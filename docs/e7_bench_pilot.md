@@ -26,8 +26,9 @@ Only NaN/Inf numerical failure may stop a worker early. A fixed horizon is not t
 
 - Two development seeds: `200, 201`. The seed count is intentionally reduced from four to two so the same server budget can cover more method-specific scalar settings.
 - Six method families remain fixed: Positive-only, Signed, Global alpha, Reciprocal-Linear, Reciprocal-Quadratic, and Exponential.
-- The follow-up pilot now expands these into 20 method variants: one Positive-only, one Signed, three low Global-alpha scalars, five stronger Reciprocal-Linear coefficients, five stronger Reciprocal-Quadratic coefficients, and five stronger Exponential coefficients. The earlier 22-variant pilot showed the weak and mid-strength taper coefficients were underpowered, while stronger taper settings produced the clearest follow-up signal; this matrix therefore shifts pilot budget toward stronger taper settings rather than increasing seed count.
+- The follow-up pilot now expands these into 21 method variants: one Positive-only, one Signed, four Global-alpha scalars, four stronger Reciprocal-Linear coefficients, four stronger Reciprocal-Quadratic coefficients, and seven Exponential coefficients. The prior stronger-taper pilot showed Exponential around `c=8` had the clearest usable signal, while Reciprocal and Global-alpha also improved as their control strength increased; this matrix therefore keeps all non-positive families alive instead of prematurely reducing the paper comparison to Exponential-only.
 - The old C-U1 near-retention scalars remain recorded in the config as provenance, but the active follow-up grid is a pilot sensitivity search centered on stronger taper settings; it does not authorize per-task D4RL retuning or formal coefficient promotion.
+- Latest pilot interpretation is recorded only as tuning rationale: Exponential currently has the strongest stable signal, but Reciprocal and Global-alpha are still under-explored at stronger settings. No method ranking, formal D4RL table entry, or locked conclusion is promoted by this pilot update.
 - Two uploaded data cells:
   - `hopper-medium-minari-v0`: the exact uploaded `mujoco/hopper/medium-v0` file. Metadata identifies it as Minari/Hopper-v5, not D4RL Hopper-medium-v2. It is plumbing/pilot-only and is not eligible for the formal nine-cell table.
   - `hopper-medium-expert-v2`: the exact uploaded D4RL-v2 legacy HDF5 cell.
@@ -40,7 +41,7 @@ The coordinator uses three fail-fast subprocess stages:
 
 1. Two dataset-level canonical critics run concurrently: `2 × 64 = 128` CPU threads.
 2. Four `(dataset, seed)` shared Positive-only warm-starts run concurrently: `4 × 64 = 256` CPU threads.
-3. Eighty `(dataset, seed, method_variant)` equal-horizon continuations run concurrently: `80 × 4 = 320` CPU threads.
+3. Eighty-four `(dataset, seed, method_variant)` equal-horizon continuations run concurrently: `84 × 4 = 336` CPU threads.
 
 The third stage includes Positive-only itself. Every method variant loads the same 100k warm-start for its dataset and seed, creates a fresh optimizer, and receives the same 200k continuation budget. This removes the former 20k-versus-60k comparison asymmetry while allowing method-specific scalar search.
 
@@ -50,7 +51,7 @@ The taper definitions are fixed and explicit. For standardized Gaussian distance
 the squared standardized distance, which is the Gaussian surprisal-order proxy;
 it is not the quartic form that would arise from reciprocal-squared-surprisal.
 
-The peak registered allocation is 320 threads, leaving 64 threads of headroom on a 384-core server. Seeds and method variants are never executed by a top-level serial loop. Every worker has an isolated output directory, and shared aggregate files are written only by the coordinator.
+The peak registered allocation is 336 threads, leaving 48 threads of headroom on a 384-core server. Seeds and method variants are never executed by a top-level serial loop. Every worker has an isolated output directory, and shared aggregate files are written only by the coordinator.
 
 The formal nine-cell registration freezes the same topology: `task_seed_method` is the continuation parallel unit, both serial seed and serial method loops are forbidden, Positive-only is an equal-horizon continuation branch, and each method starts from an identical per-task-seed Positive-only warm-start. Formal launch remains fail-closed until exact formal seeds, D4RL versions, base algorithm, optimizer, and full budgets are registered.
 
