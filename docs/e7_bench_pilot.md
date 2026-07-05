@@ -41,7 +41,7 @@ The coordinator uses three fail-fast subprocess stages:
 
 1. Two dataset-level canonical critics run concurrently: `2 × 64 = 128` CPU threads.
 2. Four `(dataset, seed)` shared Positive-only warm-starts run concurrently: `4 × 64 = 256` CPU threads.
-3. Eighty-four `(dataset, seed, method_variant)` equal-horizon continuations run concurrently: `84 × 4 = 336` CPU threads.
+3. Ninety-two `(dataset, seed, method_variant)` equal-horizon continuations run concurrently: `92 × 4 = 368` CPU threads.
 
 The third stage includes Positive-only itself. Every method variant loads the same 100k warm-start for its dataset and seed, creates a fresh optimizer, and receives the same 200k continuation budget. This removes the former 20k-versus-60k comparison asymmetry while allowing method-specific scalar search.
 
@@ -51,7 +51,7 @@ The taper definitions are fixed and explicit. For standardized Gaussian distance
 the squared standardized distance, which is the Gaussian surprisal-order proxy;
 it is not the quartic form that would arise from reciprocal-squared-surprisal.
 
-The peak registered allocation is 336 threads, leaving 48 threads of headroom on a 384-core server. Seeds and method variants are never executed by a top-level serial loop. Every worker has an isolated output directory, and shared aggregate files are written only by the coordinator.
+The peak registered allocation is 368 threads, leaving 16 threads of headroom on a 384-core server. Seeds and method variants are never executed by a top-level serial loop. Every worker has an isolated output directory, and shared aggregate files are written only by the coordinator.
 
 The formal nine-cell registration freezes the same topology: `task_seed_method` is the continuation parallel unit, both serial seed and serial method loops are forbidden, Positive-only is an equal-horizon continuation branch, and each method starts from an identical per-task-seed Positive-only warm-start. Formal launch remains fail-closed until exact formal seeds, D4RL versions, base algorithm, optimizer, and full budgets are registered.
 
@@ -111,3 +111,11 @@ python3 scripts/run_e7_bench.py run \
 ```
 
 For interruption recovery, rerun the same command with `--resume`. `DATASET_ROOT` and `WORK_DIR` are runtime environment variables chosen by the operator; the repository stores exact internal relative paths and SHA-256 values, not machine-specific absolute paths.
+
+## Balanced taper follow-up rationale from 2026-07-05 pilot
+
+The preceding 21-variant pilot is still pilot evidence only and does not establish a formal method ranking. Its practical tuning signal was: exponential taper entered a usable range around `c=8--12`; reciprocal-linear and reciprocal-quadratic improved as coefficients increased and should not be dropped; global-alpha values `0.25--0.40` were too aggressive and should be moved back to the low-alpha region.
+
+The next balanced follow-up therefore keeps all method families active while shifting their search regions: global-alpha probes `0.05--0.20` plus a `0.25` boundary anchor, reciprocal-linear/quadratic probe stronger coefficients `20--64`, and exponential is fine-searched around `8--14`. With two datasets and two seeds, the resulting pilot matrix is `2 × 2 × 23 = 92` equal-horizon branch continuations.
+
+This update remains a parameter-sensitivity pilot. It may guide the next run but may not promote any scalar, method family, or ranking into the formal D4RL benchmark without a separate freeze update and terminal audit.
