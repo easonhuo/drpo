@@ -219,8 +219,10 @@ def test_registry_and_materialized_handoff_register_revision_4() -> None:
         / "DU1-E6-REV4-FORMAL-FREEZE-2026-07-03"
         / "HANDOFF_DELTA.yaml"
     ).read_text()
-    # Source packages carry the authoritative delta; trusted normalization
-    # materializes the same content into handoff.md during application.
-    authority_text = handoff if "v74-du1-e6-rev4-formal-freeze" in handoff else delta
+    # Trusted normalization may materialize only a delta block marker into
+    # handoff.md while the full revision title remains in the authoritative
+    # source delta.  The test therefore checks the combined authority view
+    # rather than requiring both strings to appear in the same file.
+    authority_text = handoff + "\n" + delta
     assert "v74（D-U1 E6 revision-4 正式协议冻结版）" in authority_text
     assert "v74-du1-e6-rev4-formal-freeze" in authority_text

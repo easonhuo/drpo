@@ -8,7 +8,7 @@ stages while sweeping method-specific parameters:
 1. one canonical frozen-advantage critic per dataset (2 workers);
 2. one shared Positive-only warm-start per ``(dataset, seed)`` pair (4 workers);
 3. one equal-horizon continuation per ``(dataset, seed, method_variant)`` tuple
-   (88 workers for the registered 22-variant sweep, including Positive-only).
+   (80 workers for the registered 20-variant stronger-taper sweep, including Positive-only).
 
 Both seeds and all method-variant continuations are parallel at the coordinator
 level. Every continuation verifies and loads the same 100k Positive-only
@@ -55,7 +55,7 @@ if __package__ in (None, ""):
 from drpo import e7_hopper_q2 as q2
 
 EXPERIMENT_ID = "EXT-H-E7-BENCH-01"
-RUNNER_VERSION = "0.2.3-recovered-network-profile-param-sweep"
+RUNNER_VERSION = "0.2.4-stronger-taper-param-sweep-warmstart-fix"
 PILOT_STATUS = "pilot"
 WARMSTART_METHOD = "positive_only_warmstart"
 PILOT_METHOD_FAMILIES = (
@@ -1537,8 +1537,6 @@ def warmstart_worker(args: argparse.Namespace) -> int:
         negative_indices,
         device,
     ) = _actor_worker_context(args)
-    if args.method not in config.methods.ids:
-        raise ValueError(f"invalid branch method variant: {args.method}")
     seed = int(args.seed)
     worker_identity, identity_payload = verify_worker_identity(
         args,
