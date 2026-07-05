@@ -1,0 +1,192 @@
+{
+  "current_before_commit": "6bd154814c28e472b6645260f95e32817337bda3",
+  "current_handoff_before_sha256": "2ade4ba971a50998e97fb63013e029f1e7941cba0a3c6d4534324fc3ffbee4d0",
+  "current_registry_validation": {
+    "assertions": [
+      {
+        "change_id": "e8-taper-bugfix-001-replay-target",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "ccdcfdb27a772b1bf9ea669b3eb6aa6e04d1f97340b3a3a910e9ccdc86d2b007"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "4282122631dc04eadfb06cda67ebac8d7ffd6cc501b96679742cf1b519566f6e"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "8255364a8f1c6552715c395007cd6e6d74551a56a6cf24a658413c8e251f7985"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "90f1235ee39c85eab39c928c2321bd538e1946eaa14b1bc6cb44c62af4c8b86e"
+          }
+        ],
+        "field_path": [
+          "common_replay_protocol",
+          "final_train_prompt_rows"
+        ],
+        "from": 1500,
+        "kind": "update_field",
+        "reason": "The 0.5B frozen reference produced 913 eligible natural-negative training prompts while synthetic fallback remains forbidden, so the registered frozen replay target is reduced to a feasible 900 without changing methods, seeds, taper formulas, or fallback policy.",
+        "to": 900
+      },
+      {
+        "change_id": "e8-taper-bugfix-002-teacher-forced-batch-size",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "ccdcfdb27a772b1bf9ea669b3eb6aa6e04d1f97340b3a3a910e9ccdc86d2b007"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "4282122631dc04eadfb06cda67ebac8d7ffd6cc501b96679742cf1b519566f6e"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "8255364a8f1c6552715c395007cd6e6d74551a56a6cf24a658413c8e251f7985"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "90f1235ee39c85eab39c928c2321bd538e1946eaa14b1bc6cb44c62af4c8b86e"
+          }
+        ],
+        "field_path": [
+          "continuous_diagnostics",
+          "teacher_forced_batch_size"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Teacher-forced diagnostic summaries are streamed in one-prompt microbatches to avoid single-forward vocab-sized activation spikes during one-GPU LoRA method training.",
+        "to": 1
+      }
+    ],
+    "coverage": {
+      "added_entities": [],
+      "changed_field_count": 2,
+      "declared_assertion_count": 2,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "delta_sha256": "8a4f5f1b6c190f8bef2d387a5ab205deb4f14c9a06fb6b406fa3e82f50621ba8",
+  "exact_base_candidate_sha256": "3a8a327e2ee950da387ed8be58d36841db15c96935111bfaf2b70ce6d4c4cda0",
+  "exact_base_registry_validation": {
+    "assertions": [
+      {
+        "change_id": "e8-taper-bugfix-001-replay-target",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "ccdcfdb27a772b1bf9ea669b3eb6aa6e04d1f97340b3a3a910e9ccdc86d2b007"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "4282122631dc04eadfb06cda67ebac8d7ffd6cc501b96679742cf1b519566f6e"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "8255364a8f1c6552715c395007cd6e6d74551a56a6cf24a658413c8e251f7985"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "90f1235ee39c85eab39c928c2321bd538e1946eaa14b1bc6cb44c62af4c8b86e"
+          }
+        ],
+        "field_path": [
+          "common_replay_protocol",
+          "final_train_prompt_rows"
+        ],
+        "from": 1500,
+        "kind": "update_field",
+        "reason": "The 0.5B frozen reference produced 913 eligible natural-negative training prompts while synthetic fallback remains forbidden, so the registered frozen replay target is reduced to a feasible 900 without changing methods, seeds, taper formulas, or fallback policy.",
+        "to": 900
+      },
+      {
+        "change_id": "e8-taper-bugfix-002-teacher-forced-batch-size",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "ccdcfdb27a772b1bf9ea669b3eb6aa6e04d1f97340b3a3a910e9ccdc86d2b007"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "4282122631dc04eadfb06cda67ebac8d7ffd6cc501b96679742cf1b519566f6e"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "8255364a8f1c6552715c395007cd6e6d74551a56a6cf24a658413c8e251f7985"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "90f1235ee39c85eab39c928c2321bd538e1946eaa14b1bc6cb44c62af4c8b86e"
+          }
+        ],
+        "field_path": [
+          "continuous_diagnostics",
+          "teacher_forced_batch_size"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Teacher-forced diagnostic summaries are streamed in one-prompt microbatches to avoid single-forward vocab-sized activation spikes during one-GPU LoRA method training.",
+        "to": 1
+      }
+    ],
+    "coverage": {
+      "added_entities": [],
+      "changed_field_count": 2,
+      "declared_assertion_count": 2,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "history_preservation_passed": true,
+  "idempotence_passed": true,
+  "materialized_handoff_after_sha256": "3a8a327e2ee950da387ed8be58d36841db15c96935111bfaf2b70ce6d4c4cda0",
+  "mode": "authoritative",
+  "network_used": false,
+  "policy_id": "GOV-HANDOFF-AUTHORITY-CUTOVER-01",
+  "registry_after_sha256": "4282122631dc04eadfb06cda67ebac8d7ffd6cc501b96679742cf1b519566f6e",
+  "registry_before_sha256": "67ac91bfe3113f74fdcc7373b079d3593136f817b2e19f78896cea17b6ab2e31",
+  "report_schema_version": 1,
+  "source_base_commit": "66bd237a15cd5ff7e6196f2a8d3c92c3089ee87c",
+  "source_patch_commit": "5be877edf373ba57e698a1a65b698d4849869b96",
+  "stage4a_refresh": {
+    "refreshed": [
+      "docs/handoff_shadow/stage4/minimal/generated/MODULE_INDEX.json",
+      "docs/handoff_shadow/stage4/minimal/generated/STRUCTURE_SUGGESTIONS.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/countdown_e8.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/global_core_governance.md"
+    ],
+    "reused": [
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.dot",
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e5_mechanism.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e6_generalization.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_extrapolation.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_taper.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_mechanism_e1_e3.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/execution_status_gates.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/history_provenance.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/hopper_e7.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/paper_rewrite.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/terminal_audit.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/theory_methods_related_work.md"
+    ]
+  },
+  "status": "PASS",
+  "structural_lint_passed": true,
+  "trusted_engine_sha256": "a6532ba4c1bb9c4af24d79f027267de518c3832b347dba47e8319dee7a3ebe2c",
+  "trusted_policy_sha256": "508f6bbb6ee9bb6da5be041a23e25cd569b95475523bb6af7127cb84ea3466ad",
+  "trusted_renderer_sha256": "39a7566e91c77784822148bb18ae32e44dfcc1745fbdc1cbf14a88ce6c6a13e5",
+  "update_id": "EXT-C-E8-TAPER-0.5B-DIAGNOSTIC-BUGFIX-2026-07-05"
+}

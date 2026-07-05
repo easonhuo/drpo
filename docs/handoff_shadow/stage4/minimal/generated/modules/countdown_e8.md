@@ -7,7 +7,7 @@
 - Responsibility: Cover token-level near or far mechanism probes and fixed-offline-bank method pilots without replacing D-U1 controlled identification.
 - Content contract topics: none
 - Deduplicated overlapping source chunks: 0
-- Source hash: `81fff9ef8f3a3ba8ba76618e5ab3f575e83c93ad1e5206f04c6dfdf66222e2d1`
+- Source hash: `be00b19b14e4360c256e801a878617baa188be6f00c239b27c2294ef8301275e`
 
 ## Source 1: docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v52-ext-c-e8-v43-dynamic-control
 
@@ -152,31 +152,43 @@
 
 - **Countdown E8-TAPER v73 覆盖：**`EXT-C-E8-TAPER-0.5B-01` 已实现 corrected `S -> d=sqrt(S)` 坐标、独立冻结尺度、deterministic detached weighting、paired sampler 身份校验和终态审计，当前为 **implemented + ready + not_run**。只允许先运行登记的 0.5B pilot；不得将 smoke/static test 写成科学结果，也不得预设 Exp、Global 或任何 taper 获胜。
 
-## Source 13: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v52-e8-route-override
+## Source 13: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v75-e8-taper-diagnostic-bugfix
+
+### Delta block `section_end:v75-e8-taper-diagnostic-bugfix`
+
+- **Countdown E8-TAPER 0.5B diagnostic bugfix:** `EXT-C-E8-TAPER-0.5B-01`
+  keeps the same experiment ID, methods, paired seeds, taper formulas and synthetic-negative policy.
+  The frozen natural replay target is reduced from 1500 to 900 train prompts because the 0.5B
+  frozen reference produced 913 eligible natural-negative prompts with `synthetic_negative_fallback=false`.
+  Teacher-forced diagnostics are streamed with batch size 1, and same-graph raw/weighted gradient
+  diagnostics retain the graph only inside the diagnostic audit. This update is an implementation/config
+  repair, not a scientific result; real Qwen/CUDA pilot remains not run.
+
+## Source 14: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v52-e8-route-override
 
 ### Delta block `section_end:v52-e8-route-override`
 
 7. **v52 路线覆盖：** 上述第 5 项的当前 E8-MECH owner 更新为 `EXT-C-E8-V4.3`。V4.3 只修复长期训练中的动态 remoteness 控制并保留 V4.2 静态方法作消融；E8-SCALE 的 3B/7B 规模结论仍需后续独立执行。
 
-## Source 14: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v57-e8-offline-online-route
+## Source 15: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v57-e8-offline-online-route
 
 ### Delta block `section_end:v57-e8-offline-online-route`
 
 8. **v57 E8 内部路线覆盖：** 在进入 E8 外部诊断时，先执行 `EXT-C-E8-V4.4-OFFLINE-BANK`，只改变 fixed-bank 密度与每步动态选择；online off-policy 必须作为独立 successor 重新冻结 rollout actor、同步滞后、replay age、seeds 与预算匹配，不能与 V4.4 共用结论。
 
-## Source 15: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v75-countdown-status-note
+## Source 16: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v75-countdown-status-note
 
 ### Delta block `section_end:v75-countdown-status-note`
 
 - **v75 Countdown 逐样本机制诊断补记：**`EXT-C` 已完成一个 single-seed full-bank `arithmetic_wrong` response diagnostic：`6000` puzzles × near/far = `12000` rows，固定 `negative_coefficient_abs=1.0`，观察到 surprisal 与 trainable-parameter gradient norm 的正相关、near/far 配对增益和 decile 平台化趋势。该补记只把 Countdown 机制观察从 10-puzzle smoke 升级为 full-bank pilot；不升级 `EXT-C-E8-TAPER-0.5B-01` 或 `EXT-C-E8-SCALE-01` 的 formal 状态，也不改变 Countdown 不能替代 D-U1/C-U1 因果识别的边界。
 
-## Source 16: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v52-execution-order-override
+## Source 17: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v52-execution-order-override
 
 ### Delta block `section_end:v52-execution-order-override`
 
 11. **v52 执行覆盖：** 当锁定路线进入 E8-MECH 时，执行 `EXT-C-E8-V4.3` 而不是 V4.2；当前只完成注册和代码实现，真实 Qwen/CUDA pilot 仍为 not_run。
 
-## Source 17: experiments/registry.yaml: experiments[EXT-C-E8-V4, EXT-C-E8-V4.1, EXT-C-E8-V4.2, EXT-C-E8-V4.3, EXT-C-E8-V4.4-OFFLINE-BANK, EXT-C-E8-V4.5-OFFLINE-BANK-TUNING, EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY, EXT-C-E8-TAPER-0.5B-01, EXT-C-E8-SCALE-01]
+## Source 18: experiments/registry.yaml: experiments[EXT-C-E8-V4, EXT-C-E8-V4.1, EXT-C-E8-V4.2, EXT-C-E8-V4.3, EXT-C-E8-V4.4-OFFLINE-BANK, EXT-C-E8-V4.5-OFFLINE-BANK-TUNING, EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY, EXT-C-E8-TAPER-0.5B-01, EXT-C-E8-SCALE-01]
 
 collection: experiments
 entries:
@@ -1468,7 +1480,7 @@ entries:
       purpose: prevent_candidate_rich_prompts_from_receiving_more_training_weight
     paired_sampler_order_across_methods: required
     replay_pool_hash_recorded: required
-    final_train_prompt_rows: 1500
+    final_train_prompt_rows: 900
     final_calibration_prompt_rows: 16
     collector_only_candidate_reserve:
       train: 1800
@@ -1565,6 +1577,7 @@ entries:
     - correct_completion_collateral_effect
     - fraction_of_total_negative_gradient_budget
     deterministic_teacher_forced_audit: true
+    teacher_forced_batch_size: 1
   terminal_audit:
     required: true
     full_training_curves: required

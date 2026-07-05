@@ -1,0 +1,63 @@
+schema_version: 3
+update_id: EXT-C-E8-TAPER-0.5B-DIAGNOSTIC-BUGFIX-2026-07-05
+mode: authoritative
+base:
+  commit: 66bd237a15cd5ff7e6196f2a8d3c92c3089ee87c
+  handoff_sha256: 2ade4ba971a50998e97fb63013e029f1e7941cba0a3c6d4534324fc3ffbee4d0
+  registry_sha256: 67ac91bfe3113f74fdcc7373b079d3593136f817b2e19f78896cea17b6ab2e31
+renderer_version: 1
+operations:
+- operation_id: append-e8-taper-diagnostic-bugfix-note
+  op: append_to_section
+  heading_path:
+  - 0. 研究与执行原则（每次新会话首先阅读）
+  - 0.1 当前执行门禁
+  block_id: v75-e8-taper-diagnostic-bugfix
+  content: >-
+    - **Countdown E8-TAPER 0.5B diagnostic bugfix:** `EXT-C-E8-TAPER-0.5B-01`
+      keeps the same experiment ID, methods, paired seeds, taper formulas and synthetic-negative policy.
+      The frozen natural replay target is reduced from 1500 to 900 train prompts because the 0.5B
+      frozen reference produced 913 eligible natural-negative prompts with `synthetic_negative_fallback=false`.
+      Teacher-forced diagnostics are streamed with batch size 1, and same-graph raw/weighted gradient
+      diagnostics retain the graph only inside the diagnostic audit. This update is an implementation/config
+      repair, not a scientific result; real Qwen/CUDA pilot remains not run.
+registry:
+  mode: expected_after
+  exact_base_after_sha256: 4282122631dc04eadfb06cda67ebac8d7ffd6cc501b96679742cf1b519566f6e
+  changes:
+  - change_id: e8-taper-bugfix-001-replay-target
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path:
+    - common_replay_protocol
+    - final_train_prompt_rows
+    from: 1500
+    to: 900
+    reason: >-
+      The 0.5B frozen reference produced 913 eligible natural-negative training prompts while synthetic
+      fallback remains forbidden, so the registered frozen replay target is reduced to a feasible 900 without
+      changing methods, seeds, taper formulas, or fallback policy.
+    evidence:
+    - configs/countdown_e8_taper_0p5b.yaml
+    - experiments/registry.yaml
+    - src/drpo/countdown_e8_taper.py
+    - tests/test_countdown_e8_taper.py
+  - change_id: e8-taper-bugfix-002-teacher-forced-batch-size
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path:
+    - continuous_diagnostics
+    - teacher_forced_batch_size
+    from: null
+    to: 1
+    reason: >-
+      Teacher-forced diagnostic summaries are streamed in one-prompt microbatches to avoid single-forward
+      vocab-sized activation spikes during one-GPU LoRA method training.
+    evidence:
+    - configs/countdown_e8_taper_0p5b.yaml
+    - experiments/registry.yaml
+    - src/drpo/countdown_e8_taper.py
+    - tests/test_countdown_e8_taper.py
+
+expected:
+  exact_base_candidate_sha256: 3a8a327e2ee950da387ed8be58d36841db15c96935111bfaf2b70ce6d4c4cda0

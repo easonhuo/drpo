@@ -58,13 +58,14 @@ def test_frozen_config_matches_registered_protocol() -> None:
     )
     assert config["training"]["optimizer_updates"] == 1200
     assert config["training"]["early_stopping_changes_training_horizon"] is False
-    assert config["replay"]["train_prompt_rows"] == 1500
+    assert config["replay"]["train_prompt_rows"] == 900
     assert config["replay"]["calibration_prompt_rows"] == 16
-    assert config["replay"]["train_candidate_prompt_rows"] >= 1500
+    assert config["replay"]["train_candidate_prompt_rows"] >= 900
     assert config["replay"]["calibration_candidate_prompt_rows"] >= 16
     assert config["replay"]["synthetic_negative_fallback"] is False
     assert config["reference"]["pilot_greedy_success_gate"] == pytest.approx(0.08)
     assert config["reference"]["formal_greedy_success_gate"] == pytest.approx(0.15)
+    assert config["diagnostics"]["teacher_forced_batch_size"] == 1
 
 
 def test_reference_gate_status_separates_pilot_from_formal_ranking() -> None:
@@ -322,3 +323,90 @@ def test_one_click_launcher_and_registry_are_ready_but_not_run() -> None:
     assert entry["execution_gate"]["state"] == "ready"
     assert entry["code_entrypoint"] == "src/drpo/countdown_e8_taper.py"
     assert entry["operator_entrypoint"] == "scripts/run_countdown_e8_taper.py"
+    assert entry["common_replay_protocol"]["final_train_prompt_rows"] == 900
+    assert entry["continuous_diagnostics"]["teacher_forced_batch_size"] == 1
+
+
+def test_teacher_forced_summary_streams_in_configured_batches(monkeypatch) -> None:
+    calls: list[int] = []
+
+    class FakeModel(torch.nn.Module):
+        pass
+
+    def fake_collate(_tokenizer, _rows, chunk, _max_length):
+        calls.append(len(chunk))
+        size = len(chunk)
+        return {"kind": "pos", "n": size}, {"kind": "neg", "n": size}
+
+    def fake_move(batch, _device):
+        return batch
+
+    def fake_stats(_model, batch):
+        size = int(batch["n"])
+        if batch["kind"] == "pos":
+            return {
+                "seq_lp": torch.full((size,), -2.0),
+                "entropy": torch.full((size,), 0.5),
+            }
+        return {
+            "seq_lp": torch.full((size,), -4.0),
+            "entropy": torch.full((size,), 1.5),
+        }
+
+    monkeypatch.setattr(module, "_collate_pairs", fake_collate)
+    monkeypatch.setattr(module.arena, "move_to_device", fake_move)
+    monkeypatch.setattr(module.arena, "completion_stats", fake_stats)
+    model = FakeModel()
+    model.dummy = torch.nn.Parameter(torch.tensor(0.0))
+    summary = module._teacher_forced_summary(
+        model,
+        tokenizer=None,
+        rows=[{} for _ in range(5)],
+        plan=[{"prompt_index": i, "negative_index": 0} for i in range(5)],
+        max_length=8,
+        batch_size=2,
+    )
+    assert calls == [2, 2, 1]
+    assert summary["correct_completion_surprisal"] == pytest.approx(2.0)
+    assert summary["negative_completion_surprisal"] == pytest.approx(4.0)
+    assert summary["correct_completion_entropy"] == pytest.approx(0.5)
+    assert summary["negative_completion_entropy"] == pytest.approx(1.5)
+
+
+def test_surprisal_bin_diagnostics_keeps_shared_graph_for_raw_and_weighted(monkeypatch) -> None:
+    class TinyModel(torch.nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.scale = torch.nn.Parameter(torch.tensor(1.0))
+
+    def fake_collate(_tokenizer, _rows, plan, _max_length):
+        values = torch.arange(len(plan), dtype=torch.float32)
+        return {"values": values + 1.0}, {"values": values + 2.0}
+
+    def fake_stats(model, batch):
+        seq_lp = model.scale * batch["values"].float()
+        return {"seq_lp": seq_lp, "entropy": seq_lp.detach().abs() + 0.1}
+
+    monkeypatch.setattr(module, "_collate_pairs", fake_collate)
+    monkeypatch.setattr(module.arena, "completion_stats", fake_stats)
+    model = TinyModel()
+    rows, summary = module.surprisal_bin_diagnostics(
+        model,
+        tokenizer=None,
+        rows=[{} for _ in range(4)],
+        plan=[{"prompt_index": i, "negative_index": 0} for i in range(4)],
+        trainable=[model.scale],
+        method="exponential",
+        coefficient=0.7,
+        negative_scale=1.0,
+        tau=2.0,
+        surprisal_scale=1.0,
+        max_length=8,
+        quantile_bins=2,
+        checkpoint_kind="unit",
+        seed=9234,
+        teacher_forced_batch_size=2,
+    )
+    assert len(rows) == 2
+    assert summary["checkpoint_kind"] == "unit"
+    assert summary["bin_budget_fraction_sums_to"] == pytest.approx(1.0)

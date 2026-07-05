@@ -178,10 +178,10 @@
   ],
   "graph_hash": "0db2d992b651a2ed85d93d68c298214ba6bdbee1ae15b7b7c48d92162a7fb87c",
   "input_hashes": {
-    "docs/handoff.md": "2ade4ba971a50998e97fb63013e029f1e7941cba0a3c6d4534324fc3ffbee4d0",
+    "docs/handoff.md": "3a8a327e2ee950da387ed8be58d36841db15c96935111bfaf2b70ce6d4c4cda0",
     "docs/handoff_shadow/stage4/minimal/DEPENDENCIES.yaml": "fb19da70ea2db6a35c4320e23a91640d0f21887c46bb79873d9548357271f4da",
     "docs/handoff_shadow/stage4/minimal/MODULES.yaml": "9eb67303232bb2362b8a4571f383687aca0cfd2c25eeb9b8e68733c84b3701e8",
-    "experiments/registry.yaml": "67ac91bfe3113f74fdcc7373b079d3593136f817b2e19f78896cea17b6ab2e31"
+    "experiments/registry.yaml": "4282122631dc04eadfb06cda67ebac8d7ffd6cc501b96679742cf1b519566f6e"
   },
   "module_order": [
     "global_core_governance",
@@ -242,9 +242,9 @@
       "deduplicated_source_labels": [],
       "depends_on": [],
       "module_id": "global_core_governance",
-      "snapshot_hash": "9af9aa329100b430c3b5e45dde6e7985e6b8dcee42f27a73c669b9d953ff271c",
-      "source_chars": 33722,
-      "source_hash": "8f7602177931c8640a0d930bc00f9f3d72a7cab56036c20991d507d1be53c6c2",
+      "snapshot_hash": "88ceb0247a44fe60f486bfa5323a1b2f26130102a78f4d80b9558b1acbf5b3ea",
+      "source_chars": 34529,
+      "source_hash": "3bb5360d08031f335f07598b590386f1e79ea1926b9a7879b837153844f813c0",
       "source_labels": [
         "docs/handoff.md: # 0. 研究与执行原则（每次新会话首先阅读） -> # 1. 论文最终目标与两条主工作线"
       ]
@@ -554,9 +554,9 @@
         "categorical_e6_generalization"
       ],
       "module_id": "countdown_e8",
-      "snapshot_hash": "60b1b38c737b55d2997cac18693e0bf529f97298f3ee490d59d8e427890786cf",
-      "source_chars": 73016,
-      "source_hash": "81fff9ef8f3a3ba8ba76618e5ab3f575e83c93ad1e5206f04c6dfdf66222e2d1",
+      "snapshot_hash": "1309a4cdc92cb2d14564854ed9eeeb11932557c0fd3d4dce6d1ed311b1a3073d",
+      "source_chars": 73763,
+      "source_hash": "be00b19b14e4360c256e801a878617baa188be6f00c239b27c2294ef8301275e",
       "source_labels": [
         "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v52-ext-c-e8-v43-dynamic-control",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v53-stage3-observation-automation",
@@ -570,6 +570,7 @@
         "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v59-countdown-offline-bank-tuning-current-gate",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v62-countdown-online-offpolicy-current-gate",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v73-e8-taper-current-gate",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v75-e8-taper-diagnostic-bugfix",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v52-e8-route-override",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v57-e8-offline-online-route",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v75-countdown-status-note",

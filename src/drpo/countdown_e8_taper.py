@@ -1092,27 +1092,53 @@ def _teacher_forced_summary(
     rows: Sequence[Mapping[str, Any]],
     plan: Sequence[Mapping[str, int]],
     max_length: int,
+    *,
+    batch_size: int = 1,
 ) -> dict[str, float]:
+    if batch_size <= 0:
+        raise ValueError("teacher-forced diagnostic batch_size must be positive")
     device = next(model.parameters()).device
-    pos_batch, neg_batch = _collate_pairs(tokenizer, rows, plan, max_length)
+    totals = {
+        "correct_completion_surprisal": 0.0,
+        "correct_completion_entropy": 0.0,
+        "negative_completion_surprisal": 0.0,
+        "negative_completion_entropy": 0.0,
+    }
+    count = 0
     was_training = bool(model.training)
     model.eval()
     try:
         with torch.no_grad():
-            positive = arena.completion_stats(
-                model, arena.move_to_device(pos_batch, device)
-            )
-            negative = arena.completion_stats(
-                model, arena.move_to_device(neg_batch, device)
-            )
+            for start in range(0, len(plan), batch_size):
+                chunk = plan[start : start + batch_size]
+                pos_batch, neg_batch = _collate_pairs(tokenizer, rows, chunk, max_length)
+                positive = arena.completion_stats(
+                    model, arena.move_to_device(pos_batch, device)
+                )
+                negative = arena.completion_stats(
+                    model, arena.move_to_device(neg_batch, device)
+                )
+                n = int(positive["seq_lp"].numel())
+                if n != int(negative["seq_lp"].numel()):
+                    raise RuntimeError("teacher-forced positive/negative batch size mismatch")
+                totals["correct_completion_surprisal"] += float(
+                    (-positive["seq_lp"]).sum().detach().cpu()
+                )
+                totals["correct_completion_entropy"] += float(
+                    positive["entropy"].sum().detach().cpu()
+                )
+                totals["negative_completion_surprisal"] += float(
+                    (-negative["seq_lp"]).sum().detach().cpu()
+                )
+                totals["negative_completion_entropy"] += float(
+                    negative["entropy"].sum().detach().cpu()
+                )
+                count += n
     finally:
         model.train(was_training)
-    return {
-        "correct_completion_surprisal": float((-positive["seq_lp"]).mean()),
-        "correct_completion_entropy": float(positive["entropy"].mean()),
-        "negative_completion_surprisal": float((-negative["seq_lp"]).mean()),
-        "negative_completion_entropy": float(negative["entropy"].mean()),
-    }
+    if count <= 0:
+        raise RuntimeError("teacher-forced diagnostic summary received an empty plan")
+    return {key: value / count for key, value in totals.items()}
 
 
 def surprisal_bin_diagnostics(
@@ -1131,6 +1157,7 @@ def surprisal_bin_diagnostics(
     quantile_bins: int,
     checkpoint_kind: str,
     seed: int,
+    teacher_forced_batch_size: int = 1,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Full-parameter current-surprisal quantile audit on fixed prompt samples."""
     model.eval()
@@ -1166,7 +1193,7 @@ def surprisal_bin_diagnostics(
         weights = taper_weight(method, distance, coefficient)
         raw_loss = branch["seq_lp"].mean()
         weighted_loss = negative_scale * (weights * branch["seq_lp"]).mean()
-        raw_grads = _gradient_vectors(raw_loss, trainable)
+        raw_grads = _gradient_vectors(raw_loss, trainable, retain_graph=True)
         weighted_grads = _gradient_vectors(weighted_loss, trainable)
         _, raw_norm, _, raw_cosine = gradient_norm_dot_cosine(
             positive_grads, raw_grads
@@ -1229,7 +1256,14 @@ def surprisal_bin_diagnostics(
         "bin_budget_fraction_sums_to": sum(
             float(row["fraction_of_total_negative_gradient_budget"]) for row in rows_out
         ),
-        **_teacher_forced_summary(model, tokenizer, rows, plan, max_length),
+        **_teacher_forced_summary(
+            model,
+            tokenizer,
+            rows,
+            plan,
+            max_length,
+            batch_size=teacher_forced_batch_size,
+        ),
     }
     model.train()
     return rows_out, summary
@@ -1387,6 +1421,9 @@ def cmd_train_method(args: argparse.Namespace) -> None:
     diagnostic_plan = _diagnostic_subset(
         replay_rows, plan, int(config["diagnostics"]["prompt_rows"])
     )
+    teacher_forced_batch_size = int(
+        config.get("diagnostics", {}).get("teacher_forced_batch_size", 1)
+    )
     initial_eval = _evaluate_validation(
         model, tokenizer, val_rows, source_train_rows, config, eval_seed
     )
@@ -1396,6 +1433,7 @@ def cmd_train_method(args: argparse.Namespace) -> None:
         replay_rows,
         diagnostic_plan,
         int(config["model"]["max_length"]),
+        batch_size=teacher_forced_batch_size,
     )
     _, initial_neg_batch = _collate_pairs(
         tokenizer, replay_rows, diagnostic_plan, int(config["model"]["max_length"])
@@ -1440,6 +1478,7 @@ def cmd_train_method(args: argparse.Namespace) -> None:
                 replay_rows,
                 items,
                 int(config["model"]["max_length"]),
+                batch_size=teacher_forced_batch_size,
             )
             positive = arena.completion_stats(
                 model, arena.move_to_device(pos_batch, device)
@@ -1513,6 +1552,7 @@ def cmd_train_method(args: argparse.Namespace) -> None:
                 replay_rows,
                 diagnostic_plan,
                 int(config["model"]["max_length"]),
+                batch_size=teacher_forced_batch_size,
             )
             row = {
                 "step": step,
@@ -1599,6 +1639,7 @@ def cmd_train_method(args: argparse.Namespace) -> None:
         quantile_bins=int(config["diagnostics"]["quantile_bins"]),
         checkpoint_kind="initial",
         seed=args.seed,
+        teacher_forced_batch_size=teacher_forced_batch_size,
     )
     diag_rows.extend(rows_part)
     diag_summaries.append(summary_part)
@@ -1634,6 +1675,7 @@ def cmd_train_method(args: argparse.Namespace) -> None:
             quantile_bins=int(config["diagnostics"]["quantile_bins"]),
             checkpoint_kind=checkpoint_kind,
             seed=args.seed,
+            teacher_forced_batch_size=teacher_forced_batch_size,
         )
         diag_rows.extend(rows_part)
         diag_summaries.append(summary_part)

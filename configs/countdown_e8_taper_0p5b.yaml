@@ -34,9 +34,9 @@ reference:
   sft_warmup_ratio: 0.03
   sft_max_gradient_norm: 1.0
 replay:
-  train_prompt_rows: 1500
+  train_prompt_rows: 900
   calibration_prompt_rows: 16
-  # Collector-only reserve; the final frozen replay remains exactly 1500 + 16.
+  # Collector-only reserve; the final frozen replay remains exactly 900 + 16.
   train_candidate_prompt_rows: 1800
   calibration_candidate_prompt_rows: 32
   rollouts_per_prompt_per_round: 12
@@ -97,6 +97,8 @@ diagnostics:
   checkpoints: [initial, best, terminal]
   full_parameter_gradient: true
   final_window_evaluations: 3
+  # Keep teacher-forced diagnostics memory bounded on one-GPU LoRA training.
+  teacher_forced_batch_size: 1
 artifact:
   checkpoint_binaries: persistent_local_index_only
   retain_per_method: [best, terminal_or_last_finite]

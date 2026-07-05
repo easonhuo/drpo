@@ -3479,7 +3479,7 @@ experiments:
       purpose: prevent_candidate_rich_prompts_from_receiving_more_training_weight
     paired_sampler_order_across_methods: required
     replay_pool_hash_recorded: required
-    final_train_prompt_rows: 1500
+    final_train_prompt_rows: 900
     final_calibration_prompt_rows: 16
     collector_only_candidate_reserve:
       train: 1800
@@ -3576,6 +3576,7 @@ experiments:
     - correct_completion_collateral_effect
     - fraction_of_total_negative_gradient_budget
     deterministic_teacher_forced_audit: true
+    teacher_forced_batch_size: 1
   terminal_audit:
     required: true
     full_training_curves: required
