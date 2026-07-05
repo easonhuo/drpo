@@ -1,4 +1,4 @@
-# DRPO / SNA2C 远场负梯度动力学研究主文档 v76（规则路由、在线轮询与 Phase 2 backlog 登记版）
+# DRPO / SNA2C 远场负梯度动力学研究主文档 v77（最小改动治理执行规则落地版）
 <!-- HANDOFF-DELTA-BLOCK:after_heading:v50-stage3-shadow-bootstrap:START -->
 > **v50 增量登记：治理 Pipeline Stage 3 `HANDOFF_DELTA.yaml` shadow mode 启动（不删除 v49 及更早内容）**
 >
@@ -226,6 +226,16 @@
 > - DRPO 更新包交付硬规则：默认必须交付 canonical bundle-backed package；patch-only runnable package 不再作为正常交付格式。即使生成包时拿到最新 `main`，也不能假设用户应用前 `main` 不会被其他提交推进。除非用户明确要求临时 exact-base patch-only 立即应用，否则不得交付 patch-only runnable 包；无法生成并验证 bundle-backed 包时，只能交付方案、非运行 diff 草案或要求最新 Git bundle/diagnostic。
 > - Pipeline Phase 2 backlog 正式记录：最大挑战是 handoff 拆分/模块化与上下文装配；需要维护 implemented、shadow-only、partial、paused、reverted、future backlog 等状态分类。`.drpoupdate` macOS 双击入口暂停并归入二期，只能在未来作为 old CLI 薄壳 wrapper 重新评估，且不得修改 `drpo-update` 核心语义、base mismatch、stale-package recovery 或 bundle-backed integration。
 <!-- HANDOFF-DELTA-BLOCK:after_heading:v76-rules-phase2-backlog:END -->
+<!-- HANDOFF-DELTA-BLOCK:after_heading:v77-minimal-diff-governance:START -->
+> **v77 增量登记：最小改动治理规则正式进入执行上下文（不删除 v76 及更早内容）**
+>
+> - 本版只登记工程治理执行规则，不运行实验，不修改任何实验状态、冻结变量、seeds、阈值、训练 horizon、终态门禁或科研结论。
+> - `docs/code_minimality_governance.md` 中的 Minimal Sufficient Diff、bug-intent scoping、Green/Yellow/Red/Split 分类和 first-failure classification 正式作为 DRPO 工程更新的常驻执行规则。
+> - 当用户报告 bug、失败包、窄修复或小型代码更新时，执行者必须先用一句话锁定用户授权的开发对象，不得把最近一次失败现象、相邻工具改进或自行发明的 workflow 当作开发目标。
+> - 受保护治理文件、handoff/registry authority、实验协议、seeds、thresholds、正式结果、package authority 和 updater internals 默认属于 Red；只有用户明确授权该 exact control-plane/protocol change 时才可进入相应修改。
+> - 首次 package、CI 或 `drpo-update` 失败后必须先分类首个失败，不得把无关修复堆进下一版包；若闭环范围超过原窄修复，必须暂停并重新分类。
+> - 由于普通 `drpo-update` content package 会拒绝直接修改 `AGENTS.md` 等 control-plane 文件，本次通过 Stage 5 schema-v3 handoff delta 的合法内容路径把规则写入每次新会话必须读取的 Section 0；不修改 `AGENTS.md`、`tools/drpo-update/`、handoff authority 或 governance ledger。
+<!-- HANDOFF-DELTA-BLOCK:after_heading:v77-minimal-diff-governance:END -->
 
 > **v49 增量登记：治理 Pipeline Stage 1/2 冻结式关闭（不删除 v48 及更早内容）**
 >
@@ -908,6 +918,9 @@
 <!-- HANDOFF-DELTA-BLOCK:section_end:v76-current-gate-rules:START -->
 > **v76 常驻协作规则覆盖：**DRPO figure/plot/chart/panel/画图 默认走代码绘图，不自动 image generation；在线轮询必须在当前 assistant 轮次内阻塞式检查到终态或明确无法继续，不得把后台进程或间歇查询冒充轮询；未来 DRPO 更新包默认只交付 canonical bundle-backed package，patch-only runnable 包仅在用户明确要求 immediate exact-base 临时包时允许。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v76-current-gate-rules:END -->
+<!-- HANDOFF-DELTA-BLOCK:section_end:v77-current-gate-minimal-diff:START -->
+> **v77 最小改动治理门禁：**bug、失败包、窄修复和小型代码更新默认进入 Minimal Sufficient Diff mode。执行前必须锁定用户授权的开发对象，执行 Green/Yellow/Red/Split 分类，并在首次失败后先做 first-failure classification；不得把最近失败症状、工具体验优化或自造 workflow 替代用户要求的开发目标。该规则引用 `docs/code_minimality_governance.md`，不改变科研实验状态、seeds、thresholds、registry 或结果。
+<!-- HANDOFF-DELTA-BLOCK:section_end:v77-current-gate-minimal-diff:END -->
 
 ## 0.2 C-U1 泛化术语覆盖规则（v15 锁定）
 

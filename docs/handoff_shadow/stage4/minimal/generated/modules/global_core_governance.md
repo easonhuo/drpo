@@ -7,7 +7,7 @@
 - Responsibility: Preserve the unique-master rule, terminology, scientific scope, and non-destructive governance constraints.
 - Content contract topics: `unique_master_document`, `document_before_experiment`, `non_destructive_history`, `terminal_audit_governance`, `controlled_external_validity_boundary`
 - Deduplicated overlapping source chunks: 0
-- Source hash: `3bb5360d08031f335f07598b590386f1e79ea1926b9a7879b837153844f813c0`
+- Source hash: `77ae9674fc2e5ef75d5d3b2827ba990988ea59afa8976ceff1fc8e9289fd2359`
 
 ## Content contract evidence
 
@@ -196,6 +196,9 @@
 <!-- HANDOFF-DELTA-BLOCK:section_end:v76-current-gate-rules:START -->
 > **v76 常驻协作规则覆盖：**DRPO figure/plot/chart/panel/画图 默认走代码绘图，不自动 image generation；在线轮询必须在当前 assistant 轮次内阻塞式检查到终态或明确无法继续，不得把后台进程或间歇查询冒充轮询；未来 DRPO 更新包默认只交付 canonical bundle-backed package，patch-only runnable 包仅在用户明确要求 immediate exact-base 临时包时允许。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v76-current-gate-rules:END -->
+<!-- HANDOFF-DELTA-BLOCK:section_end:v77-current-gate-minimal-diff:START -->
+> **v77 最小改动治理门禁：**bug、失败包、窄修复和小型代码更新默认进入 Minimal Sufficient Diff mode。执行前必须锁定用户授权的开发对象，执行 Green/Yellow/Red/Split 分类，并在首次失败后先做 first-failure classification；不得把最近失败症状、工具体验优化或自造 workflow 替代用户要求的开发目标。该规则引用 `docs/code_minimality_governance.md`，不改变科研实验状态、seeds、thresholds、registry 或结果。
+<!-- HANDOFF-DELTA-BLOCK:section_end:v77-current-gate-minimal-diff:END -->
 
 ## 0.2 C-U1 泛化术语覆盖规则（v15 锁定）
 

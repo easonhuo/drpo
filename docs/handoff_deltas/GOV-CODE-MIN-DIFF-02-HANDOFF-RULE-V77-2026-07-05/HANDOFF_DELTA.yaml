@@ -1,0 +1,47 @@
+schema_version: 3
+update_id: GOV-CODE-MIN-DIFF-02-HANDOFF-RULE-V77-2026-07-05
+mode: authoritative
+base:
+  commit: 5548e4e9ad5f01b39f43ebda7d497858557665b8
+  handoff_sha256: 3a8a327e2ee950da387ed8be58d36841db15c96935111bfaf2b70ce6d4c4cda0
+  registry_sha256: 4282122631dc04eadfb06cda67ebac8d7ffd6cc501b96679742cf1b519566f6e
+renderer_version: 1
+operations:
+- operation_id: rename-v77-minimal-diff-governance
+  op: replace_heading
+  heading_path:
+  - DRPO / SNA2C 远场负梯度动力学研究主文档 v76（规则路由、在线轮询与 Phase 2 backlog 登记版）
+  new_heading: DRPO / SNA2C 远场负梯度动力学研究主文档 v77（最小改动治理执行规则落地版）
+  reason: Record Minimal Sufficient Diff governance execution rules through the legal handoff delta path without modifying control-plane files.
+- operation_id: insert-v77-minimal-diff-governance
+  op: insert_after_heading
+  heading_path:
+  - DRPO / SNA2C 远场负梯度动力学研究主文档 v77（最小改动治理执行规则落地版）
+  block_id: v77-minimal-diff-governance
+  content: '> **v77 增量登记：最小改动治理规则正式进入执行上下文（不删除 v76 及更早内容）**
+
+    >
+
+    > - 本版只登记工程治理执行规则，不运行实验，不修改任何实验状态、冻结变量、seeds、阈值、训练 horizon、终态门禁或科研结论。
+
+    > - `docs/code_minimality_governance.md` 中的 Minimal Sufficient Diff、bug-intent scoping、Green/Yellow/Red/Split 分类和 first-failure classification 正式作为 DRPO 工程更新的常驻执行规则。
+
+    > - 当用户报告 bug、失败包、窄修复或小型代码更新时，执行者必须先用一句话锁定用户授权的开发对象，不得把最近一次失败现象、相邻工具改进或自行发明的 workflow 当作开发目标。
+
+    > - 受保护治理文件、handoff/registry authority、实验协议、seeds、thresholds、正式结果、package authority 和 updater internals 默认属于 Red；只有用户明确授权该 exact control-plane/protocol change 时才可进入相应修改。
+
+    > - 首次 package、CI 或 `drpo-update` 失败后必须先分类首个失败，不得把无关修复堆进下一版包；若闭环范围超过原窄修复，必须暂停并重新分类。
+
+    > - 由于普通 `drpo-update` content package 会拒绝直接修改 `AGENTS.md` 等 control-plane 文件，本次通过 Stage 5 schema-v3 handoff delta 的合法内容路径把规则写入每次新会话必须读取的 Section 0；不修改 `AGENTS.md`、`tools/drpo-update/`、handoff authority 或 governance ledger。'
+- operation_id: append-v77-current-gate-minimal-diff
+  op: append_to_section
+  heading_path:
+  - 0. 研究与执行原则（每次新会话首先阅读）
+  - 0.1 当前执行门禁
+  block_id: v77-current-gate-minimal-diff
+  content: '> **v77 最小改动治理门禁：**bug、失败包、窄修复和小型代码更新默认进入 Minimal Sufficient Diff mode。执行前必须锁定用户授权的开发对象，执行 Green/Yellow/Red/Split 分类，并在首次失败后先做 first-failure classification；不得把最近失败症状、工具体验优化或自造 workflow 替代用户要求的开发目标。该规则引用 `docs/code_minimality_governance.md`，不改变科研实验状态、seeds、thresholds、registry 或结果。'
+registry:
+  mode: unchanged
+  changes: []
+expected:
+  exact_base_candidate_sha256: cc12240aa7c1497661697dc89628ee105f52e529d721b02bff65015494703042

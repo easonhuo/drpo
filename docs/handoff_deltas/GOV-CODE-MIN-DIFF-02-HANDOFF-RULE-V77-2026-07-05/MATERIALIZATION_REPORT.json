@@ -1,0 +1,68 @@
+{
+  "current_before_commit": "39101e51b591dbe095d6bb7ee44ee36cb3aca803",
+  "current_handoff_before_sha256": "3a8a327e2ee950da387ed8be58d36841db15c96935111bfaf2b70ce6d4c4cda0",
+  "current_registry_validation": {
+    "assertions": [],
+    "coverage": {
+      "added_entities": [],
+      "changed_field_count": 0,
+      "fully_declared": true,
+      "mode": "exact_unchanged",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "delta_sha256": "ad1531efd9e4342fc2e58605f6df77d6f6922743c088d0d60634cfd3622a91a4",
+  "exact_base_candidate_sha256": "cc12240aa7c1497661697dc89628ee105f52e529d721b02bff65015494703042",
+  "exact_base_registry_validation": {
+    "assertions": [],
+    "coverage": {
+      "added_entities": [],
+      "changed_field_count": 0,
+      "fully_declared": true,
+      "mode": "exact_unchanged",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "history_preservation_passed": true,
+  "idempotence_passed": true,
+  "materialized_handoff_after_sha256": "cc12240aa7c1497661697dc89628ee105f52e529d721b02bff65015494703042",
+  "mode": "authoritative",
+  "network_used": false,
+  "policy_id": "GOV-HANDOFF-AUTHORITY-CUTOVER-01",
+  "registry_after_sha256": "4282122631dc04eadfb06cda67ebac8d7ffd6cc501b96679742cf1b519566f6e",
+  "registry_before_sha256": "4282122631dc04eadfb06cda67ebac8d7ffd6cc501b96679742cf1b519566f6e",
+  "report_schema_version": 1,
+  "source_base_commit": "5548e4e9ad5f01b39f43ebda7d497858557665b8",
+  "source_patch_commit": "abe5bf1c0bc080bcd533f06003ca42b5453f2e6c",
+  "stage4a_refresh": {
+    "refreshed": [
+      "docs/handoff_shadow/stage4/minimal/generated/MODULE_INDEX.json",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/global_core_governance.md"
+    ],
+    "reused": [
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.dot",
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.md",
+      "docs/handoff_shadow/stage4/minimal/generated/STRUCTURE_SUGGESTIONS.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e5_mechanism.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e6_generalization.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_extrapolation.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_taper.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_mechanism_e1_e3.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/countdown_e8.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/execution_status_gates.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/history_provenance.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/hopper_e7.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/paper_rewrite.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/terminal_audit.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/theory_methods_related_work.md"
+    ]
+  },
+  "status": "PASS",
+  "structural_lint_passed": true,
+  "trusted_engine_sha256": "a6532ba4c1bb9c4af24d79f027267de518c3832b347dba47e8319dee7a3ebe2c",
+  "trusted_policy_sha256": "508f6bbb6ee9bb6da5be041a23e25cd569b95475523bb6af7127cb84ea3466ad",
+  "trusted_renderer_sha256": "39a7566e91c77784822148bb18ae32e44dfcc1745fbdc1cbf14a88ce6c6a13e5",
+  "update_id": "GOV-CODE-MIN-DIFF-02-HANDOFF-RULE-V77-2026-07-05"
+}
