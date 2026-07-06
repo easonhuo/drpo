@@ -1,5 +1,5 @@
 experiment_id: EXT-H-E7-BENCH-01
-protocol_version: 0.2.5-balanced-taper-followup-warmstart-fix
+protocol_version: 0.2.6-micro-global-high-taper-followup
 execution_class: pilot_substage
 scientific_status: pilot
 
@@ -84,8 +84,8 @@ methods:
   d4rl_retuning_allowed: false
   pilot_parameter_search:
     enabled: true
-    scope: pilot_followup_balanced_low_global_strong_reciprocal_exp_fine_search_not_formal_retuning
-    basis: EXT-H-E7-BENCH-01 balanced taper pilot 2026-07-05 showed exponential c8-c12 reached the positive-only range, reciprocal linear/quadratic improved strongly at c20 but remained unstable, and global alpha 0.25-0.40 was too aggressive; this follow-up keeps parallel method exploration instead of dropping non-exponential families.
+    scope: pilot_followup_micro_global_strong_reciprocal_high_exp_search_not_formal_retuning
+    basis: EXT-H-E7-BENCH-01 low-global/strong-taper pilot showed reciprocal-linear and reciprocal-quadratic enter usable regions at stronger coefficients, exponential remains the most stable family, and global alpha 0.05-0.25 still task-collapses; this follow-up keeps the same pilot budget while probing micro global-alpha and higher taper coefficients.
     per_task_retuning_allowed: false
     variant_count: 23
     variants:
@@ -93,69 +93,69 @@ methods:
         family: positive_only
       - id: signed
         family: signed
-      - id: global_alpha_a0p05
+      - id: global_alpha_a0p001
         family: global_alpha
-        global_alpha: 0.05
-      - id: global_alpha_a0p075
+        global_alpha: 0.001
+      - id: global_alpha_a0p002
         family: global_alpha
-        global_alpha: 0.075
-      - id: global_alpha_a0p10
+        global_alpha: 0.002
+      - id: global_alpha_a0p005
         family: global_alpha
-        global_alpha: 0.10
-      - id: global_alpha_a0p125
+        global_alpha: 0.005
+      - id: global_alpha_a0p01
         family: global_alpha
-        global_alpha: 0.125
-      - id: global_alpha_a0p15
+        global_alpha: 0.01
+      - id: global_alpha_a0p02
         family: global_alpha
-        global_alpha: 0.15
-      - id: global_alpha_a0p20
+        global_alpha: 0.02
+      - id: global_alpha_a0p03
         family: global_alpha
-        global_alpha: 0.20
-      - id: global_alpha_a0p25
-        family: global_alpha
-        global_alpha: 0.25
-      - id: reciprocal_linear_c20p00
+        global_alpha: 0.03
+      - id: reciprocal_linear_c40p00
         family: reciprocal_linear
-        coefficient: 20.00
-      - id: reciprocal_linear_c32p00
-        family: reciprocal_linear
-        coefficient: 32.00
+        coefficient: 40.00
       - id: reciprocal_linear_c48p00
         family: reciprocal_linear
         coefficient: 48.00
+      - id: reciprocal_linear_c56p00
+        family: reciprocal_linear
+        coefficient: 56.00
       - id: reciprocal_linear_c64p00
         family: reciprocal_linear
         coefficient: 64.00
-      - id: reciprocal_quadratic_c20p00
-        family: reciprocal_quadratic
-        coefficient: 20.00
+      - id: reciprocal_linear_c80p00
+        family: reciprocal_linear
+        coefficient: 80.00
       - id: reciprocal_quadratic_c32p00
         family: reciprocal_quadratic
         coefficient: 32.00
+      - id: reciprocal_quadratic_c40p00
+        family: reciprocal_quadratic
+        coefficient: 40.00
       - id: reciprocal_quadratic_c48p00
         family: reciprocal_quadratic
         coefficient: 48.00
+      - id: reciprocal_quadratic_c56p00
+        family: reciprocal_quadratic
+        coefficient: 56.00
       - id: reciprocal_quadratic_c64p00
         family: reciprocal_quadratic
         coefficient: 64.00
-      - id: exponential_c8p00
-        family: exponential
-        coefficient: 8.00
-      - id: exponential_c9p00
-        family: exponential
-        coefficient: 9.00
-      - id: exponential_c10p00
-        family: exponential
-        coefficient: 10.00
-      - id: exponential_c11p00
-        family: exponential
-        coefficient: 11.00
-      - id: exponential_c12p00
-        family: exponential
-        coefficient: 12.00
       - id: exponential_c14p00
         family: exponential
         coefficient: 14.00
+      - id: exponential_c16p00
+        family: exponential
+        coefficient: 16.00
+      - id: exponential_c18p00
+        family: exponential
+        coefficient: 18.00
+      - id: exponential_c20p00
+        family: exponential
+        coefficient: 20.00
+      - id: exponential_c24p00
+        family: exponential
+        coefficient: 24.00
 
 execution:
   scheduler: three_stage_subprocess_worker_pool
@@ -183,27 +183,27 @@ execution:
     method_variants_continued_in_parallel:
       - positive_only
       - signed
-      - global_alpha_a0p05
-      - global_alpha_a0p075
-      - global_alpha_a0p10
-      - global_alpha_a0p125
-      - global_alpha_a0p15
-      - global_alpha_a0p20
-      - global_alpha_a0p25
-      - reciprocal_linear_c20p00
-      - reciprocal_linear_c32p00
+      - global_alpha_a0p001
+      - global_alpha_a0p002
+      - global_alpha_a0p005
+      - global_alpha_a0p01
+      - global_alpha_a0p02
+      - global_alpha_a0p03
+      - reciprocal_linear_c40p00
       - reciprocal_linear_c48p00
+      - reciprocal_linear_c56p00
       - reciprocal_linear_c64p00
-      - reciprocal_quadratic_c20p00
+      - reciprocal_linear_c80p00
       - reciprocal_quadratic_c32p00
+      - reciprocal_quadratic_c40p00
       - reciprocal_quadratic_c48p00
+      - reciprocal_quadratic_c56p00
       - reciprocal_quadratic_c64p00
-      - exponential_c8p00
-      - exponential_c9p00
-      - exponential_c10p00
-      - exponential_c11p00
-      - exponential_c12p00
       - exponential_c14p00
+      - exponential_c16p00
+      - exponential_c18p00
+      - exponential_c20p00
+      - exponential_c24p00
     continuation_steps_each: 200000
     reason: >-
       Use the 384-core server while giving Positive-only and every negative-control method

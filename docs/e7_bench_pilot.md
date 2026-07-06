@@ -112,10 +112,10 @@ python3 scripts/run_e7_bench.py run \
 
 For interruption recovery, rerun the same command with `--resume`. `DATASET_ROOT` and `WORK_DIR` are runtime environment variables chosen by the operator; the repository stores exact internal relative paths and SHA-256 values, not machine-specific absolute paths.
 
-## Balanced taper follow-up rationale from 2026-07-05 pilot
+## Micro-global and high-taper follow-up rationale from 2026-07-06 pilot
 
-The preceding 21-variant pilot is still pilot evidence only and does not establish a formal method ranking. Its practical tuning signal was: exponential taper entered a usable range around `c=8--12`; reciprocal-linear and reciprocal-quadratic improved as coefficients increased and should not be dropped; global-alpha values `0.25--0.40` were too aggressive and should be moved back to the low-alpha region.
+The preceding 23-variant pilot is still pilot evidence only and does not establish a formal method ranking. Its practical tuning signal was: reciprocal-linear and reciprocal-quadratic entered usable regions only after stronger coefficients, exponential remained the broadest stable family, and global-alpha values down to `0.05` still task-collapsed with support/variance-boundary symptoms.
 
-The next balanced follow-up therefore keeps all method families active while shifting their search regions: global-alpha probes `0.05--0.20` plus a `0.25` boundary anchor, reciprocal-linear/quadratic probe stronger coefficients `20--64`, and exponential is fine-searched around `8--14`. With two datasets and two seeds, the resulting pilot matrix is `2 × 2 × 23 = 92` equal-horizon branch continuations.
+The next follow-up therefore keeps the same pilot budget while shifting search regions again: global-alpha probes the micro range `0.001--0.03`, reciprocal-linear probes `40--80`, reciprocal-quadratic probes `32--64`, and exponential probes the higher range `14--24`. With two datasets and two seeds, the resulting pilot matrix remains `2 × 2 × 23 = 92` equal-horizon branch continuations.
 
 This update remains a parameter-sensitivity pilot. It may guide the next run but may not promote any scalar, method family, or ranking into the formal D4RL benchmark without a separate freeze update and terminal audit.

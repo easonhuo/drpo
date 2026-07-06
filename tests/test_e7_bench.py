@@ -82,19 +82,19 @@ def test_parameter_sweep_keeps_families_but_expands_method_variants() -> None:
     families = [variant.family for variant in config.methods.variants]
     assert families.count("positive_only") == 1
     assert families.count("signed") == 1
-    assert families.count("global_alpha") == 7
-    assert families.count("reciprocal_linear") == 4
-    assert families.count("reciprocal_quadratic") == 4
-    assert families.count("exponential") == 6
-    assert "global_alpha_a0p05" in config.methods.ids
-    assert "global_alpha_a0p20" in config.methods.ids
-    assert "global_alpha_a0p25" in config.methods.ids
-    assert "global_alpha_a0p40" not in config.methods.ids
+    assert families.count("global_alpha") == 6
+    assert families.count("reciprocal_linear") == 5
+    assert families.count("reciprocal_quadratic") == 5
+    assert families.count("exponential") == 5
+    assert "global_alpha_a0p001" in config.methods.ids
+    assert "global_alpha_a0p02" in config.methods.ids
+    assert "global_alpha_a0p03" in config.methods.ids
+    assert "global_alpha_a0p05" not in config.methods.ids
     assert "global_alpha_a0p75" not in config.methods.ids
-    assert "reciprocal_linear_c64p00" in config.methods.ids
+    assert "reciprocal_linear_c80p00" in config.methods.ids
     assert "reciprocal_quadratic_c64p00" in config.methods.ids
-    assert "exponential_c8p00" in config.methods.ids
     assert "exponential_c14p00" in config.methods.ids
+    assert "exponential_c24p00" in config.methods.ids
     assert "exponential_c0p374163" not in config.methods.ids
     assert config.methods.global_alpha == pytest.approx(0.75)
     assert config.methods.reference_distance == pytest.approx(5.0)
@@ -162,7 +162,7 @@ def test_warmstart_worker_is_method_agnostic_but_branch_worker_validates_method(
             "--seed",
             "200",
             "--method",
-            "exponential_c8p00",
+            "exponential_c14p00",
             "--critic-dir",
             "/tmp/critic",
             "--warmstart-dir",
@@ -177,21 +177,21 @@ def test_warmstart_worker_is_method_agnostic_but_branch_worker_validates_method(
             "0" * 64,
         ]
     )
-    assert branch_args.method == "exponential_c8p00"
+    assert branch_args.method == "exponential_c14p00"
 
 
 def test_taper_weights_are_continuous_and_monotone() -> None:
     config = e7_bench.load_bench_config(CONFIG)
     d = torch.tensor([0.0, 2.5, 5.0, 10.0, 20.0])
-    for method in ("reciprocal_linear_c20p00", "reciprocal_quadratic_c20p00", "exponential_c8p00"):
+    for method in ("reciprocal_linear_c40p00", "reciprocal_quadratic_c32p00", "exponential_c14p00"):
         weight = e7_bench.taper_weight(d, method, config.methods)
         assert weight[0].item() == pytest.approx(1.0)
         assert torch.all(weight[:-1] >= weight[1:])
         assert torch.all(weight > 0)
         assert torch.all(weight <= 1)
     assert torch.allclose(
-        e7_bench.taper_weight(d, "global_alpha_a0p20", config.methods),
-        torch.full_like(d, 0.20),
+        e7_bench.taper_weight(d, "global_alpha_a0p02", config.methods),
+        torch.full_like(d, 0.02),
     )
 
 
@@ -202,7 +202,7 @@ def test_benchmark_loss_only_tapers_negative_advantages() -> None:
     actions = torch.tensor([[0.1, 0.2], [0.2, -0.3], [0.8, 0.5], [-0.9, 0.4]])
     advantage = torch.tensor([1.0, -1.0, 2.0, -2.0])
     loss, diag = e7_bench.benchmark_actor_loss(
-        policy, obs, actions, advantage, "exponential_c8p00", config.methods
+        policy, obs, actions, advantage, "exponential_c14p00", config.methods
     )
     assert torch.isfinite(loss)
     assert diag["active_fraction"] == pytest.approx(1.0)
@@ -295,7 +295,7 @@ def test_worker_identity_binds_budget_and_taper_parameters() -> None:
         spec,
         worker="branch",
         seed=200,
-        method="exponential_c8p00",
+        method="exponential_c14p00",
     )
     shorter_budget = dataclasses.replace(
         config,
@@ -306,11 +306,11 @@ def test_worker_identity_binds_budget_and_taper_parameters() -> None:
         spec,
         worker="branch",
         seed=200,
-        method="exponential_c8p00",
+        method="exponential_c14p00",
     ) != original
     changed_variants = tuple(
         dataclasses.replace(variant, coefficient=0.5)
-        if variant.id == "exponential_c8p00"
+        if variant.id == "exponential_c14p00"
         else variant
         for variant in config.methods.variants
     )
@@ -323,7 +323,7 @@ def test_worker_identity_binds_budget_and_taper_parameters() -> None:
         spec,
         worker="branch",
         seed=200,
-        method="exponential_c8p00",
+        method="exponential_c14p00",
     ) != original
 
 
