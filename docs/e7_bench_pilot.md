@@ -119,3 +119,36 @@ The preceding 23-variant pilot is still pilot evidence only and does not establi
 The next follow-up therefore keeps the same pilot budget while shifting search regions again: global-alpha probes the micro range `0.001--0.03`, reciprocal-linear probes `40--80`, reciprocal-quadratic probes `32--64`, and exponential probes the higher range `14--24`. With two datasets and two seeds, the resulting pilot matrix remains `2 × 2 × 23 = 92` equal-horizon branch continuations.
 
 This update remains a parameter-sensitivity pilot. It may guide the next run but may not promote any scalar, method family, or ranking into the formal D4RL benchmark without a separate freeze update and terminal audit.
+
+## Reusable canonical critic cache
+
+The pilot now supports a reusable canonical critic cache. This is an engineering feature for the same frozen-advantage protocol, not a new scientific result. It prevents repeated `critic_steps` spending when only actor seeds, method variants, branch horizon, rollout episodes, or sweep coefficients change.
+
+The default cache is enabled in `configs/e7_bench_pilot.yaml`:
+
+```yaml
+critic_cache:
+  enabled: true
+  cache_dir: ~/.cache/drpo/e7_bench/critics
+  reuse: true
+  store: true
+  actor_seed_independent: true
+  sweep_config_independent: true
+```
+
+A runtime operator may override the cache location without changing the scientific config:
+
+```bash
+python3 scripts/run_e7_bench.py run \
+  --mode pilot \
+  --dataset-root "$DATASET_ROOT" \
+  --work-dir "$WORK_DIR" \
+  --config configs/e7_bench_pilot.yaml \
+  --critic-cache-dir "$CRITIC_CACHE_DIR"
+```
+
+The critic cache identity deliberately includes the dataset id and SHA-256, dataset format and scoring metadata, `max_transitions`, canonical critic seed, critic fixed-budget fields, base E7-Q2 config SHA-256, recovered network profile, runner version, and critic cache schema. It deliberately excludes actor seed, method variant, sweep config SHA-256, branch actor steps, and rollout evaluation episodes. Therefore increasing actor seeds does not force new critics; by default all actor seeds share the same canonical critic for a given dataset and critic seed.
+
+The runner copies cached critic artifacts into the work directory rather than symlinking them. Cache hits write `CRITIC_CACHE_USED.json`; newly trained critics are copied back to the cache with `CRITIC_CACHE_STORED.json`. A missing, stale, or malformed cache entry fails closed instead of silently using an unchecked artifact.
+
+This does not implement joint actor-critic training. It preserves the existing frozen-advantage comparison while making longer or repeated critic pretraining practical. Critic-seed robustness, if needed for paper-facing evidence, should be a separate top-method audit instead of coupling every actor seed to a new critic seed.

@@ -566,3 +566,131 @@ def test_aggregate_allows_only_nan_inf_as_early_stop_exception(tmp_path: Path) -
     bad.write_text(json.dumps(row))
     with pytest.raises(RuntimeError, match="without a registered NaN/Inf exception"):
         e7_bench.aggregate_pilot(tmp_path, config)
+
+
+def _write_fake_critic_artifact(
+    root: Path,
+    *,
+    config: e7_bench.BenchConfig,
+    spec: e7_bench.DatasetSpec,
+) -> str:
+    identity = e7_bench.worker_identity_sha256(config, spec, worker="critic")
+    (root / "critic").mkdir(parents=True)
+    (root / "frozen_advantage").mkdir(parents=True)
+    np.savez_compressed(root / "episode_split.npz", train=np.array([0]), validation=np.array([1]), test=np.array([2]))
+    np.savez_compressed(
+        root / "normalizers.npz",
+        observation_mean=np.zeros(1, dtype=np.float32),
+        observation_std=np.ones(1, dtype=np.float32),
+        target_mean=np.zeros(1, dtype=np.float32),
+        target_std=np.ones(1, dtype=np.float32),
+    )
+    (root / "critic" / "canonical_critic.pt").write_bytes(b"checkpoint")
+    (root / "critic" / "critic_terminal_audit.json").write_text("{}")
+    (root / "critic" / "critic_metrics.csv").write_text("step,loss\n")
+    np.savez_compressed(
+        root / "frozen_advantage" / "frozen_advantages.npz",
+        advantage=np.array([1.0, -1.0], dtype=np.float32),
+    )
+    (root / "frozen_advantage" / "advantage_manifest.json").write_text("{}")
+    (root / "WORKER_COMPLETE.json").write_text(
+        json.dumps(
+            {
+                "experiment_id": e7_bench.EXPERIMENT_ID,
+                "dataset": {"id": spec.id},
+                "worker": "critic",
+                "worker_identity_sha256": identity,
+            }
+        )
+    )
+    return identity
+
+
+def test_critic_cache_is_enabled_and_uses_actor_seed_independent_identity() -> None:
+    config = e7_bench.load_bench_config(CONFIG)
+    spec = config.datasets[0]
+    assert config.critic_cache.enabled is True
+    assert config.critic_cache.reuse is True
+    assert config.critic_cache.store is True
+    assert config.critic_cache.actor_seed_independent is True
+    assert config.critic_cache.sweep_config_independent is True
+
+    critic_identity = e7_bench.worker_identity_sha256(config, spec, worker="critic")
+    changed_actor_seeds = dataclasses.replace(
+        config,
+        budget=dataclasses.replace(config.budget, seeds=(200, 201, 202, 203)),
+    )
+    assert e7_bench.worker_identity_sha256(changed_actor_seeds, spec, worker="critic") == critic_identity
+
+    changed_variants = tuple(
+        dataclasses.replace(variant, coefficient=22.0)
+        if variant.id == "exponential_c14p00"
+        else variant
+        for variant in config.methods.variants
+    )
+    changed_sweep = dataclasses.replace(
+        config,
+        methods=dataclasses.replace(config.methods, variants=changed_variants),
+    )
+    assert e7_bench.worker_identity_sha256(changed_sweep, spec, worker="critic") == critic_identity
+    assert e7_bench.worker_identity_sha256(
+        changed_sweep,
+        spec,
+        worker="branch",
+        seed=200,
+        method="exponential_c14p00",
+    ) != e7_bench.worker_identity_sha256(
+        config,
+        spec,
+        worker="branch",
+        seed=200,
+        method="exponential_c14p00",
+    )
+
+    changed_critic_seed = dataclasses.replace(
+        config,
+        budget=dataclasses.replace(config.budget, canonical_critic_seed=1000),
+    )
+    assert e7_bench.worker_identity_sha256(changed_critic_seed, spec, worker="critic") != critic_identity
+
+
+def test_critic_cache_restore_and_store_copy_artifacts_without_symlinks(tmp_path: Path) -> None:
+    config = e7_bench.load_bench_config(CONFIG)
+    spec = config.datasets[0]
+    identity = e7_bench.worker_identity_sha256(config, spec, worker="critic")
+    cache_root = tmp_path / "cache"
+    entry = e7_bench.critic_cache_entry_dir(cache_root, identity)
+    _write_fake_critic_artifact(entry, config=config, spec=spec)
+
+    restored = tmp_path / "work" / "critics" / spec.id
+    assert e7_bench.restore_critic_from_cache(
+        config=config,
+        spec=spec,
+        output_dir=restored,
+        cache_root=cache_root,
+        expected_worker_identity_sha256=identity,
+    )
+    assert (restored / "CRITIC_CACHE_USED.json").is_file()
+    assert e7_bench._worker_complete(
+        restored,
+        dataset_id=spec.id,
+        worker="critic",
+        expected_worker_identity_sha256=identity,
+    )
+
+    new_cache_root = tmp_path / "new_cache"
+    assert e7_bench.store_critic_in_cache(
+        config=config,
+        spec=spec,
+        source_dir=restored,
+        cache_root=new_cache_root,
+        expected_worker_identity_sha256=identity,
+    )
+    new_entry = e7_bench.critic_cache_entry_dir(new_cache_root, identity)
+    assert (new_entry / "CRITIC_CACHE_STORED.json").is_file()
+    assert e7_bench._worker_complete(
+        new_entry,
+        dataset_id=spec.id,
+        worker="critic",
+        expected_worker_identity_sha256=identity,
+    )

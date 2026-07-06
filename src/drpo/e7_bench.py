@@ -39,6 +39,7 @@ import subprocess
 import sys
 import threading
 import time
+import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -55,7 +56,7 @@ if __package__ in (None, ""):
 from drpo import e7_hopper_q2 as q2
 
 EXPERIMENT_ID = "EXT-H-E7-BENCH-01"
-RUNNER_VERSION = "0.2.4-stronger-taper-param-sweep-warmstart-fix"
+RUNNER_VERSION = "0.2.6-critic-cache-independent-seed"
 PILOT_STATUS = "pilot"
 WARMSTART_METHOD = "positive_only_warmstart"
 PILOT_METHOD_FAMILIES = (
@@ -73,6 +74,7 @@ TAPER_METHODS = (
     "reciprocal_quadratic",
     "exponential",
 )
+CRITIC_CACHE_SCHEMA_VERSION = "e7-bench-critic-cache-v1"
 
 
 def utc_now() -> str:
@@ -170,6 +172,16 @@ class ParallelConfig:
 
 
 @dataclass(frozen=True)
+class CriticCacheConfig:
+    enabled: bool
+    cache_dir: str
+    reuse: bool
+    store: bool
+    actor_seed_independent: bool
+    sweep_config_independent: bool
+
+
+@dataclass(frozen=True)
 class NetworkProfile:
     source: str
     hidden_sizes: tuple[int, ...]
@@ -214,6 +226,7 @@ class BenchConfig:
     datasets: tuple[DatasetSpec, ...]
     budget: PilotBudget
     parallel: ParallelConfig
+    critic_cache: CriticCacheConfig
     network_profile: NetworkProfile
     methods: MethodConfig
     formal_protocol_locked: bool
@@ -288,6 +301,15 @@ def load_bench_config(path: str | Path) -> BenchConfig:
         serial_seed_loop_forbidden=bool(parallel_raw["serial_seed_loop_forbidden"]),
         parallel_unit=str(parallel_raw["parallel_unit"]),
     )
+    cache_raw = raw.get("critic_cache", {})
+    critic_cache = CriticCacheConfig(
+        enabled=bool(cache_raw.get("enabled", False)),
+        cache_dir=str(cache_raw.get("cache_dir", "~/.cache/drpo/e7_bench/critics")),
+        reuse=bool(cache_raw.get("reuse", True)),
+        store=bool(cache_raw.get("store", True)),
+        actor_seed_independent=bool(cache_raw.get("actor_seed_independent", True)),
+        sweep_config_independent=bool(cache_raw.get("sweep_config_independent", True)),
+    )
     profile_raw = raw["model_profile"]
     network_profile = NetworkProfile(
         source=str(profile_raw["source"]),
@@ -355,6 +377,7 @@ def load_bench_config(path: str | Path) -> BenchConfig:
         datasets=datasets,
         budget=budget,
         parallel=parallel,
+        critic_cache=critic_cache,
         network_profile=network_profile,
         methods=methods,
         formal_protocol_locked=bool(formal["protocol_locked"]),
@@ -403,6 +426,13 @@ def validate_bench_config(config: BenchConfig) -> None:
         raise ValueError("formal benchmark must forbid serial method execution")
     if config.formal_task_count != 9:
         raise ValueError("formal benchmark must retain exactly nine task cells")
+    if config.critic_cache.enabled:
+        if not config.critic_cache.reuse and not config.critic_cache.store:
+            raise ValueError("enabled critic cache must reuse and/or store artifacts")
+        if not config.critic_cache.actor_seed_independent:
+            raise ValueError("critic cache identity must remain independent of actor seeds")
+        if not config.critic_cache.sweep_config_independent:
+            raise ValueError("critic cache identity must remain independent of sweep config")
     if config.network_profile.hidden_sizes != (256, 256):
         raise ValueError("recovered E7 network profile must retain 2x256 hidden sizes")
     if config.network_profile.activation.strip().lower() != "relu":
@@ -506,6 +536,46 @@ def run_identity_sha256(config: BenchConfig) -> str:
     return canonical_json_sha256(run_identity_payload(config))
 
 
+def critic_identity_payload(config: BenchConfig, spec: DatasetSpec) -> dict[str, Any]:
+    """Return a cacheable critic identity independent of actor seeds and sweeps."""
+    return {
+        "experiment_id": EXPERIMENT_ID,
+        "worker": "critic",
+        "critic_cache_schema_version": CRITIC_CACHE_SCHEMA_VERSION,
+        "runner_version": RUNNER_VERSION,
+        "base_config_sha256": config.base_config_sha256,
+        "dataset": {
+            "id": spec.id,
+            "sha256": spec.sha256,
+            "format": spec.format,
+            "env_id": spec.env_id,
+            "dataset_family": spec.dataset_family,
+            "score_protocol": spec.score_protocol,
+            "reference_min_score": spec.reference_min_score,
+            "reference_max_score": spec.reference_max_score,
+        },
+        "max_transitions": config.budget.max_transitions,
+        "canonical_critic_seed": config.budget.canonical_critic_seed,
+        "stage_budget": {
+            "optimizer_steps": config.budget.critic_steps,
+            "eval_interval": config.budget.critic_eval_interval,
+        },
+        "network_profile": dataclasses.asdict(config.network_profile),
+        "identity_excludes": [
+            "actor_seed",
+            "method_variant",
+            "sweep_config_sha256",
+            "run_identity_sha256",
+            "branch_actor_steps",
+            "rollout_eval_episodes",
+        ],
+    }
+
+
+def critic_identity_sha256(config: BenchConfig, spec: DatasetSpec) -> str:
+    return canonical_json_sha256(critic_identity_payload(config, spec))
+
+
 def worker_identity_payload(
     config: BenchConfig,
     spec: DatasetSpec,
@@ -517,11 +587,8 @@ def worker_identity_payload(
     if worker not in {"critic", "warmstart", "branch"}:
         raise ValueError(f"unknown worker identity type: {worker}")
     if worker == "critic":
-        stage_budget = {
-            "optimizer_steps": config.budget.critic_steps,
-            "eval_interval": config.budget.critic_eval_interval,
-        }
-    elif worker == "warmstart":
+        return critic_identity_payload(config, spec)
+    if worker == "warmstart":
         stage_budget = {
             "optimizer_steps": config.budget.shared_positive_warmstart_steps,
             "actor_eval_interval": config.budget.actor_eval_interval,
@@ -660,6 +727,8 @@ def build_execution_plan(config: BenchConfig, mode: str) -> dict[str, Any]:
             "total_actor_steps_per_method": config.budget.total_actor_steps_per_method,
             "method_continuation_count": len(branches),
             "parallel_unit": config.parallel.parallel_unit,
+            "critic_cache": dataclasses.asdict(config.critic_cache),
+            "critic_cache_identity_scope": "dataset_critic_seed_critic_budget_data_sha_base_config_network_profile_runner",
             "top_level_serial_seed_loop": False,
             "top_level_serial_method_loop": False,
         }
@@ -1823,6 +1892,150 @@ def prepare_worker_output(
         shutil.move(str(path), str(archive))
     return False
 
+
+def resolve_critic_cache_root(
+    config: BenchConfig, override: str | None = None
+) -> Path | None:
+    if not config.critic_cache.enabled:
+        return None
+    value = override or config.critic_cache.cache_dir
+    if not value:
+        return None
+    return Path(value).expanduser().resolve()
+
+
+def critic_cache_entry_dir(cache_root: Path, identity: str) -> Path:
+    return cache_root / identity[:2] / identity
+
+
+def _assert_no_symlinks(root: Path) -> None:
+    if root.is_symlink():
+        raise RuntimeError(f"critic cache refuses symlink root: {root}")
+    for path in root.rglob("*"):
+        if path.is_symlink():
+            raise RuntimeError(f"critic cache refuses symlink inside artifact: {path}")
+
+
+def _required_critic_files(root: Path) -> tuple[Path, ...]:
+    return (
+        root / "WORKER_COMPLETE.json",
+        root / "episode_split.npz",
+        root / "normalizers.npz",
+        root / "critic" / "canonical_critic.pt",
+        root / "critic" / "critic_terminal_audit.json",
+        root / "critic" / "critic_metrics.csv",
+        root / "frozen_advantage" / "frozen_advantages.npz",
+        root / "frozen_advantage" / "advantage_manifest.json",
+    )
+
+
+def verify_critic_artifact_dir(
+    root: Path,
+    *,
+    dataset_id: str,
+    expected_worker_identity_sha256: str,
+) -> None:
+    if not _worker_complete(
+        root,
+        dataset_id=dataset_id,
+        worker="critic",
+        expected_worker_identity_sha256=expected_worker_identity_sha256,
+    ):
+        raise RuntimeError(f"critic artifact is incomplete or stale: {root}")
+    for path in _required_critic_files(root):
+        if not path.is_file():
+            raise RuntimeError(f"critic artifact is missing required file: {path}")
+    _assert_no_symlinks(root)
+
+
+def copy_critic_artifact_tree(source: Path, destination: Path) -> None:
+    _assert_no_symlinks(source)
+    if destination.exists():
+        if destination.is_dir() and not any(destination.iterdir()):
+            destination.rmdir()
+        else:
+            raise RuntimeError(f"destination critic directory already exists: {destination}")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    temp = destination.parent / f".{destination.name}.tmp-{uuid.uuid4().hex}"
+    try:
+        shutil.copytree(source, temp, symlinks=False)
+        _assert_no_symlinks(temp)
+        os.replace(temp, destination)
+    finally:
+        if temp.exists():
+            shutil.rmtree(temp, ignore_errors=True)
+
+
+def restore_critic_from_cache(
+    *,
+    config: BenchConfig,
+    spec: DatasetSpec,
+    output_dir: Path,
+    cache_root: Path | None,
+    expected_worker_identity_sha256: str,
+) -> bool:
+    if cache_root is None or not config.critic_cache.reuse:
+        return False
+    entry = critic_cache_entry_dir(cache_root, expected_worker_identity_sha256)
+    if not entry.exists():
+        return False
+    verify_critic_artifact_dir(
+        entry,
+        dataset_id=spec.id,
+        expected_worker_identity_sha256=expected_worker_identity_sha256,
+    )
+    copy_critic_artifact_tree(entry, output_dir)
+    atomic_write_json(
+        output_dir / "CRITIC_CACHE_USED.json",
+        {
+            "cache_schema_version": CRITIC_CACHE_SCHEMA_VERSION,
+            "cache_dir": str(entry),
+            "dataset_id": spec.id,
+            "worker_identity_sha256": expected_worker_identity_sha256,
+            "critic_identity_payload": critic_identity_payload(config, spec),
+            "copied_utc": utc_now(),
+        },
+    )
+    return True
+
+
+def store_critic_in_cache(
+    *,
+    config: BenchConfig,
+    spec: DatasetSpec,
+    source_dir: Path,
+    cache_root: Path | None,
+    expected_worker_identity_sha256: str,
+) -> bool:
+    if cache_root is None or not config.critic_cache.store:
+        return False
+    verify_critic_artifact_dir(
+        source_dir,
+        dataset_id=spec.id,
+        expected_worker_identity_sha256=expected_worker_identity_sha256,
+    )
+    entry = critic_cache_entry_dir(cache_root, expected_worker_identity_sha256)
+    if entry.exists():
+        verify_critic_artifact_dir(
+            entry,
+            dataset_id=spec.id,
+            expected_worker_identity_sha256=expected_worker_identity_sha256,
+        )
+        return False
+    copy_critic_artifact_tree(source_dir, entry)
+    atomic_write_json(
+        entry / "CRITIC_CACHE_STORED.json",
+        {
+            "cache_schema_version": CRITIC_CACHE_SCHEMA_VERSION,
+            "dataset_id": spec.id,
+            "worker_identity_sha256": expected_worker_identity_sha256,
+            "critic_identity_payload": critic_identity_payload(config, spec),
+            "stored_utc": utc_now(),
+        },
+    )
+    return True
+
+
 def _device_for_job(pool: tuple[str, ...], index: int) -> str:
     if not pool:
         return "cpu"
@@ -2108,6 +2321,19 @@ def run_pilot(args: argparse.Namespace) -> int:
     )
     python = sys.executable
     runner_path = str(Path(__file__).resolve())
+    critic_cache_root = resolve_critic_cache_root(config, args.critic_cache_dir)
+    atomic_write_json(
+        work_dir / "CRITIC_CACHE_PLAN.json",
+        {
+            "enabled": config.critic_cache.enabled,
+            "reuse": config.critic_cache.reuse,
+            "store": config.critic_cache.store,
+            "cache_root": None if critic_cache_root is None else str(critic_cache_root),
+            "actor_seed_independent": config.critic_cache.actor_seed_independent,
+            "sweep_config_independent": config.critic_cache.sweep_config_independent,
+            "identity_scope": "dataset_critic_seed_critic_budget_data_sha_base_config_network_profile_runner",
+        },
+    )
 
     critic_jobs: list[dict[str, Any]] = []
     for index, spec in enumerate(config.datasets):
@@ -2118,6 +2344,14 @@ def run_pilot(args: argparse.Namespace) -> int:
             resume=args.resume,
             dataset_id=spec.id,
             worker="critic",
+            expected_worker_identity_sha256=expected_identity,
+        ):
+            continue
+        if restore_critic_from_cache(
+            config=config,
+            spec=spec,
+            output_dir=output,
+            cache_root=critic_cache_root,
             expected_worker_identity_sha256=expected_identity,
         ):
             continue
@@ -2156,6 +2390,22 @@ def run_pilot(args: argparse.Namespace) -> int:
             stage="parallel_canonical_critics",
             heartbeat_path=work_dir / "critic_stage_heartbeat.json",
         )
+    for spec in config.datasets:
+        critic_dir = work_dir / "critics" / spec.id
+        critic_identity = worker_identity_sha256(config, spec, worker="critic")
+        if _worker_complete(
+            critic_dir,
+            dataset_id=spec.id,
+            worker="critic",
+            expected_worker_identity_sha256=critic_identity,
+        ):
+            store_critic_in_cache(
+                config=config,
+                spec=spec,
+                source_dir=critic_dir,
+                cache_root=critic_cache_root,
+                expected_worker_identity_sha256=critic_identity,
+            )
 
     warmstart_jobs: list[dict[str, Any]] = []
     job_index = 0
@@ -2356,6 +2606,7 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--config", default="configs/e7_bench_pilot.yaml")
     run.add_argument("--dataset-root", required=True)
     run.add_argument("--work-dir", required=True)
+    run.add_argument("--critic-cache-dir")
     run.add_argument("--resume", action="store_true")
     plan = sub.add_parser("plan", help="print pilot or formal execution plan")
     plan.add_argument("--mode", choices=("pilot", "formal"), required=True)

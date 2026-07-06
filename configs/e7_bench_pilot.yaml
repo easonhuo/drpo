@@ -54,6 +54,22 @@ pilot:
     fixed_horizon_is_not_convergence: true
     equal_total_actor_horizon_across_methods: true
 
+
+critic_cache:
+  enabled: true
+  cache_dir: ~/.cache/drpo/e7_bench/critics
+  reuse: true
+  store: true
+  actor_seed_independent: true
+  sweep_config_independent: true
+  identity_scope: dataset_plus_critic_seed_plus_critic_budget_plus_data_sha_plus_base_config_plus_network_profile_plus_runner
+  excludes:
+    - actor_seed
+    - method_variant
+    - sweep_config_sha256
+    - branch_actor_steps
+    - rollout_eval_episodes
+
 model_profile:
   source: experiments/e7/reference/recovered_drrl_agents_20260704.py.txt::NETWORK_PRESETS.default
   scope: network_structure_only_no_method_reweighting
