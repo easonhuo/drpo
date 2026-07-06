@@ -1,0 +1,85 @@
+schema_version: 1
+policy_id: GOV-CODE-SCOPE-GATE-01
+control_plane_paths:
+  - AGENTS.md
+  - docs/handoff.md
+  - experiments/registry.yaml
+  - docs/handoff_deltas/
+  - docs/governance_stage_authorizations/
+  - docs/governance_pipeline_stage_status.yaml
+  - scripts/handoff_authority.py
+  - scripts/validate_governance_pipeline_stage_status.py
+  - scripts/package_update.py
+  - scripts/verify_update_package.py
+  - scripts/create_update_git_bundle.py
+  - scripts/verify_update_git_bundle.py
+  - scripts/select_update_tests.py
+  - tools/drpo-update/
+required_summary_fields:
+  - task_type
+  - claim_or_experiment_id
+  - user_requested_scope
+  - first_failure_classification
+  - control_plane_touched
+allowed_task_types:
+  - bug_fix
+  - doc_update
+  - experiment_code
+  - experiment_registration
+  - governance_control_plane
+  - governance_tooling
+  - pipeline_tooling
+  - test_update
+  - code_update
+first_failure_classifications:
+  - not_applicable
+  - direct_root_cause
+  - baseline_red_unrelated
+  - scope_expansion_authorized
+  - governance_control_plane_authorized
+  - new_feature_authorized
+task_rules:
+  doc_update:
+    allowed_prefixes:
+      - docs/
+    forbidden_prefixes:
+      - AGENTS.md
+      - tools/drpo-update/
+      - scripts/handoff_authority.py
+      - experiments/registry.yaml
+  bug_fix:
+    forbid_control_plane_without_authorization: true
+    warn_if_crosses_top_level_dirs: true
+    companion_top_level_dirs:
+      - tests
+      - docs
+  experiment_code:
+    require_claim_or_experiment_id: true
+    forbid_control_plane_without_authorization: true
+  experiment_registration:
+    require_claim_or_experiment_id: true
+  governance_control_plane:
+    allow_control_plane: true
+    require_control_plane_touched: true
+  governance_tooling:
+    allowed_prefixes:
+      - scripts/
+      - tests/
+      - docs/
+    forbid_existing_pipeline_core_paths:
+      - scripts/package_update.py
+      - scripts/verify_update_package.py
+      - scripts/create_update_git_bundle.py
+      - scripts/handoff_authority.py
+      - tools/drpo-update/
+  pipeline_tooling:
+    allowed_prefixes:
+      - scripts/
+      - tests/
+      - docs/
+  test_update:
+    allowed_prefixes:
+      - tests/
+      - docs/
+  code_update:
+    forbid_control_plane_without_authorization: true
