@@ -7,7 +7,7 @@
 - Responsibility: Cover token-level near or far mechanism probes and fixed-offline-bank method pilots without replacing D-U1 controlled identification.
 - Content contract topics: none
 - Deduplicated overlapping source chunks: 0
-- Source hash: `be00b19b14e4360c256e801a878617baa188be6f00c239b27c2294ef8301275e`
+- Source hash: `8c75c35a6a8663319c6f22775568899eedaaa071742aea8e1b43bc04ad8acb03`
 
 ## Source 1: docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v52-ext-c-e8-v43-dynamic-control
 
@@ -109,7 +109,19 @@
 > - **解释规则。** 若选择性 taper 超过 Positive-only 且 terminal 不反转、valid/support 不恶化，则支持 0.5B 上的额外负信号价值；若只优于 Uncontrolled/Global 而不超过 Positive-only，则只支持远场伤害控制；若方法接近，则按简单性与理论尾部性质冻结 3B 候选；若全部负梯度方法更差，则关闭 0.5B 方法收益路线，不继续无界 HPO。
 > - **规模路线。** `EXT-C-E8-SCALE-01` 的方法 shortlist 由本实验冻结；3B 主模型与 7B frozen confirmation 仍是独立规模验证，当前不因 0.5B 机制职责关闭而自动解锁。
 
-## Source 7: docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v73-e8-taper-corrected
+## Source 7: docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v79-e8-active-tail-repair
+
+### Delta block `after_heading:v79-e8-active-tail-repair`
+
+> **v79 增量登记：Countdown E8-TAPER active-tail calibration 与诊断显存修复（不删除 v77 及更早内容）**
+>
+> - **旧问题：**0.5B 自然 replay 的独立 calibration split 在旧 `tau=2.0` 下几乎全部 `distance=0`，导致 inherited exponential target 与 uncontrolled negative aggregate L2 相同；`global_matched` 被校准为 1，`reciprocal_linear` 与 `squared_distance_exponential` 被校准为 0，从而与 uncontrolled 逐点重合。
+> - **协议修复：**`EXT-C-E8-TAPER-0.5B-01` 保留同一 experiment ID、方法集合、训练 seeds、900/16 自然 replay、1200 update budget 与 synthetic-negative policy，但 calibration tau 改为由独立 calibration split 的 common-half median surprisal 解析，并登记 active-distance fraction、target/uncontrolled ratio 与 nondegenerate fail-closed guard。该修复不使用 validation/test 或确认 seeds 选参。
+> - **实现修复：**正式收回 `_collate_pairs()` 误传 `batch_size` 的一行 hotfix；`surprisal_bin_diagnostics` 改为按小 batch 串流 full-vocab completion stats 与梯度诊断；诊断 OOM 时保留 metrics、training log 与 checkpoints，并在 manifest/terminal audit 中标记 `incomplete_oom`，不得混同为 NaN/Inf 数值崩溃。
+
+> - **状态边界：**本次是实现与协议修复，不是科学结果；已有 dirty/local sanity 与 failed pilot 只作为 diagnostic evidence，不能入 formal result。修复应用后必须先重新执行短预算 sanity，确认方法不再 byte-identical，再运行登记的 0.5B pilot。
+
+## Source 8: docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v73-e8-taper-corrected
 
 ### Delta block `after_heading:v73-e8-taper-corrected`
 
@@ -122,37 +134,37 @@
 > - **梯度预算口径修复：**共享负尺度的实际定义是 positive aggregate gradient L2 除以 uncontrolled-negative aggregate gradient L2，不再误称 per-sample RMS。Global 与 taper 的 initialization matching 继续比较 aggregate raw negative-gradient L2；Adam update 不宣称匹配。
 > - **状态边界：**本次只完成实现和门禁修复，未运行 Qwen/CUDA pilot，未产生任何方法排名。`EXT-C-E8-TAPER-0.5B-01` 状态为 `not_run + implemented + ready`；任务性能退化、valid/support/entropy boundary 和 NaN/Inf 仍必须分开报告，fixed 1200-update horizon 不自动称为收敛。
 
-## Source 8: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v52-countdown-current-gate-override
+## Source 9: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v52-countdown-current-gate-override
 
 ### Delta block `section_end:v52-countdown-current-gate-override`
 
 - **Countdown v52 覆盖：** `EXT-C-E8-V4.3` 取代 V4.2 成为当前 E8-MECH/focused pilot；V4.2 只保留 matched-pair mechanism provenance。`EXT-C-E8-SCALE-01` 继续等待 V4.3 与 E7-BENCH，不因本次实现自动解锁。
 
-## Source 9: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v57-countdown-offline-bank-current-gate
+## Source 10: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v57-countdown-offline-bank-current-gate
 
 ### Delta block `section_end:v57-countdown-offline-bank-current-gate`
 
 - **Countdown v57 覆盖：** `EXT-C-E8-V4.4-OFFLINE-BANK` 是用户批准的当前离线 focused pilot；V4.3 保留为 fixed-pair predecessor。V4.4 只改变固定负样本覆盖与 current-policy near/far reselection，不引入在线数据刷新。`EXT-H-E7-Q2` 仍是下一正式 route item，`EXT-C-E8-SCALE-01` 继续 blocked。
 
-## Source 10: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v59-countdown-offline-bank-tuning-current-gate
+## Source 11: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v59-countdown-offline-bank-tuning-current-gate
 
 ### Delta block `section_end:v59-countdown-offline-bank-tuning-current-gate`
 
 - **Countdown v59 覆盖：** `EXT-C-E8-V4.5-OFFLINE-BANK-TUNING` 是当前用户批准的离线 focused successor；V4.4 作为 frozen-bank predecessor 保留。V4.5 只调 calibrated global negative multiplier 与 exponential taper lambda，禁止在线刷新、方向筛选或模型规模同时变化。`EXT-H-E7-Q2` 仍是下一 formal route item，`EXT-C-E8-SCALE-01` 继续 blocked。
 
-## Source 11: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v62-countdown-online-offpolicy-current-gate
+## Source 12: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v62-countdown-online-offpolicy-current-gate
 
 ### Delta block `section_end:v62-countdown-online-offpolicy-current-gate`
 
 - **Countdown v62 覆盖：** `EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY` 是当前用户批准并已实现的 Countdown focused successor，状态为 **implemented + not_run**。执行前必须提供完整 V4.5 `RUN_COMPLETE.json`/`terminal_audit.json` 及其指向的 V4.4 frozen inputs；runner fail-closed 校验输入与 reference adapter。它可作为独立 pilot 启动，但不改变 `EXT-H-E7-Q2` 的 formal 优先级，也不自动解锁 `EXT-C-E8-SCALE-01`。
 
-## Source 12: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v73-e8-taper-current-gate
+## Source 13: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v73-e8-taper-current-gate
 
 ### Delta block `section_end:v73-e8-taper-current-gate`
 
 - **Countdown E8-TAPER v73 覆盖：**`EXT-C-E8-TAPER-0.5B-01` 已实现 corrected `S -> d=sqrt(S)` 坐标、独立冻结尺度、deterministic detached weighting、paired sampler 身份校验和终态审计，当前为 **implemented + ready + not_run**。只允许先运行登记的 0.5B pilot；不得将 smoke/static test 写成科学结果，也不得预设 Exp、Global 或任何 taper 获胜。
 
-## Source 13: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v75-e8-taper-diagnostic-bugfix
+## Source 14: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v75-e8-taper-diagnostic-bugfix
 
 ### Delta block `section_end:v75-e8-taper-diagnostic-bugfix`
 
@@ -164,31 +176,37 @@
   diagnostics retain the graph only inside the diagnostic audit. This update is an implementation/config
   repair, not a scientific result; real Qwen/CUDA pilot remains not run.
 
-## Source 14: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v52-e8-route-override
+## Source 15: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v79-e8-active-tail-current-gate
+
+### Delta block `section_end:v79-e8-active-tail-current-gate`
+
+- **Countdown E8-TAPER v79 覆盖：**`EXT-C-E8-TAPER-0.5B-01` 仍为 implemented + ready + not_run pilot，但当前有效协议使用 independent-calibration common-half median tau、nondegenerate calibration fail-closed guard 与 streamed surprisal-bin diagnostics。应用后必须先跑短预算 sanity 验证各方法未退化为 uncontrolled clone；smoke/sanity/pilot 不得写成正式结果或方法排名。
+
+## Source 16: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v52-e8-route-override
 
 ### Delta block `section_end:v52-e8-route-override`
 
 7. **v52 路线覆盖：** 上述第 5 项的当前 E8-MECH owner 更新为 `EXT-C-E8-V4.3`。V4.3 只修复长期训练中的动态 remoteness 控制并保留 V4.2 静态方法作消融；E8-SCALE 的 3B/7B 规模结论仍需后续独立执行。
 
-## Source 15: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v57-e8-offline-online-route
+## Source 17: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v57-e8-offline-online-route
 
 ### Delta block `section_end:v57-e8-offline-online-route`
 
 8. **v57 E8 内部路线覆盖：** 在进入 E8 外部诊断时，先执行 `EXT-C-E8-V4.4-OFFLINE-BANK`，只改变 fixed-bank 密度与每步动态选择；online off-policy 必须作为独立 successor 重新冻结 rollout actor、同步滞后、replay age、seeds 与预算匹配，不能与 V4.4 共用结论。
 
-## Source 16: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v75-countdown-status-note
+## Source 18: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v75-countdown-status-note
 
 ### Delta block `section_end:v75-countdown-status-note`
 
 - **v75 Countdown 逐样本机制诊断补记：**`EXT-C` 已完成一个 single-seed full-bank `arithmetic_wrong` response diagnostic：`6000` puzzles × near/far = `12000` rows，固定 `negative_coefficient_abs=1.0`，观察到 surprisal 与 trainable-parameter gradient norm 的正相关、near/far 配对增益和 decile 平台化趋势。该补记只把 Countdown 机制观察从 10-puzzle smoke 升级为 full-bank pilot；不升级 `EXT-C-E8-TAPER-0.5B-01` 或 `EXT-C-E8-SCALE-01` 的 formal 状态，也不改变 Countdown 不能替代 D-U1/C-U1 因果识别的边界。
 
-## Source 17: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v52-execution-order-override
+## Source 19: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v52-execution-order-override
 
 ### Delta block `section_end:v52-execution-order-override`
 
 11. **v52 执行覆盖：** 当锁定路线进入 E8-MECH 时，执行 `EXT-C-E8-V4.3` 而不是 V4.2；当前只完成注册和代码实现，真实 Qwen/CUDA pilot 仍为 not_run。
 
-## Source 18: experiments/registry.yaml: experiments[EXT-C-E8-V4, EXT-C-E8-V4.1, EXT-C-E8-V4.2, EXT-C-E8-V4.3, EXT-C-E8-V4.4-OFFLINE-BANK, EXT-C-E8-V4.5-OFFLINE-BANK-TUNING, EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY, EXT-C-E8-TAPER-0.5B-01, EXT-C-E8-SCALE-01]
+## Source 20: experiments/registry.yaml: experiments[EXT-C-E8-V4, EXT-C-E8-V4.1, EXT-C-E8-V4.2, EXT-C-E8-V4.3, EXT-C-E8-V4.4-OFFLINE-BANK, EXT-C-E8-V4.5-OFFLINE-BANK-TUNING, EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY, EXT-C-E8-TAPER-0.5B-01, EXT-C-E8-SCALE-01]
 
 collection: experiments
 entries:
@@ -1449,9 +1467,9 @@ entries:
     state: ready
     blocked_by: []
     blocking_reason: null
-    readiness_basis: Corrected normalized-distance implementation, deterministic detached remoteness, common replay, independent
-      calibration, paired sampler, fixed-budget training, current-surprisal diagnostics, hardened artifact identity checks,
-      one-click launch, and terminal audit are implemented and tested.
+    readiness_basis: Corrected normalized-distance implementation, active-tail nondegenerate calibration guard, deterministic
+      detached remoteness, common replay, independent calibration, paired sampler, fixed-budget training, streamed current-surprisal
+      diagnostics, hardened artifact identity checks, one-click launch, and terminal audit are implemented and tested.
   code_entrypoint: src/drpo/countdown_e8_taper.py
   operator_entrypoint: scripts/run_countdown_e8_taper.py
   primary_model: Qwen2.5-0.5B-Instruct
@@ -1489,7 +1507,8 @@ entries:
     definition: normalized_excess_surprisal_then_square_root_distance
     normalized_excess_formula: S_theta=max(0,(-log_pi_theta(x_given_s)-tau)/c_cal)
     distance_formula: d_theta=sqrt(S_theta)
-    surprisal_threshold_tau: 2.0
+    surprisal_threshold_tau_rule: calibration_common_half_median_surprisal
+    surprisal_threshold_tau: resolved_from_independent_calibration_common_half_median
     surprisal_scale_rule: calibration_upper_half_median_minus_lower_half_median
     surprisal_scale_frozen_before_confirmation: true
     recomputed_by_current_learner_each_update: true
@@ -1524,7 +1543,7 @@ entries:
     split: independent_calibration_split
     development_seed: 9134
     target: initialization_raw_negative_gradient_l2
-    common_target_budget: corrected_exponential_linear_distance_lambda_0.7_initialization_gradient_l2
+    common_target_budget: corrected_exponential_linear_distance_lambda_0.7_initialization_gradient_l2_under_active_tail_tau
     parameters_calibrated:
     - global_gamma
     - taper_lambda
@@ -1533,10 +1552,15 @@ entries:
     confirmation_or_test_retuning: forbidden
     inherited_reference_method: exponential
     inherited_reference_lambda: 0.7
-    surprisal_threshold_tau: 2.0
+    surprisal_threshold_tau_rule: calibration_common_half_median_surprisal
+    surprisal_threshold_tau: resolved_from_independent_calibration_common_half_median
     surprisal_scale_rule: calibration_upper_half_median_minus_lower_half_median
+    active_distance_minimum_fraction: 0.25
+    nondegenerate_target_max_ratio: 0.995
+    minimum_taper_lambda: 1.0e-06
     shared_negative_scale: positive_aggregate_gradient_l2_over_uncontrolled_negative_aggregate_gradient_l2
     dropout_mode: disabled_during_calibration_gradient_measurement
+    degenerate_calibration_policy: fail_closed_before_method_training
   confirmation_protocol:
     paired_training_seeds:
     - 9234
@@ -1578,6 +1602,8 @@ entries:
     - fraction_of_total_negative_gradient_budget
     deterministic_teacher_forced_audit: true
     teacher_forced_batch_size: 1
+    gradient_batch_size: 1
+    diagnostic_oom_policy: preserve_metrics_and_mark_incomplete_oom
   terminal_audit:
     required: true
     full_training_curves: required
@@ -1637,11 +1663,13 @@ entries:
     implementation_tests_passed: true
     real_qwen_cuda_run_completed: false
   config_entrypoint: configs/countdown_e8_taper_0p5b.yaml
-  implementation_version: 1.1.0-normalized-distance-deterministic-audit
+  implementation_version: 1.2.1-minimal-active-tail-streamed-diagnostics
   artifact_identity_guards:
     config_hash_match_calibration: required
     reference_adapter_hash_match_calibration: required
     sampler_experiment_id_seed_replay_and_plan_hash_match: required
+    nondegenerate_calibration_guard: required
+    method_byte_identity_sanity_gate: required_for_operator_sanity_before_rerun
 - id: EXT-C-E8-SCALE-01
   execution_gate:
     state: blocked

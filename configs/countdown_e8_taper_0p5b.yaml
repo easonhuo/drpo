@@ -51,9 +51,14 @@ replay:
 calibration:
   development_seed: 9134
   batches: 16
-  surprisal_threshold_tau: 2.0
+  # v79 active-tail repair: resolve tau from the independent calibration split
+  # so initialization calibration cannot collapse to all-zero distance.
+  surprisal_threshold_tau: calibration_common_half_median_surprisal
   surprisal_scale_rule: calibration_upper_half_median_minus_lower_half_median
   minimum_surprisal_scale: 1.0e-6
+  minimum_active_distance_fraction: 0.25
+  nondegenerate_target_max_ratio: 0.995
+  minimum_taper_lambda: 1.0e-6
   inherited_reference_method: exponential
   inherited_reference_lambda: 0.7
   relative_l2_tolerance: 0.01
@@ -97,8 +102,9 @@ diagnostics:
   checkpoints: [initial, best, terminal]
   full_parameter_gradient: true
   final_window_evaluations: 3
-  # Keep teacher-forced diagnostics memory bounded on one-GPU LoRA training.
+  # Keep teacher-forced and gradient diagnostics memory bounded on one-GPU LoRA training.
   teacher_forced_batch_size: 1
+  gradient_batch_size: 1
 artifact:
   checkpoint_binaries: persistent_local_index_only
   retain_per_method: [best, terminal_or_last_finite]

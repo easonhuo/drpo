@@ -48,7 +48,10 @@ def test_frozen_config_matches_registered_protocol() -> None:
     assert tuple(config["methods"]) == module.METHODS
     assert config["confirmation"]["paired_training_seeds"] == [9234, 10234, 11234]
     assert config["calibration"]["development_seed"] == 9134
-    assert config["calibration"]["surprisal_threshold_tau"] == 2.0
+    assert config["calibration"]["surprisal_threshold_tau"] == "calibration_common_half_median_surprisal"
+    assert config["calibration"]["minimum_active_distance_fraction"] == pytest.approx(0.25)
+    assert config["calibration"]["nondegenerate_target_max_ratio"] == pytest.approx(0.995)
+    assert config["calibration"]["minimum_taper_lambda"] == pytest.approx(1.0e-6)
     assert config["calibration"]["surprisal_scale_rule"] == (
         "calibration_upper_half_median_minus_lower_half_median"
     )
@@ -66,6 +69,7 @@ def test_frozen_config_matches_registered_protocol() -> None:
     assert config["reference"]["pilot_greedy_success_gate"] == pytest.approx(0.08)
     assert config["reference"]["formal_greedy_success_gate"] == pytest.approx(0.15)
     assert config["diagnostics"]["teacher_forced_batch_size"] == 1
+    assert config["diagnostics"]["gradient_batch_size"] == 1
 
 
 def test_reference_gate_status_separates_pilot_from_formal_ranking() -> None:
@@ -148,6 +152,45 @@ def test_calibration_surprisal_scale_uses_frozen_half_median_gap() -> None:
     assert diagnostics["rare_half_median_surprisal"] == pytest.approx(11.5)
     with pytest.raises(RuntimeError):
         module.calibration_surprisal_scale([1.0, 1.0, 1.0, 1.0], minimum=1e-6)
+
+
+def test_active_tail_tau_and_degeneracy_guard_fail_closed() -> None:
+    scale_diagnostics = {"common_half_median_surprisal": 0.25}
+    tau, rule = module.resolve_surprisal_threshold_tau(
+        {"surprisal_threshold_tau": "calibration_common_half_median_surprisal"},
+        scale_diagnostics,
+    )
+    assert tau == pytest.approx(0.25)
+    assert rule == "calibration_common_half_median_surprisal"
+    tau_diag = module.active_distance_diagnostics(
+        [0.1, 0.2, 0.4, 0.8], tau=tau, surprisal_scale=0.2
+    )
+    assert tau_diag["active_distance_fraction"] == pytest.approx(0.5)
+    config = module.load_config(ROOT / "configs" / "countdown_e8_taper_0p5b.yaml")
+    ok = module.validate_calibration_non_degenerate(
+        calibration_cfg=config["calibration"],
+        tau_diagnostics=tau_diag,
+        uncontrolled_norm=10.0,
+        target_unscaled=7.0,
+        coefficients={
+            "global_matched": 0.7,
+            "reciprocal_linear": 0.3,
+            "squared_distance_exponential": 0.4,
+        },
+    )
+    assert ok["status"] == "pass"
+    with pytest.raises(RuntimeError, match="degenerated"):
+        module.validate_calibration_non_degenerate(
+            calibration_cfg=config["calibration"],
+            tau_diagnostics={"active_distance_fraction": 0.0},
+            uncontrolled_norm=10.0,
+            target_unscaled=9.999,
+            coefficients={
+                "global_matched": 0.9999,
+                "reciprocal_linear": 0.0,
+                "squared_distance_exponential": 0.0,
+            },
+        )
 
 
 def test_deterministic_weight_pass_disables_dropout_and_restores_mode(monkeypatch) -> None:
@@ -325,6 +368,9 @@ def test_one_click_launcher_and_registry_are_ready_but_not_run() -> None:
     assert entry["operator_entrypoint"] == "scripts/run_countdown_e8_taper.py"
     assert entry["common_replay_protocol"]["final_train_prompt_rows"] == 900
     assert entry["continuous_diagnostics"]["teacher_forced_batch_size"] == 1
+    assert entry["continuous_diagnostics"]["gradient_batch_size"] == 1
+    assert entry["calibration_protocol"]["surprisal_threshold_tau_rule"] == "calibration_common_half_median_surprisal"
+    assert entry["artifact_identity_guards"]["nondegenerate_calibration_guard"] == "required"
 
 
 def test_teacher_forced_summary_streams_in_configured_batches(monkeypatch) -> None:
@@ -406,6 +452,7 @@ def test_surprisal_bin_diagnostics_keeps_shared_graph_for_raw_and_weighted(monke
         checkpoint_kind="unit",
         seed=9234,
         teacher_forced_batch_size=2,
+        diagnostic_batch_size=2,
     )
     assert len(rows) == 2
     assert summary["checkpoint_kind"] == "unit"

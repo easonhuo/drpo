@@ -7,7 +7,7 @@
 - Responsibility: Preserve the unique-master rule, terminology, scientific scope, and non-destructive governance constraints.
 - Content contract topics: `unique_master_document`, `document_before_experiment`, `non_destructive_history`, `terminal_audit_governance`, `controlled_external_validity_boundary`
 - Deduplicated overlapping source chunks: 0
-- Source hash: `77ae9674fc2e5ef75d5d3b2827ba990988ea59afa8976ceff1fc8e9289fd2359`
+- Source hash: `3071e2900aeccf70a955bf4d729b0bf9b5e7eecd01b51c410cb164b16f959c5d`
 
 ## Content contract evidence
 
@@ -199,6 +199,9 @@
 <!-- HANDOFF-DELTA-BLOCK:section_end:v77-current-gate-minimal-diff:START -->
 > **v77 最小改动治理门禁：**bug、失败包、窄修复和小型代码更新默认进入 Minimal Sufficient Diff mode。执行前必须锁定用户授权的开发对象，执行 Green/Yellow/Red/Split 分类，并在首次失败后先做 first-failure classification；不得把最近失败症状、工具体验优化或自造 workflow 替代用户要求的开发目标。该规则引用 `docs/code_minimality_governance.md`，不改变科研实验状态、seeds、thresholds、registry 或结果。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v77-current-gate-minimal-diff:END -->
+<!-- HANDOFF-DELTA-BLOCK:section_end:v79-e8-active-tail-current-gate:START -->
+- **Countdown E8-TAPER v79 覆盖：**`EXT-C-E8-TAPER-0.5B-01` 仍为 implemented + ready + not_run pilot，但当前有效协议使用 independent-calibration common-half median tau、nondegenerate calibration fail-closed guard 与 streamed surprisal-bin diagnostics。应用后必须先跑短预算 sanity 验证各方法未退化为 uncontrolled clone；smoke/sanity/pilot 不得写成正式结果或方法排名。
+<!-- HANDOFF-DELTA-BLOCK:section_end:v79-e8-active-tail-current-gate:END -->
 
 ## 0.2 C-U1 泛化术语覆盖规则（v15 锁定）
 

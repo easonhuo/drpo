@@ -1,4 +1,4 @@
-# DRPO / SNA2C 远场负梯度动力学研究主文档 v77（最小改动治理执行规则落地版）
+# DRPO / SNA2C 远场负梯度动力学研究主文档 v79（E8-TAPER active-tail calibration 与诊断显存修复版）
 <!-- HANDOFF-DELTA-BLOCK:after_heading:v50-stage3-shadow-bootstrap:START -->
 > **v50 增量登记：治理 Pipeline Stage 3 `HANDOFF_DELTA.yaml` shadow mode 启动（不删除 v49 及更早内容）**
 >
@@ -236,6 +236,15 @@
 > - 首次 package、CI 或 `drpo-update` 失败后必须先分类首个失败，不得把无关修复堆进下一版包；若闭环范围超过原窄修复，必须暂停并重新分类。
 > - 由于普通 `drpo-update` content package 会拒绝直接修改 `AGENTS.md` 等 control-plane 文件，本次通过 Stage 5 schema-v3 handoff delta 的合法内容路径把规则写入每次新会话必须读取的 Section 0；不修改 `AGENTS.md`、`tools/drpo-update/`、handoff authority 或 governance ledger。
 <!-- HANDOFF-DELTA-BLOCK:after_heading:v77-minimal-diff-governance:END -->
+<!-- HANDOFF-DELTA-BLOCK:after_heading:v79-e8-active-tail-repair:START -->
+> **v79 增量登记：Countdown E8-TAPER active-tail calibration 与诊断显存修复（不删除 v77 及更早内容）**
+>
+> - **旧问题：**0.5B 自然 replay 的独立 calibration split 在旧 `tau=2.0` 下几乎全部 `distance=0`，导致 inherited exponential target 与 uncontrolled negative aggregate L2 相同；`global_matched` 被校准为 1，`reciprocal_linear` 与 `squared_distance_exponential` 被校准为 0，从而与 uncontrolled 逐点重合。
+> - **协议修复：**`EXT-C-E8-TAPER-0.5B-01` 保留同一 experiment ID、方法集合、训练 seeds、900/16 自然 replay、1200 update budget 与 synthetic-negative policy，但 calibration tau 改为由独立 calibration split 的 common-half median surprisal 解析，并登记 active-distance fraction、target/uncontrolled ratio 与 nondegenerate fail-closed guard。该修复不使用 validation/test 或确认 seeds 选参。
+> - **实现修复：**正式收回 `_collate_pairs()` 误传 `batch_size` 的一行 hotfix；`surprisal_bin_diagnostics` 改为按小 batch 串流 full-vocab completion stats 与梯度诊断；诊断 OOM 时保留 metrics、training log 与 checkpoints，并在 manifest/terminal audit 中标记 `incomplete_oom`，不得混同为 NaN/Inf 数值崩溃。
+
+> - **状态边界：**本次是实现与协议修复，不是科学结果；已有 dirty/local sanity 与 failed pilot 只作为 diagnostic evidence，不能入 formal result。修复应用后必须先重新执行短预算 sanity，确认方法不再 byte-identical，再运行登记的 0.5B pilot。
+<!-- HANDOFF-DELTA-BLOCK:after_heading:v79-e8-active-tail-repair:END -->
 
 > **v49 增量登记：治理 Pipeline Stage 1/2 冻结式关闭（不删除 v48 及更早内容）**
 >
@@ -921,6 +930,9 @@
 <!-- HANDOFF-DELTA-BLOCK:section_end:v77-current-gate-minimal-diff:START -->
 > **v77 最小改动治理门禁：**bug、失败包、窄修复和小型代码更新默认进入 Minimal Sufficient Diff mode。执行前必须锁定用户授权的开发对象，执行 Green/Yellow/Red/Split 分类，并在首次失败后先做 first-failure classification；不得把最近失败症状、工具体验优化或自造 workflow 替代用户要求的开发目标。该规则引用 `docs/code_minimality_governance.md`，不改变科研实验状态、seeds、thresholds、registry 或结果。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v77-current-gate-minimal-diff:END -->
+<!-- HANDOFF-DELTA-BLOCK:section_end:v79-e8-active-tail-current-gate:START -->
+- **Countdown E8-TAPER v79 覆盖：**`EXT-C-E8-TAPER-0.5B-01` 仍为 implemented + ready + not_run pilot，但当前有效协议使用 independent-calibration common-half median tau、nondegenerate calibration fail-closed guard 与 streamed surprisal-bin diagnostics。应用后必须先跑短预算 sanity 验证各方法未退化为 uncontrolled clone；smoke/sanity/pilot 不得写成正式结果或方法排名。
+<!-- HANDOFF-DELTA-BLOCK:section_end:v79-e8-active-tail-current-gate:END -->
 
 ## 0.2 C-U1 泛化术语覆盖规则（v15 锁定）
 

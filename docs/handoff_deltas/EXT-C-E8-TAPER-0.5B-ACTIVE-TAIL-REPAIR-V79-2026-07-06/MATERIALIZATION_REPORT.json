@@ -1,0 +1,970 @@
+{
+  "current_before_commit": "8a2aa6ff5d540e22b9da983e0708920b279c91e1",
+  "current_handoff_before_sha256": "cc12240aa7c1497661697dc89628ee105f52e529d721b02bff65015494703042",
+  "current_registry_validation": {
+    "assertions": [
+      {
+        "change_id": "e8-taper-v79-001-readiness-basis",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "45959e3cb989b2aa7c6b960c332b824cb9a037b30ef061bbc92e013396d53df5"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "351088c43639bd6fd7983417677dc77b31e972f5ba3fb012b52d250f22a8cd85"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "720e304aba9b24ba5c909801e64529e8147bed168bb3ac8658ec3f34cb667b2c"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "c2bfde3b789d2c0c2cbe58f48175b4e8cc1d0724a80a5b6f4c21be1ced8b9f18"
+          }
+        ],
+        "field_path": [
+          "execution_gate",
+          "readiness_basis"
+        ],
+        "from": "Corrected normalized-distance implementation, deterministic detached remoteness, common replay, independent calibration, paired sampler, fixed-budget training, current-surprisal diagnostics, hardened artifact identity checks, one-click launch, and terminal audit are implemented and tested.",
+        "kind": "update_field",
+        "reason": "Synchronize readiness text with the v79 calibration, diagnostics and runtime guards.",
+        "to": "Corrected normalized-distance implementation, active-tail nondegenerate calibration guard, deterministic detached remoteness, common replay, independent calibration, paired sampler, fixed-budget training, streamed current-surprisal diagnostics, hardened artifact identity checks, one-click launch, and terminal audit are implemented and tested."
+      },
+      {
+        "change_id": "e8-taper-v79-002-learner-tau",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "45959e3cb989b2aa7c6b960c332b824cb9a037b30ef061bbc92e013396d53df5"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "351088c43639bd6fd7983417677dc77b31e972f5ba3fb012b52d250f22a8cd85"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "720e304aba9b24ba5c909801e64529e8147bed168bb3ac8658ec3f34cb667b2c"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "c2bfde3b789d2c0c2cbe58f48175b4e8cc1d0724a80a5b6f4c21be1ced8b9f18"
+          }
+        ],
+        "field_path": [
+          "learner_relative_remoteness",
+          "surprisal_threshold_tau"
+        ],
+        "from": 2.0,
+        "kind": "update_field",
+        "reason": "Prevent all-zero initialization distance under the 0.5B natural replay calibration split.",
+        "to": "resolved_from_independent_calibration_common_half_median"
+      },
+      {
+        "change_id": "e8-taper-v79-003-learner-tau-rule",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "45959e3cb989b2aa7c6b960c332b824cb9a037b30ef061bbc92e013396d53df5"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "351088c43639bd6fd7983417677dc77b31e972f5ba3fb012b52d250f22a8cd85"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "720e304aba9b24ba5c909801e64529e8147bed168bb3ac8658ec3f34cb667b2c"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "c2bfde3b789d2c0c2cbe58f48175b4e8cc1d0724a80a5b6f4c21be1ced8b9f18"
+          }
+        ],
+        "field_path": [
+          "learner_relative_remoteness",
+          "surprisal_threshold_tau_rule"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Record the active-tail tau resolver.",
+        "to": "calibration_common_half_median_surprisal"
+      },
+      {
+        "change_id": "e8-taper-v79-004-target-budget",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "45959e3cb989b2aa7c6b960c332b824cb9a037b30ef061bbc92e013396d53df5"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "351088c43639bd6fd7983417677dc77b31e972f5ba3fb012b52d250f22a8cd85"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "720e304aba9b24ba5c909801e64529e8147bed168bb3ac8658ec3f34cb667b2c"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "c2bfde3b789d2c0c2cbe58f48175b4e8cc1d0724a80a5b6f4c21be1ced8b9f18"
+          }
+        ],
+        "field_path": [
+          "calibration_protocol",
+          "common_target_budget"
+        ],
+        "from": "corrected_exponential_linear_distance_lambda_0.7_initialization_gradient_l2",
+        "kind": "update_field",
+        "reason": "Target budget now uses the nondegenerate active-tail tau.",
+        "to": "corrected_exponential_linear_distance_lambda_0.7_initialization_gradient_l2_under_active_tail_tau"
+      },
+      {
+        "change_id": "e8-taper-v79-005-calibration-tau",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "45959e3cb989b2aa7c6b960c332b824cb9a037b30ef061bbc92e013396d53df5"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "351088c43639bd6fd7983417677dc77b31e972f5ba3fb012b52d250f22a8cd85"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "720e304aba9b24ba5c909801e64529e8147bed168bb3ac8658ec3f34cb667b2c"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "c2bfde3b789d2c0c2cbe58f48175b4e8cc1d0724a80a5b6f4c21be1ced8b9f18"
+          }
+        ],
+        "field_path": [
+          "calibration_protocol",
+          "surprisal_threshold_tau"
+        ],
+        "from": 2.0,
+        "kind": "update_field",
+        "reason": "Match the config-level active-tail repair.",
+        "to": "resolved_from_independent_calibration_common_half_median"
+      },
+      {
+        "change_id": "e8-taper-v79-006-calibration-tau-rule",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "45959e3cb989b2aa7c6b960c332b824cb9a037b30ef061bbc92e013396d53df5"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "351088c43639bd6fd7983417677dc77b31e972f5ba3fb012b52d250f22a8cd85"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "720e304aba9b24ba5c909801e64529e8147bed168bb3ac8658ec3f34cb667b2c"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "c2bfde3b789d2c0c2cbe58f48175b4e8cc1d0724a80a5b6f4c21be1ced8b9f18"
+          }
+        ],
+        "field_path": [
+          "calibration_protocol",
+          "surprisal_threshold_tau_rule"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Record the independent calibration tau rule.",
+        "to": "calibration_common_half_median_surprisal"
+      },
+      {
+        "change_id": "e8-taper-v79-007-active-fraction",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "45959e3cb989b2aa7c6b960c332b824cb9a037b30ef061bbc92e013396d53df5"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "351088c43639bd6fd7983417677dc77b31e972f5ba3fb012b52d250f22a8cd85"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "720e304aba9b24ba5c909801e64529e8147bed168bb3ac8658ec3f34cb667b2c"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "c2bfde3b789d2c0c2cbe58f48175b4e8cc1d0724a80a5b6f4c21be1ced8b9f18"
+          }
+        ],
+        "field_path": [
+          "calibration_protocol",
+          "active_distance_minimum_fraction"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Fail closed when active-tail calibration has too few nonzero-distance samples.",
+        "to": 0.25
+      },
+      {
+        "change_id": "e8-taper-v79-008-target-ratio",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "45959e3cb989b2aa7c6b960c332b824cb9a037b30ef061bbc92e013396d53df5"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "351088c43639bd6fd7983417677dc77b31e972f5ba3fb012b52d250f22a8cd85"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "720e304aba9b24ba5c909801e64529e8147bed168bb3ac8658ec3f34cb667b2c"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "c2bfde3b789d2c0c2cbe58f48175b4e8cc1d0724a80a5b6f4c21be1ced8b9f18"
+          }
+        ],
+        "field_path": [
+          "calibration_protocol",
+          "nondegenerate_target_max_ratio"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Fail closed when the inherited exponential target is indistinguishable from uncontrolled.",
+        "to": 0.995
+      },
+      {
+        "change_id": "e8-taper-v79-009-min-lambda",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "45959e3cb989b2aa7c6b960c332b824cb9a037b30ef061bbc92e013396d53df5"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "351088c43639bd6fd7983417677dc77b31e972f5ba3fb012b52d250f22a8cd85"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "720e304aba9b24ba5c909801e64529e8147bed168bb3ac8658ec3f34cb667b2c"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "c2bfde3b789d2c0c2cbe58f48175b4e8cc1d0724a80a5b6f4c21be1ced8b9f18"
+          }
+        ],
+        "field_path": [
+          "calibration_protocol",
+          "minimum_taper_lambda"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Prevent reciprocal and squared-distance exponential from being registered as effective when lambda is zero.",
+        "to": 1e-06
+      },
+      {
+        "change_id": "e8-taper-v79-010-degenerate-policy",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "45959e3cb989b2aa7c6b960c332b824cb9a037b30ef061bbc92e013396d53df5"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "351088c43639bd6fd7983417677dc77b31e972f5ba3fb012b52d250f22a8cd85"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "720e304aba9b24ba5c909801e64529e8147bed168bb3ac8658ec3f34cb667b2c"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "c2bfde3b789d2c0c2cbe58f48175b4e8cc1d0724a80a5b6f4c21be1ced8b9f18"
+          }
+        ],
+        "field_path": [
+          "calibration_protocol",
+          "degenerate_calibration_policy"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Prevent silent uncontrolled clones in long pilot runs.",
+        "to": "fail_closed_before_method_training"
+      },
+      {
+        "change_id": "e8-taper-v79-011-gradient-batch-size",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "45959e3cb989b2aa7c6b960c332b824cb9a037b30ef061bbc92e013396d53df5"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "351088c43639bd6fd7983417677dc77b31e972f5ba3fb012b52d250f22a8cd85"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "720e304aba9b24ba5c909801e64529e8147bed168bb3ac8658ec3f34cb667b2c"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "c2bfde3b789d2c0c2cbe58f48175b4e8cc1d0724a80a5b6f4c21be1ced8b9f18"
+          }
+        ],
+        "field_path": [
+          "continuous_diagnostics",
+          "gradient_batch_size"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Stream full-vocabulary gradient diagnostics to avoid diagnostic-only OOM.",
+        "to": 1
+      },
+      {
+        "change_id": "e8-taper-v79-012-diagnostic-oom-policy",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "45959e3cb989b2aa7c6b960c332b824cb9a037b30ef061bbc92e013396d53df5"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "351088c43639bd6fd7983417677dc77b31e972f5ba3fb012b52d250f22a8cd85"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "720e304aba9b24ba5c909801e64529e8147bed168bb3ac8658ec3f34cb667b2c"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "c2bfde3b789d2c0c2cbe58f48175b4e8cc1d0724a80a5b6f4c21be1ced8b9f18"
+          }
+        ],
+        "field_path": [
+          "continuous_diagnostics",
+          "diagnostic_oom_policy"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Separate diagnostic OOM from NaN/Inf numerical failure while preserving completed training artifacts.",
+        "to": "preserve_metrics_and_mark_incomplete_oom"
+      },
+      {
+        "change_id": "e8-taper-v79-013-identity-nondegenerate",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "45959e3cb989b2aa7c6b960c332b824cb9a037b30ef061bbc92e013396d53df5"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "351088c43639bd6fd7983417677dc77b31e972f5ba3fb012b52d250f22a8cd85"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "720e304aba9b24ba5c909801e64529e8147bed168bb3ac8658ec3f34cb667b2c"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "c2bfde3b789d2c0c2cbe58f48175b4e8cc1d0724a80a5b6f4c21be1ced8b9f18"
+          }
+        ],
+        "field_path": [
+          "artifact_identity_guards",
+          "nondegenerate_calibration_guard"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Make calibration nondegeneracy part of the run identity gate.",
+        "to": "required"
+      },
+      {
+        "change_id": "e8-taper-v79-014-identity-byte-sanity",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "45959e3cb989b2aa7c6b960c332b824cb9a037b30ef061bbc92e013396d53df5"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "351088c43639bd6fd7983417677dc77b31e972f5ba3fb012b52d250f22a8cd85"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "720e304aba9b24ba5c909801e64529e8147bed168bb3ac8658ec3f34cb667b2c"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "c2bfde3b789d2c0c2cbe58f48175b4e8cc1d0724a80a5b6f4c21be1ced8b9f18"
+          }
+        ],
+        "field_path": [
+          "artifact_identity_guards",
+          "method_byte_identity_sanity_gate"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Require short-budget sanity after this repair before re-running the full pilot.",
+        "to": "required_for_operator_sanity_before_rerun"
+      },
+      {
+        "change_id": "e8-taper-v79-015-implementation-version",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "45959e3cb989b2aa7c6b960c332b824cb9a037b30ef061bbc92e013396d53df5"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "351088c43639bd6fd7983417677dc77b31e972f5ba3fb012b52d250f22a8cd85"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "720e304aba9b24ba5c909801e64529e8147bed168bb3ac8658ec3f34cb667b2c"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "c2bfde3b789d2c0c2cbe58f48175b4e8cc1d0724a80a5b6f4c21be1ced8b9f18"
+          }
+        ],
+        "field_path": [
+          "implementation_version"
+        ],
+        "from": "1.1.0-normalized-distance-deterministic-audit",
+        "kind": "update_field",
+        "reason": "Record the v79 E8-TAPER implementation repair.",
+        "to": "1.2.1-minimal-active-tail-streamed-diagnostics"
+      }
+    ],
+    "coverage": {
+      "added_entities": [],
+      "changed_field_count": 15,
+      "declared_assertion_count": 15,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "delta_sha256": "736f81cd9507e350b033f57cbc22a07b7ff0e290c3787e5a35fd41e6b235f368",
+  "exact_base_candidate_sha256": "df06219d3fbe0cae28b88041534c4e041604a5dc25ccea698bc06567e60c6bcd",
+  "exact_base_registry_validation": {
+    "assertions": [
+      {
+        "change_id": "e8-taper-v79-001-readiness-basis",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "45959e3cb989b2aa7c6b960c332b824cb9a037b30ef061bbc92e013396d53df5"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "351088c43639bd6fd7983417677dc77b31e972f5ba3fb012b52d250f22a8cd85"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "720e304aba9b24ba5c909801e64529e8147bed168bb3ac8658ec3f34cb667b2c"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "c2bfde3b789d2c0c2cbe58f48175b4e8cc1d0724a80a5b6f4c21be1ced8b9f18"
+          }
+        ],
+        "field_path": [
+          "execution_gate",
+          "readiness_basis"
+        ],
+        "from": "Corrected normalized-distance implementation, deterministic detached remoteness, common replay, independent calibration, paired sampler, fixed-budget training, current-surprisal diagnostics, hardened artifact identity checks, one-click launch, and terminal audit are implemented and tested.",
+        "kind": "update_field",
+        "reason": "Synchronize readiness text with the v79 calibration, diagnostics and runtime guards.",
+        "to": "Corrected normalized-distance implementation, active-tail nondegenerate calibration guard, deterministic detached remoteness, common replay, independent calibration, paired sampler, fixed-budget training, streamed current-surprisal diagnostics, hardened artifact identity checks, one-click launch, and terminal audit are implemented and tested."
+      },
+      {
+        "change_id": "e8-taper-v79-002-learner-tau",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "45959e3cb989b2aa7c6b960c332b824cb9a037b30ef061bbc92e013396d53df5"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "351088c43639bd6fd7983417677dc77b31e972f5ba3fb012b52d250f22a8cd85"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "720e304aba9b24ba5c909801e64529e8147bed168bb3ac8658ec3f34cb667b2c"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "c2bfde3b789d2c0c2cbe58f48175b4e8cc1d0724a80a5b6f4c21be1ced8b9f18"
+          }
+        ],
+        "field_path": [
+          "learner_relative_remoteness",
+          "surprisal_threshold_tau"
+        ],
+        "from": 2.0,
+        "kind": "update_field",
+        "reason": "Prevent all-zero initialization distance under the 0.5B natural replay calibration split.",
+        "to": "resolved_from_independent_calibration_common_half_median"
+      },
+      {
+        "change_id": "e8-taper-v79-003-learner-tau-rule",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "45959e3cb989b2aa7c6b960c332b824cb9a037b30ef061bbc92e013396d53df5"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "351088c43639bd6fd7983417677dc77b31e972f5ba3fb012b52d250f22a8cd85"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "720e304aba9b24ba5c909801e64529e8147bed168bb3ac8658ec3f34cb667b2c"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "c2bfde3b789d2c0c2cbe58f48175b4e8cc1d0724a80a5b6f4c21be1ced8b9f18"
+          }
+        ],
+        "field_path": [
+          "learner_relative_remoteness",
+          "surprisal_threshold_tau_rule"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Record the active-tail tau resolver.",
+        "to": "calibration_common_half_median_surprisal"
+      },
+      {
+        "change_id": "e8-taper-v79-004-target-budget",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "45959e3cb989b2aa7c6b960c332b824cb9a037b30ef061bbc92e013396d53df5"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "351088c43639bd6fd7983417677dc77b31e972f5ba3fb012b52d250f22a8cd85"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "720e304aba9b24ba5c909801e64529e8147bed168bb3ac8658ec3f34cb667b2c"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "c2bfde3b789d2c0c2cbe58f48175b4e8cc1d0724a80a5b6f4c21be1ced8b9f18"
+          }
+        ],
+        "field_path": [
+          "calibration_protocol",
+          "common_target_budget"
+        ],
+        "from": "corrected_exponential_linear_distance_lambda_0.7_initialization_gradient_l2",
+        "kind": "update_field",
+        "reason": "Target budget now uses the nondegenerate active-tail tau.",
+        "to": "corrected_exponential_linear_distance_lambda_0.7_initialization_gradient_l2_under_active_tail_tau"
+      },
+      {
+        "change_id": "e8-taper-v79-005-calibration-tau",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "45959e3cb989b2aa7c6b960c332b824cb9a037b30ef061bbc92e013396d53df5"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "351088c43639bd6fd7983417677dc77b31e972f5ba3fb012b52d250f22a8cd85"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "720e304aba9b24ba5c909801e64529e8147bed168bb3ac8658ec3f34cb667b2c"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "c2bfde3b789d2c0c2cbe58f48175b4e8cc1d0724a80a5b6f4c21be1ced8b9f18"
+          }
+        ],
+        "field_path": [
+          "calibration_protocol",
+          "surprisal_threshold_tau"
+        ],
+        "from": 2.0,
+        "kind": "update_field",
+        "reason": "Match the config-level active-tail repair.",
+        "to": "resolved_from_independent_calibration_common_half_median"
+      },
+      {
+        "change_id": "e8-taper-v79-006-calibration-tau-rule",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "45959e3cb989b2aa7c6b960c332b824cb9a037b30ef061bbc92e013396d53df5"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "351088c43639bd6fd7983417677dc77b31e972f5ba3fb012b52d250f22a8cd85"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "720e304aba9b24ba5c909801e64529e8147bed168bb3ac8658ec3f34cb667b2c"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "c2bfde3b789d2c0c2cbe58f48175b4e8cc1d0724a80a5b6f4c21be1ced8b9f18"
+          }
+        ],
+        "field_path": [
+          "calibration_protocol",
+          "surprisal_threshold_tau_rule"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Record the independent calibration tau rule.",
+        "to": "calibration_common_half_median_surprisal"
+      },
+      {
+        "change_id": "e8-taper-v79-007-active-fraction",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "45959e3cb989b2aa7c6b960c332b824cb9a037b30ef061bbc92e013396d53df5"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "351088c43639bd6fd7983417677dc77b31e972f5ba3fb012b52d250f22a8cd85"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "720e304aba9b24ba5c909801e64529e8147bed168bb3ac8658ec3f34cb667b2c"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "c2bfde3b789d2c0c2cbe58f48175b4e8cc1d0724a80a5b6f4c21be1ced8b9f18"
+          }
+        ],
+        "field_path": [
+          "calibration_protocol",
+          "active_distance_minimum_fraction"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Fail closed when active-tail calibration has too few nonzero-distance samples.",
+        "to": 0.25
+      },
+      {
+        "change_id": "e8-taper-v79-008-target-ratio",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "45959e3cb989b2aa7c6b960c332b824cb9a037b30ef061bbc92e013396d53df5"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "351088c43639bd6fd7983417677dc77b31e972f5ba3fb012b52d250f22a8cd85"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "720e304aba9b24ba5c909801e64529e8147bed168bb3ac8658ec3f34cb667b2c"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "c2bfde3b789d2c0c2cbe58f48175b4e8cc1d0724a80a5b6f4c21be1ced8b9f18"
+          }
+        ],
+        "field_path": [
+          "calibration_protocol",
+          "nondegenerate_target_max_ratio"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Fail closed when the inherited exponential target is indistinguishable from uncontrolled.",
+        "to": 0.995
+      },
+      {
+        "change_id": "e8-taper-v79-009-min-lambda",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "45959e3cb989b2aa7c6b960c332b824cb9a037b30ef061bbc92e013396d53df5"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "351088c43639bd6fd7983417677dc77b31e972f5ba3fb012b52d250f22a8cd85"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "720e304aba9b24ba5c909801e64529e8147bed168bb3ac8658ec3f34cb667b2c"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "c2bfde3b789d2c0c2cbe58f48175b4e8cc1d0724a80a5b6f4c21be1ced8b9f18"
+          }
+        ],
+        "field_path": [
+          "calibration_protocol",
+          "minimum_taper_lambda"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Prevent reciprocal and squared-distance exponential from being registered as effective when lambda is zero.",
+        "to": 1e-06
+      },
+      {
+        "change_id": "e8-taper-v79-010-degenerate-policy",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "45959e3cb989b2aa7c6b960c332b824cb9a037b30ef061bbc92e013396d53df5"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "351088c43639bd6fd7983417677dc77b31e972f5ba3fb012b52d250f22a8cd85"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "720e304aba9b24ba5c909801e64529e8147bed168bb3ac8658ec3f34cb667b2c"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "c2bfde3b789d2c0c2cbe58f48175b4e8cc1d0724a80a5b6f4c21be1ced8b9f18"
+          }
+        ],
+        "field_path": [
+          "calibration_protocol",
+          "degenerate_calibration_policy"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Prevent silent uncontrolled clones in long pilot runs.",
+        "to": "fail_closed_before_method_training"
+      },
+      {
+        "change_id": "e8-taper-v79-011-gradient-batch-size",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "45959e3cb989b2aa7c6b960c332b824cb9a037b30ef061bbc92e013396d53df5"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "351088c43639bd6fd7983417677dc77b31e972f5ba3fb012b52d250f22a8cd85"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "720e304aba9b24ba5c909801e64529e8147bed168bb3ac8658ec3f34cb667b2c"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "c2bfde3b789d2c0c2cbe58f48175b4e8cc1d0724a80a5b6f4c21be1ced8b9f18"
+          }
+        ],
+        "field_path": [
+          "continuous_diagnostics",
+          "gradient_batch_size"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Stream full-vocabulary gradient diagnostics to avoid diagnostic-only OOM.",
+        "to": 1
+      },
+      {
+        "change_id": "e8-taper-v79-012-diagnostic-oom-policy",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "45959e3cb989b2aa7c6b960c332b824cb9a037b30ef061bbc92e013396d53df5"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "351088c43639bd6fd7983417677dc77b31e972f5ba3fb012b52d250f22a8cd85"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "720e304aba9b24ba5c909801e64529e8147bed168bb3ac8658ec3f34cb667b2c"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "c2bfde3b789d2c0c2cbe58f48175b4e8cc1d0724a80a5b6f4c21be1ced8b9f18"
+          }
+        ],
+        "field_path": [
+          "continuous_diagnostics",
+          "diagnostic_oom_policy"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Separate diagnostic OOM from NaN/Inf numerical failure while preserving completed training artifacts.",
+        "to": "preserve_metrics_and_mark_incomplete_oom"
+      },
+      {
+        "change_id": "e8-taper-v79-013-identity-nondegenerate",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "45959e3cb989b2aa7c6b960c332b824cb9a037b30ef061bbc92e013396d53df5"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "351088c43639bd6fd7983417677dc77b31e972f5ba3fb012b52d250f22a8cd85"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "720e304aba9b24ba5c909801e64529e8147bed168bb3ac8658ec3f34cb667b2c"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "c2bfde3b789d2c0c2cbe58f48175b4e8cc1d0724a80a5b6f4c21be1ced8b9f18"
+          }
+        ],
+        "field_path": [
+          "artifact_identity_guards",
+          "nondegenerate_calibration_guard"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Make calibration nondegeneracy part of the run identity gate.",
+        "to": "required"
+      },
+      {
+        "change_id": "e8-taper-v79-014-identity-byte-sanity",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "45959e3cb989b2aa7c6b960c332b824cb9a037b30ef061bbc92e013396d53df5"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "351088c43639bd6fd7983417677dc77b31e972f5ba3fb012b52d250f22a8cd85"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "720e304aba9b24ba5c909801e64529e8147bed168bb3ac8658ec3f34cb667b2c"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "c2bfde3b789d2c0c2cbe58f48175b4e8cc1d0724a80a5b6f4c21be1ced8b9f18"
+          }
+        ],
+        "field_path": [
+          "artifact_identity_guards",
+          "method_byte_identity_sanity_gate"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Require short-budget sanity after this repair before re-running the full pilot.",
+        "to": "required_for_operator_sanity_before_rerun"
+      },
+      {
+        "change_id": "e8-taper-v79-015-implementation-version",
+        "entity_id": "EXT-C-E8-TAPER-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_taper_0p5b.yaml",
+            "sha256": "45959e3cb989b2aa7c6b960c332b824cb9a037b30ef061bbc92e013396d53df5"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "351088c43639bd6fd7983417677dc77b31e972f5ba3fb012b52d250f22a8cd85"
+          },
+          {
+            "path": "src/drpo/countdown_e8_taper.py",
+            "sha256": "720e304aba9b24ba5c909801e64529e8147bed168bb3ac8658ec3f34cb667b2c"
+          },
+          {
+            "path": "tests/test_countdown_e8_taper.py",
+            "sha256": "c2bfde3b789d2c0c2cbe58f48175b4e8cc1d0724a80a5b6f4c21be1ced8b9f18"
+          }
+        ],
+        "field_path": [
+          "implementation_version"
+        ],
+        "from": "1.1.0-normalized-distance-deterministic-audit",
+        "kind": "update_field",
+        "reason": "Record the v79 E8-TAPER implementation repair.",
+        "to": "1.2.1-minimal-active-tail-streamed-diagnostics"
+      }
+    ],
+    "coverage": {
+      "added_entities": [],
+      "changed_field_count": 15,
+      "declared_assertion_count": 15,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "history_preservation_passed": true,
+  "idempotence_passed": true,
+  "materialized_handoff_after_sha256": "df06219d3fbe0cae28b88041534c4e041604a5dc25ccea698bc06567e60c6bcd",
+  "mode": "authoritative",
+  "network_used": false,
+  "policy_id": "GOV-HANDOFF-AUTHORITY-CUTOVER-01",
+  "registry_after_sha256": "351088c43639bd6fd7983417677dc77b31e972f5ba3fb012b52d250f22a8cd85",
+  "registry_before_sha256": "4282122631dc04eadfb06cda67ebac8d7ffd6cc501b96679742cf1b519566f6e",
+  "report_schema_version": 1,
+  "source_base_commit": "8a2aa6ff5d540e22b9da983e0708920b279c91e1",
+  "source_patch_commit": "4bd1782b1a0fc369f143c6ee766689284f15e567",
+  "stage4a_refresh": {
+    "refreshed": [
+      "docs/handoff_shadow/stage4/minimal/generated/MODULE_INDEX.json",
+      "docs/handoff_shadow/stage4/minimal/generated/STRUCTURE_SUGGESTIONS.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/countdown_e8.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/global_core_governance.md"
+    ],
+    "reused": [
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.dot",
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e5_mechanism.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e6_generalization.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_extrapolation.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_taper.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_mechanism_e1_e3.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/execution_status_gates.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/history_provenance.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/hopper_e7.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/paper_rewrite.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/terminal_audit.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/theory_methods_related_work.md"
+    ]
+  },
+  "status": "PASS",
+  "structural_lint_passed": true,
+  "trusted_engine_sha256": "a6532ba4c1bb9c4af24d79f027267de518c3832b347dba47e8319dee7a3ebe2c",
+  "trusted_policy_sha256": "508f6bbb6ee9bb6da5be041a23e25cd569b95475523bb6af7127cb84ea3466ad",
+  "trusted_renderer_sha256": "39a7566e91c77784822148bb18ae32e44dfcc1745fbdc1cbf14a88ce6c6a13e5",
+  "update_id": "EXT-C-E8-TAPER-0.5B-ACTIVE-TAIL-REPAIR-V79-2026-07-06"
+}

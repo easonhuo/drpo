@@ -1,0 +1,170 @@
+schema_version: 3
+update_id: EXT-C-E8-TAPER-0.5B-ACTIVE-TAIL-REPAIR-V79-2026-07-06
+mode: authoritative
+base:
+  commit: 8a2aa6ff5d540e22b9da983e0708920b279c91e1
+  handoff_sha256: cc12240aa7c1497661697dc89628ee105f52e529d721b02bff65015494703042
+  registry_sha256: 4282122631dc04eadfb06cda67ebac8d7ffd6cc501b96679742cf1b519566f6e
+renderer_version: 1
+operations:
+- operation_id: rename-v77-title-to-v79-e8-active-tail-repair
+  op: replace_heading
+  heading_path:
+  - DRPO / SNA2C 远场负梯度动力学研究主文档 v77（最小改动治理执行规则落地版）
+  new_heading: DRPO / SNA2C 远场负梯度动力学研究主文档 v79（E8-TAPER active-tail calibration 与诊断显存修复版）
+  reason: Record the user-approved E8-TAPER bugfix after diagnostic sanity showed degenerate calibration and diagnostic OOM.
+- operation_id: insert-v79-e8-active-tail-repair
+  op: insert_after_heading
+  heading_path:
+  - DRPO / SNA2C 远场负梯度动力学研究主文档 v79（E8-TAPER active-tail calibration 与诊断显存修复版）
+  block_id: v79-e8-active-tail-repair
+  content: '> **v79 增量登记：Countdown E8-TAPER active-tail calibration 与诊断显存修复（不删除 v77 及更早内容）**
+
+    >
+
+    > - **旧问题：**0.5B 自然 replay 的独立 calibration split 在旧 `tau=2.0` 下几乎全部 `distance=0`，导致 inherited exponential target 与 uncontrolled negative aggregate L2 相同；`global_matched` 被校准为 1，`reciprocal_linear` 与 `squared_distance_exponential` 被校准为 0，从而与 uncontrolled 逐点重合。
+
+    > - **协议修复：**`EXT-C-E8-TAPER-0.5B-01` 保留同一 experiment ID、方法集合、训练 seeds、900/16 自然 replay、1200 update budget 与 synthetic-negative policy，但 calibration tau 改为由独立 calibration split 的 common-half median surprisal 解析，并登记 active-distance fraction、target/uncontrolled ratio 与 nondegenerate fail-closed guard。该修复不使用 validation/test 或确认 seeds 选参。
+
+    > - **实现修复：**正式收回 `_collate_pairs()` 误传 `batch_size` 的一行 hotfix；`surprisal_bin_diagnostics` 改为按小 batch 串流 full-vocab completion stats 与梯度诊断；诊断 OOM 时保留 metrics、training log 与 checkpoints，并在 manifest/terminal audit 中标记 `incomplete_oom`，不得混同为 NaN/Inf 数值崩溃。
+
+
+    > - **状态边界：**本次是实现与协议修复，不是科学结果；已有 dirty/local sanity 与 failed pilot 只作为 diagnostic evidence，不能入 formal result。修复应用后必须先重新执行短预算 sanity，确认方法不再 byte-identical，再运行登记的 0.5B pilot。'
+- operation_id: append-v79-e8-active-tail-current-gate
+  op: append_to_section
+  heading_path:
+  - 0. 研究与执行原则（每次新会话首先阅读）
+  - 0.1 当前执行门禁
+  block_id: v79-e8-active-tail-current-gate
+  content: '- **Countdown E8-TAPER v79 覆盖：**`EXT-C-E8-TAPER-0.5B-01` 仍为 implemented + ready + not_run pilot，但当前有效协议使用 independent-calibration common-half median tau、nondegenerate calibration fail-closed guard 与 streamed surprisal-bin diagnostics。应用后必须先跑短预算 sanity 验证各方法未退化为 uncontrolled clone；smoke/sanity/pilot 不得写成正式结果或方法排名。'
+registry:
+  mode: expected_after
+  exact_base_after_sha256: 351088c43639bd6fd7983417677dc77b31e972f5ba3fb012b52d250f22a8cd85
+  changes:
+  - change_id: e8-taper-v79-001-readiness-basis
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path: [execution_gate, readiness_basis]
+    from: Corrected normalized-distance implementation, deterministic detached remoteness, common replay, independent calibration, paired sampler, fixed-budget training, current-surprisal diagnostics, hardened artifact identity checks, one-click launch, and terminal audit are implemented and tested.
+    to: Corrected normalized-distance implementation, active-tail nondegenerate calibration guard, deterministic detached remoteness, common replay, independent calibration, paired sampler, fixed-budget training, streamed current-surprisal diagnostics, hardened artifact identity checks, one-click launch, and terminal audit are implemented and tested.
+    reason: Synchronize readiness text with the v79 calibration, diagnostics and runtime guards.
+    evidence: &e8v79
+    - configs/countdown_e8_taper_0p5b.yaml
+    - experiments/registry.yaml
+    - src/drpo/countdown_e8_taper.py
+    - tests/test_countdown_e8_taper.py
+  - change_id: e8-taper-v79-002-learner-tau
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path: [learner_relative_remoteness, surprisal_threshold_tau]
+    from: 2.0
+    to: resolved_from_independent_calibration_common_half_median
+    reason: Prevent all-zero initialization distance under the 0.5B natural replay calibration split.
+    evidence: *e8v79
+  - change_id: e8-taper-v79-003-learner-tau-rule
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path: [learner_relative_remoteness, surprisal_threshold_tau_rule]
+    from: null
+    to: calibration_common_half_median_surprisal
+    reason: Record the active-tail tau resolver.
+    evidence: *e8v79
+  - change_id: e8-taper-v79-004-target-budget
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path: [calibration_protocol, common_target_budget]
+    from: corrected_exponential_linear_distance_lambda_0.7_initialization_gradient_l2
+    to: corrected_exponential_linear_distance_lambda_0.7_initialization_gradient_l2_under_active_tail_tau
+    reason: Target budget now uses the nondegenerate active-tail tau.
+    evidence: *e8v79
+  - change_id: e8-taper-v79-005-calibration-tau
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path: [calibration_protocol, surprisal_threshold_tau]
+    from: 2.0
+    to: resolved_from_independent_calibration_common_half_median
+    reason: Match the config-level active-tail repair.
+    evidence: *e8v79
+  - change_id: e8-taper-v79-006-calibration-tau-rule
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path: [calibration_protocol, surprisal_threshold_tau_rule]
+    from: null
+    to: calibration_common_half_median_surprisal
+    reason: Record the independent calibration tau rule.
+    evidence: *e8v79
+  - change_id: e8-taper-v79-007-active-fraction
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path: [calibration_protocol, active_distance_minimum_fraction]
+    from: null
+    to: 0.25
+    reason: Fail closed when active-tail calibration has too few nonzero-distance samples.
+    evidence: *e8v79
+  - change_id: e8-taper-v79-008-target-ratio
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path: [calibration_protocol, nondegenerate_target_max_ratio]
+    from: null
+    to: 0.995
+    reason: Fail closed when the inherited exponential target is indistinguishable from uncontrolled.
+    evidence: *e8v79
+  - change_id: e8-taper-v79-009-min-lambda
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path: [calibration_protocol, minimum_taper_lambda]
+    from: null
+    to: 1.0e-06
+    reason: Prevent reciprocal and squared-distance exponential from being registered as effective when lambda is zero.
+    evidence: *e8v79
+  - change_id: e8-taper-v79-010-degenerate-policy
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path: [calibration_protocol, degenerate_calibration_policy]
+    from: null
+    to: fail_closed_before_method_training
+    reason: Prevent silent uncontrolled clones in long pilot runs.
+    evidence: *e8v79
+  - change_id: e8-taper-v79-011-gradient-batch-size
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path: [continuous_diagnostics, gradient_batch_size]
+    from: null
+    to: 1
+    reason: Stream full-vocabulary gradient diagnostics to avoid diagnostic-only OOM.
+    evidence: *e8v79
+  - change_id: e8-taper-v79-012-diagnostic-oom-policy
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path: [continuous_diagnostics, diagnostic_oom_policy]
+    from: null
+    to: preserve_metrics_and_mark_incomplete_oom
+    reason: Separate diagnostic OOM from NaN/Inf numerical failure while preserving completed training artifacts.
+    evidence: *e8v79
+  - change_id: e8-taper-v79-013-identity-nondegenerate
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path: [artifact_identity_guards, nondegenerate_calibration_guard]
+    from: null
+    to: required
+    reason: Make calibration nondegeneracy part of the run identity gate.
+    evidence: *e8v79
+  - change_id: e8-taper-v79-014-identity-byte-sanity
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path: [artifact_identity_guards, method_byte_identity_sanity_gate]
+    from: null
+    to: required_for_operator_sanity_before_rerun
+    reason: Require short-budget sanity after this repair before re-running the full pilot.
+    evidence: *e8v79
+  - change_id: e8-taper-v79-015-implementation-version
+    kind: update_field
+    entity_id: EXT-C-E8-TAPER-0.5B-01
+    field_path: [implementation_version]
+    from: 1.1.0-normalized-distance-deterministic-audit
+    to: 1.2.1-minimal-active-tail-streamed-diagnostics
+    reason: Record the v79 E8-TAPER implementation repair.
+    evidence: *e8v79
+
+expected:
+  exact_base_candidate_sha256: df06219d3fbe0cae28b88041534c4e041604a5dc25ccea698bc06567e60c6bcd

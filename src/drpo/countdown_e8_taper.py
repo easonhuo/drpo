@@ -50,7 +50,7 @@ except ImportError:  # pragma: no cover - direct execution from src/drpo
 
 
 EXPERIMENT_ID = "EXT-C-E8-TAPER-0.5B-01"
-VERSION = "1.2.0-reference-cache-two-stage-gates"
+VERSION = "1.2.1-minimal-active-tail-streamed-diagnostics"
 DEFAULT_CONFIG = Path(__file__).resolve().parents[2] / "configs" / "countdown_e8_taper_0p5b.yaml"
 METHODS = (
     "positive_only",
@@ -158,13 +158,24 @@ def load_config(path: str | Path = DEFAULT_CONFIG) -> dict[str, Any]:
         "calibration_upper_half_median_minus_lower_half_median"
     ):
         raise ValueError("Frozen surprisal scale rule mismatch")
+    if calibration.get("surprisal_threshold_tau") != "calibration_common_half_median_surprisal":
+        raise ValueError("E8 TAPER v79 requires active-tail calibration tau")
     if float(calibration.get("minimum_surprisal_scale", 0.0)) <= 0:
         raise ValueError("minimum_surprisal_scale must be positive")
+    if float(calibration.get("minimum_active_distance_fraction", 0.0)) <= 0:
+        raise ValueError("minimum_active_distance_fraction must be positive")
+    if float(calibration.get("nondegenerate_target_max_ratio", 1.0)) >= 1.0:
+        raise ValueError("nondegenerate_target_max_ratio must be below 1")
+    if float(calibration.get("minimum_taper_lambda", 0.0)) <= 0:
+        raise ValueError("minimum_taper_lambda must be positive")
     if calibration.get("shared_negative_scale") != (
         "positive_aggregate_gradient_l2_over_"
         "uncontrolled_negative_aggregate_gradient_l2"
     ):
         raise ValueError("Frozen shared negative scale definition mismatch")
+    diagnostics = value.get("diagnostics", {})
+    if int(diagnostics.get("gradient_batch_size", 0)) <= 0:
+        raise ValueError("diagnostics.gradient_batch_size must be positive")
     return value
 
 
@@ -205,6 +216,94 @@ def normalized_remoteness(
 def learner_distance(seq_lp: torch.Tensor, tau: float, scale: float) -> torch.Tensor:
     """Compatibility helper returning the corrected distance coordinate only."""
     return normalized_remoteness(seq_lp, tau, scale)[1]
+
+
+def resolve_surprisal_threshold_tau(
+    calibration_cfg: Mapping[str, Any], scale_diagnostics: Mapping[str, float]
+) -> tuple[float, str]:
+    """Resolve the frozen E8-TAPER remoteness threshold from calibration data.
+
+    v79 uses the common-half median of the independent calibration split as an
+    active-tail threshold.  This prevents the initialization calibration from
+    degenerating into all-zero distance when the historical fixed tau=2.0 lies
+    above every natural negative completion in the 0.5B replay split.
+    """
+    value = calibration_cfg.get("surprisal_threshold_tau")
+    if value == "calibration_common_half_median_surprisal":
+        tau = float(scale_diagnostics["common_half_median_surprisal"])
+        rule = "calibration_common_half_median_surprisal"
+    else:
+        tau = float(value)
+        rule = "fixed_numeric_surprisal_threshold"
+    if not math.isfinite(tau) or tau < 0:
+        raise RuntimeError("Resolved surprisal threshold tau must be finite and non-negative")
+    return tau, rule
+
+
+def active_distance_diagnostics(
+    surprisals: Sequence[float], *, tau: float, surprisal_scale: float
+) -> dict[str, float]:
+    values = torch.tensor(list(surprisals), dtype=torch.float32)
+    normalized = torch.relu(values - float(tau)) / float(surprisal_scale)
+    distance = torch.sqrt(normalized)
+    active = normalized > 0
+    return {
+        "samples": int(values.numel()),
+        "active_distance_count": int(active.sum().item()),
+        "active_distance_fraction": float(active.float().mean().item()) if values.numel() else 0.0,
+        "normalized_excess_mean": float(normalized.mean().item()) if values.numel() else 0.0,
+        "distance_mean": float(distance.mean().item()) if values.numel() else 0.0,
+        "distance_max": float(distance.max().item()) if values.numel() else 0.0,
+    }
+
+
+def validate_calibration_non_degenerate(
+    *,
+    calibration_cfg: Mapping[str, Any],
+    tau_diagnostics: Mapping[str, float],
+    uncontrolled_norm: float,
+    target_unscaled: float,
+    coefficients: Mapping[str, float],
+) -> dict[str, Any]:
+    """Fail closed when calibration collapses methods into uncontrolled updates."""
+    max_ratio = float(calibration_cfg["nondegenerate_target_max_ratio"])
+    min_lambda = float(calibration_cfg["minimum_taper_lambda"])
+    min_active_fraction = float(calibration_cfg["minimum_active_distance_fraction"])
+    if uncontrolled_norm <= 0 or not math.isfinite(uncontrolled_norm):
+        raise RuntimeError("Uncontrolled negative calibration norm must be finite and positive")
+    target_ratio = float(target_unscaled / uncontrolled_norm)
+    failures: list[str] = []
+    if target_ratio >= max_ratio:
+        failures.append(
+            "reference exponential target is too close to uncontrolled negative norm "
+            f"({target_ratio:.6f} >= {max_ratio:.6f})"
+        )
+    if float(tau_diagnostics.get("active_distance_fraction", 0.0)) < min_active_fraction:
+        failures.append(
+            "calibration active-distance fraction is too small "
+            f"({tau_diagnostics.get('active_distance_fraction', 0.0):.6f} < {min_active_fraction:.6f})"
+        )
+    if float(coefficients.get("global_matched", 1.0)) >= max_ratio:
+        failures.append(
+            "global_matched coefficient is degenerate or near-uncontrolled "
+            f"({float(coefficients.get('global_matched', 1.0)):.6f} >= {max_ratio:.6f})"
+        )
+    for method in ("reciprocal_linear", "squared_distance_exponential"):
+        if float(coefficients.get(method, 0.0)) <= min_lambda:
+            failures.append(
+                f"{method} lambda is degenerate ({float(coefficients.get(method, 0.0)):.6g} <= {min_lambda:.6g})"
+            )
+    payload = {
+        "status": "pass" if not failures else "fail",
+        "target_unscaled_to_uncontrolled_ratio": target_ratio,
+        "nondegenerate_target_max_ratio": max_ratio,
+        "minimum_taper_lambda": min_lambda,
+        "minimum_active_distance_fraction": min_active_fraction,
+        "failures": failures,
+    }
+    if failures:
+        raise RuntimeError("E8 taper calibration degenerated: " + "; ".join(failures))
+    return payload
 
 
 def calibration_surprisal_scale(
@@ -943,13 +1042,17 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
         calibration_surprisals,
         minimum=float(calibration_cfg["minimum_surprisal_scale"]),
     )
+    tau, tau_rule = resolve_surprisal_threshold_tau(calibration_cfg, scale_diagnostics)
+    tau_diagnostics = active_distance_diagnostics(
+        calibration_surprisals, tau=tau, surprisal_scale=surprisal_scale
+    )
     common = dict(
         model=model,
         tokenizer=tokenizer,
         rows=rows,
         plan=plan,
         trainable=trainable,
-        tau=float(calibration_cfg["surprisal_threshold_tau"]),
+        tau=tau,
         surprisal_scale=surprisal_scale,
         max_length=int(config["model"]["max_length"]),
         batch_size=1,
@@ -1001,6 +1104,13 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
         coefficients[method] = coefficient
         matched_norms[method] = matched
         errors[method] = relative_error
+    degeneracy_guard = validate_calibration_non_degenerate(
+        calibration_cfg=calibration_cfg,
+        tau_diagnostics=tau_diagnostics,
+        uncontrolled_norm=uncontrolled_norm,
+        target_unscaled=target_unscaled,
+        coefficients=coefficients,
+    )
     payload = {
         "schema_version": 1,
         "experiment_id": EXPERIMENT_ID,
@@ -1012,17 +1122,20 @@ def cmd_calibrate(args: argparse.Namespace) -> None:
         "reference_adapter_hashes": _hash_tree(Path(args.reference_adapter)),
         "config": str(Path(args.config).resolve()),
         "config_sha256": _sha256_file(Path(args.config)),
-        "surprisal_threshold_tau": float(calibration_cfg["surprisal_threshold_tau"]),
+        "surprisal_threshold_tau": tau,
+        "surprisal_threshold_tau_rule": tau_rule,
         "surprisal_scale": surprisal_scale,
         "surprisal_scale_rule": calibration_cfg["surprisal_scale_rule"],
         "surprisal_scale_diagnostics": scale_diagnostics,
+        "calibration_active_distance_diagnostics": tau_diagnostics,
+        "calibration_degeneracy_guard": degeneracy_guard,
         "distance_definition": "d=sqrt(max(0,(sequence_surprisal-tau)/scale))",
         "positive_gradient_l2": positive_norm,
         "uncontrolled_negative_gradient_l2": uncontrolled_norm,
         "shared_negative_scale": negative_scale,
         "target_unscaled_negative_gradient_l2": target_unscaled,
         "target_effective_negative_gradient_l2": target_effective,
-        "target_definition": "corrected_exponential_linear_distance_lambda_0.7_at_common_initialization",
+        "target_definition": "corrected_exponential_linear_distance_lambda_0.7_at_common_initialization_active_tail_tau",
         "shared_negative_scale_definition": (
             "positive_aggregate_gradient_l2_over_"
             "uncontrolled_negative_aggregate_gradient_l2"
@@ -1141,6 +1254,90 @@ def _teacher_forced_summary(
     return {key: value / count for key, value in totals.items()}
 
 
+def _completion_stats_means_for_plan(
+    model: Any,
+    tokenizer: Any,
+    rows: Sequence[dict[str, Any]],
+    plan: Sequence[Mapping[str, int]],
+    *,
+    branch: str,
+    max_length: int,
+    batch_size: int,
+) -> dict[str, torch.Tensor]:
+    """Stream no-grad completion statistics without materializing one large batch."""
+    if batch_size <= 0:
+        raise ValueError("diagnostic batch_size must be positive")
+    device = next(model.parameters()).device
+    seq_lps: list[torch.Tensor] = []
+    entropies: list[torch.Tensor] = []
+    with torch.no_grad():
+        for start in range(0, len(plan), batch_size):
+            chunk = plan[start : start + batch_size]
+            pos_batch, neg_batch = _collate_pairs(tokenizer, rows, chunk, max_length)
+            batch = pos_batch if branch == "positive" else neg_batch
+            stats = arena.completion_stats(model, arena.move_to_device(batch, device))
+            seq_lps.append(stats["seq_lp"].detach().float().cpu())
+            if "entropy" in stats:
+                entropies.append(stats["entropy"].detach().float().cpu())
+    result = {"seq_lp": torch.cat(seq_lps) if seq_lps else torch.empty(0)}
+    if entropies:
+        result["entropy"] = torch.cat(entropies)
+    return result
+
+
+def _gradient_vectors_for_plan(
+    model: Any,
+    tokenizer: Any,
+    rows: Sequence[dict[str, Any]],
+    plan: Sequence[Mapping[str, int]],
+    trainable: Sequence[torch.nn.Parameter],
+    *,
+    objective: str,
+    method: str,
+    coefficient: float,
+    negative_scale: float,
+    tau: float,
+    surprisal_scale: float,
+    max_length: int,
+    batch_size: int,
+) -> list[torch.Tensor]:
+    """Gradient vectors for a diagnostic objective, streamed in small batches."""
+    if not plan:
+        raise RuntimeError("Diagnostic gradient plan is empty")
+    if batch_size <= 0:
+        raise ValueError("diagnostic batch_size must be positive")
+    device = next(model.parameters()).device
+    total_examples = len(plan)
+    model.zero_grad(set_to_none=True)
+    for start in range(0, total_examples, batch_size):
+        chunk = plan[start : start + batch_size]
+        pos_batch, neg_batch = _collate_pairs(tokenizer, rows, chunk, max_length)
+        if objective == "positive_surprisal":
+            stats = arena.completion_stats(model, arena.move_to_device(pos_batch, device))
+            loss = -stats["seq_lp"].mean()
+        elif objective in {"negative_raw", "negative_weighted"}:
+            stats = arena.completion_stats(model, arena.move_to_device(neg_batch, device))
+            if objective == "negative_raw":
+                loss = stats["seq_lp"].mean()
+            else:
+                _, distance = normalized_remoteness(stats["seq_lp"], tau, surprisal_scale)
+                weights = taper_weight(method, distance, coefficient)
+                loss = negative_scale * (weights * stats["seq_lp"]).mean()
+        else:
+            raise ValueError(f"Unknown diagnostic objective: {objective}")
+        (loss * (len(chunk) / total_examples)).backward()
+    vectors = [
+        (
+            parameter.grad.detach().clone()
+            if parameter.grad is not None
+            else torch.zeros_like(parameter.detach())
+        )
+        for parameter in trainable
+    ]
+    model.zero_grad(set_to_none=True)
+    return vectors
+
+
 def surprisal_bin_diagnostics(
     model: Any,
     tokenizer: Any,
@@ -1158,43 +1355,96 @@ def surprisal_bin_diagnostics(
     checkpoint_kind: str,
     seed: int,
     teacher_forced_batch_size: int = 1,
+    diagnostic_batch_size: int = 1,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    """Full-parameter current-surprisal quantile audit on fixed prompt samples."""
+    """Full-parameter current-surprisal quantile audit on fixed prompt samples.
+
+    v79 keeps the audit semantically identical but streams all full-vocabulary
+    completion-stat passes in small batches.  This prevents a diagnostic-only
+    OOM after training has already completed.
+    """
     model.eval()
     device = next(model.parameters()).device
-    pos_batch, neg_batch = _collate_pairs(tokenizer, rows, plan, max_length)
-    pos_batch = arena.move_to_device(pos_batch, device)
-    neg_batch = arena.move_to_device(neg_batch, device)
-    with torch.no_grad():
-        negative = arena.completion_stats(model, neg_batch)
-        surprisals = (-negative["seq_lp"]).detach().float().cpu().numpy()
+    negative_stats = _completion_stats_means_for_plan(
+        model,
+        tokenizer,
+        rows,
+        plan,
+        branch="negative",
+        max_length=max_length,
+        batch_size=diagnostic_batch_size,
+    )
+    surprisals = (-negative_stats["seq_lp"]).detach().float().cpu().numpy()
     if len(surprisals) < quantile_bins:
         raise RuntimeError("Diagnostic sample count must be at least the number of bins")
     order = np.argsort(surprisals, kind="stable")
     split_indices = np.array_split(order, quantile_bins)
 
-    positive = arena.completion_stats(model, pos_batch)
-    positive_loss = -positive["seq_lp"].mean()
-    positive_grads = _gradient_vectors(positive_loss, trainable)
+    positive_grads = _gradient_vectors_for_plan(
+        model,
+        tokenizer,
+        rows,
+        plan,
+        trainable,
+        objective="positive_surprisal",
+        method=method,
+        coefficient=coefficient,
+        negative_scale=negative_scale,
+        tau=tau,
+        surprisal_scale=surprisal_scale,
+        max_length=max_length,
+        batch_size=diagnostic_batch_size,
+    )
     positive_norm, _, _, _ = gradient_norm_dot_cosine(positive_grads, positive_grads)
 
     rows_out: list[dict[str, Any]] = []
     weighted_budgets: list[float] = []
     diagnostic_total = len(surprisals)
     for bin_index, indices_np in enumerate(split_indices):
-        indices = torch.tensor(indices_np.tolist(), device=device, dtype=torch.long)
-        selected_neg = arena.select_tensor_batch(neg_batch, indices)
-        selected_pos = arena.select_tensor_batch(pos_batch, indices)
-
-        branch = arena.completion_stats(model, selected_neg)
+        bin_plan = [plan[int(index)] for index in indices_np.tolist()]
+        bin_negative = _completion_stats_means_for_plan(
+            model,
+            tokenizer,
+            rows,
+            bin_plan,
+            branch="negative",
+            max_length=max_length,
+            batch_size=diagnostic_batch_size,
+        )
         normalized_excess, distance = normalized_remoteness(
-            branch["seq_lp"], tau, surprisal_scale
+            bin_negative["seq_lp"].to(device), tau, surprisal_scale
         )
         weights = taper_weight(method, distance, coefficient)
-        raw_loss = branch["seq_lp"].mean()
-        weighted_loss = negative_scale * (weights * branch["seq_lp"]).mean()
-        raw_grads = _gradient_vectors(raw_loss, trainable, retain_graph=True)
-        weighted_grads = _gradient_vectors(weighted_loss, trainable)
+        raw_grads = _gradient_vectors_for_plan(
+            model,
+            tokenizer,
+            rows,
+            bin_plan,
+            trainable,
+            objective="negative_raw",
+            method=method,
+            coefficient=coefficient,
+            negative_scale=negative_scale,
+            tau=tau,
+            surprisal_scale=surprisal_scale,
+            max_length=max_length,
+            batch_size=diagnostic_batch_size,
+        )
+        weighted_grads = _gradient_vectors_for_plan(
+            model,
+            tokenizer,
+            rows,
+            bin_plan,
+            trainable,
+            objective="negative_weighted",
+            method=method,
+            coefficient=coefficient,
+            negative_scale=negative_scale,
+            tau=tau,
+            surprisal_scale=surprisal_scale,
+            max_length=max_length,
+            batch_size=diagnostic_batch_size,
+        )
         _, raw_norm, _, raw_cosine = gradient_norm_dot_cosine(
             positive_grads, raw_grads
         )
@@ -1202,9 +1452,21 @@ def surprisal_bin_diagnostics(
             positive_grads, weighted_grads
         )
 
-        selected_correct = arena.completion_stats(model, selected_pos)
-        correct_surprisal = -selected_correct["seq_lp"].mean()
-        correct_grads = _gradient_vectors(correct_surprisal, trainable)
+        correct_grads = _gradient_vectors_for_plan(
+            model,
+            tokenizer,
+            rows,
+            bin_plan,
+            trainable,
+            objective="positive_surprisal",
+            method=method,
+            coefficient=coefficient,
+            negative_scale=negative_scale,
+            tau=tau,
+            surprisal_scale=surprisal_scale,
+            max_length=max_length,
+            batch_size=diagnostic_batch_size,
+        )
         _, _, collateral_dot, _ = gradient_norm_dot_cosine(correct_grads, weighted_grads)
         # Optimizer step is -grad(weighted negative loss). First-order change in
         # correct surprisal is therefore -<grad S_correct, grad L_negative>.
@@ -1424,6 +1686,9 @@ def cmd_train_method(args: argparse.Namespace) -> None:
     teacher_forced_batch_size = int(
         config.get("diagnostics", {}).get("teacher_forced_batch_size", 1)
     )
+    diagnostic_batch_size = int(
+        config.get("diagnostics", {}).get("gradient_batch_size", teacher_forced_batch_size)
+    )
     initial_eval = _evaluate_validation(
         model, tokenizer, val_rows, source_train_rows, config, eval_seed
     )
@@ -1478,7 +1743,6 @@ def cmd_train_method(args: argparse.Namespace) -> None:
                 replay_rows,
                 items,
                 int(config["model"]["max_length"]),
-                batch_size=teacher_forced_batch_size,
             )
             positive = arena.completion_stats(
                 model, arena.move_to_device(pos_batch, device)
@@ -1615,74 +1879,83 @@ def cmd_train_method(args: argparse.Namespace) -> None:
 
     diag_rows: list[dict[str, Any]] = []
     diag_summaries: list[dict[str, Any]] = []
-    initial_model = arena.load_model(
-        args.model_path,
-        args.reference_adapter,
-        trainable_adapter=True,
-        load_in_4bit=args.load_in_4bit,
-        dtype=args.dtype,
-        gradient_checkpointing=False,
-    )
-    initial_trainable = [p for p in initial_model.parameters() if p.requires_grad]
-    rows_part, summary_part = surprisal_bin_diagnostics(
-        initial_model,
-        tokenizer,
-        replay_rows,
-        diagnostic_plan,
-        initial_trainable,
-        method=args.method,
-        coefficient=coefficient,
-        negative_scale=negative_scale,
-        tau=tau,
-        surprisal_scale=surprisal_scale,
-        max_length=int(config["model"]["max_length"]),
-        quantile_bins=int(config["diagnostics"]["quantile_bins"]),
-        checkpoint_kind="initial",
-        seed=args.seed,
-        teacher_forced_batch_size=teacher_forced_batch_size,
-    )
-    diag_rows.extend(rows_part)
-    diag_summaries.append(summary_part)
-    del initial_model
-    if torch.cuda.is_available():
-        torch.cuda.empty_cache()
+    diagnostic_status = "complete"
+    diagnostic_failure: str | None = None
 
-    for checkpoint_kind, adapter in (
-        ("best", best_dir),
-        ("terminal" if not numerical_failure else "last_finite", terminal_dir if not numerical_failure else last_finite_dir),
-    ):
-        diag_model = arena.load_model(
-            args.model_path,
-            str(adapter),
-            trainable_adapter=True,
-            load_in_4bit=args.load_in_4bit,
-            dtype=args.dtype,
-            gradient_checkpointing=False,
-        )
-        diag_trainable = [p for p in diag_model.parameters() if p.requires_grad]
-        rows_part, summary_part = surprisal_bin_diagnostics(
-            diag_model,
-            tokenizer,
-            replay_rows,
-            diagnostic_plan,
-            diag_trainable,
-            method=args.method,
-            coefficient=coefficient,
-            negative_scale=negative_scale,
-            tau=tau,
-            surprisal_scale=surprisal_scale,
-            max_length=int(config["model"]["max_length"]),
-            quantile_bins=int(config["diagnostics"]["quantile_bins"]),
-            checkpoint_kind=checkpoint_kind,
-            seed=args.seed,
-            teacher_forced_batch_size=teacher_forced_batch_size,
-        )
-        diag_rows.extend(rows_part)
-        diag_summaries.append(summary_part)
-        del diag_model
+    def run_checkpoint_diagnostic(checkpoint_kind: str, adapter: str | Path) -> None:
+        nonlocal diagnostic_status, diagnostic_failure
+        diag_model: Any | None = None
+        try:
+            diag_model = arena.load_model(
+                args.model_path,
+                str(adapter),
+                trainable_adapter=True,
+                load_in_4bit=args.load_in_4bit,
+                dtype=args.dtype,
+                gradient_checkpointing=False,
+            )
+            diag_trainable = [p for p in diag_model.parameters() if p.requires_grad]
+            rows_part, summary_part = surprisal_bin_diagnostics(
+                diag_model,
+                tokenizer,
+                replay_rows,
+                diagnostic_plan,
+                diag_trainable,
+                method=args.method,
+                coefficient=coefficient,
+                negative_scale=negative_scale,
+                tau=tau,
+                surprisal_scale=surprisal_scale,
+                max_length=int(config["model"]["max_length"]),
+                quantile_bins=int(config["diagnostics"]["quantile_bins"]),
+                checkpoint_kind=checkpoint_kind,
+                seed=args.seed,
+                teacher_forced_batch_size=teacher_forced_batch_size,
+                diagnostic_batch_size=diagnostic_batch_size,
+            )
+            diag_rows.extend(rows_part)
+            diag_summaries.append(summary_part)
+        finally:
+            if diag_model is not None:
+                del diag_model
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+
+    try:
+        run_checkpoint_diagnostic("initial", args.reference_adapter)
+        for checkpoint_kind, adapter in (
+            ("best", best_dir),
+            (
+                "terminal" if not numerical_failure else "last_finite",
+                terminal_dir if not numerical_failure else last_finite_dir,
+            ),
+        ):
+            run_checkpoint_diagnostic(checkpoint_kind, adapter)
+    except torch.cuda.OutOfMemoryError as exc:
+        diagnostic_status = "incomplete_oom"
+        diagnostic_failure = str(exc)
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
+    except RuntimeError as exc:
+        if "out of memory" not in str(exc).lower():
+            raise
+        diagnostic_status = "incomplete_oom"
+        diagnostic_failure = str(exc)
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
     _csv_write(output / "surprisal_bin_diagnostics.csv", diag_rows)
+    if diagnostic_status != "complete":
+        diag_summaries.append(
+            {
+                "checkpoint_kind": "diagnostic_pipeline",
+                "method": args.method,
+                "seed": args.seed,
+                "status": diagnostic_status,
+                "failure": diagnostic_failure,
+                "partial_rows_written": len(diag_rows),
+            }
+        )
     _atomic_json(output / "diagnostic_summary.json", diag_summaries)
 
     final_window = int(config["diagnostics"]["final_window_evaluations"])
@@ -1715,6 +1988,9 @@ def cmd_train_method(args: argparse.Namespace) -> None:
         "last_finite_step": last_finite_step,
         "failure_detected_at_step": failure_step,
         "numerical_failure": numerical_failure,
+        "diagnostic_status": diagnostic_status,
+        "diagnostic_failure": diagnostic_failure,
+        "diagnostic_rows_written": len(diag_rows),
         "stop_reason": numerical_failure or "fixed_update_budget_complete",
         "final_window_slopes": {
             key: _final_window_slope(metrics, key, final_window)
@@ -1797,6 +2073,7 @@ class StageTask:
     command: list[str]
     log_path: Path
     gpu: str | None = None
+
 
 
 def _run_task(task: StageTask, repo: Path) -> None:
@@ -2099,6 +2376,7 @@ def _collect_summary(
                     "completed_optimizer_updates": manifest["completed_optimizer_updates"],
                     "shared_negative_scale": manifest["shared_negative_scale"],
                     "method_coefficient": manifest["method_coefficient"],
+                    "diagnostic_status": manifest.get("diagnostic_status", "unknown"),
                     "numerical_failure": manifest.get("numerical_failure"),
                     **task_metrics,
                 }
@@ -2157,6 +2435,11 @@ def _collect_summary(
                         else None
                     ),
                     "entropy_reported_continuously_without_binary_threshold": True,
+                },
+                "diagnostics": {
+                    "status": manifest.get("diagnostic_status", "unknown"),
+                    "failure": manifest.get("diagnostic_failure"),
+                    "rows_written": manifest.get("diagnostic_rows_written"),
                 },
                 "numerical": {
                     "nan_inf_failure": bool(manifest.get("numerical_failure")),
@@ -2824,6 +3107,16 @@ def cmd_run(args: argparse.Namespace) -> int:
         == int(config["training"]["optimizer_updates"])
         for item in manifests
     )
+    incomplete_diagnostics = [
+        {
+            "method": item["method"],
+            "seed": item["seed"],
+            "status": item.get("diagnostic_status", "unknown"),
+            "failure": item.get("diagnostic_failure"),
+        }
+        for item in manifests
+        if item.get("diagnostic_status", "complete") != "complete"
+    ]
     terminal_audit = {
         "schema_version": 1,
         "experiment_id": EXPERIMENT_ID,
@@ -2857,8 +3150,13 @@ def cmd_run(args: argparse.Namespace) -> int:
                 for seed in seeds
             ),
             "threshold_source": "inherited_reference_valid_rate_gate",
-            "raw_valid_rate_and_teacher_forced_entropy_reported": True,
+            "raw_valid_rate_and_teacher_forced_entropy_reported": not incomplete_diagnostics,
             "entropy_has_no_separate_binary_threshold": True,
+        },
+        "diagnostics": {
+            "complete": not incomplete_diagnostics,
+            "incomplete_runs": incomplete_diagnostics,
+            "diagnostic_oom_is_not_numerical_failure": True,
         },
         "numerical": {
             "nan_inf_failures": [
@@ -2932,6 +3230,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         "summary": summary,
         "paired_effects": paired,
         "terminal_audit_present": True,
+        "diagnostics_complete": not incomplete_diagnostics,
         "formal_or_universal_ranking_claim": False,
     }
     _atomic_json(root / "RUN_COMPLETE.json", complete)

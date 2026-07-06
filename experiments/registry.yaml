@@ -3450,7 +3450,7 @@ experiments:
     state: ready
     blocked_by: []
     blocking_reason: null
-    readiness_basis: Corrected normalized-distance implementation, deterministic detached remoteness, common replay, independent calibration, paired sampler, fixed-budget training, current-surprisal diagnostics, hardened artifact identity checks, one-click launch, and terminal audit are implemented and tested.
+    readiness_basis: Corrected normalized-distance implementation, active-tail nondegenerate calibration guard, deterministic detached remoteness, common replay, independent calibration, paired sampler, fixed-budget training, streamed current-surprisal diagnostics, hardened artifact identity checks, one-click launch, and terminal audit are implemented and tested.
   code_entrypoint: src/drpo/countdown_e8_taper.py
   operator_entrypoint: scripts/run_countdown_e8_taper.py
   primary_model: Qwen2.5-0.5B-Instruct
@@ -3488,7 +3488,8 @@ experiments:
     definition: normalized_excess_surprisal_then_square_root_distance
     normalized_excess_formula: S_theta=max(0,(-log_pi_theta(x_given_s)-tau)/c_cal)
     distance_formula: d_theta=sqrt(S_theta)
-    surprisal_threshold_tau: 2.0
+    surprisal_threshold_tau_rule: calibration_common_half_median_surprisal
+    surprisal_threshold_tau: resolved_from_independent_calibration_common_half_median
     surprisal_scale_rule: calibration_upper_half_median_minus_lower_half_median
     surprisal_scale_frozen_before_confirmation: true
     recomputed_by_current_learner_each_update: true
@@ -3523,7 +3524,7 @@ experiments:
     split: independent_calibration_split
     development_seed: 9134
     target: initialization_raw_negative_gradient_l2
-    common_target_budget: corrected_exponential_linear_distance_lambda_0.7_initialization_gradient_l2
+    common_target_budget: corrected_exponential_linear_distance_lambda_0.7_initialization_gradient_l2_under_active_tail_tau
     parameters_calibrated:
     - global_gamma
     - taper_lambda
@@ -3532,10 +3533,15 @@ experiments:
     confirmation_or_test_retuning: forbidden
     inherited_reference_method: exponential
     inherited_reference_lambda: 0.7
-    surprisal_threshold_tau: 2.0
+    surprisal_threshold_tau_rule: calibration_common_half_median_surprisal
+    surprisal_threshold_tau: resolved_from_independent_calibration_common_half_median
     surprisal_scale_rule: calibration_upper_half_median_minus_lower_half_median
+    active_distance_minimum_fraction: 0.25
+    nondegenerate_target_max_ratio: 0.995
+    minimum_taper_lambda: 1.0e-6
     shared_negative_scale: positive_aggregate_gradient_l2_over_uncontrolled_negative_aggregate_gradient_l2
     dropout_mode: disabled_during_calibration_gradient_measurement
+    degenerate_calibration_policy: fail_closed_before_method_training
   confirmation_protocol:
     paired_training_seeds:
     - 9234
@@ -3577,6 +3583,8 @@ experiments:
     - fraction_of_total_negative_gradient_budget
     deterministic_teacher_forced_audit: true
     teacher_forced_batch_size: 1
+    gradient_batch_size: 1
+    diagnostic_oom_policy: preserve_metrics_and_mark_incomplete_oom
   terminal_audit:
     required: true
     full_training_curves: required
@@ -3633,11 +3641,13 @@ experiments:
     implementation_tests_passed: true
     real_qwen_cuda_run_completed: false
   config_entrypoint: configs/countdown_e8_taper_0p5b.yaml
-  implementation_version: 1.1.0-normalized-distance-deterministic-audit
+  implementation_version: 1.2.1-minimal-active-tail-streamed-diagnostics
   artifact_identity_guards:
     config_hash_match_calibration: required
     reference_adapter_hash_match_calibration: required
     sampler_experiment_id_seed_replay_and_plan_hash_match: required
+    nondegenerate_calibration_guard: required
+    method_byte_identity_sanity_gate: required_for_operator_sanity_before_rerun
 - id: D-U1-E5-LONGRUN-RERUN
   environment: D-U1_and_D-Diag
   name: categorical_repulsion_support_boundary_longrun_reconstruction
