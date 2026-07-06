@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 import shutil
 import sys
 from pathlib import Path
@@ -10,6 +11,18 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "paper_pipeline_core.py"
+
+PAPER_PIPELINE_TEST_ENV = "DRPO_RUN_PAPER_PIPELINE_TESTS"
+pytestmark = [
+    pytest.mark.paper_pipeline,
+    pytest.mark.skipif(
+        os.environ.get(PAPER_PIPELINE_TEST_ENV) != "1",
+        reason=(
+            "paper pipeline tests are opt-in; set "
+            f"{PAPER_PIPELINE_TEST_ENV}=1 to run them explicitly"
+        ),
+    ),
+]
 
 
 def load_module():

@@ -159,6 +159,14 @@ def _cleanup_stage4_historical_fixture() -> None:
 atexit.register(_cleanup_stage4_historical_fixture)
 
 
+def pytest_configure(config) -> None:  # type: ignore[no-untyped-def]
+    config.addinivalue_line(
+        "markers",
+        "paper_pipeline: paper pipeline opt-in tests; set "
+        "DRPO_RUN_PAPER_PIPELINE_TESTS=1 to execute them explicitly",
+    )
+
+
 def pytest_collection_modifyitems(config, items) -> None:  # type: ignore[no-untyped-def]
     if not _delta_authority_active():
         return
