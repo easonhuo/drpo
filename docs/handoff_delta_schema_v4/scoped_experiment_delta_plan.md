@@ -184,10 +184,18 @@ The standalone generator must:
 - re-run the Round-1 analyzer on the generated delta;
 - report that schema-v4 merge remains disabled.
 
-### Round 3: normalizer shadow mode
+### Round 3: normalizer-shadow decision mode
 
-Teach the normalizer to parse schema-v4 and report `would_merge` /
-`would_reject` without changing mainline apply behavior.
+Add a schema-v4 normalizer-shadow decision helper under
+`docs/handoff_delta_schema_v4/handoff_delta_normalizer_shadow.py`. The helper
+computes the conservative `would_merge` / `would_reject` decision that a future
+trusted normalizer path would use, but it must not materialize a schema-v4 delta
+or modify `docs/handoff.md`, `experiments/registry.yaml`, generated views,
+`scripts/handoff_authority.py`, `drpo-update`, or `scripts/package_update.py`.
+
+Round 3 deliberately remains outside the production normalizer. The purpose is
+to gather shadow-mode evidence and align decision semantics with the Round-1
+analyzer before any control-plane integration.
 
 ### Round 4: guarded enablement
 
@@ -238,3 +246,26 @@ payload data only. It does not apply the payload to `experiments/registry.yaml`
 or `docs/handoff.md`.
 
 Rollback remains trivial: remove the generator and continue using schema-v3.
+
+## Round 3 tool usage
+
+Round 3 adds `docs/handoff_delta_schema_v4/handoff_delta_normalizer_shadow.py`. Example usage:
+
+```bash
+python docs/handoff_delta_schema_v4/handoff_delta_normalizer_shadow.py   --repo .   --delta /tmp/HANDOFF_DELTA.yaml   --json
+```
+
+The result reports `decision: would_merge` only when all conservative checks pass:
+
+- `schema_version: 4`;
+- `delta_kind: scoped_experiment_update`;
+- `operation.type: register_or_update_experiment`;
+- exactly one experiment scope;
+- `scope.id` exactly matches `operation.experiment_id`;
+- `preimage.experiment_scope_sha256` matches the current repository scope;
+- the Round-1 analyzer also returns `PASS`.
+
+All malformed, multi-scope, stale-preimage, schema-v3, or unsupported deltas are
+reported as `would_reject`. The helper is read-only and always reports
+`schema_v4_merge_enabled: false`. Rollback remains trivial: remove the Round-3
+helper and continue using schema-v3.
