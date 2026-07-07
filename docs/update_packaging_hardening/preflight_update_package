@@ -40,6 +40,7 @@ DELTA_ROOT = "docs/handoff_deltas/"
 DELTA_FILENAME = "HANDOFF_DELTA.yaml"
 HANDOFF_PATH = "docs/handoff.md"
 REGISTRY_PATH = "experiments/registry.yaml"
+SCHEMA_V4_SHADOW_PATH = ROOT / "docs" / "handoff_delta_schema_v4" / "handoff_delta_normalizer_shadow.py"
 
 
 class PreflightError(RuntimeError):
@@ -87,6 +88,16 @@ def load_scope_checker():
     spec = importlib.util.spec_from_file_location("drpo_update_scope_checker", SCOPE_PATH)
     if spec is None or spec.loader is None:
         raise PreflightError(f"cannot load scope checker: {SCOPE_PATH}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def load_schema_v4_shadow():
+    spec = importlib.util.spec_from_file_location("drpo_schema_v4_shadow", SCHEMA_V4_SHADOW_PATH)
+    if spec is None or spec.loader is None:
+        raise PreflightError(f"cannot load schema-v4 shadow checker: {SCHEMA_V4_SHADOW_PATH}")
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
@@ -153,6 +164,7 @@ def validate_delta_metadata(
     report: dict[str, Any] = {
         "changed_delta_files": delta_paths,
         "checked_schema_v3_delta_count": 0,
+        "checked_schema_v4_delta_count": 0,
         "checks": [],
     }
     for path in delta_paths:
@@ -167,12 +179,41 @@ def validate_delta_metadata(
             raise PreflightError(f"handoff delta is invalid YAML: {path}: {exc}") from exc
         if not isinstance(payload, dict):
             raise PreflightError(f"handoff delta must be a mapping: {path}")
-        if payload.get("schema_version") != 3:
+        schema_version = payload.get("schema_version")
+        if schema_version == 4:
+            report["checked_schema_v4_delta_count"] += 1
+            shadow_module = load_schema_v4_shadow()
+            with tempfile.TemporaryDirectory(prefix="drpo-v4-shadow-preflight-") as shadow_tmp:
+                delta_copy = Path(shadow_tmp) / "HANDOFF_DELTA.yaml"
+                delta_copy.write_text(git_show(core, repo, patch_commit, path), encoding="utf-8")
+                decision = shadow_module.shadow_decision(repo, delta_copy)
+            check = {
+                "path": path,
+                "schema_version": 4,
+                "status": "PASS" if decision.get("decision") == "would_merge" else "FAIL",
+                "decision": decision.get("decision"),
+                "reason": decision.get("reason"),
+                "experiment_id": decision.get("experiment_id"),
+                "current_scope_sha256": decision.get("current_scope_sha256"),
+                "expected_scope_sha256": decision.get("expected_scope_sha256"),
+                "conflict_scope": decision.get("conflict_scope"),
+            }
+            report["checks"].append(check)
+            if decision.get("decision") != "would_merge":
+                raise PreflightError(
+                    "schema-v4 scoped delta shadow check would reject during preflight\n"
+                    f"  decision:{decision.get('decision')}\n"
+                    f"  reason:  {decision.get('reason')}\n"
+                    f"  scope:   {decision.get('experiment_id') or decision.get('conflict_scope')}\n"
+                    f"  path:    {path}"
+                )
+            continue
+        if schema_version != 3:
             report["checks"].append(
                 {
                     "path": path,
-                    "schema_version": payload.get("schema_version"),
-                    "status": "skipped_non_v3",
+                    "schema_version": schema_version,
+                    "status": "skipped_unsupported_schema",
                 }
             )
             continue
@@ -473,6 +514,7 @@ def build_selftest_package(repo: Path, stage: Path, output: Path) -> None:
 def run_self_test() -> dict[str, Any]:
     """Exercise the release gate in synthetic repositories without touching main."""
 
+    core = load_core()
     root = Path(tempfile.mkdtemp(prefix="drpo-preflight-selftest-"))
     try:
         repo = root / "repo"
@@ -595,10 +637,116 @@ def run_self_test() -> dict[str, Any]:
         else:
             raise PreflightError("negative self-test did not reject delta base drift")
 
+        # Schema-v4 path: preflight should surface scoped shadow decisions
+        # before a package reaches the production normalizer.  This direct
+        # metadata check stays synthetic and avoids mutating the caller repo.
+        repo_v4 = root / "repo-v4"
+        run_subprocess(["git", "init", "-q", str(repo_v4)])
+        selftest_git(repo_v4, "config", "user.name", "Preflight Self Test")
+        selftest_git(repo_v4, "config", "user.email", "preflight@example.invalid")
+        (repo_v4 / "docs").mkdir()
+        (repo_v4 / "experiments").mkdir()
+        (repo_v4 / "docs" / "handoff.md").write_text(
+            "# Handoff\n\nEXT-C-E8-PREFLIGHT-V4-01 is registered.\n",
+            encoding="utf-8",
+        )
+        (repo_v4 / "experiments" / "registry.yaml").write_text(
+            "schema_version: 2\nexperiments:\n"
+            "- id: EXT-C-E8-PREFLIGHT-V4-01\n"
+            "  status: not_run\n"
+            "  name: preflight v4 fixture\n",
+            encoding="utf-8",
+        )
+        selftest_git(repo_v4, "add", "docs/handoff.md", "experiments/registry.yaml")
+        selftest_git(repo_v4, "commit", "-m", "base")
+        v4_base = selftest_git(repo_v4, "rev-parse", "HEAD")
+        shadow_module = load_schema_v4_shadow()
+        v4_hash, _ = shadow_module.analyzer.experiment_scope_hash(
+            repo_v4,
+            "EXT-C-E8-PREFLIGHT-V4-01",
+        )
+        good_v4_delta = (
+            repo_v4
+            / "docs"
+            / "handoff_deltas"
+            / "V4-PREFLIGHT-GOOD-2026-07-07"
+            / "HANDOFF_DELTA.yaml"
+        )
+        good_v4_delta.parent.mkdir(parents=True)
+        good_v4_delta_text = (
+            "schema_version: 4\n"
+            "delta_kind: scoped_experiment_update\n"
+            "update_id: V4-PREFLIGHT-GOOD-2026-07-07\n"
+            "mode: scoped_candidate\n"
+            "operation:\n"
+            "  type: register_or_update_experiment\n"
+            "  experiment_id: EXT-C-E8-PREFLIGHT-V4-01\n"
+            "scope:\n"
+            "  type: experiment\n"
+            "  id: EXT-C-E8-PREFLIGHT-V4-01\n"
+            "preimage:\n"
+            "  schema: drpo-scoped-experiment-v1\n"
+            "  scope_exists: true\n"
+            f"  experiment_scope_sha256: \"{v4_hash}\"\n"
+            "payload:\n"
+            "  registry_entry:\n"
+            "    id: EXT-C-E8-PREFLIGHT-V4-01\n"
+            "    status: pilot\n"
+            "    name: preflight v4 fixture updated\n"
+        )
+        good_v4_delta.write_text(good_v4_delta_text, encoding="utf-8")
+        selftest_git(repo_v4, "add", str(good_v4_delta.relative_to(repo_v4)))
+        selftest_git(repo_v4, "commit", "-m", "add good v4 delta")
+        good_v4_commit = selftest_git(repo_v4, "rev-parse", "HEAD")
+        v4_report = validate_delta_metadata(
+            core,
+            repo_v4,
+            package_base=v4_base,
+            patch_commit=good_v4_commit,
+        )
+        if v4_report.get("checked_schema_v4_delta_count") != 1:
+            raise PreflightError("schema-v4 self-test did not check exactly one v4 delta")
+        if v4_report["checks"][0].get("decision") != "would_merge":
+            raise PreflightError("schema-v4 positive self-test did not report would_merge")
+
+        selftest_git(repo_v4, "checkout", "-q", v4_base)
+        bad_v4_delta = (
+            repo_v4
+            / "docs"
+            / "handoff_deltas"
+            / "V4-PREFLIGHT-BAD-2026-07-07"
+            / "HANDOFF_DELTA.yaml"
+        )
+        bad_v4_delta.parent.mkdir(parents=True)
+        bad_v4_delta.write_text(
+            good_v4_delta_text.replace(
+                v4_hash,
+                "0" * 64,
+            ).replace("V4-PREFLIGHT-GOOD", "V4-PREFLIGHT-BAD"),
+            encoding="utf-8",
+        )
+        selftest_git(repo_v4, "add", str(bad_v4_delta.relative_to(repo_v4)))
+        selftest_git(repo_v4, "commit", "-m", "add bad v4 delta")
+        bad_v4_commit = selftest_git(repo_v4, "rev-parse", "HEAD")
+        try:
+            validate_delta_metadata(
+                core,
+                repo_v4,
+                package_base=v4_base,
+                patch_commit=bad_v4_commit,
+            )
+        except PreflightError as exc:
+            if "schema-v4 scoped delta shadow check would reject" not in str(exc):
+                raise
+        else:
+            raise PreflightError("schema-v4 negative self-test did not reject bad preimage")
+
         return {
             "status": "PASS",
             "positive_preflight_status": payload["status"],
             "negative_delta_base_drift_rejected": True,
+            "schema_v4_would_merge_reported": True,
+            "schema_v4_bad_preimage_rejected": True,
             "network_used": False,
         }
     finally:

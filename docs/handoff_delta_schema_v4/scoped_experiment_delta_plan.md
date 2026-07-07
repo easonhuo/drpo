@@ -204,8 +204,27 @@ explicit feature flag.
 
 ### Round 5: preflight integration
 
-Extend update-package preflight reports so a scoped conflict is rejected before a
-runnable package is emitted.
+Extend update-package preflight reports so schema-v4 scoped deltas are diagnosed
+before a runnable package is emitted.  Preflight must run the same Round-3
+shadow decision used by the normalizer-shadow helper and include the following
+fields in its `delta_metadata.checks[]` entry:
+
+```text
+path
+schema_version
+status
+decision
+reason
+experiment_id
+current_scope_sha256
+expected_scope_sha256
+conflict_scope
+```
+
+A schema-v4 delta whose shadow decision is not `would_merge` must fail
+preflight.  A valid schema-v4 delta should be reported as `would_merge`, while
+schema-v3 exact-base behavior must remain unchanged.  This round still does not
+wire schema-v4 into the trusted production normalizer path.
 
 ## Rollback
 
