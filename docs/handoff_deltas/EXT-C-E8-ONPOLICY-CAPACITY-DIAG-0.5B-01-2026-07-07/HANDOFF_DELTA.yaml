@@ -1,0 +1,38 @@
+schema_version: 3
+update_id: EXT-C-E8-ONPOLICY-CAPACITY-DIAG-0.5B-01-2026-07-07
+mode: authoritative
+base:
+  commit: 35ed6de0301444135132bef075f8cf8a603883b5
+  handoff_sha256: c6cdb92994d38be88457de48397bcba78abe50d1b31c6c6c84e1ec11846a054b
+  registry_sha256: 68254be2c9c08c50515103c39a9b1f331dff858bfcdd1523f9f1f81d10d3cf87
+renderer_version: 1
+operations:
+- operation_id: append-e8-onpolicy-capacity-diag-gate
+  op: append_to_section
+  heading_path:
+  - 0. 研究与执行原则（每次新会话首先阅读）
+  - 0.1 当前执行门禁
+  block_id: e8-onpolicy-capacity-diag-0p5b-gate
+  content: '- **Countdown E8 on-policy capacity diagnostic 0.5B pilot：**登记 `EXT-C-E8-ONPOLICY-CAPACITY-DIAG-0.5B-01`，作为
+    `EXT-C-E8-ONPOLICY-UNPOLISHED-0.5B-01` 之后的第二层诊断，只回答 same-LoRA continuation 退化是否来自
+    same-adapter drift、LoRA RFT 容量、LoRA SFT 容量或 on-policy 探索/样本多样性不足。第一轮只跑单 seed 的
+    `same_lora_rft / fresh_lora_rft / full_param_rft / full_param_sft_only` 分支并行诊断；单
+    seed 内部 on-policy attempts 仍保持串行。所有 RFT 分支仍为 verifier-correct positive-only，不包含
+    signed negative、taper 方法族或 frozen off-policy replay。固定 sampling attempts 只能报告
+    finite-budget pilot evidence，不得宣称收敛或方法排名；full-param 分支只作 capacity diagnostic，不替代
+    E8-TAPER 方法实验。'
+registry:
+  mode: expected_after
+  exact_base_after_sha256: 55aab3b0480459c9b3c38950982a9ee41e9bc1d40471ecb5a4ae5cd5a76a1b71
+  changes:
+  - change_id: e8-onpolicy-capacity-diag-add-pilot
+    kind: add_entity
+    entity_id: EXT-C-E8-ONPOLICY-CAPACITY-DIAG-0.5B-01
+    evidence:
+    - configs/countdown_e8_onpolicy_capacity_diag_0p5b.yaml
+    - experiments/registry.yaml
+    - src/drpo/countdown_e8_capacity_diag.py
+    - scripts/run_countdown_e8_capacity_diag.py
+    - tests/test_countdown_e8_capacity_diag.py
+expected:
+  exact_base_candidate_sha256: e4982d8b65ede9c8df5575fa37eef1c6acd1f040331fae24badb3d4e87760b0f

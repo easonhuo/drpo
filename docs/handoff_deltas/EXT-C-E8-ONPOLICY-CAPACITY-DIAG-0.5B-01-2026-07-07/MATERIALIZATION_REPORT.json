@@ -1,0 +1,130 @@
+{
+  "current_before_commit": "35ed6de0301444135132bef075f8cf8a603883b5",
+  "current_handoff_before_sha256": "c6cdb92994d38be88457de48397bcba78abe50d1b31c6c6c84e1ec11846a054b",
+  "current_registry_validation": {
+    "assertions": [
+      {
+        "change_id": "e8-onpolicy-capacity-diag-add-pilot",
+        "entity_id": "EXT-C-E8-ONPOLICY-CAPACITY-DIAG-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_onpolicy_capacity_diag_0p5b.yaml",
+            "sha256": "44334ef1bb5e3411b963e0a6035a17021da5bd73d7d310592339ae30242d61f7"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "55aab3b0480459c9b3c38950982a9ee41e9bc1d40471ecb5a4ae5cd5a76a1b71"
+          },
+          {
+            "path": "src/drpo/countdown_e8_capacity_diag.py",
+            "sha256": "af05ecbeb1696131b7e5bf73039e3bbaddce3e30253f1240500eb709e8cd9ab8"
+          },
+          {
+            "path": "scripts/run_countdown_e8_capacity_diag.py",
+            "sha256": "cd6d44b7c446d067703d8679824f9c4a7bfc565988b1aa506f36829da091d55b"
+          },
+          {
+            "path": "tests/test_countdown_e8_capacity_diag.py",
+            "sha256": "44a95d14b5e1a17e02f5ffe9e3ad24a493b0ee47de9dd44fa45444deaba887bb"
+          }
+        ],
+        "kind": "add_entity"
+      }
+    ],
+    "coverage": {
+      "added_entities": [
+        "EXT-C-E8-ONPOLICY-CAPACITY-DIAG-0.5B-01"
+      ],
+      "changed_field_count": 0,
+      "declared_assertion_count": 1,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "delta_sha256": "28253d0c78709105824a243f92551e373aac67563833d74ae371edf7eba9c433",
+  "exact_base_candidate_sha256": "e4982d8b65ede9c8df5575fa37eef1c6acd1f040331fae24badb3d4e87760b0f",
+  "exact_base_registry_validation": {
+    "assertions": [
+      {
+        "change_id": "e8-onpolicy-capacity-diag-add-pilot",
+        "entity_id": "EXT-C-E8-ONPOLICY-CAPACITY-DIAG-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_onpolicy_capacity_diag_0p5b.yaml",
+            "sha256": "44334ef1bb5e3411b963e0a6035a17021da5bd73d7d310592339ae30242d61f7"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "55aab3b0480459c9b3c38950982a9ee41e9bc1d40471ecb5a4ae5cd5a76a1b71"
+          },
+          {
+            "path": "src/drpo/countdown_e8_capacity_diag.py",
+            "sha256": "af05ecbeb1696131b7e5bf73039e3bbaddce3e30253f1240500eb709e8cd9ab8"
+          },
+          {
+            "path": "scripts/run_countdown_e8_capacity_diag.py",
+            "sha256": "cd6d44b7c446d067703d8679824f9c4a7bfc565988b1aa506f36829da091d55b"
+          },
+          {
+            "path": "tests/test_countdown_e8_capacity_diag.py",
+            "sha256": "44a95d14b5e1a17e02f5ffe9e3ad24a493b0ee47de9dd44fa45444deaba887bb"
+          }
+        ],
+        "kind": "add_entity"
+      }
+    ],
+    "coverage": {
+      "added_entities": [
+        "EXT-C-E8-ONPOLICY-CAPACITY-DIAG-0.5B-01"
+      ],
+      "changed_field_count": 0,
+      "declared_assertion_count": 1,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "history_preservation_passed": true,
+  "idempotence_passed": true,
+  "materialized_handoff_after_sha256": "e4982d8b65ede9c8df5575fa37eef1c6acd1f040331fae24badb3d4e87760b0f",
+  "mode": "authoritative",
+  "network_used": false,
+  "policy_id": "GOV-HANDOFF-AUTHORITY-CUTOVER-01",
+  "registry_after_sha256": "55aab3b0480459c9b3c38950982a9ee41e9bc1d40471ecb5a4ae5cd5a76a1b71",
+  "registry_before_sha256": "68254be2c9c08c50515103c39a9b1f331dff858bfcdd1523f9f1f81d10d3cf87",
+  "report_schema_version": 1,
+  "source_base_commit": "35ed6de0301444135132bef075f8cf8a603883b5",
+  "source_patch_commit": "2a82bad7b8dcdb063bb7990ff0ca32bebf15fb44",
+  "stage4a_refresh": {
+    "refreshed": [
+      "docs/handoff_shadow/stage4/minimal/generated/MODULE_INDEX.json",
+      "docs/handoff_shadow/stage4/minimal/generated/STRUCTURE_SUGGESTIONS.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/countdown_e8.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/global_core_governance.md"
+    ],
+    "reused": [
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.dot",
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e5_mechanism.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e6_generalization.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_extrapolation.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_taper.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_mechanism_e1_e3.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/execution_status_gates.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/history_provenance.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/hopper_e7.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/paper_rewrite.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/terminal_audit.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/theory_methods_related_work.md"
+    ]
+  },
+  "status": "PASS",
+  "structural_lint_passed": true,
+  "trusted_engine_sha256": "a6532ba4c1bb9c4af24d79f027267de518c3832b347dba47e8319dee7a3ebe2c",
+  "trusted_policy_sha256": "508f6bbb6ee9bb6da5be041a23e25cd569b95475523bb6af7127cb84ea3466ad",
+  "trusted_renderer_sha256": "39a7566e91c77784822148bb18ae32e44dfcc1745fbdc1cbf14a88ce6c6a13e5",
+  "update_id": "EXT-C-E8-ONPOLICY-CAPACITY-DIAG-0.5B-01-2026-07-07"
+}

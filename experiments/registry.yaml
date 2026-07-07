@@ -5494,6 +5494,117 @@ experiments:
   - do_not_claim_convergence_from_fixed_sampling_attempts
   - do_not_merge_task_performance_degradation_with_nan_inf_failure
 
+- id: EXT-C-E8-ONPOLICY-CAPACITY-DIAG-0.5B-01
+  environment: EXT-C
+  name: countdown_onpolicy_capacity_diagnostic_0p5b
+  status: pilot
+  result_status: not_run
+  claim: >-
+    Diagnose whether the failed same-LoRA on-policy positive-only RFT path is caused by continuing the same SFT LoRA adapter, LoRA capacity during RFT, LoRA capacity during SFT, or narrow on-policy exploration/self-training signal.
+  role: external_validity_onpolicy_capacity_and_exploration_diagnostic
+  execution_class: pilot
+  code_entrypoint: src/drpo/countdown_e8_capacity_diag.py
+  operator_entrypoint: scripts/run_countdown_e8_capacity_diag.py
+  config_entrypoint: configs/countdown_e8_onpolicy_capacity_diag_0p5b.yaml
+  primary_model: Qwen2.5-0.5B-Instruct
+  task: four-number Countdown arithmetic
+  data:
+    generation_seed: 1234
+    train_rows: 6000
+    validation_rows: 500
+    test_rows: 1000
+    source: structural_family_holdout_oracle_countdown_examples
+    split_protocol: park_inspired_pattern_first_family_holdout_capacity_audited
+    split_manifest: data/split_manifest.json
+  methods:
+  - lora_sft_only
+  - same_lora_rft
+  - fresh_lora_rft
+  - full_param_rft
+  - full_param_sft_only
+  excluded_from_experiment:
+  - signed_negative_update
+  - taper_method_family
+  - frozen_offpolicy_replay
+  - method_ranking_claims
+  first_round:
+    seeds: [2026070701]
+    parallel_branches: [same_lora_rft, fresh_lora_rft, full_param_rft, full_param_sft_only]
+    single_seed_attempts_remain_sequential: true
+    branch_workers_parallel: true
+  confirmation:
+    candidate_seeds: [2026070701, 2026070702, 2026070703]
+    activation_rule: only branches that show useful first-round signal should be promoted to paired confirmation; do not automatically run all branches at full scale
+  reference_adapter:
+    default_mode: train_lora_sft_from_registered_structural_train_split
+    explicit_reuse_allowed: true
+    merged_lora_sft_model: created locally for fresh-LoRA and full-param RFT diagnostics; model weights are not stored in Git update packages
+  policy_update:
+    uses_negative_updates: false
+    uses_taper_methods: false
+    uses_frozen_offpolicy_replay: false
+    verifier_correct_only: true
+    branch_parameterizations:
+      same_lora_rft: continue existing SFT LoRA adapter
+      fresh_lora_rft: merge SFT LoRA then train a fresh LoRA adapter
+      full_param_rft: merge SFT LoRA then train all parameters
+      full_param_sft_only: train SFT with all parameters and do not run RFT
+  finite_budget:
+    sampling_attempts: 300
+    prompts_per_attempt: 4
+    rollouts_per_prompt: 8
+    fixed_attempt_budget_not_convergence: true
+  metrics:
+  - validation_greedy_success
+  - validation_pass_at_8
+  - validation_pass_at_16
+  - validation_pass_at_32
+  - validation_pass_at_64
+  - test_greedy_success
+  - test_pass_at_8
+  - test_pass_at_16
+  - test_pass_at_32
+  - test_pass_at_64
+  - selected_correct_rate
+  - unique_correct_expressions
+  - unique_correct_ratio
+  - mean_unique_correct_per_prompt
+  - skipped_attempt_fraction
+  - optimizer_steps_completed
+  terminal_audit:
+    required: true
+    separates:
+    - task_performance_degradation
+    - verifier_signal_sparsity_or_skipped_attempts
+    - valid_structure_boundary
+    - nan_inf_numerical_failure
+    - capacity_diagnostic_branch_role
+  interpretation_rules:
+    fresh_lora_rft_beats_same_lora: supports same-adapter continuation drift/saturation as a likely cause
+    full_param_rft_beats_lora_branches: supports RFT-stage LoRA update-space limitation
+    full_param_sft_only_beats_lora_sft_only: supports SFT-stage LoRA limitation
+    all_branches_fail_to_beat_lora_sft: points toward exploration signal narrowness, objective/self-training collapse, or 0.5B task ceiling rather than only offline replay staleness
+  execution_gate:
+    current_status: implemented_ready_not_run
+    readiness_basis: Capacity diagnostic config, branch-parallel runner, guarded launcher, exploration diagnostics, and unit tests are implemented.
+    blocked_by: []
+  artifact_outputs:
+  - RUN_COMPLETE.json
+  - terminal_audit.json
+  - scientific_run_manifest.json
+  - capacity_diag_summary.csv
+  - preparation_manifest.json
+  - methods/*/*/summary.json
+  - methods/*/*/selected_positives.jsonl
+  - methods/full_param_sft_only/summary.json
+  - data/split_manifest.json
+  safeguards:
+  - do_not_call_single_seed_pilot_formal_result
+  - do_not_compare_taper_methods_in_this_experiment
+  - do_not_claim_convergence_from_fixed_sampling_attempts
+  - do_not_merge_task_performance_degradation_with_nan_inf_failure
+  - do_not_store_model_weights_in_update_package
+
 development_experiment_registrations:
 - id: D-U1-E6-CONDITIONAL-GAP-DEV-01
   environment: D-U1

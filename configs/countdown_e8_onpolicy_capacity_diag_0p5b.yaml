@@ -1,0 +1,91 @@
+experiment_id: EXT-C-E8-ONPOLICY-CAPACITY-DIAG-0.5B-01
+result_status: pilot
+primary_model: Qwen2.5-0.5B-Instruct
+methods:
+  - lora_sft_only
+  - same_lora_rft
+  - fresh_lora_rft
+  - full_param_rft
+  - full_param_sft_only
+model:
+  memory_mode: bf16
+  load_in_4bit: false
+  dtype: bf16
+  max_length: 256
+  max_new_tokens: 80
+data:
+  generation_seed: 1234
+  train_rows: 6000
+  validation_rows: 500
+  test_rows: 1000
+  numbers_per_problem: 4
+  split_protocol: structural_family_holdout
+reference:
+  lora_sft_seed: 2026070700
+  lora_sft_epochs: 6
+  lora_sft_min_epochs: 3
+  lora_sft_early_stop_patience: 2
+  lora_sft_learning_rate: 2.0e-4
+  lora_sft_gradient_accumulation: 32
+  lora_sft_micro_batch: 2
+  lora_sft_warmup_ratio: 0.05
+  lora_sft_max_gradient_norm: 1.0
+  full_sft_seed: 2026070710
+  full_sft_epochs: 4
+  full_sft_min_epochs: 2
+  full_sft_early_stop_patience: 1
+  full_sft_learning_rate: 5.0e-6
+  full_sft_gradient_accumulation: 16
+  full_sft_micro_batch: 1
+  full_sft_warmup_ratio: 0.03
+  full_sft_max_gradient_norm: 1.0
+  validation_examples: 500
+  evaluation_batch_size: 8
+  pass_at_k: 8
+  evaluation_seed: 2026070790
+  selection_metric: pass_at_k
+  selection_delta: 0.0
+  log_every_updates: 20
+  external_lora_sft_adapter_reuse_allowed: true
+onpolicy_training:
+  diagnostic_seed: 2026070701
+  confirmation_seeds: [2026070701, 2026070702, 2026070703]
+  first_round_seeds: [2026070701]
+  sampling_attempts: 300
+  prompts_per_attempt: 4
+  rollouts_per_prompt: 8
+  max_correct_per_prompt: 1
+  learning_rate:
+    same_lora_rft: 1.0e-5
+    fresh_lora_rft: 1.0e-5
+    full_param_rft: 2.0e-6
+  gradient_accumulation: 1
+  max_gradient_norm: 1.0
+  sampling_temperature: 0.8
+  sampling_top_p: 0.95
+  log_every_attempts: 10
+  eval_every_attempts: 50
+evaluation:
+  validation_examples: 500
+  test_examples: 1000
+  batch_size: 8
+  pass_ks: [8, 16, 32, 64]
+  selection_metric: pass_at_8
+  selection_delta: 0.0
+  seed: 2026070791
+  test_seed: 2026070792
+exploration_diagnostics:
+  enabled: true
+  selected_reference_surprisal_sample_size: 256
+  diversity_normalize_whitespace: true
+parallel:
+  enabled: true
+  default_gpu_ids: [0, 1, 2, 3]
+  max_workers: 4
+  serial_fallback: true
+scope_guards:
+  uses_negative_updates: false
+  uses_taper_methods: false
+  uses_frozen_offpolicy_replay: false
+  full_param_branches_are_capacity_diagnostics_only: true
+  fixed_attempt_budget_not_convergence: true

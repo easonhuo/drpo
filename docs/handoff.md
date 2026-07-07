@@ -868,6 +868,9 @@
 - Hopper/D4RL：`EXT-H-E7-Q2` 是 E7-MECH，runner/config 已实现但 formal launch 仍等待受控 taper 阶段交付；`EXT-H-E7-BENCH-01` 是 D4RL MuJoCo locomotion 9-task 方法效果表，等待 E7-MECH 与受控方法 shortlist 冻结。
 - Countdown：`EXT-C-E8-V4.2` 是当前 E8-MECH/pilot；`EXT-C-E8-V4.1` 仅保留 provenance；`EXT-C-E8-SCALE-01` 是更大固定数据与模型规模验证，等待 E8-MECH 和 E7-BENCH。
 
+<!-- HANDOFF-DELTA-BLOCK:section_end:e8-onpolicy-capacity-diag-0p5b-gate:START -->
+- **Countdown E8 on-policy capacity diagnostic 0.5B pilot：**登记 `EXT-C-E8-ONPOLICY-CAPACITY-DIAG-0.5B-01`，作为 `EXT-C-E8-ONPOLICY-UNPOLISHED-0.5B-01` 之后的第二层诊断，只回答 same-LoRA continuation 退化是否来自 same-adapter drift、LoRA RFT 容量、LoRA SFT 容量或 on-policy 探索/样本多样性不足。第一轮只跑单 seed 的 `same_lora_rft / fresh_lora_rft / full_param_rft / full_param_sft_only` 分支并行诊断；单 seed 内部 on-policy attempts 仍保持串行。所有 RFT 分支仍为 verifier-correct positive-only，不包含 signed negative、taper 方法族或 frozen off-policy replay。固定 sampling attempts 只能报告 finite-budget pilot evidence，不得宣称收敛或方法排名；full-param 分支只作 capacity diagnostic，不替代 E8-TAPER 方法实验。
+<!-- HANDOFF-DELTA-BLOCK:section_end:e8-onpolicy-capacity-diag-0p5b-gate:END -->
 <!-- HANDOFF-DELTA-BLOCK:section_end:e8-onpolicy-unpolished-0p5b-gate:START -->
 - **Countdown E8 on-policy unpolished 0.5B pilot：**登记 `EXT-C-E8-ONPOLICY-UNPOLISHED-0.5B-01`，仅作为 0.5B + same-LoRA continuation 是否能从当前 policy 自采样 verifier-correct completion 继续学习的排除项诊断。第一版只允许 `sft_only` 与 `onpolicy_rft_positive_only`，不包含 full-param、fresh-LoRA、signed negative、taper 方法族或 frozen off-policy replay；数据 split 使用当前 Countdown structural family-holdout 协议。SFT 可通过显式路径复用已训练 LoRA adapter，但必须记录 provenance，且不改变 same-LoRA continuation 口径；固定 sampling attempts 只能报告 finite-budget pilot evidence，不得宣称收敛或方法排名。
 <!-- HANDOFF-DELTA-BLOCK:section_end:e8-onpolicy-unpolished-0p5b-gate:END -->
