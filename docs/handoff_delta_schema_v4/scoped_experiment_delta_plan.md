@@ -269,3 +269,37 @@ All malformed, multi-scope, stale-preimage, schema-v3, or unsupported deltas are
 reported as `would_reject`. The helper is read-only and always reports
 `schema_v4_merge_enabled: false`. Rollback remains trivial: remove the Round-3
 helper and continue using schema-v3.
+
+## Round 4 controlled materialization refinement
+
+Round 4 introduces an experimental scoped materializer, not a production default.
+The materializer remains outside the `drpo-update` normalizer path and requires
+both `--apply` and `DRPO_ENABLE_SCHEMA_V4_SCOPED_DELTA=1` before it writes any
+authority files. Without both gates, it can only dry-run the Round-3 shadow
+decision.
+
+The first Round-4 review found an important scope-boundary issue: hashing a few
+neighboring handoff lines around an experiment id could make an unrelated
+adjacent handoff edit look like same-scope drift. Round 4 therefore tightens
+handoff scope extraction:
+
+```text
+1. Prefer a machine-managed schema-v4 block:
+   <!-- SCHEMA-V4-SCOPED-EXPERIMENT:<experiment_id>:START -->
+   ...
+   <!-- SCHEMA-V4-SCOPED-EXPERIMENT:<experiment_id>:END -->
+
+2. If no such block exists, hash only the exact lines mentioning the experiment
+   id, not neighboring context.
+
+3. If block markers are unbalanced or out of order, fail closed.
+```
+
+This keeps the original safety rule while reducing false same-scope conflicts.
+Same experiment-id changes still reject stale deltas; unrelated experiment-id
+changes should remain mergeable in shadow/dry-run checks.
+
+Round 4 still does not enable production scoped merge. Its success criterion is
+limited to demonstrating that a schema-v4 single-experiment delta can be safely
+materialized under an explicit local gate, while default behavior remains
+shadow-only.

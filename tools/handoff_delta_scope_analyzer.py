@@ -87,34 +87,52 @@ def registry_entry_for(repo: Path, experiment_id: str) -> Any:
     return matches[0] if matches else MISSING
 
 
-def handoff_material_for(repo: Path, experiment_id: str, *, context: int = 2) -> Any:
+def handoff_material_for(repo: Path, experiment_id: str) -> Any:
     handoff_path = repo / "docs" / "handoff.md"
     if not handoff_path.is_file():
         return MISSING
-    lines = handoff_path.read_text(encoding="utf-8").splitlines()
-    hit_indices = [i for i, line in enumerate(lines) if experiment_id in line]
-    if not hit_indices:
+    text = handoff_path.read_text(encoding="utf-8")
+    lines = text.splitlines()
+
+    # Round-4 tightening: machine-managed schema-v4 blocks are the preferred
+    # handoff scope boundary.  Older fallback extraction deliberately hashes only
+    # the exact lines mentioning the experiment id; hashing neighboring context
+    # made unrelated adjacent handoff edits look like same-scope drift.
+    marker_prefix = "SCHEMA-V4-SCOPED-EXPERIMENT"
+    start_marker = f"<!-- {marker_prefix}:{experiment_id}:START -->"
+    end_marker = f"<!-- {marker_prefix}:{experiment_id}:END -->"
+    start_idx = text.find(start_marker)
+    end_idx = text.find(end_marker)
+    if (start_idx == -1) != (end_idx == -1):
+        raise AnalyzerError(f"handoff block markers for {experiment_id} are unbalanced")
+    if start_idx != -1 and end_idx != -1:
+        if end_idx < start_idx:
+            raise AnalyzerError(f"handoff block markers for {experiment_id} are out of order")
+        block_end = end_idx + len(end_marker)
+        return {
+            "match_mode": "schema_v4_block",
+            "match_count": 1,
+            "snippets": [
+                {
+                    "start_line": text[:start_idx].count("\n") + 1,
+                    "end_line": text[:block_end].count("\n") + 1,
+                    "text": text[start_idx:block_end],
+                }
+            ],
+        }
+
+    matched_lines = [
+        {"line": idx + 1, "text": line}
+        for idx, line in enumerate(lines)
+        if experiment_id in line
+    ]
+    if not matched_lines:
         return MISSING
-
-    ranges: list[tuple[int, int]] = []
-    for idx in hit_indices:
-        start = max(0, idx - context)
-        end = min(len(lines), idx + context + 1)
-        if ranges and start <= ranges[-1][1]:
-            ranges[-1] = (ranges[-1][0], max(ranges[-1][1], end))
-        else:
-            ranges.append((start, end))
-
-    snippets = []
-    for start, end in ranges:
-        snippets.append(
-            {
-                "start_line": start + 1,
-                "end_line": end,
-                "text": "\n".join(lines[start:end]),
-            }
-        )
-    return {"match_count": len(hit_indices), "snippets": snippets}
+    return {
+        "match_mode": "exact_lines",
+        "match_count": len(matched_lines),
+        "lines": matched_lines,
+    }
 
 
 def experiment_scope_material(repo: Path, experiment_id: str) -> dict[str, Any]:
