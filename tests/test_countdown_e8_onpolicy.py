@@ -129,6 +129,51 @@ def test_select_correct_completions_uses_verifier_and_deduplicates() -> None:
     assert selected[0]["prompt_id"] == "p0"
 
 
+
+
+def test_temporary_generation_context_disables_checkpointing_and_restores_state() -> None:
+    class Config:
+        use_cache = False
+
+    class FakeModel:
+        def __init__(self) -> None:
+            self.config = Config()
+            self.training = True
+            self.is_gradient_checkpointing = True
+            self.disable_calls = 0
+            self.enable_calls = 0
+            self.input_grad_calls = 0
+
+        def gradient_checkpointing_disable(self) -> None:
+            self.disable_calls += 1
+            self.is_gradient_checkpointing = False
+
+        def gradient_checkpointing_enable(self) -> None:
+            self.enable_calls += 1
+            self.is_gradient_checkpointing = True
+
+        def enable_input_require_grads(self) -> None:
+            self.input_grad_calls += 1
+
+        def eval(self) -> None:
+            self.training = False
+
+        def train(self) -> None:
+            self.training = True
+
+    model = FakeModel()
+    with module._temporary_generation_context(model):
+        assert model.is_gradient_checkpointing is False
+        assert model.config.use_cache is True
+        assert model.training is False
+    assert model.is_gradient_checkpointing is True
+    assert model.config.use_cache is False
+    assert model.training is True
+    assert model.disable_calls == 1
+    assert model.enable_calls == 1
+    assert model.input_grad_calls == 1
+
+
 def test_terminal_audit_separates_signal_sparsity_from_numerical_failure() -> None:
     audit = module.terminal_audit(
         [

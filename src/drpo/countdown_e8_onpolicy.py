@@ -20,12 +20,13 @@ import argparse
 import csv
 import hashlib
 import json
+from contextlib import contextmanager
 import math
 import os
 import random
 import shutil
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Iterator, Mapping, Sequence
 
 import torch
 import yaml
@@ -380,6 +381,59 @@ def _collate_positive_examples(
     return arena.pad_encoded(encoded, tokenizer.pad_token_id)
 
 
+def _set_model_use_cache(model: Any, value: bool | None) -> bool | None:
+    config = getattr(model, "config", None)
+    if config is None or not hasattr(config, "use_cache"):
+        return None
+    previous = bool(getattr(config, "use_cache"))
+    if value is not None:
+        setattr(config, "use_cache", bool(value))
+    return previous
+
+
+def _checkpointing_enabled(model: Any) -> bool:
+    for candidate in (model, getattr(model, "base_model", None), getattr(model, "model", None)):
+        value = getattr(candidate, "is_gradient_checkpointing", None)
+        if isinstance(value, bool):
+            return value
+        if callable(value):
+            return bool(value())
+    return False
+
+
+def _call_checkpointing(model: Any, method_name: str) -> bool:
+    for candidate in (model, getattr(model, "base_model", None), getattr(model, "model", None)):
+        method = getattr(candidate, method_name, None)
+        if callable(method):
+            method()
+            return True
+    return False
+
+
+@contextmanager
+def _temporary_generation_context(model: Any) -> Iterator[None]:
+    """Use fast generation settings without leaking them into training."""
+    was_training = bool(getattr(model, "training", False))
+    previous_use_cache = _set_model_use_cache(model, True)
+    disabled_checkpointing = False
+    if _checkpointing_enabled(model):
+        disabled_checkpointing = _call_checkpointing(model, "gradient_checkpointing_disable")
+    try:
+        model.eval()
+        yield
+    finally:
+        if previous_use_cache is not None:
+            _set_model_use_cache(model, previous_use_cache)
+        if disabled_checkpointing:
+            _call_checkpointing(model, "gradient_checkpointing_enable")
+            if was_training and hasattr(model, "enable_input_require_grads"):
+                model.enable_input_require_grads()
+        if was_training:
+            model.train()
+        else:
+            model.eval()
+
+
 def _evaluate_model(
     model: Any,
     tokenizer: Any,
@@ -389,15 +443,57 @@ def _evaluate_model(
 ) -> dict[str, float]:
     eval_cfg = config["evaluation"]
     model_cfg = config["model"]
-    return arena.evaluate_rows(
-        model,
-        tokenizer,
-        list(rows)[: int(eval_cfg["examples"])],
-        int(eval_cfg["batch_size"]),
-        int(model_cfg["max_new_tokens"]),
-        int(eval_cfg["pass_at_k"]),
-        seed,
+    eval_rows = list(rows)[: int(eval_cfg["examples"])]
+    batch_size = int(eval_cfg["batch_size"])
+    total_batches = math.ceil(len(eval_rows) / max(batch_size, 1))
+    weighted = {"greedy_success": 0.0, "pass_at_k": 0.0, "valid_rate": 0.0}
+    print(
+        json.dumps(
+            {
+                "stage": "evaluation",
+                "event": "start",
+                "n_eval": len(eval_rows),
+                "batch_size": batch_size,
+                "pass_k": int(eval_cfg["pass_at_k"]),
+                "total_batches": total_batches,
+            }
+        ),
+        flush=True,
     )
+    with _temporary_generation_context(model):
+        for batch_index, start in enumerate(range(0, len(eval_rows), batch_size), start=1):
+            chunk = eval_rows[start : start + batch_size]
+            metrics = arena.evaluate_rows(
+                model,
+                tokenizer,
+                chunk,
+                batch_size,
+                int(model_cfg["max_new_tokens"]),
+                int(eval_cfg["pass_at_k"]),
+                seed + batch_index,
+            )
+            n_eval = float(metrics["n_eval"])
+            for key in weighted:
+                weighted[key] += float(metrics[key]) * n_eval
+            processed = start + len(chunk)
+            if batch_index % 10 == 0 or batch_index == total_batches:
+                print(
+                    json.dumps(
+                        {
+                            "stage": "evaluation",
+                            "event": "progress",
+                            "batch": batch_index,
+                            "total_batches": total_batches,
+                            "processed": processed,
+                        }
+                    ),
+                    flush=True,
+                )
+    denom = float(max(len(eval_rows), 1))
+    result = {key: value / denom for key, value in weighted.items()}
+    result["n_eval"] = float(len(eval_rows))
+    print(json.dumps({"stage": "evaluation", "event": "complete", **result}), flush=True)
+    return result
 
 
 def _cosine_warmup_scheduler(
@@ -580,16 +676,17 @@ def train_onpolicy_positive_only(
 
     for attempt, prompt_indices in enumerate(plan, start=1):
         rows = [prompt_pool[index] for index in prompt_indices]
-        outputs = arena.generate_outputs(
-            model,
-            tokenizer,
-            [row["prompt"] for row in rows],
-            int(model_cfg["max_new_tokens"]),
-            True,
-            float(train_cfg["temperature"]),
-            float(train_cfg["top_p"]),
-            int(train_cfg["rollouts_per_prompt"]),
-        )
+        with _temporary_generation_context(model):
+            outputs = arena.generate_outputs(
+                model,
+                tokenizer,
+                [row["prompt"] for row in rows],
+                int(model_cfg["max_new_tokens"]),
+                True,
+                float(train_cfg["temperature"]),
+                float(train_cfg["top_p"]),
+                int(train_cfg["rollouts_per_prompt"]),
+            )
         positives: list[dict[str, Any]] = []
         prompts_with_positive = 0
         for row, completions in zip(rows, outputs):
