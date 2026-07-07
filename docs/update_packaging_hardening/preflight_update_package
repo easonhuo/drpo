@@ -1,0 +1,583 @@
+#!/usr/bin/env python3
+"""Dry-run a DRPO update package through source integration and handoff normalization.
+
+This is a release gate, not an applicator: it never fast-forwards ``main``, never
+pushes, and intentionally does not run package or repository test commands.  It
+catches package-structure, bundle/patch equivalence, exact-base delta metadata,
+three-way integration, and trusted handoff normalization failures before a
+runnable-looking package is handed to a user.
+"""
+from __future__ import annotations
+
+import argparse
+import importlib.util
+import json
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+import zipfile
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Sequence
+
+import yaml
+
+
+def find_repo_root(start: Path) -> Path:
+    for candidate in (start, *start.parents):
+        if (candidate / "tools" / "drpo-update" / "drpo_update.py").is_file():
+            return candidate
+    raise RuntimeError("could not locate DRPO repository root from script path")
+
+
+ROOT = find_repo_root(Path(__file__).resolve())
+CORE_PATH = ROOT / "tools" / "drpo-update" / "drpo_update.py"
+DELTA_ROOT = "docs/handoff_deltas/"
+DELTA_FILENAME = "HANDOFF_DELTA.yaml"
+HANDOFF_PATH = "docs/handoff.md"
+REGISTRY_PATH = "experiments/registry.yaml"
+
+
+class PreflightError(RuntimeError):
+    """Expected preflight validation failure."""
+
+
+@dataclass
+class PreflightReport:
+    package: str
+    repository: str
+    status: str = "started"
+    package_base: str | None = None
+    current_head: str | None = None
+    patch_commit: str | None = None
+    integration_mode: str | None = None
+    source_integrated_commit_pre_normalization: str | None = None
+    normalized_candidate_commit: str | None = None
+    handoff_normalization: dict[str, Any] | None = None
+    delta_metadata: dict[str, Any] = field(default_factory=dict)
+    error: str | None = None
+    failure_phase: str | None = None
+    timings_seconds: dict[str, float] = field(default_factory=dict)
+    created_at_unix: int = field(default_factory=lambda: int(time.time()))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "schema_version": 1,
+            "gate": "drpo-update-package-preflight-v1",
+            **self.__dict__,
+        }
+
+
+def load_core():
+    spec = importlib.util.spec_from_file_location("drpo_update_preflight_core", CORE_PATH)
+    if spec is None or spec.loader is None:
+        raise PreflightError(f"cannot load updater core: {CORE_PATH}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def sha256_text(text: str) -> str:
+    import hashlib
+
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def git_text(core: Any, repo: Path, *args: str) -> str:
+    return core.git_text(repo, *args)
+
+
+def git_show(core: Any, repo: Path, commit: str, path: str) -> str:
+    proc = core.git(repo, "show", f"{commit}:{path}", check=False)
+    if proc.returncode != 0:
+        raise PreflightError(
+            f"required file is unavailable at {commit}: {path}\n"
+            + (proc.stderr or proc.stdout or "").strip()
+        )
+    return proc.stdout
+
+
+def changed_paths(core: Any, repo: Path, base: str, patch_commit: str) -> dict[str, str]:
+    proc = core.git(
+        repo,
+        "diff",
+        "--name-status",
+        "--find-renames",
+        f"{base}..{patch_commit}",
+    )
+    result: dict[str, str] = {}
+    for line in proc.stdout.splitlines():
+        if not line.strip():
+            continue
+        parts = line.split("\t")
+        result[parts[-1]] = parts[0]
+    return result
+
+
+def validate_delta_metadata(
+    core: Any,
+    repo: Path,
+    *,
+    package_base: str,
+    patch_commit: str,
+) -> dict[str, Any]:
+    """Validate the exact-base metadata most likely to drift during rebases.
+
+    The trusted normalizer remains the source of truth for full schema-v3
+    semantics.  This lightweight pre-check produces clearer early failures for
+    the repeated class of package-base / delta-base / hash drift bugs.
+    """
+
+    changed = changed_paths(core, repo, package_base, patch_commit)
+    delta_paths = sorted(
+        path
+        for path in changed
+        if path.startswith(DELTA_ROOT) and path.endswith(f"/{DELTA_FILENAME}")
+    )
+    report: dict[str, Any] = {
+        "changed_delta_files": delta_paths,
+        "checked_schema_v3_delta_count": 0,
+        "checks": [],
+    }
+    for path in delta_paths:
+        status = changed[path]
+        if not status.startswith("A"):
+            raise PreflightError(
+                f"handoff delta is not newly added and immutable: {path} ({status})"
+            )
+        try:
+            payload = yaml.safe_load(git_show(core, repo, patch_commit, path))
+        except yaml.YAMLError as exc:
+            raise PreflightError(f"handoff delta is invalid YAML: {path}: {exc}") from exc
+        if not isinstance(payload, dict):
+            raise PreflightError(f"handoff delta must be a mapping: {path}")
+        if payload.get("schema_version") != 3:
+            report["checks"].append(
+                {
+                    "path": path,
+                    "schema_version": payload.get("schema_version"),
+                    "status": "skipped_non_v3",
+                }
+            )
+            continue
+        report["checked_schema_v3_delta_count"] += 1
+        base = payload.get("base")
+        if not isinstance(base, dict):
+            raise PreflightError(f"schema-v3 delta is missing base mapping: {path}")
+        delta_base = base.get("commit")
+        if delta_base != package_base:
+            raise PreflightError(
+                "schema-v3 delta base commit differs from package base\n"
+                f"  delta:  {delta_base}\n"
+                f"  package:{package_base}\n"
+                f"  path:   {path}"
+            )
+        base_handoff = git_show(core, repo, package_base, HANDOFF_PATH)
+        base_registry = git_show(core, repo, package_base, REGISTRY_PATH)
+        actual_handoff = sha256_text(base_handoff)
+        actual_registry = sha256_text(base_registry)
+        if base.get("handoff_sha256") != actual_handoff:
+            raise PreflightError(
+                "schema-v3 delta base.handoff_sha256 is not reproducible\n"
+                f"  expected:{base.get('handoff_sha256')}\n"
+                f"  actual:  {actual_handoff}\n"
+                f"  path:    {path}"
+            )
+        if base.get("registry_sha256") != actual_registry:
+            raise PreflightError(
+                "schema-v3 delta base.registry_sha256 is not reproducible\n"
+                f"  expected:{base.get('registry_sha256')}\n"
+                f"  actual:  {actual_registry}\n"
+                f"  path:    {path}"
+            )
+        registry = payload.get("registry")
+        if isinstance(registry, dict) and registry.get("mode") == "expected_after":
+            source_registry = git_show(core, repo, patch_commit, REGISTRY_PATH)
+            actual_after = sha256_text(source_registry)
+            if registry.get("exact_base_after_sha256") != actual_after:
+                raise PreflightError(
+                    "schema-v3 delta registry.exact_base_after_sha256 is not reproducible\n"
+                    f"  expected:{registry.get('exact_base_after_sha256')}\n"
+                    f"  actual:  {actual_after}\n"
+                    f"  path:    {path}"
+                )
+        report["checks"].append(
+            {
+                "path": path,
+                "schema_version": 3,
+                "status": "PASS",
+                "base_commit": delta_base,
+                "base_handoff_sha256": actual_handoff,
+                "base_registry_sha256": actual_registry,
+            }
+        )
+    return report
+
+
+
+
+def conflict_paths(core: Any, worktree: Path) -> list[str]:
+    proc = core.git(worktree, "diff", "--name-only", "--diff-filter=U", check=False)
+    return [line for line in proc.stdout.splitlines() if line.strip()]
+
+
+def create_silent_integration_commit(
+    core: Any,
+    worktree: Path,
+    package: Any,
+    current: str,
+    base: str,
+    patch_commit: str,
+    message: str,
+) -> str:
+    """Mirror drpo-update source integration without printing Git commit output."""
+
+    if patch_commit:
+        proc = core.git(worktree, "cherry-pick", patch_commit, check=False, capture=True)
+        if proc.returncode != 0:
+            detail = (proc.stderr or proc.stdout).strip()
+            conflicts = conflict_paths(core, worktree)
+            raise PreflightError(
+                "three-way cherry-pick failed during preflight; main was not modified"
+                + (f"; conflicts={conflicts}" if conflicts else "")
+                + (f"\n{detail}" if detail else "")
+            )
+        core.git(worktree, "commit", "--amend", "--reset-author", "-m", message)
+    else:
+        if current != base:
+            raise PreflightError(
+                "bundle base is stale and the package has no change.bundle; regenerate once"
+            )
+        proc = core.git(worktree, "apply", "--index", str(package.patch_file), check=False)
+        if proc.returncode != 0:
+            raise PreflightError(f"git apply failed:\n{(proc.stderr or proc.stdout).strip()}")
+        core.git(
+            worktree,
+            "-c",
+            "user.name=drpo-update",
+            "-c",
+            "user.email=drpo-update@local.invalid",
+            "commit",
+            "-m",
+            message,
+        )
+    return git_text(core, worktree, "rev-parse", "HEAD")
+
+
+def assert_clean_repo(core: Any, repo: Path) -> None:
+    top = Path(git_text(core, repo, "rev-parse", "--show-toplevel")).resolve()
+    if top != repo.resolve():
+        raise PreflightError(f"repo must be the Git toplevel: {repo}")
+    if git_text(core, repo, "status", "--porcelain"):
+        raise PreflightError("repository has uncommitted changes; preflight requires a clean tree")
+
+
+def run_preflight(repo: Path, package_source: Path, *, report_path: Path | None = None) -> dict[str, Any]:
+    core = load_core()
+    repo = Path(git_text(core, repo, "rev-parse", "--show-toplevel")).resolve()
+    package_source = package_source.expanduser().resolve()
+    report = PreflightReport(package=str(package_source), repository=str(repo))
+    temp_root = Path(tempfile.mkdtemp(prefix="drpo-package-preflight-"))
+    logs_dir = temp_root / "logs"
+    integration_worktree: Path | None = None
+    integration_branch: str | None = None
+    phase = "repository_preflight"
+    started = time.perf_counter()
+    try:
+        step_started = time.perf_counter()
+        assert_clean_repo(core, repo)
+        report.timings_seconds[phase] = round(time.perf_counter() - step_started, 6)
+
+        phase = "package_extract"
+        step_started = time.perf_counter()
+        package = core.extract_package(package_source, temp_root)
+        report.timings_seconds[phase] = round(time.perf_counter() - step_started, 6)
+
+        phase = "base_resolution"
+        step_started = time.perf_counter()
+        current = git_text(core, repo, "rev-parse", "HEAD")
+        base_requested = core.read_full_sha(package.base_file, "BASE_COMMIT.txt")
+        base = core.resolve_commit(repo, base_requested, "BASE_COMMIT.txt")
+        report.current_head = current
+        report.package_base = base
+        ancestry = core.git(repo, "merge-base", "--is-ancestor", base, current, check=False)
+        if ancestry.returncode != 0:
+            raise PreflightError(
+                "BASE_COMMIT.txt is not an ancestor of current HEAD; release preflight cannot rebase it"
+            )
+        report.timings_seconds[phase] = round(time.perf_counter() - step_started, 6)
+
+        phase = "bundle_verification"
+        step_started = time.perf_counter()
+        if not package.has_git_bundle:
+            raise PreflightError("production preflight requires a bundle-backed package")
+        patch_commit = core.verify_bundle_and_patch(repo, package, base, temp_root)
+        report.patch_commit = patch_commit
+        report.timings_seconds[phase] = round(time.perf_counter() - step_started, 6)
+
+        phase = "delta_metadata"
+        step_started = time.perf_counter()
+        report.delta_metadata = validate_delta_metadata(
+            core,
+            repo,
+            package_base=base,
+            patch_commit=patch_commit,
+        )
+        report.timings_seconds[phase] = round(time.perf_counter() - step_started, 6)
+
+        phase = "integration"
+        step_started = time.perf_counter()
+        integration_worktree, integration_branch = core.prepare_integration_worktree(
+            repo,
+            current,
+            temp_root,
+        )
+        message = core.summary_title(package.summary_file)
+        integrated = create_silent_integration_commit(
+            core,
+            integration_worktree,
+            package,
+            current,
+            base,
+            patch_commit,
+            message,
+        )
+        report.integration_mode = (
+            "git-bundle-three-way" if current != base else "git-bundle-exact-base"
+        )
+        report.source_integrated_commit_pre_normalization = integrated
+        report.timings_seconds[phase] = round(time.perf_counter() - step_started, 6)
+
+        phase = "handoff_normalization"
+        step_started = time.perf_counter()
+        apply_report = core.ApplyReport(package=str(package_source), repository=str(repo))
+        normalized = core.run_handoff_normalization(
+            repo,
+            integration_worktree,
+            current=current,
+            base=base,
+            source_patch_commit=patch_commit,
+            report=apply_report,
+            log_dir=logs_dir,
+        )
+        report.normalized_candidate_commit = normalized
+        report.handoff_normalization = apply_report.handoff_normalization
+        report.timings_seconds[phase] = round(time.perf_counter() - step_started, 6)
+
+        report.status = "PASS"
+        report.timings_seconds["total"] = round(time.perf_counter() - started, 6)
+        payload = report.to_dict()
+        if report_path:
+            report_path.parent.mkdir(parents=True, exist_ok=True)
+            report_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+        return payload
+    except (core.UpdateError, PreflightError, OSError, zipfile.BadZipFile) as exc:
+        report.status = "FAIL"
+        report.error = str(exc)
+        report.failure_phase = phase
+        report.timings_seconds["total"] = round(time.perf_counter() - started, 6)
+        payload = report.to_dict()
+        if report_path:
+            report_path.parent.mkdir(parents=True, exist_ok=True)
+            report_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+        raise PreflightError(str(exc)) from exc
+    finally:
+        if integration_worktree is not None:
+            core.remove_worktree(repo, integration_worktree)
+        if integration_branch is not None:
+            core.git(repo, "branch", "-D", integration_branch, check=False)
+        shutil.rmtree(temp_root, ignore_errors=True)
+
+
+
+def run_subprocess(command: Sequence[str], *, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
+    proc = subprocess.run(
+        list(command),
+        cwd=cwd,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if proc.returncode != 0:
+        raise PreflightError(
+            f"self-test command failed ({proc.returncode}): {' '.join(command)}\n"
+            f"stdout={proc.stdout}\nstderr={proc.stderr}"
+        )
+    return proc
+
+
+def selftest_git(repo: Path, *args: str) -> str:
+    return run_subprocess(["git", "-C", str(repo), *args]).stdout.strip()
+
+
+def build_selftest_package(repo: Path, stage: Path, output: Path) -> None:
+    run_subprocess(
+        [
+            sys.executable,
+            str(ROOT / "scripts" / "package_update.py"),
+            "--repo",
+            str(repo),
+            "--package-root",
+            str(stage),
+            "--output",
+            str(output),
+        ]
+    )
+
+
+def run_self_test() -> dict[str, Any]:
+    """Exercise the release gate in synthetic repositories without touching main."""
+
+    root = Path(tempfile.mkdtemp(prefix="drpo-preflight-selftest-"))
+    try:
+        repo = root / "repo"
+        run_subprocess(["git", "init", "-q", str(repo)])
+        selftest_git(repo, "config", "user.name", "Preflight Self Test")
+        selftest_git(repo, "config", "user.email", "preflight@example.invalid")
+        (repo / "tracked.txt").write_text("before\n")
+        selftest_git(repo, "add", "tracked.txt")
+        selftest_git(repo, "commit", "-m", "base")
+        base = selftest_git(repo, "rev-parse", "HEAD")
+
+        # Positive path: bundle-backed package dry-runs through integration and
+        # normalization, while the repository HEAD and worktree remain unchanged.
+        (repo / "tracked.txt").write_text("after\n")
+        patch = selftest_git(repo, "diff", "--binary") + "\n"
+        (repo / "tracked.txt").write_text("before\n")
+        stage = root / "stage-pass"
+        (stage / "modified_files").mkdir(parents=True)
+        (stage / "BASE_COMMIT.txt").write_text(base + "\n")
+        (stage / "update.patch").write_text(patch)
+        (stage / "CHANGE_SUMMARY.md").write_text("# Preflight self-test update\n")
+        tests = stage / "TEST_COMMANDS.sh"
+        tests.write_text("#!/usr/bin/env bash\nset -euo pipefail\ntest -f tracked.txt\n")
+        tests.chmod(0o755)
+        (stage / "modified_files" / "tracked.txt").write_text("after\n")
+        package_path = root / "pass.zip"
+        build_selftest_package(repo, stage, package_path)
+        before = selftest_git(repo, "rev-parse", "HEAD")
+        payload = run_preflight(repo, package_path)
+        if payload["status"] != "PASS":
+            raise PreflightError("positive self-test preflight did not PASS")
+        if selftest_git(repo, "rev-parse", "HEAD") != before:
+            raise PreflightError("positive self-test modified repository HEAD")
+        if selftest_git(repo, "status", "--porcelain"):
+            raise PreflightError("positive self-test left repository dirty")
+
+        # Negative path: catch the exact recurring failure class before running
+        # the trusted normalizer.
+        repo_bad = root / "repo-bad"
+        run_subprocess(["git", "init", "-q", str(repo_bad)])
+        selftest_git(repo_bad, "config", "user.name", "Preflight Self Test")
+        selftest_git(repo_bad, "config", "user.email", "preflight@example.invalid")
+        (repo_bad / "docs").mkdir()
+        (repo_bad / "docs" / "handoff.md").write_text("# Handoff\n")
+        (repo_bad / "experiments").mkdir()
+        (repo_bad / "experiments" / "registry.yaml").write_text("experiments: []\n")
+        selftest_git(repo_bad, "add", "docs/handoff.md", "experiments/registry.yaml")
+        selftest_git(repo_bad, "commit", "-m", "base")
+        bad_base = selftest_git(repo_bad, "rev-parse", "HEAD")
+        delta = (
+            repo_bad
+            / "docs"
+            / "handoff_deltas"
+            / "BAD-DELTA-2026-07-07"
+            / "HANDOFF_DELTA.yaml"
+        )
+        delta.parent.mkdir(parents=True)
+        bad_delta_text = (
+            "schema_version: 3\n"
+            "update_id: BAD-DELTA-2026-07-07\n"
+            "mode: authoritative\n"
+            "base:\n"
+            f"  commit: {'0' * 40}\n"
+            "  handoff_sha256: 0000000000000000000000000000000000000000000000000000000000000000\n"
+            "  registry_sha256: 0000000000000000000000000000000000000000000000000000000000000000\n"
+        )
+        delta.write_text(bad_delta_text)
+        selftest_git(repo_bad, "add", "-N", "docs/handoff_deltas/BAD-DELTA-2026-07-07/HANDOFF_DELTA.yaml")
+        bad_patch = selftest_git(repo_bad, "diff", "--binary") + "\n"
+        selftest_git(repo_bad, "reset", "--quiet")
+        delta.unlink()
+        delta.parent.rmdir()
+        delta.parent.parent.rmdir()
+        bad_stage = root / "stage-bad"
+        bad_target = (
+            bad_stage
+            / "modified_files"
+            / "docs"
+            / "handoff_deltas"
+            / "BAD-DELTA-2026-07-07"
+        )
+        bad_target.mkdir(parents=True)
+        (bad_stage / "BASE_COMMIT.txt").write_text(bad_base + "\n")
+        (bad_stage / "update.patch").write_text(bad_patch)
+        (bad_stage / "CHANGE_SUMMARY.md").write_text("# Bad preflight self-test update\n")
+        bad_tests = bad_stage / "TEST_COMMANDS.sh"
+        bad_tests.write_text("#!/usr/bin/env bash\nset -euo pipefail\ntrue\n")
+        bad_tests.chmod(0o755)
+        (bad_target / "HANDOFF_DELTA.yaml").write_text(bad_delta_text)
+        bad_package = root / "bad.zip"
+        build_selftest_package(repo_bad, bad_stage, bad_package)
+        try:
+            run_preflight(repo_bad, bad_package)
+        except PreflightError as exc:
+            if "schema-v3 delta base commit differs from package base" not in str(exc):
+                raise
+        else:
+            raise PreflightError("negative self-test did not reject delta base drift")
+
+        return {
+            "status": "PASS",
+            "positive_preflight_status": payload["status"],
+            "negative_delta_base_drift_rejected": True,
+            "network_used": False,
+        }
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+
+def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--repo", type=Path, default=Path.cwd())
+    parser.add_argument("--package", type=Path)
+    parser.add_argument("--report", type=Path)
+    parser.add_argument("--json", action="store_true")
+    parser.add_argument("--self-test", action="store_true")
+    args = parser.parse_args(argv)
+    if not args.self_test and args.package is None:
+        parser.error("--package is required unless --self-test is used")
+    return args
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    args = parse_args(argv)
+    try:
+        if args.self_test:
+            payload = run_self_test()
+        else:
+            assert args.package is not None
+            payload = run_preflight(args.repo.resolve(), args.package.resolve(), report_path=args.report)
+    except PreflightError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
+    if args.json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    elif args.self_test:
+        print("DRPO update package preflight self-test: PASS")
+    else:
+        print("DRPO update package preflight: PASS")
+        print(f"Base: {payload['package_base']}")
+        print(f"Patch commit: {payload['patch_commit']}")
+        print(f"Integration mode: {payload['integration_mode']}")
+        normalization = payload.get("handoff_normalization") or {}
+        print(f"Handoff normalization: {normalization.get('normalization', normalization.get('mode'))}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
