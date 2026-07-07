@@ -80,8 +80,8 @@ stages:
       sha256: 495949359c37fd1f58ec95981838f34e48b464e164e4066646199336c7795ec9
       authorized_by: GOV-STAGE5-CANDIDATE-IMPLEMENTATION-2026-07-01
     - path: scripts/package_update.py
-      sha256: c1adf8a162d9ce596d610326ff3103bc00ee108ea89cc7e86ee4f74390083a52
-      authorized_by: GOV-PIPELINE-STAGE12-CLOSURE-2026-06-27
+      sha256: 92618a62bac395b269bcff187dd28052e25e1931a9dd25772d64797d49fbc177
+      authorized_by: GOV-STAGE1-PACKAGE-PREFLIGHT-GATE-2026-07-07
     - path: scripts/verify_update_package.py
       sha256: 245a969c9baa87a5690b2571b7aa07527e452a79464a591a363bfd78882e5a46
       authorized_by: GOV-PIPELINE-STAGE12-CLOSURE-2026-06-27
