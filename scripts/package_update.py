@@ -24,6 +24,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 BUNDLE_BUILDER = ROOT / "scripts" / "create_update_git_bundle.py"
 PACKAGE_VERIFIER = ROOT / "scripts" / "verify_update_package.py"
+PACKAGE_PREFLIGHT = ROOT / "docs" / "update_packaging_hardening" / "preflight_update_package"
 REQUIRED = {
     "BASE_COMMIT.txt",
     "update.patch",
@@ -265,8 +266,102 @@ def write_zip(root: Path, output: Path) -> None:
         temp.unlink(missing_ok=True)
 
 
-def build(repo: Path, package_root: Path, output: Path, message: str | None) -> str:
+def failure_report_paths(output: Path) -> tuple[Path, Path]:
+    output = output.expanduser().resolve()
+    return (
+        output.with_name(f"{output.name}.preflight-failed.json"),
+        output.with_name(f"{output.name}.preflight-failed.md"),
+    )
+
+
+def clear_failure_reports(output: Path) -> None:
+    for path in failure_report_paths(output):
+        path.unlink(missing_ok=True)
+
+
+def write_failure_reports(
+    output: Path,
+    *,
+    title: str,
+    detail: str,
+    stdout: str,
+    stderr: str,
+) -> None:
+    json_path, md_path = failure_report_paths(output)
+    json_path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "schema_version": 1,
+        "status": "FAIL",
+        "title": title,
+        "detail": detail,
+        "stdout": stdout,
+        "stderr": stderr,
+    }
+    json_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+    md_path.write_text(
+        f"# {title}\n\n"
+        f"{detail.strip() or 'No detail was provided.'}\n\n"
+        "## stdout\n\n"
+        "```text\n" + (stdout.strip() or "<empty>") + "\n```\n\n"
+        "## stderr\n\n"
+        "```text\n" + (stderr.strip() or "<empty>") + "\n```\n",
+        encoding="utf-8",
+    )
+
+
+def repo_supports_release_preflight(repo: Path) -> bool:
+    return (repo / "tools" / "drpo-update" / "drpo_update.py").is_file()
+
+
+def run_package_preflight(
+    repo: Path,
+    package_path: Path,
+    *,
+    report_path: Path | None = None,
+    failure_output: Path | None = None,
+) -> None:
+    if not PACKAGE_PREFLIGHT.is_file():
+        raise PackageBuildError(
+            f"package preflight helper is missing: {PACKAGE_PREFLIGHT}"
+        )
+    command = [
+        sys.executable,
+        str(PACKAGE_PREFLIGHT),
+        "--repo",
+        str(repo),
+        "--package",
+        str(package_path),
+        "--json",
+    ]
+    if report_path is not None:
+        command.extend(["--report", str(report_path)])
+    proc = run(command, check=False)
+    if proc.returncode != 0:
+        write_failure_reports(
+            failure_output or package_path,
+            title="DRPO update package preflight failed",
+            detail="Runnable package was not emitted because release preflight failed.",
+            stdout=proc.stdout,
+            stderr=proc.stderr,
+        )
+        raise PackageBuildError(
+            "release preflight failed; runnable package was not emitted:\n"
+            + (proc.stderr or proc.stdout).strip()
+        )
+
+
+def build(
+    repo: Path,
+    package_root: Path,
+    output: Path,
+    message: str | None,
+    *,
+    unsafe_skip_preflight: bool = False,
+) -> str:
     repo = Path(git_text(repo, "rev-parse", "--show-toplevel"))
+    output = output.expanduser().resolve()
+    temp_output = output.with_name(f".{output.stem}.tmp-preflight-{os.getpid()}.zip")
+    temp_report = temp_output.with_name(f"{temp_output.name}.preflight.json")
     validate_staging(package_root)
     base = (package_root / "BASE_COMMIT.txt").read_text().strip()
     if git(repo, "rev-parse", f"{base}^{{commit}}", check=False).stdout.strip() != base:
@@ -287,25 +382,65 @@ def build(repo: Path, package_root: Path, output: Path, message: str | None) -> 
         patch_commit=patch_commit,
         changed=changed,
     )
-    write_zip(package_root, output)
-    verify = run(
-        [
-            sys.executable,
-            str(PACKAGE_VERIFIER),
-            "--repo",
-            str(repo),
-            "--package",
-            str(output.expanduser().resolve()),
-        ],
-        check=False,
-    )
-    if verify.returncode != 0:
-        output.expanduser().resolve().unlink(missing_ok=True)
-        raise PackageBuildError(
-            "canonical package verification failed:\n"
-            + (verify.stderr or verify.stdout).strip()
+
+    temp_output.unlink(missing_ok=True)
+    temp_report.unlink(missing_ok=True)
+    try:
+        write_zip(package_root, temp_output)
+        verify = run(
+            [
+                sys.executable,
+                str(PACKAGE_VERIFIER),
+                "--repo",
+                str(repo),
+                "--package",
+                str(temp_output),
+            ],
+            check=False,
         )
-    return patch_commit
+        if verify.returncode != 0:
+            write_failure_reports(
+                output,
+                title="DRPO update package verification failed",
+                detail="Runnable package was not emitted because canonical package verification failed.",
+                stdout=verify.stdout,
+                stderr=verify.stderr,
+            )
+            raise PackageBuildError(
+                "canonical package verification failed; runnable package was not emitted:\n"
+                + (verify.stderr or verify.stdout).strip()
+            )
+        if unsafe_skip_preflight or not repo_supports_release_preflight(repo):
+            reason = (
+                "UNSAFE: release preflight was explicitly skipped."
+                if unsafe_skip_preflight
+                else "UNSAFE: release preflight was skipped for a non-DRPO synthetic repository."
+            )
+            write_failure_reports(
+                output,
+                title="DRPO update package preflight skipped",
+                detail=(
+                    f"{reason} This package must not be treated as a fully gated "
+                    "runnable package."
+                ),
+                stdout="",
+                stderr="",
+            )
+        else:
+            run_package_preflight(
+                repo,
+                temp_output,
+                report_path=temp_report,
+                failure_output=output,
+            )
+            clear_failure_reports(output)
+        output.parent.mkdir(parents=True, exist_ok=True)
+        os.replace(temp_output, output)
+        return patch_commit
+    except Exception:
+        temp_output.unlink(missing_ok=True)
+        temp_report.unlink(missing_ok=True)
+        raise
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -314,6 +449,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--package-root", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--message")
+    parser.add_argument(
+        "--unsafe-skip-preflight",
+        action="store_true",
+        help=(
+            "UNSAFE: emit a package without release preflight. This is intended "
+            "only for synthetic/bootstrap tests and marks the output as not fully gated."
+        ),
+    )
     return parser.parse_args(argv)
 
 
@@ -325,6 +468,7 @@ def main(argv: list[str] | None = None) -> int:
             args.package_root.resolve(),
             args.output,
             args.message,
+            unsafe_skip_preflight=args.unsafe_skip_preflight,
         )
     except PackageBuildError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
