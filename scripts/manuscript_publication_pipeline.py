@@ -9,6 +9,7 @@ roles, and experiment rules are supplied by project contracts and profiles.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import re
 import subprocess
@@ -32,6 +33,8 @@ class Paths:
     output: Path
     quality_profile: Path | None = None
     project_profile: Path | None = None
+    skills_root: Path | None = None
+    disable_skill_library: bool = False
 
 
 def read_yaml(path: Path) -> dict[str, Any]:
@@ -401,8 +404,61 @@ def validate_prose(
     return errors, trace, overlap
 
 
+def _load_skill_library_builder() -> Any:
+    module_path = Path(__file__).resolve().parent / "manuscript_skill_library.py"
+    if not module_path.is_file():
+        return None
+    spec = importlib.util.spec_from_file_location(
+        "manuscript_skill_library_runtime", module_path
+    )
+    if spec is None or spec.loader is None:
+        raise PublicationQualityError(f"cannot load skill library helper: {module_path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def load_skill_obligations(paths: Paths, task_types: list[str]) -> dict[str, Any]:
+    if paths.disable_skill_library:
+        return {
+            "schema_version": 1,
+            "status": "DISABLED",
+            "mode": "disabled",
+            "task_types": task_types,
+            "obligations_by_task": {},
+        }
+    skills_root = paths.skills_root or (paths.root / "docs/manuscript/skills")
+    if not skills_root.is_dir():
+        return {
+            "schema_version": 1,
+            "status": "UNAVAILABLE",
+            "mode": "not_configured",
+            "skills_root": str(skills_root),
+            "task_types": task_types,
+            "obligations_by_task": {},
+        }
+    module = _load_skill_library_builder()
+    if module is None:
+        return {
+            "schema_version": 1,
+            "status": "UNAVAILABLE",
+            "mode": "helper_missing",
+            "skills_root": str(skills_root),
+            "task_types": task_types,
+            "obligations_by_task": {},
+        }
+    try:
+        return module.build_obligations_report(skills_root, paths.project_profile, task_types)
+    except module.SkillLibraryError as exc:
+        raise PublicationQualityError(f"skill library validation failed: {exc}") from exc
+
+
 def prompt_packet(
-    node: dict[str, Any], quality: dict[str, Any], contract: dict[str, Any]
+    node: dict[str, Any],
+    quality: dict[str, Any],
+    contract: dict[str, Any],
+    skill_obligations: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     bp = node["blueprint"]
     units: list[dict[str, Any]] = []
@@ -432,7 +488,8 @@ def prompt_packet(
             f"Reader question: {node['reader_question']}",
             f"Outline claim: {node['claim']}",
             f"Word budget: {bp['word_budget'][0]}-{bp['word_budget'][1]}",
-            "Realize every sentence unit in order. Do not collapse definition, result, interpretation, limitation, and transition into one summary sentence.",
+            "Realize every sentence unit in order. Do not collapse definition, result, "
+            "interpretation, limitation, and transition into one summary sentence.",
             *[
                 f"- {unit['sid']} [{unit['role']} | {','.join(unit['generic_functions'])}]: "
                 f"{unit['instruction']} Anchors={unit['anchors']}"
@@ -446,14 +503,18 @@ def prompt_packet(
             f"Reviewer objection: {bp.get('reviewer_objection', '')}",
             f"Required response: {bp.get('objection_response', '')}",
             f"Transition: {bp.get('transition', '')}",
-            "Never import a claim, entity, theorem sequence, experimental narrative, or wording from a reference exemplar unless it is independently registered above.",
+            "Never import a claim, entity, theorem sequence, experimental narrative, "
+            "or wording from a reference exemplar unless it is independently registered above.",
         ]
     )
     return {
         "schema_version": 2,
         "id": node["id"],
         "title": node["title"],
-        "quality_requirements": {"prompt_principles": principles},
+        "quality_requirements": {
+            "prompt_principles": principles,
+            "skill_obligations": skill_obligations or {},
+        },
         "project_content": {
             "outline_claim": node["claim"],
             "reader_question": node["reader_question"],
@@ -524,7 +585,8 @@ def render_blueprint(nodes: Iterable[dict[str, Any]], contract: dict[str, Any], 
         lines.extend(
             [
                 f"- Citations: {', '.join(bp.get('citation_refs', [])) or 'none'}",
-                f"- Theorem/equation refs: {', '.join(bp.get('theorem_or_equation_refs', [])) or 'none'}",
+                "- Theorem/equation refs: "
+                f"{', '.join(bp.get('theorem_or_equation_refs', [])) or 'none'}",
                 f"- Appendix bindings: {', '.join(bp.get('appendix_bindings', [])) or 'none'}",
                 f"- Reviewer objection: {bp['reviewer_objection']}",
                 f"- Response: {bp['objection_response']}",
@@ -552,7 +614,9 @@ def build(paths: Paths, generator_cmd: str | None = None) -> dict[str, Any]:
     graph = read_yaml(paths.graph)
     contract, quality, project = load_bundle(paths)
     nodes = selected_nodes(graph, contract)
-    packets = [prompt_packet(node, quality, contract) for node in nodes]
+    skill_report = load_skill_obligations(paths, ["paragraph_blueprint", "prose_generation"])
+    prose_obligations = skill_report.get("obligations_by_task", {}).get("prose_generation", {})
+    packets = [prompt_packet(node, quality, contract, prose_obligations) for node in nodes]
     generated: dict[str, str] = {}
     if generator_cmd:
         for packet in packets:
@@ -567,6 +631,7 @@ def build(paths: Paths, generator_cmd: str | None = None) -> dict[str, Any]:
             "engine": "domain-agnostic-publication-quality",
             "quality_profile": quality.get("profile"),
             "project_id": project.get("project_id"),
+            "skill_library": skill_report,
             "packets": packets,
         },
     )
@@ -576,6 +641,8 @@ def build(paths: Paths, generator_cmd: str | None = None) -> dict[str, Any]:
         "generated_count": len(generated),
         "quality_profile": quality.get("profile"),
         "project_id": project.get("project_id"),
+        "skill_library_status": skill_report.get("status"),
+        "skill_library_mode": skill_report.get("mode"),
     }
 
 
@@ -583,6 +650,7 @@ def validate(paths: Paths) -> dict[str, Any]:
     graph = read_yaml(paths.graph)
     contract, quality, project = load_bundle(paths)
     nodes = selected_nodes(graph, contract)
+    skill_report = load_skill_obligations(paths, ["claim_evidence_audit", "prose_generation"])
     roles = contract.get("required_roles")
     if not isinstance(roles, dict):
         raise PublicationQualityError("project contract required_roles must be a mapping")
@@ -635,6 +703,7 @@ def validate(paths: Paths) -> dict[str, Any]:
         "node_count": len(nodes),
         "status": "PASS" if not errors else "FAIL",
         "architecture_separation": "PASS",
+        "skill_library": skill_report,
         "nodes": node_reports,
         "errors": errors,
     }
@@ -656,6 +725,8 @@ def make_paths(args: argparse.Namespace) -> Paths:
         output=(root / args.output).resolve(),
         quality_profile=(root / args.quality_profile).resolve() if args.quality_profile else None,
         project_profile=(root / args.project_profile).resolve() if args.project_profile else None,
+        skills_root=(root / args.skills_root).resolve() if args.skills_root else None,
+        disable_skill_library=bool(args.disable_skill_library),
     )
 
 
@@ -670,6 +741,8 @@ def parser() -> argparse.ArgumentParser:
     ap.add_argument("--quality-profile", type=Path)
     ap.add_argument("--project-profile", type=Path)
     ap.add_argument("--output", type=Path, default=Path("paper/publication_quality_v1"))
+    ap.add_argument("--skills-root", type=Path, default=Path("docs/manuscript/skills"))
+    ap.add_argument("--disable-skill-library", action="store_true")
     ap.add_argument("--generator-cmd")
     return ap
 

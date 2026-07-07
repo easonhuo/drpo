@@ -1,0 +1,45 @@
+schema_version: 1
+schema_id: manuscript-writing-skill-v1
+required_fields:
+  - skill_id
+  - name
+  - scope
+  - applies_to
+  - rule
+  - required_steps
+  - checks
+  - failure_modes
+  - severity
+allowed_scopes:
+  - core
+  - domain
+allowed_severities:
+  - blocking
+  - important
+  - advisory
+task_types:
+  - outline_planning
+  - section_planning
+  - logic_map
+  - paragraph_blueprint
+  - prose_generation
+  - prose_compression
+  - method_section
+  - experiment_section
+  - related_work
+  - figure_caption
+  - formula_display
+  - citation_audit
+  - claim_evidence_audit
+  - latex_render_review
+  - interactive_revision
+field_contract:
+  skill_id: stable dotted identifier prefixed by the skill scope, such as core.section_contract
+  name: short human-readable name
+  scope: core or domain; project-specific rules live in the project profile, not here
+  applies_to: non-empty list of task types from this schema
+  rule.summary: one-sentence operational rule
+  required_steps: non-empty list of actions the executor must consider
+  checks: non-empty list of validation questions or checks
+  failure_modes: non-empty list of common defects this skill detects
+  severity: blocking, important, or advisory

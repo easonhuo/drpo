@@ -1,0 +1,63 @@
+schema_version: 1
+router_id: manuscript-writing-task-router-v1
+routing:
+  outline_planning:
+    core: [core.section_contract, core.logic_map_first, core.one_function_per_unit, core.claim_evidence_binding, core.rival_explanation]
+    domain: []
+    project_obligations: [project.claim_boundary]
+  section_planning:
+    core: [core.section_contract, core.logic_map_first, core.one_function_per_unit, core.main_appendix_delete_triage]
+    domain: []
+    project_obligations: [project.claim_boundary]
+  logic_map:
+    core: [core.section_contract, core.logic_map_first, core.rival_explanation]
+    domain: []
+    project_obligations: []
+  paragraph_blueprint:
+    core: [core.section_contract, core.logic_map_first, core.one_function_per_unit, core.claim_evidence_binding, core.old_before_new_flow]
+    domain: [rl.theory_method_object_chain]
+    project_obligations: [project.claim_boundary]
+  prose_generation:
+    core: [core.section_contract, core.logic_map_first, core.one_function_per_unit, core.claim_evidence_binding, core.old_before_new_flow, core.terminology_claim_boundary]
+    domain: [rl.mechanism_vs_performance, rl.controlled_vs_external, rl.theory_method_object_chain]
+    project_obligations: [project.claim_boundary, project.terminology_rules]
+  prose_compression:
+    core: [core.one_function_per_unit, core.main_appendix_delete_triage, core.completeness_before_compression, core.sentence_function_audit]
+    domain: []
+    project_obligations: [project.claim_boundary]
+  method_section:
+    core: [core.section_contract, core.logic_map_first, core.method_comparison_axis, core.formula_display_value, core.claim_evidence_binding]
+    domain: [rl.baseline_family_by_control_object, rl.theory_method_object_chain]
+    project_obligations: [project.method_identity_boundaries]
+  experiment_section:
+    core: [core.claim_evidence_binding, core.rival_explanation, core.terminology_claim_boundary]
+    domain: [rl.mechanism_vs_performance, rl.controlled_vs_external, rl.terminal_evidence_for_dynamic_claims, rl.best_vs_terminal_checkpoint, rl.negative_or_inconclusive_results]
+    project_obligations: [project.experiment_role_boundaries]
+  related_work:
+    core: [core.section_contract, core.method_comparison_axis, core.rival_explanation, core.old_before_new_flow]
+    domain: [rl.baseline_family_by_control_object]
+    project_obligations: [project.positioning_boundaries]
+  figure_caption:
+    core: [core.one_function_per_unit, core.claim_evidence_binding, core.old_before_new_flow]
+    domain: [rl.mechanism_vs_performance]
+    project_obligations: [project.figure_claim_boundary]
+  formula_display:
+    core: [core.formula_display_value, core.main_appendix_delete_triage]
+    domain: [rl.theory_method_object_chain]
+    project_obligations: [project.method_identity_boundaries]
+  citation_audit:
+    core: [core.claim_evidence_binding, core.terminology_claim_boundary]
+    domain: [rl.mechanism_vs_performance, rl.controlled_vs_external]
+    project_obligations: [project.citation_boundary]
+  claim_evidence_audit:
+    core: [core.claim_evidence_binding, core.rival_explanation, core.terminology_claim_boundary]
+    domain: [rl.mechanism_vs_performance, rl.controlled_vs_external, rl.terminal_evidence_for_dynamic_claims, rl.theory_method_object_chain]
+    project_obligations: [project.claim_boundary]
+  latex_render_review:
+    core: [core.formula_display_value]
+    domain: []
+    project_obligations: []
+  interactive_revision:
+    core: [core.section_contract, core.logic_map_first, core.sentence_function_audit, core.completeness_before_compression, core.terminology_claim_boundary]
+    domain: [rl.negative_or_inconclusive_results]
+    project_obligations: [project.claim_boundary]

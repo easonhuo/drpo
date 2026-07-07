@@ -49,9 +49,15 @@ def prepare_root(tmp_path: Path) -> Path:
     return tmp_path
 
 
-def test_repository_front_four_quality_gate_passes() -> None:
+def test_repository_front_four_quality_gate_passes(tmp_path: Path) -> None:
     module = load_module()
-    result = module.validate(paths_for(module, ROOT))
+    paths = module.Paths(
+        root=ROOT,
+        graph=ROOT / "docs/manuscript/paper_graph.yaml",
+        contract=ROOT / "docs/manuscript/publication_quality_contract.yaml",
+        output=tmp_path / "publication_quality_v1",
+    )
+    result = module.validate(paths)
     assert result["status"] == "PASS"
     assert result["node_count"] == 16
     assert all(node["trace"] for node in result["nodes"])

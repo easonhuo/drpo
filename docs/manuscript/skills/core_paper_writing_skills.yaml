@@ -1,0 +1,254 @@
+schema_version: 1
+scope: core
+skills:
+  - skill_id: core.section_contract
+    name: Section Contract First
+    scope: core
+    applies_to: [outline_planning, section_planning, paragraph_blueprint, prose_generation, interactive_revision]
+    trigger_phrases: [section planning, logic plan, paragraph plan, rewrite this section]
+    rule:
+      summary: Before prose, define the unit's unique task, reader question, and non-goals.
+    required_steps:
+      - define the unit's single primary task
+      - state the reader question that this unit must answer
+      - list adjacent topics that this unit must not solve
+    checks:
+      - the unit has one primary task rather than several competing tasks
+      - background, method, evidence, and discussion are not collapsed into one move
+      - non-goals prevent scope expansion during prose generation
+    failure_modes:
+      - introduction-like expansion
+      - repeated background
+      - prose before contract
+    severity: blocking
+
+  - skill_id: core.logic_map_first
+    name: Logic Map Before Prose
+    scope: core
+    applies_to: [outline_planning, section_planning, logic_map, paragraph_blueprint, prose_generation]
+    trigger_phrases: [logic map, outline, section plan, before writing]
+    rule:
+      summary: Expose the reasoning chain before drafting language.
+    required_steps:
+      - write the ordered logic map before prose
+      - identify jumps, repetitions, and misplaced objects in the map
+      - derive paragraph functions from the approved map
+    checks:
+      - every step follows from the previous step
+      - no step introduces an object that the unit never uses
+      - the prose implements the approved map rather than replacing it
+    failure_modes:
+      - hidden logical jump
+      - misplaced setup
+      - prose-level patch over structural mismatch
+    severity: blocking
+
+  - skill_id: core.one_function_per_unit
+    name: One Function Per Unit
+    scope: core
+    applies_to: [outline_planning, section_planning, paragraph_blueprint, prose_generation, prose_compression]
+    trigger_phrases: [too much in one paragraph, mixed purpose, paragraph function]
+    rule:
+      summary: Each paper unit should perform one rhetorical move at its own level.
+    required_steps:
+      - assign exactly one dominant function to each section, paragraph, and sentence unit
+      - split or compress content when several functions compete
+      - preserve transitions without turning them into new claims
+    checks:
+      - the paragraph does not simultaneously define, prove, compare, preview, and summarize
+      - sentence roles are distinguishable
+      - transitions serve the next unit instead of smuggling in a new unit
+    failure_modes:
+      - multi-purpose paragraph
+      - summary sentence pretending to be evidence
+      - transition overload
+    severity: important
+
+  - skill_id: core.main_appendix_delete_triage
+    name: Main Appendix Delete Triage
+    scope: core
+    applies_to: [paragraph_blueprint, prose_generation, prose_compression, interactive_revision]
+    trigger_phrases: [appendix, delete, too long, necessary]
+    rule:
+      summary: Classify each content block as main-argument essential, appendix support, or removable clutter.
+    required_steps:
+      - keep only main-argument prerequisites in the main text
+      - move derivations and exhaustive settings to appendix material
+      - delete correct but locally non-functional content
+    checks:
+      - each main-text block advances the unit's task
+      - appendix moves do not remove a premise needed by the main conclusion
+      - removed content is not required by a later claim
+    failure_modes:
+      - correct but non-functional detail
+      - proof detail in narrative text
+      - premise removed during compression
+    severity: important
+
+  - skill_id: core.method_comparison_axis
+    name: Method Comparison Axis First
+    scope: core
+    applies_to: [method_section, paragraph_blueprint, prose_generation, interactive_revision]
+    trigger_phrases: [baseline, compare methods, ablation, method family]
+    rule:
+      summary: Organize method comparisons by the shared comparison axis before naming individual alternatives.
+    required_steps:
+      - define the common design space
+      - state the comparison axis
+      - describe each method by how it changes the axis
+    checks:
+      - alternatives are not listed as an unordered catalog
+      - the comparison axis serves the paper's argument
+      - the reader can tell what differs and what is controlled
+    failure_modes:
+      - baseline shopping list
+      - incomparable alternatives
+      - method description disconnected from the claim
+    severity: important
+
+  - skill_id: core.formula_display_value
+    name: Formula Display Value
+    scope: core
+    applies_to: [formula_display, method_section, paragraph_blueprint, prose_generation, latex_render_review]
+    trigger_phrases: [formula, equation, number this, display math]
+    rule:
+      summary: Display and number formulas only when their reading value justifies the visual weight.
+    required_steps:
+      - decide whether the formula is a main result, bridge relation, or auxiliary notation
+      - display main results and cited bridge relations
+      - keep auxiliary notation inline when it does not need later reference
+    checks:
+      - displayed equations are referenced or essential to the argument
+      - obvious algebraic variants are explained in prose instead of duplicated
+      - line length and two-column layout are safe
+    failure_modes:
+      - over-numbered auxiliary equations
+      - formula block that interrupts the argument
+      - visually heavy restatement
+    severity: important
+
+  - skill_id: core.completeness_before_compression
+    name: Completeness Before Compression
+    scope: core
+    applies_to: [prose_generation, prose_compression, interactive_revision]
+    trigger_phrases: [shorten, compress, concise, too verbose]
+    rule:
+      summary: First preserve the scientific chain, then run a separate compression pass.
+    required_steps:
+      - verify that all premises required by the conclusion are present
+      - remove repeated explanations before removing new information
+      - move supporting detail rather than deleting needed support
+    checks:
+      - compression does not break claim support
+      - the first deletion target is repetition, not evidence
+      - the compressed text still answers the reader question
+    failure_modes:
+      - concise but unsupported claim
+      - deleted premise
+      - shortened text with worse logic
+    severity: blocking
+
+  - skill_id: core.claim_evidence_binding
+    name: Claim Evidence Binding
+    scope: core
+    applies_to: [outline_planning, paragraph_blueprint, prose_generation, claim_evidence_audit, citation_audit]
+    trigger_phrases: [claim, evidence, can we say, audit]
+    rule:
+      summary: Every claim must bind to its evidence source, evidence status, allowed conclusion, and forbidden conclusion.
+    required_steps:
+      - identify the type of claim being made
+      - bind the claim to an explicit source of evidence
+      - state what conclusion is allowed and what overclaim is forbidden
+    checks:
+      - preliminary evidence is not written as a final result
+      - mechanism evidence is not used as task evidence without a bridge
+      - external evidence is not used as causal identification by itself
+    failure_modes:
+      - evidence-status inflation
+      - claim category swap
+      - unsupported universality
+    severity: blocking
+
+  - skill_id: core.rival_explanation
+    name: Strongest Rival Explanation
+    scope: core
+    applies_to: [outline_planning, paragraph_blueprint, prose_generation, claim_evidence_audit, interactive_revision]
+    trigger_phrases: [alternative explanation, reviewer objection, why not]
+    rule:
+      summary: Important claims should name the strongest rival explanation and the control, metric, or argument that separates it.
+    required_steps:
+      - state the plausible rival explanation
+      - identify which evidence source addresses it
+      - keep any unresolved rival explanation visible as a limitation
+    checks:
+      - the text does not merely report a pattern
+      - controls are matched to rival explanations
+      - unresolved alternatives are not hidden
+    failure_modes:
+      - pattern-only argument
+      - unaddressed reviewer objection
+      - control result used for the wrong objection
+    severity: important
+
+  - skill_id: core.old_before_new_flow
+    name: Old Before New Information Flow
+    scope: core
+    applies_to: [prose_generation, prose_compression, interactive_revision]
+    trigger_phrases: [flow, awkward, jumpy, transition]
+    rule:
+      summary: Start sentences and paragraphs from already activated objects and end on the new information or emphasis.
+    required_steps:
+      - identify the reader's currently activated object
+      - begin with that object or an explicit bridge
+      - place the new emphasis at the end of the sentence or paragraph
+    checks:
+      - pronouns and references have clear antecedents
+      - new objects do not appear without setup
+      - paragraph endings carry the intended emphasis
+    failure_modes:
+      - jumpy information flow
+      - buried emphasis
+      - unclear referent
+    severity: advisory
+
+  - skill_id: core.terminology_claim_boundary
+    name: Terminology As Claim Boundary
+    scope: core
+    applies_to: [prose_generation, claim_evidence_audit, citation_audit, interactive_revision]
+    trigger_phrases: [term, wording, terminology, boundary]
+    rule:
+      summary: Treat terminology as a claim-boundary decision rather than a style choice.
+    required_steps:
+      - check whether the term is authorized by the relevant project profile
+      - replace broader terms with calibrated terms when evidence is narrower
+      - avoid introducing new terms that imply unregistered claims
+    checks:
+      - the chosen term matches the evidence status
+      - project-level terminology rules are not overridden by generic style preferences
+      - broader synonyms do not enlarge the claim
+    failure_modes:
+      - stylistic synonym that changes the claim
+      - unregistered term
+      - terminology drift across sections
+    severity: blocking
+
+  - skill_id: core.sentence_function_audit
+    name: Sentence Function Audit
+    scope: core
+    applies_to: [prose_compression, interactive_revision, claim_evidence_audit]
+    trigger_phrases: [this sentence feels wrong, audit sentence, rewrite sentence]
+    rule:
+      summary: Diagnose a sentence by its function before paraphrasing it.
+    required_steps:
+      - classify the sentence's role in the local argument
+      - decide whether the problem is repetition, placement, scope, evidence, or wording
+      - rewrite only after the functional defect is identified
+    checks:
+      - paraphrase does not preserve the original logical defect
+      - repeated information is either removed or assigned a new function
+      - claim scope is corrected before tone is polished
+    failure_modes:
+      - cosmetic rewrite
+      - repeated sentence with new wording
+      - unchanged claim overreach
+    severity: important

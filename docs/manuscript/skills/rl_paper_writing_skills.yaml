@@ -1,0 +1,143 @@
+schema_version: 1
+scope: domain
+domain: rl_ml_research_manuscripts
+skills:
+  - skill_id: rl.mechanism_vs_performance
+    name: Mechanism Claim Versus Task Performance Claim
+    scope: domain
+    applies_to: [experiment_section, claim_evidence_audit, prose_generation]
+    rule:
+      summary: Separate mechanism claims from task-performance claims unless a bridge is explicitly supplied.
+    required_steps:
+      - classify each empirical statement as mechanism, causal, task effect, robustness, or implementation evidence
+      - require a mechanism observable or controlled comparison for mechanism claims
+      - require task metrics for task-performance claims
+    checks:
+      - performance improvement is not treated as mechanism proof by itself
+      - mechanism metrics are not reported as final task metrics
+      - bridge statements are explicit when both claim types are linked
+    failure_modes:
+      - task metric used as causal identification
+      - mechanism metric overread as benchmark success
+      - ambiguous empirical verb
+    severity: blocking
+
+  - skill_id: rl.controlled_vs_external
+    name: Controlled Environment Versus External Benchmark Roles
+    scope: domain
+    applies_to: [experiment_section, paragraph_blueprint, prose_generation, claim_evidence_audit]
+    rule:
+      summary: Controlled studies identify source, direction, and causality; external benchmarks test relevance under realistic confounds.
+    required_steps:
+      - assign each environment a single primary evidentiary role
+      - avoid replacing causal identification with benchmark relevance
+      - avoid replacing task relevance with controlled toy evidence
+    checks:
+      - controlled evidence is not presented as full external validity
+      - external benchmark evidence is not presented as causal isolation by itself
+      - combined conclusions state which layer each evidence source supports
+    failure_modes:
+      - environment-role swap
+      - causal overclaim from benchmark score
+      - relevance overclaim from controlled setup
+    severity: blocking
+
+  - skill_id: rl.terminal_evidence_for_dynamic_claims
+    name: Terminal Evidence For Dynamic Claims
+    scope: domain
+    applies_to: [experiment_section, claim_evidence_audit, prose_generation]
+    rule:
+      summary: Claims about convergence, persistent drift, collapse, or long-run ranking require terminal evidence, not only fixed-step or best-checkpoint evidence.
+    required_steps:
+      - determine whether the claim is dynamic or terminal
+      - report terminal audit evidence for dynamic claims
+      - separate achievable best performance from stability over the run
+    checks:
+      - best checkpoint is not used as terminal stability evidence
+      - fixed horizon is not called convergence without audit
+      - long-run rankings are supported by terminal data
+    failure_modes:
+      - best-checkpoint stability claim
+      - fixed-step convergence claim
+      - unreported late-run failure
+    severity: blocking
+
+  - skill_id: rl.baseline_family_by_control_object
+    name: Baseline Family By Control Object
+    scope: domain
+    applies_to: [method_section, experiment_section, paragraph_blueprint, prose_generation]
+    rule:
+      summary: Organize RL baselines and ablations by the object they control rather than by method name alone.
+    required_steps:
+      - identify whether each baseline controls advantage, distance, weight, replay, update norm, entropy, or another object
+      - keep orthogonal controls separate from primary methods
+      - state why each family is the right comparison for the claim
+    checks:
+      - baseline families are not mixed without a comparison axis
+      - control objects match the theory or mechanism under test
+      - appendix controls are not promoted to primary methods without justification
+    failure_modes:
+      - unordered baseline list
+      - ablation that does not control the disputed object
+      - primary/control role confusion
+    severity: important
+
+  - skill_id: rl.theory_method_object_chain
+    name: Theory Method Experiment Object Chain
+    scope: domain
+    applies_to: [method_section, experiment_section, claim_evidence_audit, prose_generation]
+    rule:
+      summary: Keep the same central object aligned from theoretical failure term to method modification, implemented update, mechanism metric, and ablation.
+    required_steps:
+      - name the theoretical object being controlled or changed
+      - verify that the method modifies that object
+      - choose metrics and ablations that observe the same object or its direct consequence
+    checks:
+      - method changes the object identified by theory
+      - implementation matches the written method
+      - metrics and ablations are not observing an unrelated quantity
+    failure_modes:
+      - theorem-method mismatch
+      - implementation-method mismatch
+      - metric-object mismatch
+    severity: blocking
+
+  - skill_id: rl.best_vs_terminal_checkpoint
+    name: Best Checkpoint Versus Terminal Checkpoint
+    scope: domain
+    applies_to: [experiment_section, claim_evidence_audit, prose_generation]
+    rule:
+      summary: Use best checkpoints for achievable performance and terminal checkpoints for stability, collapse, and long-run ranking.
+    required_steps:
+      - label best-checkpoint evidence separately from terminal evidence
+      - report which checkpoint supports each conclusion
+      - avoid mixing selection criteria within a comparison table
+    checks:
+      - method ranking does not silently switch checkpoint definitions
+      - stability claims use terminal checkpoints
+      - best-achieved scores are not described as final state
+    failure_modes:
+      - checkpoint-definition swap
+      - unstable method reported by its best moment only
+      - terminal failure hidden by early peak
+    severity: important
+
+  - skill_id: rl.negative_or_inconclusive_results
+    name: Negative Or Inconclusive Results As Evidence
+    scope: domain
+    applies_to: [experiment_section, prose_generation, claim_evidence_audit]
+    rule:
+      summary: Failed, negative, or inconclusive results should be reported by their scientific meaning rather than hidden.
+    required_steps:
+      - classify the failed or inconclusive result
+      - state whether it invalidates a claim, narrows the claim, or blocks ranking
+      - preserve the evidence status rather than upgrading it rhetorically
+    checks:
+      - inconclusive evidence is not omitted when it changes the allowed conclusion
+      - failed controls are not converted into positive claims
+      - blocked rankings remain blocked until evidence changes
+    failure_modes:
+      - hidden negative result
+      - pilot result written as final
+      - blocked comparison reported anyway
+    severity: important

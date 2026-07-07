@@ -95,7 +95,7 @@
     },
     {
       "path": "scripts/manuscript_publication_pipeline.py",
-      "sha256": "a82f477c976b0e1c1c201890150ae1473b1ca9225d2204c6469b86f05c6f21d4"
+      "sha256": "c9c0bf417d3f3a543481f2a03f332057e4fd6d45b8e754b879d061b9c393bf9c"
     },
     {
       "path": "scripts/compile_full_manuscript.py",
