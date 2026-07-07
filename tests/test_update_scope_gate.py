@@ -8,7 +8,10 @@ from pathlib import Path
 import importlib.util
 import sys
 
-_SPEC = importlib.util.spec_from_file_location("validate_update_scope", Path(__file__).resolve().parents[1] / "scripts" / "validate_update_scope.py")
+_SPEC = importlib.util.spec_from_file_location(
+    "validate_update_scope",
+    Path(__file__).resolve().parents[1] / "scripts" / "validate_update_scope.py",
+)
 assert _SPEC is not None and _SPEC.loader is not None
 validate_update_scope = importlib.util.module_from_spec(_SPEC)
 sys.modules[_SPEC.name] = validate_update_scope
@@ -33,7 +36,11 @@ def _patch_for(paths: list[tuple[str, str]]) -> str:
         else:
             chunks.append(
                 f"diff --git a/{path} b/{path}\n"
-                + ("new file mode 100644\nindex 0000000..1111111\n" if status == "A" else "index 1111111..2222222 100644\n")
+                + (
+                    "new file mode 100644\nindex 0000000..1111111\n"
+                    if status == "A"
+                    else "index 1111111..2222222 100644\n"
+                )
                 + ("--- /dev/null\n" if status == "A" else f"--- a/{path}\n")
                 + f"+++ b/{path}\n"
                 + "@@ -0,0 +1 @@\n"
@@ -252,3 +259,62 @@ def test_zip_package_input_is_supported(tmp_path: Path) -> None:
 
         shutil.rmtree(temp, ignore_errors=True)
     assert report.status == "PASS"
+
+
+def test_bug_fix_generated_materialization_fails(tmp_path: Path) -> None:
+    root = _make_root(
+        tmp_path,
+        [("docs/handoff_shadow/stage4/minimal/generated/MODULE_INDEX.json", "A")],
+        task_type="bug_fix",
+        claim="EXT-C-E8-ONPOLICY-UNPOLISHED-0.5B-01",
+        classification="direct_root_cause",
+    )
+    report = validate_update_scope.validate_package(root)
+    assert report.status == "FAIL"
+    assert any("generated/materialized" in error for error in report.errors)
+
+
+def test_bug_fix_large_patch_without_scope_justification_fails(tmp_path: Path) -> None:
+    files = [(f"src/drpo/example_{index}.py", "A") for index in range(6)]
+    root = _make_root(
+        tmp_path,
+        files,
+        task_type="bug_fix",
+        claim="EXT-C-E8-ONPOLICY-UNPOLISHED-0.5B-01",
+        classification="direct_root_cause",
+    )
+    report = validate_update_scope.validate_package(root)
+    assert report.status == "FAIL"
+    assert any("without scope justification" in error for error in report.errors)
+
+
+def test_stale_package_reshipping_current_head_content_fails(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    import subprocess
+
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    subprocess.run(["git", "-C", str(repo), "config", "user.name", "Scope Test"], check=True)
+    subprocess.run(
+        ["git", "-C", str(repo), "config", "user.email", "scope@example.invalid"],
+        check=True,
+    )
+    target = repo / "scripts" / "runner.py"
+    target.parent.mkdir(parents=True)
+    target.write_text("old\n")
+    subprocess.run(["git", "-C", str(repo), "add", "scripts/runner.py"], check=True)
+    subprocess.run(["git", "-C", str(repo), "commit", "-q", "-m", "base"], check=True)
+    base = subprocess.check_output(["git", "-C", str(repo), "rev-parse", "HEAD"], text=True).strip()
+    target.write_text("new\n")
+    subprocess.run(["git", "-C", str(repo), "commit", "-qam", "already applied"], check=True)
+
+    root = _make_root(
+        tmp_path,
+        [("scripts/runner.py", "M")],
+        task_type="bug_fix",
+        claim="EXT-C-E8-ONPOLICY-UNPOLISHED-0.5B-01",
+        classification="direct_root_cause",
+    )
+    (root / "BASE_COMMIT.txt").write_text(base + "\n")
+    report = validate_update_scope.validate_package(root, repo=repo)
+    assert report.status == "FAIL"
+    assert any("re-ships content already present" in error for error in report.errors)

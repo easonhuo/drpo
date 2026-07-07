@@ -1,5 +1,5 @@
 schema_version: 1
-policy_id: GOV-CODE-SCOPE-GATE-01
+policy_id: GOV-CODE-SCOPE-GATE-02
 control_plane_paths:
   - AGENTS.md
   - docs/handoff.md
@@ -15,6 +15,8 @@ control_plane_paths:
   - scripts/verify_update_git_bundle.py
   - scripts/select_update_tests.py
   - tools/drpo-update/
+generated_or_materialized_paths:
+  - docs/handoff_shadow/stage4/minimal/generated/
 required_summary_fields:
   - task_type
   - claim_or_experiment_id
@@ -38,6 +40,19 @@ first_failure_classifications:
   - scope_expansion_authorized
   - governance_control_plane_authorized
   - new_feature_authorized
+diff_stat_thresholds:
+  bug_fix:
+    max_changed_files_without_justification: 5
+    max_changed_lines_without_justification: 300
+  doc_update:
+    max_changed_files_without_justification: 4
+    max_changed_lines_without_justification: 500
+  code_update:
+    max_changed_files_without_justification: 8
+    max_changed_lines_without_justification: 800
+  experiment_code:
+    max_changed_files_without_justification: 8
+    max_changed_lines_without_justification: 800
 task_rules:
   doc_update:
     allowed_prefixes:
@@ -61,6 +76,7 @@ task_rules:
   governance_control_plane:
     allow_control_plane: true
     require_control_plane_touched: true
+    allow_generated_or_materialized_paths: true
   governance_tooling:
     allowed_prefixes:
       - scripts/

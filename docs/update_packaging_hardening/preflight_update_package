@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -34,6 +35,7 @@ def find_repo_root(start: Path) -> Path:
 
 ROOT = find_repo_root(Path(__file__).resolve())
 CORE_PATH = ROOT / "tools" / "drpo-update" / "drpo_update.py"
+SCOPE_PATH = ROOT / "scripts" / "validate_update_scope.py"
 DELTA_ROOT = "docs/handoff_deltas/"
 DELTA_FILENAME = "HANDOFF_DELTA.yaml"
 HANDOFF_PATH = "docs/handoff.md"
@@ -57,6 +59,7 @@ class PreflightReport:
     normalized_candidate_commit: str | None = None
     handoff_normalization: dict[str, Any] | None = None
     delta_metadata: dict[str, Any] = field(default_factory=dict)
+    scope_check: dict[str, Any] = field(default_factory=dict)
     error: str | None = None
     failure_phase: str | None = None
     timings_seconds: dict[str, float] = field(default_factory=dict)
@@ -74,6 +77,16 @@ def load_core():
     spec = importlib.util.spec_from_file_location("drpo_update_preflight_core", CORE_PATH)
     if spec is None or spec.loader is None:
         raise PreflightError(f"cannot load updater core: {CORE_PATH}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def load_scope_checker():
+    spec = importlib.util.spec_from_file_location("drpo_update_scope_checker", SCOPE_PATH)
+    if spec is None or spec.loader is None:
+        raise PreflightError(f"cannot load scope checker: {SCOPE_PATH}")
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
@@ -217,8 +230,6 @@ def validate_delta_metadata(
     return report
 
 
-
-
 def conflict_paths(core: Any, worktree: Path) -> list[str]:
     proc = core.git(worktree, "diff", "--name-only", "--diff-filter=U", check=False)
     return [line for line in proc.stdout.splitlines() if line.strip()]
@@ -275,7 +286,30 @@ def assert_clean_repo(core: Any, repo: Path) -> None:
         raise PreflightError("repository has uncommitted changes; preflight requires a clean tree")
 
 
-def run_preflight(repo: Path, package_source: Path, *, report_path: Path | None = None) -> dict[str, Any]:
+def run_scope_check(repo: Path, package_root: Path, mode: str) -> dict[str, Any]:
+    if mode == "off":
+        return {"status": "SKIPPED", "mode": mode}
+    scope = load_scope_checker()
+    report = scope.validate_package(package_root, repo=repo, current_ref="HEAD")
+    payload = report.to_json()
+    payload["mode"] = mode
+    if report.errors:
+        raise PreflightError("update scope check failed: " + "; ".join(report.errors))
+    if mode == "strict" and report.warnings:
+        raise PreflightError(
+            "update scope check produced warnings in strict mode: "
+            + "; ".join(report.warnings)
+        )
+    return payload
+
+
+def run_preflight(
+    repo: Path,
+    package_source: Path,
+    *,
+    report_path: Path | None = None,
+    scope_check: str = "warn",
+) -> dict[str, Any]:
     core = load_core()
     repo = Path(git_text(core, repo, "rev-parse", "--show-toplevel")).resolve()
     package_source = package_source.expanduser().resolve()
@@ -306,8 +340,14 @@ def run_preflight(repo: Path, package_source: Path, *, report_path: Path | None 
         ancestry = core.git(repo, "merge-base", "--is-ancestor", base, current, check=False)
         if ancestry.returncode != 0:
             raise PreflightError(
-                "BASE_COMMIT.txt is not an ancestor of current HEAD; release preflight cannot rebase it"
+                "BASE_COMMIT.txt is not an ancestor of current HEAD; "
+                "release preflight cannot rebase it"
             )
+        report.timings_seconds[phase] = round(time.perf_counter() - step_started, 6)
+
+        phase = "scope_check"
+        step_started = time.perf_counter()
+        report.scope_check = run_scope_check(repo, package.extracted_root, scope_check)
         report.timings_seconds[phase] = round(time.perf_counter() - step_started, 6)
 
         phase = "bundle_verification"
@@ -392,8 +432,9 @@ def run_preflight(repo: Path, package_source: Path, *, report_path: Path | None 
         shutil.rmtree(temp_root, ignore_errors=True)
 
 
-
-def run_subprocess(command: Sequence[str], *, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
+def run_subprocess(
+    command: Sequence[str], *, cwd: Path | None = None
+) -> subprocess.CompletedProcess[str]:
     proc = subprocess.run(
         list(command),
         cwd=cwd,
@@ -452,7 +493,16 @@ def run_self_test() -> dict[str, Any]:
         (stage / "modified_files").mkdir(parents=True)
         (stage / "BASE_COMMIT.txt").write_text(base + "\n")
         (stage / "update.patch").write_text(patch)
-        (stage / "CHANGE_SUMMARY.md").write_text("# Preflight self-test update\n")
+        (stage / "CHANGE_SUMMARY.md").write_text(
+            "# Preflight self-test update\n\n"
+            "Task type: code_update\n"
+            "Claim or experiment ID: GOV-CODE-SCOPE-GATE-02\n"
+            "User-requested scope: synthetic preflight positive fixture\n"
+            "First-failure classification: not_applicable\n"
+            "Control-plane touched: no\n\n"
+            "## Modified files\n\n"
+            "- `tracked.txt`\n"
+        )
         tests = stage / "TEST_COMMANDS.sh"
         tests.write_text("#!/usr/bin/env bash\nset -euo pipefail\ntest -f tracked.txt\n")
         tests.chmod(0o755)
@@ -499,7 +549,12 @@ def run_self_test() -> dict[str, Any]:
             "  registry_sha256: 0000000000000000000000000000000000000000000000000000000000000000\n"
         )
         delta.write_text(bad_delta_text)
-        selftest_git(repo_bad, "add", "-N", "docs/handoff_deltas/BAD-DELTA-2026-07-07/HANDOFF_DELTA.yaml")
+        selftest_git(
+            repo_bad,
+            "add",
+            "-N",
+            "docs/handoff_deltas/BAD-DELTA-2026-07-07/HANDOFF_DELTA.yaml",
+        )
         bad_patch = selftest_git(repo_bad, "diff", "--binary") + "\n"
         selftest_git(repo_bad, "reset", "--quiet")
         delta.unlink()
@@ -516,7 +571,16 @@ def run_self_test() -> dict[str, Any]:
         bad_target.mkdir(parents=True)
         (bad_stage / "BASE_COMMIT.txt").write_text(bad_base + "\n")
         (bad_stage / "update.patch").write_text(bad_patch)
-        (bad_stage / "CHANGE_SUMMARY.md").write_text("# Bad preflight self-test update\n")
+        (bad_stage / "CHANGE_SUMMARY.md").write_text(
+            "# Bad preflight self-test update\n\n"
+            "Task type: governance_control_plane\n"
+            "Claim or experiment ID: GOV-CODE-SCOPE-GATE-02\n"
+            "User-requested scope: synthetic bad delta preflight fixture\n"
+            "First-failure classification: governance_control_plane_authorized\n"
+            "Control-plane touched: yes\n\n"
+            "## Modified files\n\n"
+            "- `docs/handoff_deltas/BAD-DELTA-2026-07-07/HANDOFF_DELTA.yaml`\n"
+        )
         bad_tests = bad_stage / "TEST_COMMANDS.sh"
         bad_tests.write_text("#!/usr/bin/env bash\nset -euo pipefail\ntrue\n")
         bad_tests.chmod(0o755)
@@ -546,6 +610,12 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--repo", type=Path, default=Path.cwd())
     parser.add_argument("--package", type=Path)
     parser.add_argument("--report", type=Path)
+    parser.add_argument(
+        "--scope-check",
+        choices=("warn", "strict", "off"),
+        default=os.environ.get("DRPO_UPDATE_SCOPE_CHECK", "warn"),
+        help="Scope-check mode: warn (default), strict, or off.",
+    )
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--self-test", action="store_true")
     args = parser.parse_args(argv)
@@ -561,7 +631,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             payload = run_self_test()
         else:
             assert args.package is not None
-            payload = run_preflight(args.repo.resolve(), args.package.resolve(), report_path=args.report)
+            payload = run_preflight(
+                args.repo.resolve(),
+                args.package.resolve(),
+                report_path=args.report,
+                scope_check=args.scope_check,
+            )
     except PreflightError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
@@ -574,8 +649,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"Base: {payload['package_base']}")
         print(f"Patch commit: {payload['patch_commit']}")
         print(f"Integration mode: {payload['integration_mode']}")
+        scope = payload.get("scope_check") or {}
+        print(f"Scope check: {scope.get('status')} (mode={scope.get('mode')})")
         normalization = payload.get("handoff_normalization") or {}
-        print(f"Handoff normalization: {normalization.get('normalization', normalization.get('mode'))}")
+        print(
+            "Handoff normalization: "
+            f"{normalization.get('normalization', normalization.get('mode'))}"
+        )
     return 0
 
 

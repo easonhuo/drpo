@@ -14,6 +14,7 @@ import hashlib
 import json
 import re
 import shutil
+import subprocess
 import sys
 import tempfile
 import zipfile
@@ -40,6 +41,9 @@ FIELD_ALIASES = {
     "control-plane touched": "control_plane_touched",
     "control plane touched": "control_plane_touched",
     "control_plane_touched": "control_plane_touched",
+    "scope justification": "scope_justification",
+    "scope expansion justification": "scope_justification",
+    "scope_justification": "scope_justification",
 }
 FIELD_RE = re.compile(
     r"^\s*(?:[-*]\s*)?(?P<field>[A-Za-z0-9_ /-]+?)\s*:\s*(?P<value>.*?)\s*$"
@@ -67,6 +71,10 @@ class ScopeReport:
     changed_files: list[str] = field(default_factory=list)
     task_type: str | None = None
     claim_or_experiment_id: str | None = None
+    base_commit: str | None = None
+    current_commit: str | None = None
+    insertions: int = 0
+    deletions: int = 0
 
     def fail(self, message: str) -> None:
         self.errors.append(message)
@@ -83,6 +91,10 @@ class ScopeReport:
             "errors": self.errors,
             "warnings": self.warnings,
             "changed_files": self.changed_files,
+            "base_commit": self.base_commit,
+            "current_commit": self.current_commit,
+            "insertions": self.insertions,
+            "deletions": self.deletions,
             "task_type": self.task_type,
             "claim_or_experiment_id": self.claim_or_experiment_id,
         }
@@ -208,6 +220,58 @@ def parse_patch_files(patch_text: str) -> list[PatchFile]:
     return files
 
 
+def compute_patch_line_stats(patch_text: str) -> tuple[int, int]:
+    """Return textual insertion/deletion counts for a unified diff."""
+
+    insertions = 0
+    deletions = 0
+    for line in patch_text.splitlines():
+        if line.startswith("+++") or line.startswith("---"):
+            continue
+        if line.startswith("+"):
+            insertions += 1
+        elif line.startswith("-"):
+            deletions += 1
+    return insertions, deletions
+
+
+def run_git(repo: Path, *args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
+    proc = subprocess.run(
+        ["git", "-C", str(repo), *args],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if check and proc.returncode != 0:
+        detail = (proc.stderr or proc.stdout).strip()
+        raise ScopeError(f"git command failed: {' '.join(args)}\n{detail}")
+    return proc
+
+
+def git_text(repo: Path, *args: str) -> str:
+    return run_git(repo, *args).stdout.strip()
+
+
+def git_blob_sha(repo: Path, commit: str, path: str) -> str | None:
+    safe_relative(path, label="git path")
+    line = git_text(repo, "ls-tree", commit, "--", path)
+    if not line:
+        return None
+    parts = line.split()
+    if len(parts) < 3:
+        raise ScopeError(f"could not parse git ls-tree output for {path!r}")
+    return parts[2]
+
+
+def file_git_blob_sha(repo: Path, path: Path) -> str:
+    return git_text(repo, "hash-object", str(path))
+
+
+def has_scope_justification(fields: dict[str, str]) -> bool:
+    value = fields.get("scope_justification", "").strip()
+    return bool(value) and value.lower() not in {"none", "n/a", "na"}
+
 def normalize_field_name(raw: str) -> str | None:
     key = " ".join(raw.strip().lower().replace("_", "_").split())
     return FIELD_ALIASES.get(key)
@@ -231,7 +295,9 @@ def parse_change_summary(path: Path) -> tuple[dict[str, str], set[str]]:
         if current_heading == "modified files":
             bullet = BULLET_PATH_RE.match(line)
             if bullet:
-                declared_files.add(safe_relative(bullet.group("path"), label="summary path").as_posix())
+                declared_files.add(
+                    safe_relative(bullet.group("path"), label="summary path").as_posix()
+                )
     return fields, declared_files
 
 
@@ -356,6 +422,9 @@ def check_task_scope(
     fields: dict[str, str],
     changed_files: set[str],
     rules: dict[str, Any],
+    *,
+    insertions: int,
+    deletions: int,
 ) -> None:
     task_type = fields.get("task_type")
     if not task_type:
@@ -373,8 +442,15 @@ def check_task_scope(
     if declared_control and not (control_declared_yes or control_declared_no):
         report.fail("control_plane_touched must be yes or no")
     if touched_control and control_declared_no:
-        report.fail(f"control_plane_touched is no but control-plane paths changed: {touched_control}")
-    if not touched_control and control_declared_yes and not task_rules.get("require_control_plane_touched"):
+        report.fail(
+            "control_plane_touched is no but control-plane paths changed: "
+            f"{touched_control}"
+        )
+    if (
+        not touched_control
+        and control_declared_yes
+        and not task_rules.get("require_control_plane_touched")
+    ):
         report.warn("control_plane_touched is yes but no configured control-plane path changed")
     if touched_control and not task_rules.get("allow_control_plane"):
         report.fail(f"task_type {task_type} may not modify control-plane paths: {touched_control}")
@@ -397,21 +473,103 @@ def check_task_scope(
     if isinstance(protected_core, list) and protected_core:
         blocked = sorted(path for path in changed_files if any_prefix(path, protected_core))
         if blocked:
-            report.fail(f"task_type {task_type} may not change existing pipeline core paths: {blocked}")
+            report.fail(
+                f"task_type {task_type} may not change existing pipeline core paths: {blocked}"
+            )
 
-    if task_rules.get("require_claim_or_experiment_id") and not fields.get("claim_or_experiment_id"):
+    generated_paths = rules.get("generated_or_materialized_paths", [])
+    if generated_paths and not task_rules.get("allow_generated_or_materialized_paths"):
+        generated = sorted(path for path in changed_files if any_prefix(path, generated_paths))
+        if generated:
+            report.fail(
+                f"task_type {task_type} may not directly modify "
+                f"generated/materialized paths: {generated}"
+            )
+
+    thresholds = rules.get("diff_stat_thresholds", {}).get(task_type, {})
+    if isinstance(thresholds, dict) and not has_scope_justification(fields):
+        max_files = thresholds.get("max_changed_files_without_justification")
+        if isinstance(max_files, int) and len(changed_files) > max_files:
+            report.fail(
+                f"task_type {task_type} changes {len(changed_files)} files without "
+                f"scope justification; limit is {max_files}"
+            )
+        max_lines = thresholds.get("max_changed_lines_without_justification")
+        changed_lines = insertions + deletions
+        if isinstance(max_lines, int) and changed_lines > max_lines:
+            report.fail(
+                f"task_type {task_type} changes {changed_lines} diff lines without "
+                f"scope justification; limit is {max_lines}"
+            )
+
+    if task_rules.get("require_claim_or_experiment_id") and not fields.get(
+        "claim_or_experiment_id"
+    ):
         report.fail(f"task_type {task_type} requires claim_or_experiment_id")
 
     if task_rules.get("warn_if_crosses_top_level_dirs"):
         companions = set(task_rules.get("companion_top_level_dirs", []))
-        primary_dirs = {top_level(path) for path in changed_files if top_level(path) not in companions}
+        primary_dirs = {
+            top_level(path)
+            for path in changed_files
+            if top_level(path) not in companions
+        }
         if len(primary_dirs) > 1:
             report.warn(
-                f"bug-fix scope crosses multiple primary top-level directories: {sorted(primary_dirs)}"
+                "bug-fix scope crosses multiple primary top-level directories: "
+                f"{sorted(primary_dirs)}"
             )
 
 
-def validate_package(root: Path, rules_path: Path = DEFAULT_RULES) -> ScopeReport:
+def check_current_repository_overlap(
+    report: ScopeReport,
+    repo: Path,
+    base: str,
+    patch_files: list[PatchFile],
+    root: Path,
+    current_ref: str,
+) -> None:
+    """Detect stale packages that re-ship content already present on current HEAD."""
+
+    current = git_text(repo, "rev-parse", f"{current_ref}^{{commit}}")
+    report.current_commit = current
+    if current == base:
+        return
+    ancestor = run_git(repo, "merge-base", "--is-ancestor", base, current, check=False)
+    if ancestor.returncode != 0:
+        report.fail(
+            f"BASE_COMMIT.txt {base} is not an ancestor of current {current}; "
+            "cannot verify scope rebase"
+        )
+        return
+    report.warn(f"package base {base} is not current repository HEAD {current}")
+    duplicate_paths: list[str] = []
+    for item in patch_files:
+        if item.status == "D":
+            if git_blob_sha(repo, current, item.path) is None:
+                duplicate_paths.append(item.path)
+            continue
+        supplied = root / "modified_files" / item.path
+        if not supplied.is_file():
+            continue
+        current_blob = git_blob_sha(repo, current, item.path)
+        if current_blob is None:
+            continue
+        if file_git_blob_sha(repo, supplied) == current_blob:
+            duplicate_paths.append(item.path)
+    if duplicate_paths:
+        report.fail(
+            "update package re-ships content already present on current HEAD; "
+            f"likely stale-base or duplicate integration: {sorted(duplicate_paths)}"
+        )
+
+def validate_package(
+    root: Path,
+    rules_path: Path = DEFAULT_RULES,
+    *,
+    repo: Path | None = None,
+    current_ref: str = "HEAD",
+) -> ScopeReport:
     rules = read_yaml_mapping(rules_path)
     patch_path = required_file(root, "update.patch")
     summary_path = required_file(root, "CHANGE_SUMMARY.md")
@@ -425,20 +583,39 @@ def validate_package(root: Path, rules_path: Path = DEFAULT_RULES) -> ScopeRepor
     if not FULL_SHA_RE.fullmatch(base):
         raise ScopeError("BASE_COMMIT.txt must contain one full lowercase SHA")
 
-    patch_files = parse_patch_files(patch_path.read_text(encoding="utf-8", errors="replace"))
+    patch_text = patch_path.read_text(encoding="utf-8", errors="replace")
+    patch_files = parse_patch_files(patch_text)
     changed_files = {item.path for item in patch_files}
-    report = ScopeReport(changed_files=sorted(changed_files))
+    insertions, deletions = compute_patch_line_stats(patch_text)
+    report = ScopeReport(
+        changed_files=sorted(changed_files),
+        insertions=insertions,
+        deletions=deletions,
+    )
+    report.base_commit = base
     manifest = load_manifest(manifest_path)
     manifest_files = manifest_changed_files(manifest)
     if manifest_files != changed_files:
         report.fail(
             "UPDATE_PACKAGE_MANIFEST.json changed_files does not match update.patch; "
-            f"missing={sorted(changed_files - manifest_files)} extra={sorted(manifest_files - changed_files)}"
+            f"missing={sorted(changed_files - manifest_files)} "
+            f"extra={sorted(manifest_files - changed_files)}"
         )
     check_manifest_inventory(report, root, manifest)
     fields, declared_files = parse_change_summary(summary_path)
     check_summary_metadata(report, fields, declared_files, changed_files, rules)
-    check_task_scope(report, fields, changed_files, rules)
+    check_task_scope(
+        report,
+        fields,
+        changed_files,
+        rules,
+        insertions=insertions,
+        deletions=deletions,
+    )
+    if repo is not None:
+        check_current_repository_overlap(
+            report, repo.resolve(), base, patch_files, root, current_ref
+        )
     return report
 
 
@@ -447,6 +624,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--package", type=Path, help="Path to a drpo-update ZIP package")
     parser.add_argument("--package-root", type=Path, help="Path to an extracted package root")
     parser.add_argument("--rules", type=Path, default=DEFAULT_RULES)
+    parser.add_argument(
+        "--repo",
+        type=Path,
+        help="Optional repository root for current-base and duplicate-content checks",
+    )
+    parser.add_argument("--current-ref", default="HEAD")
     parser.add_argument("--json", action="store_true")
     return parser.parse_args(argv)
 
@@ -456,7 +639,12 @@ def main(argv: list[str] | None = None) -> int:
     temp: Path | None = None
     try:
         root, temp = package_root_from_args(args)
-        report = validate_package(root, args.rules.resolve())
+        report = validate_package(
+            root,
+            args.rules.resolve(),
+            repo=args.repo.resolve() if args.repo else None,
+            current_ref=args.current_ref,
+        )
     except Exception as exc:
         payload = {"status": "FAIL", "errors": [str(exc)], "warnings": []}
         if args.json:
