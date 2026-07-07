@@ -1,0 +1,79 @@
+schema_version: 1
+experiment_id: EXT-C-E8-ONPOLICY-UNPOLISHED-0.5B-01
+result_status: pilot
+model:
+  identity: Qwen2.5-0.5B-Instruct
+  memory_mode: bf16
+  load_in_4bit: false
+  dtype: bf16
+  parameterization: lora
+  max_length: 256
+  max_new_tokens: 80
+data:
+  generation_seed: 1234
+  train_rows: 6000
+  validation_rows: 500
+  test_rows: 1000
+  numbers_per_problem: 4
+  split_protocol: structural_family_holdout
+reference:
+  sft_seed: 5678
+  sft_epochs: 6
+  sft_min_epochs: 3
+  sft_early_stop_patience: 2
+  external_adapter_reuse_allowed: true
+  sft_micro_batch: 1
+  sft_gradient_accumulation: 32
+  sft_learning_rate: 0.0002
+  sft_warmup_ratio: 0.03
+  sft_max_gradient_norm: 1.0
+  num_workers: 0
+  validation_examples: 500
+  evaluation_batch_size: 8
+  pass_at_k: 8
+  evaluation_seed: 600001
+  selection_metric: greedy_success
+  selection_delta: 0.002
+  log_every_updates: 10
+methods:
+  - sft_only
+  - onpolicy_rft_positive_only
+policy_update:
+  start_from: sft_lora_adapter
+  continuation_parameterization: same_lora_adapter
+  uses_negative_updates: false
+  uses_taper_methods: false
+  uses_frozen_offpolicy_replay: false
+  verifier_correct_only: true
+confirmation:
+  paired_training_seeds: [2026070701, 2026070702, 2026070703]
+onpolicy_training:
+  prompt_pool_rows: 6000
+  sampling_attempts: 300
+  prompts_per_attempt: 4
+  rollouts_per_prompt: 8
+  max_correct_per_prompt: 1
+  temperature: 0.8
+  top_p: 0.95
+  learning_rate: 0.00005
+  weight_decay: 0.01
+  warmup_ratio: 0.03
+  maximum_gradient_norm: 1.0
+  log_every_attempts: 10
+evaluation:
+  every_attempts: 50
+  examples: 500
+  batch_size: 8
+  pass_at_k: 8
+  seed: 700001
+  test_seed: 800001
+  selection_metric: greedy_success
+  selection_delta: 0.002
+artifact:
+  checkpoint_binaries: persistent_local_index_only
+  retain_per_method: [best, terminal_or_last_finite]
+interpretation:
+  primary_question: whether on-policy verifier-correct RFT can improve beyond SFT-only under the same 0.5B LoRA continuation setup
+  not_a_taper_ranking_experiment: true
+  not_a_formal_convergence_claim: true
+  skip_attempts_mean_signal_sparsity_not_numerical_failure: true

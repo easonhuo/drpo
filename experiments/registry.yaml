@@ -5376,6 +5376,124 @@ experiments:
   development_calibration_config: configs/du1_e6_separation_grid.yaml
   development_calibration_compact_output: outputs/du1_e6_cartesian_taper_rev3_development
 
+
+- id: EXT-C-E8-ONPOLICY-UNPOLISHED-0.5B-01
+  environment: EXT-C
+  name: countdown_onpolicy_rft_positive_only_unpolished_0p5b
+  status: pilot
+  result_status: not_run
+  claim: >-
+    Test whether the same Qwen2.5-0.5B LoRA SFT checkpoint can improve beyond
+    SFT-only when continuation data are generated on-policy and only
+    verifier-correct sampled Countdown completions receive supervised updates.
+    This is a capacity/trainability diagnostic for the 0.5B model and LoRA
+    continuation path, not a DRPO/taper method-ranking experiment.
+  role: external_validity_onpolicy_trainability_diagnostic
+  execution_class: pilot
+  code_entrypoint: src/drpo/countdown_e8_onpolicy.py
+  operator_entrypoint: scripts/run_countdown_e8_onpolicy.py
+  config_entrypoint: configs/countdown_e8_onpolicy_0p5b_unpolished.yaml
+  primary_model: Qwen2.5-0.5B-Instruct
+  task: four-number Countdown arithmetic
+  data:
+    generation_seed: 1234
+    train_rows: 6000
+    validation_rows: 500
+    test_rows: 1000
+    source: structural_family_holdout_oracle_countdown_examples
+    split_protocol: park_inspired_pattern_first_family_holdout_capacity_audited
+    split_manifest: data/split_manifest.json
+    train_eval_note: >-
+      The existing 6000 oracle rows remain the SFT training pool. A separate
+      4000/2000 same-pool oracle-quality SFT diagnostic is explicitly not part
+      of this unpolished on-policy package.
+  methods:
+  - sft_only
+  - onpolicy_rft_positive_only
+  excluded_from_first_version:
+  - full_parameter_continuation
+  - fresh_lora_after_sft_merge
+  - signed_negative_update
+  - taper_method_family
+  - frozen_offpolicy_replay
+  reference_adapter:
+    default_mode: train_sft_from_registered_structural_train_split
+    explicit_reuse_allowed: true
+    reuse_scope: >-
+      An existing LoRA SFT adapter may be supplied explicitly to avoid retraining,
+      but it remains the operator's responsibility to use the same model identity
+      and structural split; the runner records adapter path and available
+      sft_manifest/checkpoint_manifest provenance and does not copy model weights
+      into Git update packages.
+  policy_update:
+    start_from: sft_lora_adapter
+    continuation_parameterization: same_lora_adapter
+    uses_negative_updates: false
+    uses_taper_methods: false
+    uses_frozen_offpolicy_replay: false
+    verifier_correct_only: true
+  confirmation:
+    paired_training_seeds: [2026070701, 2026070702, 2026070703]
+  finite_budget:
+    sampling_attempts: 300
+    prompts_per_attempt: 4
+    rollouts_per_prompt: 8
+    fixed_attempt_budget_not_convergence: true
+  metrics:
+  - validation_greedy_success
+  - validation_pass_at_8
+  - validation_valid_rate
+  - test_greedy_success
+  - test_pass_at_8
+  - test_valid_rate
+  - onpolicy_sample_correct_selection_rate
+  - usable_prompt_fraction
+  - skipped_attempt_fraction
+  - optimizer_steps_completed
+  terminal_audit:
+    required: true
+    separates:
+    - task_performance_degradation
+    - verifier_signal_sparsity_or_skipped_attempts
+    - valid_structure_boundary
+    - nan_inf_numerical_failure
+  interpretation_rules:
+    onpolicy_beats_sft_only: >-
+      Supports that the 0.5B + same-LoRA continuation path can still learn from
+      fresh on-policy verifier-correct data; offline v79 failure is therefore
+      more likely tied to frozen replay/staleness/loss design than raw model
+      trainability alone.
+    onpolicy_not_better_than_sft_only: >-
+      Does not rescue the offline route; triggers the preplanned second-layer
+      diagnostics such as fresh LoRA after SFT merge or full-parameter
+      on-policy continuation, without changing the E8-TAPER pilot result.
+    skipped_attempts_high: >-
+      Interpret as sparse on-policy positive signal, not NaN/Inf numerical
+      collapse, unless non-finite losses, gradients, or parameters are observed.
+  execution_gate:
+    current_status: implemented_ready_not_run
+    readiness_basis: >-
+      Minimal LoRA on-policy RFT runner, hardened launcher, frozen config,
+      deterministic prompt sampler, verifier-correct selection utility, terminal
+      audit, and unit tests are implemented.
+    blocked_by: []
+    not_blocking: [EXT-C-E8-TAPER-0.5B-01]
+  artifact_outputs:
+  - RUN_COMPLETE.json
+  - terminal_audit.json
+  - scientific_run_manifest.json
+  - onpolicy_summary.csv
+  - run_config.json
+  - data/split_manifest.json
+  - reference_adapter_reuse_manifest.json when --sft_adapter_path is supplied
+  - methods/sft_only/evaluation.json
+  - methods/onpolicy_rft_positive_only/*/summary.json
+  safeguards:
+  - do_not_call_smoke_or_unit_tests_scientific_results
+  - do_not_compare_taper_methods_in_this_experiment
+  - do_not_claim_convergence_from_fixed_sampling_attempts
+  - do_not_merge_task_performance_degradation_with_nan_inf_failure
+
 development_experiment_registrations:
 - id: D-U1-E6-CONDITIONAL-GAP-DEV-01
   environment: D-U1

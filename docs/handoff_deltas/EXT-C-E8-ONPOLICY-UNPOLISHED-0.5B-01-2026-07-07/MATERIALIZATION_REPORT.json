@@ -1,0 +1,130 @@
+{
+  "current_before_commit": "481ed5785f9a24b7e7c20afd283723bda14a3be4",
+  "current_handoff_before_sha256": "df06219d3fbe0cae28b88041534c4e041604a5dc25ccea698bc06567e60c6bcd",
+  "current_registry_validation": {
+    "assertions": [
+      {
+        "change_id": "e8-onpolicy-unpolished-add-pilot",
+        "entity_id": "EXT-C-E8-ONPOLICY-UNPOLISHED-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_onpolicy_0p5b_unpolished.yaml",
+            "sha256": "863a28fcddc502bd379b611926a9214c87ca5b0bf9fab608034685fa72db16f0"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "68254be2c9c08c50515103c39a9b1f331dff858bfcdd1523f9f1f81d10d3cf87"
+          },
+          {
+            "path": "src/drpo/countdown_e8_onpolicy.py",
+            "sha256": "533a199c940388bd760dfec0bbfc7d72132155ab96b380ce917c1a91d66e20ae"
+          },
+          {
+            "path": "scripts/run_countdown_e8_onpolicy.py",
+            "sha256": "b6569d805bb4cd206a866984a81cf09f8dd5396f9ca664d1bb3bb8b0c40c0c0c"
+          },
+          {
+            "path": "tests/test_countdown_e8_onpolicy.py",
+            "sha256": "40afdf29ccb87ebf0351f3c7fae3504e66e1214460f99753722b1944ff7a1deb"
+          }
+        ],
+        "kind": "add_entity"
+      }
+    ],
+    "coverage": {
+      "added_entities": [
+        "EXT-C-E8-ONPOLICY-UNPOLISHED-0.5B-01"
+      ],
+      "changed_field_count": 0,
+      "declared_assertion_count": 1,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "delta_sha256": "76f1dc2f8dd5bb1fcf00835339e422f2edc085ad7b6128e771a7e1276d94e073",
+  "exact_base_candidate_sha256": "c6cdb92994d38be88457de48397bcba78abe50d1b31c6c6c84e1ec11846a054b",
+  "exact_base_registry_validation": {
+    "assertions": [
+      {
+        "change_id": "e8-onpolicy-unpolished-add-pilot",
+        "entity_id": "EXT-C-E8-ONPOLICY-UNPOLISHED-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_onpolicy_0p5b_unpolished.yaml",
+            "sha256": "863a28fcddc502bd379b611926a9214c87ca5b0bf9fab608034685fa72db16f0"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "68254be2c9c08c50515103c39a9b1f331dff858bfcdd1523f9f1f81d10d3cf87"
+          },
+          {
+            "path": "src/drpo/countdown_e8_onpolicy.py",
+            "sha256": "533a199c940388bd760dfec0bbfc7d72132155ab96b380ce917c1a91d66e20ae"
+          },
+          {
+            "path": "scripts/run_countdown_e8_onpolicy.py",
+            "sha256": "b6569d805bb4cd206a866984a81cf09f8dd5396f9ca664d1bb3bb8b0c40c0c0c"
+          },
+          {
+            "path": "tests/test_countdown_e8_onpolicy.py",
+            "sha256": "40afdf29ccb87ebf0351f3c7fae3504e66e1214460f99753722b1944ff7a1deb"
+          }
+        ],
+        "kind": "add_entity"
+      }
+    ],
+    "coverage": {
+      "added_entities": [
+        "EXT-C-E8-ONPOLICY-UNPOLISHED-0.5B-01"
+      ],
+      "changed_field_count": 0,
+      "declared_assertion_count": 1,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "history_preservation_passed": true,
+  "idempotence_passed": true,
+  "materialized_handoff_after_sha256": "c6cdb92994d38be88457de48397bcba78abe50d1b31c6c6c84e1ec11846a054b",
+  "mode": "authoritative",
+  "network_used": false,
+  "policy_id": "GOV-HANDOFF-AUTHORITY-CUTOVER-01",
+  "registry_after_sha256": "68254be2c9c08c50515103c39a9b1f331dff858bfcdd1523f9f1f81d10d3cf87",
+  "registry_before_sha256": "351088c43639bd6fd7983417677dc77b31e972f5ba3fb012b52d250f22a8cd85",
+  "report_schema_version": 1,
+  "source_base_commit": "481ed5785f9a24b7e7c20afd283723bda14a3be4",
+  "source_patch_commit": "df57218439f3ea26d46b904d122f3aa842a7dbff",
+  "stage4a_refresh": {
+    "refreshed": [
+      "docs/handoff_shadow/stage4/minimal/generated/MODULE_INDEX.json",
+      "docs/handoff_shadow/stage4/minimal/generated/STRUCTURE_SUGGESTIONS.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/countdown_e8.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/global_core_governance.md"
+    ],
+    "reused": [
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.dot",
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e5_mechanism.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e6_generalization.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_extrapolation.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_taper.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_mechanism_e1_e3.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/execution_status_gates.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/history_provenance.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/hopper_e7.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/paper_rewrite.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/terminal_audit.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/theory_methods_related_work.md"
+    ]
+  },
+  "status": "PASS",
+  "structural_lint_passed": true,
+  "trusted_engine_sha256": "a6532ba4c1bb9c4af24d79f027267de518c3832b347dba47e8319dee7a3ebe2c",
+  "trusted_policy_sha256": "508f6bbb6ee9bb6da5be041a23e25cd569b95475523bb6af7127cb84ea3466ad",
+  "trusted_renderer_sha256": "39a7566e91c77784822148bb18ae32e44dfcc1745fbdc1cbf14a88ce6c6a13e5",
+  "update_id": "EXT-C-E8-ONPOLICY-UNPOLISHED-0.5B-01-2026-07-07"
+}

@@ -1,0 +1,36 @@
+schema_version: 3
+update_id: EXT-C-E8-ONPOLICY-UNPOLISHED-0.5B-01-2026-07-07
+mode: authoritative
+base:
+  commit: 481ed5785f9a24b7e7c20afd283723bda14a3be4
+  handoff_sha256: df06219d3fbe0cae28b88041534c4e041604a5dc25ccea698bc06567e60c6bcd
+  registry_sha256: 351088c43639bd6fd7983417677dc77b31e972f5ba3fb012b52d250f22a8cd85
+renderer_version: 1
+operations:
+- operation_id: append-e8-onpolicy-unpolished-gate
+  op: append_to_section
+  heading_path:
+  - 0. 研究与执行原则（每次新会话首先阅读）
+  - 0.1 当前执行门禁
+  block_id: e8-onpolicy-unpolished-0p5b-gate
+  content: '- **Countdown E8 on-policy unpolished 0.5B pilot：**登记 `EXT-C-E8-ONPOLICY-UNPOLISHED-0.5B-01`，仅作为
+    0.5B + same-LoRA continuation 是否能从当前 policy 自采样 verifier-correct completion 继续学习的排除项诊断。第一版只允许
+    `sft_only` 与 `onpolicy_rft_positive_only`，不包含 full-param、fresh-LoRA、signed negative、taper
+    方法族或 frozen off-policy replay；数据 split 使用当前 Countdown structural family-holdout
+    协议。SFT 可通过显式路径复用已训练 LoRA adapter，但必须记录 provenance，且不改变 same-LoRA continuation
+    口径；固定 sampling attempts 只能报告 finite-budget pilot evidence，不得宣称收敛或方法排名。'
+registry:
+  mode: expected_after
+  exact_base_after_sha256: 68254be2c9c08c50515103c39a9b1f331dff858bfcdd1523f9f1f81d10d3cf87
+  changes:
+  - change_id: e8-onpolicy-unpolished-add-pilot
+    kind: add_entity
+    entity_id: EXT-C-E8-ONPOLICY-UNPOLISHED-0.5B-01
+    evidence:
+    - configs/countdown_e8_onpolicy_0p5b_unpolished.yaml
+    - experiments/registry.yaml
+    - src/drpo/countdown_e8_onpolicy.py
+    - scripts/run_countdown_e8_onpolicy.py
+    - tests/test_countdown_e8_onpolicy.py
+expected:
+  exact_base_candidate_sha256: c6cdb92994d38be88457de48397bcba78abe50d1b31c6c6c84e1ec11846a054b
