@@ -2,21 +2,18 @@
 """Parallel pilot/scaffold runner for EXT-H-E7-BENCH-01.
 
 The parameter-sweep pilot is a registered substage of the existing benchmark ID. It
-runs two Hopper offline datasets and two development seeds through three parallel
-stages while sweeping method-specific parameters:
+runs two Hopper offline datasets and two development seeds through direct
+method-variant training from the same dataset/seed actor initialization stream:
 
 1. one canonical frozen-advantage critic per dataset (2 workers);
-2. one shared Positive-only warm-start per ``(dataset, seed)`` pair (4 workers);
-3. one equal-horizon continuation per ``(dataset, seed, method_variant)`` tuple
-   (80 workers for the registered 20-variant stronger-taper sweep, including Positive-only).
+2. one equal-horizon actor training per ``(dataset, seed, method_variant)`` tuple
+   (92 workers for the registered 23-variant micro-global/high-taper sweep).
 
-Both seeds and all method-variant continuations are parallel at the coordinator
-level. Every continuation verifies and loads the same 100k Positive-only
-warm-start for its dataset/seed pair, preserving paired initialization without
-serializing methods or giving Positive-only a shorter total actor horizon.
-The formal nine-cell benchmark registers the same ``task_seed_method`` topology,
-but remains fail-closed until its exact versions, seeds, base algorithm, optimizer,
-and full budgets are frozen.
+There is no shared Positive-only warm-start in this protocol. Positive-only is a
+normal method branch and receives the same 500k actor optimizer-step budget as
+every negative-control method. This avoids changing the scientific question into
+"continuation after Positive-only" while preserving paired initialization by
+using the same actor seed within each dataset/seed cell.
 
 Pilot sweep results are pilot evidence only. They may be used to choose a
 separate follow-up candidate configuration, but they may not populate the formal
@@ -56,7 +53,7 @@ if __package__ in (None, ""):
 from drpo import e7_hopper_q2 as q2
 
 EXPERIMENT_ID = "EXT-H-E7-BENCH-01"
-RUNNER_VERSION = "0.2.6-critic-cache-independent-seed"
+RUNNER_VERSION = "0.2.7-direct-500k-critic-cache"
 PILOT_STATUS = "pilot"
 WARMSTART_METHOD = "positive_only_warmstart"
 PILOT_METHOD_FAMILIES = (
@@ -403,10 +400,8 @@ def validate_bench_config(config: BenchConfig) -> None:
         raise ValueError("pilot must forbid top-level serial seed or method loops")
     task_seed_jobs = len(config.datasets) * len(config.budget.seeds)
     branch_jobs = task_seed_jobs * len(config.methods.variants)
-    if config.parallel.warmstart_workers < task_seed_jobs:
-        raise ValueError(
-            f"pilot warmstart_workers must cover all {task_seed_jobs} task-seed jobs"
-        )
+    if config.parallel.warmstart_workers != 0:
+        raise ValueError("direct-from-seed pilot must not schedule shared warm-start workers")
     if config.parallel.branch_workers < branch_jobs:
         raise ValueError(
             f"pilot branch_workers must cover all {branch_jobs} task-seed-method jobs"
@@ -479,17 +474,14 @@ def validate_bench_config(config: BenchConfig) -> None:
             raise ValueError(f"unknown method family: {variant.family}")
     if config.budget.critic_steps != 100000:
         raise ValueError("pilot critic_steps must remain frozen at 100000")
-    if config.budget.shared_positive_warmstart_steps != 100000:
-        raise ValueError("pilot shared Positive-only warm-start must remain 100000 steps")
-    if config.budget.method_continuation_steps != 200000:
-        raise ValueError("pilot method continuation must remain 200000 steps")
-    expected_total = (
-        config.budget.shared_positive_warmstart_steps
-        + config.budget.method_continuation_steps
-    )
+    if config.budget.shared_positive_warmstart_steps != 0:
+        raise ValueError("direct-from-seed pilot must set shared_positive_warmstart_steps to 0")
+    if config.budget.method_continuation_steps != 500000:
+        raise ValueError("direct-from-seed pilot method training must remain 500000 steps")
+    expected_total = config.budget.method_continuation_steps
     if config.budget.total_actor_steps_per_method != expected_total:
         raise ValueError(
-            "total_actor_steps_per_method must equal warm-start plus continuation"
+            "total_actor_steps_per_method must equal direct method training steps"
         )
 
 
@@ -697,11 +689,7 @@ def verify_worker_identity(
 def build_execution_plan(config: BenchConfig, mode: str) -> dict[str, Any]:
     if mode == "pilot":
         critics = [dataset.id for dataset in config.datasets]
-        positives = [
-            {"dataset_id": dataset.id, "seed": seed}
-            for dataset in config.datasets
-            for seed in config.budget.seeds
-        ]
+        positives: list[dict[str, Any]] = []
         branches = [
             {"dataset_id": dataset.id, "seed": seed, "method": method}
             for dataset in config.datasets
@@ -713,6 +701,7 @@ def build_execution_plan(config: BenchConfig, mode: str) -> dict[str, Any]:
             "scientific_status": PILOT_STATUS,
             "critic_parallel_stage": critics,
             "warmstart_parallel_stage": positives,
+            "actor_initialization": "direct_from_seed_no_positive_only_warmstart",
             "branch_parallel_stage": branches,
             "critic_workers": config.parallel.critic_workers,
             "warmstart_workers": config.parallel.warmstart_workers,
@@ -1726,29 +1715,6 @@ def branch_worker(args: argparse.Namespace) -> int:
         seed=seed,
         method=args.method,
     )
-    warmstart_dir = Path(args.warmstart_dir).expanduser().resolve()
-    marker = warmstart_dir / "WORKER_COMPLETE.json"
-    if not marker.is_file():
-        raise FileNotFoundError(f"shared warm-start worker is incomplete: {marker}")
-    warmstart_payload = json.loads(marker.read_text())
-    expected_warmstart_identity = worker_identity_sha256(
-        config,
-        spec,
-        worker="warmstart",
-        seed=seed,
-        method=WARMSTART_METHOD,
-    )
-    if warmstart_payload.get("worker_identity_sha256") != expected_warmstart_identity:
-        raise RuntimeError("shared warm-start identity does not match this branch protocol")
-    warmstart_summary = warmstart_payload.get("summary", {})
-    if not bool(warmstart_summary.get("fixed_budget_completed")):
-        raise RuntimeError("shared Positive-only warm-start did not complete its fixed budget")
-    if int(warmstart_summary.get("step", -1)) != config.budget.shared_positive_warmstart_steps:
-        raise RuntimeError("shared Positive-only warm-start step count does not match protocol")
-    checkpoint = Path(warmstart_payload["branch_checkpoint"]["path"])
-    if sha256_file(checkpoint) != warmstart_payload["branch_checkpoint"]["sha256"]:
-        raise RuntimeError("shared warm-start checkpoint SHA-256 mismatch")
-    payload = torch.load(checkpoint, map_location="cpu", weights_only=False)
     policy = q2.SquashedGaussianPolicy(
         obs.shape[1],
         data.actions.shape[1],
@@ -1760,7 +1726,6 @@ def branch_worker(args: argparse.Namespace) -> int:
         q2_config.init_scheme,
         q2_config.init_gain,
     ).to(device)
-    policy.load_state_dict(payload["model"])
     output_dir = Path(args.output_dir).expanduser().resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
     summary = train_policy_method(
@@ -1791,11 +1756,10 @@ def branch_worker(args: argparse.Namespace) -> int:
             "seed": seed,
             "scheduled_continuation_steps": config.budget.method_continuation_steps,
             "executed_continuation_steps": int(summary["step"]),
-            "shared_warmstart_steps": config.budget.shared_positive_warmstart_steps,
+            "shared_warmstart_steps": 0,
+            "actor_initialization": "direct_from_seed_no_positive_only_warmstart",
             "scheduled_total_actor_steps": config.budget.total_actor_steps_per_method,
-            "executed_total_actor_steps": (
-                config.budget.shared_positive_warmstart_steps + int(summary["step"])
-            ),
+            "executed_total_actor_steps": int(summary["step"]),
         }
     )
     atomic_write_json(output_dir / "summary.json", summary)
@@ -1814,8 +1778,7 @@ def branch_worker(args: argparse.Namespace) -> int:
         "seed": seed,
         "method": args.method,
         "summary": summary,
-        "source_warmstart_checkpoint_sha256": warmstart_payload["branch_checkpoint"]["sha256"],
-        "source_warmstart_worker_identity_sha256": expected_warmstart_identity,
+        "actor_initialization": "direct_from_seed_no_positive_only_warmstart",
         "completed_utc": utc_now(),
     }
     atomic_write_json(output_dir / "WORKER_COMPLETE.json", complete)
@@ -2407,7 +2370,11 @@ def run_pilot(args: argparse.Namespace) -> int:
                 expected_worker_identity_sha256=critic_identity,
             )
 
-    warmstart_jobs: list[dict[str, Any]] = []
+    # Direct-from-seed comparison: no shared Positive-only warm-start stage is scheduled.
+    # Every method variant, including Positive-only, initializes its own policy from the
+    # same dataset/seed initialization stream and receives the same full actor budget.
+
+    branch_jobs: list[dict[str, Any]] = []
     job_index = 0
     for spec in config.datasets:
         critic_dir = work_dir / "critics" / spec.id
@@ -2420,90 +2387,6 @@ def run_pilot(args: argparse.Namespace) -> int:
         ):
             raise RuntimeError(f"canonical critic is incomplete for {spec.id}")
         for seed in config.budget.seeds:
-            output = work_dir / "warmstarts" / spec.id / f"seed_{seed}"
-            expected_identity = worker_identity_sha256(
-                config,
-                spec,
-                worker="warmstart",
-                seed=seed,
-                method=WARMSTART_METHOD,
-            )
-            if prepare_worker_output(
-                output,
-                resume=args.resume,
-                dataset_id=spec.id,
-                seed=seed,
-                method=WARMSTART_METHOD,
-                worker="warmstart",
-                expected_worker_identity_sha256=expected_identity,
-            ):
-                job_index += 1
-                continue
-            warmstart_jobs.append(
-                {
-                    "job_id": f"warmstart:{spec.id}:seed_{seed}",
-                    "log_path": work_dir / "logs" / f"warmstart_{spec.id}_seed_{seed}.log",
-                    "command": [
-                        python,
-                        runner_path,
-                        "warmstart-worker",
-                        "--config",
-                        str(resolved_config),
-                        "--dataset-root",
-                        str(dataset_root),
-                        "--validated-datasets-manifest",
-                        str(work_dir / "DATASETS.json"),
-                        "--dataset-id",
-                        spec.id,
-                        "--seed",
-                        str(seed),
-                        "--critic-dir",
-                        str(critic_dir),
-                        "--output-dir",
-                        str(output),
-                        "--device",
-                        _device_for_job(config.parallel.device_pool, job_index),
-                        "--cpus-per-worker",
-                        str(config.parallel.warmstart_cpus_per_worker),
-                        "--expected-worker-identity-sha256",
-                        expected_identity,
-                    ],
-                }
-            )
-            job_index += 1
-    if warmstart_jobs:
-        run_parallel_stage(
-            warmstart_jobs,
-            max_workers=config.parallel.warmstart_workers,
-            cpus_per_worker=config.parallel.warmstart_cpus_per_worker,
-            stage="parallel_shared_positive_warmstarts",
-            heartbeat_path=work_dir / "warmstart_stage_heartbeat.json",
-        )
-
-    branch_jobs: list[dict[str, Any]] = []
-    job_index = 0
-    for spec in config.datasets:
-        critic_dir = work_dir / "critics" / spec.id
-        for seed in config.budget.seeds:
-            warmstart_dir = work_dir / "warmstarts" / spec.id / f"seed_{seed}"
-            warmstart_identity = worker_identity_sha256(
-                config,
-                spec,
-                worker="warmstart",
-                seed=seed,
-                method=WARMSTART_METHOD,
-            )
-            if not _worker_complete(
-                warmstart_dir,
-                dataset_id=spec.id,
-                seed=seed,
-                method=WARMSTART_METHOD,
-                worker="warmstart",
-                expected_worker_identity_sha256=warmstart_identity,
-            ):
-                raise RuntimeError(
-                    f"shared Positive-only warm-start is incomplete for {spec.id} seed {seed}"
-                )
             for method in config.methods.ids:
                 output = work_dir / "branches" / spec.id / f"seed_{seed}" / method
                 expected_identity = worker_identity_sha256(
@@ -2550,8 +2433,6 @@ def run_pilot(args: argparse.Namespace) -> int:
                             method,
                             "--critic-dir",
                             str(critic_dir),
-                            "--warmstart-dir",
-                            str(warmstart_dir),
                             "--output-dir",
                             str(output),
                             "--device",
@@ -2643,7 +2524,6 @@ def build_parser() -> argparse.ArgumentParser:
     branch.add_argument("--seed", type=int, required=True)
     branch.add_argument("--method", required=True)
     branch.add_argument("--critic-dir", required=True)
-    branch.add_argument("--warmstart-dir", required=True)
     branch.add_argument("--output-dir", required=True)
     branch.add_argument("--device", required=True)
     branch.add_argument("--cpus-per-worker", type=int, required=True)

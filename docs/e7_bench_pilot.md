@@ -2,7 +2,7 @@
 
 ## Scope
 
-This is a `pilot` substage under the existing `EXT-H-E7-BENCH-01` ID. It does not create a second top-level experiment. The pilot checks the benchmark implementation, runtime, artifact volume, paired method branching, rollout evaluation, terminal-state audit, and method-specific parameter sensitivity under a D4RL-scale training budget.
+This is a `pilot` substage under the existing `EXT-H-E7-BENCH-01` ID. It does not create a second top-level experiment. The pilot checks the benchmark implementation, runtime, artifact volume, direct-from-seed method comparison, rollout evaluation, terminal-state audit, and method-specific parameter sensitivity under a D4RL-scale training budget.
 
 The formal benchmark remains the registered nine-cell D4RL MuJoCo suite. Pilot output is not formal nine-task evidence and may not be used to select a new method family, tune a task-specific coefficient, or populate a formal method ranking. A later freeze update is required before any selected scalar can be promoted to a formal benchmark setting.
 
@@ -13,12 +13,12 @@ The first implementation registered `20k` critic steps, a `20k` Positive-only ch
 1. every stage was one fifth of the already audited E7-Q2 long-run budget; and
 2. Positive-only stopped after `20k`, while the other methods received another `40k`, so the baseline and controlled methods did not have equal actor horizons.
 
-No scientific pilot result was produced under that design. This protocol replaces it with the E7-Q2 long-run scale and an equal-horizon comparison:
+No scientific pilot result was produced under that design. This protocol was later corrected again after audit: the shared Positive-only warm-start changed the scientific question into a continuation-from-Positive-only protocol. The current pilot therefore uses direct method training from the same actor initialization stream for each `(dataset, seed, method)`:
 
 - canonical critic: `100k` optimizer steps per dataset;
-- shared Positive-only warm-start: `100k` steps per `(dataset, seed)`;
-- method continuation: `200k` steps for **all six methods**, including Positive-only;
-- total actor horizon: `300k` steps for every compared method.
+- shared Positive-only warm-start: `0` steps; no warm-start stage is scheduled;
+- method training: `500k` steps for **every** method variant, including Positive-only;
+- total actor horizon: `500k` steps for every compared method.
 
 Only NaN/Inf numerical failure may stop a worker early. A fixed horizon is not treated as convergence.
 
@@ -29,21 +29,20 @@ Only NaN/Inf numerical failure may stop a worker early. A fixed horizon is not t
 - The follow-up pilot now expands these into 21 method variants: one Positive-only, one Signed, four Global-alpha scalars, four stronger Reciprocal-Linear coefficients, four stronger Reciprocal-Quadratic coefficients, and seven Exponential coefficients. The prior stronger-taper pilot showed Exponential around `c=8` had the clearest usable signal, while Reciprocal and Global-alpha also improved as their control strength increased; this matrix therefore keeps all non-positive families alive instead of prematurely reducing the paper comparison to Exponential-only.
 - The old C-U1 near-retention scalars remain recorded in the config as provenance, but the active follow-up grid is a pilot sensitivity search centered on stronger taper settings; it does not authorize per-task D4RL retuning or formal coefficient promotion.
 - Latest pilot interpretation is recorded only as tuning rationale: Exponential currently has the strongest stable signal, but Reciprocal and Global-alpha are still under-explored at stronger settings. No method ranking, formal D4RL table entry, or locked conclusion is promoted by this pilot update.
-- Two uploaded data cells:
-  - `hopper-medium-minari-v0`: the exact uploaded `mujoco/hopper/medium-v0` file. Metadata identifies it as Minari/Hopper-v5, not D4RL Hopper-medium-v2. It is plumbing/pilot-only and is not eligible for the formal nine-cell table.
-  - `hopper-medium-expert-v2`: the exact uploaded D4RL-v2 legacy HDF5 cell.
+- Two uploaded legacy D4RL-v2 data cells are used in the current pilot:
+  - `hopper-medium-replay-v2`: the exact uploaded D4RL-v2 medium-replay HDF5 cell.
+  - `hopper-medium-expert-v2`: the exact uploaded D4RL-v2 medium-expert HDF5 cell.
 
-The version distinction is deliberate. The code refuses to relabel the Minari medium file as D4RL and reports raw Hopper-v5 return for that pilot cell. A formal Hopper-medium result still requires a separately frozen exact D4RL dataset version.
+The earlier Minari/Hopper-v5 medium file is no longer part of this E7-BENCH pilot config. That earlier cell remains historical plumbing evidence only and must not be relabeled as D4RL medium or medium-replay.
 
 ## Parallel execution
 
-The coordinator uses three fail-fast subprocess stages:
+The coordinator uses two fail-fast subprocess stages:
 
 1. Two dataset-level canonical critics run concurrently: `2 × 64 = 128` CPU threads.
-2. Four `(dataset, seed)` shared Positive-only warm-starts run concurrently: `4 × 64 = 256` CPU threads.
-3. Ninety-two `(dataset, seed, method_variant)` equal-horizon continuations run concurrently: `92 × 4 = 368` CPU threads.
+2. Ninety-two `(dataset, seed, method_variant)` direct-from-seed actor trainings run concurrently: `92 × 4 = 368` CPU threads.
 
-The third stage includes Positive-only itself. Every method variant loads the same 100k warm-start for its dataset and seed, creates a fresh optimizer, and receives the same 200k continuation budget. This removes the former 20k-versus-60k comparison asymmetry while allowing method-specific scalar search.
+The actor stage includes Positive-only itself. Every method variant constructs a policy from the same dataset/seed initialization stream, creates its own optimizer, and receives the same 500k actor budget. This avoids the superseded protocol where all methods inherited a Positive-only warm-start before method-specific continuation.
 
 The taper definitions are fixed and explicit. For standardized Gaussian distance
 `u = d / 5`, Reciprocal-Linear uses `1 / (1 + c u)`, Reciprocal-Quadratic uses
@@ -53,7 +52,7 @@ it is not the quartic form that would arise from reciprocal-squared-surprisal.
 
 The peak registered allocation is 368 threads, leaving 16 threads of headroom on a 384-core server. Seeds and method variants are never executed by a top-level serial loop. Every worker has an isolated output directory, and shared aggregate files are written only by the coordinator.
 
-The formal nine-cell registration freezes the same topology: `task_seed_method` is the continuation parallel unit, both serial seed and serial method loops are forbidden, Positive-only is an equal-horizon continuation branch, and each method starts from an identical per-task-seed Positive-only warm-start. Formal launch remains fail-closed until exact formal seeds, D4RL versions, base algorithm, optimizer, and full budgets are registered.
+The formal nine-cell registration remains fail-closed. If promoted later, the relevant topology is `task_seed_method` with both serial seed and serial method loops forbidden, and methods must not silently inherit a Positive-only warm-start unless a separate warm-start-continuation protocol is explicitly registered.
 
 ## Resume and stale-output protection
 
@@ -69,11 +68,10 @@ Resume identity is not based only on dataset, seed, and method names. Every run 
 A work directory from the superseded `20k/20k/40k` design cannot be resumed under this protocol. The coordinator fails closed and requires a new work directory. Within a matching run identity, incomplete worker directories are preserved under a `_stale_worker_outputs` archive before that worker alone is retried.
 
 If one worker fails, the coordinator terminates active peer subprocesses instead
-of waiting for dozens of 200k-step workers to finish. Canonical critics and shared
-warm-starts must complete their full frozen budgets before downstream branching.
-Method continuations may stop early only for NaN/Inf; summaries record scheduled
-and actually executed actor steps separately, so a numerical failure cannot be
-misreported as a completed 300k path.
+of waiting for dozens of 500k-step workers to finish. Canonical critics must complete
+their full frozen budget before actor training. Method workers may stop early only
+for NaN/Inf; summaries record scheduled and actually executed actor steps separately,
+so a numerical failure cannot be misreported as a completed 500k path.
 
 ## Interpretation
 
@@ -94,7 +92,7 @@ The terminal audit continues to report separately:
 
 ## Commands
 
-The runtime environment must provide the E7-Q2 PyTorch/HDF5 stack plus `gymnasium` with MuJoCo support for `Hopper-v4` and `Hopper-v5`. The runner fails before the 100k critics when this rollout dependency is unavailable. The shared warm-start worker is intentionally method-agnostic: method validation belongs to branch continuations only, because `warmstart-worker` does not accept a `--method` argument.
+The runtime environment must provide the E7-Q2 PyTorch/HDF5 stack plus `gymnasium` with MuJoCo support for `Hopper-v4`. The runner fails before the 100k critics when this rollout dependency is unavailable. The branch worker validates its method variant directly and does not require a `--warmstart-dir` argument.
 
 After extracting the registered dataset bundle into one directory, use a **new** work directory for this long-budget protocol:
 
@@ -120,34 +118,26 @@ The next follow-up therefore keeps the same pilot budget while shifting search r
 
 This update remains a parameter-sensitivity pilot. It may guide the next run but may not promote any scalar, method family, or ranking into the formal D4RL benchmark without a separate freeze update and terminal audit.
 
+## Direct-from-seed 500k correction
+
+The previous warm-start continuation design is superseded for method comparison. It remains useful only as a separate diagnostic question: whether controlled negative updates can improve after a Positive-only policy has already been trained. The current pilot instead answers the cleaner comparison question: under the same critic, dataset cell, actor seed, network profile, optimizer, and 500k actor budget, how do the method variants behave when trained directly from the same actor initialization stream?
+
+This update also replaces the historical Minari/Hopper-v5 plumbing cell with the uploaded D4RL-v2 `hopper-medium-replay-v2` file. The current pilot cells are therefore `hopper-medium-replay-v2` and `hopper-medium-expert-v2`. The run remains a pilot: two seeds are not enough for a formal method ranking, and fixed 500k training remains a horizon requiring terminal audit rather than a proof of convergence.
+
 ## Reusable canonical critic cache
 
-The pilot now supports a reusable canonical critic cache. This is an engineering feature for the same frozen-advantage protocol, not a new scientific result. It prevents repeated `critic_steps` spending when only actor seeds, method variants, branch horizon, rollout episodes, or sweep coefficients change.
+The pilot supports a reusable canonical critic cache. This is an engineering feature for the same frozen-advantage protocol, not a new scientific result. It prevents repeated `critic_steps` spending when only actor seeds, method variants, branch horizon, rollout episodes, or sweep coefficients change.
 
-The default cache is enabled in `configs/e7_bench_pilot.yaml`:
+The cache is optional but enabled by default in `configs/e7_bench_pilot.yaml` with root `~/.cache/drpo/e7_bench/critics`. It can be overridden at launch time via `--critic-cache-dir`. A cache entry is valid only when its identity matches all critic-defining inputs:
 
-```yaml
-critic_cache:
-  enabled: true
-  cache_dir: ~/.cache/drpo/e7_bench/critics
-  reuse: true
-  store: true
-  actor_seed_independent: true
-  sweep_config_independent: true
-```
+- experiment ID and runner/cache schema version;
+- dataset ID, dataset SHA256, format, env ID, dataset family, score protocol, and D4RL normalization references;
+- uploaded base E7-Q2 config SHA256;
+- canonical critic seed;
+- critic optimizer-step budget and eval interval;
+- recovered 2×256 ReLU orthogonal network profile and log-std clamp.
 
-A runtime operator may override the cache location without changing the scientific config:
-
-```bash
-python3 scripts/run_e7_bench.py run \
-  --mode pilot \
-  --dataset-root "$DATASET_ROOT" \
-  --work-dir "$WORK_DIR" \
-  --config configs/e7_bench_pilot.yaml \
-  --critic-cache-dir "$CRITIC_CACHE_DIR"
-```
-
-The critic cache identity deliberately includes the dataset id and SHA-256, dataset format and scoring metadata, `max_transitions`, canonical critic seed, critic fixed-budget fields, base E7-Q2 config SHA-256, recovered network profile, runner version, and critic cache schema. It deliberately excludes actor seed, method variant, sweep config SHA-256, branch actor steps, and rollout evaluation episodes. Therefore increasing actor seeds does not force new critics; by default all actor seeds share the same canonical critic for a given dataset and critic seed.
+The identity deliberately excludes actor seeds, method variants, the sweep config SHA, branch actor horizon, and rollout-evaluation episode counts. Therefore a cached critic remains reusable across direct-from-seed actor branches and future actor-only sensitivity sweeps, but a dataset, critic-seed, critic-budget, base-config, network, or runner/cache-schema change invalidates it.
 
 The runner copies cached critic artifacts into the work directory rather than symlinking them. Cache hits write `CRITIC_CACHE_USED.json`; newly trained critics are copied back to the cache with `CRITIC_CACHE_STORED.json`. A missing, stale, or malformed cache entry fails closed instead of silently using an unchecked artifact.
 

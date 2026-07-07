@@ -25,32 +25,30 @@ def test_pilot_plan_uses_all_384_core_server_parallelism_without_serial_loops() 
     config = e7_bench.load_bench_config(CONFIG)
     plan = e7_bench.build_execution_plan(config, "pilot")
     assert len(plan["critic_parallel_stage"]) == 2
-    assert len(plan["warmstart_parallel_stage"]) == 4
+    assert len(plan["warmstart_parallel_stage"]) == 0
+    assert plan["actor_initialization"] == "direct_from_seed_no_positive_only_warmstart"
     assert len(plan["branch_parallel_stage"]) == 92
     assert sum(row["method"] == "positive_only" for row in plan["branch_parallel_stage"]) == 4
     assert plan["critic_workers"] == 2
-    assert plan["warmstart_workers"] == 4
+    assert plan["warmstart_workers"] == 0
     assert plan["branch_workers"] == 92
     assert plan["critic_workers"] * plan["critic_cpus_per_worker"] == 128
-    assert plan["warmstart_workers"] * plan["warmstart_cpus_per_worker"] == 256
+    assert plan["warmstart_workers"] * plan["warmstart_cpus_per_worker"] == 0
     assert plan["branch_workers"] * plan["branch_cpus_per_worker"] == 368
-    assert plan["shared_positive_warmstart_steps"] == 100000
-    assert plan["method_continuation_steps"] == 200000
-    assert plan["total_actor_steps_per_method"] == 300000
+    assert plan["shared_positive_warmstart_steps"] == 0
+    assert plan["method_continuation_steps"] == 500000
+    assert plan["total_actor_steps_per_method"] == 500000
     assert plan["top_level_serial_seed_loop"] is False
     assert plan["top_level_serial_method_loop"] is False
 
 
-def test_pilot_budget_matches_e7_q2_long_run_and_equalizes_positive_only() -> None:
+def test_pilot_budget_uses_direct_500k_actor_training_without_warmstart() -> None:
     config = e7_bench.load_bench_config(CONFIG)
     assert config.budget.critic_steps == 100000
-    assert config.budget.shared_positive_warmstart_steps == 100000
-    assert config.budget.method_continuation_steps == 200000
-    assert config.budget.total_actor_steps_per_method == 300000
-    assert config.budget.total_actor_steps_per_method == (
-        config.budget.shared_positive_warmstart_steps
-        + config.budget.method_continuation_steps
-    )
+    assert config.budget.shared_positive_warmstart_steps == 0
+    assert config.budget.method_continuation_steps == 500000
+    assert config.budget.total_actor_steps_per_method == 500000
+    assert config.budget.total_actor_steps_per_method == config.budget.method_continuation_steps
 
 
 def test_formal_plan_is_parallel_but_fail_closed_until_protocol_lock() -> None:
@@ -119,35 +117,8 @@ def test_recovered_network_profile_does_not_change_method_weights() -> None:
     assert config.methods.pilot_parameter_search_enabled is True
 
 
-def test_warmstart_worker_is_method_agnostic_but_branch_worker_validates_method() -> None:
+def test_branch_worker_validates_method_without_requiring_warmstart_dir() -> None:
     parser = e7_bench.build_parser()
-    warmstart_args = parser.parse_args(
-        [
-            "warmstart-worker",
-            "--config",
-            str(CONFIG),
-            "--dataset-root",
-            "/tmp/datasets",
-            "--validated-datasets-manifest",
-            "/tmp/manifest.json",
-            "--dataset-id",
-            "hopper-medium-expert-v2",
-            "--seed",
-            "200",
-            "--critic-dir",
-            "/tmp/critic",
-            "--output-dir",
-            "/tmp/warmstart",
-            "--device",
-            "cpu",
-            "--cpus-per-worker",
-            "1",
-            "--expected-worker-identity-sha256",
-            "0" * 64,
-        ]
-    )
-    assert not hasattr(warmstart_args, "method")
-
     branch_args = parser.parse_args(
         [
             "branch-worker",
@@ -165,8 +136,6 @@ def test_warmstart_worker_is_method_agnostic_but_branch_worker_validates_method(
             "exponential_c14p00",
             "--critic-dir",
             "/tmp/critic",
-            "--warmstart-dir",
-            "/tmp/warmstart",
             "--output-dir",
             "/tmp/branch",
             "--device",
@@ -178,6 +147,7 @@ def test_warmstart_worker_is_method_agnostic_but_branch_worker_validates_method(
         ]
     )
     assert branch_args.method == "exponential_c14p00"
+    assert not hasattr(branch_args, "warmstart_dir")
 
 
 def test_taper_weights_are_continuous_and_monotone() -> None:
@@ -208,6 +178,15 @@ def test_benchmark_loss_only_tapers_negative_advantages() -> None:
     assert diag["active_fraction"] == pytest.approx(1.0)
     assert 0.0 < diag["negative_weight_mean"] <= 1.0
 
+
+def test_pilot_uses_d4rl_medium_replay_not_minari_medium() -> None:
+    config = e7_bench.load_bench_config(CONFIG)
+    dataset_ids = tuple(spec.id for spec in config.datasets)
+    assert dataset_ids == ("hopper-medium-replay-v2", "hopper-medium-expert-v2")
+    replay = config.datasets[0]
+    assert replay.format == "legacy_d4rl_hdf5"
+    assert replay.env_id == "Hopper-v4"
+    assert replay.sha256 == "e121c5f7c9857a307baa9edc6a2c3b48e85fedb9ac316ecddd0f48ca7ef4e39b"
 
 def test_minari_episode_loader_preserves_t_plus_one_observations(tmp_path: Path) -> None:
     path = tmp_path / "minari.hdf5"
@@ -362,9 +341,9 @@ def test_run_identity_rejects_stale_short_budget_workdir(tmp_path: Path) -> None
         budget=dataclasses.replace(
             config.budget,
             critic_steps=20000,
-            shared_positive_warmstart_steps=20000,
+            shared_positive_warmstart_steps=0,
             method_continuation_steps=40000,
-            total_actor_steps_per_method=60000,
+            total_actor_steps_per_method=40000,
         ),
     )
     with pytest.raises(RuntimeError, match="different E7-BENCH protocol identity"):
@@ -543,7 +522,7 @@ def test_aggregate_allows_only_nan_inf_as_early_stop_exception(tmp_path: Path) -
                             "dataset_id": spec.id,
                             "seed": seed,
                             "method": method,
-                            "scheduled_total_actor_steps": 300000,
+                            "scheduled_total_actor_steps": 500000,
                             "executed_total_actor_steps": 200000,
                             "fixed_budget_completed": False,
                             "numerical_nonfinite": True,
