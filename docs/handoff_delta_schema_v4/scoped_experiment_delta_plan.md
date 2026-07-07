@@ -159,10 +159,30 @@ Add a read-only analyzer that can:
 - fail closed on ambiguous or malformed deltas;
 - never modify the repository.
 
-### Round 2: schema-v4 generator, disabled by default
+### Round 2: standalone schema-v4 generator, disabled by default
 
-Extend package generation to emit schema-v4 scoped experiment deltas only behind
-an explicit option. schema-v3 remains default.
+Add a standalone generator under `docs/handoff_delta_schema_v4/` that writes
+schema-v4 scoped experiment delta candidates and immediately validates them with
+the Round-1 analyzer. This deliberately does not modify `scripts/package_update.py`,
+`drpo-update`, or the normalizer.
+
+The generator is a low-risk bridge: it proves that scoped delta files can be
+created deterministically from current repository scope material and a single
+experiment payload, while schema-v3 remains the only production merge path.
+Formal package-generation integration is deferred until the scoped format has
+shadow-mode evidence.
+
+### Round 2 acceptance checks
+
+The standalone generator must:
+
+- require exactly one `experiment_id`;
+- require a payload mapping;
+- reject payloads that mention another experiment ID;
+- compute `preimage.experiment_scope_sha256` from the current repository;
+- write a schema-v4 YAML delta only to the requested output path;
+- re-run the Round-1 analyzer on the generated delta;
+- report that schema-v4 merge remains disabled.
 
 ### Round 3: normalizer shadow mode
 
@@ -197,3 +217,24 @@ Rollback is simple because schema-v3 remains default:
 - schema-v3 packages behave exactly as before.
 - generated views are regenerated rather than trusted.
 - failure reports name the conflicting experiment ID.
+
+## Round 2 tool usage
+
+Round 2 adds `docs/handoff_delta_schema_v4/handoff_delta_scope_generator.py`. Example usage:
+
+```bash
+python docs/handoff_delta_schema_v4/handoff_delta_scope_generator.py \
+  --repo . \
+  --experiment-id EXT-C-E8-EXAMPLE-01 \
+  --payload /path/to/payload.yaml \
+  --output /tmp/HANDOFF_DELTA.yaml \
+  --update-id EXT-C-E8-EXAMPLE-01-2026-07-07 \
+  --json
+```
+
+The payload must be a YAML mapping. It may contain `registry_entry` and
+`handoff_entry` keys, but the generator treats their structure as candidate
+payload data only. It does not apply the payload to `experiments/registry.yaml`
+or `docs/handoff.md`.
+
+Rollback remains trivial: remove the generator and continue using schema-v3.
