@@ -1,0 +1,291 @@
+experiment_id: EXT-H-E7-BENCH-01
+protocol_version: 0.2.8-9task-narrow-grid-direct-300k
+execution_class: pilot_substage
+scientific_status: pilot
+gate: null  # set at runtime via --liveness-gate {A,B}; null/absent = full Gate C
+
+claim_boundary:
+  - This 9-task narrow-grid pilot checks implementation, runtime, preliminary paired direction, and method-specific parameter sensitivity across the nine D4RL v2 locomotion medium cells.
+  - It does not populate the formal nine-task table or establish a method ranking.
+  - Pilot outcomes may not change method families, tune per D4RL task, or become formal coefficients without a separate freeze update.
+  - Per user decision (dev log), this pilot follows clean-main direct-from-seed protocol (no shared Positive-only warm-start); spec §3.3 warm-start protocol is not reinstated because main removed it (commit 1193a9a). continuation is reduced to 300000 per spec §3.3 branch_actor_steps.
+
+pilot:
+  base_config_path: configs/e7_hopper_q2_medium_replay_v2.yaml
+  seeds: [200, 201]
+  canonical_critic_seed: 200
+  datasets:
+    - id: hopper-medium-v2
+      relative_path: hopper-medium-v2.hdf5
+      sha256: 5bdf1bc4a713c82941de44633df669b36c89850b652a25985166796d25cf71a0
+      format: legacy_d4rl_hdf5
+      env_id: Hopper-v4
+      dataset_family: d4rl_v2
+      score_protocol: d4rl_v2_percent
+      reference_min_score: -20.272305
+      reference_max_score: 3234.3
+      formal_cell_eligible: true
+      provenance_note: Exact uploaded legacy D4RL hopper-medium-v2 HDF5.
+    - id: hopper-medium-replay-v2
+      relative_path: hopper_medium_replay-v2.hdf5
+      sha256: e121c5f7c9857a307baa9edc6a2c3b48e85fedb9ac316ecddd0f48ca7ef4e39b
+      format: legacy_d4rl_hdf5
+      env_id: Hopper-v4
+      dataset_family: d4rl_v2
+      score_protocol: d4rl_v2_percent
+      reference_min_score: -20.272305
+      reference_max_score: 3234.3
+      formal_cell_eligible: true
+      provenance_note: Exact uploaded legacy D4RL hopper-medium-replay-v2 HDF5.
+    - id: hopper-medium-expert-v2
+      relative_path: hopper-medium-expert-v2.hdf5
+      sha256: 9d51ad87f8c905be3880d84c6140bcdb7fbf39a19e046a237f238ba34fec9e26
+      format: legacy_d4rl_hdf5
+      env_id: Hopper-v4
+      dataset_family: d4rl_v2
+      score_protocol: d4rl_v2_percent
+      reference_min_score: -20.272305
+      reference_max_score: 3234.3
+      formal_cell_eligible: true
+      provenance_note: Exact uploaded legacy D4RL hopper-medium-expert-v2 HDF5.
+    - id: walker2d-medium-v2
+      relative_path: walker2d-medium-v2.hdf5
+      sha256: cf00f43add04c17fdfc2958dd581dea0851b2e5bedbe6fda073758a8f841aeda
+      format: legacy_d4rl_hdf5
+      env_id: Walker2d-v4
+      dataset_family: d4rl_v2
+      score_protocol: d4rl_v2_percent
+      reference_min_score: 1.629008
+      reference_max_score: 4592.3
+      formal_cell_eligible: true
+      provenance_note: Exact uploaded legacy D4RL walker2d-medium-v2 HDF5.
+    - id: walker2d-medium-replay-v2
+      relative_path: walker2d-medium-replay-v2.hdf5
+      sha256: e75de96a4f77acf7d4e0d6fdf0d7ccb177c26c44bb4388e4fd99f543ccfa18db
+      format: legacy_d4rl_hdf5
+      env_id: Walker2d-v4
+      dataset_family: d4rl_v2
+      score_protocol: d4rl_v2_percent
+      reference_min_score: 1.629008
+      reference_max_score: 4592.3
+      formal_cell_eligible: true
+      provenance_note: Exact uploaded legacy D4RL walker2d-medium-replay-v2 HDF5.
+    - id: walker2d-medium-expert-v2
+      relative_path: walker2d-medium-expert-v2.hdf5
+      sha256: 6b8d7f868c45bbaedf460be797fb7271b46dee6ebe45fe7a64319f2005b59a04
+      format: legacy_d4rl_hdf5
+      env_id: Walker2d-v4
+      dataset_family: d4rl_v2
+      score_protocol: d4rl_v2_percent
+      reference_min_score: 1.629008
+      reference_max_score: 4592.3
+      formal_cell_eligible: true
+      provenance_note: Exact uploaded legacy D4RL walker2d-medium-expert-v2 HDF5.
+    - id: halfcheetah-medium-v2
+      relative_path: halfcheetah-medium-v2.hdf5
+      sha256: 41324e8487a9556d8cfa4538827f8937f4d63dae3030825ebc9f3a726ed08ca0
+      format: legacy_d4rl_hdf5
+      env_id: HalfCheetah-v4
+      dataset_family: d4rl_v2
+      score_protocol: d4rl_v2_percent
+      reference_min_score: -280.178453
+      reference_max_score: 12135.0
+      formal_cell_eligible: true
+      provenance_note: Exact uploaded legacy D4RL halfcheetah-medium-v2 HDF5.
+    - id: halfcheetah-medium-replay-v2
+      relative_path: halfcheetah-medium-replay-v2.hdf5
+      sha256: 48d494a4770c11f48260736dec090b78bdca8375647ed4d24bfa5b6610c7f683
+      format: legacy_d4rl_hdf5
+      env_id: HalfCheetah-v4
+      dataset_family: d4rl_v2
+      score_protocol: d4rl_v2_percent
+      reference_min_score: -280.178453
+      reference_max_score: 12135.0
+      formal_cell_eligible: true
+      provenance_note: Exact uploaded legacy D4RL halfcheetah-medium-replay-v2 HDF5.
+    - id: halfcheetah-medium-expert-v2
+      relative_path: halfcheetah-medium-expert-v2.hdf5
+      sha256: 015db75dae5bbe8e94029b71fa0bafc2073365df0c94744e71031189f3f79c06
+      format: legacy_d4rl_hdf5
+      env_id: HalfCheetah-v4
+      dataset_family: d4rl_v2
+      score_protocol: d4rl_v2_percent
+      reference_min_score: -280.178453
+      reference_max_score: 12135.0
+      formal_cell_eligible: true
+      provenance_note: Exact uploaded legacy D4RL halfcheetah-medium-expert-v2 HDF5.
+  budget:
+    max_transitions: null
+    critic_steps: 100000
+    critic_eval_interval: 2000
+    shared_positive_warmstart_steps: 0
+    method_continuation_steps: 300000
+    total_actor_steps_per_method: 300000
+    actor_eval_interval: 5000
+    rollout_eval_interval: 25000
+    rollout_episodes: 5
+    final_rollout_episodes: 20
+    audit_sample_size: 16384
+    early_stop_rule: nan_inf_numerical_failure_only
+    fixed_horizon_is_not_convergence: true
+    equal_total_actor_horizon_across_methods: true
+
+
+critic_cache:
+  enabled: true
+  cache_dir: ~/.cache/drpo/e7_bench/critics
+  reuse: true
+  store: true
+  actor_seed_independent: true
+  sweep_config_independent: true
+  identity_scope: dataset_plus_critic_seed_plus_critic_budget_plus_data_sha_plus_base_config_plus_network_profile_plus_runner
+  excludes:
+    - actor_seed
+    - method_variant
+    - sweep_config_sha256
+    - branch_actor_steps
+    - rollout_eval_episodes
+
+model_profile:
+  source: experiments/e7/reference/recovered_drrl_agents_20260704.py.txt::NETWORK_PRESETS.default
+  scope: network_structure_only_no_method_reweighting
+  hidden_sizes: [256, 256]
+  activation: relu
+  init: orthogonal
+  init_gain: 1.4142135623730951
+  log_std_mode: independent_global_diagonal
+  log_std_min: -5.0
+  log_std_max: 2.0
+
+methods:
+  ids:
+    - positive_only
+    - signed
+    - global_alpha
+    - reciprocal_linear
+    - reciprocal_quadratic
+    - exponential
+  global_alpha: 0.75
+  reference_distance: 5.0
+  near_region_boundary: 5.0
+  coefficients:
+    reciprocal_linear: 0.4362580032734791
+    reciprocal_quadratic: 0.5520268617673281
+    exponential: 0.374162511054291
+  coefficient_source: C-U1-E4-TAPER-NEAR-RETENTION-01 development seeds 0-4, frozen target average near retention 0.75
+  d4rl_retuning_allowed: false
+  pilot_parameter_search:
+    enabled: true
+    scope: 9task_narrow_grid_pilot_not_formal_retuning
+    basis: >-
+      Narrow 12-variant grid for the 9-task D4RL pilot: positive_only and signed baselines, tiny
+      global_alpha (0.001-0.02), strong exponential (c14-c24), and one representative point each
+      for reciprocal_linear (c64) and reciprocal_quadratic (c56). 9 datasets x 2 seeds x 12
+      variants = 216 branches. Not a formal retuning; pilot evidence only.
+    per_task_retuning_allowed: false
+    variant_count: 12
+    variants:
+      - id: positive_only
+        family: positive_only
+      - id: signed
+        family: signed
+      - id: global_alpha_a0p001
+        family: global_alpha
+        global_alpha: 0.001
+      - id: global_alpha_a0p005
+        family: global_alpha
+        global_alpha: 0.005
+      - id: global_alpha_a0p01
+        family: global_alpha
+        global_alpha: 0.01
+      - id: global_alpha_a0p02
+        family: global_alpha
+        global_alpha: 0.02
+      - id: exponential_c14
+        family: exponential
+        coefficient: 14.0
+      - id: exponential_c18
+        family: exponential
+        coefficient: 18.0
+      - id: exponential_c20
+        family: exponential
+        coefficient: 20.0
+      - id: exponential_c24
+        family: exponential
+        coefficient: 24.0
+      - id: reciprocal_linear_c64
+        family: reciprocal_linear
+        coefficient: 64.0
+      - id: reciprocal_quadratic_c56
+        family: reciprocal_quadratic
+        coefficient: 56.0
+
+execution:
+  scheduler: two_stage_subprocess_worker_pool
+  stages:
+    - parallel_canonical_critics
+    - parallel_direct_from_seed_method_training
+  pilot_parallel:
+    parallel_unit: dataset_seed_method_variant
+    critic_workers: 6
+    warmstart_workers: 0
+    branch_workers: 216
+    critic_cpus_per_worker: 64
+    warmstart_cpus_per_worker: 1
+    branch_cpus_per_worker: 1
+    device_pool: [cpu]
+    serial_seed_loop_forbidden: true
+    server_capacity_note: >-
+      Critic stage uses at most 6 x 64 = 384 CPU threads (9 critic jobs batch through the pool
+      in 2 waves). The 216-way direct-from-seed branch stage uses 216 x 1 = 216 threads, leaving
+      168 CPU threads of headroom on a 384-core server. Peak across stages is 384 threads.
+  method_branching:
+    inside_worker: false
+    source_checkpoint: none_direct_from_seed_initialization
+    method_variants_continued_in_parallel:
+      - positive_only
+      - signed
+      - global_alpha_a0p001
+      - global_alpha_a0p005
+      - global_alpha_a0p01
+      - global_alpha_a0p02
+      - exponential_c14
+      - exponential_c18
+      - exponential_c20
+      - exponential_c24
+      - reciprocal_linear_c64
+      - reciprocal_quadratic_c56
+    continuation_steps_each: 300000
+    reason: >-
+      Direct-from-seed equal-horizon method training (clean-main protocol). Every method variant
+      initializes its own policy from the same dataset/seed initialization stream and trains for
+      the same 300000 actor optimizer steps. No shared Positive-only warm-start (main removed it;
+      see dev log and claim_boundary).
+  resume_granularity: dataset_seed_method_variant
+  resume_identity:
+    bind_exact_config_sha256: true
+    bind_base_config_sha256: true
+    bind_runner_version: true
+    bind_dataset_sha256: true
+    bind_stage_budget: true
+    bind_method_variant_and_taper_parameters: true
+    mismatched_existing_workdir_policy: fail_closed_require_new_workdir
+  shared_output_writes: coordinator_only
+
+formal_parallel_contract:
+  protocol_locked: false
+  task_count: 9
+  parallel_unit: task_seed_method
+  scheduler: staged_resource_pool_subprocess_workers
+  serial_seed_loop_forbidden: true
+  serial_method_loop_forbidden: true
+  worker_isolation: one_output_directory_per_task_seed_method
+  method_branching: direct_from_seed_parallel_equal_horizon_method_training
+  positive_only_is_full_direct_training_branch: true
+  resume_granularity: task_seed_method
+  resume_identity_must_bind_protocol_and_budget: true
+  formal_seeds: pending_registration
+  exact_dataset_versions: pending_registration
+  base_algorithm: pending_registration
+  optimizer_and_full_budget: pending_registration
+  launch_allowed: false

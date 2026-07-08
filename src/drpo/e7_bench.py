@@ -123,6 +123,155 @@ def write_csv(path: str | Path, rows: Sequence[dict[str, Any]]) -> None:
         writer.writerows(rows)
 
 
+def write_csv_atomic(path: str | Path, rows: Sequence[dict[str, Any]]) -> None:
+    """Atomic CSV write: build the full file in a temp sibling then os.replace.
+
+    Used for incremental metrics.csv flush so a worker crash never leaves a
+    partial/truncated file -- the previous complete version stays in place
+    until the replace lands. Format matches write_csv for aggregator compatibility.
+    """
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fields: list[str] = []
+    for row in rows:
+        for key in row:
+            if key not in fields:
+                fields.append(key)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    with tmp.open("w", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fields)
+        writer.writeheader()
+        writer.writerows(rows)
+    os.replace(tmp, path)
+
+
+_GIT_HEAD_SHA_CACHE: str | None = None
+
+
+def git_head_sha() -> str:
+    """Best-effort current git HEAD SHA for WORKER_STARTED provenance.
+
+    Cached after the first call. Returns "unknown" if git is unavailable or the
+    checkout is not a repo; a branch worker must still record a value.
+    """
+    global _GIT_HEAD_SHA_CACHE
+    if _GIT_HEAD_SHA_CACHE is not None:
+        return _GIT_HEAD_SHA_CACHE
+    try:
+        repo_root = Path(__file__).resolve().parents[2]
+        result = subprocess.run(
+            ["git", "-C", str(repo_root), "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        sha = result.stdout.strip() if result.returncode == 0 else ""
+        _GIT_HEAD_SHA_CACHE = sha or "unknown"
+    except Exception:
+        _GIT_HEAD_SHA_CACHE = "unknown"
+    return _GIT_HEAD_SHA_CACHE
+
+
+def write_worker_started(
+    output_dir: Path,
+    *,
+    run_id: str,
+    pid: int,
+    dataset_id: str,
+    seed: int,
+    method_id: str,
+    commit: str,
+    config_path: str,
+) -> None:
+    atomic_write_json(
+        output_dir / "WORKER_STARTED.json",
+        {
+            "run_id": run_id,
+            "pid": int(pid),
+            "dataset_id": dataset_id,
+            "seed": int(seed),
+            "method_id": method_id,
+            "commit": commit,
+            "start_time_utc": utc_now(),
+            "config_path": config_path,
+        },
+    )
+
+
+class WorkerStatus:
+    """Overwrite worker_status.json for a single branch worker.
+
+    Rewritten atomically on every update so the coordinator liveness monitor
+    always reads a consistent snapshot. Fields follow the 9-task pilot
+    observability contract (state/phase/current_step/loss/grad_norm/nonfinite).
+    """
+
+    def __init__(
+        self,
+        output_dir: Path,
+        *,
+        run_id: str,
+        pid: int,
+        dataset_id: str,
+        seed: int,
+        method_id: str,
+    ) -> None:
+        self._path = Path(output_dir) / "worker_status.json"
+        self._base = {
+            "run_id": run_id,
+            "pid": int(pid),
+            "dataset_id": dataset_id,
+            "seed": int(seed),
+            "method_id": method_id,
+        }
+        self._state = "running"
+        self._phase = "entered"
+        self._current_step = 0
+        self._loss: float | None = None
+        self._grad_norm: float | None = None
+        self._nonfinite = False
+        self._write()
+
+    def update(
+        self,
+        *,
+        state: str | None = None,
+        phase: str | None = None,
+        current_step: int | None = None,
+        loss: float | None = None,
+        grad_norm: float | None = None,
+        nonfinite: bool | None = None,
+    ) -> None:
+        if state is not None:
+            self._state = state
+        if phase is not None:
+            self._phase = phase
+        if current_step is not None:
+            self._current_step = int(current_step)
+        if loss is not None:
+            self._loss = float(loss)
+        if grad_norm is not None:
+            self._grad_norm = float(grad_norm)
+        if nonfinite is not None:
+            self._nonfinite = bool(nonfinite)
+        self._write()
+
+    def _write(self) -> None:
+        payload = dict(self._base)
+        payload.update(
+            {
+                "state": self._state,
+                "phase": self._phase,
+                "current_step": int(self._current_step),
+                "last_update_time_utc": utc_now(),
+                "loss": self._loss,
+                "grad_norm": self._grad_norm,
+                "nonfinite_detected": bool(self._nonfinite),
+            }
+        )
+        atomic_write_json(self._path, payload)
+
+
 @dataclass(frozen=True)
 class DatasetSpec:
     id: str
@@ -233,6 +382,7 @@ class BenchConfig:
     formal_task_count: int
     config_sha256: str
     base_config_sha256: str
+    gate: str | None = None
 
 
 def load_bench_config(path: str | Path) -> BenchConfig:
@@ -384,14 +534,23 @@ def load_bench_config(path: str | Path) -> BenchConfig:
         formal_task_count=int(formal["task_count"]),
         config_sha256=sha256_file(source_path),
         base_config_sha256=sha256_file(base_path),
+        gate=raw.get("gate"),
     )
     validate_bench_config(config)
     return config
 
 
 def validate_bench_config(config: BenchConfig) -> None:
-    if len(config.datasets) != 2:
-        raise ValueError("pilot must contain exactly two registered dataset cells")
+    if config.gate in ("A", "B"):
+        _validate_gate_config(config, config.gate)
+        return
+    if config.gate not in (None, "C", ""):
+        raise ValueError(f"unknown liveness gate: {config.gate!r}")
+    if len(config.datasets) not in (2, 9):
+        raise ValueError(
+            "pilot must contain either two (legacy pilot) or nine (9-task narrow-grid) "
+            "registered dataset cells"
+        )
     if len(config.budget.seeds) != 2 or len(set(config.budget.seeds)) != 2:
         raise ValueError("parameter-sweep pilot must contain exactly two unique development seeds")
     if config.parallel.parallel_unit != "dataset_seed_method_variant":
@@ -476,13 +635,204 @@ def validate_bench_config(config: BenchConfig) -> None:
         raise ValueError("pilot critic_steps must remain frozen at 100000")
     if config.budget.shared_positive_warmstart_steps != 0:
         raise ValueError("direct-from-seed pilot must set shared_positive_warmstart_steps to 0")
-    if config.budget.method_continuation_steps != 500000:
-        raise ValueError("direct-from-seed pilot method training must remain 500000 steps")
+    if config.budget.method_continuation_steps not in (300000, 500000):
+        raise ValueError(
+            "direct-from-seed pilot method training must remain 300000 (9-task narrow-grid) "
+            "or 500000 (legacy) steps"
+        )
     expected_total = config.budget.method_continuation_steps
     if config.budget.total_actor_steps_per_method != expected_total:
         raise ValueError(
             "total_actor_steps_per_method must equal direct method training steps"
         )
+
+
+# --- Liveness gates (spec §5.4) -------------------------------------------------
+# Gate A/B are smoke subsets of the full 9-task config used to verify worker
+# observability + metrics flush before the full 216-branch run. Gate C is the
+# full pilot (no subsetting). These constants are the only authorized reductions
+# for a gate; the frozen scientific guards (network, coefficients, critic math,
+# per-variant scalars, warmstart=0) remain enforced in _validate_gate_config.
+LIVENESS_GATE_DATASETS = {
+    "A": ("hopper-medium-replay-v2",),
+    "B": ("hopper-medium-replay-v2", "hopper-medium-expert-v2"),
+}
+LIVENESS_GATE_SEEDS = {"A": (200,), "B": (200, 201)}
+LIVENESS_GATE_METHODS = {"A": ("positive_only",), "B": ("positive_only", "signed")}
+LIVENESS_GATE_STEPS = {"A": 5000, "B": 20000}
+
+
+def apply_liveness_gate(config: BenchConfig, gate: str) -> BenchConfig:
+    """Subset the full 9-task config to a liveness gate (A or B).
+
+    Returns a new frozen BenchConfig with the gate's dataset/seed/method subset
+    and reduced continuation budget. Does not touch network profile, optimizer,
+    learning rate, batch size, critic math, taper formulas, or method semantics.
+    """
+    if gate not in ("A", "B"):
+        raise ValueError(f"unknown liveness gate: {gate!r}")
+    wanted = LIVENESS_GATE_DATASETS[gate]
+    datasets = tuple(d for d in config.datasets if d.id in wanted)
+    missing = set(wanted) - {d.id for d in datasets}
+    if missing:
+        raise RuntimeError(f"liveness gate {gate} missing datasets: {sorted(missing)}")
+    wanted_methods = LIVENESS_GATE_METHODS[gate]
+    variants = tuple(v for v in config.methods.variants if v.id in wanted_methods)
+    missing_methods = set(wanted_methods) - {v.id for v in variants}
+    if missing_methods:
+        raise RuntimeError(f"liveness gate {gate} missing methods: {sorted(missing_methods)}")
+    steps = LIVENESS_GATE_STEPS[gate]
+    budget = dataclasses.replace(
+        config.budget,
+        seeds=LIVENESS_GATE_SEEDS[gate],
+        method_continuation_steps=steps,
+        total_actor_steps_per_method=steps,
+    )
+    methods = dataclasses.replace(config.methods, variants=variants)
+    branch_jobs = len(datasets) * len(budget.seeds) * len(variants)
+    parallel = dataclasses.replace(
+        config.parallel,
+        critic_workers=min(config.parallel.critic_workers, len(datasets)),
+        branch_workers=branch_jobs,
+    )
+    return dataclasses.replace(
+        config,
+        gate=gate,
+        datasets=datasets,
+        budget=budget,
+        methods=methods,
+        parallel=parallel,
+    )
+
+
+def _validate_gate_config(config: BenchConfig, gate: str) -> None:
+    """Relaxed validation for liveness gate smoke configs (A/B).
+
+    Keeps the frozen scientific guards (network profile, taper coefficients,
+    critic_steps, warmstart=0, per-variant scalars) but allows the gate's
+    reduced dataset/seed/method counts and reduced continuation budget.
+    """
+    if gate not in ("A", "B"):
+        raise ValueError(f"unknown liveness gate: {gate!r}")
+    if len(config.datasets) != len(LIVENESS_GATE_DATASETS[gate]):
+        raise ValueError(
+            f"liveness gate {gate} must contain exactly "
+            f"{len(LIVENESS_GATE_DATASETS[gate])} dataset cell(s)"
+        )
+    if len(set(config.budget.seeds)) != len(LIVENESS_GATE_SEEDS[gate]):
+        raise ValueError(
+            f"liveness gate {gate} must contain exactly "
+            f"{len(LIVENESS_GATE_SEEDS[gate])} unique seed(s)"
+        )
+    if config.parallel.parallel_unit != "dataset_seed_method_variant":
+        raise ValueError("parameter-sweep pilot parallel_unit must be dataset_seed_method_variant")
+    if not config.parallel.serial_seed_loop_forbidden:
+        raise ValueError("pilot must forbid top-level serial seed or method loops")
+    branch_jobs = len(config.datasets) * len(config.budget.seeds) * len(config.methods.variants)
+    if config.parallel.warmstart_workers != 0:
+        raise ValueError("direct-from-seed pilot must not schedule shared warm-start workers")
+    if config.parallel.branch_workers < branch_jobs:
+        raise ValueError(f"pilot branch_workers must cover all {branch_jobs} task-seed-method jobs")
+    for value in (
+        config.parallel.critic_cpus_per_worker,
+        config.parallel.warmstart_cpus_per_worker,
+        config.parallel.branch_cpus_per_worker,
+    ):
+        if value < 1:
+            raise ValueError("all per-stage CPU thread allocations must be positive")
+    if config.network_profile.hidden_sizes != (256, 256):
+        raise ValueError("recovered E7 network profile must retain 2x256 hidden sizes")
+    if config.network_profile.activation.strip().lower() != "relu":
+        raise ValueError("recovered E7 network profile must use ReLU activations")
+    if config.network_profile.init_scheme.strip().lower() != "orthogonal":
+        raise ValueError("recovered E7 network profile must use orthogonal initialization")
+    if config.network_profile.log_std_mode != "independent_global_diagonal":
+        raise ValueError("recovered E7 network profile must retain independent global diagonal log_std")
+    if config.network_profile.log_std_min != -5.0 or config.network_profile.log_std_max != 2.0:
+        raise ValueError("recovered E7 network profile must retain log_std clamp [-5, 2]")
+    if config.methods.d4rl_retuning_allowed:
+        raise ValueError("formal D4RL retuning must remain disabled")
+    if config.methods.per_task_retuning_allowed:
+        raise ValueError("per-task D4RL retuning is forbidden for this pilot sweep")
+    if set(config.methods.coefficients) != set(TAPER_METHODS):
+        raise ValueError("pilot taper coefficients must retain the frozen three-family baseline")
+    if not (0.0 < config.methods.global_alpha <= 1.0):
+        raise ValueError("global_alpha baseline must be in (0, 1]")
+    variant_ids = config.methods.ids
+    if len(set(variant_ids)) != len(variant_ids):
+        raise ValueError("method variant ids must be unique")
+    families = {variant.family for variant in config.methods.variants}
+    if not families.issubset(set(PILOT_METHOD_FAMILIES)):
+        raise ValueError("gate method families must be a subset of the registered families")
+    if not config.methods.pilot_parameter_search_enabled:
+        raise ValueError("pilot parameter search must be explicitly enabled")
+    for variant in config.methods.variants:
+        if variant.family in {"positive_only", "signed"}:
+            if variant.global_alpha is not None or variant.coefficient is not None:
+                raise ValueError(f"{variant.family} variant must not carry a tunable scalar")
+        elif variant.family == "global_alpha":
+            if variant.global_alpha is None or not (0.0 < variant.global_alpha <= 1.0):
+                raise ValueError("global_alpha variants must define a scalar in (0, 1]")
+            if variant.coefficient is not None:
+                raise ValueError("global_alpha variants must not define a taper coefficient")
+        elif variant.family in TAPER_METHODS:
+            if variant.coefficient is None or variant.coefficient <= 0.0:
+                raise ValueError("taper variants must define a positive coefficient")
+            if variant.global_alpha is not None:
+                raise ValueError("taper variants must not define global_alpha")
+        else:
+            raise ValueError(f"unknown method family: {variant.family}")
+    if config.budget.critic_steps != 100000:
+        raise ValueError("pilot critic_steps must remain frozen at 100000")
+    if config.budget.shared_positive_warmstart_steps != 0:
+        raise ValueError("direct-from-seed pilot must set shared_positive_warmstart_steps to 0")
+    if config.budget.method_continuation_steps != LIVENESS_GATE_STEPS[gate]:
+        raise ValueError(
+            f"liveness gate {gate} continuation must be {LIVENESS_GATE_STEPS[gate]} steps"
+        )
+    if config.budget.total_actor_steps_per_method != LIVENESS_GATE_STEPS[gate]:
+        raise ValueError(f"liveness gate {gate} total actor steps must equal continuation")
+
+
+def _write_gate_resolved_config(src_config: str | Path, dst: Path, gate: str) -> None:
+    """Materialize the gate-reduced resolved_config.yaml for branch workers.
+
+    Workers load this file (gate-aware validation) so they train with the gate's
+    reduced dataset/seed/method subset and continuation budget, not the full
+    9-task config. Only the gate subsetting fields are mutated; frozen scientific
+    fields (network profile, coefficients, critic math, per-variant scalars) are
+    copied verbatim from the source config.
+    """
+    raw = yaml.safe_load(Path(src_config).read_text())
+    raw["gate"] = gate
+    raw["pilot"]["datasets"] = [
+        d for d in raw["pilot"]["datasets"] if d["id"] in LIVENESS_GATE_DATASETS[gate]
+    ]
+    raw["pilot"]["seeds"] = list(LIVENESS_GATE_SEEDS[gate])
+    raw["pilot"]["budget"]["method_continuation_steps"] = LIVENESS_GATE_STEPS[gate]
+    raw["pilot"]["budget"]["total_actor_steps_per_method"] = LIVENESS_GATE_STEPS[gate]
+    variants = [
+        v
+        for v in raw["methods"]["pilot_parameter_search"]["variants"]
+        if v["id"] in LIVENESS_GATE_METHODS[gate]
+    ]
+    raw["methods"]["pilot_parameter_search"]["variants"] = variants
+    raw["methods"]["pilot_parameter_search"]["variant_count"] = len(variants)
+    raw["execution"]["pilot_parallel"]["branch_workers"] = (
+        len(LIVENESS_GATE_DATASETS[gate])
+        * len(LIVENESS_GATE_SEEDS[gate])
+        * len(variants)
+    )
+    raw["execution"]["pilot_parallel"]["critic_workers"] = min(
+        raw["execution"]["pilot_parallel"].get("critic_workers", 6),
+        len(LIVENESS_GATE_DATASETS[gate]),
+    )
+    raw["execution"]["method_branching"]["method_variants_continued_in_parallel"] = list(
+        LIVENESS_GATE_METHODS[gate]
+    )
+    raw["execution"]["method_branching"]["continuation_steps_each"] = LIVENESS_GATE_STEPS[gate]
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    dst.write_text(yaml.safe_dump(raw, sort_keys=False))
 
 
 def canonical_json_sha256(payload: Any) -> str:
@@ -1246,6 +1596,7 @@ def train_policy_method(
     output_dir: Path,
     spec: DatasetSpec,
     obs_norm: q2.Normalizer,
+    status_writer: WorkerStatus | None = None,
 ) -> dict[str, Any]:
     output_dir.mkdir(parents=True, exist_ok=True)
     optimizer = torch.optim.AdamW(
@@ -1291,6 +1642,9 @@ def train_policy_method(
             rollout=rollout_for(0),
         )
     )
+    write_csv_atomic(output_dir / "metrics.csv", rows)
+    if status_writer is not None:
+        status_writer.update(phase="initial_eval", current_step=0)
     for step in range(1, max_steps + 1):
         batch = q2.sample_indices(rng, train_indices, q2_config.actor_batch_size)
         loss, diagnostics = benchmark_actor_loss(
@@ -1305,6 +1659,14 @@ def train_policy_method(
         loss_value = float(loss.detach().cpu())
         if not math.isfinite(loss_value):
             failure_reason = "nonfinite_train_loss"
+            if status_writer is not None:
+                status_writer.update(
+                    state="failed",
+                    phase="failed",
+                    current_step=step - 1,
+                    loss=loss_value,
+                    nonfinite=True,
+                )
             break
         loss.backward()
         grad_norm = float(
@@ -1315,6 +1677,14 @@ def train_policy_method(
         if not math.isfinite(grad_norm):
             failure_reason = "nonfinite_train_gradient"
             optimizer.zero_grad(set_to_none=True)
+            if status_writer is not None:
+                status_writer.update(
+                    state="failed",
+                    phase="failed",
+                    current_step=step,
+                    grad_norm=grad_norm,
+                    nonfinite=True,
+                )
             break
         optimizer.step()
         if step % eval_interval == 0 or step == max_steps:
@@ -1340,6 +1710,14 @@ def train_policy_method(
             )
             row.update({f"train_{key}": value for key, value in diagnostics.items()})
             rows.append(row)
+            write_csv_atomic(output_dir / "metrics.csv", rows)
+            if status_writer is not None:
+                status_writer.update(
+                    phase=("rollout_eval" if row.get("rollout_status") == "available" else "training"),
+                    current_step=step,
+                    loss=row.get("loss_value"),
+                    grad_norm=row.get("gradient_norm"),
+                )
             state_drifts = [
                 q2.normalized_window_drift(rows, key, q2_config.audit_windows)
                 for key in ("mean_abs", "sigma_mean", "phantom_distance_mean")
@@ -1376,6 +1754,8 @@ def train_policy_method(
             "formal_evidence_allowed": False,
         }
     )
+    if status_writer is not None:
+        status_writer.update(phase="terminal_audit", current_step=final_step)
     torch.save(
         {
             "model": policy.state_dict(),
@@ -1386,7 +1766,7 @@ def train_policy_method(
         },
         output_dir / "terminal_actor.pt",
     )
-    write_csv(output_dir / "metrics.csv", rows)
+    write_csv_atomic(output_dir / "metrics.csv", rows)
     atomic_write_json(output_dir / "terminal_audit.json", terminal)
     summary = {
         "method": method,
@@ -1408,6 +1788,12 @@ def train_policy_method(
         "far_negative_weight_mean": rows[-1].get("audit_far_negative_weight_mean"),
     }
     atomic_write_json(output_dir / "summary.json", summary)
+    if status_writer is not None:
+        status_writer.update(
+            state=("completed" if failure_reason is None else "failed"),
+            phase=("completed" if failure_reason is None else "failed"),
+            current_step=final_step,
+        )
     return summary
 
 
@@ -1715,6 +2101,28 @@ def branch_worker(args: argparse.Namespace) -> int:
         seed=seed,
         method=args.method,
     )
+    output_dir = Path(args.output_dir).expanduser().resolve()
+    output_dir.mkdir(parents=True, exist_ok=True)
+    run_id = run_identity_sha256(config)
+    write_worker_started(
+        output_dir,
+        run_id=run_id,
+        pid=os.getpid(),
+        dataset_id=spec.id,
+        seed=seed,
+        method_id=args.method,
+        commit=git_head_sha(),
+        config_path=str(args.config),
+    )
+    status = WorkerStatus(
+        output_dir,
+        run_id=run_id,
+        pid=os.getpid(),
+        dataset_id=spec.id,
+        seed=seed,
+        method_id=args.method,
+    )
+    status.update(phase="context_loaded")
     policy = q2.SquashedGaussianPolicy(
         obs.shape[1],
         data.actions.shape[1],
@@ -1726,8 +2134,7 @@ def branch_worker(args: argparse.Namespace) -> int:
         q2_config.init_scheme,
         q2_config.init_gain,
     ).to(device)
-    output_dir = Path(args.output_dir).expanduser().resolve()
-    output_dir.mkdir(parents=True, exist_ok=True)
+    status.update(phase="policy_constructed")
     summary = train_policy_method(
         policy=policy,
         method=args.method,
@@ -1749,6 +2156,7 @@ def branch_worker(args: argparse.Namespace) -> int:
         output_dir=output_dir / "method",
         spec=spec,
         obs_norm=obs_norm,
+        status_writer=status,
     )
     summary.update(
         {
@@ -2072,13 +2480,151 @@ def _run_subprocess_job(
     }
 
 
+def _status_age_seconds(iso_utc: str | None, now_epoch: float) -> float | None:
+    """Seconds between a worker_status last_update_time_utc and now_epoch."""
+    if not iso_utc:
+        return None
+    try:
+        dt = datetime.fromisoformat(iso_utc.replace("Z", "+00:00"))
+        return now_epoch - dt.timestamp()
+    except Exception:
+        return None
+
+
+def branch_liveness_snapshot(
+    work_dir: Path,
+    config: BenchConfig,
+    *,
+    stale_threshold_sec: float = 1800.0,
+    total: int | None = None,
+) -> dict[str, Any]:
+    """Scan all branch worker_status.json files and classify liveness state.
+
+    Returns the enriched branch_stage_heartbeat payload (spec §5.3):
+    total/running/completed/failed/stale counts plus min/max running step and
+    last_update_time_utc. A branch is 'completed' if WORKER_COMPLETE.json exists
+    and worker_status state is not 'failed'; 'failed' if state is 'failed' (or
+    WORKER_COMPLETE absent and status says failed); 'stale' if running but
+    worker_status has not updated within stale_threshold_sec; 'running' otherwise.
+    Branches with no worker_status yet (not started) are not counted in any
+    running/completed/failed/stale bucket -- they are implicit in total - sum.
+    """
+    now_epoch = time.time()
+    running_steps: list[int] = []
+    counts = {"running": 0, "completed": 0, "failed": 0, "stale": 0}
+    for spec in config.datasets:
+        for seed in config.budget.seeds:
+            for method in config.methods.ids:
+                bdir = work_dir / "branches" / spec.id / f"seed_{seed}" / method
+                complete_marker = bdir / "WORKER_COMPLETE.json"
+                status_path = bdir / "worker_status.json"
+                if complete_marker.is_file():
+                    state = None
+                    try:
+                        state = json.loads(status_path.read_text()).get("state")
+                    except Exception:
+                        state = None
+                    if state == "failed":
+                        counts["failed"] += 1
+                    else:
+                        counts["completed"] += 1
+                    continue
+                if not status_path.is_file():
+                    continue
+                try:
+                    payload = json.loads(status_path.read_text())
+                except Exception:
+                    continue
+                state = payload.get("state", "running")
+                if state in ("completed", "failed"):
+                    counts["running"] += 1
+                    running_steps.append(int(payload.get("current_step", 0)))
+                    continue
+                age = _status_age_seconds(payload.get("last_update_time_utc"), now_epoch)
+                if age is not None and age > stale_threshold_sec:
+                    counts["stale"] += 1
+                else:
+                    counts["running"] += 1
+                    running_steps.append(int(payload.get("current_step", 0)))
+    if total is None:
+        total = (
+            len(config.datasets) * len(config.budget.seeds) * len(config.methods.ids)
+        )
+    return {
+        "stage": "parallel_equal_horizon_method_continuations",
+        "total": int(total),
+        "running": counts["running"],
+        "completed": counts["completed"],
+        "failed": counts["failed"],
+        "stale": counts["stale"],
+        "min_running_step": min(running_steps) if running_steps else 0,
+        "max_running_step": max(running_steps) if running_steps else 0,
+        "stale_threshold_sec": stale_threshold_sec,
+        "last_update_time_utc": utc_now(),
+    }
+
+
+class BranchLivenessMonitor(threading.Thread):
+    """Background thread that periodically rewrites the enriched branch heartbeat.
+
+    Sole writer of branch_stage_heartbeat.json during the branch stage so the
+    coordinator's run_parallel_stage (called with heartbeat_path=None for the
+    branch stage) does not race with it. Daemon thread; stopped after the stage.
+    """
+
+    def __init__(
+        self,
+        work_dir: Path,
+        config: BenchConfig,
+        heartbeat_path: Path,
+        *,
+        interval_sec: float = 20.0,
+        stale_threshold_sec: float = 1800.0,
+        total: int | None = None,
+    ) -> None:
+        super().__init__(daemon=True, name="branch-liveness-monitor")
+        self._work_dir = work_dir
+        self._config = config
+        self._heartbeat_path = heartbeat_path
+        self._interval = interval_sec
+        self._stale_threshold = stale_threshold_sec
+        self._total = total
+        self._stop_event = threading.Event()
+
+    def stop(self) -> None:
+        self._stop_event.set()
+
+    def _snapshot(self, state: str) -> None:
+        payload = branch_liveness_snapshot(
+            self._work_dir,
+            self._config,
+            stale_threshold_sec=self._stale_threshold,
+            total=self._total,
+        )
+        payload["state"] = state
+        atomic_write_json(self._heartbeat_path, payload)
+
+    def run(self) -> None:
+        while not self._stop_event.is_set():
+            try:
+                self._snapshot("running")
+            except Exception:
+                pass
+            self._stop_event.wait(self._interval)
+        try:
+            self._snapshot("complete")
+        except Exception:
+            pass
+
+
 def run_parallel_stage(
     jobs: Sequence[dict[str, Any]],
     *,
     max_workers: int,
     cpus_per_worker: int,
     stage: str,
-    heartbeat_path: Path,
+    heartbeat_path: Path | None = None,
+    continue_on_failure: bool = False,
 ) -> list[dict[str, Any]]:
     if len(jobs) > 1 and max_workers <= 1:
         raise RuntimeError(
@@ -2089,8 +2635,13 @@ def run_parallel_stage(
     results: list[dict[str, Any]] = []
     stop_event = threading.Event()
     first_failure: tuple[dict[str, Any], dict[str, Any]] | None = None
-    atomic_write_json(
-        heartbeat_path,
+    failure_count = 0
+
+    def write_heartbeat(payload: dict[str, Any]) -> None:
+        if heartbeat_path is not None:
+            atomic_write_json(heartbeat_path, payload)
+
+    write_heartbeat(
         {"stage": stage, "state": "running", "jobs": len(jobs), "completed": 0, "utc": utc_now()},
     )
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as pool:
@@ -2128,8 +2679,7 @@ def run_parallel_stage(
                     }
             result["job_id"] = job["job_id"]
             results.append(result)
-            atomic_write_json(
-                heartbeat_path,
+            write_heartbeat(
                 {
                     "stage": stage,
                     "state": "running",
@@ -2137,18 +2687,18 @@ def run_parallel_stage(
                     "completed": len(results),
                     "completed_job_ids": sorted(item["job_id"] for item in results),
                     "utc": utc_now(),
-                },
+                }
             )
             if result["returncode"] != 0 and not result.get("cancelled_by_peer_failure"):
-                if first_failure is None:
+                failure_count += 1
+                if not continue_on_failure and first_failure is None:
                     first_failure = (job, result)
                     stop_event.set()
                     for pending in futures:
                         pending.cancel()
     if first_failure is not None:
         job, result = first_failure
-        atomic_write_json(
-            heartbeat_path,
+        write_heartbeat(
             {
                 "stage": stage,
                 "state": "failed",
@@ -2158,21 +2708,47 @@ def run_parallel_stage(
                 "returncode": result["returncode"],
                 "log": result["log"],
                 "utc": utc_now(),
-            },
+            }
         )
         raise RuntimeError(
             f"parallel worker failed: {job['job_id']} returncode={result['returncode']} "
             f"log={result['log']}; peer workers were terminated"
         )
-    atomic_write_json(
-        heartbeat_path,
-        {"stage": stage, "state": "complete", "jobs": len(jobs), "completed": len(results), "utc": utc_now()},
+    final_state = (
+        "complete_with_failures" if (continue_on_failure and failure_count > 0) else "complete"
+    )
+    write_heartbeat(
+        {
+            "stage": stage,
+            "state": final_state,
+            "jobs": len(jobs),
+            "completed": len(results),
+            "failure_count": failure_count,
+            "utc": utc_now(),
+        }
     )
     return sorted(results, key=lambda item: item["job_id"])
 
 
 def aggregate_pilot(work_dir: Path, config: BenchConfig) -> dict[str, Any]:
+    """Aggregate branch outputs into summary + failure inventory.
+
+    Liveness-resilient: a branch that crashed without writing a valid
+    WORKER_COMPLETE.json (or whose summary violates the frozen-horizon
+    contract) is recorded in failure_inventory.csv instead of aborting the
+    whole aggregate. Nonfinite-failed branches (valid WORKER_COMPLETE with
+    numerical_nonfinite) are kept in the summary rows AND recorded in the
+    failure inventory. The three event types (task-performance collapse,
+    support/variance boundary, NaN/Inf numerical) are counted separately.
+    """
     rows: list[dict[str, Any]] = []
+    failures: list[dict[str, Any]] = []
+    event_counts = {
+        "task_performance_collapse": 0,
+        "support_boundary_event": 0,
+        "numerical_nonfinite": 0,
+    }
+    completed = 0
     for spec in config.datasets:
         for seed in config.budget.seeds:
             for method in config.methods.ids:
@@ -2190,6 +2766,12 @@ def aggregate_pilot(work_dir: Path, config: BenchConfig) -> dict[str, Any]:
                     seed=seed,
                     method=method,
                 )
+                failure_base = {
+                    "dataset_id": spec.id,
+                    "seed": seed,
+                    "method": method,
+                    "branch_dir": str(branch_dir),
+                }
                 if not _worker_complete(
                     branch_dir,
                     dataset_id=spec.id,
@@ -2198,49 +2780,87 @@ def aggregate_pilot(work_dir: Path, config: BenchConfig) -> dict[str, Any]:
                     worker="branch",
                     expected_worker_identity_sha256=expected_identity,
                 ):
-                    raise RuntimeError(
-                        "cannot aggregate incomplete or stale branch output: "
-                        f"{branch_dir}"
+                    failures.append(
+                        {**failure_base, "failure_class": "crashed_or_incomplete",
+                         "detail": "no valid WORKER_COMPLETE.json (worker crashed or did not finish)"}
                     )
+                    continue
                 branch_path = branch_dir / "summary.json"
                 if not branch_path.is_file():
-                    raise FileNotFoundError(f"missing branch summary: {branch_path}")
-                row = json.loads(branch_path.read_text())
+                    failures.append(
+                        {**failure_base, "failure_class": "missing_summary",
+                         "detail": "WORKER_COMPLETE present but summary.json absent"}
+                    )
+                    continue
+                try:
+                    row = json.loads(branch_path.read_text())
+                except Exception as exc:
+                    failures.append(
+                        {**failure_base, "failure_class": "corrupt_summary",
+                         "detail": f"summary.json unreadable: {exc!r}"}
+                    )
+                    continue
                 if int(row.get("scheduled_total_actor_steps", -1)) != (
                     config.budget.total_actor_steps_per_method
                 ):
-                    raise RuntimeError(
-                        "branch summary does not report the frozen equal scheduled actor horizon: "
-                        f"{branch_path}"
+                    failures.append(
+                        {**failure_base, "failure_class": "horizon_mismatch",
+                         "detail": "branch summary does not report the frozen equal scheduled actor horizon"}
                     )
+                    continue
                 executed = int(row.get("executed_total_actor_steps", -1))
                 if bool(row.get("fixed_budget_completed")):
                     if executed != config.budget.total_actor_steps_per_method:
-                        raise RuntimeError(
-                            "fixed-budget branch has an inconsistent executed actor step count: "
-                            f"{branch_path}"
+                        failures.append(
+                            {**failure_base, "failure_class": "inconsistent_executed_steps",
+                             "detail": "fixed-budget branch has an inconsistent executed actor step count",
+                             "executed_steps": executed}
                         )
+                        continue
                 elif not bool(row.get("numerical_nonfinite")):
-                    raise RuntimeError(
-                        "branch stopped before the fixed budget without a registered NaN/Inf exception: "
-                        f"{branch_path}"
+                    failures.append(
+                        {**failure_base, "failure_class": "stopped_before_budget_no_naninf",
+                         "detail": "branch stopped before the fixed budget without a registered NaN/Inf exception",
+                         "executed_steps": executed}
+                    )
+                    continue
+                # Three distinct event types, counted separately (spec §9 / terminology discipline).
+                if bool(row.get("task_performance_collapse")):
+                    event_counts["task_performance_collapse"] += 1
+                if bool(row.get("support_boundary_event")):
+                    event_counts["support_boundary_event"] += 1
+                if bool(row.get("numerical_nonfinite")):
+                    event_counts["numerical_nonfinite"] += 1
+                    failures.append(
+                        {**failure_base, "failure_class": row.get("failure_reason") or "numerical_nonfinite",
+                         "terminal_state": row.get("terminal_state"), "executed_steps": executed}
                     )
                 rows.append(row)
+                completed += 1
     write_csv(work_dir / "pilot_method_seed_summary.csv", rows)
+    if failures:
+        write_csv(work_dir / "failure_inventory.csv", failures)
+    total_branches = (
+        len(config.datasets) * len(config.budget.seeds) * len(config.methods.ids)
+    )
     payload = {
         "experiment_id": EXPERIMENT_ID,
         "runner_version": RUNNER_VERSION,
         "scientific_status": PILOT_STATUS,
         "formal_evidence_allowed": False,
         "method_ranking_claim_allowed": False,
+        "gate": config.gate,
         "datasets": [spec.id for spec in config.datasets],
         "seeds": list(config.budget.seeds),
         "method_variants": list(config.methods.ids),
         "method_families": list(PILOT_METHOD_FAMILIES),
         "task_seed_jobs": len(config.datasets) * len(config.budget.seeds),
-        "task_seed_method_branch_jobs": (
-            len(config.datasets) * len(config.budget.seeds) * len(config.methods.ids)
-        ),
+        "task_seed_method_branch_jobs": total_branches,
+        "branch_count_total": total_branches,
+        "branch_count_completed": completed,
+        "branch_count_failed": len(failures),
+        "event_counts": event_counts,
+        "failure_inventory_csv": "failure_inventory.csv" if failures else None,
         "shared_positive_warmstart_steps": (
             config.budget.shared_positive_warmstart_steps
         ),
@@ -2267,13 +2887,22 @@ def aggregate_pilot(work_dir: Path, config: BenchConfig) -> dict[str, Any]:
 
 def run_pilot(args: argparse.Namespace) -> int:
     config = load_bench_config(args.config)
+    gate = getattr(args, "liveness_gate", None)
+    if gate in ("A", "B"):
+        config = apply_liveness_gate(config, gate)
+        _validate_gate_config(config, gate)
+    elif gate not in (None, "C", ""):
+        raise ValueError(f"unknown liveness gate: {gate!r}")
     plan = build_execution_plan(config, "pilot")
     work_dir = Path(args.work_dir).expanduser().resolve()
     dataset_root = Path(args.dataset_root).expanduser().resolve()
     work_dir.mkdir(parents=True, exist_ok=True)
     run_identity = ensure_run_identity(work_dir, config, resume=args.resume)
     resolved_config = work_dir / "resolved_config.yaml"
-    shutil.copy2(args.config, resolved_config)
+    if config.gate in ("A", "B"):
+        _write_gate_resolved_config(args.config, resolved_config, config.gate)
+    else:
+        shutil.copy2(args.config, resolved_config)
 
     manifests = [validate_dataset_file(dataset_root, spec) for spec in config.datasets]
     atomic_write_json(work_dir / "DATASETS.json", manifests)
@@ -2352,6 +2981,7 @@ def run_pilot(args: argparse.Namespace) -> int:
             cpus_per_worker=config.parallel.critic_cpus_per_worker,
             stage="parallel_canonical_critics",
             heartbeat_path=work_dir / "critic_stage_heartbeat.json",
+            continue_on_failure=True,
         )
     for spec in config.datasets:
         critic_dir = work_dir / "critics" / spec.id
@@ -2376,6 +3006,7 @@ def run_pilot(args: argparse.Namespace) -> int:
 
     branch_jobs: list[dict[str, Any]] = []
     job_index = 0
+    skipped_critics: list[str] = []
     for spec in config.datasets:
         critic_dir = work_dir / "critics" / spec.id
         critic_identity = worker_identity_sha256(config, spec, worker="critic")
@@ -2385,7 +3016,8 @@ def run_pilot(args: argparse.Namespace) -> int:
             worker="critic",
             expected_worker_identity_sha256=critic_identity,
         ):
-            raise RuntimeError(f"canonical critic is incomplete for {spec.id}")
+            skipped_critics.append(spec.id)
+            continue
         for seed in config.budget.seeds:
             for method in config.methods.ids:
                 output = work_dir / "branches" / spec.id / f"seed_{seed}" / method
@@ -2445,13 +3077,41 @@ def run_pilot(args: argparse.Namespace) -> int:
                     }
                 )
                 job_index += 1
+    if skipped_critics:
+        atomic_write_json(
+            work_dir / "SKIPPED_CRITICS.json",
+            {
+                "skipped_dataset_ids": skipped_critics,
+                "reason": (
+                    "canonical critic incomplete after critic stage "
+                    "(continue_on_failure); branches for these datasets were skipped"
+                ),
+            },
+        )
     if branch_jobs:
-        run_parallel_stage(
-            branch_jobs,
-            max_workers=config.parallel.branch_workers,
-            cpus_per_worker=config.parallel.branch_cpus_per_worker,
-            stage="parallel_equal_horizon_method_continuations",
-            heartbeat_path=work_dir / "branch_stage_heartbeat.json",
+        monitor = BranchLivenessMonitor(
+            work_dir,
+            config,
+            work_dir / "branch_stage_heartbeat.json",
+            total=len(branch_jobs),
+        )
+        monitor.start()
+        try:
+            run_parallel_stage(
+                branch_jobs,
+                max_workers=config.parallel.branch_workers,
+                cpus_per_worker=config.parallel.branch_cpus_per_worker,
+                stage="parallel_equal_horizon_method_continuations",
+                heartbeat_path=None,
+                continue_on_failure=True,
+            )
+        finally:
+            monitor.stop()
+            monitor.join(timeout=30)
+    else:
+        atomic_write_json(
+            work_dir / "branch_stage_heartbeat.json",
+            branch_liveness_snapshot(work_dir, config, total=0),
         )
     if run_identity != run_identity_sha256(config):
         raise RuntimeError("run identity changed during coordinator execution")
@@ -2489,6 +3149,16 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--work-dir", required=True)
     run.add_argument("--critic-cache-dir")
     run.add_argument("--resume", action="store_true")
+    run.add_argument(
+        "--liveness-gate",
+        choices=("A", "B", "C"),
+        default=None,
+        help=(
+            "Liveness gate smoke run (spec §5.4). A=1 dataset/1 seed/1 method/5000 steps; "
+            "B=2 datasets/2 seeds/2 methods/20000 steps; C or unset=full 9-task pilot. "
+            "Gate A/B must pass before the full 216-branch run."
+        ),
+    )
     plan = sub.add_parser("plan", help="print pilot or formal execution plan")
     plan.add_argument("--mode", choices=("pilot", "formal"), required=True)
     plan.add_argument("--config", default="configs/e7_bench_pilot.yaml")
