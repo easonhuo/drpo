@@ -1,4 +1,4 @@
-# DRPO / SNA2C 远场负梯度动力学研究主文档 v79（E8-TAPER active-tail calibration 与诊断显存修复版）
+# DRPO / SNA2C 远场负梯度动力学研究主文档 v80（Dev-Review 协作流程与 GLM 执行角色固化版）
 <!-- HANDOFF-DELTA-BLOCK:after_heading:v50-stage3-shadow-bootstrap:START -->
 > **v50 增量登记：治理 Pipeline Stage 3 `HANDOFF_DELTA.yaml` shadow mode 启动（不删除 v49 及更早内容）**
 >
@@ -939,6 +939,9 @@
 <!-- HANDOFF-DELTA-BLOCK:section_end:v79-e8-active-tail-current-gate:START -->
 - **Countdown E8-TAPER v79 覆盖：**`EXT-C-E8-TAPER-0.5B-01` 仍为 implemented + ready + not_run pilot，但当前有效协议使用 independent-calibration common-half median tau、nondegenerate calibration fail-closed guard 与 streamed surprisal-bin diagnostics。应用后必须先跑短预算 sanity 验证各方法未退化为 uncontrolled clone；smoke/sanity/pilot 不得写成正式结果或方法排名。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v79-e8-active-tail-current-gate:END -->
+<!-- HANDOFF-DELTA-BLOCK:section_end:v80-dev-review-workflow-current-gate:START -->
+> **v80 常驻协作规则覆盖：**DRPO 实验代码默认采用 dev-branch implementation + independent reviewer-gate 流程。GLM/Claude Code 等执行代理只负责按已批准 scope 写代码、运行 liveness gate/实验、产出 dev 分支 artifacts；不得重新设计实验、改 claim、改锁定科学变量、解释最终方法排名或合并到 `main`。Reviewer/gatekeeper 负责 scope contract、diff、测试、liveness、result provenance、失败清单、终态审计与 merge/reject 决策。大型 sweep 必须先通过小规模 liveness gate；实验结果必须绑定产生结果的 dev branch `HEAD`；raw-complete、terminal-audited、packaged、delivered 与 applied_to_repository 继续分开。
+<!-- HANDOFF-DELTA-BLOCK:section_end:v80-dev-review-workflow-current-gate:END -->
 
 ## 0.2 C-U1 泛化术语覆盖规则（v15 锁定）
 

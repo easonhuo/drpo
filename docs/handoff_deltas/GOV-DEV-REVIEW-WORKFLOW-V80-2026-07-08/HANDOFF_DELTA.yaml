@@ -1,0 +1,31 @@
+schema_version: 3
+update_id: GOV-DEV-REVIEW-WORKFLOW-V80-2026-07-08
+mode: authoritative
+base:
+  commit: 236e9d7ecb14734c3b37c9b93b85ea056b800ee3
+  handoff_sha256: e4982d8b65ede9c8df5575fa37eef1c6acd1f040331fae24badb3d4e87760b0f
+  registry_sha256: 55aab3b0480459c9b3c38950982a9ee41e9bc1d40471ecb5a4ae5cd5a76a1b71
+renderer_version: 1
+operations:
+- operation_id: rename-v80-dev-review-workflow
+  op: replace_heading
+  heading_path:
+  - DRPO / SNA2C 远场负梯度动力学研究主文档 v79（E8-TAPER active-tail calibration 与诊断显存修复版）
+  new_heading: DRPO / SNA2C 远场负梯度动力学研究主文档 v80（Dev-Review 协作流程与 GLM 执行角色固化版）
+  reason: Record the user-approved default dev-branch implementation and independent reviewer-gate workflow without changing
+    any scientific experiment variable or result.
+- operation_id: append-v80-dev-review-workflow-current-gate
+  op: append_to_section
+  heading_path:
+  - 0. 研究与执行原则（每次新会话首先阅读）
+  - 0.1 当前执行门禁
+  block_id: v80-dev-review-workflow-current-gate
+  content: '> **v80 常驻协作规则覆盖：**DRPO 实验代码默认采用 dev-branch implementation + independent reviewer-gate 流程。GLM/Claude Code 等执行代理只负责按已批准
+    scope 写代码、运行 liveness gate/实验、产出 dev 分支 artifacts；不得重新设计实验、改 claim、改锁定科学变量、解释最终方法排名或合并到 `main`。Reviewer/gatekeeper 负责
+    scope contract、diff、测试、liveness、result provenance、失败清单、终态审计与 merge/reject 决策。大型 sweep 必须先通过小规模 liveness gate；实验结果必须绑定产生结果的
+    dev branch `HEAD`；raw-complete、terminal-audited、packaged、delivered 与 applied_to_repository 继续分开。'
+registry:
+  mode: unchanged
+  changes: []
+expected:
+  exact_base_candidate_sha256: 83f3e895dac26e4f95532b0e899816cd8efc6aea3455a59b0b68d08a94acb58e

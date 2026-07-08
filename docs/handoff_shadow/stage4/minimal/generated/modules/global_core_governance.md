@@ -7,7 +7,7 @@
 - Responsibility: Preserve the unique-master rule, terminology, scientific scope, and non-destructive governance constraints.
 - Content contract topics: `unique_master_document`, `document_before_experiment`, `non_destructive_history`, `terminal_audit_governance`, `controlled_external_validity_boundary`
 - Deduplicated overlapping source chunks: 0
-- Source hash: `fbe16b586d8b66b8329bb3f4de790664d6c924fb40ec0820a3c1cfa5bdca3c42`
+- Source hash: `57f8909b29576769830cfbb868366448844481ec95018425ae4bbc38e1f859ef`
 
 ## Content contract evidence
 
@@ -208,6 +208,9 @@
 <!-- HANDOFF-DELTA-BLOCK:section_end:v79-e8-active-tail-current-gate:START -->
 - **Countdown E8-TAPER v79 覆盖：**`EXT-C-E8-TAPER-0.5B-01` 仍为 implemented + ready + not_run pilot，但当前有效协议使用 independent-calibration common-half median tau、nondegenerate calibration fail-closed guard 与 streamed surprisal-bin diagnostics。应用后必须先跑短预算 sanity 验证各方法未退化为 uncontrolled clone；smoke/sanity/pilot 不得写成正式结果或方法排名。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v79-e8-active-tail-current-gate:END -->
+<!-- HANDOFF-DELTA-BLOCK:section_end:v80-dev-review-workflow-current-gate:START -->
+> **v80 常驻协作规则覆盖：**DRPO 实验代码默认采用 dev-branch implementation + independent reviewer-gate 流程。GLM/Claude Code 等执行代理只负责按已批准 scope 写代码、运行 liveness gate/实验、产出 dev 分支 artifacts；不得重新设计实验、改 claim、改锁定科学变量、解释最终方法排名或合并到 `main`。Reviewer/gatekeeper 负责 scope contract、diff、测试、liveness、result provenance、失败清单、终态审计与 merge/reject 决策。大型 sweep 必须先通过小规模 liveness gate；实验结果必须绑定产生结果的 dev branch `HEAD`；raw-complete、terminal-audited、packaged、delivered 与 applied_to_repository 继续分开。
+<!-- HANDOFF-DELTA-BLOCK:section_end:v80-dev-review-workflow-current-gate:END -->
 
 ## 0.2 C-U1 泛化术语覆盖规则（v15 锁定）
 
