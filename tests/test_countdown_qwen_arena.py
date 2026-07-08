@@ -317,6 +317,17 @@ def test_v4_4_sft_bank_and_method_diagnostic_defaults_are_frozen() -> None:
     assert sft.min_epochs == 3
     assert sft.early_stop_patience == 2
     assert sft.parameterization == "lora"
+    assert sft.save_every_epoch is False
+
+    save_epochs = parser.parse_args([
+        "sft",
+        "--model_path", "/tmp/model",
+        "--train_data", "/tmp/train.jsonl",
+        "--val_data", "/tmp/val.jsonl",
+        "--output_dir", "/tmp/sft",
+        "--save_every_epoch",
+    ])
+    assert save_epochs.save_every_epoch is True
 
     method = parser.parse_args([
         "train_method",

@@ -7,7 +7,7 @@
 - Responsibility: Cover token-level near or far mechanism probes and fixed-offline-bank method pilots without replacing D-U1 controlled identification.
 - Content contract topics: none
 - Deduplicated overlapping source chunks: 0
-- Source hash: `c5b16f29298412c6814dad5cbb4da76c0ba7cb0f1d05b6b55ff92da6ec8a6570`
+- Source hash: `68972972bd1d65443a04e794b23b183808b66a1aa54ad036385220cb3192c67d`
 
 ## Source 1: docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v52-ext-c-e8-v43-dynamic-control
 
@@ -134,49 +134,55 @@
 > - **梯度预算口径修复：**共享负尺度的实际定义是 positive aggregate gradient L2 除以 uncontrolled-negative aggregate gradient L2，不再误称 per-sample RMS。Global 与 taper 的 initialization matching 继续比较 aggregate raw negative-gradient L2；Adam update 不宣称匹配。
 > - **状态边界：**本次只完成实现和门禁修复，未运行 Qwen/CUDA pilot，未产生任何方法排名。`EXT-C-E8-TAPER-0.5B-01` 状态为 `not_run + implemented + ready`；任务性能退化、valid/support/entropy boundary 和 NaN/Inf 仍必须分开报告，fixed 1200-update horizon 不自动称为收敛。
 
-## Source 9: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:e8-onpolicy-capacity-diag-0p5b-gate
+## Source 9: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:e8-lowsft-rft-dirty-pilot-record-20260708
+
+### Delta block `section_end:e8-lowsft-rft-dirty-pilot-record-20260708`
+
+- **Countdown E8 low-SFT / capacity diagnostic dirty pilots：**本线记录 `EXT-C-E8-ONPOLICY-CAPACITY-DIAG-0.5B-01` 与一次性 `EXT-C-E8-LOWSFT-RFT-0.5B-01` 试错结果，只能作为 single-seed pilot evidence，不得升级为正式多 seed 结论或方法排名。capacity diagnostic 的 single seed `2026070701` 显示 `same_lora_rft`、`fresh_lora_rft`、`full_param_rft` 的 `best_attempt` 均为 0；terminal 端总体表现为 greedy 持平或小升、pass@8/pass@64 下降，说明 naive verifier-correct positive-only on-policy RFT 没有超过 LoRA SFT 起点。low-SFT 试错从按 validation greedy≈0.08 选出的 epoch-3 LoRA SFT checkpoint 起跑；该 checkpoint 的 pass@8 实际已接近 full-SFT（不是 pass@8≈0.08 起点），RFT 后 `best_attempt=0`，terminal test greedy 0.100→0.113、pass@8 0.174→0.133、pass@64 0.265→0.149。解释必须保留以下限制：运行源码为 dirty pilot / one-off orchestration；不是 convergence；没有证明 3B 或更强模型无效；尚需 no-update、parameter-delta、probe-loss、Qwen pretrained-base no-SFT、ultra-low pass@8 checkpoint 与 offline fixed-corpus controls。工程上允许把 `cmd_sft --save_every_epoch` 作为 opt-in 本地 checkpoint 功能合入，以便后续选择更细粒度 ultra-low SFT 起点；模型权重与结果包不得进入 Git 更新包。
+
+## Source 10: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:e8-onpolicy-capacity-diag-0p5b-gate
 
 ### Delta block `section_end:e8-onpolicy-capacity-diag-0p5b-gate`
 
 - **Countdown E8 on-policy capacity diagnostic 0.5B pilot：**登记 `EXT-C-E8-ONPOLICY-CAPACITY-DIAG-0.5B-01`，作为 `EXT-C-E8-ONPOLICY-UNPOLISHED-0.5B-01` 之后的第二层诊断，只回答 same-LoRA continuation 退化是否来自 same-adapter drift、LoRA RFT 容量、LoRA SFT 容量或 on-policy 探索/样本多样性不足。第一轮只跑单 seed 的 `same_lora_rft / fresh_lora_rft / full_param_rft / full_param_sft_only` 分支并行诊断；单 seed 内部 on-policy attempts 仍保持串行。所有 RFT 分支仍为 verifier-correct positive-only，不包含 signed negative、taper 方法族或 frozen off-policy replay。固定 sampling attempts 只能报告 finite-budget pilot evidence，不得宣称收敛或方法排名；full-param 分支只作 capacity diagnostic，不替代 E8-TAPER 方法实验。
 
-## Source 10: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:e8-onpolicy-unpolished-0p5b-gate
+## Source 11: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:e8-onpolicy-unpolished-0p5b-gate
 
 ### Delta block `section_end:e8-onpolicy-unpolished-0p5b-gate`
 
 - **Countdown E8 on-policy unpolished 0.5B pilot：**登记 `EXT-C-E8-ONPOLICY-UNPOLISHED-0.5B-01`，仅作为 0.5B + same-LoRA continuation 是否能从当前 policy 自采样 verifier-correct completion 继续学习的排除项诊断。第一版只允许 `sft_only` 与 `onpolicy_rft_positive_only`，不包含 full-param、fresh-LoRA、signed negative、taper 方法族或 frozen off-policy replay；数据 split 使用当前 Countdown structural family-holdout 协议。SFT 可通过显式路径复用已训练 LoRA adapter，但必须记录 provenance，且不改变 same-LoRA continuation 口径；固定 sampling attempts 只能报告 finite-budget pilot evidence，不得宣称收敛或方法排名。
 
-## Source 11: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v52-countdown-current-gate-override
+## Source 12: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v52-countdown-current-gate-override
 
 ### Delta block `section_end:v52-countdown-current-gate-override`
 
 - **Countdown v52 覆盖：** `EXT-C-E8-V4.3` 取代 V4.2 成为当前 E8-MECH/focused pilot；V4.2 只保留 matched-pair mechanism provenance。`EXT-C-E8-SCALE-01` 继续等待 V4.3 与 E7-BENCH，不因本次实现自动解锁。
 
-## Source 12: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v57-countdown-offline-bank-current-gate
+## Source 13: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v57-countdown-offline-bank-current-gate
 
 ### Delta block `section_end:v57-countdown-offline-bank-current-gate`
 
 - **Countdown v57 覆盖：** `EXT-C-E8-V4.4-OFFLINE-BANK` 是用户批准的当前离线 focused pilot；V4.3 保留为 fixed-pair predecessor。V4.4 只改变固定负样本覆盖与 current-policy near/far reselection，不引入在线数据刷新。`EXT-H-E7-Q2` 仍是下一正式 route item，`EXT-C-E8-SCALE-01` 继续 blocked。
 
-## Source 13: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v59-countdown-offline-bank-tuning-current-gate
+## Source 14: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v59-countdown-offline-bank-tuning-current-gate
 
 ### Delta block `section_end:v59-countdown-offline-bank-tuning-current-gate`
 
 - **Countdown v59 覆盖：** `EXT-C-E8-V4.5-OFFLINE-BANK-TUNING` 是当前用户批准的离线 focused successor；V4.4 作为 frozen-bank predecessor 保留。V4.5 只调 calibrated global negative multiplier 与 exponential taper lambda，禁止在线刷新、方向筛选或模型规模同时变化。`EXT-H-E7-Q2` 仍是下一 formal route item，`EXT-C-E8-SCALE-01` 继续 blocked。
 
-## Source 14: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v62-countdown-online-offpolicy-current-gate
+## Source 15: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v62-countdown-online-offpolicy-current-gate
 
 ### Delta block `section_end:v62-countdown-online-offpolicy-current-gate`
 
 - **Countdown v62 覆盖：** `EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY` 是当前用户批准并已实现的 Countdown focused successor，状态为 **implemented + not_run**。执行前必须提供完整 V4.5 `RUN_COMPLETE.json`/`terminal_audit.json` 及其指向的 V4.4 frozen inputs；runner fail-closed 校验输入与 reference adapter。它可作为独立 pilot 启动，但不改变 `EXT-H-E7-Q2` 的 formal 优先级，也不自动解锁 `EXT-C-E8-SCALE-01`。
 
-## Source 15: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v73-e8-taper-current-gate
+## Source 16: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v73-e8-taper-current-gate
 
 ### Delta block `section_end:v73-e8-taper-current-gate`
 
 - **Countdown E8-TAPER v73 覆盖：**`EXT-C-E8-TAPER-0.5B-01` 已实现 corrected `S -> d=sqrt(S)` 坐标、独立冻结尺度、deterministic detached weighting、paired sampler 身份校验和终态审计，当前为 **implemented + ready + not_run**。只允许先运行登记的 0.5B pilot；不得将 smoke/static test 写成科学结果，也不得预设 Exp、Global 或任何 taper 获胜。
 
-## Source 16: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v75-e8-taper-diagnostic-bugfix
+## Source 17: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v75-e8-taper-diagnostic-bugfix
 
 ### Delta block `section_end:v75-e8-taper-diagnostic-bugfix`
 
@@ -188,37 +194,37 @@
   diagnostics retain the graph only inside the diagnostic audit. This update is an implementation/config
   repair, not a scientific result; real Qwen/CUDA pilot remains not run.
 
-## Source 17: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v79-e8-active-tail-current-gate
+## Source 18: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v79-e8-active-tail-current-gate
 
 ### Delta block `section_end:v79-e8-active-tail-current-gate`
 
 - **Countdown E8-TAPER v79 覆盖：**`EXT-C-E8-TAPER-0.5B-01` 仍为 implemented + ready + not_run pilot，但当前有效协议使用 independent-calibration common-half median tau、nondegenerate calibration fail-closed guard 与 streamed surprisal-bin diagnostics。应用后必须先跑短预算 sanity 验证各方法未退化为 uncontrolled clone；smoke/sanity/pilot 不得写成正式结果或方法排名。
 
-## Source 18: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v52-e8-route-override
+## Source 19: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v52-e8-route-override
 
 ### Delta block `section_end:v52-e8-route-override`
 
 7. **v52 路线覆盖：** 上述第 5 项的当前 E8-MECH owner 更新为 `EXT-C-E8-V4.3`。V4.3 只修复长期训练中的动态 remoteness 控制并保留 V4.2 静态方法作消融；E8-SCALE 的 3B/7B 规模结论仍需后续独立执行。
 
-## Source 19: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v57-e8-offline-online-route
+## Source 20: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v57-e8-offline-online-route
 
 ### Delta block `section_end:v57-e8-offline-online-route`
 
 8. **v57 E8 内部路线覆盖：** 在进入 E8 外部诊断时，先执行 `EXT-C-E8-V4.4-OFFLINE-BANK`，只改变 fixed-bank 密度与每步动态选择；online off-policy 必须作为独立 successor 重新冻结 rollout actor、同步滞后、replay age、seeds 与预算匹配，不能与 V4.4 共用结论。
 
-## Source 20: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v75-countdown-status-note
+## Source 21: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v75-countdown-status-note
 
 ### Delta block `section_end:v75-countdown-status-note`
 
 - **v75 Countdown 逐样本机制诊断补记：**`EXT-C` 已完成一个 single-seed full-bank `arithmetic_wrong` response diagnostic：`6000` puzzles × near/far = `12000` rows，固定 `negative_coefficient_abs=1.0`，观察到 surprisal 与 trainable-parameter gradient norm 的正相关、near/far 配对增益和 decile 平台化趋势。该补记只把 Countdown 机制观察从 10-puzzle smoke 升级为 full-bank pilot；不升级 `EXT-C-E8-TAPER-0.5B-01` 或 `EXT-C-E8-SCALE-01` 的 formal 状态，也不改变 Countdown 不能替代 D-U1/C-U1 因果识别的边界。
 
-## Source 21: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v52-execution-order-override
+## Source 22: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v52-execution-order-override
 
 ### Delta block `section_end:v52-execution-order-override`
 
 11. **v52 执行覆盖：** 当锁定路线进入 E8-MECH 时，执行 `EXT-C-E8-V4.3` 而不是 V4.2；当前只完成注册和代码实现，真实 Qwen/CUDA pilot 仍为 not_run。
 
-## Source 22: experiments/registry.yaml: experiments[EXT-C-E8-V4, EXT-C-E8-V4.1, EXT-C-E8-V4.2, EXT-C-E8-V4.3, EXT-C-E8-V4.4-OFFLINE-BANK, EXT-C-E8-V4.5-OFFLINE-BANK-TUNING, EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY, EXT-C-E8-TAPER-0.5B-01, EXT-C-E8-SCALE-01]
+## Source 23: experiments/registry.yaml: experiments[EXT-C-E8-V4, EXT-C-E8-V4.1, EXT-C-E8-V4.2, EXT-C-E8-V4.3, EXT-C-E8-V4.4-OFFLINE-BANK, EXT-C-E8-V4.5-OFFLINE-BANK-TUNING, EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY, EXT-C-E8-TAPER-0.5B-01, EXT-C-E8-SCALE-01]
 
 collection: experiments
 entries:

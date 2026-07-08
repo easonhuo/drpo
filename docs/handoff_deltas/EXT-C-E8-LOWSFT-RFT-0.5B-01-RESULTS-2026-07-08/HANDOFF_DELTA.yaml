@@ -1,0 +1,28 @@
+schema_version: 3
+update_id: EXT-C-E8-LOWSFT-RFT-0.5B-01-RESULTS-2026-07-08
+mode: authoritative
+base:
+  commit: f6f8acde4ac65e1ec2ec8b7497c53779b7c301ef
+  handoff_sha256: 83f3e895dac26e4f95532b0e899816cd8efc6aea3455a59b0b68d08a94acb58e
+  registry_sha256: 55aab3b0480459c9b3c38950982a9ee41e9bc1d40471ecb5a4ae5cd5a76a1b71
+renderer_version: 1
+operations:
+- operation_id: append-e8-lowsft-rft-dirty-pilot-record
+  op: append_to_section
+  heading_path:
+  - 0. 研究与执行原则（每次新会话首先阅读）
+  - 0.1 当前执行门禁
+  block_id: e8-lowsft-rft-dirty-pilot-record-20260708
+  content: '- **Countdown E8 low-SFT / capacity diagnostic dirty pilots：**本线记录 `EXT-C-E8-ONPOLICY-CAPACITY-DIAG-0.5B-01` 与一次性
+    `EXT-C-E8-LOWSFT-RFT-0.5B-01` 试错结果，只能作为 single-seed pilot evidence，不得升级为正式多 seed 结论或方法排名。capacity diagnostic 的 single
+    seed `2026070701` 显示 `same_lora_rft`、`fresh_lora_rft`、`full_param_rft` 的 `best_attempt` 均为 0；terminal 端总体表现为 greedy 持平或小升、pass@8/pass@64
+    下降，说明 naive verifier-correct positive-only on-policy RFT 没有超过 LoRA SFT 起点。low-SFT 试错从按 validation greedy≈0.08 选出的 epoch-3
+    LoRA SFT checkpoint 起跑；该 checkpoint 的 pass@8 实际已接近 full-SFT（不是 pass@8≈0.08 起点），RFT 后 `best_attempt=0`，terminal test greedy
+    0.100→0.113、pass@8 0.174→0.133、pass@64 0.265→0.149。解释必须保留以下限制：运行源码为 dirty pilot / one-off orchestration；不是 convergence；没有证明
+    3B 或更强模型无效；尚需 no-update、parameter-delta、probe-loss、Qwen pretrained-base no-SFT、ultra-low pass@8 checkpoint 与 offline fixed-corpus
+    controls。工程上允许把 `cmd_sft --save_every_epoch` 作为 opt-in 本地 checkpoint 功能合入，以便后续选择更细粒度 ultra-low SFT 起点；模型权重与结果包不得进入 Git
+    更新包。'
+registry:
+  mode: unchanged
+expected:
+  exact_base_candidate_sha256: 53d07d014d3e1ce8f71c0d191e2dd8928497d7018952266ce85a7b5143fa78c9

@@ -7,7 +7,7 @@
 - Responsibility: Preserve the unique-master rule, terminology, scientific scope, and non-destructive governance constraints.
 - Content contract topics: `unique_master_document`, `document_before_experiment`, `non_destructive_history`, `terminal_audit_governance`, `controlled_external_validity_boundary`
 - Deduplicated overlapping source chunks: 0
-- Source hash: `57f8909b29576769830cfbb868366448844481ec95018425ae4bbc38e1f859ef`
+- Source hash: `c193136f11568374e0239ffd55efa25836a77bcd011eca7d5ebc59068583e85b`
 
 ## Content contract evidence
 
@@ -137,6 +137,9 @@
 - Hopper/D4RL：`EXT-H-E7-Q2` 是 E7-MECH，runner/config 已实现但 formal launch 仍等待受控 taper 阶段交付；`EXT-H-E7-BENCH-01` 是 D4RL MuJoCo locomotion 9-task 方法效果表，等待 E7-MECH 与受控方法 shortlist 冻结。
 - Countdown：`EXT-C-E8-V4.2` 是当前 E8-MECH/pilot；`EXT-C-E8-V4.1` 仅保留 provenance；`EXT-C-E8-SCALE-01` 是更大固定数据与模型规模验证，等待 E8-MECH 和 E7-BENCH。
 
+<!-- HANDOFF-DELTA-BLOCK:section_end:e8-lowsft-rft-dirty-pilot-record-20260708:START -->
+- **Countdown E8 low-SFT / capacity diagnostic dirty pilots：**本线记录 `EXT-C-E8-ONPOLICY-CAPACITY-DIAG-0.5B-01` 与一次性 `EXT-C-E8-LOWSFT-RFT-0.5B-01` 试错结果，只能作为 single-seed pilot evidence，不得升级为正式多 seed 结论或方法排名。capacity diagnostic 的 single seed `2026070701` 显示 `same_lora_rft`、`fresh_lora_rft`、`full_param_rft` 的 `best_attempt` 均为 0；terminal 端总体表现为 greedy 持平或小升、pass@8/pass@64 下降，说明 naive verifier-correct positive-only on-policy RFT 没有超过 LoRA SFT 起点。low-SFT 试错从按 validation greedy≈0.08 选出的 epoch-3 LoRA SFT checkpoint 起跑；该 checkpoint 的 pass@8 实际已接近 full-SFT（不是 pass@8≈0.08 起点），RFT 后 `best_attempt=0`，terminal test greedy 0.100→0.113、pass@8 0.174→0.133、pass@64 0.265→0.149。解释必须保留以下限制：运行源码为 dirty pilot / one-off orchestration；不是 convergence；没有证明 3B 或更强模型无效；尚需 no-update、parameter-delta、probe-loss、Qwen pretrained-base no-SFT、ultra-low pass@8 checkpoint 与 offline fixed-corpus controls。工程上允许把 `cmd_sft --save_every_epoch` 作为 opt-in 本地 checkpoint 功能合入，以便后续选择更细粒度 ultra-low SFT 起点；模型权重与结果包不得进入 Git 更新包。
+<!-- HANDOFF-DELTA-BLOCK:section_end:e8-lowsft-rft-dirty-pilot-record-20260708:END -->
 <!-- HANDOFF-DELTA-BLOCK:section_end:e8-onpolicy-capacity-diag-0p5b-gate:START -->
 - **Countdown E8 on-policy capacity diagnostic 0.5B pilot：**登记 `EXT-C-E8-ONPOLICY-CAPACITY-DIAG-0.5B-01`，作为 `EXT-C-E8-ONPOLICY-UNPOLISHED-0.5B-01` 之后的第二层诊断，只回答 same-LoRA continuation 退化是否来自 same-adapter drift、LoRA RFT 容量、LoRA SFT 容量或 on-policy 探索/样本多样性不足。第一轮只跑单 seed 的 `same_lora_rft / fresh_lora_rft / full_param_rft / full_param_sft_only` 分支并行诊断；单 seed 内部 on-policy attempts 仍保持串行。所有 RFT 分支仍为 verifier-correct positive-only，不包含 signed negative、taper 方法族或 frozen off-policy replay。固定 sampling attempts 只能报告 finite-budget pilot evidence，不得宣称收敛或方法排名；full-param 分支只作 capacity diagnostic，不替代 E8-TAPER 方法实验。
 <!-- HANDOFF-DELTA-BLOCK:section_end:e8-onpolicy-capacity-diag-0p5b-gate:END -->

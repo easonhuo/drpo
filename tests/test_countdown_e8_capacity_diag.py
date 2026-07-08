@@ -89,3 +89,9 @@ def test_launcher_binds_capacity_experiment_and_parallel_args() -> None:
     ])
     assert args.gpu_ids == "0,1,2,3"
     assert args.sft_adapter_path == "/tmp/sft/best_adapter"
+
+
+def test_rft_finite_parameter_check_uses_arena_helper() -> None:
+    source = MODULE_PATH.read_text()
+    assert "arena._trainable_parameters_finite(trainable)" in source
+    assert "onp._trainable_parameters_finite(trainable)" not in source

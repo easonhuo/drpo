@@ -421,7 +421,7 @@ def train_rft_branch(
             optimizer.step()
             optimizer.zero_grad(set_to_none=True)
             optimizer_steps += 1
-            if not onp._trainable_parameters_finite(trainable):
+            if not arena._trainable_parameters_finite(trainable):
                 numerical_failure = f"nonfinite_parameters_at_attempt_{attempt}"
                 break
             selected_rows.extend({"attempt": attempt, **item} for item in selected)

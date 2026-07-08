@@ -1971,6 +1971,11 @@ def cmd_sft(args: argparse.Namespace) -> None:
         else:
             stale_epochs += 1
         model.train()
+        if getattr(args, "save_every_epoch", False):
+            epoch_dir = out_dir / f"epoch_{epoch + 1}_{suffix}"
+            checkpoint_records.append(save_local_model_checkpoint(
+                model, tokenizer, epoch_dir, f"epoch_{epoch + 1}", global_step
+            ))
         if epoch + 1 >= args.min_epochs and stale_epochs >= args.early_stop_patience:
             stop_reason = "early_stop_patience"
             break
@@ -5223,6 +5228,11 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--log_every", type=int, default=10)
     ap.add_argument("--num_workers", type=int, default=2)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument(
+        "--save_every_epoch",
+        action="store_true",
+        help="Diagnostic-only opt-in: save every SFT epoch checkpoint locally.",
+    )
     ap.add_argument(
         "--result_status",
         choices=["pilot", "engineering_smoke", "standalone_unclassified"],
