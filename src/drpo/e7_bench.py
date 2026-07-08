@@ -1920,6 +1920,16 @@ def _actor_worker_context(
     torch.device,
 ]:
     config = load_bench_config(args.config)
+    gate = getattr(args, "liveness_gate", None)
+    if gate in ("A", "B"):
+        # Branch workers receive the original (unreduced) config path plus the
+        # gate flag and apply the gate themselves, so the coordinator and the
+        # worker compute worker_identity_sha256 from the SAME config_sha256
+        # (the original config file's hash). Loading a gate-reduced
+        # resolved_config.yaml instead would give a different config_sha256 and
+        # break the branch identity contract.
+        config = apply_liveness_gate(config, gate)
+        _validate_gate_config(config, gate)
     configure_worker_threads(args.cpus_per_worker)
     spec = next(item for item in config.datasets if item.id == args.dataset_id)
     dataset_root = Path(args.dataset_root).expanduser().resolve()
@@ -3052,7 +3062,7 @@ def run_pilot(args: argparse.Namespace) -> int:
                             runner_path,
                             "branch-worker",
                             "--config",
-                            str(resolved_config),
+                            str(args.config),
                             "--dataset-root",
                             str(dataset_root),
                             "--validated-datasets-manifest",
@@ -3073,6 +3083,7 @@ def run_pilot(args: argparse.Namespace) -> int:
                             str(config.parallel.branch_cpus_per_worker),
                             "--expected-worker-identity-sha256",
                             expected_identity,
+                            *(["--liveness-gate", config.gate] if config.gate in ("A", "B") else []),
                         ],
                     }
                 )
@@ -3198,6 +3209,17 @@ def build_parser() -> argparse.ArgumentParser:
     branch.add_argument("--device", required=True)
     branch.add_argument("--cpus-per-worker", type=int, required=True)
     branch.add_argument("--expected-worker-identity-sha256", required=True)
+    branch.add_argument(
+        "--liveness-gate",
+        choices=("A", "B"),
+        default=None,
+        help=(
+            "Liveness gate applied inside the branch worker. When set, the worker "
+            "subsets the loaded config with apply_liveness_gate so its identity "
+            "matches the coordinator's gate identity (which is also computed from "
+            "the original config file's config_sha256)."
+        ),
+    )
     return parser
 
 
