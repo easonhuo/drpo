@@ -3,6 +3,11 @@
 > Generated advisory report. No suggestion changes module structure automatically.
 > Adding, removing, splitting, merging, or rewiring modules requires human approval.
 
+## candidate_add_or_map_module: `EXT-C-E8-BASE-RL-REPLAY-0.5B-01`
+
+- Reason: canonical registry experiment is not mapped to any minimal module
+- Automatic action: `false`
+
 ## candidate_add_or_map_module: `EXT-C-E8-ONPOLICY-CAPACITY-DIAG-0.5B-01`
 
 - Reason: canonical registry experiment is not mapped to any minimal module
@@ -30,5 +35,5 @@
 
 ## candidate_split_module: `countdown_e8`
 
-- Reason: source content has 78362 characters, above the configured 50000 threshold
+- Reason: source content has 79055 characters, above the configured 50000 threshold
 - Automatic action: `false`

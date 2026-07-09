@@ -1,0 +1,130 @@
+{
+  "current_before_commit": "819e530a91997c22bb2a953e98cde0bcec550b1c",
+  "current_handoff_before_sha256": "53d07d014d3e1ce8f71c0d191e2dd8928497d7018952266ce85a7b5143fa78c9",
+  "current_registry_validation": {
+    "assertions": [
+      {
+        "change_id": "e8-base-rl-replay-add-pilot",
+        "entity_id": "EXT-C-E8-BASE-RL-REPLAY-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_base_rl_replay_0p5b.yaml",
+            "sha256": "492f063f0cb41dded82355bb4bd9c3d0524f607d670599a5f48a51a5c0099866"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "3e9d6804ef9bab8318575b61b81f429cafe6455fd8d25ff45d8a1f419d6aeab7"
+          },
+          {
+            "path": "src/drpo/countdown_e8_base_rl_replay.py",
+            "sha256": "9381c0b7fb2952087737b137c6393c03ac2c9d552ebae7fb97fb903fa3eacb44"
+          },
+          {
+            "path": "scripts/run_countdown_e8_base_rl_replay.py",
+            "sha256": "1f3773778bab1d810e5a491fe24bbb00ef0379fd70f96836756cc96296d3395d"
+          },
+          {
+            "path": "tests/test_countdown_e8_base_rl_replay.py",
+            "sha256": "cfdca1f3bacc18e1e06da3438fc6625ec518a89fb86960b13e2bfdcc85af620f"
+          }
+        ],
+        "kind": "add_entity"
+      }
+    ],
+    "coverage": {
+      "added_entities": [
+        "EXT-C-E8-BASE-RL-REPLAY-0.5B-01"
+      ],
+      "changed_field_count": 0,
+      "declared_assertion_count": 1,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "delta_sha256": "4655e43a2747ff813aed9a3165055e22baa4d1b9ad4eddfffa4d26aa5bbc39ea",
+  "exact_base_candidate_sha256": "88b50d5981690280b2304411d1bfa0272aa6613f5f37431a18898fa4ef083c51",
+  "exact_base_registry_validation": {
+    "assertions": [
+      {
+        "change_id": "e8-base-rl-replay-add-pilot",
+        "entity_id": "EXT-C-E8-BASE-RL-REPLAY-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_base_rl_replay_0p5b.yaml",
+            "sha256": "492f063f0cb41dded82355bb4bd9c3d0524f607d670599a5f48a51a5c0099866"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "3e9d6804ef9bab8318575b61b81f429cafe6455fd8d25ff45d8a1f419d6aeab7"
+          },
+          {
+            "path": "src/drpo/countdown_e8_base_rl_replay.py",
+            "sha256": "9381c0b7fb2952087737b137c6393c03ac2c9d552ebae7fb97fb903fa3eacb44"
+          },
+          {
+            "path": "scripts/run_countdown_e8_base_rl_replay.py",
+            "sha256": "1f3773778bab1d810e5a491fe24bbb00ef0379fd70f96836756cc96296d3395d"
+          },
+          {
+            "path": "tests/test_countdown_e8_base_rl_replay.py",
+            "sha256": "cfdca1f3bacc18e1e06da3438fc6625ec518a89fb86960b13e2bfdcc85af620f"
+          }
+        ],
+        "kind": "add_entity"
+      }
+    ],
+    "coverage": {
+      "added_entities": [
+        "EXT-C-E8-BASE-RL-REPLAY-0.5B-01"
+      ],
+      "changed_field_count": 0,
+      "declared_assertion_count": 1,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "history_preservation_passed": true,
+  "idempotence_passed": true,
+  "materialized_handoff_after_sha256": "8399f9aa3ab418884a6b750c67aa896ca251f34f6c99f6e54d8a8ad776ffcdb8",
+  "mode": "authoritative",
+  "network_used": false,
+  "policy_id": "GOV-HANDOFF-AUTHORITY-CUTOVER-01",
+  "registry_after_sha256": "3e9d6804ef9bab8318575b61b81f429cafe6455fd8d25ff45d8a1f419d6aeab7",
+  "registry_before_sha256": "55aab3b0480459c9b3c38950982a9ee41e9bc1d40471ecb5a4ae5cd5a76a1b71",
+  "report_schema_version": 1,
+  "source_base_commit": "f6f8acde4ac65e1ec2ec8b7497c53779b7c301ef",
+  "source_patch_commit": "53202d91a04298c1e07924972b8217c72f680712",
+  "stage4a_refresh": {
+    "refreshed": [
+      "docs/handoff_shadow/stage4/minimal/generated/MODULE_INDEX.json",
+      "docs/handoff_shadow/stage4/minimal/generated/STRUCTURE_SUGGESTIONS.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/countdown_e8.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/global_core_governance.md"
+    ],
+    "reused": [
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.dot",
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e5_mechanism.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e6_generalization.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_extrapolation.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_taper.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_mechanism_e1_e3.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/execution_status_gates.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/history_provenance.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/hopper_e7.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/paper_rewrite.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/terminal_audit.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/theory_methods_related_work.md"
+    ]
+  },
+  "status": "PASS",
+  "structural_lint_passed": true,
+  "trusted_engine_sha256": "a6532ba4c1bb9c4af24d79f027267de518c3832b347dba47e8319dee7a3ebe2c",
+  "trusted_policy_sha256": "508f6bbb6ee9bb6da5be041a23e25cd569b95475523bb6af7127cb84ea3466ad",
+  "trusted_renderer_sha256": "39a7566e91c77784822148bb18ae32e44dfcc1745fbdc1cbf14a88ce6c6a13e5",
+  "update_id": "EXT-C-E8-BASE-RL-REPLAY-0.5B-01-2026-07-09"
+}

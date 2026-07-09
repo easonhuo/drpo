@@ -5605,6 +5605,111 @@ experiments:
   - do_not_merge_task_performance_degradation_with_nan_inf_failure
   - do_not_store_model_weights_in_update_package
 
+- id: EXT-C-E8-BASE-RL-REPLAY-0.5B-01
+  environment: EXT-C
+  name: countdown_base_start_rl_replay_0p5b
+  status: pilot
+  result_status: not_run
+  claim: >-
+    Test whether Qwen2.5-0.5B can learn Countdown from the pretrained base without Countdown SFT warmstart, and separate oracle-offline corpus coverage, base-calibrated offline negatives, online on-policy self-sampled positives, and dynamic online replay of self-sampled positives/negatives.
+  role: external_validity_base_start_rl_and_replay_diagnostic
+  execution_class: pilot
+  code_entrypoint: src/drpo/countdown_e8_base_rl_replay.py
+  operator_entrypoint: scripts/run_countdown_e8_base_rl_replay.py
+  config_entrypoint: configs/countdown_e8_base_rl_replay_0p5b.yaml
+  primary_model: Qwen2.5-0.5B-Instruct
+  task: four-number Countdown arithmetic
+  initialization:
+    default: Qwen pretrained base with fresh LoRA adapter
+    countdown_sft_warmstart: forbidden_for_rl_methods
+    random_initialization: forbidden_except_external_negative_control_not_registered_here
+    full_sft_reference: baseline_only_from_prior_pilots
+  data:
+    generation_seed: 1234
+    train_rows: 6000
+    validation_rows: 500
+    test_rows: 1000
+    source: structural_family_holdout_oracle_countdown_examples
+    split_protocol: park_inspired_pattern_first_family_holdout_capacity_audited
+    offline_bank_rows: 6000
+    offline_negative_bank_size: 16
+  methods:
+  - base_eval
+  - base_oracle_offline_positive_only
+  - base_oracle_offline_pos_neg_recalibrated
+  - base_onpolicy_positive_only
+  - base_online_replay_positive_only
+  - base_online_replay_pos_neg
+  method_roles:
+    base_eval: pretrained-base no-training baseline
+    base_oracle_offline_positive_only: fixed oracle-offline positive corpus from pretrained base
+    base_oracle_offline_pos_neg_recalibrated: fixed oracle-offline positive/negative bank with base-specific negative calibration and registered multiplier scan
+    base_onpolicy_positive_only: online current-policy sampling with verifier-correct positive-only updates
+    base_online_replay_positive_only: dynamic replay buffer accumulating historical self-sampled positives
+    base_online_replay_pos_neg: dynamic replay buffer accumulating historical self-sampled positives and negatives with controlled negative scale
+  excluded_from_experiment:
+  - Countdown SFT warmstart for RL methods
+  - taper_method_family
+  - formal method ranking
+  - claims that Countdown replaces C-U1/D-U1 controlled mechanism evidence
+  finite_budget:
+    offline_steps: 1200
+    onpolicy_sampling_attempts: 300
+    replay_cycles: 120
+    fixed_budget_not_convergence: true
+  negative_calibration:
+    base_specific: true
+    validation_or_test_not_used_for_calibration: true
+    multiplier_grid: [0.25, 0.5, 1.0, 2.0]
+    primary_negative_method: bank_global_matched
+  metrics:
+  - validation_greedy_success
+  - validation_pass_at_8
+  - validation_pass_at_64
+  - test_greedy_success
+  - test_pass_at_8
+  - test_pass_at_64
+  - valid_rate
+  - onpolicy_correct_selection_rate
+  - onpolicy_skip_fraction
+  - replay_positive_buffer_size
+  - replay_negative_buffer_size
+  - optimizer_steps_completed
+  terminal_audit:
+    required: true
+    separates:
+    - task_performance_degradation
+    - online_signal_sparsity_or_skipped_attempts
+    - replay_buffer_support
+    - valid_structure_boundary
+    - nan_inf_numerical_failure
+  interpretation_rules:
+    offline_positive_beats_base_eval: shows Countdown SFT warmstart is not necessary for learning from fixed oracle positives
+    onpolicy_fails_but_offline_positive_succeeds: supports narrow self-sampled positive support rather than raw 0.5B trainability as the bottleneck
+    replay_positive_beats_onpolicy: supports historical replay/data reuse as useful beyond immediate on-policy positive-only updates
+    replay_pos_neg_beats_replay_positive: supports value of self-sampled negatives when controlled under replay
+    recalibrated_offline_pos_neg_beats_offline_positive: supports negative advantage value after base-specific calibration
+  execution_gate:
+    current_status: implemented_ready_not_run
+    readiness_basis: Base-start RL/replay config, runner, guarded launcher, and unit tests are implemented; true CUDA/Qwen pilot not run in the update environment.
+    blocked_by: []
+  artifact_outputs:
+  - RUN_COMPLETE.json
+  - terminal_audit.json
+  - scientific_run_manifest.json
+  - base_rl_replay_summary.csv
+  - data/split_manifest.json
+  - offline_bank/offline_6000.jsonl.manifest.json
+  - negative_calibration/base_negative_budget_calibration.json
+  - methods/*/summary.json
+  - methods/*/*/summary.json
+  safeguards:
+  - do_not_call_single_seed_pilot_formal_result
+  - do_not_claim_convergence_from_fixed_training_budget
+  - do_not_use_sft_warmstart_for_rl_methods
+  - do_not_merge_task_performance_degradation_with_nan_inf_failure
+  - do_not_store_model_weights_in_update_package
+
 development_experiment_registrations:
 - id: D-U1-E6-CONDITIONAL-GAP-DEV-01
   environment: D-U1

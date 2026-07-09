@@ -1,0 +1,31 @@
+schema_version: 3
+update_id: EXT-C-E8-BASE-RL-REPLAY-0.5B-01-2026-07-09
+mode: authoritative
+base:
+  commit: f6f8acde4ac65e1ec2ec8b7497c53779b7c301ef
+  handoff_sha256: 83f3e895dac26e4f95532b0e899816cd8efc6aea3455a59b0b68d08a94acb58e
+  registry_sha256: 55aab3b0480459c9b3c38950982a9ee41e9bc1d40471ecb5a4ae5cd5a76a1b71
+renderer_version: 1
+operations:
+- operation_id: append-e8-base-rl-replay-gate
+  op: append_to_section
+  heading_path:
+  - 0. 研究与执行原则（每次新会话首先阅读）
+  - 0.1 当前执行门禁
+  block_id: e8-base-rl-replay-0p5b-gate
+  content: '- **Countdown E8 base-start RL/replay 0.5B pilot：**登记 `EXT-C-E8-BASE-RL-REPLAY-0.5B-01`，作为移除 Countdown SFT warmstart 后的基模起点诊断。该实验只回答：Qwen pretrained base 是否能通过 oracle-offline fixed positive corpus 学起；base-specific calibrated offline negatives 是否能超过 positive-only；online on-policy self-sampled positives 是否能冷启动；dynamic replay buffer 累积历史自采 positives/negatives 是否优于 immediate on-policy 更新。所有 RL 分支从 Qwen pretrained base + fresh LoRA 开始，禁止 Countdown SFT warmstart、随机初始化主实验、taper 方法族和正式方法排名声明。固定预算 pilot 只报告有限步 evidence；结果必须分开报告 task performance、online signal sparsity/replay support、valid structure boundary 和 NaN/Inf numerical failure。'
+registry:
+  mode: expected_after
+  exact_base_after_sha256: 3e9d6804ef9bab8318575b61b81f429cafe6455fd8d25ff45d8a1f419d6aeab7
+  changes:
+  - change_id: e8-base-rl-replay-add-pilot
+    kind: add_entity
+    entity_id: EXT-C-E8-BASE-RL-REPLAY-0.5B-01
+    evidence:
+    - configs/countdown_e8_base_rl_replay_0p5b.yaml
+    - experiments/registry.yaml
+    - src/drpo/countdown_e8_base_rl_replay.py
+    - scripts/run_countdown_e8_base_rl_replay.py
+    - tests/test_countdown_e8_base_rl_replay.py
+expected:
+  exact_base_candidate_sha256: 88b50d5981690280b2304411d1bfa0272aa6613f5f37431a18898fa4ef083c51
