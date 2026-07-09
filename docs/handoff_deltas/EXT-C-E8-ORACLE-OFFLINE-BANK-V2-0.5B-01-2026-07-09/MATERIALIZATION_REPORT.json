@@ -1,0 +1,130 @@
+{
+  "current_before_commit": "f07976d73a76f377f6f516a9ebb58481c51058ca",
+  "current_handoff_before_sha256": "8399f9aa3ab418884a6b750c67aa896ca251f34f6c99f6e54d8a8ad776ffcdb8",
+  "current_registry_validation": {
+    "assertions": [
+      {
+        "change_id": "e8-oracle-bank-v2-add-pilot",
+        "entity_id": "EXT-C-E8-ORACLE-OFFLINE-BANK-V2-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_oracle_offline_bank_v2_0p5b.yaml",
+            "sha256": "142c4940e9361ad1fddc52edc674a2bdae68e57daaeab1b11615379d6c250e36"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "0ea446d514b474db4665d3476c55b7d7ed0c2f105d9fffdc35efbe85de000adc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_oracle_bank_v2.py",
+            "sha256": "73014d554098c5d87e5d453b7b3914914208f5b410d73a2abb2875af1e8e4abf"
+          },
+          {
+            "path": "scripts/run_countdown_e8_oracle_bank_v2.py",
+            "sha256": "ab463b39fa74872f930b244986734482bb132f802bc10523639f6624e699f319"
+          },
+          {
+            "path": "tests/test_countdown_e8_oracle_bank_v2.py",
+            "sha256": "b9865a60210cc3d7369259aab990d0e6a9f6d51ceb9e74b87a36ba695432f343"
+          }
+        ],
+        "kind": "add_entity"
+      }
+    ],
+    "coverage": {
+      "added_entities": [
+        "EXT-C-E8-ORACLE-OFFLINE-BANK-V2-0.5B-01"
+      ],
+      "changed_field_count": 0,
+      "declared_assertion_count": 1,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "delta_sha256": "a5fe606cb2426a0de1dee9cf1c1fe6841bcac92e94a7dfed4abdf7e7e42f718f",
+  "exact_base_candidate_sha256": "b994d88451f4787b0ed194dd595b7e29209cfb38b4738ba800bb356b87f98a32",
+  "exact_base_registry_validation": {
+    "assertions": [
+      {
+        "change_id": "e8-oracle-bank-v2-add-pilot",
+        "entity_id": "EXT-C-E8-ORACLE-OFFLINE-BANK-V2-0.5B-01",
+        "evidence": [
+          {
+            "path": "configs/countdown_e8_oracle_offline_bank_v2_0p5b.yaml",
+            "sha256": "142c4940e9361ad1fddc52edc674a2bdae68e57daaeab1b11615379d6c250e36"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "0ea446d514b474db4665d3476c55b7d7ed0c2f105d9fffdc35efbe85de000adc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_oracle_bank_v2.py",
+            "sha256": "73014d554098c5d87e5d453b7b3914914208f5b410d73a2abb2875af1e8e4abf"
+          },
+          {
+            "path": "scripts/run_countdown_e8_oracle_bank_v2.py",
+            "sha256": "ab463b39fa74872f930b244986734482bb132f802bc10523639f6624e699f319"
+          },
+          {
+            "path": "tests/test_countdown_e8_oracle_bank_v2.py",
+            "sha256": "b9865a60210cc3d7369259aab990d0e6a9f6d51ceb9e74b87a36ba695432f343"
+          }
+        ],
+        "kind": "add_entity"
+      }
+    ],
+    "coverage": {
+      "added_entities": [
+        "EXT-C-E8-ORACLE-OFFLINE-BANK-V2-0.5B-01"
+      ],
+      "changed_field_count": 0,
+      "declared_assertion_count": 1,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "history_preservation_passed": true,
+  "idempotence_passed": true,
+  "materialized_handoff_after_sha256": "b994d88451f4787b0ed194dd595b7e29209cfb38b4738ba800bb356b87f98a32",
+  "mode": "authoritative",
+  "network_used": false,
+  "policy_id": "GOV-HANDOFF-AUTHORITY-CUTOVER-01",
+  "registry_after_sha256": "0ea446d514b474db4665d3476c55b7d7ed0c2f105d9fffdc35efbe85de000adc",
+  "registry_before_sha256": "3e9d6804ef9bab8318575b61b81f429cafe6455fd8d25ff45d8a1f419d6aeab7",
+  "report_schema_version": 1,
+  "source_base_commit": "f07976d73a76f377f6f516a9ebb58481c51058ca",
+  "source_patch_commit": "664a22116fe8a847b1f504f8726d06b1f176ee7f",
+  "stage4a_refresh": {
+    "refreshed": [
+      "docs/handoff_shadow/stage4/minimal/generated/MODULE_INDEX.json",
+      "docs/handoff_shadow/stage4/minimal/generated/STRUCTURE_SUGGESTIONS.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/countdown_e8.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/global_core_governance.md"
+    ],
+    "reused": [
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.dot",
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e5_mechanism.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e6_generalization.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_extrapolation.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_taper.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_mechanism_e1_e3.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/execution_status_gates.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/history_provenance.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/hopper_e7.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/paper_rewrite.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/terminal_audit.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/theory_methods_related_work.md"
+    ]
+  },
+  "status": "PASS",
+  "structural_lint_passed": true,
+  "trusted_engine_sha256": "a6532ba4c1bb9c4af24d79f027267de518c3832b347dba47e8319dee7a3ebe2c",
+  "trusted_policy_sha256": "508f6bbb6ee9bb6da5be041a23e25cd569b95475523bb6af7127cb84ea3466ad",
+  "trusted_renderer_sha256": "39a7566e91c77784822148bb18ae32e44dfcc1745fbdc1cbf14a88ce6c6a13e5",
+  "update_id": "EXT-C-E8-ORACLE-OFFLINE-BANK-V2-0.5B-01-2026-07-09"
+}

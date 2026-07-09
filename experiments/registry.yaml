@@ -5710,6 +5710,119 @@ experiments:
   - do_not_merge_task_performance_degradation_with_nan_inf_failure
   - do_not_store_model_weights_in_update_package
 
+- id: EXT-C-E8-ORACLE-OFFLINE-BANK-V2-0.5B-01
+  environment: EXT-C
+  name: countdown_oracle_offline_bank_v2_0p5b
+  status: pilot
+  result_status: not_run
+  claim: >-
+    Define and implement a canonical model-independent Countdown oracle-offline
+    corpus whose positives are oracle-anchored and whose negatives cover
+    stratified detail, near-value, mid-value, and far-value wrong expressions
+    across easy, medium, and hard prompt bins. The protocol explicitly separates
+    sample quality/correctness from distance/remoteness axes so that far samples
+    are not assumed bad and near samples are not assumed good.
+  role: external_validity_dataset_protocol_and_bank_audit
+  execution_class: pilot
+  code_entrypoint: src/drpo/countdown_e8_oracle_bank_v2.py
+  operator_entrypoint: scripts/run_countdown_e8_oracle_bank_v2.py
+  config_entrypoint: configs/countdown_e8_oracle_offline_bank_v2_0p5b.yaml
+  primary_model: none_required_for_corpus_generation
+  downstream_model_scope: Qwen2.5-0.5B-Instruct scoring/calibration only
+  task: four-number Countdown arithmetic
+  data:
+    generation_seed: 1234
+    train_rows: 6000
+    validation_rows: 500
+    test_rows: 1000
+    corpus_train_rows: 6000
+    source: structural_family_holdout_oracle_countdown_examples
+    split_protocol: park_inspired_pattern_first_family_holdout_capacity_audited
+    corpus_protocol: canonical_oracle_positive_anchored_stratified_negative_bank_v2
+  corpus_principles:
+    positives: oracle_positive_only
+    negatives:
+    - detail_wrong
+    - near_value_wrong
+    - mid_value_wrong
+    - far_value_wrong
+    model_sampling_in_corpus_generation: false
+    model_scoring_in_corpus_generation: false
+    downstream_model_scoring_allowed: true
+    downstream_negative_calibration_allowed: true
+    distance_quality_decoupling: >-
+      Correctness and error quality are recorded separately from value distance,
+      structure distance, and downstream policy surprisal; near/far labels are
+      metadata, not correctness labels.
+  negative_generation:
+    per_bin_target:
+      detail_wrong: 4
+      near_value_wrong: 4
+      mid_value_wrong: 4
+      far_value_wrong: 4
+    random_candidates_per_prompt: 256
+    near_value_error_max: 5.0
+    mid_value_error_max: 25.0
+    min_total_negatives_per_prompt: 12
+    min_bins_per_prompt: 3
+  difficulty_audit:
+    bins: [easy, medium, hard]
+    based_on:
+    - oracle_tree_depth
+    - operator_counts
+    - target_abs
+    - expression_length
+    required_reports:
+    - prompt_count_by_difficulty
+    - negative_bin_count_by_difficulty
+    - dropped_rows
+    - value_error_summary_by_negative_bin
+    - structure_distance_summary_by_negative_bin
+  methods: []
+  excluded_from_experiment:
+  - model_training
+  - method_ranking_claims
+  - sft_warmstart_claims
+  - onpolicy_rft_claims
+  - negative_advantage_benefit_claims
+  metrics:
+  - rows_built
+  - total_negatives
+  - difficulty_counts
+  - negative_bin_counts_by_difficulty
+  - missing_required_flags_by_difficulty
+  - dropped_rows
+  - value_error_summary_by_negative_bin
+  - structure_distance_summary_by_negative_bin
+  terminal_audit:
+    required: true
+    separates:
+    - corpus_coverage_failure
+    - model_specific_scoring_or_calibration_not_run
+    - task_training_not_run
+    - nan_inf_numerical_failure_not_applicable
+  execution_gate:
+    current_status: implemented_ready_not_run
+    readiness_basis: >-
+      Model-independent corpus builder, one-click script, config, audit report,
+      and unit tests are implemented. It builds the corpus only; downstream
+      scoring/calibration/training must be registered or explicitly linked.
+    blocked_by: []
+    not_blocking:
+    - EXT-C-E8-BASE-RL-REPLAY-0.5B-01
+  artifact_outputs:
+  - RUN_MANIFEST.json
+  - oracle_bank_v2_audit.json
+  - data/oracle_offline_bank_v2_train.jsonl
+  - data/val.jsonl
+  - data/test.jsonl
+  - data/split_manifest.json
+  safeguards:
+  - do_not_call_bank_audit_a_training_result
+  - do_not_rebuild_corpus_for_base_low_sft_or_full_sft_initializations
+  - do_not_treat_value_distance_as_sample_quality
+  - do_not_use_model_sampled_negatives_as_oracle_corpus_definition
+
 development_experiment_registrations:
 - id: D-U1-E6-CONDITIONAL-GAP-DEV-01
   environment: D-U1

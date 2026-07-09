@@ -1,0 +1,38 @@
+schema_version: 3
+update_id: EXT-C-E8-ORACLE-OFFLINE-BANK-V2-0.5B-01-2026-07-09
+mode: authoritative
+base:
+  commit: f07976d73a76f377f6f516a9ebb58481c51058ca
+  handoff_sha256: 8399f9aa3ab418884a6b750c67aa896ca251f34f6c99f6e54d8a8ad776ffcdb8
+  registry_sha256: 3e9d6804ef9bab8318575b61b81f429cafe6455fd8d25ff45d8a1f419d6aeab7
+renderer_version: 1
+operations:
+- operation_id: append-e8-oracle-offline-bank-v2-gate
+  op: append_to_section
+  heading_path:
+  - 0. 研究与执行原则（每次新会话首先阅读）
+  - 0.1 当前执行门禁
+  block_id: e8-oracle-offline-bank-v2-0p5b-gate
+  content: >-
+    - **Countdown E8 oracle-offline bank v2 0.5B protocol:** 登记
+      `EXT-C-E8-ORACLE-OFFLINE-BANK-V2-0.5B-01`，只定义和实现模型无关的 canonical
+      oracle-offline corpus，不运行训练、不产生方法排名。该 corpus 固定 structural split，positive
+      由 oracle solution 锚定，negative 按 detail / near-value / mid-value / far-value wrong
+      分层构造，并按 easy / medium / hard 难度输出覆盖审计。样本 correctness/quality 与
+      value distance、structure distance、后续 policy surprisal 分开记录；不得把远样本自动解释为差样本，或把近样本自动解释为好样本。base、low-SFT、full-SFT
+      只能在同一个 corpus 上做 downstream scoring / calibration，不得为不同初始化重建 corpus。
+registry:
+  mode: expected_after
+  exact_base_after_sha256: 0ea446d514b474db4665d3476c55b7d7ed0c2f105d9fffdc35efbe85de000adc
+  changes:
+  - change_id: e8-oracle-bank-v2-add-pilot
+    kind: add_entity
+    entity_id: EXT-C-E8-ORACLE-OFFLINE-BANK-V2-0.5B-01
+    evidence:
+    - configs/countdown_e8_oracle_offline_bank_v2_0p5b.yaml
+    - experiments/registry.yaml
+    - src/drpo/countdown_e8_oracle_bank_v2.py
+    - scripts/run_countdown_e8_oracle_bank_v2.py
+    - tests/test_countdown_e8_oracle_bank_v2.py
+expected:
+  exact_base_candidate_sha256: b994d88451f4787b0ed194dd595b7e29209cfb38b4738ba800bb356b87f98a32

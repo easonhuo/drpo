@@ -1,0 +1,42 @@
+experiment_id: EXT-C-E8-ORACLE-OFFLINE-BANK-V2-0.5B-01
+purpose: >-
+  Build a model-independent canonical oracle-offline Countdown corpus whose
+  positives are oracle-anchored and whose negatives are stratified by detail,
+  near-value, mid-value, and far-value error bins. Model-specific scoring and
+  negative calibration are downstream phases and must not rebuild the corpus.
+
+data:
+  generation_seed: 1234
+  train_rows: 6000
+  validation_rows: 500
+  test_rows: 1000
+  corpus_train_rows: 6000
+  split_protocol: park_inspired_pattern_first_family_holdout_capacity_audited
+
+negative_generation:
+  seed: 2026070901
+  random_candidates_per_prompt: 256
+  per_bin_target:
+    detail_wrong: 4
+    near_value_wrong: 4
+    mid_value_wrong: 4
+    far_value_wrong: 4
+  near_value_error_max: 5.0
+  mid_value_error_max: 25.0
+  min_total_negatives_per_prompt: 12
+  min_bins_per_prompt: 3
+  drop_rows_with_incomplete_bins: false
+
+audit:
+  require_oracle_positive: true
+  report_by_difficulty_bin: true
+  report_negative_bin_coverage: true
+  report_value_error_distribution: true
+  report_structure_distance_distribution: true
+  explicitly_model_independent: true
+  produce_standard_artifacts: true
+  max_duplicate_negative_rate: 0.05
+  max_incomplete_row_rate: 0.02
+  spotcheck_per_difficulty: 10
+  spotcheck_per_negative_bin: 10
+  spotcheck_seed: 2026070902

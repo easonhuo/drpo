@@ -7,7 +7,7 @@
 - Responsibility: Preserve the unique-master rule, terminology, scientific scope, and non-destructive governance constraints.
 - Content contract topics: `unique_master_document`, `document_before_experiment`, `non_destructive_history`, `terminal_audit_governance`, `controlled_external_validity_boundary`
 - Deduplicated overlapping source chunks: 0
-- Source hash: `0a73a982fc1503c4dd01631ec52b86fee47284c4784ea46296ca39afe448cb6b`
+- Source hash: `dba2e0eb6305969e03f2f299cb933e0acc335f4922a8531818b0f6225ab39ad9`
 
 ## Content contract evidence
 
@@ -149,6 +149,15 @@
 <!-- HANDOFF-DELTA-BLOCK:section_end:e8-onpolicy-unpolished-0p5b-gate:START -->
 - **Countdown E8 on-policy unpolished 0.5B pilot：**登记 `EXT-C-E8-ONPOLICY-UNPOLISHED-0.5B-01`，仅作为 0.5B + same-LoRA continuation 是否能从当前 policy 自采样 verifier-correct completion 继续学习的排除项诊断。第一版只允许 `sft_only` 与 `onpolicy_rft_positive_only`，不包含 full-param、fresh-LoRA、signed negative、taper 方法族或 frozen off-policy replay；数据 split 使用当前 Countdown structural family-holdout 协议。SFT 可通过显式路径复用已训练 LoRA adapter，但必须记录 provenance，且不改变 same-LoRA continuation 口径；固定 sampling attempts 只能报告 finite-budget pilot evidence，不得宣称收敛或方法排名。
 <!-- HANDOFF-DELTA-BLOCK:section_end:e8-onpolicy-unpolished-0p5b-gate:END -->
+<!-- HANDOFF-DELTA-BLOCK:section_end:e8-oracle-offline-bank-v2-0p5b-gate:START -->
+- **Countdown E8 oracle-offline bank v2 0.5B protocol:** 登记
+  `EXT-C-E8-ORACLE-OFFLINE-BANK-V2-0.5B-01`，只定义和实现模型无关的 canonical
+  oracle-offline corpus，不运行训练、不产生方法排名。该 corpus 固定 structural split，positive
+  由 oracle solution 锚定，negative 按 detail / near-value / mid-value / far-value wrong
+  分层构造，并按 easy / medium / hard 难度输出覆盖审计。样本 correctness/quality 与
+  value distance、structure distance、后续 policy surprisal 分开记录；不得把远样本自动解释为差样本，或把近样本自动解释为好样本。base、low-SFT、full-SFT
+  只能在同一个 corpus 上做 downstream scoring / calibration，不得为不同初始化重建 corpus。
+<!-- HANDOFF-DELTA-BLOCK:section_end:e8-oracle-offline-bank-v2-0p5b-gate:END -->
 <!-- HANDOFF-DELTA-BLOCK:section_end:v52-countdown-current-gate-override:START -->
 - **Countdown v52 覆盖：** `EXT-C-E8-V4.3` 取代 V4.2 成为当前 E8-MECH/focused pilot；V4.2 只保留 matched-pair mechanism provenance。`EXT-C-E8-SCALE-01` 继续等待 V4.3 与 E7-BENCH，不因本次实现自动解锁。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v52-countdown-current-gate-override:END -->
