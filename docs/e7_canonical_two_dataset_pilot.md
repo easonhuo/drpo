@@ -1,127 +1,125 @@
-# EXT-H-E7-BENCH-01 canonical-agent two-dataset pilot
+# EXT-H/E7 canonical-agent two-dataset pilot
 
-## Purpose
+## Status and scope
 
-This is a **pilot-only** development path for the D4RL external-validity layer.
-It is not a replacement for C-U1/D-U1 controlled mechanism evidence and it does
-not populate the formal D4RL-9 table.
+This is a **pilot-only** external-validity workflow for `EXT-H-E7-BENCH-01`.
+It does not replace the controlled C-U1/D-U1 mechanism experiments, and it does
+not populate a formal D4RL-9 ranking table.
 
-The goal is to recover the user's older D4RL `agent.py` / `train_sna2c_variant.py`
-backbone before doing any new method comparison.  The current frozen-critic
-`e7_bench.py` scaffold remains useful for mechanism diagnostics, but it should
-not be treated as the canonical D4RL performance backbone.
+The workflow validates two Hopper cells first:
 
-## Branch and scope
+- `hopper-medium-replay-v2`
+- `hopper-medium-expert-v2`
 
-Recommended dev branch:
+The goal is to separate two questions that were conflated in the frozen-critic
+E7 scaffold:
 
-```bash
-git checkout -b dev/e7-canonical-agent-taper origin/main
+1. Can the historical `agent.py` / `train_sna2c_variant.py` backbone recover the
+   old ExpRank_MR performance scale on the current server and D4RL data?
+2. Conditional on (1), does changing only the negative-advantage multiplier add
+   stability or performance on top of the same strong backbone?
+
+## Why the old backbone is vendored
+
+The runner now uses a self-contained source snapshot under:
+
+```text
+src/drpo/e7_canonical_vendor/d4rl/
 ```
 
-Allowed scope for this branch:
+It includes only source files needed for the historical trainer:
 
-- fingerprint the old D4RL source tree;
-- validate the old `SNA2C_IQLV_ExpRankAgent` trainer on two Hopper cells;
-- run the unchanged ExpRank_MR passthrough branch;
-- run injected negative-control branches that preserve the old trainer/network
-  and replace only the negative-advantage multiplier;
-- save per-branch command, source fingerprints, logs, trainer outputs, and
-  completion/failure markers.
+- `agents.py`
+- `train_sna2c_variant.py`
+- `d4rl_common/*`
+- `refs/d4rl_infos.py`
 
-Forbidden scope:
+The wrapper fingerprints this vendored source tree before every run.  GLM does
+not need to pass `--canonical-root /path/to/d4rl` for normal execution.  An
+external `--canonical-root` remains available only for lineage audits.
 
-- changing the old canonical source after fingerprinting;
-- changing actor/critic network sizes, optimizer, learning rate, TD target,
-  value expectile, batch size, or D4RL normalization outside the wrapper args;
-- editing `src/drpo/e7_bench.py` for this canonical-agent pilot;
-- interpreting pilot output as a formal method ranking.
+## Execution profiles
 
-## First validation cells
+The first question does **not** require running the entire taper grid.  It does
+require the old training horizon if the result is to be compared to the old
+ExpRank_MR scale.
 
-The first pilot is intentionally limited to two cells:
+| Profile | Default steps | Branches with default 2 datasets × 4 seeds | Purpose |
+|---|---:|---:|---|
+| `smoke` | 20k | 8 | Liveness only; not a performance result. |
+| `reproduce` | 1M | 8 | Original ExpRank_MR passthrough reproduction. |
+| `taper-pilot` | 300k | 56 | Small control/taper pilot after reproduction is sane. |
+| `full-grid` | 1M | 120 | Broad exploratory grid; launch only after review. |
 
-- `hopper-medium-replay-v2`;
-- `hopper-medium-expert-v2`.
+Therefore: **the original ExpRank_MR reproduction should keep the historical 1M
+step budget**, but taper exploration should not start with a 120-branch 1M sweep.
+Use the 300k `taper-pilot` profile first. The default pilot seeds are now `[200, 201, 202, 203]`; override `--seeds` only for liveness/debugging, not for interpreting method trends.
 
-Default seeds are `200, 201`.  Default trainer horizon is `1_000_000` updates,
-with 50k evaluation/checkpoint intervals.  These defaults can be overridden for
-smoke or liveness gates, but such runs remain smoke/pilot evidence only.
+## One-click commands
 
-## Commands
-
-Prepare source fingerprints and run spec without training:
-
-```bash
-python scripts/run_e7_canonical_two_dataset.py prepare \
-  --canonical-root /ABS/PATH/TO/OLD_D4RL_SOURCE/d4rl \
-  --hopper-medium-replay-hdf5 /ABS/PATH/hopper-medium-replay-v2.hdf5 \
-  --hopper-medium-expert-hdf5 /ABS/PATH/hopper-medium-expert-v2.hdf5 \
-  --work-dir /ABS/PATH/outputs/e7_canonical_two_dataset/run_001
-```
-
-Plan all branches:
+Assuming the two HDF5 files are under `/data/d4rl_hdf5`:
 
 ```bash
-python scripts/run_e7_canonical_two_dataset.py plan \
-  --canonical-root /ABS/PATH/TO/OLD_D4RL_SOURCE/d4rl \
-  --hopper-medium-replay-hdf5 /ABS/PATH/hopper-medium-replay-v2.hdf5 \
-  --hopper-medium-expert-hdf5 /ABS/PATH/hopper-medium-expert-v2.hdf5 \
-  --work-dir /ABS/PATH/outputs/e7_canonical_two_dataset/run_001 \
-  --max-workers 4
+scripts/run_e7_canonical_two_dataset.sh smoke \
+  --data-dir /data/d4rl_hdf5 \
+  --work-dir outputs/e7_canonical_two_dataset_smoke
+
+scripts/run_e7_canonical_two_dataset.sh reproduce \
+  --data-dir /data/d4rl_hdf5 \
+  --work-dir outputs/e7_canonical_two_dataset_reproduce
+
+scripts/run_e7_canonical_two_dataset.sh taper-pilot \
+  --data-dir /data/d4rl_hdf5 \
+  --work-dir outputs/e7_canonical_two_dataset_taper_pilot
 ```
 
-Run or resume:
+The expected HDF5 filenames are:
+
+```text
+hopper-medium-replay-v2.hdf5
+hopper-medium-expert-v2.hdf5
+```
+
+Explicit paths may be supplied instead:
 
 ```bash
 python scripts/run_e7_canonical_two_dataset.py run \
-  --canonical-root /ABS/PATH/TO/OLD_D4RL_SOURCE/d4rl \
-  --hopper-medium-replay-hdf5 /ABS/PATH/hopper-medium-replay-v2.hdf5 \
-  --hopper-medium-expert-hdf5 /ABS/PATH/hopper-medium-expert-v2.hdf5 \
-  --work-dir /ABS/PATH/outputs/e7_canonical_two_dataset/run_001 \
-  --max-workers 4
-
-python scripts/run_e7_canonical_two_dataset.py run \
-  --canonical-root /ABS/PATH/TO/OLD_D4RL_SOURCE/d4rl \
-  --hopper-medium-replay-hdf5 /ABS/PATH/hopper-medium-replay-v2.hdf5 \
-  --hopper-medium-expert-hdf5 /ABS/PATH/hopper-medium-expert-v2.hdf5 \
-  --work-dir /ABS/PATH/outputs/e7_canonical_two_dataset/run_001 \
-  --max-workers 4 --resume
+  --profile reproduce \
+  --hopper-medium-replay-hdf5 /abs/path/hopper-medium-replay-v2.hdf5 \
+  --hopper-medium-expert-hdf5 /abs/path/hopper-medium-expert-v2.hdf5 \
+  --work-dir outputs/e7_canonical_two_dataset_reproduce
 ```
 
-If dataset SHA-256 values are already known, pass them explicitly with
-`--hopper-medium-replay-sha256` and `--hopper-medium-expert-sha256`; otherwise the
-wrapper computes and stores them in the concrete run spec.
+## Interpretation gates
 
-## Methods in the default grid
+1. `smoke` only checks imports, dataset access, runner wiring, checkpoint/log
+   creation, and early numerical liveness.
+2. `reproduce` checks whether the old ExpRank_MR backbone can recover the old
+   score scale on the two selected Hopper cells.  If this fails, investigate
+   data, dependencies, normalization, env versions, and source lineage before
+   evaluating taper.
+3. `taper-pilot` is only meaningful after `reproduce` is sane.  It compares the
+   original passthrough branch to a small set of injected controls on the same
+   backbone.
+4. No profile here is a formal D4RL-9 result.  Formal method ranking requires a
+   registered expanded protocol, terminal-state audit, complete logs, raw curves,
+   checkpoint evaluation policy, and provenance bound to the launch commit.
 
-For each `(dataset, seed)`, the wrapper produces:
+## Branch definitions
 
-- one unchanged passthrough branch: `original_exp_rank_mr`;
-- injected anchors: `positive_only`, `canonical_signed`;
-- global scales: `0.005`, `0.01`;
-- reciprocal-linear scales: `0.03`, `0.1`, `0.3`;
-- reciprocal-quadratic scales: `0.03`, `0.1`, `0.3`;
-- exponential scales: `0.03`, `0.1`, `0.3`, `1.0`.
+`reproduce` uses no injected branches.  Each dataset/seed has only:
 
-The injected branches preserve the old trainer and replace only the negative
-advantage multiplier in the contracted `SNA2C_IQLV_ExpRankAgent` class.  Positive
-advantages and the full-batch loss denominator are unchanged.
+- `original_exp_rank_mr`: unchanged `SNA2C_IQLV_ExpRankAgent` with
+  `--variant iqlv_exp_rank --alpha 0.11 --tau 0.5 --temp 5.0`.
 
-## Acceptance for the first GLM run
+`taper-pilot` adds six injected branches per dataset/seed:
 
-Before scaling beyond two datasets, GLM must deliver:
+- `positive_only`
+- `canonical_signed`
+- `global` at scale `0.01`
+- `reciprocal_linear` at scale `0.1`
+- `reciprocal_quadratic` at scale `0.1`
+- `exponential` at scale `0.1`
 
-- `canonical_contract.json`;
-- `run_spec.json`;
-- `EXECUTION_PLAN.json`;
-- per-branch `BRANCH_IDENTITY.json`, `LAUNCH.json`, `branch_manifest.json`,
-  `stdout_stderr.log`, and trainer outputs;
-- `RUN_SUMMARY.json`;
-- a concise report comparing unchanged `original_exp_rank_mr` against the
-  injected branches on both cells.
-
-The report must separate task-performance collapse, support/boundary events, and
-NaN/Inf numerical failures if those diagnostics are available.  A fixed 1M
-horizon is not convergence; method ranking still requires terminal audit and a
-separate formal protocol.
+The injection preserves the old trainer/network/critic/update loop and replaces
+only the negative-advantage multiplier in the configured agent class.

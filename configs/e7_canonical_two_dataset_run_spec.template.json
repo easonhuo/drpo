@@ -1,47 +1,34 @@
 {
   "run_kind": "pilot",
-  "purpose": "Template generated for EXT-H-E7-BENCH-01 canonical-agent two-dataset pilot. Replace all __PLACEHOLDER__ values or use scripts/run_e7_canonical_two_dataset.py to generate a concrete run_spec.json.",
+  "experiment_id": "EXT-H-E7-BENCH-01",
+  "wrapper": "canonical-agent-two-dataset-v2-self-contained",
+  "profile": "reproduce",
+  "scope": "two_dataset_canonical_agent_validation_only",
   "datasets": [
     {
       "id": "hopper-medium-replay-v2",
-      "path": "__ABSOLUTE_PATH_TO_HOPPER_MEDIUM_REPLAY_V2_HDF5__",
-      "sha256": "__64_HEX_SHA256__"
+      "path": "/ABS/PATH/hopper-medium-replay-v2.hdf5",
+      "sha256": "<computed-at-prepare-time>"
     },
     {
       "id": "hopper-medium-expert-v2",
-      "path": "__ABSOLUTE_PATH_TO_HOPPER_MEDIUM_EXPERT_V2_HDF5__",
-      "sha256": "__64_HEX_SHA256__"
+      "path": "/ABS/PATH/hopper-medium-expert-v2.hdf5",
+      "sha256": "<computed-at-prepare-time>"
     }
   ],
-  "seeds": [200, 201],
-  "trainer_argv_template": [
-    "--dataset", "{dataset_id}",
-    "--hdf5", "{dataset_path}",
-    "--variant", "iqlv_exp_rank",
-    "--alpha", "0.11",
-    "--tau", "0.5",
-    "--temp", "5.0",
-    "--steps", "1000000",
-    "--batch", "256",
-    "--lr", "0.0003",
-    "--eval_interval", "50000",
-    "--eval_episodes", "10",
-    "--seed", "{seed}",
-    "--device", "0",
-    "--out_dir", "{output_dir}",
-    "--ckpt_dir", "{output_dir}/ckpts",
-    "--ckpt_interval", "50000",
-    "--last_pct", "0.10"
-  ],
+  "seeds": [200, 201, 202, 203],
+  "profiles": {
+    "smoke": "20k-step liveness, original ExpRank_MR passthrough only.",
+    "reproduce": "1M-step original ExpRank_MR passthrough only.",
+    "taper-pilot": "300k-step small taper/control grid after reproduction is sane.",
+    "full-grid": "1M-step broad exploratory grid; launch only after review."
+  },
   "passthrough_variants": [
     {
       "id": "original_exp_rank_mr",
-      "template_values": {}
+      "template_values": {},
+      "description": "Unchanged SNA2C_IQLV_ExpRankAgent passthrough from the vendored old source tree."
     }
   ],
-  "environment": {
-    "OMP_NUM_THREADS": "2",
-    "MKL_NUM_THREADS": "2",
-    "OPENBLAS_NUM_THREADS": "2"
-  }
+  "interpretation_boundary": "Two-dataset pilot only; smoke/static checks are not formal experimental results."
 }

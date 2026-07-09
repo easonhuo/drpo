@@ -1,0 +1,20 @@
+{
+  "experiment_id": "EXT-H-E7-BENCH-01",
+  "run_kind": "pilot",
+  "scientific_status": "canonical_agent_two_dataset_original_experank_reproduction_only",
+  "canonical_alpha": 0.11,
+  "reference_distance": 2.0,
+  "coefficients": {
+    "reciprocal_linear": 0.4362580032734791,
+    "reciprocal_quadratic": 0.5520268617673281,
+    "exponential": 0.374162511054291
+  },
+  "anchors": {},
+  "negative_scale_grid": {},
+  "branch_count_per_dataset_seed": 0,
+  "notes": [
+    "Original ExpRank_MR passthrough only; no injected taper/control branches.",
+    "Use 1M steps for historical-scale reproduction; shorter smoke overrides are liveness only.",
+    "Total branches with the default two datasets and four seeds: 8."
+  ]
+}

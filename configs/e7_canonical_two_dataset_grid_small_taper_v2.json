@@ -1,0 +1,28 @@
+{
+  "experiment_id": "EXT-H-E7-BENCH-01",
+  "run_kind": "pilot",
+  "scientific_status": "canonical_agent_two_dataset_small_taper_pilot_only",
+  "canonical_alpha": 0.11,
+  "reference_distance": 2.0,
+  "coefficients": {
+    "reciprocal_linear": 0.4362580032734791,
+    "reciprocal_quadratic": 0.5520268617673281,
+    "exponential": 0.374162511054291
+  },
+  "anchors": {
+    "positive_only": {"negative_scale": 0.0},
+    "canonical_signed": {"negative_scale": 1.0}
+  },
+  "negative_scale_grid": {
+    "global": [0.01],
+    "reciprocal_linear": [0.1],
+    "reciprocal_quadratic": [0.1],
+    "exponential": [0.1]
+  },
+  "branch_count_per_dataset_seed": 6,
+  "notes": [
+    "Small two-dataset taper pilot for quick comparison after original ExpRank_MR reproduction is sane.",
+    "A passthrough original ExpRank_MR branch is supplied by the run spec, so total branches per dataset/seed are 7.",
+    "Default profile taper-pilot uses 300k steps and 25k checkpoint/eval intervals; this is pilot-only, not a formal D4RL-9 result."
+  ]
+}

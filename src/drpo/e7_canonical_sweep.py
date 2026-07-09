@@ -127,8 +127,8 @@ def load_grid(path: str | Path) -> tuple[dict[str, Any], str]:
     raw = json.loads(source.read_text())
     if raw.get("experiment_id") != EXPERIMENT_ID:
         raise ValueError(f"grid experiment_id must be {EXPERIMENT_ID}")
-    if raw.get("run_kind") != "pilot":
-        raise ValueError("canonical weight sweep is pilot-only; formal launch is blocked")
+    if raw.get("run_kind") not in {"pilot", "smoke"}:
+        raise ValueError("canonical weight sweep only supports pilot/smoke runs; formal launch is blocked")
     methods = {str(name).lower() for name in raw.get("negative_scale_grid", {})}
     if any("quartic" in name for name in methods):
         raise ValueError("quartic taper is intentionally excluded from this sweep")
@@ -138,8 +138,8 @@ def load_grid(path: str | Path) -> tuple[dict[str, Any], str]:
 def load_run_spec(path: str | Path) -> tuple[dict[str, Any], str]:
     source = Path(path)
     raw = json.loads(source.read_text())
-    if raw.get("run_kind") != "pilot":
-        raise ValueError("run_spec.run_kind must be 'pilot'")
+    if raw.get("run_kind") not in {"pilot", "smoke"}:
+        raise ValueError("run_spec.run_kind must be 'pilot' or 'smoke'")
     required = {"datasets", "seeds", "trainer_argv_template"}
     missing = sorted(required - set(raw))
     if missing:
@@ -168,11 +168,20 @@ def expand_injected_controls(grid: Mapping[str, Any]) -> list[NegativeControl]:
         ),
         "exponential_coefficient": float(grid["coefficients"]["exponential"]),
     }
-    controls = [
-        NegativeControl(method="positive_only", negative_scale=0.0, **common),
-        NegativeControl(method="canonical_signed", negative_scale=1.0, **common),
-    ]
-    for method, scales in grid["negative_scale_grid"].items():
+    controls: list[NegativeControl] = []
+    anchors = grid.get("anchors", {
+        "positive_only": {"negative_scale": 0.0},
+        "canonical_signed": {"negative_scale": 1.0},
+    })
+    for method, raw in anchors.items():
+        controls.append(
+            NegativeControl(
+                method=str(method),
+                negative_scale=float(raw["negative_scale"]),
+                **common,
+            )
+        )
+    for method, scales in grid.get("negative_scale_grid", {}).items():
         for scale in scales:
             controls.append(
                 NegativeControl(
