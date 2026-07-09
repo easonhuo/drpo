@@ -143,11 +143,11 @@ Off-policy policy optimization reuses historical behavior, including negative-ad
 Off-policy policy optimization improves a current policy using behavior collected by earlier, stale, or heterogeneous policies. This paradigm is essential in settings where fresh interaction is costly, slow, or unavailable, including offline reinforcement learning, replay-based control, recommender systems, and the post-training of generative models. By reusing historical experience, it can reduce exploration cost, exploit data accumulated across policy iterations, and enable policy improvement without relying exclusively on new on-policy trajectories. This benefit, however, creates a distinctive learning problem: the policy continues to evolve while the data being optimized remain fixed. Understanding how this growing mismatch changes the influence of historical feedback is therefore central to building stable and effective off-policy learning algorithms.
 
 
-Historical datasets, however, contain more than successful behavior to imitate. They also record suboptimal and failed actions that reveal which decisions should be suppressed. Policy-based methods exploit this distinction through signed feedback: positive updates increase the likelihood of successful behavior, whereas negative updates reduce the probability of known failures. Prior work has shown that such negative feedback can suppress undesirable modes, improve data efficiency, and benefit generalization in several policy-learning settings \citep{peng2019advantage,kostrikov2021offline,nair2020awac,arnal2025asymmetric,leroux2025tapered}. Building on these observations, we view positive and negative feedback as complementary signals: positive updates provide attraction toward observed successes, while negative updates encode boundaries and failure information that positive imitation alone cannot express. We therefore ask how this information can be retained without allowing repeated historical reuse to turn negative feedback into excessive repulsion.
+Historical datasets, however, contain more than successful behavior to imitate. They also record suboptimal and failed actions that reveal which decisions should be suppressed. Policy-based methods exploit this distinction through signed feedback: positive updates increase the likelihood of successful behavior, whereas negative updates reduce the probability of known failures. Prior work has shown that such negative feedback can suppress undesirable modes, improve data efficiency, and benefit generalization in several policy-learning settings \citep{novati2019remember,fakoor2020p3o,arnal2025asymmetric}. Building on these observations, we view positive and negative feedback as complementary signals: positive updates provide attraction toward observed successes, while negative updates encode boundaries and failure information that positive imitation alone cannot express. We therefore ask how this information can be retained without allowing repeated historical reuse to turn negative feedback into excessive repulsion.
 
 Against this background, we identify a self-amplifying far-field dynamic in repeated off-policy updates. A negative update pushes the learner away from a fixed historical action, increasing its learner-relative distance or surprisal. This increased remoteness can in turn strengthen—or prevent the decay of—the action’s subsequent negative influence, causing repeated reuse to drive it progressively farther from the current policy. The precise amplification law depends on the policy family: continuous Gaussian policies can exhibit distance-dependent score growth, whereas categorical policies exhibit persistent suppression toward the support boundary. Thus, the danger lies not only in where a negative sample starts, but in how its influence evolves through repeated repulsion.
 
-Prior work has stabilized off-policy learning through filtering, importance weighting, probability- or surprisal-aware gating, and other forms of tapered negative updates \citep{peng2019advantage,fujimoto2019off,kumar2020conservative,schulman2017proximal,arnal2025asymmetric,leroux2025tapered}. These methods demonstrate the value of nonuniform control, but they do not isolate whether learner-relative remoteness itself generates a self-amplifying repulsive dynamic. In realistic data, sample quality, advantage magnitude, rarity, and policy distance are entangled. We disentangle these factors through matched controlled environments and causally test the pathway from remoteness, to amplified negative influence, to policy drift and collapse.
+Prior work has stabilized off-policy learning through filtering, importance weighting, probability- or surprisal-aware gating, and other forms of tapered negative updates \citep{peng2019advantage,schulman2017proximal,fujimoto2019off,kumar2020conservative,arnal2025asymmetric,leroux2025tapered}. These methods demonstrate the value of nonuniform control, but they do not isolate whether learner-relative remoteness itself generates a self-amplifying repulsive dynamic. In realistic data, sample quality, advantage magnitude, rarity, and policy distance are entangled. We disentangle these factors through matched controlled environments and causally test the pathway from remoteness, to amplified negative influence, to policy drift and collapse.
 
 
 
@@ -176,10 +176,38 @@ Our contributions are summarized as follows:
 \label{sec:related_work}
 
 \textbf{Learning from Negative or Suboptimal Behavior.}
-A broad line of policy-learning methods distinguishes behavior according to its estimated quality. Advantage-weighted regression and related actor-fitting objectives emphasize actions with higher estimated advantages, whereas positive-only or filtering approaches remove some or all negative updates \citep{peng2019advantage,kostrikov2021offline,nair2020awac}. Other studies show that failed or suboptimal behavior can still help suppress undesirable modes, refine decision boundaries, and improve generalization \citep{arnal2025asymmetric,leroux2025tapered,du2018adapting}. Together, these findings establish that negative feedback can be informative rather than merely noisy, while leaving open how its benefits can be retained without introducing harmful optimization dynamics.
+A broad line of policy-learning methods distinguishes behavior according
+to its estimated quality. Advantage-weighted regression, AWAC, implicit
+Q-learning, critic-regularized regression, and behavior-proximal
+objectives fit actors more strongly toward actions estimated to be
+valuable under a learned critic
+\citep{peng2019advantage,nair2020awac,kostrikov2021offline,
+wang2020critic,zhuang2023behavior}. Positive-filtered or filtering-based
+variants represent a conservative endpoint, where selected negative or
+low-quality updates are removed rather than reweighted. At the same
+time, failed or suboptimal behavior can remain informative: it can
+suppress competing bad modes, sharpen local decision boundaries, or
+improve data efficiency
+\citep{novati2019remember,fakoor2020p3o,arnal2025asymmetric}. These
+findings support the view that negative feedback is not merely noise, but
+also carries information whose usefulness depends on how it is used.
 
 \textbf{Off-Policy, Stale, and Learner-Relative Updates.}
-This challenge becomes particularly important under off-policy reuse, where historical behavior remains fixed while the learner continues to change. Off-policy methods commonly control behavior–learner mismatch through importance weighting, clipping, trust regions, and behavior regularization \citep{fujimoto2019off,schulman2017proximal,kumar2020conservative,novati2019remember,fakoor2020p3o}. More recent methods, including TOPR and probability- or surprisal-aware objectives, further attenuate negative behavior that is unlikely under the current policy, making the update explicitly learner-relative \citep{chen2019top,arnal2025asymmetric,leroux2025tapered}. These works establish that distance-related information can guide selective control, but largely treat remoteness as a static weighting signal and often study it together with sample quality or advantage magnitude. They therefore leave unresolved how repeated negative updates themselves increase remoteness, alter subsequent influence, and form a feedback process that can drive policy drift or collapse. This perspective is complementary to conservative offline RL, which primarily controls value extrapolation or policy support, whereas we study the evolving dynamics of signed actor updates on fixed historical behavior.
+This issue becomes especially important under off-policy reuse, where
+historical behavior remains fixed while the learner continues to change.
+Off-policy methods commonly control behavior--learner mismatch through
+importance weighting, clipping, trust regions, replay mechanisms, and
+behavior regularization
+\citep{schulman2017proximal,haarnoja2018soft,levine2020offline,
+fujimoto2019off,kumar2020conservative}. Recent asymmetric or tapered
+off-policy objectives further make updates depend on current-policy
+probability or surprisal
+\citep{arnal2025asymmetric,leroux2025tapered}. These works establish
+that mismatch and rarity matter; our distinction concerns how
+learner-relative remoteness is created and amplified by repeated
+negative reuse. This actor-side view is complementary to conservative
+offline RL, which primarily addresses value extrapolation and
+policy-support mismatch.
 % ------------------------------------------------------------------
 % SECTION 2: PRELIMINARIES
 % ------------------------------------------------------------------
@@ -464,16 +492,10 @@ with the learner while attenuating its subsequent score response.
 
 A proof is provided in
 Appendix~\ref{app:reuse_dynamics}.
-The convexity assumption holds, in particular, for fixed-covariance
-Gaussian mean coordinates and categorical logits. More generally, for
-a regular exponential family in natural coordinates,
-\[
-    \nabla_u^2D(u)
-    =
-    \operatorname{Cov}_{\pi_u}[T(a)]
-    \succeq0.
-\]
-
+For the two policy-output coordinates used in the main theory, this
+convexity condition holds globally:  the fixed-covariance Gaussian remoteness
+is quadratic in the mean, and the categorical negative log-likelihood is
+convex in logits.
 Theorem~\ref{thm:reuse_dynamics} distinguishes a one-time distant update
 from a historical-reuse feedback loop. A negative sample is first pushed
 farther from the learner; the resulting remoteness then preserves or
@@ -800,11 +822,47 @@ minimum matching order required to make the quadratic far-field response
 bounded. Any weaker attenuation cannot generally control the
 remoteness-driven expansion. The proof is given in
 Appendix~\ref{app:min_order_control}.
+
+\subsection{Distance-Dependent Utility of Negative Feedback}
+\label{subsec:distance_dependent_utility}
+
+Section~\ref{subsec:min_order_control} gives a minimum-order condition
+for bounded far-field control. However, boundedness alone does not answer
+whether a remote historical negative update should continue to exert a
+nonzero residual force. We do not assume that negative feedback is
+intrinsically harmful. Rather, motivated by signed advantage updates in
+policy optimization, replay-discrepancy control, and gradient-alignment
+criteria for learning-signal usefulness
+\citep{novati2019remember,fakoor2020p3o,du2018adapting}, we introduce a
+learner-relative notion of negative-update utility.
+
+Operationally, for a negative sample \(z=(s,a)\), a weight
+\(w\in[0,1]\), and the raw repulsive update
+\(g_\theta^-(z)=-\widehat A^-(z)\nabla_\theta\log\pi_\theta(a\mid s)\),
+we define its empirical utility on an evaluation batch \(\mathcal B\) as
+\begin{equation}
+    \widehat{\mathcal U}_{\mathcal B}(z;w\mid\theta)
+    =
+    \widehat J_{\mathcal B}
+    \!\left(
+        \theta+\eta w g_\theta^-(z)
+    \right)
+    -
+    \widehat J_{\mathcal B}(\theta).
+    \label{eq:empirical_negative_update_utility}
+\end{equation}
+This quantity measures the task effect of applying the weighted negative
+update under the current learner. We use it to state the design
+assumption underlying DRPO.
+
 \paragraph{Design principle 5.2. Distance-dependent utility.}
 The utility of a negative update is learner-relative and
 distance-dependent: nearby negative feedback may provide useful local
 boundary or correction information, whereas its utility should decrease
-as the sample becomes increasingly remote from the current policy.
+as the sample becomes increasingly remote from the current policy. In
+the far field, once a historical negative update no longer provides
+useful local information, it should not retain a persistent nonzero
+repulsive force.
 
 This principle strengthens the bounded-control floor in
 Section~\ref{subsec:min_order_control}. Let \(D_\theta(s,a)\) denote
@@ -872,6 +930,128 @@ negative feedback while driving sufficiently remote residual influence to
 zero. The exponential form is not unique; it is a simple smooth envelope
 that dominates finite-order growth. The proof is given in
 Appendix~\ref{app:exp_vanishing_influence}.
+
+\subsection{DRPO Update and Policy-Family Instantiations}
+\label{subsec:drpo_update}
+
+We now embed the exponential remoteness taper into the signed actor
+update. Using the learner-relative remoteness
+\(D_\theta(s,a)=-\log\pi_\theta(a\mid s)\), define
+\(\bar D_\theta(s,a)=\operatorname{sg}[D_\theta(s,a)]\), where
+\(\operatorname{sg}[\cdot]\) denotes stop-gradient. DRPO keeps the
+positive branch unchanged and attenuates only the negative branch:
+\begin{equation}
+    \widetilde A_{\theta}(s,a)
+    =
+    \widehat A^{+}(s,a)
+    -
+    \omega_{\mathrm{Exp}}
+    \!\left(
+        \bar D_\theta(s,a)
+    \right)
+    \widehat A^{-}(s,a).
+    \label{eq:drpo_effective_advantage}
+\end{equation}
+The resulting actor field is
+\begin{equation}
+    \mathbf F_{\mathrm{DRPO}}(\theta)
+    =
+    \mathbb E_{(s,a)\sim\nu}
+    \left[
+        \widetilde A_{\theta}(s,a)
+        \nabla_\theta\log\pi_\theta(a\mid s)
+    \right].
+    \label{eq:drpo_actor_field}
+\end{equation}
+The remoteness statistic is recomputed under the current policy but
+detached before being used as a sample coefficient. Thus, DRPO is a
+learner-relative weighting of historical negative feedback rather than a
+differentiable distance regularizer.
+
+\paragraph{Gaussian policies.}
+For a Gaussian policy with mean \(\mu_\theta(s)\) and fixed covariance
+\(\Sigma\), define the squared standardized distance
+\begin{equation}
+\begin{aligned}
+    D_{\mathrm G,\theta}(s,a)
+    &=
+    d_{\mathrm{Mah}}^2(a,\mu_\theta(s)) \\
+    &=
+    (a-\mu_\theta(s))^\top
+    \Sigma^{-1}
+    (a-\mu_\theta(s)).
+\end{aligned}
+\label{eq:gaussian_squared_distance}
+\end{equation}
+Since \(D_\theta(s,a)-C_\Sigma=\frac12D_{\mathrm G,\theta}(s,a)\),
+absorbing the additive constant and the factor \(1/2\) into the
+threshold and scale gives the Gaussian DRPO weight
+\begin{equation}
+    \omega_{\mathrm G}(s,a)
+    =
+    \exp
+    \left\{
+        -\lambda_{\mathrm G}
+        \left[
+            \frac{
+                D_{\mathrm G,\theta}(s,a)-\tau_{\mathrm G}
+            }{
+                c_{\mathrm G}
+            }
+        \right]_{+}
+    \right\}.
+    \label{eq:drpo_gaussian_weight}
+\end{equation}
+
+\paragraph{Categorical policies.}
+For a categorical policy, learner-relative remoteness is the surprisal of
+the selected action, \(D_\theta(s,a)=-\log\pi_\theta(a\mid s)\).
+Substituting this into Equation~\eqref{eq:drpo_exp_weight} gives
+\begin{equation}
+    \omega_{\mathrm C}(s,a)
+    =
+    \min
+    \left\{
+        1,\,
+        \left(
+            e^{\tau}
+            \pi_\theta(a\mid s)
+        \right)^{\lambda/c}
+    \right\}.
+    \label{eq:drpo_categorical_weight}
+\end{equation}
+Thus, the same DRPO update becomes squared-standardized-distance control
+for Gaussian policies and surprisal control for categorical policies.
+
+\subsection{DRPO in the Space of Negative-Update Controls}
+\label{subsec:negative_update_controls}
+
+The DRPO update in Equation~\eqref{eq:drpo_actor_field} places negative
+feedback controls into a common form: positive updates keep unit weight,
+while the negative branch is controlled by a coefficient \(\omega(D)\).
+This framing connects to advantage-weighted and positive-filtered policy
+learning, as well as tapered or probability-aware off-policy updates
+\citep{peng2019advantage,nair2020awac,kostrikov2021offline,
+grigsby2021closer,arnal2025asymmetric,leroux2025tapered}.
+The key distinction here is whether this coefficient depends on
+learner-relative remoteness.
+
+Distance-agnostic controls apply the same rule to all negative samples,
+whether they preserve, globally downweight, or remove the negative
+branch. They are useful baselines, but they cannot separate local
+negative feedback from the far-field tail: reducing one necessarily
+reduces the other.
+
+Remoteness-aware controls instead make \(\omega(D)\) decrease with
+distance. Their main difference is tail behavior. Reciprocal tapers
+provide polynomial decay and can yield bounded residual influence at the
+matching order, whereas exponential tapering decays smoothly and
+dominates finite-order far-field growth.
+
+DRPO therefore occupies the regime targeted by the preceding analysis:
+it preserves local negative feedback while removing persistent far-field
+residual influence.
+
 \section{Experiments}
 \label{sec:experiments}
 
@@ -899,7 +1079,7 @@ far-field influence, policy dynamics, and held-out-context
 generalization. For external validation, we use D4RL Hopper and
 Countdown arithmetic generation, covering continuous offline control
 and autoregressive sequence policies, respectively. Full configurations
-are provided in Appendix~\ref{app:experimental_details}.
+are provided in Appendix~\ref{app:experimental_details}. We use policy-score norm for mechanism-source claims whenever the policy coordinate is controlled. In neural external diagnostics, we report implemented actor-gradient diagnostics only to check whether the policy-level remoteness effect appears in actual trainable updates.
 
 \subsection{External Evidence of Far-Field Repulsion}
 \label{sec:external_far_field}
@@ -912,13 +1092,13 @@ are provided in Appendix~\ref{app:experimental_details}.
 
     \caption{
         \textbf{External diagnostic of far-field negative influence.}
-        \textbf{(a)} Hopper: relative full-parameter actor-gradient norm
+        \textbf{(a)} Hopper: relative implemented actor-gradient diagnostic
         and matched absolute advantage as functions of relative standardized
         distance for transitions with negative learned-critic advantages.
         Values are normalized to the near-field reference within each seed.
         Lines report averages across 10 seeds, and shaded regions denote
         seed-level bootstrap 95\% confidence intervals.
-        \textbf{(b)} Countdown: relative trainable-parameter gradient norm
+        \textbf{(b)} Countdown: relative implemented actor-gradient diagnostic
         and fixed negative coefficient magnitude as functions of current-policy
         mean-token surprisal deciles among verifier-matched unsuccessful
         responses. Values are normalized to the lowest-surprisal decile, and
@@ -938,18 +1118,13 @@ The diagnostic controls the sample-quality coefficient in each setting.
 In Hopper, we compare negative-advantage transitions after matching their
 absolute advantage magnitudes. In Countdown, we compare verifier-matched
 unsuccessful responses while holding the negative coefficient magnitude
-fixed. Thus, changes in gradient magnitude primarily reflect the
-policy-score contribution rather than a larger negative coefficient.
+fixed. With the sample-quality coefficient controlled, these diagnostics test whether learner-relative remoteness is reflected in the implemented actor updates.
 
 Figure~\ref{fig:external_far_field} shows the same qualitative pattern
-in both domains. In Hopper, the full-parameter actor-gradient norm grows
-with standardized distance, while the matched absolute advantage remains
-approximately flat. In Countdown, the trainable-parameter gradient norm
+in both domains. In Hopper, the implemented actor-gradient diagnostic increases with standardized distance while matched absolute advantage remains approximately flat.
+ In Countdown, the implemented trainable-gradient diagnostic increases with mean-token surprisal while the negative coefficient remains fixed.
 increases with mean-token surprisal, while the negative coefficient
-remains fixed. These results provide external evidence that
-learner-relative remoteness strengthens negative optimization influence
-in both continuous learned-critic control and autoregressive policy
-optimization.
+remains fixed. These external diagnostics indicate that remoteness-correlated negative update influence appears in realistic neural actors. The controlled experiments below then isolate the policy-score source and test causal transmission.
 
 The controlled experiments that follow isolate the source of this
 amplification and test whether it causally propagates into policy drift
@@ -962,11 +1137,15 @@ and collapse.
 \label{sec:controlled_identification}
 
 The external results show that far-field negative influence occurs in
-realistic tasks, but sample quality, policy-relative remoteness, and
-subsequent policy dynamics remain entangled. We therefore turn to C-U1
-and D-U1, whose known task structure allows these factors to be varied
-independently. We first isolate whether remoteness itself changes
-negative influence and then test whether that influence causally
+realistic tasks, but they are not designed to identify the causal
+mechanism. In Hopper and Countdown, sample quality, policy-relative
+remoteness, critic or verifier coefficients, data coverage, and
+subsequent policy dynamics remain partially entangled. We therefore turn
+to controlled environments, whose role is identification rather than
+realism: they allow sample quality and learner-relative remoteness to be
+varied independently, and allow near- and far-field negative updates to
+be intervened on directly. We first isolate whether remoteness itself
+changes negative influence and then test whether that influence causally
 propagates into policy drift and collapse. Full constructions and
 intervention protocols are provided in
 Appendix~\ref{app:controlled_protocols}.
@@ -1588,6 +1767,27 @@ part of the proof.
 \end{proof}
 \subsection{Proof of Theorem~\ref{thm:reuse_dynamics}}
 \label{app:reuse_dynamics}
+
+Before proving the generic reuse result, we verify the convexity condition
+for the two policy-output coordinates used in the main text. For
+fixed-covariance Gaussian means,
+\[
+D_\mu(a)=C_\Sigma+\frac12(a-\mu)^\top\Sigma^{-1}(a-\mu),
+\qquad
+\nabla_\mu^2D_\mu(a)=\Sigma^{-1}\succeq0.
+\]
+For categorical logits \(z\), with \(p=\mathrm{softmax}(z)\),
+\[
+D_z(a)=\log\sum_j e^{z_j}-z_a,
+\qquad
+\nabla_z^2D_z(a)=\operatorname{diag}(p)-pp^\top\succeq0,
+\]
+because
+\[
+v^\top(\operatorname{diag}(p)-pp^\top)v
+=
+\operatorname{Var}_{i\sim p}(v_i)\ge0.
+\]
 
 \begin{proof}
 Let
@@ -3202,7 +3402,9 @@ $\log\sigma_\theta(s)$
 are produced by a shared two-layer ReLU MLP with 64 hidden units per
 layer and separate output heads. The initial standard deviation is
 $0.60$, and the learnable-variance experiments use no artificial
-variance clamp. A finite crossing of
+variance clamp.  The continuous mechanism results reported in the main
+text use the registered fixed-variance branch unless explicitly labeled
+otherwise; learnable-variance variants are labeled as audit ablations. A finite crossing of
 $\log\sigma_\theta(s)<-12$
 is recorded as a support or variance-boundary event, whereas nonfinite
 parameters or outputs are reported separately as NaN/Inf numerical
@@ -3618,7 +3820,28 @@ same current policy.
 
 The comparison is performed both at policy initialization and after
 positive-only pretraining. No negative sample used as a probe is applied
-as an optimizer update during this protocol. For every probe, we record
+as an optimizer update during this protocol. Let \(u_\theta(s)\) denote the policy-output coordinate used by the
+controlled probe, e.g., Gaussian mean or natural coordinates in C-U1 and
+direct logits in D-U1. For every probe, we record
+\begin{equation}
+\begin{aligned}
+I_{\mathrm{score}}(z)
+&=
+\left\|
+\nabla_{u}\log \pi_{u}(a\mid s)
+\right\|_2,\\
+I_{\mathrm{sample}}(z)
+&=
+|\widehat A(z)|\, I_{\mathrm{score}}(z).
+\end{aligned}
+\label{eq:source_influence_metrics}
+\end{equation}
+For neural implementations, we additionally record implementation-level
+actor-gradient diagnostics and aggregate update norms as transfer checks,
+not as the theorem-level score measure.
+Because \(|\widehat A|\) is identical across the matched actions,
+differences in \(I_{\mathrm{sample}}\) arise from policy-score geometry
+rather than advantage magnitude. For every probe, we record
 \begin{equation}
 \begin{aligned}
     I_{\mathrm{score}}(z)
@@ -3767,7 +3990,7 @@ and how much requires selecting samples by remoteness.
 
 \paragraph{Temporal and terminal measurements.}
 We record policy displacement, reward, negative-gradient influence,
-mean and scale dynamics, entropy or effective support, and the first
+mean dynamics and, for learnable-variance audit runs, scale dynamics, entropy or effective support, and the first
 time at which each registered event occurs. The analysis checks whether
 far-field influence rises before policy drift and whether drift precedes
 task-performance loss.
@@ -4164,9 +4387,8 @@ protocol-matched DRPO experiments.
 \paragraph{Gaussian-policy remoteness.}
 
 For an action \(a\in\mathbb{R}^{d_a}\) and current Gaussian policy with
-mean \(\mu_\theta(s)\) and standard deviation \(\sigma_\theta(s)\), we
-measure learner-relative remoteness using the mean squared standardized
-deviation
+mean \(\mu_\theta(s)\) and standard deviation \(\sigma_\theta(s)\), we use the
+following implementation-level standardized remoteness statistic
 
 \[
 D_{\mathrm{D4RL}}(s,a)
