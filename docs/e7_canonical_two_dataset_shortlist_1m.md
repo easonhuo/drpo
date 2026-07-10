@@ -26,10 +26,14 @@ reinterpret that run as a 1M result and does not delete or overwrite it.
 - Expected methods per dataset-seed cell: `7`
 - Expected total branches: `2 x 4 x 7 = 56`
 
-The launcher uses the existing resumable `ThreadPoolExecutor` branch scheduler.
-The default runs up to 40 independent subprocess branches concurrently. Set
-`E7_MAX_WORKERS` to another integer greater than or equal to 2 only for resource
-capacity reasons; changing worker count must not change the scientific matrix.
+The launcher uses the existing resumable branch subprocess executor. The
+official entry point validates the complete scientific matrix before launch and
+rejects any attempt to override seeds, steps, alpha, tau, temperature, learning
+rate, batch size, grid, canonical source, or target class. Only dataset paths,
+dataset checksums, the output directory, `--resume`, and the resource-only
+`E7_MAX_WORKERS` setting are accepted.
+
+Changing the worker count must not change the scientific matrix.
 
 ## Fixed shortlist
 
@@ -38,15 +42,16 @@ capacity reasons; changing worker count must not change the scientific matrix.
 | `original_exp_rank_mr` | unchanged passthrough `SNA2C_IQLV_ExpRankAgent` | rank-dependent, maximum 0.11 | recovered strong baseline |
 | `positive_only` | `positive_only`, scale 0 | 0 | imitation-ceiling control |
 | `global_neg_0p11` | `canonical_signed`, scale 1 | 0.11 | constant canonical-alpha anchor |
-| `global_neg_0p011` | `global`, scale 0.1 | 0.011 | magnitude-matched global control |
+| `global_neg_0p011` | `global`, scale 0.1 | 0.011 | maximum-coefficient-matched global anchor |
 | `reciprocal_linear_max0p011` | reciprocal-linear, scale 0.1 | at most 0.011 | distance-selective taper |
 | `reciprocal_quadratic_max0p011` | reciprocal-quadratic, scale 0.1 | at most 0.011 | distance-selective taper |
 | `exponential_max0p011` | exponential, scale 0.1 | at most 0.011 | distance-selective taper |
 
-The two global controls are intentionally different by a factor of ten. The
-`0.011` global branch matches the maximum coefficient of the three distance
-tapers and distinguishes selective distance decay from simply shrinking all
-negative gradients.
+The two global anchors are intentionally different by a factor of ten. The
+`0.011` global branch matches the **maximum coefficient** of the three distance
+tapers. It is not a batch-gradient-norm, total-negative-weight, or optimizer-
+update budget match. Therefore it supports a maximum-coefficient comparison but
+must not be described as a strict gradient-budget-matched causal control.
 
 This update reuses the coefficient values and standardized-distance reference
 already present in the canonical two-dataset adapter configuration. It does not
@@ -57,27 +62,40 @@ introduce new D4RL-specific retuning:
 - reciprocal-quadratic coefficient: `0.5520268617673281`
 - exponential coefficient: `0.374162511054291`
 
+## Provenance gate
+
+The full 56-branch pilot must start from a clean repository commit equal to the
+authoritatively resolved `origin/main`. The launcher records start and end
+repository provenance and fails if the worktree is dirty, `origin/main` cannot
+be resolved, HEAD differs from `origin/main`, or HEAD changes during execution.
+Development-branch smoke or liveness checks are separate non-result gates and
+must not be represented as the full pilot.
+
 ## Evaluation and terminal audit
 
 The primary late window is fixed before execution to:
 
 `750k, 800k, 850k, 900k, 950k, 1000k`.
 
-Report at minimum:
+The dedicated runner automatically writes `TERMINAL_AUDIT.json` after all 56
+branches complete. It reports at minimum:
 
-- late-window mean, standard deviation, minimum, and maximum;
+- branch-level late-window mean, population standard deviation, minimum, and maximum;
 - final score;
 - best score and best step;
 - best-to-final and best-to-late-mean drops;
-- fraction of late-window evaluations above the registered threshold;
-- terminal slope or explicit persistent-drift/inconclusive label.
+- terminal slope per 100k updates;
+- dataset-method aggregates across the four paired seeds;
+- paired late-window differences versus Positive-only;
+- task-performance collapse, support/variance-boundary events, and NaN/Inf numerical failure as separate fields.
 
-Best checkpoint score is diagnostic and must not be the sole ranking metric.
-A fixed 1M horizon is not automatically a convergence claim. Method ranking or
-steady-state language requires the registered terminal audit.
-
-Task-performance collapse, support/variance-boundary events, and NaN/Inf
-numerical failure must be reported separately.
+No task-score threshold or stationarity tolerance is currently registered.
+Consequently, the audit records threshold-dependent task collapse as
+`not_classified`, records the unavailable support/variance boundary metric as
+`not_available`, and assigns `fixed_horizon_inconclusive` rather than inventing
+a convergence rule. Terminal slope is diagnostic only. A fixed 1M horizon is
+not automatically a convergence claim, and steady-state ranking remains
+prohibited without a separately registered terminal rule.
 
 ## Launch
 
@@ -95,6 +113,6 @@ E7_MAX_WORKERS=24 bash scripts/run_e7_canonical_two_dataset_shortlist_1m.sh \
   --work-dir /absolute/path/to/e7_shortlist_1m
 ```
 
-The output directory must be new or belong to the exact same run identity when
-`--resume` is used. Do not point this launcher at the historical 300k pilot
-output directory.
+The output directory must be absolute and new, or belong to the exact same run
+identity when `--resume` is used. Do not point this launcher at the historical
+300k pilot output directory.
