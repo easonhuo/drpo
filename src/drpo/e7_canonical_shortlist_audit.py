@@ -19,6 +19,8 @@ from drpo.e7_canonical_shortlist_protocol import (
     atomic_write_json,
 )
 
+EXPECTED_EVALUATION_STEPS = list(range(50_000, 1_000_001, 50_000))
+
 
 def _mean(values: Sequence[float]) -> float:
     return float(statistics.fmean(values))
@@ -44,6 +46,13 @@ def _least_squares_slope(xs: Sequence[float], ys: Sequence[float]) -> float:
     )
 
 
+def _read_json(path: Path) -> dict[str, Any]:
+    payload = json.loads(path.read_text())
+    if not isinstance(payload, dict):
+        raise RuntimeError(f"JSON root must be an object: {path}")
+    return payload
+
+
 def _read_trainer_summary(branch_dir: Path) -> tuple[Path, dict[str, Any]]:
     matches = sorted((branch_dir / "trainer_output").glob("*_summary.json"))
     if len(matches) != 1:
@@ -51,7 +60,47 @@ def _read_trainer_summary(branch_dir: Path) -> tuple[Path, dict[str, Any]]:
             "expected exactly one trainer summary below "
             f"{branch_dir}, found {len(matches)}"
         )
-    return matches[0], json.loads(matches[0].read_text())
+    return matches[0], _read_json(matches[0])
+
+
+def _validate_completed_manifest(path: Path, branch: sweep.Branch) -> dict[str, Any]:
+    completed = _read_json(path)
+    if completed.get("branch_id") != branch.branch_id:
+        raise RuntimeError(f"completed manifest branch identity mismatch: {path}")
+    if int(completed.get("return_code", -1)) != 0:
+        raise RuntimeError(f"completed manifest has nonzero return code: {path}")
+    return completed
+
+
+def _validate_summary_metadata(
+    summary_path: Path,
+    summary: Mapping[str, Any],
+    branch: sweep.Branch,
+) -> None:
+    expected = {
+        "dataset": branch.dataset.id,
+        "variant": "iqlv_exp_rank",
+        "seed": branch.seed,
+        "steps": 1_000_000,
+        "score_type": "norm",
+        "goal_conditioned": False,
+    }
+    mismatches = {
+        key: {"expected": value, "actual": summary.get(key)}
+        for key, value in expected.items()
+        if summary.get(key) != value
+    }
+    if mismatches:
+        raise RuntimeError(
+            f"trainer summary metadata mismatch in {summary_path}: {mismatches}"
+        )
+    for key, expected_value in (("alpha", 0.11), ("tau", 0.5)):
+        actual_value = float(summary.get(key))
+        if not math.isclose(actual_value, expected_value, rel_tol=0.0, abs_tol=1e-12):
+            raise RuntimeError(
+                f"trainer summary {key} mismatch in {summary_path}: "
+                f"{actual_value} != {expected_value}"
+            )
 
 
 def audit_branch(
@@ -63,7 +112,10 @@ def audit_branch(
     completed_path = branch_dir / "COMPLETED.json"
     if not completed_path.is_file():
         raise RuntimeError(f"branch is not complete: {branch.branch_id}")
+    completed = _validate_completed_manifest(completed_path, branch)
     summary_path, summary = _read_trainer_summary(branch_dir)
+    _validate_summary_metadata(summary_path, summary, branch)
+
     history = summary.get("history")
     if not isinstance(history, Mapping):
         raise RuntimeError(f"trainer summary has no history: {summary_path}")
@@ -77,13 +129,18 @@ def audit_branch(
     scores = [float(value) for value in history[metric_keys[0]]]
     if len(steps) != len(scores) or not steps:
         raise RuntimeError(f"trainer history shape mismatch: {summary_path}")
-    if any(right <= left for left, right in zip(steps, steps[1:])):
+    if steps != EXPECTED_EVALUATION_STEPS:
         raise RuntimeError(
-            "trainer history steps are not strictly increasing: "
-            f"{summary_path}"
+            f"trainer evaluation cadence mismatch in {summary_path}: {steps}"
         )
     if any(not math.isfinite(value) for value in scores):
         raise RuntimeError(f"non-finite evaluation score in {summary_path}")
+
+    summary_final = float(summary.get("final_score"))
+    if not math.isfinite(summary_final) or not math.isclose(
+        summary_final, scores[-1], rel_tol=0.0, abs_tol=1e-12
+    ):
+        raise RuntimeError(f"trainer final score mismatch in {summary_path}")
 
     score_by_step = dict(zip(steps, scores))
     missing_late = [step for step in late_window_steps if step not in score_by_step]
@@ -106,7 +163,9 @@ def audit_branch(
         "dataset_id": branch.dataset.id,
         "seed": branch.seed,
         "reporting_id": reporting_id,
+        "completed_manifest": str(completed_path.relative_to(work_dir)),
         "trainer_summary": str(summary_path.relative_to(work_dir)),
+        "process_return_code": int(completed["return_code"]),
         "evaluation_count": len(scores),
         "late_window_steps": [int(step) for step in late_window_steps],
         "late_window_mean": late_mean,
@@ -140,7 +199,12 @@ def audit_branch(
                 ),
             },
             "nan_inf_numerical_failure": {
-                "status": "absent",
+                "status": "not_observed",
+                "reason": (
+                    "the branch exited with code zero and all recorded evaluation "
+                    "scores are finite; the unchanged trainer does not expose a "
+                    "separate internal NaN/Inf counter"
+                ),
                 "nonfinite_evaluation_count": 0,
             },
         },
@@ -258,7 +322,9 @@ def build_terminal_audit(
             "support_or_variance_boundary_event": (
                 "not_available_in_unchanged_trainer_summary"
             ),
-            "nan_inf_numerical_failure_count": 0,
+            "nan_inf_numerical_failure": (
+                "not_observed_in_zero_exit_branches_and_finite_evaluation_histories"
+            ),
         },
     }
     atomic_write_json(work_dir / "TERMINAL_AUDIT.json", payload)
