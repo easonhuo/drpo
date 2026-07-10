@@ -122,6 +122,12 @@ def _matches(path: str, patterns: Sequence[str]) -> bool:
     return any(fnmatch.fnmatchcase(path, pattern) for pattern in patterns)
 
 
+def _normalize_changed_path(path: str) -> str:
+    """Normalize separators without stripping leading dots from hidden paths."""
+    normalized = path.replace(os.sep, "/").replace("\\", "/")
+    return normalized.removeprefix("./")
+
+
 def select_test_plan(
     changed_paths: Sequence[str],
     impact_map_path: Path,
@@ -131,7 +137,7 @@ def select_test_plan(
     if requested_mode not in ALLOWED_MODES:
         raise TestSelectionError(f"unsupported test mode: {requested_mode}")
     normalized = _dedupe(
-        tuple(path.replace(os.sep, "/").lstrip("./") for path in changed_paths if path)
+        tuple(_normalize_changed_path(path) for path in changed_paths if path)
     )
     if not normalized:
         raise TestSelectionError("candidate integration has no changed paths")

@@ -74,8 +74,8 @@ stages:
       sha256: f82d3a49e1f11195ab8cc268679b263425750198c0deca9fe5537b1e57fe890c
       authorized_by: GOV-PIPELINE-STAGE12-CLOSURE-2026-06-27
     - path: tools/drpo-update/test_selection.py
-      sha256: c7b305d73a6649c8012492f66e40edf0f234663fa72146bdb5ae59e495e5ad37
-      authorized_by: GOV-PIPELINE-STAGE12-CLOSURE-2026-06-27
+      sha256: d52052cc149b543cee6f99a3fdeb88087df9bb776800cccde7b4fa60128a0a55
+      authorized_by: GOV-STAGE1-PATH-NORMALIZATION-BUGFIX-2026-07-10
     - path: tools/drpo-update/test_impact_map.json
       sha256: 495949359c37fd1f58ec95981838f34e48b464e164e4066646199336c7795ec9
       authorized_by: GOV-STAGE5-CANDIDATE-IMPLEMENTATION-2026-07-01
