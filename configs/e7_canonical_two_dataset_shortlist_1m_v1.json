@@ -69,13 +69,21 @@
       1000000
     ]
   },
+  "terminal_audit": {
+    "registered_score_threshold": null,
+    "stationarity_rule_registered": false,
+    "default_terminal_classification": "fixed_horizon_inconclusive",
+    "ranking_requires_future_registered_terminal_rule": true
+  },
   "notes": [
     "This is the fixed two-dataset canonical-backbone shortlist pilot, not the formal D4RL-9 benchmark.",
     "The original ExpRank_MR passthrough is supplied by the run spec, so six injected controls plus one passthrough produce seven methods per dataset-seed cell.",
     "canonical_signed with negative_scale=1.0 is reported as global_neg_0p11 because its effective constant negative coefficient is canonical_alpha 0.11.",
     "global with negative_scale=0.1 is reported as global_neg_0p011 because its effective constant negative coefficient is 0.11 x 0.1 = 0.011.",
+    "The global_neg_0p011 branch is a maximum-coefficient-matched global anchor, not a batch-gradient-budget-matched control.",
     "All three distance tapers use negative_scale=0.1 and therefore have maximum negative coefficient 0.011 before distance decay.",
     "This update reuses the existing canonical two-dataset adapter coefficients and reference distance without new D4RL-specific retuning.",
-    "All methods use the same 1M-step horizon, four paired seeds, evaluation cadence, and canonical actor-critic trainer."
+    "All methods use the same 1M-step horizon, four paired seeds, evaluation cadence, and canonical actor-critic trainer.",
+    "No task-score threshold or stationarity tolerance is registered, so terminal slopes are diagnostic and the fixed-horizon classification remains inconclusive."
   ]
 }
