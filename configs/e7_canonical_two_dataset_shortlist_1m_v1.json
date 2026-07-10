@@ -47,6 +47,10 @@
       "hopper-medium-replay-v2",
       "hopper-medium-expert-v2"
     ],
+    "dataset_sha256": {
+      "hopper-medium-replay-v2": "e121c5f7c9857a307baa9edc6a2c3b48e85fedb9ac316ecddd0f48ca7ef4e39b",
+      "hopper-medium-expert-v2": "9d51ad87f8c905be3880d84c6140bcdb7fbf39a19e046a237f238ba34fec9e26"
+    },
     "seeds": [
       200,
       201,
@@ -82,6 +86,7 @@
     "global with negative_scale=0.1 is reported as global_neg_0p011 because its effective constant negative coefficient is 0.11 x 0.1 = 0.011.",
     "The global_neg_0p011 branch is a maximum-coefficient-matched global anchor, not a batch-gradient-budget-matched control.",
     "All three distance tapers use negative_scale=0.1 and therefore have maximum negative coefficient 0.011 before distance decay.",
+    "The two D4RL-v2 HDF5 files are pinned by SHA-256; a same-named but byte-different dataset is rejected.",
     "This update reuses the existing canonical two-dataset adapter coefficients and reference distance without new D4RL-specific retuning.",
     "All methods use the same 1M-step horizon, four paired seeds, evaluation cadence, and canonical actor-critic trainer.",
     "No task-score threshold or stationarity tolerance is registered, so terminal slopes are diagnostic and the fixed-horizon classification remains inconclusive."
