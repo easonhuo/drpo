@@ -55,7 +55,7 @@ def _run_spec() -> dict[str, object]:
     }
 
 
-def test_shortlist_has_seven_fixed_methods_and_matched_global_control() -> None:
+def test_shortlist_has_seven_fixed_methods_and_max_coefficient_anchor() -> None:
     grid, _ = load_grid(CONFIG_PATH)
     controls = expand_injected_controls(grid)
 
@@ -89,6 +89,9 @@ def test_shortlist_has_seven_fixed_methods_and_matched_global_control() -> None:
     aliases = grid["reporting_aliases"]
     assert aliases["canonical_signed__scale1"] == "global_neg_0p11"
     assert aliases["global__scale0p1"] == "global_neg_0p011"
+    notes = "\n".join(grid["notes"])
+    assert "maximum-coefficient-matched global anchor" in notes
+    assert "batch-gradient-budget-matched" in notes
 
 
 def test_shortlist_expands_to_two_datasets_four_seeds_and_56_parallel_jobs(
@@ -104,14 +107,16 @@ def test_shortlist_expands_to_two_datasets_four_seeds_and_56_parallel_jobs(
     assert len({branch.branch_id for branch in branches}) == 56
 
 
-def test_shortlist_launcher_freezes_1m_budget_and_parallel_execution() -> None:
+def test_shortlist_launcher_is_fail_closed_and_uses_dedicated_runner() -> None:
     text = LAUNCHER_PATH.read_text()
 
-    assert "--grid configs/e7_canonical_two_dataset_shortlist_1m_v1.json" in text
+    assert '"$@"' not in text
+    assert "argument is not allowed by the frozen shortlist protocol" in text
     assert "--steps 1000000" in text
     assert "--eval-interval 50000" in text
     assert "--eval-episodes 10" in text
     assert "--ckpt-interval 50000" in text
     assert 'MAX_WORKERS="${E7_MAX_WORKERS:-40}"' in text
     assert '(( MAX_WORKERS < 2 ))' in text
-    assert '--max-workers "$MAX_WORKERS"' in text
+    assert "scripts/run_e7_canonical_shortlist_1m.py" in text
+    assert "--require-clean-main" in text
