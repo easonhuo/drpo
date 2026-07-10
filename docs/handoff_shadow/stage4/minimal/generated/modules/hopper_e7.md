@@ -7,7 +7,7 @@
 - Responsibility: Cover learned-critic far-field mechanism validation and D4RL method-effect evidence while preserving the external-validity boundary.
 - Content contract topics: none
 - Deduplicated overlapping source chunks: 0
-- Source hash: `0279f1f0b36e45705d657398c11ab1cbd1547bc7226dda1f5573075c49d3080f`
+- Source hash: `1713cdebc691e0ca13994a8aafecffd45c325fa4b483fb9f378e7abe9ef3ea89`
 
 ## Source 1: docs/handoff.md: # 15. Learned-Critic External Mechanism Validation on D4RL -> # Part V. Bandit 稳定外推子实验的收敛审计（完整保留）
 
@@ -265,49 +265,61 @@ A<0,\quad \|z\|>1 \Longrightarrow \Delta\log\sigma<0.
 > - **正式 E7-BENCH 并行约束同步：**正式 9-task benchmark 继续以 `task_seed_method` 为 continuation 调度单元，Positive-only 也必须是 equal-horizon continuation branch；formal exact seeds、D4RL versions、base algorithm、optimizer 与 full budget 仍未冻结，因此 formal activation 继续 blocked。本修正不等于正式实验可以启动。
 > - Pilot 仍只允许形成 `pilot` 证据：不得据此按 D4RL task 更换函数族或系数，不得填入正式 9-task 主表，不得声称有限稳态、通用方法排名或当前 taper 必然超过 Positive-only。任务性能崩溃、support/variance boundary 与 NaN/Inf numerical failure 继续分开报告。
 
-## Source 13: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v56-e6-parent-closure-current-gate
+## Source 13: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:e7-canonical-shortlist-1m-pilot-gate
+
+### Delta block `section_end:e7-canonical-shortlist-1m-pilot-gate`
+
+- **Hopper E7 canonical-backbone two-dataset 1M pilot（`EXT-H-E7-BENCH-01`）：**原始 `ExpRank_MR` baseline-sanity 已在 `hopper-medium-replay-v2` 与 `hopper-medium-expert-v2`、paired seeds `200--203`、每 run `1,000,000` updates、每 `50,000` steps 以 `10` episodes 评估的协议下完成 `8/8` runs、`0` failures。Replay / Expert 的 final mean 分别为 `73.017 / 80.225`，best mean 为 `98.854 / 106.145`。该结果只证明旧 canonical joint actor--critic backbone 恢复了强性能量级；评估使用 Gymnasium Hopper-v4 与 D4RL-v2 reference normalization，不是 exact legacy `mujoco-py` 复现。结果包未绑定 DRPO repository commit，只绑定 canonical Python tree、`agents.py` 与 trainer 指纹，因此登记为可审计的 lightweight **pilot result archive**，不升级为 formal leaderboard evidence。
+- **训练动力学边界：**四个 seeds 通常在约 `400k--500k` 内至少一次进入高分区，但到 `1M` 仍存在明显 best-to-final 回落和跨评估点波动，禁止称为收敛或稳定平台。后续 canonical pilot 的预注册主窗口固定为 `750k, 800k, 850k, 900k, 950k, 1000k`；主指标为 late-window mean，另报 late-window std/min/max、final、best/best-step、best-to-final、best-to-late-mean 与 terminal slope。只有终态审计通过后才允许稳态或方法排名表述。
+- **E7 两条职责继续分离：**旧 frozen-critic / `EXT-H-E7-Q2` 线路保留为 learned-critic 外部机制诊断；canonical actor--critic 线路只承担强 backbone 上的方法效果与后期稳定性 external-validity pilot。两者均不替代 C-U1/D-U1 受控因果识别，也不能把当前性能差距单独归因于 critic 冻结。
+- **下一轮固定 shortlist：**比较 `original_exp_rank_mr`、`positive_only`、`global_neg_0p11`、`global_neg_0p011`、`reciprocal_linear_max0p011`、`reciprocal_quadratic_max0p011`、`exponential_max0p011`，共 `2 datasets x 4 seeds x 7 methods = 56` branches；所有 branch 统一 `1M` updates、相同 evaluation cadence 与 canonical trainer。`global_neg_0p011` 与三种 distance taper 的最大负系数 `0.011` 对齐，用于区分选择性远场控制与整体缩小负梯度。
+- **坐标与调参边界：**本 canonical adapter 使用 detached RMS standardized action distance、reference distance `2.0`；它与 frozen-critic E7 旧坐标中的 reference `5.0` 是不同实现，数值不得混称。本轮复用已存在的 canonical two-dataset adapter 系数 `0.4362580032734791 / 0.5520268617673281 / 0.374162511054291`，不根据 300k 结果或数据集分别重调。
+- **并行与启动门禁：**56 branches 以 `dataset_seed_method` 为调度单元，默认 `40` 个可恢复 subprocess workers、每 worker `2` 个 OMP threads；seed 与 method 顶层串行均禁止。完整 sweep 启动前必须依次通过 independent reviewer、短程真实 liveness、authority/governance tests，并 merge 到 clean `main` commit；dev-branch 或未审查 commit 不得作为正式启动来源。
+- **报告分离：**任务性能崩溃、support/variance-boundary event 与 NaN/Inf numerical failure 继续分别统计。该阶段仍是 two-dataset pilot，`formal_evidence_allowed=false`；正式 D4RL-9 protocol lock 继续 blocked。
+
+## Source 14: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v56-e6-parent-closure-current-gate
 
 ### Delta block `section_end:v56-e6-parent-closure-current-gate`
 
 - **v56 E6 父 claim 关闭覆盖：** E6 的论文核心 claim 现已范围受限关闭；主 long-run 与两个 gap 子实验的原科学状态分别保持 `long_run_validated / finite_step_validated / finite_step_validated`。`D-U1-E6-TAPER-01` 保留为可选非门禁未来工作。当前下一正式 route item 为 `EXT-H-E7-Q2`，registry 状态为 **implemented + ready + active + not_run**；启动后仍须走 canonical hardened guard，且在 raw-complete、终态审计、打包和交付前不得声称 E7 完成。
 
-## Source 14: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v57-countdown-offline-bank-current-gate
+## Source 15: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v57-countdown-offline-bank-current-gate
 
 ### Delta block `section_end:v57-countdown-offline-bank-current-gate`
 
 - **Countdown v57 覆盖：** `EXT-C-E8-V4.4-OFFLINE-BANK` 是用户批准的当前离线 focused pilot；V4.3 保留为 fixed-pair predecessor。V4.4 只改变固定负样本覆盖与 current-policy near/far reselection，不引入在线数据刷新。`EXT-H-E7-Q2` 仍是下一正式 route item，`EXT-C-E8-SCALE-01` 继续 blocked。
 
-## Source 15: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v59-countdown-offline-bank-tuning-current-gate
+## Source 16: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v59-countdown-offline-bank-tuning-current-gate
 
 ### Delta block `section_end:v59-countdown-offline-bank-tuning-current-gate`
 
 - **Countdown v59 覆盖：** `EXT-C-E8-V4.5-OFFLINE-BANK-TUNING` 是当前用户批准的离线 focused successor；V4.4 作为 frozen-bank predecessor 保留。V4.5 只调 calibrated global negative multiplier 与 exponential taper lambda，禁止在线刷新、方向筛选或模型规模同时变化。`EXT-H-E7-Q2` 仍是下一 formal route item，`EXT-C-E8-SCALE-01` 继续 blocked。
 
-## Source 16: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v62-countdown-online-offpolicy-current-gate
+## Source 17: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v62-countdown-online-offpolicy-current-gate
 
 ### Delta block `section_end:v62-countdown-online-offpolicy-current-gate`
 
 - **Countdown v62 覆盖：** `EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY` 是当前用户批准并已实现的 Countdown focused successor，状态为 **implemented + not_run**。执行前必须提供完整 V4.5 `RUN_COMPLETE.json`/`terminal_audit.json` 及其指向的 V4.4 frozen inputs；runner fail-closed 校验输入与 reference adapter。它可作为独立 pilot 启动，但不改变 `EXT-H-E7-Q2` 的 formal 优先级，也不自动解锁 `EXT-C-E8-SCALE-01`。
 
-## Source 17: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v56-e6-parent-closure-execution-order
+## Source 18: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v56-e6-parent-closure-execution-order
 
 ### Delta block `section_end:v56-e6-parent-closure-execution-order`
 
 13. **v56 执行覆盖：** E6 父 claim 已关闭，`D-U1-E6-TAPER-01` 改为可选非门禁 future study；当前直接进入已实现且 registry 为 ready/active 的 `EXT-H-E7-Q2`（E7-MECH）。E7-Q2 仍为 not_run，必须先完成正式运行、终态审计、打包与交付；其后才允许冻结并实施 `EXT-H-E7-BENCH-01`。E8-MECH/V4.3 与 E8-SCALE 的相对顺序不变。
 
-## Source 18: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v57-e8-offline-bank-execution-order
+## Source 19: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v57-e8-offline-bank-execution-order
 
 ### Delta block `section_end:v57-e8-offline-bank-execution-order`
 
 14. **v57 执行覆盖：** v56 的 formal 顺序不变，`EXT-H-E7-Q2` 仍是下一正式实验。用户批准的 V4.4 作为 single-seed focused pilot 可独立执行，但必须先完成自身 best/terminal audit 与结果交付，才允许讨论 online off-policy successor；不得一次性同时改变 negative-bank 密度和数据在线刷新机制。
 
-## Source 19: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v62-countdown-online-offpolicy-execution-order
+## Source 20: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v62-countdown-online-offpolicy-execution-order
 
 ### Delta block `section_end:v62-countdown-online-offpolicy-execution-order`
 
 18. **v62 Countdown 执行覆盖：** formal 主顺序继续由 v56/v58/v61 控制；`EXT-H-E7-Q2` 优先级不变。V4.6 允许作为独立 guarded pilot 执行，顺序固定为 predecessor/input hash audit -> 四 cell paired training -> 全部训练结束后 test evaluation -> 2×2 paired effect/interaction -> terminal audit -> canonical artifact delivery。任何 online phase 都必须保留 collector manifest、round JSONL、fresh/stale mix 与实际 selected-bank diagnostics；smoke 或单 seed 不得称实验结果。
 
-## Source 20: experiments/registry.yaml: experiments[EXT-H-E7-Q2, EXT-H-E7-BENCH-01]
+## Source 21: experiments/registry.yaml: experiments[EXT-H-E7-Q2, EXT-H-E7-BENCH-01]
 
 collection: experiments
 entries:
@@ -906,3 +918,139 @@ entries:
     pilot_execution: ready_not_run
     formal_protocol_lock: pending
     d4rl_retuning_allowed: false
+  canonical_backbone_two_dataset_pilot:
+    scientific_status: pilot
+    role: external_validity_method_effect_and_late_training_stability
+    relationship_to_other_e7_lines:
+      frozen_critic_e7_q2_role: preserved_learned_critic_mechanism_diagnostic
+      canonical_backbone_role: strong_backbone_performance_and_late_training_stability_pilot
+      replaces_e7_q2_mechanism_evidence: false
+      replaces_cu1_du1_controlled_identification: false
+    baseline_sanity:
+      execution_status: delivered_lightweight_result_archive
+      formal_evidence_allowed: false
+      method: original_exp_rank_mr
+      target_class: SNA2C_IQLV_ExpRankAgent
+      trainer_variant: iqlv_exp_rank
+      alpha: 0.11
+      tau: 0.5
+      temperature: 5.0
+      datasets:
+      - hopper-medium-replay-v2
+      - hopper-medium-expert-v2
+      paired_seeds:
+      - 200
+      - 201
+      - 202
+      - 203
+      optimizer_steps_per_run: 1000000
+      evaluation_interval_steps: 50000
+      evaluation_episodes: 10
+      expected_runs: 8
+      completed_runs: 8
+      failed_runs: 0
+      aggregate_results:
+        hopper_medium_replay_v2:
+          final_mean: 73.017
+          final_min: 44.294
+          final_max: 91.521
+          best_mean: 98.854
+          last10pct_mean: 69.344
+          last10pct_max_mean: 80.62
+        hopper_medium_expert_v2:
+          final_mean: 80.225
+          final_min: 47.445
+          final_max: 109.488
+          best_mean: 106.145
+          last10pct_mean: 70.616
+          last10pct_max_mean: 85.503
+      terminal_interpretation:
+        strong_score_scale_recovered: true
+        high_score_reached_by_approximately_400k_to_500k: true
+        stable_plateau_by_1m: false
+        classification: persistent_or_slow_drift_or_fixed_horizon_inconclusive
+        fixed_horizon_is_not_convergence: true
+      evaluation_protocol: Gymnasium_Hopper_v4_plus_D4RL_v2_reference_normalization
+      exact_legacy_mujoco_py_reproduction: false
+      archive:
+        filename: EXT-H-E7-BENCH-01_ExpRank_MR_baseline_sanity_1M_4seed_archive.zip
+        sha256: 6a53b5e58c220d49ac73bbeb736f0f2d3a83f04566311524b118fc1400467d8d
+        checkpoints_intentionally_excluded: true
+        result_and_provenance_archive_only: true
+      provenance:
+        repository_commit_binding_available_in_archive: false
+        python_tree_sha256: 83b34aedc4439f4b26cfae7702af4adb5874cd95dbe76b8940e6adab9fd829a3
+        agents_sha256: c51d257803ed2636756fb4f61580b1158946c39fec533723a0c7001ef279e1bb
+        trainer_sha256: dff1955c655d7786571af76e507c4681f417235d6ac8235527fb8c93343603a9
+    next_fixed_shortlist:
+      scientific_status: not_run
+      implementation_state: dev_branch_implemented_pending_reviewer_liveness_and_main_merge
+      development_branch: dev/e7-canonical-shortlist-1m
+      draft_pull_request: 4
+      launch_commit: pending_post_merge_main_commit
+      config_path: configs/e7_canonical_two_dataset_shortlist_1m_v1.json
+      protocol_document: docs/e7_canonical_two_dataset_shortlist_1m.md
+      launcher: scripts/run_e7_canonical_two_dataset_shortlist_1m.sh
+      datasets:
+      - hopper-medium-replay-v2
+      - hopper-medium-expert-v2
+      paired_seeds:
+      - 200
+      - 201
+      - 202
+      - 203
+      methods:
+      - original_exp_rank_mr
+      - positive_only
+      - global_neg_0p11
+      - global_neg_0p011
+      - reciprocal_linear_max0p011
+      - reciprocal_quadratic_max0p011
+      - exponential_max0p011
+      expected_branches: 56
+      optimizer_steps_per_branch: 1000000
+      evaluation_interval_steps: 50000
+      evaluation_episodes: 10
+      primary_late_window_steps:
+      - 750000
+      - 800000
+      - 850000
+      - 900000
+      - 950000
+      - 1000000
+      parallel_execution:
+        scheduler: resumable_branch_subprocess_worker_pool
+        parallel_unit: dataset_seed_method
+        default_max_workers: 40
+        omp_threads_per_worker: 2
+        serial_seed_loop_forbidden: true
+        serial_method_loop_forbidden: true
+        resume_granularity: dataset_seed_method
+      taper_coordinate:
+        distance: detached_RMS_standardized_action_distance
+        reference_distance: 2.0
+        distinct_from_frozen_critic_e7_reference_distance_5: true
+        coefficient_source: existing_canonical_two_dataset_adapter_configuration
+        new_d4rl_specific_retuning: false
+        reciprocal_linear_coefficient: 0.4362580032734791
+        reciprocal_quadratic_coefficient: 0.5520268617673281
+        exponential_coefficient: 0.374162511054291
+      comparison_rules:
+        primary_metric: late_window_mean_750k_to_1m
+        best_score_is_diagnostic_only: true
+        report_best_to_final_drop: true
+        report_best_to_late_mean_drop: true
+        report_terminal_slope: true
+        terminal_audit_required_for_ranking_or_steady_state_claim: true
+      reporting_separation:
+      - task_performance_collapse
+      - support_or_variance_boundary_event
+      - nan_inf_numerical_failure
+      formal_nine_task_benchmark_unlocked: false
+      formal_evidence_allowed: false
+      execution_gate:
+        state: blocked
+        blocked_by:
+        - independent_reviewer_gate
+        - short_liveness_gate
+        - merge_to_clean_main_commit
