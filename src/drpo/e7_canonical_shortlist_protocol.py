@@ -17,6 +17,14 @@ EXPERIMENT_ID = "EXT-H-E7-BENCH-01"
 SCIENTIFIC_STATUS = "canonical_agent_two_dataset_fixed_shortlist_1m_pilot_only"
 RUNNER_VERSION = "1.0.0-fixed-shortlist-1m"
 EXPECTED_DATASETS = ("hopper-medium-replay-v2", "hopper-medium-expert-v2")
+EXPECTED_DATASET_SHA256 = {
+    "hopper-medium-replay-v2": (
+        "e121c5f7c9857a307baa9edc6a2c3b48e85fedb9ac316ecddd0f48ca7ef4e39b"
+    ),
+    "hopper-medium-expert-v2": (
+        "9d51ad87f8c905be3880d84c6140bcdb7fbf39a19e046a237f238ba34fec9e26"
+    ),
+}
 EXPECTED_SEEDS = (200, 201, 202, 203)
 EXPECTED_REPORTING_ALIASES = {
     "baseline__original_exp_rank_mr": "original_exp_rank_mr",
@@ -29,6 +37,7 @@ EXPECTED_REPORTING_ALIASES = {
 }
 EXPECTED_FIXED_PROTOCOL = {
     "datasets": list(EXPECTED_DATASETS),
+    "dataset_sha256": dict(EXPECTED_DATASET_SHA256),
     "seeds": list(EXPECTED_SEEDS),
     "steps": 1_000_000,
     "eval_interval": 50_000,
@@ -45,6 +54,12 @@ EXPECTED_FIXED_PROTOCOL = {
         950_000,
         1_000_000,
     ],
+}
+EXPECTED_TERMINAL_AUDIT = {
+    "registered_score_threshold": None,
+    "stationarity_rule_registered": False,
+    "default_terminal_classification": "fixed_horizon_inconclusive",
+    "ranking_requires_future_registered_terminal_rule": True,
 }
 EXPECTED_TRAINER_FLAGS = {
     "--dataset": "{dataset_id}",
@@ -71,6 +86,16 @@ def atomic_write_json(path: Path, payload: Any) -> None:
     temporary = path.with_suffix(path.suffix + ".tmp")
     temporary.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
     os.replace(temporary, path)
+
+
+def expected_canonical_root() -> Path:
+    return (
+        Path(__file__).resolve().parents[2]
+        / "src"
+        / "drpo"
+        / "e7_canonical_vendor"
+        / "d4rl"
+    ).resolve()
 
 
 def _parse_flag_value_pairs(argv: Sequence[str]) -> dict[str, str]:
@@ -103,12 +128,22 @@ def validate_fixed_protocol(
         raise ValueError("fixed shortlist scientific_status mismatch")
     if grid.get("fixed_protocol") != EXPECTED_FIXED_PROTOCOL:
         raise ValueError("fixed_protocol differs from the registered 1M matrix")
+    if grid.get("terminal_audit") != EXPECTED_TERMINAL_AUDIT:
+        raise ValueError("terminal_audit differs from the registered audit boundary")
     if grid.get("reporting_aliases") != EXPECTED_REPORTING_ALIASES:
         raise ValueError("reporting_aliases differ from the registered shortlist")
+    if int(grid.get("branch_count_per_dataset_seed", -1)) != 6:
+        raise ValueError("branch_count_per_dataset_seed must remain 6")
+    if int(grid.get("expected_total_branches", -1)) != 56:
+        raise ValueError("expected_total_branches must remain 56")
 
-    if not math.isclose(float(grid.get("canonical_alpha")), 0.11, abs_tol=1e-12):
+    if not math.isclose(
+        float(grid.get("canonical_alpha")), 0.11, rel_tol=0.0, abs_tol=1e-12
+    ):
         raise ValueError("canonical_alpha must remain 0.11")
-    if not math.isclose(float(grid.get("reference_distance")), 2.0, abs_tol=1e-12):
+    if not math.isclose(
+        float(grid.get("reference_distance")), 2.0, rel_tol=0.0, abs_tol=1e-12
+    ):
         raise ValueError("reference_distance must remain 2.0")
     expected_coefficients = {
         "reciprocal_linear": 0.4362580032734791,
@@ -118,8 +153,12 @@ def validate_fixed_protocol(
     coefficients = grid.get("coefficients")
     if not isinstance(coefficients, Mapping):
         raise ValueError("grid coefficients must be a mapping")
+    if set(coefficients) != set(expected_coefficients):
+        raise ValueError("grid coefficient keys changed")
     for name, expected in expected_coefficients.items():
-        if not math.isclose(float(coefficients.get(name)), expected, abs_tol=1e-15):
+        if not math.isclose(
+            float(coefficients[name]), expected, rel_tol=0.0, abs_tol=1e-15
+        ):
             raise ValueError(f"coefficient changed for {name}")
 
     if grid.get("anchors") != {
@@ -135,22 +174,43 @@ def validate_fixed_protocol(
     }:
         raise ValueError("negative_scale_grid changed")
 
-    dataset_ids = [str(item["id"]) for item in run_spec.get("datasets", [])]
-    if dataset_ids != list(EXPECTED_DATASETS):
-        raise ValueError(f"run_spec datasets changed: {dataset_ids}")
-    seeds = [int(value) for value in run_spec.get("seeds", [])]
-    if seeds != list(EXPECTED_SEEDS):
-        raise ValueError(f"run_spec seeds changed: {seeds}")
+    if run_spec.get("experiment_id") != EXPERIMENT_ID:
+        raise ValueError("run_spec experiment_id changed")
+    if run_spec.get("wrapper") != "canonical-agent-two-dataset-v2-self-contained":
+        raise ValueError("run_spec wrapper changed")
+    if run_spec.get("scope") != "two_dataset_canonical_agent_validation_only":
+        raise ValueError("run_spec scope changed")
     if run_spec.get("run_kind") != "pilot":
         raise ValueError("run_spec.run_kind must remain pilot")
     if run_spec.get("profile") != "taper-pilot":
         raise ValueError("run_spec.profile must remain taper-pilot")
+    if run_spec.get("injected_template_values") not in (None, {}):
+        raise ValueError("injected_template_values are not allowed in the fixed shortlist")
 
-    passthrough_ids = [
-        str(item.get("id")) for item in run_spec.get("passthrough_variants", [])
-    ]
+    datasets = run_spec.get("datasets", [])
+    dataset_ids = [str(item["id"]) for item in datasets]
+    if dataset_ids != list(EXPECTED_DATASETS):
+        raise ValueError(f"run_spec datasets changed: {dataset_ids}")
+    for item in datasets:
+        dataset_id = str(item["id"])
+        actual_sha256 = str(item.get("sha256", "")).lower()
+        expected_sha256 = EXPECTED_DATASET_SHA256[dataset_id]
+        if actual_sha256 != expected_sha256:
+            raise ValueError(
+                f"dataset SHA-256 changed for {dataset_id}: "
+                f"{actual_sha256} != {expected_sha256}"
+            )
+
+    seeds = [int(value) for value in run_spec.get("seeds", [])]
+    if seeds != list(EXPECTED_SEEDS):
+        raise ValueError(f"run_spec seeds changed: {seeds}")
+
+    passthrough = run_spec.get("passthrough_variants", [])
+    passthrough_ids = [str(item.get("id")) for item in passthrough]
     if passthrough_ids != ["original_exp_rank_mr"]:
         raise ValueError("passthrough baseline changed")
+    if passthrough[0].get("template_values", {}) != {}:
+        raise ValueError("passthrough baseline template values changed")
 
     trainer_flags = _parse_flag_value_pairs(run_spec.get("trainer_argv_template", []))
     if trainer_flags != EXPECTED_TRAINER_FLAGS:
@@ -174,16 +234,30 @@ def validate_fixed_protocol(
     if run_spec.get("environment") != expected_environment:
         raise ValueError("trainer thread environment differs from the frozen protocol")
 
+    if contract.source_root != expected_canonical_root():
+        raise ValueError(
+            "canonical source root changed: "
+            f"{contract.source_root} != {expected_canonical_root()}"
+        )
+    if contract.agents_relpath != "agents.py":
+        raise ValueError("canonical agents_relpath changed")
+    if contract.trainer_relpath != "train_sna2c_variant.py":
+        raise ValueError("canonical trainer_relpath changed")
+    if contract.module_name != "agents":
+        raise ValueError("canonical module_name changed")
     if contract.target_class != "SNA2C_IQLV_ExpRankAgent":
         raise ValueError("canonical target class changed")
     if contract.agent_flavor != "signed_td_v_v1":
         raise ValueError("canonical agent flavor changed")
-    if not math.isclose(contract.expected_canonical_alpha, 0.11, abs_tol=1e-12):
+    if contract.return_mode != "zero_float":
+        raise ValueError("canonical return mode changed")
+    if not math.isclose(
+        contract.expected_canonical_alpha, 0.11, rel_tol=0.0, abs_tol=1e-12
+    ):
         raise ValueError("canonical contract alpha changed")
 
     controls = sweep.expand_injected_controls(grid)
-    expected_injected = int(grid.get("branch_count_per_dataset_seed", -1))
-    if len(controls) != expected_injected or expected_injected != 6:
+    if len(controls) != 6:
         raise ValueError("fixed shortlist must contain six injected controls")
 
     return {
@@ -191,9 +265,11 @@ def validate_fixed_protocol(
         "experiment_id": EXPERIMENT_ID,
         "scientific_status": SCIENTIFIC_STATUS,
         "datasets": dataset_ids,
+        "dataset_sha256": dict(EXPECTED_DATASET_SHA256),
         "seeds": seeds,
         "reporting_ids": list(EXPECTED_REPORTING_ALIASES.values()),
         "expected_branches": 56,
+        "canonical_source_root": str(expected_canonical_root()),
     }
 
 
