@@ -181,7 +181,7 @@
     "docs/handoff.md": "b994d88451f4787b0ed194dd595b7e29209cfb38b4738ba800bb356b87f98a32",
     "docs/handoff_shadow/stage4/minimal/DEPENDENCIES.yaml": "fb19da70ea2db6a35c4320e23a91640d0f21887c46bb79873d9548357271f4da",
     "docs/handoff_shadow/stage4/minimal/MODULES.yaml": "9eb67303232bb2362b8a4571f383687aca0cfd2c25eeb9b8e68733c84b3701e8",
-    "experiments/registry.yaml": "0ea446d514b474db4665d3476c55b7d7ed0c2f105d9fffdc35efbe85de000adc"
+    "experiments/registry.yaml": "979f35bbec848ad3147a2265233947ba4a5d6f537d2faf2d850d32312d15429e"
   },
   "module_order": [
     "global_core_governance",
@@ -633,5 +633,5 @@
     "terminal_audit"
   ],
   "structure_change_policy": "suggestion_only_human_approval_required",
-  "suggestion_count": 8
+  "suggestion_count": 9
 }

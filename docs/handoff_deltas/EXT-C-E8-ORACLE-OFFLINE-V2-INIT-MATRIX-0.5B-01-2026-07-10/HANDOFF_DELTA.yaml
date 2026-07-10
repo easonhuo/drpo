@@ -1,0 +1,49 @@
+schema_version: 3
+update_id: EXT-C-E8-ORACLE-OFFLINE-V2-INIT-MATRIX-0.5B-01-2026-07-10
+mode: authoritative
+base:
+  commit: 4b352b5a3e30e0ef070cb2621f5d945ca02e2628
+  handoff_sha256: b994d88451f4787b0ed194dd595b7e29209cfb38b4738ba800bb356b87f98a32
+  registry_sha256: 0ea446d514b474db4665d3476c55b7d7ed0c2f105d9fffdc35efbe85de000adc
+renderer_version: 1
+operations:
+- operation_id: append-e8-oracle-offline-v2-init-matrix-gate
+  op: append_to_section
+  heading_path:
+  - 0. 研究与执行原则（每次新会话首先阅读）
+  - 0.1 当前执行门禁
+  block_id: e8-oracle-offline-v2-init-matrix-0p5b-gate
+  content: >-
+    - **Countdown E8 oracle-offline v2 init-matrix 0.5B pilot:** 登记
+      `EXT-C-E8-ORACLE-OFFLINE-V2-INIT-MATRIX-0.5B-01`，作为
+      `EXT-C-E8-ORACLE-OFFLINE-BANK-V2-0.5B-01` 模型无关 corpus 的 v2 downstream
+      successor。它在冻结 v2 corpus/bank 上运行初始化级别 × 训练条件矩阵：base /
+      low-SFT / full-SFT 三个初始化，共用一套 offline-training protocol（来自
+      `countdown_e8_base_rl_replay_0p5b.yaml` 的 offline_training/evaluation/negative_calibration），不改
+      seeds、数据规模、阈值或训练步数。唯一训练 cell 恰好 8 个（base 5、low-SFT 2、full-SFT 1），加
+      B0/C0 两个 eval-only 与 A1/A2 两个 alias（A1→base_positive_only、
+      A2→base_bank_global_matched_x1p0，不重训）。两套 calibration 按初始化隔离：base calibration
+      （reference_adapter=None）只用于 base 负样本 cell，low-SFT calibration（reference_adapter=v2 SFT
+      epoch_1）只用于 B2；禁止 B2 复用 base calibration 或旧 pilot_run_7 calibration。动态 near/far 选择保持不变：固定
+      bank + 每步当前模型 length-normalized surprisal、argmin=近、argmax=远、stop-gradient 选完后只对两条
+      completion 做 train-mode forward。on-policy/replay 不进入本实验（它们不读 v2 offline negative bank），仍属
+      `EXT-C-E8-BASE-RL-REPLAY-0.5B-01`。本轮只做代码/测试注册与必要最小 smoke，不启动完整 8-cell 训练；smoke/static 不构成科学结果或方法排名，Countdown 不替代
+      D-U1/C-U1 受控因果识别。
+registry:
+  mode: expected_after
+  exact_base_after_sha256: 979f35bbec848ad3147a2265233947ba4a5d6f537d2faf2d850d32312d15429e
+  changes:
+  - change_id: e8-oracle-offline-v2-init-matrix-add-pilot
+    kind: add_entity
+    entity_id: EXT-C-E8-ORACLE-OFFLINE-V2-INIT-MATRIX-0.5B-01
+    evidence:
+    - configs/countdown_e8_base_rl_replay_0p5b.yaml
+    - experiments/registry.yaml
+    - src/drpo/countdown_e8_oracle_offline_v2_matrix.py
+    - scripts/run_countdown_e8_oracle_offline_v2_matrix.py
+    - scripts/v2_bank_convert.py
+    - scripts/v2_sft.py
+    - tests/test_countdown_e8_oracle_offline_v2_matrix.py
+    - docs/handoff_deltas/EXT-C-E8-ORACLE-OFFLINE-V2-INIT-MATRIX-0.5B-01-2026-07-10/HANDOFF_DELTA.yaml
+expected:
+  exact_base_candidate_sha256: 6d313ca8d4d299f3c806338c4438af65d18d18b2dbd699a2ff9a8d237250c86d

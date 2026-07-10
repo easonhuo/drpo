@@ -5823,6 +5823,122 @@ experiments:
   - do_not_treat_value_distance_as_sample_quality
   - do_not_use_model_sampled_negatives_as_oracle_corpus_definition
 
+- id: EXT-C-E8-ORACLE-OFFLINE-V2-INIT-MATRIX-0.5B-01
+  environment: EXT-C
+  name: countdown_oracle_offline_v2_init_matrix_0p5b
+  status: pilot
+  result_status: not_run
+  claim: >-
+    Run the initialization-level x training-condition matrix on the FROZEN v2
+    oracle-offline corpus/bank under one shared offline-training protocol.
+    Base, low-SFT (v2 SFT epoch_1), and full-SFT (v2 SFT best) initializations
+    share the same corpus, seeds, steps, and eval cadence; only the
+    initialization adapter, method, and per-init calibration vary. Dynamic
+    near/far selection (current-model surprisal, argmin/argmax, stop-gradient)
+    is unchanged. A1/A2 alias base training cells; on-policy/replay are NOT in
+    this experiment.
+  role: external_validity_v2_init_matrix_pilot
+  execution_class: pilot
+  code_entrypoint: src/drpo/countdown_e8_oracle_offline_v2_matrix.py
+  operator_entrypoint: scripts/run_countdown_e8_oracle_offline_v2_matrix.py
+  config_entrypoint: configs/countdown_e8_base_rl_replay_0p5b.yaml
+  primary_model: Qwen2.5-0.5B-Instruct
+  task: four-number Countdown arithmetic
+  initialization:
+    base: Qwen pretrained base with fresh LoRA adapter
+    low_sft: v2 SFT epoch_1_adapter (save_every_epoch)
+    full_sft: v2 SFT best_adapter
+    countdown_sft_warmstart_for_rl: not_applicable_no_rl_cells
+  data:
+    corpus_experiment: EXT-C-E8-ORACLE-OFFLINE-BANK-V2-0.5B-01
+    bank: data/offline_bank_v2.jsonl
+    validation: data/val.jsonl
+    test: data/test.jsonl
+    split_protocol: park_inspired_pattern_first_family_holdout_capacity_audited
+    offline_negative_bank_size: 16
+  cells:
+    training:
+    - base_positive_only
+    - base_bank_global_matched_x0p25
+    - base_bank_global_matched_x0p5
+    - base_bank_global_matched_x1p0
+    - base_bank_global_matched_x2p0
+    - low_sft_positive_only
+    - low_sft_bank_global_matched_x1p0
+    - full_sft_positive_only
+    eval_only:
+    - B0
+    - C0
+    alias:
+      A1: base_positive_only
+      A2: base_bank_global_matched_x1p0
+    not_executed:
+    - A0
+    - C2
+    - base_onpolicy_positive_only
+    - base_online_replay_positive_only
+    - base_online_replay_pos_neg
+  calibration:
+    base:
+      reference_adapter: null
+      used_by: [base_bank_global_matched_x0p25, base_bank_global_matched_x0p5, base_bank_global_matched_x1p0, base_bank_global_matched_x2p0]
+    low_sft:
+      reference_adapter: v2 SFT epoch_1_adapter
+      used_by: [low_sft_bank_global_matched_x1p0]
+    forbidden:
+    - reusing base calibration for B2
+    - reusing pilot_run_7 calibration
+    - hardcoding gamma or negative scale
+    - recalibrating during training
+  shared_offline_protocol:
+    source_config: configs/countdown_e8_base_rl_replay_0p5b.yaml
+    fields_inherited: [steps, min_steps, early_stop_patience, early_stop_delta, learning_rate, micro_batch, gradient_accumulation, eval_every, selection_metric, seed_schedule, diagnostics, negative_multipliers]
+  dynamic_near_far:
+    selection: current_model_length_normalized_surprisal
+    near: argmin
+    far: argmax
+    gradient: stop_gradient_eval_mode_then_train_mode_forward_on_two_selected
+    frozen_bank: true
+  metrics:
+  - validation_greedy_success
+  - validation_pass_at_8
+  - validation_pass_at_64
+  - test_greedy_success
+  - test_pass_at_8
+  - test_pass_at_64
+  - valid_rate
+  terminal_audit:
+    required: true
+    separates:
+    - task_performance_degradation
+    - support_structure_boundary
+    - nan_inf_numerical_failure
+    - best_vs_terminal
+    - persistent_drift_or_early_stop
+  interpretation_rules:
+    a1_equals_base_positive_only: alias_no_extra_training
+    a2_equals_base_x1p0: alias_no_extra_training
+    b2_uses_low_sft_calibration_only: calibration_isolated_by_init
+  execution_gate:
+    current_status: implemented_not_run
+    readiness_basis: >-
+      v2 canonical runner, guarded launcher, converter (fail-closed + padding
+      manifest), smoke gate, and unit tests are implemented on dev branch
+      dev/e8-oracle-bank-v2. GPU training not yet run; only static/unit tests
+      and (optionally) a minimal smoke execute.
+    blocked_by: []
+  artifact_outputs:
+  - v2_matrix_status.json
+  - methods/*/summary.json
+  - calibration/base/calibration.json
+  - calibration/low_sft/calibration.json
+  safeguards:
+  - do_not_run_full_8_cell_matrix_until_review_release
+  - do_not_reuse_stale_summary_on_identity_drift
+  - do_not_mix_base_and_low_sft_calibration
+  - do_not_call_smoke_or_static_a_scientific_result
+  - do_not_store_model_weights_in_update_package
+
 development_experiment_registrations:
 - id: D-U1-E6-CONDITIONAL-GAP-DEV-01
   environment: D-U1

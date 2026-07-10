@@ -23,6 +23,11 @@
 - Reason: canonical registry experiment is not mapped to any minimal module
 - Automatic action: `false`
 
+## candidate_add_or_map_module: `EXT-C-E8-ORACLE-OFFLINE-V2-INIT-MATRIX-0.5B-01`
+
+- Reason: canonical registry experiment is not mapped to any minimal module
+- Automatic action: `false`
+
 ## candidate_split_module: `continuous_e4_taper`
 
 - Reason: source content has 70748 characters, above the configured 50000 threshold
