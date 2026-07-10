@@ -8,6 +8,7 @@ import pytest
 from drpo.e7_canonical_injection import CanonicalContract
 from drpo.e7_canonical_shortlist_audit import audit_branch
 from drpo.e7_canonical_shortlist_protocol import (
+    EXPECTED_DATASET_SHA256,
     EXPECTED_REPORTING_ALIASES,
     apply_reporting_aliases,
     validate_fixed_protocol,
@@ -19,10 +20,13 @@ CONFIG_PATH = Path("configs/e7_canonical_two_dataset_shortlist_1m_v1.json")
 
 
 def _contract(tmp_path: Path) -> CanonicalContract:
+    del tmp_path
     return CanonicalContract.from_mapping(
         {
             "contract_version": "e7-canonical-contract-v1",
-            "canonical_source_root": str(tmp_path),
+            "canonical_source_root": str(
+                Path("src/drpo/e7_canonical_vendor/d4rl").resolve()
+            ),
             "python_tree_sha256": "0" * 64,
             "agents_relpath": "agents.py",
             "agents_sha256": "1" * 64,
@@ -39,17 +43,20 @@ def _contract(tmp_path: Path) -> CanonicalContract:
 def _run_spec() -> dict[str, object]:
     return {
         "run_kind": "pilot",
+        "experiment_id": "EXT-H-E7-BENCH-01",
+        "wrapper": "canonical-agent-two-dataset-v2-self-contained",
         "profile": "taper-pilot",
+        "scope": "two_dataset_canonical_agent_validation_only",
         "datasets": [
             {
                 "id": "hopper-medium-replay-v2",
                 "path": "/tmp/hopper-medium-replay-v2.hdf5",
-                "sha256": "a" * 64,
+                "sha256": EXPECTED_DATASET_SHA256["hopper-medium-replay-v2"],
             },
             {
                 "id": "hopper-medium-expert-v2",
                 "path": "/tmp/hopper-medium-expert-v2.hdf5",
-                "sha256": "b" * 64,
+                "sha256": EXPECTED_DATASET_SHA256["hopper-medium-expert-v2"],
             },
         ],
         "seeds": [200, 201, 202, 203],
@@ -109,6 +116,12 @@ def test_fixed_protocol_validator_rejects_scientific_drift(tmp_path: Path) -> No
     with pytest.raises(ValueError, match="seeds changed"):
         validate_fixed_protocol(_contract(tmp_path), drifted, grid)
 
+    changed_dataset = dict(run_spec)
+    changed_dataset["datasets"] = [dict(item) for item in run_spec["datasets"]]
+    changed_dataset["datasets"][0]["sha256"] = "0" * 64
+    with pytest.raises(ValueError, match="dataset SHA-256 changed"):
+        validate_fixed_protocol(_contract(tmp_path), changed_dataset, grid)
+
 
 def test_reporting_aliases_are_consumed_in_branch_identity(tmp_path: Path) -> None:
     grid, _ = load_grid(CONFIG_PATH)
@@ -121,14 +134,30 @@ def test_reporting_aliases_are_consumed_in_branch_identity(tmp_path: Path) -> No
     assert all("scale" not in branch.branch_id for branch in remapped)
 
 
-def _write_summary(branch_dir: Path, scores: list[float]) -> None:
+def _write_summary(
+    branch_dir: Path,
+    branch: Branch,
+    scores: list[float],
+) -> None:
     trainer_output = branch_dir / "trainer_output"
     trainer_output.mkdir(parents=True)
     steps = list(range(50_000, 1_000_001, 50_000))
-    (trainer_output / "synthetic_summary.json").write_text(
-        json.dumps({"history": {"steps": steps, "score": scores}})
+    payload = {
+        "dataset": branch.dataset.id,
+        "variant": "iqlv_exp_rank",
+        "alpha": 0.11,
+        "tau": 0.5,
+        "seed": branch.seed,
+        "steps": 1_000_000,
+        "score_type": "norm",
+        "goal_conditioned": False,
+        "final_score": scores[-1],
+        "history": {"steps": steps, "score": scores},
+    }
+    (trainer_output / "synthetic_summary.json").write_text(json.dumps(payload))
+    (branch_dir / "COMPLETED.json").write_text(
+        json.dumps({"branch_id": branch.branch_id, "return_code": 0})
     )
-    (branch_dir / "COMPLETED.json").write_text("{}")
 
 
 def test_terminal_audit_reports_late_window_without_claiming_convergence(
@@ -145,7 +174,7 @@ def test_terminal_audit_reports_late_window_without_claiming_convergence(
     )
     branch_dir = tmp_path / "branches" / branch.branch_id
     scores = [float(value) for value in range(1, 21)]
-    _write_summary(branch_dir, scores)
+    _write_summary(branch_dir, branch, scores)
 
     row = audit_branch(
         tmp_path,
@@ -158,7 +187,7 @@ def test_terminal_audit_reports_late_window_without_claiming_convergence(
     assert row["terminal_classification"] == "fixed_horizon_inconclusive"
     assert row["late_fraction_above_registered_threshold"] is None
     numerical = row["event_separation"]["nan_inf_numerical_failure"]
-    assert numerical["status"] == "absent"
+    assert numerical["status"] == "not_observed"
 
 
 def test_terminal_audit_rejects_nonfinite_scores(tmp_path: Path) -> None:
@@ -174,7 +203,7 @@ def test_terminal_audit_rejects_nonfinite_scores(tmp_path: Path) -> None:
     branch_dir = tmp_path / "branches" / branch.branch_id
     scores = [float(value) for value in range(1, 21)]
     scores[-1] = float("nan")
-    _write_summary(branch_dir, scores)
+    _write_summary(branch_dir, branch, scores)
 
     with pytest.raises(RuntimeError, match="non-finite evaluation score"):
         audit_branch(
