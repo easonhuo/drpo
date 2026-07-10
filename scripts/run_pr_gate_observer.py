@@ -253,6 +253,7 @@ def main() -> int:
             )
         except TestExecutionError as exc:
             if not timed_outcomes:
+                # Defensive fallback for a selector implementation that raises before callbacks.
                 timed_outcomes.extend((outcome, 0.0) for outcome in exc.outcomes)
 
         report["changed_paths"] = changed_paths
