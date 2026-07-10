@@ -16,6 +16,9 @@ reinterpret that run as a 1M result and does not delete or overwrite it.
 - Datasets:
   - `hopper-medium-replay-v2`
   - `hopper-medium-expert-v2`
+- Dataset SHA-256:
+  - replay: `e121c5f7c9857a307baa9edc6a2c3b48e85fedb9ac316ecddd0f48ca7ef4e39b`
+  - expert: `9d51ad87f8c905be3880d84c6140bcdb7fbf39a19e046a237f238ba34fec9e26`
 - Paired seeds: `200, 201, 202, 203`
 - Training updates per branch: `1,000,000`
 - Evaluation interval: `50,000` updates
@@ -30,10 +33,11 @@ The launcher uses the existing resumable branch subprocess executor. The
 official entry point validates the complete scientific matrix before launch and
 rejects any attempt to override seeds, steps, alpha, tau, temperature, learning
 rate, batch size, grid, canonical source, or target class. Only dataset paths,
-dataset checksums, the output directory, `--resume`, and the resource-only
-`E7_MAX_WORKERS` setting are accepted.
+the exact registered dataset checksums, the output directory, `--resume`, and
+the resource-only `E7_MAX_WORKERS` setting are accepted.
 
-Changing the worker count must not change the scientific matrix.
+Changing the worker count must not change the scientific matrix. A same-named
+HDF5 file with a different SHA-256 is rejected before branch launch.
 
 ## Fixed shortlist
 
@@ -65,9 +69,13 @@ introduce new D4RL-specific retuning:
 ## Provenance gate
 
 The full 56-branch pilot must start from a clean repository commit equal to the
-authoritatively resolved `origin/main`. The launcher records start and end
-repository provenance and fails if the worktree is dirty, `origin/main` cannot
-be resolved, HEAD differs from `origin/main`, or HEAD changes during execution.
+authoritatively resolved `origin/main`. The canonical source root, module name,
+agent and trainer relative paths, target class, return contract, Python tree
+fingerprint, individual source fingerprints, and both dataset SHA-256 values are
+validated before launch. The launcher records start and end repository
+provenance and fails if the worktree is dirty, `origin/main` cannot be resolved,
+HEAD differs from `origin/main`, or HEAD changes during execution.
+
 Development-branch smoke or liveness checks are separate non-result gates and
 must not be represented as the full pilot.
 
@@ -78,7 +86,8 @@ The primary late window is fixed before execution to:
 `750k, 800k, 850k, 900k, 950k, 1000k`.
 
 The dedicated runner automatically writes `TERMINAL_AUDIT.json` after all 56
-branches complete. It reports at minimum:
+branches complete. It verifies the zero-exit branch manifest, exact trainer
+metadata, and all 20 registered evaluation points, then reports at minimum:
 
 - branch-level late-window mean, population standard deviation, minimum, and maximum;
 - final score;
@@ -96,6 +105,11 @@ Consequently, the audit records threshold-dependent task collapse as
 a convergence rule. Terminal slope is diagnostic only. A fixed 1M horizon is
 not automatically a convergence claim, and steady-state ranking remains
 prohibited without a separately registered terminal rule.
+
+A zero process exit plus finite evaluation history is reported only as
+`nan_inf_numerical_failure: not_observed`; it is not upgraded to a claim that a
+separate internal NaN/Inf counter was measured when the unchanged canonical
+trainer does not expose one.
 
 ## Launch
 
