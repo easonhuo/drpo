@@ -230,6 +230,8 @@ def evaluate_model(
 
 def evaluate_base(model_path: Path, work_dir: Path, data_paths: Mapping[str, Path], config: Mapping[str, Any]) -> dict[str, Any]:
     method_dir = work_dir / "methods" / "base_eval"
+    if (method_dir / "summary.json").exists():
+        return json.loads((method_dir / "summary.json").read_text())
     method_dir.mkdir(parents=True, exist_ok=True)
     tokenizer = arena.load_tokenizer(str(model_path))
     model = load_base_model(model_path, config, trainable=False, gradient_checkpointing=False)
@@ -352,6 +354,8 @@ def train_offline_method(
     negative_scale_multiplier: float = 1.0,
 ) -> dict[str, Any]:
     out_dir = work_dir / "methods" / output_name
+    if (out_dir / "summary.json").exists():
+        return json.loads((out_dir / "summary.json").read_text())
     train_cfg = config["offline_training"]
     model_cfg = config["model"]
     args = argparse.Namespace(
@@ -572,6 +576,8 @@ def train_online_or_replay(
     use_negatives: bool,
 ) -> dict[str, Any]:
     method_dir = work_dir / "methods" / method / f"seed_{seed}"
+    if (method_dir / "summary.json").exists():
+        return json.loads((method_dir / "summary.json").read_text())
     method_dir.mkdir(parents=True, exist_ok=True)
     arena.seed_all(seed)
     rng = random.Random(seed)

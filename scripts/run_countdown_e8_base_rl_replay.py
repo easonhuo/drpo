@@ -34,7 +34,7 @@ def main() -> int:
     config = (repo / args.config).resolve()
     model = Path(args.model_path).resolve()
     work = Path(args.work_dir).resolve()
-    artifact = work / f"{EXPERIMENT_ID}.zip"
+    artifact = work.parent / f"{EXPERIMENT_ID}_pilot.zip"
     command = [
         sys.executable,
         str(guard),
@@ -42,9 +42,9 @@ def main() -> int:
         "pilot",
         "--experiment-id",
         EXPERIMENT_ID,
-        "--work-dir",
+        "--output-root",
         str(work),
-        "--artifact",
+        "--artifact-output",
         str(artifact),
         "--source-file",
         RUNNER,
