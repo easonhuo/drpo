@@ -1,0 +1,484 @@
+{
+  "current_before_commit": "30b6a9cfd9da2feca1e5be22f5c002d1459298ff",
+  "current_handoff_before_sha256": "b994d88451f4787b0ed194dd595b7e29209cfb38b4738ba800bb356b87f98a32",
+  "current_registry_validation": {
+    "assertions": [
+      {
+        "change_id": "e7-canonical-backbone-two-dataset-pilot",
+        "entity_id": "EXT-H-E7-BENCH-01",
+        "evidence": [
+          {
+            "path": "docs/handoff.md",
+            "sha256": "b994d88451f4787b0ed194dd595b7e29209cfb38b4738ba800bb356b87f98a32"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "20d8a53df7f6844e54bad4d064688e8caf2cc29873d1686641e5973e52fdc5a6"
+          },
+          {
+            "path": "configs/e7_canonical_two_dataset_shortlist_1m_v1.json",
+            "sha256": "9112895d39ce81d5273c45baf92993c1a27465802eaa8bc5d2d7f0234cd8df2d"
+          },
+          {
+            "path": "docs/e7_canonical_two_dataset_shortlist_1m.md",
+            "sha256": "22a7c8d11772c6e9ad13fdfa8e07c99561b2f25b2fffbd4b564570921ae130bb"
+          },
+          {
+            "path": "scripts/run_e7_canonical_two_dataset_shortlist_1m.sh",
+            "sha256": "f6aadad8070b8d66066da59606efb609652debf46a120088e472f1c5eda1a555"
+          },
+          {
+            "path": "tests/test_e7_canonical_shortlist_1m.py",
+            "sha256": "a945048faab124424f59753b64272625d57612913411a271d3786c826c46bad4"
+          },
+          {
+            "path": "src/drpo/e7_canonical_two_dataset.py",
+            "sha256": "0f8a3f6c9169145e83bb0925ce3462ec55c089dfeb4dfb5a1ea865f032e9cfce"
+          },
+          {
+            "path": "src/drpo/e7_canonical_sweep.py",
+            "sha256": "c90240a565132953ec6132b1e8deacf361ddb1beb451be3f25951d0ebf82e094"
+          },
+          {
+            "path": "src/drpo/e7_canonical_injection.py",
+            "sha256": "3b270042bace7cd1adcec56e137c369d8ba6ef720ec2647418f163c6d2f67844"
+          }
+        ],
+        "field_path": [
+          "canonical_backbone_two_dataset_pilot"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the delivered canonical ExpRank_MR baseline-sanity archive and freeze the user-approved two-dataset four-seed seven-method 1M parallel shortlist without changing the formal D4RL-9 activation state.",
+        "to": {
+          "baseline_sanity": {
+            "aggregate_results": {
+              "hopper_medium_expert_v2": {
+                "best_mean": 106.145,
+                "final_max": 109.488,
+                "final_mean": 80.225,
+                "final_min": 47.445,
+                "last10pct_max_mean": 85.503,
+                "last10pct_mean": 70.616
+              },
+              "hopper_medium_replay_v2": {
+                "best_mean": 98.854,
+                "final_max": 91.521,
+                "final_mean": 73.017,
+                "final_min": 44.294,
+                "last10pct_max_mean": 80.62,
+                "last10pct_mean": 69.344
+              }
+            },
+            "alpha": 0.11,
+            "archive": {
+              "checkpoints_intentionally_excluded": true,
+              "filename": "EXT-H-E7-BENCH-01_ExpRank_MR_baseline_sanity_1M_4seed_archive.zip",
+              "result_and_provenance_archive_only": true,
+              "sha256": "6a53b5e58c220d49ac73bbeb736f0f2d3a83f04566311524b118fc1400467d8d"
+            },
+            "completed_runs": 8,
+            "datasets": [
+              "hopper-medium-replay-v2",
+              "hopper-medium-expert-v2"
+            ],
+            "evaluation_episodes": 10,
+            "evaluation_interval_steps": 50000,
+            "evaluation_protocol": "Gymnasium_Hopper_v4_plus_D4RL_v2_reference_normalization",
+            "exact_legacy_mujoco_py_reproduction": false,
+            "execution_status": "delivered_lightweight_result_archive",
+            "expected_runs": 8,
+            "failed_runs": 0,
+            "formal_evidence_allowed": false,
+            "method": "original_exp_rank_mr",
+            "optimizer_steps_per_run": 1000000,
+            "paired_seeds": [
+              200,
+              201,
+              202,
+              203
+            ],
+            "provenance": {
+              "agents_sha256": "c51d257803ed2636756fb4f61580b1158946c39fec533723a0c7001ef279e1bb",
+              "python_tree_sha256": "83b34aedc4439f4b26cfae7702af4adb5874cd95dbe76b8940e6adab9fd829a3",
+              "repository_commit_binding_available_in_archive": false,
+              "trainer_sha256": "dff1955c655d7786571af76e507c4681f417235d6ac8235527fb8c93343603a9"
+            },
+            "target_class": "SNA2C_IQLV_ExpRankAgent",
+            "tau": 0.5,
+            "temperature": 5.0,
+            "terminal_interpretation": {
+              "classification": "persistent_or_slow_drift_or_fixed_horizon_inconclusive",
+              "fixed_horizon_is_not_convergence": true,
+              "high_score_reached_by_approximately_400k_to_500k": true,
+              "stable_plateau_by_1m": false,
+              "strong_score_scale_recovered": true
+            },
+            "trainer_variant": "iqlv_exp_rank"
+          },
+          "next_fixed_shortlist": {
+            "comparison_rules": {
+              "best_score_is_diagnostic_only": true,
+              "primary_metric": "late_window_mean_750k_to_1m",
+              "report_best_to_final_drop": true,
+              "report_best_to_late_mean_drop": true,
+              "report_terminal_slope": true,
+              "terminal_audit_required_for_ranking_or_steady_state_claim": true
+            },
+            "config_path": "configs/e7_canonical_two_dataset_shortlist_1m_v1.json",
+            "datasets": [
+              "hopper-medium-replay-v2",
+              "hopper-medium-expert-v2"
+            ],
+            "development_branch": "dev/e7-canonical-shortlist-1m",
+            "draft_pull_request": 4,
+            "evaluation_episodes": 10,
+            "evaluation_interval_steps": 50000,
+            "execution_gate": {
+              "blocked_by": [
+                "independent_reviewer_gate",
+                "short_liveness_gate",
+                "merge_to_clean_main_commit"
+              ],
+              "state": "blocked"
+            },
+            "expected_branches": 56,
+            "formal_evidence_allowed": false,
+            "formal_nine_task_benchmark_unlocked": false,
+            "implementation_state": "dev_branch_implemented_pending_reviewer_liveness_and_main_merge",
+            "launch_commit": "pending_post_merge_main_commit",
+            "launcher": "scripts/run_e7_canonical_two_dataset_shortlist_1m.sh",
+            "methods": [
+              "original_exp_rank_mr",
+              "positive_only",
+              "global_neg_0p11",
+              "global_neg_0p011",
+              "reciprocal_linear_max0p011",
+              "reciprocal_quadratic_max0p011",
+              "exponential_max0p011"
+            ],
+            "optimizer_steps_per_branch": 1000000,
+            "paired_seeds": [
+              200,
+              201,
+              202,
+              203
+            ],
+            "parallel_execution": {
+              "default_max_workers": 40,
+              "omp_threads_per_worker": 2,
+              "parallel_unit": "dataset_seed_method",
+              "resume_granularity": "dataset_seed_method",
+              "scheduler": "resumable_branch_subprocess_worker_pool",
+              "serial_method_loop_forbidden": true,
+              "serial_seed_loop_forbidden": true
+            },
+            "primary_late_window_steps": [
+              750000,
+              800000,
+              850000,
+              900000,
+              950000,
+              1000000
+            ],
+            "protocol_document": "docs/e7_canonical_two_dataset_shortlist_1m.md",
+            "reporting_separation": [
+              "task_performance_collapse",
+              "support_or_variance_boundary_event",
+              "nan_inf_numerical_failure"
+            ],
+            "scientific_status": "not_run",
+            "taper_coordinate": {
+              "coefficient_source": "existing_canonical_two_dataset_adapter_configuration",
+              "distance": "detached_RMS_standardized_action_distance",
+              "distinct_from_frozen_critic_e7_reference_distance_5": true,
+              "exponential_coefficient": 0.374162511054291,
+              "new_d4rl_specific_retuning": false,
+              "reciprocal_linear_coefficient": 0.4362580032734791,
+              "reciprocal_quadratic_coefficient": 0.5520268617673281,
+              "reference_distance": 2.0
+            }
+          },
+          "relationship_to_other_e7_lines": {
+            "canonical_backbone_role": "strong_backbone_performance_and_late_training_stability_pilot",
+            "frozen_critic_e7_q2_role": "preserved_learned_critic_mechanism_diagnostic",
+            "replaces_cu1_du1_controlled_identification": false,
+            "replaces_e7_q2_mechanism_evidence": false
+          },
+          "role": "external_validity_method_effect_and_late_training_stability",
+          "scientific_status": "pilot"
+        }
+      }
+    ],
+    "coverage": {
+      "added_entities": [],
+      "changed_field_count": 1,
+      "declared_assertion_count": 1,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "delta_sha256": "0d9a69c46929352f5250a2c28d72e815fb258e50f2ab8da68dfe95671cd3b0de",
+  "exact_base_candidate_sha256": "9568acc92673f6a7e62522cb0d9645d01b005cac023ddf2db6eaace094d71f6d",
+  "exact_base_registry_validation": {
+    "assertions": [
+      {
+        "change_id": "e7-canonical-backbone-two-dataset-pilot",
+        "entity_id": "EXT-H-E7-BENCH-01",
+        "evidence": [
+          {
+            "path": "docs/handoff.md",
+            "sha256": "b994d88451f4787b0ed194dd595b7e29209cfb38b4738ba800bb356b87f98a32"
+          },
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "20d8a53df7f6844e54bad4d064688e8caf2cc29873d1686641e5973e52fdc5a6"
+          },
+          {
+            "path": "configs/e7_canonical_two_dataset_shortlist_1m_v1.json",
+            "sha256": "9112895d39ce81d5273c45baf92993c1a27465802eaa8bc5d2d7f0234cd8df2d"
+          },
+          {
+            "path": "docs/e7_canonical_two_dataset_shortlist_1m.md",
+            "sha256": "22a7c8d11772c6e9ad13fdfa8e07c99561b2f25b2fffbd4b564570921ae130bb"
+          },
+          {
+            "path": "scripts/run_e7_canonical_two_dataset_shortlist_1m.sh",
+            "sha256": "f6aadad8070b8d66066da59606efb609652debf46a120088e472f1c5eda1a555"
+          },
+          {
+            "path": "tests/test_e7_canonical_shortlist_1m.py",
+            "sha256": "a945048faab124424f59753b64272625d57612913411a271d3786c826c46bad4"
+          },
+          {
+            "path": "src/drpo/e7_canonical_two_dataset.py",
+            "sha256": "0f8a3f6c9169145e83bb0925ce3462ec55c089dfeb4dfb5a1ea865f032e9cfce"
+          },
+          {
+            "path": "src/drpo/e7_canonical_sweep.py",
+            "sha256": "c90240a565132953ec6132b1e8deacf361ddb1beb451be3f25951d0ebf82e094"
+          },
+          {
+            "path": "src/drpo/e7_canonical_injection.py",
+            "sha256": "3b270042bace7cd1adcec56e137c369d8ba6ef720ec2647418f163c6d2f67844"
+          }
+        ],
+        "field_path": [
+          "canonical_backbone_two_dataset_pilot"
+        ],
+        "from": null,
+        "kind": "update_field",
+        "reason": "Register the delivered canonical ExpRank_MR baseline-sanity archive and freeze the user-approved two-dataset four-seed seven-method 1M parallel shortlist without changing the formal D4RL-9 activation state.",
+        "to": {
+          "baseline_sanity": {
+            "aggregate_results": {
+              "hopper_medium_expert_v2": {
+                "best_mean": 106.145,
+                "final_max": 109.488,
+                "final_mean": 80.225,
+                "final_min": 47.445,
+                "last10pct_max_mean": 85.503,
+                "last10pct_mean": 70.616
+              },
+              "hopper_medium_replay_v2": {
+                "best_mean": 98.854,
+                "final_max": 91.521,
+                "final_mean": 73.017,
+                "final_min": 44.294,
+                "last10pct_max_mean": 80.62,
+                "last10pct_mean": 69.344
+              }
+            },
+            "alpha": 0.11,
+            "archive": {
+              "checkpoints_intentionally_excluded": true,
+              "filename": "EXT-H-E7-BENCH-01_ExpRank_MR_baseline_sanity_1M_4seed_archive.zip",
+              "result_and_provenance_archive_only": true,
+              "sha256": "6a53b5e58c220d49ac73bbeb736f0f2d3a83f04566311524b118fc1400467d8d"
+            },
+            "completed_runs": 8,
+            "datasets": [
+              "hopper-medium-replay-v2",
+              "hopper-medium-expert-v2"
+            ],
+            "evaluation_episodes": 10,
+            "evaluation_interval_steps": 50000,
+            "evaluation_protocol": "Gymnasium_Hopper_v4_plus_D4RL_v2_reference_normalization",
+            "exact_legacy_mujoco_py_reproduction": false,
+            "execution_status": "delivered_lightweight_result_archive",
+            "expected_runs": 8,
+            "failed_runs": 0,
+            "formal_evidence_allowed": false,
+            "method": "original_exp_rank_mr",
+            "optimizer_steps_per_run": 1000000,
+            "paired_seeds": [
+              200,
+              201,
+              202,
+              203
+            ],
+            "provenance": {
+              "agents_sha256": "c51d257803ed2636756fb4f61580b1158946c39fec533723a0c7001ef279e1bb",
+              "python_tree_sha256": "83b34aedc4439f4b26cfae7702af4adb5874cd95dbe76b8940e6adab9fd829a3",
+              "repository_commit_binding_available_in_archive": false,
+              "trainer_sha256": "dff1955c655d7786571af76e507c4681f417235d6ac8235527fb8c93343603a9"
+            },
+            "target_class": "SNA2C_IQLV_ExpRankAgent",
+            "tau": 0.5,
+            "temperature": 5.0,
+            "terminal_interpretation": {
+              "classification": "persistent_or_slow_drift_or_fixed_horizon_inconclusive",
+              "fixed_horizon_is_not_convergence": true,
+              "high_score_reached_by_approximately_400k_to_500k": true,
+              "stable_plateau_by_1m": false,
+              "strong_score_scale_recovered": true
+            },
+            "trainer_variant": "iqlv_exp_rank"
+          },
+          "next_fixed_shortlist": {
+            "comparison_rules": {
+              "best_score_is_diagnostic_only": true,
+              "primary_metric": "late_window_mean_750k_to_1m",
+              "report_best_to_final_drop": true,
+              "report_best_to_late_mean_drop": true,
+              "report_terminal_slope": true,
+              "terminal_audit_required_for_ranking_or_steady_state_claim": true
+            },
+            "config_path": "configs/e7_canonical_two_dataset_shortlist_1m_v1.json",
+            "datasets": [
+              "hopper-medium-replay-v2",
+              "hopper-medium-expert-v2"
+            ],
+            "development_branch": "dev/e7-canonical-shortlist-1m",
+            "draft_pull_request": 4,
+            "evaluation_episodes": 10,
+            "evaluation_interval_steps": 50000,
+            "execution_gate": {
+              "blocked_by": [
+                "independent_reviewer_gate",
+                "short_liveness_gate",
+                "merge_to_clean_main_commit"
+              ],
+              "state": "blocked"
+            },
+            "expected_branches": 56,
+            "formal_evidence_allowed": false,
+            "formal_nine_task_benchmark_unlocked": false,
+            "implementation_state": "dev_branch_implemented_pending_reviewer_liveness_and_main_merge",
+            "launch_commit": "pending_post_merge_main_commit",
+            "launcher": "scripts/run_e7_canonical_two_dataset_shortlist_1m.sh",
+            "methods": [
+              "original_exp_rank_mr",
+              "positive_only",
+              "global_neg_0p11",
+              "global_neg_0p011",
+              "reciprocal_linear_max0p011",
+              "reciprocal_quadratic_max0p011",
+              "exponential_max0p011"
+            ],
+            "optimizer_steps_per_branch": 1000000,
+            "paired_seeds": [
+              200,
+              201,
+              202,
+              203
+            ],
+            "parallel_execution": {
+              "default_max_workers": 40,
+              "omp_threads_per_worker": 2,
+              "parallel_unit": "dataset_seed_method",
+              "resume_granularity": "dataset_seed_method",
+              "scheduler": "resumable_branch_subprocess_worker_pool",
+              "serial_method_loop_forbidden": true,
+              "serial_seed_loop_forbidden": true
+            },
+            "primary_late_window_steps": [
+              750000,
+              800000,
+              850000,
+              900000,
+              950000,
+              1000000
+            ],
+            "protocol_document": "docs/e7_canonical_two_dataset_shortlist_1m.md",
+            "reporting_separation": [
+              "task_performance_collapse",
+              "support_or_variance_boundary_event",
+              "nan_inf_numerical_failure"
+            ],
+            "scientific_status": "not_run",
+            "taper_coordinate": {
+              "coefficient_source": "existing_canonical_two_dataset_adapter_configuration",
+              "distance": "detached_RMS_standardized_action_distance",
+              "distinct_from_frozen_critic_e7_reference_distance_5": true,
+              "exponential_coefficient": 0.374162511054291,
+              "new_d4rl_specific_retuning": false,
+              "reciprocal_linear_coefficient": 0.4362580032734791,
+              "reciprocal_quadratic_coefficient": 0.5520268617673281,
+              "reference_distance": 2.0
+            }
+          },
+          "relationship_to_other_e7_lines": {
+            "canonical_backbone_role": "strong_backbone_performance_and_late_training_stability_pilot",
+            "frozen_critic_e7_q2_role": "preserved_learned_critic_mechanism_diagnostic",
+            "replaces_cu1_du1_controlled_identification": false,
+            "replaces_e7_q2_mechanism_evidence": false
+          },
+          "role": "external_validity_method_effect_and_late_training_stability",
+          "scientific_status": "pilot"
+        }
+      }
+    ],
+    "coverage": {
+      "added_entities": [],
+      "changed_field_count": 1,
+      "declared_assertion_count": 1,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "history_preservation_passed": true,
+  "idempotence_passed": true,
+  "materialized_handoff_after_sha256": "9568acc92673f6a7e62522cb0d9645d01b005cac023ddf2db6eaace094d71f6d",
+  "mode": "authoritative",
+  "network_used": false,
+  "policy_id": "GOV-HANDOFF-AUTHORITY-CUTOVER-01",
+  "registry_after_sha256": "20d8a53df7f6844e54bad4d064688e8caf2cc29873d1686641e5973e52fdc5a6",
+  "registry_before_sha256": "0ea446d514b474db4665d3476c55b7d7ed0c2f105d9fffdc35efbe85de000adc",
+  "report_schema_version": 1,
+  "source_base_commit": "30b6a9cfd9da2feca1e5be22f5c002d1459298ff",
+  "source_patch_commit": "5befaeee8c4422ffc46b865fa36610d6f950d821",
+  "stage4a_refresh": {
+    "refreshed": [
+      "docs/handoff_shadow/stage4/minimal/generated/MODULE_INDEX.json",
+      "docs/handoff_shadow/stage4/minimal/generated/STRUCTURE_SUGGESTIONS.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/global_core_governance.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/hopper_e7.md"
+    ],
+    "reused": [
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.dot",
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e5_mechanism.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e6_generalization.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_extrapolation.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_taper.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_mechanism_e1_e3.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/countdown_e8.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/execution_status_gates.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/history_provenance.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/paper_rewrite.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/terminal_audit.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/theory_methods_related_work.md"
+    ]
+  },
+  "status": "PASS",
+  "structural_lint_passed": true,
+  "trusted_engine_sha256": "a6532ba4c1bb9c4af24d79f027267de518c3832b347dba47e8319dee7a3ebe2c",
+  "trusted_policy_sha256": "508f6bbb6ee9bb6da5be041a23e25cd569b95475523bb6af7127cb84ea3466ad",
+  "trusted_renderer_sha256": "39a7566e91c77784822148bb18ae32e44dfcc1745fbdc1cbf14a88ce6c6a13e5",
+  "update_id": "EXT-H-E7-CANONICAL-SHORTLIST-1M-2026-07-10"
+}

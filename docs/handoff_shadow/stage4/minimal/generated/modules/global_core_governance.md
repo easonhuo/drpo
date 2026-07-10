@@ -7,7 +7,7 @@
 - Responsibility: Preserve the unique-master rule, terminology, scientific scope, and non-destructive governance constraints.
 - Content contract topics: `unique_master_document`, `document_before_experiment`, `non_destructive_history`, `terminal_audit_governance`, `controlled_external_validity_boundary`
 - Deduplicated overlapping source chunks: 0
-- Source hash: `dba2e0eb6305969e03f2f299cb933e0acc335f4922a8531818b0f6225ab39ad9`
+- Source hash: `753dc4c7017ea2647912ec30fafb762551f7c8165e7029c247d80cce300a4db1`
 
 ## Content contract evidence
 
@@ -137,6 +137,15 @@
 - Hopper/D4RL：`EXT-H-E7-Q2` 是 E7-MECH，runner/config 已实现但 formal launch 仍等待受控 taper 阶段交付；`EXT-H-E7-BENCH-01` 是 D4RL MuJoCo locomotion 9-task 方法效果表，等待 E7-MECH 与受控方法 shortlist 冻结。
 - Countdown：`EXT-C-E8-V4.2` 是当前 E8-MECH/pilot；`EXT-C-E8-V4.1` 仅保留 provenance；`EXT-C-E8-SCALE-01` 是更大固定数据与模型规模验证，等待 E8-MECH 和 E7-BENCH。
 
+<!-- HANDOFF-DELTA-BLOCK:section_end:e7-canonical-shortlist-1m-pilot-gate:START -->
+- **Hopper E7 canonical-backbone two-dataset 1M pilot（`EXT-H-E7-BENCH-01`）：**原始 `ExpRank_MR` baseline-sanity 已在 `hopper-medium-replay-v2` 与 `hopper-medium-expert-v2`、paired seeds `200--203`、每 run `1,000,000` updates、每 `50,000` steps 以 `10` episodes 评估的协议下完成 `8/8` runs、`0` failures。Replay / Expert 的 final mean 分别为 `73.017 / 80.225`，best mean 为 `98.854 / 106.145`。该结果只证明旧 canonical joint actor--critic backbone 恢复了强性能量级；评估使用 Gymnasium Hopper-v4 与 D4RL-v2 reference normalization，不是 exact legacy `mujoco-py` 复现。结果包未绑定 DRPO repository commit，只绑定 canonical Python tree、`agents.py` 与 trainer 指纹，因此登记为可审计的 lightweight **pilot result archive**，不升级为 formal leaderboard evidence。
+- **训练动力学边界：**四个 seeds 通常在约 `400k--500k` 内至少一次进入高分区，但到 `1M` 仍存在明显 best-to-final 回落和跨评估点波动，禁止称为收敛或稳定平台。后续 canonical pilot 的预注册主窗口固定为 `750k, 800k, 850k, 900k, 950k, 1000k`；主指标为 late-window mean，另报 late-window std/min/max、final、best/best-step、best-to-final、best-to-late-mean 与 terminal slope。只有终态审计通过后才允许稳态或方法排名表述。
+- **E7 两条职责继续分离：**旧 frozen-critic / `EXT-H-E7-Q2` 线路保留为 learned-critic 外部机制诊断；canonical actor--critic 线路只承担强 backbone 上的方法效果与后期稳定性 external-validity pilot。两者均不替代 C-U1/D-U1 受控因果识别，也不能把当前性能差距单独归因于 critic 冻结。
+- **下一轮固定 shortlist：**比较 `original_exp_rank_mr`、`positive_only`、`global_neg_0p11`、`global_neg_0p011`、`reciprocal_linear_max0p011`、`reciprocal_quadratic_max0p011`、`exponential_max0p011`，共 `2 datasets x 4 seeds x 7 methods = 56` branches；所有 branch 统一 `1M` updates、相同 evaluation cadence 与 canonical trainer。`global_neg_0p011` 与三种 distance taper 的最大负系数 `0.011` 对齐，用于区分选择性远场控制与整体缩小负梯度。
+- **坐标与调参边界：**本 canonical adapter 使用 detached RMS standardized action distance、reference distance `2.0`；它与 frozen-critic E7 旧坐标中的 reference `5.0` 是不同实现，数值不得混称。本轮复用已存在的 canonical two-dataset adapter 系数 `0.4362580032734791 / 0.5520268617673281 / 0.374162511054291`，不根据 300k 结果或数据集分别重调。
+- **并行与启动门禁：**56 branches 以 `dataset_seed_method` 为调度单元，默认 `40` 个可恢复 subprocess workers、每 worker `2` 个 OMP threads；seed 与 method 顶层串行均禁止。完整 sweep 启动前必须依次通过 independent reviewer、短程真实 liveness、authority/governance tests，并 merge 到 clean `main` commit；dev-branch 或未审查 commit 不得作为正式启动来源。
+- **报告分离：**任务性能崩溃、support/variance-boundary event 与 NaN/Inf numerical failure 继续分别统计。该阶段仍是 two-dataset pilot，`formal_evidence_allowed=false`；正式 D4RL-9 protocol lock 继续 blocked。
+<!-- HANDOFF-DELTA-BLOCK:section_end:e7-canonical-shortlist-1m-pilot-gate:END -->
 <!-- HANDOFF-DELTA-BLOCK:section_end:e8-base-rl-replay-0p5b-gate:START -->
 - **Countdown E8 base-start RL/replay 0.5B pilot：**登记 `EXT-C-E8-BASE-RL-REPLAY-0.5B-01`，作为移除 Countdown SFT warmstart 后的基模起点诊断。该实验只回答：Qwen pretrained base 是否能通过 oracle-offline fixed positive corpus 学起；base-specific calibrated offline negatives 是否能超过 positive-only；online on-policy self-sampled positives 是否能冷启动；dynamic replay buffer 累积历史自采 positives/negatives 是否优于 immediate on-policy 更新。所有 RL 分支从 Qwen pretrained base + fresh LoRA 开始，禁止 Countdown SFT warmstart、随机初始化主实验、taper 方法族和正式方法排名声明。固定预算 pilot 只报告有限步 evidence；结果必须分开报告 task performance、online signal sparsity/replay support、valid structure boundary 和 NaN/Inf numerical failure。
 <!-- HANDOFF-DELTA-BLOCK:section_end:e8-base-rl-replay-0p5b-gate:END -->

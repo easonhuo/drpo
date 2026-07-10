@@ -1,0 +1,81 @@
+{
+  "experiment_id": "EXT-H-E7-BENCH-01",
+  "run_kind": "pilot",
+  "scientific_status": "canonical_agent_two_dataset_fixed_shortlist_1m_pilot_only",
+  "canonical_alpha": 0.11,
+  "reference_distance": 2.0,
+  "coefficients": {
+    "reciprocal_linear": 0.4362580032734791,
+    "reciprocal_quadratic": 0.5520268617673281,
+    "exponential": 0.374162511054291
+  },
+  "anchors": {
+    "positive_only": {
+      "negative_scale": 0.0
+    },
+    "canonical_signed": {
+      "negative_scale": 1.0
+    }
+  },
+  "negative_scale_grid": {
+    "global": [
+      0.1
+    ],
+    "reciprocal_linear": [
+      0.1
+    ],
+    "reciprocal_quadratic": [
+      0.1
+    ],
+    "exponential": [
+      0.1
+    ]
+  },
+  "reporting_aliases": {
+    "baseline__original_exp_rank_mr": "original_exp_rank_mr",
+    "positive_only__scale0": "positive_only",
+    "canonical_signed__scale1": "global_neg_0p11",
+    "global__scale0p1": "global_neg_0p011",
+    "reciprocal_linear__scale0p1": "reciprocal_linear_max0p011",
+    "reciprocal_quadratic__scale0p1": "reciprocal_quadratic_max0p011",
+    "exponential__scale0p1": "exponential_max0p011"
+  },
+  "branch_count_per_dataset_seed": 6,
+  "expected_total_branches": 56,
+  "fixed_protocol": {
+    "datasets": [
+      "hopper-medium-replay-v2",
+      "hopper-medium-expert-v2"
+    ],
+    "seeds": [
+      200,
+      201,
+      202,
+      203
+    ],
+    "steps": 1000000,
+    "eval_interval": 50000,
+    "eval_episodes": 10,
+    "checkpoint_interval": 50000,
+    "checkpoint_retention_fraction": 0.1,
+    "parallel_workers_default": 40,
+    "omp_threads_per_worker": 2,
+    "primary_late_window_steps": [
+      750000,
+      800000,
+      850000,
+      900000,
+      950000,
+      1000000
+    ]
+  },
+  "notes": [
+    "This is the fixed two-dataset canonical-backbone shortlist pilot, not the formal D4RL-9 benchmark.",
+    "The original ExpRank_MR passthrough is supplied by the run spec, so six injected controls plus one passthrough produce seven methods per dataset-seed cell.",
+    "canonical_signed with negative_scale=1.0 is reported as global_neg_0p11 because its effective constant negative coefficient is canonical_alpha 0.11.",
+    "global with negative_scale=0.1 is reported as global_neg_0p011 because its effective constant negative coefficient is 0.11 x 0.1 = 0.011.",
+    "All three distance tapers use negative_scale=0.1 and therefore have maximum negative coefficient 0.011 before distance decay.",
+    "This update reuses the existing canonical two-dataset adapter coefficients and reference distance without new D4RL-specific retuning.",
+    "All methods use the same 1M-step horizon, four paired seeds, evaluation cadence, and canonical actor-critic trainer."
+  ]
+}
