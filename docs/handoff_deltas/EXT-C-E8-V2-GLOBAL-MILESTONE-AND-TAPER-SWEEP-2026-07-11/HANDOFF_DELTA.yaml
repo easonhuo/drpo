@@ -1,0 +1,53 @@
+schema_version: 3
+update_id: EXT-C-E8-V2-GLOBAL-MILESTONE-AND-TAPER-SWEEP-2026-07-11
+mode: authoritative
+base:
+  commit: 51fdfe194647cf58543701591bf9a0e7c2278330
+  handoff_sha256: afff42b2cecd74d406b4ceb6a617b65f2581cd3b662d7aa153efe99e5a15901b
+  registry_sha256: bd00888f9fdfc2eede2336f968fa0b49fb416043a9fb5b2a2fdd903176eb2d78
+renderer_version: 1
+operations:
+- operation_id: append-e8-v2-global-low-scale-milestone
+  op: append_to_section
+  heading_path: &id001
+  - 0. 研究与执行原则（每次新会话首先阅读）
+  - 0.1 当前执行门禁
+  block_id: e8-v2-global-low-scale-milestone-pilot
+  content: '- **Countdown E8 V2 Global low-scale milestone pilot:** 注册 `EXT-C-E8-ORACLE-OFFLINE-V2-GLOBAL-LOW-SCALE-SWEEP-0.5B-01`。四个
+    paired seeds 的 Global `x1/32` 在 validation-selected best checkpoint 上，test pass@8 相对 Positive-only 提高 4.4 个百分点，pass@64
+    提高 12.075 个百分点；terminal pass@8 则低 0.725 个百分点。该结果支持足够小的负优势可被利用，同时显示持续、无距离区分的 Global 压力不能保持收益。24 cells 无 NaN/Inf；support/structure
+    boundary 未正式审计。本证据为 dirty-worktree milestone diagnostic pilot，不构成正式排名、收敛或 Global 终态优越性结论。'
+- operation_id: append-e8-v2-active-taper-sweep-ready
+  op: append_to_section
+  heading_path: *id001
+  block_id: e8-v2-active-taper-sweep-ready
+  content: '- **Countdown E8 V2 active taper tuning:** 注册 `EXT-C-E8-ORACLE-OFFLINE-V2-TAPER-SWEEP-0.5B-01`，状态为 `implemented_ready_not_run`。本轮停止继续调
+    Global，只比较 Linear、Quadratic、Exp；8 个 `rho` × 3 个 paired tuning seeds，共 72 cells，使用 GPU 0--7。初始化 aggregate negative-gradient
+    RMS 均匹配 Global `x1/32` 预算；current-near 中位点锚定 `u=0`，current-far 中位点锚定 `u=1`。SBRC、Hybrid、Global retuning、SFT init、on-policy
+    和 replay 均排除。本轮仅为调参 pilot；必须报告 best 与 terminal，并在冻结超参后使用新 seeds 才能形成方法排名。'
+registry:
+  mode: expected_after
+  exact_base_after_sha256: 511380b837c8f6af999c25be510b9ecd5c64dbe89ad0924f1b07784eb5707622
+  changes:
+  - change_id: add-e8-v2-global-low-scale-milestone
+    kind: add_entity
+    entity_id: EXT-C-E8-ORACLE-OFFLINE-V2-GLOBAL-LOW-SCALE-SWEEP-0.5B-01
+    evidence:
+    - experiments/registry.yaml
+    - docs/handoff_deltas/EXT-C-E8-V2-GLOBAL-MILESTONE-AND-TAPER-SWEEP-2026-07-11/HANDOFF_DELTA.yaml
+    - experiments/results/e8_oracle_offline_v2_global_low_scale_pilot/RESULT_SUMMARY.json
+    - scripts/run_e8_v2_weight_sweep_mp.py
+  - change_id: add-e8-v2-active-taper-sweep
+    kind: add_entity
+    entity_id: EXT-C-E8-ORACLE-OFFLINE-V2-TAPER-SWEEP-0.5B-01
+    evidence:
+    - experiments/registry.yaml
+    - docs/handoff_deltas/EXT-C-E8-V2-GLOBAL-MILESTONE-AND-TAPER-SWEEP-2026-07-11/HANDOFF_DELTA.yaml
+    - configs/countdown_e8_oracle_offline_v2_taper_sweep_0p5b.yaml
+    - docs/experiments/E8_V2_TAPER_SWEEP_PROTOCOL.md
+    - scripts/run_countdown_e8_oracle_offline_v2_taper_sweep.py
+    - src/drpo/countdown_e8_oracle_offline_v2_taper_runtime.py
+    - src/drpo/countdown_e8_oracle_offline_v2_taper_sweep.py
+    - tests/test_countdown_e8_oracle_offline_v2_taper_sweep.py
+expected:
+  exact_base_candidate_sha256: a105282a37ea13d9be8fb26f41ec05aa487454f69ffc955aa0c8ee3febaca6fb
