@@ -1,0 +1,296 @@
+name: E8 V2 pilot integration
+
+on:
+  push:
+    branches: [integration/e8-oracle-v2-pilot]
+
+permissions:
+  contents: write
+
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      BASE_SHA: 75516c5ced6714b8e462fd1e2cf2b15c9292e9f3
+      DEV_SHA: 64a2fa2d031b0cde2cb22482ce7a1842e72172b5
+      OUT_BRANCH: integration/e8-oracle-v2-pilot-ready-20260711b
+      EXPERIMENT_ID: EXT-C-E8-ORACLE-OFFLINE-V2-INIT-MATRIX-0.5B-01
+      UPDATE_ID: EXT-C-E8-ORACLE-OFFLINE-V2-INIT-MATRIX-PILOT-CLOSURE-2026-07-11
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Freeze refs and create integration branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main dev/e8-oracle-bank-v2
+          test "$(git rev-parse origin/main)" = "$BASE_SHA"
+          test "$(git rev-parse origin/dev/e8-oracle-bank-v2)" = "$DEV_SHA"
+          git checkout --detach "$BASE_SHA"
+          git checkout -b "$OUT_BRANCH"
+          git config user.name drpo-integration-bot
+          git config user.email drpo-integration-bot@users.noreply.github.com
+
+      - name: Copy reviewed implementation only
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout "$DEV_SHA" -- \
+            scripts/run_countdown_e8_oracle_offline_v2_matrix.py \
+            scripts/v2_bank_convert.py \
+            scripts/v2_bank_smoke.py \
+            scripts/v2_sft.py \
+            src/drpo/countdown_e8_oracle_offline_v2_matrix.py \
+            tests/test_countdown_e8_oracle_offline_v2_matrix.py
+
+      - name: Register pilot and compact evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from __future__ import annotations
+          import json, os, subprocess, sys
+          from pathlib import Path
+          import yaml
+
+          base = os.environ['BASE_SHA']
+          dev = os.environ['DEV_SHA']
+          exp = os.environ['EXPERIMENT_ID']
+          update = os.environ['UPDATE_ID']
+          result_dir = Path('experiments/results/e8_oracle_offline_v2_init_matrix_pilot')
+          result_dir.mkdir(parents=True, exist_ok=False)
+
+          summary = {
+              'schema_version': 1,
+              'experiment_id': exp,
+              'status': 'pilot',
+              'execution_state': 'pilot_matrix_cells_complete_not_formal_closure',
+              'source': {'commit': dev, 'branch': 'dev/e8-oracle-bank-v2', 'git_dirty': True},
+              'package': {
+                  'filename': '44ce5ae7-5207-4af1-a903-4d9e8ae1e7fd.zip',
+                  'sha256': 'b0a05d54e531661bb15bd0dcc3f8f06354554513056c2cf7adeea71a919f59f6',
+                  'size_bytes': 364230,
+                  'raw_package_in_repository': False,
+              },
+              'bank': {
+                  'tensor_width': 16,
+                  'rows_total': 6000,
+                  'rows_with_16_unique': 4943,
+                  'rows_with_exact_expression_cycling_padding': 1057,
+                  'unique_count_range': [9, 16],
+                  'unique_count_histogram': {'9': 2, '10': 5, '11': 9, '12': 332, '13': 260, '14': 231, '15': 218, '16': 4943},
+                  'interpretation': 'Exact duplicate padding preserves attainable per-row min/max current-policy surprisal but changes tie and slot multiplicity.',
+              },
+              'calibration': {
+                  'base': {'bank_negative_scale': 1.5850786327207642, 'bank_global_gamma': 0.5423810770995802},
+                  'low_sft': {'separate_from_base': True, 'rounded_review_values': {'bank_negative_scale': 0.187, 'bank_global_gamma': 0.325}},
+              },
+              'cells': {
+                  'base_positive_only': {'best': [0.013, 0.115, 0.256, 0.957], 'terminal': [0.087, 0.139, 0.229, 0.947]},
+                  'base_x0p25': {'best': [0.002, 0.056, 0.124, 0.848], 'terminal': [0.016, 0.062, 0.098, 0.921]},
+                  'base_x0p5': {'best': [0.011, 0.077, 0.282, 0.964], 'terminal': [0.006, 0.047, 0.093, 0.918]},
+                  'base_x1p0': {'best': [0.010, 0.031, 0.045, 0.478], 'terminal': [0.005, 0.021, 0.042, 0.336]},
+                  'base_x2p0': {'best': [0.017, 0.058, 0.263, 0.550], 'terminal': [0.005, 0.029, 0.056, 0.090]},
+                  'B0_low_sft_eval': {'test': [0.017, 0.080, 0.200, 0.989]},
+                  'B1_low_sft_positive_only': {'best': [0.074, 0.154, 0.240, 0.966], 'terminal': [0.094, 0.140, 0.205, 0.968]},
+                  'B2_low_sft_x1p0': {'best': [0.026, 0.142, 0.241, 0.980], 'terminal': [0.079, 0.116, 0.152, 0.925]},
+                  'C0_full_sft_eval': {'test': [0.097, 0.166, 0.284, 0.974]},
+                  'C1_full_sft_positive_only': {'best': [0.094, 0.150, 0.232, 0.966], 'terminal': [0.104, 0.146, 0.195, 0.979]},
+                  'metric_order': ['greedy', 'pass_at_8', 'pass_at_64', 'valid_rate'],
+              },
+              'findings': [
+                  'Base initialization learns from oracle positive-only training.',
+                  'Across tested base multipliers 0.25, 0.5, 1.0, and 2.0, larger negative pressure generally worsens pass@8 and terminal validity.',
+                  'Base x1 and x2 show severe task/output-validity degradation without NaN/Inf.',
+                  'Separately calibrated low-SFT x1 does not beat low-SFT positive-only.',
+                  'Full-SFT positive-only continuation does not improve pass@8 or pass@64 over C0.',
+              ],
+              'reporting_separation': {
+                  'task_performance_or_validity_degradation': 'observed',
+                  'support_structure_boundary': 'not_fully_audited',
+                  'nan_inf_numerical_failure': 'not_observed',
+              },
+              'limitations': [
+                  'single_seed_per_cell', 'different_seed_offsets_across_multiplier_cells',
+                  'different_early_stop_horizons', 'dirty_worktree_pilot',
+                  'exact_expression_padding_on_1057_rows', 'no_formal_method_ranking',
+              ],
+              'next_decision': 'Register a separate paired-seed scan closer to zero before any negative-method benefit claim.',
+          }
+          (result_dir / 'RESULT_SUMMARY.json').write_text(json.dumps(summary, indent=2, ensure_ascii=False) + '\n')
+          (result_dir / 'README.md').write_text(
+              '# E8 oracle-offline v2 init-matrix pilot\n\n'
+              f'- Experiment: `{exp}`\n- Run commit: `{dev}` (`git_dirty=true`)\n'
+              '- Status: pilot only; no formal method ranking.\n\n'
+              'Base positive-only learns. In the tested 0.25/0.5/1/2 range, larger negative pressure generally worsens pass@8 and terminal validity; x1/x2 show severe task/output-validity degradation without NaN/Inf. '
+              'The bank uses fixed tensor width 16: 4943 rows have 16 unique expressions and 1057 rows have 9--15 unique expressions padded by cycling exact duplicates.\n',
+              encoding='utf-8')
+
+          registry = Path('experiments/registry.yaml')
+          before_registry = subprocess.check_output(['git', 'show', f'{base}:experiments/registry.yaml'], text=True)
+          text = registry.read_text()
+          if f'- id: {exp}\n' in text:
+              raise SystemExit('experiment already exists')
+          entry = f'''- id: {exp}
+            environment: EXT-C
+            name: countdown_oracle_offline_v2_init_matrix_0p5b
+            status: pilot
+            result_status: pilot
+            claim: >-
+              Test on the frozen model-independent v2 oracle-offline corpus whether
+              bank_global_matched negatives add value beyond positive-only across base,
+              low-SFT, and full-SFT initialization, and diagnose scale-dependent failure.
+            role: external_validity_v2_init_matrix_pilot
+            execution_class: pilot
+            code_entrypoint: src/drpo/countdown_e8_oracle_offline_v2_matrix.py
+            operator_entrypoint: scripts/run_countdown_e8_oracle_offline_v2_matrix.py
+            config_entrypoint: configs/countdown_e8_base_rl_replay_0p5b.yaml
+            data:
+              corpus_experiment: EXT-C-E8-ORACLE-OFFLINE-BANK-V2-0.5B-01
+              rows: {{train: 6000, validation: 500, test: 1000}}
+              bank_tensor_width: 16
+              unique_candidate_count_range: [9, 16]
+              rows_with_16_unique: 4943
+              rows_with_exact_expression_padding: 1057
+              padding_policy: cycle_existing_exact_expressions_to_fixed_tensor_width
+            cells:
+              training: [base_positive_only, base_bank_global_matched_x0p25, base_bank_global_matched_x0p5, base_bank_global_matched_x1p0, base_bank_global_matched_x2p0, low_sft_positive_only, low_sft_bank_global_matched_x1p0, full_sft_positive_only]
+              eval_only: [B0, C0]
+              alias: {{A1: base_positive_only, A2: base_bank_global_matched_x1p0}}
+              not_executed: [A0, C2, base_onpolicy_positive_only, base_online_replay_positive_only, base_online_replay_pos_neg]
+            execution:
+              state: pilot_matrix_cells_complete
+              run_commit: {dev}
+              run_branch: dev/e8-oracle-bank-v2
+              git_dirty: true
+            evidence:
+              compact_result_path: experiments/results/e8_oracle_offline_v2_init_matrix_pilot
+              package_filename: 44ce5ae7-5207-4af1-a903-4d9e8ae1e7fd.zip
+              package_sha256: b0a05d54e531661bb15bd0dcc3f8f06354554513056c2cf7adeea71a919f59f6
+              package_size_bytes: 364230
+              single_seed: true
+              formal_result: false
+              terminal_audit_complete: false
+              nan_inf_observed: false
+            result_summary:
+              interpretation: >-
+                Positive-only learns. Tested negative multipliers do not improve the
+                primary pass@8 comparison, and larger multipliers cause severe
+                task/output-validity degradation. Pilot evidence only.
+            reporting_separation:
+              task_performance_or_validity_degradation: observed
+              support_structure_boundary: not_fully_audited
+              nan_inf_numerical_failure: not_observed
+            limitations: [single_seed_per_cell, different_seed_offsets, different_early_stop_horizons, dirty_worktree_pilot, exact_expression_padding_on_1057_rows, no_formal_method_ranking]
+            next_step:
+              state: lower_negative_scale_paired_seed_refinement_needed_not_yet_frozen
+            safeguards:
+            - do_not_call_single_seed_pilot_formal_result
+            - do_not_claim_16_unique_candidates_per_row
+            - do_not_treat_early_stop_as_convergence
+            - countdown_does_not_replace_cu1_or_du1_controlled_identification
+          '''
+          entry = '\n'.join(line[10:] if line.startswith('          ') else line for line in entry.splitlines()) + '\n'
+          anchor = '- id: EXT-C-E8-ORACLE-OFFLINE-BANK-V2-0.5B-01\n'
+          start = text.find(anchor)
+          if start < 0: raise SystemExit('bank v2 anchor missing')
+          boundary = text.find('\n- id: ', start + len(anchor))
+          if boundary < 0: raise SystemExit('registry insertion boundary missing')
+          text = text[:boundary + 1] + entry + text[boundary + 1:]
+          registry.write_text(text)
+
+          sys.path.insert(0, 'scripts')
+          import handoff_delta_shadow as shadow
+          handoff = subprocess.check_output(['git', 'show', f'{base}:docs/handoff.md'], text=True)
+          content = (
+              f'- **Countdown E8 oracle-offline v2 init-matrix pilot result:** 注册并归档 `{exp}`，'
+              f'执行绑定 dev commit `{dev}` 且 `git_dirty=true`；结果包 SHA-256 为 '
+              '`b0a05d54e531661bb15bd0dcc3f8f06354554513056c2cf7adeea71a919f59f6`。'
+              '固定 tensor width 为 16；4943/6000 行有 16 个 unique negatives，1057/6000 行有 9--15 个 unique negatives 并循环精确重复表达式补齐。'
+              '该 padding 不改变每行可达到的 current-policy argmin/argmax surprisal，但改变 tie/slot multiplicity。'
+              'Base positive-only 可以学习；在已测 0.25/0.5/1/2 范围内，负压力增大总体伴随 pass@8 与终态 valid-rate 恶化，x1/x2 有严重任务/输出有效率退化但无 NaN/Inf；low-SFT x1 未超过 positive-only。'
+              '本证据仅为 dirty、single-seed、不同 seed offset、不同 early-stop horizon 的 pilot，不构成方法排名或稳态结论。下一步需另行冻结靠近 0 的 paired-seed 扫描。'
+          )
+          ops = [{
+              'operation_id': 'append-e8-v2-init-matrix-pilot-result',
+              'op': 'append_to_section',
+              'heading_path': ['0. 研究与执行原则（每次新会话首先阅读）', '0.1 当前执行门禁'],
+              'block_id': 'e8-oracle-offline-v2-init-matrix-pilot-result',
+              'content': content,
+          }]
+          candidate = shadow.render(handoff, ops).text
+          delta = {
+              'schema_version': 3, 'update_id': update, 'mode': 'authoritative',
+              'base': {'commit': base, 'handoff_sha256': shadow.sha256_text(handoff), 'registry_sha256': shadow.sha256_text(before_registry)},
+              'renderer_version': 1, 'operations': ops,
+              'registry': {
+                  'mode': 'expected_after', 'exact_base_after_sha256': shadow.sha256_text(text),
+                  'changes': [{
+                      'change_id': 'e8-v2-init-matrix-add-pilot-result', 'kind': 'add_entity', 'entity_id': exp,
+                      'evidence': [
+                          'experiments/registry.yaml', 'src/drpo/countdown_e8_oracle_offline_v2_matrix.py',
+                          'scripts/run_countdown_e8_oracle_offline_v2_matrix.py', 'scripts/v2_bank_convert.py',
+                          'scripts/v2_bank_smoke.py', 'scripts/v2_sft.py',
+                          'tests/test_countdown_e8_oracle_offline_v2_matrix.py',
+                          'experiments/results/e8_oracle_offline_v2_init_matrix_pilot/RESULT_SUMMARY.json',
+                          f'docs/handoff_deltas/{update}/HANDOFF_DELTA.yaml',
+                      ],
+                  }],
+              },
+              'expected': {'exact_base_candidate_sha256': shadow.sha256_text(candidate)},
+          }
+          delta_dir = Path('docs/handoff_deltas') / update
+          delta_dir.mkdir(parents=True, exist_ok=False)
+          (delta_dir / 'HANDOFF_DELTA.yaml').write_text(yaml.safe_dump(delta, sort_keys=False, allow_unicode=True, width=110))
+
+          converter = Path('scripts/v2_bank_convert.py')
+          c = converter.read_text()
+          c = c.replace('User explicitly authorized this relaxation (§6 #3/#4 loosened)', 'User confirmed this fixed-width padding protocol on 2026-07-11')
+          c = c.replace('"padding_policy": "cycling_for_under_16_only_user_authorized"', '"padding_policy": "cycling_for_under_16_user_confirmed_2026_07_11"')
+          converter.write_text(c)
+          PY
+
+      - name: Commit source patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add -f scripts/run_countdown_e8_oracle_offline_v2_matrix.py scripts/v2_bank_convert.py scripts/v2_bank_smoke.py scripts/v2_sft.py src/drpo/countdown_e8_oracle_offline_v2_matrix.py tests/test_countdown_e8_oracle_offline_v2_matrix.py experiments/registry.yaml experiments/results/e8_oracle_offline_v2_init_matrix_pilot docs/handoff_deltas/$UPDATE_ID/HANDOFF_DELTA.yaml
+          git diff --cached --check
+          git commit -m 'Register E8 oracle-offline v2 pilot implementation and results'
+          echo "SOURCE_PATCH_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Install test dependencies
+        run: python -m pip install -e '.[dev]'
+
+      - name: Validate and normalize from trusted current main
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/handoff_authority.py validate-delta --repo-root . --delta docs/handoff_deltas/$UPDATE_ID/HANDOFF_DELTA.yaml --source-patch-commit "$SOURCE_PATCH_SHA" --json
+          git worktree add --detach /tmp/drpo-trusted-main "$BASE_SHA"
+          python scripts/handoff_authority.py normalize --repo-root . --trusted-repo-root /tmp/drpo-trusted-main --current-before "$BASE_SHA" --source-base "$BASE_SHA" --source-patch-commit "$SOURCE_PATCH_SHA" --json
+
+      - name: Run review gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m compileall -q scripts/run_countdown_e8_oracle_offline_v2_matrix.py scripts/v2_bank_convert.py scripts/v2_bank_smoke.py scripts/v2_sft.py src/drpo/countdown_e8_oracle_offline_v2_matrix.py tests/test_countdown_e8_oracle_offline_v2_matrix.py
+          ruff check scripts/run_countdown_e8_oracle_offline_v2_matrix.py scripts/v2_bank_convert.py scripts/v2_bank_smoke.py scripts/v2_sft.py src/drpo/countdown_e8_oracle_offline_v2_matrix.py tests/test_countdown_e8_oracle_offline_v2_matrix.py
+          pytest -q tests/test_countdown_e8_oracle_offline_v2_matrix.py
+          python scripts/handoff_authority.py verify --repo-root . --json
+          python scripts/validate_governance_pipeline_stage_status.py --repo-root .
+          git diff --check
+
+      - name: Commit normalization and push ready branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add docs/handoff.md docs/handoff_deltas/$UPDATE_ID/MATERIALIZATION_REPORT.json docs/handoff_shadow/stage4/minimal/generated
+          git diff --cached --check
+          git commit -m 'Materialize E8 v2 pilot registration on current main'
+          test "$(git rev-parse origin/main)" = "$BASE_SHA"
+          git push origin "$OUT_BRANCH"
