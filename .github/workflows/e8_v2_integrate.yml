@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
-      DEV_SHA: 64a2fa2d031b0cde2cb22482ce7a1842e72172b5
+      DEV_SHA: fe214f010bd5fec1e0e6a83f8297132a9ae8882b
       EXPERIMENT_ID: EXT-C-E8-ORACLE-OFFLINE-V2-INIT-MATRIX-0.5B-01
       UPDATE_ID: EXT-C-E8-ORACLE-OFFLINE-V2-INIT-MATRIX-PILOT-CLOSURE-2026-07-11
     steps:
