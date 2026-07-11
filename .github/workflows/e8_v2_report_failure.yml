@@ -1,0 +1,38 @@
+name: E8 V2 integration diagnostics
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  actions: read
+  pull-requests: write
+  contents: read
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for integration run
+        run: sleep 120
+      - name: Comment latest integration failure tail
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          run_id="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$HEAD_SHA&event=pull_request&per_page=20" --jq '.workflow_runs[] | select(.name == "E8 V2 pilot integration") | .id' | head -n1)"
+          test -n "$run_id"
+          mkdir -p /tmp/e8logs
+          gh api -H 'Accept: application/vnd.github+json' "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/logs" > /tmp/e8logs.zip
+          unzip -q /tmp/e8logs.zip -d /tmp/e8logs
+          {
+            echo '### E8 V2 integration diagnostic tail'
+            echo
+            echo '```text'
+            find /tmp/e8logs -type f -print0 | xargs -0 cat | tail -n 120
+            echo '```'
+          } > /tmp/comment.md
+          gh pr comment "$PR_NUMBER" --body-file /tmp/comment.md
