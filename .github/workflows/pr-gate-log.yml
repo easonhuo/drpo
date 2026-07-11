@@ -17,6 +17,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
@@ -25,6 +27,29 @@ jobs:
 
       - name: Install dependencies
         run: python -m pip install -e '.[dev]'
+
+      - name: Tiered test plan (shadow only)
+        continue-on-error: true
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set +e
+          python scripts/select_update_tests.py \
+            --base "$BASE_SHA" \
+            --head "$HEAD_SHA" \
+            --mode auto \
+            --json | tee tiered-test-plan.json
+          status=${PIPESTATUS[0]}
+          set -e
+          {
+            echo "### Tiered test plan (shadow only)"
+            echo
+            echo '```json'
+            cat tiered-test-plan.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
 
       - name: Python compile
         continue-on-error: true
