@@ -12,7 +12,6 @@ from drpo.e7_canonical_injection import NegativeControl
 
 _BASE_LOAD_GRID = base.load_grid
 _BASE_LOAD_RUN_SPEC = base.load_run_spec
-_BASE_BUILD_BRANCHES = base.build_branches
 
 EXPECTED_DATASETS = (
     "hopper-medium-v2",
@@ -28,19 +27,27 @@ EXPECTED_DATASETS = (
 EXPECTED_SEEDS = (200, 201, 202, 203)
 EXPECTED_MAX_WORKERS = 60
 LEGACY_EXP_COEFFICIENT = 0.374162511054291
+EXPECTED_CONTROLS = {
+    "positive_only": {"negative_scale": 0.0, "steps": 1_000_000},
+    "legacy_exp": {
+        "negative_scale": 0.1,
+        "exponential_coefficient": LEGACY_EXP_COEFFICIENT,
+        "steps": 1_000_000,
+    },
+    "original_exp_rank_mr": {
+        "branch_kind": "passthrough",
+        "steps": 1_000_000,
+    },
+}
 
 
 def _label(value: float) -> str:
     return f"{value:.8g}".replace("-", "m").replace(".", "p")
 
 
-def _steps_label(steps: int) -> str:
-    if steps % 1_000_000 == 0:
-        return f"{steps // 1_000_000}m"
-    return str(steps)
-
-
-def _control(*, scale: float, coefficient: float, alpha: float, distance: float) -> NegativeControl:
+def _control(
+    *, scale: float, coefficient: float, alpha: float, distance: float
+) -> NegativeControl:
     return NegativeControl(
         method="exponential",
         negative_scale=scale,
@@ -50,9 +57,18 @@ def _control(*, scale: float, coefficient: float, alpha: float, distance: float)
     )
 
 
+def _flag_value(argv: list[str], flag: str) -> str:
+    positions = [index for index, token in enumerate(argv) if token == flag]
+    if len(positions) != 1 or positions[0] + 1 >= len(argv):
+        raise ValueError(f"trainer_argv_template must contain exactly one {flag}")
+    return argv[positions[0] + 1]
+
+
 def load_exp_horizon_grid(path: str) -> tuple[dict[str, Any], str]:
     raw, digest = _BASE_LOAD_GRID(path)
-    if raw.get("scientific_status") != "exp_scale1_coefficient_horizon_joint_pilot_only":
+    if raw.get("scientific_status") != (
+        "exp_scale1_coefficient_horizon_joint_pilot_only"
+    ):
         raise ValueError("unexpected scientific_status for EXP horizon joint pilot")
     if raw.get("primary_selection_metric") != "final_score":
         raise ValueError("primary_selection_metric must remain final_score")
@@ -64,6 +80,10 @@ def load_exp_horizon_grid(path: str) -> tuple[dict[str, Any], str]:
         raise ValueError("branch_count_per_dataset_seed must remain 12")
     if int(raw.get("expected_total_branches", -1)) != 432:
         raise ValueError("expected_total_branches must remain 432")
+    if int(raw.get("fixed_max_workers", -1)) != EXPECTED_MAX_WORKERS:
+        raise ValueError("fixed_max_workers must remain 60")
+    if raw.get("controls") != EXPECTED_CONTROLS:
+        raise ValueError("fixed controls changed")
 
     alpha = float(raw.get("canonical_alpha"))
     distance = float(raw.get("reference_distance"))
@@ -72,8 +92,12 @@ def load_exp_horizon_grid(path: str) -> tuple[dict[str, Any], str]:
     if not math.isclose(distance, 2.0, rel_tol=0.0, abs_tol=1e-12):
         raise ValueError("reference_distance must remain 2.0")
 
-    long_coefficients = [float(value) for value in raw.get("exp_scale1_2m_coefficients", [])]
-    short_coefficients = [float(value) for value in raw.get("exp_scale1_1m_coefficients", [])]
+    long_coefficients = [
+        float(value) for value in raw.get("exp_scale1_2m_coefficients", [])
+    ]
+    short_coefficients = [
+        float(value) for value in raw.get("exp_scale1_1m_coefficients", [])
+    ]
     if long_coefficients != [LEGACY_EXP_COEFFICIENT, 1.0, 1.5]:
         raise ValueError("2M EXP coefficients changed")
     if short_coefficients != [0.25, 0.5, 0.75, 1.25, 2.0, 3.0]:
@@ -87,6 +111,8 @@ def load_exp_horizon_grid(path: str) -> tuple[dict[str, Any], str]:
 def load_exp_horizon_run_spec(path: str) -> tuple[dict[str, Any], str]:
     raw, digest = _BASE_LOAD_RUN_SPEC(path)
     run_spec = copy.deepcopy(raw)
+    if run_spec.get("experiment_id") != base.EXPERIMENT_ID:
+        raise ValueError("run_spec experiment_id changed")
     dataset_ids = tuple(str(item["id"]) for item in run_spec["datasets"])
     if dataset_ids != EXPECTED_DATASETS:
         raise ValueError(f"run_spec datasets changed: {dataset_ids}")
@@ -96,14 +122,24 @@ def load_exp_horizon_run_spec(path: str) -> tuple[dict[str, Any], str]:
     passthrough = run_spec.get("passthrough_variants", [])
     if [str(item.get("id")) for item in passthrough] != ["original_exp_rank_mr"]:
         raise ValueError("run_spec passthrough baseline changed")
+    if passthrough[0].get("template_values", {}) != {}:
+        raise ValueError("passthrough baseline template values changed")
+
+    environment = run_spec.get("environment", {})
+    for name in ("OMP_NUM_THREADS", "MKL_NUM_THREADS"):
+        if str(environment.get(name)) != "1":
+            raise ValueError(f"run_spec {name} must remain 1")
 
     argv = [str(item) for item in run_spec["trainer_argv_template"]]
-    step_positions = [index for index, token in enumerate(argv) if token == "--steps"]
-    if step_positions != [step_positions[0]] if step_positions else True:
-        raise ValueError("trainer_argv_template must contain exactly one --steps flag")
-    step_index = step_positions[0]
-    if step_index + 1 >= len(argv) or argv[step_index + 1] != "1000000":
+    if _flag_value(argv, "--alpha") != "0.11":
+        raise ValueError("trainer alpha must remain 0.11")
+    if _flag_value(argv, "--eval_interval") != "50000":
+        raise ValueError("trainer eval_interval must remain 50000")
+    if _flag_value(argv, "--eval_episodes") != "10":
+        raise ValueError("trainer eval_episodes must remain 10")
+    if _flag_value(argv, "--steps") != "1000000":
         raise ValueError("source run_spec --steps must remain the prior 1000000")
+    step_index = argv.index("--steps")
     argv[step_index + 1] = "{steps}"
     run_spec["trainer_argv_template"] = argv
     return run_spec, digest
@@ -122,10 +158,12 @@ def build_exp_horizon_branches(
     }
     alpha = float(grid["canonical_alpha"])
     distance = float(grid["reference_distance"])
-    if not math.isclose(alpha, contract.expected_canonical_alpha, rel_tol=0.0, abs_tol=1e-12):
+    if not math.isclose(
+        alpha, contract.expected_canonical_alpha, rel_tol=0.0, abs_tol=1e-12
+    ):
         raise ValueError("grid canonical_alpha does not match canonical contract")
 
-    branch_specs: list[tuple[str, int, NegativeControl | None, dict[str, str]]] = []
+    branch_specs: list[tuple[str, int, NegativeControl]] = []
     for coefficient in grid["exp_scale1_2m_coefficients"]:
         value = float(coefficient)
         branch_specs.append(
@@ -133,7 +171,6 @@ def build_exp_horizon_branches(
                 f"exponential__scale1__coef{_label(value)}__steps2m",
                 2_000_000,
                 _control(scale=1.0, coefficient=value, alpha=alpha, distance=distance),
-                {},
             )
         )
     for coefficient in grid["exp_scale1_1m_coefficients"]:
@@ -143,7 +180,6 @@ def build_exp_horizon_branches(
                 f"exponential__scale1__coef{_label(value)}__steps1m",
                 1_000_000,
                 _control(scale=1.0, coefficient=value, alpha=alpha, distance=distance),
-                {},
             )
         )
     branch_specs.extend(
@@ -158,7 +194,6 @@ def build_exp_horizon_branches(
                     reference_distance=distance,
                     exponential_coefficient=LEGACY_EXP_COEFFICIENT,
                 ),
-                {},
             ),
             (
                 f"exponential__scale0p1__coef{_label(LEGACY_EXP_COEFFICIENT)}__steps1m",
@@ -169,16 +204,15 @@ def build_exp_horizon_branches(
                     alpha=alpha,
                     distance=distance,
                 ),
-                {},
             ),
         ]
     )
 
     branches: list[base.Branch] = []
-    for suffix, steps, control, extra_values in branch_specs:
+    for suffix, steps, control in branch_specs:
         for dataset in datasets:
             for seed in seeds:
-                values = {**injected_values, **extra_values, "steps": str(steps)}
+                values = {**injected_values, "steps": str(steps)}
                 branches.append(
                     base.Branch(
                         branch_id=f"{dataset.id}__seed{seed}__{suffix}",
@@ -190,12 +224,7 @@ def build_exp_horizon_branches(
                     )
                 )
 
-    baseline = run_spec["passthrough_variants"][0]
-    baseline_values = {
-        str(key): str(value)
-        for key, value in baseline.get("template_values", {}).items()
-    }
-    baseline_values["steps"] = "1000000"
+    baseline_values = {"steps": "1000000"}
     for dataset in datasets:
         for seed in seeds:
             branches.append(
@@ -225,8 +254,13 @@ def _normalized_argv(argv: list[str] | None) -> list[str]:
     values = list(sys.argv[1:] if argv is None else argv)
     if "--max-workers" in values:
         index = values.index("--max-workers")
-        if index + 1 >= len(values) or int(values[index + 1]) != EXPECTED_MAX_WORKERS:
-            raise ValueError("this pilot fixes --max-workers at the previously validated value 60")
+        if (
+            index + 1 >= len(values)
+            or int(values[index + 1]) != EXPECTED_MAX_WORKERS
+        ):
+            raise ValueError(
+                "this pilot fixes --max-workers at the previously validated value 60"
+            )
     else:
         values.extend(["--max-workers", str(EXPECTED_MAX_WORKERS)])
     return values
