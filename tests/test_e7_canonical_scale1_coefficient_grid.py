@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
 import torch
 
+from drpo import e7_canonical_scale1_grid as scale1
+from drpo import e7_canonical_sweep as base
 from drpo.e7_canonical_injection import controlled_advantage
 from drpo.e7_canonical_scale1_grid import (
     build_scale1_branches,
@@ -60,8 +63,6 @@ def test_scale1_preserves_full_near_field_negative_alpha() -> None:
 def test_coefficient_grid_branch_ids_are_unique(tmp_path: Path) -> None:
     dataset_file = tmp_path / "dataset.hdf5"
     dataset_file.write_bytes(b"fixture")
-    import hashlib
-
     digest = hashlib.sha256(b"fixture").hexdigest()
     run_spec = {
         "run_kind": "pilot",
@@ -82,3 +83,27 @@ def test_coefficient_grid_branch_ids_are_unique(tmp_path: Path) -> None:
     ]
     assert taper_ids
     assert all("__scale1__coef" in branch_id for branch_id in taper_ids)
+
+
+def test_main_loads_grid_without_recursion_and_restores_hooks(monkeypatch) -> None:
+    original_load_grid = base.load_grid
+    original_build_branches = base.build_branches
+    observed: dict[str, object] = {}
+
+    def fake_main(argv: list[str] | None = None) -> int:
+        raw, digest = base.load_grid(str(GRID_PATH))
+        observed["argv"] = argv
+        observed["metric"] = raw["primary_selection_metric"]
+        observed["digest"] = digest
+        observed["builder"] = base.build_branches
+        return 0
+
+    monkeypatch.setattr(base, "main", fake_main)
+
+    assert scale1.main(["plan"]) == 0
+    assert observed["argv"] == ["plan"]
+    assert observed["metric"] == "final_score"
+    assert isinstance(observed["digest"], str)
+    assert observed["builder"] is scale1.build_scale1_branches
+    assert base.load_grid is original_load_grid
+    assert base.build_branches is original_build_branches
