@@ -1,8 +1,8 @@
 # E8 V2 Linear / Quadratic / Exp 大规模调参 Pilot
 
-**Experiment ID:** `EXT-C-E8-ORACLE-OFFLINE-V2-TAPER-SWEEP-0.5B-01`  
-**证据等级:** pilot  
-**职责:** Countdown Transformer external validity；不替代 C-U1 / D-U1 受控机制识别。  
+**Experiment ID:** `EXT-C-E8-ORACLE-OFFLINE-V2-TAPER-SWEEP-0.5B-01`
+**证据等级:** pilot
+**职责:** Countdown Transformer external validity；不替代 C-U1 / D-U1 受控机制识别。
 
 ## 1. 背景
 
