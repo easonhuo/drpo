@@ -27,7 +27,7 @@ jobs:
           git fetch origin main dev/e8-v2-taper-sweep
           base_sha="$(git rev-parse origin/main)"
           test "$(git rev-parse origin/dev/e8-v2-taper-sweep)" = "$DEV_SHA"
-          out_branch="integration/e8-v2-taper-ready-${GITHUB_RUN_ID}"
+          out_branch="integration/e8-v2-taper-ready-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           echo "BASE_SHA=$base_sha" >> "$GITHUB_ENV"
           echo "OUT_BRANCH=$out_branch" >> "$GITHUB_ENV"
           git checkout --detach "$base_sha"
@@ -129,7 +129,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: e8-v2-taper-integration-${{ github.run_id }}
+          name: e8-v2-taper-integration-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             /tmp/validate.log
             /tmp/normalize.log
