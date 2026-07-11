@@ -5,14 +5,16 @@ from __future__ import annotations
 import dataclasses
 from typing import Any, Mapping
 
-from drpo.e7_canonical_injection import NegativeControl
 from drpo import e7_canonical_sweep as base
+from drpo.e7_canonical_injection import NegativeControl
 
 COEFFICIENT_GRID_METHODS = {
     "reciprocal_linear",
     "reciprocal_quadratic",
     "exponential",
 }
+_BASE_LOAD_GRID = base.load_grid
+_BASE_BUILD_BRANCHES = base.build_branches
 
 
 def _label(value: float) -> str:
@@ -143,7 +145,7 @@ def build_scale1_branches(
 
 
 def load_scale1_grid(path: str) -> tuple[dict[str, Any], str]:
-    raw, digest = base.load_grid(path)
+    raw, digest = _BASE_LOAD_GRID(path)
     if raw.get("negative_scale_grid") not in ({}, None):
         raise ValueError("scale-one coefficient tuning forbids negative_scale_grid")
     if raw.get("primary_selection_metric") != "final_score":
@@ -155,6 +157,12 @@ def load_scale1_grid(path: str) -> tuple[dict[str, Any], str]:
 def main(argv: list[str] | None = None) -> int:
     """Run the existing canonical sweep CLI with scale-one grid expansion."""
 
+    previous_load_grid = base.load_grid
+    previous_build_branches = base.build_branches
     base.load_grid = load_scale1_grid
     base.build_branches = build_scale1_branches
-    return base.main(argv)
+    try:
+        return base.main(argv)
+    finally:
+        base.load_grid = previous_load_grid
+        base.build_branches = previous_build_branches
