@@ -1,6 +1,6 @@
-# Dev integration request records
+# Dev-integration records
 
-Each reviewed integration may create one directory:
+Each real integration request should use its own repository directory:
 
 ```text
 docs/integrations/<integration-id>/
@@ -8,8 +8,12 @@ docs/integrations/<integration-id>/
   REVIEW_DECISION.yaml
 ```
 
-Use the templates under `docs/templates/`. These files are reviewer inputs, not machine transaction state. Machine-generated `SOURCE_LOCK.json`, `SCOPE_AUDIT.json`, `TRANSACTION.json`, `DIAGNOSTIC.json`, gate reports, and ready-commit records belong under the untracked persistent `--transaction-root` supplied to the CLI.
+The request and decision are reviewer-owned inputs. Runtime transaction records belong in a persistent path outside the tracked source repository.
 
-Do not commit credentials, GitHub tokens, model weights, datasets, large result artifacts, or local absolute paths in an integration request. `reviewer.decision_token` is a review-specific identifier, not an authentication secret.
+Current implementation states:
 
-Batch 1 is read-only and ends at `REVIEWED`. See `docs/dev_branch_integration_protocol.md` for commands and current limitations.
+- Batch 1 `plan` produces a `REVIEWED` transaction with source and scope audits.
+- Batch 2A `scripts/dev_integration_write_path.py` produces a local `PREPARED` source commit.
+- Batch 2B normalization, gates, and final ready commit are not implemented yet.
+
+Do not commit runtime transaction directories, temporary audit repositories, or local integration repositories here. Evidence summaries or closure records may be added later only under an explicitly approved schema and scope.
