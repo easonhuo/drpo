@@ -320,6 +320,14 @@ jobs:
           cat normalize.log
           exit $rc
 
+      - name: Commit normalized handoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add docs/handoff.md docs/handoff_deltas/$UPDATE_ID/MATERIALIZATION_REPORT.json docs/handoff_shadow/stage4/minimal/generated
+          git diff --cached --check
+          git commit -m 'Materialize E8 v2 pilot registration on current main'
+
       - name: Upload integration diagnostics
         if: failure()
         uses: actions/upload-artifact@v4
@@ -342,12 +350,9 @@ jobs:
           python scripts/validate_governance_pipeline_stage_status.py --repo-root .
           git diff --check
 
-      - name: Commit normalization and push ready branch
+      - name: Push ready branch
         shell: bash
         run: |
           set -euo pipefail
-          git add docs/handoff.md docs/handoff_deltas/$UPDATE_ID/MATERIALIZATION_REPORT.json docs/handoff_shadow/stage4/minimal/generated
-          git diff --cached --check
-          git commit -m 'Materialize E8 v2 pilot registration on current main'
           test "$(git rev-parse origin/main)" = "$BASE_SHA"
           git push origin "$OUT_BRANCH"
