@@ -199,10 +199,9 @@ jobs:
           '''
           entry = '\n'.join(line[10:] if line.startswith('          ') else line for line in entry.splitlines()) + '\n'
           anchor = '- id: EXT-C-E8-ORACLE-OFFLINE-BANK-V2-0.5B-01\n'
-          start = text.find(anchor)
-          if start < 0: raise SystemExit('bank v2 anchor missing')
-          boundary = text.find('\n- id: ', start + len(anchor))
-          if boundary < 0: raise SystemExit('registry insertion boundary missing')
+          if text.find(anchor) < 0: raise SystemExit('bank v2 anchor missing')
+          boundary = text.find('\ndevelopment_experiment_registrations:')
+          if boundary < 0: raise SystemExit('registry experiments boundary missing')
           text = text[:boundary + 1] + entry + text[boundary + 1:]
           registry.write_text(text)
 
@@ -273,11 +272,31 @@ jobs:
         shell: bash
         run: |
           set +e
+          python - <<'PY' > validate.log 2>&1
+          import os, subprocess, yaml
+          base = os.environ["BASE_SHA"]
+          source = os.environ["SOURCE_PATCH_SHA"]
+          exp = os.environ["EXPERIMENT_ID"]
+          before = yaml.safe_load(subprocess.check_output(["git", "show", f"{base}:experiments/registry.yaml"], text=True))
+          after_text = subprocess.check_output(["git", "show", f"{source}:experiments/registry.yaml"], text=True)
+          after = yaml.safe_load(after_text)
+          before_ids = [row.get("id") for row in before["experiments"]]
+          after_ids = [row.get("id") for row in after["experiments"]]
+          print("BASE=", base)
+          print("SOURCE=", source)
+          print("EXPERIMENT_PRESENT_BEFORE=", exp in before_ids)
+          print("EXPERIMENT_PRESENT_AFTER=", exp in after_ids)
+          print("ADDED_IDS=", sorted(set(after_ids) - set(before_ids)))
+          print("REGISTRY_MATCHING_LINES=")
+          for i, line in enumerate(after_text.splitlines(), 1):
+              if exp in line:
+                  print(i, repr(line))
+          PY
           python scripts/handoff_authority.py validate-delta \
             --repo-root . \
             --delta docs/handoff_deltas/$UPDATE_ID/HANDOFF_DELTA.yaml \
             --source-patch-commit "$SOURCE_PATCH_SHA" \
-            --json > validate.log 2>&1
+            --json >> validate.log 2>&1
           rc=$?
           cat validate.log
           exit $rc
