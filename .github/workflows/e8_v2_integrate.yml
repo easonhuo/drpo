@@ -56,7 +56,7 @@ jobs:
           set -euo pipefail
           python - <<'PY'
           from __future__ import annotations
-          import json, os, subprocess, sys
+          import hashlib, json, os, subprocess, sys
           from pathlib import Path
           import yaml
 
@@ -269,32 +269,48 @@ jobs:
       - name: Install test dependencies
         run: python -m pip install -e '.[dev]'
 
-      - name: Validate and normalize from trusted current main
+      - name: Validate schema-v3 delta
         shell: bash
         run: |
-          set -uo pipefail
-          diag_branch="diagnostic/e8-v2-integration-${GITHUB_RUN_ID}"
-          python scripts/handoff_authority.py validate-delta --repo-root . --delta docs/handoff_deltas/$UPDATE_ID/HANDOFF_DELTA.yaml --source-patch-commit "$SOURCE_PATCH_SHA" --json > /tmp/validate.log 2>&1
+          set +e
+          python scripts/handoff_authority.py validate-delta \
+            --repo-root . \
+            --delta docs/handoff_deltas/$UPDATE_ID/HANDOFF_DELTA.yaml \
+            --source-patch-commit "$SOURCE_PATCH_SHA" \
+            --json > validate.log 2>&1
           rc=$?
-          cat /tmp/validate.log
-          if [ $rc -ne 0 ]; then
-            cp /tmp/validate.log E8_V2_INTEGRATION_ERROR.log
-            git add -f E8_V2_INTEGRATION_ERROR.log
-            git commit -m 'Capture E8 v2 validate-delta failure'
-            git push origin HEAD:"$diag_branch"
-            exit $rc
-          fi
-          git worktree add --detach /tmp/drpo-trusted-main "$BASE_SHA"
-          python scripts/handoff_authority.py normalize --repo-root . --trusted-repo-root /tmp/drpo-trusted-main --current-before "$BASE_SHA" --source-base "$BASE_SHA" --source-patch-commit "$SOURCE_PATCH_SHA" --json > /tmp/normalize.log 2>&1
+          cat validate.log
+          exit $rc
+
+      - name: Normalize from trusted current main
+        shell: bash
+        run: |
+          set +e
+          git worktree add --detach /tmp/drpo-trusted-main "$BASE_SHA" > normalize.log 2>&1
           rc=$?
-          cat /tmp/normalize.log
-          if [ $rc -ne 0 ]; then
-            cp /tmp/normalize.log E8_V2_INTEGRATION_ERROR.log
-            git add -f E8_V2_INTEGRATION_ERROR.log
-            git commit -m 'Capture E8 v2 normalization failure'
-            git push origin HEAD:"$diag_branch"
-            exit $rc
+          if [ $rc -eq 0 ]; then
+            python scripts/handoff_authority.py normalize \
+              --repo-root . \
+              --trusted-repo-root /tmp/drpo-trusted-main \
+              --current-before "$BASE_SHA" \
+              --source-base "$BASE_SHA" \
+              --source-patch-commit "$SOURCE_PATCH_SHA" \
+              --json >> normalize.log 2>&1
+            rc=$?
           fi
+          cat normalize.log
+          exit $rc
+
+      - name: Upload integration diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e8-v2-integration-diagnostics-${{ github.run_id }}
+          path: |
+            validate.log
+            normalize.log
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Run review gates
         shell: bash
