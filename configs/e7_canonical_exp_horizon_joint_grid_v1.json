@@ -1,0 +1,64 @@
+{
+  "experiment_id": "EXT-H-E7-BENCH-01",
+  "run_kind": "pilot",
+  "scientific_status": "exp_scale1_coefficient_horizon_joint_pilot_only",
+  "canonical_alpha": 0.11,
+  "reference_distance": 2.0,
+  "expected_datasets": [
+    "hopper-medium-v2",
+    "hopper-medium-replay-v2",
+    "hopper-medium-expert-v2",
+    "walker2d-medium-v2",
+    "walker2d-medium-replay-v2",
+    "walker2d-medium-expert-v2",
+    "halfcheetah-medium-v2",
+    "halfcheetah-medium-replay-v2",
+    "halfcheetah-medium-expert-v2"
+  ],
+  "tuning_seeds": [200, 201, 202, 203],
+  "exp_scale1_2m_coefficients": [
+    0.374162511054291,
+    1.0,
+    1.5
+  ],
+  "exp_scale1_1m_coefficients": [
+    0.25,
+    0.5,
+    0.75,
+    1.25,
+    2.0,
+    3.0
+  ],
+  "controls": {
+    "positive_only": {
+      "negative_scale": 0.0,
+      "steps": 1000000
+    },
+    "legacy_exp": {
+      "negative_scale": 0.1,
+      "exponential_coefficient": 0.374162511054291,
+      "steps": 1000000
+    },
+    "original_exp_rank_mr": {
+      "branch_kind": "passthrough",
+      "steps": 1000000
+    }
+  },
+  "primary_selection_metric": "final_score",
+  "diagnostic_windows": {
+    "one_million": [750000, 800000, 850000, 900000, 950000, 1000000],
+    "mid_extension": [1250000, 1300000, 1350000, 1400000, 1450000, 1500000],
+    "terminal_extension": [1750000, 1800000, 1850000, 1900000, 1950000, 2000000]
+  },
+  "branch_count_per_dataset_seed": 12,
+  "expected_total_branches": 432,
+  "fixed_max_workers": 60,
+  "notes": [
+    "This remains a pilot under EXT-H-E7-BENCH-01 and cannot establish a formal method ranking or convergence claim.",
+    "The three core scale-one EXP coefficients run to 2M; their 1M checkpoints and evaluations also populate the 1M coefficient response, avoiding duplicate training.",
+    "Six outer scale-one EXP coefficients and three fixed controls run to 1M.",
+    "Long branches are ordered first so the fixed 60-worker queue minimizes the terminal long-task tail.",
+    "FINAL remains the primary fixed-horizon comparison; late-window mean, slope, variance, best-to-final drop, task-performance collapse, support/boundary events, and NaN/Inf failures remain separate diagnostics.",
+    "Seeds 204-207 remain untouched for later held-out confirmation after candidate selection."
+  ]
+}
