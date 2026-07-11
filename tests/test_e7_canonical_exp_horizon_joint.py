@@ -18,7 +18,7 @@ def _grid() -> dict:
     return json.loads(GRID_PATH.read_text())
 
 
-def _run_spec(tmp_path: Path) -> dict:
+def _run_spec(tmp_path: Path, *, source_seeds: bool = False) -> dict:
     datasets = []
     for dataset_id in joint.EXPECTED_DATASETS:
         path = tmp_path / f"{dataset_id}.hdf5"
@@ -31,11 +31,12 @@ def _run_spec(tmp_path: Path) -> dict:
                 "sha256": hashlib.sha256(payload).hexdigest(),
             }
         )
+    seeds = joint.SOURCE_RUN_SPEC_SEEDS if source_seeds else joint.EXPECTED_SEEDS
     return {
         "run_kind": "pilot",
         "experiment_id": "EXT-H-E7-BENCH-01",
         "datasets": datasets,
-        "seeds": list(joint.EXPECTED_SEEDS),
+        "seeds": list(seeds),
         "environment": {
             "OMP_NUM_THREADS": "1",
             "MKL_NUM_THREADS": "1",
@@ -106,11 +107,12 @@ def test_builds_432_unique_branches_with_long_jobs_first(tmp_path: Path) -> None
     )
 
 
-def test_run_spec_loader_replaces_only_prior_1m_steps(tmp_path: Path) -> None:
+def test_run_spec_loader_expands_seeds_and_replaces_only_steps(tmp_path: Path) -> None:
     source = tmp_path / "run_spec.json"
-    raw = _run_spec(tmp_path)
+    raw = _run_spec(tmp_path, source_seeds=True)
     source.write_text(json.dumps(raw))
     loaded, digest = joint.load_exp_horizon_run_spec(str(source))
+    assert loaded["seeds"] == list(joint.EXPECTED_SEEDS)
     argv = loaded["trainer_argv_template"]
     assert argv[argv.index("--steps") + 1] == "{steps}"
     assert isinstance(digest, str)
@@ -122,15 +124,21 @@ def test_run_spec_loader_replaces_only_prior_1m_steps(tmp_path: Path) -> None:
         joint.load_exp_horizon_run_spec(str(source))
 
 
-def test_run_spec_loader_rejects_thread_or_eval_drift(tmp_path: Path) -> None:
+def test_run_spec_loader_rejects_seed_thread_or_eval_drift(tmp_path: Path) -> None:
     source = tmp_path / "run_spec.json"
-    raw = _run_spec(tmp_path)
+    raw = _run_spec(tmp_path, source_seeds=True)
+    raw["seeds"] = [200, 201, 202]
+    source.write_text(json.dumps(raw))
+    with pytest.raises(ValueError, match="source run_spec seeds changed"):
+        joint.load_exp_horizon_run_spec(str(source))
+
+    raw = _run_spec(tmp_path, source_seeds=True)
     raw["environment"]["OMP_NUM_THREADS"] = "2"
     source.write_text(json.dumps(raw))
     with pytest.raises(ValueError, match="OMP_NUM_THREADS"):
         joint.load_exp_horizon_run_spec(str(source))
 
-    raw = _run_spec(tmp_path)
+    raw = _run_spec(tmp_path, source_seeds=True)
     argv = raw["trainer_argv_template"]
     argv[argv.index("--eval_interval") + 1] = "100000"
     source.write_text(json.dumps(raw))
