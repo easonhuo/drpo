@@ -1,0 +1,32 @@
+name: E8 V2 taper diagnostics
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Capture failed integration log
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh run view 29159835026 --repo "$GITHUB_REPOSITORY" --log-failed > E8_TAPER_GATE_FAILURE.log
+          git config user.name drpo-diagnostic-bot
+          git config user.email drpo-diagnostic-bot@users.noreply.github.com
+          branch="diagnostic/e8-taper-gate-29159835026"
+          git checkout -b "$branch"
+          git add -f E8_TAPER_GATE_FAILURE.log
+          git commit -m 'Capture E8 taper integration gate failure'
+          git push --force origin "$branch"
