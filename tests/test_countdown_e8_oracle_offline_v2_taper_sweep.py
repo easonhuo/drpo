@@ -5,6 +5,7 @@ import math
 import pytest
 import torch
 
+from drpo.countdown_e8_oracle_offline_v2_taper_runtime import remoteness_anchors
 from drpo.countdown_e8_oracle_offline_v2_taper_sweep import (
     EXPERIMENT_ID,
     METHODS,
@@ -72,6 +73,17 @@ def test_normalized_distance_uses_excess_surprisal() -> None:
     seq_lp = torch.tensor([-1.0, -3.0, -6.0])
     distance = normalized_distance(seq_lp, tau=2.0, surprisal_scale=4.0)
     assert distance.tolist() == pytest.approx([0.0, 0.5, 1.0])
+
+
+def test_remoteness_anchors_near_median_at_zero_and_far_median_at_one() -> None:
+    tau, scale, near_median, far_median = remoteness_anchors(
+        [1.0, 2.0, 3.0], [5.0, 6.0, 7.0]
+    )
+    assert tau == pytest.approx(near_median)
+    assert scale == pytest.approx(far_median - near_median)
+    seq_lp = torch.tensor([-near_median, -far_median])
+    distance = normalized_distance(seq_lp, tau=tau, surprisal_scale=scale)
+    assert distance.tolist() == pytest.approx([0.0, 1.0])
 
 
 def test_config_rejects_global_or_sbrc() -> None:
