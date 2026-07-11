@@ -1,0 +1,418 @@
+name: E8 V2 taper integration
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      DEV_SHA: ${{ github.event.pull_request.head.sha }}
+      GLOBAL_ID: EXT-C-E8-ORACLE-OFFLINE-V2-GLOBAL-LOW-SCALE-SWEEP-0.5B-01
+      TAPER_ID: EXT-C-E8-ORACLE-OFFLINE-V2-TAPER-SWEEP-0.5B-01
+      UPDATE_ID: EXT-C-E8-V2-GLOBAL-MILESTONE-AND-TAPER-SWEEP-2026-07-11
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Lock current main and create clean integration branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main dev/e8-v2-taper-sweep
+          base_sha="$(git rev-parse origin/main)"
+          test "$(git rev-parse origin/dev/e8-v2-taper-sweep)" = "$DEV_SHA"
+          out_branch="integration/e8-v2-taper-ready-${GITHUB_RUN_ID}"
+          echo "BASE_SHA=$base_sha" >> "$GITHUB_ENV"
+          echo "OUT_BRANCH=$out_branch" >> "$GITHUB_ENV"
+          git checkout --detach "$base_sha"
+          git checkout -b "$out_branch"
+          git config user.name drpo-integration-bot
+          git config user.email drpo-integration-bot@users.noreply.github.com
+
+      - name: Selectively import reviewed E8 files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout "$DEV_SHA" -- \
+            configs/countdown_e8_oracle_offline_v2_taper_sweep_0p5b.yaml \
+            docs/experiments/E8_V2_TAPER_SWEEP_PROTOCOL.md \
+            experiments/results/e8_oracle_offline_v2_global_low_scale_pilot/RESULT_SUMMARY.json \
+            scripts/run_countdown_e8_oracle_offline_v2_taper_sweep.py \
+            src/drpo/countdown_e8_oracle_offline_v2_taper_runtime.py \
+            src/drpo/countdown_e8_oracle_offline_v2_taper_sweep.py \
+            tests/test_countdown_e8_oracle_offline_v2_taper_sweep.py
+
+      - name: Register Global milestone and taper sweep
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from __future__ import annotations
+          import os, subprocess, sys
+          from pathlib import Path
+          import yaml
+
+          base = os.environ["BASE_SHA"]
+          global_id = os.environ["GLOBAL_ID"]
+          taper_id = os.environ["TAPER_ID"]
+          update_id = os.environ["UPDATE_ID"]
+          registry = Path("experiments/registry.yaml")
+          before_registry = subprocess.check_output(
+              ["git", "show", f"{base}:experiments/registry.yaml"], text=True
+          )
+          text = registry.read_text()
+          for experiment_id in (global_id, taper_id):
+              if f"- id: {experiment_id}\n" in text:
+                  raise SystemExit(f"Experiment already registered: {experiment_id}")
+
+          global_entry = f'''- id: {global_id}
+            environment: EXT-C
+            name: countdown_oracle_offline_v2_global_low_scale_sweep_0p5b
+            status: pilot
+            result_status: pilot_complete
+            claim: >-
+              Test whether a substantially reduced bank_global_matched negative
+              budget can expose useful negative signal on the frozen V2 bank and
+              whether a fixed uniform budget preserves that gain to terminal checkpoints.
+            role: external_validity_global_low_scale_milestone_diagnostic
+            execution_class: pilot
+            code_entrypoint: src/drpo/countdown_e8_oracle_offline_v2_matrix.py
+            operator_entrypoint: scripts/run_e8_v2_weight_sweep_mp.py
+            config_entrypoint: configs/countdown_e8_base_rl_replay_0p5b.yaml
+            primary_model: Qwen2.5-0.5B-Instruct
+            initialization: pretrained_base_plus_fresh_lora
+            method: bank_global_matched
+            design:
+              multipliers: [0.0, 0.015625, 0.03125, 0.0625, 0.125, 0.25]
+              paired_seed_offsets: [0, 1000, 2000, 3000]
+              cells: 24
+              current_policy_near_far_reselection: true
+              global_distance_taper: false
+            result:
+              scientific_status: milestone_diagnostic_pilot
+              best_candidate_multiplier: 0.03125
+              positive_only_best_test_pass_at_8_mean: 0.12975
+              global_x1_32_best_test_pass_at_8_mean: 0.17375
+              best_test_pass_at_8_delta: 0.044
+              positive_only_best_test_pass_at_64_mean: 0.25325
+              global_x1_32_best_test_pass_at_64_mean: 0.374
+              best_test_pass_at_64_delta: 0.12075
+              positive_only_terminal_test_pass_at_8_mean: 0.14825
+              global_x1_32_terminal_test_pass_at_8_mean: 0.141
+              terminal_test_pass_at_8_delta: -0.00725
+              numerical_failure_count: 0
+              interpretation: >-
+                Very small Global pressure yields a clear paired early-checkpoint
+                benefit, while sustained uniform pressure does not preserve the
+                benefit at terminal checkpoints.
+            evidence:
+              compact_result_path: experiments/results/e8_oracle_offline_v2_global_low_scale_pilot
+              package_filename: 8c44fbd1-ce55-4a21-b6fb-68a64b8ab698.gz
+              package_sha256: 2cfed67a417fe1f3ce657341285e8f8188610f03d48efbd235167cbb09d6cbaa
+              package_size_bytes: 10021
+              run_commit: 64a2fa2d031b0cde2cb22482ce7a1842e72172b5
+              git_dirty: true
+              runner_integrated_commit: e4aa36bf5ce03794c0d935b4570e276a0703d93e
+            reporting_separation:
+              task_performance: early_benefit_and_terminal_degradation_observed
+              support_or_structure_boundary: not_formally_audited_valid_rate_only
+              nan_inf_numerical_failure: not_observed
+            limitations:
+            - pilot
+            - dirty_worktree
+            - tuning_seeds_not_confirmatory
+            - original_best_and_terminal_posthoc_evaluation_used_different_seed_offsets
+            - no_formal_convergence_or_method_ranking
+            safeguards:
+            - do_not_call_milestone_pilot_formal_result
+            - do_not_claim_global_terminal_superiority
+            - do_not_call_valid_rate_a_formal_support_boundary_audit
+            - countdown_does_not_replace_cu1_or_du1_controlled_identification
+          '''
+
+          taper_entry = f'''- id: {taper_id}
+            environment: EXT-C
+            name: countdown_oracle_offline_v2_taper_sweep_0p5b
+            status: pilot
+            result_status: not_run
+            claim: >-
+              Tune the active paper taper families on the frozen V2 bank under an
+              initialization aggregate negative-gradient budget matched to the
+              successful Global x1/32 pilot, testing whether remoteness-aware
+              weighting can retain useful negative signal and improve terminal stability.
+            role: external_validity_v2_active_taper_family_tuning_pilot
+            execution_class: pilot
+            code_entrypoint: src/drpo/countdown_e8_oracle_offline_v2_taper_runtime.py
+            core_entrypoint: src/drpo/countdown_e8_oracle_offline_v2_taper_sweep.py
+            operator_entrypoint: scripts/run_countdown_e8_oracle_offline_v2_taper_sweep.py
+            config_entrypoint: configs/countdown_e8_oracle_offline_v2_taper_sweep_0p5b.yaml
+            protocol_document: docs/experiments/E8_V2_TAPER_SWEEP_PROTOCOL.md
+            primary_model: Qwen2.5-0.5B-Instruct
+            initialization: pretrained_base_plus_fresh_lora
+            data:
+              corpus_experiment: EXT-C-E8-ORACLE-OFFLINE-BANK-V2-0.5B-01
+              frozen_v2_bank: true
+              current_policy_near_far_reselection: true
+              near_mix: 0.5
+              far_mix: 0.5
+            methods:
+            - reciprocal_linear
+            - reciprocal_quadratic
+            - exponential
+            excluded_methods:
+            - global_retuning
+            - sbrc
+            - hybrid
+            - squared_distance_exponential
+            grid:
+              rho_values: [0.9, 0.75, 0.6, 0.5, 0.35, 0.25, 0.125, 0.03125]
+              paired_tuning_seed_offsets: [0, 1000, 2000]
+              cells: 72
+              required_gpus: 8
+              maximum_waves: 9
+            remoteness:
+              definition: u=sqrt(relu(sequence_surprisal-tau)/scale)
+              tau: base_current_near_median_surprisal
+              scale: base_current_far_median_minus_current_near_median
+              anchor: current_near_median_u0_current_far_median_u1
+              rho_semantics: initialization_far_median_retention_w_at_u1
+            calibration:
+              reference_global_multiplier: 0.03125
+              target: initialization_aggregate_negative_gradient_rms
+              task_metrics_used: false
+              test_data_used: false
+              frozen_before_training: true
+            frozen_training_protocol:
+              steps: 1200
+              minimum_steps: 400
+              early_stop_patience: 6
+              eval_every_steps: 100
+              base_config: configs/countdown_e8_base_rl_replay_0p5b.yaml
+            execution_gate:
+              current_status: implemented_ready_not_run
+              one_click_command: python scripts/run_countdown_e8_oracle_offline_v2_taper_sweep.py
+              identity_checked_resume: true
+              partial_cell_restart: true
+              best_terminal_same_generation_seed: true
+              posthoc_evaluation_after_training_model_release: true
+            terminal_audit:
+              required: true
+              separates:
+              - task_performance_degradation
+              - valid_or_structure_proxy
+              - nan_inf_numerical_failure
+              - best_checkpoint_from_terminal_checkpoint
+            interpretation_limits:
+            - tuning_seeds_are_not_confirmatory_seeds
+            - no_method_ranking_before_fresh_seed_confirmation
+            - fixed_budget_or_early_stop_is_not_convergence
+            - countdown_is_external_validity_only
+            safeguards:
+            - do_not_rerun_global_in_this_sweep
+            - do_not_add_sbrc_or_hybrid
+            - do_not_predeclare_linear_quadratic_or_exp_winner
+            - do_not_merge_task_performance_with_nan_inf_failure
+          '''
+
+          def dedent(block: str) -> str:
+              return "\n".join(
+                  line[10:] if line.startswith("          ") else line
+                  for line in block.splitlines()
+              ) + "\n"
+
+          boundary = text.find("\ndevelopment_experiment_registrations:")
+          if boundary < 0:
+              raise SystemExit("Registry experiments boundary missing")
+          entries = dedent(global_entry) + "\n" + dedent(taper_entry)
+          text = text[: boundary + 1] + entries + text[boundary + 1 :]
+          registry.write_text(text)
+
+          sys.path.insert(0, "scripts")
+          import handoff_delta_shadow as shadow
+
+          handoff = subprocess.check_output(
+              ["git", "show", f"{base}:docs/handoff.md"], text=True
+          )
+          operations = [
+              {
+                  "operation_id": "append-e8-v2-global-low-scale-milestone",
+                  "op": "append_to_section",
+                  "heading_path": [
+                      "0. 研究与执行原则（每次新会话首先阅读）",
+                      "0.1 当前执行门禁",
+                  ],
+                  "block_id": "e8-v2-global-low-scale-milestone-pilot",
+                  "content": (
+                      f"- **Countdown E8 V2 Global low-scale milestone pilot:** 注册 `{global_id}`。"
+                      "四个 paired seeds 的 Global `x1/32` 在 validation-selected best checkpoint 上，"
+                      "test pass@8 相对 Positive-only 提高 4.4 个百分点，pass@64 提高 12.075 个百分点；"
+                      "terminal pass@8 则低 0.725 个百分点。该结果首次在 V2 Transformer 外部有效性环境中"
+                      "明确支持‘足够小的负优势可被利用’，同时显示持续、无距离区分的 Global 压力不能保持收益。"
+                      "24 cells 无 NaN/Inf；support/structure boundary 未正式审计。证据为 dirty-worktree milestone diagnostic pilot，"
+                      "不构成正式排名、收敛或 Global 终态优越性结论。"
+                  ),
+              },
+              {
+                  "operation_id": "append-e8-v2-active-taper-sweep-ready",
+                  "op": "append_to_section",
+                  "heading_path": [
+                      "0. 研究与执行原则（每次新会话首先阅读）",
+                      "0.1 当前执行门禁",
+                  ],
+                  "block_id": "e8-v2-active-taper-sweep-ready",
+                  "content": (
+                      f"- **Countdown E8 V2 active taper tuning:** 注册 `{taper_id}`，状态为 `implemented_ready_not_run`。"
+                      "本轮停止继续调 Global，只比较论文 active families Linear、Quadratic、Exp；"
+                      "8 个 far-median retention `rho` × 3 个 paired tuning seeds，共 72 cells，严格使用 GPU 0--7。"
+                      "三类方法的初始化 aggregate negative-gradient RMS 均匹配已完成 Global `x1/32` 预算；"
+                      "current-near 中位点锚定 `u=0`，current-far 中位点锚定 `u=1`。"
+                      "SBRC、Hybrid、Global retuning、SFT init、on-policy 和 replay 均排除。"
+                      "本轮仅为调参 pilot；必须报告 best 与 terminal，并在冻结超参后使用新 seeds 才能形成方法排名。"
+                  ),
+              },
+          ]
+          candidate = shadow.render(handoff, operations).text
+          delta = {
+              "schema_version": 3,
+              "update_id": update_id,
+              "mode": "authoritative",
+              "base": {
+                  "commit": base,
+                  "handoff_sha256": shadow.sha256_text(handoff),
+                  "registry_sha256": shadow.sha256_text(before_registry),
+              },
+              "renderer_version": 1,
+              "operations": operations,
+              "registry": {
+                  "mode": "expected_after",
+                  "exact_base_after_sha256": shadow.sha256_text(text),
+                  "changes": [
+                      {
+                          "change_id": "add-e8-v2-global-low-scale-milestone",
+                          "kind": "add_entity",
+                          "entity_id": global_id,
+                          "evidence": [
+                              "experiments/registry.yaml",
+                              "experiments/results/e8_oracle_offline_v2_global_low_scale_pilot/RESULT_SUMMARY.json",
+                              "scripts/run_e8_v2_weight_sweep_mp.py",
+                              f"docs/handoff_deltas/{update_id}/HANDOFF_DELTA.yaml",
+                          ],
+                      },
+                      {
+                          "change_id": "add-e8-v2-active-taper-sweep",
+                          "kind": "add_entity",
+                          "entity_id": taper_id,
+                          "evidence": [
+                              "experiments/registry.yaml",
+                              "configs/countdown_e8_oracle_offline_v2_taper_sweep_0p5b.yaml",
+                              "docs/experiments/E8_V2_TAPER_SWEEP_PROTOCOL.md",
+                              "scripts/run_countdown_e8_oracle_offline_v2_taper_sweep.py",
+                              "src/drpo/countdown_e8_oracle_offline_v2_taper_runtime.py",
+                              "src/drpo/countdown_e8_oracle_offline_v2_taper_sweep.py",
+                              "tests/test_countdown_e8_oracle_offline_v2_taper_sweep.py",
+                              f"docs/handoff_deltas/{update_id}/HANDOFF_DELTA.yaml",
+                          ],
+                      },
+                  ],
+              },
+              "expected": {
+                  "exact_base_candidate_sha256": shadow.sha256_text(candidate)
+              },
+          }
+          delta_dir = Path("docs/handoff_deltas") / update_id
+          delta_dir.mkdir(parents=True, exist_ok=False)
+          (delta_dir / "HANDOFF_DELTA.yaml").write_text(
+              yaml.safe_dump(delta, sort_keys=False, allow_unicode=True, width=110)
+          )
+          PY
+
+      - name: Create source commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add -f \
+            configs/countdown_e8_oracle_offline_v2_taper_sweep_0p5b.yaml \
+            docs/experiments/E8_V2_TAPER_SWEEP_PROTOCOL.md \
+            experiments/results/e8_oracle_offline_v2_global_low_scale_pilot/RESULT_SUMMARY.json \
+            scripts/run_countdown_e8_oracle_offline_v2_taper_sweep.py \
+            src/drpo/countdown_e8_oracle_offline_v2_taper_runtime.py \
+            src/drpo/countdown_e8_oracle_offline_v2_taper_sweep.py \
+            tests/test_countdown_e8_oracle_offline_v2_taper_sweep.py \
+            experiments/registry.yaml \
+            docs/handoff_deltas/$UPDATE_ID/HANDOFF_DELTA.yaml
+          git diff --cached --check
+          git commit -m 'Register E8 V2 Global milestone and taper sweep'
+          echo "SOURCE_PATCH_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Install dependencies
+        run: python -m pip install -e '.[dev]'
+
+      - name: Validate and normalize
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/handoff_authority.py validate-delta \
+            --repo-root . \
+            --delta docs/handoff_deltas/$UPDATE_ID/HANDOFF_DELTA.yaml \
+            --source-patch-commit "$SOURCE_PATCH_SHA" \
+            --json | tee validate.log
+          git worktree add --detach /tmp/drpo-trusted-main "$BASE_SHA"
+          python scripts/handoff_authority.py normalize \
+            --repo-root . \
+            --trusted-repo-root /tmp/drpo-trusted-main \
+            --current-before "$BASE_SHA" \
+            --source-base "$BASE_SHA" \
+            --source-patch-commit "$SOURCE_PATCH_SHA" \
+            --json | tee normalize.log
+          git add \
+            docs/handoff.md \
+            docs/handoff_deltas/$UPDATE_ID/MATERIALIZATION_REPORT.json \
+            docs/handoff_shadow/stage4/minimal/generated
+          git diff --cached --check
+          git commit --amend --no-edit
+
+      - name: Run integration gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m compileall -q \
+            scripts/run_countdown_e8_oracle_offline_v2_taper_sweep.py \
+            src/drpo/countdown_e8_oracle_offline_v2_taper_runtime.py \
+            src/drpo/countdown_e8_oracle_offline_v2_taper_sweep.py \
+            tests/test_countdown_e8_oracle_offline_v2_taper_sweep.py
+          ruff check \
+            scripts/run_countdown_e8_oracle_offline_v2_taper_sweep.py \
+            src/drpo/countdown_e8_oracle_offline_v2_taper_runtime.py \
+            src/drpo/countdown_e8_oracle_offline_v2_taper_sweep.py \
+            tests/test_countdown_e8_oracle_offline_v2_taper_sweep.py
+          pytest -q tests/test_countdown_e8_oracle_offline_v2_taper_sweep.py
+          python scripts/handoff_authority.py verify --repo-root . --json
+          python scripts/validate_governance_pipeline_stage_status.py --repo-root .
+          git diff --check
+          test -z "$(git status --porcelain)"
+
+      - name: Push ready branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse origin/main)" = "$BASE_SHA"
+          git push origin "$OUT_BRANCH"
+
+      - name: Upload diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e8-v2-taper-integration-${{ github.run_id }}
+          path: |
+            validate.log
+            normalize.log
+          if-no-files-found: warn
+          retention-days: 7
