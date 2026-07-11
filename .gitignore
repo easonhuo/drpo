@@ -45,3 +45,10 @@ paper/core_review_v2_core/*.fls
 paper/core_review_v2_core/*.log
 paper/core_review_v2_core/*.out
 paper/core_review_v2_core/*.synctex.gz
+
+# Local RunSpec executor state, Claude Code policy, and result packages.
+CLAUDE.local.md
+.claude/settings.local.json
+.agent_lane.yaml
+.runspec_state/
+runspec_artifacts/
