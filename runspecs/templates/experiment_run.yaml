@@ -1,0 +1,72 @@
+version: 1
+run_id: E8_EXAMPLE_RUN_20260712
+lane: e8
+priority: 50
+created_at: "2026-07-12T00:00:00Z"
+experiment_id: EXT-C-E8-EXAMPLE-01
+repo_commit: REPLACE_WITH_CODE_COMMIT
+
+provenance:
+  commit_policy: protected_paths_unchanged
+  protected_paths:
+    - scripts/e8/run_example_one_click.sh
+    - configs/e8/example.yaml
+
+purpose: >
+  Describe the exact experiment or audit this executor should run.
+
+entrypoint:
+  cwd: repo_root
+  command: bash scripts/e8/run_example_one_click.sh
+
+policy:
+  existing_script_required: true
+  forbid_new_launcher: true
+  forbid_hparam_change: true
+  forbid_cross_lane: true
+
+outputs:
+  run_dir: outputs/e8/example_run
+  summary_file: outputs/e8/example_run/summary.json
+  audit_file: outputs/e8/example_run/audit.json
+
+success_criteria:
+  - outputs/e8/example_run/summary.json exists
+  - outputs/e8/example_run/audit.json exists
+
+artifacts:
+  package_policy: manifest_only
+  include:
+    - outputs/e8/example_run/summary.json
+    - outputs/e8/example_run/audit.json
+    - outputs/e8/example_run/metrics/*.json
+    - outputs/e8/example_run/logs/*.txt
+    - outputs/e8/example_run/plots/*.pdf
+  exclude:
+    - "**/*.pt"
+    - "**/*.pth"
+    - "**/*.safetensors"
+    - "**/*.bin"
+    - "**/checkpoint*"
+    - "**/model*"
+    - "**/optimizer*"
+    - "**/wandb/**"
+  max_package_size_mb: 100
+  fail_if_excluded_matched: true
+  fail_if_package_too_large: true
+
+publish:
+  enabled: true
+  auto: true
+  dev_branch: dev/server-e8
+  base_branch: main
+  remote: origin
+  create_draft_pr: true
+  commit_message: "Publish E8_EXAMPLE_RUN_20260712 results"
+  pr_title: "[E8] E8_EXAMPLE_RUN_20260712 result delivery"
+  commit_paths:
+    - outputs/e8/example_run/summary.json
+    - outputs/e8/example_run/audit.json
+    - outputs/e8/example_run/metrics/metric.json
+  max_commit_file_size_mb: 10
+  max_commit_total_size_mb: 25
