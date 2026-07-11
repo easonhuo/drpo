@@ -3,6 +3,8 @@ name: Patch E8 V2 integration diagnostics
 on:
   push:
     branches: [integration/e8-oracle-v2-pilot]
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: write
