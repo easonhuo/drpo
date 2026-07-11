@@ -19,8 +19,9 @@ bank:
   far_mix: 0.5
 remoteness:
   definition: u=sqrt(relu(sequence_surprisal-tau)/scale)
-  tau_rule: median_of_current_near_and_far_surprisal_on_frozen_calibration_rows
+  tau_rule: current_near_median_surprisal_on_frozen_calibration_rows
   scale_rule: current_far_median_minus_current_near_median
+  anchor_interpretation: current_near_median_u0_current_far_median_u1
 sweep:
   methods:
     - reciprocal_linear
