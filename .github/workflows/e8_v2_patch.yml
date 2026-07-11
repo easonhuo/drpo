@@ -18,21 +18,18 @@ jobs:
           ref: integration/e8-oracle-v2-pilot
           fetch-depth: 0
 
-      - name: Commit normalized handoff before authority verification
+      - name: Patch materialization verification order
         shell: bash
         run: |
           set -euo pipefail
-          python - <<'PY'
+          cat > /tmp/patch_e8_workflow.py <<'PATCHPY'
           from pathlib import Path
 
           path = Path('.github/workflows/e8_v2_integrate.yml')
           text = path.read_text()
 
-          if '      - name: Commit normalized handoff\n' not in text:
-              marker = '      - name: Upload integration diagnostics\n'
-              if marker not in text:
-                  raise SystemExit('upload-diagnostics marker not found')
-              commit_step = '''      - name: Commit normalized handoff
+          marker = '      - name: Upload integration diagnostics\n'
+          commit_step = '''      - name: Commit normalized handoff
         shell: bash
         run: |
           set -euo pipefail
@@ -41,6 +38,9 @@ jobs:
           git commit -m 'Materialize E8 v2 pilot registration on current main'
 
 '''
+          if '      - name: Commit normalized handoff\n' not in text:
+              if marker not in text:
+                  raise SystemExit('upload-diagnostics marker not found')
               text = text.replace(marker, commit_step + marker, 1)
 
           old_final = '''      - name: Commit normalization and push ready branch
@@ -66,8 +66,9 @@ jobs:
               raise SystemExit('final push block not found')
 
           path.write_text(text)
-          PY
+          PATCHPY
 
+          python /tmp/patch_e8_workflow.py
           if git diff --quiet; then
             exit 0
           fi
