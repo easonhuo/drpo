@@ -17,15 +17,43 @@ jobs:
           fetch-depth: 0
 
       - name: Repair integration verification order
+        id: repair
+        continue-on-error: true
         shell: bash
         run: |
-          set -euo pipefail
+          set +e
           echo 'ZnJvbSBwYXRobGliIGltcG9ydCBQYXRoCgpwYXRoID0gUGF0aCgnLmdpdGh1Yi93b3JrZmxvd3MvZThfdjJfaW50ZWdyYXRlLnltbCcpCnRleHQgPSBwYXRoLnJlYWRfdGV4dCgpCm1hcmtlciA9ICcgICAgICAtIG5hbWU6IFVwbG9hZCBpbnRlZ3JhdGlvbiBkaWFnbm9zdGljc1xuJwpjb21taXRfc3RlcCA9ICIiIiAgICAgIC0gbmFtZTogQ29tbWl0IG5vcm1hbGl6ZWQgaGFuZG9mZgogICAgICAgIHNoZWxsOiBiYXNoCiAgICAgICAgcnVuOiB8CiAgICAgICAgICBzZXQgLWV1byBwaXBlZmFpbAogICAgICAgICAgZ2l0IGFkZCBkb2NzL2hhbmRvZmYubWQgZG9jcy9oYW5kb2ZmX2RlbHRhcy8kVVBEQVRFX0lEL01BVEVSSUFMSVpBVElPTl9SRVBPUlQuanNvbiBkb2NzL2hhbmRvZmZfc2hhZG93L3N0YWdlNC9taW5pbWFsL2dlbmVyYXRlZAogICAgICAgICAgZ2l0IGRpZmYgLS1jYWNoZWQgLS1jaGVjawogICAgICAgICAgZ2l0IGNvbW1pdCAtbSAnTWF0ZXJpYWxpemUgRTggdjIgcGlsb3QgcmVnaXN0cmF0aW9uIG9uIGN1cnJlbnQgbWFpbicKCiIiIgppZiAnICAgICAgLSBuYW1lOiBDb21taXQgbm9ybWFsaXplZCBoYW5kb2ZmXG4nIG5vdCBpbiB0ZXh0OgogICAgaWYgbWFya2VyIG5vdCBpbiB0ZXh0OgogICAgICAgIHJhaXNlIFN5c3RlbUV4aXQoJ3VwbG9hZC1kaWFnbm9zdGljcyBtYXJrZXIgbm90IGZvdW5kJykKICAgIHRleHQgPSB0ZXh0LnJlcGxhY2UobWFya2VyLCBjb21taXRfc3RlcCArIG1hcmtlciwgMSkKb2xkX2ZpbmFsID0gIiIiICAgICAgLSBuYW1lOiBDb21taXQgbm9ybWFsaXphdGlvbiBhbmQgcHVzaCByZWFkeSBicmFuY2gKICAgICAgICBzaGVsbDogYmFzaAogICAgICAgIHJ1bjogfAogICAgICAgICAgc2V0IC1ldW8gcGlwZWZhaWwKICAgICAgICAgIGdpdCBhZGQgZG9jcy9oYW5kb2ZmLm1kIGRvY3MvaGFuZG9mZl9kZWx0YXMvJFVQREFURV9JRC9NQVRFUklBTElaQVRJT05fUkVQT1JULmpzb24gZG9jcy9oYW5kb2ZmX3NoYWRvdy9zdGFnZTQvbWluaW1hbC9nZW5lcmF0ZWQKICAgICAgICAgIGdpdCBkaWZmIC0tY2FjaGVkIC0tY2hlY2sKICAgICAgICAgIGdpdCBjb21taXQgLW0gJ01hdGVyaWFsaXplIEU4IHYyIHBpbG90IHJlZ2lzdHJhdGlvbiBvbiBjdXJyZW50IG1haW4nCiAgICAgICAgICB0ZXN0ICIkKGdpdCByZXYtcGFyc2Ugb3JpZ2luL21haW4pIiA9ICIkQkFTRV9TSEEiCiAgICAgICAgICBnaXQgcHVzaCBvcmlnaW4gIiRPVVRfQlJBTkNIIgoiIiIKbmV3X2ZpbmFsID0gIiIiICAgICAgLSBuYW1lOiBQdXNoIHJlYWR5IGJyYW5jaAogICAgICAgIHNoZWxsOiBiYXNoCiAgICAgICAgcnVuOiB8CiAgICAgICAgICBzZXQgLWV1byBwaXBlZmFpbAogICAgICAgICAgdGVzdCAiJChnaXQgcmV2LXBhcnNlIG9yaWdpbi9tYWluKSIgPSAiJEJBU0VfU0hBIgogICAgICAgICAgZ2l0IHB1c2ggb3JpZ2luICIkT1VUX0JSQU5DSCIKIiIiCmlmIG9sZF9maW5hbCBpbiB0ZXh0OgogICAgdGV4dCA9IHRleHQucmVwbGFjZShvbGRfZmluYWwsIG5ld19maW5hbCwgMSkKZWxpZiAnICAgICAgLSBuYW1lOiBQdXNoIHJlYWR5IGJyYW5jaFxuJyBub3QgaW4gdGV4dDoKICAgIHJhaXNlIFN5c3RlbUV4aXQoJ2ZpbmFsIHB1c2ggYmxvY2sgbm90IGZvdW5kJykKcGF0aC53cml0ZV90ZXh0KHRleHQpCg==' | base64 -d > /tmp/repair_e8_integration.py
-          python /tmp/repair_e8_integration.py
-          if ! git diff --quiet; then
+          python /tmp/repair_e8_integration.py > repair.log 2>&1
+          rc=$?
+          {
+            echo "python_rc=$rc"
+            git status --short
+            git diff -- .github/workflows/e8_v2_integrate.yml
+          } >> repair.log 2>&1
+          if [ $rc -eq 0 ] && ! git diff --quiet; then
             git config user.name drpo-integration-bot
             git config user.email drpo-integration-bot@users.noreply.github.com
             git add .github/workflows/e8_v2_integrate.yml
-            git commit -m 'Commit E8 materialization before authority verification'
-            git push origin HEAD:integration/e8-oracle-v2-pilot
+            git commit -m 'Commit E8 materialization before authority verification' >> repair.log 2>&1
+            rc=$?
+            if [ $rc -eq 0 ]; then
+              git push origin HEAD:integration/e8-oracle-v2-pilot >> repair.log 2>&1
+              rc=$?
+            fi
           fi
+          cat repair.log
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Upload repair log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e8-v2-repair-${{ github.run_id }}
+          path: repair.log
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Fail if repair failed
+        if: steps.repair.outputs.rc != '0'
+        run: exit 1
