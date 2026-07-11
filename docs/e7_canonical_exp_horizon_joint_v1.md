@@ -9,9 +9,9 @@ Measure the stability of the scale-one exponential coefficient response across f
 
 ## Frozen shared protocol
 
-The existing nine-task canonical run spec remains the source of dataset paths, dataset hashes, canonical trainer arguments, evaluation interval, evaluation episodes, checkpoint policy, and thread environment. The adapter requires the exact dataset order and tuning seeds `200,201,202,203`, requires the source run spec to retain `--steps 1000000`, then replaces only that value with a branch-specific `{steps}` placeholder.
+The existing nine-task canonical run spec remains the source of dataset paths, dataset hashes, canonical trainer arguments, evaluation interval, evaluation episodes, checkpoint policy, and thread environment. That previously validated file contains seeds `200,201`; the adapter requires exactly those source seeds and expands only the seed list to the registered tuning set `200,201,202,203`. Seeds `204-207` remain untouched for later held-out confirmation.
 
-The canonical actor/critic implementation, `alpha=0.11`, reference distance `2.0`, batch size, learning rate, evaluation protocol, and validated queue size `max_workers=60` remain unchanged.
+The adapter also requires the source run spec to retain `--steps 1000000`, then replaces only that value with a branch-specific `{steps}` placeholder. The canonical actor/critic implementation, `alpha=0.11`, reference distance `2.0`, batch size, learning rate, evaluation protocol, single-thread worker environment, and validated queue size `max_workers=60` remain unchanged.
 
 ## Matrix
 
@@ -42,19 +42,20 @@ This gives `12 branches × 9 datasets × 4 seeds = 432 runs`. The 108 long branc
 
 `FINAL` remains the primary fixed-horizon comparison. It does not by itself establish convergence. For the three 2M coefficients, report the registered 750k-1M, 1.25M-1.5M, and 1.75M-2M windows, including mean, slope, variability, best-to-final drop, and whether the terminal trajectory is plateaued, drifting, oscillatory, or inconclusive.
 
-Task-performance collapse, support or boundary events, and NaN/Inf numerical failure must remain separate. Seeds `204-207` are reserved for later held-out confirmation and must not be used to select the coefficient in this pilot.
+Task-performance collapse, support or boundary events, and NaN/Inf numerical failure must remain separate. Seeds `204-207` must not be used to select the coefficient in this pilot.
 
-## Server command
+## Server execution
 
-The existing server-local contract and nine-task run spec are reused:
+A configured E7 RunSpec executor launches the READY specification with:
 
 ```bash
-python scripts/run_e7_canonical_exp_horizon_joint.py run \
-  --contract /root/d4rl2/configs/e7_canonical_contract_9task.json \
-  --run-spec /root/d4rl2/configs/e7_canonical_9task_full_grid_run_spec_v1.json \
-  --grid configs/e7_canonical_exp_horizon_joint_grid_v1.json \
-  --work-dir /root/e7_canonical_exp_horizon_joint/run_001 \
-  --max-workers 60
+python scripts/agent/run_lane.py --once
 ```
 
-Run `plan` first with the same arguments and verify `432` branches before replacing `plan` with `run`.
+The underlying one-click entrypoint is:
+
+```bash
+bash scripts/run_e7_canonical_exp_horizon_joint_one_click.sh
+```
+
+It validates a 432-branch plan first, then starts the fixed 60-worker run in `outputs/e7/exp_horizon_joint_run_001`.
