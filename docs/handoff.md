@@ -898,6 +898,9 @@
   value distance、structure distance、后续 policy surprisal 分开记录；不得把远样本自动解释为差样本，或把近样本自动解释为好样本。base、low-SFT、full-SFT
   只能在同一个 corpus 上做 downstream scoring / calibration，不得为不同初始化重建 corpus。
 <!-- HANDOFF-DELTA-BLOCK:section_end:e8-oracle-offline-bank-v2-0p5b-gate:END -->
+<!-- HANDOFF-DELTA-BLOCK:section_end:e8-oracle-offline-v2-init-matrix-pilot-result:START -->
+- **Countdown E8 oracle-offline v2 init-matrix pilot result:** 注册并归档 `EXT-C-E8-ORACLE-OFFLINE-V2-INIT-MATRIX-0.5B-01`，执行绑定 dev commit `fe214f010bd5fec1e0e6a83f8297132a9ae8882b` 且 `git_dirty=true`；结果包 SHA-256 为 `b0a05d54e531661bb15bd0dcc3f8f06354554513056c2cf7adeea71a919f59f6`。固定 tensor width 为 16；4943/6000 行有 16 个 unique negatives，1057/6000 行有 9--15 个 unique negatives 并循环精确重复表达式补齐。该 padding 不改变每行可达到的 current-policy argmin/argmax surprisal，但改变 tie/slot multiplicity。Base positive-only 可以学习；在已测 0.25/0.5/1/2 范围内，负压力增大总体伴随 pass@8 与终态 valid-rate 恶化，x1/x2 有严重任务/输出有效率退化但无 NaN/Inf；low-SFT x1 未超过 positive-only。本证据仅为 dirty、single-seed、不同 seed offset、不同 early-stop horizon 的 pilot，不构成方法排名或稳态结论。下一步需另行冻结靠近 0 的 paired-seed 扫描。
+<!-- HANDOFF-DELTA-BLOCK:section_end:e8-oracle-offline-v2-init-matrix-pilot-result:END -->
 <!-- HANDOFF-DELTA-BLOCK:section_end:v52-countdown-current-gate-override:START -->
 - **Countdown v52 覆盖：** `EXT-C-E8-V4.3` 取代 V4.2 成为当前 E8-MECH/focused pilot；V4.2 只保留 matched-pair mechanism provenance。`EXT-C-E8-SCALE-01` 继续等待 V4.3 与 E7-BENCH，不因本次实现自动解锁。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v52-countdown-current-gate-override:END -->
