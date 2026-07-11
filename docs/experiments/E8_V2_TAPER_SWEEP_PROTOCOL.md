@@ -31,7 +31,7 @@ SBRC、Hybrid、squared-distance exponential 不进入本轮。
 
 `u = sqrt(relu(surprisal - tau) / scale)`。
 
-`tau` 与 `scale` 只用冻结 calibration rows 和 base initialization 计算；不读取 validation/test task metric。
+`tau` 固定为 base initialization 上 current-near surprisal 的中位数，`scale` 固定为 current-far 中位数减 current-near 中位数。因此 current-near 中位点对应 `u=0`，current-far 中位点对应 `u=1`，参数 `rho=w(1)` 可直接解释为初始化 far-median retention。二者只使用冻结 calibration rows 计算，不读取 validation/test task metric。
 
 每个 family 用 `rho=w(1)` 参数化：
 
@@ -63,7 +63,7 @@ SBRC、Hybrid、squared-distance exponential 不进入本轮。
 - numerical failure；
 - code/config/data/calibration hashes。
 
-Best 与 terminal post-hoc evaluation 使用同一 generation seed，避免 checkpoint 比较混入不同采样 seed。
+Best 与 terminal post-hoc evaluation 使用同一 generation seed，避免 checkpoint 比较混入不同采样 seed。Hardened runtime 在训练函数返回、训练模型释放后再加载 checkpoint evaluator，避免同一 GPU 同时驻留两个 Qwen 模型。
 
 任务性能退化、valid/support-structure proxy 和 NaN/Inf 必须分开报告。当前 valid rate 只是外部结构 proxy，不升级为正式 support-boundary audit。
 
@@ -75,4 +75,4 @@ Best 与 terminal post-hoc evaluation 使用同一 generation seed，避免 chec
 python scripts/run_countdown_e8_oracle_offline_v2_taper_sweep.py
 ```
 
-默认使用服务器现有模型、V2 bank、base calibration 和 GPU 0--7 路径；所有路径均可通过 CLI 覆盖。Runner 支持 identity-checked resume，任何 identity 漂移 fail closed。
+默认使用服务器现有模型、V2 bank、base calibration 和 GPU 0--7 路径；所有路径均可通过 CLI 覆盖。Runner 支持 identity-checked resume；残缺 cell 会清理后重跑，已完成 cell 或 calibration 出现 identity 漂移则 fail closed。
