@@ -531,7 +531,7 @@ def _run_cell_subprocess(cell: Cell, repo: Path, model_path: Path, work_dir: Pat
     log_path.parent.mkdir(parents=True, exist_ok=True)
     argv = [
         sys.executable, str(repo / "src" / "drpo" / "countdown_e8_oracle_offline_v2_matrix.py"),
-        "--worker", cell.name,
+        "worker", cell.name,
         "--model_path", str(model_path),
         "--work_dir", str(work_dir),
         "--bank", str(bank),
@@ -738,7 +738,7 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--logs_dir", default="logs")
     run.set_defaults(func=cmd_run)
 
-    w = sub.add_parser("--worker")
+    w = sub.add_parser("worker")
     w.add_argument("cell")
     w.add_argument("--model_path", required=True)
     w.add_argument("--work_dir", required=True)

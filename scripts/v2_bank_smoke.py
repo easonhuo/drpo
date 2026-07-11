@@ -300,16 +300,19 @@ def main() -> int:
         "test_greedy_success": tgs,
         "test_pass_at_8": tp8,
         "test_valid_rate": tvr,
-        "val_greedy_success": best_eval.get("val_greedy_success"),
-        "val_pass_at_8": best_eval.get("val_pass_at_8"),
+        # evaluate_model uses prefix="validation" -> key is "validation_*" (not "val_*")
+        "val_greedy_success": best_eval.get("validation_greedy_success"),
+        "val_pass_at_8": best_eval.get("validation_pass_at_8"),
     }
-    cond_g8 = all(_is_finite(v) for v in (tgs, tp8, tvr))
+    vgs = best_eval.get("validation_greedy_success")
+    vp8 = best_eval.get("validation_pass_at_8")
+    cond_g8 = all(_is_finite(v) for v in (tgs, tp8, tvr, vgs, vp8))
     all_pass &= _gate(record, "G8_eval_metrics_finite", cond_g8,
-                      f"greedy={tgs} pass@8={tp8} valid={tvr}")
+                      f"test greedy={tgs} pass@8={tp8} valid={tvr} | "
+                      f"val greedy={vgs} pass@8={vp8}")
 
     # G9: no NaN/Inf anywhere in the numeric trail
-    nan_scan = [bns, bgg, manifest.get("best_value"), tgs, tp8, tvr,
-                best_eval.get("val_greedy_success"), best_eval.get("val_pass_at_8")]
+    nan_scan = [bns, bgg, manifest.get("best_value"), tgs, tp8, tvr, vgs, vp8]
     found_nonfinite = [str(v) for v in nan_scan if not _is_finite(v)]
     all_pass &= _gate(record, "G9_no_nan_inf", not found_nonfinite,
                       f"non_finite_values={found_nonfinite}")
