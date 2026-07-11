@@ -1,0 +1,54 @@
+{
+  "experiment_id": "EXT-H-E7-BENCH-01",
+  "run_kind": "pilot",
+  "scientific_status": "lineage_recovery_weight_sweep_pilot_only",
+  "canonical_alpha": 0.11,
+  "reference_distance": 2.0,
+  "coefficients": {
+    "reciprocal_linear": 0.4362580032734791,
+    "reciprocal_quadratic": 0.5520268617673281,
+    "exponential": 0.374162511054291
+  },
+  "anchors": {
+    "positive_only": {
+      "negative_scale": 0.0
+    },
+    "canonical_signed": {
+      "negative_scale": 1.0
+    }
+  },
+  "negative_scale_grid": {},
+  "coefficient_grid": {
+    "reciprocal_linear": [
+      0.4362580032734791,
+      1.0,
+      3.0,
+      10.0,
+      30.0
+    ],
+    "reciprocal_quadratic": [
+      0.5520268617673281,
+      1.0,
+      3.0,
+      10.0,
+      30.0
+    ],
+    "exponential": [
+      0.374162511054291,
+      0.75,
+      1.5,
+      3.0,
+      6.0
+    ]
+  },
+  "branch_count_per_dataset_seed": 17,
+  "primary_selection_metric": "final_score",
+  "notes": [
+    "All taper branches fix negative_scale=1.0, so the negative multiplier at zero standardized distance is the full canonical alpha 0.11.",
+    "Only the distance-decay coefficient is tuned; positive advantages, canonical actor-critic training, datasets, seeds, horizon, and evaluation protocol remain unchanged.",
+    "The original coefficients are retained as grid points; stronger coefficients test whether far-field suppression can improve final performance without uniformly shrinking near-field negatives.",
+    "Positive-only and canonical signed are controls. A passthrough original ExpRank_MR branch may be supplied by the run spec.",
+    "This is pilot-only parameter tuning under EXT-H-E7-BENCH-01 and cannot establish a formal nine-task ranking.",
+    "Primary model-selection evidence is the 1M-step final score; best-in-trajectory remains diagnostic only."
+  ]
+}
