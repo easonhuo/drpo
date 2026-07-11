@@ -4,7 +4,7 @@ lane: e7
 priority: 100
 created_at: "2026-07-12T01:00:00Z"
 experiment_id: EXT-H-E7-BENCH-01
-repo_commit: 4955b08a928238b9a4c388594457738b6e3df50a
+repo_commit: 6e39b48dd18f273a30a737b39baf80af0093410a
 
 provenance:
   commit_policy: protected_paths_unchanged
