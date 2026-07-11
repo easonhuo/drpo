@@ -36,7 +36,22 @@ def _run_spec(tmp_path: Path) -> dict:
         "experiment_id": "EXT-H-E7-BENCH-01",
         "datasets": datasets,
         "seeds": list(joint.EXPECTED_SEEDS),
-        "trainer_argv_template": ["--steps", "{steps}"],
+        "environment": {
+            "OMP_NUM_THREADS": "1",
+            "MKL_NUM_THREADS": "1",
+        },
+        "trainer_argv_template": [
+            "--dataset",
+            "{dataset_id}",
+            "--alpha",
+            "0.11",
+            "--steps",
+            "1000000",
+            "--eval_interval",
+            "50000",
+            "--eval_episodes",
+            "10",
+        ],
         "passthrough_variants": [
             {"id": "original_exp_rank_mr", "template_values": {}}
         ],
@@ -82,21 +97,44 @@ def test_builds_432_unique_branches_with_long_jobs_first(tmp_path: Path) -> None
     assert all(branch.template_values["steps"] == "1000000" for branch in remaining)
     assert sum("__positive_only__" in branch.branch_id for branch in branches) == 36
     assert sum("__scale0p1__" in branch.branch_id for branch in branches) == 36
-    assert sum("__baseline__original_exp_rank_mr__" in branch.branch_id for branch in branches) == 36
+    assert (
+        sum(
+            "__baseline__original_exp_rank_mr__" in branch.branch_id
+            for branch in branches
+        )
+        == 36
+    )
 
 
 def test_run_spec_loader_replaces_only_prior_1m_steps(tmp_path: Path) -> None:
     source = tmp_path / "run_spec.json"
     raw = _run_spec(tmp_path)
-    raw["trainer_argv_template"] = ["--dataset", "{dataset_id}", "--steps", "1000000"]
     source.write_text(json.dumps(raw))
     loaded, digest = joint.load_exp_horizon_run_spec(str(source))
-    assert loaded["trainer_argv_template"][-1] == "{steps}"
+    argv = loaded["trainer_argv_template"]
+    assert argv[argv.index("--steps") + 1] == "{steps}"
     assert isinstance(digest, str)
 
-    raw["trainer_argv_template"][-1] = "2000000"
+    source_argv = raw["trainer_argv_template"]
+    source_argv[source_argv.index("--steps") + 1] = "2000000"
     source.write_text(json.dumps(raw))
     with pytest.raises(ValueError, match="prior 1000000"):
+        joint.load_exp_horizon_run_spec(str(source))
+
+
+def test_run_spec_loader_rejects_thread_or_eval_drift(tmp_path: Path) -> None:
+    source = tmp_path / "run_spec.json"
+    raw = _run_spec(tmp_path)
+    raw["environment"]["OMP_NUM_THREADS"] = "2"
+    source.write_text(json.dumps(raw))
+    with pytest.raises(ValueError, match="OMP_NUM_THREADS"):
+        joint.load_exp_horizon_run_spec(str(source))
+
+    raw = _run_spec(tmp_path)
+    argv = raw["trainer_argv_template"]
+    argv[argv.index("--eval_interval") + 1] = "100000"
+    source.write_text(json.dumps(raw))
+    with pytest.raises(ValueError, match="eval_interval"):
         joint.load_exp_horizon_run_spec(str(source))
 
 
