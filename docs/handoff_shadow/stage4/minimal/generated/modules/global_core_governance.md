@@ -7,7 +7,7 @@
 - Responsibility: Preserve the unique-master rule, terminology, scientific scope, and non-destructive governance constraints.
 - Content contract topics: `unique_master_document`, `document_before_experiment`, `non_destructive_history`, `terminal_audit_governance`, `controlled_external_validity_boundary`
 - Deduplicated overlapping source chunks: 0
-- Source hash: `93a26dcae94634533b23216fa9ac7b1e7898392f3d083d2a859224844f01add0`
+- Source hash: `2c16dd1e530de5d68bfd9614bb5ecbf7453f7e71ba1575c3575555cd9e05aad6`
 
 ## Content contract evidence
 
@@ -170,6 +170,12 @@
 <!-- HANDOFF-DELTA-BLOCK:section_end:e8-oracle-offline-v2-init-matrix-pilot-result:START -->
 - **Countdown E8 oracle-offline v2 init-matrix pilot result:** 注册并归档 `EXT-C-E8-ORACLE-OFFLINE-V2-INIT-MATRIX-0.5B-01`，执行绑定 dev commit `fe214f010bd5fec1e0e6a83f8297132a9ae8882b` 且 `git_dirty=true`；结果包 SHA-256 为 `b0a05d54e531661bb15bd0dcc3f8f06354554513056c2cf7adeea71a919f59f6`。固定 tensor width 为 16；4943/6000 行有 16 个 unique negatives，1057/6000 行有 9--15 个 unique negatives 并循环精确重复表达式补齐。该 padding 不改变每行可达到的 current-policy argmin/argmax surprisal，但改变 tie/slot multiplicity。Base positive-only 可以学习；在已测 0.25/0.5/1/2 范围内，负压力增大总体伴随 pass@8 与终态 valid-rate 恶化，x1/x2 有严重任务/输出有效率退化但无 NaN/Inf；low-SFT x1 未超过 positive-only。本证据仅为 dirty、single-seed、不同 seed offset、不同 early-stop horizon 的 pilot，不构成方法排名或稳态结论。下一步需另行冻结靠近 0 的 paired-seed 扫描。
 <!-- HANDOFF-DELTA-BLOCK:section_end:e8-oracle-offline-v2-init-matrix-pilot-result:END -->
+<!-- HANDOFF-DELTA-BLOCK:section_end:e8-v2-active-taper-sweep-ready:START -->
+- **Countdown E8 V2 active taper tuning:** 注册 `EXT-C-E8-ORACLE-OFFLINE-V2-TAPER-SWEEP-0.5B-01`，状态为 `implemented_ready_not_run`。本轮停止继续调 Global，只比较 Linear、Quadratic、Exp；8 个 `rho` × 3 个 paired tuning seeds，共 72 cells，使用 GPU 0--7。初始化 aggregate negative-gradient RMS 均匹配 Global `x1/32` 预算；current-near 中位点锚定 `u=0`，current-far 中位点锚定 `u=1`。SBRC、Hybrid、Global retuning、SFT init、on-policy 和 replay 均排除。本轮仅为调参 pilot；必须报告 best 与 terminal，并在冻结超参后使用新 seeds 才能形成方法排名。
+<!-- HANDOFF-DELTA-BLOCK:section_end:e8-v2-active-taper-sweep-ready:END -->
+<!-- HANDOFF-DELTA-BLOCK:section_end:e8-v2-global-low-scale-milestone-pilot:START -->
+- **Countdown E8 V2 Global low-scale milestone pilot:** 注册 `EXT-C-E8-ORACLE-OFFLINE-V2-GLOBAL-LOW-SCALE-SWEEP-0.5B-01`。四个 paired seeds 的 Global `x1/32` 在 validation-selected best checkpoint 上，test pass@8 相对 Positive-only 提高 4.4 个百分点，pass@64 提高 12.075 个百分点；terminal pass@8 则低 0.725 个百分点。该结果支持足够小的负优势可被利用，同时显示持续、无距离区分的 Global 压力不能保持收益。24 cells 无 NaN/Inf；support/structure boundary 未正式审计。本证据为 dirty-worktree milestone diagnostic pilot，不构成正式排名、收敛或 Global 终态优越性结论。
+<!-- HANDOFF-DELTA-BLOCK:section_end:e8-v2-global-low-scale-milestone-pilot:END -->
 <!-- HANDOFF-DELTA-BLOCK:section_end:v52-countdown-current-gate-override:START -->
 - **Countdown v52 覆盖：** `EXT-C-E8-V4.3` 取代 V4.2 成为当前 E8-MECH/focused pilot；V4.2 只保留 matched-pair mechanism provenance。`EXT-C-E8-SCALE-01` 继续等待 V4.3 与 E7-BENCH，不因本次实现自动解锁。
 <!-- HANDOFF-DELTA-BLOCK:section_end:v52-countdown-current-gate-override:END -->

@@ -1,0 +1,202 @@
+{
+  "current_before_commit": "51fdfe194647cf58543701591bf9a0e7c2278330",
+  "current_handoff_before_sha256": "afff42b2cecd74d406b4ceb6a617b65f2581cd3b662d7aa153efe99e5a15901b",
+  "current_registry_validation": {
+    "assertions": [
+      {
+        "change_id": "add-e8-v2-global-low-scale-milestone",
+        "entity_id": "EXT-C-E8-ORACLE-OFFLINE-V2-GLOBAL-LOW-SCALE-SWEEP-0.5B-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "511380b837c8f6af999c25be510b9ecd5c64dbe89ad0924f1b07784eb5707622"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-C-E8-V2-GLOBAL-MILESTONE-AND-TAPER-SWEEP-2026-07-11/HANDOFF_DELTA.yaml",
+            "sha256": "e1e65c6ccb5985960387fe549d795d195970a447f19fccc6c6c0c324bd0c73c1"
+          },
+          {
+            "path": "experiments/results/e8_oracle_offline_v2_global_low_scale_pilot/RESULT_SUMMARY.json",
+            "sha256": "7e0e6b3ce0aca806a078a5effbf0144124a8f9597be067efb2c49c4ec05d0d74"
+          },
+          {
+            "path": "scripts/run_e8_v2_weight_sweep_mp.py",
+            "sha256": "bdbadf805ad83add84db08eaec0e33eef17117e34fbfd6217c5fc13300cf9698"
+          }
+        ],
+        "kind": "add_entity"
+      },
+      {
+        "change_id": "add-e8-v2-active-taper-sweep",
+        "entity_id": "EXT-C-E8-ORACLE-OFFLINE-V2-TAPER-SWEEP-0.5B-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "511380b837c8f6af999c25be510b9ecd5c64dbe89ad0924f1b07784eb5707622"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-C-E8-V2-GLOBAL-MILESTONE-AND-TAPER-SWEEP-2026-07-11/HANDOFF_DELTA.yaml",
+            "sha256": "e1e65c6ccb5985960387fe549d795d195970a447f19fccc6c6c0c324bd0c73c1"
+          },
+          {
+            "path": "configs/countdown_e8_oracle_offline_v2_taper_sweep_0p5b.yaml",
+            "sha256": "1826d013916874116ffb570677d9d5111a517e086149e8a42a26cdd779c3b87a"
+          },
+          {
+            "path": "docs/experiments/E8_V2_TAPER_SWEEP_PROTOCOL.md",
+            "sha256": "5e9d4bc97f1f84cedb7c1c05755711c0afa0e32b47bc706f58a16d7da7ae3d64"
+          },
+          {
+            "path": "scripts/run_countdown_e8_oracle_offline_v2_taper_sweep.py",
+            "sha256": "71bc3eda9494caa9ef75edafcef00e52c344b897e0f0047c460c3327508beac3"
+          },
+          {
+            "path": "src/drpo/countdown_e8_oracle_offline_v2_taper_runtime.py",
+            "sha256": "b27ea72ffde6d5120bd7801c6e8657ce85e72b14688d252efefc49658db3c4b2"
+          },
+          {
+            "path": "src/drpo/countdown_e8_oracle_offline_v2_taper_sweep.py",
+            "sha256": "da629cbb3421ebd294ec95b4cd09d7ef84dbe640490951c0991050a1bd97a990"
+          },
+          {
+            "path": "tests/test_countdown_e8_oracle_offline_v2_taper_sweep.py",
+            "sha256": "80d0ff6e86cc83b83a2bc76fe1c83f081da117103967987dfc9e04d91018790e"
+          }
+        ],
+        "kind": "add_entity"
+      }
+    ],
+    "coverage": {
+      "added_entities": [
+        "EXT-C-E8-ORACLE-OFFLINE-V2-GLOBAL-LOW-SCALE-SWEEP-0.5B-01",
+        "EXT-C-E8-ORACLE-OFFLINE-V2-TAPER-SWEEP-0.5B-01"
+      ],
+      "changed_field_count": 0,
+      "declared_assertion_count": 2,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "delta_sha256": "e1e65c6ccb5985960387fe549d795d195970a447f19fccc6c6c0c324bd0c73c1",
+  "exact_base_candidate_sha256": "a105282a37ea13d9be8fb26f41ec05aa487454f69ffc955aa0c8ee3febaca6fb",
+  "exact_base_registry_validation": {
+    "assertions": [
+      {
+        "change_id": "add-e8-v2-global-low-scale-milestone",
+        "entity_id": "EXT-C-E8-ORACLE-OFFLINE-V2-GLOBAL-LOW-SCALE-SWEEP-0.5B-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "511380b837c8f6af999c25be510b9ecd5c64dbe89ad0924f1b07784eb5707622"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-C-E8-V2-GLOBAL-MILESTONE-AND-TAPER-SWEEP-2026-07-11/HANDOFF_DELTA.yaml",
+            "sha256": "e1e65c6ccb5985960387fe549d795d195970a447f19fccc6c6c0c324bd0c73c1"
+          },
+          {
+            "path": "experiments/results/e8_oracle_offline_v2_global_low_scale_pilot/RESULT_SUMMARY.json",
+            "sha256": "7e0e6b3ce0aca806a078a5effbf0144124a8f9597be067efb2c49c4ec05d0d74"
+          },
+          {
+            "path": "scripts/run_e8_v2_weight_sweep_mp.py",
+            "sha256": "bdbadf805ad83add84db08eaec0e33eef17117e34fbfd6217c5fc13300cf9698"
+          }
+        ],
+        "kind": "add_entity"
+      },
+      {
+        "change_id": "add-e8-v2-active-taper-sweep",
+        "entity_id": "EXT-C-E8-ORACLE-OFFLINE-V2-TAPER-SWEEP-0.5B-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "511380b837c8f6af999c25be510b9ecd5c64dbe89ad0924f1b07784eb5707622"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-C-E8-V2-GLOBAL-MILESTONE-AND-TAPER-SWEEP-2026-07-11/HANDOFF_DELTA.yaml",
+            "sha256": "e1e65c6ccb5985960387fe549d795d195970a447f19fccc6c6c0c324bd0c73c1"
+          },
+          {
+            "path": "configs/countdown_e8_oracle_offline_v2_taper_sweep_0p5b.yaml",
+            "sha256": "1826d013916874116ffb570677d9d5111a517e086149e8a42a26cdd779c3b87a"
+          },
+          {
+            "path": "docs/experiments/E8_V2_TAPER_SWEEP_PROTOCOL.md",
+            "sha256": "5e9d4bc97f1f84cedb7c1c05755711c0afa0e32b47bc706f58a16d7da7ae3d64"
+          },
+          {
+            "path": "scripts/run_countdown_e8_oracle_offline_v2_taper_sweep.py",
+            "sha256": "71bc3eda9494caa9ef75edafcef00e52c344b897e0f0047c460c3327508beac3"
+          },
+          {
+            "path": "src/drpo/countdown_e8_oracle_offline_v2_taper_runtime.py",
+            "sha256": "b27ea72ffde6d5120bd7801c6e8657ce85e72b14688d252efefc49658db3c4b2"
+          },
+          {
+            "path": "src/drpo/countdown_e8_oracle_offline_v2_taper_sweep.py",
+            "sha256": "da629cbb3421ebd294ec95b4cd09d7ef84dbe640490951c0991050a1bd97a990"
+          },
+          {
+            "path": "tests/test_countdown_e8_oracle_offline_v2_taper_sweep.py",
+            "sha256": "80d0ff6e86cc83b83a2bc76fe1c83f081da117103967987dfc9e04d91018790e"
+          }
+        ],
+        "kind": "add_entity"
+      }
+    ],
+    "coverage": {
+      "added_entities": [
+        "EXT-C-E8-ORACLE-OFFLINE-V2-GLOBAL-LOW-SCALE-SWEEP-0.5B-01",
+        "EXT-C-E8-ORACLE-OFFLINE-V2-TAPER-SWEEP-0.5B-01"
+      ],
+      "changed_field_count": 0,
+      "declared_assertion_count": 2,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "history_preservation_passed": true,
+  "idempotence_passed": true,
+  "materialized_handoff_after_sha256": "a105282a37ea13d9be8fb26f41ec05aa487454f69ffc955aa0c8ee3febaca6fb",
+  "mode": "authoritative",
+  "network_used": false,
+  "policy_id": "GOV-HANDOFF-AUTHORITY-CUTOVER-01",
+  "registry_after_sha256": "511380b837c8f6af999c25be510b9ecd5c64dbe89ad0924f1b07784eb5707622",
+  "registry_before_sha256": "bd00888f9fdfc2eede2336f968fa0b49fb416043a9fb5b2a2fdd903176eb2d78",
+  "report_schema_version": 1,
+  "source_base_commit": "51fdfe194647cf58543701591bf9a0e7c2278330",
+  "source_patch_commit": "19ec8561dab23b16dd9fb4f5767358fb07a80837",
+  "stage4a_refresh": {
+    "refreshed": [
+      "docs/handoff_shadow/stage4/minimal/generated/MODULE_INDEX.json",
+      "docs/handoff_shadow/stage4/minimal/generated/STRUCTURE_SUGGESTIONS.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/countdown_e8.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/global_core_governance.md"
+    ],
+    "reused": [
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.dot",
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e5_mechanism.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e6_generalization.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_extrapolation.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_taper.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_mechanism_e1_e3.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/execution_status_gates.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/history_provenance.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/hopper_e7.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/paper_rewrite.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/terminal_audit.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/theory_methods_related_work.md"
+    ]
+  },
+  "status": "PASS",
+  "structural_lint_passed": true,
+  "trusted_engine_sha256": "a6532ba4c1bb9c4af24d79f027267de518c3832b347dba47e8319dee7a3ebe2c",
+  "trusted_policy_sha256": "508f6bbb6ee9bb6da5be041a23e25cd569b95475523bb6af7127cb84ea3466ad",
+  "trusted_renderer_sha256": "39a7566e91c77784822148bb18ae32e44dfcc1745fbdc1cbf14a88ce6c6a13e5",
+  "update_id": "EXT-C-E8-V2-GLOBAL-MILESTONE-AND-TAPER-SWEEP-2026-07-11"
+}

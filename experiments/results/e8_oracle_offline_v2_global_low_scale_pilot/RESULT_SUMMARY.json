@@ -1,0 +1,122 @@
+{
+  "schema_version": 1,
+  "experiment_id": "EXT-C-E8-ORACLE-OFFLINE-V2-GLOBAL-LOW-SCALE-SWEEP-0.5B-01",
+  "status": "pilot_complete",
+  "role": "milestone_diagnostic_pilot_external_validity",
+  "package": {
+    "filename": "8c44fbd1-ce55-4a21-b6fb-68a64b8ab698.gz",
+    "sha256": "2cfed67a417fe1f3ce657341285e8f8188610f03d48efbd235167cbb09d6cbaa",
+    "size_bytes": 10021
+  },
+  "source": {
+    "run_commit": "64a2fa2d031b0cde2cb22482ce7a1842e72172b5",
+    "git_dirty": true,
+    "runner_integrated_commit": "e4aa36bf5ce03794c0d935b4570e276a0703d93e"
+  },
+  "design": {
+    "multipliers": [0.0, 0.015625, 0.03125, 0.0625, 0.125, 0.25],
+    "paired_seed_offsets": [0, 1000, 2000, 3000],
+    "cells": 24,
+    "method": "bank_global_matched",
+    "model": "Qwen2.5-0.5B-Instruct base + fresh LoRA"
+  },
+  "aggregate": {
+    "0": {
+      "n": 4,
+      "best_step_mean": 350.0,
+      "terminal_step_mean": 950.0,
+      "best_test_greedy_success_mean": 0.04125,
+      "best_test_pass_at_8_mean": 0.12975,
+      "best_test_pass_at_64_mean": 0.25325,
+      "best_test_valid_rate_mean": 0.9565,
+      "terminal_test_greedy_success_mean": 0.0615,
+      "terminal_test_pass_at_8_mean": 0.14825,
+      "terminal_test_pass_at_64_mean": 0.2185,
+      "terminal_test_valid_rate_mean": 0.958
+    },
+    "0.015625": {
+      "n": 4,
+      "best_step_mean": 275.0,
+      "terminal_step_mean": 875.0,
+      "best_test_greedy_success_mean": 0.03625,
+      "best_test_pass_at_8_mean": 0.1365,
+      "best_test_pass_at_64_mean": 0.3035,
+      "best_test_valid_rate_mean": 0.949,
+      "terminal_test_greedy_success_mean": 0.05525,
+      "terminal_test_pass_at_8_mean": 0.14075,
+      "terminal_test_pass_at_64_mean": 0.208,
+      "terminal_test_valid_rate_mean": 0.94875
+    },
+    "0.03125": {
+      "n": 4,
+      "best_step_mean": 225.0,
+      "terminal_step_mean": 825.0,
+      "best_test_greedy_success_mean": 0.042,
+      "best_test_pass_at_8_mean": 0.17375,
+      "best_test_pass_at_64_mean": 0.374,
+      "best_test_valid_rate_mean": 0.94825,
+      "terminal_test_greedy_success_mean": 0.056,
+      "terminal_test_pass_at_8_mean": 0.141,
+      "terminal_test_pass_at_64_mean": 0.202,
+      "terminal_test_valid_rate_mean": 0.948
+    },
+    "0.0625": {
+      "n": 4,
+      "best_step_mean": 275.0,
+      "terminal_step_mean": 875.0,
+      "best_test_greedy_success_mean": 0.03925,
+      "best_test_pass_at_8_mean": 0.141,
+      "best_test_pass_at_64_mean": 0.312,
+      "best_test_valid_rate_mean": 0.9545,
+      "terminal_test_greedy_success_mean": 0.04975,
+      "terminal_test_pass_at_8_mean": 0.12,
+      "terminal_test_pass_at_64_mean": 0.17425,
+      "terminal_test_valid_rate_mean": 0.95525
+    },
+    "0.125": {
+      "n": 4,
+      "best_step_mean": 225.0,
+      "terminal_step_mean": 825.0,
+      "best_test_greedy_success_mean": 0.03625,
+      "best_test_pass_at_8_mean": 0.1585,
+      "best_test_pass_at_64_mean": 0.35875,
+      "best_test_valid_rate_mean": 0.9555,
+      "terminal_test_greedy_success_mean": 0.04675,
+      "terminal_test_pass_at_8_mean": 0.10525,
+      "terminal_test_pass_at_64_mean": 0.132,
+      "terminal_test_valid_rate_mean": 0.96925
+    },
+    "0.25": {
+      "n": 4,
+      "best_step_mean": 225.0,
+      "terminal_step_mean": 825.0,
+      "best_test_greedy_success_mean": 0.02175,
+      "best_test_pass_at_8_mean": 0.095,
+      "best_test_pass_at_64_mean": 0.2535,
+      "best_test_valid_rate_mean": 0.91025,
+      "terminal_test_greedy_success_mean": 0.037,
+      "terminal_test_pass_at_8_mean": 0.09975,
+      "terminal_test_pass_at_64_mean": 0.12325,
+      "terminal_test_valid_rate_mean": 0.9105
+    }
+  },
+  "milestone": {
+    "best_candidate_multiplier": 0.03125,
+    "best_pass_at_8_delta": 0.044,
+    "best_pass_at_64_delta": 0.12075,
+    "terminal_pass_at_8_delta": -0.00725,
+    "interpretation": "Very small Global negative pressure yields a clear early paired benefit, but sustained uniform pressure does not preserve the gain at terminal checkpoints."
+  },
+  "reporting_separation": {
+    "task_performance": "early benefit and terminal degradation observed",
+    "support_or_structure_boundary": "not formally audited; valid-rate only",
+    "nan_inf_numerical_failure": "not observed in 24 cells"
+  },
+  "limitations": [
+    "pilot",
+    "dirty_worktree",
+    "tuning seeds not confirmatory",
+    "best and terminal originally evaluated with different seed offsets",
+    "no formal convergence or method ranking"
+  ]
+}
