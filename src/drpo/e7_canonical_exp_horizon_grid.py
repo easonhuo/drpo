@@ -24,6 +24,7 @@ EXPECTED_DATASETS = (
     "halfcheetah-medium-replay-v2",
     "halfcheetah-medium-expert-v2",
 )
+SOURCE_RUN_SPEC_SEEDS = (200, 201)
 EXPECTED_SEEDS = (200, 201, 202, 203)
 EXPECTED_MAX_WORKERS = 60
 LEGACY_EXP_COEFFICIENT = 0.374162511054291
@@ -116,9 +117,14 @@ def load_exp_horizon_run_spec(path: str) -> tuple[dict[str, Any], str]:
     dataset_ids = tuple(str(item["id"]) for item in run_spec["datasets"])
     if dataset_ids != EXPECTED_DATASETS:
         raise ValueError(f"run_spec datasets changed: {dataset_ids}")
-    seeds = tuple(int(value) for value in run_spec["seeds"])
-    if seeds != EXPECTED_SEEDS:
-        raise ValueError(f"run_spec seeds changed: {seeds}")
+    source_seeds = tuple(int(value) for value in run_spec["seeds"])
+    if source_seeds != SOURCE_RUN_SPEC_SEEDS:
+        raise ValueError(
+            "source run_spec seeds changed: "
+            f"{source_seeds}; expected prior validated {SOURCE_RUN_SPEC_SEEDS}"
+        )
+    run_spec["seeds"] = list(EXPECTED_SEEDS)
+
     passthrough = run_spec.get("passthrough_variants", [])
     if [str(item.get("id")) for item in passthrough] != ["original_exp_rank_mr"]:
         raise ValueError("run_spec passthrough baseline changed")
@@ -152,6 +158,8 @@ def build_exp_horizon_branches(
 ) -> list[base.Branch]:
     datasets = [base.DatasetSpec.from_mapping(item) for item in run_spec["datasets"]]
     seeds = [int(value) for value in run_spec["seeds"]]
+    if tuple(seeds) != EXPECTED_SEEDS:
+        raise ValueError(f"expanded tuning seeds changed: {seeds}")
     injected_values = {
         str(key): str(value)
         for key, value in run_spec.get("injected_template_values", {}).items()
