@@ -1,19 +1,24 @@
 # DRPO dev-branch integration protocol
 
 **Claim:** `GOV-DEV-BRANCH-INTEGRATION-01`  
-**Current implementation phase:** Batch 1, read-only planning and audit  
+**Current implementation phase:** Batch 2A, local source-commit preparation  
 **Authoritative scope:** `docs/scopes/GOV-DEV-BRANCH-INTEGRATION-01.md`  
 **V1 contract:** `docs/pipeline_handoffs/DEV_BRANCH_INTEGRATION_PIPELINE_V1_SPEC.md`
 
-## Purpose
+## Purpose and boundary
 
-The tool turns a reviewer-approved dev-branch snapshot into a machine-audited integration transaction. Batch 1 does not modify the source worktree, create an integration branch, update the registry, normalize the handoff, run repository gates, push, open a pull request, or merge.
+The transaction layer converts one reviewer-approved dev snapshot into a locally auditable integration candidate. It is deliberately split into narrow stages:
 
-The tool is an orchestration layer. It does not replace the schema-v3 handoff authority, the formal experiment channel, the update-package pipeline, the test selector, or reviewer scientific judgment.
+1. Batch 1 locks source refs, reviewer decisions, provenance, and exact file operations.
+2. Batch 2A constructs an exact local source commit from those immutable records.
+3. Batch 2B will handle registry mutation, schema-v3 normalization, required gates, and the final local ready commit.
+4. Real shadow observations follow only after Batch 2B passes its own acceptance.
 
-## Batch 1 commands
+The tool does not design experiments, classify evidence autonomously, replace reviewer judgment, or replace the existing handoff authority, formal experiment channel, update-package tooling, or test selector. V1 still excludes automatic push, pull-request creation, CI polling, and merge.
 
-Validate request and reviewer decision without resolving remote refs:
+## Batch 1: plan and audit
+
+Validate request and reviewer decision:
 
 ```bash
 python3 scripts/validate_dev_integration.py \
@@ -22,7 +27,7 @@ python3 scripts/validate_dev_integration.py \
   --json
 ```
 
-Lock remote sources and audit the exact reviewed diff:
+Lock remote refs and audit the exact dev diff:
 
 ```bash
 python3 scripts/integrate_dev_branch.py plan \
@@ -32,86 +37,80 @@ python3 scripts/integrate_dev_branch.py plan \
   --json
 ```
 
-Read a transaction:
+A successful Batch 1 attempt reaches `REVIEWED` and contains:
+
+- `SOURCE_LOCK.json`;
+- `SCOPE_AUDIT.json`;
+- `TRANSACTION.json`.
+
+## Batch 2A: local source commit
+
+Run the write-path adapter on one successful Batch 1 attempt:
 
 ```bash
-python3 scripts/integrate_dev_branch.py status \
+python3 scripts/dev_integration_write_path.py \
   --transaction-dir /persistent/path/drpo-integration-transactions/<integration-id>/attempt-0001 \
   --json
 ```
 
-`--transaction-root` should be persistent and outside tracked repository paths. Batch 1 creates an isolated bare audit repository inside the attempt and removes it after a successful audit unless `--keep-audit-repo` is supplied.
+Batch 2A performs the following sequence:
 
-## Inputs
+1. rechecks the request and reviewer-decision byte hashes;
+2. cross-checks request operations against the stored scope audit;
+3. resolves remote `main` and dev refs again;
+4. fetches the exact locked commits into a temporary local repository;
+5. re-audits every approved main/dev tree entry and blob;
+6. builds the candidate tree in an isolated Git index using only approved blob SHAs and modes;
+7. creates a local source commit whose unique parent is the locked main SHA;
+8. checks out the commit and verifies a clean worktree and exact committed diff;
+9. writes `PREPARE_REPORT.json` and advances the transaction to `PREPARED`.
 
-### `INTEGRATION_REQUEST.yaml`
+The isolated-index construction is intentional. The tool does not copy a whole dev worktree and does not execute arbitrary manifest commands. Add, modify, delete, and rename operations are represented as exact Git tree changes.
 
-The request binds:
+## Batch 2A records
 
-- exact remote main SHA;
-- exact reviewed dev SHA;
-- optional result-producing commit and dirty status;
-- experiment IDs and/or governance claims;
-- exact file operations with blob SHA and Git mode;
-- a repository-relative reviewer decision path;
-- requested future gate tier.
+A successful attempt adds:
 
-The schema is strict: unknown fields fail. `add` and `modify` use the same source/destination path; `rename` names both paths; `delete` omits destination, new blob, and new mode. `expected_old_blob_sha` is optional but recommended for modify/delete/rename.
+- `integration-repo/`: a local Git repository checked out at the source commit;
+- `PREPARE_REPORT.json`: parent, tree, source commit, exact committed changes, and input hashes;
+- updated `TRANSACTION.json`: state `PREPARED` and source-commit identifiers.
 
-### `REVIEW_DECISION.yaml`
-
-The reviewer, not the tool, supplies:
-
-- code integration eligibility;
-- evidence level and result status;
-- claim support level;
-- terminal-audit state;
-- task-performance collapse;
-- support/boundary event;
-- NaN/Inf numerical failure;
-- limitations and unresolved issues.
-
-These three event classes remain separate. Formal or closure evidence requires a clean result commit that is an ancestor of the reviewed dev SHA. Dirty evidence cannot be classified as formal or closure.
-
-## Machine records
-
-A successful Batch 1 attempt contains:
-
-- `SOURCE_LOCK.json`: immutable resolved refs and input hashes;
-- `SCOPE_AUDIT.json`: actual diff, operation/blob/mode audit, provenance relation, and reviewer decision;
-- `TRANSACTION.json`: current state and next action.
-
-A failed attempt contains:
-
-- `DIAGNOSTIC.json`: stable error code, phase, message, source SHAs, and recovery guidance;
-- `TRANSACTION.json`: `BLOCKED` state.
-
-Every `plan` invocation creates a new numbered attempt. Existing `SOURCE_LOCK.json` and `SCOPE_AUDIT.json` files are never rewritten.
+Re-running Batch 2A on an intact `PREPARED` attempt is idempotent. If the repository and report were completed but the transaction update was interrupted, the adapter verifies both and safely repairs only the transaction state. Partial or inconsistent prepared artifacts fail closed.
 
 ## Safety rules
 
-The plan fails closed for:
+Batch 2A rejects:
 
-- main or dev ref drift;
-- unapproved, absent, copied, or unsupported changes;
-- mismatched blob SHA or Git mode;
-- symlinks, gitlinks/submodules, unsafe paths, control bytes, or case-fold collisions;
-- direct dev imports of handoff, registry, handoff deltas, or generated views;
-- missing or non-approving reviewer decisions;
-- scientifically inconsistent provenance classifications.
+- main or dev ref drift after Batch 1;
+- request or reviewer-decision mutation;
+- operation drift between the request and scope audit;
+- unapproved or incomplete changed-path coverage;
+- direct dev import of handoff, registry, deltas, generated views, or `.git` paths;
+- path traversal, control bytes, target collisions, symlinks, gitlinks, and unsupported Git modes;
+- blob or mode mismatches against the locked source trees;
+- Git LFS pointers and imported blobs larger than 10 MiB;
+- a transaction directory placed inside the source repository;
+- a source commit with any parent other than the locked main commit;
+- worktree, HEAD, tree, report, or committed-scope drift on an idempotent rerun.
 
-Batch 1 reads the configured Git remote through native Git. If authoritative ref resolution is unavailable, it reports `SOURCE_UNRESOLVED`; it does not substitute cached chat or document SHAs.
+Every failure writes `DIAGNOSTIC.json` and moves the transaction to `BLOCKED`, except source drift, which moves it to `STALE`. A failed or stale attempt is preserved; the normal recovery is a new Batch 1 attempt.
+
+## Concurrency and hooks
+
+One advisory file lock serializes Batch 2A executions for an attempt. Git hooks are disabled in the isolated repository, terminal credential prompts are disabled, and Git LFS smudge is skipped. The adapter creates no network-side branch, pull request, or merge.
+
+## Current acceptance boundary
+
+Batch 1 is accepted and merged. Batch 2A acceptance requires its targeted tests and the repository PR gates to pass. Even after Batch 2A is accepted, the complete V1 remains incomplete until Batch 2B and both registered shadow cases pass.
 
 ## Not implemented yet
 
-The following commands and states belong to Batch 2 and must not be inferred from Batch 1 success:
-
-- `prepare` and clean integration worktree;
-- selective file materialization;
 - registry AST mutation;
-- source commit;
-- trusted normalize and atomic amend;
-- required gates;
-- local ready commit.
+- compact result-summary registration;
+- schema-v3 delta generation and validation;
+- trusted normalization and atomic amend;
+- required test selection and gate execution;
+- final local ready commit;
+- code-only and code-plus-evidence shadow closure.
 
-Push, pull-request, CI-polling, and merge automation are outside V1.
+Push, pull-request, CI-polling, and merge automation remain outside V1.
