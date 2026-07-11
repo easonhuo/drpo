@@ -1,0 +1,58 @@
+integrate	Run integration gates	﻿2026-07-11T16:29:33.2362604Z ##[group]Run set -euo pipefail
+integrate	Run integration gates	2026-07-11T16:29:33.2362936Z ^[[36;1mset -euo pipefail^[[0m
+integrate	Run integration gates	2026-07-11T16:29:33.2363195Z ^[[36;1mpython -m compileall -q \^[[0m
+integrate	Run integration gates	2026-07-11T16:29:33.2363563Z ^[[36;1m  scripts/run_countdown_e8_oracle_offline_v2_taper_sweep.py \^[[0m
+integrate	Run integration gates	2026-07-11T16:29:33.2364010Z ^[[36;1m  src/drpo/countdown_e8_oracle_offline_v2_taper_runtime.py \^[[0m
+integrate	Run integration gates	2026-07-11T16:29:33.2364433Z ^[[36;1m  src/drpo/countdown_e8_oracle_offline_v2_taper_sweep.py \^[[0m
+integrate	Run integration gates	2026-07-11T16:29:33.2364860Z ^[[36;1m  tests/test_countdown_e8_oracle_offline_v2_taper_sweep.py^[[0m
+integrate	Run integration gates	2026-07-11T16:29:33.2365201Z ^[[36;1mruff check \^[[0m
+integrate	Run integration gates	2026-07-11T16:29:33.2365500Z ^[[36;1m  scripts/run_countdown_e8_oracle_offline_v2_taper_sweep.py \^[[0m
+integrate	Run integration gates	2026-07-11T16:29:33.2365928Z ^[[36;1m  src/drpo/countdown_e8_oracle_offline_v2_taper_runtime.py \^[[0m
+integrate	Run integration gates	2026-07-11T16:29:33.2366340Z ^[[36;1m  src/drpo/countdown_e8_oracle_offline_v2_taper_sweep.py \^[[0m
+integrate	Run integration gates	2026-07-11T16:29:33.2366737Z ^[[36;1m  tests/test_countdown_e8_oracle_offline_v2_taper_sweep.py^[[0m
+integrate	Run integration gates	2026-07-11T16:29:33.2367212Z ^[[36;1mpytest -q tests/test_countdown_e8_oracle_offline_v2_taper_sweep.py^[[0m
+integrate	Run integration gates	2026-07-11T16:29:33.2367699Z ^[[36;1mpython scripts/handoff_authority.py verify --repo-root . --json^[[0m
+integrate	Run integration gates	2026-07-11T16:29:33.2368223Z ^[[36;1mpython scripts/validate_governance_pipeline_stage_status.py --repo-root .^[[0m
+integrate	Run integration gates	2026-07-11T16:29:33.2368629Z ^[[36;1mgit diff --check^[[0m
+integrate	Run integration gates	2026-07-11T16:29:33.2369119Z ^[[36;1mtest -z "$(git status --porcelain)"^[[0m
+integrate	Run integration gates	2026-07-11T16:29:33.2401234Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+integrate	Run integration gates	2026-07-11T16:29:33.2401568Z env:
+integrate	Run integration gates	2026-07-11T16:29:33.2401781Z   DEV_SHA: f905b6724b0d3882f011237e9693582777b4f563
+integrate	Run integration gates	2026-07-11T16:29:33.2402185Z   GLOBAL_ID: EXT-C-E8-ORACLE-OFFLINE-V2-GLOBAL-LOW-SCALE-SWEEP-0.5B-01
+integrate	Run integration gates	2026-07-11T16:29:33.2402631Z   TAPER_ID: EXT-C-E8-ORACLE-OFFLINE-V2-TAPER-SWEEP-0.5B-01
+integrate	Run integration gates	2026-07-11T16:29:33.2403053Z   UPDATE_ID: EXT-C-E8-V2-GLOBAL-MILESTONE-AND-TAPER-SWEEP-2026-07-11
+integrate	Run integration gates	2026-07-11T16:29:33.2403451Z   BASE_SHA: e4aa36bf5ce03794c0d935b4570e276a0703d93e
+integrate	Run integration gates	2026-07-11T16:29:33.2403792Z   OUT_BRANCH: integration/e8-v2-taper-ready-29159835026
+integrate	Run integration gates	2026-07-11T16:29:33.2404148Z   SOURCE_PATCH_SHA: fdd487d5aa9ef253066e173e22c3f4ef7bf2599d
+integrate	Run integration gates	2026-07-11T16:29:33.2404457Z ##[endgroup]
+integrate	Run integration gates	2026-07-11T16:29:33.3064280Z All checks passed!
+integrate	Run integration gates	2026-07-11T16:29:35.1455713Z .....................                                                    [100%]
+integrate	Run integration gates	2026-07-11T16:29:35.1456260Z 21 passed in 1.37s
+integrate	Run integration gates	2026-07-11T16:29:41.7465159Z {
+integrate	Run integration gates	2026-07-11T16:29:41.7465899Z   "authoritative_delta_count": 16,
+integrate	Run integration gates	2026-07-11T16:29:41.7519319Z   "authoritative_update_ids": [
+integrate	Run integration gates	2026-07-11T16:29:41.7519832Z     "EXT-C-E8-TAPER-0.5B-CORRECTED-V73-2026-07-03",
+integrate	Run integration gates	2026-07-11T16:29:41.7520374Z     "DU1-E6-REV4-FORMAL-FREEZE-2026-07-03",
+integrate	Run integration gates	2026-07-11T16:29:41.7520936Z     "EXT-C-E8-FULLBANK-GRADIENT-PILOT-V75-2026-07-04",
+integrate	Run integration gates	2026-07-11T16:29:41.7521540Z     "GOV-RULES-PHASE2-BACKLOG-V76-2026-07-05",
+integrate	Run integration gates	2026-07-11T16:29:41.7522113Z     "EXT-C-E8-TAPER-0.5B-DIAGNOSTIC-BUGFIX-2026-07-05",
+integrate	Run integration gates	2026-07-11T16:29:41.7530089Z     "GOV-CODE-MIN-DIFF-02-HANDOFF-RULE-V77-2026-07-05",
+integrate	Run integration gates	2026-07-11T16:29:41.7530884Z     "EXT-C-E8-TAPER-0.5B-ACTIVE-TAIL-REPAIR-V79-2026-07-06",
+integrate	Run integration gates	2026-07-11T16:29:41.7532070Z     "EXT-C-E8-ONPOLICY-UNPOLISHED-0.5B-01-2026-07-07",
+integrate	Run integration gates	2026-07-11T16:29:41.7532791Z     "EXT-C-E8-ONPOLICY-CAPACITY-DIAG-0.5B-01-2026-07-07",
+integrate	Run integration gates	2026-07-11T16:29:41.7533410Z     "GOV-DEV-REVIEW-WORKFLOW-V80-2026-07-08",
+integrate	Run integration gates	2026-07-11T16:29:41.7533998Z     "EXT-C-E8-LOWSFT-RFT-0.5B-01-RESULTS-2026-07-08",
+integrate	Run integration gates	2026-07-11T16:29:41.7534573Z     "EXT-C-E8-BASE-RL-REPLAY-0.5B-01-2026-07-09",
+integrate	Run integration gates	2026-07-11T16:29:41.7535041Z     "EXT-C-E8-ORACLE-OFFLINE-BANK-V2-0.5B-01-2026-07-09",
+integrate	Run integration gates	2026-07-11T16:29:41.7535429Z     "EXT-H-E7-CANONICAL-SHORTLIST-1M-2026-07-10",
+integrate	Run integration gates	2026-07-11T16:29:41.7535859Z     "EXT-C-E8-ORACLE-OFFLINE-V2-INIT-MATRIX-PILOT-CLOSURE-2026-07-11",
+integrate	Run integration gates	2026-07-11T16:29:41.7536338Z     "EXT-C-E8-V2-GLOBAL-MILESTONE-AND-TAPER-SWEEP-2026-07-11"
+integrate	Run integration gates	2026-07-11T16:29:41.7536677Z   ],
+integrate	Run integration gates	2026-07-11T16:29:41.7537014Z   "handoff_sha256": "af2a353daff3c372aace837e84c9164fa71df859fcf67c2b94f9505e1db3a662",
+integrate	Run integration gates	2026-07-11T16:29:41.7537760Z   "manual_handoff_authoritative": false,
+integrate	Run integration gates	2026-07-11T16:29:41.7538023Z   "mode": "delta",
+integrate	Run integration gates	2026-07-11T16:29:41.7538231Z   "stage4a_checked": true,
+integrate	Run integration gates	2026-07-11T16:29:41.7538464Z   "status": "PASS"
+integrate	Run integration gates	2026-07-11T16:29:41.7538654Z }
+integrate	Run integration gates	2026-07-11T16:29:46.1193979Z Governance pipeline stage status: PASS (Stage 1=closed_maintenance_only, Stage 2=closed_maintenance_only, Stage 3=shadow_active, Stage 4=active, Stage 5=closed_maintenance_only, protected_files=25, authorizations=27)
+integrate	Run integration gates	2026-07-11T16:29:46.1392196Z ##[error]Process completed with exit code 1.
