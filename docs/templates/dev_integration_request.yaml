@@ -1,0 +1,32 @@
+schema_version: 1
+integration_id: GOV-EXAMPLE-INTEGRATION-01
+
+source:
+  repository: easonhuo/drpo
+  remote: origin
+  main_ref: refs/heads/main
+  expected_main_sha: 0000000000000000000000000000000000000000
+  dev_branch: dev/example
+  expected_dev_sha: 0000000000000000000000000000000000000000
+  result_commit_sha: null
+  result_git_dirty: false
+
+subject:
+  experiment_ids: []
+  governance_claims:
+    - GOV-EXAMPLE-01
+
+files:
+  operations:
+    - op: add
+      source_path: src/drpo/example.py
+      destination_path: src/drpo/example.py
+      expected_blob_sha: 0000000000000000000000000000000000000000
+      expected_old_blob_sha: null
+      expected_mode: "100644"
+
+review:
+  decision_file: docs/integrations/GOV-EXAMPLE-INTEGRATION-01/REVIEW_DECISION.yaml
+
+checks:
+  requested_tier: auto
