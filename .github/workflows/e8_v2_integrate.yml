@@ -326,7 +326,7 @@ jobs:
           set -euo pipefail
           git add docs/handoff.md docs/handoff_deltas/$UPDATE_ID/MATERIALIZATION_REPORT.json docs/handoff_shadow/stage4/minimal/generated
           git diff --cached --check
-          git commit -m 'Materialize E8 v2 pilot registration on current main'
+          git commit --amend --no-edit
 
       - name: Upload integration diagnostics
         if: failure()
@@ -342,13 +342,32 @@ jobs:
       - name: Run review gates
         shell: bash
         run: |
-          set -euo pipefail
-          python -m compileall -q scripts/run_countdown_e8_oracle_offline_v2_matrix.py scripts/v2_bank_convert.py scripts/v2_bank_smoke.py scripts/v2_sft.py src/drpo/countdown_e8_oracle_offline_v2_matrix.py tests/test_countdown_e8_oracle_offline_v2_matrix.py
-          ruff check scripts/run_countdown_e8_oracle_offline_v2_matrix.py scripts/v2_bank_convert.py scripts/v2_bank_smoke.py scripts/v2_sft.py src/drpo/countdown_e8_oracle_offline_v2_matrix.py tests/test_countdown_e8_oracle_offline_v2_matrix.py
-          pytest -q tests/test_countdown_e8_oracle_offline_v2_matrix.py
-          python scripts/handoff_authority.py verify --repo-root . --json
-          python scripts/validate_governance_pipeline_stage_status.py --repo-root .
-          git diff --check
+          set +e
+          review_log=review.log
+          : > "$review_log"
+          run_gate() {
+            echo "===== $* =====" >> "$review_log"
+            "$@" >> "$review_log" 2>&1
+            return $?
+          }
+          rc=0
+          run_gate python -m compileall -q scripts/run_countdown_e8_oracle_offline_v2_matrix.py scripts/v2_bank_convert.py scripts/v2_bank_smoke.py scripts/v2_sft.py src/drpo/countdown_e8_oracle_offline_v2_matrix.py tests/test_countdown_e8_oracle_offline_v2_matrix.py || rc=$?
+          if [ "$rc" -eq 0 ]; then run_gate ruff check scripts/run_countdown_e8_oracle_offline_v2_matrix.py scripts/v2_bank_convert.py scripts/v2_bank_smoke.py scripts/v2_sft.py src/drpo/countdown_e8_oracle_offline_v2_matrix.py tests/test_countdown_e8_oracle_offline_v2_matrix.py || rc=$?; fi
+          if [ "$rc" -eq 0 ]; then run_gate pytest -q tests/test_countdown_e8_oracle_offline_v2_matrix.py || rc=$?; fi
+          if [ "$rc" -eq 0 ]; then run_gate python scripts/handoff_authority.py verify --repo-root . --json || rc=$?; fi
+          if [ "$rc" -eq 0 ]; then run_gate python scripts/validate_governance_pipeline_stage_status.py --repo-root . || rc=$?; fi
+          if [ "$rc" -eq 0 ]; then run_gate git diff --check || rc=$?; fi
+          cat "$review_log"
+          exit "$rc"
+
+      - name: Upload review diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e8-v2-review-diagnostics-${{ github.run_id }}
+          path: review.log
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Push ready branch
         shell: bash
