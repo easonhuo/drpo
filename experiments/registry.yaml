@@ -5945,6 +5945,64 @@ experiments:
   - do_not_treat_value_distance_as_sample_quality
   - do_not_use_model_sampled_negatives_as_oracle_corpus_definition
 
+- id: EXT-C-E8-ORACLE-OFFLINE-V2-INIT-MATRIX-0.5B-01
+  environment: EXT-C
+  name: countdown_oracle_offline_v2_init_matrix_0p5b
+  status: pilot
+  result_status: pilot
+  claim: >-
+    Test on the frozen model-independent v2 oracle-offline corpus whether
+    bank_global_matched negatives add value beyond positive-only across base,
+    low-SFT, and full-SFT initialization, and diagnose scale-dependent failure.
+  role: external_validity_v2_init_matrix_pilot
+  execution_class: pilot
+  code_entrypoint: src/drpo/countdown_e8_oracle_offline_v2_matrix.py
+  operator_entrypoint: scripts/run_countdown_e8_oracle_offline_v2_matrix.py
+  config_entrypoint: configs/countdown_e8_base_rl_replay_0p5b.yaml
+  data:
+    corpus_experiment: EXT-C-E8-ORACLE-OFFLINE-BANK-V2-0.5B-01
+    rows: {train: 6000, validation: 500, test: 1000}
+    bank_tensor_width: 16
+    unique_candidate_count_range: [9, 16]
+    rows_with_16_unique: 4943
+    rows_with_exact_expression_padding: 1057
+    padding_policy: cycle_existing_exact_expressions_to_fixed_tensor_width
+  cells:
+    training: [base_positive_only, base_bank_global_matched_x0p25, base_bank_global_matched_x0p5, base_bank_global_matched_x1p0, base_bank_global_matched_x2p0, low_sft_positive_only, low_sft_bank_global_matched_x1p0, full_sft_positive_only]
+    eval_only: [B0, C0]
+    alias: {A1: base_positive_only, A2: base_bank_global_matched_x1p0}
+    not_executed: [A0, C2, base_onpolicy_positive_only, base_online_replay_positive_only, base_online_replay_pos_neg]
+  execution:
+    state: pilot_matrix_cells_complete
+    run_commit: fe214f010bd5fec1e0e6a83f8297132a9ae8882b
+    run_branch: dev/e8-oracle-bank-v2
+    git_dirty: true
+  evidence:
+    compact_result_path: experiments/results/e8_oracle_offline_v2_init_matrix_pilot
+    package_filename: 44ce5ae7-5207-4af1-a903-4d9e8ae1e7fd.zip
+    package_sha256: b0a05d54e531661bb15bd0dcc3f8f06354554513056c2cf7adeea71a919f59f6
+    package_size_bytes: 364230
+    single_seed: true
+    formal_result: false
+    terminal_audit_complete: false
+    nan_inf_observed: false
+  result_summary:
+    interpretation: >-
+      Positive-only learns. Tested negative multipliers do not improve the
+      primary pass@8 comparison, and larger multipliers cause severe
+      task/output-validity degradation. Pilot evidence only.
+  reporting_separation:
+    task_performance_or_validity_degradation: observed
+    support_structure_boundary: not_fully_audited
+    nan_inf_numerical_failure: not_observed
+  limitations: [single_seed_per_cell, different_seed_offsets, different_early_stop_horizons, dirty_worktree_pilot, exact_expression_padding_on_1057_rows, no_formal_method_ranking]
+  next_step:
+    state: lower_negative_scale_paired_seed_refinement_needed_not_yet_frozen
+  safeguards:
+  - do_not_call_single_seed_pilot_formal_result
+  - do_not_claim_16_unique_candidates_per_row
+  - do_not_treat_early_stop_as_convergence
+  - countdown_does_not_replace_cu1_or_du1_controlled_identification
 development_experiment_registrations:
 - id: D-U1-E6-CONDITIONAL-GAP-DEV-01
   environment: D-U1

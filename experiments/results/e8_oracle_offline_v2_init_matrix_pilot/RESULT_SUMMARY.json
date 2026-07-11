@@ -1,0 +1,208 @@
+{
+  "schema_version": 1,
+  "experiment_id": "EXT-C-E8-ORACLE-OFFLINE-V2-INIT-MATRIX-0.5B-01",
+  "status": "pilot",
+  "execution_state": "pilot_matrix_cells_complete_not_formal_closure",
+  "source": {
+    "commit": "fe214f010bd5fec1e0e6a83f8297132a9ae8882b",
+    "branch": "dev/e8-oracle-bank-v2",
+    "git_dirty": true
+  },
+  "package": {
+    "filename": "44ce5ae7-5207-4af1-a903-4d9e8ae1e7fd.zip",
+    "sha256": "b0a05d54e531661bb15bd0dcc3f8f06354554513056c2cf7adeea71a919f59f6",
+    "size_bytes": 364230,
+    "raw_package_in_repository": false
+  },
+  "bank": {
+    "tensor_width": 16,
+    "rows_total": 6000,
+    "rows_with_16_unique": 4943,
+    "rows_with_exact_expression_cycling_padding": 1057,
+    "unique_count_range": [
+      9,
+      16
+    ],
+    "unique_count_histogram": {
+      "9": 2,
+      "10": 5,
+      "11": 9,
+      "12": 332,
+      "13": 260,
+      "14": 231,
+      "15": 218,
+      "16": 4943
+    },
+    "interpretation": "Exact duplicate padding preserves attainable per-row min/max current-policy surprisal but changes tie and slot multiplicity."
+  },
+  "calibration": {
+    "base": {
+      "bank_negative_scale": 1.5850786327207642,
+      "bank_global_gamma": 0.5423810770995802
+    },
+    "low_sft": {
+      "separate_from_base": true,
+      "rounded_review_values": {
+        "bank_negative_scale": 0.187,
+        "bank_global_gamma": 0.325
+      }
+    }
+  },
+  "cells": {
+    "base_positive_only": {
+      "best": [
+        0.013,
+        0.115,
+        0.256,
+        0.957
+      ],
+      "terminal": [
+        0.087,
+        0.139,
+        0.229,
+        0.947
+      ]
+    },
+    "base_x0p25": {
+      "best": [
+        0.002,
+        0.056,
+        0.124,
+        0.848
+      ],
+      "terminal": [
+        0.016,
+        0.062,
+        0.098,
+        0.921
+      ]
+    },
+    "base_x0p5": {
+      "best": [
+        0.011,
+        0.077,
+        0.282,
+        0.964
+      ],
+      "terminal": [
+        0.006,
+        0.047,
+        0.093,
+        0.918
+      ]
+    },
+    "base_x1p0": {
+      "best": [
+        0.01,
+        0.031,
+        0.045,
+        0.478
+      ],
+      "terminal": [
+        0.005,
+        0.021,
+        0.042,
+        0.336
+      ]
+    },
+    "base_x2p0": {
+      "best": [
+        0.017,
+        0.058,
+        0.263,
+        0.55
+      ],
+      "terminal": [
+        0.005,
+        0.029,
+        0.056,
+        0.09
+      ]
+    },
+    "B0_low_sft_eval": {
+      "test": [
+        0.017,
+        0.08,
+        0.2,
+        0.989
+      ]
+    },
+    "B1_low_sft_positive_only": {
+      "best": [
+        0.074,
+        0.154,
+        0.24,
+        0.966
+      ],
+      "terminal": [
+        0.094,
+        0.14,
+        0.205,
+        0.968
+      ]
+    },
+    "B2_low_sft_x1p0": {
+      "best": [
+        0.026,
+        0.142,
+        0.241,
+        0.98
+      ],
+      "terminal": [
+        0.079,
+        0.116,
+        0.152,
+        0.925
+      ]
+    },
+    "C0_full_sft_eval": {
+      "test": [
+        0.097,
+        0.166,
+        0.284,
+        0.974
+      ]
+    },
+    "C1_full_sft_positive_only": {
+      "best": [
+        0.094,
+        0.15,
+        0.232,
+        0.966
+      ],
+      "terminal": [
+        0.104,
+        0.146,
+        0.195,
+        0.979
+      ]
+    },
+    "metric_order": [
+      "greedy",
+      "pass_at_8",
+      "pass_at_64",
+      "valid_rate"
+    ]
+  },
+  "findings": [
+    "Base initialization learns from oracle positive-only training.",
+    "Across tested base multipliers 0.25, 0.5, 1.0, and 2.0, larger negative pressure generally worsens pass@8 and terminal validity.",
+    "Base x1 and x2 show severe task/output-validity degradation without NaN/Inf.",
+    "Separately calibrated low-SFT x1 does not beat low-SFT positive-only.",
+    "Full-SFT positive-only continuation does not improve pass@8 or pass@64 over C0."
+  ],
+  "reporting_separation": {
+    "task_performance_or_validity_degradation": "observed",
+    "support_structure_boundary": "not_fully_audited",
+    "nan_inf_numerical_failure": "not_observed"
+  },
+  "limitations": [
+    "single_seed_per_cell",
+    "different_seed_offsets_across_multiplier_cells",
+    "different_early_stop_horizons",
+    "dirty_worktree_pilot",
+    "exact_expression_padding_on_1057_rows",
+    "no_formal_method_ranking"
+  ],
+  "next_decision": "Register a separate paired-seed scan closer to zero before any negative-method benefit claim."
+}
