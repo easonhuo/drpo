@@ -1,4 +1,4 @@
-name: Patch E8 V2 integration diagnostics
+name: Patch E8 V2 integration workflow
 
 on:
   push:
@@ -16,70 +16,63 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: integration/e8-oracle-v2-pilot
-      - name: Patch validation diagnostics
+          fetch-depth: 0
+
+      - name: Commit normalized handoff before authority verification
         shell: bash
         run: |
           set -euo pipefail
           python - <<'PY'
           from pathlib import Path
-          p = Path('.github/workflows/e8_v2_integrate.yml')
-          s = p.read_text()
-          old = '''      - name: Validate schema-v3 delta
+
+          path = Path('.github/workflows/e8_v2_integrate.yml')
+          text = path.read_text()
+
+          if '      - name: Commit normalized handoff\n' not in text:
+              marker = '      - name: Upload integration diagnostics\n'
+              if marker not in text:
+                  raise SystemExit('upload-diagnostics marker not found')
+              commit_step = '''      - name: Commit normalized handoff
         shell: bash
         run: |
-          set +e
-          python scripts/handoff_authority.py validate-delta \\
-            --repo-root . \\
-            --delta docs/handoff_deltas/$UPDATE_ID/HANDOFF_DELTA.yaml \\
-            --source-patch-commit "$SOURCE_PATCH_SHA" \\
-            --json > validate.log 2>&1
-          rc=$?
-          cat validate.log
-          exit $rc
+          set -euo pipefail
+          git add docs/handoff.md docs/handoff_deltas/$UPDATE_ID/MATERIALIZATION_REPORT.json docs/handoff_shadow/stage4/minimal/generated
+          git diff --cached --check
+          git commit -m 'Materialize E8 v2 pilot registration on current main'
+
 '''
-          new = '''      - name: Validate schema-v3 delta
+              text = text.replace(marker, commit_step + marker, 1)
+
+          old_final = '''      - name: Commit normalization and push ready branch
         shell: bash
         run: |
-          set +e
-          python - <<'PY' > validate.log 2>&1
-          import os, subprocess, yaml
-          base = os.environ["BASE_SHA"]
-          source = os.environ["SOURCE_PATCH_SHA"]
-          exp = os.environ["EXPERIMENT_ID"]
-          before = yaml.safe_load(subprocess.check_output(["git", "show", f"{base}:experiments/registry.yaml"], text=True))
-          after_text = subprocess.check_output(["git", "show", f"{source}:experiments/registry.yaml"], text=True)
-          after = yaml.safe_load(after_text)
-          before_ids = [row.get("id") for row in before["experiments"]]
-          after_ids = [row.get("id") for row in after["experiments"]]
-          print("BASE=", base)
-          print("SOURCE=", source)
-          print("EXPERIMENT_PRESENT_BEFORE=", exp in before_ids)
-          print("EXPERIMENT_PRESENT_AFTER=", exp in after_ids)
-          print("ADDED_IDS=", sorted(set(after_ids) - set(before_ids)))
-          print("REGISTRY_MATCHING_LINES=")
-          for i, line in enumerate(after_text.splitlines(), 1):
-              if exp in line:
-                  print(i, repr(line))
-          PY
-          python scripts/handoff_authority.py validate-delta \\
-            --repo-root . \\
-            --delta docs/handoff_deltas/$UPDATE_ID/HANDOFF_DELTA.yaml \\
-            --source-patch-commit "$SOURCE_PATCH_SHA" \\
-            --json >> validate.log 2>&1
-          rc=$?
-          cat validate.log
-          exit $rc
+          set -euo pipefail
+          git add docs/handoff.md docs/handoff_deltas/$UPDATE_ID/MATERIALIZATION_REPORT.json docs/handoff_shadow/stage4/minimal/generated
+          git diff --cached --check
+          git commit -m 'Materialize E8 v2 pilot registration on current main'
+          test "$(git rev-parse origin/main)" = "$BASE_SHA"
+          git push origin "$OUT_BRANCH"
 '''
-          if old in s:
-              p.write_text(s.replace(old, new))
-          elif 'EXPERIMENT_PRESENT_AFTER=' not in s:
-              raise SystemExit('expected validation block not found')
+          new_final = '''      - name: Push ready branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse origin/main)" = "$BASE_SHA"
+          git push origin "$OUT_BRANCH"
+'''
+          if old_final in text:
+              text = text.replace(old_final, new_final, 1)
+          elif '      - name: Push ready branch\n' not in text:
+              raise SystemExit('final push block not found')
+
+          path.write_text(text)
           PY
+
           if git diff --quiet; then
             exit 0
           fi
           git config user.name drpo-integration-bot
           git config user.email drpo-integration-bot@users.noreply.github.com
           git add .github/workflows/e8_v2_integrate.yml
-          git commit -m 'Add registry diff diagnostics to E8 v2 integration'
+          git commit -m 'Commit E8 materialization before authority verification'
           git push origin HEAD:integration/e8-oracle-v2-pilot
