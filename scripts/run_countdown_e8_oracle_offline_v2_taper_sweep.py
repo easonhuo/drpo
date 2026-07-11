@@ -8,7 +8,8 @@ import sys
 from pathlib import Path
 
 EXPERIMENT_ID = "EXT-C-E8-ORACLE-OFFLINE-V2-TAPER-SWEEP-0.5B-01"
-RUNNER = "src/drpo/countdown_e8_oracle_offline_v2_taper_sweep.py"
+RUNTIME = "src/drpo/countdown_e8_oracle_offline_v2_taper_runtime.py"
+CORE = "src/drpo/countdown_e8_oracle_offline_v2_taper_sweep.py"
 SWEEP_CONFIG = "configs/countdown_e8_oracle_offline_v2_taper_sweep_0p5b.yaml"
 BASE_CONFIG = "configs/countdown_e8_base_rl_replay_0p5b.yaml"
 
@@ -60,7 +61,9 @@ def main() -> int:
         "--artifact-output",
         str(artifact),
         "--source-file",
-        RUNNER,
+        RUNTIME,
+        "--source-file",
+        CORE,
         "--source-file",
         args.sweep_config,
         "--source-file",
@@ -84,7 +87,7 @@ def main() -> int:
         [
             "--",
             sys.executable,
-            str(repo / RUNNER),
+            str(repo / RUNTIME),
             "run",
             "--model_path",
             str(Path(args.model_path).resolve()),
