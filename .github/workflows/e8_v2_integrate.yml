@@ -271,10 +271,29 @@ jobs:
       - name: Validate and normalize from trusted current main
         shell: bash
         run: |
-          set -euo pipefail
-          python scripts/handoff_authority.py validate-delta --repo-root . --delta docs/handoff_deltas/$UPDATE_ID/HANDOFF_DELTA.yaml --source-patch-commit "$SOURCE_PATCH_SHA" --json
+          set -uo pipefail
+          diag_branch="diagnostic/e8-v2-integration-${GITHUB_RUN_ID}"
+          python scripts/handoff_authority.py validate-delta --repo-root . --delta docs/handoff_deltas/$UPDATE_ID/HANDOFF_DELTA.yaml --source-patch-commit "$SOURCE_PATCH_SHA" --json > /tmp/validate.log 2>&1
+          rc=$?
+          cat /tmp/validate.log
+          if [ $rc -ne 0 ]; then
+            cp /tmp/validate.log E8_V2_INTEGRATION_ERROR.log
+            git add -f E8_V2_INTEGRATION_ERROR.log
+            git commit -m 'Capture E8 v2 validate-delta failure'
+            git push origin HEAD:"$diag_branch"
+            exit $rc
+          fi
           git worktree add --detach /tmp/drpo-trusted-main "$BASE_SHA"
-          python scripts/handoff_authority.py normalize --repo-root . --trusted-repo-root /tmp/drpo-trusted-main --current-before "$BASE_SHA" --source-base "$BASE_SHA" --source-patch-commit "$SOURCE_PATCH_SHA" --json
+          python scripts/handoff_authority.py normalize --repo-root . --trusted-repo-root /tmp/drpo-trusted-main --current-before "$BASE_SHA" --source-base "$BASE_SHA" --source-patch-commit "$SOURCE_PATCH_SHA" --json > /tmp/normalize.log 2>&1
+          rc=$?
+          cat /tmp/normalize.log
+          if [ $rc -ne 0 ]; then
+            cp /tmp/normalize.log E8_V2_INTEGRATION_ERROR.log
+            git add -f E8_V2_INTEGRATION_ERROR.log
+            git commit -m 'Capture E8 v2 normalization failure'
+            git push origin HEAD:"$diag_branch"
+            exit $rc
+          fi
 
       - name: Run review gates
         shell: bash
