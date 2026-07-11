@@ -1,0 +1,20 @@
+schema_version: 1
+integration_id: GOV-EXAMPLE-INTEGRATION-01
+
+decision:
+  approved: false
+  code_integration_eligible: false
+  evidence_level: not_applicable
+  result_status: not_applicable
+  claim_support_level: none
+  terminal_audit: not_required
+  task_performance_collapse: not_assessed
+  support_boundary: not_assessed
+  numerical_failure: not_assessed
+
+reviewer:
+  id: replace-with-reviewer-id
+  decision_token: replace-with-review-specific-token
+
+limitations: []
+unresolved: []
