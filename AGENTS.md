@@ -27,6 +27,21 @@ Before changing code, designing a new experiment, or running an experiment:
 
 `docs/handoff.md` is the unique research master document. Do not introduce a second competing master-status document.
 
+## Default repository development route
+
+For coding and repository-document changes, the normal path is the connected GitHub App:
+
+1. Resolve the current `main` SHA through the GitHub repository API.
+2. Create or update a dedicated `dev/<claim>` branch from that exact SHA.
+3. Commit only the approved scope to the dev branch.
+4. Open a Draft PR, run the applicable GitHub Actions checks, review the diff and results, and merge only after explicit user approval.
+
+A local `git clone` or shell network path is an optional implementation convenience, not a prerequisite for this route. Failure of shell DNS, `git clone`, or `git fetch` does not mean direct GitHub write access is unavailable and must not trigger a bundle request while the GitHub App can still perform the required branch, file, PR, Actions, and merge operations.
+
+Do not create dummy branches, commits, files, or PRs merely to test permissions at every session start. Read repository permissions and the current `main` SHA first; perform write operations only for an actual approved task.
+
+If the direct GitHub route exposes a defect, repair or iterate that route rather than silently falling back to the retired package workflow. The offline package path below is an emergency fallback only.
+
 ## Epistemic independence and anti-sycophancy
 
 User agreement, disagreement, confidence, praise, criticism, or repeated insistence must not directly determine a research or engineering verdict. User feedback is a signal to re-audit the judgment, not evidence that decides the judgment.
@@ -180,9 +195,11 @@ Use, where relevant:
 * mechanism diagnostics in addition to final reward;
 * terminal checkpoints in addition to best validation checkpoints.
 
-## ChatGPT patch-delivery protocol
+## Emergency offline patch-delivery fallback
 
-When direct GitHub write access is unavailable, provide one verified downloadable ZIP compatible with the local `drpo-update` workflow. **All newly produced code-update packages must use the canonical bundle-backed format** and must contain:
+This is a deprecated emergency path, not a normal development route, and it must not be selected automatically. Use it only when the connected GitHub App has been actually checked and cannot perform an operation required by the task, or when the user explicitly requests an offline update package. Shell DNS, `git clone`, or local-container network failure alone is insufficient. While the GitHub App can create branches, write files, open PRs, inspect Actions, and merge after approval, do not request a bundle and do not produce a `drpo-update` package.
+
+When this emergency path is explicitly activated, provide one verified downloadable ZIP compatible with the local `drpo-update` workflow. **All newly produced code-update packages must use the canonical bundle-backed format** and must contain:
 
 * `update.patch`, a unified patch applicable with `git apply`;
 * `BASE_COMMIT.txt`, containing only the full base commit SHA;
