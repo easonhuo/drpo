@@ -14,10 +14,11 @@ decision:
 
 reviewer:
   id: chatgpt-reviewer-gov-dev-integration-b3
-  decision_token: b3-rollback-rehearsal-reviewed-6e39b48d
+  decision_token: b3-rollback-rehearsal-reviewed-17a7975c
 
 limitations:
   - This transaction is intentionally expected to fail during trusted normalization.
+  - The source includes the post-squash RunSpec provenance-pin repair at 17a7975c.
   - The failure must be caused only by the registered nonexistent handoff heading.
   - No candidate, registry mutation, delta, or handoff after-image may be published.
 unresolved:
