@@ -7,7 +7,7 @@
 - Responsibility: Cover learned-critic far-field mechanism validation and D4RL method-effect evidence while preserving the external-validity boundary.
 - Content contract topics: none
 - Deduplicated overlapping source chunks: 0
-- Source hash: `1713cdebc691e0ca13994a8aafecffd45c325fa4b483fb9f378e7abe9ef3ea89`
+- Source hash: `701e6dcb690027e1d3d7d34a3f8a2e9f2eef8b175884c44bb4cabf8526188173`
 
 ## Source 1: docs/handoff.md: # 15. Learned-Critic External Mechanism Validation on D4RL -> # Part V. Bandit 稳定外推子实验的收敛审计（完整保留）
 
@@ -277,49 +277,55 @@ A<0,\quad \|z\|>1 \Longrightarrow \Delta\log\sigma<0.
 - **并行与启动门禁：**56 branches 以 `dataset_seed_method` 为调度单元，默认 `40` 个可恢复 subprocess workers、每 worker `2` 个 OMP threads；seed 与 method 顶层串行均禁止。完整 sweep 启动前必须依次通过 independent reviewer、短程真实 liveness、authority/governance tests，并 merge 到 clean `main` commit；dev-branch 或未审查 commit 不得作为正式启动来源。
 - **报告分离：**任务性能崩溃、support/variance-boundary event 与 NaN/Inf numerical failure 继续分别统计。该阶段仍是 two-dataset pilot，`formal_evidence_allowed=false`；正式 D4RL-9 protocol lock 继续 blocked。
 
-## Source 14: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v56-e6-parent-closure-current-gate
+## Source 14: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:e7-ppo-stability-smoke-autotune-gate
+
+### Delta block `section_end:e7-ppo-stability-smoke-autotune-gate`
+
+- **Hopper E7 PPO stability pilot（`EXT-H-E7-PPO-STABILITY-01`）：**仅在 canonical E7 网络、critic、advantage、EXP remoteness/normalize、优化器、数据与 1M 预算不变时，将 actor surrogate 改为 PPO clip（`epsilon=0.2`、每个 old-policy snapshot 4 次 optimizer updates）。当前状态为 **implemented + real-data smoke ready + full pilot blocked + not_run**。先用 `walker2d-medium-v2 / seed 200 / EXP c=1.5` 跑 20k matched A2C/PPO smoke，检查 ratio block、正负 clip fraction、old-policy refresh、raw gradient/update norm 与 NaN/Inf；smoke 不进入科学聚合。通过并经 reviewer 接受后，才允许把 96-branch pilot RunSpec 从 template 提升到 ready。完整 pilot 固定 3 tasks、development seeds `200--203`、Positive-only 与 EXP `c=0.5/1.0/1.5`、A2C/PPO、全部 1M；held-out seeds `204--207` 保持 untouched。启动前使用短时并发候选网格，在安全 CPU/内存上限内按 aggregate completed updates/s 选择达到实测峰值 97% 的最小 worker 数；该选择属于 runtime provenance，不改变科学矩阵，也不构成连续全局最优并行度证明。固定 1M 不是 convergence；任务性能退化、support/variance boundary 与 NaN/Inf 继续分开报告。
+
+## Source 15: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v56-e6-parent-closure-current-gate
 
 ### Delta block `section_end:v56-e6-parent-closure-current-gate`
 
 - **v56 E6 父 claim 关闭覆盖：** E6 的论文核心 claim 现已范围受限关闭；主 long-run 与两个 gap 子实验的原科学状态分别保持 `long_run_validated / finite_step_validated / finite_step_validated`。`D-U1-E6-TAPER-01` 保留为可选非门禁未来工作。当前下一正式 route item 为 `EXT-H-E7-Q2`，registry 状态为 **implemented + ready + active + not_run**；启动后仍须走 canonical hardened guard，且在 raw-complete、终态审计、打包和交付前不得声称 E7 完成。
 
-## Source 15: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v57-countdown-offline-bank-current-gate
+## Source 16: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v57-countdown-offline-bank-current-gate
 
 ### Delta block `section_end:v57-countdown-offline-bank-current-gate`
 
 - **Countdown v57 覆盖：** `EXT-C-E8-V4.4-OFFLINE-BANK` 是用户批准的当前离线 focused pilot；V4.3 保留为 fixed-pair predecessor。V4.4 只改变固定负样本覆盖与 current-policy near/far reselection，不引入在线数据刷新。`EXT-H-E7-Q2` 仍是下一正式 route item，`EXT-C-E8-SCALE-01` 继续 blocked。
 
-## Source 16: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v59-countdown-offline-bank-tuning-current-gate
+## Source 17: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v59-countdown-offline-bank-tuning-current-gate
 
 ### Delta block `section_end:v59-countdown-offline-bank-tuning-current-gate`
 
 - **Countdown v59 覆盖：** `EXT-C-E8-V4.5-OFFLINE-BANK-TUNING` 是当前用户批准的离线 focused successor；V4.4 作为 frozen-bank predecessor 保留。V4.5 只调 calibrated global negative multiplier 与 exponential taper lambda，禁止在线刷新、方向筛选或模型规模同时变化。`EXT-H-E7-Q2` 仍是下一 formal route item，`EXT-C-E8-SCALE-01` 继续 blocked。
 
-## Source 17: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v62-countdown-online-offpolicy-current-gate
+## Source 18: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v62-countdown-online-offpolicy-current-gate
 
 ### Delta block `section_end:v62-countdown-online-offpolicy-current-gate`
 
 - **Countdown v62 覆盖：** `EXT-C-E8-V4.6-ONLINE-OFFPOLICY-REPLAY` 是当前用户批准并已实现的 Countdown focused successor，状态为 **implemented + not_run**。执行前必须提供完整 V4.5 `RUN_COMPLETE.json`/`terminal_audit.json` 及其指向的 V4.4 frozen inputs；runner fail-closed 校验输入与 reference adapter。它可作为独立 pilot 启动，但不改变 `EXT-H-E7-Q2` 的 formal 优先级，也不自动解锁 `EXT-C-E8-SCALE-01`。
 
-## Source 18: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v56-e6-parent-closure-execution-order
+## Source 19: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v56-e6-parent-closure-execution-order
 
 ### Delta block `section_end:v56-e6-parent-closure-execution-order`
 
 13. **v56 执行覆盖：** E6 父 claim 已关闭，`D-U1-E6-TAPER-01` 改为可选非门禁 future study；当前直接进入已实现且 registry 为 ready/active 的 `EXT-H-E7-Q2`（E7-MECH）。E7-Q2 仍为 not_run，必须先完成正式运行、终态审计、打包与交付；其后才允许冻结并实施 `EXT-H-E7-BENCH-01`。E8-MECH/V4.3 与 E8-SCALE 的相对顺序不变。
 
-## Source 19: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v57-e8-offline-bank-execution-order
+## Source 20: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v57-e8-offline-bank-execution-order
 
 ### Delta block `section_end:v57-e8-offline-bank-execution-order`
 
 14. **v57 执行覆盖：** v56 的 formal 顺序不变，`EXT-H-E7-Q2` 仍是下一正式实验。用户批准的 V4.4 作为 single-seed focused pilot 可独立执行，但必须先完成自身 best/terminal audit 与结果交付，才允许讨论 online off-policy successor；不得一次性同时改变 negative-bank 密度和数据在线刷新机制。
 
-## Source 20: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v62-countdown-online-offpolicy-execution-order
+## Source 21: docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v62-countdown-online-offpolicy-execution-order
 
 ### Delta block `section_end:v62-countdown-online-offpolicy-execution-order`
 
 18. **v62 Countdown 执行覆盖：** formal 主顺序继续由 v56/v58/v61 控制；`EXT-H-E7-Q2` 优先级不变。V4.6 允许作为独立 guarded pilot 执行，顺序固定为 predecessor/input hash audit -> 四 cell paired training -> 全部训练结束后 test evaluation -> 2×2 paired effect/interaction -> terminal audit -> canonical artifact delivery。任何 online phase 都必须保留 collector manifest、round JSONL、fresh/stale mix 与实际 selected-bank diagnostics；smoke 或单 seed 不得称实验结果。
 
-## Source 21: experiments/registry.yaml: experiments[EXT-H-E7-Q2, EXT-H-E7-BENCH-01]
+## Source 22: experiments/registry.yaml: experiments[EXT-H-E7-Q2, EXT-H-E7-BENCH-01]
 
 collection: experiments
 entries:

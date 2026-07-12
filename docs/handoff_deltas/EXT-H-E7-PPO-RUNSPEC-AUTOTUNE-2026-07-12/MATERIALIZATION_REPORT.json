@@ -1,0 +1,162 @@
+{
+  "current_before_commit": "118b9c39578dfefbc6e184a470cf8dca6be57775",
+  "current_handoff_before_sha256": "a105282a37ea13d9be8fb26f41ec05aa487454f69ffc955aa0c8ee3febaca6fb",
+  "current_registry_validation": {
+    "assertions": [
+      {
+        "change_id": "add-e7-ppo-stability-pilot",
+        "entity_id": "EXT-H-E7-PPO-STABILITY-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "5c36a0e8b5f9cba30f050c4dc1f163a1aad7c19df8dcaa4470be4580b5384970"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-H-E7-PPO-RUNSPEC-AUTOTUNE-2026-07-12/HANDOFF_DELTA.yaml",
+            "sha256": "16d688365076aa40b9bea2230c0a1643df80677fe63d4b3a80a4978e1c53cfd3"
+          },
+          {
+            "path": "docs/experiments/EXT-H-E7-PPO-STABILITY-01.md",
+            "sha256": "24ae907346f73db4425f1b283937e2d9d249d96654c001b891dbe32c42f0e2bd"
+          },
+          {
+            "path": "docs/experiments/EXT-H-E7-PPO-STABILITY-01_EXECUTION.md",
+            "sha256": "ec4da8dca2434b42d335a7f0ecb1511280ca5a36b955a3ed84e37699b5a76841"
+          },
+          {
+            "path": "configs/e7_canonical_ppo_stability_v1.json",
+            "sha256": "a6501499b19adaf68dfc38142e9ed354ef308e32c5aeed2a4a6d33801b62e877"
+          },
+          {
+            "path": "runspecs/ready/E7_PPO_STABILITY_SMOKE_20260712_01.yaml",
+            "sha256": "81250456937e7fc30f284accaca391476fe9f87595346c40df0c7dc5c968ab63"
+          },
+          {
+            "path": "runspecs/templates/E7_PPO_STABILITY_PILOT_20260712_01.yaml",
+            "sha256": "b558318894f4d68d7934407432579258a6c4d8db59d64d6caca17db477c21c4e"
+          },
+          {
+            "path": "scripts/run_e7_ppo_stability_smoke_one_click.sh",
+            "sha256": "9c9d9766934ab088cd345893894812d80bd74e2674aedb8e40013fcf3edea6fe"
+          },
+          {
+            "path": "scripts/run_e7_ppo_stability_pilot_auto_one_click.sh",
+            "sha256": "6201c13890c75109b053c934634e78488aca3f4ac32b0c3c79976cb7a3514988"
+          }
+        ],
+        "kind": "add_entity"
+      }
+    ],
+    "coverage": {
+      "added_entities": [
+        "EXT-H-E7-PPO-STABILITY-01"
+      ],
+      "changed_field_count": 0,
+      "declared_assertion_count": 1,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "delta_sha256": "16d688365076aa40b9bea2230c0a1643df80677fe63d4b3a80a4978e1c53cfd3",
+  "exact_base_candidate_sha256": "5fa9c7064dc1f5c986f78ba15d2591c8b2c6280af12f85600ee85ad890d97787",
+  "exact_base_registry_validation": {
+    "assertions": [
+      {
+        "change_id": "add-e7-ppo-stability-pilot",
+        "entity_id": "EXT-H-E7-PPO-STABILITY-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "5c36a0e8b5f9cba30f050c4dc1f163a1aad7c19df8dcaa4470be4580b5384970"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-H-E7-PPO-RUNSPEC-AUTOTUNE-2026-07-12/HANDOFF_DELTA.yaml",
+            "sha256": "16d688365076aa40b9bea2230c0a1643df80677fe63d4b3a80a4978e1c53cfd3"
+          },
+          {
+            "path": "docs/experiments/EXT-H-E7-PPO-STABILITY-01.md",
+            "sha256": "24ae907346f73db4425f1b283937e2d9d249d96654c001b891dbe32c42f0e2bd"
+          },
+          {
+            "path": "docs/experiments/EXT-H-E7-PPO-STABILITY-01_EXECUTION.md",
+            "sha256": "ec4da8dca2434b42d335a7f0ecb1511280ca5a36b955a3ed84e37699b5a76841"
+          },
+          {
+            "path": "configs/e7_canonical_ppo_stability_v1.json",
+            "sha256": "a6501499b19adaf68dfc38142e9ed354ef308e32c5aeed2a4a6d33801b62e877"
+          },
+          {
+            "path": "runspecs/ready/E7_PPO_STABILITY_SMOKE_20260712_01.yaml",
+            "sha256": "81250456937e7fc30f284accaca391476fe9f87595346c40df0c7dc5c968ab63"
+          },
+          {
+            "path": "runspecs/templates/E7_PPO_STABILITY_PILOT_20260712_01.yaml",
+            "sha256": "b558318894f4d68d7934407432579258a6c4d8db59d64d6caca17db477c21c4e"
+          },
+          {
+            "path": "scripts/run_e7_ppo_stability_smoke_one_click.sh",
+            "sha256": "9c9d9766934ab088cd345893894812d80bd74e2674aedb8e40013fcf3edea6fe"
+          },
+          {
+            "path": "scripts/run_e7_ppo_stability_pilot_auto_one_click.sh",
+            "sha256": "6201c13890c75109b053c934634e78488aca3f4ac32b0c3c79976cb7a3514988"
+          }
+        ],
+        "kind": "add_entity"
+      }
+    ],
+    "coverage": {
+      "added_entities": [
+        "EXT-H-E7-PPO-STABILITY-01"
+      ],
+      "changed_field_count": 0,
+      "declared_assertion_count": 1,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "history_preservation_passed": true,
+  "idempotence_passed": true,
+  "materialized_handoff_after_sha256": "5fa9c7064dc1f5c986f78ba15d2591c8b2c6280af12f85600ee85ad890d97787",
+  "mode": "authoritative",
+  "network_used": false,
+  "policy_id": "GOV-HANDOFF-AUTHORITY-CUTOVER-01",
+  "registry_after_sha256": "5c36a0e8b5f9cba30f050c4dc1f163a1aad7c19df8dcaa4470be4580b5384970",
+  "registry_before_sha256": "511380b837c8f6af999c25be510b9ecd5c64dbe89ad0924f1b07784eb5707622",
+  "report_schema_version": 1,
+  "source_base_commit": "118b9c39578dfefbc6e184a470cf8dca6be57775",
+  "source_patch_commit": "fed6c6bd5542cb8ba8c19ae0d5a868c3c3ceb2f3",
+  "stage4a_refresh": {
+    "refreshed": [
+      "docs/handoff_shadow/stage4/minimal/generated/MODULE_INDEX.json",
+      "docs/handoff_shadow/stage4/minimal/generated/STRUCTURE_SUGGESTIONS.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/global_core_governance.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/hopper_e7.md"
+    ],
+    "reused": [
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.dot",
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e5_mechanism.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e6_generalization.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_extrapolation.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_taper.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_mechanism_e1_e3.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/countdown_e8.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/execution_status_gates.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/history_provenance.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/paper_rewrite.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/terminal_audit.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/theory_methods_related_work.md"
+    ]
+  },
+  "status": "PASS",
+  "structural_lint_passed": true,
+  "trusted_engine_sha256": "a6532ba4c1bb9c4af24d79f027267de518c3832b347dba47e8319dee7a3ebe2c",
+  "trusted_policy_sha256": "508f6bbb6ee9bb6da5be041a23e25cd569b95475523bb6af7127cb84ea3466ad",
+  "trusted_renderer_sha256": "39a7566e91c77784822148bb18ae32e44dfcc1745fbdc1cbf14a88ce6c6a13e5",
+  "update_id": "EXT-H-E7-PPO-RUNSPEC-AUTOTUNE-2026-07-12"
+}
