@@ -62,6 +62,46 @@ def _flag_value(argv: list[str], flag: str) -> str:
     return argv[positions[0] + 1]
 
 
+def _probe_trainer_template(
+    run_spec: Mapping[str, Any],
+    *,
+    probe_steps: int,
+) -> list[str]:
+    """Return a terminating probe template without changing formal training.
+
+    The canonical trainer assumes at least one evaluation before it writes its
+    summary.  Capacity probes are shorter than the frozen 50k evaluation
+    interval, so the runtime-only probe performs one terminal evaluation episode
+    at ``probe_steps``.  This keeps the probe process structurally valid while
+    leaving the scientific 10-episode/50k evaluation protocol untouched.
+    """
+
+    if probe_steps < 1:
+        raise RuntimeResourceError("probe_steps must be positive")
+    argv = [str(value) for value in run_spec["trainer_argv_template"]]
+    expected = {
+        "--eval_interval": "50000",
+        "--eval_episodes": "10",
+    }
+    replacements = {
+        "--eval_interval": str(probe_steps),
+        "--eval_episodes": "1",
+    }
+    for flag, expected_value in expected.items():
+        positions = [index for index, token in enumerate(argv) if token == flag]
+        if len(positions) != 1 or positions[0] + 1 >= len(argv):
+            raise RuntimeResourceError(
+                f"probe trainer template must contain exactly one {flag}"
+            )
+        current = argv[positions[0] + 1]
+        if current != expected_value:
+            raise RuntimeResourceError(
+                f"canonical probe source {flag} changed: {current} != {expected_value}"
+            )
+        argv[positions[0] + 1] = replacements[flag]
+    return argv
+
+
 def _load_run_spec(path: str | Path) -> tuple[dict[str, Any], str]:
     previous = pilot._BASE_LOAD_RUN_SPEC  # noqa: SLF001
     pilot._BASE_LOAD_RUN_SPEC = entry._load_source_run_spec  # noqa: SLF001
@@ -132,6 +172,7 @@ def resource_fingerprint(
         "soft_fields": {
             "evaluation_interval": int(_flag_value(argv, "--eval_interval")),
             "evaluation_episodes": int(_flag_value(argv, "--eval_episodes")),
+            "probe_terminal_evaluation_episodes": 1,
             "probe_steps": int(probe_steps),
             "probe_seconds": float(probe_seconds),
             "probe_seed_namespace": int(probe_seed),
@@ -191,7 +232,10 @@ def _cached_selection(
     if not isinstance(selection, dict) or not isinstance(probe, dict):
         return None
     workers = selection.get("selected_workers")
-    peak = probe.get("peak_rss_bytes")
+    memory_probe = probe.get("single_branch_memory_probe")
+    if not isinstance(memory_probe, dict):
+        return None
+    peak = memory_probe.get("peak_rss_bytes")
     if not isinstance(workers, int) or workers < 1:
         return None
     if not isinstance(peak, int) or peak < 1:
@@ -269,7 +313,10 @@ def build_probe_command(
         contract=contract,
         branch=probe_branch,
         branch_dir=branch_dir,
-        trainer_argv_template=[str(item) for item in run_spec["trainer_argv_template"]],
+        trainer_argv_template=_probe_trainer_template(
+            run_spec,
+            probe_steps=probe_steps,
+        ),
     )
     environment = os.environ.copy()
     environment.update(
@@ -423,9 +470,10 @@ def _build_throughput_commands(
             contract=contract,
             branch=branch,
             branch_dir=branch_dir,
-            trainer_argv_template=[
-                str(item) for item in run_spec["trainer_argv_template"]
-            ],
+            trainer_argv_template=_probe_trainer_template(
+                run_spec,
+                probe_steps=probe_steps,
+            ),
         )
         environment = os.environ.copy()
         environment.update(
@@ -717,7 +765,7 @@ def select_runtime(
         repo_root=repo_root,
         limitations=[
             "candidate_grid_not_continuous_global_optimization",
-            "short_probe_excludes_50k_evaluation_bursts",
+            "probe_uses_one_terminal_eval_episode_not_formal_10_episode_burst",
             "single_representative_ppo_workload_family",
         ],
     )

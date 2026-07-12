@@ -294,3 +294,40 @@ def test_pilot_identity_rejects_worker_change(tmp_path: Path) -> None:
     validate_identity(work, 64)
     with pytest.raises(Exception, match="fixes max_workers=64"):
         validate_identity(work, 96)
+
+
+def test_capacity_probe_terminates_with_one_terminal_eval() -> None:
+    run_spec = {
+        "trainer_argv_template": [
+            "--steps",
+            "{steps}",
+            "--eval_interval",
+            "50000",
+            "--eval_episodes",
+            "10",
+        ]
+    }
+    result = autotune._probe_trainer_template(  # noqa: SLF001
+        run_spec,
+        probe_steps=5000,
+    )
+    assert result[result.index("--eval_interval") + 1] == "5000"
+    assert result[result.index("--eval_episodes") + 1] == "1"
+    assert run_spec["trainer_argv_template"][3] == "50000"
+    assert run_spec["trainer_argv_template"][5] == "10"
+
+
+def test_capacity_probe_rejects_formal_eval_protocol_drift() -> None:
+    run_spec = {
+        "trainer_argv_template": [
+            "--eval_interval",
+            "10000",
+            "--eval_episodes",
+            "10",
+        ]
+    }
+    with pytest.raises(autotune.RuntimeResourceError, match="source --eval_interval changed"):
+        autotune._probe_trainer_template(  # noqa: SLF001
+            run_spec,
+            probe_steps=5000,
+        )
