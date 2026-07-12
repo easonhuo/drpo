@@ -14,11 +14,12 @@ decision:
 
 reviewer:
   id: chatgpt-reviewer-gov-dev-integration-b3
-  decision_token: b3-registration-shadow-reviewed-6e39b48d
+  decision_token: b3-registration-shadow-reviewed-17a7975c
 
 limitations:
   - Local governance shadow only; the synthetic registration and READY candidate must never be pushed or merged.
   - The E7 source document remains a pilot protocol and does not establish a method ranking or convergence.
+  - The source includes the post-squash RunSpec provenance-pin repair at 17a7975c.
   - The synthetic registry entity tests registration plumbing only and carries no scientific claim.
 unresolved:
   - Real schema-v3 normalization, generated-view scope, and gate duration remain to be measured.
