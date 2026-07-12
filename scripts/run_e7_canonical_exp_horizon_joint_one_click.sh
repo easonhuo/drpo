@@ -23,9 +23,13 @@ python scripts/run_e7_canonical_exp_horizon_joint.py plan \
   --work-dir "${WORK_DIR}" \
   --max-workers 60
 
+# The canonical runner treats --resume as safe for both fresh and existing work
+# directories. Completed branches are identity-checked and skipped; incomplete
+# branches are executed without changing the registered scientific matrix.
 python scripts/run_e7_canonical_exp_horizon_joint.py run \
   --contract "${CONTRACT}" \
   --run-spec "${RUN_SPEC}" \
   --grid "${GRID}" \
   --work-dir "${WORK_DIR}" \
-  --max-workers 60
+  --max-workers 60 \
+  --resume
