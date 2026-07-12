@@ -66,17 +66,21 @@ The PPO branch must record, without changing the objective:
 - sparse actor gradient norm and actor parameter-update norm;
 - finite-value checks and old-policy refresh count.
 
+Pre-update ratio and clip aggregates cover every optimizer step and are flushed every 1000 updates. The more expensive post-update ratio, gradient-norm, and parameter-update diagnostics are sampled at the same 1000-update interval and at the terminal update.
+
 A high clip fraction only shows that the proximal constraint is active. Scientific effectiveness requires lower BEST-to-FINAL drop and lower seed variability without materially reducing attainable BEST.
 
 ## Task selection
 
-The task subset is selected for the registered stability claim, not for general benchmark coverage:
+The task subset is selected for the registered stability claim, not for general benchmark coverage. Re-analysis of the completed coefficient pilot at the common 1M horizon gives the following ordering for the planned Positive-only / EXP `c in {0.5,1.0,1.5}` matrix:
 
-1. `hopper-medium-expert-v2`: largest overall trajectory oscillation and BEST-to-FINAL degradation across the relevant EXP settings;
-2. `walker2d-medium-replay-v2`: second-largest degradation and strong seed-dependent final performance;
-3. `walker2d-medium-v2`: largest seed-cohort reversal for `EXP c=1.5` relative to Positive-only.
+1. `hopper-medium-expert-v2`: largest mean branch-wise BEST-to-FINAL drop (`31.23` normalized-score points);
+2. `walker2d-medium-replay-v2`: second-largest mean drop (`29.96` points);
+3. `walker2d-medium-v2`: third-largest mean drop (`15.36` points) and the largest `EXP c=1.5` seed-cohort reversal relative to Positive-only (`37.56` points).
 
-`hopper-medium-replay-v2` is highly oscillatory in absolute trajectory metrics, but is not in the top three for the specific `c=1.5` paired-effect seed-sensitivity criterion. It is reserved as a follow-up task rather than expanding this first pilot.
+The same three tasks are also the top three by across-seed standard deviation of the `EXP c=1.5` paired effect at 1M: `22.01`, `18.95`, and `16.24` points for walker2d-medium, walker2d-medium-replay, and hopper-medium-expert respectively.
+
+`hopper-medium-replay-v2` is highly oscillatory in absolute trajectory metrics, but ranks fourth for the planned-matrix BEST-to-FINAL criterion and sixth for the `c=1.5` paired-effect seed variance. It is reserved as a follow-up task rather than expanding this first pilot.
 
 ## Frozen matrix
 
