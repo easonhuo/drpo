@@ -1,0 +1,24 @@
+schema_version: 1
+integration_id: GOV-DEV-INTEGRATION-B3-REG-01
+
+decision:
+  approved: true
+  code_integration_eligible: true
+  evidence_level: pilot
+  result_status: pilot
+  claim_support_level: diagnostic
+  terminal_audit: not_required
+  task_performance_collapse: not_assessed
+  support_boundary: not_assessed
+  numerical_failure: not_assessed
+
+reviewer:
+  id: chatgpt-reviewer-gov-dev-integration-b3
+  decision_token: b3-registration-shadow-reviewed-6e39b48d
+
+limitations:
+  - Local governance shadow only; the synthetic registration and READY candidate must never be pushed or merged.
+  - The E7 source document remains a pilot protocol and does not establish a method ranking or convergence.
+  - The synthetic registry entity tests registration plumbing only and carries no scientific claim.
+unresolved:
+  - Real schema-v3 normalization, generated-view scope, and gate duration remain to be measured.
