@@ -1,0 +1,39 @@
+name: Temporary Materialize Handoff
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.head_ref }}
+      - name: Materialize schema-v3 delta once
+        run: |
+          set -euo pipefail
+          if git log -1 --pretty=%B | grep -q '\[auto-materialize\]'; then
+            exit 0
+          fi
+          SOURCE_PATCH_COMMIT="$(git rev-parse HEAD)"
+          git worktree add --detach /tmp/drpo-trusted-main 118b9c39578dfefbc6e184a470cf8dca6be57775
+          python scripts/handoff_authority.py normalize \
+            --repo-root . \
+            --trusted-repo-root /tmp/drpo-trusted-main \
+            --current-before 118b9c39578dfefbc6e184a470cf8dca6be57775 \
+            --source-base 118b9c39578dfefbc6e184a470cf8dca6be57775 \
+            --source-patch-commit "${SOURCE_PATCH_COMMIT}" \
+            --json
+          git config user.name "DRPO Handoff Materializer"
+          git config user.email "drpo-handoff-materializer@users.noreply.github.com"
+          git add docs/handoff.md \
+            docs/handoff_shadow/stage4/minimal/generated \
+            docs/handoff_deltas/EXT-H-E7-PPO-RUNSPEC-AUTOTUNE-2026-07-12/MATERIALIZATION_REPORT.json
+          git commit -m "EXT-H-E7-PPO-STABILITY-01 materialize authority delta [auto-materialize]"
+          git push origin HEAD:${GITHUB_HEAD_REF}
