@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from types import SimpleNamespace
+import importlib.util
 
 import pytest
 
@@ -211,6 +211,8 @@ def test_ppo_capacity_fingerprint_ignores_scientific_sweep_coordinates(
         grid_path=grid_path,
         probe_steps=20_000,
         probe_seed=990_101,
+        probe_seconds=90.0,
+        throughput_retention_fraction=0.97,
         fallback_workers=60,
         cpu_fraction=0.85,
         memory_headroom_fraction=0.15,
@@ -227,16 +229,68 @@ def test_ppo_capacity_fingerprint_ignores_scientific_sweep_coordinates(
     assert "exp_coefficients" in first["ignored_scientific_fields"]
 
 
-def test_pilot_identity_rejects_worker_change(tmp_path: Path) -> None:
-    from scripts.run_e7_ppo_stability_pilot_auto import (
-        _validate_existing_run_identity,
+
+def test_throughput_candidate_grid_and_retained_peak_rule() -> None:
+    assert autotune._candidate_workers(96, 60) == [48, 60, 72, 96]  # noqa: SLF001
+    selected, rule = autotune._select_from_throughput(  # noqa: SLF001
+        [
+            {
+                "concurrency": 48,
+                "aggregate_updates_per_second": 100.0,
+                "valid": True,
+            },
+            {
+                "concurrency": 60,
+                "aggregate_updates_per_second": 103.0,
+                "valid": True,
+            },
+            {
+                "concurrency": 72,
+                "aggregate_updates_per_second": 104.0,
+                "valid": True,
+            },
+            {
+                "concurrency": 96,
+                "aggregate_updates_per_second": 101.0,
+                "valid": True,
+            },
+        ],
+        retention_fraction=0.97,
     )
+    assert selected == 60
+    assert rule["peak_aggregate_updates_per_second"] == pytest.approx(104.0)
+
+
+def test_throughput_selection_rejects_all_failed_candidates() -> None:
+    with pytest.raises(autotune.RuntimeResourceError, match="no concurrency"):
+        autotune._select_from_throughput(  # noqa: SLF001
+            [
+                {
+                    "concurrency": 96,
+                    "aggregate_updates_per_second": 0.0,
+                    "valid": False,
+                }
+            ],
+            retention_fraction=0.97,
+        )
+
+def test_pilot_identity_rejects_worker_change(tmp_path: Path) -> None:
+    script_path = (
+        Path(__file__).resolve().parents[1]
+        / "scripts"
+        / "run_e7_ppo_stability_pilot_auto.py"
+    )
+    spec = importlib.util.spec_from_file_location("e7_ppo_pilot_auto", script_path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    validate_identity = module._validate_existing_run_identity  # noqa: SLF001
 
     work = tmp_path / "work"
     work.mkdir()
     (work / "RUN_IDENTITY.json").write_text(
         json.dumps({"plan": {"max_workers": 64}})
     )
-    _validate_existing_run_identity(work, 64)
+    validate_identity(work, 64)
     with pytest.raises(Exception, match="fixes max_workers=64"):
-        _validate_existing_run_identity(work, 96)
+        validate_identity(work, 96)

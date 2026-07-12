@@ -28,9 +28,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--work-dir", required=True)
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--fallback-workers", type=int, default=60)
-    parser.add_argument("--probe-steps", type=int, default=20_000)
+    parser.add_argument("--probe-steps", type=int, default=5_000)
     parser.add_argument("--probe-seed", type=int, default=990_101)
-    parser.add_argument("--probe-seconds", type=float, default=120.0)
+    parser.add_argument("--probe-seconds", type=float, default=90.0)
+    parser.add_argument(
+        "--throughput-retention-fraction", type=float, default=0.97
+    )
     parser.add_argument("--cpu-fraction", type=float, default=0.85)
     parser.add_argument("--memory-headroom-fraction", type=float, default=0.15)
     parser.add_argument("--per-worker-safety-factor", type=float, default=1.20)
@@ -102,6 +105,7 @@ def main(argv: list[str] | None = None) -> int:
         probe_steps=args.probe_steps,
         probe_seed=args.probe_seed,
         probe_seconds=args.probe_seconds,
+        throughput_retention_fraction=args.throughput_retention_fraction,
         cpu_fraction=args.cpu_fraction,
         memory_headroom_fraction=args.memory_headroom_fraction,
         per_worker_safety_factor=args.per_worker_safety_factor,
@@ -119,8 +123,8 @@ def main(argv: list[str] | None = None) -> int:
                 "runtime_selection": str(work_dir / "RUNTIME_SELECTION.json"),
                 "selection_mode": document["mode"],
                 "selected_workers": workers,
-                "selection_limitation": (
-                    "safe capacity selection; not a global throughput-knee claim"
+                "selection_scope": (
+                    "short empirical candidate grid under a safe capacity ceiling"
                 ),
             },
             sort_keys=True,

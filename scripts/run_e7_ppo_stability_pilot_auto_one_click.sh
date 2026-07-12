@@ -10,8 +10,9 @@ GRID="${E7_PPO_GRID:-configs/e7_canonical_ppo_stability_v1.json}"
 SMOKE_DIR="${E7_PPO_SMOKE_WORK_DIR:-outputs/e7/ppo_stability_smoke_001}"
 WORK_DIR="${E7_PPO_WORK_DIR:-outputs/e7/ppo_stability_run_001}"
 FALLBACK_WORKERS="${E7_PPO_FALLBACK_WORKERS:-60}"
-PROBE_STEPS="${E7_PPO_PROBE_STEPS:-20000}"
-PROBE_SECONDS="${E7_PPO_PROBE_SECONDS:-120}"
+PROBE_STEPS="${E7_PPO_PROBE_STEPS:-5000}"
+PROBE_SECONDS="${E7_PPO_PROBE_SECONDS:-90}"
+THROUGHPUT_RETENTION="${E7_PPO_THROUGHPUT_RETENTION:-0.97}"
 MAX_WORKERS="${E7_PPO_MAX_WORKERS:-}"
 
 for required in "${CONTRACT}" "${RUN_SPEC}" "${GRID}" "${SMOKE_DIR}/SMOKE_GATE.json"; do
@@ -31,6 +32,7 @@ COMMON_ARGS=(
   --fallback-workers "${FALLBACK_WORKERS}"
   --probe-steps "${PROBE_STEPS}"
   --probe-seconds "${PROBE_SECONDS}"
+  --throughput-retention-fraction "${THROUGHPUT_RETENTION}"
 )
 if [[ -n "${MAX_WORKERS}" ]]; then
   COMMON_ARGS+=(--max-workers "${MAX_WORKERS}")

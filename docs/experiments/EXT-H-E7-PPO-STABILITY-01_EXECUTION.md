@@ -55,7 +55,7 @@ outputs/e7/ppo_stability_smoke_001/
 
 ## PPO-specific runtime capacity selection
 
-After the smoke gate passes, the full pilot performs a short representative PPO branch probe before planning the 96 branches. The resource fingerprint includes compute-relevant fields:
+After the smoke gate passes, the full pilot first measures one representative PPO branch for peak host memory, then runs a short empirical concurrency grid before planning the 96 branches. The resource fingerprint includes compute-relevant fields:
 
 - canonical source and PPO implementation hashes;
 - batch size and optimizer learning rate;
@@ -73,7 +73,7 @@ The fingerprint intentionally ignores scientific sweep coordinates that do not c
 - one-million-step horizon;
 - method and branch counts, except that total branch count caps selected workers.
 
-The selector writes `RUNTIME_SELECTION.json` and chooses the active subprocess count from:
+The selector first computes a safe concurrency ceiling from:
 
 - currently available logical CPUs;
 - current one-minute load;
@@ -82,7 +82,9 @@ The selector writes `RUNTIME_SELECTION.json` and chooses the active subprocess c
 - configured safety and growth limits;
 - the 96-branch task ceiling.
 
-This V1 is a conservative capacity guard. It does **not** claim to locate the globally throughput-optimal knee. The selected worker count is runtime provenance, not scientific identity. Once `RUN_IDENTITY.json` exists, changing workers for the same work directory is forbidden.
+It then benchmarks a short candidate grid consisting of approximately 50%, 75%, the verified fallback (when within the ceiling), and 100% of that safe ceiling. Each candidate runs the same PPO compute path for 5,000 updates per branch. The measured objective is aggregate completed updates per second. Production concurrency is the smallest successful candidate reaching at least 97% of the measured peak, which avoids paying extra contention for negligible throughput gain.
+
+The selector writes `RUNTIME_SELECTION.json` with the memory probe, candidate grid, per-candidate throughput and failures, and the selection rule. This is an empirical short-grid estimate, not a proof of the continuous global optimum. The short probe also does not include the 50k evaluation bursts, which remains an explicit limitation. The selected worker count is runtime provenance, not scientific identity. Once `RUN_IDENTITY.json` exists, changing workers for the same work directory is forbidden.
 
 ## Frozen full pilot
 
