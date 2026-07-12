@@ -199,7 +199,7 @@ def test_retry_requires_a_fresh_checkpoint(tmp_path: Path):
     assert report["final_reason"] == "no_fresh_checkpoint"
 
 
-def test_invalid_recovery_attempt_limit_is_rejected_before_training(tmp_path: Path):
+def test_invalid_recovery_attempt_limit_is_rejected_before_claim_or_training(tmp_path: Path):
     repo = make_repo(tmp_path)
     spec_path = repo / "runspecs/ready/E8_RECOVERY_20260712.yaml"
     spec = yaml.safe_load(spec_path.read_text(encoding="utf-8"))
@@ -213,3 +213,23 @@ def test_invalid_recovery_attempt_limit_is_rejected_before_training(tmp_path: Pa
     assert proc.returncode != 0
     assert "between 2 and 3" in proc.stdout
     assert not (repo / "outputs/e8/recovery/checkpoint.state").exists()
+    assert not (repo / ".runspec_state/claimed/E8_RECOVERY_20260712.yaml").exists()
+
+
+def test_resume_command_is_automatically_provenance_protected(tmp_path: Path):
+    repo = make_repo(tmp_path)
+    resume = repo / "scripts/demo/resume.sh"
+    resume.write_text(resume.read_text(encoding="utf-8") + "# changed after pin\n", encoding="utf-8")
+    run(["git", "add", "scripts/demo/resume.sh"], cwd=repo)
+    run(["git", "commit", "-q", "-m", "change resume"], cwd=repo)
+
+    proc = run(
+        ["python", str(RUN_LANE), "--repo-root", str(repo), "--once", "--json"],
+        cwd=repo,
+        check=False,
+    )
+    assert proc.returncode != 0
+    assert "protected experiment files changed" in proc.stdout
+    assert "scripts/demo/resume.sh" in proc.stdout
+    assert not (repo / "outputs/e8/recovery/checkpoint.state").exists()
+    assert not (repo / ".runspec_state/claimed/E8_RECOVERY_20260712.yaml").exists()
