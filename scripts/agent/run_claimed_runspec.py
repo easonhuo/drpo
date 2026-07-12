@@ -15,15 +15,16 @@ from runspec_lib import (
     json_main,
     move_state,
     read_yaml,
-    run_entrypoint,
     state_path,
 )
+from runspec_recovery import run_entrypoint_with_recovery, validate_recovery_policy
 from runspec_safety import package_artifacts_safe, validate_provenance
 
 
 def execute_claimed_runspec(repo: Path, claimed: Path) -> tuple[dict[str, Any], int]:
     spec = read_yaml(claimed)
     validate_provenance(repo, spec)
+    validate_recovery_policy(repo, spec)
     publish = spec.get("publish") or {}
     if isinstance(publish, dict) and publish.get("enabled") is True:
         from publish_runspec_result import validate_publish_block
@@ -36,7 +37,7 @@ def execute_claimed_runspec(repo: Path, claimed: Path) -> tuple[dict[str, Any], 
         {"run_id": spec["run_id"], "state": "running"},
     )
     try:
-        run_result = run_entrypoint(repo, running)
+        run_result = run_entrypoint_with_recovery(repo, running)
         manifest = package_artifacts_safe(repo, running)
     except Exception as exc:  # noqa: BLE001
         failed = move_state(
@@ -58,6 +59,9 @@ def execute_claimed_runspec(repo: Path, claimed: Path) -> tuple[dict[str, Any], 
             "state": "done",
             "artifact_zip": manifest["zip_path"],
             "artifact_zip_sha256": manifest["zip_sha256"],
+            "attempts": run_result.get("attempts", 1),
+            "recovery_used": bool(run_result.get("recovery_used", False)),
+            "recovery_report": run_result.get("recovery_report"),
         },
     )
     payload: dict[str, Any] = {
@@ -66,6 +70,9 @@ def execute_claimed_runspec(repo: Path, claimed: Path) -> tuple[dict[str, Any], 
         "state_path": done.relative_to(repo).as_posix(),
         "artifact_zip": manifest["zip_path"],
         "returncode": run_result["returncode"],
+        "attempts": run_result.get("attempts", 1),
+        "recovery_used": bool(run_result.get("recovery_used", False)),
+        "recovery_report": run_result.get("recovery_report"),
         "publish_status": "not_requested",
     }
     publish = spec.get("publish") or {}
