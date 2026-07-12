@@ -8,7 +8,7 @@ import yaml
 from drpo import e7_ppo_stability_smoke as smoke_impl
 
 
-PINNED_EXECUTION_COMMIT = "a16bce7ebcffe2b0557bfdbe28541b0a18be6855"
+PINNED_EXECUTION_COMMIT = "af43d246956c4066b3bbbbc51eb974555d5f6bdb"
 
 
 def _root() -> Path:
