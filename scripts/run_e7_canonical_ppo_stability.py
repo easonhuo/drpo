@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from drpo.e7_canonical_ppo_stability import main
+from drpo.e7_canonical_ppo_stability_entry import main
 
 
 if __name__ == "__main__":
