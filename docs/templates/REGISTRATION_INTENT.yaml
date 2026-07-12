@@ -1,0 +1,32 @@
+schema_version: 1
+integration_id: GOV-EXAMPLE-INTEGRATION-01
+mode: authoritative_delta
+update_id: EXAMPLE-REGISTRATION-2026-07-11
+
+registry_mutation:
+  kind: add_experiment  # add_experiment or replace_experiment
+  experiment_id: EXAMPLE-EXPERIMENT-01
+  expected_before_semantic_sha256: null  # required for replace_experiment
+  experiment:
+    id: EXAMPLE-EXPERIMENT-01
+    environment: example
+    name: example_experiment
+    status: not_run
+    claim: Replace this complete mapping with the reviewer-approved registry entity.
+    role: diagnostic
+
+handoff_operations:
+  - operation_id: append-example-registration
+    op: append_to_section
+    heading_path:
+      - 0. 研究与执行原则（每次新会话首先阅读）
+      - 0.1 当前执行门禁
+    block_id: example-experiment-registration
+    content: '- Register `EXAMPLE-EXPERIMENT-01` as **not run**. Replace this text with the exact reviewer-approved handoff block.'
+
+registry_changes:
+  - change_id: add-example-experiment
+    kind: add_entity
+    entity_id: EXAMPLE-EXPERIMENT-01
+    evidence:
+      - experiments/registry.yaml
