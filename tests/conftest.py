@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import atexit
 import importlib
+import os
 import shutil
 import subprocess
 import sys
@@ -66,6 +67,8 @@ _STAGE4_HISTORICAL_TEST_FILES = {
     "tests/test_stage4a_acceptance.py",
     "tests/test_stage4b_candidate.py",
 }
+_BATCH3_HEAD_REF = "dev/gov-dev-branch-integration-01-batch3"
+_BATCH3_SUMMARY_PREFIX = "BATCH3_SHADOW_SUMMARY_JSON="
 _stage4_fixture_root: Path | None = None
 _stage4_fixture_temp: Path | None = None
 
@@ -188,3 +191,15 @@ def pytest_collection_modifyitems(config, items) -> None:  # type: ignore[no-unt
             module.REPO_ROOT = fixture
         elif file_name == "tests/test_stage4b_candidate.py":
             module.ROOT = fixture
+
+
+def pytest_terminal_summary(terminalreporter) -> None:  # type: ignore[no-untyped-def]
+    """Expose the captured Batch 3 machine summary in the authoritative CI log."""
+
+    if os.environ.get("GITHUB_HEAD_REF") != _BATCH3_HEAD_REF:
+        return
+    for report in terminalreporter.stats.get("passed", []):
+        for _section_name, content in getattr(report, "sections", []):
+            for line in content.splitlines():
+                if line.startswith(_BATCH3_SUMMARY_PREFIX):
+                    terminalreporter.write_line(line)
