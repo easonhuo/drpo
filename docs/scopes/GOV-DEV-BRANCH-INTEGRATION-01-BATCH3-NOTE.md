@@ -28,9 +28,9 @@ The acceptance runner is invoked by the existing full-pytest PR gate only on the
 - main ref: `refs/heads/shadow/gov-dev-integration-01-reg-main`
 - locked main SHA: `ead84d39c7df8c77de82e17d6fde27028582ff15`
 - dev ref: `refs/heads/shadow/gov-dev-integration-01-reg-dev`
-- locked dev/result SHA: `6e39b48dd18f273a30a737b39baf80af0093410a`
-- source change: the already-reviewed E7 EXP coefficient/horizon pilot implementation and its pilot protocol summary
-- expected changed paths: exactly the seven files changed by commit `6e39b48d…`
+- locked dev/result SHA: `17a7975c4fd0b0fb7058fd44bd6e725c6c1559ae`
+- source change: the already-reviewed E7 EXP coefficient/horizon pilot implementation, pilot protocol summary, and the post-squash RunSpec provenance-pin repair
+- expected changed paths: exactly the seven E7 pilot files present after `17a7975…`
 - registration target: `GOV-DEV-INTEGRATION-SHADOW-PILOT-01`
 - local-only registry status: `pilot`
 - scientific meaning: governance pipeline shadow only; no Hopper method ranking, convergence, task-performance, support/boundary, or numerical-collapse claim
