@@ -68,8 +68,53 @@ logs/
 ```
 
 A `run_id` is single-use. A run already present in `claimed`, `running`, `done`,
-`failed`, or `published` is not claimed again. A rerun or retry must use a new
-`run_id`; this prevents accidental repeat training and result ambiguity.
+`failed`, or `published` is not claimed again. A new scientific rerun still uses
+a new `run_id`; this prevents accidental repeat training and result ambiguity.
+
+## Bounded transient recovery
+
+Recovery is optional and must be declared by the online planner in the same
+RunSpec before execution. It does not let the local AI infer a repair, edit a
+configuration, change hyperparameters, or invent a resume command.
+
+A recovery-enabled RunSpec declares:
+
+```yaml
+recovery:
+  enabled: true
+  max_attempts: 2
+  resume_command: bash scripts/e8/resume_example_one_click.sh
+  retryable_exit_codes: [75, 137, 143]
+  checkpoint_globs:
+    - outputs/e8/example_run/checkpoints/resume_state.json
+  backoff_seconds: 60
+```
+
+The bounded recovery contract is:
+
+- `max_attempts` counts the initial attempt and is limited to 2 or 3;
+- the first attempt uses `entrypoint.command`;
+- later attempts use only the checked-in `recovery.resume_command`;
+- the failed exit code must be explicitly allow-listed;
+- at least one fresh checkpoint matching `checkpoint_globs` must have been
+  written by the failed attempt;
+- checkpoint paths may not be symbolic links or escape the repository;
+- logs containing out-of-memory or NaN/non-finite signatures stop immediately;
+- command-start failures, success-criteria failures, packaging failures, and
+  publication failures are not training retries.
+
+All attempts remain inside the same single-use `run_id`. The executor stays in
+the foreground until the attempt sequence reaches a terminal state. Per-attempt
+logs and the machine-readable decision trail are written under:
+
+```text
+.runspec_state/logs/<run_id>/attempt-01/
+.runspec_state/logs/<run_id>/attempt-02/
+.runspec_state/logs/<run_id>/RECOVERY_REPORT.json
+```
+
+If the policy does not authorize another attempt, the run moves to `failed` and
+the local AI reports the failure instead of changing code or parameters.
 
 ## Provenance contract
 
