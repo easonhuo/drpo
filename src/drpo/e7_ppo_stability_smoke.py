@@ -106,6 +106,22 @@ def _load_inputs(
     return contract, run_spec, grid, run_spec_sha256, grid_sha256, branches
 
 
+def _smoke_trainer_template(run_spec: Mapping[str, Any]) -> list[str]:
+    argv = [str(value) for value in run_spec["trainer_argv_template"]]
+    positions = [index for index, token in enumerate(argv) if token == "--eval_interval"]
+    if len(positions) != 1 or positions[0] + 1 >= len(argv):
+        raise SmokeGateError(
+            "smoke trainer template must contain exactly one --eval_interval"
+        )
+    current = argv[positions[0] + 1]
+    if current != "50000":
+        raise SmokeGateError(
+            f"canonical smoke source eval interval changed: {current} != 50000"
+        )
+    argv[positions[0] + 1] = str(SMOKE_STEPS)
+    return argv
+
+
 def _select_smoke_branches(branches: Iterable[base.Branch]) -> list[base.Branch]:
     selected: list[base.Branch] = []
     for mode in SMOKE_MODES:
@@ -379,9 +395,7 @@ def run_smoke(
                     work_dir=work,
                     grid_sha256=grid_sha256,
                     run_spec_sha256=run_spec_sha256,
-                    trainer_argv_template=[
-                        str(value) for value in run_spec["trainer_argv_template"]
-                    ],
+                    trainer_argv_template=_smoke_trainer_template(run_spec),
                     base_environment={
                         str(key): str(value)
                         for key, value in run_spec.get("environment", {}).items()
