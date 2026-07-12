@@ -1,9 +1,11 @@
 # DRPO dev-branch integration protocol
 
 **Claim:** `GOV-DEV-BRANCH-INTEGRATION-01`  
-**Current implementation phase:** Batch 2B, trusted normalization and local `READY` closure  
+**Current implementation phase:** V1 accepted operational / maintenance  
 **Authoritative scope:** `docs/scopes/GOV-DEV-BRANCH-INTEGRATION-01.md`  
 **Batch 2B scope:** `docs/scopes/GOV-DEV-BRANCH-INTEGRATION-01-BATCH2B-NOTE.md`  
+**Batch 3 acceptance:** `docs/scopes/GOV-DEV-BRANCH-INTEGRATION-01-BATCH3-NOTE.md`  
+**V1 closure:** `docs/pipeline_handoffs/DEV_BRANCH_INTEGRATION_PIPELINE_V1_CLOSURE.md`  
 **V1 contract:** `docs/pipeline_handoffs/DEV_BRANCH_INTEGRATION_PIPELINE_V1_SPEC.md`
 
 ## Purpose and boundary
@@ -16,6 +18,8 @@ The transaction layer converts one reviewer-approved dev snapshot into a locally
 4. Batch 3 performs two real shadow observations and a rollback rehearsal before V1 acceptance.
 
 The tool does not design experiments, classify evidence autonomously, replace reviewer judgment, or replace the existing handoff authority, formal experiment channel, update-package tooling, or test selector. V1 excludes automatic push, pull-request creation, CI polling, PR refresh, and merge.
+
+V1 is the normal integration route for long-lived, stale-base, scientific, registry/handoff, provenance-sensitive, or selectively imported dev snapshots. A fresh-main, isolated, low-risk change may still use the direct reviewed GitHub App PR route. Publication and merge remain outside this local transaction tool in both cases.
 
 ## Batch 1: plan and audit
 
@@ -186,6 +190,8 @@ Every failure writes `DIAGNOSTIC.json`. Source drift moves the transaction to `S
 
 An advisory attempt lock serializes Batch 2A and Batch 2B operations. Git hooks are disabled in the isolated repository, terminal credential prompts are disabled, and Git LFS smudge is skipped. The adapters create no network-side branch, pull request, or merge.
 
-## Current acceptance boundary
+## Acceptance and maintenance status
 
-Batch 1 and Batch 2A are accepted and merged. Batch 2B requires targeted tests plus repository PR gates before merge. Even after Batch 2B is accepted, the complete V1 remains incomplete until both real Batch 3 shadows and the rollback rehearsal pass.
+Batch 1, Batch 2A, Batch 2B, both real Batch 3 shadows, and the rollback rehearsal are accepted and merged. V1 is operational within the risk boundary in the closure document.
+
+The two valid shadows reached local `READY`; the injected late authority fault was blocked and restored cleanly; no scientific state was upgraded and no candidate was published. The framework now enters maintenance mode. Further changes must respond to measured integration defects or gate-efficiency evidence and must not expand into automatic publication or a workflow platform without a new approved claim.
