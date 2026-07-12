@@ -2,7 +2,7 @@ version: 1
 run_id: E7_PPO_STABILITY_SMOKE_20260712_01
 lane: e7
 experiment_id: EXT-H-E7-PPO-STABILITY-01
-repo_commit: 76874d6cc40cca83dcf9917fbf779761c222a1be
+repo_commit: 2518f9b8640e941494b97317be3c426a886acb74
 priority: 130
 created_at: '2026-07-12T15:30:00Z'
 entrypoint:
