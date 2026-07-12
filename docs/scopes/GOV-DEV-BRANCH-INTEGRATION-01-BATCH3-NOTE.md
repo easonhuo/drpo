@@ -38,7 +38,7 @@ The acceptance runner is invoked by the existing full-pytest PR gate only on the
 
 ### C. Rollback rehearsal
 
-A second registration transaction uses the same locked real refs but supplies a reviewer-bound delta with a deliberately nonexistent handoff heading. The expected outcome is a fail-closed normalization error after authored mutation begins. Acceptance requires:
+A second registration transaction uses the same locked real refs and a valid handoff operation, but deliberately declares an unsupported registry-change kind. The adapter accepts and authors the reviewer-bound intent, while the trusted current-main authority must reject the schema-v3 delta after authored mutation has begun. Acceptance requires:
 
 - `DIAGNOSTIC.json` is written;
 - the transaction becomes `BLOCKED`, not `READY`;
@@ -76,7 +76,7 @@ Batch 3 passes only when:
 3. the registration candidate contains exactly the approved source paths plus registry, one schema-v3 delta, its materialization report, handoff after-image, and approved generated views;
 4. committed handoff authority and all required gates pass;
 5. the registration remains explicitly pilot/governance-only and creates no scientific ranking or convergence claim;
-6. the injected invalid-heading transaction is blocked and restored to `PREPARED` source state;
+6. the injected invalid registry-change declaration is blocked and restored to `PREPARED` source state;
 7. real remote refs remain at their locked SHAs;
 8. all attempts and diagnostics remain auditable;
 9. no Stage 1, 2, or 5 protected responsibility is changed;
