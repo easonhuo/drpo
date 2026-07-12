@@ -64,7 +64,11 @@ def test_configure_is_idempotent_and_installs_strict_hook(tmp_path: Path):
     lane = yaml.safe_load((repo / ".agent_lane.yaml").read_text())
     assert lane["lane"] == "e8"
     assert lane["executor_mode"] == "strict"
-    assert "run_lane.py --once" in (repo / "CLAUDE.local.md").read_text()
+    local_instructions = (repo / "CLAUDE.local.md").read_text()
+    assert "run_lane.py --once" in local_instructions
+    assert "Never move, copy, delete, or recreate files" in local_instructions
+    assert "Never rerun a failed `run_id`" in local_instructions
+    assert "create `COMPLETED.json`" in local_instructions
     settings = json.loads((repo / ".claude" / "settings.local.json").read_text())
     commands = [
         hook["command"]
@@ -90,17 +94,22 @@ def test_guard_allows_runspec_and_blocks_direct_training_and_edits(tmp_path: Pat
     assert allowed.returncode == 0
     assert allowed.stdout == ""
 
-    direct = run_hook(
-        repo,
-        {
-            "tool_name": "Bash",
-            "tool_input": {"command": "torchrun --nproc_per_node=8 train.py"},
-            "cwd": str(repo),
-        },
-    )
-    decision = json.loads(direct.stdout)["hookSpecificOutput"]
-    assert decision["permissionDecision"] == "deny"
-    assert "run_lane.py" in decision["permissionDecisionReason"]
+    for command in (
+        "torchrun --nproc_per_node=8 train.py",
+        "rm .runspec_state/failed/task.yaml",
+        "mv .runspec_state/failed/task.yaml runspecs/ready/task.yaml",
+    ):
+        direct = run_hook(
+            repo,
+            {
+                "tool_name": "Bash",
+                "tool_input": {"command": command},
+                "cwd": str(repo),
+            },
+        )
+        decision = json.loads(direct.stdout)["hookSpecificOutput"]
+        assert decision["permissionDecision"] == "deny"
+        assert "run_lane.py" in decision["permissionDecisionReason"]
 
     edit = run_hook(
         repo,
