@@ -1,6 +1,6 @@
-# Dev-integration records
+# Dev integration request records
 
-Each real integration request should use its own repository directory:
+Each reviewed integration may create one repository directory:
 
 ```text
 docs/integrations/<integration-id>/
@@ -8,12 +8,17 @@ docs/integrations/<integration-id>/
   REVIEW_DECISION.yaml
 ```
 
-The request and decision are reviewer-owned inputs. Runtime transaction records belong in a persistent path outside the tracked source repository.
+Use the templates under `docs/templates/`. These files are reviewer inputs, not machine transaction state. Machine-generated `SOURCE_LOCK.json`, `SCOPE_AUDIT.json`, `TRANSACTION.json`, `DIAGNOSTIC.json`, normalization/gate reports, logs, and ready-commit records belong under the untracked persistent `--transaction-root` supplied to the CLI.
 
-Current implementation states:
+After Batch 2A reaches `PREPARED`, a transaction may optionally add the following untracked inputs directly inside its attempt directory:
 
-- Batch 1 `plan` produces a `REVIEWED` transaction with source and scope audits.
-- Batch 2A `scripts/dev_integration_write_path.py` produces a local `PREPARED` source commit.
-- Batch 2B normalization, gates, and final ready commit are not implemented yet.
+```text
+REGISTRATION_INTENT.yaml
+REGISTRATION_APPROVAL.yaml
+```
 
-Do not commit runtime transaction directories, temporary audit repositories, or local integration repositories here. Evidence summaries or closure records may be added later only under an explicitly approved schema and scope.
+Both files must be present together. The approval binds the exact intent bytes to the already locked request, reviewer decision, reviewer identity, and review token. The target experiment must already be named in the reviewed request. Absence of both files means code-only normalization; the tool does not infer or invent registration content.
+
+Do not commit credentials, GitHub tokens, model weights, datasets, large result artifacts, or local absolute paths in an integration request. `reviewer.decision_token` is a review-specific identifier, not an authentication secret.
+
+Batch 1 ends at `REVIEWED`, Batch 2A ends at `PREPARED`, and Batch 2B ends at local `READY`. See `docs/dev_branch_integration_protocol.md` for the commands and current boundaries.
