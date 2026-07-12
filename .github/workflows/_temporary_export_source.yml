@@ -14,11 +14,14 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Archive checked-out source
+      - name: Archive exact checkout and Git history
         run: |
           tar --exclude=.git --exclude=.runspec_state --exclude=outputs -czf /tmp/drpo-source.tar.gz .
+          git bundle create /tmp/drpo-history.bundle --all
       - uses: actions/upload-artifact@v4
         with:
           name: temporary-drpo-source
-          path: /tmp/drpo-source.tar.gz
+          path: |
+            /tmp/drpo-source.tar.gz
+            /tmp/drpo-history.bundle
           retention-days: 1
