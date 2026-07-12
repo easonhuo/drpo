@@ -130,6 +130,7 @@ def cached_cpu_selection(
     machine: MachineSnapshot,
     memory_headroom_fraction: float,
     per_worker_safety_factor: float,
+    cpu_fraction: float,
 ) -> int | None:
     source = Path(path)
     if not source.is_file():
@@ -162,7 +163,11 @@ def cached_cpu_selection(
     usable = int(machine.effective_memory_available_bytes * (1.0 - memory_headroom_fraction))
     if workers * reserved > usable:
         return None
-    if workers > machine.logical_cpu_count:
+    current_cpu_limit = max(
+        1,
+        int(machine.logical_cpu_count * cpu_fraction - machine.load_average_1m),
+    )
+    if workers > current_cpu_limit:
         return None
     return workers
 
@@ -270,6 +275,7 @@ def select_e7_runtime(
         machine=machine,
         memory_headroom_fraction=memory_headroom_fraction,
         per_worker_safety_factor=per_worker_safety_factor,
+        cpu_fraction=cpu_fraction,
     )
     if cached is not None:
         previous = load_json(selection_path)
