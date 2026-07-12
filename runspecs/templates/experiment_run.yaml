@@ -19,6 +19,20 @@ entrypoint:
   cwd: repo_root
   command: bash scripts/e8/run_example_one_click.sh
 
+# Optional bounded recovery. It is disabled unless the online planner explicitly
+# registers a checked-in resume command, retryable exit codes, and checkpoint paths.
+recovery:
+  enabled: false
+  max_attempts: 2
+  resume_command: bash scripts/e8/resume_example_one_click.sh
+  retryable_exit_codes:
+    - 75
+    - 137
+    - 143
+  checkpoint_globs:
+    - outputs/e8/example_run/checkpoints/resume_state.json
+  backoff_seconds: 60
+
 policy:
   existing_script_required: true
   forbid_new_launcher: true
