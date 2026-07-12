@@ -2,7 +2,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 import yaml
+
+from drpo import e7_ppo_stability_smoke as smoke_impl
+
+
+PINNED_EXECUTION_COMMIT = "2518f9b8640e941494b97317be3c426a886acb74"
 
 
 def _root() -> Path:
@@ -59,8 +65,8 @@ def test_smoke_runspec_is_ready_but_full_pilot_remains_template() -> None:
 
     smoke = _load(smoke_path)
     pilot = _load(pilot_path)
-    assert smoke["repo_commit"] == "76874d6cc40cca83dcf9917fbf779761c222a1be"
-    assert pilot["repo_commit"] == "76874d6cc40cca83dcf9917fbf779761c222a1be"
+    assert smoke["repo_commit"] == PINNED_EXECUTION_COMMIT
+    assert pilot["repo_commit"] == PINNED_EXECUTION_COMMIT
     assert smoke["entrypoint"]["command"] == (
         "bash scripts/run_e7_ppo_stability_smoke_one_click.sh"
     )
@@ -71,3 +77,29 @@ def test_smoke_runspec_is_ready_but_full_pilot_remains_template() -> None:
     assert pilot["resources"]["max_parallel_processes"] == (
         "auto_from_RUNTIME_SELECTION"
     )
+
+
+def test_smoke_overrides_only_evaluation_interval_to_terminal_step() -> None:
+    run_spec = {
+        "trainer_argv_template": [
+            "--steps",
+            "{steps}",
+            "--eval_interval",
+            "50000",
+            "--eval_episodes",
+            "10",
+        ]
+    }
+    result = smoke_impl._smoke_trainer_template(run_spec)  # noqa: SLF001
+    index = result.index("--eval_interval")
+    assert result[index + 1] == str(smoke_impl.SMOKE_STEPS)
+    assert run_spec["trainer_argv_template"][index + 1] == "50000"
+    assert result[result.index("--eval_episodes") + 1] == "10"
+
+
+def test_smoke_rejects_unregistered_source_evaluation_interval() -> None:
+    run_spec = {
+        "trainer_argv_template": ["--eval_interval", "10000"],
+    }
+    with pytest.raises(smoke_impl.SmokeGateError, match="source eval interval changed"):
+        smoke_impl._smoke_trainer_template(run_spec)  # noqa: SLF001
