@@ -1,0 +1,23 @@
+schema_version: 1
+integration_id: GOV-DEV-INTEGRATION-B3-CODE-01
+
+decision:
+  approved: true
+  code_integration_eligible: true
+  evidence_level: closure
+  result_status: not_applicable
+  claim_support_level: diagnostic
+  terminal_audit: not_required
+  task_performance_collapse: not_assessed
+  support_boundary: not_assessed
+  numerical_failure: not_assessed
+
+reviewer:
+  id: chatgpt-reviewer-gov-dev-integration-b3
+  decision_token: b3-code-shadow-reviewed-83ae2545
+
+limitations:
+  - Shadow acceptance only; the READY candidate must not be pushed or merged.
+  - This observation evaluates governance integration mechanics, not scientific evidence.
+unresolved:
+  - End-to-end gate duration and any real-ref integration defects remain to be measured.
