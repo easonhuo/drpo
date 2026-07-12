@@ -1,0 +1,24 @@
+schema_version: 1
+integration_id: GOV-DEV-INTEGRATION-B3-ROLLBACK-01
+
+decision:
+  approved: true
+  code_integration_eligible: true
+  evidence_level: not_applicable
+  result_status: not_applicable
+  claim_support_level: none
+  terminal_audit: not_required
+  task_performance_collapse: not_assessed
+  support_boundary: not_assessed
+  numerical_failure: not_assessed
+
+reviewer:
+  id: chatgpt-reviewer-gov-dev-integration-b3
+  decision_token: b3-rollback-rehearsal-reviewed-6e39b48d
+
+limitations:
+  - This transaction is intentionally expected to fail during trusted normalization.
+  - The failure must be caused only by the registered nonexistent handoff heading.
+  - No candidate, registry mutation, delta, or handoff after-image may be published.
+unresolved:
+  - The exact fail-closed error code is determined by the trusted current-main authority implementation.
