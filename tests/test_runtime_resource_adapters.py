@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import dataclasses
 from pathlib import Path
 
 import pytest
@@ -129,8 +130,21 @@ def test_e7_selects_from_probe_then_reuses_exact_cache(
     assert second["selection"]["selected_workers"] == 48
     assert calls["count"] == 1
 
+    loaded_machine = dataclasses.replace(kwargs["machine"], load_average_1m=40.0)
+    assert (
+        adapters.cached_cpu_selection(
+            tmp_path / "work" / "RUNTIME_SELECTION.json",
+            resource_fingerprint=first["resource_fingerprint"],
+            machine=loaded_machine,
+            memory_headroom_fraction=0.20,
+            per_worker_safety_factor=1.25,
+            cpu_fraction=0.75,
+        )
+        is None
+    )
 
-def test_cached_e7_selection_is_rejected_on_machine_static_change(tmp_path: Path) -> None:
+
+def test_cached_e7_selection_rejects_damaged_document(tmp_path: Path) -> None:
     contract, run_spec, grid = write_inputs(tmp_path)
     fingerprint = adapters.e7_resource_fingerprint(
         contract_path=contract,
@@ -167,6 +181,7 @@ def test_cached_e7_selection_is_rejected_on_machine_static_change(tmp_path: Path
             machine=machine,
             memory_headroom_fraction=0.1,
             per_worker_safety_factor=1.2,
+            cpu_fraction=0.8,
         )
         is None
     )
