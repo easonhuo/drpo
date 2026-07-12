@@ -59,6 +59,12 @@ Its fixed publication branch is `{publish_branch}`.
   `python scripts/agent/publish_runspec_result.py --run-id <run_id>`
 
 - Never switch branches or push manually in this executor workspace.
+- After `FAILED`, `BLOCKED`, or `NO_READY_TASK`, stop and report the exact state.
+- Never move, copy, delete, or recreate files under `runspecs/ready/` or
+  `.runspec_state/`; the tracked READY definition and local terminal state are not
+  duplicate tasks.
+- Never rerun a failed `run_id`, manually launch remaining branches, or create
+  `COMPLETED.json`, `RUN_SUMMARY.json`, or other success evidence by hand.
 - On invalid RunSpec, duplicate run_id, provenance drift, missing script, missing output,
   or package-policy failure, report BLOCKED/FAILED. Do not repair experiment code here.
 """
