@@ -2,7 +2,7 @@ version: 1
 run_id: E7_PPO_STABILITY_PILOT_20260712_01
 lane: e7
 experiment_id: EXT-H-E7-PPO-STABILITY-01
-repo_commit: 2518f9b8640e941494b97317be3c426a886acb74
+repo_commit: a16bce7ebcffe2b0557bfdbe28541b0a18be6855
 priority: 110
 created_at: '2026-07-12T15:30:00Z'
 entrypoint:
