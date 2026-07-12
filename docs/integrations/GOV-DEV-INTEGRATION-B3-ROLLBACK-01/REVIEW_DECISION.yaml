@@ -19,7 +19,7 @@ reviewer:
 limitations:
   - This transaction is intentionally expected to fail during trusted normalization.
   - The source includes the post-squash RunSpec provenance-pin repair at 17a7975c.
-  - The failure must be caused only by the registered nonexistent handoff heading.
+  - The handoff operation is valid, but the registry-change declaration deliberately uses an unsupported kind so trusted authority rejects it after authored mutation begins.
   - No candidate, registry mutation, delta, or handoff after-image may be published.
 unresolved:
   - The exact fail-closed error code is determined by the trusted current-main authority implementation.
