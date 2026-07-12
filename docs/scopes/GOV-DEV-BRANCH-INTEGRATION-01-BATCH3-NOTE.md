@@ -9,7 +9,7 @@
 
 Batch 3 validates the already-merged V1 transaction implementation against real repository history and real GitHub refs. It does not introduce a new integration architecture, change the default merge route, launch a scientific experiment, or alter any registered scientific result.
 
-The acceptance runner is invoked by the existing full-pytest PR gate only on the dedicated Batch 3 branch. No GitHub Actions workflow is added or modified.
+The acceptance harness is invoked by the existing full-pytest PR gate only on the dedicated Batch 3 branch. No GitHub Actions workflow is added or modified.
 
 ## Real shadow sources
 
@@ -31,14 +31,14 @@ The acceptance runner is invoked by the existing full-pytest PR gate only on the
 - locked dev/result SHA: `17a7975c4fd0b0fb7058fd44bd6e725c6c1559ae`
 - source change: the already-reviewed E7 EXP coefficient/horizon pilot implementation, pilot protocol summary, and the post-squash RunSpec provenance-pin repair
 - expected changed paths: exactly the seven E7 pilot files present after `17a7975…`
-- registration target: `GOV-DEV-INTEGRATION-SHADOW-PILOT-01`
-- local-only registry status: `pilot`
+- registration target: existing `EXT-H-E7-BENCH-01`
+- local-only mutation: add one `batch3_shadow_observation` field while preserving every pre-existing registry field, entity, status, execution class, and scientific conclusion
 - scientific meaning: governance pipeline shadow only; no Hopper method ranking, convergence, task-performance, support/boundary, or numerical-collapse claim
 - publication: forbidden; the resulting candidate is never pushed or merged
 
 ### C. Rollback rehearsal
 
-A second registration transaction uses the same locked real refs and a valid handoff operation, but deliberately declares an unsupported registry-change kind. The adapter accepts and authors the reviewer-bound intent, while the trusted current-main authority must reject the schema-v3 delta after authored mutation has begun. Acceptance requires:
+A second registration transaction uses the same locked real refs and a valid handoff operation, but deliberately declares an unsupported registry-change kind. The adapter accepts and authors the reviewer-bound replacement intent, while the trusted current-main authority must reject the schema-v3 delta after authored mutation has begun. Acceptance requires:
 
 - `DIAGNOSTIC.json` is written;
 - the transaction becomes `BLOCKED`, not `READY`;
@@ -49,13 +49,13 @@ A second registration transaction uses the same locked real refs and a valid han
 
 ## Runtime request construction
 
-The acceptance runner derives blob SHA and Git mode fields mechanically from the two locked commit pairs only after verifying that the actual diff status and exact path set match this document. This mechanism is restricted to Batch 3 acceptance. Production integrations continue to require a normal explicit reviewed `INTEGRATION_REQUEST.yaml`.
+The acceptance harness derives blob SHA and Git mode fields mechanically from the two locked commit pairs only after verifying that the actual diff status and exact path set match this document. This mechanism is restricted to Batch 3 acceptance. Production integrations continue to require a normal explicit reviewed `INTEGRATION_REQUEST.yaml`.
 
 Reviewer decisions are committed under `docs/integrations/` and hash-bound by the normal Batch 1 source lock. Registration intent and approval are written into the untracked attempt directory after Batch 2A, exactly as required by the Batch 2B protocol.
 
 ## Required outputs
 
-The runner must emit one machine-readable summary containing:
+The harness must print one machine-readable summary containing:
 
 - locked refs and SHAs;
 - stage durations for plan, prepare, normalize, gate, and finalize;
@@ -73,13 +73,14 @@ Batch 3 passes only when:
 
 1. both valid real-ref shadows reach local `READY`;
 2. the code-only normalizer is a verified no-op;
-3. the registration candidate contains exactly the approved source paths plus registry, one schema-v3 delta, its materialization report, handoff after-image, and approved generated views;
-4. committed handoff authority and all required gates pass;
-5. the registration remains explicitly pilot/governance-only and creates no scientific ranking or convergence claim;
-6. the injected invalid registry-change declaration is blocked and restored to `PREPARED` source state;
-7. real remote refs remain at their locked SHAs;
-8. all attempts and diagnostics remain auditable;
-9. no Stage 1, 2, or 5 protected responsibility is changed;
-10. no new workflow, auto-push, auto-PR, CI polling, or auto-merge capability is introduced.
+3. the registration candidate contains exactly the approved source paths plus the one approved target-field update, registry, one schema-v3 delta, its materialization report, handoff after-image, and approved generated views;
+4. every non-target registry entity and every pre-existing target field remains unchanged;
+5. committed handoff authority and all required gates pass;
+6. the observation remains explicitly local/pilot/governance-only and creates no scientific ranking or convergence claim;
+7. the injected invalid registry-change declaration is blocked and restored to `PREPARED` source state;
+8. real remote refs remain at their locked SHAs;
+9. all attempts and diagnostics remain auditable;
+10. no Stage 1, 2, or 5 protected responsibility is changed;
+11. no new workflow, auto-push, auto-PR, CI polling, or auto-merge capability is introduced.
 
 Passing Batch 3 permits a separate closure update. It does not by itself change `AGENTS.md` or make the transaction tool the default route.
