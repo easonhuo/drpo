@@ -26,6 +26,7 @@ from runspec_lib import (
     state_path,
     validate_runspec,
 )
+from runspec_recovery import validate_recovery_policy
 
 PUBLISHED_DIR = Path(".runspec_state") / "published"
 ACTIVE_STATE_DIRS = (CLAIMED_DIR, RUNNING_DIR, DONE_DIR, FAILED_DIR, PUBLISHED_DIR)
@@ -61,11 +62,15 @@ def _protected_paths(spec: dict[str, Any]) -> list[str]:
     values = provenance.get("protected_paths") or []
     if not isinstance(values, list) or not all(isinstance(value, str) for value in values):
         raise RunSpecError("provenance.protected_paths must be a list of exact paths")
-    command = str((spec.get("entrypoint") or {}).get("command") or "")
-    script = command_script_path(command)
     paths = list(values)
-    if script and script not in paths:
-        paths.append(script)
+    commands = [str((spec.get("entrypoint") or {}).get("command") or "")]
+    recovery = spec.get("recovery") or {}
+    if isinstance(recovery, dict) and recovery.get("enabled") is True:
+        commands.append(str(recovery.get("resume_command") or ""))
+    for command in commands:
+        script = command_script_path(command)
+        if script and script not in paths:
+            paths.append(script)
     normalized: list[str] = []
     for value in paths:
         rel = safe_relpath(value).as_posix()
@@ -134,6 +139,7 @@ def validate_runspec_safe(
         lane_config=lane_config,
         require_registry=require_registry,
     )
+    validate_recovery_policy(repo, spec)
     validate_provenance(repo, spec)
     return spec
 
