@@ -9,45 +9,62 @@
 
 ## Goal
 
-Design a small, versioned runtime-resource policy layer that is usable across
+Design a small, versioned runtime-resource policy layer that is reusable across
 projects while preserving DRPO's scientific and execution-governance guarantees.
-The design must reuse the already validated E7/E8 resource-probe implementation,
-keep workload-specific logic behind thin adapters, and avoid becoming a cluster
-scheduler.
+The design must reuse the validated E7/E8 selectors, keep workload-specific logic in
+thin adapters, and avoid becoming a scheduler or provider framework.
 
-The target is a portable control plane for this sequence:
+The refined boundary is:
 
 ```text
-policy contract
-  -> machine snapshot
-  -> workload adapter
-  -> resource decision
-  -> immutable selection identity
-  -> existing execution backend
+project integration supplies explicit data and adapter
+  -> portable create/verify/revalidate core
+  -> one immutable RUNTIME_SELECTION.json
+  -> existing runner or formal guard
 ```
 
 ## Design principles
 
 1. **Generic core, project-owned adapters.** The core may not import E7, E8,
-   Hopper, Countdown, DRPO scientific configs, or experiment registries.
-2. **Small dependency surface.** The reference implementation uses the Python
-   standard library and current procfs/cgroup/`nvidia-smi` providers. `psutil`,
-   NVML, Submitit, and Ray are optional integrations, not mandatory dependencies.
-3. **Preflight, not orchestration.** The layer decides and records resources before
-   launch; it does not replace Slurm, Kubernetes, Ray, the existing runner, or the
-   hardened formal channel.
-4. **Immutable resume identity.** A resume revalidates the original selection and
-   either uses it unchanged or blocks. It never silently recalculates concurrency.
-5. **Scientific isolation.** The policy layer may change only declared runtime
-   resource fields. It may not modify data, seeds, methods, coefficients, batch,
-   horizon, optimization, evaluation, stopping, or result status.
-6. **Fail closed at the governance boundary.** Unknown adapters, malformed
-   contracts, resource-identity drift, or unsafe resume capacity block execution.
-7. **Incremental cutover.** New behavior is shadowed and compared against the
-   already validated E7/E8 paths before any formal-channel or default-policy
-   integration.
-8. **Portable artifacts.** The serialized contract and decision artifacts are
-   project-neutral and stable enough for reuse by another repository.
+   Hopper, Countdown, DRPO scientific configs, providers, registries, or runners.
+2. **Semantics rather than orchestration.** The core validates policy, freezes
+   identity, and revalidates resume. It does not launch, schedule, retry, or monitor.
+3. **Two state-changing operations.** Creation and revalidation are the only core
+   transitions. `plan` is a project CLI command, not a third state.
+4. **One creation authority.** Selection and its digest live in one immutable
+   `RUNTIME_SELECTION.json`; there is no identity sidecar.
+5. **Independent scientific identity.** The project supplies workload and scientific
+   fingerprints separately from the resource adapter.
+6. **Adapter-owned evidence.** Probes, measurement cache, fallback, provider logic,
+   and resource arithmetic remain in adapters/integration rather than being
+   duplicated by the core.
+7. **Minimal stable identity.** Dynamic capacity, cache route, and measurement logs
+   are provenance, not identity. Required host/device affinity is explicit through
+   adapter-defined `resource_binding`.
+8. **Immutable resume.** Resume uses the original selected resources unchanged or
+   blocks; it never invokes auto selection.
+9. **Small dependency surface.** The core is Python-standard-library only. Optional
+   system libraries and scheduler consumers remain outside it.
+10. **Incremental cutover.** E7/E8 plan-only shadow equivalence precedes any formal
+    integration or default-policy change.
+
+## Five-pass design review record
+
+The design was re-audited independently for:
+
+1. **responsibility cohesion:** removed provider/backend protocols and the redundant
+   plan state from the core;
+2. **identity minimality:** removed machine observations and measurement route from
+   stable identity, retaining explicit resource binding only when required;
+3. **artifact authority:** embedded the digest in the single selection document and
+   removed the identity sidecar;
+4. **cache and fallback ownership:** kept both in existing adapters to avoid a second
+   generic cache system;
+5. **integration and cost:** reduced the portable core target from 500–650 to
+   400–500 production lines and tightened the hard ceiling to 550.
+
+These refinements reduce code and state without weakening fail-closed behavior,
+provenance, scientific isolation, or resume safety.
 
 ## Authorized design files
 
@@ -67,46 +84,47 @@ policy contract
 - migration of existing RunSpecs;
 - execution of E7, E8, Hopper, Countdown, or any scientific experiment;
 - adding mandatory third-party dependencies;
-- throughput-knee search, online resizing, multi-node scheduling, preemption,
-  migration, or automatic scientific-parameter changes.
+- provider or execution-backend frameworks in the portable core;
+- generic cache services, throughput-knee search, online resizing, multi-node
+  scheduling, preemption, migration, or scientific-parameter changes.
 
 ## Required implementation phases after design approval
 
 ### Phase B — portable core, no execution integration
 
-Implement schema validation, state transitions, adapter/provider/backend protocols,
-identity generation, cache validation, and a standalone `plan` command. Existing
-launchers remain unchanged.
+Implement strict contract normalization, create/verify/revalidate operations,
+caller-supplied adapter lookup, embedded identity, common output validation, atomic
+artifacts, and a DRPO `plan` CLI. Machine discovery, cache, and selection arithmetic
+remain project integration code. Existing launchers remain unchanged.
 
 ### Phase C — E7/E8 shadow integration
 
-Route the already validated E7/E8 adapters through the portable core in plan-only
-mode and compare decisions/artifacts against the current dedicated paths. Do not
-launch full experiments.
+Wrap the validated E7/E8 selectors and compare selected resources, constraints, and
+one-file artifacts against the dedicated paths in plan-only mode. Do not launch full
+experiments.
 
 ### Phase D — Stage-2 integration and controlled cutover
 
 Only after a separate explicit user approval and accepted authorization record,
-integrate the resource preflight into the formal channel. Introduce compatibility
-and enforcement windows rather than changing all historical RunSpecs at once.
+integrate verified preflight results into the formal channel. Use compatibility and
+enforcement windows rather than rewriting historical RunSpecs.
 
-### Phase E — optional execution backends and throughput policy
+### Phase E — optional consumers and throughput policy
 
-Add Submitit/Slurm, Ray, or throughput-aware search only under separate claims.
-These are not prerequisites for the core policy layer.
+Submitit/Slurm, Ray, optional providers, and throughput-aware search require separate
+claims. They are not prerequisites for the V1 core.
 
 ## Acceptance for this design phase
 
-- architecture names a minimal stable core and explicit extension boundaries;
-- schema covers `auto`, `fixed`, and `exempt` without embedding workload-specific
-  fields in the core;
-- fresh, resume, cache, fallback, and unsafe-capacity transitions are specified;
-- serialized artifacts and their identity inputs are defined;
-- cross-project integration path is concrete;
-- Stage-2 reopen boundaries and rollback are explicit;
-- implementation line-count and engineering-cost estimates are included with
-  uncertainty ranges;
-- no current runtime or formal behavior changes.
+- architecture defines a minimal stable core and explicit ownership boundaries;
+- schema covers `auto`, `fixed`, and `exempt` without workload fields;
+- creation and resume transitions are deterministic and fail closed;
+- one authoritative selection artifact and its identity payload are defined;
+- cache, fallback, provider, and scheduler responsibilities are non-duplicative;
+- cross-project source boundary is concrete;
+- Stage-2 reopen and rollback boundaries are explicit;
+- refined line-count and engineering-cost estimates include uncertainty ranges;
+- no current runtime, formal, scientific, or experiment behavior changes.
 
 ## Rollback
 
