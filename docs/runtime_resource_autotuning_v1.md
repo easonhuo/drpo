@@ -53,6 +53,13 @@ The first command normally performs a bounded two-minute memory probe. The secon
 command validates and reuses the exact cached selection. The dedicated probe seed
 is `990001` by default and is not part of the scientific branch matrix.
 
+The CLI keeps `--probe-steps` as an operator-requested floor, then derives an
+effective isolated probe horizon of at least two frozen trainer evaluation
+intervals. This prevents a fast probe from finishing before the trainer has any
+evaluation history. The actual wall-clock probe remains bounded by
+`--probe-seconds`; formal branch horizons and evaluation rules are unchanged. The
+CLI reports both requested and effective probe steps.
+
 The convenience shell entrypoint uses the same defaults:
 
 ```bash
@@ -63,6 +70,7 @@ Important runtime controls:
 
 ```text
 --fallback-workers 60
+--probe-steps 20000                 # requested floor; may be raised for safety
 --probe-seconds 120
 --cpu-fraction 0.85
 --memory-headroom-fraction 0.15
@@ -145,6 +153,7 @@ python -m py_compile \
 pytest -q \
   tests/test_runtime_resource_autotune.py \
   tests/test_runtime_resource_adapters.py \
+  tests/test_e7_runtime_resource_auto.py \
   tests/test_e7_canonical_exp_horizon_joint.py \
   tests/test_countdown_e8_oracle_offline_v2_taper_sweep.py
 ```
