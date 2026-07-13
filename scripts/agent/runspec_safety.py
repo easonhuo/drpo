@@ -27,6 +27,7 @@ from runspec_lib import (
     validate_runspec,
 )
 from runspec_recovery import validate_recovery_policy
+from runspec_results_delivery import validate_delivery_block
 
 PUBLISHED_DIR = Path(".runspec_state") / "published"
 ACTIVE_STATE_DIRS = (CLAIMED_DIR, RUNNING_DIR, DONE_DIR, FAILED_DIR, PUBLISHED_DIR)
@@ -140,6 +141,7 @@ def validate_runspec_safe(
         require_registry=require_registry,
     )
     validate_recovery_policy(repo, spec)
+    validate_delivery_block(spec, str(spec.get("lane") or ""))
     validate_provenance(repo, spec)
     return spec
 
