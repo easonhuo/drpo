@@ -10,12 +10,14 @@ repository or authorize scientific integration.
 ## In scope
 
 - `scripts/agent/runspec_results_delivery.py`
+- `scripts/agent/runspec_delivery_policy.py`
 - `scripts/agent/upload_runspec_result.py`
-- RunSpec pre-claim validation for the new `delivery` block
+- RunSpec validation for the new `delivery` block and fixed V1 size caps
 - automatic delivery after successful execution and artifact packaging
 - strict Claude executor allowance for the canonical upload command
 - text-first result export, branch-JSON compaction, SHA-256 manifesting, size limits,
   symlink rejection, append-only conflict checks, and idempotent retry
+- graceful `RESULT_TOO_LARGE` downgrade without retraining or remote writes
 - local bare-repository tests and operator documentation
 
 ## Explicitly excluded
@@ -24,7 +26,6 @@ repository or authorize scientific integration.
 - changes to registry or handoff scientific state
 - model, checkpoint, optimizer, dataset, or cache upload
 - Git LFS, Google Drive, object storage, Release assets, or self-hosted Actions runners
-- creation of the external private results repository
 - automatic scientific acceptance or merge
 - removal of the legacy publish implementation
 
@@ -33,6 +34,10 @@ repository or authorize scientific integration.
 - delivery is disabled unless explicitly declared in a RunSpec;
 - `delivery.branch` is fixed to `ingest/<lane>`;
 - delivery and legacy `publish` cannot both be enabled;
+- V1 permits at most 10 MiB per review-package file and 30 MiB in total;
+- a RunSpec may choose stricter limits but cannot raise those caps;
+- oversize review packages remain local, keep the RunSpec in `done`, and return
+  `RESULT_TOO_LARGE` without attempting commit or push;
 - the uploader derives an SSH remote from `delivery.repository` and never stores a
   credential in the RunSpec;
 - source artifact paths, sizes, and SHA-256 values are revalidated before export;
@@ -45,13 +50,14 @@ repository or authorize scientific integration.
 - Python compilation
 - Ruff
 - targeted delivery tests against a local bare Git remote
+- fixed-cap and oversize-downgrade tests
 - strict executor guard coverage
 - full pytest
 - handoff authority, formal execution channel, and governance gates
 
 ## Real-shadow boundary
 
-A real remote shadow remains blocked until a private `easonhuo/drpo-results` repository
-exists, the online GitHub connector has read access, and an E7 or E8 server has a
-repository-scoped write credential. The first shadow must use a previously completed,
-small result package and must not rerun training.
+The private `easonhuo/drpo-results` repository exists and the online GitHub connector
+has read/write access. A real remote shadow remains blocked only until an E7 or E8
+execution environment has a repository-scoped write credential. The first shadow must
+use a previously completed result package and must not rerun training.
