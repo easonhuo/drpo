@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Code-first E8 V2 continuous EXP alpha-by-c development pilot.
+"""Registered E8 V2 continuous EXP alpha-by-c development pilot.
 
 Every unique negative completion participates in the loss.  The only negative
 weight is ``alpha * exp(-c * u**2)`` with ``u = current_sequence_surprisal / 2``.
@@ -114,8 +114,8 @@ def validate_grid_config(config: Mapping[str, Any]) -> None:
         raise ValueError("Continuous EXP grid experiment_id mismatch")
     if config.get("result_status") != "pilot":
         raise ValueError("Continuous EXP grid must remain a pilot")
-    if config.get("registration_state") != "dev_code_first_unregistered":
-        raise ValueError("Code-first pilot must remain explicitly unregistered")
+    if config.get("registration_state") != "registered_pilot":
+        raise ValueError("Continuous EXP grid must remain a registered pilot")
     present = sorted(FORBIDDEN_CONFIG_KEYS & _walk_keys(config))
     if present:
         raise ValueError("Forbidden legacy/calibration coordinates: " + ", ".join(present))
