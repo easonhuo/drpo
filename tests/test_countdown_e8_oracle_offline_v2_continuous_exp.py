@@ -28,6 +28,7 @@ def _config() -> dict:
 
 def test_frozen_joint_grid_has_31_points_and_62_cells() -> None:
     config = _config()
+    assert config["registration_state"] == "registered_pilot"
     points = continuous.parameter_points(config)
     cells = continuous.build_cells(config)
     assert len(points) == 31
@@ -132,3 +133,17 @@ def test_runtime_has_no_test_split_cli_argument() -> None:
         for option in action.option_strings
     }
     assert "--test" not in option_strings
+
+
+def test_registered_launcher_has_no_unregistered_acknowledgement() -> None:
+    source = (
+        ROOT / "scripts" / "run_countdown_e8_oracle_offline_v2_continuous_exp_auto.py"
+    ).read_text()
+    one_click = (
+        ROOT
+        / "scripts"
+        / "run_countdown_e8_oracle_offline_v2_continuous_exp_auto_one_click.sh"
+    ).read_text()
+    assert "--allow-dev-unregistered" not in source
+    assert "--allow-dev-unregistered" not in one_click
+    assert '"registration_state": config["registration_state"]' in source
