@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+from typing import Any
 
 from drpo import e7_ppo_w0_grid_pilot as pilot
 from drpo.e7_ppo_w0_runtime_autotune import select_runtime
@@ -70,6 +71,51 @@ def _validate_existing_run_identity(work_dir: Path, selected_workers: int) -> No
             f"{existing}, but the current safe selection is {selected_workers}; "
             "resume is blocked until the original schedule is safe again"
         )
+
+
+def _atomic_json(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+    temporary.replace(path)
+
+
+def _write_failed_terminal_audit(work_dir: Path, error: BaseException) -> Path:
+    """Persist a terminal failure audit even when training or aggregation raises."""
+
+    summary_path = work_dir / "RUN_SUMMARY.json"
+    summary: dict[str, Any] = {}
+    if summary_path.is_file():
+        try:
+            loaded = json.loads(summary_path.read_text())
+            if isinstance(loaded, dict):
+                summary = loaded
+        except (OSError, json.JSONDecodeError):
+            summary = {}
+    completed = int(summary.get("completed", 0) or 0)
+    failed = int(summary.get("failed", 0) or 0)
+    branch_count = int(summary.get("branch_count", completed + failed) or 0)
+    audit = {
+        "status": "FAIL",
+        "experiment_id": pilot.EXPERIMENT_ID,
+        "scientific_status": pilot.SCIENTIFIC_STATUS,
+        "raw_complete": False,
+        "branch_count_observed": branch_count,
+        "expected_branch_count": pilot.EXPECTED_TOTAL_BRANCHES,
+        "completed_or_skipped": completed,
+        "failed_branches": failed,
+        "error_type": type(error).__name__,
+        "error": str(error),
+        "task_performance_collapse_separate": True,
+        "support_or_variance_boundary_separate": True,
+        "nan_inf_separate": True,
+        "convergence_claim_allowed": False,
+        "method_ranking_claim_allowed": False,
+        "held_out_seeds_touched": False,
+    }
+    path = work_dir / "aggregate" / "terminal_audit.json"
+    _atomic_json(path, audit)
+    return path
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -142,7 +188,12 @@ def main(argv: list[str] | None = None) -> int:
     ]
     if args.command == "run" and args.resume:
         delegated.append("--resume")
-    return pilot.main(delegated)
+    try:
+        return pilot.main(delegated)
+    except BaseException as exc:
+        if args.command == "run":
+            _write_failed_terminal_audit(work_dir, exc)
+        raise
 
 
 if __name__ == "__main__":
