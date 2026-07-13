@@ -29,9 +29,10 @@ def main() -> int:
     elif code == 0:
         print(f"Lane run: PASS lane={payload['lane']} run_id={payload['run_id']}")
     else:
+        error = payload.get("delivery_error") or payload.get("publish_error")
         print(
-            f"Lane run: PASS but publish: FAIL lane={payload['lane']} "
-            f"run_id={payload['run_id']} error={payload['publish_error']}"
+            f"Lane run: PASS but result handoff: FAIL lane={payload['lane']} "
+            f"run_id={payload['run_id']} error={error}"
         )
     return code
 
