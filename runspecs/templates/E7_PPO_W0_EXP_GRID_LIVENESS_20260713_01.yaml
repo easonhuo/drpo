@@ -1,0 +1,28 @@
+version: 1
+run_id: E7_PPO_W0_EXP_GRID_LIVENESS_20260713_01
+lane: e7
+experiment_id: EXT-H-E7-PPO-W0-EXP-GRID-01
+repo_commit: TO_BE_PINNED_AFTER_REVIEW
+priority: 125
+created_at: '2026-07-13T08:00:00Z'
+entrypoint:
+  command: python scripts/run_e7_ppo_w0_grid_pilot_auto.py plan --contract /root/d4rl2/configs/e7_canonical_contract_9task.json --run-spec /root/d4rl2/configs/e7_canonical_9task_full_grid_run_spec_v1.json --grid configs/e7_ppo_w0_exp_grid_pilot_v1.json --work-dir outputs/e7/ppo_w0_exp_grid_liveness_001 --max-workers 2 --probe-steps 500
+  cwd: repo_root
+resources:
+  cpu: true
+  gpu_ids: []
+  max_parallel_processes: 2
+outputs:
+  root: outputs/e7/ppo_w0_exp_grid_liveness_001
+  log: outputs/e7/ppo_w0_exp_grid_liveness_001/RUNTIME_SELECTION.json
+success_criteria:
+- exact reviewed commit is pinned before promotion
+- direct-w(0) grid validates
+- representative PPO bootstrap reaches finite updates
+- RUNTIME_SELECTION.json is written
+- no scientific branch output is aggregated
+- held-out seeds 204 through 207 are untouched
+policy:
+  scientific_aggregation_allowed: false
+  formal_evidence_allowed: false
+  state: blocked_template
