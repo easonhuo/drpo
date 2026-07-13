@@ -34,10 +34,7 @@ jobs:
           echo "$PATCH_SHA256  /tmp/e8-registration.patch" | sha256sum --check
           git apply --check /tmp/e8-registration.patch
           git apply /tmp/e8-registration.patch
-          rm -f \
-            "$PATCH_B64" \
-            .github/workflows/e8_continuous_exp_registration_materialize.yml \
-            .github/workflows/export_e8_registration_bundle.yml
+          rm -f "$PATCH_B64"
           git add -A
           git diff --cached --check
           git commit -m "Register E8 V2 continuous fixed-alpha EXP grid pilot"
