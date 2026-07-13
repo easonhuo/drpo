@@ -11,6 +11,14 @@ The implementation was pushed before full authority materialization at the user'
 
 A dev-branch run remains `pilot / formal_evidence_allowed=false`. It may provide provisional screening data, but it may not be cited as formal evidence or upgraded to a stable ranking until provenance and terminal audit are accepted.
 
+## Current registration and execution state
+
+- The schema-v3 authority update `EXT-H-E7-PPO-W0-EXP-GRID-REGISTRATION-2026-07-13` has materialized the handoff block and added the complete registry entity on this Draft PR branch.
+- Registry status is `pilot`, result status is `running`, and no terminal result is currently registered.
+- The user reported that the server run has started from implementation commit `d8bb6141092969a7daccb42b87c4f2da6e8371c6`.
+- This running state does not certify liveness acceptance, branch completion, convergence, stability, or a method ranking.
+- Held-out seeds `204--207` remain reserved and must not be consumed by this development screening run.
+
 ## Server commands
 
 After checking out `dev/e7-ppo-w0-grid-pilot`, run the non-scientific liveness gate first:
