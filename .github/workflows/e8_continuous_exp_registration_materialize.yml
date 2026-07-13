@@ -1,0 +1,345 @@
+name: E8 Continuous EXP Registration Materialize
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: e8-continuous-exp-registration-20260713
+  cancel-in-progress: false
+
+jobs:
+  materialize:
+    if: github.head_ref == 'dev/e8-continuous-exp-grid-pilot'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "drpo-registration-bot"
+          git config --global user.email "drpo-registration-bot@users.noreply.github.com"
+          python -m pip install --quiet pyyaml
+
+      - name: Prepare isolated source and trusted worktrees
+        env:
+          IMPLEMENTATION_HEAD: 40993f079ac5c2a043f27009f9e93c3e41998389
+          MAIN_BASE: 448936a7d61cb8871457078ef196e371fbce380c
+        run: |
+          git fetch origin main dev/e8-continuous-exp-grid-pilot
+          git worktree add /tmp/drpo-e8-registration-target "$IMPLEMENTATION_HEAD"
+          git worktree add /tmp/drpo-e8-registration-trusted "$MAIN_BASE"
+
+      - name: Author registry entity and schema-v3 delta
+        env:
+          TARGET_REPO: /tmp/drpo-e8-registration-target
+          MAIN_BASE: 448936a7d61cb8871457078ef196e371fbce380c
+          IMPLEMENTATION_HEAD: 40993f079ac5c2a043f27009f9e93c3e41998389
+          UPDATE_ID: EXT-C-E8-V2-CONTINUOUS-EXP-GRID-REGISTRATION-2026-07-13
+          EXPERIMENT_ID: EXT-C-E8-ORACLE-OFFLINE-V2-CONTINUOUS-EXP-GRID-0.5B-01
+        run: |
+          cat > /tmp/author_e8_registration.py <<'PY'
+          from __future__ import annotations
+
+          import hashlib
+          import os
+          import sys
+          from pathlib import Path
+
+          import yaml
+
+          repo = Path(os.environ["TARGET_REPO"]).resolve()
+          main_base = os.environ["MAIN_BASE"]
+          implementation_head = os.environ["IMPLEMENTATION_HEAD"]
+          update_id = os.environ["UPDATE_ID"]
+          experiment_id = os.environ["EXPERIMENT_ID"]
+          sys.path.insert(0, str(repo / "scripts"))
+          import handoff_delta_shadow as shadow
+
+          def sha256_text(text: str) -> str:
+              return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+          handoff_path = repo / "docs/handoff.md"
+          registry_path = repo / "experiments/registry.yaml"
+          handoff_before = handoff_path.read_text(encoding="utf-8")
+          registry_before = registry_path.read_text(encoding="utf-8")
+          if experiment_id in registry_before:
+              raise SystemExit(f"experiment already registered: {experiment_id}")
+
+          entity = f'''- id: {experiment_id}
+            environment: EXT-C
+            name: countdown_v2_all_unique_negative_fixed_alpha_continuous_exp_grid_pilot
+            status: pilot
+            result_status: not_run
+            claim: >-
+              On the frozen model-independent E8 V2 negative bank, test a direct and
+              calibration-free continuous controller in which every unique negative
+              completion receives fixed-alpha weight alpha*exp(-c*u^2), with u equal
+              to current detached sequence surprisal divided by 2; jointly screen
+              alpha and c using validation-only paired development seeds.
+            role: external_validity_continuous_fixed_alpha_tuning_pilot
+            execution_class: pilot
+            formal_evidence_allowed: false
+            registration_base_commit: {main_base}
+            implementation_commit: {implementation_head}
+            development_branch: dev/e8-continuous-exp-grid-pilot
+            draft_pull_request: 49
+            predecessor: EXT-C-E8-ORACLE-OFFLINE-V2-TAPER-SWEEP-0.5B-01
+            preserved_predecessor_interpretation: >-
+              The predecessor 72-cell pilot used current-extreme near/far selection
+              and initialization negative-gradient budget matching. It remains
+              historical pilot evidence and does not answer the present fixed-alpha,
+              all-unique-negative question.
+            does_not_replace: [C-U1, D-U1, D-Diag]
+            implementation_state: implemented_ready_not_run
+            code_entrypoints:
+            - src/drpo/countdown_e8_continuous_exp_common.py
+            - src/drpo/countdown_e8_continuous_exp_trainer.py
+            - src/drpo/countdown_e8_continuous_exp_runtime.py
+            operator_entrypoint: scripts/run_countdown_e8_oracle_offline_v2_continuous_exp_auto_one_click.sh
+            config_path: configs/countdown_e8_oracle_offline_v2_continuous_exp_grid_0p5b.yaml
+            protocol_document: docs/experiments/E8_V2_CONTINUOUS_EXP_GRID_PILOT.md
+            scope_document: docs/scopes/EXT-C-E8-ORACLE-OFFLINE-V2-CONTINUOUS-EXP-GRID-0.5B-01.md
+            model:
+              identity: Qwen2.5-0.5B-Instruct
+              initialization: pretrained_base_plus_fresh_lora
+              parameterization: lora
+            bank:
+              source_experiment: EXT-C-E8-ORACLE-OFFLINE-BANK-V2-0.5B-01
+              frozen_during_training: true
+              use_all_first_occurrence_unique_negatives: true
+              duplicate_padding_removed_before_encoding: true
+              current_near_far_extreme_selection: false
+              explicit_near_far_training_classes: false
+              negative_count_denominator: unique_negative_count_per_prompt
+            controller:
+              distance: d=-stopgrad(sequence_mean_logprob)
+              coordinate: u=d/2
+              weight: alpha*exp(-c*u^2)
+              detached_weight: true
+              hidden_negative_scale: false
+              gradient_budget_matching: false
+              normalize_by_weight_sum: false
+              dynamic_alpha: false
+              special_cases:
+                positive_only: alpha=0
+                global: alpha>0_and_c=0
+                continuous_exp: alpha>0_and_c>0
+            development_grid:
+              alpha_values: [0.0, 0.025, 0.05, 0.11, 0.25, 0.5, 1.0]
+              c_values: [0.0, 0.25, 0.5, 1.0, 1.5]
+              alpha_zero_deduplicated: true
+              unique_parameter_points: 31
+              seed_offsets: [3000, 4000]
+              actual_training_seeds: [2026073803, 2026074803]
+              cells: 62
+              confirmation_seeds: pending_after_validation_selection
+            training:
+              optimizer: AdamW
+              learning_rate: 5.0e-05
+              optimizer_updates: 1200
+              early_stop: false
+              evaluation_interval_steps: 100
+              pass_at_64_interval_steps: 200
+              fixed_horizon_is_not_convergence: true
+            evaluation:
+              tuning_split: validation_only
+              test_split_access: forbidden_in_current_runtime_cli
+              primary_metric: validation_pass_at_8
+              report_greedy: true
+              report_pass_at_64: true
+              report_valid_rate: true
+            runtime_autotune:
+              opt_in: true
+              selected_field: active_gpu_device_slots
+              constraints: [gpu_visibility, gpu_utilization, free_vram, host_or_cgroup_memory]
+              representative_liveness_steps: 2
+              liveness_required_before_sweep: true
+              one_process_per_selected_gpu: true
+              identity_checked_resume: true
+              scientific_matrix_changed_by_autotune: false
+            exclusions:
+            - current_bank_argmin_argmax_selection
+            - near_far_binary_mixture
+            - negative_scale_calibration
+            - initialization_gradient_rms_matching
+            - sbrc
+            - hybrid
+            - entropy_bonus
+            - sft_initialization
+            - on_policy_sampling
+            - replay_refresh
+            reporting_separation:
+            - task_performance
+            - valid_rate_structure_proxy_not_formal_support_audit
+            - nan_inf_numerical_failure
+            interpretation_limits:
+            - external_validity_only
+            - no_controlled_mechanism_claim
+            - no_formal_method_ranking
+            - no_convergence_or_steady_state_claim
+            - no_state_distribution_ood_generalization_claim
+            - countdown_does_not_replace_cu1_or_du1
+            execution:
+              state: registered
+              run_id: null
+              last_heartbeat_utc: null
+              process_exit_code: null
+            evidence:
+              code_committed: true
+              implementation_tests_passed: true
+              github_pr_gate_passed_on_implementation_head: true
+              real_server_liveness_completed: false
+              gpu_autotune_completed: false
+              run_started: false
+              raw_complete: false
+              terminal_audited: false
+              package_created: false
+              delivered_to_user: false
+              scientific_status: pilot
+          '''
+          entity = "\n".join(line[10:] if line.startswith("          ") else line for line in entity.splitlines()) + "\n"
+          marker = "\nallowed_execution_states:\n"
+          if registry_before.count(marker) != 1:
+              raise SystemExit("registry insertion marker is not unique")
+          registry_after = registry_before.replace(marker, "\n" + entity + marker, 1)
+          parsed = yaml.safe_load(registry_after)
+          matches = [item for item in parsed["experiments"] if item.get("id") == experiment_id]
+          if len(matches) != 1:
+              raise SystemExit("new registry entity did not parse exactly once")
+          registry_path.write_text(registry_after, encoding="utf-8")
+
+          block_content = (
+              "- **Countdown E8 V2 fixed-alpha continuous EXP pilot:** 登记 "
+              f"`{experiment_id}`，状态为 `implemented_ready_not_run`。"
+              "训练对每个 prompt 的全部去重负样本使用固定 "
+              "`alpha * exp(-c * u^2)` 权重，其中 `u=-stopgrad(sequence mean log-prob)/2`；"
+              "不再使用 current-near/current-far 极值选择、0.5/0.5 二元混合、"
+              "`negative_scale`、初始化梯度预算匹配或按权重和归一化。"
+              "本轮联合扫描 31 个 `(alpha,c)` 点和 2 个新 development seeds，共 62 cells，"
+              "固定 1200 步且只用 validation 调参；当前 runtime 不接受 test split。"
+              "GPU autotune 只选择活动设备槽，并在完整 sweep 前执行 2-step 真实 liveness。"
+              "此前 72-cell budget-matched taper sweep 作为历史 pilot 保留，不得用于回答本轮固定 alpha 问题。"
+              "本登记仅是 Countdown 外部有效性调参 pilot，不构成机制识别、正式方法排名、收敛、稳态或 OOD 泛化结论。"
+          )
+          operations = [
+              {
+                  "operation_id": "append-e8-v2-fixed-alpha-continuous-exp-grid-ready",
+                  "op": "append_to_section",
+                  "heading_path": [
+                      "0. 研究与执行原则（每次新会话首先阅读）",
+                      "0.1 当前执行门禁",
+                  ],
+                  "block_id": "e8-v2-fixed-alpha-continuous-exp-grid-ready",
+                  "content": block_content,
+              }
+          ]
+          candidate = shadow.render(handoff_before, operations).text
+          delta = {
+              "schema_version": 3,
+              "update_id": update_id,
+              "mode": "authoritative",
+              "base": {
+                  "commit": main_base,
+                  "handoff_sha256": sha256_text(handoff_before),
+                  "registry_sha256": sha256_text(registry_before),
+              },
+              "renderer_version": 1,
+              "operations": operations,
+              "registry": {
+                  "mode": "expected_after",
+                  "exact_base_after_sha256": sha256_text(registry_after),
+                  "changes": [
+                      {
+                          "change_id": "add-e8-v2-fixed-alpha-continuous-exp-grid-pilot",
+                          "kind": "add_entity",
+                          "entity_id": experiment_id,
+                          "evidence": [
+                              "experiments/registry.yaml",
+                              f"docs/handoff_deltas/{update_id}/HANDOFF_DELTA.yaml",
+                              "configs/countdown_e8_oracle_offline_v2_continuous_exp_grid_0p5b.yaml",
+                              "docs/experiments/E8_V2_CONTINUOUS_EXP_GRID_PILOT.md",
+                              "docs/scopes/EXT-C-E8-ORACLE-OFFLINE-V2-CONTINUOUS-EXP-GRID-0.5B-01.md",
+                              "scripts/run_countdown_e8_oracle_offline_v2_continuous_exp_auto.py",
+                              "scripts/run_countdown_e8_oracle_offline_v2_continuous_exp_auto_one_click.sh",
+                              "src/drpo/countdown_e8_continuous_exp_common.py",
+                              "src/drpo/countdown_e8_continuous_exp_trainer.py",
+                              "src/drpo/countdown_e8_continuous_exp_runtime.py",
+                              "tests/test_countdown_e8_oracle_offline_v2_continuous_exp.py",
+                          ],
+                      }
+                  ],
+              },
+              "expected": {"exact_base_candidate_sha256": sha256_text(candidate)},
+          }
+          delta_path = repo / "docs/handoff_deltas" / update_id / "HANDOFF_DELTA.yaml"
+          delta_path.parent.mkdir(parents=True, exist_ok=False)
+          delta_path.write_text(
+              yaml.safe_dump(delta, sort_keys=False, allow_unicode=True), encoding="utf-8"
+          )
+          print(delta_path)
+          PY
+          python /tmp/author_e8_registration.py
+          cd /tmp/drpo-e8-registration-target
+          git add experiments/registry.yaml docs/handoff_deltas
+          git diff --cached --check
+          git commit -m "Author E8 V2 continuous EXP pilot registration intent"
+          echo "SOURCE_PATCH_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Validate and materialize through trusted current-main authority
+        env:
+          TARGET_REPO: /tmp/drpo-e8-registration-target
+          TRUSTED_REPO: /tmp/drpo-e8-registration-trusted
+          MAIN_BASE: 448936a7d61cb8871457078ef196e371fbce380c
+          IMPLEMENTATION_HEAD: 40993f079ac5c2a043f27009f9e93c3e41998389
+          UPDATE_ID: EXT-C-E8-V2-CONTINUOUS-EXP-GRID-REGISTRATION-2026-07-13
+        run: |
+          cd "$TARGET_REPO"
+          python scripts/handoff_authority.py validate-delta \
+            --repo-root . \
+            --delta "docs/handoff_deltas/$UPDATE_ID/HANDOFF_DELTA.yaml" \
+            --source-patch-commit "$SOURCE_PATCH_COMMIT" \
+            --json
+          python "$TRUSTED_REPO/scripts/handoff_authority.py" normalize \
+            --repo-root "$TARGET_REPO" \
+            --trusted-repo-root "$TRUSTED_REPO" \
+            --current-before "$IMPLEMENTATION_HEAD" \
+            --source-base "$MAIN_BASE" \
+            --source-patch-commit "$SOURCE_PATCH_COMMIT" \
+            --json
+          git add docs/handoff.md experiments/registry.yaml docs/handoff_deltas \
+            docs/handoff_shadow/stage4/minimal/generated
+          git diff --cached --check
+          git reset --soft "$IMPLEMENTATION_HEAD"
+          git add -A
+          git diff --cached --check
+          git commit -m "Register E8 V2 continuous fixed-alpha EXP grid pilot"
+          FINAL_REGISTRATION_COMMIT=$(git rev-parse HEAD)
+          echo "FINAL_REGISTRATION_COMMIT=$FINAL_REGISTRATION_COMMIT" >> "$GITHUB_ENV"
+          python scripts/handoff_authority.py verify --repo-root . --json
+          python -m pytest -q tests/test_countdown_e8_oracle_offline_v2_continuous_exp.py
+          python -m compileall -q \
+            src/drpo/countdown_e8_continuous_exp_common.py \
+            src/drpo/countdown_e8_continuous_exp_trainer.py \
+            src/drpo/countdown_e8_continuous_exp_runtime.py \
+            scripts/run_countdown_e8_oracle_offline_v2_continuous_exp_auto.py \
+            tests/test_countdown_e8_oracle_offline_v2_continuous_exp.py
+
+      - name: Publish registration and remove temporary workflow
+        env:
+          WORKFLOW_PATH: .github/workflows/e8_continuous_exp_registration_materialize.yml
+        run: |
+          git checkout -B e8-registration-publish "${{ github.event.pull_request.head.sha }}"
+          git cherry-pick "$FINAL_REGISTRATION_COMMIT"
+          git rm "$WORKFLOW_PATH"
+          git commit -m "Remove temporary E8 registration materializer"
+          PUBLISH_HEAD=$(git rev-parse HEAD)
+          python scripts/handoff_authority.py verify --repo-root . --json
+          git push origin "$PUBLISH_HEAD:refs/heads/dev/e8-continuous-exp-grid-pilot"
