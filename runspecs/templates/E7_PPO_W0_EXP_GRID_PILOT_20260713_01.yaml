@@ -2,7 +2,7 @@ version: 1
 run_id: E7_PPO_W0_EXP_GRID_PILOT_20260713_01
 lane: e7
 experiment_id: EXT-H-E7-PPO-W0-EXP-GRID-01
-repo_commit: TO_BE_PINNED_AFTER_REVIEW
+repo_commit: 5b35a9694e5301e8ea110aa55a1cb56b12473f41
 priority: 115
 created_at: '2026-07-13T08:00:00Z'
 entrypoint:
@@ -30,7 +30,7 @@ policy:
   forbid_cross_lane: true
   formal_evidence_allowed: false
 provenance:
-  commit_policy: exact_commit_after_review
+  commit_policy: protected_paths_unchanged
   protected_paths:
   - configs/e7_ppo_w0_exp_grid_pilot_v1.json
   - src/drpo/e7_ppo_w0_grid_pilot.py
