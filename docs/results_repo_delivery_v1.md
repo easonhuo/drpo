@@ -53,6 +53,32 @@ e8 -> ingest/e8
 
 Legacy `publish.enabled` and results-repository delivery cannot both be enabled.
 
+## Simple size policy
+
+V1 intentionally uses one fixed, simple rule instead of LFS, Release assets, Drive,
+or object storage:
+
+```text
+single review-package file <= 10 MiB
+whole review package       <= 30 MiB
+```
+
+A RunSpec may choose stricter limits, but it may not raise either V1 cap. The existing
+full local result ZIP is not uploaded by this channel and may be larger than 30 MiB.
+Only the generated text-first review package is measured against these limits.
+
+When either limit is exceeded:
+
+- no result-repository commit or push is attempted;
+- the experiment remains successfully completed in `.runspec_state/done/`;
+- the existing local artifact ZIP and SHA-256 remain available;
+- the partial review-package directory is removed;
+- `DELIVERY_REPORT.json` records `status: RESULT_TOO_LARGE`;
+- the canonical executor command exits successfully, so training is not retried.
+
+This is a normal delivery downgrade, not an experiment failure. Manual upload remains
+a human fallback when the complete result is needed.
+
 ## Review package
 
 The uploader uses the already validated RunSpec artifact manifest as its source. It
@@ -89,6 +115,7 @@ The remote path is fixed as `runs/<lane>/<run_id>/`.
 - Existing path with the same manifest SHA: return `ALREADY_DELIVERED`.
 - Existing path with a different manifest SHA: fail with `RESULT_CONFLICT`.
 - Upload failure: keep the RunSpec in `done`; do not rerun training.
+- Oversize package: return `RESULT_TOO_LARGE`; do not attempt upload or rerun training.
 - Manual retry:
 
   ```bash
