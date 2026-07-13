@@ -5,7 +5,7 @@
 - experiment: `EXT-C-E8-ORACLE-OFFLINE-V2-CONTINUOUS-EXP-GRID-0.5B-01`;
 - class: Countdown external-validity development tuning pilot;
 - implementation route: code-first dev branch at explicit user request;
-- authoritative handoff/registry registration: pending;
+- authoritative handoff/registry registration: complete via `EXT-C-E8-V2-CONTINUOUS-EXP-GRID-REGISTRATION-2026-07-13`;
 - result: `not_run`;
 - formal ranking, convergence, steady state, and OOD claims: forbidden.
 
@@ -54,7 +54,7 @@ Special cases are exact:
 - validation Pass@64 every `200` steps;
 - tuning does not read the test split.
 
-The seed offsets are development-only coordinates selected after the predecessor used offsets `0, 1000, 2000`. They require authoritative review before any later confirmatory registration.
+The seed offsets are development-only coordinates selected after the predecessor used offsets `0, 1000, 2000`. They are registered only for this development tuning pilot; any confirmatory run requires a separately frozen fresh-seed protocol.
 
 ## Forbidden implementation behavior
 
@@ -64,7 +64,7 @@ Near/far language may appear only in post-hoc distance-quantile diagnostics and 
 
 ## Execution
 
-The opt-in dev launcher performs:
+The registered pilot launcher performs:
 
 1. strict config and input validation;
 2. GPU visibility, utilization, free-VRAM, and host-memory slot selection;
@@ -73,3 +73,7 @@ The opt-in dev launcher performs:
 5. terminal aggregation and separate task/validity/numerical reporting.
 
 The liveness output and any dev-branch run are engineering or tuning evidence only. They cannot be promoted automatically into formal evidence.
+
+## Registration boundary
+
+The schema-v3 handoff delta and registry entity record this implementation as `pilot / not_run`. Registration does not imply that server liveness, GPU autotune, any of the 62 cells, terminal audit, or test evaluation has occurred. The obsolete `--allow-dev-unregistered` acknowledgement was removed after registration; clean-checkout, liveness, validation-only tuning, and all scientific guards remain mandatory.
