@@ -48,6 +48,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--gpu-memory-headroom-fraction", type=float, default=0.12)
     parser.add_argument("--host-memory-headroom-fraction", type=float, default=0.15)
+    parser.add_argument(
+        "--per-worker-host-memory-safety-factor",
+        type=float,
+        default=1.25,
+    )
+    parser.add_argument("--cpu-fraction", type=float, default=0.85)
     parser.add_argument("--per-worker-vram-safety-factor", type=float, default=1.25)
     parser.add_argument("--maximum-gpu-utilization-percent", type=float, default=20.0)
     parser.add_argument("--max-devices", type=int)
@@ -209,6 +215,10 @@ def main(argv: list[str] | None = None) -> int:
             args.required_host_memory_gib_per_worker * GIB
         ),
         host_memory_headroom_fraction=args.host_memory_headroom_fraction,
+        per_worker_host_memory_safety_factor=(
+            args.per_worker_host_memory_safety_factor
+        ),
+        cpu_fraction=args.cpu_fraction,
         gpu_memory_headroom_fraction=args.gpu_memory_headroom_fraction,
         per_worker_vram_safety_factor=args.per_worker_vram_safety_factor,
         max_slots_per_gpu=args.max_slots_per_gpu,
