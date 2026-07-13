@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Execute a claimed RunSpec, package artifacts, and optionally publish results."""
+"""Execute a claimed RunSpec, package artifacts, and optionally deliver results."""
 from __future__ import annotations
 
 import argparse
@@ -18,6 +18,7 @@ from runspec_lib import (
     state_path,
 )
 from runspec_recovery import run_entrypoint_with_recovery, validate_recovery_policy
+from runspec_results_delivery import validate_delivery_block
 from runspec_safety import package_artifacts_safe, validate_provenance
 
 
@@ -25,6 +26,7 @@ def execute_claimed_runspec(repo: Path, claimed: Path) -> tuple[dict[str, Any], 
     spec = read_yaml(claimed)
     validate_provenance(repo, spec)
     validate_recovery_policy(repo, spec)
+    delivery = validate_delivery_block(spec, str(spec.get("lane") or ""))
     publish = spec.get("publish") or {}
     if isinstance(publish, dict) and publish.get("enabled") is True:
         from publish_runspec_result import validate_publish_block
@@ -73,9 +75,25 @@ def execute_claimed_runspec(repo: Path, claimed: Path) -> tuple[dict[str, Any], 
         "attempts": run_result.get("attempts", 1),
         "recovery_used": bool(run_result.get("recovery_used", False)),
         "recovery_report": run_result.get("recovery_report"),
+        "delivery_status": "not_requested",
         "publish_status": "not_requested",
     }
-    publish = spec.get("publish") or {}
+    if delivery["enabled"] and delivery["auto"]:
+        try:
+            from runspec_results_delivery import deliver_completed_run
+
+            report = deliver_completed_run(repo, spec["run_id"])
+            payload["delivery_status"] = report["status"]
+            payload["results_repository"] = report["repository"]
+            payload["results_branch"] = report["branch"]
+            payload["results_commit"] = report["results_commit"]
+            payload["result_path"] = report["result_path"]
+            payload["manifest_sha256"] = report["manifest_sha256"]
+        except Exception as exc:  # noqa: BLE001
+            payload["status"] = "PARTIAL"
+            payload["delivery_status"] = "FAIL"
+            payload["delivery_error"] = str(exc)
+            return payload, 2
     if (
         isinstance(publish, dict)
         and publish.get("enabled") is True
@@ -119,9 +137,10 @@ def main() -> int:
     elif code == 0:
         print(f"RunSpec execution: PASS run_id={payload['run_id']}")
     else:
+        error = payload.get("delivery_error") or payload.get("publish_error")
         print(
-            f"RunSpec execution: PASS but publish: FAIL run_id={payload['run_id']} "
-            f"error={payload['publish_error']}"
+            f"RunSpec execution: PASS but result handoff: FAIL run_id={payload['run_id']} "
+            f"error={error}"
         )
     return code
 
