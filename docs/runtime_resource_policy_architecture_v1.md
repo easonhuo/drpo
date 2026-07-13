@@ -357,7 +357,9 @@ V1 has one authoritative immutable creation artifact:
 RUNTIME_SELECTION.json
 ```
 
-It contains both selection and embedded identity:
+Its top-level layout is a **versioned public format**. Phase B must publish and test
+that format before another project vendors the core. It contains both selection and
+embedded identity:
 
 ```json
 {
@@ -390,7 +392,7 @@ the selection document.
 There is no separate `RUNTIME_SELECTION_IDENTITY.json`; a sidecar would duplicate
 authority and create split-brain repair cases.
 
-Resume produces one attempt-local artifact:
+Resume produces one attempt-local, versioned artifact:
 
 ```text
 RUNTIME_REVALIDATION.json
@@ -504,6 +506,7 @@ The architecture is accepted only if implementation demonstrates:
 - the portable core imports without DRPO or scientific dependencies;
 - public behavior is expressible through create, verify, and revalidate operations;
 - one selection file is the only creation authority;
+- selection and revalidation formats are explicitly versioned and tested;
 - auto, fixed, and exempt contracts normalize deterministically;
 - resume cannot invoke auto selection or mutate resources;
 - identity is stable across irrelevant provenance changes;
