@@ -1,8 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.drpo.local/runtime-resource-policy/v1",
+  "$id": "urn:runtime-resource-policy:schema:v1",
+  "$comment": "JSON Schema default values are annotations only. The production parser must materialize canonical defaults before identity construction.",
   "title": "Runtime Resource Policy V1",
-  "description": "Portable preflight resource-policy contract. Workload-specific parameters are validated by the selected adapter.",
+  "description": "Project-neutral preflight resource-policy contract. Workload-specific parameters are validated by the resolved adapter.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -29,16 +30,19 @@
       "type": "string",
       "minLength": 3,
       "maxLength": 64,
-      "pattern": "^[a-z][a-z0-9_.-]*$"
+      "pattern": "^[a-z][a-z0-9_.-]*$",
+      "description": "Caller-resolved adapter identifier. Required for auto and fixed modes."
     },
     "adapter_version": {
       "type": "string",
       "minLength": 1,
-      "maxLength": 64
+      "maxLength": 64,
+      "description": "Optional requested exact adapter-version pin. The resolved exact version is always recorded in the selection artifact."
     },
     "policy": {
       "type": "object",
       "additionalProperties": false,
+      "description": "Adapter-owned policy profile and parameters. When omitted, the production parser materializes the canonical conservative/empty value before identity construction.",
       "properties": {
         "profile": {
           "type": "string",
@@ -66,7 +70,7 @@
         "request": {
           "type": "object",
           "minProperties": 1,
-          "description": "Opaque adapter-owned fixed resource request. The adapter must validate safety before selection is frozen."
+          "description": "Opaque adapter-owned fixed resource request. The adapter must validate current safety before selection is frozen."
         }
       }
     },
