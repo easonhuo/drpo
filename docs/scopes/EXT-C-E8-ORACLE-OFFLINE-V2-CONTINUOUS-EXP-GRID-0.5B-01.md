@@ -1,8 +1,8 @@
 # EXT-C-E8-ORACLE-OFFLINE-V2-CONTINUOUS-EXP-GRID-0.5B-01 scope
 
-## Authorized code-first scope
+## Authorized registered-pilot scope
 
-Implement a server-runnable development pilot on a dedicated dev branch before the slower authoritative registration and repository-wide gate sequence.
+The server-runnable code-first implementation is now authoritatively registered as a `pilot / not_run` experiment on its dedicated dev branch. Repository-wide review gates and real-server liveness remain subsequent requirements.
 
 Authorized scientific coordinates:
 
@@ -28,8 +28,8 @@ Authorized engineering work:
 
 ## Explicit exclusions
 
-- no direct edit of authoritative `docs/handoff.md` in the code-first commit;
-- no authoritative registry materialization or READY RunSpec yet;
+- no direct handoff edit outside the accepted schema-v3 delta materialization;
+- no reviewed READY RunSpec yet;
 - no merge to `main` without review and explicit user approval;
 - no test-split access during tuning;
 - no method ranking, convergence, steady-state, or OOD claim;
@@ -38,4 +38,4 @@ Authorized engineering work:
 
 ## Acceptance boundary for server trial
 
-A dev-branch server trial may start only after the representative liveness gate succeeds. A successful trial remains dev pilot evidence bound to the exact dev HEAD and does not substitute for the subsequent handoff/registry, CI, governance, and reviewer gates.
+A dev-branch server trial may start only after the representative liveness gate succeeds. A successful trial remains dev pilot evidence bound to the exact dev HEAD and does not substitute for CI, governance, terminal audit, fresh-seed confirmation, or reviewer gates. Handoff/registry registration is complete, but no run result is registered.
