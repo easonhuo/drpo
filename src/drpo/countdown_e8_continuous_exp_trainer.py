@@ -186,7 +186,8 @@ def train_cell(
     best_dir = output_dir / "best_pass8_adapter"
     terminal_dir = output_dir / "terminal_adapter"
     last_finite_dir = output_dir / "last_finite_adapter"
-    diagnostics_path = output_dir / "dynamic_diagnostics.jsonl"
+    validation_diagnostics_path = output_dir / "validation_diagnostics.jsonl"
+    training_diagnostics_path = output_dir / "training_diagnostics.jsonl"
     metric_rows: list[dict[str, Any]] = []
     checkpoint_records: list[dict[str, Any]] = []
     best_pass8 = -float("inf")
@@ -222,7 +223,7 @@ def train_cell(
             }
         )
         metric_rows.append(row)
-        with diagnostics_path.open("a", encoding="utf-8") as handle:
+        with validation_diagnostics_path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(row, ensure_ascii=False) + "\n")
         return row
 
@@ -235,14 +236,27 @@ def train_cell(
 
     for update_step in range(1, steps + 1):
         optimizer.zero_grad(set_to_none=True)
+        diagnostic_keys = (
+            "negative_surprisal_mean",
+            "u_mean",
+            "u_p10",
+            "u_p50",
+            "u_p90",
+            "weight_mean",
+            "weight_p10",
+            "weight_p50",
+            "weight_p90",
+            "unique_negative_count_mean",
+            "raw_bank_count_mean",
+            "duplicates_removed_mean",
+        )
         accum: dict[str, float | None] = {
             "loss": 0.0,
             "positive_lp": 0.0,
             "weighted_negative_lp": 0.0,
-            "weight_mean": 0.0,
-            "unique_negative_count_mean": 0.0,
-            "duplicates_removed_mean": 0.0,
+            **{key: 0.0 for key in diagnostic_keys},
         }
+        diagnostic_observations = {key: 0 for key in diagnostic_keys}
         abort_update = False
         for _ in range(int(train_cfg["gradient_accumulation"])):
             try:
@@ -259,9 +273,20 @@ def train_cell(
                     (), device=device, dtype=positive_lp.dtype
                 )
                 diagnostics = {
+                    "negative_surprisal_mean": None,
+                    "u_mean": None,
+                    "u_p10": None,
+                    "u_p50": None,
+                    "u_p90": None,
                     "weight_mean": 0.0,
+                    "weight_p10": 0.0,
+                    "weight_p50": 0.0,
+                    "weight_p90": 0.0,
                     "unique_negative_count_mean": float(
                         packed["unique_counts"].float().mean()
+                    ),
+                    "raw_bank_count_mean": float(
+                        packed["raw_bank_counts"].float().mean()
                     ),
                     "duplicates_removed_mean": float(
                         (packed["raw_bank_counts"] - packed["unique_counts"])
@@ -296,21 +321,21 @@ def train_cell(
                 break
             (raw_loss / int(train_cfg["gradient_accumulation"])).backward()
             divisor = float(train_cfg["gradient_accumulation"])
-            for key, value in (
-                ("loss", float(raw_loss.detach())),
-                ("positive_lp", float(positive_lp.detach())),
-                ("weighted_negative_lp", float(weighted_negative_lp.detach())),
-                ("weight_mean", float(diagnostics["weight_mean"])),
-                (
-                    "unique_negative_count_mean",
-                    float(diagnostics["unique_negative_count_mean"]),
-                ),
-                (
-                    "duplicates_removed_mean",
-                    float(diagnostics["duplicates_removed_mean"]),
-                ),
-            ):
-                accum[key] = float(accum[key] or 0.0) + value / divisor
+            accum["loss"] = float(accum["loss"] or 0.0) + float(
+                raw_loss.detach()
+            ) / divisor
+            accum["positive_lp"] = float(accum["positive_lp"] or 0.0) + float(
+                positive_lp.detach()
+            ) / divisor
+            accum["weighted_negative_lp"] = float(
+                accum["weighted_negative_lp"] or 0.0
+            ) + float(weighted_negative_lp.detach()) / divisor
+            for key in diagnostic_keys:
+                value = diagnostics.get(key)
+                if value is None:
+                    continue
+                accum[key] = float(accum[key] or 0.0) + float(value) / divisor
+                diagnostic_observations[key] += 1
         if abort_update:
             break
 
@@ -339,13 +364,24 @@ def train_cell(
         scheduler.step()
         terminal_step = update_step
         last_finite_step = update_step
+        for key in diagnostic_keys:
+            if diagnostic_observations[key] == 0:
+                accum[key] = None
         accum["raw_gradient_norm"] = float(raw_grad_norm)
         accum["optimizer_update_norm"] = update_norm
         if update_step % int(train_cfg["log_every"]) == 0 or update_step == steps:
-            print(
-                json.dumps({"cell": cell.name, "step": update_step, **accum}),
-                flush=True,
-            )
+            training_record = {
+                "cell": cell.name,
+                "step": update_step,
+                "method": cell.method,
+                "alpha": cell.alpha,
+                "c": cell.c,
+                "test_data_used": False,
+                **accum,
+            }
+            with training_diagnostics_path.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps(training_record, ensure_ascii=False) + "\n")
+            print(json.dumps(training_record), flush=True)
         if update_step % eval_every == 0 or update_step == steps:
             row = evaluate(update_step)
             value = float(row["val_pass_at_8"])
@@ -433,6 +469,10 @@ def train_cell(
         },
         "metric_bests": metric_bests,
         "terminal_metrics": dict(metric_rows[-1]),
+        "diagnostic_files": {
+            "training": str(training_diagnostics_path),
+            "validation": str(validation_diagnostics_path),
+        },
         "test_data_used": False,
         "reporting_separation": {
             "task_performance": "validation trajectories and metric-specific best values",
