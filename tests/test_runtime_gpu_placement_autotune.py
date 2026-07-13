@@ -6,8 +6,15 @@ from pathlib import Path
 
 import pytest
 
+from drpo import countdown_e8_oracle_offline_v2_taper_slot_runtime as slot_runtime
 from drpo import runtime_gpu_placement_autotune as placement
-from drpo.runtime_resource_autotune import GIB, GPUDevice, MachineSnapshot, load_json
+from drpo.runtime_resource_autotune import (
+    GIB,
+    GPUDevice,
+    MachineSnapshot,
+    RuntimeResourceError,
+    load_json,
+)
 
 
 def snapshot(
@@ -106,6 +113,52 @@ def test_bounded_backoff_does_not_enumerate_every_slot_count() -> None:
     assert placement.bounded_backoff_candidates(8) == [8, 7, 4, 1]
     assert placement.bounded_backoff_candidates(3) == [3, 2, 1]
     assert placement.bounded_backoff_candidates(1) == [1]
+
+
+def test_slot_runtime_accepts_exact_automatic_placement() -> None:
+    document = {
+        "adapter_id": placement.ADAPTER_ID,
+        "scientific_matrix_changed": False,
+        "selection": {
+            "selected_device_ids": ["0", "1"],
+            "slots_per_gpu": 3,
+            "total_runtime_slots": 6,
+            "slot_device_ids": ["0", "0", "0", "1", "1", "1"],
+        },
+    }
+    slots, expanded = slot_runtime._validated_placement(  # noqa: SLF001
+        document,
+        gpu_pool=["0", "1"],
+        total_tasks=8,
+    )
+    assert slots == 3
+    assert expanded == ["0", "0", "0", "1", "1", "1"]
+
+
+def test_slot_runtime_rejects_inconsistent_or_scientific_placement() -> None:
+    document = {
+        "adapter_id": placement.ADAPTER_ID,
+        "scientific_matrix_changed": False,
+        "selection": {
+            "selected_device_ids": ["0", "1"],
+            "slots_per_gpu": 2,
+            "total_runtime_slots": 4,
+            "slot_device_ids": ["0", "0", "1", "0"],
+        },
+    }
+    with pytest.raises(RuntimeResourceError, match="slot expansion"):
+        slot_runtime._validated_placement(  # noqa: SLF001
+            document,
+            gpu_pool=["0", "1"],
+            total_tasks=8,
+        )
+    document["scientific_matrix_changed"] = True
+    with pytest.raises(RuntimeResourceError, match="scientific matrix"):
+        slot_runtime._validated_placement(  # noqa: SLF001
+            document,
+            gpu_pool=["0", "1"],
+            total_tasks=8,
+        )
 
 
 def test_autotune_backs_off_to_highest_validated_candidate(tmp_path: Path) -> None:
@@ -250,8 +303,12 @@ def test_real_probe_terminates_workers_and_removes_probe_payload(
         terminate_grace_seconds=0.1,
     )
     assert result.success is True
-    assert list((tmp_path / "probe").glob("worker_*.log"))
-    assert not list((tmp_path / "probe").glob("worker_*/"))
+    probe_root = tmp_path / "probe"
+    assert list(probe_root.glob("worker_*.log"))
+    assert not any(
+        path.is_dir() and path.name.startswith("worker_")
+        for path in probe_root.iterdir()
+    )
 
 
 def test_real_probe_rejects_oom_signature(
