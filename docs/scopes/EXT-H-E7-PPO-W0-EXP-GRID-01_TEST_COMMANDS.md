@@ -13,6 +13,7 @@ python -m py_compile \
   tests/test_e7_ppo_w0_failure_audit.py
 
 bash -n \
+  scripts/run_e7_ppo_w0_grid_liveness_one_click.sh \
   scripts/run_e7_ppo_w0_grid_pilot_auto_one_click.sh \
   scripts/run_e7_ppo_w0_grid_pilot_resume_one_click.sh
 
