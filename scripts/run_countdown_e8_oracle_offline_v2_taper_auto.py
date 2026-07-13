@@ -39,7 +39,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--sweep_config", required=True)
     parser.add_argument("--gpus", help="comma-separated candidate GPU ids")
     parser.add_argument("--required-free-gpu-memory-gib", type=float, default=8.0)
-    parser.add_argument("--required-host-memory-gib-per-worker", type=float, default=4.0)
+    parser.add_argument(
+        "--required-host-memory-gib-per-worker",
+        "--required-host-memory-gib-per-gpu",
+        dest="required_host_memory_gib_per_worker",
+        type=float,
+        default=4.0,
+    )
     parser.add_argument("--gpu-memory-headroom-fraction", type=float, default=0.12)
     parser.add_argument("--host-memory-headroom-fraction", type=float, default=0.15)
     parser.add_argument("--per-worker-vram-safety-factor", type=float, default=1.25)
@@ -156,7 +162,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.gpus:
         candidate_ids = [item.strip() for item in args.gpus.split(",") if item.strip()]
     else:
-        candidate_ids = [str(value) for value in original_config["execution"]["default_gpus"]]
+        candidate_ids = [
+            str(value) for value in original_config["execution"]["default_gpus"]
+        ]
     cells = legacy_runtime.core.build_cells(original_config)
     machine = discover_machine(
         meminfo_path=args.meminfo,
