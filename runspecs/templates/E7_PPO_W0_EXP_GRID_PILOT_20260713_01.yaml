@@ -4,7 +4,7 @@ lane: e7
 priority: 115
 created_at: '2026-07-13T08:00:00Z'
 experiment_id: EXT-H-E7-PPO-W0-EXP-GRID-01
-repo_commit: 2192dfc6d327caf33c79ce63910ad8cb5befd760
+repo_commit: 6ceba39c1b508d6e669ea800d9b77047067d96f9
 
 provenance:
   commit_policy: protected_paths_unchanged
