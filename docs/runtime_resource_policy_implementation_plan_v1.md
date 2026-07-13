@@ -28,6 +28,7 @@ V1 adopts the following hard constraints:
 - `plan` is a project CLI command, not a third core state;
 - one authoritative `RUNTIME_SELECTION.json` with embedded identity;
 - one conditional attempt-local `RUNTIME_REVALIDATION.json`;
+- both artifact layouts are explicitly versioned public formats;
 - no separate identity sidecar;
 - no backend, machine-provider, or dynamic-plugin abstraction in the core;
 - caller supplies plain machine observation and an explicit adapter mapping;
@@ -61,6 +62,7 @@ Responsibilities:
 - strict contract parsing and canonical defaults;
 - canonical JSON and embedded SHA-256 identity;
 - `create_selection`, `verify_selection`, and `revalidate_selection`;
+- versioned selection/revalidation serialization;
 - common adapter-output validation;
 - atomic selection and revalidation writes;
 - explicit caller-supplied adapter mapping.
@@ -149,9 +151,9 @@ Most risk remains in negative transitions, so tests still exceed core code.
 | **Total tests** | **1,200–2,050** |
 | schema and design/operations docs | 500–900 |
 
-Tests must emphasize identity stability, unsafe resume, scientific drift,
-atomic-write failure, and adapter-output validation rather than producing one test
-per internal helper.
+Tests must emphasize identity stability, artifact-version compatibility, unsafe
+resume, scientific drift, atomic-write failure, and adapter-output validation rather
+than producing one test per internal helper.
 
 ## 6. Phase plan
 
@@ -182,7 +184,7 @@ Deliverables:
 - explicit adapter protocol and caller-supplied mapping;
 - deterministic parser and embedded identity;
 - create/verify/revalidate operations;
-- one-file selection and attempt-local revalidation;
+- versioned one-file selection and attempt-local revalidation formats;
 - standalone DRPO plan CLI using the current provider;
 - no RunSpec or formal enforcement.
 
@@ -193,6 +195,7 @@ Required tests:
 - stable identity under key order and irrelevant provenance changes;
 - identity changes for selected resources, fingerprints, adapter version, or declared
   resource binding;
+- selection/revalidation format version rejection and compatibility;
 - non-finite value rejection;
 - unknown adapter/version;
 - invalid adapter output;
@@ -297,6 +300,7 @@ acceptance, governance authorization, or observation time.
 | adapter judges its own science identity | medium-high | caller supplies scientific fingerprint independently |
 | identity over-binding to machines/evidence | medium | minimal stable payload and explicit resource binding |
 | duplicated cache or provenance logic | medium | adapter-owned cache; one selection authority |
+| artifact-format drift | medium | public version fields and compatibility tests |
 | framework or provider leakage | medium | plain data inputs and no plugin/provider framework |
 | schema expansion | low-medium | opaque adapter parameters and strict common envelope |
 
@@ -305,7 +309,7 @@ acceptance, governance authorization, or observation time.
 - **After Phase A:** stop if the core cannot remain under 550 production lines
   without hiding workload logic.
 - **After Phase B:** stop if identity is not stable under irrelevant provenance
-  changes or resume can reach auto selection.
+  changes, artifact formats are not versioned, or resume can reach auto selection.
 - **After Phase C:** stop if E7/E8 require scientific special cases in the core or
   common cache logic duplicates the dedicated selectors.
 - **Before Phase D:** require explicit Stage-2 authorization and rollback rehearsal.
