@@ -4,7 +4,7 @@
 
 - scientific class: external-validity development screening pilot;
 - implementation route: stacked dev branch on `dev/e7-ppo-w0-grid-pilot`;
-- registration: pending schema-v3 authority update after code review;
+- registration: schema-v3 authority update `EXT-H-E7-W0-HIGHC-ACTOR-REGISTRATION-2026-07-13` materialized on the Draft PR branch;
 - result status: `not_run`;
 - held-out seeds `204--207`: untouched and forbidden.
 

@@ -7,7 +7,7 @@
 - Responsibility: Preserve the unique-master rule, terminology, scientific scope, and non-destructive governance constraints.
 - Content contract topics: `unique_master_document`, `document_before_experiment`, `non_destructive_history`, `terminal_audit_governance`, `controlled_external_validity_boundary`
 - Deduplicated overlapping source chunks: 0
-- Source hash: `69bf4082a726a043d4078fe43ade5717f3cb10d8d45ba1c283a067bddfac40e5`
+- Source hash: `87057cf6ca8e32ab4e4c387508db26f89754ab2e569bd42361623917219d76e2`
 
 ## Content contract evidence
 
@@ -149,6 +149,9 @@
 <!-- HANDOFF-DELTA-BLOCK:section_end:e7-ppo-w0-exp-grid-running-pilot:START -->
 - **Hopper/Walker E7 PPO direct-`w(0)` × EXP 网格 pilot（`EXT-H-E7-PPO-W0-EXP-GRID-01`）：**登记为正在运行的 development screening pilot，是 `EXT-H-E7-PPO-STABILITY-01` 的非破坏性 successor；旧实验协议与历史结果完整保留。实验公开参数化固定为 `u=d/2`、`w(d)=w(0)exp(-cu)`，不再暴露 `scale` 或 `canonical_alpha`；`w(0)=0.11` 与旧 `alpha=0.11 × scale=1` 仅作为实现等价锚点。网格为 `w(0)={0,0.025,0.05,0.11,0.25,0.5,1}` 与 `c={0,0.25,0.5,1,1.5}`，`w(0)=0` 去重为 Positive-only，共 31 个参数点；在 `hopper-medium-expert-v2`、`walker2d-medium-v2`、`walker2d-medium-replay-v2` 和 development seeds `200,201` 上形成 186 个 PPO-only、500k branches。held-out seeds `204--207` 保持未使用；自动资源探测只决定安全 subprocess 数，不得改变科学矩阵。用户已报告服务器启动，但当前无终态结果，禁止把运行中状态、500k endpoint、smoke/liveness 或 dev-seed 筛选升级为收敛、稳态或正式方法排名。任务性能退化/崩溃、support/variance boundary 与 NaN/Inf 必须分开审计；最终应寻找跨三任务共同稳健的 `(w(0),c)`，不得按数据集事后挑选不同 cell 冒充统一方法。Hopper/Walker 只承担 external validity，不替代 C-U1/D-U1 受控机制识别。
 <!-- HANDOFF-DELTA-BLOCK:section_end:e7-ppo-w0-exp-grid-running-pilot:END -->
+<!-- HANDOFF-DELTA-BLOCK:section_end:e7-w0-highc-actor-screening-pilot:START -->
+- **Hopper/Walker E7 direct-`w(0)=1` high-`c` × actor-update follow-up （`EXT-H-E7-W0-HIGHC-ACTOR-01`）：**登记为 `not_run` 的 development screening pilot，是 `EXT-H-E7-PPO-W0-EXP-GRID-01` 的非破坏性 successor；前序 186-branch 结果与失败记录完整保留。本实验固定公开参数化 `u=d/2`、`w(d)=w(0)exp(-cu)`，只比较 Positive-only 与 `w(0)=1, c={2,3,4,6,8,12}`，并在 historical canonical A2C 与 PPO clip 两种 actor update 下成对执行。三项任务为 `hopper-medium-expert-v2`、`walker2d-medium-v2`、`walker2d-medium-replay-v2`，development seeds 仅 `200,201`，共 84 个 500k branches；held-out seeds `204--207` 禁止使用。网络、critic、advantage、优化器、batch、学习率、数据与评估协议保持一致；PPO 继续固定 clip `0.2` 和 old-policy cadence `4`。两种 actor update 均记录负样本 standardized distance、实际 `w(d)`、阈值占比与 advantage-weighted effective negative mass，诊断不得改变 objective。该 external-validity pilot 只回答有限步高衰减恢复与 actor-update 敏感性，不得升级为因果识别、收敛、稳态或 PPO/A2C 普遍排名；任务性能退化/崩溃、support/variance boundary 与 NaN/Inf 必须分开终态审计，也不得按数据集事后选择不同 `c` 冒充统一方法。
+<!-- HANDOFF-DELTA-BLOCK:section_end:e7-w0-highc-actor-screening-pilot:END -->
 <!-- HANDOFF-DELTA-BLOCK:section_end:e8-base-rl-replay-0p5b-gate:START -->
 - **Countdown E8 base-start RL/replay 0.5B pilot：**登记 `EXT-C-E8-BASE-RL-REPLAY-0.5B-01`，作为移除 Countdown SFT warmstart 后的基模起点诊断。该实验只回答：Qwen pretrained base 是否能通过 oracle-offline fixed positive corpus 学起；base-specific calibrated offline negatives 是否能超过 positive-only；online on-policy self-sampled positives 是否能冷启动；dynamic replay buffer 累积历史自采 positives/negatives 是否优于 immediate on-policy 更新。所有 RL 分支从 Qwen pretrained base + fresh LoRA 开始，禁止 Countdown SFT warmstart、随机初始化主实验、taper 方法族和正式方法排名声明。固定预算 pilot 只报告有限步 evidence；结果必须分开报告 task performance、online signal sparsity/replay support、valid structure boundary 和 NaN/Inf numerical failure。
 <!-- HANDOFF-DELTA-BLOCK:section_end:e8-base-rl-replay-0p5b-gate:END -->

@@ -1,0 +1,210 @@
+{
+  "current_before_commit": "cca4aadc4a23d5a141cb83192676c32372cdabc2",
+  "current_handoff_before_sha256": "79b1d92f6357b2004861f85b335e076120ee9a89e9bee80412c1d5b410fc291b",
+  "current_registry_validation": {
+    "assertions": [
+      {
+        "change_id": "add-e7-w0-highc-actor-pilot",
+        "entity_id": "EXT-H-E7-W0-HIGHC-ACTOR-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "482013a48338f739f21f152107183be6f8f5745d73b1adfbe57940f797efb6ba"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-H-E7-W0-HIGHC-ACTOR-REGISTRATION-2026-07-13/HANDOFF_DELTA.yaml",
+            "sha256": "81cfc679415169436ea3f1c604fb1e820f42d8d21a195354764b18305492cd18"
+          },
+          {
+            "path": "docs/experiments/EXT-H-E7-W0-HIGHC-ACTOR-01.md",
+            "sha256": "a186d921c0f9ea7b5e493ab97a43b0a2ceaf412a78163207cf8243aa43bbeee6"
+          },
+          {
+            "path": "docs/scopes/EXT-H-E7-W0-HIGHC-ACTOR-01.md",
+            "sha256": "f0891edd71986e5c42a59f695470d3cd12ad7d17b3e25331e86c873f9999fe3f"
+          },
+          {
+            "path": "configs/e7_w0_highc_actor_ablation_v1.json",
+            "sha256": "ae36a5872758e1c85c281fa4b0bea27eca1cbe8f790dd44732b94aa3de36b8ef"
+          },
+          {
+            "path": "src/drpo/e7_w0_highc_actor.py",
+            "sha256": "650870d56b600c4245f1cd86ad284ff8adb7d977ed352bb11ffd8c6760ee90d6"
+          },
+          {
+            "path": "src/drpo/e7_w0_highc_actor_bootstrap.py",
+            "sha256": "ac1afa7675d49ae7b1d230da71d9d7fabf835b15ddc115d831a194b6d6755f80"
+          },
+          {
+            "path": "src/drpo/e7_w0_highc_actor_aggregate.py",
+            "sha256": "2ca85e6b13aa2b4b1cd05522c2718dd02ed18e90a2532edff3633c33c82aeedf"
+          },
+          {
+            "path": "src/drpo/e7_w0_geometry_diagnostics.py",
+            "sha256": "64d9edb40915a262bb9569d97e7209c0dfcb1f94a014df5896bc23951d53c88f"
+          },
+          {
+            "path": "src/drpo/e7_w0_highc_runtime_autotune.py",
+            "sha256": "78285a07e9008b4f35132d8ef021395d4cfce049aac3f628a1f33cd38cdd3f20"
+          },
+          {
+            "path": "scripts/run_e7_w0_highc_actor_auto.py",
+            "sha256": "f8b685a21e283798889f9eeefe082c47926a04cc047021601aa04ea3081761ab"
+          },
+          {
+            "path": "scripts/run_e7_w0_highc_actor_auto_one_click.sh",
+            "sha256": "866daf52aa72fe90da7a0ec652b0ac56e5ded8073baaa2f2fdcd5122efc43904"
+          },
+          {
+            "path": "tests/test_e7_w0_highc_actor.py",
+            "sha256": "f6a1200caefb317d5453a8b502e0c148c25d4a314ee74a0df2ef8a8a7a266a71"
+          },
+          {
+            "path": "tests/test_e7_w0_geometry_diagnostics.py",
+            "sha256": "e74bc43254b700269b101d34024fce7cb4fdb5f21deb5a1f7491b6577abf527d"
+          },
+          {
+            "path": "tests/test_e7_w0_highc_runspecs.py",
+            "sha256": "cd96a70940f8afe4d2900e093490c50b6ff55d1d83105712d79f8c9b974c4451"
+          }
+        ],
+        "kind": "add_entity"
+      }
+    ],
+    "coverage": {
+      "added_entities": [
+        "EXT-H-E7-W0-HIGHC-ACTOR-01"
+      ],
+      "changed_field_count": 0,
+      "declared_assertion_count": 1,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "delta_sha256": "81cfc679415169436ea3f1c604fb1e820f42d8d21a195354764b18305492cd18",
+  "exact_base_candidate_sha256": "9c70a3f8a6bb6c31ceab84ee64497f930271762a470ac68eaccefd78a7207638",
+  "exact_base_registry_validation": {
+    "assertions": [
+      {
+        "change_id": "add-e7-w0-highc-actor-pilot",
+        "entity_id": "EXT-H-E7-W0-HIGHC-ACTOR-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "482013a48338f739f21f152107183be6f8f5745d73b1adfbe57940f797efb6ba"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-H-E7-W0-HIGHC-ACTOR-REGISTRATION-2026-07-13/HANDOFF_DELTA.yaml",
+            "sha256": "81cfc679415169436ea3f1c604fb1e820f42d8d21a195354764b18305492cd18"
+          },
+          {
+            "path": "docs/experiments/EXT-H-E7-W0-HIGHC-ACTOR-01.md",
+            "sha256": "a186d921c0f9ea7b5e493ab97a43b0a2ceaf412a78163207cf8243aa43bbeee6"
+          },
+          {
+            "path": "docs/scopes/EXT-H-E7-W0-HIGHC-ACTOR-01.md",
+            "sha256": "f0891edd71986e5c42a59f695470d3cd12ad7d17b3e25331e86c873f9999fe3f"
+          },
+          {
+            "path": "configs/e7_w0_highc_actor_ablation_v1.json",
+            "sha256": "ae36a5872758e1c85c281fa4b0bea27eca1cbe8f790dd44732b94aa3de36b8ef"
+          },
+          {
+            "path": "src/drpo/e7_w0_highc_actor.py",
+            "sha256": "650870d56b600c4245f1cd86ad284ff8adb7d977ed352bb11ffd8c6760ee90d6"
+          },
+          {
+            "path": "src/drpo/e7_w0_highc_actor_bootstrap.py",
+            "sha256": "ac1afa7675d49ae7b1d230da71d9d7fabf835b15ddc115d831a194b6d6755f80"
+          },
+          {
+            "path": "src/drpo/e7_w0_highc_actor_aggregate.py",
+            "sha256": "2ca85e6b13aa2b4b1cd05522c2718dd02ed18e90a2532edff3633c33c82aeedf"
+          },
+          {
+            "path": "src/drpo/e7_w0_geometry_diagnostics.py",
+            "sha256": "64d9edb40915a262bb9569d97e7209c0dfcb1f94a014df5896bc23951d53c88f"
+          },
+          {
+            "path": "src/drpo/e7_w0_highc_runtime_autotune.py",
+            "sha256": "78285a07e9008b4f35132d8ef021395d4cfce049aac3f628a1f33cd38cdd3f20"
+          },
+          {
+            "path": "scripts/run_e7_w0_highc_actor_auto.py",
+            "sha256": "f8b685a21e283798889f9eeefe082c47926a04cc047021601aa04ea3081761ab"
+          },
+          {
+            "path": "scripts/run_e7_w0_highc_actor_auto_one_click.sh",
+            "sha256": "866daf52aa72fe90da7a0ec652b0ac56e5ded8073baaa2f2fdcd5122efc43904"
+          },
+          {
+            "path": "tests/test_e7_w0_highc_actor.py",
+            "sha256": "f6a1200caefb317d5453a8b502e0c148c25d4a314ee74a0df2ef8a8a7a266a71"
+          },
+          {
+            "path": "tests/test_e7_w0_geometry_diagnostics.py",
+            "sha256": "e74bc43254b700269b101d34024fce7cb4fdb5f21deb5a1f7491b6577abf527d"
+          },
+          {
+            "path": "tests/test_e7_w0_highc_runspecs.py",
+            "sha256": "cd96a70940f8afe4d2900e093490c50b6ff55d1d83105712d79f8c9b974c4451"
+          }
+        ],
+        "kind": "add_entity"
+      }
+    ],
+    "coverage": {
+      "added_entities": [
+        "EXT-H-E7-W0-HIGHC-ACTOR-01"
+      ],
+      "changed_field_count": 0,
+      "declared_assertion_count": 1,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "history_preservation_passed": true,
+  "idempotence_passed": true,
+  "materialized_handoff_after_sha256": "9c70a3f8a6bb6c31ceab84ee64497f930271762a470ac68eaccefd78a7207638",
+  "mode": "authoritative",
+  "network_used": false,
+  "policy_id": "GOV-HANDOFF-AUTHORITY-CUTOVER-01",
+  "registry_after_sha256": "482013a48338f739f21f152107183be6f8f5745d73b1adfbe57940f797efb6ba",
+  "registry_before_sha256": "17b7c7ebab00ba1827c1178adfd3c0c37ca8406eb64814af7be04100224ea837",
+  "report_schema_version": 1,
+  "source_base_commit": "cca4aadc4a23d5a141cb83192676c32372cdabc2",
+  "source_patch_commit": "32d53853a35962754e68e7236c5a86e72fb8a2e6",
+  "stage4a_refresh": {
+    "refreshed": [
+      "docs/handoff_shadow/stage4/minimal/generated/MODULE_INDEX.json",
+      "docs/handoff_shadow/stage4/minimal/generated/STRUCTURE_SUGGESTIONS.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/global_core_governance.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/hopper_e7.md"
+    ],
+    "reused": [
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.dot",
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e5_mechanism.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e6_generalization.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_extrapolation.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_taper.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_mechanism_e1_e3.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/countdown_e8.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/execution_status_gates.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/history_provenance.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/paper_rewrite.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/terminal_audit.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/theory_methods_related_work.md"
+    ]
+  },
+  "status": "PASS",
+  "structural_lint_passed": true,
+  "trusted_engine_sha256": "a6532ba4c1bb9c4af24d79f027267de518c3832b347dba47e8319dee7a3ebe2c",
+  "trusted_policy_sha256": "508f6bbb6ee9bb6da5be041a23e25cd569b95475523bb6af7127cb84ea3466ad",
+  "trusted_renderer_sha256": "39a7566e91c77784822148bb18ae32e44dfcc1745fbdc1cbf14a88ce6c6a13e5",
+  "update_id": "EXT-H-E7-W0-HIGHC-ACTOR-REGISTRATION-2026-07-13"
+}

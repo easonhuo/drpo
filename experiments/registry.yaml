@@ -6237,6 +6237,113 @@ experiments:
   - does_not_replace_cu1_or_du1_controlled_identification
   formal_evidence_allowed: false
 
+- id: EXT-H-E7-W0-HIGHC-ACTOR-01
+  environment: EXT-H
+  name: e7_direct_w0_one_high_c_actor_update_ablation_pilot
+  status: pilot
+  result_status: not_run
+  predecessor: EXT-H-E7-PPO-W0-EXP-GRID-01
+  registration_base_commit: cca4aadc4a23d5a141cb83192676c32372cdabc2
+  claim: >-
+    On the same three E7 external-validity tasks, test whether direct
+    w(0)=1 approaches the Positive-only endpoint when the exponential
+    coefficient is extended to c={2,3,4,6,8,12}, and screen whether
+    the Hopper finite-horizon failure pattern differs between the
+    historical canonical A2C actor update and PPO clipping.
+  role: external_validity_high_c_and_actor_update_screening
+  execution_class: pilot
+  code_entrypoint: src/drpo/e7_w0_highc_actor.py
+  bootstrap_entrypoint: src/drpo/e7_w0_highc_actor_bootstrap.py
+  aggregation_entrypoint: src/drpo/e7_w0_highc_actor_aggregate.py
+  geometry_diagnostics_entrypoint: src/drpo/e7_w0_geometry_diagnostics.py
+  runtime_selection_entrypoint: src/drpo/e7_w0_highc_runtime_autotune.py
+  operator_entrypoint: scripts/run_e7_w0_highc_actor_auto.py
+  one_click_entrypoint: scripts/run_e7_w0_highc_actor_auto_one_click.sh
+  resume_entrypoint: scripts/run_e7_w0_highc_actor_resume_one_click.sh
+  liveness_entrypoint: scripts/run_e7_w0_highc_actor_liveness_one_click.sh
+  config_path: configs/e7_w0_highc_actor_ablation_v1.json
+  protocol_document: docs/experiments/EXT-H-E7-W0-HIGHC-ACTOR-01.md
+  runspec_templates:
+  - runspecs/templates/E7_W0_HIGHC_ACTOR_LIVENESS_20260713_01.yaml
+  - runspecs/templates/E7_W0_HIGHC_ACTOR_PILOT_20260713_01.yaml
+  parameterization:
+    distance: detached_RMS_standardized_action_distance
+    reference_distance: 2.0
+    formula: w(d)=w(0)*exp(-c*(d/2))
+    exponential_weight_at_zero: 1.0
+    positive_only_weight_at_zero: 0.0
+    legacy_scale_experiment_facing: false
+  grid:
+    positive_only_anchor: true
+    exp_coefficients: [2.0, 3.0, 4.0, 6.0, 8.0, 12.0]
+    actor_update_modes: [a2c, ppo_clip]
+    controls_per_actor_mode: 7
+  protocol:
+    datasets:
+    - hopper-medium-expert-v2
+    - walker2d-medium-v2
+    - walker2d-medium-replay-v2
+    development_seeds: [200, 201]
+    held_out_seeds: [204, 205, 206, 207]
+    optimizer_steps_per_branch: 500000
+    evaluation_interval_steps: 50000
+    evaluation_episodes: 10
+    expected_branches: 84
+    shared_batch_size: 256
+    shared_learning_rate: 0.0003
+    ppo_clip_epsilon: 0.2
+    ppo_updates_per_old_policy: 4
+    ppo_auxiliary_tricks_enabled: false
+  actor_update_comparison:
+    shared_components:
+    - canonical_source_fingerprint
+    - actor_and_critic_architecture
+    - critic_target_and_expectile_loss
+    - advantage_definition_and_full_batch_normalization
+    - optimizer_batch_and_learning_rate
+    - dataset_and_evaluation_protocol
+    intended_difference: actor_update_rule_only
+    a2c: canonical_one_step_signed_actor_update
+    ppo_clip: clipped_ratio_surrogate_with_old_policy_refresh_every_4_updates
+    causal_claim_allowed: false
+  geometry_diagnostics:
+    interval_updates: 1000
+    sampled_values_per_update: 16
+    negative_distance_quantiles: [p10, p25, p50, p75, p90, p99]
+    negative_weight_quantiles: [p10, p25, p50, p75, p90, p99]
+    exact_weight_thresholds: [0.5, 0.1, 0.05, 0.01]
+    advantage_weighted_effective_negative_mass: true
+    extra_actor_or_critic_forward_pass: false
+    objective_changed_by_observer: false
+  execution:
+    state: registered_ready_for_real_data_liveness
+    development_branch: dev/e7-w0-highc-actor-ablation
+    stacked_on_branch: dev/e7-ppo-w0-grid-pilot
+    draft_pull_request: 52
+    implementation_commit: d23e0f82d350fdecfddcb69efc1f1af63150a0b6
+    reviewed_head_before_registration: 927974b3c690a1e6b59c6c0137b47f1a53f339dd
+    server_start_reported: false
+    result_available: false
+    runtime_selection: automatic_cpu_memory_and_bounded_throughput
+    runtime_selection_changes_scientific_matrix: false
+  terminal_audit:
+    required: true
+    separates:
+    - task_performance_degradation_or_collapse
+    - support_or_variance_boundary_event
+    - nan_inf_numerical_failure
+    - best_checkpoint_from_terminal_checkpoint
+  interpretation_limits:
+  - screening_pilot_not_formal_evidence
+  - fixed_500k_endpoint_is_not_convergence_or_steady_state
+  - two_development_seeds_are_not_confirmatory_seeds
+  - no_universal_ppo_or_a2c_superiority_claim
+  - paired_actor_update_difference_is_not_controlled_causal_identification
+  - no_dataset_specific_parameter_cherry_picking
+  - hopper_and_walker_are_external_validity_only
+  - does_not_replace_cu1_or_du1_controlled_identification
+  formal_evidence_allowed: false
+
 development_experiment_registrations:
 - id: D-U1-E6-CONDITIONAL-GAP-DEV-01
   environment: D-U1
