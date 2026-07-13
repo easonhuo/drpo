@@ -54,6 +54,7 @@ policy contract
 - `docs/scopes/GOV-RUNTIME-RESOURCE-POLICY-INTEGRATION-01.md`
 - `docs/runtime_resource_policy_architecture_v1.md`
 - `docs/runtime_resource_policy_implementation_plan_v1.md`
+- `docs/runtime_resource_policy_packaging_decision_v1.md`
 - `docs/schemas/runtime_resource_policy_v1.schema.json`
 - `docs/governance_stage_authorizations/GOV-RUNTIME-RESOURCE-POLICY-INTEGRATION-01-STAGE2-REOPEN-DRAFT.md`
 
