@@ -1,7 +1,7 @@
 schema_version: 1
 experiment_id: EXT-C-E8-ORACLE-OFFLINE-V2-CONTINUOUS-EXP-GRID-0.5B-01
 result_status: pilot
-registration_state: dev_code_first_unregistered
+registration_state: registered_pilot
 claim: >-
   On the frozen model-independent E8 V2 bank, jointly screen the direct fixed
   negative coefficient alpha and the continuous exponential-quadratic taper
