@@ -1,0 +1,44 @@
+schema_version: 3
+update_id: EXT-C-E8-V2-CONTINUOUS-EXP-GRID-REGISTRATION-2026-07-13
+mode: authoritative
+base:
+  commit: 448936a7d61cb8871457078ef196e371fbce380c
+  handoff_sha256: a105282a37ea13d9be8fb26f41ec05aa487454f69ffc955aa0c8ee3febaca6fb
+  registry_sha256: 511380b837c8f6af999c25be510b9ecd5c64dbe89ad0924f1b07784eb5707622
+renderer_version: 1
+operations:
+- operation_id: append-e8-v2-fixed-alpha-continuous-exp-grid-ready
+  op: append_to_section
+  heading_path:
+  - 0. 研究与执行原则（每次新会话首先阅读）
+  - 0.1 当前执行门禁
+  block_id: e8-v2-fixed-alpha-continuous-exp-grid-ready
+  content: '- **Countdown E8 V2 fixed-alpha continuous EXP pilot:** 登记 `EXT-C-E8-ORACLE-OFFLINE-V2-CONTINUOUS-EXP-GRID-0.5B-01`，状态为
+    `implemented_ready_not_run`。训练对每个 prompt 的全部去重负样本使用固定 `alpha * exp(-c * u^2)`
+    权重，其中 `u=-stopgrad(sequence mean log-prob)/2`；不再使用 current-near/current-far 极值选择、0.5/0.5
+    二元混合、`negative_scale`、初始化梯度预算匹配或按权重和归一化。本轮联合扫描 31 个 `(alpha,c)` 点和 2 个新 development
+    seeds，共 62 cells，固定 1200 步且只用 validation 调参；当前 runtime 不接受 test split。GPU autotune
+    只选择活动设备槽，并在完整 sweep 前执行 2-step 真实 liveness。此前 72-cell budget-matched taper sweep
+    作为历史 pilot 保留，不得用于回答本轮固定 alpha 问题。本登记仅是 Countdown 外部有效性调参 pilot，不构成机制识别、正式方法排名、收敛、稳态或
+    OOD 泛化结论。'
+registry:
+  mode: expected_after
+  exact_base_after_sha256: 7f25a2b7d5e395e16754d1c5cbf954d7d74ee2dc0c869cf231aa8ab48288af41
+  changes:
+  - change_id: add-e8-v2-fixed-alpha-continuous-exp-grid-pilot
+    kind: add_entity
+    entity_id: EXT-C-E8-ORACLE-OFFLINE-V2-CONTINUOUS-EXP-GRID-0.5B-01
+    evidence:
+    - experiments/registry.yaml
+    - docs/handoff_deltas/EXT-C-E8-V2-CONTINUOUS-EXP-GRID-REGISTRATION-2026-07-13/HANDOFF_DELTA.yaml
+    - configs/countdown_e8_oracle_offline_v2_continuous_exp_grid_0p5b.yaml
+    - docs/experiments/E8_V2_CONTINUOUS_EXP_GRID_PILOT.md
+    - docs/scopes/EXT-C-E8-ORACLE-OFFLINE-V2-CONTINUOUS-EXP-GRID-0.5B-01.md
+    - scripts/run_countdown_e8_oracle_offline_v2_continuous_exp_auto.py
+    - scripts/run_countdown_e8_oracle_offline_v2_continuous_exp_auto_one_click.sh
+    - src/drpo/countdown_e8_continuous_exp_common.py
+    - src/drpo/countdown_e8_continuous_exp_trainer.py
+    - src/drpo/countdown_e8_continuous_exp_runtime.py
+    - tests/test_countdown_e8_oracle_offline_v2_continuous_exp.py
+expected:
+  exact_base_candidate_sha256: 5a4c74ad328c485993309be87fe27fb5278257ef45f47c806d2ce2ac920acc28

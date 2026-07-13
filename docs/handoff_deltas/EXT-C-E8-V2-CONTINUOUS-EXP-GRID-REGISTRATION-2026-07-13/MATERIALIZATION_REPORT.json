@@ -1,0 +1,178 @@
+{
+  "current_before_commit": "40993f079ac5c2a043f27009f9e93c3e41998389",
+  "current_handoff_before_sha256": "a105282a37ea13d9be8fb26f41ec05aa487454f69ffc955aa0c8ee3febaca6fb",
+  "current_registry_validation": {
+    "assertions": [
+      {
+        "change_id": "add-e8-v2-fixed-alpha-continuous-exp-grid-pilot",
+        "entity_id": "EXT-C-E8-ORACLE-OFFLINE-V2-CONTINUOUS-EXP-GRID-0.5B-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "7f25a2b7d5e395e16754d1c5cbf954d7d74ee2dc0c869cf231aa8ab48288af41"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-C-E8-V2-CONTINUOUS-EXP-GRID-REGISTRATION-2026-07-13/HANDOFF_DELTA.yaml",
+            "sha256": "9d75d7a19fd799eaa1861b49815edcd6d7c5c530598a2346b2532a5c17deaa4d"
+          },
+          {
+            "path": "configs/countdown_e8_oracle_offline_v2_continuous_exp_grid_0p5b.yaml",
+            "sha256": "6b7302182a461aefddf1b70550ab5559f9148ab3c6fddfdfdb2b987581910f8b"
+          },
+          {
+            "path": "docs/experiments/E8_V2_CONTINUOUS_EXP_GRID_PILOT.md",
+            "sha256": "85428fc3ee84b76ce20be66fb23949b9d88adf2ea067904c2302e3b34030d78f"
+          },
+          {
+            "path": "docs/scopes/EXT-C-E8-ORACLE-OFFLINE-V2-CONTINUOUS-EXP-GRID-0.5B-01.md",
+            "sha256": "f49d2ead3767bb254abe3dfdb1600b8a6428160bb600975c732b797f03b86e60"
+          },
+          {
+            "path": "scripts/run_countdown_e8_oracle_offline_v2_continuous_exp_auto.py",
+            "sha256": "bab4105c1b3be2d1ae11b2ce7a476625a0c2c95b302ea63d70a3e82cc344fe72"
+          },
+          {
+            "path": "scripts/run_countdown_e8_oracle_offline_v2_continuous_exp_auto_one_click.sh",
+            "sha256": "564e7e065af5e562c64aca792eabfff8961b2d840fd8907c900f4c803b19970a"
+          },
+          {
+            "path": "src/drpo/countdown_e8_continuous_exp_common.py",
+            "sha256": "7466499fcd4c42023c278604b0c26225337e3a3e78234b94ef95bcfc88060b65"
+          },
+          {
+            "path": "src/drpo/countdown_e8_continuous_exp_trainer.py",
+            "sha256": "5f4133d02729a0408b9c3777425fc0e02bc901d87f08b19d1aa9206453bcf56a"
+          },
+          {
+            "path": "src/drpo/countdown_e8_continuous_exp_runtime.py",
+            "sha256": "1763ebf7541e1f45195f1384468153a65a383c189c1a175f48c189f402e70eb0"
+          },
+          {
+            "path": "tests/test_countdown_e8_oracle_offline_v2_continuous_exp.py",
+            "sha256": "6ce7c4aaeadd45fcf912736e0e5be3763247cdd76be51196dbed4ff02dff4d4e"
+          }
+        ],
+        "kind": "add_entity"
+      }
+    ],
+    "coverage": {
+      "added_entities": [
+        "EXT-C-E8-ORACLE-OFFLINE-V2-CONTINUOUS-EXP-GRID-0.5B-01"
+      ],
+      "changed_field_count": 0,
+      "declared_assertion_count": 1,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "delta_sha256": "9d75d7a19fd799eaa1861b49815edcd6d7c5c530598a2346b2532a5c17deaa4d",
+  "exact_base_candidate_sha256": "5a4c74ad328c485993309be87fe27fb5278257ef45f47c806d2ce2ac920acc28",
+  "exact_base_registry_validation": {
+    "assertions": [
+      {
+        "change_id": "add-e8-v2-fixed-alpha-continuous-exp-grid-pilot",
+        "entity_id": "EXT-C-E8-ORACLE-OFFLINE-V2-CONTINUOUS-EXP-GRID-0.5B-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "7f25a2b7d5e395e16754d1c5cbf954d7d74ee2dc0c869cf231aa8ab48288af41"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-C-E8-V2-CONTINUOUS-EXP-GRID-REGISTRATION-2026-07-13/HANDOFF_DELTA.yaml",
+            "sha256": "9d75d7a19fd799eaa1861b49815edcd6d7c5c530598a2346b2532a5c17deaa4d"
+          },
+          {
+            "path": "configs/countdown_e8_oracle_offline_v2_continuous_exp_grid_0p5b.yaml",
+            "sha256": "6b7302182a461aefddf1b70550ab5559f9148ab3c6fddfdfdb2b987581910f8b"
+          },
+          {
+            "path": "docs/experiments/E8_V2_CONTINUOUS_EXP_GRID_PILOT.md",
+            "sha256": "85428fc3ee84b76ce20be66fb23949b9d88adf2ea067904c2302e3b34030d78f"
+          },
+          {
+            "path": "docs/scopes/EXT-C-E8-ORACLE-OFFLINE-V2-CONTINUOUS-EXP-GRID-0.5B-01.md",
+            "sha256": "f49d2ead3767bb254abe3dfdb1600b8a6428160bb600975c732b797f03b86e60"
+          },
+          {
+            "path": "scripts/run_countdown_e8_oracle_offline_v2_continuous_exp_auto.py",
+            "sha256": "bab4105c1b3be2d1ae11b2ce7a476625a0c2c95b302ea63d70a3e82cc344fe72"
+          },
+          {
+            "path": "scripts/run_countdown_e8_oracle_offline_v2_continuous_exp_auto_one_click.sh",
+            "sha256": "564e7e065af5e562c64aca792eabfff8961b2d840fd8907c900f4c803b19970a"
+          },
+          {
+            "path": "src/drpo/countdown_e8_continuous_exp_common.py",
+            "sha256": "7466499fcd4c42023c278604b0c26225337e3a3e78234b94ef95bcfc88060b65"
+          },
+          {
+            "path": "src/drpo/countdown_e8_continuous_exp_trainer.py",
+            "sha256": "5f4133d02729a0408b9c3777425fc0e02bc901d87f08b19d1aa9206453bcf56a"
+          },
+          {
+            "path": "src/drpo/countdown_e8_continuous_exp_runtime.py",
+            "sha256": "1763ebf7541e1f45195f1384468153a65a383c189c1a175f48c189f402e70eb0"
+          },
+          {
+            "path": "tests/test_countdown_e8_oracle_offline_v2_continuous_exp.py",
+            "sha256": "6ce7c4aaeadd45fcf912736e0e5be3763247cdd76be51196dbed4ff02dff4d4e"
+          }
+        ],
+        "kind": "add_entity"
+      }
+    ],
+    "coverage": {
+      "added_entities": [
+        "EXT-C-E8-ORACLE-OFFLINE-V2-CONTINUOUS-EXP-GRID-0.5B-01"
+      ],
+      "changed_field_count": 0,
+      "declared_assertion_count": 1,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "history_preservation_passed": true,
+  "idempotence_passed": true,
+  "materialized_handoff_after_sha256": "5a4c74ad328c485993309be87fe27fb5278257ef45f47c806d2ce2ac920acc28",
+  "mode": "authoritative",
+  "network_used": false,
+  "policy_id": "GOV-HANDOFF-AUTHORITY-CUTOVER-01",
+  "registry_after_sha256": "7f25a2b7d5e395e16754d1c5cbf954d7d74ee2dc0c869cf231aa8ab48288af41",
+  "registry_before_sha256": "511380b837c8f6af999c25be510b9ecd5c64dbe89ad0924f1b07784eb5707622",
+  "report_schema_version": 1,
+  "source_base_commit": "448936a7d61cb8871457078ef196e371fbce380c",
+  "source_patch_commit": "79cabe12aa590e57e56167165ad4c09c03accb21",
+  "stage4a_refresh": {
+    "refreshed": [
+      "docs/handoff_shadow/stage4/minimal/generated/MODULE_INDEX.json",
+      "docs/handoff_shadow/stage4/minimal/generated/STRUCTURE_SUGGESTIONS.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/countdown_e8.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/global_core_governance.md"
+    ],
+    "reused": [
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.dot",
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e5_mechanism.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e6_generalization.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_extrapolation.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_taper.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_mechanism_e1_e3.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/execution_status_gates.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/history_provenance.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/hopper_e7.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/paper_rewrite.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/terminal_audit.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/theory_methods_related_work.md"
+    ]
+  },
+  "status": "PASS",
+  "structural_lint_passed": true,
+  "trusted_engine_sha256": "a6532ba4c1bb9c4af24d79f027267de518c3832b347dba47e8319dee7a3ebe2c",
+  "trusted_policy_sha256": "508f6bbb6ee9bb6da5be041a23e25cd569b95475523bb6af7127cb84ea3466ad",
+  "trusted_renderer_sha256": "39a7566e91c77784822148bb18ae32e44dfcc1745fbdc1cbf14a88ce6c6a13e5",
+  "update_id": "EXT-C-E8-V2-CONTINUOUS-EXP-GRID-REGISTRATION-2026-07-13"
+}
