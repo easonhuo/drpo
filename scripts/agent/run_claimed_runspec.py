@@ -6,6 +6,12 @@ import argparse
 from pathlib import Path
 from typing import Any
 
+from runspec_delivery_policy import (
+    RESULT_TOO_LARGE,
+    is_result_too_large_error,
+    record_result_too_large,
+    validate_simple_size_policy,
+)
 from runspec_lib import (
     CLAIMED_DIR,
     DONE_DIR,
@@ -26,6 +32,7 @@ def execute_claimed_runspec(repo: Path, claimed: Path) -> tuple[dict[str, Any], 
     spec = read_yaml(claimed)
     validate_provenance(repo, spec)
     validate_recovery_policy(repo, spec)
+    validate_simple_size_policy(spec)
     delivery = validate_delivery_block(spec, str(spec.get("lane") or ""))
     publish = spec.get("publish") or {}
     if isinstance(publish, dict) and publish.get("enabled") is True:
@@ -90,6 +97,14 @@ def execute_claimed_runspec(repo: Path, claimed: Path) -> tuple[dict[str, Any], 
             payload["result_path"] = report["result_path"]
             payload["manifest_sha256"] = report["manifest_sha256"]
         except Exception as exc:  # noqa: BLE001
+            if is_result_too_large_error(exc):
+                report = record_result_too_large(repo, spec, manifest, exc)
+                payload["delivery_status"] = RESULT_TOO_LARGE
+                payload["delivery_error"] = report["reason"]
+                payload["delivery_upload_attempted"] = False
+                payload["local_artifact_zip"] = report["artifact_zip"]
+                payload["local_artifact_zip_sha256"] = report["artifact_zip_sha256"]
+                return payload, 0
             payload["status"] = "PARTIAL"
             payload["delivery_status"] = "FAIL"
             payload["delivery_error"] = str(exc)
@@ -134,6 +149,11 @@ def main() -> int:
         return handle_cli_error(exc, json_output=args.json)
     if args.json:
         json_main(payload)
+    elif code == 0 and payload.get("delivery_status") == RESULT_TOO_LARGE:
+        print(
+            f"RunSpec execution: PASS run_id={payload['run_id']} "
+            f"delivery={RESULT_TOO_LARGE} artifact={payload['local_artifact_zip']}"
+        )
     elif code == 0:
         print(f"RunSpec execution: PASS run_id={payload['run_id']}")
     else:
