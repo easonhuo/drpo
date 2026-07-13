@@ -6144,6 +6144,99 @@ experiments:
   - do_not_predeclare_linear_quadratic_or_exp_winner
   - do_not_merge_task_performance_with_nan_inf_failure
 
+- id: EXT-H-E7-PPO-W0-EXP-GRID-01
+  environment: EXT-H
+  name: e7_ppo_direct_w0_exponential_grid_screening_pilot
+  status: pilot
+  result_status: running
+  predecessor: EXT-H-E7-PPO-STABILITY-01
+  registration_base_commit: 448936a7d61cb8871457078ef196e371fbce380c
+  claim: On three registered E7 external-validity tasks, screen whether the direct w(0)-by-c exponential negative-weight field under the frozen PPO clipped actor update can preserve useful negative signal while reducing finite-horizon instability and seed sensitivity. This is a development screening pilot only and cannot establish convergence or a formal method ranking.
+  role: external_validity_direct_w0_exponential_screening
+  execution_class: pilot
+  code_entrypoint: src/drpo/e7_ppo_w0_grid_pilot.py
+  bootstrap_entrypoint: src/drpo/e7_ppo_w0_bootstrap.py
+  aggregation_entrypoint: src/drpo/e7_ppo_w0_aggregate.py
+  operator_entrypoint: scripts/run_e7_ppo_w0_grid_pilot_auto.py
+  one_click_entrypoint: scripts/run_e7_ppo_w0_grid_pilot_auto_one_click.sh
+  resume_entrypoint: scripts/run_e7_ppo_w0_grid_pilot_resume_one_click.sh
+  config_path: configs/e7_ppo_w0_exp_grid_pilot_v1.json
+  protocol_document: docs/experiments/EXT-H-E7-PPO-W0-EXP-GRID-01.md
+  parameterization:
+    distance: detached_RMS_standardized_action_distance
+    reference_distance: 2.0
+    formula: w(d)=w(0)*exp(-c*(d/2))
+    weight_at_zero_range:
+    - 0.0
+    - 1.0
+    legacy_scale_experiment_facing: false
+    historical_equivalence_anchor:
+      weight_at_zero: 0.11
+      legacy_canonical_alpha: 0.11
+      legacy_negative_scale: 1.0
+  grid:
+    weight_at_zero_values:
+    - 0.0
+    - 0.025
+    - 0.05
+    - 0.11
+    - 0.25
+    - 0.5
+    - 1.0
+    exp_coefficients:
+    - 0.0
+    - 0.25
+    - 0.5
+    - 1.0
+    - 1.5
+    positive_only_deduplicated: true
+    unique_parameter_points: 31
+  protocol:
+    datasets:
+    - hopper-medium-expert-v2
+    - walker2d-medium-v2
+    - walker2d-medium-replay-v2
+    development_seeds:
+    - 200
+    - 201
+    held_out_seeds:
+    - 204
+    - 205
+    - 206
+    - 207
+    actor_update_mode: ppo_clip
+    clip_epsilon: 0.2
+    updates_per_old_policy: 4
+    optimizer_steps_per_branch: 500000
+    evaluation_interval_steps: 50000
+    evaluation_episodes: 10
+    expected_branches: 186
+  execution:
+    state: running
+    development_branch: dev/e7-ppo-w0-grid-pilot
+    draft_pull_request: 48
+    implementation_commit: d8bb6141092969a7daccb42b87c4f2da6e8371c6
+    server_start_source: user_reported_2026-07-13
+    result_available: false
+    runtime_selection: automatic_cpu_memory_and_bounded_throughput
+    runtime_selection_changes_scientific_matrix: false
+  terminal_audit:
+    required: true
+    separates:
+    - task_performance_degradation_or_collapse
+    - support_or_variance_boundary_event
+    - nan_inf_numerical_failure
+    - best_checkpoint_from_terminal_checkpoint
+  interpretation_limits:
+  - screening_pilot_not_formal_evidence
+  - fixed_500k_endpoint_is_not_convergence
+  - development_seeds_are_not_confirmatory_seeds
+  - no_method_ranking_before_fresh_seed_confirmation
+  - do_not_select_dataset_specific_cells_as_one_universal_method
+  - hopper_and_walker_are_external_validity_only
+  - does_not_replace_cu1_or_du1_controlled_identification
+  formal_evidence_allowed: false
+
 development_experiment_registrations:
 - id: D-U1-E6-CONDITIONAL-GAP-DEV-01
   environment: D-U1

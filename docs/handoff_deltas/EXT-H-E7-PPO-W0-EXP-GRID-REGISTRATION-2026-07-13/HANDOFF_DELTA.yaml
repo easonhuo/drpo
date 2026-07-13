@@ -1,0 +1,39 @@
+schema_version: 3
+update_id: EXT-H-E7-PPO-W0-EXP-GRID-REGISTRATION-2026-07-13
+mode: authoritative
+base:
+  commit: 448936a7d61cb8871457078ef196e371fbce380c
+  handoff_sha256: a105282a37ea13d9be8fb26f41ec05aa487454f69ffc955aa0c8ee3febaca6fb
+  registry_sha256: 511380b837c8f6af999c25be510b9ecd5c64dbe89ad0924f1b07784eb5707622
+renderer_version: 1
+operations:
+- operation_id: append-e7-ppo-w0-exp-grid-running-pilot
+  op: append_to_section
+  heading_path:
+  - 0. 研究与执行原则（每次新会话首先阅读）
+  - 0.1 当前执行门禁
+  block_id: e7-ppo-w0-exp-grid-running-pilot
+  content: '- **Hopper/Walker E7 PPO direct-`w(0)` × EXP 网格 pilot（`EXT-H-E7-PPO-W0-EXP-GRID-01`）：**登记为正在运行的 development screening pilot，是 `EXT-H-E7-PPO-STABILITY-01` 的非破坏性 successor；旧实验协议与历史结果完整保留。实验公开参数化固定为 `u=d/2`、`w(d)=w(0)exp(-cu)`，不再暴露 `scale` 或 `canonical_alpha`；`w(0)=0.11` 与旧 `alpha=0.11 × scale=1` 仅作为实现等价锚点。网格为 `w(0)={0,0.025,0.05,0.11,0.25,0.5,1}` 与 `c={0,0.25,0.5,1,1.5}`，`w(0)=0` 去重为 Positive-only，共 31 个参数点；在 `hopper-medium-expert-v2`、`walker2d-medium-v2`、`walker2d-medium-replay-v2` 和 development seeds `200,201` 上形成 186 个 PPO-only、500k branches。held-out seeds `204--207` 保持未使用；自动资源探测只决定安全 subprocess 数，不得改变科学矩阵。用户已报告服务器启动，但当前无终态结果，禁止把运行中状态、500k endpoint、smoke/liveness 或 dev-seed 筛选升级为收敛、稳态或正式方法排名。任务性能退化/崩溃、support/variance boundary 与 NaN/Inf 必须分开审计；最终应寻找跨三任务共同稳健的 `(w(0),c)`，不得按数据集事后挑选不同 cell 冒充统一方法。Hopper/Walker 只承担 external validity，不替代 C-U1/D-U1 受控机制识别。'
+registry:
+  mode: expected_after
+  exact_base_after_sha256: 17b7c7ebab00ba1827c1178adfd3c0c37ca8406eb64814af7be04100224ea837
+  changes:
+  - change_id: add-e7-ppo-w0-exp-grid-pilot
+    kind: add_entity
+    entity_id: EXT-H-E7-PPO-W0-EXP-GRID-01
+    evidence:
+    - experiments/registry.yaml
+    - docs/handoff_deltas/EXT-H-E7-PPO-W0-EXP-GRID-REGISTRATION-2026-07-13/HANDOFF_DELTA.yaml
+    - docs/experiments/EXT-H-E7-PPO-W0-EXP-GRID-01.md
+    - configs/e7_ppo_w0_exp_grid_pilot_v1.json
+    - src/drpo/e7_ppo_w0_grid_pilot.py
+    - src/drpo/e7_ppo_w0_bootstrap.py
+    - src/drpo/e7_ppo_w0_aggregate.py
+    - src/drpo/e7_ppo_w0_runtime_autotune.py
+    - scripts/run_e7_ppo_w0_grid_pilot_auto.py
+    - scripts/run_e7_ppo_w0_grid_pilot_auto_one_click.sh
+    - tests/test_e7_ppo_w0_grid_pilot.py
+    - tests/test_e7_ppo_w0_runtime_autotune.py
+    - tests/test_e7_ppo_w0_failure_audit.py
+expected:
+  exact_base_candidate_sha256: 79b1d92f6357b2004861f85b335e076120ee9a89e9bee80412c1d5b410fc291b
