@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+from typing import Sequence
 
 from drpo import e7_canonical_exp_horizon_grid as joint
 from drpo import e7_canonical_sweep as base
@@ -14,6 +15,8 @@ from drpo.runtime_resource_autotune import (
     discover_machine,
     load_json,
 )
+
+_MINIMUM_EVAL_WINDOWS_FOR_PROBE = 2
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -38,6 +41,67 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--loadavg", default="/proc/loadavg")
     parser.add_argument("--cgroup-root", default="/sys/fs/cgroup")
     return parser
+
+
+def _positive_int_cli_option(
+    argv: Sequence[str],
+    option_names: Sequence[str],
+) -> int | None:
+    """Return the last positive integer value for one CLI option."""
+    result: int | None = None
+    for index, token in enumerate(argv):
+        raw: str | None = None
+        matched_name: str | None = None
+        for name in option_names:
+            if token == name:
+                matched_name = name
+                if index + 1 >= len(argv):
+                    raise RuntimeResourceError(f"{name} is missing its value")
+                raw = str(argv[index + 1])
+                break
+            prefix = f"{name}="
+            if token.startswith(prefix):
+                matched_name = name
+                raw = token[len(prefix) :]
+                break
+        if raw is None:
+            continue
+        try:
+            parsed = int(raw)
+        except ValueError as exc:
+            raise RuntimeResourceError(
+                f"{matched_name} must be a literal positive integer for the E7 probe"
+            ) from exc
+        if parsed < 1:
+            raise RuntimeResourceError(
+                f"{matched_name} must be positive for the E7 probe"
+            )
+        result = parsed
+    return result
+
+
+def _resolve_effective_probe_steps(
+    run_spec_path: str | Path,
+    requested_probe_steps: int,
+) -> int:
+    """Keep the bounded probe alive past the trainer's first evaluation window."""
+    if requested_probe_steps < 1:
+        raise RuntimeResourceError("probe_steps must be positive")
+    run_spec, _ = joint.load_exp_horizon_run_spec(str(Path(run_spec_path).resolve()))
+    template = [str(item) for item in run_spec["trainer_argv_template"]]
+    eval_interval = _positive_int_cli_option(
+        template,
+        ("--eval_interval", "--eval-interval"),
+    )
+    if eval_interval is None:
+        return requested_probe_steps
+    # The external canonical trainer reads the final metric from evaluation
+    # history. A probe that naturally finishes before its first evaluation can
+    # fail after training even though its memory measurement is valid. Keeping
+    # two evaluation windows as the command horizon matches the server-validated
+    # safe path while the wall-clock probe remains bounded by --probe-seconds.
+    minimum_safe_steps = _MINIMUM_EVAL_WINDOWS_FOR_PROBE * eval_interval
+    return max(requested_probe_steps, minimum_safe_steps)
 
 
 def _run_with_joint_hooks(argv: list[str]) -> int:
@@ -94,6 +158,10 @@ def main(argv: list[str] | None = None) -> int:
         raise RuntimeResourceError(
             "cannot re-plan an E7 work directory that already has a run identity"
         )
+    effective_probe_steps = _resolve_effective_probe_steps(
+        args.run_spec,
+        args.probe_steps,
+    )
     machine = discover_machine(
         meminfo_path=args.meminfo,
         loadavg_path=args.loadavg,
@@ -107,7 +175,7 @@ def main(argv: list[str] | None = None) -> int:
         grid_path=args.grid,
         work_dir=args.work_dir,
         fallback_workers=args.fallback_workers,
-        probe_steps=args.probe_steps,
+        probe_steps=effective_probe_steps,
         probe_seed=args.probe_seed,
         probe_seconds=args.probe_seconds,
         cpu_fraction=args.cpu_fraction,
@@ -127,6 +195,9 @@ def main(argv: list[str] | None = None) -> int:
                 ),
                 "mode": document["mode"],
                 "selected_workers": workers,
+                "requested_probe_steps": args.probe_steps,
+                "effective_probe_steps": effective_probe_steps,
+                "probe_steps_adjusted": effective_probe_steps != args.probe_steps,
             },
             sort_keys=True,
         ),

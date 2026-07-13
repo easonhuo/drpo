@@ -29,6 +29,7 @@ to a machine-readable artifact and must not change the scientific matrix.
 - `docs/scopes/GOV-RUNTIME-RESOURCE-AUTOTUNE-01.md`
 - `tests/test_runtime_resource_autotune.py`
 - `tests/test_runtime_resource_adapters.py`
+- `tests/test_e7_runtime_resource_auto.py`
 
 ## Explicitly excluded
 
@@ -58,12 +59,34 @@ to a machine-readable artifact and must not change the scientific matrix.
 - No current or interrupted E7/E8 work directory may be reused for a first auto
   launch without an explicit identity audit.
 
+## 2026-07-13 E7 probe maintenance record
+
+- **Previous behavior:** the opt-in E7 CLI requested a default `20,000`-step
+  representative probe independently of the canonical trainer evaluation cadence.
+- **Observed problem:** on the real E7 server, the canonical trainer used
+  `eval_interval=50,000`; the 20,000-step probe finished before the two-minute
+  sampler timeout, left evaluation history empty, and raised `IndexError` while
+  printing its final metric. The same isolated probe completed the sampling window
+  successfully when launched with `100,000` steps.
+- **Replacement behavior:** keep the operator's `--probe-steps` value as a requested
+  floor, read the frozen run-spec trainer template, and raise only the isolated
+  non-scientific probe horizon to at least two evaluation intervals. Wall-clock
+  execution remains bounded by `--probe-seconds`; formal branch horizons,
+  evaluation rules, seeds, batches, methods, and configs remain unchanged.
+- **Fail-closed rule:** a present evaluation-interval option must be a literal
+  positive integer. Missing, malformed, or non-positive values may not be silently
+  guessed.
+- **Required re-acceptance:** the server must rerun the default E7 `plan` command in
+  a new work directory and confirm that the generated command records the derived
+  effective horizon, produces `RUNTIME_SELECTION.json`, and leaves no orphan
+  process. This maintenance fix does not itself establish real-hardware PASS.
+
 ## Acceptance
 
 - targeted unit tests cover cgroup memory limits, CPU-bound and memory-bound
   selection, process-tree RSS probes, GPU visibility/utilization/VRAM rejection,
-  host-RAM-limited GPU slots, cache validation, and E8 scientific-config
-  preservation;
+  host-RAM-limited GPU slots, cache validation, E8 scientific-config preservation,
+  and E7 probe-horizon derivation from the canonical evaluation interval;
 - Python compilation, Ruff, full pytest, handoff authority verification, formal
   execution channel validation, governance inventory, and governance stage
   validation pass in CI;
