@@ -1,0 +1,41 @@
+{
+  "experiment_id": "EXT-H-E7-PPO-W0-EXP-GRID-01",
+  "run_kind": "pilot",
+  "scientific_status": "ppo_w0_exp_grid_screening_pilot_only",
+  "claim": "Screen the direct negative weight at zero w(0) jointly with the exponential distance coefficient c under the canonical E7 PPO actor update, without changing the canonical network, critic, advantage, optimizer, data, or evaluation protocol.",
+  "datasets": [
+    "hopper-medium-expert-v2",
+    "walker2d-medium-v2",
+    "walker2d-medium-replay-v2"
+  ],
+  "development_seeds": [200, 201],
+  "held_out_seeds": [204, 205, 206, 207],
+  "weight_at_zero_grid": [0.0, 0.025, 0.05, 0.11, 0.25, 0.5, 1.0],
+  "exp_coefficients": [0.0, 0.25, 0.5, 1.0, 1.5],
+  "distance_definition": "u=d/2; w(d)=w(0)*exp(-c*u)",
+  "actor_update_mode": "ppo_clip",
+  "ppo": {
+    "clip_epsilon": 0.2,
+    "updates_per_old_policy": 4,
+    "diagnostics_interval": 1000,
+    "kl_penalty": false,
+    "target_kl": false,
+    "entropy_bonus": false,
+    "actor_gradient_clip": false,
+    "value_clip": false
+  },
+  "steps": 500000,
+  "evaluation_interval": 50000,
+  "evaluation_episodes": 10,
+  "expected_unique_parameter_points": 31,
+  "expected_total_branches": 186,
+  "screening_only": true,
+  "formal_evidence_allowed": false,
+  "non_claims": [
+    "convergence_from_fixed_500k_horizon",
+    "steady_state_method_ranking",
+    "universal_ppo_superiority",
+    "ood_generalization",
+    "replacement_of_controlled_causal_evidence"
+  ]
+}
