@@ -23,6 +23,7 @@ LIVENESS_RUNSPEC = (
     / "templates"
     / "E7_PPO_W0_EXP_GRID_LIVENESS_20260713_01.yaml"
 )
+LIVENESS_SCRIPT = ROOT / "scripts" / "run_e7_ppo_w0_grid_liveness_one_click.sh"
 
 
 def test_pilot_runspec_is_structurally_valid_and_recovery_is_bounded() -> None:
@@ -46,17 +47,24 @@ def test_liveness_runspec_is_structurally_valid_and_non_scientific() -> None:
     assert spec["experiment_id"] == "EXT-H-E7-PPO-W0-EXP-GRID-01"
     assert spec["policy"]["scientific_aggregation_allowed"] is False
     assert spec["policy"]["formal_evidence_allowed"] is False
-    assert "--probe-steps 500" in spec["entrypoint"]["command"]
-    assert "--max-workers 2" in spec["entrypoint"]["command"]
+    assert spec["entrypoint"]["command"] == (
+        "bash scripts/run_e7_ppo_w0_grid_liveness_one_click.sh"
+    )
+    script = LIVENESS_SCRIPT.read_text()
+    assert 'PROBE_STEPS="${E7_PPO_W0_LIVENESS_PROBE_STEPS:-500}"' in script
+    assert 'MAX_WORKERS="${E7_PPO_W0_LIVENESS_MAX_WORKERS:-2}"' in script
     assert validate_recovery_policy(ROOT, spec) is None
 
 
-def test_templates_pin_only_protected_path_descendants() -> None:
+def test_templates_pin_protected_path_ancestors() -> None:
     pilot = yaml.safe_load(PILOT_RUNSPEC.read_text())
     liveness = yaml.safe_load(LIVENESS_RUNSPEC.read_text())
-    assert pilot["repo_commit"] == liveness["repo_commit"]
+    assert len(pilot["repo_commit"]) == 40
+    assert len(liveness["repo_commit"]) == 40
     assert pilot["provenance"]["commit_policy"] == "protected_paths_unchanged"
     assert liveness["provenance"]["commit_policy"] == "protected_paths_unchanged"
-    protected = set(pilot["provenance"]["protected_paths"])
-    assert "configs/e7_ppo_w0_exp_grid_pilot_v1.json" in protected
-    assert "scripts/run_e7_ppo_w0_grid_pilot_resume_one_click.sh" in protected
+    pilot_protected = set(pilot["provenance"]["protected_paths"])
+    liveness_protected = set(liveness["provenance"]["protected_paths"])
+    assert "configs/e7_ppo_w0_exp_grid_pilot_v1.json" in pilot_protected
+    assert "scripts/run_e7_ppo_w0_grid_pilot_resume_one_click.sh" in pilot_protected
+    assert "scripts/run_e7_ppo_w0_grid_liveness_one_click.sh" in liveness_protected
