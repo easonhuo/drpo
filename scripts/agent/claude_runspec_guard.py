@@ -29,6 +29,7 @@ CANONICAL_SCRIPTS = {
     "publish_runspec_result.py",
     "run_claimed_runspec.py",
     "run_lane.py",
+    "upload_runspec_result.py",
     "validate_runspec.py",
 }
 READ_ONLY_GIT_SUBCOMMANDS = {
