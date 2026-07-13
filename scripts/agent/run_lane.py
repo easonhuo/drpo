@@ -6,6 +6,7 @@ import argparse
 from pathlib import Path
 
 from run_claimed_runspec import execute_claimed_runspec
+from runspec_delivery_policy import RESULT_TOO_LARGE
 from runspec_lib import add_common_args, handle_cli_error, json_main, load_lane_config
 from runspec_safety import claim_next_runspec_safe
 
@@ -26,6 +27,11 @@ def main() -> int:
         return handle_cli_error(exc, json_output=args.json)
     if args.json:
         json_main(payload)
+    elif code == 0 and payload.get("delivery_status") == RESULT_TOO_LARGE:
+        print(
+            f"Lane run: PASS lane={payload['lane']} run_id={payload['run_id']} "
+            f"delivery={RESULT_TOO_LARGE} artifact={payload['local_artifact_zip']}"
+        )
     elif code == 0:
         print(f"Lane run: PASS lane={payload['lane']} run_id={payload['run_id']}")
     else:
