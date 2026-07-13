@@ -8,6 +8,8 @@ import torch
 import yaml
 
 from drpo import countdown_e8_continuous_exp_common as continuous
+from drpo import countdown_e8_continuous_exp_runtime as runtime
+from drpo import countdown_e8_continuous_exp_trainer as trainer
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -98,3 +100,35 @@ def test_training_source_contains_no_extreme_selection_calls() -> None:
     ):
         assert forbidden not in source
     assert "torch.exp(-float(c) * u.square())" in source
+
+
+def test_every_unique_negative_contributes_gradient() -> None:
+    seq_lp = torch.tensor([-1.0, -2.0, -3.0], requires_grad=True)
+    weights = continuous.continuous_exp_weights(seq_lp, alpha=0.5, c=0.25)
+    value = continuous.mean_unique_negative_term(
+        seq_lp, weights, torch.tensor([0, 0, 0]), torch.tensor([3])
+    )
+    value.backward()
+    assert seq_lp.grad is not None
+    assert torch.all(seq_lp.grad != 0)
+
+
+def test_trainer_and_runtime_do_not_call_extreme_selection() -> None:
+    source = inspect.getsource(trainer) + inspect.getsource(runtime)
+    for forbidden in (
+        "current_bank_extreme_indices(",
+        "select_current_bank_extremes(",
+        "current_bank_training_batches(",
+    ):
+        assert forbidden not in source
+    assert "training_diagnostics.jsonl" in source
+
+
+def test_runtime_has_no_test_split_cli_argument() -> None:
+    parser = runtime.parser()
+    option_strings = {
+        option
+        for action in parser._subparsers._group_actions[0].choices["run"]._actions
+        for option in action.option_strings
+    }
+    assert "--test" not in option_strings
