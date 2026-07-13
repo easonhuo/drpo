@@ -21,12 +21,16 @@ scientific cell matrix.
 ## V1 scope
 
 - static eligible-GPU filtering from visibility, utilization, free VRAM, host RAM,
-  cgroup memory, and configured candidate IDs;
-- one representative single-worker GPU-memory probe;
-- bounded validation of a small candidate set derived from measured capacity;
+  cgroup memory, current CPU load, and configured candidate IDs;
+- homogeneous selected GPU pool only;
+- one representative single-worker probe measuring incremental peak VRAM and
+  process-tree host RSS;
+- automatic CPU, host-memory, VRAM, task-count, and safety-ceiling capacity limits;
+- bounded same-GPU validation of a small candidate set derived from measured capacity;
 - automatic `slots_per_gpu`, total slot count, and per-GPU placement output;
 - fail-closed cleanup of all probe processes and preservation of probe logs;
-- exact runtime-selection provenance and unchanged scientific configuration;
+- exact runtime-selection provenance, cache revalidation, and unchanged scientific
+  configuration;
 - integration into the opt-in Countdown E8 taper auto entrypoint;
 - the historical fixed one-process-per-GPU runtime remains available and unchanged.
 
@@ -34,10 +38,11 @@ scientific cell matrix.
 
 - selecting or tuning DDP, tensor parallelism, FSDP, ZeRO, pipeline parallelism, or
   any other distributed-training strategy;
-- changing the number of GPUs required by one task;
+- heterogeneous-GPU packing or changing the number of GPUs required by one task;
 - multi-node placement, topology-aware collectives, Slurm, Kubernetes, Ray, or Dask;
 - automatic batch size, gradient accumulation, precision, sequence length, or
   evaluation changes;
+- CPU thread affinity, NUMA placement, or dataloader-worker autotuning;
 - online migration or dynamic slot changes after the scientific run starts;
 - claims of global throughput optimality;
 - modifying `docs/handoff.md`, `experiments/registry.yaml`, the formal execution
@@ -48,11 +53,13 @@ scientific cell matrix.
 The workload adapter declares a fixed topology of one GPU per independent task and
 provides a representative worker command. The selector:
 
-1. records the machine snapshot and eligible devices;
-2. runs one worker for a bounded interval and measures incremental peak VRAM;
-3. derives a capacity candidate from measured peak, safety factor, free-memory
-   headroom, host-memory capacity, task count, and an operator safety ceiling;
-4. validates the derived candidate on one GPU for a bounded interval;
+1. records the machine snapshot and eligible homogeneous devices;
+2. runs one worker for a bounded interval and measures incremental peak VRAM plus
+   process-tree host RSS;
+3. derives a candidate from measured VRAM/host usage, CPU/load capacity, safety
+   factors, remaining task count, and an operator safety ceiling;
+4. validates the candidate on one GPU and projects measured host RSS across the
+   selected device pool;
 5. backs off through a bounded candidate sequence when validation fails;
 6. writes `RUNTIME_SELECTION.json` before the scientific scheduler starts.
 
@@ -62,9 +69,10 @@ engineering evidence only.
 
 ## Acceptance
 
-- deterministic tests cover capacity derivation, candidate backoff, timeout fallback,
-  OOM/nonzero rejection, host-memory limits, per-GPU slot expansion, and scientific
-  configuration preservation;
+- deterministic tests cover measured capacity derivation, candidate backoff,
+  timeout/fallback, OOM/nonzero rejection, host-memory and CPU limits,
+  heterogeneous-device rejection, per-GPU slot expansion, cache revalidation, CLI
+  compatibility, and scientific configuration preservation;
 - Python compilation, Ruff, full pytest, handoff authority verification, formal
   execution-channel validation, governance inventory, and governance-stage validation
   pass on the exact PR head;
