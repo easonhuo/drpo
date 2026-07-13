@@ -2,450 +2,465 @@
 
 **Claim:** `GOV-RUNTIME-RESOURCE-POLICY-INTEGRATION-01`  
 **Status:** design candidate; no executable behavior is authorized by this file.  
-**Design target:** generic and cross-project, with the smallest stable core that
-preserves scientific and execution identity.
+**Design target:** generic across projects, efficient in the common path, and small
+enough that identity and resume behavior remain reviewable.
 
 ## 1. Executive decision
 
-V1 will be a **preflight policy library**, not a scheduler and not an execution
-framework. It receives a versioned policy contract plus project-supplied workload
-and machine fingerprints, invokes one registered workload adapter, and emits an
-immutable resource selection. The existing project runner consumes that selection.
+V1 is a **project-neutral resource-selection preflight library**. It is not a
+scheduler, process supervisor, machine-discovery framework, or execution backend.
 
-The minimum architecture is:
+The complete boundary is:
 
 ```text
-project RunSpec/config
+project integration
+  supplies policy + fingerprints + machine observation + adapter
         |
         v
-portable policy core  <---- project adapter registry
-        |                       |
-        |                       +-- E7 CPU adapter
-        |                       +-- E8 GPU adapter
-        |                       +-- another project's adapters
-        v
-RUNTIME_SELECTION.json + identity
+portable policy core
+  validates -> selects/revalidates -> freezes one authoritative artifact
         |
         v
-existing local runner / formal guard / Slurm wrapper / other consumer
+existing runner / formal guard / Slurm or Ray consumer
 ```
 
-The core deliberately does **not** launch tasks. This removes the need for a
-mandatory local/Submitit/Ray backend abstraction in V1, keeps the core small, and
-lets every project preserve its existing execution and failure semantics.
+The core exposes only two state-changing operations:
 
-## 2. Why this is the optimal boundary
+```text
+create_selection
+revalidate_selection
+```
 
-A full resource orchestrator would need to own subprocess lifecycle, logs,
-retries, preemption, cluster submission, multi-node placement, and recovery. That
-would duplicate Slurm, Ray, Kubernetes, or existing project guards and would make
-the integration substantially heavier.
+A command named `plan` is a project CLI operation that calls `create_selection`; it
+is not a third core state. This removes a redundant fresh/plan distinction and keeps
+all creation semantics in one place.
 
-A one-off wrapper per workload would be smaller initially, but would duplicate
-fresh/resume rules, identity, cache semantics, and provenance. It would not be a
-cross-project foundation.
+## 2. Why this boundary is both generic and light
 
-V1 therefore owns only the project-independent control plane:
+A full orchestrator would need to own subprocess lifecycle, retries, logging,
+preemption, multi-node placement, scheduler submission, and recovery. That would
+duplicate existing runners, Slurm, Ray, or Kubernetes.
 
-- policy parsing and strict validation;
-- `auto`, `fixed`, and `exempt` state semantics;
-- fresh versus resume transitions;
-- adapter lookup and version checks;
-- stable fingerprint and identity construction;
-- immutable artifact creation;
-- cache acceptance rules;
-- fail-closed errors and machine-readable reasons.
+A workload-specific wrapper is initially smaller, but it duplicates contract
+validation, immutable identity, resume rules, artifact semantics, and failure codes
+for every project.
 
-Projects own:
+V1 therefore owns only stable project-independent semantics:
 
-- workload fingerprint construction;
-- resource measurement and selection algorithms;
-- scientific-invariant fingerprinting;
-- applying a valid selection to their existing runner;
-- formal lifecycle, heartbeat, packaging, and terminal audit.
+- strict common-contract parsing and normalization;
+- `auto`, `fixed`, and `exempt` creation modes;
+- adapter resolution through a caller-supplied mapping;
+- canonical identity construction and verification;
+- common adapter-output validation;
+- atomic creation of one immutable selection artifact;
+- attempt-local resume revalidation records;
+- fail-closed structured results.
 
-## 3. Portability model
+The project integration owns everything that changes with a workload or machine:
 
-### 3.1 Neutral package
+- machine discovery and provider fallback;
+- workload and scientific fingerprint construction;
+- adapter context and resource-selection algorithms;
+- bounded probes, measurement cache, and fallback policy;
+- translating selected resources into runner arguments;
+- lifecycle, heartbeat, packaging, terminal audit, and scheduling.
 
-The portable implementation is proposed as a neutral Python package under:
+This division is the main anti-redundancy rule: **the core owns semantics; adapters
+own evidence and resource arithmetic; runners own execution.**
+
+## 3. Portable source boundary
+
+The initial neutral implementation lives under:
 
 ```text
 src/runtime_resource_policy/
 ```
 
-It must not import `drpo`, E7, E8, Hopper, Countdown, a project registry, or a
-project runner. Another repository can vendor or package this directory without
-bringing DRPO scientific code.
+It must not import `drpo`, E7, E8, Hopper, Countdown, a project registry, a machine
+provider, or a runner.
 
-Initial modules:
+Proposed modules:
 
 ```text
 runtime_resource_policy/
-  __init__.py      public API and version
-  model.py         enums and immutable dataclasses
-  contract.py      strict parser and schema-facing validation
-  identity.py      canonical JSON and SHA-256 identity
-  engine.py        state machine and artifact transaction
+  __init__.py   public API and protocol version
+  model.py      immutable values and structured errors
+  contract.py   strict parsing and normalization
+  identity.py   canonical JSON and SHA-256 verification
+  engine.py     create/revalidate operations and atomic artifacts
 ```
 
-A standalone CLI is project integration code, not part of the minimum reusable
-library, because CLI arguments and RunSpec loading differ by project.
+The core uses the Python standard library only. JSON Schema is published for
+interoperability, but the production parser does not require `jsonschema`, Pydantic,
+`psutil`, NVML, Ray, Dask, Submitit, or another framework.
 
-### 3.2 No mandatory third-party dependency
+## 4. Inputs and public API
 
-The reference core uses the Python standard library only. The repository ships a
-JSON Schema for interoperability, but production validation does not require the
-`jsonschema` package. CI may optionally validate the schema with `jsonschema`.
+### 4.1 Caller-supplied inputs
 
-System probes remain provider implementations outside the portable core:
+The project integration supplies explicit data:
 
-- current procfs/cgroup and `nvidia-smi` path: default in DRPO;
-- `psutil`: optional host provider;
-- NVML / `nvidia-ml-py`: optional GPU provider;
-- cloud or scheduler APIs: future optional providers.
+```text
+normalized policy contract
+adapter mapping
+adapter context
+workload fingerprint
+scientific-invariant fingerprint
+machine observation
+source provenance
+work directory / attempt directory
+```
 
-Submitit, Ray, Dask, Slurm, and Kubernetes are execution consumers or future
-integrations. They are not V1 core dependencies.
+`adapter_context` is opaque to the core. The core neither defines a generic
+`ProjectRequest` hierarchy nor interprets project paths or scientific fields.
 
-## 4. Policy contract
+Machine observation is also opaque except for canonical JSON safety checks. Provider
+selection and fallback occur before the core is called and are recorded as
+provenance.
 
-The RunSpec-facing contract is intentionally small:
+### 4.2 Minimal API
+
+Conceptually:
+
+```python
+def create_selection(
+    *,
+    contract,
+    adapters,
+    adapter_context,
+    workload_fingerprint,
+    scientific_fingerprint,
+    machine_observation,
+    provenance,
+    output_path,
+) -> SelectionResult: ...
+
+
+def revalidate_selection(
+    *,
+    selection_path,
+    adapters,
+    adapter_context,
+    workload_fingerprint,
+    scientific_fingerprint,
+    machine_observation,
+    provenance,
+    attempt_output_path,
+) -> RevalidationResult: ...
+```
+
+A pure `verify_selection(document)` helper may be public. It verifies schema,
+canonical identity, and common invariants without performing selection or I/O.
+
+No backend, provider, plugin-discovery, or scheduler protocol is part of the V1
+core API.
+
+## 5. Policy contract
+
+The RunSpec-facing contract remains intentionally small:
 
 ```yaml
 runtime_resource:
   schema_version: 1
   mode: auto                 # auto | fixed | exempt
   adapter: e7_cpu_v1         # required for auto/fixed
+  adapter_version: "1"       # optional exact pin
   policy:
     profile: conservative
     parameters: {}           # adapter-owned and adapter-validated
-  fixed: null                # object only for a fresh fixed request
-  exempt: null               # object only for exempt
+  fixed:                     # fixed mode only
+    request: {}
+  exempt:                    # exempt mode only
+    reason: "..."
 ```
 
-The portable core validates only common fields and mode combinations. Adapter
-parameters are opaque to the core and validated by the selected adapter.
+The production parser, not JSON Schema defaults, canonicalizes omitted optional
+fields. For example, omitted `policy` becomes the explicit canonical value:
 
-### 4.1 `auto`
-
-For a fresh run, the adapter measures or inspects resources and returns a safe
-selection. The result is frozen before any scientific runner starts.
-
-### 4.2 `fixed`
-
-For a fresh run, the contract supplies an adapter-specific fixed request. The
-adapter must verify that the request is currently safe before the core freezes it.
-A fixed request is not an escape hatch from resource validation.
-
-### 4.3 `exempt`
-
-The contract gives a non-empty reason and optional classification. The core emits
-an auditable no-selection decision. Exemption is explicit; the engine does not
-infer that a task is small.
-
-### 4.4 Resume override
-
-Invocation context is supplied separately from the policy contract:
-
-```text
-fresh | resume | plan
+```json
+{"profile":"conservative","parameters":{}}
 ```
 
-For `resume`, the effective mode is always `fixed_existing`, regardless of the
-original requested mode. The original selection and identity are required.
-The engine never calls `select_auto` during resume.
+### 5.1 `auto`
 
-## 5. Minimal adapter protocol
+For a new selection, the adapter inspects current resources and may reuse compatible
+measurement evidence or run a bounded probe. It returns one safe selection.
 
-The adapter API is intentionally narrower than a general scheduler plugin:
+### 5.2 `fixed`
+
+The caller supplies an adapter-specific fixed request. The adapter validates current
+capacity before the selection is frozen. Fixed mode is not a bypass around safety.
+
+### 5.3 `exempt`
+
+The caller supplies a non-empty reason and optional classification. Exempt mode does
+not resolve an adapter and cannot carry adapter, policy, or fixed fields. The core
+writes an auditable no-resource-selection document.
+
+### 5.4 Adapter version pinning
+
+`adapter_version` is an optional requested exact pin. The resolved exact adapter
+version is always recorded in the selection. A supplied pin that does not match the
+resolved adapter fails closed.
+
+## 6. Minimal adapter protocol
+
+The adapter protocol contains resource-specific behavior only:
 
 ```python
 class ResourceAdapter(Protocol):
     adapter_id: str
     adapter_version: str
 
-    def workload_fingerprint(self, request: ProjectRequest) -> Mapping[str, object]: ...
-
     def select_auto(
         self,
-        request: ProjectRequest,
-        machine_snapshot: Mapping[str, object],
-        work_dir: Path,
+        *,
+        adapter_context: object,
+        machine_observation: Mapping[str, object],
+        policy_profile: str,
         policy_parameters: Mapping[str, object],
     ) -> AdapterSelection: ...
 
     def validate_fixed(
         self,
-        request: ProjectRequest,
-        machine_snapshot: Mapping[str, object],
+        *,
+        adapter_context: object,
+        machine_observation: Mapping[str, object],
         fixed_request: Mapping[str, object],
     ) -> AdapterSelection: ...
 
     def revalidate(
         self,
-        request: ProjectRequest,
-        machine_snapshot: Mapping[str, object],
-        existing_selection: Mapping[str, object],
-    ) -> RevalidationResult: ...
+        *,
+        adapter_context: object,
+        machine_observation: Mapping[str, object],
+        selected_resources: Mapping[str, object],
+        resource_binding: Mapping[str, object],
+    ) -> AdapterRevalidation: ...
 ```
 
-The adapter may run a bounded probe inside `select_auto`; this preserves the
-already validated E7 implementation and avoids building a generic measurement
-workflow prematurely. The adapter must return structured evidence and is
-responsible for cleanup of workload-specific probe payloads.
+The adapter does **not** construct workload or scientific fingerprints. Those are
+project-governance inputs supplied independently, which prevents adapter code from
+becoming the sole judge of its own scientific identity.
 
-The core enforces common shape and identity requirements on the returned value:
+The adapter returns a common envelope:
 
 ```text
 selected_resources
+resource_binding
 limits
 limiting_factor
 measurement_evidence
-fallback
-cache
+cache_status
+fallback_status
 limitations
 scientific_matrix_changed = false
 ```
 
-## 6. Machine provider boundary
+Only `selected_resources`, `resource_binding`, and common safety flags participate
+in generic identity or validation. Measurement, cache, fallback, and limitation
+fields are recorded provenance owned by the adapter.
 
-The core receives a machine snapshot as data; it does not discover the machine.
-A project integration chooses a provider and records:
+## 7. Creation and resume semantics
 
-```text
-provider_id
-provider_version
-snapshot
-static_identity
-observed_utc
-```
-
-This makes the core portable and keeps provider fallback logic out of the policy
-state machine. DRPO V1 reuses the current `discover_machine` implementation.
-Provider plugins may be introduced without changing the policy contract.
-
-## 7. State machine
-
-### 7.1 Fresh auto
+### 7.1 Create: auto or fixed
 
 ```text
-validate contract
-  -> reject existing immutable identity in a new-run directory
-  -> resolve adapter/version
-  -> snapshot machine
-  -> compute workload + scientific fingerprints
-  -> inspect compatible measurement cache
-  -> adapter.select_auto
-  -> validate selection shape and scientific_matrix_changed=false
-  -> atomically write selection and identity
+parse and normalize contract
+  -> reject conflicting existing immutable selection
+  -> resolve adapter and optional version pin
+  -> validate caller fingerprints and machine observation as canonical JSON
+  -> call select_auto or validate_fixed
+  -> validate common output and scientific_matrix_changed=false
+  -> construct stable identity payload
+  -> atomically write RUNTIME_SELECTION.json
   -> return ALLOW
 ```
 
-### 7.2 Fresh fixed
+### 7.2 Create: exempt
 
 ```text
-validate contract
-  -> resolve adapter
-  -> snapshot machine
-  -> adapter.validate_fixed
-  -> freeze exact fixed selection
-  -> return ALLOW
-```
-
-### 7.3 Fresh exempt
-
-```text
-validate explicit reason
-  -> write exempt selection and identity
+parse explicit exemption
+  -> construct auditable no-selection document
+  -> atomically write RUNTIME_SELECTION.json
   -> return ALLOW_WITHOUT_RESOURCE_SELECTION
 ```
 
-### 7.4 Resume
+### 7.3 Resume revalidation
 
 ```text
-load original immutable selection + identity
-  -> verify identity digest
-  -> verify workload/scientific/adapter fingerprints
-  -> snapshot current machine
-  -> adapter.revalidate original selection
-       -> safe: write attempt-local revalidation record; ALLOW unchanged
-       -> unsafe: BLOCK
+load RUNTIME_SELECTION.json
+  -> verify embedded identity digest
+  -> verify adapter, workload, and scientific fingerprints
+  -> resolve the recorded adapter version
+  -> call adapter.revalidate with the original selected resources
+       -> safe: atomically write attempt-local RUNTIME_REVALIDATION.json; ALLOW
+       -> unsafe: write structured block record; BLOCK
 ```
 
-Resume must not:
+Resume never:
 
-- recalculate a smaller or larger worker/device count;
-- rewrite the original selection;
-- treat cache as authority;
-- silently change adapter or provider semantics.
+- calls `select_auto`;
+- changes worker or device count;
+- rewrites the original selection;
+- treats cache as authority;
+- silently changes adapter or resource binding.
 
-A deliberate resource-identity change is a new recovery decision under a separate
-project policy, not an ordinary resume.
+A deliberate resource-identity change creates a new run or uses a separately
+registered recovery protocol; it is not ordinary resume.
 
 ## 8. Identity model
 
-### 8.1 Immutable selection identity inputs
+### 8.1 Stable identity inputs
 
-The SHA-256 identity binds:
+The immutable digest binds only facts that define the selected resource contract:
 
-- policy schema version and normalized common contract;
-- portable core protocol version;
-- adapter ID and adapter version;
+- normalized requested policy contract;
+- core protocol and selection schema versions;
+- resolved adapter ID and exact version;
 - workload fingerprint;
 - scientific-invariant fingerprint;
-- policy profile and adapter parameters;
-- machine static identity;
-- resolved provider ID/version;
 - selected resources;
-- stable measurement/fallback evidence fingerprint;
-- application-facing selection schema version.
+- adapter-defined `resource_binding` when same-host/device semantics are required.
 
-The full repository commit and dynamic load/free-memory snapshot are recorded as
-provenance but are not part of the stable selection identity. Including the whole
-repository commit would block resume after unrelated documentation changes;
-including dynamic load would make every revalidation a different identity.
-Projects may add protected implementation hashes to the workload or scientific
-fingerprint when stronger binding is required.
+### 8.2 Provenance excluded from stable identity
 
-### 8.2 Canonicalization
+The following remain fully recorded but do not change the digest:
 
-Identity uses UTF-8 JSON with sorted keys, compact separators, finite numbers only,
-and no platform-dependent path normalization beyond project-supplied fingerprints.
-The canonicalization algorithm is part of the core protocol version.
+- current free memory, utilization, and load;
+- machine/provider observation details not declared in `resource_binding`;
+- probe logs and measured peaks;
+- cache hit/miss and fallback route;
+- timestamps;
+- repository commit and dirty-state provenance.
 
-## 9. Artifacts
+This avoids two failure modes:
 
-V1 keeps the artifact set deliberately small.
+1. equivalent hosts cannot resume solely because a hostname changed;
+2. the same selected resources receive different identities because one path used a
+   probe and another reused compatible evidence.
 
-### 9.1 Required immutable files
+Adapters may declare a minimal `resource_binding`, such as a host class, GPU UUID
+set, or topology fingerprint, only when changing that value would alter execution
+semantics. Same-host enforcement is therefore explicit rather than globally assumed.
+
+### 8.3 Canonicalization
+
+Identity uses UTF-8 JSON, sorted keys, compact separators, finite numbers only, and
+no implicit path normalization. Canonicalization is versioned by the core protocol.
+
+## 9. Artifact model
+
+V1 has one authoritative immutable creation artifact:
 
 ```text
 RUNTIME_SELECTION.json
-RUNTIME_SELECTION_IDENTITY.json
 ```
 
-`RUNTIME_SELECTION.json` is the single authoritative document and contains:
+It contains both selection and embedded identity:
 
-```text
-schema/core/adapter/provider versions
-requested and effective mode
-invocation context at creation
-normalized policy contract
-workload and scientific fingerprints
-machine snapshot and static identity
-cache/fallback status
-measurement evidence
-selected resources
-limits and limiting factor
-known limitations
-source provenance
-scientific_matrix_changed=false
-created_utc
+```json
+{
+  "selection_schema_version": 1,
+  "identity": {
+    "algorithm": "sha256",
+    "canonicalization_version": 1,
+    "digest": "..."
+  },
+  "requested_contract": {},
+  "resolved_adapter": {},
+  "workload_fingerprint": {},
+  "scientific_fingerprint": {},
+  "selected_resources": {},
+  "resource_binding": {},
+  "machine_observation": {},
+  "measurement_evidence": {},
+  "cache_status": {},
+  "fallback_status": {},
+  "limitations": [],
+  "provenance": {},
+  "scientific_matrix_changed": false
+}
 ```
 
-`RUNTIME_SELECTION_IDENTITY.json` contains the canonical identity payload hash and
-only the minimum fields needed for independent verification.
+The digest is computed from the documented identity payload, not from the full file
+and not from the digest field itself. Independent verification recomputes it from
+the selection document.
 
-### 9.2 Conditional resume artifact
+There is no separate `RUNTIME_SELECTION_IDENTITY.json`; a sidecar would duplicate
+authority and create split-brain repair cases.
+
+Resume produces one attempt-local artifact:
 
 ```text
 RUNTIME_REVALIDATION.json
 ```
 
-This is written in the current launch/attempt directory, not by mutating the
-original selection. It records current dynamic resources, validation result, and
-block reasons.
+It records the original selection digest, current observation, adapter result,
+provenance, and structured allow/block reasons. It never mutates the original file.
 
-### 9.3 Adapter evidence
+Adapter-owned probe logs may remain under `_runtime_resource_probe/`. Checkpoints and
+model payloads are not policy artifacts.
 
-Bounded probe logs remain under an adapter-owned directory such as:
+## 10. Cache and fallback semantics
 
-```text
-_runtime_resource_probe/
-```
+Cache is an adapter implementation detail and evidence reuse, not a core state or
+scheduling authority.
 
-Large model payloads and checkpoints are not resource-policy artifacts.
+Each adapter defines its measurement-cache key and compatibility checks using the
+inputs relevant to that workload. It must still inspect current dynamic capacity
+before returning a selection. The core records cache and fallback evidence but does
+not implement a second generic cache that duplicates E7/E8 logic.
 
-## 10. Cache semantics
-
-Cache is evidence reuse, not scheduling authority.
-
-A measurement cache key includes:
-
-- adapter ID/version;
-- workload fingerprint;
-- scientific-invariant fingerprint;
-- policy profile and parameters;
-- machine static identity;
-- provider ID/version;
-- measurement policy fingerprint.
-
-A cache hit may reuse measured per-worker/per-device evidence. The adapter must
-still evaluate current CPU load, available memory, cgroup state, GPU visibility,
-GPU utilization, and free VRAM before selecting resources.
-
-The engine rejects cache entries that are malformed, identity-incompatible,
-unsafe under current capacity, or produced by an unknown adapter version.
+A fallback is valid only when the adapter returns it as an explicit safe selection
+with structured evidence. No core or integration error may silently fall back from
+managed policy to an unmanaged launcher.
 
 ## 11. Scientific isolation
 
-Each project supplies a `scientific_invariant_fingerprint`. For DRPO this must
-cover all frozen fields relevant to the workload, including data, method matrix,
-seeds, coefficients, batch, horizon, optimizer, evaluation, and stopping rules.
+The project supplies the scientific fingerprint independently of the adapter. For
+DRPO it covers all frozen workload fields, including data, method matrix, seeds,
+coefficients, batch, horizon, optimizer, evaluation, and stopping rules.
 
-The adapter returns only declared runtime resource fields. The integration layer
-compares the scientific fingerprint before and after applying the selection. Any
-change blocks execution.
+The integration layer compares the fingerprint before and after applying selected
+runtime fields. Any drift blocks execution.
 
-V1 does not claim that runtime concurrency can never affect floating-point order
-or wall-clock behavior. It claims only that the declared scientific configuration
-is unchanged and that the runtime schedule is explicit provenance.
+V1 does not claim that concurrency can never affect floating-point ordering or wall
+clock. It claims that declared scientific configuration is unchanged and the exact
+runtime resource schedule is explicit provenance.
 
-## 12. Integration with RunSpec and formal execution
+## 12. DRPO integration and migration
 
-### 12.1 Shadow period
+### Phase B: portable core
 
-The RunSpec loader may accept an optional `runtime_resource` block. A standalone
-preflight command generates a selection, but existing runners and guards remain
-unchanged. E7/E8 results are compared with the current dedicated entrypoints.
+- implement the neutral library and a DRPO `plan` CLI;
+- reuse current machine discovery as integration code;
+- do not change existing wrappers, RunSpecs, or formal guards.
 
-### 12.2 Compatibility period
+### Phase C: E7/E8 shadow equivalence
 
-After Stage-2 authorization, new or explicitly migrated RunSpecs require the
-contract. Historical RunSpecs without it preserve existing behavior and are marked
-`legacy_unmanaged` in validation output; they are not silently assigned `auto`.
+- wrap current E7 and E8 selectors without copying their algorithms;
+- compare selected resources and limiting constraints under identical inputs;
+- compare one-file artifact semantics;
+- run plan/selection only, not full scientific sweeps.
 
-### 12.3 Enforcement period
+### Phase D: formal compatibility
 
-After a separately approved cutover:
+Only after separate Stage-2 authorization:
 
-- new registered workloads with an adapter require an explicit policy;
-- resume requires the original immutable selection;
-- unknown adapters or missing required policy block formal launch;
-- historical executions retain their recorded path and are not rewritten.
+- accept an optional `runtime_resource` block;
+- invoke project preflight before managed formal launch;
+- verify embedded selection identity and attempt-local resume revalidation;
+- mark historical RunSpecs without the block as `legacy_unmanaged` during the
+  approved compatibility window;
+- enforce defaults only after a separate cutover decision.
 
-The formal guard calls preflight and consumes `ALLOW`, `ALLOW_WITHOUT_RESOURCE_SELECTION`,
-or `BLOCK`. It does not embed E7/E8 selection logic.
+The formal guard consumes policy results. It does not discover machines, run probes,
+or embed E7/E8 arithmetic.
 
-## 13. Open-source reuse
+## 13. Failure codes
 
-V1 directly reuses standards and optional libraries where they reduce code without
-controlling project semantics:
-
-- JSON Schema: portable contract documentation and CI validation;
-- `psutil`: optional host snapshot provider;
-- NVML / `nvidia-ml-py`: optional GPU provider;
-- Submitit: future Slurm submission consumer;
-- Ray: future distributed execution consumer.
-
-V1 does not adopt Ray or Dask as the policy core because that would require
-rewriting existing runners as framework tasks and would couple identity semantics
-to a particular scheduler runtime.
-
-## 14. Failure behavior
-
-All failures produce a structured code and human-readable reason. Minimum codes:
+The minimum common codes are:
 
 ```text
 INVALID_CONTRACT
@@ -458,50 +473,50 @@ MISSING_RESUME_SELECTION
 IDENTITY_MISMATCH
 WORKLOAD_FINGERPRINT_DRIFT
 SCIENTIFIC_FINGERPRINT_DRIFT
-CACHE_REJECTED
 NO_SAFE_CAPACITY
 RESUME_CAPACITY_UNSAFE
 ADAPTER_FAILURE
+INVALID_ADAPTER_OUTPUT
 ARTIFACT_WRITE_FAILURE
 ```
 
-No failure may silently fall back from managed policy to an unmanaged launcher.
-A project may explicitly choose a registered fixed fallback inside an adapter, and
-that fallback must be recorded in the immutable selection.
+Adapter-specific reasons are nested under a common `details` field and do not expand
+the portable error enum for every workload condition.
 
-## 15. Rollback and compatibility
+## 14. Deliberately deferred features
 
-The core is additive through shadow and compatibility phases. Rollback is:
+Separate claims are required for:
 
-1. stop invoking the policy preflight;
-2. keep existing fixed launchers and formal guard behavior;
-3. preserve all generated selection/revalidation evidence;
-4. revert the integration files without deleting experiment history;
-5. do not reinterpret an already started run under a different resource identity.
+- execution backends or scheduler submission;
+- dynamic plugin discovery;
+- generic machine-provider abstractions;
+- throughput-knee search;
+- online resizing or preemption;
+- multi-node placement;
+- automatic batch or gradient-accumulation changes;
+- distributed cache services;
+- a standalone package release before a second real consumer exists.
 
-## 16. Deferred features
+## 15. Acceptance criteria
 
-The following require separate claims and are not hidden V1 requirements:
+The architecture is accepted only if implementation demonstrates:
 
-- throughput-knee or global throughput optimization;
-- online scale-up/down;
-- batch or gradient-accumulation autotuning;
-- multi-node placement and gang scheduling;
-- preemption, migration, or elastic recovery;
-- same-GPU multi-process packing;
-- mandatory `psutil`, NVML, Submitit, Ray, Dask, Slurm, or Kubernetes;
-- cross-project hosted service or central resource database.
+- the portable core imports without DRPO or scientific dependencies;
+- public behavior is expressible through create, verify, and revalidate operations;
+- one selection file is the only creation authority;
+- auto, fixed, and exempt contracts normalize deterministically;
+- resume cannot invoke auto selection or mutate resources;
+- identity is stable across irrelevant provenance changes;
+- adapter-defined resource binding can enforce genuinely required host/device
+  identity;
+- cache and measurement remain outside the core without losing provenance;
+- E7/E8 shadow choices match their validated dedicated paths;
+- the core remains below the reviewed line-count ceiling;
+- no scientific variable or default formal behavior changes during Phase B/C.
 
-## 17. Architecture acceptance criteria
+## 16. Rollback
 
-The architecture is acceptable when:
-
-- another project can implement an adapter without importing DRPO;
-- E7/E8 can wrap their current validated selectors rather than rewrite them;
-- the core has no runner lifecycle responsibility;
-- resume cannot invoke auto selection;
-- the artifact identity is independently verifiable;
-- scientific fields are outside the writable selection surface;
-- no mandatory external dependency is introduced;
-- the Phase-B core remains under approximately 700 production lines, excluding
-  project adapters, tests, schema, and documentation.
+Before formal cutover, rollback is simply to stop invoking the new preflight and use
+the unchanged dedicated launchers. All selection, revalidation, probe, and failure
+evidence is preserved. An already started run is never reinterpreted under a new
+resource identity.
