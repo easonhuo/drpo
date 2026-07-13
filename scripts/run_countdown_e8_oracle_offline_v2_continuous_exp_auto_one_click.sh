@@ -28,7 +28,6 @@ ARGS=(
   --val "${VAL}"
   --base_config "${BASE_CONFIG}"
   --grid_config "${GRID_CONFIG}"
-  --allow-dev-unregistered
 )
 if [[ -n "${CANDIDATE_GPUS}" ]]; then
   ARGS+=(--gpus "${CANDIDATE_GPUS}")
