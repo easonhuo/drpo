@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Autotuned code-first launcher for the E8 continuous EXP alpha-by-c pilot."""
+"""Autotuned launcher for the registered E8 continuous EXP alpha-by-c pilot."""
 from __future__ import annotations
 
 import argparse
@@ -20,7 +20,7 @@ from drpo.runtime_resource_autotune import (
     selection_document,
 )
 
-ADAPTER_ID = "e8_continuous_exp_grid_cuda_dev_v1"
+ADAPTER_ID = "e8_continuous_exp_grid_cuda_registered_v1"
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -43,11 +43,6 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--loadavg", default="/proc/loadavg")
     parser.add_argument("--cgroup-root", default="/sys/fs/cgroup")
     parser.add_argument("--nvidia-smi", default="nvidia-smi")
-    parser.add_argument(
-        "--allow-dev-unregistered",
-        action="store_true",
-        help="required acknowledgement that this is an unregistered dev pilot",
-    )
     return parser
 
 
@@ -169,7 +164,7 @@ def _selection(args: argparse.Namespace, config: dict[str, Any]) -> dict[str, An
         limitations=[
             "one_process_per_gpu_only",
             "configured_vram_floor_precedes_actual_two_step_liveness",
-            "dev_branch_pilot_not_formal_execution",
+            "registered_pilot_not_formal_execution",
         ],
     )
     atomic_write_json(Path(args.work_dir).resolve() / "RUNTIME_SELECTION.json", document)
@@ -220,10 +215,6 @@ def _run_core(args: argparse.Namespace, command: str, selected_ids: list[str]) -
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    if not args.allow_dev_unregistered:
-        raise RuntimeResourceError(
-            "--allow-dev-unregistered is required: this dev branch is not an authoritative RunSpec"
-        )
     repo = Path(__file__).resolve().parents[1]
     state = common.git_state(repo)
     if state.get("commit") == "unknown" or state.get("dirty") is not False:
@@ -244,7 +235,7 @@ def main(argv: list[str] | None = None) -> int:
                 "selected_device_ids": selected_ids,
                 "cell_count": len(common.build_cells(config)),
                 "runtime_selection": str(work_dir / "RUNTIME_SELECTION.json"),
-                "registration_state": "dev_code_first_unregistered",
+                "registration_state": config["registration_state"],
             },
             sort_keys=True,
         ),
