@@ -208,6 +208,7 @@ def _run_core(args: argparse.Namespace, command: str, selected_ids: list[str]) -
     if command == "smoke":
         environment = dict(os.environ)
         environment["CUDA_VISIBLE_DEVICES"] = selected_ids[0]
+        environment["LOCAL_RANK"] = "0"
     completed = subprocess.run(
         _core_command(args, command, selected_ids=selected_ids),
         cwd=repo,
@@ -222,6 +223,12 @@ def main(argv: list[str] | None = None) -> int:
     if not args.allow_dev_unregistered:
         raise RuntimeResourceError(
             "--allow-dev-unregistered is required: this dev branch is not an authoritative RunSpec"
+        )
+    repo = Path(__file__).resolve().parents[1]
+    state = common.git_state(repo)
+    if state.get("commit") == "unknown" or state.get("dirty") is not False:
+        raise RuntimeResourceError(
+            "the code-first server trial requires an exact clean dev-branch checkout"
         )
     work_dir = Path(args.work_dir).resolve()
     work_dir.mkdir(parents=True, exist_ok=True)
