@@ -1,122 +1,140 @@
 # Runtime Resource Policy V1 — cross-project packaging decision
 
 **Claim:** `GOV-RUNTIME-RESOURCE-POLICY-INTEGRATION-01`  
-**Status:** design candidate; no packaging or dependency change is authorized here.
+**Status:** refined design candidate; no packaging or dependency change is authorized
+here.
 
 ## Decision
 
-V1 will be **source-portable and contract-portable first**, not published as a
-separate package in the initial implementation.
+V1 is **source-portable and contract-portable first**. It is not published as a
+second distribution or repository during the initial implementation.
 
-The neutral implementation lives under:
+The neutral source lives under:
 
 ```text
 src/runtime_resource_policy/
 ```
 
 It has no `drpo` import and no mandatory dependency outside the Python standard
-library. Another project may vendor that directory together with the public schema
-and compatibility tests.
+library. Another project may vendor that directory together with the public
+contract schema, selection format, and portable compatibility tests.
 
-The DRPO repository's existing Python distribution remains named `drpo` and has
-research dependencies such as Torch, Gymnasium, Minari, and Matplotlib. Another
-project must not be told to install the full `drpo` distribution merely to obtain
-the policy core. The package boundary in source code is therefore neutral even
-though the first host repository remains DRPO.
+The existing `drpo` distribution includes Torch, Gymnasium, Minari, Matplotlib, and
+other research dependencies. Cross-project consumers must not install the full DRPO
+package merely to use the small policy core.
 
-## Why not create a standalone distribution immediately
+## Why extraction is deferred
 
-Publishing a second wheel or repository before there is a real second consumer
-would add:
+Creating a standalone wheel or repository before a second real consumer exists
+would add release versioning, security maintenance, duplicate CI, synchronization,
+and compatibility promises that have not yet been exercised outside DRPO.
 
-- an additional release/version lifecycle;
-- dependency and security maintenance;
-- duplicate CI and packaging metadata;
-- compatibility promises that have not yet been tested outside DRPO;
-- synchronization or subtree-release tooling.
+None of those costs improves the V1 contract, identity, resume, or E7/E8 shadow
+validation. Premature extraction would make the system heavier without increasing
+functionality.
 
-None of these is needed to validate the core contract, identity semantics, or E7/E8
-integration. Premature extraction would make the system heavier without improving
-current function.
+## Reusable boundary
 
-## Cross-project boundary in V1
-
-The reusable boundary consists of:
+The vendorable V1 boundary is:
 
 ```text
 src/runtime_resource_policy/
 docs/schemas/runtime_resource_policy_v1.schema.json
-portable core tests selected for vendoring
-serialized selection/identity artifact schemas
+documented RUNTIME_SELECTION.json and RUNTIME_REVALIDATION.json formats
+portable contract / identity / engine tests
 ```
 
-Project-specific code remains outside that boundary:
+Project-specific code remains outside:
 
 ```text
-machine providers
-adapter registry
+machine discovery and provider fallback
+adapter mapping and adapter context
 workload and scientific fingerprints
-RunSpec loader
+measurement cache, probes, and fallback policy
+RunSpec loader and CLI
 formal guard integration
-runner application logic
+runner or scheduler application logic
 ```
 
-The public Python API and artifact schema version must be stable enough that a
-second project can implement its own integration without copying DRPO adapters.
+The public Python API is deliberately limited to creation, verification, and
+revalidation. There is no public provider, backend, cache, or plugin framework to
+extract later.
+
+## Artifact portability
+
+`RUNTIME_SELECTION.json` is the sole immutable creation authority and embeds its
+SHA-256 identity metadata. A separate identity sidecar is not part of the public
+format.
+
+Portable identity binds normalized policy, core/schema version, resolved adapter,
+workload/scientific fingerprints, selected resources, and explicit resource binding.
+Machine observations, provider details, probe evidence, cache/fallback route,
+timestamps, and repository commit remain recorded provenance.
+
+This distinction lets another project reproduce identity semantics without copying
+DRPO machine or cache implementations.
 
 ## Extraction trigger
 
-A standalone lightweight distribution should be created only when at least one of
-the following is true:
+A standalone lightweight distribution should be created only after at least one
+condition becomes real:
 
-1. a second repository adopts the core and source vendoring creates real update
-   friction;
-2. an external team needs an independently versioned dependency;
-3. release cadence or ownership differs from DRPO;
-4. a Submitit, Slurm, or other generic integration is shared by multiple projects.
+1. a second repository adopts the core and source vendoring creates update friction;
+2. an external team needs independent versioning or ownership;
+3. release cadence diverges from DRPO;
+4. multiple projects share a generic integration consumer.
 
-At that point the preferred path is a clean subtree extraction or dedicated package
-repository, preserving the existing import name and artifact protocol.
+A future Submitit, Slurm, or Ray consumer alone does not require moving scheduling
+into the core; it may remain a separate integration package.
 
-## Expected extraction cost
+## Expected later extraction cost
 
-The later extraction is estimated at:
+Because V1 forbids DRPO imports and repository-relative resources, later extraction
+is estimated at:
 
-- **production/packaging code:** approximately 40–100 lines;
-- **packaging and release tests:** approximately 100–220 lines;
-- **engineering effort:** approximately 0.5–1.5 focused engineer-days;
-- **calendar risk:** dominated by release automation and first external-consumer
-  compatibility testing.
+- **production/packaging code:** approximately 30–80 lines;
+- **packaging and release tests:** approximately 80–180 lines;
+- **engineering effort:** approximately 0.5–1 focused engineer-day;
+- **calendar risk:** first external-consumer and release-automation validation.
 
-This cost is intentionally deferred and is not included in the Phase-B core line
-budget.
+This deferred work is not included in the Phase-B line budget.
 
-## Compatibility rule
+## Compatibility rules
 
-The source-portable V1 may not use DRPO-relative resource files, dynamic repository
-imports, or package metadata at runtime. Contract and identity behavior must be
-fully determined by explicit inputs. Extraction later must not change previously
-serialized identity semantics without a protocol-version bump.
+- all core behavior is determined by explicit inputs;
+- no runtime access to DRPO package metadata or repository-relative files;
+- canonicalization and serialized identity semantics are protocol-versioned;
+- extraction may not change old selection digests without a version bump;
+- adapters remain project integrations rather than being bundled into the neutral
+  package;
+- source vendoring must preserve the exact portable tests for the adopted protocol
+  version.
 
 ## Rejected alternatives
 
-### Install the full DRPO wheel in other projects
+### Install the full DRPO wheel elsewhere
 
-Rejected because it pulls unnecessary scientific dependencies and couples unrelated
-projects to DRPO's release lifecycle.
+Rejected because it couples unrelated projects to scientific dependencies and DRPO's
+release lifecycle.
 
 ### Publish a separate package before Phase-C acceptance
 
-Rejected as premature. The API has not yet been exercised by the two validated
-adapters through the new core.
+Rejected because the API has not yet been exercised by both validated adapters
+through the refined core.
 
-### Keep the core under `src/drpo/`
+### Keep the reusable core under `src/drpo/`
 
-Rejected because project imports would gradually leak into the reusable layer and
-make later extraction harder.
+Rejected because project imports would gradually leak into identity and state
+semantics, making clean extraction harder.
+
+### Publish a generic scheduler/provider framework
+
+Rejected because V1 consumes plain machine observations and leaves execution to the
+existing project. A framework would increase surface area without helping the core
+contract.
 
 ## Acceptance
 
-This decision is satisfied when Phase B demonstrates that the neutral directory can
-be copied into an isolated test environment, imported without `drpo` or scientific
-dependencies, and passes its portable contract, identity, and state-machine tests.
+Phase B satisfies this decision only when the neutral directory can be copied into
+an isolated environment, imported without `drpo` or scientific dependencies, and
+passes portable contract, identity, create, verify, and revalidate tests.
