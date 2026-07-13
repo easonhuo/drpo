@@ -1,0 +1,165 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.drpo.local/runtime-resource-policy/v1",
+  "title": "Runtime Resource Policy V1",
+  "description": "Portable preflight resource-policy contract. Workload-specific parameters are validated by the selected adapter.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "mode"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "mode": {
+      "enum": [
+        "auto",
+        "fixed",
+        "exempt"
+      ]
+    },
+    "adapter": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 64,
+      "pattern": "^[a-z][a-z0-9_.-]*$"
+    },
+    "adapter_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "profile": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "default": "conservative"
+        },
+        "parameters": {
+          "type": "object",
+          "default": {}
+        }
+      },
+      "default": {
+        "profile": "conservative",
+        "parameters": {}
+      }
+    },
+    "fixed": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "request"
+      ],
+      "properties": {
+        "request": {
+          "type": "object",
+          "minProperties": 1,
+          "description": "Opaque adapter-owned fixed resource request. The adapter must validate safety before selection is frozen."
+        }
+      }
+    },
+    "exempt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reason"
+      ],
+      "properties": {
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "classification": {
+          "enum": [
+            "small_task",
+            "no_parallelism",
+            "external_scheduler",
+            "other"
+          ],
+          "default": "other"
+        },
+        "details": {
+          "type": "object",
+          "default": {}
+        }
+      }
+    }
+  },
+  "oneOf": [
+    {
+      "title": "Automatic selection",
+      "properties": {
+        "mode": {
+          "const": "auto"
+        }
+      },
+      "required": [
+        "adapter"
+      ],
+      "not": {
+        "anyOf": [
+          {
+            "required": [
+              "fixed"
+            ]
+          },
+          {
+            "required": [
+              "exempt"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "title": "Validated fixed selection",
+      "properties": {
+        "mode": {
+          "const": "fixed"
+        }
+      },
+      "required": [
+        "adapter",
+        "fixed"
+      ],
+      "not": {
+        "required": [
+          "exempt"
+        ]
+      }
+    },
+    {
+      "title": "Explicit exemption",
+      "properties": {
+        "mode": {
+          "const": "exempt"
+        }
+      },
+      "required": [
+        "exempt"
+      ],
+      "not": {
+        "anyOf": [
+          {
+            "required": [
+              "fixed"
+            ]
+          },
+          {
+            "required": [
+              "adapter_version"
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}
