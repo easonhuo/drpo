@@ -9,6 +9,7 @@ from __future__ import annotations
 import dataclasses
 import math
 import os
+import shutil
 import signal
 import subprocess
 import time
@@ -116,6 +117,7 @@ def probe_same_gpu_concurrency(
     minimum_live_seconds: float = 10.0,
     required_free_floor_bytes: int = 0,
     terminate_grace_seconds: float = 15.0,
+    working_directory: str | Path | None = None,
 ) -> GPUConcurrencyProbeResult:
     """Launch ``concurrency`` isolated workers on one GPU for a bounded interval."""
 
@@ -130,6 +132,7 @@ def probe_same_gpu_concurrency(
 
     root = Path(log_dir).resolve()
     root.mkdir(parents=True, exist_ok=True)
+    cwd = Path(working_directory).resolve() if working_directory else Path.cwd()
     started_utc = utc_now()
     started = time.monotonic()
     initial_free = _gpu_free_bytes(device_id, nvidia_smi=nvidia_smi)
@@ -137,27 +140,42 @@ def probe_same_gpu_concurrency(
     processes: list[subprocess.Popen[str]] = []
     handles: list[Any] = []
     log_paths: list[Path] = []
+    worker_roots: list[Path] = []
     launch_error: str | None = None
+    sample_window_completed = False
+    global_deadline_reached = False
+    nonzero_seen = False
+    observed_returncodes: tuple[int | None, ...] = ()
+    elapsed_before_cleanup = 0.0
 
     try:
         for worker_index in range(concurrency):
             worker_root = root / f"worker_{worker_index:02d}"
             worker_root.mkdir(parents=True, exist_ok=True)
+            worker_roots.append(worker_root)
             log_path = root / f"worker_{worker_index:02d}.log"
+            log_paths.append(log_path)
             handle = log_path.open("w", encoding="utf-8")
-            command = [str(item) for item in command_factory(worker_index, worker_root)]
-            worker_environment = dict(os.environ)
-            if environment is not None:
-                worker_environment.update({str(k): str(v) for k, v in environment.items()})
-            worker_environment["CUDA_VISIBLE_DEVICES"] = str(device_id)
-            worker_environment["DRPO_RUNTIME_RESOURCE_PROBE"] = "1"
-            worker_environment["DRPO_RUNTIME_RESOURCE_PROBE_CONCURRENCY"] = str(concurrency)
-            handle.write(f"GPU={device_id}\nCOMMAND={' '.join(command)}\n")
-            handle.flush()
+            handles.append(handle)
             try:
+                command = [
+                    str(item) for item in command_factory(worker_index, worker_root)
+                ]
+                worker_environment = dict(os.environ)
+                if environment is not None:
+                    worker_environment.update(
+                        {str(key): str(value) for key, value in environment.items()}
+                    )
+                worker_environment["CUDA_VISIBLE_DEVICES"] = str(device_id)
+                worker_environment["DRPO_RUNTIME_RESOURCE_PROBE"] = "1"
+                worker_environment["DRPO_RUNTIME_RESOURCE_PROBE_CONCURRENCY"] = str(
+                    concurrency
+                )
+                handle.write(f"GPU={device_id}\nCOMMAND={' '.join(command)}\n")
+                handle.flush()
                 process = subprocess.Popen(
                     command,
-                    cwd=Path.cwd(),
+                    cwd=cwd,
                     env=worker_environment,
                     stdout=handle,
                     stderr=subprocess.STDOUT,
@@ -170,13 +188,8 @@ def probe_same_gpu_concurrency(
                 launch_error = str(exc)
                 break
             processes.append(process)
-            handles.append(handle)
-            log_paths.append(log_path)
 
         sample_deadline = min(started + sample_seconds, global_deadline_monotonic)
-        sample_window_completed = False
-        global_deadline_reached = False
-        nonzero_seen = False
         while launch_error is None and processes:
             now = time.monotonic()
             if now >= sample_deadline:
@@ -213,6 +226,8 @@ def probe_same_gpu_concurrency(
                 handle.close()
             except OSError:
                 pass
+        for worker_root in worker_roots:
+            shutil.rmtree(worker_root, ignore_errors=True)
 
     try:
         minimum_free = min(
@@ -349,6 +364,41 @@ def _archive_selection(path: Path) -> None:
     atomic_write_json(history / f"RUNTIME_SELECTION.{stamp}.json", previous)
 
 
+def _cached_selection_is_safe(
+    cached: Mapping[str, Any],
+    *,
+    active_ids: list[str],
+    machine: MachineSnapshot,
+    host_worker_limit_total: int,
+    gpu_memory_headroom_fraction: float,
+    required_free_floor_bytes: int,
+) -> bool:
+    selection = cached.get("selection")
+    if not isinstance(selection, Mapping):
+        return False
+    if selection.get("selected_device_ids") != active_ids:
+        return False
+    slots = selection.get("slots_per_gpu")
+    if not isinstance(slots, int) or slots < 1:
+        return False
+    if slots * len(active_ids) > host_worker_limit_total:
+        return False
+    capacity = selection.get("capacity")
+    reserved = capacity.get("reserved_vram_bytes_per_worker") if isinstance(capacity, Mapping) else None
+    inventory = {gpu.index: gpu for gpu in machine.gpus}
+    for device_id in active_ids:
+        gpu = inventory.get(device_id)
+        if gpu is None or gpu.memory_free_bytes < required_free_floor_bytes:
+            return False
+        if isinstance(reserved, int) and reserved > 0:
+            usable = math.floor(
+                gpu.memory_free_bytes * (1.0 - gpu_memory_headroom_fraction)
+            )
+            if slots * reserved > usable:
+                return False
+    return True
+
+
 def autotune_single_gpu_task_placement(
     *,
     machine: MachineSnapshot,
@@ -430,7 +480,14 @@ def autotune_single_gpu_task_placement(
             and cached.get("workload_fingerprint_sha256") == fingerprint_sha
             and cached.get("selector_policy_sha256") == policy_sha
             and cached.get("machine_static_sha256") == machine_sha
-            and cached.get("selection", {}).get("selected_device_ids") == active_ids
+            and _cached_selection_is_safe(
+                cached,
+                active_ids=active_ids,
+                machine=machine,
+                host_worker_limit_total=host_worker_limit_total,
+                gpu_memory_headroom_fraction=gpu_memory_headroom_fraction,
+                required_free_floor_bytes=required_free_floor_bytes,
+            )
         ):
             cached["mode"] = "cached"
             cached["cache_validated_utc"] = utc_now()
@@ -445,16 +502,20 @@ def autotune_single_gpu_task_placement(
     deadline = started + probe_budget_seconds
     probe_records: list[GPUConcurrencyProbeResult] = []
 
+    probe_kwargs = {
+        "device_id": probe_device,
+        "command_factory": command_factory,
+        "environment": base_environment,
+        "global_deadline_monotonic": deadline,
+        "nvidia_smi": nvidia_smi,
+        "required_free_floor_bytes": required_free_floor_bytes,
+        "working_directory": repo_root,
+    }
     single = probe_runner(
-        device_id=probe_device,
+        **probe_kwargs,
         concurrency=1,
-        command_factory=command_factory,
-        environment=base_environment,
         log_dir=probe_root / "single",
         sample_seconds=single_probe_seconds,
-        global_deadline_monotonic=deadline,
-        nvidia_smi=nvidia_smi,
-        required_free_floor_bytes=required_free_floor_bytes,
     )
     probe_records.append(single)
     capacity: dict[str, int] | None = None
@@ -462,7 +523,7 @@ def autotune_single_gpu_task_placement(
     selection_reason = "single_worker_probe_failed_fallback_one"
     if single.success and single.peak_incremental_vram_bytes > 0:
         capacity = derive_slots_per_gpu(
-            free_vram_bytes=free_vram,
+            free_vram_bytes=min(free_vram, single.initial_free_vram_bytes),
             single_worker_peak_vram_bytes=single.peak_incremental_vram_bytes,
             device_count=len(active_ids),
             total_tasks=total_tasks,
@@ -480,15 +541,10 @@ def autotune_single_gpu_task_placement(
                 selection_reason = "probe_budget_exhausted_fallback_one"
                 break
             validation = probe_runner(
-                device_id=probe_device,
+                **probe_kwargs,
                 concurrency=candidate,
-                command_factory=command_factory,
-                environment=base_environment,
                 log_dir=probe_root / f"validate_{candidate}",
                 sample_seconds=validation_probe_seconds,
-                global_deadline_monotonic=deadline,
-                nvidia_smi=nvidia_smi,
-                required_free_floor_bytes=required_free_floor_bytes,
             )
             probe_records.append(validation)
             if validation.success:
@@ -497,9 +553,7 @@ def autotune_single_gpu_task_placement(
                 break
 
     slot_device_ids = [
-        device_id
-        for device_id in active_ids
-        for _ in range(selected_slots)
+        device_id for device_id in active_ids for _ in range(selected_slots)
     ][:total_tasks]
     document = {
         "schema_version": 1,
