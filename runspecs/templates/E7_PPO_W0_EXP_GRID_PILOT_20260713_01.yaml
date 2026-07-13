@@ -1,50 +1,100 @@
 version: 1
 run_id: E7_PPO_W0_EXP_GRID_PILOT_20260713_01
 lane: e7
-experiment_id: EXT-H-E7-PPO-W0-EXP-GRID-01
-repo_commit: 5b35a9694e5301e8ea110aa55a1cb56b12473f41
 priority: 115
 created_at: '2026-07-13T08:00:00Z'
-entrypoint:
-  command: bash scripts/run_e7_ppo_w0_grid_pilot_auto_one_click.sh
-  cwd: repo_root
-resources:
-  cpu: true
-  gpu_ids: []
-  max_parallel_processes: auto_from_RUNTIME_SELECTION
-outputs:
-  root: outputs/e7/ppo_w0_exp_grid_pilot_001
-  log: outputs/e7/ppo_w0_exp_grid_pilot_001/RUN_SUMMARY.json
-success_criteria:
-- reviewer has promoted this template to runspecs/ready in a later reviewed commit
-- RUNTIME_SELECTION.json records CPU, memory, candidate throughput, and the selected workers
-- exactly 186 scientific branches complete
-- exactly 31 unique parameter points are present for each dataset-seed matrix
-- held-out seeds 204 through 207 remain untouched
-- aggregate_summary.json and terminal_audit.json are present
-- task degradation, support or variance boundary, and NaN/Inf are reported separately
-- fixed 500k endpoint is not described as convergence
-policy:
-  existing_script_required: true
-  forbid_hparam_change: true
-  forbid_cross_lane: true
-  formal_evidence_allowed: false
+experiment_id: EXT-H-E7-PPO-W0-EXP-GRID-01
+repo_commit: 2192dfc6d327caf33c79ce63910ad8cb5befd760
+
 provenance:
   commit_policy: protected_paths_unchanged
   protected_paths:
-  - configs/e7_ppo_w0_exp_grid_pilot_v1.json
-  - src/drpo/e7_ppo_w0_grid_pilot.py
-  - src/drpo/e7_ppo_w0_bootstrap.py
-  - src/drpo/e7_ppo_w0_aggregate.py
-  - src/drpo/e7_ppo_w0_runtime_autotune.py
-  - scripts/run_e7_ppo_w0_grid_pilot_auto.py
-  - scripts/run_e7_ppo_w0_grid_pilot_auto_one_click.sh
+    - configs/e7_ppo_w0_exp_grid_pilot_v1.json
+    - src/drpo/e7_ppo_w0_grid_pilot.py
+    - src/drpo/e7_ppo_w0_bootstrap.py
+    - src/drpo/e7_ppo_w0_aggregate.py
+    - src/drpo/e7_ppo_w0_runtime_autotune.py
+    - scripts/run_e7_ppo_w0_grid_pilot_auto.py
+    - scripts/run_e7_ppo_w0_grid_pilot_auto_one_click.sh
+    - scripts/run_e7_ppo_w0_grid_pilot_resume_one_click.sh
+
+purpose: >
+  Execute the full 186-branch, 500k-step PPO-only development screening pilot
+  over 31 unique direct-w(0)-by-exponential-coefficient cells on the three
+  registered E7 external-validity tasks. Runtime selection may change only the
+  active subprocess count and must not change the scientific matrix.
+
+entrypoint:
+  command: bash scripts/run_e7_ppo_w0_grid_pilot_auto_one_click.sh
+  cwd: repo_root
+
+policy:
+  existing_script_required: true
+  forbid_new_launcher: true
+  forbid_hparam_change: true
+  forbid_cross_lane: true
+  formal_evidence_allowed: false
+
+outputs:
+  run_dir: outputs/e7/ppo_w0_exp_grid_pilot_001
+  summary_file: outputs/e7/ppo_w0_exp_grid_pilot_001/RUN_SUMMARY.json
+  audit_file: outputs/e7/ppo_w0_exp_grid_pilot_001/aggregate/terminal_audit.json
+
+success_criteria:
+  - RUNTIME_SELECTION.json records CPU, memory, candidate throughput, and selected workers
+  - EXECUTION_PLAN.json records exactly 186 branches
+  - RUN_SUMMARY.json records exactly 186 completed-or-skipped branches and zero failed branches
+  - exactly 31 unique parameter cells are present for each dataset and development seed
+  - held-out seeds 204 through 207 remain untouched
+  - aggregate_summary.json and terminal_audit.json are present
+  - task degradation, support or variance boundary, and NaN/Inf are reported separately
+  - fixed 500k endpoint is not described as convergence
+
+artifacts:
+  package_policy: manifest_only
+  include:
+    - outputs/e7/ppo_w0_exp_grid_pilot_001/RUNTIME_SELECTION.json
+    - outputs/e7/ppo_w0_exp_grid_pilot_001/EXECUTION_PLAN.json
+    - outputs/e7/ppo_w0_exp_grid_pilot_001/RUN_IDENTITY.json
+    - outputs/e7/ppo_w0_exp_grid_pilot_001/RUN_SUMMARY.json
+    - outputs/e7/ppo_w0_exp_grid_pilot_001/aggregate/*.json
+    - outputs/e7/ppo_w0_exp_grid_pilot_001/aggregate/*.csv
+    - outputs/e7/ppo_w0_exp_grid_pilot_001/branches/*/BRANCH_IDENTITY.json
+    - outputs/e7/ppo_w0_exp_grid_pilot_001/branches/*/LAUNCH.json
+    - outputs/e7/ppo_w0_exp_grid_pilot_001/branches/*/COMPLETED.json
+    - outputs/e7/ppo_w0_exp_grid_pilot_001/branches/*/FAILED.json
+    - outputs/e7/ppo_w0_exp_grid_pilot_001/branches/*/branch_config.json
+    - outputs/e7/ppo_w0_exp_grid_pilot_001/branches/*/branch_manifest.json
+    - outputs/e7/ppo_w0_exp_grid_pilot_001/branches/*/stdout_stderr.log
+    - outputs/e7/ppo_w0_exp_grid_pilot_001/branches/*/ppo_diagnostics.jsonl
+    - outputs/e7/ppo_w0_exp_grid_pilot_001/branches/*/PPO_DIAGNOSTICS_LATEST.json
+    - outputs/e7/ppo_w0_exp_grid_pilot_001/branches/*/trainer_output/*.json
+  exclude:
+    - '**/*.pt'
+    - '**/*.pth'
+    - '**/*.ckpt'
+    - '**/*.safetensors'
+    - '**/*.bin'
+    - '**/checkpoint*'
+    - '**/checkpoints/**'
+    - '**/model*'
+    - '**/optimizer*'
+    - '**/wandb/**'
+    - outputs/e7/ppo_w0_exp_grid_pilot_001/_runtime_resource_probe/**
+  max_package_size_mb: 100
+  fail_if_excluded_matched: false
+  fail_if_package_too_large: true
+
 publish:
-  dev_branch: dev/server-e7
-  base_branch: main
-  include_code_changes: false
-  include_results_summary: true
-  include_artifact_manifest: true
+  enabled: false
+  auto: false
+
 recovery:
   enabled: true
-  mode: exact_branch_identity_resume
+  max_attempts: 2
+  resume_command: bash scripts/run_e7_ppo_w0_grid_pilot_resume_one_click.sh
+  retryable_exit_codes: [137, 143]
+  checkpoint_globs:
+    - outputs/e7/ppo_w0_exp_grid_pilot_001/RUNTIME_SELECTION.json
+    - outputs/e7/ppo_w0_exp_grid_pilot_001/RUN_IDENTITY.json
+  backoff_seconds: 60
