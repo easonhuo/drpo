@@ -38,6 +38,11 @@
 - Reason: canonical registry experiment is not mapped to any minimal module
 - Automatic action: `false`
 
+## candidate_add_or_map_module: `EXT-H-E7-PPO-STABILITY-01`
+
+- Reason: canonical registry experiment is not mapped to any minimal module
+- Automatic action: `false`
+
 ## candidate_split_module: `continuous_e4_taper`
 
 - Reason: source content has 70748 characters, above the configured 50000 threshold
@@ -50,7 +55,7 @@
 
 ## candidate_split_module: `hopper_e7`
 
-- Reason: source content has 60110 characters, above the configured 50000 threshold
+- Reason: source content has 61075 characters, above the configured 50000 threshold
 - Automatic action: `false`
 
 ## candidate_split_module: `countdown_e8`

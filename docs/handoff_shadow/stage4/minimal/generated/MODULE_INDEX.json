@@ -178,10 +178,10 @@
   ],
   "graph_hash": "0db2d992b651a2ed85d93d68c298214ba6bdbee1ae15b7b7c48d92162a7fb87c",
   "input_hashes": {
-    "docs/handoff.md": "a105282a37ea13d9be8fb26f41ec05aa487454f69ffc955aa0c8ee3febaca6fb",
+    "docs/handoff.md": "5fa9c7064dc1f5c986f78ba15d2591c8b2c6280af12f85600ee85ad890d97787",
     "docs/handoff_shadow/stage4/minimal/DEPENDENCIES.yaml": "fb19da70ea2db6a35c4320e23a91640d0f21887c46bb79873d9548357271f4da",
     "docs/handoff_shadow/stage4/minimal/MODULES.yaml": "9eb67303232bb2362b8a4571f383687aca0cfd2c25eeb9b8e68733c84b3701e8",
-    "experiments/registry.yaml": "511380b837c8f6af999c25be510b9ecd5c64dbe89ad0924f1b07784eb5707622"
+    "experiments/registry.yaml": "5c36a0e8b5f9cba30f050c4dc1f163a1aad7c19df8dcaa4470be4580b5384970"
   },
   "module_order": [
     "global_core_governance",
@@ -242,9 +242,9 @@
       "deduplicated_source_labels": [],
       "depends_on": [],
       "module_id": "global_core_governance",
-      "snapshot_hash": "2fb70b9f5b2c468cbfdcab0384e2b814fb8fae7f37a09b30d43a04d572aa02c5",
-      "source_chars": 44764,
-      "source_hash": "2c16dd1e530de5d68bfd9614bb5ecbf7453f7e71ba1575c3575555cd9e05aad6",
+      "snapshot_hash": "dcc59b4f12f0062ec04d23281de152e40a36fb304046b444b17a3b2cee51de1f",
+      "source_chars": 45827,
+      "source_hash": "ffb300010384e4277be11c1f0f22fd4a0c2a88f2d0babf8473caf5bea345ab0e",
       "source_labels": [
         "docs/handoff.md: # 0. 研究与执行原则（每次新会话首先阅读） -> # 1. 论文最终目标与两条主工作线"
       ]
@@ -515,9 +515,9 @@
         "continuous_mechanism_e1_e3"
       ],
       "module_id": "hopper_e7",
-      "snapshot_hash": "56ab15dbd89983985fb88d56188b796b4327406576744da1c2d277194b933dcf",
-      "source_chars": 60110,
-      "source_hash": "1713cdebc691e0ca13994a8aafecffd45c325fa4b483fb9f378e7abe9ef3ea89",
+      "snapshot_hash": "0da0cd7819d502a8ef0b3ad1d11ac7ababdeab0f43f62f2a663b591a944f4db9",
+      "source_chars": 61075,
+      "source_hash": "701e6dcb690027e1d3d7d34a3f8a2e9f2eef8b175884c44bb4cabf8526188173",
       "source_labels": [
         "docs/handoff.md: # 15. Learned-Critic External Mechanism Validation on D4RL -> # Part V. Bandit 稳定外推子实验的收敛审计（完整保留）",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v54-e7-canonical-critic-rollout-audit",
@@ -532,6 +532,7 @@
         "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v69-e7-bench-parallel-pilot",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v71-e7-bench-long-budget-parallel-pilot",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:e7-canonical-shortlist-1m-pilot-gate",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:e7-ppo-stability-smoke-autotune-gate",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v56-e6-parent-closure-current-gate",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v57-countdown-offline-bank-current-gate",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v59-countdown-offline-bank-tuning-current-gate",
@@ -637,5 +638,5 @@
     "terminal_audit"
   ],
   "structure_change_policy": "suggestion_only_human_approval_required",
-  "suggestion_count": 11
+  "suggestion_count": 12
 }

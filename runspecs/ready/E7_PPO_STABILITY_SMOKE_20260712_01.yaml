@@ -1,0 +1,74 @@
+version: 1
+run_id: E7_PPO_STABILITY_SMOKE_20260712_01
+lane: e7
+experiment_id: EXT-H-E7-PPO-STABILITY-01
+repo_commit: af43d246956c4066b3bbbbc51eb974555d5f6bdb
+priority: 130
+created_at: '2026-07-12T15:30:00Z'
+entrypoint:
+  command: bash scripts/run_e7_ppo_stability_smoke_one_click.sh
+  cwd: repo_root
+resources:
+  cpu: true
+  gpu_ids: []
+  max_parallel_processes: 1
+outputs:
+  root: outputs/e7/ppo_stability_smoke_001
+  log: outputs/e7/ppo_stability_smoke_001/RUN_SUMMARY.json
+success_criteria:
+- SMOKE_GATE.json status is pass
+- exactly two matched A2C/PPO branches complete at 20k steps
+- PPO block-position-one ratio is approximately one
+- PPO block positions two through four exhibit nonzero ratio movement
+- positive and negative objective clip fractions are finite and bounded
+- old-policy refresh count equals 4999
+- actor gradient and parameter-update norms are finite
+- no held-out seed 204 through 207 is touched
+- smoke output is excluded from scientific aggregation
+artifacts:
+  package_policy: manifest_only
+  include:
+  - outputs/e7/ppo_stability_smoke_001/SMOKE_GATE.json
+  - outputs/e7/ppo_stability_smoke_001/RUN_SUMMARY.json
+  - outputs/e7/ppo_stability_smoke_001/branches/*/BRANCH_IDENTITY.json
+  - outputs/e7/ppo_stability_smoke_001/branches/*/LAUNCH.json
+  - outputs/e7/ppo_stability_smoke_001/branches/*/COMPLETED.json
+  - outputs/e7/ppo_stability_smoke_001/branches/*/branch_config.json
+  - outputs/e7/ppo_stability_smoke_001/branches/*/branch_manifest.json
+  - outputs/e7/ppo_stability_smoke_001/branches/*/stdout_stderr.log
+  - outputs/e7/ppo_stability_smoke_001/branches/*/ppo_diagnostics.jsonl
+  - outputs/e7/ppo_stability_smoke_001/branches/*/PPO_DIAGNOSTICS_LATEST.json
+  - outputs/e7/ppo_stability_smoke_001/branches/*/trainer_output/*.json
+  exclude:
+  - '**/*.pt'
+  - '**/*.pth'
+  - '**/*.ckpt'
+  - '**/checkpoint*'
+  - '**/checkpoints/**'
+  - '**/model*'
+  - '**/optimizer*'
+  max_package_size_mb: 100
+policy:
+  existing_script_required: true
+  forbid_new_launcher: true
+  forbid_hparam_change: true
+  forbid_cross_lane: true
+provenance:
+  commit_policy: protected_paths_unchanged
+  protected_paths:
+  - configs/e7_canonical_ppo_stability_v1.json
+  - src/drpo/e7_canonical_ppo_injection.py
+  - src/drpo/e7_canonical_ppo_bootstrap.py
+  - src/drpo/e7_canonical_ppo_stability.py
+  - src/drpo/e7_canonical_ppo_stability_entry.py
+  - src/drpo/e7_ppo_stability_smoke.py
+  - scripts/run_e7_ppo_stability_smoke.py
+  - scripts/run_e7_ppo_stability_smoke_one_click.sh
+publish:
+  dev_branch: dev/server-e7
+  base_branch: main
+  include_code_changes: false
+  include_results_summary: true
+  include_artifact_manifest: true
+recovery:
+  enabled: false
