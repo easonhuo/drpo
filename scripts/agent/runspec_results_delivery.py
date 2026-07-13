@@ -17,7 +17,6 @@ from runspec_lib import (
     RunSpecError,
     is_model_like,
     now_utc,
-    read_yaml,
     safe_relpath,
     sha256_file,
     state_path,
@@ -87,11 +86,7 @@ def validate_delivery_block(spec: dict[str, Any], lane: str) -> dict[str, Any]:
     if auto and not enabled:
         raise RunSpecError("delivery.auto=true requires delivery.enabled=true")
     publish = spec.get("publish") or {}
-    if (
-        enabled
-        and isinstance(publish, dict)
-        and publish.get("enabled") is True
-    ):
+    if enabled and isinstance(publish, dict) and publish.get("enabled") is True:
         raise RunSpecError("delivery and legacy publish may not both be enabled")
     if not enabled:
         return {"enabled": False, "auto": False}
@@ -105,16 +100,17 @@ def validate_delivery_block(spec: dict[str, Any], lane: str) -> dict[str, Any]:
     branch = str(raw.get("branch") or "")
     expected_branch = f"ingest/{lane}"
     if branch != expected_branch:
-        raise RunSpecError(
-            f"delivery.branch must be {expected_branch} for lane={lane}"
-        )
+        raise RunSpecError(f"delivery.branch must be {expected_branch} for lane={lane}")
     profile = str(raw.get("export_profile") or "manifest_text_v1")
     if profile != "manifest_text_v1":
         raise RunSpecError(
             "only delivery.export_profile=manifest_text_v1 is supported in V1"
         )
-    max_total_size_mb = int(raw.get("max_total_size_mb", 30))
-    max_file_size_mb = int(raw.get("max_file_size_mb", 10))
+    try:
+        max_total_size_mb = int(raw.get("max_total_size_mb", 30))
+        max_file_size_mb = int(raw.get("max_file_size_mb", 10))
+    except (TypeError, ValueError) as exc:
+        raise RunSpecError("delivery size limits must be integers") from exc
     if not 1 <= max_total_size_mb <= 100:
         raise RunSpecError("delivery.max_total_size_mb must be between 1 and 100")
     if not 1 <= max_file_size_mb <= max_total_size_mb:
@@ -265,9 +261,7 @@ def export_review_package(
             omitted.append(rel)
             continue
         if source.stat().st_size > max_file_bytes:
-            raise RunSpecError(
-                f"delivery source file exceeds max_file_size_mb: {rel}"
-            )
+            raise RunSpecError(f"delivery source file exceeds max_file_size_mb: {rel}")
         parts = [part.lower() for part in Path(rel).parts]
         if "branches" in parts and suffix == ".json":
             try:
@@ -317,6 +311,8 @@ def export_review_package(
             continue
         rel = path.relative_to(package_dir).as_posix()
         size = path.stat().st_size
+        if size > max_file_bytes:
+            raise RunSpecError(f"generated delivery file exceeds max_file_size_mb: {rel}")
         total_size += size
         payload_files.append(
             {"path": rel, "size_bytes": size, "sha256": sha256_file(path)}
@@ -378,6 +374,30 @@ def _cache_dir(repo: Path, repository: str) -> Path:
     return root / repository.replace("/", "__")
 
 
+def _remote_branch_exists(checkout: Path, branch: str) -> bool:
+    remote_ref = f"refs/remotes/origin/{branch}"
+    probe = _run(
+        ["git", "-C", str(checkout), "show-ref", "--verify", "--quiet", remote_ref],
+        cwd=checkout,
+        check=False,
+    )
+    return probe.returncode == 0
+
+
+def _reset_to_empty_orphan(checkout: Path, branch: str) -> None:
+    current = _git(checkout, "branch", "--show-current", check=False)
+    if current == branch and _run(
+        ["git", "-C", str(checkout), "rev-parse", "--verify", "HEAD"],
+        cwd=checkout,
+        check=False,
+    ).returncode == 0:
+        _git(checkout, "checkout", "--detach")
+    _git(checkout, "branch", "-D", branch, check=False)
+    _git(checkout, "checkout", "--orphan", branch)
+    _git(checkout, "rm", "-rf", ".", check=False)
+    _git(checkout, "clean", "-fd")
+
+
 def _prepare_results_checkout(
     source_repo: Path,
     repository: str,
@@ -389,7 +409,10 @@ def _prepare_results_checkout(
         checkout.parent.mkdir(parents=True, exist_ok=True)
         if checkout.exists():
             shutil.rmtree(checkout)
-        _run(["git", "clone", "--no-checkout", remote, str(checkout)], cwd=checkout.parent)
+        _run(
+            ["git", "clone", "--no-checkout", remote, str(checkout)],
+            cwd=checkout.parent,
+        )
     else:
         existing_remote = _git(checkout, "remote", "get-url", "origin")
         if existing_remote != remote:
@@ -397,23 +420,14 @@ def _prepare_results_checkout(
                 "cached results repository remote does not match configured repository"
             )
     _git(checkout, "fetch", "origin", "--prune")
-    remote_ref = f"refs/remotes/origin/{branch}"
-    if _git(checkout, "show-ref", "--verify", "--quiet", remote_ref, check=False) == "":
-        probe = _run(
-            ["git", "-C", str(checkout), "show-ref", "--verify", "--quiet", remote_ref],
-            cwd=checkout,
-            check=False,
-        )
-        has_remote_branch = probe.returncode == 0
-    else:
-        has_remote_branch = True
-    if has_remote_branch:
+    if _remote_branch_exists(checkout, branch):
         _git(checkout, "checkout", "-B", branch, f"origin/{branch}")
         _git(checkout, "reset", "--hard", f"origin/{branch}")
+        _git(checkout, "clean", "-fd")
     else:
-        _git(checkout, "checkout", "--orphan", branch)
-        _git(checkout, "rm", "-rf", ".", check=False)
-    _git(checkout, "clean", "-fd")
+        # The remote is the only delivery authority. Discard any unpushed local
+        # commit left by a prior failed push before recreating the empty branch.
+        _reset_to_empty_orphan(checkout, branch)
     _git(checkout, "config", "user.name", "DRPO Results Executor")
     _git(
         checkout,
@@ -437,6 +451,12 @@ def _existing_manifest_sha(target: Path) -> str | None:
     except json.JSONDecodeError as exc:
         raise RunSpecError(f"existing result metadata is invalid JSON: {exc}") from exc
     manifest_sha = str(manifest_payload.get("manifest_sha256") or "")
+    manifest_base = dict(manifest_payload)
+    manifest_base.pop("manifest_sha256", None)
+    if not manifest_sha or _canonical_sha256(manifest_base) != manifest_sha:
+        raise RunSpecError("existing result manifest SHA-256 is invalid")
+    if ready_payload.get("status") != "READY_FOR_REVIEW":
+        raise RunSpecError("existing result directory is not ready for review")
     if ready_payload.get("manifest_sha256") != manifest_sha:
         raise RunSpecError("existing READY_FOR_REVIEW does not match result manifest")
     return manifest_sha
@@ -514,7 +534,7 @@ def deliver_completed_run(repo: Path, run_id: str) -> dict[str, Any]:
     report_path = repo / DELIVERY_ROOT / run_id / "DELIVERY_REPORT.json"
     try:
         uploaded = upload_review_package(repo, spec, delivery, exported)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         failure = {
             "schema_version": 1,
             "status": "FAIL",
@@ -532,6 +552,7 @@ def deliver_completed_run(repo: Path, run_id: str) -> dict[str, Any]:
             encoding="utf-8",
         )
         raise
+    result_path = str(uploaded["result_path"])
     report = {
         "schema_version": 1,
         "run_id": run_id,
@@ -539,6 +560,10 @@ def deliver_completed_run(repo: Path, run_id: str) -> dict[str, Any]:
         "experiment_id": spec["experiment_id"],
         "repository": delivery["repository"],
         "branch": delivery["branch"],
+        "result_url": (
+            f"https://github.com/{delivery['repository']}/tree/"
+            f"{delivery['branch']}/{result_path}"
+        ),
         "total_size_bytes": exported["total_size_bytes"],
         "delivered_at": now_utc(),
         **uploaded,
