@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+from runspec_delivery_policy import validate_simple_size_policy
 from runspec_lib import add_common_args, handle_cli_error, json_main, load_lane_config
 from runspec_safety import validate_runspec_safe
 
@@ -24,6 +25,7 @@ def main() -> int:
             lane_config=lane_config,
             require_registry=not args.no_registry_check,
         )
+        validate_simple_size_policy(spec)
         payload = {
             "status": "PASS",
             "run_id": spec["run_id"],
