@@ -286,6 +286,7 @@ def ppo_branch_command(
         "seed": branch.seed,
         "output_dir": str(branch_dir / "trainer_output"),
         "branch_id": branch.branch_id,
+        "variant": "iqlv_exp_rank",
         **branch.template_values,
     }
     trainer_args = [

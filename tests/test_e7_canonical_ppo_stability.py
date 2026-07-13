@@ -96,9 +96,10 @@ def test_branch_command_uses_ppo_bootstrap(tmp_path: Path) -> None:
         contract=contract,
         branch=branches[0],
         branch_dir=tmp_path / "branch",
-        trainer_argv_template=[],
+        trainer_argv_template=["--variant", "{variant}"],
     )
     assert "drpo.e7_canonical_ppo_bootstrap" in command
+    assert command[-2:] == ["--variant", "iqlv_exp_rank"]
     assert branch_config["template_values"]["actor_update_mode"] in {
         "a2c",
         "ppo_clip",
