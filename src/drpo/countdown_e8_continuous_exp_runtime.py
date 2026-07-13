@@ -289,6 +289,7 @@ def run(args: argparse.Namespace) -> int:
         try:
             environment = dict(os.environ)
             environment["CUDA_VISIBLE_DEVICES"] = gpu
+            environment["LOCAL_RANK"] = "0"
             command = _worker_command(args, cell, output_dir)
             with log_path.open("w", encoding="utf-8") as handle:
                 handle.write(f"GPU={gpu}\nCOMMAND={' '.join(command)}\n")
