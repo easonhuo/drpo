@@ -17,7 +17,8 @@ src/runtime_resource_policy/
 
 It has no `drpo` import and no mandatory dependency outside the Python standard
 library. Another project may vendor that directory together with the public
-contract schema, selection format, and portable compatibility tests.
+contract schema, versioned artifact-format documentation, and portable compatibility
+tests.
 
 The existing `drpo` distribution includes Torch, Gymnasium, Minari, Matplotlib, and
 other research dependencies. Cross-project consumers must not install the full DRPO
@@ -40,7 +41,7 @@ The vendorable V1 boundary is:
 ```text
 src/runtime_resource_policy/
 docs/schemas/runtime_resource_policy_v1.schema.json
-documented RUNTIME_SELECTION.json and RUNTIME_REVALIDATION.json formats
+versioned RUNTIME_SELECTION.json and RUNTIME_REVALIDATION.json format documentation
 portable contract / identity / engine tests
 ```
 
