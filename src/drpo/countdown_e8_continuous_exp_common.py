@@ -397,11 +397,31 @@ def _identity(
     cell: Cell,
     smoke: bool,
 ) -> dict[str, Any]:
+    source_paths = {
+        "common": Path(__file__).resolve(),
+        "trainer": Path(__file__).resolve().with_name(
+            "countdown_e8_continuous_exp_trainer.py"
+        ),
+        "runtime": Path(__file__).resolve().with_name(
+            "countdown_e8_continuous_exp_runtime.py"
+        ),
+        "auto_launcher": repo
+        / "scripts"
+        / "run_countdown_e8_oracle_offline_v2_continuous_exp_auto.py",
+    }
+    missing_sources = [name for name, path in source_paths.items() if not path.is_file()]
+    if missing_sources:
+        raise RuntimeError(
+            "Continuous EXP identity is missing protected sources: "
+            + ", ".join(sorted(missing_sources))
+        )
     return {
         "experiment_id": EXPERIMENT_ID,
         "version": VERSION,
         "source": git_state(repo),
-        "source_sha256": sha256_file(__file__),
+        "source_sha256": {
+            name: sha256_file(path) for name, path in sorted(source_paths.items())
+        },
         "model_path": str(model_path),
         "bank_sha256": sha256_file(bank),
         "validation_sha256": sha256_file(val),
