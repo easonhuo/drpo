@@ -22,6 +22,7 @@ def snapshot(
     available_host_gib: float = 256,
     gpu_free_gib: float = 90,
     gpu_count: int = 8,
+    heterogeneous: bool = False,
 ) -> MachineSnapshot:
     host_total = 512 * GIB
     host_available = int(available_host_gib * GIB)
@@ -39,8 +40,8 @@ def snapshot(
         gpus=tuple(
             GPUDevice(
                 str(index),
-                "H20",
-                96 * GIB,
+                "H100" if heterogeneous and index == gpu_count - 1 else "H20",
+                (80 if heterogeneous and index == gpu_count - 1 else 96) * GIB,
                 int(gpu_free_gib * GIB),
                 0.0,
             )
@@ -54,11 +55,13 @@ def probe_result(
     *,
     success: bool,
     peak_gib: float = 12,
+    host_gib: float | None = None,
     reason: str = "test",
     deadline: bool = False,
 ) -> placement.GPUConcurrencyProbeResult:
     initial = 90 * GIB
     peak = int(peak_gib * GIB)
+    host_peak = int((3 * concurrency if host_gib is None else host_gib) * GIB)
     return placement.GPUConcurrencyProbeResult(
         concurrency=concurrency,
         device_id="0",
@@ -73,9 +76,34 @@ def probe_result(
         initial_free_vram_bytes=initial,
         minimum_free_vram_bytes=initial - peak,
         peak_incremental_vram_bytes=peak,
+        peak_host_rss_bytes=host_peak,
         log_paths=(),
         reason=reason,
     )
+
+
+def autotune_kwargs(tmp_path: Path) -> dict:
+    return {
+        "machine": snapshot(),
+        "repo_root": tmp_path,
+        "work_dir": tmp_path / "work",
+        "selected_device_ids": [str(index) for index in range(8)],
+        "total_tasks": 62,
+        "workload_fingerprint": {"workload": "countdown"},
+        "command_factory": lambda index, root: ["unused", str(index), str(root)],
+        "base_environment": None,
+        "required_host_memory_bytes_per_worker": 4 * GIB,
+        "host_memory_headroom_fraction": 0.10,
+        "per_worker_host_memory_safety_factor": 1.25,
+        "cpu_fraction": 0.85,
+        "gpu_memory_headroom_fraction": 0.10,
+        "per_worker_vram_safety_factor": 1.25,
+        "max_slots_per_gpu": 8,
+        "single_probe_seconds": 60,
+        "validation_probe_seconds": 60,
+        "probe_budget_seconds": 600,
+        "required_free_floor_bytes": 4 * GIB,
+    }
 
 
 def test_derive_slots_uses_measured_capacity_not_a_fixed_constant() -> None:
@@ -85,28 +113,40 @@ def test_derive_slots_uses_measured_capacity_not_a_fixed_constant() -> None:
         device_count=8,
         total_tasks=100,
         host_worker_limit_total=64,
+        cpu_worker_limit_total=80,
         gpu_memory_headroom_fraction=0.10,
         per_worker_vram_safety_factor=1.25,
         max_slots_per_gpu=8,
     )
-    # usable=81 GiB, reserved=15 GiB -> five workers per GPU.
     assert derived["candidate"] == 5
     assert derived["vram_limit_per_device"] == 5
 
 
-def test_derive_slots_honors_host_memory_limit() -> None:
-    derived = placement.derive_slots_per_gpu(
+def test_derive_slots_honors_host_and_cpu_limits() -> None:
+    host_limited = placement.derive_slots_per_gpu(
         free_vram_bytes=90 * GIB,
         single_worker_peak_vram_bytes=8 * GIB,
         device_count=8,
         total_tasks=100,
         host_worker_limit_total=16,
+        cpu_worker_limit_total=80,
         gpu_memory_headroom_fraction=0.10,
         per_worker_vram_safety_factor=1.0,
         max_slots_per_gpu=8,
     )
-    assert derived["host_limit_per_device"] == 2
-    assert derived["candidate"] == 2
+    cpu_limited = placement.derive_slots_per_gpu(
+        free_vram_bytes=90 * GIB,
+        single_worker_peak_vram_bytes=8 * GIB,
+        device_count=8,
+        total_tasks=100,
+        host_worker_limit_total=80,
+        cpu_worker_limit_total=24,
+        gpu_memory_headroom_fraction=0.10,
+        per_worker_vram_safety_factor=1.0,
+        max_slots_per_gpu=8,
+    )
+    assert host_limited["candidate"] == 2
+    assert cpu_limited["candidate"] == 3
 
 
 def test_bounded_backoff_does_not_enumerate_every_slot_count() -> None:
@@ -161,6 +201,16 @@ def test_slot_runtime_rejects_inconsistent_or_scientific_placement() -> None:
         )
 
 
+def test_autotune_rejects_heterogeneous_gpu_pool(tmp_path: Path) -> None:
+    kwargs = autotune_kwargs(tmp_path)
+    kwargs["machine"] = snapshot(heterogeneous=True)
+    with pytest.raises(RuntimeResourceError, match="homogeneous"):
+        placement.autotune_single_gpu_task_placement(
+            **kwargs,
+            probe_runner=lambda **_kwargs: probe_result(1, success=True),
+        )
+
+
 def test_autotune_backs_off_to_highest_validated_candidate(tmp_path: Path) -> None:
     calls: list[int] = []
 
@@ -176,30 +226,42 @@ def test_autotune_backs_off_to_highest_validated_candidate(tmp_path: Path) -> No
         raise AssertionError(concurrency)
 
     document = placement.autotune_single_gpu_task_placement(
-        machine=snapshot(),
-        repo_root=tmp_path,
-        work_dir=tmp_path / "work",
-        selected_device_ids=[str(index) for index in range(8)],
-        total_tasks=62,
-        workload_fingerprint={"workload": "countdown"},
-        command_factory=lambda index, root: ["unused", str(index), str(root)],
-        base_environment=None,
-        required_host_memory_bytes_per_worker=4 * GIB,
-        host_memory_headroom_fraction=0.10,
-        gpu_memory_headroom_fraction=0.10,
-        per_worker_vram_safety_factor=1.25,
-        max_slots_per_gpu=8,
-        single_probe_seconds=60,
-        validation_probe_seconds=60,
-        probe_budget_seconds=600,
-        required_free_floor_bytes=4 * GIB,
+        **autotune_kwargs(tmp_path),
         probe_runner=fake_probe,
     )
     assert calls == [1, 5, 4]
     assert document["selection"]["slots_per_gpu"] == 4
     assert document["selection"]["total_runtime_slots"] == 32
     assert document["selection"]["slot_device_ids"].count("0") == 4
+    assert document["selection"]["capacity"]["reserved_host_bytes_per_worker"] == 4 * GIB
     assert document["scientific_matrix_changed"] is False
+
+
+def test_autotune_rejects_candidate_that_exceeds_projected_host_memory(
+    tmp_path: Path,
+) -> None:
+    calls: list[int] = []
+
+    def fake_probe(**kwargs):
+        concurrency = int(kwargs["concurrency"])
+        calls.append(concurrency)
+        if concurrency == 1:
+            return probe_result(1, success=True, peak_gib=12, host_gib=3)
+        if concurrency == 5:
+            return probe_result(5, success=True, peak_gib=60, host_gib=40)
+        if concurrency == 4:
+            return probe_result(4, success=True, peak_gib=48, host_gib=20)
+        raise AssertionError(concurrency)
+
+    document = placement.autotune_single_gpu_task_placement(
+        **autotune_kwargs(tmp_path),
+        probe_runner=fake_probe,
+    )
+    assert calls == [1, 5, 4]
+    assert document["selection"]["slots_per_gpu"] == 4
+    first_check = document["probe"]["candidate_checks"][0]
+    assert first_check["probe_success"] is True
+    assert first_check["host_capacity_ok"] is False
 
 
 def test_autotune_falls_back_to_one_when_no_higher_candidate_validates(
@@ -215,26 +277,10 @@ def test_autotune_falls_back_to_one_when_no_higher_candidate_validates(
         return probe_result(concurrency, success=False, reason="nonzero")
 
     document = placement.autotune_single_gpu_task_placement(
-        machine=snapshot(),
-        repo_root=tmp_path,
-        work_dir=tmp_path / "work",
-        selected_device_ids=[str(index) for index in range(8)],
-        total_tasks=62,
-        workload_fingerprint={"workload": "countdown"},
-        command_factory=lambda index, root: ["unused", str(index), str(root)],
-        base_environment=None,
-        required_host_memory_bytes_per_worker=4 * GIB,
-        host_memory_headroom_fraction=0.10,
-        gpu_memory_headroom_fraction=0.10,
-        per_worker_vram_safety_factor=1.25,
-        max_slots_per_gpu=8,
-        single_probe_seconds=60,
-        validation_probe_seconds=60,
-        probe_budget_seconds=600,
-        required_free_floor_bytes=4 * GIB,
+        **autotune_kwargs(tmp_path),
         probe_runner=fake_probe,
     )
-    assert calls == [1, 5, 4, 2]
+    assert calls == [1, 5, 4, 3]
     assert document["selection"]["slots_per_gpu"] == 1
     assert document["selection"]["reason"] == "single_worker_probe_validated_only"
 
@@ -244,27 +290,13 @@ def test_exact_cached_selection_skips_probe_after_dynamic_revalidation(
 ) -> None:
     def first_probe(**kwargs):
         concurrency = int(kwargs["concurrency"])
-        return probe_result(concurrency, success=True, peak_gib=12 * concurrency)
+        return probe_result(
+            concurrency,
+            success=True,
+            peak_gib=12 * concurrency,
+        )
 
-    common = dict(
-        machine=snapshot(),
-        repo_root=tmp_path,
-        work_dir=tmp_path / "work",
-        selected_device_ids=[str(index) for index in range(8)],
-        total_tasks=62,
-        workload_fingerprint={"workload": "countdown"},
-        command_factory=lambda index, root: ["unused", str(index), str(root)],
-        base_environment=None,
-        required_host_memory_bytes_per_worker=4 * GIB,
-        host_memory_headroom_fraction=0.10,
-        gpu_memory_headroom_fraction=0.10,
-        per_worker_vram_safety_factor=1.25,
-        max_slots_per_gpu=8,
-        single_probe_seconds=60,
-        validation_probe_seconds=60,
-        probe_budget_seconds=600,
-        required_free_floor_bytes=4 * GIB,
-    )
+    common = autotune_kwargs(tmp_path)
     first = placement.autotune_single_gpu_task_placement(
         **common,
         probe_runner=first_probe,
@@ -303,6 +335,7 @@ def test_real_probe_terminates_workers_and_removes_probe_payload(
         terminate_grace_seconds=0.1,
     )
     assert result.success is True
+    assert result.peak_host_rss_bytes > 0
     probe_root = tmp_path / "probe"
     assert list(probe_root.glob("worker_*.log"))
     assert not any(
