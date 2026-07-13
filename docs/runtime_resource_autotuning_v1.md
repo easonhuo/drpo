@@ -13,14 +13,14 @@ scientific variables.
   sufficiently idle GPU devices that satisfy configured VRAM and host-RAM gates. It
   remains available as the conservative one-process-per-GPU implementation.
 - **E8 GPU placement, `GOV-RUNTIME-GPU-PLACEMENT-AUTOTUNE-02`:** adds a bounded
-  representative GPU probe and automatically selects how many independent
-  one-GPU tasks may share each selected GPU. The maximum-slots argument is a safety
-  ceiling, not the selected value.
+  representative probe and automatically selects how many independent one-GPU tasks
+  may share each selected GPU from measured VRAM, measured process-tree host RSS,
+  CPU/load capacity, task count, and bounded concurrent validation.
 
 Neither path is a general distributed scheduler. The GPU-placement V1 does not
 select DDP, tensor parallelism, FSDP, batch size, precision, or multi-node topology.
-It is a bounded capacity and liveness selector, not a global throughput-optimality
-claim. Detailed GPU placement semantics are documented in
+It requires a homogeneous GPU pool and is a capacity/liveness selector rather than a
+global throughput-optimality claim. Detailed semantics are documented in
 `docs/runtime_gpu_placement_autotuning_v1.md`.
 
 Existing fixed E7/E8 scientific code and configs remain unchanged.
@@ -101,6 +101,8 @@ Default placement controls:
 --required-host-memory-gib-per-worker 4
 --gpu-memory-headroom-fraction 0.12
 --host-memory-headroom-fraction 0.15
+--per-worker-host-memory-safety-factor 1.25
+--cpu-fraction 0.85
 --per-worker-vram-safety-factor 1.25
 --max-slots-per-gpu 8
 --single-probe-seconds 90
@@ -109,11 +111,17 @@ Default placement controls:
 --probe-free-floor-gib 4
 ```
 
-The selector first rejects unavailable, busy, or insufficient-memory devices. It
-then runs a representative one-worker probe, derives a concurrency candidate from
-measured VRAM and host-memory capacity, and validates a bounded descending candidate
-set on one GPU. The cold-probe hard budget defaults to ten minutes. If no candidate
-above one is validated, it records the reason and falls back to one slot per GPU.
+The old `--required-host-memory-gib-per-gpu` spelling remains accepted as a
+compatibility alias. The host-memory value is a conservative minimum; the selector
+uses the larger of that floor and the measured process-tree RSS with safety factor.
+
+The selector first rejects unavailable, busy, insufficient-memory, or heterogeneous
+devices. It then runs a representative one-worker probe, derives a concurrency
+candidate from measured VRAM, measured host RSS, CPU/load capacity, and task count,
+and validates a bounded descending candidate set on one GPU. Concurrent validation
+projects host RSS across the selected GPU pool. The cold-probe hard budget defaults
+to ten minutes. If no candidate above one is validated, it records the reason and
+falls back to one slot per GPU.
 
 `--max-slots-per-gpu` only bounds the search. It does not force that number of
 workers. The chosen value is written to `RUNTIME_SELECTION.json` and must come from
@@ -131,11 +139,11 @@ _runtime_resource_probe/e8_gpu_placement/
 
 `RUNTIME_SELECTION.json` records:
 
-- adapter, selector policy, and workload fingerprint;
-- source commit/worktree state when available;
+- adapter, selector policy, workload fingerprint, and source identity;
 - CPU/RAM/cgroup/GPU snapshot;
-- measured single-worker incremental peak VRAM;
-- candidate validation results and fallback reason;
+- measured single-worker incremental peak VRAM and process-tree host RSS;
+- reserved per-worker VRAM/host memory and CPU/host/VRAM/task limits;
+- concurrent candidate checks, projected host RSS, and fallback reason;
 - selected devices, `slots_per_gpu`, expanded slot list, and total concurrency;
 - `scientific_matrix_changed: false`.
 
@@ -146,8 +154,8 @@ semantics, and experiment outputs.
 ## Failure and rollback
 
 The auto entrypoints fail closed on malformed identity, invalid placement, missing
-resources, or unsafe probe outcomes. They do not silently change batch size,
-methods, seeds, model settings, or evaluation.
+resources, heterogeneous GPUs, or unsafe probe outcomes. They do not silently change
+batch size, methods, seeds, model settings, or evaluation.
 
 Rollback is immediate: stop invoking the auto entrypoint and use the unchanged fixed
 E8 runtime or the historical conservative path. Preserve selection files and failed
