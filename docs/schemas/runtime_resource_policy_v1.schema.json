@@ -9,6 +9,11 @@
     "schema_version",
     "mode"
   ],
+  "dependentRequired": {
+    "adapter_version": [
+      "adapter"
+    ]
+  },
   "properties": {
     "schema_version": {
       "const": 1
@@ -150,12 +155,22 @@
         "anyOf": [
           {
             "required": [
-              "fixed"
+              "adapter"
             ]
           },
           {
             "required": [
               "adapter_version"
+            ]
+          },
+          {
+            "required": [
+              "policy"
+            ]
+          },
+          {
+            "required": [
+              "fixed"
             ]
           }
         ]
