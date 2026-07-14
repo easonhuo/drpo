@@ -205,6 +205,36 @@ def _ancestor_paths(active: Path, root: Path) -> tuple[Path, ...]:
     return tuple(values)
 
 
+def _pid_is_listed(path: Path, pid: int) -> bool:
+    try:
+        values = path.read_text(encoding="utf-8").split()
+    except OSError:
+        return False
+    return str(int(pid)) in values
+
+
+def _resolve_active_cgroup(
+    *,
+    root: Path,
+    relative: str,
+    membership_filename: str,
+    version_label: str,
+) -> Path:
+    root = root.resolve()
+    if not root.is_dir():
+        raise CPUCapacityError(f"configured {version_label} cgroup root does not exist")
+    candidate = _safe_join(root, relative)
+    if candidate.is_dir():
+        return candidate
+    # In a cgroup namespace, /proc/self/cgroup can expose a host-relative path that is
+    # not present below the namespaced mount root. Accept the mount root only when it
+    # explicitly lists this process as a member; otherwise a missing active path is
+    # contradictory evidence and must fail closed.
+    if relative != "/" and _pid_is_listed(root / membership_filename, os.getpid()):
+        return root
+    raise CPUCapacityError(f"current {version_label} cgroup path cannot be resolved")
+
+
 def _parse_v2_quota(path: Path) -> float | None:
     try:
         tokens = path.read_text(encoding="utf-8").strip().split()
@@ -252,12 +282,12 @@ def _parse_v1_quota(directory: Path) -> float | None:
 
 
 def _v2_binding(root: Path, relative: str) -> tuple[Path, tuple[CPUQuotaDomain, ...]]:
-    candidate = _safe_join(root, relative)
-    active = candidate if candidate.exists() else root.resolve()
-    if not active.exists():
-        raise CPUCapacityError("configured cgroup v2 root does not exist")
-    if candidate != active and not (active / "cpu.max").exists():
-        raise CPUCapacityError("current cgroup v2 path cannot be resolved")
+    active = _resolve_active_cgroup(
+        root=root,
+        relative=relative,
+        membership_filename="cgroup.procs",
+        version_label="cgroup v2",
+    )
     domains: list[CPUQuotaDomain] = []
     saw_quota_file = False
     for directory in _ancestor_paths(active, root):
@@ -294,12 +324,12 @@ def _v2_binding(root: Path, relative: str) -> tuple[Path, tuple[CPUQuotaDomain, 
 
 def _v1_binding(root: Path, relative: str) -> tuple[Path, tuple[CPUQuotaDomain, ...]]:
     controller_root = root / "cpu" if (root / "cpu").exists() else root
-    candidate = _safe_join(controller_root, relative)
-    active = candidate if candidate.exists() else controller_root.resolve()
-    if not active.exists():
-        raise CPUCapacityError("configured cgroup v1 CPU root does not exist")
-    if candidate != active and not (active / "cpu.cfs_quota_us").exists():
-        raise CPUCapacityError("current cgroup v1 CPU path cannot be resolved")
+    active = _resolve_active_cgroup(
+        root=controller_root,
+        relative=relative,
+        membership_filename="tasks",
+        version_label="cgroup v1 CPU",
+    )
     domains: list[CPUQuotaDomain] = []
     for directory in _ancestor_paths(active, controller_root):
         quota = _parse_v1_quota(directory)
