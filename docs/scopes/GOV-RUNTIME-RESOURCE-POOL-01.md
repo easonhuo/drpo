@@ -4,7 +4,7 @@
 **Stacked implementation base:** `6afaa58803516d46979287fa40921680aac4f183` from Draft PR `#65`.  
 **Dependency:** `GOV-RUNTIME-RESOURCE-AUTOTUNE-CPU-V2-01`.  
 **Scientific experiment impact:** none.  
-**Default-policy impact:** none; omission of explicit pool arguments preserves inherited process affinity and existing GPU visibility.
+**Default-policy impact:** none; omitting the wrapper preserves inherited process affinity and existing GPU visibility.
 
 ## Objective
 
@@ -31,41 +31,34 @@ result and not evidence that a fixed 80-core E8 pool is sufficient.
 - parse explicit Linux CPU-list syntax such as `0-31,64-95`;
 - reject empty, malformed, descending, duplicate, negative, or unavailable CPU IDs;
 - require the requested CPU set to be a subset of the caller's inherited affinity;
-- apply the CPU pool with `os.sched_setaffinity(0, ...)` before machine discovery;
+- apply the CPU pool with `os.sched_setaffinity(0, ...)` before delegated startup;
 - verify the effective affinity exactly matches the requested pool;
 - represent inherited affinity explicitly when no pool is requested;
 - parse and normalize optional GPU ID lists without changing CUDA semantics;
 - emit a stable resource-pool identity and SHA-256 digest;
-- include the pool identity in E7 resource fingerprints, immutable selections,
-  run identities, and revalidation evidence;
-- require plan and run to use the same explicit/inherited pool identity;
-- preserve child-process inheritance of CPU affinity and existing CUDA/GPU arguments;
-- provide a small command wrapper for controlled E8/fixed-launcher execution without
-  duplicating scientific launch logic;
+- preserve child-process inheritance of CPU affinity and the delegated command;
+- require a declared physical GPU pool to match one delegated `--gpus` argument, or
+  explicitly use `CUDA_VISIBLE_DEVICES` enforcement for compatible commands;
+- create or exactly revalidate one immutable `RESOURCE_POOL.json` shared by plan and
+  run;
+- provide a small command wrapper for E7, E8, and fixed launchers without duplicating
+  their scientific launch logic;
 - add deterministic tests for parsing, subset validation, exact application,
-  identity stability, plan/run mismatch, and subprocess inheritance.
+  immutable identity, GPU enforcement, exact delegation, and subprocess inheritance.
 
-## Supported initial entrypoints
-
-Direct `--cpu-pool` integration:
-
-```text
-scripts/run_e7_canonical_exp_horizon_joint_auto.py
-scripts/run_e7_ppo_w0_grid_pilot_auto.py
-scripts/run_e7_w0_highc_actor_auto.py
-scripts/run_e7_squared_exp_night_auto.py
-```
-
-Generic controlled wrapper for E8 and fixed launchers:
+## Supported initial entrypoint
 
 ```text
 scripts/run_with_resource_pool.py
 ```
 
-The wrapper accepts a command after `--`, applies the declared CPU pool, optionally
-sets `CUDA_VISIBLE_DEVICES` from a declared GPU pool, writes one provenance document,
-and then `exec`s the existing launcher. It does not inspect or alter scientific
-arguments.
+The wrapper can delegate to the four measured-CPU E7 auto entrypoints supplied by PR
+`#65`, existing E8 launchers, or fixed launchers. It applies the pool before the
+existing entrypoint performs machine discovery or launches children, writes one
+immutable provenance document, and then `exec`s the exact delegated command.
+
+V1 intentionally does not add duplicate `--cpu-pool` parsing to every workload
+launcher. The wrapper is the single pool-activation boundary.
 
 ## Identity contract
 
@@ -74,48 +67,84 @@ A pool document contains:
 ```text
 schema_version
 source = explicit_cli | inherited_affinity
+inherited_cpu_ids
 requested_cpu_ids
 effective_cpu_ids
 cpu_count
 requested_gpu_ids
-effective_cuda_visible_devices
+gpu_enforcement = none | launcher_argument | cuda_visible
 pool_digest
 ```
 
 CPU IDs are canonical sorted integers. GPU IDs are canonical ordered unique strings.
-The digest excludes timestamps and mutable runtime observations.
+The digest excludes timestamps, command text, and mutable runtime observations.
+Creation uses exclusive file creation. Reuse is permitted only when the complete JSON
+identity matches exactly; a concurrent or later different identity fails closed.
 
-For E7 plan/run:
+The wrapper exports:
 
-- pool activation occurs before `discover_machine()`;
-- the pool identity enters the resource fingerprint and selection digest;
-- `RUN_IDENTITY.json` records pool digest and exact IDs;
-- run validates the requested/inherited pool against both selection and run identity
-  before CPU/RAM revalidation;
-- a changed pool fails closed and never triggers automatic replanning or worker-count
-  downshift.
+```text
+DRPO_RESOURCE_POOL_DIGEST
+DRPO_CPU_POOL
+DRPO_GPU_POOL        # only when declared
+CUDA_VISIBLE_DEVICES # only in cuda_visible mode
+```
+
+## Relationship to E7 measured-CPU V2
+
+This stacked claim does not modify E7 capacity arithmetic or the four E7 auto
+entrypoints. Instead:
+
+1. the wrapper applies the explicit CPU affinity before the E7 process starts;
+2. PR `#65` discovers that restricted `sched_getaffinity(0)` set;
+3. the exact effective affinity is recorded in `RUNTIME_SELECTION.json` and enters the
+   immutable selection digest;
+4. the selected worker count and digest are bound into `RUN_IDENTITY.json`;
+5. run revalidation rejects changed affinity before scientific execution;
+6. the shared `RESOURCE_POOL.json` independently ensures the operator invokes plan
+   and run with the same explicit or inherited pool identity.
+
+Thus a changed pool is blocked either by immutable pool identity or by the measured
+CPU binding contract. It never triggers automatic replanning or silent worker-count
+downshift.
+
+## Relationship to E8 GPU placement
+
+For E8 launchers that already accept physical GPU IDs, the recommended mode is:
+
+```text
+gpu_enforcement = launcher_argument
+```
+
+The wrapper requires the declared ordered GPU IDs to exactly match one delegated
+`--gpus` value. It does not reinterpret physical IDs or modify GPU placement.
+
+`cuda_visible` mode sets `CUDA_VISIBLE_DEVICES` and is valid only for commands whose
+GPU identity is defined by CUDA visibility. It must not wrap a physical-ID launcher
+without separate validation.
 
 ## Safety and failure contract
 
 Fail closed on:
 
-- unavailable `sched_getaffinity` / `sched_setaffinity` for an explicit pool;
+- unavailable `sched_getaffinity` or `sched_setaffinity` for an explicit pool;
 - requested CPU outside inherited affinity;
 - effective affinity different from requested affinity;
 - malformed or duplicate CPU/GPU IDs;
-- plan/run pool digest mismatch;
-- selection/run-identity pool mismatch;
-- wrapper provenance path already occupied by a different pool identity;
+- declared GPU pool without an enforcement mode;
+- missing, repeated, or mismatched delegated `--gpus` in launcher-argument mode;
+- existing pool identity that differs in source, CPU IDs, GPU IDs, or enforcement;
 - child process that does not inherit the expected CPU affinity in deterministic
   acceptance tests.
 
-The implementation must not kill, pause, migrate, or change affinity of unrelated
-processes.
+The implementation must not kill, pause, migrate, reserve, or change affinity of
+unrelated processes.
 
 ## Explicit exclusions
 
 - automatic selection of which CPU IDs belong to E7 or E8;
 - automatic NUMA/socket optimization;
+- direct changes to every E7/E8 launcher;
 - central scheduler, reservation daemon, lock server, or global resource database;
 - dynamic resizing, preemption, migration, or cross-run negotiation;
 - Slurm/Kubernetes/Ray integration;
@@ -126,33 +155,45 @@ processes.
 - modifying `docs/handoff.md`, `experiments/registry.yaml`, scientific configs, or
   formal execution-channel governance.
 
-## Acceptance
+## Deterministic acceptance
 
-Deterministic acceptance requires:
+1. Exact CPU-list parsing and canonicalization.
+2. Subset-only affinity application and exact post-application verification.
+3. Inherited-affinity behavior when no explicit pool is supplied.
+4. Stable pool digest independent of timestamps and delegated command text.
+5. Explicit and inherited identities are distinguishable.
+6. Actual delegated subprocess inherits the exact CPU pool.
+7. Immutable identity accepts exact reuse and rejects a different plan/run pool.
+8. Launcher-argument GPU enforcement requires one exact ordered `--gpus` value.
+9. CUDA-visible enforcement exports only the declared GPU visibility.
+10. Wrapper preserves the delegated executable and argument vector exactly.
+11. Existing no-wrapper and fixed-launcher paths remain unchanged.
+12. Focused tests, full pytest, Ruff, Python compile, and governance gates pass on the
+    exact stacked head.
 
-1. exact CPU-list parsing and canonicalization;
-2. subset-only affinity application and exact post-application verification;
-3. inherited-affinity behavior when no explicit pool is supplied;
-4. stable pool digest independent of timestamps;
-5. explicit and inherited identities are distinguishable;
-6. subprocesses inherit the exact pool;
-7. E7 plan selection includes the pool and run rejects a different pool before probe
-   or revalidation;
-8. E7 run with the same pool preserves selection digest and worker count;
-9. generic wrapper sets CPU affinity and optional `CUDA_VISIBLE_DEVICES` without
-   altering the delegated command;
-10. existing fixed launchers and no-pool paths remain compatible;
-11. focused tests, full pytest, Ruff, Python compile, and governance gates pass on the
-   exact stacked head.
+## Real-server acceptance
 
-Real-server acceptance additionally requires a topology audit and a controlled
-concurrent E7/E8 shadow using non-overlapping pools. The audit must report socket/NUMA
-mapping, exact CPU IDs, GPU IDs, thread counts, CPU usage, step/evaluation throughput,
-and no orphan processes. It must not start or reinterpret a formal scientific sweep.
+The exact final head requires:
+
+- server socket/NUMA/CPU/GPU topology audit;
+- explicit non-overlapping E7 and E8 CPU pools chosen from that topology;
+- dry-run validation of both complete commands;
+- a controlled concurrent engineering shadow showing child affinity remains inside
+  each pool;
+- E7 selection/revalidation evidence produced inside its pool;
+- E8 CPU use, thread count, training throughput, pass@64 throughput, and GPU utilization
+  recorded inside its pool;
+- no process from either workload executing outside its assigned affinity;
+- no orphan process group;
+- no formal scientific sweep or scientific-result claim.
+
+A separate E8 thread-count scan remains required before assigning a permanent pool
+size. The observed unbounded run does not establish that OMP/MKL=4 or an 80-core pool
+is sufficient.
 
 ## Rollback
 
-1. Stop passing `--cpu-pool` or stop using `run_with_resource_pool.py`.
+1. Stop using `run_with_resource_pool.py`.
 2. Use the existing inherited-affinity launch path.
 3. Preserve pool provenance, selections, revalidations, logs, and contention evidence.
 4. Revert this stacked claim independently after PR `#65` if necessary.
