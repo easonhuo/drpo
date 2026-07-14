@@ -181,6 +181,8 @@ def test_explicit_registry_override_still_fails_closed(tmp_path: Path) -> None:
 
 
 def test_registration_mode_validation_is_closed() -> None:
+    with pytest.raises(RunSpecError, match="registration must be a mapping"):
+        validate_registration_block({"registration": []})
     with pytest.raises(RunSpecError, match="pre_registered or deferred"):
         validate_registration_block(
             {
