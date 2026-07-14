@@ -62,7 +62,7 @@ python scripts/manuscript_cascade.py validate-issue \
 pytest -q tests/test_paper_pipeline.py \
   tests/test_manuscript_guidance_review.py \
   tests/test_manuscript_live_hierarchy.py
-pytest -q tests/test_paper_logic_gate.py
+pytest -q tests/test_paper_logic_gate*.py
 ```
 
 ## Evidence-first Core pipeline
