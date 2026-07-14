@@ -25,7 +25,7 @@
 % Use the following line for the initial blind version submitted for review:
 \usepackage[preprint]{icml2026}
 % 尝试清空预印本的文字变量（如果模板使用此变量）
-\newcommand{\icmlpreprinttext}{}
+\newcommand{\icmlpreprinttext}{} 
 \renewcommand{\icmlpreprinttext}{}
 % For preprint, use
 % \usepackage[preprint]{icml2026}
@@ -134,38 +134,124 @@
 Off-policy policy optimization reuses historical behavior, including negative-advantage samples that suppress known failures. We show that repeated reuse can turn this useful signal into excessive repulsion. As the learner moves away from a historical negative action, subsequent negative updates make that action increasingly remote under the current policy while preserving or amplifying its influence. We formalize this far-field repulsive dynamic and show a transition from useful extrapolation to instability: moderate negative feedback can improve upon policies trained only on positive-advantage samples, whereas excessive far-field repulsion leads to persistent drift or the loss of finite stable equilibria. The resulting control problem is not merely distance weighting: learner-relative remoteness is nonlinear, corresponding to squared standardized distance for Gaussian policies and surprisal for categorical policies, while the local utility of remote negative feedback decays. Motivated by this principle, DRPO applies nonlinear remoteness-aware attenuation to retain informative near-field updates while suppressing far-field repulsion. Controlled experiments identify the causal mechanism, and D4RL locomotion and Countdown arithmetic generation show that the control remains beneficial in realistic external tasks.
  % while generalizing effectively to broader continuous control tasks.
 
-
+ 
 \end{abstract}
 
 \section{Introduction}
-\label{sec:intro}
+\label{sec:introduction}
 
-Off-policy policy optimization improves a current policy using behavior collected by earlier, stale, or heterogeneous policies. This paradigm is essential in settings where fresh interaction is costly, slow, or unavailable, including offline reinforcement learning, replay-based control, recommender systems, and the post-training of generative models. By reusing historical experience, it can reduce exploration cost, exploit data accumulated across policy iterations, and enable policy improvement without relying exclusively on new on-policy trajectories. This benefit, however, creates a distinctive learning problem: the policy continues to evolve while the data being optimized remain fixed. Understanding how this growing mismatch changes the influence of historical feedback is therefore central to building stable and effective off-policy learning algorithms.
+Policy-based methods learn through signed feedback: positive updates
+increase the likelihood of actions estimated to be relatively
+preferable, whereas negative updates reduce the probability of actions
+estimated to be relatively undesirable. Prior work has shown that
+negative feedback can suppress undesirable behavior and support
+generalization beyond positive-only learning
+\citep{zhu2025negative,song2025good}. This makes the two signals
+complementary: positive updates provide attraction toward relatively
+preferable actions, while negative updates encode boundaries and
+exclusion information absent from positive updates. In many off-policy
+settings, historical samples are reused across multiple policy updates.
+The same negative sample may therefore be revisited after earlier
+updates have already reduced its probability under the current policy.
+This raises our central question: how does repeated reuse change the
+influence of useful negative feedback, and when can that influence
+become excessive repulsion?
 
+Against this background, we identify a self-amplifying far-field
+dynamic in repeated off-policy updates. A negative update reduces the
+likelihood of a historical action, increasing its learner-relative
+distance or surprisal. Because the policy score---and therefore the
+update influence---depends on the current policy geometry, the resulting
+remoteness changes the next update. Repeated reuse can therefore cause
+the action's negative influence to grow disproportionately or decay too
+slowly as the learner moves farther away. We identify learner-relative
+remoteness as the state variable linking one negative update to the
+next. The precise amplification law depends on the policy family:
+continuous Gaussian policies can exhibit distance-dependent score
+growth, whereas categorical direct-logit scores remain bounded even as
+repeated suppression drives action probabilities toward the simplex
+boundary. Thus, initially useful local negative feedback may evolve into
+excessive far-field repulsion: the danger lies not only in where a
+negative sample starts, but in how its influence changes under repeated
+reuse.
 
-Historical datasets, however, contain more than successful behavior to imitate. They also record suboptimal and failed actions that reveal which decisions should be suppressed. Policy-based methods exploit this distinction through signed feedback: positive updates increase the likelihood of successful behavior, whereas negative updates reduce the probability of known failures. Prior work has shown that such negative feedback can suppress undesirable modes, improve data efficiency, and benefit generalization in several policy-learning settings \citep{novati2019remember,fakoor2020p3o,arnal2025asymmetric}. Building on these observations, we view positive and negative feedback as complementary signals: positive updates provide attraction toward observed successes, while negative updates encode boundaries and failure information that positive imitation alone cannot express. We therefore ask how this information can be retained without allowing repeated historical reuse to turn negative feedback into excessive repulsion.
+Existing methods already mitigate off-policy instability through
+filtering, importance weighting, probability- or surprisal-aware gating,
+and other forms of tapered negative updates
+\citep{novati2019remember,fakoor2020p3o,peng2019advantage,
+schulman2017proximal,fujimoto2019off,kumar2020conservative,
+arnal2025asymmetric,leroux2025tapered}. What remains unresolved is
+whether learner-relative remoteness itself amplifies negative
+influence. Because remoteness is naturally confounded with sample
+quality and negative-advantage magnitude, we use matched controls that
+hold these factors fixed while varying only distance or rarity. These
+controls isolate remoteness as an independent amplifier, while targeted
+near--far interventions test whether its far-field influence propagates
+into policy drift, support- or variance-boundary events, and
+task-performance degradation.
 
-Against this background, we identify a self-amplifying far-field dynamic in repeated off-policy updates. A negative update pushes the learner away from a fixed historical action, increasing its learner-relative distance or surprisal. This increased remoteness can in turn strengthen—or prevent the decay of—the action’s subsequent negative influence, causing repeated reuse to drive it progressively farther from the current policy. The precise amplification law depends on the policy family: continuous Gaussian policies can exhibit distance-dependent score growth, whereas categorical policies exhibit persistent suppression toward the support boundary. Thus, the danger lies not only in where a negative sample starts, but in how its influence evolves through repeated repulsion.
+Having identified the remoteness-dependent amplification of individual
+negative updates, we next ask how these forces aggregate with positive
+attraction to determine the global policy dynamics. We answer this
+question through \emph{Repulsive Dynamics}, an aggregate theory of
+signed policy updates. Our analysis shows that moderate repulsion can
+move the policy beyond the Positive-only solution while retaining a
+finite stable equilibrium. As negative influence approaches the
+strength of positive attraction, the restoring force weakens and
+persistent drift can emerge. Once repulsion dominates, no finite stable
+equilibrium remains. Together, these regimes define a transition in
+policy geometry and stability; whether a stable displacement improves
+task utility remains an empirical question.
 
-Prior work has stabilized off-policy learning through filtering, importance weighting, probability- or surprisal-aware gating, and other forms of tapered negative updates \citep{peng2019advantage,schulman2017proximal,fujimoto2019off,kumar2020conservative,arnal2025asymmetric,leroux2025tapered}. These methods demonstrate the value of nonuniform control, but they do not isolate whether learner-relative remoteness itself generates a self-amplifying repulsive dynamic. In realistic data, sample quality, advantage magnitude, rarity, and policy distance are entangled. We disentangle these factors through matched controlled environments and causally test the pathway from remoteness, to amplified negative influence, to policy drift and collapse.
+The theory therefore identifies the appropriate control target: not
+negative feedback as a whole, but its excessive far-field contribution.
+We therefore propose DRPO, a learner-relative nonlinear control of
+negative updates. DRPO measures distance or surprisal under the evolving
+policy and applies a nonlinear taper in the same remoteness coordinate
+that drives the identified mechanism. It preserves informative
+near-field negative updates while progressively attenuating increasingly
+remote contributions, thereby interrupting the
+remoteness-to-influence feedback loop. Under finite-order growth of the
+unweighted influence, the resulting exponential envelope makes the
+weighted far-field contribution vanish asymptotically. Viewed
+distributionally, this smooth reweighting extends DRPO's optimistic
+selection principle from hard selection to continuous learner-relative
+control.
 
-
-
-To characterize this process, we develop an aggregate theory of repulsive policy updates. The analysis shows that moderate negative feedback can improve upon what positive updates alone attain, whereas repeated far-field repulsion can progressively distort the aggregate equilibrium and ultimately eliminate a finite solution. This dynamic motivates DRPO, a learner-relative nonlinear control of negative updates. DRPO measures distance or surprisal under the evolving policy and applies an attenuation that is mild locally but increases nonlinearly in the far field. The resulting exponential envelope preserves informative local repulsion while dominating the far-field tail generated by the self-amplifying dynamics.
-
-We evaluate the resulting theory and method through a layered empirical program. Controlled continuous and categorical experiments test the predicted transition from useful negative feedback to far-field instability and assess whether learner-relative nonlinear attenuation preserves the former while preventing the latter. We then examine whether the same mechanisms appear in continuous-control and sequence-generation tasks. Together, these experiments connect the proposed dynamics to controlled causal evidence, method behavior, and external task performance.
+Our empirical study follows a layered evidence chain. We first examine
+whether far-field amplification appears in realistic continuous-control
+and autoregressive policy-learning tasks. We then use controlled
+continuous and categorical environments to isolate learner-relative
+remoteness from correlated factors and test its causal transmission into
+policy dynamics. Strength and taper experiments further test the
+predicted transition from useful negative feedback to stable
+extrapolation, drift, and instability under selective, global, and
+budget-matched controls. Finally, we return to external tasks to test
+whether remoteness-aware control improves task-level outcomes.
+Throughout, task-performance collapse, support- or variance-boundary
+events, and NaN/Inf numerical failure are reported as distinct outcomes.
 
 Our contributions are summarized as follows:
+\begin{itemize}
+    \item We formulate repeated off-policy negative updates as
+    learner-relative repulsive dynamics and develop an aggregate theory
+    that characterizes stable extrapolation, persistent drift, and the
+    loss of a finite stable equilibrium.
 
-\begin{itemize}\setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}\setlength{\parsep}{0pt}
-    \item we formulate repeated off-policy negative updates as learner-relative repulsive dynamics and develop an aggregate theory that characterizes stable extrapolation, boundary approach, and the loss of a finite equilibrium.
+    \item We identify learner-relative remoteness as an independent
+    amplifier of negative influence and use targeted near--far
+    interventions to trace its transmission into policy drift,
+    boundary events, and task-performance degradation.
 
-    \item we construct matched controlled environments and targeted near–far interventions that separate sample quality from learner-relative remoteness and causally trace amplified repulsion to policy drift and collapse.
+    \item We propose DRPO, a learner-relative nonlinear attenuation of
+    negative updates that acts in the same remoteness coordinate,
+    preserving informative local feedback while suppressing the
+    self-amplifying far-field tail.
 
-    \item we propose DRPO, a learner-relative nonlinear attenuation of negative updates that uses distance or surprisal to preserve informative local feedback while suppressing the self-amplifying far-field tail.
-
-    \item we evaluate the resulting theory and method across controlled continuous and categorical settings, together with external continuous-control and sequence-generation tasks.
-    % and generalizes effectively to broader continuous control tasks.
+    \item We evaluate the resulting theory and method through a layered
+    evidence chain combining controlled source identification, causal
+    intervention, and external continuous-control and
+    sequence-generation tasks.
 \end{itemize}
 
 
@@ -227,8 +313,7 @@ a replay buffer, or trajectories collected by earlier or stale behavior
 policies. Let $\pi_\theta(a \mid s)$ denote the current policy and let
 $\widehat{A}(s,a)$ denote the advantage-like signal used by the actor
 update. During an actor step, the update distribution and the associated
-advantage estimates are treated as fixed with respect to $\theta$. The
-resulting empirical actor field is
+advantage estimates are treated as fixed with respect to $\theta$. The resulting empirical actor field is
 \begin{equation}
     \mathbf{F}(\theta)
     =
@@ -240,12 +325,10 @@ resulting empirical actor field is
     \label{eq:empirical_actor_field}
 \end{equation}
 with the corresponding update
-$\theta_{t+1}=\theta_t+\eta\mathbf{F}(\theta_t)$.
-Equation~\eqref{eq:empirical_actor_field} characterizes the actor-side
-dynamics induced by repeatedly reusing historical feedback. It is not
-assumed to equal the exact on-policy policy gradient, because the update
-distribution $\nu$ may differ from the state--action distribution of the
-current policy.
+\(\theta_{t+1}=\theta_t+\eta\mathbf{F}(\theta_t)\).
+Repeated reuse means that the same historical samples and signed feedback
+are evaluated under an evolving current policy; Section~4 studies the
+actor-side dynamics induced by this reuse.
 
 To separate favorable and unfavorable feedback, we define
 \begin{equation}
@@ -334,95 +417,60 @@ controls this update strength.
 
 \begin{proposition}[Distance-dependent score-function magnitude]
 \label{prop:distance_strength}
-Fix a context and a historical action $a$.
+Fix a context and a historical action \(a\).
 
-For a Gaussian policy with mean $\mu$ and fixed covariance
-$\Sigma\succ0$, let
+For a Gaussian policy with mean \(\mu\) and fixed covariance
+\(\Sigma\succ0\), let
+\(C_\Sigma=\frac{d}{2}\log(2\pi)+\frac12\log|\Sigma|\) denote the
+Gaussian normalization constant, which is independent of \(a\) and
+\(\mu\). Then learner-relative remoteness satisfies
 \begin{equation}
-    C_\Sigma
+    D_\mu(a)-C_\Sigma
     =
-    \frac{d}{2}\log(2\pi)
-    +
-    \frac{1}{2}\log|\Sigma|.
+    \frac12
+    (a-\mu)^\top\Sigma^{-1}(a-\mu).
+    \label{eq:gaussian_remoteness_mahalanobis}
 \end{equation}
-The squared norm of the mean score function satisfies
-\begin{equation}
-\begin{aligned}
-    R_\mu(a)
-    &\geq
-    2\lambda_{\min}(\Sigma^{-1})
-    \bigl(D_\mu(a)-C_\Sigma\bigr), \\
-    R_\mu(a)
-    &\leq
-    2\lambda_{\max}(\Sigma^{-1})
-    \bigl(D_\mu(a)-C_\Sigma\bigr).
-\end{aligned}
-\label{eq:gaussian_distance_response}
-\end{equation}
-Writing
-$d_{\mathrm{Mah}}^2(a,\mu)
-=
-(a-\mu)^\top\Sigma^{-1}(a-\mu)$
-for the squared standardized Mahalanobis distance, we have
-$D_\mu(a)-C_\Sigma
-=
-\frac{1}{2}d_{\mathrm{Mah}}^2(a,\mu)$.
-Hence, $R_\mu(a)$ grows quadratically with standardized distance and
-linearly with excess negative log-likelihood.
+Moreover, the squared mean-score norm
+\(R_\mu(a)=\|\nabla_\mu\log\pi_\mu(a)\|_2^2\) is bounded above and below
+by positive constants times \(D_\mu(a)-C_\Sigma\), with constants
+determined only by \(\Sigma\). Consequently, as standardized distance
+increases, the Gaussian mean-score response grows without bound. When
+\(\Sigma=\sigma^2I\), \(R_\mu(a)=2(D_\mu(a)-C_\Sigma)/\sigma^2\), so
+remoteness and squared mean-score norm have the same global ordering.
 
-Moreover, along any fixed direction $v\neq0$, with
-$a-\mu=rv$,
-\begin{equation}
-    R_\mu(a)
-    =
-    2
-    \frac{
-        v^\top\Sigma^{-2}v
-    }{
-        v^\top\Sigma^{-1}v
-    }
-    \bigl(D_\mu(a)-C_\Sigma\bigr).
-    \label{eq:gaussian_directional_response}
-\end{equation}
-
-For a categorical policy with logits $z$, the selected-logit
-score magnitude satisfies
+For a categorical policy with logits \(z\), learner-relative remoteness is
+the selected-action surprisal \(D_z(a)=-\log\pi_z(a)\). The selected-logit
+score response is
 \begin{equation}
     \left|
-        \frac{\partial}{\partial z_a}
-        \log\pi_z(a)
+    \frac{\partial}{\partial z_a}
+    \log \pi_z(a)
     \right|
     =
     1-e^{-D_z(a)}.
-    \label{eq:categorical_selected_response}
+    \label{eq:categorical_selected_score}
 \end{equation}
-It therefore increases strictly with surprisal but converges
-to the finite limit $1$ as $D_z(a)\rightarrow\infty$.
+Thus, categorical surprisal can diverge as the selected probability
+approaches zero, but the selected-logit response saturates at one. The
+full logit-score norm remains bounded as well.
 \end{proposition}
 
-\paragraph{Isotropic covariance.}
-If $\Sigma=\sigma^2I$, the directional coefficient is independent
-of $v$, and
-$R_\mu(a)=2\bigl(D_\mu(a)-C_\sigma\bigr)/\sigma^2$.
-Thus, learner-relative remoteness and the squared mean
-score-function norm have the same global ordering.
-
-A complete proof, together with bounds on the full categorical
-score-function norm, is provided in
+The proof, including the explicit Gaussian eigenvalue bounds and the full
+categorical score-norm bound, is given in
 Appendix~\ref{app:distance_strength}.
 
-Proposition~\ref{prop:distance_strength} establishes the static
-distance--response relation underlying our analysis. For Gaussian
-policies, increasing remoteness along any fixed action-space direction
-produces an unbounded increase in the mean score-function norm, with a
-direction-dependent rate determined by the covariance. For categorical
-policies, selected-action suppression increases with surprisal but
-saturates at a finite ceiling. The next result shows how historical
-reuse turns these static relations into a dynamic feedback process.
+Proposition~\ref{prop:distance_strength} identifies the policy-family
+split used below. In Gaussian policies, learner-relative remoteness
+corresponds to squared standardized distance and can produce unbounded
+mean-score response. In categorical policies, remoteness is surprisal:
+it can grow without bound as probability approaches zero, but the logit
+score remains bounded. The next result shows how historical reuse turns
+this static distance--response relation into a dynamic feedback process.
 
 
 \subsection{Self-Amplification under Historical Reuse}
-\label{sec:historical_reuse}
+\label{sec:self_amplification}
 
 The preceding result compares samples at a fixed policy. We now consider
 a fixed historical action that is repeatedly reused while the learner
@@ -430,7 +478,7 @@ changes. Write
 \[
     D(u)=D_u(a),
     \qquad
-    R(u)=\left\|\nabla_u D(u)\right\|_2^2,
+    R(u)=\|\nabla_uD(u)\|_2^2,
 \]
 and consider the repeated single-sample update
 \begin{equation}
@@ -438,231 +486,152 @@ and consider the repeated single-sample update
     =
     u_t
     +
-    \eta\widehat{A}
-    \nabla_u\log\pi_{u_t}(a)
+    \eta\widehat A\nabla_u\log\pi_{u_t}(a)
     =
     u_t
     -
-    \eta\widehat{A}
-    \nabla_uD(u_t).
-    \label{eq:historical_reuse_update}
+    \eta\widehat A\nabla_uD(u_t).
+    \label{eq:single_sample_reuse_update}
 \end{equation}
-Here, the action $a$ and its signed coefficient $\widehat{A}$ are held
-fixed over the reuse window.
+Here, the action \(a\) and its signed coefficient \(\widehat A\) are
+held fixed over the reuse window.
 
 \begin{theorem}[Self-attenuation and self-amplification under reuse]
 \label{thm:reuse_dynamics}
-Assume that $D(u)$ is differentiable and convex along the update path,
-and define
+Assume that \(D(u)\) is differentiable and convex on a convex
+neighborhood containing the update segments, and define
 \[
     D_t=D(u_t),
     \qquad
     R_t=R(u_t).
 \]
-
-If $\widehat{A}<0$, then every reuse step satisfies
+If \(\widehat A<0\), then every reuse step satisfies
 \begin{equation}
     D_{t+1}
-    \geq
-    D_t
-    +
-    \eta|\widehat{A}|R_t,
+    \ge
+    D_t+\eta|\widehat A|R_t,
     \qquad
-    R_{t+1}\geq R_t.
+    R_{t+1}\ge R_t.
     \label{eq:negative_reuse_amplification}
 \end{equation}
 Thus, negative reuse makes the historical action increasingly remote
 while preventing its score-function norm from decreasing.
 
-If $\widehat{A}>0$, and $D$ has an $L$-Lipschitz gradient with
-$0<\eta\widehat{A}\leq 1/L$, then
+If \(\widehat A>0\), and \(D\) additionally has an \(L\)-Lipschitz
+gradient on the same neighborhood with \(0<\eta\widehat A\le 1/L\), then
 \begin{equation}
     D_{t+1}
-    \leq
-    D_t
-    -
-    \frac{\eta\widehat{A}}{2}R_t,
+    \le
+    D_t-\frac{\eta\widehat A}{2}R_t,
     \qquad
-    R_{t+1}\leq R_t.
+    R_{t+1}\le R_t.
     \label{eq:positive_reuse_attenuation}
 \end{equation}
 Thus, positive reuse makes the historical action increasingly compatible
 with the learner while attenuating its subsequent score response.
 \end{theorem}
 
-A proof is provided in
-Appendix~\ref{app:reuse_dynamics}.
-For the two policy-output coordinates used in the main theory, this
-convexity condition holds globally:  the fixed-covariance Gaussian remoteness
-is quadratic in the mean, and the categorical negative log-likelihood is
-convex in logits.
-Theorem~\ref{thm:reuse_dynamics} distinguishes a one-time distant update
-from a historical-reuse feedback loop. A negative sample is first pushed
-farther from the learner; the resulting remoteness then preserves or
-increases its subsequent score response. Combined with
-Proposition~\ref{prop:distance_strength}, this produces unbounded
-amplification for fixed-covariance Gaussian mean updates and bounded but
-persistent amplification for categorical logits. These per-sample
-dynamics do not yet imply global divergence, because positive samples
-regain attractive force as the learner moves. We therefore next analyze
-their aggregate balance.
+A proof is provided in Appendix~\ref{app:reuse_dynamics}. For the two
+policy-output coordinates used in the main theory, the required convexity
+condition holds globally: fixed-covariance Gaussian remoteness is
+quadratic in the mean, and categorical negative log-likelihood is convex
+in logits.
+
+Theorem~\ref{thm:reuse_dynamics} separates a one-time distant update from
+a historical-reuse feedback loop. Under a negative coefficient, the
+learner moves in the direction that increases the historical action's
+remoteness; after this movement, repeated reuse preserves or increases
+the sample's score response. Combined with
+Proposition~\ref{prop:distance_strength}, this yields unbounded
+amplification for fixed-covariance Gaussian mean updates unless the
+reused action has zero mean score, and bounded but persistent
+amplification for categorical logits. These per-sample dynamics do not by
+themselves imply global divergence, because other historical samples,
+especially positive samples, exert competing forces. We therefore next
+analyze their aggregate balance.
 
 \subsection{Aggregate Equilibria under Historical Reuse}
 \label{sec:aggregate_equilibria}
 
-The preceding results characterize the repeated influence of an
-individual historical action, but do not imply that the full policy must
-diverge: as negative repulsion moves the learner, positive samples regain
-attractive force. We therefore analyze the aggregate balance between
-positive and negative historical updates.
+The preceding results describe the repeated influence of an individual
+historical action, but they do not imply that the aggregate policy
+dynamics must diverge. Positive and negative historical samples exert
+competing attractive and repulsive forces. We therefore ask whether
+their aggregate effect admits a finite stable equilibrium or instead
+produces persistent drift or instability.
 
-At a fixed context, consider a regular minimal exponential-family policy
-\begin{equation}
-    \pi_\eta(a)
-    =
-    h(a)
-    \exp
-    \left\{
-        \eta^\top T(a)
-        -
-        \psi(\eta)
-    \right\},
-    \label{eq:exponential_family_policy}
-\end{equation}
-where $\eta\in\mathcal{H}$ is the natural parameter. Define the effective
-positive and negative update masses
-\begin{equation}
-\begin{aligned}
-    p
-    &=
-    \mathbb{E}_{\nu}
-    \left[
-        \widehat{A}^{+}(a)
-    \right],
-    &
-    q
-    &=
-    \mathbb{E}_{\nu}
-    \left[
-        \widehat{A}^{-}(a)
-    \right],
-    \\
-    p\mathbf{m}_{+}
-    &=
-    \mathbb{E}_{\nu}
-    \left[
-        \widehat{A}^{+}(a)T(a)
-    \right],
-    &
-    q\mathbf{m}_{-}
-    &=
-    \mathbb{E}_{\nu}
-    \left[
-        \widehat{A}^{-}(a)T(a)
-    \right].
-\end{aligned}
-\label{eq:aggregate_statistics}
-\end{equation}
-Thus, $p$ and $q$ combine sample frequency, advantage magnitude, and any
-fixed sample weighting. The aggregate signed actor field is
-\begin{equation}
-    \mathbf{F}(\eta)
-    =
-    p\mathbf{m}_{+}
-    -
-    q\mathbf{m}_{-}
-    -
-    (p-q)\nabla\psi(\eta).
-    \label{eq:aggregate_signed_field}
-\end{equation}
+To analyze continuous-action Gaussian and discrete-action categorical
+policies within a single argument, we use a common exponential-family
+output representation at a fixed context; the exact coordinates and
+regularity assumptions are given in
+Appendix~\ref{app:aggregate_equilibrium}. Let \(p\) and \(q\) denote the
+aggregate positive and negative update masses, combining sample
+frequency, advantage magnitude, and any fixed sample weighting, and
+write \(\rho=q/p\) when \(p>0\). Let \(\mathbf m_+\) denote the
+positive-only target, the mean-parameter point selected by positive
+feedback alone. When \(q>0\), let \(\mathbf m_-\) denote the
+negative-feedback moment, the magnitude-weighted center of samples
+carrying negative feedback.
 
-Let
-\begin{equation}
-    \mathcal{M}
-    =
-    \left\{
-        \nabla\psi(\eta)
-        :
-        \eta\in\mathcal{H}
-    \right\}
-\end{equation}
-denote the interior mean-parameter space. We assume that $\psi$ is twice
-continuously differentiable and strictly convex, and that
-$\nabla\psi:\mathcal{H}\rightarrow\mathcal{M}$ is one-to-one and onto.
+\begin{theorem}[Aggregate attraction--repulsion regimes]
+\label{thm:aggregate_equilibria}
+Consider the continuous aggregate actor dynamics and the corresponding
+discrete update under the regular minimal exponential-family
+representation specified in
+Appendix~\ref{app:aggregate_equilibrium}. Assume \(p>0\).
 
-\begin{theorem}[Aggregate attraction--repulsion equilibria]
-\label{thm:aggregate_equilibrium}
-Consider the continuous dynamics
-$\dot{\eta}=\mathbf{F}(\eta)$
-and the discrete update
-$\eta_{t+1}=\eta_t+\alpha\mathbf{F}(\eta_t)$, with $\alpha>0$.
+\textbf{Positive-only case \((\rho=0)\).}
+If \(\mathbf m_+\) lies in the interior of the attainable mean-parameter
+space, there is a unique finite equilibrium whose mean parameter is
+\(\mathbf m_+\). It is locally asymptotically stable in continuous time
+and for sufficiently small discrete step sizes.
 
-\smallskip
-\noindent\textbf{Positive-dominant regime $(p>q)$.}
+\textbf{Positive-dominant regime \((0<\rho<1)\).}
 Define the signed target
 \begin{equation}
-    \mathbf{m}^{\star}
+    \mathbf m^\star(\rho)
     =
-    \frac{
-        p\mathbf{m}_{+}
-        -
-        q\mathbf{m}_{-}
-    }{
-        p-q
-    }.
-    \label{eq:signed_target}
-\end{equation}
-If $\mathbf{m}^{\star}\in\mathcal{M}$, there is a unique finite
-equilibrium $\eta^{\star}$ satisfying
-$\nabla\psi(\eta^{\star})=\mathbf{m}^{\star}$.
-It is locally asymptotically stable under the continuous dynamics and
-locally stable under the discrete update for a sufficiently small step
-size. When $q>0$,
-\begin{equation}
-    \mathbf{m}^{\star}
-    -
-    \mathbf{m}_{+}
-    =
-    \frac{q}{p-q}
+    \mathbf m_+
+    +
+    \frac{\rho}{1-\rho}
     \left(
-        \mathbf{m}_{+}
-        -
-        \mathbf{m}_{-}
-    \right),
-    \label{eq:stable_extrapolation_identity}
+        \mathbf m_+-\mathbf m_-
+    \right).
+    \label{eq:signed_target_ratio}
 \end{equation}
-so negative feedback moves the equilibrium beyond the Positive-only
-target in the direction away from the negative moment. As
-$\mathbf{m}^{\star}$ approaches the boundary of $\mathcal{M}$, the
-corresponding natural parameter leaves every compact subset of
-$\mathcal{H}$; if $\mathbf{m}^{\star}\notin\mathcal{M}$, no finite
-equilibrium exists.
+If \(\mathbf m^\star(\rho)\) lies in the interior of the attainable
+mean-parameter space, there is a unique finite equilibrium whose mean
+parameter is \(\mathbf m^\star(\rho)\). It is locally asymptotically
+stable in continuous time and for sufficiently small discrete step
+sizes. Holding \(\mathbf m_+\) and \(\mathbf m_-\) fixed, its displacement
+from \(\mathbf m_+\) grows without bound as \(\rho\to1^-\), unless
+\(\mathbf m_+=\mathbf m_-\). If the signed target leaves the attainable
+mean-parameter space, no finite equilibrium exists.
 
-\smallskip
-\noindent\textbf{Critical regime $(p=q)$.}
-The field becomes the constant
-$p(\mathbf{m}_{+}-\mathbf{m}_{-})$.
-If $\mathbf{m}_{+}\neq\mathbf{m}_{-}$, the policy exhibits persistent
-drift with no finite equilibrium. If
-$\mathbf{m}_{+}=\mathbf{m}_{-}$, every point is stationary, but none is
+\textbf{Critical regime \((\rho=1)\).}
+If \(\mathbf m_+\neq\mathbf m_-\), the policy-output coordinate exhibits
+persistent drift and admits no finite equilibrium. If
+\(\mathbf m_+=\mathbf m_-\), every point is stationary, but no point is
 an isolated asymptotically stable equilibrium.
 
-\smallskip
-\noindent\textbf{Negative-dominant regime $(p<q)$.}
-Any finite stationary point is unstable under both the continuous
-dynamics and every discrete update with $\alpha>0$. Hence, this regime
-admits no locally asymptotically stable finite equilibrium.
+\textbf{Negative-dominant regime \((\rho>1)\).}
+Every finite stationary point, if one exists, is unstable in continuous
+time and under every discrete update with positive step size. Hence,
+this regime admits no locally asymptotically stable finite equilibrium.
 \end{theorem}
 
-The derivation and proof, including the exact discrete-time step-size
-condition, are provided in
+The proof, including the exponential-family actor field and the exact
+discrete-time step-size condition, is provided in
 Appendix~\ref{app:aggregate_equilibrium}.
-Theorem~\ref{thm:aggregate_equilibrium} converts the preceding
-per-sample amplification mechanism into three terminal regimes: finite
-stable extrapolation, persistent drift, and instability. The
-extrapolation identity is geometric and does not by itself guarantee
-improved task utility. We next derive how these regimes appear in
-Gaussian and categorical policies.
+Equation~\eqref{eq:signed_target_ratio} gives the central geometric
+interpretation: while positive feedback remains dominant, negative
+feedback displaces the equilibrium from \(\mathbf m_+\) in the direction
+\(\mathbf m_+-\mathbf m_-\), and therefore away from
+\(\mathbf m_-\). For fixed moments, the multiplier
+\(\rho/(1-\rho)\) increases with the relative negative strength and
+diverges as \(\rho\to1^-\). These conclusions concern policy geometry
+and stability; they do not imply that the resulting displacement
+improves task utility.
 
 % ------------------------------------------------------------------
 % SECTION 4: METHODOLOGY
@@ -670,50 +639,27 @@ Gaussian and categorical policies.
 \subsection{Policy-Family Manifestations of Negative Dominance}
 \label{sec:policy_family_manifestations}
 
-Theorem~\ref{thm:aggregate_equilibrium} establishes that negative
-dominance, $p<q$, admits no finite stable equilibrium. It does not,
-however, determine whether the resulting runaway produces unbounded
-sample gradients. This depends on the policy family.
+Theorem~\ref{thm:aggregate_equilibria} establishes that negative
+dominance, \(p<q\), admits no finite stable equilibrium. It does not,
+however, determine how this instability manifests or whether
+policy-output score norms become unbounded. This depends on the policy
+family.
 
-\begin{theorem}[Unbounded Gaussian versus bounded categorical runaway]
+\begin{theorem}[Policy-family score behavior under negative dominance]
 \label{thm:policy_family_manifestations}
-Assume $p<q$ and let $r=q-p>0$.
+Assume \(p<q\).
 
-\smallskip
-\noindent\textbf{Gaussian policy.}
-Consider
-$\pi_\mu=\mathcal{N}(\mu,\Sigma)$
-with fixed $\Sigma\succ0$, and let
-$\mu_{+}$ and $\mu_{-}$ denote the positive and negative weighted action
-means. Define
-\begin{equation}
-    \mu^{\dagger}
-    =
-    \frac{
-        q\mu_{-}-p\mu_{+}
-    }{
-        q-p
-    }.
-    \label{eq:gaussian_unstable_point}
-\end{equation}
-The aggregate mean field is
-\begin{equation}
-    \mathbf{F}_{\mu}(\mu)
-    =
-    r\Sigma^{-1}
-    \left(
-        \mu-\mu^{\dagger}
-    \right).
-    \label{eq:gaussian_negative_dominant_field}
-\end{equation}
-Unless initialized exactly at the unstable stationary point
-$\mu^{\dagger}$, both the continuous dynamics and every discrete update
-with step size $\alpha>0$ satisfy
-$\|\mu\|_2\rightarrow\infty$. Consequently, for every fixed historical
-action $a$,
+\textbf{Gaussian policy.}
+Consider a Gaussian policy
+\(\pi_\mu=\mathcal N(\mu,\Sigma)\) with fixed
+\(\Sigma\succ0\). Its aggregate mean dynamics have a unique finite
+stationary point, which is repelling. Unless initialized exactly at that
+point, the distance from it diverges under both the continuous dynamics
+and every discrete trajectory with fixed step size \(\alpha>0\).
+Consequently, for every fixed historical action \(a\),
 \begin{equation}
     \left\|
-        \nabla_{\mu}\log\pi_{\mu}(a)
+        \nabla_\mu\log\pi_\mu(a)
     \right\|_2
     =
     \left\|
@@ -724,17 +670,16 @@ action $a$,
     \label{eq:gaussian_unbounded_score}
 \end{equation}
 
-\smallskip
-\noindent\textbf{Categorical policy.}
-Consider
-$\pi_z=\operatorname{softmax}(z)$
-with at least two actions, using the gauge
-$\mathbf{1}^{\top}z=0$.
-Unless initialized exactly at a finite stationary point, when one
-exists, the continuous and discrete aggregate trajectories leave every
-compact subset of the logit space, and their probabilities approach the
-simplex boundary along a subsequence. Nevertheless, for every action
-$a$ and every finite $z$,
+\textbf{Categorical policy.}
+Consider a categorical policy
+\(\pi_z=\operatorname{softmax}(z)\) with at least two actions and the
+zero-sum gauge \(\mathbf 1^\top z=0\). Any finite stationary point, when
+one exists, is unique and repelling. Unless initialized exactly at that
+point, the continuous dynamics and every discrete trajectory with fixed
+step size \(\alpha>0\) eventually leave every compact subset of the
+logit space. Along some subsequence, the corresponding probability
+vector approaches the boundary of the simplex. Nevertheless, for every
+action \(a\) and every finite \(z\),
 \begin{equation}
 \begin{aligned}
     \left\|
@@ -754,25 +699,22 @@ $a$ and every finite $z$,
 \end{aligned}
 \label{eq:categorical_bounded_score}
 \end{equation}
-Thus, categorical runaway can produce unbounded logits and probability
-degeneration, but not an unbounded score-function norm.
+Thus, categorical logits can become unbounded and their probabilities
+can approach the support boundary, while every individual logit-score
+norm remains bounded.
 \end{theorem}
 
 The proof is provided in
 Appendix~\ref{app:policy_family_manifestations}.
-Theorem~\ref{thm:policy_family_manifestations} reveals that the same
-aggregate instability has different policy-family manifestations.
-Gaussian mean runaway converts increasing action separation directly
-into unbounded far-field scores. Categorical policies instead approach
-the probability-simplex boundary while each sample score remains
-bounded. Hence, categorical degeneration is a bounded-gradient boundary
-event rather than Gaussian-style gradient explosion.
-
-A learned Gaussian covariance is not required for the unbounded result.
-When covariance additionally contracts along a direction that remains
-separated from historical negative actions, it further amplifies the
-corresponding score. Neither policy-family result alone implies task
-performance collapse or a NaN/Inf numerical failure.
+Theorem~\ref{thm:policy_family_manifestations} shows that the same
+negative-dominant instability has different policy-family
+manifestations. In fixed-covariance Gaussian policies, mean runaway
+increases the separation from every fixed historical action and produces
+unbounded mean-score responses. Categorical policies instead approach
+the probability-simplex boundary while their per-sample logit scores
+remain bounded. Fixed covariance is sufficient for the Gaussian result;
+learned covariance is not required. Neither policy-family conclusion
+alone implies task-performance collapse or a NaN/Inf numerical failure.
 
 
 
@@ -1328,7 +1270,7 @@ far-field tail from dominating.
     \bottomrule
     \end{tabular}
     }
-
+    
     \vspace{0.25em}
     {\scriptsize
     Hop.: Hopper return.\\
@@ -1363,7 +1305,7 @@ decay, whereas aggregate-budget matching tests whether a selective taper
 outperforms a global reduction with the same total negative-update
 budget.
 
-As shown in Figure~\ref{fig:controlled_tapers}, exponential tapering
+As shown in Figure~\ref{fig:taper_control_and_transfer}, exponential tapering
 provides the strongest stability--utility trade-off under both matched
 comparisons. Positive-only learning avoids far-field instability but
 remains at the positive-support ceiling. Global scaling suppresses useful
@@ -1386,7 +1328,7 @@ external tasks do not provide known counterfactual geometry or exact
 near-field utility matching, they test transfer rather than repeat the
 controlled causal identification.
 
-Table~\ref{tab:external_tapers} shows that DRPO preserves the benefit of
+The external summary in Figure~\ref{fig:taper_control_and_transfer} shows that DRPO preserves the benefit of
 near-field negative feedback while avoiding the excessive displacement
 caused by insufficient far-field suppression. It achieves higher
 normalized return in Hopper and higher verifier success in Countdown
@@ -1616,7 +1558,7 @@ its sign or magnitude.
 % references without citing it in the main text, use \nocite
 \nocite{langley00}
 
-\bibliography{example_paper.bib}
+\bibliography{example_paper.bib,missing_references.bib}
 \bibliographystyle{icml2026}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1633,15 +1575,21 @@ its sign or magnitude.
 \label{app:distance_strength}
 
 \begin{proof}
-Let $\delta=a-\mu$. For a Gaussian policy with fixed covariance
-$\Sigma$,
-\begin{equation}
-    D_\mu(a)-C_\Sigma
+Let \(\delta=a-\mu\). For a Gaussian policy with fixed covariance
+\(\Sigma\), the negative log-likelihood expands as
+\[
+    D_\mu(a)
     =
+    C_\Sigma
+    +
     \frac{1}{2}
-    \delta^\top\Sigma^{-1}\delta.
-    \label{eq:proof_gaussian_remoteness}
-\end{equation}
+    \delta^\top\Sigma^{-1}\delta,
+\]
+where
+\(C_\Sigma=\frac{d}{2}\log(2\pi)+\frac{1}{2}\log|\Sigma|\)
+is independent of \(a\) and \(\mu\). This proves
+Equation~\eqref{eq:gaussian_remoteness_mahalanobis}.
+
 The mean score function is
 \begin{equation}
     \mathbf{s}_\mu(a)
@@ -1659,7 +1607,7 @@ and hence
     \delta^\top\Sigma^{-2}\delta.
     \label{eq:proof_gaussian_score_norm}
 \end{equation}
-Let $x=\Sigma^{-1/2}\delta$. Then
+Let \(x=\Sigma^{-1/2}\delta\). Then
 \begin{equation}
     D_\mu(a)-C_\Sigma
     =
@@ -1681,22 +1629,34 @@ Applying the Rayleigh quotient bounds gives
     2\lambda_{\max}(\Sigma^{-1})
     \bigl(D_\mu(a)-C_\Sigma\bigr).
 \end{aligned}
+\label{eq:proof_gaussian_score_remoteness_bounds}
 \end{equation}
+Thus, \(R_\mu(a)\) is linearly comparable to
+\(D_\mu(a)-C_\Sigma\), with constants determined only by \(\Sigma\).
+Since \(D_\mu(a)-C_\Sigma=\frac12 d_{\mathrm{Mah}}^2(a,\mu)\),
+the Gaussian mean-score response grows without bound as the standardized
+distance grows.
 
-If $\delta=rv$ for a fixed direction $v\neq0$, then
-\begin{equation}
-\begin{aligned}
-    D_\mu(a)-C_\Sigma
-    &=
-    \frac{r^2}{2}
-    v^\top\Sigma^{-1}v, \\
+When \(\Sigma=\sigma^2I\), Equation~\eqref{eq:proof_gaussian_score_norm}
+gives
+\[
     R_\mu(a)
-    &=
-    r^2v^\top\Sigma^{-2}v.
-\end{aligned}
-\end{equation}
-Eliminating $r^2$ proves
-Equation~\eqref{eq:gaussian_directional_response}.
+    =
+    \frac{1}{\sigma^4}\|\delta\|_2^2,
+    \qquad
+    D_\mu(a)-C_\Sigma
+    =
+    \frac{1}{2\sigma^2}\|\delta\|_2^2.
+\]
+Therefore,
+\[
+    R_\mu(a)
+    =
+    \frac{2}{\sigma^2}
+    \bigl(D_\mu(a)-C_\Sigma\bigr),
+\]
+which proves the isotropic exact relation stated in the proposition.
+
 For the categorical policy, let
 \begin{equation}
     p
@@ -1724,14 +1684,12 @@ Its selected-action component is therefore
     =
     1-e^{-D_z(a)},
 \end{equation}
-which proves
-Equation~\eqref{eq:categorical_selected_response}.
-Since $1-e^{-D}$ is strictly increasing for $D\geq0$ and
-converges to $1$ as $D\rightarrow\infty$, the selected-logit
-response increases with surprisal but remains bounded.
+which proves Equation~\eqref{eq:categorical_selected_score}. Since
+\(1-e^{-D}\) is strictly increasing for \(D\geq0\) and converges to
+\(1\) as \(D\rightarrow\infty\), the selected-logit response increases
+with surprisal but remains bounded.
 
-For completeness, the squared norm of the full categorical
-score function is
+For completeness, the squared norm of the full categorical score function is
 \begin{equation}
 \begin{aligned}
     R_z(a)
@@ -1745,14 +1703,14 @@ score function is
     \sum_{j\neq a}\pi_z(j)^2.
 \end{aligned}
 \end{equation}
-Because the non-selected probabilities sum to $1-p$,
-the Cauchy--Schwarz inequality gives
+Because the non-selected probabilities sum to \(1-p\), the
+Cauchy--Schwarz inequality gives
 \begin{equation}
     \sum_{j\neq a}\pi_z(j)^2
     \geq
     \frac{(1-p)^2}{K-1}.
 \end{equation}
-The same sum is at most $(1-p)^2$. Hence,
+The same sum is at most \((1-p)^2\). Hence,
 \begin{equation}
 \begin{aligned}
     \frac{K}{K-1}(1-p)^2
@@ -1762,9 +1720,11 @@ The same sum is at most $(1-p)^2$. Hence,
     2(1-p)^2.
 \end{aligned}
 \end{equation}
-Substituting $p=e^{-D_z(a)}$ completes the categorical
-part of the proof.
+Substituting \(p=e^{-D_z(a)}\) shows that the full categorical logit-score
+norm is bounded, completing the proof.
 \end{proof}
+
+
 \subsection{Proof of Theorem~\ref{thm:reuse_dynamics}}
 \label{app:reuse_dynamics}
 
@@ -1941,143 +1901,330 @@ This proves both claims.
 \end{proof}
 
 \subsection{Derivation and Proof of
-Theorem~\ref{thm:aggregate_equilibrium}}
+Theorem~\ref{thm:aggregate_equilibria}}
 \label{app:aggregate_equilibrium}
 
-For the exponential-family policy in
-Equation~\eqref{eq:exponential_family_policy}, define the signed
-population objective
+We use a regular minimal exponential-family representation to cover the
+continuous-action Gaussian and discrete-action categorical policies in a
+common set of output coordinates. At a fixed context, write
 \begin{equation}
-    \mathcal{L}(\eta)
+    \pi_\xi(a)
     =
-    \mathbb{E}_{a\sim\nu}
-    \left[
-        \widehat{A}(a)
-        \log\pi_\eta(a)
-    \right].
-    \label{eq:app_signed_objective}
+    h(a)
+    \exp\left\{
+        \xi^\top T(a)-\psi(\xi)
+    \right\},
+    \qquad
+    \xi\in\mathcal H,
+    \label{eq:app_exponential_family_policy}
 \end{equation}
-Using
-$\widehat{A}=\widehat{A}^{+}-\widehat{A}^{-}$
-and Equation~\eqref{eq:aggregate_statistics}, we obtain
+where \(\xi\) is the natural parameter, \(T(a)\) is the sufficient
+statistic, and \(\psi\) is the log-partition function. Let
+\begin{equation}
+    \mathcal M
+    =
+    \left\{
+        \nabla\psi(\xi):
+        \xi\in\mathcal H
+    \right\}
+    \label{eq:app_mean_parameter_space}
+\end{equation}
+denote the attainable mean-parameter space.
+
+For a fixed-covariance Gaussian mean policy,
+\(\xi=\Sigma^{-1}\mu\), \(T(a)=a\), and
+\(\nabla\psi(\xi)=\mu\). For a categorical policy, fixing a
+reference-logit gauge gives a minimal \((K-1)\)-dimensional
+representation in which \(T(a)\) is the corresponding reduced action
+indicator and \(\nabla\psi(\xi)\) is the reduced probability vector.
+Thus, the two cases differ in their sufficient statistics and attainable
+mean spaces, but share the derivation below.
+
+Write
+\[
+    \widehat A
+    =
+    \widehat A^+
+    -
+    \widehat A^-,
+    \qquad
+    \widehat A^+
+    =
+    \max\{\widehat A,0\},
+    \qquad
+    \widehat A^-
+    =
+    \max\{-\widehat A,0\}.
+\]
+Define the aggregate positive and negative update masses and their
+unnormalized moments:
 \begin{equation}
 \begin{aligned}
-    \mathcal{L}(\eta)
+    p
     &=
+    \mathbb E_\nu[\widehat A^+(a)],
+    \qquad
+    q
+    =
+    \mathbb E_\nu[\widehat A^-(a)],
+    \\
+    \bar{\mathbf m}_+
+    &=
+    \mathbb E_\nu
+    \left[
+        \widehat A^+(a)T(a)
+    \right],
+    \\
+    \bar{\mathbf m}_-
+    &=
+    \mathbb E_\nu
+    \left[
+        \widehat A^-(a)T(a)
+    \right].
+\end{aligned}
+\label{eq:app_aggregate_statistics}
+\end{equation}
+When \(p>0\), define
+\begin{equation}
+    \mathbf m_+
+    =
+    \frac{\bar{\mathbf m}_+}{p}.
+    \label{eq:app_positive_moment}
+\end{equation}
+This is the positive-only target used in the main text: it is the
+mean-parameter point selected by positive feedback alone, provided that
+it lies in \(\mathcal M\). When \(q>0\), define
+\begin{equation}
+    \mathbf m_-
+    =
+    \frac{\bar{\mathbf m}_-}{q}.
+    \label{eq:app_negative_moment}
+\end{equation}
+This is the negative-feedback moment, namely the advantage-weighted
+center of the negative feedback. It is not an attraction target; the
+negative actor contribution repels the learner from this moment. The
+unnormalized quantities
+\(\bar{\mathbf m}_+\) and \(\bar{\mathbf m}_-\) remain well defined in
+the boundary cases \(p=0\) or \(q=0\).
+
+The signed population objective is
+\begin{equation}
+    \mathcal L(\xi)
+    =
+    \mathbb E_\nu
+    \left[
+        \widehat A(a)
+        \log\pi_\xi(a)
+    \right].
+    \label{eq:app_signed_population_objective}
+\end{equation}
+Using Equation~\eqref{eq:app_exponential_family_policy} and
+\(\widehat A=\widehat A^+-\widehat A^-\), we obtain
+\begin{equation}
+    \mathcal L(\xi)
+    =
     \left(
-        p\mathbf{m}_{+}
+        \bar{\mathbf m}_+
         -
-        q\mathbf{m}_{-}
-    \right)^\top\eta \\
-    &\quad
+        \bar{\mathbf m}_-
+    \right)^\top\xi
     -
-    (p-q)\psi(\eta)
+    (p-q)\psi(\xi)
     +
     C,
-\end{aligned}
-\label{eq:app_signed_objective_expansion}
+    \label{eq:app_signed_objective}
 \end{equation}
 where
-\begin{equation}
+\[
     C
     =
-    \mathbb{E}_{\nu}
+    \mathbb E_\nu
     \left[
-        \widehat{A}(a)\log h(a)
+        \widehat A(a)\log h(a)
     \right]
-\end{equation}
-is independent of $\eta$. Therefore,
+\]
+is independent of \(\xi\). Therefore, the aggregate actor field is
 \begin{equation}
-    \nabla\mathcal{L}(\eta)
+    \mathbf F(\xi)
     =
-    p\mathbf{m}_{+}
-    -
-    q\mathbf{m}_{-}
-    -
-    (p-q)\nabla\psi(\eta)
+    \nabla\mathcal L(\xi)
     =
-    \mathbf{F}(\eta),
+    \bar{\mathbf m}_+
+    -
+    \bar{\mathbf m}_-
+    -
+    (p-q)\nabla\psi(\xi),
     \label{eq:app_aggregate_field}
 \end{equation}
 and
 \begin{equation}
-    \nabla^2\mathcal{L}(\eta)
+    \nabla^2\mathcal L(\xi)
     =
-    -(p-q)\nabla^2\psi(\eta).
+    -(p-q)\nabla^2\psi(\xi).
     \label{eq:app_signed_hessian}
 \end{equation}
-Because the exponential family is regular and minimal,
-$\nabla^2\psi(\eta)\succ0$ throughout $\mathcal{H}$.
+Regularity and minimality imply that
+\(\nabla^2\psi(\xi)\succ0\) throughout \(\mathcal H\), and that
+\(\nabla\psi\) is one-to-one from \(\mathcal H\) onto
+\(\mathcal M\).
+
+We analyze the continuous dynamics and discrete update
+\begin{equation}
+    \dot\xi
+    =
+    \mathbf F(\xi),
+    \qquad
+    \xi_{t+1}
+    =
+    \xi_t
+    +
+    \alpha\mathbf F(\xi_t),
+    \qquad
+    \alpha>0.
+    \label{eq:app_aggregate_dynamics}
+\end{equation}
 
 \begin{proof}
+
+\medskip
+\noindent\textbf{Positive-only case.}
+Suppose \(p>0\) and \(q=0\). Then
+\(\bar{\mathbf m}_-=\mathbf 0\), and
+Equation~\eqref{eq:app_aggregate_field} becomes
+\begin{equation}
+    \mathbf F(\xi)
+    =
+    p
+    \left(
+        \mathbf m_+
+        -
+        \nabla\psi(\xi)
+    \right).
+    \label{eq:app_positive_only_field}
+\end{equation}
+A finite equilibrium must therefore satisfy
+\begin{equation}
+    \nabla\psi(\xi^\star)
+    =
+    \mathbf m_+.
+    \label{eq:app_positive_only_equilibrium}
+\end{equation}
+If \(\mathbf m_+\in\mathcal M\), existence follows because
+\(\nabla\psi\) maps \(\mathcal H\) onto \(\mathcal M\), and uniqueness
+follows because this map is one-to-one.
+
+The continuous field Jacobian is
+\begin{equation}
+    J_{\mathbf F}(\xi^\star)
+    =
+    -p\nabla^2\psi(\xi^\star)
+    \prec0,
+    \label{eq:app_positive_only_continuous_jacobian}
+\end{equation}
+so the equilibrium is locally asymptotically stable. For the discrete
+update, the local Jacobian is
+\begin{equation}
+    J_{\mathrm{disc}}(\xi^\star)
+    =
+    I
+    -
+    \alpha p\nabla^2\psi(\xi^\star).
+    \label{eq:app_positive_only_discrete_jacobian}
+\end{equation}
+Its eigenvalues have magnitude smaller than one whenever
+\begin{equation}
+    0
+    <
+    \alpha
+    <
+    \frac{
+        2
+    }{
+        p\lambda_{\max}
+        \left(
+            \nabla^2\psi(\xi^\star)
+        \right)
+    }.
+    \label{eq:app_positive_only_stepsize}
+\end{equation}
+Hence, the positive-only equilibrium is locally stable under
+sufficiently small discrete steps. If
+\(\mathbf m_+\notin\mathcal M\), no finite equilibrium exists.
+
 \medskip
 \noindent\textbf{Positive-dominant regime.}
-Suppose $p>q$. A finite equilibrium must satisfy
+Suppose \(p>q>0\). Since both normalized moments are defined, a finite
+equilibrium must satisfy
 \begin{equation}
-    \mathbf{F}(\eta^{\star})
+    \mathbf F(\xi^\star)
     =
-    \mathbf{0},
+    \mathbf 0,
 \end{equation}
-which is equivalent to
+or equivalently
 \begin{equation}
-    \nabla\psi(\eta^{\star})
-    =
+\begin{aligned}
+    \nabla\psi(\xi^\star)
+    &=
     \frac{
-        p\mathbf{m}_{+}
+        \bar{\mathbf m}_+
         -
-        q\mathbf{m}_{-}
+        \bar{\mathbf m}_-
+    }{
+        p-q
+    }
+    \\
+    &=
+    \frac{
+        p\mathbf m_+
+        -
+        q\mathbf m_-
     }{
         p-q
     }
     =
-    \mathbf{m}^{\star}.
-    \label{eq:app_equilibrium_condition}
+    \mathbf m^\star.
+\end{aligned}
+\label{eq:app_equilibrium_condition}
 \end{equation}
-If $\mathbf{m}^{\star}\in\mathcal{M}$, existence follows because
-$\nabla\psi$ maps $\mathcal{H}$ onto $\mathcal{M}$, and uniqueness
-follows because this map is one-to-one.
+If \(\mathbf m^\star\in\mathcal M\), existence and uniqueness again
+follow from the bijectivity of
+\(\nabla\psi:\mathcal H\rightarrow\mathcal M\).
 
-Since $p-q>0$, Equation~\eqref{eq:app_signed_hessian} gives
+Since \(p-q>0\), Equation~\eqref{eq:app_signed_hessian} gives
 \begin{equation}
-    \nabla^2\mathcal{L}(\eta)
-    \prec
-    0.
+    \nabla^2\mathcal L(\xi)
+    \prec0.
 \end{equation}
-Thus, $\mathcal{L}$ is strictly concave, and $\eta^{\star}$ is its
-unique global maximizer.
+Thus, \(\mathcal L\) is strictly concave, and
+\(\xi^\star\) is its unique finite maximizer.
 
 For the continuous dynamics, the field Jacobian at the equilibrium is
 \begin{equation}
-    J_{\mathbf{F}}(\eta^{\star})
+    J_{\mathbf F}(\xi^\star)
     =
     -(p-q)
-    \nabla^2\psi(\eta^{\star})
-    \prec
-    0.
+    \nabla^2\psi(\xi^\star)
+    \prec0.
     \label{eq:app_continuous_jacobian}
 \end{equation}
-All eigenvalues are strictly negative, so $\eta^{\star}$ is locally
-asymptotically stable.
+All eigenvalues are strictly negative, so
+\(\xi^\star\) is locally asymptotically stable.
 
-For the discrete update, the local update Jacobian is
+For the discrete update, the local Jacobian is
 \begin{equation}
-    J_{\mathrm{disc}}(\eta^{\star})
+    J_{\mathrm{disc}}(\xi^\star)
     =
     I
     -
     \alpha(p-q)
-    \nabla^2\psi(\eta^{\star}).
+    \nabla^2\psi(\xi^\star).
     \label{eq:app_discrete_jacobian}
 \end{equation}
-Let $\lambda_i>0$ denote the eigenvalues of
-$\nabla^2\psi(\eta^{\star})$. The corresponding eigenvalues of
-$J_{\mathrm{disc}}(\eta^{\star})$ are
-\begin{equation}
-    1
-    -
-    \alpha(p-q)\lambda_i.
-\end{equation}
-Their magnitudes are strictly smaller than one whenever
+Let \(\lambda_i>0\) denote the eigenvalues of
+\(\nabla^2\psi(\xi^\star)\). The corresponding eigenvalues of
+\(J_{\mathrm{disc}}(\xi^\star)\) are
+\(1-\alpha(p-q)\lambda_i\). Their magnitudes are strictly smaller than
+one whenever
 \begin{equation}
     0
     <
@@ -2089,150 +2236,171 @@ Their magnitudes are strictly smaller than one whenever
         (p-q)
         \lambda_{\max}
         \left(
-            \nabla^2\psi(\eta^{\star})
+            \nabla^2\psi(\xi^\star)
         \right)
     }.
     \label{eq:app_discrete_stepsize}
 \end{equation}
 This proves local discrete-time stability for sufficiently small
-$\alpha$.
+\(\alpha\).
 
-When $q>0$, subtracting $\mathbf{m}_{+}$ from the signed target yields
+Define \(\rho=q/p\). Algebraically,
 \begin{equation}
 \begin{aligned}
-    \mathbf{m}^{\star}
-    -
-    \mathbf{m}_{+}
+    \mathbf m^\star
     &=
     \frac{
-        p\mathbf{m}_{+}
+        p\mathbf m_+
         -
-        q\mathbf{m}_{-}
+        q\mathbf m_-
     }{
         p-q
     }
-    -
-    \mathbf{m}_{+} \\
+    \\
     &=
+    \mathbf m_+
+    +
     \frac{q}{p-q}
     \left(
-        \mathbf{m}_{+}
+        \mathbf m_+
         -
-        \mathbf{m}_{-}
+        \mathbf m_-
+    \right)
+    \\
+    &=
+    \mathbf m_+
+    +
+    \frac{\rho}{1-\rho}
+    \left(
+        \mathbf m_+
+        -
+        \mathbf m_-
     \right).
 \end{aligned}
+\label{eq:app_stable_extrapolation_identity}
 \end{equation}
-This proves
-Equation~\eqref{eq:stable_extrapolation_identity}.
-If $q=0$, the signed target reduces directly to
-$\mathbf{m}_{+}$.
+This proves Equation~\eqref{eq:signed_target_ratio}. In particular,
+holding \(\mathbf m_+\) and \(\mathbf m_-\) fixed, the displacement from
+the positive-only target is
+\begin{equation}
+    \mathbf m^\star-\mathbf m_+
+    =
+    \frac{\rho}{1-\rho}
+    \left(
+        \mathbf m_+
+        -
+        \mathbf m_-
+    \right),
+    \label{eq:app_equilibrium_displacement}
+\end{equation}
+whose magnitude increases with \(\rho\in(0,1)\) whenever
+\(\mathbf m_+\neq\mathbf m_-\).
 
-If $\mathbf{m}^{\star}\notin\mathcal{M}$, no finite
-$\eta^{\star}\in\mathcal{H}$ can satisfy
+If \(\mathbf m^\star\notin\mathcal M\), no finite
+\(\xi^\star\in\mathcal H\) can satisfy
 Equation~\eqref{eq:app_equilibrium_condition}, and hence no finite
 equilibrium exists.
 
-Now consider a sequence
-$\mathbf{m}^{\star}_n\in\mathcal{M}$
-that approaches the boundary of $\mathcal{M}$, and define
+More generally, consider any sequence
+\(\mathbf m^\star_n\in\mathcal M\) that leaves every compact subset of
+\(\mathcal M\), either by approaching its boundary or by becoming
+unbounded, and define
 \begin{equation}
-    \eta^{\star}_n
+    \xi^\star_n
     =
     (\nabla\psi)^{-1}
     \left(
-        \mathbf{m}^{\star}_n
+        \mathbf m^\star_n
     \right).
 \end{equation}
 Suppose, for contradiction, that
-$\{\eta^{\star}_n\}$ remains in a compact subset of $\mathcal{H}$.
-Then some subsequence converges to a finite
-$\bar{\eta}\in\mathcal{H}$. By continuity,
-\begin{equation}
-    \mathbf{m}^{\star}_n
-    =
-    \nabla\psi(\eta^{\star}_n)
-    \longrightarrow
-    \nabla\psi(\bar{\eta})
-    \in
-    \mathcal{M},
-\end{equation}
-contradicting convergence to the boundary. Hence, the corresponding
-natural parameters must leave every compact subset of $\mathcal{H}$.
+\(\{\xi^\star_n\}\) remains in a compact subset
+\(K\subset\mathcal H\). By continuity,
+\(\nabla\psi(K)\) is a compact subset of \(\mathcal M\), but
+\(\mathbf m^\star_n=\nabla\psi(\xi^\star_n)\) would then remain inside
+that compact set. This contradicts the assumed behavior of
+\(\mathbf m^\star_n\). Hence, the corresponding natural parameters must
+leave every compact subset of \(\mathcal H\).
 
 \medskip
 \noindent\textbf{Critical regime.}
-Suppose $p=q$. Equation~\eqref{eq:app_aggregate_field} reduces to
+Suppose \(p=q>0\). Equation~\eqref{eq:app_aggregate_field} reduces to
 \begin{equation}
-    \mathbf{F}(\eta)
-    =
+\begin{aligned}
+    \mathbf F(\xi)
+    &=
+    \bar{\mathbf m}_+
+    -
+    \bar{\mathbf m}_-
+    \\
+    &=
     p
     \left(
-        \mathbf{m}_{+}
+        \mathbf m_+
         -
-        \mathbf{m}_{-}
+        \mathbf m_-
     \right),
-    \label{eq:app_critical_field}
+\end{aligned}
+\label{eq:app_critical_field}
 \end{equation}
-which is independent of $\eta$.
+which is independent of \(\xi\).
 
-If $\mathbf{m}_{+}\neq\mathbf{m}_{-}$, the continuous trajectory is
+If \(\mathbf m_+\neq\mathbf m_-\), the continuous trajectory is
 \begin{equation}
-    \eta(t)
+    \xi(t)
     =
-    \eta(0)
+    \xi(0)
     +
     tp
     \left(
-        \mathbf{m}_{+}
+        \mathbf m_+
         -
-        \mathbf{m}_{-}
+        \mathbf m_-
     \right),
     \label{eq:app_critical_continuous}
 \end{equation}
 and the discrete trajectory is
 \begin{equation}
-    \eta_t
+    \xi_t
     =
-    \eta_0
+    \xi_0
     +
     t\alpha p
     \left(
-        \mathbf{m}_{+}
+        \mathbf m_+
         -
-        \mathbf{m}_{-}
+        \mathbf m_-
     \right).
     \label{eq:app_critical_discrete}
 \end{equation}
 Both exhibit persistent linear drift and admit no finite equilibrium.
 
-If $\mathbf{m}_{+}=\mathbf{m}_{-}$, then
-$\mathbf{F}(\eta)=\mathbf{0}$ for every $\eta$. Every point is
+If \(\mathbf m_+=\mathbf m_-\), then
+\(\mathbf F(\xi)=\mathbf 0\) for every \(\xi\). Every point is
 stationary, but a perturbed trajectory remains at the perturbed point
 rather than returning to the original one. Hence, no point is an
 isolated locally asymptotically stable equilibrium.
 
 \medskip
 \noindent\textbf{Negative-dominant regime.}
-Suppose $p<q$. Equation~\eqref{eq:app_signed_hessian} gives
+Suppose \(p<q\). Equation~\eqref{eq:app_signed_hessian} gives
 \begin{equation}
-    \nabla^2\mathcal{L}(\eta)
+    \nabla^2\mathcal L(\xi)
     =
     (q-p)
-    \nabla^2\psi(\eta)
-    \succ
-    0.
+    \nabla^2\psi(\xi)
+    \succ0.
 \end{equation}
-Thus, $\mathcal{L}$ is strictly convex.
+Thus, \(\mathcal L\) is strictly convex.
 
-If a finite stationary point $\eta^{\star}$ exists, the continuous
-field Jacobian is
+If a finite stationary point \(\xi^\star\) exists, the continuous field
+Jacobian is
 \begin{equation}
-    J_{\mathbf{F}}(\eta^{\star})
+    J_{\mathbf F}(\xi^\star)
     =
     (q-p)
-    \nabla^2\psi(\eta^{\star})
-    \succ
-    0.
+    \nabla^2\psi(\xi^\star)
+    \succ0.
     \label{eq:app_negative_continuous_jacobian}
 \end{equation}
 All eigenvalues are positive, so the stationary point is repelling and
@@ -2240,30 +2408,28 @@ therefore unstable.
 
 For the discrete update, the local Jacobian is
 \begin{equation}
-    J_{\mathrm{disc}}(\eta^{\star})
+    J_{\mathrm{disc}}(\xi^\star)
     =
     I
     +
     \alpha(q-p)
-    \nabla^2\psi(\eta^{\star}).
+    \nabla^2\psi(\xi^\star).
     \label{eq:app_negative_discrete_jacobian}
 \end{equation}
 Its eigenvalues are
-\begin{equation}
-    1
-    +
-    \alpha(q-p)\lambda_i
+\[
+    1+\alpha(q-p)\lambda_i
     >
     1
-\end{equation}
-for every $\alpha>0$ and every
-$\lambda_i>0$. Therefore, any finite stationary point is unstable under
-the discrete dynamics as well. If no stationary point exists, there is
-trivially no finite stable equilibrium.
+\]
+for every \(\alpha>0\) and every \(\lambda_i>0\). Therefore, every finite
+stationary point is unstable under the discrete dynamics as well. If no
+stationary point exists, there is trivially no finite stable equilibrium.
 
-The three regimes establish
-Theorem~\ref{thm:aggregate_equilibrium}.
+The four cases establish
+Theorem~\ref{thm:aggregate_equilibria}.
 \end{proof}
+
 
 \subsection{Proof of
 Theorem~\ref{thm:policy_family_manifestations}}
@@ -2827,7 +2993,7 @@ We define the empirical utility of this weighted negative update as
     \right)
     -
     \widehat J_{\mathcal B}(\theta).
-    \label{eq:empirical_negative_update_utility}
+    \label{eq:app_empirical_negative_update_utility}
 \end{equation}
 The corresponding utility-optimal weight is
 \begin{equation}
@@ -3100,8 +3266,7 @@ Thus, when raw far-field influence remains nonvanishing or grows, the
 utility-optimal sample weight itself must shrink so that the weighted
 far-field influence vanishes.
 
-\subsection{Proof of
-Proposition~\ref{prop:exp_vanishing_influence}}
+\subsection{Proof of Proposition 5.3}
 \label{app:exp_vanishing_influence}
 
 \begin{proof}
@@ -3654,9 +3819,8 @@ surprisal growth, logit-gap growth, and simplex-boundary suppression
 under repeated negative updates. It shares the fixed-advantage and
 near/far intervention logic of D-U1, but it does not use the 64-action
 shared-semantic catalogue and does not support the E6 semantic
-generalization claim. Its reconstruction parameters and direct-softmax
-initial conditions are reported separately in
-Appendix~\ref{app:du1_e5_diagnostic}.
+generalization claim. Its reconstruction parameters and direct-softmax initial conditions are
+maintained in the corresponding registered experiment specification.
 \subsection{D4RL Hopper Datasets}
 \label{app:hopper_datasets}
 
@@ -3672,8 +3836,8 @@ buffer collected throughout training, and medium-expert combines medium
 and expert behavior. Hopper-medium-replay is used for the primary
 mechanism analysis because it provides broader behavioral coverage,
 while all three datasets are used for external method evaluation.
-Dataset versions, transition counts, and preprocessing statistics are
-reported in Table~\ref{tab:hopper_dataset_details}.baselines.
+The exact dataset versions, transition counts, and preprocessing statistics
+follow the frozen experiment configuration.
 
 \subsection{Countdown Task and Puzzle Dataset}
 \label{app:countdown_dataset}
@@ -3713,15 +3877,15 @@ expressions and divided into disjoint training, validation, and test
 sets. Duplicate puzzles with the same number multiset and target are
 removed across the corpus. Validation puzzles are used for checkpoint
 selection, while the test split is reserved for final evaluation.
-Exact generation ranges, split sizes, and corpus statistics are reported
-in Table~\ref{tab:countdown_dataset_details}.
+Exact generation ranges, split sizes, and corpus statistics follow the
+frozen experiment configuration.
 
 Countdown provides an external discrete-action setting with
 autoregressive sequence generation and shared Transformer parameters.
 The construction of the offline response dataset, including positive,
 near-negative, and far-negative responses, belongs to the experimental
 protocol and is described separately in
-Appendix~\ref{app:countdown_protocol}.
+Appendix~\ref{app:countdown_methods}.
 \subsection{Training and Evaluation Protocols}
 
 \section{Controlled Experimental Protocols}
@@ -3733,8 +3897,7 @@ and~\ref{sec:repulsion_control}. The definitions of C-U1, D-U1,
 Hopper, and Countdown are given in
 Appendix~\ref{app:experimental_details}. Network architectures,
 optimizer settings, training budgets, seeds, and evaluation frequencies
-are reported separately in
-Appendix~\ref{app:implementation_details}.
+are reported in the protocol-specific subsections below.
 
 \subsection{Shared Notation and Experimental Invariants}
 \label{app:controlled_shared}
@@ -3820,9 +3983,10 @@ same current policy.
 
 The comparison is performed both at policy initialization and after
 positive-only pretraining. No negative sample used as a probe is applied
-as an optimizer update during this protocol. Let \(u_\theta(s)\) denote the policy-output coordinate used by the
-controlled probe, e.g., Gaussian mean or natural coordinates in C-U1 and
-direct logits in D-U1. For every probe, we record
+as an optimizer update during this protocol. Let \(u_\theta(s)\) denote
+the policy-output coordinate used by the controlled probe, e.g.,
+fixed-covariance Gaussian mean coordinates in C-U1 and direct logits in
+D-U1. For every probe, we record
 \begin{equation}
 \begin{aligned}
 I_{\mathrm{score}}(z)
@@ -3836,33 +4000,15 @@ I_{\mathrm{sample}}(z)
 \end{aligned}
 \label{eq:source_influence_metrics}
 \end{equation}
-For neural implementations, we additionally record implementation-level
-actor-gradient diagnostics and aggregate update norms as transfer checks,
-not as the theorem-level score measure.
 Because \(|\widehat A|\) is identical across the matched actions,
 differences in \(I_{\mathrm{sample}}\) arise from policy-score geometry
-rather than advantage magnitude. For every probe, we record
-\begin{equation}
-\begin{aligned}
-    I_{\mathrm{score}}(z)
-    &=
-    \left\|
-        \nabla_\theta
-        \log\pi_\theta(a\mid s)
-    \right\|_2,\\
-    I_{\mathrm{sample}}(z)
-    &=
-    \left\|
-        g_\theta^-(z)
-    \right\|_2,
-\end{aligned}
-\label{eq:source_influence_metrics}
-\end{equation}
-together with the full parameter-gradient norm and the aggregate
-gradient obtained from samples in the same remoteness range. Because
-$|\widehat A|$ is identical across the matched actions, differences in
-$I_{\mathrm{sample}}$ arise from policy score geometry rather than
-advantage magnitude.
+rather than advantage magnitude.
+
+For neural implementations, we additionally record the full
+parameter-gradient norm and the aggregate gradient obtained from samples
+in the same remoteness range. These implementation-level actor-gradient
+diagnostics are used as transfer checks, not as theorem-level score
+measures.
 
 We report near-to-far ratios of remoteness, score norm, single-sample
 gradient norm, aggregate gradient norm, and gradient-direction
