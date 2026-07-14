@@ -29,6 +29,10 @@ by the server environment.
 ## RunSpec contract
 
 ```yaml
+registration:
+  mode: deferred
+  closure_required: true
+
 delivery:
   enabled: true
   auto: true
@@ -52,6 +56,42 @@ e8 -> ingest/e8
 ```
 
 Legacy `publish.enabled` and results-repository delivery cannot both be enabled.
+
+## Registration timing
+
+RunSpec remains the single lane execution contract and supports two registration
+modes:
+
+```yaml
+registration:
+  mode: pre_registered
+```
+
+`pre_registered` is the default when the block is absent. Normal lane claim validation
+requires the experiment ID to already exist in `experiments/registry.yaml`.
+
+```yaml
+registration:
+  mode: deferred
+  closure_required: true
+```
+
+`deferred` is the code-first route. The lane may claim and execute the RunSpec before
+registry or handoff materialization completes. Deferred mode requires `repo_commit` to
+be a full 40-character Git SHA, and `closure_required` is always true. It changes only
+registration timing: it does not change the RunSpec's scientific class, formal/pilot
+status, method matrix, seeds, budget, or reporting duties.
+
+A completed deferred RunSpec follows the same packaging and delivery path as a
+pre-registered RunSpec. Result upload must not wait for registry/handoff closure and
+must not downgrade a formal run merely because registration is still pending. Later
+registration should reference the immutable `run_id`, source commit, and delivered
+manifest SHA. A registration conflict is reviewed separately; it does not delete or
+rewrite already delivered evidence.
+
+The explicit validator option `--no-registry-check` remains an operator/debug override.
+Normal production code-first execution should declare `registration.mode: deferred`
+instead of relying on that flag.
 
 ## Simple size policy
 
