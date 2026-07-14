@@ -1,0 +1,83 @@
+{
+  "experiment_id": "EXT-H-E7-SQUARED-EXP-NIGHT-01",
+  "run_kind": "pilot",
+  "scientific_status": "squared_remoteness_and_ppo_reference_lifecycle_development_screening_only",
+  "predecessor_experiment_id": "EXT-H-E7-W0-HIGHC-ACTOR-01",
+  "datasets": [
+    "hopper-medium-expert-v2",
+    "walker2d-medium-v2",
+    "walker2d-medium-replay-v2"
+  ],
+  "development_seeds": [200, 201],
+  "held_out_seeds": [204, 205, 206, 207],
+  "steps": 1000000,
+  "evaluation_interval": 50000,
+  "evaluation_episodes": 10,
+  "weight_control": {
+    "weight_at_zero": 1.0,
+    "positive_only_anchor": true,
+    "reference_distance": 2.0,
+    "formula": "w(d)=w(0)*exp(-c*(d/2)^2)",
+    "exp_coefficients": [0.25, 0.5, 1.0, 2.0, 4.0, 8.0]
+  },
+  "stages": [
+    {
+      "id": "stage_a_squared_kernel",
+      "enabled": true,
+      "actor_update_modes": ["a2c", "ppo_clip_k4"],
+      "ppo": {
+        "clip_epsilon": 0.2,
+        "updates_per_old_policy": 4,
+        "analytic_kl_early_refresh": false,
+        "target_kl": null
+      }
+    },
+    {
+      "id": "stage_b_ppo_kl_early_refresh",
+      "enabled": true,
+      "actor_update_modes": ["ppo_clip_kl_k16"],
+      "ppo": {
+        "clip_epsilon": 0.2,
+        "max_updates_per_old_policy": 16,
+        "analytic_kl_early_refresh": true,
+        "target_kl": 0.01,
+        "kl_direction": "old_to_new",
+        "kl_penalty": false
+      }
+    },
+    {
+      "id": "stage_c_gae",
+      "enabled": false,
+      "gae_lambda": 0.95,
+      "status": "blocked_pending_verified_trajectory_contract",
+      "required_contract_fields": [
+        "ordered_trajectory_identity",
+        "terminal_vs_truncation_semantics",
+        "reward_discount_bootstrap_semantics",
+        "training_evaluation_trajectory_separation"
+      ]
+    }
+  ],
+  "diagnostics": {
+    "interval": 1000,
+    "sampled_values_per_update": 16,
+    "weight_thresholds": [0.5, 0.1, 0.05, 0.01],
+    "record_500k_intermediate": true,
+    "late_window_start": 800000
+  },
+  "expected_controls_per_actor_mode": 7,
+  "expected_stage_a_branches": 84,
+  "expected_stage_b_branches": 42,
+  "expected_runnable_branches": 126,
+  "screening_only": true,
+  "formal_evidence_allowed": false,
+  "non_claims": [
+    "convergence_from_fixed_1m_horizon",
+    "steady_state_method_ranking",
+    "universal_ppo_or_a2c_superiority",
+    "causal_actor_update_identification",
+    "ood_generalization",
+    "gae_result_while_stage_c_is_blocked",
+    "replacement_of_controlled_causal_evidence"
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "branch_count": 126,
+  "comparison_count": 21,
+  "experiment_id": "EXT-H-E7-SQUARED-EXP-NIGHT-01",
+  "group_count": 63,
+  "stage_c": {
+    "branches_started": 0,
+    "gae_lambda": 0.95,
+    "reason": "verified ordered-trajectory and terminal/truncation contract unavailable",
+    "scientific_result_available": false,
+    "stage": "stage_c_gae",
+    "status": "BLOCKED"
+  },
+  "status": "PASS"
+}

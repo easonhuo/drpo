@@ -1,0 +1,120 @@
+version: 1
+run_id: E7_SQUARED_EXP_NIGHT_PILOT_20260714_01
+lane: e7
+priority: 125
+created_at: '2026-07-14T00:00:00Z'
+experiment_id: EXT-H-E7-SQUARED-EXP-NIGHT-01
+repo_commit: d4cdc176562db1fa439afa9f9a0cbd9a9c8d0259
+
+provenance:
+  commit_policy: protected_paths_unchanged
+  protected_paths:
+    - configs/e7_squared_exp_night_v1.json
+    - src/drpo/e7_squared_exp_kernel.py
+    - src/drpo/e7_ppo_kl_refresh.py
+    - src/drpo/e7_squared_exp_night.py
+    - src/drpo/e7_squared_exp_night_bootstrap.py
+    - src/drpo/e7_squared_exp_night_aggregate.py
+    - src/drpo/e7_squared_exp_night_runtime_autotune.py
+    - scripts/run_e7_squared_exp_night_auto.py
+    - scripts/run_e7_squared_exp_night_one_click.sh
+    - scripts/run_e7_squared_exp_night_resume_one_click.sh
+
+purpose: >
+  Execute the full 126-branch, 1M-step development screening suite. Stage A
+  compares canonical A2C and the existing PPO-clip K=4 path under Positive-only
+  and manuscript-consistent squared EXP with c={0.25,0.5,1,2,4,8}. Stage B runs
+  the same controls under PPO clip epsilon 0.2, hard K_max=16, and analytic
+  Gaussian KL(old||new) early refresh at 0.01. Stage C remains blocked because
+  the canonical trainer lacks a verified ordered-trajectory contract for GAE.
+  Runtime selection may change only active subprocess count. Code-first launch
+  is allowed before schema-v3 materialization; launch-time registration state is
+  recorded and does not upgrade the run to formal evidence.
+
+entrypoint:
+  command: bash scripts/run_e7_squared_exp_night_one_click.sh
+  cwd: repo_root
+
+policy:
+  existing_script_required: true
+  forbid_new_launcher: true
+  forbid_hparam_change: true
+  forbid_cross_lane: true
+  formal_evidence_allowed: false
+
+outputs:
+  run_dir: outputs/e7/squared_exp_night_1m_001
+  summary_file: outputs/e7/squared_exp_night_1m_001/RUN_SUMMARY.json
+  audit_file: outputs/e7/squared_exp_night_1m_001/aggregate/terminal_audit.json
+
+success_criteria:
+  - LAUNCH_REGISTRATION_STATUS.json records whether launch preceded schema-v3 registration without blocking execution
+  - RUNTIME_SELECTION.json records CPU, memory, candidate throughput, and selected workers
+  - EXECUTION_PLAN.json records exactly 126 runnable branches
+  - RUN_SUMMARY.json records exactly 126 completed-or-skipped branches and zero failed branches
+  - each actor mode contains one Positive-only and six squared-EXP controls for each dataset and development seed
+  - every branch reaches exactly 1000000 optimizer updates and reports the 500000 intermediate score
+  - paired A2C, PPO-K4, and KL-refresh PPO aggregation is present for all 21 dataset-control groups
+  - geometry diagnostics report distance, effective weight, thresholds, and effective negative mass
+  - PPO diagnostics report ratio-outside and objective-clip fractions
+  - KL-refresh diagnostics report analytic KL and triggered refresh counts
+  - GAE_STAGE_STATUS.json records BLOCKED with zero GAE branches started
+  - held-out seeds 204 through 207 remain untouched
+  - task degradation, support or variance boundary, and NaN/Inf are separate
+  - fixed 1M endpoint is not described as convergence or steady state
+
+artifacts:
+  package_policy: manifest_only
+  include:
+    - outputs/e7/squared_exp_night_1m_001/LAUNCH_REGISTRATION_STATUS.json
+    - outputs/e7/squared_exp_night_1m_001/RUNTIME_SELECTION.json
+    - outputs/e7/squared_exp_night_1m_001/EXECUTION_PLAN.json
+    - outputs/e7/squared_exp_night_1m_001/RUN_IDENTITY.json
+    - outputs/e7/squared_exp_night_1m_001/RUN_SUMMARY.json
+    - outputs/e7/squared_exp_night_1m_001/GAE_STAGE_STATUS.json
+    - outputs/e7/squared_exp_night_1m_001/aggregate/*.json
+    - outputs/e7/squared_exp_night_1m_001/aggregate/*.csv
+    - outputs/e7/squared_exp_night_1m_001/branches/*/BRANCH_IDENTITY.json
+    - outputs/e7/squared_exp_night_1m_001/branches/*/LAUNCH.json
+    - outputs/e7/squared_exp_night_1m_001/branches/*/COMPLETED.json
+    - outputs/e7/squared_exp_night_1m_001/branches/*/FAILED.json
+    - outputs/e7/squared_exp_night_1m_001/branches/*/branch_config.json
+    - outputs/e7/squared_exp_night_1m_001/branches/*/branch_manifest.json
+    - outputs/e7/squared_exp_night_1m_001/branches/*/stdout_stderr.log
+    - outputs/e7/squared_exp_night_1m_001/branches/*/geometry_diagnostics.jsonl
+    - outputs/e7/squared_exp_night_1m_001/branches/*/GEOMETRY_DIAGNOSTICS_LATEST.json
+    - outputs/e7/squared_exp_night_1m_001/branches/*/ppo_diagnostics.jsonl
+    - outputs/e7/squared_exp_night_1m_001/branches/*/PPO_DIAGNOSTICS_LATEST.json
+    - outputs/e7/squared_exp_night_1m_001/branches/*/ppo_kl_diagnostics.jsonl
+    - outputs/e7/squared_exp_night_1m_001/branches/*/PPO_KL_DIAGNOSTICS_LATEST.json
+    - outputs/e7/squared_exp_night_1m_001/branches/*/trainer_output/*.json
+  exclude:
+    - '**/*.pt'
+    - '**/*.pth'
+    - '**/*.ckpt'
+    - '**/*.safetensors'
+    - '**/*.bin'
+    - '**/checkpoint*'
+    - '**/checkpoints/**'
+    - '**/model*'
+    - '**/optimizer*'
+    - '**/wandb/**'
+    - outputs/e7/squared_exp_night_1m_001/_runtime_resource_probe/**
+  max_package_size_mb: 150
+  fail_if_excluded_matched: false
+  fail_if_package_too_large: true
+
+publish:
+  enabled: false
+  auto: false
+
+recovery:
+  enabled: true
+  max_attempts: 2
+  resume_command: bash scripts/run_e7_squared_exp_night_resume_one_click.sh
+  retryable_exit_codes: [137, 143]
+  checkpoint_globs:
+    - outputs/e7/squared_exp_night_1m_001/LAUNCH_REGISTRATION_STATUS.json
+    - outputs/e7/squared_exp_night_1m_001/RUNTIME_SELECTION.json
+    - outputs/e7/squared_exp_night_1m_001/RUN_IDENTITY.json
+  backoff_seconds: 60
