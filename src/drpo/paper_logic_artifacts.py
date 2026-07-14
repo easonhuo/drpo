@@ -84,6 +84,7 @@ def validate_mapping(
     if not isinstance(operations, list) or not operations:
         raise GateError("source mapping requires operations")
     result: dict[str, dict[str, Any]] = {}
+    claimed_sources: set[tuple[str, int]] = set()
     for operation in operations:
         if not isinstance(operation, dict):
             raise GateError("invalid source mapping operation")
@@ -115,6 +116,11 @@ def validate_mapping(
                 or not 1 <= occurrence <= count
             ):
                 raise GateError(f"invalid source_occurrence for {node_id}")
+            resolved_occurrence = 1 if occurrence is None else occurrence
+            source_key = (source_sentence, resolved_occurrence)
+            if source_key in claimed_sources:
+                raise GateError(f"source span is mapped more than once: {node_id}")
+            claimed_sources.add(source_key)
             if action in {"TRIM", "REVISE"} and not reason:
                 raise GateError(f"{action} {node_id} requires reason")
         result[node_id] = {**operation, "paragraph_id": paragraph_id}
