@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 import sys
 from pathlib import Path
 from typing import Any
@@ -17,7 +16,6 @@ from typing import Any
 import torch
 from torch.utils.data import DataLoader
 
-from drpo import countdown_e8_oracle_offline_v2_taper_runtime as legacy
 from drpo import countdown_e8_oracle_offline_v2_taper_sweep as core
 from drpo.runtime_gpu_placement_autotune import (
     DEFAULT_REQUIRED_PHASES,
