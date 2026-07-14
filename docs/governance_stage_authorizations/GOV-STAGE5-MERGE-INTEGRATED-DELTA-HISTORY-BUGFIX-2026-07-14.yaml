@@ -26,3 +26,4 @@ rollback_plan:
 - preserve_all_existing_handoff_delta_and_result_history
 remaining_uncertainties:
 - octopus_merges_are_not_used_by_the_current_github_pr_route_and_are_not_generalized
+- the_regression_contract_covers_the_current_two_parent_github_merge_commit_route
