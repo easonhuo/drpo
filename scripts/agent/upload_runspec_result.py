@@ -12,6 +12,7 @@ from runspec_delivery_policy import (
     validate_simple_size_policy,
 )
 from runspec_lib import DONE_DIR, handle_cli_error, json_main, read_yaml, state_path
+from runspec_registration import validate_registration_block
 from runspec_results_delivery import deliver_completed_run
 
 
@@ -24,8 +25,14 @@ def main() -> int:
     repo = Path(args.repo_root).resolve()
     try:
         done = state_path(repo, DONE_DIR, args.run_id)
-        validate_simple_size_policy(read_yaml(done))
+        spec = read_yaml(done)
+        registration = validate_registration_block(spec)
+        validate_simple_size_policy(spec)
         payload = deliver_completed_run(repo, args.run_id)
+        payload.setdefault("registration_mode", registration["mode"])
+        payload.setdefault(
+            "registration_closure_required", registration["closure_required"]
+        )
     except Exception as exc:  # noqa: BLE001
         if is_result_too_large_error(exc):
             try:
