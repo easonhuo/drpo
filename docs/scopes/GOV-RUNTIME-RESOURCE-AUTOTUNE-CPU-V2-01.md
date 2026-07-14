@@ -3,169 +3,202 @@
 **Approval:** user explicitly authorized implementation after approving and merging the design ledger on 2026-07-14.  
 **Implementation base:** `f387391b39502e700e7f780cd8b4a1fd9c7eca7c`.  
 **Design authority:** `docs/runtime_resource_autotune_evolution.md`.  
+**Usage document:** `docs/runtime_resource_autotuning_v2.md`.  
+**Implementation PR:** Draft PR `#65`.  
 **Scientific experiment impact:** none.  
-**Default-policy impact:** none; existing fixed launchers remain available and unchanged.
+**Default-policy impact:** none; fixed launchers remain available and unchanged.
 
 ## Objective
 
 Replace the E7 CPU autotune path's raw-load-average capacity arithmetic with the
-measured-CPU V2 contract frozen in the design ledger. The implementation must also
-eliminate plan/run self-feedback: `plan` is the only operation that may probe and
-select a worker count, while `run` verifies and consumes the immutable selection or
-fails closed.
+measured-CPU V2 contract. Eliminate plan/run self-feedback: `plan` is the only
+operation that may probe and select a worker count, while `run` verifies and consumes
+that immutable selection or fails closed.
 
-The maintenance changes only the active independent subprocess count. It must not
-change any scientific branch, method, seed, coefficient, optimizer, batch, thread
-environment, horizon, stopping rule, evaluation protocol, or result status.
+The maintenance changes only active independent subprocess count. It must not change
+scientific branches, methods, seeds, coefficients, optimizer, batch, thread
+environment, horizon, stopping rule, evaluation, or result status.
 
-## Authorized production surface
+## Implemented production surface
 
-- `src/drpo/runtime_cpu_capacity.py` — one cohesive Linux CPU observation and pure
-  capacity-arithmetic module;
-- `src/drpo/runtime_resource_autotune.py` — shared machine/resource selection and
-  artifact integration;
-- `src/drpo/runtime_resource_adapters.py` — E7 adapter wiring and revalidation;
-- `src/drpo/e7_ppo_w0_runtime_autotune.py` — shared PPO-family probe, throughput, and
-  plan/run behavior;
-- existing thin E7 auto wrappers that delegate to the shared selector, limited to
-  identity/version plumbing and selection consumption;
-- `scripts/probe_runtime_resources.py` when required to expose the new diagnostic
-  observation fields;
-- `docs/runtime_resource_autotuning_v1.md` or a versioned successor usage document;
-- `docs/runtime_resource_autotune_evolution.md`, append-only history plus current
-  status update;
-- this scope file;
-- focused tests for the shared CPU model, adapters, affected auto wrappers, and
-  lifecycle semantics.
+- `src/drpo/runtime_cpu_capacity.py` — Linux affinity/cgroup observation, aligned CPU
+  accounting, process-tree demand, and pure capacity arithmetic;
+- `src/drpo/runtime_resource_adapters.py` — canonical E7 V2 selection/revalidation;
+- `src/drpo/e7_ppo_w0_runtime_autotune.py` — shared PPO-family resource probe,
+  resource-valid throughput candidates, immutable selection, and revalidation;
+- `src/drpo/e7_w0_highc_runtime_autotune.py` and
+  `src/drpo/e7_squared_exp_night_runtime_autotune.py` — thin representative identity,
+  fingerprint, and implementation-identity adapters;
+- `scripts/run_e7_canonical_exp_horizon_joint_auto.py`;
+- `scripts/run_e7_ppo_w0_grid_pilot_auto.py`;
+- `scripts/run_e7_w0_highc_actor_auto.py`;
+- `scripts/run_e7_squared_exp_night_auto.py`;
+- `docs/runtime_resource_autotuning_v2.md`;
+- this scope and focused deterministic tests.
 
-Before modifying a thin wrapper, the implementation must confirm from code that it
-actually delegates to the shared E7 autotune path. No unrelated runner may be edited
-for speculative consistency.
+The fixed launchers, scientific runners, configurations, `docs/handoff.md`,
+`experiments/registry.yaml`, formal execution channel, and GPU PR `#53` are unchanged.
 
-## Required implementation
+## CPU observation contract
 
-### CPU observation
+- bind capacity to the exact `sched_getaffinity(0)` CPU set;
+- resolve current cgroup membership from `/proc/self/cgroup`;
+- discover every visible finite quota from current cgroup through controller root;
+- support cgroup v2 `cpu.max`/`cpu.stat` and direct cgroup v1
+  quota/period/`cpuacct.usage` files;
+- reject paths escaping the configured mount root;
+- accept a namespaced mount-root fallback only when `cgroup.procs` or `tasks`
+  explicitly lists the current PID;
+- sample affinity-scoped `/proc/stat` and every finite quota domain over aligned
+  monotonic intervals;
+- count user, nice, system, irq, softirq, and steal as execution;
+- treat idle and iowait as non-executing capacity and avoid guest double counting;
+- record load averages as diagnostics only;
+- fail closed on malformed or unresolved cgroup evidence, changing affinity, missing
+  CPU rows, or invalid counter deltas.
 
-- bind capacity to the exact `sched_getaffinity` CPU set;
-- resolve the current cgroup from `/proc/self/cgroup`;
-- discover every finite CPU quota domain from the current cgroup through the
-  controller mount root;
-- support cgroup v2 `cpu.max` and cgroup v1 quota/period files when visible;
-- sample affinity-scoped `/proc/stat` execution occupancy over aligned monotonic
-  intervals;
-- sample CPU usage for every finite quota domain over the same interval;
-- record load averages as diagnostic provenance only;
-- fail closed on malformed quota/controller evidence, changing affinity, missing CPU
-  rows, or non-positive tick/usage deltas.
+## Worker demand and capacity contract
 
-### Worker demand and capacity
-
-- measure representative process-tree CPU seconds and peak RSS in the same bounded
-  resource probe;
-- calculate reserved CPU demand using an explicit safety factor and minimum floor;
+- measure representative process-tree CPU seconds and peak RSS in one bounded probe;
+- reserve CPU using an explicit safety factor and minimum floor;
 - apply affinity and every finite quota domain as independent constraints;
-- retain the existing host/cgroup memory gate and bounded growth cap;
-- retain existing workload-specific throughput candidate search rather than adding a
-  new generic throughput engine;
-- require every candidate to satisfy CPU, memory, completion, timeout, and cleanup
-  gates before it may be selected.
+- retain host/cgroup memory, task, configured-cap, and bounded-growth constraints;
+- retain only workload-specific throughput search already present in PPO-family paths;
+- require candidate completion, no timeout/controller cleanup/orphan, CPU validity in
+  affinity and every quota domain, and aggregate RSS validity;
+- never select a resource-invalid candidate because it is faster;
+- canonical exp-horizon selects the measured safe ceiling and records the absence of a
+  throughput-knee search as a limitation.
 
-### Plan/run lifecycle
+Default policy introduced by the opt-in V2 entrypoints:
 
-- `plan` owns all automatic probing, candidate benchmarking, and creation of one
-  immutable `RUNTIME_SELECTION.json`;
-- an existing valid selection is not silently replanned in the same work directory;
-- `run` never invokes automatic selection, representative probes, or throughput
-  candidates;
-- `run` verifies source/workload/scientific/adapter/policy identity and the exact
-  selected worker count;
-- `run` confirms no conflicting worker from the work directory is alive;
-- `run` performs three consecutive one-second CPU/domain samples plus current memory
-  validation, using the most conservative observed pressure for each constraint;
-- `run` either starts the exact planned worker count or writes a block record and
-  returns `RUNTIME_CAPACITY_CHANGED_REPLAN_REQUIRED`;
-- silent downshift from a planned value such as 112 to 80, 20, or 1 is forbidden.
+```text
+cpu_fraction = 0.85
+memory_headroom_fraction = 0.15
+per_worker_memory_safety_factor = 1.20
+per_worker_cpu_safety_factor = 1.25
+minimum_cpu_cores_per_worker = 1.0
+revalidation_samples = 3
+revalidation_sample_seconds = 1.0
+```
 
-### Artifacts and compatibility
+## Plan/run lifecycle contract
 
-- introduce an explicit measured-CPU selector policy version and incompatible
-  selection schema version;
-- invalidate raw-load-average selections and caches;
-- keep stable selection identity separate from dynamic machine evidence;
-- write attempt-local
-  `_runtime_resource_attempts/<attempt_id>/RUNTIME_REVALIDATION.json` without mutating
-  the authoritative selection;
-- preserve failed probes, candidate logs, blocked revalidation evidence, and process
-  cleanup evidence;
-- keep fixed launchers and prior scientific artifacts unchanged.
+### Plan
+
+- owns representative probing and optional bounded throughput candidates;
+- creates one `RUNTIME_SELECTION.json` with schema and selector policy version 2;
+- records implementation hashes, exact CPU binding, measured CPU/RSS evidence, limits,
+  selected workers, and stable selection digest;
+- refuses to replace an existing selection in the same work directory;
+- delegates to the existing scientific runner's plan command and binds worker count
+  plus selection digest into `RUN_IDENTITY.json`.
+
+### Run
+
+- requires both immutable selection and plan-created run identity;
+- validates selected workers and digest before dynamic capacity sampling;
+- never calls automatic selection, representative probe, or throughput candidates;
+- verifies schema, policy, adapter, implementation, source, resource fingerprint,
+  binding, and selection digest;
+- confirms no conflicting process referring to the work directory is alive;
+- performs three consecutive CPU/domain samples and uses the conservative maximum in
+  each independent domain;
+- validates projected selected-worker CPU and current host/cgroup memory;
+- writes `_runtime_resource_attempts/<attempt_id>/RUNTIME_REVALIDATION.json`;
+- starts the exact selected count or fails
+  `RUNTIME_CAPACITY_CHANGED_REPLAN_REQUIRED`;
+- never silently changes a planned count such as 112 to 80, 20, or 1;
+- never mutates the original selection during allow or block decisions.
+
+## Compatibility and artifact contract
+
+- raw-load-average E7 selection/cache semantics are incompatible with V2;
+- stable identity and dynamic revalidation evidence remain separate;
+- selections include `scientific_matrix_changed: false`;
+- failed probes, candidate logs/summaries, blocked revalidations, and cleanup evidence
+  are preserved;
+- fixed launchers and historical artifacts remain valid rollback/provenance paths;
+- Stage A KL integration remains separate until its development branch is synchronized
+  after shared-core acceptance.
 
 ## Explicitly excluded
 
-- modifying `docs/handoff.md` or `experiments/registry.yaml`;
-- modifying the closed formal execution channel or RunSpec governance;
-- changing any scientific variable, matrix, seed, threshold, horizon, evaluation, or
-  result status;
-- modifying GPU placement PR `#53` or attempting CPU/GPU policy unification here;
-- a scheduler, supervisor, provider/backend abstraction, generic cache service, or
+- handoff or registry changes;
+- formal execution-channel or RunSpec governance changes;
+- scientific-variable, matrix, seed, threshold, horizon, evaluation, or result-status
+  changes;
+- modification of GPU placement PR `#53` or automatic CPU/GPU policy unification;
+- scheduler, supervisor, provider/backend abstraction, generic cache service, or
   cross-project portable package;
-- dynamic resizing, worker migration, CPU affinity tuning, NUMA tuning, multi-node
-  placement, Slurm/Kubernetes/Ray/Dask integration;
-- automatic batch, thread, dataloader, precision, or scientific configuration tuning;
-- claims of throughput optimality or scientific evidence from resource probes.
+- online resizing, migration, CPU-affinity/NUMA tuning, multi-node or external
+  scheduler integration;
+- batch, thread, dataloader, precision, or scientific configuration tuning;
+- throughput-optimality or scientific claims from resource probes.
 
 ## Deterministic acceptance
 
-Tests must cover at least:
+Coverage includes:
 
-1. affinity and finite current/ancestor quota combinations, including fractional
-   quota;
-2. unlimited, malformed, zero-period, contradictory, and escaping cgroup paths;
-3. high load average with low measured execution occupancy;
-4. low load average with high measured execution occupancy;
-5. `iowait` exclusion and no guest-time double counting;
-6. same-cgroup and ancestor-domain sibling usage;
-7. aligned worker/system/domain intervals and exact-once probe subtraction;
-8. process-tree CPU demand and descendant cleanup;
-9. CPU-, memory-, task-, configured-cap-, and growth-bound cases;
-10. throughput candidates never exceed measured capacity and resource-invalid fast
-    candidates are rejected;
-11. immutable selection digest and old-policy invalidation;
-12. run never calls probe or throughput selection;
-13. load average raised by plan cannot change the frozen worker count;
-14. true CPU/RAM/quota changes block without silent downshift;
-15. three-sample revalidation uses the conservative pressure for each constraint;
-16. conflicting live process, identity drift, or missing selection blocks;
-17. all affected thin wrappers delegate to shared arithmetic rather than copying it;
-18. fixed launchers and scientific matrices remain unchanged.
+1. current and ancestor finite quotas, fractional and unlimited quota;
+2. malformed, zero-period, contradictory, escaping, unresolved, and namespaced paths;
+3. high load average with low measured execution and real high measured pressure;
+4. iowait exclusion, steal inclusion, and no guest-time double counting;
+5. same-cgroup and ancestor sibling usage;
+6. aligned worker/system/domain intervals and exact-once probe subtraction;
+7. process-tree CPU demand and cleanup;
+8. CPU-, memory-, task-, configured-cap-, and growth-bound selection;
+9. resource-invalid fast candidate rejection;
+10. immutable digest and old-policy invalidation;
+11. run does not call resource probe or candidate benchmark;
+12. plan-induced load average cannot change selected workers;
+13. genuine CPU/RAM/quota changes block without downshift;
+14. conservative multi-sample revalidation;
+15. live-process, identity, missing-selection, or missing-run-identity blocking;
+16. thin wrapper use of shared arithmetic and wrapper implementation identity;
+17. fixed launcher and scientific-matrix preservation.
 
-Before real-server shadow, the exact PR head must pass Python compilation, focused
-tests, full pytest, Ruff, handoff-authority no-op verification, formal execution
-channel validation, governance inventory, governance-stage validation, and exact diff
-review for scientific isolation.
+At implementation head `7b1369221a26da993888f8eaf6df7bdb3d35be77`, GitHub Actions run
+`29326666713` passed tiered test plan, Python compilation, shell syntax, handoff
+authority, formal execution-channel validation, governance inventory, governance
+stage validation, full pytest, and Ruff. Any subsequent documentation or code commit
+requires a new exact-head CI result before shadow.
 
 ## Real CPU shadow gate
 
-The exact reviewed commit must be tested in a new work directory on the target E7
-server. The shadow is engineering evidence only and must not start the full scientific
-sweep.
+The exact final reviewed commit must be tested in a new work directory on the target
+E7 server. The shadow is engineering evidence only and must not start a full
+scientific sweep.
 
 It must record affinity, every finite quota domain, load diagnostics, `/proc/stat`
-busy cores, quota-domain usage, representative worker CPU/RSS demand, safe ceiling,
-every throughput candidate, selected workers, selection digest, and revalidation
-evidence. It must exercise a candidate above one when capacity permits, prove that
-plan-induced load-average elevation cannot change the frozen selection, prove that
-run launches no second candidate grid, and leave no orphan process group.
+busy cores, quota-domain use, representative worker CPU/RSS demand, safe ceiling,
+every throughput candidate, selected workers, digest, and revalidation evidence. It
+must execute a candidate above one when capacity permits, prove that plan-induced
+load-average elevation does not change the selection, prove run launches no second
+probe/grid, and leave no orphan process group.
 
-A separate approved small real-data liveness using the exact selected worker count is
-required before resuming the stopped 150-branch Stage A workload. Static tests or a
-single resource probe are not sufficient for runtime readiness.
+A separately approved small real-data liveness with the exact selected count remains
+required before the stopped 150-branch Stage A workload can resume. Static tests,
+CI, or one resource probe are not runtime-readiness evidence.
+
+## Current status
+
+```text
+implementation: complete on Draft PR #65
+focused/full CI: passed at implementation head 7b1369221a26da993888f8eaf6df7bdb3d35be77
+documentation synchronization: in progress after that head
+real CPU shadow: not run
+small real-data liveness: not run
+merge/default cutover: not approved
+scientific result: none
+```
 
 ## Rollback
 
-1. Stop invoking the affected E7 `*_auto.py` entrypoints.
-2. Use the unchanged fixed launcher or the last separately verified fixed schedule.
-3. Preserve selections, revalidation records, failed work directories, candidate
-   summaries, and logs.
+1. Stop using affected E7 `*_auto.py` entrypoints.
+2. Use the unchanged fixed launcher or a separately verified fixed schedule.
+3. Preserve selections, revalidations, candidate summaries, logs, and failed work
+   directories.
 4. Revert the measured-CPU implementation as one reviewed change.
-5. Do not delete or reinterpret the prior `112 -> 1` failure evidence.
-6. Do not treat any resource shadow as a scientific result.
+5. Preserve and do not reinterpret the prior `112 -> 1` failure evidence.
+6. Never treat a resource shadow as a scientific result.
