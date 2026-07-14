@@ -8,6 +8,7 @@
 4. `docs/manuscript/RL_PAPER_WRITING_PLAYBOOK.md` is the detailed operational handbook distilled from high-quality RL papers and audited external skills.
 5. `docs/manuscript/RL_WRITING_CORPUS_NOTES.md` records source reading and retained or rejected techniques.
 6. `docs/manuscript/paper_graph.yaml` is the stable-ID reconciliation source for outline, blueprint, prose, appendix, TeX, figures, tables, PDF, and Overleaf package.
+7. `docs/manuscript/PAPER_WRITING_OPTIMIZATION_ITERATION_LOG.md` records manuscript-process incidents, approved optimization designs, cost budgets, implementation status, and measured outcomes. It is an engineering iteration record, not a scientific or writing-rule authority.
 
 ## Current review candidate
 
