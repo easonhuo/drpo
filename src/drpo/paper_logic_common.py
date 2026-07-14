@@ -10,6 +10,11 @@ INITIATIVE = "PAPER-WRITING-LOGIC-FIRST-01"
 LEVELS = {"wording", "paragraph", "section"}
 ACTIONS = {"KEEP", "TRIM", "REVISE", "MOVE", "ADD"}
 CLAIM_IMPACTS = {"none", "weaken", "strengthen"}
+EXPECTED_ARTIFACTS = {
+    "wording": ["paragraph_logic", "source_mapping", "candidate"],
+    "paragraph": ["section_logic", "paragraph_logic", "source_mapping", "candidate"],
+    "section": ["section_logic", "paragraph_logic", "source_mapping", "candidate"],
+}
 
 
 class GateError(RuntimeError):
@@ -92,7 +97,12 @@ def load_policy(repo: Path, path: Path) -> dict[str, Any]:
             raise GateError(f"policy level {level} must be a mapping")
         rules = strings(contract, "guidance_rules", f"policy level {level}")
         modules = strings(contract, "playbook_modules", f"policy level {level}")
-        strings(contract, "required_artifacts", f"policy level {level}")
+        required = strings(contract, "required_artifacts", f"policy level {level}")
+        if required != EXPECTED_ARTIFACTS[level]:
+            raise GateError(
+                f"policy level {level} required_artifacts changed: "
+                f"{required} != {EXPECTED_ARTIFACTS[level]}"
+            )
         missing_rules = [rule for rule in rules if f"### {rule}." not in guidance_text]
         missing_modules = [module for module in modules if module not in playbook_lines]
         if missing_rules or missing_modules:
