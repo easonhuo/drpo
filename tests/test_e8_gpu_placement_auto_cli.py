@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from drpo import countdown_e8_oracle_offline_v2_taper_resource_probe as resource_probe
-from drpo import runtime_gpu_placement_autotune as placement
+from drpo import runtime_gpu_placement_autotune_v2 as placement
 from drpo.runtime_resource_autotune import GIB
 
 SCRIPT = Path("scripts/run_countdown_e8_oracle_offline_v2_taper_auto.py")
@@ -60,7 +60,10 @@ def test_gpu_placement_probe_defaults_are_bounded_and_phase_aware() -> None:
     assert args.per_worker_host_memory_safety_factor == 1.25
     assert args.per_worker_vram_safety_factor == 1.25
     assert args.cpu_fraction == 0.85
+    assert args.per_worker_cpu_safety_factor == 1.5
+    assert args.minimum_cpu_cores_per_worker == 1.0
     assert placement.PROBE_CONTRACT_VERSION == 2
+    assert placement.SELECTOR_POLICY_VERSION == 2
     assert "evaluation_peak_completed" in placement.DEFAULT_REQUIRED_PHASES
 
 
@@ -109,16 +112,22 @@ def test_phase_peak_runner_uses_worker_reported_cuda_peak(
         global_deadline_reached=False,
         oom_detected=False,
         worker_returncodes=(0,),
+        workers_exited_cleanly=True,
+        controller_terminated_workers=False,
         initial_free_vram_bytes=90 * GIB,
         minimum_free_vram_bytes=85 * GIB,
         peak_incremental_vram_bytes=5 * GIB,
         peak_host_rss_bytes=2 * GIB,
+        aggregate_cpu_seconds=1.0,
+        average_cpu_cores=1.0,
+        system_average_busy_cores=2.0,
+        baseline_system_busy_cores=1.0,
         required_phases=tuple(placement.DEFAULT_REQUIRED_PHASES),
         completed_phases_by_worker=(tuple(placement.DEFAULT_REQUIRED_PHASES),),
         phase_contract_satisfied=True,
         log_paths=(),
         phase_evidence_paths=(str(state),),
-        reason="phase_complete_concurrency_probe_passed",
+        reason="phase_complete_clean_exit_probe_passed",
     )
     monkeypatch.setattr(auto, "probe_same_gpu_concurrency", lambda **_kwargs: result)
     updated = auto._phase_peak_probe_runner()  # noqa: SLF001
