@@ -1,0 +1,105 @@
+{
+  "experiment_id": "EXT-H-E7-SQUARED-EXP-KL-TUNE-01",
+  "stage_id": "stage_a_kl_threshold_and_reference_lifecycle_screen",
+  "run_kind": "pilot",
+  "scientific_status": "squared_remoteness_kl_threshold_and_reference_lifecycle_development_screening_only",
+  "predecessor_experiment_id": "EXT-H-E7-SQUARED-EXP-NIGHT-01",
+  "proposal_path": "docs/proposals/EXT-H-E7-SQUARED-EXP-KL-TUNE-01.md",
+  "datasets": [
+    "hopper-medium-expert-v2",
+    "walker2d-medium-v2",
+    "walker2d-medium-replay-v2"
+  ],
+  "development_seeds": [200, 201],
+  "held_out_seeds": [204, 205, 206, 207],
+  "steps": 1000000,
+  "evaluation_interval": 50000,
+  "evaluation_episodes": 10,
+  "weight_control": {
+    "weight_at_zero": 1.0,
+    "positive_only_anchor": true,
+    "reference_distance": 2.0,
+    "formula": "w(d)=w(0)*exp(-c*(d/2)^2)",
+    "exp_coefficients": [4.0, 8.0, 16.0, 32.0]
+  },
+  "reference_lifecycles": [
+    {
+      "id": "ppo_clip_k4",
+      "clip_epsilon": 0.2,
+      "max_updates_per_old_policy": 4,
+      "analytic_kl_early_refresh": false,
+      "target_kl": null
+    },
+    {
+      "id": "ppo_clip_k16",
+      "clip_epsilon": 0.2,
+      "max_updates_per_old_policy": 16,
+      "analytic_kl_early_refresh": false,
+      "target_kl": null
+    },
+    {
+      "id": "ppo_clip_kl_k16_t0p003",
+      "clip_epsilon": 0.2,
+      "max_updates_per_old_policy": 16,
+      "analytic_kl_early_refresh": true,
+      "target_kl": 0.003
+    },
+    {
+      "id": "ppo_clip_kl_k16_t0p01",
+      "clip_epsilon": 0.2,
+      "max_updates_per_old_policy": 16,
+      "analytic_kl_early_refresh": true,
+      "target_kl": 0.01
+    },
+    {
+      "id": "ppo_clip_kl_k16_t0p03",
+      "clip_epsilon": 0.2,
+      "max_updates_per_old_policy": 16,
+      "analytic_kl_early_refresh": true,
+      "target_kl": 0.03
+    }
+  ],
+  "diagnostics": {
+    "interval": 1000,
+    "sampled_values_per_update": 16,
+    "weight_thresholds": [0.5, 0.1, 0.05, 0.01],
+    "record_500k_intermediate": true,
+    "late_window_start": 800000
+  },
+  "qualification_rule": {
+    "baseline_lifecycle": "ppo_clip_k4",
+    "eligible_lifecycles": [
+      "ppo_clip_kl_k16_t0p003",
+      "ppo_clip_kl_k16_t0p01",
+      "ppo_clip_kl_k16_t0p03"
+    ],
+    "requirements": [
+      "all_expected_branches_terminal_audited",
+      "pooled_paired_late_mean_difference_positive",
+      "pooled_paired_late_median_difference_positive",
+      "paired_dataset_control_cell_wins_more_than_half",
+      "positive_only_and_squared_exp_reported_separately"
+    ],
+    "tie_break_order": [
+      "mean_late_difference",
+      "median_late_difference",
+      "paired_cell_wins"
+    ]
+  },
+  "expected_controls_per_lifecycle": 5,
+  "expected_reference_lifecycles": 5,
+  "expected_runnable_branches": 150,
+  "screening_only": true,
+  "formal_evidence_allowed": false,
+  "registration_blocks_launch": false,
+  "non_claims": [
+    "convergence_from_fixed_1m_horizon",
+    "steady_state_method_ranking",
+    "universal_ppo_superiority",
+    "lower_seed_variance_from_kl_refresh",
+    "controlled_causal_actor_update_identification",
+    "gae_result",
+    "ood_generalization",
+    "replacement_of_controlled_causal_evidence"
+  ]
+}
