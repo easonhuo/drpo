@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Opt-in E8 taper runner with bounded phase-aware automatic GPU placement."""
+"""Opt-in E8 taper runner with measured-CPU phase-aware GPU placement."""
 from __future__ import annotations
 
 import argparse
@@ -17,10 +17,12 @@ import yaml
 from drpo import countdown_e8_oracle_offline_v2_taper_resource_probe as resource_probe
 from drpo import countdown_e8_oracle_offline_v2_taper_runtime as legacy_runtime
 from drpo import countdown_e8_oracle_offline_v2_taper_slot_runtime as slot_runtime
-from drpo.runtime_gpu_placement_autotune import (
+from drpo import runtime_gpu_placement_autotune_v2 as placement
+from drpo.runtime_gpu_placement_autotune_v2 import (
     ADAPTER_ID,
     DEFAULT_REQUIRED_PHASES,
     PROBE_CONTRACT_VERSION,
+    SELECTOR_POLICY_VERSION,
     GPUConcurrencyProbeResult,
     autotune_single_gpu_task_placement,
     probe_same_gpu_concurrency,
@@ -59,6 +61,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--per-worker-vram-safety-factor", type=float, default=1.25)
     parser.add_argument("--cpu-fraction", type=float, default=0.85)
+    parser.add_argument("--per-worker-cpu-safety-factor", type=float, default=1.5)
+    parser.add_argument("--minimum-cpu-cores-per-worker", type=float, default=1.0)
     parser.add_argument("--maximum-gpu-utilization-percent", type=float, default=20.0)
     parser.add_argument("--max-devices", type=int)
     parser.add_argument("--max-slots-per-gpu", type=int, default=8)
@@ -146,7 +150,7 @@ def _ensure_calibration(args: argparse.Namespace, *, gpu_id: str) -> Path:
 
 def _workload_fingerprint(args: argparse.Namespace) -> dict[str, Any]:
     return {
-        "schema_version": 2,
+        "schema_version": 3,
         "experiment_id": legacy_runtime.EXPERIMENT_ID,
         "model_path": str(Path(args.model_path).resolve()),
         "bank_sha256": legacy_runtime.sha256_file(args.bank),
@@ -159,6 +163,8 @@ def _workload_fingerprint(args: argparse.Namespace) -> dict[str, Any]:
         "sweep_config_sha256": legacy_runtime.sha256_file(args.sweep_config),
         "worker_runtime_sha256": legacy_runtime.sha256_file(legacy_runtime.__file__),
         "resource_probe_sha256": legacy_runtime.sha256_file(resource_probe.__file__),
+        "placement_selector_sha256": legacy_runtime.sha256_file(placement.__file__),
+        "selector_policy_version": SELECTOR_POLICY_VERSION,
         "probe_contract_version": PROBE_CONTRACT_VERSION,
         "required_probe_phases": list(DEFAULT_REQUIRED_PHASES),
         "placement_topology": "one_gpu_per_independent_task",
@@ -240,6 +246,8 @@ def main(argv: list[str] | None = None) -> int:
             args.per_worker_host_memory_safety_factor
         ),
         cpu_fraction=args.cpu_fraction,
+        per_worker_cpu_safety_factor=args.per_worker_cpu_safety_factor,
+        minimum_cpu_cores_per_worker=args.minimum_cpu_cores_per_worker,
         gpu_memory_headroom_fraction=args.gpu_memory_headroom_fraction,
         per_worker_vram_safety_factor=args.per_worker_vram_safety_factor,
         max_slots_per_gpu=args.max_slots_per_gpu,
@@ -260,6 +268,7 @@ def main(argv: list[str] | None = None) -> int:
         json.dumps(
             {
                 "adapter_id": ADAPTER_ID,
+                "selector_policy_version": SELECTOR_POLICY_VERSION,
                 "probe_contract_version": PROBE_CONTRACT_VERSION,
                 "runtime_selection": str(work_dir / "RUNTIME_SELECTION.json"),
                 "selected_device_ids": selected_ids,
