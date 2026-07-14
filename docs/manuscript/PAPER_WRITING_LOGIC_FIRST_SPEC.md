@@ -31,9 +31,11 @@ false-positive rate and latency can be measured before any default-policy change
   `RL_PAPER_WRITING_PLAYBOOK.md`;
 - artifacts required before a prose candidate can pass.
 
-The gate verifies those references at runtime. This converts Guidance and Playbook
-from passive documents into selected inputs to a deterministic validation contract.
-The iteration log remains historical design memory and is not loaded for each edit.
+The gate verifies those references at runtime, extracts the exact selected Guidance
+and Playbook sections, and emits their text and SHA-256 bindings in the plan and
+validation report. This converts Guidance and Playbook from passive documents into
+an auditable writing contract that can be passed to a prose generator. The iteration
+log remains historical design memory and is not loaded for each edit.
 
 ## 3. Edit levels
 
@@ -133,14 +135,15 @@ KEEP | TRIM | REVISE | MOVE | ADD
 `KEEP` and `MOVE` preserve the source text byte-for-byte. `TRIM`, `REVISE`, and `ADD`
 require a reason. `ADD` may only target a sentence node already present in the approved
 paragraph logic map. Claim strengthening fails unless the manifest explicitly records
-that the user approved it.
+that the user approved it. A source span may be owned by only one sentence node.
 
 ### Prose candidate
 
 The candidate is structured by paragraph ID and sentence-node ID. Candidate nodes and
 source-mapping nodes must match exactly. Every approved node in each targeted paragraph
 must be represented, preventing silent omission. Sentence order must match the
-paragraph logic map unless a `MOVE` operation explicitly authorizes reordering.
+paragraph logic map unless `MOVE` explicitly authorizes the moved node; the relative
+order of all non-`MOVE` nodes remains frozen.
 
 ### Authoring manifest
 
@@ -178,6 +181,7 @@ authorization:
 The gate rejects:
 
 - a missing required artifact;
+- a policy that drops a mandatory artifact for an edit level;
 - a path outside the repository;
 - a checksum mismatch;
 - draft or stale logic maps;
@@ -186,8 +190,10 @@ The gate rejects:
 - candidate nodes without source-mapping authorization;
 - mapping nodes absent from the candidate;
 - omission of an approved node in a targeted paragraph;
+- mapping one source span to more than one node;
 - modification of `KEEP` or `MOVE` text;
 - sentence reordering without `MOVE`;
+- reordering non-`MOVE` nodes under cover of another moved node;
 - target-scope expansion;
 - undeclared claim strengthening;
 - a policy reference to a missing Guidance rule or Playbook module.
@@ -215,9 +221,9 @@ python scripts/paper_logic_gate.py --repo-root . validate \
   --report path/to/gate_report.json
 ```
 
-A successful report records selected Guidance rules, selected Playbook modules,
-required artifacts, validated node count, source hash, authorization owner, and
-incremental invalidation scope.
+A successful report records selected Guidance rules, selected Playbook modules, their
+resolved text and source hashes, required artifacts, validated node count, source hash,
+authorization owner, and incremental invalidation scope.
 
 ## 7. Integration boundary
 
@@ -226,7 +232,7 @@ shadow sequence is:
 
 ```text
 paper_logic_gate.py validate
-  -> PASS report
+  -> PASS report and resolved writing contract
   -> existing Core blueprint/prose/release path
 ```
 
@@ -247,14 +253,25 @@ The test suite covers:
 - complete target-node coverage;
 - approved `ADD` behavior;
 - deterministic invalidation scopes;
+- mandatory policy-artifact enforcement;
+- unique source-span ownership;
 - live policy references to repository Guidance and Playbook headings.
 
 Run:
 
 ```bash
-pytest -q tests/test_paper_logic_gate.py
-python -m py_compile scripts/paper_logic_gate.py
-ruff check scripts/paper_logic_gate.py tests/test_paper_logic_gate.py
+pytest -q tests/test_paper_logic_gate*.py
+python -m py_compile \
+  src/drpo/paper_logic_common.py \
+  src/drpo/paper_logic_artifacts.py \
+  src/drpo/paper_logic_gate.py \
+  scripts/paper_logic_gate.py
+ruff check \
+  src/drpo/paper_logic_common.py \
+  src/drpo/paper_logic_artifacts.py \
+  src/drpo/paper_logic_gate.py \
+  scripts/paper_logic_gate.py \
+  tests/test_paper_logic_gate*.py
 ```
 
 ## 9. Rollback
@@ -262,6 +279,9 @@ ruff check scripts/paper_logic_gate.py tests/test_paper_logic_gate.py
 Because Phase A is opt-in and isolated, rollback is removal or disabling of:
 
 - `scripts/paper_logic_gate.py`;
+- `src/drpo/paper_logic_common.py`;
+- `src/drpo/paper_logic_artifacts.py`;
+- `src/drpo/paper_logic_gate.py`;
 - `docs/manuscript/paper_logic_gate_policy.yaml`;
 - the Phase A specification and tests.
 
