@@ -39,6 +39,40 @@ def test_v2_binding_discovers_finite_current_and_ancestor_domains(
     assert binding.effective_cpu_capacity_cores == 4.0
 
 
+def test_unresolved_membership_path_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "cg"
+    root.mkdir()
+    (root / "cgroup.controllers").write_text("cpu\n", encoding="utf-8")
+    (root / "cpu.max").write_text("max 100000\n", encoding="utf-8")
+    (root / "cpu.stat").write_text("usage_usec 1\n", encoding="utf-8")
+    membership = tmp_path / "self"
+    membership.write_text("0::/missing/path\n", encoding="utf-8")
+    monkeypatch.setattr(os, "sched_getaffinity", lambda _pid: {0, 1})
+    with pytest.raises(cpu.CPUCapacityError, match="cannot be resolved"):
+        cpu.discover_cpu_binding(cgroup_root=root, proc_self_cgroup_path=membership)
+
+
+def test_namespaced_root_is_accepted_only_when_it_lists_current_process(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "cg"
+    root.mkdir()
+    (root / "cgroup.controllers").write_text("cpu\n", encoding="utf-8")
+    (root / "cpu.max").write_text("200000 100000\n", encoding="utf-8")
+    (root / "cpu.stat").write_text("usage_usec 1\n", encoding="utf-8")
+    (root / "cgroup.procs").write_text(f"{os.getpid()}\n", encoding="utf-8")
+    membership = tmp_path / "self"
+    membership.write_text("0::/host/path/not/exposed\n", encoding="utf-8")
+    monkeypatch.setattr(os, "sched_getaffinity", lambda _pid: {0, 1, 2, 3})
+    binding = cpu.discover_cpu_binding(
+        cgroup_root=root, proc_self_cgroup_path=membership
+    )
+    assert binding.current_cgroup_path == str(root)
+    assert binding.effective_cpu_capacity_cores == 2.0
+
+
 def test_v2_fractional_quota_is_not_rounded_up(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
