@@ -72,9 +72,7 @@ def _validate_existing_run_identity(
 ) -> None:
     identity_path = work_dir / "RUN_IDENTITY.json"
     if not identity_path.is_file():
-        if (work_dir / "EXECUTION_PLAN.json").is_file():
-            raise RuntimeResourceError("execution plan exists without RUN_IDENTITY.json")
-        return
+        raise RuntimeResourceError("run requires RUN_IDENTITY.json created by plan")
     identity = load_json(identity_path)
     plan = identity.get("plan")
     existing = plan.get("max_workers") if isinstance(plan, dict) else None
@@ -157,7 +155,9 @@ def _write_failed_terminal_audit(work_dir: Path, error: BaseException) -> Path:
     return path
 
 
-def _runtime_kwargs(args: argparse.Namespace, *, machine: Any, repo: Path, work_dir: Path) -> dict[str, Any]:
+def _runtime_kwargs(
+    args: argparse.Namespace, *, machine: Any, repo: Path, work_dir: Path
+) -> dict[str, Any]:
     return {
         "machine": machine,
         "repo_root": repo,
@@ -186,6 +186,21 @@ def _runtime_kwargs(args: argparse.Namespace, *, machine: Any, repo: Path, work_
     }
 
 
+def _load_planned_selection(work_dir: Path) -> tuple[int, str]:
+    path = work_dir / "RUNTIME_SELECTION.json"
+    if not path.is_file():
+        raise RuntimeResourceError("run requires RUNTIME_SELECTION.json created by plan")
+    document = load_json(path)
+    selection = document.get("selection")
+    if not isinstance(selection, dict):
+        raise RuntimeResourceError("runtime selection payload is missing")
+    workers = int(selection.get("selected_workers", 0) or 0)
+    digest = document.get("selection_digest")
+    if workers < 1 or not isinstance(digest, str) or not digest:
+        raise RuntimeResourceError("runtime selection identity is malformed")
+    return workers, digest
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.command == "plan" and args.resume:
@@ -203,12 +218,16 @@ def main(argv: list[str] | None = None) -> int:
     kwargs = _runtime_kwargs(args, machine=machine, repo=repo, work_dir=work_dir)
     if args.command == "plan":
         document = select_runtime(**kwargs)
+        workers = int(document["selection"]["selected_workers"])
+        selection_digest = str(document["selection_digest"])
     else:
+        planned_workers, planned_digest = _load_planned_selection(work_dir)
+        _validate_existing_run_identity(work_dir, planned_workers, planned_digest)
         document = revalidate_runtime(**kwargs, proc_root=args.proc_root)
-    workers = int(document["selection"]["selected_workers"])
-    selection_digest = str(document["selection_digest"])
-    if args.command == "run":
-        _validate_existing_run_identity(work_dir, workers, selection_digest)
+        workers = int(document["selection"]["selected_workers"])
+        selection_digest = str(document["selection_digest"])
+        if workers != planned_workers or selection_digest != planned_digest:
+            raise RuntimeResourceError("run revalidation changed immutable selection identity")
     print(
         json.dumps(
             {
