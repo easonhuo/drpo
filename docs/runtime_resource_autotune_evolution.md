@@ -102,7 +102,7 @@ preflight. It is not:
 Replace the raw-load-average CPU capacity model with a measured model that uses:
 
 1. effective process-visible CPU capacity;
-2. actual system CPU execution occupancy;
+2. actual system and current-cgroup CPU execution occupancy;
 3. measured representative worker CPU demand;
 4. existing host/cgroup memory evidence;
 5. the existing bounded throughput candidate search where a workload already uses
@@ -135,14 +135,15 @@ fingerprints. They must not copy the capacity arithmetic.
 | Component | Direct purpose | Why it is required |
 |---|---|---|
 | affinity-aware CPU count | observe process-visible CPUs | `os.cpu_count()` may include unusable CPUs |
-| current-cgroup quota resolution | avoid quota overestimation | affinity may exceed the container's executable quota |
-| `/proc/stat` busy-core sample | measure current CPU execution | load average includes history and uninterruptible waits |
+| current-cgroup path and quota | avoid quota overestimation | affinity may exceed the executable quota |
+| `/proc/stat` busy-core sample | measure host/affinity execution | load average includes history and uninterruptible waits |
+| cgroup CPU-usage sample | measure quota already consumed by other same-cgroup work | host load alone cannot protect a tight shared quota |
 | process-tree CPU demand | distinguish light and heavy workers | idle cores alone do not imply a worker count |
-| CPU safety reserve | cover sampling and workload variance | short probes are estimates, not exact future demand |
+| CPU safety reserve | cover sampling and workload variance | short probes are estimates |
 | existing RAM/cgroup memory gate | prevent memory oversubscription | CPU capacity alone is insufficient |
 | workload-specific throughput grid | avoid a safe but inefficient ceiling | already valuable for PPO-family E7 paths |
-| candidate resource validation | reject a fast candidate that violates CPU/RAM bounds | throughput alone is not a safety gate |
-| immutable plan selection | remove probe self-feedback and identity drift | run must not silently choose a different schedule |
+| candidate resource validation | reject a fast candidate that violates CPU/RAM bounds | throughput alone is not safety |
+| immutable plan selection | remove probe self-feedback and identity drift | run must not silently choose another schedule |
 | lightweight run revalidation | block genuinely unsafe later starts | immutable does not mean blindly reusable |
 | schema/policy versioning | reject old load-average selections | old evidence has incompatible semantics |
 | attempt-local revalidation record | preserve allow/block evidence without mutating selection | the plan artifact must remain immutable |
@@ -161,36 +162,48 @@ cardinality is:
 affinity_capacity_cores
 ```
 
-The exact CPU IDs are also used to select per-CPU rows from `/proc/stat`. When
-sched-affinity is unavailable, `os.cpu_count()` is allowed only as an explicitly
-recorded compatibility fallback. Production Linux shadows must exercise the affinity
-path.
+The exact sorted CPU IDs form an affinity binding fingerprint and select per-CPU rows
+from `/proc/stat`. A changed affinity set requires replan even when its cardinality is
+unchanged, because V2 does not model NUMA/topology equivalence.
 
-### 5.2 Current-cgroup path and quota
+When sched-affinity is unavailable, `os.cpu_count()` is allowed only as an explicitly
+recorded compatibility fallback. Production Linux shadows must exercise affinity.
 
-The implementation resolves the current process cgroup rather than assuming that the
+### 5.2 Current-cgroup path, quota, and usage
+
+The implementation resolves the current process cgroup rather than assuming the
 configured mount root is itself the active cgroup:
 
 - cgroup v2: resolve `0::<relative_path>` from `/proc/self/cgroup`, then read
-  `cpu.max` under the configured cgroup mount root;
+  `cpu.max` and `cpu.stat` under the configured mount root;
 - cgroup v1: use the `cpu` or `cpu,cpuacct` controller path and directly visible
-  `cpu.cfs_quota_us` / `cpu.cfs_period_us` files;
+  `cpu.cfs_quota_us`, `cpu.cfs_period_us`, and `cpuacct.usage` files;
 - reject paths that escape the configured mount root;
-- a namespaced environment that exposes the current cgroup at the mount root remains
-  supported.
+- support a cgroup namespace that exposes the current cgroup at the mount root.
 
-A finite cgroup quota is converted to equivalent CPU cores:
+A finite quota is converted to equivalent CPU cores:
 
 ```text
 quota_capacity_cores = quota_microseconds / period_microseconds
 ```
 
-`max`, a negative v1 quota, or absent quota files in an environment with no detected
-CPU controller mean unlimited quota. Malformed values, zero periods, contradictory
-controller evidence, or a detected CPU cgroup whose active path cannot be resolved
-make automatic selection unavailable rather than silently ignoring the quota.
+Aligned current-cgroup CPU usage is derived from:
 
-Fractional quota capacity is preserved as a float and is never rounded up.
+```text
+v2: delta(cpu.stat usage_usec) / elapsed_microseconds
+v1: delta(cpuacct.usage nanoseconds) / elapsed_nanoseconds
+```
+
+`max`, a negative v1 quota, or absent quota files in an environment with no detected
+CPU controller mean unlimited quota. Malformed values, zero periods, missing usage
+accounting under a detected finite quota, contradictory controller evidence, or an
+unresolvable active path make auto selection unavailable rather than silently
+ignoring the constraint.
+
+Fractional quota capacity is preserved and never rounded up. V2 `nr_throttled` and
+`throttled_usec`, when present, are recorded as diagnostics but are not a standalone
+hard gate in the first implementation; candidate throughput and measured budgets
+remain authoritative.
 
 ### 5.3 Reported effective capacity
 
@@ -201,30 +214,27 @@ effective_cpu_capacity_cores =
     min(affinity_capacity_cores, finite_quota_capacity_cores)
 ```
 
-When no finite quota exists, effective capacity equals affinity capacity.
+When quota is unlimited, effective capacity equals affinity capacity. This minimum is
+not by itself the worker budget: host/affinity occupancy and same-cgroup quota usage
+are independent constraints defined in Section 8.
 
-This reported minimum is not by itself the worker budget because external host load
-must be applied to the affinity constraint, not subtracted directly from a tight
-cgroup quota. Section 8 defines the two independent constraints.
+The existing default `cpu_fraction=0.85` remains global headroom unless an approved
+adapter policy explicitly supplies another value.
 
-The existing default `cpu_fraction=0.85` remains the global execution headroom unless
-an approved adapter policy explicitly supplies another value.
-
-## 6. Actual CPU occupancy contract
+## 6. CPU occupancy contract
 
 ### 6.1 Why load average is diagnostic only
 
 Linux load average is an exponentially smoothed count of runnable and
-uninterruptible tasks. It is not a count of CPU cores currently executing work. It
-can remain high after a benchmark exits and can include I/O waits that do not consume
-CPU execution capacity.
+uninterruptible tasks. It is not current CPU execution. It can remain high after a
+benchmark exits and include I/O waits.
 
 V2 records one-, five-, and fifteen-minute load average only as diagnostic provenance.
-No load-average field participates in worker-capacity arithmetic or cache acceptance.
+No load-average field participates in capacity arithmetic or cache acceptance.
 
-### 6.2 `/proc/stat` sampling
+### 6.2 `/proc/stat` system sampling
 
-System execution occupancy is measured over a bounded monotonic interval using the
+System execution occupancy is measured over an aligned monotonic interval using the
 per-CPU rows for the current affinity set.
 
 Busy time includes:
@@ -239,58 +249,67 @@ Idle compute capacity includes:
 idle + iowait
 ```
 
-Only the standard fields through `steal` participate in the total; guest and
-guest-nice are not added because Linux already includes guest execution in user/nice.
-
-For a valid interval:
+Only standard fields through `steal` participate in the total; guest and guest-nice
+are not added because guest execution is already included in user/nice.
 
 ```text
 system_busy_cores =
     affinity_capacity_cores * busy_tick_delta / total_tick_delta
 ```
 
-The default sampling interval is one second. It is configurable for tests and
-hardware shadows but is not a scientific parameter.
+Missing rows, non-positive deltas, or a changing affinity set makes auto measurement
+unavailable.
 
-Missing per-CPU rows, non-positive total deltas, or a changing affinity set makes the
-measured auto decision unavailable. The auto path fails closed; the unchanged fixed
-launcher remains the rollback path.
+### 6.3 Current-cgroup sampling
 
-### 6.3 Aligned measurement windows
+The same monotonic window measures current-cgroup usage:
 
-Worker CPU demand and system busy cores must be measured over aligned monotonic
-windows. A system sample from before or after a worker interval must not be mixed with
-worker CPU demand from another interval.
+```text
+cgroup_busy_cores = cgroup_cpu_time_delta / elapsed_time
+```
 
-The selection records interval start/end timestamps, elapsed seconds, CPU set, system
-tick deltas, and process-tree CPU deltas.
+This is required when quota is finite because other processes in the same cgroup
+consume the same quota even when the host has many idle CPUs. When quota is unlimited,
+cgroup usage remains useful provenance but only the affinity constraint is binding.
+
+A finite quota without reliable aligned cgroup usage fails closed. The implementation
+must not assume that all external processes belong to another cgroup.
+
+### 6.4 Sampling windows
+
+Plan and candidate measurements use their aligned worker interval. Pre-launch run
+revalidation uses three consecutive one-second samples and conservatively takes the
+maximum observed system busy cores and maximum observed cgroup busy cores. The sample
+count and duration are test-configurable runtime policy, not scientific parameters.
+
+Every evidence record includes monotonic start/end, elapsed seconds, affinity set,
+`/proc/stat` deltas, cgroup usage deltas, and process-tree CPU deltas.
 
 ## 7. Representative worker CPU demand
 
 ### 7.1 Measurement
 
-The existing representative resource probe is extended to record cumulative user and
-system CPU seconds for the probe process tree while it is alive:
+The existing representative resource probe records cumulative user and system CPU
+seconds for its process tree:
 
 ```text
 measured_cpu_cores_per_worker =
     process_tree_cpu_seconds / aligned_elapsed_seconds
 ```
 
-Process-level CPU accounting includes its threads. Long-lived descendants are added
-through process-tree sampling. The first V2 implementation does not add an E7 phase
-framework or attempt exact recovery of descendants that start and exit entirely
-between polls; the global reserve and concurrent candidate validation cover that
-residual limitation.
+Process-level CPU accounting includes threads. Long-lived descendants are included
+through process-tree sampling. V2 does not add an E7 phase framework or exact recovery
+of descendants that start and exit entirely between polls; global reserve and
+concurrent candidate validation cover that residual limitation.
 
 The probe must:
 
-- use the workload's existing representative branch and thread environment;
-- remain in the dedicated non-scientific seed namespace;
-- produce positive RSS and CPU-demand measurements;
-- follow the existing bounded probe termination contract;
+- use the existing representative branch and thread environment;
+- remain in the non-scientific probe seed namespace;
+- produce positive RSS and CPU-demand evidence;
+- follow the bounded probe termination contract;
 - leave no process-group descendants;
-- preserve logs and small resource evidence while removing model payload.
+- preserve logs/small evidence and remove model payload.
 
 ### 7.2 Reservation
 
@@ -307,50 +326,58 @@ reserved_cpu_cores_per_worker =
         measured_cpu_cores_per_worker * per_worker_cpu_safety_factor)
 ```
 
-These are runtime safety policy fields and are recorded in the resource fingerprint.
-They do not alter scientific execution.
+These runtime safety fields are included in the resource fingerprint and do not alter
+scientific execution.
 
 ### 7.3 External occupancy during plan
 
-The aligned system sample includes the probe itself, so plan estimates:
+The aligned system and cgroup samples include the probe itself:
 
 ```text
-external_busy_cores =
+external_system_busy_cores =
     max(0, system_busy_cores - measured_probe_cpu_cores)
+
+external_cgroup_busy_cores =
+    max(0, cgroup_busy_cores - measured_probe_cpu_cores)
 ```
 
-Probe CPU is subtracted exactly once. The estimate cannot create capacity beyond the
-affinity or quota budgets defined below.
+Probe demand is subtracted exactly once from each accounting domain. Neither estimate
+may create capacity beyond its independent budget.
 
 ## 8. Capacity and throughput selection
 
 ### 8.1 Two independent CPU constraints
 
-External host load consumes affinity capacity, while cgroup quota independently caps
-the workload. Subtracting all external host load directly from a small quota is
-incorrect. V2 therefore computes:
+External host load consumes affinity capacity; same-cgroup external load consumes
+quota capacity. V2 computes:
 
 ```text
 affinity_budget_cores = affinity_capacity_cores * cpu_fraction
 
-quota_budget_cores =
-    finite_quota_capacity_cores * cpu_fraction
-    or infinity when quota is unlimited
-
 affinity_worker_budget_cores =
-    max(0, affinity_budget_cores - external_busy_cores)
+    max(0, affinity_budget_cores - external_system_busy_cores)
+
+quota_worker_budget_cores =
+    infinity when quota is unlimited
+    otherwise max(
+        0,
+        quota_capacity_cores * cpu_fraction
+        - external_cgroup_busy_cores
+    )
 
 worker_cpu_budget_cores =
-    min(affinity_worker_budget_cores, quota_budget_cores)
+    min(affinity_worker_budget_cores, quota_worker_budget_cores)
 
 cpu_worker_limit =
     floor(worker_cpu_budget_cores / reserved_cpu_cores_per_worker)
 ```
 
-This correctly handles both important cases:
+This handles:
 
-- a tight quota on a mostly idle large host still permits work up to the quota; and
-- a generous quota on a saturated affinity set is constrained by actual host load.
+- tight quota on a mostly idle large host;
+- other work sharing that tight quota;
+- generous quota on a saturated affinity set; and
+- unrelated host load outside the current cgroup.
 
 If the limit is below one, auto selection fails closed.
 
@@ -369,7 +396,7 @@ memory_worker_limit =
     floor(usable_memory / reserved_memory_per_worker)
 ```
 
-Memory and CPU evidence must refer to the same representative workload identity.
+CPU and memory evidence must refer to the same representative workload identity.
 
 ### 8.3 Safe capacity ceiling
 
@@ -383,109 +410,112 @@ safe_capacity_ceiling = min(
 )
 ```
 
-The existing bounded growth limit remains a policy-level blast-radius cap. It is not
-throughput evidence.
+The growth limit remains a blast-radius cap, not throughput evidence.
 
-### 8.4 Throughput candidate search and resource validation
+### 8.4 Throughput candidates and resource validity
 
-Only workloads that already use the bounded PPO-family throughput search retain it.
-V2 does not create a generic throughput engine.
+Only workloads already using the bounded PPO-family throughput search retain it. V2
+does not create a generic throughput engine.
 
-The candidate principle remains:
+Candidate rules:
 
-- benchmark a small set containing the verified fallback and points near 50%, 75%,
-  and 100% of the safe ceiling;
-- never launch a candidate above the safe ceiling;
+- benchmark the verified fallback and points near 50%, 75%, and 100% of the safe
+  ceiling;
+- never launch above the safe ceiling;
 - require every worker to exit successfully without timeout;
 - measure aggregate completed optimizer updates per second;
+- measure aggregate worker CPU, system CPU, current-cgroup CPU, and host RSS over the
+  aligned candidate window;
 - select the smallest resource-valid candidate reaching the configured fraction of
   peak aggregate throughput.
 
-A candidate is resource-valid only when its aligned measurement satisfies both:
+Resource validity requires:
 
 ```text
-candidate_worker_cpu_cores <= quota_budget_cores
-
-candidate_external_busy_cores + candidate_worker_cpu_cores
+candidate_external_system_busy_cores
++ candidate_worker_cpu_cores
     <= affinity_budget_cores
+
+when quota is finite:
+candidate_external_cgroup_busy_cores
++ candidate_worker_cpu_cores
+    <= quota_capacity_cores * cpu_fraction
 ```
 
-and its projected/observed host RSS remains within the usable memory budget.
+and observed/projected RSS must remain within usable memory.
 
-The current throughput-retention default remains `0.97` for adapters that already use
-it. Adapters without a throughput grid may select the safe ceiling directly and must
-record that limitation.
+The current throughput-retention default remains `0.97` for adapters already using
+it. Adapters without a grid may select the safe ceiling and record that limitation.
 
 ## 9. Plan, run, resume, and revalidation
 
 ### 9.1 Plan creates one immutable selection
 
-`plan` is the only operation that may perform:
-
-- representative memory/CPU probing;
-- bounded throughput candidate benchmarking;
-- automatic worker-count selection; and
-- creation of the authoritative `RUNTIME_SELECTION.json`.
+`plan` alone may perform representative probing, bounded throughput benchmarking,
+automatic selection, and creation of authoritative `RUNTIME_SELECTION.json`.
 
 An existing valid selection is not silently replanned. A new automatic decision uses
-a new work directory. This preserves failed evidence and avoids mixed attempts.
+a new work directory, preserving failed evidence and avoiding mixed attempts.
 
 ### 9.2 Run never reselects
 
-`run` must not call automatic selection, launch the representative resource probe, or
-execute the throughput grid.
-
+`run` must not call automatic selection, resource probing, or the throughput grid.
 It must:
 
 1. load and verify the immutable selection;
-2. verify workload, source, adapter, policy, and scientific fingerprints;
-3. verify that run identity fixes the same selected worker count and selection
-   digest;
-4. confirm that no prior probe worker or scientific worker from the same work
-   directory is still alive;
-5. discover current affinity, cgroup quota, host/cgroup memory, and actual busy cores;
-6. project stored per-worker CPU and memory reservations;
-7. write an attempt-local revalidation record; and
-8. either start with the exact planned worker count or fail closed.
+2. verify source, workload, scientific, adapter, and policy fingerprints;
+3. verify run identity fixes the same worker count and selection digest;
+4. reject any prior probe/scientific process still alive for the work directory;
+5. re-read affinity binding, active cgroup, quota, cgroup usage, memory, and system
+   busy cores;
+6. project stored worker CPU/RAM reservations;
+7. write attempt-local revalidation evidence; and
+8. start with the exact planned count or fail closed.
 
 Run may never silently change `112` to `80`, `20`, `1`, or another value.
 
 ### 9.3 Revalidation arithmetic
 
-Before launch, no workload worker from the work directory may be active. Therefore
-the short pre-launch busy sample is external occupancy and is not reduced by the
-stored worker demand.
+No workload worker from the work directory may be active before launch. Therefore the
+three-sample maxima are external occupancy and are not reduced by stored demand.
 
 ```text
 current_affinity_budget_cores =
     current_affinity_capacity_cores * cpu_fraction
 
 current_quota_budget_cores =
-    current_finite_quota_capacity_cores * cpu_fraction
-    or infinity
+    infinity when quota is unlimited
+    otherwise current_quota_capacity_cores * cpu_fraction
 
 selected_worker_cpu_cores =
     selected_workers * reserved_cpu_cores_per_worker
 
 cpu_revalidation_ok =
-    selected_worker_cpu_cores <= current_quota_budget_cores
-    and
-    current_system_busy_cores + selected_worker_cpu_cores
+    current_system_busy_cores_max
+    + selected_worker_cpu_cores
         <= current_affinity_budget_cores
+    and
+    (
+      quota is unlimited
+      or
+      current_cgroup_busy_cores_max
+      + selected_worker_cpu_cores
+          <= current_quota_budget_cores
+    )
 
 memory_revalidation_ok =
     selected_workers * reserved_memory_per_worker
         <= current_usable_memory
 ```
 
-A quota reduction, changed workload fingerprint, changed policy, insufficient memory,
-unsafe CPU projection, or conflicting live process blocks launch with:
+A changed affinity binding, cgroup path, quota reduction, fingerprint mismatch,
+insufficient memory, unsafe CPU projection, or live-process conflict blocks with:
 
 ```text
 RUNTIME_CAPACITY_CHANGED_REPLAN_REQUIRED
 ```
 
-The original selection is never mutated or downshifted to make the attempt pass.
+The original selection is never mutated or downshifted.
 
 ### 9.4 Revalidation artifact
 
@@ -497,26 +527,26 @@ _runtime_resource_attempts/<attempt_id>/RUNTIME_REVALIDATION.json
 
 It records:
 
-- selection digest and selected workers;
-- source/workload/scientific identity checks;
-- current affinity and cgroup quota;
-- current system busy cores;
+- selection digest and workers;
+- identity checks;
+- affinity binding and current cgroup path;
+- quota and three system/cgroup occupancy samples;
 - stored worker CPU/RAM reservation;
-- projected CPU/RAM totals and both CPU constraints;
+- projected totals and both CPU constraints;
 - live-process conflict audit;
-- allow/block decision and structured reason;
-- timestamp and sampling interval.
+- allow/block decision and reason;
+- timestamp and sampling intervals.
 
-It is runtime provenance, not a second selection authority.
+It is provenance, not a second selection authority.
 
 ## 10. Selection identity, schema, and cache
 
 ### 10.1 Versioning
 
-The implementation introduces an explicit measured-CPU selector policy version.
-Selections created by the raw-load-average policy are incompatible cache misses.
+V2 introduces an explicit measured-CPU selector policy version. Raw-load-average
+selections are incompatible cache misses.
 
-At minimum the selection records:
+At minimum selection records:
 
 ```text
 document_schema_version
@@ -524,44 +554,34 @@ selector_policy_version
 adapter id and implementation identity
 source commit/worktree state
 workload and scientific fingerprints
-machine/resource binding
+affinity binding and active-cgroup binding
 selected_workers
 selection_digest
 ```
 
 ### 10.2 Stable identity versus dynamic evidence
 
-Stable identity includes:
+Stable identity includes selected workers, workload/scientific fingerprints, adapter
+and policy versions, representative probe policy, CPU/RAM safety parameters,
+affinity binding, and active-cgroup binding.
 
-- selected worker count;
-- workload and scientific fingerprints;
-- adapter and policy versions;
-- representative probe policy;
-- CPU/RAM safety parameters;
-- declared resource binding.
+Dynamic evidence is excluded from the stable digest: load diagnostics, busy cores,
+free memory, timestamps, throttling diagnostics, evidence paths, and probe/cache
+route. Dynamic changes trigger revalidation. Stable changes require a new work
+directory and selection.
 
-Dynamic evidence is recorded but excluded from the stable digest:
+### 10.3 No generic cache engine
 
-- load-average diagnostics;
-- busy cores and free memory;
-- timestamps and evidence paths;
-- cache or probe route.
-
-Dynamic changes trigger revalidation. Selected-resource, workload/scientific,
-adapter, or policy changes require a new selection in a new work directory.
-
-### 10.3 No new generic cache engine
-
-V2 adds no cache service or cache abstraction. Existing adapter-owned measurement
-reuse may continue only under exact workload, source, probe policy, selector policy,
-and representative identity. `RUNTIME_SELECTION.json` is immutable authority, not a
-mutable measurement cache.
+V2 adds no cache service or abstraction. Existing adapter-owned measurement reuse may
+continue only under exact workload, source, probe policy, selector policy, and
+representative identity. `RUNTIME_SELECTION.json` is immutable authority, not a
+mutable cache.
 
 ## 11. Implementation surface and cost
 
 ### 11.1 Production files
 
-The preferred implementation modifies existing responsibilities:
+Preferred production changes remain within existing responsibilities:
 
 ```text
 src/drpo/runtime_resource_autotune.py
@@ -570,40 +590,38 @@ src/drpo/e7_ppo_w0_runtime_autotune.py
 relevant E7 auto runner plan/run entrypoints
 ```
 
-Thin high-c, squared-EXP night, and KL Stage A adapters inherit the shared behavior.
-They need fingerprint/version plumbing, not copied arithmetic. Fixed launchers and
-scientific runners remain unchanged.
+Thin high-c, squared-EXP night, and KL Stage A adapters inherit shared behavior and
+need fingerprint/version plumbing only. Fixed launchers and scientific runners remain
+unchanged.
 
-Documentation and tests update:
+Documentation/tests update:
 
 ```text
 docs/runtime_resource_autotuning_v1.md or a versioned successor
 docs/scopes/GOV-RUNTIME-RESOURCE-AUTOTUNE-01.md
 docs/runtime_resource_autotune_evolution.md
-existing focused runtime-resource and E7 wrapper tests
+existing runtime-resource and E7 wrapper tests
 ```
 
-The implementation must not modify `docs/handoff.md`, `experiments/registry.yaml`,
-formal scientific configuration, or the closed formal execution channel.
+No handoff, registry, scientific config, or formal-channel modification is allowed.
 
-### 11.2 Revised estimate after design review
+### 11.2 Revised estimate after three correctness reviews
 
 | Area | Estimate |
 |---|---:|
-| production code | 320–480 lines |
-| deterministic tests | 450–700 lines |
+| production code | 380–560 lines |
+| deterministic tests | 550–850 lines |
 | usage/scope updates | 80–160 lines |
-| focused implementation | 3–4.5 engineer-days |
+| focused implementation | 4–5.5 engineer-days |
 | CI and real-server shadow | 0.5–1.5 engineer-days |
 
-The first estimate was increased after review found two necessary details that must
-not be omitted: resolving the current cgroup path and validating affinity/quota as
-independent constraints for both the single-worker estimate and concurrent
-candidates.
+The estimate increased because correct general behavior requires three details omitted
+from the first estimate: current-cgroup path resolution, independent affinity/quota
+arithmetic, and aligned same-cgroup occupancy measurement. These are not optional
+architecture; omitting them creates concrete quota bugs.
 
-This remains much smaller than Draft PR `#50`'s project-neutral policy architecture.
-V2 reuses the existing DRPO core and does not add a portable package, generic contract
-engine, scheduler backend, or Stage-2 integration.
+This remains smaller than Draft PR `#50`'s project-neutral architecture. No portable
+package, generic contract engine, scheduler backend, or Stage-2 integration is added.
 
 ## 12. Acceptance, risk, and rollback
 
@@ -611,90 +629,83 @@ engine, scheduler backend, or Stage-2 integration.
 
 Required tests include:
 
-1. current-cgroup path resolution for cgroup v2 and direct v1 compatibility;
-2. root-escape and malformed-controller rejection;
-3. affinity 384 and finite quota 376 records effective capacity 376;
-4. fractional quota is preserved and unlimited quota uses affinity;
-5. tight quota plus unrelated host load uses the quota budget rather than subtracting
-   all host load from the quota;
-6. generous quota plus saturated affinity is host-load constrained;
-7. high load average with low measured busy cores does not collapse capacity;
-8. low load average with high measured busy cores blocks unsafe concurrency;
-9. `iowait` is not CPU execution and guest fields are not double-counted;
-10. aligned worker/system windows subtract probe demand exactly once;
-11. non-positive `/proc/stat` delta fails closed;
-12. process-tree CPU measurement includes threads and long-lived descendants;
-13. CPU-, memory-, task-, configured-cap-, and growth-bound cases;
-14. throughput candidates never exceed the safe ceiling;
-15. throughput-fast but resource-invalid candidate is rejected;
-16. timed-out or failed candidate cannot be selected;
-17. plan writes one immutable selection and stable digest;
-18. run invokes no memory probe, CPU probe, or throughput benchmark;
-19. plan worker count remains unchanged when load average rises afterward;
-20. unsafe run revalidation blocks without silent downshift;
-21. run identity, workload/scientific fingerprint, or policy mismatch blocks;
-22. raw-load-average selections are invalidated;
-23. blocked attempts preserve selection and write revalidation evidence;
-24. conflicting live process groups block run;
-25. all probe process groups are cleaned and no orphan remains;
-26. high-c, squared-EXP night, PPO w(0), and Stage A wrappers share the policy;
-27. fixed launchers and scientific branch matrices remain unchanged.
+1. current-cgroup path resolution for v2 and direct v1 compatibility;
+2. root-escape, malformed-controller, and missing finite-quota usage rejection;
+3. affinity 384 plus quota 376 records effective capacity 376;
+4. fractional and unlimited quota behavior;
+5. tight idle-host quota permits work up to its budget;
+6. same-cgroup external work reduces tight-quota capacity;
+7. generous quota plus saturated affinity is host constrained;
+8. external host work outside the cgroup reduces affinity but not quota budget;
+9. high load average with low measured execution does not collapse capacity;
+10. low load average with high measured execution blocks unsafe concurrency;
+11. `iowait` and guest accounting rules;
+12. aligned system/cgroup/worker windows subtract probe demand once per domain;
+13. non-positive deltas fail closed;
+14. process-tree CPU includes threads and long-lived descendants;
+15. CPU-, memory-, task-, configured-cap-, and growth-bound cases;
+16. candidates never exceed safe ceiling;
+17. fast but CPU/RAM-invalid candidate is rejected;
+18. timeout/nonzero candidate is rejected;
+19. plan writes immutable selection and digest;
+20. run invokes no probe or throughput grid;
+21. rising post-plan load average cannot change selected workers;
+22. unsafe run revalidation blocks without downshift;
+23. identity/fingerprint/policy mismatch blocks;
+24. raw-load-average selection is invalidated;
+25. blocked attempts preserve selection and write evidence;
+26. live process conflict blocks;
+27. all process groups are cleaned;
+28. wrappers share the policy rather than copied formulas;
+29. fixed launchers/scientific matrices remain unchanged;
+30. three-sample revalidation uses the conservative maxima.
 
 ### 12.2 CI gates
 
-Before server shadow:
-
-- Python compilation and focused runtime-resource tests;
-- affected E7 wrapper tests;
-- full pytest and Ruff;
-- handoff authority no-op verification;
-- formal execution-channel validation;
-- governance inventory and stage-status validation;
-- exact diff review confirming no scientific-field change.
+Before shadow: Python compile, focused runtime/E7 tests, full pytest, Ruff, handoff
+authority no-op, formal-channel validation, governance inventory/stage validation,
+and exact scientific-field diff review.
 
 ### 12.3 Real CPU shadow
 
-The exact reviewed commit is tested in a new work directory on the target E7 server.
-The shadow must:
+The exact reviewed commit is tested in a new work directory. The shadow must:
 
-1. record affinity, active cgroup path, quota, load averages, busy-core samples,
-   worker CPU demand, RAM evidence, safe ceiling, every candidate, and selection;
+1. record affinity, active cgroup, quota, cgroup usage, throttling diagnostics, load
+   averages, system busy, worker demand, RAM, safe ceiling, candidates, and selection;
 2. exercise at least one candidate above one when capacity permits;
-3. record candidate CPU/RAM validity separately from throughput validity;
-4. prove the plan benchmark may raise load average without changing the frozen worker
-   count;
-5. invoke run in selection-consumption mode and prove no second throughput grid starts;
-6. verify lightweight CPU/RAM revalidation and unchanged selection digest;
-7. verify no stale process group or orphan;
-8. avoid the full scientific sweep during the selection-only shadow; and
-9. complete a separately approved small real-data liveness using the exact selected
-   count before resuming the 150-branch Stage A run.
+3. report candidate CPU/RAM validity separately from throughput validity;
+4. show that benchmark-raised load average cannot alter frozen selection;
+5. prove run consumes selection without a second grid;
+6. verify three-sample CPU/RAM revalidation and unchanged digest;
+7. verify no stale process or orphan;
+8. suppress the full scientific sweep during selection-only shadow; and
+9. complete separately approved small real-data liveness at the selected count before
+   resuming the 150-branch Stage A run.
 
-Tests, CI, a single-worker probe, or a selection-only report do not independently
-establish full runtime readiness.
+Tests, CI, one worker, or selection-only output do not independently establish full
+runtime readiness.
 
 ### 12.4 Risks and controls
 
 | Risk | Control |
 |---|---|
-| capacity overestimate | dual CPU constraints, global fraction, worker reserve, RAM gate, candidate validation |
-| capacity underestimate under tight quota | external host load applies to affinity, not subtracted directly from quota |
-| short-window noise | aligned sample, safety factors, run revalidation |
-| representative mismatch | adapter-owned hard fingerprint and representative identity |
+| capacity overestimate | dual accounting domains, CPU fraction, worker reserve, RAM gate, candidate validation |
+| tight-quota error | same-cgroup usage measured separately from host occupancy |
+| short-window noise | aligned candidate windows and three-sample run maxima |
+| representative mismatch | adapter hard fingerprint and representative identity |
 | benchmark self-feedback | plan-only selection; run cannot reselect |
 | stale environment | measured revalidation and fail-closed replan |
 | legacy cache reuse | policy/source/fingerprint version checks |
-| shared-core regression | wrapper coverage plus full repository tests |
-| scientific drift | immutable scientific fingerprints and exact diff audit |
+| shared-core regression | wrapper coverage plus full tests |
+| scientific drift | immutable scientific fingerprints and diff audit |
 
 ### 12.5 Rollback
 
-1. Stop invoking affected `*_auto.py` entrypoints.
-2. Use the unchanged fixed launcher or last separately verified fixed schedule.
-3. Preserve failed work directories, selection/revalidation records, benchmark
-   summaries, and logs.
+1. Stop affected `*_auto.py` entrypoints.
+2. Use unchanged fixed launchers or a separately verified fixed schedule.
+3. Preserve failed work directories, selections, revalidations, summaries, and logs.
 4. Revert the measured-CPU maintenance commit as one reviewed change.
-5. Never reinterpret a failed resource shadow as a scientific result.
+5. Never reinterpret a failed resource shadow as scientific evidence.
 
 ## 13. Evolution ledger
 
@@ -703,156 +714,157 @@ establish full runtime readiness.
 **Status:** `active_opt_in` on the document base.  
 **Claim:** `GOV-RUNTIME-RESOURCE-AUTOTUNE-01`.
 
-**Design:** representative E7 RSS probe; load-average CPU limit; host/cgroup memory,
-task, configured, fallback, and growth limits; E8 idle/free-VRAM device selection;
-one process per GPU; machine-readable selection; fixed launchers preserved.
+Representative E7 RSS probe; load-average CPU limit; host/cgroup memory, task,
+configured, fallback, and growth limits; E8 idle/free-VRAM device selection; one
+process per GPU; machine-readable selection; fixed launchers preserved.
 
-**Known limitations:** load average was treated as occupied CPU capacity; E7 was not
-worker-CPU-demand aware; E8 did not measure full training/evaluation peaks.
+Known limitations: load average was treated as occupied CPU; E7 was not worker-demand
+aware; E8 did not measure full lifecycle peaks.
 
 ### 13.2 `AUTOTUNE-2026-07-13-E7-PROBE-HORIZON`
 
-**Status:** `implemented`; scope required real-server re-acceptance.
+**Status:** `implemented`; real-server re-acceptance required by scope.
 
-A 20,000-step probe could finish before a 50,000-step evaluation interval and leave
-terminal evaluation history empty. The replacement derives a probe horizon covering
-at least two frozen evaluation intervals while keeping the wall-clock sampler
-bounded. Formal horizons and evaluation remain unchanged.
+A 20,000-step probe could finish before a 50,000-step evaluation interval. Replacement:
+derive a probe horizon covering at least two frozen evaluation intervals while the
+wall-clock sampler remains bounded. Formal execution is unchanged.
 
 ### 13.3 `AUTOTUNE-2026-07-13-GPU-LIVENESS-ONLY`
 
 **Status:** `superseded`; development evidence only.
 
-Eight H20 workers remained alive through model load without reaching a real optimizer
-update or maximum-shape evaluation. `slots_per_gpu=8` was not workload-capacity
-evidence. Replacement: explicit training and maximum-evaluation phases.
+Eight H20 workers remained alive through model load without a real optimizer update
+or maximum-shape evaluation. `slots_per_gpu=8` was not capacity evidence. Replacement:
+explicit training and maximum-evaluation phases.
 
 ### 13.4 `AUTOTUNE-2026-07-14-GPU-PHASE-AWARE`
 
 **Status:** `superseded` as a complete placement solution; its single-worker envelope
 remains engineering evidence.
 
-The worker completed `model_loaded`, `training_peak_completed`,
-`evaluation_peak_completed`, and `probe_complete`. A second H20 shadow then showed
-that load average `387.5` on 384 logical CPUs reduced an otherwise idle eight-H20
-pool to one selected GPU. It also recorded a null worker return code before controller
-cleanup. Replacement: measured CPU plus clean zero exit and process-group disappearance.
+The phase contract completed, but load average `387.5` on 384 CPUs reduced an idle
+eight-H20 pool to one GPU. Worker return code was null before controller cleanup.
+Replacement: measured CPU plus clean zero exit/process-group disappearance.
 
 ### 13.5 `AUTOTUNE-2026-07-14-GPU-MEASURED-CPU-DRAFT`
 
 **Status:** `ci_validated` on Draft PR `#53`; hardware shadow pending and not active on
-`main` at this base.
+`main`.
 
 The draft uses `/proc/stat`, process-tree CPU demand, external occupancy, phase/exit
-contracts, and old-cache invalidation. It motivates the E7 design but does not
-implement E7 shared-core behavior.
+contracts, and cache invalidation. It motivates but does not implement E7 V2.
 
 ### 13.6 `AUTOTUNE-2026-07-14-E7-SELF-FEEDBACK-INCIDENT`
 
-**Status:** confirmed engineering defect; server-report repository deposit was pending
-at this base.
+**Status:** confirmed engineering defect; server-report repository deposit pending at
+this base.
 
 ```text
-plan benchmarks worker counts
-  -> selects 112
-  -> benchmark raises load average above CPU count
-  -> immediately following run calls auto selection again
-  -> cache rejects 112
-  -> load-average arithmetic yields one
-  -> run replans and starts one worker
+plan benchmarks counts -> selects 112 -> benchmark raises load average
+-> run reselects -> cache rejects 112 -> load arithmetic yields one
+-> run starts one worker
 ```
 
-Root causes: invalid load-average semantics; plan and run both owned selection; plan
-selection was not immutable identity; cache validation treated dynamic load as hard
-capacity. No scientific result was produced.
+Root causes: invalid load semantics; duplicate selection ownership; mutable runtime
+identity; dynamic load in cache acceptance. No scientific result was produced.
 
 ### 13.7 `AUTOTUNE-2026-07-14-E7-MEASURED-CPU-V2`
 
 **Status:** `proposed`; Sections 4–12 are the implementation gate.
 
-Benefits: measured capacity, quota awareness, workload CPU demand, retained RAM and
-throughput evidence, immutable plan, no silent downshift, revalidation provenance,
-and one shared E7 implementation.
+Benefits: measured capacity, affinity/quota awareness, worker demand, retained RAM and
+throughput evidence, immutable plan, no silent downshift, revalidation evidence, and
+one shared E7 implementation.
 
-Rejected additions: scheduler service, cache engine, portable package, dynamic
-resizing, migration, NUMA/affinity tuning, multi-node support, batch/thread tuning,
-Stage-2 integration, and automatic GPU/CPU policy unification.
+Rejected: scheduler service, cache engine, portable package, dynamic resizing,
+migration, NUMA/affinity tuning, multi-node, batch/thread tuning, Stage-2 integration,
+and automatic GPU/CPU policy unification.
 
 ### 13.8 `AUTOTUNE-2026-07-14-QUOTA-ARITHMETIC-REVIEW`
 
-**Status:** `proposed` design correction completed before implementation.
+**Status:** design correction completed before implementation.
 
-The first document draft computed `min(affinity, quota) * fraction - external_load`.
-Review found that this incorrectly subtracts all host load from a tight quota even
-when the host has ample idle affinity capacity. The corrected design keeps two
-constraints:
+The first draft subtracted all host load from `min(affinity, quota)`. Review found this
+incorrect for a tight quota on a large idle host. Replacement: independent affinity
+and quota constraints. Current-cgroup path resolution was also made explicit.
 
-```text
-worker demand <= quota * fraction
-external load + worker demand <= affinity * fraction
-```
+### 13.9 `AUTOTUNE-2026-07-14-CGROUP-OCCUPANCY-REVIEW`
 
-The same correction applies to initial capacity, concurrent candidate validation,
-and run revalidation. Current-cgroup path resolution was also made explicit so quota
-cannot be silently read from the wrong cgroup directory.
+**Status:** design correction completed before implementation.
+
+The second draft capped candidate worker demand by quota but did not subtract other
+same-cgroup CPU usage. That could overcommit a tight shared quota even while host
+capacity appeared ample. Replacement: aligned `cpu.stat`/`cpuacct.usage` accounting,
+separate external system and external cgroup occupancy, and both constraints in plan,
+candidate validation, and run revalidation. Pre-launch revalidation was strengthened
+from one sample to conservative maxima over three one-second samples.
 
 ## 14. Design review record
 
 ### Review 1 — responsibility cohesion
 
-Pass. Selection arithmetic, bounded probes, immutable plan, and revalidation remain
-in the resource layer. Runners retain execution, resume, heartbeat, packaging, and
-scientific outputs.
+Pass. The design remains resource preflight; runners retain execution, resume,
+heartbeat, packaging, and scientific outputs.
 
 ### Review 2 — necessity and anti-overengineering
 
-Pass after excluding a standalone CPU module, cache engine, cross-project package,
-dynamic scaling, NUMA/affinity tuning, and scheduler/provider abstractions. Every
-remaining component maps to a demonstrated defect or safety requirement.
+Pass after excluding standalone module, cache engine, cross-project package, dynamic
+scaling, NUMA/affinity tuning, and scheduler/provider abstractions. Every remaining
+component maps to a demonstrated defect or safety requirement.
 
-### Review 3 — measurement correctness
+### Review 3 — machine and cgroup correctness
 
-The first pass found a real flaw in quota arithmetic. The final design uses independent
-quota and affinity constraints, aligned worker/system windows, no `iowait` charge,
-no guest double-counting, one probe-demand subtraction, and current-cgroup resolution.
+Two real design flaws were found and corrected: host load must not be subtracted from
+a tight quota, and same-cgroup external work must consume quota budget. Final design
+uses current-cgroup resolution plus independent aligned system/cgroup accounting.
 Pass after correction.
 
-### Review 4 — candidate validity
+### Review 4 — CPU-time accounting
 
-Pass after requiring each throughput candidate to satisfy measured CPU and RAM bounds
-in addition to completing quickly. Throughput cannot override capacity safety.
+Pass after locking `iowait` as non-execution, avoiding guest double-counting,
+including `steal`, aligning all windows, and subtracting probe demand exactly once per
+domain.
 
-### Review 5 — lifecycle and self-feedback
+### Review 5 — candidate validity
 
-Pass. Plan alone selects; run cannot probe or benchmark; selection digest is frozen;
-unsafe environments require replan rather than downshift.
+Pass after requiring throughput candidates to satisfy measured system CPU, cgroup
+CPU, and RAM bounds. Throughput cannot override safety.
 
-### Review 6 — identity, cache, and provenance
+### Review 6 — lifecycle and self-feedback
 
-Pass. Selected resources, workload/scientific fingerprints, adapter, and policy are
-stable identity. Busy cores, free memory, load diagnostics, timestamps, and evidence
-routes are dynamic revalidation evidence. Old policy selections are invalid.
+Pass. Plan alone selects; run cannot probe/benchmark; digest is frozen; unsafe
+capacity requires replan, not downshift.
 
-### Review 7 — failure and cleanup
+### Review 7 — identity, cache, and provenance
 
-Pass. Failed/timed-out candidates are invalid; process groups are audited; blocked
-attempts preserve logs and selection; live conflicts block run.
+Pass. Stable resource binding/fingerprints are separated from dynamic evidence. Old
+policy selections are invalid.
 
-### Review 8 — integration and scientific isolation
+### Review 8 — failure and cleanup
 
-Pass. Only active subprocess count changes. Fixed launchers remain rollback paths.
-No handoff, registry, scientific configuration, or formal-channel change is required.
+Pass. Failed/timed-out candidates are invalid; live conflicts block; process groups
+are audited; selection is preserved.
+
+### Review 9 — revalidation noise
+
+Pass after replacing one pre-launch sample with conservative maxima over three
+one-second samples. This remains a bounded preflight, not online monitoring.
+
+### Review 10 — integration and scientific isolation
+
+Pass. Only active subprocess count changes. Fixed launchers remain rollback. No
+handoff, registry, scientific config, or formal-channel change is required.
 
 ## 15. Remaining uncertainties before implementation
 
 The design is ready for implementation review, but these remain empirical:
 
-- actual E7 representative worker CPU demand;
-- short-window busy-core variance during the throughput grid;
-- whether `1.25` worker CPU safety factor is sufficient across current E7 workloads;
-- selected worker count under the measured model;
-- plan/run revalidation after the benchmark raises load average;
-- wrapper compatibility after Stage A is synchronized with the shared-core fix.
+- actual representative worker CPU demand;
+- system/cgroup occupancy variance during candidate grids;
+- whether `1.25` worker CPU reserve is sufficient across E7 workloads;
+- selected worker count under V2;
+- plan/run behavior after load average rises;
+- Stage A wrapper compatibility after shared-core synchronization.
 
 They are resolved by deterministic tests and exact-head CPU shadow, not by adding
 unproven scheduler or dynamic-scaling features.
