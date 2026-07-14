@@ -93,6 +93,82 @@ The explicit validator option `--no-registry-check` remains an operator/debug ov
 Normal production code-first execution should declare `registration.mode: deferred`
 instead of relying on that flag.
 
+## Real remote shadow validation
+
+The first real remote check is intentionally not a new training run. The template
+`runspecs/templates/E8_RESULTS_REPO_DELIVERY_SHADOW_20260714_01.yaml` uses the already
+completed compact evidence under
+`experiments/results/e8_oracle_offline_v2_init_matrix_pilot`. Its entrypoint hashes the
+source files, records that no training occurred, and leaves the source unchanged.
+
+The shadow validates these boundaries together:
+
+1. an unregistered `registration.mode: deferred` RunSpec is accepted by the normal E8
+   lane claim path;
+2. the completed RunSpec is packaged without model/checkpoint evidence;
+3. the package is pushed to `drpo-results` branch `ingest/e8`;
+4. the remote result contains matching `RESULT_MANIFEST.json` and
+   `READY_FOR_REVIEW.json` files;
+5. a second identical upload returns `ALREADY_DELIVERED` and creates no new result
+   content;
+6. the original compact evidence remains byte-identical and no training is executed.
+
+Before promoting the template, configure the repository-scoped credential in the E8
+executor environment and verify read authentication:
+
+```bash
+git ls-remote git@github.com:easonhuo/drpo-results.git
+```
+
+Then use the reviewed PR branch and validate the deferred RunSpec without an operator
+registry bypass:
+
+```bash
+git fetch origin agent/results-repo-delivery-v1
+git checkout agent/results-repo-delivery-v1
+python scripts/agent/validate_runspec.py \
+  --lane e8 \
+  runspecs/templates/E8_RESULTS_REPO_DELIVERY_SHADOW_20260714_01.yaml
+```
+
+Promote exactly that reviewed template and execute one lane task:
+
+```bash
+cp \
+  runspecs/templates/E8_RESULTS_REPO_DELIVERY_SHADOW_20260714_01.yaml \
+  runspecs/ready/E8_RESULTS_REPO_DELIVERY_SHADOW_20260714_01.yaml
+python scripts/agent/run_lane.py \
+  --lane e8 \
+  --run-id E8_RESULTS_REPO_DELIVERY_SHADOW_20260714_01 \
+  --once \
+  --json
+```
+
+The first command must return an execution payload with `status: PASS`,
+`delivery_status: PASS`, a results commit, and a manifest SHA. The local audit file is:
+
+```text
+.runspec_state/delivery/E8_RESULTS_REPO_DELIVERY_SHADOW_20260714_01/DELIVERY_REPORT.json
+```
+
+Run the canonical manual retry against the completed state:
+
+```bash
+python scripts/agent/upload_runspec_result.py \
+  --run-id E8_RESULTS_REPO_DELIVERY_SHADOW_20260714_01 \
+  --json
+```
+
+The retry must return `ALREADY_DELIVERED` with the same result path and manifest SHA.
+The online review then verifies the remote directory
+`runs/e8/E8_RESULTS_REPO_DELIVERY_SHADOW_20260714_01/`, confirms that all manifest
+hashes match, and confirms that the package records deferred registration timing and no
+model-like files.
+
+A credential or network failure is not retried by rerunning the entrypoint. The RunSpec
+must remain in `.runspec_state/done/`; after fixing authentication, use only the manual
+uploader command above.
+
 ## Simple size policy
 
 V1 intentionally uses one fixed, simple rule instead of LFS, Release assets, Drive,
