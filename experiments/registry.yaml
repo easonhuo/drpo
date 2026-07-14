@@ -6460,7 +6460,80 @@ experiments:
   - hopper_and_walker_are_external_validity_only
   - does_not_replace_cu1_or_du1_controlled_identification
   formal_evidence_allowed: false
-
+- id: EXT-H-E7-SQUARED-EXP-KL-TUNE-01
+  environment: Hopper_and_Walker2d_external_validity
+  name: squared_exp_kl_threshold_and_reference_lifecycle_stage_a_screen
+  status: not_run
+  parent_experiment: EXT-H-E7-SQUARED-EXP-NIGHT-01
+  registration_base_commit: 2d4d295022c75b0c2cde283d2d9c3402779c5764
+  claim: >-
+    Screen whether analytic-KL-triggered adaptive old-policy refresh provides a
+    common finite-horizon mean-performance benefit over fixed K4, separate that
+    effect from fixed K16 reuse, and probe squared-EXP coefficients above c=8.
+  role: external_validity_development_screening
+  execution_class: pilot
+  protocol_document: docs/experiments/EXT-H-E7-SQUARED-EXP-KL-TUNE-01.md
+  scope_contract: docs/scopes/EXT-H-E7-SQUARED-EXP-KL-TUNE-01.md
+  proposal_document: docs/proposals/EXT-H-E7-SQUARED-EXP-KL-TUNE-01.md
+  config_entrypoint: configs/e7_squared_exp_kl_tune_stage_a_v1.json
+  code_entrypoint: src/drpo/e7_squared_exp_kl_tune_stage_a.py
+  launch_entrypoint: scripts/run_e7_squared_exp_kl_tune_stage_a_one_click.sh
+  resume_entrypoint: scripts/run_e7_squared_exp_kl_tune_stage_a_resume_one_click.sh
+  runspec: runspecs/templates/E7_SQUARED_EXP_KL_TUNE_STAGE_A_PILOT_20260714_01.yaml
+  implementation_commit: 2d4d295022c75b0c2cde283d2d9c3402779c5764
+  datasets:
+  - hopper-medium-expert-v2
+  - walker2d-medium-v2
+  - walker2d-medium-replay-v2
+  development_seeds: [200, 201]
+  held_out_seeds: [204, 205, 206, 207]
+  matrix:
+    horizon_updates: 1000000
+    squared_exp_coefficients: [4.0, 8.0, 16.0, 32.0]
+    positive_only_anchor: true
+    reference_lifecycles:
+    - ppo_clip_k4
+    - ppo_clip_k16
+    - ppo_clip_kl_k16_t0p003
+    - ppo_clip_kl_k16_t0p01
+    - ppo_clip_kl_k16_t0p03
+    expected_branches: 150
+  formal_run_status: not_run
+  execution:
+    state: registered_ready_for_real_data_liveness
+    run_id: null
+    last_heartbeat_utc: null
+    process_exit_code: null
+  evidence:
+    code_committed: true
+    implementation_commit: 2d4d295022c75b0c2cde283d2d9c3402779c5764
+    implementation_tests_passed: true
+    run_started: false
+    raw_complete: false
+    terminal_audited: false
+    package_created: false
+    delivered_to_user: false
+  launch_policy:
+    code_first_pre_registration_allowed: true
+    registration_blocks_launch: false
+    clean_checkout_required: true
+    registration_state_recorded: true
+  qualification:
+    baseline: ppo_clip_k4
+    adaptive_candidates:
+    - ppo_clip_kl_k16_t0p003
+    - ppo_clip_kl_k16_t0p01
+    - ppo_clip_kl_k16_t0p03
+    stage_b_auto_launch: forbidden
+  interpretation_limits:
+  - development_screening_only
+  - two_development_seeds_not_confirmation
+  - fixed_1m_not_convergence_or_steady_state
+  - no_universal_ppo_or_kl_superiority_claim
+  - no_lower_seed_variance_claim
+  - no_gae_result
+  - no_ood_generalization_claim
+  - hopper_walker_do_not_replace_cu1_du1
 development_experiment_registrations:
 - id: D-U1-E6-CONDITIONAL-GAP-DEV-01
   environment: D-U1

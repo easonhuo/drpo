@@ -1,0 +1,210 @@
+{
+  "current_before_commit": "2d4d295022c75b0c2cde283d2d9c3402779c5764",
+  "current_handoff_before_sha256": "7707901f8c75369066d3527df76d5d204d4d04c93b0fbe668c47ce4597d16e4d",
+  "current_registry_validation": {
+    "assertions": [
+      {
+        "change_id": "add-e7-squared-exp-kl-stage-a",
+        "entity_id": "EXT-H-E7-SQUARED-EXP-KL-TUNE-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "756808fb6f812f78fc546ef9c08eb770746461ab7901de268e34cab1f7fc438b"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-H-E7-SQUARED-EXP-KL-TUNE-STAGE-A-REGISTRATION-2026-07-14/HANDOFF_DELTA.yaml",
+            "sha256": "438b9b27861640f79ee65298d0c06c9305a50c113470b1980c1c144db4c8de44"
+          },
+          {
+            "path": "docs/experiments/EXT-H-E7-SQUARED-EXP-KL-TUNE-01.md",
+            "sha256": "708db9e4b3f469f94d6cb306f59842676aed30a3a7e3afb1cf5721eeb78e7ea0"
+          },
+          {
+            "path": "docs/scopes/EXT-H-E7-SQUARED-EXP-KL-TUNE-01.md",
+            "sha256": "fa896537cc91dc296c5b0f7258a4742596accc23a81182ee60b915a570c8260e"
+          },
+          {
+            "path": "docs/proposals/EXT-H-E7-SQUARED-EXP-KL-TUNE-01.md",
+            "sha256": "5b36420e1621703d312dc49ff25827fcc47e6aed1bc84f946733429b22758ad3"
+          },
+          {
+            "path": "configs/e7_squared_exp_kl_tune_stage_a_v1.json",
+            "sha256": "06eec471c5eaa84d9d4d9a9ca354798e3875c88e42a008ad4a594095f4b02c33"
+          },
+          {
+            "path": "src/drpo/e7_squared_exp_kl_tune_stage_a.py",
+            "sha256": "e74666a61370c78ea01defd0b0f0123b6225b10f606961e8b673ccdf7897d5aa"
+          },
+          {
+            "path": "src/drpo/e7_squared_exp_kl_tune_stage_a_bootstrap.py",
+            "sha256": "426892a645166fea898dace73bc1a7736879d5f50bd797789157f86ca943fbd8"
+          },
+          {
+            "path": "src/drpo/e7_squared_exp_kl_tune_stage_a_aggregate.py",
+            "sha256": "ea73e96f6edf88471025e389a9cff4ac832452e6bad1e6db82981a071e1c8f02"
+          },
+          {
+            "path": "src/drpo/e7_squared_exp_kl_tune_stage_a_runtime_autotune.py",
+            "sha256": "80b0898202da0815d845f343bdc7d48968f5b399b1c99418a2f9cc6871ffea4f"
+          },
+          {
+            "path": "scripts/run_e7_squared_exp_kl_tune_stage_a_auto.py",
+            "sha256": "0aa6ab00745bb9b5011041af16e632b991a4fba482a3f70221dfe05d12b2e131"
+          },
+          {
+            "path": "scripts/run_e7_squared_exp_kl_tune_stage_a_one_click.sh",
+            "sha256": "62ae2c1d46f94facb95908751ca7cbdf538644658bdf42dc502a5009867b2ce8"
+          },
+          {
+            "path": "scripts/run_e7_squared_exp_kl_tune_stage_a_resume_one_click.sh",
+            "sha256": "13a61b2ae12f69561607be5a2e214471b58e9bb45f22d41af2e15d030ffa7758"
+          },
+          {
+            "path": "tests/test_e7_squared_exp_kl_tune_stage_a.py",
+            "sha256": "871578a4135bcd67f6bbefacdf3d8c1aecae15918ed4c961acda6bc88b049573"
+          },
+          {
+            "path": "runspecs/templates/E7_SQUARED_EXP_KL_TUNE_STAGE_A_PILOT_20260714_01.yaml",
+            "sha256": "4b309be0b8ec0d2e2f24ce413a5006ce0c80e49165fd20e01d98d2e0f713c4c3"
+          }
+        ],
+        "kind": "add_entity"
+      }
+    ],
+    "coverage": {
+      "added_entities": [
+        "EXT-H-E7-SQUARED-EXP-KL-TUNE-01"
+      ],
+      "changed_field_count": 0,
+      "declared_assertion_count": 1,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "delta_sha256": "438b9b27861640f79ee65298d0c06c9305a50c113470b1980c1c144db4c8de44",
+  "exact_base_candidate_sha256": "5fd1109f637a84b7e50bfdf711b4f3df4e82c8fb3f9c8311e75e5c7403cd6d82",
+  "exact_base_registry_validation": {
+    "assertions": [
+      {
+        "change_id": "add-e7-squared-exp-kl-stage-a",
+        "entity_id": "EXT-H-E7-SQUARED-EXP-KL-TUNE-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "756808fb6f812f78fc546ef9c08eb770746461ab7901de268e34cab1f7fc438b"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-H-E7-SQUARED-EXP-KL-TUNE-STAGE-A-REGISTRATION-2026-07-14/HANDOFF_DELTA.yaml",
+            "sha256": "438b9b27861640f79ee65298d0c06c9305a50c113470b1980c1c144db4c8de44"
+          },
+          {
+            "path": "docs/experiments/EXT-H-E7-SQUARED-EXP-KL-TUNE-01.md",
+            "sha256": "708db9e4b3f469f94d6cb306f59842676aed30a3a7e3afb1cf5721eeb78e7ea0"
+          },
+          {
+            "path": "docs/scopes/EXT-H-E7-SQUARED-EXP-KL-TUNE-01.md",
+            "sha256": "fa896537cc91dc296c5b0f7258a4742596accc23a81182ee60b915a570c8260e"
+          },
+          {
+            "path": "docs/proposals/EXT-H-E7-SQUARED-EXP-KL-TUNE-01.md",
+            "sha256": "5b36420e1621703d312dc49ff25827fcc47e6aed1bc84f946733429b22758ad3"
+          },
+          {
+            "path": "configs/e7_squared_exp_kl_tune_stage_a_v1.json",
+            "sha256": "06eec471c5eaa84d9d4d9a9ca354798e3875c88e42a008ad4a594095f4b02c33"
+          },
+          {
+            "path": "src/drpo/e7_squared_exp_kl_tune_stage_a.py",
+            "sha256": "e74666a61370c78ea01defd0b0f0123b6225b10f606961e8b673ccdf7897d5aa"
+          },
+          {
+            "path": "src/drpo/e7_squared_exp_kl_tune_stage_a_bootstrap.py",
+            "sha256": "426892a645166fea898dace73bc1a7736879d5f50bd797789157f86ca943fbd8"
+          },
+          {
+            "path": "src/drpo/e7_squared_exp_kl_tune_stage_a_aggregate.py",
+            "sha256": "ea73e96f6edf88471025e389a9cff4ac832452e6bad1e6db82981a071e1c8f02"
+          },
+          {
+            "path": "src/drpo/e7_squared_exp_kl_tune_stage_a_runtime_autotune.py",
+            "sha256": "80b0898202da0815d845f343bdc7d48968f5b399b1c99418a2f9cc6871ffea4f"
+          },
+          {
+            "path": "scripts/run_e7_squared_exp_kl_tune_stage_a_auto.py",
+            "sha256": "0aa6ab00745bb9b5011041af16e632b991a4fba482a3f70221dfe05d12b2e131"
+          },
+          {
+            "path": "scripts/run_e7_squared_exp_kl_tune_stage_a_one_click.sh",
+            "sha256": "62ae2c1d46f94facb95908751ca7cbdf538644658bdf42dc502a5009867b2ce8"
+          },
+          {
+            "path": "scripts/run_e7_squared_exp_kl_tune_stage_a_resume_one_click.sh",
+            "sha256": "13a61b2ae12f69561607be5a2e214471b58e9bb45f22d41af2e15d030ffa7758"
+          },
+          {
+            "path": "tests/test_e7_squared_exp_kl_tune_stage_a.py",
+            "sha256": "871578a4135bcd67f6bbefacdf3d8c1aecae15918ed4c961acda6bc88b049573"
+          },
+          {
+            "path": "runspecs/templates/E7_SQUARED_EXP_KL_TUNE_STAGE_A_PILOT_20260714_01.yaml",
+            "sha256": "4b309be0b8ec0d2e2f24ce413a5006ce0c80e49165fd20e01d98d2e0f713c4c3"
+          }
+        ],
+        "kind": "add_entity"
+      }
+    ],
+    "coverage": {
+      "added_entities": [
+        "EXT-H-E7-SQUARED-EXP-KL-TUNE-01"
+      ],
+      "changed_field_count": 0,
+      "declared_assertion_count": 1,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "history_preservation_passed": true,
+  "idempotence_passed": true,
+  "materialized_handoff_after_sha256": "5fd1109f637a84b7e50bfdf711b4f3df4e82c8fb3f9c8311e75e5c7403cd6d82",
+  "mode": "authoritative",
+  "network_used": false,
+  "policy_id": "GOV-HANDOFF-AUTHORITY-CUTOVER-01",
+  "registry_after_sha256": "756808fb6f812f78fc546ef9c08eb770746461ab7901de268e34cab1f7fc438b",
+  "registry_before_sha256": "5326428f65b3cc7be0a4f5ca5602d9dd9430c3f96f2aed46dd9c40c773f2d70e",
+  "report_schema_version": 1,
+  "source_base_commit": "2d4d295022c75b0c2cde283d2d9c3402779c5764",
+  "source_patch_commit": "1d700303371f709f242517a44936b64f36bbfa5b",
+  "stage4a_refresh": {
+    "refreshed": [
+      "docs/handoff_shadow/stage4/minimal/generated/MODULE_INDEX.json",
+      "docs/handoff_shadow/stage4/minimal/generated/STRUCTURE_SUGGESTIONS.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/global_core_governance.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/hopper_e7.md"
+    ],
+    "reused": [
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.dot",
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e5_mechanism.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e6_generalization.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_extrapolation.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_taper.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_mechanism_e1_e3.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/countdown_e8.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/execution_status_gates.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/history_provenance.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/paper_rewrite.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/terminal_audit.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/theory_methods_related_work.md"
+    ]
+  },
+  "status": "PASS",
+  "structural_lint_passed": true,
+  "trusted_engine_sha256": "e8894d4b077f91d39d1d0d7a41f6359116fd7d2ec9cd59e71343f02187541b75",
+  "trusted_policy_sha256": "508f6bbb6ee9bb6da5be041a23e25cd569b95475523bb6af7127cb84ea3466ad",
+  "trusted_renderer_sha256": "39a7566e91c77784822148bb18ae32e44dfcc1745fbdc1cbf14a88ce6c6a13e5",
+  "update_id": "EXT-H-E7-SQUARED-EXP-KL-TUNE-STAGE-A-REGISTRATION-2026-07-14"
+}
