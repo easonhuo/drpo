@@ -43,11 +43,7 @@ def main() -> int:
         if args.json:
             json_main(payload)
         else:
-            print(
-                "RunSpec validation: PASS "
-                f"run_id={spec['run_id']} lane={spec['lane']} "
-                f"registration={registration['mode']}"
-            )
+            print(f"RunSpec validation: PASS run_id={spec['run_id']} lane={spec['lane']}")
         return 0
     except Exception as exc:  # noqa: BLE001
         return handle_cli_error(exc, json_output=args.json)
