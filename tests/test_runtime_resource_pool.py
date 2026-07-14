@@ -3,6 +3,8 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -35,6 +37,8 @@ def test_gpu_pool_is_ordered_and_unique() -> None:
     assert pool.parse_gpu_pool("3,1,GPU-abcd") == ("3", "1", "GPU-abcd")
     with pytest.raises(pool.ResourcePoolError, match="duplicate"):
         pool.parse_gpu_pool("1,1")
+    with pytest.raises(pool.ResourcePoolError, match="malformed"):
+        pool.parse_gpu_pool("-1")
 
 
 def test_explicit_pool_must_be_inherited_subset(
@@ -193,3 +197,50 @@ def test_wrapper_exec_preserves_exact_command(
         )
     assert observed["program"] == "python"
     assert observed["command"] == ["python", "-c", "print('ok')"]
+
+
+@pytest.mark.skipif(
+    not hasattr(os, "sched_getaffinity") or not hasattr(os, "sched_setaffinity"),
+    reason="Linux affinity APIs are required",
+)
+def test_delegated_subprocess_inherits_exact_cpu_pool(tmp_path: Path) -> None:
+    available = sorted(int(value) for value in os.sched_getaffinity(0))
+    if not available:
+        pytest.skip("no available CPU")
+    selected_cpu = available[0]
+    output = tmp_path / "child_affinity.json"
+    identity = tmp_path / "RESOURCE_POOL.json"
+    child_code = (
+        "import json,os,pathlib; "
+        f"pathlib.Path({str(output)!r}).write_text("
+        "json.dumps(sorted(os.sched_getaffinity(0))))"
+    )
+    environment = dict(os.environ)
+    source_root = str((Path.cwd() / "src").resolve())
+    existing_pythonpath = environment.get("PYTHONPATH")
+    environment["PYTHONPATH"] = (
+        source_root
+        if not existing_pythonpath
+        else source_root + os.pathsep + existing_pythonpath
+    )
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT.resolve()),
+            "--cpu-pool",
+            str(selected_cpu),
+            "--pool-identity",
+            str(identity),
+            "--",
+            sys.executable,
+            "-c",
+            child_code,
+        ],
+        cwd=Path.cwd(),
+        env=environment,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert completed.returncode == 0, completed.stderr
+    assert json.loads(output.read_text()) == [selected_cpu]
