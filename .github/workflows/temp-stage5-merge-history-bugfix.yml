@@ -1,0 +1,270 @@
+name: TEMP Stage5 merge-integrated delta history bugfix
+
+on:
+  push:
+    branches:
+      - fix/stage5-merge-integrated-delta-history
+    paths:
+      - .github/workflows/temp-stage5-merge-history-bugfix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/stage5-merge-integrated-delta-history
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Apply authorized maintenance bugfix
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --quiet pyyaml pytest ruff
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+          python - <<'PY'
+          from __future__ import annotations
+
+          import hashlib
+          from pathlib import Path
+
+          import yaml
+
+          SCRIPT = Path('scripts/handoff_authority.py')
+          LEDGER = Path('docs/governance_pipeline_stage_status.yaml')
+          AUTH_ID = 'GOV-STAGE5-MERGE-INTEGRATED-DELTA-HISTORY-BUGFIX-2026-07-14'
+          AUTH_PATH = Path('docs/governance_stage_authorizations') / f'{AUTH_ID}.yaml'
+          TEST_PATH = Path('tests/test_handoff_authority_merge_history.py')
+
+          text = SCRIPT.read_text(encoding='utf-8')
+          anchor = '''def _first_parent_positions(repo_root: Path, activation: str, head: str) -> dict[str, int]:
+              commits = _git_text(
+                  repo_root, "rev-list", "--first-parent", "--reverse", f"{activation}..{head}"
+              ).splitlines()
+              return {commit: index for index, commit in enumerate(commits)}
+
+
+          def _discover_v3_deltas'''.replace('          ', '')
+          replacement = '''def _first_parent_positions(repo_root: Path, activation: str, head: str) -> dict[str, int]:
+              commits = _git_text(
+                  repo_root, "rev-list", "--first-parent", "--reverse", f"{activation}..{head}"
+              ).splitlines()
+              return {commit: index for index, commit in enumerate(commits)}
+
+
+          def _path_exists_at_commit(repo_root: Path, commit: str, relative: str) -> bool:
+              return _git(
+                  repo_root,
+                  "cat-file",
+                  "-e",
+                  f"{commit}:{relative}",
+                  check=False,
+              ).returncode == 0
+
+
+          def _first_parent_integration_commit(
+              repo_root: Path,
+              *,
+              positions: dict[str, int],
+              first_add: str,
+              relative: str,
+          ) -> str:
+              """Map a side-branch delta addition to its first-parent merge integration."""
+
+              ordered = sorted(positions, key=positions.__getitem__)
+              for commit in ordered:
+                  if _git(
+                      repo_root,
+                      "merge-base",
+                      "--is-ancestor",
+                      first_add,
+                      commit,
+                      check=False,
+                  ).returncode != 0:
+                      continue
+                  if not _path_exists_at_commit(repo_root, commit, relative):
+                      continue
+                  first_parent = _git_text(repo_root, "rev-parse", f"{commit}^1")
+                  if _path_exists_at_commit(repo_root, first_parent, relative):
+                      continue
+                  return commit
+              raise HandoffAuthorityError(
+                  "authoritative delta was not integrated on the first-parent history: "
+                  + relative
+              )
+
+
+          def _discover_v3_deltas'''.replace('          ', '')
+          if text.count(anchor) != 1:
+              raise SystemExit('first-parent helper anchor changed')
+          text = text.replace(anchor, replacement, 1)
+
+          old = '''        first_add = adds[0]
+                  if first_add not in positions:
+                      raise HandoffAuthorityError(f"authoritative delta was not added after activation: {relative}")
+                  report = path.parent / REPORT_FILENAME'''.replace('        ', '')
+          new = '''        first_add = adds[0]
+                  if first_add in positions:
+                      integration_commit = first_add
+                  else:
+                      integration_commit = _first_parent_integration_commit(
+                          repo_root,
+                          positions=positions,
+                          first_add=first_add,
+                          relative=relative,
+                      )
+                  report = path.parent / REPORT_FILENAME'''.replace('        ', '')
+          if text.count(old) != 1:
+              raise SystemExit('delta integration block changed')
+          text = text.replace(old, new, 1)
+          old_append = '        records.append((first_add, path, payload))'
+          new_append = '        records.append((integration_commit, path, payload))'
+          if text.count(old_append) != 1:
+              raise SystemExit('delta ordering append changed')
+          text = text.replace(old_append, new_append, 1)
+          SCRIPT.write_text(text, encoding='utf-8')
+
+          TEST_PATH.write_text(
+              '''from __future__ import annotations
+
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          ROOT = Path(__file__).resolve().parents[1]
+          sys.path.insert(0, str(ROOT / "scripts"))
+
+          import handoff_authority as authority  # noqa: E402
+
+
+          def _git(repo: Path, *args: str) -> str:
+              completed = subprocess.run(
+                  ["git", "-C", str(repo), *args],
+                  check=True,
+                  text=True,
+                  stdout=subprocess.PIPE,
+                  stderr=subprocess.PIPE,
+              )
+              return completed.stdout.strip()
+
+
+          def _commit(repo: Path, message: str) -> str:
+              _git(repo, "add", "-A")
+              _git(repo, "commit", "-m", message)
+              return _git(repo, "rev-parse", "HEAD")
+
+
+          def test_side_branch_delta_maps_to_first_parent_merge_commit(tmp_path: Path) -> None:
+              repo = tmp_path / "repo"
+              repo.mkdir()
+              _git(repo, "init", "-b", "main")
+              _git(repo, "config", "user.name", "Test")
+              _git(repo, "config", "user.email", "test@example.com")
+              (repo / "baseline.txt").write_text("base\\n", encoding="utf-8")
+              activation = _commit(repo, "activation")
+
+              _git(repo, "switch", "-c", "feature")
+              relative = "docs/handoff_deltas/EXAMPLE/HANDOFF_DELTA.yaml"
+              delta = repo / relative
+              delta.parent.mkdir(parents=True)
+              delta.write_text("schema_version: 3\\n", encoding="utf-8")
+              first_add = _commit(repo, "add delta")
+
+              _git(repo, "switch", "main")
+              (repo / "main.txt").write_text("main\\n", encoding="utf-8")
+              _commit(repo, "main work")
+              _git(repo, "merge", "--no-ff", "feature", "-m", "merge feature")
+              head = _git(repo, "rev-parse", "HEAD")
+
+              positions = authority._first_parent_positions(repo, activation, head)
+              assert first_add not in positions
+              assert authority._first_parent_integration_commit(
+                  repo,
+                  positions=positions,
+                  first_add=first_add,
+                  relative=relative,
+              ) == head
+          '''.replace('          ', ''),
+              encoding='utf-8',
+          )
+
+          script_hash = hashlib.sha256(SCRIPT.read_bytes()).hexdigest()
+          authorization = {
+              'schema_version': 1,
+              'authorization_id': AUTH_ID,
+              'kind': 'maintenance',
+              'change_class': 'bugfix',
+              'claim_id': 'GOV-STAGE5-MERGE-INTEGRATED-DELTA-HISTORY-BUGFIX-01',
+              'approval_record': (
+                  'user_approved_2026_07_14_register_and_merge_e7_squared_exp_result; '
+                  'registration exposed false rejection of immutable schema_v3 deltas integrated by GitHub merge commits'
+              ),
+              'base_commit': '9c49824558b1eb7f697f299b246a135ff35a2017',
+              'stage_ids': ['stage_5'],
+              'authorized_stage_statuses': {'stage_5': 'closed_maintenance_only'},
+              'authorized_file_hashes': {'scripts/handoff_authority.py': script_hash},
+              'scope': [
+                  'accept_an_immutable_schema_v3_delta_added_on_a_merged_side_branch_when_a_first_parent_merge_commit_integrates_the_path',
+                  'preserve_first_parent_ordering_by_mapping_the_side_branch_add_commit_to_the_unique_first_parent_integration_commit',
+                  'add_a_focused_git_history_regression_test',
+                  'update_only_the_exact_stage_5_hash_binding',
+              ],
+              'excluded_scope': [
+                  'change_schema_v3_delta_shape_or_registry_authority',
+                  'relax_delta_or_materialization_report_immutability',
+                  'allow_direct_handoff_edits_or_multiple_deltas_per_update',
+                  'modify_any_scientific_code_configuration_result_or_claim',
+              ],
+              'rollback_plan': [
+                  'revert_the_merge_integration_mapper_test_authorization_and_stage_ledger_hash_as_one_maintenance_change',
+                  'preserve_all_existing_delta_and_handoff_history',
+              ],
+              'remaining_uncertainties': [
+                  'octopus_merges_are_not_required_by_the_current_github_pr_workflow_and_are_not_separately_generalized',
+              ],
+          }
+          AUTH_PATH.write_text(
+              yaml.safe_dump(authorization, sort_keys=False, allow_unicode=True),
+              encoding='utf-8',
+          )
+
+          ledger_text = LEDGER.read_text(encoding='utf-8')
+          old_binding = '''    - path: scripts/handoff_authority.py
+                sha256: a6532ba4c1bb9c4af24d79f027267de518c3832b347dba47e8319dee7a3ebe2c
+                authorized_by: GOV-STAGE5-CLOSURE-2026-07-03'''.replace('    ', '')
+          new_binding = f'''    - path: scripts/handoff_authority.py
+                sha256: {script_hash}
+                authorized_by: {AUTH_ID}'''.replace('    ', '')
+          if ledger_text.count(old_binding) != 1:
+              raise SystemExit('stage 5 handoff authority binding changed')
+          LEDGER.write_text(ledger_text.replace(old_binding, new_binding, 1), encoding='utf-8')
+          PY
+
+          git add \
+            scripts/handoff_authority.py \
+            tests/test_handoff_authority_merge_history.py \
+            docs/governance_pipeline_stage_status.yaml \
+            docs/governance_stage_authorizations/GOV-STAGE5-MERGE-INTEGRATED-DELTA-HISTORY-BUGFIX-2026-07-14.yaml
+          git commit -m 'Fix Stage 5 merged-delta history validation'
+
+          python -m pytest -q \
+            tests/test_handoff_authority_merge_history.py \
+            tests/test_governance_pipeline_stage_status.py
+          python -m ruff check \
+            scripts/handoff_authority.py \
+            tests/test_handoff_authority_merge_history.py
+          python scripts/handoff_authority.py verify --repo-root . --json
+          python scripts/validate_governance_pipeline_stage_status.py --repo-root . --json
+
+          rm .github/workflows/temp-stage5-merge-history-bugfix.yml
+          git add -u .github/workflows/temp-stage5-merge-history-bugfix.yml
+          git commit -m 'Remove temporary Stage 5 bugfix workflow'
+          test -z "$(git status --porcelain=v1)"
+          git push origin HEAD:fix/stage5-merge-integrated-delta-history
