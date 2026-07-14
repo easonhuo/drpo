@@ -8,6 +8,7 @@ import json
 import os
 import subprocess
 import sys
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -20,7 +21,9 @@ from drpo.runtime_gpu_placement_autotune import (
     ADAPTER_ID,
     DEFAULT_REQUIRED_PHASES,
     PROBE_CONTRACT_VERSION,
+    GPUConcurrencyProbeResult,
     autotune_single_gpu_task_placement,
+    probe_same_gpu_concurrency,
 )
 from drpo.runtime_resource_autotune import (
     GIB,
@@ -59,8 +62,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--maximum-gpu-utilization-percent", type=float, default=20.0)
     parser.add_argument("--max-devices", type=int)
     parser.add_argument("--max-slots-per-gpu", type=int, default=8)
-    parser.add_argument("--single-probe-seconds", type=float, default=120.0)
-    parser.add_argument("--validation-probe-seconds", type=float, default=180.0)
+    parser.add_argument("--single-probe-seconds", type=float, default=240.0)
+    parser.add_argument("--validation-probe-seconds", type=float, default=300.0)
     parser.add_argument("--probe-budget-seconds", type=float, default=600.0)
     parser.add_argument("--probe-free-floor-gib", type=float, default=4.0)
     parser.add_argument("--meminfo", default="/proc/meminfo")
@@ -163,6 +166,20 @@ def _workload_fingerprint(args: argparse.Namespace) -> dict[str, Any]:
     }
 
 
+def _phase_peak_probe_runner(**kwargs: Any) -> GPUConcurrencyProbeResult:
+    result = probe_same_gpu_concurrency(**kwargs)
+    reported_peak = max(
+        (
+            resource_probe.reported_peak_from_state(path)
+            for path in result.phase_evidence_paths
+        ),
+        default=0,
+    )
+    if reported_peak <= result.peak_incremental_vram_bytes:
+        return result
+    return replace(result, peak_incremental_vram_bytes=reported_peak)
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     repo = Path(__file__).resolve().parents[1]
@@ -198,7 +215,7 @@ def main(argv: list[str] | None = None) -> int:
     runtime_args.gpus = ",".join(static_ids)
     runtime_args.calibration_gpu = static_ids[0]
 
-    def command_factory(worker_index: int, worker_root: Path) -> list[str]:
+    def command_factory(_worker_index: int, worker_root: Path) -> list[str]:
         return resource_probe.resource_probe_command(
             args=runtime_args,
             cell=representative,
@@ -232,6 +249,7 @@ def main(argv: list[str] | None = None) -> int:
         required_free_floor_bytes=int(args.probe_free_floor_gib * GIB),
         nvidia_smi=args.nvidia_smi,
         required_probe_phases=DEFAULT_REQUIRED_PHASES,
+        probe_runner=_phase_peak_probe_runner,
     )
     selected_ids = [
         str(value) for value in document["selection"]["selected_device_ids"]
