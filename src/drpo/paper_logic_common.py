@@ -79,6 +79,35 @@ def approval(row: dict[str, Any], context: str) -> None:
     text(value, "approved_at", f"{context}.approval")
 
 
+def _markdown_entry(markdown: str, selector: str, *, exact: bool) -> dict[str, str]:
+    lines = markdown.splitlines()
+    matches = [
+        index
+        for index, line in enumerate(lines)
+        if (line == selector if exact else line.startswith(selector))
+    ]
+    if len(matches) != 1:
+        raise GateError(f"expected exactly one Markdown section for {selector}, found {len(matches)}")
+    start = matches[0]
+    heading = lines[start]
+    level = len(heading) - len(heading.lstrip("#"))
+    end = len(lines)
+    for index in range(start + 1, len(lines)):
+        line = lines[index]
+        if not line.startswith("#"):
+            continue
+        candidate_level = len(line) - len(line.lstrip("#"))
+        if candidate_level <= level and line[candidate_level : candidate_level + 1] == " ":
+            end = index
+            break
+    section = "\n".join(lines[start:end]).rstrip() + "\n"
+    return {
+        "heading": heading,
+        "text": section,
+        "sha256": hashlib.sha256(section.encode("utf-8")).hexdigest(),
+    }
+
+
 def load_policy(repo: Path, path: Path) -> dict[str, Any]:
     policy = read_yaml(path)
     if policy.get("schema_version") != 1 or policy.get("initiative") != INITIATIVE:
@@ -91,7 +120,8 @@ def load_policy(repo: Path, path: Path) -> dict[str, Any]:
     if not isinstance(levels, dict) or set(levels) != LEVELS:
         raise GateError("policy must define wording, paragraph, and section exactly")
     guidance_text = guidance.read_text(encoding="utf-8")
-    playbook_lines = {line.strip() for line in playbook.read_text(encoding="utf-8").splitlines()}
+    playbook_text = playbook.read_text(encoding="utf-8")
+    resolved_levels: dict[str, Any] = {}
     for level, contract in levels.items():
         if not isinstance(contract, dict):
             raise GateError(f"policy level {level} must be a mapping")
@@ -103,11 +133,30 @@ def load_policy(repo: Path, path: Path) -> dict[str, Any]:
                 f"policy level {level} required_artifacts changed: "
                 f"{required} != {EXPECTED_ARTIFACTS[level]}"
             )
-        missing_rules = [rule for rule in rules if f"### {rule}." not in guidance_text]
-        missing_modules = [module for module in modules if module not in playbook_lines]
-        if missing_rules or missing_modules:
-            raise GateError(
-                f"policy level {level} has missing references: "
-                f"rules={missing_rules} modules={missing_modules}"
-            )
+        resolved_rules = []
+        for rule in rules:
+            entry = _markdown_entry(guidance_text, f"### {rule}.", exact=False)
+            resolved_rules.append({"id": rule, **entry})
+        resolved_modules = [
+            _markdown_entry(playbook_text, module, exact=True) for module in modules
+        ]
+        resolved_levels[level] = {
+            "guidance_rules": resolved_rules,
+            "playbook_modules": resolved_modules,
+        }
+    policy["_source_binding"] = {
+        "policy": {
+            "path": path.relative_to(repo.resolve()).as_posix(),
+            "sha256": digest(path),
+        },
+        "guidance": {
+            "path": guidance.relative_to(repo.resolve()).as_posix(),
+            "sha256": digest(guidance),
+        },
+        "playbook": {
+            "path": playbook.relative_to(repo.resolve()).as_posix(),
+            "sha256": digest(playbook),
+        },
+    }
+    policy["_resolved_levels"] = resolved_levels
     return policy
