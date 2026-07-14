@@ -11,10 +11,11 @@ scientific variables.
 - **Historical E8 GPU path (`GOV-RUNTIME-RESOURCE-AUTOTUNE-01`):** filters visible,
   idle, sufficiently free devices and remains the conservative one-process-per-GPU
   implementation.
-- **Phase-aware E8 placement (`GOV-RUNTIME-GPU-PLACEMENT-AUTOTUNE-02`):** runs a
-  resource-equivalent workload envelope and accepts `slots_per_gpu` only after every
-  concurrent worker completes the required training and maximum-shape evaluation
-  phases.
+- **Measured-CPU phase-aware E8 placement
+  (`GOV-RUNTIME-GPU-PLACEMENT-AUTOTUNE-02`):** runs a resource-equivalent workload
+  envelope and accepts `slots_per_gpu` only after every concurrent worker completes
+  the required training and maximum-shape evaluation phases, exits zero, and leaves
+  no process-group descendants.
 
 Neither path selects DDP, tensor parallelism, FSDP, batch size, precision, or
 multi-node topology. Existing scientific configs and fixed launchers remain
@@ -46,6 +47,8 @@ Default controls:
 --host-memory-headroom-fraction 0.15
 --per-worker-host-memory-safety-factor 1.25
 --cpu-fraction 0.85
+--per-worker-cpu-safety-factor 1.5
+--minimum-cpu-cores-per-worker 1.0
 --per-worker-vram-safety-factor 1.25
 --max-slots-per-gpu 8
 --single-probe-seconds 240
@@ -58,7 +61,7 @@ Default controls:
 host value is a minimum; measured process-tree RSS with safety factor may impose a
 larger reservation.
 
-## Phase-complete probe
+## Phase-complete and clean-exit probe
 
 The dedicated Countdown resource worker preserves the real training and generation
 shapes while reducing only outer repetition. Every worker must emit:
@@ -79,13 +82,32 @@ the probe.
 
 Model loading or timed liveness alone is insufficient. A phase-incomplete
 single-worker probe records a failed selection and stops before the scientific
-scheduler. A higher candidate that misses any phase is rejected and the selector
-backs off within the ten-minute global budget.
+scheduler. After `probe_complete`, each worker must exit zero inside the bounded
+grace interval and its full process group must disappear. Controller SIGTERM/SIGKILL
+cleanup is recorded as a failed candidate rather than a clean exit.
 
 The parent observes total GPU free-memory changes, while each worker also records
 CUDA peak allocated/reserved memory for its completed phases. Capacity derivation
 uses the larger single-worker value, preventing a short peak between `nvidia-smi`
 polls from being ignored.
+
+## Measured CPU capacity
+
+Raw one-minute load average is retained as diagnostic provenance only. It is not
+subtracted as an already-consumed worker count.
+
+The selector measures:
+
+- process-tree CPU seconds and average worker CPU cores during the real envelope;
+- process-visible system busy cores from per-CPU `/proc/stat` deltas;
+- estimated external CPU occupancy after subtracting the probe worker's demand;
+- projected worker demand across the complete selected GPU pool during candidate
+  validation.
+
+`iowait` is not charged as busy compute execution. A candidate passes the CPU gate
+only when measured external occupancy plus projected full-pool worker demand remains
+within `logical_cpu_count * cpu_fraction`. The same measured capacity model is used
+for cache revalidation.
 
 ## Artifacts
 
@@ -97,19 +119,21 @@ RUNTIME_SLOTS.json
 _runtime_resource_probe/e8_gpu_placement/
 ```
 
-The selection records schema version 2, probe contract, required/completed phases,
-archived phase-state files, VRAM and host-memory peaks, capacity limits, candidate
-outcomes, exact placement, and `scientific_matrix_changed: false`.
+The selection records schema version 3, selector policy version 2, probe contract,
+required/completed phases, worker return codes, controller-intervention status,
+archived phase-state files, VRAM/host-memory/CPU measurements, capacity limits,
+candidate outcomes, exact placement, and `scientific_matrix_changed: false`.
 
-Selections created by the old liveness-only probe are not reusable because the
-resource-probe source hash and phase-aware workload fingerprint differ.
+Selections created by either the old liveness-only probe or the raw-load-average
+selector are not reusable because the selector implementation hash, policy version,
+policy fingerprint, and workload fingerprint differ.
 
 ## Failure and rollback
 
-The auto entrypoint fails closed on malformed identity, missing phases, invalid
-placement, missing resources, heterogeneous GPUs, OOM, or unsafe capacity. It does
-not change methods, seeds, model settings, batch shapes, horizons, or scientific
-evaluation.
+The auto entrypoint fails closed on malformed identity, missing phases, unclean
+worker exit, invalid placement, missing resources, heterogeneous GPUs, OOM, or unsafe
+VRAM/RAM/CPU capacity. It does not change methods, seeds, model settings, batch
+shapes, horizons, or scientific evaluation.
 
 Rollback is immediate: stop invoking the auto entrypoint and use the unchanged fixed
 runtime or historical conservative path. Preserve all probe evidence.
@@ -119,15 +143,17 @@ runtime or historical conservative path. Preserve all probe evidence.
 ```bash
 python -m py_compile \
   src/drpo/runtime_gpu_placement_autotune.py \
+  src/drpo/runtime_gpu_placement_autotune_v2.py \
   src/drpo/countdown_e8_oracle_offline_v2_taper_resource_probe.py \
   src/drpo/countdown_e8_oracle_offline_v2_taper_slot_runtime.py \
   scripts/run_countdown_e8_oracle_offline_v2_taper_auto.py
 
 pytest -q \
   tests/test_runtime_gpu_placement_autotune.py \
+  tests/test_runtime_gpu_placement_autotune_v2.py \
   tests/test_countdown_e8_taper_resource_probe.py \
   tests/test_e8_gpu_placement_auto_cli.py
 ```
 
-Tests and CI are engineering evidence only. Exact-head real-H20 shadow acceptance is
-still required before merge or default use.
+Tests and CI are engineering evidence only. Exact-head real-H20 shadow acceptance
+with an actual candidate above one is still required before merge or default use.
