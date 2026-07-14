@@ -9,6 +9,7 @@
 5. `docs/manuscript/RL_WRITING_CORPUS_NOTES.md` records source reading and retained or rejected techniques.
 6. `docs/manuscript/paper_graph.yaml` is the stable-ID reconciliation source for outline, blueprint, prose, appendix, TeX, figures, tables, PDF, and Overleaf package.
 7. `docs/manuscript/PAPER_WRITING_OPTIMIZATION_ITERATION_LOG.md` records manuscript-process incidents, approved optimization designs, cost budgets, implementation status, and measured outcomes. It is an engineering iteration record, not a scientific or writing-rule authority.
+8. `docs/manuscript/PAPER_WRITING_LOGIC_FIRST_SPEC.md` defines the current opt-in logic-first authoring gate. `paper_logic_gate_policy.yaml` selects the Guidance rules, Playbook modules, and required artifacts for each edit level.
 
 ## Current review candidate
 
@@ -36,6 +37,19 @@ python scripts/paper_pipeline.py all --repo-root . \
 
 A semantic change is made through a stable block's structured metadata or an explicit delta. Wording-only prose changes remain local. Conflicting edits stop the pipeline.
 
+## Logic-first opt-in preflight
+
+Phase A is an authorization preflight and does not replace the existing pipeline:
+
+```bash
+python scripts/paper_logic_gate.py --repo-root . plan \
+  --edit-level paragraph --section-id INTRO --paragraph-id INTRO-P02
+python scripts/paper_logic_gate.py --repo-root . validate \
+  --manifest path/to/authoring_manifest.yaml
+```
+
+See `docs/manuscript/PAPER_WRITING_LOGIC_FIRST_SPEC.md`.
+
 ## Validation
 
 ```bash
@@ -48,6 +62,7 @@ python scripts/manuscript_cascade.py validate-issue \
 pytest -q tests/test_paper_pipeline.py \
   tests/test_manuscript_guidance_review.py \
   tests/test_manuscript_live_hierarchy.py
+pytest -q tests/test_paper_logic_gate.py
 ```
 
 ## Evidence-first Core pipeline
