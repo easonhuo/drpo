@@ -19,6 +19,15 @@ REPRESENTATIVE_ACTOR_MODE = "ppo_clip_kl_k16"
 _ORIGINAL_SELECT_RUNTIME = legacy.select_runtime
 _ORIGINAL_REVALIDATE_RUNTIME = legacy.revalidate_runtime
 _ORIGINAL_CLEANUP = legacy._cleanup_probe_payload  # noqa: SLF001
+_ORIGINAL_SELECTOR_IMPLEMENTATION = legacy._selector_implementation_identity  # noqa: SLF001
+
+
+def _selector_implementation_identity(repo_root: str | Path) -> dict[str, str]:
+    values = dict(_ORIGINAL_SELECTOR_IMPLEMENTATION(repo_root))
+    values["e7_squared_exp_night_runtime_autotune.py"] = legacy._file_sha256(  # noqa: SLF001
+        Path(__file__).resolve()
+    )
+    return values
 
 
 class _PilotProxy:
@@ -198,6 +207,7 @@ def _installed_adapter() -> Iterator[None]:
         legacy._representative,  # noqa: SLF001
         legacy.resource_fingerprint,
         legacy._cleanup_probe_payload,  # noqa: SLF001
+        legacy._selector_implementation_identity,  # noqa: SLF001
     )
     legacy.pilot = PROXY
     legacy.ADAPTER_ID = ADAPTER_ID
@@ -207,6 +217,9 @@ def _installed_adapter() -> Iterator[None]:
     legacy._representative = _representative  # noqa: SLF001
     legacy.resource_fingerprint = resource_fingerprint
     legacy._cleanup_probe_payload = _cleanup_probe_payload  # noqa: SLF001
+    legacy._selector_implementation_identity = (  # noqa: SLF001
+        _selector_implementation_identity
+    )
     try:
         yield
     finally:
@@ -219,6 +232,7 @@ def _installed_adapter() -> Iterator[None]:
             legacy._representative,  # noqa: SLF001
             legacy.resource_fingerprint,
             legacy._cleanup_probe_payload,  # noqa: SLF001
+            legacy._selector_implementation_identity,  # noqa: SLF001
         ) = previous
 
 
