@@ -56,13 +56,15 @@ jobs:
             texlive-fonts-recommended texlive-science
 
       - name: Compile and validate PDF
+        id: compile
+        continue-on-error: true
         working-directory: paper/overleaf
         shell: bash
         run: |
-          set -euo pipefail
-          latexmk -pdf -interaction=nonstopmode -halt-on-error main_replacement.tex
+          set -o pipefail
+          latexmk -pdf -interaction=nonstopmode -halt-on-error main_replacement.tex 2>&1 | tee /tmp/latexmk-output.log
           test -s main_replacement.pdf
-          pdfinfo main_replacement.pdf
+          pdfinfo main_replacement.pdf | tee /tmp/pdfinfo.txt
           pdftotext main_replacement.pdf /tmp/main_replacement.txt
           grep -q 'Breaking the Curse of Repulsion' /tmp/main_replacement.txt
           if grep -E 'Citation .* undefined|There were undefined references|There were undefined citations' main_replacement.log; then
@@ -74,6 +76,29 @@ jobs:
             exit 1
           fi
 
+      - name: Collect build diagnostics
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p paper/build_diagnostics
+          cp /tmp/latexmk-output.log paper/build_diagnostics/ 2>/dev/null || true
+          cp /tmp/pdfinfo.txt paper/build_diagnostics/ 2>/dev/null || true
+          cp paper/overleaf/main_replacement.log paper/build_diagnostics/ 2>/dev/null || true
+          cp paper/overleaf/main_replacement.blg paper/build_diagnostics/ 2>/dev/null || true
+
+      - name: Upload build diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: DRPO_PAPER_BUILD_DIAGNOSTICS
+          path: paper/build_diagnostics
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Stop after compile failure
+        if: steps.compile.outcome != 'success'
+        run: exit 1
+
       - name: Stage verified release and clean temporary bootstrap files
         shell: bash
         run: |
@@ -83,6 +108,7 @@ jobs:
           rm -f paper/upload_payload/main_replacement.tex.gz.b64
           rm -f paper/upload_payload/chunk_*.txt
           rmdir paper/upload_payload 2>/dev/null || true
+          rm -rf paper/build_diagnostics
           rm -f .github/workflows/materialize-uploaded-paper.yml
 
       - name: Upload verified PDF artifact
