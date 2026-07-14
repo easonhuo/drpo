@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Opt-in E8 taper runner with bounded automatic GPU slot placement."""
+"""Opt-in E8 taper runner with bounded phase-aware automatic GPU placement."""
 from __future__ import annotations
 
 import argparse
@@ -13,10 +13,13 @@ from typing import Any
 
 import yaml
 
+from drpo import countdown_e8_oracle_offline_v2_taper_resource_probe as resource_probe
 from drpo import countdown_e8_oracle_offline_v2_taper_runtime as legacy_runtime
 from drpo import countdown_e8_oracle_offline_v2_taper_slot_runtime as slot_runtime
 from drpo.runtime_gpu_placement_autotune import (
     ADAPTER_ID,
+    DEFAULT_REQUIRED_PHASES,
+    PROBE_CONTRACT_VERSION,
     autotune_single_gpu_task_placement,
 )
 from drpo.runtime_resource_autotune import (
@@ -49,17 +52,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--gpu-memory-headroom-fraction", type=float, default=0.12)
     parser.add_argument("--host-memory-headroom-fraction", type=float, default=0.15)
     parser.add_argument(
-        "--per-worker-host-memory-safety-factor",
-        type=float,
-        default=1.25,
+        "--per-worker-host-memory-safety-factor", type=float, default=1.25
     )
-    parser.add_argument("--cpu-fraction", type=float, default=0.85)
     parser.add_argument("--per-worker-vram-safety-factor", type=float, default=1.25)
+    parser.add_argument("--cpu-fraction", type=float, default=0.85)
     parser.add_argument("--maximum-gpu-utilization-percent", type=float, default=20.0)
     parser.add_argument("--max-devices", type=int)
     parser.add_argument("--max-slots-per-gpu", type=int, default=8)
-    parser.add_argument("--single-probe-seconds", type=float, default=90.0)
-    parser.add_argument("--validation-probe-seconds", type=float, default=120.0)
+    parser.add_argument("--single-probe-seconds", type=float, default=120.0)
+    parser.add_argument("--validation-probe-seconds", type=float, default=180.0)
     parser.add_argument("--probe-budget-seconds", type=float, default=600.0)
     parser.add_argument("--probe-free-floor-gib", type=float, default=4.0)
     parser.add_argument("--meminfo", default="/proc/meminfo")
@@ -142,7 +143,7 @@ def _ensure_calibration(args: argparse.Namespace, *, gpu_id: str) -> Path:
 
 def _workload_fingerprint(args: argparse.Namespace) -> dict[str, Any]:
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "experiment_id": legacy_runtime.EXPERIMENT_ID,
         "model_path": str(Path(args.model_path).resolve()),
         "bank_sha256": legacy_runtime.sha256_file(args.bank),
@@ -154,6 +155,9 @@ def _workload_fingerprint(args: argparse.Namespace) -> dict[str, Any]:
         "base_config_sha256": legacy_runtime.sha256_file(args.base_config),
         "sweep_config_sha256": legacy_runtime.sha256_file(args.sweep_config),
         "worker_runtime_sha256": legacy_runtime.sha256_file(legacy_runtime.__file__),
+        "resource_probe_sha256": legacy_runtime.sha256_file(resource_probe.__file__),
+        "probe_contract_version": PROBE_CONTRACT_VERSION,
+        "required_probe_phases": list(DEFAULT_REQUIRED_PHASES),
         "placement_topology": "one_gpu_per_independent_task",
         "scientific_matrix_changed": False,
     }
@@ -195,10 +199,10 @@ def main(argv: list[str] | None = None) -> int:
     runtime_args.calibration_gpu = static_ids[0]
 
     def command_factory(worker_index: int, worker_root: Path) -> list[str]:
-        return legacy_runtime.worker_command(
+        return resource_probe.resource_probe_command(
             args=runtime_args,
             cell=representative,
-            output_dir=worker_root / f"probe_cell_{worker_index:02d}",
+            output_dir=worker_root,
             calibration=calibration_path,
         )
 
@@ -227,6 +231,7 @@ def main(argv: list[str] | None = None) -> int:
         probe_budget_seconds=args.probe_budget_seconds,
         required_free_floor_bytes=int(args.probe_free_floor_gib * GIB),
         nvidia_smi=args.nvidia_smi,
+        required_probe_phases=DEFAULT_REQUIRED_PHASES,
     )
     selected_ids = [
         str(value) for value in document["selection"]["selected_device_ids"]
@@ -237,6 +242,7 @@ def main(argv: list[str] | None = None) -> int:
         json.dumps(
             {
                 "adapter_id": ADAPTER_ID,
+                "probe_contract_version": PROBE_CONTRACT_VERSION,
                 "runtime_selection": str(work_dir / "RUNTIME_SELECTION.json"),
                 "selected_device_ids": selected_ids,
                 "slots_per_gpu": document["selection"]["slots_per_gpu"],
