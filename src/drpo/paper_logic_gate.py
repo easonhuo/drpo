@@ -162,6 +162,8 @@ def validate_manifest(
         "selected_guidance_rules": contract["guidance_rules"],
         "selected_playbook_modules": contract["playbook_modules"],
         "required_artifacts": contract["required_artifacts"],
+        "policy_source_binding": policy["_source_binding"],
+        "writing_contract": policy["_resolved_levels"][level],
         "validated_node_count": len(mapping),
         "candidate_status": candidate_status,
         "authorized_by": approved_by,
@@ -182,6 +184,8 @@ def plan(
         "selected_guidance_rules": contract["guidance_rules"],
         "selected_playbook_modules": contract["playbook_modules"],
         "required_artifacts": contract["required_artifacts"],
+        "policy_source_binding": policy["_source_binding"],
+        "writing_contract": policy["_resolved_levels"][level],
         "invalidation_scope": invalidation(level, section_id, paragraph_ids),
     }
 
