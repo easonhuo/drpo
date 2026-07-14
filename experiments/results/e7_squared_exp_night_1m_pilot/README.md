@@ -14,3 +14,7 @@ The run reports local launch commit `fbafb44c2e562ed93f6f63b43e8c5439b881d6a8`. 
 - Frequent KL-triggered refreshes produced an average realized reference lifespan of about four updates; the result supports adaptive refresh timing, not a claim that a fixed longer K is superior.
 - Stage C GAE started zero branches and remains blocked pending a verified trajectory/terminal/truncation contract.
 - Hopper/Walker are external-validity tasks and do not replace C-U1 or D-U1 controlled mechanism evidence.
+
+## Repository integration
+
+The implementation commit is pinned by both RunSpecs, and the schema-v3 delta plus materialization report were added together in one immutable registration commit on the PR branch. The compact archive is therefore merge-ready subject to the exact-head repository gate; the scientific status remains `pilot`.
