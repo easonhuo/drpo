@@ -1,7 +1,8 @@
-"""Bounded GPU placement autotuning for independent single-GPU tasks."""
+"""Bounded phase-aware GPU placement autotuning for independent single-GPU tasks."""
 from __future__ import annotations
 
 import dataclasses
+import json
 import math
 import os
 import shutil
@@ -24,6 +25,14 @@ from drpo.runtime_resource_autotune import (
 )
 
 ADAPTER_ID = "single_gpu_independent_task_placement_v1"
+PROBE_CONTRACT_VERSION = 2
+PROBE_STATE_FILENAME = "PROBE_PHASES.json"
+DEFAULT_REQUIRED_PHASES = (
+    "model_loaded",
+    "training_peak_completed",
+    "evaluation_peak_completed",
+    "probe_complete",
+)
 OOM_SIGNATURES = (
     "cuda out of memory",
     "outofmemoryerror",
@@ -48,13 +57,22 @@ class GPUConcurrencyProbeResult:
     minimum_free_vram_bytes: int
     peak_incremental_vram_bytes: int
     peak_host_rss_bytes: int
+    required_phases: tuple[str, ...]
+    completed_phases_by_worker: tuple[tuple[str, ...], ...]
+    phase_contract_satisfied: bool
     log_paths: tuple[str, ...]
+    phase_evidence_paths: tuple[str, ...]
     reason: str
 
     def as_dict(self) -> dict[str, Any]:
         payload = dataclasses.asdict(self)
         payload["worker_returncodes"] = list(self.worker_returncodes)
+        payload["required_phases"] = list(self.required_phases)
+        payload["completed_phases_by_worker"] = [
+            list(phases) for phases in self.completed_phases_by_worker
+        ]
         payload["log_paths"] = list(self.log_paths)
+        payload["phase_evidence_paths"] = list(self.phase_evidence_paths)
         return payload
 
 
@@ -102,6 +120,42 @@ def _logs_contain_oom(paths: Sequence[Path]) -> bool:
     return False
 
 
+def _phase_snapshot(
+    worker_roots: Sequence[Path], *, required_phases: Sequence[str]
+) -> tuple[tuple[tuple[str, ...], ...], bool]:
+    required = tuple(str(value) for value in required_phases)
+    completed: list[tuple[str, ...]] = []
+    all_satisfied = bool(worker_roots)
+    for worker_root in worker_roots:
+        path = worker_root / PROBE_STATE_FILENAME
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError, TypeError):
+            completed.append(())
+            all_satisfied = False
+            continue
+        phases = tuple(str(value) for value in payload.get("completed_phases", []))
+        completed.append(phases)
+        contract_ok = payload.get("contract_version") == PROBE_CONTRACT_VERSION
+        declared = tuple(str(value) for value in payload.get("required_phases", []))
+        phases_ok = declared == required and all(phase in phases for phase in required)
+        complete_ok = payload.get("complete") is True
+        all_satisfied = all_satisfied and contract_ok and phases_ok and complete_ok
+    return tuple(completed), all_satisfied
+
+
+def _archive_phase_evidence(root: Path, worker_roots: Sequence[Path]) -> tuple[str, ...]:
+    paths: list[str] = []
+    for index, worker_root in enumerate(worker_roots):
+        source = worker_root / PROBE_STATE_FILENAME
+        if not source.is_file():
+            continue
+        target = root / f"worker_{index:02d}.phases.json"
+        shutil.copy2(source, target)
+        paths.append(str(target))
+    return tuple(paths)
+
+
 def probe_same_gpu_concurrency(
     *,
     device_id: str,
@@ -117,11 +171,16 @@ def probe_same_gpu_concurrency(
     required_free_floor_bytes: int = 0,
     terminate_grace_seconds: float = 15.0,
     working_directory: str | Path | None = None,
+    required_phases: Sequence[str] = DEFAULT_REQUIRED_PHASES,
 ) -> GPUConcurrencyProbeResult:
-    """Run a bounded same-GPU liveness and memory probe."""
+    """Run a bounded same-GPU probe that must complete the declared phase contract."""
 
+    required = tuple(str(value) for value in required_phases)
     if concurrency < 1 or sample_seconds <= 0 or poll_interval_seconds <= 0:
         raise RuntimeResourceError("GPU probe concurrency and durations must be positive")
+    if not required or len(required) != len(set(required)):
+        raise RuntimeResourceError("required probe phases must be non-empty and unique")
+
     root = Path(log_dir).resolve()
     root.mkdir(parents=True, exist_ok=True)
     cwd = Path(working_directory).resolve() if working_directory else Path.cwd()
@@ -140,6 +199,9 @@ def probe_same_gpu_concurrency(
     global_deadline_reached = False
     observed_returncodes: tuple[int | None, ...] = ()
     elapsed_before_cleanup = 0.0
+    completed_phases: tuple[tuple[str, ...], ...] = ()
+    phase_contract_satisfied = False
+    phase_evidence_paths: tuple[str, ...] = ()
 
     try:
         for worker_index in range(concurrency):
@@ -154,9 +216,7 @@ def probe_same_gpu_concurrency(
             handle = log_path.open("w", encoding="utf-8")
             handles.append(handle)
             try:
-                command = [
-                    str(item) for item in command_factory(worker_index, worker_root)
-                ]
+                command = [str(item) for item in command_factory(worker_index, worker_root)]
                 worker_environment = dict(os.environ)
                 if environment:
                     worker_environment.update(
@@ -187,11 +247,6 @@ def probe_same_gpu_concurrency(
 
         sample_deadline = min(started + sample_seconds, global_deadline_monotonic)
         while launch_error is None and len(processes) == concurrency:
-            now = time.monotonic()
-            if now >= sample_deadline:
-                sample_completed = now >= started + sample_seconds
-                global_deadline_reached = now >= global_deadline_monotonic
-                break
             minimum_free = min(
                 minimum_free,
                 _gpu_free_bytes(device_id, nvidia_smi=nvidia_smi),
@@ -200,16 +255,34 @@ def probe_same_gpu_concurrency(
                 peak_host_rss,
                 sum(process_tree_rss(process.pid) for process in processes),
             )
+            completed_phases, phase_contract_satisfied = _phase_snapshot(
+                worker_roots,
+                required_phases=required,
+            )
+            if phase_contract_satisfied:
+                sample_completed = True
+                break
+
             returncodes = [process.poll() for process in processes]
             if any(code is not None and code != 0 for code in returncodes):
                 nonzero_seen = True
                 break
             if all(code == 0 for code in returncodes):
-                sample_completed = True
+                break
+
+            now = time.monotonic()
+            if now >= sample_deadline:
+                global_deadline_reached = now >= global_deadline_monotonic
                 break
             time.sleep(poll_interval_seconds)
+
         elapsed_before_cleanup = time.monotonic() - started
         observed_returncodes = tuple(process.poll() for process in processes)
+        completed_phases, phase_contract_satisfied = _phase_snapshot(
+            worker_roots,
+            required_phases=required,
+        )
+        phase_evidence_paths = _archive_phase_evidence(root, worker_roots)
     finally:
         _stop_processes(processes, grace_seconds=terminate_grace_seconds)
         for handle in handles:
@@ -227,6 +300,7 @@ def probe_same_gpu_concurrency(
         )
     except RuntimeResourceError:
         pass
+
     oom_detected = _logs_contain_oom(log_paths)
     lived_long_enough = elapsed_before_cleanup >= minimum_live_seconds
     floor_ok = minimum_free >= max(0, int(required_free_floor_bytes))
@@ -242,6 +316,7 @@ def probe_same_gpu_concurrency(
         and not oom_detected
         and floor_ok
         and not global_deadline_reached
+        and phase_contract_satisfied
     )
     if launch_error:
         reason = f"launch_failure:{launch_error}"
@@ -255,12 +330,14 @@ def probe_same_gpu_concurrency(
         reason = "free_vram_floor_crossed"
     elif global_deadline_reached:
         reason = "global_probe_deadline_reached"
+    elif not phase_contract_satisfied:
+        reason = "required_probe_phases_incomplete"
     elif not lived_long_enough:
         reason = "insufficient_live_interval"
     elif peak_host_rss <= 0:
         reason = "host_rss_not_observed"
     elif success:
-        reason = "bounded_concurrency_probe_passed"
+        reason = "phase_complete_concurrency_probe_passed"
     else:
         reason = "inconclusive_probe"
 
@@ -279,7 +356,11 @@ def probe_same_gpu_concurrency(
         minimum_free_vram_bytes=minimum_free,
         peak_incremental_vram_bytes=max(0, initial_free - minimum_free),
         peak_host_rss_bytes=peak_host_rss,
+        required_phases=required,
+        completed_phases_by_worker=completed_phases,
+        phase_contract_satisfied=phase_contract_satisfied,
         log_paths=tuple(str(path) for path in log_paths),
+        phase_evidence_paths=phase_evidence_paths,
         reason=reason,
     )
 
@@ -352,6 +433,19 @@ def _archive_selection(path: Path) -> None:
     )
 
 
+def _record_for_selected_slots(cached: Mapping[str, Any], slots: int) -> Mapping[str, Any] | None:
+    probe = cached.get("probe")
+    if not isinstance(probe, Mapping):
+        return None
+    records = probe.get("records")
+    if not isinstance(records, list):
+        return None
+    for record in records:
+        if isinstance(record, Mapping) and record.get("concurrency") == slots:
+            return record
+    return None
+
+
 def _cache_is_safe(
     cached: Mapping[str, Any],
     *,
@@ -361,7 +455,16 @@ def _cache_is_safe(
     cpu_worker_limit_total: int,
     gpu_memory_headroom_fraction: float,
     required_free_floor_bytes: int,
+    required_phases: Sequence[str],
 ) -> bool:
+    if cached.get("probe_contract_version") != PROBE_CONTRACT_VERSION:
+        return False
+    probe = cached.get("probe")
+    if not isinstance(probe, Mapping):
+        return False
+    if tuple(probe.get("required_phases", [])) != tuple(required_phases):
+        return False
+
     selection = cached.get("selection")
     if not isinstance(selection, Mapping):
         return False
@@ -374,6 +477,12 @@ def _cache_is_safe(
         or not isinstance(capacity, Mapping)
     ):
         return False
+    selected_record = _record_for_selected_slots(cached, slots)
+    if not isinstance(selected_record, Mapping) or selected_record.get(
+        "phase_contract_satisfied"
+    ) is not True:
+        return False
+
     total_workers = slots * len(active_ids)
     reserved_host = capacity.get("reserved_host_bytes_per_worker")
     reserved_vram = capacity.get("reserved_vram_bytes_per_worker")
@@ -421,13 +530,17 @@ def autotune_single_gpu_task_placement(
     probe_budget_seconds: float,
     required_free_floor_bytes: int,
     nvidia_smi: str = "nvidia-smi",
+    required_probe_phases: Sequence[str] = DEFAULT_REQUIRED_PHASES,
     probe_runner: Callable[..., GPUConcurrencyProbeResult] = probe_same_gpu_concurrency,
 ) -> dict[str, Any]:
     """Select and persist a uniform per-GPU slot count within a hard deadline."""
 
+    required_phases = tuple(str(value) for value in required_probe_phases)
     device_ids = [str(value) for value in selected_device_ids]
     if not device_ids or len(device_ids) != len(set(device_ids)) or total_tasks < 1:
         raise RuntimeResourceError("GPU ids must be non-empty and unique; tasks positive")
+    if not required_phases or len(required_phases) != len(set(required_phases)):
+        raise RuntimeResourceError("required probe phases must be non-empty and unique")
     if required_host_memory_bytes_per_worker < 1:
         raise RuntimeResourceError("host-memory floor per worker must be positive")
     if per_worker_host_memory_safety_factor < 1.0:
@@ -465,6 +578,8 @@ def autotune_single_gpu_task_placement(
     )
 
     policy = {
+        "probe_contract_version": PROBE_CONTRACT_VERSION,
+        "required_probe_phases": list(required_phases),
         "required_host_memory_bytes_per_worker": required_host_memory_bytes_per_worker,
         "host_memory_headroom_fraction": host_memory_headroom_fraction,
         "per_worker_host_memory_safety_factor": per_worker_host_memory_safety_factor,
@@ -502,6 +617,7 @@ def autotune_single_gpu_task_placement(
                 cpu_worker_limit_total=cpu_limit,
                 gpu_memory_headroom_fraction=gpu_memory_headroom_fraction,
                 required_free_floor_bytes=required_free_floor_bytes,
+                required_phases=required_phases,
             )
         ):
             cached["mode"] = "cached"
@@ -522,6 +638,7 @@ def autotune_single_gpu_task_placement(
         "nvidia_smi": nvidia_smi,
         "required_free_floor_bytes": required_free_floor_bytes,
         "working_directory": repo_root,
+        "required_phases": required_phases,
     }
     records: list[GPUConcurrencyProbeResult] = []
     checks: list[dict[str, Any]] = []
@@ -532,81 +649,113 @@ def autotune_single_gpu_task_placement(
         sample_seconds=single_probe_seconds,
     )
     records.append(single)
-    selected_slots = 1
-    active_ids = initial_ids
-    capacity: dict[str, int] | None = None
-    reason = "single_worker_probe_failed_fallback_one"
-
     if (
-        single.success
-        and single.peak_incremental_vram_bytes > 0
-        and single.peak_host_rss_bytes > 0
+        not single.success
+        or not single.phase_contract_satisfied
+        or single.peak_incremental_vram_bytes <= 0
+        or single.peak_host_rss_bytes <= 0
     ):
-        reserved_host = max(
-            required_host_memory_bytes_per_worker,
-            math.ceil(
-                single.peak_host_rss_bytes * per_worker_host_memory_safety_factor
-            ),
+        document = {
+            "schema_version": 2,
+            "adapter_id": ADAPTER_ID,
+            "probe_contract_version": PROBE_CONTRACT_VERSION,
+            "created_utc": utc_now(),
+            "mode": "failed",
+            "source": git_state(repo_root),
+            "machine_snapshot": machine.as_dict(),
+            "machine_static_sha256": machine_sha,
+            "workload_fingerprint": dict(workload_fingerprint),
+            "workload_fingerprint_sha256": workload_sha,
+            "selector_policy": policy,
+            "selector_policy_sha256": policy_sha,
+            "selection": None,
+            "probe": {
+                "elapsed_seconds": time.monotonic() - started,
+                "budget_seconds": probe_budget_seconds,
+                "required_phases": list(required_phases),
+                "records": [single.as_dict()],
+                "candidate_checks": [],
+            },
+            "scientific_matrix_changed": False,
+            "failure_reason": "single_worker_resource_envelope_incomplete",
+        }
+        atomic_write_json(selection_path, document)
+        raise RuntimeResourceError(
+            "single-worker GPU resource envelope did not complete all required phases"
         )
-        host_limit = usable_host // reserved_host
-        device_limit = min(len(device_ids), total_tasks, host_limit, cpu_limit)
-        if device_limit < 1:
-            raise RuntimeResourceError("measured worker cannot fit after host headroom")
-        active_ids = device_ids[:device_limit]
-        free_vram = min(inventory[item].memory_free_bytes for item in active_ids)
-        capacity = derive_slots_per_gpu(
-            free_vram_bytes=min(free_vram, single.initial_free_vram_bytes),
-            single_worker_peak_vram_bytes=single.peak_incremental_vram_bytes,
-            device_count=len(active_ids),
-            total_tasks=total_tasks,
-            host_worker_limit_total=host_limit,
-            cpu_worker_limit_total=cpu_limit,
-            gpu_memory_headroom_fraction=gpu_memory_headroom_fraction,
-            per_worker_vram_safety_factor=per_worker_vram_safety_factor,
-            max_slots_per_gpu=max_slots_per_gpu,
+
+    reserved_host = max(
+        required_host_memory_bytes_per_worker,
+        math.ceil(single.peak_host_rss_bytes * per_worker_host_memory_safety_factor),
+    )
+    host_limit = usable_host // reserved_host
+    device_limit = min(len(device_ids), total_tasks, host_limit, cpu_limit)
+    if device_limit < 1:
+        raise RuntimeResourceError("measured worker cannot fit after host headroom")
+    active_ids = device_ids[:device_limit]
+    free_vram = min(inventory[item].memory_free_bytes for item in active_ids)
+    capacity = derive_slots_per_gpu(
+        free_vram_bytes=min(free_vram, single.initial_free_vram_bytes),
+        single_worker_peak_vram_bytes=single.peak_incremental_vram_bytes,
+        device_count=len(active_ids),
+        total_tasks=total_tasks,
+        host_worker_limit_total=host_limit,
+        cpu_worker_limit_total=cpu_limit,
+        gpu_memory_headroom_fraction=gpu_memory_headroom_fraction,
+        per_worker_vram_safety_factor=per_worker_vram_safety_factor,
+        max_slots_per_gpu=max_slots_per_gpu,
+    )
+    capacity["single_worker_peak_host_rss_bytes"] = single.peak_host_rss_bytes
+    capacity["reserved_host_bytes_per_worker"] = reserved_host
+    capacity["host_worker_limit_total"] = host_limit
+    capacity["cpu_worker_limit_total"] = cpu_limit
+
+    selected_slots = 1
+    reason = "single_worker_resource_envelope_validated_only"
+    for candidate in bounded_backoff_candidates(capacity["candidate"]):
+        if candidate == 1:
+            break
+        if time.monotonic() >= deadline:
+            reason = "probe_budget_exhausted_fallback_one"
+            break
+        validation = probe_runner(
+            **common_probe,
+            concurrency=candidate,
+            log_dir=probe_root / f"validate_{candidate}",
+            sample_seconds=validation_probe_seconds,
         )
-        capacity["single_worker_peak_host_rss_bytes"] = single.peak_host_rss_bytes
-        capacity["reserved_host_bytes_per_worker"] = reserved_host
-        capacity["host_worker_limit_total"] = host_limit
-        capacity["cpu_worker_limit_total"] = cpu_limit
-        for candidate in bounded_backoff_candidates(capacity["candidate"]):
-            if candidate == 1:
-                reason = "single_worker_probe_validated_only"
-                break
-            if time.monotonic() >= deadline:
-                reason = "probe_budget_exhausted_fallback_one"
-                break
-            validation = probe_runner(
-                **common_probe,
-                concurrency=candidate,
-                log_dir=probe_root / f"validate_{candidate}",
-                sample_seconds=validation_probe_seconds,
-            )
-            records.append(validation)
-            projected_host = validation.peak_host_rss_bytes * len(active_ids)
-            host_ok = projected_host <= usable_host
-            cpu_ok = candidate * len(active_ids) <= cpu_limit
-            checks.append(
-                {
-                    "candidate": candidate,
-                    "probe_success": validation.success,
-                    "projected_host_rss_bytes": projected_host,
-                    "host_capacity_ok": host_ok,
-                    "cpu_capacity_ok": cpu_ok,
-                    "accepted": validation.success and host_ok and cpu_ok,
-                }
-            )
-            if validation.success and host_ok and cpu_ok:
-                selected_slots = candidate
-                reason = "highest_bounded_candidate_validated"
-                break
+        records.append(validation)
+        projected_host = validation.peak_host_rss_bytes * len(active_ids)
+        host_ok = projected_host <= usable_host
+        cpu_ok = candidate * len(active_ids) <= cpu_limit
+        phase_ok = validation.phase_contract_satisfied
+        accepted = validation.success and phase_ok and host_ok and cpu_ok
+        checks.append(
+            {
+                "candidate": candidate,
+                "probe_success": validation.success,
+                "phase_contract_satisfied": phase_ok,
+                "completed_phases_by_worker": [
+                    list(phases) for phases in validation.completed_phases_by_worker
+                ],
+                "projected_host_rss_bytes": projected_host,
+                "host_capacity_ok": host_ok,
+                "cpu_capacity_ok": cpu_ok,
+                "accepted": accepted,
+            }
+        )
+        if accepted:
+            selected_slots = candidate
+            reason = "highest_phase_complete_candidate_validated"
+            break
 
     slot_ids = [
         device_id for device_id in active_ids for _ in range(selected_slots)
     ][:total_tasks]
     document = {
-        "schema_version": 1,
+        "schema_version": 2,
         "adapter_id": ADAPTER_ID,
+        "probe_contract_version": PROBE_CONTRACT_VERSION,
         "created_utc": utc_now(),
         "mode": "auto",
         "source": git_state(repo_root),
@@ -628,6 +777,7 @@ def autotune_single_gpu_task_placement(
         "probe": {
             "elapsed_seconds": time.monotonic() - started,
             "budget_seconds": probe_budget_seconds,
+            "required_phases": list(required_phases),
             "records": [record.as_dict() for record in records],
             "candidate_checks": checks,
         },
