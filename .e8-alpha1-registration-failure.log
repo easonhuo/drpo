@@ -1,9 +1,0 @@
-[dev/e8-alpha1-c-scan-pilot c17a67d] Register EXT-C-E8 alpha1 c-scan pilot
- 4 files changed, 254 insertions(+), 2 deletions(-)
- create mode 100644 docs/experiments/E8_V2_ALPHA1_C_SCAN_PILOT.md
- create mode 100644 docs/handoff_deltas/EXT-C-E8-V2-ALPHA1-C-SCAN-REGISTRATION-2026-07-14/HANDOFF_DELTA.yaml
-From https://github.com/easonhuo/drpo
- * branch            main       -> FETCH_HEAD
-Preparing worktree (detached HEAD 9c49824)
-HEAD is now at 9c49824 Merge PR #52: EXT-H-E7-W0-HIGHC-ACTOR-01
-ERROR: authoritative delta was not added after activation: docs/handoff_deltas/EXT-H-E7-PPO-W0-EXP-GRID-REGISTRATION-2026-07-13/HANDOFF_DELTA.yaml
