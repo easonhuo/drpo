@@ -21,7 +21,9 @@ def validate_registration_block(spec: dict[str, Any]) -> dict[str, Any]:
     execution class, and it requires an immutable full commit SHA for provenance.
     """
 
-    raw = spec.get("registration") or {}
+    raw = spec.get("registration")
+    if raw is None:
+        raw = {}
     if not isinstance(raw, dict):
         raise RunSpecError("registration must be a mapping")
     mode = str(raw.get("mode") or PRE_REGISTERED)
