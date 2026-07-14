@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -42,7 +43,10 @@ def init_repo(tmp_path: Path) -> tuple[Path, str]:
     git(repo, "config", "user.email", "deferred@example.invalid")
     script = repo / "scripts" / "run.sh"
     script.parent.mkdir(parents=True)
-    script.write_text("#!/bin/sh\nset -eu\nmkdir -p outputs\necho '{}' > outputs/result.json\n")
+    script.write_text(
+        "#!/bin/sh\nset -eu\nmkdir -p outputs\necho '{}' > outputs/result.json\n",
+        encoding="utf-8",
+    )
     registry = repo / "experiments" / "registry.yaml"
     registry.parent.mkdir(parents=True)
     registry.write_text("experiments:\n- id: REGISTERED-ONLY\n", encoding="utf-8")
@@ -124,6 +128,28 @@ def test_deferred_registration_is_claimable_without_registry_entry(tmp_path: Pat
     claimed_spec = read_yaml(claimed)
     assert claimed_spec["registration"]["mode"] == DEFERRED
     assert claimed_spec["registration"]["closure_required"] is True
+
+
+def test_deferred_packaging_records_registration_timing(tmp_path: Path) -> None:
+    repo, commit = init_repo(tmp_path)
+    spec_path = write_spec(
+        repo,
+        commit,
+        run_id="DEFERRED-PACKAGE-1",
+        experiment_id="CODE-FIRST-EXP",
+        registration={"mode": DEFERRED},
+    )
+    output = repo / "outputs" / "result.json"
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text("{}\n", encoding="utf-8")
+
+    manifest = safety.package_artifacts_safe(repo, spec_path)
+    assert manifest["registration_mode"] == DEFERRED
+    assert manifest["registration_closure_required"] is True
+    manifest_path = repo / "runspec_artifacts" / "DEFERRED-PACKAGE-1_manifest.json"
+    persisted = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert persisted["registration_mode"] == DEFERRED
+    assert persisted["registration_closure_required"] is True
 
 
 def test_deferred_registration_requires_full_commit_sha() -> None:
