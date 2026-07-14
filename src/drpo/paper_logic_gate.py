@@ -83,6 +83,8 @@ def validate_manifest(
     if set(targets) - set(paragraph_ids):
         raise GateError("manifest targets unknown paragraph IDs")
     expected_paragraphs = [item for item in paragraph_ids if item in targets]
+    if targets != expected_paragraphs:
+        raise GateError("manifest targets must follow approved paragraph order")
 
     mapping = validate_mapping(
         artifacts["source_mapping"][1], source_sha, source_text
@@ -134,11 +136,18 @@ def validate_manifest(
         if operation["claim_impact"] == "strengthen" and not allow_strengthening:
             raise GateError(f"claim strengthening is not authorized for node {node_id}")
     for paragraph_id in expected_paragraphs:
-        has_move = any(
-            mapping[node]["action"] == "MOVE" for node in paragraph_order[paragraph_id]
-        )
-        if not has_move and candidate_order[paragraph_id] != paragraph_order[paragraph_id]:
-            raise GateError(f"sentence order changed without MOVE: {paragraph_id}")
+        approved_order = paragraph_order[paragraph_id]
+        actual_order = candidate_order[paragraph_id]
+        moved_nodes = {node for node in approved_order if mapping[node]["action"] == "MOVE"}
+        if actual_order != approved_order:
+            if not moved_nodes:
+                raise GateError(f"sentence order changed without MOVE: {paragraph_id}")
+            approved_fixed = [node for node in approved_order if node not in moved_nodes]
+            actual_fixed = [node for node in actual_order if node not in moved_nodes]
+            if actual_fixed != approved_fixed:
+                raise GateError(
+                    f"non-MOVE sentence order changed in paragraph {paragraph_id}"
+                )
 
     return {
         "status": "PASS",
@@ -219,7 +228,7 @@ def main(argv: list[str] | None = None) -> int:
                 paragraph_ids=paragraphs,
                 policy=policy,
             )
-    except (GateError, OSError, yaml.YAMLError, json.JSONDecodeError) as exc:
+    except (GateError, OSError, UnicodeError, yaml.YAMLError, json.JSONDecodeError) as exc:
         print(json.dumps({"status": "FAIL", "error": str(exc)}, sort_keys=True))
         return 2
     print(json.dumps(result, indent=2, sort_keys=True))
