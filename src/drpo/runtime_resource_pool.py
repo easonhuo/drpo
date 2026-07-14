@@ -121,7 +121,12 @@ def parse_gpu_pool(value: str) -> tuple[str, ...]:
     seen: set[str] = set()
     for raw_token in text.split(","):
         token = raw_token.strip()
-        if not token or any(character.isspace() for character in token):
+        negative_integer = token.startswith("-") and token[1:].isdigit()
+        if (
+            not token
+            or negative_integer
+            or any(character.isspace() for character in token)
+        ):
             raise ResourcePoolError(f"malformed GPU id: {raw_token!r}")
         if token in seen:
             raise ResourcePoolError(f"duplicate GPU id: {token}")
@@ -246,30 +251,46 @@ def validate_delegated_gpu_pool(
         )
 
 
+def _validate_existing_identity(target: Path, payload: Mapping[str, Any]) -> Path:
+    try:
+        existing = json.loads(target.read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError) as exc:
+        raise ResourcePoolError(
+            f"cannot read existing pool identity: {target}"
+        ) from exc
+    if existing != payload:
+        raise ResourcePoolError(
+            f"existing resource-pool identity does not match: {target}"
+        )
+    return target
+
+
 def write_pool_identity(path: str | Path, pool: ResourcePool) -> Path:
     """Create one immutable resource-pool identity, or validate exact reuse."""
 
     target = Path(path).resolve()
     payload = pool.as_dict()
     if target.exists():
-        try:
-            existing = json.loads(target.read_text(encoding="utf-8"))
-        except (OSError, ValueError, TypeError) as exc:
-            raise ResourcePoolError(f"cannot read existing pool identity: {target}") from exc
-        if existing != payload:
-            raise ResourcePoolError(
-                f"existing resource-pool identity does not match: {target}"
-            )
-        return target
+        return _validate_existing_identity(target, payload)
     target.parent.mkdir(parents=True, exist_ok=True)
-    temporary = target.with_name(f".{target.name}.{os.getpid()}.tmp")
-    temporary.write_text(
-        json.dumps(payload, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
+    serialized = json.dumps(payload, indent=2, sort_keys=True) + "\n"
     try:
-        os.replace(temporary, target)
-    finally:
-        if temporary.exists():
-            temporary.unlink()
+        descriptor = os.open(
+            target,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+            0o644,
+        )
+    except FileExistsError:
+        return _validate_existing_identity(target, payload)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            handle.write(serialized)
+            handle.flush()
+            os.fsync(handle.fileno())
+    except BaseException:
+        try:
+            target.unlink()
+        except OSError:
+            pass
+        raise
     return target
