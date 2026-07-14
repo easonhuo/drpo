@@ -2,6 +2,7 @@
 """Fail-closed safety wrappers for RunSpec execution and publication."""
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 from pathlib import Path
@@ -10,6 +11,7 @@ from typing import Any
 import yaml
 
 from runspec_lib import (
+    ARTIFACT_DIRNAME,
     CLAIMED_DIR,
     DONE_DIR,
     FAILED_DIR,
@@ -236,7 +238,17 @@ def package_artifacts_safe(
 ) -> dict[str, Any]:
     spec = validate_runspec_safe(repo, spec_path, require_registry=False)
     reject_symlink_artifacts(repo, spec)
-    return package_artifacts(repo, spec_path, output_dir=output_dir)
+    manifest = package_artifacts(repo, spec_path, output_dir=output_dir)
+    registration = spec["registration"]
+    manifest["registration_mode"] = registration["mode"]
+    manifest["registration_closure_required"] = registration["closure_required"]
+    output_root = output_dir or (repo / ARTIFACT_DIRNAME)
+    manifest_path = output_root / f"{spec['run_id']}_manifest.json"
+    manifest_path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return manifest
 
 
 def expected_workspace_branch(lane: str) -> str:
