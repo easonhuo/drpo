@@ -1,21 +1,24 @@
-"""Thin E7/E8 adapters for the minimal runtime resource autotuning core."""
+"""Thin E7/E8 adapters for DRPO runtime resource autotuning."""
 from __future__ import annotations
 
+import contextlib
 import copy
 import dataclasses
 import hashlib
+import math
 import os
 import shutil
 import tempfile
 import time
 from pathlib import Path
-from typing import Any, Callable, Mapping, Sequence
+from typing import Any, Callable, Iterator, Mapping, Sequence
 
 import yaml
 
+from drpo import e7_ppo_w0_runtime_autotune as measured
+from drpo import runtime_cpu_capacity as cpu
 from drpo.runtime_resource_autotune import (
     GIB,
-    CPUSelection,
     GPUSelection,
     MachineSnapshot,
     RuntimeResourceError,
@@ -23,14 +26,14 @@ from drpo.runtime_resource_autotune import (
     canonical_json_sha256,
     load_json,
     measure_command_peak_memory,
-    select_cpu_workers,
     select_gpu_devices,
     selection_document,
-    utc_now,
 )
 
-E7_ADAPTER_ID = "e7_canonical_exp_horizon_cpu_v1"
+E7_ADAPTER_ID = "e7_canonical_exp_horizon_cpu_v2"
 E8_ADAPTER_ID = "e8_countdown_taper_cuda_v1"
+E7_SELECTOR_POLICY_VERSION = 2
+E7_SELECTION_SCHEMA_VERSION = 2
 
 
 def _file_sha256(path: str | Path) -> str:
@@ -42,6 +45,19 @@ def _file_sha256(path: str | Path) -> str:
     return digest.hexdigest()
 
 
+def _e7_selector_implementation_identity(repo_root: str | Path) -> dict[str, str]:
+    repo = Path(repo_root).resolve()
+    return {
+        "runtime_resource_adapters.py": _file_sha256(Path(__file__).resolve()),
+        "runtime_cpu_capacity.py": _file_sha256(
+            repo / "src/drpo/runtime_cpu_capacity.py"
+        ),
+        "e7_ppo_w0_runtime_autotune.py": _file_sha256(
+            repo / "src/drpo/e7_ppo_w0_runtime_autotune.py"
+        ),
+    }
+
+
 def e7_resource_fingerprint(
     *,
     contract_path: str | Path,
@@ -49,28 +65,55 @@ def e7_resource_fingerprint(
     grid_path: str | Path,
     probe_steps: int,
     probe_seed: int,
+    probe_seconds: float,
+    throughput_retention_fraction: float,
     fallback_workers: int,
     cpu_fraction: float,
     memory_headroom_fraction: float,
     per_worker_safety_factor: float,
+    per_worker_cpu_safety_factor: float,
+    minimum_cpu_cores_per_worker: float,
     max_workers: int | None,
     max_growth_factor: float,
+    revalidation_samples: int,
+    revalidation_sample_seconds: float,
+    repo_root: str | Path | None = None,
 ) -> dict[str, Any]:
+    del throughput_retention_fraction
+    source_hashes: dict[str, str] = {}
+    if repo_root is not None:
+        repo = Path(repo_root).resolve()
+        for relative in (
+            "src/drpo/runtime_resource_adapters.py",
+            "src/drpo/runtime_cpu_capacity.py",
+            "src/drpo/e7_canonical_exp_horizon_grid.py",
+            "src/drpo/e7_canonical_sweep.py",
+        ):
+            source_hashes[relative] = _file_sha256(repo / relative)
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "adapter_id": E7_ADAPTER_ID,
+        "selector_policy_version": E7_SELECTOR_POLICY_VERSION,
         "contract_sha256": _file_sha256(contract_path),
         "run_spec_sha256": _file_sha256(run_spec_path),
         "grid_sha256": _file_sha256(grid_path),
+        "source_sha256": source_hashes,
         "probe_steps": int(probe_steps),
+        "probe_seconds": float(probe_seconds),
         "probe_seed_namespace": int(probe_seed),
         "selection_policy": {
             "fallback_workers": int(fallback_workers),
             "cpu_fraction": float(cpu_fraction),
             "memory_headroom_fraction": float(memory_headroom_fraction),
-            "per_worker_safety_factor": float(per_worker_safety_factor),
+            "per_worker_memory_safety_factor": float(per_worker_safety_factor),
+            "per_worker_cpu_safety_factor": float(per_worker_cpu_safety_factor),
+            "minimum_cpu_cores_per_worker": float(minimum_cpu_cores_per_worker),
             "max_workers": None if max_workers is None else int(max_workers),
             "max_growth_factor": float(max_growth_factor),
+            "throughput_search": False,
+            "revalidation_samples": int(revalidation_samples),
+            "revalidation_sample_seconds": float(revalidation_sample_seconds),
+            "load_average_role": "diagnostic_only",
         },
         "tuned_runtime_field": "active_subprocess_count",
         "frozen_runtime_fields": [
@@ -104,7 +147,9 @@ def e8_resource_fingerprint(
         "base_config_sha256": _file_sha256(base_config_path),
         "candidate_device_ids": [str(value) for value in candidate_device_ids],
         "required_free_gpu_memory_bytes": int(required_free_gpu_memory_bytes),
-        "required_host_memory_bytes_per_device": int(required_host_memory_bytes_per_device),
+        "required_host_memory_bytes_per_device": int(
+            required_host_memory_bytes_per_device
+        ),
         "gpu_memory_headroom_fraction": float(gpu_memory_headroom_fraction),
         "host_memory_headroom_fraction": float(host_memory_headroom_fraction),
         "maximum_gpu_utilization_percent": float(maximum_gpu_utilization_percent),
@@ -123,53 +168,10 @@ def e8_resource_fingerprint(
     }
 
 
-def cached_cpu_selection(
-    path: str | Path,
-    *,
-    resource_fingerprint: Mapping[str, Any],
-    machine: MachineSnapshot,
-    memory_headroom_fraction: float,
-    per_worker_safety_factor: float,
-    cpu_fraction: float,
-) -> int | None:
-    source = Path(path)
-    if not source.is_file():
-        return None
-    try:
-        document = load_json(source)
-    except Exception:  # noqa: BLE001 - a damaged cache is a cache miss
-        return None
-    if document.get("adapter_id") != E7_ADAPTER_ID:
-        return None
-    if document.get("resource_fingerprint_sha256") != canonical_json_sha256(
-        dict(resource_fingerprint)
-    ):
-        return None
-    if document.get("machine_static_sha256") != canonical_json_sha256(
-        machine.static_identity()
-    ):
-        return None
-    selection = document.get("selection")
-    probe = document.get("probe")
-    if not isinstance(selection, dict) or not isinstance(probe, dict):
-        return None
-    workers = selection.get("selected_workers")
-    peak = probe.get("peak_rss_bytes")
-    if not isinstance(workers, int) or workers < 1:
-        return None
-    if not isinstance(peak, int) or peak < 1:
-        return None
-    reserved = max(1, int(peak * per_worker_safety_factor))
-    usable = int(machine.effective_memory_available_bytes * (1.0 - memory_headroom_fraction))
-    if workers * reserved > usable:
-        return None
-    current_cpu_limit = max(
-        1,
-        int(machine.logical_cpu_count * cpu_fraction - machine.load_average_1m),
-    )
-    if workers > current_cpu_limit:
-        return None
-    return workers
+def cached_cpu_selection(*_args: Any, **_kwargs: Any) -> int | None:
+    """Raw-load-average selections are incompatible with measured-CPU V2."""
+
+    return None
 
 
 def build_e7_probe_command(
@@ -226,13 +228,30 @@ def build_e7_probe_command(
 
 
 def _cleanup_e7_probe_payload(probe_dir: Path) -> None:
-    """Keep small provenance/log files and remove any generated model payload."""
+    """Keep small provenance/log files and remove generated model payload."""
     for relative in ("trainer_output", "checkpoints", "checkpoint"):
         target = probe_dir / relative
         if target.is_dir() and not target.is_symlink():
             shutil.rmtree(target)
         elif target.is_file() and not target.is_symlink():
             target.unlink()
+
+
+def _finalize_e7_selection(
+    document: dict[str, Any],
+    *,
+    binding: cpu.CPUBinding,
+    repo_root: str | Path,
+) -> dict[str, Any]:
+    document["schema_version"] = E7_SELECTION_SCHEMA_VERSION
+    document["selector_policy_version"] = E7_SELECTOR_POLICY_VERSION
+    document["selector_implementation"] = _e7_selector_implementation_identity(repo_root)
+    document["cpu_binding"] = binding.as_dict()
+    document["load_average_is_diagnostic_only"] = True
+    document["selection_digest"] = canonical_json_sha256(
+        measured._selection_digest_payload(document)  # noqa: SLF001
+    )
+    return document
 
 
 def select_e7_runtime(
@@ -250,114 +269,175 @@ def select_e7_runtime(
     cpu_fraction: float,
     memory_headroom_fraction: float,
     per_worker_safety_factor: float,
+    per_worker_cpu_safety_factor: float,
+    minimum_cpu_cores_per_worker: float,
     max_workers: int | None,
     max_growth_factor: float,
     minimum_branches_for_probe: int,
+    cgroup_root: str | Path = "/sys/fs/cgroup",
+    proc_self_cgroup_path: str | Path = "/proc/self/cgroup",
+    proc_stat_path: str | Path = "/proc/stat",
+    revalidation_samples: int = 3,
+    revalidation_sample_seconds: float = 1.0,
+    throughput_retention_fraction: float = 1.0,
 ) -> dict[str, Any]:
+    del minimum_branches_for_probe
     work = Path(work_dir).resolve()
     selection_path = work / "RUNTIME_SELECTION.json"
+    if selection_path.exists():
+        raise RuntimeResourceError(
+            "RUNTIME_SELECTION.json already exists; use run to consume it or a new "
+            "work directory to create another automatic selection"
+        )
     fingerprint = e7_resource_fingerprint(
+        repo_root=repo_root,
         contract_path=contract_path,
         run_spec_path=run_spec_path,
         grid_path=grid_path,
         probe_steps=probe_steps,
         probe_seed=probe_seed,
+        probe_seconds=probe_seconds,
+        throughput_retention_fraction=throughput_retention_fraction,
         fallback_workers=fallback_workers,
         cpu_fraction=cpu_fraction,
         memory_headroom_fraction=memory_headroom_fraction,
         per_worker_safety_factor=per_worker_safety_factor,
+        per_worker_cpu_safety_factor=per_worker_cpu_safety_factor,
+        minimum_cpu_cores_per_worker=minimum_cpu_cores_per_worker,
         max_workers=max_workers,
         max_growth_factor=max_growth_factor,
+        revalidation_samples=revalidation_samples,
+        revalidation_sample_seconds=revalidation_sample_seconds,
     )
-    cached = cached_cpu_selection(
-        selection_path,
-        resource_fingerprint=fingerprint,
-        machine=machine,
-        memory_headroom_fraction=memory_headroom_fraction,
-        per_worker_safety_factor=per_worker_safety_factor,
-        cpu_fraction=cpu_fraction,
-    )
-    if cached is not None:
-        previous = load_json(selection_path)
-        previous["mode"] = "cached"
-        previous["cache_validated_machine_snapshot"] = machine.as_dict()
-        previous["cache_validated_utc"] = utc_now()
-        atomic_write_json(selection_path, previous)
-        return previous
-
+    try:
+        binding = cpu.discover_cpu_binding(
+            cgroup_root=cgroup_root,
+            proc_self_cgroup_path=proc_self_cgroup_path,
+        )
+    except cpu.CPUCapacityError as exc:
+        raise RuntimeResourceError(str(exc)) from exc
     command, probe_dir, environment, total_tasks, command_cwd = build_e7_probe_command(
         contract_path=contract_path,
         run_spec_path=run_spec_path,
         grid_path=grid_path,
-        probe_root=work / "_runtime_resource_probe" / "e7",
+        probe_root=work / "_runtime_resource_probe" / "e7_resources",
         probe_steps=probe_steps,
         probe_seed=probe_seed,
     )
-    if total_tasks < minimum_branches_for_probe:
-        selection = select_cpu_workers(
-            machine,
-            total_tasks=total_tasks,
-            fallback_workers=fallback_workers,
-            per_worker_peak_bytes=None,
-            cpu_fraction=cpu_fraction,
-            memory_headroom_fraction=memory_headroom_fraction,
-            per_worker_safety_factor=per_worker_safety_factor,
-            max_workers=max_workers,
-            max_growth_factor=max_growth_factor,
-        )
-        document = selection_document(
-            adapter_id=E7_ADAPTER_ID,
-            resource_fingerprint=fingerprint,
-            machine=machine,
-            mode="exempt",
-            selection=selection.as_dict(),
-            probe=None,
-            fallback={"workers": fallback_workers, "reason": "small_task_exemption"},
-            repo_root=repo_root,
-            limitations=["capacity_guard_not_throughput_knee_search"],
-        )
-        atomic_write_json(selection_path, document)
-        return document
-
     try:
-        probe = measure_command_peak_memory(
-            command,
+        resource_probe = measured._measure_representative_resources(  # noqa: SLF001
+            command=command,
             cwd=command_cwd,
             environment=environment,
             log_path=probe_dir / "stdout_stderr.log",
-            sample_seconds=probe_seconds,
-            accept_timeout=True,
+            timeout_seconds=probe_seconds,
+            binding=binding,
+            proc_stat_path=proc_stat_path,
         )
+    except cpu.CPUCapacityError as exc:
+        raise RuntimeResourceError(str(exc)) from exc
     finally:
         _cleanup_e7_probe_payload(probe_dir)
-
-    selection: CPUSelection = select_cpu_workers(
+    measured_worker_cpu = float(resource_probe["measured_cpu_cores"])
+    try:
+        reserved_worker_cpu = cpu.reserve_worker_cpu_cores(
+            measured_worker_cpu,
+            safety_factor=per_worker_cpu_safety_factor,
+            minimum_cpu_cores_per_worker=minimum_cpu_cores_per_worker,
+        )
+        interval = measured._interval_from_dict(  # noqa: SLF001
+            resource_probe["cpu_interval"]
+        )
+        cpu_capacity = cpu.derive_worker_cpu_capacity(
+            binding,
+            interval,
+            measured_probe_cpu_cores=measured_worker_cpu,
+            reserved_cpu_cores_per_worker=reserved_worker_cpu,
+            cpu_fraction=cpu_fraction,
+        )
+    except cpu.CPUCapacityError as exc:
+        raise RuntimeResourceError(str(exc)) from exc
+    if cpu_capacity.cpu_worker_limit < 1:
+        raise RuntimeResourceError("measured CPU capacity cannot support one E7 worker")
+    memory_limit, reserved_memory, _usable_memory = measured._memory_capacity(  # noqa: SLF001
         machine,
-        total_tasks=total_tasks,
-        fallback_workers=fallback_workers,
-        per_worker_peak_bytes=probe.peak_rss_bytes,
-        cpu_fraction=cpu_fraction,
+        peak_rss_bytes=int(resource_probe["peak_rss_bytes"]),
         memory_headroom_fraction=memory_headroom_fraction,
         per_worker_safety_factor=per_worker_safety_factor,
-        max_workers=max_workers,
-        max_growth_factor=max_growth_factor,
     )
+    if fallback_workers < 1 or max_growth_factor < 1:
+        raise RuntimeResourceError("fallback workers and growth factor must be positive")
+    growth_limit = max(1, math.floor(fallback_workers * max_growth_factor))
+    limits = [cpu_capacity.cpu_worker_limit, memory_limit, total_tasks, growth_limit]
+    if max_workers is not None:
+        if max_workers < 1:
+            raise RuntimeResourceError("max_workers must be positive")
+        limits.append(max_workers)
+    selected_workers = min(limits)
+    if selected_workers < 1:
+        raise RuntimeResourceError("measured CPU/RAM capacity produced no E7 worker")
+    selection_payload = {
+        "selected_workers": selected_workers,
+        "safe_capacity_ceiling": selected_workers,
+        "cpu_limit": cpu_capacity.cpu_worker_limit,
+        "memory_limit": memory_limit,
+        "task_limit": total_tasks,
+        "configured_limit": max_workers,
+        "growth_limit": growth_limit,
+        "fallback_workers": fallback_workers,
+        "per_worker_peak_bytes": int(resource_probe["peak_rss_bytes"]),
+        "per_worker_reserved_bytes": reserved_memory,
+        "measured_cpu_cores_per_worker": measured_worker_cpu,
+        "per_worker_reserved_cpu_cores": reserved_worker_cpu,
+        "cpu_capacity": cpu_capacity.as_dict(),
+        "reason": "measured_cpu_ram_safe_capacity_without_throughput_grid",
+    }
     document = selection_document(
         adapter_id=E7_ADAPTER_ID,
         resource_fingerprint=fingerprint,
         machine=machine,
         mode="auto",
-        selection=selection.as_dict(),
-        probe=probe.as_dict(),
+        selection=selection_payload,
+        probe={"single_branch_resource_probe": resource_probe},
         fallback={"workers": fallback_workers, "reason": "legacy_verified_schedule"},
         repo_root=repo_root,
         limitations=[
             "capacity_guard_not_throughput_knee_search",
-            "single_representative_branch_memory_probe",
+            "single_representative_branch_resource_probe",
+            "load_average_is_diagnostic_only",
         ],
     )
+    _finalize_e7_selection(document, binding=binding, repo_root=repo_root)
     atomic_write_json(selection_path, document)
     return document
+
+
+@contextlib.contextmanager
+def _installed_e7_revalidation_adapter() -> Iterator[None]:
+    previous = (
+        measured.ADAPTER_ID,
+        measured.resource_fingerprint,
+        measured._selector_implementation_identity,  # noqa: SLF001
+    )
+    measured.ADAPTER_ID = E7_ADAPTER_ID
+    measured.resource_fingerprint = e7_resource_fingerprint
+    measured._selector_implementation_identity = (  # noqa: SLF001
+        _e7_selector_implementation_identity
+    )
+    try:
+        yield
+    finally:
+        (
+            measured.ADAPTER_ID,
+            measured.resource_fingerprint,
+            measured._selector_implementation_identity,  # noqa: SLF001
+        ) = previous
+
+
+def revalidate_e7_runtime(**kwargs: Any) -> dict[str, Any]:
+    kwargs.setdefault("throughput_retention_fraction", 1.0)
+    with _installed_e7_revalidation_adapter():
+        return measured.revalidate_runtime(**kwargs)
 
 
 def validate_e8_scientific_config(config: Mapping[str, Any]) -> None:
@@ -372,11 +452,7 @@ def validate_e8_scientific_config(config: Mapping[str, Any]) -> None:
 def e8_parent_runtime_config(
     config: Mapping[str, Any], *, selected_gpu_count: int
 ) -> dict[str, Any]:
-    """Create an in-memory parent-only config view for the selected GPU pool.
-
-    Worker and calibration subprocesses continue to receive the original frozen
-    config path. Only the parent scheduler sees the reduced runtime slot count.
-    """
+    """Create an in-memory parent-only config view for the selected GPU pool."""
     if selected_gpu_count < 1 or selected_gpu_count > 8:
         raise RuntimeResourceError("selected E8 GPU count must be in [1, 8]")
     validate_e8_scientific_config(config)
@@ -416,12 +492,11 @@ def _archive_runtime_selection(selection_path: Path) -> None:
         return
     try:
         existing = load_json(selection_path)
-    except Exception:  # noqa: BLE001 - preserve unreadable prior evidence too
+    except Exception:  # noqa: BLE001
         existing = {"unreadable_previous_selection": True}
     history = selection_path.parent / "_runtime_resources" / "selection_history"
     history.mkdir(parents=True, exist_ok=True)
-    stamp = time.time_ns()
-    atomic_write_json(history / f"RUNTIME_SELECTION.{stamp}.json", existing)
+    atomic_write_json(history / f"RUNTIME_SELECTION.{time.time_ns()}.json", existing)
 
 
 def select_e8_runtime(
@@ -443,7 +518,9 @@ def select_e8_runtime(
     if required_free_gpu_memory_gib <= 0:
         raise RuntimeResourceError("required_free_gpu_memory_gib must be positive")
     if required_host_memory_gib_per_device <= 0:
-        raise RuntimeResourceError("required_host_memory_gib_per_device must be positive")
+        raise RuntimeResourceError(
+            "required_host_memory_gib_per_device must be positive"
+        )
     if not 0.0 <= host_memory_headroom_fraction < 0.9:
         raise RuntimeResourceError("host_memory_headroom_fraction must be in [0, 0.9)")
 
