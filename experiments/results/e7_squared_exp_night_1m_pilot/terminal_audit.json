@@ -1,0 +1,22 @@
+{
+  "base_commit": "fbafb44c2e562ed93f6f63b43e8c5439b881d6a8",
+  "branch_count_observed": 126,
+  "causal_actor_update_claim_allowed": false,
+  "convergence_claim_allowed": false,
+  "expected_branch_count": 126,
+  "experiment_id": "EXT-H-E7-SQUARED-EXP-NIGHT-01",
+  "formal_evidence_allowed": false,
+  "gae_claim_allowed": false,
+  "held_out_seeds_touched": false,
+  "nan_inf_numerical_failures": 0,
+  "nan_inf_separate": true,
+  "raw_complete": true,
+  "scientific_status": "squared_remoteness_and_ppo_reference_lifecycle_development_screening_only",
+  "stage_a_branches": 84,
+  "stage_b_branches": 42,
+  "stage_c_status": "blocked_before_execution",
+  "status": "PASS",
+  "steady_state_ranking_allowed": false,
+  "support_or_variance_boundary_separate": true,
+  "task_performance_collapse_separate": true
+}

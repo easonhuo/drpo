@@ -1,0 +1,72 @@
+{
+  "experiment_id": "EXT-H-E7-SQUARED-EXP-NIGHT-01",
+  "gae": {
+    "branches_started": 0,
+    "lambda": 0.95,
+    "reason": "verified ordered-trajectory and terminal/truncation contract unavailable",
+    "status": "BLOCKED"
+  },
+  "kl_mechanism_diagnostics": {
+    "max_observed_analytic_kl": 1.1172080039978027,
+    "mean_analytic_kl": 0.005994677811445601,
+    "mean_effective_updates_per_reference_block": 3.931258997929274,
+    "mean_total_old_policy_refresh_count": 259926.38095238095,
+    "mean_trigger_fraction_per_update": 0.19742738095238094,
+    "note": "The nominal K_max=16 path refreshes frequently; its mean realized reference lifespan is about four updates. Evidence supports adaptive refresh timing, not a claim that longer fixed reuse is better."
+  },
+  "kl_screening": {
+    "high_c_cells": 9,
+    "high_c_cells_definition": "c in {2,4,8}",
+    "high_c_mean_late_difference": 5.522696460826917,
+    "high_c_wins": 7,
+    "interpretation": "KL-triggered refresh improves mean finite-horizon performance in this two-seed screen, but does not establish lower seed variance, universal superiority, or a longer-reference-window mechanism.",
+    "mean_late_difference": 3.791949113594138,
+    "median_late_difference": 2.291010045202006,
+    "paired_cells": 21,
+    "ppo_k4_mean_late_seed_std": 5.865743305853299,
+    "ppo_kl_k16_mean_late_seed_std": 7.02901748928976,
+    "ppo_kl_k16_wins_vs_ppo_k4": 16
+  },
+  "matrix": {
+    "actor_update_modes": ["a2c", "ppo_clip_k4", "ppo_clip_kl_k16"],
+    "controls": ["positive_only", "c=0.25", "c=0.5", "c=1", "c=2", "c=4", "c=8"],
+    "datasets": ["hopper-medium-expert-v2", "walker2d-medium-v2", "walker2d-medium-replay-v2"],
+    "development_seeds": [200, 201],
+    "held_out_seeds": [204, 205, 206, 207],
+    "kernel": "w(d)=w(0)*exp(-c*(d/2)^2)"
+  },
+  "non_claims": [
+    "convergence",
+    "steady_state_ranking",
+    "universal_actor_update_ranking",
+    "controlled_causal_actor_update_claim",
+    "gae_result",
+    "ood_generalization"
+  ],
+  "package": {
+    "compact_evidence_committed_to_code_repository": true,
+    "filename": "35a4ecb0-5690-4db5-ab8c-d4a411f940ea.zip",
+    "full_package_committed_to_code_repository": false,
+    "sha256": "8a63ffd3aceef73e3e1998c66813b74d5dbef0879aca80f1db5625229de68a88"
+  },
+  "result_status": "pilot",
+  "run": {
+    "branch_count": 126,
+    "completed": 126,
+    "failed": 0,
+    "finish_utc": "2026-07-14T02:35:07.851333+00:00",
+    "held_out_seeds_touched": false,
+    "launch_utc": "2026-07-13T23:53:54Z",
+    "nan_inf_numerical_failures": 0,
+    "reported_branch": "dev/e7-squared-exp-night-1m",
+    "reported_launch_commit": "fbafb44c2e562ed93f6f63b43e8c5439b881d6a8",
+    "selected_workers": 126,
+    "source_commit_remote_resolution": "unavailable_at_archive_time",
+    "source_equivalence_note": "The reported launch commit contains the server-side plumbing fix variant=iqlv_exp_rank. The repository integration reproduces that exact one-line source change, but the original local commit object was not present on GitHub when archived.",
+    "steps_per_branch": 1000000,
+    "terminal_audit": "PASS",
+    "wall_clock_seconds": 9673.851333
+  },
+  "schema_version": 1,
+  "scientific_class": "external_validity_development_screening"
+}
