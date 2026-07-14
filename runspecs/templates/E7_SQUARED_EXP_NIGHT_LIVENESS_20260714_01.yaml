@@ -1,0 +1,89 @@
+version: 1
+run_id: E7_SQUARED_EXP_NIGHT_LIVENESS_20260714_01
+lane: e7
+priority: 135
+created_at: '2026-07-14T00:00:00Z'
+experiment_id: EXT-H-E7-SQUARED-EXP-NIGHT-01
+repo_commit: d4cdc176562db1fa439afa9f9a0cbd9a9c8d0259
+
+provenance:
+  commit_policy: protected_paths_unchanged
+  protected_paths:
+    - configs/e7_squared_exp_night_v1.json
+    - src/drpo/e7_squared_exp_kernel.py
+    - src/drpo/e7_ppo_kl_refresh.py
+    - src/drpo/e7_squared_exp_night.py
+    - src/drpo/e7_squared_exp_night_bootstrap.py
+    - src/drpo/e7_squared_exp_night_aggregate.py
+    - src/drpo/e7_squared_exp_night_runtime_autotune.py
+    - scripts/run_e7_squared_exp_night_auto.py
+    - scripts/run_e7_squared_exp_night_liveness_one_click.sh
+
+purpose: >
+  Run a non-scientific real-data liveness and automatic-resource check for the
+  manuscript-consistent squared-remoteness EXP night suite. The command executes
+  bounded representative 500-update KL-PPO resource probes and materializes the
+  deterministic 126-branch Stage-A/Stage-B plan. It records the GAE stage as
+  blocked and does not launch or aggregate scientific branches. Code-first
+  liveness is allowed before schema-v3 materialization and records that state.
+
+entrypoint:
+  command: bash scripts/run_e7_squared_exp_night_liveness_one_click.sh
+  cwd: repo_root
+
+policy:
+  existing_script_required: true
+  forbid_new_launcher: true
+  forbid_hparam_change: true
+  forbid_cross_lane: true
+  scientific_aggregation_allowed: false
+  formal_evidence_allowed: false
+
+outputs:
+  run_dir: outputs/e7/squared_exp_night_liveness_001
+  summary_file: outputs/e7/squared_exp_night_liveness_001/RUNTIME_SELECTION.json
+  audit_file: outputs/e7/squared_exp_night_liveness_001/EXECUTION_PLAN.json
+
+success_criteria:
+  - protected implementation paths are unchanged from the pinned commit
+  - LAUNCH_REGISTRATION_STATUS.json records launch registration state without blocking the probe
+  - the squared-remoteness grid validates and the plan records exactly 126 branches
+  - the representative KL-PPO bootstrap completes finite 500-update probes
+  - geometry, PPO, and analytic-KL diagnostics complete for the representative probe
+  - RUNTIME_SELECTION.json records successful memory and throughput probes
+  - GAE_STAGE_STATUS.json records BLOCKED with zero GAE branches started
+  - no scientific branch directory is completed or aggregated
+  - held-out seeds 204 through 207 are untouched
+
+artifacts:
+  package_policy: manifest_only
+  include:
+    - outputs/e7/squared_exp_night_liveness_001/LAUNCH_REGISTRATION_STATUS.json
+    - outputs/e7/squared_exp_night_liveness_001/RUNTIME_SELECTION.json
+    - outputs/e7/squared_exp_night_liveness_001/EXECUTION_PLAN.json
+    - outputs/e7/squared_exp_night_liveness_001/GAE_STAGE_STATUS.json
+    - outputs/e7/squared_exp_night_liveness_001/_runtime_resource_probe/**/BENCHMARK_SUMMARY.json
+    - outputs/e7/squared_exp_night_liveness_001/_runtime_resource_probe/**/stdout_stderr.log
+    - outputs/e7/squared_exp_night_liveness_001/_runtime_resource_probe/**/branch_config.json
+    - outputs/e7/squared_exp_night_liveness_001/_runtime_resource_probe/**/branch_manifest.json
+  exclude:
+    - '**/*.pt'
+    - '**/*.pth'
+    - '**/*.ckpt'
+    - '**/*.safetensors'
+    - '**/*.bin'
+    - '**/checkpoint*'
+    - '**/checkpoints/**'
+    - '**/model*'
+    - '**/optimizer*'
+    - '**/wandb/**'
+  max_package_size_mb: 25
+  fail_if_excluded_matched: false
+  fail_if_package_too_large: true
+
+publish:
+  enabled: false
+  auto: false
+
+recovery:
+  enabled: false

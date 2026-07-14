@@ -43,6 +43,11 @@
 - Reason: canonical registry experiment is not mapped to any minimal module
 - Automatic action: `false`
 
+## candidate_add_or_map_module: `EXT-H-E7-SQUARED-EXP-NIGHT-01`
+
+- Reason: canonical registry experiment is not mapped to any minimal module
+- Automatic action: `false`
+
 ## candidate_add_or_map_module: `EXT-H-E7-W0-HIGHC-ACTOR-01`
 
 - Reason: canonical registry experiment is not mapped to any minimal module
@@ -60,7 +65,7 @@
 
 ## candidate_split_module: `hopper_e7`
 
-- Reason: source content has 62014 characters, above the configured 50000 threshold
+- Reason: source content has 63010 characters, above the configured 50000 threshold
 - Automatic action: `false`
 
 ## candidate_split_module: `countdown_e8`
