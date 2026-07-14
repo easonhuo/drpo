@@ -25,4 +25,17 @@ jobs:
       - name: Install registration dependencies
         run: python -m pip install --disable-pip-version-check pyyaml
       - name: Materialize and push registration
-        run: python .github/scripts/register_e7_stage_a.py
+        id: materialize
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          python .github/scripts/register_e7_stage_a.py 2>&1 | tee registration.log
+      - name: Upload registration log
+        uses: actions/upload-artifact@v4
+        with:
+          name: e7-stage-a-registration-log
+          path: registration.log
+          if-no-files-found: error
+      - name: Propagate registration failure
+        if: steps.materialize.outcome != 'success'
+        run: exit 1
