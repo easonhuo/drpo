@@ -22,11 +22,16 @@ from runspec_lib import (
     iter_ready_specs,
     now_utc,
     package_artifacts,
+    read_yaml,
     safe_relpath,
     state_path,
     validate_runspec,
 )
 from runspec_recovery import validate_recovery_policy
+from runspec_registration import (
+    registration_requires_registry,
+    validate_registration_block,
+)
 from runspec_results_delivery import validate_delivery_block
 
 PUBLISHED_DIR = Path(".runspec_state") / "published"
@@ -132,14 +137,19 @@ def validate_runspec_safe(
     spec_path: Path,
     *,
     lane_config: dict[str, Any] | None = None,
-    require_registry: bool = True,
+    require_registry: bool | None = None,
 ) -> dict[str, Any]:
+    raw = read_yaml(spec_path)
+    registration = validate_registration_block(raw)
+    if require_registry is None:
+        require_registry = registration_requires_registry(raw)
     spec = validate_runspec(
         repo,
         spec_path,
         lane_config=lane_config,
         require_registry=require_registry,
     )
+    spec["registration"] = registration
     validate_recovery_policy(repo, spec)
     validate_delivery_block(spec, str(spec.get("lane") or ""))
     validate_provenance(repo, spec)
