@@ -11,8 +11,11 @@ repository or authorize scientific integration.
 
 - `scripts/agent/runspec_results_delivery.py`
 - `scripts/agent/runspec_delivery_policy.py`
+- `scripts/agent/runspec_registration.py`
 - `scripts/agent/upload_runspec_result.py`
 - RunSpec validation for the new `delivery` block and fixed V1 size caps
+- dual RunSpec registration timing: default `pre_registered` and code-first `deferred`
+- lane claim, execution, packaging, and upload for deferred-registration RunSpecs
 - automatic delivery after successful execution and artifact packaging
 - strict Claude executor allowance for the canonical upload command
 - text-first result export, branch-JSON compaction, SHA-256 manifesting, size limits,
@@ -24,6 +27,8 @@ repository or authorize scientific integration.
 
 - changes to scientific code, datasets, methods, seeds, horizons, or hyperparameters
 - changes to registry or handoff scientific state
+- a separate code-first execution pipeline outside RunSpec/lane
+- automatic post-hoc alteration of a completed RunSpec contract
 - model, checkpoint, optimizer, dataset, or cache upload
 - Git LFS, Google Drive, object storage, Release assets, or self-hosted Actions runners
 - automatic scientific acceptance or merge
@@ -32,6 +37,13 @@ repository or authorize scientific integration.
 ## Security and governance boundaries
 
 - delivery is disabled unless explicitly declared in a RunSpec;
+- absent `registration`, RunSpec behavior remains `pre_registered` and registry-gated;
+- `registration.mode: deferred` bypasses only the pre-execution registry lookup;
+- deferred registration requires a full 40-character `repo_commit` and
+  `closure_required: true`;
+- deferred timing does not downgrade or upgrade formal/pilot scientific status;
+- a later registry/handoff closure must reference the immutable run identity and
+  evidence rather than rewriting delivered results;
 - `delivery.branch` is fixed to `ingest/<lane>`;
 - delivery and legacy `publish` cannot both be enabled;
 - V1 permits at most 10 MiB per review-package file and 30 MiB in total;
@@ -51,6 +63,8 @@ repository or authorize scientific integration.
 - Ruff
 - targeted delivery tests against a local bare Git remote
 - fixed-cap and oversize-downgrade tests
+- pre-registered backward-compatibility tests
+- deferred-registration validation, lane-claim, and explicit override tests
 - strict executor guard coverage
 - full pytest
 - handoff authority, formal execution channel, and governance gates
