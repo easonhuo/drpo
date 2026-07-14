@@ -25,7 +25,8 @@ jobs:
         run: |
           set -euo pipefail
           python -m pip install --quiet pyyaml
-          python - <<'PY'
+          set +e
+          python - <<'PY' > /tmp/stage5-bugfix.log 2>&1
           import subprocess
           import yaml
 
@@ -36,5 +37,18 @@ jobs:
               for item in workflow['jobs']['apply']['steps']
               if item.get('name') == 'Apply authorized maintenance bugfix'
           )
-          subprocess.run(['bash', '-lc', step['run']], check=True)
+          completed = subprocess.run(['bash', '-lc', step['run']], text=True)
+          raise SystemExit(completed.returncode)
           PY
+          status=$?
+          set -e
+          cat /tmp/stage5-bugfix.log
+          if [[ "${status}" -ne 0 ]]; then
+            cp /tmp/stage5-bugfix.log docs/STAGE5_MERGE_HISTORY_BUGFIX_FAILURE.log
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add docs/STAGE5_MERGE_HISTORY_BUGFIX_FAILURE.log
+            git commit -m 'Capture Stage 5 merge-history bugfix failure' || true
+            git push origin HEAD:fix/stage5-merge-integrated-delta-history
+            exit "${status}"
+          fi
