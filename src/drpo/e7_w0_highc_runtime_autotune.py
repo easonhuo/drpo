@@ -5,7 +5,7 @@ from __future__ import annotations
 import contextlib
 import math
 from pathlib import Path
-from typing import Any, Iterator, Mapping
+from typing import Any, Iterator
 
 from drpo import e7_ppo_w0_runtime_autotune as legacy
 from drpo import e7_w0_highc_actor as pilot
@@ -21,6 +21,15 @@ _ORIGINAL_REVALIDATE_RUNTIME = legacy.revalidate_runtime
 _ORIGINAL_REPRESENTATIVE = legacy._representative  # noqa: SLF001
 _ORIGINAL_RESOURCE_FINGERPRINT = legacy.resource_fingerprint
 _ORIGINAL_CLEANUP = legacy._cleanup_probe_payload  # noqa: SLF001
+_ORIGINAL_SELECTOR_IMPLEMENTATION = legacy._selector_implementation_identity  # noqa: SLF001
+
+
+def _selector_implementation_identity(repo_root: str | Path) -> dict[str, str]:
+    values = dict(_ORIGINAL_SELECTOR_IMPLEMENTATION(repo_root))
+    values["e7_w0_highc_runtime_autotune.py"] = legacy._file_sha256(  # noqa: SLF001
+        Path(__file__).resolve()
+    )
+    return values
 
 
 def _representative(branches: list[Any]) -> Any:
@@ -178,6 +187,7 @@ def _installed_adapter() -> Iterator[None]:
         legacy._representative,  # noqa: SLF001
         legacy.resource_fingerprint,
         legacy._cleanup_probe_payload,  # noqa: SLF001
+        legacy._selector_implementation_identity,  # noqa: SLF001
     )
     legacy.pilot = pilot
     legacy.ADAPTER_ID = ADAPTER_ID
@@ -187,6 +197,9 @@ def _installed_adapter() -> Iterator[None]:
     legacy._representative = _representative  # noqa: SLF001
     legacy.resource_fingerprint = resource_fingerprint
     legacy._cleanup_probe_payload = _cleanup_probe_payload  # noqa: SLF001
+    legacy._selector_implementation_identity = (  # noqa: SLF001
+        _selector_implementation_identity
+    )
     try:
         yield
     finally:
@@ -199,6 +212,7 @@ def _installed_adapter() -> Iterator[None]:
             legacy._representative,  # noqa: SLF001
             legacy.resource_fingerprint,
             legacy._cleanup_probe_payload,  # noqa: SLF001
+            legacy._selector_implementation_identity,  # noqa: SLF001
         ) = previous
 
 
