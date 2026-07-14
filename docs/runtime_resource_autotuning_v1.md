@@ -5,81 +5,24 @@
 The runtime-resource path is opt-in and does not replace fixed launchers or change
 scientific variables.
 
-- **E7 CPU:** runs one isolated representative branch for a bounded interval,
-  measures process-tree peak RSS, then selects active subprocess count from CPU,
-  measured host RAM, cgroup limits, task count, a configured cap, and a bounded
-  growth factor.
-- **E8 GPU, historical `GOV-RUNTIME-RESOURCE-AUTOTUNE-01`:** selects visible and
-  sufficiently idle GPU devices that satisfy configured VRAM and host-RAM gates. It
-  remains available as the conservative one-process-per-GPU implementation.
-- **E8 GPU placement, `GOV-RUNTIME-GPU-PLACEMENT-AUTOTUNE-02`:** adds a bounded
-  representative probe and automatically selects how many independent one-GPU tasks
-  may share each selected GPU from measured VRAM, measured process-tree host RSS,
-  CPU/load capacity, task count, and bounded concurrent validation.
+- **E7 CPU:** measures one representative process-tree RSS and selects active
+  subprocess count from CPU, load, host/cgroup memory, task count, and configured
+  safety limits.
+- **Historical E8 GPU path (`GOV-RUNTIME-RESOURCE-AUTOTUNE-01`):** filters visible,
+  idle, sufficiently free devices and remains the conservative one-process-per-GPU
+  implementation.
+- **Phase-aware E8 placement (`GOV-RUNTIME-GPU-PLACEMENT-AUTOTUNE-02`):** runs a
+  resource-equivalent workload envelope and accepts `slots_per_gpu` only after every
+  concurrent worker completes the required training and maximum-shape evaluation
+  phases.
 
-Neither path is a general distributed scheduler. The GPU-placement V1 does not
-select DDP, tensor parallelism, FSDP, batch size, precision, or multi-node topology.
-It requires a homogeneous GPU pool and is a capacity/liveness selector rather than a
-global throughput-optimality claim. Detailed semantics are documented in
-`docs/runtime_gpu_placement_autotuning_v1.md`.
+Neither path selects DDP, tensor parallelism, FSDP, batch size, precision, or
+multi-node topology. Existing scientific configs and fixed launchers remain
+unchanged.
 
-Existing fixed E7/E8 scientific code and configs remain unchanged.
+## E8 usage
 
-## Inspect the machine
-
-```bash
-python scripts/probe_runtime_resources.py \
-  --output /tmp/drpo_machine_snapshot.json
-```
-
-The snapshot includes process-visible CPU count, host memory, effective cgroup
-memory limit/current usage, swap, and visible GPU memory/utilization.
-
-## E7 opt-in run
-
-Use a **new work directory**. Do not point this entrypoint at the current fixed-60
-run directory.
-
-```bash
-python scripts/run_e7_canonical_exp_horizon_joint_auto.py plan \
-  --contract /root/d4rl2/configs/e7_canonical_contract_9task.json \
-  --run-spec /root/d4rl2/configs/e7_canonical_9task_full_grid_run_spec_v1.json \
-  --grid configs/e7_canonical_exp_horizon_joint_grid_v1.json \
-  --work-dir outputs/e7/exp_horizon_joint_auto_run_001
-
-python scripts/run_e7_canonical_exp_horizon_joint_auto.py run \
-  --contract /root/d4rl2/configs/e7_canonical_contract_9task.json \
-  --run-spec /root/d4rl2/configs/e7_canonical_9task_full_grid_run_spec_v1.json \
-  --grid configs/e7_canonical_exp_horizon_joint_grid_v1.json \
-  --work-dir outputs/e7/exp_horizon_joint_auto_run_001
-```
-
-The first command normally performs a bounded two-minute memory probe. The second
-validates and reuses the exact cached selection. The dedicated probe seed is
-`990001` by default and is not part of the scientific branch matrix.
-
-The CLI keeps `--probe-steps` as an operator-requested floor, then derives an
-effective isolated probe horizon of at least two frozen trainer evaluation
-intervals. Wall-clock execution remains bounded by `--probe-seconds`; formal branch
-horizons and evaluation rules are unchanged.
-
-Important E7 controls:
-
-```text
---fallback-workers 60
---probe-steps 20000
---probe-seconds 120
---cpu-fraction 0.85
---memory-headroom-fraction 0.15
---per-worker-safety-factor 1.20
---max-growth-factor 3.0
---max-workers <optional hard cap>
-```
-
-## E8 automatic single-GPU task placement
-
-Use a new work directory. The original frozen sweep config is still passed to
-calibration and scientific worker subprocesses.
+Use a new work directory:
 
 ```bash
 python scripts/run_countdown_e8_oracle_offline_v2_taper_auto.py \
@@ -94,7 +37,7 @@ python scripts/run_countdown_e8_oracle_offline_v2_taper_auto.py \
   --gpus 0,1,2,3,4,5,6,7
 ```
 
-Default placement controls:
+Default controls:
 
 ```text
 --required-free-gpu-memory-gib 8
@@ -105,31 +48,48 @@ Default placement controls:
 --cpu-fraction 0.85
 --per-worker-vram-safety-factor 1.25
 --max-slots-per-gpu 8
---single-probe-seconds 90
---validation-probe-seconds 120
+--single-probe-seconds 240
+--validation-probe-seconds 300
 --probe-budget-seconds 600
 --probe-free-floor-gib 4
 ```
 
-The old `--required-host-memory-gib-per-gpu` spelling remains accepted as a
-compatibility alias. The host-memory value is a conservative minimum; the selector
-uses the larger of that floor and the measured process-tree RSS with safety factor.
+`--required-host-memory-gib-per-gpu` remains a compatibility alias. The configured
+host value is a minimum; measured process-tree RSS with safety factor may impose a
+larger reservation.
 
-The selector first rejects unavailable, busy, insufficient-memory, or heterogeneous
-devices. It then runs a representative one-worker probe, derives a concurrency
-candidate from measured VRAM, measured host RSS, CPU/load capacity, and task count,
-and validates a bounded descending candidate set on one GPU. Concurrent validation
-projects host RSS across the selected GPU pool. The cold-probe hard budget defaults
-to ten minutes. If no candidate above one is validated, it records the reason and
-falls back to one slot per GPU.
+## Phase-complete probe
 
-`--max-slots-per-gpu` only bounds the search. It does not force that number of
-workers. The chosen value is written to `RUNTIME_SELECTION.json` and must come from
-probe evidence.
+The dedicated Countdown resource worker preserves the real training and generation
+shapes while reducing only outer repetition. Every worker must emit:
+
+```text
+model_loaded
+training_peak_completed
+evaluation_peak_completed
+probe_complete
+```
+
+The training phase performs one full registered optimizer update with the frozen
+micro-batch, complete gradient accumulation, sequence length, and negative-bank
+path. The evaluation phase releases the training model and optimizer, loads a fresh
+non-trainable adapter model, and performs one full registered evaluation batch with
+the maximum configured pass@k and generation length. The test split is not used by
+the probe.
+
+Model loading or timed liveness alone is insufficient. A phase-incomplete
+single-worker probe records a failed selection and stops before the scientific
+scheduler. A higher candidate that misses any phase is rejected and the selector
+backs off within the ten-minute global budget.
+
+The parent observes total GPU free-memory changes, while each worker also records
+CUDA peak allocated/reserved memory for its completed phases. Capacity derivation
+uses the larger single-worker value, preventing a short peak between `nvidia-smi`
+polls from being ignored.
 
 ## Artifacts
 
-Each GPU-placement work directory contains:
+A phase-aware work directory contains:
 
 ```text
 RUNTIME_SELECTION.json
@@ -137,50 +97,37 @@ RUNTIME_SLOTS.json
 _runtime_resource_probe/e8_gpu_placement/
 ```
 
-`RUNTIME_SELECTION.json` records:
+The selection records schema version 2, probe contract, required/completed phases,
+archived phase-state files, VRAM and host-memory peaks, capacity limits, candidate
+outcomes, exact placement, and `scientific_matrix_changed: false`.
 
-- adapter, selector policy, workload fingerprint, and source identity;
-- CPU/RAM/cgroup/GPU snapshot;
-- measured single-worker incremental peak VRAM and process-tree host RSS;
-- reserved per-worker VRAM/host memory and CPU/host/VRAM/task limits;
-- concurrent candidate checks, projected host RSS, and fallback reason;
-- selected devices, `slots_per_gpu`, expanded slot list, and total concurrency;
-- `scientific_matrix_changed: false`.
-
-`RUNTIME_SLOTS.json` records the exact placement consumed by the parent scheduler.
-The scientific runner continues to own cells, summaries, checkpoints, resume
-semantics, and experiment outputs.
+Selections created by the old liveness-only probe are not reusable because the
+resource-probe source hash and phase-aware workload fingerprint differ.
 
 ## Failure and rollback
 
-The auto entrypoints fail closed on malformed identity, invalid placement, missing
-resources, heterogeneous GPUs, or unsafe probe outcomes. They do not silently change
-batch size, methods, seeds, model settings, or evaluation.
+The auto entrypoint fails closed on malformed identity, missing phases, invalid
+placement, missing resources, heterogeneous GPUs, OOM, or unsafe capacity. It does
+not change methods, seeds, model settings, batch shapes, horizons, or scientific
+evaluation.
 
 Rollback is immediate: stop invoking the auto entrypoint and use the unchanged fixed
-E8 runtime or the historical conservative path. Preserve selection files and failed
-probe logs.
+runtime or historical conservative path. Preserve all probe evidence.
 
 ## Validation commands
 
 ```bash
 python -m py_compile \
-  src/drpo/runtime_resource_autotune.py \
-  src/drpo/runtime_resource_adapters.py \
   src/drpo/runtime_gpu_placement_autotune.py \
+  src/drpo/countdown_e8_oracle_offline_v2_taper_resource_probe.py \
   src/drpo/countdown_e8_oracle_offline_v2_taper_slot_runtime.py \
-  scripts/probe_runtime_resources.py \
-  scripts/run_e7_canonical_exp_horizon_joint_auto.py \
   scripts/run_countdown_e8_oracle_offline_v2_taper_auto.py
 
 pytest -q \
-  tests/test_runtime_resource_autotune.py \
-  tests/test_runtime_resource_adapters.py \
   tests/test_runtime_gpu_placement_autotune.py \
-  tests/test_e7_runtime_resource_auto.py \
-  tests/test_e7_canonical_exp_horizon_joint.py \
-  tests/test_countdown_e8_oracle_offline_v2_taper_sweep.py
+  tests/test_countdown_e8_taper_resource_probe.py \
+  tests/test_e8_gpu_placement_auto_cli.py
 ```
 
-Unit tests and CI are engineering evidence only. E7/E8 real-hardware readiness
-requires an actual isolated server/GPU shadow run; it is not inferred from tests.
+Tests and CI are engineering evidence only. Exact-head real-H20 shadow acceptance is
+still required before merge or default use.
