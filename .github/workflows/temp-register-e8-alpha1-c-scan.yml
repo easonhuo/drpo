@@ -6,12 +6,19 @@ on:
       - dev/e8-alpha1-c-scan-pilot
     paths:
       - .github/workflows/temp-register-e8-alpha1-c-scan.yml
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches:
+      - dev/e8-continuous-exp-grid-pilot
+    paths:
+      - .github/workflows/temp-register-e8-alpha1-c-scan.yml
 
 permissions:
   contents: write
 
 jobs:
   register:
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
