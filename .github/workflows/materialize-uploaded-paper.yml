@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - 'paper/upload_payload/main_replacement.tex.gz.b64'
+      - 'paper/upload_payload/chunk_*.txt'
       - '.github/workflows/materialize-uploaded-paper.yml'
 
 permissions:
@@ -26,8 +26,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -f paper/upload_payload/main_replacement.tex.gz.b64
-          base64 --decode paper/upload_payload/main_replacement.tex.gz.b64 | gzip -dc > paper/overleaf/main_replacement.tex
+          test "$(find paper/upload_payload -maxdepth 1 -name 'chunk_*.txt' | wc -l)" -eq 8
+          cat paper/upload_payload/chunk_*.txt | base64 --decode | gzip -dc > paper/overleaf/main_replacement.tex
           echo '4925e5559e6a6293ad75a1de2cf6165e4bd0a4a17728457ae88b627ae49bdcc1  paper/overleaf/main_replacement.tex' | sha256sum -c -
           cat > paper/overleaf/missing_references.bib <<'BIB'
           % References cited by the uploaded full-manuscript source but absent from the
@@ -52,7 +52,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            latexmk texlive-latex-base texlive-latex-extra \
+            latexmk poppler-utils texlive-latex-base texlive-latex-extra \
             texlive-fonts-recommended texlive-science
 
       - name: Compile and validate PDF
@@ -62,6 +62,9 @@ jobs:
           set -euo pipefail
           latexmk -pdf -interaction=nonstopmode -halt-on-error main_replacement.tex
           test -s main_replacement.pdf
+          pdfinfo main_replacement.pdf
+          pdftotext main_replacement.pdf /tmp/main_replacement.txt
+          grep -q 'Breaking the Curse of Repulsion' /tmp/main_replacement.txt
           if grep -E 'Citation .* undefined|There were undefined references|There were undefined citations' main_replacement.log; then
             echo 'Unresolved citations or references remain' >&2
             exit 1
@@ -78,6 +81,7 @@ jobs:
           mkdir -p paper/releases
           cp paper/overleaf/main_replacement.pdf paper/releases/DRPO_REWRITTEN_DRAFT_20260714.pdf
           rm -f paper/upload_payload/main_replacement.tex.gz.b64
+          rm -f paper/upload_payload/chunk_*.txt
           rmdir paper/upload_payload 2>/dev/null || true
           rm -f .github/workflows/materialize-uploaded-paper.yml
 
@@ -95,9 +99,6 @@ jobs:
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -A paper/overleaf/main_replacement.tex \
-            paper/overleaf/missing_references.bib \
-            paper/releases/DRPO_REWRITTEN_DRAFT_20260714.pdf \
-            paper/upload_payload .github/workflows/materialize-uploaded-paper.yml
+          git add -A
           git commit -m 'Update full DRPO manuscript, references, and compiled PDF'
           git push origin HEAD:${{ github.event.pull_request.head.ref }}
