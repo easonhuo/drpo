@@ -46,11 +46,11 @@ Reference lifecycles:
 4. `K_max=16`, analytic `KL(old||new)` threshold `0.01`;
 5. `K_max=16`, analytic `KL(old||new)` threshold `0.03`.
 
-The branch count is
+The branch count is:
 
-\[
-5	imes5	imes3	imes2=150.
-\]
+```text
+5 × 5 × 3 × 2 = 150
+```
 
 The old/current ratio remains a proximal ablation and is not described as
 behavior-policy importance correction.
