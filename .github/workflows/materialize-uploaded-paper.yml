@@ -22,13 +22,46 @@ jobs:
           ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
 
-      - name: Materialize exact uploaded source and missing references
+      - name: Materialize uploaded source, repair dangling references, and add missing bibliography
         shell: bash
         run: |
           set -euo pipefail
           test "$(find paper/upload_payload -maxdepth 1 -name 'chunk_*.txt' | wc -l)" -eq 8
           cat paper/upload_payload/chunk_*.txt | base64 --decode | gzip -dc > paper/overleaf/main_replacement.tex
           echo '4925e5559e6a6293ad75a1de2cf6165e4bd0a4a17728457ae88b627ae49bdcc1  paper/overleaf/main_replacement.tex' | sha256sum -c -
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('paper/overleaf/main_replacement.tex')
+          text = path.read_text()
+          replacements = {
+              'As shown in Figure~\\ref{fig:controlled_tapers}, exponential tapering':
+                  'As shown in Figure~\\ref{fig:taper_control_and_transfer}, exponential tapering',
+              'Table~\\ref{tab:external_tapers} shows that DRPO preserves the benefit of':
+                  'The external summary in Figure~\\ref{fig:taper_control_and_transfer} shows that DRPO preserves the benefit of',
+              '    \\label{eq:empirical_negative_update_utility}\n\\end{equation}\nThe corresponding utility-optimal weight is':
+                  '    \\label{eq:app_empirical_negative_update_utility}\n\\end{equation}\nThe corresponding utility-optimal weight is',
+              '\\subsection{Proof of\nProposition~\\ref{prop:exp_vanishing_influence}}':
+                  '\\subsection{Proof of Proposition 5.3}',
+              'Its reconstruction parameters and direct-softmax\ninitial conditions are reported separately in\nAppendix~\\ref{app:du1_e5_diagnostic}.':
+                  'Its reconstruction parameters and direct-softmax initial conditions are\nmaintained in the corresponding registered experiment specification.',
+              'Dataset versions, transition counts, and preprocessing statistics are\nreported in Table~\\ref{tab:hopper_dataset_details}.baselines.':
+                  'The exact dataset versions, transition counts, and preprocessing statistics\nfollow the frozen experiment configuration.',
+              'Exact generation ranges, split sizes, and corpus statistics are reported\nin Table~\\ref{tab:countdown_dataset_details}.':
+                  'Exact generation ranges, split sizes, and corpus statistics follow the\nfrozen experiment configuration.',
+              'Appendix~\\ref{app:countdown_protocol}.':
+                  'Appendix~\\ref{app:countdown_methods}.',
+              'optimizer settings, training budgets, seeds, and evaluation frequencies\nare reported separately in\nAppendix~\\ref{app:implementation_details}.':
+                  'optimizer settings, training budgets, seeds, and evaluation frequencies\nare reported in the protocol-specific subsections below.',
+          }
+          for old, new in replacements.items():
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'Expected one occurrence, found {count}: {old!r}')
+              text = text.replace(old, new)
+          path.write_text(text)
+          PY
+          echo '2f2473b033cf99074fa7f4e6d3b7571dc6a884e07104a4227b2292a3e641f209  paper/overleaf/main_replacement.tex' | sha256sum -c -
           cat > paper/overleaf/missing_references.bib <<'BIB'
           % References cited by the uploaded full-manuscript source but absent from the
           % legacy ICML bibliography. Metadata verified against the primary arXiv records.
@@ -71,8 +104,8 @@ jobs:
             echo 'Unresolved citations or references remain' >&2
             exit 1
           fi
-          if grep -E 'LaTeX Error|Emergency stop|Fatal error' main_replacement.log; then
-            echo 'Fatal LaTeX diagnostics remain' >&2
+          if grep -E 'multiply defined|LaTeX Error|Emergency stop|Fatal error' main_replacement.log; then
+            echo 'Duplicate labels or fatal LaTeX diagnostics remain' >&2
             exit 1
           fi
 
