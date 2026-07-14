@@ -6276,6 +6276,176 @@ experiments:
     delivered_to_user: false
     scientific_status: pilot
 
+- id: EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-C-SCAN-0.5B-01
+  environment: EXT-C
+  name: countdown_v2_alpha1_high_c_one_parameter_scan_pilot
+  status: pilot
+  result_status: not_run
+  claim: On the frozen model-independent E8 V2 bank, test whether the continuous controller can be simplified
+    to w=exp(-c*u^2) by fixing alpha=1 and scanning larger c values, while retaining same-seed Positive-only
+    and alpha=0.5,c=1.0 controls.
+  role: external_validity_alpha1_c_only_tuning_pilot
+  execution_class: pilot
+  formal_evidence_allowed: false
+  registration_base_commit: 4b4366991c305e6da9e5e91b0f333c17174ce96d
+  implementation_commit: a54dc74b849561c15f6195336fca446ed36f0640
+  launch_commit: a54dc74b849561c15f6195336fca446ed36f0640
+  registration_after_launch: true
+  development_branch: dev/e8-alpha1-c-scan-pilot
+  stacked_on_branch: dev/e8-continuous-exp-grid-pilot
+  draft_pull_request: 55
+  predecessor: EXT-C-E8-ORACLE-OFFLINE-V2-CONTINUOUS-EXP-GRID-0.5B-01
+  preserved_predecessor_interpretation: The predecessor 62-cell alpha-by-c grid remains historical development
+    evidence. This successor only tests whether alpha can be fixed to one while c alone retains the useful
+    region.
+  does_not_replace:
+  - C-U1
+  - D-U1
+  - D-Diag
+  implementation_state: implemented_running
+  code_entrypoints:
+  - src/drpo/countdown_e8_alpha1_c_scan_common.py
+  - src/drpo/countdown_e8_alpha1_c_scan_trainer.py
+  - src/drpo/countdown_e8_alpha1_c_scan_runtime.py
+  operator_entrypoint: scripts/run_countdown_e8_oracle_offline_v2_alpha1_c_scan_auto_one_click.sh
+  autotune_entrypoint: scripts/run_countdown_e8_oracle_offline_v2_alpha1_c_scan_auto.py
+  config_path: configs/countdown_e8_oracle_offline_v2_alpha1_c_scan_0p5b.yaml
+  protocol_document: docs/experiments/E8_V2_ALPHA1_C_SCAN_PILOT.md
+  scope_document: docs/scopes/EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-C-SCAN-0.5B-01.md
+  model:
+    identity: Qwen2.5-0.5B-Instruct
+    initialization: pretrained_base_plus_fresh_lora
+    parameterization: lora
+  bank:
+    source_experiment: EXT-C-E8-ORACLE-OFFLINE-BANK-V2-0.5B-01
+    frozen_during_training: true
+    use_all_first_occurrence_unique_negatives: true
+    duplicate_padding_removed_before_encoding: true
+    current_near_far_extreme_selection: false
+    explicit_near_far_training_classes: false
+    negative_count_denominator: unique_negative_count_per_prompt
+  controller:
+    distance: d=-stopgrad(sequence_mean_logprob)
+    coordinate: u=d/2
+    weight: alpha*exp(-c*u^2)
+    alpha1_family: exp(-c*u^2)
+    detached_weight: true
+    hidden_negative_scale: false
+    gradient_budget_matching: false
+    normalize_by_weight_sum: false
+    dynamic_alpha: false
+  development_grid:
+    parameter_points:
+    - alpha: 0.0
+      c: 0.0
+      role: positive_only_same_seed_control
+    - alpha: 0.5
+      c: 1.0
+      role: previous_best_same_seed_control
+    - alpha: 1.0
+      c: 1.5
+      role: previous_alpha1_boundary_anchor
+    - alpha: 1.0
+      c: 2.0
+      role: alpha1_c_only_scan
+    - alpha: 1.0
+      c: 2.25
+      role: alpha1_c_only_scan
+    - alpha: 1.0
+      c: 2.5
+      role: alpha1_c_only_scan
+    - alpha: 1.0
+      c: 3.0
+      role: alpha1_c_only_scan
+    - alpha: 1.0
+      c: 4.0
+      role: alpha1_c_only_scan
+    seed_offsets:
+    - 5000
+    - 6000
+    - 7000
+    - 8000
+    actual_training_seeds:
+    - 2026075803
+    - 2026076803
+    - 2026077803
+    - 2026078803
+    unique_parameter_points: 8
+    cells: 32
+    test_or_confirmatory_seeds: untouched
+  training:
+    optimizer: AdamW
+    learning_rate: 5.0e-05
+    optimizer_updates: 1200
+    early_stop: false
+    evaluation_interval_steps: 100
+    pass_at_64_interval_steps: 200
+    late_window_steps:
+    - 800
+    - 900
+    - 1000
+    - 1100
+    - 1200
+    fixed_horizon_is_not_convergence: true
+  evaluation:
+    tuning_split: validation_only
+    test_split_access: forbidden_in_current_runtime_cli
+    primary_metric: validation_pass_at_8
+    report_greedy: true
+    report_pass_at_64: true
+    report_valid_rate: true
+    compare_terminal_and_late_window: true
+  runtime:
+    candidate_gpus: 8
+    parallel_cells_per_gpu: 2
+    maximum_concurrent_cells: 16
+    expected_full_waves: 2
+    representative_liveness_steps: 2
+    liveness_required_before_sweep: true
+    identity_checked_resume: true
+    scientific_matrix_changed_by_runtime_selection: false
+  exclusions:
+  - current_bank_argmin_argmax_selection
+  - near_far_binary_mixture
+  - negative_scale_calibration
+  - initialization_gradient_rms_matching
+  - sbrc
+  - hybrid
+  - entropy_bonus
+  - sft_initialization
+  - on_policy_sampling
+  - replay_refresh
+  - test_split_access
+  reporting_separation:
+  - task_performance
+  - valid_rate_structure_proxy_not_formal_support_audit
+  - nan_inf_numerical_failure
+  interpretation_limits:
+  - external_validity_only
+  - no_controlled_mechanism_claim
+  - no_formal_method_ranking
+  - no_convergence_or_steady_state_claim
+  - no_state_distribution_ood_generalization_claim
+  - countdown_does_not_replace_cu1_or_du1
+  - four_development_seeds_are_not_confirmatory_seeds
+  execution:
+    state: running
+    run_id: server_run_started_user_reported
+    server_start_reported: true
+    registration_state_at_launch: dev_code_first_unregistered
+    authoritative_registration_during_run: true
+    last_heartbeat_utc: null
+    process_exit_code: null
+  evidence:
+    code_committed: true
+    focused_tests_passed: true
+    real_server_liveness_completed: reported_by_running_state_not_yet_delivered
+    run_started: true
+    raw_complete: false
+    terminal_audited: false
+    package_created: false
+    delivered_to_user: false
+    scientific_status: pilot
 development_experiment_registrations:
 - id: D-U1-E6-CONDITIONAL-GAP-DEV-01
   environment: D-U1

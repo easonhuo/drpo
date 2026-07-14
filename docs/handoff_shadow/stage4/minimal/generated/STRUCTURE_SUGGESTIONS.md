@@ -23,6 +23,11 @@
 - Reason: canonical registry experiment is not mapped to any minimal module
 - Automatic action: `false`
 
+## candidate_add_or_map_module: `EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-C-SCAN-0.5B-01`
+
+- Reason: canonical registry experiment is not mapped to any minimal module
+- Automatic action: `false`
+
 ## candidate_add_or_map_module: `EXT-C-E8-ORACLE-OFFLINE-V2-CONTINUOUS-EXP-GRID-0.5B-01`
 
 - Reason: canonical registry experiment is not mapped to any minimal module
@@ -60,5 +65,5 @@
 
 ## candidate_split_module: `countdown_e8`
 
-- Reason: source content has 82206 characters, above the configured 50000 threshold
+- Reason: source content has 83203 characters, above the configured 50000 threshold
 - Automatic action: `false`

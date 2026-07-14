@@ -7,7 +7,7 @@
 - Responsibility: Preserve the unique-master rule, terminology, scientific scope, and non-destructive governance constraints.
 - Content contract topics: `unique_master_document`, `document_before_experiment`, `non_destructive_history`, `terminal_audit_governance`, `controlled_external_validity_boundary`
 - Deduplicated overlapping source chunks: 0
-- Source hash: `b9a586853c41b107ab99ccb8cbd2fd2105bd613b5bef4181bead093bbfcfdf36`
+- Source hash: `0bd3fe47b6ccc93f0184f6e19742abab9ec5946cd954c1e06e96de6c7a77418b`
 
 ## Content contract evidence
 
@@ -173,6 +173,9 @@
 <!-- HANDOFF-DELTA-BLOCK:section_end:e8-v2-active-taper-sweep-ready:START -->
 - **Countdown E8 V2 active taper tuning:** 注册 `EXT-C-E8-ORACLE-OFFLINE-V2-TAPER-SWEEP-0.5B-01`，状态为 `implemented_ready_not_run`。本轮停止继续调 Global，只比较 Linear、Quadratic、Exp；8 个 `rho` × 3 个 paired tuning seeds，共 72 cells，使用 GPU 0--7。初始化 aggregate negative-gradient RMS 均匹配 Global `x1/32` 预算；current-near 中位点锚定 `u=0`，current-far 中位点锚定 `u=1`。SBRC、Hybrid、Global retuning、SFT init、on-policy 和 replay 均排除。本轮仅为调参 pilot；必须报告 best 与 terminal，并在冻结超参后使用新 seeds 才能形成方法排名。
 <!-- HANDOFF-DELTA-BLOCK:section_end:e8-v2-active-taper-sweep-ready:END -->
+<!-- HANDOFF-DELTA-BLOCK:section_end:e8-v2-alpha1-c-scan-running-pilot:START -->
+- **Countdown E8 alpha=1 high-`c` one-parameter scan （`EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-C-SCAN-0.5B-01`）：**登记为已启动但尚无终态结果的 development pilot，是前序 62-cell alpha-by-c 网格的非破坏性 successor。实验在同一 frozen E8 V2 bank、Qwen2.5-0.5B、fresh LoRA 和 validation-only 协议下，固定 `d=-stopgrad(sequence_mean_logprob)`、`u=d/2`、`w=alpha*exp(-c*u^2)`，比较 Positive-only、前序最佳 `alpha=0.5,c=1.0` 与 `alpha=1,c={1.5,2,2.25,2.5,3,4}`。四个新 development seed offsets 为 `5000,6000,7000,8000`，共 32 cells；8 张 GPU 每卡 2 个运行槽，最多 16 cells 并发、预期两波。服务器从 clean launch commit `a54dc74b849561c15f6195336fca446ed36f0640` 在登记前启动；本登记不修改其 config、trainer、runtime 或 launcher，避免破坏正在运行 workdir 的 identity-checked resume。固定 1200 steps、每 100 steps Greedy/Pass@8、每 200 steps Pass@64，test split 禁止访问。该 Countdown 实验只承担external-validity tuning；不得预设 alpha 可以删除，也不得把四个 development seeds 升级为正式方法排名、收敛、稳态、受控因果识别或 OOD 结论。终态必须分别报告任务性能、valid-rate 结构代理和 NaN/Inf 数值失败，并同时审计 terminal 与 800--1200 late window。
+<!-- HANDOFF-DELTA-BLOCK:section_end:e8-v2-alpha1-c-scan-running-pilot:END -->
 <!-- HANDOFF-DELTA-BLOCK:section_end:e8-v2-fixed-alpha-continuous-exp-grid-ready:START -->
 - **Countdown E8 V2 fixed-alpha continuous EXP pilot:** 登记 `EXT-C-E8-ORACLE-OFFLINE-V2-CONTINUOUS-EXP-GRID-0.5B-01`，状态为 `implemented_ready_not_run`。训练对每个 prompt 的全部去重负样本使用固定 `alpha * exp(-c * u^2)` 权重，其中 `u=-stopgrad(sequence mean log-prob)/2`；不再使用 current-near/current-far 极值选择、0.5/0.5 二元混合、`negative_scale`、初始化梯度预算匹配或按权重和归一化。本轮联合扫描 31 个 `(alpha,c)` 点和 2 个新 development seeds，共 62 cells，固定 1200 步且只用 validation 调参；当前 runtime 不接受 test split。GPU autotune 只选择活动设备槽，并在完整 sweep 前执行 2-step 真实 liveness。此前 72-cell budget-matched taper sweep 作为历史 pilot 保留，不得用于回答本轮固定 alpha 问题。本登记仅是 Countdown 外部有效性调参 pilot，不构成机制识别、正式方法排名、收敛、稳态或 OOD 泛化结论。
 <!-- HANDOFF-DELTA-BLOCK:section_end:e8-v2-fixed-alpha-continuous-exp-grid-ready:END -->

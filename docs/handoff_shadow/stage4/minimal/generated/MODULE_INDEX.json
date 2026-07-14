@@ -178,10 +178,10 @@
   ],
   "graph_hash": "0db2d992b651a2ed85d93d68c298214ba6bdbee1ae15b7b7c48d92162a7fb87c",
   "input_hashes": {
-    "docs/handoff.md": "5a4c74ad328c485993309be87fe27fb5278257ef45f47c806d2ce2ac920acc28",
+    "docs/handoff.md": "4b9db69152d192c080024e834a7e7d9bef9a123f9c8707fdc0eb4517800a57fd",
     "docs/handoff_shadow/stage4/minimal/DEPENDENCIES.yaml": "fb19da70ea2db6a35c4320e23a91640d0f21887c46bb79873d9548357271f4da",
     "docs/handoff_shadow/stage4/minimal/MODULES.yaml": "9eb67303232bb2362b8a4571f383687aca0cfd2c25eeb9b8e68733c84b3701e8",
-    "experiments/registry.yaml": "7f25a2b7d5e395e16754d1c5cbf954d7d74ee2dc0c869cf231aa8ab48288af41"
+    "experiments/registry.yaml": "57d2121c9193580ecd51ae4a0e9e70fcac813c44477dccfbada33aec8855620f"
   },
   "module_order": [
     "global_core_governance",
@@ -242,9 +242,9 @@
       "deduplicated_source_labels": [],
       "depends_on": [],
       "module_id": "global_core_governance",
-      "snapshot_hash": "ec29852b81121ffd42f227d5bfc7456ebc8891b96ce5acb7e62472b6c976ac0b",
-      "source_chars": 45575,
-      "source_hash": "b9a586853c41b107ab99ccb8cbd2fd2105bd613b5bef4181bead093bbfcfdf36",
+      "snapshot_hash": "007cc713e817504e9e14c73156e482ba5cfbced022461f60ed126c47a91a9fdc",
+      "source_chars": 46667,
+      "source_hash": "0bd3fe47b6ccc93f0184f6e19742abab9ec5946cd954c1e06e96de6c7a77418b",
       "source_labels": [
         "docs/handoff.md: # 0. 研究与执行原则（每次新会话首先阅读） -> # 1. 论文最终目标与两条主工作线"
       ]
@@ -555,9 +555,9 @@
         "categorical_e6_generalization"
       ],
       "module_id": "countdown_e8",
-      "snapshot_hash": "998ce9432f21265259a77e3c15c540595d842a10e4c32e04e1d8dd1ab28b3050",
-      "source_chars": 82206,
-      "source_hash": "d00a0fc83dcedeb2927e01a9f4c7815c118b2554017d3d53425c2b3c7a6978f8",
+      "snapshot_hash": "cfedde0187572958ce3becfa9e91ec2c23e1b730c1b25ddc4829edd5a1e6b5ac",
+      "source_chars": 83203,
+      "source_hash": "04857296433e3c7878bbad7c6decb5753a6c31d5c1ced41b8ba0c78435200aff",
       "source_labels": [
         "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v52-ext-c-e8-v43-dynamic-control",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK after_heading:v53-stage3-observation-automation",
@@ -574,6 +574,7 @@
         "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:e8-oracle-offline-bank-v2-0p5b-gate",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:e8-oracle-offline-v2-init-matrix-pilot-result",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:e8-v2-active-taper-sweep-ready",
+        "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:e8-v2-alpha1-c-scan-running-pilot",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:e8-v2-fixed-alpha-continuous-exp-grid-ready",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:e8-v2-global-low-scale-milestone-pilot",
         "docs/handoff.md: HANDOFF-DELTA-BLOCK section_end:v52-countdown-current-gate-override",
@@ -638,5 +639,5 @@
     "terminal_audit"
   ],
   "structure_change_policy": "suggestion_only_human_approval_required",
-  "suggestion_count": 12
+  "suggestion_count": 13
 }

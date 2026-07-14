@@ -1,0 +1,178 @@
+{
+  "current_before_commit": "4b4366991c305e6da9e5e91b0f333c17174ce96d",
+  "current_handoff_before_sha256": "5a4c74ad328c485993309be87fe27fb5278257ef45f47c806d2ce2ac920acc28",
+  "current_registry_validation": {
+    "assertions": [
+      {
+        "change_id": "add-e8-alpha1-c-scan-running-pilot",
+        "entity_id": "EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-C-SCAN-0.5B-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "57d2121c9193580ecd51ae4a0e9e70fcac813c44477dccfbada33aec8855620f"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-C-E8-V2-ALPHA1-C-SCAN-REGISTRATION-2026-07-14/HANDOFF_DELTA.yaml",
+            "sha256": "72ef9f2415722735e7169cc84be597312d9c887b6b500c26366407aa87326194"
+          },
+          {
+            "path": "docs/experiments/E8_V2_ALPHA1_C_SCAN_PILOT.md",
+            "sha256": "c39c4395d6aeeea9fcda5b4255d15f172ba8c1b38edf1d12eb0c0c812ada37f1"
+          },
+          {
+            "path": "docs/scopes/EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-C-SCAN-0.5B-01.md",
+            "sha256": "320dd0babf71339f770b69257860075b752f919250e6c87e3779daac011f15de"
+          },
+          {
+            "path": "configs/countdown_e8_oracle_offline_v2_alpha1_c_scan_0p5b.yaml",
+            "sha256": "08337635dcdb453ae20330205551e4b87cab2b04d58cea6e5a4def37ead96935"
+          },
+          {
+            "path": "src/drpo/countdown_e8_alpha1_c_scan_common.py",
+            "sha256": "bf6a2245d0f7f5278cc983c5425d6cbc2d5d0d96f16dfb7f31936df107d85fd4"
+          },
+          {
+            "path": "src/drpo/countdown_e8_alpha1_c_scan_trainer.py",
+            "sha256": "075d35cdd0f42ca348bc6811f0ec5e536f764b24245eed94aa5b8d12c06c4dfc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_alpha1_c_scan_runtime.py",
+            "sha256": "1111e6e532721f3bc8d3bc43bd78c60a2a57cc3c6218049d6ece7401fff062fd"
+          },
+          {
+            "path": "scripts/run_countdown_e8_oracle_offline_v2_alpha1_c_scan_auto.py",
+            "sha256": "dc7e31e650db877a9fb95d06a0b3aa67ccb2958f6ea08d313f1db1ed3bb2f686"
+          },
+          {
+            "path": "scripts/run_countdown_e8_oracle_offline_v2_alpha1_c_scan_auto_one_click.sh",
+            "sha256": "8a4b8f3d16b0bba320b1c6027aeb5af55d9a0de8cebe5cf312478dc92cd3b8b0"
+          },
+          {
+            "path": "tests/test_countdown_e8_oracle_offline_v2_alpha1_c_scan.py",
+            "sha256": "c59f3ad3a428e0d377d78c79aae5fa4177dc6ed82934bfa39f60564d47b0b905"
+          }
+        ],
+        "kind": "add_entity"
+      }
+    ],
+    "coverage": {
+      "added_entities": [
+        "EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-C-SCAN-0.5B-01"
+      ],
+      "changed_field_count": 0,
+      "declared_assertion_count": 1,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "delta_sha256": "72ef9f2415722735e7169cc84be597312d9c887b6b500c26366407aa87326194",
+  "exact_base_candidate_sha256": "4b9db69152d192c080024e834a7e7d9bef9a123f9c8707fdc0eb4517800a57fd",
+  "exact_base_registry_validation": {
+    "assertions": [
+      {
+        "change_id": "add-e8-alpha1-c-scan-running-pilot",
+        "entity_id": "EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-C-SCAN-0.5B-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "57d2121c9193580ecd51ae4a0e9e70fcac813c44477dccfbada33aec8855620f"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-C-E8-V2-ALPHA1-C-SCAN-REGISTRATION-2026-07-14/HANDOFF_DELTA.yaml",
+            "sha256": "72ef9f2415722735e7169cc84be597312d9c887b6b500c26366407aa87326194"
+          },
+          {
+            "path": "docs/experiments/E8_V2_ALPHA1_C_SCAN_PILOT.md",
+            "sha256": "c39c4395d6aeeea9fcda5b4255d15f172ba8c1b38edf1d12eb0c0c812ada37f1"
+          },
+          {
+            "path": "docs/scopes/EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-C-SCAN-0.5B-01.md",
+            "sha256": "320dd0babf71339f770b69257860075b752f919250e6c87e3779daac011f15de"
+          },
+          {
+            "path": "configs/countdown_e8_oracle_offline_v2_alpha1_c_scan_0p5b.yaml",
+            "sha256": "08337635dcdb453ae20330205551e4b87cab2b04d58cea6e5a4def37ead96935"
+          },
+          {
+            "path": "src/drpo/countdown_e8_alpha1_c_scan_common.py",
+            "sha256": "bf6a2245d0f7f5278cc983c5425d6cbc2d5d0d96f16dfb7f31936df107d85fd4"
+          },
+          {
+            "path": "src/drpo/countdown_e8_alpha1_c_scan_trainer.py",
+            "sha256": "075d35cdd0f42ca348bc6811f0ec5e536f764b24245eed94aa5b8d12c06c4dfc"
+          },
+          {
+            "path": "src/drpo/countdown_e8_alpha1_c_scan_runtime.py",
+            "sha256": "1111e6e532721f3bc8d3bc43bd78c60a2a57cc3c6218049d6ece7401fff062fd"
+          },
+          {
+            "path": "scripts/run_countdown_e8_oracle_offline_v2_alpha1_c_scan_auto.py",
+            "sha256": "dc7e31e650db877a9fb95d06a0b3aa67ccb2958f6ea08d313f1db1ed3bb2f686"
+          },
+          {
+            "path": "scripts/run_countdown_e8_oracle_offline_v2_alpha1_c_scan_auto_one_click.sh",
+            "sha256": "8a4b8f3d16b0bba320b1c6027aeb5af55d9a0de8cebe5cf312478dc92cd3b8b0"
+          },
+          {
+            "path": "tests/test_countdown_e8_oracle_offline_v2_alpha1_c_scan.py",
+            "sha256": "c59f3ad3a428e0d377d78c79aae5fa4177dc6ed82934bfa39f60564d47b0b905"
+          }
+        ],
+        "kind": "add_entity"
+      }
+    ],
+    "coverage": {
+      "added_entities": [
+        "EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-C-SCAN-0.5B-01"
+      ],
+      "changed_field_count": 0,
+      "declared_assertion_count": 1,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "history_preservation_passed": true,
+  "idempotence_passed": true,
+  "materialized_handoff_after_sha256": "4b9db69152d192c080024e834a7e7d9bef9a123f9c8707fdc0eb4517800a57fd",
+  "mode": "authoritative",
+  "network_used": false,
+  "policy_id": "GOV-HANDOFF-AUTHORITY-CUTOVER-01",
+  "registry_after_sha256": "57d2121c9193580ecd51ae4a0e9e70fcac813c44477dccfbada33aec8855620f",
+  "registry_before_sha256": "7f25a2b7d5e395e16754d1c5cbf954d7d74ee2dc0c869cf231aa8ab48288af41",
+  "report_schema_version": 1,
+  "source_base_commit": "4b4366991c305e6da9e5e91b0f333c17174ce96d",
+  "source_patch_commit": "3c57e9855216e1659ab568f9f5f56777a937efd2",
+  "stage4a_refresh": {
+    "refreshed": [
+      "docs/handoff_shadow/stage4/minimal/generated/MODULE_INDEX.json",
+      "docs/handoff_shadow/stage4/minimal/generated/STRUCTURE_SUGGESTIONS.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/countdown_e8.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/global_core_governance.md"
+    ],
+    "reused": [
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.dot",
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e5_mechanism.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e6_generalization.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_extrapolation.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_taper.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_mechanism_e1_e3.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/execution_status_gates.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/history_provenance.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/hopper_e7.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/paper_rewrite.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/terminal_audit.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/theory_methods_related_work.md"
+    ]
+  },
+  "status": "PASS",
+  "structural_lint_passed": true,
+  "trusted_engine_sha256": "a6532ba4c1bb9c4af24d79f027267de518c3832b347dba47e8319dee7a3ebe2c",
+  "trusted_policy_sha256": "508f6bbb6ee9bb6da5be041a23e25cd569b95475523bb6af7127cb84ea3466ad",
+  "trusted_renderer_sha256": "39a7566e91c77784822148bb18ae32e44dfcc1745fbdc1cbf14a88ce6c6a13e5",
+  "update_id": "EXT-C-E8-V2-ALPHA1-C-SCAN-REGISTRATION-2026-07-14"
+}

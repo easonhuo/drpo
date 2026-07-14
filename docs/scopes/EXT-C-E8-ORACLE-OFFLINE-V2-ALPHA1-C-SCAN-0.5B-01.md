@@ -2,10 +2,10 @@
 
 ## Development status
 
-- Lifecycle: code-first development pilot, not yet authoritatively registered.
+- Lifecycle: authoritatively registered development pilot; the server run started earlier from launch commit `a54dc74b849561c15f6195336fca446ed36f0640`.
 - Result status: `pilot / not_run`.
 - Scientific role: Countdown external-validity tuning only.
-- This development branch may be used for validation-only server execution after the real liveness gate passes. It is not a formal RunSpec and cannot support a method-ranking, convergence, steady-state, or OOD claim.
+- Server execution is running under the validation-only pilot protocol. It is not a formal RunSpec and cannot support a method-ranking, convergence, steady-state, or OOD claim.
 
 ## Question
 

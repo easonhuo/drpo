@@ -1,0 +1,47 @@
+schema_version: 3
+update_id: EXT-C-E8-V2-ALPHA1-C-SCAN-REGISTRATION-2026-07-14
+mode: authoritative
+base:
+  commit: 4b4366991c305e6da9e5e91b0f333c17174ce96d
+  handoff_sha256: 5a4c74ad328c485993309be87fe27fb5278257ef45f47c806d2ce2ac920acc28
+  registry_sha256: 7f25a2b7d5e395e16754d1c5cbf954d7d74ee2dc0c869cf231aa8ab48288af41
+renderer_version: 1
+operations:
+- operation_id: append-e8-alpha1-c-scan-running-pilot
+  op: append_to_section
+  heading_path:
+  - 0. 研究与执行原则（每次新会话首先阅读）
+  - 0.1 当前执行门禁
+  block_id: e8-v2-alpha1-c-scan-running-pilot
+  content: '- **Countdown E8 alpha=1 high-`c` one-parameter scan （`EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-C-SCAN-0.5B-01`）：**登记为已启动但尚无终态结果的
+    development pilot，是前序 62-cell alpha-by-c 网格的非破坏性 successor。实验在同一 frozen E8 V2
+    bank、Qwen2.5-0.5B、fresh LoRA 和 validation-only 协议下，固定 `d=-stopgrad(sequence_mean_logprob)`、`u=d/2`、`w=alpha*exp(-c*u^2)`，比较
+    Positive-only、前序最佳 `alpha=0.5,c=1.0` 与 `alpha=1,c={1.5,2,2.25,2.5,3,4}`。四个新 development
+    seed offsets 为 `5000,6000,7000,8000`，共 32 cells；8 张 GPU 每卡 2 个运行槽，最多 16 cells
+    并发、预期两波。服务器从 clean launch commit `a54dc74b849561c15f6195336fca446ed36f0640` 在登记前启动；本登记不修改其
+    config、trainer、runtime 或 launcher，避免破坏正在运行 workdir 的 identity-checked resume。固定
+    1200 steps、每 100 steps Greedy/Pass@8、每 200 steps Pass@64，test split 禁止访问。该 Countdown
+    实验只承担external-validity tuning；不得预设 alpha 可以删除，也不得把四个 development seeds 升级为正式方法排名、收敛、稳态、受控因果识别或
+    OOD 结论。终态必须分别报告任务性能、valid-rate 结构代理和 NaN/Inf 数值失败，并同时审计 terminal 与 800--1200 late
+    window。'
+registry:
+  mode: expected_after
+  exact_base_after_sha256: 57d2121c9193580ecd51ae4a0e9e70fcac813c44477dccfbada33aec8855620f
+  changes:
+  - change_id: add-e8-alpha1-c-scan-running-pilot
+    kind: add_entity
+    entity_id: EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-C-SCAN-0.5B-01
+    evidence:
+    - experiments/registry.yaml
+    - docs/handoff_deltas/EXT-C-E8-V2-ALPHA1-C-SCAN-REGISTRATION-2026-07-14/HANDOFF_DELTA.yaml
+    - docs/experiments/E8_V2_ALPHA1_C_SCAN_PILOT.md
+    - docs/scopes/EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-C-SCAN-0.5B-01.md
+    - configs/countdown_e8_oracle_offline_v2_alpha1_c_scan_0p5b.yaml
+    - src/drpo/countdown_e8_alpha1_c_scan_common.py
+    - src/drpo/countdown_e8_alpha1_c_scan_trainer.py
+    - src/drpo/countdown_e8_alpha1_c_scan_runtime.py
+    - scripts/run_countdown_e8_oracle_offline_v2_alpha1_c_scan_auto.py
+    - scripts/run_countdown_e8_oracle_offline_v2_alpha1_c_scan_auto_one_click.sh
+    - tests/test_countdown_e8_oracle_offline_v2_alpha1_c_scan.py
+expected:
+  exact_base_candidate_sha256: 4b9db69152d192c080024e834a7e7d9bef9a123f9c8707fdc0eb4517800a57fd
