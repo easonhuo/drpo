@@ -24,12 +24,15 @@ from runspec_lib import (
     state_path,
 )
 from runspec_recovery import run_entrypoint_with_recovery, validate_recovery_policy
+from runspec_registration import validate_registration_block
 from runspec_results_delivery import validate_delivery_block
 from runspec_safety import package_artifacts_safe, validate_provenance
 
 
 def execute_claimed_runspec(repo: Path, claimed: Path) -> tuple[dict[str, Any], int]:
     spec = read_yaml(claimed)
+    registration = validate_registration_block(spec)
+    spec["registration"] = registration
     validate_provenance(repo, spec)
     validate_recovery_policy(repo, spec)
     validate_simple_size_policy(spec)
@@ -82,6 +85,8 @@ def execute_claimed_runspec(repo: Path, claimed: Path) -> tuple[dict[str, Any], 
         "attempts": run_result.get("attempts", 1),
         "recovery_used": bool(run_result.get("recovery_used", False)),
         "recovery_report": run_result.get("recovery_report"),
+        "registration_mode": registration["mode"],
+        "registration_closure_required": registration["closure_required"],
         "delivery_status": "not_requested",
         "publish_status": "not_requested",
     }
