@@ -13,6 +13,8 @@ repository or authorize scientific integration.
 - `scripts/agent/runspec_delivery_policy.py`
 - `scripts/agent/runspec_registration.py`
 - `scripts/agent/upload_runspec_result.py`
+- `scripts/agent/prepare_results_repo_delivery_shadow.py`
+- `runspecs/templates/E8_RESULTS_REPO_DELIVERY_SHADOW_20260714_01.yaml`
 - RunSpec validation for the new `delivery` block and fixed V1 size caps
 - dual RunSpec registration timing: default `pre_registered` and code-first `deferred`
 - lane claim, execution, packaging, and upload for deferred-registration RunSpecs
@@ -21,6 +23,7 @@ repository or authorize scientific integration.
 - text-first result export, branch-JSON compaction, SHA-256 manifesting, size limits,
   symlink rejection, append-only conflict checks, and idempotent retry
 - graceful `RESULT_TOO_LARGE` downgrade without retraining or remote writes
+- a no-training real-remote shadow based on previously completed compact E8 evidence
 - local bare-repository tests and operator documentation
 
 ## Explicitly excluded
@@ -55,7 +58,10 @@ repository or authorize scientific integration.
 - source artifact paths, sizes, and SHA-256 values are revalidated before export;
 - a remote `runs/<lane>/<run_id>/` directory is immutable after first delivery;
 - same-manifest retries are idempotent and different-manifest retries fail closed;
-- upload failure preserves the completed local run and never retriggers training.
+- upload failure preserves the completed local run and never retriggers training;
+- the first real shadow hashes and packages already completed compact evidence only;
+- the shadow is engineering evidence, performs no training, and is excluded from
+  scientific aggregation.
 
 ## Required validation
 
@@ -65,13 +71,22 @@ repository or authorize scientific integration.
 - fixed-cap and oversize-downgrade tests
 - pre-registered backward-compatibility tests
 - deferred-registration validation, lane-claim, and explicit override tests
+- no-training shadow preparation tests, including source immutability, symlink rejection,
+  and model-like-file rejection
 - strict executor guard coverage
 - full pytest
 - handoff authority, formal execution channel, and governance gates
+- real remote first push returns `PASS`
+- identical manual retry returns `ALREADY_DELIVERED`
+- remote `READY_FOR_REVIEW.json` and `RESULT_MANIFEST.json` agree on manifest SHA
+- remote package records `registration.mode: deferred` and contains no model-like files
 
 ## Real-shadow boundary
 
 The private `easonhuo/drpo-results` repository exists and the online GitHub connector
-has read/write access. A real remote shadow remains blocked only until an E7 or E8
-execution environment has a repository-scoped write credential. The first shadow must
-use a previously completed result package and must not rerun training.
+has read/write access. The no-training E8 shadow RunSpec is prepared as a template and
+uses the already completed compact result under
+`experiments/results/e8_oracle_offline_v2_init_matrix_pilot`. Promotion from template to
+`runspecs/ready/` remains blocked until an E8 execution environment has a
+repository-scoped write credential. The shadow must not rerun training or alter the
+source evidence.
