@@ -1595,6 +1595,48 @@ def _first_parent_positions(repo_root: Path, activation: str, head: str) -> dict
     return {commit: index for index, commit in enumerate(commits)}
 
 
+def _path_exists_at_commit(repo_root: Path, commit: str, relative: str) -> bool:
+    return _git(
+        repo_root,
+        "cat-file",
+        "-e",
+        f"{commit}:{relative}",
+        check=False,
+    ).returncode == 0
+
+
+def _first_parent_integration_commit(
+    repo_root: Path,
+    *,
+    positions: dict[str, int],
+    first_add: str,
+    relative: str,
+) -> str:
+    """Map a side-branch delta addition to its first-parent merge integration."""
+
+    ordered = sorted(positions, key=positions.__getitem__)
+    for commit in ordered:
+        if _git(
+            repo_root,
+            "merge-base",
+            "--is-ancestor",
+            first_add,
+            commit,
+            check=False,
+        ).returncode != 0:
+            continue
+        if not _path_exists_at_commit(repo_root, commit, relative):
+            continue
+        first_parent = _git_text(repo_root, "rev-parse", f"{commit}^1")
+        if _path_exists_at_commit(repo_root, first_parent, relative):
+            continue
+        return commit
+    raise HandoffAuthorityError(
+        "authoritative delta was not integrated on the first-parent history: "
+        + relative
+    )
+
+
 def _discover_v3_deltas(repo_root: Path, authority: dict[str, Any]) -> list[tuple[str, Path, dict[str, Any]]]:
     activation = authority["delta_authority"]["activation_parent_commit"]
     head = _git_text(repo_root, "rev-parse", "HEAD")
@@ -1613,8 +1655,15 @@ def _discover_v3_deltas(repo_root: Path, authority: dict[str, Any]) -> list[tupl
         if len(adds) != 1 or len(touches) != 1:
             raise HandoffAuthorityError(f"authoritative delta is not immutable: {relative}")
         first_add = adds[0]
-        if first_add not in positions:
-            raise HandoffAuthorityError(f"authoritative delta was not added after activation: {relative}")
+        if first_add in positions:
+            integration_commit = first_add
+        else:
+            integration_commit = _first_parent_integration_commit(
+                repo_root,
+                positions=positions,
+                first_add=first_add,
+                relative=relative,
+            )
         report = path.parent / REPORT_FILENAME
         if not report.is_file():
             raise HandoffAuthorityError(f"authoritative delta lacks materialization report: {relative}")
@@ -1627,7 +1676,7 @@ def _discover_v3_deltas(repo_root: Path, authority: dict[str, Any]) -> list[tupl
         ).splitlines()
         if report_touches != [first_add]:
             raise HandoffAuthorityError(f"materialization report is not immutable: {report}")
-        records.append((first_add, path, payload))
+        records.append((integration_commit, path, payload))
     records.sort(key=lambda item: positions[item[0]])
     return records
 
