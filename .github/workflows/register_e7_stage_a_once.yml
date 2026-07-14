@@ -29,7 +29,7 @@ jobs:
         continue-on-error: true
         run: |
           set -o pipefail
-          python .github/scripts/register_e7_stage_a.py 2>&1 | tee registration.log
+          python .github/scripts/register_e7_stage_a_fixed.py 2>&1 | tee registration.log
       - name: Upload registration log
         uses: actions/upload-artifact@v4
         with:
