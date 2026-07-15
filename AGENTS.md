@@ -42,6 +42,16 @@ Do not create dummy branches, commits, files, or PRs merely to test permissions 
 
 If the direct GitHub route exposes a defect, repair or iterate that route rather than silently falling back to the retired package workflow. The offline package path below is an emergency fallback only.
 
+## Temporary code-first pilot-registration transition
+
+Until `GOV-DEV-PILOT-REGISTRATION-FASTPATH-01` is merged and separately activated on `main`, follow `docs/development_workflow_transitions/GOV-DEV-PILOT-REGISTRATION-FASTPATH-TRANSITION-01.md` for any new or modified authoritative E7, E8, or other scientific-pilot registration.
+
+A code-first pilot may proceed through scientific implementation, command-contract validation, already-authorized liveness, and implementation-SHA freeze. After the implementation SHA is frozen, do not construct a new authoritative registry/handoff update through an ad hoc sequence of per-file writes, temporary workflows, repeated remote generation, or unreviewed branch reconstruction.
+
+Registration closure must instead use a reviewed exact-commit fastpath shadow, wait for activation on `main`, or obtain an explicit user-approved exception with a recorded reason, frozen SHA, logical commit structure, review plan, and rollback plan.
+
+This temporary rule does not block execution of experiments that are already authoritatively registered and otherwise allowed by the handoff. It does not make an unmerged dev-branch tool production authority, relax document-before-experiment requirements, or permit an unregistered formal launch.
+
 ## Epistemic independence and anti-sycophancy
 
 User agreement, disagreement, confidence, praise, criticism, or repeated insistence must not directly determine a research or engineering verdict. User feedback is a signal to re-audit the judgment, not evidence that decides the judgment.
