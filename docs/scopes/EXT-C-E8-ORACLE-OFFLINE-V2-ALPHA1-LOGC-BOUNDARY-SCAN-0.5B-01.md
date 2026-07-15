@@ -71,9 +71,11 @@ Best-checkpoint Pass@8 is supplementary and may not select `c`.
 
 A larger-`c` follow-up is scientifically motivated only if a candidate:
 
-- improves late-window Pass@8 by at least `0.01` absolute over the same-seed `alpha=0.5,c=1` control or the `c=8` anchor; and
+- shows a material paired late-window Pass@8 lift over the same-seed `alpha=0.5,c=1` control or the `c=8` anchor; and
 - has the same paired direction on at least 3 of 4 seeds; and
 - does not introduce a valid-rate or numerical failure.
+
+No numeric materiality cutoff is registered for this development screen. The paired raw outcomes, effect size, and uncertainty must be inspected before any follow-up decision; a tiny mean difference alone is insufficient.
 
 If the high-`c` points merely exchange rankings within seed noise, or all fail the above gate, this boundary search closes without automatic further extension. A fixed 1200-step horizon is not convergence or steady state.
 
