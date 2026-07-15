@@ -84,7 +84,7 @@ evaluation:
   best_checkpoint_metric_is_supplementary_only: true
   late_window_steps: [800, 900, 1000, 1100, 1200]
   paired_direction_gate_for_followup: at_least_3_of_4_seeds
-  material_lift_gate_absolute_pass_at_8: 0.01
+  material_lift_gate: qualitative_paired_lift_no_numeric_cutoff_registered
 reporting:
   distinguish_task_performance: true
   distinguish_support_or_structure_boundary: true
