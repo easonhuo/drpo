@@ -62,9 +62,54 @@ def test_gpu_placement_probe_defaults_are_bounded_and_phase_aware() -> None:
     assert args.cpu_fraction == 0.85
     assert args.per_worker_cpu_safety_factor == 1.5
     assert args.minimum_cpu_cores_per_worker == 1.0
+    assert args.selection_only is False
     assert placement.PROBE_CONTRACT_VERSION == 2
     assert placement.SELECTOR_POLICY_VERSION == 2
     assert "evaluation_peak_completed" in placement.DEFAULT_REQUIRED_PHASES
+
+
+def test_selection_only_is_explicit_opt_in() -> None:
+    args = auto.build_parser().parse_args(required_args() + ["--selection-only"])
+    assert args.selection_only is True
+
+
+def test_selection_only_stops_before_slot_runtime(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def unexpected_run(*_args: object, **_kwargs: object) -> int:
+        raise AssertionError("selection-only must not call the scientific slot runtime")
+
+    monkeypatch.setattr(auto.slot_runtime, "run", unexpected_run)
+    result = auto._finish_after_selection(  # noqa: SLF001
+        argparse.Namespace(selection_only=True),
+        argparse.Namespace(),
+        work_dir=tmp_path,
+    )
+    assert result == 0
+
+
+def test_normal_mode_still_delegates_selected_placement(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    observed: dict[str, object] = {}
+
+    def fake_run(runtime_args: argparse.Namespace, *, placement_path: Path) -> int:
+        observed["runtime_args"] = runtime_args
+        observed["placement_path"] = placement_path
+        return 17
+
+    monkeypatch.setattr(auto.slot_runtime, "run", fake_run)
+    runtime_args = argparse.Namespace(marker="normal")
+    result = auto._finish_after_selection(  # noqa: SLF001
+        argparse.Namespace(selection_only=False),
+        runtime_args,
+        work_dir=tmp_path,
+    )
+    assert result == 17
+    assert observed["runtime_args"] is runtime_args
+    assert observed["placement_path"] == tmp_path / "RUNTIME_SELECTION.json"
 
 
 def test_resource_probe_command_uses_dedicated_probe_not_scientific_worker(
