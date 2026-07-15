@@ -67,8 +67,6 @@ def gpu_selection_command(
         e8["bank"],
         "--val",
         e8["val"],
-        "--test",
-        e8["test"],
         "--global_calibration",
         e8["global_calibration"],
         "--base_config",
