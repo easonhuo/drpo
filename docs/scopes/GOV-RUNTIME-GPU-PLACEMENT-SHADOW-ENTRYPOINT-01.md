@@ -27,20 +27,23 @@ Add one CLI flag:
 
 When supplied, the entrypoint must:
 
-1. preserve all existing input/config validation;
+1. preserve all applicable model/bank/validation/config validation;
 2. preserve calibration identity and calibration execution;
 3. preserve static GPU filtering;
 4. preserve the full phase-aware measured-CPU placement selector;
 5. write the same immutable `RUNTIME_SELECTION.json`;
 6. print the same selected devices, slots per GPU, total slots, selector policy, and
-   probe contract metadata, plus an explicit `selection_only=true` marker;
+   probe contract metadata, plus explicit `selection_only=true` and
+   `test_split_access=not_accessed_selection_only` markers;
 7. return zero immediately after selection output;
 8. never call `countdown_e8_oracle_offline_v2_taper_slot_runtime.run`;
-9. leave no probe process groups or model/checkpoint payload beyond the selector's
-   existing cleanup contract.
+9. never require, hash, open, or otherwise access the test split;
+10. record `test_sha256=null` in the selection fingerprint;
+11. leave no probe process groups or model/checkpoint payload beyond the selector's
+    existing cleanup contract.
 
-Without the flag, behavior must remain byte-for-byte equivalent at the control-flow
-boundary: selection is followed by the existing slot runtime.
+Without the flag, a full run must still require `--test`; selection is followed by the
+existing slot runtime and the historical full-run identity hash is retained.
 
 ## Explicit exclusions
 
@@ -48,6 +51,7 @@ boundary: selection is followed by the existing slot runtime.
 - no probe phase, timeout, memory, CPU, VRAM, or candidate-policy change;
 - no scientific dataset, split, seed, model, bank, method, coefficient, batch,
   accumulation, horizon, or evaluation change;
+- no test-split access during engineering selection-only acceptance;
 - no new GPU scheduler or resource pool;
 - no thread tuning;
 - no merge or default activation of PR `#53`;
@@ -57,20 +61,22 @@ boundary: selection is followed by the existing slot runtime.
 ## Deterministic acceptance
 
 1. parser default remains full-run mode;
-2. `--selection-only` is opt-in;
-3. selection-only returns zero without invoking the slot runtime;
-4. normal mode still delegates once with the selected placement artifact;
-5. output includes an explicit selection-only marker;
-6. Python compile, focused tests, full pytest, Ruff, and governance gates pass on the
+2. `--selection-only` is opt-in and does not require `--test`;
+3. selection-only fingerprinting cannot read a supplied or missing test path;
+4. full-run fingerprinting still requires a test path;
+5. selection-only returns zero without invoking the slot runtime;
+6. normal mode still delegates once with the selected placement artifact;
+7. output includes selection-only and test-access markers;
+8. Python compile, focused tests, full pytest, Ruff, and governance gates pass on the
    exact stacked head.
 
 ## Real-server acceptance
 
 The later acceptance harness may invoke this exact commit with `--selection-only`. A
 PASS requires at least the registered selector contract: complete required phases,
-clean zero exits, no controller termination, no OOM, no live descendants, and an
-immutable selection. If resources do not permit a candidate above one, the result is
-`INCONCLUSIVE` for multi-slot capacity rather than a fabricated PASS.
+clean zero exits, no controller termination, no OOM, no live descendants, no test
+access, and an immutable selection. If resources do not permit a candidate above one,
+the result is `INCONCLUSIVE` for multi-slot capacity rather than a fabricated PASS.
 
 ## Rollback
 
