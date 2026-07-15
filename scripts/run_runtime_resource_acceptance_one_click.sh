@@ -13,5 +13,7 @@ if [[ "$2" != /* ]]; then
   echo "Profile path must be absolute: $2" >&2
   exit 2
 fi
+
+export PYTHONPATH="${REPO_ROOT}/src${PYTHONPATH:+:${PYTHONPATH}}"
 cd "${REPO_ROOT}"
 exec python3 scripts/run_runtime_resource_acceptance.py --profile "$2"
