@@ -30,7 +30,7 @@ jobs:
           set -euo pipefail
           cat .github/paper-import-payload/chunk-*.b64 > /tmp/drpo-overleaf.b64
           base64 --decode /tmp/drpo-overleaf.b64 > /tmp/drpo-overleaf.zip
-          echo 'a543fe2a773f08817815779dc3253e811a710f3ca2b80fd2d05beb65fcb7011  /tmp/drpo-overleaf.zip' | sha256sum --check --strict
+          echo '1fa9ae754b1b11153e44054cbb86afff199ec6320bd855f63023c2a6aa68beb3  /tmp/drpo-overleaf.zip' | sha256sum --check --strict
           rm -rf /tmp/drpo-overleaf
           mkdir -p /tmp/drpo-overleaf
           unzip -q /tmp/drpo-overleaf.zip -d /tmp/drpo-overleaf
