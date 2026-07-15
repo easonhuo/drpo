@@ -41,11 +41,22 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--work_dir", required=True)
     parser.add_argument("--bank", required=True)
     parser.add_argument("--val", required=True)
-    parser.add_argument("--test", required=True)
+    parser.add_argument(
+        "--test",
+        help="required for a full run; forbidden from access in --selection-only mode",
+    )
     parser.add_argument("--global_calibration", required=True)
     parser.add_argument("--base_config", required=True)
     parser.add_argument("--sweep_config", required=True)
     parser.add_argument("--gpus", help="comma-separated candidate GPU ids")
+    parser.add_argument(
+        "--selection-only",
+        action="store_true",
+        help=(
+            "run calibration and bounded placement selection, write "
+            "RUNTIME_SELECTION.json, then exit without starting the sweep"
+        ),
+    )
     parser.add_argument("--required-free-gpu-memory-gib", type=float, default=8.0)
     parser.add_argument(
         "--required-host-memory-gib-per-worker",
@@ -149,13 +160,12 @@ def _ensure_calibration(args: argparse.Namespace, *, gpu_id: str) -> Path:
 
 
 def _workload_fingerprint(args: argparse.Namespace) -> dict[str, Any]:
-    return {
+    fingerprint = {
         "schema_version": 3,
         "experiment_id": legacy_runtime.EXPERIMENT_ID,
         "model_path": str(Path(args.model_path).resolve()),
         "bank_sha256": legacy_runtime.sha256_file(args.bank),
         "validation_sha256": legacy_runtime.sha256_file(args.val),
-        "test_sha256": legacy_runtime.sha256_file(args.test),
         "global_calibration_sha256": legacy_runtime.sha256_file(
             args.global_calibration
         ),
@@ -170,6 +180,15 @@ def _workload_fingerprint(args: argparse.Namespace) -> dict[str, Any]:
         "placement_topology": "one_gpu_per_independent_task",
         "scientific_matrix_changed": False,
     }
+    if args.selection_only:
+        fingerprint["test_split_access"] = "not_accessed_selection_only"
+        fingerprint["test_sha256"] = None
+    else:
+        if not args.test:
+            raise RuntimeResourceError("a full E8 run requires --test")
+        fingerprint["test_split_access"] = "identity_hash_only_full_run"
+        fingerprint["test_sha256"] = legacy_runtime.sha256_file(args.test)
+    return fingerprint
 
 
 def _phase_peak_probe_runner(**kwargs: Any) -> GPUConcurrencyProbeResult:
@@ -186,8 +205,26 @@ def _phase_peak_probe_runner(**kwargs: Any) -> GPUConcurrencyProbeResult:
     return replace(result, peak_incremental_vram_bytes=reported_peak)
 
 
+def _finish_after_selection(
+    args: argparse.Namespace,
+    runtime_args: argparse.Namespace,
+    *,
+    work_dir: Path,
+) -> int:
+    """Stop at immutable selection for a hardware shadow, or run normally."""
+
+    if bool(args.selection_only):
+        return 0
+    return slot_runtime.run(
+        runtime_args,
+        placement_path=work_dir / "RUNTIME_SELECTION.json",
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    if not args.selection_only and not args.test:
+        raise RuntimeResourceError("a full E8 run requires --test")
     repo = Path(__file__).resolve().parents[1]
     work_dir = Path(args.work_dir).resolve()
     _reject_legacy_work_dir(work_dir)
@@ -274,16 +311,19 @@ def main(argv: list[str] | None = None) -> int:
                 "selected_device_ids": selected_ids,
                 "slots_per_gpu": document["selection"]["slots_per_gpu"],
                 "total_runtime_slots": document["selection"]["total_runtime_slots"],
+                "selection_only": bool(args.selection_only),
+                "test_split_access": (
+                    "not_accessed_selection_only"
+                    if args.selection_only
+                    else "identity_hash_only_full_run"
+                ),
                 "scientific_matrix_changed": False,
             },
             sort_keys=True,
         ),
         flush=True,
     )
-    return slot_runtime.run(
-        runtime_args,
-        placement_path=work_dir / "RUNTIME_SELECTION.json",
-    )
+    return _finish_after_selection(args, runtime_args, work_dir=work_dir)
 
 
 if __name__ == "__main__":
