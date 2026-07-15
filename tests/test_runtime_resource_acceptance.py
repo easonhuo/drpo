@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 from drpo import runtime_resource_acceptance as acceptance
+from drpo import runtime_resource_acceptance_commands as commands
 from drpo import runtime_resource_acceptance_process as process
 
 SCRIPT = Path("scripts/run_runtime_resource_acceptance.py")
@@ -30,7 +31,6 @@ def _profile(tmp_path: Path, repo: Path) -> Path:
         "grid",
         "bank",
         "val",
-        "test",
         "global_calibration",
         "base_config",
         "sweep_config",
@@ -81,7 +81,7 @@ def _profile(tmp_path: Path, repo: Path) -> Path:
             "model_path": str(model),
             "bank": values["bank"],
             "val": values["val"],
-            "test": values["test"],
+            "test": "/dev/null",
             "global_calibration": values["global_calibration"],
             "base_config": values["base_config"],
             "sweep_config": values["sweep_config"],
@@ -145,6 +145,23 @@ def test_profile_rejects_placeholders_and_overlapping_pools(tmp_path: Path) -> N
     target.write_text(json.dumps(raw), encoding="utf-8")
     with pytest.raises(acceptance.AcceptanceError, match="overlap"):
         acceptance.load_profile(target, repo_root=repo)
+
+
+def test_gpu_selection_command_never_contains_test_split(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    profile = acceptance.load_profile(_profile(tmp_path, repo), repo_root=repo)
+    command = commands.gpu_selection_command(
+        repo,
+        profile,
+        work_dir=tmp_path / "gpu_work",
+        gpu_ids=("0",),
+        max_devices=1,
+        max_slots=1,
+    )
+    assert "--selection-only" in command
+    assert "--test" not in command
+    assert "/dev/null" not in command
 
 
 def test_overall_status_does_not_majority_vote() -> None:
