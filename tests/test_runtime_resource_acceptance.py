@@ -10,6 +10,7 @@ import pytest
 
 from drpo import runtime_resource_acceptance as acceptance
 from drpo import runtime_resource_acceptance_commands as commands
+from drpo import runtime_resource_acceptance_gpu_stages as gpu_stages
 from drpo import runtime_resource_acceptance_process as process
 
 SCRIPT = Path("scripts/run_runtime_resource_acceptance.py")
@@ -164,6 +165,29 @@ def test_gpu_selection_command_never_contains_test_split(tmp_path: Path) -> None
     assert "/dev/null" not in command
 
 
+def test_candidate_above_one_ignores_unexecuted_capacity_ceiling() -> None:
+    single_only = {
+        "selection": {"slots_per_gpu": 1, "capacity": {"candidate": 8}},
+        "probe": {"records": [{"concurrency": 1}]},
+    }
+    executed_two = {
+        "selection": {"slots_per_gpu": 1, "capacity": {"candidate": 8}},
+        "probe": {"records": [{"concurrency": 1}, {"concurrency": 2}]},
+    }
+    assert commands.candidate_above_one(single_only) is False
+    assert commands.candidate_above_one(executed_two) is True
+
+
+def test_calibration_reuse_is_checksum_exact(tmp_path: Path) -> None:
+    source_work = tmp_path / "source"
+    calibration = source_work / "calibration" / "taper_budget_calibration.json"
+    calibration.parent.mkdir(parents=True)
+    calibration.write_text('{"value": 1}\n', encoding="utf-8")
+    target = gpu_stages._reuse_calibration(source_work, tmp_path / "target")
+    assert target.read_bytes() == calibration.read_bytes()
+    assert acceptance.sha256_file(target) == acceptance.sha256_file(calibration)
+
+
 def test_overall_status_does_not_majority_vote() -> None:
     now = acceptance.utc_now()
 
@@ -207,8 +231,6 @@ def test_package_is_text_only_and_rejects_model_payload(tmp_path: Path) -> None:
 
 
 def test_affinity_audit_rejects_cross_pool_process(tmp_path: Path) -> None:
-    from drpo.runtime_resource_acceptance_gpu_stages import _affinity_violations
-
     samples = tmp_path / "samples.jsonl"
     samples.write_text(
         json.dumps(
@@ -222,6 +244,8 @@ def test_affinity_audit_rejects_cross_pool_process(tmp_path: Path) -> None:
         + "\n",
         encoding="utf-8",
     )
-    violations = _affinity_violations(samples, {"e7": {0, 1}, "e8": {2, 3}})
+    violations = gpu_stages._affinity_violations(
+        samples, {"e7": {0, 1}, "e8": {2, 3}}
+    )
     assert len(violations) == 1
     assert violations[0]["command"] == "e8"
