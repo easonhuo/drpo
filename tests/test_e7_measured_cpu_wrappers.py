@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
 
 import pytest
@@ -8,7 +9,7 @@ import pytest
 from drpo import e7_ppo_w0_runtime_autotune as shared
 from drpo import e7_squared_exp_night_runtime_autotune as night_adapter
 from drpo import e7_w0_highc_runtime_autotune as highc_adapter
-from drpo.runtime_resource_autotune import RuntimeResourceError
+from drpo.runtime_resource_autotune import RuntimeResourceError, canonical_json_sha256
 
 
 def load_script(name: str, path: str):
@@ -60,6 +61,48 @@ def test_run_identity_is_required_before_revalidation(
 ) -> None:
     with pytest.raises(RuntimeResourceError, match="RUN_IDENTITY"):
         module._validate_existing_run_identity(tmp_path, 4, "digest")  # noqa: SLF001
+
+
+def test_ppo_plan_materializes_identity_from_execution_plan(tmp_path: Path) -> None:
+    work = tmp_path / "work"
+    work.mkdir()
+    plan = {
+        "created_utc": "2026-07-15T00:00:00+00:00",
+        "max_workers": 4,
+        "branch_count": 186,
+    }
+    (work / "EXECUTION_PLAN.json").write_text(
+        json.dumps(plan), encoding="utf-8"
+    )
+
+    ppo_script._bind_selection_to_run_identity(  # noqa: SLF001
+        work,
+        selected_workers=4,
+        selection_digest="selection-digest",
+    )
+
+    identity = json.loads((work / "RUN_IDENTITY.json").read_text(encoding="utf-8"))
+    stable_plan = {key: value for key, value in plan.items() if key != "created_utc"}
+    assert identity["run_identity_sha256"] == canonical_json_sha256(stable_plan)
+    assert identity["plan"] == plan
+    assert identity["runtime_resource_selection"] == {
+        "selection_digest": "selection-digest",
+        "selected_workers": 4,
+        "path": str(work / "RUNTIME_SELECTION.json"),
+        "scientific_matrix_changed": False,
+    }
+    ppo_script._validate_existing_run_identity(  # noqa: SLF001
+        work, 4, "selection-digest"
+    )
+
+
+def test_ppo_plan_identity_requires_execution_plan(tmp_path: Path) -> None:
+    with pytest.raises(RuntimeResourceError, match="EXECUTION_PLAN"):
+        ppo_script._bind_selection_to_run_identity(  # noqa: SLF001
+            tmp_path,
+            selected_workers=4,
+            selection_digest="selection-digest",
+        )
 
 
 def test_highc_adapter_binds_and_restores_implementation_identity() -> None:
