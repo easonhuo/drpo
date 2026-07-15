@@ -312,3 +312,49 @@ Those are resolved by the harness output, not by changing code during server exe
 Stop using the harness and dependency opt-in flags. All historical launchers remain
 available. Preserve acceptance artifacts and failure evidence; never reinterpret them
 as scientific results.
+
+## Implementation review correction — 2026-07-15
+
+The initial file list above described one acceptance core plus a minimum E7 entrypoint
+extension. Implementation review found that this would either create a monolith or
+unnecessarily alter an existing scientific-facing launcher. The reviewed replacement
+keeps the external one-command surface while splitting internal responsibilities into
+cohesive modules:
+
+```text
+src/drpo/runtime_resource_acceptance.py
+src/drpo/runtime_resource_acceptance_process.py
+src/drpo/runtime_resource_acceptance_commands.py
+src/drpo/runtime_resource_acceptance_e7.py
+src/drpo/runtime_resource_acceptance_local_stages.py
+src/drpo/runtime_resource_acceptance_gpu_stages.py
+```
+
+No E7 scientific launcher was modified. The harness calls the already reviewed
+measured-CPU `plan`, `revalidate_runtime`, and `benchmark_concurrency` functions through
+an internal acceptance-only action. This preserves the existing public E7 run commands
+and avoids a second resource selector.
+
+A separate scientific-boundary review found that the original GPU runner fingerprint
+would hash the test file even during selection. The pinned GPU child now makes `--test`
+optional only for `--selection-only`, never hashes or opens the test split in that mode,
+and records:
+
+```text
+test_split_access = not_accessed_selection_only
+test_sha256 = null
+```
+
+The acceptance command never emits `--test`. The closed profile retains
+`"test": "/dev/null"` only as a compatibility field and the operator must not replace
+it with a test-data path.
+
+A cost review also removed redundant recalibration. Stage 3 creates the validated
+calibration once; thread-scan and concurrent stages copy and checksum that immutable
+JSON into their independent work directories. This changes no model, bank, validation,
+probe, selector, or thread candidate.
+
+Finally, capacity status is now separated from liveness. A clean single-worker envelope
+with no measured candidate above one remains `INCONCLUSIVE` for multi-slot capacity,
+but it may still proceed to the one-worker concurrent isolation stage. Overall status
+remains `INCONCLUSIVE`; it is never promoted to PASS.
