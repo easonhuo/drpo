@@ -41,7 +41,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--work_dir", required=True)
     parser.add_argument("--bank", required=True)
     parser.add_argument("--val", required=True)
-    parser.add_argument("--test", required=True)
+    parser.add_argument(
+        "--test",
+        help="required for a full run; forbidden from access in --selection-only mode",
+    )
     parser.add_argument("--global_calibration", required=True)
     parser.add_argument("--base_config", required=True)
     parser.add_argument("--sweep_config", required=True)
@@ -157,13 +160,12 @@ def _ensure_calibration(args: argparse.Namespace, *, gpu_id: str) -> Path:
 
 
 def _workload_fingerprint(args: argparse.Namespace) -> dict[str, Any]:
-    return {
+    fingerprint = {
         "schema_version": 3,
         "experiment_id": legacy_runtime.EXPERIMENT_ID,
         "model_path": str(Path(args.model_path).resolve()),
         "bank_sha256": legacy_runtime.sha256_file(args.bank),
         "validation_sha256": legacy_runtime.sha256_file(args.val),
-        "test_sha256": legacy_runtime.sha256_file(args.test),
         "global_calibration_sha256": legacy_runtime.sha256_file(
             args.global_calibration
         ),
@@ -178,6 +180,15 @@ def _workload_fingerprint(args: argparse.Namespace) -> dict[str, Any]:
         "placement_topology": "one_gpu_per_independent_task",
         "scientific_matrix_changed": False,
     }
+    if args.selection_only:
+        fingerprint["test_split_access"] = "not_accessed_selection_only"
+        fingerprint["test_sha256"] = None
+    else:
+        if not args.test:
+            raise RuntimeResourceError("a full E8 run requires --test")
+        fingerprint["test_split_access"] = "identity_hash_only_full_run"
+        fingerprint["test_sha256"] = legacy_runtime.sha256_file(args.test)
+    return fingerprint
 
 
 def _phase_peak_probe_runner(**kwargs: Any) -> GPUConcurrencyProbeResult:
@@ -212,6 +223,8 @@ def _finish_after_selection(
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    if not args.selection_only and not args.test:
+        raise RuntimeResourceError("a full E8 run requires --test")
     repo = Path(__file__).resolve().parents[1]
     work_dir = Path(args.work_dir).resolve()
     _reject_legacy_work_dir(work_dir)
@@ -299,6 +312,11 @@ def main(argv: list[str] | None = None) -> int:
                 "slots_per_gpu": document["selection"]["slots_per_gpu"],
                 "total_runtime_slots": document["selection"]["total_runtime_slots"],
                 "selection_only": bool(args.selection_only),
+                "test_split_access": (
+                    "not_accessed_selection_only"
+                    if args.selection_only
+                    else "identity_hash_only_full_run"
+                ),
                 "scientific_matrix_changed": False,
             },
             sort_keys=True,
