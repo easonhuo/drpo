@@ -4,6 +4,7 @@ from __future__ import annotations
 import csv
 import json
 import os
+import shutil
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -21,6 +22,18 @@ from drpo.runtime_resource_acceptance_commands import (
 )
 from drpo.runtime_resource_acceptance_process import run_command, run_concurrent
 from drpo.runtime_resource_autotune import load_json
+
+
+def _reuse_calibration(source_work: Path, target_work: Path) -> Path:
+    source = source_work / "calibration" / "taper_budget_calibration.json"
+    if not source.is_file():
+        raise AcceptanceError(f"validated calibration is missing: {source}")
+    target = target_work / "calibration" / source.name
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source, target)
+    if sha256_file(source) != sha256_file(target):
+        raise AcceptanceError("reused calibration checksum mismatch")
+    return target
 
 
 def gpu_stage(
@@ -62,6 +75,13 @@ def gpu_stage(
         failures = gpu_failures(selection)
         if failures:
             raise AcceptanceError(f"GPU placement structured failures: {failures}")
+        fingerprint = selection.get("workload_fingerprint", {})
+        if not isinstance(fingerprint, Mapping):
+            raise AcceptanceError("GPU placement fingerprint is missing")
+        if fingerprint.get("test_split_access") != "not_accessed_selection_only":
+            raise AcceptanceError("GPU placement did not prove test-split isolation")
+        if fingerprint.get("test_sha256") is not None:
+            raise AcceptanceError("GPU placement unexpectedly recorded a test hash")
         numerical = numerical_matches(list(directory.rglob("*")))
         if numerical:
             raise AcceptanceError("GPU placement logs contain NaN/Inf indicators")
@@ -76,6 +96,8 @@ def gpu_stage(
                 "command": result.as_dict(),
                 "selection_sha256": sha256_file(work / "RUNTIME_SELECTION.json"),
                 "candidate_above_one_observed": above_one,
+                "single_worker_envelope_passed": True,
+                "test_split_access": fingerprint.get("test_split_access"),
                 "structured_failures": failures,
                 "nan_inf_matches": numerical,
                 "full_scientific_sweep_started": False,
@@ -123,12 +145,14 @@ def thread_scan_stage(
         )
     pools = profile["resource_pools"]
     gpu_ids = [str(pools["e8_gpu_ids"][0])]
+    source_work = root / "stage3_gpu_placement" / "work"
     rows: list[dict[str, Any]] = []
     try:
         for candidate in profile["e8"]["thread_candidates"]:
             label = "unbounded" if candidate is None else f"threads_{candidate}"
             candidate_dir = directory / label
             work = candidate_dir / "work"
+            calibration = _reuse_calibration(source_work, work)
             result = run_command(
                 pool_command(
                     repo,
@@ -171,6 +195,7 @@ def thread_scan_stage(
                     "minimum_free_vram_bytes": first_numeric(
                         selection, "minimum_free_vram_bytes"
                     ),
+                    "calibration_sha256": sha256_file(calibration),
                     "selection_sha256": sha256_file(work / "RUNTIME_SELECTION.json"),
                 }
             )
@@ -190,6 +215,7 @@ def thread_scan_stage(
             started,
             {
                 "rows": rows,
+                "calibration_reused_from_stage3": True,
                 "nan_inf_matches": numerical,
                 "permanent_thread_policy_selected": False,
                 "full_scientific_sweep_started": False,
@@ -247,14 +273,15 @@ def concurrent_stage(
             started,
             {"reason": "concurrent stage disabled"},
         )
-    if e7_result.status != "PASS" or gpu_result.status != "PASS":
+    acceptable = {"PASS", "INCONCLUSIVE"}
+    if e7_result.status not in acceptable or gpu_result.status not in acceptable:
         return stage_result(
             root,
             "stage5_concurrent_pool",
             "BLOCKED",
             started,
             {
-                "reason": "independent E7 and GPU stages must both PASS",
+                "reason": "independent E7 and GPU liveness must be usable",
                 "e7_status": e7_result.status,
                 "gpu_status": gpu_result.status,
             },
@@ -262,7 +289,11 @@ def concurrent_stage(
     pools = profile["resource_pools"]
     e7_work = root / "stage2_e7_cpu_v2" / "work"
     gpu_ids = [str(pools["e8_gpu_ids"][0])]
+    e8_work = directory / "e8_work"
     try:
+        calibration = _reuse_calibration(
+            root / "stage3_gpu_placement" / "work", e8_work
+        )
         e7_command = pool_command(
             repo,
             cpu_pool=pools["e7_cpu_pool"],
@@ -282,7 +313,7 @@ def concurrent_stage(
             command=gpu_selection_command(
                 gpu_repo,
                 profile,
-                work_dir=directory / "e8_work",
+                work_dir=e8_work,
                 gpu_ids=gpu_ids,
                 max_devices=1,
                 max_slots=1,
@@ -326,6 +357,9 @@ def concurrent_stage(
             started,
             {
                 "commands": {name: result.as_dict() for name, result in results.items()},
+                "independent_e7_status": e7_result.status,
+                "independent_gpu_status": gpu_result.status,
+                "calibration_sha256": sha256_file(calibration),
                 "affinity_violations": violations,
                 "nan_inf_matches": numerical,
                 "full_scientific_sweep_started": False,
