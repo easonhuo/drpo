@@ -19,6 +19,16 @@ Profile editing is limited to machine-specific paths and explicit resource IDs. 
 harness rejects unknown fields, relative paths, placeholders, overlapping pools, and
 unavailable CPUs before starting hardware work.
 
+The compatibility field below must remain unchanged:
+
+```json
+"test": "/dev/null"
+```
+
+It is not a test-data path. The pinned GPU selection-only entrypoint neither emits a
+`--test` argument nor hashes or opens a test split. Its immutable selection records
+`test_split_access=not_accessed_selection_only` and `test_sha256=null`.
+
 ## One command
 
 ```bash
@@ -71,8 +81,9 @@ server AI must not synthesize or edit them.
 
 Creates a detached worktree at the exact `gpu_selection_commit` and invokes the
 phase-aware Countdown envelope with `--selection-only`. Calibration, training peak,
-maximum-shape evaluation, bounded candidates, clean exits, and immutable selection are
-retained. The scientific slot runtime is never called.
+maximum-shape validation evaluation, bounded candidates, clean exits, and immutable
+selection are retained. The scientific slot runtime is never called and the test split
+is not accessed.
 
 ### Stage 4 — E8 thread envelope
 
