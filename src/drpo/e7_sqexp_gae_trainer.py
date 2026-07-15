@@ -7,7 +7,7 @@ import json
 import os
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 import numpy as np
 import torch
@@ -81,6 +81,29 @@ def _load_prepared(
     return advantages, manifest, critic_path
 
 
+def _parameter_snapshot(module: torch.nn.Module) -> dict[str, torch.Tensor]:
+    return {
+        name: parameter.detach().cpu().clone()
+        for name, parameter in module.named_parameters()
+    }
+
+
+def _max_parameter_change(
+    module: torch.nn.Module,
+    reference: Mapping[str, torch.Tensor],
+) -> float:
+    current = dict(module.named_parameters())
+    if set(current) != set(reference):
+        raise RuntimeError("critic parameter names changed during actor training")
+    maximum = 0.0
+    for name, parameter in current.items():
+        maximum = max(
+            maximum,
+            float((parameter.detach().cpu() - reference[name]).abs().max()),
+        )
+    return maximum
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.steps <= 0 or args.batch <= 0:
@@ -126,13 +149,21 @@ def main(argv: list[str] | None = None) -> int:
         tau=args.tau,
         T=args.temp,
     )
-    checkpoint = torch.load(critic_path, map_location=device)
+    try:
+        checkpoint = torch.load(critic_path, map_location=device, weights_only=True)
+    except TypeError:
+        checkpoint = torch.load(critic_path, map_location=device)
     if int(checkpoint.get("state_dim", -1)) != state_dim:
         raise RuntimeError("critic checkpoint state dimension mismatch")
     agent.critic.load_state_dict(checkpoint["state_dict"])
     agent.critic.eval()
     for parameter in agent.critic.parameters():
         parameter.requires_grad_(False)
+    actor_parameter_ids = {id(parameter) for parameter in agent.actor.parameters()}
+    critic_parameter_ids = {id(parameter) for parameter in agent.critic.parameters()}
+    if actor_parameter_ids & critic_parameter_ids:
+        raise RuntimeError("actor and critic parameter sets overlap")
+    critic_reference = _parameter_snapshot(agent.critic)
 
     tensors = {
         "obs": torch.from_numpy(data["obs"]).to(device=device, dtype=torch.float32),
@@ -164,6 +195,7 @@ def main(argv: list[str] | None = None) -> int:
         "actor_sigma_max": [],
         "lower_log_std_boundary_fraction": [],
         "upper_log_std_boundary_fraction": [],
+        "critic_max_abs_parameter_change": [],
     }
     support_probe_count = min(n, 4096)
     support_probe_states = tensors["obs"][:support_probe_count]
@@ -205,6 +237,11 @@ def main(argv: list[str] | None = None) -> int:
                 checkpoint_dir / f"step_{step:07d}.pt",
             )
         if step % args.eval_interval == 0:
+            critic_change = _max_parameter_change(agent.critic, critic_reference)
+            if critic_change != 0.0:
+                raise RuntimeError(
+                    f"frozen critic changed during actor training: {critic_change}"
+                )
             raw = evaluate(
                 agent, args.dataset, n=args.eval_episodes, seed=args.seed
             )
@@ -232,10 +269,11 @@ def main(argv: list[str] | None = None) -> int:
                         sigma_max,
                         lower_fraction,
                         upper_fraction,
+                        critic_change,
                     )
                 ):
                     raise FloatingPointError(
-                        "actor support diagnostics contain NaN/Inf"
+                        "actor support or critic diagnostics contain NaN/Inf"
                     )
             history["steps"].append(step)
             history["score"].append(float(score))
@@ -245,12 +283,13 @@ def main(argv: list[str] | None = None) -> int:
             history["actor_sigma_max"].append(sigma_max)
             history["lower_log_std_boundary_fraction"].append(lower_fraction)
             history["upper_log_std_boundary_fraction"].append(upper_fraction)
+            history["critic_max_abs_parameter_change"].append(critic_change)
             elapsed = time.time() - start_time
             speed = step / elapsed if elapsed > 0 else 0.0
             line = (
                 f"[{args.dataset}|{args.advantage_estimator}|s{args.seed}] "
                 f"step={step}/{args.steps} speed={speed:.1f}/s "
-                f"raw={raw:.6f} norm={score:.6f}"
+                f"raw={raw:.6f} norm={score:.6f} critic_delta={critic_change:.3g}"
             )
             print(line, flush=True)
             with log_path.open("a", encoding="utf-8") as handle:
@@ -258,6 +297,11 @@ def main(argv: list[str] | None = None) -> int:
 
     if not history["score"]:
         raise RuntimeError("actor run completed without evaluation")
+    final_critic_change = _max_parameter_change(agent.critic, critic_reference)
+    if final_critic_change != 0.0:
+        raise RuntimeError(
+            f"frozen critic changed at terminal audit: {final_critic_change}"
+        )
     summary = {
         "schema_version": 1,
         "dataset": args.dataset,
@@ -276,6 +320,9 @@ def main(argv: list[str] | None = None) -> int:
         "advantage_npz_sha256": prepared_manifest["advantages"]["sha256"],
         "critic_sha256": prepared_manifest["critic"]["sha256"],
         "critic_frozen": True,
+        "critic_immutability_verified": True,
+        "critic_max_abs_parameter_change": final_critic_change,
+        "actor_critic_parameter_sets_disjoint": True,
         "behavior_trajectory_not_on_policy": True,
         "final_norm": float(history["score"][-1]),
         "final_score": float(history["score"][-1]),
