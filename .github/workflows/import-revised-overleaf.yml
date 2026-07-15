@@ -1,5 +1,6 @@
 name: Import revised Overleaf project and compiled PDF
 
+# Bootstrap workflow is temporarily present on main through PR #76.
 on:
   push:
     branches:
