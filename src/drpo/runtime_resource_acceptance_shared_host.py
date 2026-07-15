@@ -80,12 +80,19 @@ def observe_external_workloads(
 ) -> dict[str, Any]:
     """Match configured process patterns without turning presence into a gate."""
 
-    normalized = [str(pattern).strip().lower() for pattern in patterns if str(pattern).strip()]
+    normalized = [
+        str(pattern).strip().lower()
+        for pattern in patterns
+        if str(pattern).strip()
+    ]
     matches = [
         dict(row)
         for row in inventory
         if int(row["pid"]) not in excluded_pids
-        and any(pattern in str(row.get("command", "")).lower() for pattern in normalized)
+        and any(
+            pattern in str(row.get("command", "")).lower()
+            for pattern in normalized
+        )
     ]
     return {
         "policy": "observe_only",
