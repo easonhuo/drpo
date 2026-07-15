@@ -5,8 +5,10 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import signal
 import sys
 from pathlib import Path
+from types import FrameType
 from typing import Any, Mapping, Sequence
 
 from drpo.runtime_resource_acceptance import (
@@ -67,6 +69,15 @@ def _append(path: Path, payload: Mapping[str, Any]) -> None:
 
 def _blocked(root: Path, name: str, reason: str) -> StageResult:
     return stage_result(root, name, "BLOCKED", utc_now(), {"reason": reason})
+
+
+def _interrupt(signum: int, _frame: FrameType | None) -> None:
+    raise AcceptanceError(f"acceptance interrupted by signal {signum}")
+
+
+def _install_signal_handlers() -> None:
+    signal.signal(signal.SIGINT, _interrupt)
+    signal.signal(signal.SIGTERM, _interrupt)
 
 
 def _report(
@@ -173,6 +184,7 @@ def main(argv: list[str] | None = None) -> int:
     gpu_worktree = root / "worktrees" / "gpu_selection"
     results: list[StageResult] = []
     worktree_removed = False
+    _install_signal_handlers()
     try:
         ensure_commit(
             repo,
