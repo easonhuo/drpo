@@ -69,6 +69,8 @@ _STAGE4_HISTORICAL_TEST_FILES = {
 }
 _BATCH3_HEAD_REF = "dev/gov-dev-branch-integration-01-batch3"
 _BATCH3_SUMMARY_PREFIX = "BATCH3_SHADOW_SUMMARY_JSON="
+_FASTPATH_HEAD_REF = "dev/gov-dev-pilot-registration-fastpath-01"
+_FASTPATH_SUMMARY_PREFIX = "PILOT_FASTPATH_REAL_SHADOW_JSON="
 _stage4_fixture_root: Path | None = None
 _stage4_fixture_temp: Path | None = None
 
@@ -194,12 +196,18 @@ def pytest_collection_modifyitems(config, items) -> None:  # type: ignore[no-unt
 
 
 def pytest_terminal_summary(terminalreporter) -> None:  # type: ignore[no-untyped-def]
-    """Expose the captured Batch 3 machine summary in the authoritative CI log."""
+    """Expose dedicated real-shadow machine summaries in the authoritative CI log."""
 
-    if os.environ.get("GITHUB_HEAD_REF") != _BATCH3_HEAD_REF:
+    head_ref = os.environ.get("GITHUB_HEAD_REF")
+    prefixes: tuple[str, ...]
+    if head_ref == _BATCH3_HEAD_REF:
+        prefixes = (_BATCH3_SUMMARY_PREFIX,)
+    elif head_ref == _FASTPATH_HEAD_REF:
+        prefixes = (_FASTPATH_SUMMARY_PREFIX,)
+    else:
         return
     for report in terminalreporter.stats.get("passed", []):
         for _section_name, content in getattr(report, "sections", []):
             for line in content.splitlines():
-                if line.startswith(_BATCH3_SUMMARY_PREFIX):
+                if line.startswith(prefixes):
                     terminalreporter.write_line(line)
