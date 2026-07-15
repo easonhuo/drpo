@@ -8,20 +8,36 @@
     "walker2d-medium-v2",
     "walker2d-medium-replay-v2"
   ],
-  "development_seeds": [200, 201, 202, 203],
-  "held_out_seeds": [204, 205, 206, 207],
+  "development_seeds": [
+    200,
+    201,
+    202,
+    203
+  ],
+  "held_out_seeds": [
+    204,
+    205,
+    206,
+    207
+  ],
   "steps": 1000000,
   "evaluation_interval": 50000,
   "evaluation_episodes": 10,
-  "actor_update_modes": ["a2c", "ppo_clip_k4"],
-  "advantage_modes": ["one_step_td", "gae_lambda_0p95"],
+  "actor_update_modes": [
+    "a2c",
+    "ppo_clip_k4"
+  ],
+  "advantage_modes": [
+    "one_step_td",
+    "gae_lambda_0p95"
+  ],
   "shared_frozen_critic": {
     "steps": 100000,
     "batch": 256,
     "gamma": 0.99,
-    "tau": 0.7,
+    "tau": 0.5,
     "lr": 0.0003,
-    "temperature": 1.0,
+    "temperature": 5.0,
     "shared_per_dataset_seed": true,
     "updated_during_actor_training": false
   },
@@ -43,7 +59,11 @@
     "positive_only_anchor": true,
     "reference_distance": 2.0,
     "formula": "w(d)=w(0)*exp(-c*(d/2)^2)",
-    "exp_coefficients": [64.0, 128.0, 256.0]
+    "exp_coefficients": [
+      64.0,
+      128.0,
+      256.0
+    ]
   },
   "ppo": {
     "clip_epsilon": 0.2,
