@@ -152,6 +152,20 @@ def terminate_group(pgid: int, grace_seconds: float = 5.0) -> bool:
     return True
 
 
+def _cleanup_interrupted_process(process: subprocess.Popen[str] | None) -> None:
+    if process is None:
+        return
+    terminate_group(process.pid)
+    try:
+        process.wait(timeout=10)
+    except subprocess.TimeoutExpired:
+        terminate_group(process.pid, grace_seconds=0.1)
+        try:
+            process.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            pass
+
+
 def run_command(
     command: Sequence[str],
     *,
@@ -184,44 +198,58 @@ def run_command(
     peak_count = 0
     timed_out = False
     intervened = False
-    with log_path.open("w", encoding="utf-8") as handle:
-        handle.write("COMMAND=" + json.dumps(list(argv)) + "\n")
-        handle.flush()
-        process = subprocess.Popen(
-            list(argv),
-            cwd=str(cwd),
-            env=dict(environment),
-            stdout=handle,
-            stderr=subprocess.STDOUT,
-            text=True,
-            start_new_session=True,
+    process: subprocess.Popen[str] | None = None
+    try:
+        with log_path.open("w", encoding="utf-8") as handle:
+            handle.write("COMMAND=" + json.dumps(list(argv)) + "\n")
+            handle.flush()
+            process = subprocess.Popen(
+                list(argv),
+                cwd=str(cwd),
+                env=dict(environment),
+                stdout=handle,
+                stderr=subprocess.STDOUT,
+                text=True,
+                start_new_session=True,
+            )
+            deadline = started + timeout_seconds
+            while True:
+                rows = process_group_snapshot(process.pid)
+                peak_count = max(peak_count, len(rows))
+                peak_rss = max(peak_rss, sum(int(row["rss_bytes"]) for row in rows))
+                if samples_path is not None:
+                    _append_jsonl(
+                        samples_path,
+                        {
+                            "captured_utc": utc_now(),
+                            "root_pid": process.pid,
+                            "returncode": process.poll(),
+                            "processes": rows,
+                        },
+                    )
+                returncode = process.poll()
+                if returncode is not None:
+                    break
+                if time.monotonic() >= deadline:
+                    timed_out = True
+                    intervened = terminate_group(process.pid)
+                    break
+                time.sleep(sample_interval_seconds)
+            if process.poll() is None or group_alive(process.pid):
+                intervened = terminate_group(process.pid) or intervened
+            returncode = int(process.wait())
+    except BaseException:
+        _cleanup_interrupted_process(process)
+        _append_jsonl(
+            command_ledger,
+            {
+                "interrupted_utc": utc_now(),
+                "command": list(argv),
+                "owned_process_group_cleaned": process is not None,
+            },
         )
-        deadline = started + timeout_seconds
-        while True:
-            rows = process_group_snapshot(process.pid)
-            peak_count = max(peak_count, len(rows))
-            peak_rss = max(peak_rss, sum(int(row["rss_bytes"]) for row in rows))
-            if samples_path is not None:
-                _append_jsonl(
-                    samples_path,
-                    {
-                        "captured_utc": utc_now(),
-                        "root_pid": process.pid,
-                        "returncode": process.poll(),
-                        "processes": rows,
-                    },
-                )
-            returncode = process.poll()
-            if returncode is not None:
-                break
-            if time.monotonic() >= deadline:
-                timed_out = True
-                intervened = terminate_group(process.pid)
-                break
-            time.sleep(sample_interval_seconds)
-        if process.poll() is None or group_alive(process.pid):
-            intervened = terminate_group(process.pid) or intervened
-        returncode = int(process.wait())
+        raise
+    assert process is not None
     result = CommandResult(
         command=argv,
         cwd=str(cwd),
@@ -237,7 +265,10 @@ def run_command(
         peak_rss_bytes=peak_rss,
         peak_process_count=peak_count,
     )
-    _append_jsonl(command_ledger, {"finished_utc": result.finished_utc, "result": result.as_dict()})
+    _append_jsonl(
+        command_ledger,
+        {"finished_utc": result.finished_utc, "result": result.as_dict()},
+    )
     return result
 
 
