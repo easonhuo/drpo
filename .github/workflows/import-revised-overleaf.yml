@@ -89,6 +89,7 @@ jobs:
             paper/overleaf/main.pdf \
             paper/releases/DRPO_REWRITTEN_DRAFT_20260715.pdf
           rm -f .github/workflows/import-revised-overleaf.yml
+          rm -f .github/import-revised-overleaf.trigger
 
       - name: Commit imported project and release
         shell: bash
