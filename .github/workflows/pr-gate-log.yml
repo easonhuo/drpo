@@ -82,3 +82,13 @@ jobs:
       - name: Ruff
         continue-on-error: true
         run: ruff check .
+
+      - name: Export authority source files for approved one-time registration repair
+        uses: actions/upload-artifact@v4
+        with:
+          name: e8-manual-v1-authority-source
+          path: |
+            docs/handoff.md
+            experiments/registry.yaml
+          if-no-files-found: error
+          retention-days: 1
