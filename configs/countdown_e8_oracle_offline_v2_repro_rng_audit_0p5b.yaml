@@ -1,0 +1,60 @@
+experiment_id: EXT-C-E8-ORACLE-OFFLINE-V2-REPRO-RNG-AUDIT-0.5B-01
+result_status: pilot
+registration_state: dev_code_first_unregistered
+role: external_validity_reproducibility_and_rng_protocol_audit
+bank:
+  use_all_unique_negatives: true
+  explicit_near_far_training_classes: false
+  extreme_selection_forbidden: true
+remoteness:
+  coordinate: u=d/2
+  weight: alpha*exp(-c*u^2)
+  reference_distance: 2.0
+  detached: true
+sweep:
+  protocols:
+    - legacy_contaminated_v1
+    - rng_isolated_v2
+  audit_cells:
+    - {alpha: 0.5, c: 1.0, seed_offset: 3000}
+    - {alpha: 0.5, c: 1.0, seed_offset: 4000}
+    - {alpha: 0.5, c: 1.0, seed_offset: 13000}
+    - {alpha: 0.5, c: 1.0, seed_offset: 16000}
+    - {alpha: 1.0, c: 8.0, seed_offset: 13000}
+    - {alpha: 1.0, c: 8.0, seed_offset: 16000}
+  cells_per_protocol: 6
+  total_cells: 12
+training:
+  steps: 1200
+  eval_every: 100
+  pass64_every: 200
+  early_stop: false
+  denominator: unique_negative_count_per_prompt
+  normalize_by_weight_sum: false
+  hidden_negative_scale: false
+  gradient_budget_matching: false
+execution:
+  runtime_scope: reproducibility_audit_same_gpu_pool_sequential_protocols
+  parallel_cells_per_gpu: 1
+  sequential_protocol_phases: true
+  same_gpu_pool_for_both_phases: true
+  identity_checked_resume: true
+  liveness:
+    representative_alpha: 0.5
+    representative_c: 1.0
+    steps: 2
+    validation_examples: 8
+evaluation:
+  validation_only_during_audit: true
+  test_access_forbidden: true
+  primary_metric: late_window_pass_at_8_steps_800_900_1000_1100_1200
+  secondary_metric: terminal_pass_at_8_step_1200
+  auxiliary_metrics: [pass_at_64, greedy, valid_rate]
+  best_checkpoint_selects_protocol: false
+  task_support_nan_inf_reported_separately: true
+interpretation_limits:
+  - no_method_ranking
+  - no_convergence_claim
+  - no_steady_state_claim
+  - no_controlled_mechanism_claim
+  - no_ood_claim
