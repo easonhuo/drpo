@@ -1,4 +1,4 @@
-name: Import revised Overleaf project
+name: Import revised Overleaf project and compiled PDF
 
 on:
   push:
@@ -49,9 +49,47 @@ jobs:
           set -euo pipefail
           mkdir -p paper/overleaf
           cp -a /tmp/drpo-overleaf/. paper/overleaf/
+
+      - name: Install LaTeX toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
+            latexmk \
+            texlive-bibtex-extra \
+            texlive-fonts-recommended \
+            texlive-latex-extra
+
+      - name: Compile and validate manuscript
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd paper/overleaf
+          latexmk -pdf -interaction=nonstopmode -halt-on-error main.tex
+          test -s main.pdf
+          test "$(pdfinfo main.pdf | awk '/^Pages:/ {print $2}')" = '40'
+          if grep -Eqi \
+            'Undefined control sequence|LaTeX Error|Citation .* undefined|Reference .* undefined|There were undefined references|There were undefined citations|multiply defined|Fatal error' \
+            main.log; then
+            echo 'Unresolved LaTeX diagnostic detected' >&2
+            exit 1
+          fi
+          sha256sum main.pdf
+
+      - name: Deposit release PDF
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p paper/releases
+          cp paper/overleaf/main.pdf \
+            paper/releases/DRPO_REWRITTEN_DRAFT_20260715.pdf
+          cmp -s \
+            paper/overleaf/main.pdf \
+            paper/releases/DRPO_REWRITTEN_DRAFT_20260715.pdf
           rm -f .github/workflows/import-revised-overleaf.yml
 
-      - name: Commit imported project
+      - name: Commit imported project and release
         shell: bash
         run: |
           set -euo pipefail
@@ -62,5 +100,5 @@ jobs:
           if git diff --cached --quiet; then
             exit 0
           fi
-          git commit -m 'Import revised Overleaf manuscript project'
+          git commit -m 'Import revised manuscript and compiled PDF release'
           git push origin HEAD
