@@ -32,7 +32,9 @@ ACTOR_MODES = ("a2c", "ppo_clip_k4")
 ADVANTAGE_ESTIMATORS = ("td", "gae")
 
 
-def _history(summary: dict[str, Any]) -> tuple[list[int], list[float], dict[str, list[float]]]:
+def _history(
+    summary: dict[str, Any],
+) -> tuple[list[int], list[float], dict[str, list[float]]]:
     history = summary.get("history")
     if not isinstance(history, dict):
         raise RuntimeError("trainer summary has no history mapping")
@@ -62,11 +64,29 @@ def _history(summary: dict[str, Any]) -> tuple[list[int], list[float], dict[str,
 
 
 def _coefficient(control: dict[str, Any]) -> float | None:
-    return None if control["method"] == "positive_only" else float(control["exp_coefficient"])
+    return (
+        None
+        if control["method"] == "positive_only"
+        else float(control["exp_coefficient"])
+    )
 
 
 def _control_label(value: float | None) -> str:
     return "positive_only" if value is None else f"c={value:g}"
+
+
+def _failure_is_numerical(error_type: Any, error: Any) -> bool:
+    type_text = str(error_type or "").lower()
+    error_text = str(error or "").lower()
+    markers = (
+        "floatingpointerror",
+        "non-finite",
+        "nonfinite",
+        "nan",
+        "inf",
+        "overflow",
+    )
+    return any(marker in type_text or marker in error_text for marker in markers)
 
 
 def aggregate(work_dir: str | Path) -> dict[str, Any]:
@@ -79,11 +99,15 @@ def aggregate(work_dir: str | Path) -> dict[str, Any]:
     rows: list[dict[str, Any]] = []
     failures: list[dict[str, Any]] = []
     numerical_failures = 0
+    failed_branch_numerical_failures = 0
     support_events = 0
+    critic_audit_failures = 0
     for branch_dir in branch_dirs:
         config_path = branch_dir / "branch_config.json"
         if not config_path.is_file():
-            failures.append({"branch_id": branch_dir.name, "reason": "missing_branch_config"})
+            failures.append(
+                {"branch_id": branch_dir.name, "reason": "missing_branch_config"}
+            )
             continue
         branch = json.loads(config_path.read_text())
         if branch.get("experiment_id") != EXPERIMENT_ID:
@@ -91,12 +115,33 @@ def aggregate(work_dir: str | Path) -> dict[str, Any]:
         if not (branch_dir / "COMPLETED.json").is_file():
             failed_path = branch_dir / "FAILED.json"
             failed = json.loads(failed_path.read_text()) if failed_path.is_file() else {}
+            manifest_path = branch_dir / "branch_manifest.json"
+            branch_manifest = (
+                json.loads(manifest_path.read_text())
+                if manifest_path.is_file()
+                else {}
+            )
+            numerical = _failure_is_numerical(
+                branch_manifest.get("error_type"),
+                branch_manifest.get("error"),
+            )
+            numerical_failures += int(numerical)
+            failed_branch_numerical_failures += int(numerical)
             failures.append(
                 {
                     "branch_id": branch.get("branch_id", branch_dir.name),
                     "dataset": branch.get("dataset_id"),
                     "seed": branch.get("seed"),
+                    "advantage_estimator": branch.get("template_values", {}).get(
+                        "advantage_estimator"
+                    ),
+                    "actor_update_mode": branch.get("template_values", {}).get(
+                        "actor_update_mode"
+                    ),
                     "return_code": failed.get("return_code"),
+                    "error_type": branch_manifest.get("error_type"),
+                    "error": branch_manifest.get("error"),
+                    "nan_inf_numerical_failure": numerical,
                     "reason": "branch_not_completed",
                 }
             )
@@ -136,6 +181,15 @@ def aggregate(work_dir: str | Path) -> dict[str, Any]:
         upper_max = max(support["upper_log_std_boundary_fraction"])
         support_event = lower_max > 0.0 or upper_max > 0.0
         support_events += int(support_event)
+        critic_delta = float(summary.get("critic_max_abs_parameter_change", math.inf))
+        critic_audit_ok = (
+            summary.get("critic_frozen") is True
+            and summary.get("critic_immutability_verified") is True
+            and summary.get("actor_critic_parameter_sets_disjoint") is True
+            and math.isfinite(critic_delta)
+            and critic_delta == 0.0
+        )
+        critic_audit_failures += int(not critic_audit_ok)
         best_index = max(range(len(scores)), key=scores.__getitem__)
         coefficient = _coefficient(control)
         row: dict[str, Any] = {
@@ -153,8 +207,12 @@ def aggregate(work_dir: str | Path) -> dict[str, Any]:
             "best_to_final_drop": scores[best_index] - scores[-1],
             "late_window_mean_800k_1m": _mean(finite_late),
             "late_window_std_800k_1m": _sample_std(finite_late),
-            "late_slope_per_100k": _slope_per_100k(steps, scores, LATE_WINDOW_START),
-            "task_performance_collapse_event": "not_adjudicated_no_registered_threshold",
+            "late_slope_per_100k": _slope_per_100k(
+                steps, scores, LATE_WINDOW_START
+            ),
+            "task_performance_collapse_event": (
+                "not_adjudicated_no_registered_threshold"
+            ),
             "support_or_variance_boundary_event": support_event,
             "lower_log_std_boundary_fraction_max": lower_max,
             "upper_log_std_boundary_fraction_max": upper_max,
@@ -162,6 +220,14 @@ def aggregate(work_dir: str | Path) -> dict[str, Any]:
             "terminal_actor_log_std_max": support["actor_log_std_max"][-1],
             "nan_inf_numerical_failure": not finite_scores,
             "critic_frozen": bool(summary.get("critic_frozen")),
+            "critic_immutability_verified": bool(
+                summary.get("critic_immutability_verified")
+            ),
+            "actor_critic_parameter_sets_disjoint": bool(
+                summary.get("actor_critic_parameter_sets_disjoint")
+            ),
+            "critic_max_abs_parameter_change": critic_delta,
+            "critic_audit_pass": critic_audit_ok,
         }
         geometry = _aggregate_geometry(branch_dir / "geometry_diagnostics.jsonl")
         row.update({f"geometry_{key}": value for key, value in geometry.items()})
@@ -170,7 +236,9 @@ def aggregate(work_dir: str | Path) -> dict[str, Any]:
             row.update({f"ppo_{key}": value for key, value in ppo.items()})
         rows.append(row)
 
-    grouped: dict[tuple[str, str, str, float | None], list[dict[str, Any]]] = defaultdict(list)
+    grouped: dict[
+        tuple[str, str, str, float | None], list[dict[str, Any]]
+    ] = defaultdict(list)
     paired: dict[tuple[str, int, str, float | None, str], dict[str, Any]] = {}
     for row in rows:
         group_key = (
@@ -210,10 +278,18 @@ def aggregate(work_dir: str | Path) -> dict[str, Any]:
                 "exp_coefficient": coefficient,
                 "seeds_observed": list(seeds),
                 "paired_seed_set_complete": seeds == EXPECTED_SEEDS,
-                "score_at_500k_mean": _mean([float(row["score_at_500k"]) for row in values]),
-                "best_mean": _mean([float(row["best_score"]) for row in values]),
-                "final_mean": _mean([float(row["final_score"]) for row in values]),
-                "final_seed_std": _sample_std([float(row["final_score"]) for row in values]),
+                "score_at_500k_mean": _mean(
+                    [float(row["score_at_500k"]) for row in values]
+                ),
+                "best_mean": _mean(
+                    [float(row["best_score"]) for row in values]
+                ),
+                "final_mean": _mean(
+                    [float(row["final_score"]) for row in values]
+                ),
+                "final_seed_std": _sample_std(
+                    [float(row["final_score"]) for row in values]
+                ),
                 "late_window_mean_800k_1m": _mean(
                     [float(row["late_window_mean_800k_1m"]) for row in values]
                 ),
@@ -225,6 +301,9 @@ def aggregate(work_dir: str | Path) -> dict[str, Any]:
                 ),
                 "nan_inf_numerical_failures": sum(
                     bool(row["nan_inf_numerical_failure"]) for row in values
+                ),
+                "critic_audit_failures": sum(
+                    not bool(row["critic_audit_pass"]) for row in values
                 ),
             }
         )
@@ -251,7 +330,8 @@ def aggregate(work_dir: str | Path) -> dict[str, Any]:
                             float(gae["late_window_mean_800k_1m"])
                             - float(td["late_window_mean_800k_1m"]),
                             float(gae["final_score"]) - float(td["final_score"]),
-                            float(gae["score_at_500k"]) - float(td["score_at_500k"]),
+                            float(gae["score_at_500k"])
+                            - float(td["score_at_500k"]),
                         )
                     )
                 comparisons.append(
@@ -294,6 +374,7 @@ def aggregate(work_dir: str | Path) -> dict[str, Any]:
         and len(rows) == EXPECTED_BRANCHES
         and not failures
         and numerical_failures == 0
+        and critic_audit_failures == 0
         and all(group["paired_seed_set_complete"] for group in groups)
         and all(item["paired_seed_set_complete"] for item in comparisons)
     )
@@ -306,8 +387,10 @@ def aggregate(work_dir: str | Path) -> dict[str, Any]:
         "branches_completed": len(rows),
         "expected_branch_count": EXPECTED_BRANCHES,
         "failed_branches": len(failures),
+        "failed_branch_numerical_failures": failed_branch_numerical_failures,
         "support_or_variance_boundary_events": support_events,
         "nan_inf_numerical_failures": numerical_failures,
+        "critic_audit_failures": critic_audit_failures,
         "failed_cell_imputation": False,
         "task_performance_collapse_separate": True,
         "support_or_variance_boundary_separate": True,
