@@ -1,0 +1,84 @@
+{
+  "experiment_id": "EXT-H-E7-SQEXP-HIGHC-BOUNDARY-01",
+  "run_kind": "pilot",
+  "scientific_status": "four_seed_high_c_boundary_extension_screening_only",
+  "predecessor": {
+    "experiment_id": "EXT-H-E7-SQEXP-ACTOR-DECISION-01",
+    "implementation_commit": "d1afb5ff094f69986e0ecc3bf7f9385485add62b",
+    "historical_anchor_controls": ["positive_only", "squared_c64", "squared_c128"],
+    "historical_anchor_use": "paired descriptive context only; no automatic cross-run merge"
+  },
+  "datasets": [
+    "hopper-medium-expert-v2",
+    "walker2d-medium-v2",
+    "walker2d-medium-replay-v2"
+  ],
+  "development_seeds": [200, 201, 202, 203],
+  "held_out_seeds": [204, 205, 206, 207],
+  "steps": 1000000,
+  "evaluation_interval": 50000,
+  "evaluation_episodes": 10,
+  "controls": [
+    {
+      "id": "squared_c256",
+      "family": "squared_exponential",
+      "weight_at_zero": 1.0,
+      "exp_coefficient": 256.0,
+      "reference_distance": 2.0,
+      "formula": "w(d)=w(0)*exp(-c*(d/2)^2)"
+    },
+    {
+      "id": "squared_c512",
+      "family": "squared_exponential",
+      "weight_at_zero": 1.0,
+      "exp_coefficient": 512.0,
+      "reference_distance": 2.0,
+      "formula": "w(d)=w(0)*exp(-c*(d/2)^2)"
+    }
+  ],
+  "actor_modes": [
+    {"id": "a2c"},
+    {
+      "id": "ppo_clip_kl_k4",
+      "clip_epsilon": 0.2,
+      "max_updates_per_old_policy": 4,
+      "analytic_kl_early_refresh": true,
+      "target_kl": 0.01,
+      "kl_penalty": false
+    }
+  ],
+  "diagnostics": {
+    "interval": 10000,
+    "sampled_values_per_update": 16,
+    "weight_thresholds": [0.5, 0.1, 0.05, 0.01],
+    "kl_event_jsonl": false,
+    "record_500k_intermediate": true,
+    "late_window_start": 800000
+  },
+  "analysis_contract": {
+    "primary_within_run_comparison": "squared_c512_minus_squared_c256",
+    "report_by_dataset_actor_seed": true,
+    "report_effective_negative_mass": true,
+    "report_late_final_slope_best_to_final": true,
+    "no_automatic_common_c_selection": true,
+    "no_automatic_ppo_selection": true,
+    "c1024_extension_not_authorized": true
+  },
+  "expected_controls": 2,
+  "expected_actor_modes": 2,
+  "expected_runnable_branches": 48,
+  "screening_only": true,
+  "formal_evidence_allowed": false,
+  "registration_blocks_launch": false,
+  "gae_included": false,
+  "non_claims": [
+    "convergence_from_fixed_1m_horizon",
+    "steady_state_method_ranking",
+    "universal_monotonic_improvement_in_c",
+    "common_c_optimum",
+    "ppo_superiority",
+    "gae_result",
+    "ood_generalization",
+    "authorization_to_extend_beyond_c512"
+  ]
+}
