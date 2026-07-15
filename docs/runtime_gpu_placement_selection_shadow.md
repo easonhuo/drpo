@@ -17,12 +17,21 @@ python scripts/run_countdown_e8_oracle_offline_v2_taper_auto.py \
   --work_dir /absolute/new-shadow-work \
   --bank /absolute/bank.jsonl \
   --val /absolute/validation.jsonl \
-  --test /absolute/test.jsonl \
   --global_calibration /absolute/global_calibration.json \
   --base_config /absolute/base.yaml \
   --sweep_config /absolute/sweep.yaml \
   --gpus 0,1,2,3
 ```
+
+Selection-only mode does not require, hash, or read the test split. Its workload
+fingerprint records:
+
+```text
+test_split_access: not_accessed_selection_only
+test_sha256: null
+```
+
+A normal full run still requires `--test` and preserves its historical identity hash.
 
 The command still performs calibration, static GPU filtering, the full phase-aware
 single-worker envelope, bounded concurrency candidates, process-group cleanup, and
@@ -36,6 +45,7 @@ and then exits without calling the scientific slot runtime. Standard output incl
 
 ```text
 selection_only: true
+test_split_access: not_accessed_selection_only
 scientific_matrix_changed: false
 ```
 
