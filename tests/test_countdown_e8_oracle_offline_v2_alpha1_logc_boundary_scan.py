@@ -134,8 +134,8 @@ def test_config_rejects_grid_seed_or_gate_drift() -> None:
         scan.validate_grid_config(config)
 
     config = _config()
-    config["evaluation"]["material_lift_gate_absolute_pass_at_8"] = 0.0
-    with pytest.raises(ValueError, match="Material late-window"):
+    config["evaluation"]["material_lift_gate"] = "numeric_0p01"
+    with pytest.raises(ValueError, match="Material lift gate"):
         scan.validate_grid_config(config)
 
 
