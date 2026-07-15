@@ -12,6 +12,7 @@ from drpo import e7_ppo_w0_grid_pilot as pilot
 from drpo.e7_ppo_w0_runtime_autotune import revalidate_runtime, select_runtime
 from drpo.runtime_resource_autotune import (
     RuntimeResourceError,
+    canonical_json_sha256,
     discover_machine,
     load_json,
 )
@@ -89,13 +90,30 @@ def _validate_existing_run_identity(
         )
 
 
+def _load_or_materialize_run_identity(work_dir: Path) -> dict[str, Any]:
+    identity_path = work_dir / "RUN_IDENTITY.json"
+    if identity_path.is_file():
+        return load_json(identity_path)
+    plan_path = work_dir / "EXECUTION_PLAN.json"
+    if not plan_path.is_file():
+        raise RuntimeResourceError(
+            "plan completed without EXECUTION_PLAN.json or RUN_IDENTITY.json"
+        )
+    plan = load_json(plan_path)
+    stable_plan = {key: value for key, value in plan.items() if key != "created_utc"}
+    identity = {
+        "run_identity_sha256": canonical_json_sha256(stable_plan),
+        "plan": plan,
+    }
+    _atomic_json(identity_path, identity)
+    return identity
+
+
 def _bind_selection_to_run_identity(
     work_dir: Path, *, selected_workers: int, selection_digest: str
 ) -> None:
     identity_path = work_dir / "RUN_IDENTITY.json"
-    if not identity_path.is_file():
-        raise RuntimeResourceError("plan completed without RUN_IDENTITY.json")
-    identity = load_json(identity_path)
+    identity = _load_or_materialize_run_identity(work_dir)
     plan = identity.get("plan")
     existing = plan.get("max_workers") if isinstance(plan, dict) else None
     if existing != selected_workers:
