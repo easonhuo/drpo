@@ -60,6 +60,42 @@ def test_e7_pure_capacity_change_is_blocked(tmp_path: Path) -> None:
     assert written["status"] == "BLOCKED"
 
 
+def test_e7_plan_safe_capacity_error_is_blocked(tmp_path: Path) -> None:
+    log = tmp_path / "stage2_e7_cpu_v2" / "plan.log"
+    log.parent.mkdir(parents=True)
+    log.write_text(
+        "RuntimeResourceError: measured CPU capacity cannot support one worker\n",
+        encoding="utf-8",
+    )
+
+    result = capacity.normalize_capacity_block(
+        tmp_path, _failure("stage2_e7_cpu_v2")
+    )
+
+    assert result.status == "BLOCKED"
+    assert result.details["capacity_source"] == "e7_plan_cpu_or_memory_envelope"
+    assert result.details["selected_workers"] is None
+    assert result.details["capacity_evidence_paths"] == [
+        "stage2_e7_cpu_v2/plan.log"
+    ]
+
+
+def test_e7_plan_oom_remains_fail(tmp_path: Path) -> None:
+    log = tmp_path / "stage2_e7_cpu_v2" / "plan.log"
+    log.parent.mkdir(parents=True)
+    log.write_text(
+        "CUDA out of memory\n"
+        "RuntimeResourceError: measured CPU capacity cannot support one worker\n",
+        encoding="utf-8",
+    )
+
+    original = _failure("stage2_e7_cpu_v2")
+    result = capacity.normalize_capacity_block(tmp_path, original)
+
+    assert result is original
+    assert result.status == "FAIL"
+
+
 def test_gpu_safe_capacity_error_is_blocked(tmp_path: Path) -> None:
     log = tmp_path / "stage3_gpu_placement" / "selection.log"
     log.parent.mkdir(parents=True)
