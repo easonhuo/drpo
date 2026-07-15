@@ -23,7 +23,7 @@ def _run_spec() -> dict[str, object]:
                 "path": f"/tmp/{dataset}.hdf5",
                 "sha256": digest,
             }
-            for dataset in protocol.EXPECTED_DATASETS
+            for dataset in runner.EXPECTED_DATASETS
         ],
         "seeds": list(runner.EXPECTED_SEEDS),
     }
@@ -31,7 +31,7 @@ def _run_spec() -> dict[str, object]:
 
 def test_frozen_matrix_has_192_unique_development_branches() -> None:
     runner._activate_protocol()  # noqa: SLF001
-    grid, _ = protocol.load_grid(GRID)
+    grid, _ = runner.load_grid(GRID)
     contract = SimpleNamespace(expected_canonical_alpha=0.11)
 
     branches = protocol.build_branches(contract, _run_spec(), grid)
@@ -50,7 +50,7 @@ def test_frozen_matrix_has_192_unique_development_branches() -> None:
 
 def test_matrix_contains_positive_only_and_three_registered_coefficients() -> None:
     runner._activate_protocol()  # noqa: SLF001
-    grid, _ = protocol.load_grid(GRID)
+    grid, _ = runner.load_grid(GRID)
     contract = SimpleNamespace(expected_canonical_alpha=0.11)
 
     branches = protocol.build_branches(contract, _run_spec(), grid)
@@ -71,7 +71,6 @@ def test_matrix_contains_positive_only_and_three_registered_coefficients() -> No
 
 
 def test_grid_rejects_coefficient_shortlist_drift(tmp_path: Path) -> None:
-    runner._activate_protocol()  # noqa: SLF001
     raw = json.loads(GRID.read_text())
     changed = copy.deepcopy(raw)
     changed["weight_control"]["exp_coefficients"] = [128.0]
@@ -79,7 +78,17 @@ def test_grid_rejects_coefficient_shortlist_drift(tmp_path: Path) -> None:
     path.write_text(json.dumps(changed))
 
     with pytest.raises(ValueError, match="coefficient shortlist changed"):
-        protocol.load_grid(path)
+        runner.load_grid(path)
+
+
+def test_grid_rejects_duplicate_compatibility_fields(tmp_path: Path) -> None:
+    raw = json.loads(GRID.read_text())
+    raw["seeds"] = list(runner.EXPECTED_SEEDS)
+    path = tmp_path / "duplicated.json"
+    path.write_text(json.dumps(raw))
+
+    with pytest.raises(ValueError, match="duplicated compatibility fields"):
+        runner.load_grid(path)
 
 
 def test_plan_gate_requires_prepared_artifact(tmp_path: Path) -> None:
