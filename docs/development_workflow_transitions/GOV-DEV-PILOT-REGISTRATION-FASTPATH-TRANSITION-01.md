@@ -1,11 +1,16 @@
 # GOV-DEV-PILOT-REGISTRATION-FASTPATH-TRANSITION-01
 
-**Status:** proposed temporary adoption rule  
+**Status:** superseded by `GOV-DEV-PILOT-REGISTRATION-FASTPATH-ACTIVATION-01` after activation merge  
+**Historical status:** proposed temporary adoption rule  
 **Base commit:** `f387391b39502e700e7f780cd8b4a1fd9c7eca7c`  
 **Parent incident ledger:** `docs/development_workflow_incident_and_improvement_log.md`  
-**Implementation plan under review:** `docs/dev_pilot_registration_fastpath.md` in PR #62  
+**Implementation plan:** `docs/dev_pilot_registration_fastpath.md`  
 **Implementation PR:** https://github.com/easonhuo/drpo/pull/62  
+**Implementation merge:** `21968670018c430d5e5129b802fbae21a474c574`  
+**Successor scope:** `docs/scopes/GOV-DEV-PILOT-REGISTRATION-FASTPATH-ACTIVATION-01.md`  
 **Scientific experiment impact:** none
+
+> Historical note: this file is retained without destructive deletion. Its temporary rules governed the interval before the merged fastpath became the permanent default. After the activation change merges, the permanent `AGENTS.md` rule and activation scope govern new work.
 
 ## 1. Purpose
 
@@ -106,8 +111,12 @@ The temporary rule remains active until all of the following are true:
 
 After activation, this document is marked `superseded` but is not deleted. The temporary `AGENTS.md` section is replaced by the permanent activation rule rather than silently disappearing.
 
-## 9. Current uncertainties
+## 9. Current uncertainties at the time of the transition
 
-- the real V1 registration shadow may expose additional adapter/V1 interface defects;
-- PR #62 is currently stale relative to `main` and its previous CI result is not a final merge gate;
-- operational CI tiering and enforcement remain PR-B work and are not activated by this transition.
+- the real V1 registration shadow might expose additional adapter/V1 interface defects;
+- PR #62 was stale relative to `main` and its previous CI result was not a final merge gate;
+- operational CI tiering and enforcement remained PR-B work and were not activated by this transition.
+
+## 10. Closure of the temporary interval
+
+The first two historical uncertainties were resolved before PR #62 merged: the real V1 shadow reached local `READY`, and the implementation was rebuilt on current `main` and passed exact-head review. PR-B remains separately scoped. This transition is therefore superseded by the permanent activation rule, while its original rationale and restrictions remain preserved above as process history.
