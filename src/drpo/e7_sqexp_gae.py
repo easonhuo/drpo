@@ -6,7 +6,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 
 from drpo import e7_canonical_sweep as base
 from drpo import e7_sqexp_gae_contract as protocol
@@ -23,15 +23,152 @@ EXPECTED_SEEDS = (200, 201, 202, 203)
 HELD_OUT_SEEDS = (204, 205, 206, 207)
 EXPECTED_PAIRS = 12
 EXPECTED_BRANCHES = 192
+EXPECTED_DATASETS = (
+    "hopper-medium-expert-v2",
+    "walker2d-medium-v2",
+    "walker2d-medium-replay-v2",
+)
+EXPECTED_ACTOR_MODES = ("a2c", "ppo_clip_k4")
+EXPECTED_ADVANTAGE_MODES = ("one_step_td", "gae_lambda_0p95")
+EXPECTED_COEFFICIENTS = (64.0, 128.0, 256.0)
 
 _ORIGINAL_WRITE_PLAN = base.write_plan
 
 
 def _activate_protocol() -> None:
-    """Apply the reviewed successor seed contract without editing predecessor code."""
+    """Apply the reviewed successor seed contract to the low-level builder."""
 
     protocol.EXPECTED_SEEDS = EXPECTED_SEEDS
     protocol.EXPECTED_BRANCHES = EXPECTED_BRANCHES
+
+
+def _require_exact_mapping(
+    raw: Mapping[str, Any],
+    expected: Mapping[str, Any],
+    *,
+    label: str,
+) -> None:
+    if dict(raw) != dict(expected):
+        raise ValueError(f"{label} changed from the frozen GAE pilot contract")
+
+
+def load_grid(path: str | Path) -> tuple[dict[str, Any], str]:
+    """Load one canonical schema and normalize it for the low-level branch builder."""
+
+    source = Path(path)
+    raw = json.loads(source.read_text())
+    compatibility_fields = {
+        "seeds",
+        "advantage_estimators",
+        "shared_critic",
+        "expected_branches",
+    }
+    duplicated = sorted(compatibility_fields & set(raw))
+    if duplicated:
+        raise ValueError(
+            "GAE grid must use the canonical schema only; duplicated compatibility "
+            f"fields are forbidden: {duplicated}"
+        )
+    if raw.get("experiment_id") != EXPERIMENT_ID:
+        raise ValueError("GAE grid experiment_id mismatch")
+    if raw.get("run_kind") != "pilot" or raw.get("status") != "not_run":
+        raise ValueError("GAE grid must remain an unrun development pilot")
+    if raw.get("scientific_status") != SCIENTIFIC_STATUS:
+        raise ValueError("GAE scientific_status changed")
+    if tuple(raw.get("datasets", ())) != EXPECTED_DATASETS:
+        raise ValueError("GAE dataset matrix changed")
+    if tuple(int(value) for value in raw.get("development_seeds", ())) != EXPECTED_SEEDS:
+        raise ValueError("GAE development seeds changed")
+    if tuple(int(value) for value in raw.get("held_out_seeds", ())) != HELD_OUT_SEEDS:
+        raise ValueError("GAE held-out seeds changed")
+    if tuple(raw.get("actor_update_modes", ())) != EXPECTED_ACTOR_MODES:
+        raise ValueError("GAE actor update modes changed")
+    if tuple(raw.get("advantage_modes", ())) != EXPECTED_ADVANTAGE_MODES:
+        raise ValueError("GAE advantage modes changed")
+    if int(raw.get("steps", -1)) != 1_000_000:
+        raise ValueError("GAE actor horizon changed")
+    if int(raw.get("evaluation_interval", -1)) != 50_000:
+        raise ValueError("GAE evaluation interval changed")
+    if int(raw.get("evaluation_episodes", -1)) != 10:
+        raise ValueError("GAE evaluation episode count changed")
+
+    shared = raw.get("shared_frozen_critic")
+    if not isinstance(shared, Mapping):
+        raise ValueError("shared_frozen_critic must be a mapping")
+    _require_exact_mapping(
+        shared,
+        {
+            "steps": 100_000,
+            "batch": 256,
+            "gamma": 0.99,
+            "tau": 0.5,
+            "lr": 3e-4,
+            "temperature": 5.0,
+            "device": "cpu",
+            "shared_per_dataset_seed": True,
+            "updated_during_actor_training": False,
+        },
+        label="shared frozen critic",
+    )
+    trajectory = raw.get("trajectory_advantage")
+    if not isinstance(trajectory, Mapping):
+        raise ValueError("trajectory_advantage must be a mapping")
+    _require_exact_mapping(
+        trajectory,
+        {
+            "gamma": 0.99,
+            "gae_lambda": 0.95,
+            "ordered_behavior_trajectory": True,
+            "terminal_bootstrap": False,
+            "timeout_bootstrap": True,
+            "terminal_stops_recursion": True,
+            "timeout_stops_recursion": True,
+            "tail_bootstrap_and_stop_recursion": True,
+            "lambda_zero_must_equal_one_step": True,
+            "normalization": "none",
+            "clipping": "none",
+        },
+        label="trajectory advantage",
+    )
+    weight = raw.get("weight_control")
+    if not isinstance(weight, Mapping):
+        raise ValueError("weight_control must be a mapping")
+    if float(weight.get("weight_at_zero", -1.0)) != 1.0:
+        raise ValueError("squared EXP w(0) changed")
+    if weight.get("positive_only_anchor") is not True:
+        raise ValueError("Positive-only anchor was removed")
+    if float(weight.get("reference_distance", -1.0)) != 2.0:
+        raise ValueError("reference distance changed")
+    if weight.get("formula") != "w(d)=w(0)*exp(-c*(d/2)^2)":
+        raise ValueError("squared-remoteness formula changed")
+    coefficients = tuple(float(value) for value in weight.get("exp_coefficients", ()))
+    if coefficients != EXPECTED_COEFFICIENTS:
+        raise ValueError("coefficient shortlist changed")
+    if int(raw.get("expected_controls_per_actor_advantage_cell", -1)) != 4:
+        raise ValueError("control count changed")
+    if int(raw.get("expected_total_branches", -1)) != EXPECTED_BRANCHES:
+        raise ValueError("expected branch count changed")
+    if raw.get("screening_only") is not True or raw.get("formal_evidence_allowed") is not False:
+        raise ValueError("pilot evidence boundary changed")
+
+    normalized = dict(raw)
+    normalized.update(
+        {
+            "seeds": list(EXPECTED_SEEDS),
+            "advantage_estimators": ["td", "gae"],
+            "shared_critic": {
+                "steps": int(shared["steps"]),
+                "batch_size": int(shared["batch"]),
+                "learning_rate": float(shared["lr"]),
+                "expectile": float(shared["tau"]),
+                "gamma": float(shared["gamma"]),
+                "gae_lambda": float(trajectory["gae_lambda"]),
+                "device": str(shared["device"]),
+            },
+            "expected_branches": EXPECTED_BRANCHES,
+        }
+    )
+    return normalized, sha256_file(source)
 
 
 def _prepared_dir(work_dir: Path, dataset_id: str, seed: int) -> Path:
@@ -110,7 +247,7 @@ def cmd_prepare(argv: Sequence[str]) -> int:
 
     _activate_protocol()
     contract = CanonicalContract.load(args.contract)
-    grid, _ = protocol.load_grid(args.grid)
+    grid, _ = load_grid(args.grid)
     run_spec, _ = protocol.load_run_spec(args.run_spec)
     branches = protocol.build_branches(contract, run_spec, grid)
     pairs: dict[tuple[str, int], Any] = {}
@@ -217,7 +354,7 @@ def main(argv: list[str] | None = None) -> int:
     base.EXPERIMENT_ID = EXPERIMENT_ID
     base.SCIENTIFIC_STATUS = SCIENTIFIC_STATUS
     base.RUNNER_VERSION = RUNNER_VERSION
-    base.load_grid = protocol.load_grid
+    base.load_grid = load_grid
     base.load_run_spec = protocol.load_run_spec
     base.build_branches = protocol.build_branches
     base.branch_command = protocol.branch_command
