@@ -88,8 +88,9 @@ def test_conflict_only_legacy_block_becomes_shared_host_pass(tmp_path: Path) -> 
     assert result.details["conflicts"] == []
     assert result.details["observed_external_workloads"]["match_count"] == 1
     assert (
-        result.details["shared_host_capacity_contract"]
-        ["external_process_presence_blocks"]
+        result.details["shared_host_capacity_contract"][
+            "external_process_presence_blocks"
+        ]
         is False
     )
     audit = json.loads(
