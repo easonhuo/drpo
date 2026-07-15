@@ -195,7 +195,9 @@ def recursive_values(value: Any, key: str) -> list[Any]:
 
 
 def candidate_above_one(document: Mapping[str, Any]) -> bool:
-    for key in ("concurrency", "workers", "slots_per_gpu", "candidate"):
+    """Return true only for a measured/executed worker or slot count above one."""
+
+    for key in ("concurrency", "workers", "slots_per_gpu"):
         for value in recursive_values(document, key):
             try:
                 if int(value) > 1:
