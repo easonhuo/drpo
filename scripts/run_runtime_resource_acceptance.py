@@ -25,6 +25,7 @@ from drpo.runtime_resource_acceptance import (
     utc_now,
     verify_checkout,
 )
+from drpo.runtime_resource_acceptance_capacity import normalize_capacity_block
 from drpo.runtime_resource_acceptance_e7 import revalidate_only, selected_liveness
 from drpo.runtime_resource_acceptance_gpu_stages import (
     concurrent_stage,
@@ -102,6 +103,12 @@ def _report(
             "task_or_process_failure": [
                 result.name for result in results if result.status == "FAIL"
             ],
+            "safe_capacity_unavailable": [
+                result.name
+                for result in results
+                if result.status == "BLOCKED"
+                and result.details.get("capacity_unavailable") is True
+            ],
             "resource_boundary_or_oom": [
                 result.name
                 for result in results
@@ -132,6 +139,17 @@ def _report(
         "",
     ]
     lines.extend(f"- `{result.name}`: **{result.status}**" for result in results)
+    capacity_blocks = [
+        result
+        for result in results
+        if result.status == "BLOCKED" and result.details.get("capacity_unavailable") is True
+    ]
+    if capacity_blocks:
+        lines.extend(["", "## Safe-capacity blocks", ""])
+        lines.extend(
+            f"- `{result.name}`: {', '.join(result.details.get('capacity_failures', []))}"
+            for result in capacity_blocks
+        )
     lines.extend(
         [
             "",
@@ -202,8 +220,18 @@ def main(argv: list[str] | None = None) -> int:
                     _blocked(root, name, "stage1 did not PASS") for name in STAGES[2:]
                 )
             else:
-                results.append(e7_stage(root, repo, profile_path, profile, ledger))
-                results.append(gpu_stage(root, repo, gpu_worktree, profile, ledger))
+                results.append(
+                    normalize_capacity_block(
+                        root,
+                        e7_stage(root, repo, profile_path, profile, ledger),
+                    )
+                )
+                results.append(
+                    normalize_capacity_block(
+                        root,
+                        gpu_stage(root, repo, gpu_worktree, profile, ledger),
+                    )
+                )
                 results.append(
                     thread_scan_stage(
                         root, repo, gpu_worktree, profile, ledger, results[3]
