@@ -455,6 +455,401 @@ The next session should treat this entry as an engineering handoff and independe
 
 ---
 
+# 2026-07-15 — DEVOPT-2026-07-15-E7-PREDECESSOR-CLOSURE-GAP-01
+
+## Context
+
+Affected experiments:
+
+```text
+EXT-H-E7-SQEXP-ACTOR-DECISION-01
+EXT-H-E7-SQEXP-HIGHC-BOUNDARY-01
+```
+
+The predecessor was a 192-branch development pilot covering A2C and PPO-K4-KL, Positive-only, linear `c=12`, squared-EXP `c={4,8,16,32,64,128}`, three datasets, and seeds `200--203`. The successor added only squared-EXP `c={256,512}` over the same actor, dataset, and development-seed axes.
+
+The immediate symptom appeared when the successor result was reviewed: exact `c64/c128` values could not be recovered from `docs/handoff.md`, `experiments/registry.yaml`, the successor result package, or the currently available repository tree. Chat history contained rounded summaries, but not the predecessor raw aggregate needed for exact cross-experiment comparison.
+
+This entry records a workflow incident only. It does not add or revise any scientific result.
+
+## Intended workflow and expected complexity
+
+The user explicitly approved a code-first workflow:
+
+```text
+review and freeze implementation
+-> launch development pilot on the server
+-> terminal-audit and package the result
+-> register and deposit compact evidence afterward
+```
+
+Code-first launch was intentional and valid. The missing step was the mandatory post-run closure.
+
+The intended successor comparison was not merely `c512-c256`. The scientific decision depended on the full historical boundary:
+
+```text
+Positive-only -> c64 -> c128 -> c256 -> c512
+```
+
+Expected repair complexity:
+
+- **artifact recovery and one-off result closure:** low to medium, if the predecessor raw-complete package still exists;
+- **systemic dependency/closure gate:** medium, because it must preserve fast code-first launch while preventing a dependent successor from relying on chat-only historical context.
+
+## Observed duration and critical-path delay
+
+No trustworthy end-to-end timestamps were recorded for the post-run closure phase. That absence is itself part of the incident.
+
+The delay became visible only after the successor had completed. At that point, exact predecessor comparison required reconstructing an older artifact rather than reading a compact repository deposition. The critical path moved from ordinary result interpretation to artifact forensics.
+
+## Chronological incident record
+
+### 1. The predecessor was intentionally implemented without registration
+
+Draft PR #69 implemented `EXT-H-E7-SQEXP-ACTOR-DECISION-01` on frozen implementation/result identity:
+
+```text
+d1afb5ff094f69986e0ecc3bf7f9385485add62b
+```
+
+The PR explicitly excluded `docs/handoff.md`, `experiments/registry.yaml`, and schema-v3 registration material. That was consistent with the approved code-first launch policy.
+
+### 2. The predecessor aggregator produced the required exact data
+
+The predecessor implementation defines and writes:
+
+```text
+aggregate/branch_results.csv
+aggregate/group_summary.csv
+aggregate/actor_comparisons.csv
+aggregate/ppo_retention_gate.json
+aggregate/terminal_audit.json
+aggregate/aggregate_summary.json
+```
+
+`group_summary.csv` contains exact dataset-by-actor-by-control four-seed aggregates, including late mean, seed standard deviation, final mean, best score, BEST-to-FINAL drop, late slope, temporal variability, and effective negative mass.
+
+Therefore the numerical information was produced by the experiment design. The confirmed failure is not “the experiment never computed c64/c128.” The failure is that the output was not deposited into durable repository-accessible state.
+
+### 3. The run completed, but the promised post-run closure did not occur
+
+The predecessor was subsequently discussed as a completed 192-branch result, including a failed PPO-retention gate and a high-`c` A2C trend. However, no corresponding compact result deposition, registry closure, or handoff result entry is present on the reviewed `main` tree.
+
+The workflow effectively stopped at:
+
+```text
+implementation frozen
+-> server result completed
+-> result discussed in chat
+```
+
+instead of continuing through:
+
+```text
+terminal audit
+-> raw-complete package
+-> durable delivery
+-> compact deposition
+-> registry/handoff closure
+```
+
+### 4. A dependent successor was approved before predecessor closure
+
+The high-`c` successor was designed because the then-current optimum remained at the search boundary. Its initial code-first implementation was bound to:
+
+```text
+6795aa6f086c44e8073c5a995a1612f334a3a067
+```
+
+The successor correctly reran only the new `c256/c512` branches, avoiding wasteful repetition of existing Positive-only, `c64`, and `c128` branches.
+
+However, predecessor closure was not made a launch, aggregation, review, or merge dependency for this successor.
+
+### 5. The successor described historical joining but did not implement it
+
+The successor aggregator performs exact within-package `c512-c256` comparisons. It also states that predecessor `c128` and Positive-only results must be joined as separately identified historical context.
+
+That requirement remained prose. The aggregator had no input contract for:
+
+- predecessor artifact path;
+- predecessor experiment ID;
+- predecessor implementation/run SHA;
+- predecessor terminal-audit hash;
+- predecessor `group_summary.csv` hash;
+- exact join-key validation;
+- missing-predecessor fail-closed behavior.
+
+Consequently, the successor package was internally complete but scientifically incomplete for the intended boundary decision.
+
+### 6. Existing tests passed because they validated the narrower implemented contract
+
+The high-`c` tests and terminal audit checked:
+
+- all 48 new branches;
+- all 12 dataset-by-actor-by-control groups;
+- six A2C/PPO comparisons;
+- 24 paired `c512-c256` rows;
+- held-out-seed exclusion;
+- NaN/Inf separation;
+- no unauthorized common-`c`, PPO, GAE, or `c1024` selection.
+
+They did not check that the historical `c128`/Positive-only context required by the interpretation text was actually supplied and hash-bound.
+
+The tests therefore passed the implemented narrow contract while missing the wider scientific dependency.
+
+### 7. The missing closure was discovered only during result interpretation
+
+When exact `c64/c128` values were requested, the current handoff and repository did not contain them. The initially available response used rounded chat summaries and, in one case, an inferred value derived from a pooled mean.
+
+That was incorrect analytical behavior. Missing predecessor evidence should have caused a fail-closed comparison, not numerical reconstruction from rounded conversation context. Those approximate cross-package values are withdrawn and must not be treated as evidence.
+
+## Root causes
+
+### RC-1: code-first was implemented as “registration optional” rather than “registration deferred but mandatory”
+
+The workflow correctly removed registration from the pre-launch critical path, but it did not create a mandatory post-run transition or owner.
+
+### RC-2: no machine-readable post-run closure state machine
+
+The repository distinguishes concepts such as raw-complete, terminal-audited, packaged, delivered, registered, and applied-to-repository, but this pilot path did not enforce the sequence as a dependency graph.
+
+### RC-3: successor dependency was expressed in prose rather than an executable contract
+
+“Join predecessor context later” did not identify exact required files, hashes, join keys, or failure semantics.
+
+### RC-4: compact result deposition was not a required predecessor deliverable
+
+The raw server result could exist while the repository retained no small, durable decision table. The system therefore depended on a large external artifact and chat memory for routine comparison.
+
+### RC-5: no durable artifact locator and checksum binding
+
+The reviewed tree did not provide a canonical predecessor artifact URI/location, SHA-256, or recovery instruction sufficient to retrieve the exact result later.
+
+### RC-6: no fail-closed evidence rule for cross-experiment analysis
+
+The reviewer path did not explicitly forbid replacing missing aggregate data with rounded summaries, remembered values, or algebraic inference.
+
+### RC-7: closure ownership was ambiguous
+
+The user had assigned implementation and execution to the development path and registration/review closure to the reviewer path. The closure task was not persisted as an accountable blocker after the run finished.
+
+## Impact
+
+Confirmed engineering impact:
+
+- exact `c64/c128` values were unavailable from the authoritative repository state during successor review;
+- `c128->c256` paired comparisons, confidence summaries, final-score comparisons, and stability diagnostics could not be recomputed exactly;
+- the successor's main boundary interpretation was delayed by artifact recovery work;
+- chat summaries temporarily became a de facto secondary result store;
+- an approximate value was initially inferred where the correct behavior was to stop.
+
+Scientific boundary:
+
+- there is no evidence that the predecessor training run or its original aggregate computation was numerically corrupted;
+- there is no evidence that `c256/c512` branches are corrupted;
+- the incident prevents a trustworthy exact cross-package ranking until the predecessor artifact is recovered;
+- it does not authorize rerunning the predecessor, changing seeds, changing thresholds, or filling missing values from memory;
+- task-performance collapse, support/variance boundary, and NaN/Inf remain separate event classes.
+
+## Immediate fixes completed in this review
+
+1. The missing-handoff symptom was traced to a skipped post-run closure rather than to absent aggregation code.
+2. The predecessor aggregator outputs required for recovery were identified.
+3. The successor's historical-join statement was verified to be non-executable prose.
+4. Approximate or inferred `c64/c128` values were explicitly withdrawn as evidence.
+5. The correct next step was frozen as artifact recovery and exact joining, not automatic rerun.
+6. This incident and proposed remedy were added to the durable engineering log.
+
+No workflow behavior, registry state, handoff state, scientific claim, or experiment status is changed by this entry.
+
+## Proposed systemic optimization
+
+Proposed implementation claim:
+
+```text
+GOV-DEV-POSTRUN-CLOSURE-DEPENDENCY-GATE-01
+```
+
+This claim is a proposal only and is not authorized or active through this log entry.
+
+### DEVOPT-I: mandatory deferred-closure state machine
+
+Preserve code-first launch, but require the following post-run milestones to be recorded independently:
+
+```text
+RUN_COMPLETE
+-> TERMINAL_AUDITED
+-> RAW_COMPLETE_PACKAGED
+-> DURABLY_DELIVERED
+-> COMPACT_RESULT_DEPOSITED
+-> REGISTERED_OR_EXPLICITLY_CLOSED_AS_UNREGISTERED_PILOT
+```
+
+A pilot may launch before registration. It may not silently remain indefinitely between `RUN_COMPLETE` and closure.
+
+### DEVOPT-J: dependent-successor gate
+
+Every successor must declare one of:
+
+```text
+predecessor_dependency: none
+predecessor_dependency: required_for_execution
+predecessor_dependency: required_for_interpretation
+predecessor_dependency: required_for_merge_or_result_closure
+```
+
+For an interpretation-dependent successor such as the high-`c` boundary experiment, launch may proceed when scientifically justified, but final aggregation/reviewer decision must fail closed until the required predecessor evidence is available.
+
+### DEVOPT-K: executable historical-result input contract
+
+A successor that consumes predecessor results must require and validate:
+
+```yaml
+predecessor_experiment_id: EXT-H-E7-SQEXP-ACTOR-DECISION-01
+predecessor_implementation_sha: <full sha>
+predecessor_result_artifact_sha256: <sha256>
+predecessor_terminal_audit_sha256: <sha256>
+predecessor_group_summary_sha256: <sha256>
+join_keys:
+  - dataset
+  - actor_update_mode
+  - control
+  - seed
+```
+
+The aggregator must reject missing files, identity mismatches, duplicate keys, incomplete seed sets, altered metric definitions, and incompatible horizons/windows.
+
+### DEVOPT-L: mandatory compact result deposition
+
+For matrix pilots, repository closure should retain a compact, human- and machine-readable set even when raw trajectories remain external:
+
+```text
+branch_results.csv or a complete per-branch compact summary
+group_summary.csv
+paired_comparisons.csv
+selection_gate.json, when applicable
+terminal_audit.json
+aggregate_summary.json
+ARTIFACT_INDEX.json
+```
+
+The compact set must be sufficient to reproduce every reported table without reopening full trajectories.
+
+### DEVOPT-M: durable artifact locator
+
+`ARTIFACT_INDEX.json` should record:
+
+- experiment ID;
+- implementation SHA and run SHA;
+- result-package SHA-256;
+- durable storage location or recovery procedure;
+- compact-file SHA-256 values;
+- package kind;
+- whether raw trajectories/checkpoints are intentionally external;
+- whether the artifact has been delivered and independently verified.
+
+A local path that existed only on the execution server is not a durable locator.
+
+### DEVOPT-N: fail-closed cross-experiment analysis rule
+
+When exact predecessor evidence is absent, the reviewer must report:
+
+```text
+comparison unavailable: predecessor evidence not recovered
+```
+
+The reviewer must not substitute:
+
+- chat memory;
+- rounded prose summaries;
+- values inferred from pooled means;
+- screenshots without raw values;
+- a different experiment with similar controls.
+
+Approximate descriptive context may be quoted only when clearly labelled non-authoritative and must not enter a result table, paired comparison, confidence interval, or method-selection decision.
+
+### DEVOPT-O: explicit closure owner and automatic reminder/blocker
+
+The result-review owner must be recorded when a code-first pilot launches. On `RUN_COMPLETE`, the system should create or update a persistent closure item containing:
+
+- exact result directory/package;
+- terminal-audit status;
+- missing closure milestones;
+- responsible reviewer;
+- successor experiments currently depending on the result.
+
+The item closes only after compact deposition and registry/handoff action, or after an explicit reviewed decision that the pilot remains unregistered with a durable artifact index.
+
+### DEVOPT-P: closure telemetry
+
+Add timestamps:
+
+```text
+run_complete_utc
+terminal_audit_pass_utc
+raw_package_created_utc
+durable_delivery_verified_utc
+compact_deposition_commit_utc
+registration_commit_utc
+```
+
+Track:
+
+- time from run completion to compact deposition;
+- number of successors opened before predecessor closure;
+- number of analyses blocked by missing artifacts;
+- number of results reconstructed from non-authoritative context, with a target of zero.
+
+## Acceptance criteria
+
+A later implementation of `GOV-DEV-POSTRUN-CLOSURE-DEPENDENCY-GATE-01` must demonstrate:
+
+1. a code-first pilot can still pass liveness and launch without prior registry materialization;
+2. `RUN_COMPLETE` creates a persistent, review-owned closure state rather than ending the workflow;
+3. a predecessor with missing compact evidence cannot be marked fully closed;
+4. a successor declaring `required_for_interpretation` may run but cannot produce a final cross-experiment decision without the predecessor contract;
+5. missing predecessor files fail closed with a precise diagnostic;
+6. a wrong experiment ID, implementation SHA, package SHA, terminal-audit hash, or group-summary hash fails closed;
+7. duplicate or incomplete dataset/actor/control/seed join keys fail closed;
+8. an exact predecessor plus successor fixture produces the full Positive-only/`c64`/`c128`/`c256`/`c512` table and paired differences without manual editing;
+9. every number in the combined report can be traced to a compact file and checksum;
+10. chat-only or rounded values cannot enter machine-readable result output;
+11. task collapse, support/variance boundary, NaN/Inf, persistent drift, and fixed-horizon inconclusive states remain separately represented;
+12. no held-out seeds are accessed and no frozen scientific variable is changed by the closure tooling;
+13. handoff and registry authority remain unchanged and are updated only through their accepted transaction path;
+14. a recovered historical artifact can be closed without rerunning the scientific experiment;
+15. tests include a faithful replay of this E7 predecessor/successor incident.
+
+Success metrics after deployment:
+
+- zero dependent successors reaching final review with an undeclared predecessor evidence gap;
+- zero result tables populated from inferred or remembered values;
+- 100% of completed matrix pilots have a compact result index or an explicit reviewed closure exception;
+- median `RUN_COMPLETE -> COMPACT_RESULT_DEPOSITED` time is measured and reduced without delaying trustworthy server launch.
+
+## Remaining uncertainties
+
+1. The durable location of the predecessor 192-branch raw-complete artifact is not currently known in this review context.
+2. The exact result-package SHA-256 and compact-file hashes remain to be recovered.
+3. It is not yet confirmed whether the server run directory, an earlier uploaded ZIP, or another branch contains the original compact aggregate.
+4. The exact predecessor scientific table must not be reconstructed until that artifact is verified.
+5. The proposed governance claim and tooling scope require a separate user-approved implementation task before code changes begin.
+
+## Status
+
+```text
+Incident documented
+Root cause identified
+Approximate predecessor values withdrawn
+Artifact recovery pending
+Systemic optimization proposed only
+No workflow behavior changed
+No scientific state changed
+No registry or handoff change
+```
+
+---
+
 # Future entry template
 
 ## YYYY-MM-DD — DEVOPT-YYYY-MM-DD-<SHORT-ID>
