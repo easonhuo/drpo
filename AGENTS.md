@@ -42,15 +42,22 @@ Do not create dummy branches, commits, files, or PRs merely to test permissions 
 
 If the direct GitHub route exposes a defect, repair or iterate that route rather than silently falling back to the retired package workflow. The offline package path below is an emergency fallback only.
 
-## Temporary code-first pilot-registration transition
+## Default code-first pilot-registration route
 
-Until `GOV-DEV-PILOT-REGISTRATION-FASTPATH-01` is merged and separately activated on `main`, follow `docs/development_workflow_transitions/GOV-DEV-PILOT-REGISTRATION-FASTPATH-TRANSITION-01.md` for any new or modified authoritative E7, E8, or other scientific-pilot registration.
+For a new or modified authoritative E7, E8, or other scientific-pilot registration, the default route after implementation-SHA freeze is:
 
-A code-first pilot may proceed through scientific implementation, command-contract validation, already-authorized liveness, and implementation-SHA freeze. After the implementation SHA is frozen, do not construct a new authoritative registry/handoff update through an ad hoc sequence of per-file writes, temporary workflows, repeated remote generation, or unreviewed branch reconstruction.
+1. complete scientific implementation, command-contract validation, and any already-authorized liveness;
+2. freeze the exact implementation SHA;
+3. create a reviewer-authored `DEV_PILOT_REGISTRATION_SPEC.yaml`;
+4. run `python3 scripts/prepare_dev_pilot_registration.py` from current `main` to produce deterministic `PREPARED_INPUTS`;
+5. pass the exact prepared request, review, intent, and approval inputs through the existing V1 `plan → prepare → normalize → gate → finalize` transaction to local `READY`;
+6. review and publish or merge only through the normal GitHub route with explicit user approval.
 
-Registration closure must instead use a reviewed exact-commit fastpath shadow, wait for activation on `main`, or obtain an explicit user-approved exception with a recorded reason, frozen SHA, logical commit structure, review plan, and rollback plan.
+Do not silently replace this route with ad hoc per-file writes, temporary workflows, repeated remote generation, or unreviewed branch reconstruction.
 
-This temporary rule does not block execution of experiments that are already authoritatively registered and otherwise allowed by the handoff. It does not make an unmerged dev-branch tool production authority, relax document-before-experiment requirements, or permit an unregistered formal launch.
+The existing manual V1 input path remains an explicit fallback only. Before using it, record why the merged fastpath is unavailable or unsuitable, the frozen implementation SHA, the logical commit structure, the review plan, the rollback plan, and explicit user approval. Convenience, schedule pressure, historical habit, or unfamiliarity with the fastpath are not sufficient reasons.
+
+This default does not permit an unregistered formal launch, direct handoff editing, automatic push, PR creation, merge, scientific-status upgrade, or bypass of schema-v3 authority, exact-head CI, terminal audit, durable-artifact, or explicit merge gates. Code-first means registration is deferred until the implementation identity is stable; it does not mean registration is optional. PR-B tiered CI, telemetry enforcement, and `GOV-DEV-POSTRUN-CLOSURE-DEPENDENCY-GATE-01` remain separately scoped.
 
 ## Epistemic independence and anti-sycophancy
 
