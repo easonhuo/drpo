@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -19,6 +20,23 @@ THREAD_ENVIRONMENT_NAMES = (
     "OPENBLAS_NUM_THREADS",
     "NUMEXPR_NUM_THREADS",
 )
+ENV_EXECUTABLE = "/usr/bin/env"
+
+
+def _pythonpath_value(source_root: Path) -> str:
+    values = [str(source_root.resolve())]
+    inherited = os.environ.get("PYTHONPATH", "").strip()
+    if inherited:
+        values.append(inherited)
+    return os.pathsep.join(values)
+
+
+def _pythonpath_command(source_root: Path, command: Sequence[str]) -> list[str]:
+    return [
+        ENV_EXECUTABLE,
+        f"PYTHONPATH={_pythonpath_value(source_root)}",
+        *(str(item) for item in command),
+    ]
 
 
 def pool_command(
@@ -30,14 +48,17 @@ def pool_command(
     gpu_ids: Sequence[str] = (),
     dry_run: bool = False,
 ) -> list[str]:
-    values = [
-        sys.executable,
-        str(repo / "scripts/run_with_resource_pool.py"),
-        "--cpu-pool",
-        cpu_pool,
-        "--pool-identity",
-        str(identity),
-    ]
+    values = _pythonpath_command(
+        repo / "src",
+        [
+            sys.executable,
+            str(repo / "scripts/run_with_resource_pool.py"),
+            "--cpu-pool",
+            cpu_pool,
+            "--pool-identity",
+            str(identity),
+        ],
+    )
     if gpu_ids:
         values.extend(["--gpu-pool", ",".join(gpu_ids)])
     if dry_run:
@@ -55,59 +76,62 @@ def gpu_selection_command(
     max_slots: int | None = None,
 ) -> list[str]:
     e8 = profile["e8"]
-    return [
-        sys.executable,
-        str(gpu_repo / "scripts/run_countdown_e8_oracle_offline_v2_taper_auto.py"),
-        "--selection-only",
-        "--model_path",
-        e8["model_path"],
-        "--work_dir",
-        str(work_dir),
-        "--bank",
-        e8["bank"],
-        "--val",
-        e8["val"],
-        "--global_calibration",
-        e8["global_calibration"],
-        "--base_config",
-        e8["base_config"],
-        "--sweep_config",
-        e8["sweep_config"],
-        "--gpus",
-        ",".join(gpu_ids),
-        "--required-free-gpu-memory-gib",
-        str(e8["required_free_gpu_memory_gib"]),
-        "--required-host-memory-gib-per-worker",
-        str(e8["required_host_memory_gib_per_worker"]),
-        "--gpu-memory-headroom-fraction",
-        str(e8["gpu_memory_headroom_fraction"]),
-        "--host-memory-headroom-fraction",
-        str(e8["host_memory_headroom_fraction"]),
-        "--per-worker-host-memory-safety-factor",
-        str(e8["per_worker_host_memory_safety_factor"]),
-        "--per-worker-vram-safety-factor",
-        str(e8["per_worker_vram_safety_factor"]),
-        "--cpu-fraction",
-        str(e8["cpu_fraction"]),
-        "--per-worker-cpu-safety-factor",
-        str(e8["per_worker_cpu_safety_factor"]),
-        "--minimum-cpu-cores-per-worker",
-        str(e8["minimum_cpu_cores_per_worker"]),
-        "--maximum-gpu-utilization-percent",
-        str(e8["maximum_gpu_utilization_percent"]),
-        "--max-devices",
-        str(max_devices or e8["max_devices"]),
-        "--max-slots-per-gpu",
-        str(max_slots or e8["max_slots_per_gpu"]),
-        "--single-probe-seconds",
-        str(e8["single_probe_seconds"]),
-        "--validation-probe-seconds",
-        str(e8["validation_probe_seconds"]),
-        "--probe-budget-seconds",
-        str(e8["probe_budget_seconds"]),
-        "--probe-free-floor-gib",
-        str(e8["probe_free_floor_gib"]),
-    ]
+    return _pythonpath_command(
+        gpu_repo / "src",
+        [
+            sys.executable,
+            str(gpu_repo / "scripts/run_countdown_e8_oracle_offline_v2_taper_auto.py"),
+            "--selection-only",
+            "--model_path",
+            e8["model_path"],
+            "--work_dir",
+            str(work_dir),
+            "--bank",
+            e8["bank"],
+            "--val",
+            e8["val"],
+            "--global_calibration",
+            e8["global_calibration"],
+            "--base_config",
+            e8["base_config"],
+            "--sweep_config",
+            e8["sweep_config"],
+            "--gpus",
+            ",".join(gpu_ids),
+            "--required-free-gpu-memory-gib",
+            str(e8["required_free_gpu_memory_gib"]),
+            "--required-host-memory-gib-per-worker",
+            str(e8["required_host_memory_gib_per_worker"]),
+            "--gpu-memory-headroom-fraction",
+            str(e8["gpu_memory_headroom_fraction"]),
+            "--host-memory-headroom-fraction",
+            str(e8["host_memory_headroom_fraction"]),
+            "--per-worker-host-memory-safety-factor",
+            str(e8["per_worker_host_memory_safety_factor"]),
+            "--per-worker-vram-safety-factor",
+            str(e8["per_worker_vram_safety_factor"]),
+            "--cpu-fraction",
+            str(e8["cpu_fraction"]),
+            "--per-worker-cpu-safety-factor",
+            str(e8["per_worker_cpu_safety_factor"]),
+            "--minimum-cpu-cores-per-worker",
+            str(e8["minimum_cpu_cores_per_worker"]),
+            "--maximum-gpu-utilization-percent",
+            str(e8["maximum_gpu_utilization_percent"]),
+            "--max-devices",
+            str(max_devices or e8["max_devices"]),
+            "--max-slots-per-gpu",
+            str(max_slots or e8["max_slots_per_gpu"]),
+            "--single-probe-seconds",
+            str(e8["single_probe_seconds"]),
+            "--validation-probe-seconds",
+            str(e8["validation_probe_seconds"]),
+            "--probe-budget-seconds",
+            str(e8["probe_budget_seconds"]),
+            "--probe-free-floor-gib",
+            str(e8["probe_free_floor_gib"]),
+        ],
+    )
 
 
 def e7_plan_command(repo: Path, profile: Mapping[str, Any], work_dir: Path) -> list[str]:
