@@ -16,7 +16,7 @@ from drpo.e7_squared_exp_kernel import FORMULA
 
 
 EXPERIMENT_ID = "EXT-H-E7-SQEXP-GAE-01"
-SCIENTIFIC_STATUS = "shared_frozen_critic_behavior_trajectory_gae_pilot_not_run"
+SCIENTIFIC_STATUS = "frozen_critic_trajectory_gae_development_pilot_only"
 RUNNER_VERSION = "1.0.0-e7-sqexp-gae"
 EXPECTED_SOURCE_DATASETS = predecessor.EXPECTED_SOURCE_DATASETS
 EXPECTED_SOURCE_SEEDS = predecessor.EXPECTED_SEEDS
@@ -25,9 +25,11 @@ EXPECTED_DATASETS = (
     "walker2d-medium-v2",
     "walker2d-medium-replay-v2",
 )
-EXPECTED_SEEDS = (204, 205, 206, 207)
+EXPECTED_SEEDS = (200, 201, 202, 203)
+HELD_OUT_SEEDS = (204, 205, 206, 207)
 EXPECTED_COEFFICIENTS = (64.0, 128.0, 256.0)
 EXPECTED_ACTOR_MODES = ("a2c", "ppo_clip_k4")
+EXPECTED_ADVANTAGE_MODES = ("one_step_td", "gae_lambda_0p95")
 EXPECTED_ADVANTAGE_ESTIMATORS = ("td", "gae")
 EXPECTED_STEPS = 1_000_000
 EXPECTED_BRANCHES = 192
@@ -78,22 +80,97 @@ def _require_int_flag(argv: list[str], flag: str, expected: int) -> None:
         raise ValueError(f"source trainer {flag} changed: {actual} != {expected}")
 
 
+def _require_exact_mapping(
+    raw: Mapping[str, Any],
+    expected: Mapping[str, Any],
+    *,
+    label: str,
+) -> None:
+    if dict(raw) != dict(expected):
+        raise ValueError(f"{label} changed from the frozen GAE pilot contract")
+
+
 def load_grid(path: str | Path) -> tuple[dict[str, Any], str]:
+    """Load the single canonical grid schema and normalize internal field names."""
+
     source = Path(path)
     raw = json.loads(source.read_text())
+    compatibility_fields = {
+        "seeds",
+        "advantage_estimators",
+        "shared_critic",
+        "expected_branches",
+    }
+    duplicated = sorted(compatibility_fields & set(raw))
+    if duplicated:
+        raise ValueError(
+            "GAE grid must use the canonical schema only; duplicated compatibility "
+            f"fields are forbidden: {duplicated}"
+        )
     if raw.get("experiment_id") != EXPERIMENT_ID:
         raise ValueError(f"grid experiment_id must be {EXPERIMENT_ID}")
     if raw.get("run_kind") != "pilot" or raw.get("status") != "not_run":
-        raise ValueError("GAE grid must remain a not-run pilot")
+        raise ValueError("GAE grid must remain a not-run development pilot")
+    if raw.get("scientific_status") != SCIENTIFIC_STATUS:
+        raise ValueError("GAE scientific_status changed")
     if tuple(raw.get("datasets", ())) != EXPECTED_DATASETS:
-        raise ValueError("GAE datasets changed")
-    if tuple(int(value) for value in raw.get("seeds", ())) != EXPECTED_SEEDS:
-        raise ValueError("GAE confirmatory seeds changed")
-    if tuple(raw.get("advantage_estimators", ())) != EXPECTED_ADVANTAGE_ESTIMATORS:
-        raise ValueError("advantage estimator matrix changed")
+        raise ValueError("GAE dataset matrix changed")
+    if tuple(int(value) for value in raw.get("development_seeds", ())) != EXPECTED_SEEDS:
+        raise ValueError("GAE development seeds changed")
+    if tuple(int(value) for value in raw.get("held_out_seeds", ())) != HELD_OUT_SEEDS:
+        raise ValueError("GAE held-out seeds changed")
     if tuple(raw.get("actor_update_modes", ())) != EXPECTED_ACTOR_MODES:
-        raise ValueError("actor update matrix changed")
-    control = raw.get("weight_control", {})
+        raise ValueError("GAE actor update modes changed")
+    if tuple(raw.get("advantage_modes", ())) != EXPECTED_ADVANTAGE_MODES:
+        raise ValueError("GAE advantage modes changed")
+    if int(raw.get("steps", -1)) != EXPECTED_STEPS:
+        raise ValueError("actor steps must remain 1,000,000")
+    if int(raw.get("evaluation_interval", -1)) != 50_000:
+        raise ValueError("GAE evaluation interval changed")
+    if int(raw.get("evaluation_episodes", -1)) != 10:
+        raise ValueError("GAE evaluation episode count changed")
+
+    shared = raw.get("shared_frozen_critic")
+    if not isinstance(shared, Mapping):
+        raise ValueError("shared_frozen_critic must be a mapping")
+    _require_exact_mapping(
+        shared,
+        {
+            "steps": 100_000,
+            "batch": 256,
+            "gamma": 0.99,
+            "tau": 0.5,
+            "lr": 3e-4,
+            "temperature": 5.0,
+            "device": "cpu",
+            "shared_per_dataset_seed": True,
+            "updated_during_actor_training": False,
+        },
+        label="shared frozen critic",
+    )
+    trajectory = raw.get("trajectory_advantage")
+    if not isinstance(trajectory, Mapping):
+        raise ValueError("trajectory_advantage must be a mapping")
+    _require_exact_mapping(
+        trajectory,
+        {
+            "gamma": 0.99,
+            "gae_lambda": 0.95,
+            "ordered_behavior_trajectory": True,
+            "terminal_bootstrap": False,
+            "timeout_bootstrap": True,
+            "terminal_stops_recursion": True,
+            "timeout_stops_recursion": True,
+            "tail_bootstrap_and_stop_recursion": True,
+            "lambda_zero_must_equal_one_step": True,
+            "normalization": "none",
+            "clipping": "none",
+        },
+        label="trajectory advantage",
+    )
+    control = raw.get("weight_control")
+    if not isinstance(control, Mapping):
+        raise ValueError("weight_control must be a mapping")
     if control.get("formula") != FORMULA:
         raise ValueError("squared-remoteness formula changed")
     if not math.isclose(float(control.get("weight_at_zero")), 1.0, abs_tol=1e-12):
@@ -108,26 +185,34 @@ def load_grid(path: str | Path) -> tuple[dict[str, Any], str]:
         raise ValueError("reference_distance must remain 2")
     coefficients = tuple(float(value) for value in control.get("exp_coefficients", ()))
     if coefficients != EXPECTED_COEFFICIENTS:
-        raise ValueError("GAE coefficient shortlist changed")
-    if int(raw.get("steps", -1)) != EXPECTED_STEPS:
-        raise ValueError("actor steps must remain 1,000,000")
-    if int(raw.get("expected_branches", -1)) != EXPECTED_BRANCHES:
+        raise ValueError("coefficient shortlist changed")
+    if int(raw.get("expected_controls_per_actor_advantage_cell", -1)) != 4:
+        raise ValueError("control count changed")
+    if int(raw.get("expected_total_branches", -1)) != EXPECTED_BRANCHES:
         raise ValueError("expected branch count changed")
-    prepared = raw.get("shared_critic", {})
-    expected_prepared = {
-        "steps": 100_000,
-        "batch_size": 256,
-        "learning_rate": 0.0003,
-        "expectile": 0.5,
-        "gamma": 0.99,
-        "gae_lambda": 0.95,
-        "device": "cpu",
-    }
-    if prepared != expected_prepared:
-        raise ValueError("shared critic/GAE preparation settings changed")
+    if raw.get("screening_only") is not True:
+        raise ValueError("GAE experiment must remain screening-only")
     if raw.get("formal_evidence_allowed") is not False:
         raise ValueError("implementation pilot cannot allow formal evidence")
-    return raw, sha256_file(source)
+
+    normalized = dict(raw)
+    normalized.update(
+        {
+            "seeds": list(EXPECTED_SEEDS),
+            "advantage_estimators": list(EXPECTED_ADVANTAGE_ESTIMATORS),
+            "shared_critic": {
+                "steps": int(shared["steps"]),
+                "batch_size": int(shared["batch"]),
+                "learning_rate": float(shared["lr"]),
+                "expectile": float(shared["tau"]),
+                "gamma": float(shared["gamma"]),
+                "gae_lambda": float(trajectory["gae_lambda"]),
+                "device": str(shared["device"]),
+            },
+            "expected_branches": EXPECTED_BRANCHES,
+        }
+    )
+    return normalized, sha256_file(source)
 
 
 def load_run_spec(path: str | Path) -> tuple[dict[str, Any], str]:
