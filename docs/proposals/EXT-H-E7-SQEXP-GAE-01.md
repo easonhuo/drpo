@@ -44,7 +44,8 @@ For each dataset/seed pair, preparation trains exactly one canonical expectile c
 - batch `256`;
 - learning rate `3e-4`;
 - `gamma=0.99`;
-- expectile `tau=0.7`;
+- expectile `tau=0.5`;
+- historical canonical actor temperature `T=5.0`;
 - canonical network preset and source contract.
 
 That critic checkpoint is reused by every actor/advantage/control branch sharing the dataset and seed. It is loaded strictly and is not updated during actor training. The actor wrapper preserves the existing A2C/PPO objective implementations and feeds the prepared advantage through the trainer's existing `ep_ret` slot.
@@ -91,7 +92,7 @@ The implementation includes the following required regressions:
 - terminal/timeout overlap fails closed;
 - prepared array and checkpoint hashes are verified before every plan/run;
 - external advantages are reconstructed inside the unchanged parent A2C/PPO update to tolerance `1e-6`;
-- critic parameters are checked for exact immutability after every actor update;
+- critic parameters are checked for exact immutability at every diagnostic interval and at the final update;
 - actor and critic parameter sets must be disjoint;
 - nonuniform return-weighted sampling is prohibited.
 
