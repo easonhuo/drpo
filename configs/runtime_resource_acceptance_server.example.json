@@ -2,7 +2,7 @@
   "schema_version": 1,
   "output_parent": "REPLACE_WITH_ABSOLUTE_PATH/runtime_acceptance_outputs",
   "expected_harness_commit": null,
-  "gpu_selection_commit": "7147b6f2087ec628f0f5056ab765eca1506d3a72",
+  "gpu_selection_commit": "133794a0c27e16cc546a3fdd052a2be3487b30aa",
   "gpu_selection_ref": "dev/gov-runtime-gpu-placement-shadow-entrypoint-01",
   "continue_after_failure": false,
   "conflict_process_patterns": [
@@ -46,7 +46,7 @@
     "model_path": "REPLACE_WITH_ABSOLUTE_PATH/Qwen2.5-0.5B-Instruct",
     "bank": "REPLACE_WITH_ABSOLUTE_PATH/countdown_bank.jsonl",
     "val": "REPLACE_WITH_ABSOLUTE_PATH/countdown_validation.jsonl",
-    "test": "REPLACE_WITH_ABSOLUTE_PATH/countdown_test.jsonl",
+    "test": "/dev/null",
     "global_calibration": "REPLACE_WITH_ABSOLUTE_PATH/global_calibration.json",
     "base_config": "REPLACE_WITH_ABSOLUTE_PATH/base_config.yaml",
     "sweep_config": "REPLACE_WITH_ABSOLUTE_PATH/sweep_config.yaml",
