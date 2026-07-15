@@ -16,4 +16,4 @@ fi
 
 export PYTHONPATH="${REPO_ROOT}/src${PYTHONPATH:+:${PYTHONPATH}}"
 cd "${REPO_ROOT}"
-exec python3 scripts/run_runtime_resource_acceptance.py --profile "$2"
+exec python3 scripts/run_runtime_resource_acceptance_shared_host.py --profile "$2"
