@@ -1,0 +1,194 @@
+{
+  "current_before_commit": "448936a7d61cb8871457078ef196e371fbce380c",
+  "current_handoff_before_sha256": "a105282a37ea13d9be8fb26f41ec05aa487454f69ffc955aa0c8ee3febaca6fb",
+  "current_registry_validation": {
+    "assertions": [
+      {
+        "change_id": "add-e7-ppo-w0-exp-grid-pilot",
+        "entity_id": "EXT-H-E7-PPO-W0-EXP-GRID-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "17b7c7ebab00ba1827c1178adfd3c0c37ca8406eb64814af7be04100224ea837"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-H-E7-PPO-W0-EXP-GRID-REGISTRATION-2026-07-13/HANDOFF_DELTA.yaml",
+            "sha256": "b2306204965bb35df71699e389b6940884a43e4a905473f6669ecf8dfae94e2a"
+          },
+          {
+            "path": "docs/experiments/EXT-H-E7-PPO-W0-EXP-GRID-01.md",
+            "sha256": "9a66e314e2901de3f84763f341b152e1a920c3d45819f66d583b5b8d02209f59"
+          },
+          {
+            "path": "configs/e7_ppo_w0_exp_grid_pilot_v1.json",
+            "sha256": "3635a72379d2da0d68373320c131621a5f0e0f9c25e7354f6ab5f40230db31c0"
+          },
+          {
+            "path": "src/drpo/e7_ppo_w0_grid_pilot.py",
+            "sha256": "3ef0624994e8fdecb679f88c465760a2ff8ce5c257883ac5038ceb3f67833a0d"
+          },
+          {
+            "path": "src/drpo/e7_ppo_w0_bootstrap.py",
+            "sha256": "c251be781e8524946f477b0da3e68370faa2284681ef941c5a281e0f4617a677"
+          },
+          {
+            "path": "src/drpo/e7_ppo_w0_aggregate.py",
+            "sha256": "98f2c3143ae88a2b30a2aa12be87c1bf64f2e203ed9df9f7c4c6f38bce14beb0"
+          },
+          {
+            "path": "src/drpo/e7_ppo_w0_runtime_autotune.py",
+            "sha256": "70754014b91dc4a50d2aa7b9f1f9003824ccb048db1dbc669bf215cf1176fd81"
+          },
+          {
+            "path": "scripts/run_e7_ppo_w0_grid_pilot_auto.py",
+            "sha256": "d4bab3236dd71442ddcba38da3bb3ac3de0de624c6c06e3255dab8767c150712"
+          },
+          {
+            "path": "scripts/run_e7_ppo_w0_grid_pilot_auto_one_click.sh",
+            "sha256": "9f8d62686266b978ffad07591a89646e8f77efa7f028578d25d668a7290dd633"
+          },
+          {
+            "path": "tests/test_e7_ppo_w0_grid_pilot.py",
+            "sha256": "c958c0e2b7d55547faea3d08f2acfb5d67220dee44cee548dae6cfd2b3135274"
+          },
+          {
+            "path": "tests/test_e7_ppo_w0_runtime_autotune.py",
+            "sha256": "e5ecb1a0bd5253b81c22c299377b0a0deaae022fe650b09b6c534dca4f014380"
+          },
+          {
+            "path": "tests/test_e7_ppo_w0_failure_audit.py",
+            "sha256": "cefd2e9e6ce93fc3b326bb581e038da7347109c639ecb77ed09a301156cba482"
+          }
+        ],
+        "kind": "add_entity"
+      }
+    ],
+    "coverage": {
+      "added_entities": [
+        "EXT-H-E7-PPO-W0-EXP-GRID-01"
+      ],
+      "changed_field_count": 0,
+      "declared_assertion_count": 1,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "delta_sha256": "b2306204965bb35df71699e389b6940884a43e4a905473f6669ecf8dfae94e2a",
+  "exact_base_candidate_sha256": "79b1d92f6357b2004861f85b335e076120ee9a89e9bee80412c1d5b410fc291b",
+  "exact_base_registry_validation": {
+    "assertions": [
+      {
+        "change_id": "add-e7-ppo-w0-exp-grid-pilot",
+        "entity_id": "EXT-H-E7-PPO-W0-EXP-GRID-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "17b7c7ebab00ba1827c1178adfd3c0c37ca8406eb64814af7be04100224ea837"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-H-E7-PPO-W0-EXP-GRID-REGISTRATION-2026-07-13/HANDOFF_DELTA.yaml",
+            "sha256": "b2306204965bb35df71699e389b6940884a43e4a905473f6669ecf8dfae94e2a"
+          },
+          {
+            "path": "docs/experiments/EXT-H-E7-PPO-W0-EXP-GRID-01.md",
+            "sha256": "9a66e314e2901de3f84763f341b152e1a920c3d45819f66d583b5b8d02209f59"
+          },
+          {
+            "path": "configs/e7_ppo_w0_exp_grid_pilot_v1.json",
+            "sha256": "3635a72379d2da0d68373320c131621a5f0e0f9c25e7354f6ab5f40230db31c0"
+          },
+          {
+            "path": "src/drpo/e7_ppo_w0_grid_pilot.py",
+            "sha256": "3ef0624994e8fdecb679f88c465760a2ff8ce5c257883ac5038ceb3f67833a0d"
+          },
+          {
+            "path": "src/drpo/e7_ppo_w0_bootstrap.py",
+            "sha256": "c251be781e8524946f477b0da3e68370faa2284681ef941c5a281e0f4617a677"
+          },
+          {
+            "path": "src/drpo/e7_ppo_w0_aggregate.py",
+            "sha256": "98f2c3143ae88a2b30a2aa12be87c1bf64f2e203ed9df9f7c4c6f38bce14beb0"
+          },
+          {
+            "path": "src/drpo/e7_ppo_w0_runtime_autotune.py",
+            "sha256": "70754014b91dc4a50d2aa7b9f1f9003824ccb048db1dbc669bf215cf1176fd81"
+          },
+          {
+            "path": "scripts/run_e7_ppo_w0_grid_pilot_auto.py",
+            "sha256": "d4bab3236dd71442ddcba38da3bb3ac3de0de624c6c06e3255dab8767c150712"
+          },
+          {
+            "path": "scripts/run_e7_ppo_w0_grid_pilot_auto_one_click.sh",
+            "sha256": "9f8d62686266b978ffad07591a89646e8f77efa7f028578d25d668a7290dd633"
+          },
+          {
+            "path": "tests/test_e7_ppo_w0_grid_pilot.py",
+            "sha256": "c958c0e2b7d55547faea3d08f2acfb5d67220dee44cee548dae6cfd2b3135274"
+          },
+          {
+            "path": "tests/test_e7_ppo_w0_runtime_autotune.py",
+            "sha256": "e5ecb1a0bd5253b81c22c299377b0a0deaae022fe650b09b6c534dca4f014380"
+          },
+          {
+            "path": "tests/test_e7_ppo_w0_failure_audit.py",
+            "sha256": "cefd2e9e6ce93fc3b326bb581e038da7347109c639ecb77ed09a301156cba482"
+          }
+        ],
+        "kind": "add_entity"
+      }
+    ],
+    "coverage": {
+      "added_entities": [
+        "EXT-H-E7-PPO-W0-EXP-GRID-01"
+      ],
+      "changed_field_count": 0,
+      "declared_assertion_count": 1,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "history_preservation_passed": true,
+  "idempotence_passed": true,
+  "materialized_handoff_after_sha256": "79b1d92f6357b2004861f85b335e076120ee9a89e9bee80412c1d5b410fc291b",
+  "mode": "authoritative",
+  "network_used": false,
+  "policy_id": "GOV-HANDOFF-AUTHORITY-CUTOVER-01",
+  "registry_after_sha256": "17b7c7ebab00ba1827c1178adfd3c0c37ca8406eb64814af7be04100224ea837",
+  "registry_before_sha256": "511380b837c8f6af999c25be510b9ecd5c64dbe89ad0924f1b07784eb5707622",
+  "report_schema_version": 1,
+  "source_base_commit": "448936a7d61cb8871457078ef196e371fbce380c",
+  "source_patch_commit": "484f3bf315c87f39f8cd5ade154a193db3da9f7f",
+  "stage4a_refresh": {
+    "refreshed": [
+      "docs/handoff_shadow/stage4/minimal/generated/MODULE_INDEX.json",
+      "docs/handoff_shadow/stage4/minimal/generated/STRUCTURE_SUGGESTIONS.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/global_core_governance.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/hopper_e7.md"
+    ],
+    "reused": [
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.dot",
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e5_mechanism.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e6_generalization.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_extrapolation.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_taper.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_mechanism_e1_e3.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/countdown_e8.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/execution_status_gates.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/history_provenance.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/paper_rewrite.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/terminal_audit.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/theory_methods_related_work.md"
+    ]
+  },
+  "status": "PASS",
+  "structural_lint_passed": true,
+  "trusted_engine_sha256": "a6532ba4c1bb9c4af24d79f027267de518c3832b347dba47e8319dee7a3ebe2c",
+  "trusted_policy_sha256": "508f6bbb6ee9bb6da5be041a23e25cd569b95475523bb6af7127cb84ea3466ad",
+  "trusted_renderer_sha256": "39a7566e91c77784822148bb18ae32e44dfcc1745fbdc1cbf14a88ce6c6a13e5",
+  "update_id": "EXT-H-E7-PPO-W0-EXP-GRID-REGISTRATION-2026-07-13"
+}

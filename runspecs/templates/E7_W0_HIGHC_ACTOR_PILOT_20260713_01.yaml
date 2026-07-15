@@ -1,0 +1,104 @@
+version: 1
+run_id: E7_W0_HIGHC_ACTOR_PILOT_20260713_01
+lane: e7
+priority: 120
+created_at: '2026-07-13T12:05:00Z'
+experiment_id: EXT-H-E7-W0-HIGHC-ACTOR-01
+repo_commit: d23e0f82d350fdecfddcb69efc1f1af63150a0b6
+
+provenance:
+  commit_policy: protected_paths_unchanged
+  protected_paths:
+    - configs/e7_w0_highc_actor_ablation_v1.json
+    - src/drpo/e7_w0_highc_actor.py
+    - src/drpo/e7_w0_highc_actor_bootstrap.py
+    - src/drpo/e7_w0_highc_actor_aggregate.py
+    - src/drpo/e7_w0_geometry_diagnostics.py
+    - src/drpo/e7_w0_highc_runtime_autotune.py
+    - scripts/run_e7_w0_highc_actor_auto.py
+    - scripts/run_e7_w0_highc_actor_auto_one_click.sh
+    - scripts/run_e7_w0_highc_actor_resume_one_click.sh
+
+purpose: >
+  Execute the full 84-branch, 500k-step development screening pilot comparing
+  canonical A2C and PPO clipping at Positive-only and direct w(0)=1 with
+  c={2,3,4,6,8,12} on the three registered E7 external-validity tasks. Runtime
+  selection may change only active subprocess count.
+
+entrypoint:
+  command: bash scripts/run_e7_w0_highc_actor_auto_one_click.sh
+  cwd: repo_root
+
+policy:
+  existing_script_required: true
+  forbid_new_launcher: true
+  forbid_hparam_change: true
+  forbid_cross_lane: true
+  formal_evidence_allowed: false
+
+outputs:
+  run_dir: outputs/e7/w0_highc_actor_ablation_001
+  summary_file: outputs/e7/w0_highc_actor_ablation_001/RUN_SUMMARY.json
+  audit_file: outputs/e7/w0_highc_actor_ablation_001/aggregate/terminal_audit.json
+
+success_criteria:
+  - RUNTIME_SELECTION.json records CPU, memory, candidate throughput, and selected workers
+  - EXECUTION_PLAN.json records exactly 84 branches
+  - RUN_SUMMARY.json records exactly 84 completed-or-skipped branches and zero failed branches
+  - each actor mode contains one Positive-only and six high-c controls for each dataset and development seed
+  - paired A2C/PPO aggregation is present for all 21 dataset-control pairs
+  - geometry diagnostics report distance, effective weight, thresholds, and effective negative mass
+  - held-out seeds 204 through 207 remain untouched
+  - task degradation, support or variance boundary, and NaN/Inf are separate
+  - fixed 500k endpoint is not described as convergence or steady state
+
+artifacts:
+  package_policy: manifest_only
+  include:
+    - outputs/e7/w0_highc_actor_ablation_001/RUNTIME_SELECTION.json
+    - outputs/e7/w0_highc_actor_ablation_001/EXECUTION_PLAN.json
+    - outputs/e7/w0_highc_actor_ablation_001/RUN_IDENTITY.json
+    - outputs/e7/w0_highc_actor_ablation_001/RUN_SUMMARY.json
+    - outputs/e7/w0_highc_actor_ablation_001/aggregate/*.json
+    - outputs/e7/w0_highc_actor_ablation_001/aggregate/*.csv
+    - outputs/e7/w0_highc_actor_ablation_001/branches/*/BRANCH_IDENTITY.json
+    - outputs/e7/w0_highc_actor_ablation_001/branches/*/LAUNCH.json
+    - outputs/e7/w0_highc_actor_ablation_001/branches/*/COMPLETED.json
+    - outputs/e7/w0_highc_actor_ablation_001/branches/*/FAILED.json
+    - outputs/e7/w0_highc_actor_ablation_001/branches/*/branch_config.json
+    - outputs/e7/w0_highc_actor_ablation_001/branches/*/branch_manifest.json
+    - outputs/e7/w0_highc_actor_ablation_001/branches/*/stdout_stderr.log
+    - outputs/e7/w0_highc_actor_ablation_001/branches/*/geometry_diagnostics.jsonl
+    - outputs/e7/w0_highc_actor_ablation_001/branches/*/GEOMETRY_DIAGNOSTICS_LATEST.json
+    - outputs/e7/w0_highc_actor_ablation_001/branches/*/ppo_diagnostics.jsonl
+    - outputs/e7/w0_highc_actor_ablation_001/branches/*/PPO_DIAGNOSTICS_LATEST.json
+    - outputs/e7/w0_highc_actor_ablation_001/branches/*/trainer_output/*.json
+  exclude:
+    - '**/*.pt'
+    - '**/*.pth'
+    - '**/*.ckpt'
+    - '**/*.safetensors'
+    - '**/*.bin'
+    - '**/checkpoint*'
+    - '**/checkpoints/**'
+    - '**/model*'
+    - '**/optimizer*'
+    - '**/wandb/**'
+    - outputs/e7/w0_highc_actor_ablation_001/_runtime_resource_probe/**
+  max_package_size_mb: 100
+  fail_if_excluded_matched: false
+  fail_if_package_too_large: true
+
+publish:
+  enabled: false
+  auto: false
+
+recovery:
+  enabled: true
+  max_attempts: 2
+  resume_command: bash scripts/run_e7_w0_highc_actor_resume_one_click.sh
+  retryable_exit_codes: [137, 143]
+  checkpoint_globs:
+    - outputs/e7/w0_highc_actor_ablation_001/RUNTIME_SELECTION.json
+    - outputs/e7/w0_highc_actor_ablation_001/RUN_IDENTITY.json
+  backoff_seconds: 60

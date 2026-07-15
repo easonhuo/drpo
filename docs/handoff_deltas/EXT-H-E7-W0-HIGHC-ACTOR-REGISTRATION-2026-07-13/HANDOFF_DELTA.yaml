@@ -1,0 +1,50 @@
+schema_version: 3
+update_id: EXT-H-E7-W0-HIGHC-ACTOR-REGISTRATION-2026-07-13
+mode: authoritative
+base:
+  commit: cca4aadc4a23d5a141cb83192676c32372cdabc2
+  handoff_sha256: 79b1d92f6357b2004861f85b335e076120ee9a89e9bee80412c1d5b410fc291b
+  registry_sha256: 17b7c7ebab00ba1827c1178adfd3c0c37ca8406eb64814af7be04100224ea837
+renderer_version: 1
+operations:
+- operation_id: append-e7-w0-highc-actor-pilot
+  op: append_to_section
+  heading_path:
+  - 0. 研究与执行原则（每次新会话首先阅读）
+  - 0.1 当前执行门禁
+  block_id: e7-w0-highc-actor-screening-pilot
+  content: '- **Hopper/Walker E7 direct-`w(0)=1` high-`c` × actor-update follow-up
+    （`EXT-H-E7-W0-HIGHC-ACTOR-01`）：**登记为 `not_run` 的 development screening pilot，是
+    `EXT-H-E7-PPO-W0-EXP-GRID-01` 的非破坏性 successor；前序 186-branch 结果与失败记录完整保留。本实验固定公开参数化
+    `u=d/2`、`w(d)=w(0)exp(-cu)`，只比较 Positive-only 与 `w(0)=1, c={2,3,4,6,8,12}`，并在
+    historical canonical A2C 与 PPO clip 两种 actor update 下成对执行。三项任务为 `hopper-medium-expert-v2`、`walker2d-medium-v2`、`walker2d-medium-replay-v2`，development
+    seeds 仅 `200,201`，共 84 个 500k branches；held-out seeds `204--207` 禁止使用。网络、critic、advantage、优化器、batch、学习率、数据与评估协议保持一致；PPO
+    继续固定 clip `0.2` 和 old-policy cadence `4`。两种 actor update 均记录负样本 standardized distance、实际
+    `w(d)`、阈值占比与 advantage-weighted effective negative mass，诊断不得改变 objective。该 external-validity
+    pilot 只回答有限步高衰减恢复与 actor-update 敏感性，不得升级为因果识别、收敛、稳态或 PPO/A2C 普遍排名；任务性能退化/崩溃、support/variance
+    boundary 与 NaN/Inf 必须分开终态审计，也不得按数据集事后选择不同 `c` 冒充统一方法。'
+registry:
+  mode: expected_after
+  exact_base_after_sha256: 482013a48338f739f21f152107183be6f8f5745d73b1adfbe57940f797efb6ba
+  changes:
+  - change_id: add-e7-w0-highc-actor-pilot
+    kind: add_entity
+    entity_id: EXT-H-E7-W0-HIGHC-ACTOR-01
+    evidence:
+    - experiments/registry.yaml
+    - docs/handoff_deltas/EXT-H-E7-W0-HIGHC-ACTOR-REGISTRATION-2026-07-13/HANDOFF_DELTA.yaml
+    - docs/experiments/EXT-H-E7-W0-HIGHC-ACTOR-01.md
+    - docs/scopes/EXT-H-E7-W0-HIGHC-ACTOR-01.md
+    - configs/e7_w0_highc_actor_ablation_v1.json
+    - src/drpo/e7_w0_highc_actor.py
+    - src/drpo/e7_w0_highc_actor_bootstrap.py
+    - src/drpo/e7_w0_highc_actor_aggregate.py
+    - src/drpo/e7_w0_geometry_diagnostics.py
+    - src/drpo/e7_w0_highc_runtime_autotune.py
+    - scripts/run_e7_w0_highc_actor_auto.py
+    - scripts/run_e7_w0_highc_actor_auto_one_click.sh
+    - tests/test_e7_w0_highc_actor.py
+    - tests/test_e7_w0_geometry_diagnostics.py
+    - tests/test_e7_w0_highc_runspecs.py
+expected:
+  exact_base_candidate_sha256: 9c70a3f8a6bb6c31ceab84ee64497f930271762a470ac68eaccefd78a7207638

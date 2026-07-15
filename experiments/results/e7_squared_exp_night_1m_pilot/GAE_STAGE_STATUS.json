@@ -1,0 +1,9 @@
+{
+  "branches_started": 0,
+  "experiment_id": "EXT-H-E7-SQUARED-EXP-NIGHT-01",
+  "gae_lambda": 0.95,
+  "reason": "verified ordered-trajectory and terminal/truncation contract unavailable",
+  "scientific_result_available": false,
+  "stage": "stage_c_gae",
+  "status": "BLOCKED"
+}

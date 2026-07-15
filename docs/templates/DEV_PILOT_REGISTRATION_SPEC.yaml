@@ -1,0 +1,49 @@
+schema_version: 1
+preparation_id: GOV-EXAMPLE-PILOT-PREP-01
+
+source:
+  repository: easonhuo/drpo
+  remote: origin
+  main_ref: refs/heads/main
+  expected_main_sha: 0000000000000000000000000000000000000000
+  dev_branch: dev/example-pilot
+  expected_dev_sha: 0000000000000000000000000000000000000000
+  result_commit_sha: null
+  result_git_dirty: false
+
+subject:
+  experiment_id: EXAMPLE-EXPERIMENT-01
+  governance_claims: []
+
+implementation:
+  operations:
+    - op: add
+      source_path: src/drpo/example_pilot.py
+      destination_path: src/drpo/example_pilot.py
+      expected_blob_sha: 0000000000000000000000000000000000000000
+      expected_old_blob_sha: null
+      expected_mode: "100644"
+
+review:
+  reviewer_id: replace-with-reviewer-id
+  decision_token: replace-with-review-specific-token
+  decision:
+    approved: false
+    code_integration_eligible: false
+    evidence_level: not_applicable
+    result_status: not_run
+    claim_support_level: none
+    terminal_audit: not_required
+    task_performance_collapse: not_assessed
+    support_boundary: not_assessed
+    numerical_failure: not_assessed
+  limitations: []
+  unresolved: []
+
+registration:
+  mode: none  # none, add_experiment, or replace_experiment
+  update_id: null
+  expected_before_semantic_sha256: null
+  experiment: null
+  handoff_operations: []
+  registry_changes: []

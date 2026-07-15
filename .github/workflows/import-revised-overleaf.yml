@@ -1,0 +1,114 @@
+name: Import revised Overleaf project and compiled PDF
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+permissions:
+  contents: write
+
+jobs:
+  import:
+    if: >-
+      github.actor != 'github-actions[bot]' &&
+      github.event.pull_request.head.ref == 'dev/paper-revised-overleaf-20260715'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Reconstruct and verify uploaded project
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .github/paper-import-payload/chunk-*.b64 > /tmp/drpo-overleaf.b64
+          base64 --decode /tmp/drpo-overleaf.b64 > /tmp/drpo-overleaf.zip
+          echo '1fa9ae754b1b11153e44054cbb86afff199ec6320bd855f63023c2a6aa68beb3  /tmp/drpo-overleaf.zip' | sha256sum --check --strict
+          rm -rf /tmp/drpo-overleaf
+          mkdir -p /tmp/drpo-overleaf
+          unzip -q /tmp/drpo-overleaf.zip -d /tmp/drpo-overleaf
+          required=(
+            BUILD.md
+            algorithm.sty
+            algorithmic.sty
+            example_paper.bib
+            icml2026.bst
+            icml2026.sty
+            main.tex
+            main_replacement.tex
+            missing_references.bib
+          )
+          for file in "${required[@]}"; do
+            test -f "/tmp/drpo-overleaf/${file}"
+          done
+
+      - name: Install paper sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p paper/overleaf
+          cp -a /tmp/drpo-overleaf/. paper/overleaf/
+
+      - name: Install LaTeX toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
+            latexmk \
+            poppler-utils \
+            texlive-bibtex-extra \
+            texlive-fonts-recommended \
+            texlive-latex-extra
+
+      - name: Compile and validate manuscript
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd paper/overleaf
+          latexmk -pdf -interaction=nonstopmode -halt-on-error main.tex
+          test -s main.pdf
+          test "$(pdfinfo main.pdf | awk '/^Pages:/ {print $2}')" = '40'
+          if grep -Eqi \
+            'Undefined control sequence|LaTeX Error|Citation .* undefined|Reference .* undefined|There were undefined references|There were undefined citations|multiply defined|Fatal error' \
+            main.log; then
+            echo 'Unresolved LaTeX diagnostic detected' >&2
+            exit 1
+          fi
+          sha256sum main.pdf
+
+      - name: Deposit release PDF and remove temporary payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p paper/releases
+          cp paper/overleaf/main.pdf \
+            paper/releases/DRPO_REWRITTEN_DRAFT_20260715.pdf
+          cmp -s \
+            paper/overleaf/main.pdf \
+            paper/releases/DRPO_REWRITTEN_DRAFT_20260715.pdf
+          rm -rf .github/paper-import-payload
+          rm -f .github/import-revised-overleaf.trigger
+
+      - name: Commit imported project and release
+        shell: bash
+        env:
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git status --short
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m 'Import revised manuscript and compiled PDF release'
+          git push origin "HEAD:${HEAD_BRANCH}"
