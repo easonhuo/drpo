@@ -84,7 +84,7 @@ jobs:
           fi
           sha256sum main.pdf
 
-      - name: Deposit release PDF and remove temporary import files
+      - name: Deposit release PDF and remove temporary payload
         shell: bash
         run: |
           set -euo pipefail
@@ -95,7 +95,6 @@ jobs:
             paper/overleaf/main.pdf \
             paper/releases/DRPO_REWRITTEN_DRAFT_20260715.pdf
           rm -rf .github/paper-import-payload
-          rm -f .github/workflows/import-revised-overleaf.yml
           rm -f .github/import-revised-overleaf.trigger
 
       - name: Commit imported project and release
