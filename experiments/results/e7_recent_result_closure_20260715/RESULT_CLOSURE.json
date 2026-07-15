@@ -1,0 +1,226 @@
+{
+  "closure_id": "E7-RECENT-RESULT-CLOSURE-2026-07-15",
+  "experiments": {
+    "EXT-H-E7-BENCH-01::canonical_9task": {
+      "completed": 576,
+      "datasets": 9,
+      "failed": 0,
+      "formal_ranking": false,
+      "metadata_erratum": {
+        "original_manifest_seeds": [
+          200
+        ],
+        "scientific_data_changed": false,
+        "verified_rows_per_seed": {
+          "200": 288,
+          "201": 288
+        }
+      },
+      "run_identity_sha256": "99185455d565c10ecbcd933992a3ca312e53492df221297d261c15268e2d1dc8",
+      "seeds": [
+        200,
+        201
+      ],
+      "status": "pilot",
+      "steps": 1000000
+    },
+    "EXT-H-E7-BENCH-01::exprank_mr_sanity": {
+      "completed": 8,
+      "datasets": [
+        "hopper-medium-v2",
+        "hopper-medium-expert-v2"
+      ],
+      "failed": 0,
+      "role": "auxiliary_baseline_reproduction_sanity_only",
+      "seeds": [
+        200,
+        201,
+        202,
+        203
+      ],
+      "status": "pilot",
+      "steps": 1000000
+    },
+    "EXT-H-E7-PPO-STABILITY-01": {
+      "completed": 95,
+      "dataset_late": {
+        "hopper-medium-expert-v2": -35.0939068314,
+        "walker2d-medium-replay-v2": 3.0287816002,
+        "walker2d-medium-v2": -12.5918446519
+      },
+      "expected": 96,
+      "failed": 1,
+      "failure": {
+        "branch": "walker2d-medium-v2__seed200__exponential__scale1__coef1p5__ppo_clip_eps0p2__k4__steps1m",
+        "last_finite_step": 500000,
+        "type": "non-finite PPO ratio"
+      },
+      "matched_pairs": 47,
+      "mean_ppo_minus_a2c_final": -16.894195398644502,
+      "mean_ppo_minus_a2c_late": -14.934461137840605,
+      "run_commit": "118b9c39578dfefbc6e184a470cf8dca6be57775",
+      "status": "pilot",
+      "steps": 1000000,
+      "universal_ppo_stability_supported": false
+    },
+    "EXT-H-E7-PPO-W0-EXP-GRID-01": {
+      "commit_relationship": "d8bb is eight commits ahead; intervening changes are execution/liveness/docs/tests, not the trainer/injection path.",
+      "common_parameter_selected": false,
+      "completed": 185,
+      "expected": 186,
+      "failed": 1,
+      "failed_cell_imputed": false,
+      "failure": {
+        "branch": "walker2d-medium-v2__seed200__exp__w0_0p025__c_0__ppo_clip_eps0p2__k4__steps500k",
+        "last_finite_step": 400000,
+        "type": "non-finite PPO ratio"
+      },
+      "later_launch_preparation_commit": "d8bb6141092969a7daccb42b87c4f2da6e8371c6",
+      "run_commit": "5383af681de79ee433788dd77beeb9cb561935af",
+      "status": "pilot",
+      "steps": 500000
+    },
+    "EXT-H-E7-SQEXP-ACTOR-DECISION-01": {
+      "common_c_selected": false,
+      "completed": 192,
+      "failed": 0,
+      "ppo_gate": {
+        "decision": "do_not_retain_ppo_for_e7_mainline_under_this_backbone",
+        "lower_median_abs_slope": false,
+        "lower_median_drop": false,
+        "lower_seed_sd_cells": 17,
+        "median_sd_ratio": 0.7863866428833891,
+        "paired_cells": 24,
+        "pooled_late_difference": 0.26317006188235065,
+        "status": "FAIL"
+      },
+      "run_commit": "d1afb5ff094f69986e0ecc3bf7f9385485add62b",
+      "status": "pilot",
+      "steps": 1000000,
+      "terminal_audit": "PASS"
+    },
+    "EXT-H-E7-SQEXP-COMBINED-HIGHC-BOUNDARY-CLOSURE-01": {
+      "adjacent_mean_late": {
+        "a2c": {
+          "c128_to_c256": -0.6137367154,
+          "c256_to_c512": 0.0813437059,
+          "c64_to_c128": 1.8816475114
+        },
+        "ppo_clip_kl_k4": {
+          "c128_to_c256": -0.8953705501,
+          "c256_to_c512": -5.6960522027,
+          "c64_to_c128": 4.3180843286
+        }
+      },
+      "boundary": [
+        "positive_only",
+        "squared_c64",
+        "squared_c128",
+        "squared_c256",
+        "squared_c512"
+      ],
+      "c1024_authorized": false,
+      "common_c_selected": false,
+      "effective_negative_mass_a2c": {
+        "c128": 0.0192149519,
+        "c256": 0.0092860281,
+        "c512": 0.0044359152,
+        "c64": 0.0387278868
+      },
+      "effective_negative_mass_ppo": {
+        "c128": 0.0183880697,
+        "c256": 0.0089141616,
+        "c512": 0.0041926739,
+        "c64": 0.0372648987
+      },
+      "ppo_retained_for_mainline": false,
+      "sources": [
+        "d1afb5ff094f69986e0ecc3bf7f9385485add62b",
+        "6795aa6f086c44e8073c5a995a1612f334a3a067"
+      ],
+      "universal_monotonic_c_effect": false
+    },
+    "EXT-H-E7-SQEXP-HIGHC-BOUNDARY-01": {
+      "c1024_authorized": false,
+      "c512_minus_c256": {
+        "a2c_late": 0.08134370593672162,
+        "overall_final": -3.6257951714093024,
+        "overall_late": -2.8073542483901357,
+        "overall_mass_ratio": 0.4740933612140576,
+        "ppo_late": -5.696052202716992
+      },
+      "common_c_selected": false,
+      "completed": 48,
+      "dirty_screening_pilot": true,
+      "failed": 0,
+      "ppo_selected": false,
+      "run_commit": "6795aa6f086c44e8073c5a995a1612f334a3a067",
+      "status": "pilot",
+      "steps": 1000000,
+      "terminal_audit": "PASS"
+    },
+    "EXT-H-E7-SQUARED-EXP-KL-TUNE-01": {
+      "completed": 149,
+      "descriptive_mean_late_vs_k4": {
+        "fixed_k16": -19.3615767718,
+        "kl_0.003": 0.5988103586,
+        "kl_0.01": 2.6709438025,
+        "kl_0.03": -0.5856013173
+      },
+      "expected": 150,
+      "failed": 1,
+      "failure": {
+        "branch": "walker2d-medium-v2__seed200__positive_only__w0_0__ppo_clip_k16__steps1m",
+        "last_finite_step": 750000,
+        "type": "non-finite PPO ratio"
+      },
+      "qualification": "NOT_EVALUABLE",
+      "qualified_threshold": null,
+      "run_commit": "2d4d295022c75b0c2cde283d2d9c3402779c5764",
+      "stage_b_authorized": false,
+      "status": "pilot",
+      "steps": 1000000
+    },
+    "EXT-H-E7-SQUARED-EXP-NIGHT-01": {
+      "completed": 126,
+      "existing_compact_path": "experiments/results/e7_squared_exp_night_1m_pilot/",
+      "failed": 0,
+      "status": "pilot",
+      "steps": 1000000,
+      "terminal_audit": "PASS"
+    },
+    "EXT-H-E7-W0-HIGHC-ACTOR-01": {
+      "common_c_selected": false,
+      "completed": 84,
+      "failed": 0,
+      "mean_ppo_minus_a2c_final": -1.162514384849247,
+      "mean_ppo_minus_a2c_late": -1.6870410479007252,
+      "paired_cells": 21,
+      "ppo_late_wins": 8,
+      "run_commit": "6ac6d4cc8bc245eaa48907fb38a73059eef8906f",
+      "status": "pilot",
+      "steps": 500000,
+      "universal_actor_selected": false
+    }
+  },
+  "remaining_uncertainties": [
+    "BENCH nine-task repository commit unresolved from archive.",
+    "Full raw packages remain external and SHA-256-bound.",
+    "Authoritative registry/handoff materialization remains pending."
+  ],
+  "reporting_boundaries": {
+    "fixed_horizon_is_not_convergence": true,
+    "held_out_seeds_204_207_touched": false,
+    "separate_event_classes": [
+      "task_performance_collapse",
+      "support_or_variance_boundary",
+      "nan_inf_numerical_failure"
+    ],
+    "steady_state_ranking_allowed": false
+  },
+  "repository_base_commit": "0da7bd7bea1684c922fe7d4b25890be3c0327666",
+  "schema_version": 1,
+  "scientific_class": "Hopper/D4RL external-validity development evidence",
+  "source_package_checksums": "docs/results/E7_RECENT_SOURCE_PACKAGES_SHA256.txt",
+  "validation": "docs/results/E7_RECENT_RESULT_CLOSURE_VALIDATION.json"
+}

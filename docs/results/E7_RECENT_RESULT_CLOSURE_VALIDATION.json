@@ -1,0 +1,163 @@
+{
+  "compact_evidence_checks": {
+    "bench_9task": {
+      "actual_rows": 576,
+      "expected_rows": 576,
+      "metadata_erratum_present": true,
+      "seed_counts": {
+        "200": 288,
+        "201": 288
+      }
+    },
+    "bench_baseline_sanity": {
+      "actual_rows": 8,
+      "expected_rows": 8
+    },
+    "kl_stage_a": {
+      "actual_rows": 150,
+      "expected_rows": 150,
+      "failed_rows": 1,
+      "qualification_status": "NOT_EVALUABLE",
+      "stage_b_launch_authorized": false
+    },
+    "ppo_stability": {
+      "actual_rows": 96,
+      "expected_rows": 96,
+      "failed_rows": 1
+    },
+    "ppo_w0_grid": {
+      "actual_rows": 186,
+      "expected_rows": 186,
+      "failed_rows": 1
+    },
+    "sqexp_actor_decision": {
+      "actual_rows": 192,
+      "expected_rows": 192,
+      "failed_rows": 0,
+      "ppo_retention_gate": "FAIL"
+    },
+    "sqexp_combined_boundary": {
+      "actual_rows": 120,
+      "expected_rows": 120,
+      "source_overlap_duplicates": 0
+    },
+    "sqexp_highc_boundary": {
+      "actual_rows": 48,
+      "expected_rows": 48,
+      "failed_rows": 0
+    },
+    "w0_highc_actor": {
+      "actual_rows": 84,
+      "expected_rows": 84,
+      "failed_rows": 0
+    }
+  },
+  "limitations": [
+    "BENCH nine-task repository commit unresolved from archive",
+    "full raw packages remain external",
+    "no held-out seed execution"
+  ],
+  "reporting_separation": {
+    "nan_inf_numerical_failure": true,
+    "support_or_variance_boundary": true,
+    "task_performance_collapse": true
+  },
+  "repository_base_commit": "0da7bd7bea1684c922fe7d4b25890be3c0327666",
+  "schema_version": 1,
+  "source_packages": {
+    "actor": {
+      "filename": "e7_sqexp_actor_decision_001_experiment_final(1).zip",
+      "internal_sha256sums": {
+        "checked": 3537,
+        "mismatch_count": 0,
+        "missing_count": 0,
+        "status": "PASS"
+      },
+      "package_sha256": "718e9f11d558f1f9261fd5573974b3abb5ab32ccac9144262b4b65c97eef8c13",
+      "zip_crc": "PASS"
+    },
+    "bench": {
+      "filename": "EXT-H-E7-BENCH-01_canonical_9task_full_1M_seed200_archive.zip",
+      "internal_sha256sums": {
+        "status": "archive_specific_validation_used"
+      },
+      "package_sha256": "50cdf6689875866915ee91d632bb947d31254dc53dbd54e9723be9e8804ebf38",
+      "zip_crc": "PASS"
+    },
+    "bench_sanity": {
+      "filename": "EXT-H-E7-BENCH-01_ExpRank_MR_baseline_sanity_1M_4seed_archive.zip",
+      "internal_sha256sums": {
+        "status": "archive_specific_validation_used"
+      },
+      "package_sha256": "6a53b5e58c220d49ac73bbeb736f0f2d3a83f04566311524b118fc1400467d8d",
+      "zip_crc": "PASS"
+    },
+    "highc": {
+      "filename": "e7_sqexp_highc_boundary_001_experiment_final.zip",
+      "internal_sha256sums": {
+        "checked": 908,
+        "mismatch_count": 0,
+        "missing_count": 0,
+        "status": "PASS"
+      },
+      "package_sha256": "78e63f9810da2bb6afefdac6f6a8524d0fe16175dac7d64636cdf15d7d1e1e93",
+      "zip_crc": "PASS"
+    },
+    "kl": {
+      "filename": "e7_squared_exp_kl_tune_stage_a_002_experiment_final(1).zip",
+      "internal_sha256sums": {
+        "checked": 3197,
+        "mismatch_count": 0,
+        "missing_count": 0,
+        "status": "PASS"
+      },
+      "package_sha256": "99e73476ac66f1b57f7590cfdfd58ca7aaeab37392a34f9016e25040d9e5a4fb",
+      "zip_crc": "PASS"
+    },
+    "night": {
+      "filename": "e7_squared_exp_night_20260714.zip",
+      "internal_sha256sums": {
+        "checked": 2576,
+        "mismatch_count": 0,
+        "missing_count": 0,
+        "status": "PASS"
+      },
+      "package_sha256": "8a63ffd3aceef73e3e1998c66813b74d5dbef0879aca80f1db5625229de68a88",
+      "zip_crc": "PASS"
+    },
+    "ppo_stab": {
+      "filename": "ppo_stability_20260712(2).zip",
+      "internal_sha256sums": {
+        "checked": 974,
+        "mismatch_count": 0,
+        "missing_count": 0,
+        "status": "PASS"
+      },
+      "package_sha256": "19cce116420f445635fde4c08e95a7c5a59bf9f359e5983113197fb46d30d3fa",
+      "zip_crc": "PASS"
+    },
+    "w0": {
+      "filename": "ppo_w0_exp_grid_pilot_20260713(1).zip",
+      "internal_sha256sums": {
+        "checked": 4135,
+        "mismatch_count": 0,
+        "missing_count": 0,
+        "status": "PASS"
+      },
+      "package_sha256": "a93e435490569ce53209a3787c6dfdc92053fc1d295833aa8820636e1daec6a5",
+      "zip_crc": "PASS"
+    },
+    "w0_highc": {
+      "filename": "e7_w0_highc_actor_ablation_20260713.zip",
+      "internal_sha256sums": {
+        "checked": 1700,
+        "mismatch_count": 0,
+        "missing_count": 0,
+        "status": "PASS"
+      },
+      "package_sha256": "8cab7b04bf54f182d25f2b987cee00573b1f9250daaf2b294c8ef084f8566d39",
+      "zip_crc": "PASS"
+    }
+  },
+  "status": "PASS"
+}
