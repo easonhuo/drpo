@@ -162,8 +162,10 @@ def validate_grid_config(config: Mapping[str, Any]) -> None:
         "at_least_3_of_4_seeds"
     ):
         raise ValueError("Paired direction gate must remain at least 3 of 4 seeds")
-    if float(evaluation.get("material_lift_gate_absolute_pass_at_8", -1.0)) != 0.01:
-        raise ValueError("Material late-window Pass@8 lift gate must remain 0.01")
+    if evaluation.get("material_lift_gate") != (
+        "qualitative_paired_lift_no_numeric_cutoff_registered"
+    ):
+        raise ValueError("Material lift gate must remain qualitative and paired")
 
 
 def parameter_points(config: Mapping[str, Any]) -> tuple[tuple[float, float], ...]:
