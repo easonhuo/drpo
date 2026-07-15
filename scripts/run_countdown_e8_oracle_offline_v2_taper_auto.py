@@ -46,6 +46,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--base_config", required=True)
     parser.add_argument("--sweep_config", required=True)
     parser.add_argument("--gpus", help="comma-separated candidate GPU ids")
+    parser.add_argument(
+        "--selection-only",
+        action="store_true",
+        help=(
+            "run calibration and bounded placement selection, write "
+            "RUNTIME_SELECTION.json, then exit without starting the sweep"
+        ),
+    )
     parser.add_argument("--required-free-gpu-memory-gib", type=float, default=8.0)
     parser.add_argument(
         "--required-host-memory-gib-per-worker",
@@ -186,6 +194,22 @@ def _phase_peak_probe_runner(**kwargs: Any) -> GPUConcurrencyProbeResult:
     return replace(result, peak_incremental_vram_bytes=reported_peak)
 
 
+def _finish_after_selection(
+    args: argparse.Namespace,
+    runtime_args: argparse.Namespace,
+    *,
+    work_dir: Path,
+) -> int:
+    """Stop at immutable selection for a hardware shadow, or run normally."""
+
+    if bool(args.selection_only):
+        return 0
+    return slot_runtime.run(
+        runtime_args,
+        placement_path=work_dir / "RUNTIME_SELECTION.json",
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     repo = Path(__file__).resolve().parents[1]
@@ -274,16 +298,14 @@ def main(argv: list[str] | None = None) -> int:
                 "selected_device_ids": selected_ids,
                 "slots_per_gpu": document["selection"]["slots_per_gpu"],
                 "total_runtime_slots": document["selection"]["total_runtime_slots"],
+                "selection_only": bool(args.selection_only),
                 "scientific_matrix_changed": False,
             },
             sort_keys=True,
         ),
         flush=True,
     )
-    return slot_runtime.run(
-        runtime_args,
-        placement_path=work_dir / "RUNTIME_SELECTION.json",
-    )
+    return _finish_after_selection(args, runtime_args, work_dir=work_dir)
 
 
 if __name__ == "__main__":
