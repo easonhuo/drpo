@@ -1,15 +1,19 @@
-"""Adapters that feed precomputed trajectory advantages into canonical E7 agents.
+"""Feed precomputed trajectory advantages into existing canonical E7 updates.
 
-The wrapper is applied *after* the existing A2C or PPO actor injection.  It does
-not reimplement either actor objective.  Instead it synthesizes rewards such
-that the parent class reconstructs the exact supplied advantage under a shared
-frozen critic, while replacing the critic optimizer with a no-op step wrapper.
+The wrapper is applied *after* the existing A2C or PPO injection.  It does not
+reimplement either actor objective.  It synthesizes rewards such that the parent
+class reconstructs the exact supplied advantage under a shared frozen critic,
+while replacing critic optimizer steps with no-ops.  Periodic diagnostics prove
+that the critic is unchanged and keep support/variance-boundary events separate
+from task performance and NaN/Inf failures.
 """
 
 from __future__ import annotations
 
 import copy
+import json
 import math
+import os
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -53,6 +57,19 @@ class FrozenOptimizer:
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._optimizer, name)
+
+
+def _atomic_json(path: Path, payload: Mapping[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(json.dumps(dict(payload), indent=2, sort_keys=True) + "\n")
+    os.replace(temporary, path)
+
+
+def _append_jsonl(path: Path, payload: Mapping[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(dict(payload), sort_keys=True) + "\n")
 
 
 def _load_checkpoint(path: str | Path) -> tuple[dict[str, torch.Tensor], dict[str, Any]]:
@@ -108,11 +125,17 @@ def build_external_advantage_agent_class(
     critic_checkpoint: str | Path,
     advantage_metadata: Mapping[str, Any],
     return_mode: str,
+    diagnostics_interval: int = 1000,
+    total_steps: int = 1_000_000,
+    support_diagnostics_jsonl: str | Path | None = None,
+    support_diagnostics_latest: str | Path | None = None,
 ) -> type:
     """Wrap an already-injected canonical agent with frozen external advantages."""
 
     if return_mode not in {"zero_float", "metrics_dict"}:
         raise ValueError(f"unsupported return_mode={return_mode!r}")
+    if diagnostics_interval <= 0 or total_steps <= 0:
+        raise ValueError("diagnostics_interval and total_steps must be positive")
     source = str(advantage_metadata.get("advantage_source"))
     if source not in {"one_step_td", "gae_lambda_0p95"}:
         raise ValueError(f"unsupported advantage_source={source!r}")
@@ -125,6 +148,16 @@ def build_external_advantage_agent_class(
         **dict(advantage_metadata),
         "critic_checkpoint_metadata": checkpoint_metadata,
     }
+    support_jsonl = (
+        None
+        if support_diagnostics_jsonl is None
+        else Path(support_diagnostics_jsonl).resolve()
+    )
+    support_latest = (
+        None
+        if support_diagnostics_latest is None
+        else Path(support_diagnostics_latest).resolve()
+    )
 
     class ExternalAdvantageAgent(base_class):  # type: ignore[misc, valid-type]
         _drpo_advantage_metadata = metadata
@@ -135,10 +168,12 @@ def build_external_advantage_agent_class(
                 raise CanonicalContractError(
                     "external-advantage wrapper requires critic and c_opt"
                 )
-            missing, unexpected = self.critic.load_state_dict(critic_state, strict=True)
-            if missing or unexpected:
+            incompatible = self.critic.load_state_dict(critic_state, strict=True)
+            if incompatible.missing_keys or incompatible.unexpected_keys:
                 raise CanonicalContractError(
-                    f"frozen critic state mismatch: missing={missing}, unexpected={unexpected}"
+                    "frozen critic state mismatch: "
+                    f"missing={incompatible.missing_keys}, "
+                    f"unexpected={incompatible.unexpected_keys}"
                 )
             self.critic.eval()
             actor_ids = {id(parameter) for parameter in self.actor.parameters()}
@@ -152,6 +187,66 @@ def build_external_advantage_agent_class(
             self.c_opt = FrozenOptimizer(self.c_opt)
             self._drpo_external_advantage_updates = 0
             self._drpo_last_external_advantage_metrics: dict[str, Any] | None = None
+            if support_jsonl is not None:
+                support_jsonl.unlink(missing_ok=True)
+            if support_latest is not None:
+                support_latest.unlink(missing_ok=True)
+
+        def _drpo_diagnostic(
+            self,
+            states: torch.Tensor,
+            reconstruction_error: float,
+        ) -> dict[str, Any]:
+            critic_change = _max_parameter_change(
+                self.critic,
+                self._drpo_frozen_critic_reference,
+            )
+            if critic_change != 0.0:
+                raise AssertionError(
+                    f"frozen critic changed by max_abs={critic_change}"
+                )
+            with torch.no_grad():
+                actor_output = self.actor(states)
+                if not isinstance(actor_output, (tuple, list)) or len(actor_output) != 2:
+                    raise CanonicalContractError(
+                        "support diagnostics require actor(state) -> (mean, log_std)"
+                    )
+                _, log_std = actor_output
+                if not bool(torch.isfinite(log_std).all()):
+                    raise FloatingPointError("actor support diagnostics contain NaN/Inf")
+                sigma = log_std.exp()
+                lower_fraction = float((log_std <= -5.0 + 1e-6).float().mean().cpu())
+                upper_fraction = float((log_std >= 2.0 - 1e-6).float().mean().cpu())
+                payload = {
+                    "schema_version": 1,
+                    "status": (
+                        "complete"
+                        if self._drpo_external_advantage_updates == total_steps
+                        else "running"
+                    ),
+                    "update": self._drpo_external_advantage_updates,
+                    "total_steps": total_steps,
+                    "advantage_source": source,
+                    "critic_frozen": True,
+                    "critic_optimizer_step_calls": int(self.c_opt.step_calls),
+                    "critic_max_abs_parameter_change": critic_change,
+                    "advantage_reconstruction_max_abs_error": reconstruction_error,
+                    "actor_log_std_min": float(log_std.min().cpu()),
+                    "actor_log_std_max": float(log_std.max().cpu()),
+                    "actor_sigma_min": float(sigma.min().cpu()),
+                    "actor_sigma_max": float(sigma.max().cpu()),
+                    "lower_log_std_boundary_fraction": lower_fraction,
+                    "upper_log_std_boundary_fraction": upper_fraction,
+                    "support_or_variance_boundary_event": bool(
+                        lower_fraction > 0.0 or upper_fraction > 0.0
+                    ),
+                    "nan_inf_numerical_failure": False,
+                }
+            if support_jsonl is not None:
+                _append_jsonl(support_jsonl, payload)
+            if support_latest is not None:
+                _atomic_json(support_latest, payload)
+            return payload
 
         def update(
             self,
@@ -178,6 +273,9 @@ def build_external_advantage_agent_class(
                 )
             if not bool(torch.isfinite(external).all()):
                 raise FloatingPointError("external advantage contains NaN/Inf")
+            self._drpo_external_advantage_updates += 1
+            if self._drpo_external_advantage_updates > total_steps:
+                raise RuntimeError("external advantage wrapper exceeded registered total_steps")
             with torch.no_grad():
                 values = self.critic(states).squeeze(-1)
                 next_values = self.critic(next_states).squeeze(-1)
@@ -208,15 +306,12 @@ def build_external_advantage_agent_class(
                 dones,
                 None,
             )
-            self._drpo_external_advantage_updates += 1
-            critic_change = _max_parameter_change(
-                self.critic,
-                self._drpo_frozen_critic_reference,
-            )
-            if critic_change != 0.0:
-                raise AssertionError(
-                    f"frozen critic changed by max_abs={critic_change}"
-                )
+            diagnostic = None
+            if (
+                self._drpo_external_advantage_updates % diagnostics_interval == 0
+                or self._drpo_external_advantage_updates == total_steps
+            ):
+                diagnostic = self._drpo_diagnostic(states, reconstruction_error)
             metrics = {
                 "advantage_source": source,
                 "gamma": gamma,
@@ -238,11 +333,15 @@ def build_external_advantage_agent_class(
                 "external_advantage_zero_fraction": float(
                     (external == 0).float().mean().cpu()
                 ),
-                "external_advantage_reconstruction_max_abs_error": (
-                    reconstruction_error
+                "external_advantage_reconstruction_max_abs_error": reconstruction_error,
+                "frozen_critic_max_abs_parameter_change": (
+                    None
+                    if diagnostic is None
+                    else diagnostic["critic_max_abs_parameter_change"]
                 ),
-                "frozen_critic_max_abs_parameter_change": critic_change,
             }
+            if diagnostic is not None:
+                metrics.update(diagnostic)
             self._drpo_last_external_advantage_metrics = metrics
             for attribute in (
                 "_drpo_last_negative_control_metrics",
