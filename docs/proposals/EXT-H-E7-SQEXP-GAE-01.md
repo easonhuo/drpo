@@ -48,7 +48,7 @@ For each dataset/seed pair, preparation trains exactly one canonical expectile c
 - historical canonical actor temperature `T=5.0`;
 - canonical network preset and source contract.
 
-That critic checkpoint is reused by every actor/advantage/control branch sharing the dataset and seed. It is loaded strictly and is not updated during actor training. The actor wrapper preserves the existing A2C/PPO objective implementations and feeds the prepared advantage through the trainer's existing `ep_ret` slot.
+That critic checkpoint is reused by every actor/advantage/control branch sharing the dataset and seed. It is loaded strictly and is not updated during actor training. The prepared-advantage injections preserve the canonical A2C and PPO-K4 actor-loss formulas while removing the critic-update path.
 
 ## Ordered-trajectory contract
 
@@ -57,8 +57,8 @@ The preparation stage fails closed unless:
 1. all arrays have the same nonzero length and finite values;
 2. terminal and timeout flags never overlap;
 3. for every non-boundary row `t`, `next_observation[t]` matches `observation[t+1]` within the frozen tolerance;
-4. the ordered transition table has a deterministic identity hash;
-5. runtime trainer rewards, terminals, and timeouts exactly match the prepared hashes.
+4. the exact source dataset is bound by SHA-256 and transition count;
+5. the frozen critic checkpoint and prepared TD/GAE arrays are bound by SHA-256 and verified before planning or execution.
 
 ### Terminal, timeout, and tail semantics
 
@@ -90,11 +90,12 @@ The implementation includes the following required regressions:
 - nonterminal dataset tail bootstraps but stops recursion;
 - non-boundary trajectory discontinuity fails closed;
 - terminal/timeout overlap fails closed;
-- prepared array and checkpoint hashes are verified before every plan/run;
-- external advantages are reconstructed inside the unchanged parent A2C/PPO update to tolerance `1e-6`;
-- critic parameters are checked for exact immutability at every diagnostic interval and at the final update;
+- NumPy and Torch GAE implementations agree to `1e-6`;
+- dataset, prepared array, and checkpoint hashes are verified before plan/run;
+- A2C and PPO prepared-advantage injections update the actor while leaving the critic untouched;
+- critic parameters are checked for exact immutability at every evaluation interval and at the final update;
 - actor and critic parameter sets must be disjoint;
-- nonuniform return-weighted sampling is prohibited.
+- the actor trainer samples transitions uniformly and exposes no return-weighted sampler.
 
 ## Reporting boundaries
 
