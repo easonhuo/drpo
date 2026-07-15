@@ -9,7 +9,7 @@ import pytest
 
 from drpo import countdown_e8_oracle_offline_v2_taper_resource_probe as resource_probe
 from drpo import runtime_gpu_placement_autotune_v2 as placement
-from drpo.runtime_resource_autotune import GIB
+from drpo.runtime_resource_autotune import GIB, RuntimeResourceError
 
 SCRIPT = Path("scripts/run_countdown_e8_oracle_offline_v2_taper_auto.py")
 SPEC = importlib.util.spec_from_file_location("e8_gpu_placement_auto", SCRIPT)
@@ -18,8 +18,8 @@ auto = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(auto)
 
 
-def required_args() -> list[str]:
-    return [
+def required_args(*, include_test: bool = True) -> list[str]:
+    values = [
         "--model_path",
         "model",
         "--work_dir",
@@ -28,15 +28,20 @@ def required_args() -> list[str]:
         "bank.jsonl",
         "--val",
         "val.jsonl",
-        "--test",
-        "test.jsonl",
-        "--global_calibration",
-        "calibration.json",
-        "--base_config",
-        "base.yaml",
-        "--sweep_config",
-        "sweep.yaml",
     ]
+    if include_test:
+        values.extend(["--test", "test.jsonl"])
+    values.extend(
+        [
+            "--global_calibration",
+            "calibration.json",
+            "--base_config",
+            "base.yaml",
+            "--sweep_config",
+            "sweep.yaml",
+        ]
+    )
+    return values
 
 
 def test_legacy_host_memory_option_remains_a_compatible_alias() -> None:
@@ -68,9 +73,49 @@ def test_gpu_placement_probe_defaults_are_bounded_and_phase_aware() -> None:
     assert "evaluation_peak_completed" in placement.DEFAULT_REQUIRED_PHASES
 
 
-def test_selection_only_is_explicit_opt_in() -> None:
-    args = auto.build_parser().parse_args(required_args() + ["--selection-only"])
+def test_selection_only_is_explicit_opt_in_and_does_not_require_test() -> None:
+    args = auto.build_parser().parse_args(
+        required_args(include_test=False) + ["--selection-only"]
+    )
     assert args.selection_only is True
+    assert args.test is None
+
+
+def test_selection_only_fingerprint_does_not_read_test_split(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    files: dict[str, Path] = {}
+    for name in ("bank", "val", "global_calibration", "base_config", "sweep_config"):
+        path = tmp_path / name
+        path.write_text(name, encoding="utf-8")
+        files[name] = path
+    args = argparse.Namespace(
+        selection_only=True,
+        model_path=str(tmp_path / "model"),
+        bank=str(files["bank"]),
+        val=str(files["val"]),
+        test=str(tmp_path / "must_not_be_read"),
+        global_calibration=str(files["global_calibration"]),
+        base_config=str(files["base_config"]),
+        sweep_config=str(files["sweep_config"]),
+    )
+    original = auto.legacy_runtime.sha256_file
+
+    def checked(path: str | Path) -> str:
+        assert Path(path) != Path(args.test)
+        return original(path)
+
+    monkeypatch.setattr(auto.legacy_runtime, "sha256_file", checked)
+    fingerprint = auto._workload_fingerprint(args)  # noqa: SLF001
+    assert fingerprint["test_split_access"] == "not_accessed_selection_only"
+    assert fingerprint["test_sha256"] is None
+
+
+def test_full_run_fingerprint_requires_test_split() -> None:
+    args = argparse.Namespace(selection_only=False, test=None)
+    with pytest.raises(RuntimeResourceError, match="requires --test"):
+        auto._workload_fingerprint(args)  # noqa: SLF001
 
 
 def test_selection_only_stops_before_slot_runtime(
