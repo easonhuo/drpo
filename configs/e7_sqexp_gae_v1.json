@@ -1,9 +1,14 @@
 {
   "experiment_id": "EXT-H-E7-SQEXP-GAE-01",
   "run_kind": "pilot",
+  "status": "not_run",
   "scientific_status": "frozen_critic_trajectory_gae_development_pilot_only",
   "predecessor_experiment_id": "EXT-H-E7-SQUARED-EXP-NIGHT-01",
-  "datasets": ["hopper-medium-expert-v2", "walker2d-medium-v2", "walker2d-medium-replay-v2"],
+  "datasets": [
+    "hopper-medium-expert-v2",
+    "walker2d-medium-v2",
+    "walker2d-medium-replay-v2"
+  ],
   "development_seeds": [200, 201, 202, 203],
   "held_out_seeds": [204, 205, 206, 207],
   "steps": 1000000,
@@ -18,6 +23,7 @@
     "tau": 0.5,
     "lr": 0.0003,
     "temperature": 5.0,
+    "device": "cpu",
     "shared_per_dataset_seed": true,
     "updated_during_actor_training": false
   },
@@ -69,18 +75,5 @@
     "causal_actor_update_identification",
     "ood_generalization",
     "replacement_of_controlled_causal_evidence"
-  ],
-  "status": "not_run",
-  "seeds": [200, 201, 202, 203],
-  "advantage_estimators": ["td", "gae"],
-  "shared_critic": {
-    "steps": 100000,
-    "batch_size": 256,
-    "learning_rate": 0.0003,
-    "expectile": 0.5,
-    "gamma": 0.99,
-    "gae_lambda": 0.95,
-    "device": "cpu"
-  },
-  "expected_branches": 192
+  ]
 }
