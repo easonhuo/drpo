@@ -1,15 +1,25 @@
 # Exclusive cgroup v2 partition acceptance
 
+> **Current status:** optional diagnostic only.  
+> `docs/runtime_resource_acceptance_server_correction_05.md` supersedes use of this
+> route as the target-server readiness gate. The default one-click command uses
+> shared-host dynamic measured capacity and does not require cgroup v2, exclusive CPUs,
+> or external-process affinity separation.
+
 **Claim:** `GOV-RUNTIME-RESOURCE-ACCEPTANCE-HARNESS-01`  
 **Scientific impact:** none  
-**Default-policy impact:** none; this is an opt-in target-server acceptance route
+**Default-policy impact:** none; this is an opt-in diagnostic for compatible hosts
 
 ## Why this route exists
 
-The target server permanently runs ResearchBench, AIDE, and joblib/loky workers.
-Process-count-zero is therefore not a valid readiness condition. Shared-host spare CPU
-is also insufficient evidence because those permanent workloads may consume the same
-CPUs during E7/E8 probes.
+Some servers may already provide an administrator-managed cgroup v2 cpuset partition.
+On such a host, the optional route can collect stronger evidence that tasks outside the
+partition cannot execute on its exclusive CPU set.
+
+The target shared server permanently runs ResearchBench, AIDE, and joblib/loky workers.
+Their existence does not require this partitioned route. The default shared-host route
+instead confines DRPO-owned processes to explicit affinity ceilings and measures the
+remaining capacity inside those ceilings.
 
 The partitioned route accepts permanent external workloads only when the kernel exposes
 a valid cgroup v2 cpuset partition containing every declared E7/E8 CPU. A valid cpuset
@@ -28,6 +38,17 @@ https://docs.kernel.org/admin-guide/cgroup-v2.html
 
 Relevant files are `cpuset.cpus.partition`, `cpuset.cpus.effective`, and
 `cpuset.cpus.exclusive.effective`.
+
+## When this diagnostic is appropriate
+
+Use it only when all of the following are already true:
+
+1. the host uses cgroup v2;
+2. an administrator has already provisioned a valid exclusive cpuset partition;
+3. the foreground shell is already inside that partition;
+4. collecting exclusivity evidence is explicitly desired.
+
+Do not provision a partition merely to run the normal DRPO shared-host acceptance.
 
 ## Required server state
 
@@ -73,7 +94,7 @@ The JSON report records:
 
 The check is read-only.
 
-## One-command acceptance
+## Optional one-command diagnostic acceptance
 
 After the read-only check passes:
 
@@ -100,17 +121,18 @@ exclusive partition and their visible affinity has no reserved-CPU overlap.
 
 ## Status semantics
 
-- no valid exclusive partition: `BLOCKED`;
+- no valid exclusive partition: `BLOCKED` for this optional diagnostic;
 - reserved CPUs not fully effective and exclusive: `BLOCKED`;
 - unrelated process inside the acceptance partition: `BLOCKED`;
 - outside permanent process with reserved-CPU affinity overlap: `BLOCKED`;
 - permanent external processes outside a valid partition with no overlap: not a conflict;
 - code, identity, cleanup, OOM, or numerical errors retain their existing `FAIL` rules.
 
-A partition proof does not lower CPU/RAM/GPU headroom, worker-count immutability, or any
+Failure of this optional diagnostic does not block the default shared-host route. A
+partition proof does not lower CPU/RAM/GPU headroom, worker-count immutability, or any
 scientific gate. Measured capacity and runtime revalidation still execute unchanged.
 
 ## Rollback
 
-Stop using the partitioned entrypoint and retain all generated evidence. The original
-shared-host entrypoint remains unchanged. No scientific experiment state changes.
+Stop using the partitioned entrypoint and retain all generated evidence. The default
+shared-host one-click route remains available. No scientific experiment state changes.
