@@ -1,11 +1,17 @@
 #!/usr/bin/env python3
-"""Execute a claimed RunSpec, package artifacts, and optionally publish results."""
+"""Execute a claimed RunSpec, package artifacts, and optionally deliver results."""
 from __future__ import annotations
 
 import argparse
 from pathlib import Path
 from typing import Any
 
+from runspec_delivery_policy import (
+    RESULT_TOO_LARGE,
+    is_result_too_large_error,
+    record_result_too_large,
+    validate_simple_size_policy,
+)
 from runspec_lib import (
     CLAIMED_DIR,
     DONE_DIR,
@@ -18,13 +24,19 @@ from runspec_lib import (
     state_path,
 )
 from runspec_recovery import run_entrypoint_with_recovery, validate_recovery_policy
+from runspec_registration import validate_registration_block
+from runspec_results_delivery import validate_delivery_block
 from runspec_safety import package_artifacts_safe, validate_provenance
 
 
 def execute_claimed_runspec(repo: Path, claimed: Path) -> tuple[dict[str, Any], int]:
     spec = read_yaml(claimed)
+    registration = validate_registration_block(spec)
+    spec["registration"] = registration
     validate_provenance(repo, spec)
     validate_recovery_policy(repo, spec)
+    validate_simple_size_policy(spec)
+    delivery = validate_delivery_block(spec, str(spec.get("lane") or ""))
     publish = spec.get("publish") or {}
     if isinstance(publish, dict) and publish.get("enabled") is True:
         from publish_runspec_result import validate_publish_block
@@ -73,9 +85,35 @@ def execute_claimed_runspec(repo: Path, claimed: Path) -> tuple[dict[str, Any], 
         "attempts": run_result.get("attempts", 1),
         "recovery_used": bool(run_result.get("recovery_used", False)),
         "recovery_report": run_result.get("recovery_report"),
+        "registration_mode": registration["mode"],
+        "registration_closure_required": registration["closure_required"],
+        "delivery_status": "not_requested",
         "publish_status": "not_requested",
     }
-    publish = spec.get("publish") or {}
+    if delivery["enabled"] and delivery["auto"]:
+        try:
+            from runspec_results_delivery import deliver_completed_run
+
+            report = deliver_completed_run(repo, spec["run_id"])
+            payload["delivery_status"] = report["status"]
+            payload["results_repository"] = report["repository"]
+            payload["results_branch"] = report["branch"]
+            payload["results_commit"] = report["results_commit"]
+            payload["result_path"] = report["result_path"]
+            payload["manifest_sha256"] = report["manifest_sha256"]
+        except Exception as exc:  # noqa: BLE001
+            if is_result_too_large_error(exc):
+                report = record_result_too_large(repo, spec, manifest, exc)
+                payload["delivery_status"] = RESULT_TOO_LARGE
+                payload["delivery_error"] = report["reason"]
+                payload["delivery_upload_attempted"] = False
+                payload["local_artifact_zip"] = report["artifact_zip"]
+                payload["local_artifact_zip_sha256"] = report["artifact_zip_sha256"]
+                return payload, 0
+            payload["status"] = "PARTIAL"
+            payload["delivery_status"] = "FAIL"
+            payload["delivery_error"] = str(exc)
+            return payload, 2
     if (
         isinstance(publish, dict)
         and publish.get("enabled") is True
@@ -116,12 +154,18 @@ def main() -> int:
         return handle_cli_error(exc, json_output=args.json)
     if args.json:
         json_main(payload)
+    elif code == 0 and payload.get("delivery_status") == RESULT_TOO_LARGE:
+        print(
+            f"RunSpec execution: PASS run_id={payload['run_id']} "
+            f"delivery={RESULT_TOO_LARGE} artifact={payload['local_artifact_zip']}"
+        )
     elif code == 0:
         print(f"RunSpec execution: PASS run_id={payload['run_id']}")
     else:
+        error = payload.get("delivery_error") or payload.get("publish_error")
         print(
-            f"RunSpec execution: PASS but publish: FAIL run_id={payload['run_id']} "
-            f"error={payload['publish_error']}"
+            f"RunSpec execution: PASS but result handoff: FAIL run_id={payload['run_id']} "
+            f"error={error}"
         )
     return code
 

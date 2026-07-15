@@ -1,0 +1,87 @@
+version: 1
+run_id: E8_RESULTS_REPO_DELIVERY_SHADOW_20260714_01
+lane: e8
+priority: 200
+created_at: '2026-07-14T04:30:00Z'
+experiment_id: EXT-C-E8-RESULTS-REPO-DELIVERY-SHADOW-01
+repo_commit: 9ff14727058b8a7ddb930885987d46da0846b476
+
+registration:
+  mode: deferred
+  closure_required: true
+
+provenance:
+  commit_policy: protected_paths_unchanged
+  protected_paths:
+    - scripts/agent/prepare_results_repo_delivery_shadow.py
+    - experiments/results/e8_oracle_offline_v2_init_matrix_pilot/README.md
+    - experiments/results/e8_oracle_offline_v2_init_matrix_pilot/RESULT_SUMMARY.json
+
+purpose: >
+  Validate the real results-repository transport path using already completed compact
+  E8 evidence. This engineering shadow performs no training, changes no scientific
+  result, and is excluded from scientific aggregation.
+
+entrypoint:
+  command: >-
+    python scripts/agent/prepare_results_repo_delivery_shadow.py
+    --source-dir experiments/results/e8_oracle_offline_v2_init_matrix_pilot
+    --output outputs/e8/results_repo_delivery_shadow_001/SHADOW_SOURCE_MANIFEST.json
+  cwd: repo_root
+
+policy:
+  existing_script_required: true
+  forbid_new_launcher: true
+  forbid_hparam_change: true
+  forbid_cross_lane: true
+  scientific_aggregation_allowed: false
+  formal_evidence_allowed: false
+
+outputs:
+  run_dir: outputs/e8/results_repo_delivery_shadow_001
+  summary_file: outputs/e8/results_repo_delivery_shadow_001/SHADOW_SOURCE_MANIFEST.json
+
+success_criteria:
+  - outputs/e8/results_repo_delivery_shadow_001/SHADOW_SOURCE_MANIFEST.json exists
+  - the source compact evidence is hashed without modification
+  - no training, model loading, or dataset access occurs
+  - the completed RunSpec is delivered to drpo-results ingest/e8
+  - a same-manifest retry returns ALREADY_DELIVERED
+
+artifacts:
+  package_policy: manifest_only
+  include:
+    - outputs/e8/results_repo_delivery_shadow_001/SHADOW_SOURCE_MANIFEST.json
+    - experiments/results/e8_oracle_offline_v2_init_matrix_pilot/README.md
+    - experiments/results/e8_oracle_offline_v2_init_matrix_pilot/RESULT_SUMMARY.json
+  exclude:
+    - '**/*.pt'
+    - '**/*.pth'
+    - '**/*.ckpt'
+    - '**/*.safetensors'
+    - '**/*.bin'
+    - '**/checkpoint*'
+    - '**/checkpoints/**'
+    - '**/model*'
+    - '**/optimizer*'
+    - '**/wandb/**'
+  max_package_size_mb: 5
+  fail_if_excluded_matched: true
+  fail_if_package_too_large: true
+
+delivery:
+  enabled: true
+  auto: true
+  mode: results_repo
+  repository: easonhuo/drpo-results
+  branch: ingest/e8
+  export_profile: manifest_text_v1
+  max_total_size_mb: 5
+  max_file_size_mb: 2
+
+publish:
+  enabled: false
+  auto: false
+
+recovery:
+  enabled: false

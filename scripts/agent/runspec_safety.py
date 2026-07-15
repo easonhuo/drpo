@@ -2,6 +2,7 @@
 """Fail-closed safety wrappers for RunSpec execution and publication."""
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 from pathlib import Path
@@ -10,6 +11,7 @@ from typing import Any
 import yaml
 
 from runspec_lib import (
+    ARTIFACT_DIRNAME,
     CLAIMED_DIR,
     DONE_DIR,
     FAILED_DIR,
@@ -22,11 +24,17 @@ from runspec_lib import (
     iter_ready_specs,
     now_utc,
     package_artifacts,
+    read_yaml,
     safe_relpath,
     state_path,
     validate_runspec,
 )
 from runspec_recovery import validate_recovery_policy
+from runspec_registration import (
+    registration_requires_registry,
+    validate_registration_block,
+)
+from runspec_results_delivery import validate_delivery_block
 
 PUBLISHED_DIR = Path(".runspec_state") / "published"
 ACTIVE_STATE_DIRS = (CLAIMED_DIR, RUNNING_DIR, DONE_DIR, FAILED_DIR, PUBLISHED_DIR)
@@ -131,15 +139,21 @@ def validate_runspec_safe(
     spec_path: Path,
     *,
     lane_config: dict[str, Any] | None = None,
-    require_registry: bool = True,
+    require_registry: bool | None = None,
 ) -> dict[str, Any]:
+    raw = read_yaml(spec_path)
+    registration = validate_registration_block(raw)
+    if require_registry is None:
+        require_registry = registration_requires_registry(raw)
     spec = validate_runspec(
         repo,
         spec_path,
         lane_config=lane_config,
         require_registry=require_registry,
     )
+    spec["registration"] = registration
     validate_recovery_policy(repo, spec)
+    validate_delivery_block(spec, str(spec.get("lane") or ""))
     validate_provenance(repo, spec)
     return spec
 
@@ -224,7 +238,17 @@ def package_artifacts_safe(
 ) -> dict[str, Any]:
     spec = validate_runspec_safe(repo, spec_path, require_registry=False)
     reject_symlink_artifacts(repo, spec)
-    return package_artifacts(repo, spec_path, output_dir=output_dir)
+    manifest = package_artifacts(repo, spec_path, output_dir=output_dir)
+    registration = spec["registration"]
+    manifest["registration_mode"] = registration["mode"]
+    manifest["registration_closure_required"] = registration["closure_required"]
+    output_root = output_dir or (repo / ARTIFACT_DIRNAME)
+    manifest_path = output_root / f"{spec['run_id']}_manifest.json"
+    manifest_path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return manifest
 
 
 def expected_workspace_branch(lane: str) -> str:
