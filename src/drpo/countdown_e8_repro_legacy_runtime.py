@@ -10,6 +10,7 @@ from drpo import countdown_e8_repro_rng_audit_common as audit
 audit.activate("legacy_contaminated_v1")
 
 from drpo import countdown_e8_alpha1_c_scan_runtime as _base_runtime  # noqa: E402
+from drpo.countdown_e8_repro_contract import validate_worker_cell  # noqa: E402
 
 
 def _worker_command(args, cell, output_dir: Path) -> list[str]:
@@ -38,12 +39,20 @@ def _worker_command(args, cell, output_dir: Path) -> list[str]:
     ]
 
 
+_original_worker = _base_runtime.worker
+
+
+def worker(args) -> int:
+    validate_worker_cell(args)
+    return _original_worker(args)
+
+
 _base_runtime._worker_command = _worker_command
+_base_runtime.worker = worker
 parser = _base_runtime.parser
 plan = _base_runtime.plan
 smoke = _base_runtime.smoke
 run = _base_runtime.run
-worker = _base_runtime.worker
 
 
 def main(argv: list[str] | None = None) -> int:
