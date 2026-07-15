@@ -1,1 +1,1 @@
-Trigger the temporary revised-manuscript import workflow.
+Trigger the temporary revised-manuscript import workflow after pull-request activation.
