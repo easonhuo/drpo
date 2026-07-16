@@ -65,8 +65,12 @@ def _pair_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
                             "seed": seed,
                             "actor_update_mode": actor_mode,
                             "exp_coefficient": coefficient,
-                            "control": "positive_only" if coefficient is None else f"c={coefficient:g}",
-                            "gae_minus_td_score_at_500k": gae["score_at_500k"] - td["score_at_500k"],
+                            "control": (
+                                "positive_only" if coefficient is None else f"c={coefficient:g}"
+                            ),
+                            "gae_minus_td_score_at_500k": (
+                                gae["score_at_500k"] - td["score_at_500k"]
+                            ),
                             "gae_minus_td_late_mean": gae["late_window_mean_800k_1m"]
                             - td["late_window_mean_800k_1m"],
                             "gae_minus_td_final_score": gae["final_score"] - td["final_score"],
@@ -105,7 +109,11 @@ def aggregate(work_dir: str | Path) -> dict[str, Any]:
         steps, scores = _read_history(json.loads(summary_path.read_text()))
         if steps[-1] != FINAL_STEP or not all(math.isfinite(score) for score in scores):
             raise RuntimeError(f"incomplete or non-finite task history: {branch_dir.name}")
-        late = [score for step, score in zip(steps, scores, strict=True) if step >= LATE_WINDOW_START]
+        late = [
+            score
+            for step, score in zip(steps, scores, strict=True)
+            if step >= LATE_WINDOW_START
+        ]
         if not late:
             raise RuntimeError(f"missing late window: {branch_dir.name}")
         best = max(scores)
@@ -173,8 +181,5 @@ def aggregate(work_dir: str | Path) -> dict[str, Any]:
         "fixed_1m_endpoint_is_convergence": False,
         "method_ranking_allowed": False,
     }
-    _atomic_json(
-        aggregate_dir / "gae_vs_td_summary.json",
-        {**payload, "groups": summaries},
-    )
+    _atomic_json(aggregate_dir / "gae_vs_td_summary.json", {**payload, "groups": summaries})
     return payload
