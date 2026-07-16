@@ -30,12 +30,12 @@ pilot.
 
 The E7 automatic launcher now separates three states:
 
-1. `planned`: immutable `RUNTIME_SELECTION.json`, `EXECUTION_PLAN.json`, and
-   `RUN_IDENTITY.json` define the reviewed scientific matrix and the planned worker
-   ceiling;
-2. `waiting_for_capacity`: launch-time admission is zero or below an explicit operator
-   floor, so the foreground launcher records the attempt and sleeps before a fresh
-   measurement;
+1. `waiting_to_plan`: a new work directory does not yet have enough safe capacity for
+   the representative resource probe or bounded throughput plan, so the foreground
+   launcher records the capacity error and retries later;
+2. `waiting_for_launch`: the immutable plan exists, but launch-time admitted capacity is
+   zero or below an explicit operator floor, so the launcher records the attempt and
+   retries later;
 3. `admitted`: current safe capacity is positive and reaches that floor, so the launcher
    uses the admitted worker count as the executor width and starts the unchanged branch
    matrix.
@@ -48,10 +48,11 @@ training horizon, model architecture, optimizer, or evaluation rules.
 
 The one-click and resume launchers:
 
-- wait in the foreground rather than exiting on a temporary zero-capacity observation;
+- wait in the foreground rather than exiting on temporary planning or launch capacity
+  shortage;
 - poll every `300` seconds by default;
 - wait without an automatic deadline by default;
-- start at any positive measured safe capacity by default;
+- start at any positive measured safe launch capacity by default;
 - allow operator overrides only for wait duration, poll interval, and minimum admitted
   worker count.
 
@@ -73,16 +74,19 @@ or scientific coordinates.
 The work directory records:
 
 ```text
+RUNTIME_PLAN_CAPACITY_WAIT.json
+RUNTIME_PLAN_CAPACITY_WAIT.jsonl
 RUNTIME_CAPACITY_WAIT.json
 RUNTIME_CAPACITY_WAIT.jsonl
 _runtime_resource_attempts/attempt-*/RUNTIME_REVALIDATION.json
 _runtime_resource_attempts/attempt-*/RUNTIME_ADMISSION.json
 ```
 
-Every poll refreshes the machine snapshot and CPU/RAM observation. Identity,
-checkout, binding, configuration, or other non-capacity failures remain immediately
-fatal. SIGINT/SIGTERM interrupts the foreground wait normally; it does not launch work
-or leave a background scheduler.
+Planning retries are limited to explicit CPU/RAM capacity errors or structured
+resource-only benchmark rejection. Contract, source, path, trainer, or process failures
+remain immediately fatal. Every launch poll refreshes the machine snapshot and CPU/RAM
+observation. SIGINT/SIGTERM interrupts the foreground wait normally; it does not launch
+work or leave a background scheduler.
 
 ## Scientific boundary
 
