@@ -1,0 +1,89 @@
+version: 1
+run_id: E8_PAPER_ALIGNED_LINEAR_SCAN_20260716_01
+lane: e8
+priority: 150
+created_at: "2026-07-16T09:25:00Z"
+experiment_id: EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-LINEAR-SCAN-0.5B-01
+repo_commit: d313aab7f5697299fc89e56336b63957fc1fa195
+
+provenance:
+  commit_policy: protected_paths_unchanged
+  protected_paths:
+    - configs/countdown_e8_oracle_offline_v2_alpha1_highc_scan_0p5b.yaml
+    - src/drpo/countdown_e8_alpha1_highc_scan_common.py
+    - src/drpo/countdown_e8_alpha1_c_scan_trainer.py
+    - src/drpo/countdown_e8_alpha1_c_scan_runtime.py
+    - src/drpo/countdown_e8_alpha1_highc_scan_runtime.py
+    - scripts/run_countdown_e8_oracle_offline_v2_alpha1_highc_scan_auto.py
+    - scripts/run_countdown_e8_oracle_offline_v2_alpha1_highc_scan_auto_one_click.sh
+    - tests/test_countdown_e8_oracle_offline_v2_alpha1_highc_scan.py
+
+purpose: >
+  Localize the useful coefficient region after removing only the extra square
+  from the existing E8 exponential taper. Run Positive-only and fifteen alpha=1
+  coefficient points on two paired development seeds. Preserve the inherited
+  trainer, runtime, evaluator, resume, aggregation, and 16-slot scheduler.
+
+entrypoint:
+  cwd: repo_root
+  command: >-
+    E8_ALPHA1_HIGHC_WORK_DIR=outputs/e8/paper_aligned_linear_scan_001
+    bash scripts/run_countdown_e8_oracle_offline_v2_alpha1_highc_scan_auto_one_click.sh
+
+recovery:
+  enabled: true
+  max_attempts: 2
+  resume_command: >-
+    E8_ALPHA1_HIGHC_WORK_DIR=outputs/e8/paper_aligned_linear_scan_001
+    bash scripts/run_countdown_e8_oracle_offline_v2_alpha1_highc_scan_auto_one_click.sh
+  retryable_exit_codes: [137, 143]
+  checkpoint_globs:
+    - outputs/e8/paper_aligned_linear_scan_001/RUNTIME_SELECTION.json
+    - outputs/e8/paper_aligned_linear_scan_001/RUNTIME_SLOTS.json
+    - outputs/e8/paper_aligned_linear_scan_001/SWEEP_STATUS.json
+  backoff_seconds: 60
+
+policy:
+  existing_script_required: true
+  forbid_new_launcher: true
+  forbid_hparam_change: true
+  forbid_cross_lane: true
+
+outputs:
+  run_dir: outputs/e8/paper_aligned_linear_scan_001
+  summary_file: outputs/e8/paper_aligned_linear_scan_001/SWEEP_COMPLETE.json
+  audit_file: outputs/e8/paper_aligned_linear_scan_001/aggregate/terminal_audit.json
+
+success_criteria:
+  - formula is alpha*exp(-c*u) with u=current_sequence_surprisal/2 and no extra square
+  - trainer, runtime, evaluator, resume, and launcher behavior remain inherited
+  - matrix contains 16 parameter points and 32 cells on seed offsets 4000 and 5000
+  - runtime records GPU 0-7, two slots per GPU, and 16 concurrent cells
+  - smoke gate passes before the full sweep and is not scientific evidence
+  - test_data_used remains false
+  - task performance, valid-structure diagnostics, and NaN/Inf failure are separate
+  - fixed 1200 steps is not described as convergence, steady state, or ranking
+
+artifacts:
+  package_policy: manifest_only
+  include:
+    - outputs/e8/paper_aligned_linear_scan_001/*.json
+    - outputs/e8/paper_aligned_linear_scan_001/aggregate/*.json
+    - outputs/e8/paper_aligned_linear_scan_001/aggregate/*.csv
+    - outputs/e8/paper_aligned_linear_scan_001/methods/*/summary.json
+    - outputs/e8/paper_aligned_linear_scan_001/methods/*/metrics.csv
+    - outputs/e8/paper_aligned_linear_scan_001/logs/*.log
+  exclude:
+    - "**/*.pt"
+    - "**/*.pth"
+    - "**/*.safetensors"
+    - "**/*.bin"
+    - "**/checkpoint*"
+    - "**/optimizer*"
+  max_package_size_mb: 100
+  fail_if_excluded_matched: false
+  fail_if_package_too_large: true
+
+publish:
+  enabled: false
+  auto: false

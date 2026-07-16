@@ -1,36 +1,49 @@
 #!/usr/bin/env python3
-"""Thin immutable adapter for the E8 alpha=1 high-c extension pilot.
+"""Thin adapter for the paper-aligned E8 linear-surprisal scan.
 
-The training objective and runtime are inherited from the registered alpha=1
-c-scan implementation. This module changes only the experiment identity,
-explicit parameter points, development seeds, and protected-source identity.
+The trainer and runtime are inherited unchanged from the alpha=1 c-scan. This
+module changes only the experiment identity, explicit parameter points,
+development seeds, and the single taper exponent coordinate.
 """
 from __future__ import annotations
 
+import copy
 import json
+import math
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Iterator, Mapping
 
+import torch
+
 from drpo import countdown_e8_alpha1_c_scan_common as _base
 
-EXPERIMENT_ID = "EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-HIGHC-SCAN-0.5B-01"
-VERSION = "0.1.0-dev-code-first"
+_BASE_VALIDATE_GRID_CONFIG = _base.validate_grid_config
+EXPERIMENT_ID = "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-LINEAR-SCAN-0.5B-01"
+VERSION = "0.2.0-dev-code-first-one-line"
 DEFAULT_GRID_CONFIG = (
     "configs/countdown_e8_oracle_offline_v2_alpha1_highc_scan_0p5b.yaml"
 )
 PARAMETER_POINTS = (
-    (0.5, 1.0),
-    (1.0, 3.0),
-    (1.0, 4.0),
-    (1.0, 5.0),
-    (1.0, 6.0),
-    (1.0, 8.0),
-    (1.0, 10.0),
-    (1.0, 12.0),
+    (0.0, 0.0),
+    (1.0, 0.0),
+    (1.0, 0.051293294),
+    (1.0, 0.105360516),
+    (1.0, 0.162518929),
+    (1.0, 0.223143551),
+    (1.0, 0.287682072),
+    (1.0, 0.430782916),
+    (1.0, 0.693147181),
+    (1.0, 0.916290732),
+    (1.0, 1.203972804),
+    (1.0, 1.386294361),
+    (1.0, 1.609437912),
+    (1.0, 1.897119985),
+    (1.0, 2.302585093),
+    (1.0, 2.995732274),
 )
-SEED_OFFSETS = (9000, 10000, 11000, 12000)
-EXPECTED_POINTS = 8
+SEED_OFFSETS = (4000, 5000)
+EXPECTED_POINTS = 16
 EXPECTED_CELLS = 32
 
 Cell = _base.Cell
@@ -38,13 +51,28 @@ sha256_file = _base.sha256_file
 atomic_json = _base.atomic_json
 load_yaml = _base.load_yaml
 continuous_remoteness = _base.continuous_remoteness
-continuous_exp_weights = _base.continuous_exp_weights
 mean_unique_negative_term = _base.mean_unique_negative_term
 unique_negative_expressions = _base.unique_negative_expressions
 ContinuousUniqueBankDataset = _base.ContinuousUniqueBankDataset
 make_continuous_unique_bank_collator = _base.make_continuous_unique_bank_collator
 weight_diagnostics = _base.weight_diagnostics
 git_state = _base.git_state
+
+
+def continuous_exp_weights(
+    seq_lp: torch.Tensor,
+    *,
+    alpha: float,
+    c: float,
+    reference_distance: float = _base.REFERENCE_DISTANCE,
+) -> torch.Tensor:
+    if not math.isfinite(alpha) or alpha < 0.0:
+        raise ValueError("alpha must be finite and non-negative")
+    if not math.isfinite(c) or c < 0.0:
+        raise ValueError("c must be finite and non-negative")
+    u = continuous_remoteness(seq_lp, reference_distance=reference_distance)
+    return (float(alpha) * torch.exp(-float(c) * u)).detach()
+
 
 _PATCH_KEYS = (
     "EXPERIMENT_ID",
@@ -54,6 +82,10 @@ _PATCH_KEYS = (
     "SEED_OFFSETS",
     "EXPECTED_POINTS",
     "EXPECTED_CELLS",
+    "continuous_exp_weights",
+    "validate_grid_config",
+    "parameter_points",
+    "build_cells",
     "_identity",
 )
 
@@ -85,7 +117,7 @@ def _identity(
     missing = [name for name, path in source_paths.items() if not path.is_file()]
     if missing:
         raise RuntimeError(
-            "Alpha=1 high-c identity is missing protected sources: "
+            "Paper-aligned scan identity is missing protected sources: "
             + ", ".join(sorted(missing))
         )
     return {
@@ -121,6 +153,10 @@ def _apply() -> None:
         "SEED_OFFSETS": SEED_OFFSETS,
         "EXPECTED_POINTS": EXPECTED_POINTS,
         "EXPECTED_CELLS": EXPECTED_CELLS,
+        "continuous_exp_weights": continuous_exp_weights,
+        "validate_grid_config": validate_grid_config,
+        "parameter_points": parameter_points,
+        "build_cells": build_cells,
         "_identity": _identity,
     }
     for name, value in values.items():
@@ -129,7 +165,7 @@ def _apply() -> None:
 
 @contextmanager
 def activated() -> Iterator[None]:
-    """Temporarily activate the high-c identity without polluting other tests."""
+    """Temporarily activate this identity without polluting other tests."""
     previous = {name: getattr(_base, name) for name in _PATCH_KEYS}
     _apply()
     try:
@@ -145,16 +181,22 @@ def activate() -> None:
 
 
 def validate_grid_config(config: Mapping[str, Any]) -> None:
+    predecessor_compatible = copy.deepcopy(config)
+    predecessor_compatible["remoteness"]["weight"] = "alpha*exp(-c*u^2)"
     with activated():
-        _base.validate_grid_config(config)
+        _BASE_VALIDATE_GRID_CONFIG(predecessor_compatible)
+    if config["remoteness"].get("weight") != "alpha*exp(-c*u)":
+        raise ValueError("The paper-aligned weight must be alpha*exp(-c*u)")
     points = tuple(
         (float(item["alpha"]), float(item["c"]))
         for item in config["sweep"]["parameter_points"]
     )
-    if any(alpha == 0.0 for alpha, _ in points):
-        raise ValueError("Positive-only must not be rerun in the high-c tuning stage")
-    if config["sweep"].get("positive_only_same_seed_control") is not False:
-        raise ValueError("positive_only_same_seed_control must remain false")
+    if sum(alpha == 0.0 for alpha, _ in points) != 1:
+        raise ValueError("Exactly one Positive-only point is required")
+    if config["sweep"].get("positive_only_same_seed_control") is not True:
+        raise ValueError("positive_only_same_seed_control must remain true")
+    if config["execution"].get("default_gpus") != list(range(8)):
+        raise ValueError("The paper-aligned scan requires GPU 0-7")
     if config["evaluation"].get("primary_selection_metric") != (
         "late_window_pass_at_8"
     ):
@@ -177,7 +219,7 @@ def parameter_points(config: Mapping[str, Any]) -> tuple[tuple[float, float], ..
         for item in config["sweep"]["parameter_points"]
     )
     if points != PARAMETER_POINTS or len(set(points)) != EXPECTED_POINTS:
-        raise AssertionError("Alpha=1 high-c scan must produce 8 unique points")
+        raise AssertionError("Paper-aligned scan must produce 16 unique points")
     return points
 
 
@@ -192,7 +234,7 @@ def build_cells(config: Mapping[str, Any]) -> tuple[Cell, ...]:
         len(cells) != EXPECTED_CELLS
         or len({cell.name for cell in cells}) != EXPECTED_CELLS
     ):
-        raise AssertionError("Alpha=1 high-c scan must produce 32 unique cells")
+        raise AssertionError("Paper-aligned scan must produce 32 unique cells")
     return cells
 
 
