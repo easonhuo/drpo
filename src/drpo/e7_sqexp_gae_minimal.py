@@ -14,9 +14,8 @@ def _load(branch: dict[str, Any]) -> tuple[np.ndarray, dict[str, Any], str]:
     estimator = str(branch["template_values"]["advantage_estimator"])
     if manifest.get("status") != "complete":
         raise RuntimeError("prepared manifest is incomplete")
-    if (manifest.get("dataset_id"), int(manifest.get("seed", -1))) != (
-        branch["dataset_id"], int(branch["seed"])
-    ):
+    identity = manifest.get("dataset_id"), int(manifest.get("seed", -1)), manifest.get("dataset_sha256")
+    if identity != (branch["dataset_id"], int(branch["seed"]), branch["dataset_sha256"]):
         raise RuntimeError("prepared identity mismatch")
     arrays = Path(manifest["advantages"]["path"]).expanduser().resolve()
     critic = Path(manifest["critic"]["path"]).expanduser().resolve()
@@ -28,9 +27,11 @@ def _load(branch: dict[str, Any]) -> tuple[np.ndarray, dict[str, Any], str]:
         advantage = payload[estimator].astype(np.float32, copy=True)
     if advantage.ndim != 1 or not np.isfinite(advantage).all():
         raise RuntimeError("prepared advantage must be one finite vector")
-    checkpoint = torch.load(critic, map_location="cpu", weights_only=True)
+    try:
+        checkpoint = torch.load(critic, map_location="cpu", weights_only=True)
+    except TypeError:
+        checkpoint = torch.load(critic, map_location="cpu")
     return advantage, checkpoint["state_dict"], estimator
-
 def _agent(parent: type, state_dict: dict[str, Any]) -> type:
     class PreparedAgent(parent):
         def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -51,10 +52,11 @@ def _agent(parent: type, state_dict: dict[str, Any]) -> type:
                     raise RuntimeError("adapter changed the prepared advantage")
             return super().update(s, a, reward, ns, d, ep_ret)
     return PreparedAgent
-
 def main(argv: list[str] | None = None) -> int:
     args = canonical.build_parser().parse_args(argv)
     branch = json.loads(Path(args.branch_config).expanduser().read_text())
+    if branch["template_values"]["actor_update_mode"] not in {"a2c", "ppo_clip_k4"}:
+        raise ValueError("GAE pilot supports only canonical A2C and PPO-K4")
     advantage, state_dict, estimator = _load(branch)
     old_id, old_a2c = canonical.EXPERIMENT_ID, canonical.patch_canonical_module
     old_ppo, old_atomic = canonical.patch_canonical_module_ppo, canonical._atomic_json
