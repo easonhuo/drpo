@@ -3,9 +3,24 @@
 ## Status
 
 - Experiment class: code-first development pilot.
-- Current result status: **not run**.
-- Formal branch count started by this implementation change: **0**.
+- Current result status: **prepare blocked twice; no actor branch started**.
+- Formal branch count started: **0**.
+- Retired single-use RunSpec: `E7_SQEXP_GAE_PILOT_20260716_01`.
+- Corrected rerun RunSpec: `E7_SQEXP_GAE_PILOT_20260716_02`.
+- Corrected default work directory: `outputs/e7/sqexp_gae_002`.
 - This document is an implementation scope record, not an authoritative registry or handoff update. Authoritative registration remains subject to the code-first pilot-registration fastpath after the implementation SHA is frozen.
+
+### Prepare-stage incident record
+
+The first local preparation attempt exposed an adapter mismatch: the shared canonical RunSpec carries `--variant {variant}` plus `injected_template_values.variant=iqlv_exp_rank`, while the initial GAE adapter accepted only a literal `--variant iqlv_exp_rank`. The corrected adapter now resolves exactly that canonical placeholder in-repository, accepts the matching literal form, and fails closed on missing, conflicting, or different variants.
+
+The second attempt exposed a mixed-precision validation error. The NumPy implementation already accumulated GAE in float64 and rounded only the stored actor input to float32, but the initial gate compared the rounded float32 artifact against the Torch float64 reference. The corrected gate now:
+
+1. compares independent NumPy-float64 and Torch-float64 recurrences at the unchanged `1e-6` tolerance;
+2. verifies that the stored GAE remains float32 and is exactly the float32 cast of the NumPy reference;
+3. records float32 storage quantization separately instead of treating it as an algorithm mismatch.
+
+Neither correction changes the frozen matrix, GAE recurrence, boundary semantics, critic training budget, actor horizon, seeds, taper coefficients, or A2C/PPO objectives.
 
 ## Claim
 
@@ -90,7 +105,12 @@ The implementation includes the following required regressions:
 - nonterminal dataset tail bootstraps but stops recursion;
 - non-boundary trajectory discontinuity fails closed;
 - terminal/timeout overlap fails closed;
-- NumPy and Torch GAE implementations agree to `1e-6`;
+- the real canonical `{variant}` RunSpec template resolves only to `iqlv_exp_rank`;
+- conflicting, missing, or different variant bindings fail closed;
+- NumPy-float64 and Torch-float64 GAE implementations agree to `1e-6`;
+- the stored actor advantage remains float32 and exactly matches the float32 cast of the NumPy reference;
+- float32 storage quantization is recorded separately from implementation parity;
+- a long, high-magnitude recurrence reproduces the old mixed-precision false failure and passes the corrected gate;
 - dataset, prepared array, and checkpoint hashes are verified before plan/run;
 - A2C and PPO prepared-advantage injections update the actor while leaving the critic untouched;
 - critic parameters are checked for exact immutability at every evaluation interval and at the final update;
