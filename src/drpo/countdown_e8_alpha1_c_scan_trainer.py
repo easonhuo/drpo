@@ -437,7 +437,7 @@ def train_cell(
         "method": cell.method,
         "alpha": cell.alpha,
         "c": cell.c,
-        "weight_formula": "alpha*exp(-c*u^2)",
+        "weight_formula": str(grid_config["remoteness"]["weight"]),
         "u_definition": "current_sequence_surprisal/2",
         "unique_negative_denominator": True,
         "weight_sum_normalization": False,
