@@ -8,6 +8,7 @@ from typing import Any, Sequence
 
 from drpo import e7_canonical_sweep as base
 from drpo import e7_squared_exp_night as night
+from drpo.e7_sqexp_gae_audit import terminal_audit
 from drpo.e7_sqexp_gae_matrix import build_branches
 from drpo.e7_sqexp_gae_protocol import (
     EXPERIMENT_ID,
@@ -134,8 +135,13 @@ def main(argv: list[str] | None = None) -> int:
     base.build_branches = build_branches
     base.branch_command = branch_command
     base.write_plan = write_plan
+    delegated = list(sys.argv[1:] if argv is None else argv)
     try:
-        return int(base.main(list(sys.argv[1:] if argv is None else argv)))
+        result = int(base.main(delegated))
+        if delegated and delegated[0] == "run":
+            work_index = delegated.index("--work-dir")
+            terminal_audit(Path(delegated[work_index + 1]).expanduser().resolve())
+        return result
     finally:
         (
             base.EXPERIMENT_ID,
