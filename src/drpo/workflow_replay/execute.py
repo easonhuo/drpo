@@ -16,25 +16,22 @@ from .model import CaseManifest
 TOKEN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}")
 
 
-class ExecutionError(ValueError):
-    """The replay execution request is unsafe or ambiguous."""
+class ExecutionError(ValueError): ...
 
 
 @dataclass(frozen=True)
 class CommandSpec:
-    """One shell-free child command."""
-
     name: str
     argv: tuple[str, ...]
 
 
 @dataclass(frozen=True)
 class ExecutionPlan:
-    """Immutable plan for one replay arm."""
-
     case_id: str
     arm: str
     input_sha256: str
+    environment_id: str
+    cache_policy: str
     commands: tuple[CommandSpec, ...]
     plan_sha256: str
 
@@ -71,7 +68,6 @@ def _commands(values: Iterable[CommandSpec]) -> tuple[CommandSpec, ...]:
 
 
 def build_plan(manifest: CaseManifest, arm: str, commands: Iterable[CommandSpec]) -> ExecutionPlan:
-    """Build a deterministic, shell-free dry-run plan."""
     if arm not in {"A", "B"}:
         raise ExecutionError("arm must be A or B")
     items = _commands(commands)
@@ -80,9 +76,14 @@ def build_plan(manifest: CaseManifest, arm: str, commands: Iterable[CommandSpec]
         "case_id": manifest.case_id,
         "arm": arm,
         "input_sha256": input_sha,
+        "environment_id": manifest.benchmark["environment_id"],
+        "cache_policy": manifest.benchmark["cache_policy"],
         "commands": [{"name": item.name, "argv": item.argv} for item in items],
     }
-    return ExecutionPlan(manifest.case_id, arm, input_sha, items, _digest(payload))
+    return ExecutionPlan(
+        manifest.case_id, arm, input_sha, manifest.benchmark["environment_id"],
+        manifest.benchmark["cache_policy"], items, _digest(payload),
+    )
 
 
 def build_paired_plans(
@@ -90,11 +91,7 @@ def build_paired_plans(
     arm_a_commands: Iterable[CommandSpec],
     arm_b_commands: Iterable[CommandSpec],
 ) -> tuple[ExecutionPlan, ExecutionPlan]:
-    """Build two plans bound to exactly the same frozen manifest."""
-    pair = build_plan(manifest, "A", arm_a_commands), build_plan(manifest, "B", arm_b_commands)
-    if pair[0].input_sha256 != pair[1].input_sha256:
-        raise ExecutionError("paired arms do not share frozen inputs")
-    return pair
+    return build_plan(manifest, "A", arm_a_commands), build_plan(manifest, "B", arm_b_commands)
 
 
 def _event_path(path: str | Path) -> Path:
@@ -142,7 +139,11 @@ def run_fixture_plan(
                 "self_overhead_ns": max(0, total - child_ns),
             }
 
-        record("run_started", arm=plan.arm, case_id=plan.case_id, plan_sha256=plan.plan_sha256)
+        record(
+            "run_started", arm=plan.arm, case_id=plan.case_id, input_sha256=plan.input_sha256,
+            environment_id=plan.environment_id, cache_policy=plan.cache_policy,
+            plan_sha256=plan.plan_sha256,
+        )
         try:
             for command in plan.commands:
                 record("command_started", name=command.name, argv=command.argv)
