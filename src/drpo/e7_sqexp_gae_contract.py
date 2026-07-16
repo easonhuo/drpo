@@ -110,6 +110,44 @@ def _validate_gae_trainer_flag_interface(argv: list[str]) -> None:
         )
 
 
+def _archive_stale_branch_failure(branch_dir: Path) -> Path | None:
+    failed_path = branch_dir / "FAILED.json"
+    if not failed_path.is_file():
+        return None
+    archive_root = branch_dir / "failed_attempts"
+    attempt = 1
+    while (archive_root / f"attempt-{attempt:03d}").exists():
+        attempt += 1
+    archive_dir = archive_root / f"attempt-{attempt:03d}"
+    archive_dir.mkdir(parents=True)
+    moved: list[str] = []
+    for name in (
+        "FAILED.json",
+        "LAUNCH.json",
+        "branch_manifest.json",
+        "branch_config.json",
+        "stdout_stderr.log",
+    ):
+        source = branch_dir / name
+        if not source.is_file():
+            continue
+        destination = archive_dir / name
+        source.replace(destination)
+        moved.append(name)
+    if "FAILED.json" not in moved:
+        raise RuntimeError("failed branch archive lost its failure marker")
+    base.atomic_write_json(
+        archive_dir / "ARCHIVE_MANIFEST.json",
+        {
+            "experiment_id": EXPERIMENT_ID,
+            "reason": "preserve_failed_branch_evidence_before_resume",
+            "attempt_index": attempt,
+            "files": moved,
+        },
+    )
+    return archive_dir
+
+
 def _require_exact_mapping(
     raw: Mapping[str, Any],
     expected: Mapping[str, Any],
@@ -417,6 +455,7 @@ def branch_command(
     method = str(values["weight_method"])
     weight_at_zero = float(values["weight_at_zero"])
     coefficient = float(values["exp_coefficient"])
+    archived_failure = _archive_stale_branch_failure(branch_dir)
     branch_config = {
         "experiment_id": EXPERIMENT_ID,
         "branch_id": branch.branch_id,
@@ -426,6 +465,9 @@ def branch_command(
         "seed": branch.seed,
         "template_values": values,
         "advantage_manifest": str(prepared_manifest),
+        "resumed_from_failed_attempt": (
+            None if archived_failure is None else str(archived_failure)
+        ),
         "weight_control": {
             "method": method,
             "weight_at_zero": weight_at_zero,
@@ -434,7 +476,6 @@ def branch_command(
             "formula": FORMULA,
         },
     }
-    (branch_dir / "FAILED.json").unlink(missing_ok=True)
     branch_config_path = branch_dir / "branch_config.json"
     base.atomic_write_json(branch_config_path, branch_config)
     command = [
