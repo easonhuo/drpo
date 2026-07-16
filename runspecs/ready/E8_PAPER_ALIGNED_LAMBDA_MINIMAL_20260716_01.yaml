@@ -1,0 +1,121 @@
+version: 1
+run_id: E8_PAPER_ALIGNED_LAMBDA_MINIMAL_20260716_01
+lane: e8
+priority: 150
+created_at: "2026-07-16T07:40:00Z"
+experiment_id: EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-LAMBDA-MINIMAL-0.5B-01
+repo_commit: d261da12184953c652bcc23ce495aff11e453e71
+
+provenance:
+  commit_policy: protected_paths_unchanged
+  protected_paths:
+    - configs/countdown_e8_paper_aligned_lambda_minimal_0p5b.yaml
+    - docs/scopes/EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-LAMBDA-MINIMAL-0.5B-01.md
+    - scripts/calibrate_countdown_e8_paper_aligned_lambda.py
+    - scripts/run_countdown_e8_paper_aligned_lambda_minimal_auto.py
+    - scripts/run_countdown_e8_paper_aligned_lambda_minimal_one_click.sh
+    - src/drpo/countdown_e8_paper_aligned_lambda_minimal_common.py
+    - src/drpo/countdown_e8_paper_aligned_lambda_minimal_runtime.py
+    - tests/test_countdown_e8_paper_aligned_lambda_minimal.py
+    - src/drpo/countdown_e8_alpha1_c_scan_common.py
+    - src/drpo/countdown_e8_alpha1_c_scan_trainer.py
+    - src/drpo/countdown_e8_alpha1_c_scan_runtime.py
+    - scripts/run_countdown_e8_oracle_offline_v2_alpha1_c_scan_auto.py
+
+purpose: >
+  Run the first target-driven localization round for the paper-aligned linear
+  excess-surprisal taper while preserving the canonical E8 trainer, evaluator,
+  resume, aggregation, and 8-GPU x 2-slot runtime byte-for-byte. Freeze alpha=1,
+  derive tau and scale_c without task metrics, run Positive-only plus fifteen
+  lambda points on two paired development seeds, and use the result only to
+  choose the next bounded development round.
+
+entrypoint:
+  cwd: repo_root
+  command: >-
+    E8_PAPER_WORK_DIR=outputs/e8/paper_aligned_lambda_minimal_001
+    bash scripts/run_countdown_e8_paper_aligned_lambda_minimal_one_click.sh
+
+recovery:
+  enabled: true
+  max_attempts: 2
+  resume_command: >-
+    E8_PAPER_WORK_DIR=outputs/e8/paper_aligned_lambda_minimal_001
+    bash scripts/run_countdown_e8_paper_aligned_lambda_minimal_one_click.sh
+  retryable_exit_codes: [137, 143]
+  checkpoint_globs:
+    - outputs/e8/paper_aligned_lambda_minimal_001/RUNTIME_SELECTION.json
+    - outputs/e8/paper_aligned_lambda_minimal_001/RUNTIME_SLOTS.json
+    - outputs/e8/paper_aligned_lambda_minimal_001/TAPER_CALIBRATION.json
+    - outputs/e8/paper_aligned_lambda_minimal_001/SMOKE_GATE.json
+    - outputs/e8/paper_aligned_lambda_minimal_001/SWEEP_STATUS.json
+  backoff_seconds: 60
+
+policy:
+  existing_script_required: true
+  forbid_new_launcher: true
+  forbid_hparam_change: true
+  forbid_cross_lane: true
+  formal_evidence_allowed: false
+  test_set_access_allowed: false
+  historical_trend_retroactive_invalidation_allowed: false
+
+outputs:
+  run_dir: outputs/e8/paper_aligned_lambda_minimal_001
+  summary_file: outputs/e8/paper_aligned_lambda_minimal_001/SWEEP_COMPLETE.json
+  audit_file: outputs/e8/paper_aligned_lambda_minimal_001/aggregate/terminal_audit.json
+
+success_criteria:
+  - predecessor common, trainer, runtime, and auto-launcher Git blobs match the four frozen lineage hashes
+  - no successor trainer or scheduler implementation exists
+  - RUNTIME_SELECTION.json records exactly GPU 0 through GPU 7
+  - RUNTIME_SLOTS.json records runtime_slots_per_gpu=2, gpu_count=8, and total_runtime_slots=16
+  - SWEEP_PLAN.json records exactly 16 parameter points and 32 cells
+  - the 32 cells comprise Positive-only plus 15 lambda points on seed offsets 4000 and 5000
+  - TAPER_CALIBRATION.json records tau and scale_c from mean-token surprisal with EOS and records task_metrics_used=false and test_data_used=false
+  - every taper cell uses alpha*exp(-lambda*relu((D-tau)/scale_c)) with no additional square
+  - lambda=0 is the exact uncontrolled-negative endpoint and Positive-only remains a separate baseline
+  - every unique negative participates and the denominator remains the unique-negative count per prompt
+  - SMOKE_GATE.json is PASS and is not scientific evidence
+  - all 32 cell summaries are present and no cell reports NaN or Inf numerical failure
+  - best, late-window, and terminal validation metrics remain separately visible
+  - task performance, valid-structure or support diagnostics, and NaN or Inf failure remain separately reported
+  - test_data_used remains false throughout the run
+  - fixed 1200 steps is not described as convergence, steady state, or formal ranking
+
+artifacts:
+  package_policy: manifest_only
+  include:
+    - outputs/e8/paper_aligned_lambda_minimal_001/RUNTIME_SELECTION.json
+    - outputs/e8/paper_aligned_lambda_minimal_001/RUNTIME_SLOTS.json
+    - outputs/e8/paper_aligned_lambda_minimal_001/SWEEP_PLAN.json
+    - outputs/e8/paper_aligned_lambda_minimal_001/TAPER_CALIBRATION.json
+    - outputs/e8/paper_aligned_lambda_minimal_001/SMOKE_GATE.json
+    - outputs/e8/paper_aligned_lambda_minimal_001/SWEEP_STATUS.json
+    - outputs/e8/paper_aligned_lambda_minimal_001/SWEEP_COMPLETE.json
+    - outputs/e8/paper_aligned_lambda_minimal_001/aggregate/*.json
+    - outputs/e8/paper_aligned_lambda_minimal_001/aggregate/*.csv
+    - outputs/e8/paper_aligned_lambda_minimal_001/methods/*/summary.json
+    - outputs/e8/paper_aligned_lambda_minimal_001/methods/*/manifest.json
+    - outputs/e8/paper_aligned_lambda_minimal_001/methods/*/metrics.csv
+    - outputs/e8/paper_aligned_lambda_minimal_001/methods/*/*_diagnostics.jsonl
+    - outputs/e8/paper_aligned_lambda_minimal_001/logs/*.log
+  exclude:
+    - "**/*.pt"
+    - "**/*.pth"
+    - "**/*.ckpt"
+    - "**/*.safetensors"
+    - "**/*.bin"
+    - "**/checkpoint*"
+    - "**/checkpoints/**"
+    - "**/model*"
+    - "**/optimizer*"
+    - "**/wandb/**"
+    - outputs/e8/paper_aligned_lambda_minimal_001/_liveness/**
+  max_package_size_mb: 100
+  fail_if_excluded_matched: false
+  fail_if_package_too_large: true
+
+publish:
+  enabled: false
+  auto: false
