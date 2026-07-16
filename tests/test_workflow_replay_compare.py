@@ -17,13 +17,15 @@ from drpo.workflow_replay.model import CaseManifest, validate_case_manifest
 FIXTURE = Path(__file__).parent / "fixtures" / "workflow_replay" / "valid_code_only.yaml"
 
 
-def manifest() -> CaseManifest:
+def manifest(required_gates: list[str] | None = None) -> CaseManifest:
     payload = yaml.safe_load(FIXTURE.read_text(encoding="utf-8"))
     payload["benchmark"]["expected_final_tree_or_semantic_hashes"].update(
         delta_semantic_sha256="d" * 64,
         handoff_materialized_sha256="b" * 64,
         registry_semantic_sha256="c" * 64,
     )
+    if required_gates is not None:
+        payload["benchmark"]["required_gates"] = required_gates
     return validate_case_manifest(payload)
 
 
@@ -43,7 +45,7 @@ def provenance(case: CaseManifest) -> tuple[tuple[str, str], ...]:
 
 
 def ready(case: CaseManifest) -> OutcomeSnapshot:
-    gate = case.benchmark["required_gates"][0]
+    gates = tuple(case.benchmark["required_gates"])
     return OutcomeSnapshot(
         case.case_id,
         "READY",
@@ -52,8 +54,8 @@ def ready(case: CaseManifest) -> OutcomeSnapshot:
         (("docs/example.md", "100644"),),
         tuple(sorted(case.benchmark["expected_final_tree_or_semantic_hashes"].items())),
         "PASS",
-        (gate,),
-        ((gate, "PASS"),),
+        gates,
+        tuple((gate, "PASS") for gate in gates),
         provenance(case),
     )
 
@@ -80,6 +82,13 @@ def test_pair_mismatches_block_efficiency(field: str, value) -> None:
     assert f"pair.{field}" in report.mismatches
     with pytest.raises(EquivalenceError):
         release_efficiency_payload(report, {})
+
+
+def test_gate_plan_preserves_declared_nonlexical_order() -> None:
+    case = manifest(["z-gate", "a-gate"])
+    snapshot = ready(case)
+    assert snapshot.gate_plan == ("z-gate", "a-gate")
+    assert compare_outcomes(case, snapshot, snapshot).equivalent
 
 
 def test_provenance_mismatch_blocks_efficiency() -> None:
