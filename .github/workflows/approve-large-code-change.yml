@@ -60,7 +60,7 @@ jobs:
           echo "BASE_SHA=$base_sha" >> "$GITHUB_ENV"
           echo "HEAD_SHA=$actual_head" >> "$GITHUB_ENV"
           jq -r '.body // ""' "$RUNNER_TEMP/pr.json" > "$RUNNER_TEMP/pr-body.txt"
-          git fetch --no-tags --depth=1 origin "$base_sha" "$actual_head"
+          git fetch --no-tags origin "$base_sha" "$actual_head"
 
       - name: Revalidate rationale before recording human approval
         run: |
