@@ -30,53 +30,81 @@ def load_grid(path: str | Path) -> tuple[dict[str, Any], str]:
         "run_kind": "pilot",
         "status": "not_run",
         "scientific_status": SCIENTIFIC_STATUS,
+        "predecessor_experiment_id": "EXT-H-E7-SQUARED-EXP-NIGHT-01",
         "datasets": list(EXPECTED_DATASETS),
         "development_seeds": list(EXPECTED_SEEDS),
         "held_out_seeds": list(HELD_OUT_SEEDS),
-        "actor_update_modes": list(ACTOR_MODES),
-        "advantage_estimators": list(ESTIMATORS),
         "steps": STEPS,
         "evaluation_interval": 50_000,
         "evaluation_episodes": 10,
+        "actor_update_modes": list(ACTOR_MODES),
+        "advantage_modes": ["one_step_td", "gae_lambda_0p95"],
+        "shared_frozen_critic": {
+            "steps": 100_000,
+            "batch": 256,
+            "gamma": 0.99,
+            "tau": 0.5,
+            "lr": 3e-4,
+            "temperature": 5.0,
+            "device": "cpu",
+            "shared_per_dataset_seed": True,
+            "updated_during_actor_training": False,
+        },
+        "trajectory_advantage": {
+            "gamma": 0.99,
+            "gae_lambda": 0.95,
+            "ordered_behavior_trajectory": True,
+            "terminal_bootstrap": False,
+            "timeout_bootstrap": True,
+            "terminal_stops_recursion": True,
+            "timeout_stops_recursion": True,
+            "tail_bootstrap_and_stop_recursion": True,
+            "lambda_zero_must_equal_one_step": True,
+            "normalization": "none",
+            "clipping": "none",
+        },
+        "weight_control": {
+            "weight_at_zero": 1.0,
+            "positive_only_anchor": True,
+            "reference_distance": night.REFERENCE_DISTANCE,
+            "formula": FORMULA,
+            "exp_coefficients": list(COEFFICIENTS),
+        },
+        "ppo": {
+            "clip_epsilon": 0.2,
+            "updates_per_old_policy": 4,
+            "analytic_kl_early_refresh": False,
+            "kl_penalty": False,
+            "entropy_bonus": False,
+            "actor_gradient_clip": False,
+            "value_clip": False,
+        },
+        "diagnostics": {
+            "interval": 1000,
+            "sampled_values_per_update": 16,
+            "record_500k_intermediate": True,
+            "late_window_start": 800_000,
+            "separate_task_support_numerical_events": True,
+        },
+        "expected_controls_per_actor_advantage_cell": 4,
         "expected_total_branches": EXPECTED_BRANCHES,
+        "screening_only": True,
         "formal_evidence_allowed": False,
+        "non_claims": [
+            "convergence_from_fixed_1m_horizon",
+            "steady_state_method_ranking",
+            "universal_gae_superiority",
+            "universal_ppo_or_a2c_superiority",
+            "causal_actor_update_identification",
+            "ood_generalization",
+            "replacement_of_controlled_causal_evidence",
+        ],
     }
-    for key, value in expected.items():
-        if raw.get(key) != value:
-            raise ValueError(f"GAE grid field changed: {key}")
-    if raw.get("shared_frozen_critic") != {
-        "steps": 100_000,
-        "batch": 256,
-        "gamma": 0.99,
-        "tau": 0.5,
-        "lr": 3e-4,
-        "temperature": 5.0,
-        "shared_per_dataset_seed": True,
-        "updated_during_actor_training": False,
-    }:
-        raise ValueError("shared frozen critic contract changed")
-    if raw.get("trajectory_advantage") != {
-        "gamma": 0.99,
-        "gae_lambda": 0.95,
-        "terminal_bootstrap": False,
-        "timeout_bootstrap": True,
-        "terminal_stops_recursion": True,
-        "timeout_stops_recursion": True,
-        "tail_stops_recursion": True,
-        "normalization": "none",
-        "clipping": "none",
-    }:
-        raise ValueError("trajectory GAE contract changed")
-    control = raw.get("weight_control", {})
-    if (
-        control.get("formula") != FORMULA
-        or float(control.get("weight_at_zero", -1)) != 1.0
-        or control.get("positive_only_anchor") is not True
-        or float(control.get("reference_distance", -1)) != night.REFERENCE_DISTANCE
-        or tuple(float(value) for value in control.get("exp_coefficients", ()))
-        != COEFFICIENTS
-    ):
-        raise ValueError("squared-EXP control contract changed")
+    if raw != expected:
+        changed = sorted(
+            key for key in set(raw) | set(expected) if raw.get(key) != expected.get(key)
+        )
+        raise ValueError(f"frozen GAE grid changed: {changed}")
     return raw, sha256_file(source)
 
 
