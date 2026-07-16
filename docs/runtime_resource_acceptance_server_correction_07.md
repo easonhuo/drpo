@@ -55,7 +55,16 @@ Therefore a capacity downshift changes only the number of simultaneously active 
 
 ## Validation
 
-Exact-head CI on the final correction must pass Python compilation, shell syntax, handoff authority, formal execution-channel validation, governance checks, full pytest, and Ruff before another server command is issued.
+Exact-head CI on final commit `71f70211b95b4603a39e51d188610357b84af95e` passed in GitHub Actions run `29464310846`:
+
+- tiered test-plan shadow;
+- Python compilation;
+- shell syntax;
+- handoff authority;
+- formal execution-channel validation;
+- governance inventory and stage status;
+- full pytest;
+- Ruff.
 
 Focused regression coverage includes:
 
