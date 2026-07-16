@@ -1,0 +1,115 @@
+version: 1
+run_id: E8_PAPER_ALIGNED_LAMBDA_ROUND1_20260716_01
+lane: e8
+priority: 150
+created_at: '2026-07-16T05:00:00Z'
+experiment_id: EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-LAMBDA-ROUND1-0.5B-01
+repo_commit: 4e7a0e65328cd91a07081332dc02db27952688a1
+
+provenance:
+  commit_policy: protected_paths_unchanged
+  protected_paths:
+    - configs/countdown_e8_paper_aligned_lambda_round1_0p5b.yaml
+    - docs/experiment_governance/TARGET_DRIVEN_EXPERIMENT_MECHANISM.md
+    - docs/experiments/E8_PAPER_ALIGNED_LAMBDA_TUNING_PROTOCOL.md
+    - experiments/registry.yaml
+    - src/drpo/countdown_e8_paper_aligned_lambda_common.py
+    - src/drpo/countdown_e8_paper_aligned_lambda_trainer.py
+    - src/drpo/countdown_e8_paper_aligned_lambda_runtime.py
+    - scripts/run_countdown_e8_paper_aligned_lambda_auto.py
+    - scripts/run_countdown_e8_paper_aligned_lambda_one_click.sh
+    - scripts/run_countdown_e8_paper_aligned_lambda_resume_one_click.sh
+    - tests/test_countdown_e8_paper_aligned_lambda.py
+
+purpose: >
+  Execute the registered paper-aligned Countdown E8 round-1 development scan.
+  Freeze alpha=1, derive tau and scale_c from the frozen pre-training bank
+  calibration, run Positive-only plus five linear excess-surprisal lambda values
+  on three paired development seeds, and localize the next search region without
+  formal ranking or retroactive invalidation of the historical squared-surprisal
+  trend.
+
+entrypoint:
+  command: bash scripts/run_countdown_e8_paper_aligned_lambda_one_click.sh
+  cwd: repo_root
+
+policy:
+  existing_script_required: true
+  forbid_new_launcher: true
+  forbid_hparam_change: true
+  forbid_cross_lane: true
+  formal_evidence_allowed: false
+  test_set_access_allowed: false
+  historical_trend_retroactive_invalidation_allowed: false
+
+outputs:
+  run_dir: outputs/e8/paper_aligned_lambda_round1_001
+  summary_file: outputs/e8/paper_aligned_lambda_round1_001/SWEEP_COMPLETE.json
+  audit_file: outputs/e8/paper_aligned_lambda_round1_001/aggregate/terminal_audit.json
+
+success_criteria:
+  - default execution auto-selects exactly 2 eligible GPU slots and RUNTIME_SELECTION.json records them without changing the scientific matrix
+  - SWEEP_PLAN.json records exactly 6 parameter points and 18 cells
+  - TAPER_CALIBRATION.json records mean-token surprisal with EOS, tau, scale_c, and no task/test metric use
+  - SMOKE_GATE.json is PASS and is explicitly non-scientific
+  - Positive-only contains exactly 3 paired development cells
+  - paper-aligned taper contains exactly 15 cells across five frozen lambda values
+  - every taper cell records alpha*exp(-lambda*relu((D-tau)/scale_c)) and extra_square_used=false
+  - D=tau+2*scale_c follows exp(-2*lambda), never exp(-4*lambda)
+  - every unique negative participates and the denominator remains unique-negative count per prompt
+  - no hidden negative scale, gradient-budget matching, extreme selection, or weight-sum normalization is used
+  - aggregate results report best, three-evaluation late-window, and terminal Pass@8 separately
+  - ROUND1_DECISION.json gives only the registered boundary-extension or local-refinement action
+  - historical_trend_invalidated remains false
+  - task performance, valid-structure/support boundary, and NaN/Inf are separate
+  - test_data_used remains false in every manifest and aggregate
+  - fixed 1200 steps is not described as convergence, steady state, or formal ranking
+
+artifacts:
+  package_policy: manifest_only
+  include:
+    - outputs/e8/paper_aligned_lambda_round1_001/RUNTIME_SELECTION.json
+    - outputs/e8/paper_aligned_lambda_round1_001/SWEEP_PLAN.json
+    - outputs/e8/paper_aligned_lambda_round1_001/FROZEN_CONFIG.yaml
+    - outputs/e8/paper_aligned_lambda_round1_001/TAPER_CALIBRATION.json
+    - outputs/e8/paper_aligned_lambda_round1_001/SMOKE_GATE.json
+    - outputs/e8/paper_aligned_lambda_round1_001/SWEEP_STATUS.json
+    - outputs/e8/paper_aligned_lambda_round1_001/SWEEP_COMPLETE.json
+    - outputs/e8/paper_aligned_lambda_round1_001/aggregate/*.json
+    - outputs/e8/paper_aligned_lambda_round1_001/aggregate/*.csv
+    - outputs/e8/paper_aligned_lambda_round1_001/methods/*/summary.json
+    - outputs/e8/paper_aligned_lambda_round1_001/methods/*/manifest.json
+    - outputs/e8/paper_aligned_lambda_round1_001/methods/*/metrics.csv
+    - outputs/e8/paper_aligned_lambda_round1_001/methods/*/*_diagnostics.jsonl
+    - outputs/e8/paper_aligned_lambda_round1_001/logs/*.log
+  exclude:
+    - '**/*.pt'
+    - '**/*.pth'
+    - '**/*.ckpt'
+    - '**/*.safetensors'
+    - '**/*.bin'
+    - '**/checkpoint*'
+    - '**/checkpoints/**'
+    - '**/model*'
+    - '**/optimizer*'
+    - '**/wandb/**'
+    - outputs/e8/paper_aligned_lambda_round1_001/_liveness/**
+  max_package_size_mb: 100
+  fail_if_excluded_matched: false
+  fail_if_package_too_large: true
+
+publish:
+  enabled: false
+  auto: false
+
+recovery:
+  enabled: true
+  max_attempts: 2
+  resume_command: bash scripts/run_countdown_e8_paper_aligned_lambda_resume_one_click.sh
+  retryable_exit_codes: [137, 143]
+  checkpoint_globs:
+    - outputs/e8/paper_aligned_lambda_round1_001/RUNTIME_SELECTION.json
+    - outputs/e8/paper_aligned_lambda_round1_001/TAPER_CALIBRATION.json
+    - outputs/e8/paper_aligned_lambda_round1_001/SMOKE_GATE.json
+    - outputs/e8/paper_aligned_lambda_round1_001/SWEEP_STATUS.json
+  backoff_seconds: 60

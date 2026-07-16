@@ -7,7 +7,7 @@
 - Responsibility: Preserve the unique-master rule, terminology, scientific scope, and non-destructive governance constraints.
 - Content contract topics: `unique_master_document`, `document_before_experiment`, `non_destructive_history`, `terminal_audit_governance`, `controlled_external_validity_boundary`
 - Deduplicated overlapping source chunks: 0
-- Source hash: `4fd3f987683c1207e3fa2929b8a6d788864787215c5aee41a684881b5102875a`
+- Source hash: `bd722fea06be47be4198ddf7b30f0fcab559cafbdfeb36312f42ced579d15cc6`
 
 ## Content contract evidence
 
@@ -179,6 +179,9 @@
 <!-- HANDOFF-DELTA-BLOCK:section_end:e8-oracle-offline-v2-init-matrix-pilot-result:START -->
 - **Countdown E8 oracle-offline v2 init-matrix pilot result:** 注册并归档 `EXT-C-E8-ORACLE-OFFLINE-V2-INIT-MATRIX-0.5B-01`，执行绑定 dev commit `fe214f010bd5fec1e0e6a83f8297132a9ae8882b` 且 `git_dirty=true`；结果包 SHA-256 为 `b0a05d54e531661bb15bd0dcc3f8f06354554513056c2cf7adeea71a919f59f6`。固定 tensor width 为 16；4943/6000 行有 16 个 unique negatives，1057/6000 行有 9--15 个 unique negatives 并循环精确重复表达式补齐。该 padding 不改变每行可达到的 current-policy argmin/argmax surprisal，但改变 tie/slot multiplicity。Base positive-only 可以学习；在已测 0.25/0.5/1/2 范围内，负压力增大总体伴随 pass@8 与终态 valid-rate 恶化，x1/x2 有严重任务/输出有效率退化但无 NaN/Inf；low-SFT x1 未超过 positive-only。本证据仅为 dirty、single-seed、不同 seed offset、不同 early-stop horizon 的 pilot，不构成方法排名或稳态结论。下一步需另行冻结靠近 0 的 paired-seed 扫描。
 <!-- HANDOFF-DELTA-BLOCK:section_end:e8-oracle-offline-v2-init-matrix-pilot-result:END -->
+<!-- HANDOFF-DELTA-BLOCK:section_end:e8-paper-aligned-lambda-round1-target-driven-registration:START -->
+- **E8 paper-aligned lambda Round 1（`EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-LAMBDA-ROUND1-0.5B-01`）：**已登记但未运行。Countdown 离散 remoteness 锁定为当前 learner 对 completion 的 mean-token surprisal（prompt/padding 排除，EOS 纳入）；唯一主公式为 `D=-mean_token_logp`、`z=relu((D-tau)/scale_c)`、`w=alpha*exp(-lambda*z)`，禁止再次平方 surprisal。Round 1 固定 `alpha=1`，用冻结的 pre-training bank sample 无任务指标校准 `tau` 与 `scale_c`，扫描 5 个 `lambda`（单尺度单位 tail retention 为 0.90/0.75/0.50/0.25/0.10），连同 Positive-only 共 6 个点、3 个 paired development seeds、18 cells；Global 仅复用既有未受公式错误影响的结果，不在本轮重跑。大 `lambda` 极限是保留近场、移除远场的 near-field-only negative training，不是 Positive-only。历史 squared-surprisal sweep 的非单调趋势登记为 `locked_directional_evidence`；successor 若未复现，只能报告为 paper-aligned protocol 下未确认或 non-transfer，不得追溯性表述为“此前趋势全部错误”，除非独立审计证明原证据本身存在损坏、泄漏或 evaluator 缺陷。执行顺序锁定为公式/校准/liveness → lambda 定位 → 边界扩展或局部细化 → 条件触发的窄 alpha 检查 → tau 敏感性 → fresh-seed confirmation；默认运行资源为自动选择 2 个合格 GPU slot、每卡 1 个进程，slot 数只影响墙钟调度且不改变科学矩阵；test data 禁止用于调参，固定 1200 steps 不等于收敛/稳态，任务性能、valid-structure/support boundary 与 NaN/Inf 分开报告。详细机制与方案见 `docs/experiment_governance/TARGET_DRIVEN_EXPERIMENT_MECHANISM.md` 和 `docs/experiments/E8_PAPER_ALIGNED_LAMBDA_TUNING_PROTOCOL.md`。
+<!-- HANDOFF-DELTA-BLOCK:section_end:e8-paper-aligned-lambda-round1-target-driven-registration:END -->
 <!-- HANDOFF-DELTA-BLOCK:section_end:e8-v2-active-taper-sweep-ready:START -->
 - **Countdown E8 V2 active taper tuning:** 注册 `EXT-C-E8-ORACLE-OFFLINE-V2-TAPER-SWEEP-0.5B-01`，状态为 `implemented_ready_not_run`。本轮停止继续调 Global，只比较 Linear、Quadratic、Exp；8 个 `rho` × 3 个 paired tuning seeds，共 72 cells，使用 GPU 0--7。初始化 aggregate negative-gradient RMS 均匹配 Global `x1/32` 预算；current-near 中位点锚定 `u=0`，current-far 中位点锚定 `u=1`。SBRC、Hybrid、Global retuning、SFT init、on-policy 和 replay 均排除。本轮仅为调参 pilot；必须报告 best 与 terminal，并在冻结超参后使用新 seeds 才能形成方法排名。
 <!-- HANDOFF-DELTA-BLOCK:section_end:e8-v2-active-taper-sweep-ready:END -->

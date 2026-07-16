@@ -1,0 +1,194 @@
+{
+  "current_before_commit": "61381983eb4969990ef827c6600092bc327d6b4f",
+  "current_handoff_before_sha256": "7707901f8c75369066d3527df76d5d204d4d04c93b0fbe668c47ce4597d16e4d",
+  "current_registry_validation": {
+    "assertions": [
+      {
+        "change_id": "add-e8-paper-aligned-lambda-round1",
+        "entity_id": "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-LAMBDA-ROUND1-0.5B-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "05671687033882a6c4954c58e6b5e902709edc3f60818c921d8c954eb7a6deea"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-C-E8-PAPER-ALIGNED-LAMBDA-ROUND1-2026-07-16/HANDOFF_DELTA.yaml",
+            "sha256": "79632148904b12f7ee83eb364b3c782f721834b69e1130ac7ab17d6f5bbed6e7"
+          },
+          {
+            "path": "docs/experiment_governance/TARGET_DRIVEN_EXPERIMENT_MECHANISM.md",
+            "sha256": "58fd2994add8c6eade2938fb719750f1c6afa241e1a989487fddc9ccbf8fc888"
+          },
+          {
+            "path": "docs/experiments/E8_PAPER_ALIGNED_LAMBDA_TUNING_PROTOCOL.md",
+            "sha256": "2a01c393b79d9f2aa12dc5fa96e993e952ad439ceb5616c976dea97f140c758a"
+          },
+          {
+            "path": "configs/countdown_e8_paper_aligned_lambda_round1_0p5b.yaml",
+            "sha256": "b1b86472efad178f26a0056265eee88d0cec766761616c2866c32264d9f33c5b"
+          },
+          {
+            "path": "src/drpo/countdown_e8_paper_aligned_lambda_common.py",
+            "sha256": "d4a282923e8ce57161da85464993285d9f5543c2db9a1ea067f443d3a03dde84"
+          },
+          {
+            "path": "src/drpo/countdown_e8_paper_aligned_lambda_trainer.py",
+            "sha256": "b233159470b64528b88a80477dd7f4672142ff0de62fe04670a45e6024d95fe4"
+          },
+          {
+            "path": "src/drpo/countdown_e8_paper_aligned_lambda_runtime.py",
+            "sha256": "8326a12e4dae330cedf7eb0451756670676289d6a11816e59f58a18312005741"
+          },
+          {
+            "path": "scripts/run_countdown_e8_paper_aligned_lambda_auto.py",
+            "sha256": "6029be5bd360031af3e6cd6e4fb63a151c6c8e1643adf4f9a152fa6dc4633914"
+          },
+          {
+            "path": "scripts/run_countdown_e8_paper_aligned_lambda_one_click.sh",
+            "sha256": "16b1542e9a3fae553ad509e593257c41f21d2f51854b5e6de2fde35cace5813f"
+          },
+          {
+            "path": "scripts/run_countdown_e8_paper_aligned_lambda_resume_one_click.sh",
+            "sha256": "531081adbf31f99cc01388f8cb16513fc151858a2505359aa2bfe2e6248ac54c"
+          },
+          {
+            "path": "runspecs/ready/E8_PAPER_ALIGNED_LAMBDA_ROUND1_20260716_01.yaml",
+            "sha256": "9fe9b0ee49d667c512706db889183600b94b9c02d35302d894dda9b32db556ea"
+          },
+          {
+            "path": "tests/test_countdown_e8_paper_aligned_lambda.py",
+            "sha256": "b5fd8e24e0bc27b2749d62c3548121f99ac444c8aa4a6879c6e41e137802d9a3"
+          }
+        ],
+        "kind": "add_entity"
+      }
+    ],
+    "coverage": {
+      "added_entities": [
+        "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-LAMBDA-ROUND1-0.5B-01"
+      ],
+      "changed_field_count": 0,
+      "declared_assertion_count": 1,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "delta_sha256": "79632148904b12f7ee83eb364b3c782f721834b69e1130ac7ab17d6f5bbed6e7",
+  "exact_base_candidate_sha256": "f8ff67ab71c0f53b21fc96967a13aa3e5b8500e42d25464e378df23e1f62c4e8",
+  "exact_base_registry_validation": {
+    "assertions": [
+      {
+        "change_id": "add-e8-paper-aligned-lambda-round1",
+        "entity_id": "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-LAMBDA-ROUND1-0.5B-01",
+        "evidence": [
+          {
+            "path": "experiments/registry.yaml",
+            "sha256": "05671687033882a6c4954c58e6b5e902709edc3f60818c921d8c954eb7a6deea"
+          },
+          {
+            "path": "docs/handoff_deltas/EXT-C-E8-PAPER-ALIGNED-LAMBDA-ROUND1-2026-07-16/HANDOFF_DELTA.yaml",
+            "sha256": "79632148904b12f7ee83eb364b3c782f721834b69e1130ac7ab17d6f5bbed6e7"
+          },
+          {
+            "path": "docs/experiment_governance/TARGET_DRIVEN_EXPERIMENT_MECHANISM.md",
+            "sha256": "58fd2994add8c6eade2938fb719750f1c6afa241e1a989487fddc9ccbf8fc888"
+          },
+          {
+            "path": "docs/experiments/E8_PAPER_ALIGNED_LAMBDA_TUNING_PROTOCOL.md",
+            "sha256": "2a01c393b79d9f2aa12dc5fa96e993e952ad439ceb5616c976dea97f140c758a"
+          },
+          {
+            "path": "configs/countdown_e8_paper_aligned_lambda_round1_0p5b.yaml",
+            "sha256": "b1b86472efad178f26a0056265eee88d0cec766761616c2866c32264d9f33c5b"
+          },
+          {
+            "path": "src/drpo/countdown_e8_paper_aligned_lambda_common.py",
+            "sha256": "d4a282923e8ce57161da85464993285d9f5543c2db9a1ea067f443d3a03dde84"
+          },
+          {
+            "path": "src/drpo/countdown_e8_paper_aligned_lambda_trainer.py",
+            "sha256": "b233159470b64528b88a80477dd7f4672142ff0de62fe04670a45e6024d95fe4"
+          },
+          {
+            "path": "src/drpo/countdown_e8_paper_aligned_lambda_runtime.py",
+            "sha256": "8326a12e4dae330cedf7eb0451756670676289d6a11816e59f58a18312005741"
+          },
+          {
+            "path": "scripts/run_countdown_e8_paper_aligned_lambda_auto.py",
+            "sha256": "6029be5bd360031af3e6cd6e4fb63a151c6c8e1643adf4f9a152fa6dc4633914"
+          },
+          {
+            "path": "scripts/run_countdown_e8_paper_aligned_lambda_one_click.sh",
+            "sha256": "16b1542e9a3fae553ad509e593257c41f21d2f51854b5e6de2fde35cace5813f"
+          },
+          {
+            "path": "scripts/run_countdown_e8_paper_aligned_lambda_resume_one_click.sh",
+            "sha256": "531081adbf31f99cc01388f8cb16513fc151858a2505359aa2bfe2e6248ac54c"
+          },
+          {
+            "path": "runspecs/ready/E8_PAPER_ALIGNED_LAMBDA_ROUND1_20260716_01.yaml",
+            "sha256": "9fe9b0ee49d667c512706db889183600b94b9c02d35302d894dda9b32db556ea"
+          },
+          {
+            "path": "tests/test_countdown_e8_paper_aligned_lambda.py",
+            "sha256": "b5fd8e24e0bc27b2749d62c3548121f99ac444c8aa4a6879c6e41e137802d9a3"
+          }
+        ],
+        "kind": "add_entity"
+      }
+    ],
+    "coverage": {
+      "added_entities": [
+        "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-LAMBDA-ROUND1-0.5B-01"
+      ],
+      "changed_field_count": 0,
+      "declared_assertion_count": 1,
+      "fully_declared": true,
+      "mode": "schema2_complete",
+      "removed_entities": []
+    },
+    "legacy_transition_assertions": []
+  },
+  "history_preservation_passed": true,
+  "idempotence_passed": true,
+  "materialized_handoff_after_sha256": "f8ff67ab71c0f53b21fc96967a13aa3e5b8500e42d25464e378df23e1f62c4e8",
+  "mode": "authoritative",
+  "network_used": false,
+  "policy_id": "GOV-HANDOFF-AUTHORITY-CUTOVER-01",
+  "registry_after_sha256": "05671687033882a6c4954c58e6b5e902709edc3f60818c921d8c954eb7a6deea",
+  "registry_before_sha256": "5326428f65b3cc7be0a4f5ca5602d9dd9430c3f96f2aed46dd9c40c773f2d70e",
+  "report_schema_version": 1,
+  "source_base_commit": "61381983eb4969990ef827c6600092bc327d6b4f",
+  "source_patch_commit": "92b1275f4567ed09e68a4242cafaddd923d45ca1",
+  "stage4a_refresh": {
+    "refreshed": [
+      "docs/handoff_shadow/stage4/minimal/generated/MODULE_INDEX.json",
+      "docs/handoff_shadow/stage4/minimal/generated/STRUCTURE_SUGGESTIONS.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/countdown_e8.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/global_core_governance.md"
+    ],
+    "reused": [
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.dot",
+      "docs/handoff_shadow/stage4/minimal/generated/DEPENDENCY_GRAPH.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e5_mechanism.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/categorical_e6_generalization.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_extrapolation.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_e4_taper.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/continuous_mechanism_e1_e3.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/execution_status_gates.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/history_provenance.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/hopper_e7.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/paper_rewrite.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/terminal_audit.md",
+      "docs/handoff_shadow/stage4/minimal/generated/modules/theory_methods_related_work.md"
+    ]
+  },
+  "status": "PASS",
+  "structural_lint_passed": true,
+  "trusted_engine_sha256": "e8894d4b077f91d39d1d0d7a41f6359116fd7d2ec9cd59e71343f02187541b75",
+  "trusted_policy_sha256": "508f6bbb6ee9bb6da5be041a23e25cd569b95475523bb6af7127cb84ea3466ad",
+  "trusted_renderer_sha256": "39a7566e91c77784822148bb18ae32e44dfcc1745fbdc1cbf14a88ce6c6a13e5",
+  "update_id": "EXT-C-E8-PAPER-ALIGNED-LAMBDA-ROUND1-2026-07-16"
+}
