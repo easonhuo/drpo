@@ -5,7 +5,7 @@ priority: 200
 created_at: '2026-07-16T04:30:00Z'
 experiment_id: EXT-H-E7-SQEXP-GAE-01
 execution_class: pilot
-repo_commit: 789b9eaf4c6780918b91199e3e97180504d07067
+repo_commit: 01f5230a15cc56161c0236f2e00240a2934d0d8a
 
 registration:
   mode: deferred
@@ -14,7 +14,7 @@ registration:
 provenance:
   commit_policy: protected_paths_unchanged
   implementation_branch: dev/e7-sqexp-gae-01
-  frozen_implementation_commit: 789b9eaf4c6780918b91199e3e97180504d07067
+  frozen_implementation_commit: 01f5230a15cc56161c0236f2e00240a2934d0d8a
   supersedes_run_id: E7_SQEXP_GAE_PILOT_20260716_01
   protected_paths:
     - configs/e7_sqexp_gae_v1.json
