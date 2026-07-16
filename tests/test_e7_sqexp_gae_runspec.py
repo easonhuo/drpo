@@ -22,7 +22,7 @@ RETIRED_RUNSPECS = (
     ROOT / "runspecs" / "retired" / "E7_SQEXP_GAE_PILOT_20260716_01.yaml",
     ROOT / "runspecs" / "retired" / "E7_SQEXP_GAE_PILOT_20260716_02.yaml",
 )
-FROZEN_IMPLEMENTATION = "3526e98b4c23a8b10eae23bfe4d5c68c7873966c"
+FROZEN_IMPLEMENTATION = "5a286a83dff96853fc83c8ca361717fac07e7ee4"
 
 
 def test_e7_sqexp_gae_ready_runspec_is_structurally_valid() -> None:
@@ -57,6 +57,7 @@ def test_e7_sqexp_gae_ready_runspec_freezes_scientific_boundaries() -> None:
     purpose = str(raw["purpose"])
     success = "\n".join(str(item) for item in raw["success_criteria"])
     protected = set(raw["provenance"]["protected_paths"])
+    includes = set(raw["artifacts"]["include"])
 
     assert raw["provenance"]["frozen_implementation_commit"] == FROZEN_IMPLEMENTATION
     assert (
@@ -77,6 +78,15 @@ def test_e7_sqexp_gae_ready_runspec_freezes_scientific_boundaries() -> None:
     assert "storage quantization is reported separately" in success
     assert "absent from every materialized GAE trainer argument vector" in success
     assert "accepted by the checked-in GAE trainer parser" in success
+    assert "monotonically indexed failed_attempts archive" in success
+    assert (
+        "outputs/e7/sqexp_gae_002/branches/*/failed_attempts/*/FAILED.json"
+        in includes
+    )
+    assert (
+        "outputs/e7/sqexp_gae_002/branches/*/failed_attempts/*/stdout_stderr.log"
+        in includes
+    )
     assert raw["policy"]["formal_evidence_allowed"] is False
     assert raw["policy"]["forbid_hparam_change"] is True
     assert "configs/e7_sqexp_gae_v1.json" in protected
