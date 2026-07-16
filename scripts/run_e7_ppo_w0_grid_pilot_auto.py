@@ -10,7 +10,10 @@ from typing import Any, Mapping
 
 from drpo import e7_ppo_w0_grid_pilot as pilot
 from drpo.e7_ppo_w0_runtime_autotune import revalidate_runtime, select_runtime
-from drpo.runtime_capacity_wait import wait_for_runtime_admission
+from drpo.runtime_capacity_wait import (
+    wait_for_runtime_admission,
+    wait_for_runtime_plan,
+)
 from drpo.runtime_resource_admission import revalidate_with_safe_downshift
 from drpo.runtime_resource_autotune import (
     RuntimeResourceError,
@@ -54,7 +57,7 @@ def build_parser() -> argparse.ArgumentParser:
         type=float,
         default=0.0,
         help=(
-            "negative waits without a deadline, zero performs one admission attempt, "
+            "negative waits without a deadline, zero performs one capacity attempt, "
             "positive values bound the foreground wait"
         ),
     )
@@ -63,7 +66,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--minimum-admitted-workers",
         type=int,
         default=1,
-        help="minimum safe worker count required to leave the foreground wait",
+        help="minimum safe worker count required to leave the launch wait",
     )
     parser.add_argument("--meminfo", default="/proc/meminfo")
     parser.add_argument("--loadavg", default="/proc/loadavg")
@@ -247,6 +250,13 @@ def _load_planned_selection(work_dir: Path) -> tuple[int, str]:
     return workers, digest
 
 
+def _print_plan_wait_event(event: Mapping[str, Any]) -> None:
+    print(
+        json.dumps({"runtime_plan_capacity_wait": dict(event)}, sort_keys=True),
+        flush=True,
+    )
+
+
 def _print_capacity_wait_event(event: Mapping[str, Any]) -> None:
     print(
         json.dumps({"runtime_capacity_wait": dict(event)}, sort_keys=True),
@@ -270,15 +280,29 @@ def main(argv: list[str] | None = None) -> int:
     proposed_workers: int
     runtime_admission: Mapping[str, Any] | None = None
     capacity_wait: Mapping[str, Any] | None = None
+    plan_capacity_wait: Mapping[str, Any] | None = None
     if args.command == "plan":
-        document = select_runtime(
-            **_runtime_kwargs(
-                args,
-                machine=_discover_machine(args),
-                repo=repo,
-                work_dir=work_dir,
+
+        def plan_once() -> dict[str, Any]:
+            return select_runtime(
+                **_runtime_kwargs(
+                    args,
+                    machine=_discover_machine(args),
+                    repo=repo,
+                    work_dir=work_dir,
+                )
             )
+
+        document = wait_for_runtime_plan(
+            plan_once=plan_once,
+            work_dir=work_dir,
+            wait_timeout_seconds=args.capacity_wait_timeout_seconds,
+            poll_seconds=args.capacity_poll_seconds,
+            on_event=_print_plan_wait_event,
         )
+        plan_capacity_wait = document.get("plan_capacity_wait")
+        if not isinstance(plan_capacity_wait, dict):
+            raise RuntimeResourceError("runtime plan lacks capacity-wait evidence")
         proposed_workers = int(document["selection"]["selected_workers"])
         workers = proposed_workers
         selection_digest = str(document["selection_digest"])
@@ -336,6 +360,7 @@ def main(argv: list[str] | None = None) -> int:
                 "admitted_workers": workers,
                 "selected_workers": workers,
                 "selection_digest": selection_digest,
+                "plan_capacity_wait": plan_capacity_wait,
                 "revalidation": document.get("revalidation"),
                 "runtime_admission": runtime_admission,
                 "capacity_wait": capacity_wait,
