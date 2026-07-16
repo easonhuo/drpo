@@ -53,9 +53,9 @@ Therefore a capacity downshift changes only the number of simultaneously active 
 3. OOM classification must use explicit structured OOM evidence or exact OOM phrases. Substrings such as `headroom` must never trigger an OOM classification.
 4. The repository-owned acceptance archive already contains a standard `sha256sum -c` manifest. Server delivery must return that archive directly and must not wrap it in a second package with a non-standard three-column manifest.
 
-## Validation
+## Validation requirement
 
-Exact-head CI on final commit `71f70211b95b4603a39e51d188610357b84af95e` passed in GitHub Actions run `29464310846`:
+Before another server command is issued, the final PR head must pass:
 
 - tiered test-plan shadow;
 - Python compilation;
@@ -65,6 +65,8 @@ Exact-head CI on final commit `71f70211b95b4603a39e51d188610357b84af95e` passed 
 - governance inventory and stage status;
 - full pytest;
 - Ruff.
+
+The exact validated head and workflow run belong in the PR review record rather than this versioned document, avoiding a self-referential commit identity.
 
 Focused regression coverage includes:
 
