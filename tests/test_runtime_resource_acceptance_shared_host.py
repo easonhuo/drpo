@@ -6,6 +6,7 @@ from typing import Any, Mapping
 
 from drpo.runtime_resource_acceptance import StageResult, utc_now
 from drpo.runtime_resource_acceptance_shared_host import (
+    PERMANENT_EXTERNAL_PATTERNS,
     observe_external_workloads,
     shared_host_capacity_contract,
     shared_host_topology_stage,
@@ -14,7 +15,7 @@ from drpo.runtime_resource_acceptance_shared_host import (
 
 def _profile() -> dict[str, Any]:
     return {
-        "conflict_process_patterns": ["ResearchBench", "AIDE", "loky"],
+        "conflict_process_patterns": ["run_e7_", "countdown_e8", "EXT-H-E7", "EXT-C-E8"],
         "resource_pools": {
             "e7_cpu_pool": "0-3",
             "e7_cpu_ids": [0, 1, 2, 3],
@@ -32,12 +33,22 @@ def _result(status: str, details: Mapping[str, Any]) -> StageResult:
     return StageResult("stage0_topology", status, now, now, dict(details))
 
 
+def _write_inventory(root: Path, rows: list[dict[str, Any]]) -> None:
+    directory = root / "stage0_topology"
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / "PROCESS_INVENTORY.json").write_text(
+        json.dumps(rows),
+        encoding="utf-8",
+    )
+
+
 def test_capacity_contract_exposes_hard_caps_without_exclusivity() -> None:
     contract = shared_host_capacity_contract(_profile())
     assert contract["mode"] == "shared_host_dynamic_measured_capacity"
     assert contract["exclusive_cpu_guarantee_required"] is False
     assert contract["exclusive_partition_required"] is False
-    assert contract["external_process_presence_blocks"] is False
+    assert contract["permanent_external_process_presence_blocks"] is False
+    assert contract["competing_drpo_process_presence_blocks"] is True
     assert contract["hard_limits"]["e7_cpu_count"] == 4
     assert contract["hard_limits"]["e7_max_workers"] == 3
     assert contract["hard_limits"]["e8_cpu_count"] == 4
@@ -52,7 +63,7 @@ def test_external_workload_matching_is_observation_only() -> None:
             {"pid": 11, "command": "python -m joblib.externals.loky"},
             {"pid": 12, "command": "python unrelated.py"},
         ],
-        patterns=["ResearchBench", "loky"],
+        patterns=PERMANENT_EXTERNAL_PATTERNS,
         excluded_pids={11},
     )
     assert observation["presence_blocks_stage0"] is False
@@ -60,8 +71,8 @@ def test_external_workload_matching_is_observation_only() -> None:
     assert observation["matches"][0]["pid"] == 10
 
 
-def test_conflict_only_legacy_block_becomes_shared_host_pass(tmp_path: Path) -> None:
-    legacy_match = {
+def test_permanent_external_only_legacy_block_becomes_pass(tmp_path: Path) -> None:
+    external = {
         "pid": 100,
         "command": "python ResearchBench/collector_v2.py",
         "affinity_cpu_ids": list(range(8)),
@@ -73,8 +84,9 @@ def test_conflict_only_legacy_block_becomes_shared_host_pass(tmp_path: Path) -> 
         gpu_worktree: Path,
         profile: Mapping[str, Any],
     ) -> StageResult:
-        del root, repo, gpu_worktree, profile
-        return _result("BLOCKED", {"conflicts": [legacy_match]})
+        del repo, gpu_worktree, profile
+        _write_inventory(root, [external])
+        return _result("BLOCKED", {"conflicts": [external]})
 
     result = shared_host_topology_stage(
         original,
@@ -87,16 +99,45 @@ def test_conflict_only_legacy_block_becomes_shared_host_pass(tmp_path: Path) -> 
     assert result.details["legacy_topology_status"] == "BLOCKED"
     assert result.details["conflicts"] == []
     assert result.details["observed_external_workloads"]["match_count"] == 1
-    assert (
-        result.details["shared_host_capacity_contract"][
-            "external_process_presence_blocks"
-        ]
-        is False
-    )
     audit = json.loads(
         (tmp_path / "stage0_topology" / "OBSERVED_EXTERNAL_WORKLOADS.json").read_text()
     )
     assert audit["matches"][0]["pid"] == 100
+
+
+def test_competing_drpo_process_remains_blocking(tmp_path: Path) -> None:
+    external = {
+        "pid": 100,
+        "command": "python ResearchBench/collector_v2.py",
+        "affinity_cpu_ids": list(range(8)),
+    }
+    competing = {
+        "pid": 101,
+        "command": "python scripts/run_e7_existing.py",
+        "affinity_cpu_ids": [0, 1],
+    }
+
+    def original(
+        root: Path,
+        repo: Path,
+        gpu_worktree: Path,
+        profile: Mapping[str, Any],
+    ) -> StageResult:
+        del repo, gpu_worktree, profile
+        _write_inventory(root, [external, competing])
+        return _result("BLOCKED", {"conflicts": [external, competing]})
+
+    result = shared_host_topology_stage(
+        original,
+        tmp_path,
+        tmp_path / "repo",
+        tmp_path / "gpu",
+        _profile(),
+    )
+    assert result.status == "BLOCKED"
+    assert [row["pid"] for row in result.details["conflicts"]] == [101]
+    assert result.details["observed_external_workloads"]["match_count"] == 1
+    assert result.details["observed_external_workloads"]["matches"][0]["pid"] == 100
 
 
 def test_real_topology_block_is_not_reclassified(tmp_path: Path) -> None:
