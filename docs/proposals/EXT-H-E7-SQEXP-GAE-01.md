@@ -3,14 +3,17 @@
 ## Status
 
 - Experiment class: code-first development pilot.
-- Current result status: **prepare blocked twice; no actor branch started**.
-- Formal branch count started: **0**.
-- Retired single-use RunSpec: `E7_SQEXP_GAE_PILOT_20260716_01`.
-- Corrected rerun RunSpec: `E7_SQEXP_GAE_PILOT_20260716_02`.
-- Corrected default work directory: `outputs/e7/sqexp_gae_002`.
+- Current result status: **prepare complete; actor execution blocked at argument parsing**.
+- Prepared dataset-seed pairs: **12/12 complete**.
+- Branches reaching actor update 1: **0/192**.
+- Retired single-use RunSpecs:
+  - `E7_SQEXP_GAE_PILOT_20260716_01`
+  - `E7_SQEXP_GAE_PILOT_20260716_02`
+- Next rerun RunSpec: `E7_SQEXP_GAE_PILOT_20260716_03`.
+- Reusable work directory: `outputs/e7/sqexp_gae_002`.
 - This document is an implementation scope record, not an authoritative registry or handoff update. Authoritative registration remains subject to the code-first pilot-registration fastpath after the implementation SHA is frozen.
 
-### Prepare-stage incident record
+### Incident record
 
 The first local preparation attempt exposed an adapter mismatch: the shared canonical RunSpec carries `--variant {variant}` plus `injected_template_values.variant=iqlv_exp_rank`, while the initial GAE adapter accepted only a literal `--variant iqlv_exp_rank`. The corrected adapter now resolves exactly that canonical placeholder in-repository, accepts the matching literal form, and fails closed on missing, conflicting, or different variants.
 
@@ -20,7 +23,9 @@ The second attempt exposed a mixed-precision validation error. The NumPy impleme
 2. verifies that the stored GAE remains float32 and is exactly the float32 cast of the NumPy reference;
 3. records float32 storage quantization separately instead of treating it as an algorithm mismatch.
 
-Neither correction changes the frozen matrix, GAE recurrence, boundary semantics, critic training budget, actor horizon, seeds, taper coefficients, or A2C/PPO objectives.
+The third attempt completed all 12 preparation pairs and entered the 192-branch run stage, but every sampled branch failed before actor update 1 because the shared canonical trainer template includes `--eval_max_steps 1000` while the GAE-specific trainer parser does not expose that canonical-only flag. The GAE adapter now validates that any source `--eval_max_steps` value is exactly `1000` and removes the pair before constructing GAE trainer arguments. Missing flags remain compatible because the canonical evaluation helper itself is fixed at 1000 steps; malformed, duplicated, or non-1000 values fail closed.
+
+None of these corrections changes the frozen matrix, GAE recurrence, boundary semantics, critic training budget, actor horizon, evaluation horizon, seeds, taper coefficients, or A2C/PPO objectives.
 
 ## Claim
 
@@ -48,6 +53,7 @@ This is an external-validity pilot. It does not replace C-U1/D-U1 controlled mec
   - squared-remoteness EXP `c=128`
   - squared-remoteness EXP `c=256`
 - Actor horizon: fixed `1,000,000` updates.
+- Evaluation horizon: fixed `1,000` environment steps per episode.
 - Total branches: `3 datasets × 4 seeds × 2 advantage modes × 2 actor modes × 4 controls = 192`.
 
 The coefficient shortlist intentionally contains several previously strong high-`c` settings. No single `c` is selected before this pilot, and no per-dataset post-hoc selection is allowed.
@@ -107,6 +113,9 @@ The implementation includes the following required regressions:
 - terminal/timeout overlap fails closed;
 - the real canonical `{variant}` RunSpec template resolves only to `iqlv_exp_rank`;
 - conflicting, missing, or different variant bindings fail closed;
+- canonical `--eval_max_steps 1000` is validated and removed before GAE trainer parsing;
+- malformed, duplicated, or non-1000 evaluation-horizon flags fail closed;
+- the materialized GAE trainer argument vector parses successfully end to end;
 - NumPy-float64 and Torch-float64 GAE implementations agree to `1e-6`;
 - the stored actor advantage remains float32 and exactly matches the float32 cast of the NumPy reference;
 - float32 storage quantization is recorded separately from implementation parity;
