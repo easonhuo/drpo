@@ -79,3 +79,36 @@ Probe payloads live below `_runtime_resource_probe/`; generated trainer/checkpoi
 - task degradation is not relabeled as NaN/Inf failure;
 - absence of a registered support/variance boundary instrument is reported as unavailable;
 - 500k is a screening endpoint, not convergence.
+
+## Deferred-capacity launch correction
+
+The shared-host engineering acceptance on harness commit
+`5a146292ff65011559470fe999e038c119f3b083` was correctly `BLOCKED` when the
+E7 pool was already using about `189/192` logical CPUs and launch-time admission
+was zero. That package showed no OOM, NaN/Inf, orphan process, affinity escape, or
+checkout mutation. Repeating the complete hardware acceptance is therefore not a
+prerequisite for starting this development pilot.
+
+The automatic launchers now wait in the foreground when current measured capacity
+is below the practical launch floor. They periodically refresh CPU/RAM evidence and
+start the unchanged 186-branch matrix only after a safe admitted worker count is
+available. They never force a positive worker count when admission is zero.
+
+The immutable planned ceiling remains in `RUNTIME_SELECTION.json`,
+`EXECUTION_PLAN.json`, and `RUN_IDENTITY.json`. The attempt-local admitted count only
+sets the executor width. Resume may use a different safe admitted width without
+changing branch identity or scientific coordinates.
+
+Default operator controls are:
+
+```text
+E7_PPO_W0_CAPACITY_WAIT_TIMEOUT_SECONDS=-1
+E7_PPO_W0_CAPACITY_POLL_SECONDS=300
+E7_PPO_W0_MINIMUM_ADMITTED_WORKERS=<defaults to fallback worker count>
+```
+
+A negative timeout waits without an automatic deadline in the foreground. Zero
+restores one-shot admission. A positive value bounds the wait in seconds. Every
+attempt is preserved in `RUNTIME_CAPACITY_WAIT.json`,
+`RUNTIME_CAPACITY_WAIT.jsonl`, and the attempt-local revalidation/admission files.
+Identity, checkout, binding, and other non-capacity failures remain immediately fatal.
