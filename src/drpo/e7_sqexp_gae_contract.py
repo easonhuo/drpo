@@ -12,6 +12,7 @@ from typing import Any, Mapping, Sequence
 from drpo import e7_canonical_sweep as base
 from drpo import e7_w0_highc_actor as predecessor
 from drpo.e7_canonical_injection import CanonicalContract, sha256_file
+from drpo.e7_sqexp_gae_trainer import build_parser as build_gae_trainer_parser
 from drpo.e7_squared_exp_kernel import FORMULA
 
 
@@ -91,6 +92,22 @@ def _consume_optional_exact_int_flag(
     _require_int_flag(argv, flag, expected)
     index = positions[0]
     del argv[index : index + 2]
+
+
+def _validate_gae_trainer_flag_interface(argv: list[str]) -> None:
+    parser = build_gae_trainer_parser()
+    supported = {
+        option
+        for action in parser._actions  # noqa: SLF001
+        for option in action.option_strings
+    }
+    source_flags = {token for token in argv if token.startswith("--")}
+    unsupported = sorted(source_flags - supported)
+    if unsupported:
+        raise ValueError(
+            "source trainer template contains unsupported GAE flags: "
+            + ", ".join(unsupported)
+        )
 
 
 def _require_exact_mapping(
@@ -280,6 +297,7 @@ def load_run_spec(path: str | Path) -> tuple[dict[str, Any], str]:
     _require_int_flag(argv, "--steps", 1_000_000)
     argv[argv.index("--seed") + 1] = "{seed}"
     argv[argv.index("--steps") + 1] = "{steps}"
+    _validate_gae_trainer_flag_interface(argv)
     run_spec["trainer_argv_template"] = argv
     run_spec["injected_template_values"] = {
         key: value for key, value in injected_values.items() if key != "variant"
