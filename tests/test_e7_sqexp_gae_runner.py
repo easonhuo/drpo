@@ -85,6 +85,11 @@ def test_terminal_audit_checks_critic_and_estimator_matrix(tmp_path: Path) -> No
             }
         )
     )
+    aggregate_dir = tmp_path / "aggregate"
+    aggregate_dir.mkdir()
+    (aggregate_dir / "gae_vs_td_summary.json").write_text(
+        json.dumps({"status": "PASS", "paired_cells": EXPECTED_BRANCHES // 2})
+    )
     audit = terminal_audit(tmp_path)
     assert audit["status"] == "PASS"
     assert audit["held_out_seeds_touched"] is False
