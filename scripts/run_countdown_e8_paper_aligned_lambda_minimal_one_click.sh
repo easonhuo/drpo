@@ -25,12 +25,21 @@ COMMON_ARGS=(
 )
 
 python "${AUTO}" plan "${COMMON_ARGS[@]}"
-FIRST_GPU="$(python - "${WORK_DIR}/RUNTIME_SELECTION.json" <<'PY'
-import json, sys
-payload = json.load(open(sys.argv[1], encoding='utf-8'))
-print(payload['selection']['selected_device_ids'][0])
+SELECTED_GPUS="$(python - "${WORK_DIR}/RUNTIME_SELECTION.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    payload = json.load(handle)
+print(",".join(str(value) for value in payload["selection"]["selected_device_ids"]))
 PY
 )"
+IFS=',' read -r -a GPU_ARRAY <<< "${SELECTED_GPUS}"
+if [[ "${#GPU_ARRAY[@]}" -ne 8 ]]; then
+  echo "Expected all 8 canonical E8 GPUs, selected ${#GPU_ARRAY[@]}: ${SELECTED_GPUS}" >&2
+  exit 2
+fi
+FIRST_GPU="${GPU_ARRAY[0]}"
 CUDA_VISIBLE_DEVICES="${FIRST_GPU}" LOCAL_RANK=0 \
   python "${CALIBRATE}" \
     --model_path "${MODEL_PATH}" \
