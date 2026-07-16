@@ -4,7 +4,8 @@
 **Authorization:** explicit user approval on 2026-07-16  
 **Applies from:** Stage 4  
 **Stage-3 checkpoint:** `644a36169a89522ed6fcff88889686b2df73a342`  
-**Stage-4 implementation checkpoint:** `f0d7ceee103970bd2c12b0a32b7de3b457a47378`
+**Stage-4 implementation checkpoint:** `f0d7ceee103970bd2c12b0a32b7de3b457a47378`  
+**Stage-4 final documentation checkpoint:** `46fefb0a2eb6bf57e7dd66b820b0d79e0c964c51`
 
 ## Non-destructive supersession
 
