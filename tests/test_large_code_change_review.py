@@ -1,9 +1,11 @@
 import importlib.util
 import json
 import subprocess
+import sys
 from pathlib import Path
 
 MODULE = Path(__file__).resolve().parents[1] / "scripts/validate_large_code_change_review.py"
+sys.path.insert(0, str(MODULE.parent))
 SPEC = importlib.util.spec_from_file_location("large_review", MODULE)
 review = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(review)
