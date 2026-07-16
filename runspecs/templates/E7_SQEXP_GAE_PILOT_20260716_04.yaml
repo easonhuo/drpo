@@ -4,7 +4,7 @@ lane: e7
 priority: 125
 created_at: '2026-07-16T14:00:00Z'
 experiment_id: EXT-H-E7-SQEXP-GAE-01
-repo_commit: aaae2cfd6050fb48228e4779d1c75ddc13714dcb
+repo_commit: 73c89ddf5be4513388c3d6382e57e167c3ece273
 
 provenance:
   commit_policy: protected_paths_unchanged
@@ -15,6 +15,7 @@ provenance:
     - src/drpo/e7_sqexp_gae_protocol.py
     - src/drpo/e7_sqexp_gae_matrix.py
     - src/drpo/e7_sqexp_gae_minimal.py
+    - src/drpo/e7_sqexp_gae_aggregate.py
     - src/drpo/e7_sqexp_gae_audit.py
     - src/drpo/e7_sqexp_gae.py
     - scripts/run_e7_sqexp_gae_one_click.sh
@@ -37,6 +38,7 @@ policy:
   forbid_new_launcher: true
   forbid_hparam_change: true
   forbid_cross_lane: true
+  scientific_aggregation_allowed: true
   formal_evidence_allowed: false
 
 outputs:
@@ -52,6 +54,8 @@ success_criteria:
   - every GAE branch recomputes trajectory GAE from one-step TD and ordered terminal/timeout boundaries
   - recomputed GAE agrees with the preserved prepared artifact within the registered tolerance
   - every actor branch loads the preserved shared critic and records identical initial and final critic state hashes
+  - aggregate/gae_vs_td.csv contains exactly 96 paired GAE-minus-TD cells without failed-cell imputation
+  - aggregate/gae_vs_td_summary.csv contains the 24 dataset-actor-control paired-seed groups
   - canonical trainer, actor optimizer, minibatch sampling, evaluation, checkpoints, geometry diagnostics, and PPO diagnostics remain reused
   - held-out seeds 204 through 207 remain untouched
   - task-performance collapse, support or variance boundary events, and NaN/Inf numerical collapse are reported separately
@@ -64,6 +68,8 @@ artifacts:
     - outputs/e7/sqexp_gae_003/RUN_IDENTITY.json
     - outputs/e7/sqexp_gae_003/RUN_SUMMARY.json
     - outputs/e7/sqexp_gae_003/TERMINAL_AUDIT.json
+    - outputs/e7/sqexp_gae_003/aggregate/*.json
+    - outputs/e7/sqexp_gae_003/aggregate/*.csv
     - outputs/e7/sqexp_gae_003/branches/*/BRANCH_IDENTITY.json
     - outputs/e7/sqexp_gae_003/branches/*/LAUNCH.json
     - outputs/e7/sqexp_gae_003/branches/*/COMPLETED.json
