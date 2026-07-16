@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import shutil
 import sys
 from pathlib import Path
 from typing import Any, Sequence
@@ -235,6 +236,63 @@ def _work_dir_from_run(argv: list[str]) -> str | None:
     return argv[index + 1]
 
 
+def _archive_stale_run_failure(work_dir: Path) -> Path | None:
+    summary_path = work_dir / "RUN_SUMMARY.json"
+    if not summary_path.is_file():
+        return None
+    summary = json.loads(summary_path.read_text())
+    if int(summary.get("failed", 0)) <= 0:
+        return None
+
+    archive_root = work_dir / "failed_run_attempts"
+    attempt = 1
+    while (archive_root / f"attempt-{attempt:03d}").exists():
+        attempt += 1
+    archive_dir = archive_root / f"attempt-{attempt:03d}"
+    archive_dir.mkdir(parents=True)
+
+    copied: dict[str, str] = {}
+    for name in ("PREPARE_SUMMARY.json", "EXECUTION_PLAN.json", "RUN_IDENTITY.json"):
+        source = work_dir / name
+        if not source.exists():
+            continue
+        if source.is_symlink() or not source.is_file():
+            raise RuntimeError(f"unsafe failed-run evidence path: {source}")
+        destination = archive_dir / name
+        shutil.copy2(source, destination)
+        copied[name] = sha256_file(destination)
+
+    summary_destination = archive_dir / "RUN_SUMMARY.json"
+    if summary_path.is_symlink():
+        raise RuntimeError(f"unsafe failed-run summary path: {summary_path}")
+    summary_path.replace(summary_destination)
+    copied["RUN_SUMMARY.json"] = sha256_file(summary_destination)
+
+    aggregate_dir = work_dir / "aggregate"
+    if aggregate_dir.exists():
+        if aggregate_dir.is_symlink() or not aggregate_dir.is_dir():
+            raise RuntimeError(f"unsafe failed-run aggregate path: {aggregate_dir}")
+        aggregate_destination = archive_dir / "aggregate"
+        aggregate_dir.replace(aggregate_destination)
+        for path in sorted(aggregate_destination.rglob("*")):
+            if path.is_symlink():
+                raise RuntimeError(f"unsafe archived aggregate path: {path}")
+            if path.is_file():
+                relative = path.relative_to(archive_dir).as_posix()
+                copied[relative] = sha256_file(path)
+
+    atomic_write_json(
+        archive_dir / "ARCHIVE_MANIFEST.json",
+        {
+            "experiment_id": EXPERIMENT_ID,
+            "reason": "preserve_failed_run_evidence_before_resume",
+            "attempt_index": attempt,
+            "files_sha256": copied,
+        },
+    )
+    return archive_dir
+
+
 def main(argv: list[str] | None = None) -> int:
     delegated = list(sys.argv[1:] if argv is None else argv)
     if delegated and delegated[0] == "prepare":
@@ -259,6 +317,8 @@ def main(argv: list[str] | None = None) -> int:
     base.branch_command = protocol.branch_command
     base.write_plan = _write_plan_with_prepared_gate
     work_dir = _work_dir_from_run(delegated)
+    if work_dir is not None:
+        _archive_stale_run_failure(Path(work_dir).expanduser().resolve())
     try:
         try:
             result = int(base.main(delegated))
