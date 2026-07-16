@@ -126,6 +126,18 @@ def test_protected_hash_mismatches_are_detected(key: str) -> None:
     assert "B.output_hashes" in report.mismatches
 
 
+def test_changed_path_set_mismatch_is_detected() -> None:
+    case = manifest()
+    changed = replace(
+        ready(case),
+        changed_paths=("docs/example.md", "docs/extra.md"),
+        file_modes=(("docs/example.md", "100644"), ("docs/extra.md", "100644")),
+    )
+    report = compare_outcomes(case, ready(case), changed)
+    assert not report.equivalent
+    assert "B.changed_paths" in report.mismatches
+
+
 def test_terminal_state_mismatch_is_detected() -> None:
     case = manifest()
     gate = case.benchmark["required_gates"][0]
@@ -201,6 +213,14 @@ def failure(case: CaseManifest) -> OutcomeSnapshot:
 def test_equivalent_fail_closed_outcomes_pass() -> None:
     case = failure_manifest()
     assert compare_outcomes(case, failure(case), failure(case)).equivalent
+
+
+def test_failure_safety_boundary_mismatch_is_detected() -> None:
+    case = failure_manifest()
+    bad = replace(failure(case), safety_boundary="wrong_boundary")
+    report = compare_outcomes(case, failure(case), bad)
+    assert not report.equivalent
+    assert "B.safety_boundary" in report.mismatches
 
 
 def test_failure_partial_mutation_and_recovery_mismatch_are_detected() -> None:
