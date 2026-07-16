@@ -20,6 +20,23 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Export temporary exact source and Git bundle for E8 package verification
+        if: github.event.pull_request.head.ref == 'automation/e8-package-base-export-20260716'
+        run: |
+          git archive --format=tar.gz --output=current-branch-source.tar.gz HEAD
+          git bundle create current-branch.bundle --all
+
+      - name: Upload temporary E8 package base export
+        if: github.event.pull_request.head.ref == 'automation/e8-package-base-export-20260716'
+        uses: actions/upload-artifact@v4
+        with:
+          name: e8-paper-aligned-package-base-export-20260716
+          path: |
+            current-branch-source.tar.gz
+            current-branch.bundle
+          if-no-files-found: error
+          retention-days: 1
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -82,20 +99,3 @@ jobs:
       - name: Ruff
         continue-on-error: true
         run: ruff check .
-
-      - name: Export temporary exact source and Git bundle for E8 package verification
-        if: github.event.pull_request.head.ref == 'automation/e8-package-base-export-20260716'
-        run: |
-          git archive --format=tar.gz --output=current-branch-source.tar.gz HEAD
-          git bundle create current-branch.bundle --all
-
-      - name: Upload temporary E8 package base export
-        if: github.event.pull_request.head.ref == 'automation/e8-package-base-export-20260716'
-        uses: actions/upload-artifact@v4
-        with:
-          name: e8-paper-aligned-package-base-export-20260716
-          path: |
-            current-branch-source.tar.gz
-            current-branch.bundle
-          if-no-files-found: error
-          retention-days: 1
