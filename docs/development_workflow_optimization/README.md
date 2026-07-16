@@ -4,224 +4,322 @@
 **Status:** documentation and validation design only; no optimizer implementation is authorized  
 **Repository base:** `main@7d0ecfbee3b9e44bbad97fb806c8806b604f75f6`
 
-## 1. Purpose and authority boundary
+## 1. Purpose
 
-This directory is the durable project hub for improving the DRPO repository-development and scientific-pilot integration workflow. It records the problem history, existing mechanisms, proposed optimizations, validation method, decisions, and rollback criteria so that a later session can recover the full reasoning without relying on chat history.
+This directory is the durable project hub for improving the DRPO repository-development and scientific-pilot integration workflow. It records:
 
-This document is subordinate to `AGENTS.md`, `docs/handoff.md`, `experiments/registry.yaml`, and the accepted component contracts. It is not a second research master and does not change any scientific experiment, result, seed, threshold, horizon, or execution priority.
+- the problems that motivated each workflow mechanism;
+- what the existing mechanisms already solve;
+- remaining failure and friction classes;
+- proposed optimizations and rejected alternatives;
+- historical and controlled timing evidence;
+- validation, adoption, rollback, and stop conditions;
+- the current authorized next step.
 
-Any future session working on development-workflow optimization must read:
+A later session must be able to recover the full engineering context from repository documents rather than chat history.
+
+## 2. Authority and reading order
+
+This project document is subordinate to:
+
+1. `AGENTS.md` for repository-wide operating rules;
+2. `docs/handoff.md` for the unique research master and scientific execution order;
+3. `experiments/registry.yaml` for experiment registration state;
+4. the accepted contracts of each workflow component.
+
+It is not a second research master. It does not alter experiments, scientific claims, seeds, thresholds, budgets, horizons, result statuses, or priorities.
+
+A future session working on workflow optimization must read, in order:
 
 1. this document;
 2. `REPLAY_BENCHMARK_PROTOCOL.md`;
-3. the relevant existing component contract;
-4. the applicable incident records under `docs/development_workflow_incidents/`.
+3. the current scope for the active optimization iteration;
+4. the relevant component contracts;
+5. related incident and transition records.
 
-## 2. Problem statement
+## 3. Optimization objective
 
-The repository already contains multiple correct and useful mechanisms, but repeated workflow improvements risk becoming a patch stack: each local problem produces another rule, script, gate, temporary workflow, or recovery convention. A locally reasonable feature can still be globally poor when its maintenance cost exceeds the time or risk it removes.
-
-The optimization objective is therefore not maximal automation. It is:
+The objective is not maximal automation or maximal gate coverage. It is:
 
 > Reduce end-to-end human and model effort while preserving or improving every existing correctness, provenance, authority, and scientific-safety guarantee.
 
-A workflow change is valuable only when measured benefit clearly exceeds implementation and maintenance cost.
+A workflow feature is valuable only when the recurring loss it removes materially exceeds its implementation and maintenance cost.
 
-## 3. Existing components and the problems they solve
+The project therefore distinguishes four quantities:
 
-### 3.1 Existing safety and correctness kernel
+- **risk avoided:** invalid runs, incorrect authority changes, provenance loss, or false scientific claims prevented;
+- **time saved:** controlled wall time and active operation time reduced;
+- **complexity added:** production code, tests, dependencies, state, routing, and maintenance burden;
+- **coverage:** the task and failure classes for which the feature actually helps.
+
+No optimization may be justified by architectural elegance alone.
+
+## 4. Why this project exists
+
+The repository contains several individually useful mechanisms, but repeated local fixes can become a patch stack: a new rule, script, gate, temporary workflow, or recovery convention is added for each incident. A locally correct feature can still make the global system slower and harder to maintain.
+
+The recurring concern is not that every existing mechanism is useless. The concern is that the project previously lacked a common method for answering:
+
+- Which real problems did this mechanism prevent?
+- How often did those problems occur?
+- How much time or compute did it save?
+- Did it make any task materially slower?
+- Is its maintenance cost lower than its benefit?
+- Should it remain universal, become selective, or be removed?
+
+Historical paired replay is introduced as the common validation framework for those questions.
+
+## 5. Development history
+
+This chronology preserves the reason for each major mechanism. Detailed incidents remain in their original records.
+
+### 5.1 V1 dev-branch integration transaction
+
+The accepted V1 transaction established one auditable path from a reviewed dev snapshot to a local `READY` candidate:
+
+```text
+plan → prepare → normalize → gate → finalize → READY
+```
+
+It owns source locking, scope/provenance audit, isolated candidate construction, handoff authority invocation, required gates, freshness checks, diagnostics, and terminal transaction state. It intentionally excludes automatic push, PR creation, approval, and merge.
+
+This solved correctness and authority problems, but it left multiple operator-facing commands and intermediate-file placement steps.
+
+### 5.2 Pilot-registration fastpath
+
+The July 14 pilot-registration merge incident showed that manually assembling registration inputs and repeatedly reconstructing candidates created avoidable friction. The fastpath adapter was added to compile one reviewer-authored `DEV_PILOT_REGISTRATION_SPEC.yaml` into deterministic `PREPARED_INPUTS` while reusing V1 rather than creating a second integration engine.
+
+The adapter merged through PR #62 and was activated as the default preparation route through PR #84. Activation did not change V1, scientific state, CI defaults, publication behavior, or merge authority.
+
+### 5.3 First real safety observation
+
+During the E7 frozen-critic trajectory-GAE pilot, real-data preparation stopped before any of 192 actor branches started and exposed two integration defects:
+
+- canonical RunSpec placeholder handling;
+- a mixed-precision validation mismatch between float32 storage and float64 reference computation.
+
+No held-out seeds were accessed and no scientific result was claimed. This is real evidence that preflight and fail-closed checks can avoid expensive invalid execution. It does not prove that the overall workflow is faster.
+
+### 5.4 Remaining adoption and composition friction
+
+Recent E7/E8 work continued to use temporary source-export or importer paths, stale or rebuilt candidates, and manual stage coordination. In one E8 chain:
+
+- PR #94 was a temporary source export;
+- PR #95 closed without an effective change;
+- PR #96 produced the final candidate;
+- PR #97 later removed a duplicated execution stack from that candidate; no experiment had run from the removed stack.
+
+This sequence must not be attributed to one cause without replay evidence. It does demonstrate that final success can conceal substantial intermediate work and that duplicate implementation is a real maintenance risk.
+
+## 6. Initial historical timing snapshot
+
+GitHub timestamps provide historical operational context even where local stage reports are missing.
+
+| Historical item | Observed PR window |
+|---|---:|
+| PR #84 — fastpath activation | 34 min 23 sec |
+| PR #86 — E7 result-evidence closure | 27 min 33 sec |
+| PR #93 — evidence-locator contract | 39 min 15 sec |
+| PR #96 — final E8 paper-aligned candidate | 36 min 42 sec |
+| PR #94 → final merge of PR #96 | 2 hr 08 min 03 sec |
+
+The last row includes temporary export, an empty/closed PR, rebuild, CI, review, and other real operational delays. It is not a controlled baseline and must not be directly compared with a clean replay run.
+
+Historical time answers, “How difficult was the real past workflow?” Controlled paired replay answers, “How much does the candidate optimization itself change time?” Both are reported, but never merged into one estimate.
+
+## 7. Existing component ownership
 
 The following components remain independent owners of their current responsibilities:
 
-- **Connected GitHub development route:** branch, Draft PR, exact-head CI, review, and explicit user approval before merge.
-- **Code-first pilot-registration fastpath:** compiles one reviewer-authored `DEV_PILOT_REGISTRATION_SPEC.yaml` into deterministic `PREPARED_INPUTS`.
-- **V1 dev-branch integration transaction:** owns `plan → prepare → normalize → gate → finalize → local READY`.
-- **Handoff authority:** owns schema-v3 delta normalization and materialization of `docs/handoff.md`, registry changes, and generated views.
-- **RunSpec/lane runner:** owns registered execution identity and supervised experiment launch.
-- **Results-repository delivery and evidence locator:** own durable result delivery and immutable result discovery.
+| Component | Sole responsibility relevant here |
+|---|---|
+| Connected GitHub route | dev branch, Draft PR, exact-head CI, review, explicit approval, publication |
+| Pilot-registration fastpath | reviewer spec → deterministic `PREPARED_INPUTS` |
+| V1 transaction | reviewed snapshot → local `READY` transaction state |
+| Handoff authority | schema-v3 delta normalization and materialized handoff/registry state |
+| RunSpec/lane runner | registered execution identity and supervised launch |
+| Results delivery | durable append-only result transport |
+| Evidence locator | immutable discovery of delivered result evidence |
 
-These components answer whether a candidate is correctly specified, provenance-bound, authorized, gated, and safe to publish. A later orchestration layer must call them rather than reimplement them.
+A future optimization may coordinate these owners. It may not duplicate or replace their domain logic.
 
-### 3.2 Proven value already observed
+## 8. What existing mechanisms solve
 
-The current safety kernel has demonstrated real value. In the E7 frozen-critic trajectory-GAE pilot, real-data preparation stopped before any of 192 actor branches started and exposed two integration defects: canonical RunSpec placeholder handling and a mixed-precision validation mismatch. No held-out seeds were accessed and no scientific result was claimed.
+The existing safety and correctness kernel addresses:
 
-This is evidence that preflight and fail-closed gates can prevent expensive invalid execution. It is not yet evidence that the overall workflow is faster or easier.
+- exact source and implementation identity;
+- reviewer and approval binding;
+- changed-path and provenance scope;
+- stale main/dev references;
+- deterministic registration input preparation;
+- authoritative handoff and registry materialization;
+- required local and GitHub gates;
+- fail-closed transaction state;
+- durable execution and result identity.
 
-### 3.3 Problems not yet solved
+Its continuing value must be monitored independently by recording real defects detected, stage, severity, avoided cost, and false positives.
 
-Recent E7/E8 work still shows some of the following:
+## 9. Problems not yet solved
 
-- manual transfer of adapter outputs into V1 inputs;
+The current evidence indicates unresolved coordination and adoption problems:
+
+- manual transfer of prepared overlay and registration inputs;
 - multiple commands and stage-specific recovery knowledge;
 - temporary source-export or importer workflows;
 - empty, stale, or rebuilt PRs;
 - long-lived development branches used as final integration candidates;
-- incomplete machine evidence showing whether the default fastpath was actually used;
-- pre-run registration and post-run closure remaining operationally disconnected;
-- no reliable measurement of time saved by workflow changes.
+- incomplete proof that the default fastpath was actually used;
+- operational separation between pre-run registration and post-run closure;
+- no established measurement of time saved by workflow changes.
 
-These are coordination and adoption problems. They must not be confused with scientific-code bugs, missing data, GPU failures, numerical collapse, or method underperformance.
+These must remain separate from:
 
-## 4. Root-cause model
+- scientific-design or implementation bugs;
+- missing models, data, credentials, or dependencies;
+- GPU, CPU, memory, or network failures;
+- task-performance collapse;
+- support or variance-boundary events;
+- NaN/Inf numerical failure;
+- weak method performance.
 
-The main architectural hypothesis is:
+A coordination layer cannot be credited for problems outside its declared coverage.
 
-> The repository has the required domain components, but lacks one low-friction executable composition path across their boundaries.
+## 10. Current architectural hypothesis
 
-The fastpath produces deterministic inputs. V1 produces a local `READY` candidate. Today, an operator or coding agent must understand and manually connect their intermediate layouts, command order, retry rules, and branch-promotion conventions. This makes the safe path harder to use than ad hoc alternatives.
+The working hypothesis is:
 
-The proposed remedy is not another authority or state machine. A possible thin orchestration layer would only:
+> The required domain components exist, but the safe path lacks one low-friction executable composition entry point across their boundaries.
+
+A possible thin orchestration layer would only:
 
 - invoke existing commands in the accepted order;
-- place already generated deterministic inputs at the required locations;
-- use existing transaction states to continue, stop, or require a new attempt;
+- place already generated deterministic inputs at required locations;
+- read existing transaction states to continue, stop, or require a new attempt;
 - maintain one persistent workspace per case;
-- derive a compact status and timing summary from existing records.
+- derive a rebuildable status and timing summary from existing records.
 
-Whether this hypothesis is correct must be established by historical replay before any implementation is adopted.
+It would not:
 
-## 5. Optimization policy: evidence before code
+- own scientific design;
+- create a second authority or transaction state machine;
+- change registry or handoff semantics;
+- select scientific variables;
+- schedule experiments or GPUs;
+- weaken gates;
+- push, create PRs, approve, or merge.
 
-No workflow optimization may become a repository default merely because it appears architecturally cleaner.
+This remains a hypothesis, not an authorized implementation or predetermined solution.
 
-Before implementation:
+## 11. Evidence-before-code policy
+
+Before any workflow optimizer is implemented:
 
 1. identify repeated incidents or measurable loss;
-2. define the affected task classes;
-3. select representative historical replay cases;
+2. define affected and unaffected task classes;
+3. freeze a representative historical case inventory;
 4. freeze correctness and efficiency acceptance criteria;
-5. set a production-code and maintenance budget;
-6. define rollback and stop conditions.
+5. freeze the replay toolchain and environment policy;
+6. set production-code and maintenance budgets;
+7. define rollback and stop conditions.
 
-After a disposable prototype exists, compare it with the current accepted path under the paired replay protocol. The prototype may enter `main` only when it demonstrates correctness equivalence, per-case non-regression, meaningful aggregate time reduction, and bounded complexity.
+The implementation starts as a disposable prototype on an isolated dev branch. It may enter `main` only after passing the paired replay protocol.
 
-## 6. Historical replay as the default validation framework
+## 12. Historical replay validation
 
-Workflow optimization is treated as an engineering experiment.
+Each case freezes:
 
-For each historical case, freeze:
-
-- historical `main` base;
+- historical task base and source artifacts;
 - frozen implementation identity;
-- reviewer-approved input/specification;
-- expected changed paths and final semantic state;
-- existing gates;
-- replay environment and cache policy.
+- one shared reviewer-approved input/specification;
+- expected paths and semantic outcome;
+- the benchmark toolchain used by both A and B;
+- required gates;
+- environment and cache policy.
 
-Run two paths:
+The two arms are:
 
-- **A — accepted baseline:** current documented manual/component path;
-- **B — candidate optimization:** proposed wrapper, orchestrator, or other optimization while calling the same owners and gates.
+- **A — accepted baseline:** the existing component path;
+- **B — candidate optimization:** the proposed wrapper, orchestrator, or other change while calling the same components.
 
-A and B must produce equivalent repository and authority outcomes. The candidate is evaluated on paired elapsed time, active operation time, command count, file-transfer count, retries, temporary artifacts, and failure recovery.
+The candidate must first produce equivalent repository, authority, provenance, and gate outcomes. Only then is time compared.
 
-The detailed procedure is defined in `REPLAY_BENCHMARK_PROTOCOL.md`.
+The detailed protocol is `REPLAY_BENCHMARK_PROTOCOL.md`.
 
-## 7. No-regression rule
+## 13. No-regression and adoption policy
 
-The desired result is that every in-scope case becomes faster. Because wall-clock measurements contain scheduler and filesystem noise, the formal rule is:
+The desired result is that every in-scope case becomes faster. Measurement noise is handled as a tie tolerance, not as an allowed slowdown.
 
-- no case may show a **material regression** greater than `max(60 seconds, 5% of baseline controlled-replay time)`;
-- a result within that tolerance is a tie, not an improvement;
-- every material slowdown must block universal adoption unless the case was explicitly declared out of scope before implementation;
-- post-hoc exclusions are forbidden;
-- correctness, safety, or provenance regression has zero tolerance.
+For universal adoption:
 
-A selective path for only some task classes is allowed only when routing is deterministic, predeclared, and materially simpler than maintaining a universal solution. The default preference is one uniform path with no material per-case regression.
+- correctness, safety, and provenance have zero regression tolerance;
+- no case may show a material time regression greater than `max(60 seconds, 5% of baseline median controlled-replay time)`;
+- median controlled wall time must decrease by at least 30%;
+- mean controlled wall time must also decrease;
+- median active operation time must decrease by at least 30%;
+- explicit command count must decrease by at least 60%;
+- manual intermediate-file copies must be zero;
+- temporary workflows and temporary PRs must be zero for covered cases;
+- implementation must remain within its frozen complexity budget.
 
-## 8. Adoption thresholds
+A narrow task-class route is allowed only when its scope and routing are predeclared, deterministic, and simpler than a universal path. A poorly performing case may not be excluded after results are known.
 
-A candidate workflow optimization may be recommended only when all hard conditions pass:
-
-### Correctness and safety
-
-- all replay cases pass semantic and protected-tree equivalence;
-- no gate is removed, weakened, skipped, or reinterpreted;
-- no scientific variable or result status changes;
-- no failure is misreported as `READY`;
-- no task-specific hard-coded repair is introduced.
-
-### Efficiency
-
-- paired median controlled-replay time decreases by at least 30%;
-- paired mean controlled-replay time also decreases;
-- no in-scope case has a material regression;
-- manual command count decreases by at least 60%;
-- manual copying of intermediate files falls to zero;
-- temporary workflow or temporary PR use falls to zero for covered cases.
-
-### Complexity
+## 14. Complexity limits
 
 For the first orchestration prototype:
 
-- production code target: 250–450 lines;
-- hard review trigger: more than 500 production lines;
+- target production code: 250–450 lines;
+- mandatory redesign review above 500 production lines;
 - no new third-party dependency;
-- no modification of V1 core, handoff authority, registry schema, scientific code, or GitHub merge behavior;
+- no changes to V1 core, handoff authority, registry schema, scientific code, or GitHub merge behavior;
 - no automatic push, PR creation, approval, or merge;
-- no new domain state beyond a derived, rebuildable summary.
+- no new domain state beyond a derived, rebuildable summary;
+- no E7- or E8-specific scientific branches.
 
-Crossing a complexity boundary triggers redesign or cancellation, not silent scope expansion.
+Crossing a boundary triggers redesign or cancellation, not silent scope expansion.
 
-## 9. Measurement vocabulary
+## 15. Bounded iteration model
 
-Reports must distinguish:
+Each optimization is one finite iteration:
 
-- **historical real wall time:** first relevant historical action or PR to final accepted outcome;
-- **controlled replay wall time:** start of A or B replay to terminal replay state in the same environment;
-- **active operation time:** time requiring operator/model actions, excluding unattended machine execution;
-- **machine gate time:** test, normalization, and CI execution time;
-- **time reduction:** `(baseline - candidate) / baseline`;
-- **throughput gain:** `baseline / candidate - 1`.
+1. documentation and threshold freeze;
+2. replay-case inventory;
+3. baseline replay;
+4. disposable prototype;
+5. candidate replay;
+6. independent comparison and decision;
+7. at least three real production observations after adoption;
+8. retain, narrow, redesign, or roll back.
 
-Example: 30 minutes to 15 minutes is a 50% time reduction and a 100% throughput gain.
+A later optimization starts a new iteration. It may reuse the benchmark protocol but must not continuously expand one orchestrator to absorb unrelated responsibilities.
 
-Historical real time and controlled replay time must never be merged into one estimate.
+## 16. Required engineering evidence
 
-## 10. Iteration model
-
-The optimization project proceeds in bounded stages:
-
-1. **Documentation freeze:** problem history, component ownership, replay protocol, thresholds, and stop conditions.
-2. **Replay inventory:** identify 6–10 representative historical tasks and recover available timing/evidence.
-3. **Baseline replay:** execute the accepted path and record paired baselines.
-4. **Disposable prototype:** implement on an isolated dev branch with no default-policy change.
-5. **Candidate replay:** run the same cases under the candidate path.
-6. **Decision:** adopt, narrow, redesign, or discard based on the frozen thresholds.
-7. **Production observation:** if adopted, monitor at least three real tasks and compare with replay estimates.
-
-Each later optimization starts a new bounded iteration. It may reuse the benchmark framework but must not continuously expand one orchestrator to absorb unrelated responsibilities.
-
-## 11. Monitoring the existing system
-
-Existing mechanisms should continue to be evaluated independently of any orchestrator.
-
-For each real use, record when available:
+Each real use of an existing mechanism should record, when available:
 
 - issue detected or blocked;
 - detecting component and stage;
 - severity and avoided cost;
 - false-positive status;
-- whether the safe route was used or bypassed;
+- safe route used or bypassed;
 - manual fallback reason;
 - temporary workflow or PR use;
 - final terminal state.
 
-This answers whether the safety kernel continues to catch valuable defects. A future orchestrator is evaluated separately on whether it makes the correct path faster and easier to use.
+Each benchmark iteration retains its frozen plan, case inventory, environment, baseline and candidate results, paired comparison, review, and decision. These are engineering artifacts and do not enter the scientific experiment registry.
 
-## 12. Current project state
+## 17. Current state and next permitted action
 
 As of the base commit:
 
-- the safety and registration components remain active;
+- the existing safety and registration components remain active;
 - a unified lifecycle orchestrator does not exist;
-- no orchestrator implementation is authorized by this documentation claim;
-- historical GitHub PR, commit, and Actions timing are partially available;
-- historical local V1 stage timing is incomplete and will be supplemented by controlled replay;
-- the next authorized activity after document review is replay-case inventory and baseline design, not production implementation.
+- no orchestration or telemetry implementation is authorized by this claim;
+- historical GitHub PR, commit, and Actions timing are available for many cases;
+- historical local V1 stage timing is incomplete;
+- controlled replay is the approved method for supplementing missing timing;
+- the next permitted activity after document approval is replay-case inventory and baseline planning, not production implementation.
 
-## 13. Related records
+## 18. Related records
 
 - `docs/dev_branch_integration_protocol.md`
 - `docs/dev_pilot_registration_fastpath.md`
@@ -232,6 +330,6 @@ As of the base commit:
 - `docs/scopes/GOV-DEV-PILOT-REGISTRATION-FASTPATH-01.md`
 - `docs/scopes/GOV-DEV-PILOT-REGISTRATION-FASTPATH-ACTIVATION-01.md`
 
-## 14. Update discipline
+## 19. Update discipline
 
-This document is append-preserving. Later decisions should update the current-state and iteration sections while retaining earlier problem statements, rejected alternatives, benchmark results, and rollback records. Do not rewrite history to make a later solution appear inevitable.
+This document is append-preserving. Later decisions must retain earlier problem statements, incidents, benchmark results, rejected alternatives, and rollback records. Do not rewrite history to make a later solution appear inevitable.
