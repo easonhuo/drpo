@@ -1,0 +1,74 @@
+schema_version: 1
+iteration_id: CODE-BLOAT-REPAIR-PILOT-02
+claim: GOV-CODE-CHANGE-BUDGET-02-REPAIR-REPLAY-01
+evidence_class: historical_matched_repair_plus_adversarial_replay
+causal_live_agent_ab: false
+purpose: >-
+  Re-evaluate the code-change-budget gate after replacing the blanket ban on
+  pre-existing test changes with exact fail-closed test-replacement evidence.
+replay_engine:
+  branch: dev/gov-dev-workflow-optimization-benchmark-01
+  prior_checkpoint: 98d93b0be65d28fba6dab21fba02212334f4275c
+candidate_gate:
+  pull_request: 105
+  branch: dev/gov-code-change-budget-02
+  frozen_head: 7826f5d60c83d8a58a11dc526b487cc09078d818
+  exact_head_ci:
+    workflow_run: 29515499237
+    conclusion: success
+matched_case:
+  case_id: CODE-BLOAT-REPAIR-E8-PAPER-ALIGNED-01
+  repository: easonhuo/drpo
+  task_base_sha: 929142930a3e2efaa7cafc8e4afe3866600027a5
+  arm_a:
+    label: historical_initial_overgrown_attempt
+    pull_request: 98
+    head_sha: 8672e173eb8ac52b9ec973415d17d887b2fba479
+  arm_b:
+    label: historical_smaller_repair
+    pull_request: 101
+    head_sha: f957e7f63c376e328e3d677cb143d526f6937c51
+  task_contract:
+    required_scientific_delta: replace alpha*exp(-c*u**2) with alpha*exp(-c*u)
+    preserve_existing_lineage: true
+    preserve_runtime_launcher_scheduler: true
+    required_matrix: Positive-only plus fifteen alpha=1 points on seed offsets 4000 and 5000
+replay_cases:
+  - id: historical_arm_a_copy_heavy
+    expected: FAIL
+  - id: historical_arm_b_exact_test_supersession
+    expected: PASS
+    old_test_nodes_replaced: 6
+  - id: valid_additive_change
+    expected: PASS
+  - id: legitimate_same_name_test_update
+    expected: PASS
+  - id: legitimate_renamed_test_replacement
+    expected: PASS
+  - id: missing_review_record
+    expected: FAIL
+  - id: removed_public_symbol
+    expected: FAIL
+  - id: invented_reuse_symbol
+    expected: FAIL
+  - id: trivial_assertion_replacement
+    expected: FAIL
+  - id: missing_exact_replacement_evidence
+    expected: FAIL
+  - id: unchanged_test_reused_as_replacement
+    expected: FAIL
+  - id: copied_parallel_implementation
+    expected: FAIL
+  - id: missing_declared_test
+    expected: FAIL
+  - id: reduced_executable_check_count
+    expected: FAIL
+  - id: replacement_not_bound_to_core_requirement
+    expected: FAIL
+  - id: small_one_line_path
+    expected: PASS_AUTOMATIC
+limitations:
+  - This remains a historical matched observation plus deterministic replay, not a randomized same-model live A/B experiment.
+  - The historical Arm-B replay reconstructs the exact old and new test ASTs and an exact replacement-evidence record; it does not rerun the historical CUDA experiment.
+  - One matched repair cannot estimate universal model repair probability.
+  - The development branch still requires clean integration onto current main before any merge recommendation.
