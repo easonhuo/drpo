@@ -61,6 +61,7 @@ def test_valid_failure_outcome_has_explicit_boundary_and_no_repository_outcome()
             "unsafe repository path",
         ),
         (lambda case: case["historical_task"].update(base_sha="bad"), "invalid hash syntax"),
+        (lambda case: case.update(schema_version=True), "integer 1"),
         (
             lambda case: case["benchmark"].update(
                 expected_changed_paths=[], expected_final_tree_or_semantic_hashes={}
@@ -89,7 +90,7 @@ def test_manifest_symlink_is_rejected(tmp_path: Path) -> None:
         os.symlink(VALID, link)
     except (OSError, NotImplementedError):
         pytest.skip("symlinks unavailable")
-    with pytest.raises(ManifestError, match="non-symlink"):
+    with pytest.raises(ManifestError, match="symlink"):
         load_case_manifest(link)
 
 

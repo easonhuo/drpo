@@ -14,20 +14,21 @@ SHA40 = re.compile(r"[0-9a-f]{40}")
 SHA256 = re.compile(r"[0-9a-f]{64}")
 CASE_ID = re.compile(r"[A-Z0-9][A-Z0-9._-]{2,127}")
 HASH_KEY = re.compile(r"[a-z][a-z0-9_.-]{1,63}")
-TASK_CLASSES = {
-    "code_only", "add_registration", "replace_registration",
-    "result_closure", "stale_recovery", "gate_failure",
-}
-TOP_KEYS = {"schema_version", "case_id", "task_class", "historical_task", "benchmark"}
-HISTORICAL_KEYS = {
-    "base_sha", "frozen_implementation_sha", "source_prs", "source_commits",
-    "historical_real_time_evidence",
-}
-BENCHMARK_KEYS = {
-    "toolchain_sha", "input_spec_sha256", "expected_terminal_state",
-    "expected_safety_boundary", "expected_changed_paths",
-    "expected_final_tree_or_semantic_hashes", "required_gates", "environment_id",
-    "cache_policy", "replayability", "predeclared_exclusions",
+TASK_CLASSES = frozenset(
+    {"code_only", "add_registration", "replace_registration", "result_closure", "stale_recovery", "gate_failure"}
+)
+FIELDS = {
+    "manifest": {"schema_version", "case_id", "task_class", "historical_task", "benchmark"},
+    "historical_task": {
+        "base_sha", "frozen_implementation_sha", "source_prs", "source_commits",
+        "historical_real_time_evidence",
+    },
+    "benchmark": {
+        "toolchain_sha", "input_spec_sha256", "expected_terminal_state",
+        "expected_safety_boundary", "expected_changed_paths",
+        "expected_final_tree_or_semantic_hashes", "required_gates", "environment_id",
+        "cache_policy", "replayability", "predeclared_exclusions",
+    },
 }
 
 
@@ -66,134 +67,121 @@ def _freeze(value: Any) -> Any:
     return value
 
 
-def _mapping(value: Any, label: str, keys: set[str]) -> dict[str, Any]:
+def _strict_map(value: Any, label: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ManifestError(f"{label} must be a mapping")
-    unknown, missing = sorted(set(value) - keys), sorted(keys - set(value))
-    if unknown:
+    allowed = FIELDS[label]
+    if unknown := sorted(set(value) - allowed):
         raise ManifestError(f"{label} has unknown keys: {', '.join(unknown)}")
-    if missing:
+    if missing := sorted(allowed - set(value)):
         raise ManifestError(f"{label} is missing keys: {', '.join(missing)}")
     return value
 
 
 def _text(value: Any, label: str) -> str:
-    if not isinstance(value, str) or not value.strip() or value != value.strip():
+    if not isinstance(value, str) or not value or value != value.strip():
         raise ManifestError(f"{label} must be a non-empty trimmed string")
     return value
 
 
-def _enum(value: Any, label: str, allowed: set[str]) -> str:
+def _choice(value: Any, label: str, allowed: set[str] | frozenset[str]) -> str:
     value = _text(value, label)
     if value not in allowed:
         raise ManifestError(f"{label} must be one of {sorted(allowed)}")
     return value
 
 
-def _sha(value: Any, label: str, pattern: re.Pattern[str]) -> str:
+def _digest(value: Any, label: str, pattern: re.Pattern[str]) -> str:
     value = _text(value, label)
     if pattern.fullmatch(value) is None:
         raise ManifestError(f"{label} has invalid hash syntax")
     return value
 
 
-def _strings(value: Any, label: str, *, required: bool = False) -> tuple[str, ...]:
+def _string_list(value: Any, label: str, required: bool = False) -> tuple[str, ...]:
     if not isinstance(value, list) or (required and not value):
-        raise ManifestError(f"{label} must be a {'non-empty ' if required else ''}list")
-    items = tuple(_text(item, f"{label}[]") for item in value)
-    if len(items) != len(set(items)):
+        qualifier = "non-empty " if required else ""
+        raise ManifestError(f"{label} must be a {qualifier}list")
+    result = tuple(_text(item, f"{label}[]") for item in value)
+    if len(result) != len(set(result)):
         raise ManifestError(f"{label} contains duplicates")
-    return items
-
-
-def _validate_paths(value: Any) -> tuple[str, ...]:
-    paths = _strings(value, "benchmark.expected_changed_paths")
-    for raw in paths:
-        path = PurePosixPath(raw)
-        unsafe = raw.startswith(("/", "-")) or "\\" in raw
-        unsafe |= path.as_posix() != raw or any(part in {"", ".", ".."} for part in path.parts)
-        if unsafe:
-            raise ManifestError(f"unsafe repository path: {raw}")
-    return paths
+    return result
 
 
 def validate_case_manifest(payload: Any) -> CaseManifest:
     """Validate parsed YAML without running commands or writing repository state."""
-    root = _mapping(payload, "manifest", TOP_KEYS)
-    if root["schema_version"] != 1:
-        raise ManifestError("schema_version must equal 1")
+    root = _strict_map(payload, "manifest")
+    if isinstance(root["schema_version"], bool) or root["schema_version"] != 1:
+        raise ManifestError("schema_version must equal integer 1")
     if CASE_ID.fullmatch(_text(root["case_id"], "case_id")) is None:
         raise ManifestError("case_id has invalid syntax")
-    _enum(root["task_class"], "task_class", TASK_CLASSES)
+    _choice(root["task_class"], "task_class", TASK_CLASSES)
 
-    historical = _mapping(root["historical_task"], "historical_task", HISTORICAL_KEYS)
-    _sha(historical["base_sha"], "historical_task.base_sha", SHA40)
-    implementation = historical["frozen_implementation_sha"]
-    if implementation is not None:
-        _sha(implementation, "historical_task.frozen_implementation_sha", SHA40)
+    historical = _strict_map(root["historical_task"], "historical_task")
+    _digest(historical["base_sha"], "historical_task.base_sha", SHA40)
+    if historical["frozen_implementation_sha"] is not None:
+        _digest(
+            historical["frozen_implementation_sha"],
+            "historical_task.frozen_implementation_sha",
+            SHA40,
+        )
     prs = historical["source_prs"]
-    valid_prs = isinstance(prs, list) and all(
-        isinstance(pr, int) and not isinstance(pr, bool) and pr > 0 for pr in prs
-    )
-    if not valid_prs or len(prs) != len(set(prs)):
+    if not isinstance(prs, list) or any(
+        isinstance(pr, bool) or not isinstance(pr, int) or pr <= 0 for pr in prs
+    ) or len(prs) != len(set(prs)):
         raise ManifestError("historical_task.source_prs must contain unique positive integers")
-    commits = _strings(
-        historical["source_commits"], "historical_task.source_commits", required=True
-    )
-    for commit in commits:
-        _sha(commit, "historical_task.source_commits[]", SHA40)
-    _strings(
-        historical["historical_real_time_evidence"],
-        "historical_task.historical_real_time_evidence",
-    )
+    for commit in _string_list(historical["source_commits"], "historical_task.source_commits", True):
+        _digest(commit, "historical_task.source_commits[]", SHA40)
+    _string_list(historical["historical_real_time_evidence"], "historical_task.historical_real_time_evidence")
 
-    benchmark = _mapping(root["benchmark"], "benchmark", BENCHMARK_KEYS)
-    _sha(benchmark["toolchain_sha"], "benchmark.toolchain_sha", SHA40)
-    _sha(benchmark["input_spec_sha256"], "benchmark.input_spec_sha256", SHA256)
-    terminal = _enum(
-        benchmark["expected_terminal_state"],
-        "benchmark.expected_terminal_state",
+    benchmark = _strict_map(root["benchmark"], "benchmark")
+    _digest(benchmark["toolchain_sha"], "benchmark.toolchain_sha", SHA40)
+    _digest(benchmark["input_spec_sha256"], "benchmark.input_spec_sha256", SHA256)
+    terminal = _choice(
+        benchmark["expected_terminal_state"], "benchmark.expected_terminal_state",
         {"READY", "BLOCKED", "STALE"},
     )
     boundary = benchmark["expected_safety_boundary"]
     if boundary is not None:
         _text(boundary, "benchmark.expected_safety_boundary")
-    paths = _validate_paths(benchmark["expected_changed_paths"])
+    paths = _string_list(benchmark["expected_changed_paths"], "benchmark.expected_changed_paths")
+    for raw in paths:
+        path = PurePosixPath(raw)
+        if raw.startswith(("/", "-")) or "\\" in raw or path.as_posix() != raw or ".." in path.parts:
+            raise ManifestError(f"unsafe repository path: {raw}")
+
     hashes = benchmark["expected_final_tree_or_semantic_hashes"]
     if not isinstance(hashes, dict):
         raise ManifestError("benchmark.expected_final_tree_or_semantic_hashes must be a mapping")
     for key, value in hashes.items():
         if not isinstance(key, str) or HASH_KEY.fullmatch(key) is None:
             raise ManifestError("benchmark outcome hash key has invalid syntax")
-        pattern = SHA40 if key.endswith("tree_sha") else SHA256
-        _sha(value, f"benchmark outcome hash {key}", pattern)
+        _digest(value, f"benchmark outcome hash {key}", SHA40 if key.endswith("tree_sha") else SHA256)
     if terminal == "READY" and (boundary is not None or not paths or not hashes):
-        raise ManifestError(
-            "READY outcome requires changed paths and hashes, with no safety boundary"
-        )
+        raise ManifestError("READY outcome requires changed paths and hashes, with no safety boundary")
     if terminal != "READY" and (boundary is None or paths or hashes):
-        raise ManifestError(
-            "BLOCKED/STALE outcome requires a safety boundary and no repository outcome"
-        )
+        raise ManifestError("BLOCKED/STALE outcome requires a safety boundary and no repository outcome")
 
-    _strings(benchmark["required_gates"], "benchmark.required_gates", required=True)
+    _string_list(benchmark["required_gates"], "benchmark.required_gates", True)
     _text(benchmark["environment_id"], "benchmark.environment_id")
-    _enum(benchmark["cache_policy"], "benchmark.cache_policy", {"cold", "fixed_warm"})
-    replayability = _enum(
+    _choice(benchmark["cache_policy"], "benchmark.cache_policy", {"cold", "fixed_warm"})
+    replayability = _choice(
         benchmark["replayability"], "benchmark.replayability",
         {"complete", "reconstructed", "partial"},
     )
-    exclusions = _strings(benchmark["predeclared_exclusions"], "benchmark.predeclared_exclusions")
+    exclusions = _string_list(benchmark["predeclared_exclusions"], "benchmark.predeclared_exclusions")
     if exclusions and replayability != "partial":
         raise ManifestError("predeclared exclusions require partial replayability")
     return CaseManifest(_freeze(root))
 
 
 def load_case_manifest(path: str | Path) -> CaseManifest:
-    """Load one UTF-8 YAML contract without following a manifest symlink."""
+    """Load one UTF-8 YAML contract without following path symlinks."""
     manifest_path = Path(path)
-    if manifest_path.is_symlink() or not manifest_path.is_file():
-        raise ManifestError("manifest path must be a regular non-symlink file")
+    if manifest_path.is_symlink() or any(parent.is_symlink() for parent in manifest_path.parents):
+        raise ManifestError("manifest path must not contain symlinks")
+    if not manifest_path.is_file():
+        raise ManifestError("manifest path must be a regular file")
     try:
         return validate_case_manifest(yaml.safe_load(manifest_path.read_text(encoding="utf-8")))
     except (OSError, UnicodeError, yaml.YAMLError) as exc:
