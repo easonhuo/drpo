@@ -28,6 +28,8 @@ _base.ADAPTER_ID = "e8_alpha1_highc_scan_cuda_dev_v1"
 
 
 def _core_command(args, command: str, *, selected_ids: list[str]) -> list[str]:
+    if len(selected_ids) != 8:
+        raise RuntimeError("paper-aligned scan requires all eight configured GPUs")
     result = [
         sys.executable,
         str(
