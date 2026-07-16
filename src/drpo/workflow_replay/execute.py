@@ -16,7 +16,8 @@ from .model import CaseManifest
 TOKEN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}")
 
 
-class ExecutionError(ValueError): ...
+class ExecutionError(ValueError):
+    """The replay execution request is unsafe or ambiguous."""
 
 
 @dataclass(frozen=True)
