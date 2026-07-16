@@ -13,25 +13,20 @@ It combines four controls:
 
 1. explicit CPU/GPU hard ceilings for DRPO-owned processes;
 2. pool-local measurement of currently available CPU, RAM, GPU, and VRAM capacity;
-3. configured worker/slot caps plus launch-time revalidation;
+3. configured worker/slot caps plus launch-time revalidation and admission;
 4. owned-process supervision, cleanup, and terminal audit.
 
-ResearchBench, AIDE, joblib/loky, and other registered permanent server workloads may
-remain alive. Their names and process metadata are recorded, but their presence alone is
-not a readiness gate. Their actual use of a declared CPU pool is reflected by the measured
+ResearchBench, AIDE, joblib/loky, and other permanent server workloads may remain alive.
+Their names and process metadata are recorded, but their presence alone is not a
+readiness gate. Their actual use of a declared CPU pool is reflected by the measured
 capacity available inside that pool.
-
-Competing DRPO E7/E8 acceptance or experiment processes remain a readiness gate. The
-harness records them and stops rather than starting duplicate DRPO work inside the same
-resource ceilings.
 
 A CPU pool limits where DRPO-owned processes may execute. It does not reserve those CPUs
 or prevent unrelated workloads from sharing them.
 
 The historical exclusive-cgroup route remains an optional diagnostic for compatible
 cgroup v2 hosts. It is not required by the default target-server route. See
-`docs/runtime_resource_acceptance_server_correction_05.md` and
-`docs/runtime_resource_acceptance_server_correction_06.md`.
+`docs/runtime_resource_acceptance_server_correction_05.md`.
 
 ## What the server AI does
 
@@ -81,7 +76,7 @@ python3 scripts/run_runtime_resource_acceptance_shared_host.py \
 No operator-side process-count-zero or exclusive-partition gate may be inserted before
 the command.
 
-## Hard ceilings
+## Hard ceilings and launch admission
 
 The profile supplies two non-overlapping CPU pools. Every delegated E7/E8 child must
 inherit the exact requested affinity, so DRPO-owned work cannot escape to the rest of
@@ -98,20 +93,34 @@ Additional hard caps remain:
 These are ceilings on DRPO-owned execution. They are not a claim that the selected CPUs
 or GPUs are idle or exclusive.
 
+E7 planning produces an immutable proposed upper bound. Immediately before launch, a
+fresh pool-local CPU/RAM revalidation produces an attempt-local admission:
+
+```text
+admitted_workers = min(
+    proposed_workers,
+    current_cpu_worker_limit,
+    current_memory_worker_limit,
+)
+```
+
+A positive lower count is launched and recorded rather than blocking the whole run.
+Zero safe workers remains `BLOCKED`. The system never resizes workers after they start.
+The planned upper bound remains in `EXECUTION_PLAN.json` and `RUN_IDENTITY.json`; only
+the runtime executor width uses the admitted count. Scientific branches, branch
+identities, seeds, methods, data, budgets, and evaluation remain unchanged.
+
 ## Fixed stages
 
 ### Stage 0 — topology and bounded preflight
 
 Records the exact harness and GPU commits, inherited affinity, `lscpu`, optional NUMA
 information, `nvidia-smi`, GPU topology, cgroup/memory evidence, and current processes.
-
-Registered permanent external patterns (`ResearchBench`, `collector_v2.py`, `AIDE`, and
-joblib/loky) are observation-only provenance. Competing DRPO patterns from
-`conflict_process_patterns`, such as `run_e7_`, `countdown_e8`, `EXT-H-E7`, and
-`EXT-C-E8`, remain blocking conflicts.
+Permanent external process patterns are observation-only provenance. A separate active
+DRPO E7/E8 run remains a blocking conflict.
 
 Stage 0 still blocks on true prerequisites such as missing inputs, dirty or mismatched
-checkout, requested CPUs outside inherited affinity, or another active DRPO run.
+checkout, or requested CPUs outside inherited affinity.
 
 The CPU pools in the example are illustrations only. Replace them with two
 non-overlapping subsets of the server's inherited affinity while retaining an OS and
@@ -128,15 +137,21 @@ Runs the PPO-family resource `plan` inside the E7 CPU pool. CPU accounting cover
 the active affinity CPUs. The selector combines measured external occupancy in that
 pool, measured per-worker demand, RAM headroom, and configured worker caps.
 
-It freezes `RUNTIME_SELECTION.json` and `RUN_IDENTITY.json`, performs validate-only
-three-sample revalidation, and then runs a short real-D4RL representative liveness at
-the exact selected worker count. It invokes the existing probe/candidate implementation
-and never constructs the full 186-branch or Stage-A matrix.
+It freezes `RUNTIME_SELECTION.json` and `RUN_IDENTITY.json`, then performs three-sample
+launch-time revalidation. `RUNTIME_ADMISSION.json` records the proposed count, the
+actually admitted count, capacity limits, evidence path, and whether a pre-launch
+downshift occurred. A short real-D4RL representative liveness then uses exactly the
+admitted count. The full scientific matrix is never constructed or started.
 
 If current capacity cannot safely support one worker, the stage is `BLOCKED`. If only a
 single worker can be exercised for a multi-worker claim, the stage is `INCONCLUSIVE`.
 The supplied contract, RunSpec, and grid must be the existing reviewed E7 inputs. The
 server AI must not synthesize or edit them.
+
+The real PPO w(0) auto-runner uses the same admission contract. It preserves the planned
+upper bound in the canonical run identity while limiting the ThreadPool executor to the
+attempt-local admitted count. Resume may use a different admitted width without changing
+any branch identity.
 
 ### Stage 3 — measured-capacity GPU placement
 
@@ -146,8 +161,10 @@ Calibration, training peak, maximum-shape validation evaluation, bounded candida
 clean exits, and immutable selection are retained. The scientific slot runtime is never
 called and the test split is not accessed.
 
-CPU/RAM and GPU/VRAM measurements determine the safe slot count below
-`max_devices * max_slots_per_gpu`. External process names are not a separate gate.
+CPU/RAM and GPU/VRAM measurements determine selected devices, slots per GPU, and total
+selected runtime slots below `max_devices * max_slots_per_gpu`. The report separately
+records maximum actually probed concurrency. A selected capacity above one is not called
+validated unless a candidate above one actually completed.
 
 ### Stage 4 — E8 thread envelope
 
@@ -160,7 +177,7 @@ thread library cannot consume CPUs outside the configured ceiling.
 
 ### Stage 5 — concurrent bounded execution
 
-Only after independent E7 and E8 stages are usable, launches one selected-count E7
+Only after independent E7 and E8 stages are usable, launches one admitted-count E7
 liveness and one one-GPU E8 envelope concurrently through non-overlapping DRPO CPU
 pools. Every sampled DRPO-owned process affinity must remain within its declared pool.
 
@@ -184,8 +201,11 @@ No majority vote is used.
 - `PASS`: the required engineering checks completed within the configured ceilings.
 - `INCONCLUSIVE`: only a single worker/slot was exercised for a multi-worker claim.
 - `BLOCKED`: current safe measured capacity or another prerequisite was unavailable.
-- `FAIL`: identity, implementation, process supervision, cleanup, OOM, or numerical
-  failure.
+- `FAIL`: identity, implementation, process supervision, cleanup, explicit OOM, or
+  numerical failure.
+
+OOM classification uses explicit structured fields or exact OOM phrases. Unrelated
+substrings such as `headroom` are never classified as OOM.
 
 A capacity-limited `BLOCKED` result is an environment observation for that run, not a
 request to terminate permanent workloads and not evidence that the scientific experiment
@@ -204,10 +224,13 @@ FILE_MANIFEST.sha256
 ```
 
 Stage 0 additionally writes the shared-host capacity contract and the observed external
-workload inventory.
+workload inventory. E7 attempt directories include `RUNTIME_REVALIDATION.json` and
+`RUNTIME_ADMISSION.json`.
 
 The final `.tar.gz` contains text/JSON/CSV/Markdown evidence only. Repository worktrees,
-datasets, model weights, adapters, checkpoints, and optimizer states are excluded.
+datasets, model weights, adapters, checkpoints, and optimizer states are excluded. Its
+manifest uses standard `sha256sum -c` syntax. The server returns this repository-owned
+archive directly rather than wrapping it in a second non-standard package.
 
 ## Interpretation boundary
 
