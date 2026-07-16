@@ -1,0 +1,290 @@
+#!/usr/bin/env python3
+"""Plan or run the 150-branch Stage A squared-EXP KL tuning suite."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import subprocess
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+from drpo import e7_squared_exp_kl_tune_stage_a as pilot
+from drpo.e7_squared_exp_kl_tune_stage_a_runtime_autotune import select_runtime
+from drpo.runtime_resource_autotune import (
+    RuntimeResourceError,
+    discover_machine,
+    load_json,
+)
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("command", choices=("plan", "run"))
+    parser.add_argument("--repo-root", default=".")
+    parser.add_argument("--contract", required=True)
+    parser.add_argument("--run-spec", required=True)
+    parser.add_argument("--grid", required=True)
+    parser.add_argument("--work-dir", required=True)
+    parser.add_argument("--resume", action="store_true")
+    parser.add_argument("--fallback-workers", type=int, default=60)
+    parser.add_argument("--probe-steps", type=int, default=5_000)
+    parser.add_argument("--probe-seed", type=int, default=993_101)
+    parser.add_argument("--probe-seconds", type=float, default=120.0)
+    parser.add_argument(
+        "--throughput-retention-fraction",
+        type=float,
+        default=0.97,
+    )
+    parser.add_argument("--cpu-fraction", type=float, default=0.85)
+    parser.add_argument("--memory-headroom-fraction", type=float, default=0.15)
+    parser.add_argument("--per-worker-safety-factor", type=float, default=1.20)
+    parser.add_argument("--max-workers", type=int)
+    parser.add_argument("--max-growth-factor", type=float, default=3.0)
+    parser.add_argument("--minimum-branches-for-probe", type=int, default=8)
+    parser.add_argument("--meminfo", default="/proc/meminfo")
+    parser.add_argument("--loadavg", default="/proc/loadavg")
+    parser.add_argument("--cgroup-root", default="/sys/fs/cgroup")
+    return parser
+
+
+def _reject_legacy_work_dir(work_dir: Path) -> None:
+    selection = work_dir / "RUNTIME_SELECTION.json"
+    existing = (
+        work_dir / "EXECUTION_PLAN.json",
+        work_dir / "RUN_IDENTITY.json",
+        work_dir / "RUN_SUMMARY.json",
+    )
+    if any(path.exists() for path in existing) and not selection.is_file():
+        raise RuntimeResourceError(
+            "refusing to attach the Stage A auto runner to a pre-existing "
+            "fixed work directory"
+        )
+
+
+def _validate_existing_run_identity(work_dir: Path, selected_workers: int) -> None:
+    identity_path = work_dir / "RUN_IDENTITY.json"
+    if not identity_path.is_file():
+        return
+    identity = load_json(identity_path)
+    plan = identity.get("plan")
+    existing = plan.get("max_workers") if isinstance(plan, dict) else None
+    if existing != selected_workers:
+        raise RuntimeResourceError(
+            "existing Stage A identity fixes max_workers="
+            f"{existing}, but the current safe selection is {selected_workers}"
+        )
+
+
+def _atomic_json(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+    temporary.replace(path)
+
+
+def _git_value(repo: Path, *args: str) -> str | None:
+    try:
+        value = subprocess.check_output(
+            ["git", *args],
+            cwd=repo,
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    return value or None
+
+
+def _registration_snapshot(repo: Path) -> dict[str, Any]:
+    experiment_id = pilot.EXPERIMENT_ID
+    protocol_path = repo / "docs" / "experiments" / f"{experiment_id}.md"
+    registry_path = repo / "experiments" / "registry.yaml"
+    registry_contains_id = False
+    if registry_path.is_file():
+        registry_contains_id = experiment_id in registry_path.read_text(
+            encoding="utf-8"
+        )
+    protocol_present = protocol_path.is_file()
+    registered = protocol_present and registry_contains_id
+    return {
+        "checked_utc": datetime.now(timezone.utc).isoformat(),
+        "experiment_id": experiment_id,
+        "stage_id": pilot.STAGE_ID,
+        "repo_commit": _git_value(repo, "rev-parse", "HEAD"),
+        "repo_branch": _git_value(repo, "branch", "--show-current"),
+        "protocol_document_present": protocol_present,
+        "registry_contains_experiment_id": registry_contains_id,
+        "authoritative_registration_complete": registered,
+        "launch_mode": "registered" if registered else "code_first_pre_registration",
+        "launch_blocked_by_registration": False,
+        "formal_evidence_allowed_at_launch": False,
+    }
+
+
+def _write_launch_registration_status(repo: Path, work_dir: Path) -> Path:
+    path = work_dir / "LAUNCH_REGISTRATION_STATUS.json"
+    snapshot = _registration_snapshot(repo)
+    if path.is_file():
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            payload = {}
+    else:
+        payload = {}
+    if not isinstance(payload, dict) or "initial_check" not in payload:
+        payload = {
+            "schema_version": 1,
+            "initial_check": snapshot,
+            "history": [snapshot],
+        }
+    else:
+        history = payload.get("history")
+        if not isinstance(history, list):
+            history = []
+        latest = payload.get("latest_check")
+        if not isinstance(latest, dict) or any(
+            latest.get(key) != snapshot.get(key)
+            for key in (
+                "repo_commit",
+                "repo_branch",
+                "protocol_document_present",
+                "registry_contains_experiment_id",
+                "authoritative_registration_complete",
+                "launch_mode",
+            )
+        ):
+            history.append(snapshot)
+        payload["history"] = history
+    payload["latest_check"] = snapshot
+    _atomic_json(path, payload)
+    return path
+
+
+def _write_failed_terminal_audit(work_dir: Path, error: BaseException) -> Path:
+    summary_path = work_dir / "RUN_SUMMARY.json"
+    summary: dict[str, Any] = {}
+    if summary_path.is_file():
+        try:
+            loaded = json.loads(summary_path.read_text())
+            if isinstance(loaded, dict):
+                summary = loaded
+        except (OSError, json.JSONDecodeError):
+            summary = {}
+    completed = int(summary.get("completed", 0) or 0)
+    failed = int(summary.get("failed", 0) or 0)
+    branch_count = int(summary.get("branch_count", completed + failed) or 0)
+    audit = {
+        "status": "FAIL",
+        "experiment_id": pilot.EXPERIMENT_ID,
+        "stage_id": pilot.STAGE_ID,
+        "scientific_status": pilot.SCIENTIFIC_STATUS,
+        "raw_complete": False,
+        "branch_count_observed": branch_count,
+        "expected_branch_count": pilot.EXPECTED_TOTAL_BRANCHES,
+        "completed_or_skipped": completed,
+        "failed_branches": failed,
+        "error_type": type(error).__name__,
+        "error": str(error),
+        "task_performance_collapse_separate": True,
+        "support_or_variance_boundary_separate": True,
+        "nan_inf_separate": True,
+        "convergence_claim_allowed": False,
+        "method_ranking_claim_allowed": False,
+        "actor_update_causal_claim_allowed": False,
+        "gae_claim_allowed": False,
+        "held_out_seeds_touched": False,
+        "stage_b_launch_authorized": False,
+    }
+    path = work_dir / "aggregate" / "terminal_audit.json"
+    _atomic_json(path, audit)
+    return path
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    if args.command == "plan" and args.resume:
+        raise RuntimeResourceError("--resume is valid only for run")
+    repo = Path(args.repo_root).resolve()
+    work_dir = Path(args.work_dir).resolve()
+    _reject_legacy_work_dir(work_dir)
+    if args.command == "plan" and (work_dir / "RUN_IDENTITY.json").is_file():
+        raise RuntimeResourceError(
+            "cannot re-plan a work directory with a run identity"
+        )
+    registration_status = _write_launch_registration_status(repo, work_dir)
+    machine = discover_machine(
+        meminfo_path=args.meminfo,
+        loadavg_path=args.loadavg,
+        cgroup_root=args.cgroup_root,
+    )
+    document = select_runtime(
+        machine=machine,
+        repo_root=repo,
+        contract_path=args.contract,
+        run_spec_path=args.run_spec,
+        grid_path=args.grid,
+        work_dir=work_dir,
+        fallback_workers=args.fallback_workers,
+        probe_steps=args.probe_steps,
+        probe_seed=args.probe_seed,
+        probe_seconds=args.probe_seconds,
+        throughput_retention_fraction=args.throughput_retention_fraction,
+        cpu_fraction=args.cpu_fraction,
+        memory_headroom_fraction=args.memory_headroom_fraction,
+        per_worker_safety_factor=args.per_worker_safety_factor,
+        max_workers=args.max_workers,
+        max_growth_factor=args.max_growth_factor,
+        minimum_branches_for_probe=args.minimum_branches_for_probe,
+    )
+    workers = int(document["selection"]["selected_workers"])
+    _validate_existing_run_identity(work_dir, workers)
+    registration = json.loads(registration_status.read_text(encoding="utf-8"))[
+        "latest_check"
+    ]
+    print(
+        json.dumps(
+            {
+                "runtime_selection": str(work_dir / "RUNTIME_SELECTION.json"),
+                "selection_mode": document["mode"],
+                "selected_workers": workers,
+                "scientific_branch_count": pilot.EXPECTED_TOTAL_BRANCHES,
+                "stage": pilot.STAGE_ID,
+                "registration_state": registration["launch_mode"],
+                "registration_blocks_launch": False,
+                "registration_status_file": str(registration_status),
+                "selection_scope": (
+                    "representative target_kl=0.01 PPO branch under a CPU/RAM "
+                    "safety ceiling"
+                ),
+            },
+            sort_keys=True,
+        ),
+        flush=True,
+    )
+    delegated = [
+        args.command,
+        "--contract",
+        args.contract,
+        "--run-spec",
+        args.run_spec,
+        "--grid",
+        args.grid,
+        "--work-dir",
+        str(work_dir),
+        "--max-workers",
+        str(workers),
+    ]
+    if args.command == "run" and args.resume:
+        delegated.append("--resume")
+    try:
+        return pilot.main(delegated)
+    except BaseException as exc:
+        if args.command == "run":
+            _write_failed_terminal_audit(work_dir, exc)
+        raise
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
