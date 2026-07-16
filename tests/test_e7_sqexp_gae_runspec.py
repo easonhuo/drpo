@@ -17,8 +17,11 @@ from runspec_registration import validate_registration_block  # noqa: E402
 from runspec_results_delivery import validate_delivery_block  # noqa: E402
 
 
-RUNSPEC = ROOT / "runspecs" / "ready" / "E7_SQEXP_GAE_PILOT_20260716_01.yaml"
-FROZEN_IMPLEMENTATION = "82578dbc06f9b39f598e46dc8af4568e4f251f34"
+RUNSPEC = ROOT / "runspecs" / "ready" / "E7_SQEXP_GAE_PILOT_20260716_02.yaml"
+RETIRED_RUNSPEC = (
+    ROOT / "runspecs" / "retired" / "E7_SQEXP_GAE_PILOT_20260716_01.yaml"
+)
+FROZEN_IMPLEMENTATION = "789b9eaf4c6780918b91199e3e97180504d07067"
 
 
 def test_e7_sqexp_gae_ready_runspec_is_structurally_valid() -> None:
@@ -28,7 +31,7 @@ def test_e7_sqexp_gae_ready_runspec_is_structurally_valid() -> None:
     validate_simple_size_policy(spec)
     validate_recovery_policy(ROOT, spec)
 
-    assert spec["run_id"] == "E7_SQEXP_GAE_PILOT_20260716_01"
+    assert spec["run_id"] == "E7_SQEXP_GAE_PILOT_20260716_02"
     assert spec["lane"] == "e7"
     assert spec["experiment_id"] == "EXT-H-E7-SQEXP-GAE-01"
     assert spec["execution_class"] == "pilot"
@@ -41,7 +44,7 @@ def test_e7_sqexp_gae_ready_runspec_is_structurally_valid() -> None:
     assert spec["entrypoint"]["command"] == (
         "bash scripts/run_e7_sqexp_gae_auto_one_click.sh"
     )
-    assert spec["outputs"]["run_dir"] == "outputs/e7/sqexp_gae_001"
+    assert spec["outputs"]["run_dir"] == "outputs/e7/sqexp_gae_002"
     assert spec["recovery"]["enabled"] is True
     assert spec["recovery"]["resume_command"] == (
         "bash scripts/run_e7_sqexp_gae_auto_one_click.sh"
@@ -55,16 +58,38 @@ def test_e7_sqexp_gae_ready_runspec_freezes_scientific_boundaries() -> None:
     protected = set(raw["provenance"]["protected_paths"])
 
     assert raw["provenance"]["frozen_implementation_commit"] == FROZEN_IMPLEMENTATION
+    assert (
+        raw["provenance"]["supersedes_run_id"]
+        == "E7_SQEXP_GAE_PILOT_20260716_01"
+    )
     assert "192-branch" in purpose
     assert "development seeds 200-203" in purpose
     assert "c={64,128,256}" in purpose
+    assert "--variant {variant}" in purpose
+    assert "NumPy-float64" in purpose
     assert "exactly 192 runnable branches" in success
     assert "held-out seeds untouched" in success
     assert "without failed-cell imputation" in success
     assert "not described as convergence" in success
+    assert "stored_gae_dtype=float32" in success
+    assert "storage quantization is reported separately" in success
     assert raw["policy"]["formal_evidence_allowed"] is False
     assert raw["policy"]["forbid_hparam_change"] is True
     assert "configs/e7_sqexp_gae_v1.json" in protected
     assert "src/drpo/e7_offline_gae.py" in protected
+    assert "src/drpo/e7_sqexp_gae_prepare.py" in protected
     assert "src/drpo/e7_sqexp_gae_trainer.py" in protected
     assert "scripts/run_e7_sqexp_gae_auto_one_click.sh" in protected
+
+
+def test_failed_single_use_runspec_is_not_ready() -> None:
+    old_ready = (
+        ROOT / "runspecs" / "ready" / "E7_SQEXP_GAE_PILOT_20260716_01.yaml"
+    )
+
+    assert not old_ready.exists()
+    assert RETIRED_RUNSPEC.is_file()
+    retired_text = RETIRED_RUNSPEC.read_text()
+    assert "RETIRED" in retired_text
+    assert "No actor branch was started" in retired_text
+    assert "Use the corrected _02 RunSpec" in retired_text
