@@ -36,6 +36,7 @@ class FixtureInvoker:
         fail_step: str | None = None,
         outside_preparation: bool = False,
     ):
+        root.mkdir(parents=True, exist_ok=True)
         self.repo = root / "repo"
         self.repo.mkdir()
         self.spec = root / "spec.yaml"
