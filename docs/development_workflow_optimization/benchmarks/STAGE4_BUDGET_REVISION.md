@@ -3,7 +3,8 @@
 **Claim:** `GOV-DEV-WORKFLOW-OPTIMIZATION-BENCHMARK-01`  
 **Authorization:** explicit user approval on 2026-07-16  
 **Applies from:** Stage 4  
-**Stage-3 checkpoint:** `644a36169a89522ed6fcff88889686b2df73a342`
+**Stage-3 checkpoint:** `644a36169a89522ed6fcff88889686b2df73a342`  
+**Stage-4 implementation checkpoint:** `f0d7ceee103970bd2c12b0a32b7de3b457a47378`
 
 ## Non-destructive supersession
 
@@ -38,6 +39,18 @@ Production-code counting continues to cover nonblank, non-comment Python lines u
 The limit may not be met through minification, hidden dynamic execution, weaker validation,
 or moving Python behavior into unrelated file types.
 
+## Stage-4 measured size
+
+The same nonblank, non-comment counting rule gives:
+
+- accepted Stage 1–3 production code: **447** lines;
+- `src/drpo/workflow_replay/orchestrate.py`: **241** lines;
+- `scripts/run_workflow_replay.py`: **79** lines;
+- Stage-4 production increment: **320** lines;
+- cumulative Replay Engine production code: **767** lines.
+
+The cumulative result remains inside the revised 550–800 preferred completion range.
+
 ## Constraints that did not change
 
 The implementation must still stop or redesign if it introduces:
@@ -53,10 +66,10 @@ The implementation must still stop or redesign if it introduces:
 
 ## Stage authorization
 
-This record authorizes **Stage 4 only**: implement the smallest Arm-B composition path that
+This record authorized **Stage 4 only**: implement the smallest Arm-B composition path that
 invokes the existing pilot-registration preparation adapter and V1 stages in their accepted
 order, while automating exact intermediate-file placement.
 
-Stage 5 remains blocked until the Stage-4 checkpoint records focused integration tests,
-production-line count, runtime self-overhead, exact-head CI, scope review, and an explicit
-`GO / HOLD / REDESIGN / STOP` decision.
+Stage 4 is now implemented and exact-head repository CI has passed. Stage 5 is technically
+eligible for a later explicit start instruction, but has not begun. Stage 5 must cover failure
+injection and fixture end-to-end replay before any historical benchmark or adoption claim.
