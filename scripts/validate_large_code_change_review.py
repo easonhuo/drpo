@@ -22,13 +22,17 @@ def blob(repo: Path, commit: str, path: str) -> str:
     return git_text(repo, "show", f"{commit}:{path}")
 
 
-def public_symbols(source: str) -> set[str]:
-    return {
-        n.name
-        for n in ast.parse(source).body
-        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
-        and not n.name.startswith("_")
-    }
+def named_nodes(source: str, *, tests_only: bool = False) -> dict[str, str]:
+    result: dict[str, str] = {}
+    for node in ast.parse(source).body:
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            continue
+        if tests_only and not node.name.startswith("test_"):
+            continue
+        if not tests_only and node.name.startswith("_"):
+            continue
+        result[node.name] = ast.dump(node, include_attributes=False)
+    return result
 
 
 def validate(repo: Path, base: str, head: str, body: str) -> list[str]:
@@ -95,10 +99,12 @@ def validate(repo: Path, base: str, head: str, body: str) -> list[str]:
                 errors.append(f"core requirement {item.get('id')} has no test evidence")
                 continue
             for nodeid in item["tests"]:
-                path = str(nodeid).split("::", 1)[0]
+                path, _, test_name = str(nodeid).partition("::")
                 tests.add(path)
                 if not path.startswith("tests/") or not exists(repo, head, path):
                     errors.append(f"missing core-function test at head: {nodeid}")
+                elif not test_name or test_name not in named_nodes(blob(repo, head, path), tests_only=True):
+                    errors.append(f"declared core-function test does not exist: {nodeid}")
     if tests and not (tests & changed):
         errors.append("at least one declared core-function test file must change")
 
@@ -126,9 +132,17 @@ def validate(repo: Path, base: str, head: str, body: str) -> list[str]:
             errors.append(f"Python deletion needs a separate user-approved removal plan: {row[1]}")
         elif status in {"M", "R"}:
             old, new = (row[1], row[2]) if status == "R" else (row[1], row[1])
-            removed = public_symbols(blob(repo, base, old)) - public_symbols(blob(repo, head, new))
+            before, after = blob(repo, base, old), blob(repo, head, new)
+            removed = set(named_nodes(before)) - set(named_nodes(after))
             if removed:
                 errors.append(f"public symbols removed from {old}: {sorted(removed)}")
+            if old.startswith("tests/"):
+                old_tests, new_tests = named_nodes(before, tests_only=True), named_nodes(after, tests_only=True)
+                rewritten = sorted(name for name, tree in old_tests.items() if new_tests.get(name) != tree)
+                if rewritten:
+                    errors.append(
+                        f"existing regression tests rewritten in {old}: {rewritten}; add tests instead"
+                    )
     return errors
 
 
