@@ -22,13 +22,30 @@ Estimated active engineering effort:
 
 Unattended test and replay execution may add several hours of elapsed machine time. Missing historical local artifacts can increase case-reconstruction effort but must not justify expanding the core architecture.
 
-Frozen size budget:
+### 1.1 Production-code budget assessment
 
-- production code target: 300–450 lines;
-- mandatory redesign review above 500 production lines;
+The line budget applies to all newly added non-test Python production code under `src/drpo/workflow_replay/` and `scripts/run_workflow_replay.py`, excluding blank lines and comments only when the line-count report states the exact method used.
+
+The current architecture supports the following rough allocation:
+
+| Responsibility | Expected production lines |
+|---|---:|
+| Case model and strict validation | 70–100 |
+| Arm execution and event recording | 110–150 |
+| Correctness equivalence and paired comparison | 90–130 |
+| CLI and thin orchestration | 50–80 |
+| **Expected total** | **320–460** |
+
+Frozen budget policy:
+
+- **preferred target:** 350–450 production lines;
+- **yellow review zone:** 451–500 production lines; the next step is blocked until duplication, abstractions, and error paths are reviewed and a written justification is recorded;
+- **hard stop:** more than 500 production lines requires redesign or cancellation before further behavior is added;
 - test and fixture code may be larger because correctness equivalence and failure replay are the main evidence burden;
 - no new third-party dependency;
 - no database, dashboard, service, daemon, queue, scheduler, or blocking CI.
+
+The budget is an anti-framework constraint, not a reason to omit necessary validation or compress code into unreadable forms. A candidate that only fits by weakening error handling or combining unrelated responsibilities fails the architecture review.
 
 ## 2. Architecture
 
@@ -106,14 +123,31 @@ Does not:
 - treat a tie as an improvement;
 - exclude a poor case after results are known.
 
-## 3. Staged development plan
+## 3. Milestone effort and delivery plan
+
+The estimates below are active engineering time, not calendar promises. Unattended CI and replay execution are reported separately.
+
+| Step | Deliverable | Active estimate | Cumulative estimate |
+|---|---|---:|---:|
+| 0 | Scope, architecture, budget, checkpoint policy | 1–2 h | 1–2 h |
+| 1 | Case model, schema, positive/negative fixtures | 2–3 h | 3–5 h |
+| 2 | Dry-run execution adapter and event recorder | 2–3 h | 5–8 h |
+| 3 | Correctness-equivalence verifier | 2–3 h | 7–11 h |
+| 4 | Thin Arm-B orchestrator | 2–3 h | 9–14 h |
+| 5 | Failure injection and fixture end-to-end replay | 2–4 h | 11–18 h |
+| 6 | Historical inventory and Arm-A baseline replay | 3–5 h | 14–23 h |
+| 7 | Arm-B replay, comparison, review, and decision | 2–4 h | 16–27 h |
+
+The original 15–24 hour estimate remains the planning center. The broader 16–27 hour milestone envelope explicitly includes checkpoint reporting and allows for historical fixture variance. Crossing 27 active hours triggers an ROI review before additional implementation.
+
+## 4. Staged development plan
 
 ### Step 0 — implementation scope and skeleton
 
 Goal:
 
 - record implementation authorization;
-- freeze module boundaries, file layout, line budget, and stage gates;
+- freeze module boundaries, file layout, line budget, milestone estimates, checkpoint policy, and stage gates;
 - create no behavior-changing code.
 
 Exit gate:
@@ -172,7 +206,7 @@ Goal:
 
 Exit gate:
 
-- production code remains at or below 450 lines unless redesign is explicitly approved;
+- production code remains in the preferred 350–450 line range, or enters the documented yellow review before proceeding;
 - no new third-party dependency;
 - no V1 core, authority, registry schema, scientific code, GitHub workflow, publication, or merge change;
 - focused integration tests pass.
@@ -221,7 +255,7 @@ Exit gate:
 - a failing candidate is narrowed, redesigned, or rejected rather than rationalized;
 - no merge or default-route activation occurs without a new explicit user approval.
 
-## 4. Expected repository shape
+## 5. Expected repository shape
 
 The preferred implementation shape is:
 
@@ -240,7 +274,46 @@ tests/
 
 This is a target, not permission to fill every file with a separate framework. Modules may be collapsed when that reduces total code and state while preserving test isolation.
 
-## 5. Per-step review rule
+## 6. GitHub checkpoint and stage-report protocol
+
+Every completed step must be persisted on `dev/gov-dev-workflow-optimization-benchmark-01` before the next step begins.
+
+### 6.1 Checkpoint commit
+
+Each step normally produces one logical checkpoint commit after its exit gate passes. A corrective follow-up commit is allowed when review finds a defect, but partial or known-broken work must not be presented as a completed milestone.
+
+The checkpoint commit must contain only the step's frozen changed paths plus necessary documentation/status updates. It must not merge `main`, change scientific state, or widen the next step implicitly.
+
+### 6.2 Draft PR remains the durable work record
+
+PR #103 remains Draft throughout prototype development. It is the durable review and progress record, but its Draft status does not authorize merge or default-route activation.
+
+After each checkpoint, the PR receives a stage report containing:
+
+- step number and goal;
+- checkpoint commit SHA;
+- files added or changed;
+- production/test/fixture line counts;
+- tests actually executed and their exact result;
+- active engineering time and unattended machine time, reported separately;
+- discovered defects and how they were resolved;
+- unresolved blockers or uncertainties;
+- scope drift assessment;
+- `GO`, `HOLD`, `REDESIGN`, or `STOP` decision for the next step.
+
+### 6.3 Reporting cadence
+
+A user-facing progress report is issued at every step boundary, not after every small edit. The report must not claim a step is complete until its code and evidence are committed to GitHub and the applicable tests have actually passed.
+
+A step that is blocked is also reported immediately with its checkpoint or last-known-good SHA, the blocking condition, and whether the next step is prohibited.
+
+### 6.4 Preservation and recovery
+
+The development branch and Draft PR are the recovery source for completed milestones. Large local replay workspaces may remain outside GitHub, but every retained checkpoint must record their hashes and locators in the minimal benchmark artifacts. No essential source code, fixture manifest, comparison result, or decision may exist only in chat or an untracked local directory.
+
+The final accepted implementation, if any, may later be rebuilt as a clean integration candidate from the reviewed checkpoint. This branch preserves development and benchmark history; it is not automatically the final merge shape.
+
+## 7. Per-step review rule
 
 Every step must have:
 
@@ -249,15 +322,18 @@ Every step must have:
 3. focused tests tied to that goal;
 4. a changed-path and line-count review;
 5. confirmation that no prior accepted behavior regressed;
-6. a stop decision before the next step.
+6. a checkpoint commit and PR stage report;
+7. a stop decision before the next step.
 
 A later step may not silently repair an earlier step by adding cross-module special cases. The earlier module must instead be corrected and retested.
 
-## 6. Stop and redesign conditions
+## 8. Stop and redesign conditions
 
 Stop implementation and review the architecture when any of the following occurs:
 
 - production code exceeds 500 lines;
+- production code enters 451–500 lines without a recorded yellow-zone review;
+- active effort exceeds 27 hours without a fresh ROI decision;
 - a new dependency, service, database, queue, scheduler, state machine, or dashboard appears necessary;
 - V1 core or handoff authority would need modification;
 - task-specific E7/E8 branches appear in general workflow code;
@@ -266,6 +342,6 @@ Stop implementation and review the architecture when any of the following occurs
 - historical fixture reconstruction becomes larger than the workflow optimization itself;
 - a simpler documentation or command-wrapper change solves the same measured problem.
 
-## 7. Current next action
+## 9. Current next action
 
-The next action is Step 0 completion followed by Step 1 only. Step 2 does not begin until the case contract and focused tests are reviewed. No scientific experiment execution is part of this plan.
+Step 0 is complete when this plan, scope, and checkpoint protocol are reviewed and committed. The next implementation action is Step 1 only. Step 2 does not begin until the case contract and focused tests are committed, reported, and reviewed. No scientific experiment execution is part of this plan.
