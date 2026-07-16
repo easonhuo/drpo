@@ -5,30 +5,21 @@ from __future__ import annotations
 import argparse
 import ast
 import json
-import subprocess
 import sys
 from pathlib import Path
+
+from validate_update_scope import git_text, run_git
 
 START = "<!-- DRPO_LARGE_CHANGE_REVIEW_START -->"
 END = "<!-- DRPO_LARGE_CHANGE_REVIEW_END -->"
 
 
-def git(repo: Path, *args: str) -> str:
-    p = subprocess.run(["git", "-C", str(repo), *args], text=True, capture_output=True)
-    if p.returncode:
-        raise ValueError(p.stderr.strip() or p.stdout.strip())
-    return p.stdout
-
-
 def exists(repo: Path, commit: str, path: str) -> bool:
-    return subprocess.run(
-        ["git", "-C", str(repo), "cat-file", "-e", f"{commit}:{path}"],
-        capture_output=True,
-    ).returncode == 0
+    return run_git(repo, "cat-file", "-e", f"{commit}:{path}", check=False).returncode == 0
 
 
 def blob(repo: Path, commit: str, path: str) -> str:
-    return git(repo, "show", f"{commit}:{path}")
+    return git_text(repo, "show", f"{commit}:{path}")
 
 
 def public_symbols(source: str) -> set[str]:
@@ -50,7 +41,7 @@ def validate(repo: Path, base: str, head: str, body: str) -> list[str]:
 
     rows = [
         tuple(line.split("\t"))
-        for line in git(
+        for line in git_text(
             repo, "diff", "--name-status", "-M", "-C", "--find-copies-harder",
             base, head, "--", "*.py",
         ).splitlines()
