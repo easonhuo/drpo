@@ -115,3 +115,18 @@ def test_eval_max_steps_drift_or_malformed_input_fails_closed(
 ) -> None:
     with pytest.raises(ValueError, match="eval_max_steps"):
         protocol.load_run_spec(_write(tmp_path, eval_tokens))
+
+
+def test_unknown_source_trainer_flag_fails_before_branch_launch(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="unsupported GAE flags.*canonical_only"):
+        protocol.load_run_spec(
+            _write(
+                tmp_path,
+                [
+                    "--eval_max_steps",
+                    "1000",
+                    "--canonical_only",
+                    "1",
+                ],
+            )
+        )
