@@ -31,7 +31,7 @@ jobs:
           persist-credentials: false
 
       - name: Fetch untrusted head as Git objects only
-        run: git fetch --no-tags --depth=1 origin "$HEAD_SHA"
+        run: git fetch --no-tags origin "$HEAD_SHA"
 
       - name: Collect pull-request inputs
         run: |
