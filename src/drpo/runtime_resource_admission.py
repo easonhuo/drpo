@@ -1,8 +1,9 @@
 """Pre-launch worker admission under current measured CPU and memory capacity.
 
-The planned runtime selection remains immutable provenance.  This module derives an
-attempt-local admitted worker count immediately before launch.  A positive safe lower
-count is allowed; zero safe workers remains a fail-closed capacity block.
+The planned runtime selection remains immutable provenance. This module derives an
+attempt-local admitted worker count immediately before launch. A positive safe lower
+count is allowed; zero safe workers remains fail-closed unless the caller explicitly
+requests a structured blocked result for foreground capacity waiting.
 """
 from __future__ import annotations
 
@@ -154,12 +155,15 @@ def revalidate_with_safe_downshift(
     proposed_workers: int,
     selection_digest: str,
     revalidate_kwargs: Mapping[str, Any],
+    allow_zero: bool = False,
 ) -> dict[str, Any]:
-    """Revalidate and admit the largest currently safe positive worker count.
+    """Revalidate and admit the largest currently safe worker count.
 
     Identity, checkout, binding, measurement, and non-capacity failures remain fatal.
-    Only exact CPU/memory capacity failures may be converted into a lower pre-launch
-    worker count.  The immutable selection document is never rewritten.
+    Only exact CPU/memory capacity failures may produce a lower pre-launch worker count.
+    The immutable selection document is never rewritten. By default zero capacity raises;
+    ``allow_zero=True`` returns the same structured blocked evidence so a foreground
+    launcher can wait and remeasure without starting work.
     """
 
     if proposed_workers < 1:
@@ -254,20 +258,24 @@ def revalidate_with_safe_downshift(
     atomic_write_json(admission_path, admission)
     admission["path"] = str(admission_path)
 
-    if admitted_workers < 1:
-        raise RuntimeResourceError(
-            "RUNTIME_CAPACITY_CHANGED_REPLAN_REQUIRED: "
-            + ",".join(failures or ["no_safe_worker_capacity"])
-        )
-
     result = copy.deepcopy(validated_document)
     result["runtime_admission"] = admission
     result["revalidation"] = {
-        "decision": "ALLOW_WITH_DOWNSHIFT" if downshifted else "ALLOW",
+        "decision": (
+            "BLOCK"
+            if admitted_workers < 1
+            else ("ALLOW_WITH_DOWNSHIFT" if downshifted else "ALLOW")
+        ),
         "attempt_id": record.get("attempt_id"),
         "path": str(record_path),
         "admission_path": str(admission_path),
         "original_decision": record.get("decision"),
         "capacity_failures": failures,
     }
+
+    if admitted_workers < 1 and not allow_zero:
+        raise RuntimeResourceError(
+            "RUNTIME_CAPACITY_CHANGED_REPLAN_REQUIRED: "
+            + ",".join(failures or ["no_safe_worker_capacity"])
+        )
     return result
