@@ -8,6 +8,7 @@ from typing import Any, Sequence
 
 from drpo import e7_canonical_sweep as base
 from drpo import e7_squared_exp_night as night
+from drpo.e7_sqexp_gae_aggregate import aggregate
 from drpo.e7_sqexp_gae_audit import terminal_audit
 from drpo.e7_sqexp_gae_matrix import build_branches
 from drpo.e7_sqexp_gae_protocol import (
@@ -140,7 +141,9 @@ def main(argv: list[str] | None = None) -> int:
         result = int(base.main(delegated))
         if delegated and delegated[0] == "run":
             work_index = delegated.index("--work-dir")
-            terminal_audit(Path(delegated[work_index + 1]).expanduser().resolve())
+            work_dir = Path(delegated[work_index + 1]).expanduser().resolve()
+            aggregate(work_dir)
+            terminal_audit(work_dir)
         return result
     finally:
         (
