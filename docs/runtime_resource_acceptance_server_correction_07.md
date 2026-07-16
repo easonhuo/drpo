@@ -37,7 +37,14 @@ The admission artifact records:
 - the unchanged selection digest;
 - `scientific_matrix_changed=false`.
 
-No running worker is resized. No scientific branch, seed, method, data, optimizer, training horizon, evaluation rule, threshold, or result identity is changed. This is a one-time decision before the bounded liveness launch.
+No running worker is resized. No scientific branch, seed, method, data, optimizer, training horizon, evaluation rule, threshold, or branch identity is changed. This is a one-time decision before launch.
+
+The same distinction is enforced in both places that matter:
+
+1. the acceptance liveness path launches the actually admitted count;
+2. the real PPO w(0) E7 auto-runner retains the reviewed planned count in `EXECUTION_PLAN.json` and `RUN_IDENTITY.json`, while the canonical branch executor uses the lower attempt-local admitted width.
+
+Therefore a capacity downshift changes only the number of simultaneously active subprocesses. It does not remove branches, alter branch identities, or change resume compatibility. `RUN_SUMMARY.json` records both `planned_max_workers` and `runtime_admitted_workers`.
 
 ## Reporting corrections
 
