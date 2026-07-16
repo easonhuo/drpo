@@ -6,10 +6,11 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 from drpo import e7_ppo_w0_grid_pilot as pilot
 from drpo.e7_ppo_w0_runtime_autotune import revalidate_runtime, select_runtime
+from drpo.runtime_capacity_wait import wait_for_runtime_admission
 from drpo.runtime_resource_admission import revalidate_with_safe_downshift
 from drpo.runtime_resource_autotune import (
     RuntimeResourceError,
@@ -48,6 +49,23 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--minimum-branches-for-probe", type=int, default=8)
     parser.add_argument("--revalidation-samples", type=int, default=3)
     parser.add_argument("--revalidation-sample-seconds", type=float, default=1.0)
+    parser.add_argument(
+        "--capacity-wait-timeout-seconds",
+        type=float,
+        default=0.0,
+        help=(
+            "negative waits without a deadline, zero performs one admission attempt, "
+            "positive values bound the foreground wait"
+        ),
+    )
+    parser.add_argument("--capacity-poll-seconds", type=float, default=300.0)
+    parser.add_argument(
+        "--minimum-admitted-workers",
+        type=int,
+        help=(
+            "practical launch floor; defaults to min(fallback workers, planned workers)"
+        ),
+    )
     parser.add_argument("--meminfo", default="/proc/meminfo")
     parser.add_argument("--loadavg", default="/proc/loadavg")
     parser.add_argument("--cgroup-root", default="/sys/fs/cgroup")
@@ -139,7 +157,7 @@ def _atomic_json(path: Path, payload: dict[str, Any]) -> None:
 
 
 def _write_failed_terminal_audit(work_dir: Path, error: BaseException) -> Path:
-    """Persist a terminal failure audit even when training or aggregation raises."""
+    """Persist a terminal failure audit after scientific branch execution starts."""
 
     summary_path = work_dir / "RUN_SUMMARY.json"
     summary: dict[str, Any] = {}
@@ -207,6 +225,14 @@ def _runtime_kwargs(
     }
 
 
+def _discover_machine(args: argparse.Namespace) -> Any:
+    return discover_machine(
+        meminfo_path=args.meminfo,
+        loadavg_path=args.loadavg,
+        cgroup_root=args.cgroup_root,
+    )
+
+
 def _load_planned_selection(work_dir: Path) -> tuple[int, str]:
     path = work_dir / "RUNTIME_SELECTION.json"
     if not path.is_file():
@@ -222,6 +248,13 @@ def _load_planned_selection(work_dir: Path) -> tuple[int, str]:
     return workers, digest
 
 
+def _print_capacity_wait_event(event: Mapping[str, Any]) -> None:
+    print(
+        json.dumps({"runtime_capacity_wait": dict(event)}, sort_keys=True),
+        flush=True,
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.command == "plan" and args.resume:
@@ -235,47 +268,80 @@ def main(argv: list[str] | None = None) -> int:
             "cannot re-plan a w(0) work directory that already has a run identity"
         )
 
-    machine = discover_machine(
-        meminfo_path=args.meminfo,
-        loadavg_path=args.loadavg,
-        cgroup_root=args.cgroup_root,
-    )
-    kwargs = _runtime_kwargs(args, machine=machine, repo=repo, work_dir=work_dir)
     proposed_workers: int
     runtime_admission: Mapping[str, Any] | None = None
+    capacity_wait: Mapping[str, Any] | None = None
     if args.command == "plan":
-        document = select_runtime(**kwargs)
+        document = select_runtime(
+            **_runtime_kwargs(
+                args,
+                machine=_discover_machine(args),
+                repo=repo,
+                work_dir=work_dir,
+            )
+        )
         proposed_workers = int(document["selection"]["selected_workers"])
         workers = proposed_workers
         selection_digest = str(document["selection_digest"])
+        minimum_admitted_workers = min(args.fallback_workers, proposed_workers)
     else:
         proposed_workers, planned_digest = _load_planned_selection(work_dir)
         _validate_existing_run_identity(work_dir, proposed_workers, planned_digest)
-        document = revalidate_with_safe_downshift(
-            revalidate_runtime=revalidate_runtime,
+        requested_minimum = (
+            args.fallback_workers
+            if args.minimum_admitted_workers is None
+            else args.minimum_admitted_workers
+        )
+        if requested_minimum < 1:
+            raise RuntimeResourceError("minimum admitted workers must be positive")
+        minimum_admitted_workers = min(requested_minimum, proposed_workers)
+
+        def revalidation_kwargs() -> Mapping[str, Any]:
+            return {
+                **_runtime_kwargs(
+                    args,
+                    machine=_discover_machine(args),
+                    repo=repo,
+                    work_dir=work_dir,
+                ),
+                "proc_root": args.proc_root,
+            }
+
+        document = wait_for_runtime_admission(
+            admit_once=revalidate_with_safe_downshift,
             work_dir=work_dir,
             proposed_workers=proposed_workers,
             selection_digest=planned_digest,
-            revalidate_kwargs={**kwargs, "proc_root": args.proc_root},
+            revalidate_kwargs_factory=revalidation_kwargs,
+            wait_timeout_seconds=args.capacity_wait_timeout_seconds,
+            poll_seconds=args.capacity_poll_seconds,
+            minimum_admitted_workers=minimum_admitted_workers,
+            on_event=_print_capacity_wait_event,
         )
         runtime_admission = document.get("runtime_admission")
+        capacity_wait = document.get("capacity_wait")
         if not isinstance(runtime_admission, dict):
             raise RuntimeResourceError("run revalidation lacks runtime admission")
+        if not isinstance(capacity_wait, dict):
+            raise RuntimeResourceError("run revalidation lacks capacity-wait evidence")
         workers = int(runtime_admission.get("admitted_workers", 0) or 0)
         selection_digest = planned_digest
-        if workers < 1 or workers > proposed_workers:
+        if workers < minimum_admitted_workers or workers > proposed_workers:
             raise RuntimeResourceError("runtime admission produced an invalid worker count")
+
     print(
         json.dumps(
             {
                 "runtime_selection": str(work_dir / "RUNTIME_SELECTION.json"),
                 "selection_mode": document["mode"],
                 "proposed_workers": proposed_workers,
+                "minimum_admitted_workers": minimum_admitted_workers,
                 "admitted_workers": workers,
                 "selected_workers": workers,
                 "selection_digest": selection_digest,
                 "revalidation": document.get("revalidation"),
                 "runtime_admission": runtime_admission,
+                "capacity_wait": capacity_wait,
                 "scientific_branch_count": pilot.EXPECTED_TOTAL_BRANCHES,
                 "selection_scope": (
                     "resource-valid empirical candidate grid under measured CPU/RAM constraints"
