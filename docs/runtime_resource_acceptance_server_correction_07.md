@@ -53,6 +53,20 @@ Therefore a capacity downshift changes only the number of simultaneously active 
 3. OOM classification must use explicit structured OOM evidence or exact OOM phrases. Substrings such as `headroom` must never trigger an OOM classification.
 4. The repository-owned acceptance archive already contains a standard `sha256sum -c` manifest. Server delivery must return that archive directly and must not wrap it in a second package with a non-standard three-column manifest.
 
+## Validation
+
+Exact-head CI on the final correction must pass Python compilation, shell syntax, handoff authority, formal execution-channel validation, governance checks, full pytest, and Ruff before another server command is issued.
+
+Focused regression coverage includes:
+
+- the observed 123-to-113 pre-launch CPU downshift;
+- immutable `RUNTIME_SELECTION.json` bytes;
+- zero safe capacity remaining blocked;
+- non-capacity failures never being downshifted;
+- planned E7 identity retained while the executor width uses the admitted count;
+- E8 eight-slot selection reported separately from one-worker probe coverage;
+- `headroom` not being misclassified as OOM.
+
 ## Terminal semantics
 
 - positive admitted count and successful bounded liveness: `PASS` when more than one worker is actually exercised, otherwise `INCONCLUSIVE`;
