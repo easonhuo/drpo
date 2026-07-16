@@ -22,7 +22,7 @@ RETIRED_RUNSPECS = (
     ROOT / "runspecs" / "retired" / "E7_SQEXP_GAE_PILOT_20260716_01.yaml",
     ROOT / "runspecs" / "retired" / "E7_SQEXP_GAE_PILOT_20260716_02.yaml",
 )
-FROZEN_IMPLEMENTATION = "c630ef3b00a5b25d27a35dc79f007a3d08ce7a28"
+FROZEN_IMPLEMENTATION = "f6eaa096d5ec8fad49e8769740e0b347204f752c"
 
 
 def test_e7_sqexp_gae_ready_runspec_is_structurally_valid() -> None:
@@ -68,7 +68,7 @@ def test_e7_sqexp_gae_ready_runspec_freezes_scientific_boundaries() -> None:
     assert "c={64,128,256}" in purpose
     assert "--variant {variant}" in purpose
     assert "--eval_max_steps 1000" in purpose
-    assert "NumPy-float64" not in purpose or "float64" in purpose
+    assert "float64 parity" in purpose
     assert "exactly 192 runnable branches" in success
     assert "held-out seeds untouched" in success
     assert "without failed-cell imputation" in success
