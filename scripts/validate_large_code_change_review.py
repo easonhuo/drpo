@@ -35,6 +35,25 @@ def named_nodes(source: str, *, tests_only: bool = False) -> dict[str, str]:
     return result
 
 
+def defined_symbols(source: str) -> set[str]:
+    result = set(named_nodes(source))
+    for node in ast.parse(source).body:
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            result.update(alias.asname or alias.name.split(".")[0] for alias in node.names)
+        elif isinstance(node, ast.Assign):
+            result.update(target.id for target in node.targets if isinstance(target, ast.Name))
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            result.add(node.target.id)
+    return result
+
+
+def referenced_symbols(source: str) -> set[str]:
+    tree = ast.parse(source)
+    return {node.id for node in ast.walk(tree) if isinstance(node, ast.Name)} | {
+        node.attr for node in ast.walk(tree) if isinstance(node, ast.Attribute)
+    }
+
+
 def validate(repo: Path, base: str, head: str, body: str) -> list[str]:
     errors: list[str] = []
     if body.count(START) != 1 or body.count(END) != 1:
@@ -119,10 +138,10 @@ def validate(repo: Path, base: str, head: str, body: str) -> list[str]:
             path, name, used_by = item.get("path"), item.get("symbol"), item.get("used_by")
             if not all(isinstance(v, str) and v for v in (path, name, used_by)):
                 errors.append("reuse_evidence requires path, symbol, and used_by")
-            elif not exists(repo, base, path) or name not in blob(repo, base, path):
-                errors.append(f"reused symbol is absent at base: {path}:{name}")
-            elif used_by not in changed or not exists(repo, head, used_by) or name not in blob(repo, head, used_by):
-                errors.append(f"reuse is not visible in changed file: {used_by}:{name}")
+            elif not exists(repo, base, path) or name not in defined_symbols(blob(repo, base, path)):
+                errors.append(f"reused symbol is not defined at base: {path}:{name}")
+            elif used_by not in changed or not exists(repo, head, used_by) or name not in referenced_symbols(blob(repo, head, used_by)):
+                errors.append(f"reused symbol is not referenced by changed code: {used_by}:{name}")
 
     for row in rows:
         status = row[0][0]
