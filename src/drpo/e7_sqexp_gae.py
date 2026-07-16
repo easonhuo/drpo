@@ -22,10 +22,6 @@ PREPARED_ROOT_ENV = "E7_SQEXP_GAE_PREPARED_ROOT"
 _ORIGINAL_WRITE_PLAN = base.write_plan
 
 
-def _label(value: float) -> str:
-    return f"{value:.8g}".replace("-", "m").replace(".", "p")
-
-
 def _prepared_root(work_dir: Path) -> Path:
     configured = os.environ.get(PREPARED_ROOT_ENV)
     return Path(configured).expanduser().resolve() if configured else work_dir / "prepared"
@@ -68,6 +64,7 @@ def branch_command(
         "experiment_id": EXPERIMENT_ID,
         "branch_id": branch.branch_id,
         "branch_kind": branch.branch_kind,
+        "canonical_root": context["canonical_root"],
         "dataset_id": branch.dataset.id,
         "dataset_path": context["dataset_path"],
         "dataset_sha256": branch.dataset.sha256,

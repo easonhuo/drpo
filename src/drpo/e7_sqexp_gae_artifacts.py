@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -50,19 +51,38 @@ def load_prepared(
     if sha256_file(critic) != manifest["critic"]["sha256"]:
         raise RuntimeError("prepared critic hash mismatch")
     with np.load(arrays, allow_pickle=False) as payload:
-        td = payload["td"].astype(np.float32, copy=True)
+        stored_td = payload["td"].astype(np.float32, copy=True)
         stored_gae = payload["gae"].astype(np.float32, copy=True)
+        values = payload["values"].astype(np.float32, copy=True)
+        next_values = payload["next_values"].astype(np.float32, copy=True)
     dataset = Path(branch.get("dataset_path", manifest["dataset_path"])).expanduser().resolve()
     if sha256_file(dataset) != branch["dataset_sha256"]:
         raise RuntimeError("ordered dataset hash mismatch")
     with h5py.File(dataset, "r") as source:
+        rewards = source["rewards"][:].astype(np.float32)
         terminals = source["terminals"][:].astype(np.bool_)
         timeouts = source["timeouts"][:].astype(np.bool_)
+    canonical_root = str(Path(branch["canonical_root"]).expanduser().resolve())
+    inserted = canonical_root not in sys.path
+    if inserted:
+        sys.path.insert(0, canonical_root)
+    try:
+        from d4rl_common.normalize import reward_norm_locomotion
+
+        rewards = reward_norm_locomotion(rewards, terminals, timeouts).astype(np.float32)
+    finally:
+        if inserted:
+            sys.path.remove(canonical_root)
+    gamma = float(manifest.get("gamma", 0.99))
+    td64 = rewards.astype(np.float64) + gamma * (~terminals) * next_values - values
+    td = td64.astype(np.float32)
+    if not np.array_equal(td, stored_td):
+        raise RuntimeError("current one-step TD disagrees with prepared artifact")
     gae = compute_gae_from_td(
-        td,
+        td64,
         terminals,
         timeouts,
-        gamma=float(manifest.get("gamma", 0.99)),
+        gamma=gamma,
         gae_lambda=float(manifest.get("gae_lambda", 0.95)),
     )
     if not np.allclose(gae, stored_gae, atol=1e-6, rtol=1e-6):
