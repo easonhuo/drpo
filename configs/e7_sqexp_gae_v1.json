@@ -1,0 +1,48 @@
+{
+  "experiment_id": "EXT-H-E7-SQEXP-GAE-01",
+  "run_kind": "pilot",
+  "status": "not_run",
+  "scientific_status": "frozen_critic_trajectory_gae_development_pilot_only",
+  "datasets": [
+    "hopper-medium-expert-v2",
+    "walker2d-medium-v2",
+    "walker2d-medium-replay-v2"
+  ],
+  "development_seeds": [200, 201, 202, 203],
+  "held_out_seeds": [204, 205, 206, 207],
+  "actor_update_modes": ["a2c", "ppo_clip_k4"],
+  "advantage_estimators": ["td", "gae"],
+  "steps": 1000000,
+  "evaluation_interval": 50000,
+  "evaluation_episodes": 10,
+  "shared_frozen_critic": {
+    "steps": 100000,
+    "batch": 256,
+    "gamma": 0.99,
+    "tau": 0.5,
+    "lr": 0.0003,
+    "temperature": 5.0,
+    "shared_per_dataset_seed": true,
+    "updated_during_actor_training": false
+  },
+  "trajectory_advantage": {
+    "gamma": 0.99,
+    "gae_lambda": 0.95,
+    "terminal_bootstrap": false,
+    "timeout_bootstrap": true,
+    "terminal_stops_recursion": true,
+    "timeout_stops_recursion": true,
+    "tail_stops_recursion": true,
+    "normalization": "none",
+    "clipping": "none"
+  },
+  "weight_control": {
+    "formula": "w(d)=w(0)*exp(-c*(d/2)^2)",
+    "weight_at_zero": 1.0,
+    "positive_only_anchor": true,
+    "reference_distance": 2.0,
+    "exp_coefficients": [64.0, 128.0, 256.0]
+  },
+  "expected_total_branches": 192,
+  "formal_evidence_allowed": false
+}
