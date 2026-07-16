@@ -21,7 +21,7 @@ RUNSPEC = ROOT / "runspecs" / "ready" / "E7_SQEXP_GAE_PILOT_20260716_02.yaml"
 RETIRED_RUNSPEC = (
     ROOT / "runspecs" / "retired" / "E7_SQEXP_GAE_PILOT_20260716_01.yaml"
 )
-FROZEN_IMPLEMENTATION = "789b9eaf4c6780918b91199e3e97180504d07067"
+FROZEN_IMPLEMENTATION = "01f5230a15cc56161c0236f2e00240a2934d0d8a"
 
 
 def test_e7_sqexp_gae_ready_runspec_is_structurally_valid() -> None:
