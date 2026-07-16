@@ -2,7 +2,7 @@ name: Code Change Budget
 
 on:
   pull_request_target:
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize, reopened, edited]
 
 permissions:
   contents: read
@@ -31,10 +31,18 @@ jobs:
           git fetch --no-tags --depth=1 origin "$HEAD_SHA"
           churn=$(git diff --numstat "$BASE_SHA" "$HEAD_SHA" -- '*.py' |
             awk '{a += $1; d += $2} END {print a + d + 0}')
-          structural=$(git diff --name-status -M -C "$BASE_SHA" "$HEAD_SHA" -- '*.py' |
+          structural=$(git diff --name-status -M -C --find-copies-harder \
+            "$BASE_SHA" "$HEAD_SHA" -- '*.py' |
             awk '$1 ~ /^[ADRC]/ {n++} END {print n + 0}')
           required=false
-          if (( churn > 100 || structural > 0 )); then required=true; fi
+          if (( churn > 100 || structural > 0 )); then
+            required=true
+            jq -r '.pull_request.body // ""' "$GITHUB_EVENT_PATH" \
+              > "$RUNNER_TEMP/pr-body.txt"
+            python scripts/validate_large_code_change_review.py \
+              --repo-root . --base "$BASE_SHA" --head "$HEAD_SHA" \
+              --pr-body-file "$RUNNER_TEMP/pr-body.txt"
+          fi
           echo "approval_required=$required" >> "$GITHUB_OUTPUT"
           echo "Python churn: $churn; structural .py changes: $structural"
 
