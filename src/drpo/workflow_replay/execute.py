@@ -117,21 +117,26 @@ def run_fixture_plan(
     started, child_ns, invoked, sequence = clock_ns(), 0, 0, 0
     with _event_path(event_path).open("x", encoding="utf-8") as journal:
 
-        def record(event: str, **payload: Any) -> None:
+        def record(event: str, **payload: Any) -> int:
             nonlocal sequence
+            stamp = clock_ns()
             row = {
                 "run_id": run_id,
                 "sequence": sequence,
                 "event": event,
-                "monotonic_ns": clock_ns(),
+                "monotonic_ns": stamp,
                 "payload": payload,
             }
             journal.write(json.dumps(row, sort_keys=True, separators=(",", ":")) + "\n")
             journal.flush()
             sequence += 1
+            return stamp
 
-        def summary(state: str) -> dict[str, int | str]:
-            total = clock_ns() - started
+        def finish(event: str, state: str, **payload: Any) -> dict[str, int | str]:
+            ended = record(
+                event, terminal_state=state, command_count=invoked, child_ns=child_ns, **payload
+            )
+            total = ended - started
             return {
                 "terminal_state": state,
                 "command_count": invoked,
@@ -141,9 +146,9 @@ def run_fixture_plan(
             }
 
         record(
-            "run_started", arm=plan.arm, case_id=plan.case_id, input_sha256=plan.input_sha256,
-            environment_id=plan.environment_id, cache_policy=plan.cache_policy,
-            plan_sha256=plan.plan_sha256,
+            "run_started", origin_ns=started, arm=plan.arm, case_id=plan.case_id,
+            input_sha256=plan.input_sha256, environment_id=plan.environment_id,
+            cache_policy=plan.cache_policy, plan_sha256=plan.plan_sha256,
         )
         try:
             for command in plan.commands:
@@ -166,13 +171,8 @@ def run_fixture_plan(
                     child_elapsed_ns=elapsed,
                 )
                 if status:
-                    result = summary("BLOCKED")
-                    record("run_blocked", **result)
-                    return result
+                    return finish("run_blocked", "BLOCKED")
         except BaseException as exc:
-            result = summary("INTERRUPTED")
-            record("run_interrupted", exception_type=type(exc).__name__, **result)
+            finish("run_interrupted", "INTERRUPTED", exception_type=type(exc).__name__)
             raise
-        result = summary("READY")
-        record("run_finished", **result)
-        return result
+        return finish("run_finished", "READY")
