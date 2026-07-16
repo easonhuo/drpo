@@ -1,0 +1,48 @@
+name: Code Change Budget
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: code-change-budget-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Check Python change budget
+    runs-on: ubuntu-latest
+    outputs:
+      approval_required: ${{ steps.budget.outputs.approval_required }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - id: budget
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          git fetch --no-tags --depth=1 origin "$HEAD_SHA"
+          churn=$(git diff --numstat "$BASE_SHA" "$HEAD_SHA" -- '*.py' |
+            awk '{a += $1; d += $2} END {print a + d + 0}')
+          structural=$(git diff --name-status -M -C "$BASE_SHA" "$HEAD_SHA" -- '*.py' |
+            awk '$1 ~ /^[ADRC]/ {n++} END {print n + 0}')
+          required=false
+          if (( churn > 100 || structural > 0 )); then required=true; fi
+          echo "approval_required=$required" >> "$GITHUB_OUTPUT"
+          echo "Python churn: $churn; structural .py changes: $structural"
+
+  approve:
+    name: Approve large code change
+    needs: check
+    if: needs.check.outputs.approval_required == 'true'
+    environment: large-code-change-approval
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Human approval granted."
