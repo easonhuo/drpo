@@ -1,7 +1,7 @@
 # DRPO Development Workflow Optimization Project
 
 **Claim:** `GOV-DEV-WORKFLOW-OPTIMIZATION-BENCHMARK-01`  
-**Status:** documentation and validation design only; no optimizer implementation is authorized  
+**Status:** staged disposable-prototype implementation active on the development branch; no default-route change is authorized  
 **Repository base:** `main@7d0ecfbee3b9e44bbad97fb806c8806b604f75f6`
 
 ## 1. Purpose
@@ -33,9 +33,10 @@ A future session working on workflow optimization must read, in order:
 
 1. this document;
 2. `REPLAY_BENCHMARK_PROTOCOL.md`;
-3. the current scope for the active optimization iteration;
-4. the relevant component contracts;
-5. related incident and transition records.
+3. `IMPLEMENTATION_PLAN.md`;
+4. the current scope for the active optimization iteration;
+5. the relevant component contracts;
+6. related incident and transition records.
 
 ## 3. Optimization objective
 
@@ -208,21 +209,23 @@ It would not:
 - weaken gates;
 - push, create PRs, approve, or merge.
 
-This remains a hypothesis, not an authorized implementation or predetermined solution.
+A disposable prototype of this hypothesis is now authorized only on the active development branch under `IMPLEMENTATION_PLAN.md`. Adoption, default-route activation, and method success remain unproven.
 
 ## 11. Evidence-before-code policy
 
-Before any workflow optimizer is implemented:
+Before a candidate optimizer may be evaluated or adopted:
 
 1. identify repeated incidents or measurable loss;
 2. define affected and unaffected task classes;
-3. freeze a representative historical case inventory;
+3. freeze a representative historical case inventory before candidate results;
 4. freeze correctness and efficiency acceptance criteria;
 5. freeze the replay toolchain and environment policy;
 6. set production-code and maintenance budgets;
 7. define rollback and stop conditions.
 
-The implementation starts as a disposable prototype on an isolated dev branch. It may enter `main` only after passing the paired replay protocol.
+The reusable case validator, recorder, and equivalence test harness may be implemented before the final historical inventory because they do not encode candidate results or select cases. The candidate orchestrator may not be historically evaluated until the inventory is frozen.
+
+The implementation remains a disposable prototype on the active dev branch. It may enter `main` only after passing the paired replay protocol and receiving a separate explicit merge approval.
 
 ## 12. Historical replay validation
 
@@ -267,12 +270,12 @@ A narrow task-class route is allowed only when its scope and routing are predecl
 
 For the first orchestration prototype:
 
-- target production code: 250–450 lines;
+- target production code: 300–450 lines;
 - mandatory redesign review above 500 production lines;
 - no new third-party dependency;
 - no changes to V1 core, handoff authority, registry schema, scientific code, or GitHub merge behavior;
 - no automatic push, PR creation, approval, or merge;
-- no new domain state beyond a derived, rebuildable summary;
+- no new domain state beyond append-only raw events and derived, rebuildable summaries;
 - no E7- or E8-specific scientific branches.
 
 Crossing a boundary triggers redesign or cancellation, not silent scope expansion.
@@ -281,14 +284,17 @@ Crossing a boundary triggers redesign or cancellation, not silent scope expansio
 
 Each optimization is one finite iteration:
 
-1. documentation and threshold freeze;
-2. replay-case inventory;
-3. baseline replay;
-4. disposable prototype;
-5. candidate replay;
-6. independent comparison and decision;
-7. at least three real production observations after adoption;
-8. retain, narrow, redesign, or roll back.
+1. documentation, architecture, and threshold freeze;
+2. case validator and replay-harness implementation;
+3. correctness-equivalence and failure-injection tests;
+4. historical replay-case inventory freeze;
+5. accepted-path baseline replay;
+6. disposable candidate orchestration;
+7. candidate replay and independent comparison;
+8. at least three real production observations after adoption;
+9. retain, narrow, redesign, or roll back.
+
+Each numbered implementation step has its own goal, changed-path scope, focused tests, review, and stop decision. A later step may not hide an earlier defect with cross-module special cases.
 
 A later optimization starts a new iteration. It may reuse the benchmark protocol but must not continuously expand one orchestrator to absorb unrelated responsibilities.
 
@@ -305,22 +311,24 @@ Each real use of an existing mechanism should record, when available:
 - temporary workflow or PR use;
 - final terminal state.
 
-Each benchmark iteration retains its frozen plan, case inventory, environment, baseline and candidate results, paired comparison, review, and decision. These are engineering artifacts and do not enter the scientific experiment registry.
+Each benchmark iteration retains only the frozen `CASE_INVENTORY.yaml`, append-only `RAW_RESULTS.jsonl`, derived `PAIRED_COMPARISON.json`, and reviewed `DECISION.md`. These are engineering artifacts and do not enter the scientific experiment registry.
 
 ## 17. Current state and next permitted action
 
-As of the base commit:
+As of the implementation authorization:
 
-- the existing safety and registration components remain active;
-- a unified lifecycle orchestrator does not exist;
-- no orchestration or telemetry implementation is authorized by this claim;
-- historical GitHub PR, commit, and Actions timing are available for many cases;
-- historical local V1 stage timing is incomplete;
-- controlled replay is the approved method for supplementing missing timing;
-- the next permitted activity after document approval is replay-case inventory and baseline planning, not production implementation.
+- the existing safety and registration components remain active and unchanged;
+- a unified lifecycle orchestrator does not yet exist;
+- staged disposable-prototype implementation is authorized on `dev/gov-dev-workflow-optimization-benchmark-01`;
+- Step 0 architecture and scope documentation is in progress;
+- Step 1 may implement only the strict case model and static validation after Step 0 review;
+- no candidate historical results may be inspected before the case inventory is frozen;
+- no E7/E8 scientific experiment execution is authorized;
+- no default-route change, Ready-for-review transition, or merge is authorized by the implementation approval.
 
 ## 18. Related records
 
+- `docs/development_workflow_optimization/IMPLEMENTATION_PLAN.md`
 - `docs/dev_branch_integration_protocol.md`
 - `docs/dev_pilot_registration_fastpath.md`
 - `docs/development_workflow_incident_and_improvement_log.md`
