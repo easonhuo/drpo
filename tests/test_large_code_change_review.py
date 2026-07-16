@@ -81,7 +81,7 @@ def test_fake_reuse_evidence_is_rejected(tmp_path: Path) -> None:
     head = commit_change(repo)
     changed = {"src/base.py": "Implement behavior while retaining helper.", "tests/test_base.py": "Cover behavior."}
     errors = review.validate(repo, base, head, body(changed, {}).replace('"helper"', '"invented"'))
-    assert any("reused symbol is absent" in error for error in errors)
+    assert any("reused symbol is not defined" in error for error in errors)
 
 
 def test_existing_regression_test_rewrite_is_rejected(tmp_path: Path) -> None:
