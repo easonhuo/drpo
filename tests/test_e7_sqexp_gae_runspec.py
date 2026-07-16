@@ -22,7 +22,7 @@ RETIRED_RUNSPECS = (
     ROOT / "runspecs" / "retired" / "E7_SQEXP_GAE_PILOT_20260716_01.yaml",
     ROOT / "runspecs" / "retired" / "E7_SQEXP_GAE_PILOT_20260716_02.yaml",
 )
-FROZEN_IMPLEMENTATION = "5a286a83dff96853fc83c8ca361717fac07e7ee4"
+FROZEN_IMPLEMENTATION = "332309b2939bfb5b0e70ea961a2d42be29ac2b3b"
 
 
 def test_e7_sqexp_gae_ready_runspec_is_structurally_valid() -> None:
@@ -79,12 +79,21 @@ def test_e7_sqexp_gae_ready_runspec_freezes_scientific_boundaries() -> None:
     assert "absent from every materialized GAE trainer argument vector" in success
     assert "accepted by the checked-in GAE trainer parser" in success
     assert "monotonically indexed failed_attempts archive" in success
+    assert "monotonically indexed failed_run_attempts archive" in success
     assert (
         "outputs/e7/sqexp_gae_002/branches/*/failed_attempts/*/FAILED.json"
         in includes
     )
     assert (
         "outputs/e7/sqexp_gae_002/branches/*/failed_attempts/*/stdout_stderr.log"
+        in includes
+    )
+    assert (
+        "outputs/e7/sqexp_gae_002/failed_run_attempts/*/RUN_SUMMARY.json"
+        in includes
+    )
+    assert (
+        "outputs/e7/sqexp_gae_002/failed_run_attempts/*/aggregate/*.json"
         in includes
     )
     assert raw["policy"]["formal_evidence_allowed"] is False
