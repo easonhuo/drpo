@@ -4,8 +4,7 @@
 **Authorization:** explicit user approval on 2026-07-16  
 **Applies from:** Stage 4  
 **Stage-3 checkpoint:** `644a36169a89522ed6fcff88889686b2df73a342`  
-**Stage-4 implementation checkpoint:** `f0d7ceee103970bd2c12b0a32b7de3b457a47378`  
-**Stage-4 final documentation checkpoint:** `46fefb0a2eb6bf57e7dd66b820b0d79e0c964c51`
+**Stage-4 implementation checkpoint:** `f0d7ceee103970bd2c12b0a32b7de3b457a47378`
 
 ## Non-destructive supersession
 
@@ -71,6 +70,7 @@ This record authorized **Stage 4 only**: implement the smallest Arm-B compositio
 invokes the existing pilot-registration preparation adapter and V1 stages in their accepted
 order, while automating exact intermediate-file placement.
 
-Stage 4 is now implemented and exact-head repository CI has passed. Stage 5 is technically
-eligible for a later explicit start instruction, but has not begun. Stage 5 must cover failure
-injection and fixture end-to-end replay before any historical benchmark or adoption claim.
+Stage 4 is now implemented. The latest PR stage report and exact-head CI identify the final
+Stage-4 checkpoint. Stage 5 is technically eligible for a later explicit start instruction,
+but has not begun. Stage 5 must cover failure injection and fixture end-to-end replay before
+any historical benchmark or adoption claim.
