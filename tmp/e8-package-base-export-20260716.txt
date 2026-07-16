@@ -1,0 +1,2 @@
+Temporary marker used only to trigger the existing PR Gate Log source/bundle export for canonical DRPO update-package verification.
+Base commit: aedbe8cc7e50f730cb6fcde90ca1816b97d79173
