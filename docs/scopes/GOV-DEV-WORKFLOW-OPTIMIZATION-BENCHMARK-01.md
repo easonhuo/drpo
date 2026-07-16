@@ -7,7 +7,7 @@
 - Branch: `dev/gov-dev-workflow-optimization-benchmark-01`
 - Phase: staged disposable-prototype implementation
 - Initial user authorization: document the workflow-optimization project, preserve its history, define a reusable validation framework, and complete review before implementation
-- Implementation authorization: explicit instruction on 2026-07-16 to continue development and iteration on this branch, use modular steps with independent goals, implement the project, self-test it, and evaluate the result
+- Implementation authorization: explicit instruction on 2026-07-16 to continue development and iteration on this branch, use modular steps with independent goals, implement the project, self-test it, evaluate the result, persist every completed stage to GitHub, and report at milestone boundaries
 
 ## Objective
 
@@ -20,7 +20,7 @@ The implementation must let later sessions understand:
 - what remains unsolved;
 - why the candidate is a coordination layer rather than a replacement system;
 - how workflow changes are tested through historical paired replay;
-- how time reduction, per-case non-regression, complexity, and rollback determine adoption.
+- how time reduction, per-case non-regression, complexity, checkpoints, and rollback determine adoption.
 
 ## Authorized paths
 
@@ -72,14 +72,22 @@ The prototype must:
 11. include implementation and maintenance cost in ROI;
 12. use minimal artifacts and hard stop conditions to prevent framework expansion.
 
-## Frozen complexity budget
+## Frozen complexity and effort budget
 
-- target production code: 300–450 lines;
-- mandatory redesign review above 500 production lines;
+Production-code counting covers all newly added non-test Python under `src/drpo/workflow_replay/**` and `scripts/run_workflow_replay.py`.
+
+- preferred production-code target: 350–450 lines;
+- 451–500 lines is a yellow review zone that blocks the next step until duplication and architecture are reviewed;
+- more than 500 production lines is a hard redesign or cancellation trigger;
+- planning center for active effort: 15–24 hours;
+- broader milestone envelope including checkpoint reporting and historical fixture variance: 16–27 active hours;
+- exceeding 27 active hours requires a fresh ROI review before further implementation;
 - no new third-party dependency;
 - no new domain state beyond append-only raw events and derived, rebuildable summaries;
 - test and fixture volume may exceed production code because equivalence and failure evidence are primary;
 - a simpler solution must replace a larger prototype when both solve the same measured problem.
+
+The code budget must not be met by removing necessary validation, weakening error handling, or compressing unrelated responsibilities.
 
 ## Frozen first-iteration thresholds
 
@@ -101,7 +109,7 @@ These thresholds and the case inventory must be frozen before candidate results 
 
 ### Step 0 — scope and architecture
 
-Authorized now. Freeze module boundaries, paths, line budget, stop conditions, and per-step review gates. No behavior-changing code.
+Authorized and documented. Freeze module boundaries, paths, line budget, milestone estimates, checkpoint protocol, stop conditions, and per-step review gates. No behavior-changing code.
 
 ### Step 1 — case model and static validation
 
@@ -109,11 +117,11 @@ Authorized after Step 0 review. Implement strict case-manifest validation and po
 
 ### Step 2 — execution recorder and dry-run adapter
 
-Requires Step 1 focused tests. Record deterministic command plans, monotonic timing, active-operation events, environment identity, and diagnostics using fixture execution first.
+Requires Step 1 focused tests and checkpoint report. Record deterministic command plans, monotonic timing, active-operation events, environment identity, and diagnostics using fixture execution first.
 
 ### Step 3 — correctness-equivalence verifier
 
-Requires Step 2 review. Detect tree, semantic, authority, gate, terminal-state, and provenance mismatch before any efficiency output.
+Requires Step 2 review and checkpoint report. Detect tree, semantic, authority, gate, terminal-state, and provenance mismatch before any efficiency output.
 
 ### Step 4 — thin candidate orchestrator
 
@@ -131,7 +139,7 @@ Freeze 6–10 representative cases before candidate replay. Preserve incomplete-
 
 Run identical case inputs in opposite orders, preserve every repetition, inspect every regression, and record `ADOPT`, `NARROW`, `REDESIGN`, or `REJECT`.
 
-The full module and gate plan is in `docs/development_workflow_optimization/IMPLEMENTATION_PLAN.md`.
+The full module, effort, checkpoint, and gate plan is in `docs/development_workflow_optimization/IMPLEMENTATION_PLAN.md`.
 
 ## Benchmark boundary
 
@@ -156,24 +164,34 @@ A benchmark iteration may retain only:
 
 Large raw transaction directories may remain persistent-local with hashes and locators. This scope does not authorize a long-lived measurement platform.
 
-## Per-step review requirements
+## GitHub checkpoint and per-step review requirements
+
+Every completed step must be persisted on `dev/gov-dev-workflow-optimization-benchmark-01` before the next step begins. PR #103 remains the Draft progress and review record.
 
 Every step must record:
 
 - one explicit goal;
 - one frozen changed-path scope;
 - focused tests tied to the goal;
-- changed-path and line-count review;
+- changed-path and production/test/fixture line-count review;
 - confirmation that accepted behavior did not regress;
-- a stop decision before the next step.
+- one logical checkpoint commit, or a documented corrective follow-up commit;
+- tests actually executed and exact results;
+- active engineering time and unattended machine time separately;
+- defects found, unresolved blockers, and scope-drift assessment;
+- a `GO`, `HOLD`, `REDESIGN`, or `STOP` decision before the next step.
 
-A later step may not hide an earlier defect with task-specific special cases.
+A user-facing stage report is required at each step boundary. A step may not be called complete until its code and evidence are committed to GitHub and applicable tests have actually passed. A later step may not hide an earlier defect with task-specific special cases.
+
+No essential source, fixture manifest, comparison result, or decision may exist only in chat or an untracked local directory. Large local workspaces may remain external only when their hashes and locators are retained in the minimal evidence set.
 
 ## Stop and redesign conditions
 
 Stop implementation when:
 
 - production code exceeds 500 lines;
+- production code enters 451–500 lines without a recorded yellow-zone review;
+- active effort exceeds 27 hours without a fresh ROI decision;
 - a new service, dependency, database, scheduler, queue, dashboard, or state machine appears necessary;
 - an existing component core would need modification;
 - automatic publication or merge appears necessary to demonstrate benefit;
@@ -186,11 +204,12 @@ Stop implementation when:
 The implementation iteration is complete only when:
 
 - all staged module and failure-injection tests pass at the exact head;
+- every completed step has a GitHub checkpoint and stage report;
 - the historical case inventory was frozen before candidate results;
 - both arms use identical inputs, environment, gates, and expected outcomes;
 - correctness equivalence is audited before time results;
 - every case and repetition is reported;
-- complexity and break-even cost are reviewed;
+- complexity, effort, and break-even cost are reviewed;
 - the candidate receives one evidence-backed decision;
 - no default-route change or merge occurs without separate explicit user approval.
 
