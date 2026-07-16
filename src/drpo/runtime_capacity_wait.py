@@ -1,7 +1,7 @@
 """Foreground waiting for a safe pre-launch runtime admission.
 
-This module never invents capacity.  It repeats the existing fail-closed admission
-measurement while preserving the immutable planned selection.  Scientific work starts
+This module never invents capacity. It repeats the existing fail-closed admission
+measurement while preserving the immutable planned selection. Scientific work starts
 only after the measured admitted worker count reaches the configured practical floor.
 """
 from __future__ import annotations
@@ -27,6 +27,7 @@ AdmissionFunction = Callable[..., dict[str, Any]]
 KwargsFactory = Callable[[], Mapping[str, Any]]
 Clock = Callable[[], float]
 Sleeper = Callable[[float], None]
+EventSink = Callable[[Mapping[str, Any]], None]
 
 
 def _admission_paths(work_dir: Path) -> set[Path]:
@@ -37,13 +38,11 @@ def _admission_paths(work_dir: Path) -> set[Path]:
     )
 
 
-def _new_blocked_admission_path(work_dir: Path, before: set[Path]) -> Path:
+def _new_blocked_admission_path(work_dir: Path, before: set[Path]) -> Path | None:
     created = sorted(_admission_paths(work_dir) - before)
-    if len(created) != 1:
-        raise RuntimeResourceError(
-            "capacity wait did not observe exactly one new admission record"
-        )
-    return created[0]
+    if len(created) == 1:
+        return created[0]
+    return None
 
 
 def _finite(value: object, context: str) -> float:
@@ -106,6 +105,7 @@ def wait_for_runtime_admission(
     minimum_admitted_workers: int,
     clock: Clock = time.monotonic,
     sleep: Sleeper = time.sleep,
+    on_event: EventSink | None = None,
 ) -> dict[str, Any]:
     """Wait in the foreground until current safe capacity reaches the floor.
 
@@ -115,7 +115,7 @@ def wait_for_runtime_admission(
     - zero: perform exactly one admission attempt;
     - positive: wait for at most that many monotonic seconds.
 
-    Identity and non-capacity errors are never retried.  Only a structurally verified
+    Identity and non-capacity errors are never retried. Only a structurally verified
     zero-capacity admission, or a positive admission below the configured practical
     floor, enters the wait loop.
     """
@@ -165,7 +165,10 @@ def wait_for_runtime_admission(
         except RuntimeResourceError as exc:
             blocked_error = exc
             admission_path = _new_blocked_admission_path(work, before)
+            if admission_path is None:
+                raise blocked_error
             admission = load_json(admission_path)
+            admission["path"] = str(admission_path)
             admitted = _validate_admission(
                 admission,
                 proposed_workers=proposed_workers,
@@ -203,6 +206,8 @@ def wait_for_runtime_admission(
             "scientific_matrix_changed": False,
         }
         _append_event(events_path, event)
+        if on_event is not None:
+            on_event(event)
 
         state = {
             "schema_version": 1,
