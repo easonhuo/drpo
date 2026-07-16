@@ -9,12 +9,7 @@
     "run_e7_",
     "countdown_e8",
     "EXT-H-E7",
-    "EXT-C-E8",
-    "ResearchBench",
-    "collector_v2.py",
-    "AIDE",
-    "joblib.externals.loky",
-    "loky.process_executor"
+    "EXT-C-E8"
   ],
   "resource_pools": {
     "e7_cpu_pool": "0-95,192-287",
