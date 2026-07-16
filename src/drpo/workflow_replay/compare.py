@@ -50,10 +50,10 @@ def _pairs(
         for item in value
     )
     if invalid or (required and not value):
-        raise EquivalenceError(f"{label} must be unique sorted string pairs")
+        raise EquivalenceError(f"{label} must be unique string pairs")
     result = dict(value)
-    if len(result) != len(value) or tuple(sorted(value)) != value:
-        raise EquivalenceError(f"{label} must be unique sorted string pairs")
+    if len(result) != len(value):
+        raise EquivalenceError(f"{label} must have unique keys")
     return result
 
 
@@ -70,8 +70,12 @@ def _validate(snapshot: OutcomeSnapshot) -> None:
     _pairs(snapshot.output_hashes, "output_hashes")
     gates = _pairs(snapshot.gate_results, "gate_results", True)
     _pairs(snapshot.provenance, "provenance", True)
-    if set(modes) != set(snapshot.changed_paths):
-        raise EquivalenceError("file_modes must cover changed_paths exactly")
+    if tuple(modes) != snapshot.changed_paths:
+        raise EquivalenceError("file_modes must follow changed_paths exactly")
+    if tuple(sorted(snapshot.output_hashes)) != snapshot.output_hashes:
+        raise EquivalenceError("output_hashes must be sorted")
+    if tuple(sorted(snapshot.provenance)) != snapshot.provenance:
+        raise EquivalenceError("provenance must be sorted")
     invalid_gates = tuple(gates) != snapshot.gate_plan or any(
         state not in GATE_STATES for state in gates.values()
     )
