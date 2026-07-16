@@ -3,11 +3,12 @@
 ## Identity
 
 - Claim: `GOV-DEV-WORKFLOW-OPTIMIZATION-BENCHMARK-01`
-- Base: `main@7d0ecfbee3b9e44bbad97fb806c8806b604f75f6`
+- Initial base: `main@7d0ecfbee3b9e44bbad97fb806c8806b604f75f6`
+- Current main observed during Stage 0 review: `3e56a2b27c76779a2f80e45dd003934666cf37bd`
 - Branch: `dev/gov-dev-workflow-optimization-benchmark-01`
-- Phase: staged disposable-prototype implementation
+- Phase: Stage 0 active — staged disposable-prototype implementation
 - Initial user authorization: document the workflow-optimization project, preserve its history, define a reusable validation framework, and complete review before implementation
-- Implementation authorization: explicit instruction on 2026-07-16 to continue development and iteration on this branch, use modular steps with independent goals, implement the project, self-test it, evaluate the result, persist every completed stage to GitHub, and report at milestone boundaries
+- Implementation authorization: explicit instruction on 2026-07-16 to continue development and iteration on this branch, use modular steps with independent goals, implement the project, self-test it, evaluate the result, persist every completed stage to GitHub, report at milestone boundaries, control runtime cost, and retain a GitHub stage diagram and cross-session handoff
 
 ## Objective
 
@@ -20,7 +21,8 @@ The implementation must let later sessions understand:
 - what remains unsolved;
 - why the candidate is a coordination layer rather than a replacement system;
 - how workflow changes are tested through historical paired replay;
-- how time reduction, per-case non-regression, complexity, checkpoints, and rollback determine adoption.
+- how time reduction, runtime self-overhead, per-case non-regression, complexity, checkpoints, and rollback determine adoption;
+- the current stage, latest durable checkpoint, applicable gates, and only authorized next step.
 
 ## Authorized paths
 
@@ -68,9 +70,10 @@ The prototype must:
 7. require correctness equivalence before efficiency analysis;
 8. require no material per-case regression for universal adoption;
 9. report every repetition, every case, mean, and median;
-10. separate historical real wall time from controlled replay time;
-11. include implementation and maintenance cost in ROI;
-12. use minimal artifacts and hard stop conditions to prevent framework expansion.
+10. separate historical real wall time, underlying component time, candidate self-overhead, and controlled replay time;
+11. include implementation, runtime, and maintenance cost in ROI;
+12. use minimal artifacts and hard stop conditions to prevent framework expansion;
+13. retain a GitHub stage diagram, stage ledger, checkpoint report, and cross-session continuation protocol.
 
 ## Frozen complexity and effort budget
 
@@ -89,18 +92,34 @@ Production-code counting covers all newly added non-test Python under `src/drpo/
 
 The code budget must not be met by removing necessary validation, weakening error handling, or compressing unrelated responsibilities.
 
+## Frozen runtime-cost budget
+
+The candidate's runtime cost is measured independently of the existing components it invokes.
+
+- static manifest validation, planning, `status`, and summary generation target median `<=250 ms` and p95 `<=1 s` on the frozen replay environment;
+- successful per-case candidate self-overhead targets median `<=1 s`;
+- self-overhead above `max(2 s, 2% of the Arm-A median)` enters yellow review;
+- self-overhead above `5 s`, duplicate full scans, duplicate validators/gates, or candidate-only network work triggers redesign;
+- Arm B may not invoke an existing component more times than Arm A unless the case predeclares the same recovery action for both arms;
+- runtime evidence uses monotonic event boundaries and identical cache/order policy;
+- low wrapper overhead never excuses slower end-to-end controlled replay.
+
+These guardrails are frozen before behavior implementation. They may not be relaxed after candidate measurements merely to obtain adoption.
+
 ## Frozen first-iteration thresholds
 
 A candidate may be recommended as the universal default only when:
 
 - all correctness and safety checks pass;
-- no in-scope case is slower by more than `max(60 seconds, 5% of baseline median controlled-replay time)`;
+- no in-scope case is slower by more than `max(60 seconds, 5% of baseline median controlled-replay time)` under the frozen noise rule;
+- no in-scope slowdown is attributable to avoidable candidate self-overhead or duplicate work;
 - median case-level controlled wall time decreases by at least 30%;
 - mean controlled wall time also decreases;
 - median active operation time decreases by at least 30%;
 - command count decreases by at least 60%;
 - manual intermediate-file copies and temporary workflow/PR use fall to zero;
 - production code stays within the complexity budget;
+- candidate self-overhead stays within the frozen runtime budget;
 - no existing component core, scientific code, or merge behavior changes.
 
 These thresholds and the case inventory must be frozen before candidate results are inspected.
@@ -109,15 +128,17 @@ These thresholds and the case inventory must be frozen before candidate results 
 
 ### Step 0 — scope and architecture
 
-Authorized and documented. Freeze module boundaries, paths, line budget, milestone estimates, checkpoint protocol, stop conditions, and per-step review gates. No behavior-changing code.
+Active. Freeze module boundaries, paths, code budget, runtime budget, milestone estimates, stage diagram, checkpoint protocol, current-main constraints, stop conditions, and cross-session handoff. No behavior-changing code.
+
+Stage 0 exits only after exact-head checks pass and the PR report records `GO`.
 
 ### Step 1 — case model and static validation
 
-Authorized after Step 0 review. Implement strict case-manifest validation and positive/negative fixtures. No subprocess or repository mutation.
+Authorized only after Stage 0 `GO`. Implement strict case-manifest validation and positive/negative fixtures. No subprocess or repository mutation.
 
 ### Step 2 — execution recorder and dry-run adapter
 
-Requires Step 1 focused tests and checkpoint report. Record deterministic command plans, monotonic timing, active-operation events, environment identity, and diagnostics using fixture execution first.
+Requires Step 1 focused tests and checkpoint report. Record deterministic command plans, monotonic timing, underlying-command time, candidate self-overhead, active-operation events, environment identity, and diagnostics using fixture execution first.
 
 ### Step 3 — correctness-equivalence verifier
 
@@ -137,9 +158,17 @@ Freeze 6–10 representative cases before candidate replay. Preserve incomplete-
 
 ### Step 7 — paired candidate replay and decision
 
-Run identical case inputs in opposite orders, preserve every repetition, inspect every regression, and record `ADOPT`, `NARROW`, `REDESIGN`, or `REJECT`.
+Run identical case inputs in opposite orders, preserve every repetition, inspect every regression and runtime-cost component, and record `ADOPT`, `NARROW`, `REDESIGN`, or `REJECT`.
 
-The full module, effort, checkpoint, and gate plan is in `docs/development_workflow_optimization/IMPLEMENTATION_PLAN.md`.
+The full module, stage diagram, effort, runtime, checkpoint, and gate plan is in `docs/development_workflow_optimization/IMPLEMENTATION_PLAN.md`.
+
+## Current-main and repository-wide gate constraint
+
+The development branch started from `7d0ecfbee3b9e44bbad97fb806c8806b604f75f6`. During Stage 0, `main` advanced to `3e56a2b27c76779a2f80e45dd003934666cf37bd` with `GOV-CODE-CHANGE-BUDGET-01`.
+
+That gate requires the `large-code-change-approval` environment for any Python file add/delete/copy/rename or Python churn above 100 lines. Stage 1 and later are expected to trigger it. The project may not bypass the gate through artificial file splitting, minification, moving Python behavior into unrelated file types, or temporary workflow edits.
+
+At every stage boundary, resolve current `main` again. If intervening changes affect fastpath, V1, authority, test selection, or this scope, the decision is `HOLD` pending explicit rebase/rebuild review. Unrelated changes are recorded; exact-head PR checks remain required.
 
 ## Benchmark boundary
 
@@ -172,8 +201,10 @@ Every step must record:
 
 - one explicit goal;
 - one frozen changed-path scope;
+- current `main`, checkpoint SHA, and ahead/behind status;
 - focused tests tied to the goal;
 - changed-path and production/test/fixture line-count review;
+- runtime-cost evidence once behavior code exists;
 - confirmation that accepted behavior did not regress;
 - one logical checkpoint commit, or a documented corrective follow-up commit;
 - tests actually executed and exact results;
@@ -183,7 +214,13 @@ Every step must record:
 
 A user-facing stage report is required at each step boundary. A step may not be called complete until its code and evidence are committed to GitHub and applicable tests have actually passed. A later step may not hide an earlier defect with task-specific special cases.
 
-No essential source, fixture manifest, comparison result, or decision may exist only in chat or an untracked local directory. Large local workspaces may remain external only when their hashes and locators are retained in the minimal evidence set.
+No essential source, fixture manifest, comparison result, stage diagram, or decision may exist only in chat or an untracked local directory. Large local workspaces may remain external only when their hashes and locators are retained in the minimal evidence set.
+
+## Cross-session continuation
+
+A later session must read `AGENTS.md`, `docs/handoff.md` Section 0, `experiments/registry.yaml`, the workflow-optimization README, replay protocol, implementation plan, this scope, and PR #103's latest stage report. It must resolve current `main` and branch head through GitHub and resume only the stage explicitly authorized by the latest `GO` decision.
+
+The stage diagram, stage ledger, checkpoint commit, PR report, and exact-head CI together are the durable handoff. File presence alone does not prove stage completion.
 
 ## Stop and redesign conditions
 
@@ -192,6 +229,9 @@ Stop implementation when:
 - production code exceeds 500 lines;
 - production code enters 451–500 lines without a recorded yellow-zone review;
 - active effort exceeds 27 hours without a fresh ROI decision;
+- candidate self-overhead exceeds the runtime hard review threshold;
+- duplicate validators, gates, full scans, or candidate-only network work appears;
+- an in-scope case is materially slower because of the candidate;
 - a new service, dependency, database, scheduler, queue, dashboard, or state machine appears necessary;
 - an existing component core would need modification;
 - automatic publication or merge appears necessary to demonstrate benefit;
@@ -209,7 +249,7 @@ The implementation iteration is complete only when:
 - both arms use identical inputs, environment, gates, and expected outcomes;
 - correctness equivalence is audited before time results;
 - every case and repetition is reported;
-- complexity, effort, and break-even cost are reviewed;
+- complexity, runtime, effort, and break-even cost are reviewed;
 - the candidate receives one evidence-backed decision;
 - no default-route change or merge occurs without separate explicit user approval.
 
