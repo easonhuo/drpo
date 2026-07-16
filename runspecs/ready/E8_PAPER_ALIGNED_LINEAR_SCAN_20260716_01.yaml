@@ -4,7 +4,7 @@ lane: e8
 priority: 150
 created_at: "2026-07-16T09:25:00Z"
 experiment_id: EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-LINEAR-SCAN-0.5B-01
-repo_commit: 31ffe81c965b1e029f1faf538d423829c72813ca
+repo_commit: d313aab7f5697299fc89e56336b63957fc1fa195
 
 provenance:
   commit_policy: protected_paths_unchanged
