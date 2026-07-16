@@ -187,6 +187,40 @@ def test_zero_safe_capacity_remains_blocked(tmp_path: Path) -> None:
     assert admission["admitted_workers"] == 0
 
 
+def test_zero_capacity_can_return_structured_wait_evidence(tmp_path: Path) -> None:
+    work = tmp_path / "work"
+    _write_selection(work, workers=4, reserved_cpu=2.0, reserved_memory=100)
+
+    def blocked(**_: Any) -> dict[str, Any]:
+        _record(
+            work,
+            failures=["cpu_capacity_changed"],
+            affinity_budget=8.0,
+            system_busy=8.0,
+            usable_memory=10_000,
+        )
+        raise RuntimeResourceError(
+            "RUNTIME_CAPACITY_CHANGED_REPLAN_REQUIRED: cpu_capacity_changed"
+        )
+
+    result = revalidate_with_safe_downshift(
+        revalidate_runtime=blocked,
+        work_dir=work,
+        proposed_workers=4,
+        selection_digest="selection-digest",
+        revalidate_kwargs={},
+        allow_zero=True,
+    )
+
+    admission = result["runtime_admission"]
+    assert admission["decision"] == "BLOCK"
+    assert admission["admitted_workers"] == 0
+    assert admission["reason"] == "no_safe_worker_capacity"
+    assert result["revalidation"]["decision"] == "BLOCK"
+    assert Path(admission["path"]).is_file()
+    assert result["selection_digest"] == "selection-digest"
+
+
 def test_non_capacity_failure_is_never_downshifted(tmp_path: Path) -> None:
     work = tmp_path / "work"
     _write_selection(work, workers=4)
@@ -210,6 +244,7 @@ def test_non_capacity_failure_is_never_downshifted(tmp_path: Path) -> None:
             proposed_workers=4,
             selection_digest="selection-digest",
             revalidate_kwargs={},
+            allow_zero=True,
         )
     assert not (
         work
