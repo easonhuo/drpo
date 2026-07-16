@@ -44,14 +44,19 @@ def body(changed: dict, new_files: dict) -> str:
     return review.START + "\n" + json.dumps(data) + "\n" + review.END
 
 
+def commit_change(repo: Path, message: str = "change") -> str:
+    git(repo, "add", ".")
+    git(repo, "commit", "-m", message)
+    return git(repo, "rev-parse", "HEAD")
+
+
 def test_valid_review_passes(tmp_path: Path) -> None:
     repo, base = make_repo(tmp_path)
     (repo / "src/base.py").write_text("def helper(x):\n    return x + 2\n")
     (repo / "tests/test_base.py").write_text("def test_base():\n    assert True\n\ndef test_new():\n    assert True\n")
-    git(repo, "add", ".")
-    git(repo, "commit", "-m", "change")
+    head = commit_change(repo)
     changed = {"src/base.py": "Implement behavior while retaining helper.", "tests/test_base.py": "Cover preserved and new behavior."}
-    assert review.validate(repo, base, git(repo, "rev-parse", "HEAD"), body(changed, {})) == []
+    assert review.validate(repo, base, head, body(changed, {})) == []
 
 
 def test_missing_review_is_rejected(tmp_path: Path) -> None:
@@ -63,10 +68,9 @@ def test_public_symbol_removal_is_rejected(tmp_path: Path) -> None:
     repo, base = make_repo(tmp_path)
     (repo / "src/base.py").write_text("VALUE = 1\n")
     (repo / "tests/test_base.py").write_text("def test_base():\n    assert True\n\ndef test_new():\n    assert True\n")
-    git(repo, "add", ".")
-    git(repo, "commit", "-m", "remove")
+    head = commit_change(repo, "remove")
     changed = {"src/base.py": "Replace implementation.", "tests/test_base.py": "Cover behavior."}
-    errors = review.validate(repo, base, git(repo, "rev-parse", "HEAD"), body(changed, {}))
+    errors = review.validate(repo, base, head, body(changed, {}))
     assert any("public symbols removed" in error for error in errors)
 
 
@@ -74,10 +78,9 @@ def test_fake_reuse_evidence_is_rejected(tmp_path: Path) -> None:
     repo, base = make_repo(tmp_path)
     (repo / "src/base.py").write_text("def helper(x):\n    return x + 2\n")
     (repo / "tests/test_base.py").write_text("def test_base():\n    assert True\n\ndef test_new():\n    assert True\n")
-    git(repo, "add", ".")
-    git(repo, "commit", "-m", "change")
+    head = commit_change(repo)
     changed = {"src/base.py": "Implement behavior while retaining helper.", "tests/test_base.py": "Cover behavior."}
-    errors = review.validate(repo, base, git(repo, "rev-parse", "HEAD"), body(changed, {}).replace('"helper"', '"invented"'))
+    errors = review.validate(repo, base, head, body(changed, {}).replace('"helper"', '"invented"'))
     assert any("reused symbol is absent" in error for error in errors)
 
 
@@ -85,10 +88,9 @@ def test_existing_regression_test_rewrite_is_rejected(tmp_path: Path) -> None:
     repo, base = make_repo(tmp_path)
     (repo / "src/base.py").write_text("def helper(x):\n    return x + 2\n")
     (repo / "tests/test_base.py").write_text("def test_base():\n    assert 1 == 1\n")
-    git(repo, "add", ".")
-    git(repo, "commit", "-m", "weaken test")
+    head = commit_change(repo, "weaken test")
     changed = {"src/base.py": "Implement behavior while retaining helper.", "tests/test_base.py": "Update regression coverage."}
-    errors = review.validate(repo, base, git(repo, "rev-parse", "HEAD"), body(changed, {}))
+    errors = review.validate(repo, base, head, body(changed, {}))
     assert any("existing regression tests rewritten" in error for error in errors)
 
 
@@ -96,10 +98,9 @@ def test_declared_test_must_exist(tmp_path: Path) -> None:
     repo, base = make_repo(tmp_path)
     (repo / "src/base.py").write_text("def helper(x):\n    return x + 2\n")
     (repo / "tests/test_base.py").write_text("def test_base():\n    assert True\n\ndef test_new():\n    assert True\n")
-    git(repo, "add", ".")
-    git(repo, "commit", "-m", "change")
+    head = commit_change(repo)
     changed = {"src/base.py": "Implement behavior while retaining helper.", "tests/test_base.py": "Cover behavior."}
-    errors = review.validate(repo, base, git(repo, "rev-parse", "HEAD"), body(changed, {}).replace("test_base", "test_missing"))
+    errors = review.validate(repo, base, head, body(changed, {}).replace("test_base", "test_missing"))
     assert any("declared core-function test does not exist" in error for error in errors)
 
 
