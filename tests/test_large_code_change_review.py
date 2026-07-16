@@ -79,3 +79,10 @@ def test_fake_reuse_evidence_is_rejected(tmp_path: Path) -> None:
     changed = {"src/base.py": "Implement behavior while retaining helper.", "tests/test_base.py": "Cover behavior."}
     errors = review.validate(repo, base, git(repo, "rev-parse", "HEAD"), body(changed, {}).replace('"helper"', '"invented"'))
     assert any("reused symbol is absent" in error for error in errors)
+
+
+def test_workflow_preserves_small_change_path() -> None:
+    text = (MODULE.parents[1] / ".github/workflows/code-change-budget.yml").read_text()
+    assert "churn > 100 || structural > 0" in text
+    assert "validate_large_code_change_review.py" in text
+    assert "environment: large-code-change-approval" in text
