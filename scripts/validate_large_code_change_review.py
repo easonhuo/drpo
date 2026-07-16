@@ -36,9 +36,11 @@ def named_nodes(source: str, *, tests_only: bool = False) -> dict[str, str]:
 
 
 def defined_symbols(source: str) -> set[str]:
-    result = set(named_nodes(source))
+    result: set[str] = set()
     for node in ast.parse(source).body:
-        if isinstance(node, (ast.Import, ast.ImportFrom)):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            result.add(node.name)
+        elif isinstance(node, (ast.Import, ast.ImportFrom)):
             result.update(alias.asname or alias.name.split(".")[0] for alias in node.names)
         elif isinstance(node, ast.Assign):
             result.update(target.id for target in node.targets if isinstance(target, ast.Name))
@@ -138,9 +140,16 @@ def validate(repo: Path, base: str, head: str, body: str) -> list[str]:
             path, name, used_by = item.get("path"), item.get("symbol"), item.get("used_by")
             if not all(isinstance(v, str) and v for v in (path, name, used_by)):
                 errors.append("reuse_evidence requires path, symbol, and used_by")
-            elif not exists(repo, base, path) or name not in defined_symbols(blob(repo, base, path)):
+                continue
+            if not exists(repo, base, path) or name not in defined_symbols(blob(repo, base, path)):
                 errors.append(f"reused symbol is not defined at base: {path}:{name}")
-            elif used_by not in changed or not exists(repo, head, used_by) or name not in referenced_symbols(blob(repo, head, used_by)):
+                continue
+            if used_by not in changed or not exists(repo, head, used_by):
+                errors.append(f"reuse target is not changed code: {used_by}:{name}")
+                continue
+            head_source = blob(repo, head, used_by)
+            reused_in_place = used_by == path and name in defined_symbols(head_source)
+            if not reused_in_place and name not in referenced_symbols(head_source):
                 errors.append(f"reused symbol is not referenced by changed code: {used_by}:{name}")
 
     for row in rows:
