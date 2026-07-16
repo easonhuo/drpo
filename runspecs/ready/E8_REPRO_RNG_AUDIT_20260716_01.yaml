@@ -1,0 +1,138 @@
+version: 1
+run_id: E8_REPRO_RNG_AUDIT_20260716_01
+lane: e8
+priority: 220
+created_at: '2026-07-16T00:00:00Z'
+experiment_id: EXT-C-E8-ORACLE-OFFLINE-V2-REPRO-RNG-AUDIT-0.5B-01
+execution_class: pilot
+repo_commit: 8982928f415e0fd79515e1e77b0515ae5792856c
+
+registration:
+  mode: deferred
+  closure_required: true
+
+provenance:
+  commit_policy: protected_paths_unchanged
+  original_dev_branch: dev/e8-repro-rng-audit-pilot
+  original_frozen_commit: 36fea4ddde43af0e52b1c6349aae88ed4ee90605
+  rebased_scientific_implementation_commit: 163a83ca92800fd011c652f3d8ba268df1846f89
+  runspec_adapter_commit: 8982928f415e0fd79515e1e77b0515ae5792856c
+  protected_paths:
+    - configs/countdown_e8_base_rl_replay_0p5b.yaml
+    - configs/countdown_e8_oracle_offline_v2_repro_rng_audit_0p5b.yaml
+    - scripts/run_countdown_e8_oracle_offline_v2_repro_rng_audit.py
+    - scripts/run_countdown_e8_oracle_offline_v2_repro_rng_audit_one_click.sh
+    - src/drpo/countdown_qwen_arena_onefile.py
+    - src/drpo/countdown_e8_alpha1_c_scan_common.py
+    - src/drpo/countdown_e8_alpha1_c_scan_runtime.py
+    - src/drpo/countdown_e8_alpha1_c_scan_trainer.py
+    - src/drpo/countdown_e8_repro_contract.py
+    - src/drpo/countdown_e8_repro_legacy_runtime.py
+    - src/drpo/countdown_e8_repro_rng_audit_common.py
+    - src/drpo/countdown_e8_repro_rng_isolated_runtime.py
+    - src/drpo/countdown_e8_rng_isolation.py
+    - scripts/agent/validate_runspec.py
+    - scripts/agent/run_lane.py
+    - scripts/agent/run_claimed_runspec.py
+    - scripts/agent/runspec_lib.py
+    - scripts/agent/runspec_safety.py
+    - scripts/agent/runspec_registration.py
+    - scripts/agent/runspec_results_delivery.py
+    - scripts/agent/runspec_delivery_policy.py
+
+purpose: >
+  Execute the frozen 12-cell Countdown reproducibility audit that compares the
+  historical in-process validation RNG behavior with an evaluation RNG
+  save/restore boundary on the same six cells and the same explicit GPU pool.
+  This development pilot is validation-only and cannot establish method ranking,
+  convergence, steady state, controlled-mechanism identification, or OOD claims.
+
+entrypoint:
+  cwd: repo_root
+  command: >-
+    bash scripts/run_countdown_e8_oracle_offline_v2_repro_rng_audit_one_click.sh
+    --model_path /root/models/Qwen2.5-0.5B-Instruct
+    --bank /root/experiment_output/e8_oracle_bank_v2/data/offline_bank_v2.jsonl
+    --val /root/experiment_output/e8_oracle_bank_v2/data/val.jsonl
+    --base_config configs/countdown_e8_base_rl_replay_0p5b.yaml
+    --grid_config configs/countdown_e8_oracle_offline_v2_repro_rng_audit_0p5b.yaml
+    --work_dir outputs/e8/e8_repro_rng_audit_20260716_01
+    --gpus 0,1,2,3,4,5,6,7
+
+policy:
+  existing_script_required: true
+  forbid_new_launcher: true
+  forbid_hparam_change: true
+  forbid_cross_lane: true
+  scientific_aggregation_allowed: true
+  formal_evidence_allowed: false
+
+outputs:
+  run_dir: outputs/e8/e8_repro_rng_audit_20260716_01
+  summary_file: outputs/e8/e8_repro_rng_audit_20260716_01/RNG_AUDIT_COMPLETE.json
+  audit_file: outputs/e8/e8_repro_rng_audit_20260716_01/aggregate/paired_rng_protocol_comparison.csv
+
+success_criteria:
+  - outputs/e8/e8_repro_rng_audit_20260716_01/RNG_AUDIT_COMPLETE.json exists
+  - outputs/e8/e8_repro_rng_audit_20260716_01/aggregate/paired_rng_protocol_comparison.csv exists
+  - outputs/e8/e8_repro_rng_audit_20260716_01/legacy_contaminated_v1/SWEEP_COMPLETE.json exists
+  - outputs/e8/e8_repro_rng_audit_20260716_01/legacy_contaminated_v1/aggregate/terminal_audit.json exists
+  - outputs/e8/e8_repro_rng_audit_20260716_01/rng_isolated_v2/SWEEP_COMPLETE.json exists
+  - outputs/e8/e8_repro_rng_audit_20260716_01/rng_isolated_v2/aggregate/terminal_audit.json exists
+
+artifacts:
+  package_policy: manifest_only
+  include:
+    - outputs/e8/e8_repro_rng_audit_20260716_01/RNG_AUDIT_COMPLETE.json
+    - outputs/e8/e8_repro_rng_audit_20260716_01/aggregate/*.csv
+    - outputs/e8/e8_repro_rng_audit_20260716_01/*/*.json
+    - outputs/e8/e8_repro_rng_audit_20260716_01/*/aggregate/*.json
+    - outputs/e8/e8_repro_rng_audit_20260716_01/*/aggregate/*.csv
+    - outputs/e8/e8_repro_rng_audit_20260716_01/*/controller.log
+    - outputs/e8/e8_repro_rng_audit_20260716_01/*/logs/*.log
+    - outputs/e8/e8_repro_rng_audit_20260716_01/*/methods/*/summary.json
+    - outputs/e8/e8_repro_rng_audit_20260716_01/*/methods/*/manifest.json
+    - outputs/e8/e8_repro_rng_audit_20260716_01/*/methods/*/metrics.csv
+    - outputs/e8/e8_repro_rng_audit_20260716_01/*/methods/*/training_diagnostics.jsonl
+    - outputs/e8/e8_repro_rng_audit_20260716_01/*/methods/*/validation_diagnostics.jsonl
+    - outputs/e8/e8_repro_rng_audit_20260716_01/*/_liveness/*/summary.json
+    - outputs/e8/e8_repro_rng_audit_20260716_01/*/_liveness/*/manifest.json
+    - outputs/e8/e8_repro_rng_audit_20260716_01/*/_liveness/*/metrics.csv
+    - outputs/e8/e8_repro_rng_audit_20260716_01/*/_liveness/*/training_diagnostics.jsonl
+    - outputs/e8/e8_repro_rng_audit_20260716_01/*/_liveness/*/validation_diagnostics.jsonl
+    - .runspec_state/logs/E8_REPRO_RNG_AUDIT_20260716_01/COMMAND.txt
+    - .runspec_state/logs/E8_REPRO_RNG_AUDIT_20260716_01/STDOUT.log
+    - .runspec_state/logs/E8_REPRO_RNG_AUDIT_20260716_01/STDERR.log
+    - .runspec_state/logs/E8_REPRO_RNG_AUDIT_20260716_01/RUN_STATUS.json
+  exclude:
+    - '**/*.pt'
+    - '**/*.pth'
+    - '**/*.ckpt'
+    - '**/*.safetensors'
+    - '**/*.bin'
+    - '**/checkpoint*'
+    - '**/checkpoints/**'
+    - '**/model*'
+    - '**/models/**'
+    - '**/optimizer*'
+    - '**/wandb/**'
+  max_package_size_mb: 25
+  fail_if_excluded_matched: true
+  fail_if_package_too_large: true
+
+delivery:
+  enabled: true
+  auto: true
+  mode: results_repo
+  repository: easonhuo/drpo-results
+  branch: ingest/e8
+  export_profile: manifest_text_v1
+  max_total_size_mb: 25
+  max_file_size_mb: 10
+
+publish:
+  enabled: false
+  auto: false
+
+recovery:
+  enabled: false
