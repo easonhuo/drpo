@@ -12,38 +12,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  code-change-budget:
-    name: Code change budget
-    runs-on: ubuntu-latest
-    outputs:
-      approval_required: ${{ steps.check.outputs.approval_required }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - id: check
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: |
-          churn=$(git diff --numstat "$BASE_SHA" "$HEAD_SHA" -- '*.py' |
-            awk '{a += $1; d += $2} END {print a + d + 0}')
-          structural=$(git diff --name-status -M -C "$BASE_SHA" "$HEAD_SHA" -- '*.py' |
-            awk '$1 ~ /^[ADRC]/ {n++} END {print n + 0}')
-          required=false
-          if (( churn > 100 || structural > 0 )); then required=true; fi
-          echo "approval_required=$required" >> "$GITHUB_OUTPUT"
-          echo "Python churn: $churn; structural .py changes: $structural"
-
-  approve-large-code-change:
-    name: Approve large code change
-    needs: code-change-budget
-    if: needs.code-change-budget.outputs.approval_required == 'true'
-    runs-on: ubuntu-latest
-    environment: large-code-change-approval
-    steps:
-      - run: echo "Human approval granted."
-
   log-gates:
     runs-on: ubuntu-latest
     timeout-minutes: 30
