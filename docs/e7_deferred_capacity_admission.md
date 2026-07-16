@@ -33,11 +33,11 @@ The E7 automatic launcher now separates three states:
 1. `planned`: immutable `RUNTIME_SELECTION.json`, `EXECUTION_PLAN.json`, and
    `RUN_IDENTITY.json` define the reviewed scientific matrix and the planned worker
    ceiling;
-2. `waiting_for_capacity`: launch-time admission is zero or below the configured
-   practical floor, so the foreground launcher records the attempt and sleeps before a
-   fresh measurement;
-3. `admitted`: current safe capacity reaches the configured floor, so the launcher uses
-   the admitted worker count as the executor width and starts the unchanged branch
+2. `waiting_for_capacity`: launch-time admission is zero or below an explicit operator
+   floor, so the foreground launcher records the attempt and sleeps before a fresh
+   measurement;
+3. `admitted`: current safe capacity is positive and reaches that floor, so the launcher
+   uses the admitted worker count as the executor width and starts the unchanged branch
    matrix.
 
 The launcher never invents capacity, never starts when admission is zero, never changes
@@ -51,7 +51,7 @@ The one-click and resume launchers:
 - wait in the foreground rather than exiting on a temporary zero-capacity observation;
 - poll every `300` seconds by default;
 - wait without an automatic deadline by default;
-- require at least the configured legacy fallback worker count before launch by default;
+- start at any positive measured safe capacity by default;
 - allow operator overrides only for wait duration, poll interval, and minimum admitted
   worker count.
 
@@ -60,11 +60,13 @@ Environment controls:
 ```text
 E7_PPO_W0_CAPACITY_WAIT_TIMEOUT_SECONDS   default: -1 (unbounded foreground wait)
 E7_PPO_W0_CAPACITY_POLL_SECONDS           default: 300
-E7_PPO_W0_MINIMUM_ADMITTED_WORKERS        default: E7_PPO_W0_FALLBACK_WORKERS
+E7_PPO_W0_MINIMUM_ADMITTED_WORKERS        default: 1
 ```
 
 A negative wait timeout means no automatic deadline. Zero preserves one-shot behavior.
-A positive value is a finite wait budget in seconds.
+A positive value is a finite wait budget in seconds. Raising the minimum admitted worker
+count changes only the wall-clock scheduling floor; it does not alter branch identities
+or scientific coordinates.
 
 ## Evidence and supervision
 
