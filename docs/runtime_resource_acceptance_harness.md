@@ -16,17 +16,22 @@ It combines four controls:
 3. configured worker/slot caps plus launch-time revalidation;
 4. owned-process supervision, cleanup, and terminal audit.
 
-ResearchBench, AIDE, joblib/loky, and other permanent server workloads may remain alive.
-Their names and process metadata are recorded, but their presence alone is not a
-readiness gate. Their actual use of a declared CPU pool is reflected by the measured
+ResearchBench, AIDE, joblib/loky, and other registered permanent server workloads may
+remain alive. Their names and process metadata are recorded, but their presence alone is
+not a readiness gate. Their actual use of a declared CPU pool is reflected by the measured
 capacity available inside that pool.
+
+Competing DRPO E7/E8 acceptance or experiment processes remain a readiness gate. The
+harness records them and stops rather than starting duplicate DRPO work inside the same
+resource ceilings.
 
 A CPU pool limits where DRPO-owned processes may execute. It does not reserve those CPUs
 or prevent unrelated workloads from sharing them.
 
 The historical exclusive-cgroup route remains an optional diagnostic for compatible
 cgroup v2 hosts. It is not required by the default target-server route. See
-`docs/runtime_resource_acceptance_server_correction_05.md`.
+`docs/runtime_resource_acceptance_server_correction_05.md` and
+`docs/runtime_resource_acceptance_server_correction_06.md`.
 
 ## What the server AI does
 
@@ -99,11 +104,14 @@ or GPUs are idle or exclusive.
 
 Records the exact harness and GPU commits, inherited affinity, `lscpu`, optional NUMA
 information, `nvidia-smi`, GPU topology, cgroup/memory evidence, and current processes.
-Configured process patterns are observation-only provenance. Stage 0 records matching
-external workloads but does not block merely because they exist.
+
+Registered permanent external patterns (`ResearchBench`, `collector_v2.py`, `AIDE`, and
+joblib/loky) are observation-only provenance. Competing DRPO patterns from
+`conflict_process_patterns`, such as `run_e7_`, `countdown_e8`, `EXT-H-E7`, and
+`EXT-C-E8`, remain blocking conflicts.
 
 Stage 0 still blocks on true prerequisites such as missing inputs, dirty or mismatched
-checkout, or requested CPUs outside inherited affinity.
+checkout, requested CPUs outside inherited affinity, or another active DRPO run.
 
 The CPU pools in the example are illustrations only. Replace them with two
 non-overlapping subsets of the server's inherited affinity while retaining an OS and
