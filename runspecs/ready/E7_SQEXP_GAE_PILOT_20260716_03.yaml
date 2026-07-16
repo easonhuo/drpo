@@ -5,7 +5,7 @@ priority: 200
 created_at: '2026-07-16T05:50:00Z'
 experiment_id: EXT-H-E7-SQEXP-GAE-01
 execution_class: pilot
-repo_commit: 5a286a83dff96853fc83c8ca361717fac07e7ee4
+repo_commit: 332309b2939bfb5b0e70ea961a2d42be29ac2b3b
 
 registration:
   mode: deferred
@@ -14,7 +14,7 @@ registration:
 provenance:
   commit_policy: protected_paths_unchanged
   implementation_branch: dev/e7-sqexp-gae-01
-  frozen_implementation_commit: 5a286a83dff96853fc83c8ca361717fac07e7ee4
+  frozen_implementation_commit: 332309b2939bfb5b0e70ea961a2d42be29ac2b3b
   supersedes_run_id: E7_SQEXP_GAE_PILOT_20260716_02
   protected_paths:
     - configs/e7_sqexp_gae_v1.json
@@ -47,13 +47,13 @@ purpose: >
   storage checks pass. The adapter resolves the canonical --variant {variant}
   binding only to iqlv_exp_rank, validates then removes the canonical-only
   --eval_max_steps 1000 pair, and checks all remaining source flags against the
-  GAE trainer parser before any branch is launched. Prior failed branch evidence
-  is archived append-only before relaunch. The frozen 192-branch matrix remains
-  three datasets, development seeds 200-203, TD versus GAE(lambda=0.95), A2C
-  versus PPO-K4, and Positive-only plus squared-EXP c={64,128,256}. This
-  external-validity pilot cannot establish convergence, steady state, universal
-  GAE superiority, universal actor-update superiority, controlled causal
-  identification, or OOD generalization.
+  GAE trainer parser before any branch is launched. Prior failed branch and
+  top-level run evidence are archived append-only before relaunch. The frozen
+  192-branch matrix remains three datasets, development seeds 200-203, TD versus
+  GAE(lambda=0.95), A2C versus PPO-K4, and Positive-only plus squared-EXP
+  c={64,128,256}. This external-validity pilot cannot establish convergence,
+  steady state, universal GAE superiority, universal actor-update superiority,
+  controlled causal identification, or OOD generalization.
 
 entrypoint:
   cwd: repo_root
@@ -77,6 +77,7 @@ success_criteria:
   - any canonical --eval_max_steps flag is exactly 1000 and is absent from every materialized GAE trainer argument vector
   - every remaining source trainer flag is accepted by the checked-in GAE trainer parser before branch launch
   - each prior failed branch attempt is preserved under a monotonically indexed failed_attempts archive before relaunch
+  - each prior failed top-level summary and partial aggregate is preserved under a monotonically indexed failed_run_attempts archive before relaunch
   - PREPARE_SUMMARY.json records exactly 12 complete dataset-seed preparation pairs and zero actor updates during preparation
   - every prepared pair has TRAJECTORY_AUDIT.json status PASS with no terminal-timeout overlap and no non-boundary continuity failure
   - every prepared pair records lambda-zero versus one-step-TD maximum absolute error at or below 1e-6
@@ -121,6 +122,13 @@ artifacts:
     - outputs/e7/sqexp_gae_002/branches/*/failed_attempts/*/branch_config.json
     - outputs/e7/sqexp_gae_002/branches/*/failed_attempts/*/branch_manifest.json
     - outputs/e7/sqexp_gae_002/branches/*/failed_attempts/*/stdout_stderr.log
+    - outputs/e7/sqexp_gae_002/failed_run_attempts/*/ARCHIVE_MANIFEST.json
+    - outputs/e7/sqexp_gae_002/failed_run_attempts/*/PREPARE_SUMMARY.json
+    - outputs/e7/sqexp_gae_002/failed_run_attempts/*/EXECUTION_PLAN.json
+    - outputs/e7/sqexp_gae_002/failed_run_attempts/*/RUN_IDENTITY.json
+    - outputs/e7/sqexp_gae_002/failed_run_attempts/*/RUN_SUMMARY.json
+    - outputs/e7/sqexp_gae_002/failed_run_attempts/*/aggregate/*.json
+    - outputs/e7/sqexp_gae_002/failed_run_attempts/*/aggregate/*.csv
     - .runspec_state/logs/E7_SQEXP_GAE_PILOT_20260716_03/COMMAND.txt
     - .runspec_state/logs/E7_SQEXP_GAE_PILOT_20260716_03/RUN_STATUS.json
   exclude:
