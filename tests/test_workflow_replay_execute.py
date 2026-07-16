@@ -77,6 +77,9 @@ def test_successful_fixture_run_records_append_only_events_and_timing(tmp_path: 
     assert summary["command_count"] == 2
     assert summary["total_ns"] >= summary["child_ns"]
     assert summary["self_overhead_ns"] == summary["total_ns"] - summary["child_ns"]
+    assert events[0]["payload"]["input_sha256"] == plan.input_sha256
+    assert events[0]["payload"]["environment_id"] == "linux-py311-fixture-v1"
+    assert events[0]["payload"]["cache_policy"] == "cold"
     assert [event["sequence"] for event in events] == list(range(len(events)))
     assert [event["event"] for event in events] == [
         "run_started",
