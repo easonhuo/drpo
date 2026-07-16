@@ -68,3 +68,14 @@ def test_public_symbol_removal_is_rejected(tmp_path: Path) -> None:
     changed = {"src/base.py": "Replace implementation.", "tests/test_base.py": "Cover behavior."}
     errors = review.validate(repo, base, git(repo, "rev-parse", "HEAD"), body(changed, {}))
     assert any("public symbols removed" in error for error in errors)
+
+
+def test_fake_reuse_evidence_is_rejected(tmp_path: Path) -> None:
+    repo, base = make_repo(tmp_path)
+    (repo / "src/base.py").write_text("def helper(x):\n    return x + 2\n")
+    (repo / "tests/test_base.py").write_text("def test_base():\n    assert True\n\ndef test_new():\n    assert True\n")
+    git(repo, "add", ".")
+    git(repo, "commit", "-m", "change")
+    changed = {"src/base.py": "Implement behavior while retaining helper.", "tests/test_base.py": "Cover behavior."}
+    errors = review.validate(repo, base, git(repo, "rev-parse", "HEAD"), body(changed, {}).replace('"helper"', '"invented"'))
+    assert any("reused symbol is absent" in error for error in errors)
