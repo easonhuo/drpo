@@ -1,25 +1,35 @@
-"""Automatic CPU/RAM selection adapter for the high-c actor ablation."""
+"""Automatic measured CPU/RAM selection adapter for the high-c actor ablation."""
 
 from __future__ import annotations
 
 import contextlib
 import math
 from pathlib import Path
-from typing import Any, Iterator, Mapping
+from typing import Any, Iterator
 
 from drpo import e7_ppo_w0_runtime_autotune as legacy
 from drpo import e7_w0_highc_actor as pilot
 
-ADAPTER_ID = "e7_w0_highc_actor_cpu_v1"
+ADAPTER_ID = "e7_w0_highc_actor_cpu_v2"
 REPRESENTATIVE_DATASET = "walker2d-medium-v2"
 REPRESENTATIVE_W0 = 1.0
 REPRESENTATIVE_COEFFICIENT = 4.0
 REPRESENTATIVE_ACTOR_MODE = "ppo_clip"
 
 _ORIGINAL_SELECT_RUNTIME = legacy.select_runtime
+_ORIGINAL_REVALIDATE_RUNTIME = legacy.revalidate_runtime
 _ORIGINAL_REPRESENTATIVE = legacy._representative  # noqa: SLF001
 _ORIGINAL_RESOURCE_FINGERPRINT = legacy.resource_fingerprint
 _ORIGINAL_CLEANUP = legacy._cleanup_probe_payload  # noqa: SLF001
+_ORIGINAL_SELECTOR_IMPLEMENTATION = legacy._selector_implementation_identity  # noqa: SLF001
+
+
+def _selector_implementation_identity(repo_root: str | Path) -> dict[str, str]:
+    values = dict(_ORIGINAL_SELECTOR_IMPLEMENTATION(repo_root))
+    values["e7_w0_highc_runtime_autotune.py"] = legacy._file_sha256(  # noqa: SLF001
+        Path(__file__).resolve()
+    )
+    return values
 
 
 def _representative(branches: list[Any]) -> Any:
@@ -63,8 +73,12 @@ def resource_fingerprint(
     cpu_fraction: float,
     memory_headroom_fraction: float,
     per_worker_safety_factor: float,
+    per_worker_cpu_safety_factor: float,
+    minimum_cpu_cores_per_worker: float,
     max_workers: int | None,
     max_growth_factor: float,
+    revalidation_samples: int,
+    revalidation_sample_seconds: float,
 ) -> dict[str, Any]:
     repo = Path(repo_root).resolve()
     run_spec, _ = pilot.load_w0_run_spec(run_spec_path)
@@ -80,8 +94,9 @@ def resource_fingerprint(
         "src/drpo/e7_canonical_sweep.py",
     )
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "adapter_id": ADAPTER_ID,
+        "selector_policy_version": legacy.SELECTOR_POLICY_VERSION,
         "hard_fields": {
             "contract_sha256": legacy._file_sha256(contract_path),  # noqa: SLF001
             "run_spec_sha256": legacy._file_sha256(run_spec_path),  # noqa: SLF001
@@ -129,10 +144,15 @@ def resource_fingerprint(
             "fallback_workers": int(fallback_workers),
             "cpu_fraction": float(cpu_fraction),
             "memory_headroom_fraction": float(memory_headroom_fraction),
-            "per_worker_safety_factor": float(per_worker_safety_factor),
+            "per_worker_memory_safety_factor": float(per_worker_safety_factor),
+            "per_worker_cpu_safety_factor": float(per_worker_cpu_safety_factor),
+            "minimum_cpu_cores_per_worker": float(minimum_cpu_cores_per_worker),
             "max_workers": None if max_workers is None else int(max_workers),
             "max_growth_factor": float(max_growth_factor),
             "throughput_retention_fraction": float(throughput_retention_fraction),
+            "revalidation_samples": int(revalidation_samples),
+            "revalidation_sample_seconds": float(revalidation_sample_seconds),
+            "load_average_role": "diagnostic_only",
         },
         "ignored_scientific_coordinates": [
             "development_seed_values",
@@ -167,6 +187,7 @@ def _installed_adapter() -> Iterator[None]:
         legacy._representative,  # noqa: SLF001
         legacy.resource_fingerprint,
         legacy._cleanup_probe_payload,  # noqa: SLF001
+        legacy._selector_implementation_identity,  # noqa: SLF001
     )
     legacy.pilot = pilot
     legacy.ADAPTER_ID = ADAPTER_ID
@@ -176,6 +197,9 @@ def _installed_adapter() -> Iterator[None]:
     legacy._representative = _representative  # noqa: SLF001
     legacy.resource_fingerprint = resource_fingerprint
     legacy._cleanup_probe_payload = _cleanup_probe_payload  # noqa: SLF001
+    legacy._selector_implementation_identity = (  # noqa: SLF001
+        _selector_implementation_identity
+    )
     try:
         yield
     finally:
@@ -188,9 +212,15 @@ def _installed_adapter() -> Iterator[None]:
             legacy._representative,  # noqa: SLF001
             legacy.resource_fingerprint,
             legacy._cleanup_probe_payload,  # noqa: SLF001
+            legacy._selector_implementation_identity,  # noqa: SLF001
         ) = previous
 
 
 def select_runtime(**kwargs: Any) -> dict[str, Any]:
     with _installed_adapter():
         return _ORIGINAL_SELECT_RUNTIME(**kwargs)
+
+
+def revalidate_runtime(**kwargs: Any) -> dict[str, Any]:
+    with _installed_adapter():
+        return _ORIGINAL_REVALIDATE_RUNTIME(**kwargs)
