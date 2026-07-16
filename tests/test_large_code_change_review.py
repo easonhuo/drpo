@@ -81,6 +81,17 @@ def test_fake_reuse_evidence_is_rejected(tmp_path: Path) -> None:
     assert any("reused symbol is absent" in error for error in errors)
 
 
+def test_existing_regression_test_rewrite_is_rejected(tmp_path: Path) -> None:
+    repo, base = make_repo(tmp_path)
+    (repo / "src/base.py").write_text("def helper(x):\n    return x + 2\n")
+    (repo / "tests/test_base.py").write_text("def test_base():\n    assert 1 == 1\n")
+    git(repo, "add", ".")
+    git(repo, "commit", "-m", "weaken test")
+    changed = {"src/base.py": "Implement behavior while retaining helper.", "tests/test_base.py": "Update regression coverage."}
+    errors = review.validate(repo, base, git(repo, "rev-parse", "HEAD"), body(changed, {}))
+    assert any("existing regression tests rewritten" in error for error in errors)
+
+
 def test_workflow_preserves_small_change_path() -> None:
     text = (MODULE.parents[1] / ".github/workflows/code-change-budget.yml").read_text()
     assert "churn > 100 || structural > 0" in text
