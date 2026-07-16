@@ -17,11 +17,12 @@ from runspec_registration import validate_registration_block  # noqa: E402
 from runspec_results_delivery import validate_delivery_block  # noqa: E402
 
 
-RUNSPEC = ROOT / "runspecs" / "ready" / "E7_SQEXP_GAE_PILOT_20260716_02.yaml"
-RETIRED_RUNSPEC = (
-    ROOT / "runspecs" / "retired" / "E7_SQEXP_GAE_PILOT_20260716_01.yaml"
+RUNSPEC = ROOT / "runspecs" / "ready" / "E7_SQEXP_GAE_PILOT_20260716_03.yaml"
+RETIRED_RUNSPECS = (
+    ROOT / "runspecs" / "retired" / "E7_SQEXP_GAE_PILOT_20260716_01.yaml",
+    ROOT / "runspecs" / "retired" / "E7_SQEXP_GAE_PILOT_20260716_02.yaml",
 )
-FROZEN_IMPLEMENTATION = "01f5230a15cc56161c0236f2e00240a2934d0d8a"
+FROZEN_IMPLEMENTATION = "c630ef3b00a5b25d27a35dc79f007a3d08ce7a28"
 
 
 def test_e7_sqexp_gae_ready_runspec_is_structurally_valid() -> None:
@@ -31,7 +32,7 @@ def test_e7_sqexp_gae_ready_runspec_is_structurally_valid() -> None:
     validate_simple_size_policy(spec)
     validate_recovery_policy(ROOT, spec)
 
-    assert spec["run_id"] == "E7_SQEXP_GAE_PILOT_20260716_02"
+    assert spec["run_id"] == "E7_SQEXP_GAE_PILOT_20260716_03"
     assert spec["lane"] == "e7"
     assert spec["experiment_id"] == "EXT-H-E7-SQEXP-GAE-01"
     assert spec["execution_class"] == "pilot"
@@ -60,36 +61,46 @@ def test_e7_sqexp_gae_ready_runspec_freezes_scientific_boundaries() -> None:
     assert raw["provenance"]["frozen_implementation_commit"] == FROZEN_IMPLEMENTATION
     assert (
         raw["provenance"]["supersedes_run_id"]
-        == "E7_SQEXP_GAE_PILOT_20260716_01"
+        == "E7_SQEXP_GAE_PILOT_20260716_02"
     )
     assert "192-branch" in purpose
     assert "development seeds 200-203" in purpose
     assert "c={64,128,256}" in purpose
     assert "--variant {variant}" in purpose
-    assert "NumPy-float64" in purpose
+    assert "--eval_max_steps 1000" in purpose
+    assert "NumPy-float64" not in purpose or "float64" in purpose
     assert "exactly 192 runnable branches" in success
     assert "held-out seeds untouched" in success
     assert "without failed-cell imputation" in success
     assert "not described as convergence" in success
     assert "stored_gae_dtype=float32" in success
     assert "storage quantization is reported separately" in success
+    assert "absent from every materialized GAE trainer argument vector" in success
     assert raw["policy"]["formal_evidence_allowed"] is False
     assert raw["policy"]["forbid_hparam_change"] is True
     assert "configs/e7_sqexp_gae_v1.json" in protected
     assert "src/drpo/e7_offline_gae.py" in protected
     assert "src/drpo/e7_sqexp_gae_prepare.py" in protected
     assert "src/drpo/e7_sqexp_gae_trainer.py" in protected
+    assert "src/drpo/e7_sqexp_gae_contract.py" in protected
     assert "scripts/run_e7_sqexp_gae_auto_one_click.sh" in protected
 
 
-def test_failed_single_use_runspec_is_not_ready() -> None:
-    old_ready = (
-        ROOT / "runspecs" / "ready" / "E7_SQEXP_GAE_PILOT_20260716_01.yaml"
-    )
+def test_failed_single_use_runspecs_are_not_ready() -> None:
+    for suffix in ("01", "02"):
+        old_ready = (
+            ROOT
+            / "runspecs"
+            / "ready"
+            / f"E7_SQEXP_GAE_PILOT_20260716_{suffix}.yaml"
+        )
+        assert not old_ready.exists()
 
-    assert not old_ready.exists()
-    assert RETIRED_RUNSPEC.is_file()
-    retired_text = RETIRED_RUNSPEC.read_text()
-    assert "RETIRED" in retired_text
-    assert "No actor branch was started" in retired_text
-    assert "Use the corrected _02 RunSpec" in retired_text
+    assert all(path.is_file() for path in RETIRED_RUNSPECS)
+    first_text = RETIRED_RUNSPECS[0].read_text()
+    second_text = RETIRED_RUNSPECS[1].read_text()
+    assert "RETIRED" in first_text
+    assert "RETIRED" in second_text
+    assert "No actor branch was started" in first_text
+    assert "before actor update 1" in second_text
+    assert "corrected _03" in second_text
