@@ -62,9 +62,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--minimum-admitted-workers",
         type=int,
-        help=(
-            "practical launch floor; defaults to min(fallback workers, planned workers)"
-        ),
+        default=1,
+        help="minimum safe worker count required to leave the foreground wait",
     )
     parser.add_argument("--meminfo", default="/proc/meminfo")
     parser.add_argument("--loadavg", default="/proc/loadavg")
@@ -283,18 +282,16 @@ def main(argv: list[str] | None = None) -> int:
         proposed_workers = int(document["selection"]["selected_workers"])
         workers = proposed_workers
         selection_digest = str(document["selection_digest"])
-        minimum_admitted_workers = min(args.fallback_workers, proposed_workers)
+        minimum_admitted_workers = 1
     else:
         proposed_workers, planned_digest = _load_planned_selection(work_dir)
         _validate_existing_run_identity(work_dir, proposed_workers, planned_digest)
-        requested_minimum = (
-            args.fallback_workers
-            if args.minimum_admitted_workers is None
-            else args.minimum_admitted_workers
-        )
-        if requested_minimum < 1:
+        if args.minimum_admitted_workers < 1:
             raise RuntimeResourceError("minimum admitted workers must be positive")
-        minimum_admitted_workers = min(requested_minimum, proposed_workers)
+        minimum_admitted_workers = min(
+            args.minimum_admitted_workers,
+            proposed_workers,
+        )
 
         def revalidation_kwargs() -> Mapping[str, Any]:
             return {
