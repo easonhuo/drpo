@@ -6461,6 +6461,153 @@ experiments:
   - does_not_replace_cu1_or_du1_controlled_identification
   formal_evidence_allowed: false
 
+- id: EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-LAMBDA-ROUND1-0.5B-01
+  environment: EXT-C
+  name: countdown_e8_paper_aligned_linear_excess_surprisal_lambda_round1
+  status: not_run
+  claim: >-
+    On the frozen E8 V2 negative bank, use the paper-aligned detached
+    mean-token-surprisal weight alpha*exp(-lambda*relu((D-tau)/scale_c)) to
+    localize a useful lambda region at fixed alpha=1, while retaining
+    Positive-only as a paired reference and reusing the unaffected historical
+    Global result without rerunning it.
+  role: external_validity_target_driven_hyperparameter_localization_pilot
+  execution_class: pilot
+  registration_base_commit: 61381983eb4969990ef827c6600092bc327d6b4f
+  parent_evidence:
+    historical_squared_surprisal_trend:
+      status: locked_directional_evidence
+      protocol: alpha_times_exp_minus_c_times_D_over_2_squared
+      interpretation: >-
+        The historical non-monotone control-strength trend remains evidence
+        under its registered squared-surprisal protocol. A successor
+        non-replication may establish non-transfer but may not retroactively
+        erase that observation.
+      revision_requires: explicit_user_approval_or_independent_original_evidence_defect
+    successor_transfer:
+      status: pending_transfer_confirmation
+  target_driven_contract:
+    mechanism_document: docs/experiment_governance/TARGET_DRIVEN_EXPERIMENT_MECHANISM.md
+    protocol_document: docs/experiments/E8_PAPER_ALIGNED_LAMBDA_TUNING_PROTOCOL.md
+    target_signature:
+    - lambda_near_zero_approaches_uncontrolled_alpha_one
+    - intermediate_lambda_is_searched_for_useful_selective_tail_control
+    - lambda_to_infinity_retains_near_field_and_removes_far_tail_not_positive_only
+    unexpected_result_order:
+    - equation_and_implementation_audit
+    - calibration_and_weight_distribution_audit
+    - search_boundary_coverage_audit
+    - paired_seed_and_terminal_reversal_audit
+    - registered_secondary_parameter_check
+    - successor_non_transfer_interpretation
+    retroactive_historical_invalidation_forbidden: true
+  formula_contract:
+    completion_coordinate: D=negative_mean_completion_token_log_probability
+    prompt_tokens_included: false
+    padding_tokens_included: false
+    eos_token_included: true
+    normalized_excess: z=relu((D-tau)/scale_c)
+    weight: alpha*exp(-lambda*z)
+    extra_surprisal_square: forbidden
+    detached: true
+    golden_cases:
+    - D_le_tau_implies_weight_alpha
+    - D_eq_tau_plus_scale_implies_alpha_exp_minus_lambda
+    - D_eq_tau_plus_two_scale_implies_alpha_exp_minus_two_lambda_not_minus_four_lambda
+  calibration_protocol:
+    source: frozen_pretraining_bank_sample
+    prompt_rows: 256
+    seed: 2026071601
+    tau_rule: frozen_pretraining_bank_sample_median_surprisal
+    scale_rule: frozen_pretraining_upper_half_median_minus_lower_half_median
+    task_metric_used: false
+    test_data_used: false
+    minimum_active_fraction: 0.25
+    freeze_before_training: required
+  runtime_resource_contract:
+    default_gpu_slots: 2
+    selection: auto_select_two_eligible_devices_from_candidate_pool
+    processes_per_gpu: 1
+    scientific_matrix_changes_with_slot_count: false
+  round1:
+    fixed_alpha: 1.0
+    lambda_values:
+    - 0.105360516
+    - 0.287682072
+    - 0.693147181
+    - 1.386294361
+    - 2.302585093
+    paired_seed_offsets:
+    - 4000
+    - 5000
+    - 6000
+    positive_only_included: true
+    global_rerun: false
+    unique_parameter_points: 6
+    cells: 18
+    fixed_training_steps: 1200
+    early_stopping: false
+    test_access: forbidden
+  tuning_sequence:
+  - round0_formula_calibration_and_liveness_non_scientific
+  - round1_lambda_localization_at_alpha_one
+  - round2_boundary_extension_or_local_refinement
+  - round3_optional_narrow_alpha_check_only_if_registered_condition_holds
+  - round4_tau_sensitivity_after_lambda_localization
+  - round5_fresh_seed_confirmation
+  baseline_reuse:
+    positive_only:
+      affected_by_formula_bug: false
+      action: paired_confirmation_in_round1
+      historical_source: experiments/results/e8_oracle_offline_v2_global_low_scale_pilot/RESULT_SUMMARY.json
+    global_x1_over_32:
+      affected_by_formula_bug: false
+      action: reuse_context_without_round1_rerun
+      historical_source: experiments/results/e8_oracle_offline_v2_global_low_scale_pilot/RESULT_SUMMARY.json
+  code_entrypoint: src/drpo/countdown_e8_paper_aligned_lambda_runtime.py
+  trainer_entrypoint: src/drpo/countdown_e8_paper_aligned_lambda_trainer.py
+  operator_entrypoint: scripts/run_countdown_e8_paper_aligned_lambda_one_click.sh
+  resume_entrypoint: scripts/run_countdown_e8_paper_aligned_lambda_resume_one_click.sh
+  config_entrypoint: configs/countdown_e8_paper_aligned_lambda_round1_0p5b.yaml
+  runspec_entrypoint: runspecs/ready/E8_PAPER_ALIGNED_LAMBDA_ROUND1_20260716_01.yaml
+  implementation_state: implemented_pending_real_cuda_liveness
+  execution_gate:
+    state: ready_after_ci_and_real_liveness
+    blocked_by:
+    - real_qwen_cuda_liveness_not_yet_run
+  reporting_separation:
+  - task_performance_degradation
+  - valid_structure_or_support_boundary_event
+  - nan_inf_numerical_failure
+  interpretation_limits:
+  - development_pilot_not_formal_ranking
+  - external_validity_not_controlled_causal_identification
+  - fixed_1200_steps_not_convergence_or_steady_state
+  - no_test_set_hyperparameter_selection
+  - no_universal_taper_winner_claim
+  expected_outputs:
+  - RUNTIME_SELECTION.json
+  - SWEEP_PLAN.json
+  - TAPER_CALIBRATION.json
+  - SMOKE_GATE.json
+  - methods/*/summary.json
+  - aggregate/per_cell_summary.csv
+  - aggregate/lambda_summary.csv
+  - aggregate/ROUND1_DECISION.json
+  - aggregate/terminal_audit.json
+  - SWEEP_COMPLETE.json
+  formal_run_status: not_run
+  execution:
+    state: registered
+    run_id: null
+    last_heartbeat_utc: null
+    process_exit_code: null
+  evidence:
+    code_committed: false
+    run_started: false
+    raw_complete: false
+    terminal_audited: false
+    real_qwen_cuda_run_completed: false
 development_experiment_registrations:
 - id: D-U1-E6-CONDITIONAL-GAP-DEV-01
   environment: D-U1
