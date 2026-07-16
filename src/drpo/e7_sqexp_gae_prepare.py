@@ -27,13 +27,14 @@ from drpo.e7_offline_gae import (
 
 
 SCHEMA_VERSION = 1
-PREPARER_VERSION = "1.0.0-e7-sqexp-gae"
+PREPARER_VERSION = "1.0.1-e7-sqexp-gae"
 DEFAULT_GAMMA = 0.99
 DEFAULT_GAE_LAMBDA = 0.95
 DEFAULT_CRITIC_STEPS = 100_000
 DEFAULT_BATCH_SIZE = 256
 DEFAULT_LEARNING_RATE = 3e-4
 DEFAULT_EXPECTILE = 0.5
+GAE_CROSSCHECK_ATOL = 1e-6
 
 
 def _load_dataset(path: Path, dataset_id: str) -> dict[str, np.ndarray]:
@@ -164,6 +165,126 @@ def _train_shared_critic(
         "mean_loss": loss_sum / steps,
         "parameters_finite": parameters_finite,
         "fixed_horizon_not_convergence": True,
+    }
+
+
+def _gae_numpy_float64_reference(
+    rewards: Any,
+    values: Any,
+    next_values: Any,
+    terminals: Any,
+    timeouts: Any,
+    *,
+    gamma: float,
+    gae_lambda: float,
+) -> np.ndarray:
+    """Independent float64 NumPy reference used only for the parity gate."""
+
+    rewards_array = np.asarray(rewards, dtype=np.float64).reshape(-1)
+    values_array = np.asarray(values, dtype=np.float64).reshape(-1)
+    next_values_array = np.asarray(next_values, dtype=np.float64).reshape(-1)
+    terminals_array = np.asarray(terminals, dtype=np.bool_).reshape(-1)
+    timeouts_array = np.asarray(timeouts, dtype=np.bool_).reshape(-1)
+    n = int(rewards_array.shape[0])
+    if n == 0:
+        raise ValueError("GAE precision cross-check requires at least one transition")
+    if not (
+        rewards_array.shape
+        == values_array.shape
+        == next_values_array.shape
+        == terminals_array.shape
+        == timeouts_array.shape
+    ):
+        raise ValueError("GAE precision arrays must have identical shapes")
+    if bool((terminals_array & timeouts_array).any()):
+        raise ValueError("terminal and timeout flags must not overlap")
+    for name, array in (
+        ("rewards", rewards_array),
+        ("values", values_array),
+        ("next_values", next_values_array),
+    ):
+        if not np.isfinite(array).all():
+            raise ValueError(f"{name} contains NaN/Inf")
+
+    bootstrap = (~terminals_array).astype(np.float64)
+    continuation = (~(terminals_array | timeouts_array)).astype(np.float64)
+    deltas = rewards_array + gamma * bootstrap * next_values_array - values_array
+    advantages = np.empty_like(deltas)
+    running = 0.0
+    for index in range(n - 1, -1, -1):
+        running = deltas[index] + gamma * gae_lambda * continuation[index] * running
+        advantages[index] = running
+    if not np.isfinite(advantages).all():
+        raise FloatingPointError("float64 NumPy GAE reference contains NaN/Inf")
+    return advantages
+
+
+def validate_gae_precision(
+    rewards: Any,
+    values: Any,
+    next_values: Any,
+    terminals: Any,
+    timeouts: Any,
+    stored_gae: Any,
+    *,
+    gamma: float,
+    gae_lambda: float,
+) -> dict[str, Any]:
+    """Separate algorithm parity from the intended float32 storage quantization."""
+
+    numpy_reference = _gae_numpy_float64_reference(
+        rewards,
+        values,
+        next_values,
+        terminals,
+        timeouts,
+        gamma=gamma,
+        gae_lambda=gae_lambda,
+    )
+    torch_reference = compute_gae_torch(
+        torch.from_numpy(np.asarray(rewards, dtype=np.float64)),
+        torch.from_numpy(np.asarray(values, dtype=np.float64)),
+        torch.from_numpy(np.asarray(next_values, dtype=np.float64)),
+        torch.from_numpy(np.asarray(terminals, dtype=np.bool_)),
+        torch.from_numpy(np.asarray(timeouts, dtype=np.bool_)),
+        gamma=gamma,
+        gae_lambda=gae_lambda,
+    ).cpu().numpy()
+    numpy_torch_error = float(np.max(np.abs(torch_reference - numpy_reference)))
+    if numpy_torch_error > GAE_CROSSCHECK_ATOL:
+        raise RuntimeError(
+            "NumPy/Torch float64 GAE cross-check failed: "
+            f"max_abs_error={numpy_torch_error}"
+        )
+
+    stored_array = np.asarray(stored_gae)
+    if stored_array.shape != numpy_reference.shape:
+        raise ValueError("stored GAE shape differs from float64 reference")
+    if stored_array.dtype != np.float32:
+        raise ValueError(f"stored GAE must remain float32, got {stored_array.dtype}")
+    expected_storage = numpy_reference.astype(np.float32)
+    storage_match_error = float(
+        np.max(
+            np.abs(
+                stored_array.astype(np.float64)
+                - expected_storage.astype(np.float64)
+            )
+        )
+    )
+    if not np.array_equal(stored_array, expected_storage):
+        raise RuntimeError(
+            "stored float32 GAE does not equal the rounded float64 NumPy reference: "
+            f"max_abs_error={storage_match_error}"
+        )
+    storage_quantization_error = float(
+        np.max(np.abs(numpy_reference - expected_storage.astype(np.float64)))
+    )
+    return {
+        "numpy_torch_float64_max_abs_error": numpy_torch_error,
+        "gae_float32_storage_quantization_max_abs_error": storage_quantization_error,
+        "stored_gae_vs_float64_cast_max_abs_error": storage_match_error,
+        "stored_gae_dtype": str(stored_array.dtype),
+        "stored_gae_matches_float64_reference_cast": True,
     }
 
 
@@ -302,29 +423,22 @@ def main(argv: list[str] | None = None) -> int:
     lambda_zero_max_abs_error = float(
         np.max(np.abs(lambda_zero.astype(np.float64) - td_advantages))
     )
-    if lambda_zero_max_abs_error > 1e-6:
+    if lambda_zero_max_abs_error > GAE_CROSSCHECK_ATOL:
         raise RuntimeError(
             "lambda=0 regression failed: "
             f"max_abs_error={lambda_zero_max_abs_error}"
         )
 
-    torch_gae = compute_gae_torch(
-        torch.from_numpy(data["rews"].astype(np.float64)),
-        torch.from_numpy(values.astype(np.float64)),
-        torch.from_numpy(next_values.astype(np.float64)),
-        torch.from_numpy(data["terms"]),
-        torch.from_numpy(data["touts"]),
+    precision_diagnostics = validate_gae_precision(
+        data["rews"],
+        values,
+        next_values,
+        data["terms"],
+        data["touts"],
+        gae_advantages,
         gamma=args.gamma,
         gae_lambda=args.gae_lambda,
-    ).cpu().numpy()
-    numpy_torch_max_abs_error = float(
-        np.max(np.abs(torch_gae - gae_advantages.astype(np.float64)))
     )
-    if numpy_torch_max_abs_error > 1e-6:
-        raise RuntimeError(
-            "NumPy/Torch GAE cross-check failed: "
-            f"max_abs_error={numpy_torch_max_abs_error}"
-        )
 
     advantage_path = output_dir / "advantages.npz"
     np.savez_compressed(
@@ -337,7 +451,10 @@ def main(argv: list[str] | None = None) -> int:
     advantage_sha256 = sha256_file(advantage_path)
     diagnostics = advantage_diagnostics(td_advantages, gae_advantages)
     diagnostics["lambda_zero_max_abs_error"] = lambda_zero_max_abs_error
-    diagnostics["numpy_torch_max_abs_error"] = numpy_torch_max_abs_error
+    diagnostics["numpy_torch_max_abs_error"] = precision_diagnostics[
+        "numpy_torch_float64_max_abs_error"
+    ]
+    diagnostics.update(precision_diagnostics)
     diagnostics["open_tail_excluded_fraction"] = (
         audit.open_tail_length / audit.transition_count
         if audit.transition_count
