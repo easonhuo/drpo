@@ -205,7 +205,7 @@ def test_evaluator_uses_trusted_base_and_posts_stable_status() -> None:
     assert "pull_request_target:" in source
     assert "ref: ${{ env.BASE_SHA }}" in source
     assert "persist-credentials: false" in source
-    assert 'git fetch --no-tags --depth=1 origin "$HEAD_SHA"' in source
+    assert 'git fetch --no-tags origin "$HEAD_SHA"' in source
     assert "statuses: write" in source
     assert "drpo/code-change-budget" in source
     assert "pull_request:\n" not in source
