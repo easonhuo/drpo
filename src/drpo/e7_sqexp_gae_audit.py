@@ -48,6 +48,16 @@ def terminal_audit(work_dir: Path) -> dict[str, Any]:
             failures.append(f"{branch_id}:gae_not_recomputed")
         if provenance.get("gae_matches_prepared_artifact") is not True:
             failures.append(f"{branch_id}:gae_artifact_mismatch")
+    aggregation_path = work_dir / "aggregate" / "gae_vs_td_summary.json"
+    if not aggregation_path.is_file():
+        failures.append("missing_paired_aggregation")
+    else:
+        aggregation = json.loads(aggregation_path.read_text())
+        if (
+            aggregation.get("status") != "PASS"
+            or aggregation.get("paired_cells") != EXPECTED_BRANCHES // 2
+        ):
+            failures.append("paired_aggregation")
     expected_half = EXPECTED_BRANCHES // 2
     if (
         summary.get("branch_count") != EXPECTED_BRANCHES
