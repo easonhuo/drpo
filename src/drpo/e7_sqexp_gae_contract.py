@@ -80,6 +80,19 @@ def _require_int_flag(argv: list[str], flag: str, expected: int) -> None:
         raise ValueError(f"source trainer {flag} changed: {actual} != {expected}")
 
 
+def _consume_optional_exact_int_flag(
+    argv: list[str],
+    flag: str,
+    expected: int,
+) -> None:
+    positions = [index for index, token in enumerate(argv) if token == flag]
+    if not positions:
+        return
+    _require_int_flag(argv, flag, expected)
+    index = positions[0]
+    del argv[index : index + 2]
+
+
 def _require_exact_mapping(
     raw: Mapping[str, Any],
     expected: Mapping[str, Any],
@@ -263,6 +276,7 @@ def load_run_spec(path: str | Path) -> tuple[dict[str, Any], str]:
     _require_float_flag(argv, "--lr", 0.0003)
     _require_int_flag(argv, "--eval_interval", 50_000)
     _require_int_flag(argv, "--eval_episodes", 10)
+    _consume_optional_exact_int_flag(argv, "--eval_max_steps", 1000)
     _require_int_flag(argv, "--steps", 1_000_000)
     argv[argv.index("--seed") + 1] = "{seed}"
     argv[argv.index("--steps") + 1] = "{steps}"
