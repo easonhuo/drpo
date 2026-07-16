@@ -202,6 +202,26 @@ def test_symlinked_prepared_input_is_rejected(tmp_path: Path) -> None:
     assert [command.name for command in fixture.commands] == ["prepare-inputs"]
 
 
+def test_symlinked_root_parent_is_rejected_before_invocation(tmp_path: Path) -> None:
+    target = tmp_path / "target"
+    fixture = FixtureInvoker(target)
+    link = tmp_path / "link"
+    try:
+        os.symlink(target, link, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("symlinks unavailable")
+    with pytest.raises(OrchestrationError, match="path contains a symlink"):
+        run_candidate(
+            repo_root=link / "repo",
+            spec_path=link / "spec.yaml",
+            preparation_root=link / "preparations",
+            transaction_root=link / "transactions",
+            python_executable=sys.executable,
+            invoke=fixture,
+        )
+    assert fixture.commands == []
+
+
 def test_malformed_child_json_fails_closed(tmp_path: Path) -> None:
     fixture = FixtureInvoker(tmp_path)
 
