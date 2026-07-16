@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from pathlib import Path
 from typing import Any, Sequence
+
+import numpy as np
 
 from drpo import e7_canonical_sweep as base
 from drpo import e7_sqexp_gae_contract as protocol
@@ -24,6 +27,8 @@ HELD_OUT_SEEDS = protocol.HELD_OUT_SEEDS
 EXPECTED_DATASETS = protocol.EXPECTED_DATASETS
 EXPECTED_PAIRS = 12
 EXPECTED_BRANCHES = protocol.EXPECTED_BRANCHES
+EXPECTED_PREPARER_VERSION = "1.0.1-e7-sqexp-gae"
+GAE_CROSSCHECK_ATOL = 1e-6
 load_grid = protocol.load_grid
 
 _ORIGINAL_WRITE_PLAN = base.write_plan
@@ -52,6 +57,11 @@ def _verify_prepared(
     manifest = json.loads(manifest_path.read_text())
     if manifest.get("status") != "complete":
         raise RuntimeError(f"prepared artifact is incomplete: {directory}")
+    if manifest.get("preparer_version") != EXPECTED_PREPARER_VERSION:
+        raise RuntimeError(
+            "prepared artifact predates the corrected precision gate: "
+            f"{directory}"
+        )
     if manifest.get("dataset_id") != dataset_id:
         raise RuntimeError(f"prepared artifact dataset mismatch: {directory}")
     if int(manifest.get("seed", -1)) != seed:
@@ -68,14 +78,43 @@ def _verify_prepared(
         "sha256"
     ):
         raise RuntimeError(f"prepared advantage verification failed: {directory}")
+    with np.load(advantages_path, allow_pickle=False) as arrays:
+        if "td" not in arrays or "gae" not in arrays:
+            raise RuntimeError(f"prepared advantage keys are incomplete: {directory}")
+        if arrays["td"].dtype != np.float32 or arrays["gae"].dtype != np.float32:
+            raise RuntimeError(
+                f"prepared actor advantages must remain float32: {directory}"
+            )
     audit = manifest.get("trajectory_audit", {})
     if audit.get("status") != "PASS":
         raise RuntimeError(f"ordered trajectory audit is not PASS: {directory}")
     diagnostics = advantages.get("diagnostics", {})
-    if float(diagnostics.get("lambda_zero_max_abs_error", 1.0)) > 1e-6:
+    if float(diagnostics.get("lambda_zero_max_abs_error", 1.0)) > GAE_CROSSCHECK_ATOL:
         raise RuntimeError(f"lambda=0 regression failed: {directory}")
-    if float(diagnostics.get("numpy_torch_max_abs_error", 1.0)) > 1e-6:
-        raise RuntimeError(f"NumPy/Torch GAE cross-check failed: {directory}")
+    float64_error = float(
+        diagnostics.get("numpy_torch_float64_max_abs_error", 1.0)
+    )
+    compatibility_error = float(diagnostics.get("numpy_torch_max_abs_error", 1.0))
+    if float64_error > GAE_CROSSCHECK_ATOL:
+        raise RuntimeError(f"NumPy/Torch float64 GAE cross-check failed: {directory}")
+    if not math.isclose(
+        compatibility_error,
+        float64_error,
+        rel_tol=0.0,
+        abs_tol=0.0,
+    ):
+        raise RuntimeError(f"GAE compatibility diagnostic mismatch: {directory}")
+    if diagnostics.get("stored_gae_dtype") != "float32":
+        raise RuntimeError(f"stored GAE dtype verification failed: {directory}")
+    if diagnostics.get("stored_gae_matches_float64_reference_cast") is not True:
+        raise RuntimeError(f"stored GAE reference-cast verification failed: {directory}")
+    if float(diagnostics.get("stored_gae_vs_float64_cast_max_abs_error", 1.0)) != 0.0:
+        raise RuntimeError(f"stored GAE reference-cast mismatch: {directory}")
+    quantization_error = float(
+        diagnostics.get("gae_float32_storage_quantization_max_abs_error", math.nan)
+    )
+    if not math.isfinite(quantization_error) or quantization_error < 0.0:
+        raise RuntimeError(f"invalid GAE storage quantization diagnostic: {directory}")
     return manifest
 
 
