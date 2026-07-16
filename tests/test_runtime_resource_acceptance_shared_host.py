@@ -2,13 +2,17 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 from drpo.runtime_resource_acceptance import StageResult, utc_now
 from drpo.runtime_resource_acceptance_shared_host import (
     PERMANENT_EXTERNAL_PATTERNS,
+    explicit_oom_stage_names,
     observe_external_workloads,
     shared_host_capacity_contract,
+    shared_host_e7_stage,
+    shared_host_gpu_stage,
+    shared_host_report,
     shared_host_topology_stage,
 )
 
@@ -28,9 +32,14 @@ def _profile() -> dict[str, Any]:
     }
 
 
-def _result(status: str, details: Mapping[str, Any]) -> StageResult:
+def _result(
+    status: str,
+    details: Mapping[str, Any],
+    *,
+    name: str = "stage0_topology",
+) -> StageResult:
     now = utc_now()
-    return StageResult("stage0_topology", status, now, now, dict(details))
+    return StageResult(name, status, now, now, dict(details))
 
 
 def _write_inventory(root: Path, rows: list[dict[str, Any]]) -> None:
@@ -54,6 +63,11 @@ def test_capacity_contract_exposes_hard_caps_without_exclusivity() -> None:
     assert contract["hard_limits"]["e8_cpu_count"] == 4
     assert contract["hard_limits"]["e8_max_total_slots"] == 2
     assert contract["dynamic_selection"]["launch_revalidation"] is True
+    assert (
+        contract["dynamic_selection"]["positive_prelaunch_downshift_allowed"]
+        is True
+    )
+    assert contract["dynamic_selection"]["running_worker_resize_allowed"] is False
 
 
 def test_external_workload_matching_is_observation_only() -> None:
@@ -180,3 +194,162 @@ def test_implementation_failure_is_not_reclassified(tmp_path: Path) -> None:
     )
     assert result.status == "FAIL"
     assert result.details["error_type"] == "RuntimeError"
+
+
+def test_e7_stage_reports_actually_admitted_workers(tmp_path: Path) -> None:
+    directory = tmp_path / "stage2_e7_cpu_v2"
+    directory.mkdir()
+    (directory / "SELECTED_LIVENESS.json").write_text(
+        json.dumps(
+            {
+                "proposed_workers": 123,
+                "admitted_workers": 113,
+                "selected_workers": 113,
+                "downshifted": True,
+                "runtime_admission": {"decision": "ALLOW", "admitted_workers": 113},
+                "revalidation": {"decision": "ALLOW_WITH_DOWNSHIFT"},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    def original(
+        root: Path,
+        repo: Path,
+        profile_path: Path,
+        profile: Mapping[str, Any],
+        ledger: Path,
+    ) -> StageResult:
+        del root, repo, profile_path, profile, ledger
+        return _result(
+            "PASS",
+            {"selected_workers": 123, "selection_digest": "digest"},
+            name="stage2_e7_cpu_v2",
+        )
+
+    result = shared_host_e7_stage(
+        original,
+        tmp_path,
+        tmp_path / "repo",
+        tmp_path / "profile.json",
+        _profile(),
+        tmp_path / "ledger.jsonl",
+    )
+    assert result.status == "PASS"
+    assert result.details["proposed_workers"] == 123
+    assert result.details["admitted_workers"] == 113
+    assert result.details["selected_workers"] == 113
+    assert result.details["downshifted"] is True
+    assert result.details["candidate_above_one_observed"] is True
+
+
+def test_gpu_stage_separates_selected_slots_from_probed_concurrency(
+    tmp_path: Path,
+) -> None:
+    work = tmp_path / "stage3_gpu_placement" / "work"
+    work.mkdir(parents=True)
+    (work / "RUNTIME_SELECTION.json").write_text(
+        json.dumps(
+            {
+                "selection": {
+                    "selected_device_ids": [str(index) for index in range(8)],
+                    "slots_per_gpu": 1,
+                    "total_runtime_slots": 8,
+                },
+                "probe": {"records": [{"concurrency": 1, "success": True}]},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    def original(
+        root: Path,
+        repo: Path,
+        gpu_repo: Path,
+        profile: Mapping[str, Any],
+        ledger: Path,
+    ) -> StageResult:
+        del root, repo, gpu_repo, profile, ledger
+        return _result(
+            "INCONCLUSIVE",
+            {"candidate_above_one_observed": False},
+            name="stage3_gpu_placement",
+        )
+
+    result = shared_host_gpu_stage(
+        original,
+        tmp_path,
+        tmp_path / "repo",
+        tmp_path / "gpu",
+        _profile(),
+        tmp_path / "ledger.jsonl",
+    )
+    assert result.status == "INCONCLUSIVE"
+    assert result.details["selected_device_count"] == 8
+    assert result.details["selected_slots_per_gpu"] == 1
+    assert result.details["selected_total_runtime_slots"] == 8
+    assert result.details["selected_capacity_above_one"] is True
+    assert result.details["maximum_actually_probed_concurrency"] == 1
+    assert result.details["candidate_above_one_observed"] is False
+    assert result.details["multi_slot_capacity_actually_validated"] is False
+
+
+def test_oom_detection_does_not_match_headroom_substring() -> None:
+    results = [
+        _result(
+            "PASS",
+            {
+                "memory_headroom_fraction": 0.15,
+                "gpu_memory_headroom_fraction": 0.12,
+                "oom_detected": False,
+            },
+            name="stage0_topology",
+        ),
+        _result(
+            "FAIL",
+            {"error": "CUDA out of memory during probe"},
+            name="stage3_gpu_placement",
+        ),
+    ]
+    assert explicit_oom_stage_names(results) == ["stage3_gpu_placement"]
+
+
+def test_shared_host_report_replaces_substring_oom_classification(
+    tmp_path: Path,
+) -> None:
+    results: Sequence[StageResult] = [
+        _result(
+            "PASS",
+            {"memory_headroom_fraction": 0.15},
+            name="stage0_topology",
+        )
+    ]
+
+    def original_report(
+        root: Path,
+        checkout: Mapping[str, Any],
+        profile: Mapping[str, Any],
+        stages: Sequence[StageResult],
+        final_audit: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        del checkout, profile, stages, final_audit
+        summary = {
+            "separate_failure_classes": {
+                "resource_boundary_or_oom": ["stage0_topology"]
+            }
+        }
+        (root / "ACCEPTANCE_SUMMARY.json").write_text(
+            json.dumps(summary), encoding="utf-8"
+        )
+        return summary
+
+    summary = shared_host_report(
+        original_report,
+        tmp_path,
+        {},
+        {},
+        results,
+        {},
+    )
+    assert summary["separate_failure_classes"]["resource_boundary_or_oom"] == []
+    assert summary["separate_failure_classes"]["oom_failure"] == []
