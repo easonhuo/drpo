@@ -23,7 +23,9 @@ The second attempt exposed a mixed-precision validation error. The NumPy impleme
 2. verifies that the stored GAE remains float32 and is exactly the float32 cast of the NumPy reference;
 3. records float32 storage quantization separately instead of treating it as an algorithm mismatch.
 
-The third attempt completed all 12 preparation pairs and entered the 192-branch run stage, but every sampled branch failed before actor update 1 because the shared canonical trainer template includes `--eval_max_steps 1000` while the GAE-specific trainer parser does not expose that canonical-only flag. The GAE adapter now validates that any source `--eval_max_steps` value is exactly `1000` and removes the pair before constructing GAE trainer arguments. Missing flags remain compatible because the canonical evaluation helper itself is fixed at 1000 steps; malformed, duplicated, or non-1000 values fail closed.
+The third attempt completed all 12 preparation pairs and entered the 192-branch run stage, but every sampled branch failed before actor update 1 because the shared canonical trainer template includes `--eval_max_steps 1000` while the GAE-specific trainer parser does not expose that canonical-only flag. The GAE adapter now validates that any source `--eval_max_steps` value is exactly `1000` and removes the pair before constructing GAE trainer arguments. Missing flags remain compatible because the canonical evaluation helper itself is fixed at 1000 steps; malformed, duplicated, or non-1000 values fail closed. All remaining source flags are checked against the checked-in GAE trainer parser before any branch is launched.
+
+The `_03` rerun reuses the valid `_02` preparation artifacts and branch identities. Before a failed branch is relaunched, its `FAILED.json`, launch record, branch config, branch manifest, and combined stdout/stderr log are moved into an append-only `failed_attempts/attempt-NNN/` directory with an archive manifest. A successful resume therefore cannot erase the evidence explaining the earlier failure.
 
 None of these corrections changes the frozen matrix, GAE recurrence, boundary semantics, critic training budget, actor horizon, evaluation horizon, seeds, taper coefficients, or A2C/PPO objectives.
 
@@ -115,12 +117,14 @@ The implementation includes the following required regressions:
 - conflicting, missing, or different variant bindings fail closed;
 - canonical `--eval_max_steps 1000` is validated and removed before GAE trainer parsing;
 - malformed, duplicated, or non-1000 evaluation-horizon flags fail closed;
+- every remaining source flag is accepted by the checked-in GAE trainer parser before branch launch;
 - the materialized GAE trainer argument vector parses successfully end to end;
 - NumPy-float64 and Torch-float64 GAE implementations agree to `1e-6`;
 - the stored actor advantage remains float32 and exactly matches the float32 cast of the NumPy reference;
 - float32 storage quantization is recorded separately from implementation parity;
 - a long, high-magnitude recurrence reproduces the old mixed-precision false failure and passes the corrected gate;
 - dataset, prepared array, and checkpoint hashes are verified before plan/run;
+- repeated branch resumes preserve failed evidence in monotonically indexed append-only archives;
 - A2C and PPO prepared-advantage injections update the actor while leaving the critic untouched;
 - critic parameters are checked for exact immutability at every evaluation interval and at the final update;
 - actor and critic parameter sets must be disjoint;
