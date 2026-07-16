@@ -54,9 +54,13 @@ def _plain_path(value: str | Path, label: str) -> Path:
     path = Path(value).expanduser()
     if not path.is_absolute():
         path = path.absolute()
-    if path.is_symlink():
-        raise OrchestrationError(label, "path may not be a symlink")
-    return path
+    current = path
+    while True:
+        if current.is_symlink():
+            raise OrchestrationError(label, f"path contains a symlink: {current}")
+        if current.parent == current:
+            return path
+        current = current.parent
 
 
 def _existing_dir(value: Any, root: Path, label: str) -> Path:
