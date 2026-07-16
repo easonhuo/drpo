@@ -1,0 +1,13 @@
+evidence_locator:
+  schema_version: 1
+  primary_run_id: E8_EXAMPLE_20260716_01
+  records:
+    - run_id: E8_EXAMPLE_20260716_01
+      lane: e8
+      source_commit: 0000000000000000000000000000000000000000
+      results_repository: easonhuo/drpo-results
+      results_branch: ingest/e8
+      results_commit: 0000000000000000000000000000000000000000
+      result_path: runs/e8/E8_EXAMPLE_20260716_01
+      manifest_sha256: 0000000000000000000000000000000000000000000000000000000000000000
+      export_profile: manifest_text_v1
