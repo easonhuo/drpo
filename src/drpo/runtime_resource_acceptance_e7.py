@@ -1,4 +1,4 @@
-"""Safe E7 validate-only and selected-count liveness actions."""
+"""Safe E7 validate-only and admitted-count liveness actions."""
 from __future__ import annotations
 
 import math
@@ -8,6 +8,7 @@ from typing import Any, Mapping
 from drpo import runtime_cpu_capacity as cpu
 from drpo.e7_ppo_w0_runtime_autotune import benchmark_concurrency, revalidate_runtime
 from drpo.runtime_resource_acceptance import AcceptanceError
+from drpo.runtime_resource_admission import revalidate_with_safe_downshift
 from drpo.runtime_resource_autotune import atomic_write_json, discover_machine, load_json
 
 
@@ -66,23 +67,46 @@ def runtime_kwargs(
     }
 
 
+def _admit(
+    profile: Mapping[str, Any], repo: Path, work_dir: Path
+) -> tuple[int, str, dict[str, Any], Mapping[str, Any]]:
+    proposed_workers, digest = selection_identity(work_dir)
+    machine = discover_machine()
+    document = revalidate_with_safe_downshift(
+        revalidate_runtime=revalidate_runtime,
+        work_dir=work_dir,
+        proposed_workers=proposed_workers,
+        selection_digest=digest,
+        revalidate_kwargs={
+            **runtime_kwargs(profile, repo, work_dir, machine),
+            "proc_root": "/proc",
+        },
+    )
+    admission = document.get("runtime_admission")
+    if not isinstance(admission, Mapping):
+        raise AcceptanceError("E7 runtime admission payload is missing")
+    admitted_workers = int(admission.get("admitted_workers", 0) or 0)
+    if not 1 <= admitted_workers <= proposed_workers:
+        raise AcceptanceError("E7 runtime admission worker count is invalid")
+    return proposed_workers, digest, document, admission
+
+
 def revalidate_only(
     profile: Mapping[str, Any], repo: Path, work_dir: Path, output: Path
 ) -> dict[str, Any]:
-    workers, digest = selection_identity(work_dir)
-    document = revalidate_runtime(
-        **runtime_kwargs(profile, repo, work_dir, discover_machine()),
-        proc_root="/proc",
+    proposed_workers, digest, document, admission = _admit(
+        profile, repo, work_dir
     )
-    if int(document["selection"]["selected_workers"]) != workers:
-        raise AcceptanceError("E7 revalidation changed selected worker count")
-    if str(document["selection_digest"]) != digest:
-        raise AcceptanceError("E7 revalidation changed selection digest")
+    admitted_workers = int(admission["admitted_workers"])
     payload = {
         "status": "PASS",
-        "selected_workers": workers,
+        "proposed_workers": proposed_workers,
+        "admitted_workers": admitted_workers,
+        "selected_workers": admitted_workers,
+        "downshifted": bool(admission.get("downshifted")),
         "selection_digest": digest,
         "revalidation": document.get("revalidation"),
+        "runtime_admission": dict(admission),
         "scientific_matrix_changed": False,
     }
     atomic_write_json(output, payload)
@@ -92,16 +116,11 @@ def revalidate_only(
 def selected_liveness(
     profile: Mapping[str, Any], repo: Path, work_dir: Path, output: Path
 ) -> dict[str, Any]:
-    workers, digest = selection_identity(work_dir)
-    machine = discover_machine()
-    document = revalidate_runtime(
-        **runtime_kwargs(profile, repo, work_dir, machine),
-        proc_root="/proc",
+    proposed_workers, digest, document, admission = _admit(
+        profile, repo, work_dir
     )
-    if int(document["selection"]["selected_workers"]) != workers:
-        raise AcceptanceError("E7 liveness revalidation changed selected worker count")
-    if str(document["selection_digest"]) != digest:
-        raise AcceptanceError("E7 liveness revalidation changed selection digest")
+    admitted_workers = int(admission["admitted_workers"])
+    machine = discover_machine()
     e7 = profile["e7"]
     usable_memory = math.floor(
         machine.effective_memory_available_bytes
@@ -112,7 +131,7 @@ def selected_liveness(
         run_spec_path=e7["run_spec"],
         grid_path=e7["grid"],
         probe_root=output.parent / "selected_liveness_probe",
-        concurrency=workers,
+        concurrency=admitted_workers,
         probe_steps=int(e7["liveness_steps"]),
         probe_seed=int(e7["liveness_seed"]),
         timeout_seconds=float(e7["liveness_timeout_seconds"]),
@@ -124,9 +143,13 @@ def selected_liveness(
     )
     payload = {
         "status": "PASS" if benchmark.get("valid") is True else "FAIL",
-        "selected_workers": workers,
+        "proposed_workers": proposed_workers,
+        "admitted_workers": admitted_workers,
+        "selected_workers": admitted_workers,
+        "downshifted": bool(admission.get("downshifted")),
         "selection_digest": digest,
         "revalidation": document.get("revalidation"),
+        "runtime_admission": dict(admission),
         "benchmark": benchmark,
         "non_scientific_seed_namespace": int(e7["liveness_seed"]),
         "liveness_steps_per_worker": int(e7["liveness_steps"]),
@@ -135,5 +158,5 @@ def selected_liveness(
     }
     atomic_write_json(output, payload)
     if benchmark.get("valid") is not True:
-        raise AcceptanceError("selected-count E7 liveness was not resource-valid")
+        raise AcceptanceError("admitted-count E7 liveness was not resource-valid")
     return payload
