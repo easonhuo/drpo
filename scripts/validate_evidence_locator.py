@@ -75,10 +75,6 @@ def _safe_relative_path(value: Any, label: str) -> str:
     return normalized
 
 
-def _canonical(value: Any) -> str:
-    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
-
-
 def validate_locator(experiment_id: str, raw: Any) -> dict[str, Any]:
     locator = _mapping(raw, f"{experiment_id}.evidence_locator")
     unknown = sorted(set(locator) - LOCATOR_KEYS)
@@ -100,7 +96,10 @@ def validate_locator(experiment_id: str, raw: Any) -> dict[str, Any]:
         _fail("EVIDENCE_LOCATOR_INVALID", f"{experiment_id} has an invalid primary_run_id")
     records = locator["records"]
     if not isinstance(records, list) or not records:
-        _fail("EVIDENCE_LOCATOR_INVALID", f"{experiment_id}.evidence_locator.records must be non-empty")
+        _fail(
+            "EVIDENCE_LOCATOR_INVALID",
+            f"{experiment_id}.evidence_locator.records must be non-empty",
+        )
 
     normalized_records: list[dict[str, str]] = []
     seen: set[str] = set()
@@ -129,7 +128,10 @@ def validate_locator(experiment_id: str, raw: Any) -> dict[str, Any]:
         if not LANE_RE.fullmatch(lane):
             _fail("EVIDENCE_LOCATOR_INVALID", f"{label}.lane is invalid")
         if not SHA_RE.fullmatch(source_commit):
-            _fail("EVIDENCE_LOCATOR_INVALID", f"{label}.source_commit must be a full lowercase Git SHA")
+            _fail(
+                "EVIDENCE_LOCATOR_INVALID",
+                f"{label}.source_commit must be a full lowercase Git SHA",
+            )
         if repository != CANONICAL_RESULTS_REPOSITORY:
             _fail(
                 "EVIDENCE_LOCATOR_INVALID",
@@ -138,12 +140,18 @@ def validate_locator(experiment_id: str, raw: Any) -> dict[str, Any]:
         if branch != f"ingest/{lane}":
             _fail("EVIDENCE_LOCATOR_INVALID", f"{label}.results_branch must be ingest/{lane}")
         if not SHA_RE.fullmatch(results_commit):
-            _fail("EVIDENCE_LOCATOR_INVALID", f"{label}.results_commit must be a full lowercase Git SHA")
+            _fail(
+                "EVIDENCE_LOCATOR_INVALID",
+                f"{label}.results_commit must be a full lowercase Git SHA",
+            )
         expected_path = f"runs/{lane}/{run_id}"
         if result_path != expected_path:
             _fail("EVIDENCE_LOCATOR_INVALID", f"{label}.result_path must be {expected_path}")
         if not SHA256_RE.fullmatch(manifest_sha256):
-            _fail("EVIDENCE_LOCATOR_INVALID", f"{label}.manifest_sha256 must be lowercase SHA-256")
+            _fail(
+                "EVIDENCE_LOCATOR_INVALID",
+                f"{label}.manifest_sha256 must be lowercase SHA-256",
+            )
         if export_profile != CANONICAL_EXPORT_PROFILE:
             _fail(
                 "EVIDENCE_LOCATOR_INVALID",
@@ -256,10 +264,12 @@ def validate_current(registry: dict[str, dict[str, Any]]) -> dict[str, Any]:
 def validate_transition(
     before: dict[str, dict[str, Any]], after: dict[str, dict[str, Any]]
 ) -> dict[str, Any]:
+    # Compare the parsed YAML values directly. PyYAML may resolve timestamps to
+    # date/datetime objects, which are valid comparable values but are not JSON-serializable.
     changed_ids = sorted(
         experiment_id
         for experiment_id in set(before) | set(after)
-        if _canonical(before.get(experiment_id)) != _canonical(after.get(experiment_id))
+        if before.get(experiment_id) != after.get(experiment_id)
     )
     checked: list[str] = []
     for experiment_id in changed_ids:
@@ -327,13 +337,19 @@ def main() -> int:
             details = validate_current(
                 _load_registry_bytes((repo / REGISTRY_PATH).read_bytes(), "current registry")
             )
-        payload = {"status": "PASS", "policy_id": "GOV-POSTRUN-EVIDENCE-LOCATOR-01", **details}
+        payload = {
+            "status": "PASS",
+            "policy_id": "GOV-POSTRUN-EVIDENCE-LOCATOR-01",
+            **details,
+        }
         if args.json:
             print(json.dumps(payload, sort_keys=True, indent=2))
         else:
             print(
                 "Post-run evidence locator: PASS "
-                + " ".join(f"{key}={value}" for key, value in details.items() if not isinstance(value, list))
+                + " ".join(
+                    f"{key}={value}" for key, value in details.items() if not isinstance(value, list)
+                )
             )
         return 0
     except (OSError, EvidenceLocatorError) as exc:
