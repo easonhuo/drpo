@@ -27,13 +27,13 @@ class FakeClock:
         self.value += seconds
 
 
-def _blocked_admission(
+def _blocked_result(
     work: Path,
     *,
     attempt: int,
     proposed_workers: int,
     selection_digest: str,
-) -> None:
+) -> dict[str, Any]:
     directory = work / "_runtime_resource_attempts" / f"attempt-{attempt}"
     directory.mkdir(parents=True, exist_ok=False)
     revalidation_path = directory / "RUNTIME_REVALIDATION.json"
@@ -48,28 +48,29 @@ def _blocked_admission(
         + "\n",
         encoding="utf-8",
     )
-    (directory / "RUNTIME_ADMISSION.json").write_text(
-        json.dumps(
-            {
-                "schema_version": 1,
-                "decision": "BLOCK",
-                "proposed_workers": proposed_workers,
-                "admitted_workers": 0,
-                "downshifted": True,
-                "reason": "no_safe_worker_capacity",
-                "selection_digest": selection_digest,
-                "revalidation_path": str(revalidation_path),
-                "capacity": {
-                    "cpu_worker_limit": 0,
-                    "memory_worker_limit": proposed_workers,
-                },
-                "scientific_matrix_changed": False,
-                "running_workers_resized": False,
-            }
-        )
-        + "\n",
+    admission_path = directory / "RUNTIME_ADMISSION.json"
+    admission = {
+        "schema_version": 1,
+        "decision": "BLOCK",
+        "proposed_workers": proposed_workers,
+        "admitted_workers": 0,
+        "downshifted": True,
+        "reason": "no_safe_worker_capacity",
+        "selection_digest": selection_digest,
+        "revalidation_path": str(revalidation_path),
+        "path": str(admission_path),
+        "capacity": {
+            "cpu_worker_limit": 0,
+            "memory_worker_limit": proposed_workers,
+        },
+        "scientific_matrix_changed": False,
+        "running_workers_resized": False,
+    }
+    admission_path.write_text(
+        json.dumps(admission) + "\n",
         encoding="utf-8",
     )
+    return {"mode": "auto", "runtime_admission": admission}
 
 
 def _allowed_result(
@@ -116,17 +117,15 @@ def test_waits_through_zero_and_subfloor_capacity_then_admits(
     def admit_once(**kwargs: Any) -> dict[str, Any]:
         nonlocal attempts
         attempts += 1
+        assert kwargs["allow_zero"] is True
         assert kwargs["revalidate_kwargs"] == {"machine_snapshot": attempts}
         admitted = sequence[attempts - 1]
         if admitted == 0:
-            _blocked_admission(
+            return _blocked_result(
                 work,
                 attempt=attempts,
                 proposed_workers=8,
                 selection_digest="digest",
-            )
-            raise RuntimeResourceError(
-                "RUNTIME_CAPACITY_CHANGED_REPLAN_REQUIRED: cpu_capacity_changed"
             )
         return _allowed_result(
             proposed_workers=8,
@@ -163,9 +162,9 @@ def test_waits_through_zero_and_subfloor_capacity_then_admits(
 
     state = json.loads((work / "RUNTIME_CAPACITY_WAIT.json").read_text())
     assert state["status"] == "ADMITTED"
-    assert state["admitted_workers"] == 4
     assert state["scientific_matrix_changed"] is False
     assert state["running_workers_resized"] is False
+    assert state["last_event"]["admitted_workers"] == 4
 
     rows = [
         json.loads(line)
@@ -210,14 +209,11 @@ def test_finite_timeout_preserves_blocked_evidence(tmp_path: Path) -> None:
     def admit_once(**_: Any) -> dict[str, Any]:
         nonlocal attempts
         attempts += 1
-        _blocked_admission(
+        return _blocked_result(
             work,
             attempt=attempts,
             proposed_workers=8,
             selection_digest="digest",
-        )
-        raise RuntimeResourceError(
-            "RUNTIME_CAPACITY_CHANGED_REPLAN_REQUIRED: cpu_capacity_changed"
         )
 
     with pytest.raises(RuntimeResourceError, match="RUNTIME_CAPACITY_WAIT_TIMEOUT"):
@@ -238,7 +234,7 @@ def test_finite_timeout_preserves_blocked_evidence(tmp_path: Path) -> None:
     assert clock.sleeps == [2, 2, 1]
     state = json.loads((work / "RUNTIME_CAPACITY_WAIT.json").read_text())
     assert state["status"] == "BLOCKED_WAIT_TIMEOUT"
-    assert state["last_admission"]["admitted_workers"] == 0
+    assert state["last_event"]["admitted_workers"] == 0
     assert state["attempt_count"] == 4
 
 
@@ -247,17 +243,14 @@ def test_zero_timeout_preserves_one_shot_behavior(tmp_path: Path) -> None:
     clock = FakeClock()
 
     def admit_once(**_: Any) -> dict[str, Any]:
-        _blocked_admission(
+        return _blocked_result(
             work,
             attempt=1,
             proposed_workers=8,
             selection_digest="digest",
         )
-        raise RuntimeResourceError(
-            "RUNTIME_CAPACITY_CHANGED_REPLAN_REQUIRED: cpu_capacity_changed"
-        )
 
-    with pytest.raises(RuntimeResourceError, match="RUNTIME_CAPACITY_CHANGED"):
+    with pytest.raises(RuntimeResourceError, match="RUNTIME_CAPACITY_WAIT_TIMEOUT"):
         wait_for_runtime_admission(
             admit_once=admit_once,
             work_dir=work,
