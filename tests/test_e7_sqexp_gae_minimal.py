@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from drpo.e7_sqexp_gae_minimal import compute_gae_from_td
+from drpo.e7_trajectory_gae import compute_gae_from_td
 
 
 def test_terminal_timeout_and_tail_boundaries() -> None:
