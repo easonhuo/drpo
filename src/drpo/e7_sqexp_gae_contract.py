@@ -233,9 +233,29 @@ def load_run_spec(path: str | Path) -> tuple[dict[str, Any], str]:
     for name in ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS"):
         if str(environment.get(name)) != "1":
             raise ValueError(f"run spec {name} must remain 1")
+
     argv = [str(item) for item in run_spec["trainer_argv_template"]]
-    if _flag_value(argv, "--variant") != "iqlv_exp_rank":
+    injected_values = {
+        str(key): str(value)
+        for key, value in run_spec.get("injected_template_values", {}).items()
+    }
+    variant_index = argv.index("--variant") + 1
+    variant_token = _flag_value(argv, "--variant")
+    injected_variant = injected_values.get("variant")
+    if variant_token == "{variant}":
+        if injected_variant != "iqlv_exp_rank":
+            raise ValueError(
+                "source trainer {variant} placeholder must resolve to iqlv_exp_rank"
+            )
+        argv[variant_index] = injected_variant
+    elif variant_token == "iqlv_exp_rank":
+        if injected_variant not in {None, "iqlv_exp_rank"}:
+            raise ValueError(
+                "source trainer literal variant conflicts with injected_template_values"
+            )
+    else:
         raise ValueError("source trainer variant changed from iqlv_exp_rank")
+
     _require_float_flag(argv, "--alpha", 0.11)
     _require_float_flag(argv, "--tau", 0.5)
     _require_float_flag(argv, "--temp", 5.0)
@@ -247,6 +267,9 @@ def load_run_spec(path: str | Path) -> tuple[dict[str, Any], str]:
     argv[argv.index("--seed") + 1] = "{seed}"
     argv[argv.index("--steps") + 1] = "{steps}"
     run_spec["trainer_argv_template"] = argv
+    run_spec["injected_template_values"] = {
+        key: value for key, value in injected_values.items() if key != "variant"
+    }
     run_spec["passthrough_variants"] = []
     return run_spec, digest
 
