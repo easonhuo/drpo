@@ -19,6 +19,7 @@ CONFIG = (
     / "configs"
     / "countdown_e8_oracle_offline_v2_alpha1_highc_scan_0p5b.yaml"
 )
+TRAINER = ROOT / "src" / "drpo" / "countdown_e8_alpha1_c_scan_trainer.py"
 RUNTIME = ROOT / "src" / "drpo" / "countdown_e8_alpha1_highc_scan_runtime.py"
 AUTO = (
     ROOT
@@ -170,14 +171,16 @@ def test_config_rejects_positive_only_seed_gpu_or_metric_drift() -> None:
         scan.validate_grid_config(config)
 
 
-def test_runtime_and_auto_are_thin_predecessor_adapters() -> None:
+def test_runtime_auto_and_manifest_provenance_are_current() -> None:
     runtime_source = RUNTIME.read_text()
     auto_source = AUTO.read_text()
+    trainer_source = TRAINER.read_text()
     assert "highc.activate()" in runtime_source
     assert "countdown_e8_alpha1_c_scan_runtime" in runtime_source
     assert "countdown_e8_alpha1_highc_scan_runtime.py" in auto_source
     assert "e8_alpha1_highc_scan_cuda_dev_v1" in auto_source
     assert "requires all eight configured GPUs" in auto_source
+    assert 'grid_config["remoteness"]["weight"]' in trainer_source
 
 
 def test_one_click_uses_highc_config_and_unregistered_acknowledgement() -> None:
