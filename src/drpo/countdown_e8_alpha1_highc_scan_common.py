@@ -18,6 +18,7 @@ import torch
 
 from drpo import countdown_e8_alpha1_c_scan_common as _base
 
+_BASE_VALIDATE_GRID_CONFIG = _base.validate_grid_config
 EXPERIMENT_ID = "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-LINEAR-SCAN-0.5B-01"
 VERSION = "0.2.0-dev-code-first-one-line"
 DEFAULT_GRID_CONFIG = (
@@ -82,6 +83,9 @@ _PATCH_KEYS = (
     "EXPECTED_POINTS",
     "EXPECTED_CELLS",
     "continuous_exp_weights",
+    "validate_grid_config",
+    "parameter_points",
+    "build_cells",
     "_identity",
 )
 
@@ -150,6 +154,9 @@ def _apply() -> None:
         "EXPECTED_POINTS": EXPECTED_POINTS,
         "EXPECTED_CELLS": EXPECTED_CELLS,
         "continuous_exp_weights": continuous_exp_weights,
+        "validate_grid_config": validate_grid_config,
+        "parameter_points": parameter_points,
+        "build_cells": build_cells,
         "_identity": _identity,
     }
     for name, value in values.items():
@@ -177,7 +184,7 @@ def validate_grid_config(config: Mapping[str, Any]) -> None:
     predecessor_compatible = copy.deepcopy(config)
     predecessor_compatible["remoteness"]["weight"] = "alpha*exp(-c*u^2)"
     with activated():
-        _base.validate_grid_config(predecessor_compatible)
+        _BASE_VALIDATE_GRID_CONFIG(predecessor_compatible)
     if config["remoteness"].get("weight") != "alpha*exp(-c*u)":
         raise ValueError("The paper-aligned weight must be alpha*exp(-c*u)")
     points = tuple(
@@ -188,6 +195,8 @@ def validate_grid_config(config: Mapping[str, Any]) -> None:
         raise ValueError("Exactly one Positive-only point is required")
     if config["sweep"].get("positive_only_same_seed_control") is not True:
         raise ValueError("positive_only_same_seed_control must remain true")
+    if config["execution"].get("default_gpus") != list(range(8)):
+        raise ValueError("The paper-aligned scan requires GPU 0-7")
     if config["evaluation"].get("primary_selection_metric") != (
         "late_window_pass_at_8"
     ):
