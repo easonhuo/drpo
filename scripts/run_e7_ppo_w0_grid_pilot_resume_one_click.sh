@@ -13,6 +13,9 @@ PROBE_STEPS="${E7_PPO_W0_PROBE_STEPS:-5000}"
 PROBE_SECONDS="${E7_PPO_W0_PROBE_SECONDS:-120}"
 THROUGHPUT_RETENTION="${E7_PPO_W0_THROUGHPUT_RETENTION:-0.97}"
 MAX_WORKERS="${E7_PPO_W0_MAX_WORKERS:-}"
+CAPACITY_WAIT_TIMEOUT_SECONDS="${E7_PPO_W0_CAPACITY_WAIT_TIMEOUT_SECONDS:--1}"
+CAPACITY_POLL_SECONDS="${E7_PPO_W0_CAPACITY_POLL_SECONDS:-300}"
+MINIMUM_ADMITTED_WORKERS="${E7_PPO_W0_MINIMUM_ADMITTED_WORKERS:-}"
 
 for required in \
   "${CONTRACT}" \
@@ -36,9 +39,14 @@ COMMON_ARGS=(
   --probe-steps "${PROBE_STEPS}"
   --probe-seconds "${PROBE_SECONDS}"
   --throughput-retention-fraction "${THROUGHPUT_RETENTION}"
+  --capacity-wait-timeout-seconds "${CAPACITY_WAIT_TIMEOUT_SECONDS}"
+  --capacity-poll-seconds "${CAPACITY_POLL_SECONDS}"
 )
 if [[ -n "${MAX_WORKERS}" ]]; then
   COMMON_ARGS+=(--max-workers "${MAX_WORKERS}")
+fi
+if [[ -n "${MINIMUM_ADMITTED_WORKERS}" ]]; then
+  COMMON_ARGS+=(--minimum-admitted-workers "${MINIMUM_ADMITTED_WORKERS}")
 fi
 
 python scripts/run_e7_ppo_w0_grid_pilot_auto.py run "${COMMON_ARGS[@]}" --resume
