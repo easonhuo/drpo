@@ -89,10 +89,11 @@ was zero. That package showed no OOM, NaN/Inf, orphan process, affinity escape, 
 checkout mutation. Repeating the complete hardware acceptance is therefore not a
 prerequisite for starting this development pilot.
 
-The automatic launchers now wait in the foreground when current measured capacity
-is below the practical launch floor. They periodically refresh CPU/RAM evidence and
-start the unchanged 186-branch matrix only after a safe admitted worker count is
-available. They never force a positive worker count when admission is zero.
+The automatic launchers now wait in the foreground while current measured safe
+capacity is zero. They periodically refresh CPU/RAM evidence and start the unchanged
+186-branch matrix as soon as at least one worker is safely admitted. They never force
+a positive worker count when admission is zero. An operator may explicitly raise the
+minimum admitted worker count when a higher wall-clock scheduling floor is desired.
 
 The immutable planned ceiling remains in `RUNTIME_SELECTION.json`,
 `EXECUTION_PLAN.json`, and `RUN_IDENTITY.json`. The attempt-local admitted count only
@@ -104,7 +105,7 @@ Default operator controls are:
 ```text
 E7_PPO_W0_CAPACITY_WAIT_TIMEOUT_SECONDS=-1
 E7_PPO_W0_CAPACITY_POLL_SECONDS=300
-E7_PPO_W0_MINIMUM_ADMITTED_WORKERS=<defaults to fallback worker count>
+E7_PPO_W0_MINIMUM_ADMITTED_WORKERS=1
 ```
 
 A negative timeout waits without an automatic deadline in the foreground. Zero
