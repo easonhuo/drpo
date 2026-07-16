@@ -416,6 +416,7 @@ def branch_command(
             "formula": FORMULA,
         },
     }
+    (branch_dir / "FAILED.json").unlink(missing_ok=True)
     branch_config_path = branch_dir / "branch_config.json"
     base.atomic_write_json(branch_config_path, branch_config)
     command = [
