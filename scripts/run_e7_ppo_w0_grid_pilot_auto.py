@@ -10,12 +10,14 @@ from typing import Any
 
 from drpo import e7_ppo_w0_grid_pilot as pilot
 from drpo.e7_ppo_w0_runtime_autotune import revalidate_runtime, select_runtime
+from drpo.runtime_resource_admission import revalidate_with_safe_downshift
 from drpo.runtime_resource_autotune import (
     RuntimeResourceError,
     canonical_json_sha256,
     discover_machine,
     load_json,
 )
+from drpo.runtime_worker_admission_runner import installed_admitted_workers
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -239,26 +241,41 @@ def main(argv: list[str] | None = None) -> int:
         cgroup_root=args.cgroup_root,
     )
     kwargs = _runtime_kwargs(args, machine=machine, repo=repo, work_dir=work_dir)
+    proposed_workers: int
+    runtime_admission: Mapping[str, Any] | None = None
     if args.command == "plan":
         document = select_runtime(**kwargs)
-        workers = int(document["selection"]["selected_workers"])
+        proposed_workers = int(document["selection"]["selected_workers"])
+        workers = proposed_workers
         selection_digest = str(document["selection_digest"])
     else:
-        planned_workers, planned_digest = _load_planned_selection(work_dir)
-        _validate_existing_run_identity(work_dir, planned_workers, planned_digest)
-        document = revalidate_runtime(**kwargs, proc_root=args.proc_root)
-        workers = int(document["selection"]["selected_workers"])
-        selection_digest = str(document["selection_digest"])
-        if workers != planned_workers or selection_digest != planned_digest:
-            raise RuntimeResourceError("run revalidation changed immutable selection identity")
+        proposed_workers, planned_digest = _load_planned_selection(work_dir)
+        _validate_existing_run_identity(work_dir, proposed_workers, planned_digest)
+        document = revalidate_with_safe_downshift(
+            revalidate_runtime=revalidate_runtime,
+            work_dir=work_dir,
+            proposed_workers=proposed_workers,
+            selection_digest=planned_digest,
+            revalidate_kwargs={**kwargs, "proc_root": args.proc_root},
+        )
+        runtime_admission = document.get("runtime_admission")
+        if not isinstance(runtime_admission, dict):
+            raise RuntimeResourceError("run revalidation lacks runtime admission")
+        workers = int(runtime_admission.get("admitted_workers", 0) or 0)
+        selection_digest = planned_digest
+        if workers < 1 or workers > proposed_workers:
+            raise RuntimeResourceError("runtime admission produced an invalid worker count")
     print(
         json.dumps(
             {
                 "runtime_selection": str(work_dir / "RUNTIME_SELECTION.json"),
                 "selection_mode": document["mode"],
+                "proposed_workers": proposed_workers,
+                "admitted_workers": workers,
                 "selected_workers": workers,
                 "selection_digest": selection_digest,
                 "revalidation": document.get("revalidation"),
+                "runtime_admission": runtime_admission,
                 "scientific_branch_count": pilot.EXPECTED_TOTAL_BRANCHES,
                 "selection_scope": (
                     "resource-valid empirical candidate grid under measured CPU/RAM constraints"
@@ -280,16 +297,23 @@ def main(argv: list[str] | None = None) -> int:
         "--work-dir",
         str(work_dir),
         "--max-workers",
-        str(workers),
+        str(proposed_workers),
     ]
     if args.command == "run" and args.resume:
         delegated.append("--resume")
     try:
-        returncode = pilot.main(delegated)
+        if args.command == "run":
+            with installed_admitted_workers(
+                pilot,
+                admitted_workers=workers,
+            ):
+                returncode = pilot.main(delegated)
+        else:
+            returncode = pilot.main(delegated)
         if args.command == "plan" and returncode == 0:
             _bind_selection_to_run_identity(
                 work_dir,
-                selected_workers=workers,
+                selected_workers=proposed_workers,
                 selection_digest=selection_digest,
             )
         return returncode
