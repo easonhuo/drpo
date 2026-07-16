@@ -22,7 +22,7 @@ RETIRED_RUNSPECS = (
     ROOT / "runspecs" / "retired" / "E7_SQEXP_GAE_PILOT_20260716_01.yaml",
     ROOT / "runspecs" / "retired" / "E7_SQEXP_GAE_PILOT_20260716_02.yaml",
 )
-FROZEN_IMPLEMENTATION = "f6eaa096d5ec8fad49e8769740e0b347204f752c"
+FROZEN_IMPLEMENTATION = "3526e98b4c23a8b10eae23bfe4d5c68c7873966c"
 
 
 def test_e7_sqexp_gae_ready_runspec_is_structurally_valid() -> None:
@@ -76,6 +76,7 @@ def test_e7_sqexp_gae_ready_runspec_freezes_scientific_boundaries() -> None:
     assert "stored_gae_dtype=float32" in success
     assert "storage quantization is reported separately" in success
     assert "absent from every materialized GAE trainer argument vector" in success
+    assert "accepted by the checked-in GAE trainer parser" in success
     assert raw["policy"]["formal_evidence_allowed"] is False
     assert raw["policy"]["forbid_hparam_change"] is True
     assert "configs/e7_sqexp_gae_v1.json" in protected
