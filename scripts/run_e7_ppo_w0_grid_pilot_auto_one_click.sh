@@ -15,7 +15,7 @@ THROUGHPUT_RETENTION="${E7_PPO_W0_THROUGHPUT_RETENTION:-0.97}"
 MAX_WORKERS="${E7_PPO_W0_MAX_WORKERS:-}"
 CAPACITY_WAIT_TIMEOUT_SECONDS="${E7_PPO_W0_CAPACITY_WAIT_TIMEOUT_SECONDS:--1}"
 CAPACITY_POLL_SECONDS="${E7_PPO_W0_CAPACITY_POLL_SECONDS:-300}"
-MINIMUM_ADMITTED_WORKERS="${E7_PPO_W0_MINIMUM_ADMITTED_WORKERS:-}"
+MINIMUM_ADMITTED_WORKERS="${E7_PPO_W0_MINIMUM_ADMITTED_WORKERS:-1}"
 
 for required in "${CONTRACT}" "${RUN_SPEC}" "${GRID}"; do
   if [[ ! -f "${required}" ]]; then
@@ -36,12 +36,10 @@ COMMON_ARGS=(
   --throughput-retention-fraction "${THROUGHPUT_RETENTION}"
   --capacity-wait-timeout-seconds "${CAPACITY_WAIT_TIMEOUT_SECONDS}"
   --capacity-poll-seconds "${CAPACITY_POLL_SECONDS}"
+  --minimum-admitted-workers "${MINIMUM_ADMITTED_WORKERS}"
 )
 if [[ -n "${MAX_WORKERS}" ]]; then
   COMMON_ARGS+=(--max-workers "${MAX_WORKERS}")
-fi
-if [[ -n "${MINIMUM_ADMITTED_WORKERS}" ]]; then
-  COMMON_ARGS+=(--minimum-admitted-workers "${MINIMUM_ADMITTED_WORKERS}")
 fi
 
 python scripts/run_e7_ppo_w0_grid_pilot_auto.py plan "${COMMON_ARGS[@]}"
