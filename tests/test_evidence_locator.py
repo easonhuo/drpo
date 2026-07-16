@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -67,6 +68,18 @@ def test_not_run_change_is_not_forced_to_claim_delivery() -> None:
     }
     result = module.validate_transition(before, after)
     assert result["checked_locator_count"] == 0
+
+
+def test_yaml_date_values_compare_without_json_serialization() -> None:
+    unchanged = {
+        "id": "EXT-C-E8-TEST-01",
+        "status": "not_run",
+        "registered_on": date(2026, 7, 16),
+    }
+    result = module.validate_transition(
+        {"EXT-C-E8-TEST-01": unchanged}, {"EXT-C-E8-TEST-01": dict(unchanged)}
+    )
+    assert result["changed_experiment_count"] == 0
 
 
 @pytest.mark.parametrize(
