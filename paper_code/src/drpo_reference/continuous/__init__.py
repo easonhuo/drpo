@@ -37,6 +37,13 @@ from .cu1_phase import (
     analytic_variance_boundary_alpha,
     run_phase_scan,
 )
+from .cu1_public_protocol import (
+    CU1Protocols,
+    STAGES,
+    formal_seeds,
+    smoke_protocols,
+)
+from .cu1_suite import run_cu1_all, run_cu1_stage
 from .cu1_taper import (
     CU1TaperProtocol,
     TaperRun,
@@ -67,6 +74,7 @@ __all__ = [
     "CU1PhaseProtocol",
     "CU1PositiveProtocol",
     "CU1Protocol",
+    "CU1Protocols",
     "CU1SourceProtocol",
     "CU1TaperProtocol",
     "CausalRun",
@@ -75,6 +83,7 @@ __all__ = [
     "GaussianActor",
     "PhaseRun",
     "PositiveRun",
+    "STAGES",
     "Split",
     "TaperRun",
     "all_negative_loss",
@@ -86,6 +95,7 @@ __all__ = [
     "config_name",
     "control_gradients",
     "evaluation",
+    "formal_seeds",
     "full_field_diagnostics",
     "gaussian_log_prob",
     "gaussian_output_components",
@@ -100,9 +110,12 @@ __all__ = [
     "positive_loss",
     "retention_weight",
     "run_causal_intervention",
+    "run_cu1_all",
+    "run_cu1_stage",
     "run_far_pressure_control",
     "run_phase_scan",
     "run_taper_method",
+    "smoke_protocols",
     "source_diagnostic",
     "standardized_distance",
     "train_positive",
