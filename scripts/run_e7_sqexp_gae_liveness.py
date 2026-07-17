@@ -69,17 +69,15 @@ def _validate_matched_critic(records: list[dict[str, Any]]) -> None:
         raise RuntimeError("TD and GAE critic snapshot trajectories diverged")
 
 
-def _parser() -> argparse.ArgumentParser:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--contract", default=os.getenv("E7_CANONICAL_CONTRACT", _DEFAULT_CONTRACT))
     parser.add_argument("--run-spec", default=os.getenv("E7_CANONICAL_RUN_SPEC", _DEFAULT_RUN_SPEC))
     parser.add_argument("--grid", default="configs/e7_sqexp_gae_v2.json")
-    parser.add_argument("--work-dir", default=os.getenv("E7_SQEXP_GAE_LIVENESS_WORK_DIR", _DEFAULT_WORK_DIR))
-    return parser
-
-
-def main(argv: list[str] | None = None) -> int:
-    args = _parser().parse_args(argv)
+    parser.add_argument(
+        "--work-dir", default=os.getenv("E7_SQEXP_GAE_LIVENESS_WORK_DIR", _DEFAULT_WORK_DIR)
+    )
+    args = parser.parse_args(argv)
     repo = Path(subprocess.check_output(["git", "rev-parse", "--show-toplevel"], text=True).strip())
     if subprocess.check_output(["git", "status", "--porcelain"], cwd=repo, text=True).strip():
         raise RuntimeError("refusing to run liveness from a dirty checkout")
@@ -128,23 +126,25 @@ def main(argv: list[str] | None = None) -> int:
                 base_environment=environment,
                 resume=False,
             )
-            manifest_path = work / "branches" / branch.branch_id / "branch_manifest.json"
-            snapshot = json.loads(manifest_path.read_text())["trajectory_snapshot"]
+            path = work / "branches" / branch.branch_id / "branch_manifest.json"
+            snapshot = json.loads(path.read_text())["trajectory_snapshot"]
             if result["status"] != "completed":
                 raise RuntimeError(f"{estimator} liveness branch did not complete")
-            if snapshot["critic_evolution_observed"] is not True or int(snapshot["snapshot_count"]) < 2:
+            if snapshot["critic_evolution_observed"] is not True or int(
+                snapshot["snapshot_count"]
+            ) < 2:
                 raise RuntimeError(f"{estimator} liveness did not observe critic evolution")
             if int(snapshot["snapshot_refresh_interval"]) != interval:
                 raise RuntimeError(f"{estimator} snapshot cadence changed")
             records.append(
-                {
-                    "estimator": estimator,
-                    "branch_id": branch.branch_id,
-                    "elapsed_seconds": time.monotonic() - started,
-                    "snapshot_count": int(snapshot["snapshot_count"]),
-                    "snapshot_hashes": list(snapshot["snapshot_hashes"]),
-                    "critic_evolution_observed": True,
-                }
+                dict(
+                    estimator=estimator,
+                    branch_id=branch.branch_id,
+                    elapsed_seconds=time.monotonic() - started,
+                    snapshot_count=int(snapshot["snapshot_count"]),
+                    snapshot_hashes=list(snapshot["snapshot_hashes"]),
+                    critic_evolution_observed=True,
+                )
             )
         _validate_matched_critic(records)
         summary = {
