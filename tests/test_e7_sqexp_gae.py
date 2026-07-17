@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+import h5py
 import numpy as np
 import pytest
 import torch
@@ -9,6 +10,7 @@ import torch
 from drpo.e7_canonical_gae_injection import (
     OrderedReplay,
     SnapshotEstimatorConfig,
+    _validate_ordered_hdf5,
     build_joint_snapshot_agent_class,
     compute_snapshot_tables,
     transition_id_channel,
@@ -67,6 +69,22 @@ def _replay() -> OrderedReplay:
         terminals=np.asarray([False, True, False, False]),
         timeouts=np.asarray([False, False, True, False]),
     )
+
+
+def test_ordered_hdf5_requires_explicit_timeout_and_next_observation(tmp_path) -> None:
+    path = tmp_path / "replay.hdf5"
+    with h5py.File(path, "w") as handle:
+        handle.create_dataset("observations", data=np.zeros((2, 3), dtype=np.float32))
+        handle.create_dataset("actions", data=np.zeros((2, 1), dtype=np.float32))
+        handle.create_dataset("rewards", data=np.zeros(2, dtype=np.float32))
+        handle.create_dataset("terminals", data=np.zeros(2, dtype=np.bool_))
+    with pytest.raises(ValueError, match="timeouts.*next_observations"):
+        _validate_ordered_hdf5(path)
+
+    with h5py.File(path, "a") as handle:
+        handle.create_dataset("timeouts", data=np.zeros(2, dtype=np.bool_))
+        handle.create_dataset("next_observations", data=np.zeros((2, 3), dtype=np.float32))
+    assert _validate_ordered_hdf5(path) == path.resolve()
 
 
 def test_snapshot_tables_respect_terminal_timeout_and_tail() -> None:
