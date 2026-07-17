@@ -4,7 +4,7 @@ lane: e7
 priority: 145
 created_at: '2026-07-17T07:40:00Z'
 experiment_id: EXT-H-E7-SQEXP-GAE-01
-repo_commit: 4450a53c8232a8ffd37452e416ba0af827e136ff
+repo_commit: d54cfb44a0095180358db35866cbf5db177d00ba
 
 registration:
   mode: deferred
