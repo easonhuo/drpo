@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""Thin adapter for the paper-aligned E8 linear-surprisal scan.
+"""Thin adapters for the paper-aligned E8 linear-surprisal scans.
 
 The trainer and runtime are inherited unchanged from the alpha=1 c-scan. This
 module changes only the experiment identity, explicit parameter points,
-development seeds, and the single taper exponent coordinate.
+development seeds, and the single taper exponent coordinate. The completed
+Round-1 profile remains the default; the 16-cell extension profile is selected
+only from its frozen grid config.
 """
 from __future__ import annotations
 
@@ -19,12 +21,13 @@ import torch
 from drpo import countdown_e8_alpha1_c_scan_common as _base
 
 _BASE_VALIDATE_GRID_CONFIG = _base.validate_grid_config
-EXPERIMENT_ID = "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-LINEAR-SCAN-0.5B-01"
-VERSION = "0.2.0-dev-code-first-one-line"
-DEFAULT_GRID_CONFIG = (
-    "configs/countdown_e8_oracle_offline_v2_alpha1_highc_scan_0p5b.yaml"
+ROUND1_EXPERIMENT_ID = (
+    "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-LINEAR-SCAN-0.5B-01"
 )
-PARAMETER_POINTS = (
+C_EXTENSION_EXPERIMENT_ID = (
+    "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-LINEAR-C-EXTENSION-0.5B-01"
+)
+ROUND1_PARAMETER_POINTS = (
     (0.0, 0.0),
     (1.0, 0.0),
     (1.0, 0.051293294),
@@ -42,7 +45,54 @@ PARAMETER_POINTS = (
     (1.0, 2.302585093),
     (1.0, 2.995732274),
 )
+C_EXTENSION_PARAMETER_POINTS = (
+    (1.0, 0.01),
+    (1.0, 0.025),
+    (1.0, 0.04),
+    (1.0, 3.506557897),
+    (1.0, 4.605170186),
+    (1.0, 5.298317367),
+    (1.0, 6.907755279),
+    (1.0, 9.210340372),
+)
 SEED_OFFSETS = (4000, 5000)
+ROUND1_RESULT_MANIFEST_SHA256 = (
+    "24635fbb634b23450cdfb560fd7b16a2dc0fe4a6d0586f10e1cf385e58bab333"
+)
+_PROFILES: dict[str, dict[str, Any]] = {
+    ROUND1_EXPERIMENT_ID: {
+        "experiment_id": ROUND1_EXPERIMENT_ID,
+        "version": "0.2.0-dev-code-first-one-line",
+        "default_grid_config": (
+            "configs/countdown_e8_oracle_offline_v2_alpha1_highc_scan_0p5b.yaml"
+        ),
+        "parameter_points": ROUND1_PARAMETER_POINTS,
+        "seed_offsets": SEED_OFFSETS,
+        "expected_points": 16,
+        "expected_cells": 32,
+        "requires_positive_only": True,
+    },
+    C_EXTENSION_EXPERIMENT_ID: {
+        "experiment_id": C_EXTENSION_EXPERIMENT_ID,
+        "version": "0.3.0-dev-code-first-c-extension",
+        "default_grid_config": (
+            "configs/"
+            "countdown_e8_oracle_offline_v2_linear_c_extension_0p5b.yaml"
+        ),
+        "parameter_points": C_EXTENSION_PARAMETER_POINTS,
+        "seed_offsets": SEED_OFFSETS,
+        "expected_points": 8,
+        "expected_cells": 16,
+        "requires_positive_only": False,
+    },
+}
+
+EXPERIMENT_ID = ROUND1_EXPERIMENT_ID
+VERSION = str(_PROFILES[ROUND1_EXPERIMENT_ID]["version"])
+DEFAULT_GRID_CONFIG = str(
+    _PROFILES[ROUND1_EXPERIMENT_ID]["default_grid_config"]
+)
+PARAMETER_POINTS = ROUND1_PARAMETER_POINTS
 EXPECTED_POINTS = 16
 EXPECTED_CELLS = 32
 
@@ -88,6 +138,43 @@ _PATCH_KEYS = (
     "build_cells",
     "_identity",
 )
+_PROFILE_KEYS = (
+    "EXPERIMENT_ID",
+    "VERSION",
+    "DEFAULT_GRID_CONFIG",
+    "PARAMETER_POINTS",
+    "SEED_OFFSETS",
+    "EXPECTED_POINTS",
+    "EXPECTED_CELLS",
+)
+
+
+def _profile_for_config(config: Mapping[str, Any]) -> dict[str, Any]:
+    experiment_id = str(config.get("experiment_id") or "")
+    try:
+        return _PROFILES[experiment_id]
+    except KeyError as exc:
+        raise ValueError(
+            f"Unsupported paper-aligned scan experiment_id: {experiment_id}"
+        ) from exc
+
+
+def _set_profile(profile: Mapping[str, Any]) -> None:
+    global EXPERIMENT_ID
+    global VERSION
+    global DEFAULT_GRID_CONFIG
+    global PARAMETER_POINTS
+    global SEED_OFFSETS
+    global EXPECTED_POINTS
+    global EXPECTED_CELLS
+
+    EXPERIMENT_ID = str(profile["experiment_id"])
+    VERSION = str(profile["version"])
+    DEFAULT_GRID_CONFIG = str(profile["default_grid_config"])
+    PARAMETER_POINTS = tuple(profile["parameter_points"])
+    SEED_OFFSETS = tuple(int(value) for value in profile["seed_offsets"])
+    EXPECTED_POINTS = int(profile["expected_points"])
+    EXPECTED_CELLS = int(profile["expected_cells"])
 
 
 def _identity(
@@ -101,6 +188,8 @@ def _identity(
     cell: Cell,
     smoke: bool,
 ) -> dict[str, Any]:
+    config = load_yaml(grid_config)
+    profile = _profile_for_config(config)
     package_dir = Path(__file__).resolve().parent
     source_paths = {
         "highc_common": Path(__file__).resolve(),
@@ -121,8 +210,8 @@ def _identity(
             + ", ".join(sorted(missing))
         )
     return {
-        "experiment_id": EXPERIMENT_ID,
-        "version": VERSION,
+        "experiment_id": str(profile["experiment_id"]),
+        "version": str(profile["version"]),
         "source": _base.git_state(repo),
         "source_sha256": {
             name: _base.sha256_file(path) for name, path in sorted(source_paths.items())
@@ -164,37 +253,82 @@ def _apply() -> None:
 
 
 @contextmanager
-def activated() -> Iterator[None]:
-    """Temporarily activate this identity without polluting other tests."""
-    previous = {name: getattr(_base, name) for name in _PATCH_KEYS}
+def activated(profile: Mapping[str, Any] | None = None) -> Iterator[None]:
+    """Temporarily activate one profile without polluting other tests."""
+    previous_base = {name: getattr(_base, name) for name in _PATCH_KEYS}
+    previous_profile = {name: globals()[name] for name in _PROFILE_KEYS}
+    if profile is not None:
+        _set_profile(profile)
     _apply()
     try:
         yield
     finally:
-        for name, value in previous.items():
+        for name, value in previous_profile.items():
+            globals()[name] = value
+        for name, value in previous_base.items():
             setattr(_base, name, value)
 
 
-def activate() -> None:
-    """Permanently activate this identity in a dedicated runtime process."""
+def activate(profile: Mapping[str, Any] | None = None) -> None:
+    """Permanently activate one profile in a dedicated runtime process."""
+    if profile is not None:
+        _set_profile(profile)
     _apply()
 
 
+def activate_for_grid_config(path: str | Path) -> None:
+    """Select and activate the frozen profile declared by ``path``."""
+    config = load_yaml(path)
+    activate(_profile_for_config(config))
+
+
 def validate_grid_config(config: Mapping[str, Any]) -> None:
+    profile = _profile_for_config(config)
     predecessor_compatible = copy.deepcopy(config)
     predecessor_compatible["remoteness"]["weight"] = "alpha*exp(-c*u^2)"
-    with activated():
+    with activated(profile):
         _BASE_VALIDATE_GRID_CONFIG(predecessor_compatible)
     if config["remoteness"].get("weight") != "alpha*exp(-c*u)":
         raise ValueError("The paper-aligned weight must be alpha*exp(-c*u)")
+
     points = tuple(
         (float(item["alpha"]), float(item["c"]))
         for item in config["sweep"]["parameter_points"]
     )
-    if sum(alpha == 0.0 for alpha, _ in points) != 1:
-        raise ValueError("Exactly one Positive-only point is required")
-    if config["sweep"].get("positive_only_same_seed_control") is not True:
-        raise ValueError("positive_only_same_seed_control must remain true")
+    sweep = config["sweep"]
+    if profile["requires_positive_only"]:
+        if sum(alpha == 0.0 for alpha, _ in points) != 1:
+            raise ValueError("Exactly one Positive-only point is required")
+        if sweep.get("positive_only_same_seed_control") is not True:
+            raise ValueError("positive_only_same_seed_control must remain true")
+        if sweep.get("historical_positive_only_reference_only") is not False:
+            raise ValueError("Round 1 must use its same-seed Positive-only cells")
+    else:
+        if any(alpha != 1.0 for alpha, _ in points):
+            raise ValueError("The extension round must keep alpha fixed at 1")
+        if any(coefficient <= 0.0 for _, coefficient in points):
+            raise ValueError("The extension round contains only positive c values")
+        if sweep.get("positive_only_same_seed_control") is not False:
+            raise ValueError("The extension round must not rerun Positive-only")
+        if sweep.get("historical_positive_only_reference_only") is not True:
+            raise ValueError("The extension round must reuse the historical reference")
+        if sweep.get("previous_scan_experiment") != ROUND1_EXPERIMENT_ID:
+            raise ValueError("The extension predecessor experiment changed")
+        reference = config.get("historical_reference", {})
+        if reference.get("source_experiment") != ROUND1_EXPERIMENT_ID:
+            raise ValueError("Historical reference experiment mismatch")
+        if (
+            reference.get("source_run_id")
+            != "E8_PAPER_ALIGNED_LINEAR_SCAN_20260716_01"
+        ):
+            raise ValueError("Historical reference run_id mismatch")
+        if reference.get("result_manifest_sha256") != ROUND1_RESULT_MANIFEST_SHA256:
+            raise ValueError("Historical result manifest mismatch")
+        if reference.get("positive_only_rerun_in_this_round") is not False:
+            raise ValueError("Positive-only must not be rerun in the extension")
+        if tuple(reference.get("seed_offsets", ())) != SEED_OFFSETS:
+            raise ValueError("Historical reference seed offsets changed")
+
     if config["execution"].get("default_gpus") != list(range(8)):
         raise ValueError("The paper-aligned scan requires GPU 0-7")
     if config["evaluation"].get("primary_selection_metric") != (
@@ -214,27 +348,36 @@ def validate_grid_config(config: Mapping[str, Any]) -> None:
 
 def parameter_points(config: Mapping[str, Any]) -> tuple[tuple[float, float], ...]:
     validate_grid_config(config)
+    profile = _profile_for_config(config)
     points = tuple(
         (float(item["alpha"]), float(item["c"]))
         for item in config["sweep"]["parameter_points"]
     )
-    if points != PARAMETER_POINTS or len(set(points)) != EXPECTED_POINTS:
-        raise AssertionError("Paper-aligned scan must produce 16 unique points")
+    expected = tuple(profile["parameter_points"])
+    if points != expected or len(set(points)) != int(profile["expected_points"]):
+        raise AssertionError(
+            f"Paper-aligned scan must produce {profile['expected_points']} unique points"
+        )
     return points
 
 
 def build_cells(config: Mapping[str, Any]) -> tuple[Cell, ...]:
     points = parameter_points(config)
+    profile = _profile_for_config(config)
+    seed_offsets = tuple(int(value) for value in profile["seed_offsets"])
     cells = tuple(
         Cell(alpha=alpha, c=coefficient, seed_offset=seed_offset)
         for alpha, coefficient in points
-        for seed_offset in SEED_OFFSETS
+        for seed_offset in seed_offsets
     )
+    expected_cells = int(profile["expected_cells"])
     if (
-        len(cells) != EXPECTED_CELLS
-        or len({cell.name for cell in cells}) != EXPECTED_CELLS
+        len(cells) != expected_cells
+        or len({cell.name for cell in cells}) != expected_cells
     ):
-        raise AssertionError("Paper-aligned scan must produce 32 unique cells")
+        raise AssertionError(
+            f"Paper-aligned scan must produce {expected_cells} unique cells"
+        )
     return cells
 
 
