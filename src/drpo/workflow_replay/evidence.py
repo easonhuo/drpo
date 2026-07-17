@@ -14,20 +14,18 @@ from .model import CASE_ID, SHA256, CaseManifest, validate_case_manifest
 
 TOKEN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}")
 FILE_MODE = re.compile(r"[0-7]{6}")
-EVENT_TERMINALS = {
-    "run_finished": "READY", "run_blocked": "BLOCKED", "run_stale": "STALE",
-    "run_interrupted": "INTERRUPTED", "run_invalidated": "INVALIDATED",
-}
+EVENT_TERMINALS = {"run_finished": "READY", "run_blocked": "BLOCKED", "run_stale": "STALE",
+                   "run_interrupted": "INTERRUPTED", "run_invalidated": "INVALIDATED"}
 R1_FIELDS = {
-    "comparison_mode", "expected_file_modes", "expected_authority_result",
-    "expected_gate_results", "expected_diagnostic_codes", "expected_recovery_class",
-    "workspace_rule", "evaluator_sha256", "evidence_schema_sha256", "order_policy",
+    "comparison_mode", "expected_file_modes", "expected_authority_result", "expected_gate_results",
+    "expected_diagnostic_codes", "expected_recovery_class", "workspace_rule", "evaluator_sha256",
+    "evidence_schema_sha256", "order_policy",
 }
 MAX_BYTES, MAX_JSON_BYTES, MAX_EVENTS = 1 << 20, 1 << 18, 1000
 
 
 class EvidenceError(ValueError):
-    """R1 evidence failed closed."""
+    """R1 evidence validation failed closed."""
 
 
 def _freeze(value: Any) -> Any:
@@ -61,15 +59,13 @@ def _integer(value: Any, label: str, minimum: int = 0) -> int:
     return value
 
 
-def _read_json(path: Path, limit: int = MAX_JSON_BYTES) -> dict[str, Any]:
-    if path.is_symlink() or not path.is_file() or path.stat().st_size > limit:
-        raise EvidenceError("JSON evidence is missing, symlinked, or oversized")
+def _json_object(raw: bytes, label: str) -> dict[str, Any]:
     try:
-        value = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
-        raise EvidenceError("cannot read JSON evidence") from exc
+        value = json.loads(raw.decode("utf-8"))
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise EvidenceError(f"cannot decode {label}") from exc
     if not isinstance(value, dict):
-        raise EvidenceError("JSON evidence must be an object")
+        raise EvidenceError(f"{label} must be a JSON object")
     return value
 
 
@@ -81,9 +77,7 @@ class R1CaseContract:
 
 
 def validate_r1_case_contract(value: Any) -> R1CaseContract:
-    root_fields = {
-        "schema_version", "case_id", "task_class", "historical_task", "benchmark", "r1",
-    }
+    root_fields = {"schema_version", "case_id", "task_class", "historical_task", "benchmark", "r1"}
     root = _strict(value, "R1 case contract", root_fields)
     if isinstance(root["schema_version"], bool) or root["schema_version"] != 2:
         raise EvidenceError("R1 case schema_version must equal integer 2")
@@ -104,23 +98,32 @@ def validate_r1_case_contract(value: Any) -> R1CaseContract:
     if any(not isinstance(item, str) or FILE_MODE.fullmatch(item) is None for item in modes.values()):
         raise EvidenceError("expected_file_modes contains an invalid mode")
     gates = r1["expected_gate_results"]
-    if not isinstance(gates, dict) or tuple(gates) != tuple(base.benchmark["required_gates"]):
-        raise EvidenceError("expected_gate_results must follow required_gates")
+    if not isinstance(gates, dict):
+        raise EvidenceError("expected_gate_results must be a mapping")
+    invalid_states = tuple(gates) != tuple(base.benchmark["required_gates"])
+    invalid_states |= any(state not in {"PASS", "FAIL", "BLOCKED", "NOT_RUN"} for state in gates.values())
+    invalid_states |= r1["expected_authority_result"] not in {"PASS", "FAIL", "BLOCKED", "NOT_RUN"}
+    if invalid_states:
+        raise EvidenceError("expected authority or gate results are invalid")
+    diagnostics = r1["expected_diagnostic_codes"]
+    if (not isinstance(diagnostics, list) or any(not isinstance(item, str) or not item for item in diagnostics) or
+            diagnostics != sorted(set(diagnostics))):
+        raise EvidenceError("expected_diagnostic_codes must be a sorted unique list")
     for key in ("evaluator_sha256", "evidence_schema_sha256"):
         _token(r1[key], key, SHA256)
     terminal = base.benchmark["expected_terminal_state"]
-    hashes = base.benchmark["expected_final_tree_or_semantic_hashes"]
     if mode == "exact_artifact":
         invalid = terminal != "READY" or r1["workspace_rule"] != "changed_as_expected"
         invalid |= r1["expected_authority_result"] != "PASS" or set(gates.values()) != {"PASS"}
         invalid |= bool(r1["expected_diagnostic_codes"]) or r1["expected_recovery_class"] is not None
         if invalid:
             raise EvidenceError("exact_artifact expectations are inconsistent")
-        _token(hashes.get("artifact_sha256"), "artifact_sha256", SHA256)
+        _token(base.benchmark["expected_final_tree_or_semantic_hashes"].get("artifact_sha256"), "artifact_sha256", SHA256)
     else:
         if terminal not in {"BLOCKED", "STALE"} or modes or r1["workspace_rule"] != "unchanged":
             raise EvidenceError("failure_boundary requires an expected stop and unchanged workspace")
-        if not r1["expected_diagnostic_codes"] or not isinstance(r1["expected_recovery_class"], str) or not r1["expected_recovery_class"]:
+        if (not diagnostics or not isinstance(r1["expected_recovery_class"], str) or
+                not r1["expected_recovery_class"].strip()):
             raise EvidenceError("failure_boundary requires diagnostic and recovery classes")
     return R1CaseContract(canonical_sha256(root), base, _freeze(dict(r1)))
 
@@ -147,10 +150,8 @@ class RunIdentity:
     run_id: str
 
     @classmethod
-    def build(
-        cls, case_id: str, arm: str, pair_id: str, repetition: int,
-        order_position: int, backend_id: str,
-    ) -> "RunIdentity":
+    def build(cls, case_id: str, arm: str, pair_id: str, repetition: int, order_position: int,
+              backend_id: str) -> "RunIdentity":
         _token(case_id, "case_id", CASE_ID)
         if arm not in {"A", "B"}:
             raise EvidenceError("arm must be A or B")
@@ -173,20 +174,14 @@ class RunIdentity:
         return result
 
 
-def build_opposite_order_schedule(
-    contract: R1CaseContract, backend_id: str,
-) -> tuple[RunIdentity, ...]:
+def build_opposite_order_schedule(contract: R1CaseContract, backend_id: str) -> tuple[RunIdentity, ...]:
     if contract.r1["order_policy"] != "two_opposite_pairs":
         raise EvidenceError("unsupported order policy")
-    runs = []
-    for repetition, order in enumerate((("A", "B"), ("B", "A"))):
-        for position, arm in enumerate(order):
-            runs.append(
-                RunIdentity.build(
-                    contract.base.case_id, arm, f"pair-{repetition}", repetition, position, backend_id
-                )
-            )
-    return tuple(runs)
+    return tuple(
+        RunIdentity.build(contract.base.case_id, arm, f"pair-{repeat}", repeat, position, backend_id)
+        for repeat, order in enumerate((("A", "B"), ("B", "A")))
+        for position, arm in enumerate(order)
+    )
 
 
 @dataclass(frozen=True)
@@ -210,9 +205,9 @@ class EvidenceLocator:
         data = _strict(value, "locator", {"kind", "relative_path", "sha256", "byte_size"})
         return cls(data["kind"], data["relative_path"], data["sha256"], data["byte_size"])
 
-    def verify(self, root: str | Path) -> Path:
+    def verify(self, root: str | Path) -> bytes:
         base = Path(root)
-        if base.is_symlink() or not base.is_dir():
+        if base.is_symlink() or any(parent.is_symlink() for parent in base.parents) or not base.is_dir():
             raise EvidenceError("evidence root must be a real directory")
         target = base.joinpath(*PurePosixPath(self.relative_path).parts)
         cursor = target
@@ -225,12 +220,14 @@ class EvidenceLocator:
             resolved.relative_to(base.resolve(strict=True))
         except (OSError, ValueError) as exc:
             raise EvidenceError("evidence path escapes root or is missing") from exc
+        if not resolved.is_file():
+            raise EvidenceError("evidence target must be a regular file")
         raw = resolved.read_bytes()
-        if not resolved.is_file() or len(raw) != self.byte_size or len(raw) > MAX_BYTES:
+        if len(raw) != self.byte_size or len(raw) > MAX_BYTES:
             raise EvidenceError("evidence byte size mismatch or limit exceeded")
         if hashlib.sha256(raw).hexdigest() != self.sha256:
             raise EvidenceError("evidence digest mismatch")
-        return resolved
+        return raw
 
 
 @dataclass(frozen=True)
@@ -254,8 +251,16 @@ class BoundPairReport:
     report_sha256: str
 
 
-def _validate_journal(path: Path, identity: RunIdentity, terminal: str) -> None:
-    rows = path.read_text(encoding="utf-8").splitlines()
+def _report_value(report: BoundPairReport) -> dict[str, Any]:
+    return {"case_id": report.case_id, "equivalent": report.equivalent, "mismatches": report.mismatches, "run_ids": report.run_ids,
+            "evidence_sha256": report.evidence_sha256, "timing": report.timing}
+
+
+def _validate_journal(raw: bytes, identity: RunIdentity, terminal: str) -> None:
+    try:
+        rows = raw.decode("utf-8").splitlines()
+    except UnicodeError as exc:
+        raise EvidenceError("event journal is not UTF-8") from exc
     if not rows or len(rows) > MAX_EVENTS:
         raise EvidenceError("event journal is empty or oversized")
     previous, terminal_rows = -1, []
@@ -275,17 +280,19 @@ def _validate_journal(path: Path, identity: RunIdentity, terminal: str) -> None:
         previous = stamp
         if row["event"] in EVENT_TERMINALS:
             terminal_rows.append((index, EVENT_TERMINALS[row["event"]]))
+    if rows and json.loads(rows[0]).get("event") != "run_started":
+        raise EvidenceError("event journal must start with run_started")
     if terminal_rows != [(len(rows) - 1, terminal)]:
         raise EvidenceError("journal must end in one matching terminal event")
 
 
-def _load_outcome(path: Path, partial: bool) -> OutcomeSnapshot:
+def _load_outcome(raw: bytes, partial: bool) -> OutcomeSnapshot:
     fields = {
         "case_id", "terminal_state", "safety_boundary", "changed_paths", "file_modes",
         "output_hashes", "authority_result", "gate_results", "provenance",
         "diagnostic_codes", "recovery_class",
     }
-    data = _strict(_read_json(path), "outcome", fields)
+    data = _strict(_json_object(raw, "outcome"), "outcome", fields)
     try:
         return OutcomeSnapshot(
             data["case_id"], data["terminal_state"], data["safety_boundary"],
@@ -301,25 +308,24 @@ def _load_outcome(path: Path, partial: bool) -> OutcomeSnapshot:
         raise EvidenceError("outcome collections are malformed") from exc
 
 
-def load_run_artifact(
-    artifact_path: str | Path, evidence_root: str | Path, contract: R1CaseContract,
-) -> NormalizedRun:
+def load_run_artifact(artifact_path: str | Path, evidence_root: str | Path, contract: R1CaseContract) -> NormalizedRun:
     root, path = Path(evidence_root), Path(artifact_path)
     try:
-        if path.is_symlink() or root.is_symlink():
+        if path.is_symlink() or not path.is_file() or root.is_symlink() or any(parent.is_symlink() for parent in path.parents):
             raise EvidenceError("run artifact path must not contain symlinks")
         path.resolve(strict=True).relative_to(root.resolve(strict=True))
     except (OSError, ValueError) as exc:
         raise EvidenceError("run artifact must be a real file under evidence root") from exc
-    fields = {
-        "schema_version", "case_contract_sha256", "run_identity", "identities",
-        "evidence", "workspace_before_sha256", "workspace_after_sha256",
-        "execution_terminal", "timing", "producer_id",
-    }
-    data = _strict(_read_json(path), "run artifact", fields)
+    fields = {"schema_version", "case_contract_sha256", "run_identity", "identities", "evidence",
+              "workspace_before_sha256", "workspace_after_sha256", "execution_terminal", "timing",
+              "producer_id"}
+    artifact_raw = path.read_bytes()
+    if len(artifact_raw) > MAX_JSON_BYTES:
+        raise EvidenceError("run artifact is oversized")
+    data = _strict(_json_object(artifact_raw, "run artifact"), "run artifact", fields)
     identity = RunIdentity.from_payload(data["run_identity"])
-    invalid = data["schema_version"] != 1 or identity.case_id != contract.base.case_id
-    invalid |= data["case_contract_sha256"] != contract.sha256
+    invalid = (isinstance(data["schema_version"], bool) or data["schema_version"] != 1 or
+               identity.case_id != contract.base.case_id or data["case_contract_sha256"] != contract.sha256)
     if invalid:
         raise EvidenceError("run schema, identity, or case-contract digest mismatch")
     ids = _strict(data["identities"], "identities", {
@@ -351,6 +357,8 @@ def load_run_artifact(
         locators[key] = EvidenceLocator.from_payload(evidence[key])
     for key in ("outcome", "result"):
         locators[key] = None if evidence[key] is None else EvidenceLocator.from_payload(evidence[key])
+    if any(item is not None and item.kind != key for key, item in locators.items()):
+        raise EvidenceError("evidence locator kind does not match its role")
     subject = locators["subject"]
     assert subject is not None
     subject.verify(root)
@@ -376,7 +384,7 @@ def load_run_artifact(
     total, child, overhead = (_integer(timing[key], key) for key in ("total_ns", "child_ns", "self_overhead_ns"))
     if child > total or overhead != total - child:
         raise EvidenceError("timing summary is inconsistent")
-    digest_pairs = (("run_artifact", hashlib.sha256(path.read_bytes()).hexdigest()),) + tuple(
+    digest_pairs = (("run_artifact", hashlib.sha256(artifact_raw).hexdigest()),) + tuple(
         (key, item.sha256) for key, item in locators.items() if item is not None
     )
     return NormalizedRun(
@@ -385,9 +393,7 @@ def load_run_artifact(
     )
 
 
-def compare_normalized_runs(
-    contract: R1CaseContract, arm_a: NormalizedRun, arm_b: NormalizedRun,
-) -> BoundPairReport:
+def compare_normalized_runs(contract: R1CaseContract, arm_a: NormalizedRun, arm_b: NormalizedRun) -> BoundPairReport:
     mismatches: list[str] = []
     for arm, run in (("A", arm_a), ("B", arm_b)):
         if not run.execution_valid:
@@ -423,20 +429,17 @@ def compare_normalized_runs(
     run_ids = tuple(item.run_id for item in identities)
     evidence = (arm_a.evidence_sha256, arm_b.evidence_sha256)
     timing = (arm_a.timing, arm_b.timing)
-    report = {
-        "case_id": contract.base.case_id, "equivalent": not mismatches,
-        "mismatches": mismatches, "run_ids": run_ids, "evidence_sha256": evidence,
-        "timing": timing,
-    }
-    return BoundPairReport(
-        contract.base.case_id, not mismatches, tuple(mismatches), run_ids, evidence, timing,
-        canonical_sha256(report),
-    )
+    draft = BoundPairReport(contract.base.case_id, not mismatches, tuple(mismatches), run_ids,
+                            evidence, timing, "")
+    return BoundPairReport(draft.case_id, draft.equivalent, draft.mismatches, draft.run_ids,
+                           draft.evidence_sha256, draft.timing, canonical_sha256(_report_value(draft)))
 
 
 def release_bound_efficiency(report: BoundPairReport, payload: Any) -> Any:
     if not report.equivalent or not isinstance(payload, dict):
         raise EquivalenceError("bound efficiency release requires an equivalent pair")
+    if canonical_sha256(_report_value(report)) != report.report_sha256:
+        raise EquivalenceError("pair report digest does not match its contents")
     if tuple(payload.get("run_ids", ())) != report.run_ids:
         raise EquivalenceError("efficiency run identities do not match the pair report")
     evidence = tuple(tuple(tuple(item) for item in arm) for arm in payload.get("evidence_sha256", ()))

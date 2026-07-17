@@ -6,6 +6,7 @@ import shutil
 import statistics
 import sys
 import time
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -28,7 +29,7 @@ from drpo.workflow_replay.evidence import (  # noqa: E402
     release_bound_efficiency,
     validate_r1_case_contract,
 )
-from drpo.workflow_replay.model import load_case_manifest  # noqa: E402
+from drpo.workflow_replay.model import ManifestError, load_case_manifest  # noqa: E402
 
 R1 = ROOT / "tests" / "fixtures" / "workflow_replay" / "r1"
 CAL = ROOT / "docs" / "development_workflow_optimization" / "replayab_r1_calibration"
@@ -36,6 +37,17 @@ SOURCES = (
     "tests/fixtures/workflow_replay/valid_code_only.yaml",
     "tests/fixtures/workflow_replay/invalid_unknown_key.yaml",
 )
+EXPECTED_PATH = CAL / "EXPECTED_VERDICTS.yaml"
+CONTRACT_PATH = CAL.parent / "R1_IMPLEMENTATION_CONTRACT.md"
+
+
+def expected(case_id: str) -> dict[str, str]:
+    return yaml.safe_load(EXPECTED_PATH.read_text(encoding="utf-8"))["verdicts"][case_id]
+
+
+def git_blob_sha(path: Path) -> str:
+    raw = path.read_bytes()
+    return hashlib.sha1(f"blob {len(raw)}\0".encode() + raw).hexdigest()
 
 
 def load_pair(case: str, repo: Path = ROOT):
@@ -126,6 +138,24 @@ def test_calibration_authority_was_frozen_before_behavior_results() -> None:
     assert len(ids) == 10
 
 
+def test_frozen_authority_digests_match_actual_files_and_source_blobs() -> None:
+    inventory = yaml.safe_load((CAL / "INVENTORY.yaml").read_text(encoding="utf-8"))
+    ready = load_r1_case_contract(R1 / "ready" / "manifest.yaml")
+    failure = load_r1_case_contract(R1 / "failure" / "manifest.yaml")
+    evaluator_sha = hashlib.sha256(EXPECTED_PATH.read_bytes()).hexdigest()
+    assert ready.r1["evaluator_sha256"] == failure.r1["evaluator_sha256"] == evaluator_sha
+    if CONTRACT_PATH.exists():
+        schema_sha = hashlib.sha256(CONTRACT_PATH.read_bytes()).hexdigest()
+        assert ready.r1["evidence_schema_sha256"] == failure.r1["evidence_schema_sha256"] == schema_sha
+    for source in inventory["real_repository_sources"].values():
+        assert git_blob_sha(ROOT / source["path"]) == source["source_blob_sha"]
+
+
+def test_real_failure_source_is_rejected_by_existing_manifest_validator() -> None:
+    with pytest.raises(ManifestError, match="unknown keys"):
+        load_case_manifest(ROOT / SOURCES[1])
+
+
 def test_schema_v1_remains_readable_and_schema_v2_is_explicit() -> None:
     legacy = load_case_manifest(ROOT / SOURCES[0])
     current = load_r1_case_contract(R1 / "ready" / "manifest.yaml")
@@ -151,6 +181,12 @@ def test_real_ready_and_failure_boundary_artifacts_match_frozen_verdicts() -> No
         "timing": ready_report.timing,
     }
     assert release_bound_efficiency(ready_report, payload) == ready_report.timing
+    assert expected("R1-CAL-READY-EXACT") == {
+        "expected": "equivalent", "efficiency_release": "allowed"
+    }
+    assert expected("R1-CAL-FAILURE-BOUNDARY") == {
+        "expected": "equivalent_expected_stop", "efficiency_release": "allowed"
+    }
 
 
 def test_one_arm_hash_mismatch_is_rejected(tmp_path: Path) -> None:
@@ -165,6 +201,7 @@ def test_one_arm_hash_mismatch_is_rejected(tmp_path: Path) -> None:
     report = compare_normalized_runs(manifest, arm_a, arm_b)
     assert not report.equivalent
     assert "B.output_hashes" in report.mismatches
+    assert expected("R1-CAL-ONE-ARM-HASH-MISMATCH")["expected"] == "reject_b"
 
 
 def test_both_arms_same_wrong_are_rejected(tmp_path: Path) -> None:
@@ -179,6 +216,7 @@ def test_both_arms_same_wrong_are_rejected(tmp_path: Path) -> None:
     report = compare_normalized_runs(manifest, arm_a, arm_b)
     assert {"A.output_hashes", "B.output_hashes"} <= set(report.mismatches)
     assert not report.equivalent
+    assert expected("R1-CAL-BOTH-SAME-WRONG")["expected"] == "reject_both"
 
 
 def test_wrong_file_mode_is_rejected_even_when_pair_peer_is_correct(tmp_path: Path) -> None:
@@ -194,6 +232,7 @@ def test_wrong_file_mode_is_rejected_even_when_pair_peer_is_correct(tmp_path: Pa
     manifest, arm_a, arm_b = load_pair("ready", tmp_path)
     report = compare_normalized_runs(manifest, arm_a, arm_b)
     assert "B.r1_contract" in report.mismatches
+    assert expected("R1-CAL-WRONG-MODE")["expected"] == "reject_wrong_mode"
 
 
 def test_interrupted_run_is_retained_but_cannot_compare_or_release(tmp_path: Path) -> None:
@@ -206,6 +245,7 @@ def test_interrupted_run_is_retained_but_cannot_compare_or_release(tmp_path: Pat
     assert "A.execution_invalid" in report.mismatches
     with pytest.raises(EquivalenceError):
         release_bound_efficiency(report, {})
+    assert expected("R1-CAL-INTERRUPTED")["expected"] == "execution_invalid"
 
 
 def test_failure_boundary_with_workspace_mutation_is_invalid(tmp_path: Path) -> None:
@@ -218,6 +258,7 @@ def test_failure_boundary_with_workspace_mutation_is_invalid(tmp_path: Path) -> 
     assert not arm_a.execution_valid
     report = compare_normalized_runs(manifest, arm_a, arm_b)
     assert "A.execution_invalid" in report.mismatches
+    assert expected("R1-CAL-PARTIAL-MUTATION")["expected"] == "execution_invalid_partial_mutation"
 
 
 def test_digest_identity_and_journal_tampering_fail_closed(tmp_path: Path) -> None:
@@ -236,6 +277,7 @@ def test_digest_identity_and_journal_tampering_fail_closed(tmp_path: Path) -> No
     manifest = load_r1_case_contract(folder / "manifest.yaml")
     with pytest.raises(EvidenceError, match="run_id"):
         load_run_artifact(run_path, tmp_path / "identity", manifest)
+    assert expected("R1-CAL-EVIDENCE-DIGEST-MISMATCH")["expected"] == "evidence_invalid"
 
 
 def test_subject_substitution_fails_even_with_updated_locator(tmp_path: Path) -> None:
@@ -256,7 +298,10 @@ def test_schedule_is_exactly_a_b_then_b_a_and_is_deterministic() -> None:
     first = build_opposite_order_schedule(manifest, "artifact-ingest")
     second = build_opposite_order_schedule(manifest, "artifact-ingest")
     assert first == second
-    observed = [(item.pair_id, item.arm, item.order_position) for item in first]
+    observed = [
+        (item.pair_id, item.arm, item.order_position)
+        for item in first
+    ]
     assert observed == [
         ("pair-0", "A", 0),
         ("pair-0", "B", 1),
@@ -264,6 +309,7 @@ def test_schedule_is_exactly_a_b_then_b_a_and_is_deterministic() -> None:
         ("pair-1", "A", 1),
     ]
     assert len({item.run_id for item in first}) == 4
+    assert expected("R1-CAL-ORDER-BALANCE")["expected"] == "schedule_exactly_a_b_then_b_a"
 
 
 def test_timing_must_be_bound_to_exact_run_and_evidence_identities() -> None:
@@ -280,6 +326,37 @@ def test_timing_must_be_bound_to_exact_run_and_evidence_identities() -> None:
         release_bound_efficiency(report, bad)
     with pytest.raises(EquivalenceError, match="timing"):
         release_bound_efficiency(report, dict(good, timing=()))
+    with pytest.raises(EquivalenceError, match="report digest"):
+        release_bound_efficiency(replace(report, timing=()), good)
+    assert expected("R1-CAL-TIMING-BINDING-MISMATCH")["expected"] == (
+        "comparison_may_pass_but_efficiency_blocked"
+    )
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        lambda payload: payload["r1"].update(expected_authority_result="READY"),
+        lambda payload: payload["r1"]["expected_gate_results"].update(artifact_digest="MAYBE"),
+        lambda payload: payload["r1"].update(expected_diagnostic_codes=["DUP", "DUP"]),
+    ],
+)
+def test_r1_contract_rejects_invalid_expected_classes(mutation) -> None:
+    payload = yaml.safe_load((R1 / "ready" / "manifest.yaml").read_text(encoding="utf-8"))
+    mutation(payload)
+    with pytest.raises(EvidenceError):
+        validate_r1_case_contract(payload)
+
+
+def test_evidence_locator_kind_must_match_its_declared_role(tmp_path: Path) -> None:
+    folder = copied_case(tmp_path, "ready")
+    run_path = folder / "run-a.json"
+    run = json.loads(run_path.read_text(encoding="utf-8"))
+    run["evidence"]["subject"]["kind"] = "result"
+    write_json(run_path, run)
+    manifest = load_r1_case_contract(folder / "manifest.yaml")
+    with pytest.raises(EvidenceError, match="kind"):
+        load_run_artifact(run_path, tmp_path, manifest)
 
 
 def test_locator_rejects_path_escape_and_symlink(tmp_path: Path) -> None:
