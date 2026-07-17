@@ -1,8 +1,9 @@
 schema_version: 1
 benchmark_id: GOV-CODE-REGENERATION-REPLAY-01
 case_id: REGEN-GAE-CANONICAL-EXTENSION-01
-status: neutral_run_branches_provisioned_generation_not_started
+status: pair_complete_but_invalid_for_causal_treatment_estimate
 historical_task_base_sha: aedbe8cc7e50f730cb6fcde90ca1816b97d79173
+evaluated_at_main_sha: d042a60e6e665fc7f8761e97d41fa0a621f78b87
 task_contract:
   evaluator_path: docs/development_workflow_optimization/regeneration_replay/cases/REGEN-GAE-CANONICAL-EXTENSION-01/TASK_CONTRACT.md
   evaluator_git_blob_sha: 6300e82891f7b9e59359ef5eb85ccb1a33b967c2
@@ -13,6 +14,9 @@ task_contract:
 candidate_gate:
   commit_sha: 7826f5d60c83d8a58a11dc526b487cc09078d818
   treatment: verdict_and_structured_feedback_returned_only_to_candidate_treatment_run
+  actually_executed: false
+  feedback_delivered: false
+  reason_not_executed: candidate_treatment_run_produced_no_complete_submitted_attempt
 randomization:
   method: python_secrets_randbelow_2
   draw: 0
@@ -24,11 +28,22 @@ runs:
   replay/regen-gae-run-01:
     historical_base_sha: aedbe8cc7e50f730cb6fcde90ca1816b97d79173
     task_packet_commit_sha: 33aff5470d5ffb0d0fde5c0829467c1e8783b428
-    generation_status: not_started
+    generation_status: submitted_first_complete_attempt
+    final_commit_sha: 75b30004fad742e0bb07daa059fe757b183d44eb
+    terminal_classification: REJECTED_INCOMPLETE
+    production_python_churn: 1783
+    test_python_churn: 475
+    changed_files_excluding_task_packet: 19
+    new_production_python_files: 14
   replay/regen-gae-run-02:
     historical_base_sha: aedbe8cc7e50f730cb6fcde90ca1816b97d79173
     task_packet_commit_sha: 8af0cd1bfd7410c5c3a7cb62f4efe99709052abf
-    generation_status: not_started
+    generation_status: no_submission_timeout
+    final_commit_sha: null
+    remote_head_sha: 8af0cd1bfd7410c5c3a7cb62f4efe99709052abf
+    terminal_classification: NO_SUBMISSION_TIMEOUT
+    reported_uncommitted_production_python_additions: 2389
+    reported_uncommitted_test_python_additions: 453
 superseded_unstarted_branch_names:
   - replay/regen-gae-arm-a-01
   - replay/regen-gae-arm-b-01
@@ -58,11 +73,14 @@ validation:
     - a2c_plus_td_reaches_actor_update
     - ppo_k4_plus_gae_reaches_actor_update
 raw_evidence:
-  prompts: []
-  attempts: []
+  raw_results: docs/development_workflow_optimization/regeneration_replay/cases/REGEN-GAE-CANONICAL-EXTENSION-01/RAW_RESULTS.jsonl
+  paired_comparison: docs/development_workflow_optimization/regeneration_replay/cases/REGEN-GAE-CANONICAL-EXTENSION-01/PAIRED_COMPARISON.json
+  decision: docs/development_workflow_optimization/regeneration_replay/cases/REGEN-GAE-CANONICAL-EXTENSION-01/DECISION.md
   gate_verdicts: []
-  test_runs: []
   liveness_runs: []
-  timing_records: []
-  token_records: []
-terminal_result: null
+terminal_result:
+  valid_causal_treatment_pair: false
+  submitted_runs: 1
+  scheduled_runs: 2
+  accepted_runs: 0
+  decision: NO_CAUSAL_AB_VERDICT_RETAIN_BOTH_TRAJECTORIES
