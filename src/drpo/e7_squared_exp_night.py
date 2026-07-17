@@ -70,7 +70,10 @@ def _flag_value(argv: list[str], flag: str) -> str:
 
 
 def configure_execution(
-    grid_path: str | Path, *, liveness_pair: bool = False, liveness_steps: int | None = None
+    grid_path: str | Path,
+    *,
+    liveness_pair: bool = False,
+    liveness_steps: int | None = None,
 ) -> None:
     global _ACTIVE_EXPERIMENT_ID, _LIVENESS_STEPS
     experiment_id = str(json.loads(Path(grid_path).read_text()).get("experiment_id"))
@@ -78,7 +81,9 @@ def configure_execution(
         raise ValueError(f"unsupported squared-night experiment_id={experiment_id!r}")
     if liveness_pair != (liveness_steps is not None):
         raise ValueError("liveness_pair and liveness_steps must be set together")
-    if liveness_pair and (experiment_id != GAE_EXPERIMENT_ID or int(liveness_steps) < 2):
+    if liveness_pair and (
+        experiment_id != GAE_EXPERIMENT_ID or int(liveness_steps) < 2
+    ):
         raise ValueError("GAE liveness requires the GAE grid and at least two updates")
     _ACTIVE_EXPERIMENT_ID = experiment_id
     _LIVENESS_STEPS = None if liveness_steps is None else int(liveness_steps)
@@ -93,7 +98,9 @@ def active_scientific_status() -> str:
 
 
 def active_expected_branch_count() -> int:
-    return 2 if _LIVENESS_STEPS else (GAE_EXPECTED_BRANCHES if _is_gae() else EXPECTED_TOTAL_BRANCHES)
+    if _LIVENESS_STEPS:
+        return 2
+    return GAE_EXPECTED_BRANCHES if _is_gae() else EXPECTED_TOTAL_BRANCHES
 
 
 def active_runtime_profile() -> dict[str, Any]:
@@ -169,9 +176,8 @@ def load_grid(path: str | Path) -> tuple[dict[str, Any], str]:
             },
             "GAE grid",
         )
-        snapshot = raw.get("trajectory_snapshot", {})
         _check(
-            snapshot,
+            raw.get("trajectory_snapshot", {}),
             {
                 "gae_lambda": GAE_LAMBDA,
                 "canonical_batch_size": GAE_CANONICAL_BATCH_SIZE,
@@ -199,8 +205,32 @@ def load_grid(path: str | Path) -> tuple[dict[str, Any], str]:
             "historical grid",
         )
         by_id = {str(stage.get("id")): stage for stage in raw.get("stages", [])}
+        stage_a = by_id.get("stage_a_squared_kernel", {})
+        stage_b = by_id.get("stage_b_ppo_kl_early_refresh", {})
         stage_c = by_id.get("stage_c_gae", {})
-        if stage_c.get("enabled") is not False or stage_c.get("status") != "blocked_pending_verified_trajectory_contract":
+        if stage_a.get("enabled") is not True or tuple(
+            stage_a.get("actor_update_modes", ())
+        ) != ("a2c", "ppo_clip_k4"):
+            raise ValueError("historical Stage A contract changed")
+        if stage_b.get("enabled") is not True or tuple(
+            stage_b.get("actor_update_modes", ())
+        ) != ("ppo_clip_kl_k16",):
+            raise ValueError("historical Stage B contract changed")
+        stage_a_ppo, stage_b_ppo = stage_a.get("ppo", {}), stage_b.get("ppo", {})
+        if (
+            float(stage_a_ppo.get("clip_epsilon")) != 0.2
+            or int(stage_a_ppo.get("updates_per_old_policy", -1)) != 4
+            or float(stage_b_ppo.get("clip_epsilon")) != 0.2
+            or int(stage_b_ppo.get("max_updates_per_old_policy", -1)) != 16
+            or stage_b_ppo.get("analytic_kl_early_refresh") is not True
+            or float(stage_b_ppo.get("target_kl")) != 0.01
+        ):
+            raise ValueError("historical PPO contract changed")
+        if (
+            stage_c.get("enabled") is not False
+            or stage_c.get("status")
+            != "blocked_pending_verified_trajectory_contract"
+        ):
             raise ValueError("historical Stage C contract changed")
         coefficients = EXPECTED_COEFFICIENTS
     if tuple(float(value) for value in weight.get("exp_coefficients", ())) != coefficients:
@@ -235,7 +265,11 @@ def load_run_spec(path: str | Path) -> tuple[dict[str, Any], str]:
     }.items():
         if _flag_value(argv, flag) != expected:
             raise ValueError(f"source run_spec {flag} changed")
-    if _is_gae() and "--ret_weight_mode" in argv and _flag_value(argv, "--ret_weight_mode") != "none":
+    if (
+        _is_gae()
+        and "--ret_weight_mode" in argv
+        and _flag_value(argv, "--ret_weight_mode") != "none"
+    ):
         raise ValueError("GAE transition IDs require ret_weight_mode=none")
     argv[argv.index("--steps") + 1] = "{steps}"
     run_spec["trainer_argv_template"] = argv
@@ -244,7 +278,10 @@ def load_run_spec(path: str | Path) -> tuple[dict[str, Any], str]:
 
 
 def control_points(grid: Mapping[str, Any]) -> list[tuple[float, float | None]]:
-    points = [(0.0, None), *[(1.0, float(c)) for c in grid["weight_control"]["exp_coefficients"]]]
+    points = [
+        (0.0, None),
+        *[(1.0, float(c)) for c in grid["weight_control"]["exp_coefficients"]],
+    ]
     expected = 4 if _is_gae() else EXPECTED_CONTROLS_PER_MODE
     if len(points) != expected or len(points) != len(set(points)):
         raise ValueError("squared-night controls are not unique or complete")
@@ -254,20 +291,30 @@ def control_points(grid: Mapping[str, Any]) -> list[tuple[float, float | None]]:
 def _control(weight_at_zero: float, coefficient: float | None) -> tuple[str, float, str]:
     if coefficient is None:
         return "positive_only", 0.0, "positive_only__w0_0"
-    return "squared_exponential", coefficient, f"sqexp__w0_1__c_{_label(coefficient)}"
+    return (
+        "squared_exponential",
+        coefficient,
+        f"sqexp__w0_1__c_{_label(coefficient)}",
+    )
 
 
-def _gae_branches(run_spec: Mapping[str, Any], grid: Mapping[str, Any]) -> list[base.Branch]:
+def _gae_branches(
+    run_spec: Mapping[str, Any], grid: Mapping[str, Any]
+) -> list[base.Branch]:
     datasets = [base.DatasetSpec.from_mapping(item) for item in run_spec["datasets"]]
     branches = []
     for estimator in ("td", "gae"):
         for w0, coefficient in control_points(grid):
-            method, c, label = _control(w0, coefficient)
+            method, c, _ = _control(w0, coefficient)
+            label = "positive_only" if coefficient is None else f"sqexp_c{c:g}"
             for dataset in datasets:
                 for seed in GAE_EXPECTED_SEEDS:
                     branches.append(
                         base.Branch(
-                            branch_id=f"{dataset.id}__seed{seed}__{estimator}__{label}__a2c__steps1m",
+                            branch_id=(
+                                f"{dataset.id}__seed{seed}__{estimator}__{label}__"
+                                "a2c__steps1m"
+                            ),
                             branch_kind="injected",
                             dataset=dataset,
                             seed=seed,
@@ -281,7 +328,9 @@ def _gae_branches(run_spec: Mapping[str, Any], grid: Mapping[str, Any]) -> list[
                                 "exp_coefficient": f"{c:.17g}",
                                 "reference_distance": f"{REFERENCE_DISTANCE:.17g}",
                                 "diagnostics_interval": str(DIAGNOSTICS_INTERVAL),
-                                "sampled_values_per_update": str(SAMPLED_VALUES_PER_UPDATE),
+                                "sampled_values_per_update": str(
+                                    SAMPLED_VALUES_PER_UPDATE
+                                ),
                                 "execution_mode": "full",
                             },
                             negative_control=None,
@@ -291,13 +340,20 @@ def _gae_branches(run_spec: Mapping[str, Any], grid: Mapping[str, Any]) -> list[
         branches = [
             dataclasses.replace(
                 branch,
-                branch_id=f"{branch.branch_id}__liveness_steps{_LIVENESS_STEPS}",
-                template_values={**branch.template_values, "steps": str(_LIVENESS_STEPS), "execution_mode": "liveness"},
+                branch_id=(
+                    f"{branch.branch_id}__liveness_steps{_LIVENESS_STEPS}"
+                ),
+                template_values={
+                    **branch.template_values,
+                    "steps": str(_LIVENESS_STEPS),
+                    "execution_mode": "liveness",
+                },
             )
             for branch in branches
             if branch.dataset.id == GAE_LIVENESS_DATASET
             and branch.seed == GAE_LIVENESS_SEED
-            and float(branch.template_values["exp_coefficient"]) == GAE_LIVENESS_COEFFICIENT
+            and float(branch.template_values["exp_coefficient"])
+            == GAE_LIVENESS_COEFFICIENT
         ]
     return branches
 
@@ -327,7 +383,10 @@ def build_branches(
                     for seed in EXPECTED_SEEDS:
                         branches.append(
                             base.Branch(
-                                branch_id=f"{dataset.id}__seed{seed}__{label}__{actor_mode}__steps1m",
+                                branch_id=(
+                                    f"{dataset.id}__seed{seed}__{label}__"
+                                    f"{actor_mode}__steps1m"
+                                ),
                                 branch_kind="injected",
                                 dataset=dataset,
                                 seed=seed,
@@ -379,9 +438,15 @@ def branch_command(
         "variant": "iqlv_exp_rank",
         **values,
     }
-    trainer_args = [base._format_value(str(item), context) for item in trainer_argv_template]  # noqa: SLF001
+    trainer_args = [
+        base._format_value(str(item), context)  # noqa: SLF001
+        for item in trainer_argv_template
+    ]
     if values.get("execution_mode") == "liveness":
-        for flag, value in (("--eval_interval", values["steps"]), ("--eval_episodes", "1")):
+        for flag, value in (
+            ("--eval_interval", values["steps"]),
+            ("--eval_episodes", "1"),
+        ):
             trainer_args[trainer_args.index(flag) + 1] = value
     branch_config = {
         "experiment_id": _ACTIVE_EXPERIMENT_ID,
@@ -400,7 +465,10 @@ def branch_command(
         },
     }
     if _is_gae():
-        branch_config.update(canonical_root=str(contract.source_root), dataset_path=context["dataset_path"])
+        branch_config.update(
+            canonical_root=str(contract.source_root),
+            dataset_path=context["dataset_path"],
+        )
     branch_config_path = branch_dir / "branch_config.json"
     base.atomic_write_json(branch_config_path, branch_config)
     return [
