@@ -17,24 +17,10 @@ import h5py
 from drpo import e7_canonical_sweep as base
 from drpo import e7_sqexp_gae as pilot
 
-DATASET = pilot.EXPECTED_DATASETS[0]
-SEED = pilot.EXPECTED_SEEDS[0]
-COEFFICIENT = 128.0
-REPRESENTATIVE_COEFFICIENT = COEFFICIENT
+DATASET, SEED, COEFFICIENT = pilot.EXPECTED_DATASETS[0], pilot.EXPECTED_SEEDS[0], 128.0
 _DEFAULT_CONTRACT = "/root/d4rl2/configs/e7_canonical_contract_9task.json"
 _DEFAULT_RUN_SPEC = "/root/d4rl2/configs/e7_canonical_9task_full_grid_run_spec_v1.json"
 _DEFAULT_WORK_DIR = "outputs/e7/sqexp_gae_joint_liveness_001"
-
-
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--contract", default=os.getenv("E7_CANONICAL_CONTRACT", _DEFAULT_CONTRACT))
-    parser.add_argument("--run-spec", default=os.getenv("E7_CANONICAL_RUN_SPEC", _DEFAULT_RUN_SPEC))
-    parser.add_argument("--grid", default="configs/e7_sqexp_gae_v2.json")
-    parser.add_argument(
-        "--work-dir", default=os.getenv("E7_SQEXP_GAE_LIVENESS_WORK_DIR", _DEFAULT_WORK_DIR)
-    )
-    return parser
 
 
 def _probe_template(run_spec: dict[str, Any], steps: int) -> list[str]:
@@ -57,13 +43,11 @@ def _representative(branches: Sequence[base.Branch], estimator: str) -> base.Bra
     matches = [
         branch
         for branch in branches
-        if (
-            branch.dataset.id == DATASET
-            and branch.seed == SEED
-            and branch.template_values["advantage_estimator"] == estimator
-            and branch.template_values["weight_method"] == "squared_exponential"
-            and float(branch.template_values["exp_coefficient"]) == COEFFICIENT
-        )
+        if branch.dataset.id == DATASET
+        and branch.seed == SEED
+        and branch.template_values["advantage_estimator"] == estimator
+        and branch.template_values["weight_method"] == "squared_exponential"
+        and float(branch.template_values["exp_coefficient"]) == COEFFICIENT
     ]
     if len(matches) != 1:
         raise RuntimeError(f"expected one representative {estimator} branch, found {len(matches)}")
@@ -71,11 +55,10 @@ def _representative(branches: Sequence[base.Branch], estimator: str) -> base.Bra
 
 
 def _probe_branch(branch: base.Branch, steps: int) -> base.Branch:
-    values = {**branch.template_values, "steps": str(steps)}
     return dataclasses.replace(
         branch,
         branch_id=branch.branch_id.replace("steps1m", f"liveness_steps{steps}"),
-        template_values=values,
+        template_values={**branch.template_values, "steps": str(steps)},
     )
 
 
@@ -86,13 +69,18 @@ def _validate_matched_critic(records: list[dict[str, Any]]) -> None:
         raise RuntimeError("TD and GAE critic snapshot trajectories diverged")
 
 
-def _git_root() -> Path:
-    return Path(subprocess.check_output(["git", "rev-parse", "--show-toplevel"], text=True).strip())
+def _parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--contract", default=os.getenv("E7_CANONICAL_CONTRACT", _DEFAULT_CONTRACT))
+    parser.add_argument("--run-spec", default=os.getenv("E7_CANONICAL_RUN_SPEC", _DEFAULT_RUN_SPEC))
+    parser.add_argument("--grid", default="configs/e7_sqexp_gae_v2.json")
+    parser.add_argument("--work-dir", default=os.getenv("E7_SQEXP_GAE_LIVENESS_WORK_DIR", _DEFAULT_WORK_DIR))
+    return parser
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
-    repo = _git_root()
+    args = _parser().parse_args(argv)
+    repo = Path(subprocess.check_output(["git", "rev-parse", "--show-toplevel"], text=True).strip())
     if subprocess.check_output(["git", "status", "--porcelain"], cwd=repo, text=True).strip():
         raise RuntimeError("refusing to run liveness from a dirty checkout")
     work = (repo / args.work_dir).resolve()
@@ -113,8 +101,7 @@ def main(argv: list[str] | None = None) -> int:
     if transition_count <= 0:
         raise RuntimeError("representative dataset is empty")
     interval = math.ceil(transition_count / pilot.CANONICAL_BATCH_SIZE)
-    steps = interval + 1
-    trainer_template = _probe_template(run_spec, steps)
+    steps, trainer_template = interval + 1, _probe_template(run_spec, interval + 1)
     environment = {str(key): str(value) for key, value in run_spec.get("environment", {}).items()}
     environment["DRPO_RUNTIME_RESOURCE_PROBE"] = "1"
 
@@ -141,15 +128,11 @@ def main(argv: list[str] | None = None) -> int:
                 base_environment=environment,
                 resume=False,
             )
-            manifest = json.loads(
-                (work / "branches" / branch.branch_id / "branch_manifest.json").read_text()
-            )
-            snapshot = manifest["trajectory_snapshot"]
+            manifest_path = work / "branches" / branch.branch_id / "branch_manifest.json"
+            snapshot = json.loads(manifest_path.read_text())["trajectory_snapshot"]
             if result["status"] != "completed":
                 raise RuntimeError(f"{estimator} liveness branch did not complete")
-            if snapshot["critic_evolution_observed"] is not True or int(
-                snapshot["snapshot_count"]
-            ) < 2:
+            if snapshot["critic_evolution_observed"] is not True or int(snapshot["snapshot_count"]) < 2:
                 raise RuntimeError(f"{estimator} liveness did not observe critic evolution")
             if int(snapshot["snapshot_refresh_interval"]) != interval:
                 raise RuntimeError(f"{estimator} snapshot cadence changed")
