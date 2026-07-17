@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import dataclasses
 import json
 import math
 import os
@@ -461,7 +462,7 @@ def _gae_branches(
             )
         ]
         branches = [
-            base.dataclasses.replace(  # type: ignore[attr-defined]
+            dataclasses.replace(
                 branch,
                 branch_id=f"{branch.branch_id}__liveness_steps{_LIVENESS_STEPS}",
                 template_values={
@@ -592,6 +593,7 @@ def _grid_argument(argv: Sequence[str]) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
+    global _ACTIVE_EXPERIMENT_ID, _LIVENESS_PAIR, _LIVENESS_STEPS
     delegated = list(sys.argv[1:] if argv is None else argv)
     previous_profile = (_ACTIVE_EXPERIMENT_ID, _LIVENESS_PAIR, _LIVENESS_STEPS)
     env_liveness = os.environ.get("DRPO_E7_GAE_LIVENESS_PAIR") == "1"
@@ -637,7 +639,6 @@ def main(argv: list[str] | None = None) -> int:
             base.build_branches,
             base.branch_command,
         ) = previous
-        global _ACTIVE_EXPERIMENT_ID, _LIVENESS_PAIR, _LIVENESS_STEPS
         _ACTIVE_EXPERIMENT_ID, _LIVENESS_PAIR, _LIVENESS_STEPS = previous_profile
 
 
