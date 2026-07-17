@@ -1,0 +1,125 @@
+schema_version: 1
+task_id: PAPER-CODE-REFERENCE-01
+base_commit: 4544005bd7df69c53bad70a9dcac846af01285e4
+branch: dev/paper-code-reference-01
+scientific_status_impact: none
+rules:
+  smoke_is_not_reproduction: true
+  static_checks_are_not_scientific_results: true
+  legacy_source_remains_provenance_oracle: true
+  no_frozen_variable_changes: true
+  require_clean_checkout_validation_before_ready: true
+  separate_events:
+    - task_performance_collapse
+    - support_or_probability_boundary
+    - nan_inf_numerical_failure
+    - environment_invalid
+phases:
+  shared_kernel:
+    status: in_progress
+    target:
+      - paper_code/src/drpo_reference/common
+      - paper_code/src/drpo_reference/controls
+    gates:
+      - formula_characterization
+      - detached_weight_gradient_check
+      - coefficient_retention_check
+      - hard_mask_characterization
+      - budget_scale_characterization
+      - event_taxonomy_separation
+  cu1:
+    status: planned
+    authoritative_sources:
+      - src/drpo/cu1_core.py
+      - src/drpo/drpo_cu1_e1_e4_oneclick.py
+      - src/drpo/cu1_distance_taper_formal.py
+      - src/drpo/cu1_taper_near_retention_formal.py
+      - src/drpo/cu1_taper_budget_match_formal.py
+    reference_entrypoint: paper_code/src/drpo_reference/experiments/cu1.py
+    gates:
+      - fixed_seed_environment_identity
+      - initialization_identity
+      - loss_identity
+      - raw_gradient_identity
+      - first_adam_update_identity
+      - short_trajectory_identity
+      - registered_full_cpu_reproduction
+      - terminal_audit_identity
+      - paper_output_identity
+  du1_revision_4:
+    status: planned
+    authoritative_sources:
+      - src/drpo/du1_e6_cartesian_taper_v4.py
+      - configs/du1_e6_cartesian_taper_v4.yaml
+    reference_entrypoint: paper_code/src/drpo_reference/experiments/du1.py
+    excluded_sources:
+      - src/drpo/du1_e6_cartesian_taper.py
+      - outputs/du1_e6_cartesian_taper_rev3_development
+    gates:
+      - environment_geometry_identity
+      - hidden_action_identity
+      - initialization_identity
+      - common_rare_assignment_identity
+      - calibration_identity
+      - loss_identity
+      - raw_gradient_identity
+      - first_adam_update_identity
+      - short_trajectory_identity
+      - registered_full_cpu_reproduction
+      - terminal_audit_identity
+      - paper_output_identity
+  hopper_e7_q2:
+    status: planned
+    authoritative_sources:
+      - src/drpo/e7_hopper_q2.py
+      - configs/e7_hopper_q2.yaml
+      - scripts/run_e7_hopper_q2.py
+      - outputs/e7_hopper_q2
+    reference_entrypoint: paper_code/src/drpo_reference/experiments/hopper.py
+    excluded_sources:
+      - src/drpo/e7_bench.py
+      - unmerged_gae_branches
+    gates:
+      - dataset_identity
+      - episode_split_identity
+      - critic_checkpoint_selection_identity
+      - frozen_advantage_identity
+      - near_far_pair_identity
+      - actor_loss_identity
+      - raw_gradient_identity
+      - first_optimizer_update_identity
+      - compact_result_regeneration
+      - registered_full_budget_rerun
+      - terminal_audit_identity
+      - paper_output_identity
+  countdown:
+    status: blocked_pending_final_protocol_and_result_freeze
+    stable_characterization_sources:
+      - src/drpo/countdown_qwen_arena_onefile.py
+      - src/drpo/countdown_e8_taper.py
+    reference_entrypoint: paper_code/src/drpo_reference/experiments/countdown.py
+    gates:
+      - final_main_source_frozen
+      - token_mask_identity
+      - eos_identity
+      - sequence_log_probability_identity
+      - verifier_identity
+      - taper_identity
+      - first_optimizer_update_identity
+      - selected_checkpoint_evaluation_identity
+      - terminal_evaluation_identity
+      - registered_real_qwen_cuda_rerun
+      - paper_output_identity
+ready_definition:
+  required:
+    - all_included_phase_gates_pass
+    - every_non_tbd_manuscript_value_has_command
+    - every_non_tbd_manuscript_value_has_result_path
+    - clean_checkout_install_pass
+    - clean_checkout_tests_pass
+    - paper_tables_and_figures_regenerated
+  forbidden_substitutions:
+    - smoke_for_full_reproduction
+    - pilot_for_formal_result
+    - static_inspection_for_execution
+    - best_checkpoint_for_terminal_audit
