@@ -41,6 +41,36 @@ CANONICAL_BATCH_SIZE = 256
 LATE_WINDOW_START = 800_000
 
 
+def _trainer_flag(argv: Sequence[str], flag: str) -> str | None:
+    positions = [index for index, token in enumerate(argv) if token == flag]
+    if len(positions) > 1:
+        raise ValueError(f"trainer args contain duplicate {flag}")
+    if not positions:
+        return None
+    index = positions[0]
+    if index + 1 >= len(argv):
+        raise ValueError(f"trainer arg {flag} has no value")
+    return str(argv[index + 1])
+
+
+def _validate_trainer_args(argv: Sequence[str], *, runtime_probe: bool) -> None:
+    values = list(argv)
+    if values and values[0] == "--":
+        values = values[1:]
+    if _trainer_flag(values, "--variant") != "iqlv_exp_rank":
+        raise ValueError("GAE pilot requires canonical iqlv_exp_rank")
+    if _trainer_flag(values, "--batch") != str(CANONICAL_BATCH_SIZE):
+        raise ValueError("GAE pilot requires canonical batch size 256")
+    ret_weight = _trainer_flag(values, "--ret_weight_mode")
+    if ret_weight not in {None, "none"}:
+        raise ValueError("transition-ID channel requires uniform ret_weight_mode=none")
+    steps = _trainer_flag(values, "--steps")
+    if steps is None or int(steps) <= 0:
+        raise ValueError("trainer args require positive --steps")
+    if not runtime_probe and int(steps) != EXPECTED_STEPS:
+        raise ValueError("full GAE branches require exactly 1,000,000 updates")
+
+
 def _load_grid(path: str | Path) -> tuple[dict[str, Any], str]:
     source = Path(path)
     raw = json.loads(source.read_text())
@@ -214,6 +244,8 @@ def _bootstrap(argv: list[str]) -> int:
     estimator_name = str(values.get("advantage_estimator"))
     if estimator_name not in ESTIMATORS or values.get("actor_update_mode") != "a2c":
         raise ValueError("joint GAE pilot supports only TD/GAE with canonical A2C")
+    runtime_probe = os.environ.get("DRPO_RUNTIME_RESOURCE_PROBE") == "1"
+    _validate_trainer_args(args.trainer_args, runtime_probe=runtime_probe)
     dataset = Path(branch["dataset_path"]).expanduser().resolve()
     if sha256_file(dataset) != branch["dataset_sha256"]:
         raise RuntimeError("ordered dataset hash mismatch")
@@ -264,7 +296,6 @@ def _bootstrap(argv: list[str]) -> int:
         if len(instances) != 1:
             raise RuntimeError(f"expected one canonical agent, found {len(instances)}")
         snapshot = instances[0]._drpo_snapshot_summary()  # noqa: SLF001
-        runtime_probe = os.environ.get("DRPO_RUNTIME_RESOURCE_PROBE") == "1"
         if not runtime_probe and (
             int(snapshot["snapshot_count"]) < 2
             or snapshot["critic_evolution_observed"] is not True
