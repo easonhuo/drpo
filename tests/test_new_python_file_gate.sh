@@ -21,7 +21,7 @@ assert_paths() {
   local expected=$1
   local head=$2
   local output="$tmp/output.txt"
-  "$gate" --repo-root "$repo" --base "$base" --head "$head" --output "$output"
+  bash "$gate" --repo-root "$repo" --base "$base" --head "$head" --output "$output"
   actual=$(cat "$output")
   if [[ "$actual" != "$expected" ]]; then
     printf 'expected:\n%s\nactual:\n%s\n' "$expected" "$actual" >&2
@@ -62,7 +62,7 @@ git -C "$repo" rm -q pkg/existing.py
 git -C "$repo" commit -qm delete-python
 assert_paths "" "$(git -C "$repo" rev-parse HEAD)"
 
-if "$gate" --repo-root "$repo" --base deadbeef --head HEAD >/dev/null 2>&1; then
+if bash "$gate" --repo-root "$repo" --base deadbeef --head HEAD >/dev/null 2>&1; then
   echo "unresolved base must fail closed" >&2
   exit 1
 fi
