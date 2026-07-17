@@ -4,8 +4,11 @@ case_id: REGEN-GAE-CANONICAL-EXTENSION-01
 status: arms_provisioned_generation_not_started
 historical_task_base_sha: aedbe8cc7e50f730cb6fcde90ca1816b97d79173
 task_contract:
-  path: docs/development_workflow_optimization/regeneration_replay/cases/REGEN-GAE-CANONICAL-EXTENSION-01/TASK_CONTRACT.md
-  git_blob_sha: 6300e82891f7b9e59359ef5eb85ccb1a33b967c2
+  evaluator_path: docs/development_workflow_optimization/regeneration_replay/cases/REGEN-GAE-CANONICAL-EXTENSION-01/TASK_CONTRACT.md
+  evaluator_git_blob_sha: 6300e82891f7b9e59359ef5eb85ccb1a33b967c2
+  generator_path: REGEN_TASK.md
+  generator_git_blob_sha: b89e6ae5ec8d1e6aa048d7308d51400618c950f1
+  generator_packet_excluded_from_size_scoring: true
   sha256: pending_prelaunch_export
 candidate_gate:
   commit_sha: 7826f5d60c83d8a58a11dc526b487cc09078d818
@@ -13,12 +16,14 @@ candidate_gate:
 arms:
   arm_a:
     branch: replay/regen-gae-arm-a-01
-    branch_start_sha: aedbe8cc7e50f730cb6fcde90ca1816b97d79173
+    historical_base_sha: aedbe8cc7e50f730cb6fcde90ca1816b97d79173
+    task_packet_commit_sha: 819634c7a0db62be7cdce0a4c9066cc85d5cebc1
     treatment: baseline_no_candidate_gate_feedback
     generation_status: not_started
   arm_b:
     branch: replay/regen-gae-arm-b-01
-    branch_start_sha: aedbe8cc7e50f730cb6fcde90ca1816b97d79173
+    historical_base_sha: aedbe8cc7e50f730cb6fcde90ca1816b97d79173
+    task_packet_commit_sha: cff6a65319d49d96b7cf7ac4812fdd5035bfaf4e
     treatment: candidate_gate_feedback_after_each_complete_attempt
     generation_status: not_started
 generation_controls:
