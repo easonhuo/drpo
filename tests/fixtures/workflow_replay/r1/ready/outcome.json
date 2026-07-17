@@ -1,0 +1,27 @@
+{
+  "authority_result": "PASS",
+  "case_id": "R1-CAL-READY-EXACT",
+  "changed_paths": [
+    "tests/fixtures/workflow_replay/valid_code_only.yaml"
+  ],
+  "diagnostic_codes": [],
+  "file_modes": {
+    "tests/fixtures/workflow_replay/valid_code_only.yaml": "100644"
+  },
+  "gate_results": {
+    "artifact_digest": "PASS"
+  },
+  "output_hashes": {
+    "artifact_sha256": "a932ebccdb665c7794b7801eb14b934a56ffbb081e28e2413f1f5b83eeb50410"
+  },
+  "provenance": {
+    "benchmark_toolchain_sha": "2f677f4b00954ea71d0efa7def552a1ea3daa565",
+    "cache_policy": "cold",
+    "environment_id": "github-main-artifact-v1",
+    "historical_base_sha": "2f677f4b00954ea71d0efa7def552a1ea3daa565",
+    "input_spec_sha256": "a932ebccdb665c7794b7801eb14b934a56ffbb081e28e2413f1f5b83eeb50410"
+  },
+  "recovery_class": null,
+  "safety_boundary": null,
+  "terminal_state": "READY"
+}

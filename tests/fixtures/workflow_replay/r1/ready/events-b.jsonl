@@ -1,0 +1,2 @@
+{"event":"run_started","monotonic_ns":100,"payload":{"arm":"B","case_id":"R1-CAL-READY-EXACT"},"run_id":"3764873b4bb6738e0a9bc91f50bc6c597fb74b338d9dda452aa8d998073959d6","sequence":0}
+{"event":"run_finished","monotonic_ns":200,"payload":{"terminal_state":"READY"},"run_id":"3764873b4bb6738e0a9bc91f50bc6c597fb74b338d9dda452aa8d998073959d6","sequence":1}
