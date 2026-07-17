@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "experiment_id": "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-LINEAR-SCAN-0.5B-01",
+  "registration_state": "dev_code_first_unregistered",
+  "expected_cells": 32,
+  "summary_count": 32,
+  "all_expected_cells_present": true,
+  "numerical_failures": 0,
+  "task_performance_status": "reported_not_adjudicated",
+  "support_or_structure_boundary_status": "not_formally_instrumented_valid_rate_only",
+  "nan_inf_status": "not_observed",
+  "test_data_used": false,
+  "fixed_1200_steps_is_convergence": false,
+  "method_ranking_claim_allowed": false,
+  "status": "PASS"
+}
