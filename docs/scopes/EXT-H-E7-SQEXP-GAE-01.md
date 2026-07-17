@@ -5,7 +5,8 @@
 - development class: code-first external-validity screening pilot;
 - result status: `not_run`;
 - formal evidence allowed: `false`;
-- repository base: `64001f2e7d8636642cf30e57bf6ffc57882bf6ac`;
+- branch-creation base: `64001f2e7d8636642cf30e57bf6ffc57882bf6ac`;
+- current reviewed main base: `2f677f4b00954ea71d0efa7def552a1ea3daa565`;
 - implementation branch: `dev/e7-canonical-gae-repair-01`;
 - predecessor evidence: `EXT-H-E7-SQUARED-EXP-NIGHT-01` Stage C remained blocked and started zero GAE branches;
 - superseded unmerged design: the earlier prepared-advantage / frozen-critic draft must not be launched or treated as this experiment.
@@ -47,7 +48,7 @@ is not a parent implementation for this pilot.
 
 ## Ordered trajectory contract
 
-The canonical HDF5 loader already exposes aligned arrays:
+The canonical HDF5 loader exposes aligned arrays:
 
 - observations;
 - actions;
@@ -55,6 +56,12 @@ The canonical HDF5 loader already exposes aligned arrays:
 - next observations;
 - environment terminals;
 - time-limit timeouts.
+
+For this GAE successor, the source HDF5 must physically contain all six fields,
+including `next_observations` and `timeouts`, with one common non-zero transition
+length. Loader fallbacks that synthesize shifted next observations or all-zero
+timeouts are not admissible because they cannot prove the required trajectory and
+truncation semantics.
 
 The file order is the trajectory order. GAE recursion must stop at either an
 environment terminal or timeout and must never cross the dataset tail.
@@ -91,8 +98,10 @@ cadence is derived from dataset size and the frozen canonical batch size rather
 than introduced as a tunable hyperparameter.
 
 Every full branch must record snapshot critic hashes and fail if critic evolution
-is not observed. A short liveness run may contain only one snapshot and therefore
-cannot establish critic evolution or scientific evidence.
+is not observed. The required real-data liveness uses one complete snapshot
+interval plus one update so that both TD and GAE branches must record at least two
+snapshots and observed critic evolution. A shorter single-snapshot smoke test
+cannot satisfy this gate or provide scientific evidence.
 
 ## Frozen matrix
 
@@ -129,12 +138,13 @@ Before a full sweep:
 1. deterministic GAE boundary tests;
 2. `lambda=0` exact reduction to the TD snapshot;
 3. ordered replay identity and transition-index lookup tests;
-4. critic-update test proving `c_opt.step()` changes critic parameters;
-5. exact 96-branch matrix test;
-6. current-main CI;
-7. real-data short liveness for one TD and one GAE branch on the same dataset and
-   seed;
-8. runtime overhead and snapshot cadence audit.
+4. explicit HDF5 `timeouts` and `next_observations` presence/alignment test;
+5. critic-update test proving `c_opt.step()` changes critic parameters;
+6. exact 96-branch matrix test;
+7. current-main CI;
+8. real-data liveness for one TD and one GAE branch on the same dataset and seed,
+   each spanning one snapshot interval plus one update;
+9. runtime overhead and snapshot cadence audit.
 
 The liveness run is engineering evidence only. It cannot be reported as a pilot
 result.
