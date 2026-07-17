@@ -1,0 +1,33 @@
+schema_version: 1
+calibration_id: REPLAYAB-R1-C1-CALIBRATION-01
+verdicts:
+  R1-CAL-READY-EXACT:
+    expected: equivalent
+    efficiency_release: allowed
+  R1-CAL-FAILURE-BOUNDARY:
+    expected: equivalent_expected_stop
+    efficiency_release: allowed
+  R1-CAL-ONE-ARM-HASH-MISMATCH:
+    expected: reject_b
+    efficiency_release: blocked
+  R1-CAL-BOTH-SAME-WRONG:
+    expected: reject_both
+    efficiency_release: blocked
+  R1-CAL-WRONG-MODE:
+    expected: reject_wrong_mode
+    efficiency_release: blocked
+  R1-CAL-INTERRUPTED:
+    expected: execution_invalid
+    efficiency_release: blocked
+  R1-CAL-PARTIAL-MUTATION:
+    expected: execution_invalid_partial_mutation
+    efficiency_release: blocked
+  R1-CAL-EVIDENCE-DIGEST-MISMATCH:
+    expected: evidence_invalid
+    efficiency_release: blocked
+  R1-CAL-ORDER-BALANCE:
+    expected: schedule_exactly_a_b_then_b_a
+    efficiency_release: not_applicable
+  R1-CAL-TIMING-BINDING-MISMATCH:
+    expected: comparison_may_pass_but_efficiency_blocked
+    efficiency_release: blocked
