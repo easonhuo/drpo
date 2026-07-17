@@ -218,8 +218,8 @@ def aggregate(
                 bool(row["environment_validity_failure"])
                 for row in rows
             ),
-            "terminal_formal_acceptances": sum(
-                bool(row["terminal_formal_acceptance"])
+            "terminal_plateaus": sum(
+                row["terminal_class"] == "terminal_plateau"
                 for row in rows
             ),
         }
