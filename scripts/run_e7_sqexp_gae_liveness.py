@@ -18,9 +18,7 @@ from drpo import e7_canonical_sweep as base
 from drpo import e7_sqexp_gae as pilot
 
 DATASET, SEED, COEFFICIENT = pilot.EXPECTED_DATASETS[0], pilot.EXPECTED_SEEDS[0], 128.0
-_DEFAULT_CONTRACT = "/root/d4rl2/configs/e7_canonical_contract_9task.json"
-_DEFAULT_RUN_SPEC = "/root/d4rl2/configs/e7_canonical_9task_full_grid_run_spec_v1.json"
-_DEFAULT_WORK_DIR = "outputs/e7/sqexp_gae_joint_liveness_001"
+_DEFAULT_CONTRACT, _DEFAULT_RUN_SPEC, _DEFAULT_WORK_DIR = "/root/d4rl2/configs/e7_canonical_contract_9task.json", "/root/d4rl2/configs/e7_canonical_9task_full_grid_run_spec_v1.json", "outputs/e7/sqexp_gae_joint_liveness_001"
 
 
 def _probe_template(run_spec: dict[str, Any], steps: int) -> list[str]:
@@ -74,9 +72,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--contract", default=os.getenv("E7_CANONICAL_CONTRACT", _DEFAULT_CONTRACT))
     parser.add_argument("--run-spec", default=os.getenv("E7_CANONICAL_RUN_SPEC", _DEFAULT_RUN_SPEC))
     parser.add_argument("--grid", default="configs/e7_sqexp_gae_v2.json")
-    parser.add_argument(
-        "--work-dir", default=os.getenv("E7_SQEXP_GAE_LIVENESS_WORK_DIR", _DEFAULT_WORK_DIR)
-    )
+    parser.add_argument("--work-dir", default=os.getenv("E7_SQEXP_GAE_LIVENESS_WORK_DIR", _DEFAULT_WORK_DIR))
     args = parser.parse_args(argv)
     repo = Path(subprocess.check_output(["git", "rev-parse", "--show-toplevel"], text=True).strip())
     if subprocess.check_output(["git", "status", "--porcelain"], cwd=repo, text=True).strip():
@@ -104,11 +100,7 @@ def main(argv: list[str] | None = None) -> int:
     environment["DRPO_RUNTIME_RESOURCE_PROBE"] = "1"
 
     previous = base.EXPERIMENT_ID, base.SCIENTIFIC_STATUS, base.RUNNER_VERSION, base.branch_command
-    base.EXPERIMENT_ID, base.SCIENTIFIC_STATUS, base.RUNNER_VERSION = (
-        pilot.EXPERIMENT_ID,
-        pilot.SCIENTIFIC_STATUS,
-        pilot.RUNNER_VERSION,
-    )
+    base.EXPERIMENT_ID, base.SCIENTIFIC_STATUS, base.RUNNER_VERSION = pilot.EXPERIMENT_ID, pilot.SCIENTIFIC_STATUS, pilot.RUNNER_VERSION
     base.branch_command = pilot._branch_command  # noqa: SLF001
     records: list[dict[str, Any]] = []
     try:
@@ -130,9 +122,7 @@ def main(argv: list[str] | None = None) -> int:
             snapshot = json.loads(path.read_text())["trajectory_snapshot"]
             if result["status"] != "completed":
                 raise RuntimeError(f"{estimator} liveness branch did not complete")
-            if snapshot["critic_evolution_observed"] is not True or int(
-                snapshot["snapshot_count"]
-            ) < 2:
+            if snapshot["critic_evolution_observed"] is not True or int(snapshot["snapshot_count"]) < 2:
                 raise RuntimeError(f"{estimator} liveness did not observe critic evolution")
             if int(snapshot["snapshot_refresh_interval"]) != interval:
                 raise RuntimeError(f"{estimator} snapshot cadence changed")
