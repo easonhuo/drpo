@@ -1,0 +1,113 @@
+version: 1
+run_id: E8_PAPER_ALIGNED_TAU_CURVE_20260717_01
+lane: e8
+priority: 155
+created_at: "2026-07-17T09:55:00Z"
+experiment_id: EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-TAU-CURVE-0.5B-01
+repo_commit: 5f9d361c5a4b5db2890f541b13b6a0991080eda4
+
+registration:
+  mode: deferred
+  closure_required: true
+
+provenance:
+  commit_policy: protected_paths_unchanged
+  protected_paths:
+    - configs/countdown_e8_oracle_offline_v2_paper_aligned_tau_curve_0p5b.yaml
+    - docs/scopes/EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-TAU-CURVE-0.5B-01.md
+    - docs/experiments/E8_PAPER_ALIGNED_TAU_CURVE_PROTOCOL.md
+    - docs/experiments/E8_PAPER_ALIGNED_TAU_CURVE_IMPLEMENTATION.md
+    - docs/experiments/E8_PAPER_ALIGNED_TAU_CURVE_OPERATOR.md
+    - src/drpo/countdown_e8_alpha1_highc_scan_common.py
+    - src/drpo/countdown_e8_alpha1_highc_scan_runtime.py
+    - src/drpo/countdown_e8_alpha1_c_scan_trainer.py
+    - src/drpo/countdown_e8_alpha1_c_scan_runtime.py
+    - scripts/run_countdown_e8_oracle_offline_v2_alpha1_highc_scan_auto.py
+    - scripts/run_countdown_e8_oracle_offline_v2_alpha1_highc_scan_auto_one_click.sh
+    - tests/test_countdown_e8_linear_c_extension.py
+
+purpose: >
+  Densely trace four single-seed tau response curves at preselected c anchors.
+  Preserve the completed linear-c and c-extension results, reuse the inherited
+  trainer and 16-slot scheduler, and treat this as curve-localization pilot
+  evidence rather than a method ranking or optimum search.
+
+entrypoint:
+  cwd: repo_root
+  command: >-
+    E8_ALPHA1_HIGHC_WORK_DIR=outputs/e8/paper_aligned_tau_curve_001
+    E8_ALPHA1_HIGHC_GRID_CONFIG=configs/countdown_e8_oracle_offline_v2_paper_aligned_tau_curve_0p5b.yaml
+    bash scripts/run_countdown_e8_oracle_offline_v2_alpha1_highc_scan_auto_one_click.sh
+
+recovery:
+  enabled: true
+  max_attempts: 2
+  resume_command: >-
+    E8_ALPHA1_HIGHC_WORK_DIR=outputs/e8/paper_aligned_tau_curve_001
+    E8_ALPHA1_HIGHC_GRID_CONFIG=configs/countdown_e8_oracle_offline_v2_paper_aligned_tau_curve_0p5b.yaml
+    bash scripts/run_countdown_e8_oracle_offline_v2_alpha1_highc_scan_auto_one_click.sh
+  retryable_exit_codes: [137, 143]
+  checkpoint_globs:
+    - outputs/e8/paper_aligned_tau_curve_001/RUNTIME_SELECTION.json
+    - outputs/e8/paper_aligned_tau_curve_001/RUNTIME_SLOTS.json
+    - outputs/e8/paper_aligned_tau_curve_001/SWEEP_STATUS.json
+  backoff_seconds: 60
+
+policy:
+  existing_script_required: true
+  forbid_new_launcher: true
+  forbid_hparam_change: true
+  forbid_cross_lane: true
+  scientific_aggregation_allowed: true
+  formal_evidence_allowed: false
+
+outputs:
+  run_dir: outputs/e8/paper_aligned_tau_curve_001
+  summary_file: outputs/e8/paper_aligned_tau_curve_001/SWEEP_COMPLETE.json
+  audit_file: outputs/e8/paper_aligned_tau_curve_001/aggregate/terminal_audit.json
+
+success_criteria:
+  - formula is alpha*exp(-c*max(u-tau,0)) with detached u=current_sequence_surprisal/2
+  - tau=0 is exactly equivalent to the completed paper-aligned linear weight
+  - matrix contains 4 c anchors, 8 tau values, seed offset 4000, and 32 cells
+  - runtime records GPU 0-7, two slots per GPU, and 16 concurrent cells
+  - every nonzero tau is present in the cell name and run identity
+  - smoke gate passes before the full sweep and is not scientific evidence
+  - test_data_used remains false
+  - task performance, valid-structure diagnostics, and NaN/Inf failure are separate
+  - fixed 1200 steps is not described as convergence or steady state
+  - no exact optimum, cross-seed ranking, significance, or OOD claim is made
+
+artifacts:
+  package_policy: manifest_only
+  include:
+    - outputs/e8/paper_aligned_tau_curve_001/*.json
+    - outputs/e8/paper_aligned_tau_curve_001/aggregate/*.json
+    - outputs/e8/paper_aligned_tau_curve_001/aggregate/*.csv
+    - outputs/e8/paper_aligned_tau_curve_001/methods/*/summary.json
+    - outputs/e8/paper_aligned_tau_curve_001/methods/*/metrics.csv
+    - outputs/e8/paper_aligned_tau_curve_001/logs/*.log
+  exclude:
+    - "**/*.pt"
+    - "**/*.pth"
+    - "**/*.safetensors"
+    - "**/*.bin"
+    - "**/checkpoint*"
+    - "**/optimizer*"
+  max_package_size_mb: 30
+  fail_if_excluded_matched: false
+  fail_if_package_too_large: true
+
+delivery:
+  enabled: true
+  auto: true
+  mode: results_repo
+  repository: easonhuo/drpo-results
+  branch: ingest/e8
+  export_profile: manifest_text_v1
+  max_total_size_mb: 30
+  max_file_size_mb: 10
+
+publish:
+  enabled: false
+  auto: false

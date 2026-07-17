@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 import pytest
+import torch
 import yaml
 
 from drpo import countdown_e8_alpha1_c_scan_common as predecessor
@@ -21,6 +22,11 @@ EXTENSION_CONFIG = (
     ROOT
     / "configs"
     / "countdown_e8_oracle_offline_v2_linear_c_extension_0p5b.yaml"
+)
+TAU_CONFIG = (
+    ROOT
+    / "configs"
+    / "countdown_e8_oracle_offline_v2_paper_aligned_tau_curve_0p5b.yaml"
 )
 RUNTIME = ROOT / "src" / "drpo" / "countdown_e8_alpha1_highc_scan_runtime.py"
 AUTO = (
@@ -168,3 +174,39 @@ def test_existing_launcher_is_reused_without_new_training_stack() -> None:
     assert "countdown_e8_alpha1_highc_scan_runtime.py" in source
     assert "e8_linear_c_extension_cuda_dev_v1" in source
     assert "run_countdown_e8_oracle_offline_v2_alpha1_c_scan_auto.py" in source
+
+
+def test_tau_curve_has_dense_single_seed_32_cell_matrix() -> None:
+    config = _load(TAU_CONFIG)
+    cells = scan.build_cells(config)
+    assert len(cells) == 32
+    assert len({cell.name for cell in cells}) == 32
+    assert {cell.seed_offset for cell in cells} == {4000}
+    assert {cell.c for cell in cells} == set(scan.TAU_C_VALUES)
+    assert {cell.tau for cell in cells} == set(scan.TAU_VALUES)
+    assert {cell.method for cell in cells} == {"continuous_exp"}
+
+
+def test_tau_zero_is_exactly_the_existing_linear_weight() -> None:
+    seq_lp = torch.tensor([-0.5, -1.0, -2.0])
+    scan.set_active_tau(0.0)
+    actual = scan.continuous_exp_weights(seq_lp, alpha=1.0, c=2.0)
+    expected = torch.exp(-2.0 * scan.continuous_remoteness(seq_lp))
+    assert torch.equal(actual, expected)
+
+
+def test_positive_tau_retains_near_negatives_without_weight_amplification() -> None:
+    seq_lp = torch.tensor([-0.5, -1.0, -2.0])
+    try:
+        scan.set_active_tau(0.5)
+        actual = scan.continuous_exp_weights(seq_lp, alpha=1.0, c=2.0)
+        assert torch.allclose(actual, torch.exp(torch.tensor([0.0, 0.0, -1.0])))
+        assert bool((actual <= 1.0).all())
+    finally:
+        scan.set_active_tau(0.0)
+
+
+def test_tau_runtime_forwards_each_cell_threshold() -> None:
+    source = RUNTIME.read_text(encoding="utf-8")
+    assert '"--tau"' in source
+    assert 'getattr(cell, "tau", 0.0)' in source
