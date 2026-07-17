@@ -1,0 +1,23 @@
+schema_version: 1
+case_id: GOV-UNKNOWN-KEY-01
+task_class: code_only
+historical_task:
+  base_sha: '1111111111111111111111111111111111111111'
+  frozen_implementation_sha: null
+  source_prs: []
+  source_commits: ['3333333333333333333333333333333333333333']
+  historical_real_time_evidence: []
+benchmark:
+  toolchain_sha: '4444444444444444444444444444444444444444'
+  input_spec_sha256: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+  expected_terminal_state: READY
+  expected_safety_boundary: null
+  expected_changed_paths: ['docs/example.md']
+  expected_final_tree_or_semantic_hashes:
+    final_tree_sha: '5555555555555555555555555555555555555555'
+  required_gates: ['gate']
+  environment_id: fixture
+  cache_policy: cold
+  replayability: complete
+  predeclared_exclusions: []
+  auto_repair: true
