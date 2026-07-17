@@ -1,0 +1,60 @@
+experiment_id: EXT-H-E7-SQEXP-GAE-01
+run_kind: pilot
+scientific_status: code_first_development_pilot_not_run
+role: external_validity_advantage_estimator_comparison
+
+# Existing-schema source RunSpec containing exact dataset paths, SHA-256 values,
+# environment IDs, and D4RL score references. The operator may override this path.
+source_run_spec: /root/d4rl2/configs/e7_canonical_9task_full_grid_run_spec_v1.json
+
+datasets:
+  - hopper-medium-expert-v2
+  - walker2d-medium-v2
+  - walker2d-medium-replay-v2
+development_seeds: [200, 201, 202, 203]
+held_out_seeds: [204, 205, 206, 207]
+
+advantage_estimators: [one_step_td, behavior_gae]
+actor_update_modes: [a2c, ppo_clip_k4]
+controls: [positive_only, sqexp_c64, sqexp_c128, sqexp_c256]
+exp_coefficients: [64.0, 128.0, 256.0]
+reference_distance: 2.0
+weight_formula: w(d)=exp(-c*(d/2)^2)
+
+gamma: 0.99
+gae_lambda: 0.95
+expectile_tau: 0.7
+ppo_clip_epsilon: 0.2
+ppo_old_policy_cadence: 4
+critic_steps: 100000
+actor_steps: 1000000
+batch_size: 256
+learning_rate: 0.0003
+evaluation_interval: 50000
+evaluation_episodes: 10
+late_window_start: 800000
+
+advantage_contract:
+  true_terminal: no_bootstrap_and_stop_carry
+  timeout: bootstrap_and_stop_carry
+  final_stored_nonterminal: bootstrap_and_stop_carry
+  terminal_timeout_overlap_allowed: false
+  normalization: none
+  clipping: none
+  actor_dtype: float32
+
+expected_critic_jobs: 12
+expected_actor_branches: 192
+fixed_horizon_is_convergence: false
+formal_evidence_allowed: false
+held_out_seed_use_allowed: false
+reporting_separation:
+  - task_performance_collapse
+  - support_or_variance_boundary_event
+  - nan_inf_numerical_failure
+non_claims:
+  - universal_advantage_estimator_superiority
+  - convergence_or_steady_state_from_fixed_horizon
+  - controlled_causal_identification
+  - ood_generalization
+  - replacement_of_cu1_or_du1

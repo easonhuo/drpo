@@ -1,0 +1,35 @@
+schema_version: 1
+experiment_id: EXT-H-E7-SQEXP-GAE-01
+execution_class: pilot
+status: code_complete_not_run
+target_branch: replay/regen-gae-run-01
+protocol_config: configs/e7_sqexp_gae_v1.yaml
+operator_entrypoint: scripts/run_e7_sqexp_gae.py
+source_dataset_run_spec: /root/d4rl2/configs/e7_canonical_9task_full_grid_run_spec_v1.json
+work_dir: outputs/e7/sqexp_gae_run_01
+command:
+  - python
+  - scripts/run_e7_sqexp_gae.py
+  - run
+  - --config
+  - configs/e7_sqexp_gae_v1.yaml
+  - --run-spec
+  - /root/d4rl2/configs/e7_canonical_9task_full_grid_run_spec_v1.json
+  - --work-dir
+  - outputs/e7/sqexp_gae_run_01
+  - --critic-workers
+  - '12'
+  - --actor-workers
+  - '64'
+  - --resume
+matrix:
+  datasets: 3
+  development_seeds: 4
+  shared_critics: 12
+  advantage_estimators: 2
+  actor_modes: 2
+  controls: 4
+  actor_branches: 192
+formal_evidence_allowed: false
+held_out_seeds_touched: false
+fixed_horizon_is_convergence: false
