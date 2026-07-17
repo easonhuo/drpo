@@ -4,7 +4,7 @@ lane: e7
 priority: 145
 created_at: '2026-07-17T07:40:00Z'
 experiment_id: EXT-H-E7-SQEXP-GAE-01
-repo_commit: 57b800a1f950fe40b585e654a8b63d293da6bd4e
+repo_commit: ed486b6a5d4767b2d79d588e0121369f55fe4af7
 
 registration:
   mode: deferred
@@ -15,22 +15,30 @@ provenance:
   protected_paths:
     - configs/e7_sqexp_gae_v2.json
     - docs/scopes/EXT-H-E7-SQEXP-GAE-01.md
-    - src/drpo/e7_canonical_gae_injection.py
-    - src/drpo/e7_sqexp_gae.py
-    - scripts/run_e7_sqexp_gae_liveness.py
-    - tests/test_e7_sqexp_gae.py
-    - tests/test_e7_sqexp_gae_liveness.py
+    - src/drpo/e7_canonical_injection.py
+    - src/drpo/e7_squared_exp_night.py
+    - src/drpo/e7_squared_exp_night_bootstrap.py
+    - src/drpo/e7_squared_exp_night_aggregate.py
+    - src/drpo/e7_squared_exp_night_runtime_autotune.py
+    - scripts/run_e7_squared_exp_night_auto.py
+    - scripts/run_e7_squared_exp_night_liveness_one_click.sh
+    - tests/test_e7_squared_exp_night.py
+    - tests/test_e7_measured_cpu_wrappers.py
 
 purpose: >
-  Run a non-scientific real-data liveness pair for the corrected canonical
-  joint actor-critic TD/GAE adapter. The runner uses Hopper medium-expert seed
-  200 and squared EXP c=128 for one TD and one GAE branch. Probe length is
-  derived as one transition-equivalent replay epoch plus one update so each
-  branch must refresh its critic snapshot twice and demonstrate that the
-  critic changes during actor training. This is engineering evidence only.
+  Run a non-scientific real-data liveness pair through the existing squared-night
+  runner, bootstrap, aggregate, queue, and runtime-autotune path. Hopper
+  medium-expert seed 200 and squared EXP c=128 produce one TD and one GAE branch.
+  Probe length is derived as one replay-equivalent snapshot interval plus one
+  update, so each branch must refresh twice and demonstrate critic evolution.
+  This is engineering evidence only.
 
 entrypoint:
-  command: python scripts/run_e7_sqexp_gae_liveness.py
+  command: >-
+    env E7_SQUARED_EXP_LIVENESS_MODE=gae
+    E7_SQUARED_EXP_GRID=configs/e7_sqexp_gae_v2.json
+    E7_SQUARED_EXP_LIVENESS_WORK_DIR=outputs/e7/sqexp_gae_joint_liveness_001
+    bash scripts/run_e7_squared_exp_night_liveness_one_click.sh
   cwd: repo_root
 
 policy:
@@ -43,17 +51,17 @@ policy:
 
 outputs:
   run_dir: outputs/e7/sqexp_gae_joint_liveness_001
-  summary_file: outputs/e7/sqexp_gae_joint_liveness_001/LIVENESS_SUMMARY.json
-  audit_file: outputs/e7/sqexp_gae_joint_liveness_001/LIVENESS_SUMMARY.json
+  summary_file: outputs/e7/sqexp_gae_joint_liveness_001/aggregate/aggregate_summary.json
+  audit_file: outputs/e7/sqexp_gae_joint_liveness_001/aggregate/LIVENESS_AUDIT.json
 
 success_criteria:
   - protected implementation paths are unchanged from the pinned commit
-  - the full development matrix validates as exactly 96 branches
+  - the frozen development matrix validates as exactly 96 branches
   - exactly one TD and one GAE liveness branch run on the same dataset and seed
   - both branches use squared EXP c=128 and canonical A2C
   - probe length equals snapshot refresh interval plus one update
   - both branches record at least two critic snapshots
-  - both branches observe critic evolution with c_opt.step active
+  - both branches observe critic evolution with the existing c_opt.step active
   - TD and GAE record identical critic snapshot hash trajectories
   - the HDF5 physically contains aligned timeouts and next_observations fields
   - no prepared or persistent advantage artifact is used
@@ -65,7 +73,14 @@ success_criteria:
 artifacts:
   package_policy: manifest_only
   include:
-    - outputs/e7/sqexp_gae_joint_liveness_001/LIVENESS_SUMMARY.json
+    - outputs/e7/sqexp_gae_joint_liveness_001/LAUNCH_REGISTRATION_STATUS.json
+    - outputs/e7/sqexp_gae_joint_liveness_001/RUNTIME_SELECTION.json
+    - outputs/e7/sqexp_gae_joint_liveness_001/EXECUTION_PLAN.json
+    - outputs/e7/sqexp_gae_joint_liveness_001/RUN_IDENTITY.json
+    - outputs/e7/sqexp_gae_joint_liveness_001/GAE_STAGE_STATUS.json
+    - outputs/e7/sqexp_gae_joint_liveness_001/aggregate/aggregate_summary.json
+    - outputs/e7/sqexp_gae_joint_liveness_001/aggregate/LIVENESS_AUDIT.json
+    - outputs/e7/sqexp_gae_joint_liveness_001/aggregate/gae_td_paired_results.csv
     - outputs/e7/sqexp_gae_joint_liveness_001/branches/**/branch_config.json
     - outputs/e7/sqexp_gae_joint_liveness_001/branches/**/branch_manifest.json
     - outputs/e7/sqexp_gae_joint_liveness_001/branches/**/COMPLETED.json
