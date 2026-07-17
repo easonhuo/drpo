@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "benchmark_id": "GOV-CODE-REGENERATION-REPLAY-01",
+  "case_id": "REGEN-GAE-CANONICAL-EXTENSION-01",
+  "evaluated_at_main_sha": "d042a60e6e665fc7f8761e97d41fa0a621f78b87",
+  "historical_task_base_sha": "aedbe8cc7e50f730cb6fcde90ca1816b97d79173",
+  "randomized_assignment": {
+    "replay/regen-gae-run-01": "baseline_no_candidate_gate_feedback",
+    "replay/regen-gae-run-02": "candidate_gate_feedback_after_each_complete_attempt"
+  },
+  "valid_causal_treatment_pair": false,
+  "invalidity_reasons": [
+    "The candidate-treatment run did not submit a complete repository attempt.",
+    "The candidate gate was therefore never executed or returned to a generator.",
+    "No candidate repair round exists, so repair-at-1 and repair-at-2 are undefined.",
+    "The two sessions did not yield comparable terminal repository trees or reliable paired wall-time evidence."
+  ],
+  "operational_outcomes": {
+    "submitted_runs": 1,
+    "scheduled_runs": 2,
+    "submission_rate": 0.5,
+    "accepted_runs": 0,
+    "rejected_incomplete_runs": 1,
+    "no_submission_timeouts": 1
+  },
+  "baseline_submitted_attempt": {
+    "final_commit": "75b30004fad742e0bb07daa059fe757b183d44eb",
+    "production_python_churn": 1783,
+    "test_python_churn": 475,
+    "total_changed_files_excluding_task_packet": 19,
+    "new_production_python_files": 14,
+    "classification": "REJECTED_INCOMPLETE",
+    "primary_failure": "parallel generic E7 trainer/runner/evaluation/aggregation stack plus missing full validation and real liveness"
+  },
+  "candidate_treatment_attempt": {
+    "final_commit": null,
+    "classification": "NO_SUBMISSION_TIMEOUT",
+    "candidate_gate_feedback_delivered": false,
+    "repository_verifiable_churn": 0,
+    "reported_uncommitted_production_python_additions": 2389,
+    "reported_uncommitted_test_python_additions": 453
+  },
+  "primary_metrics": {
+    "unsafe_pass_rate": 0.0,
+    "correct_final_false_rejection_rate": null,
+    "candidate_repair_at_1": null,
+    "candidate_repair_at_2": null,
+    "paired_production_python_reduction": null,
+    "paired_total_wall_time_regression": null,
+    "required_liveness_regression": null
+  },
+  "historical_context_not_causal": {
+    "historical_overgrown_total_additions_pr_92": 5093,
+    "regenerated_baseline_total_additions_excluding_task_packet": 2438,
+    "reduction_vs_historical_overgrown_total_additions": 0.521303750245435,
+    "later_compact_total_additions_pr_107": 1363,
+    "regenerated_baseline_increase_vs_later_compact_total_additions": 0.7887013939838592,
+    "interpretation": "The frozen prompt alone reduced the historical worst-case size, but the submitted regeneration remained materially larger than the later canonical implementation and failed the frozen reuse criterion. Different bases and development histories make these descriptive references, not treatment estimates."
+  },
+  "benchmark_implication": "This pair measures a manual-orchestration reliability failure and one overgrown baseline submission. It does not estimate the causal effect or ROI of the candidate code-change-budget gate."
+}
