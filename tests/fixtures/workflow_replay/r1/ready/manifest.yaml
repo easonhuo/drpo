@@ -1,0 +1,40 @@
+schema_version: 2
+case_id: R1-CAL-READY-EXACT
+task_class: code_only
+historical_task:
+  base_sha: 2f677f4b00954ea71d0efa7def552a1ea3daa565
+  frozen_implementation_sha: null
+  source_prs:
+  - 116
+  source_commits:
+  - 2f677f4b00954ea71d0efa7def552a1ea3daa565
+  historical_real_time_evidence:
+  - commit:2f677f4b00954ea71d0efa7def552a1ea3daa565
+benchmark:
+  toolchain_sha: 2f677f4b00954ea71d0efa7def552a1ea3daa565
+  input_spec_sha256: a932ebccdb665c7794b7801eb14b934a56ffbb081e28e2413f1f5b83eeb50410
+  expected_terminal_state: READY
+  expected_safety_boundary: null
+  expected_changed_paths:
+  - tests/fixtures/workflow_replay/valid_code_only.yaml
+  expected_final_tree_or_semantic_hashes:
+    artifact_sha256: a932ebccdb665c7794b7801eb14b934a56ffbb081e28e2413f1f5b83eeb50410
+  required_gates:
+  - artifact_digest
+  environment_id: github-main-artifact-v1
+  cache_policy: cold
+  replayability: complete
+  predeclared_exclusions: []
+r1:
+  comparison_mode: exact_artifact
+  expected_file_modes:
+    tests/fixtures/workflow_replay/valid_code_only.yaml: '100644'
+  expected_authority_result: PASS
+  expected_gate_results:
+    artifact_digest: PASS
+  expected_diagnostic_codes: []
+  expected_recovery_class: null
+  workspace_rule: changed_as_expected
+  evaluator_sha256: 001941d6557e19832c59ffe318882f332799b425e054d898d005730a2406952e
+  evidence_schema_sha256: 5f02130bc08513540e694fc1b1abf1d8437f9fa697f92535c49a795dcd9de179
+  order_policy: two_opposite_pairs
