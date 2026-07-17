@@ -20,6 +20,7 @@ class HopperProtocol:
     """Scientific constants from the validated E7-Q2 formal run."""
 
     experiment_id: str = "EXT-H-E7-Q2"
+    execution_profile: str = "formal"
     role: str = "external_mechanism_validation"
     dataset_basename: str = "hopper_medium_replay-v2.hdf5"
     dataset_sha256: str = (
@@ -82,10 +83,14 @@ class HopperProtocol:
     def __post_init__(self) -> None:
         if self.experiment_id != "EXT-H-E7-Q2":
             raise ValueError("Hopper protocol identity is frozen")
+        if self.execution_profile not in {"formal", "smoke"}:
+            raise ValueError("execution_profile must be formal or smoke")
         if self.role != "external_mechanism_validation":
             raise ValueError("Hopper E7-Q2 is an external mechanism validation")
-        if len(self.formal_seeds) != 10:
+        if self.execution_profile == "formal" and len(self.formal_seeds) != 10:
             raise ValueError("Hopper E7-Q2 requires ten formal seeds")
+        if self.execution_profile == "smoke" and not self.formal_seeds:
+            raise ValueError("smoke profile requires at least one seed")
         if not 0.0 < self.train_fraction < 1.0:
             raise ValueError("train_fraction must lie in (0, 1)")
         if not 0.0 < self.validation_fraction < 1.0:
@@ -103,6 +108,7 @@ def smoke_protocol() -> HopperProtocol:
 
     return replace(
         HopperProtocol(),
+        execution_profile="smoke",
         hidden_sizes=(16, 16),
         critic_batch_size=8,
         actor_batch_size=8,
