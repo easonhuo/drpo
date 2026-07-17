@@ -1,3 +1,3 @@
 """Compact paper-facing DRPO reference implementation."""
 
-__all__ = ["common", "controls"]
+__all__ = ["common", "continuous", "controls"]
