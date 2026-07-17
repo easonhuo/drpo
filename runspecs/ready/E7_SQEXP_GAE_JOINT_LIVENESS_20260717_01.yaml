@@ -4,7 +4,7 @@ lane: e7
 priority: 145
 created_at: '2026-07-17T07:40:00Z'
 experiment_id: EXT-H-E7-SQEXP-GAE-01
-repo_commit: 7614e2ba9c9dffd1a69ae3b64f791034990a9735
+repo_commit: 9ca9a6c45d6092d59d4284478e4318515f37ff5c
 
 registration:
   mode: deferred
@@ -54,6 +54,7 @@ success_criteria:
   - probe length equals snapshot refresh interval plus one update
   - both branches record at least two critic snapshots
   - both branches observe critic evolution with c_opt.step active
+  - TD and GAE record identical critic snapshot hash trajectories
   - the HDF5 physically contains aligned timeouts and next_observations fields
   - no prepared or persistent advantage artifact is used
   - terminal, timeout, and dataset-tail recursion boundaries remain fail-closed
