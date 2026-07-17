@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 from typing import Any, Mapping
 
+import h5py
 import numpy as np
 import torch
 
@@ -153,12 +154,33 @@ def state_dict_sha256(state: Mapping[str, Any]) -> str:
     return digest.hexdigest()
 
 
+def _validate_ordered_hdf5(path: str | Path) -> Path:
+    source = Path(path).expanduser().resolve()
+    required = (
+        "observations",
+        "actions",
+        "rewards",
+        "terminals",
+        "timeouts",
+        "next_observations",
+    )
+    with h5py.File(source, "r") as handle:
+        missing = [name for name in required if name not in handle]
+        if missing:
+            raise ValueError(f"ordered GAE replay is missing HDF5 fields: {missing}")
+        lengths = {int(handle[name].shape[0]) for name in required}
+        if lengths == {0} or len(lengths) != 1:
+            raise ValueError("ordered GAE HDF5 fields must be non-empty and aligned")
+    return source
+
+
 def load_ordered_replay(
     *,
     canonical_root: str | Path,
     dataset_path: str | Path,
     dataset_id: str,
 ) -> OrderedReplay:
+    source = _validate_ordered_hdf5(dataset_path)
     root = str(Path(canonical_root).expanduser().resolve())
     inserted = root not in sys.path
     if inserted:
@@ -166,9 +188,7 @@ def load_ordered_replay(
     try:
         from d4rl_common.train_loop import load_hdf5
 
-        return OrderedReplay.from_mapping(
-            load_hdf5(Path(dataset_path).expanduser().resolve(), dataset_name=dataset_id)
-        )
+        return OrderedReplay.from_mapping(load_hdf5(source, dataset_name=dataset_id))
     finally:
         if inserted:
             sys.path.remove(root)
