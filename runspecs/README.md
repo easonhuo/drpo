@@ -53,6 +53,25 @@ The canonical command is:
 python scripts/agent/run_lane.py --once
 ```
 
+## Environment prefixes
+
+`entrypoint.command` and `recovery.resume_command` may start with literal
+shell-style environment assignments before the executable:
+
+```yaml
+entrypoint:
+  command: >-
+    WORK_DIR=outputs/e8/example
+    GRID_CONFIG='configs/example grid.yaml'
+    bash scripts/e8/run_example_one_click.sh
+```
+
+The executor separates the leading `NAME=value` tokens, adds them to a copy of
+the process environment, and executes the remaining argv without `shell=True`.
+Shell expansion, command substitution, pipes, redirects, and other arbitrary
+shell syntax are not introduced by this compatibility rule. At least one
+executable token must follow the assignments.
+
 ## State model and reruns
 
 Tracked READY specifications live under `runspecs/ready/`. Local state is stored
