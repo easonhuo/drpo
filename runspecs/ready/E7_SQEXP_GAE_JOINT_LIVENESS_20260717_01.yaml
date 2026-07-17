@@ -1,0 +1,94 @@
+version: 1
+run_id: E7_SQEXP_GAE_JOINT_LIVENESS_20260717_01
+lane: e7
+priority: 145
+created_at: '2026-07-17T07:40:00Z'
+experiment_id: EXT-H-E7-SQEXP-GAE-01
+repo_commit: 4450a53c8232a8ffd37452e416ba0af827e136ff
+
+registration:
+  mode: deferred
+  closure_required: true
+
+provenance:
+  commit_policy: protected_paths_unchanged
+  protected_paths:
+    - configs/e7_sqexp_gae_v2.json
+    - docs/scopes/EXT-H-E7-SQEXP-GAE-01.md
+    - src/drpo/e7_canonical_gae_injection.py
+    - src/drpo/e7_sqexp_gae.py
+    - scripts/run_e7_sqexp_gae_liveness.py
+    - tests/test_e7_sqexp_gae.py
+    - tests/test_e7_sqexp_gae_liveness.py
+
+purpose: >
+  Run a non-scientific real-data liveness pair for the corrected canonical
+  joint actor-critic TD/GAE adapter. The runner uses Hopper medium-expert seed
+  200 and squared EXP c=128 for one TD and one GAE branch. Probe length is
+  derived as one transition-equivalent replay epoch plus one update so each
+  branch must refresh its critic snapshot twice and demonstrate that the
+  critic changes during actor training. This is engineering evidence only.
+
+entrypoint:
+  command: python scripts/run_e7_sqexp_gae_liveness.py
+  cwd: repo_root
+
+policy:
+  existing_script_required: true
+  forbid_new_launcher: true
+  forbid_hparam_change: true
+  forbid_cross_lane: true
+  scientific_aggregation_allowed: false
+  formal_evidence_allowed: false
+
+outputs:
+  run_dir: outputs/e7/sqexp_gae_joint_liveness_001
+  summary_file: outputs/e7/sqexp_gae_joint_liveness_001/LIVENESS_SUMMARY.json
+  audit_file: outputs/e7/sqexp_gae_joint_liveness_001/LIVENESS_SUMMARY.json
+
+success_criteria:
+  - protected implementation paths are unchanged from the pinned commit
+  - the full development matrix validates as exactly 96 branches
+  - exactly one TD and one GAE liveness branch run on the same dataset and seed
+  - both branches use squared EXP c=128 and canonical A2C
+  - probe length equals snapshot refresh interval plus one update
+  - both branches record at least two critic snapshots
+  - both branches observe critic evolution with c_opt.step active
+  - no prepared or persistent advantage artifact is used
+  - terminal, timeout, and dataset-tail recursion boundaries remain fail-closed
+  - task performance, support or variance boundary, and NaN or Inf remain separate
+  - held-out seeds 204 through 207 are untouched
+  - no scientific aggregation, convergence, steady-state, or ranking claim is produced
+
+artifacts:
+  package_policy: manifest_only
+  include:
+    - outputs/e7/sqexp_gae_joint_liveness_001/LIVENESS_SUMMARY.json
+    - outputs/e7/sqexp_gae_joint_liveness_001/branches/**/branch_config.json
+    - outputs/e7/sqexp_gae_joint_liveness_001/branches/**/branch_manifest.json
+    - outputs/e7/sqexp_gae_joint_liveness_001/branches/**/COMPLETED.json
+    - outputs/e7/sqexp_gae_joint_liveness_001/branches/**/stdout_stderr.log
+    - outputs/e7/sqexp_gae_joint_liveness_001/branches/**/geometry_diagnostics.jsonl
+    - outputs/e7/sqexp_gae_joint_liveness_001/branches/**/GEOMETRY_DIAGNOSTICS_LATEST.json
+    - outputs/e7/sqexp_gae_joint_liveness_001/branches/**/trainer_output/*_summary.json
+  exclude:
+    - '**/*.pt'
+    - '**/*.pth'
+    - '**/*.ckpt'
+    - '**/*.safetensors'
+    - '**/*.bin'
+    - '**/checkpoint*'
+    - '**/checkpoints/**'
+    - '**/model*'
+    - '**/optimizer*'
+    - '**/wandb/**'
+  max_package_size_mb: 25
+  fail_if_excluded_matched: false
+  fail_if_package_too_large: true
+
+publish:
+  enabled: false
+  auto: false
+
+recovery:
+  enabled: false
