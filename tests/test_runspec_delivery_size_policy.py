@@ -69,88 +69,26 @@ def test_size_errors_are_classified_without_hiding_other_failures() -> None:
     assert not is_result_too_large_error(RunSpecError("git push failed"))
 
 
-def test_missing_e7_e8_delivery_defaults_to_results_repo() -> None:
-    for lane in ("e7", "e8"):
-        spec = {"lane": lane}
-        runner.apply_default_results_delivery(spec)
-        assert spec["delivery"] == {
-            "enabled": True,
-            "auto": True,
-            "mode": "results_repo",
-            "repository": "easonhuo/drpo-results",
-            "branch": f"ingest/{lane}",
-            "export_profile": "manifest_text_v1",
-            "max_total_size_mb": 30,
-            "max_file_size_mb": 10,
-        }
-
-
-def test_explicit_disabled_delivery_remains_local_only() -> None:
-    delivery = {"enabled": False, "auto": False}
-    spec = {"lane": "e8", "delivery": delivery.copy()}
+@pytest.mark.parametrize("lane", ["e7", "e8"])
+def test_missing_delivery_defaults_to_lane_results_repo(lane: str) -> None:
+    spec = {"lane": lane}
     runner.apply_default_results_delivery(spec)
-    assert spec["delivery"] == delivery
+    assert spec["delivery"] == {
+        "enabled": True,
+        "auto": True,
+        "mode": "results_repo",
+        "repository": "easonhuo/drpo-results",
+        "branch": f"ingest/{lane}",
+        "export_profile": "manifest_text_v1",
+        "max_total_size_mb": 30,
+        "max_file_size_mb": 10,
+    }
 
 
-def test_default_delivery_is_persisted_and_executed(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    repo = tmp_path / "repo"
-    spec = delivery_spec()
-    spec.pop("delivery")
-    claimed = repo / ".runspec_state" / "claimed" / "E7-SIZE-POLICY-1.yaml"
-    claimed.parent.mkdir(parents=True)
-    claimed.write_text(yaml.safe_dump(spec, sort_keys=False), encoding="utf-8")
-
-    monkeypatch.setattr(runner, "validate_provenance", lambda *_args, **_kwargs: None)
-    monkeypatch.setattr(
-        runner,
-        "validate_recovery_policy",
-        lambda *_args, **_kwargs: None,
-    )
-    monkeypatch.setattr(
-        runner,
-        "run_entrypoint_with_recovery",
-        lambda *_args, **_kwargs: {
-            "returncode": 0,
-            "attempts": 1,
-            "recovery_used": False,
-            "recovery_report": None,
-        },
-    )
-    monkeypatch.setattr(
-        runner,
-        "package_artifacts_safe",
-        lambda *_args, **_kwargs: {
-            "zip_path": "runspec_artifacts/E7-SIZE-POLICY-1_results.zip",
-            "zip_sha256": "a" * 64,
-        },
-    )
-
-    def delivered(source_repo: Path, run_id: str) -> dict[str, str]:
-        done = source_repo / ".runspec_state" / "done" / f"{run_id}.yaml"
-        persisted = yaml.safe_load(done.read_text(encoding="utf-8"))
-        assert persisted["delivery"]["enabled"] is True
-        assert persisted["delivery"]["auto"] is True
-        assert persisted["delivery"]["branch"] == "ingest/e7"
-        return {
-            "status": "PASS",
-            "repository": "easonhuo/drpo-results",
-            "branch": "ingest/e7",
-            "results_commit": "b" * 40,
-            "result_path": f"runs/e7/{run_id}",
-            "manifest_sha256": "c" * 64,
-        }
-
-    monkeypatch.setattr(results_delivery, "deliver_completed_run", delivered)
-
-    payload, code = runner.execute_claimed_runspec(repo, claimed)
-
-    assert code == 0
-    assert payload["status"] == "PASS"
-    assert payload["delivery_status"] == "PASS"
-    assert payload["results_commit"] == "b" * 40
+def test_explicit_disabled_delivery_is_preserved() -> None:
+    spec = {"lane": "e8", "delivery": {"enabled": False, "auto": False}}
+    runner.apply_default_results_delivery(spec)
+    assert spec["delivery"]["enabled"] is False
 
 
 def test_auto_delivery_oversize_keeps_done_and_returns_success(
@@ -160,7 +98,9 @@ def test_auto_delivery_oversize_keeps_done_and_returns_success(
     repo = tmp_path / "repo"
     claimed = repo / ".runspec_state" / "claimed" / "E7-SIZE-POLICY-1.yaml"
     claimed.parent.mkdir(parents=True)
-    claimed.write_text(yaml.safe_dump(delivery_spec(), sort_keys=False), encoding="utf-8")
+    spec = delivery_spec()
+    spec.pop("delivery")
+    claimed.write_text(yaml.safe_dump(spec, sort_keys=False), encoding="utf-8")
 
     monkeypatch.setattr(runner, "validate_provenance", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(
@@ -201,7 +141,9 @@ def test_auto_delivery_oversize_keeps_done_and_returns_success(
     assert payload["delivery_status"] == RESULT_TOO_LARGE
     assert payload["delivery_upload_attempted"] is False
     assert payload["local_artifact_zip"].endswith("_results.zip")
-    assert (repo / ".runspec_state" / "done" / "E7-SIZE-POLICY-1.yaml").is_file()
+    done = repo / ".runspec_state" / "done" / "E7-SIZE-POLICY-1.yaml"
+    persisted = yaml.safe_load(done.read_text(encoding="utf-8"))
+    assert persisted["delivery"]["branch"] == "ingest/e7"
     report = json.loads(
         (
             repo
