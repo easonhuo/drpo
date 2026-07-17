@@ -65,6 +65,7 @@ MODEL_LIKE_SUFFIXES = {
 RUN_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
 LANE_RE = re.compile(r"^[a-z][a-z0-9_-]{0,31}$")
 EXPERIMENT_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
+ENV_ASSIGNMENT_RE = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)=(.*)$")
 
 
 class RunSpecError(RuntimeError):
@@ -208,8 +209,27 @@ def command_tokens(command: str) -> list[str]:
     return tokens
 
 
-def command_script_path(command: str) -> str | None:
+def split_command_env(command: str) -> tuple[dict[str, str], list[str]]:
+    """Split leading shell-style NAME=value tokens without invoking a shell."""
     tokens = command_tokens(command)
+    environment: dict[str, str] = {}
+    index = 0
+    while index < len(tokens):
+        match = ENV_ASSIGNMENT_RE.fullmatch(tokens[index])
+        if match is None:
+            break
+        environment[match.group(1)] = match.group(2)
+        index += 1
+    argv = tokens[index:]
+    if not argv:
+        raise RunSpecError(
+            "entrypoint command must include an executable after environment assignments"
+        )
+    return environment, argv
+
+
+def command_script_path(command: str) -> str | None:
+    _, tokens = split_command_env(command)
     first = tokens[0]
     if first in {"bash", "sh", "python", "python3"} and len(tokens) >= 2:
         candidate = tokens[1]
@@ -543,7 +563,9 @@ def run_entrypoint(repo: Path, spec_path: Path, *, log_dir: Path | None = None) 
     entrypoint = spec["entrypoint"]
     command = entrypoint["command"]
     cwd = resolve_cwd(repo, entrypoint.get("cwd") or "repo_root")
-    tokens = command_tokens(command)
+    command_env, tokens = split_command_env(command)
+    process_env = os.environ.copy()
+    process_env.update(command_env)
     state_log_dir = log_dir or (repo / STATE_DIRNAME / "logs" / spec["run_id"])
     state_log_dir.mkdir(parents=True, exist_ok=True)
     command_path = state_log_dir / "COMMAND.txt"
@@ -552,7 +574,14 @@ def run_entrypoint(repo: Path, spec_path: Path, *, log_dir: Path | None = None) 
     command_path.write_text(command + "\n", encoding="utf-8")
     started = time.time()
     with stdout_path.open("w", encoding="utf-8") as out, stderr_path.open("w", encoding="utf-8") as err:
-        proc = subprocess.run(tokens, cwd=cwd, stdout=out, stderr=err, check=False)
+        proc = subprocess.run(
+            tokens,
+            cwd=cwd,
+            env=process_env,
+            stdout=out,
+            stderr=err,
+            check=False,
+        )
     elapsed = time.time() - started
     result = {
         "run_id": spec["run_id"],
