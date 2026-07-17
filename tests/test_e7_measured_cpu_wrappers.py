@@ -63,7 +63,10 @@ def test_run_identity_is_required_before_revalidation(
         module._validate_existing_run_identity(tmp_path, 4, "digest")  # noqa: SLF001
 
 
-def test_ppo_plan_materializes_identity_from_execution_plan(tmp_path: Path) -> None:
+@pytest.mark.parametrize("module", [ppo_script, night_script])
+def test_plan_materializes_identity_from_execution_plan(
+    module, tmp_path: Path
+) -> None:
     work = tmp_path / "work"
     work.mkdir()
     plan = {
@@ -75,7 +78,7 @@ def test_ppo_plan_materializes_identity_from_execution_plan(tmp_path: Path) -> N
         json.dumps(plan), encoding="utf-8"
     )
 
-    ppo_script._bind_selection_to_run_identity(  # noqa: SLF001
+    module._bind_selection_to_run_identity(  # noqa: SLF001
         work,
         selected_workers=4,
         selection_digest="selection-digest",
@@ -91,18 +94,27 @@ def test_ppo_plan_materializes_identity_from_execution_plan(tmp_path: Path) -> N
         "path": str(work / "RUNTIME_SELECTION.json"),
         "scientific_matrix_changed": False,
     }
-    ppo_script._validate_existing_run_identity(  # noqa: SLF001
+    module._validate_existing_run_identity(  # noqa: SLF001
         work, 4, "selection-digest"
     )
 
 
-def test_ppo_plan_identity_requires_execution_plan(tmp_path: Path) -> None:
+@pytest.mark.parametrize("module", [ppo_script, night_script])
+def test_plan_identity_requires_execution_plan(module, tmp_path: Path) -> None:
     with pytest.raises(RuntimeResourceError, match="EXECUTION_PLAN"):
-        ppo_script._bind_selection_to_run_identity(  # noqa: SLF001
+        module._bind_selection_to_run_identity(  # noqa: SLF001
             tmp_path,
             selected_workers=4,
             selection_digest="selection-digest",
         )
+
+
+def test_night_parser_reuses_existing_command_with_optional_gae_pair() -> None:
+    args = night_script.build_parser().parse_args(
+        [*required_args(), "--matched-gae-pair"]
+    )
+    assert args.command == "plan"
+    assert args.matched_gae_pair is True
 
 
 def test_highc_adapter_binds_and_restores_implementation_identity() -> None:
