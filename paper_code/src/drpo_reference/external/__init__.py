@@ -1,5 +1,7 @@
 """External-validity experiment components."""
 
+from .hopper_advantages import critic_advantage_arrays
+from .hopper_critic import CriticRun, train_critic
 from .hopper_data import (
     Normalizer,
     OfflineData,
@@ -20,12 +22,14 @@ from .hopper_protocol import METHODS, HopperProtocol, smoke_protocol
 
 __all__ = [
     "METHODS",
+    "CriticRun",
     "HopperProtocol",
     "Normalizer",
     "OfflineData",
     "SquashedGaussianPolicy",
     "ValueNetwork",
     "build_episode_ids",
+    "critic_advantage_arrays",
     "classify_actor_terminal",
     "discounted_returns",
     "load_hopper_hdf5",
@@ -36,4 +40,5 @@ __all__ = [
     "relative_slope",
     "smoke_protocol",
     "split_episode_indices",
+    "train_critic",
 ]

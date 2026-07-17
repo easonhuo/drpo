@@ -41,6 +41,15 @@ class HopperProtocol:
     init_scheme: str = "default"
     init_gain: float = 1.0
     critic_learning_rate: float = 3.0e-4
+    critic_relative_slope_tolerance: float = 1.0e-5
+    critic_update_tolerance: float = 1.0e-6
+    critic_validation_r2_min: float = 0.0
+    critic_validation_pearson_min: float = 0.8
+    critic_max_final_to_best_validation_mse_ratio: float = 1.1
+    critic_advantage_sign_agreement_min: float = 0.98
+    critic_advantage_pearson_min: float = 0.995
+    critic_advantage_spearman_min: float = 0.995
+    critic_negative_set_jaccard_min: float = 0.95
     actor_learning_rate: float = 3.0e-4
     critic_batch_size: int = 1024
     actor_batch_size: int = 1024
@@ -69,6 +78,7 @@ class HopperProtocol:
 
     formal_seeds: tuple[int, ...] = tuple(range(100, 110))
     canonical_critic_seed: int = 100
+    critic_min_steps: int = 50_000
     critic_steps: int = 100_000
     critic_eval_interval: int = 2_000
     positive_steps: int = 100_000
@@ -83,10 +93,12 @@ class HopperProtocol:
     def __post_init__(self) -> None:
         if self.experiment_id != "EXT-H-E7-Q2":
             raise ValueError("Hopper protocol identity is frozen")
+        if self.role != "external_mechanism_validation":
+            raise ValueError(
+                "Hopper E7-Q2 is an external mechanism validation"
+            )
         if self.execution_profile not in {"formal", "smoke"}:
             raise ValueError("execution_profile must be formal or smoke")
-        if self.role != "external_mechanism_validation":
-            raise ValueError("Hopper E7-Q2 is an external mechanism validation")
         if self.execution_profile == "formal" and len(self.formal_seeds) != 10:
             raise ValueError("Hopper E7-Q2 requires ten formal seeds")
         if self.execution_profile == "smoke" and not self.formal_seeds:
@@ -96,9 +108,15 @@ class HopperProtocol:
         if not 0.0 < self.validation_fraction < 1.0:
             raise ValueError("validation_fraction must lie in (0, 1)")
         if self.train_fraction + self.validation_fraction >= 1.0:
-            raise ValueError("train and validation fractions leave no test split")
+            raise ValueError(
+                "train and validation fractions leave no test split"
+            )
         if self.critic_steps <= 0 or self.positive_steps <= 0:
-            raise ValueError("formal training budgets must be positive")
+            raise ValueError("training budgets must be positive")
+        if self.critic_min_steps <= 0:
+            raise ValueError("critic_min_steps must be positive")
+        if self.critic_min_steps > self.critic_steps:
+            raise ValueError("critic_min_steps exceeds critic_steps")
         if self.branch_steps <= 0:
             raise ValueError("formal branch budget must be positive")
 
@@ -114,6 +132,7 @@ def smoke_protocol() -> HopperProtocol:
         actor_batch_size=8,
         formal_seeds=(42,),
         canonical_critic_seed=42,
+        critic_min_steps=2,
         critic_steps=4,
         critic_eval_interval=2,
         positive_steps=4,
