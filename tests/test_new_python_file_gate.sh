@@ -62,6 +62,23 @@ git -C "$repo" rm -q pkg/existing.py
 git -C "$repo" commit -qm delete-python
 assert_paths "" "$(git -C "$repo" rev-parse HEAD)"
 
+git -C "$repo" reset -q --hard "$base"
+printf 'base advanced\n' >"$repo/base-only.txt"
+git -C "$repo" add .
+git -C "$repo" commit -qm advance-base
+advanced_base=$(git -C "$repo" rev-parse HEAD)
+git -C "$repo" checkout -q -B stale-feature "$base"
+printf 'stale = 1\n' >"$repo/pkg/stale_branch.py"
+git -C "$repo" add .
+git -C "$repo" commit -qm stale-feature
+stale_head=$(git -C "$repo" rev-parse HEAD)
+output="$tmp/stale-output.txt"
+bash "$gate" --repo-root "$repo" --base "$advanced_base" --head "$stale_head" --output "$output"
+if [[ $(cat "$output") != "pkg/stale_branch.py" ]]; then
+  echo "divergent but related PR history must remain supported" >&2
+  exit 1
+fi
+
 if bash "$gate" --repo-root "$repo" --base deadbeef --head HEAD >/dev/null 2>&1; then
   echo "unresolved base must fail closed" >&2
   exit 1
