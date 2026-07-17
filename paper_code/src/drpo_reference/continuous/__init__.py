@@ -13,6 +13,12 @@ from .cu1 import (
     near_far_losses,
     positive_loss,
 )
+from .cu1_control import (
+    CU1ControlProtocol,
+    ControlRun,
+    control_gradients,
+    run_far_pressure_control,
+)
 from .cu1_mechanism import (
     CausalRun,
     CU1CausalProtocol,
@@ -21,6 +27,15 @@ from .cu1_mechanism import (
     per_sample_negative_gradient,
     run_causal_intervention,
     source_diagnostic,
+)
+from .cu1_phase import (
+    CU1PhaseProtocol,
+    PhaseRun,
+    analytic_local_solution,
+    analytic_mean_critical_alpha,
+    analytic_positive_sigma,
+    analytic_variance_boundary_alpha,
+    run_phase_scan,
 )
 from .cu1_training import (
     CU1PositiveProtocol,
@@ -37,16 +52,25 @@ from .gaussian import (
 
 __all__ = [
     "CU1CausalProtocol",
+    "CU1ControlProtocol",
+    "CU1PhaseProtocol",
     "CU1PositiveProtocol",
     "CU1Protocol",
     "CU1SourceProtocol",
     "CausalRun",
+    "ControlRun",
     "Environment",
     "GaussianActor",
+    "PhaseRun",
     "PositiveRun",
     "Split",
     "all_negative_loss",
+    "analytic_local_solution",
+    "analytic_mean_critical_alpha",
+    "analytic_positive_sigma",
+    "analytic_variance_boundary_alpha",
     "audit_environment",
+    "control_gradients",
     "evaluation",
     "gaussian_log_prob",
     "gaussian_output_components",
@@ -58,6 +82,8 @@ __all__ = [
     "per_sample_negative_gradient",
     "positive_loss",
     "run_causal_intervention",
+    "run_far_pressure_control",
+    "run_phase_scan",
     "source_diagnostic",
     "standardized_distance",
     "train_positive",
