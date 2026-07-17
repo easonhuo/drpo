@@ -172,7 +172,9 @@ The current orchestration path composes the preparation adapter and V1 stages fo
 
 ### 5.3 Existing evidence
 
-The branch includes matched historical code-bloat repair pilots. They show that historical replay can expose a gate that rejects both bad and correct outcomes, and can verify a repaired rule on a frozen matched case.
+The branch includes matched historical code-bloat repair pilot documents. They show that historical replay can expose a gate that rejects both bad and correct outcomes, and can verify a repaired rule on a frozen matched case.
+
+Those pilots were assembled from frozen historical evidence. They are not proof that the current Core automatically ingested or executed historical artifacts end to end.
 
 They do not establish:
 
@@ -201,7 +203,7 @@ Representative examples:
 - wrapper replacement where final repository semantics must be unchanged;
 - V1 lifecycle composition with the same underlying owners;
 - stale-input or gate-failure boundary replay;
-- comparison of already existing historical artifacts under a frozen evaluator.
+- comparison of existing historical artifacts after explicit normalization into frozen outcome evidence.
 
 ### 6.2 Conditional current use cases
 
@@ -705,7 +707,7 @@ This prospective classification does not alter its historical Stage-4 checkpoint
 
 At this roadmap freeze:
 
-- R0 is complete only when this document is reviewed and committed;
+- R0 remains `active`: this roadmap is committed and reviewed, while the separate Candidate 01 plan and any required cross-document pointers remain pending before the R0 exit gate;
 - existing Stage 1--3 code is an implementation starting point for R1, not automatic proof that R1 passed;
 - existing Stage 4 code remains Candidate 01;
 - historical repair pilots remain narrow matched observations;
@@ -753,3 +755,41 @@ For every roadmap update:
 8. verify no scientific or default-route authority changed;
 9. update status only at a reviewed gate;
 10. keep chat as discussion, never as the sole durable authority.
+
+## 20. Roadmap freeze review record
+
+The first roadmap freeze received four post-write review passes.
+
+### Pass 1 -- Architecture and ownership
+
+Result: `PASS`.
+
+- ReplayAB Core, Candidate 01, execution backend, evaluator, and case bank have separate responsibilities.
+- Regeneration Runner is treated as a backend rather than the definition of ReplayAB.
+- V1, authority, GitHub, and scientific owners remain external.
+
+### Pass 2 -- Evidence and claim boundary
+
+Result: `PASS after correction`.
+
+- The historical code-bloat pilots are now explicitly described as frozen matched evidence, not proof of automatic end-to-end historical ingestion.
+- Deterministic, semantic, and stochastic claims are separated.
+- The roadmap does not claim production readiness, live randomized validation, or equivalence to a platform-internal A/B system.
+
+### Pass 3 -- Engineering feasibility and anti-framework control
+
+Result: `PASS`.
+
+- The roadmap favors adapters and normalized artifacts over reimplementation.
+- Services, databases, dashboards, schedulers, automatic publication, and scientific execution remain unauthorized.
+- Every implementation stage requires a fresh size, runtime, and ROI review.
+
+### Pass 4 -- Status and cross-document consistency
+
+Result: `PASS after correction`.
+
+- R0 remains active rather than being incorrectly marked complete solely because this file was committed.
+- Existing Stage 1--3 code is treated as an R1 starting point, not accepted R1 evidence.
+- Existing Stage 4 remains Candidate 01, and no old Stage automatically authorizes the next action.
+
+No code, scientific configuration, registry entry, handoff authority state, default route, PR readiness, or merge state was changed by this roadmap review.
