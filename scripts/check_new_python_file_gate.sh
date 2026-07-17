@@ -65,8 +65,8 @@ head_sha=$(git -C "$repo_root" rev-parse --verify "${head}^{commit}") || {
   exit 2
 }
 
-if ! git -C "$repo_root" merge-base --is-ancestor "$base_sha" "$head_sha"; then
-  echo "base commit is not an ancestor of head: $base_sha -> $head_sha" >&2
+if ! git -C "$repo_root" merge-base "$base_sha" "$head_sha" >/dev/null; then
+  echo "base and head do not share a Git ancestor: $base_sha <> $head_sha" >&2
   exit 2
 fi
 
