@@ -28,6 +28,12 @@ from .du1_protocol import (
     method_specs,
     smoke_protocol,
 )
+from .du1_public import run_du1, smoke_terminal_protocol
+from .du1_reports import (
+    mechanism_report,
+    paired_metric_effect,
+    taper_report,
+)
 from .du1_suite import (
     SeedBundle,
     aggregate,
@@ -70,16 +76,21 @@ __all__ = [
     "evaluate",
     "gather_log_probs",
     "legacy_run_config",
+    "mechanism_report",
     "method_specs",
     "negative_loss_and_diagnostics",
     "normalized_excess_surprisal",
     "paired_effect",
+    "paired_metric_effect",
     "policy_geometry_audit",
     "rarity_logit_anchor_loss",
+    "run_du1",
     "run_method",
     "run_seed_bundle",
     "smoke_protocol",
+    "smoke_terminal_protocol",
     "taper_coefficients",
+    "taper_report",
     "taper_weight",
     "terminal_classification",
     "trainable_parameters",
