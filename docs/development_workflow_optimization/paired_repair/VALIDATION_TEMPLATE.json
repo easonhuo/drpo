@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "a0": {
+    "focused_tests": "not_run",
+    "full_repository_pytest": "not_run",
+    "ruff": "not_run",
+    "required_liveness": "not_applicable",
+    "scientific_scope_unchanged": true,
+    "reviewer_correctness": "pending"
+  },
+  "b1": {
+    "focused_tests": "not_run",
+    "full_repository_pytest": "not_run",
+    "ruff": "not_run",
+    "required_liveness": "not_applicable",
+    "scientific_scope_unchanged": true,
+    "reviewer_correctness": "pending"
+  },
+  "notes": "Replace statuses with pass, fail, not_run, or not_applicable as appropriate."
+}
