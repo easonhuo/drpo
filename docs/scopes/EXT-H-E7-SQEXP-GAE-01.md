@@ -5,9 +5,9 @@
 - development class: code-first external-validity screening pilot;
 - result status: `not_run`;
 - formal evidence allowed: `false`;
-- branch-creation base: `64001f2e7d8636642cf30e57bf6ffc57882bf6ac`;
-- current reviewed main base: `2f677f4b00954ea71d0efa7def552a1ea3daa565`;
-- implementation branch: `dev/e7-canonical-gae-repair-01`;
+- current reviewed main base: `531506b4be6967012c5d01aa4d112deaaccf1c49`;
+- implementation branch: `dev/e7-canonical-gae-repair-02`;
+- clean squash implementation commit: `08d9573b776112b8ec1a5aa7aaf1757170070a41`;
 - predecessor evidence: `EXT-H-E7-SQUARED-EXP-NIGHT-01` Stage C remained blocked and started zero GAE branches;
 - superseded unmerged design: the earlier prepared-advantage / frozen-critic draft must not be launched or treated as this experiment.
 
