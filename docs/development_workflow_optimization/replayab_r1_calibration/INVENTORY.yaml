@@ -6,9 +6,9 @@ evidence_grade_target: C1
 selection_frozen_before_behavior_results: true
 real_repository_sources:
   ready_artifact:
-    path: src/drpo/workflow_replay/__init__.py
+    path: tests/fixtures/workflow_replay/valid_code_only.yaml
     source_commit: 2f677f4b00954ea71d0efa7def552a1ea3daa565
-    source_blob_sha: 0d95c0d56c232846332b791ac7646884115cbee0
+    source_blob_sha: cd690268de3156ea66e926065fd3a93ddb5ea881
   failure_input_artifact:
     path: tests/fixtures/workflow_replay/invalid_unknown_key.yaml
     source_commit: 2f677f4b00954ea71d0efa7def552a1ea3daa565
