@@ -12,7 +12,6 @@ def _pop_tau(argv: list[str]) -> float | None:
     if "--tau" not in argv:
         return None
     index = argv.index("--tau")
-    if index + 1 >= len(argv): raise ValueError("--tau requires a value")
     value = float(argv[index + 1])
     del argv[index : index + 2]
     return value
