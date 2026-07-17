@@ -4,7 +4,7 @@ import pytest
 
 from drpo import e7_canonical_sweep as base
 from scripts.run_e7_sqexp_gae_liveness import (
-    REPRESENTATIVE_COEFFICIENT,
+    COEFFICIENT,
     _probe_branch,
     _probe_template,
     _representative,
@@ -25,7 +25,7 @@ def _branch(estimator: str) -> base.Branch:
         template_values={
             "advantage_estimator": estimator,
             "weight_method": "squared_exponential",
-            "exp_coefficient": str(REPRESENTATIVE_COEFFICIENT),
+            "exp_coefficient": str(COEFFICIENT),
             "steps": "1000000",
         },
         negative_control=None,
