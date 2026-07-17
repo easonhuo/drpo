@@ -5,9 +5,9 @@
 - development class: code-first external-validity screening pilot;
 - result status: `not_run`;
 - formal evidence allowed: `false`;
-- current reviewed main base: `531506b4be6967012c5d01aa4d112deaaccf1c49`;
+- branch base: `531506b4be6967012c5d01aa4d112deaaccf1c49`;
 - implementation branch: `dev/e7-canonical-gae-repair-02`;
-- clean squash implementation commit: `08d9573b776112b8ec1a5aa7aaf1757170070a41`;
+- integrated implementation commit: `deb953310e731a4b43b359d2f808a4d6eed9d333`;
 - predecessor evidence: `EXT-H-E7-SQUARED-EXP-NIGHT-01` Stage C remained blocked and started zero GAE branches;
 - superseded unmerged design: the earlier prepared-advantage / frozen-critic draft must not be launched or treated as this experiment.
 
@@ -45,6 +45,31 @@ The following behavior is frozen:
 
 `EXT-H-E7-Q2` remains a separate completed frozen-critic mechanism experiment and
 is not a parent implementation for this pilot.
+
+## Existing-pipeline integration
+
+GAE is an estimator option inside the existing squared-night execution stack; it
+is not a parallel runner. The implementation reuses:
+
+- `src/drpo/e7_squared_exp_night.py` for matrix construction and branch commands;
+- `src/drpo/e7_squared_exp_night_bootstrap.py` for canonical module loading and
+  execution;
+- `src/drpo/e7_squared_exp_night_runtime_autotune.py` and the existing auto runner
+  for measured worker selection, queueing, resume, and revalidation;
+- `src/drpo/e7_squared_exp_night_aggregate.py` for branch and terminal audits;
+- `src/drpo/e7_canonical_injection.py` as the single owner of actor loss, critic
+  target, expectile loss, and both optimizer steps.
+
+The canonical injection exposes only an optional detached actor-advantage
+provider. The trajectory snapshot provider cannot replace or duplicate the
+critic update. The following redundant Python files were removed after their
+necessary tests and estimator logic were integrated into the existing modules:
+
+- `src/drpo/e7_canonical_gae_injection.py`;
+- `src/drpo/e7_sqexp_gae.py`;
+- `scripts/run_e7_sqexp_gae_liveness.py`;
+- `tests/test_e7_sqexp_gae.py`;
+- `tests/test_e7_sqexp_gae_liveness.py`.
 
 ## Ordered trajectory contract
 
