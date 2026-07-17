@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import pytest
+
 from drpo import e7_canonical_sweep as base
 from scripts.run_e7_sqexp_gae_liveness import (
     REPRESENTATIVE_COEFFICIENT,
     _probe_branch,
     _probe_template,
     _representative,
+    _validate_matched_critic,
 )
 
 
@@ -57,3 +60,14 @@ def test_representative_pair_and_probe_identity() -> None:
     assert selected.template_values["steps"] == "1000000"
     assert probe.template_values["steps"] == "4001"
     assert probe.branch_id.endswith("liveness_steps4001")
+
+
+def test_liveness_requires_identical_td_gae_critic_snapshots() -> None:
+    records = [
+        {"estimator": "td", "snapshot_hashes": ["a", "b"]},
+        {"estimator": "gae", "snapshot_hashes": ["a", "b"]},
+    ]
+    _validate_matched_critic(records)
+    records[1]["snapshot_hashes"] = ["a", "c"]
+    with pytest.raises(RuntimeError, match="trajectories diverged"):
+        _validate_matched_critic(records)
