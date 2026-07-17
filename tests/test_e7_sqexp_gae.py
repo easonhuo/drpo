@@ -19,6 +19,7 @@ from drpo.e7_sqexp_gae import (
     EXPECTED_DATASETS,
     EXPECTED_SEEDS,
     _build_branches,
+    _validate_trainer_args,
 )
 
 
@@ -173,3 +174,20 @@ def test_joint_gae_matrix_has_exactly_96_unique_branches() -> None:
     assert len({branch.branch_id for branch in branches}) == EXPECTED_BRANCHES
     assert {branch.seed for branch in branches} == set(EXPECTED_SEEDS)
     assert {branch.template_values["actor_update_mode"] for branch in branches} == {"a2c"}
+
+
+def test_transition_id_channel_rejects_return_weighted_sampling() -> None:
+    base_args = [
+        "--variant",
+        "iqlv_exp_rank",
+        "--batch",
+        "256",
+        "--steps",
+        "1000000",
+    ]
+    _validate_trainer_args(base_args, runtime_probe=False)
+    with pytest.raises(ValueError, match="ret_weight_mode=none"):
+        _validate_trainer_args(
+            [*base_args, "--ret_weight_mode", "rank_pow"],
+            runtime_probe=False,
+        )
