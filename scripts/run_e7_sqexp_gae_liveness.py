@@ -112,6 +112,14 @@ def _require_clean(repo: Path) -> None:
         raise RuntimeError("refusing to run liveness from a dirty checkout")
 
 
+def _validate_matched_critic(records: list[dict[str, Any]]) -> None:
+    if len(records) != len(pilot.ESTIMATORS):
+        raise RuntimeError("paired liveness did not produce both estimators")
+    fingerprints = {tuple(record["snapshot_hashes"]) for record in records}
+    if len(fingerprints) != 1:
+        raise RuntimeError("TD and GAE critic snapshot trajectories diverged")
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     repo = Path(subprocess.check_output(["git", "rev-parse", "--show-toplevel"], text=True).strip())
@@ -179,9 +187,11 @@ def main(argv: list[str] | None = None) -> int:
                     "branch_id": branch.branch_id,
                     "elapsed_seconds": time.monotonic() - started,
                     "snapshot_count": int(snapshot["snapshot_count"]),
+                    "snapshot_hashes": list(snapshot["snapshot_hashes"]),
                     "critic_evolution_observed": True,
                 }
             )
+        _validate_matched_critic(records)
         summary = {
             "status": "PASS",
             "experiment_id": pilot.EXPERIMENT_ID,
@@ -194,6 +204,7 @@ def main(argv: list[str] | None = None) -> int:
             "exp_coefficient": REPRESENTATIVE_COEFFICIENT,
             "probe_steps": probe_steps,
             "snapshot_refresh_interval": refresh_interval,
+            "matched_critic_snapshot_trajectories": True,
             "critic_updated_during_actor_training": True,
             "prepared_advantage_artifact_used": False,
             "held_out_seeds_touched": False,
