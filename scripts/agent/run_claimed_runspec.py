@@ -43,7 +43,12 @@ def add_runtime_resource_args(parser: argparse.ArgumentParser) -> None:
         help="Linux CPU-list syntax, for example 0-31,64-95",
     )
     parser.add_argument("--resource-cpu-fraction", type=float, default=0.85)
-    parser.add_argument("--minimum-available-cpu-cores", type=float, default=1.0)
+    parser.add_argument(
+        "--minimum-available-cpu-cores",
+        type=float,
+        default=None,
+        help="Required launch floor whenever --cpu-pool is declared",
+    )
     parser.add_argument("--resource-wait-timeout-seconds", type=float, default=-1.0)
     parser.add_argument("--resource-poll-seconds", type=float, default=300.0)
     parser.add_argument("--resource-sample-seconds", type=float, default=1.0)
@@ -78,10 +83,6 @@ def normalize_runtime_resource_request(
         return None
 
     cpu_fraction = _finite_number(raw.get("cpu_fraction", 0.85), "cpu_fraction")
-    minimum = _finite_number(
-        raw.get("minimum_available_cpu_cores", 1.0),
-        "minimum_available_cpu_cores",
-    )
     timeout = _finite_number(
         raw.get("wait_timeout_seconds", -1.0),
         "wait_timeout_seconds",
@@ -90,8 +91,6 @@ def normalize_runtime_resource_request(
     sample = _finite_number(raw.get("sample_seconds", 1.0), "sample_seconds")
     if not 0 < cpu_fraction <= 1:
         raise RunSpecError("cpu_fraction must be in (0, 1]")
-    if minimum <= 0:
-        raise RunSpecError("minimum_available_cpu_cores must be positive")
     if poll <= 0:
         raise RunSpecError("poll_seconds must be positive")
     if sample <= 0:
@@ -104,6 +103,22 @@ def normalize_runtime_resource_request(
         if max_workers_raw < 1:
             raise RunSpecError("max_workers must be positive")
         max_workers = int(max_workers_raw)
+
+    minimum_raw = raw.get("minimum_available_cpu_cores")
+    minimum: float | None = None
+    if cpu_pool is not None:
+        if minimum_raw is None:
+            raise RunSpecError(
+                "minimum_available_cpu_cores is required when cpu_pool is declared"
+            )
+        minimum = _finite_number(
+            minimum_raw,
+            "minimum_available_cpu_cores",
+        )
+        if minimum <= 0:
+            raise RunSpecError("minimum_available_cpu_cores must be positive")
+    elif minimum_raw is not None:
+        raise RunSpecError("minimum_available_cpu_cores requires cpu_pool")
 
     return {
         "schema_version": 1,
@@ -141,9 +156,13 @@ def _write_immutable_json(path: Path, payload: Mapping[str, Any]) -> Path:
         try:
             existing = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
-            raise RunSpecError(f"cannot read existing runtime resource identity: {path}") from exc
+            raise RunSpecError(
+                f"cannot read existing runtime resource identity: {path}"
+            ) from exc
         if existing != normalized:
-            raise RunSpecError(f"runtime resource identity changed for this run: {path}")
+            raise RunSpecError(
+                f"runtime resource identity changed for this run: {path}"
+            )
         return path
     serialized = json.dumps(normalized, indent=2, sort_keys=True) + "\n"
     try:
@@ -281,7 +300,10 @@ def prepare_runtime_resources(
     pool_payload: dict[str, Any] | None = None
     capacity: dict[str, Any] | None = None
     if normalized["cpu_pool"] is not None:
-        from drpo.runtime_resource_pool import activate_resource_pool, write_pool_identity
+        from drpo.runtime_resource_pool import (
+            activate_resource_pool,
+            write_pool_identity,
+        )
 
         pool = activate_resource_pool(
             cpu_pool=str(normalized["cpu_pool"]),
