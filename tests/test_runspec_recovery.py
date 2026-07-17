@@ -49,6 +49,8 @@ def make_repo(
     initial.write_text(
         "#!/usr/bin/env bash\n"
         "set -euo pipefail\n"
+        "test \"${RUNSPEC_PHASE:-}\" = initial\n"
+        "test \"${RUNSPEC_NOTE:-}\" = 'two words'\n"
         "mkdir -p outputs/e8/recovery/logs\n"
         f"{checkpoint_line}\n"
         f"printf '%s\\n' {stderr_text!r} >&2\n"
@@ -60,6 +62,8 @@ def make_repo(
     resume.write_text(
         "#!/usr/bin/env bash\n"
         "set -euo pipefail\n"
+        "test \"${RUNSPEC_PHASE:-}\" = resume\n"
+        "test \"${RUNSPEC_NOTE:-}\" = 'two words'\n"
         "test -f outputs/e8/recovery/checkpoint.state\n"
         "printf '{\"ok\": true}\\n' > outputs/e8/recovery/summary.json\n"
         "printf '{\"audit\": true}\\n' > outputs/e8/recovery/audit.json\n"
@@ -92,12 +96,18 @@ def make_repo(
         "repo_commit": commit,
         "entrypoint": {
             "cwd": "repo_root",
-            "command": "bash scripts/demo/initial.sh",
+            "command": (
+                "RUNSPEC_PHASE=initial RUNSPEC_NOTE='two words' "
+                "bash scripts/demo/initial.sh"
+            ),
         },
         "recovery": {
             "enabled": True,
             "max_attempts": 2,
-            "resume_command": "bash scripts/demo/resume.sh",
+            "resume_command": (
+                "RUNSPEC_PHASE=resume RUNSPEC_NOTE='two words' "
+                "bash scripts/demo/resume.sh"
+            ),
             "retryable_exit_codes": [75],
             "checkpoint_globs": ["outputs/e8/recovery/checkpoint.state"],
             "backoff_seconds": 0,
@@ -216,10 +226,31 @@ def test_invalid_recovery_attempt_limit_is_rejected_before_claim_or_training(tmp
     assert not (repo / ".runspec_state/claimed/E8_RECOVERY_20260712.yaml").exists()
 
 
+def test_env_prefix_without_executable_is_rejected_before_claim(tmp_path: Path):
+    repo = make_repo(tmp_path)
+    spec_path = repo / "runspecs/ready/E8_RECOVERY_20260712.yaml"
+    spec = yaml.safe_load(spec_path.read_text(encoding="utf-8"))
+    spec["entrypoint"]["command"] = "RUNSPEC_PHASE=initial"
+    spec_path.write_text(yaml.safe_dump(spec, sort_keys=False), encoding="utf-8")
+
+    proc = run(
+        ["python", str(RUN_LANE), "--repo-root", str(repo), "--once", "--json"],
+        cwd=repo,
+        check=False,
+    )
+
+    assert proc.returncode != 0
+    assert "must include an executable" in proc.stdout
+    assert not (repo / ".runspec_state/claimed/E8_RECOVERY_20260712.yaml").exists()
+
+
 def test_resume_command_is_automatically_provenance_protected(tmp_path: Path):
     repo = make_repo(tmp_path)
     resume = repo / "scripts/demo/resume.sh"
-    resume.write_text(resume.read_text(encoding="utf-8") + "# changed after pin\n", encoding="utf-8")
+    resume.write_text(
+        resume.read_text(encoding="utf-8") + "# changed after pin\n",
+        encoding="utf-8",
+    )
     run(["git", "add", "scripts/demo/resume.sh"], cwd=repo)
     run(["git", "commit", "-q", "-m", "change resume"], cwd=repo)
 
