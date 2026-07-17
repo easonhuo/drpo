@@ -15,9 +15,16 @@ import torch
 
 from drpo import e7_canonical_injection as canonical
 
-
 ESTIMATORS = {"td", "gae"}
 _FLOAT32_EXACT_INTEGER_LIMIT = 2**24
+_REQUIRED_HDF5_FIELDS = (
+    "observations",
+    "actions",
+    "rewards",
+    "terminals",
+    "timeouts",
+    "next_observations",
+)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -47,14 +54,15 @@ class OrderedReplay:
         return int(self.rewards.size)
 
     def validate(self) -> None:
-        lengths = {
-            len(self.observations),
-            len(self.actions),
-            len(self.rewards),
-            len(self.next_observations),
-            len(self.terminals),
-            len(self.timeouts),
-        }
+        arrays = (
+            self.observations,
+            self.actions,
+            self.rewards,
+            self.next_observations,
+            self.terminals,
+            self.timeouts,
+        )
+        lengths = {len(value) for value in arrays}
         if lengths == {0} or len(lengths) != 1:
             raise ValueError("ordered replay arrays must be non-empty and aligned")
         if self.observations.ndim != 2 or self.next_observations.shape != self.observations.shape:
@@ -93,12 +101,11 @@ class SnapshotEstimatorConfig:
         self.validate()
         if transition_count <= 0:
             raise ValueError("transition_count must be positive")
-        return int(math.ceil(transition_count / self.canonical_batch_size))
+        return math.ceil(transition_count / self.canonical_batch_size)
 
 
 def transition_id_channel(transition_count: int) -> np.ndarray:
     """Return exact float32 transition IDs for the trainer's existing ``ep_ret`` slot."""
-
     if transition_count <= 0 or transition_count > _FLOAT32_EXACT_INTEGER_LIMIT:
         raise ValueError("transition_count is outside the exact float32 ID range")
     return np.arange(transition_count, dtype=np.float32)
@@ -115,15 +122,15 @@ def compute_snapshot_tables(
     gae_lambda: float,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Compute matched one-step TD and GAE tables from one critic snapshot."""
-
-    reward = np.asarray(rewards, dtype=np.float64).reshape(-1)
-    value = np.asarray(values, dtype=np.float64).reshape(-1)
-    next_value = np.asarray(next_values, dtype=np.float64).reshape(-1)
-    terminal = np.asarray(terminals, dtype=np.bool_).reshape(-1)
-    timeout = np.asarray(timeouts, dtype=np.bool_).reshape(-1)
-    if not reward.size or not (
-        reward.shape == value.shape == next_value.shape == terminal.shape == timeout.shape
-    ):
+    reward, value, next_value = (
+        np.asarray(item, dtype=np.float64).reshape(-1)
+        for item in (rewards, values, next_values)
+    )
+    terminal, timeout = (
+        np.asarray(item, dtype=np.bool_).reshape(-1) for item in (terminals, timeouts)
+    )
+    shapes = {item.shape for item in (reward, value, next_value, terminal, timeout)}
+    if not reward.size or len(shapes) != 1:
         raise ValueError("snapshot arrays must be non-empty and aligned")
     if bool((terminal & timeout).any()):
         raise ValueError("terminal and timeout flags must not overlap")
@@ -138,7 +145,7 @@ def compute_snapshot_tables(
     gae = np.empty_like(td)
     running = 0.0
     for index in range(td.size - 1, -1, -1):
-        running = td[index] + gamma * gae_lambda * float(continuation[index]) * running
+        running = td[index] + gamma * gae_lambda * continuation[index] * running
         gae[index] = running
     return td.astype(np.float32), gae.astype(np.float32)
 
@@ -147,38 +154,26 @@ def state_dict_sha256(state: Mapping[str, Any]) -> str:
     digest = hashlib.sha256()
     for name, tensor in sorted(state.items()):
         value = tensor.detach().cpu().contiguous()
-        digest.update(name.encode("utf-8"))
-        digest.update(str(value.dtype).encode("utf-8"))
-        digest.update(str(tuple(value.shape)).encode("utf-8"))
+        for item in (name, str(value.dtype), str(tuple(value.shape))):
+            digest.update(item.encode("utf-8"))
         digest.update(value.numpy().tobytes())
     return digest.hexdigest()
 
 
 def _validate_ordered_hdf5(path: str | Path) -> Path:
     source = Path(path).expanduser().resolve()
-    required = (
-        "observations",
-        "actions",
-        "rewards",
-        "terminals",
-        "timeouts",
-        "next_observations",
-    )
     with h5py.File(source, "r") as handle:
-        missing = [name for name in required if name not in handle]
+        missing = [name for name in _REQUIRED_HDF5_FIELDS if name not in handle]
         if missing:
             raise ValueError(f"ordered GAE replay is missing HDF5 fields: {missing}")
-        lengths = {int(handle[name].shape[0]) for name in required}
+        lengths = {int(handle[name].shape[0]) for name in _REQUIRED_HDF5_FIELDS}
         if lengths == {0} or len(lengths) != 1:
             raise ValueError("ordered GAE HDF5 fields must be non-empty and aligned")
     return source
 
 
 def load_ordered_replay(
-    *,
-    canonical_root: str | Path,
-    dataset_path: str | Path,
-    dataset_id: str,
+    *, canonical_root: str | Path, dataset_path: str | Path, dataset_id: str
 ) -> OrderedReplay:
     source = _validate_ordered_hdf5(dataset_path)
     root = str(Path(canonical_root).expanduser().resolve())
@@ -207,14 +202,13 @@ def _snapshot_values(
     try:
         with torch.no_grad():
             for start in range(0, len(observations), chunk_size):
-                end = min(len(observations), start + chunk_size)
                 states = torch.as_tensor(
-                    observations[start:end],
+                    observations[start : start + chunk_size],
                     dtype=torch.float32,
                     device=device,
                 )
-                output[start:end] = (
-                    critic(states).squeeze(-1).detach().cpu().to(torch.float32).numpy()
+                output[start : start + len(states)] = (
+                    critic(states).squeeze(-1).detach().cpu().float().numpy()
                 )
     finally:
         critic.train(was_training)
@@ -233,7 +227,6 @@ def build_joint_snapshot_agent_class(
     instance_sink: list[Any] | None = None,
 ) -> type:
     """Build a joint-training agent that swaps only the actor advantage estimator."""
-
     replay.validate()
     estimator.validate()
     if return_mode not in {"zero_float", "metrics_dict"}:
@@ -248,13 +241,11 @@ def build_joint_snapshot_agent_class(
         def __init__(self, *args: Any, **kwargs: Any) -> None:
             super().__init__(*args, **kwargs)
             canonical.validate_agent_instance(
-                self,
-                expected_alpha=negative_control.canonical_alpha,
+                self, expected_alpha=negative_control.canonical_alpha
             )
             self._drpo_update_count = 0
             self._drpo_advantage_table: torch.Tensor | None = None
             self._drpo_snapshot_hashes: list[str] = []
-            self._drpo_snapshot_refresh_interval = refresh_interval
             self._drpo_snapshot_count = 0
             self._drpo_last_snapshot_update = 0
             if instance_sink is not None:
@@ -291,18 +282,18 @@ def build_joint_snapshot_agent_class(
 
         def _drpo_snapshot_summary(self) -> dict[str, Any]:
             final_hash = state_dict_sha256(self.critic.state_dict())
-            first_hash = self._drpo_snapshot_hashes[0] if self._drpo_snapshot_hashes else None
-            latest_hash = self._drpo_snapshot_hashes[-1] if self._drpo_snapshot_hashes else None
+            first = self._drpo_snapshot_hashes[0] if self._drpo_snapshot_hashes else None
+            latest = self._drpo_snapshot_hashes[-1] if self._drpo_snapshot_hashes else None
             return {
                 "estimator": estimator.estimator,
                 "gae_lambda": estimator.gae_lambda,
                 "snapshot_count": self._drpo_snapshot_count,
                 "snapshot_refresh_interval": refresh_interval,
                 "snapshot_hashes": list(self._drpo_snapshot_hashes),
-                "first_snapshot_critic_sha256": first_hash,
-                "latest_snapshot_critic_sha256": latest_hash,
+                "first_snapshot_critic_sha256": first,
+                "latest_snapshot_critic_sha256": latest,
                 "final_critic_sha256": final_hash,
-                "critic_evolution_observed": bool(first_hash and final_hash != first_hash),
+                "critic_evolution_observed": bool(first and final_hash != first),
                 "last_snapshot_update": self._drpo_last_snapshot_update,
             }
 
@@ -316,14 +307,12 @@ def build_joint_snapshot_agent_class(
             ep_ret: Any = None,
         ) -> Any:
             canonical.validate_agent_instance(
-                self,
-                expected_alpha=negative_control.canonical_alpha,
+                self, expected_alpha=negative_control.canonical_alpha
             )
             self._drpo_update_count += 1
-            if (
-                self._drpo_advantage_table is None
-                or (self._drpo_update_count - 1) % refresh_interval == 0
-            ):
+            if self._drpo_advantage_table is None or (
+                self._drpo_update_count - 1
+            ) % refresh_interval == 0:
                 self._drpo_refresh_snapshot()
 
             device = canonical._agent_device(self)  # noqa: SLF001
@@ -332,24 +321,19 @@ def build_joint_snapshot_agent_class(
             rewards = canonical._as_tensor(r, device=device).reshape(-1)  # noqa: SLF001
             next_states = canonical._as_tensor(ns, device=device)  # noqa: SLF001
             dones = canonical._as_tensor(  # noqa: SLF001
-                d,
-                device=device,
-                dtype=torch.bool,
+                d, device=device, dtype=torch.bool
             ).reshape(-1)
             raw_ids = canonical._as_tensor(ep_ret, device=device).reshape(-1)  # noqa: SLF001
-            rounded_ids = raw_ids.round()
-            if not bool(torch.isfinite(raw_ids).all()) or not torch.equal(raw_ids, rounded_ids):
+            rounded = raw_ids.round()
+            if not bool(torch.isfinite(raw_ids).all()) or not torch.equal(raw_ids, rounded):
                 raise ValueError("transition IDs must be finite exact integers")
-            transition_ids = rounded_ids.to(dtype=torch.long).cpu()
+            transition_ids = rounded.long().cpu()
             if transition_ids.numel() != states.shape[0]:
                 raise ValueError("transition ID batch is not aligned with states")
             if int(transition_ids.min()) < 0 or int(transition_ids.max()) >= replay.size:
                 raise ValueError("transition ID is outside the ordered replay")
             assert self._drpo_advantage_table is not None
-            actor_advantage = self._drpo_advantage_table.index_select(
-                0,
-                transition_ids,
-            ).to(device=device)
+            actor_advantage = self._drpo_advantage_table.index_select(0, transition_ids).to(device)
 
             values = self.critic(states).squeeze(-1)
             with torch.no_grad():
@@ -357,18 +341,13 @@ def build_joint_snapshot_agent_class(
                 targets = rewards + float(self.gamma) * next_values * (~dones).float()
 
             mean, log_std, distance = canonical.detached_standardized_distance(
-                self.actor,
-                states,
-                actions,
+                self.actor, states, actions
             )
-            distribution = torch.distributions.Normal(mean, log_std.exp())
-            log_prob = distribution.log_prob(actions).sum(dim=-1)
-            weighted_advantage, factor = canonical.controlled_advantage(
-                actor_advantage,
-                distance,
-                negative_control,
+            log_prob = torch.distributions.Normal(mean, log_std.exp()).log_prob(actions).sum(-1)
+            weighted, factor = canonical.controlled_advantage(
+                actor_advantage, distance, negative_control
             )
-            actor_loss = -(log_prob * weighted_advantage.detach()).mean()
+            actor_loss = -(log_prob * weighted.detach()).mean()
             self.a_opt.zero_grad(set_to_none=True)
             actor_loss.backward()
             self.a_opt.step()
@@ -402,9 +381,7 @@ def build_joint_snapshot_agent_class(
             }
             self._drpo_last_negative_control_metrics = metrics
             self._drpo_last_snapshot_metrics = metrics
-            if return_mode == "metrics_dict":
-                return metrics
-            return 0.0
+            return metrics if return_mode == "metrics_dict" else 0.0
 
     CanonicalJointSnapshotAgent.__name__ = base_class.__name__
     CanonicalJointSnapshotAgent.__qualname__ = base_class.__qualname__
