@@ -1,0 +1,40 @@
+schema_version: 1
+claim_id: GOV-DEV-WORKFLOW-OPTIMIZATION-BENCHMARK-01
+base_sha: 2f677f4b00954ea71d0efa7def552a1ea3daa565
+calibration_id: REPLAYAB-R1-C1-CALIBRATION-01
+evidence_grade_target: C1
+selection_frozen_before_behavior_results: true
+real_repository_sources:
+  ready_artifact:
+    path: src/drpo/workflow_replay/__init__.py
+    source_commit: 2f677f4b00954ea71d0efa7def552a1ea3daa565
+    source_blob_sha: 0d95c0d56c232846332b791ac7646884115cbee0
+  failure_input_artifact:
+    path: tests/fixtures/workflow_replay/invalid_unknown_key.yaml
+    source_commit: 2f677f4b00954ea71d0efa7def552a1ea3daa565
+    source_blob_sha: 89bbfacfa1cc1a9fdd414f403cf5b0dc71dc94d0
+cases:
+  - case_id: R1-CAL-READY-EXACT
+    category: real_ready_artifact
+  - case_id: R1-CAL-FAILURE-BOUNDARY
+    category: real_failure_boundary_artifact
+  - case_id: R1-CAL-ONE-ARM-HASH-MISMATCH
+    category: adversarial_derivative
+  - case_id: R1-CAL-BOTH-SAME-WRONG
+    category: adversarial_derivative
+  - case_id: R1-CAL-WRONG-MODE
+    category: adversarial_derivative
+  - case_id: R1-CAL-INTERRUPTED
+    category: execution_invalid
+  - case_id: R1-CAL-PARTIAL-MUTATION
+    category: execution_invalid
+  - case_id: R1-CAL-EVIDENCE-DIGEST-MISMATCH
+    category: evidence_invalid
+  - case_id: R1-CAL-ORDER-BALANCE
+    category: schedule
+  - case_id: R1-CAL-TIMING-BINDING-MISMATCH
+    category: release_binding
+post_selection_rule:
+  retain_all_cases: true
+  no_case_removal_after_results: true
+  adversarial_mutations_must_be_declared_in_tests: true
