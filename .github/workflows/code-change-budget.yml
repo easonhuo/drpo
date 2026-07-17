@@ -36,7 +36,7 @@ jobs:
 
           bash tests/test_new_python_file_gate.sh
           new_python_file="$RUNNER_TEMP/new-python-files.txt"
-          scripts/check_new_python_file_gate.sh \
+          bash scripts/check_new_python_file_gate.sh \
             --repo-root . \
             --base "$BASE_SHA" \
             --head "$HEAD_SHA" \
