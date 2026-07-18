@@ -12,6 +12,7 @@ from drpo_reference.continuous.cu1_suite import (
     run_cu1_all,
     run_cu1_stage,
 )
+from drpo_reference.experiments.hopper import run_hopper
 
 
 def _seed_list(value: str) -> tuple[int, ...]:
@@ -112,6 +113,39 @@ def build_parser() -> argparse.ArgumentParser:
             "never eligible for scientific evidence"
         ),
     )
+
+    hopper = experiments.add_parser(
+        "hopper",
+        help="Hopper E7-Q2 external mechanism-validation pipeline",
+    )
+    hopper.add_argument("--dataset", type=Path, required=True)
+    hopper.add_argument("--output", type=Path, required=True)
+    hopper.add_argument(
+        "--seeds",
+        type=_seed_list,
+        help=(
+            "registered-order formal subset; "
+            "subsets are never formal evidence"
+        ),
+    )
+    hopper.add_argument(
+        "--device",
+        default="auto",
+        help="PyTorch device such as cpu, cuda, cuda:0, or auto",
+    )
+    hopper.add_argument(
+        "--critic-artifact",
+        type=Path,
+        help="optional exact canonical critic artifact to verify and reuse",
+    )
+    hopper.add_argument(
+        "--smoke",
+        action="store_true",
+        help=(
+            "run the tiny integration protocol; "
+            "never eligible for scientific evidence"
+        ),
+    )
     return parser
 
 
@@ -144,6 +178,16 @@ def main(argv: Sequence[str] | None = None) -> int:
             smoke=args.smoke,
             device=args.device,
             workers=args.workers,
+        )
+        return 0
+    if args.experiment == "hopper":
+        run_hopper(
+            dataset_path=args.dataset,
+            output_root=args.output,
+            seeds=args.seeds,
+            smoke=args.smoke,
+            device=args.device,
+            critic_artifact=args.critic_artifact,
         )
         return 0
     raise AssertionError("unreachable")
