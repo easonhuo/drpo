@@ -24,7 +24,19 @@ from drpo.workflow_replay.execute import (  # noqa: E402
     build_plan,
     run_fixture_plan,
 )
+from dev_integration_write_path import sha256, write_json  # noqa: E402
+from drpo.workflow_replay.evidence import (  # noqa: E402
+    RunIdentity,
+    load_run_artifact,
+    validate_r1_case_contract,
+)
 from drpo.workflow_replay.model import load_case_manifest  # noqa: E402
+from drpo.workflow_replay.orchestrate import (  # noqa: E402
+    CandidateOutcome,
+    OrchestrationError,
+    ProcessResult,
+)
+import run_workflow_replay as replay  # noqa: E402
 from run_workflow_replay import Journal, _clone, _commit_workspace, _workspace, build_parser  # noqa: E402
 
 FIXTURE = Path(__file__).parent / "fixtures" / "workflow_replay" / "valid_code_only.yaml"
@@ -258,3 +270,173 @@ def test_real_journal_binds_commands_placements_and_operator_actions(tmp_path: P
     assert events[-1]["payload"]["placement_path_count"] == 1
     assert events[-1]["payload"]["operator_action_count"] == 2
     assert timing["total_ns"] >= timing["child_ns"]
+
+
+def _r1_contract(packet: Path, *, ready: bool, artifact_sha: str | None = None):
+    case_id = "C01-ADAPTER-READY" if ready else "C06-ADAPTER-STALE"
+    path = "docs/example.txt"
+    base, toolchain = "1" * 40, "2" * 40
+    gates = ["artifact_digest"] if ready else ["source_lock"]
+    return validate_r1_case_contract(
+        {
+            "schema_version": 2,
+            "case_id": case_id,
+            "task_class": "code_only" if ready else "stale_recovery",
+            "historical_task": {
+                "base_sha": base,
+                "frozen_implementation_sha": None,
+                "source_prs": [1],
+                "source_commits": [base],
+                "historical_real_time_evidence": [],
+            },
+            "benchmark": {
+                "toolchain_sha": toolchain,
+                "input_spec_sha256": sha256(packet),
+                "expected_terminal_state": "READY" if ready else "BLOCKED",
+                "expected_safety_boundary": None if ready else "source_lock",
+                "expected_changed_paths": [path] if ready else [],
+                "expected_final_tree_or_semantic_hashes": (
+                    {"artifact_sha256": artifact_sha} if ready else {}
+                ),
+                "required_gates": gates,
+                "environment_id": "local-adapter-test-v1",
+                "cache_policy": "cold",
+                "replayability": "complete",
+                "predeclared_exclusions": [],
+            },
+            "r1": {
+                "comparison_mode": "exact_artifact" if ready else "failure_boundary",
+                "expected_file_modes": {path: "100644"} if ready else {},
+                "expected_authority_result": "PASS" if ready else "NOT_RUN",
+                "expected_gate_results": {gates[0]: "PASS" if ready else "NOT_RUN"},
+                "expected_diagnostic_codes": [] if ready else ["SOURCE_DRIFT"],
+                "expected_recovery_class": (
+                    None if ready else "refresh_main_and_regenerate_packet"
+                ),
+                "workspace_rule": "changed_as_expected" if ready else "unchanged",
+                "evaluator_sha256": "3" * 64,
+                "evidence_schema_sha256": "4" * 64,
+                "order_policy": "two_opposite_pairs",
+            },
+        }
+    )
+
+
+def test_adapter_ready_artifact_is_accepted_by_unchanged_r1_loader(
+    tmp_path: Path, monkeypatch
+) -> None:
+    packet = tmp_path / "packet.yaml"
+    packet.write_text("source: {}\n", encoding="utf-8")
+    result = {
+        "case_id": "C01-ADAPTER-READY",
+        "base_sha": "1" * 40,
+        "tree_sha": "5" * 40,
+        "changed_paths": ("docs/example.txt",),
+        "file_modes": {"docs/example.txt": "100644"},
+    }
+    expected_result = tmp_path / "expected-result.json"
+    write_json(expected_result, result)
+    contract = _r1_contract(packet, ready=True, artifact_sha=sha256(expected_result))
+    transaction = tmp_path / "transaction"
+    (transaction / "integration-repo").mkdir(parents=True)
+    write_json(
+        transaction / "READY_COMMIT.json",
+        {
+            "ready_commit_sha": "6" * 40,
+            "tree_sha": "5" * 40,
+            "changed_paths": ["docs/example.txt"],
+            "authority_verify": {"status": "PASS"},
+        },
+    )
+    write_json(
+        transaction / "GATE_REPORT.json",
+        {"outcomes": [{"label": "artifact_digest", "passed": True}]},
+    )
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    source = tmp_path / "source"
+    source.mkdir()
+    monkeypatch.setattr(replay, "_clone", lambda *args: workspace)
+    monkeypatch.setattr(replay, "_commit_workspace", lambda *args: "7" * 64)
+    monkeypatch.setattr(replay, "_workspace", lambda *args: "8" * 64)
+    monkeypatch.setattr(
+        replay,
+        "_modes",
+        lambda *args: {"docs/example.txt": "100644"},
+    )
+
+    def explicit(repo, spec, preparations, transactions, python, journal):
+        journal.invoke(CommandSpec("fake-stage", (sys.executable, "-c", "pass")))
+        journal.place(("repository:docs/example.txt",))
+        return CandidateOutcome(
+            "PREP-001",
+            str(tmp_path / "preparation"),
+            str(transaction),
+            "6" * 40,
+            tuple(journal.commands),
+            tuple(journal.placements),
+        )
+
+    monkeypatch.setattr(replay, "_explicit", explicit)
+    output = tmp_path / "evidence"
+    output.mkdir()
+    identity = RunIdentity.build(contract.base.case_id, "A", "pair-0", 0, 0, "local-git-v1")
+    artifact, _ = replay._write_run(
+        SimpleNamespace(case_packet=str(packet), source_repo=str(source)),
+        contract,
+        identity,
+        output,
+        {},
+    )
+    normalized = load_run_artifact(artifact, output, contract)
+    assert normalized.execution_valid
+    assert normalized.execution_terminal == "READY"
+    assert normalized.outcome is not None
+
+
+def test_adapter_stale_boundary_is_accepted_without_target_mutation(
+    tmp_path: Path, monkeypatch
+) -> None:
+    packet = tmp_path / "packet.yaml"
+    packet.write_text("source: {}\n", encoding="utf-8")
+    contract = _r1_contract(packet, ready=False)
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    source = tmp_path / "source"
+    source.mkdir()
+    attempt = tmp_path / "attempt"
+    attempt.mkdir()
+    monkeypatch.setattr(replay, "_clone", lambda *args: workspace)
+    monkeypatch.setattr(replay, "_commit_workspace", lambda *args: "9" * 64)
+
+    def stale(repo, spec, preparations, transactions, python, journal):
+        journal.last_result = ProcessResult(
+            2,
+            json.dumps(
+                {
+                    "status": "FAIL",
+                    "state": "BLOCKED",
+                    "error_code": "SOURCE_DRIFT",
+                    "phase": "source_lock",
+                    "attempt_dir": str(attempt),
+                }
+            ),
+        )
+        raise OrchestrationError("v1-plan", "stale main")
+
+    monkeypatch.setattr(replay, "_explicit", stale)
+    output = tmp_path / "evidence"
+    output.mkdir()
+    identity = RunIdentity.build(contract.base.case_id, "A", "pair-0", 0, 0, "local-git-v1")
+    artifact, _ = replay._write_run(
+        SimpleNamespace(case_packet=str(packet), source_repo=str(source)),
+        contract,
+        identity,
+        output,
+        {},
+    )
+    normalized = load_run_artifact(artifact, output, contract)
+    assert normalized.execution_valid
+    assert normalized.execution_terminal == "BLOCKED"
+    assert normalized.outcome is not None
+    assert normalized.outcome.diagnostic_codes == ("SOURCE_DRIFT",)
