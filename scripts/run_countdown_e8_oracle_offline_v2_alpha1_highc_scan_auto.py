@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Autotuned launcher adapter for the E8 alpha=1 high-c extension pilot."""
+"""Autotuned launcher adapter for the E8 paper-aligned linear c scans."""
 from __future__ import annotations
 
 import importlib.util
@@ -7,8 +7,6 @@ import sys
 from pathlib import Path
 
 from drpo import countdown_e8_alpha1_highc_scan_common as highc
-
-highc.activate()
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _BASE_LAUNCHER = (
@@ -24,7 +22,12 @@ if _SPEC is None or _SPEC.loader is None:
 _base = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(_base)
 
-_base.ADAPTER_ID = "e8_alpha1_highc_scan_cuda_dev_v1"
+
+def _grid_config_from_argv(argv: list[str]) -> str | None:
+    for index, token in enumerate(argv):
+        if token == "--grid_config" and index + 1 < len(argv):
+            return argv[index + 1]
+    return None
 
 
 def _core_command(args, command: str, *, selected_ids: list[str]) -> list[str]:
@@ -69,12 +72,22 @@ def _core_command(args, command: str, *, selected_ids: list[str]) -> list[str]:
 
 
 _base._core_command = _core_command
-
 build_parser = _base.build_parser
 
 
 def main(argv: list[str] | None = None) -> int:
-    return _base.main(argv)
+    tokens = list(sys.argv[1:] if argv is None else argv)
+    grid_config = _grid_config_from_argv(tokens)
+    if grid_config is None:
+        highc.activate()
+    else:
+        highc.activate_for_grid_config(grid_config)
+    _base.ADAPTER_ID = (
+        "e8_linear_c_extension_cuda_dev_v1"
+        if highc.EXPERIMENT_ID == highc.C_EXTENSION_EXPERIMENT_ID
+        else "e8_alpha1_highc_scan_cuda_dev_v1"
+    )
+    return _base.main(tokens)
 
 
 if __name__ == "__main__":
