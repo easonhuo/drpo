@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Runtime adapter for the E8 alpha=1 high-c extension pilot."""
+"""Runtime adapter for the E8 paper-aligned linear c scans."""
 from __future__ import annotations
 
 import sys
@@ -7,7 +7,19 @@ from pathlib import Path
 
 from drpo import countdown_e8_alpha1_highc_scan_common as highc
 
-highc.activate()
+
+def _grid_config_from_argv(argv: list[str]) -> str | None:
+    for index, token in enumerate(argv):
+        if token == "--grid_config" and index + 1 < len(argv):
+            return argv[index + 1]
+    return None
+
+
+_grid_config = _grid_config_from_argv(sys.argv[1:])
+if _grid_config is None:
+    highc.activate()
+else:
+    highc.activate_for_grid_config(_grid_config)
 
 from drpo import countdown_e8_alpha1_c_scan_runtime as _base_runtime  # noqa: E402
 
