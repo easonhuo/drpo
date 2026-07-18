@@ -79,6 +79,7 @@ jobs:
         run: |
           set +e
           python -m pytest -q \
+            --basetemp "$PWD/c01-pytest-tmp" \
             tests/test_workflow_replay_orchestrate.py::test_replacement_c01_arm_a_calibration \
             2>&1 | tee c01-calibration.log
           status=${PIPESTATUS[0]}
@@ -87,6 +88,10 @@ jobs:
           cp c01-calibration.log c01-calibration-upload/
           if [ -f c01-pr115-calibration.tar.gz ]; then
             cp c01-pr115-calibration.tar.gz c01-calibration-upload/
+          fi
+          if [ -d c01-pytest-tmp ]; then
+            tar -czf c01-pytest-tmp.tar.gz c01-pytest-tmp
+            cp c01-pytest-tmp.tar.gz c01-calibration-upload/
           fi
           tar -czf c01-pr115-calibration-upload.tar.gz c01-calibration-upload
           exit "$status"
