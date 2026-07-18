@@ -81,8 +81,10 @@ class HopperProtocol:
     critic_min_steps: int = 50_000
     critic_steps: int = 100_000
     critic_eval_interval: int = 2_000
+    positive_min_steps: int = 10_000
     positive_steps: int = 100_000
     actor_eval_interval: int = 5_000
+    branch_min_steps: int = 10_000
     branch_steps: int = 200_000
     matched_pairs: int = 256
     audit_sample_size: int = 16_384
@@ -117,8 +119,14 @@ class HopperProtocol:
             raise ValueError("critic_min_steps must be positive")
         if self.critic_min_steps > self.critic_steps:
             raise ValueError("critic_min_steps exceeds critic_steps")
-        if self.branch_steps <= 0:
-            raise ValueError("formal branch budget must be positive")
+        if self.positive_min_steps <= 0:
+            raise ValueError("positive_min_steps must be positive")
+        if self.positive_min_steps > self.positive_steps:
+            raise ValueError("positive_min_steps exceeds positive_steps")
+        if self.branch_min_steps <= 0:
+            raise ValueError("branch_min_steps must be positive")
+        if self.branch_min_steps > self.branch_steps:
+            raise ValueError("branch_min_steps exceeds branch_steps")
 
 
 def smoke_protocol() -> HopperProtocol:
@@ -135,8 +143,10 @@ def smoke_protocol() -> HopperProtocol:
         critic_min_steps=2,
         critic_steps=4,
         critic_eval_interval=2,
+        positive_min_steps=2,
         positive_steps=4,
         actor_eval_interval=2,
+        branch_min_steps=2,
         branch_steps=4,
         matched_pairs=4,
         audit_sample_size=16,
