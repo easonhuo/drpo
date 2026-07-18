@@ -218,6 +218,14 @@ def test_runtime_resource_request_is_opt_in_and_fail_closed():
         )
         is None
     )
+    with pytest.raises(claimed_runner.RunSpecError, match="requires cpu_pool"):
+        claimed_runner.normalize_runtime_resource_request(
+            {
+                "cpu_pool": None,
+                "minimum_available_cpu_cores": 1,
+                "max_workers": None,
+            }
+        )
     request = claimed_runner.normalize_runtime_resource_request(
         {
             "cpu_pool": "0-3",
