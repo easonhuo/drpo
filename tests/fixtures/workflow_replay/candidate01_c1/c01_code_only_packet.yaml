@@ -7,7 +7,7 @@ source:
   expected_main_sha: cd770f47b89f8971923945c19caec49720c0e139
   dev_branch: dev/e8-linear-c-extension-16cell
   expected_dev_sha: df6c7a2a506bffebe64f41a92d5611a94116c828
-  result_commit_sha: null
+  result_commit_sha: df6c7a2a506bffebe64f41a92d5611a94116c828
   result_git_dirty: false
 subject:
   experiment_id: EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-LINEAR-C-EXTENSION-0.5B-01
@@ -91,7 +91,8 @@ review:
   limitations:
   - historical repository-integration replay only
   - the external Countdown pilot result is outside C01
-  - the merge commit is recorded as provenance but not used as a V1 source ref
+  - the formal result binding uses the immutable reviewed source head
+  - the actual merge commit b65882993eaf674390989bb9082be2b79f1f1e44 is recorded separately as provenance
   unresolved: []
 registration:
   mode: none
