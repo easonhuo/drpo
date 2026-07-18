@@ -4,7 +4,7 @@ lane: e8
 priority: 155
 created_at: "2026-07-17T09:55:00Z"
 experiment_id: EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-TAU-CURVE-0.5B-01
-repo_commit: 93dd3b3af4b0d4e9be99399537f5f3349cb0f4ce
+repo_commit: 613bddf54c5314fba1459b02d829d2d4fed72bd1
 
 registration:
   mode: deferred
