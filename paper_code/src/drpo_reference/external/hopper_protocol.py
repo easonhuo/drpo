@@ -27,11 +27,16 @@ class HopperProtocol:
         "e121c5f7c9857a307baa9edc6a2c3b48"
         "e85fedb9ac316ecddd0f48ca7ef4e39b"
     )
+    rollout_backend: str = "gymnasium_mujoco"
     rollout_dataset_id: str = "hopper-medium-replay-v2"
     env_id: str = "Hopper-v4"
     normalized_score_percent: bool = True
     normalized_score_reference_min: float = -20.272305
     normalized_score_reference_max: float = 3234.3
+    process_isolated_preflight: bool = True
+    rollout_preflight_timeout_seconds: int = 120
+    rollout_preflight_max_steps: int = 2_000
+    rollout_required: bool = True
 
     gamma: float = 0.99
     train_fraction: float = 0.80
@@ -99,6 +104,20 @@ class HopperProtocol:
             raise ValueError(
                 "Hopper E7-Q2 is an external mechanism validation"
             )
+        if self.rollout_backend != "gymnasium_mujoco":
+            raise ValueError("Hopper rollout backend is frozen")
+        if self.rollout_dataset_id != "hopper-medium-replay-v2":
+            raise ValueError("Hopper rollout dataset identity is frozen")
+        if self.env_id != "Hopper-v4":
+            raise ValueError("Hopper evaluation environment is frozen")
+        if not self.process_isolated_preflight:
+            raise ValueError("Hopper preflight must be process isolated")
+        if self.rollout_preflight_timeout_seconds <= 0:
+            raise ValueError("rollout preflight timeout must be positive")
+        if self.rollout_preflight_max_steps <= 0:
+            raise ValueError("rollout preflight max steps must be positive")
+        if not self.rollout_required:
+            raise ValueError("registered Hopper rollouts are required")
         if self.execution_profile not in {"formal", "smoke"}:
             raise ValueError("execution_profile must be formal or smoke")
         if self.execution_profile == "formal" and len(self.formal_seeds) != 10:
