@@ -28,6 +28,11 @@ TAU_CONFIG = (
     / "configs"
     / "countdown_e8_oracle_offline_v2_paper_aligned_tau_curve_0p5b.yaml"
 )
+TAU_C_RANGE_EXTENSION_CONFIG = (
+    ROOT
+    / "configs"
+    / "countdown_e8_oracle_offline_v2_paper_aligned_tau_c_range_extension_0p5b.yaml"
+)
 RUNTIME = ROOT / "src" / "drpo" / "countdown_e8_alpha1_highc_scan_runtime.py"
 AUTO = (
     ROOT
@@ -39,6 +44,12 @@ RUNSPEC = (
     / "runspecs"
     / "ready"
     / "E8_PAPER_ALIGNED_LINEAR_C_EXTENSION_20260717_01.yaml"
+)
+TAU_C_RANGE_EXTENSION_RUNSPEC = (
+    ROOT
+    / "runspecs"
+    / "ready"
+    / "E8_PAPER_ALIGNED_TAU_C_RANGE_EXTENSION_20260718_01.yaml"
 )
 
 
@@ -210,3 +221,27 @@ def test_tau_runtime_forwards_each_cell_threshold() -> None:
     source = RUNTIME.read_text(encoding="utf-8")
     assert '"--tau"' in source
     assert 'getattr(cell, "tau", 0.0)' in source
+
+
+def test_tau_c_range_extension_has_bridge_outer_and_32_cells() -> None:
+    config = _load(TAU_C_RANGE_EXTENSION_CONFIG)
+    cells = scan.build_cells(config)
+    expected_c = {1.386294361, 1.609437912, 4.605170186, 5.298317367}
+    assert len(cells) == 32
+    assert len({cell.name for cell in cells}) == 32
+    assert {cell.seed_offset for cell in cells} == {4000}
+    assert {cell.c for cell in cells} == expected_c
+    assert {cell.tau for cell in cells} == set(scan.TAU_VALUES)
+    assert config["reporting"]["bridge_c_values"] == [1.609437912, 4.605170186]
+    assert config["reporting"]["outer_c_values"] == [1.386294361, 5.298317367]
+    assert config["sweep"]["previous_scan_experiment"] == scan.TAU_EXPERIMENT_ID
+
+
+def test_tau_c_range_extension_runspec_uses_existing_launcher() -> None:
+    spec = _load(TAU_C_RANGE_EXTENSION_RUNSPEC)
+    command = spec["entrypoint"]["command"]
+    assert spec["run_id"] == "E8_PAPER_ALIGNED_TAU_C_RANGE_EXTENSION_20260718_01"
+    assert "paper_aligned_tau_c_range_extension_0p5b.yaml" in command
+    assert "paper_aligned_tau_c_range_extension_001" in command
+    assert spec["policy"]["forbid_new_launcher"] is True
+    assert spec["delivery"]["repository"] == "easonhuo/drpo-results"
