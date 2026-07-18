@@ -5,6 +5,7 @@ import os
 import subprocess
 import sys
 import textwrap
+import time
 import zipfile
 from pathlib import Path
 from typing import Any
@@ -21,7 +22,7 @@ sys.path.insert(0, str(ROOT / "scripts" / "agent"))
 import run_claimed_runspec as claimed_runner  # noqa: E402
 
 
-def run(cmd: list[str], *, cwd: Path, check: bool = True):
+def run(cmd: list[str], *, cwd: Path, check: bool = True, env: dict[str, str] | None = None):
     proc = subprocess.run(
         cmd,
         cwd=cwd,
@@ -29,12 +30,31 @@ def run(cmd: list[str], *, cwd: Path, check: bool = True):
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         check=False,
+        env=env,
     )
     if check and proc.returncode != 0:
         raise AssertionError(
             f"command failed: {' '.join(cmd)}\nstdout={proc.stdout}\nstderr={proc.stderr}"
         )
     return proc
+
+
+def _subprocess_env_with_repo_src() -> dict[str, str]:
+    """Ensure a spawned RunSpec entrypoint imports ``drpo`` from this checkout.
+
+    The temp demo repo has no ``src/drpo``; production entrypoints import
+    ``drpo.runtime_resource_pool`` / ``drpo.runtime_cpu_capacity`` only when a
+    CPU pool is declared. On CI the editable install already resolves those to
+    this checkout, and prepending ``ROOT/src`` here is the same path. Locally it
+    prevents the subprocess from falling back to an unrelated editable install.
+    """
+
+    existing = os.environ.get("PYTHONPATH", "")
+    prefix = str(ROOT / "src")
+    pythonpath = prefix if not existing else f"{prefix}{os.pathsep}{existing}"
+    env = dict(os.environ)
+    env["PYTHONPATH"] = pythonpath
+    return env
 
 
 def make_repo(tmp_path: Path) -> Path:
@@ -56,6 +76,7 @@ def make_repo(tmp_path: Path) -> Path:
             printf '{"metric": 1}\n' > outputs/e8/demo/metrics/metric.json
             printf '{"max_workers": "%s"}\n' "${DRPO_RUNTIME_MAX_WORKERS:-}" \
               > outputs/e8/demo/runtime_resource.json
+            python3 -c "import json,os;aff=sorted(int(x) for x in os.sched_getaffinity(0)) if hasattr(os,'sched_getaffinity') else [];open('outputs/e8/demo/affinity.json','w').write(json.dumps({'affinity':aff}))"
             echo done > outputs/e8/demo/logs/stdout.txt
             echo should-not-package > outputs/e8/demo/model.pt
             """
@@ -106,6 +127,7 @@ def make_repo(tmp_path: Path) -> Path:
                 "outputs/e8/demo/summary.json",
                 "outputs/e8/demo/audit.json",
                 "outputs/e8/demo/runtime_resource.json",
+                "outputs/e8/demo/affinity.json",
                 "outputs/e8/demo/metrics/*.json",
                 "outputs/e8/demo/logs/*.txt",
             ],
@@ -340,3 +362,153 @@ def test_artifact_packaging_rejects_model_like_include(tmp_path: Path):
     )
     assert proc.returncode != 0
     assert "excluded/model-like" in proc.stdout
+
+
+def _linux_sched_affinity() -> bool:
+    return hasattr(os, "sched_getaffinity") and hasattr(os, "sched_setaffinity")
+
+
+def _dynamic_cpu_pool() -> list[int]:
+    """Pick at most two real CPU ids from the current affinity.
+
+    First and last are chosen on purpose: the selection is dynamic, never
+    hardcoded to 0-1, and intentionally non-contiguous so the tests never
+    assume a contiguous CPU block.
+    """
+
+    affinity = sorted(int(cpu) for cpu in os.sched_getaffinity(0))
+    assert affinity, "current CPU affinity is empty"
+    if len(affinity) == 1:
+        return [affinity[0]]
+    return [affinity[0], affinity[-1]]
+
+
+_RESOURCE_RUN_LANE_ARGS = [
+    "--resource-cpu-fraction",
+    "1.0",
+    "--resource-wait-timeout-seconds",
+    "30",
+    "--resource-poll-seconds",
+    "0.1",
+    "--resource-sample-seconds",
+    "0.05",
+    "--max-workers",
+    "3",
+]
+
+
+@pytest.mark.skipif(
+    not _linux_sched_affinity(),
+    reason="real CPU affinity binding requires Linux sched_getaffinity/sched_setaffinity",
+)
+def test_run_lane_real_affinity_pool_subprocess_inherits_and_capacity_admits(
+    tmp_path: Path,
+):
+    repo = make_repo(tmp_path)
+    pool = _dynamic_cpu_pool()
+    pool_str = ",".join(str(cpu) for cpu in pool)
+
+    proc = run(
+        [
+            "python",
+            str(RUN_LANE),
+            "--repo-root",
+            str(repo),
+            "--once",
+            "--cpu-pool",
+            pool_str,
+            "--minimum-available-cpu-cores",
+            "0.1",
+            *_RESOURCE_RUN_LANE_ARGS,
+            "--json",
+        ],
+        cwd=repo,
+        env=_subprocess_env_with_repo_src(),
+    )
+    payload = json.loads(proc.stdout)
+    assert payload["status"] == "PASS"
+    assert payload["run_id"] == "E8_DEMO_20260711"
+
+    log_root = repo / ".runspec_state" / "logs" / "E8_DEMO_20260711"
+
+    # The demo subprocess inherited the bound CPU pool exactly.
+    affinity_record = json.loads((repo / "outputs/e8/demo/affinity.json").read_text())
+    assert affinity_record["affinity"] == pool
+
+    # The immutable pool identity records the effective pool.
+    pool_identity = json.loads((log_root / "RESOURCE_POOL.json").read_text())
+    assert pool_identity["effective_cpu_ids"] == pool
+
+    # The capacity observation was scoped to the pool only.
+    capacity = json.loads((log_root / "RUNTIME_CPU_CAPACITY_LATEST.json").read_text())
+    assert capacity["affinity_cpu_ids"] == pool
+
+    # The foreground capacity wait reached the success terminal state.
+    wait = json.loads((log_root / "RUNTIME_PLAN_CAPACITY_WAIT.json").read_text())
+    assert wait["status"] == "PLANNED"
+
+    # The readiness marker exists and exports the worker ceiling.
+    ready = json.loads((log_root / "RUNTIME_RESOURCE_READY.json").read_text())
+    assert ready["max_workers"] == 3
+    assert ready["worker_environment"] == {"DRPO_RUNTIME_MAX_WORKERS": "3"}
+
+    # The worker ceiling was inherited by the demo subprocess.
+    resource_output = json.loads(
+        (repo / "outputs/e8/demo/runtime_resource.json").read_text()
+    )
+    assert resource_output == {"max_workers": "3"}
+
+    # The RunSpec entered the done state and packaged the demo artifact.
+    assert (repo / ".runspec_state" / "done" / "E8_DEMO_20260711.yaml").is_file()
+    zip_path = repo / payload["artifact_zip"]
+    assert zip_path.is_file()
+    with zipfile.ZipFile(zip_path) as archive:
+        names = set(archive.namelist())
+    assert "outputs/e8/demo/affinity.json" in names
+    assert "outputs/e8/demo/runtime_resource.json" in names
+
+
+@pytest.mark.skipif(
+    not _linux_sched_affinity(),
+    reason="real CPU affinity binding requires Linux sched_getaffinity/sched_setaffinity",
+)
+def test_run_lane_impossible_capacity_floor_fails_before_entrypoint(
+    tmp_path: Path,
+):
+    repo = make_repo(tmp_path)
+    pool = _dynamic_cpu_pool()
+    pool_str = ",".join(str(cpu) for cpu in pool)
+
+    started = time.monotonic()
+    proc = run(
+        [
+            "python",
+            str(RUN_LANE),
+            "--repo-root",
+            str(repo),
+            "--once",
+            "--cpu-pool",
+            pool_str,
+            "--minimum-available-cpu-cores",
+            "100",
+            *_RESOURCE_RUN_LANE_ARGS,
+            "--json",
+        ],
+        cwd=repo,
+        check=False,
+        env=_subprocess_env_with_repo_src(),
+    )
+    elapsed = time.monotonic() - started
+
+    # Non-zero exit; the synchronous policy-budget check rejects before any wait.
+    assert proc.returncode != 0
+    assert elapsed < 15.0
+    combined = proc.stdout + proc.stderr
+    assert "exceeds the selected pool/cgroup policy budget" in combined
+
+    # The demo entrypoint never ran, so its marker files are absent.
+    assert not (repo / "outputs/e8/demo/summary.json").exists()
+    assert not (repo / "outputs/e8/demo/affinity.json").exists()
+
+    # The RunSpec entered the failed state.
+    assert (repo / ".runspec_state" / "failed" / "E8_DEMO_20260711.yaml").is_file()
