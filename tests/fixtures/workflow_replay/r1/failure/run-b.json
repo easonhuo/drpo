@@ -1,0 +1,54 @@
+{
+  "case_contract_sha256": "dd87c2bbd8590cbc11ca81e81eb9e046972dc01cf2f0fd2090322a564ad0120f",
+  "evidence": {
+    "event_log": {
+      "byte_size": 361,
+      "kind": "event_log",
+      "relative_path": "tests/fixtures/workflow_replay/r1/failure/events-b.jsonl",
+      "sha256": "7fa9675f6a7c635f8d1c744984a0b6d597f1e1b2022f1e01222c3d5a2b02c756"
+    },
+    "outcome": {
+      "byte_size": 700,
+      "kind": "outcome",
+      "relative_path": "tests/fixtures/workflow_replay/r1/failure/outcome.json",
+      "sha256": "5dbab17b4cbf64f33ecc4473bcd06289fe41038c60c015c2289969db64e74e92"
+    },
+    "result": null,
+    "subject": {
+      "byte_size": 815,
+      "kind": "subject",
+      "relative_path": "tests/fixtures/workflow_replay/invalid_unknown_key.yaml",
+      "sha256": "a3cbda5e8d00fc8583352a79594a01b762851d7b248cb5df4f286ddcf4cb5ba9"
+    }
+  },
+  "execution_terminal": "BLOCKED",
+  "identities": {
+    "backend_id": "artifact-ingest",
+    "base_sha": "2f677f4b00954ea71d0efa7def552a1ea3daa565",
+    "cache_policy": "cold",
+    "environment_id": "github-main-artifact-v1",
+    "evaluator_sha256": "001941d6557e19832c59ffe318882f332799b425e054d898d005730a2406952e",
+    "evidence_schema_sha256": "5f02130bc08513540e694fc1b1abf1d8437f9fa697f92535c49a795dcd9de179",
+    "input_sha256": "a3cbda5e8d00fc8583352a79594a01b762851d7b248cb5df4f286ddcf4cb5ba9",
+    "plan_sha256": "4b6debc91e713753ce50f05363263f9c349dfcfbd628880aae9e1411e7ef7b46",
+    "toolchain_sha": "2f677f4b00954ea71d0efa7def552a1ea3daa565"
+  },
+  "producer_id": "committed-artifact-adapter-v1",
+  "run_identity": {
+    "arm": "B",
+    "backend_id": "artifact-ingest",
+    "case_id": "R1-CAL-FAILURE-BOUNDARY",
+    "order_position": 1,
+    "pair_id": "pair-0",
+    "repetition": 0,
+    "run_id": "5104bac5b36647824fe9ac731031b5ae03fb78a8bbea71e6c282641363f7362f"
+  },
+  "schema_version": 1,
+  "timing": {
+    "child_ns": 80,
+    "self_overhead_ns": 20,
+    "total_ns": 100
+  },
+  "workspace_after_sha256": "a3cbda5e8d00fc8583352a79594a01b762851d7b248cb5df4f286ddcf4cb5ba9",
+  "workspace_before_sha256": "a3cbda5e8d00fc8583352a79594a01b762851d7b248cb5df4f286ddcf4cb5ba9"
+}

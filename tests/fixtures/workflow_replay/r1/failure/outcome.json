@@ -1,0 +1,23 @@
+{
+  "authority_result": "BLOCKED",
+  "case_id": "R1-CAL-FAILURE-BOUNDARY",
+  "changed_paths": [],
+  "diagnostic_codes": [
+    "UNKNOWN_KEY"
+  ],
+  "file_modes": {},
+  "gate_results": {
+    "manifest_validation": "FAIL"
+  },
+  "output_hashes": {},
+  "provenance": {
+    "benchmark_toolchain_sha": "2f677f4b00954ea71d0efa7def552a1ea3daa565",
+    "cache_policy": "cold",
+    "environment_id": "github-main-artifact-v1",
+    "historical_base_sha": "2f677f4b00954ea71d0efa7def552a1ea3daa565",
+    "input_spec_sha256": "a3cbda5e8d00fc8583352a79594a01b762851d7b248cb5df4f286ddcf4cb5ba9"
+  },
+  "recovery_class": "repair-contract",
+  "safety_boundary": "manifest_validation",
+  "terminal_state": "BLOCKED"
+}

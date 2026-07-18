@@ -1,0 +1,2 @@
+{"event":"run_started","monotonic_ns":100,"payload":{"arm":"A","case_id":"R1-CAL-FAILURE-BOUNDARY"},"run_id":"8b59359a8e991370ea3a8c287521271ed88d22bcbcd0caccfe721ad554e989ac","sequence":0}
+{"event":"run_blocked","monotonic_ns":200,"payload":{"terminal_state":"BLOCKED"},"run_id":"8b59359a8e991370ea3a8c287521271ed88d22bcbcd0caccfe721ad554e989ac","sequence":1}

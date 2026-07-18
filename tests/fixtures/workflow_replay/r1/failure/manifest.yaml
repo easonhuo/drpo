@@ -1,0 +1,38 @@
+schema_version: 2
+case_id: R1-CAL-FAILURE-BOUNDARY
+task_class: gate_failure
+historical_task:
+  base_sha: 2f677f4b00954ea71d0efa7def552a1ea3daa565
+  frozen_implementation_sha: null
+  source_prs:
+  - 116
+  source_commits:
+  - 2f677f4b00954ea71d0efa7def552a1ea3daa565
+  historical_real_time_evidence:
+  - commit:2f677f4b00954ea71d0efa7def552a1ea3daa565
+benchmark:
+  toolchain_sha: 2f677f4b00954ea71d0efa7def552a1ea3daa565
+  input_spec_sha256: a3cbda5e8d00fc8583352a79594a01b762851d7b248cb5df4f286ddcf4cb5ba9
+  expected_terminal_state: BLOCKED
+  expected_safety_boundary: manifest_validation
+  expected_changed_paths: []
+  expected_final_tree_or_semantic_hashes: {}
+  required_gates:
+  - manifest_validation
+  environment_id: github-main-artifact-v1
+  cache_policy: cold
+  replayability: complete
+  predeclared_exclusions: []
+r1:
+  comparison_mode: failure_boundary
+  expected_file_modes: {}
+  expected_authority_result: BLOCKED
+  expected_gate_results:
+    manifest_validation: FAIL
+  expected_diagnostic_codes:
+  - UNKNOWN_KEY
+  expected_recovery_class: repair-contract
+  workspace_rule: unchanged
+  evaluator_sha256: 001941d6557e19832c59ffe318882f332799b425e054d898d005730a2406952e
+  evidence_schema_sha256: 5f02130bc08513540e694fc1b1abf1d8437f9fa697f92535c49a795dcd9de179
+  order_policy: two_opposite_pairs

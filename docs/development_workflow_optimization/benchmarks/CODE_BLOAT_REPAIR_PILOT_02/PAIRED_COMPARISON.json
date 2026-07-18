@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "iteration_id": "CODE-BLOAT-REPAIR-PILOT-02",
+  "case_id": "CODE-BLOAT-REPAIR-E8-PAPER-ALIGNED-01",
+  "common_base_sha": "929142930a3e2efaa7cafc8e4afe3866600027a5",
+  "candidate_gate_head": "7826f5d60c83d8a58a11dc526b487cc09078d818",
+  "arm_a": {
+    "pull_request": 98,
+    "production_python_churn": 635,
+    "new_production_python_files": 4,
+    "gate_result": "FAIL",
+    "expected_result": "FAIL"
+  },
+  "arm_b": {
+    "pull_request": 101,
+    "production_python_churn": 98,
+    "new_production_python_files": 0,
+    "gate_result": "PASS",
+    "expected_result": "PASS",
+    "old_test_nodes_replaced": 6
+  },
+  "paired_effect": {
+    "production_python_churn_reduction_fraction": 0.8456692913,
+    "production_python_churn_ratio_b_over_a": 0.1543307087,
+    "new_production_python_files_change": "4_to_0"
+  },
+  "repair_closure": {
+    "previous_gate_head": "d73d7d8d2bcd604ff3967f8fc5eb654fe95a40ff",
+    "previous_result": "0/1",
+    "current_result": "1/1",
+    "fixed_failure": "blanket rejection of every changed pre-existing test",
+    "replacement_contract": [
+      "exact coverage of every changed or removed old test node",
+      "replacement exists and is new or changed",
+      "replacement is declared as core requirement evidence",
+      "named production anchor continuity",
+      "no constant or trivial assertion",
+      "aggregate executable-check count is not reduced"
+    ]
+  },
+  "adversarial_replay": {
+    "focused_cases": 13,
+    "expected_outcomes_matched": 13,
+    "unexpected_passes": 0,
+    "unexpected_failures": 0
+  },
+  "exact_head_ci": {
+    "workflow_run": 29515499237,
+    "conclusion": "success",
+    "full_pytest": "PASS",
+    "ruff": "PASS"
+  },
+  "interpretation": {
+    "old_flow_code_bloat_prevention": "FAIL_ON_MATCHED_CASE",
+    "repaired_gate_bad_attempt_detection": "PASS_ON_MATCHED_CASE",
+    "repaired_gate_correct_repair_acceptance": "PASS_ON_MATCHED_CASE",
+    "universal_adoption_claim_allowed": false,
+    "reason_universal_claim_blocked": "single historical repair and deterministic replay; no randomized live same-model multi-task A/B"
+  }
+}

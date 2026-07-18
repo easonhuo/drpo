@@ -1,0 +1,71 @@
+schema_version: 1
+iteration_id: CODE-BLOAT-REPAIR-PILOT-01
+claim: GOV-DEV-WORKFLOW-OPTIMIZATION-BENCHMARK-01
+evidence_class: historical_matched_repair_observation
+causal_live_agent_ab: false
+purpose: >-
+  Test whether a code-size/reuse review can reject an overgrown implementation,
+  whether the same task was subsequently repaired into a materially smaller
+  implementation, and whether the current proposed automated review would accept
+  that repaired implementation.
+replay_engine:
+  branch: dev/gov-dev-workflow-optimization-benchmark-01
+  frozen_head: 4acdc5855cfe3d110d466166174dac0bf2d93e5a
+  role: ReplayAB evidence contract and paired comparison; no scientific experiment
+candidate_gate:
+  pull_request: 105
+  frozen_head: d73d7d8d2bcd604ff3967f8fc5eb654fe95a40ff
+  rule_summary:
+    - Python churn greater than 100 or Python structural change requires internal review
+    - copied Python files and unapproved Python deletions are rejected
+    - removed public functions or classes are rejected
+    - any rewritten pre-existing regression test function is rejected
+case:
+  case_id: CODE-BLOAT-REPAIR-E8-PAPER-ALIGNED-01
+  repository: easonhuo/drpo
+  task_base_sha: 929142930a3e2efaa7cafc8e4afe3866600027a5
+  task_contract:
+    required_scientific_delta: replace alpha*exp(-c*u**2) with alpha*exp(-c*u)
+    preserved_coordinate: u=current_sequence_surprisal/2 and detached
+    preserve_existing_components:
+      - trainer and optimizer behavior except required provenance/formula line
+      - runtime
+      - launcher
+      - scheduler
+      - evaluator
+    required_matrix: Positive-only plus fifteen alpha=1 coefficient points on paired seed offsets 4000 and 5000
+    forbidden_scope:
+      - new trainer stack
+      - new runtime stack
+      - new launcher stack
+      - new calibration framework
+      - compatibility stack unrelated to the one-line scientific correction
+  arm_a:
+    label: historical_initial_attempt_before_scope_correction
+    pull_request: 98
+    head_sha: 8672e173eb8ac52b9ec973415d17d887b2fba479
+    base_sha: 929142930a3e2efaa7cafc8e4afe3866600027a5
+  arm_b:
+    label: historical_repair_after_line_count_and_scope_feedback
+    pull_request: 101
+    head_sha: f957e7f63c376e328e3d677cb143d526f6937c51
+    base_sha: 929142930a3e2efaa7cafc8e4afe3866600027a5
+    later_current_main_integration_pull_request: 106
+measurement:
+  source: GitHub immutable PR metadata, commit comparison, changed-file patches, and exact-head workflow results
+  line_metric: additions plus deletions from the common task base
+  production_python_paths:
+    arm_a:
+      - scripts/calibrate_countdown_e8_paper_aligned_lambda.py
+      - scripts/run_countdown_e8_paper_aligned_lambda_minimal_auto.py
+      - src/drpo/countdown_e8_paper_aligned_lambda_minimal_common.py
+      - src/drpo/countdown_e8_paper_aligned_lambda_minimal_runtime.py
+    arm_b:
+      - scripts/run_countdown_e8_oracle_offline_v2_alpha1_highc_scan_auto.py
+      - src/drpo/countdown_e8_alpha1_c_scan_trainer.py
+      - src/drpo/countdown_e8_alpha1_highc_scan_common.py
+limitations:
+  - This is a matched historical repair trajectory, not a randomized live run of the same coding model twice.
+  - The human/session-local line gate and scope feedback caused the historical repair; PR 105 was not active when the pair was created.
+  - Gate acceptance is therefore simulated from the frozen validator rules and actual diffs.
+  - One case cannot establish a universal code-volume effect or model repair probability.
