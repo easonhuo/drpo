@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "archive_id": "EXT-H-E7-SQEXP-GAE-FROZEN-CRITIC-DIAGNOSTIC-2026-07-18",
+  "evidence_class": "superseded_frozen_critic_precomputed_advantage_development_diagnostic",
+  "repository_documentation_base": "bb637503e1289f24f7a28e587f50665afb20e0de",
+  "source_experiment_label_written_by_old_runner": "EXT-H-E7-SQEXP-GAE-01",
+  "current_joint_critic_experiment_status": "not_run",
+  "must_not_be_treated_as_current_joint_critic_result": true,
+  "package": {
+    "filename": "94d02c56-1857-4bdc-8e5f-f6bf397a1900.zip",
+    "sha256": "01ac39461248391e668f9808428b3d66157ea9ea28ac5411d0b07b3a725c04d0",
+    "run_root": "outputs/e7/sqexp_gae_002",
+    "run_identity_sha256": "ed24dd90262823422368e3d3fb991743c1c2e8c67d8da2188c118ac75c6b5719",
+    "created_utc": "2026-07-17T14:41:45.889966+00:00",
+    "finished_utc": "2026-07-17T19:10:59.387776+00:00",
+    "runner_version": "1.0.0-e7-sqexp-gae",
+    "scientific_status": "frozen_critic_trajectory_gae_development_pilot_only",
+    "source_repository_commit": null,
+    "source_commit_missing": true,
+    "formal_launch_allowed": false
+  },
+  "matrix": {
+    "datasets": [
+      "hopper-medium-expert-v2",
+      "walker2d-medium-v2",
+      "walker2d-medium-replay-v2"
+    ],
+    "development_seeds": [200, 201, 202, 203],
+    "held_out_seeds": [204, 205, 206, 207],
+    "advantage_estimators": ["td", "gae_lambda_0p95"],
+    "actor_update_modes": ["a2c", "ppo_clip_k4"],
+    "controls": ["positive_only", "sqexp_c64", "sqexp_c128", "sqexp_c256"],
+    "steps": 1000000,
+    "evaluation_interval": 50000,
+    "expected_branches": 192,
+    "critic_frozen": true,
+    "prepared_advantage_artifact_used": true
+  },
+  "completion": {
+    "branches_completed": 192,
+    "failed_branches": 0,
+    "critic_audit_failures": 0,
+    "nan_inf_numerical_failures": 0,
+    "support_or_variance_boundary_events": 0,
+    "held_out_seeds_touched": false,
+    "raw_complete": true,
+    "terminal_audit_status": "PASS",
+    "task_performance_collapse_adjudicated": false,
+    "task_performance_collapse_reason": "no_registered_threshold"
+  },
+  "descriptive_summary": {
+    "grouped_late_wins": {
+      "gae": 23,
+      "total": 24
+    },
+    "paired_seed_late_wins": {
+      "gae": 82,
+      "total": 96
+    },
+    "mean_gae_minus_td": {
+      "best": 5.707719335933362,
+      "final": 17.018046490024812,
+      "late_window_800k_1m": 14.240467843679815
+    },
+    "mean_td_minus_gae_best_to_final_drop": 11.310327154091446,
+    "paired_cells_with_smaller_gae_best_to_final_drop": {
+      "count": 66,
+      "total": 96
+    },
+    "positive_only_gae_late_wins_all_dataset_actor_cells": true,
+    "only_grouped_late_exception": {
+      "dataset": "walker2d-medium-replay-v2",
+      "actor_update_mode": "ppo_clip_k4",
+      "control": "c=256",
+      "gae_minus_td_late_mean": -2.6379955448964427
+    }
+  },
+  "score_definitions": {
+    "score_at_500k_mean": "mean normalized score at update 500000 over seeds 200-203",
+    "best_mean": "mean of per-seed best normalized score over the 1M trajectory",
+    "final_mean": "mean normalized score at update 1000000",
+    "late_window_mean_800k_1m": "mean of per-seed means over updates 800000-1000000"
+  },
+  "compact_evidence": {
+    "detailed_report": "docs/results/E7_SQEXP_GAE_FROZEN_CRITIC_DIAGNOSTIC_2026-07-18.md",
+    "group_scores": "experiments/results/e7_sqexp_gae_frozen_critic_diagnostic_20260718/group_summary.csv",
+    "paired_comparisons": "experiments/results/e7_sqexp_gae_frozen_critic_diagnostic_20260718/gae_vs_td.csv",
+    "advantage_diagnostics": "experiments/results/e7_sqexp_gae_frozen_critic_diagnostic_20260718/advantage_diagnostics_summary.csv",
+    "terminal_audit": "experiments/results/e7_sqexp_gae_frozen_critic_diagnostic_20260718/terminal_audit.json",
+    "package_checksum": "experiments/results/e7_sqexp_gae_frozen_critic_diagnostic_20260718/PACKAGE_SHA256.txt"
+  },
+  "non_claims": [
+    "current_joint_critic_result",
+    "convergence",
+    "steady_state_ranking",
+    "universal_gae_superiority",
+    "universal_best_coefficient",
+    "ppo_superiority",
+    "controlled_causal_identification",
+    "ood_generalization"
+  ]
+}
