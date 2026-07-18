@@ -75,6 +75,31 @@ jobs:
         continue-on-error: true
         run: python scripts/validate_governance_pipeline_stage_status.py --repo-root .
 
+      - name: Replacement C01 Arm-A calibration
+        run: |
+          set +e
+          python -m pytest -q \
+            tests/test_workflow_replay_orchestrate.py::test_replacement_c01_arm_a_calibration \
+            2>&1 | tee c01-calibration.log
+          status=${PIPESTATUS[0]}
+          set -e
+          mkdir -p c01-calibration-upload
+          cp c01-calibration.log c01-calibration-upload/
+          if [ -f c01-pr115-calibration.tar.gz ]; then
+            cp c01-pr115-calibration.tar.gz c01-calibration-upload/
+          fi
+          tar -czf c01-pr115-calibration-upload.tar.gz c01-calibration-upload
+          exit "$status"
+
+      - name: Upload C01 PR115 calibration evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: candidate01-c01-pr115-calibration-${{ github.run_id }}
+          path: c01-pr115-calibration-upload.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Full pytest
         continue-on-error: true
         run: python -m pytest -q
