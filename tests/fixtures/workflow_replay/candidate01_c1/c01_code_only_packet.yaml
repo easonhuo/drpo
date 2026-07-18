@@ -1,137 +1,53 @@
 schema_version: 1
-preparation_id: REPLAYAB-C01-CODE-ONLY-PR120
+preparation_id: REPLAYAB-C01-CODE-ONLY-PR115
 source:
   repository: easonhuo/drpo
   remote: origin
   main_ref: refs/heads/main
-  expected_main_sha: 531506b4be6967012c5d01aa4d112deaaccf1c49
-  dev_branch: dev/replayab-core-r1-exact-artifact-01
-  expected_dev_sha: 5b56bc3384e36b52ef72177d6e7d2430ee0488cc
-  result_commit_sha: 5b56bc3384e36b52ef72177d6e7d2430ee0488cc
+  expected_main_sha: d042a60e6e665fc7f8761e97d41fa0a621f78b87
+  dev_branch: dev/gov-code-paired-repair-01
+  expected_dev_sha: e19ffe2facdefbb77e3ddaab3189c16a1445d2b1
+  result_commit_sha: e19ffe2facdefbb77e3ddaab3189c16a1445d2b1
   result_git_dirty: false
 subject:
-  experiment_id: GOV-DEV-WORKFLOW-OPTIMIZATION-BENCHMARK-01
+  experiment_id: GOV-CODE-PAIRED-REPAIR-01
   governance_claims:
-  - GOV-DEV-WORKFLOW-OPTIMIZATION-BENCHMARK-01
+  - GOV-CODE-PAIRED-REPAIR-01
 implementation:
   operations:
   - op: add
-    source_path: docs/development_workflow_optimization/R1_IMPLEMENTATION_CONTRACT.md
-    destination_path: docs/development_workflow_optimization/R1_IMPLEMENTATION_CONTRACT.md
-    expected_blob_sha: b2550f6b1c19bdc3d5a128a9f167ed7e175b4345
+    source_path: docs/development_workflow_optimization/paired_repair/PROTOCOL.md
+    destination_path: docs/development_workflow_optimization/paired_repair/PROTOCOL.md
+    expected_blob_sha: 291ffa1ad647757e29d0b43403e58611236d61b7
     expected_old_blob_sha: null
     expected_mode: '100644'
   - op: add
-    source_path: docs/development_workflow_optimization/replayab_r1_calibration/EXPECTED_VERDICTS.yaml
-    destination_path: docs/development_workflow_optimization/replayab_r1_calibration/EXPECTED_VERDICTS.yaml
-    expected_blob_sha: 47280532c75a943819baf1e6ff9ff18b75357b37
+    source_path: docs/development_workflow_optimization/paired_repair/VALIDATION_TEMPLATE.json
+    destination_path: docs/development_workflow_optimization/paired_repair/VALIDATION_TEMPLATE.json
+    expected_blob_sha: fbcd3372cf71ea8251a6544a33ffaabf31b02487
     expected_old_blob_sha: null
     expected_mode: '100644'
   - op: add
-    source_path: docs/development_workflow_optimization/replayab_r1_calibration/INVENTORY.yaml
-    destination_path: docs/development_workflow_optimization/replayab_r1_calibration/INVENTORY.yaml
-    expected_blob_sha: 0722d3260c6e514b644d6be5b3d72d7842c931fe
+    source_path: docs/scopes/GOV-CODE-PAIRED-REPAIR-01.md
+    destination_path: docs/scopes/GOV-CODE-PAIRED-REPAIR-01.md
+    expected_blob_sha: 719c2a32d0b7c56617e9151e1ad3084a461b3fef
     expected_old_blob_sha: null
     expected_mode: '100644'
   - op: add
-    source_path: docs/development_workflow_optimization/replayab_r1_calibration/R1_YELLOW_ZONE_REVIEW.md
-    destination_path: docs/development_workflow_optimization/replayab_r1_calibration/R1_YELLOW_ZONE_REVIEW.md
-    expected_blob_sha: e964e353d0138dc54eb764fbb267b5a24d0e5d1f
-    expected_old_blob_sha: null
-    expected_mode: '100644'
-  - op: modify
-    source_path: scripts/agent/runspec_lib.py
-    destination_path: scripts/agent/runspec_lib.py
-    expected_blob_sha: d60c79eafcd6a306dfef38f13dd5a95eeee8ce6e
-    expected_old_blob_sha: d60c79eafcd6a306dfef38f13dd5a95eeee8ce6e
-    expected_mode: '100755'
-  - op: add
-    source_path: src/drpo/workflow_replay/evidence.py
-    destination_path: src/drpo/workflow_replay/evidence.py
-    expected_blob_sha: f03e743f875df79ffc1607489f38eb6fcc118635
+    source_path: scripts/paired_repair_report.py
+    destination_path: scripts/paired_repair_report.py
+    expected_blob_sha: d834e2e7b374321c9b4684f3b68b03333900a8ef
     expected_old_blob_sha: null
     expected_mode: '100644'
   - op: add
-    source_path: tests/fixtures/workflow_replay/r1/failure/events-a.jsonl
-    destination_path: tests/fixtures/workflow_replay/r1/failure/events-a.jsonl
-    expected_blob_sha: a1720d8d81bb187c94bd168c507723231343a908
-    expected_old_blob_sha: null
-    expected_mode: '100644'
-  - op: add
-    source_path: tests/fixtures/workflow_replay/r1/failure/events-b.jsonl
-    destination_path: tests/fixtures/workflow_replay/r1/failure/events-b.jsonl
-    expected_blob_sha: 604908289bf2cf82f81a728fd2b803e87c5a42b2
-    expected_old_blob_sha: null
-    expected_mode: '100644'
-  - op: add
-    source_path: tests/fixtures/workflow_replay/r1/failure/manifest.yaml
-    destination_path: tests/fixtures/workflow_replay/r1/failure/manifest.yaml
-    expected_blob_sha: d1afd4c15803d55f9aa8c37136b7dc4bd62da5d8
-    expected_old_blob_sha: null
-    expected_mode: '100644'
-  - op: add
-    source_path: tests/fixtures/workflow_replay/r1/failure/outcome.json
-    destination_path: tests/fixtures/workflow_replay/r1/failure/outcome.json
-    expected_blob_sha: 8731f928ac78e88d917ea6eafa2f9d35940f02c5
-    expected_old_blob_sha: null
-    expected_mode: '100644'
-  - op: add
-    source_path: tests/fixtures/workflow_replay/r1/failure/run-a.json
-    destination_path: tests/fixtures/workflow_replay/r1/failure/run-a.json
-    expected_blob_sha: 4f6178c38c546aea84e0acb247f0b0f3c6a22d15
-    expected_old_blob_sha: null
-    expected_mode: '100644'
-  - op: add
-    source_path: tests/fixtures/workflow_replay/r1/failure/run-b.json
-    destination_path: tests/fixtures/workflow_replay/r1/failure/run-b.json
-    expected_blob_sha: 128d2bc50bc689bf785ab387fc393b03e1a9c9b3
-    expected_old_blob_sha: null
-    expected_mode: '100644'
-  - op: add
-    source_path: tests/fixtures/workflow_replay/r1/ready/events-a.jsonl
-    destination_path: tests/fixtures/workflow_replay/r1/ready/events-a.jsonl
-    expected_blob_sha: a9f580f513e1f1a552e1e47e0a2e39714cb8de3f
-    expected_old_blob_sha: null
-    expected_mode: '100644'
-  - op: add
-    source_path: tests/fixtures/workflow_replay/r1/ready/events-b.jsonl
-    destination_path: tests/fixtures/workflow_replay/r1/ready/events-b.jsonl
-    expected_blob_sha: eb077f1d8674bbb00842902a622e36f714b29b6c
-    expected_old_blob_sha: null
-    expected_mode: '100644'
-  - op: add
-    source_path: tests/fixtures/workflow_replay/r1/ready/manifest.yaml
-    destination_path: tests/fixtures/workflow_replay/r1/ready/manifest.yaml
-    expected_blob_sha: 09a59bb5acc70cd6bdc6966902c58f5c636c5f16
-    expected_old_blob_sha: null
-    expected_mode: '100644'
-  - op: add
-    source_path: tests/fixtures/workflow_replay/r1/ready/outcome.json
-    destination_path: tests/fixtures/workflow_replay/r1/ready/outcome.json
-    expected_blob_sha: 3d4ac5c4c1fca2d7b77819ef1768bcd6e3489a04
-    expected_old_blob_sha: null
-    expected_mode: '100644'
-  - op: add
-    source_path: tests/fixtures/workflow_replay/r1/ready/run-a.json
-    destination_path: tests/fixtures/workflow_replay/r1/ready/run-a.json
-    expected_blob_sha: 092511c0ca7004d93309bf0f1609cce05658ed5c
-    expected_old_blob_sha: null
-    expected_mode: '100644'
-  - op: add
-    source_path: tests/fixtures/workflow_replay/r1/ready/run-b.json
-    destination_path: tests/fixtures/workflow_replay/r1/ready/run-b.json
-    expected_blob_sha: 1a93f51f2fd1163b953a5441dc0aabd9461c085e
-    expected_old_blob_sha: null
-    expected_mode: '100644'
-  - op: add
-    source_path: tests/test_workflow_replay_r1.py
-    destination_path: tests/test_workflow_replay_r1.py
-    expected_blob_sha: b0f34585fa975852671bd76a0057f432317fd7d8
+    source_path: tests/test_paired_repair_report.py
+    destination_path: tests/test_paired_repair_report.py
+    expected_blob_sha: 109da0d8ed7c27d73029782e4c36c71d520d91ba
     expected_old_blob_sha: null
     expected_mode: '100644'
 review:
   reviewer_id: replayab-c01-calibration-reviewer
-  decision_token: pr120-accepted-code-only
+  decision_token: pr115-accepted-code-only
   decision:
     approved: true
     code_integration_eligible: true
