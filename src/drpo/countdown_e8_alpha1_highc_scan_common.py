@@ -27,6 +27,9 @@ ROUND1_EXPERIMENT_ID = (
 C_EXTENSION_EXPERIMENT_ID = (
     "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-LINEAR-C-EXTENSION-0.5B-01"
 )
+TAU_EXPERIMENT_ID = (
+    "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-TAU-CURVE-0.5B-01"
+)
 ROUND1_PARAMETER_POINTS = (
     (0.0, 0.0),
     (1.0, 0.0),
@@ -54,6 +57,14 @@ C_EXTENSION_PARAMETER_POINTS = (
     (1.0, 5.298317367),
     (1.0, 6.907755279),
     (1.0, 9.210340372),
+)
+TAU_C_VALUES = (1.609437912, 1.897119985, 2.995732274, 4.605170186)
+TAU_VALUES = (0.0, 0.125, 0.25, 0.375, 0.5, 0.75, 1.0, 1.25)
+TAU_PARAMETER_POINTS = tuple(
+    (1.0, coefficient, tau) for coefficient in TAU_C_VALUES for tau in TAU_VALUES
+)
+TAU_BASE_POINTS = tuple(
+    (alpha, coefficient) for alpha, coefficient, _ in TAU_PARAMETER_POINTS
 )
 SEED_OFFSETS = (4000, 5000)
 ROUND1_RESULT_MANIFEST_SHA256 = (
@@ -84,6 +95,22 @@ _PROFILES: dict[str, dict[str, Any]] = {
         "expected_points": 8,
         "expected_cells": 16,
         "requires_positive_only": False,
+        "previous_scan_experiment": ROUND1_EXPERIMENT_ID,
+    },
+    TAU_EXPERIMENT_ID: {
+        "experiment_id": TAU_EXPERIMENT_ID,
+        "version": "0.4.0-dev-code-first-tau-curve",
+        "default_grid_config": (
+            "configs/countdown_e8_oracle_offline_v2_paper_aligned_tau_curve_0p5b.yaml"
+        ),
+        "parameter_points": TAU_BASE_POINTS,
+        "tau_points": TAU_PARAMETER_POINTS,
+        "seed_offsets": (4000,),
+        "expected_points": 32,
+        "expected_cells": 32,
+        "requires_positive_only": False,
+        "previous_scan_experiment": C_EXTENSION_EXPERIMENT_ID,
+        "weight": "alpha*exp(-c*max(u-tau,0))",
     },
 }
 
@@ -96,7 +123,29 @@ PARAMETER_POINTS = ROUND1_PARAMETER_POINTS
 EXPECTED_POINTS = 16
 EXPECTED_CELLS = 32
 
-Cell = _base.Cell
+_ACTIVE_TAU = 0.0
+
+
+class Cell(_base.Cell):
+    def __init__(self, alpha: float, c: float, seed_offset: int, tau: float | None = None):
+        super().__init__(alpha=alpha, c=c, seed_offset=seed_offset)
+        object.__setattr__(self, "tau", _ACTIVE_TAU if tau is None else float(tau))
+
+    @property
+    def name(self) -> str:
+        base = super().name
+        tag = f"_tau{_base._number_tag(self.tau)}" if self.tau != 0.0 else ""
+        return base.replace(f"_seed{self.seed_offset}", f"{tag}_seed{self.seed_offset}")
+
+
+def set_active_tau(value: float) -> None:
+    global _ACTIVE_TAU
+    value = float(value)
+    if not math.isfinite(value) or value < 0.0:
+        raise ValueError("tau must be finite and non-negative")
+    _ACTIVE_TAU = value
+
+
 sha256_file = _base.sha256_file
 atomic_json = _base.atomic_json
 load_yaml = _base.load_yaml
@@ -121,10 +170,12 @@ def continuous_exp_weights(
     if not math.isfinite(c) or c < 0.0:
         raise ValueError("c must be finite and non-negative")
     u = continuous_remoteness(seq_lp, reference_distance=reference_distance)
-    return (float(alpha) * torch.exp(-float(c) * u)).detach()
+    effective_u = (u - _ACTIVE_TAU).clamp_min(0.0)
+    return (float(alpha) * torch.exp(-float(c) * effective_u)).detach()
 
 
 _PATCH_KEYS = (
+    "Cell",
     "EXPERIMENT_ID",
     "VERSION",
     "DEFAULT_GRID_CONFIG",
@@ -226,6 +277,7 @@ def _identity(
             "method": cell.method,
             "alpha": cell.alpha,
             "c": cell.c,
+            "tau": float(getattr(cell, "tau", 0.0)),
             "seed_offset": cell.seed_offset,
         },
         "smoke": bool(smoke),
@@ -235,6 +287,7 @@ def _identity(
 
 def _apply() -> None:
     values = {
+        "Cell": Cell,
         "EXPERIMENT_ID": EXPERIMENT_ID,
         "VERSION": VERSION,
         "DEFAULT_GRID_CONFIG": DEFAULT_GRID_CONFIG,
@@ -280,6 +333,7 @@ def activate_for_grid_config(path: str | Path) -> None:
     """Select and activate the frozen profile declared by ``path``."""
     config = load_yaml(path)
     activate(_profile_for_config(config))
+    set_active_tau(float(config["execution"]["liveness"].get("representative_tau", 0.0)))
 
 
 def validate_grid_config(config: Mapping[str, Any]) -> None:
@@ -288,14 +342,21 @@ def validate_grid_config(config: Mapping[str, Any]) -> None:
     predecessor_compatible["remoteness"]["weight"] = "alpha*exp(-c*u^2)"
     with activated(profile):
         _BASE_VALIDATE_GRID_CONFIG(predecessor_compatible)
-    if config["remoteness"].get("weight") != "alpha*exp(-c*u)":
-        raise ValueError("The paper-aligned weight must be alpha*exp(-c*u)")
+    expected_weight = str(profile.get("weight", "alpha*exp(-c*u)"))
+    if config["remoteness"].get("weight") != expected_weight:
+        raise ValueError(f"The paper-aligned weight must be {expected_weight}")
 
     points = tuple(
         (float(item["alpha"]), float(item["c"]))
         for item in config["sweep"]["parameter_points"]
     )
     sweep = config["sweep"]
+    tau_points = profile.get("tau_points")
+    if tau_points is not None and tuple(
+        (float(item["alpha"]), float(item["c"]), float(item["tau"]))
+        for item in sweep["parameter_points"]
+    ) != tuple(tau_points):
+        raise ValueError("The frozen tau response grid changed")
     if profile["requires_positive_only"]:
         if sum(alpha == 0.0 for alpha, _ in points) != 1:
             raise ValueError("Exactly one Positive-only point is required")
@@ -312,7 +373,7 @@ def validate_grid_config(config: Mapping[str, Any]) -> None:
             raise ValueError("The extension round must not rerun Positive-only")
         if sweep.get("historical_positive_only_reference_only") is not True:
             raise ValueError("The extension round must reuse the historical reference")
-        if sweep.get("previous_scan_experiment") != ROUND1_EXPERIMENT_ID:
+        if sweep.get("previous_scan_experiment") != profile["previous_scan_experiment"]:
             raise ValueError("The extension predecessor experiment changed")
         reference = config.get("historical_reference", {})
         if reference.get("source_experiment") != ROUND1_EXPERIMENT_ID:
@@ -354,7 +415,8 @@ def parameter_points(config: Mapping[str, Any]) -> tuple[tuple[float, float], ..
         for item in config["sweep"]["parameter_points"]
     )
     expected = tuple(profile["parameter_points"])
-    if points != expected or len(set(points)) != int(profile["expected_points"]):
+    unique_required = profile.get("tau_points") is None
+    if points != expected or unique_required and len(set(points)) != len(expected):
         raise AssertionError(
             f"Paper-aligned scan must produce {profile['expected_points']} unique points"
         )
@@ -362,12 +424,17 @@ def parameter_points(config: Mapping[str, Any]) -> tuple[tuple[float, float], ..
 
 
 def build_cells(config: Mapping[str, Any]) -> tuple[Cell, ...]:
-    points = parameter_points(config)
+    parameter_points(config)
     profile = _profile_for_config(config)
     seed_offsets = tuple(int(value) for value in profile["seed_offsets"])
     cells = tuple(
-        Cell(alpha=alpha, c=coefficient, seed_offset=seed_offset)
-        for alpha, coefficient in points
+        Cell(
+            alpha=float(item["alpha"]),
+            c=float(item["c"]),
+            seed_offset=seed_offset,
+            tau=float(item.get("tau", 0.0)),
+        )
+        for item in config["sweep"]["parameter_points"]
         for seed_offset in seed_offsets
     )
     expected_cells = int(profile["expected_cells"])
