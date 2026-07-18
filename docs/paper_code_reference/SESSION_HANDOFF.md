@@ -15,20 +15,47 @@ A new session must not continue from chat memory alone. Read and verify, in this
 3. `experiments/registry.yaml` from current `main`.
 4. `docs/paper_code_reference/IMPLEMENTATION_PLAN.md`.
 5. `docs/paper_code_reference/SIZE_AND_COMPLETENESS_POLICY.md`.
-6. This file.
-7. The actual stacked branch, relevant legacy source files, changed files, tests, Draft PRs, and exact-head CI.
+6. `docs/paper_code_reference/SOURCE_MIGRATION_MAP.md`.
+7. `docs/paper_code_reference/ACCEPTANCE_MATRIX.yaml`.
+8. This file.
+9. The actual `dev/paper-code-reference-01` branch, relevant legacy source files, changed files, tests, persistent Draft PR `#149`, and exact-head CI.
 
 Before writing code, report:
 
 - repository and default branch;
 - current `main` commit SHA;
-- continuation branch and exact head SHA;
+- active development branch and exact head SHA;
 - active claim;
 - scientific statuses affected or explicitly unaffected;
 - unresolved uncertainties;
 - exact next implementation slice.
 
-Do not edit `docs/handoff.md` directly. This engineering-only task should remain a handoff/registry no-op unless a separately authorized scientific-status change is required.
+Do not edit `docs/handoff.md` directly. This engineering-only task must remain a handoff/registry no-op unless a separately authorized scientific-status change is required.
+
+### 0.1 Locked single-branch development rule
+
+The user explicitly replaced the former stacked-branch workflow on 2026-07-18. Every later session working on `PAPER-CODE-REFERENCE-01` must follow this rule:
+
+1. The only active long-lived development branch is:
+
+   ```text
+   dev/paper-code-reference-01
+   ```
+
+2. Continue implementation and task-document updates directly on that branch. Do **not** create one new staging branch or stacked Draft PR per implementation slice.
+3. Keep one persistent Draft PR only:
+
+   ```text
+   #149: dev/paper-code-reference-01 -> main
+   ```
+
+   It is the cumulative diff, discussion, and clean-checkout CI window. It must remain Draft and must not be merged into `main` without a separate explicit user instruction.
+4. Before every write, resolve the current exact head of `dev/paper-code-reference-01`; never continue from a stale session SHA.
+5. Every commit pushed to the development branch must update PR `#149` and pass the applicable exact-head CI before the slice is called complete.
+6. The former stacked PRs `#125`, `#126`, `#127`, `#128`, `#129`, `#131`, `#132`, `#133`, `#134`, `#135`, `#136`, `#140`, and `#144` are closed historical review records. They are not active continuation branches and must not be reopened or used as the base of new work.
+7. Old staging branch refs may remain visible because the available GitHub connector did not expose branch-ref deletion. Their existence does not authorize their reuse. The consolidated branch already contains their commits.
+8. A temporary branch is allowed only when a concrete repository/tool limitation makes direct work on the long-lived branch impossible, and only after explicit user approval. It must be reconciled immediately after exact-head CI rather than becoming another permanent stack layer.
+9. This rule does not weaken the new-Python-file human-approval gate, scientific scope gates, terminal audits, differential tests, or the prohibition on direct `main` changes.
 
 ## 1. Stable objective and scope
 
@@ -45,18 +72,20 @@ Do not refactor the entire repository, create a universal framework, import supe
 
 Correctness and completeness determine implementation size. No line-count target or maximum acceptance threshold exists.
 
-## 2. Repository snapshot at this handoff
+## 2. Current repository snapshot
 
 - Repository: `easonhuo/drpo`
 - Default branch: `main`
-- Confirmed `main` SHA at handoff creation: `4544005bd7df69c53bad70a9dcac846af01285e4`
+- `main` SHA when the consolidated PR was opened: `b65882993eaf674390989bb9082be2b79f1f1e44`
 - Overall task base: `4544005bd7df69c53bad70a9dcac846af01285e4`
-- Root development branch: `dev/paper-code-reference-01`
-- Continuation branch before this document commit: `dev/paper-code-reference-01-hopper-critic-staging`
-- Continuation head before this document commit: `a617cf99aa05c425d18ed7043e8605aff7ed7c4f`
-- Latest stacked Draft PR before this document commit: PR `#136`
+- Only active development branch: `dev/paper-code-reference-01`
+- Consolidated branch head before this document update: `32c6d6ef979e28809ffade9e260fd333f0057fb8`
+- Persistent cumulative Draft PR: `#149`
+- Overall acceptance state: `in_development`
 
-The session that continues this work must resolve the new exact branch head after this document commit and must not reuse the pre-document SHA as the current head.
+At consolidation, `dev/paper-code-reference-01` was fast-forwarded from `b009fbb91f214aa5052c9b8bb9d74704bd2ba304` to `32c6d6ef979e28809ffade9e260fd333f0057fb8`. GitHub compare reported the long-lived branch and the latest Hopper-mechanism head as identical. No paper-code commit was merged into `main`.
+
+A continuation session must resolve the new exact branch head after this document commit and must not reuse the pre-document SHA as the current head.
 
 ## 3. Scientific boundaries that must not drift
 
@@ -73,25 +102,22 @@ The session that continues this work must resolve the new exact branch head afte
 
 ### 4.1 Planning and shared kernel
 
-Completed and present in the stack:
+Durably present on the consolidated branch:
 
 - implementation objective, scope, phase plan, and correctness gates;
-- size/completeness correction;
+- size/completeness policy;
+- source migration map;
+- acceptance matrix;
 - isolated `paper_code/` package;
 - common deterministic I/O, seeding, events, and terminal-audit support;
 - shared negative-control formulas, masks, taper coefficients, and budget matching;
-- fixed-input characterization/differential tests.
+- fixed-input characterization and differential tests.
 
-Still missing as consolidated task documents:
-
-- a complete source-to-target migration inventory;
-- a single claim-to-entrypoint-to-artifact-to-command acceptance matrix.
-
-Do not infer that these Phase-0 deliverables exist merely because parts of the information appear in PR bodies or tests.
+The acceptance matrix may lag the implementation commits and must be refreshed before reviewer-ready closure. Do not infer acceptance from compilation or smoke tests alone.
 
 ### 4.2 C-U1
 
-Durably implemented through stacked Draft PR `#131`:
+Durably implemented on the consolidated branch:
 
 - Gaussian/environment core;
 - Positive-only preparation;
@@ -100,7 +126,7 @@ Durably implemented through stacked Draft PR `#131`:
 - taper family;
 - public CLI, per-seed artifacts, aggregation, and terminal audit.
 
-Verified at exact heads during development:
+Verified during development:
 
 - Python compilation;
 - strict legacy differential tests;
@@ -117,7 +143,7 @@ Not completed or not authorized by these engineering checks:
 
 ### 4.3 D-U1 revision 4
 
-Durably implemented through stacked Draft PRs `#132`, `#133`, and `#134`:
+Durably implemented on the consolidated branch:
 
 - revision-4 environment and policy core;
 - utility × rarity Cartesian geometry;
@@ -133,28 +159,30 @@ Scientific status remains `not_run`. No 20-seed × 6-method × 8000-step formal 
 
 ### 4.4 Hopper E7-Q2
 
-Durably implemented:
+Durably implemented on the consolidated branch:
 
-- PR `#135`: frozen protocol, HDF5 data contract, episode handling, returns/splits/normalization, value and squashed-Gaussian networks, score components, scalar metrics, and separate terminal event classification;
-- PR `#136`: fixed-budget critic training, best-validation checkpoint selection, critic terminal audit, selected-vs-final advantage stability, one-time frozen-advantage standardization, checkpoint/artifact output, and strict legacy differential tests.
+- frozen protocol and registered identity;
+- HDF5 data contract, episode handling, returns, splits, and observation normalization;
+- value and squashed-Gaussian actor architectures;
+- Gaussian output-score components and separate terminal-event classification;
+- fixed-budget canonical critic training and best-validation checkpoint selection;
+- critic audit, selected-vs-final advantage stability, and frozen advantages;
+- one shared actor with six weighting modes: `positive_only`, `signed`, `near_zero`, `far_zero`, `far_cap`, and `dynamic_budget_matched_global`;
+- fixed-budget AdamW actor training, terminal checkpoint/audit, and non-finite no-step behavior;
+- advantage-matched near/far pairing;
+- per-sample and aggregate full-parameter gradient diagnostics;
+- score decomposition, analytic/autograd agreement, far-field slopes, and budget-matching artifacts;
+- strict legacy differential tests for the migrated layers.
 
-The corrected Hopper core and critic exact heads passed GitHub clean-checkout CI, including full repository pytest and Ruff.
+The actor and mechanism exact heads passed Evidence Locator, full repository pytest, Ruff, compile, handoff authority, formal execution channel, and governance checks before consolidation.
 
-Not yet durably implemented:
+Still missing:
 
-- Positive-only actor preparation;
-- the six actor intervention objectives and fixed-budget actor training layer;
-- advantage-matched near/far mechanism diagnostics;
-- rollout adapter;
+- Positive-only preparation and exact six-branch per-seed orchestration;
+- real Gymnasium/D4RL rollout adapter and preflight;
 - public Hopper runner and aggregation;
-- registered-input compact regeneration;
+- registered-input compact regeneration and paper-facing output binding;
 - full formal rerun.
-
-Important interruption boundary:
-
-- The previous session prepared actor-layer code in a transient workspace and created at least one unattached Git object, but no actor-layer commit, branch, or PR was completed.
-- Unattached blobs and transient files are not authoritative continuation material.
-- A new session must reconstruct or recover the actor slice from repository-visible sources and verify it before committing. It must not claim the actor layer already exists in GitHub.
 
 ### 4.5 Countdown
 
@@ -162,9 +190,9 @@ Blocked by the implementation plan until the final manuscript-facing Countdown p
 
 Do not migrate a historical giant one-file runner and do not treat a pilot or coefficient scan as the final paper protocol.
 
-## 5. Stacked Draft PR chain
+## 5. Branch and PR governance after consolidation
 
-The current paper-code stack is intentionally incremental. At handoff creation, the durable chain is:
+The old incremental stack is retained only as historical review provenance:
 
 - `#125` C-U1 differential core;
 - `#126` C-U1 Positive-only path;
@@ -176,78 +204,83 @@ The current paper-code stack is intentionally incremental. At handoff creation, 
 - `#133` D-U1 training and terminal audit;
 - `#134` D-U1 public runner;
 - `#135` Hopper E7-Q2 core;
-- `#136` Hopper critic and frozen advantages.
+- `#136` Hopper critic and frozen advantages;
+- `#140` Hopper actor training;
+- `#144` Hopper mechanism diagnostics.
 
-All are Draft and unmerged. `main` is unchanged. Do not merge, retarget, squash, or close the stack without explicit user approval and a separate stack-integration review.
+These PRs are closed. Their commits were inherited by the consolidated branch; closing them did not delete code. GitHub may mark the first PR as merged because its original base was the long-lived branch when that branch fast-forwarded over its commits. This does not mean any paper-code change entered `main`.
 
-PR bodies contain useful slice-local scope and test records, but this file is the task-level continuation index.
+PR `#149` is now the only active paper-code Draft PR. Future work updates this PR by committing directly to `dev/paper-code-reference-01`. Do not create another stacked PR chain.
 
 ## 6. Exact next implementation slice
 
-The next durable slice is **Hopper actor objectives and fixed-budget actor training**, based only on the authoritative legacy path:
+The next slice is **Hopper Positive-only preparation and six-branch orchestration**, based only on:
 
-- `src/drpo/e7_hopper_q2.py`
-- `configs/e7_hopper_q2_medium_replay_v2.yaml`
-- the already migrated Hopper protocol, data, models, metrics, optimizer utilities, critic, and frozen advantages in `paper_code/`.
+- `src/drpo/e7_hopper_q2.py`;
+- `configs/e7_hopper_q2_medium_replay_v2.yaml`;
+- the already migrated Hopper protocol, data, models, metrics, optimizer utilities, critic, frozen advantages, actor, and mechanism diagnostics in `paper_code/`.
 
 Required behavior:
 
-1. exact `actor_eval_metrics` behavior and compatibility fields;
-2. exact objectives and diagnostics for:
-   - `positive_only`;
-   - `signed`;
-   - `near_zero`;
-   - `far_zero`;
-   - `far_cap`;
-   - `dynamic_budget_matched_global`;
-3. detached distance/output-score control semantics;
-4. fixed optimizer-step budget; terminal audit must not shorten the registered horizon;
-5. selected rollout-evaluation schedule without inventing an environment fallback;
-6. separate task-performance, support/variance-boundary, and numerical-failure reporting;
-7. terminal actor checkpoint and curves/audit artifacts.
+1. construct one Positive-only actor preparation per seed;
+2. save and reload the exact shared Positive-only checkpoint;
+3. derive the registered far threshold and Far-cap/global matching quantities from the shared prepared policy;
+4. clone the same prepared actor state into all six branches;
+5. run each branch with the exact registered fixed budgets and common inputs;
+6. preserve branch-local trajectories, terminal checkpoints, audits, and failures;
+7. keep task-performance collapse, support/variance boundary, and NaN/Inf numerical failure separate;
+8. do not add rollout or public-runner behavior until orchestration is differential-tested and coherent.
 
-Minimum differential gates before publication:
+The following proposed Python paths have **not yet received explicit human approval** and therefore must not be created until approval is obtained:
 
-- loss and every diagnostic field for all six methods on fixed tensors;
-- raw gradients for all six methods;
-- first AdamW update identity;
-- fixed-seed short trajectories and terminal audit identity for representative methods, including Positive-only and dynamic budget matching;
-- non-finite loss/gradient path does not apply an optimizer update;
-- smoke profile remains explicitly non-formal;
-- Python compilation, focused tests, full repository pytest, Ruff, handoff/formal/governance gates, and exact-head CI.
+```text
+paper_code/src/drpo_reference/external/hopper_suite.py
+paper_code/tests/test_hopper_suite_differential.py
+```
 
-Do not combine this slice with near/far pair construction, rollout integration, aggregation, or the public runner unless the actor slice first becomes a coherent, reviewable, exact-head-green commit.
+Before creating them, a continuation session must restate the exact paths and responsibilities and obtain explicit approval under the repository hard gate. The single-branch rule does not waive this requirement.
+
+Minimum gates before calling the slice complete:
+
+- exact Positive-only preparation identity;
+- exact checkpoint reload and clone identity;
+- exact method ordering, seed derivation, thresholds, and global scale;
+- representative fixed-seed short-suite differential comparison against the legacy runner;
+- failure isolation and no mixed output roots;
+- Python compilation, focused tests, full repository pytest, Ruff, handoff/formal/governance gates, and exact-head PR `#149` CI.
 
 ## 7. New-file governance
 
 Before creating any new `.py` path, follow the current `AGENTS.md` human-approval gate:
 
-- name the exact path;
-- explain why the nearest existing Python file cannot own the responsibility;
+- name the exact proposed path;
+- explain why extending the nearest existing Python file is insufficient;
 - obtain explicit human approval;
-- preserve the approval in durable PR discussion or repository documentation.
+- preserve the approval in PR `#149` discussion or another durable repository record.
 
-A continuation session must inspect which Python paths already exist at the current stack head before proposing new paths. This handoff does not itself authorize a new Python filename.
+A continuation session must inspect which Python paths already exist at the current branch head before proposing new paths. This handoff does not itself authorize a new Python filename.
 
 ## 8. Validation and claim discipline
 
 For every new commit:
 
-1. inspect the exact base and changed files;
-2. run focused old/new differential tests;
-3. run clean-checkout CI on the exact new head;
-4. do not count a cancelled or superseded workflow run as passing;
-5. record local tests separately from GitHub tests;
-6. do not call a smoke or short trajectory a scientific reproduction;
-7. do not claim formal Hopper readiness before registered data, budget, rollouts, terminal audit, and compact/full regeneration gates pass.
+1. resolve and inspect the exact current head of `dev/paper-code-reference-01`;
+2. inspect the changed files and legacy authority;
+3. run focused old/new differential tests;
+4. run clean-checkout CI through persistent Draft PR `#149` on the exact new head;
+5. do not count a cancelled or superseded workflow run as passing;
+6. record local tests separately from GitHub tests;
+7. do not call a smoke or short trajectory a scientific reproduction;
+8. do not claim formal Hopper readiness before registered data, budget, rollouts, terminal audit, and compact/full regeneration gates pass.
 
 ## 9. Remaining uncertainties
 
 - Countdown final manuscript-facing protocol and formal result are not frozen.
 - Full Hopper reproduction needs the registered D4RL data and environment/runtime resources.
-- The paper-code source-to-target inventory and unified acceptance matrix still need a durable consolidated form.
-- The large stacked PR chain requires an eventual integration/review strategy before anything can merge to `main`.
-- The interrupted Hopper actor work is not committed and must be rebuilt or recovered from authoritative repository sources.
+- Hopper orchestration, rollout, public runner, compact regeneration, and paper-output binding remain incomplete.
+- The acceptance matrix needs a later implementation-status refresh.
+- Old staging branch refs may still exist remotely, but they are historical only and must not be used for new work.
+- The consolidated branch must remain separate from `main` until the user explicitly authorizes a final merge decision.
 
 ## 10. Completion definition
 
@@ -259,4 +292,5 @@ This task is not complete when modules compile or smoke tests pass. Completion r
 - registered scientific runs are regenerated at the required budgets where resources permit;
 - clean-checkout reproduction commands work without hidden local paths;
 - code and docs are reviewed as one coherent paper-facing implementation;
-- merge occurs only after explicit user approval.
+- reviewer-facing acceptance is audited as `reviewer_ready` rather than inferred;
+- merge to `main`, if ever desired, occurs only after a separate explicit user approval.
