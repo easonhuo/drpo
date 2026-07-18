@@ -1,0 +1,70 @@
+schema_version: 1
+preparation_id: REPLAYAB-C01-CODE-ONLY-PR119
+source:
+  repository: easonhuo/drpo
+  remote: origin
+  main_ref: refs/heads/main
+  expected_main_sha: 2f677f4b00954ea71d0efa7def552a1ea3daa565
+  dev_branch: dev/gov-runspec-env-prefix-compat-01
+  expected_dev_sha: 4bdc1fa80bafd997b6358c51a83f5e57dd77ed16
+  result_commit_sha: 4bdc1fa80bafd997b6358c51a83f5e57dd77ed16
+  result_git_dirty: false
+subject:
+  experiment_id: GOV-RUNSPEC-ENV-PREFIX-COMPAT-01
+  governance_claims:
+  - GOV-RUNSPEC-ENV-PREFIX-COMPAT-01
+implementation:
+  operations:
+  - op: add
+    source_path: docs/governance_stage_authorizations/GOV-RUNSPEC-ENV-PREFIX-COMPAT-01.yaml
+    destination_path: docs/governance_stage_authorizations/GOV-RUNSPEC-ENV-PREFIX-COMPAT-01.yaml
+    expected_blob_sha: 86ba2151790bd0872a82ffda89ac250b42a19385
+    expected_old_blob_sha: null
+    expected_mode: '100644'
+  - op: add
+    source_path: docs/scopes/GOV-RUNSPEC-ENV-PREFIX-COMPAT-01.md
+    destination_path: docs/scopes/GOV-RUNSPEC-ENV-PREFIX-COMPAT-01.md
+    expected_blob_sha: 686cab75abecf185c734d1bd50d85b308adecd8c
+    expected_old_blob_sha: null
+    expected_mode: '100644'
+  - op: modify
+    source_path: runspecs/README.md
+    destination_path: runspecs/README.md
+    expected_blob_sha: 7748a3001548cb147cfb6b71fcffd19dffe0290e
+    expected_old_blob_sha: a993591bc4228f98caae5b3541dcd03afa4fde0b
+    expected_mode: '100644'
+  - op: modify
+    source_path: scripts/agent/runspec_lib.py
+    destination_path: scripts/agent/runspec_lib.py
+    expected_blob_sha: d60c79eafcd6a306dfef38f13dd5a95eeee8ce6e
+    expected_old_blob_sha: 6faff6f4ac7f3f2e7c287ed1029d99eea5f6ac79
+    expected_mode: '100644'
+  - op: modify
+    source_path: tests/test_runspec_recovery.py
+    destination_path: tests/test_runspec_recovery.py
+    expected_blob_sha: 38020e73865d5c7c9e13a44ad1cc45848c6bec25
+    expected_old_blob_sha: ffe77539825542d06097496e5ed4fc35b63bb8fa
+    expected_mode: '100644'
+review:
+  reviewer_id: replayab-c01-calibration-reviewer
+  decision_token: pr119-accepted-code-only
+  decision:
+    approved: true
+    code_integration_eligible: true
+    evidence_level: formal
+    result_status: not_run
+    claim_support_level: supports_claim
+    terminal_audit: not_required
+    task_performance_collapse: not_assessed
+    support_boundary: not_assessed
+    numerical_failure: not_assessed
+  limitations:
+  - historical repository-integration replay only
+  unresolved: []
+registration:
+  mode: none
+  update_id: null
+  expected_before_semantic_sha256: null
+  experiment: null
+  handoff_operations: []
+  registry_changes: []
