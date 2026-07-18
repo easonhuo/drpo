@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 import sys
@@ -381,3 +382,31 @@ def test_tau_runtime_forwards_each_cell_threshold() -> None:
     source = RUNTIME.read_text(encoding="utf-8")
     assert '"--tau"' in source
     assert 'getattr(cell, "tau", 0.0)' in source
+
+
+def _sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def test_tau_result_source_hashes_match_current_rebuild() -> None:
+    expected = {
+        ROOT / "src/drpo/countdown_e8_alpha1_c_scan_common.py": (
+            "bf6a2245d0f7f5278cc983c5425d6cbc2d5d0d96f16dfb7f31936df107d85fd4"
+        ),
+        ROOT / "src/drpo/countdown_e8_alpha1_c_scan_runtime.py": (
+            "1111e6e532721f3bc8d3bc43bd78c60a2a57cc3c6218049d6ece7401fff062fd"
+        ),
+        TRAINER: "34f39b2347ca8397cdf3ff8fbdd5eef8ff07ff6853482a1afff6772d7db9d919",
+        AUTO: "96ebdafb3bc42fae430fbd7512d70bbe4f1976cf05a263b0cd42f16b67dcdc8a",
+        Path(scan.__file__).resolve(): (
+            "df2f01e0d0084a8873a42e86ea4173567c2b2d4b048f12d22a958697b02ec929"
+        ),
+        RUNTIME: "b0dcb9ef371efa2cb30b26787d1a0b6d21b0b15c271390a05b292e0739e0c102",
+        ROOT / "configs/countdown_e8_base_rl_replay_0p5b.yaml": (
+            "492f063f0cb41dded82355bb4bd9c3d0524f607d670599a5f48a51a5c0099866"
+        ),
+        TAU_CONFIG: "4514342316b62aa5eee378b2a2107b94170ae7d1479e6fea7ce407229a4cea2b",
+    }
+    assert {str(path): _sha256(path) for path in expected} == {
+        str(path): digest for path, digest in expected.items()
+    }
