@@ -1,0 +1,116 @@
+version: 1
+run_id: E8_PAPER_ALIGNED_TAU_C_RANGE_EXTENSION_20260718_01
+lane: e8
+priority: 156
+created_at: "2026-07-18T00:00:00Z"
+experiment_id: EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-TAU-C-RANGE-EXTENSION-0.5B-01
+repo_commit: 9cd7703aa8234f77dfe8cf906e7b526fb0ad8cd2
+
+registration:
+  mode: deferred
+  closure_required: true
+
+provenance:
+  commit_policy: protected_paths_unchanged
+  protected_paths:
+    - configs/countdown_e8_oracle_offline_v2_paper_aligned_tau_c_range_extension_0p5b.yaml
+    - docs/scopes/EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-TAU-C-RANGE-EXTENSION-0.5B-01.md
+    - docs/experiments/E8_PAPER_ALIGNED_TAU_C_RANGE_EXTENSION_PROTOCOL.md
+    - src/drpo/countdown_e8_alpha1_highc_scan_common.py
+    - src/drpo/countdown_e8_alpha1_highc_scan_runtime.py
+    - src/drpo/countdown_e8_alpha1_c_scan_trainer.py
+    - src/drpo/countdown_e8_alpha1_c_scan_runtime.py
+    - scripts/run_countdown_e8_oracle_offline_v2_alpha1_highc_scan_auto.py
+    - scripts/run_countdown_e8_oracle_offline_v2_alpha1_highc_scan_auto_one_click.sh
+    - tests/test_countdown_e8_linear_c_extension.py
+
+purpose: >-
+  Repeat the previous tau-curve lower and upper c boundaries as run-batch
+  bridges, extend one previously used coefficient step below and above them,
+  and trace four complete eight-point tau curves at seed offset 4000. Treat the
+  result as a single-seed response-surface extension pilot, not a second-seed
+  replication or method ranking.
+
+entrypoint:
+  cwd: repo_root
+  command: >-
+    E8_ALPHA1_HIGHC_WORK_DIR=outputs/e8/paper_aligned_tau_c_range_extension_001
+    E8_ALPHA1_HIGHC_GRID_CONFIG=configs/countdown_e8_oracle_offline_v2_paper_aligned_tau_c_range_extension_0p5b.yaml
+    bash scripts/run_countdown_e8_oracle_offline_v2_alpha1_highc_scan_auto_one_click.sh
+
+recovery:
+  enabled: true
+  max_attempts: 2
+  resume_command: >-
+    E8_ALPHA1_HIGHC_WORK_DIR=outputs/e8/paper_aligned_tau_c_range_extension_001
+    E8_ALPHA1_HIGHC_GRID_CONFIG=configs/countdown_e8_oracle_offline_v2_paper_aligned_tau_c_range_extension_0p5b.yaml
+    bash scripts/run_countdown_e8_oracle_offline_v2_alpha1_highc_scan_auto_one_click.sh
+  retryable_exit_codes: [137, 143]
+  checkpoint_globs:
+    - outputs/e8/paper_aligned_tau_c_range_extension_001/RUNTIME_SELECTION.json
+    - outputs/e8/paper_aligned_tau_c_range_extension_001/RUNTIME_SLOTS.json
+    - outputs/e8/paper_aligned_tau_c_range_extension_001/SWEEP_STATUS.json
+  backoff_seconds: 60
+
+policy:
+  existing_script_required: true
+  forbid_new_launcher: true
+  forbid_hparam_change: true
+  forbid_cross_lane: true
+  scientific_aggregation_allowed: true
+  formal_evidence_allowed: false
+
+outputs:
+  run_dir: outputs/e8/paper_aligned_tau_c_range_extension_001
+  summary_file: outputs/e8/paper_aligned_tau_c_range_extension_001/SWEEP_COMPLETE.json
+  audit_file: outputs/e8/paper_aligned_tau_c_range_extension_001/aggregate/terminal_audit.json
+
+success_criteria:
+  - protected implementation paths are unchanged from the pinned implementation commit
+  - formula remains alpha*exp(-c*max(u-tau,0)) with detached u=current_sequence_surprisal/2
+  - matrix contains c values 1.386294361, 1.609437912, 4.605170186, and 5.298317367
+  - matrix contains the unchanged eight tau values and only seed offset 4000
+  - matrix contains exactly 32 unique cells
+  - c 1.609437912 and 4.605170186 are reported as predecessor bridge curves
+  - c 1.386294361 and 5.298317367 are reported as the two outer curves
+  - runtime records GPU 0-7, two slots per GPU, and 16 concurrent cells
+  - smoke gate passes before the full sweep and is not scientific evidence
+  - test_data_used remains false
+  - late-window Pass@8 uses steps 800, 900, 1000, 1100, and 1200
+  - task performance, valid-structure proxy, NaN/Inf, and infrastructure failure remain separate
+  - fixed 1200 steps is not described as convergence or steady state
+  - no exact optimum, cross-seed ranking, significance, or OOD claim is made
+
+artifacts:
+  package_policy: manifest_only
+  include:
+    - outputs/e8/paper_aligned_tau_c_range_extension_001/*.json
+    - outputs/e8/paper_aligned_tau_c_range_extension_001/aggregate/*.json
+    - outputs/e8/paper_aligned_tau_c_range_extension_001/aggregate/*.csv
+    - outputs/e8/paper_aligned_tau_c_range_extension_001/methods/*/summary.json
+    - outputs/e8/paper_aligned_tau_c_range_extension_001/methods/*/metrics.csv
+    - outputs/e8/paper_aligned_tau_c_range_extension_001/logs/*.log
+  exclude:
+    - "**/*.pt"
+    - "**/*.pth"
+    - "**/*.safetensors"
+    - "**/*.bin"
+    - "**/checkpoint*"
+    - "**/optimizer*"
+  max_package_size_mb: 30
+  fail_if_excluded_matched: false
+  fail_if_package_too_large: true
+
+delivery:
+  enabled: true
+  auto: true
+  mode: results_repo
+  repository: easonhuo/drpo-results
+  branch: ingest/e8
+  export_profile: manifest_text_v1
+  max_total_size_mb: 30
+  max_file_size_mb: 10
+
+publish:
+  enabled: false
+  auto: false

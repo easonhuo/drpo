@@ -30,6 +30,10 @@ C_EXTENSION_EXPERIMENT_ID = (
 TAU_EXPERIMENT_ID = (
     "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-TAU-CURVE-0.5B-01"
 )
+TAU_C_RANGE_EXTENSION_EXPERIMENT_ID = (
+    "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-"
+    "TAU-C-RANGE-EXTENSION-0.5B-01"
+)
 ROUND1_PARAMETER_POINTS = (
     (0.0, 0.0),
     (1.0, 0.0),
@@ -65,6 +69,21 @@ TAU_PARAMETER_POINTS = tuple(
 )
 TAU_BASE_POINTS = tuple(
     (alpha, coefficient) for alpha, coefficient, _ in TAU_PARAMETER_POINTS
+)
+TAU_C_RANGE_EXTENSION_C_VALUES = (
+    1.386294361,
+    1.609437912,
+    4.605170186,
+    5.298317367,
+)
+TAU_C_RANGE_EXTENSION_PARAMETER_POINTS = tuple(
+    (1.0, coefficient, tau)
+    for coefficient in TAU_C_RANGE_EXTENSION_C_VALUES
+    for tau in TAU_VALUES
+)
+TAU_C_RANGE_EXTENSION_BASE_POINTS = tuple(
+    (alpha, coefficient)
+    for alpha, coefficient, _ in TAU_C_RANGE_EXTENSION_PARAMETER_POINTS
 )
 SEED_OFFSETS = (4000, 5000)
 ROUND1_RESULT_MANIFEST_SHA256 = (
@@ -110,6 +129,22 @@ _PROFILES: dict[str, dict[str, Any]] = {
         "expected_cells": 32,
         "requires_positive_only": False,
         "previous_scan_experiment": C_EXTENSION_EXPERIMENT_ID,
+        "weight": "alpha*exp(-c*max(u-tau,0))",
+    },
+    TAU_C_RANGE_EXTENSION_EXPERIMENT_ID: {
+        "experiment_id": TAU_C_RANGE_EXTENSION_EXPERIMENT_ID,
+        "version": "0.5.0-dev-code-first-tau-c-range-extension",
+        "default_grid_config": (
+            "configs/countdown_e8_oracle_offline_v2_"
+            "paper_aligned_tau_c_range_extension_0p5b.yaml"
+        ),
+        "parameter_points": TAU_C_RANGE_EXTENSION_BASE_POINTS,
+        "tau_points": TAU_C_RANGE_EXTENSION_PARAMETER_POINTS,
+        "seed_offsets": (4000,),
+        "expected_points": 32,
+        "expected_cells": 32,
+        "requires_positive_only": False,
+        "previous_scan_experiment": TAU_EXPERIMENT_ID,
         "weight": "alpha*exp(-c*max(u-tau,0))",
     },
 }
