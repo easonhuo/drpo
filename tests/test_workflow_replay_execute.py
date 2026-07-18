@@ -2,16 +2,20 @@ from __future__ import annotations
 
 import json
 import statistics
+import subprocess
 import sys
 import time
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
-if str(SRC) not in sys.path:
-    sys.path.insert(0, str(SRC))
+SCRIPTS = ROOT / "scripts"
+for path in (SRC, SCRIPTS):
+    if str(path) not in sys.path:
+        sys.path.insert(0, str(path))
 
 from drpo.workflow_replay.execute import (  # noqa: E402
     CommandSpec,
@@ -21,6 +25,7 @@ from drpo.workflow_replay.execute import (  # noqa: E402
     run_fixture_plan,
 )
 from drpo.workflow_replay.model import load_case_manifest  # noqa: E402
+from run_workflow_replay import Journal, _clone, _commit_workspace, _workspace, build_parser  # noqa: E402
 
 FIXTURE = Path(__file__).parent / "fixtures" / "workflow_replay" / "valid_code_only.yaml"
 
@@ -161,3 +166,95 @@ def test_planning_runtime_guardrail() -> None:
     ordered = sorted(samples)
     assert statistics.median(ordered) <= 0.250
     assert ordered[int(0.95 * (len(ordered) - 1))] <= 1.000
+
+
+def _run_git(repo: Path, *args: str) -> str:
+    return subprocess.run(
+        ["git", *args], cwd=repo, check=True, text=True, capture_output=True
+    ).stdout.strip()
+
+
+def test_real_pair_parser_preserves_candidate_and_adds_local_backend() -> None:
+    parser = build_parser()
+    candidate = parser.parse_args(
+        ["candidate", "--spec", "s", "--preparation-root", "p", "--transaction-root", "t"]
+    )
+    pair = parser.parse_args(
+        [
+            "real-pair",
+            "--contract",
+            "c",
+            "--case-packet",
+            "p",
+            "--source-repo",
+            "s",
+            "--output-root",
+            "o",
+        ]
+    )
+    assert candidate.command == "candidate"
+    assert pair.backend_id == "local-git-v1"
+
+
+def test_local_ref_reconstruction_and_workspace_identity(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    _run_git(source, "init", "-q")
+    _run_git(source, "config", "user.email", "replay@example.invalid")
+    _run_git(source, "config", "user.name", "Replay Test")
+    (source / "value.txt").write_text("base\n", encoding="utf-8")
+    _run_git(source, "add", "value.txt")
+    _run_git(source, "commit", "-qm", "base")
+    base = _run_git(source, "rev-parse", "HEAD")
+    (source / "value.txt").write_text("dev\n", encoding="utf-8")
+    _run_git(source, "commit", "-qam", "dev")
+    dev = _run_git(source, "rev-parse", "HEAD")
+    (source / "tool.txt").write_text("tool\n", encoding="utf-8")
+    _run_git(source, "add", "tool.txt")
+    _run_git(source, "commit", "-qm", "tool")
+    toolchain = _run_git(source, "rev-parse", "HEAD")
+    contract = SimpleNamespace(
+        base=SimpleNamespace(
+            historical_task={"base_sha": base, "frozen_implementation_sha": dev},
+            benchmark={"toolchain_sha": toolchain},
+        )
+    )
+    run_root = tmp_path / "run"
+    run_root.mkdir()
+    workspace = _clone(
+        source,
+        run_root,
+        {"main_ref": "refs/heads/main", "dev_branch": "case-dev", "expected_dev_sha": dev},
+        contract,
+    )
+    assert _run_git(workspace, "rev-parse", "HEAD") == toolchain
+    assert _run_git(run_root / "source.git", "rev-parse", "refs/heads/main") == base
+    assert _run_git(run_root / "source.git", "rev-parse", "refs/heads/case-dev") == dev
+    clean = _workspace(workspace)
+    (workspace / "untracked.txt").write_text("new\n", encoding="utf-8")
+    assert _workspace(workspace) != clean
+    assert _commit_workspace(run_root / "source.git", base) == _commit_workspace(
+        run_root / "source.git", base
+    )
+
+
+def test_real_journal_binds_commands_placements_and_operator_actions(tmp_path: Path) -> None:
+    identity = SimpleNamespace(
+        run_id="a" * 64,
+        arm="A",
+        case_id="CASE-001",
+        pair_id="pair-0",
+        order_position=0,
+    )
+    journal = Journal(tmp_path / "events.jsonl", identity, "b" * 64, "c" * 64, tmp_path)
+    result = journal.invoke(CommandSpec("child", (sys.executable, "-c", "pass")))
+    journal.place(("repository:file.txt",))
+    timing = journal.finish("READY", "d" * 64, 2)
+    events = read_events(tmp_path / "events.jsonl")
+    assert result.returncode == 0
+    assert events[0]["event"] == "run_started"
+    assert events[-1]["event"] == "run_finished"
+    assert events[-1]["payload"]["child_command_count"] == 1
+    assert events[-1]["payload"]["placement_path_count"] == 1
+    assert events[-1]["payload"]["operator_action_count"] == 2
+    assert timing["total_ns"] >= timing["child_ns"]
