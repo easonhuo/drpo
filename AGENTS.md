@@ -42,6 +42,23 @@ Do not create dummy branches, commits, files, or PRs merely to test permissions 
 
 If the direct GitHub route exposes a defect, repair or iterate that route rather than silently falling back to the retired package workflow. The offline package path below is an emergency fallback only.
 
+## New Python-file hard gate
+
+Under `GOV-NEW-PYTHON-FILE-HUMAN-APPROVAL-01`, an AI agent or automation must not create, copy, or rename a path to a new Python file unless a human has explicitly approved the exact new path and its stated responsibility.
+
+A governed path is any destination that exists at the proposed head, does not exist at the task base, and ends in `.py` case-insensitively. Changing letter case, copying an existing module, or renaming a non-Python file into a Python path does not bypass the rule.
+
+Before creating such a path, the agent must:
+
+1. name the exact proposed path;
+2. explain why extending the nearest existing Python file is insufficient;
+3. obtain explicit human approval for that path;
+4. preserve the approval in the PR discussion or another durable repository record.
+
+Even after pre-creation approval, the pull request must pass the human-review environment in `.github/workflows/code-change-budget.yml`. AI review, tests, code-size checks, paired-repair output, or ordinary PR discussion cannot substitute for that human approval. An AI agent may not approve its own new Python file, bypass the gate through direct pushes, split one module into several files to evade review, or weaken the gate as part of an unrelated task.
+
+Changes to the hard-gate workflow, detector, root agent rule, or policy document also require human approval. The canonical policy is `docs/governance_new_python_file_approval.md`.
+
 ## Default code-first pilot-registration route
 
 For a new or modified authoritative E7, E8, or other scientific-pilot registration, the default route after implementation-SHA freeze is:
