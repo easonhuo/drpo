@@ -1,5 +1,6 @@
 """External-validity experiment components."""
 
+from .hopper_actor import actor_batch_loss, actor_eval_metrics, train_actor_stage
 from .hopper_advantages import critic_advantage_arrays
 from .hopper_critic import CriticRun, train_critic
 from .hopper_data import (
@@ -28,6 +29,8 @@ __all__ = [
     "OfflineData",
     "SquashedGaussianPolicy",
     "ValueNetwork",
+    "actor_batch_loss",
+    "actor_eval_metrics",
     "build_episode_ids",
     "critic_advantage_arrays",
     "classify_actor_terminal",
@@ -40,5 +43,6 @@ __all__ = [
     "relative_slope",
     "smoke_protocol",
     "split_episode_indices",
+    "train_actor_stage",
     "train_critic",
 ]
