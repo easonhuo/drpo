@@ -1,15 +1,37 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from types import SimpleNamespace
 
+import h5py
+import numpy as np
+import pytest
+import torch
+
 from drpo import e7_squared_exp_night as night
+from drpo import e7_squared_exp_night_runtime_autotune as runtime
+from drpo.e7_canonical_injection import NegativeControl, build_injected_agent_class
+from drpo.e7_squared_exp_night_aggregate import _validate_td_gae_pair
+from drpo.e7_squared_exp_night_bootstrap import (
+    TrajectorySnapshotAdvantage,
+    _validate_ordered_hdf5,
+    compute_snapshot_tables,
+)
 
 
 GRID = Path("configs/e7_squared_exp_night_v1.json")
+GAE_GRID = Path("configs/e7_sqexp_gae_v2.json")
 
 
-def _run_spec() -> dict[str, object]:
+@pytest.fixture(autouse=True)
+def _restore_historical_profile():
+    night.configure_execution(GRID)
+    yield
+    night.configure_execution(GRID)
+
+
+def _run_spec(*, gae: bool = False) -> dict[str, object]:
     digest = "0" * 64
     return {
         "datasets": [
@@ -20,11 +42,11 @@ def _run_spec() -> dict[str, object]:
             }
             for dataset in night.EXPECTED_DATASETS
         ],
-        "seeds": list(night.EXPECTED_SEEDS),
+        "seeds": list(night.GAE_EXPECTED_SEEDS if gae else night.EXPECTED_SEEDS),
     }
 
 
-def test_grid_freezes_squared_kernel_and_blocks_gae() -> None:
+def test_grid_freezes_squared_kernel_and_blocks_historical_gae() -> None:
     grid, digest = night.load_grid(GRID)
     assert len(digest) == 64
     assert grid["steps"] == 1_000_000
@@ -43,7 +65,7 @@ def test_grid_freezes_squared_kernel_and_blocks_gae() -> None:
     assert stage_c["status"] == "blocked_pending_verified_trajectory_contract"
 
 
-def test_build_branches_creates_exact_126_branch_matrix() -> None:
+def test_build_branches_preserves_exact_historical_126_matrix() -> None:
     grid, _ = night.load_grid(GRID)
     contract = SimpleNamespace(expected_canonical_alpha=0.11)
     branches = night.build_branches(contract, _run_spec(), grid)
@@ -54,14 +76,15 @@ def test_build_branches_creates_exact_126_branch_matrix() -> None:
     assert {
         branch.template_values["actor_update_mode"] for branch in branches
     } == set(night.EXPECTED_ACTOR_MODES)
-    assert {
-        branch.template_values["stage"] for branch in branches
-    } == {"stage_a", "stage_b"}
+    assert {branch.template_values["stage"] for branch in branches} == {
+        "stage_a",
+        "stage_b",
+    }
     assert all(branch.template_values["steps"] == "1000000" for branch in branches)
     assert all(seed not in night.HELD_OUT_SEEDS for seed in {b.seed for b in branches})
 
 
-def test_each_actor_mode_has_positive_only_plus_six_coefficients() -> None:
+def test_each_historical_actor_mode_has_anchor_plus_six_coefficients() -> None:
     grid, _ = night.load_grid(GRID)
     contract = SimpleNamespace(expected_canonical_alpha=0.11)
     branches = night.build_branches(contract, _run_spec(), grid)
@@ -91,7 +114,7 @@ def test_each_actor_mode_has_positive_only_plus_six_coefficients() -> None:
                 } == set(night.EXPECTED_COEFFICIENTS)
 
 
-def test_branch_command_exposes_no_legacy_scale(tmp_path: Path) -> None:
+def test_historical_branch_command_exposes_no_legacy_scale(tmp_path: Path) -> None:
     grid, _ = night.load_grid(GRID)
     contract = SimpleNamespace(
         expected_canonical_alpha=0.11,
@@ -120,3 +143,269 @@ def test_branch_command_exposes_no_legacy_scale(tmp_path: Path) -> None:
     assert "negative_control" not in config
     assert "negative_scale" not in str(config)
     assert "canonical_alpha" not in str(config)
+
+
+def test_gae_grid_builds_exact_96_branch_matrix() -> None:
+    night.configure_execution(GAE_GRID)
+    grid, _ = night.load_grid(GAE_GRID)
+    contract = SimpleNamespace(expected_canonical_alpha=0.11)
+    branches = night.build_branches(contract, _run_spec(gae=True), grid)
+    assert len(branches) == night.GAE_EXPECTED_BRANCHES == 96
+    assert len({branch.branch_id for branch in branches}) == 96
+    assert {branch.seed for branch in branches} == set(night.GAE_EXPECTED_SEEDS)
+    assert {branch.template_values["actor_update_mode"] for branch in branches} == {
+        "a2c"
+    }
+    assert {branch.template_values["advantage_estimator"] for branch in branches} == {
+        "td",
+        "gae",
+    }
+    assert {
+        float(branch.template_values["exp_coefficient"])
+        for branch in branches
+        if branch.template_values["weight_method"] == "squared_exponential"
+    } == set(night.GAE_COEFFICIENTS)
+    assert not ({branch.seed for branch in branches} & set(night.HELD_OUT_SEEDS))
+
+
+def test_gae_liveness_filters_existing_matrix_to_one_matched_pair() -> None:
+    steps = 7_814
+    night.configure_execution(
+        GAE_GRID,
+        liveness_pair=True,
+        liveness_steps=steps,
+    )
+    grid, _ = night.load_grid(GAE_GRID)
+    contract = SimpleNamespace(expected_canonical_alpha=0.11)
+    branches = night.build_branches(contract, _run_spec(gae=True), grid)
+    assert len(branches) == 2
+    assert {branch.template_values["advantage_estimator"] for branch in branches} == {
+        "td",
+        "gae",
+    }
+    assert {branch.dataset.id for branch in branches} == {
+        night.GAE_LIVENESS_DATASET
+    }
+    assert {branch.seed for branch in branches} == {night.GAE_LIVENESS_SEED}
+    assert {
+        float(branch.template_values["exp_coefficient"]) for branch in branches
+    } == {night.GAE_LIVENESS_COEFFICIENT}
+    assert {branch.template_values["steps"] for branch in branches} == {str(steps)}
+    assert {branch.template_values["execution_mode"] for branch in branches} == {
+        "liveness"
+    }
+
+
+def test_runtime_representative_reuses_gae_branch_matrix() -> None:
+    night.configure_execution(GAE_GRID)
+    grid, _ = night.load_grid(GAE_GRID)
+    branches = night.build_branches(
+        SimpleNamespace(expected_canonical_alpha=0.11),
+        _run_spec(gae=True),
+        grid,
+    )
+    selected = runtime._representative(branches)  # noqa: SLF001
+    assert selected.dataset.id == night.GAE_LIVENESS_DATASET
+    assert selected.seed == night.GAE_LIVENESS_SEED
+    assert selected.template_values["actor_update_mode"] == "a2c"
+    assert selected.template_values["advantage_estimator"] == "gae"
+    assert float(selected.template_values["exp_coefficient"]) == 128.0
+
+
+def test_ordered_hdf5_requires_explicit_timeout_and_next_observation(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "replay.hdf5"
+    with h5py.File(path, "w") as handle:
+        handle.create_dataset("observations", data=np.zeros((2, 3), dtype=np.float32))
+        handle.create_dataset("actions", data=np.zeros((2, 1), dtype=np.float32))
+        handle.create_dataset("rewards", data=np.zeros(2, dtype=np.float32))
+        handle.create_dataset("terminals", data=np.zeros(2, dtype=np.bool_))
+    with pytest.raises(ValueError, match="timeouts.*next_observations"):
+        _validate_ordered_hdf5(path)
+
+    with h5py.File(path, "a") as handle:
+        handle.create_dataset("timeouts", data=np.zeros(2, dtype=np.bool_))
+        handle.create_dataset(
+            "next_observations", data=np.zeros((2, 3), dtype=np.float32)
+        )
+    assert _validate_ordered_hdf5(path) == path.resolve()
+
+
+def test_snapshot_tables_respect_terminal_timeout_and_tail() -> None:
+    rewards = np.asarray([1.0, 2.0, 3.0, 4.0], dtype=np.float32)
+    terminals = np.asarray([False, True, False, False])
+    timeouts = np.asarray([False, False, True, False])
+    td, gae = compute_snapshot_tables(
+        rewards,
+        np.zeros(4),
+        np.full(4, 10.0),
+        terminals,
+        timeouts,
+        gamma=0.9,
+        gae_lambda=0.5,
+    )
+    np.testing.assert_allclose(td, [10.0, 2.0, 12.0, 13.0])
+    np.testing.assert_allclose(gae, [10.9, 2.0, 12.0, 13.0])
+
+
+def test_lambda_zero_reduces_exactly_to_td() -> None:
+    td, gae = compute_snapshot_tables(
+        np.asarray([1.0, 2.0], dtype=np.float32),
+        np.zeros(2),
+        np.ones(2),
+        np.asarray([False, False]),
+        np.asarray([False, False]),
+        gamma=0.99,
+        gae_lambda=0.0,
+    )
+    np.testing.assert_array_equal(td, gae)
+
+
+def test_terminal_timeout_overlap_fails_closed() -> None:
+    with pytest.raises(ValueError, match="must not overlap"):
+        compute_snapshot_tables(
+            np.ones(2),
+            np.zeros(2),
+            np.ones(2),
+            np.asarray([True, False]),
+            np.asarray([True, False]),
+            gamma=0.99,
+            gae_lambda=0.95,
+        )
+
+
+class FixtureActor(torch.nn.Module):
+    def __init__(self) -> None:
+        super().__init__()
+        self.mean = torch.nn.Linear(2, 1, bias=False)
+        self.log_std = torch.nn.Parameter(torch.zeros(1, 1))
+
+    def forward(self, states: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        mean = self.mean(states)
+        return mean, self.log_std.expand_as(mean)
+
+
+class FixtureCritic(torch.nn.Module):
+    def __init__(self) -> None:
+        super().__init__()
+        self.value = torch.nn.Linear(2, 1, bias=False)
+
+    def forward(self, states: torch.Tensor) -> torch.Tensor:
+        return self.value(states)
+
+
+class FixtureAgent:
+    def __init__(self) -> None:
+        self.gamma = 0.9
+        self.tau = 0.7
+        self.alpha = 0.11
+        self.actor = FixtureActor()
+        self.critic = FixtureCritic()
+        self.a_opt = torch.optim.SGD(self.actor.parameters(), lr=1e-2)
+        self.c_opt = torch.optim.SGD(self.critic.parameters(), lr=1e-2)
+
+
+def _fixture_replay() -> dict[str, np.ndarray]:
+    observations = np.asarray(
+        [[1.0, 0.0], [0.0, 1.0], [1.0, 1.0], [2.0, 1.0]],
+        dtype=np.float32,
+    )
+    return {
+        "observations": observations,
+        "actions": np.zeros((4, 1), dtype=np.float32),
+        "rewards": np.asarray([1.0, 2.0, 3.0, 4.0], dtype=np.float32),
+        "next_observations": observations * 0.5,
+        "terminals": np.asarray([False, True, False, False]),
+        "timeouts": np.asarray([False, False, True, False]),
+    }
+
+
+def test_snapshot_provider_uses_single_canonical_update_and_updates_critic() -> None:
+    replay = _fixture_replay()
+    provider = TrajectorySnapshotAdvantage(
+        replay=replay,
+        estimator="gae",
+        batch_size=2,
+    )
+    injected = build_injected_agent_class(
+        FixtureAgent,
+        control=NegativeControl(
+            method="canonical_signed",
+            negative_scale=1.0,
+            canonical_alpha=0.11,
+        ),
+        return_mode="metrics_dict",
+        advantage_provider=provider,
+    )
+    agent = injected()
+    before = [parameter.detach().clone() for parameter in agent.critic.parameters()]
+    ids = torch.tensor([0.0, 2.0])
+    batch = (
+        torch.from_numpy(replay["observations"][[0, 2]]),
+        torch.from_numpy(replay["actions"][[0, 2]]),
+        torch.from_numpy(replay["rewards"][[0, 2]]),
+        torch.from_numpy(replay["next_observations"][[0, 2]]),
+        torch.from_numpy(replay["terminals"][[0, 2]]),
+        ids,
+    )
+    metrics = agent.update(*batch)
+    assert metrics["advantage_estimator"] == "gae"
+    assert any(
+        not torch.equal(left, right)
+        for left, right in zip(before, agent.critic.parameters(), strict=True)
+    )
+    agent.update(*batch)
+    agent.update(*batch)
+    summary = provider.summary()
+    assert summary["snapshot_count"] == 2
+    assert summary["critic_evolution_observed"] is True
+
+
+def test_full_pair_audit_rejects_mismatched_snapshot_hashes() -> None:
+    common = {
+        "dataset": "hopper-medium-expert-v2",
+        "seed": 200,
+        "exp_coefficient": 128.0,
+        "execution_mode": "full",
+        "snapshot_count": 2,
+        "snapshot_refresh_interval": 7_813,
+    }
+    td = {**common, "advantage_estimator": "td", "snapshot_hashes": ["a", "b"]}
+    gae = {**common, "advantage_estimator": "gae", "snapshot_hashes": ["a", "b"]}
+    _validate_td_gae_pair(td, gae)
+    gae["snapshot_hashes"] = ["a", "c"]
+    with pytest.raises(RuntimeError, match="trajectories diverged"):
+        _validate_td_gae_pair(td, gae)
+
+
+def test_gae_refactor_has_no_parallel_python_execution_stack() -> None:
+    deleted = (
+        Path("src/drpo/e7_canonical_gae_injection.py"),
+        Path("src/drpo/e7_sqexp_gae.py"),
+        Path("scripts/run_e7_sqexp_gae_liveness.py"),
+        Path("tests/test_e7_sqexp_gae.py"),
+        Path("tests/test_e7_sqexp_gae_liveness.py"),
+    )
+    assert not any(path.exists() for path in deleted)
+
+    canonical = Path("src/drpo/e7_canonical_injection.py").read_text()
+    bootstrap = Path("src/drpo/e7_squared_exp_night_bootstrap.py").read_text()
+    runner = Path("src/drpo/e7_squared_exp_night.py").read_text()
+    assert canonical.count("self.a_opt.step()") == 1
+    assert canonical.count("self.c_opt.step()") == 1
+    assert "self.a_opt.step()" not in bootstrap
+    assert "self.c_opt.step()" not in bootstrap
+    assert "drpo.e7_sqexp_gae" not in runner
+    assert "e7_canonical_gae_injection" not in bootstrap
+
+
+def test_gae_config_remains_independent_from_historical_config() -> None:
+    historical = json.loads(GRID.read_text())
+    gae = json.loads(GAE_GRID.read_text())
+    assert historical["experiment_id"] == night.EXPERIMENT_ID
+    assert gae["experiment_id"] == night.GAE_EXPERIMENT_ID
+    assert historical["development_seeds"] == [200, 201]
+    assert gae["development_seeds"] == [200, 201, 202, 203]
+    assert historical["expected_runnable_branches"] == 126
+    assert gae["expected_total_branches"] == 96

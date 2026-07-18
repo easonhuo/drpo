@@ -1,4 +1,4 @@
-"""Automatic measured CPU/RAM selection for the squared-remoteness E7 night suite."""
+"""Automatic measured CPU/RAM selection for the shared squared-night runner."""
 
 from __future__ import annotations
 
@@ -10,11 +10,11 @@ from typing import Any, Iterator
 from drpo import e7_ppo_w0_runtime_autotune as legacy
 from drpo import e7_squared_exp_night as pilot
 
+
 ADAPTER_ID = "e7_squared_exp_night_cpu_v2"
 REPRESENTATIVE_DATASET = "walker2d-medium-v2"
 REPRESENTATIVE_W0 = 1.0
 REPRESENTATIVE_COEFFICIENT = 4.0
-REPRESENTATIVE_ACTOR_MODE = "ppo_clip_kl_k16"
 
 _ORIGINAL_SELECT_RUNTIME = legacy.select_runtime
 _ORIGINAL_REVALIDATE_RUNTIME = legacy.revalidate_runtime
@@ -42,31 +42,39 @@ class _PilotProxy:
 PROXY = _PilotProxy()
 
 
+def _matches_profile(branch: Any, profile: dict[str, Any]) -> bool:
+    values = branch.template_values
+    if branch.dataset.id != profile["dataset"] or branch.seed != int(profile["seed"]):
+        return False
+    if values.get("actor_update_mode") != profile["actor_update_mode"]:
+        return False
+    if not math.isclose(
+        float(values["weight_at_zero"]),
+        float(profile["weight_at_zero"]),
+        rel_tol=0.0,
+        abs_tol=1e-12,
+    ):
+        return False
+    if not math.isclose(
+        float(values["exp_coefficient"]),
+        float(profile["exp_coefficient"]),
+        rel_tol=0.0,
+        abs_tol=1e-12,
+    ):
+        return False
+    expected_estimator = profile.get("advantage_estimator")
+    return expected_estimator in {None, "one_step_td"} or values.get(
+        "advantage_estimator"
+    ) == expected_estimator
+
+
 def _representative(branches: list[Any]) -> Any:
-    matches = [
-        branch
-        for branch in branches
-        if branch.dataset.id == REPRESENTATIVE_DATASET
-        and branch.seed == pilot.EXPECTED_SEEDS[0]
-        and branch.template_values.get("actor_update_mode")
-        == REPRESENTATIVE_ACTOR_MODE
-        and math.isclose(
-            float(branch.template_values["weight_at_zero"]),
-            REPRESENTATIVE_W0,
-            rel_tol=0.0,
-            abs_tol=1e-12,
-        )
-        and math.isclose(
-            float(branch.template_values["exp_coefficient"]),
-            REPRESENTATIVE_COEFFICIENT,
-            rel_tol=0.0,
-            abs_tol=1e-12,
-        )
-    ]
+    profile = pilot.active_runtime_profile()
+    matches = [branch for branch in branches if _matches_profile(branch, profile)]
     if len(matches) != 1:
         raise legacy.RuntimeResourceError(
-            "expected one representative squared-EXP KL-PPO branch, "
-            f"found {len(matches)}"
+            "expected one representative squared-night branch for "
+            f"{profile}, found {len(matches)}"
         )
     return matches[0]
 
@@ -94,8 +102,9 @@ def resource_fingerprint(
 ) -> dict[str, Any]:
     repo = Path(repo_root).resolve()
     run_spec, _ = pilot.load_run_spec(run_spec_path)
-    grid, _ = pilot.load_grid(grid_path)
+    pilot.load_grid(grid_path)
     argv = [str(value) for value in run_spec["trainer_argv_template"]]
+    profile = pilot.active_runtime_profile()
     source_paths = (
         "src/drpo/e7_squared_exp_kernel.py",
         "src/drpo/e7_ppo_kl_refresh.py",
@@ -107,45 +116,44 @@ def resource_fingerprint(
         "src/drpo/e7_canonical_injection.py",
         "src/drpo/e7_canonical_sweep.py",
     )
+    hard_fields: dict[str, Any] = {
+        "contract_sha256": legacy._file_sha256(contract_path),  # noqa: SLF001
+        "run_spec_sha256": legacy._file_sha256(run_spec_path),  # noqa: SLF001
+        "grid_sha256": legacy._file_sha256(grid_path),  # noqa: SLF001
+        "source_sha256": {
+            path: legacy._file_sha256(repo / path)  # noqa: SLF001
+            for path in source_paths
+        },
+        "representative_actor_update_mode": profile["actor_update_mode"],
+        "representative_advantage_estimator": profile["advantage_estimator"],
+        "batch_size": int(pilot._flag_value(argv, "--batch")),  # noqa: SLF001
+        "optimizer_learning_rate": float(
+            pilot._flag_value(argv, "--lr")  # noqa: SLF001
+        ),
+        "diagnostics_interval": pilot.DIAGNOSTICS_INTERVAL,
+        "sampled_values_per_update": pilot.SAMPLED_VALUES_PER_UPDATE,
+        "thread_environment": {
+            name: str(run_spec.get("environment", {}).get(name))
+            for name in (
+                "OMP_NUM_THREADS",
+                "MKL_NUM_THREADS",
+                "OPENBLAS_NUM_THREADS",
+            )
+        },
+        "representative_workload": {
+            key: value
+            for key, value in profile.items()
+            if key != "adapter_id"
+        },
+    }
+    for key in ("clip_epsilon", "max_updates_per_old_policy", "target_kl", "gae_lambda"):
+        if key in profile:
+            hard_fields[key] = profile[key]
     return {
         "schema_version": 2,
-        "adapter_id": ADAPTER_ID,
+        "adapter_id": profile["adapter_id"],
         "selector_policy_version": legacy.SELECTOR_POLICY_VERSION,
-        "hard_fields": {
-            "contract_sha256": legacy._file_sha256(contract_path),  # noqa: SLF001
-            "run_spec_sha256": legacy._file_sha256(run_spec_path),  # noqa: SLF001
-            "grid_sha256": legacy._file_sha256(grid_path),  # noqa: SLF001
-            "source_sha256": {
-                path: legacy._file_sha256(repo / path)  # noqa: SLF001
-                for path in source_paths
-            },
-            "representative_actor_update_mode": REPRESENTATIVE_ACTOR_MODE,
-            "batch_size": int(pilot._flag_value(argv, "--batch")),  # noqa: SLF001
-            "optimizer_learning_rate": float(
-                pilot._flag_value(argv, "--lr")  # noqa: SLF001
-            ),
-            "clip_epsilon": 0.2,
-            "max_updates_per_old_policy": 16,
-            "target_kl": 0.01,
-            "diagnostics_interval": int(grid["diagnostics"]["interval"]),
-            "sampled_values_per_update": int(
-                grid["diagnostics"]["sampled_values_per_update"]
-            ),
-            "thread_environment": {
-                name: str(run_spec.get("environment", {}).get(name))
-                for name in (
-                    "OMP_NUM_THREADS",
-                    "MKL_NUM_THREADS",
-                    "OPENBLAS_NUM_THREADS",
-                )
-            },
-            "representative_workload": {
-                "dataset": REPRESENTATIVE_DATASET,
-                "actor_update_mode": REPRESENTATIVE_ACTOR_MODE,
-                "weight_at_zero": REPRESENTATIVE_W0,
-                "exp_coefficient": REPRESENTATIVE_COEFFICIENT,
-            },
-        },
+        "hard_fields": hard_fields,
         "soft_fields": {
             "formal_evaluation_interval": int(
                 pilot._flag_value(argv, "--eval_interval")  # noqa: SLF001
@@ -175,6 +183,7 @@ def resource_fingerprint(
         "ignored_scientific_coordinates": [
             "development_seed_values",
             "actor_update_mode_grid",
+            "advantage_estimator_grid",
             "squared_exp_coefficient_grid",
             "training_horizon",
         ],
@@ -198,6 +207,7 @@ def _cleanup_probe_payload(probe_dir: Path) -> None:
 
 @contextlib.contextmanager
 def _installed_adapter() -> Iterator[None]:
+    profile = pilot.active_runtime_profile()
     previous = (
         legacy.pilot,
         legacy.ADAPTER_ID,
@@ -210,10 +220,10 @@ def _installed_adapter() -> Iterator[None]:
         legacy._selector_implementation_identity,  # noqa: SLF001
     )
     legacy.pilot = PROXY
-    legacy.ADAPTER_ID = ADAPTER_ID
-    legacy.REPRESENTATIVE_DATASET = REPRESENTATIVE_DATASET
-    legacy.REPRESENTATIVE_W0 = REPRESENTATIVE_W0
-    legacy.REPRESENTATIVE_COEFFICIENT = REPRESENTATIVE_COEFFICIENT
+    legacy.ADAPTER_ID = str(profile["adapter_id"])
+    legacy.REPRESENTATIVE_DATASET = str(profile["dataset"])
+    legacy.REPRESENTATIVE_W0 = float(profile["weight_at_zero"])
+    legacy.REPRESENTATIVE_COEFFICIENT = float(profile["exp_coefficient"])
     legacy._representative = _representative  # noqa: SLF001
     legacy.resource_fingerprint = resource_fingerprint
     legacy._cleanup_probe_payload = _cleanup_probe_payload  # noqa: SLF001
