@@ -57,6 +57,7 @@ def upload_evidence(archive: Path, workspace: Path) -> dict:
         "const result = await client.uploadArtifact(\n"
         "  process.env.REPLAY_ARTIFACT_NAME,\n"
         "  [process.env.REPLAY_ARTIFACT_FILE],\n"
+        "  process.env.REPLAY_ARTIFACT_ROOT,\n"
         "  {retentionDays: 7}\n"
         ");\n"
         "console.log(JSON.stringify(result));\n",
@@ -67,6 +68,7 @@ def upload_evidence(archive: Path, workspace: Path) -> dict:
         "candidate01-c1-liveness-" + os.environ.get("GITHUB_RUN_ID", "local")
     )
     environment["REPLAY_ARTIFACT_FILE"] = str(archive)
+    environment["REPLAY_ARTIFACT_ROOT"] = str(workspace)
     uploaded = subprocess.run(
         ["node", str(script)],
         cwd=uploader,
