@@ -1,0 +1,48 @@
+{
+  "experiment_id": "EXT-H-E7-SQEXP-GAE-01",
+  "run_kind": "pilot",
+  "status": "not_run",
+  "scientific_status": "canonical_joint_critic_trajectory_snapshot_gae_pilot_only",
+  "predecessor_experiment_id": "EXT-H-E7-SQUARED-EXP-NIGHT-01",
+  "datasets": [
+    "hopper-medium-expert-v2",
+    "walker2d-medium-v2",
+    "walker2d-medium-replay-v2"
+  ],
+  "development_seeds": [200, 201, 202, 203],
+  "held_out_seeds": [204, 205, 206, 207],
+  "steps": 1000000,
+  "evaluation_interval": 50000,
+  "evaluation_episodes": 10,
+  "actor_update_modes": ["a2c"],
+  "advantage_modes": ["one_step_td", "gae_lambda_0p95"],
+  "weight_control": {
+    "weight_at_zero": 1.0,
+    "positive_only_anchor": true,
+    "reference_distance": 2.0,
+    "formula": "w(d)=w(0)*exp(-c*(d/2)^2)",
+    "exp_coefficients": [64.0, 128.0, 256.0]
+  },
+  "trajectory_snapshot": {
+    "gae_lambda": 0.95,
+    "canonical_batch_size": 256,
+    "refresh_interval": "ceil(dataset_transition_count/256)",
+    "td_and_gae_share_snapshot": true,
+    "critic_updated_every_step": true,
+    "prepared_advantage_artifact": false,
+    "terminal_bootstrap": false,
+    "timeout_bootstrap": true,
+    "terminal_timeout_recursion_stop": true,
+    "dataset_tail_recursion_stop": true
+  },
+  "expected_total_branches": 96,
+  "screening_only": true,
+  "formal_evidence_allowed": false,
+  "non_claims": [
+    "convergence_from_fixed_1m_horizon",
+    "steady_state_method_ranking",
+    "universal_gae_superiority",
+    "ood_generalization",
+    "replacement_of_controlled_causal_evidence"
+  ]
+}
