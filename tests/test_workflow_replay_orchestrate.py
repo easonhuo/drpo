@@ -98,7 +98,7 @@ def test_candidate01_c01_c06_real_pair_liveness(tmp_path: Path) -> None:
         + "\n",
         encoding="utf-8",
     )
-    archive = ROOT / ".replayab-liveness.tar.gz"
+    archive = ROOT / "replayab-liveness.tar.gz"
     with tarfile.open(archive, "w:gz") as handle:
         handle.add(summary_path, arcname="LIVENESS_SUMMARY.json")
         for case_id, _, _ in CASES:
