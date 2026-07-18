@@ -1,53 +1,95 @@
 schema_version: 1
-preparation_id: REPLAYAB-C01-CODE-ONLY-PR115
+preparation_id: REPLAYAB-C01-CODE-ONLY-PR122
 source:
   repository: easonhuo/drpo
   remote: origin
   main_ref: refs/heads/main
-  expected_main_sha: d042a60e6e665fc7f8761e97d41fa0a621f78b87
-  dev_branch: dev/gov-code-paired-repair-01
-  expected_dev_sha: e19ffe2facdefbb77e3ddaab3189c16a1445d2b1
-  result_commit_sha: e19ffe2facdefbb77e3ddaab3189c16a1445d2b1
+  expected_main_sha: 531506b4be6967012c5d01aa4d112deaaccf1c49
+  dev_branch: dev/e7-canonical-gae-repair-02
+  expected_dev_sha: e17fbedcdf326cda2780bfd075ff6ee3f9f09c79
+  result_commit_sha: e17fbedcdf326cda2780bfd075ff6ee3f9f09c79
   result_git_dirty: false
 subject:
-  experiment_id: GOV-CODE-PAIRED-REPAIR-01
+  experiment_id: EXT-H-E7-SQEXP-GAE-01
   governance_claims:
-  - GOV-CODE-PAIRED-REPAIR-01
+  - EXT-H-E7-SQEXP-GAE-01
 implementation:
   operations:
   - op: add
-    source_path: docs/development_workflow_optimization/paired_repair/PROTOCOL.md
-    destination_path: docs/development_workflow_optimization/paired_repair/PROTOCOL.md
-    expected_blob_sha: 291ffa1ad647757e29d0b43403e58611236d61b7
+    source_path: configs/e7_sqexp_gae_v2.json
+    destination_path: configs/e7_sqexp_gae_v2.json
+    expected_blob_sha: 3632fa7c3c2e5ac26ba0be59bb64fdcd7afa6bef
     expected_old_blob_sha: null
     expected_mode: '100644'
   - op: add
-    source_path: docs/development_workflow_optimization/paired_repair/VALIDATION_TEMPLATE.json
-    destination_path: docs/development_workflow_optimization/paired_repair/VALIDATION_TEMPLATE.json
-    expected_blob_sha: fbcd3372cf71ea8251a6544a33ffaabf31b02487
+    source_path: docs/scopes/EXT-H-E7-SQEXP-GAE-01.md
+    destination_path: docs/scopes/EXT-H-E7-SQEXP-GAE-01.md
+    expected_blob_sha: 5dc15f71a4852b290f19c54e97e2d1e2ed4cb5f2
     expected_old_blob_sha: null
     expected_mode: '100644'
   - op: add
-    source_path: docs/scopes/GOV-CODE-PAIRED-REPAIR-01.md
-    destination_path: docs/scopes/GOV-CODE-PAIRED-REPAIR-01.md
-    expected_blob_sha: 719c2a32d0b7c56617e9151e1ad3084a461b3fef
+    source_path: runspecs/ready/E7_SQEXP_GAE_JOINT_LIVENESS_20260717_01.yaml
+    destination_path: runspecs/ready/E7_SQEXP_GAE_JOINT_LIVENESS_20260717_01.yaml
+    expected_blob_sha: cb4df823d923067fba8f6be833803a6ab3991dd4
     expected_old_blob_sha: null
     expected_mode: '100644'
-  - op: add
-    source_path: scripts/paired_repair_report.py
-    destination_path: scripts/paired_repair_report.py
-    expected_blob_sha: d834e2e7b374321c9b4684f3b68b03333900a8ef
-    expected_old_blob_sha: null
+  - op: modify
+    source_path: scripts/run_e7_squared_exp_night_auto.py
+    destination_path: scripts/run_e7_squared_exp_night_auto.py
+    expected_blob_sha: fc5492cdcf3e488b15f1fd8fd89ad88c7ddd47c7
+    expected_old_blob_sha: 107c7ce48b84059e509367fdb53dc676f290ef15
     expected_mode: '100644'
-  - op: add
-    source_path: tests/test_paired_repair_report.py
-    destination_path: tests/test_paired_repair_report.py
-    expected_blob_sha: 109da0d8ed7c27d73029782e4c36c71d520d91ba
-    expected_old_blob_sha: null
+  - op: modify
+    source_path: scripts/run_e7_squared_exp_night_liveness_one_click.sh
+    destination_path: scripts/run_e7_squared_exp_night_liveness_one_click.sh
+    expected_blob_sha: ea857c2c0db34a4f34dd4b3334b0f7eb9f36ec5a
+    expected_old_blob_sha: 91ed41606ec79efd30226bb27684dd8f8ce21216
+    expected_mode: '100644'
+  - op: modify
+    source_path: src/drpo/e7_canonical_injection.py
+    destination_path: src/drpo/e7_canonical_injection.py
+    expected_blob_sha: 33de340ed91cd26042fcfcd3e9fb7e2c48cae53e
+    expected_old_blob_sha: 1e65b31f04e281281e7f4e3b1a27430e46f7726c
+    expected_mode: '100644'
+  - op: modify
+    source_path: src/drpo/e7_squared_exp_night.py
+    destination_path: src/drpo/e7_squared_exp_night.py
+    expected_blob_sha: 93573262bc4217d0a6c1a9890871b2ebc9006f0e
+    expected_old_blob_sha: 6e112dfdf49cbd59ab7042e34edb4ea8879eb72a
+    expected_mode: '100644'
+  - op: modify
+    source_path: src/drpo/e7_squared_exp_night_aggregate.py
+    destination_path: src/drpo/e7_squared_exp_night_aggregate.py
+    expected_blob_sha: 7bb8b0f5e66e9163bb4b85c1f0f7ad1eb0ef687c
+    expected_old_blob_sha: d19c45c6d57351be865eb405be0aaf59c130d9cb
+    expected_mode: '100644'
+  - op: modify
+    source_path: src/drpo/e7_squared_exp_night_bootstrap.py
+    destination_path: src/drpo/e7_squared_exp_night_bootstrap.py
+    expected_blob_sha: a72ac980da77739a9b1d6ed381a869abf25654f1
+    expected_old_blob_sha: ab4090ba74724b92ec43610202675a6bb6eacf44
+    expected_mode: '100644'
+  - op: modify
+    source_path: src/drpo/e7_squared_exp_night_runtime_autotune.py
+    destination_path: src/drpo/e7_squared_exp_night_runtime_autotune.py
+    expected_blob_sha: 4c1fd012a06c20b59ac1dfa51b1bfbda2494ca06
+    expected_old_blob_sha: 08dd4598fa97a013f05283bd36eb99af7f4771a1
+    expected_mode: '100644'
+  - op: modify
+    source_path: tests/test_e7_measured_cpu_wrappers.py
+    destination_path: tests/test_e7_measured_cpu_wrappers.py
+    expected_blob_sha: f606ca82f246555f4aa2dba0e2684fa0267e1cc9
+    expected_old_blob_sha: de78357f7f9e037c08d5f3ec063360db1f030645
+    expected_mode: '100644'
+  - op: modify
+    source_path: tests/test_e7_squared_exp_night.py
+    destination_path: tests/test_e7_squared_exp_night.py
+    expected_blob_sha: c16f8e2deccd963f6fc9f202cd64a48b61e5cea0
+    expected_old_blob_sha: 722e2391a7e21a004d53d5c1861514793ab68300
     expected_mode: '100644'
 review:
   reviewer_id: replayab-c01-calibration-reviewer
-  decision_token: pr115-accepted-code-only
+  decision_token: pr122-exact-head-accepted-code-only
   decision:
     approved: true
     code_integration_eligible: true
@@ -60,6 +102,7 @@ review:
     numerical_failure: not_assessed
   limitations:
   - historical repository-integration replay only
+  - real-data liveness and scientific execution are outside C01
   unresolved: []
 registration:
   mode: none
