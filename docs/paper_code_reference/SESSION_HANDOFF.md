@@ -76,16 +76,16 @@ Correctness and completeness determine implementation size. No line-count target
 
 - Repository: `easonhuo/drpo`
 - Default branch: `main`
-- `main` SHA when the consolidated PR was opened: `b65882993eaf674390989bb9082be2b79f1f1e44`
+- Current `main` observed before the Hopper suite slice: `e99489e7435bc26e2a7e30cd8d1a3aa10f4fc67a`
 - Overall task base: `4544005bd7df69c53bad70a9dcac846af01285e4`
 - Only active development branch: `dev/paper-code-reference-01`
-- Consolidated branch head before this document update: `32c6d6ef979e28809ffade9e260fd333f0057fb8`
+- Consolidated branch head before this document update: `563138b186baef56212430e4911c0c4aa33177c7`
 - Persistent cumulative Draft PR: `#149`
 - Overall acceptance state: `in_development`
 
 At consolidation, `dev/paper-code-reference-01` was fast-forwarded from `b009fbb91f214aa5052c9b8bb9d74704bd2ba304` to `32c6d6ef979e28809ffade9e260fd333f0057fb8`. GitHub compare reported the long-lived branch and the latest Hopper-mechanism head as identical. No paper-code commit was merged into `main`.
 
-A continuation session must resolve the new exact branch head after this document commit and must not reuse the pre-document SHA as the current head.
+The development branch and current `main` have subsequently diverged because unrelated repository work continued on `main`. A continuation session must resolve both current heads and review integration freshness before writing; it must not reuse either SHA above as an assumed current value.
 
 ## 3. Scientific boundaries that must not drift
 
@@ -172,17 +172,28 @@ Durably implemented on the consolidated branch:
 - advantage-matched near/far pairing;
 - per-sample and aggregate full-parameter gradient diagnostics;
 - score decomposition, analytic/autograd agreement, far-field slopes, and budget-matching artifacts;
-- strict legacy differential tests for the migrated layers.
+- one Positive-only preparation per actor seed;
+- exact prepared-checkpoint persistence and reload identity;
+- registered far threshold, Far-cap reference score, and initial global-budget diagnostics derived from the prepared actor;
+- six branches cloned from one identical reloaded prepared state and run in the frozen method order;
+- branch-local trajectories, checkpoints, terminal audits, failure records, and new-or-empty output enforcement;
+- strict legacy differential tests for preparation, matching, probes, calibration, all six branch endpoints, seed derivation, clone independence, and failure isolation.
 
-The actor and mechanism exact heads passed Evidence Locator, full repository pytest, Ruff, compile, handoff authority, formal execution channel, and governance checks before consolidation.
+The Hopper suite was added in:
+
+- `paper_code/src/drpo_reference/external/hopper_suite.py`;
+- `paper_code/tests/test_hopper_suite_differential.py`.
+
+The user explicitly approved both exact Python paths and responsibilities. The approval is preserved in PR `#149` discussion. Exact-head `563138b186baef56212430e4911c0c4aa33177c7` passed Evidence Locator, Python compile, full repository pytest, Ruff, handoff authority, formal execution channel, and governance checks.
 
 Still missing:
 
-- Positive-only preparation and exact six-branch per-seed orchestration;
-- real Gymnasium/D4RL rollout adapter and preflight;
+- real Gymnasium/MuJoCo rollout adapter and process-isolated preflight;
 - public Hopper runner and aggregation;
 - registered-input compact regeneration and paper-facing output binding;
-- full formal rerun.
+- full registered-data and fixed-budget rerun.
+
+The suite smoke/differential execution is engineering evidence only. It did not use the registered D4RL dataset, did not perform real rollouts, and did not change Hopper scientific status.
 
 ### 4.5 Countdown
 
@@ -210,43 +221,42 @@ The old incremental stack is retained only as historical review provenance:
 
 These PRs are closed. Their commits were inherited by the consolidated branch; closing them did not delete code. GitHub may mark the first PR as merged because its original base was the long-lived branch when that branch fast-forwarded over its commits. This does not mean any paper-code change entered `main`.
 
-PR `#149` is now the only active paper-code Draft PR. Future work updates this PR by committing directly to `dev/paper-code-reference-01`. Do not create another stacked PR chain.
+PR `#149` is the only active paper-code Draft PR. Future work updates this PR by committing directly to `dev/paper-code-reference-01`. Do not create another stacked PR chain.
 
 ## 6. Exact next implementation slice
 
-The next slice is **Hopper Positive-only preparation and six-branch orchestration**, based only on:
+The next slice is **Hopper real rollout evaluation and process-isolated environment preflight**, based only on:
 
-- `src/drpo/e7_hopper_q2.py`;
+- `src/drpo/e7_hopper_q2.py` at the overall task base;
 - `configs/e7_hopper_q2_medium_replay_v2.yaml`;
-- the already migrated Hopper protocol, data, models, metrics, optimizer utilities, critic, frozen advantages, actor, and mechanism diagnostics in `paper_code/`.
+- the migrated Hopper protocol, data, normalization, model, actor, and suite layers in `paper_code/`.
 
 Required behavior:
 
-1. construct one Positive-only actor preparation per seed;
-2. save and reload the exact shared Positive-only checkpoint;
-3. derive the registered far threshold and Far-cap/global matching quantities from the shared prepared policy;
-4. clone the same prepared actor state into all six branches;
-5. run each branch with the exact registered fixed budgets and common inputs;
-6. preserve branch-local trajectories, terminal checkpoints, audits, and failures;
-7. keep task-performance collapse, support/variance boundary, and NaN/Inf numerical failure separate;
-8. do not add rollout or public-runner behavior until orchestration is differential-tested and coherent.
+1. use the frozen Gymnasium MuJoCo backend and `Hopper-v4` identity;
+2. verify the registered D4RL dataset/environment identity before evaluation;
+3. perform process-isolated preflight with the registered timeout and maximum-step contract;
+4. evaluate the deterministic actor using the training observation normalizer;
+5. preserve exact action shape, clipping, reset/step semantics, episode seeding, and termination/truncation handling;
+6. compute raw return and the frozen normalized-score percentage using the registered reference minimum and maximum;
+7. write explicit environment and rollout diagnostics;
+8. fail closed when a required rollout environment is unavailable;
+9. never substitute a synthetic environment or the forbidden legacy D4RL fallback;
+10. keep rollout unavailability, task-performance collapse, support/variance boundary, and NaN/Inf numerical failure distinct.
 
-The following proposed Python paths have **not yet received explicit human approval** and therefore must not be created until approval is obtained:
+This next slice must not yet add the public Hopper CLI, multi-seed aggregation, compact regeneration, or launch a formal run.
 
-```text
-paper_code/src/drpo_reference/external/hopper_suite.py
-paper_code/tests/test_hopper_suite_differential.py
-```
+No exact new Python path for the rollout slice has been approved by this handoff. Before creating any new `.py` path, the next session must inspect the current branch, name the exact proposed path and responsibility, explain why existing Hopper files are insufficient, and obtain explicit human approval under the repository hard gate.
 
-Before creating them, a continuation session must restate the exact paths and responsibilities and obtain explicit approval under the repository hard gate. The single-branch rule does not waive this requirement.
+Minimum gates before calling the rollout slice complete:
 
-Minimum gates before calling the slice complete:
-
-- exact Positive-only preparation identity;
-- exact checkpoint reload and clone identity;
-- exact method ordering, seed derivation, thresholds, and global scale;
-- representative fixed-seed short-suite differential comparison against the legacy runner;
-- failure isolation and no mixed output roots;
+- exact legacy/reference preflight behavior;
+- reset, step, termination, truncation, action, and seed identity on controlled fake environments;
+- observation-normalization identity;
+- raw and normalized return identity;
+- required-versus-optional failure behavior;
+- process timeout/failure diagnostics;
+- no synthetic or legacy fallback;
 - Python compilation, focused tests, full repository pytest, Ruff, handoff/formal/governance gates, and exact-head PR `#149` CI.
 
 ## 7. New-file governance
@@ -276,9 +286,10 @@ For every new commit:
 ## 9. Remaining uncertainties
 
 - Countdown final manuscript-facing protocol and formal result are not frozen.
-- Full Hopper reproduction needs the registered D4RL data and environment/runtime resources.
-- Hopper orchestration, rollout, public runner, compact regeneration, and paper-output binding remain incomplete.
+- Full Hopper reproduction needs the registered D4RL data and Gymnasium/MuJoCo runtime resources.
+- Hopper rollout, public runner, aggregation, compact regeneration, and paper-output binding remain incomplete.
 - The acceptance matrix needs a later implementation-status refresh.
+- The development branch has diverged from newer unrelated `main` work; integration freshness must be reviewed before future writes and before any eventual merge decision.
 - Old staging branch refs may still exist remotely, but they are historical only and must not be used for new work.
 - The consolidated branch must remain separate from `main` until the user explicitly authorizes a final merge decision.
 
