@@ -1,0 +1,4 @@
+dataset,td_std,gae_std,pearson,spearman,sign_flip_fraction,td_negative_fraction,gae_negative_fraction,transition_count,std_ratio
+hopper-medium-expert-v2,1.082424,3.833490,0.346782,0.288310,0.390890,0.494411,0.466377,1999906,3.541579
+walker2d-medium-replay-v2,2.064022,5.847962,0.351289,0.309187,0.385505,0.498835,0.471594,302000,2.833286
+walker2d-medium-v2,1.137762,3.351629,0.344686,0.296125,0.388974,0.493225,0.468892,1000000,2.945809
