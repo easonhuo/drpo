@@ -132,7 +132,7 @@ success_criteria:
   - RUN_SUMMARY.json records exactly 96 completed-or-skipped branches and zero failed branches
   - every branch reaches exactly 1000000 optimizer updates and reports the 500000 intermediate score
   - BEST, FINAL and 800k--1M LATE are aggregated for every dataset-estimator-control group
-  - all 48 dataset-estimator-control groups contain seeds 200 through 203
+  - all 24 dataset-estimator-control groups contain seeds 200 through 203
   - all 48 dataset-seed-control TD/GAE pairs pass snapshot-hash matching
   - terminal audit passes before any equivalence conclusion is reported
   - the archived A2C reference is compared without including old PPO branches
