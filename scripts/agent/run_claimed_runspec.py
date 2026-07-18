@@ -79,7 +79,10 @@ def normalize_runtime_resource_request(
         return None
     cpu_pool = str(raw.get("cpu_pool") or "").strip() or None
     max_workers_raw = raw.get("max_workers")
+    minimum_raw = raw.get("minimum_available_cpu_cores")
     if cpu_pool is None and max_workers_raw is None:
+        if minimum_raw is not None:
+            raise RunSpecError("minimum_available_cpu_cores requires cpu_pool")
         return None
 
     cpu_fraction = _finite_number(raw.get("cpu_fraction", 0.85), "cpu_fraction")
@@ -104,7 +107,6 @@ def normalize_runtime_resource_request(
             raise RunSpecError("max_workers must be positive")
         max_workers = int(max_workers_raw)
 
-    minimum_raw = raw.get("minimum_available_cpu_cores")
     minimum: float | None = None
     if cpu_pool is not None:
         if minimum_raw is None:
