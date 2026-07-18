@@ -300,9 +300,9 @@ def run_real_pair(args) -> tuple[int, dict[str, object]]:
     packet = Path(args.case_packet).expanduser().absolute()
     source = Path(args.source_repo).expanduser().absolute()
     output = Path(args.output_root).expanduser().absolute()
-    source_spec = load_yaml(packet, "case packet")["source"]
     if packet.is_symlink() or any(parent.is_symlink() for parent in packet.parents) or not packet.is_file() or sha256(packet) != contract.base.benchmark["input_spec_sha256"]:
         raise ValueError("case packet does not match the frozen input SHA-256")
+    source_spec = load_yaml(packet, "case packet")["source"]
     if source.is_symlink() or any(parent.is_symlink() for parent in source.parents) or not source.is_dir():
         raise ValueError("source repository is unavailable or unsafe")
     if output.exists() or output.is_symlink() or any(parent.is_symlink() for parent in output.parents):
