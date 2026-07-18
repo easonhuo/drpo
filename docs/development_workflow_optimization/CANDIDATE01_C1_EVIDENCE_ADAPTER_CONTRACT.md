@@ -79,7 +79,8 @@ python3 scripts/run_workflow_replay.py real-pair \
 
 The command must:
 
-1. validate the R1 contract and case-packet SHA-256;
+1. validate the R1 contract and require its `input_spec_sha256` to equal the exact case-packet file
+   SHA-256;
 2. resolve the exact base and source commits from the supplied local Git repository;
 3. build the existing R1 schedule `pair-0: A -> B`, `pair-1: B -> A`;
 4. create a separate isolated workspace and evidence directory for every run;
@@ -174,6 +175,19 @@ Operation metrics are derived only from the content-addressed event journal afte
 They are therefore bound by the existing event-log locator and pair evidence digests without
 changing the R1 schema.
 
+The metric definitions are frozen before execution:
+
+- `child_command_count`: actual checked-in commands invoked by the arm;
+- `placement_path_count`: individual files deterministically placed;
+- `operator_action_count`: user-visible actions required by the compared workflow, not adapter
+  internals. Arm A counts each stage command plus one repository-overlay placement action and, when
+  present, one transaction-input placement action. Arm B is exactly one invocation of the existing
+  Candidate 01 command;
+- `total_ns`, `child_ns`, and `self_overhead_ns`: the existing R1 timing fields.
+
+Truth-calibration time, case reconstruction, source acquisition, test execution, and report review
+are excluded from arm efficiency. They remain visible as evaluation cost, not Candidate speedup.
+
 ## 9. Failure classification
 
 The initial liveness cases freeze these classes:
@@ -194,13 +208,13 @@ class, evaluator digest, and evidence-schema digest before Candidate output is i
 
 Then run exactly:
 
-- C01 `A -> B` and `B -> A`;
-- C06 `A -> B` and `B -> A`.
+- C01 pair 0 `A -> B` and pair 1 `B -> A`;
+- C06 pair 0 `A -> B` and pair 1 `B -> A`.
 
-Liveness passes only when all four runs have valid immutable evidence and both pairs match the
-frozen truth. C06 contributes no efficiency conclusion. Any Candidate mismatch stops the full
-nine-case evaluation and becomes a Candidate finding; it does not authorize an in-place Candidate
-repair.
+This is eight arm runs and four pair comparisons. Liveness passes only when all eight runs have
+valid immutable evidence and all four pairs match the frozen truth. C06 contributes no efficiency
+conclusion. Any Candidate mismatch stops the full nine-case evaluation and becomes a Candidate
+finding; it does not authorize an in-place Candidate repair.
 
 ## 11. Tests and gates
 
@@ -215,7 +229,7 @@ Focused tests must cover:
 - STALE evidence with unchanged workspace accepted;
 - stale-after-placement classified as partial mutation and rejected;
 - evidence digest, run identity, and order substitution rejected;
-- operation metrics withheld until correctness equivalence;
+- operator-action definitions and operation metrics withheld until correctness equivalence;
 - existing `candidate` CLI and orchestration tests unchanged.
 
 Required exact-head gates:
