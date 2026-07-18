@@ -75,9 +75,10 @@ jobs:
         continue-on-error: true
         run: python scripts/validate_governance_pipeline_stage_status.py --repo-root .
 
-      - name: Full pytest
-        continue-on-error: true
-        run: python -m pytest -q
+      - name: Replacement C01 Arm-A calibration
+        run: >-
+          python -m pytest -q
+          tests/test_workflow_replay_orchestrate.py::test_replacement_c01_arm_a_calibration
 
       - name: Upload C01 PR120 calibration evidence
         if: always()
@@ -87,6 +88,10 @@ jobs:
           path: c01-pr120-calibration.tar.gz
           if-no-files-found: error
           retention-days: 7
+
+      - name: Full pytest
+        continue-on-error: true
+        run: python -m pytest -q
 
       - name: Ruff
         continue-on-error: true
