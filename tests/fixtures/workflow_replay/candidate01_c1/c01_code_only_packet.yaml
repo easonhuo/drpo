@@ -56,7 +56,7 @@ implementation:
     destination_path: scripts/run_countdown_e8_oracle_offline_v2_alpha1_highc_scan_auto.py
     expected_blob_sha: 0a3daba298b3fdab379e730fa7f9de0077b07554
     expected_old_blob_sha: 4186916709bcc49650d8759dfe4557669ff5af46
-    expected_mode: '100644'
+    expected_mode: '100755'
   - op: modify
     source_path: src/drpo/countdown_e8_alpha1_highc_scan_common.py
     destination_path: src/drpo/countdown_e8_alpha1_highc_scan_common.py
