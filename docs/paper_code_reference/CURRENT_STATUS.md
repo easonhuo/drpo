@@ -4,7 +4,7 @@
 **Not a research master:** `docs/handoff.md` remains the unique research source of truth.  
 **Claim:** `PAPER-CODE-REFERENCE-01`  
 **Scientific-status impact:** none.  
-**Last audited branch head before this document:** `b2d485c19dc0c1d7e5e7bb2f51252770f3833d8a`.
+**Last engineering-validated code head:** `69e60c5bc944b47ab403b6432f1efdb118bc6fa4`.
 
 This file consolidates the current engineering state without deleting historical records. It supersedes stale *current-status* and *next-slice* statements in the older task-local handoff and delta files. Those older files remain provenance for the order in which the migration was implemented and reviewed.
 
@@ -29,17 +29,17 @@ At the audit immediately before this document:
 
 - repository: `easonhuo/drpo`;
 - default branch: `main`;
-- current `main`: `85b0a68d77ed085a7f6e67771fb0f7672c43da09`;
+- current `main`: `939533e2d5933e06a441f6b0f8c2f9e58ce952e4`;
 - task base and current merge base: `4544005bd7df69c53bad70a9dcac846af01285e4`;
 - only active development branch: `dev/paper-code-reference-01`;
-- development head before this document: `b2d485c19dc0c1d7e5e7bb2f51252770f3833d8a`;
+- development head before this document: `d6e46f2eae9f3cca71b00b7cedf80fe603f03aae`;
 - persistent cumulative Draft PR: `#149`;
 - PR state: open, Draft, unmerged;
 - overall task state: `in_development`.
 
 The SHA values above are audit facts, not reusable assumptions. Every continuation session must resolve both heads again. The branch remains separate from `main` until the user explicitly authorizes a merge decision.
 
-The branch still lags newer unrelated `main` work. This does not prove a conflict, but it requires an integration-freshness audit before a final merge proposal. Do not silently rebase, merge `main`, or reinterpret newer scientific registrations as part of this task.
+The branch is materially behind newer unrelated `main` work and currently diverges from it. This does not by itself prove a content conflict, but it requires an integration-freshness audit before a final merge proposal. Do not silently rebase, merge `main`, or reinterpret newer scientific registrations as part of this task.
 
 ## 3. Reviewer-facing code boundary
 
@@ -49,11 +49,11 @@ The public `paper_code` package is reviewer-facing reference code. Its primary o
 
 - readable algorithm implementation;
 - explicit dataset and environment identities;
-- runnable training entry points;
-- runnable rollout evaluation;
-- checkpoints and basic run metadata;
+- runnable training entry points when the selected protocol is frozen;
+- runnable evaluation;
+- checkpoints and basic run metadata for public runners;
 - a lightweight completion/failure record;
-- simple multi-seed mean/std aggregation.
+- simple multi-seed or response-level summaries.
 
 It is **not** required to duplicate the repository's internal scientific-governance platform. The following remain internal responsibilities and are not hard requirements for reviewer-facing migration closure:
 
@@ -64,9 +64,9 @@ It is **not** required to duplicate the repository's internal scientific-governa
 - manuscript table-cell and artifact-hash binding;
 - internal collapse-taxonomy adjudication and formal result promotion.
 
-The public code still fails clearly on missing files, invalid shapes, non-finite training, unavailable rollout environments, and incomplete commands. Lightweight fields such as `training_completed`, `final_step`, `final_checkpoint`, `finite`, and `evaluation_completed` are normal software robustness, not an internal formal audit.
+The public code still fails clearly on missing files, invalid shapes, non-finite inputs or training, unavailable rollout environments, and incomplete commands. Lightweight completion fields are normal software robustness, not an internal formal audit.
 
-Training and rollout scores may vary across hardware, dependency versions, and random seeds. Reviewer-facing reproducibility means the algorithm and stated protocol are runnable and the reported trend is reproducible under the specified coordinate; it does not promise byte-identical single-run scores on every machine.
+Training and evaluation scores may vary across hardware, dependency versions, and random seeds. Reviewer-facing reproducibility means the algorithm and stated protocol are readable and runnable; it does not promise byte-identical single-run scores on every machine.
 
 ## 4. Two-axis status model
 
@@ -78,8 +78,8 @@ Do not conflate the scientific status registered in the main repository with the
 | C-U1 | experiment-specific statuses remain authoritative in `docs/handoff.md` and the registry | implementation complete | registered reproduction remains an internal scientific task |
 | D-U1 revision 4 | `not_run` for the active formal matrix | implementation complete | formal run remains an internal scientific task |
 | Hopper E7-Q2 | `long_run_validated` for the existing learned-critic external mechanism result | implementation complete | real registered-data reproduction through the new runner |
-| D4RL-9 / `EXT-H-E7-BENCH-01` | historical archive is pilot provenance only; no formal ranking | algorithm, public multi-method training, rollout evaluation, and simple aggregation implemented | real HDF5/MuJoCo liveness |
-| Countdown | final manuscript-facing protocol/result not frozen | blocked at the experiment-entry layer | freeze final protocol and result before migration |
+| D4RL-9 / `EXT-H-E7-BENCH-01` | historical archive is pilot provenance only; no formal ranking | reviewer algorithm, multi-method training, rollout, and aggregation complete | real HDF5/MuJoCo liveness |
+| Countdown | paper-aligned scans remain development-pilot evidence; final manuscript protocol/result not frozen | stable sequence/verifier/objective/evaluation core implemented and engineering validated | freeze final protocol/result before adding the experiment entry point |
 
 A smoke, static check, first update, or fixed short trajectory is engineering evidence only. It does not change scientific status.
 
@@ -117,44 +117,66 @@ Implemented reviewer-facing code:
 - episode mean/std and task × method mean/std across seed means;
 - differential and controlled tests for formulas, detached distance, legacy ExpRank compatibility, method-profile gates, execution paths, rollout semantics, and aggregation.
 
-The canonical legacy D4RL files remain differential oracles, not runtime dependencies of the paper package. The D4RL evaluator is intentionally direct and readable rather than duplicating Hopper's heavier process-isolated mechanism-validation preflight. Environment failure is reported clearly and does not become a task-performance score.
+No additional D4RL actor, critic, multi-method training-loop, rollout, or simple aggregation migration is currently required. Real liveness and the internal formal experiment lifecycle are execution/protocol gates rather than missing reviewer code.
 
-## 6. D4RL remaining work
+### 5.5 Countdown stable core
 
-### 6.1 Reviewer-facing runtime
+The approved path `categorical/countdown.py` now owns only the stable Countdown primitives that are independent of the final manuscript-facing experiment protocol:
 
-No additional core actor, critic, multi-method training-loop, rollout, or simple aggregation migration is currently required. The remaining reviewer-facing gate is a real liveness run using compatible HDF5 files and Gymnasium/MuJoCo. That liveness is execution evidence only and must not be reported as a formal method result.
+- canonical expression cleaning;
+- exact arithmetic verifier and mutually exclusive verifier categories;
+- chat prompt rendering with thinking disabled when supported;
+- prompt/completion encoding, EOS inclusion, and prompt-label masking;
+- padded completion batches;
+- completion-only sequence log-probability, entropy, and bounded direct-logit score;
+- weighted sequence log-probability without weight-sum renormalization;
+- detached normalized current sequence surprisal `u=-log P(y|x)/2`;
+- detached paper-aligned linear-surprisal envelope `alpha * exp(-c*u)`;
+- first-occurrence unique-negative bank handling;
+- lightweight Greedy, Pass@k, valid-rate, and verifier-category aggregation.
 
-A standalone checkpoint-only evaluation command could be added later for convenience, but it is not required for the current train-and-evaluate reviewer workflow because `drpo-reference d4rl --eval-episodes N` evaluates each trained actor before command completion.
+The module imports neither Transformers/PEFT nor the historical one-file trainer. It does not own model loading, GPU resource selection, training scheduling, checkpoint selection, RunSpec execution, formal artifact delivery, or manuscript result binding.
 
-### 6.2 Reviewer-selectable methods versus final paper matrix
+The new path was explicitly approved by the user and the approval is preserved in Draft PR #149 comment `5016309623`. The first stable-core slice passed Python compilation, full pytest, Ruff, handoff authority, formal execution-channel validation, governance inventory, and governance stage checks at `69e60c5bc944b47ab403b6432f1efdb118bc6fa4`.
 
-The code exposes seven reviewer-selectable arms. This is an implementation migration, **not** a freeze of the final D4RL-9 comparison matrix. Historical non-ExpRank arms are available only under the explicitly named `legacy-pilot-v1` profile. Their coefficients, negative scales, and provenance are recorded in manifests, but they must not be interpreted as final nine-task paper choices.
+## 6. Countdown remaining work
 
-The final comparison arms, common coefficients, formal ten-run seeds, budgets, and checkpoint policy still require separate protocol approval. No command may perform post-hoc per-task method selection, and no reviewer run may claim a formal ranking.
+### 6.1 What is no longer blocked
 
-### 6.3 Internal formal experiment lifecycle
+Stable expression, verifier, masking, sequence-likelihood, remoteness-weight, bank-deduplication, and response-metric primitives no longer depend on the final coefficient or experiment selection. Their migration is implemented and engineering validated.
 
-Formal seeds, budgets, checkpoint roles, full matrix completeness, terminal scientific adjudication, result promotion, and manuscript artifact binding remain in the internal repository workflow. They are not reviewer-code migration defects.
+### 6.2 What remains blocked
 
-## 7. D4RL items that are not missing code
+The following are intentionally absent until the manuscript-facing Countdown protocol and result are frozen:
 
-The following are provenance, protocol, resource, execution, or internal review gates:
+- `paper_code/src/drpo_reference/experiments/countdown.py`;
+- a `drpo-reference countdown` CLI command;
+- final model scale and initialization;
+- final comparison arms and default coefficient;
+- formal or confirmatory seeds;
+- training horizon and checkpoint-selection rule;
+- validation/test access and final evaluation protocol;
+- public run manifests tied to the final experiment coordinate;
+- manuscript-facing result values or method-ranking claims.
 
-- SHA-256 values for eight unresolved dataset coordinates;
-- authoritative resolution of the historical archive launch commit;
-- final common comparison arms and coefficients;
-- registered ten-run seed coordinate;
-- formal budgets and checkpoint policy;
-- availability of all real HDF5 datasets and compatible Gymnasium/MuJoCo dependencies;
-- real nine-task liveness and full-budget execution;
-- internal terminal scientific review and final manuscript values.
+No new Python path for the final experiment entry has been approved. Do not create it by inference from the stable-core approval.
+
+## 7. Items that are not missing stable-core code
+
+The following remain provenance, protocol, resource, execution, or internal review gates:
+
+- D4RL dataset identities, liveness, final formal matrix, seeds, budgets, and manuscript values;
+- Countdown final coefficient/profile selection after development-pilot review;
+- Countdown final model scale, common comparison matrix, seeds, budget, checkpoint rule, and test protocol;
+- real Transformer/GPU liveness for any future public runner;
+- full execution, internal terminal scientific review, and final manuscript values.
 
 ## 8. Exact next sequence
 
-1. Perform the integration-freshness audit against current `main` before any final merge proposal.
-2. Run a low-cost real HDF5/Gymnasium/MuJoCo liveness on one representative coordinate.
-3. Expand real liveness to the three environment families before any nine-task execution.
-4. Keep formal experiment registration, final method-matrix freeze, full execution, terminal scientific review, and manuscript artifact binding in the internal repository workflow.
+1. Keep D4RL reviewer code frozen; treat real liveness as a separate execution gate.
+2. Review the completed Countdown stable-core diff and its exact-head CI.
+3. Wait for the final Countdown manuscript-facing protocol/result freeze before proposing the exact final experiment-entry Python path.
+4. After that separate approval, migrate only the selected training/evaluation lifecycle and add the public command.
+5. Perform the integration-freshness audit against current `main` before any final merge proposal.
 
-The multi-method code slice passed exact-head Python compile, full pytest, Ruff, handoff authority, formal execution channel, governance inventory, and governance stage gates at `b2d485c19dc0c1d7e5e7bb2f51252770f3833d8a`. No formal experiment was launched. No method ranking, scientific status, seed, threshold, formal budget, or final coefficient was changed.
+No formal experiment was launched by the Countdown stable-core migration. No method ranking, scientific status, model scale, seed, threshold, training horizon, default coefficient, checkpoint rule, or manuscript value was changed.
