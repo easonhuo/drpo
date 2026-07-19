@@ -11,8 +11,8 @@ This map selects authoritative paper-facing source paths. Historical and superse
 | deterministic seeding | C-U1, D-U1 v4, Hopper E7-Q2, Countdown taper runners | `common/seeding.py` | one small implementation |
 | JSON/CSV writes | same runners | `common/io.py` | one implementation; no artifact-packaging logic |
 | event separation | C-U1 E3/E4, D-U1 v4, Hopper E7-Q2, Countdown taper | `common/events.py` | task, boundary, numerical, environment-invalid remain distinct |
-| terminal records | registered runners | `common/audit.py` | common schema; family-specific metric computation stays local |
-| taper formulas | `cu1_taper_near_retention_formal.py`, `du1_e6_cartesian_taper_v4.py`, final Countdown runner | `controls/weights.py` | one distance-coordinate implementation |
+| terminal records | registered runners | family-local audit plus shared schemas | common schema; family-specific metric computation stays local |
+| taper formulas | `cu1_taper_near_retention_formal.py`, `du1_e6_cartesian_taper_v4.py`, final Countdown runner | `controls/weights.py` | one distance-coordinate implementation where formulas are identical |
 | hard selection | C-U1 E3 and Hopper E7-Q2 | `controls/selection.py` | one detached mask implementation |
 | budget matching | C-U1 fairness controls, D-U1 v4, Hopper E7-Q2, Countdown taper | `controls/budget.py` | one validated scalar matcher; task modules own audit subsets |
 
@@ -63,12 +63,31 @@ This map selects authoritative paper-facing source paths. Historical and superse
 
 ## D4RL locomotion
 
-The manuscript uses two distinct scientific profiles over one shared locomotion implementation:
+The manuscript uses two scientifically distinct external profiles:
 
-1. Hopper E7-Q2 is external mechanism validation;
-2. D4RL-9 is external task-performance validation over HalfCheetah, Hopper, and Walker2d under medium, medium-replay, and medium-expert datasets.
+1. Hopper E7-Q2 is mechanism validation with a frozen canonical critic, frozen advantages, actor-only updates, matched near/far diagnostics, and targeted interventions;
+2. D4RL-9 is task-performance validation over HalfCheetah, Hopper, and Walker2d under medium, medium-replay, and medium-expert datasets.
 
-These profiles must not become separate actor, critic, data, rollout, or normalization implementations.
+A source audit showed that these profiles do **not** currently have an identical full training backend. The Hopper mechanism policy uses a transformed squashed-Gaussian likelihood with an inverse-tanh and Jacobian correction, while the legacy D4RL benchmark candidate uses the canonical SNA2C/IQLV agent family with dynamic TD advantages and joint actor/critic updates. They must not be forced into one scientifically incorrect trainer merely to reduce filenames.
+
+### Contracts that may be shared
+
+- D4RL-v2 task and dataset identities;
+- HDF5 locomotion field validation where the schema is identical;
+- observation/action shape checks;
+- Gymnasium/MuJoCo reset, step, termination, truncation, seeding, and action-boundary handling;
+- D4RL reference-score normalization;
+- common I/O, provenance, and event taxonomy;
+- one task catalog for the nine manuscript coordinates.
+
+### Contracts that remain backend-specific
+
+- actor likelihood and action-density semantics;
+- critic lifecycle and objective;
+- advantage estimator and whether it is frozen or recomputed;
+- actor/critic optimizer scheduling;
+- method family and weight transformation;
+- terminal-audit rules tied to that training protocol.
 
 ### Include
 
@@ -77,31 +96,36 @@ These profiles must not become separate actor, critic, data, rollout, or normali
   - `configs/e7_hopper_q2.yaml`
   - `scripts/run_e7_hopper_q2.py`
   - delivered compact E7-Q2 outputs and registered dataset identity;
-- authoritative D4RL locomotion sources actually selected by the final manuscript, including the canonical shared D4RL dataset, normalization, actor, critic, and rollout behavior;
-- D4RL-9 task identities only after their exact dataset provenance and manuscript-facing protocol are verified.
+- the audited D4RL performance-backend candidate sources:
+  - `src/drpo/e7_canonical_vendor/d4rl/agents.py`
+  - `src/drpo/e7_canonical_vendor/d4rl/train_sna2c_variant.py`
+  - `src/drpo/e7_canonical_shortlist_protocol.py`;
+- the final D4RL-9 backend only after its algorithm, methods, datasets, seeds, budget, and terminal audit are explicitly frozen;
+- D4RL-9 task identities only with verified provenance.
 
 ### Reference split
 
-- existing `external/hopper_data.py`, `hopper_models.py`, `hopper_critic.py`, `hopper_advantages.py`, `hopper_actor.py`, `hopper_optim.py`, `hopper_metrics.py`, and `hopper_rollout.py` contain the first migrated D4RL locomotion engine and remain one shared implementation despite their historical filenames;
-- `external/d4rl_tasks.py`: thin task specifications for the nine manuscript D4RL coordinates; no trainer or algorithm copy;
-- `experiments/hopper.py`: Hopper E7-Q2 mechanism profile, including near/far matching and targeted interventions;
-- `experiments/d4rl.py`: D4RL-9 performance-profile planning and dispatch over the same shared engine; it must not duplicate actor, critic, training-loop, or rollout code.
+- existing `external/hopper_*` modules: Hopper E7-Q2 mechanism backend; historical filenames do not make them the universal D4RL-9 performance trainer;
+- `external/d4rl_tasks.py`: task specifications and provenance state for the nine manuscript coordinates;
+- `experiments/hopper.py`: Hopper E7-Q2 mechanism profile;
+- `experiments/d4rl.py`: D4RL-9 matrix, audited backend boundary, formal blockers, and dispatch to one selected performance backend across all nine tasks.
 
 ### Compatibility rule
 
-- current Hopper public behavior must remain differential-test equivalent after sharing is introduced;
-- HalfCheetah and Walker2d attach through task specifications rather than copied modules;
-- task-specific dataset SHA values that are not yet verified remain unresolved and must not be invented;
-- Hopper mechanism diagnostics remain Hopper-specific and are not automatically imposed on every D4RL-9 performance task;
-- D4RL-9 task performance, support/variance-boundary events, rollout failures, and NaN/Inf numerical failures remain separately reported.
+- current Hopper behavior must remain differential-test equivalent;
+- HalfCheetah, Hopper, and Walker2d performance tasks must use one selected D4RL performance backend, not separate per-task trainer copies;
+- the Hopper mechanism runner must not be reused as the performance runner unless a later scientific audit proves exact contract equivalence and freezes that change;
+- unresolved dataset SHA values remain unresolved and block formal use;
+- pilot-only canonical shortlist code is provenance and a backend candidate, not a frozen D4RL-9 formal protocol;
+- task-performance collapse, support/variance-boundary events, rollout failures, and NaN/Inf numerical failures remain separately reported.
 
 ### Exclude
 
-- a second D4RL actor/critic/training implementation beside the migrated Hopper core;
-- copied `halfcheetah_*` or `walker2d_*` trainer modules;
+- copied `halfcheetah_*`, `hopper_*`, or `walker2d_*` performance trainers;
+- an invented hybrid that silently combines Hopper mechanism likelihoods with the canonical D4RL optimizer/advantage lifecycle;
 - unmerged GAE development work;
-- historical stopping logic or pilots not selected by the final manuscript;
-- table/figure-generation machinery inside the training engine.
+- historical stopping logic or parameter sweeps not selected by the final manuscript;
+- table/figure-generation machinery inside training code.
 
 ## Countdown
 
@@ -124,6 +148,6 @@ These profiles must not become separate actor, critic, data, rollout, or normali
 
 Countdown migration remains blocked at the final experiment-entry layer until the manuscript-facing protocol and result are frozen. Shared task-independent control functions are not blocked.
 
-## Paper aggregation
+## Result reporting
 
-The final package will contain only scripts that transform selected reference-run outputs into the exact controlled/external table inputs and figure-data files. It will not contain manuscript-writing pipelines, governance validators, or historical result discovery logic.
+The final reference package needs only a minimal result summary and protocol audit sufficient to recompute the manuscript's selected scientific conclusions. It does not need a general paper table/figure-generation framework, byte-identical stochastic-output verifier, manuscript-writing pipeline, governance validator, or historical result-discovery system.
