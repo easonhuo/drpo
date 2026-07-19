@@ -194,19 +194,23 @@ Hopper E7-Q2 remains a separate mechanism trainer.
 
 ### Stable source oracles
 
-The current stable-core characterization uses:
+The stable training-core characterization uses:
 
 - `src/drpo/countdown_qwen_arena_onefile.py` for expression cleaning, exact
   verifier semantics, chat prompt rendering, completion masking, sequence
   likelihood/statistics, and response metrics;
 - `src/drpo/countdown_e8_alpha1_c_scan_common.py` for first-occurrence
-  unique-negative handling and denominator semantics;
+  unique-negative handling, frozen-bank flattening, per-prompt denominator
+  semantics, and the prohibition on weight-sum normalization;
+- `src/drpo/countdown_e8_alpha1_c_scan_trainer.py` for Positive-only bank
+  skipping, the joint positive-minus-weighted-negative objective, clipped AdamW
+  first-update semantics, and diagnostic fields;
 - `src/drpo/countdown_e8_alpha1_highc_scan_common.py` for the corrected
   paper-aligned linear-surprisal envelope;
 - `docs/experiments/E8_PAPER_ALIGNED_LINEAR_SCAN_PROTOCOL.md` and
   `docs/experiments/E8_PAPER_ALIGNED_LINEAR_C_EXTENSION_PROTOCOL.md` for the
-  stable formula and the boundary between completed development scans and an
-  unfrozen final manuscript protocol.
+  stable formula and the boundary between development scans and an unfrozen
+  final manuscript protocol.
 
 These legacy files remain differential/provenance oracles. They are not imported
 at runtime by the reviewer package.
@@ -214,13 +218,14 @@ at runtime by the reviewer package.
 ### Approved live reference path
 
 - `categorical/countdown.py`: stable expression/verifier, prompt/completion
-  encoding, completion-only likelihood/statistics, unique-bank deduplication,
-  normalized sequence surprisal, detached `alpha * exp(-c*u)` weights, and
-  lightweight response metrics;
+  encoding, completion-only likelihood/statistics, unique-bank encoding and
+  collation, normalized sequence surprisal, detached `alpha * exp(-c*u)`
+  weights, exact joint objective, Positive-only bank skipping, weight/bank
+  diagnostics, parameter-update norm, and lightweight response metrics;
 - `categorical/__init__.py`: exports stable primitives without creating an
   experiment command;
-- existing `tests/test_common.py`: formula, mask, verifier, bank, and response
-  aggregation characterization.
+- existing `tests/test_common.py`: formula, mask, verifier, bank, objective,
+  diagnostics, first AdamW update, and response aggregation characterization.
 
 The exact path `paper_code/src/drpo_reference/categorical/countdown.py` and this
 limited responsibility were explicitly approved by the user and preserved in
@@ -230,7 +235,8 @@ Draft PR #149 comment `5016309623` before creation.
 
 - model or LoRA loading;
 - GPU/resource scheduling;
-- training-loop and checkpoint selection;
+- optimizer/scheduler selection and the full multi-step training loop;
+- checkpoint persistence, resume, selection, and terminal evaluation;
 - coefficient or method-matrix selection;
 - development-to-confirmatory seed promotion;
 - validation/test access policy for the final experiment;
@@ -239,8 +245,8 @@ Draft PR #149 comment `5016309623` before creation.
 
 The nearest D-U1 modules remain unsuitable for these sequence primitives because
 D-U1 models unordered categorical actions rather than autoregressive completion
-tokens. The stable-core module therefore remains separate while sharing no
-scientific responsibility with D-U1.
+tokens. The stable-training-core module therefore remains separate while sharing
+no scientific responsibility with D-U1.
 
 ### Exclude
 
@@ -250,9 +256,9 @@ scientific responsibility with D-U1.
 - dirty-worktree, smoke, or two-seed pilot claims as final evidence;
 - any claim that Countdown replaces controlled D-U1 causal identification.
 
-Countdown stable-core migration is implemented. The final experiment-entry layer
-remains blocked until the manuscript-facing protocol and result are frozen and a
-separate exact Python path is proposed and approved.
+Countdown stable-training-core migration is implemented. The final
+experiment-entry layer remains blocked until the manuscript-facing protocol and
+result are frozen and a separate exact Python path is proposed and approved.
 
 ## Result reporting
 
