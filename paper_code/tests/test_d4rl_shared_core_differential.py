@@ -69,6 +69,25 @@ def test_reference_scores_and_hopper_identity_match_frozen_protocol() -> None:
     )
 
 
+def test_task_specs_own_backend_independent_rollout_identity() -> None:
+    for task in D4RL9_TASKS:
+        expected = {
+            "backend": "gymnasium_mujoco",
+            "dataset_id": task.dataset_id,
+            "env_id": task.env_id,
+        }
+        assert task.rollout_identity() == expected
+        assert task.validate_rollout_identity(**expected) == expected
+
+    task = resolve_d4rl_task("walker2d-medium-replay-v2")
+    with pytest.raises(ValueError, match="rollout identity mismatch"):
+        task.validate_rollout_identity(
+            backend="gymnasium_mujoco",
+            dataset_id=task.dataset_id,
+            env_id="Hopper-v4",
+        )
+
+
 def test_backend_audit_separates_mechanism_and_performance() -> None:
     backend = LEGACY_CANONICAL_BACKEND_CANDIDATE
     assert D4RL9_EXPERIMENT_ID == "EXT-H-E7-BENCH-01"
