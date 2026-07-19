@@ -9,7 +9,10 @@ adds the manuscript-correct distance orders:
 * reciprocal-quadratic: ``1 / (1 + lambda * x)``;
 * exponential: ``exp(-lambda * x)``.
 
-Here ``x = relu(current_sequence_surprisal / 2 - tau_code)``.
+Here ``x = relu(current_sequence_surprisal / 2 - tau_code)``.  The reciprocal
+shape screen runs only the eight new reciprocal method points.  Positive-only,
+Global, and the completed EXP anchor are historical references and are not
+rerun in this profile.
 """
 from __future__ import annotations
 
@@ -65,9 +68,6 @@ C_EXTENSION_PARAMETER_POINTS = (
 )
 RECIPROCAL_LAMBDAS = (1.0, 3.0, 7.0, 19.0)
 RECIPROCAL_SCREEN_POINTS = (
-    ("positive_only", 0.0, 0.0),
-    ("global", 0.03125, 0.0),
-    ("exponential", 1.0, 2.995732274),
     *(("reciprocal_linear", 1.0, value) for value in RECIPROCAL_LAMBDAS),
     *(("reciprocal_quadratic", 1.0, value) for value in RECIPROCAL_LAMBDAS),
 )
@@ -150,15 +150,15 @@ _PROFILES: dict[str, dict[str, Any]] = {
     },
     RECIPROCAL_SCREEN_EXPERIMENT_ID: {
         "experiment_id": RECIPROCAL_SCREEN_EXPERIMENT_ID,
-        "version": "0.1.0-dev-code-first-reciprocal-shape-screen",
+        "version": "0.2.0-dev-code-first-reciprocal-shape-screen",
         "default_grid_config": (
             "configs/countdown_e8_oracle_offline_v2_reciprocal_shape_screen_0p5b.yaml"
         ),
         "parameter_points": RECIPROCAL_SCREEN_POINTS,
-        "seed_offsets": (4000,),
-        "expected_points": 11,
-        "expected_cells": 11,
-        "requires_positive_only": True,
+        "seed_offsets": SEED_OFFSETS,
+        "expected_points": 8,
+        "expected_cells": 16,
+        "requires_positive_only": False,
         "kind": "reciprocal_screen",
     },
 }
@@ -390,6 +390,17 @@ def _validate_shared_screen_config(config: Mapping[str, Any]) -> None:
         raise ValueError("Primary selection metric must remain late_window_pass_at_8")
     if config.get("execution", {}).get("default_gpus") != list(range(8)):
         raise ValueError("The paper-aligned scan requires GPU 0-7")
+    historical = config.get("historical_controls", {})
+    if historical.get("rerun_in_this_round") is not False:
+        raise ValueError("Historical controls must not be rerun in the reciprocal screen")
+    if tuple(historical.get("methods", ())) != (
+        "positive_only",
+        "global",
+        "exponential",
+    ):
+        raise ValueError("Historical control method set changed")
+    if historical.get("exact_result_identity_required_before_comparison") is not True:
+        raise ValueError("Historical controls require exact result identity before comparison")
 
 
 def validate_grid_config(config: Mapping[str, Any]) -> None:
@@ -402,8 +413,8 @@ def validate_grid_config(config: Mapping[str, Any]) -> None:
         )
         if configured != RECIPROCAL_SCREEN_POINTS:
             raise ValueError("Reciprocal shape-screen parameter points changed")
-        if tuple(config["sweep"].get("seed_offsets", ())) != (4000,):
-            raise ValueError("Reciprocal shape-screen seed offset changed")
+        if tuple(config["sweep"].get("seed_offsets", ())) != SEED_OFFSETS:
+            raise ValueError("Reciprocal shape-screen seed offsets changed")
         return
 
     predecessor_compatible = copy.deepcopy(config)
@@ -479,7 +490,12 @@ def build_cells(config: Mapping[str, Any]) -> tuple[Cell, ...]:
     seed_offsets = tuple(int(value) for value in profile["seed_offsets"])
     if profile["kind"] == "reciprocal_screen":
         cells = tuple(
-            Cell(alpha=alpha, coefficient=coefficient, seed_offset=seed_offset, family=family)
+            Cell(
+                alpha=alpha,
+                coefficient=coefficient,
+                seed_offset=seed_offset,
+                family=family,
+            )
             for family, alpha, coefficient in points
             for seed_offset in seed_offsets
         )
