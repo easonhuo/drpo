@@ -17,8 +17,10 @@ rules:
   legacy_pilot_profile_is_not_final_method_matrix: true
   d4rl_exprank_remains_implicit_default: true
   no_post_hoc_per_task_method_selection: true
-  countdown_stable_core_is_not_final_experiment_entry: true
+  countdown_stable_training_core_is_not_final_experiment_entry: true
   countdown_linear_surprisal_must_not_be_silently_squared: true
+  countdown_unique_negative_denominator_must_not_be_weight_sum: true
+  countdown_positive_only_skips_negative_bank_forward: true
   countdown_public_command_requires_final_protocol_freeze_and_path_approval: true
   countdown_does_not_replace_du1_controlled_identification: true
   separate_events:
@@ -260,8 +262,8 @@ phases:
       - terminal_result_review
       - selected_conclusion_report
   countdown:
-    previous_status: blocked_pending_final_protocol_and_result_freeze
-    status: stable_core_implemented_final_experiment_entry_blocked
+    previous_status: stable_core_implemented_final_experiment_entry_blocked
+    status: stable_training_core_implemented_final_experiment_entry_blocked
     scientific_role: external_transformer_validity
     approved_core_path: paper_code/src/drpo_reference/categorical/countdown.py
     approval_record:
@@ -270,9 +272,11 @@ phases:
       comment_id: 5016309623
       scope_limited_to_stable_core: true
       final_experiment_entry_approved: false
+      protected_environment_approval_confirmed_by_connector: false
     stable_characterization_sources:
       - src/drpo/countdown_qwen_arena_onefile.py
       - src/drpo/countdown_e8_alpha1_c_scan_common.py
+      - src/drpo/countdown_e8_alpha1_c_scan_trainer.py
       - src/drpo/countdown_e8_alpha1_highc_scan_common.py
       - docs/experiments/E8_PAPER_ALIGNED_LINEAR_SCAN_PROTOCOL.md
       - docs/experiments/E8_PAPER_ALIGNED_LINEAR_C_EXTENSION_PROTOCOL.md
@@ -284,13 +288,23 @@ phases:
       completion_eos_and_prompt_masking: implemented
       completion_only_sequence_log_probability: implemented
       entropy_and_bounded_direct_logit_score: implemented
-      weighted_sequence_denominator_without_weight_sum_normalization: implemented
+      weighted_sequence_log_probability: implemented
       first_occurrence_unique_negative_bank: implemented
+      frozen_bank_row_encoding: implemented
+      flattened_unique_bank_collation: implemented
+      unique_negative_count_per_prompt_denominator: implemented
+      weight_sum_normalization: forbidden
       normalized_sequence_surprisal_u_equals_negative_logp_over_two: implemented
       detached_paper_aligned_linear_weight_alpha_exp_negative_c_u: implemented
+      joint_positive_minus_weighted_negative_objective: implemented
+      positive_only_skips_negative_bank_forward: implemented
+      weight_and_bank_diagnostics: implemented
+      parameter_update_norm: implemented
+      first_clipped_adamw_update_identity: implemented
       greedy_pass_at_k_valid_rate_aggregation: implemented
       transformers_or_peft_runtime_dependency: false
       model_or_training_protocol_selected: false
+      full_multistep_training_loop_available: false
       public_experiment_command_available: false
       final_protocol_frozen: false
       formal_result_claim_allowed: false
@@ -304,31 +318,41 @@ phases:
       - completion_padding_characterization
       - completion_only_sequence_log_probability_characterization
       - entropy_and_direct_logit_score_characterization
-      - weighted_sequence_denominator_characterization
+      - weighted_sequence_log_probability_characterization
       - first_occurrence_unique_negative_characterization
+      - frozen_bank_collation_characterization
+      - unique_negative_denominator_characterization
+      - weight_sum_normalization_rejected
       - detached_linear_surprisal_formula_characterization
       - squared_surprisal_regression_rejected
+      - joint_objective_formula_identity
+      - positive_only_bank_forward_skipped
+      - bank_and_weight_diagnostics_characterization
+      - first_clipped_adamw_update_identity
       - greedy_pass_at_k_valid_rate_characterization
       - lightweight_metrics_marked_nonfinal
-      - clean_checkout_compile_pytest_ruff_for_stable_core
+      - clean_checkout_compile_pytest_ruff_for_stable_training_core
     excluded_from_current_core:
       - historical_one_file_public_orchestration
       - model_and_lora_loading
       - gpu_and_runtime_scheduler
-      - training_loop_and_optimizer_selection
-      - checkpoint_selection
+      - optimizer_and_scheduler_selection
+      - full_multistep_training_loop
+      - checkpoint_persistence_resume_and_selection
       - runspec_and_artifact_delivery
       - final_method_matrix_or_default_coefficient
       - final_model_scale_seeds_budget_or_test_protocol
     final_entry_blockers:
       - final_manuscript_facing_protocol_and_result_unfrozen
       - exact_final_experiment_entry_python_path_not_approved
+      - protected_new_python_environment_result_not_visible_to_connector
       - final_model_scale_and_initialization_unfrozen
       - final_comparison_arms_and_default_coefficient_unfrozen
       - formal_or_confirmatory_seeds_unfrozen
       - training_budget_and_checkpoint_selection_unfrozen
       - final_validation_and_test_access_protocol_unfrozen
-      - first_optimizer_update_identity_not_migrated
+      - model_and_lora_loading_not_migrated
+      - optimizer_scheduler_and_multistep_lifecycle_not_migrated
       - selected_checkpoint_evaluation_identity_not_migrated
       - terminal_evaluation_identity_not_migrated
       - registered_real_qwen_cuda_rerun_not_run
