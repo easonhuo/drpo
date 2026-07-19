@@ -145,17 +145,18 @@ registered-data reproduction before migration closure.
 
 ## D4RL-9 locomotion performance
 
-The D4RL-9 implementation uses one migrated `SNA2C_IQLV_ExpRank` trainer for
+The D4RL-9 implementation uses one migrated SNA2C-IQLV actor/critic lifecycle for
 HalfCheetah, Hopper, and Walker2d across medium, medium-replay, and
 medium-expert. It remains scientifically and operationally separate from the
 Hopper E7-Q2 frozen-advantage mechanism runner.
 
 The migrated code contains the actor, critic, dynamic TD/expectile update,
-rank-based negative weighting, locomotion preparation, deterministic minibatch
-training, checkpoint payload, nine-task catalog, fail-closed dataset identity,
-real Gymnasium/MuJoCo rollout evaluation, and seed-level mean/std aggregation.
+reviewer-selectable negative-side controls, locomotion preparation,
+deterministic minibatch training, checkpoint payloads, nine-task catalog,
+fail-closed dataset identity, real Gymnasium/MuJoCo rollout evaluation, and
+method/seed mean/std aggregation.
 
-A selected-task reviewer run with real evaluation:
+The default command remains ExpRank-only:
 
 ```bash
 drpo-reference d4rl \
@@ -166,6 +167,26 @@ drpo-reference d4rl \
   --eval-episodes 10 \
   --output outputs/d4rl_hopper_medium_replay
 ```
+
+Reviewer-selectable multi-method execution is explicit:
+
+```bash
+drpo-reference d4rl \
+  --dataset-root /ABS/PATH/TO/D4RL_V2_HDF5 \
+  --tasks hopper-medium-replay-v2 \
+  --methods exprank,positive_only,signed,global,reciprocal_linear,reciprocal_quadratic,exponential \
+  --method-profile legacy-pilot-v1 \
+  --seeds 200,201 \
+  --steps 100000 \
+  --eval-episodes 10 \
+  --output outputs/d4rl_hopper_medium_replay_methods
+```
+
+The six non-ExpRank controls reproduce the historical pilot control definitions.
+The `legacy-pilot-v1` name is deliberately required: these arms and coefficients
+are reviewer-selectable provenance, **not** the frozen final D4RL-9 paper matrix.
+The command writes `final_method_matrix_frozen: false`, forbids post-hoc per-task
+method selection, and never authorizes a method-ranking claim.
 
 Omit `--tasks` to run all nine tasks. The dataset root must contain each selected
 task's canonical filename. `--eval-episodes 0`, the default, runs training only.
@@ -181,14 +202,16 @@ drpo-reference d4rl \
 ```
 
 The runner writes per-seed final checkpoints plus `RUN_MANIFEST.json`,
-`SUMMARY.json`, `COMPLETED.json`, or `FAILED.json`. When rollout evaluation is
-enabled it also writes per-seed `EVALUATION.json`, raw returns, normalized
-scores, episode mean/std, and task-level mean/std across seed means.
+`SUMMARY.json`, `COMPLETED.json`, or `FAILED.json`. Explicit multi-method runs use
+`task/method/seed_N` output roots. When rollout evaluation is enabled it also
+writes per-seed `EVALUATION.json`, raw returns, normalized scores, episode
+mean/std, and task × method mean/std across seed means.
 
 The final comparison matrix, formal seeds, formal budgets, and eight unresolved
-dataset hashes remain protocol/provenance issues. They are not missing actor or
-critic code and are not silently frozen by the public runner. Real nine-task
-HDF5 and MuJoCo liveness has not yet been executed by this migration task.
+dataset hashes remain protocol/provenance issues. They are not missing actor,
+critic, or multi-method execution code and are not silently frozen by the public
+runner. Real nine-task HDF5 and MuJoCo liveness has not yet been executed by this
+migration task.
 
 ## Artifact and evidence boundary
 
@@ -207,7 +230,7 @@ Current migration status:
 - C-U1 implementation candidate complete; registered reproduction pending;
 - D-U1 revision-4 implementation candidate complete; formal run pending;
 - Hopper E7-Q2 implementation candidate complete; registered real reproduction pending;
-- D4RL-9 reviewer-facing algorithm, training, rollout, and simple aggregation implemented; real liveness and formal protocol remain pending;
+- D4RL-9 reviewer-facing algorithm, multi-method training, rollout, and simple aggregation implemented; real liveness and final formal protocol remain pending;
 - Countdown blocked pending final manuscript-facing protocol and result freeze.
 
 No smoke or short differential result is a paper result. The machine-readable
