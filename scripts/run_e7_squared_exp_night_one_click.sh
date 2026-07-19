@@ -13,6 +13,7 @@ PROBE_STEPS="${E7_SQUARED_EXP_PROBE_STEPS:-5000}"
 PROBE_SECONDS="${E7_SQUARED_EXP_PROBE_SECONDS:-120}"
 THROUGHPUT_RETENTION="${E7_SQUARED_EXP_THROUGHPUT_RETENTION:-0.97}"
 MAX_WORKERS="${E7_SQUARED_EXP_MAX_WORKERS:-}"
+MODE="${E7_SQUARED_EXP_MODE:-historical}"
 
 if [[ -n "$(git status --porcelain)" ]]; then
   echo "refusing to run from a dirty checkout" >&2
@@ -24,6 +25,22 @@ for required in "${CONTRACT}" "${RUN_SPEC}" "${GRID}"; do
     exit 2
   fi
 done
+
+case "${MODE}" in
+  historical)
+    ;;
+  p1)
+    if [[ "${GRID}" != "configs/e7_bench_joint_gae_tuning_p1_c.json" ]]; then
+      echo "P1 mode requires the registered P1 grid" >&2
+      exit 2
+    fi
+    export DRPO_E7_P1_FULL_RUN=1
+    ;;
+  *)
+    echo "unsupported E7_SQUARED_EXP_MODE=${MODE}" >&2
+    exit 2
+    ;;
+esac
 
 COMMON_ARGS=(
   --repo-root "${REPO_ROOT}"

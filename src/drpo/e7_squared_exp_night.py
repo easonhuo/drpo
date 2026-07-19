@@ -63,6 +63,7 @@ GAE_LIVENESS_DATASET = "hopper-medium-expert-v2"
 GAE_LIVENESS_SEED = 200
 GAE_LIVENESS_COEFFICIENT = 128.0
 TUNING_LIVENESS_SCALE = 4.0
+TUNING_FULL_RUN_ENV = "DRPO_E7_P1_FULL_RUN"
 
 _ACTIVE_EXPERIMENT_ID = EXPERIMENT_ID
 _ACTIVE_PROFILE_ID: str | None = None
@@ -667,10 +668,14 @@ def main(argv: list[str] | None = None) -> int:
         liveness_pair=env_steps is not None,
         liveness_steps=None if env_steps is None else int(env_steps),
     )
-    if _is_tuning() and delegated[0] == "run" and env_steps is None:
+    if (
+        _is_tuning()
+        and delegated[0] == "run"
+        and env_steps is None
+        and os.environ.get(TUNING_FULL_RUN_ENV) != "1"
+    ):
         raise RuntimeError(
-            "P1 long run is blocked pending dataset SHA, terminal aggregation, "
-            "liveness, implementation freeze, and registration"
+            f"P1 full run requires explicit {TUNING_FULL_RUN_ENV}=1 authorization"
         )
     previous = (
         base.EXPERIMENT_ID,
@@ -691,7 +696,7 @@ def main(argv: list[str] | None = None) -> int:
     base.build_branches, base.branch_command = build_branches, branch_command
     try:
         result = int(base.main(delegated))
-        if delegated[0] == "run" and not _is_tuning():
+        if delegated[0] == "run":
             aggregate_results(delegated[delegated.index("--work-dir") + 1])
         return result
     finally:
