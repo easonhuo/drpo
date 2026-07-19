@@ -4,7 +4,7 @@ Parent claim: `GOV-DEV-WORKFLOW-OPTIMIZATION-BENCHMARK-01`
 
 Base: `main@85b0a68d77ed085a7f6e67771fb0f7672c43da09`
 
-Status: design only. No implementation or formal benchmark is authorized by this file.
+Status: implementation authorized by the user on 2026-07-19; formal benchmark execution remains separately gated.
 
 ## Problem
 
@@ -42,7 +42,7 @@ Eligible cases are selected by predeclared task-class coverage and chronological
 
 ## Allowed implementation scope
 
-A later implementation may modify only the existing replay adapter and an existing replay test file. It may not add a Python file, dependency, protected governance change or scientific change. It must use existing V1 and authority owners rather than reimplementing their rules.
+The implementation may modify only the existing replay adapter and an existing replay test file. It may not add another Python file, dependency, protected governance change or scientific change. It must use existing V1 and authority owners rather than reimplementing their rules.
 
 Target maximum scope:
 
