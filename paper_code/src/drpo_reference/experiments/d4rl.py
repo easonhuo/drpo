@@ -1,7 +1,9 @@
-"""D4RL-9 SNA2C-IQLV-ExpRank performance implementation.
+"""D4RL-9 reviewer-facing SNA2C-IQLV performance implementation.
 
-One migrated trainer serves all nine locomotion tasks. The Hopper E7-Q2
-frozen-advantage mechanism trainer remains scientifically distinct.
+One migrated actor/critic/optimizer lifecycle serves all nine locomotion tasks.
+The default reviewer method remains ExpRank. Historical negative-control arms are
+available only through an explicit non-final legacy-pilot profile. The Hopper
+E7-Q2 frozen-advantage mechanism trainer remains scientifically distinct.
 """
 
 from __future__ import annotations
@@ -26,9 +28,25 @@ from drpo_reference.external.d4rl_tasks import (
 from drpo_reference.external.hopper_data import OfflineData
 
 D4RL9_EXPERIMENT_ID = "EXT-H-E7-BENCH-01"
-D4RL9_RUNNER_VERSION = "0.4.0-canonical-exprank-migrated"
+D4RL9_RUNNER_VERSION = "0.5.0-reviewer-multimethod"
 TaskRunner = Callable[..., dict[str, Any]]
 Evaluator = Callable[["SNA2CIQLVExpRankAgent", int], Mapping[str, float]]
+
+D4RL_REVIEWER_METHOD_IDS = (
+    "exprank",
+    "positive_only",
+    "signed",
+    "global",
+    "reciprocal_linear",
+    "reciprocal_quadratic",
+    "exponential",
+)
+LEGACY_PILOT_METHOD_PROFILE = "legacy-pilot-v1"
+LEGACY_PILOT_CANONICAL_ALPHA = 0.11
+LEGACY_PILOT_REFERENCE_DISTANCE = 2.0
+LEGACY_PILOT_RECIPROCAL_LINEAR_COEFFICIENT = 0.4362580032734791
+LEGACY_PILOT_RECIPROCAL_QUADRATIC_COEFFICIENT = 0.5520268617673281
+LEGACY_PILOT_EXPONENTIAL_COEFFICIENT = 0.374162511054291
 
 
 @dataclass(frozen=True)
@@ -97,12 +115,144 @@ LEGACY_CANONICAL_BACKEND_CANDIDATE = CANONICAL_EXPRANK_BACKEND
 
 
 @dataclass(frozen=True)
+class D4RLReviewerMethodSpec:
+    """One reviewer-selectable actor-side negative-weight transformation."""
+
+    method_id: str
+    weighting_family: str
+    source_profile: str
+    canonical_alpha: float
+    negative_scale: float
+    reference_distance: float = LEGACY_PILOT_REFERENCE_DISTANCE
+    reciprocal_linear_coefficient: float = (
+        LEGACY_PILOT_RECIPROCAL_LINEAR_COEFFICIENT
+    )
+    reciprocal_quadratic_coefficient: float = (
+        LEGACY_PILOT_RECIPROCAL_QUADRATIC_COEFFICIENT
+    )
+    exponential_coefficient: float = LEGACY_PILOT_EXPONENTIAL_COEFFICIENT
+    profile_is_final: bool = False
+
+    def __post_init__(self) -> None:
+        if self.method_id not in D4RL_REVIEWER_METHOD_IDS:
+            raise ValueError(f"unsupported D4RL reviewer method: {self.method_id}")
+        if self.canonical_alpha < 0.0 or self.negative_scale < 0.0:
+            raise ValueError("D4RL method scales must be non-negative")
+        if self.reference_distance <= 0.0:
+            raise ValueError("D4RL reference distance must be positive")
+        for name in (
+            "canonical_alpha",
+            "negative_scale",
+            "reference_distance",
+            "reciprocal_linear_coefficient",
+            "reciprocal_quadratic_coefficient",
+            "exponential_coefficient",
+        ):
+            if not math.isfinite(float(getattr(self, name))):
+                raise ValueError(f"D4RL method field {name} must be finite")
+        if self.method_id == "positive_only" and self.negative_scale != 0.0:
+            raise ValueError("positive_only requires negative_scale=0")
+        if self.method_id == "signed" and self.negative_scale != 1.0:
+            raise ValueError("signed requires negative_scale=1")
+        if self.profile_is_final:
+            raise ValueError("reviewer method profiles are not final paper matrices")
+
+    @property
+    def effective_alpha(self) -> float:
+        if self.method_id == "positive_only":
+            return 0.0
+        return self.canonical_alpha * self.negative_scale
+
+    def as_manifest(self) -> dict[str, Any]:
+        payload = asdict(self)
+        payload["effective_alpha"] = self.effective_alpha
+        return payload
+
+
+def _legacy_control_method(method_id: str) -> D4RLReviewerMethodSpec:
+    negative_scale = {
+        "positive_only": 0.0,
+        "signed": 1.0,
+        "global": 0.1,
+        "reciprocal_linear": 0.1,
+        "reciprocal_quadratic": 0.1,
+        "exponential": 0.1,
+    }[method_id]
+    weighting_family = {
+        "positive_only": "zero_negative",
+        "signed": "constant_negative_scale",
+        "global": "constant_negative_scale",
+        "reciprocal_linear": "distance_reciprocal_linear",
+        "reciprocal_quadratic": "distance_reciprocal_quadratic",
+        "exponential": "distance_exponential",
+    }[method_id]
+    return D4RLReviewerMethodSpec(
+        method_id=method_id,
+        weighting_family=weighting_family,
+        source_profile=LEGACY_PILOT_METHOD_PROFILE,
+        canonical_alpha=LEGACY_PILOT_CANONICAL_ALPHA,
+        negative_scale=negative_scale,
+    )
+
+
+def resolve_d4rl_reviewer_methods(
+    method_ids: Sequence[str] | None,
+    *,
+    method_profile: str | None,
+) -> tuple[D4RLReviewerMethodSpec, ...]:
+    """Resolve explicit reviewer methods without freezing a paper matrix.
+
+    ExpRank remains the only implicit default. Any historical control method
+    requires the caller to explicitly acknowledge ``legacy-pilot-v1``.
+    """
+
+    resolved_ids = (
+        ("exprank",)
+        if method_ids is None
+        else tuple(str(method_id) for method_id in method_ids)
+    )
+    if not resolved_ids:
+        raise ValueError("at least one D4RL reviewer method is required")
+    if len(set(resolved_ids)) != len(resolved_ids):
+        raise ValueError("D4RL reviewer method list contains duplicates")
+    unknown = sorted(set(resolved_ids) - set(D4RL_REVIEWER_METHOD_IDS))
+    if unknown:
+        raise ValueError(f"unsupported D4RL reviewer methods: {unknown}")
+    if method_profile not in {None, LEGACY_PILOT_METHOD_PROFILE}:
+        raise ValueError(
+            f"unsupported D4RL method profile: {method_profile!r}"
+        )
+    controls_requested = any(method_id != "exprank" for method_id in resolved_ids)
+    if controls_requested and method_profile != LEGACY_PILOT_METHOD_PROFILE:
+        raise ValueError(
+            "non-ExpRank reviewer methods require explicit "
+            f"method_profile={LEGACY_PILOT_METHOD_PROFILE!r}"
+        )
+
+    methods: list[D4RLReviewerMethodSpec] = []
+    for method_id in resolved_ids:
+        if method_id == "exprank":
+            methods.append(
+                D4RLReviewerMethodSpec(
+                    method_id="exprank",
+                    weighting_family="rank_exponential",
+                    source_profile="canonical-exprank",
+                    canonical_alpha=LEGACY_PILOT_CANONICAL_ALPHA,
+                    negative_scale=1.0,
+                )
+            )
+        else:
+            methods.append(_legacy_control_method(method_id))
+    return tuple(methods)
+
+
+@dataclass(frozen=True)
 class CanonicalExpRankTrainingConfig:
     steps: int
     batch_size: int
     learning_rate: float = 3.0e-4
     gamma: float = 0.99
-    alpha: float = 0.11
+    alpha: float = LEGACY_PILOT_CANONICAL_ALPHA
     tau: float = 0.7
     temperature: float = 1.0
     eval_interval: int = 10_000
@@ -116,15 +266,15 @@ class CanonicalExpRankTrainingConfig:
             self.eval_interval,
             self.checkpoint_interval,
         ) <= 0:
-            raise ValueError("canonical ExpRank integer controls must be positive")
+            raise ValueError("canonical D4RL integer controls must be positive")
         if self.learning_rate <= 0.0 or self.alpha < 0.0:
-            raise ValueError("canonical ExpRank lr/alpha are invalid")
+            raise ValueError("canonical D4RL lr/alpha are invalid")
         if not 0.0 <= self.gamma <= 1.0:
-            raise ValueError("canonical ExpRank gamma must be in [0, 1]")
+            raise ValueError("canonical D4RL gamma must be in [0, 1]")
         if not 0.5 <= self.tau < 1.0:
-            raise ValueError("canonical ExpRank tau must be in [0.5, 1)")
+            raise ValueError("canonical D4RL tau must be in [0.5, 1)")
         if self.temperature < 0.0:
-            raise ValueError("canonical ExpRank temperature is invalid")
+            raise ValueError("canonical D4RL temperature is invalid")
         if not 0.0 < self.checkpoint_last_fraction <= 1.0:
             raise ValueError("checkpoint_last_fraction must be in (0, 1]")
 
@@ -245,8 +395,84 @@ def canonical_exprank_negative_weights(
     )
 
 
+def canonical_standardized_action_distance(
+    mean: torch.Tensor,
+    log_std: torch.Tensor,
+    actions: torch.Tensor,
+) -> torch.Tensor:
+    """Detached RMS standardized action distance used by legacy controls."""
+
+    if mean.shape != actions.shape:
+        raise ValueError("actor mean and dataset actions must have identical shape")
+    if log_std.shape != mean.shape:
+        try:
+            log_std = log_std.expand_as(mean)
+        except RuntimeError as exc:
+            raise ValueError("actor log_std cannot expand to actor mean") from exc
+    safe_log_std = torch.clamp(log_std, min=-20.0, max=5.0)
+    with torch.no_grad():
+        standardized = (
+            actions.detach() - mean.detach()
+        ) / safe_log_std.detach().exp().clamp_min(1.0e-8)
+        return standardized.square().mean(dim=-1).sqrt()
+
+
+def canonical_method_negative_factors(
+    negative_advantages: torch.Tensor,
+    negative_distances: torch.Tensor,
+    *,
+    method: D4RLReviewerMethodSpec,
+    exprank_temperature: float,
+) -> torch.Tensor:
+    """Return detached negative-side factors for one reviewer method."""
+
+    if negative_advantages.ndim != 1 or negative_distances.ndim != 1:
+        raise ValueError("negative advantages and distances must be rank-1")
+    if negative_advantages.shape != negative_distances.shape:
+        raise ValueError("negative advantages and distances must align")
+    if method.method_id == "exprank":
+        return canonical_exprank_negative_weights(
+            negative_advantages,
+            alpha=method.canonical_alpha,
+            temperature=exprank_temperature,
+        )
+    if method.method_id == "positive_only":
+        return torch.zeros_like(negative_advantages)
+
+    base = torch.full_like(negative_advantages, method.effective_alpha)
+    if method.method_id in {"signed", "global"}:
+        return base
+    normalized_distance = negative_distances / method.reference_distance
+    if method.method_id == "reciprocal_linear":
+        shape = 1.0 / (
+            1.0
+            + method.reciprocal_linear_coefficient * normalized_distance
+        )
+    elif method.method_id == "reciprocal_quadratic":
+        shape = 1.0 / (
+            1.0
+            + method.reciprocal_quadratic_coefficient
+            * normalized_distance.square()
+        )
+    elif method.method_id == "exponential":
+        shape = torch.exp(
+            torch.clamp(
+                -method.exponential_coefficient * normalized_distance,
+                min=-40.0,
+                max=0.0,
+            )
+        )
+    else:
+        raise AssertionError(f"unreachable D4RL method: {method.method_id}")
+    return base * shape
+
+
 class SNA2CIQLVExpRankAgent:
-    """Migration of the canonical ``SNA2C_IQLV_ExpRankAgent``."""
+    """Canonical SNA2C-IQLV lifecycle with a selectable actor-side control.
+
+    The class name is retained for checkpoint and differential compatibility.
+    Omitting ``method`` reproduces the canonical ExpRank implementation.
+    """
 
     def __init__(
         self,
@@ -255,17 +481,35 @@ class SNA2CIQLVExpRankAgent:
         *,
         learning_rate: float = 3.0e-4,
         gamma: float = 0.99,
-        alpha: float = 0.11,
+        alpha: float = LEGACY_PILOT_CANONICAL_ALPHA,
         tau: float = 0.7,
         temperature: float = 1.0,
         device: torch.device | str = "cpu",
+        method: D4RLReviewerMethodSpec | str = "exprank",
+        method_profile: str | None = None,
     ) -> None:
         if not 0.5 <= tau < 1.0:
             raise ValueError("expectile tau must be in [0.5, 1)")
+        if isinstance(method, str):
+            resolved_method = resolve_d4rl_reviewer_methods(
+                (method,),
+                method_profile=method_profile,
+            )[0]
+        else:
+            resolved_method = method
+        if resolved_method.method_id == "exprank":
+            resolved_method = D4RLReviewerMethodSpec(
+                method_id="exprank",
+                weighting_family="rank_exponential",
+                source_profile="canonical-exprank",
+                canonical_alpha=float(alpha),
+                negative_scale=1.0,
+            )
         self.gamma = float(gamma)
         self.alpha = float(alpha)
         self.tau = float(tau)
         self.temperature = float(temperature)
+        self.method = resolved_method
         self.device = torch.device(device)
         self.actor = CanonicalActor(observation_dim, action_dim).to(self.device)
         self.critic = CanonicalCritic(observation_dim).to(self.device)
@@ -315,17 +559,27 @@ class SNA2CIQLVExpRankAgent:
             ).float()
         value = self.critic(states).squeeze(-1)
         advantage = target - value.detach()
+
+        mean, log_std = self.actor(states)
+        distance = canonical_standardized_action_distance(
+            mean,
+            log_std,
+            action_tensor,
+        )
         transformed = advantage.clone()
+        negative_factors = torch.ones_like(advantage)
         negative_mask = advantage < 0
         if negative_mask.any():
             with torch.no_grad():
-                weights = canonical_exprank_negative_weights(
+                factors = canonical_method_negative_factors(
                     advantage[negative_mask],
-                    alpha=self.alpha,
-                    temperature=self.temperature,
+                    distance[negative_mask],
+                    method=self.method,
+                    exprank_temperature=self.temperature,
                 )
-            transformed[negative_mask] = advantage[negative_mask] * weights
-        mean, log_std = self.actor(states)
+            transformed[negative_mask] = advantage[negative_mask] * factors
+            negative_factors[negative_mask] = factors
+
         distribution = torch.distributions.Normal(mean, log_std.exp())
         log_probability = distribution.log_prob(action_tensor).sum(dim=-1)
         actor_loss = -(log_probability * transformed).mean()
@@ -340,6 +594,8 @@ class SNA2CIQLVExpRankAgent:
             "target": target,
             "value": value,
             "advantage": advantage,
+            "distance": distance,
+            "negative_factor": negative_factors,
             "transformed_advantage": transformed,
             "actor_loss": actor_loss,
             "critic_loss": critic_loss,
@@ -443,15 +699,18 @@ def prepare_canonical_locomotion_dataset(
     )
 
 
-def train_canonical_exprank(
+def train_canonical_method(
     *,
     dataset: CanonicalD4RLDataset,
     seed: int,
     config: CanonicalExpRankTrainingConfig,
+    method: D4RLReviewerMethodSpec,
     device: torch.device | str = "cpu",
     evaluator: Evaluator | None = None,
     output_root: str | Path | None = None,
 ) -> dict[str, Any]:
+    """Train one reviewer method through the shared canonical lifecycle."""
+
     np.random.seed(int(seed))
     torch.manual_seed(int(seed))
     resolved_device = torch.device(device)
@@ -464,6 +723,7 @@ def train_canonical_exprank(
         tau=config.tau,
         temperature=config.temperature,
         device=resolved_device,
+        method=method,
     )
     tensors = {
         "s": torch.from_numpy(dataset.observations).to(resolved_device),
@@ -537,7 +797,14 @@ def train_canonical_exprank(
                     "preset_actor_depth": -1,
                     "preset_critic_depth": -1,
                     "step": step,
-                    "variant": "iqlv_exp_rank",
+                    "variant": (
+                        "iqlv_exp_rank"
+                        if method.method_id == "exprank"
+                        else "iqlv_legacy_pilot_control"
+                    ),
+                    "reviewer_method": method.method_id,
+                    "reviewer_method_profile": method.source_profile,
+                    "reviewer_method_profile_is_final": False,
                     "alpha": config.alpha,
                     "p": 0.5,
                     "shape": "linear",
@@ -549,6 +816,7 @@ def train_canonical_exprank(
             checkpoints.append(str(checkpoint))
     record = {
         "backend": asdict(CANONICAL_EXPRANK_BACKEND),
+        "method": method.as_manifest(),
         "seed": int(seed),
         "config": asdict(config),
         "transition_count": dataset.size,
@@ -557,6 +825,7 @@ def train_canonical_exprank(
         "checkpoints": checkpoints,
         "formal_result_claim": False,
         "method_ranking_claim_allowed": False,
+        "final_method_matrix_frozen": False,
     }
     if output is not None:
         atomic_json(output / "TRAINING_RESULT.json", record)
@@ -564,13 +833,45 @@ def train_canonical_exprank(
             output / "COMPLETED.json",
             {
                 "status": "completed_non_formal",
+                "method": method.method_id,
+                "method_profile": method.source_profile,
                 "seed": int(seed),
                 "steps": config.steps,
                 "formal_result_claim": False,
                 "method_ranking_claim_allowed": False,
+                "final_method_matrix_frozen": False,
             },
         )
     return {**record, "agent": agent}
+
+
+def train_canonical_exprank(
+    *,
+    dataset: CanonicalD4RLDataset,
+    seed: int,
+    config: CanonicalExpRankTrainingConfig,
+    device: torch.device | str = "cpu",
+    evaluator: Evaluator | None = None,
+    output_root: str | Path | None = None,
+) -> dict[str, Any]:
+    """Backward-compatible ExpRank-only wrapper."""
+
+    method = D4RLReviewerMethodSpec(
+        method_id="exprank",
+        weighting_family="rank_exponential",
+        source_profile="canonical-exprank",
+        canonical_alpha=config.alpha,
+        negative_scale=1.0,
+    )
+    return train_canonical_method(
+        dataset=dataset,
+        seed=seed,
+        config=config,
+        method=method,
+        device=device,
+        evaluator=evaluator,
+        output_root=output_root,
+    )
 
 
 @dataclass(frozen=True)
@@ -654,9 +955,7 @@ def resolve_d4rl9_execution(
     if not backend.implementation_migrated:
         blocked.append("d4rl9_performance_backend_not_migrated")
     if not backend.protocol_frozen:
-        blocked.append(
-            "d4rl9_performance_backend_protocol_not_frozen"
-        )
+        blocked.append("d4rl9_performance_backend_protocol_not_frozen")
     if not backend.formal_task_matrix_eligible:
         blocked.append("d4rl9_backend_not_formal_matrix_eligible")
     if not performance_protocol_frozen:
@@ -722,8 +1021,7 @@ def dispatch_d4rl9(
 ) -> dict[str, Any]:
     if plan.blocked_reasons and not allow_non_evidence:
         raise RuntimeError(
-            "D4RL-9 dispatch is blocked: "
-            + "; ".join(plan.blocked_reasons)
+            "D4RL-9 dispatch is blocked: " + "; ".join(plan.blocked_reasons)
         )
     output = Path(output_root).resolve()
     if output.exists() and any(output.iterdir()):
