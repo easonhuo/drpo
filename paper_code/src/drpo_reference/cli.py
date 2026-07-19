@@ -12,7 +12,11 @@ from drpo_reference.continuous.cu1_suite import (
     run_cu1_all,
     run_cu1_stage,
 )
-from drpo_reference.experiments import run_d4rl
+from drpo_reference.experiments import (
+    D4RL_REVIEWER_METHOD_IDS,
+    LEGACY_PILOT_METHOD_PROFILE,
+    run_d4rl,
+)
 from drpo_reference.experiments.hopper import run_hopper
 
 
@@ -53,6 +57,28 @@ def _task_list(value: str) -> tuple[str, ...]:
             "D4RL task list contains duplicates"
         )
     return tasks
+
+
+def _method_list(value: str) -> tuple[str, ...]:
+    methods = tuple(
+        item.strip()
+        for item in value.split(",")
+        if item.strip()
+    )
+    if not methods:
+        raise argparse.ArgumentTypeError(
+            "at least one D4RL reviewer method is required"
+        )
+    if len(set(methods)) != len(methods):
+        raise argparse.ArgumentTypeError(
+            "D4RL reviewer method list contains duplicates"
+        )
+    unknown = sorted(set(methods) - set(D4RL_REVIEWER_METHOD_IDS))
+    if unknown:
+        raise argparse.ArgumentTypeError(
+            "unsupported D4RL reviewer methods: " + ", ".join(unknown)
+        )
+    return methods
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -167,7 +193,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     d4rl = experiments.add_parser(
         "d4rl",
-        help="reviewer-facing D4RL-9 ExpRank training and rollout runner",
+        help="reviewer-facing D4RL-9 training and rollout runner",
     )
     d4rl.add_argument(
         "--dataset-root",
@@ -182,6 +208,22 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "optional comma-separated task IDs; defaults to all nine; "
             "subsets remain non-formal"
+        ),
+    )
+    d4rl.add_argument(
+        "--methods",
+        type=_method_list,
+        help=(
+            "optional comma-separated reviewer methods; omitted means ExpRank "
+            "only. Available: " + ", ".join(D4RL_REVIEWER_METHOD_IDS)
+        ),
+    )
+    d4rl.add_argument(
+        "--method-profile",
+        choices=(LEGACY_PILOT_METHOD_PROFILE,),
+        help=(
+            "required when --methods includes any non-ExpRank control; "
+            "the legacy profile is pilot provenance, not the final paper matrix"
         ),
     )
     d4rl.add_argument(
@@ -279,18 +321,25 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.experiment == "d4rl":
         if args.steps is None and not args.smoke:
             raise SystemExit("--steps is required unless --smoke is used")
-        run_d4rl(
-            dataset_root=args.dataset_root,
-            output_root=args.output,
-            task_ids=args.tasks,
-            seeds=args.seeds,
-            steps=args.steps,
-            batch_size=args.batch_size,
-            device=args.device,
-            smoke=args.smoke,
-            eval_episodes=args.eval_episodes,
-            eval_max_steps=args.eval_max_steps,
-        )
+        run_kwargs = {
+            "dataset_root": args.dataset_root,
+            "output_root": args.output,
+            "task_ids": args.tasks,
+            "seeds": args.seeds,
+            "steps": args.steps,
+            "batch_size": args.batch_size,
+            "device": args.device,
+            "smoke": args.smoke,
+            "eval_episodes": args.eval_episodes,
+            "eval_max_steps": args.eval_max_steps,
+        }
+        # Preserve the historical ExpRank-only dispatch signature when the new
+        # flags are omitted, so existing reviewer commands remain stable.
+        if args.methods is not None:
+            run_kwargs["methods"] = args.methods
+        if args.method_profile is not None:
+            run_kwargs["method_profile"] = args.method_profile
+        run_d4rl(**run_kwargs)
         return 0
     raise AssertionError("unreachable")
 
