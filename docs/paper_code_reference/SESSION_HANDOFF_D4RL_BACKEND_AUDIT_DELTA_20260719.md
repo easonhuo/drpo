@@ -2,6 +2,7 @@
 
 **Date:** 2026-07-19  
 **Claim:** `PAPER-CODE-REFERENCE-01`  
+**Registered benchmark ID:** `EXT-H-E7-BENCH-01`  
 **Scientific status impact:** none
 
 Read this file after:
@@ -92,6 +93,7 @@ Therefore the correct anti-duplication rule is:
 
 `paper_code/src/drpo_reference/experiments/d4rl.py` now records an explicit `D4RLPerformanceBackendSpec` and the audited candidate:
 
+- experiment ID: `EXT-H-E7-BENCH-01`;
 - backend ID: `legacy_canonical_sna2c_iqlv_candidate`;
 - algorithm family: `SNA2C_IQLV_ExpRank`;
 - status: `pilot_only_unfrozen`;
