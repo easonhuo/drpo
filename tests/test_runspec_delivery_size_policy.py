@@ -16,7 +16,9 @@ import run_claimed_runspec as runner  # noqa: E402
 import runspec_results_delivery as results_delivery  # noqa: E402
 from runspec_delivery_policy import (  # noqa: E402
     RESULT_TOO_LARGE,
+    formal_delivery_required,
     is_result_too_large_error,
+    validate_formal_delivery_policy,
     validate_simple_size_policy,
 )
 from runspec_lib import RunSpecError  # noqa: E402
@@ -28,6 +30,7 @@ def delivery_spec() -> dict:
         "run_id": "E7-SIZE-POLICY-1",
         "lane": "e7",
         "experiment_id": "EXT-H-E7-SIZE-POLICY-01",
+        "policy": {"formal_evidence_allowed": True},
         "delivery": {
             "enabled": True,
             "auto": True,
@@ -40,6 +43,55 @@ def delivery_spec() -> dict:
         },
         "publish": {"enabled": False, "auto": False},
     }
+
+
+def test_formal_delivery_is_fail_closed_and_local_only_is_explicit() -> None:
+    missing_declaration = {
+        "lane": "e7",
+        "policy": {},
+        "delivery": {"enabled": False, "auto": False},
+    }
+    assert formal_delivery_required(missing_declaration) is True
+    with pytest.raises(RunSpecError, match="formal RunSpec requires"):
+        validate_formal_delivery_policy(missing_declaration)
+
+    explicit_formal = {
+        "lane": "e7",
+        "policy": {"formal_evidence_allowed": True},
+        "delivery": {"enabled": True, "auto": False},
+    }
+    with pytest.raises(RunSpecError, match="delivery.enabled=true and delivery.auto=true"):
+        validate_formal_delivery_policy(explicit_formal)
+
+    local_only = {
+        "lane": "e7",
+        "policy": {"formal_evidence_allowed": False},
+        "delivery": {"enabled": False, "auto": False},
+    }
+    assert formal_delivery_required(local_only) is False
+    assert validate_formal_delivery_policy(local_only) is False
+    assert validate_simple_size_policy(local_only) is None
+
+
+def test_formal_delivery_requires_canonical_repository_and_lane_branch() -> None:
+    spec = delivery_spec()
+    assert validate_formal_delivery_policy(spec) is True
+
+    spec["delivery"]["repository"] = "easonhuo/other-results"
+    with pytest.raises(RunSpecError, match="easonhuo/drpo-results"):
+        validate_formal_delivery_policy(spec)
+
+    spec = delivery_spec()
+    spec["delivery"]["branch"] = "ingest/e8"
+    with pytest.raises(RunSpecError, match="ingest/e7"):
+        validate_formal_delivery_policy(spec)
+
+
+def test_formal_declaration_must_be_boolean() -> None:
+    spec = delivery_spec()
+    spec["policy"]["formal_evidence_allowed"] = "yes"
+    with pytest.raises(RunSpecError, match="must be a boolean"):
+        formal_delivery_required(spec)
 
 
 def test_v1_size_limits_are_hard_caps() -> None:
