@@ -1,8 +1,8 @@
-"""Paper-facing D4RL-9 task identities for one locomotion engine.
+"""Paper-facing D4RL-9 task and environment contracts.
 
-This module contains task metadata only. It intentionally does not implement a
-second actor, critic, trainer, rollout loop, or result aggregator beside the
-already migrated locomotion core.
+This module owns task metadata, dataset identity, rollout identity, and D4RL
+reference-score constants. It intentionally contains no actor, critic, trainer,
+optimizer, or result-ranking implementation.
 """
 
 from __future__ import annotations
@@ -15,6 +15,7 @@ from typing import BinaryIO, Iterable
 
 ENVIRONMENTS = ("halfcheetah", "hopper", "walker2d")
 DATASET_TIERS = ("medium", "medium-replay", "medium-expert")
+D4RL_ROLLOUT_BACKEND = "gymnasium_mujoco"
 
 _REFERENCE_SCORES = {
     "halfcheetah": (-280.178953, 12135.0),
@@ -109,12 +110,53 @@ class D4RLTaskSpec:
     def dataset_identity_verified(self) -> bool:
         return self.dataset_sha256 is not None
 
+    @property
+    def rollout_backend(self) -> str:
+        return D4RL_ROLLOUT_BACKEND
+
     def normalization_kwargs(self) -> dict[str, float | bool]:
         return {
             "normalized_score_percent": True,
             "reference_min_score": self.normalized_score_reference_min,
             "reference_max_score": self.normalized_score_reference_max,
         }
+
+    def rollout_identity(self) -> dict[str, str]:
+        return {
+            "backend": self.rollout_backend,
+            "dataset_id": self.dataset_id,
+            "env_id": self.env_id,
+        }
+
+    def validate_rollout_identity(
+        self,
+        *,
+        backend: str,
+        dataset_id: str,
+        env_id: str,
+    ) -> dict[str, str]:
+        """Validate task/environment identity without selecting a trainer."""
+
+        expected = self.rollout_identity()
+        actual = {
+            "backend": str(backend),
+            "dataset_id": str(dataset_id),
+            "env_id": str(env_id),
+        }
+        mismatches = {
+            key: {
+                "expected": expected[key],
+                "actual": actual[key],
+            }
+            for key in expected
+            if actual[key] != expected[key]
+        }
+        if mismatches:
+            raise ValueError(
+                f"D4RL rollout identity mismatch for {self.task_id}: "
+                f"{mismatches}"
+            )
+        return expected
 
 
 def _make_task(environment: str, dataset_tier: str) -> D4RLTaskSpec:
