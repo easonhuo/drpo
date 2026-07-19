@@ -6,10 +6,12 @@ claim: >-
   On the frozen model-independent E8 V2 bank, compare the manuscript-correct
   distance-order taper families on the same detached excess-remoteness
   coordinate x=relu(current_mean_token_surprisal/2-0.125). Reciprocal-Linear
-  uses 1/(1+lambda*sqrt(x)); Reciprocal-Quadratic uses 1/(1+lambda*x); the
-  completed exponential anchor uses exp(-lambda*x). This development screen
-  localizes usable reciprocal strengths only and does not establish formal
-  ranking, convergence, or steady state.
+  uses 1/(1+lambda*sqrt(x)) and Reciprocal-Quadratic uses 1/(1+lambda*x).
+  Run four strengths per family on two paired development seeds, for exactly
+  8 method points and 16 cells. Positive-only, Global, and the completed
+  exponential anchor are historical references and are not rerun in this
+  round. This pilot does not establish formal ranking, convergence, or steady
+  state.
 model:
   identity: Qwen2.5-0.5B-Instruct
   initialization: pretrained_base_plus_fresh_lora
@@ -31,12 +33,14 @@ remoteness:
   reciprocal_quadratic: 1/(1+lambda*x)
   exponential: exp(-lambda*x)
   extra_square_forbidden: true
+historical_controls:
+  rerun_in_this_round: false
+  methods: [positive_only, global, exponential]
+  exact_result_identity_required_before_comparison: true
+  paper_comparison_allowed_before_identity_freeze: false
 sweep:
   cartesian_product: false
   parameter_points:
-    - {family: positive_only, alpha: 0.0, coefficient: 0.0, role: same_seed_reference}
-    - {family: global, alpha: 0.03125, coefficient: 0.0, role: global_x1_over_32_control}
-    - {family: exponential, alpha: 1.0, coefficient: 2.995732274, role: completed_exp_anchor}
     - {family: reciprocal_linear, alpha: 1.0, coefficient: 1.0, role: retention_at_x1_0p50}
     - {family: reciprocal_linear, alpha: 1.0, coefficient: 3.0, role: retention_at_x1_0p25}
     - {family: reciprocal_linear, alpha: 1.0, coefficient: 7.0, role: retention_at_x1_0p125}
@@ -45,9 +49,9 @@ sweep:
     - {family: reciprocal_quadratic, alpha: 1.0, coefficient: 3.0, role: retention_at_x1_0p25}
     - {family: reciprocal_quadratic, alpha: 1.0, coefficient: 7.0, role: retention_at_x1_0p125}
     - {family: reciprocal_quadratic, alpha: 1.0, coefficient: 19.0, role: retention_at_x1_0p05}
-  seed_offsets: [4000]
-  unique_parameter_points: 11
-  cells: 11
+  seed_offsets: [4000, 5000]
+  unique_parameter_points: 8
+  cells: 16
 training:
   steps: 1200
   early_stop: false
