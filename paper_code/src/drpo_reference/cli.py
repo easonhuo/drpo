@@ -167,7 +167,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     d4rl = experiments.add_parser(
         "d4rl",
-        help="reviewer-facing D4RL-9 ExpRank training runner",
+        help="reviewer-facing D4RL-9 ExpRank training and rollout runner",
     )
     d4rl.add_argument(
         "--dataset-root",
@@ -208,6 +208,21 @@ def build_parser() -> argparse.ArgumentParser:
         "--device",
         default="auto",
         help="PyTorch device such as cpu, cuda, cuda:0, or auto",
+    )
+    d4rl.add_argument(
+        "--eval-episodes",
+        type=int,
+        default=0,
+        help=(
+            "real Gymnasium/MuJoCo episodes per seed; "
+            "zero disables rollout evaluation"
+        ),
+    )
+    d4rl.add_argument(
+        "--eval-max-steps",
+        type=int,
+        default=1000,
+        help="maximum environment steps per evaluation episode",
     )
     d4rl.add_argument(
         "--smoke",
@@ -273,6 +288,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             batch_size=args.batch_size,
             device=args.device,
             smoke=args.smoke,
+            eval_episodes=args.eval_episodes,
+            eval_max_steps=args.eval_max_steps,
         )
         return 0
     raise AssertionError("unreachable")
