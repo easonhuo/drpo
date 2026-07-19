@@ -41,6 +41,9 @@ RECIPROCAL_SCREEN_EXPERIMENT_ID = (
 RECIPROCAL_HIGH_LAMBDA_EXPERIMENT_ID = (
     "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-RECIPROCAL-HIGH-LAMBDA-EXTENSION-0.5B-01"
 )
+RECIPROCAL_Q_DENSE_CURVE_EXPERIMENT_ID = (
+    "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-RECIPROCAL-QUADRATIC-DENSE-LAMBDA-CURVE-0.5B-01"
+)
 ROUND1_PARAMETER_POINTS = (
     (0.0, 0.0),
     (1.0, 0.0),
@@ -78,6 +81,28 @@ RECIPROCAL_HIGH_LAMBDAS = (39.0, 79.0, 159.0, 319.0)
 RECIPROCAL_HIGH_LAMBDA_POINTS = (
     *(("reciprocal_linear", 1.0, value) for value in RECIPROCAL_HIGH_LAMBDAS),
     *(("reciprocal_quadratic", 1.0, value) for value in RECIPROCAL_HIGH_LAMBDAS),
+)
+RECIPROCAL_Q_DENSE_LAMBDAS = (
+    24.0,
+    29.0,
+    34.0,
+    47.0,
+    57.0,
+    68.0,
+    95.0,
+    113.0,
+    135.0,
+    191.0,
+    227.0,
+    270.0,
+    383.0,
+    511.0,
+    767.0,
+    1279.0,
+)
+RECIPROCAL_Q_DENSE_POINTS = tuple(
+    ("reciprocal_quadratic", 1.0, value)
+    for value in RECIPROCAL_Q_DENSE_LAMBDAS
 )
 SEED_OFFSETS = (4000, 5000)
 ROUND1_RESULT_MANIFEST_SHA256 = (
@@ -179,6 +204,20 @@ _PROFILES: dict[str, dict[str, Any]] = {
         "seed_offsets": SEED_OFFSETS,
         "expected_points": 8,
         "expected_cells": 16,
+        "requires_positive_only": False,
+        "kind": "reciprocal_screen",
+    },
+    RECIPROCAL_Q_DENSE_CURVE_EXPERIMENT_ID: {
+        "experiment_id": RECIPROCAL_Q_DENSE_CURVE_EXPERIMENT_ID,
+        "version": "0.4.0-dev-code-first-reciprocal-quadratic-dense-lambda-curve",
+        "default_grid_config": (
+            "configs/countdown_e8_oracle_offline_v2_"
+            "reciprocal_quadratic_dense_lambda_curve_0p5b.yaml"
+        ),
+        "parameter_points": RECIPROCAL_Q_DENSE_POINTS,
+        "seed_offsets": SEED_OFFSETS,
+        "expected_points": 16,
+        "expected_cells": 32,
         "requires_positive_only": False,
         "kind": "reciprocal_screen",
     },
