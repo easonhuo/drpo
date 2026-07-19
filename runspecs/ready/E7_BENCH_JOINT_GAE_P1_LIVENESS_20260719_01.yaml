@@ -1,0 +1,107 @@
+version: 1
+run_id: E7_BENCH_JOINT_GAE_P1_LIVENESS_20260719_01
+lane: e7
+priority: 146
+created_at: '2026-07-19T11:25:00Z'
+experiment_id: EXT-H-E7-BENCH-01
+repo_commit: 0b9e7e8dead0cd837c2a2236224c12c6d6f4c083
+
+registration:
+  mode: deferred
+  closure_required: true
+
+provenance:
+  commit_policy: protected_paths_unchanged
+  protected_paths:
+    - configs/e7_bench_joint_gae_tuning_p1_c.json
+    - docs/scopes/EXT-H-E7-BENCH-01-JOINT-GAE-TUNING.md
+    - src/drpo/e7_canonical_injection.py
+    - src/drpo/e7_squared_exp_kernel.py
+    - src/drpo/e7_squared_exp_night.py
+    - src/drpo/e7_squared_exp_night_bootstrap.py
+    - src/drpo/e7_squared_exp_night_runtime_autotune.py
+    - scripts/run_e7_squared_exp_night_auto.py
+    - scripts/run_e7_squared_exp_night_liveness_one_click.sh
+
+purpose: >
+  Run non-scientific real-data liveness for the manuscript-thresholded P1 profile
+  through the existing joint actor--critic trajectory-snapshot GAE pipeline.
+  Hopper medium-expert seed 200 runs Positive-only, Uncontrolled, and DRPO c=4
+  with tau=0, taper lambda=1, and GAE lambda=0.95. The probe length is one
+  replay-equivalent snapshot interval plus one update. This is engineering
+  evidence only and cannot select a coefficient or support a method ranking.
+
+entrypoint:
+  command: >-
+    env E7_SQUARED_EXP_LIVENESS_MODE=gae
+    E7_SQUARED_EXP_GRID=configs/e7_bench_joint_gae_tuning_p1_c.json
+    E7_SQUARED_EXP_LIVENESS_WORK_DIR=outputs/e7/bench_joint_gae_p1_liveness_001
+    E7_SQUARED_EXP_LIVENESS_MAX_WORKERS=3
+    bash scripts/run_e7_squared_exp_night_liveness_one_click.sh
+  cwd: repo_root
+
+policy:
+  existing_script_required: true
+  forbid_new_launcher: true
+  forbid_hparam_change: true
+  forbid_cross_lane: true
+  scientific_aggregation_allowed: false
+  formal_evidence_allowed: false
+
+outputs:
+  run_dir: outputs/e7/bench_joint_gae_p1_liveness_001
+  summary_file: outputs/e7/bench_joint_gae_p1_liveness_001/RUN_SUMMARY.json
+
+success_criteria:
+  - protected implementation paths are unchanged from the pinned commit
+  - the P1 development matrix validates as exactly 198 branches
+  - liveness filters the matrix to exactly three Hopper medium-expert seed-200 branches
+  - the three branches are Positive-only, Uncontrolled, and DRPO c=4
+  - every branch uses canonical A2C with trajectory-snapshot GAE lambda 0.95
+  - DRPO c=4 uses tau=0, taper lambda=1, and derived exponential slope 0.25
+  - probe length equals snapshot refresh interval plus one update
+  - every branch records at least two critic snapshots and critic evolution
+  - no prepared or persistent advantage artifact is used
+  - the HDF5 contains aligned timeouts and next_observations fields
+  - terminal, timeout, and dataset-tail recursion boundaries remain fail-closed
+  - task performance, support or variance boundary, rollout failure, and NaN or Inf remain separate
+  - held-out seeds 204 through 207 are untouched
+  - no scientific aggregation, convergence, steady-state, coefficient selection, or ranking claim is produced
+
+artifacts:
+  package_policy: manifest_only
+  include:
+    - outputs/e7/bench_joint_gae_p1_liveness_001/LAUNCH_REGISTRATION_STATUS.json
+    - outputs/e7/bench_joint_gae_p1_liveness_001/RUNTIME_SELECTION.json
+    - outputs/e7/bench_joint_gae_p1_liveness_001/EXECUTION_PLAN.json
+    - outputs/e7/bench_joint_gae_p1_liveness_001/RUN_IDENTITY.json
+    - outputs/e7/bench_joint_gae_p1_liveness_001/RUN_SUMMARY.json
+    - outputs/e7/bench_joint_gae_p1_liveness_001/GAE_STAGE_STATUS.json
+    - outputs/e7/bench_joint_gae_p1_liveness_001/branches/**/branch_config.json
+    - outputs/e7/bench_joint_gae_p1_liveness_001/branches/**/branch_manifest.json
+    - outputs/e7/bench_joint_gae_p1_liveness_001/branches/**/COMPLETED.json
+    - outputs/e7/bench_joint_gae_p1_liveness_001/branches/**/stdout_stderr.log
+    - outputs/e7/bench_joint_gae_p1_liveness_001/branches/**/geometry_diagnostics.jsonl
+    - outputs/e7/bench_joint_gae_p1_liveness_001/branches/**/GEOMETRY_DIAGNOSTICS_LATEST.json
+    - outputs/e7/bench_joint_gae_p1_liveness_001/branches/**/trainer_output/*_summary.json
+  exclude:
+    - '**/*.pt'
+    - '**/*.pth'
+    - '**/*.ckpt'
+    - '**/*.safetensors'
+    - '**/*.bin'
+    - '**/checkpoint*'
+    - '**/checkpoints/**'
+    - '**/model*'
+    - '**/optimizer*'
+    - '**/wandb/**'
+  max_package_size_mb: 25
+  fail_if_excluded_matched: false
+  fail_if_package_too_large: true
+
+publish:
+  enabled: false
+  auto: false
+
+recovery:
+  enabled: false
