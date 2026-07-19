@@ -21,10 +21,10 @@ generalization**, not OOD generalization.
 
 ## Reviewer-facing scope
 
-The public package is designed to give reviewers readable, runnable algorithms
-with explicit data identities, training commands, checkpoints, rollout
-evaluation, and simple result summaries. It is not a second copy of the
-repository's internal scientific-governance system.
+The public package gives reviewers readable, runnable algorithms with explicit
+data identities, training commands, checkpoints, rollout evaluation, and simple
+result summaries. It is not a second copy of the repository's internal
+scientific-governance system.
 
 Public runners retain normal software safeguards: new-or-empty output roots,
 clear failures, non-finite checks, final checkpoints, and lightweight completion
@@ -38,10 +38,19 @@ not byte-identical single-run scores on every machine.
 
 ## Install and test
 
+Core training and tests:
+
 ```bash
 cd paper_code
 python -m pip install -e '.[test]'
 python -m pytest
+```
+
+Install the optional Gymnasium/MuJoCo rollout dependencies when real environment
+evaluation is required:
+
+```bash
+python -m pip install -e '.[test,rollout]'
 ```
 
 ## C-U1
@@ -144,9 +153,9 @@ Hopper E7-Q2 frozen-advantage mechanism runner.
 The migrated code contains the actor, critic, dynamic TD/expectile update,
 rank-based negative weighting, locomotion preparation, deterministic minibatch
 training, checkpoint payload, nine-task catalog, fail-closed dataset identity,
-and a reviewer-facing public training runner.
+real Gymnasium/MuJoCo rollout evaluation, and seed-level mean/std aggregation.
 
-A selected-task non-formal run:
+A selected-task reviewer run with real evaluation:
 
 ```bash
 drpo-reference d4rl \
@@ -154,11 +163,13 @@ drpo-reference d4rl \
   --tasks hopper-medium-replay-v2 \
   --seeds 200,201 \
   --steps 100000 \
+  --eval-episodes 10 \
   --output outputs/d4rl_hopper_medium_replay
 ```
 
 Omit `--tasks` to run all nine tasks. The dataset root must contain each selected
-task's canonical filename. A tiny integration path is available:
+task's canonical filename. `--eval-episodes 0`, the default, runs training only.
+A tiny integration path is available:
 
 ```bash
 drpo-reference d4rl \
@@ -170,19 +181,14 @@ drpo-reference d4rl \
 ```
 
 The runner writes per-seed final checkpoints plus `RUN_MANIFEST.json`,
-`SUMMARY.json`, `COMPLETED.json`, or `FAILED.json`. These records explicitly mark
-the run as non-formal and currently set `evaluation_completed: false`.
-
-Still pending in reviewer-facing code:
-
-- deterministic rollout evaluation in `HalfCheetah-v4`, `Hopper-v4`, and
-  `Walker2d-v4`;
-- raw return and D4RL normalized-score mean/std;
-- simple multi-seed aggregation of completed reviewer runs.
+`SUMMARY.json`, `COMPLETED.json`, or `FAILED.json`. When rollout evaluation is
+enabled it also writes per-seed `EVALUATION.json`, raw returns, normalized
+scores, episode mean/std, and task-level mean/std across seed means.
 
 The final comparison matrix, formal seeds, formal budgets, and eight unresolved
 dataset hashes remain protocol/provenance issues. They are not missing actor or
-critic code and are not silently frozen by the public runner.
+critic code and are not silently frozen by the public runner. Real nine-task
+HDF5 and MuJoCo liveness has not yet been executed by this migration task.
 
 ## Artifact and evidence boundary
 
@@ -201,7 +207,7 @@ Current migration status:
 - C-U1 implementation candidate complete; registered reproduction pending;
 - D-U1 revision-4 implementation candidate complete; formal run pending;
 - Hopper E7-Q2 implementation candidate complete; registered real reproduction pending;
-- D4RL-9 algorithm core and public training runner complete; rollout and simple aggregation pending;
+- D4RL-9 reviewer-facing algorithm, training, rollout, and simple aggregation implemented; real liveness and formal protocol remain pending;
 - Countdown blocked pending final manuscript-facing protocol and result freeze.
 
 No smoke or short differential result is a paper result. The machine-readable
