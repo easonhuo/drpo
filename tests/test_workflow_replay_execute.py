@@ -37,7 +37,17 @@ from drpo.workflow_replay.orchestrate import (  # noqa: E402
     ProcessResult,
 )
 import run_workflow_replay as replay  # noqa: E402
-from run_workflow_replay import Journal, _clone, _commit_workspace, _workspace, build_parser  # noqa: E402
+from run_workflow_replay import (  # noqa: E402
+    CONTROL_PLANE_BOOTSTRAP,
+    Journal,
+    ReplayCheckout,
+    _assert_historical_result,
+    _clone,
+    _commit_workspace,
+    _controlled_command,
+    _workspace,
+    build_parser,
+)
 
 FIXTURE = Path(__file__).parent / "fixtures" / "workflow_replay" / "valid_code_only.yaml"
 
@@ -233,21 +243,146 @@ def test_local_ref_reconstruction_and_workspace_identity(tmp_path: Path) -> None
     )
     run_root = tmp_path / "run"
     run_root.mkdir()
-    workspace = _clone(
+    checkout = _clone(
         source,
         run_root,
         {"main_ref": "refs/heads/main", "dev_branch": "case-dev", "expected_dev_sha": dev},
         contract,
     )
+    workspace = checkout.workspace
     assert _run_git(workspace, "rev-parse", "HEAD") == toolchain
+    assert _run_git(checkout.control_plane, "rev-parse", "HEAD") == toolchain
+    assert checkout.control_plane != workspace
+    assert _run_git(checkout.control_plane, "status", "--porcelain=v1") == ""
     assert _run_git(run_root / "source.git", "rev-parse", "refs/heads/main") == base
     assert _run_git(run_root / "source.git", "rev-parse", "refs/heads/case-dev") == dev
     clean = _workspace(workspace)
     (workspace / "untracked.txt").write_text("new\n", encoding="utf-8")
     assert _workspace(workspace) != clean
+    assert _run_git(checkout.control_plane, "status", "--porcelain=v1") == ""
     assert _commit_workspace(run_root / "source.git", base) == _commit_workspace(
         run_root / "source.git", base
     )
+
+
+def test_controlled_finalizer_command_keeps_treatment_outside_v1(
+    tmp_path: Path,
+) -> None:
+    original = CommandSpec(
+        "v1-normalize",
+        (
+            sys.executable,
+            "scripts/dev_integration_finalize.py",
+            "normalize",
+            "--transaction-dir",
+            "/tmp/tx",
+            "--json",
+        ),
+    )
+    controlled = _controlled_command(
+        original,
+        tmp_path / "control-plane",
+        "1" * 40,
+        "2" * 40,
+    )
+    assert controlled.name == original.name
+    assert controlled.argv[:3] == (sys.executable, "-c", CONTROL_PLANE_BOOTSTRAP)
+    assert controlled.argv[3:6] == (
+        str(tmp_path / "control-plane"),
+        "2" * 40,
+        "1" * 40,
+    )
+    assert controlled.argv[6:] == original.argv[2:]
+
+    ordinary = CommandSpec("v1-plan", (sys.executable, "scripts/integrate_dev_branch.py"))
+    assert _controlled_command(ordinary, tmp_path, "1" * 40, "2" * 40) == ordinary
+
+
+def test_control_plane_drift_blocks_and_is_recorded(
+    tmp_path: Path,
+) -> None:
+    control = tmp_path / "control"
+    control.mkdir()
+    _run_git(control, "init", "-q")
+    _run_git(control, "config", "user.email", "replay@example.invalid")
+    _run_git(control, "config", "user.name", "Replay Test")
+    (control / "tool.txt").write_text("tool\n", encoding="utf-8")
+    _run_git(control, "add", "tool.txt")
+    _run_git(control, "commit", "-qm", "tool")
+    toolchain = _run_git(control, "rev-parse", "HEAD")
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    identity = SimpleNamespace(
+        run_id="e" * 64,
+        arm="A",
+        case_id="CASE-CONTROL",
+        pair_id="pair-0",
+        order_position=0,
+    )
+    journal = Journal(
+        tmp_path / "control-events.jsonl",
+        identity,
+        "f" * 64,
+        "0" * 64,
+        workspace,
+        control_plane=control,
+        historical_base_sha="1" * 40,
+        toolchain_sha=toolchain,
+    )
+    first = journal.invoke(CommandSpec("ordinary", (sys.executable, "-c", "pass")))
+    assert first.returncode == 0
+    (control / "unexpected.txt").write_text("dirty\n", encoding="utf-8")
+    second = journal.invoke(CommandSpec("ordinary-2", (sys.executable, "-c", "pass")))
+    payload = json.loads(second.stdout)
+    assert second.returncode == 2
+    assert payload["error_code"] == "CONTROL_PLANE_DRIFT"
+    assert payload["phase"] == "replay_control_plane"
+    journal.finish("BLOCKED", "0" * 64, 2)
+    assert read_events(tmp_path / "control-events.jsonl")[-1]["event"] == "run_blocked"
+
+
+def test_historical_result_requires_exact_parent_and_paths(tmp_path: Path) -> None:
+    repo = tmp_path / "result-repo"
+    repo.mkdir()
+    _run_git(repo, "init", "-q")
+    _run_git(repo, "config", "user.email", "replay@example.invalid")
+    _run_git(repo, "config", "user.name", "Replay Test")
+    (repo / "base.txt").write_text("base\n", encoding="utf-8")
+    _run_git(repo, "add", "base.txt")
+    _run_git(repo, "commit", "-qm", "base")
+    base = _run_git(repo, "rev-parse", "HEAD")
+    (repo / "docs").mkdir()
+    (repo / "docs" / "example.txt").write_text("ready\n", encoding="utf-8")
+    _run_git(repo, "add", "docs/example.txt")
+    _run_git(repo, "commit", "-qm", "ready")
+    ready = _run_git(repo, "rev-parse", "HEAD")
+    _assert_historical_result(
+        repo,
+        ready,
+        base,
+        ("docs/example.txt",),
+        ("docs/example.txt",),
+    )
+    with pytest.raises(OrchestrationError, match="paths drifted"):
+        _assert_historical_result(
+            repo,
+            ready,
+            base,
+            ("docs/example.txt",),
+            ("scripts/run_workflow_replay.py",),
+        )
+    (repo / "second.txt").write_text("second\n", encoding="utf-8")
+    _run_git(repo, "add", "second.txt")
+    _run_git(repo, "commit", "-qm", "second")
+    grandchild = _run_git(repo, "rev-parse", "HEAD")
+    with pytest.raises(OrchestrationError, match="not based directly"):
+        _assert_historical_result(
+            repo,
+            grandchild,
+            base,
+            ("docs/example.txt", "second.txt"),
+            ("docs/example.txt", "second.txt"),
+        )
 
 
 def test_real_journal_binds_commands_placements_and_operator_actions(tmp_path: Path) -> None:
@@ -356,7 +491,15 @@ def test_adapter_ready_artifact_is_accepted_by_unchanged_r1_loader(
     workspace.mkdir()
     source = tmp_path / "source"
     source.mkdir()
-    monkeypatch.setattr(replay, "_clone", lambda *args: workspace)
+    control = tmp_path / "control"
+    control.mkdir()
+    monkeypatch.setattr(
+        replay,
+        "_clone",
+        lambda *args: ReplayCheckout(workspace, control),
+    )
+    monkeypatch.setattr(replay, "_validate_control_plane", lambda path, sha: path)
+    monkeypatch.setattr(replay, "_assert_historical_result", lambda *args: None)
     monkeypatch.setattr(replay, "_commit_workspace", lambda *args: "7" * 64)
     monkeypatch.setattr(replay, "_workspace", lambda *args: "8" * 64)
     monkeypatch.setattr(
@@ -406,7 +549,14 @@ def test_adapter_stale_boundary_is_accepted_without_target_mutation(
     source.mkdir()
     attempt = tmp_path / "attempt"
     attempt.mkdir()
-    monkeypatch.setattr(replay, "_clone", lambda *args: workspace)
+    control = tmp_path / "control"
+    control.mkdir()
+    monkeypatch.setattr(
+        replay,
+        "_clone",
+        lambda *args: ReplayCheckout(workspace, control),
+    )
+    monkeypatch.setattr(replay, "_validate_control_plane", lambda path, sha: path)
     monkeypatch.setattr(replay, "_commit_workspace", lambda *args: "9" * 64)
 
     def stale(repo, spec, preparations, transactions, python, journal):

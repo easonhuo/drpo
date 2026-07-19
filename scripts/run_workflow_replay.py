@@ -9,7 +9,7 @@ import shutil
 import subprocess
 import sys
 import time
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Sequence
 
@@ -20,7 +20,85 @@ if str(SRC) not in sys.path:
 
 from dev_integration_write_path import WritePathError, git, load_json, load_yaml, sha256, write_json  # noqa: E402
 from drpo.workflow_replay.evidence import EvidenceError, build_opposite_order_schedule, canonical_sha256, compare_normalized_runs, load_r1_case_contract, load_run_artifact, release_bound_efficiency  # noqa: E402
+from drpo.workflow_replay.execute import CommandSpec  # noqa: E402
 from drpo.workflow_replay.orchestrate import CandidateOutcome, OrchestrationError, ProcessResult, _copy_exact_tree, _existing_dir, _payload, run_candidate  # noqa: E402
+
+CONTROL_PLANE_BOOTSTRAP = r"""
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+
+def invalid(message):
+    print(json.dumps({
+        "status": "FAIL",
+        "state": "BLOCKED",
+        "error_code": "CONTROL_PLANE_DRIFT",
+        "phase": "replay_control_plane",
+        "message": message,
+        "recovery_class": "rebuild_frozen_control_plane",
+    }, sort_keys=True))
+    raise SystemExit(2)
+
+
+raw = Path(sys.argv[1])
+expected_toolchain = sys.argv[2]
+expected_base = sys.argv[3]
+forwarded = sys.argv[4:]
+if raw.is_symlink() or any(parent.is_symlink() for parent in raw.parents):
+    invalid("control-plane path contains a symlink")
+control = raw.resolve()
+if not control.is_dir():
+    invalid("control-plane directory is unavailable")
+try:
+    head = subprocess.run(
+        ["git", "-C", str(control), "rev-parse", "HEAD"],
+        check=True,
+        text=True,
+        capture_output=True,
+    ).stdout.strip()
+    status = subprocess.run(
+        ["git", "-C", str(control), "status", "--porcelain=v1"],
+        check=True,
+        text=True,
+        capture_output=True,
+    ).stdout
+except (OSError, subprocess.CalledProcessError) as exc:
+    invalid(f"control-plane Git identity is unavailable: {exc}")
+if head != expected_toolchain or status:
+    invalid("control-plane HEAD or worktree does not match the frozen toolchain")
+os.environ["PYTHONDONTWRITEBYTECODE"] = "1"
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(control / "src"))
+sys.path.insert(0, str(control / "scripts"))
+try:
+    import dev_integration_finalize as finalize
+except Exception as exc:
+    invalid(f"control-plane finalizer import failed: {exc}")
+
+
+def trusted_main(context):
+    if context.get("main_sha") != expected_base:
+        finalize.core.fail(
+            "IMMUTABILITY_ERROR",
+            "replay_control_plane",
+            "historical main identity drifted",
+        )
+    finalize.core.ensure_clean(control, expected_toolchain, "replay_control_plane")
+    return control
+
+
+finalize.trusted_main = trusted_main
+raise SystemExit(finalize.main(forwarded))
+"""
+
+
+@dataclass(frozen=True)
+class ReplayCheckout:
+    workspace: Path
+    control_plane: Path
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -48,18 +126,75 @@ def _locator(path: Path, root: Path, kind: str) -> dict[str, object]:
     return {"kind": kind, "relative_path": path.relative_to(root).as_posix(), "sha256": sha256(path), "byte_size": path.stat().st_size}
 
 
-def _clone(source: Path, root: Path, source_spec: dict[str, object], contract) -> Path:
-    mirror, target = root / "source.git", root / "workspace"
+def _validate_control_plane(path: Path, expected_sha: str) -> Path:
+    raw = path.expanduser().absolute()
+    if raw.is_symlink() or any(parent.is_symlink() for parent in raw.parents):
+        raise ValueError("control-plane path contains a symlink")
+    resolved = raw.resolve()
+    if not resolved.is_dir():
+        raise ValueError("control-plane directory is unavailable")
+    head = str(_git(["rev-parse", "HEAD"], resolved)).strip()
+    status = str(_git(["status", "--porcelain=v1"], resolved))
+    if head != expected_sha or status:
+        raise ValueError("control-plane HEAD or worktree does not match the frozen toolchain")
+    return resolved
+
+
+def _clone(source: Path, root: Path, source_spec: dict[str, object], contract) -> ReplayCheckout:
+    mirror = root / "source.git"
+    target = root / "workspace"
+    control = root / "control-plane"
     main = contract.base.historical_task["base_sha"]
     dev = contract.base.historical_task["frozen_implementation_sha"] or source_spec["expected_dev_sha"]
-    for commit in {main, dev, contract.base.benchmark["toolchain_sha"]}:
+    toolchain = contract.base.benchmark["toolchain_sha"]
+    for commit in {main, dev, toolchain}:
         _git(["cat-file", "-e", f"{commit}^{{commit}}"], source)
     _git(["clone", "--bare", "--no-hardlinks", str(source), str(mirror)], timeout=300)
     _git(["update-ref", source_spec["main_ref"], main], mirror)
     _git(["update-ref", f"refs/heads/{source_spec['dev_branch']}", dev], mirror)
-    _git(["clone", "--no-hardlinks", "--shared", str(mirror), str(target)], timeout=300)
-    _git(["checkout", "--detach", contract.base.benchmark["toolchain_sha"]], target)
-    return target.resolve()
+    for checkout in (target, control):
+        _git(["clone", "--no-hardlinks", "--shared", str(mirror), str(checkout)], timeout=300)
+        _git(["checkout", "--detach", toolchain], checkout)
+    return ReplayCheckout(target.resolve(), _validate_control_plane(control, toolchain))
+
+
+def _controlled_command(command, control: Path, base_sha: str, toolchain_sha: str) -> CommandSpec:
+    argv = tuple(command.argv)
+    if len(argv) >= 3 and argv[1] == "scripts/dev_integration_finalize.py":
+        argv = (
+            argv[0],
+            "-c",
+            CONTROL_PLANE_BOOTSTRAP,
+            str(control),
+            toolchain_sha,
+            base_sha,
+            *argv[2:],
+        )
+    return CommandSpec(command.name, argv)
+
+
+def _assert_historical_result(
+    repo: Path,
+    ready_commit: str,
+    base_sha: str,
+    reported_paths: Sequence[str],
+    expected_paths: Sequence[str],
+) -> None:
+    parents = str(_git(["rev-list", "--parents", "-n", "1", ready_commit], repo)).strip().split()
+    if parents != [ready_commit, base_sha]:
+        raise OrchestrationError(
+            "historical_result",
+            "READY commit is not based directly on the frozen historical main",
+        )
+    raw = _git(["diff", "--name-only", "-z", f"{base_sha}..{ready_commit}"], repo, binary=True)
+    actual_paths = tuple(sorted(item.decode("utf-8") for item in raw.split(b"\0") if item))
+    reported = tuple(sorted(reported_paths))
+    expected = tuple(sorted(expected_paths))
+    if actual_paths != reported or reported != expected:
+        raise OrchestrationError(
+            "historical_result",
+            "historical result paths drifted from the frozen case contract",
+        )
 
 
 def _commit_workspace(repo: Path, commit: str) -> str:
@@ -91,8 +226,24 @@ def _modes(repo: Path, commit: str, paths: Sequence[str]) -> dict[str, str]:
 
 
 class Journal:
-    def __init__(self, path: Path, identity, contract_sha: str, before: str, workspace: Path):
+    def __init__(
+        self,
+        path: Path,
+        identity,
+        contract_sha: str,
+        before: str,
+        workspace: Path,
+        *,
+        control_plane: Path | None = None,
+        historical_base_sha: str | None = None,
+        toolchain_sha: str | None = None,
+    ):
         self.path, self.identity, self.workspace = path, identity, workspace
+        self.control_plane = control_plane
+        self.historical_base_sha = historical_base_sha
+        self.toolchain_sha = toolchain_sha
+        if control_plane is not None and (historical_base_sha is None or toolchain_sha is None):
+            raise ValueError("control-plane journal identity is incomplete")
         self.started, self.child_ns, self.commands, self.placements = time.monotonic_ns(), 0, [], []
         self.sequence, self.last_result = 0, None
         self.handle = path.open("x", encoding="utf-8")
@@ -109,17 +260,52 @@ class Journal:
         return stamp
 
     def invoke(self, command) -> ProcessResult:
-        self.record("command_started", name=command.name, argv=command.argv)
+        executed = (
+            _controlled_command(
+                command,
+                self.control_plane,
+                self.historical_base_sha,
+                self.toolchain_sha,
+            )
+            if self.control_plane is not None
+            else CommandSpec(command.name, tuple(command.argv))
+        )
+        self.record("command_started", name=executed.name, argv=executed.argv)
         started = time.monotonic_ns()
         try:
-            process = subprocess.run(command.argv, cwd=self.workspace, stdout=subprocess.PIPE,
-                                     stderr=subprocess.PIPE, text=True, check=False)
+            process = subprocess.run(
+                executed.argv,
+                cwd=self.workspace,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                check=False,
+            )
             result = ProcessResult(process.returncode, process.stdout, process.stderr)
+            if self.control_plane is not None:
+                try:
+                    _validate_control_plane(self.control_plane, self.toolchain_sha)
+                except (ValueError, WritePathError) as exc:
+                    result = ProcessResult(
+                        2,
+                        json.dumps(
+                            {
+                                "status": "FAIL",
+                                "state": "BLOCKED",
+                                "error_code": "CONTROL_PLANE_DRIFT",
+                                "phase": "replay_control_plane",
+                                "message": str(exc),
+                                "recovery_class": "rebuild_frozen_control_plane",
+                            },
+                            sort_keys=True,
+                        ),
+                        result.stderr,
+                    )
         except OSError as exc:
             result = ProcessResult(127, "", str(exc))
         elapsed = time.monotonic_ns() - started
         self.child_ns += elapsed
-        self.commands.append(command)
+        self.commands.append(executed)
         self.last_result = result
         self.record("command_finished", name=command.name, exit_status=result.returncode,
                     child_elapsed_ns=elapsed)
@@ -143,7 +329,7 @@ class Journal:
 def _explicit(repo: Path, spec: Path, preparations: Path, transactions: Path,
               python: str, journal: Journal) -> CandidateOutcome:
     def call(name: str, argv: tuple[str, ...], state: str) -> dict[str, object]:
-        command = type("Command", (), {"name": name, "argv": argv})()
+        command = CommandSpec(name, argv)
         return _payload(command, journal.invoke(command), state)
 
     prepared = call("prepare-inputs", (python, "scripts/prepare_dev_pilot_registration.py", "--repo-root",
@@ -191,12 +377,23 @@ def _write_run(args, contract, identity, output: Path, source_spec) -> tuple[Pat
     run_dir.mkdir()
     subject = run_dir / "case-packet.yaml"
     shutil.copyfile(args.case_packet, subject)
-    workspace = _clone(Path(args.source_repo).resolve(), run_dir, source_spec, contract)
+    checkout = _clone(Path(args.source_repo).resolve(), run_dir, source_spec, contract)
+    workspace = checkout.workspace
     before = _commit_workspace(run_dir / "source.git", contract.base.historical_task["base_sha"])
-    journal = Journal(run_dir / "events.jsonl", identity, contract.sha256, before, workspace)
+    journal = Journal(
+        run_dir / "events.jsonl",
+        identity,
+        contract.sha256,
+        before,
+        workspace,
+        control_plane=checkout.control_plane,
+        historical_base_sha=contract.base.historical_task["base_sha"],
+        toolchain_sha=contract.base.benchmark["toolchain_sha"],
+    )
     result_path = outcome_path = transaction = None
     terminal, outcome = "INTERRUPTED", None
     provenance = {"benchmark_toolchain_sha": contract.base.benchmark["toolchain_sha"],
+                  "control_plane_mode": "frozen_toolchain_override",
                   "cache_policy": contract.base.benchmark["cache_policy"],
                   "environment_id": contract.base.benchmark["environment_id"],
                   "historical_base_sha": contract.base.historical_task["base_sha"],
@@ -220,6 +417,13 @@ def _write_run(args, contract, identity, output: Path, source_spec) -> tuple[Pat
         if ready.get("ready_commit_sha") != completed.ready_commit_sha:
             raise ValueError("READY commit identity mismatch")
         paths = tuple(sorted(ready.get("changed_paths", [])))
+        _assert_historical_result(
+            transaction / "integration-repo",
+            completed.ready_commit_sha,
+            contract.base.historical_task["base_sha"],
+            paths,
+            contract.base.benchmark["expected_changed_paths"],
+        )
         modes = _modes(transaction / "integration-repo", completed.ready_commit_sha, paths)
         result_path = run_dir / "result.json"
         result = {"case_id": contract.base.case_id, "base_sha": contract.base.historical_task["base_sha"],
@@ -289,7 +493,7 @@ def _write_run(args, contract, identity, output: Path, source_spec) -> tuple[Pat
                     "result": None if result_path is None else _locator(result_path, output, "result"),
                     "subject": _locator(subject, output, "subject")},
                 "workspace_before_sha256": before, "workspace_after_sha256": after,
-                "execution_terminal": terminal, "timing": timing, "producer_id": "candidate01-c1-real-pair-v1"}
+                "execution_terminal": terminal, "timing": timing, "producer_id": "candidate01-c1-real-pair-v2"}
     artifact_path = run_dir / "run-artifact.json"
     write_json(artifact_path, artifact)
     return artifact_path, journal.path
