@@ -1,0 +1,69 @@
+{
+  "experiment_id": "EXT-H-E7-SQEXP-GAE-01",
+  "profile_id": "d4rl9_common_c_p1",
+  "parent_experiment_id": "EXT-H-E7-BENCH-01",
+  "run_kind": "pilot",
+  "status": "not_run",
+  "scientific_status": "d4rl9_common_c_joint_critic_gae_pilot_only",
+  "datasets": [
+    "hopper-medium-v2",
+    "hopper-medium-replay-v2",
+    "hopper-medium-expert-v2",
+    "walker2d-medium-v2",
+    "walker2d-medium-replay-v2",
+    "walker2d-medium-expert-v2",
+    "halfcheetah-medium-v2",
+    "halfcheetah-medium-replay-v2",
+    "halfcheetah-medium-expert-v2"
+  ],
+  "development_seeds": [200, 201],
+  "held_out_seeds": [204, 205, 206, 207],
+  "steps": 1000000,
+  "evaluation_interval": 50000,
+  "evaluation_episodes": 10,
+  "actor_update_modes": ["a2c"],
+  "advantage_modes": ["gae_lambda_0p95"],
+  "weight_control": {
+    "formula": "w(D)=w(0)*exp(-taper_lambda*relu((D-remoteness_threshold)/remoteness_scale))",
+    "coordinate": "normalized_squared_standardized_distance",
+    "positive_only_anchor": true,
+    "uncontrolled_anchor": true,
+    "reference_distance": 2.0,
+    "taper_lambda": 1.0,
+    "remoteness_threshold": 0.0,
+    "remoteness_scales": [0.25, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0]
+  },
+  "trajectory_snapshot": {
+    "gae_lambda": 0.95,
+    "canonical_batch_size": 256,
+    "refresh_interval": "ceil(dataset_transition_count/256)",
+    "critic_updated_every_step": true,
+    "prepared_advantage_artifact": false,
+    "terminal_bootstrap": false,
+    "timeout_bootstrap": true,
+    "terminal_timeout_recursion_stop": true,
+    "dataset_tail_recursion_stop": true
+  },
+  "selection_protocol": {
+    "common_across_all_nine_tasks": true,
+    "per_task_retuning_allowed": false,
+    "primary_metric": "equal_task_weighted_late_window_normalized_return",
+    "positive_only_paired_anchor": true,
+    "fixed_horizon_is_not_convergence": true
+  },
+  "execution": {
+    "recommended_max_workers": 176,
+    "threads_per_worker": 2,
+    "branch_count_hard_cap": 200
+  },
+  "expected_total_branches": 198,
+  "screening_only": true,
+  "formal_evidence_allowed": false,
+  "non_claims": [
+    "formal_nine_task_method_ranking",
+    "convergence_from_fixed_1m_horizon",
+    "steady_state_method_ranking",
+    "universal_drpo_superiority",
+    "per_task_optimal_coefficient"
+  ]
+}
