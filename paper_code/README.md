@@ -6,7 +6,7 @@ historical experiment drivers, registries, governance tooling, and packaging
 code.
 
 The current task-level implementation snapshot, live file ownership, and exact
-D4RL remaining-work inventory are maintained in:
+D4RL/Countdown remaining-work inventory are maintained in:
 
 ```text
 ../docs/paper_code_reference/CURRENT_STATUS.md
@@ -213,6 +213,31 @@ critic, or multi-method execution code and are not silently frozen by the public
 runner. Real nine-task HDF5 and MuJoCo liveness has not yet been executed by this
 migration task.
 
+## Countdown stable core
+
+`drpo_reference.categorical.countdown` contains the stable reviewer-facing
+sequence-task primitives that do not depend on the final manuscript protocol:
+
+- canonical expression cleaning and exact arithmetic verification;
+- prompt/completion encoding with prompt labels masked and EOS included;
+- completion-only sequence log-probability, entropy, and bounded categorical
+  direct-logit score;
+- first-occurrence unique-negative bank handling;
+- detached normalized sequence surprisal `u=-log P(y|x)/2`;
+- paper-aligned linear-surprisal weights `alpha * exp(-c*u)`;
+- Greedy, Pass@k, valid-rate, and verifier-category aggregation.
+
+There is deliberately no `drpo-reference countdown` command yet. The stable core
+does not select a coefficient, model scale, method matrix, seed set, training
+budget, checkpoint, or test protocol. It also does not import the historical
+one-file trainer, GPU scheduler, RunSpec machinery, or experiment artifact
+system.
+
+The final Countdown experiment entry remains blocked until the manuscript-facing
+protocol and result are frozen. Adding that entry requires a separate approved
+Python path and must preserve the distinction between external validity and
+D-U1 controlled causal identification.
+
 ## Artifact and evidence boundary
 
 A public runner's completion record only answers whether that command finished,
@@ -231,7 +256,7 @@ Current migration status:
 - D-U1 revision-4 implementation candidate complete; formal run pending;
 - Hopper E7-Q2 implementation candidate complete; registered real reproduction pending;
 - D4RL-9 reviewer-facing algorithm, multi-method training, rollout, and simple aggregation implemented; real liveness and final formal protocol remain pending;
-- Countdown blocked pending final manuscript-facing protocol and result freeze.
+- Countdown stable core implemented and engineering-tested; final reviewer experiment entry remains blocked pending manuscript-facing protocol and result freeze.
 
 No smoke or short differential result is a paper result. The machine-readable
 acceptance contract is in:
