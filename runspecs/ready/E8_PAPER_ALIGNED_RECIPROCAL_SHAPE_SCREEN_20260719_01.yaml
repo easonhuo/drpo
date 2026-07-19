@@ -68,6 +68,8 @@ success_criteria:
   - shared coordinate is x=relu(current_mean_token_surprisal/2-0.125) and is detached
   - Reciprocal-Linear is 1/(1+lambda*sqrt(x)) with no replacement by x
   - Reciprocal-Quadratic is 1/(1+lambda*x) with no replacement by x squared
+  - runtime config contains the shared autotune admission block required by the existing launcher
+  - runtime summary records the reciprocal-family provenance weight label without changing weight computation
   - matrix contains 8 method points and 16 cells on paired seed offsets 4000 and 5000
   - each family uses lambda values 1, 3, 7, and 19 exactly once per seed
   - no Positive-only, Global, or exponential cell is launched in this round
