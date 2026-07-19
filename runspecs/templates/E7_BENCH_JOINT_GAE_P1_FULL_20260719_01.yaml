@@ -4,7 +4,7 @@ lane: e7
 priority: 147
 created_at: "2026-07-19T13:30:00Z"
 experiment_id: EXT-H-E7-SQEXP-GAE-01
-repo_commit: ccf027e2c545c67576313ad85c5ff74e19f074d0
+repo_commit: f7241a1084527f6b15be35a73a4304ba47147458
 
 registration:
   mode: deferred
@@ -30,12 +30,10 @@ provenance:
     - scripts/agent/runspec_delivery_policy.py
 
 purpose: >
-  Execute the complete 198-branch D4RL-9 joint-critic GAE P1 development
-  response-curve screen through the standard E7 RunSpec lane. Package the
-  text-first raw and aggregate evidence and automatically deliver it to the
-  results-only repository. This run does not select a coefficient and is not
-  formal evidence, a convergence result, a steady-state result, or a method
-  ranking.
+  Historical pre-launch P1 full-run identity. This run ID was already claimed and
+  blocked before training by an invalid results-repository V1 size declaration;
+  it must not be promoted or reused. The specification is retained in a valid,
+  auditable form while the replacement uses a new run ID.
 
 entrypoint:
   cwd: repo_root
@@ -76,17 +74,10 @@ outputs:
   audit_file: outputs/e7/bench_joint_gae_p1_full_001/aggregate/terminal_audit.json
 
 success_criteria:
-  - matrix contains exactly 198 branches across nine D4RL-v2 tasks, seeds 200 and 201, nine c values, Positive-only, and Uncontrolled
-  - every branch uses canonical A2C with joint critic updates and trajectory-snapshot GAE lambda 0.95
-  - every full branch reaches exactly 1000000 trainer steps
-  - tau remains 0, taper lambda remains 1, reference distance remains 2, and c grid remains 0.25 through 64
-  - held-out seeds 204 through 207 are untouched
-  - all 198 branch manifests, completion records, diagnostics, and text summaries are packaged
-  - paired deltas versus Positive-only, per-task summaries, equal-task-weighted control summaries, and environment/tier strata are produced
-  - terminal audit keeps task-performance collapse, support or variance boundary, rollout failure, and NaN or Inf separate
-  - selected_control remains null and selection status remains response_curve_only_pending_protocol_freeze
-  - fixed one-million-step horizon is not described as convergence or steady state
-  - completed text-first evidence is automatically delivered to drpo-results branch ingest/e7
+  - this historical run identity is not promoted or reused after its claim-time validation block
+  - no training was started under this run ID
+  - the replacement RunSpec preserves the same 198-branch scientific matrix
+  - task-performance collapse, support or variance boundary, rollout failure, and NaN or Inf remain separate
 
 artifacts:
   package_policy: manifest_only
@@ -98,12 +89,8 @@ artifacts:
     - outputs/e7/bench_joint_gae_p1_full_001/branches/**/branch_manifest.json
     - outputs/e7/bench_joint_gae_p1_full_001/branches/**/COMPLETED.json
     - outputs/e7/bench_joint_gae_p1_full_001/branches/**/FAILED.json
-    - outputs/e7/bench_joint_gae_p1_full_001/branches/**/stdout_stderr.log
-    - outputs/e7/bench_joint_gae_p1_full_001/branches/**/geometry_diagnostics.jsonl
     - outputs/e7/bench_joint_gae_p1_full_001/branches/**/GEOMETRY_DIAGNOSTICS_LATEST.json
     - outputs/e7/bench_joint_gae_p1_full_001/branches/**/trainer_output/*.json
-    - outputs/e7/bench_joint_gae_p1_full_001/branches/**/trainer_output/*.csv
-    - outputs/e7/bench_joint_gae_p1_full_001/branches/**/trainer_output/*.log
   exclude:
     - "**/*.pt"
     - "**/*.pth"
@@ -115,7 +102,7 @@ artifacts:
     - "**/model*"
     - "**/optimizer*"
     - "**/wandb/**"
-  max_package_size_mb: 100
+  max_package_size_mb: 30
   fail_if_excluded_matched: false
   fail_if_package_too_large: true
 
@@ -126,8 +113,8 @@ delivery:
   repository: easonhuo/drpo-results
   branch: ingest/e7
   export_profile: manifest_text_v1
-  max_total_size_mb: 100
-  max_file_size_mb: 25
+  max_total_size_mb: 30
+  max_file_size_mb: 10
 
 publish:
   enabled: false
