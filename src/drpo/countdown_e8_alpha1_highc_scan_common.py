@@ -66,7 +66,7 @@ C_EXTENSION_PARAMETER_POINTS = (
 RECIPROCAL_LAMBDAS = (1.0, 3.0, 7.0, 19.0)
 RECIPROCAL_SCREEN_POINTS = (
     ("positive_only", 0.0, 0.0),
-    ("global", 1.0, 0.0),
+    ("global", 0.03125, 0.0),
     ("exponential", 1.0, 2.995732274),
     *(("reciprocal_linear", 1.0, value) for value in RECIPROCAL_LAMBDAS),
     *(("reciprocal_quadratic", 1.0, value) for value in RECIPROCAL_LAMBDAS),
@@ -204,7 +204,12 @@ def continuous_exp_weights(
     if family in {"positive_only", "global"}:
         shape = torch.ones_like(u)
     elif family == "exponential":
-        shape = torch.exp(-coefficient * u)
+        coordinate = (
+            torch.relu(u - TAU_CODE)
+            if EXPERIMENT_ID == RECIPROCAL_SCREEN_EXPERIMENT_ID
+            else u
+        )
+        shape = torch.exp(-coefficient * coordinate)
     else:
         x = torch.relu(u - TAU_CODE)
         if family == "reciprocal_linear":
