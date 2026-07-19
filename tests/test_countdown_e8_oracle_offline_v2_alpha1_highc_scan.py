@@ -447,3 +447,30 @@ def test_runtime_plan_selects_reciprocal_profile(tmp_path: Path) -> None:
         "reciprocal_linear",
         "reciprocal_quadratic",
     }
+
+
+RECIPROCAL_Q_DENSE_CONFIG = (
+    ROOT
+    / "configs"
+    / "countdown_e8_oracle_offline_v2_reciprocal_quadratic_dense_lambda_curve_0p5b.yaml"
+)
+
+
+def test_reciprocal_q_dense_curve_has_sixteen_points_and_thirty_two_cells() -> None:
+    config = _load_path(RECIPROCAL_Q_DENSE_CONFIG)
+    points = scan.parameter_points(config)
+    cells = scan.build_cells(config)
+    assert points == scan.RECIPROCAL_Q_DENSE_POINTS
+    assert tuple(point[2] for point in points) == scan.RECIPROCAL_Q_DENSE_LAMBDAS
+    assert len(points) == 16
+    assert len(cells) == 32
+    assert len({cell.name for cell in cells}) == 32
+    assert {cell.seed_offset for cell in cells} == {4000, 5000}
+    assert {cell.method for cell in cells} == {"reciprocal_quadratic"}
+    assert {cell.alpha for cell in cells} == {1.0}
+    completed = {1.0, 3.0, 7.0, 19.0, 39.0, 79.0, 159.0, 319.0}
+    assert not completed.intersection({cell.coefficient for cell in cells})
+    assert config["execution"]["parallel_cells_per_gpu"] == 2
+    assert config["execution"]["expected_full_waves"] == 2
+    assert config["historical_controls"]["rerun_in_this_round"] is False
+    assert config["reporting"]["trend_resolution_claim_only"] is True
