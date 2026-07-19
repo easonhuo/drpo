@@ -1,0 +1,99 @@
+schema_version: 1
+experiment_id: EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-RECIPROCAL-SHAPE-SCREEN-0.5B-01
+result_status: pilot
+registration_state: dev_code_first_unregistered
+claim: >-
+  On the frozen model-independent E8 V2 bank, compare the manuscript-correct
+  distance-order taper families on the same detached excess-remoteness
+  coordinate x=relu(current_mean_token_surprisal/2-0.125). Reciprocal-Linear
+  uses 1/(1+lambda*sqrt(x)); Reciprocal-Quadratic uses 1/(1+lambda*x); the
+  completed exponential anchor uses exp(-lambda*x). This development screen
+  localizes usable reciprocal strengths only and does not establish formal
+  ranking, convergence, or steady state.
+model:
+  identity: Qwen2.5-0.5B-Instruct
+  initialization: pretrained_base_plus_fresh_lora
+  parameterization: lora
+bank:
+  source_experiment: EXT-C-E8-ORACLE-OFFLINE-BANK-V2-0.5B-01
+  use_all_unique_negatives: true
+  deduplicate_expression_rule: arena_clean_expression_first_occurrence
+  explicit_near_far_training_classes: false
+  extreme_selection_forbidden: true
+remoteness:
+  distance: current_mean_token_surprisal
+  coordinate: x=relu(current_mean_token_surprisal/2-0.125)
+  tau_code: 0.125
+  paper_tau: 0.25
+  paper_scale: 2.0
+  detached: true
+  reciprocal_linear: 1/(1+lambda*sqrt(x))
+  reciprocal_quadratic: 1/(1+lambda*x)
+  exponential: exp(-lambda*x)
+  extra_square_forbidden: true
+sweep:
+  cartesian_product: false
+  parameter_points:
+    - {family: positive_only, alpha: 0.0, coefficient: 0.0, role: same_seed_reference}
+    - {family: global, alpha: 1.0, coefficient: 0.0, role: uncontrolled_negative_endpoint}
+    - {family: exponential, alpha: 1.0, coefficient: 2.995732274, role: completed_exp_anchor}
+    - {family: reciprocal_linear, alpha: 1.0, coefficient: 1.0, role: retention_at_x1_0p50}
+    - {family: reciprocal_linear, alpha: 1.0, coefficient: 3.0, role: retention_at_x1_0p25}
+    - {family: reciprocal_linear, alpha: 1.0, coefficient: 7.0, role: retention_at_x1_0p125}
+    - {family: reciprocal_linear, alpha: 1.0, coefficient: 19.0, role: retention_at_x1_0p05}
+    - {family: reciprocal_quadratic, alpha: 1.0, coefficient: 1.0, role: retention_at_x1_0p50}
+    - {family: reciprocal_quadratic, alpha: 1.0, coefficient: 3.0, role: retention_at_x1_0p25}
+    - {family: reciprocal_quadratic, alpha: 1.0, coefficient: 7.0, role: retention_at_x1_0p125}
+    - {family: reciprocal_quadratic, alpha: 1.0, coefficient: 19.0, role: retention_at_x1_0p05}
+  seed_offsets: [4000]
+  unique_parameter_points: 11
+  cells: 11
+training:
+  steps: 1200
+  early_stop: false
+  eval_every: 100
+  pass64_every: 200
+  denominator: unique_negative_count_per_prompt
+  normalize_by_weight_sum: false
+  hidden_negative_scale: false
+  gradient_budget_matching: false
+execution:
+  default_gpus: [0, 1, 2, 3, 4, 5, 6, 7]
+  parallel_cells_per_gpu: 2
+  runtime_scope: GOV-RUNTIME-E8-GPU-SLOT-HOTFIX-01
+  identity_checked_resume: true
+  continue_after_cell_failure: true
+  liveness:
+    required_before_full_run: true
+    representative_family: reciprocal_quadratic
+    representative_alpha: 1.0
+    representative_c: 3.0
+    steps: 2
+    validation_examples: 8
+    scientific_evidence: false
+evaluation:
+  validation_only_during_tuning: true
+  test_access_forbidden: true
+  greedy_every: 100
+  pass_at_8_every: 100
+  pass_at_64_every: 200
+  primary_selection_metric: late_window_pass_at_8
+  secondary_selection_metric: terminal_pass_at_8
+  best_checkpoint_metric_is_supplementary_only: true
+  late_window_steps: [800, 900, 1000, 1100, 1200]
+reporting:
+  distinguish_task_performance: true
+  distinguish_support_or_structure_boundary: true
+  distinguish_nan_inf_numerical_failure: true
+  fixed_horizon_is_not_convergence: true
+  method_ranking_claim_allowed: false
+  countdown_role: external_validity_only
+  compare_terminal_and_late_window: true
+exclusions:
+  - current_near_current_far_selection
+  - binary_near_far_mixture
+  - weight_sum_normalization
+  - dynamic_alpha
+  - sbrc
+  - hybrid
+  - test_split_access
