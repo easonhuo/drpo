@@ -4,7 +4,7 @@
 **Not a research master:** `docs/handoff.md` remains the unique research source of truth.  
 **Claim:** `PAPER-CODE-REFERENCE-01`  
 **Scientific-status impact:** none.  
-**Last audited branch head before this document:** `cf559e3becd4ee292edb1b6f3062b855ffb3a8d1`.
+**Last audited branch head before this document:** `1394a29ef79296ab3ae1e1f3793417fb9d430444`.
 
 This file consolidates the current engineering state without deleting historical records. It supersedes stale *current-status* and *next-slice* statements in the older task-local handoff and delta files. Those older files remain provenance for the order in which the migration was implemented and reviewed.
 
@@ -21,13 +21,7 @@ A new session must read and verify, in this order:
 7. `docs/paper_code_reference/IMPLEMENTATION_PLAN.md` as the original architecture and acceptance plan, not as a live file inventory;
 8. the actual `dev/paper-code-reference-01` branch, Draft PR `#149`, changed files, legacy differential oracles, and exact-head CI.
 
-The older files below are append-only historical implementation records. They are no longer the preferred way to discover the current next step:
-
-- `SESSION_HANDOFF.md`;
-- `SESSION_HANDOFF_ROLLOUT_DELTA_20260718.md`;
-- `SESSION_HANDOFF_HOPPER_PUBLIC_DELTA_20260718.md`;
-- `SESSION_HANDOFF_D4RL_SHARED_DELTA_20260719.md`;
-- `SESSION_HANDOFF_D4RL_BACKEND_AUDIT_DELTA_20260719.md`.
+The older `SESSION_HANDOFF*` files are append-only historical implementation records. They are no longer the preferred way to discover the current next step.
 
 ## 2. Repository and branch snapshot
 
@@ -38,171 +32,140 @@ At the audit immediately before this document:
 - current `main`: `85b0a68d77ed085a7f6e67771fb0f7672c43da09`;
 - task base and current merge base: `4544005bd7df69c53bad70a9dcac846af01285e4`;
 - only active development branch: `dev/paper-code-reference-01`;
-- development head: `cf559e3becd4ee292edb1b6f3062b855ffb3a8d1`;
-- relation to current `main`: 95 commits ahead and 60 commits behind;
+- development head before this document: `1394a29ef79296ab3ae1e1f3793417fb9d430444`;
 - persistent cumulative Draft PR: `#149`;
 - PR state: open, Draft, unmerged;
 - overall task state: `in_development`.
 
-The SHA values above are audit facts, not reusable assumptions. Every continuation session must resolve both heads again. The branch must remain separate from `main` until the user explicitly authorizes a merge decision.
+The SHA values above are audit facts, not reusable assumptions. Every continuation session must resolve both heads again. The branch remains separate from `main` until the user explicitly authorizes a merge decision.
 
-The 60-commit lag does not by itself prove a code conflict. It does require an integration-freshness audit before the next substantial code slice and before any final merge proposal. Do not silently rebase, merge `main`, or reinterpret newer scientific registrations as part of this task.
+The branch still lags newer unrelated `main` work. This does not prove a conflict, but it requires an integration-freshness audit before a final merge proposal. Do not silently rebase, merge `main`, or reinterpret newer scientific registrations as part of this task.
 
-## 3. Two-axis status model
+## 3. Reviewer-facing code boundary
 
-Do not conflate the scientific status already registered in the main repository with the reproduction status of the new `paper_code` implementation.
+This boundary governs all remaining migration work.
 
-| Component | Existing scientific status | `paper_code` migration status | Remaining gate |
+The public `paper_code` package is reviewer-facing reference code. Its primary obligations are:
+
+- readable algorithm implementation;
+- explicit dataset and environment identities;
+- runnable training entry points;
+- runnable rollout evaluation;
+- checkpoints and basic run metadata;
+- a lightweight completion/failure record;
+- simple multi-seed mean/std aggregation.
+
+It is **not** required to duplicate the repository's internal scientific-governance platform. The following remain internal responsibilities and are not hard requirements for reviewer-facing migration closure:
+
+- registry or handoff mutation;
+- formal-evidence eligibility decisions;
+- full task × method × seed completeness governance;
+- selected-versus-terminal checkpoint scientific adjudication;
+- manuscript table-cell and artifact-hash binding;
+- internal collapse-taxonomy adjudication and formal result promotion.
+
+The public code should still fail clearly on missing files, invalid shapes, non-finite training, unavailable rollout environments, and incomplete commands. A lightweight record such as `training_completed`, `final_step`, `final_checkpoint`, `finite`, and `evaluation_completed` is normal software robustness, not an internal formal audit.
+
+Training and rollout scores may vary across hardware, dependency versions, and random seeds. Reviewer-facing reproducibility means the algorithm and stated protocol are runnable and the reported trend is reproducible under the specified coordinate; it does not promise byte-identical single-run scores on every machine.
+
+## 4. Two-axis status model
+
+Do not conflate the scientific status registered in the main repository with the reproduction status of `paper_code`.
+
+| Component | Existing scientific status | `paper_code` migration status | Remaining reviewer-code gate |
 |---|---|---|---|
-| Shared utilities and controls | no independent scientific claim | implementation complete; engineering validated | none beyond integration and final review |
-| C-U1 | existing experiment-specific statuses remain authoritative in `docs/handoff.md` and the registry | implementation complete | registered full CPU reproduction, terminal review, selected conclusion report |
-| D-U1 revision 4 | `not_run` for the active revision-4 formal matrix | implementation complete | registered 20-seed × six-method × 8000-step run and terminal review |
-| Hopper E7-Q2 | `long_run_validated` for the existing learned-critic external mechanism result | implementation complete | real registered-data reproduction through the new paper runner and terminal review |
-| D4RL-9 / `EXT-H-E7-BENCH-01` | historical archive is pilot provenance only; no formal ranking | selected ExpRank algorithm core migrated; formal runtime incomplete | protocol freeze, remaining runtime code, real liveness, registered execution, terminal review |
+| Shared utilities and controls | no independent scientific claim | implementation complete; engineering validated | final integration review |
+| C-U1 | experiment-specific statuses remain authoritative in `docs/handoff.md` and the registry | implementation complete | registered reproduction remains an internal scientific task |
+| D-U1 revision 4 | `not_run` for the active formal matrix | implementation complete | formal run remains an internal scientific task |
+| Hopper E7-Q2 | `long_run_validated` for the existing learned-critic external mechanism result | implementation complete | real registered-data reproduction through the new runner |
+| D4RL-9 / `EXT-H-E7-BENCH-01` | historical archive is pilot provenance only; no formal ranking | algorithm core and public training runner implemented | rollout evaluator, simple aggregation, real liveness |
 | Countdown | final manuscript-facing protocol/result not frozen | blocked at the experiment-entry layer | freeze final protocol and result before migration |
 
-A smoke, static check, first update, or fixed three-step trajectory is engineering evidence only. It does not change any scientific status.
+A smoke, static check, first update, or fixed short trajectory is engineering evidence only. It does not change scientific status.
 
-## 4. Current implementation ownership
+## 5. Current implementation ownership
 
-### 4.1 C-U1
+### 5.1 C-U1
 
-The live paper-facing implementation is split by responsibility rather than represented by the early conceptual `experiments/cu1.py` sketch:
+The live implementation is split by responsibility across `continuous/cu1*.py`, with public dispatch in `cli.py`. It covers source, causal, phase/control, taper, artifacts, aggregation, and audit for the controlled continuous environment.
 
-- `paper_code/src/drpo_reference/continuous/cu1.py`: environment, policy objectives, evaluation primitives;
-- `continuous/cu1_training.py`: Positive-only and shared training lifecycle;
-- `continuous/cu1_mechanism.py` and `continuous/cu1_source_causal.py`: source and causal paths;
-- `continuous/cu1_phase.py`, `continuous/cu1_control.py`, and `continuous/cu1_phase_taper.py`: strength scans and controls;
-- `continuous/cu1_taper.py`: taper-family execution;
-- `continuous/cu1_suite.py`, `continuous/cu1_public_protocol.py`, `continuous/cu1_public_audit.py`, and `continuous/cu1_artifacts.py`: public execution, artifacts, aggregation, and audit;
-- `paper_code/src/drpo_reference/cli.py`: public command dispatch.
+### 5.2 D-U1 revision 4
 
-### 4.2 D-U1 revision 4
+The live implementation is split across `categorical/du1_*.py`, with public dispatch in `cli.py`. It covers the revision-4 environment, categorical policy, six frozen controls, shared-start training, metrics, public execution, and reports. Revisions 1/2/3 and the historical reciprocal-quartic method remain excluded.
 
-The live implementation is:
+### 5.3 Hopper E7-Q2 mechanism profile
 
-- `categorical/du1_environment.py`: utility × rarity environment and roles;
-- `categorical/du1_policy.py`: categorical policy;
-- `categorical/du1_controls.py`: six frozen controls and calibration;
-- `categorical/du1_training.py`: shared-start training and updates;
-- `categorical/du1_metrics.py`: task and mechanism metrics;
-- `categorical/du1_protocol.py`: frozen revision-4 coordinate;
-- `categorical/du1_suite.py`, `categorical/du1_public.py`, and `categorical/du1_reports.py`: execution, artifacts, aggregation, and terminal reports;
-- `paper_code/src/drpo_reference/cli.py`: public command dispatch.
+The Hopper mechanism implementation includes data, models, critic, frozen advantages, actor training, diagnostics, rollout, suite execution, public runner, aggregation, and terminal records. It remains scientifically distinct from the D4RL-9 task-performance backend.
 
-Revision 1/2/3 and the historical reciprocal-quartic method remain excluded.
-
-### 4.3 Hopper E7-Q2 mechanism profile
-
-The Hopper mechanism implementation is complete at the engineering layer:
-
-- `external/hopper_data.py`, `hopper_models.py`, `hopper_critic.py`, and `hopper_advantages.py`;
-- `external/hopper_actor.py`, `hopper_metrics.py`, and `hopper_optim.py`;
-- `external/hopper_rollout.py` and `hopper_protocol.py`;
-- `external/hopper_suite.py`;
-- `experiments/hopper.py` for the public runner and aggregation;
-- `cli.py` for `drpo-reference hopper`.
-
-It remains scientifically distinct from the D4RL-9 task-performance backend.
-
-### 4.4 D4RL-9 performance profile
+### 5.4 D4RL-9 performance profile
 
 Already migrated:
 
 - exact nine-task catalog, dataset basenames, environment IDs, reference-score constants, and fail-closed SHA state in `external/d4rl_tasks.py`;
-- `CanonicalActor` and `CanonicalCritic`;
-- `SNA2CIQLVExpRankAgent`;
-- dynamic TD advantages and expectile critic regression;
-- rank-based negative weighting;
+- `CanonicalActor`, `CanonicalCritic`, and `SNA2CIQLVExpRankAgent`;
+- dynamic TD advantages, expectile critic regression, and ExpRank negative weighting;
 - actor-then-critic Adam updates;
-- locomotion reward normalization, episode-aware returns, and action clipping;
-- deterministic uniform-minibatch training;
-- legacy-compatible actor checkpoint payloads and non-formal completion records;
-- one execution-plan and dispatch boundary across all nine tasks;
-- differential tests for initialization, forward values, rank weights, first Adam update, fixed three-step trajectory, dataset preparation, checkpoint records, task identities, and one-backend dispatch.
+- locomotion reward normalization, episode-aware returns, action clipping, and deterministic minibatch training;
+- legacy-compatible actor checkpoint payloads;
+- differential tests for initialization, forward values, rank weights, first Adam update, fixed short trajectory, dataset preparation, checkpoint records, task identities, and one-backend dispatch;
+- reviewer-facing `run_d4rl` entry point in `experiments/__init__.py`;
+- public `drpo-reference d4rl` CLI;
+- selected-task or all-nine-task training, per-seed output roots, final checkpoints, `RUN_MANIFEST.json`, `SUMMARY.json`, `COMPLETED.json`, and `FAILED.json`;
+- explicit non-formal status and explicit `evaluation_completed: false` until rollout evaluation exists.
 
-The canonical legacy D4RL files remain differential oracles, not the runtime implementation of the paper package.
+The canonical legacy D4RL files remain differential oracles, not runtime dependencies of the paper package.
 
-## 5. D4RL code that is still missing
+## 6. D4RL code still required
 
-The selected algorithm core is migrated. The remaining code is primarily the formal runtime and evidence lifecycle, not another actor/critic rewrite.
+### 6.1 Three-environment rollout evaluator
 
-### 5.1 Concrete D4RL-9 public runner
+The next core reviewer-facing slice is deterministic evaluation of trained ExpRank actors in:
 
-`dispatch_d4rl9` currently accepts an injected `task_runner`; the branch does not yet provide the complete concrete runner that:
+- `HalfCheetah-v4`;
+- `Hopper-v4`;
+- `Walker2d-v4`.
 
-- loads and validates each of the nine HDF5 datasets;
-- prepares the canonical locomotion tensors;
-- creates each registered method/seed run;
-- invokes training and evaluation;
-- enforces new-or-empty output roots;
-- writes per-task and root completion or failure state;
-- exposes a stable `drpo-reference d4rl` command.
-
-### 5.2 Backend-compatible three-environment rollout evaluation
-
-The task catalog owns rollout identities, but D4RL-9 does not yet have a complete evaluator for the migrated ExpRank actor across `HalfCheetah-v4`, `Hopper-v4`, and `Walker2d-v4`.
-
-Remaining behavior includes:
+Required behavior:
 
 - process-isolated Gymnasium/MuJoCo preflight;
-- observation/action dimension checks against each dataset;
-- deterministic actor evaluation and action clipping;
-- reset/step, termination/truncation, episode seeding, timeout, and environment-unavailable diagnostics;
-- raw and normalized return calculation for all three environments;
-- fail-closed real-liveness behavior without `d4rl` or `mujoco_py` fallback.
+- observation and action dimension checks against the checkpoint and dataset task;
+- deterministic actor action with clipping;
+- correct reset/step, termination/truncation, episode seeding, timeout, and environment-unavailable behavior;
+- raw return and D4RL normalized-score calculation;
+- mean/std across evaluation episodes;
+- no silent `d4rl` or `mujoco_py` fallback.
 
-The existing Hopper E7-Q2 rollout module is a mechanism-profile implementation. It may supply characterized low-level contracts, but it must not silently turn the Hopper mechanism trainer into the D4RL performance trainer.
+The characterized low-level contracts in the Hopper rollout code may be reused, but the Hopper mechanism trainer must not become the D4RL performance trainer.
 
-### 5.3 Frozen method-matrix execution
+### 6.2 Simple aggregation
 
-Only the selected `SNA2C_IQLV_ExpRank` backend core is migrated. The final D4RL-9 comparison matrix and common coefficients are not frozen, so the corresponding method-selection and multi-arm execution code must not be invented yet.
+After rollout evaluation, add a small deterministic aggregator that reports per-task and per-seed raw return and normalized-score mean/std. It should reject missing or malformed reviewer-run outputs but does not need manuscript table-cell binding or internal formal-evidence governance.
 
-After protocol approval, the code must implement exactly the frozen arms through one shared backend and prohibit post-hoc per-task method selection. Until then, this is a protocol-blocked code item.
+### 6.3 Method-matrix execution remains protocol blocked
 
-### 5.4 Formal budget, checkpoint, and terminal-audit lifecycle
+Only the selected `SNA2C_IQLV_ExpRank` backend is currently exposed. The final comparison arms and common coefficients are not frozen, so no multi-method matrix should be invented. After explicit protocol approval, exact frozen arms may be added through the same shared backend without per-task trainer copies or post-hoc per-task method selection.
 
-The current non-formal trainer writes checkpoints and completion records, but D4RL-9 still lacks the final registered implementation of:
+## 7. D4RL items that are not missing code
 
-- fixed training budget and evaluation cadence;
-- checkpoint roles and any selection rule;
-- terminal versus selected checkpoint reporting;
-- per-run terminal-state classification;
-- root completeness verification;
-- separate task-performance collapse, support/variance-boundary, rollout failure, incomplete terminal state, and NaN/Inf counts;
-- formal-evidence eligibility only after all expected tasks, methods, and seeds pass audit.
-
-These details must follow a frozen protocol rather than be inferred from the historical pilot.
-
-### 5.5 D4RL-9 aggregation and minimal paper binding
-
-The branch still needs deterministic aggregation that consumes one explicitly selected completed result root and produces the minimum result summary required by the manuscript. It must bind each value to task, method, seed, checkpoint role, and source artifact path. It must reject smoke, subsets, incomplete roots, mixed identities, and tampered inputs.
-
-This does not require a universal table/figure framework or training-time plotting code.
-
-## 6. D4RL blockers that are not missing code
-
-The following items must not be reported as implementation defects:
+The following are provenance, protocol, resource, execution, or internal review gates rather than current reviewer-code defects:
 
 - SHA-256 values for eight unresolved dataset coordinates;
 - authoritative resolution of the historical archive launch commit;
-- final common method controls and coefficients;
-- the registered ten-run seed coordinate;
-- formal budgets, checkpoint policy, and terminal-audit rules before they are coded;
-- availability of nine real HDF5 datasets and compatible Gymnasium/MuJoCo dependencies;
-- real liveness, full-budget execution, and post-run scientific audit;
-- final manuscript candidate values.
+- final common comparison arms and coefficients;
+- registered ten-run seed coordinate;
+- formal budgets and checkpoint policy;
+- availability of all real HDF5 datasets and compatible Gymnasium/MuJoCo dependencies;
+- real liveness and full-budget execution;
+- internal terminal scientific review and final manuscript values.
 
-These are provenance, protocol, resource, execution, or review gates.
+## 8. Exact next sequence
 
-## 7. Exact next sequence
+1. Run exact-head CI for the new D4RL public training runner.
+2. Perform the integration-freshness audit against current `main` before the next substantial slice.
+3. Implement the three-environment rollout evaluator by extending existing Python files where responsibilities fit; any new `.py` path still requires explicit human approval.
+4. Add controlled fake-environment tests and focused checkpoint/evaluation tests.
+5. Run real environment liveness before any large execution.
+6. Add simple reviewer-facing multi-seed aggregation.
+7. Keep formal experiment registration, full execution, terminal scientific review, and manuscript artifact binding in the internal repository workflow.
 
-1. **Document and freeze the D4RL-9 formal protocol first:** dataset identities, method arms, coefficients, seeds, budgets, checkpoint roles, terminal rules, artifact paths, and liveness gate.
-2. **Perform an integration-freshness audit** against current `main`; do not silently absorb unrelated scientific work.
-3. **Implement the concrete D4RL runtime** using existing files where responsibilities fit. Any exact new `.py` path requires prior human approval under `GOV-NEW-PYTHON-FILE-HUMAN-APPROVAL-01`.
-4. **Run focused differential and controlled fake-environment tests.**
-5. **Run real liveness** on the frozen backend and dataset identities before a nine-task sweep.
-6. **Register and launch the formal run only through the repository's hardened execution channel.**
-7. **Perform terminal review and minimal paper-result binding.**
-
-No formal experiment was launched by this documentation consolidation. No method ranking, scientific status, seed, threshold, budget, or coefficient was changed.
+No formal experiment was launched by this code slice. No method ranking, scientific status, seed, threshold, formal budget, or coefficient was changed.
