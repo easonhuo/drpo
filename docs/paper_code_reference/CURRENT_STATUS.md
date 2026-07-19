@@ -120,7 +120,7 @@ The module imports neither Transformers/PEFT nor the historical one-file trainer
 
 The new path was explicitly approved by the user and the approval is preserved in Draft PR #149 comment `5016309623`. That approval does not extend to a final experiment-entry path.
 
-Exact-head validation at `d234f0f589134bb959a98bfafa50cb47784ff04c` passed Evidence Locator, Python compile, shell syntax, handoff authority, formal execution channel, governance inventory, governance stage, full pytest, and Ruff.
+Exact-head validation at `d234f0f589134bb959a98bfafa50cb47784ff04c` passed Evidence Locator, Python compile, shell syntax, handoff authority, formal execution channel, governance inventory, governance stage, full pytest, and Ruff. The subsequent `35471b20129613faf974963bb4cc2bca431da6cf` commit changes only this status document and requires its own exact-head CI confirmation before merge readiness is claimed.
 
 ## 6. Countdown remaining work
 
