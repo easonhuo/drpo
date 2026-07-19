@@ -58,6 +58,37 @@ MARKER_ID_RE = re.compile(
     r"<!--\s*HANDOFF-DELTA-BLOCK\s+location=[^\s]+\s+id=([^\s]+)\s*-->"
 )
 
+# One historical schema-v3 delta was committed without a materialization report
+# and declared an unchanged candidate hash even though replaying its operation
+# would change the handoff.  The repository never materialized that operation:
+# the introducing commit changed only the delta file and preserved handoff bytes.
+# Keep the compatibility boundary content-addressed and fail closed for every
+# other missing report or any mutation of this exact historical anomaly.
+LEGACY_INERT_V3_DELTAS = {
+    (
+        "docs/handoff_deltas/"
+        "EXT-H-E7-SQEXP-GAE-FROZEN-DIAGNOSTIC-2026-07-18/"
+        "HANDOFF_DELTA.yaml"
+    ): {
+        "update_id": "EXT-H-E7-SQEXP-GAE-FROZEN-DIAGNOSTIC-2026-07-18",
+        "delta_sha256": "cf9da4d13d9d6521a578165e37c099803b5498b24e9b2235820fb130078fd4ae",
+        "first_add_commit": "11992ca5de7f2c4a3837cf32aa4e23696ec18ef3",
+        "first_add_parent": "d07964c95a8faa8d2b53c36ec85de84e8c6f2385",
+        "integration_commit": "cd770f47b89f8971923945c19caec49720c0e139",
+        "integration_parent": "bb637503e1289f24f7a28e587f50665afb20e0de",
+        "source_base_commit": "bb637503e1289f24f7a28e587f50665afb20e0de",
+        "historical_handoff_sha256": (
+            "f8ff67ab71c0f53b21fc96967a13aa3e5b8500e42d25464e378df23e1f62c4e8"
+        ),
+        "declared_candidate_sha256": (
+            "f8ff67ab71c0f53b21fc96967a13aa3e5b8500e42d25464e378df23e1f62c4e8"
+        ),
+        "rendered_candidate_sha256": (
+            "0ee60d4003e33e53685a0ead28695938c26b62c371c9cf06554ff36da6d7ed7a"
+        ),
+    }
+}
+
 CONTROL_PLANE_EXACT = {
     "AGENTS.md",
     "docs/governance_stage5_versioned_handoff_spec.md",
@@ -102,6 +133,15 @@ class ExactIntent:
     delta: dict[str, Any]
     candidate: str
     registry_report: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class DiscoveredDelta:
+    integration_commit: str
+    path: Path
+    delta: dict[str, Any]
+    report: dict[str, Any]
+    legacy_inert: bool = False
 
 
 def _mapping(value: Any, label: str) -> dict[str, Any]:
@@ -1637,11 +1677,89 @@ def _first_parent_integration_commit(
     )
 
 
-def _discover_v3_deltas(repo_root: Path, authority: dict[str, Any]) -> list[tuple[str, Path, dict[str, Any]]]:
+def _legacy_inert_materialization_report(
+    repo_root: Path,
+    path: Path,
+    delta: dict[str, Any],
+    *,
+    first_add: str,
+    integration_commit: str,
+) -> dict[str, Any] | None:
+    relative = _repo_relative(repo_root, path, "authoritative delta")
+    expected = LEGACY_INERT_V3_DELTAS.get(relative)
+    if expected is None:
+        return None
+
+    parent = _git_text(repo_root, "rev-parse", f"{first_add}^1")
+    integration_parent = _git_text(repo_root, "rev-parse", f"{integration_commit}^1")
+    changed_paths = _git_text(
+        repo_root,
+        "diff-tree",
+        "--no-commit-id",
+        "--name-only",
+        "-r",
+        first_add,
+    ).splitlines()
+    base_handoff = _git_show(repo_root, delta["base"]["commit"], HANDOFF_PATH)
+    before_handoff = _git_show(repo_root, parent, HANDOFF_PATH)
+    after_handoff = _git_show(repo_root, first_add, HANDOFF_PATH)
+    integration_before_handoff = _git_show(repo_root, integration_parent, HANDOFF_PATH)
+    integration_after_handoff = _git_show(repo_root, integration_commit, HANDOFF_PATH)
+    try:
+        rendered = shadow.render(base_handoff, delta["operations"])
+        shadow.verify_history_preservation(base_handoff, rendered.text, delta["operations"])
+    except shadow.HandoffDeltaError as exc:
+        raise HandoffAuthorityError(
+            f"legacy inert delta replay failed unexpectedly: {relative}: {exc}"
+        ) from exc
+
+    actual = {
+        "update_id": delta.get("update_id"),
+        "delta_sha256": shadow.sha256_file(path),
+        "first_add_commit": first_add,
+        "first_add_parent": parent,
+        "integration_commit": integration_commit,
+        "integration_parent": integration_parent,
+        "source_base_commit": delta.get("base", {}).get("commit"),
+        "historical_handoff_sha256": shadow.sha256_text(base_handoff),
+        "declared_candidate_sha256": delta.get("expected", {}).get(
+            "exact_base_candidate_sha256"
+        ),
+        "rendered_candidate_sha256": shadow.sha256_text(rendered.text),
+    }
+    if actual != expected:
+        raise HandoffAuthorityError(
+            f"legacy inert delta provenance mismatch: {relative}"
+        )
+    if changed_paths != [relative]:
+        raise HandoffAuthorityError(
+            f"legacy inert delta introduction boundary changed: {relative}"
+        )
+    historical_hash = expected["historical_handoff_sha256"]
+    if (
+        shadow.sha256_text(before_handoff) != historical_hash
+        or shadow.sha256_text(after_handoff) != historical_hash
+        or shadow.sha256_text(integration_before_handoff) != historical_hash
+        or shadow.sha256_text(integration_after_handoff) != historical_hash
+        or delta["base"].get("handoff_sha256") != historical_hash
+    ):
+        raise HandoffAuthorityError(
+            f"legacy inert delta handoff history mismatch: {relative}"
+        )
+    return {
+        "current_handoff_before_sha256": historical_hash,
+        "materialized_handoff_after_sha256": historical_hash,
+        "update_id": delta["update_id"],
+    }
+
+
+def _discover_v3_deltas(
+    repo_root: Path, authority: dict[str, Any]
+) -> list[DiscoveredDelta]:
     activation = authority["delta_authority"]["activation_parent_commit"]
     head = _git_text(repo_root, "rev-parse", "HEAD")
     positions = _first_parent_positions(repo_root, activation, head)
-    records = []
+    records: list[DiscoveredDelta] = []
     for path in sorted((repo_root / DELTA_ROOT).glob(f"*/{DELTA_FILENAME}")):
         payload = _load_yaml(path, "handoff delta")
         if payload.get("schema_version") != SCHEMA_VERSION:
@@ -1666,7 +1784,27 @@ def _discover_v3_deltas(repo_root: Path, authority: dict[str, Any]) -> list[tupl
             )
         report = path.parent / REPORT_FILENAME
         if not report.is_file():
-            raise HandoffAuthorityError(f"authoritative delta lacks materialization report: {relative}")
+            legacy_report = _legacy_inert_materialization_report(
+                repo_root,
+                path,
+                payload,
+                first_add=first_add,
+                integration_commit=integration_commit,
+            )
+            if legacy_report is None:
+                raise HandoffAuthorityError(
+                    f"authoritative delta lacks materialization report: {relative}"
+                )
+            records.append(
+                DiscoveredDelta(
+                    integration_commit,
+                    path,
+                    payload,
+                    legacy_report,
+                    legacy_inert=True,
+                )
+            )
+            continue
         report_touches = _git_text(
             repo_root,
             "log",
@@ -1676,8 +1814,15 @@ def _discover_v3_deltas(repo_root: Path, authority: dict[str, Any]) -> list[tupl
         ).splitlines()
         if report_touches != [first_add]:
             raise HandoffAuthorityError(f"materialization report is not immutable: {report}")
-        records.append((integration_commit, path, payload))
-    records.sort(key=lambda item: positions[item[0]])
+        records.append(
+            DiscoveredDelta(
+                integration_commit,
+                path,
+                payload,
+                _load_materialization_report(report, payload),
+            )
+        )
+    records.sort(key=lambda item: positions[item.integration_commit])
     return records
 
 
@@ -1706,16 +1851,28 @@ def _load_materialization_report(path: Path, delta: dict[str, Any]) -> dict[str,
     return report
 
 
-def materialize_all(repo_root: Path, authority: dict[str, Any]) -> tuple[str, list[str]]:
+def materialize_all(
+    repo_root: Path, authority: dict[str, Any]
+) -> tuple[str, list[str], list[str]]:
     _, text = _load_checkpoint(repo_root, authority)
     existing_ids = _existing_block_ids(text)
     update_ids: list[str] = []
-    for _, path, delta in _discover_v3_deltas(repo_root, authority):
-        report = _load_materialization_report(path.parent / REPORT_FILENAME, delta)
+    legacy_inert_ids: list[str] = []
+    for record in _discover_v3_deltas(repo_root, authority):
+        path = record.path
+        delta = record.delta
+        report = record.report
         if report.get("current_handoff_before_sha256") != shadow.sha256_text(text):
             raise HandoffAuthorityError(
                 f"materialization report before-hash breaks replay chain: {path}"
             )
+        if record.legacy_inert:
+            if report.get("materialized_handoff_after_sha256") != shadow.sha256_text(text):
+                raise HandoffAuthorityError(
+                    f"legacy inert delta breaks unchanged replay chain: {path}"
+                )
+            legacy_inert_ids.append(delta["update_id"])
+            continue
         for op in delta["operations"]:
             block_id = op.get("block_id")
             if block_id and block_id in existing_ids:
@@ -1735,7 +1892,7 @@ def materialize_all(repo_root: Path, authority: dict[str, Any]) -> tuple[str, li
                 f"materialization report after-hash breaks replay chain: {path}"
             )
         update_ids.append(delta["update_id"])
-    return text, update_ids
+    return text, update_ids, legacy_inert_ids
 
 
 def verify_prepared_cutover(repo_root: Path, *, check_stage4a: bool = True) -> dict[str, Any]:
@@ -1847,7 +2004,7 @@ def verify_current_state(repo_root: Path, *, check_stage4a: bool = True) -> dict
             "manual_handoff_authoritative": True,
             "authority_cutover_allowed": False,
         }
-    expected, update_ids = materialize_all(repo_root, authority)
+    expected, update_ids, legacy_inert_ids = materialize_all(repo_root, authority)
     current = (repo_root / HANDOFF_PATH).read_text(encoding="utf-8")
     if current != expected:
         raise HandoffAuthorityError("tracked handoff is stale or was directly edited")
@@ -1859,6 +2016,8 @@ def verify_current_state(repo_root: Path, *, check_stage4a: bool = True) -> dict
         "manual_handoff_authoritative": False,
         "authoritative_delta_count": len(update_ids),
         "authoritative_update_ids": update_ids,
+        "legacy_inert_delta_count": len(legacy_inert_ids),
+        "legacy_inert_update_ids": legacy_inert_ids,
         "handoff_sha256": shadow.sha256_text(current),
         "stage4a_checked": check_stage4a,
     }
