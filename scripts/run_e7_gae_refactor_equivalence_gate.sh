@@ -3,12 +3,20 @@ set -euo pipefail
 O=2fe97cdcff0e8361b33193dd2a7be8cf63c44a3b; R=$(git rev-parse --show-toplevel); N=$(git rev-parse HEAD); D=${1:-$R/artifacts/e7_gae_refactor_equivalence}; T=$(mktemp -d); trap 'git -C "$R" worktree remove --force "$T/o" >/dev/null 2>&1||:; rm -rf "$T"' EXIT
 mkdir -p "$D"; git cat-file -e "$O^{commit}" 2>/dev/null||git fetch --no-tags origin "$O"; git worktree add --detach "$T/o" "$O" >/dev/null
 cat >"$T/g.py" <<'PY'
-import argparse,hashlib,io,json,math
+import argparse,hashlib,json,math
 from pathlib import Path
 import numpy as np,torch
 p=argparse.ArgumentParser();p.add_argument('kind');p.add_argument('commit');p.add_argument('out');a=p.parse_args();torch.set_num_threads(1);torch.use_deterministic_algorithms(True);torch.manual_seed(0)
 def H(x):
- b=io.BytesIO();torch.save(x,b,_use_new_zipfile_serialization=False);return hashlib.sha256(b.getvalue()).hexdigest()
+ h=hashlib.sha256()
+ def F(v):
+  if torch.is_tensor(v):
+   z=v.detach().cpu().contiguous();h.update(b'T'+str(z.dtype).encode()+repr(tuple(z.shape)).encode()+z.numpy().tobytes())
+  elif isinstance(v,dict):
+   h.update(b'D');[(F(k),F(v[k])) for k in sorted(v,key=repr)]
+  elif isinstance(v,(list,tuple)):h.update(type(v).__name__.encode());[F(i) for i in v]
+  else:h.update((type(v).__name__+':'+repr(v)).encode())
+ F(x);return h.hexdigest()
 class A(torch.nn.Module):
  def __init__(s):super().__init__();s.m=torch.nn.Linear(2,1,bias=False);s.l=torch.nn.Parameter(torch.zeros(1,1))
  def forward(s,x):y=s.m(x);return y,s.l.expand_as(y)
