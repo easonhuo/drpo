@@ -14,6 +14,9 @@ rules:
   reviewer_code_is_not_internal_formal_governance: true
   lightweight_completion_is_not_scientific_terminal_audit: true
   manuscript_artifact_binding_is_internal: true
+  legacy_pilot_profile_is_not_final_method_matrix: true
+  d4rl_exprank_remains_implicit_default: true
+  no_post_hoc_per_task_method_selection: true
   separate_events:
     - task_performance_collapse
     - support_or_probability_or_variance_boundary
@@ -131,8 +134,8 @@ phases:
       - terminal_result_review
       - selected_conclusion_report
   d4rl_9:
-    previous_status: backend_code_migrated_formal_protocol_blocked
-    status: reviewer_runtime_implemented_real_liveness_pending_formal_protocol_blocked
+    previous_status: reviewer_runtime_implemented_real_liveness_pending_formal_protocol_blocked
+    status: reviewer_multimethod_runtime_implemented_real_liveness_pending_formal_protocol_blocked
     experiment_id: EXT-H-E7-BENCH-01
     scientific_role: external_task_performance
     task_matrix:
@@ -157,6 +160,22 @@ phases:
       internal_formal_audit_required: false
       registry_handoff_mutation_required: false
       manuscript_table_cell_binding_required: false
+    reviewer_method_execution:
+      implicit_default: exprank
+      selectable_methods:
+        - exprank
+        - positive_only
+        - signed
+        - global
+        - reciprocal_linear
+        - reciprocal_quadratic
+        - exponential
+      historical_control_profile: legacy-pilot-v1
+      historical_profile_requires_explicit_acknowledgement: true
+      profile_is_final: false
+      final_method_matrix_frozen: false
+      post_hoc_per_task_method_selection_allowed: false
+      formal_method_ranking_claim_allowed: false
     selected_backend:
       id: canonical_sna2c_iqlv_exprank
       algorithm_family: SNA2C_IQLV_ExpRank
@@ -213,7 +232,14 @@ phases:
       - rollout_unavailability_is_not_task_performance
       - optional_rollout_dependency_contract
       - controlled_fake_environment_tests
-      - clean_checkout_compile_pytest_ruff_after_reviewer_runtime
+      - reviewer_selectable_multimethod_execution
+      - explicit_legacy_pilot_profile_gate
+      - shared_task_method_seed_trainer
+      - detached_standardized_distance_identity
+      - legacy_control_formula_identity
+      - method_seed_mean_std_aggregation
+      - exprank_default_backward_compatibility
+      - clean_checkout_compile_pytest_ruff_after_multimethod_migration
     blockers:
       - canonical_archive_launch_commit_unresolved
       - eight_dataset_sha256_values_unresolved
