@@ -38,6 +38,9 @@ C_EXTENSION_EXPERIMENT_ID = (
 RECIPROCAL_SCREEN_EXPERIMENT_ID = (
     "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-RECIPROCAL-SHAPE-SCREEN-0.5B-01"
 )
+RECIPROCAL_HIGH_LAMBDA_EXPERIMENT_ID = (
+    "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-RECIPROCAL-HIGH-LAMBDA-EXTENSION-0.5B-01"
+)
 ROUND1_PARAMETER_POINTS = (
     (0.0, 0.0),
     (1.0, 0.0),
@@ -70,6 +73,11 @@ RECIPROCAL_LAMBDAS = (1.0, 3.0, 7.0, 19.0)
 RECIPROCAL_SCREEN_POINTS = (
     *(("reciprocal_linear", 1.0, value) for value in RECIPROCAL_LAMBDAS),
     *(("reciprocal_quadratic", 1.0, value) for value in RECIPROCAL_LAMBDAS),
+)
+RECIPROCAL_HIGH_LAMBDAS = (39.0, 79.0, 159.0, 319.0)
+RECIPROCAL_HIGH_LAMBDA_POINTS = (
+    *(("reciprocal_linear", 1.0, value) for value in RECIPROCAL_HIGH_LAMBDAS),
+    *(("reciprocal_quadratic", 1.0, value) for value in RECIPROCAL_HIGH_LAMBDAS),
 )
 SEED_OFFSETS = (4000, 5000)
 ROUND1_RESULT_MANIFEST_SHA256 = (
@@ -155,6 +163,19 @@ _PROFILES: dict[str, dict[str, Any]] = {
             "configs/countdown_e8_oracle_offline_v2_reciprocal_shape_screen_0p5b.yaml"
         ),
         "parameter_points": RECIPROCAL_SCREEN_POINTS,
+        "seed_offsets": SEED_OFFSETS,
+        "expected_points": 8,
+        "expected_cells": 16,
+        "requires_positive_only": False,
+        "kind": "reciprocal_screen",
+    },
+    RECIPROCAL_HIGH_LAMBDA_EXPERIMENT_ID: {
+        "experiment_id": RECIPROCAL_HIGH_LAMBDA_EXPERIMENT_ID,
+        "version": "0.3.0-dev-code-first-reciprocal-high-lambda-extension",
+        "default_grid_config": (
+            "configs/countdown_e8_oracle_offline_v2_reciprocal_high_lambda_extension_0p5b.yaml"
+        ),
+        "parameter_points": RECIPROCAL_HIGH_LAMBDA_POINTS,
         "seed_offsets": SEED_OFFSETS,
         "expected_points": 8,
         "expected_cells": 16,
@@ -411,7 +432,8 @@ def validate_grid_config(config: Mapping[str, Any]) -> None:
             (str(item["family"]), float(item["alpha"]), float(item["coefficient"]))
             for item in config["sweep"]["parameter_points"]
         )
-        if configured != RECIPROCAL_SCREEN_POINTS:
+        expected = tuple(profile["parameter_points"])
+        if configured != expected:
             raise ValueError("Reciprocal shape-screen parameter points changed")
         if tuple(config["sweep"].get("seed_offsets", ())) != SEED_OFFSETS:
             raise ValueError("Reciprocal shape-screen seed offsets changed")
@@ -471,7 +493,7 @@ def parameter_points(config: Mapping[str, Any]) -> tuple[Any, ...]:
     validate_grid_config(config)
     profile = _profile_for_config(config)
     if profile["kind"] == "reciprocal_screen":
-        return RECIPROCAL_SCREEN_POINTS
+        return tuple(profile["parameter_points"])
     points = tuple(
         (float(item["alpha"]), float(item["c"]))
         for item in config["sweep"]["parameter_points"]
