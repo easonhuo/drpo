@@ -101,7 +101,7 @@ and root terminal audit.
 Public entry point:
 
 ```bash
-drho-reference hopper \
+drpo-reference hopper \
   --dataset /ABS/PATH/TO/hopper_medium_replay-v2.hdf5 \
   --output outputs/hopper_e7_q2
 ```
@@ -110,15 +110,6 @@ Equivalent module form:
 
 ```bash
 python -m drpo_reference hopper \
-  --dataset /ABS/PATH/TO/hopper_medium_replay-v2.hdf5 \
-  --output outputs/hopper_e7_q2
-```
-
-The console command is `drpo-reference`; the first example above intentionally
-shows the expected command spelling below for copy/paste:
-
-```bash
-drpo-reference hopper \
   --dataset /ABS/PATH/TO/hopper_medium_replay-v2.hdf5 \
   --output outputs/hopper_e7_q2
 ```
