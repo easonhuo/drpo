@@ -34,7 +34,10 @@ case "${MODE}" in
       echo "P1 mode requires the registered P1 grid" >&2
       exit 2
     fi
-    export DRPO_E7_P1_FULL_RUN=1
+    if [[ "${DRPO_E7_P1_FULL_RUN:-0}" != "1" ]]; then
+      echo "P1 mode is authorized only by the standard RunSpec entrypoint" >&2
+      exit 2
+    fi
     ;;
   *)
     echo "unsupported E7_SQUARED_EXP_MODE=${MODE}" >&2
