@@ -12,158 +12,75 @@ Read this file after:
 3. `docs/paper_code_reference/SESSION_HANDOFF_HOPPER_PUBLIC_DELTA_20260718.md`;
 4. `docs/paper_code_reference/SESSION_HANDOFF_D4RL_SHARED_DELTA_20260719.md`.
 
-This append-only delta corrects one engineering premise in the preceding D4RL sharing delta. It does not replace `docs/handoff.md`, authorize a formal run, change a scientific variable, or permit merging PR `#149`.
+This delta corrects the earlier full-engine-sharing premise and records the selected D4RL performance backend. It does not replace `docs/handoff.md`, authorize a formal run, change frozen scientific variables, or permit merging PR `#149`.
 
-## 1. Repository snapshot
+## Repository snapshot
 
 - repository: `easonhuo/drpo`;
-- authoritative main inspected for this audit: `e99489e7435bc26e2a7e30cd8d1a3aa10f4fc67a`;
-- development branch before the audit: `dev/paper-code-reference-01@b2c33539c75462f3cb5cccd68a25f19b072ace51`;
+- authoritative main inspected: `85b0a68d77ed085a7f6e67771fb0f7672c43da09`;
+- development branch before this slice: `dev/paper-code-reference-01@18c062fe19fe1d3e2870addc0dd45be3cf32bb7b`;
 - persistent Draft PR: `#149`;
 - no scientific experiment was launched.
 
-## 2. Premise corrected by source audit
+## Selected backend
 
-The preceding delta correctly prohibited a separate trainer for each HalfCheetah, Hopper, or Walker2d task. It was too broad when it described Hopper E7-Q2 and D4RL-9 as sharing one complete actor/critic/training implementation.
+The repository owner confirmed that the correct D4RL performance backend is `SNA2C_IQLV_ExpRankAgent` and instructed that it be migrated.
 
-Inspection of the authoritative code showed a material scientific difference.
+The selected lineage uses dynamic TD advantages, joint actor and expectile-value updates, a bounded actor mean, and rank-based negative weighting. It is scientifically distinct from the Hopper E7-Q2 frozen-advantage actor-only mechanism backend.
 
-### Hopper E7-Q2 mechanism backend
-
-The migrated Hopper mechanism path uses:
-
-- one canonical critic and frozen advantages;
-- actor-only method branches after preparation;
-- a latent squashed-Gaussian policy;
-- inverse-tanh action mapping and tanh-Jacobian correction in the logged action density;
-- mechanism methods `positive_only`, `signed`, `near_zero`, `far_zero`, `far_cap`, and `dynamic_budget_matched_global`;
-- matched near/far probes and targeted mechanism interventions.
-
-Relevant reference paths include:
-
-- `paper_code/src/drpo_reference/external/hopper_models.py`;
-- `paper_code/src/drpo_reference/external/hopper_actor.py`;
-- `paper_code/src/drpo_reference/external/hopper_suite.py`.
-
-### Canonical D4RL performance lineage
-
-The canonical performance lineage inspected in `main` uses:
-
-- the vendored historical `SNA2C_IQLV_ExpRankAgent` backbone;
-- dynamic TD advantages recomputed during training;
-- joint actor and expectile-value updates;
-- a bounded actor mean with a Normal likelihood evaluated directly on the bounded dataset action;
-- a passthrough ExpRank branch plus injected negative-control variants that change only the negative-advantage multiplier;
-- fixed-horizon pilot profiles, not a frozen formal D4RL-9 protocol.
-
-Relevant source paths include:
+Authoritative source paths:
 
 - `src/drpo/e7_canonical_vendor/d4rl/agents.py`;
 - `src/drpo/e7_canonical_vendor/d4rl/train_sna2c_variant.py`;
-- `src/drpo/e7_canonical_injection.py`;
-- `src/drpo/e7_canonical_sweep.py`;
-- `src/drpo/e7_canonical_two_dataset.py`;
-- `configs/e7_canonical_weight_grid_v1.json`;
-- `src/drpo/e7_canonical_shortlist_protocol.py`.
+- `src/drpo/e7_canonical_vendor/d4rl/d4rl_common/train_loop.py`;
+- `src/drpo/e7_canonical_vendor/d4rl/d4rl_common/normalize.py`.
 
-The two-dataset wrapper fixes `SNA2C_IQLV_ExpRankAgent` as the target class and defines the original ExpRank passthrough plus injected controls. The later shortlist remains pilot-only and covers only Hopper medium-replay and medium-expert.
+## Migration decision
 
-## 3. Nine-task archive evidence and limit
+The paper-facing implementation does not copy a second actor, critic, or trainer. `paper_code/src/drpo_reference/experiments/d4rl.py` now acts as a stable adapter to the vendored canonical source.
 
-The repository closure audit records an external canonical D4RL archive with:
+It now provides:
 
-- nine datasets;
-- seeds `200` and `201`;
-- one-million-step fixed horizons;
-- `576/576` compact rows;
-- no reported numerical failure;
-- pilot status and `formal_ranking=false`.
+- backend identity `canonical_sna2c_iqlv_exprank`;
+- `implementation_selected=true` and `implementation_migrated=true`;
+- SHA-256 provenance for every authoritative source file;
+- dynamic verification that `SNA2C_IQLV_ExpRankAgent` is present;
+- exact construction of the `train_sna2c_variant.py --variant iqlv_exp_rank` command;
+- one task runner for all nine D4RL coordinates;
+- plan-only mode by default and optional non-formal execution;
+- explicit refusal of formal-evidence and method-ranking flags.
 
-The row count is consistent with `9 datasets × 2 seeds × 32 branches`. The canonical weight grid defines 31 injected branches, and the canonical wrapper adds one original ExpRank passthrough, so the archived matrix is structurally consistent with this lineage.
+The vendored source remains the only algorithm implementation. No per-environment performance trainer was added, and the Hopper mechanism trainer is not reused.
 
-This is an inference from the committed row counts and current canonical source family, not proof of an exact launch commit. The closure explicitly records that the archive's repository commit is absent and unresolved. The original report's post-hoc per-task best cells and broad-grid ranking remain descriptive only. Therefore the archive cannot be promoted into the manuscript's claimed ten-run formal benchmark or used to freeze a method winner.
+## Differential coverage
 
-## 4. Correct sharing boundary
+The existing D4RL differential test now checks:
 
-The implementation should share contracts only where they are actually equivalent:
+- the exact nine-task matrix and score references;
+- all task rollout identities;
+- backend selection and migration state;
+- loading and one finite update of the authoritative ExpRank agent;
+- source provenance inventory;
+- canonical trainer command arguments;
+- one trainer path across all nine tasks;
+- plan-only records with formal claims disabled;
+- remaining formal blockers.
 
-- D4RL task and dataset identities;
-- HDF5 schema validation;
-- observation/action shape checks;
-- Gymnasium/MuJoCo interaction boundary;
-- D4RL reference-score normalization;
-- common provenance, I/O, and event taxonomy;
-- one nine-task catalog.
+These are engineering checks, not scientific results.
 
-The following remain backend-specific unless later evidence proves exact equivalence:
+## Remaining formal blockers
 
-- actor likelihood semantics;
-- critic objective and lifecycle;
-- advantage estimator and lifecycle;
-- optimizer schedule;
-- method matrix;
-- terminal-audit protocol.
+Backend selection and migration are no longer blockers. Formal D4RL-9 execution still requires:
 
-Therefore the correct anti-duplication rule is:
+1. SHA-256 values for the eight unresolved datasets;
+2. the final common method controls and coefficients;
+3. the registered ten-run seed coordinate;
+4. formal budget, checkpoint policy, and terminal-audit rules;
+5. real nine-task HDF5 and Gymnasium/MuJoCo liveness;
+6. separate reporting of task-performance collapse, support/variance-boundary events, rollout failure, and NaN/Inf failure.
 
-> Select one scientifically frozen D4RL performance backend for all nine tasks, but do not force the Hopper mechanism backend to serve as that trainer and do not create separate trainers per task.
+Until these are frozen, `formal_evidence_eligible=false` and `method_ranking_claim_allowed=false` remain mandatory.
 
-## 5. Implementation changes
+## Execution status
 
-`paper_code/src/drpo_reference/experiments/d4rl.py` records an explicit `D4RLPerformanceBackendSpec` and the audited candidate:
-
-- experiment ID: `EXT-H-E7-BENCH-01`;
-- backend ID: `legacy_canonical_sna2c_iqlv_candidate`;
-- algorithm family: `SNA2C_IQLV_ExpRank`;
-- status: `pilot_only_unfrozen`;
-- formal task-matrix eligibility: false;
-- Hopper mechanism-runner reuse: false.
-
-The execution plan blocks formal eligibility on both:
-
-- `d4rl9_performance_backend_not_frozen`;
-- `d4rl9_backend_not_formal_matrix_eligible`.
-
-Its manifest distinguishes:
-
-- `shared_task_data_rollout_boundary=true`;
-- `shared_full_training_engine=false`;
-- `separate_per_task_trainers_allowed=false`.
-
-`paper_code/src/drpo_reference/external/d4rl_tasks.py` now owns the backend-independent rollout identity for every D4RL-9 cell:
-
-- backend `gymnasium_mujoco`;
-- exact dataset ID;
-- exact Gymnasium environment ID;
-- the corresponding D4RL reference-score constants.
-
-This advances the shared task/environment boundary without selecting or migrating an unfrozen trainer. The focused differential test verifies all nine identities, the backend separation, formal blockers, and one backend dispatch across the matrix.
-
-## 6. Source-map correction
-
-`docs/paper_code_reference/SOURCE_MIGRATION_MAP.md` replaces the over-broad full-engine sharing statement with the audited boundary above. Historical content was not deleted from Git history; the correction is recorded here and in the PR conversation.
-
-The result-reporting scope was also narrowed to a minimal scientific summary and protocol audit. A general table/figure-generation framework and byte-identical stochastic-output verifier remain out of scope.
-
-## 7. Scientific and execution status
-
-Unchanged:
-
-- Hopper E7-Q2 remains a mechanism external-validity path;
-- D4RL-9 remains a task-performance external-validity path;
-- the canonical nine-task archive and shortlist remain pilot evidence only;
-- the D4RL-9 formal backend, methods, datasets, seeds, budget, and terminal rule remain unfrozen;
-- no method ranking is authorized;
-- no real HDF5, MuJoCo, critic, actor, or benchmark execution occurred in this audit.
-
-## 8. Next allowed step
-
-Before migrating a D4RL-9 performance trainer, the next session must establish from the research authority and registered evidence:
-
-1. whether the canonical ExpRank/injection lineage is the intended formal backend rather than only the source of provisional broad-grid numbers;
-2. the single method and coefficients to be evaluated on untouched runs, rather than post-hoc per-task best cells;
-3. exact dataset identities and SHA-256 values for all nine cells;
-4. the formal ten-run seed coordinate, budget, checkpoint policy, and terminal-audit rule;
-5. whether the manuscript's current ten-run wording is a future protocol target or already has unseen evidence not present in the repository.
-
-Until those are frozen, only backend-independent task, dataset, rollout, normalization, and audit-boundary work may proceed. Do not migrate the broad-grid pilot as though it were the final formal backend.
+No real HDF5 dataset, MuJoCo environment, actor training, critic training, manuscript-number validation, or method ranking was executed in this slice. PR `#149` remains Draft and unmerged.
