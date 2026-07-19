@@ -10,6 +10,7 @@ from typing import Any
 
 import yaml
 
+from runspec_delivery_policy import validate_simple_size_policy
 from runspec_lib import (
     ARTIFACT_DIRNAME,
     CLAIMED_DIR,
@@ -153,6 +154,7 @@ def validate_runspec_safe(
     )
     spec["registration"] = registration
     validate_recovery_policy(repo, spec)
+    validate_simple_size_policy(spec)
     validate_delivery_block(spec, str(spec.get("lane") or ""))
     validate_provenance(repo, spec)
     return spec

@@ -14,9 +14,12 @@ if str(AGENT_DIR) not in sys.path:
 
 import run_claimed_runspec as runner  # noqa: E402
 import runspec_results_delivery as results_delivery  # noqa: E402
+import runspec_safety as safety  # noqa: E402
 from runspec_delivery_policy import (  # noqa: E402
     RESULT_TOO_LARGE,
+    formal_delivery_required,
     is_result_too_large_error,
+    validate_formal_delivery_policy,
     validate_simple_size_policy,
 )
 from runspec_lib import RunSpecError  # noqa: E402
@@ -28,6 +31,7 @@ def delivery_spec() -> dict:
         "run_id": "E7-SIZE-POLICY-1",
         "lane": "e7",
         "experiment_id": "EXT-H-E7-SIZE-POLICY-01",
+        "policy": {"formal_evidence_allowed": True},
         "delivery": {
             "enabled": True,
             "auto": True,
@@ -40,6 +44,110 @@ def delivery_spec() -> dict:
         },
         "publish": {"enabled": False, "auto": False},
     }
+
+
+def test_formal_delivery_is_fail_closed_and_local_only_is_explicit() -> None:
+    missing_declaration = {
+        "lane": "e7",
+        "policy": {},
+        "delivery": {"enabled": False, "auto": False},
+    }
+    assert formal_delivery_required(missing_declaration) is True
+    with pytest.raises(RunSpecError, match="formal RunSpec requires"):
+        validate_formal_delivery_policy(missing_declaration)
+
+    explicit_formal = {
+        "lane": "e7",
+        "policy": {"formal_evidence_allowed": True},
+        "delivery": {"enabled": True, "auto": False},
+    }
+    with pytest.raises(RunSpecError, match="delivery.enabled=true and delivery.auto=true"):
+        validate_formal_delivery_policy(explicit_formal)
+
+    local_only = {
+        "lane": "e7",
+        "policy": {"formal_evidence_allowed": False},
+        "delivery": {"enabled": False, "auto": False},
+    }
+    assert formal_delivery_required(local_only) is False
+    assert validate_formal_delivery_policy(local_only) is False
+    assert validate_simple_size_policy(local_only) is None
+
+
+def test_formal_delivery_requires_canonical_repository_and_lane_branch() -> None:
+    spec = delivery_spec()
+    assert validate_formal_delivery_policy(spec) is True
+
+    spec["delivery"]["repository"] = "easonhuo/other-results"
+    with pytest.raises(RunSpecError, match="easonhuo/drpo-results"):
+        validate_formal_delivery_policy(spec)
+
+    spec = delivery_spec()
+    spec["delivery"]["branch"] = "ingest/e8"
+    with pytest.raises(RunSpecError, match="ingest/e7"):
+        validate_formal_delivery_policy(spec)
+
+
+def test_formal_declaration_must_be_boolean() -> None:
+    spec = delivery_spec()
+    spec["policy"]["formal_evidence_allowed"] = "yes"
+    with pytest.raises(RunSpecError, match="must be a boolean"):
+        formal_delivery_required(spec)
+
+
+def test_claim_rejects_missing_formal_delivery_before_state_creation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repo = tmp_path / "repo"
+    ready = repo / "runspecs" / "ready" / "E7-FORMAL-MISSING-DELIVERY.yaml"
+    ready.parent.mkdir(parents=True)
+    ready.write_text("version: 1\n", encoding="utf-8")
+    spec = {
+        "version": 1,
+        "run_id": "E7-FORMAL-MISSING-DELIVERY",
+        "lane": "e7",
+        "experiment_id": "EXT-H-E7-FORMAL-MISSING-DELIVERY",
+        "policy": {
+            "existing_script_required": True,
+            "forbid_new_launcher": True,
+            "forbid_hparam_change": True,
+            "forbid_cross_lane": True,
+        },
+        "delivery": {"enabled": False, "auto": False},
+    }
+
+    monkeypatch.setattr(safety, "read_yaml", lambda *_args, **_kwargs: dict(spec))
+    monkeypatch.setattr(
+        safety,
+        "validate_registration_block",
+        lambda *_args, **_kwargs: {"mode": "deferred", "closure_required": True},
+    )
+    monkeypatch.setattr(
+        safety,
+        "registration_requires_registry",
+        lambda *_args, **_kwargs: False,
+    )
+    monkeypatch.setattr(
+        safety,
+        "validate_runspec",
+        lambda *_args, **_kwargs: dict(spec),
+    )
+    monkeypatch.setattr(safety, "validate_recovery_policy", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(safety, "validate_delivery_block", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(safety, "validate_provenance", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(safety, "iter_ready_specs", lambda *_args, **_kwargs: [ready])
+
+    with pytest.raises(RunSpecError, match="NO_READY_TASK") as rejected:
+        safety.claim_next_runspec_safe(repo, lane_config={"lane": "e7"})
+
+    assert "formal RunSpec requires" in str(rejected.value)
+    assert not (
+        repo
+        / ".runspec_state"
+        / "claimed"
+        / "E7-FORMAL-MISSING-DELIVERY.yaml"
+    ).exists()
 
 
 def test_v1_size_limits_are_hard_caps() -> None:
