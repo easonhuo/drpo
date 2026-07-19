@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from drpo_reference.experiments.d4rl import (
+    LEGACY_CANONICAL_BACKEND_CANDIDATE,
     dispatch_d4rl9,
     resolve_d4rl9_execution,
 )
@@ -66,6 +67,19 @@ def test_reference_scores_and_hopper_identity_match_frozen_protocol() -> None:
     )
 
 
+def test_backend_audit_separates_mechanism_and_performance() -> None:
+    backend = LEGACY_CANONICAL_BACKEND_CANDIDATE
+    assert backend.algorithm_family == "SNA2C_IQLV_ExpRank"
+    assert backend.protocol_status == "pilot_only_unfrozen"
+    assert backend.protocol_frozen is False
+    assert backend.formal_task_matrix_eligible is False
+    assert backend.mechanism_runner_reusable is False
+    assert "d4rl_reference_score_normalization" in backend.shared_contracts
+    assert "actor_likelihood_contract" in backend.distinct_contracts
+    assert "critic_update_lifecycle" in backend.distinct_contracts
+    assert "advantage_lifecycle" in backend.distinct_contracts
+
+
 def test_unverified_dataset_hashes_fail_closed(tmp_path: Path) -> None:
     task = resolve_d4rl_task("halfcheetah-medium-v2")
     path = tmp_path / task.dataset_basename
@@ -87,9 +101,7 @@ def test_unverified_dataset_hashes_fail_closed(tmp_path: Path) -> None:
         )
 
 
-def test_execution_plan_exposes_provenance_and_protocol_blockers(
-    tmp_path: Path,
-) -> None:
+def test_execution_plan_exposes_all_formal_blockers(tmp_path: Path) -> None:
     plan = resolve_d4rl9_execution(
         dataset_paths=_paths(tmp_path),
         seeds=tuple(range(10)),
@@ -97,14 +109,22 @@ def test_execution_plan_exposes_provenance_and_protocol_blockers(
     assert plan.formal_evidence_eligible is False
     assert plan.method_ranking_claim_allowed is False
     assert plan.dataset_identity_complete is False
+    assert plan.backend_protocol_complete is False
     assert any(
         reason.startswith("unresolved_dataset_sha256:")
         for reason in plan.blocked_reasons
     )
+    assert "d4rl9_performance_backend_not_frozen" in plan.blocked_reasons
+    assert (
+        "d4rl9_backend_not_formal_matrix_eligible"
+        in plan.blocked_reasons
+    )
     assert "d4rl9_performance_protocol_not_frozen" in plan.blocked_reasons
     manifest = plan.as_manifest()
-    assert manifest["shared_locomotion_engine"] is True
-    assert manifest["separate_d4rl_trainer_implemented"] is False
+    assert manifest["shared_task_data_rollout_boundary"] is True
+    assert manifest["shared_full_training_engine"] is False
+    assert manifest["mechanism_runner_reusable_for_performance"] is False
+    assert manifest["separate_per_task_trainers_allowed"] is False
 
     with pytest.raises(ValueError, match="duplicates"):
         resolve_d4rl9_execution(
@@ -120,7 +140,7 @@ def test_execution_plan_exposes_provenance_and_protocol_blockers(
         )
 
 
-def test_dispatch_uses_one_injected_runner_for_every_task(tmp_path: Path) -> None:
+def test_dispatch_uses_one_backend_runner_for_every_task(tmp_path: Path) -> None:
     plan = resolve_d4rl9_execution(
         dataset_paths=_paths(tmp_path / "data"),
         seeds=(1,),
@@ -128,17 +148,18 @@ def test_dispatch_uses_one_injected_runner_for_every_task(tmp_path: Path) -> Non
     )
     calls: list[dict[str, object]] = []
 
-    def shared_runner(**kwargs: object) -> dict[str, object]:
+    def backend_runner(**kwargs: object) -> dict[str, object]:
         calls.append(kwargs)
+        task = kwargs["task"]
         return {
-            "task_id": kwargs["task"].task_id,
+            "task_id": task.task_id,
             "formal_result_claim": False,
         }
 
     result = dispatch_d4rl9(
         plan=plan,
         output_root=tmp_path / "output",
-        task_runner=shared_runner,
+        task_runner=backend_runner,
         allow_non_evidence=True,
     )
     assert len(calls) == 9
@@ -146,10 +167,15 @@ def test_dispatch_uses_one_injected_runner_for_every_task(tmp_path: Path) -> Non
         task.task_id for task in D4RL9_TASKS
     ]
     assert all(
+        call["backend"] is LEGACY_CANONICAL_BACKEND_CANDIDATE
+        for call in calls
+    )
+    assert all(
         call["method_ranking_claim_allowed"] is False
         for call in calls
     )
-    assert result["shared_locomotion_engine"] is True
+    assert result["shared_task_data_rollout_boundary"] is True
+    assert result["shared_full_training_engine"] is False
     assert result["method_ranking_claim_allowed"] is False
 
     blocked = resolve_d4rl9_execution(
@@ -160,5 +186,5 @@ def test_dispatch_uses_one_injected_runner_for_every_task(tmp_path: Path) -> Non
         dispatch_d4rl9(
             plan=blocked,
             output_root=tmp_path / "blocked",
-            task_runner=shared_runner,
+            task_runner=backend_runner,
         )
