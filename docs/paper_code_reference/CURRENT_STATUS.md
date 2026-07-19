@@ -4,7 +4,7 @@
 **Not a research master:** `docs/handoff.md` remains the unique research source of truth.  
 **Claim:** `PAPER-CODE-REFERENCE-01`  
 **Scientific-status impact:** none.  
-**Last audited branch head before this document:** `1394a29ef79296ab3ae1e1f3793417fb9d430444`.
+**Last audited branch head before this document:** `30091c5aa87a856ba093c4b770c92b631d791d52`.
 
 This file consolidates the current engineering state without deleting historical records. It supersedes stale *current-status* and *next-slice* statements in the older task-local handoff and delta files. Those older files remain provenance for the order in which the migration was implemented and reviewed.
 
@@ -32,7 +32,7 @@ At the audit immediately before this document:
 - current `main`: `85b0a68d77ed085a7f6e67771fb0f7672c43da09`;
 - task base and current merge base: `4544005bd7df69c53bad70a9dcac846af01285e4`;
 - only active development branch: `dev/paper-code-reference-01`;
-- development head before this document: `1394a29ef79296ab3ae1e1f3793417fb9d430444`;
+- development head before this document: `30091c5aa87a856ba093c4b770c92b631d791d52`;
 - persistent cumulative Draft PR: `#149`;
 - PR state: open, Draft, unmerged;
 - overall task state: `in_development`.
@@ -64,7 +64,7 @@ It is **not** required to duplicate the repository's internal scientific-governa
 - manuscript table-cell and artifact-hash binding;
 - internal collapse-taxonomy adjudication and formal result promotion.
 
-The public code should still fail clearly on missing files, invalid shapes, non-finite training, unavailable rollout environments, and incomplete commands. A lightweight record such as `training_completed`, `final_step`, `final_checkpoint`, `finite`, and `evaluation_completed` is normal software robustness, not an internal formal audit.
+The public code still fails clearly on missing files, invalid shapes, non-finite training, unavailable rollout environments, and incomplete commands. Lightweight fields such as `training_completed`, `final_step`, `final_checkpoint`, `finite`, and `evaluation_completed` are normal software robustness, not an internal formal audit.
 
 Training and rollout scores may vary across hardware, dependency versions, and random seeds. Reviewer-facing reproducibility means the algorithm and stated protocol are runnable and the reported trend is reproducible under the specified coordinate; it does not promise byte-identical single-run scores on every machine.
 
@@ -78,7 +78,7 @@ Do not conflate the scientific status registered in the main repository with the
 | C-U1 | experiment-specific statuses remain authoritative in `docs/handoff.md` and the registry | implementation complete | registered reproduction remains an internal scientific task |
 | D-U1 revision 4 | `not_run` for the active formal matrix | implementation complete | formal run remains an internal scientific task |
 | Hopper E7-Q2 | `long_run_validated` for the existing learned-critic external mechanism result | implementation complete | real registered-data reproduction through the new runner |
-| D4RL-9 / `EXT-H-E7-BENCH-01` | historical archive is pilot provenance only; no formal ranking | algorithm core and public training runner implemented | rollout evaluator, simple aggregation, real liveness |
+| D4RL-9 / `EXT-H-E7-BENCH-01` | historical archive is pilot provenance only; no formal ranking | algorithm, public training, rollout evaluation, and simple aggregation implemented | exact-head CI and real HDF5/MuJoCo liveness |
 | Countdown | final manuscript-facing protocol/result not frozen | blocked at the experiment-entry layer | freeze final protocol and result before migration |
 
 A smoke, static check, first update, or fixed short trajectory is engineering evidence only. It does not change scientific status.
@@ -99,7 +99,7 @@ The Hopper mechanism implementation includes data, models, critic, frozen advant
 
 ### 5.4 D4RL-9 performance profile
 
-Already migrated:
+Implemented reviewer-facing code:
 
 - exact nine-task catalog, dataset basenames, environment IDs, reference-score constants, and fail-closed SHA state in `external/d4rl_tasks.py`;
 - `CanonicalActor`, `CanonicalCritic`, and `SNA2CIQLVExpRankAgent`;
@@ -110,44 +110,35 @@ Already migrated:
 - differential tests for initialization, forward values, rank weights, first Adam update, fixed short trajectory, dataset preparation, checkpoint records, task identities, and one-backend dispatch;
 - reviewer-facing `run_d4rl` entry point in `experiments/__init__.py`;
 - public `drpo-reference d4rl` CLI;
-- selected-task or all-nine-task training, per-seed output roots, final checkpoints, `RUN_MANIFEST.json`, `SUMMARY.json`, `COMPLETED.json`, and `FAILED.json`;
-- explicit non-formal status and explicit `evaluation_completed: false` until rollout evaluation exists.
+- selected-task or all-nine-task training, per-seed output roots, final checkpoints, and lightweight completion/failure records;
+- optional direct Gymnasium/MuJoCo evaluation in `HalfCheetah-v4`, `Hopper-v4`, and `Walker2d-v4`;
+- reset/step compatibility, termination/truncation handling, deterministic episode seeding, action clipping, dimension and finiteness checks;
+- raw return and D4RL normalized score per episode;
+- episode mean/std and task-level mean/std across seed means;
+- optional `rollout` dependency extra for Gymnasium/MuJoCo;
+- controlled fake-environment tests for evaluation semantics.
 
-The canonical legacy D4RL files remain differential oracles, not runtime dependencies of the paper package.
+The canonical legacy D4RL files remain differential oracles, not runtime dependencies of the paper package. The D4RL evaluator is intentionally direct and readable rather than duplicating Hopper's heavier process-isolated mechanism-validation preflight. Environment failure is reported clearly and does not become a task-performance score.
 
-## 6. D4RL code still required
+## 6. D4RL remaining work
 
-### 6.1 Three-environment rollout evaluator
+### 6.1 Reviewer-facing runtime
 
-The next core reviewer-facing slice is deterministic evaluation of trained ExpRank actors in:
+No additional core actor, critic, training-loop, rollout, or simple aggregation migration is currently required. The remaining reviewer-facing gate is a real liveness run using compatible HDF5 files and Gymnasium/MuJoCo. That liveness is execution evidence only and must not be reported as a formal method result.
 
-- `HalfCheetah-v4`;
-- `Hopper-v4`;
-- `Walker2d-v4`.
+A standalone checkpoint-only evaluation command could be added later for convenience, but it is not required for the current train-and-evaluate reviewer workflow because `drpo-reference d4rl --eval-episodes N` evaluates each trained actor before command completion.
 
-Required behavior:
-
-- process-isolated Gymnasium/MuJoCo preflight;
-- observation and action dimension checks against the checkpoint and dataset task;
-- deterministic actor action with clipping;
-- correct reset/step, termination/truncation, episode seeding, timeout, and environment-unavailable behavior;
-- raw return and D4RL normalized-score calculation;
-- mean/std across evaluation episodes;
-- no silent `d4rl` or `mujoco_py` fallback.
-
-The characterized low-level contracts in the Hopper rollout code may be reused, but the Hopper mechanism trainer must not become the D4RL performance trainer.
-
-### 6.2 Simple aggregation
-
-After rollout evaluation, add a small deterministic aggregator that reports per-task and per-seed raw return and normalized-score mean/std. It should reject missing or malformed reviewer-run outputs but does not need manuscript table-cell binding or internal formal-evidence governance.
-
-### 6.3 Method-matrix execution remains protocol blocked
+### 6.2 Method-matrix execution remains protocol blocked
 
 Only the selected `SNA2C_IQLV_ExpRank` backend is currently exposed. The final comparison arms and common coefficients are not frozen, so no multi-method matrix should be invented. After explicit protocol approval, exact frozen arms may be added through the same shared backend without per-task trainer copies or post-hoc per-task method selection.
 
+### 6.3 Internal formal experiment lifecycle
+
+Formal seeds, budgets, checkpoint roles, full matrix completeness, terminal scientific adjudication, result promotion, and manuscript artifact binding remain in the internal repository workflow. They are not reviewer-code migration defects.
+
 ## 7. D4RL items that are not missing code
 
-The following are provenance, protocol, resource, execution, or internal review gates rather than current reviewer-code defects:
+The following are provenance, protocol, resource, execution, or internal review gates:
 
 - SHA-256 values for eight unresolved dataset coordinates;
 - authoritative resolution of the historical archive launch commit;
@@ -155,17 +146,15 @@ The following are provenance, protocol, resource, execution, or internal review 
 - registered ten-run seed coordinate;
 - formal budgets and checkpoint policy;
 - availability of all real HDF5 datasets and compatible Gymnasium/MuJoCo dependencies;
-- real liveness and full-budget execution;
+- real nine-task liveness and full-budget execution;
 - internal terminal scientific review and final manuscript values.
 
 ## 8. Exact next sequence
 
-1. Run exact-head CI for the new D4RL public training runner.
-2. Perform the integration-freshness audit against current `main` before the next substantial slice.
-3. Implement the three-environment rollout evaluator by extending existing Python files where responsibilities fit; any new `.py` path still requires explicit human approval.
-4. Add controlled fake-environment tests and focused checkpoint/evaluation tests.
-5. Run real environment liveness before any large execution.
-6. Add simple reviewer-facing multi-seed aggregation.
-7. Keep formal experiment registration, full execution, terminal scientific review, and manuscript artifact binding in the internal repository workflow.
+1. Run exact-head CI for the D4RL train-and-evaluate reviewer workflow.
+2. Perform the integration-freshness audit against current `main` before any final merge proposal.
+3. Run a low-cost real HDF5/Gymnasium/MuJoCo liveness on one representative coordinate.
+4. Expand real liveness to the three environment families before any nine-task execution.
+5. Keep formal experiment registration, method-matrix freeze, full execution, terminal scientific review, and manuscript artifact binding in the internal repository workflow.
 
 No formal experiment was launched by this code slice. No method ranking, scientific status, seed, threshold, formal budget, or coefficient was changed.
