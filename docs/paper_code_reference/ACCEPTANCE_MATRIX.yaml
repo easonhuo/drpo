@@ -17,6 +17,10 @@ rules:
   legacy_pilot_profile_is_not_final_method_matrix: true
   d4rl_exprank_remains_implicit_default: true
   no_post_hoc_per_task_method_selection: true
+  countdown_stable_core_is_not_final_experiment_entry: true
+  countdown_linear_surprisal_must_not_be_silently_squared: true
+  countdown_public_command_requires_final_protocol_freeze_and_path_approval: true
+  countdown_does_not_replace_du1_controlled_identification: true
   separate_events:
     - task_performance_collapse
     - support_or_probability_or_variance_boundary
@@ -257,22 +261,84 @@ phases:
       - selected_conclusion_report
   countdown:
     previous_status: blocked_pending_final_protocol_and_result_freeze
-    status: blocked_pending_final_protocol_and_result_freeze
+    status: stable_core_implemented_final_experiment_entry_blocked
+    scientific_role: external_transformer_validity
+    approved_core_path: paper_code/src/drpo_reference/categorical/countdown.py
+    approval_record:
+      source: user_explicit_approval
+      draft_pull_request: 149
+      comment_id: 5016309623
+      scope_limited_to_stable_core: true
+      final_experiment_entry_approved: false
     stable_characterization_sources:
       - src/drpo/countdown_qwen_arena_onefile.py
-      - src/drpo/countdown_e8_taper.py
-    intended_reference_entrypoint: paper_code/src/drpo_reference/experiments/countdown.py
-    pending_gates:
-      - final_main_source_frozen
-      - token_mask_identity
-      - eos_identity
-      - sequence_log_probability_identity
-      - verifier_identity
-      - taper_identity
-      - first_optimizer_update_identity
-      - selected_checkpoint_evaluation_identity
-      - terminal_evaluation_identity
-      - registered_real_qwen_cuda_rerun
+      - src/drpo/countdown_e8_alpha1_c_scan_common.py
+      - src/drpo/countdown_e8_alpha1_highc_scan_common.py
+      - docs/experiments/E8_PAPER_ALIGNED_LINEAR_SCAN_PROTOCOL.md
+      - docs/experiments/E8_PAPER_ALIGNED_LINEAR_C_EXTENSION_PROTOCOL.md
+    stable_core_scope:
+      expression_cleaning: implemented
+      exact_fraction_verifier: implemented
+      verifier_category_separation: implemented
+      chat_prompt_rendering: implemented
+      completion_eos_and_prompt_masking: implemented
+      completion_only_sequence_log_probability: implemented
+      entropy_and_bounded_direct_logit_score: implemented
+      weighted_sequence_denominator_without_weight_sum_normalization: implemented
+      first_occurrence_unique_negative_bank: implemented
+      normalized_sequence_surprisal_u_equals_negative_logp_over_two: implemented
+      detached_paper_aligned_linear_weight_alpha_exp_negative_c_u: implemented
+      greedy_pass_at_k_valid_rate_aggregation: implemented
+      transformers_or_peft_runtime_dependency: false
+      model_or_training_protocol_selected: false
+      public_experiment_command_available: false
+      final_protocol_frozen: false
+      formal_result_claim_allowed: false
+    passed_engineering_gates:
+      - approved_new_python_path_recorded_before_creation
+      - canonical_expression_cleaning_characterization
+      - exact_fraction_verifier_characterization
+      - verifier_category_separation
+      - prompt_mask_and_eos_characterization
+      - completion_truncation_fail_closed
+      - completion_padding_characterization
+      - completion_only_sequence_log_probability_characterization
+      - entropy_and_direct_logit_score_characterization
+      - weighted_sequence_denominator_characterization
+      - first_occurrence_unique_negative_characterization
+      - detached_linear_surprisal_formula_characterization
+      - squared_surprisal_regression_rejected
+      - greedy_pass_at_k_valid_rate_characterization
+      - lightweight_metrics_marked_nonfinal
+      - clean_checkout_compile_pytest_ruff_for_stable_core
+    excluded_from_current_core:
+      - historical_one_file_public_orchestration
+      - model_and_lora_loading
+      - gpu_and_runtime_scheduler
+      - training_loop_and_optimizer_selection
+      - checkpoint_selection
+      - runspec_and_artifact_delivery
+      - final_method_matrix_or_default_coefficient
+      - final_model_scale_seeds_budget_or_test_protocol
+    final_entry_blockers:
+      - final_manuscript_facing_protocol_and_result_unfrozen
+      - exact_final_experiment_entry_python_path_not_approved
+      - final_model_scale_and_initialization_unfrozen
+      - final_comparison_arms_and_default_coefficient_unfrozen
+      - formal_or_confirmatory_seeds_unfrozen
+      - training_budget_and_checkpoint_selection_unfrozen
+      - final_validation_and_test_access_protocol_unfrozen
+      - first_optimizer_update_identity_not_migrated
+      - selected_checkpoint_evaluation_identity_not_migrated
+      - terminal_evaluation_identity_not_migrated
+      - registered_real_qwen_cuda_rerun_not_run
+      - selected_conclusion_report_unavailable
+    pending_scientific_gates:
+      - final_protocol_and_result_freeze
+      - separate_final_entry_path_approval
+      - selected_training_and_evaluation_lifecycle_migration
+      - registered_real_qwen_cuda_execution
+      - terminal_result_review
       - selected_conclusion_report
 ready_definition:
   required:
