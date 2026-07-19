@@ -19,6 +19,23 @@ C-U1 and D-U1 both use independent train and held-out contexts drawn from the
 same distribution. Their result is **same-distribution held-out-context
 generalization**, not OOD generalization.
 
+## Reviewer-facing scope
+
+The public package is designed to give reviewers readable, runnable algorithms
+with explicit data identities, training commands, checkpoints, rollout
+evaluation, and simple result summaries. It is not a second copy of the
+repository's internal scientific-governance system.
+
+Public runners retain normal software safeguards: new-or-empty output roots,
+clear failures, non-finite checks, final checkpoints, and lightweight completion
+records. Registry updates, formal-evidence eligibility, full matrix governance,
+scientific terminal adjudication, and manuscript table-cell/artifact binding
+remain internal responsibilities.
+
+Scores may vary across seeds, hardware, MuJoCo/Gymnasium versions, and numerical
+libraries. The goal is reproducibility of the algorithm and stated protocol,
+not byte-identical single-run scores on every machine.
+
 ## Install and test
 
 ```bash
@@ -98,8 +115,6 @@ Positive-only preparation, six actor branches, matched near/far diagnostics,
 process-isolated Gymnasium/MuJoCo preflight, rollout evaluation, aggregation,
 and root terminal audit.
 
-Public entry point:
-
 ```bash
 drpo-reference hopper \
   --dataset /ABS/PATH/TO/hopper_medium_replay-v2.hdf5 \
@@ -117,60 +132,76 @@ python -m drpo_reference hopper \
 Optional registered-order seed subsets and `--smoke` are always marked
 non-evidence. The existing main-repository Hopper E7-Q2 scientific result is
 `long_run_validated`; the new paper-facing runner still requires real
-registered-data reproduction and terminal review before migration closure.
+registered-data reproduction before migration closure.
 
 ## D4RL-9 locomotion performance
 
-The paper-facing D4RL-9 code uses one migrated
-`SNA2C_IQLV_ExpRank` performance implementation for HalfCheetah, Hopper, and
-Walker2d across medium, medium-replay, and medium-expert. It is scientifically
-and operationally separate from the Hopper E7-Q2 frozen-advantage mechanism
-runner.
-
-Already migrated:
-
-```text
-src/drpo_reference/experiments/d4rl.py
-src/drpo_reference/external/d4rl_tasks.py
-```
+The D4RL-9 implementation uses one migrated `SNA2C_IQLV_ExpRank` trainer for
+HalfCheetah, Hopper, and Walker2d across medium, medium-replay, and
+medium-expert. It remains scientifically and operationally separate from the
+Hopper E7-Q2 frozen-advantage mechanism runner.
 
 The migrated code contains the actor, critic, dynamic TD/expectile update,
 rank-based negative weighting, locomotion preparation, deterministic minibatch
 training, checkpoint payload, nine-task catalog, fail-closed dataset identity,
-and one-backend dispatch boundary.
+and a reviewer-facing public training runner.
 
-There is **not yet a public `drpo-reference d4rl` command**. Formal D4RL-9
-execution remains disabled because the concrete nine-task runtime, generic
-three-environment rollout evaluator, frozen method-matrix execution, formal
-budget/checkpoint/terminal-audit lifecycle, aggregation, and minimal paper
-binding are still incomplete. Eight dataset hashes, final controls and
-coefficients, ten-run seeds, budgets, runtime resources, and real execution are
-separate protocol/provenance/resource blockers rather than missing actor or
-critic code.
+A selected-task non-formal run:
 
-See `../docs/paper_code_reference/CURRENT_STATUS.md` for the exact code-versus-
-protocol split.
+```bash
+drpo-reference d4rl \
+  --dataset-root /ABS/PATH/TO/D4RL_V2_HDF5 \
+  --tasks hopper-medium-replay-v2 \
+  --seeds 200,201 \
+  --steps 100000 \
+  --output outputs/d4rl_hopper_medium_replay
+```
+
+Omit `--tasks` to run all nine tasks. The dataset root must contain each selected
+task's canonical filename. A tiny integration path is available:
+
+```bash
+drpo-reference d4rl \
+  --dataset-root /ABS/PATH/TO/D4RL_V2_HDF5 \
+  --tasks halfcheetah-medium-v2 \
+  --seeds 7 \
+  --output outputs/d4rl_smoke \
+  --smoke
+```
+
+The runner writes per-seed final checkpoints plus `RUN_MANIFEST.json`,
+`SUMMARY.json`, `COMPLETED.json`, or `FAILED.json`. These records explicitly mark
+the run as non-formal and currently set `evaluation_completed: false`.
+
+Still pending in reviewer-facing code:
+
+- deterministic rollout evaluation in `HalfCheetah-v4`, `Hopper-v4`, and
+  `Walker2d-v4`;
+- raw return and D4RL normalized-score mean/std;
+- simple multi-seed aggregation of completed reviewer runs.
+
+The final comparison matrix, formal seeds, formal budgets, and eight unresolved
+dataset hashes remain protocol/provenance issues. They are not missing actor or
+critic code and are not silently frozen by the public runner.
 
 ## Artifact and evidence boundary
 
-Every complete public runner writes protocol manifests, per-seed artifacts,
-aggregate results, and a terminal audit. Task-performance collapse,
-support/variance or probability-boundary events, NaN/Inf numerical failures,
-environment invalidity or rollout unavailability, and incomplete terminal state
-remain separate fields.
+A public runner's completion record only answers whether that command finished,
+wrote its expected checkpoint, stayed finite, and completed any configured
+evaluation. It does not promote the output to formal scientific evidence.
 
-Supplying a seed subset or `--smoke` always writes
-`formal_evidence_allowed: false`. A full matrix is not accepted unless every
-registered run is present and its terminal audit is resolved. The code never
-assumes that Distance, exponential, global scaling, SBRC, Hybrid, or any other
-method must win.
+Task-performance collapse, support/variance or probability-boundary events,
+NaN/Inf numerical failures, environment invalidity or rollout unavailability,
+and incomplete terminal state remain distinct in internal scientific review.
+The public code never assumes that Distance, exponential, global scaling, SBRC,
+Hybrid, or any other method must win.
 
 Current migration status:
 
 - C-U1 implementation candidate complete; registered reproduction pending;
 - D-U1 revision-4 implementation candidate complete; formal run pending;
 - Hopper E7-Q2 implementation candidate complete; registered real reproduction pending;
-- D4RL-9 selected algorithm core migrated; formal runtime and protocol closure pending;
+- D4RL-9 algorithm core and public training runner complete; rollout and simple aggregation pending;
 - Countdown blocked pending final manuscript-facing protocol and result freeze.
 
 No smoke or short differential result is a paper result. The machine-readable
