@@ -1,9 +1,8 @@
-name: ReplayAB Post-fix C01 PR159 Calibration
+name: ReplayAB Post-fix C01 Current-main Calibration
 
 on:
   pull_request:
-    branches:
-      - main
+    branches: [main]
     types: [opened, synchronize, reopened]
   workflow_dispatch:
 
@@ -11,7 +10,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: replayab-postfix-c01-pr159-calibration
+  group: replayab-postfix-c01-current-main-calibration
   cancel-in-progress: false
 
 jobs:
@@ -32,12 +31,13 @@ jobs:
       - name: Install development dependencies
         run: python -m pip install -e '.[dev]'
 
-      - name: Run C01 PR159 Arm-A calibration
+      - name: Run current-main C01 Arm-A calibration
         shell: bash
         run: |
           set -euo pipefail
           TOOLCHAIN=2ba5dbf18cf1ce986abe9e8d011cbf72deff1698
           git cat-file -e "${TOOLCHAIN}^{commit}"
+          git cat-file -e "dc46ea12af90971c9f3cb4137560d3d71bb308b3^{commit}"
           git worktree add --detach /tmp/replayab-toolchain "$TOOLCHAIN"
           python - <<'PY'
           import json
@@ -49,37 +49,38 @@ jobs:
 
           import yaml
 
-          workspace_root = Path(os.environ['GITHUB_WORKSPACE']).resolve()
-          toolchain_root = Path('/tmp/replayab-toolchain').resolve()
-          for path in (toolchain_root / 'src', toolchain_root / 'scripts'):
+          source_repo = Path(os.environ['GITHUB_WORKSPACE']).resolve()
+          toolchain = Path('/tmp/replayab-toolchain').resolve()
+          for path in (toolchain / 'src', toolchain / 'scripts'):
               sys.path.insert(0, str(path))
 
           from dev_integration_write_path import load_json, sha256, write_json
           import run_workflow_replay as replay
 
           toolchain_sha = '2ba5dbf18cf1ce986abe9e8d011cbf72deff1698'
-          base_sha = 'e99489e7435bc26e2a7e30cd8d1a3aa10f4fc67a'
-          implementation_sha = '989ac6dbae8c9e574bda7ac7e334ea764847fd19'
-          packet = workspace_root / 'tests/fixtures/workflow_replay/candidate01_c1/c01_pr159_code_only_packet.yaml'
+          base_sha = '85b0a68d77ed085a7f6e67771fb0f7672c43da09'
+          source_sha = 'dc46ea12af90971c9f3cb4137560d3d71bb308b3'
+          case_id = 'C01-CURRENT-MAIN-READY'
+          packet = source_repo / 'tests/fixtures/workflow_replay/candidate01_c1/c01_current_main_ready_packet.yaml'
           source_spec = yaml.safe_load(packet.read_text(encoding='utf-8'))['source']
           contract = SimpleNamespace(
               base=SimpleNamespace(
                   historical_task={
                       'base_sha': base_sha,
-                      'frozen_implementation_sha': implementation_sha,
+                      'frozen_implementation_sha': source_sha,
                   },
                   benchmark={'toolchain_sha': toolchain_sha},
               ),
-              sha256='c01-pr159-arm-a-postfix-calibration',
+              sha256='c01-current-main-ready-arm-a-calibration',
           )
-          root = Path('/tmp/replayab-postfix-c01-pr159')
+          root = Path('/tmp/replayab-c01-current-main-ready')
           root.mkdir()
-          workspace = replay._clone(workspace_root, root, source_spec, contract)
+          workspace = replay._clone(source_repo, root, source_spec, contract)
           before = replay._commit_workspace(root / 'source.git', base_sha)
           identity = SimpleNamespace(
               run_id='1' * 64,
               arm='A',
-              case_id='C01-CODE-ONLY-PR159',
+              case_id=case_id,
               pair_id='calibration',
               order_position=0,
           )
@@ -96,19 +97,21 @@ jobs:
           ready = load_json(transaction / 'READY_COMMIT.json', 'ready')
           gate = load_json(transaction / 'GATE_REPORT.json', 'gate')
           normalization = load_json(transaction / 'NORMALIZATION_REPORT.json', 'normalization')
-          paths = tuple(sorted(ready['changed_paths']))
-          modes = replay._modes(transaction / 'integration-repo', completed.ready_commit_sha, paths)
-          result_path = root / 'result.json'
-          write_json(
-              result_path,
-              {
-                  'case_id': 'C01-CODE-ONLY-PR159',
-                  'base_sha': base_sha,
-                  'tree_sha': ready['tree_sha'],
-                  'changed_paths': paths,
-                  'file_modes': modes,
-              },
+          changed_paths = tuple(sorted(ready['changed_paths']))
+          file_modes = replay._modes(
+              transaction / 'integration-repo', completed.ready_commit_sha, changed_paths
           )
+          expected_path = 'docs/development_workflow_optimization/benchmarks/CANDIDATE01_C01_CURRENT_MAIN_READY_PROBE.md'
+          assert changed_paths == (expected_path,), changed_paths
+          assert file_modes == {expected_path: '100644'}, file_modes
+          result_path = root / 'result.json'
+          write_json(result_path, {
+              'case_id': case_id,
+              'base_sha': base_sha,
+              'tree_sha': ready['tree_sha'],
+              'changed_paths': changed_paths,
+              'file_modes': file_modes,
+          })
           after = replay._workspace(transaction / 'integration-repo')
           timing = journal.finish(
               'READY',
@@ -119,34 +122,24 @@ jobs:
               item['label']: 'PASS' if item['passed'] else 'FAIL'
               for item in gate['outcomes']
           }
-          expected_paths = (
-              'docs/governance_pipeline_stage_status.yaml',
-              'docs/governance_stage_authorizations/GOV-STAGE5-LEGACY-INERT-DELTA-COMPATIBILITY-BUGFIX-2026-07-19.yaml',
-              'scripts/handoff_authority.py',
-              'tests/test_handoff_authority.py',
-          )
-          expected_modes = {
-              'docs/governance_pipeline_stage_status.yaml': '100644',
-              'docs/governance_stage_authorizations/GOV-STAGE5-LEGACY-INERT-DELTA-COMPATIBILITY-BUGFIX-2026-07-19.yaml': '100644',
-              'scripts/handoff_authority.py': '100755',
-              'tests/test_handoff_authority.py': '100644',
-          }
           summary = {
               'schema_version': 1,
               'claim_id': 'GOV-DEV-WORKFLOW-OPTIMIZATION-BENCHMARK-01',
-              'case_id': 'C01-CODE-ONLY-PR159',
+              'case_id': case_id,
+              'calibration_kind': 'controlled_current_main_ready_liveness',
+              'historical_efficiency_sample': False,
               'candidate_invoked': False,
               'toolchain_sha': toolchain_sha,
               'execution_sha': os.environ.get('GITHUB_SHA'),
               'workflow_run_id': os.environ.get('GITHUB_RUN_ID'),
-              'historical_base_sha': base_sha,
-              'frozen_implementation_sha': implementation_sha,
+              'base_sha': base_sha,
+              'source_sha': source_sha,
               'packet_sha256': sha256(packet),
               'terminal_state': 'READY',
               'ready_commit_sha': completed.ready_commit_sha,
               'tree_sha': ready['tree_sha'],
-              'changed_paths': paths,
-              'file_modes': modes,
+              'changed_paths': changed_paths,
+              'file_modes': file_modes,
               'result_sha256': sha256(result_path),
               'authority_result': 'PASS' if ready.get('authority_verify', {}).get('status') == 'PASS' else 'FAIL',
               'gate_results': gate_results,
@@ -156,49 +149,37 @@ jobs:
               'normalization_registration_mode': normalization.get('registration_mode'),
               'normalization_legacy_inert_update_ids': normalization.get('legacy_inert_update_ids', []),
           }
-          assert paths == expected_paths, summary
-          assert modes == expected_modes, summary
           assert summary['authority_result'] == 'PASS', summary
           assert gate_results and all(value == 'PASS' for value in gate_results.values()), summary
           summary_path = root / 'CALIBRATION_SUMMARY.json'
           write_json(summary_path, summary)
-          archive_path = workspace_root / 'replayab-postfix-c01-pr159-calibration.tar.gz'
-          with tarfile.open(archive_path, 'w:gz') as archive:
-              archive.add(summary_path, arcname='CALIBRATION_SUMMARY.json')
-              archive.add(packet, arcname=packet.name)
-              archive.add(root / 'events.jsonl', arcname='events.jsonl')
-              archive.add(result_path, arcname='result.json')
-              for name in ('READY_COMMIT.json', 'GATE_REPORT.json', 'NORMALIZATION_REPORT.json'):
-                  archive.add(transaction / name, arcname=name)
           print(json.dumps(summary, sort_keys=True))
           PY
 
-      - name: Package C01 diagnostics
+      - name: Package C01 evidence and diagnostics
         if: always()
         shell: bash
         run: |
           set -euo pipefail
-          ROOT=/tmp/replayab-postfix-c01-pr159
-          STAGE=/tmp/replayab-postfix-c01-diagnostics
+          ROOT=/tmp/replayab-c01-current-main-ready
+          STAGE=/tmp/replayab-c01-current-main-evidence
           rm -rf "$STAGE"
           mkdir -p "$STAGE"
           if [ -d "$ROOT" ]; then
-            find "$ROOT" -maxdepth 6 -type f \( \
-              -name '*.json' -o -name '*.jsonl' -o -name '*.yaml' -o -name '*.txt' -o -name '*.log' \
-            \) -print0 | while IFS= read -r -d '' file; do
+            find "$ROOT" -maxdepth 6 -type f \( -name '*.json' -o -name '*.jsonl' -o -name '*.yaml' -o -name '*.txt' -o -name '*.log' \) -print0 | while IFS= read -r -d '' file; do
               relative="${file#${ROOT}/}"
               mkdir -p "$STAGE/$(dirname "$relative")"
               cp "$file" "$STAGE/$relative"
             done
           fi
-          cp "$GITHUB_WORKSPACE/tests/fixtures/workflow_replay/candidate01_c1/c01_pr159_code_only_packet.yaml" "$STAGE/"
-          tar -C /tmp -czf "$GITHUB_WORKSPACE/replayab-postfix-c01-pr159-calibration.tar.gz" replayab-postfix-c01-diagnostics
+          cp "$GITHUB_WORKSPACE/tests/fixtures/workflow_replay/candidate01_c1/c01_current_main_ready_packet.yaml" "$STAGE/"
+          tar -C /tmp -czf "$GITHUB_WORKSPACE/replayab-postfix-c01-current-main-calibration.tar.gz" replayab-c01-current-main-evidence
 
       - name: Upload C01 calibration evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: replayab-postfix-c01-pr159-calibration-${{ github.run_id }}
-          path: replayab-postfix-c01-pr159-calibration.tar.gz
+          name: replayab-postfix-c01-current-main-calibration-${{ github.run_id }}
+          path: replayab-postfix-c01-current-main-calibration.tar.gz
           if-no-files-found: error
           retention-days: 14
