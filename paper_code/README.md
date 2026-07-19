@@ -213,19 +213,30 @@ critic, or multi-method execution code and are not silently frozen by the public
 runner. Real nine-task HDF5 and MuJoCo liveness has not yet been executed by this
 migration task.
 
-## Countdown stable core
+## Countdown stable training core
 
 `drpo_reference.categorical.countdown` contains the stable reviewer-facing
-sequence-task primitives that do not depend on the final manuscript protocol:
+sequence and objective primitives that do not depend on the final manuscript
+protocol:
 
 - canonical expression cleaning and exact arithmetic verification;
 - prompt/completion encoding with prompt labels masked and EOS included;
 - completion-only sequence log-probability, entropy, and bounded categorical
   direct-logit score;
-- first-occurrence unique-negative bank handling;
+- first-occurrence unique-negative bank encoding and flattened batching;
+- per-prompt unique-negative denominators, never weight-sum normalization;
 - detached normalized sequence surprisal `u=-log P(y|x)/2`;
 - paper-aligned linear-surprisal weights `alpha * exp(-c*u)`;
+- joint objective `-(mean positive log-probability - mean weighted negative
+  log-probability)`;
+- Positive-only execution that skips the negative-bank model forward;
+- stable bank/weight diagnostics and parameter-update norm measurement;
 - Greedy, Pass@k, valid-rate, and verifier-category aggregation.
+
+The implementation has controlled differential tests for frozen-bank collation,
+the exact objective and denominator, Positive-only bank skipping, diagnostics,
+and the first clipped AdamW update. It does not import Transformers or PEFT and
+does not select a model or optimizer schedule.
 
 There is deliberately no `drpo-reference countdown` command yet. The stable core
 does not select a coefficient, model scale, method matrix, seed set, training
@@ -256,7 +267,7 @@ Current migration status:
 - D-U1 revision-4 implementation candidate complete; formal run pending;
 - Hopper E7-Q2 implementation candidate complete; registered real reproduction pending;
 - D4RL-9 reviewer-facing algorithm, multi-method training, rollout, and simple aggregation implemented; real liveness and final formal protocol remain pending;
-- Countdown stable core implemented and engineering-tested; final reviewer experiment entry remains blocked pending manuscript-facing protocol and result freeze.
+- Countdown stable training core implemented and engineering-tested; final reviewer experiment entry remains blocked pending manuscript-facing protocol and result freeze.
 
 No smoke or short differential result is a paper result. The machine-readable
 acceptance contract is in:
