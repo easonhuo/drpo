@@ -10,11 +10,13 @@ AGENT_SCRIPTS = ROOT / "scripts" / "agent"
 if str(AGENT_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(AGENT_SCRIPTS))
 
+from runspec_delivery_policy import validate_simple_size_policy  # noqa: E402
 from runspec_lib import validate_runspec  # noqa: E402
 from runspec_recovery import validate_recovery_policy  # noqa: E402
 
 
 PINNED_IMPLEMENTATION = "d4cdc176562db1fa439afa9f9a0cbd9a9c8d0259"
+P1_PINNED_IMPLEMENTATION = "f7241a1084527f6b15be35a73a4304ba47147458"
 PILOT_RUNSPEC = (
     ROOT
     / "runspecs"
@@ -27,11 +29,17 @@ LIVENESS_RUNSPEC = (
     / "templates"
     / "E7_SQUARED_EXP_NIGHT_LIVENESS_20260714_01.yaml"
 )
-P1_FULL_RUNSPEC = (
+P1_BLOCKED_RUNSPEC = (
     ROOT
     / "runspecs"
     / "templates"
     / "E7_BENCH_JOINT_GAE_P1_FULL_20260719_01.yaml"
+)
+P1_FULL_RUNSPEC = (
+    ROOT
+    / "runspecs"
+    / "templates"
+    / "E7_BENCH_JOINT_GAE_P1_FULL_20260719_02.yaml"
 )
 AUTO_SCRIPT = ROOT / "scripts" / "run_e7_squared_exp_night_auto.py"
 RUN_SCRIPT = ROOT / "scripts" / "run_e7_squared_exp_night_one_click.sh"
@@ -122,10 +130,22 @@ def test_templates_pin_all_scientific_and_execution_paths() -> None:
     )
 
 
-def test_p1_full_run_uses_standard_runspec_delivery_channel() -> None:
+def test_blocked_p1_run_id_is_retained_but_not_reusable() -> None:
+    spec = validate_runspec(ROOT, P1_BLOCKED_RUNSPEC, require_registry=False)
+    assert spec["run_id"] == "E7_BENCH_JOINT_GAE_P1_FULL_20260719_01"
+    assert spec["repo_commit"] == P1_PINNED_IMPLEMENTATION
+    assert "must not be promoted or reused" in spec["purpose"]
+    assert validate_simple_size_policy(spec) == {
+        "max_total_size_mb": 30,
+        "max_file_size_mb": 10,
+    }
+
+
+def test_p1_full_run_uses_standard_v1_delivery_channel() -> None:
     spec = validate_runspec(ROOT, P1_FULL_RUNSPEC, require_registry=False)
+    assert spec["run_id"] == "E7_BENCH_JOINT_GAE_P1_FULL_20260719_02"
     assert spec["experiment_id"] == "EXT-H-E7-SQEXP-GAE-01"
-    assert spec["repo_commit"] == "ccf027e2c545c67576313ad85c5ff74e19f074d0"
+    assert spec["repo_commit"] == P1_PINNED_IMPLEMENTATION
     assert spec["registration"] == {"mode": "deferred", "closure_required": True}
     assert spec["policy"]["formal_evidence_allowed"] is False
     assert spec["delivery"] == {
@@ -135,19 +155,31 @@ def test_p1_full_run_uses_standard_runspec_delivery_channel() -> None:
         "repository": "easonhuo/drpo-results",
         "branch": "ingest/e7",
         "export_profile": "manifest_text_v1",
-        "max_total_size_mb": 100,
-        "max_file_size_mb": 25,
+        "max_total_size_mb": 30,
+        "max_file_size_mb": 10,
+    }
+    assert validate_simple_size_policy(spec) == {
+        "max_total_size_mb": 30,
+        "max_file_size_mb": 10,
     }
     assert spec["publish"] == {"enabled": False, "auto": False}
     command = spec["entrypoint"]["command"]
     assert "DRPO_E7_P1_FULL_RUN=1" in command
     assert "E7_SQUARED_EXP_MODE=p1" in command
+    assert "bench_joint_gae_p1_full_002" in command
     assert "scripts/run_e7_squared_exp_night_one_click.sh" in command
     assert "198" in " ".join(spec["success_criteria"])
+
+    include = spec["artifacts"]["include"]
+    assert spec["artifacts"]["max_package_size_mb"] == 30
     assert (
-        "outputs/e7/bench_joint_gae_p1_full_001/aggregate/*.csv"
-        in spec["artifacts"]["include"]
+        "outputs/e7/bench_joint_gae_p1_full_002/aggregate/*.csv"
+        in include
     )
+    assert any(path.endswith("/GEOMETRY_DIAGNOSTICS_LATEST.json") for path in include)
+    assert not any("geometry_diagnostics.jsonl" in path for path in include)
+    assert not any("stdout_stderr.log" in path for path in include)
+    assert not any(path.endswith("/*.log") for path in include)
 
 
 def test_p1_one_click_does_not_self_authorize_full_run() -> None:
