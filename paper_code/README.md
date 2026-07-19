@@ -5,6 +5,16 @@ This directory contains the paper-facing implementation developed under
 historical experiment drivers, registries, governance tooling, and packaging
 code.
 
+The current task-level implementation snapshot, live file ownership, and exact
+D4RL remaining-work inventory are maintained in:
+
+```text
+../docs/paper_code_reference/CURRENT_STATUS.md
+```
+
+`docs/handoff.md` remains the unique research source of truth. The current-status
+document is an engineering continuation index only.
+
 C-U1 and D-U1 both use independent train and held-out contexts drawn from the
 same distribution. Their result is **same-distribution held-out-context
 generalization**, not OOD generalization.
@@ -45,6 +55,10 @@ python -m drpo_reference cu1 \
   --output outputs/cu1_taper
 ```
 
+These commands expose the migrated implementation. A new registered full-budget
+reproduction and terminal review are still required before the paper-code
+migration is called scientifically reproduced.
+
 ## D-U1 revision 4
 
 D-U1 is the controlled categorical utility×rarity environment. The active
@@ -73,30 +87,86 @@ python -m drpo_reference du1 \
   --smoke
 ```
 
-## D4RL locomotion
+The active revision-4 scientific status remains `not_run` until the registered
+full matrix and terminal review are complete.
+
+## Hopper E7-Q2 mechanism validation
+
+Hopper E7-Q2 is the external learned-critic mechanism profile. It uses the
+frozen Hopper protocol, canonical critic and frozen advantages, one
+Positive-only preparation, six actor branches, matched near/far diagnostics,
+process-isolated Gymnasium/MuJoCo preflight, rollout evaluation, aggregation,
+and root terminal audit.
+
+Public entry point:
+
+```bash
+drho-reference hopper \
+  --dataset /ABS/PATH/TO/hopper_medium_replay-v2.hdf5 \
+  --output outputs/hopper_e7_q2
+```
+
+Equivalent module form:
+
+```bash
+python -m drpo_reference hopper \
+  --dataset /ABS/PATH/TO/hopper_medium_replay-v2.hdf5 \
+  --output outputs/hopper_e7_q2
+```
+
+The console command is `drpo-reference`; the first example above intentionally
+shows the expected command spelling below for copy/paste:
+
+```bash
+drpo-reference hopper \
+  --dataset /ABS/PATH/TO/hopper_medium_replay-v2.hdf5 \
+  --output outputs/hopper_e7_q2
+```
+
+Optional registered-order seed subsets and `--smoke` are always marked
+non-evidence. The existing main-repository Hopper E7-Q2 scientific result is
+`long_run_validated`; the new paper-facing runner still requires real
+registered-data reproduction and terminal review before migration closure.
+
+## D4RL-9 locomotion performance
 
 The paper-facing D4RL-9 code uses one migrated
 `SNA2C_IQLV_ExpRank` performance implementation for HalfCheetah, Hopper, and
-Walker2d across medium, medium-replay, and medium-expert. It is separate from
-the Hopper E7-Q2 frozen-advantage mechanism runner.
+Walker2d across medium, medium-replay, and medium-expert. It is scientifically
+and operationally separate from the Hopper E7-Q2 frozen-advantage mechanism
+runner.
 
-The migrated implementation and task catalog are located at:
+Already migrated:
 
 ```text
 src/drpo_reference/experiments/d4rl.py
 src/drpo_reference/external/d4rl_tasks.py
 ```
 
-Formal D4RL-9 execution remains disabled until all dataset identities, the
-common method controls, ten-run seeds, budgets, checkpoint policy, and terminal
-audit are frozen. Unit and short differential tests are not benchmark results.
+The migrated code contains the actor, critic, dynamic TD/expectile update,
+rank-based negative weighting, locomotion preparation, deterministic minibatch
+training, checkpoint payload, nine-task catalog, fail-closed dataset identity,
+and one-backend dispatch boundary.
+
+There is **not yet a public `drpo-reference d4rl` command**. Formal D4RL-9
+execution remains disabled because the concrete nine-task runtime, generic
+three-environment rollout evaluator, frozen method-matrix execution, formal
+budget/checkpoint/terminal-audit lifecycle, aggregation, and minimal paper
+binding are still incomplete. Eight dataset hashes, final controls and
+coefficients, ten-run seeds, budgets, runtime resources, and real execution are
+separate protocol/provenance/resource blockers rather than missing actor or
+critic code.
+
+See `../docs/paper_code_reference/CURRENT_STATUS.md` for the exact code-versus-
+protocol split.
 
 ## Artifact and evidence boundary
 
-Every public runner writes protocol manifests, per-seed artifacts, aggregate
-results, and a terminal audit. Task-performance collapse, support/variance or
-probability-boundary events, NaN/Inf numerical failures, environment
-invalidity, and incomplete terminal state remain separate fields.
+Every complete public runner writes protocol manifests, per-seed artifacts,
+aggregate results, and a terminal audit. Task-performance collapse,
+support/variance or probability-boundary events, NaN/Inf numerical failures,
+environment invalidity or rollout unavailability, and incomplete terminal state
+remain separate fields.
 
 Supplying a seed subset or `--smoke` always writes
 `formal_evidence_allowed: false`. A full matrix is not accepted unless every
@@ -104,11 +174,17 @@ registered run is present and its terminal audit is resolved. The code never
 assumes that Distance, exponential, global scaling, SBRC, Hybrid, or any other
 method must win.
 
-Current migration status: C-U1, D-U1, Hopper E7-Q2, and the D4RL-9 canonical
-performance backend have paper-facing implementation candidates. Their formal
-full-budget reruns and scientific terminal reviews remain pending. Countdown
-remains blocked pending its final manuscript-facing protocol and result freeze.
-No smoke or short differential result is a paper result.
+Current migration status:
 
-The acceptance contract is in
-`../docs/paper_code_reference/ACCEPTANCE_MATRIX.yaml`.
+- C-U1 implementation candidate complete; registered reproduction pending;
+- D-U1 revision-4 implementation candidate complete; formal run pending;
+- Hopper E7-Q2 implementation candidate complete; registered real reproduction pending;
+- D4RL-9 selected algorithm core migrated; formal runtime and protocol closure pending;
+- Countdown blocked pending final manuscript-facing protocol and result freeze.
+
+No smoke or short differential result is a paper result. The machine-readable
+acceptance contract is in:
+
+```text
+../docs/paper_code_reference/ACCEPTANCE_MATRIX.yaml
+```
