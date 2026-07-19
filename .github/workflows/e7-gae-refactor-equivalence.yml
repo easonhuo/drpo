@@ -1,0 +1,43 @@
+name: E7 GAE Refactor Equivalence
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/e7-gae-refactor-equivalence.yml"
+      - "docs/scopes/EXT-H-E7-SQEXP-GAE-REFACTOR-EQUIVALENCE-01.md"
+      - "scripts/run_e7_gae_refactor_equivalence_gate.sh"
+      - "src/drpo/e7_canonical_injection.py"
+      - "src/drpo/e7_squared_exp_night_bootstrap.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic-lockstep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install project dependencies
+        run: python -m pip install -e '.[dev]'
+
+      - name: Run deterministic old-vs-new lockstep
+        run: bash scripts/run_e7_gae_refactor_equivalence_gate.sh
+
+      - name: Upload equivalence evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e7-gae-refactor-equivalence
+          path: artifacts/e7_gae_refactor_equivalence/
+          if-no-files-found: error
