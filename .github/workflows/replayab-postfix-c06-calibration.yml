@@ -4,6 +4,10 @@ on:
   push:
     branches:
       - exec/candidate01-postfix-c06-calibration-01
+  pull_request:
+    branches:
+      - main
+    types: [opened, synchronize, reopened]
   workflow_dispatch:
 
 permissions:
@@ -15,6 +19,7 @@ concurrency:
 
 jobs:
   c06-real-pair:
+    if: github.event_name != 'pull_request' || github.head_ref == 'exec/candidate01-postfix-c06-calibration-01'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
