@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import pytest
 
 from drpo_reference.experiments.d4rl import (
+    D4RL9_EXPERIMENT_ID,
     LEGACY_CANONICAL_BACKEND_CANDIDATE,
     dispatch_d4rl9,
     resolve_d4rl9_execution,
@@ -69,6 +71,7 @@ def test_reference_scores_and_hopper_identity_match_frozen_protocol() -> None:
 
 def test_backend_audit_separates_mechanism_and_performance() -> None:
     backend = LEGACY_CANONICAL_BACKEND_CANDIDATE
+    assert D4RL9_EXPERIMENT_ID == "EXT-H-E7-BENCH-01"
     assert backend.algorithm_family == "SNA2C_IQLV_ExpRank"
     assert backend.protocol_status == "pilot_only_unfrozen"
     assert backend.protocol_frozen is False
@@ -121,6 +124,7 @@ def test_execution_plan_exposes_all_formal_blockers(tmp_path: Path) -> None:
     )
     assert "d4rl9_performance_protocol_not_frozen" in plan.blocked_reasons
     manifest = plan.as_manifest()
+    assert manifest["experiment_id"] == "EXT-H-E7-BENCH-01"
     assert manifest["shared_task_data_rollout_boundary"] is True
     assert manifest["shared_full_training_engine"] is False
     assert manifest["mechanism_runner_reusable_for_performance"] is False
@@ -146,9 +150,9 @@ def test_dispatch_uses_one_backend_runner_for_every_task(tmp_path: Path) -> None
         seeds=(1,),
         smoke=True,
     )
-    calls: list[dict[str, object]] = []
+    calls: list[dict[str, Any]] = []
 
-    def backend_runner(**kwargs: object) -> dict[str, object]:
+    def backend_runner(**kwargs: Any) -> dict[str, object]:
         calls.append(kwargs)
         task = kwargs["task"]
         return {
