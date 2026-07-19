@@ -54,6 +54,6 @@ p=Path(os.environ['D']);o=json.loads((p/'OLD_TRACE.json').read_text());n=json.lo
 for a,b in zip(o['cases'],n['cases'],strict=True):
  if a['case']!=b['case'] or a['initial']!=b['initial']:f.append({'case':a['case'],'u':0})
  for x,y in zip(a['updates'],b['updates'],strict=True):
-  if x['ids']!=y['ids'] or x['h']!=y['h'] or x['snap']!=y['snap'] or any(not math.isclose(float(i),float(j),rel_tol=0,abs_tol=1e-12) for i,j in zip(x['m'],y['m'],strict=True)):f.append({'case':a['case'],'u':x['u']});break
+  if x['ids']!=y['ids'] or x['h']!=y['h'] or x['snap']!=y['snap'] or any(not ((math.isnan(float(i)) and math.isnan(float(j))) or math.isclose(float(i),float(j),rel_tol=0,abs_tol=1e-12)) for i,j in zip(x['m'],y['m'],strict=True)):f.append({'case':a['case'],'u':x['u']});break
 A={'gate_id':'EXT-H-E7-SQEXP-GAE-REFACTOR-EQUIVALENCE-01','status':'PASS' if not f else 'FAIL','old_commit':o['commit'],'new_commit':n['commit'],'case_count':4,'updates_per_case':9,'refresh_positions':[1,5,9],'failure_count':len(f),'first_failure':f[0] if f else None,'formal_evidence_allowed':False,'held_out_seeds_touched':False,'real_data_layer_executed':False};(p/'SOURCE_IDENTITY.json').write_text(json.dumps({'old_commit':o['commit'],'new_commit':n['commit']},indent=2)+'\n');(p/'EQUIVALENCE_AUDIT.json').write_text(json.dumps(A,indent=2)+'\n');print(json.dumps(A,indent=2));raise SystemExit(bool(f))
 PY
