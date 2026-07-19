@@ -1,4 +1,4 @@
-name: ReplayAB Post-fix C01 Current-main Calibration
+name: ReplayAB Post-fix C01 Current-main A-B
 
 on:
   pull_request:
@@ -10,14 +10,14 @@ permissions:
   contents: read
 
 concurrency:
-  group: replayab-postfix-c01-current-main-calibration
+  group: replayab-postfix-c01-current-main-ab
   cancel-in-progress: false
 
 jobs:
-  c01-arm-a:
+  c01-real-pair:
     if: github.event_name != 'pull_request' || github.head_ref == 'exec/candidate01-postfix-c01-pr159-calibration-01'
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
         with:
@@ -31,155 +31,62 @@ jobs:
       - name: Install development dependencies
         run: python -m pip install -e '.[dev]'
 
-      - name: Run current-main C01 Arm-A calibration
+      - name: Run C01 opposite-order A-B pairs
         shell: bash
         run: |
           set -euo pipefail
           TOOLCHAIN=2ba5dbf18cf1ce986abe9e8d011cbf72deff1698
+          CONTRACT="$GITHUB_WORKSPACE/tests/fixtures/workflow_replay/candidate01_c1/c01_current_main_ready_contract.yaml"
+          PACKET="$GITHUB_WORKSPACE/tests/fixtures/workflow_replay/candidate01_c1/c01_current_main_ready_packet.yaml"
+          OUTPUT=/tmp/replayab-c01-current-main-ab
           git cat-file -e "${TOOLCHAIN}^{commit}"
           git cat-file -e "dc46ea12af90971c9f3cb4137560d3d71bb308b3^{commit}"
           git worktree add --detach /tmp/replayab-toolchain "$TOOLCHAIN"
+          python /tmp/replayab-toolchain/scripts/run_workflow_replay.py real-pair \
+            --contract "$CONTRACT" \
+            --case-packet "$PACKET" \
+            --source-repo "$GITHUB_WORKSPACE" \
+            --output-root "$OUTPUT" \
+            --backend-id github-actions-ubuntu24-py311-local-git-v1 \
+            --json | tee /tmp/replayab-c01-current-main-ab-result.json
           python - <<'PY'
           import json
-          import os
-          import sys
-          import tarfile
           from pathlib import Path
-          from types import SimpleNamespace
 
-          import yaml
-
-          source_repo = Path(os.environ['GITHUB_WORKSPACE']).resolve()
-          toolchain = Path('/tmp/replayab-toolchain').resolve()
-          for path in (toolchain / 'src', toolchain / 'scripts'):
-              sys.path.insert(0, str(path))
-
-          from dev_integration_write_path import load_json, sha256, write_json
-          import run_workflow_replay as replay
-
-          toolchain_sha = '2ba5dbf18cf1ce986abe9e8d011cbf72deff1698'
-          base_sha = '85b0a68d77ed085a7f6e67771fb0f7672c43da09'
-          source_sha = 'dc46ea12af90971c9f3cb4137560d3d71bb308b3'
-          case_id = 'C01-CURRENT-MAIN-READY'
-          packet = source_repo / 'tests/fixtures/workflow_replay/candidate01_c1/c01_current_main_ready_packet.yaml'
-          source_spec = yaml.safe_load(packet.read_text(encoding='utf-8'))['source']
-          contract = SimpleNamespace(
-              base=SimpleNamespace(
-                  historical_task={
-                      'base_sha': base_sha,
-                      'frozen_implementation_sha': source_sha,
-                  },
-                  benchmark={'toolchain_sha': toolchain_sha},
-              ),
-              sha256='c01-current-main-ready-arm-a-calibration',
-          )
-          root = Path('/tmp/replayab-c01-current-main-ready')
-          root.mkdir()
-          workspace = replay._clone(source_repo, root, source_spec, contract)
-          before = replay._commit_workspace(root / 'source.git', base_sha)
-          identity = SimpleNamespace(
-              run_id='1' * 64,
-              arm='A',
-              case_id=case_id,
-              pair_id='calibration',
-              order_position=0,
-          )
-          journal = replay.Journal(root / 'events.jsonl', identity, contract.sha256, before, workspace)
-          completed = replay._explicit(
-              workspace,
-              packet,
-              root / 'preparations',
-              root / 'transactions',
-              sys.executable,
-              journal,
-          )
-          transaction = Path(completed.transaction_dir)
-          ready = load_json(transaction / 'READY_COMMIT.json', 'ready')
-          gate = load_json(transaction / 'GATE_REPORT.json', 'gate')
-          normalization = load_json(transaction / 'NORMALIZATION_REPORT.json', 'normalization')
-          changed_paths = tuple(sorted(ready['changed_paths']))
-          file_modes = replay._modes(
-              transaction / 'integration-repo', completed.ready_commit_sha, changed_paths
-          )
-          expected_path = 'docs/development_workflow_optimization/benchmarks/CANDIDATE01_C01_CURRENT_MAIN_READY_PROBE.md'
-          assert changed_paths == (expected_path,), changed_paths
-          assert file_modes == {expected_path: '100644'}, file_modes
-          result_path = root / 'result.json'
-          write_json(result_path, {
-              'case_id': case_id,
-              'base_sha': base_sha,
-              'tree_sha': ready['tree_sha'],
-              'changed_paths': changed_paths,
-              'file_modes': file_modes,
-          })
-          after = replay._workspace(transaction / 'integration-repo')
-          timing = journal.finish(
-              'READY',
-              after,
-              len(journal.commands) + len({item.split(':', 1)[0] for item in journal.placements}),
-          )
-          gate_results = {
-              item['label']: 'PASS' if item['passed'] else 'FAIL'
-              for item in gate['outcomes']
-          }
-          summary = {
-              'schema_version': 1,
-              'claim_id': 'GOV-DEV-WORKFLOW-OPTIMIZATION-BENCHMARK-01',
-              'case_id': case_id,
-              'calibration_kind': 'controlled_current_main_ready_liveness',
-              'historical_efficiency_sample': False,
-              'candidate_invoked': False,
-              'toolchain_sha': toolchain_sha,
-              'execution_sha': os.environ.get('GITHUB_SHA'),
-              'workflow_run_id': os.environ.get('GITHUB_RUN_ID'),
-              'base_sha': base_sha,
-              'source_sha': source_sha,
-              'packet_sha256': sha256(packet),
-              'terminal_state': 'READY',
-              'ready_commit_sha': completed.ready_commit_sha,
-              'tree_sha': ready['tree_sha'],
-              'changed_paths': changed_paths,
-              'file_modes': file_modes,
-              'result_sha256': sha256(result_path),
-              'authority_result': 'PASS' if ready.get('authority_verify', {}).get('status') == 'PASS' else 'FAIL',
-              'gate_results': gate_results,
-              'workspace_before_sha256': before,
-              'workspace_after_sha256': after,
-              'timing': timing,
-              'normalization_registration_mode': normalization.get('registration_mode'),
-              'normalization_legacy_inert_update_ids': normalization.get('legacy_inert_update_ids', []),
-          }
-          assert summary['authority_result'] == 'PASS', summary
-          assert gate_results and all(value == 'PASS' for value in gate_results.values()), summary
-          summary_path = root / 'CALIBRATION_SUMMARY.json'
-          write_json(summary_path, summary)
-          print(json.dumps(summary, sort_keys=True))
+          payload = json.loads(Path('/tmp/replayab-c01-current-main-ab-result.json').read_text())
+          assert payload['status'] == 'PASS', payload
+          assert payload['case_id'] == 'C01-CURRENT-MAIN-READY', payload
+          assert payload['run_count'] == 4, payload
+          assert payload['pair_count'] == 2, payload
+          assert len(payload['pairs']) == 2, payload
+          assert all(pair['equivalent'] is True for pair in payload['pairs']), payload
           PY
+          cp /tmp/replayab-c01-current-main-ab-result.json "$OUTPUT/WORKFLOW_RESULT.json"
 
-      - name: Package C01 evidence and diagnostics
+      - name: Package C01 A-B evidence
         if: always()
         shell: bash
         run: |
           set -euo pipefail
-          ROOT=/tmp/replayab-c01-current-main-ready
-          STAGE=/tmp/replayab-c01-current-main-evidence
+          OUTPUT=/tmp/replayab-c01-current-main-ab
+          STAGE=/tmp/replayab-c01-current-main-ab-evidence
           rm -rf "$STAGE"
           mkdir -p "$STAGE"
-          if [ -d "$ROOT" ]; then
-            find "$ROOT" -maxdepth 6 -type f \( -name '*.json' -o -name '*.jsonl' -o -name '*.yaml' -o -name '*.txt' -o -name '*.log' \) -print0 | while IFS= read -r -d '' file; do
-              relative="${file#${ROOT}/}"
-              mkdir -p "$STAGE/$(dirname "$relative")"
-              cp "$file" "$STAGE/$relative"
-            done
+          if [ -d "$OUTPUT" ]; then
+            cp -a "$OUTPUT/." "$STAGE/"
           fi
+          if [ -f /tmp/replayab-c01-current-main-ab-result.json ]; then
+            cp /tmp/replayab-c01-current-main-ab-result.json "$STAGE/WORKFLOW_RESULT_RAW.json"
+          fi
+          cp "$GITHUB_WORKSPACE/tests/fixtures/workflow_replay/candidate01_c1/c01_current_main_ready_contract.yaml" "$STAGE/"
           cp "$GITHUB_WORKSPACE/tests/fixtures/workflow_replay/candidate01_c1/c01_current_main_ready_packet.yaml" "$STAGE/"
-          tar -C /tmp -czf "$GITHUB_WORKSPACE/replayab-postfix-c01-current-main-calibration.tar.gz" replayab-c01-current-main-evidence
+          tar -C /tmp -czf "$GITHUB_WORKSPACE/replayab-postfix-c01-current-main-ab.tar.gz" replayab-c01-current-main-ab-evidence
 
-      - name: Upload C01 calibration evidence
+      - name: Upload C01 A-B evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: replayab-postfix-c01-current-main-calibration-${{ github.run_id }}
-          path: replayab-postfix-c01-current-main-calibration.tar.gz
+          name: replayab-postfix-c01-current-main-ab-${{ github.run_id }}
+          path: replayab-postfix-c01-current-main-ab.tar.gz
           if-no-files-found: error
           retention-days: 14
