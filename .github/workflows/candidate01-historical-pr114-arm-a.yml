@@ -1,223 +1,85 @@
-name: Candidate01 historical PR124 Arm-A
+name: Candidate01 historical PR119 Arm-A
 
 on:
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened]
-  workflow_dispatch:
 
 permissions:
   contents: read
 
-concurrency:
-  group: candidate01-historical-pr124-arm-a
-  cancel-in-progress: false
-
 jobs:
   historical-arm-a:
-    if: github.event_name != 'pull_request' || github.head_ref == 'exec/candidate01-historical-pr114-arm-a-01'
+    if: github.head_ref == 'exec/candidate01-historical-pr114-arm-a-01'
     runs-on: ubuntu-24.04
     timeout-minutes: 90
-    env:
-      TOOLCHAIN: 19c75edeb6530faf9faed713fef1633379b28672
-      HISTORICAL_BASE: b65882993eaf674390989bb9082be2b79f1f1e44
-      SOURCE_SHA: 48c40034c2445c11b36f0cba6e22fb2042a1b457
-      PACKET: tests/fixtures/workflow_replay/candidate01_c1/c01_pr124_historical_arm_a_packet.yaml
-      OUTPUT: /tmp/replayab-pr124-historical-arm-a
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: pip
-
-      - name: Install development dependencies
-        run: python -m pip install -e '.[dev]'
-
-      - name: Freeze exact adapter toolchain
-        run: git worktree add --detach /tmp/replayab-toolchain "$TOOLCHAIN"
-
-      - name: Run historical PR124 Arm A only
+      - run: python -m pip install -e '.[dev]'
+      - run: git worktree add --detach /tmp/replayab-toolchain 19c75edeb6530faf9faed713fef1633379b28672
+      - name: Run Arm A
         shell: bash
         run: |
           set -euo pipefail
           python - <<'PY'
-          import json
-          import os
-          import sys
+          import json, os, sys
           from pathlib import Path
           from types import SimpleNamespace
-
           import yaml
-
-          source_repo = Path(os.environ["GITHUB_WORKSPACE"]).resolve()
-          toolchain_root = Path("/tmp/replayab-toolchain").resolve()
-          sys.path[:0] = [str(toolchain_root / "src"), str(toolchain_root / "scripts")]
-
-          from dev_integration_write_path import load_json, sha256, write_json
+          repo = Path(os.environ['GITHUB_WORKSPACE']).resolve()
+          tool = Path('/tmp/replayab-toolchain')
+          sys.path[:0] = [str(tool / 'src'), str(tool / 'scripts')]
+          from dev_integration_write_path import load_json, write_json
           import run_workflow_replay as replay
-
-          toolchain = os.environ["TOOLCHAIN"]
-          base = os.environ["HISTORICAL_BASE"]
-          source_sha = os.environ["SOURCE_SHA"]
-          packet = source_repo / os.environ["PACKET"]
-          output = Path(os.environ["OUTPUT"])
-          output.mkdir()
-
-          payload = yaml.safe_load(packet.read_text(encoding="utf-8"))
-          expected_paths = tuple(sorted(
-              item.get("destination_path") or item["source_path"]
-              for item in payload["implementation"]["operations"]
-          ))
-          contract = SimpleNamespace(
-              base=SimpleNamespace(
-                  historical_task={
-                      "base_sha": base,
-                      "frozen_implementation_sha": source_sha,
-                  },
-                  benchmark={
-                      "toolchain_sha": toolchain,
-                      "expected_changed_paths": expected_paths,
-                  },
-              ),
-              sha256="pr124-historical-arm-a-control-plane-split",
-          )
-          checkout = replay._clone(source_repo, output, payload["source"], contract)
-          before = replay._commit_workspace(output / "source.git", base)
-          identity = SimpleNamespace(
-              run_id="c" * 64,
-              arm="A",
-              case_id="C01-PR124-HISTORICAL-ARM-A",
-              pair_id="arm-a-validation",
-              order_position=0,
-          )
-          journal = replay.Journal(
-              output / "events.jsonl",
-              identity,
-              contract.sha256,
-              before,
-              checkout.workspace,
-              control_plane=checkout.control_plane,
-              historical_base_sha=base,
-              toolchain_sha=toolchain,
-          )
-          summary = {
-              "schema_version": 1,
-              "claim_id": "GOV-DEV-WORKFLOW-OPTIMIZATION-BENCHMARK-01",
-              "case_id": identity.case_id,
-              "candidate_invoked": False,
-              "toolchain_sha": toolchain,
-              "historical_base_sha": base,
-              "source_sha": source_sha,
-              "packet_sha256": sha256(packet),
-              "workflow_run_id": os.environ.get("GITHUB_RUN_ID"),
-              "execution_sha": os.environ.get("GITHUB_SHA"),
-              "terminal_state": "INTERRUPTED",
-          }
-          summary_path = output / "ARM_A_SUMMARY.json"
+          base = '2f677f4b00954ea71d0efa7def552a1ea3daa565'
+          source = '4bdc1fa80bafd997b6358c51a83f5e57dd77ed16'
+          toolchain = '19c75edeb6530faf9faed713fef1633379b28672'
+          packet = repo / 'tests/fixtures/workflow_replay/candidate01_c1/c01_pr119_historical_arm_a_packet.yaml'
+          spec = yaml.safe_load(packet.read_text())
+          paths = tuple(sorted(x.get('destination_path') or x['source_path'] for x in spec['implementation']['operations']))
+          contract = SimpleNamespace(base=SimpleNamespace(historical_task={'base_sha': base, 'frozen_implementation_sha': source}, benchmark={'toolchain_sha': toolchain, 'expected_changed_paths': paths}), sha256='pr119-historical-arm-a-control-plane-split')
+          root = Path('/tmp/replayab-pr119-historical-arm-a')
+          root.mkdir()
+          checkout = replay._clone(repo, root, spec['source'], contract)
+          before = replay._commit_workspace(root / 'source.git', base)
+          identity = SimpleNamespace(run_id='d' * 64, arm='A', case_id='C01-PR119-HISTORICAL-ARM-A', pair_id='arm-a', order_position=0)
+          journal = replay.Journal(root / 'events.jsonl', identity, contract.sha256, before, checkout.workspace, control_plane=checkout.control_plane, historical_base_sha=base, toolchain_sha=toolchain)
+          summary = {'case_id': identity.case_id, 'candidate_invoked': False, 'toolchain_sha': toolchain, 'historical_base_sha': base, 'source_sha': source, 'terminal_state': 'BLOCKED'}
           try:
-              completed = replay._explicit(
-                  checkout.workspace,
-                  packet,
-                  output / "preparations",
-                  output / "transactions",
-                  sys.executable,
-                  journal,
-              )
-              transaction = Path(completed.transaction_dir)
-              ready = load_json(transaction / "READY_COMMIT.json", "ready")
-              normalization = load_json(
-                  transaction / "NORMALIZATION_REPORT.json", "normalization"
-              )
-              gate = load_json(transaction / "GATE_REPORT.json", "gate")
-              paths = tuple(sorted(ready["changed_paths"]))
-              replay._assert_historical_result(
-                  transaction / "integration-repo",
-                  completed.ready_commit_sha,
-                  base,
-                  paths,
-                  expected_paths,
-              )
-              modes = replay._modes(
-                  transaction / "integration-repo",
-                  completed.ready_commit_sha,
-                  paths,
-              )
-              after = replay._workspace(transaction / "integration-repo")
-              timing = journal.finish(
-                  "READY",
-                  after,
-                  len(journal.commands)
-                  + len({item.split(":", 1)[0] for item in journal.placements}),
-              )
-              gate_results = {
-                  item["label"]: "PASS" if item["passed"] else "FAIL"
-                  for item in gate["outcomes"]
-              }
-              summary.update({
-                  "terminal_state": "READY",
-                  "ready_commit_sha": completed.ready_commit_sha,
-                  "tree_sha": ready["tree_sha"],
-                  "parent_sha": ready["parent_sha"],
-                  "changed_paths": paths,
-                  "file_modes": modes,
-                  "authority_result": (
-                      "PASS"
-                      if ready["authority_verify"]["status"] == "PASS"
-                      else "FAIL"
-                  ),
-                  "gate_results": gate_results,
-                  "normalization_registration_mode": normalization["registration_mode"],
-                  "control_plane_mode": "frozen_toolchain_override",
-                  "workspace_before_sha256": before,
-                  "workspace_after_sha256": after,
-                  "timing": timing,
-              })
-              assert summary["parent_sha"] == base
-              assert summary["authority_result"] == "PASS"
-              assert gate_results and all(v == "PASS" for v in gate_results.values())
-              assert paths == expected_paths
-          except BaseException as error:
+              completed = replay._explicit(checkout.workspace, packet, root / 'preparations', root / 'transactions', sys.executable, journal)
+              tx = Path(completed.transaction_dir)
+              ready = load_json(tx / 'READY_COMMIT.json', 'ready')
+              gate = load_json(tx / 'GATE_REPORT.json', 'gate')
+              actual = tuple(sorted(ready['changed_paths']))
+              replay._assert_historical_result(tx / 'integration-repo', completed.ready_commit_sha, base, actual, paths)
+              assert ready['authority_verify']['status'] == 'PASS'
+              assert all(item['passed'] for item in gate['outcomes'])
+              after = replay._workspace(tx / 'integration-repo')
+              timing = journal.finish('READY', after, len(journal.commands) + len(journal.placements))
+              summary.update(terminal_state='READY', ready_commit_sha=completed.ready_commit_sha, tree_sha=ready['tree_sha'], parent_sha=ready['parent_sha'], changed_paths=actual, gate_results={x['label']: 'PASS' for x in gate['outcomes']}, timing=timing)
+          except BaseException as exc:
               if not journal.handle.closed:
-                  journal.finish("BLOCKED", before, len(journal.commands))
-              summary.update({
-                  "terminal_state": "BLOCKED",
-                  "exception_type": type(error).__name__,
-                  "exception_message": str(error),
-              })
-              write_json(summary_path, summary)
+                  journal.finish('BLOCKED', before, len(journal.commands))
+              summary.update(exception_type=type(exc).__name__, exception_message=str(exc))
+              write_json(root / 'ARM_A_SUMMARY.json', summary)
               raise
-          finally:
-              write_json(summary_path, summary)
+          write_json(root / 'ARM_A_SUMMARY.json', summary)
           print(json.dumps(summary, sort_keys=True))
           PY
-
-      - name: Package evidence and diagnostics
+      - name: Package evidence
         if: always()
-        shell: bash
-        run: |
-          set -euo pipefail
-          STAGE=/tmp/replayab-pr124-historical-arm-a-evidence
-          rm -rf "$STAGE"
-          mkdir -p "$STAGE"
-          if [ -d "$OUTPUT" ]; then
-            find "$OUTPUT" -maxdepth 8 -type f \( -name '*.json' -o -name '*.jsonl' -o -name '*.yaml' -o -name '*.log' -o -name '*.txt' \) -print0 | while IFS= read -r -d '' file; do
-              relative="${file#${OUTPUT}/}"
-              mkdir -p "$STAGE/$(dirname "$relative")"
-              cp "$file" "$STAGE/$relative"
-            done
-          fi
-          cp "$GITHUB_WORKSPACE/$PACKET" "$STAGE/"
-          tar -C /tmp -czf "$GITHUB_WORKSPACE/replayab-pr124-historical-arm-a.tar.gz" replayab-pr124-historical-arm-a-evidence
-
-      - name: Upload historical Arm-A evidence
+        run: tar -C /tmp -czf replayab-pr119-historical-arm-a.tar.gz replayab-pr119-historical-arm-a
+      - name: Upload evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: replayab-pr124-historical-arm-a-${{ github.run_id }}
-          path: replayab-pr124-historical-arm-a.tar.gz
+          name: replayab-pr119-historical-arm-a-${{ github.run_id }}
+          path: replayab-pr119-historical-arm-a.tar.gz
           if-no-files-found: error
           retention-days: 14
