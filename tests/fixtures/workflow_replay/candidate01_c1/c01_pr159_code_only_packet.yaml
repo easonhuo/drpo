@@ -53,10 +53,11 @@ review:
     support_boundary: not_assessed
     numerical_failure: not_assessed
   limitations:
-    - historical repository-integration replay only
-    - the Stage 5 maintenance claim is outside Candidate 01 correctness truth
+    - preserved failed historical-base calibration packet
     - the actual squash merge commit 85b0a68d77ed085a7f6e67771fb0f7672c43da09 is recorded separately as provenance
-  unresolved: []
+    - not used as the current-main READY truth
+  unresolved:
+    - historical base e99489e executes its historical authority normalizer and remains blocked
 registration:
   mode: none
   update_id: null
