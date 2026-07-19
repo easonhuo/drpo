@@ -4,7 +4,7 @@ lane: e8
 priority: 152
 created_at: "2026-07-19T16:10:00Z"
 experiment_id: EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-RECIPROCAL-QUADRATIC-DENSE-LAMBDA-CURVE-0.5B-01
-repo_commit: 570b6afe8057df6bf46304ab95c1bb548ba5acbe
+repo_commit: 5305df6fd4540d2cc57efacfcebc69bc853851db
 
 registration:
   mode: deferred
