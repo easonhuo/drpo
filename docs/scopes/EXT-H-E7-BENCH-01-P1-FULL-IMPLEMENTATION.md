@@ -6,4 +6,4 @@ The branch must not change the frozen nine-task matrix, seeds `200,201`, one-mil
 
 The implementation reuses existing Python files only; temporary export and patch-transport scaffolding is excluded from the final stacked diff and from every scientific provenance identity. The full run remains explicitly gated and is not launched by this branch.
 
-The exact implementation patch is applied only after its frozen SHA-256 and five-file scope pass deterministic checks; this synchronization commit carries no scientific-variable change. The final read-only export exists solely to materialize and verify the current head before direct file replacement.
+The exact implementation patch is applied only after its frozen SHA-256 and five-file scope pass deterministic checks; this synchronization commit carries no scientific-variable change. The final read-only export exists solely to materialize and verify the current head before direct file replacement. The final application is restricted to the same-repository development branch and the frozen transport digest.
