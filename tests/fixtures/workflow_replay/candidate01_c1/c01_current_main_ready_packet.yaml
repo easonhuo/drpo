@@ -1,0 +1,48 @@
+schema_version: 1
+preparation_id: REPLAYAB-C01-CURRENT-MAIN-READY
+source:
+  repository: easonhuo/drpo
+  remote: origin
+  main_ref: refs/heads/main
+  expected_main_sha: 85b0a68d77ed085a7f6e67771fb0f7672c43da09
+  dev_branch: calibration/candidate01-c01-current-main-ready-01
+  expected_dev_sha: dc46ea12af90971c9f3cb4137560d3d71bb308b3
+  result_commit_sha: dc46ea12af90971c9f3cb4137560d3d71bb308b3
+  result_git_dirty: false
+subject:
+  experiment_id: GOV-DEV-WORKFLOW-OPTIMIZATION-BENCHMARK-01
+  governance_claims:
+    - GOV-DEV-WORKFLOW-OPTIMIZATION-BENCHMARK-01
+implementation:
+  operations:
+    - op: add
+      source_path: docs/development_workflow_optimization/benchmarks/CANDIDATE01_C01_CURRENT_MAIN_READY_PROBE.md
+      destination_path: docs/development_workflow_optimization/benchmarks/CANDIDATE01_C01_CURRENT_MAIN_READY_PROBE.md
+      expected_blob_sha: 991bfb60805afe674ec966e73367a6c2d22ddd17
+      expected_old_blob_sha: null
+      expected_mode: '100644'
+review:
+  reviewer_id: replayab-c01-current-main-calibration-reviewer
+  decision_token: current-main-ready-controlled-calibration
+  decision:
+    approved: true
+    code_integration_eligible: true
+    evidence_level: formal
+    result_status: not_run
+    claim_support_level: none
+    terminal_audit: not_required
+    task_performance_collapse: not_assessed
+    support_boundary: not_assessed
+    numerical_failure: not_assessed
+  limitations:
+    - controlled current-main workflow calibration only
+    - not a scientific experiment or historical efficiency sample
+    - source and execution branches are not merge candidates
+  unresolved: []
+registration:
+  mode: none
+  update_id: null
+  expected_before_semantic_sha256: null
+  experiment: null
+  handoff_operations: []
+  registry_changes: []
