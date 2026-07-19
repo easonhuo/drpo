@@ -1,0 +1,51 @@
+schema_version: 2
+case_id: C01-CURRENT-MAIN-READY
+task_class: code_only
+historical_task:
+  base_sha: 85b0a68d77ed085a7f6e67771fb0f7672c43da09
+  frozen_implementation_sha: dc46ea12af90971c9f3cb4137560d3d71bb308b3
+  source_prs: []
+  source_commits:
+    - 85b0a68d77ed085a7f6e67771fb0f7672c43da09
+    - dc46ea12af90971c9f3cb4137560d3d71bb308b3
+  historical_real_time_evidence:
+    - controlled-calibration-run:29685191788
+    - artifact:8441877748
+benchmark:
+  toolchain_sha: 2ba5dbf18cf1ce986abe9e8d011cbf72deff1698
+  input_spec_sha256: a035620cd1ff85698d72b7fcdfbb082d221acd497286a66980e88d2ae554cdfd
+  expected_terminal_state: READY
+  expected_safety_boundary: null
+  expected_changed_paths:
+    - docs/development_workflow_optimization/benchmarks/CANDIDATE01_C01_CURRENT_MAIN_READY_PROBE.md
+  expected_final_tree_or_semantic_hashes:
+    artifact_sha256: 5c13179c32d012f9316c07216adda02255f52e17511039786ac91a665ed03d3c
+  required_gates:
+    - formal-channel
+    - git-diff-check
+    - governance-stage
+    - handoff-authority
+    - test-selector-execute
+    - test-selector-plan
+  environment_id: github-actions-ubuntu24-py311-local-git-v1
+  cache_policy: cold
+  replayability: complete
+  predeclared_exclusions: []
+r1:
+  comparison_mode: exact_artifact
+  expected_file_modes:
+    docs/development_workflow_optimization/benchmarks/CANDIDATE01_C01_CURRENT_MAIN_READY_PROBE.md: '100644'
+  expected_authority_result: PASS
+  expected_gate_results:
+    formal-channel: PASS
+    git-diff-check: PASS
+    governance-stage: PASS
+    handoff-authority: PASS
+    test-selector-execute: PASS
+    test-selector-plan: PASS
+  expected_diagnostic_codes: []
+  expected_recovery_class: null
+  workspace_rule: changed_as_expected
+  evaluator_sha256: 001941d6557e19832c59ffe318882f332799b425e054d898d005730a2406952e
+  evidence_schema_sha256: 5f02130bc08513540e694fc1b1abf1d8437f9fa697f92535c49a795dcd9de179
+  order_policy: two_opposite_pairs
