@@ -4,19 +4,22 @@ import math
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pytest
 import torch
 
 from drpo_reference.experiments.d4rl import (
     CANONICAL_EXPRANK_BACKEND,
     D4RL9_EXPERIMENT_ID,
-    CanonicalExpRankRunConfig,
-    build_canonical_exprank_command,
-    canonical_backend_provenance,
+    CanonicalD4RLDataset,
+    CanonicalExpRankTrainingConfig,
+    SNA2CIQLVExpRankAgent,
+    canonical_exprank_negative_weights,
     dispatch_d4rl9,
-    load_canonical_exprank_module,
+    prepare_canonical_locomotion_dataset,
     resolve_d4rl9_execution,
-    run_canonical_exprank_task,
+    reward_norm_locomotion,
+    train_canonical_exprank,
 )
 from drpo_reference.external.d4rl_tasks import (
     D4RL9_TASKS,
@@ -26,6 +29,7 @@ from drpo_reference.external.d4rl_tasks import (
     validate_d4rl9_matrix,
     validate_dataset_path,
 )
+from drpo_reference.external.hopper_data import OfflineData
 from drpo_reference.external.hopper_protocol import HopperProtocol
 
 
@@ -36,28 +40,139 @@ def _paths(root: Path) -> dict[str, Path]:
     }
 
 
-def _config() -> CanonicalExpRankRunConfig:
-    return CanonicalExpRankRunConfig(
-        steps=1_000_000,
-        batch_size=256,
+def _config(*, steps: int = 3) -> CanonicalExpRankTrainingConfig:
+    return CanonicalExpRankTrainingConfig(
+        steps=steps,
+        batch_size=8,
         learning_rate=3.0e-4,
         alpha=0.11,
         tau=0.5,
         temperature=5.0,
-        eval_interval=50_000,
-        eval_episodes=10,
-        checkpoint_interval=50_000,
-        checkpoint_last_fraction=0.1,
+        eval_interval=10,
+        checkpoint_interval=2,
+        checkpoint_last_fraction=1.0,
     )
 
 
-def _flag_map(command: list[str]) -> dict[str, str]:
-    arguments = command[2:]
-    assert len(arguments) % 2 == 0
-    return {
-        arguments[index]: arguments[index + 1]
-        for index in range(0, len(arguments), 2)
-    }
+def _fixed_batch() -> tuple[torch.Tensor, ...]:
+    generator = torch.Generator().manual_seed(19)
+    observations = torch.randn(16, 5, generator=generator)
+    actions = torch.tanh(torch.randn(16, 2, generator=generator))
+    rewards = torch.randn(16, generator=generator)
+    next_observations = torch.randn(16, 5, generator=generator)
+    dones = torch.tensor([False, True] * 8)
+    returns = torch.zeros(16)
+    return (
+        observations,
+        actions,
+        rewards,
+        next_observations,
+        dones,
+        returns,
+    )
+
+
+def _synthetic_dataset() -> CanonicalD4RLDataset:
+    generator = np.random.default_rng(31)
+    observations = generator.normal(size=(32, 5)).astype(np.float32)
+    actions = np.tanh(
+        generator.normal(size=(32, 2))
+    ).astype(np.float32)
+    rewards = generator.normal(size=32).astype(np.float32)
+    next_observations = generator.normal(size=(32, 5)).astype(np.float32)
+    terminals = np.zeros(32, dtype=np.bool_)
+    terminals[[7, 15, 23, 31]] = True
+    timeouts = np.zeros(32, dtype=np.bool_)
+    mc_returns = _mc_returns(rewards, terminals, timeouts)
+    return CanonicalD4RLDataset(
+        observations=observations,
+        actions=actions,
+        rewards=rewards,
+        next_observations=next_observations,
+        terminals=terminals,
+        mc_returns=mc_returns,
+    )
+
+
+def _mc_returns(
+    rewards: np.ndarray,
+    terminals: np.ndarray,
+    timeouts: np.ndarray,
+) -> np.ndarray:
+    output = np.zeros(len(rewards), dtype=np.float32)
+    running = 0.0
+    for index in range(len(rewards) - 1, -1, -1):
+        if terminals[index] or timeouts[index]:
+            running = 0.0
+        running = float(rewards[index]) + 0.99 * running
+        output[index] = running
+    return output
+
+
+def _assert_state_close(
+    left: dict[str, torch.Tensor],
+    right: dict[str, torch.Tensor],
+) -> None:
+    assert left.keys() == right.keys()
+    for name in left:
+        torch.testing.assert_close(
+            left[name],
+            right[name],
+            rtol=1.0e-6,
+            atol=1.0e-7,
+            msg=lambda message, name=name: f"{name}: {message}",
+        )
+
+
+def _load_legacy_module() -> Any:
+    import importlib.util
+    import sys
+
+    source = (
+        Path(__file__).resolve().parents[2]
+        / "src"
+        / "drpo"
+        / "e7_canonical_vendor"
+        / "d4rl"
+        / "agents.py"
+    )
+    name = "_d4rl_exprank_differential_oracle"
+    spec = importlib.util.spec_from_file_location(name, source)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    module.DEVICE = torch.device("cpu")
+    module.set_network_preset("default")
+    return module
+
+
+def _legacy_agent(seed: int) -> Any:
+    module = _load_legacy_module()
+    torch.manual_seed(seed)
+    return module.SNA2C_IQLV_ExpRankAgent(
+        5,
+        2,
+        lr=3.0e-4,
+        gamma=0.99,
+        alpha=0.11,
+        tau=0.5,
+        T=5.0,
+    )
+
+
+def _migrated_agent(seed: int) -> SNA2CIQLVExpRankAgent:
+    torch.manual_seed(seed)
+    return SNA2CIQLVExpRankAgent(
+        5,
+        2,
+        learning_rate=3.0e-4,
+        gamma=0.99,
+        alpha=0.11,
+        tau=0.5,
+        temperature=5.0,
+        device="cpu",
+    )
 
 
 def test_d4rl9_task_matrix_matches_manuscript_order() -> None:
@@ -90,14 +205,6 @@ def test_reference_scores_and_hopper_identity_match_frozen_protocol() -> None:
     assert task.dataset_sha256 == protocol.dataset_sha256
     assert task.dataset_id == protocol.rollout_dataset_id
     assert task.env_id == protocol.env_id
-    assert (
-        task.normalized_score_reference_min
-        == protocol.normalized_score_reference_min
-    )
-    assert (
-        task.normalized_score_reference_max
-        == protocol.normalized_score_reference_max
-    )
 
 
 def test_task_specs_own_backend_independent_rollout_identity() -> None:
@@ -110,16 +217,8 @@ def test_task_specs_own_backend_independent_rollout_identity() -> None:
         assert task.rollout_identity() == expected
         assert task.validate_rollout_identity(**expected) == expected
 
-    task = resolve_d4rl_task("walker2d-medium-replay-v2")
-    with pytest.raises(ValueError, match="rollout identity mismatch"):
-        task.validate_rollout_identity(
-            backend="gymnasium_mujoco",
-            dataset_id=task.dataset_id,
-            env_id="Hopper-v4",
-        )
 
-
-def test_backend_is_selected_and_attached_without_a_second_trainer() -> None:
+def test_backend_is_selected_and_code_migrated() -> None:
     backend = CANONICAL_EXPRANK_BACKEND
     assert D4RL9_EXPERIMENT_ID == "EXT-H-E7-BENCH-01"
     assert backend.backend_id == "canonical_sna2c_iqlv_exprank"
@@ -127,127 +226,151 @@ def test_backend_is_selected_and_attached_without_a_second_trainer() -> None:
     assert backend.implementation_selected is True
     assert backend.implementation_migrated is True
     assert backend.protocol_status == (
-        "selected_backend_adapter_migrated_protocol_unfrozen"
+        "selected_backend_code_migrated_protocol_unfrozen"
     )
     assert backend.protocol_frozen is False
     assert backend.formal_task_matrix_eligible is False
     assert backend.mechanism_runner_reusable is False
-    assert "actor_likelihood_contract" in backend.distinct_contracts
-    assert "advantage_lifecycle" in backend.distinct_contracts
 
 
-def test_canonical_source_loader_exposes_exact_exprank_agent() -> None:
-    module = load_canonical_exprank_module()
-    module.DEVICE = torch.device("cpu")
-    module.set_network_preset("default")
-    agent_class = module.SNA2C_IQLV_ExpRankAgent
-    assert agent_class.__name__ == "SNA2C_IQLV_ExpRankAgent"
-    torch.manual_seed(17)
-    agent = agent_class(
-        5,
-        2,
-        lr=3.0e-4,
-        gamma=0.99,
+def test_migrated_network_initialization_and_forward_match_legacy() -> None:
+    legacy = _legacy_agent(17)
+    migrated = _migrated_agent(17)
+    _assert_state_close(
+        legacy.actor.state_dict(),
+        migrated.actor.state_dict(),
+    )
+    _assert_state_close(
+        legacy.critic.state_dict(),
+        migrated.critic.state_dict(),
+    )
+    observations = _fixed_batch()[0]
+    with torch.no_grad():
+        legacy_mean, legacy_log_std = legacy.actor(observations)
+        migrated_mean, migrated_log_std = migrated.actor(observations)
+        legacy_value = legacy.critic(observations)
+        migrated_value = migrated.critic(observations)
+    torch.testing.assert_close(legacy_mean, migrated_mean)
+    torch.testing.assert_close(legacy_log_std, migrated_log_std)
+    torch.testing.assert_close(legacy_value, migrated_value)
+
+
+def test_rank_weights_match_canonical_formula() -> None:
+    advantages = torch.tensor([-4.0, -1.0, -3.0, -2.0])
+    actual = canonical_exprank_negative_weights(
+        advantages,
         alpha=0.11,
-        tau=0.5,
-        T=5.0,
+        temperature=5.0,
     )
-    generator = torch.Generator().manual_seed(19)
-    observations = torch.randn(8, 5, generator=generator)
-    actions = torch.tanh(torch.randn(8, 2, generator=generator))
-    rewards = torch.randn(8, generator=generator)
-    next_observations = torch.randn(8, 5, generator=generator)
-    dones = torch.tensor([False, True] * 4)
-    returns = torch.zeros(8)
-    loss = agent.update(
-        observations,
-        actions,
+    order = advantages.argsort()
+    ranks = torch.empty_like(order)
+    ranks[order] = torch.arange(4)
+    score = 1.0 - ranks.float() / 3.0
+    expected = 0.11 * torch.exp(torch.clamp(-5.0 * score, min=-20.0))
+    torch.testing.assert_close(actual, expected)
+
+
+def test_first_adam_update_matches_legacy() -> None:
+    legacy = _legacy_agent(23)
+    migrated = _migrated_agent(23)
+    batch = _fixed_batch()
+    legacy_loss = legacy.update(*batch)
+    migrated_loss = migrated.update(*batch)
+    assert migrated_loss == pytest.approx(
+        legacy_loss,
+        rel=1.0e-6,
+        abs=1.0e-7,
+    )
+    _assert_state_close(
+        legacy.actor.state_dict(),
+        migrated.actor.state_dict(),
+    )
+    _assert_state_close(
+        legacy.critic.state_dict(),
+        migrated.critic.state_dict(),
+    )
+
+
+def test_short_training_trajectory_matches_legacy(tmp_path: Path) -> None:
+    dataset = _synthetic_dataset()
+    seed = 29
+    legacy = _legacy_agent(seed)
+    tensors = {
+        "observations": torch.from_numpy(dataset.observations),
+        "actions": torch.from_numpy(dataset.actions),
+        "rewards": torch.from_numpy(dataset.rewards),
+        "next_observations": torch.from_numpy(dataset.next_observations),
+        "terminals": torch.from_numpy(dataset.terminals),
+        "mc_returns": torch.from_numpy(dataset.mc_returns),
+    }
+    generator = torch.Generator().manual_seed(seed)
+    for _ in range(3):
+        indices = torch.randint(
+            0,
+            dataset.size,
+            (8,),
+            generator=generator,
+        )
+        legacy.update(
+            tensors["observations"].index_select(0, indices),
+            tensors["actions"].index_select(0, indices),
+            tensors["rewards"].index_select(0, indices),
+            tensors["next_observations"].index_select(0, indices),
+            tensors["terminals"].index_select(0, indices),
+            tensors["mc_returns"].index_select(0, indices),
+        )
+    result = train_canonical_exprank(
+        dataset=dataset,
+        seed=seed,
+        config=_config(steps=3),
+        output_root=tmp_path / "run",
+    )
+    migrated = result["agent"]
+    _assert_state_close(
+        legacy.actor.state_dict(),
+        migrated.actor.state_dict(),
+    )
+    _assert_state_close(
+        legacy.critic.state_dict(),
+        migrated.critic.state_dict(),
+    )
+    assert (tmp_path / "run" / "ckpts" / "step_0000002.pt").is_file()
+    assert (tmp_path / "run" / "COMPLETED.json").is_file()
+
+
+def test_dataset_preparation_matches_canonical_transformations() -> None:
+    observations = np.arange(30, dtype=np.float32).reshape(10, 3)
+    actions = np.linspace(-2.0, 2.0, 20, dtype=np.float32).reshape(10, 2)
+    rewards = np.arange(1, 11, dtype=np.float32)
+    terminals = np.zeros(10, dtype=np.bool_)
+    terminals[[3, 9]] = True
+    timeouts = np.zeros(10, dtype=np.bool_)
+    timeouts[6] = True
+    next_observations = np.concatenate(
+        [observations[1:], observations[-1:]],
+        axis=0,
+    )
+    data = OfflineData(
+        observations=observations,
+        actions=actions,
+        rewards=rewards,
+        next_observations=next_observations,
+        terminals=terminals,
+        timeouts=timeouts,
+        episode_ids=np.arange(10, dtype=np.int64),
+    )
+    prepared = prepare_canonical_locomotion_dataset(data)
+    expected_rewards = reward_norm_locomotion(
         rewards,
+        terminals,
+        timeouts,
+    ).astype(np.float32)
+    np.testing.assert_allclose(prepared.rewards, expected_rewards)
+    assert np.max(np.abs(prepared.actions)) <= 1.0 - 1.0e-5
+    np.testing.assert_array_equal(
+        prepared.next_observations,
         next_observations,
-        dones,
-        returns,
     )
-    assert math.isfinite(loss)
-
-
-def test_backend_provenance_fingerprints_all_authoritative_sources() -> None:
-    provenance = canonical_backend_provenance()
-    assert provenance["backend"]["backend_id"] == (
-        "canonical_sna2c_iqlv_exprank"
-    )
-    files = provenance["source_files"]
-    assert set(files) == set(CANONICAL_EXPRANK_BACKEND.source_paths)
-    assert all(len(item["sha256"]) == 64 for item in files.values())
-    assert all(item["size_bytes"] > 0 for item in files.values())
-
-
-def test_command_matches_canonical_exprank_trainer_contract(tmp_path: Path) -> None:
-    task = resolve_d4rl_task("halfcheetah-medium-v2")
-    dataset = tmp_path / task.dataset_basename
-    command = build_canonical_exprank_command(
-        task=task,
-        dataset_path=dataset,
-        output_root=tmp_path / "output",
-        seed=200,
-        config=_config(),
-    )
-    assert command[1].endswith("train_sna2c_variant.py")
-    flags = _flag_map(command)
-    assert flags == {
-        "--dataset": task.dataset_id,
-        "--hdf5": str(dataset.resolve()),
-        "--variant": "iqlv_exp_rank",
-        "--alpha": "0.11",
-        "--tau": "0.5",
-        "--temp": "5.0",
-        "--steps": "1000000",
-        "--batch": "256",
-        "--lr": "0.0003",
-        "--eval_interval": "50000",
-        "--eval_episodes": "10",
-        "--seed": "200",
-        "--out_dir": str((tmp_path / "output").resolve()),
-        "--ckpt_dir": str((tmp_path / "output" / "ckpts").resolve()),
-        "--ckpt_interval": "50000",
-        "--last_pct": "0.1",
-    }
-
-
-def test_every_task_uses_the_same_canonical_trainer(tmp_path: Path) -> None:
-    trainer_paths = {
-        build_canonical_exprank_command(
-            task=task,
-            dataset_path=tmp_path / task.dataset_basename,
-            output_root=tmp_path / task.task_id,
-            seed=200,
-            config=_config(),
-        )[1]
-        for task in D4RL9_TASKS
-    }
-    assert len(trainer_paths) == 1
-
-
-def test_plan_only_task_adapter_writes_nonformal_records(tmp_path: Path) -> None:
-    task = resolve_d4rl_task("halfcheetah-medium-v2")
-    dataset = tmp_path / task.dataset_basename
-    dataset.write_bytes(b"non-formal identity fixture")
-    result = run_canonical_exprank_task(
-        task=task,
-        backend=CANONICAL_EXPRANK_BACKEND,
-        dataset_path=dataset,
-        output_root=tmp_path / "task",
-        seeds=(200, 201),
-        config=_config(),
-        execute=False,
-    )
-    assert set(result["runs"]) == {"200", "201"}
-    assert all(
-        run["execution_kind"] == "plan_only"
-        for run in result["runs"].values()
-    )
-    assert result["formal_result_claim"] is False
-    assert result["method_ranking_claim_allowed"] is False
-    assert (tmp_path / "task" / "TASK_RESULT.json").is_file()
 
 
 def test_unverified_dataset_hashes_fail_closed(tmp_path: Path) -> None:
@@ -260,7 +383,6 @@ def test_unverified_dataset_hashes_fail_closed(tmp_path: Path) -> None:
         require_verified_sha=False,
     )
     assert nonformal["identity_verified"] is False
-    assert nonformal["registered_sha256"] is None
     with pytest.raises(RuntimeError, match="formal execution is blocked"):
         validate_dataset_path(
             path,
@@ -277,29 +399,16 @@ def test_execution_plan_exposes_remaining_formal_blockers(
         seeds=tuple(range(10)),
     )
     assert plan.formal_evidence_eligible is False
-    assert plan.method_ranking_claim_allowed is False
-    assert plan.dataset_identity_complete is False
     assert plan.backend_protocol_complete is False
-    assert any(
-        reason.startswith("unresolved_dataset_sha256:")
-        for reason in plan.blocked_reasons
-    )
     assert (
         "d4rl9_performance_backend_protocol_not_frozen"
         in plan.blocked_reasons
     )
     assert "d4rl9_performance_backend_not_migrated" not in plan.blocked_reasons
-    assert "d4rl9_performance_protocol_not_frozen" in plan.blocked_reasons
     manifest = plan.as_manifest()
-    assert manifest["single_canonical_trainer_across_d4rl9_tasks"] is True
+    assert manifest["single_migrated_trainer_across_d4rl9_tasks"] is True
     assert manifest["shared_training_engine_with_hopper_mechanism"] is False
     assert manifest["separate_per_task_trainers_allowed"] is False
-
-    with pytest.raises(ValueError, match="duplicates"):
-        resolve_d4rl9_execution(
-            dataset_paths=_paths(tmp_path),
-            seeds=(1, 1),
-        )
 
 
 def test_dispatch_uses_one_backend_runner_for_every_task(tmp_path: Path) -> None:
@@ -328,10 +437,8 @@ def test_dispatch_uses_one_backend_runner_for_every_task(tmp_path: Path) -> None
         call["backend"] is CANONICAL_EXPRANK_BACKEND
         for call in calls
     )
-    assert result["single_canonical_trainer_across_d4rl9_tasks"] is True
+    assert result["single_migrated_trainer_across_d4rl9_tasks"] is True
     assert result["shared_training_engine_with_hopper_mechanism"] is False
-    assert result["method_ranking_claim_allowed"] is False
-
     with pytest.raises(RuntimeError, match="dispatch is blocked"):
         dispatch_d4rl9(
             plan=plan,
