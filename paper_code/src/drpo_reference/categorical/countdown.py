@@ -1,11 +1,11 @@
 """Stable reviewer-facing primitives for the Countdown sequence task.
 
-This module intentionally stops below the experiment-entry layer.  It contains
-only protocol-independent expression verification, prompt/completion masking,
-autoregressive completion statistics, the detached paper-aligned linear
-surprisal envelope, and response-level metric aggregation.  It does not select a
-model scale, coefficient, method matrix, seed set, training budget, checkpoint,
-or test protocol.
+This module intentionally stops below the experiment-entry layer. It contains
+protocol-independent expression verification, prompt/completion masking,
+autoregressive completion statistics, frozen-bank batching, the detached
+paper-aligned linear-surprisal objective, and response-level aggregation. It
+does not select a model scale, coefficient, method matrix, seed set, training
+budget, checkpoint, or test protocol.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ from typing import Any
 import torch
 import torch.nn.functional as F
 
-COUNTDOWN_CORE_VERSION = "0.1.0-stable-core"
+COUNTDOWN_CORE_VERSION = "0.2.0-stable-training-core"
 COUNTDOWN_REFERENCE_DISTANCE = 2.0
 IGNORE_INDEX = -100
 MAX_EXPRESSION_LENGTH = 200
@@ -45,6 +45,24 @@ class EncodedCompletion:
             raise ValueError("input_ids and labels must be aligned and non-empty")
         if all(label == IGNORE_INDEX for label in self.labels):
             raise ValueError("encoded sequence contains no completion token")
+
+
+@dataclass(frozen=True)
+class CountdownTrainingItem:
+    """One positive completion and its first-occurrence unique negative bank."""
+
+    positive: EncodedCompletion
+    bank: tuple[EncodedCompletion, ...]
+    unique_count: int
+    raw_bank_count: int
+
+    def __post_init__(self) -> None:
+        if not self.bank:
+            raise ValueError("Countdown training item has no unique negative")
+        if self.unique_count != len(self.bank):
+            raise ValueError("unique_count must equal the encoded bank length")
+        if self.raw_bank_count < self.unique_count:
+            raise ValueError("raw_bank_count cannot be smaller than unique_count")
 
 
 def clean_expression(text: str) -> str:
@@ -188,9 +206,7 @@ def encode_prompt_completion(
         raise ValueError("tokenizer must provide a non-empty eos_token")
     prefix = chat_prompt(tokenizer, prompt)
     completion_text = clean_expression(completion) + eos_token
-    prefix_ids = list(
-        tokenizer(prefix, add_special_tokens=False)["input_ids"]
-    )
+    prefix_ids = list(tokenizer(prefix, add_special_tokens=False)["input_ids"])
     full_ids = list(
         tokenizer(prefix + completion_text, add_special_tokens=False)["input_ids"]
     )[:max_length]
@@ -220,6 +236,92 @@ def pad_encoded(
         "labels": torch.tensor(labels, dtype=torch.long),
         "attention_mask": torch.tensor(masks, dtype=torch.long),
     }
+
+
+def unique_negative_expressions(row: Mapping[str, Any]) -> list[str]:
+    """Return first-occurrence unique expressions from a frozen negative bank."""
+
+    unique: list[str] = []
+    seen: set[str] = set()
+    for item in row.get("negative_bank", []):
+        if isinstance(item, Mapping):
+            if "expression" not in item:
+                raise ValueError("negative-bank mapping has no expression field")
+            expression = str(item["expression"])
+        else:
+            expression = str(item)
+        cleaned = clean_expression(expression)
+        if cleaned in seen:
+            continue
+        seen.add(cleaned)
+        unique.append(cleaned)
+    if not unique:
+        raise ValueError("row has no unique negative expression")
+    return unique
+
+
+def encode_countdown_training_row(
+    row: Mapping[str, Any],
+    tokenizer: Any,
+    max_length: int,
+) -> CountdownTrainingItem:
+    """Encode the frozen positive and every first-occurrence unique negative."""
+
+    prompt = row.get("prompt")
+    positive = row.get("positive")
+    if not isinstance(prompt, str) or not prompt:
+        raise ValueError("Countdown training row requires a non-empty prompt")
+    if not isinstance(positive, str) or not positive:
+        raise ValueError("Countdown training row requires a non-empty positive")
+    negatives = unique_negative_expressions(row)
+    raw_bank = row.get("negative_bank", [])
+    if not isinstance(raw_bank, Sequence) or isinstance(raw_bank, (str, bytes)):
+        raise ValueError("negative_bank must be a sequence")
+    return CountdownTrainingItem(
+        positive=encode_prompt_completion(tokenizer, prompt, positive, max_length),
+        bank=tuple(
+            encode_prompt_completion(tokenizer, prompt, expression, max_length)
+            for expression in negatives
+        ),
+        unique_count=len(negatives),
+        raw_bank_count=len(raw_bank),
+    )
+
+
+def collate_countdown_training_items(
+    items: Sequence[CountdownTrainingItem],
+    pad_id: int,
+) -> dict[str, Any]:
+    """Flatten the unique banks while preserving per-prompt denominators."""
+
+    if not items:
+        raise ValueError("at least one Countdown training item is required")
+    flattened = [negative for item in items for negative in item.bank]
+    row_index = [
+        row
+        for row, item in enumerate(items)
+        for _ in range(item.unique_count)
+    ]
+    if len(flattened) != len(row_index):
+        raise AssertionError("flattened bank and row index became misaligned")
+    return {
+        "positive": pad_encoded([item.positive for item in items], pad_id),
+        "bank": pad_encoded(flattened, pad_id),
+        "bank_row_index": torch.tensor(row_index, dtype=torch.long),
+        "unique_counts": torch.tensor(
+            [item.unique_count for item in items], dtype=torch.long
+        ),
+        "raw_bank_counts": torch.tensor(
+            [item.raw_bank_count for item in items], dtype=torch.long
+        ),
+    }
+
+
+def move_tensor_batch_to_device(
+    batch: Mapping[str, torch.Tensor],
+    device: torch.device | str,
+) -> dict[str, torch.Tensor]:
+    return {name: tensor.to(device) for name, tensor in batch.items()}
 
 
 def completion_statistics_from_logits(
@@ -347,15 +449,22 @@ def mean_unique_negative_term(
 ) -> torch.Tensor:
     """Average by unique negatives per prompt, never by the weight sum."""
 
-    if sequence_log_probability.ndim != 1 or weights.shape != sequence_log_probability.shape:
-        raise ValueError("sequence_log_probability and weights must be matching vectors")
+    if (
+        sequence_log_probability.ndim != 1
+        or weights.shape != sequence_log_probability.shape
+    ):
+        raise ValueError(
+            "sequence_log_probability and weights must be matching vectors"
+        )
     if row_index.shape != sequence_log_probability.shape:
         raise ValueError("row_index must match the flattened negative vector")
     if unique_counts.ndim != 1 or unique_counts.numel() < 1:
         raise ValueError("unique_counts must be a non-empty vector")
     if bool((unique_counts <= 0).any()):
         raise ValueError("every prompt must have at least one unique negative")
-    if bool((row_index < 0).any()) or bool((row_index >= unique_counts.numel()).any()):
+    if bool((row_index < 0).any()) or bool(
+        (row_index >= unique_counts.numel()).any()
+    ):
         raise ValueError("row_index contains an invalid prompt index")
     indices = row_index.to(device=sequence_log_probability.device)
     counts = unique_counts.to(
@@ -371,26 +480,182 @@ def mean_unique_negative_term(
     return (sums / counts).mean()
 
 
-def unique_negative_expressions(row: Mapping[str, Any]) -> list[str]:
-    """Return first-occurrence unique expressions from a frozen negative bank."""
+def countdown_training_objective(
+    positive_sequence_log_probability: torch.Tensor,
+    *,
+    alpha: float,
+    coefficient: float,
+    negative_sequence_log_probability: torch.Tensor | None = None,
+    row_index: torch.Tensor | None = None,
+    unique_counts: torch.Tensor | None = None,
+    reference_distance: float = COUNTDOWN_REFERENCE_DISTANCE,
+) -> dict[str, Any]:
+    """Build the frozen linear-surprisal objective without selecting a protocol."""
 
-    unique: list[str] = []
-    seen: set[str] = set()
-    for item in row.get("negative_bank", []):
-        if isinstance(item, Mapping):
-            if "expression" not in item:
-                raise ValueError("negative-bank mapping has no expression field")
-            expression = str(item["expression"])
-        else:
-            expression = str(item)
-        cleaned = clean_expression(expression)
-        if cleaned in seen:
-            continue
-        seen.add(cleaned)
-        unique.append(cleaned)
-    if not unique:
-        raise ValueError("row has no unique negative expression")
-    return unique
+    if (
+        positive_sequence_log_probability.ndim != 1
+        or positive_sequence_log_probability.numel() < 1
+    ):
+        raise ValueError("positive sequence log-probability must be a non-empty vector")
+    if not bool(torch.isfinite(positive_sequence_log_probability).all()):
+        raise ValueError("positive sequence log-probability must be finite")
+    if not math.isfinite(alpha) or alpha < 0.0:
+        raise ValueError("alpha must be finite and non-negative")
+    if not math.isfinite(coefficient) or coefficient < 0.0:
+        raise ValueError("coefficient must be finite and non-negative")
+
+    positive_lp = positive_sequence_log_probability.mean()
+    empty = positive_sequence_log_probability.new_empty((0,))
+    weighted_negative_lp = positive_lp.new_zeros(())
+    weights = empty
+    coordinate = empty
+    negative_evaluated = False
+    if alpha > 0.0:
+        if (
+            negative_sequence_log_probability is None
+            or row_index is None
+            or unique_counts is None
+        ):
+            raise ValueError(
+                "nonzero alpha requires negative log-probabilities and bank indices"
+            )
+        weights = paper_aligned_linear_weights(
+            negative_sequence_log_probability,
+            alpha=alpha,
+            coefficient=coefficient,
+            reference_distance=reference_distance,
+        )
+        coordinate = normalized_sequence_surprisal(
+            negative_sequence_log_probability,
+            reference_distance=reference_distance,
+        )
+        weighted_negative_lp = mean_unique_negative_term(
+            negative_sequence_log_probability,
+            weights,
+            row_index,
+            unique_counts,
+        )
+        negative_evaluated = True
+
+    loss = -(positive_lp - weighted_negative_lp)
+    if not bool(torch.isfinite(loss)):
+        raise FloatingPointError("Countdown objective is non-finite")
+    return {
+        "loss": loss,
+        "positive_lp": positive_lp,
+        "weighted_negative_lp": weighted_negative_lp,
+        "weights": weights,
+        "coordinate": coordinate,
+        "negative_evaluated": negative_evaluated,
+    }
+
+
+def countdown_objective_from_model(
+    model: Any,
+    packed: Mapping[str, Any],
+    *,
+    alpha: float,
+    coefficient: float,
+    reference_distance: float = COUNTDOWN_REFERENCE_DISTANCE,
+) -> dict[str, Any]:
+    """Evaluate the stable objective and skip the bank forward for Positive-only."""
+
+    positive_batch = packed.get("positive")
+    if not isinstance(positive_batch, Mapping):
+        raise ValueError("packed Countdown batch has no positive tensor mapping")
+    positive_stats = completion_stats(model, positive_batch)
+    negative_stats: dict[str, torch.Tensor] | None = None
+    if alpha > 0.0:
+        bank_batch = packed.get("bank")
+        row_index = packed.get("bank_row_index")
+        unique_counts = packed.get("unique_counts")
+        if not isinstance(bank_batch, Mapping):
+            raise ValueError("packed Countdown batch has no bank tensor mapping")
+        if not isinstance(row_index, torch.Tensor) or not isinstance(
+            unique_counts, torch.Tensor
+        ):
+            raise ValueError("packed Countdown batch has invalid bank indices")
+        negative_stats = completion_stats(model, bank_batch)
+        terms = countdown_training_objective(
+            positive_stats["seq_lp"],
+            alpha=alpha,
+            coefficient=coefficient,
+            negative_sequence_log_probability=negative_stats["seq_lp"],
+            row_index=row_index,
+            unique_counts=unique_counts,
+            reference_distance=reference_distance,
+        )
+    else:
+        terms = countdown_training_objective(
+            positive_stats["seq_lp"],
+            alpha=alpha,
+            coefficient=coefficient,
+            reference_distance=reference_distance,
+        )
+    return {
+        **terms,
+        "positive_stats": positive_stats,
+        "negative_stats": negative_stats,
+    }
+
+
+def _quantile(values: torch.Tensor, probability: float) -> float:
+    if values.numel() < 1:
+        raise ValueError("quantile input must be non-empty")
+    return float(torch.quantile(values.detach().float().cpu(), probability).item())
+
+
+def countdown_weight_diagnostics(
+    sequence_log_probability: torch.Tensor,
+    weights: torch.Tensor,
+    unique_counts: torch.Tensor,
+    raw_bank_counts: torch.Tensor,
+    *,
+    reference_distance: float = COUNTDOWN_REFERENCE_DISTANCE,
+) -> dict[str, float]:
+    """Return the stable bank/weight diagnostics used by the scan trainer."""
+
+    if weights.shape != sequence_log_probability.shape:
+        raise ValueError("weights must match sequence log-probabilities")
+    if unique_counts.shape != raw_bank_counts.shape:
+        raise ValueError("unique_counts and raw_bank_counts must align")
+    if bool((raw_bank_counts < unique_counts).any()):
+        raise ValueError("raw bank count cannot be smaller than unique count")
+    coordinate = normalized_sequence_surprisal(
+        sequence_log_probability,
+        reference_distance=reference_distance,
+    )
+    return {
+        "negative_surprisal_mean": float((-sequence_log_probability.detach()).mean()),
+        "u_mean": float(coordinate.mean()),
+        "u_p10": _quantile(coordinate, 0.10),
+        "u_p50": _quantile(coordinate, 0.50),
+        "u_p90": _quantile(coordinate, 0.90),
+        "weight_mean": float(weights.detach().mean()),
+        "weight_p10": _quantile(weights, 0.10),
+        "weight_p50": _quantile(weights, 0.50),
+        "weight_p90": _quantile(weights, 0.90),
+        "unique_negative_count_mean": float(unique_counts.float().mean()),
+        "raw_bank_count_mean": float(raw_bank_counts.float().mean()),
+        "duplicates_removed_mean": float(
+            (raw_bank_counts - unique_counts).float().mean()
+        ),
+    }
+
+
+def parameter_update_norm(
+    before: Sequence[torch.Tensor],
+    parameters: Sequence[torch.nn.Parameter],
+) -> float:
+    """Measure the L2 parameter change after an optimizer step."""
+
+    if len(before) != len(parameters):
+        raise ValueError("parameter snapshots and live parameters must align")
+    total = torch.zeros((), dtype=torch.float64)
+    for saved, parameter in zip(before, parameters, strict=True):
+        delta = parameter.detach().float().cpu() - saved.detach().float().cpu()
+        total += delta.double().square().sum()
+    return float(torch.sqrt(total).item())
 
 
 def evaluate_response_batches(
@@ -400,7 +665,11 @@ def evaluate_response_batches(
 ) -> dict[str, Any]:
     """Aggregate verifier-based Greedy, Pass@k, validity, and failure categories."""
 
-    if not rows or len(rows) != len(greedy_outputs) or len(rows) != len(sampled_outputs):
+    if (
+        not rows
+        or len(rows) != len(greedy_outputs)
+        or len(rows) != len(sampled_outputs)
+    ):
         raise ValueError("rows, greedy_outputs, and sampled_outputs must align")
     greedy_success: list[float] = []
     valid: list[float] = []
@@ -450,19 +719,27 @@ def evaluate_response_batches(
 __all__ = [
     "COUNTDOWN_CORE_VERSION",
     "COUNTDOWN_REFERENCE_DISTANCE",
+    "CountdownTrainingItem",
     "EncodedCompletion",
     "ExpressionVerifier",
     "SYSTEM_PROMPT",
     "chat_prompt",
     "clean_expression",
+    "collate_countdown_training_items",
     "completion_statistics_from_logits",
     "completion_stats",
+    "countdown_objective_from_model",
+    "countdown_training_objective",
+    "countdown_weight_diagnostics",
+    "encode_countdown_training_row",
     "encode_prompt_completion",
     "evaluate_response_batches",
     "mean_unique_negative_term",
+    "move_tensor_batch_to_device",
     "normalized_sequence_surprisal",
     "pad_encoded",
     "paper_aligned_linear_weights",
+    "parameter_update_norm",
     "unique_negative_expressions",
     "verifier_category",
     "verify_expression",
