@@ -68,7 +68,7 @@ The manuscript uses two scientifically distinct external profiles:
 1. Hopper E7-Q2 is mechanism validation with a frozen canonical critic, frozen advantages, actor-only updates, matched near/far diagnostics, and targeted interventions;
 2. D4RL-9 is task-performance validation over HalfCheetah, Hopper, and Walker2d under medium, medium-replay, and medium-expert datasets.
 
-A source audit showed that these profiles do **not** currently have an identical full training backend. The Hopper mechanism policy uses a transformed squashed-Gaussian likelihood with an inverse-tanh and Jacobian correction, while the legacy D4RL benchmark candidate uses the canonical SNA2C/IQLV agent family with dynamic TD advantages and joint actor/critic updates. They must not be forced into one scientifically incorrect trainer merely to reduce filenames.
+The repository owner selected `SNA2C_IQLV_ExpRankAgent` as the D4RL-9 performance backend. The paper-facing implementation attaches to the vendored canonical source rather than copying its actor, critic, or training loop. This preserves one source of truth across all nine performance tasks while keeping it scientifically separate from the Hopper E7-Q2 mechanism trainer.
 
 ### Contracts that may be shared
 
@@ -96,33 +96,35 @@ A source audit showed that these profiles do **not** currently have an identical
   - `configs/e7_hopper_q2.yaml`
   - `scripts/run_e7_hopper_q2.py`
   - delivered compact E7-Q2 outputs and registered dataset identity;
-- the audited D4RL performance-backend candidate sources:
+- selected canonical D4RL performance sources:
   - `src/drpo/e7_canonical_vendor/d4rl/agents.py`
   - `src/drpo/e7_canonical_vendor/d4rl/train_sna2c_variant.py`
-  - `src/drpo/e7_canonical_shortlist_protocol.py`;
-- the final D4RL-9 backend only after its algorithm, methods, datasets, seeds, budget, and terminal audit are explicitly frozen;
+  - `src/drpo/e7_canonical_vendor/d4rl/d4rl_common/train_loop.py`
+  - `src/drpo/e7_canonical_vendor/d4rl/d4rl_common/normalize.py`;
 - D4RL-9 task identities only with verified provenance.
 
 ### Reference split
 
-- existing `external/hopper_*` modules: Hopper E7-Q2 mechanism backend; historical filenames do not make them the universal D4RL-9 performance trainer;
+- existing `external/hopper_*` modules: Hopper E7-Q2 mechanism backend; historical filenames do not make them the D4RL-9 performance trainer;
 - `external/d4rl_tasks.py`: task specifications and provenance state for the nine manuscript coordinates;
 - `experiments/hopper.py`: Hopper E7-Q2 mechanism profile;
-- `experiments/d4rl.py`: D4RL-9 matrix, audited backend boundary, formal blockers, and dispatch to one selected performance backend across all nine tasks.
+- `experiments/d4rl.py`: stable adapter to the selected canonical `SNA2C_IQLV_ExpRankAgent`, source fingerprinting, exact trainer-command construction, plan/non-formal execution records, D4RL-9 matrix blockers, and dispatch through one backend for every task.
 
 ### Compatibility rule
 
 - current Hopper behavior must remain differential-test equivalent;
-- HalfCheetah, Hopper, and Walker2d performance tasks must use one selected D4RL performance backend, not separate per-task trainer copies;
-- the Hopper mechanism runner must not be reused as the performance runner unless a later scientific audit proves exact contract equivalence and freezes that change;
+- HalfCheetah, Hopper, and Walker2d performance tasks use the same canonical trainer path, not per-task copies;
+- the canonical vendored implementation remains the algorithm source of truth; the paper-code adapter must not silently fork it;
+- the Hopper mechanism runner is not reused as the performance runner;
 - unresolved dataset SHA values remain unresolved and block formal use;
-- pilot-only canonical shortlist code is provenance and a backend candidate, not a frozen D4RL-9 formal protocol;
+- backend migration does not freeze the ten-run protocol, budget, coefficients, or terminal-audit rule;
 - task-performance collapse, support/variance-boundary events, rollout failures, and NaN/Inf numerical failures remain separately reported.
 
 ### Exclude
 
 - copied `halfcheetah_*`, `hopper_*`, or `walker2d_*` performance trainers;
-- an invented hybrid that silently combines Hopper mechanism likelihoods with the canonical D4RL optimizer/advantage lifecycle;
+- a copied second implementation of `SNA2C_IQLV_ExpRankAgent` in `paper_code`;
+- an invented hybrid that combines Hopper mechanism likelihoods with the canonical D4RL optimizer/advantage lifecycle;
 - unmerged GAE development work;
 - historical stopping logic or parameter sweeps not selected by the final manuscript;
 - table/figure-generation machinery inside training code.
