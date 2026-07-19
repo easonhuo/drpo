@@ -15,15 +15,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/upload-artifact@v4
         with:
-          name: p1-source-export
+          name: p1-full-repo-export
           if-no-files-found: error
+          include-hidden-files: true
           retention-days: 1
           path: |
-            src/drpo/e7_squared_exp_night.py
-            src/drpo/e7_squared_exp_night_aggregate.py
-            src/drpo/e7_squared_exp_night_bootstrap.py
-            tests/test_e7_squared_exp_kernel.py
-            tests/test_e7_squared_exp_night.py
-            scripts/run_e7_squared_exp_night_auto.py
-            scripts/run_e7_squared_exp_night_one_click.sh
-            configs/e7_bench_joint_gae_tuning_p1_c.json
+            .
+            !.git/**
+            !outputs/**
+            !runspec_artifacts/**
