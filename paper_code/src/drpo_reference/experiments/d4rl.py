@@ -1,4 +1,4 @@
-"""D4RL-9 performance-profile planning over the shared locomotion engine.
+"""D4RL-9 performance planning over the shared locomotion engine.
 
 The Hopper mechanism runner and this performance profile share data, model,
 critic, actor, and rollout primitives. This module owns only the nine-task
@@ -28,7 +28,7 @@ TaskRunner = Callable[..., dict[str, Any]]
 
 @dataclass(frozen=True)
 class D4RL9ExecutionPlan:
-    """Resolved D4RL-9 matrix without pretending unresolved inputs are formal."""
+    """Resolved matrix without pretending unresolved inputs are formal."""
 
     tasks: tuple[D4RLTaskSpec, ...]
     dataset_paths: dict[str, Path]
@@ -52,9 +52,13 @@ class D4RL9ExecutionPlan:
             },
             "seeds": list(self.seeds),
             "dataset_identity_complete": self.dataset_identity_complete,
-            "performance_protocol_frozen": self.performance_protocol_frozen,
+            "performance_protocol_frozen": (
+                self.performance_protocol_frozen
+            ),
             "formal_evidence_eligible": self.formal_evidence_eligible,
-            "method_ranking_claim_allowed": self.method_ranking_claim_allowed,
+            "method_ranking_claim_allowed": (
+                self.method_ranking_claim_allowed
+            ),
             "blocked_reasons": list(self.blocked_reasons),
             "shared_locomotion_engine": True,
             "separate_d4rl_trainer_implemented": False,
@@ -69,7 +73,7 @@ def resolve_d4rl9_execution(
     performance_protocol_frozen: bool = False,
     smoke: bool = False,
 ) -> D4RL9ExecutionPlan:
-    """Resolve the complete matrix and expose every formal blocker explicitly."""
+    """Resolve the matrix and expose every formal blocker explicitly."""
 
     resolved_tasks = validate_d4rl9_matrix(tasks)
     resolved_seeds = tuple(int(seed) for seed in seeds)
@@ -84,15 +88,20 @@ def resolve_d4rl9_execution(
     extra = sorted(actual_ids - expected_ids)
     if missing or extra:
         raise ValueError(
-            f"D4RL-9 dataset mapping mismatch; missing={missing}, extra={extra}"
+            "D4RL-9 dataset mapping mismatch; "
+            f"missing={missing}, extra={extra}"
         )
     resolved_paths = {
-        task.task_id: Path(dataset_paths[task.task_id]).expanduser().resolve()
+        task.task_id: Path(
+            dataset_paths[task.task_id]
+        ).expanduser().resolve()
         for task in resolved_tasks
     }
 
     unresolved = tuple(
-        task.task_id for task in resolved_tasks if not task.dataset_identity_verified
+        task.task_id
+        for task in resolved_tasks
+        if not task.dataset_identity_verified
     )
     blocked: list[str] = []
     if unresolved:
@@ -118,7 +127,9 @@ def resolve_d4rl9_execution(
         dataset_paths=resolved_paths,
         seeds=resolved_seeds,
         execution_kind=(
-            "formal_candidate" if formal_eligible else "blocked_or_non_evidence"
+            "formal_candidate"
+            if formal_eligible
+            else "blocked_or_non_evidence"
         ),
         dataset_identity_complete=dataset_identity_complete,
         performance_protocol_frozen=performance_protocol_frozen,
@@ -161,11 +172,14 @@ def dispatch_d4rl9(
 
     if plan.blocked_reasons and not allow_non_evidence:
         raise RuntimeError(
-            "D4RL-9 dispatch is blocked: " + "; ".join(plan.blocked_reasons)
+            "D4RL-9 dispatch is blocked: "
+            + "; ".join(plan.blocked_reasons)
         )
     output = Path(output_root).expanduser().resolve()
     if output.exists() and any(output.iterdir()):
-        raise FileExistsError(f"D4RL-9 output root must be new or empty: {output}")
+        raise FileExistsError(
+            f"D4RL-9 output root must be new or empty: {output}"
+        )
     output.mkdir(parents=True, exist_ok=True)
 
     results: dict[str, Any] = {}
@@ -175,7 +189,9 @@ def dispatch_d4rl9(
             dataset_path=plan.dataset_paths[task.task_id],
             output_root=output / task.task_id,
             seeds=plan.seeds,
-            formal_evidence_eligible=plan.formal_evidence_eligible,
+            formal_evidence_eligible=(
+                plan.formal_evidence_eligible
+            ),
             method_ranking_claim_allowed=False,
         )
     return {
