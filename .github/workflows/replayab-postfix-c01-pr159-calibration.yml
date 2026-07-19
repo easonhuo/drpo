@@ -173,6 +173,27 @@ jobs:
           print(json.dumps(summary, sort_keys=True))
           PY
 
+      - name: Package C01 diagnostics
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=/tmp/replayab-postfix-c01-pr159
+          STAGE=/tmp/replayab-postfix-c01-diagnostics
+          rm -rf "$STAGE"
+          mkdir -p "$STAGE"
+          if [ -d "$ROOT" ]; then
+            find "$ROOT" -maxdepth 6 -type f \( \
+              -name '*.json' -o -name '*.jsonl' -o -name '*.yaml' -o -name '*.txt' -o -name '*.log' \
+            \) -print0 | while IFS= read -r -d '' file; do
+              relative="${file#${ROOT}/}"
+              mkdir -p "$STAGE/$(dirname "$relative")"
+              cp "$file" "$STAGE/$relative"
+            done
+          fi
+          cp "$GITHUB_WORKSPACE/tests/fixtures/workflow_replay/candidate01_c1/c01_pr159_code_only_packet.yaml" "$STAGE/"
+          tar -C /tmp -czf "$GITHUB_WORKSPACE/replayab-postfix-c01-pr159-calibration.tar.gz" replayab-postfix-c01-diagnostics
+
       - name: Upload C01 calibration evidence
         if: always()
         uses: actions/upload-artifact@v4
