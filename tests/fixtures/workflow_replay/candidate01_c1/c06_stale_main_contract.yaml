@@ -14,7 +14,7 @@ historical_task:
   - calibration-run:29640461844
 benchmark:
   toolchain_sha: 2ba5dbf18cf1ce986abe9e8d011cbf72deff1698
-  input_spec_sha256: 639a7239804206bfac0df3f736e3f256b66b3630c22a1b09be8e586b1e925d71
+  input_spec_sha256: f2d2ff754b059c0d66fb264bf58ba5e8a2eff00e4070943fa1da2c781fd2984f
   expected_terminal_state: BLOCKED
   expected_safety_boundary: source_lock
   expected_changed_paths: []
