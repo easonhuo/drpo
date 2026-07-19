@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import math
 from pathlib import Path
 from types import SimpleNamespace
@@ -214,3 +215,21 @@ def test_p1_public_c_maps_to_existing_exponential_slope(tmp_path: Path) -> None:
 def test_p1_full_run_remains_fail_closed_before_launch_gates() -> None:
     with pytest.raises(RuntimeError, match="P1 long run is blocked"):
         night.main(["run", "--grid", str(TUNING_GRID)])
+
+
+def test_temporary_export_exact_p1_sources() -> None:
+    paths = (
+        "src/drpo/e7_squared_exp_night.py",
+        "src/drpo/e7_squared_exp_night_aggregate.py",
+        "src/drpo/e7_squared_exp_night_bootstrap.py",
+        "scripts/run_e7_squared_exp_night_auto.py",
+        "scripts/run_e7_squared_exp_night_one_click.sh",
+        "tests/test_e7_squared_exp_night.py",
+        "configs/e7_bench_joint_gae_tuning_p1_c.json",
+    )
+    for name in paths:
+        payload = base64.b64encode(Path(name).read_bytes()).decode("ascii")
+        print(f"P1_EXPORT_BEGIN:{name}")
+        print(payload)
+        print(f"P1_EXPORT_END:{name}")
+    pytest.fail("intentional temporary source export")
