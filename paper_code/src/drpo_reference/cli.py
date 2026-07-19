@@ -12,6 +12,7 @@ from drpo_reference.continuous.cu1_suite import (
     run_cu1_all,
     run_cu1_stage,
 )
+from drpo_reference.experiments import run_d4rl
 from drpo_reference.experiments.hopper import run_hopper
 
 
@@ -35,6 +36,23 @@ def _seed_list(value: str) -> tuple[int, ...]:
             "seed list contains duplicates"
         )
     return seeds
+
+
+def _task_list(value: str) -> tuple[str, ...]:
+    tasks = tuple(
+        item.strip()
+        for item in value.split(",")
+        if item.strip()
+    )
+    if not tasks:
+        raise argparse.ArgumentTypeError(
+            "at least one D4RL task is required"
+        )
+    if len(set(tasks)) != len(tasks):
+        raise argparse.ArgumentTypeError(
+            "D4RL task list contains duplicates"
+        )
+    return tasks
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -146,6 +164,59 @@ def build_parser() -> argparse.ArgumentParser:
             "never eligible for scientific evidence"
         ),
     )
+
+    d4rl = experiments.add_parser(
+        "d4rl",
+        help="reviewer-facing D4RL-9 ExpRank training runner",
+    )
+    d4rl.add_argument(
+        "--dataset-root",
+        type=Path,
+        required=True,
+        help="directory containing canonical D4RL-v2 HDF5 files",
+    )
+    d4rl.add_argument("--output", type=Path, required=True)
+    d4rl.add_argument(
+        "--tasks",
+        type=_task_list,
+        help=(
+            "optional comma-separated task IDs; defaults to all nine; "
+            "subsets remain non-formal"
+        ),
+    )
+    d4rl.add_argument(
+        "--seeds",
+        type=_seed_list,
+        required=True,
+        help="comma-separated reviewer-run seeds",
+    )
+    d4rl.add_argument(
+        "--steps",
+        type=int,
+        help=(
+            "training updates; required unless --smoke is used; "
+            "does not freeze the formal paper budget"
+        ),
+    )
+    d4rl.add_argument(
+        "--batch-size",
+        type=int,
+        default=256,
+        help="training batch size; smoke caps it at 8",
+    )
+    d4rl.add_argument(
+        "--device",
+        default="auto",
+        help="PyTorch device such as cpu, cuda, cuda:0, or auto",
+    )
+    d4rl.add_argument(
+        "--smoke",
+        action="store_true",
+        help=(
+            "use three updates and at most 64 transitions; "
+            "never scientific evidence"
+        ),
+    )
     return parser
 
 
@@ -188,6 +259,20 @@ def main(argv: Sequence[str] | None = None) -> int:
             smoke=args.smoke,
             device=args.device,
             critic_artifact=args.critic_artifact,
+        )
+        return 0
+    if args.experiment == "d4rl":
+        if args.steps is None and not args.smoke:
+            raise SystemExit("--steps is required unless --smoke is used")
+        run_d4rl(
+            dataset_root=args.dataset_root,
+            output_root=args.output,
+            task_ids=args.tasks,
+            seeds=args.seeds,
+            steps=args.steps,
+            batch_size=args.batch_size,
+            device=args.device,
+            smoke=args.smoke,
         )
         return 0
     raise AssertionError("unreachable")
