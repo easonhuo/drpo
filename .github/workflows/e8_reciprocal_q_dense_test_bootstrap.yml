@@ -1,0 +1,77 @@
+name: E8 RecQ dense curve test bootstrap
+
+on:
+  push:
+    branches:
+      - dev/ext-c-e8-reciprocal-q-dense-lambda-curve-32cell-01
+    paths:
+      - .github/workflows/e8_reciprocal_q_dense_test_bootstrap.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/ext-c-e8-reciprocal-q-dense-lambda-curve-32cell-01
+          fetch-depth: 0
+
+      - name: Append focused matrix gate
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("tests/test_countdown_e8_oracle_offline_v2_alpha1_highc_scan.py")
+          text = path.read_text(encoding="utf-8")
+          marker = "RECIPROCAL_Q_DENSE_CONFIG = ("
+          if marker in text:
+              raise SystemExit("dense curve test marker already exists")
+
+          block = r'''
+
+
+RECIPROCAL_Q_DENSE_CONFIG = (
+    ROOT
+    / "configs"
+    / "countdown_e8_oracle_offline_v2_reciprocal_quadratic_dense_lambda_curve_0p5b.yaml"
+)
+
+
+def test_reciprocal_q_dense_curve_has_sixteen_points_and_thirty_two_cells() -> None:
+    config = _load_path(RECIPROCAL_Q_DENSE_CONFIG)
+    points = scan.parameter_points(config)
+    cells = scan.build_cells(config)
+    assert points == scan.RECIPROCAL_Q_DENSE_POINTS
+    assert tuple(point[2] for point in points) == scan.RECIPROCAL_Q_DENSE_LAMBDAS
+    assert len(points) == 16
+    assert len(cells) == 32
+    assert len({cell.name for cell in cells}) == 32
+    assert {cell.seed_offset for cell in cells} == {4000, 5000}
+    assert {cell.method for cell in cells} == {"reciprocal_quadratic"}
+    assert {cell.alpha for cell in cells} == {1.0}
+    assert not {1.0, 3.0, 7.0, 19.0, 39.0, 79.0, 159.0, 319.0}.intersection(
+        {cell.coefficient for cell in cells}
+    )
+    assert config["execution"]["parallel_cells_per_gpu"] == 2
+    assert config["execution"]["expected_full_waves"] == 2
+    assert config["historical_controls"]["rerun_in_this_round"] is False
+    assert config["reporting"]["trend_resolution_claim_only"] is True
+'''
+          path.write_text(text.rstrip() + block + "\n", encoding="utf-8")
+          PY
+
+          python -m py_compile tests/test_countdown_e8_oracle_offline_v2_alpha1_highc_scan.py
+          git diff --check
+
+      - name: Commit focused gate
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tests/test_countdown_e8_oracle_offline_v2_alpha1_highc_scan.py
+          git commit -m "Test Rec-Q dense lambda curve matrix"
+          git push origin HEAD:dev/ext-c-e8-reciprocal-q-dense-lambda-curve-32cell-01
