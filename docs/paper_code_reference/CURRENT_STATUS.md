@@ -4,7 +4,7 @@
 **Not a research master:** `docs/handoff.md` remains the unique research source of truth.  
 **Claim:** `PAPER-CODE-REFERENCE-01`  
 **Scientific-status impact:** none.  
-**Last implementation head before this document:** `c89b229d113db597f4f13913b321d94eb5349b77`.
+**Last engineering-validated head:** `d234f0f589134bb959a98bfafa50cb47784ff04c`.
 
 This file consolidates the current engineering state without deleting historical records. It supersedes stale *current-status* and *next-slice* statements in the older task-local handoff and delta files. Those older files remain provenance for the order in which the migration was implemented and reviewed.
 
@@ -32,7 +32,7 @@ At the audit immediately before this document:
 - current `main`: `dd46727c1efefd2e6d4cdf6f3b204ec1fc58fca3`;
 - task base and current merge base: `4544005bd7df69c53bad70a9dcac846af01285e4`;
 - only active development branch: `dev/paper-code-reference-01`;
-- development head before this document: `8d0ec0dfc57b800c7a7e29a6248227ed70a5fe71`;
+- development head before this document: `d234f0f589134bb959a98bfafa50cb47784ff04c`;
 - persistent cumulative Draft PR: `#149`;
 - PR state: open, Draft, unmerged;
 - overall task state: `in_development`.
@@ -114,17 +114,19 @@ The approved path `categorical/countdown.py` owns the Countdown primitives that 
 - stable bank/weight diagnostics and parameter-update norm measurement;
 - lightweight Greedy, Pass@k, valid-rate, and verifier-category aggregation.
 
-Controlled tests now cover frozen-bank collation, the unique-negative denominator, the exact objective, Positive-only bank skipping, diagnostics, and equality of the first clipped AdamW update against the authoritative legacy formula.
+Controlled tests cover frozen-bank collation, the unique-negative denominator, the exact objective, Positive-only bank skipping, diagnostics, and equality of the first clipped AdamW update against the authoritative legacy formula.
 
 The module imports neither Transformers/PEFT nor the historical one-file trainer. It does not own model loading, GPU resource selection, optimizer/scheduler selection, multi-step training scheduling, checkpoint selection, RunSpec execution, formal artifact delivery, or manuscript result binding.
 
 The new path was explicitly approved by the user and the approval is preserved in Draft PR #149 comment `5016309623`. That approval does not extend to a final experiment-entry path.
 
+Exact-head validation at `d234f0f589134bb959a98bfafa50cb47784ff04c` passed Evidence Locator, Python compile, shell syntax, handoff authority, formal execution channel, governance inventory, governance stage, full pytest, and Ruff.
+
 ## 6. Countdown remaining work
 
 ### 6.1 What is no longer blocked
 
-Stable expression, verifier, masking, sequence-likelihood, frozen-bank batching, remoteness weighting, exact objective, first optimizer-update semantics, diagnostics, and response metrics no longer depend on the final coefficient or experiment selection. Their migration is implemented.
+Stable expression, verifier, masking, sequence-likelihood, frozen-bank batching, remoteness weighting, exact objective, first optimizer-update semantics, diagnostics, and response metrics no longer depend on the final coefficient or experiment selection. Their migration is implemented and engineering validated.
 
 ### 6.2 What remains blocked
 
