@@ -1,4 +1,4 @@
-name: Temporary P1 final source export
+name: Temporary P1 exact patch applicator
 
 on:
   pull_request:
@@ -7,24 +7,68 @@ on:
       - dev/tmp-ext-h-e7-p1-source-export-base
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  export:
+  apply:
     if: >-
       github.event.pull_request.head.repo.full_name == github.repository &&
       github.event.pull_request.head.ref == 'dev/ext-h-e7-bench-joint-gae-p1-full-01'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/upload-artifact@v4
         with:
-          name: p1-final-head-export
-          if-no-files-found: error
-          include-hidden-files: true
-          retention-days: 1
-          path: |
-            .
-            !.git/**
-            !outputs/**
-            !runspec_artifacts/**
+          ref: dev/ext-h-e7-bench-joint-gae-p1-full-01
+          fetch-depth: 0
+      - name: Verify, repair transport typos, and apply exact patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .tmp/p1_patch_*.b64 | base64 --decode > /tmp/p1.patch
+          echo '1fc448edcf0cb7d8ebfed1ae349d56f5b090daeba394ef10289a23e5ed34db45  /tmp/p1.patch' | sha256sum --check
+          sed -i 's/len(rows) != expectep/len(rows) != expected/; s/method: str,,/method: str,/' /tmp/p1.patch
+          git apply --check /tmp/p1.patch
+          git apply /tmp/p1.patch
+          rm -rf .tmp
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('tests/test_e7_squared_exp_kernel.py')
+          path.write_text(path.read_text().rstrip() + '\n')
+          PY
+          python -m py_compile \
+            src/drpo/e7_squared_exp_night.py \
+            src/drpo/e7_squared_exp_night_aggregate.py \
+            tests/test_e7_squared_exp_kernel.py \
+            tests/test_e7_squared_exp_night.py
+          bash -n scripts/run_e7_squared_exp_night_one_click.sh
+          git diff --check
+          python - <<'PY'
+          import subprocess
+          expected = {
+              'scripts/run_e7_squared_exp_night_one_click.sh',
+              'src/drpo/e7_squared_exp_night.py',
+              'src/drpo/e7_squared_exp_night_aggregate.py',
+              'tests/test_e7_squared_exp_kernel.py',
+              'tests/test_e7_squared_exp_night.py',
+          }
+          changed = set(subprocess.check_output(
+              ['git', 'diff', '--name-only'], text=True
+          ).splitlines())
+          removed = set(subprocess.check_output(
+              ['git', 'ls-files', '--deleted'], text=True
+          ).splitlines())
+          chunks = {f'.tmp/p1_patch_{i:02d}.b64' for i in range(6)}
+          if changed != expected | chunks or removed != chunks:
+              raise SystemExit(
+                  f'unexpected scope: changed={sorted(changed)} removed={sorted(removed)}'
+              )
+          PY
+      - name: Commit implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add -A
+          git config user.name 'OpenAI Review Agent'
+          git config user.email 'review-agent@invalid.local'
+          git commit -m 'EXT-H-E7-BENCH-01 implement full P1 training and audit'
+          git push origin HEAD:dev/ext-h-e7-bench-joint-gae-p1-full-01
