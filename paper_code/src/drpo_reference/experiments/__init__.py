@@ -23,10 +23,15 @@ from drpo_reference.external.hopper_data import load_hopper_hdf5
 from .d4rl import (
     D4RL9_EXPERIMENT_ID,
     D4RL9_RUNNER_VERSION,
+    D4RL_REVIEWER_METHOD_IDS,
+    LEGACY_PILOT_METHOD_PROFILE,
     CanonicalExpRankTrainingConfig,
+    D4RLReviewerMethodSpec,
     SNA2CIQLVExpRankAgent,
     prepare_canonical_locomotion_dataset,
+    resolve_d4rl_reviewer_methods,
     train_canonical_exprank,
+    train_canonical_method,
 )
 from .hopper import (
     CanonicalCriticContext,
@@ -112,7 +117,7 @@ def evaluate_d4rl_agent(
     seed: int,
     max_steps: int = 1000,
 ) -> dict[str, Any]:
-    """Evaluate one trained ExpRank actor in its Gymnasium MuJoCo task."""
+    """Evaluate one trained reviewer actor in its Gymnasium MuJoCo task."""
 
     if episodes <= 0 or max_steps <= 0:
         raise ValueError("D4RL rollout episodes and max_steps must be positive")
@@ -224,6 +229,19 @@ def _aggregate_task_evaluations(
     }
 
 
+def _run_root_for_method(
+    *,
+    output: Path,
+    task: D4RLTaskSpec,
+    method: D4RLReviewerMethodSpec,
+    seed: int,
+    legacy_single_exprank_layout: bool,
+) -> Path:
+    if legacy_single_exprank_layout:
+        return output / task.task_id / f"seed_{seed}"
+    return output / task.task_id / method.method_id / f"seed_{seed}"
+
+
 def run_d4rl(
     *,
     dataset_root: str | Path,
@@ -236,8 +254,14 @@ def run_d4rl(
     smoke: bool = False,
     eval_episodes: int = 0,
     eval_max_steps: int = 1000,
+    methods: Sequence[str] | None = None,
+    method_profile: str | None = None,
 ) -> dict[str, Any]:
-    """Run reviewer-facing ExpRank training and optional real rollouts."""
+    """Run reviewer-facing D4RL training and optional real rollouts.
+
+    ``methods=None`` preserves the historical ExpRank-only command and output
+    layout. Any non-ExpRank method requires an explicit legacy-pilot profile.
+    """
 
     resolved_seeds = tuple(int(seed) for seed in seeds)
     if not resolved_seeds:
@@ -254,6 +278,15 @@ def run_d4rl(
         raise ValueError("D4RL evaluation controls are invalid")
 
     tasks = _resolve_public_d4rl_tasks(task_ids)
+    method_specs = resolve_d4rl_reviewer_methods(
+        methods,
+        method_profile=method_profile,
+    )
+    legacy_single_exprank_layout = bool(
+        methods is None
+        and len(method_specs) == 1
+        and method_specs[0].method_id == "exprank"
+    )
     data_root = Path(dataset_root).expanduser().resolve()
     output = Path(output_root).expanduser().resolve()
     if output.exists() and not output.is_dir():
@@ -278,6 +311,14 @@ def run_d4rl(
         "runner_version": D4RL9_RUNNER_VERSION,
         "scope": "reviewer_facing_algorithm_training_and_evaluation",
         "tasks": [task.task_id for task in tasks],
+        "methods": [method.as_manifest() for method in method_specs],
+        "method_ids": [method.method_id for method in method_specs],
+        "method_profile": method_profile,
+        "available_reviewer_methods": list(D4RL_REVIEWER_METHOD_IDS),
+        "legacy_pilot_method_profile": LEGACY_PILOT_METHOD_PROFILE,
+        "final_method_matrix_frozen": False,
+        "default_method_remains_exprank": True,
+        "post_hoc_per_task_method_selection_allowed": False,
         "seeds": list(resolved_seeds),
         "dataset_root": str(data_root),
         "output_root": str(output),
@@ -307,8 +348,12 @@ def run_d4rl(
     task_results: dict[str, Any] = {}
     completed_runs = 0
     completed_evaluations = 0
+    active_task: str | None = None
+    active_method: str | None = None
+    active_seed: int | None = None
     try:
         for task in tasks:
+            active_task = task.task_id
             dataset_path = data_root / task.dataset_basename
             identity = validate_dataset_path(
                 dataset_path,
@@ -320,78 +365,116 @@ def run_d4rl(
                 max_transitions=max_transitions,
             )
             dataset = prepare_canonical_locomotion_dataset(offline_data)
-            runs: list[dict[str, Any]] = []
-            for seed in resolved_seeds:
-                run_root = output / task.task_id / f"seed_{seed}"
-                result = train_canonical_exprank(
-                    dataset=dataset,
-                    seed=seed,
-                    config=training_config,
-                    device=resolved_device,
-                    output_root=run_root,
-                )
-                losses = [
-                    float(record["loss"])
-                    for record in result["loss_records"]
-                ]
-                finite = all(math.isfinite(loss) for loss in losses)
-                if not finite:
-                    raise FloatingPointError(
-                        f"non-finite D4RL loss for {task.task_id}, seed={seed}"
+            method_results: dict[str, Any] = {}
+            for method in method_specs:
+                active_method = method.method_id
+                runs: list[dict[str, Any]] = []
+                for seed in resolved_seeds:
+                    active_seed = seed
+                    run_root = _run_root_for_method(
+                        output=output,
+                        task=task,
+                        method=method,
+                        seed=seed,
+                        legacy_single_exprank_layout=legacy_single_exprank_layout,
                     )
-                checkpoints = tuple(str(path) for path in result["checkpoints"])
-                if not checkpoints:
-                    raise RuntimeError(
-                        f"D4RL run produced no checkpoint: "
-                        f"{task.task_id}, seed={seed}"
-                    )
-                completed_runs += 1
-                evaluation = None
-                if eval_episodes > 0:
-                    try:
-                        evaluation = evaluate_d4rl_agent(
-                            agent=result["agent"],
-                            task=task,
-                            observation_dim=dataset.observation_dim,
-                            action_dim=dataset.action_dim,
-                            episodes=eval_episodes,
+                    if legacy_single_exprank_layout:
+                        result = train_canonical_exprank(
+                            dataset=dataset,
                             seed=seed,
-                            max_steps=eval_max_steps,
+                            config=training_config,
+                            device=resolved_device,
+                            output_root=run_root,
                         )
-                        atomic_json(run_root / "EVALUATION.json", evaluation)
-                        completed_evaluations += 1
-                    except Exception as exc:
-                        atomic_json(
-                            run_root / "EVALUATION_FAILED.json",
-                            {
-                                "status": "failed",
-                                "error_type": type(exc).__name__,
-                                "error": str(exc),
-                            },
+                    else:
+                        result = train_canonical_method(
+                            dataset=dataset,
+                            seed=seed,
+                            config=training_config,
+                            method=method,
+                            device=resolved_device,
+                            output_root=run_root,
                         )
-                        raise
-                runs.append(
-                    {
-                        "seed": seed,
-                        "output_root": str(run_root),
-                        "final_step": effective_steps,
-                        "final_checkpoint": checkpoints[-1],
-                        "finite": finite,
-                        "training_completed": True,
-                        "evaluation_completed": evaluation is not None,
-                        "evaluation": evaluation,
-                        "formal_result_claim": False,
-                    }
-                )
-            task_results[task.task_id] = {
+                    losses = [
+                        float(record["loss"])
+                        for record in result["loss_records"]
+                    ]
+                    finite = all(math.isfinite(loss) for loss in losses)
+                    if not finite:
+                        raise FloatingPointError(
+                            "non-finite D4RL loss for "
+                            f"{task.task_id}, method={method.method_id}, seed={seed}"
+                        )
+                    checkpoints = tuple(
+                        str(path) for path in result["checkpoints"]
+                    )
+                    if not checkpoints:
+                        raise RuntimeError(
+                            "D4RL run produced no checkpoint: "
+                            f"{task.task_id}, method={method.method_id}, seed={seed}"
+                        )
+                    completed_runs += 1
+                    evaluation = None
+                    if eval_episodes > 0:
+                        try:
+                            evaluation = evaluate_d4rl_agent(
+                                agent=result["agent"],
+                                task=task,
+                                observation_dim=dataset.observation_dim,
+                                action_dim=dataset.action_dim,
+                                episodes=eval_episodes,
+                                seed=seed,
+                                max_steps=eval_max_steps,
+                            )
+                            evaluation["method"] = method.method_id
+                            atomic_json(run_root / "EVALUATION.json", evaluation)
+                            completed_evaluations += 1
+                        except Exception as exc:
+                            atomic_json(
+                                run_root / "EVALUATION_FAILED.json",
+                                {
+                                    "status": "failed",
+                                    "method": method.method_id,
+                                    "error_type": type(exc).__name__,
+                                    "error": str(exc),
+                                },
+                            )
+                            raise
+                    runs.append(
+                        {
+                            "method": method.method_id,
+                            "method_profile": method.source_profile,
+                            "seed": seed,
+                            "output_root": str(run_root),
+                            "final_step": effective_steps,
+                            "final_checkpoint": checkpoints[-1],
+                            "finite": finite,
+                            "training_completed": True,
+                            "evaluation_completed": evaluation is not None,
+                            "evaluation": evaluation,
+                            "formal_result_claim": False,
+                        }
+                    )
+                method_results[method.method_id] = {
+                    "method": method.as_manifest(),
+                    "runs": runs,
+                    "evaluation_summary": _aggregate_task_evaluations(runs),
+                }
+            task_entry: dict[str, Any] = {
                 "task": task.task_id,
                 "dataset_identity": identity,
                 "transition_count": dataset.size,
-                "runs": runs,
-                "evaluation_summary": _aggregate_task_evaluations(runs),
+                "methods": method_results,
             }
+            if legacy_single_exprank_layout:
+                exprank = method_results["exprank"]
+                task_entry["runs"] = exprank["runs"]
+                task_entry["evaluation_summary"] = exprank[
+                    "evaluation_summary"
+                ]
+            task_results[task.task_id] = task_entry
 
-        expected_runs = len(tasks) * len(resolved_seeds)
+        expected_runs = len(tasks) * len(method_specs) * len(resolved_seeds)
         evaluation_configured = eval_episodes > 0
         evaluation_completed = bool(
             evaluation_configured and completed_evaluations == expected_runs
@@ -407,38 +490,51 @@ def run_d4rl(
             "evaluation_completed": evaluation_completed,
             "formal_result_claim": False,
             "method_ranking_claim_allowed": False,
+            "final_method_matrix_frozen": False,
         }
         atomic_json(output / "SUMMARY.json", summary)
-        atomic_json(
-            output / "COMPLETED.json",
-            {
-                "status": (
-                    "training_and_evaluation_completed_non_formal"
-                    if evaluation_completed
-                    else "training_completed_non_formal"
-                ),
-                "expected_runs": expected_runs,
-                "completed_runs": completed_runs,
-                "completed_evaluations": completed_evaluations,
-                "training_completed": completed_runs == expected_runs,
-                "evaluation_configured": evaluation_configured,
-                "evaluation_completed": evaluation_completed,
-                "formal_result_claim": False,
-                "method_ranking_claim_allowed": False,
-            },
-        )
+        completion = {
+            "status": (
+                "training_and_evaluation_completed_non_formal"
+                if evaluation_completed
+                else "training_completed_non_formal"
+            ),
+            "expected_runs": expected_runs,
+            "completed_runs": completed_runs,
+            "completed_evaluations": completed_evaluations,
+            "training_completed": completed_runs == expected_runs,
+            "evaluation_configured": evaluation_configured,
+            "evaluation_completed": evaluation_completed,
+            "formal_result_claim": False,
+            "method_ranking_claim_allowed": False,
+        }
+        if not legacy_single_exprank_layout:
+            completion.update(
+                {
+                    "method_ids": [
+                        method.method_id for method in method_specs
+                    ],
+                    "method_profile": method_profile,
+                    "final_method_matrix_frozen": False,
+                }
+            )
+        atomic_json(output / "COMPLETED.json", completion)
         return summary
     except Exception as exc:
         atomic_json(
             output / "FAILED.json",
             {
                 "status": "failed",
+                "active_task": active_task,
+                "active_method": active_method,
+                "active_seed": active_seed,
                 "completed_runs": completed_runs,
                 "completed_evaluations": completed_evaluations,
                 "error_type": type(exc).__name__,
                 "error": str(exc),
                 "formal_result_claim": False,
                 "method_ranking_claim_allowed": False,
+                "final_method_matrix_frozen": False,
             },
         )
         raise
@@ -446,7 +542,9 @@ def run_d4rl(
 
 __all__ = [
     "CanonicalCriticContext",
+    "D4RL_REVIEWER_METHOD_IDS",
     "HopperExecutionPlan",
+    "LEGACY_PILOT_METHOD_PROFILE",
     "aggregate_seed_summaries",
     "build_root_terminal_audit",
     "evaluate_d4rl_agent",
