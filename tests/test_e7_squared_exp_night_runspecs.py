@@ -27,6 +27,12 @@ LIVENESS_RUNSPEC = (
     / "templates"
     / "E7_SQUARED_EXP_NIGHT_LIVENESS_20260714_01.yaml"
 )
+P1_FULL_RUNSPEC = (
+    ROOT
+    / "runspecs"
+    / "templates"
+    / "E7_BENCH_JOINT_GAE_P1_FULL_20260719_01.yaml"
+)
 AUTO_SCRIPT = ROOT / "scripts" / "run_e7_squared_exp_night_auto.py"
 RUN_SCRIPT = ROOT / "scripts" / "run_e7_squared_exp_night_one_click.sh"
 RESUME_SCRIPT = ROOT / "scripts" / "run_e7_squared_exp_night_resume_one_click.sh"
@@ -114,3 +120,38 @@ def test_templates_pin_all_scientific_and_execution_paths() -> None:
         "scripts/run_e7_squared_exp_night_liveness_one_click.sh"
         in liveness_protected
     )
+
+
+def test_p1_full_run_uses_standard_runspec_delivery_channel() -> None:
+    spec = validate_runspec(ROOT, P1_FULL_RUNSPEC, require_registry=False)
+    assert spec["experiment_id"] == "EXT-H-E7-SQEXP-GAE-01"
+    assert spec["repo_commit"] == "ccf027e2c545c67576313ad85c5ff74e19f074d0"
+    assert spec["registration"] == {"mode": "deferred", "closure_required": True}
+    assert spec["policy"]["formal_evidence_allowed"] is False
+    assert spec["delivery"] == {
+        "enabled": True,
+        "auto": True,
+        "mode": "results_repo",
+        "repository": "easonhuo/drpo-results",
+        "branch": "ingest/e7",
+        "export_profile": "manifest_text_v1",
+        "max_total_size_mb": 100,
+        "max_file_size_mb": 25,
+    }
+    assert spec["publish"] == {"enabled": False, "auto": False}
+    command = spec["entrypoint"]["command"]
+    assert "DRPO_E7_P1_FULL_RUN=1" in command
+    assert "E7_SQUARED_EXP_MODE=p1" in command
+    assert "scripts/run_e7_squared_exp_night_one_click.sh" in command
+    assert "198" in " ".join(spec["success_criteria"])
+    assert (
+        "outputs/e7/bench_joint_gae_p1_full_001/aggregate/*.csv"
+        in spec["artifacts"]["include"]
+    )
+
+
+def test_p1_one_click_does_not_self_authorize_full_run() -> None:
+    script = RUN_SCRIPT.read_text()
+    assert "export DRPO_E7_P1_FULL_RUN=1" not in script
+    assert '[[ "${DRPO_E7_P1_FULL_RUN:-0}" != "1" ]]' in script
+    assert "authorized only by the standard RunSpec entrypoint" in script
