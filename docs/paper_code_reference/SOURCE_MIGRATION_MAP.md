@@ -2,7 +2,7 @@
 
 **Base:** `4544005bd7df69c53bad70a9dcac846af01285e4`
 
-This map selects authoritative paper-facing source paths. Historical and superseded implementations remain in the repository but are not copied into `paper_code`.
+This map selects authoritative paper-facing source paths. Historical and superseded implementations remain in the repository as provenance references.
 
 ## Shared controls and engineering utilities
 
@@ -68,7 +68,7 @@ The manuscript uses two scientifically distinct external profiles:
 1. Hopper E7-Q2 is mechanism validation with a frozen canonical critic, frozen advantages, actor-only updates, matched near/far diagnostics, and targeted interventions;
 2. D4RL-9 is task-performance validation over HalfCheetah, Hopper, and Walker2d under medium, medium-replay, and medium-expert datasets.
 
-The repository owner selected `SNA2C_IQLV_ExpRankAgent` as the D4RL-9 performance backend. The paper-facing implementation attaches to the vendored canonical source rather than copying its actor, critic, or training loop. This preserves one source of truth across all nine performance tasks while keeping it scientifically separate from the Hopper E7-Q2 mechanism trainer.
+The repository owner selected `SNA2C_IQLV_ExpRankAgent` as the D4RL-9 performance backend. Its actor, critic, dynamic TD-advantage update, rank-based negative weighting, locomotion preparation, uniform-minibatch loop, and checkpoint contract are now migrated into `paper_code`. All nine performance tasks use this one implementation. Hopper E7-Q2 remains a separate mechanism trainer.
 
 ### Contracts that may be shared
 
@@ -96,7 +96,7 @@ The repository owner selected `SNA2C_IQLV_ExpRankAgent` as the D4RL-9 performanc
   - `configs/e7_hopper_q2.yaml`
   - `scripts/run_e7_hopper_q2.py`
   - delivered compact E7-Q2 outputs and registered dataset identity;
-- selected canonical D4RL performance sources:
+- selected canonical D4RL performance oracles:
   - `src/drpo/e7_canonical_vendor/d4rl/agents.py`
   - `src/drpo/e7_canonical_vendor/d4rl/train_sna2c_variant.py`
   - `src/drpo/e7_canonical_vendor/d4rl/d4rl_common/train_loop.py`
@@ -105,25 +105,25 @@ The repository owner selected `SNA2C_IQLV_ExpRankAgent` as the D4RL-9 performanc
 
 ### Reference split
 
-- existing `external/hopper_*` modules: Hopper E7-Q2 mechanism backend; historical filenames do not make them the D4RL-9 performance trainer;
+- existing `external/hopper_*` modules: Hopper E7-Q2 mechanism backend;
 - `external/d4rl_tasks.py`: task specifications and provenance state for the nine manuscript coordinates;
 - `experiments/hopper.py`: Hopper E7-Q2 mechanism profile;
-- `experiments/d4rl.py`: stable adapter to the selected canonical `SNA2C_IQLV_ExpRankAgent`, source fingerprinting, exact trainer-command construction, plan/non-formal execution records, D4RL-9 matrix blockers, and dispatch through one backend for every task.
+- `experiments/d4rl.py`: migrated canonical actor, critic, ExpRank update, locomotion dataset preparation, deterministic minibatch training/checkpoint loop, D4RL-9 formal blockers, and one-backend dispatch across all nine tasks.
 
 ### Compatibility rule
 
 - current Hopper behavior must remain differential-test equivalent;
-- HalfCheetah, Hopper, and Walker2d performance tasks use the same canonical trainer path, not per-task copies;
-- the canonical vendored implementation remains the algorithm source of truth; the paper-code adapter must not silently fork it;
+- HalfCheetah, Hopper, and Walker2d performance tasks use the same migrated trainer, not per-task copies;
+- legacy canonical code remains the differential oracle, not the runtime implementation of the paper package;
+- initialization, forward values, first Adam update, and a fixed short trajectory must match the legacy oracle;
 - the Hopper mechanism runner is not reused as the performance runner;
 - unresolved dataset SHA values remain unresolved and block formal use;
-- backend migration does not freeze the ten-run protocol, budget, coefficients, or terminal-audit rule;
+- code migration does not freeze the ten-run protocol, budget, coefficients, or terminal-audit rule;
 - task-performance collapse, support/variance-boundary events, rollout failures, and NaN/Inf numerical failures remain separately reported.
 
 ### Exclude
 
 - copied `halfcheetah_*`, `hopper_*`, or `walker2d_*` performance trainers;
-- a copied second implementation of `SNA2C_IQLV_ExpRankAgent` in `paper_code`;
 - an invented hybrid that combines Hopper mechanism likelihoods with the canonical D4RL optimizer/advantage lifecycle;
 - unmerged GAE development work;
 - historical stopping logic or parameter sweeps not selected by the final manuscript;

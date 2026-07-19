@@ -73,12 +73,30 @@ python -m drpo_reference du1 \
   --smoke
 ```
 
+## D4RL locomotion
+
+The paper-facing D4RL-9 code uses one migrated
+`SNA2C_IQLV_ExpRank` performance implementation for HalfCheetah, Hopper, and
+Walker2d across medium, medium-replay, and medium-expert. It is separate from
+the Hopper E7-Q2 frozen-advantage mechanism runner.
+
+The migrated implementation and task catalog are located at:
+
+```text
+src/drpo_reference/experiments/d4rl.py
+src/drpo_reference/external/d4rl_tasks.py
+```
+
+Formal D4RL-9 execution remains disabled until all dataset identities, the
+common method controls, ten-run seeds, budgets, checkpoint policy, and terminal
+audit are frozen. Unit and short differential tests are not benchmark results.
+
 ## Artifact and evidence boundary
 
 Every public runner writes protocol manifests, per-seed artifacts, aggregate
 results, and a terminal audit. Task-performance collapse, support/variance or
-probability-boundary events, NaN/Inf numerical failures, and environment
-invalidity remain separate fields.
+probability-boundary events, NaN/Inf numerical failures, environment
+invalidity, and incomplete terminal state remain separate fields.
 
 Supplying a seed subset or `--smoke` always writes
 `formal_evidence_allowed: false`. A full matrix is not accepted unless every
@@ -86,10 +104,11 @@ registered run is present and its terminal audit is resolved. The code never
 assumes that Distance, exponential, global scaling, SBRC, Hybrid, or any other
 method must win.
 
-Current migration status: C-U1 and D-U1 have paper-facing implementation
-candidates and clean integration paths. Formal full-budget reruns,
-paper-output numerical identity, Hopper, and Countdown remain pending. No smoke
-result is a paper result.
+Current migration status: C-U1, D-U1, Hopper E7-Q2, and the D4RL-9 canonical
+performance backend have paper-facing implementation candidates. Their formal
+full-budget reruns and scientific terminal reviews remain pending. Countdown
+remains blocked pending its final manuscript-facing protocol and result freeze.
+No smoke or short differential result is a paper result.
 
 The acceptance contract is in
 `../docs/paper_code_reference/ACCEPTANCE_MATRIX.yaml`.

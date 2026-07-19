@@ -127,8 +127,8 @@ phases:
       - terminal_result_review
       - selected_conclusion_report
   d4rl_9:
-    previous_status: backend_audited_formal_protocol_blocked
-    status: backend_selected_and_adapter_migrated_formal_protocol_blocked
+    previous_status: backend_selected_and_adapter_migrated_formal_protocol_blocked
+    status: backend_code_migrated_formal_protocol_blocked
     experiment_id: EXT-H-E7-BENCH-01
     scientific_role: external_task_performance
     task_matrix:
@@ -147,12 +147,12 @@ phases:
       algorithm_family: SNA2C_IQLV_ExpRank
       implementation_selected: true
       implementation_migrated: true
-      migration_mode: stable_adapter_to_single_vendored_source
-      protocol_status: selected_backend_adapter_migrated_protocol_unfrozen
+      migration_mode: paper_facing_code_migration
+      protocol_status: selected_backend_code_migrated_protocol_unfrozen
       protocol_frozen: false
       formal_task_matrix_eligible: false
       mechanism_runner_reusable: false
-      sources:
+      differential_oracles:
         - src/drpo/e7_canonical_vendor/d4rl/agents.py
         - src/drpo/e7_canonical_vendor/d4rl/train_sna2c_variant.py
         - src/drpo/e7_canonical_vendor/d4rl/d4rl_common/train_loop.py
@@ -174,14 +174,17 @@ phases:
       - unresolved_sha_fail_closed
       - backend_independent_rollout_identity
       - canonical_exprank_backend_selected
-      - canonical_source_provenance_fingerprinted
-      - canonical_agent_dynamic_load
-      - canonical_trainer_command_contract
-      - one_trainer_path_across_all_nine_tasks
-      - plan_only_nonformal_records
+      - migrated_actor_critic_initialization_identity
+      - migrated_actor_critic_forward_identity
+      - rank_weight_formula_identity
+      - first_adam_update_identity
+      - fixed_short_trajectory_identity
+      - locomotion_dataset_preparation_identity
+      - checkpoint_and_completion_record_identity
+      - one_migrated_trainer_across_all_nine_tasks
       - no_per_task_trainer_dispatch
       - hopper_mechanism_backend_separation
-      - focused_differential_tests
+      - clean_checkout_compile_pytest_ruff_after_backend_code_migration
     blockers:
       - canonical_archive_launch_commit_unresolved
       - eight_dataset_sha256_values_unresolved
@@ -190,8 +193,6 @@ phases:
       - budget_checkpoint_and_terminal_audit_unfrozen
       - real_nine_task_hdf5_mujoco_liveness_not_run
       - manuscript_candidate_values_provisional
-    pending_engineering_gates:
-      - clean_checkout_compile_pytest_ruff_after_backend_adapter
     pending_scientific_gates:
       - registered_formal_protocol_freeze
       - all_dataset_identities_verified
