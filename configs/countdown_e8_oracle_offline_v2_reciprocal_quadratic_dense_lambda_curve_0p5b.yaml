@@ -1,0 +1,139 @@
+schema_version: 1
+experiment_id: EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-RECIPROCAL-QUADRATIC-DENSE-LAMBDA-CURVE-0.5B-01
+result_status: pilot
+registration_state: dev_code_first_unregistered
+claim: >-
+  Densify the Reciprocal-Quadratic lambda response curve on the frozen
+  model-independent E8 V2 bank and detached coordinate
+  x=relu(current_mean_token_surprisal/2-0.125). Run sixteen new lambda values
+  spanning the gaps between the completed 19, 39, 79, 159, and 319 anchors and
+  extending the right boundary to 1279, using the same two paired development
+  seeds. The resulting 32 cells test curve shape, plateau behavior, and right-
+  boundary closure. Completed reciprocal cells, Positive-only, Global, and
+  exponential anchors are historical references and are not rerun. This pilot
+  does not establish significance, convergence, steady state, or formal method
+  ranking.
+model:
+  identity: Qwen2.5-0.5B-Instruct
+  initialization: pretrained_base_plus_fresh_lora
+  parameterization: lora
+bank:
+  source_experiment: EXT-C-E8-ORACLE-OFFLINE-BANK-V2-0.5B-01
+  use_all_unique_negatives: true
+  deduplicate_expression_rule: arena_clean_expression_first_occurrence
+  explicit_near_far_training_classes: false
+  extreme_selection_forbidden: true
+remoteness:
+  distance: current_mean_token_surprisal
+  coordinate: x=relu(current_mean_token_surprisal/2-0.125)
+  tau_code: 0.125
+  paper_tau: 0.25
+  paper_scale: 2.0
+  detached: true
+  weight: "reciprocal_family: linear=1/(1+lambda*sqrt(x)), quadratic=1/(1+lambda*x)"
+  reciprocal_linear: 1/(1+lambda*sqrt(x))
+  reciprocal_quadratic: 1/(1+lambda*x)
+  exponential: exp(-lambda*x)
+  extra_square_forbidden: true
+historical_controls:
+  rerun_in_this_round: false
+  methods: [positive_only, global, exponential]
+  exact_result_identity_required_before_comparison: true
+  paper_comparison_allowed_before_identity_freeze: false
+previous_reciprocal_rounds:
+  - source_experiment: EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-RECIPROCAL-SHAPE-SCREEN-0.5B-01
+    source_run_id: E8_PAPER_ALIGNED_RECIPROCAL_SHAPE_SCREEN_20260719_01
+    results_repository: easonhuo/drpo-results
+    results_commit: 8d04768273315ff6ab1bcbade9cbf5705952259a
+    result_manifest_sha256: 0242b70cf71fe0531bca0d26201c0b29bfc6537f964a52a06da978fbe5dda286
+    lambda_values: [1.0, 3.0, 7.0, 19.0]
+    rerun_in_this_round: false
+  - source_experiment: EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-RECIPROCAL-HIGH-LAMBDA-EXTENSION-0.5B-01
+    source_run_id: E8_PAPER_ALIGNED_RECIPROCAL_HIGH_LAMBDA_EXTENSION_20260719_01
+    results_repository: easonhuo/drpo-results
+    results_commit: eca0eb0365f5660e0a49dff5d39c9bb5f5df0cdf
+    result_manifest_sha256: dc1feef96bf0bcc5cc0fe35f4eb5d3e506ec79cf50d782ac2622bdef1503b888
+    lambda_values: [39.0, 79.0, 159.0, 319.0]
+    rerun_in_this_round: false
+sweep:
+  cartesian_product: false
+  parameter_points:
+    - {family: reciprocal_quadratic, alpha: 1.0, coefficient: 24.0, role: dense_curve_lambda_24}
+    - {family: reciprocal_quadratic, alpha: 1.0, coefficient: 29.0, role: dense_curve_lambda_29}
+    - {family: reciprocal_quadratic, alpha: 1.0, coefficient: 34.0, role: dense_curve_lambda_34}
+    - {family: reciprocal_quadratic, alpha: 1.0, coefficient: 47.0, role: dense_curve_lambda_47}
+    - {family: reciprocal_quadratic, alpha: 1.0, coefficient: 57.0, role: dense_curve_lambda_57}
+    - {family: reciprocal_quadratic, alpha: 1.0, coefficient: 68.0, role: dense_curve_lambda_68}
+    - {family: reciprocal_quadratic, alpha: 1.0, coefficient: 95.0, role: dense_curve_lambda_95}
+    - {family: reciprocal_quadratic, alpha: 1.0, coefficient: 113.0, role: dense_curve_lambda_113}
+    - {family: reciprocal_quadratic, alpha: 1.0, coefficient: 135.0, role: dense_curve_lambda_135}
+    - {family: reciprocal_quadratic, alpha: 1.0, coefficient: 191.0, role: dense_curve_lambda_191}
+    - {family: reciprocal_quadratic, alpha: 1.0, coefficient: 227.0, role: dense_curve_lambda_227}
+    - {family: reciprocal_quadratic, alpha: 1.0, coefficient: 270.0, role: dense_curve_lambda_270}
+    - {family: reciprocal_quadratic, alpha: 1.0, coefficient: 383.0, role: dense_curve_lambda_383}
+    - {family: reciprocal_quadratic, alpha: 1.0, coefficient: 511.0, role: dense_curve_lambda_511}
+    - {family: reciprocal_quadratic, alpha: 1.0, coefficient: 767.0, role: dense_curve_lambda_767}
+    - {family: reciprocal_quadratic, alpha: 1.0, coefficient: 1279.0, role: dense_curve_lambda_1279}
+  seed_offsets: [4000, 5000]
+  unique_parameter_points: 16
+  cells: 32
+training:
+  steps: 1200
+  early_stop: false
+  eval_every: 100
+  pass64_every: 200
+  denominator: unique_negative_count_per_prompt
+  normalize_by_weight_sum: false
+  hidden_negative_scale: false
+  gradient_budget_matching: false
+execution:
+  default_gpus: [0, 1, 2, 3, 4, 5, 6, 7]
+  parallel_cells_per_gpu: 2
+  expected_full_waves: 2
+  runtime_scope: GOV-RUNTIME-E8-GPU-SLOT-HOTFIX-01
+  identity_checked_resume: true
+  continue_after_cell_failure: true
+  autotune:
+    enabled: true
+    required_free_gpu_memory_gib: 36.0
+    required_host_memory_gib_per_gpu: 8.0
+    gpu_memory_headroom_fraction: 0.12
+    host_memory_headroom_fraction: 0.15
+    maximum_gpu_utilization_percent: 20.0
+  liveness:
+    required_before_full_run: true
+    representative_family: reciprocal_quadratic
+    representative_alpha: 1.0
+    representative_c: 511.0
+    steps: 2
+    validation_examples: 8
+    scientific_evidence: false
+evaluation:
+  validation_only_during_tuning: true
+  test_access_forbidden: true
+  greedy_every: 100
+  pass_at_8_every: 100
+  pass_at_64_every: 200
+  primary_selection_metric: late_window_pass_at_8
+  secondary_selection_metric: terminal_pass_at_8
+  best_checkpoint_metric_is_supplementary_only: true
+  late_window_steps: [800, 900, 1000, 1100, 1200]
+reporting:
+  distinguish_task_performance: true
+  distinguish_support_or_structure_boundary: true
+  distinguish_nan_inf_numerical_failure: true
+  fixed_horizon_is_not_convergence: true
+  method_ranking_claim_allowed: false
+  trend_resolution_claim_only: true
+  countdown_role: external_validity_only
+  compare_terminal_and_late_window: true
+exclusions:
+  - reciprocal_linear_rerun
+  - completed_reciprocal_lambda_rerun
+  - current_near_current_far_selection
+  - binary_near_far_mixture
+  - weight_sum_normalization
+  - dynamic_alpha
+  - sbrc
+  - hybrid
+  - test_split_access
