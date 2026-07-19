@@ -1,0 +1,66 @@
+schema_version: 1
+preparation_id: REPLAYAB-C01-CODE-ONLY-PR159
+source:
+  repository: easonhuo/drpo
+  remote: origin
+  main_ref: refs/heads/main
+  expected_main_sha: e99489e7435bc26e2a7e30cd8d1a3aa10f4fc67a
+  dev_branch: dev/stage5-legacy-materialization-report-compat-01
+  expected_dev_sha: 989ac6dbae8c9e574bda7ac7e334ea764847fd19
+  result_commit_sha: 989ac6dbae8c9e574bda7ac7e334ea764847fd19
+  result_git_dirty: false
+subject:
+  experiment_id: GOV-STAGE5-LEGACY-INERT-DELTA-COMPATIBILITY-BUGFIX-01
+  governance_claims:
+    - GOV-STAGE5-LEGACY-INERT-DELTA-COMPATIBILITY-BUGFIX-01
+implementation:
+  operations:
+    - op: modify
+      source_path: docs/governance_pipeline_stage_status.yaml
+      destination_path: docs/governance_pipeline_stage_status.yaml
+      expected_blob_sha: 9ab70e094f8031e2ab18aa6b9d76cf709d22fafd
+      expected_old_blob_sha: d41025f7f2921ae63a9c968cfea165df71d91818
+      expected_mode: '100644'
+    - op: add
+      source_path: docs/governance_stage_authorizations/GOV-STAGE5-LEGACY-INERT-DELTA-COMPATIBILITY-BUGFIX-2026-07-19.yaml
+      destination_path: docs/governance_stage_authorizations/GOV-STAGE5-LEGACY-INERT-DELTA-COMPATIBILITY-BUGFIX-2026-07-19.yaml
+      expected_blob_sha: 011a0b882de0f88c9ec6865fc34835147542c56e
+      expected_old_blob_sha: null
+      expected_mode: '100644'
+    - op: modify
+      source_path: scripts/handoff_authority.py
+      destination_path: scripts/handoff_authority.py
+      expected_blob_sha: 6687ae3a20253323eae32589827aae3e1bd90632
+      expected_old_blob_sha: 8f03550862f013a02cb0d3ee66115e7797668d0d
+      expected_mode: '100755'
+    - op: modify
+      source_path: tests/test_handoff_authority.py
+      destination_path: tests/test_handoff_authority.py
+      expected_blob_sha: b41ec405ea6e3695fffdf4649f2605070d91e1a4
+      expected_old_blob_sha: a06de0371c2f0f0add6eed7d1b3cfca069c6c084
+      expected_mode: '100644'
+review:
+  reviewer_id: replayab-c01-pr159-calibration-reviewer
+  decision_token: pr159-merged-maintenance-integration-accepted
+  decision:
+    approved: true
+    code_integration_eligible: true
+    evidence_level: formal
+    result_status: not_run
+    claim_support_level: supports_claim
+    terminal_audit: not_required
+    task_performance_collapse: not_assessed
+    support_boundary: not_assessed
+    numerical_failure: not_assessed
+  limitations:
+    - historical repository-integration replay only
+    - the Stage 5 maintenance claim is outside Candidate 01 correctness truth
+    - the actual squash merge commit 85b0a68d77ed085a7f6e67771fb0f7672c43da09 is recorded separately as provenance
+  unresolved: []
+registration:
+  mode: none
+  update_id: null
+  expected_before_semantic_sha256: null
+  experiment: null
+  handoff_operations: []
+  registry_changes: []
