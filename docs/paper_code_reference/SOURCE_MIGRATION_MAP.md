@@ -11,9 +11,9 @@ conceptual target names preserved in Git history are not the live file layout.
 ## Reviewer-facing boundary
 
 The public `paper_code` package must provide readable algorithms, explicit data
-and environment identities, runnable training and rollout evaluation,
-checkpoints, lightweight completion/failure records, and simple multi-seed
-summaries.
+and environment identities, runnable training and rollout evaluation when a
+protocol is selected, checkpoints, lightweight completion/failure records, and
+simple summaries.
 
 It does not duplicate internal registry/handoff governance, formal-evidence
 promotion, full scientific terminal adjudication, or manuscript table-cell and
@@ -27,7 +27,7 @@ artifact-hash binding. Those remain internal repository responsibilities.
 | JSON/CSV writes | registered runners | `common/io.py` | one implementation; no artifact-packaging logic |
 | event separation | C-U1, D-U1 v4, Hopper E7-Q2, Countdown taper | `common/events.py` plus family-local records | task, boundary, numerical, and environment-invalid remain distinct |
 | lightweight public completion | reviewer-facing runners | family-local runner records | command completion only; not formal scientific terminal audit |
-| taper formulas | selected C-U1/D-U1/Countdown sources | `controls/weights.py` | share only mathematically identical controls |
+| taper formulas | selected C-U1/D-U1/Countdown sources | `controls/weights.py` plus sequence-specific core | share only mathematically identical controls |
 | hard selection | C-U1 and Hopper E7-Q2 | `controls/selection.py` | one detached-mask implementation |
 | budget matching | controlled and Hopper paths | `controls/budget.py` | shared scalar matcher; family modules own audit subsets |
 
@@ -192,38 +192,73 @@ Hopper E7-Q2 remains a separate mechanism trainer.
 
 ## Countdown
 
-### Stable sources that may be characterized now
+### Stable source oracles
 
-- `src/drpo/countdown_qwen_arena_onefile.py` for shared verifier/model/data
-  behavior;
-- `src/drpo/countdown_e8_taper.py` for registered continuous-surprisal controls;
-- the paper-aligned runner only after its protocol and result are frozen on
-  `main`.
+The current stable-core characterization uses:
 
-### Intended reference split
+- `src/drpo/countdown_qwen_arena_onefile.py` for expression cleaning, exact
+  verifier semantics, chat prompt rendering, completion masking, sequence
+  likelihood/statistics, and response metrics;
+- `src/drpo/countdown_e8_alpha1_c_scan_common.py` for first-occurrence
+  unique-negative handling and denominator semantics;
+- `src/drpo/countdown_e8_alpha1_highc_scan_common.py` for the corrected
+  paper-aligned linear-surprisal envelope;
+- `docs/experiments/E8_PAPER_ALIGNED_LINEAR_SCAN_PROTOCOL.md` and
+  `docs/experiments/E8_PAPER_ALIGNED_LINEAR_C_EXTENSION_PROTOCOL.md` for the
+  stable formula and the boundary between completed development scans and an
+  unfrozen final manuscript protocol.
 
-- categorical Countdown implementation: verifier, masking, sequence
-  log-probability, training, and evaluation;
-- experiment entry point: final selected protocol only.
+These legacy files remain differential/provenance oracles. They are not imported
+at runtime by the reviewer package.
 
-Exact new Python paths are not authorized by this map and still require the
-repository's human-approval gate.
+### Approved live reference path
+
+- `categorical/countdown.py`: stable expression/verifier, prompt/completion
+  encoding, completion-only likelihood/statistics, unique-bank deduplication,
+  normalized sequence surprisal, detached `alpha * exp(-c*u)` weights, and
+  lightweight response metrics;
+- `categorical/__init__.py`: exports stable primitives without creating an
+  experiment command;
+- existing `tests/test_common.py`: formula, mask, verifier, bank, and response
+  aggregation characterization.
+
+The exact path `paper_code/src/drpo_reference/categorical/countdown.py` and this
+limited responsibility were explicitly approved by the user and preserved in
+Draft PR #149 comment `5016309623` before creation.
+
+### Contracts intentionally not migrated yet
+
+- model or LoRA loading;
+- GPU/resource scheduling;
+- training-loop and checkpoint selection;
+- coefficient or method-matrix selection;
+- development-to-confirmatory seed promotion;
+- validation/test access policy for the final experiment;
+- RunSpec, artifact delivery, or internal terminal adjudication;
+- a public Countdown experiment entry point or CLI command.
+
+The nearest D-U1 modules remain unsuitable for these sequence primitives because
+D-U1 models unordered categorical actions rather than autoregressive completion
+tokens. The stable-core module therefore remains separate while sharing no
+scientific responsibility with D-U1.
 
 ### Exclude
 
 - historical one-file orchestration as the public entry point;
 - superseded fixed-pair and squared-surprisal tuning stacks;
-- dirty-worktree or single-seed pilot claims as final evidence.
+- current development coefficient grids as a silent final default;
+- dirty-worktree, smoke, or two-seed pilot claims as final evidence;
+- any claim that Countdown replaces controlled D-U1 causal identification.
 
-Countdown migration remains blocked at the final experiment-entry layer until
-the manuscript-facing protocol and result are frozen. Shared task-independent
-control functions are not blocked.
+Countdown stable-core migration is implemented. The final experiment-entry layer
+remains blocked until the manuscript-facing protocol and result are frozen and a
+separate exact Python path is proposed and approved.
 
 ## Result reporting
 
-The reviewer-facing package needs only commands, checkpoints, lightweight
-completion/failure metadata, raw and normalized rollout scores, and simple
-multi-seed summaries. It does not need a general paper table/figure framework,
-byte-identical stochastic-output verifier, manuscript-writing pipeline,
-governance validator, historical result-discovery system, or internal formal
-scientific audit.
+The reviewer-facing package needs only commands for selected protocols,
+checkpoints where applicable, lightweight completion/failure metadata, task
+scores, and simple summaries. It does not need a general paper table/figure
+framework, byte-identical stochastic-output verifier, manuscript-writing
+pipeline, governance validator, historical result-discovery system, or internal
+formal scientific audit.
