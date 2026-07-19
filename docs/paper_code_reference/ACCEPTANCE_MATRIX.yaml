@@ -1,4 +1,4 @@
-schema_version: 1
+schema_version: 2
 task_id: PAPER-CODE-REFERENCE-01
 base_commit: 4544005bd7df69c53bad70a9dcac846af01285e4
 branch: dev/paper-code-reference-01
@@ -9,53 +9,72 @@ rules:
   legacy_source_remains_provenance_oracle: true
   no_frozen_variable_changes: true
   require_clean_checkout_validation_before_ready: true
+  no_per_task_d4rl_trainer_copies: true
+  no_forced_hopper_mechanism_backend_reuse_for_d4rl_performance: true
   separate_events:
     - task_performance_collapse
-    - support_or_probability_boundary
+    - support_or_probability_or_variance_boundary
     - nan_inf_numerical_failure
-    - environment_invalid
+    - environment_invalid_or_rollout_unavailable
+    - incomplete_or_unresolved_terminal_state
+status_history:
+  note: >-
+    Schema version 1 recorded early planning statuses and a broad paper-output
+    regeneration requirement. Those records remain in Git history. Schema
+    version 2 updates implementation status and narrows final reporting to the
+    minimum sufficient scientific reproduction set.
 phases:
   shared_kernel:
-    status: in_progress
+    previous_status: in_progress
+    status: implementation_complete_engineering_validated
     target:
       - paper_code/src/drpo_reference/common
       - paper_code/src/drpo_reference/controls
-    gates:
+    passed_engineering_gates:
       - formula_characterization
       - detached_weight_gradient_check
       - coefficient_retention_check
       - hard_mask_characterization
       - budget_scale_characterization
       - event_taxonomy_separation
+      - clean_checkout_compile_pytest_ruff
+    pending_scientific_gates: []
   cu1:
-    status: planned
+    previous_status: planned
+    status: implementation_complete_formal_rerun_pending
     authoritative_sources:
       - src/drpo/cu1_core.py
       - src/drpo/drpo_cu1_e1_e4_oneclick.py
       - src/drpo/cu1_distance_taper_formal.py
       - src/drpo/cu1_taper_near_retention_formal.py
       - src/drpo/cu1_taper_budget_match_formal.py
-    reference_entrypoint: paper_code/src/drpo_reference/experiments/cu1.py
-    gates:
+    reference_entrypoint: paper_code/src/drpo_reference/cli.py
+    passed_engineering_gates:
       - fixed_seed_environment_identity
       - initialization_identity
       - loss_identity
       - raw_gradient_identity
       - first_adam_update_identity
       - short_trajectory_identity
+      - terminal_audit_schema_identity
+      - public_cli_and_aggregation
+      - legacy_differential_tests
+      - clean_checkout_compile_pytest_ruff
+    pending_scientific_gates:
       - registered_full_cpu_reproduction
-      - terminal_audit_identity
-      - paper_output_identity
+      - terminal_result_review
+      - selected_conclusion_report
   du1_revision_4:
-    status: planned
+    previous_status: planned
+    status: implementation_complete_formal_run_pending
     authoritative_sources:
       - src/drpo/du1_e6_cartesian_taper_v4.py
       - configs/du1_e6_cartesian_taper_v4.yaml
-    reference_entrypoint: paper_code/src/drpo_reference/experiments/du1.py
+    reference_entrypoint: paper_code/src/drpo_reference/cli.py
     excluded_sources:
       - src/drpo/du1_e6_cartesian_taper.py
       - outputs/du1_e6_cartesian_taper_rev3_development
-    gates:
+    passed_engineering_gates:
       - environment_geometry_identity
       - hidden_action_identity
       - initialization_identity
@@ -65,22 +84,30 @@ phases:
       - raw_gradient_identity
       - first_adam_update_identity
       - short_trajectory_identity
+      - terminal_audit_schema_identity
+      - public_cli_and_aggregation
+      - legacy_differential_tests
+      - clean_checkout_compile_pytest_ruff
+    pending_scientific_gates:
       - registered_full_cpu_reproduction
-      - terminal_audit_identity
-      - paper_output_identity
+      - terminal_result_review
+      - selected_conclusion_report
   hopper_e7_q2:
-    status: planned
+    previous_status: planned
+    status: implementation_complete_real_registered_rerun_pending
+    scientific_role: external_mechanism_validation
     authoritative_sources:
       - src/drpo/e7_hopper_q2.py
       - configs/e7_hopper_q2.yaml
       - scripts/run_e7_hopper_q2.py
       - outputs/e7_hopper_q2
     reference_entrypoint: paper_code/src/drpo_reference/experiments/hopper.py
-    excluded_sources:
+    excluded_as_mechanism_authority:
       - src/drpo/e7_bench.py
+      - src/drpo/e7_canonical_vendor/d4rl
       - unmerged_gae_branches
-    gates:
-      - dataset_identity
+    passed_engineering_gates:
+      - dataset_identity_contract
       - episode_split_identity
       - critic_checkpoint_selection_identity
       - frozen_advantage_identity
@@ -88,17 +115,91 @@ phases:
       - actor_loss_identity
       - raw_gradient_identity
       - first_optimizer_update_identity
-      - compact_result_regeneration
+      - six_branch_suite_identity
+      - rollout_preflight_and_failure_semantics
+      - public_runner_and_aggregation
+      - terminal_audit_schema_identity
+      - legacy_differential_tests
+      - clean_checkout_compile_pytest_ruff
+    pending_scientific_gates:
+      - registered_hdf5_and_real_mujoco_liveness
       - registered_full_budget_rerun
-      - terminal_audit_identity
-      - paper_output_identity
+      - terminal_result_review
+      - selected_conclusion_report
+  d4rl_9:
+    previous_status: not_present_in_schema_v1
+    status: backend_audited_formal_protocol_blocked
+    experiment_id: EXT-H-E7-BENCH-01
+    scientific_role: external_task_performance
+    task_matrix:
+      environments:
+        - halfcheetah
+        - hopper
+        - walker2d
+      dataset_tiers:
+        - medium
+        - medium-replay
+        - medium-expert
+    reference_entrypoint: paper_code/src/drpo_reference/experiments/d4rl.py
+    task_contract: paper_code/src/drpo_reference/external/d4rl_tasks.py
+    audited_backend_candidate:
+      id: legacy_canonical_sna2c_iqlv_candidate
+      algorithm_family: SNA2C_IQLV_ExpRank
+      protocol_status: pilot_only_unfrozen
+      formal_task_matrix_eligible: false
+      mechanism_runner_reusable: false
+      sources:
+        - src/drpo/e7_canonical_vendor/d4rl/agents.py
+        - src/drpo/e7_canonical_vendor/d4rl/train_sna2c_variant.py
+        - src/drpo/e7_canonical_injection.py
+        - src/drpo/e7_canonical_sweep.py
+        - src/drpo/e7_canonical_two_dataset.py
+        - configs/e7_canonical_weight_grid_v1.json
+        - src/drpo/e7_canonical_shortlist_protocol.py
+    archive_evidence:
+      status: pilot_provenance_only
+      completed_rows: 576
+      datasets: 9
+      seeds:
+        - 200
+        - 201
+      steps: 1000000
+      formal_ranking: false
+      launch_commit_resolved: false
+    passed_engineering_gates:
+      - exact_nine_task_catalog
+      - d4rl_reference_score_constants
+      - hopper_medium_replay_identity_bridge
+      - unresolved_sha_fail_closed
+      - backend_independent_rollout_identity
+      - explicit_backend_boundary
+      - no_per_task_trainer_dispatch
+      - pilot_backend_not_formal_fail_closed
+      - focused_differential_tests
+      - clean_checkout_compile_pytest_ruff
+    blockers:
+      - final_performance_backend_not_frozen
+      - canonical_archive_launch_commit_unresolved
+      - eight_dataset_sha256_values_unresolved
+      - final_method_and_coefficients_unfrozen
+      - formal_ten_run_seed_coordinate_unresolved
+      - budget_checkpoint_and_terminal_audit_unfrozen
+      - manuscript_candidate_values_provisional
+    pending_scientific_gates:
+      - registered_formal_protocol_freeze
+      - all_dataset_identities_verified
+      - one_backend_all_nine_tasks_liveness
+      - registered_ten_run_execution
+      - terminal_result_review
+      - selected_conclusion_report
   countdown:
+    previous_status: blocked_pending_final_protocol_and_result_freeze
     status: blocked_pending_final_protocol_and_result_freeze
     stable_characterization_sources:
       - src/drpo/countdown_qwen_arena_onefile.py
       - src/drpo/countdown_e8_taper.py
-    reference_entrypoint: paper_code/src/drpo_reference/experiments/countdown.py
-    gates:
+    intended_reference_entrypoint: paper_code/src/drpo_reference/experiments/countdown.py
+    pending_gates:
       - final_main_source_frozen
       - token_mask_identity
       - eos_identity
@@ -109,17 +210,23 @@ phases:
       - selected_checkpoint_evaluation_identity
       - terminal_evaluation_identity
       - registered_real_qwen_cuda_rerun
-      - paper_output_identity
+      - selected_conclusion_report
 ready_definition:
   required:
-    - all_included_phase_gates_pass
-    - every_non_tbd_manuscript_value_has_command
-    - every_non_tbd_manuscript_value_has_result_path
+    - all_included_implementation_gates_pass
+    - every_selected_manuscript_conclusion_has_a_command
+    - every_selected_manuscript_conclusion_has_a_result_path
     - clean_checkout_install_pass
     - clean_checkout_tests_pass
+    - minimum_scientific_result_summary_regenerated
+    - remaining_formal_blockers_explicit
+  superseded_requirements_preserved_for_history:
     - paper_tables_and_figures_regenerated
+    - byte_identical_stochastic_output_verification
+    - universal_paper_output_framework
   forbidden_substitutions:
     - smoke_for_full_reproduction
     - pilot_for_formal_result
     - static_inspection_for_execution
-    - best_checkpoint_for_terminal_audit
+    - selected_checkpoint_for_terminal_audit
+    - post_hoc_per_task_best_for_frozen_method
