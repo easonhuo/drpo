@@ -31,9 +31,9 @@ it must not become a second formal execution channel.
    - `delivery.repository: easonhuo/drpo-results`;
    - lane-bound branch `ingest/<lane>`;
    - export profile `manifest_text_v1`.
-6. The gate is enforced by the shared delivery validator. Therefore static
-   validation, lane claim, direct claimed execution, packaging retry, and manual
-   delivery all observe the same rule.
+6. The shared pre-entrypoint delivery-policy gate is called by static validation,
+   safe lane claim, direct claimed execution, artifact packaging, and the canonical
+   manual uploader. Invalid specifications remain unclaimed and no training starts.
 7. Delivery failures retain the existing lifecycle semantics: training/package may
    pass, overall status is `PARTIAL`, local evidence is preserved, and only upload
    is retried. Training is not rerun.
@@ -56,6 +56,7 @@ it must not become a second formal execution channel.
 - `formal_evidence_allowed: false` permits explicit local-only execution;
 - a delivery-required spec accepts only the canonical `drpo-results` repository and
   lane-bound branch;
+- rejection occurs before claimed-state creation;
 - existing append-only/idempotent delivery tests continue to pass;
 - Python compilation, focused pytest, full pytest, Ruff, handoff authority, formal
   execution-channel validation, and governance-stage validation pass on the exact
@@ -70,7 +71,7 @@ delete any scientific experiment during rollback.
 ## Remaining uncertainties
 
 - Historical templates not exercised by the current ready queue may rely on an
-  omitted formal declaration to mean local-only; exact-head full pytest and template
-  validators must identify any such compatibility cases before merge.
+  omitted formal declaration to mean local-only; they will now fail closed until
+  explicitly classified.
 - Server credentials and scoped wrappers are environment concerns and are not
   changed by this repository update.
