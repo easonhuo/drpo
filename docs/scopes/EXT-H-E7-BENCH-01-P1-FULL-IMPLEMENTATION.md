@@ -4,4 +4,4 @@ This stacked development branch starts from the reviewed P1 matrix implementatio
 
 The branch must not change the frozen nine-task matrix, seeds `200,201`, one-million-step horizon, GAE lambda `0.95`, taper lambda `1`, `tau=0`, or common `c` grid. Held-out seeds `204--207` remain untouched. Task-performance collapse, support/variance boundary, rollout failure, and NaN/Inf numerical failure remain separate.
 
-The implementation reuses existing Python files only; temporary export scaffolding is excluded from the final stacked diff and from every scientific provenance identity.
+The implementation reuses existing Python files only; temporary export and patch-transport scaffolding is excluded from the final stacked diff and from every scientific provenance identity. The full run remains explicitly gated and is not launched by this branch.
