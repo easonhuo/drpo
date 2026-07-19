@@ -22,8 +22,8 @@ from drpo_reference.external.d4rl_tasks import (
 )
 
 
-D4RL9_EXPERIMENT_ID = "D4RL-9-PERFORMANCE"
-D4RL9_RUNNER_VERSION = "0.2.0-backend-audit"
+D4RL9_EXPERIMENT_ID = "EXT-H-E7-BENCH-01"
+D4RL9_RUNNER_VERSION = "0.2.1-backend-audit"
 TaskRunner = Callable[..., dict[str, Any]]
 
 
