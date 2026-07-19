@@ -2,16 +2,20 @@ from __future__ import annotations
 
 import json
 import statistics
+import subprocess
 import sys
 import time
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
-if str(SRC) not in sys.path:
-    sys.path.insert(0, str(SRC))
+SCRIPTS = ROOT / "scripts"
+for path in (SRC, SCRIPTS):
+    if str(path) not in sys.path:
+        sys.path.insert(0, str(path))
 
 from drpo.workflow_replay.execute import (  # noqa: E402
     CommandSpec,
@@ -20,7 +24,30 @@ from drpo.workflow_replay.execute import (  # noqa: E402
     build_plan,
     run_fixture_plan,
 )
+from dev_integration_write_path import sha256, write_json  # noqa: E402
+from drpo.workflow_replay.evidence import (  # noqa: E402
+    RunIdentity,
+    load_run_artifact,
+    validate_r1_case_contract,
+)
 from drpo.workflow_replay.model import load_case_manifest  # noqa: E402
+from drpo.workflow_replay.orchestrate import (  # noqa: E402
+    CandidateOutcome,
+    OrchestrationError,
+    ProcessResult,
+)
+import run_workflow_replay as replay  # noqa: E402
+from run_workflow_replay import (  # noqa: E402
+    CONTROL_PLANE_BOOTSTRAP,
+    Journal,
+    ReplayCheckout,
+    _assert_historical_result,
+    _clone,
+    _commit_workspace,
+    _controlled_command,
+    _workspace,
+    build_parser,
+)
 
 FIXTURE = Path(__file__).parent / "fixtures" / "workflow_replay" / "valid_code_only.yaml"
 
@@ -161,3 +188,405 @@ def test_planning_runtime_guardrail() -> None:
     ordered = sorted(samples)
     assert statistics.median(ordered) <= 0.250
     assert ordered[int(0.95 * (len(ordered) - 1))] <= 1.000
+
+
+def _run_git(repo: Path, *args: str) -> str:
+    return subprocess.run(
+        ["git", *args], cwd=repo, check=True, text=True, capture_output=True
+    ).stdout.strip()
+
+
+def test_real_pair_parser_preserves_candidate_and_adds_local_backend() -> None:
+    parser = build_parser()
+    candidate = parser.parse_args(
+        ["candidate", "--spec", "s", "--preparation-root", "p", "--transaction-root", "t"]
+    )
+    pair = parser.parse_args(
+        [
+            "real-pair",
+            "--contract",
+            "c",
+            "--case-packet",
+            "p",
+            "--source-repo",
+            "s",
+            "--output-root",
+            "o",
+        ]
+    )
+    assert candidate.command == "candidate"
+    assert pair.backend_id == "local-git-v1"
+
+
+def test_local_ref_reconstruction_and_workspace_identity(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    _run_git(source, "init", "-q")
+    _run_git(source, "config", "user.email", "replay@example.invalid")
+    _run_git(source, "config", "user.name", "Replay Test")
+    (source / "value.txt").write_text("base\n", encoding="utf-8")
+    _run_git(source, "add", "value.txt")
+    _run_git(source, "commit", "-qm", "base")
+    base = _run_git(source, "rev-parse", "HEAD")
+    (source / "value.txt").write_text("dev\n", encoding="utf-8")
+    _run_git(source, "commit", "-qam", "dev")
+    dev = _run_git(source, "rev-parse", "HEAD")
+    (source / "tool.txt").write_text("tool\n", encoding="utf-8")
+    _run_git(source, "add", "tool.txt")
+    _run_git(source, "commit", "-qm", "tool")
+    toolchain = _run_git(source, "rev-parse", "HEAD")
+    contract = SimpleNamespace(
+        base=SimpleNamespace(
+            historical_task={"base_sha": base, "frozen_implementation_sha": dev},
+            benchmark={"toolchain_sha": toolchain},
+        )
+    )
+    run_root = tmp_path / "run"
+    run_root.mkdir()
+    checkout = _clone(
+        source,
+        run_root,
+        {"main_ref": "refs/heads/main", "dev_branch": "case-dev", "expected_dev_sha": dev},
+        contract,
+    )
+    workspace = checkout.workspace
+    assert _run_git(workspace, "rev-parse", "HEAD") == toolchain
+    assert _run_git(checkout.control_plane, "rev-parse", "HEAD") == toolchain
+    assert checkout.control_plane != workspace
+    assert _run_git(checkout.control_plane, "status", "--porcelain=v1") == ""
+    assert _run_git(run_root / "source.git", "rev-parse", "refs/heads/main") == base
+    assert _run_git(run_root / "source.git", "rev-parse", "refs/heads/case-dev") == dev
+    clean = _workspace(workspace)
+    (workspace / "untracked.txt").write_text("new\n", encoding="utf-8")
+    assert _workspace(workspace) != clean
+    assert _run_git(checkout.control_plane, "status", "--porcelain=v1") == ""
+    assert _commit_workspace(run_root / "source.git", base) == _commit_workspace(
+        run_root / "source.git", base
+    )
+
+
+def test_controlled_finalizer_command_keeps_treatment_outside_v1(
+    tmp_path: Path,
+) -> None:
+    original = CommandSpec(
+        "v1-normalize",
+        (
+            sys.executable,
+            "scripts/dev_integration_finalize.py",
+            "normalize",
+            "--transaction-dir",
+            "/tmp/tx",
+            "--json",
+        ),
+    )
+    controlled = _controlled_command(
+        original,
+        tmp_path / "control-plane",
+        "1" * 40,
+        "2" * 40,
+    )
+    assert controlled.name == original.name
+    assert controlled.argv[:3] == (sys.executable, "-c", CONTROL_PLANE_BOOTSTRAP)
+    assert controlled.argv[3:6] == (
+        str(tmp_path / "control-plane"),
+        "2" * 40,
+        "1" * 40,
+    )
+    assert controlled.argv[6:] == original.argv[2:]
+
+    ordinary = CommandSpec("v1-plan", (sys.executable, "scripts/integrate_dev_branch.py"))
+    assert _controlled_command(ordinary, tmp_path, "1" * 40, "2" * 40) == ordinary
+
+
+def test_control_plane_drift_blocks_and_is_recorded(
+    tmp_path: Path,
+) -> None:
+    control = tmp_path / "control"
+    control.mkdir()
+    _run_git(control, "init", "-q")
+    _run_git(control, "config", "user.email", "replay@example.invalid")
+    _run_git(control, "config", "user.name", "Replay Test")
+    (control / "tool.txt").write_text("tool\n", encoding="utf-8")
+    _run_git(control, "add", "tool.txt")
+    _run_git(control, "commit", "-qm", "tool")
+    toolchain = _run_git(control, "rev-parse", "HEAD")
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    identity = SimpleNamespace(
+        run_id="e" * 64,
+        arm="A",
+        case_id="CASE-CONTROL",
+        pair_id="pair-0",
+        order_position=0,
+    )
+    journal = Journal(
+        tmp_path / "control-events.jsonl",
+        identity,
+        "f" * 64,
+        "0" * 64,
+        workspace,
+        control_plane=control,
+        historical_base_sha="1" * 40,
+        toolchain_sha=toolchain,
+    )
+    first = journal.invoke(CommandSpec("ordinary", (sys.executable, "-c", "pass")))
+    assert first.returncode == 0
+    (control / "unexpected.txt").write_text("dirty\n", encoding="utf-8")
+    second = journal.invoke(CommandSpec("ordinary-2", (sys.executable, "-c", "pass")))
+    payload = json.loads(second.stdout)
+    assert second.returncode == 2
+    assert payload["error_code"] == "CONTROL_PLANE_DRIFT"
+    assert payload["phase"] == "replay_control_plane"
+    journal.finish("BLOCKED", "0" * 64, 2)
+    assert read_events(tmp_path / "control-events.jsonl")[-1]["event"] == "run_blocked"
+
+
+def test_historical_result_requires_exact_parent_and_paths(tmp_path: Path) -> None:
+    repo = tmp_path / "result-repo"
+    repo.mkdir()
+    _run_git(repo, "init", "-q")
+    _run_git(repo, "config", "user.email", "replay@example.invalid")
+    _run_git(repo, "config", "user.name", "Replay Test")
+    (repo / "base.txt").write_text("base\n", encoding="utf-8")
+    _run_git(repo, "add", "base.txt")
+    _run_git(repo, "commit", "-qm", "base")
+    base = _run_git(repo, "rev-parse", "HEAD")
+    (repo / "docs").mkdir()
+    (repo / "docs" / "example.txt").write_text("ready\n", encoding="utf-8")
+    _run_git(repo, "add", "docs/example.txt")
+    _run_git(repo, "commit", "-qm", "ready")
+    ready = _run_git(repo, "rev-parse", "HEAD")
+    _assert_historical_result(
+        repo,
+        ready,
+        base,
+        ("docs/example.txt",),
+        ("docs/example.txt",),
+    )
+    with pytest.raises(OrchestrationError, match="paths drifted"):
+        _assert_historical_result(
+            repo,
+            ready,
+            base,
+            ("docs/example.txt",),
+            ("scripts/run_workflow_replay.py",),
+        )
+    (repo / "second.txt").write_text("second\n", encoding="utf-8")
+    _run_git(repo, "add", "second.txt")
+    _run_git(repo, "commit", "-qm", "second")
+    grandchild = _run_git(repo, "rev-parse", "HEAD")
+    with pytest.raises(OrchestrationError, match="not based directly"):
+        _assert_historical_result(
+            repo,
+            grandchild,
+            base,
+            ("docs/example.txt", "second.txt"),
+            ("docs/example.txt", "second.txt"),
+        )
+
+
+def test_real_journal_binds_commands_placements_and_operator_actions(tmp_path: Path) -> None:
+    identity = SimpleNamespace(
+        run_id="a" * 64,
+        arm="A",
+        case_id="CASE-001",
+        pair_id="pair-0",
+        order_position=0,
+    )
+    journal = Journal(tmp_path / "events.jsonl", identity, "b" * 64, "c" * 64, tmp_path)
+    result = journal.invoke(CommandSpec("child", (sys.executable, "-c", "pass")))
+    journal.place(("repository:file.txt",))
+    timing = journal.finish("READY", "d" * 64, 2)
+    events = read_events(tmp_path / "events.jsonl")
+    assert result.returncode == 0
+    assert events[0]["event"] == "run_started"
+    assert events[-1]["event"] == "run_finished"
+    assert events[-1]["payload"]["child_command_count"] == 1
+    assert events[-1]["payload"]["placement_path_count"] == 1
+    assert events[-1]["payload"]["operator_action_count"] == 2
+    assert timing["total_ns"] >= timing["child_ns"]
+
+
+def _r1_contract(packet: Path, *, ready: bool, artifact_sha: str | None = None):
+    case_id = "C01-ADAPTER-READY" if ready else "C06-ADAPTER-STALE"
+    path = "docs/example.txt"
+    base, toolchain = "1" * 40, "2" * 40
+    gates = ["artifact_digest"] if ready else ["source_lock"]
+    return validate_r1_case_contract(
+        {
+            "schema_version": 2,
+            "case_id": case_id,
+            "task_class": "code_only" if ready else "stale_recovery",
+            "historical_task": {
+                "base_sha": base,
+                "frozen_implementation_sha": None,
+                "source_prs": [1],
+                "source_commits": [base],
+                "historical_real_time_evidence": [],
+            },
+            "benchmark": {
+                "toolchain_sha": toolchain,
+                "input_spec_sha256": sha256(packet),
+                "expected_terminal_state": "READY" if ready else "BLOCKED",
+                "expected_safety_boundary": None if ready else "source_lock",
+                "expected_changed_paths": [path] if ready else [],
+                "expected_final_tree_or_semantic_hashes": (
+                    {"artifact_sha256": artifact_sha} if ready else {}
+                ),
+                "required_gates": gates,
+                "environment_id": "local-adapter-test-v1",
+                "cache_policy": "cold",
+                "replayability": "complete",
+                "predeclared_exclusions": [],
+            },
+            "r1": {
+                "comparison_mode": "exact_artifact" if ready else "failure_boundary",
+                "expected_file_modes": {path: "100644"} if ready else {},
+                "expected_authority_result": "PASS" if ready else "NOT_RUN",
+                "expected_gate_results": {gates[0]: "PASS" if ready else "NOT_RUN"},
+                "expected_diagnostic_codes": [] if ready else ["SOURCE_DRIFT"],
+                "expected_recovery_class": (
+                    None if ready else "refresh_main_and_regenerate_packet"
+                ),
+                "workspace_rule": "changed_as_expected" if ready else "unchanged",
+                "evaluator_sha256": "3" * 64,
+                "evidence_schema_sha256": "4" * 64,
+                "order_policy": "two_opposite_pairs",
+            },
+        }
+    )
+
+
+def test_adapter_ready_artifact_is_accepted_by_unchanged_r1_loader(
+    tmp_path: Path, monkeypatch
+) -> None:
+    packet = tmp_path / "packet.yaml"
+    packet.write_text("source: {}\n", encoding="utf-8")
+    result = {
+        "case_id": "C01-ADAPTER-READY",
+        "base_sha": "1" * 40,
+        "tree_sha": "5" * 40,
+        "changed_paths": ("docs/example.txt",),
+        "file_modes": {"docs/example.txt": "100644"},
+    }
+    expected_result = tmp_path / "expected-result.json"
+    write_json(expected_result, result)
+    contract = _r1_contract(packet, ready=True, artifact_sha=sha256(expected_result))
+    transaction = tmp_path / "transaction"
+    (transaction / "integration-repo").mkdir(parents=True)
+    write_json(
+        transaction / "READY_COMMIT.json",
+        {
+            "ready_commit_sha": "6" * 40,
+            "tree_sha": "5" * 40,
+            "changed_paths": ["docs/example.txt"],
+            "authority_verify": {"status": "PASS"},
+        },
+    )
+    write_json(
+        transaction / "GATE_REPORT.json",
+        {"outcomes": [{"label": "artifact_digest", "passed": True}]},
+    )
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    source = tmp_path / "source"
+    source.mkdir()
+    control = tmp_path / "control"
+    control.mkdir()
+    monkeypatch.setattr(
+        replay,
+        "_clone",
+        lambda *args: ReplayCheckout(workspace, control),
+    )
+    monkeypatch.setattr(replay, "_validate_control_plane", lambda path, sha: path)
+    monkeypatch.setattr(replay, "_assert_historical_result", lambda *args: None)
+    monkeypatch.setattr(replay, "_commit_workspace", lambda *args: "7" * 64)
+    monkeypatch.setattr(replay, "_workspace", lambda *args: "8" * 64)
+    monkeypatch.setattr(
+        replay,
+        "_modes",
+        lambda *args: {"docs/example.txt": "100644"},
+    )
+
+    def explicit(repo, spec, preparations, transactions, python, journal):
+        journal.invoke(CommandSpec("fake-stage", (sys.executable, "-c", "pass")))
+        journal.place(("repository:docs/example.txt",))
+        return CandidateOutcome(
+            "PREP-001",
+            str(tmp_path / "preparation"),
+            str(transaction),
+            "6" * 40,
+            tuple(journal.commands),
+            tuple(journal.placements),
+        )
+
+    monkeypatch.setattr(replay, "_explicit", explicit)
+    output = tmp_path / "evidence"
+    output.mkdir()
+    identity = RunIdentity.build(contract.base.case_id, "A", "pair-0", 0, 0, "local-git-v1")
+    artifact, _ = replay._write_run(
+        SimpleNamespace(case_packet=str(packet), source_repo=str(source)),
+        contract,
+        identity,
+        output,
+        {},
+    )
+    normalized = load_run_artifact(artifact, output, contract)
+    assert normalized.execution_valid
+    assert normalized.execution_terminal == "READY"
+    assert normalized.outcome is not None
+
+
+def test_adapter_stale_boundary_is_accepted_without_target_mutation(
+    tmp_path: Path, monkeypatch
+) -> None:
+    packet = tmp_path / "packet.yaml"
+    packet.write_text("source: {}\n", encoding="utf-8")
+    contract = _r1_contract(packet, ready=False)
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    source = tmp_path / "source"
+    source.mkdir()
+    attempt = tmp_path / "attempt"
+    attempt.mkdir()
+    control = tmp_path / "control"
+    control.mkdir()
+    monkeypatch.setattr(
+        replay,
+        "_clone",
+        lambda *args: ReplayCheckout(workspace, control),
+    )
+    monkeypatch.setattr(replay, "_validate_control_plane", lambda path, sha: path)
+    monkeypatch.setattr(replay, "_commit_workspace", lambda *args: "9" * 64)
+
+    def stale(repo, spec, preparations, transactions, python, journal):
+        journal.last_result = ProcessResult(
+            2,
+            json.dumps(
+                {
+                    "status": "FAIL",
+                    "state": "BLOCKED",
+                    "error_code": "SOURCE_DRIFT",
+                    "phase": "source_lock",
+                    "attempt_dir": str(attempt),
+                }
+            ),
+        )
+        raise OrchestrationError("v1-plan", "stale main")
+
+    monkeypatch.setattr(replay, "_explicit", stale)
+    output = tmp_path / "evidence"
+    output.mkdir()
+    identity = RunIdentity.build(contract.base.case_id, "A", "pair-0", 0, 0, "local-git-v1")
+    artifact, _ = replay._write_run(
+        SimpleNamespace(case_packet=str(packet), source_repo=str(source)),
+        contract,
+        identity,
+        output,
+        {},
+    )
+    normalized = load_run_artifact(artifact, output, contract)
+    assert normalized.execution_valid
+    assert normalized.execution_terminal == "BLOCKED"
+    assert normalized.outcome is not None
+    assert normalized.outcome.diagnostic_codes == ("SOURCE_DRIFT",)
