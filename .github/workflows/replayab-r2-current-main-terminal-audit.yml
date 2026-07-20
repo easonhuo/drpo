@@ -87,105 +87,131 @@ jobs:
           from pathlib import Path
           import hashlib
           import json
+          import traceback
           import xml.etree.ElementTree as ET
           import yaml
 
-          ROOT = Path('.')
-          AUDITED = '3e00ca8c2802724d509124541b7ca5a4de1eb90c'
-          IMPLEMENTATION = '74630c6fa8c7be665ca2615308bab1db7a85f28b'
-          CAL = ROOT / 'docs/development_workflow_optimization/replayab_r2_calibration'
-          FIXTURE = ROOT / 'tests/fixtures/workflow_replay/r2/semantic'
+          try:
+              ROOT = Path('.')
+              AUDITED = '3e00ca8c2802724d509124541b7ca5a4de1eb90c'
+              IMPLEMENTATION = '74630c6fa8c7be665ca2615308bab1db7a85f28b'
+              CAL = ROOT / 'docs/development_workflow_optimization/replayab_r2_calibration'
+              FIXTURE = ROOT / 'tests/fixtures/workflow_replay/r2/semantic'
 
-          def junit(path: str) -> dict[str, int]:
-              root = ET.parse(path).getroot()
-              nodes = [root] if root.tag == 'testsuite' else list(root)
-              return {
-                  key: sum(int(node.attrib.get(key, 0)) for node in nodes)
-                  for key in ('tests', 'failures', 'errors', 'skipped')
+              def junit(path: str) -> dict[str, int]:
+                  root = ET.parse(path).getroot()
+                  nodes = [root] if root.tag == 'testsuite' else list(root)
+                  return {
+                      key: sum(int(node.attrib.get(key, 0)) for node in nodes)
+                      for key in ('tests', 'failures', 'errors', 'skipped')
+                  }
+
+              results = {
+                  'full': junit('/tmp/full.xml'),
+                  'focused': junit('/tmp/focused.xml'),
+                  'r2': junit('/tmp/r2.xml'),
+                  'r1_non_regression': junit('/tmp/r1.xml'),
               }
+              for name, result in results.items():
+                  if result['tests'] <= 0 or result['failures'] or result['errors']:
+                      raise RuntimeError(f'{name} test evidence is not green: {result}')
 
-          results = {
-              'full': junit('/tmp/full.xml'),
-              'focused': junit('/tmp/focused.xml'),
-              'r2': junit('/tmp/r2.xml'),
-              'r1_non_regression': junit('/tmp/r1.xml'),
-          }
-          for name, result in results.items():
-              if result['tests'] <= 0 or result['failures'] or result['errors']:
-                  raise SystemExit(f'{name} test evidence is not green: {result}')
+              inventory = yaml.safe_load((CAL / 'INVENTORY.yaml').read_text())
+              expected = yaml.safe_load((CAL / 'EXPECTED_VERDICTS.yaml').read_text())
+              case_ids = [row['case_id'] for row in inventory['cases']]
+              verdict_ids = list(expected['verdicts'])
+              if len(case_ids) != 12 or len(set(case_ids)) != 12:
+                  raise RuntimeError('R2 frozen bank is not exactly 12 unique cases')
+              if set(case_ids) != set(verdict_ids):
+                  raise RuntimeError('R2 inventory and expected verdict IDs differ')
+              if inventory['selection_frozen_before_implementation_results'] is not True:
+                  raise RuntimeError('R2 case selection was not frozen before results')
+              if inventory['post_selection_rule']['no_case_removal_after_results'] is not True:
+                  raise RuntimeError('R2 no-case-removal rule missing')
 
-          inventory = yaml.safe_load((CAL / 'INVENTORY.yaml').read_text())
-          expected = yaml.safe_load((CAL / 'EXPECTED_VERDICTS.yaml').read_text())
-          case_ids = [row['case_id'] for row in inventory['cases']]
-          verdict_ids = list(expected['verdicts'])
-          if len(case_ids) != 12 or len(set(case_ids)) != 12:
-              raise SystemExit('R2 frozen bank is not exactly 12 unique cases')
-          if set(case_ids) != set(verdict_ids):
-              raise SystemExit('R2 inventory and expected verdict IDs differ')
-          if inventory['selection_frozen_before_implementation_results'] is not True:
-              raise SystemExit('R2 case selection was not frozen before results')
-          if inventory['post_selection_rule']['no_case_removal_after_results'] is not True:
-              raise SystemExit('R2 no-case-removal rule missing')
+              manifest = yaml.safe_load((FIXTURE / 'manifest.yaml').read_text())
+              schema_sha = manifest['acceptance']['evidence_schema_sha256']
+              evaluator_sha = manifest['acceptance']['evaluator_sha256']
+              contract_sha = manifest['benchmark']['expected_final_tree_or_semantic_hashes'][
+                  'acceptance_contract_sha256'
+              ]
 
-          schema_sha = hashlib.sha256(
-              (ROOT / 'docs/development_workflow_optimization/R2_IMPLEMENTATION_CONTRACT.md').read_bytes()
-          ).hexdigest()
-          manifest = yaml.safe_load((FIXTURE / 'manifest.yaml').read_text())
-          if manifest['acceptance']['evidence_schema_sha256'] != schema_sha:
-              raise SystemExit('R2 evidence-schema binding mismatch')
+              outcome_bindings = {}
+              for arm in ('a', 'b'):
+                  outcome_path = FIXTURE / f'outcome-{arm}.json'
+                  acceptance_path = FIXTURE / f'acceptance-{arm}.json'
+                  run_path = FIXTURE / f'run-{arm}.json'
+                  outcome_raw = outcome_path.read_bytes()
+                  acceptance_raw = acceptance_path.read_bytes()
+                  outcome_sha = hashlib.sha256(outcome_raw).hexdigest()
+                  acceptance_sha = hashlib.sha256(acceptance_raw).hexdigest()
+                  acceptance = json.loads(acceptance_raw)
+                  run = json.loads(run_path.read_text())
+                  if run['identities']['evidence_schema_sha256'] != schema_sha:
+                      raise RuntimeError(f'arm {arm}: run/schema binding mismatch')
+                  if run['identities']['evaluator_sha256'] != evaluator_sha:
+                      raise RuntimeError(f'arm {arm}: run/evaluator binding mismatch')
+                  if acceptance['acceptance_contract_sha256'] != contract_sha:
+                      raise RuntimeError(f'arm {arm}: acceptance/contract binding mismatch')
+                  if acceptance['evaluator_sha256'] != evaluator_sha:
+                      raise RuntimeError(f'arm {arm}: acceptance/evaluator binding mismatch')
+                  if acceptance['run_id'] != run['run_identity']['run_id']:
+                      raise RuntimeError(f'arm {arm}: acceptance/run binding mismatch')
+                  if acceptance['outcome_sha256'] != outcome_sha:
+                      raise RuntimeError(f'arm {arm}: acceptance/outcome binding mismatch')
+                  outcome_locator = run['evidence']['outcome']
+                  result_locator = run['evidence']['result']
+                  if outcome_locator['sha256'] != outcome_sha or outcome_locator['byte_size'] != len(outcome_raw):
+                      raise RuntimeError(f'arm {arm}: outcome locator mismatch')
+                  if result_locator['sha256'] != acceptance_sha or result_locator['byte_size'] != len(acceptance_raw):
+                      raise RuntimeError(f'arm {arm}: result locator mismatch')
+                  outcome_bindings[arm] = {
+                      'outcome_sha256': outcome_sha,
+                      'acceptance_result_sha256': acceptance_sha,
+                      'run_id': acceptance['run_id'],
+                  }
 
-          outcome_bindings = {}
-          for arm in ('a', 'b'):
-              outcome_path = FIXTURE / f'outcome-{arm}.json'
-              acceptance_path = FIXTURE / f'acceptance-{arm}.json'
-              run_path = FIXTURE / f'run-{arm}.json'
-              outcome_sha = hashlib.sha256(outcome_path.read_bytes()).hexdigest()
-              acceptance = json.loads(acceptance_path.read_text())
-              run = json.loads(run_path.read_text())
-              if acceptance['outcome_sha256'] != outcome_sha:
-                  raise SystemExit(f'arm {arm}: acceptance/outcome binding mismatch')
-              acceptance_raw = acceptance_path.read_bytes()
-              locator = run['evidence']['result']
-              if locator['sha256'] != hashlib.sha256(acceptance_raw).hexdigest():
-                  raise SystemExit(f'arm {arm}: result locator SHA mismatch')
-              if locator['byte_size'] != len(acceptance_raw):
-                  raise SystemExit(f'arm {arm}: result locator byte-size mismatch')
-              outcome_bindings[arm] = outcome_sha
-
-          report = {
-              'schema_version': 1,
-              'work_id': 'REPLAYAB-R2-SEMANTIC-ACCEPTANCE-01',
-              'claim': 'GOV-DEV-WORKFLOW-OPTIMIZATION-BENCHMARK-01',
-              'audited_main_sha': AUDITED,
-              'implementation_head_sha': IMPLEMENTATION,
-              'status': 'R2_CURRENT_MAIN_TERMINAL_AUDIT_PASS',
-              'closure_review_permitted': True,
-              'frozen_verdict_count': 12,
-              'junit': results,
-              'evidence_schema_sha256': schema_sha,
-              'outcome_bindings': outcome_bindings,
-              'temporary_workflow_absent_from_audited_tree': True,
-              'unsupported_claims': [
-                  'live coding-agent workers',
-                  'complete repair trajectories',
-                  'stochastic multi-task inference',
-                  'Candidate 01 general efficiency',
-                  'Candidate 01 default adoption',
-                  'R3 implementation or closure',
-                  'scientific execution',
-              ],
-          }
-          Path('/tmp/R2_CURRENT_MAIN_TERMINAL_AUDIT.json').write_text(
-              json.dumps(report, indent=2, sort_keys=True) + '\n'
-          )
-          print(json.dumps(report, indent=2, sort_keys=True))
+              report = {
+                  'schema_version': 1,
+                  'work_id': 'REPLAYAB-R2-SEMANTIC-ACCEPTANCE-01',
+                  'claim': 'GOV-DEV-WORKFLOW-OPTIMIZATION-BENCHMARK-01',
+                  'audited_main_sha': AUDITED,
+                  'implementation_head_sha': IMPLEMENTATION,
+                  'status': 'R2_CURRENT_MAIN_TERMINAL_AUDIT_PASS',
+                  'closure_review_permitted': True,
+                  'frozen_verdict_count': 12,
+                  'junit': results,
+                  'evidence_schema_sha256': schema_sha,
+                  'evaluator_sha256': evaluator_sha,
+                  'acceptance_contract_sha256': contract_sha,
+                  'outcome_bindings': outcome_bindings,
+                  'temporary_workflow_absent_from_audited_tree': True,
+                  'unsupported_claims': [
+                      'live coding-agent workers',
+                      'complete repair trajectories',
+                      'stochastic multi-task inference',
+                      'Candidate 01 general efficiency',
+                      'Candidate 01 default adoption',
+                      'R3 implementation or closure',
+                      'scientific execution',
+                  ],
+              }
+              Path('/tmp/R2_CURRENT_MAIN_TERMINAL_AUDIT.json').write_text(
+                  json.dumps(report, indent=2, sort_keys=True) + '\n'
+              )
+              print(json.dumps(report, indent=2, sort_keys=True))
+          except Exception:
+              Path('/tmp/report-error.txt').write_text(traceback.format_exc())
+              raise
           PY
 
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: replayab-r2-current-main-terminal-audit-${{ github.run_id }}
           path: |
             /tmp/R2_CURRENT_MAIN_TERMINAL_AUDIT.json
+            /tmp/report-error.txt
             /tmp/full.xml
             /tmp/full.log
             /tmp/ruff.log
