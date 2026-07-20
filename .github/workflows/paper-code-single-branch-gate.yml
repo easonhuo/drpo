@@ -2,10 +2,6 @@ name: PAPER-CODE-REFERENCE-01 Single Branch Gate
 
 on:
   push:
-    branches:
-      - dev/paper-code-reference-01
-      - "dev/paper-code-reference-01-*"
-      - "dev/paper-code-reference-01/**"
   pull_request:
     branches:
       - dev/paper-code-reference-01
@@ -14,75 +10,107 @@ permissions:
   contents: write
 
 concurrency:
-  group: paper-code-reference-01-single-branch-gate
+  group: paper-code-reference-01-single-branch-gate-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
-  enforce-single-branch:
+  reject-derivative-pr:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    env:
-      CANONICAL_BRANCH: dev/paper-code-reference-01
-      GH_TOKEN: ${{ github.token }}
     steps:
       - name: Reject stacked or derivative pull requests
-        if: github.event_name == 'pull_request'
         env:
+          CANONICAL_BRANCH: dev/paper-code-reference-01
           HEAD_BRANCH: ${{ github.head_ref }}
         run: |
           set -euo pipefail
-          echo "PAPER-CODE-REFERENCE-01 accepts no staging or derivative branches."
-          echo "Required branch: ${CANONICAL_BRANCH}"
+          echo "PAPER-CODE-REFERENCE-01 accepts no staging, stacked, temporary, repair, or replacement branches."
+          echo "All changes must be committed directly to ${CANONICAL_BRANCH}."
           echo "Observed PR head: ${HEAD_BRANCH}"
           exit 1
 
-      - name: Delete a pushed derivative branch
-        if: github.event_name == 'push' && github.ref_name != 'dev/paper-code-reference-01'
-        env:
-          CURRENT_BRANCH: ${{ github.ref_name }}
+  enforce-push:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    env:
+      CANONICAL_BRANCH: dev/paper-code-reference-01
+      LOCK_COMMIT: fd1eb6303a380cbedafde183115bb5b577630baa
+      CURRENT_BRANCH: ${{ github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Enforce the single-branch invariant
         run: |
           set -euo pipefail
-          case "${CURRENT_BRANCH}" in
-            dev/paper-code-reference-01-*|dev/paper-code-reference-01/*)
-              echo "Deleting forbidden derivative branch ${CURRENT_BRANCH}"
-              gh api --method DELETE \
-                "/repos/${GITHUB_REPOSITORY}/git/refs/heads/${CURRENT_BRANCH}"
-              ;;
-            *)
-              echo "Unexpected branch outside the protected task namespace: ${CURRENT_BRANCH}" >&2
+
+          delete_branch() {
+            local branch="$1"
+            [ "${branch}" != "${CANONICAL_BRANCH}" ] || {
+              echo "Refusing to delete canonical branch ${CANONICAL_BRANCH}" >&2
               exit 1
-              ;;
-          esac
+            }
+            echo "Deleting forbidden PAPER-CODE-REFERENCE-01 derivative branch ${branch}"
+            gh api --method DELETE \
+              "/repos/${GITHUB_REPOSITORY}/git/refs/heads/${branch}"
+          }
 
-      - name: Remove all existing PAPER-CODE-REFERENCE-01 derivatives
-        if: github.event_name == 'push' && github.ref_name == 'dev/paper-code-reference-01'
-        run: |
-          set -euo pipefail
+          if [ "${CURRENT_BRANCH}" = "${CANONICAL_BRANCH}" ]; then
+            mapfile -t branches < <(
+              gh api --paginate "/repos/${GITHUB_REPOSITORY}/branches?per_page=100" \
+                --jq '.[].name' \
+                | grep -E '^dev/paper-code-reference-01(-|/)' \
+                || true
+            )
 
-          mapfile -t branches < <(
-            gh api --paginate "/repos/${GITHUB_REPOSITORY}/branches?per_page=100" \
-              --jq '.[].name' \
-              | grep -E '^dev/paper-code-reference-01(-|/)' \
-              || true
-          )
+            if [ "${#branches[@]}" -eq 0 ]; then
+              echo "No forbidden PAPER-CODE-REFERENCE-01 namespace branches found."
+              exit 0
+            fi
 
-          # Remove the accidental branch created while installing this gate.
-          branches+=("DO-NOT-CREATE")
-
-          if [ "${#branches[@]}" -eq 0 ]; then
-            echo "No forbidden derivative branches found."
+            printf '%s\n' "${branches[@]}" | sort -u | while IFS= read -r branch; do
+              [ -n "${branch}" ] || continue
+              delete_branch "${branch}"
+            done
             exit 0
           fi
 
-          printf '%s\n' "${branches[@]}" | sort -u | while IFS= read -r branch; do
-            [ -n "${branch}" ] || continue
-            [ "${branch}" != "${CANONICAL_BRANCH}" ] || continue
+          # Never act on the repository default branch.
+          if [ "${CURRENT_BRANCH}" = "main" ]; then
+            echo "Default branch is outside this task-local gate."
+            exit 0
+          fi
 
-            if gh api "/repos/${GITHUB_REPOSITORY}/git/ref/heads/${branch}" >/dev/null 2>&1; then
-              echo "Deleting forbidden branch ${branch}"
-              gh api --method DELETE \
-                "/repos/${GITHUB_REPOSITORY}/git/refs/heads/${branch}"
-            else
-              echo "Already absent: ${branch}"
-            fi
-          done
+          case "${CURRENT_BRANCH}" in
+            dev/paper-code-reference-01-*|dev/paper-code-reference-01/*)
+              delete_branch "${CURRENT_BRANCH}"
+              exit 0
+              ;;
+          esac
+
+          # A differently named branch created from the canonical branch inherits
+          # this workflow and the immutable lock commit. Delete it while the lock
+          # commit is not part of main. If the task is eventually merged, this
+          # ancestry rule automatically becomes inert and only namespace matching
+          # remains active.
+          git fetch --no-tags origin \
+            "+refs/heads/main:refs/remotes/origin/main" \
+            "+refs/heads/${CANONICAL_BRANCH}:refs/remotes/origin/${CANONICAL_BRANCH}"
+
+          if git merge-base --is-ancestor "${LOCK_COMMIT}" origin/main; then
+            echo "Lock commit is already in main; hidden-derivative ancestry deletion is inactive."
+            exit 0
+          fi
+
+          if git merge-base --is-ancestor "${LOCK_COMMIT}" HEAD; then
+            delete_branch "${CURRENT_BRANCH}"
+            exit 0
+          fi
+
+          echo "Branch ${CURRENT_BRANCH} is unrelated to PAPER-CODE-REFERENCE-01; no action."
