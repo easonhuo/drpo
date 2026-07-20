@@ -1,0 +1,51 @@
+name: Apply E8 AsymRE metadata correction
+
+on:
+  push:
+    branches:
+      - dev/e8-asymre-deltav-scan
+    paths:
+      - .github/workflows/apply-e8-asymre-dev-patch.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: dev/e8-asymre-deltav-scan
+      - name: Correct AsymRE-only metadata
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('src/drpo/countdown_e8_alpha1_c_scan_trainer.py')
+          text = path.read_text(encoding='utf-8')
+          old = '''"positive_coefficient": 1.0 - cell.delta_v if cell.method == "asymre" else 1.0,
+          "negative_repulsion_coefficient": 1.0 + cell.delta_v if cell.method == "asymre" else cell.alpha,
+          "distance_control": cell.method != "asymre",'''
+          new = '''"positive_coefficient": (
+              1.0 - cell.delta_v if cell.method == "asymre" else None
+          ),
+          "negative_repulsion_coefficient": (
+              1.0 + cell.delta_v if cell.method == "asymre" else None
+          ),
+          "distance_control": False if cell.method == "asymre" else None,'''
+          if text.count(old) != 3:
+              raise SystemExit('unexpected metadata block count')
+          path.write_text(text.replace(old, new), encoding='utf-8')
+          PY
+          python -m py_compile src/drpo/countdown_e8_alpha1_c_scan_trainer.py
+          git diff --check
+      - name: Commit corrected trainer
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/drpo/countdown_e8_alpha1_c_scan_trainer.py
+          git commit -m 'E8 AsymRE: scope metadata to AsymRE cells'
+          git push origin HEAD:dev/e8-asymre-deltav-scan
