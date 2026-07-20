@@ -1,0 +1,463 @@
+_{\mathrm{sample}}(z)
+    }{
+        \sum_{z\in\mathcal N}
+        I_{\mathrm{sample}}(z)
+    }.
+    \label{eq:near_retention}
+\end{equation}
+Taper parameters are calibrated on training contexts so that the
+compared selective rules retain the same target near-field fraction,
+up to the predetermined tolerance. Parameters are then frozen before
+evaluation. This comparison isolates how the rules treat the far-field
+tail after preserving comparable local utility.
+
+\paragraph{Aggregate-budget matching.}
+For a weighting function $\omega$, define its detached negative-update
+budget as
+\begin{equation}
+    B(\omega)
+    =
+    \sum_{z\in\mathcal B^-}
+    \omega(D_\theta(z))
+    I_{\mathrm{sample}}(z).
+    \label{eq:taper_budget}
+\end{equation}
+The budget-matched global coefficient is
+\begin{equation}
+    \alpha_{\mathrm{budget}}
+    =
+    \frac{
+        B(\omega)
+    }{
+        B(\omega_{\mathrm{uncontrolled}})
+    }.
+    \label{eq:taper_global_match}
+\end{equation}
+This control applies the same total first-order negative-update budget
+without using remoteness. A selective taper can therefore be credited
+only for improvements that remain after comparison with its
+budget-matched global baseline.
+
+\paragraph{Measurements.}
+Each method is evaluated over the full prespecified training horizon.
+We report task performance, held-out-context generalization, distance
+from the hidden optimum, policy displacement, entropy or variance,
+effective support, near-field retention, aggregate negative-update
+budget, and all three terminal-event categories. Method comparisons use
+the same seeds and paired statistics.
+
+
+
+\subsection{External Taper Validation}
+\label{app:external_taper_protocol}
+
+\paragraph{Scientific scope.}
+External taper experiments test whether the controlled weighting
+principle transfers to complex policies. They do not reproduce the exact
+counterfactual geometry of C-U1 or D-U1 and therefore do not replace the
+controlled source and causal experiments.
+
+\paragraph{Hopper.}
+All Hopper taper methods branch from the same actor initialization and
+use the same offline transitions and advantage labels. For an action
+with inverse-squash coordinate $u$, Gaussian mean $\mu_\theta(s)$, and
+diagonal scale $\sigma_\theta(s)$, the remoteness statistic is
+\begin{equation}
+    D_{\mathrm{Hopper}}(s,a)
+    =
+    \frac{1}{2}
+    \sum_j
+    \left(
+        \frac{
+            u_j-\mu_{\theta,j}(s)
+        }{
+            \sigma_{\theta,j}(s)
+        }
+    \right)^2.
+    \label{eq:hopper_taper_remoteness}
+\end{equation}
+The additive Gaussian normalization term is omitted because it does not
+change the ordering used by the taper. Remoteness is recomputed under
+the current actor and detached before constructing the negative weight.
+The mechanism protocol with frozen advantages is kept separate from the
+standard offline-RL performance protocol; the former studies transfer of
+the far-field control mechanism, whereas the latter reports final
+environment return.
+
+\paragraph{Countdown.}
+The Countdown offline dataset is generated once from a frozen SFT
+policy. For each puzzle, it contains a verified positive response, a
+near negative response with low mean token surprisal, and a far negative
+response with high mean token surprisal. Mean token surprisal is
+\begin{equation}
+    D_{\mathrm{Countdown}}(x,y)
+    =
+    -\frac{1}{|y|}
+    \sum_{t=1}^{|y|}
+    \log
+    \pi_\theta
+    \left(
+        y_t
+        \mid
+        x,y_{<t}
+    \right).
+    \label{eq:countdown_taper_remoteness}
+\end{equation}
+During method training, the responses remain fixed but their surprisal is
+recomputed under the current policy. The sequence-level taper weight is
+computed from the detached current surprisal and multiplies the negative
+sequence objective.
+
+All Countdown methods start from the same SFT checkpoint and use the
+same positive, near-negative, and far-negative responses, mixture
+coefficients, validation set, and maximum training budget. Checkpoint
+selection uses the registered validation task metric, and final verifier
+success is measured only on the held-out test puzzles.
+
+\paragraph{Comparisons and reporting.}
+The common external comparisons are Positive-only, Uncontrolled,
+Global scaling, and exponential DRPO. Domain-specific baselines are
+reported in the overall-performance section rather than treated as
+controlled taper variants. Hopper reports normalized return and policy
+statistics; Countdown reports greedy verifier success, pass@$k$, valid
+expression rate, surprisal, and support statistics. Task-performance,
+boundary, and NaN/Inf outcomes remain separate in both domains.
+\subsection{Shared Objectives and Negative-Update Controls}
+\label{app:shared_methods}
+
+This section defines the protocol controls and remoteness-aware
+weighting rules shared by the D4RL and Countdown experiments. Their
+task-specific remoteness signals, data construction, and optimization
+protocols are described separately in
+Appendices~\ref{app:d4rl_methods} and
+\ref{app:countdown_methods}.
+
+\paragraph{Shared signed objective.}
+
+Let \(z\) denote an offline transition or response, let
+\(A(z)\) denote its fixed signed learning signal during an actor update,
+and let \(D_\theta(z)\) denote its learner-relative remoteness under the
+current policy. We write
+
+\[
+A^{+}(z)=\max\{A(z),0\},
+\qquad
+A^{-}(z)=\max\{-A(z),0\}.
+\]
+
+The shared family of actor objectives is
+
+\[
+\mathcal{J}_{\omega}(\theta)
+=
+\mathbb{E}_{z\sim\mathcal{B}}
+\left[
+A^{+}(z)\log \pi_\theta(z)
+ -
+\omega\!\left(D_\theta(z)\right)
+A^{-}(z)\log \pi_\theta(z)
+\right],
+\]
+
+where positive updates retain unit weight and
+\(\omega(D)\) controls only the negative branch. During each actor
+update, the advantage and remoteness-derived weight are treated as
+fixed coefficients; gradients are not propagated through the weighting
+rule.
+
+For the remoteness-aware methods, define the normalized excess
+remoteness
+
+\[
+x_\theta(z)
+=
+\left[
+\frac{D_\theta(z)-\tau}{c}
+\right]_{+},
+\]
+
+where \(\tau\) is the near-field threshold, \(c>0\) is the task-specific
+scale, and \([u]_{+}=\max\{u,0\}\). Consequently, samples inside the
+near-field region \(D_\theta(z)\leq\tau\) retain their full negative
+weight.
+
+\paragraph{Positive-only.}
+
+Positive-only removes all negative updates:
+
+\[
+\omega_{\mathrm{pos}}(D)=0.
+\]
+
+It therefore provides an extreme no-repulsion reference. In D4RL it
+retains only transitions with positive actor advantages; in Countdown
+it retains only verified successful responses under the corresponding
+binary learning signal.
+
+\paragraph{Global-\(\alpha\).}
+
+Global-\(\alpha\) applies the same attenuation to every negative sample:
+
+\[
+\omega_{\mathrm{global}}(D)=\alpha,
+\qquad
+0\leq\alpha\leq 1.
+\]
+
+This control tests whether performance improvements can be explained by
+a global reduction in negative-update magnitude, without using
+learner-relative remoteness.
+
+\paragraph{Reciprocal-Linear and Reciprocal-Quadratic.}
+For the remoteness-aware methods, define the normalized excess
+remoteness
+\[
+x_\theta(z)
+=
+\left[
+\frac{D_\theta(z)-\tau}{c}
+\right]_{+},
+\]
+and its radialized coordinate
+\[
+r_\theta(z)=\sqrt{x_\theta(z)}.
+\]
+For Gaussian policies, \(r_\theta\) is asymptotically proportional to
+standardized distance in the far field; for sequence policies, it is a
+surprisal-derived radial coordinate rather than a geometric distance in
+the discrete action space.
+The two reciprocal controls use the same remoteness signal and
+near-field threshold as DRPO, but differ in their far-field decay:
+
+\[
+\omega_{\mathrm{Rec\text{-}L}}(D)
+=
+\frac{1}{1+\lambda r_\theta(z)},
+\]
+
+and
+
+\[
+\omega_{\mathrm{Rec\text{-}Q}}(D)
+=
+\frac{1}{1+\lambda r_\theta(z)^2}
+=
+\frac{1}{1+\lambda x_\theta(z)}.
+\]
+
+Reciprocal-Linear has the slowest far-field attenuation. The quadratic
+variant decays more rapidly but retains a polynomial tail. These
+controls isolate whether the benefit comes merely from using a
+remoteness signal or specifically from the decay profile selected by
+DRPO.
+
+\paragraph{DRPO.}
+
+DRPO uses an exponential remoteness taper:
+
+\[
+\omega_{\mathrm{DRPO}}(D)
+=
+\exp\left\{
+-\lambda x_\theta(z)
+\right\}.
+\]
+
+The weight equals one throughout the near-field region and then decays
+exponentially once remoteness exceeds \(\tau\). Thus, DRPO preserves
+local negative feedback while suppressing the remote negative tail more
+rapidly than the reciprocal alternatives.
+
+\paragraph{Hyperparameter selection.}
+
+Within each task, \(\tau\), \(c\), \(\lambda\), and the
+Global-\(\alpha\) coefficient are selected using the registered
+validation protocol only. Test-task performance is not used for
+hyperparameter selection. All protocol-matched methods share the same
+candidate budgets and checkpoint-selection rule. The task-specific
+search spaces and selected values are reported in
+Appendices~\ref{app:d4rl_methods} and
+\ref{app:countdown_methods}.
+
+
+\subsection{D4RL Baselines and Experimental Protocol}
+\label{app:d4rl_methods}
+
+The definitions of Positive-only, Global-\(\alpha\),
+Reciprocal-Linear, Reciprocal-Quadratic, and DRPO follow
+Appendix~\ref{app:shared_methods}. This section specifies only the
+D4RL-specific baselines, remoteness construction, training protocol,
+and evaluation procedure.
+
+\paragraph{Tasks and datasets.}
+
+We evaluate HalfCheetah, Hopper, and Walker2d on the medium,
+medium-replay, and medium-expert datasets, producing the nine tasks
+reported in Table~\ref{tab:d4rl_performance}. The same fixed offline
+dataset is used by every protocol-matched method within a task.
+
+\paragraph{Published offline-RL baselines.}
+
+CQL, TD3+BC, and IQL are included as published reference results.
+These values are not protocol-matched reruns and are therefore marked
+by \(\dagger\) in Table~\ref{tab:d4rl_performance}. The main table
+reports their published task-level means. Their original uncertainty
+statistics and exact score provenance are recorded separately from the
+protocol-matched DRPO experiments.
+
+\paragraph{Gaussian-policy remoteness.}
+
+For an action \(a\in\mathbb{R}^{d_a}\) and current Gaussian policy with
+mean \(\mu_\theta(s)\) and standard deviation \(\sigma_\theta(s)\), we use the
+following implementation-level standardized remoteness statistic
+
+\[
+D_{\mathrm{D4RL}}(s,a)
+=
+\frac{1}{d_a}
+\sum_{j=1}^{d_a}
+\left(
+\frac{a_j-\mu_{\theta,j}(s)}
+     {\sigma_{\theta,j}(s)}
+\right)^2.
+\]
+
+This dimension-normalized convention differs from
+Equation~\eqref{eq:hopper_taper_remoteness} only by a fixed task-level scale.
+The associated threshold and scale parameters absorb that constant, and each
+protocol keeps its convention fixed across all compared methods.
+
+When the actor uses a transformed action distribution, this quantity is
+computed in the policy's native Gaussian coordinates. The resulting
+remoteness is used only to determine the negative-update coefficient;
+the distance term is detached during the actor update.
+
+\paragraph{Protocol-matched actor comparison.}
+
+Positive-only, Global-\(\alpha\), Reciprocal-Linear,
+Reciprocal-Quadratic, and DRPO share the same offline dataset, critic
+checkpoint or critic-training protocol, actor initialization, network
+architecture, optimizer, minibatch schedule, actor-update budget,
+evaluation schedule, and random seeds. They differ only in the
+negative-update weighting rule defined in
+Appendix~\ref{app:shared_methods}.
+
+The common actor advantage construction is held fixed across these
+methods. No method is allowed to change the critic, relabel samples, or
+alter the data distribution in order to improve its actor result.
+
+\paragraph{Hyperparameters.}
+
+The registered training and selection configuration is summarized in
+Table~\ref{tab:d4rl_registered_config}. All entries must be populated
+directly from the frozen experiment configuration rather than
+reconstructed after observing the test results.
+
+\begin{table}[t]
+\centering
+\caption{Registered configuration for the D4RL performance experiments.}
+\label{tab:d4rl_registered_config}
+
+\small
+\setlength{\tabcolsep}{8pt}
+\renewcommand{\arraystretch}{1.12}
+
+\begin{tabular}{@{}ll@{}}
+\toprule
+Configuration & Registered value \\
+\midrule
+Actor-update budget
+& \textbf{[registered value]} \\
+Evaluation interval
+& \textbf{[registered value]} \\
+Evaluation episodes
+& \textbf{[registered value]} \\
+Random seeds
+& \textbf{[registered seed set]} \\
+Near-field threshold candidates, $\tau$
+& \textbf{[registered grid]} \\
+Remoteness-scale candidates, $c$
+& \textbf{[registered grid]} \\
+Taper-strength candidates, $\lambda$
+& \textbf{[registered grid]} \\
+Global-scaling candidates, $\alpha$
+& \textbf{[registered grid]} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Evaluation and uncertainty.}
+
+Task performance is reported using the standard D4RL normalized return.
+For every protocol-matched method, the main table reports the mean over
+the registered seeds, while seed-level values and uncertainty
+statistics are reported in the appendix. The D4RL-9 total is the sum of
+the nine task-level means.
+
+Task-performance collapse is assessed from normalized return and
+training trajectories. Variance or support-boundary events are reported
+separately from task performance. NaN/Inf numerical failures are
+reported as a third outcome and are not merged with either low return or
+policy-boundary events. Any claim concerning convergence, collapse, or
+method ranking is based on the registered terminal audit rather than an
+intermediate checkpoint.
+
+
+\subsection{Countdown Baselines and Experimental Protocol}
+\label{app:countdown_methods}
+
+Positive-only, Global-\(\alpha\), Reciprocal-Linear,
+Reciprocal-Quadratic, and DRPO follow the shared definitions in
+Appendix~\ref{app:shared_methods}. This section defines the two
+published off-policy baselines and the Countdown-specific response-bank,
+remoteness, training, and evaluation protocols.
+
+\paragraph{AsymRE.}
+
+Asymmetric REINFORCE defines the response-level advantage using a
+tunable reward baseline \(V\):
+
+\[
+A_{\mathrm{AsymRE}}(x,y)
+=
+r(x,y)-V,
+\]
+
+and optimizes
+
+\[
+\mathcal{J}_{\mathrm{AsymRE}}(\theta)
+=
+\mathbb{E}_{(x,y)\sim\mathcal{B}}
+\left[
+\bigl(r(x,y)-V\bigr)
+\log\pi_\theta(y\mid x)
+\right].
+\]
+
+For a binary verifier reward, lowering \(V\) emphasizes successful
+responses, whereas increasing \(V\) strengthens suppression of failed
+responses. The baseline is selected using the validation protocol and
+is held fixed within each run.
+
+Global-\(\alpha\) and AsymRE remain separate comparisons because they
+operate on different underlying learning signals. Global-\(\alpha\)
+scales the negative part of the common precomputed signed advantage,
+whereas AsymRE constructs its signed advantage directly from the raw
+verifier reward and the published baseline parameterization. Under
+binary rewards and simplified normalization they are closely related,
+but the formal comparison preserves their native objectives and tuning
+rules.
+
+\paragraph{TOPR.}
+
+Let \(\mu(y\mid x)\) denote the frozen response-generating policy and
+
+\[
+\rho_\theta(x,y)
+=
+\frac{\pi_\theta(y\mid x)}
+     {\mu(y\mid x)}
+\]
+
+the sequence-level i
