@@ -22,9 +22,9 @@ SPEC.loader.exec_module(cli)
 
 def _profile(tmp_path: Path, repo: Path) -> Path:
     external = tmp_path / "external"
-    external.mkdir()
+    external.mkdir(exist_ok=True)
     model = external / "model"
-    model.mkdir()
+    model.mkdir(exist_ok=True)
     values: dict[str, str] = {}
     for name in (
         "contract",

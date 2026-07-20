@@ -165,8 +165,9 @@ def test_high_load_average_does_not_change_frozen_worker_count(
     patch_identity(monkeypatch)
     monkeypatch.setattr(cpu, "sample_cpu_interval", lambda *_args, **_kwargs: interval(1.0))
     result = autotune.revalidate_runtime(**revalidation_kwargs(tmp_path))
+    record = json.loads(Path(result["revalidation"]["path"]).read_text())
     assert result["selection"]["selected_workers"] == 2
-    assert result["machine_snapshot"]["load_average_1m"] == 999.0
+    assert record["current_machine_snapshot"]["load_average_1m"] == 999.0
 
 
 def test_true_cpu_pressure_blocks_without_downshift(
