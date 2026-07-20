@@ -45,6 +45,31 @@ again before any further work. The branch diverges from newer `main`; an
 integration-freshness audit is required before a merge proposal. Do not silently
 merge or rebase scientific registrations from `main` into this task.
 
+### 2.1 Locked single-branch policy
+
+`dev/paper-code-reference-01` is the only permitted development branch for
+`PAPER-CODE-REFERENCE-01`.
+
+- All implementation, repair, validation, documentation, and packaging changes
+  must be committed directly to this branch.
+- Staging, stacked, temporary, repair, validation, integration, replacement, or
+  successor branches are forbidden.
+- No agent or automation may create another branch for this claim unless the
+  user explicitly revokes this policy.
+- Historical derivative branches have been deleted. Their merged commits remain
+  in Git history where applicable; deleting branch refs does not delete accepted
+  code history.
+- `.github/workflows/paper-code-single-branch-gate.yml` enforces the policy:
+  namespace derivatives are deleted, differently named branches inheriting the
+  lock commit are deleted on their first push, and pull requests targeting this
+  branch from another branch fail closed.
+- The fixed Draft PR remains `#149`. No replacement PR is permitted without
+  explicit user instruction.
+
+This branch-local policy does not authorize merging or rebasing `main` into the
+task. Integration freshness is a read/compare/test activity unless the user
+separately authorizes a repository-history operation.
+
 ## 3. Reviewer-facing code boundary
 
 The `paper_code` package provides readable algorithms, explicit input and model
