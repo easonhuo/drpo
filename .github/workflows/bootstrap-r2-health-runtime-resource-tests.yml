@@ -26,12 +26,47 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Apply narrow maintenance patch
+      - name: Materialize narrow test changes
         shell: bash
         run: |
           set -euo pipefail
-          git apply --check maintenance.patch
-          git apply maintenance.patch
+          python - <<'PY'
+          from pathlib import Path
+
+          replacements = {
+              Path('tests/test_e7_measured_cpu_autotune.py'): [
+                  (
+                      '    result = autotune.revalidate_runtime(**revalidation_kwargs(tmp_path))\n'
+                      '    assert result["selection"]["selected_workers"] == 2\n'
+                      '    assert result["machine_snapshot"]["load_average_1m"] == 999.0\n',
+                      '    result = autotune.revalidate_runtime(**revalidation_kwargs(tmp_path))\n'
+                      '    record = json.loads(Path(result["revalidation"]["path"]).read_text())\n'
+                      '    assert result["selection"]["selected_workers"] == 2\n'
+                      '    assert record["current_machine_snapshot"]["load_average_1m"] == 999.0\n',
+                  )
+              ],
+              Path('tests/test_e7_ppo_w0_runtime_autotune.py'): [
+                  (
+                      '    with pytest.raises(autotune.RuntimeResourceError, match="no concurrency"):\n',
+                      '    with pytest.raises(\n'
+                      '        autotune.RuntimeResourceError,\n'
+                      '        match="no resource-valid concurrency candidate completed",\n'
+                      '    ):\n',
+                  )
+              ],
+              Path('tests/test_runtime_resource_acceptance.py'): [
+                  ('    external.mkdir()\n', '    external.mkdir(exist_ok=True)\n'),
+                  ('    model.mkdir()\n', '    model.mkdir(exist_ok=True)\n'),
+              ],
+          }
+          for path, edits in replacements.items():
+              text = path.read_text(encoding='utf-8')
+              for old, new in edits:
+                  if text.count(old) != 1:
+                      raise SystemExit(f'replacement drift in {path}: {old!r}')
+                  text = text.replace(old, new)
+              path.write_text(text, encoding='utf-8')
+          PY
 
       - name: Install focused dependencies
         run: |
@@ -62,7 +97,7 @@ jobs:
           HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
         run: |
           set -euo pipefail
-          rm maintenance.patch
+          rm -f maintenance.patch
           rm .github/workflows/bootstrap-r2-health-runtime-resource-tests.yml
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
