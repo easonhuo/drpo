@@ -1,13 +1,31 @@
-schema_version: 2
+schema_version: 3
 claim_id: PAPER-CODE-VALIDATION-01
 base_matrix: docs/paper_code_reference/VALIDATION_MATRIX.yaml
 latest_execution_report: docs/paper_code_reference/VALIDATION_EXECUTION_REPORT_20260720.md
 scientific_status_impact: none
 
 reason: >-
-  Record additive live gate overrides after validation documentation, exact-head
-  CI, isolated-package loading, differential/short-path suites, and the first CPU
-  liveness checks. No scientific coordinate or result status changes.
+  Record additive live gate overrides after validation documentation, package
+  isolation, differential and short-path suites, CPU liveness checks, and the
+  first correctness repairs. No scientific coordinate or result status changes.
+
+repairs:
+  du1_protocol_method_order:
+    defect_id: PAPER-CODE-VALIDATION-DU1-ORDER-01
+    documentation: docs/paper_code_reference/VALIDATION_DEFECT_DU1_ORDER_01.md
+    repair_commit: 913ec05a8529f101b31d66c841644c68a6fcee15
+    scope: serialized trajectory_summary_and_checkpoint_order_only
+    numerical_behavior_changed: false
+    standalone_du1_tests_after_repair: passed
+  verified_unused_imports:
+    repair_commit: e05248b0d33a48f3cda3ba4d75230791ac1bd0e4
+    removed:
+      - continuous.cu1_phase.EPS
+      - continuous.cu1_phase.gradient_norm
+      - continuous.cu1_taper.math
+      - continuous.cu1_training.math
+    function_or_scientific_behavior_changed: false
+    final_exact_head_ci_at_document_write: pending
 
 overrides:
   stages.V0_baseline_and_docs.status: in_progress
@@ -31,8 +49,10 @@ overrides:
     pr_gate_run: 29739126098
     pr_gate_job: 88341481345
   stages.V1_clean_package.subgates.public_entrypoints.status: passed
-  stages.V1_clean_package.subgates.exact_package_manifest.status: pending
-  stages.V1_clean_package.subgates.explicit_ruff_format_check.status: pending
+  stages.V1_clean_package.subgates.exact_package_manifest.status: pending_final_artifact
+  stages.V1_clean_package.subgates.self_contained_package_tests.status: passed_before_final_head
+  stages.V1_clean_package.subgates.ruff_check.status: repaired_pending_final_rerun
+  stages.V1_clean_package.subgates.ruff_format_check.status: pending_final_rerun
 
   stages.V2_function_equivalence.status: passed
   stages.V2_function_equivalence.evidence:
@@ -67,20 +87,20 @@ overrides:
     pr_gate_job: 88343702063
     route: real_cli_main_cpu_smoke
     formal_evidence: false
-  stages.V4_real_liveness.components.du1_cpu.status: pending
-  stages.V4_real_liveness.components.du1_cpu.partial_evidence:
+  stages.V4_real_liveness.components.du1_cpu.status: pending_final_package_cli_gate
+  stages.V4_real_liveness.components.du1_cpu.evidence_before_final_gate:
     six_method_cpu_runner_smoke: passed
     cli_parse_and_dispatch: passed
-    combined_cli_to_terminal_audit: pending
+    frozen_method_order_after_repair: passed
   stages.V4_real_liveness.components.hopper_hdf5_mujoco.status: blocked
   stages.V4_real_liveness.components.countdown_qwen_cuda.status: blocked
   stages.V4_real_liveness.components.d4rl_9.status: blocked
 
   stages.V5_scientific_reproduction.status: pending
-  next_gate: V0-07_exact_package_inventory
+  next_gate: final_exact_head_package_evidence_and_pr_ci
 
 notes:
   - synchronization is additive and preserves migration history
   - no formal experiment was launched
   - no result status or method ranking changed
-  - D-U1 split evidence is not promoted to a combined gate
+  - final CI and artifact identifiers are recorded outside this pending-at-write snapshot
