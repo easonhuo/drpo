@@ -1,0 +1,54 @@
+name: Temporary E8 current-main status diagnostic v2
+
+on:
+  push:
+    branches:
+      - diag/e8-reciprocal-current-main-finalize-status-02
+    paths:
+      - .github/workflows/temporary_e8_current_main_status_diagnostic_v2.yml
+
+permissions:
+  actions: read
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    env:
+      TARGET_SHA: 4ecf84ca07e705bb9203803dc7acf00e6fab314a
+      TARGET_WORKFLOW: Temporary E8 reciprocal current-main finalize
+      COMMENT_ID: '5019218115'
+      DIAG_BRANCH: diag/e8-reciprocal-current-main-finalize-status-02
+    steps:
+      - name: Replace known comment with current status
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          runs="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$TARGET_SHA&per_page=100")"
+          run_id="$(jq -r --arg name "$TARGET_WORKFLOW" '.workflow_runs[] | select(.name == $name and .event == "push") | .id' <<<"$runs" | head -n1)"
+          if [[ -z "$run_id" ]]; then
+            body="No push workflow named \`$TARGET_WORKFLOW\` was found for \`$TARGET_SHA\`."
+          else
+            run="$(jq -r --argjson id "$run_id" '.workflow_runs[] | select(.id == $id)' <<<"$runs")"
+            status="$(jq -r '.status' <<<"$run")"
+            conclusion="$(jq -r '.conclusion // "null"' <<<"$run")"
+            url="$(jq -r '.html_url' <<<"$run")"
+            jobs="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/jobs?per_page=100")"
+            summary="$(jq -r '.jobs[] | "- job `" + .name + "`: " + .status + "/" + (.conclusion // "null") + "\n" + ((.steps // []) | map("  - `" + .name + "`: " + .status + "/" + (.conclusion // "null")) | join("\n"))' <<<"$jobs")"
+            failed_job="$(jq -r '.jobs[] | select(.conclusion == "failure") | .id' <<<"$jobs" | head -n1)"
+            detail=""
+            if [[ -n "$failed_job" ]]; then
+              gh api "repos/$GITHUB_REPOSITORY/actions/jobs/$failed_job/logs" > /tmp/job.log
+              detail="$(grep -nEi 'ERROR|Traceback|mismatch|forbid|invalid|failed|requires|exact_base|registry|authority|evidence|locator|overlap' /tmp/job.log | tail -n 60 || true)"
+            fi
+            body="Current-main finalizer run $run_id: status=$status, conclusion=$conclusion.\n\n$summary\n\nRelevant lines:\n\`\`\`text\n$detail\n\`\`\`\n\n$url"
+          fi
+          gh api --method PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" -f body="$body" >/dev/null
+
+      - name: Delete diagnostic branch
+        shell: bash
+        run: git push origin --delete "$DIAG_BRANCH"
