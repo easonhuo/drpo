@@ -1,0 +1,325 @@
+%%%%%%%% ICML 2026 EXAMPLE LATEX SUBMISSION FILE %%%%%%%%%%%%%%%%%
+
+\documentclass{article}
+
+% Recommended, but optional, packages for figures and better typesetting:
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{booktabs}
+
+% hyperref makes hyperlinks in the resulting PDF.
+% If your build breaks (sometimes temporarily if a hyperlink spans a page)
+% please comment out the following usepackage line and replace
+% \usepackage{icml2026} with \usepackage[nohyperref]{icml2026} above.
+\usepackage{hyperref}
+
+% Attempt to make hyperref and algorithmic work together better:
+\newcommand{\theHalgorithm}{\arabic{algorithm}}
+
+% Authored preprint. Use \usepackage{icml2026} for a blind submission.
+\usepackage[preprint]{icml2026}
+\newcommand{\icmlpreprinttext}{} 
+\renewcommand{\icmlpreprinttext}{}
+
+% If accepted, instead use the following line for the camera-ready submission:
+% \usepackage[accepted]{icml2026}
+
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{mathtools}
+\usepackage{amsthm}
+
+
+% if you use cleveref..
+\usepackage[capitalize,noabbrev]{cleveref}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% THEOREMS
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\theoremstyle{plain}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{corollary}[theorem]{Corollary}
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{assumption}[theorem]{Assumption}
+\theoremstyle{remark}
+\newtheorem{remark}[theorem]{Remark}
+
+% The \icmltitle you define below is probably too long as a header.
+% Therefore, a short form for the running title is supplied here:
+\icmltitlerunning{Remoteness-Aware Control of Negative Off-Policy Updates}
+\setlength{\abovedisplayskip}{3pt}
+\setlength{\belowdisplayskip}{3pt}
+
+\begin{document}
+
+\twocolumn[
+  \icmltitle{Breaking the Curse of Repulsion: Remoteness-Aware Control of Negative Off-Policy Updates}
+
+  % It is OKAY to include author information, even for blind submissions: the
+  % style file will automatically remove it for you unless you've provided
+  % the [accepted] option to the icml2026 package.
+
+  % List of affiliations: The first argument should be a (short) identifier you
+  % will use later to specify author affiliations Academic affiliations
+  % should list Department, University, City, Region, Country Industry
+  % affiliations should list Company, City, Region, Country
+
+  % You can specify symbols, otherwise they are numbered in order. Ideally, you
+  % should not use this facility. Affiliations will be numbered in order of
+  % appearance and this is the preferred way.
+  \icmlsetsymbol{equal}{*}
+
+  \begin{icmlauthorlist}
+    \icmlauthor{Jie Jiang}{equal,comp}
+    \icmlauthor{Yusen Huo}{equal,comp}
+    \icmlauthor{Changping Wang}{comp}
+    \icmlauthor{Jun Zhang}{comp}
+  \end{icmlauthorlist}
+  \icmlaffiliation{comp}{Tencent Inc, China}
+
+  \icmlcorrespondingauthor{Jun Zhang}{neoxzhang@tencent.com}
+
+  % You may provide any keywords that you find helpful for describing your
+  % paper; these are used to populate the "keywords" metadata in the PDF but
+  % will not be shown in the document
+  \icmlkeywords{Off-Policy Reinforcement Learning, Negative Feedback, Policy Optimization, Stability}
+
+  \vskip 0.3in
+]
+
+% this must go after the closing bracket ] following \twocolumn[ ...
+
+% This command actually creates the footnote in the first column listing the
+% affiliations and the copyright notice. The command takes one argument, which
+% is text to display at the start of the footnote. The \icmlEqualContribution
+% command is standard text for equal contribution. Remove it (just {}) if you
+% do not need this facility.
+
+% Use ONE of the following lines. DO NOT remove the command.
+% If you have no special notice, KEEP empty braces:
+% \printAffiliationsAndNotice{}  % no special notice (required even if empty)
+% Or, if applicable, use the standard equal contribution text:
+
+\printAffiliationsAndNotice{\icmlEqualContribution}
+
+
+\begin{abstract}
+Off-policy policy optimization reuses historical behavior, including
+negative-advantage samples that suppress known failures. We show that repeated
+reuse can turn this useful signal into excessive repulsion: as the learner
+moves away from a historical negative action, subsequent updates make that
+action increasingly remote without necessarily reducing its update strength.
+Our aggregate theory characterizes the resulting transition from a stable
+displacement beyond the positive-only target to persistent drift and the loss
+of finite stable equilibria; controlled strength sweeps show that an
+intermediate displacement can improve held-out reward. The relevant
+learner-relative coordinate is squared standardized distance for Gaussian
+policies and surprisal for categorical policies. We introduce Dynamic
+Remoteness-Aware Policy Optimization (DRPO), which leaves the negative update
+unchanged in the near field and exponentially attenuates its remote tail.
+DRPO restores eventual inward Gaussian drift for every fixed finite
+negative-to-positive mass ratio, yields an explicit ultimate-bound radius, and
+changes categorical support suppression from exponential to polynomial
+probability decay. External diagnostics and controlled interventions isolate
+remoteness-dependent policy geometry as a source of negative-update
+amplification and show that selective tapering can remove its far-field effect
+without discarding useful local feedback.
+\end{abstract}
+
+\section{Introduction}
+\label{sec:introduction}
+
+Policy-based methods learn from signed feedback: positive updates attract the
+policy toward actions estimated to be preferable, whereas negative updates
+suppress actions estimated to be undesirable. Negative feedback can therefore
+encode useful boundaries and exclusion information that positive-only learning
+lacks \citep{zhu2025negative,song2025good}. In off-policy settings, however,
+the same historical sample may be reused after earlier updates have already
+changed its probability under the current policy. This raises a single
+question: when does repeated reuse turn useful negative feedback into
+excessive repulsion?
+
+We identify learner-relative remoteness as the state variable that links one
+reuse step to the next. A negative update lowers the probability of its
+historical action, increasing the action's remoteness and thereby changing the
+next policy-score response. Informally, we call historical actions below the
+control threshold the \emph{near field} and those beyond it the \emph{far
+field}; Section~\ref{sec:drpo} makes this distinction operational through
+\(D\leq\tau\) and \(D>\tau\). The policy family determines the resulting tail
+law: Gaussian mean scores grow with standardized distance, whereas categorical
+logit scores remain bounded even as selected-action probabilities approach the
+simplex boundary. Under isolated reuse, uncontrolled Gaussian remoteness grows
+geometrically and categorical action probability decays exponentially; an
+exponential taper reduces the corresponding far-field growth to logarithmic
+order. This is the curse of repulsion: complying with a negative update can
+make its next reuse more remote without making the reused signal self-limiting.
+
+What remains unresolved is whether remoteness itself amplifies negative
+updates independently of sample quality. Existing methods control off-policy
+instability through filtering, importance weighting, probability-aware gates,
+and tapered updates
+\citep{novati2019remember,fakoor2020p3o,peng2019advantage,
+schulman2017proximal,fujimoto2019off,kumar2020conservative,
+arnal2025asymmetric,leroux2025tapered}, but remoteness is usually confounded
+with advantage magnitude and data quality. We therefore match those factors
+while varying only remoteness, then intervene separately on near- and far-field
+negative updates to test their downstream effects.
+
+Our aggregate analysis places these per-sample effects in competition with
+positive attraction. When positive mass dominates, repulsion can displace the
+policy beyond the positive-only target while preserving a finite stable
+equilibrium. At balance, the restoring force disappears and persistent drift
+emerges; under negative dominance, no finite stable equilibrium remains.
+These regimes characterize policy geometry and stability, not task utility,
+which must be determined empirically.
+
+Motivated by this transition, we introduce Dynamic Remoteness-Aware Policy
+Optimization (DRPO). DRPO recomputes remoteness under the current policy,
+leaves the negative branch unchanged in the near field, and applies an
+exponential taper beyond the threshold. The taper dominates every finite-order
+far-field response, restores eventual inward Gaussian drift for any fixed
+finite negative-to-positive mass ratio, and makes categorical suppression
+self-limiting. Section~\ref{subsec:distance_dependent_utility} states the important
+boundary of this design: remoteness alone cannot identify remote samples that
+remain aligned with true task improvement.
+
+The experiments separate existence, identification, transmission, and control.
+External diagnostics first test whether the predicted pattern appears in
+realistic neural policies; controlled environments then isolate its source,
+trace its causal effect on policy behavior, and compare selective tapering
+against positive-only, global-scaling, and polynomial-tail alternatives.
+
+Our contributions are summarized as follows:
+\begin{itemize}
+    \item We characterize how repeated negative reuse changes
+    policy-relative remoteness and derive aggregate regimes for stable
+    extrapolation, persistent drift, and the loss of finite stable
+    equilibria.
+
+    \item We derive a control-order hierarchy and a selective exponential
+    taper with Gaussian ultimate-boundedness and categorical
+    self-limiting-suppression guarantees.
+
+    \item We use matched external diagnostics and controlled interventions
+    to separate coefficient magnitude from policy geometry, identify a
+    far-field causal pathway, and test the stability--utility trade-off of
+    selective tapering.
+\end{itemize}
+
+
+% ------------------------------------------------------------------
+% SECTION 2: PRELIMINARIES
+% ------------------------------------------------------------------
+\section{Related Work}
+\label{sec:related_work}
+
+\textbf{Learning from Negative or Suboptimal Behavior.}
+A broad line of policy-learning methods distinguishes behavior according
+to its estimated quality. Advantage-weighted regression, AWAC, implicit
+Q-learning, critic-regularized regression, and behavior-proximal
+objectives fit actors more strongly toward actions estimated to be
+valuable under a learned critic
+\citep{peng2019advantage,nair2020awac,kostrikov2021offline,
+wang2020critic,zhuang2023behavior}. Positive-filtered or filtering-based
+variants represent a conservative endpoint, where selected negative or
+low-quality updates are removed rather than reweighted. At the same
+time, failed or suboptimal behavior can remain informative: it can
+suppress competing bad modes, sharpen local decision boundaries, or
+improve data efficiency
+\citep{novati2019remember,fakoor2020p3o,arnal2025asymmetric}. These
+findings support the view that negative feedback is not merely noise, but
+also carries information whose usefulness depends on how it is used.
+
+\textbf{Off-Policy, Stale, and Learner-Relative Updates.}
+This issue becomes especially important under off-policy reuse, where
+historical behavior remains fixed while the learner continues to change.
+Off-policy methods commonly control behavior--learner mismatch through
+importance weighting, clipping, trust regions, replay mechanisms, and
+behavior regularization
+\citep{schulman2017proximal,haarnoja2018soft,levine2020offline,
+fujimoto2019off,kumar2020conservative}. Recent asymmetric or tapered
+off-policy objectives further make updates depend on current-policy
+probability or surprisal
+\citep{arnal2025asymmetric,leroux2025tapered}. These works establish
+that mismatch and rarity matter; our distinction concerns how
+learner-relative remoteness is created and amplified by repeated
+negative reuse. This actor-side view is complementary to conservative
+offline RL, which primarily addresses value extrapolation and
+policy-support mismatch.
+
+\textbf{Tapered Updates and Optimistic Reweighting.}
+TOPR uses an asymmetric tapered importance ratio on negative off-policy
+updates and provides its own stability analysis
+\citep{leroux2025tapered}. Optimistic or best-case distributional
+optimization also has a formal precedent in likelihood approximation
+and policy optimization
+\citep{nguyen2019optimistic,song2020optimistic}. Our construction is
+related but distinct: it reweights a finite measure of negative-update
+mass according to learner-relative remoteness and may reduce that
+measure's total mass. It is therefore an analogue of optimistic
+divergence-ball reweighting, not a standard ambiguity set over normalized
+probability distributions.
+% ------------------------------------------------------------------
+% SECTION 2: PRELIMINARIES
+% ------------------------------------------------------------------
+
+\section{Problem Setup}
+\label{sec:problem_setup}
+
+% ------------------------------------------------------------------
+% SECTION 2: PRELIMINARIES
+% ------------------------------------------------------------------
+
+\subsection{Off-Policy Signed Actor Updates}
+
+We consider policy optimization from a historical update distribution
+$\nu$ over state--action pairs, which may represent an offline dataset,
+a replay buffer, or trajectories collected by earlier or stale behavior
+policies. Let $\pi_\theta(a \mid s)$ denote the current policy and let
+$\widehat{A}(s,a)$ denote the advantage-like signal used by the actor
+update. During an actor step, the update distribution and the associated
+advantage estimates are treated as fixed with respect to $\theta$. The resulting empirical actor field is
+\begin{equation}
+    \mathbf{F}(\theta)
+    =
+    \mathbb{E}_{(s,a)\sim\nu}
+    \left[
+        \widehat{A}(s,a)
+        \nabla_\theta \log \pi_\theta(a \mid s)
+    \right],
+    \label{eq:empirical_actor_field}
+\end{equation}
+with the corresponding update
+\(\theta_{t+1}=\theta_t+\eta\mathbf{F}(\theta_t)\).
+Repeated reuse means that the same historical samples and signed feedback
+are evaluated under an evolving current policy;
+Section~\ref{sec:theory} studies the actor-side dynamics induced by this
+reuse.
+
+To separate favorable and unfavorable feedback, we define
+\begin{equation}
+\begin{aligned}
+    \widehat{A}^{+}(s,a)
+    &= \max\{\widehat{A}(s,a),0\}, \\
+    \widehat{A}^{-}(s,a)
+    &= \max\{-\widehat{A}(s,a),0\}.
+\end{aligned}
+\end{equation}
+The actor field can then be decomposed into positive and negative
+components:
+\begin{equation}
+\begin{aligned}
+    \mathbf{F}(\theta)
+    ={}&
+    \mathbb{E}_{\nu}
+    \left[
+        \widehat{A}^{+}(s,a)
+        \nabla_\theta \log \pi_\theta(a \mid s)
+    \right] \\
+    &-
+    \mathbb{E}_{\nu}
+    \left[
+        \wi
