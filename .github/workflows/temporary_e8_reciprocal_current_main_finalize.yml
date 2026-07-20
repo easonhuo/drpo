@@ -335,6 +335,10 @@ jobs:
             PYTHONPATH=/tmp/e8-trusted/src:/tmp/e8-trusted/scripts python -m pytest -q
           ) > /tmp/e8-baseline-pytest.log 2>&1
           BASELINE_PYTEST_RC=$?
+          # One legacy E7 test writes a fixed /tmp/digest-a path instead of using tmp_path.
+          # Remove that baseline-run residue before executing the target tree so the
+          # differential gate compares code, not cross-suite filesystem contamination.
+          rm -rf /tmp/digest-a
           (
             cd /tmp/e8-target
             PYTHONPATH=/tmp/e8-target/src:/tmp/e8-target/scripts python -m pytest -q
