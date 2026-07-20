@@ -1,0 +1,101 @@
+schema_version: 1
+benchmark_id: REPLAYAB-R1-R2-DISCRIMINATION-01
+frozen_before_execution: true
+case_count: 16
+arm_count: 32
+ground_truth_counts:
+  correct_arms: 20
+  incorrect_arms: 12
+  efficiency_eligible_pairs: 8
+verdicts:
+  R1R2-API-IDENTICAL-CORRECT:
+    A: accept
+    B: accept
+    pair_pattern: both_accepted
+    efficiency_eligible: true
+  R1R2-API-DIFFERENT-CORRECT:
+    A: accept
+    B: accept
+    pair_pattern: both_accepted
+    efficiency_eligible: true
+  R1R2-API-MIXED:
+    A: accept
+    B: reject
+    pair_pattern: a_accepted_b_rejected
+    efficiency_eligible: false
+  R1R2-API-BOTH-WRONG:
+    A: reject
+    B: reject
+    pair_pattern: both_rejected
+    efficiency_eligible: false
+  R1R2-NUMERIC-IDENTICAL-CORRECT:
+    A: accept
+    B: accept
+    pair_pattern: both_accepted
+    efficiency_eligible: true
+  R1R2-NUMERIC-DIFFERENT-CORRECT:
+    A: accept
+    B: accept
+    pair_pattern: both_accepted
+    efficiency_eligible: true
+  R1R2-NUMERIC-MIXED:
+    A: reject
+    B: accept
+    pair_pattern: a_rejected_b_accepted
+    efficiency_eligible: false
+  R1R2-NUMERIC-BOTH-WRONG:
+    A: reject
+    B: reject
+    pair_pattern: both_rejected
+    efficiency_eligible: false
+  R1R2-PROTECTED-IDENTICAL-CORRECT:
+    A: accept
+    B: accept
+    pair_pattern: both_accepted
+    efficiency_eligible: true
+  R1R2-PROTECTED-DIFFERENT-CORRECT:
+    A: accept
+    B: accept
+    pair_pattern: both_accepted
+    efficiency_eligible: true
+  R1R2-PROTECTED-MIXED:
+    A: accept
+    B: reject
+    pair_pattern: a_accepted_b_rejected
+    efficiency_eligible: false
+  R1R2-PROTECTED-BOTH-WRONG:
+    A: reject
+    B: reject
+    pair_pattern: both_rejected
+    efficiency_eligible: false
+  R1R2-SERIAL-IDENTICAL-CORRECT:
+    A: accept
+    B: accept
+    pair_pattern: both_accepted
+    efficiency_eligible: true
+  R1R2-SERIAL-DIFFERENT-CORRECT:
+    A: accept
+    B: accept
+    pair_pattern: both_accepted
+    efficiency_eligible: true
+  R1R2-SERIAL-MIXED:
+    A: reject
+    B: accept
+    pair_pattern: a_rejected_b_accepted
+    efficiency_eligible: false
+  R1R2-SERIAL-BOTH-WRONG:
+    A: reject
+    B: reject
+    pair_pattern: both_rejected
+    efficiency_eligible: false
+success_gate:
+  minimum_r2_frr_reduction: 0.15
+  maximum_r2_incorrect_arm_far: 0.0
+  require_r2_far_not_above_r1: true
+  minimum_r2_arm_accuracy: 1.0
+  minimum_r2_pair_accuracy: 1.0
+  minimum_r2_efficiency_precision: 1.0
+  minimum_r2_efficiency_coverage_gain: 0.40
+  require_r1_identical_correct_controls: true
+  require_both_wrong_controls_rejected: true
+  require_r1_terminal_non_regression: true
