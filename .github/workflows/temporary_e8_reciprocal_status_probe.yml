@@ -9,31 +9,37 @@ on:
 
 permissions:
   actions: read
-  issues: write
-  pull-requests: write
+  contents: write
 
 jobs:
   probe:
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
-    env:
-      TARGET_SHA: 9c111c6a78ad60044db0ba660c6050e0d9b5d333
-      TARGET_WORKFLOW: Temporary E8 reciprocal current-main finalize
-      TARGET_PR: '174'
     steps:
-      - name: Report target status
-        shell: bash
+      - uses: actions/checkout@v4
+        with:
+          ref: diag/e8-reciprocal-finalizer-48a3e49
+      - name: Record finalizer state
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          runs="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$TARGET_SHA&per_page=100")"
-          run_id="$(jq -r --arg name "$TARGET_WORKFLOW" '.workflow_runs[] | select(.name == $name) | .id' <<<"$runs" | head -n1)"
-          test -n "$run_id"
-          run="$(jq -r --argjson id "$run_id" '.workflow_runs[] | select(.id == $id)' <<<"$runs")"
-          status="$(jq -r '.status' <<<"$run")"
-          conclusion="$(jq -r '.conclusion // "null"' <<<"$run")"
-          url="$(jq -r '.html_url' <<<"$run")"
-          jobs="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/jobs?per_page=100")"
-          summary="$(jq -r '.jobs[] | "- job `" + .name + "`: " + .status + "/" + (.conclusion // "null") + "\n" + ((.steps // []) | map(select(.conclusion == "failure") | "  - failed step: `" + .name + "`") | join("\n"))' <<<"$jobs")"
-          body="Status probe for \`$TARGET_WORKFLOW\` at \`$TARGET_SHA\`: run $run_id, status=$status, conclusion=$conclusion.\n\n$summary\n\n$url"
-          gh api "repos/$GITHUB_REPOSITORY/issues/$TARGET_PR/comments" -f body="$body" >/dev/null
+          gh api 'repos/easonhuo/drpo/actions/runs?head_sha=9c111c6a78ad60044db0ba660c6050e0d9b5d333&per_page=100' > /tmp/runs.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          payload = json.loads(Path('/tmp/runs.json').read_text())
+          rows = [row for row in payload['workflow_runs'] if row['name'] == 'Temporary E8 reciprocal current-main finalize']
+          if not rows:
+              raise SystemExit('finalizer run not found')
+          row = rows[0]
+          Path('docs/experiments/TEMP_RECIPROCAL_FINALIZER_STATUS.txt').write_text(
+              f"run_id={row['id']}\nstatus={row['status']}\nconclusion={row['conclusion']}\n",
+              encoding='utf-8',
+          )
+          PY
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add docs/experiments/TEMP_RECIPROCAL_FINALIZER_STATUS.txt
+          git commit -m 'Record reciprocal finalizer state'
+          git push origin HEAD:diag/e8-reciprocal-finalizer-48a3e49
