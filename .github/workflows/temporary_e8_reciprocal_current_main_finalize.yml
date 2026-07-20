@@ -212,10 +212,8 @@ jobs:
               entry.get('execution_class') == 'pilot'
               for entry in parsed_after['experiments']
           )
-          old_pilot_line = '        "pilot": 11,
-'
-          new_pilot_line = f'        "pilot": {expected_pilot_count},
-'
+          old_pilot_line = '        "pilot": 11,' + chr(10)
+          new_pilot_line = f'        "pilot": {expected_pilot_count},' + chr(10)
           if formal_test_text.count(old_pilot_line) != 1:
               raise SystemExit('formal-channel pilot-count snapshot is not the expected current-main form')
           formal_test_path.write_text(
