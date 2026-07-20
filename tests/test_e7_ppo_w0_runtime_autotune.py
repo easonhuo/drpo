@@ -25,7 +25,10 @@ def test_retained_peak_selects_smallest_near_peak_candidate() -> None:
 
 
 def test_retained_peak_rejects_all_failed_candidates() -> None:
-    with pytest.raises(autotune.RuntimeResourceError, match="no concurrency"):
+    with pytest.raises(
+        autotune.RuntimeResourceError,
+        match="no resource-valid concurrency candidate completed",
+    ):
         autotune.select_from_throughput(
             [
                 {
