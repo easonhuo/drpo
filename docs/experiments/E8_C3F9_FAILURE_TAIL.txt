@@ -1,0 +1,161 @@
+27:finalize	Run final-tree acceptance gates	2026-07-20T09:55:34.7687340Z ^[[36;1m) > /tmp/e8-baseline-pytest.log 2>&1^[[0m
+28:finalize	Run final-tree acceptance gates	2026-07-20T09:55:34.7687559Z ^[[36;1mBASELINE_PYTEST_RC=$?^[[0m
+35:finalize	Run final-tree acceptance gates	2026-07-20T09:55:34.7689088Z ^[[36;1mBASELINE_PYTEST_RC="$BASELINE_PYTEST_RC" TARGET_PYTEST_RC="$TARGET_PYTEST_RC" python - <<'PY'^[[0m
+43:finalize	Run final-tree acceptance gates	2026-07-20T09:55:34.7690749Z ^[[36;1m    for line in Path(path).read_text(encoding='utf-8', errors='replace').splitlines():^[[0m
+44:finalize	Run final-tree acceptance gates	2026-07-20T09:55:34.7691095Z ^[[36;1m        match = re.match(r'(?:FAILED|ERROR)\s+(\S+)', line)^[[0m
+49:finalize	Run final-tree acceptance gates	2026-07-20T09:55:34.7692183Z ^[[36;1mbaseline = failures('/tmp/e8-baseline-pytest.log')^[[0m
+51:finalize	Run final-tree acceptance gates	2026-07-20T09:55:34.7692758Z ^[[36;1mnew_failures = sorted(target - baseline)^[[0m
+55:finalize	Run final-tree acceptance gates	2026-07-20T09:55:34.7693625Z ^[[36;1m    'baseline_exit_code': int(os.environ['BASELINE_PYTEST_RC']),^[[0m
+57:finalize	Run final-tree acceptance gates	2026-07-20T09:55:34.7694284Z ^[[36;1m    'baseline_failures': sorted(baseline),^[[0m
+59:finalize	Run final-tree acceptance gates	2026-07-20T09:55:34.7694724Z ^[[36;1m    'new_failures': new_failures,^[[0m
+62:finalize	Run final-tree acceptance gates	2026-07-20T09:55:34.7695339Z ^[[36;1mif new_failures:^[[0m
+63:finalize	Run final-tree acceptance gates	2026-07-20T09:55:34.7695595Z ^[[36;1m    raise SystemExit(f'target introduced new pytest failures: {new_failures}')^[[0m
+64:finalize	Run final-tree acceptance gates	2026-07-20T09:55:34.7695988Z ^[[36;1mif int(os.environ['BASELINE_PYTEST_RC']) == 0 and int(os.environ['TARGET_PYTEST_RC']) != 0:^[[0m
+318:finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4780370Z target introduced new pytest failures: ['tests/test_e7_measured_cpu_autotune.py::test_selection_digest_changes_with_selected_workers']
+321:finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4781779Z   "baseline_exit_code": 1,
+322:finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4862344Z   "baseline_failures": [
+331:finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4876750Z     "tests/test_e7_ppo_w0_runtime_autotune.py::test_retained_peak_rejects_all_failed_candidates",
+346:finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4882987Z   "new_failures": [
+359:finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4887257Z     "tests/test_e7_ppo_w0_runtime_autotune.py::test_retained_peak_rejects_all_failed_candidates",
+374:finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4900625Z ##[error]Process completed with exit code 1.
+--- tail ---
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7381037Z     [
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7381167Z       "{python}",
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7381351Z       "scripts/validate_formal_execution_channel.py",
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7381561Z       "--repo-root",
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7381709Z       "."
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7381843Z     ],
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7381968Z     [
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7382245Z       "{python}",
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7382443Z       "scripts/validate_governance_rule_inventory.py",
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7382685Z       "--repo-root",
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7382835Z       "."
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7382972Z     ],
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7383104Z     [
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7383235Z       "{python}",
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7383437Z       "scripts/validate_governance_pipeline_stage_status.py",
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7383663Z       "--repo-root",
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7383808Z       "."
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7383935Z     ],
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7384067Z     [
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7384195Z       "{python}",
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7384333Z       "-m",
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7384466Z       "pytest",
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7384636Z       "-q"
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7384769Z     ],
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7384993Z     [
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7385282Z       "{ruff}",
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7385501Z       "check",
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7385705Z       "."
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7385951Z     ]
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7386140Z   ],
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7386333Z   "matched_groups": [
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7386593Z     "formal_execution_channel",
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7386838Z     "countdown_formal_code",
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7387097Z     "handoff_delta_fast",
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7387340Z     "documentation"
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7387553Z   ],
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7387766Z   "pytest_targets": [
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7388004Z     "tests/test_formal_execution_channel.py",
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7388289Z     "tests/test_governance_rule_inventory.py"
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7388567Z   ],
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7388786Z   "reason": "unknown paths require full suite",
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7389098Z   "requested_mode": "auto",
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7389325Z   "risk": "high",
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7389542Z   "selected_mode": "full",
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7389802Z   "unknown_paths": [
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7390123Z     "configs/countdown_e8_oracle_offline_v2_reciprocal_high_lambda_extension_0p5b.yaml",
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7390674Z     "configs/countdown_e8_oracle_offline_v2_reciprocal_quadratic_dense_lambda_curve_0p5b.yaml",
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7391131Z     "configs/countdown_e8_oracle_offline_v2_reciprocal_shape_screen_0p5b.yaml",
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7391576Z     "runspecs/ready/E8_PAPER_ALIGNED_RECIPROCAL_HIGH_LAMBDA_EXTENSION_20260719_01.yaml",
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7392154Z     "runspecs/ready/E8_PAPER_ALIGNED_RECIPROCAL_QUADRATIC_DENSE_LAMBDA_CURVE_20260719_01.yaml",
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7392631Z     "runspecs/ready/E8_PAPER_ALIGNED_RECIPROCAL_SHAPE_SCREEN_20260719_01.yaml"
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7392937Z   ],
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7393182Z   "validators": [
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7393409Z     [
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7393602Z       "{python}",
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7393853Z       "scripts/validate_formal_execution_channel.py",
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7394130Z       "--repo-root",
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7394352Z       "."
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7394564Z     ],
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7394742Z     [
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7394954Z       "{python}",
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7395180Z       "scripts/handoff_delta_shadow.py",
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7395431Z       "auto-check",
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7395669Z       "--repo-root",
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7395881Z       "."
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7396084Z     ]
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7396268Z   ]
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:37.7396451Z }
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:43.3991352Z Stage 5 handoff authority: PASS (command=verify, mode=delta)
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:43.8428334Z Formal execution channel validation: PASS
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:43.8429142Z Channel: hardened-v1 (GOV-FORMAL-ENTRYPOINT-01)
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:43.8429615Z Experiments: formal=14, historical_formal=2, pilot=21, superseded=2
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:43.8430606Z Legacy runner archive exceptions: 1
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:44.1541371Z Governance validation: PASS
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:44.1542399Z Rules: 55 (machine=17, review=38, structural=0)
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:44.1542852Z Coverage: direct=17, grouped=0
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:44.1543202Z Pytest nodes: 32; status=not_requested
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:44.1543639Z Inventory: sections=4, covered_rules=55
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:47.1308701Z Governance pipeline stage status: PASS (Stage 1=closed_maintenance_only, Stage 2=closed_maintenance_only, Stage 3=shadow_active, Stage 4=active, Stage 5=closed_maintenance_only, protected_files=25, authorizations=34)
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:54.0407737Z ....................                                                     [100%]
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:54.0408329Z 20 passed in 6.09s
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:54.8314238Z .                                                                        [100%]
+finalize	Run final-tree acceptance gates	2026-07-20T09:55:54.8314930Z 1 passed in 0.43s
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4780370Z target introduced new pytest failures: ['tests/test_e7_measured_cpu_autotune.py::test_selection_digest_changes_with_selected_workers']
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4780983Z {
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4781242Z   "base_commit": "4b718e7439cf78a04f4affa1987ac15582d702d1",
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4781779Z   "baseline_exit_code": 1,
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4862344Z   "baseline_failures": [
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4863222Z     "tests/test_agent_runspec.py::test_artifact_packaging_rejects_model_like_include",
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4867713Z     "tests/test_agent_runspec.py::test_run_lane_impossible_capacity_floor_fails_before_entrypoint",
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4873047Z     "tests/test_agent_runspec.py::test_run_lane_real_affinity_pool_subprocess_inherits_and_capacity_admits",
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4873743Z     "tests/test_agent_runspec.py::test_validate_claim_and_run_lane_packages_only_allowed_artifacts",
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4874311Z     "tests/test_claude_runspec_workspace.py::test_configure_is_idempotent_and_installs_strict_hook",
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4874878Z     "tests/test_countdown_e8_oracle_offline_v2_alpha1_highc_scan.py::test_config_rejects_positive_only_seed_gpu_or_metric_drift",
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4875473Z     "tests/test_countdown_e8_oracle_offline_v2_alpha1_highc_scan.py::test_extension_rejects_alpha_positive_only_and_reference_drift",
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4876013Z     "tests/test_e7_measured_cpu_autotune.py::test_high_load_average_does_not_change_frozen_worker_count",
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4876750Z     "tests/test_e7_ppo_w0_runtime_autotune.py::test_retained_peak_rejects_all_failed_candidates",
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4877165Z     "tests/test_formal_execution_channel.py::test_current_registry_uses_canonical_channel",
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4877585Z     "tests/test_full_manuscript_compiler.py::test_proof_and_citation_validation_passes",
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4877994Z     "tests/test_full_manuscript_compiler.py::test_template_contract_is_explicitly_two_column_icml",
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4878439Z     "tests/test_runspec_deferred_registration.py::test_deferred_packaging_records_registration_timing",
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4878924Z     "tests/test_runspec_deferred_registration.py::test_deferred_registration_is_claimable_without_registry_entry",
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4879398Z     "tests/test_runspec_publish.py::test_publish_commits_only_declared_evidence_and_opens_draft_pr",
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4879834Z     "tests/test_runspec_publish.py::test_publish_rejects_unrelated_tracked_change",
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4880241Z     "tests/test_runspec_publish.py::test_run_lane_auto_publish_reports_partial_without_reclassifying_run",
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4880682Z     "tests/test_runspec_recovery.py::test_oom_log_blocks_retry_even_when_exit_code_is_allowlisted",
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4881095Z     "tests/test_runspec_recovery.py::test_resume_command_is_automatically_provenance_protected",
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4881482Z     "tests/test_runspec_recovery.py::test_retry_requires_a_fresh_checkpoint",
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4881845Z     "tests/test_runspec_recovery.py::test_retryable_failure_resumes_from_fresh_checkpoint",
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4882525Z     "tests/test_runtime_resource_acceptance.py::test_profile_rejects_placeholders_and_overlapping_pools"
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4882842Z   ],
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4882987Z   "new_failures": [
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4883269Z     "tests/test_e7_measured_cpu_autotune.py::test_selection_digest_changes_with_selected_workers"
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4883565Z   ],
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4883711Z   "schema_version": 1,
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4883880Z   "target_exit_code": 1,
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4884052Z   "target_failures": [
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4884301Z     "tests/test_agent_runspec.py::test_artifact_packaging_rejects_model_like_include",
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4884690Z     "tests/test_agent_runspec.py::test_run_lane_impossible_capacity_floor_fails_before_entrypoint",
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4885125Z     "tests/test_agent_runspec.py::test_run_lane_real_affinity_pool_subprocess_inherits_and_capacity_admits",
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4885553Z     "tests/test_agent_runspec.py::test_validate_claim_and_run_lane_packages_only_allowed_artifacts",
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4885972Z     "tests/test_claude_runspec_workspace.py::test_configure_is_idempotent_and_installs_strict_hook",
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4886417Z     "tests/test_e7_measured_cpu_autotune.py::test_high_load_average_does_not_change_frozen_worker_count",
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4886843Z     "tests/test_e7_measured_cpu_autotune.py::test_selection_digest_changes_with_selected_workers",
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4887257Z     "tests/test_e7_ppo_w0_runtime_autotune.py::test_retained_peak_rejects_all_failed_candidates",
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4887708Z     "tests/test_full_manuscript_compiler.py::test_proof_and_citation_validation_passes",
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4888108Z     "tests/test_full_manuscript_compiler.py::test_template_contract_is_explicitly_two_column_icml",
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4888539Z     "tests/test_runspec_deferred_registration.py::test_deferred_packaging_records_registration_timing",
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4889016Z     "tests/test_runspec_deferred_registration.py::test_deferred_registration_is_claimable_without_registry_entry",
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4889479Z     "tests/test_runspec_publish.py::test_publish_commits_only_declared_evidence_and_opens_draft_pr",
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4889870Z     "tests/test_runspec_publish.py::test_publish_rejects_unrelated_tracked_change",
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4890275Z     "tests/test_runspec_publish.py::test_run_lane_auto_publish_reports_partial_without_reclassifying_run",
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4890769Z     "tests/test_runspec_recovery.py::test_oom_log_blocks_retry_even_when_exit_code_is_allowlisted",
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4891182Z     "tests/test_runspec_recovery.py::test_resume_command_is_automatically_provenance_protected",
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4891554Z     "tests/test_runspec_recovery.py::test_retry_requires_a_fresh_checkpoint",
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4891915Z     "tests/test_runspec_recovery.py::test_retryable_failure_resumes_from_fresh_checkpoint",
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4892513Z     "tests/test_runtime_resource_acceptance.py::test_profile_rejects_placeholders_and_overlapping_pools"
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4892837Z   ]
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4892975Z }
+finalize	Run final-tree acceptance gates	2026-07-20T10:01:49.4900625Z ##[error]Process completed with exit code 1.
