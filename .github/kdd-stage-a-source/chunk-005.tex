@@ -1,0 +1,563 @@
+_{t+1}=\alpha g_t$, this implies
+\[
+    d^\top g_t
+    \leq
+    -
+    \frac{1}{\alpha L}
+    \|d\|_2^2.
+\]
+Consequently,
+\begin{align}
+    \|g_{t+1}\|_2^2
+    &=
+    \|g_t+d\|_2^2 \\
+    &=
+    \|g_t\|_2^2
+    +
+    2d^\top g_t
+    +
+    \|d\|_2^2 \\
+    &\leq
+    \|g_t\|_2^2
+    +
+    \left(
+        1-\frac{2}{\alpha L}
+    \right)
+    \|d\|_2^2.
+\end{align}
+Because $\alpha L\leq1$, the final coefficient is nonpositive, and hence
+\[
+    R_{t+1}
+    =
+    \|g_{t+1}\|_2^2
+    \leq
+    \|g_t\|_2^2
+    =
+    R_t.
+\]
+This proves both claims.
+\end{proof}
+
+\subsection{Quantitative Gaussian Reuse Rates}
+\label{app:gaussian_reuse_rate}
+
+\begin{proof}[Proof of Proposition~\ref{prop:reuse_rate}]
+Let \(\delta_t=\mu_t-a\) and
+\(X_t=\|\delta_t\|_2^2/(2\sigma^2)=D_t-C_\Sigma\).
+For an uncontrolled negative sample of mass \(q\),
+\[
+\delta_{t+1}
+=\left(1+\frac{\eta q}{\sigma^2}\right)\delta_t,
+\]
+which gives the stated exact geometric recurrence.
+
+Now let \(\omega_t=e^{-a[D_t-\tau]_+}\). Once
+\(D_t>\tau\), write
+\(b=\eta q/\sigma^2\) and
+\(K_0=e^{a(\tau-C_\Sigma)}\). Then
+\begin{equation}
+X_{t+1}=X_t\left(1+bK_0e^{-aX_t}\right)^2.
+\label{eq:app_tapered_gaussian_recurrence}
+\end{equation}
+Consequently \(\Delta X_t\ge0\), and for all sufficiently large
+\(X_t\),
+\begin{equation}
+0\le\Delta X_t\le C X_te^{-aX_t}
+\label{eq:app_gaussian_increment_bound}
+\end{equation}
+for a finite constant \(C\). Put \(Y_t=e^{aX_t}\). Since
+\(aX_te^{-aX_t}\le1/e\),
+Equation~\eqref{eq:app_gaussian_increment_bound} also gives a uniform
+bound \(a\Delta X_t\le M\). Hence
+\begin{align}
+\Delta Y_t
+&=Y_t(e^{a\Delta X_t}-1) \\
+&\le C_1Y_t\,a\Delta X_t
+\le C_2\log Y_t.
+\label{eq:app_gaussian_y_increment}
+\end{align}
+The standard comparison sequence
+\(\overline Y_t=K t\log t\), with \(K\) chosen larger than the
+constant in Equation~\eqref{eq:app_gaussian_y_increment}, is eventually
+a supersolution. Therefore
+\(Y_t=O(t\log t)\) and
+\[
+X_t\le a^{-1}\{\log t+\log\log t+O(1)\}.
+\]
+If an application does not make the sign of \(\Delta X_t\) explicit,
+negative increments already satisfy the desired upper comparison, while
+the nonnegative branch obeys the argument above.
+
+In continuous time, the far-branch equation is
+\(\dot X=C_3Xe^{-aX}\). Thus
+\(Y=e^{aX}\) satisfies \(\dot Y=C_3\log Y\), and the same comparison
+gives \(X(t)=O(a^{-1}\log t)\).
+\end{proof}
+
+\subsection{Far-Field Radial Bridge}
+\label{app:far_field_bridge}
+
+\begin{proof}[Proofs of Lemma~\ref{lem:far_field_radial_balance} and
+Corollary~\ref{cor:selective_vs_global}]
+Set \(\mu=m_++rv\) with \(\|v\|_2=1\). Direct expansion gives
+\begin{align}
+\frac{\langle v,F(\mu)\rangle}{r}
+={}&-p\,v^\top\Sigma^{-1}v
++\sum_iq_i v^\top\Sigma^{-1}v \\
+&+\frac1r\sum_iq_i
+\langle v,\Sigma^{-1}(m_+-a_i)\rangle.
+\end{align}
+The final term vanishes, proving the lemma.
+
+With atom-specific weights, \(D_\mu(a_i)\to\infty\) along every ray.
+For finitely many atoms, \(\omega_i(D_i)\to0\) therefore makes both the
+weighted coefficient of \(r\) and the weighted constant term vanish.
+The radial limit is
+\(-p v^\top\Sigma^{-1}v\), which is strictly negative. This is a
+pointwise-in-\(q/p\) statement: the radius at which it becomes negative
+can grow with \(q/p\). Moreover,
+\(\|\Sigma^{-1}(\mu-a_i)\|_2=O(\sqrt{D_i})\), so
+\(\omega(D)\sqrt D\to0\) removes the absolute negative force. Finally,
+for \(\omega_i\equiv\alpha\), the lemma applies with \(q\) replaced by
+\(\alpha q\), yielding the condition \(\alpha q<p\).
+\end{proof}
+
+\subsection{Reference-Regularized Restoration}
+\label{app:regularized_restoration}
+
+\begin{proof}[Proof of Proposition~\ref{prop:regularized_restoration}]
+The unweighted Gaussian field with a KL-geometry spring is
+\[
+F_\gamma(\mu)=\Sigma^{-1}
+\{(q-p-\gamma)\mu+pm_+-qm_-+\gamma\mu_0\}.
+\]
+Whenever \(p-q+\gamma\ne0\), its unique equilibrium is
+\[
+\mu_\gamma^*
+=\frac{pm_+-qm_-+\gamma\mu_0}{p-q+\gamma},
+\]
+and the field Jacobian is
+\((q-p-\gamma)\Sigma^{-1}\). It is Hurwitz exactly when
+\(\gamma>q-p\). This yields all three regimes in the proposition; for
+\(p=q\), the displayed equilibrium has displacement proportional to
+\(1/\gamma\). When \(p>q\), increasing \(\gamma\) contracts the
+equilibrium toward \(\mu_0\), potentially sacrificing extrapolation.
+
+For the Euclidean spring \(-\gamma(\mu-\mu_0)\), the Jacobian is
+\((q-p)\Sigma^{-1}-\gamma I\). In the negative-dominant regime it is
+Hurwitz exactly when
+\(\gamma>(q-p)\lambda_{\max}(\Sigma^{-1})\); this condition is not
+interchangeable with the KL-geometry coefficient above.
+\end{proof}
+
+\subsection{Gaussian Closed-Loop Boundedness}
+\label{app:gaussian_drpo_boundedness}
+
+\begin{proof}[Proof of Theorem~\ref{thm:gaussian_drpo_boundedness}]
+Let \(e=\mu-m_+\) and
+\[
+N_\omega(\mu)=\sum_iq_i\omega_i(D_i)
+\Sigma^{-1}(\mu-a_i).
+\]
+The finite-atom exponential-taper field is locally Lipschitz and has at
+most linear growth, so its solutions exist for all forward times.
+For \(V(e)=\frac12\|e\|_2^2\),
+\begin{align}
+\dot V
+&=-p e^\top\Sigma^{-1}e+e^\top N_\omega(\mu) \\
+&\le-p\lambda_{\min}(\Sigma^{-1})\|e\|_2^2
++B_\omega\|e\|_2.
+\label{eq:app_gaussian_lyapunov_bound}
+\end{align}
+Thus \(\dot V<0\) outside every ball of radius
+\(R^*+\varepsilon\). The standard ultimate-boundedness argument gives
+\[
+\limsup_{t\to\infty}\|\mu(t)-m_+\|_2\le R^*.
+\]
+On the boundary of any ball centered at \(m_+\) with radius greater
+than \(R^*\), Equation~\eqref{eq:app_gaussian_lyapunov_bound} is
+strictly negative. Continuity of the field and the Poincar\'e--Bohl
+inward-pointing theorem therefore imply at least one zero inside the
+ball. This is an existence result, not a uniqueness or global-convergence
+claim.
+
+It remains to verify \(B_\omega<\infty\) and the stated constant. Put
+\(r_i=\|\Sigma^{-1/2}(\mu-a_i)\|_2\), so
+\(D_i=C_\Sigma+r_i^2/2\), and
+\[
+\|\Sigma^{-1}(\mu-a_i)\|_2
+\le\sqrt{\lambda_{\max}(\Sigma^{-1})}\,r_i.
+\]
+For \(a=\lambda/c\) and
+\(\widetilde\tau_i=\tau_i-C_\Sigma\), maximize
+\[
+g_i(r)=r\exp\{-a[r^2/2-\widetilde\tau_i]_+\},\qquad r\ge0.
+\]
+If \(\widetilde\tau_i<0\), the taper is active at zero and the maximum
+occurs at \(r=a^{-1/2}\), giving
+\(a^{-1/2}e^{a\widetilde\tau_i-1/2}\). If
+\(\widetilde\tau_i\ge0\), the untapered plateau ends at
+\(r_\tau=\sqrt{2\widetilde\tau_i}\). When
+\(a^{-1/2}\le r_\tau\), the maximum is \(r_\tau\); otherwise it is the
+same interior-tail value. These are exactly the three displayed
+branches for \(G_i\), and the triangle inequality proves the bound on
+\(B_\omega\).
+
+For near-field fidelity, let \(\mu^*\) be an uncontrolled equilibrium
+with \(D_{\mu^*}(a_i)<\tau_i\) for every negative atom. Strictness and
+continuity provide a neighborhood in which every \(\omega_i=1\).
+The controlled and uncontrolled fields, including their Jacobians, are
+therefore identical there.
+
+Finally, along any sequence \(\|\mu_n\|_2\to\infty\), each fixed atom
+satisfies \(D_{\mu_n}(a_i)\to\infty\), hence
+\(\omega_i(D_{\mu_n}(a_i))\to0\). Finiteness of the atom set gives
+\(\rho_{\mathrm{eff}}(\mu_n)\to0\).
+\end{proof}
+
+\subsection{Derivation and Proof of
+Theorem~\ref{thm:aggregate_equilibria}}
+\label{app:aggregate_equilibrium}
+
+We use a regular minimal exponential-family representation to cover the
+continuous-action Gaussian and discrete-action categorical policies in a
+common set of output coordinates. At a fixed context, write
+\begin{equation}
+    \pi_\xi(a)
+    =
+    h(a)
+    \exp\left\{
+        \xi^\top T(a)-\psi(\xi)
+    \right\},
+    \qquad
+    \xi\in\mathcal H,
+    \label{eq:app_exponential_family_policy}
+\end{equation}
+where \(\xi\) is the natural parameter, \(T(a)\) is the sufficient
+statistic, and \(\psi\) is the log-partition function. Let
+\begin{equation}
+    \mathcal M
+    =
+    \left\{
+        \nabla\psi(\xi):
+        \xi\in\mathcal H
+    \right\}
+    \label{eq:app_mean_parameter_space}
+\end{equation}
+denote the attainable mean-parameter space.
+
+For a fixed-covariance Gaussian mean policy,
+\(\xi=\Sigma^{-1}\mu\), \(T(a)=a\), and
+\(\nabla\psi(\xi)=\mu\). For a categorical policy, fixing a
+reference-logit gauge gives a minimal \((K-1)\)-dimensional
+representation in which \(T(a)\) is the corresponding reduced action
+indicator and \(\nabla\psi(\xi)\) is the reduced probability vector.
+Thus, the two cases differ in their sufficient statistics and attainable
+mean spaces, but share the derivation below.
+
+Write
+\[
+    \widehat A
+    =
+    \widehat A^+
+    -
+    \widehat A^-,
+    \qquad
+    \widehat A^+
+    =
+    \max\{\widehat A,0\},
+    \qquad
+    \widehat A^-
+    =
+    \max\{-\widehat A,0\}.
+\]
+Define the aggregate positive and negative update masses and their
+unnormalized moments:
+\begin{equation}
+\begin{aligned}
+    p
+    &=
+    \mathbb E_\nu[\widehat A^+(a)],
+    \qquad
+    q
+    =
+    \mathbb E_\nu[\widehat A^-(a)],
+    \\
+    \bar{\mathbf m}_+
+    &=
+    \mathbb E_\nu
+    \left[
+        \widehat A^+(a)T(a)
+    \right],
+    \\
+    \bar{\mathbf m}_-
+    &=
+    \mathbb E_\nu
+    \left[
+        \widehat A^-(a)T(a)
+    \right].
+\end{aligned}
+\label{eq:app_aggregate_statistics}
+\end{equation}
+When \(p>0\), define
+\begin{equation}
+    \mathbf m_+
+    =
+    \frac{\bar{\mathbf m}_+}{p}.
+    \label{eq:app_positive_moment}
+\end{equation}
+This is the positive-only target used in the main text: it is the
+mean-parameter point selected by positive feedback alone, provided that
+it lies in \(\mathcal M\). When \(q>0\), define
+\begin{equation}
+    \mathbf m_-
+    =
+    \frac{\bar{\mathbf m}_-}{q}.
+    \label{eq:app_negative_moment}
+\end{equation}
+This is the negative-feedback moment, namely the advantage-weighted
+center of the negative feedback. It is not an attraction target; the
+negative actor contribution repels the learner from this moment. The
+unnormalized quantities
+\(\bar{\mathbf m}_+\) and \(\bar{\mathbf m}_-\) remain well defined in
+the boundary cases \(p=0\) or \(q=0\).
+
+The signed population objective is
+\begin{equation}
+    \mathcal L(\xi)
+    =
+    \mathbb E_\nu
+    \left[
+        \widehat A(a)
+        \log\pi_\xi(a)
+    \right].
+    \label{eq:app_signed_population_objective}
+\end{equation}
+Using Equation~\eqref{eq:app_exponential_family_policy} and
+\(\widehat A=\widehat A^+-\widehat A^-\), we obtain
+\begin{equation}
+    \mathcal L(\xi)
+    =
+    \left(
+        \bar{\mathbf m}_+
+        -
+        \bar{\mathbf m}_-
+    \right)^\top\xi
+    -
+    (p-q)\psi(\xi)
+    +
+    C,
+    \label{eq:app_signed_objective}
+\end{equation}
+where
+\[
+    C
+    =
+    \mathbb E_\nu
+    \left[
+        \widehat A(a)\log h(a)
+    \right]
+\]
+is independent of \(\xi\). Therefore, the aggregate actor field is
+\begin{equation}
+    \mathbf F(\xi)
+    =
+    \nabla\mathcal L(\xi)
+    =
+    \bar{\mathbf m}_+
+    -
+    \bar{\mathbf m}_-
+    -
+    (p-q)\nabla\psi(\xi),
+    \label{eq:app_aggregate_field}
+\end{equation}
+and
+\begin{equation}
+    \nabla^2\mathcal L(\xi)
+    =
+    -(p-q)\nabla^2\psi(\xi).
+    \label{eq:app_signed_hessian}
+\end{equation}
+Regularity and minimality imply that
+\(\nabla^2\psi(\xi)\succ0\) throughout \(\mathcal H\), and that
+\(\nabla\psi\) is one-to-one from \(\mathcal H\) onto
+\(\mathcal M\).
+
+We analyze the continuous dynamics and discrete update
+\begin{equation}
+    \dot\xi
+    =
+    \mathbf F(\xi),
+    \qquad
+    \xi_{t+1}
+    =
+    \xi_t
+    +
+    \alpha\mathbf F(\xi_t),
+    \qquad
+    \alpha>0.
+    \label{eq:app_aggregate_dynamics}
+\end{equation}
+
+\begin{proof}
+
+\medskip
+\noindent\textbf{Positive-only case.}
+Suppose \(p>0\) and \(q=0\). Then
+\(\bar{\mathbf m}_-=\mathbf 0\), and
+Equation~\eqref{eq:app_aggregate_field} becomes
+\begin{equation}
+    \mathbf F(\xi)
+    =
+    p
+    \left(
+        \mathbf m_+
+        -
+        \nabla\psi(\xi)
+    \right).
+    \label{eq:app_positive_only_field}
+\end{equation}
+A finite equilibrium must therefore satisfy
+\begin{equation}
+    \nabla\psi(\xi^\star)
+    =
+    \mathbf m_+.
+    \label{eq:app_positive_only_equilibrium}
+\end{equation}
+If \(\mathbf m_+\in\mathcal M\), existence follows because
+\(\nabla\psi\) maps \(\mathcal H\) onto \(\mathcal M\), and uniqueness
+follows because this map is one-to-one.
+
+The continuous field Jacobian is
+\begin{equation}
+    J_{\mathbf F}(\xi^\star)
+    =
+    -p\nabla^2\psi(\xi^\star)
+    \prec0,
+    \label{eq:app_positive_only_continuous_jacobian}
+\end{equation}
+so the equilibrium is locally asymptotically stable. For the discrete
+update, the local Jacobian is
+\begin{equation}
+    J_{\mathrm{disc}}(\xi^\star)
+    =
+    I
+    -
+    \alpha p\nabla^2\psi(\xi^\star).
+    \label{eq:app_positive_only_discrete_jacobian}
+\end{equation}
+Its eigenvalues have magnitude smaller than one whenever
+\begin{equation}
+    0
+    <
+    \alpha
+    <
+    \frac{
+        2
+    }{
+        p\lambda_{\max}
+        \left(
+            \nabla^2\psi(\xi^\star)
+        \right)
+    }.
+    \label{eq:app_positive_only_stepsize}
+\end{equation}
+Hence, the positive-only equilibrium is locally stable under
+sufficiently small discrete steps. If
+\(\mathbf m_+\notin\mathcal M\), no finite equilibrium exists.
+
+\medskip
+\noindent\textbf{Positive-dominant regime.}
+Suppose \(p>q>0\). Since both normalized moments are defined, a finite
+equilibrium must satisfy
+\begin{equation}
+    \mathbf F(\xi^\star)
+    =
+    \mathbf 0,
+\end{equation}
+or equivalently
+\begin{equation}
+\begin{aligned}
+    \nabla\psi(\xi^\star)
+    &=
+    \frac{
+        \bar{\mathbf m}_+
+        -
+        \bar{\mathbf m}_-
+    }{
+        p-q
+    }
+    \\
+    &=
+    \frac{
+        p\mathbf m_+
+        -
+        q\mathbf m_-
+    }{
+        p-q
+    }
+    =
+    \mathbf m^\star.
+\end{aligned}
+\label{eq:app_equilibrium_condition}
+\end{equation}
+If \(\mathbf m^\star\in\mathcal M\), existence and uniqueness again
+follow from the bijectivity of
+\(\nabla\psi:\mathcal H\rightarrow\mathcal M\).
+
+Since \(p-q>0\), Equation~\eqref{eq:app_signed_hessian} gives
+\begin{equation}
+    \nabla^2\mathcal L(\xi)
+    \prec0.
+\end{equation}
+Thus, \(\mathcal L\) is strictly concave, and
+\(\xi^\star\) is its unique finite maximizer.
+
+For the continuous dynamics, the field Jacobian at the equilibrium is
+\begin{equation}
+    J_{\mathbf F}(\xi^\star)
+    =
+    -(p-q)
+    \nabla^2\psi(\xi^\star)
+    \prec0.
+    \label{eq:app_continuous_jacobian}
+\end{equation}
+All eigenvalues are strictly negative, so
+\(\xi^\star\) is locally asymptotically stable.
+
+For the discrete update, the local Jacobian is
+\begin{equation}
+    J_{\mathrm{disc}}(\xi^\star)
+    =
+    I
+    -
+    \alpha(p-q)
+    \nabla^2\psi(\xi^\star).
+    \label{eq:app_discrete_jacobian}
+\end{equation}
+Let \(\lambda_i>0\) denote the eigenvalues of
+\(\nabla^2\psi(\xi^\star)\). The corresponding eigenvalues of
+\(J_{\mathrm{disc}}(\xi^\star)\) are
+\(1-\alpha(p-q)\lambda_i\). Their magnitudes are strictly smaller than
+one whenever
+\begin{equation}
+    0
+    <
+    \alpha
+    <
+    \frac{
+        2
+    }{
+        (p-q)
+        \lambda_{\max}
+        \left(
+            \nabla^2\psi(\xi^\star)
+        \right)
+    }.
+    \label{eq:app_discrete_stepsize}
+\end{equation}
+This proves local discrete-time stability for sufficiently small
+\(\alpha\).
+
+Define \(\rho=q/p\). Algebraically,
+\be
