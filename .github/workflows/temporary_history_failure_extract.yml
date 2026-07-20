@@ -1,0 +1,35 @@
+name: Temporary history recovery failure extractor
+
+on:
+  push:
+    branches:
+      - diag/e8-reciprocal-finalizer-48a3e49
+    paths:
+      - .github/workflows/temporary_history_failure_extract.yml
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  extract:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: diag/e8-reciprocal-finalizer-48a3e49
+      - name: Extract history recovery failure
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p docs/experiments
+          gh run view 29731417039 --repo easonhuo/drpo --log-failed > /tmp/history.log 2>&1 || true
+          tail -n 160 /tmp/history.log > docs/experiments/TEMP_HISTORY_RECOVERY_FAILURE.txt
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git rm .github/workflows/temporary_history_failure_extract.yml
+          git add docs/experiments/TEMP_HISTORY_RECOVERY_FAILURE.txt
+          git commit -m 'Extract E8 history recovery failure'
+          git push origin HEAD:diag/e8-reciprocal-finalizer-48a3e49
