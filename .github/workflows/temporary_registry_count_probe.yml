@@ -1,0 +1,37 @@
+name: Temporary registry count probe
+
+on:
+  push:
+    branches:
+      - diag/e8-reciprocal-finalizer-48a3e49
+    paths:
+      - .github/workflows/temporary_registry_count_probe.yml
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Record current-main formal channel report
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/out
+          python scripts/validate_formal_execution_channel.py --repo-root . --json > /tmp/out/report.json
+      - name: Publish report on diagnostic branch
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git switch -C diag-output origin/diag/e8-reciprocal-finalizer-48a3e49
+          mkdir -p docs/experiments
+          cp /tmp/out/report.json docs/experiments/TEMP_CURRENT_MAIN_FORMAL_CHANNEL.json
+          git rm .github/workflows/temporary_registry_count_probe.yml
+          git add docs/experiments/TEMP_CURRENT_MAIN_FORMAL_CHANNEL.json
+          git commit -m 'Record current-main formal channel counts'
+          git push origin HEAD:diag/e8-reciprocal-finalizer-48a3e49
