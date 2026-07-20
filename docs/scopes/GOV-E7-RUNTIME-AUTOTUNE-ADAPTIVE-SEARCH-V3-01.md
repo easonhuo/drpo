@@ -32,12 +32,13 @@ The existing one-click wrapper also ignored `DRPO_RUNTIME_MAX_WORKERS` and alway
 
 Repair only the squared-night E7 runtime adapter so that:
 
-1. throughput search starts from a guaranteed low candidate and rises monotonically;
+1. throughput search starts from a guaranteed low candidate and rises geometrically;
 2. `--max-workers` remains an optional absolute ceiling, not a prerequisite for finding a
    safe starting point;
-3. all squared-night preflight work is capped at 5000 optimizer steps and 300 seconds per
+3. all squared-night preflight work is capped at 5000 optimizer steps and 120 seconds per
    probe/candidate even when a caller requests larger values;
-4. requested and effective probe limits are both preserved in resource identity and evidence;
+4. requested and effective probe limits remain auditable without making an oversized but
+   normalized request part of immutable selection identity;
 5. the first failed higher candidate stops upward exploration while preserving already valid
    lower candidates;
 6. the one-click wrapper consumes an existing immutable selection through `run --resume`
@@ -74,16 +75,24 @@ preflight and subprocess-count selection.
 
 For the squared-night adapter only:
 
-- selector policy version becomes `3`;
+- adapter identity and selector policy version become V3;
 - the candidate sequence is deterministic, sorted, unique, and never above `safe_cap`;
 - candidate `1` is always included;
-- additional candidates are low-first fractions of the safe ceiling rather than starting at
-  50 percent;
+- candidates grow by a factor of `1.75` from the low foothold until `safe_cap`;
 - the configured fallback is included only as another bounded candidate;
 - requested `probe_steps` and `probe_seconds` are capped to effective values of `5000` and
-  `300` respectively for both the representative resource probe and throughput candidates;
+  `120` respectively for both the representative resource probe and throughput candidates;
+- effective limits enter the immutable fingerprint;
+- requested and effective limits are written as non-identity selection evidence and in every
+  candidate summary;
 - an invalid candidate stops further upward search; already valid lower candidates remain
   eligible under the unchanged retained-peak rule.
+
+For `safe_cap=130` and `fallback=60`, the candidate sequence is:
+
+```text
+1, 2, 4, 7, 13, 23, 41, 60, 72, 126, 130
+```
 
 ## One-click lifecycle
 
@@ -105,18 +114,20 @@ For the squared-night adapter only:
 
 ## Acceptance
 
-1. safe cap 130 produces a low-first grid containing 1 and no candidate above 130;
-2. the grid does not require a configured max-worker value to begin below the safe ceiling;
-3. requested 100000 steps and 2500 seconds become effective 5000 steps and 300 seconds;
+1. safe cap 130 produces the documented geometric grid with candidate 1 and no value above 130;
+2. the grid does not require a configured max-worker value to start safely;
+3. requested 100000 steps and 2500 seconds become effective 5000 steps and 120 seconds;
 4. every candidate summary records requested and effective limits;
-5. adapter installation restores every patched shared-core symbol and policy version;
-6. a failed higher candidate leaves completed lower candidates eligible for selection;
-7. the E7-specific worker variable overrides the unified variable, while the unified variable
+5. requested limits are recorded outside immutable selection identity;
+6. adapter installation restores every patched shared-core symbol, adapter id, and policy
+   version;
+7. a failed higher candidate leaves completed lower candidates eligible for selection;
+8. the E7-specific worker variable overrides the unified variable, while the unified variable
    is inherited when no E7-specific value exists;
-8. one-click resumes directly when both immutable identity files exist;
-9. one-click fails closed on a partial identity;
-10. existing V2 selections are invalid under squared-night V3 and require a new work directory;
-11. focused tests, shell syntax, compile, Ruff, full pytest, handoff-authority no-op, and
+9. one-click resumes directly when both immutable identity files exist;
+10. one-click fails closed on a partial identity;
+11. existing V2 selections are invalid under squared-night V3 and require a new work directory;
+12. focused tests, shell syntax, compile, Ruff, full pytest, handoff-authority no-op, and
     governance validators pass on the exact PR head.
 
 ## Current-run rule
