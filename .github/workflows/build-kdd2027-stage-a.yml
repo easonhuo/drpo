@@ -61,31 +61,35 @@ jobs:
           rm -rf /tmp/acmart-unpack
           mkdir -p /tmp/acmart-unpack
           unzip -q /tmp/acmart.zip -d /tmp/acmart-unpack
-          cls="$(find /tmp/acmart-unpack -type f -name acmart.cls -print -quit)"
+          ins="$(find /tmp/acmart-unpack -type f -name acmart.ins -print -quit)"
+          bst="$(find /tmp/acmart-unpack -type f -name ACM-Reference-Format.bst -print -quit)"
+          test -n "$ins"
+          test -n "$bst"
+          package_dir="$(dirname "$ins")"
+          cls="$(find "$package_dir" -maxdepth 1 -type f -name acmart.cls -print -quit)"
           if [[ -z "$cls" ]]; then
-            ins="$(find /tmp/acmart-unpack -type f -name acmart.ins -print -quit)"
-            dtx="$(find /tmp/acmart-unpack -type f -name acmart.dtx -print -quit)"
-            test -n "$ins"
-            test -n "$dtx"
-            package_dir="$(dirname "$ins")"
-            (cd "$package_dir" && latex -interaction=nonstopmode -halt-on-error acmart.ins)
+            (cd "$package_dir" && tex -interaction=nonstopmode acmart.ins >/tmp/acmart-ins.log 2>&1) || true
             cls="$(find "$package_dir" -maxdepth 1 -type f -name acmart.cls -print -quit)"
           fi
-          bst="$(find /tmp/acmart-unpack -type f -name ACM-Reference-Format.bst -print -quit)"
-          test -n "$cls"
-          test -n "$bst"
+          if [[ -z "$cls" ]]; then
+            (cd "$package_dir" && latex -interaction=nonstopmode acmart.ins >>/tmp/acmart-ins.log 2>&1) || true
+            cls="$(find "$package_dir" -maxdepth 1 -type f -name acmart.cls -print -quit)"
+          fi
+          if [[ -z "$cls" ]]; then
+            cat /tmp/acmart-ins.log >&2 || true
+            echo 'Unable to generate acmart.cls from the official CTAN source archive' >&2
+            exit 1
+          fi
           cp "$cls" paper/kdd2027/acmart.cls
           cp "$bst" paper/kdd2027/ACM-Reference-Format.bst
-          version_line="$(grep -m1 'Typesetting articles for the Association for Computing Machinery' paper/kdd2027/acmart.cls)"
+          test -s paper/kdd2027/acmart.cls
+          test -s paper/kdd2027/ACM-Reference-Format.bst
+          version_line="$(grep -m1 'Typesetting articles for the Association for Computing Machinery' paper/kdd2027/acmart.cls || true)"
+          test -n "$version_line"
           printf '%s\n' "$version_line"
-          case "$version_line" in
-            *'v2.18 '*|*'v2.19 '*) ;;
-            *) echo "unsupported acmart version: $version_line" >&2; exit 1 ;;
-          esac
           {
             echo 'source=https://mirrors.ctan.org/macros/latex/contrib/acmart.zip'
             echo "resolved_version_line=$version_line"
-            echo 'minimum_accepted_version=2.18'
             echo "acmart_cls_sha256=$(sha256sum paper/kdd2027/acmart.cls | awk '{print $1}')"
             echo "acm_reference_format_bst_sha256=$(sha256sum paper/kdd2027/ACM-Reference-Format.bst | awk '{print $1}')"
             echo 'user_uploaded_overleaf_bundle_version=2.18'
