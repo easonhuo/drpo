@@ -1,0 +1,348 @@
+diff --git a/src/drpo/countdown_e8_alpha1_highc_scan_common.py b/src/drpo/countdown_e8_alpha1_highc_scan_common.py
+index 7b831e7..0000000 100755
+--- a/src/drpo/countdown_e8_alpha1_highc_scan_common.py
++++ b/src/drpo/countdown_e8_alpha1_highc_scan_common.py
+@@ -44,5 +44,8 @@ RECIPROCAL_Q_DENSE_CURVE_EXPERIMENT_ID = (
+     "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-RECIPROCAL-QUADRATIC-DENSE-LAMBDA-CURVE-0.5B-01"
+ )
++ASYMRE_DELTAV_EXPERIMENT_ID = (
++    "EXT-C-E8-ORACLE-OFFLINE-V2-ASYMRE-DELTAV-SCAN-0.5B-01"
++)
+ ROUND1_PARAMETER_POINTS = (
+     (0.0, 0.0),
+     (1.0, 0.0),
+@@ -104,6 +107,7 @@ RECIPROCAL_Q_DENSE_POINTS = tuple(
+     ("reciprocal_quadratic", 1.0, value)
+     for value in RECIPROCAL_Q_DENSE_LAMBDAS
+ )
++ASYMRE_DELTA_VS = (-1.0, -0.5, -0.3, -0.2, -0.1, -0.05, 0.0, 0.1)
+ SEED_OFFSETS = (4000, 5000)
+ ROUND1_RESULT_MANIFEST_SHA256 = (
+     "24635fbb634b23450cdfb560fd7b16a2dc0fe4a6d0586f10e1cf385e58bab333"
+@@ -133,8 +137,14 @@ class Cell:
+     def c(self) -> FamilyCoefficient:
+         return FamilyCoefficient(self.coefficient, self.family)
+ 
++    @property
++    def delta_v(self) -> float:
++        return round(float(self.alpha - 1.0), 12) if self.family == "asymre" else 0.0
++
+     @property
+     def method(self) -> str:
++        if self.family == "asymre":
++            return "asymre"
+         if self.alpha == 0.0 or self.family == "positive_only":
+             return "positive_only"
+         if self.coefficient == 0.0 or self.family == "global":
+@@ -148,6 +158,10 @@ class Cell:
+         def tag(value: float) -> str:
+             return f"{value:.8g}".replace("-", "m").replace(".", "p")
+ 
++        if self.family == "asymre":
++            return (
++                f"base_asymre_delta_v{tag(self.delta_v)}_seed{self.seed_offset}"
++            )
+         return (
+             f"base_{self.method}_alpha{tag(self.alpha)}_"
+             f"c{tag(self.coefficient)}_seed{self.seed_offset}"
+@@ -221,4 +236,17 @@ _PROFILES: dict[str, dict[str, Any]] = {
+         "requires_positive_only": False,
+         "kind": "reciprocal_screen",
+     },
++    ASYMRE_DELTAV_EXPERIMENT_ID: {
++        "experiment_id": ASYMRE_DELTAV_EXPERIMENT_ID,
++        "version": "0.1.0-dev-code-first-asymre-deltav-scan",
++        "default_grid_config": (
++            "configs/countdown_e8_oracle_offline_v2_asymre_deltav_scan_0p5b.yaml"
++        ),
++        "parameter_points": ASYMRE_DELTA_VS,
++        "seed_offsets": SEED_OFFSETS,
++        "expected_points": 8,
++        "expected_cells": 16,
++        "requires_positive_only": False,
++        "kind": "asymre_scan",
++    },
+ }
+@@ -261,7 +288,7 @@ def continuous_exp_weights(
+         raise ValueError("c must be finite and non-negative")
+     family = str(getattr(c, "family", "exponential"))
+     u = continuous_remoteness(seq_lp, reference_distance=reference_distance)
+-    if family in {"positive_only", "global"}:
++    if family in {"positive_only", "global", "asymre"}:
+         shape = torch.ones_like(u)
+     elif family == "exponential":
+         coordinate = (
+@@ -465,7 +492,79 @@ def _validate_shared_screen_config(config: Mapping[str, Any]) -> None:
+         raise ValueError("Historical controls require exact result identity before comparison")
+ 
+ 
++def _validate_asymre_config(config: Mapping[str, Any], profile: Mapping[str, Any]) -> None:
++    if config.get("result_status") != "pilot":
++        raise ValueError("AsymRE delta-v scan must remain a pilot")
++    if config.get("registration_state") != "dev_code_first_unregistered":
++        raise ValueError("AsymRE delta-v scan must remain code-first unregistered")
++    objective = config.get("objective", {})
++    if objective.get("formula") != "A=R-delta_v":
++        raise ValueError("AsymRE objective must remain A=R-delta_v")
++    if objective.get("value_network") is not False:
++        raise ValueError("AsymRE scan must not add a value network")
++    if float(objective.get("empirical_baseline", float("nan"))) != 0.0:
++        raise ValueError("Branch-balanced empirical baseline must remain zero")
++    if objective.get("distance_control") is not False:
++        raise ValueError("AsymRE scan must not use distance control")
++    reward = objective.get("signed_reward", {})
++    if float(reward.get("positive", float("nan"))) != 1.0:
++        raise ValueError("AsymRE positive signed reward must remain +1")
++    if float(reward.get("negative", float("nan"))) != -1.0:
++        raise ValueError("AsymRE negative signed reward must remain -1")
++    remoteness = config.get("remoteness", {})
++    if remoteness.get("enabled") is not False:
++        raise ValueError("AsymRE remoteness must remain disabled")
++    if remoteness.get("weight") != "constant_1_no_distance_control":
++        raise ValueError("AsymRE response weight must remain distance-independent")
++    bank = config.get("bank", {})
++    if bank.get("use_all_unique_negatives") is not True:
++        raise ValueError("Every unique negative must participate")
++    sweep = config.get("sweep", {})
++    configured = tuple(float(item["delta_v"]) for item in sweep.get("parameter_points", ()))
++    expected = tuple(float(value) for value in profile["parameter_points"])
++    if configured != expected:
++        raise ValueError("AsymRE delta-v parameter points changed")
++    if tuple(int(value) for value in sweep.get("seed_offsets", ())) != SEED_OFFSETS:
++        raise ValueError("AsymRE development seed offsets changed")
++    if int(sweep.get("unique_parameter_points", -1)) != int(profile["expected_points"]):
++        raise ValueError("AsymRE scan requires 8 unique delta-v points")
++    if int(sweep.get("cells", -1)) != int(profile["expected_cells"]):
++        raise ValueError("AsymRE scan requires 16 cells")
++    if sweep.get("cartesian_product") is not False:
++        raise ValueError("AsymRE scan must remain an explicit point list")
++    training = config.get("training", {})
++    if int(training.get("steps", -1)) != 1200 or training.get("early_stop") is not False:
++        raise ValueError("AsymRE scan requires fixed 1200 steps")
++    if int(training.get("eval_every", -1)) != 100:
++        raise ValueError("Greedy/Pass@8 evaluation cadence must remain 100")
++    if int(training.get("pass64_every", -1)) != 200:
++        raise ValueError("Pass@64 evaluation cadence must remain 200")
++    if training.get("denominator") != "unique_negative_count_per_prompt":
++        raise ValueError("Loss denominator must remain unique negative count per prompt")
++    if training.get("normalize_by_weight_sum") is not False:
++        raise ValueError("Weight-sum normalization is forbidden")
++    execution = config.get("execution", {})
++    if execution.get("default_gpus") != list(range(8)):
++        raise ValueError("The AsymRE scan requires GPU 0-7")
++    if int(execution.get("parallel_cells_per_gpu", -1)) != 2:
++        raise ValueError("The AsymRE scan requires two cells per GPU")
++    if execution.get("identity_checked_resume") is not True:
++        raise ValueError("Identity-checked resume is required")
++    evaluation = config.get("evaluation", {})
++    if evaluation.get("validation_only_during_tuning") is not True:
++        raise ValueError("AsymRE tuning must remain validation-only")
++    if evaluation.get("test_access_forbidden") is not True:
++        raise ValueError("Test access must remain forbidden")
++    if evaluation.get("primary_selection_metric") != "late_window_pass_at_8":
++        raise ValueError("Primary selection metric must remain late_window_pass_at_8")
++    if evaluation.get("secondary_selection_metric") != "terminal_pass_at_8":
++        raise ValueError("Secondary selection metric must remain terminal_pass_at_8")
++
++
+ def validate_grid_config(config: Mapping[str, Any]) -> None:
+     profile = _profile_for_config(config)
++    if profile["kind"] == "asymre_scan":
++        _validate_asymre_config(config, profile)
++        return
+     if profile["kind"] == "reciprocal_screen":
+         _validate_shared_screen_config(config)
+@@ -533,6 +621,6 @@ def parameter_points(config: Mapping[str, Any]) -> tuple[Any, ...]:
+     validate_grid_config(config)
+     profile = _profile_for_config(config)
+-    if profile["kind"] == "reciprocal_screen":
++    if profile["kind"] in {"reciprocal_screen", "asymre_scan"}:
+         return tuple(profile["parameter_points"])
+     points = tuple(
+         (float(item["alpha"]), float(item["c"]))
+@@ -550,7 +638,18 @@ def build_cells(config: Mapping[str, Any]) -> tuple[Cell, ...]:
+     profile = _profile_for_config(config)
+     points = parameter_points(config)
+     seed_offsets = tuple(int(value) for value in profile["seed_offsets"])
+-    if profile["kind"] == "reciprocal_screen":
++    if profile["kind"] == "asymre_scan":
++        cells = tuple(
++            Cell(
++                alpha=1.0 + float(delta_v),
++                coefficient=0.0,
++                seed_offset=seed_offset,
++                family="asymre",
++            )
++            for delta_v in points
++            for seed_offset in seed_offsets
++        )
++    elif profile["kind"] == "reciprocal_screen":
+         cells = tuple(
+             Cell(
+                 alpha=alpha,
+diff --git a/src/drpo/countdown_e8_alpha1_c_scan_trainer.py b/src/drpo/countdown_e8_alpha1_c_scan_trainer.py
+index 481b057..0000000 100755
+--- a/src/drpo/countdown_e8_alpha1_c_scan_trainer.py
++++ b/src/drpo/countdown_e8_alpha1_c_scan_trainer.py
+@@ -218,6 +218,10 @@ def train_cell(
+                 "method": cell.method,
+                 "alpha": cell.alpha,
+                 "c": cell.c,
++                "delta_v": cell.delta_v if cell.method == "asymre" else None,
++                "positive_coefficient": 1.0 - cell.delta_v if cell.method == "asymre" else 1.0,
++                "negative_repulsion_coefficient": 1.0 + cell.delta_v if cell.method == "asymre" else cell.alpha,
++                "distance_control": cell.method != "asymre",
+                 "test_data_used": False,
+             }
+         )
+@@ -315,7 +319,11 @@ def train_cell(
+                     packed["unique_counts"],
+                     packed["raw_bank_counts"],
+                 )
+-            raw_loss = -(positive_lp - weighted_negative_lp)
++            raw_loss = -(
++                ((1.0 - cell.delta_v) if cell.method == "asymre" else 1.0)
++                * positive_lp
++                - weighted_negative_lp
++            )
+             if not bool(torch.isfinite(raw_loss)):
+                 numerical_failure = f"nonfinite_loss_at_step_{update_step}"
+                 stop_reason = numerical_failure
+@@ -377,6 +385,10 @@ def train_cell(
+                 "method": cell.method,
+                 "alpha": cell.alpha,
+                 "c": cell.c,
++                "delta_v": cell.delta_v if cell.method == "asymre" else None,
++                "positive_coefficient": 1.0 - cell.delta_v if cell.method == "asymre" else 1.0,
++                "negative_repulsion_coefficient": 1.0 + cell.delta_v if cell.method == "asymre" else cell.alpha,
++                "distance_control": cell.method != "asymre",
+                 "test_data_used": False,
+                 **accum,
+             }
+@@ -439,8 +451,17 @@ def train_cell(
+         "method": cell.method,
+         "alpha": cell.alpha,
+         "c": cell.c,
++        "delta_v": cell.delta_v if cell.method == "asymre" else None,
++        "positive_coefficient": 1.0 - cell.delta_v if cell.method == "asymre" else 1.0,
++        "negative_repulsion_coefficient": 1.0 + cell.delta_v if cell.method == "asymre" else cell.alpha,
++        "distance_control": cell.method != "asymre",
++        "objective_formula": (
++            "(1-delta_v)*positive_lp-(1+delta_v)*negative_lp"
++            if cell.method == "asymre"
++            else "positive_lp-weighted_negative_lp"
++        ),
+         "weight_formula": str(grid_config["remoteness"]["weight"]),
+-        "u_definition": "current_sequence_surprisal/2",
++        "u_definition": None if cell.method == "asymre" else "current_sequence_surprisal/2",
+         "unique_negative_denominator": True,
+         "weight_sum_normalization": False,
+         "extreme_selection_used": False,
+diff --git a/scripts/run_countdown_e8_oracle_offline_v2_alpha1_highc_scan_auto.py b/scripts/run_countdown_e8_oracle_offline_v2_alpha1_highc_scan_auto.py
+index 0a3daba..0000000 100755
+--- a/scripts/run_countdown_e8_oracle_offline_v2_alpha1_highc_scan_auto.py
++++ b/scripts/run_countdown_e8_oracle_offline_v2_alpha1_highc_scan_auto.py
+@@ -84,9 +84,10 @@ def main(argv: list[str] | None = None) -> int:
+         highc.activate()
+     else:
+         highc.activate_for_grid_config(grid_config)
+-    _base.ADAPTER_ID = (
+-        "e8_linear_c_extension_cuda_dev_v1"
+-        if highc.EXPERIMENT_ID == highc.C_EXTENSION_EXPERIMENT_ID
+-        else "e8_alpha1_highc_scan_cuda_dev_v1"
+-    )
++    if highc.EXPERIMENT_ID == highc.ASYMRE_DELTAV_EXPERIMENT_ID:
++        _base.ADAPTER_ID = "e8_asymre_deltav_scan_cuda_dev_v1"
++    elif highc.EXPERIMENT_ID == highc.C_EXTENSION_EXPERIMENT_ID:
++        _base.ADAPTER_ID = "e8_linear_c_extension_cuda_dev_v1"
++    else:
++        _base.ADAPTER_ID = "e8_alpha1_highc_scan_cuda_dev_v1"
+     return _base.main(tokens)
+diff --git a/tests/test_countdown_e8_oracle_offline_v2_alpha1_highc_scan.py b/tests/test_countdown_e8_oracle_offline_v2_alpha1_highc_scan.py
+index a91ffa8..0000000 100644
+--- a/tests/test_countdown_e8_oracle_offline_v2_alpha1_highc_scan.py
++++ b/tests/test_countdown_e8_oracle_offline_v2_alpha1_highc_scan.py
+@@ -476,3 +476,83 @@ def test_reciprocal_q_dense_curve_has_sixteen_points_and_thirty_two_cells() -> N
+     assert config["execution"]["expected_full_waves"] == 2
+     assert config["historical_controls"]["rerun_in_this_round"] is False
+     assert config["reporting"]["trend_resolution_claim_only"] is True
++
++
++ASYMRE_CONFIG = (
++    ROOT
++    / "configs"
++    / "countdown_e8_oracle_offline_v2_asymre_deltav_scan_0p5b.yaml"
++)
++
++
++def test_asymre_scan_has_eight_delta_v_points_and_sixteen_cells() -> None:
++    config = _load_path(ASYMRE_CONFIG)
++    points = scan.parameter_points(config)
++    cells = scan.build_cells(config)
++    assert points == scan.ASYMRE_DELTA_VS
++    assert len(cells) == 16
++    assert len({cell.name for cell in cells}) == 16
++    assert {cell.seed_offset for cell in cells} == {4000, 5000}
++    assert {cell.method for cell in cells} == {"asymre"}
++    assert {cell.family for cell in cells} == {"asymre"}
++    assert {cell.coefficient for cell in cells} == {0.0}
++    assert {cell.delta_v for cell in cells} == set(scan.ASYMRE_DELTA_VS)
++    assert {cell.alpha for cell in cells} == {
++        0.0, 0.5, 0.7, 0.8, 0.9, 0.95, 1.0, 1.1,
++    }
++    assert config["execution"]["default_gpus"] == list(range(8))
++    assert config["execution"]["parallel_cells_per_gpu"] == 2
++
++
++def test_asymre_uses_constant_negative_weights_and_no_distance_control() -> None:
++    config = _load_path(ASYMRE_CONFIG)
++    profile = scan._profile_for_config(config)
++    seq_lp = torch.tensor([-0.25, -2.25, -8.25])
++    with scan.activated(profile):
++        weights = scan.continuous_exp_weights(
++            seq_lp,
++            alpha=0.9,
++            c=scan.FamilyCoefficient(0.0, "asymre"),
++        )
++    assert torch.allclose(weights, torch.full_like(seq_lp, 0.9))
++    assert weights.requires_grad is False
++    assert config["remoteness"] == {
++        "enabled": False,
++        "weight": "constant_1_no_distance_control",
++        "detached": True,
++    }
++
++
++def test_asymre_trainer_changes_only_the_signed_objective_coefficients() -> None:
++    source = TRAINER.read_text(encoding="utf-8")
++    assert 'cell.method == "asymre"' in source
++    assert "(1.0 - cell.delta_v)" in source
++    assert "weighted_negative_lp" in source
++    assert "value_network" not in source
++
++    positive_lp = torch.tensor(2.0)
++    negative_lp = torch.tensor(3.0)
++    for delta_v, expected in (
++        (0.0, 1.0),
++        (-1.0, -4.0),
++        (0.1, 1.5),
++    ):
++        actual = -((1.0 - delta_v) * positive_lp - (1.0 + delta_v) * negative_lp)
++        assert float(actual) == pytest.approx(expected)
++
++
++def test_asymre_config_rejects_delta_v_seed_or_value_network_drift() -> None:
++    config = _load_path(ASYMRE_CONFIG)
++    config["sweep"]["parameter_points"][0]["delta_v"] = -1.1
++    with pytest.raises(ValueError, match="parameter points changed"):
++        scan.validate_grid_config(config)
++
++    config = _load_path(ASYMRE_CONFIG)
++    config["sweep"]["seed_offsets"] = [4000]
++    with pytest.raises(ValueError, match="seed offsets changed"):
++        scan.validate_grid_config(config)
++
++    config = _load_path(ASYMRE_CONFIG)
++    config["objective"]["value_network"] = True
++    with pytest.raises(ValueError, match="must not add a value network"):
++        scan.validate_grid_config(config)
