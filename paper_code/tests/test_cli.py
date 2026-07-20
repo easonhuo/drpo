@@ -119,6 +119,37 @@ def test_cli_dispatches_d4rl_public_runner(
     }
 
 
+def test_cli_dispatches_countdown_public_runner(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    observed: dict[str, object] = {}
+
+    def fake_run(**kwargs: object) -> dict[str, object]:
+        observed.update(kwargs)
+        return {}
+
+    monkeypatch.setattr(cli, "run_countdown", fake_run)
+    config = tmp_path / "countdown.json"
+    output = tmp_path / "countdown-output"
+    assert (
+        cli.main(
+            [
+                "countdown",
+                "--config",
+                str(config),
+                "--output",
+                str(output),
+            ]
+        )
+        == 0
+    )
+    assert observed == {
+        "config_path": config,
+        "output_root": output,
+    }
+
+
 def test_cli_requires_d4rl_steps_outside_smoke(tmp_path: Path) -> None:
     with pytest.raises(SystemExit, match="--steps is required"):
         cli.main(
