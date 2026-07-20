@@ -1,0 +1,88 @@
+name: ReplayAB R2 diagnostic v2
+
+on:
+  pull_request:
+    branches:
+      - dev/replayab-r2-semantic-acceptance-01
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    if: github.head_ref == 'exec/replayab-r2-diagnostic-v2'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/replayab-r2-semantic-acceptance-01
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+          python -m pip install pytest ruff pyyaml
+
+      - name: Run hardened candidate without commit
+        shell: bash
+        run: |
+          git show origin/exec/replayab-r2-materialize-v4:.github/workflows/replayab-r2-materialize-v4.yml > /tmp/r2-v4.yml
+          python - <<'PY'
+          from pathlib import Path
+          import subprocess
+          import yaml
+
+          workflow = yaml.safe_load(Path('/tmp/r2-v4.yml').read_text(encoding='utf-8'))
+          script = next(
+              step['run']
+              for step in workflow['jobs']['materialize']['steps']
+              if step.get('name') == 'Materialize, harden, test, and commit'
+          )
+          script = script.replace(
+              "              'Commit materialized R2 implementation',\n",
+              "",
+              1,
+          )
+          completed = subprocess.run(
+              ['bash', '-lc', script],
+              text=True,
+              stdout=subprocess.PIPE,
+              stderr=subprocess.STDOUT,
+          )
+          Path('/tmp/r2-full.log').write_text(completed.stdout, encoding='utf-8')
+          Path('/tmp/r2-exit.txt').write_text(str(completed.returncode) + '\n', encoding='utf-8')
+          PY
+          git diff > /tmp/r2-update.patch
+          mkdir -p /tmp/r2-candidate/src/drpo/workflow_replay
+          mkdir -p /tmp/r2-candidate/tests
+          mkdir -p /tmp/r2-candidate/docs/development_workflow_optimization
+          cp src/drpo/workflow_replay/evidence.py /tmp/r2-candidate/src/drpo/workflow_replay/evidence.py
+          cp tests/test_workflow_replay_r1.py /tmp/r2-candidate/tests/test_workflow_replay_r1.py
+          if [ -d tests/fixtures/workflow_replay/r2 ]; then
+            cp -R tests/fixtures/workflow_replay/r2 /tmp/r2-candidate/tests/fixtures-r2
+          fi
+          if [ -d docs/development_workflow_optimization/replayab_r2_calibration ]; then
+            cp -R docs/development_workflow_optimization/replayab_r2_calibration /tmp/r2-candidate/docs/development_workflow_optimization/
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: replayab-r2-diagnostic-v2-${{ github.run_id }}
+          path: |
+            /tmp/r2-full.log
+            /tmp/r2-exit.txt
+            /tmp/r2-update.patch
+            /tmp/r2-candidate
+
+      - name: Enforce candidate result
+        run: |
+          code=$(cat /tmp/r2-exit.txt)
+          if [ "$code" -ne 0 ]; then
+            exit "$code"
+          fi
