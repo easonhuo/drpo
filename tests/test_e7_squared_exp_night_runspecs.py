@@ -114,3 +114,14 @@ def test_templates_pin_all_scientific_and_execution_paths() -> None:
         "scripts/run_e7_squared_exp_night_liveness_one_click.sh"
         in liveness_protected
     )
+
+
+def test_one_click_resume_contract() -> None:
+    run_text = RUN_SCRIPT.read_text()
+    resume_text = RESUME_SCRIPT.read_text()
+    assert "DRPO_RUNTIME_MAX_WORKERS" in run_text
+    assert "DRPO_RUNTIME_MAX_WORKERS" in resume_text
+    assert "RUNTIME_SELECTION.json" in run_text
+    assert "RUN_IDENTITY.json" in run_text
+    assert "partial runtime identity" in run_text
+    assert "--resume" in run_text
