@@ -1,0 +1,25 @@
+schema_version: 1
+claim_id: PAPER-CODE-VALIDATION-01
+base_matrix: docs/paper_code_reference/VALIDATION_MATRIX.yaml
+applies_after_commit: e83397fa0017951f31b11f5838c867e43b67d146
+scientific_status_impact: none
+
+reason: >-
+  Record additive V0 status after the runbook, matrix, validation-status, and
+  acceptance-delta documents were committed. This file does not alter any
+  scientific coordinate or prior migration evidence.
+
+overrides:
+  stages.V0_baseline_and_docs.status: running
+  stages.V0_baseline_and_docs.gates.V0-04_current_status_sync.status: passed
+  stages.V0_baseline_and_docs.gates.V0-04_current_status_sync.evidence: docs/paper_code_reference/VALIDATION_STATUS.md
+  stages.V0_baseline_and_docs.gates.V0-05_acceptance_matrix_sync.status: passed
+  stages.V0_baseline_and_docs.gates.V0-05_acceptance_matrix_sync.evidence: docs/paper_code_reference/VALIDATION_ACCEPTANCE_DELTA.yaml
+  stages.V0_baseline_and_docs.gates.V0-06_exact_head_ci_after_docs.status: pending
+  stages.V0_baseline_and_docs.gates.V0-07_exact_package_inventory.status: pending
+  next_gate: V0-06_exact_head_ci_after_docs
+
+notes:
+  - direct long-file replacement of the migration snapshot was not used
+  - synchronization is additive and preserves the existing documents in Git history
+  - no experiment or liveness command was launched
