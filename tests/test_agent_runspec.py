@@ -107,6 +107,7 @@ def make_repo(tmp_path: Path) -> Path:
             "command": "bash scripts/demo/run_demo.sh",
         },
         "policy": {
+            "formal_evidence_allowed": False,
             "existing_script_required": True,
             "forbid_new_launcher": True,
             "forbid_hparam_change": True,
