@@ -1706,11 +1706,39 @@ def _validated_integrated_path_history(
         "--",
         relative,
     ).splitlines()
-    if len(adds) != 1 or not touches:
+    if not touches:
         raise HandoffAuthorityError(
-            f"{label} must have one addition and non-empty history: {relative}"
+            f"{label} must have non-empty history: {relative}"
         )
-    first_add = adds[0]
+    merge_introduced = False
+    if len(adds) == 1:
+        first_add = adds[0]
+    elif not adds:
+        first_add = touches[-1]
+        parents = _git_text(
+            repo_root,
+            "rev-list",
+            "--parents",
+            "-n",
+            "1",
+            first_add,
+        ).split()
+        if len(parents) != 3:
+            raise HandoffAuthorityError(
+                f"{label} lacks a bounded two-parent merge origin: {relative}"
+            )
+        if _path_exists_at_commit(repo_root, parents[1], relative):
+            raise HandoffAuthorityError(
+                f"{label} predates its merge-introduced origin: {relative}"
+            )
+        # The path may come from the merged parent or be created directly
+        # in the merge result. Both shapes are bounded by the two-parent
+        # origin tree and the later first-parent integration commit.
+        merge_introduced = True
+    else:
+        raise HandoffAuthorityError(
+            f"{label} has multiple addition commits: {relative}"
+        )
     if first_add in positions:
         integration_commit = first_add
     else:
@@ -1743,6 +1771,12 @@ def _validated_integrated_path_history(
                 f"{label} is not immutable after integration: {relative}"
             )
     integrated_text = _git_show(repo_root, integration_commit, Path(relative))
+    if merge_introduced:
+        origin_text = _git_show(repo_root, first_add, Path(relative))
+        if origin_text != integrated_text:
+            raise HandoffAuthorityError(
+                f"{label} merge-origin bytes differ from integration: {relative}"
+            )
     if path.read_text(encoding="utf-8") != integrated_text:
         raise HandoffAuthorityError(
             f"{label} bytes differ from the integration commit: {relative}"
