@@ -275,7 +275,7 @@ Related existing paths:
 - Countdown remains external validity and does not replace D-U1 controlled
   identification.
 
-### Still not migrated or not closed
+### Remaining non-migration gates
 
 - interrupted-run resume with optimizer and scheduler state;
 - real Qwen/PEFT/CUDA liveness and any fixes it reveals;
@@ -293,9 +293,12 @@ Related existing paths:
 - dirty-worktree, smoke, fake-HF, or limited-seed results as final evidence;
 - any claim that Countdown replaces controlled D-U1 causal identification.
 
-The algorithm core and reviewer lifecycle are implemented. Real Qwen/CUDA
-liveness, final protocol freeze, resume, protected human review, terminal
-scientific review, and integration freshness remain open gates.
+The algorithm core, lifecycle, and registered result-affecting v79 coordinate
+are migrated. The canonical config is
+`paper_code/configs/countdown_e8_taper_0p5b.json`; schema version 2 enforces it
+fail-closed. Countdown reviewer-code migration is closed. Real Qwen/CUDA
+liveness, resume, protected human review, scientific terminal review, and
+integration freshness remain non-migration gates.
 
 ## Result reporting
 

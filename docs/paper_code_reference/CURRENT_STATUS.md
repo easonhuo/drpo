@@ -68,7 +68,7 @@ migration status.
 | D-U1 revision 4 | active matrix remains `not_run` | implementation complete | registered formal run and terminal review |
 | Hopper E7-Q2 | existing mechanism result remains `long_run_validated` | implementation complete | registered-data reproduction through reviewer runner |
 | D4RL-9 / `EXT-H-E7-BENCH-01` | archive is pilot provenance; no formal ranking | reviewer algorithm, multi-method training, rollout, and aggregation complete | real HDF5/MuJoCo liveness and final protocol |
-| Countdown / `EXT-C-E8-TAPER-0.5B-01` | active-tail experiment remains pilot and `not_run` | algorithm core and reviewer runtime implemented | exact-head validation, protected human review, real Qwen/CUDA liveness, final protocol and terminal review |
+| Countdown / `EXT-C-E8-TAPER-0.5B-01` | active-tail experiment remains **pilot / `not_run`** | **reviewer-code migration closed** | real Qwen/CUDA liveness, scientific execution, terminal review |
 
 No migration activity in this branch changes a scientific result status.
 
@@ -216,3 +216,25 @@ Governance/integration gates:
 No formal experiment was launched by this migration. No method ranking,
 scientific status, model scale, seed, threshold, training horizon, default
 coefficient, checkpoint rule, or manuscript value changed.
+
+
+## 9. Countdown reviewer-code closure
+
+The canonical reviewer configuration is
+`paper_code/configs/countdown_e8_taper_0p5b.json`, bound to
+`EXT-C-E8-TAPER-0.5B-01-v79`. Schema version 2 validates the registered
+result-affecting coordinate fail-closed: Qwen2.5-0.5B-Instruct identity, LoRA
+`r=32/alpha=64/dropout=0.05` and target modules, structured data and reference
+contracts, natural replay construction, six-method order, seeds
+`9234/10234/11234`, 1200-update AdamW coordinate, active-tail calibration,
+Greedy/Pass@8 evaluation, `seed+700000` paired evaluation, `0.002` selection
+delta, best plus terminal/last-finite reporting, delayed test access, and
+structure-aware held-out metrics. Model, adapter, input identities, and canonical
+row counts are checked at runtime. Schema version 1 remains a custom reviewer
+coordinate and does not claim canonical-v79 identity.
+
+**Countdown reviewer-code migration is closed.** Remaining real Qwen/PEFT/CUDA
+liveness, interrupted-run resume, protected human review, integration freshness,
+registered execution, and scientific terminal review are not missing migration
+code. No experiment was launched and the scientific status remains **pilot /
+`not_run`**.

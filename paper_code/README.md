@@ -246,7 +246,7 @@ drpo-reference countdown \
 
 The JSON object must explicitly provide these sections and coordinates:
 
-- `schema_version: 1`;
+- `schema_version: 2` for the canonical v79 coordinate; schema 1 is retained only for custom reviewer runs;
 - `model`: path, optional initial adapter, device, dtype, 4-bit flag, gradient
   checkpointing flag, and LoRA rank/alpha/dropout/target modules;
 - `data`: replay, calibration, validation, and optional test JSONL paths;
@@ -270,8 +270,9 @@ Training failure, NaN/Inf failure, test-input failure, and checkpoint-evaluation
 failure are preserved separately. Task-collapse and support/probability-boundary
 fields remain unset because no reviewer threshold has been frozen.
 
-Real Qwen/CUDA liveness, resume semantics, the final manuscript-facing
-coordinate, formal seeds/budgets, and scientific terminal review remain pending.
+The result-affecting v79 coordinate is bound in
+`configs/countdown_e8_taper_0p5b.json` and validated fail-closed. Real Qwen/CUDA
+liveness, resume semantics, and scientific terminal review remain pending.
 Countdown remains external validity and does not replace D-U1 controlled causal
 identification.
 
@@ -293,7 +294,7 @@ Current migration status:
 - D-U1 revision-4 implementation candidate complete; formal run pending;
 - Hopper E7-Q2 implementation candidate complete; registered real reproduction pending;
 - D4RL-9 reviewer-facing algorithm, multi-method training, rollout, and simple aggregation implemented; real liveness and final formal protocol remain pending;
-- Countdown reviewer runtime implemented and controlled-backend tested; real Qwen/CUDA liveness and final manuscript-facing protocol remain pending.
+- Countdown reviewer-code migration closed with canonical v79 config; scientific experiment remains pilot/not-run and real Qwen/CUDA liveness remains pending.
 
 No smoke, fake-backend, short differential, or static-check result is a paper
 result. The machine-readable acceptance contract is in:

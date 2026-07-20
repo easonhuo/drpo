@@ -131,91 +131,68 @@ phases:
       - terminal_result_review
       - selected_conclusion_report
   countdown:
-    status: reviewer_runtime_implemented_real_liveness_pending_final_protocol_blocked
+    status: reviewer_code_migration_closed
     experiment_id: EXT-C-E8-TAPER-0.5B-01
+    canonical_protocol_id: EXT-C-E8-TAPER-0.5B-01-v79
     scientific_role: external_transformer_validity
     scientific_status: pilot_not_run
     paths:
       algorithm_core: paper_code/src/drpo_reference/categorical/countdown.py
       reviewer_runtime: paper_code/src/drpo_reference/experiments/countdown.py
+      canonical_config: paper_code/configs/countdown_e8_taper_0p5b.json
       public_cli: paper_code/src/drpo_reference/cli.py
     approval_records:
-      algorithm_core:
-        draft_pull_request: 149
-        comment_id: 5016309623
-        approved_before_creation: true
-      reviewer_runtime:
-        draft_pull_request: 149
-        comment_id: 5019085196
-        approved_before_creation: true
-      protected_environment_approval_confirmed_by_connector: false
-    differential_oracles:
-      - src/drpo/countdown_qwen_arena_onefile.py
-      - src/drpo/countdown_e8_alpha1_c_scan_common.py
-      - src/drpo/countdown_e8_alpha1_c_scan_trainer.py
-      - src/drpo/countdown_e8_alpha1_highc_scan_common.py
-      - src/drpo/countdown_e8_taper.py
-    algorithm_core:
-      verifier_masking_statistics_and_unique_bank: implemented
-      historical_linear_surprisal_compatibility: implemented
-      active_tail_coordinate_and_six_method_weights: implemented
-      deterministic_detached_two_forward_objective: implemented
-      prompt_balanced_sampling: implemented
+      algorithm_core_comment: 5016309623
+      reviewer_runtime_comment: 5019085196
+      approved_before_creation: true
+      protected_environment_confirmed_by_connector: false
+    result_coordinate:
+      schema_version: 2
+      fail_closed_exact_value_validation: implemented
+      model_and_lora_identity: bound
+      dataset_reference_and_replay_contract: bound
+      method_order: bound
+      seeds_and_1200_update_budget: bound
+      active_tail_calibration: bound
+      paired_evaluation_and_selection_delta: bound
+      best_and_terminal_reporting: bound
+      delayed_test_access: bound
+      structure_metrics: bound
+      schema_1_custom_coordinate_compatibility: retained
+    implementation:
+      verifier_masking_statistics_unique_bank: implemented
+      active_tail_two_forward_objective: implemented
       model_backed_gradient_calibration: implemented
-      first_clipped_adamw_update_identity: passed
-      transformers_or_peft_dependency: false
-    reviewer_runtime:
-      explicit_json_configuration: implemented
-      hidden_scientific_defaults: forbidden
-      lazy_transformers_peft_and_optional_4bit: implemented
-      model_tokenizer_lora_or_initial_adapter: implemented
-      replay_calibration_validation_and_delayed_test: implemented
-      input_hashes_and_prompt_disjointness: implemented
-      per_seed_calibration_and_initialization_digest: implemented
+      transformers_peft_lora_runtime: implemented
       paired_multistep_adamw_training: implemented
-      accumulation_clipping_and_update_norms: implemented
-      nonfinite_guards_and_parameter_rollback: implemented
-      best_last_finite_terminal_adapters: implemented
-      greedy_pass_at_k_best_terminal_evaluation: implemented
+      nonfinite_guards_and_rollback: implemented
+      checkpoint_and_generation_evaluation: implemented
       lightweight_records_and_seed_aggregation: implemented
-      public_cli_command: implemented
-      optional_dependency_extras: implemented
-      interrupted_run_resume: not_implemented
-      real_qwen_cuda_liveness: not_run
-      formal_result_claim_allowed: false
-      method_ranking_claim_allowed: false
+      public_cli: implemented
     engineering_gates:
-      stable_core_differential_tests: passed
-      active_tail_formula_two_forward_and_calibration_tests: passed
-      controlled_fake_hf_end_to_end_runtime: passed
-      public_cli_dispatch_test: passed
-      initial_runtime_exact_head_ci: passed
-      cumulative_exact_head_ci_after_status_sync: pending
-    boundaries:
-      - no_silent_final_model_adapter_method_coefficient_seed_or_budget
-      - no_silent_checkpoint_or_test_protocol
-      - no_registry_or_handoff_mutation
-      - no_internal_artifact_or_evidence_promotion
-      - no_scientific_terminal_adjudication
-      - no_manuscript_binding
-    blockers:
-      - protected_new_python_environment_result_not_visible_to_connector
-      - cumulative_exact_head_ci_pending_after_status_sync
+      stable_and_active_tail_differential_tests: passed
+      first_clipped_adamw_update_identity: passed
+      controlled_fake_hf_end_to_end: passed
+      canonical_config_exact_and_mutation_tests: passed
+      model_adapter_and_input_identity_tests: passed
+      legacy_replay_normalization_tests: passed
+      structure_metric_tests: passed
+      verified_complete_file_transport: passed
+      temporary_transport_files_absent: passed
+      cumulative_exact_head_ci_after_closure_docs: pending_at_document_write
+    remaining_non_migration_gates:
       - real_qwen_peft_cuda_liveness_not_run
-      - interrupted_run_resume_not_implemented
-      - final_model_scale_and_initialization_unfrozen
-      - final_comparison_arms_and_coefficient_source_unfrozen
-      - formal_or_confirmatory_seeds_unfrozen
-      - training_budget_and_checkpoint_policy_unfrozen
-      - final_validation_and_test_access_protocol_unfrozen
-      - terminal_scientific_review_not_run
+      - interrupted_optimizer_scheduler_resume_not_implemented
+      - protected_human_environment_status_not_visible_to_connector
       - integration_freshness_audit_pending
-      - selected_conclusion_report_unavailable
+      - explicit_user_merge_instruction_required
     pending_scientific_gates:
-      - final_protocol_and_result_freeze
-      - registered_real_qwen_cuda_execution
+      - registered_real_execution
       - terminal_result_review
       - selected_conclusion_report
+    formal_result_claim_allowed: false
+    method_ranking_claim_allowed: false
+    countdown_replaces_du1_controlled_identification: false
 ready_definition:
   required:
     - all_included_implementation_gates_pass
