@@ -38,6 +38,21 @@
 - Reason: canonical registry experiment is not mapped to any minimal module
 - Automatic action: `false`
 
+## candidate_add_or_map_module: `EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-RECIPROCAL-HIGH-LAMBDA-EXTENSION-0.5B-01`
+
+- Reason: canonical registry experiment is not mapped to any minimal module
+- Automatic action: `false`
+
+## candidate_add_or_map_module: `EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-RECIPROCAL-QUADRATIC-DENSE-LAMBDA-CURVE-0.5B-01`
+
+- Reason: canonical registry experiment is not mapped to any minimal module
+- Automatic action: `false`
+
+## candidate_add_or_map_module: `EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-RECIPROCAL-SHAPE-SCREEN-0.5B-01`
+
+- Reason: canonical registry experiment is not mapped to any minimal module
+- Automatic action: `false`
+
 ## candidate_add_or_map_module: `EXT-C-E8-ORACLE-OFFLINE-V2-TAPER-SWEEP-0.5B-01`
 
 - Reason: canonical registry experiment is not mapped to any minimal module
@@ -58,6 +73,11 @@
 - Reason: canonical registry experiment is not mapped to any minimal module
 - Automatic action: `false`
 
+## candidate_split_module: `global_core_governance`
+
+- Reason: source content has 51461 characters, above the configured 50000 threshold
+- Automatic action: `false`
+
 ## candidate_split_module: `continuous_e4_taper`
 
 - Reason: source content has 70748 characters, above the configured 50000 threshold
@@ -75,5 +95,5 @@
 
 ## candidate_split_module: `countdown_e8`
 
-- Reason: source content has 82784 characters, above the configured 50000 threshold
+- Reason: source content has 84788 characters, above the configured 50000 threshold
 - Automatic action: `false`

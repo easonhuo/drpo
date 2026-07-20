@@ -1,0 +1,192 @@
+{
+  "audit_id": "EXT-C-E8-RECIPROCAL-JOINT-PILOT-CLOSURE-2026-07-20",
+  "bank_sha256": "3887fe4b13b1ff89e904e0816491e13a74ecd1d1dfe71dc1211b0dcae2f69519",
+  "base_commit": "dd46727c1efefd2e6d4cdf6f3b204ec1fc58fca3",
+  "base_config_sha256": "492f063f0cb41dded82355bb4bd9c3d0524f607d670599a5f48a51a5c0099866",
+  "manual_v1_fallback": {
+    "approved_by_user": true,
+    "reason": "one-experiment fastpath cannot atomically register the three linked reciprocal evidence rounds; authoritative shell checkout was unavailable",
+    "temporary_workflow": ".github/workflows/temporary_e8_reciprocal_closure_bootstrap.yml",
+    "workflow_deleted_in_final_commit": true
+  },
+  "pr_number": 174,
+  "repository": "easonhuo/drpo",
+  "rounds": [
+    {
+      "artifact_zip_sha256": "c694c0054289463500980d46a414bc450bed61ce77e7f5aeb402e9bc39580683",
+      "cells": 16,
+      "config_path": "configs/countdown_e8_oracle_offline_v2_reciprocal_shape_screen_0p5b.yaml",
+      "config_sha256": "ceeee34f056c3733b7045212bab95ef1d07339dac1cea03e84ef73268a9f0e97",
+      "config_verified_sha256": "ceeee34f056c3733b7045212bab95ef1d07339dac1cea03e84ef73268a9f0e97",
+      "experiment_id": "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-RECIPROCAL-SHAPE-SCREEN-0.5B-01",
+      "families": [
+        "reciprocal_linear",
+        "reciprocal_quadratic"
+      ],
+      "highc_common_sha256": "30fc398889002dd401fa1d08b265af247f22bc4fda7e8e38285c6875e98d0ca0",
+      "lambda_values": [
+        1,
+        3,
+        7,
+        19
+      ],
+      "protected_source_checks": {
+        "base_common": {
+          "path": "src/drpo/countdown_e8_alpha1_c_scan_common.py",
+          "sha256": "bf6a2245d0f7f5278cc983c5425d6cbc2d5d0d96f16dfb7f31936df107d85fd4"
+        },
+        "base_runtime": {
+          "path": "src/drpo/countdown_e8_alpha1_c_scan_runtime.py",
+          "sha256": "1111e6e532721f3bc8d3bc43bd78c60a2a57cc3c6218049d6ece7401fff062fd"
+        },
+        "base_trainer": {
+          "path": "src/drpo/countdown_e8_alpha1_c_scan_trainer.py",
+          "sha256": "34f39b2347ca8397cdf3ff8fbdd5eef8ff07ff6853482a1afff6772d7db9d919"
+        },
+        "highc_auto_launcher": {
+          "path": "scripts/run_countdown_e8_oracle_offline_v2_alpha1_highc_scan_auto.py",
+          "sha256": "96ebdafb3bc42fae430fbd7512d70bbe4f1976cf05a263b0cd42f16b67dcdc8a"
+        },
+        "highc_common": {
+          "path": "src/drpo/countdown_e8_alpha1_highc_scan_common.py",
+          "sha256": "30fc398889002dd401fa1d08b265af247f22bc4fda7e8e38285c6875e98d0ca0"
+        },
+        "highc_runtime": {
+          "path": "src/drpo/countdown_e8_alpha1_highc_scan_runtime.py",
+          "sha256": "0b692b49f270c90dbb1e93dadcbc569c1545247e1aac822e4bf2d449e3c4486b"
+        }
+      },
+      "resolution_mode": "registered_snapshot_plus_protected_sha256_equivalence",
+      "result_manifest_sha256": "0242b70cf71fe0531bca0d26201c0b29bfc6537f964a52a06da978fbe5dda286",
+      "results_commit": "8d04768273315ff6ab1bcbade9cbf5705952259a",
+      "run_id": "E8_PAPER_ALIGNED_RECIPROCAL_SHAPE_SCREEN_20260719_01",
+      "run_source_commit": "f99a9b1efdcc17d7e2bc5f5b08d110fd9d29d63f",
+      "run_source_commit_resolved": false,
+      "snapshot_commit": "147bc50b8c7a208e5742d1f64f7fd01cc77ba3a6",
+      "status": "PASS",
+      "terminal_audit_sha256": "281110255d7d72fa8544ad8b27aebd1152dc732fd10e9310621327de1ca7b2b5"
+    },
+    {
+      "artifact_zip_sha256": "f4f541db62721e9dae7f37a83a0c6e271287e0616574945807413b22dce4dcfd",
+      "cells": 16,
+      "config_path": "configs/countdown_e8_oracle_offline_v2_reciprocal_high_lambda_extension_0p5b.yaml",
+      "config_sha256": "ccea02d04f0606d73ee4f2d134b8968cd77d43d76c8110b97b9707bf9b60b06b",
+      "config_verified_sha256": "ccea02d04f0606d73ee4f2d134b8968cd77d43d76c8110b97b9707bf9b60b06b",
+      "experiment_id": "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-RECIPROCAL-HIGH-LAMBDA-EXTENSION-0.5B-01",
+      "families": [
+        "reciprocal_linear",
+        "reciprocal_quadratic"
+      ],
+      "highc_common_sha256": "849d90acf421ef6da60ef80c7d104a110b9de019473ccef0add6056819be84ef",
+      "lambda_values": [
+        39,
+        79,
+        159,
+        319
+      ],
+      "protected_source_checks": {
+        "base_common": {
+          "path": "src/drpo/countdown_e8_alpha1_c_scan_common.py",
+          "sha256": "bf6a2245d0f7f5278cc983c5425d6cbc2d5d0d96f16dfb7f31936df107d85fd4"
+        },
+        "base_runtime": {
+          "path": "src/drpo/countdown_e8_alpha1_c_scan_runtime.py",
+          "sha256": "1111e6e532721f3bc8d3bc43bd78c60a2a57cc3c6218049d6ece7401fff062fd"
+        },
+        "base_trainer": {
+          "path": "src/drpo/countdown_e8_alpha1_c_scan_trainer.py",
+          "sha256": "34f39b2347ca8397cdf3ff8fbdd5eef8ff07ff6853482a1afff6772d7db9d919"
+        },
+        "highc_auto_launcher": {
+          "path": "scripts/run_countdown_e8_oracle_offline_v2_alpha1_highc_scan_auto.py",
+          "sha256": "96ebdafb3bc42fae430fbd7512d70bbe4f1976cf05a263b0cd42f16b67dcdc8a"
+        },
+        "highc_common": {
+          "path": "src/drpo/countdown_e8_alpha1_highc_scan_common.py",
+          "sha256": "849d90acf421ef6da60ef80c7d104a110b9de019473ccef0add6056819be84ef"
+        },
+        "highc_runtime": {
+          "path": "src/drpo/countdown_e8_alpha1_highc_scan_runtime.py",
+          "sha256": "0b692b49f270c90dbb1e93dadcbc569c1545247e1aac822e4bf2d449e3c4486b"
+        }
+      },
+      "resolution_mode": "exact_commit",
+      "result_manifest_sha256": "dc1feef96bf0bcc5cc0fe35f4eb5d3e506ec79cf50d782ac2622bdef1503b888",
+      "results_commit": "eca0eb0365f5660e0a49dff5d39c9bb5f5df0cdf",
+      "run_id": "E8_PAPER_ALIGNED_RECIPROCAL_HIGH_LAMBDA_EXTENSION_20260719_01",
+      "run_source_commit": "356d878d26be1ad1b8bcf70d0908c9960e09f19f",
+      "run_source_commit_resolved": true,
+      "snapshot_commit": "356d878d26be1ad1b8bcf70d0908c9960e09f19f",
+      "status": "PASS",
+      "terminal_audit_sha256": "41352f4b2dd3b0dd5682af15843608034cbae13d9d690546dc126ada2a4a1008"
+    },
+    {
+      "artifact_zip_sha256": "73f542a63c8c3974324bee5a80700e6cac9fa891b7c2b42b52903e16e471f629",
+      "cells": 32,
+      "config_path": "configs/countdown_e8_oracle_offline_v2_reciprocal_quadratic_dense_lambda_curve_0p5b.yaml",
+      "config_sha256": "4cbb9ad4fd5249826392c414d8ceedbcbd8abf36d52b7daf5264aeb87cfc4a99",
+      "config_verified_sha256": "4cbb9ad4fd5249826392c414d8ceedbcbd8abf36d52b7daf5264aeb87cfc4a99",
+      "experiment_id": "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-RECIPROCAL-QUADRATIC-DENSE-LAMBDA-CURVE-0.5B-01",
+      "families": [
+        "reciprocal_quadratic"
+      ],
+      "highc_common_sha256": "2eabb8794c20ed7439672883b9630a3497ae9d50b44d6d1df8e7886ecdda5249",
+      "lambda_values": [
+        24,
+        29,
+        34,
+        47,
+        57,
+        68,
+        95,
+        113,
+        135,
+        191,
+        227,
+        270,
+        383,
+        511,
+        767,
+        1279
+      ],
+      "protected_source_checks": {
+        "base_common": {
+          "path": "src/drpo/countdown_e8_alpha1_c_scan_common.py",
+          "sha256": "bf6a2245d0f7f5278cc983c5425d6cbc2d5d0d96f16dfb7f31936df107d85fd4"
+        },
+        "base_runtime": {
+          "path": "src/drpo/countdown_e8_alpha1_c_scan_runtime.py",
+          "sha256": "1111e6e532721f3bc8d3bc43bd78c60a2a57cc3c6218049d6ece7401fff062fd"
+        },
+        "base_trainer": {
+          "path": "src/drpo/countdown_e8_alpha1_c_scan_trainer.py",
+          "sha256": "34f39b2347ca8397cdf3ff8fbdd5eef8ff07ff6853482a1afff6772d7db9d919"
+        },
+        "highc_auto_launcher": {
+          "path": "scripts/run_countdown_e8_oracle_offline_v2_alpha1_highc_scan_auto.py",
+          "sha256": "96ebdafb3bc42fae430fbd7512d70bbe4f1976cf05a263b0cd42f16b67dcdc8a"
+        },
+        "highc_common": {
+          "path": "src/drpo/countdown_e8_alpha1_highc_scan_common.py",
+          "sha256": "2eabb8794c20ed7439672883b9630a3497ae9d50b44d6d1df8e7886ecdda5249"
+        },
+        "highc_runtime": {
+          "path": "src/drpo/countdown_e8_alpha1_highc_scan_runtime.py",
+          "sha256": "0b692b49f270c90dbb1e93dadcbc569c1545247e1aac822e4bf2d449e3c4486b"
+        }
+      },
+      "resolution_mode": "registered_snapshot_plus_protected_sha256_equivalence",
+      "result_manifest_sha256": "acbf0fd8aa9f29d56b4c05841c7e0dd174568d4f9a15e229475df7db9a642c3b",
+      "results_commit": "69a81c6db3bdd90ed640d54eb5687870d2dba220",
+      "run_id": "E8_PAPER_ALIGNED_RECIPROCAL_QUADRATIC_DENSE_LAMBDA_CURVE_20260719_01",
+      "run_source_commit": "7cc6d2daf787998283f733f4152114dced017316",
+      "run_source_commit_resolved": false,
+      "snapshot_commit": "5305df6fd4540d2cc57efacfcebc69bc853851db",
+      "status": "PASS",
+      "terminal_audit_sha256": "4a3dd8a478d1f4c2520161fb3c6ee7041c6fc2f5cf15d99188bee0a45ca3452c"
+    }
+  ],
+  "schema_version": 1,
+  "status": "PASS",
+  "validation_sha256": "b21069c90746f7e7207d7b61079b28c6a71935da782bb696e771edbcda4fd004"
+}
