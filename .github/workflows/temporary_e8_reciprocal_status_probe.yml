@@ -16,10 +16,10 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     env:
-      TARGET_SHA: 48a3e49adef04df569e67350fec74dbb15fb97e4
+      TARGET_SHA: 9c111c6a78ad60044db0ba660c6050e0d9b5d333
       TARGET_WORKFLOW: Temporary E8 reciprocal current-main finalize
     steps:
-      - name: Report concise target failure
+      - name: Report concise target status
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -27,6 +27,7 @@ jobs:
           set -euo pipefail
           runs="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$TARGET_SHA&per_page=100")"
           run_id="$(jq -r --arg name "$TARGET_WORKFLOW" '.workflow_runs[] | select(.name == $name) | .id' <<<"$runs" | head -n1)"
+          test -n "$run_id"
           run="$(jq -r --argjson id "$run_id" '.workflow_runs[] | select(.id == $id)' <<<"$runs")"
           status="$(jq -r '.status' <<<"$run")"
           conclusion="$(jq -r '.conclusion // "null"' <<<"$run")"
