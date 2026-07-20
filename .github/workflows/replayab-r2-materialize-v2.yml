@@ -1,0 +1,123 @@
+name: ReplayAB R2 materialization v2
+
+on:
+  pull_request:
+    branches:
+      - dev/replayab-r2-semantic-acceptance-01
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    if: github.head_ref == 'exec/replayab-r2-materialize-v2'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/replayab-r2-semantic-acceptance-01
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+          python -m pip install pytest ruff pyyaml
+
+      - name: Execute corrected frozen materializer
+        shell: bash
+        run: |
+          git show origin/exec/replayab-r2-materialize-01:.github/workflows/replayab-r2-materialize.yml > /tmp/r2-materializer.yml
+          python - <<'PY'
+          from pathlib import Path
+          import subprocess
+          import yaml
+
+          path = Path('/tmp/r2-materializer.yml')
+          text = path.read_text(encoding='utf-8')
+          old = '          test_text = test_text.replace("          ", "")\n'
+          if old not in text:
+              raise SystemExit('destructive indentation line not found')
+          text = text.replace(old, '          test_text = test_text\n', 1)
+          workflow = yaml.safe_load(text)
+          steps = workflow['jobs']['materialize']['steps']
+          script = next(
+              step['run']
+              for step in steps
+              if step.get('name') == 'Materialize R2 implementation and calibration'
+          )
+          subprocess.run(['bash', '-lc', script], check=True)
+          PY
+
+      - name: Verify authorized scope and code budget
+        shell: bash
+        run: |
+          python - <<'PY'
+          import subprocess
+
+          allowed_exact = {
+              'src/drpo/workflow_replay/evidence.py',
+              'tests/test_workflow_replay_r1.py',
+              'docs/development_workflow_optimization/R2_GAP_AUDIT.md',
+              'docs/development_workflow_optimization/R2_IMPLEMENTATION_CONTRACT.md',
+          }
+          changed = subprocess.check_output(['git', 'diff', '--name-only'], text=True).splitlines()
+          for path in changed:
+              allowed = (
+                  path in allowed_exact
+                  or path.startswith('tests/fixtures/workflow_replay/r2/')
+                  or path.startswith('docs/development_workflow_optimization/replayab_r2_calibration/')
+              )
+              if not allowed:
+                  raise SystemExit(f'unauthorized path: {path}')
+          new_python = subprocess.check_output(
+              ['git', 'diff', '--diff-filter=A', '--name-only'], text=True
+          ).splitlines()
+          if any(path.lower().endswith('.py') for path in new_python):
+              raise SystemExit(f'new Python path is forbidden: {new_python}')
+          diff = subprocess.check_output(
+              ['git', 'diff', '--unified=0', '--', 'src/drpo/workflow_replay/evidence.py'],
+              text=True,
+          )
+          count = 0
+          for line in diff.splitlines():
+              if line.startswith('+') and not line.startswith('+++'):
+                  body = line[1:].strip()
+                  if body and not body.startswith('#'):
+                      count += 1
+          print(f'changed production Python lines: {count}')
+          if not 280 <= count <= 360:
+              raise SystemExit('production Python delta left the preferred R2 budget')
+          PY
+          git diff --check
+
+      - name: Run focused ReplayAB tests
+        run: |
+          python -m pytest \
+            tests/test_workflow_replay_model.py \
+            tests/test_workflow_replay_execute.py \
+            tests/test_workflow_replay_compare.py \
+            tests/test_workflow_replay_r1.py -q
+
+      - name: Run Ruff on changed Python
+        run: |
+          python -m ruff check \
+            src/drpo/workflow_replay/evidence.py \
+            tests/test_workflow_replay_r1.py
+
+      - name: Commit materialized R2 implementation
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            src/drpo/workflow_replay/evidence.py \
+            tests/test_workflow_replay_r1.py \
+            tests/fixtures/workflow_replay/r2 \
+            docs/development_workflow_optimization/replayab_r2_calibration
+          git commit -m "Implement ReplayAB R2 semantic acceptance"
+          git push origin HEAD:dev/replayab-r2-semantic-acceptance-01
