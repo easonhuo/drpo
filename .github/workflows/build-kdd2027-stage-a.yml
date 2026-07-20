@@ -1,0 +1,118 @@
+name: Build KDD 2027 Stage-A manuscript
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: >-
+      github.actor != 'github-actions[bot]' &&
+      github.event.pull_request.head.ref == 'dev/paper-kdd2027-template-migration-01'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Reconstruct locked latest manuscript source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p paper/kdd2027
+          cat .github/kdd-stage-a-source/chunk-*.tex > paper/kdd2027/source_locked.tex
+          echo '6e5ee53daf390f50ee2f2098826c02882a53257cbbe97ccee4a4ace1cde45dae  paper/kdd2027/source_locked.tex' | sha256sum --check --strict
+
+      - name: Generate anonymous ACM manuscript without scientific-text edits
+        run: python scripts/generate_kdd2027_stage_a.py
+
+      - name: Install exact ACM acmart v2.18 template files
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 5 --retry-delay 3 \
+            -o /tmp/acmart.zip \
+            https://mirrors.ctan.org/macros/latex/contrib/acmart.zip
+          rm -rf /tmp/acmart-unpack
+          mkdir -p /tmp/acmart-unpack
+          unzip -q /tmp/acmart.zip -d /tmp/acmart-unpack
+          cls="$(find /tmp/acmart-unpack -type f -name acmart.cls -print -quit)"
+          bst="$(find /tmp/acmart-unpack -type f -name ACM-Reference-Format.bst -print -quit)"
+          test -n "$cls"
+          test -n "$bst"
+          cp "$cls" paper/kdd2027/acmart.cls
+          cp "$bst" paper/kdd2027/ACM-Reference-Format.bst
+          grep -F '[2026/05/31 v2.18 Typesetting articles for the Association for Computing Machinery]' paper/kdd2027/acmart.cls
+          echo '7a9b6535aafd31738b6cd959608be38a4958f3246da12dd6972e8ae71ac858bb  paper/kdd2027/acmart.cls' | sha256sum --check --strict
+          echo '8ec002c927068bfc5b3cfe71b66aa4767b9e485530ac3c67ba5c064df4c2e6ac  paper/kdd2027/ACM-Reference-Format.bst' | sha256sum --check --strict
+
+      - name: Install LaTeX and PDF audit tools
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
+            latexmk \
+            poppler-utils \
+            texlive-bibtex-extra \
+            texlive-fonts-recommended \
+            texlive-latex-extra
+
+      - name: Build with repository figures and audit every page
+        run: bash paper/kdd2027/build.sh
+
+      - name: Install release PDF and audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p paper/releases
+          cp paper/kdd2027/main.pdf paper/releases/DRPO_KDD2027_STAGE_A.pdf
+          cp paper/kdd2027/BUILD_AUDIT.txt paper/releases/DRPO_KDD2027_STAGE_A_AUDIT.txt
+          test -s paper/releases/DRPO_KDD2027_STAGE_A.pdf
+
+      - name: Upload compiled manuscript and all page renders
+        uses: actions/upload-artifact@v4
+        with:
+          name: drpo-kdd2027-stage-a
+          path: |
+            paper/kdd2027/main.pdf
+            paper/kdd2027/BUILD_AUDIT.txt
+            paper/kdd2027/PDFINFO.txt
+            paper/kdd2027/PDFFONTS.txt
+            paper/kdd2027/main.log
+            paper/kdd2027/renders/page-*.png
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Commit complete Stage-A source and compiled PDF
+        shell: bash
+        env:
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          rm -rf .github/kdd-stage-a-source
+          rm -f paper/kdd2027/main.aux \
+                paper/kdd2027/main.bbl \
+                paper/kdd2027/main.blg \
+                paper/kdd2027/main.fdb_latexmk \
+                paper/kdd2027/main.fls \
+                paper/kdd2027/main.log \
+                paper/kdd2027/main.out \
+                paper/kdd2027/main.txt \
+                paper/kdd2027/PDFINFO.txt \
+                paper/kdd2027/PDFFONTS.txt \
+                paper/kdd2027/main.pdf
+          rm -rf paper/kdd2027/renders
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git status --short
+          git commit -m 'Add KDD 2027 Stage-A anonymous ACM manuscript and PDF'
+          git push origin "HEAD:${HEAD_BRANCH}"
