@@ -44,6 +44,9 @@ RECIPROCAL_HIGH_LAMBDA_EXPERIMENT_ID = (
 RECIPROCAL_Q_DENSE_CURVE_EXPERIMENT_ID = (
     "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-RECIPROCAL-QUADRATIC-DENSE-LAMBDA-CURVE-0.5B-01"
 )
+ASYMRE_DELTAV_EXPERIMENT_ID = (
+    "EXT-C-E8-ORACLE-OFFLINE-V2-ASYMRE-DELTAV-SCAN-0.5B-01"
+)
 ROUND1_PARAMETER_POINTS = (
     (0.0, 0.0),
     (1.0, 0.0),
@@ -104,6 +107,7 @@ RECIPROCAL_Q_DENSE_POINTS = tuple(
     ("reciprocal_quadratic", 1.0, value)
     for value in RECIPROCAL_Q_DENSE_LAMBDAS
 )
+ASYMRE_DELTA_VS = (-1.0, -0.5, -0.3, -0.2, -0.1, -0.05, 0.0, 0.1)
 SEED_OFFSETS = (4000, 5000)
 ROUND1_RESULT_MANIFEST_SHA256 = (
     "24635fbb634b23450cdfb560fd7b16a2dc0fe4a6d0586f10e1cf385e58bab333"
@@ -134,7 +138,13 @@ class Cell:
         return FamilyCoefficient(self.coefficient, self.family)
 
     @property
+    def delta_v(self) -> float:
+        return round(float(self.alpha - 1.0), 12) if self.family == "asymre" else 0.0
+
+    @property
     def method(self) -> str:
+        if self.family == "asymre":
+            return "asymre"
         if self.alpha == 0.0 or self.family == "positive_only":
             return "positive_only"
         if self.coefficient == 0.0 or self.family == "global":
@@ -148,6 +158,10 @@ class Cell:
         def tag(value: float) -> str:
             return f"{value:.8g}".replace("-", "m").replace(".", "p")
 
+        if self.family == "asymre":
+            return (
+                f"base_asymre_delta_v{tag(self.delta_v)}_seed{self.seed_offset}"
+            )
         return (
             f"base_{self.method}_alpha{tag(self.alpha)}_"
             f"c{tag(self.coefficient)}_seed{self.seed_offset}"
@@ -221,6 +235,19 @@ _PROFILES: dict[str, dict[str, Any]] = {
         "requires_positive_only": False,
         "kind": "reciprocal_screen",
     },
+    ASYMRE_DELTAV_EXPERIMENT_ID: {
+        "experiment_id": ASYMRE_DELTAV_EXPERIMENT_ID,
+        "version": "0.1.0-dev-code-first-asymre-deltav-scan",
+        "default_grid_config": (
+            "configs/countdown_e8_oracle_offline_v2_asymre_deltav_scan_0p5b.yaml"
+        ),
+        "parameter_points": ASYMRE_DELTA_VS,
+        "seed_offsets": SEED_OFFSETS,
+        "expected_points": 8,
+        "expected_cells": 16,
+        "requires_positive_only": False,
+        "kind": "asymre_scan",
+    },
 }
 
 EXPERIMENT_ID = ROUND1_EXPERIMENT_ID
@@ -261,7 +288,7 @@ def continuous_exp_weights(
         raise ValueError("c must be finite and non-negative")
     family = str(getattr(c, "family", "exponential"))
     u = continuous_remoteness(seq_lp, reference_distance=reference_distance)
-    if family in {"positive_only", "global"}:
+    if family in {"positive_only", "global", "asymre"}:
         shape = torch.ones_like(u)
     elif family == "exponential":
         coordinate = (
@@ -463,8 +490,80 @@ def _validate_shared_screen_config(config: Mapping[str, Any]) -> None:
         raise ValueError("Historical controls require exact result identity before comparison")
 
 
+def _validate_asymre_config(config: Mapping[str, Any], profile: Mapping[str, Any]) -> None:
+    if config.get("result_status") != "pilot":
+        raise ValueError("AsymRE delta-v scan must remain a pilot")
+    if config.get("registration_state") != "dev_code_first_unregistered":
+        raise ValueError("AsymRE delta-v scan must remain code-first unregistered")
+    objective = config.get("objective", {})
+    if objective.get("formula") != "A=R-delta_v":
+        raise ValueError("AsymRE objective must remain A=R-delta_v")
+    if objective.get("value_network") is not False:
+        raise ValueError("AsymRE scan must not add a value network")
+    if float(objective.get("empirical_baseline", float("nan"))) != 0.0:
+        raise ValueError("Branch-balanced empirical baseline must remain zero")
+    if objective.get("distance_control") is not False:
+        raise ValueError("AsymRE scan must not use distance control")
+    reward = objective.get("signed_reward", {})
+    if float(reward.get("positive", float("nan"))) != 1.0:
+        raise ValueError("AsymRE positive signed reward must remain +1")
+    if float(reward.get("negative", float("nan"))) != -1.0:
+        raise ValueError("AsymRE negative signed reward must remain -1")
+    remoteness = config.get("remoteness", {})
+    if remoteness.get("enabled") is not False:
+        raise ValueError("AsymRE remoteness must remain disabled")
+    if remoteness.get("weight") != "constant_1_no_distance_control":
+        raise ValueError("AsymRE response weight must remain distance-independent")
+    bank = config.get("bank", {})
+    if bank.get("use_all_unique_negatives") is not True:
+        raise ValueError("Every unique negative must participate")
+    sweep = config.get("sweep", {})
+    configured = tuple(float(item["delta_v"]) for item in sweep.get("parameter_points", ()))
+    expected = tuple(float(value) for value in profile["parameter_points"])
+    if configured != expected:
+        raise ValueError("AsymRE delta-v parameter points changed")
+    if tuple(int(value) for value in sweep.get("seed_offsets", ())) != SEED_OFFSETS:
+        raise ValueError("AsymRE development seed offsets changed")
+    if int(sweep.get("unique_parameter_points", -1)) != int(profile["expected_points"]):
+        raise ValueError("AsymRE scan requires 8 unique delta-v points")
+    if int(sweep.get("cells", -1)) != int(profile["expected_cells"]):
+        raise ValueError("AsymRE scan requires 16 cells")
+    if sweep.get("cartesian_product") is not False:
+        raise ValueError("AsymRE scan must remain an explicit point list")
+    training = config.get("training", {})
+    if int(training.get("steps", -1)) != 1200 or training.get("early_stop") is not False:
+        raise ValueError("AsymRE scan requires fixed 1200 steps")
+    if int(training.get("eval_every", -1)) != 100:
+        raise ValueError("Greedy/Pass@8 evaluation cadence must remain 100")
+    if int(training.get("pass64_every", -1)) != 200:
+        raise ValueError("Pass@64 evaluation cadence must remain 200")
+    if training.get("denominator") != "unique_negative_count_per_prompt":
+        raise ValueError("Loss denominator must remain unique negative count per prompt")
+    if training.get("normalize_by_weight_sum") is not False:
+        raise ValueError("Weight-sum normalization is forbidden")
+    execution = config.get("execution", {})
+    if execution.get("default_gpus") != list(range(8)):
+        raise ValueError("The AsymRE scan requires GPU 0-7")
+    if int(execution.get("parallel_cells_per_gpu", -1)) != 2:
+        raise ValueError("The AsymRE scan requires two cells per GPU")
+    if execution.get("identity_checked_resume") is not True:
+        raise ValueError("Identity-checked resume is required")
+    evaluation = config.get("evaluation", {})
+    if evaluation.get("validation_only_during_tuning") is not True:
+        raise ValueError("AsymRE tuning must remain validation-only")
+    if evaluation.get("test_access_forbidden") is not True:
+        raise ValueError("Test access must remain forbidden")
+    if evaluation.get("primary_selection_metric") != "late_window_pass_at_8":
+        raise ValueError("Primary selection metric must remain late_window_pass_at_8")
+    if evaluation.get("secondary_selection_metric") != "terminal_pass_at_8":
+        raise ValueError("Secondary selection metric must remain terminal_pass_at_8")
+
+
 def validate_grid_config(config: Mapping[str, Any]) -> None:
     profile = _profile_for_config(config)
+    if profile["kind"] == "asymre_scan":
+        _validate_asymre_config(config, profile)
+        return
     if profile["kind"] == "reciprocal_screen":
         _validate_shared_screen_config(config)
         configured = tuple(
@@ -531,7 +630,7 @@ def validate_grid_config(config: Mapping[str, Any]) -> None:
 def parameter_points(config: Mapping[str, Any]) -> tuple[Any, ...]:
     validate_grid_config(config)
     profile = _profile_for_config(config)
-    if profile["kind"] == "reciprocal_screen":
+    if profile["kind"] in {"reciprocal_screen", "asymre_scan"}:
         return tuple(profile["parameter_points"])
     points = tuple(
         (float(item["alpha"]), float(item["c"]))
@@ -549,7 +648,18 @@ def build_cells(config: Mapping[str, Any]) -> tuple[Cell, ...]:
     profile = _profile_for_config(config)
     points = parameter_points(config)
     seed_offsets = tuple(int(value) for value in profile["seed_offsets"])
-    if profile["kind"] == "reciprocal_screen":
+    if profile["kind"] == "asymre_scan":
+        cells = tuple(
+            Cell(
+                alpha=1.0 + float(delta_v),
+                coefficient=0.0,
+                seed_offset=seed_offset,
+                family="asymre",
+            )
+            for delta_v in points
+            for seed_offset in seed_offsets
+        )
+    elif profile["kind"] == "reciprocal_screen":
         cells = tuple(
             Cell(
                 alpha=alpha,
