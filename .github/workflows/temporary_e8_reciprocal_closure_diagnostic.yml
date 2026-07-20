@@ -16,15 +16,16 @@ jobs:
   diagnose:
     runs-on: ubuntu-latest
     steps:
-      - name: Report concise bootstrap failure
+      - name: Replace first diagnostic with exact normalize error
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           TARGET_JOB_ID: '88281833758'
+          COMMENT_ID: '5019218115'
         run: |
           set -euo pipefail
           gh api "repos/$GITHUB_REPOSITORY/actions/jobs/$TARGET_JOB_ID/logs" > /tmp/job.log
-          matches="$(grep -nEi 'ERROR|Traceback|mismatch|forbid|invalid|failed|requires|exact_base|registry' /tmp/job.log | tail -n 35 || true)"
-          tail_text="$(tail -n 45 /tmp/job.log)"
-          body="Concise diagnostic for job $TARGET_JOB_ID:\n\nMatches:\n\`\`\`text\n$matches\n\`\`\`\n\nFinal lines:\n\`\`\`text\n$tail_text\n\`\`\`"
-          gh api "repos/$GITHUB_REPOSITORY/issues/174/comments" -f body="$body" >/dev/null
+          matches="$(grep -nEi 'ERROR|Traceback|mismatch|forbid|invalid|failed|requires|exact_base|registry' /tmp/job.log | tail -n 25 || true)"
+          tail_text="$(tail -n 30 /tmp/job.log)"
+          body="Exact diagnostic for job $TARGET_JOB_ID:\n\nMatches:\n\`\`\`text\n$matches\n\`\`\`\n\nFinal lines:\n\`\`\`text\n$tail_text\n\`\`\`"
+          gh api --method PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" -f body="$body" >/dev/null
