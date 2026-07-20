@@ -557,3 +557,14 @@ def test_r2_rejected_arm_never_releases_efficiency(tmp_path: Path) -> None:
     with pytest.raises(EquivalenceError, match="two accepted arms"):
         release_semantic_efficiency(report, {"run_ids": report.run_ids, "evidence_sha256": report.evidence_sha256, "timing": report.timing})
     assert expected_r2("R2-CAL-EFFICIENCY-BLOCK")["expected"] == "blocked"
+
+def test_r2_acceptance_result_binds_exact_outcome_evidence(tmp_path: Path) -> None:
+    folder = copied_r2(tmp_path)
+    mutate_r2_result(
+        tmp_path,
+        ("b",),
+        lambda result: result.__setitem__("outcome_sha256", "0" * 64),
+    )
+    contract = load_acceptance_contract(folder / "manifest.yaml")
+    with pytest.raises(EvidenceError, match="identity mismatch"):
+        load_run_artifact(folder / "run-b.json", tmp_path, contract)

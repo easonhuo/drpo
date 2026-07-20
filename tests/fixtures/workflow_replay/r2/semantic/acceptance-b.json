@@ -11,6 +11,7 @@
     "api_contract": true,
     "core_behavior": true
   },
+  "outcome_sha256": "ec8fd19383a871bd1d4e0fac8a470a3dfd41d03dba8c860481b1946a62b9fe87",
   "protected_paths_ok": true,
   "run_id": "a2269c422c70c9fc352f9841069114ca740a7baa88a2223d7073d753296a80a7",
   "schema_version": 1,

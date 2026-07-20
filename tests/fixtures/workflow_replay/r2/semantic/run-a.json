@@ -14,10 +14,10 @@
       "sha256": "b86420fc56bc9272eb3889a64ba62844a038e90b0c2f4a8a9bd342facc0595eb"
     },
     "result": {
-      "byte_size": 661,
+      "byte_size": 749,
       "kind": "result",
       "relative_path": "tests/fixtures/workflow_replay/r2/semantic/acceptance-a.json",
-      "sha256": "d3db6605f8e5c5c188cc5bbd77736ac21324e9d17295c7caabe8554324354554"
+      "sha256": "fea36c9d1f517467b33dc205e14867c4474fb2f4eb00ce7a3d75863793739f1a"
     },
     "subject": {
       "byte_size": 991,

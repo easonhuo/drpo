@@ -369,6 +369,7 @@ def build_semantic_opposite_order_schedule(
 class AcceptanceResult:
     case_id: str
     run_id: str
+    outcome_sha256: str
     mandatory_results: tuple[tuple[str, bool], ...]
     forbidden_results: tuple[tuple[str, bool], ...]
     tolerance_values: tuple[tuple[str, float], ...]
@@ -388,16 +389,19 @@ def _bool_results(value: Any, label: str, keys: tuple[str, ...]) -> tuple[tuple[
 
 
 def _load_acceptance_result(
-    raw: bytes, contract: AcceptanceContract, identity: RunIdentity, digest: str
+    raw: bytes, contract: AcceptanceContract, identity: RunIdentity, digest: str,
+    outcome_sha256: str,
 ) -> AcceptanceResult:
     data = _strict(_json_object(raw, "acceptance result"), "acceptance result", {
-        "schema_version", "case_id", "run_id", "acceptance_contract_sha256",
+        "schema_version", "case_id", "run_id", "outcome_sha256",
+        "acceptance_contract_sha256",
         "evaluator_sha256", "mandatory_results", "forbidden_results",
         "tolerance_values", "protected_paths_ok", "diagnostic_codes",
     })
     if (
         isinstance(data["schema_version"], bool) or data["schema_version"] != 1
         or data["case_id"] != contract.base.case_id or data["run_id"] != identity.run_id
+        or data["outcome_sha256"] != outcome_sha256
         or data["acceptance_contract_sha256"] != contract.acceptance_sha256
         or data["evaluator_sha256"] != contract.r1["evaluator_sha256"]
     ):
@@ -423,7 +427,8 @@ def _load_acceptance_result(
     if not data["protected_paths_ok"]:
         failures.append("protected_paths")
     return AcceptanceResult(
-        data["case_id"], data["run_id"], mandatory, forbidden, values,
+        data["case_id"], data["run_id"], data["outcome_sha256"],
+        mandatory, forbidden, values,
         data["protected_paths_ok"], diagnostics, not failures, tuple(failures), digest,
     )
 
@@ -563,6 +568,7 @@ def load_run_artifact(artifact_path: str | Path, evidence_root: str | Path, cont
     subject.verify(root)
     if subject.sha256 != contract.base.benchmark["input_spec_sha256"]:
         raise EvidenceError("subject evidence does not match frozen input identity")
+    outcome_locator = locators["outcome"]
     result = locators["result"]
     acceptance = None
     expected_result = contract.base.benchmark["expected_final_tree_or_semantic_hashes"].get("artifact_sha256")
@@ -571,17 +577,17 @@ def load_run_artifact(artifact_path: str | Path, evidence_root: str | Path, cont
             raise EvidenceError("result evidence does not match expected exact artifact")
         result.verify(root)
     elif contract.r1["comparison_mode"] == "semantic_acceptance":
-        if result is None or not isinstance(contract, AcceptanceContract):
+        if result is None or outcome_locator is None or not isinstance(contract, AcceptanceContract):
             raise EvidenceError("semantic acceptance requires a result artifact")
         acceptance = _load_acceptance_result(
-            result.verify(root), contract, identity, result.sha256
+            result.verify(root), contract, identity, result.sha256,
+            outcome_locator.sha256,
         )
     elif result is not None:
         raise EvidenceError("failure-boundary evidence must not include a result artifact")
     event = locators["event_log"]
     assert event is not None
     _validate_journal(event.verify(root), identity, terminal)
-    outcome_locator = locators["outcome"]
     outcome = None if outcome_locator is None else _load_outcome(outcome_locator.verify(root), partial)
     comparable = terminal in {"READY", "BLOCKED", "STALE"}
     if comparable != (outcome is not None) or (outcome and outcome.terminal_state != terminal):
