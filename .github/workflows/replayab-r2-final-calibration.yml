@@ -1,0 +1,209 @@
+name: ReplayAB R2 final calibration
+
+on:
+  pull_request:
+    branches:
+      - dev/replayab-r2-semantic-acceptance-01
+
+permissions:
+  contents: read
+
+jobs:
+  calibrate:
+    if: github.head_ref == 'exec/replayab-r2-final-calibration-01'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 74630c6fa8c7be665ca2615308bab1db7a85f28b
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e . pytest ruff pyyaml
+
+      - name: Verify frozen exact head and scope
+        run: |
+          test "$(git rev-parse HEAD)" = "74630c6fa8c7be665ca2615308bab1db7a85f28b"
+          python - <<'PY'
+          import subprocess
+          base = 'b01b7715c8a703905a03403e54dfce258e69ba1e'
+          allowed = {
+              'docs/development_workflow_optimization/R2_GAP_AUDIT.md',
+              'docs/development_workflow_optimization/R2_IMPLEMENTATION_CONTRACT.md',
+              'docs/development_workflow_optimization/replayab_r2_calibration/EXPECTED_VERDICTS.yaml',
+              'docs/development_workflow_optimization/replayab_r2_calibration/INVENTORY.yaml',
+              'docs/development_workflow_optimization/replayab_r2_calibration/POST_IMPLEMENTATION_REVIEW.md',
+              'docs/development_workflow_optimization/replayab_r2_calibration/OUTCOME_BINDING_RESOLUTION.md',
+              'src/drpo/workflow_replay/evidence.py',
+              'tests/test_workflow_replay_r1.py',
+          }
+          changed = subprocess.check_output(['git', 'diff', '--name-only', base, 'HEAD'], text=True).splitlines()
+          for path in changed:
+              if path not in allowed and not path.startswith('tests/fixtures/workflow_replay/r2/'):
+                  raise SystemExit(f'unauthorized R2 path: {path}')
+          added_python = subprocess.check_output(
+              ['git', 'diff', '--diff-filter=A', '--name-only', base, 'HEAD'], text=True
+          ).splitlines()
+          if any(path.endswith('.py') for path in added_python):
+              raise SystemExit(f'new Python path detected: {added_python}')
+          diff = subprocess.check_output(
+              ['git', 'diff', '--unified=0', base, 'HEAD', '--', 'src/drpo/workflow_replay/evidence.py'],
+              text=True,
+          )
+          count = sum(
+              1 for line in diff.splitlines()
+              if line.startswith('+') and not line.startswith('+++')
+              and line[1:].strip() and not line[1:].lstrip().startswith('#')
+          )
+          print(f'production_python_lines={count}')
+          if not 280 <= count <= 360:
+              raise SystemExit('R2 production code left preferred budget')
+          open('/tmp/production-lines.txt', 'w').write(str(count) + '\n')
+          PY
+
+      - name: Run focused ReplayAB suite
+        run: |
+          python -m pytest \
+            tests/test_workflow_replay_model.py \
+            tests/test_workflow_replay_execute.py \
+            tests/test_workflow_replay_compare.py \
+            tests/test_workflow_replay_r1.py \
+            -q --junitxml=/tmp/focused.xml
+
+      - name: Run frozen R2 calibration cases
+        run: |
+          python -m pytest tests/test_workflow_replay_r1.py -k 'r2_' \
+            -q --junitxml=/tmp/r2.xml
+
+      - name: Run closed R1 non-regression
+        run: |
+          python -m pytest tests/test_workflow_replay_r1.py -k 'not r2_' \
+            -q --junitxml=/tmp/r1.xml
+
+      - name: Build and enforce calibration report
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib
+          import json
+          import xml.etree.ElementTree as ET
+          import yaml
+
+          root = Path('.')
+          cal = root / 'docs/development_workflow_optimization/replayab_r2_calibration'
+          fixture = root / 'tests/fixtures/workflow_replay/r2/semantic'
+          inventory = yaml.safe_load((cal / 'INVENTORY.yaml').read_text())
+          expected = yaml.safe_load((cal / 'EXPECTED_VERDICTS.yaml').read_text())
+          ids = [item['case_id'] for item in inventory['cases']]
+          verdict_ids = list(expected['verdicts'])
+          if inventory['selection_frozen_before_implementation_results'] is not True:
+              raise SystemExit('R2 selection was not frozen')
+          if inventory['post_selection_rule']['no_case_removal_after_results'] is not True:
+              raise SystemExit('R2 no-removal rule missing')
+          if len(ids) != 12 or len(set(ids)) != 12 or set(ids) != set(verdict_ids):
+              raise SystemExit('R2 calibration inventory mismatch')
+
+          def junit(path):
+              tree = ET.parse(path)
+              suites = tree.getroot()
+              nodes = [suites] if suites.tag == 'testsuite' else list(suites)
+              return {
+                  key: sum(int(node.attrib.get(key, 0)) for node in nodes)
+                  for key in ('tests', 'failures', 'errors', 'skipped')
+              }
+
+          focused = junit('/tmp/focused.xml')
+          r2 = junit('/tmp/r2.xml')
+          r1 = junit('/tmp/r1.xml')
+          for name, result in (('focused', focused), ('r2', r2), ('r1', r1)):
+              if result['tests'] <= 0 or result['failures'] or result['errors']:
+                  raise SystemExit(f'{name} test evidence failed')
+
+          manifest = yaml.safe_load((fixture / 'manifest.yaml').read_text())
+          schema_sha = hashlib.sha256(
+              (root / 'docs/development_workflow_optimization/R2_IMPLEMENTATION_CONTRACT.md').read_bytes()
+          ).hexdigest()
+          if manifest['acceptance']['evidence_schema_sha256'] != schema_sha:
+              raise SystemExit('R2 evidence-schema identity mismatch')
+
+          outcome_bindings = {}
+          for arm in ('a', 'b'):
+              outcome = fixture / f'outcome-{arm}.json'
+              acceptance = json.loads((fixture / f'acceptance-{arm}.json').read_text())
+              run = json.loads((fixture / f'run-{arm}.json').read_text())
+              outcome_sha = hashlib.sha256(outcome.read_bytes()).hexdigest()
+              if acceptance['outcome_sha256'] != outcome_sha:
+                  raise SystemExit(f'{arm} acceptance/outcome mismatch')
+              result_path = fixture / f'acceptance-{arm}.json'
+              result_raw = result_path.read_bytes()
+              locator = run['evidence']['result']
+              if locator['sha256'] != hashlib.sha256(result_raw).hexdigest() or locator['byte_size'] != len(result_raw):
+                  raise SystemExit(f'{arm} result locator mismatch')
+              outcome_bindings[arm] = outcome_sha
+
+          test_text = (root / 'tests/test_workflow_replay_r1.py').read_text()
+          if 'test_r2_acceptance_result_binds_exact_outcome_evidence' not in test_text:
+              raise SystemExit('post-review outcome-binding regression missing')
+
+          report = {
+              'schema_version': 1,
+              'work_id': 'REPLAYAB-R2-SEMANTIC-ACCEPTANCE-01',
+              'exact_head_sha': '74630c6fa8c7be665ca2615308bab1db7a85f28b',
+              'status': 'R2_CALIBRATION_PASS',
+              'frozen_verdict_count': 12,
+              'covered_false_acceptance_count': 0,
+              'covered_false_rejection_count': 0,
+              'post_review_regression_count': 1,
+              'focused_junit': focused,
+              'r2_junit': r2,
+              'r1_non_regression_junit': r1,
+              'production_python_lines': int(Path('/tmp/production-lines.txt').read_text()),
+              'new_python_paths': 0,
+              'outcome_bindings': outcome_bindings,
+              'evidence_schema_sha256': schema_sha,
+              'unsupported_claims': [
+                  'live coding-agent workers',
+                  'stochastic multi-task inference',
+                  'Candidate 01 general efficiency',
+                  'Candidate 01 default adoption',
+                  'R3 trajectory capture',
+                  'scientific execution',
+              ],
+          }
+          Path('/tmp/r2-calibration-report.json').write_text(
+              json.dumps(report, indent=2, sort_keys=True) + '\n'
+          )
+          print(json.dumps(report, indent=2, sort_keys=True))
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: replayab-r2-final-calibration-${{ github.run_id }}
+          path: |
+            /tmp/r2-calibration-report.json
+            /tmp/focused.xml
+            /tmp/r2.xml
+            /tmp/r1.xml
+            docs/development_workflow_optimization/R2_GAP_AUDIT.md
+            docs/development_workflow_optimization/R2_IMPLEMENTATION_CONTRACT.md
+            docs/development_workflow_optimization/replayab_r2_calibration
+
+      - name: Enforce terminal state
+        run: |
+          python - <<'PY'
+          import json
+          report = json.load(open('/tmp/r2-calibration-report.json'))
+          assert report['status'] == 'R2_CALIBRATION_PASS'
+          assert report['frozen_verdict_count'] == 12
+          assert report['covered_false_acceptance_count'] == 0
+          assert report['covered_false_rejection_count'] == 0
+          assert report['post_review_regression_count'] == 1
+          assert 280 <= report['production_python_lines'] <= 360
+          PY
