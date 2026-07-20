@@ -1,0 +1,165 @@
+name: ReplayAB R1 authority digest diagnostic
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    if: github.head_ref == 'exec/replayab-r1-authority-digest-diagnostic-01'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      BASE: dd46727c1efefd2e6d4cdf6f3b204ec1fc58fca3
+      TARGET: 5f02130bc08513540e694fc1b1abf1d8437f9fa697f92535c49a795dcd9de179
+      OUT: /tmp/replayab-r1-authority-diagnostic
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Verify diagnostic-only scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git diff --name-only "$BASE"...HEAD)" = '.github/workflows/replayab-r1-authority-digest-diagnostic.yml'
+          git diff --check "$BASE"...HEAD
+
+      - name: Scan authority history and repository objects
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "$OUT"
+          mkdir -p "$OUT"
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          import subprocess
+          from pathlib import Path
+
+          root = Path.cwd()
+          out = Path(os.environ['OUT'])
+          target = os.environ['TARGET']
+          contract = 'docs/development_workflow_optimization/R1_IMPLEMENTATION_CONTRACT.md'
+          refs = [
+              'd5d6ae7e5010f5d1db5b36436acf127733879c38',
+              '31b25649ea1e5e251abdce930be48a78d6f27ea6',
+              '47da34ac3a93ce0e005c65f06e3a6cfeffce758d',
+              '4544005bd7df69c53bad70a9dcac846af01285e4',
+              'dd46727c1efefd2e6d4cdf6f3b204ec1fc58fca3',
+          ]
+          history = []
+          for ref in refs:
+              raw = subprocess.run(
+                  ['git', 'show', f'{ref}:{contract}'],
+                  check=True,
+                  stdout=subprocess.PIPE,
+              ).stdout
+              blob = subprocess.run(
+                  ['git', 'rev-parse', f'{ref}:{contract}'],
+                  check=True,
+                  text=True,
+                  capture_output=True,
+              ).stdout.strip()
+              history.append({
+                  'commit': ref,
+                  'git_blob_sha': blob,
+                  'sha256': hashlib.sha256(raw).hexdigest(),
+                  'byte_size': len(raw),
+              })
+
+          matches = []
+          scanned = 0
+          for path in sorted(root.rglob('*')):
+              if not path.is_file() or '.git' in path.parts:
+                  continue
+              try:
+                  size = path.stat().st_size
+              except OSError:
+                  continue
+              if size > 10 * 1024 * 1024:
+                  continue
+              scanned += 1
+              raw = path.read_bytes()
+              digest = hashlib.sha256(raw).hexdigest()
+              if digest == target:
+                  matches.append({
+                      'path': path.relative_to(root).as_posix(),
+                      'byte_size': size,
+                  })
+
+          manifest_paths = [
+              'tests/fixtures/workflow_replay/r1/ready/manifest.yaml',
+              'tests/fixtures/workflow_replay/r1/failure/manifest.yaml',
+              'tests/fixtures/workflow_replay/candidate01_c1/c01_code_only_contract.yaml',
+              'tests/fixtures/workflow_replay/candidate01_c1/c06_stale_main_contract.yaml',
+          ]
+          manifest_blobs = []
+          for path in manifest_paths:
+              raw = (root / path).read_bytes()
+              manifest_blobs.append({
+                  'path': path,
+                  'sha256': hashlib.sha256(raw).hexdigest(),
+                  'git_blob_sha': subprocess.run(
+                      ['git', 'rev-parse', f'HEAD:{path}'],
+                      check=True,
+                      text=True,
+                      capture_output=True,
+                  ).stdout.strip(),
+              })
+
+          report = {
+              'schema_version': 1,
+              'claim_id': 'GOV-DEV-WORKFLOW-OPTIMIZATION-BENCHMARK-01',
+              'base_sha': os.environ['BASE'],
+              'target_evidence_schema_sha256': target,
+              'contract_history': history,
+              'repository_file_scan': {
+                  'scanned_file_count': scanned,
+                  'matching_files': matches,
+              },
+              'manifest_files': manifest_blobs,
+              'finding': (
+                  'TARGET_MATCHES_REPOSITORY_FILE'
+                  if matches
+                  else 'TARGET_DOES_NOT_MATCH_ANY_CURRENT_REPOSITORY_FILE_UP_TO_10_MIB'
+              ),
+          }
+          (out / 'R1_AUTHORITY_DIGEST_DIAGNOSTIC.json').write_text(
+              json.dumps(report, indent=2, sort_keys=True) + '\n', encoding='utf-8'
+          )
+          lines = [
+              '# R1 Authority Digest Diagnostic',
+              '',
+              f"- Target: `{target}`",
+              f"- Finding: **{report['finding']}**",
+              f"- Current-file matches: `{len(matches)}`",
+              '',
+              '| Commit | Contract Git blob | Contract SHA-256 | Bytes |',
+              '|---|---|---|---:|',
+          ]
+          for item in history:
+              lines.append(
+                  f"| `{item['commit']}` | `{item['git_blob_sha']}` | `{item['sha256']}` | {item['byte_size']} |"
+              )
+          if matches:
+              lines.extend(['', '## Matches'])
+              lines.extend(f"- `{item['path']}`" for item in matches)
+          (out / 'R1_AUTHORITY_DIGEST_DIAGNOSTIC.md').write_text(
+              '\n'.join(lines) + '\n', encoding='utf-8'
+          )
+          PY
+
+      - name: Upload authority diagnostic
+        uses: actions/upload-artifact@v4
+        with:
+          name: replayab-r1-authority-diagnostic-${{ github.run_id }}
+          path: /tmp/replayab-r1-authority-diagnostic
+          if-no-files-found: error
+          retention-days: 30
