@@ -1,0 +1,34 @@
+name: Temporary status eee
+
+on:
+  push:
+    branches:
+      - diag/e8-upgrade-log-20260720
+    paths:
+      - .github/workflows/temporary_status_eee.yml
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  probe:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: diag/e8-upgrade-log-20260720
+      - name: Query repair status
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p docs/experiments
+          gh api 'repos/easonhuo/drpo/actions/runs?head_sha=eee80a595f593585fd207edab0e26c63d3efb1a3&per_page=100' | jq -r '.workflow_runs[] | [.id,.name,.status,(.conclusion // "null")] | @tsv' > docs/experiments/E8_STATUS_EEE.txt
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git rm .github/workflows/temporary_status_eee.yml
+          git add docs/experiments/E8_STATUS_EEE.txt
+          git commit -m 'Record E8 YAML repair status'
+          git push origin HEAD:diag/e8-upgrade-log-20260720
