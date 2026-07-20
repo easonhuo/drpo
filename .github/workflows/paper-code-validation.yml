@@ -227,6 +227,42 @@ jobs:
         if: steps.du1_public.outcome == 'failure'
         run: exit 1
 
+      - name: Run D-U1 public CLI CPU liveness
+        working-directory: extracted/drpo-reference-v0.1
+        run: |
+          set -euo pipefail
+          output="$RUNNER_TEMP/du1-package-cli-smoke"
+          rm -rf "$output"
+          python -m drpo_reference du1 \
+            --output "$output" \
+            --device cpu \
+            --workers 1 \
+            --smoke
+          DU1_OUTPUT="$output" python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          from drpo_reference.categorical.du1_protocol import FORMAL_METHODS
+
+          root = Path(os.environ["DU1_OUTPUT"])
+          terminal = json.loads((root / "terminal_audit.json").read_text())
+          assert terminal["all_registered_runs_present"] is True
+          assert terminal["formal_evidence_allowed"] is False
+          checkpoint = json.loads(
+              (
+                  root
+                  / "checkpoints"
+                  / "seed_0"
+                  / "CHECKPOINT_COMPLETE.json"
+              ).read_text()
+          )
+          assert checkpoint["methods_completed"] == list(FORMAL_METHODS)
+          assert (root / "aggregate_summary.json").is_file()
+          assert (root / "mechanism_summary.json").is_file()
+          assert (root / "taper_summary.json").is_file()
+          PY
+
       - name: Ruff check extracted package
         id: package_ruff
         continue-on-error: true
