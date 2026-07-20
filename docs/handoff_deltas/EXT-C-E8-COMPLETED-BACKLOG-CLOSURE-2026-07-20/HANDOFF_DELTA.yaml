@@ -1,0 +1,89 @@
+schema_version: 3
+update_id: EXT-C-E8-COMPLETED-BACKLOG-CLOSURE-2026-07-20
+mode: authoritative
+base:
+  commit: 749ba603dddebeb559998459a4bee38633a35897
+  handoff_sha256: b3a99be6eb5c44e5ae2fa9ace6161c0acd60be6aeb9ee2aea96631b07f576e7c
+  registry_sha256: 92362cdf550c9f296a364cd1ea87cb9e3471372a56606617165d08a3e463a780
+renderer_version: 1
+operations:
+- operation_id: append-e8-completed-backlog-closure
+  op: append_to_section
+  heading_path:
+  - 0. 研究与执行原则（每次新会话首先阅读）
+  - 0.1 当前执行门禁
+  block_id: e8-completed-backlog-closure-2026-07-20
+  content: "- **Countdown E8 completed-result backlog closure:** six validation-only external-validity pilots are now authoritatively\
+    \ registered: the 62-cell continuous alpha-by-c grid, three 32-cell alpha-one coefficient extensions, the 32-cell paper-aligned\
+    \ Linear scan, and the 32-cell Tau response surface. The combined record is 222/222 cells, every terminal audit passed,\
+    \ NaN/Inf failures were 0, and the test split was not used.\n\n  The locked interpretation is deliberately qualitative.\
+    \ Historical continuous-EXP evidence supports that uncontrolled Global negative pressure is harmful and sufficient tapering\
+    \ opens a broad usable coefficient region; historical evaluator RNG contamination and seed-by-hyperparameter variation\
+    \ prohibit a sharp ranking. The Linear scan did not localize its descending right branch, and the Tau surface is single-seed\
+    \ localization evidence only. No significance, convergence, steady state, formal ranking, OOD claim, cross-task/model\
+    \ generalization, or universal exponential-superiority claim is authorized.\n\n  The first four predate automatic results-repository\
+    \ delivery and remain bound by audited source commits and source-package SHA-256 values. Linear and Tau are additionally\
+    \ bound to immutable `drpo-results` manifests. Durable records are `docs/experiments/E8_COMPLETED_BACKLOG_CLOSURE.md`\
+    \ and `docs/experiments/E8_COMPLETED_BACKLOG_PROVENANCE.json`."
+registry:
+  mode: expected_after
+  exact_base_after_sha256: f300089b4309fe98f9fd887f7d25411866c208df41c4373a1cadcdda9c85cdd5
+  changes:
+  - change_id: add-ext-c-e8-oracle-offline-v2-continuous-exp-grid-0-5b-01
+    kind: add_entity
+    entity_id: EXT-C-E8-ORACLE-OFFLINE-V2-CONTINUOUS-EXP-GRID-0.5B-01
+    evidence:
+    - experiments/registry.yaml
+    - docs/experiments/E8_COMPLETED_BACKLOG_CLOSURE.md
+    - docs/experiments/E8_COMPLETED_BACKLOG_PROVENANCE.json
+    - experiments/results/e8_completed_backlog_closure_20260720/RESULT_CLOSURE.json
+    - docs/handoff_deltas/EXT-C-E8-COMPLETED-BACKLOG-CLOSURE-2026-07-20/HANDOFF_DELTA.yaml
+  - change_id: add-ext-c-e8-oracle-offline-v2-alpha1-c-scan-0-5b-01
+    kind: add_entity
+    entity_id: EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-C-SCAN-0.5B-01
+    evidence:
+    - experiments/registry.yaml
+    - docs/experiments/E8_COMPLETED_BACKLOG_CLOSURE.md
+    - docs/experiments/E8_COMPLETED_BACKLOG_PROVENANCE.json
+    - experiments/results/e8_completed_backlog_closure_20260720/RESULT_CLOSURE.json
+    - docs/handoff_deltas/EXT-C-E8-COMPLETED-BACKLOG-CLOSURE-2026-07-20/HANDOFF_DELTA.yaml
+  - change_id: add-ext-c-e8-oracle-offline-v2-alpha1-highc-scan-0-5b-01
+    kind: add_entity
+    entity_id: EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-HIGHC-SCAN-0.5B-01
+    evidence:
+    - experiments/registry.yaml
+    - docs/experiments/E8_COMPLETED_BACKLOG_CLOSURE.md
+    - docs/experiments/E8_COMPLETED_BACKLOG_PROVENANCE.json
+    - experiments/results/e8_completed_backlog_closure_20260720/RESULT_CLOSURE.json
+    - docs/handoff_deltas/EXT-C-E8-COMPLETED-BACKLOG-CLOSURE-2026-07-20/HANDOFF_DELTA.yaml
+  - change_id: add-ext-c-e8-oracle-offline-v2-alpha1-logc-boundary-scan-0-5b-01
+    kind: add_entity
+    entity_id: EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-LOGC-BOUNDARY-SCAN-0.5B-01
+    evidence:
+    - experiments/registry.yaml
+    - docs/experiments/E8_COMPLETED_BACKLOG_CLOSURE.md
+    - docs/experiments/E8_COMPLETED_BACKLOG_PROVENANCE.json
+    - experiments/results/e8_completed_backlog_closure_20260720/RESULT_CLOSURE.json
+    - docs/handoff_deltas/EXT-C-E8-COMPLETED-BACKLOG-CLOSURE-2026-07-20/HANDOFF_DELTA.yaml
+  - change_id: add-ext-c-e8-oracle-offline-v2-paper-aligned-linear-scan-0-5b-01
+    kind: add_entity
+    entity_id: EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-LINEAR-SCAN-0.5B-01
+    evidence:
+    - experiments/registry.yaml
+    - docs/experiments/E8_COMPLETED_BACKLOG_CLOSURE.md
+    - docs/experiments/E8_COMPLETED_BACKLOG_PROVENANCE.json
+    - experiments/results/e8_completed_backlog_closure_20260720/RESULT_CLOSURE.json
+    - docs/handoff_deltas/EXT-C-E8-COMPLETED-BACKLOG-CLOSURE-2026-07-20/HANDOFF_DELTA.yaml
+    - experiments/results/e8_paper_aligned_linear_scan_round1_pilot/RESULT_SUMMARY.json
+  - change_id: add-ext-c-e8-oracle-offline-v2-paper-aligned-tau-curve-0-5b-01
+    kind: add_entity
+    entity_id: EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-TAU-CURVE-0.5B-01
+    evidence:
+    - experiments/registry.yaml
+    - docs/experiments/E8_COMPLETED_BACKLOG_CLOSURE.md
+    - docs/experiments/E8_COMPLETED_BACKLOG_PROVENANCE.json
+    - experiments/results/e8_completed_backlog_closure_20260720/RESULT_CLOSURE.json
+    - docs/handoff_deltas/EXT-C-E8-COMPLETED-BACKLOG-CLOSURE-2026-07-20/HANDOFF_DELTA.yaml
+    - experiments/results/e8_paper_aligned_tau_curve_pilot/RESULT_SUMMARY.json
+expected:
+  exact_base_candidate_sha256: 9184a35c57d2741d2d5ad218355a56fc57f708f0ffe1809be396f35bd844ded1

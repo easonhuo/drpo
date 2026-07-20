@@ -1,0 +1,105 @@
+{
+  "schema_version": 1,
+  "experiment_id": "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-LINEAR-SCAN-0.5B-01",
+  "run_id": "E8_PAPER_ALIGNED_LINEAR_SCAN_20260716_01",
+  "status": "pilot",
+  "scientific_role": "countdown_external_validity_coefficient_localization",
+  "registration_state": "registration_candidate_not_yet_materialized",
+  "source": {
+    "launch_commit": "f957e7f63c376e328e3d677cb143d526f6937c51",
+    "packaging_commit": "f957e7f63c376e328e3d677cb143d526f6937c51",
+    "git_dirty": false,
+    "implementation_main_merge_commit": "dd355642df2ba2479715c9620749c1e9f75f76ba"
+  },
+  "package": {
+    "filename": "5a704dc4-fa83-4a21-a158-aeffa2816282.zip",
+    "sha256": "00d53286a6642998b5563045bbb278876ba38713f98819c679ed4825e49bdd48",
+    "size_bytes": 756471,
+    "raw_package_in_repository": false,
+    "weights_in_repository": false,
+    "weight_index_present_in_received_package": true
+  },
+  "formula_contract": {
+    "weight": "alpha*exp(-c*u)",
+    "u": "current_sequence_surprisal/2",
+    "detached": true,
+    "extra_square": false
+  },
+  "matrix": {
+    "parameter_points": 16,
+    "cells": 32,
+    "seed_offsets": [4000, 5000],
+    "positive_only_points": 1,
+    "alpha_one_points": 15,
+    "fixed_steps": 1200,
+    "early_stopping": false,
+    "late_window_steps": [800, 900, 1000, 1100, 1200],
+    "test_data_used": false
+  },
+  "completion": {
+    "all_expected_cells_present": true,
+    "failed_cells": [],
+    "terminal_audit_status": "PASS",
+    "numerical_failures": 0,
+    "nan_inf_status": "not_observed",
+    "fixed_1200_steps_is_convergence": false,
+    "method_ranking_claim_allowed": false
+  },
+  "aggregate_results": [
+    {"method":"positive_only","alpha":0.0,"c":0.0,"seeds":2,"late_window_pass_at_8_mean":0.1398,"late_window_pass_at_8_seed_min":0.1360,"late_window_pass_at_8_seed_max":0.1436,"terminal_greedy_mean":0.075,"terminal_pass_at_8_mean":0.143,"terminal_pass_at_64_mean":0.212,"terminal_valid_rate_mean":0.995,"best_pass_at_8_mean":0.202},
+    {"method":"global","alpha":1.0,"c":0.0,"seeds":2,"late_window_pass_at_8_mean":0.0236,"late_window_pass_at_8_seed_min":0.0220,"late_window_pass_at_8_seed_max":0.0252,"terminal_greedy_mean":0.002,"terminal_pass_at_8_mean":0.021,"terminal_pass_at_64_mean":0.048,"terminal_valid_rate_mean":0.215,"best_pass_at_8_mean":0.101},
+    {"method":"continuous_exp","alpha":1.0,"c":0.051293294,"seeds":2,"late_window_pass_at_8_mean":0.1118,"late_window_pass_at_8_seed_min":0.1100,"late_window_pass_at_8_seed_max":0.1136,"terminal_greedy_mean":0.050,"terminal_pass_at_8_mean":0.113,"terminal_pass_at_64_mean":0.169,"terminal_valid_rate_mean":0.907,"best_pass_at_8_mean":0.149},
+    {"method":"continuous_exp","alpha":1.0,"c":0.105360516,"seeds":2,"late_window_pass_at_8_mean":0.1192,"late_window_pass_at_8_seed_min":0.1160,"late_window_pass_at_8_seed_max":0.1224,"terminal_greedy_mean":0.052,"terminal_pass_at_8_mean":0.123,"terminal_pass_at_64_mean":0.170,"terminal_valid_rate_mean":0.769,"best_pass_at_8_mean":0.133},
+    {"method":"continuous_exp","alpha":1.0,"c":0.162518929,"seeds":2,"late_window_pass_at_8_mean":0.1174,"late_window_pass_at_8_seed_min":0.1148,"late_window_pass_at_8_seed_max":0.1200,"terminal_greedy_mean":0.054,"terminal_pass_at_8_mean":0.114,"terminal_pass_at_64_mean":0.162,"terminal_valid_rate_mean":0.809,"best_pass_at_8_mean":0.142},
+    {"method":"continuous_exp","alpha":1.0,"c":0.223143551,"seeds":2,"late_window_pass_at_8_mean":0.1222,"late_window_pass_at_8_seed_min":0.1136,"late_window_pass_at_8_seed_max":0.1308,"terminal_greedy_mean":0.067,"terminal_pass_at_8_mean":0.132,"terminal_pass_at_64_mean":0.178,"terminal_valid_rate_mean":0.789,"best_pass_at_8_mean":0.140},
+    {"method":"continuous_exp","alpha":1.0,"c":0.287682072,"seeds":2,"late_window_pass_at_8_mean":0.1122,"late_window_pass_at_8_seed_min":0.1068,"late_window_pass_at_8_seed_max":0.1176,"terminal_greedy_mean":0.048,"terminal_pass_at_8_mean":0.118,"terminal_pass_at_64_mean":0.165,"terminal_valid_rate_mean":0.814,"best_pass_at_8_mean":0.205},
+    {"method":"continuous_exp","alpha":1.0,"c":0.430782916,"seeds":2,"late_window_pass_at_8_mean":0.1182,"late_window_pass_at_8_seed_min":0.1152,"late_window_pass_at_8_seed_max":0.1212,"terminal_greedy_mean":0.051,"terminal_pass_at_8_mean":0.105,"terminal_pass_at_64_mean":0.172,"terminal_valid_rate_mean":0.812,"best_pass_at_8_mean":0.203},
+    {"method":"continuous_exp","alpha":1.0,"c":0.693147181,"seeds":2,"late_window_pass_at_8_mean":0.1262,"late_window_pass_at_8_seed_min":0.1200,"late_window_pass_at_8_seed_max":0.1324,"terminal_greedy_mean":0.052,"terminal_pass_at_8_mean":0.127,"terminal_pass_at_64_mean":0.177,"terminal_valid_rate_mean":0.850,"best_pass_at_8_mean":0.164},
+    {"method":"continuous_exp","alpha":1.0,"c":0.916290732,"seeds":2,"late_window_pass_at_8_mean":0.1358,"late_window_pass_at_8_seed_min":0.1344,"late_window_pass_at_8_seed_max":0.1372,"terminal_greedy_mean":0.067,"terminal_pass_at_8_mean":0.133,"terminal_pass_at_64_mean":0.195,"terminal_valid_rate_mean":0.941,"best_pass_at_8_mean":0.166},
+    {"method":"continuous_exp","alpha":1.0,"c":1.203972804,"seeds":2,"late_window_pass_at_8_mean":0.1436,"late_window_pass_at_8_seed_min":0.1372,"late_window_pass_at_8_seed_max":0.1500,"terminal_greedy_mean":0.080,"terminal_pass_at_8_mean":0.144,"terminal_pass_at_64_mean":0.201,"terminal_valid_rate_mean":0.974,"best_pass_at_8_mean":0.176},
+    {"method":"continuous_exp","alpha":1.0,"c":1.386294361,"seeds":2,"late_window_pass_at_8_mean":0.1488,"late_window_pass_at_8_seed_min":0.1452,"late_window_pass_at_8_seed_max":0.1524,"terminal_greedy_mean":0.078,"terminal_pass_at_8_mean":0.151,"terminal_pass_at_64_mean":0.223,"terminal_valid_rate_mean":0.983,"best_pass_at_8_mean":0.173},
+    {"method":"continuous_exp","alpha":1.0,"c":1.609437912,"seeds":2,"late_window_pass_at_8_mean":0.1534,"late_window_pass_at_8_seed_min":0.1440,"late_window_pass_at_8_seed_max":0.1628,"terminal_greedy_mean":0.084,"terminal_pass_at_8_mean":0.157,"terminal_pass_at_64_mean":0.214,"terminal_valid_rate_mean":0.988,"best_pass_at_8_mean":0.177},
+    {"method":"continuous_exp","alpha":1.0,"c":1.897119985,"seeds":2,"late_window_pass_at_8_mean":0.1572,"late_window_pass_at_8_seed_min":0.1572,"late_window_pass_at_8_seed_max":0.1572,"terminal_greedy_mean":0.078,"terminal_pass_at_8_mean":0.166,"terminal_pass_at_64_mean":0.232,"terminal_valid_rate_mean":0.991,"best_pass_at_8_mean":0.173},
+    {"method":"continuous_exp","alpha":1.0,"c":2.302585093,"seeds":2,"late_window_pass_at_8_mean":0.1484,"late_window_pass_at_8_seed_min":0.1396,"late_window_pass_at_8_seed_max":0.1572,"terminal_greedy_mean":0.087,"terminal_pass_at_8_mean":0.149,"terminal_pass_at_64_mean":0.203,"terminal_valid_rate_mean":0.991,"best_pass_at_8_mean":0.169},
+    {"method":"continuous_exp","alpha":1.0,"c":2.995732274,"seeds":2,"late_window_pass_at_8_mean":0.1568,"late_window_pass_at_8_seed_min":0.1560,"late_window_pass_at_8_seed_max":0.1576,"terminal_greedy_mean":0.078,"terminal_pass_at_8_mean":0.165,"terminal_pass_at_64_mean":0.230,"terminal_valid_rate_mean":0.996,"best_pass_at_8_mean":0.182}
+  ],
+  "key_observations": {
+    "positive_only_late_window_pass_at_8": 0.1398,
+    "uncontrolled_negative_late_window_pass_at_8": 0.0236,
+    "uncontrolled_terminal_valid_rate": 0.215,
+    "best_observed_c": 1.897119985,
+    "best_observed_late_window_pass_at_8": 0.1572,
+    "best_observed_delta_vs_positive_only": 0.0174,
+    "right_boundary_c": 2.995732274,
+    "right_boundary_late_window_pass_at_8": 0.1568,
+    "right_boundary_delta_vs_positive_only": 0.0170,
+    "right_boundary_near_tied_with_best": true
+  },
+  "reporting_separation": {
+    "task_performance_collapse": "observed_at_uncontrolled_c0",
+    "valid_structure_or_support_proxy_degradation": "observed_at_uncontrolled_c0_valid_rate_0p215_mean",
+    "nan_inf_numerical_failure": "not_observed_0_of_32_cells"
+  },
+  "interpretation": [
+    "Increasing c produces a coherent recovery from uncontrolled-negative collapse toward and then above the Positive-only late-window reference in this two-seed validation pilot.",
+    "The observed high-c region from approximately 1.2 through 3.0 is promising, but two development seeds do not establish statistical significance or a stable internal ranking.",
+    "The largest tested c remains near-tied with the best observed point, so the descending right branch of the expected Positive-only limit has not been localized.",
+    "Best-checkpoint performance is supplementary; the primary observation is improved late-window retention rather than a higher early peak."
+  ],
+  "limitations": [
+    "two_development_seeds_only",
+    "validation_only_tuning_no_test_access",
+    "fixed_1200_step_horizon_not_convergence_or_steady_state",
+    "no_formal_method_ranking",
+    "no_controlled_causal_identification",
+    "countdown_external_validity_only",
+    "support_boundary_not_formally_instrumented_valid_rate_only"
+  ],
+  "next_decision": {
+    "status": "requires_separate_preregistration",
+    "primary": "extend_c_rightward_until_the_curve_returns_toward_positive_only_or_a_clear_decline_is_observed",
+    "secondary": "use_fresh_paired_development_seeds_to_test_region_and_ordering_stability",
+    "do_not_change_simultaneously": ["alpha", "tau_or_scale_c", "trainer", "bank", "training_horizon", "selection_metric"]
+  },
+  "evidence_files": ["PER_CELL_SUMMARY.csv", "RUN_COMPLETE.json", "TERMINAL_AUDIT.json"]
+}

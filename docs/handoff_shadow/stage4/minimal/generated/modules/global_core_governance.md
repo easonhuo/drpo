@@ -7,7 +7,7 @@
 - Responsibility: Preserve the unique-master rule, terminology, scientific scope, and non-destructive governance constraints.
 - Content contract topics: `unique_master_document`, `document_before_experiment`, `non_destructive_history`, `terminal_audit_governance`, `controlled_external_validity_boundary`
 - Deduplicated overlapping source chunks: 0
-- Source hash: `20cfd6ee813c2f2ff249f9c00a51920529dd0967017b8440af7f2977dde118c4`
+- Source hash: `36d0d9307369081fae7b06b0a5408c43589996b9bd2edb318e73c5352b4a2a5b`
 
 ## Content contract evidence
 
@@ -158,6 +158,13 @@
 <!-- HANDOFF-DELTA-BLOCK:section_end:e8-base-rl-replay-0p5b-gate:START -->
 - **Countdown E8 base-start RL/replay 0.5B pilot：**登记 `EXT-C-E8-BASE-RL-REPLAY-0.5B-01`，作为移除 Countdown SFT warmstart 后的基模起点诊断。该实验只回答：Qwen pretrained base 是否能通过 oracle-offline fixed positive corpus 学起；base-specific calibrated offline negatives 是否能超过 positive-only；online on-policy self-sampled positives 是否能冷启动；dynamic replay buffer 累积历史自采 positives/negatives 是否优于 immediate on-policy 更新。所有 RL 分支从 Qwen pretrained base + fresh LoRA 开始，禁止 Countdown SFT warmstart、随机初始化主实验、taper 方法族和正式方法排名声明。固定预算 pilot 只报告有限步 evidence；结果必须分开报告 task performance、online signal sparsity/replay support、valid structure boundary 和 NaN/Inf numerical failure。
 <!-- HANDOFF-DELTA-BLOCK:section_end:e8-base-rl-replay-0p5b-gate:END -->
+<!-- HANDOFF-DELTA-BLOCK:section_end:e8-completed-backlog-closure-2026-07-20:START -->
+- **Countdown E8 completed-result backlog closure:** six validation-only external-validity pilots are now authoritatively registered: the 62-cell continuous alpha-by-c grid, three 32-cell alpha-one coefficient extensions, the 32-cell paper-aligned Linear scan, and the 32-cell Tau response surface. The combined record is 222/222 cells, every terminal audit passed, NaN/Inf failures were 0, and the test split was not used.
+
+  The locked interpretation is deliberately qualitative. Historical continuous-EXP evidence supports that uncontrolled Global negative pressure is harmful and sufficient tapering opens a broad usable coefficient region; historical evaluator RNG contamination and seed-by-hyperparameter variation prohibit a sharp ranking. The Linear scan did not localize its descending right branch, and the Tau surface is single-seed localization evidence only. No significance, convergence, steady state, formal ranking, OOD claim, cross-task/model generalization, or universal exponential-superiority claim is authorized.
+
+  The first four predate automatic results-repository delivery and remain bound by audited source commits and source-package SHA-256 values. Linear and Tau are additionally bound to immutable `drpo-results` manifests. Durable records are `docs/experiments/E8_COMPLETED_BACKLOG_CLOSURE.md` and `docs/experiments/E8_COMPLETED_BACKLOG_PROVENANCE.json`.
+<!-- HANDOFF-DELTA-BLOCK:section_end:e8-completed-backlog-closure-2026-07-20:END -->
 <!-- HANDOFF-DELTA-BLOCK:section_end:e8-lowsft-rft-dirty-pilot-record-20260708:START -->
 - **Countdown E8 low-SFT / capacity diagnostic dirty pilots：**本线记录 `EXT-C-E8-ONPOLICY-CAPACITY-DIAG-0.5B-01` 与一次性 `EXT-C-E8-LOWSFT-RFT-0.5B-01` 试错结果，只能作为 single-seed pilot evidence，不得升级为正式多 seed 结论或方法排名。capacity diagnostic 的 single seed `2026070701` 显示 `same_lora_rft`、`fresh_lora_rft`、`full_param_rft` 的 `best_attempt` 均为 0；terminal 端总体表现为 greedy 持平或小升、pass@8/pass@64 下降，说明 naive verifier-correct positive-only on-policy RFT 没有超过 LoRA SFT 起点。low-SFT 试错从按 validation greedy≈0.08 选出的 epoch-3 LoRA SFT checkpoint 起跑；该 checkpoint 的 pass@8 实际已接近 full-SFT（不是 pass@8≈0.08 起点），RFT 后 `best_attempt=0`，terminal test greedy 0.100→0.113、pass@8 0.174→0.133、pass@64 0.265→0.149。解释必须保留以下限制：运行源码为 dirty pilot / one-off orchestration；不是 convergence；没有证明 3B 或更强模型无效；尚需 no-update、parameter-delta、probe-loss、Qwen pretrained-base no-SFT、ultra-low pass@8 checkpoint 与 offline fixed-corpus controls。工程上允许把 `cmd_sft --save_every_epoch` 作为 opt-in 本地 checkpoint 功能合入，以便后续选择更细粒度 ultra-low SFT 起点；模型权重与结果包不得进入 Git 更新包。
 <!-- HANDOFF-DELTA-BLOCK:section_end:e8-lowsft-rft-dirty-pilot-record-20260708:END -->

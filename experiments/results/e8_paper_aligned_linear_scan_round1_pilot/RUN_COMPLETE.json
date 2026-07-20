@@ -1,0 +1,21 @@
+{
+  "all_expected_cells_present": true,
+  "entrypoint": "E8_ALPHA1_HIGHC_WORK_DIR=outputs/e8/paper_aligned_linear_scan_001 bash scripts/run_countdown_e8_oracle_offline_v2_alpha1_highc_scan_auto_one_click.sh",
+  "expected_cells": 32,
+  "experiment_id": "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-LINEAR-SCAN-0.5B-01",
+  "failed_cells": [],
+  "fixed_1200_steps_is_convergence": false,
+  "lane": "e8",
+  "launch_commit": "f957e7f63c376e328e3d677cb143d526f6937c51",
+  "method_ranking_claim_allowed": false,
+  "nan_inf_status": "not_observed",
+  "numerical_failures": 0,
+  "packaged_at": "2026-07-16T19:43:38+00:00",
+  "packaging_commit": "f957e7f63c376e328e3d677cb143d526f6937c51",
+  "registration_state": "dev_code_first_unregistered",
+  "run_id": "E8_PAPER_ALIGNED_LINEAR_SCAN_20260716_01",
+  "schema_version": 1,
+  "summary_count": 32,
+  "terminal_audit_status": "PASS",
+  "test_data_used": false
+}
