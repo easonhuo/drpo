@@ -130,6 +130,7 @@ def test_highc_adapter_binds_and_restores_implementation_identity() -> None:
 
 def test_night_adapter_binds_and_restores_v3_policy() -> None:
     original_identity = shared._selector_implementation_identity  # noqa: SLF001
+    original_adapter_id = shared.ADAPTER_ID
     original_candidates = shared.candidate_workers
     original_benchmark = shared.benchmark_concurrency
     original_policy = shared.SELECTOR_POLICY_VERSION
@@ -144,9 +145,11 @@ def test_night_adapter_binds_and_restores_v3_policy() -> None:
             night_adapter._bounded_benchmark_concurrency  # noqa: SLF001
         )
         assert shared.SELECTOR_POLICY_VERSION == 3
+        assert shared.ADAPTER_ID == "e7_squared_exp_night_cpu_v3"
         values = shared._selector_implementation_identity(Path.cwd())  # noqa: SLF001
         assert "e7_squared_exp_night_runtime_autotune.py" in values
     assert shared._selector_implementation_identity is original_identity  # noqa: SLF001
+    assert shared.ADAPTER_ID == original_adapter_id
     assert shared.candidate_workers is original_candidates
     assert shared.benchmark_concurrency is original_benchmark
     assert shared.SELECTOR_POLICY_VERSION == original_policy
@@ -155,14 +158,15 @@ def test_night_adapter_binds_and_restores_v3_policy() -> None:
 def test_night_candidate_grid_starts_low_without_configured_cap() -> None:
     assert night_adapter._low_first_candidate_workers(130, 60) == [  # noqa: SLF001
         1,
-        17,
-        33,
-        49,
+        2,
+        4,
+        7,
+        13,
+        23,
+        41,
         60,
-        65,
-        82,
-        98,
-        114,
+        72,
+        126,
         130,
     ]
     assert night_adapter._low_first_candidate_workers(3, 60) == [  # noqa: SLF001
@@ -178,7 +182,7 @@ def test_night_probe_policy_caps_steps_and_timeout() -> None:
         "requested_probe_steps": 100_000,
         "effective_probe_steps": 5_000,
         "requested_probe_seconds": 2_500.0,
-        "effective_probe_seconds": 300.0,
+        "effective_probe_seconds": 120.0,
     }
 
 
@@ -188,7 +192,7 @@ def test_night_runtime_kwargs_apply_bounded_probe_policy() -> None:
     )
     assert bounded == {
         "probe_steps": 5_000,
-        "probe_seconds": 300.0,
+        "probe_seconds": 120.0,
         "other": "kept",
     }
     assert policy["requested_probe_steps"] == 100_000
@@ -221,11 +225,11 @@ def test_night_throughput_probe_is_bounded_independently(
     )
 
     assert observed["probe_steps"] == 5_000
-    assert observed["timeout_seconds"] == 300.0
+    assert observed["timeout_seconds"] == 120.0
     assert result["requested_probe_steps_per_branch"] == 100_000
     assert result["effective_probe_steps_per_branch"] == 5_000
     assert result["requested_timeout_seconds"] == 2_500.0
-    assert result["effective_timeout_seconds"] == 300.0
+    assert result["effective_timeout_seconds"] == 120.0
     assert result["probe_policy_bounded_by_adapter"] is True
     persisted = json.loads(
         (tmp_path / "workers-017" / "BENCHMARK_SUMMARY.json").read_text(
