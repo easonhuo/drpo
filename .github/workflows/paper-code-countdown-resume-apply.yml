@@ -1,0 +1,86 @@
+name: Paper Code Countdown Resume Apply
+
+on:
+  pull_request:
+    types: [synchronize]
+    paths:
+      - ".github/workflows/paper-code-countdown-resume-apply.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: paper-code-countdown-resume-apply-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  apply:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Apply bounded resume implementation
+        env:
+          PATCH_SHA256: a734828c4fcdeea0615f2c4ee083f7ab9d3ff67a5fcad434190aceb882b7f1c4
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/countdown-resume.patch.gz.b64" <<'EOF'
+          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 EOF
+          base64 -d "$RUNNER_TEMP/countdown-resume.patch.gz.b64" | gzip -d > "$RUNNER_TEMP/countdown-resume.patch"
+          echo "${PATCH_SHA256}  $RUNNER_TEMP/countdown-resume.patch" | sha256sum -c -
+          git apply --check "$RUNNER_TEMP/countdown-resume.patch"
+          git apply "$RUNNER_TEMP/countdown-resume.patch"
+
+          expected=$(cat <<'EOF'
+          paper_code/README.md
+          paper_code/src/drpo_reference/cli.py
+          paper_code/src/drpo_reference/experiments/countdown.py
+          paper_code/tests/test_cli.py
+          paper_code/tests/test_common.py
+          EOF
+          )
+          actual=$(git diff --name-only | sort)
+          if [ "$actual" != "$expected" ]; then
+            printf 'unexpected implementation scope\nexpected:\n%s\nactual:\n%s\n' "$expected" "$actual" >&2
+            exit 1
+          fi
+          git diff --check
+
+      - name: Validate resume implementation before push
+        run: |
+          set -euo pipefail
+          python -m pip install -q -e 'paper_code[test]' ruff
+          python -m compileall -q paper_code/src paper_code/tests
+          python -m pytest -q paper_code/tests/test_common.py
+          python -m pytest -q paper_code/tests/test_cli.py
+          python -m ruff check --line-length 100 paper_code/src paper_code/tests
+          python -m ruff format --check --line-length 100 paper_code/src paper_code/tests
+          python -m drpo_reference countdown --help | grep -F -- '--resume'
+
+      - name: Commit implementation and self-delete
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          rm .github/workflows/paper-code-countdown-resume-apply.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            paper_code/README.md \
+            paper_code/src/drpo_reference/cli.py \
+            paper_code/src/drpo_reference/experiments/countdown.py \
+            paper_code/tests/test_cli.py \
+            paper_code/tests/test_common.py
+          git add -u .github/workflows/paper-code-countdown-resume-apply.yml
+          git commit -m "PAPER-CODE-VALIDATION-01 implement Countdown resume"
+          git push origin "HEAD:${HEAD_REF}"
