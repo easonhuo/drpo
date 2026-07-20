@@ -1,0 +1,43 @@
+name: ReplayAB R2 materialization v5
+on:
+  pull_request:
+    branches: [dev/replayab-r2-semantic-acceptance-01]
+permissions:
+  contents: write
+jobs:
+  materialize:
+    if: github.head_ref == 'exec/replayab-r2-materialize-v5'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/replayab-r2-semantic-acceptance-01
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e . pytest ruff pyyaml
+      - shell: bash
+        run: |
+          git show origin/exec/replayab-r2-materialize-v4:.github/workflows/replayab-r2-materialize-v4.yml > /tmp/v4.yml
+          python - <<'PY'
+          from pathlib import Path
+          import subprocess, yaml
+          workflow = yaml.safe_load(Path('/tmp/v4.yml').read_text())
+          script = next(s['run'] for s in workflow['jobs']['materialize']['steps'] if s.get('name') == 'Materialize, harden, test, and commit')
+          marker = 'for name in (\n'
+          patch = '''test_path = Path("tests/test_workflow_replay_r1.py")
+          test_text = test_path.read_text(encoding="utf-8")
+          unused = "    canonical_sha256,\\n"
+          if unused not in test_text:
+              raise SystemExit("unused import marker missing")
+          test_path.write_text(test_text.replace(unused, "", 1), encoding="utf-8")
+
+          for name in (
+          '''.replace('          ', '')
+          script = script.replace(marker, patch, 1)
+          subprocess.run(['bash', '-lc', script], check=True)
+          PY
