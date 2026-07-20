@@ -228,8 +228,30 @@ jobs:
         run: exit 1
 
       - name: Ruff check extracted package
+        id: package_ruff
+        continue-on-error: true
         working-directory: extracted/drpo-reference-v0.1
-        run: python -m ruff check --line-length 100 src tests
+        run: |
+          set +e
+          python -m ruff check --line-length 100 src tests \
+            > "$GITHUB_WORKSPACE/package-ruff.log" 2>&1
+          status=$?
+          cat "$GITHUB_WORKSPACE/package-ruff.log"
+          echo "exit_code=${status}" >> "$GITHUB_OUTPUT"
+          exit "$status"
+
+      - name: Upload package Ruff diagnostics
+        if: steps.package_ruff.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: paper-code-ruff-diagnostics-${{ github.event.pull_request.head.sha }}
+          path: package-ruff.log
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Fail on package Ruff mismatch
+        if: steps.package_ruff.outcome == 'failure'
+        run: exit 1
 
       - name: Ruff format check extracted package
         working-directory: extracted/drpo-reference-v0.1
