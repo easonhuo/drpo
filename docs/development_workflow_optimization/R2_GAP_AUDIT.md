@@ -93,6 +93,18 @@ The frozen bank must cover:
 - efficiency blocked for any rejected arm;
 - complete R1 non-regression.
 
+## Implementation checkpoint
+
+The bounded implementation was materialized at development commit `5d485ee287dddc8a86c9d24b1d9ecc666eaf63aa`.
+
+- changed production Python lines: `310`, within the preferred budget;
+- new Python paths: `0`;
+- focused ReplayAB tests: `85 passed`;
+- changed-file Ruff: `PASS`;
+- evaluator execution, plugins, sandboxing, workers, trajectories, authority, handoff, registry, and scientific code remain unchanged.
+
+This checkpoint is implementation evidence only. Repository-wide exact-head gates, the frozen R2 calibration audit, and the R1 terminal non-regression audit remain required before closure review.
+
 ## Next action
 
-Proceed under a separate R2 implementation contract. Any need for evaluator execution, workers, sandboxing, plugins, trajectories, or a broad R1 loader rewrite changes the verdict to `REDESIGN` and requires separate approval.
+Run exact-head repository gates and the frozen R2/R1 terminal audits. Any need for evaluator execution, workers, sandboxing, plugins, trajectories, or a broad R1 loader rewrite changes the verdict to `REDESIGN` and requires separate approval.
