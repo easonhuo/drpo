@@ -77,10 +77,13 @@ uncommitted temporary state, and never assembles a checkpoint from partial
 files.
 
 The first durable state is written after step-0 validation and before training.
-Later states are written at the existing `checkpoint_every` cadence and at the
-final finite step. An interruption after a durable state may replay work after
-that state, but it must restore RNG, sampler offset, optimizer, and scheduler so
-that the resumed trajectory starts from the exact committed boundary.
+Later states are written at the existing `checkpoint_every` cadence, whenever a
+new best checkpoint is committed, and at the final finite step. Coupling a new
+best checkpoint to the same durable commit prevents best-checkpoint metadata
+from advancing beyond the optimizer, scheduler, RNG, and sampler state. An
+interruption after a durable state may replay work after that state, but it must
+restore RNG, sampler offset, optimizer, and scheduler so that the resumed
+trajectory starts from the exact committed boundary.
 
 No claim of bit-identical GPU kernels is made. The engineering invariant is
 exact restored state and coordinate, not a new scientific reproducibility
