@@ -1,0 +1,199 @@
+name: Paper Code Validation
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "paper_code/**"
+      - "docs/paper_code_reference/**"
+      - ".github/workflows/paper-code-validation.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: paper-code-validation-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  package-and-validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Build exact-head reviewer package
+        env:
+          SOURCE_COMMIT: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          package="drpo-reference-v0.1"
+          root="dist/${package}"
+          rm -rf dist extracted
+          mkdir -p "${root}/tests"
+
+          cp paper_code/README.md "${root}/README.md"
+          cp paper_code/pyproject.toml "${root}/pyproject.toml"
+          cp -a paper_code/configs "${root}/configs"
+          cp -a paper_code/src "${root}/src"
+
+          for test_file in \
+            test_aggregate.py \
+            test_cli.py \
+            test_common.py \
+            test_controls.py \
+            test_cu1_suite.py \
+            test_du1_cli.py \
+            test_du1_public.py \
+            test_events.py
+          do
+            cp "paper_code/tests/${test_file}" "${root}/tests/${test_file}"
+          done
+
+          cat > "${root}/tests/conftest.py" <<'PY'
+          from __future__ import annotations
+
+          import os
+
+          import torch
+
+
+          torch.set_num_threads(max(1, min(4, os.cpu_count() or 1)))
+          try:
+              torch.set_num_interop_threads(1)
+          except RuntimeError:
+              pass
+          PY
+
+          printf '%s\n' "${SOURCE_COMMIT}" > "${root}/SOURCE_COMMIT.txt"
+
+          cat > "${root}/TEST_SCOPE.md" <<'EOF'
+          # Test scope
+
+          The archive contains self-contained reviewer tests only. Repository-internal
+          `*_differential.py` tests import historical `drpo` implementations and remain
+          exact-head CI oracles in the main repository; they are intentionally not copied
+          into this standalone package.
+          EOF
+
+          cat > "${root}/VALIDATION_STATUS.md" <<EOF
+          # Validation status
+
+          Source commit: \`${SOURCE_COMMIT}\`
+
+          This archive is produced only after the workflow validates its manifest,
+          installs the extracted package, compiles source and tests, runs the
+          self-contained test suite, checks Ruff and formatting, and opens all public
+          CLI help entry points. Repository-internal differential tests run separately
+          in the Draft PR full-pytest gate.
+
+          These checks are engineering evidence. They are not a formal experiment,
+          convergence result, terminal scientific audit, or method-ranking claim.
+          Real Hopper HDF5/MuJoCo and Countdown Qwen/PEFT/CUDA liveness remain separate
+          gates unless recorded otherwise in the repository validation status.
+          EOF
+
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path("dist/drpo-reference-v0.1")
+          files = []
+          for path in sorted(root.rglob("*")):
+              if not path.is_file() or path.name == "PACKAGE_MANIFEST.json":
+                  continue
+              payload = path.read_bytes()
+              files.append(
+                  {
+                      "path": path.relative_to(root).as_posix(),
+                      "sha256": hashlib.sha256(payload).hexdigest(),
+                      "size_bytes": len(payload),
+                  }
+              )
+          manifest = {
+              "schema_version": 1,
+              "package": "drpo-reference-v0.1",
+              "source_commit": os.environ["SOURCE_COMMIT"],
+              "file_count_excluding_manifest": len(files),
+              "files": files,
+          }
+          (root / "PACKAGE_MANIFEST.json").write_text(
+              json.dumps(manifest, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+          (
+            cd dist
+            zip -X -q -r "${package}.zip" "${package}"
+            sha256sum "${package}.zip" > "${package}.zip.sha256"
+          )
+          unzip -q "dist/${package}.zip" -d extracted
+          unzip -t "dist/${package}.zip"
+
+      - name: Verify package manifest
+        env:
+          SOURCE_COMMIT: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path("extracted/drpo-reference-v0.1")
+          manifest = json.loads((root / "PACKAGE_MANIFEST.json").read_text())
+          assert manifest["source_commit"] == os.environ["SOURCE_COMMIT"]
+          assert (root / "SOURCE_COMMIT.txt").read_text().strip() == os.environ["SOURCE_COMMIT"]
+          actual = []
+          for path in sorted(root.rglob("*")):
+              if not path.is_file() or path.name == "PACKAGE_MANIFEST.json":
+                  continue
+              payload = path.read_bytes()
+              actual.append(
+                  {
+                      "path": path.relative_to(root).as_posix(),
+                      "sha256": hashlib.sha256(payload).hexdigest(),
+                      "size_bytes": len(payload),
+                  }
+              )
+          assert actual == manifest["files"]
+          assert len(actual) == manifest["file_count_excluding_manifest"]
+          PY
+
+      - name: Install and validate extracted package
+        working-directory: extracted/drpo-reference-v0.1
+        run: |
+          set -euo pipefail
+          python -m pip install -e '.[test]' ruff
+          python -m compileall -q src tests
+          python -m pytest
+          python -m ruff check --line-length 100 src tests
+          python -m ruff format --check --line-length 100 src tests
+          python -m drpo_reference --help
+          python -m drpo_reference cu1 --help
+          python -m drpo_reference du1 --help
+          python -m drpo_reference hopper --help
+          python -m drpo_reference d4rl --help
+          python -m drpo_reference countdown --help
+
+      - name: Upload validated reviewer package
+        uses: actions/upload-artifact@v4
+        with:
+          name: drpo-reference-v0.1-${{ github.event.pull_request.head.sha }}
+          path: |
+            dist/drpo-reference-v0.1.zip
+            dist/drpo-reference-v0.1.zip.sha256
+          if-no-files-found: error
+          retention-days: 30
