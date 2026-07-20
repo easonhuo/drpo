@@ -1,0 +1,119 @@
+{
+  "closure_id": "EXT-C-E8-COMPLETED-BACKLOG-CLOSURE-2026-07-20",
+  "completed_cells": 222,
+  "copied_compact_files": [
+    "experiments/results/e8_paper_aligned_linear_scan_round1_pilot/PER_CELL_SUMMARY.csv",
+    "experiments/results/e8_paper_aligned_linear_scan_round1_pilot/README.md",
+    "experiments/results/e8_paper_aligned_linear_scan_round1_pilot/RESULT_SUMMARY.json",
+    "experiments/results/e8_paper_aligned_linear_scan_round1_pilot/RUN_COMPLETE.json",
+    "experiments/results/e8_paper_aligned_linear_scan_round1_pilot/TERMINAL_AUDIT.json",
+    "experiments/results/e8_paper_aligned_tau_curve_pilot/README.md",
+    "experiments/results/e8_paper_aligned_tau_curve_pilot/RESULT_SUMMARY.json"
+  ],
+  "environment": "Countdown",
+  "experiment_count": 6,
+  "locked_interpretation": {
+    "continuous_exp": "Global negative pressure is reliably harmful; once tapering is sufficient, a broad usable coefficient band is more defensible than a sharp universal optimum. Historical evaluation RNG contamination and seed-by-hyperparameter variation prevent exact ranking claims.",
+    "paper_aligned_linear": "The best observed coefficient and tested right boundary are near-tied; the descending right branch was not localized in this two-seed pilot.",
+    "tau_surface": "The single-seed response surface is localization evidence only and does not identify a statistically supported optimum."
+  },
+  "nan_inf_numerical_failures": 0,
+  "prohibited_claims": [
+    "formal_method_ranking",
+    "statistical_significance",
+    "convergence_or_steady_state",
+    "universal_exponential_superiority",
+    "cross_task_or_cross_model_generalization",
+    "OOD_generalization"
+  ],
+  "records": [
+    {
+      "cells": 62,
+      "evidence_mode": "external_source_package_sha256_plus_recovered_compact_audit",
+      "experiment_id": "EXT-C-E8-ORACLE-OFFLINE-V2-CONTINUOUS-EXP-GRID-0.5B-01",
+      "label": "62-cell alpha-by-c continuous EXP grid",
+      "nan_inf_numerical_failures": 0,
+      "source_artifact_zip_sha256": "9bc0b3a7623717bd17da29d2478ea4ed52150176e6b2d269fc81d88f9fb1964e",
+      "source_commit": "9de742532ac8559a0aba1282151e66cc1ce22f9e",
+      "source_commit_state": "dirty_pilot_snapshot_recorded_by_source_package",
+      "terminal_audit": "PASS",
+      "test_split_used": false
+    },
+    {
+      "cells": 32,
+      "evidence_mode": "external_source_package_sha256_plus_recovered_compact_audit",
+      "experiment_id": "EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-C-SCAN-0.5B-01",
+      "label": "32-cell alpha=1 c scan",
+      "nan_inf_numerical_failures": 0,
+      "source_artifact_zip_sha256": "58522afed3072337138c29752efbf99ca8a4b65fe54a79adf1f7c153354416fb",
+      "source_commit": "a54dc74b849561c15f6195336fca446ed36f0640",
+      "source_commit_state": "clean_run_commit",
+      "terminal_audit": "PASS",
+      "test_split_used": false
+    },
+    {
+      "cells": 32,
+      "evidence_mode": "external_source_package_sha256_plus_recovered_compact_audit",
+      "experiment_id": "EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-HIGHC-SCAN-0.5B-01",
+      "label": "32-cell alpha=1 high-c scan",
+      "nan_inf_numerical_failures": 0,
+      "source_artifact_zip_sha256": "73fd7e21b7921e02bb67a0d8ddf4842431a3f6ccd07f80aea7aed2b273c6f53f",
+      "source_commit": "929142930a3e2efaa7cafc8e4afe3866600027a5",
+      "source_commit_state": "clean_run_commit",
+      "terminal_audit": "PASS",
+      "test_split_used": false
+    },
+    {
+      "cells": 32,
+      "evidence_mode": "external_source_package_sha256_plus_recovered_compact_audit",
+      "experiment_id": "EXT-C-E8-ORACLE-OFFLINE-V2-ALPHA1-LOGC-BOUNDARY-SCAN-0.5B-01",
+      "label": "32-cell alpha=1 log-c boundary scan",
+      "nan_inf_numerical_failures": 0,
+      "source_artifact_zip_sha256": "4f4237c1261289ca8a6f85850b216f6dd7c107598be1299f6d5f0f6587b941ec",
+      "source_commit": "05e8704770bda9a8682cd1031fa8b67bc3b55a41",
+      "source_commit_state": "clean_run_commit",
+      "terminal_audit": "PASS",
+      "test_split_used": false
+    },
+    {
+      "cells": 32,
+      "experiment_id": "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-LINEAR-SCAN-0.5B-01",
+      "export_profile": "manifest_text_v1",
+      "label": "32-cell paper-aligned linear-coordinate scan",
+      "manifest_sha256": "24635fbb634b23450cdfb560fd7b16a2dc0fe4a6d0586f10e1cf385e58bab333",
+      "nan_inf_numerical_failures": 0,
+      "result_path": "runs/e8/E8_PAPER_ALIGNED_LINEAR_SCAN_20260716_01",
+      "results_branch": "ingest/e8",
+      "results_commit": "69a81c6db3bdd90ed640d54eb5687870d2dba220",
+      "results_repository": "easonhuo/drpo-results",
+      "run_id": "E8_PAPER_ALIGNED_LINEAR_SCAN_20260716_01",
+      "source_artifact_zip_sha256": "00d53286a6642998b5563045bbb278876ba38713f98819c679ed4825e49bdd48",
+      "source_commit": "f957e7f63c376e328e3d677cb143d526f6937c51",
+      "terminal_audit": "PASS",
+      "test_split_used": false
+    },
+    {
+      "cells": 32,
+      "experiment_id": "EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-TAU-CURVE-0.5B-01",
+      "export_profile": "manifest_text_v1",
+      "label": "32-cell paper-aligned tau response surface",
+      "manifest_sha256": "e737f94d9bb3f8c4dc08551ac2606a49cea39a639ba8b951d5f99d6d810524a0",
+      "nan_inf_numerical_failures": 0,
+      "result_path": "runs/e8/E8_PAPER_ALIGNED_TAU_CURVE_20260717_01",
+      "results_branch": "ingest/e8",
+      "results_commit": "69a81c6db3bdd90ed640d54eb5687870d2dba220",
+      "results_repository": "easonhuo/drpo-results",
+      "run_id": "E8_PAPER_ALIGNED_TAU_CURVE_20260717_01",
+      "source_artifact_zip_sha256": "8487365fc15be097733cad2df3fd235dba7a4cb44d4f5e19e37f40c937ae8982",
+      "source_commit": "f9ea5a155ada50e9a4aebbe8ed08e8ffec82d66a",
+      "source_commit_resolved": false,
+      "terminal_audit": "PASS",
+      "test_split_used": false
+    }
+  ],
+  "role": "external_validity_pilot_closure",
+  "schema_version": 1,
+  "terminal_audits_all_passed": true,
+  "test_split_used": false,
+  "total_cells": 222
+}
