@@ -15,7 +15,7 @@ The squared-night E7 adapter inherited the V2 PPO-family candidate grid:
 ```
 
 and used one `probe_steps` value for both the representative resource probe and every
-throughput candidate. On a 198-branch, 200-CPU-pool launch this produced three failures:
+throughput candidate. On a 198-branch, 200-CPU-pool launch this produced four failures:
 
 1. a large safe ceiling could make the first throughput candidate larger than an already
    observed startup-failure region;
@@ -23,7 +23,9 @@ throughput candidate. On a 198-branch, 200-CPU-pool launch this produced three f
    conservative lower schedule;
 3. setting `probe_steps=100000` and `probe_seconds=2500` multiplied long limits across the
    resource probe and every concurrency candidate, turning preflight into an hour-scale
-   sequence of real short trainings.
+   sequence of real short trainings;
+4. when plan was interrupted, already completed candidate summaries were deleted and repeated
+   on the next attempt.
 
 The existing one-click wrapper also ignored `DRPO_RUNTIME_MAX_WORKERS` and always attempted
 `plan` before `run`, even when an immutable selection and run identity already existed.
@@ -39,11 +41,14 @@ Repair only the squared-night E7 runtime adapter so that:
    probe/candidate even when a caller requests larger values;
 4. requested and effective probe limits remain auditable without making an oversized but
    normalized request part of immutable selection identity;
-5. the first failed higher candidate stops upward exploration while preserving already valid
+5. an interrupted plan reuses only exact, completed, resource-valid candidate evidence from
+   the same work directory, source, policy, and CPU binding;
+6. invalid or partial candidate evidence is never reused;
+7. the first failed higher candidate stops upward exploration while preserving already valid
    lower candidates;
-6. the one-click wrapper consumes an existing immutable selection through `run --resume`
+8. the one-click wrapper consumes an existing immutable selection through `run --resume`
    instead of re-planning;
-7. the unified RunSpec worker ceiling reaches E7 through `DRPO_RUNTIME_MAX_WORKERS` unless the
+9. the unified RunSpec worker ceiling reaches E7 through `DRPO_RUNTIME_MAX_WORKERS` unless the
    E7-specific variable explicitly overrides it.
 
 ## Implementation boundary
@@ -85,6 +90,11 @@ For the squared-night adapter only:
 - effective limits enter the immutable fingerprint;
 - requested and effective limits are written as non-identity selection evidence and in every
   candidate summary;
+- each completed valid candidate stores an exact V3 checkpoint identity covering source,
+  implementation, effective policy, candidate seed, concurrency, and CPU binding;
+- a checkpoint is reused only when that identity matches and current usable memory still
+  exceeds its observed aggregate peak RSS;
+- invalid checkpoints are rerun rather than cached as permanent failure;
 - an invalid candidate stops further upward search; already valid lower candidates remain
   eligible under the unchanged retained-peak rule.
 
@@ -105,8 +115,9 @@ For `safe_cap=130` and `fallback=60`, the candidate sequence is:
 ## Explicit exclusions
 
 - dynamic online resizing;
-- cross-run cache service;
+- cross-workdir or cross-run cache service;
 - reuse of selection across source, binding, or fingerprint changes;
+- reuse of incomplete or invalid candidate attempts;
 - NUMA or physical-core topology allocation;
 - memory cgroup reservation or external-process preemption;
 - changing the current immutable selection inside an already planned work directory;
@@ -121,13 +132,15 @@ For `safe_cap=130` and `fallback=60`, the candidate sequence is:
 5. requested limits are recorded outside immutable selection identity;
 6. adapter installation restores every patched shared-core symbol, adapter id, and policy
    version;
-7. a failed higher candidate leaves completed lower candidates eligible for selection;
-8. the E7-specific worker variable overrides the unified variable, while the unified variable
-   is inherited when no E7-specific value exists;
-9. one-click resumes directly when both immutable identity files exist;
-10. one-click fails closed on a partial identity;
-11. existing V2 selections are invalid under squared-night V3 and require a new work directory;
-12. focused tests, shell syntax, compile, Ruff, full pytest, handoff-authority no-op, and
+7. an exact completed valid candidate is reused after interruption without launching it again;
+8. an invalid, mismatched, or memory-infeasible candidate checkpoint is not reused;
+9. a failed higher candidate leaves completed lower candidates eligible for selection;
+10. the E7-specific worker variable overrides the unified variable, while the unified variable
+    is inherited when no E7-specific value exists;
+11. one-click resumes directly when both immutable identity files exist;
+12. one-click fails closed on a partial identity;
+13. existing V2 selections are invalid under squared-night V3 and require a new work directory;
+14. focused tests, shell syntax, compile, Ruff, full pytest, handoff-authority no-op, and
     governance validators pass on the exact PR head.
 
 ## Current-run rule
