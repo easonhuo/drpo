@@ -48,6 +48,16 @@ jobs:
           PY
           python scripts/generate_kdd2027_stage_a.py
 
+      - name: Install LaTeX and PDF audit tools
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
+            latexmk \
+            poppler-utils \
+            texlive-bibtex-extra \
+            texlive-fonts-recommended \
+            texlive-latex-extra
+
       - name: Install current official ACM acmart template files
         shell: bash
         run: |
@@ -59,6 +69,15 @@ jobs:
           mkdir -p /tmp/acmart-unpack
           unzip -q /tmp/acmart.zip -d /tmp/acmart-unpack
           cls="$(find /tmp/acmart-unpack -type f -name acmart.cls -print -quit)"
+          if [[ -z "$cls" ]]; then
+            ins="$(find /tmp/acmart-unpack -type f -name acmart.ins -print -quit)"
+            dtx="$(find /tmp/acmart-unpack -type f -name acmart.dtx -print -quit)"
+            test -n "$ins"
+            test -n "$dtx"
+            package_dir="$(dirname "$ins")"
+            (cd "$package_dir" && latex -interaction=nonstopmode -halt-on-error acmart.ins)
+            cls="$(find "$package_dir" -maxdepth 1 -type f -name acmart.cls -print -quit)"
+          fi
           bst="$(find /tmp/acmart-unpack -type f -name ACM-Reference-Format.bst -print -quit)"
           test -n "$cls"
           test -n "$bst"
@@ -81,16 +100,6 @@ jobs:
             echo 'user_uploaded_overleaf_bundle_bst_sha256=8ec002c927068bfc5b3cfe71b66aa4767b9e485530ac3c67ba5c064df4c2e6ac'
           } > paper/kdd2027/TEMPLATE_PROVENANCE.txt
           cat paper/kdd2027/TEMPLATE_PROVENANCE.txt
-
-      - name: Install LaTeX and PDF audit tools
-        run: |
-          sudo apt-get update
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
-            latexmk \
-            poppler-utils \
-            texlive-bibtex-extra \
-            texlive-fonts-recommended \
-            texlive-latex-extra
 
       - name: Build with repository figures and audit every page
         run: bash paper/kdd2027/build.sh
