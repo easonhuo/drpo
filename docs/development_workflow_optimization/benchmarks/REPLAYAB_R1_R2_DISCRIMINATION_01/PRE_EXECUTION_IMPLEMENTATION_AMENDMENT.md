@@ -18,6 +18,8 @@ After the benchmark protocol, 16-case inventory, independent labels, metrics, an
 
 Its sole responsibility is to execute and verify the frozen R1-versus-R2 controlled discrimination benchmark using the already merged ReplayAB comparators and contracts.
 
+The approval is also preserved in PR #218 discussion before benchmark execution.
+
 ## Narrow supersession
 
 This amendment supersedes only the protocol statements that prohibited a new Python path or required extension of `tests/test_workflow_replay_r1.py`.
