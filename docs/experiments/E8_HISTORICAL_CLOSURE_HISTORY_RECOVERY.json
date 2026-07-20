@@ -1,0 +1,110 @@
+{
+  "attempts": [
+    {
+      "base64": "PASS",
+      "compressed_bytes": 13500,
+      "contiguous_from_zero": false,
+      "decode_error": "BadGzipFile: Not a gzipped file (b'A\\x05')",
+      "indices": [
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30
+      ],
+      "joined_bytes": 18000,
+      "scheme": "tools/tmp_e8_patch_small/chunk",
+      "source_commits": {
+        "tools/tmp_e8_patch_small/chunk18": "01295e6175de7ad4b7cb84eb7a3639ae8b28ffc2",
+        "tools/tmp_e8_patch_small/chunk19": "01295e6175de7ad4b7cb84eb7a3639ae8b28ffc2",
+        "tools/tmp_e8_patch_small/chunk20": "01295e6175de7ad4b7cb84eb7a3639ae8b28ffc2",
+        "tools/tmp_e8_patch_small/chunk21": "01295e6175de7ad4b7cb84eb7a3639ae8b28ffc2",
+        "tools/tmp_e8_patch_small/chunk22": "01295e6175de7ad4b7cb84eb7a3639ae8b28ffc2",
+        "tools/tmp_e8_patch_small/chunk23": "01295e6175de7ad4b7cb84eb7a3639ae8b28ffc2",
+        "tools/tmp_e8_patch_small/chunk24": "01295e6175de7ad4b7cb84eb7a3639ae8b28ffc2",
+        "tools/tmp_e8_patch_small/chunk25": "01295e6175de7ad4b7cb84eb7a3639ae8b28ffc2",
+        "tools/tmp_e8_patch_small/chunk26": "01295e6175de7ad4b7cb84eb7a3639ae8b28ffc2",
+        "tools/tmp_e8_patch_small/chunk27": "01295e6175de7ad4b7cb84eb7a3639ae8b28ffc2",
+        "tools/tmp_e8_patch_small/chunk28": "01295e6175de7ad4b7cb84eb7a3639ae8b28ffc2",
+        "tools/tmp_e8_patch_small/chunk29": "01295e6175de7ad4b7cb84eb7a3639ae8b28ffc2",
+        "tools/tmp_e8_patch_small/chunk30": "01295e6175de7ad4b7cb84eb7a3639ae8b28ffc2"
+      }
+    },
+    {
+      "base64": "PASS",
+      "compressed_bytes": 16063,
+      "contiguous_from_zero": false,
+      "decode_error": "error: Error -3 while decompressing data: invalid code lengths set",
+      "indices": [
+        0,
+        2,
+        6,
+        7
+      ],
+      "joined_bytes": 21420,
+      "scheme": "tools/tmp_e8_patch_chunks/part",
+      "source_commits": {
+        "tools/tmp_e8_patch_chunks/part00": "01295e6175de7ad4b7cb84eb7a3639ae8b28ffc2",
+        "tools/tmp_e8_patch_chunks/part02": "01295e6175de7ad4b7cb84eb7a3639ae8b28ffc2",
+        "tools/tmp_e8_patch_chunks/part06": "01295e6175de7ad4b7cb84eb7a3639ae8b28ffc2",
+        "tools/tmp_e8_patch_chunks/part07": "01295e6175de7ad4b7cb84eb7a3639ae8b28ffc2"
+      }
+    }
+  ],
+  "base": "e3718a346e260d0d3666ba55542565b2907c703f",
+  "branch": "origin/dev/e8-four-result-closure-authority-export",
+  "commit_count": 21,
+  "commits": [
+    "4f6affd00ec5e6af8690436c4f21d6763210fc08",
+    "aeb1c74cdd34d1c088dea5dab1a8f6eae177ddbb",
+    "edaa1c26bfe6e41f5da267abb785eff9c3f4405b",
+    "b83083c2ac7b818656ed3dfe15724923f09c8da8",
+    "5af5e3a8a5f20b1415c0026b669923a51bc1e412",
+    "7ea8072daead7f983f8c334a6798bd28a81b951c",
+    "578e8f0d2d4185e5f0d9163e42e4b27d177bb1d5",
+    "a11ae012ee237443fc8b6c7ff4ce18543403aec9",
+    "441b35d8ce7bb4b114fa0f62aaba491c05223692",
+    "659a44380938d2745aa259279a326fc60764a9af",
+    "0e3132460ee3c4c37303a46044ed83ba3ed72535",
+    "4c0e8c0023ebf749fcb80a49af4fe3129d65d40f",
+    "1e5ce4490e57bdacaed2e143cbca5867422cdffc",
+    "6d76e3579c742dba4428b180628aca3c43f2242c",
+    "486269df17e13bfcfd461c9d8d99d8bec1937f46",
+    "018559f5a4928aff527d0eb82bcc7990d6bda98a",
+    "6dee89d974de562b697ba25d9bc2a2ca9cc733d6",
+    "041a0ff6d8b7ec088e4548c146a5edbcf2101f2d",
+    "e8f0f38a358006d835171db89e0175f0bb3250ed",
+    "4fc4cf8dd981d1ec06881d1f310973b6d0d2bd58",
+    "01295e6175de7ad4b7cb84eb7a3639ae8b28ffc2"
+  ],
+  "discovered_paths": [
+    "tools/tmp_e8_four_result_closure.patch.gz.b64",
+    "tools/tmp_e8_patch_chunks/part00",
+    "tools/tmp_e8_patch_chunks/part02",
+    "tools/tmp_e8_patch_chunks/part06",
+    "tools/tmp_e8_patch_chunks/part07",
+    "tools/tmp_e8_patch_small/chunk18",
+    "tools/tmp_e8_patch_small/chunk19",
+    "tools/tmp_e8_patch_small/chunk20",
+    "tools/tmp_e8_patch_small/chunk21",
+    "tools/tmp_e8_patch_small/chunk22",
+    "tools/tmp_e8_patch_small/chunk23",
+    "tools/tmp_e8_patch_small/chunk24",
+    "tools/tmp_e8_patch_small/chunk25",
+    "tools/tmp_e8_patch_small/chunk26",
+    "tools/tmp_e8_patch_small/chunk27",
+    "tools/tmp_e8_patch_small/chunk28",
+    "tools/tmp_e8_patch_small/chunk29",
+    "tools/tmp_e8_patch_small/chunk30"
+  ],
+  "schema_version": 1,
+  "selected_scheme": null
+}
