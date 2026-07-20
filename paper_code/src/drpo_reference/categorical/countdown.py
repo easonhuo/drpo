@@ -3,10 +3,9 @@
 This module intentionally stops below the experiment-entry layer. It contains
 protocol-independent expression verification, prompt/completion masking,
 autoregressive completion statistics, frozen-bank batching, the detached
-paper-aligned linear-surprisal objective, the registered E8-TAPER active-tail
-weight/calibration primitives, and response-level aggregation. It does not
-select a model path, coefficient file, seed set, training budget, checkpoint,
-or test protocol.
+paper-aligned linear-surprisal objective, and the registered E8-TAPER active-tail
+objective/calibration primitives. It does not select a model path, coefficient
+file, seed set, training budget, checkpoint, or test protocol.
 """
 
 from __future__ import annotations
@@ -25,7 +24,7 @@ from typing import Any
 import torch
 import torch.nn.functional as F
 
-COUNTDOWN_CORE_VERSION = "0.3.0-active-tail-training-core"
+COUNTDOWN_CORE_VERSION = "0.4.0-active-tail-objective-core"
 COUNTDOWN_REFERENCE_DISTANCE = 2.0
 COUNTDOWN_ACTIVE_TAIL_METHODS = (
     "positive_only",
@@ -459,11 +458,7 @@ def normalized_active_tail_remoteness(
     tau: float,
     surprisal_scale: float,
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    """Return detached normalized excess surprisal ``S`` and ``d=sqrt(S)``.
-
-    This is the v79 learner-relative coordinate. ``tau`` and ``surprisal_scale``
-    are calibration artifacts and are never inferred from the training batch.
-    """
+    """Return detached normalized excess surprisal ``S`` and ``d=sqrt(S)``."""
 
     if not math.isfinite(tau) or tau < 0.0:
         raise ValueError("tau must be finite and non-negative")
@@ -562,9 +557,8 @@ def active_distance_diagnostics(
     values = torch.tensor(list(surprisals), dtype=torch.float64)
     if values.numel() < 1 or not bool(torch.isfinite(values).all()):
         raise ValueError("surprisals must be a non-empty finite sequence")
-    seq_lp = -values
     normalized, distance = normalized_active_tail_remoteness(
-        seq_lp,
+        -values,
         tau=tau,
         surprisal_scale=surprisal_scale,
     )
@@ -618,7 +612,9 @@ def validate_active_tail_calibration(
         failures.append("reference target is too close to uncontrolled")
     if active_distance_fraction < minimum_active_distance_fraction:
         failures.append("active-distance fraction is too small")
-    if float(coefficients.get("global_matched", 1.0)) >= nondegenerate_target_max_ratio:
+    if float(coefficients.get("global_matched", 1.0)) >= (
+        nondegenerate_target_max_ratio
+    ):
         failures.append("global_matched is degenerate or near-uncontrolled")
     for method in ("reciprocal_linear", "squared_distance_exponential"):
         if float(coefficients.get(method, 0.0)) <= minimum_taper_lambda:
@@ -653,7 +649,9 @@ def make_prompt_balanced_sampler_plan(
     candidate_counts: list[int] = []
     for row in rows:
         candidates = row.get("negatives", row.get("negative_bank", []))
-        if not isinstance(candidates, Sequence) or isinstance(candidates, (str, bytes)):
+        if not isinstance(candidates, Sequence) or isinstance(
+            candidates, (str, bytes)
+        ):
             raise ValueError("every replay row must expose a candidate sequence")
         if len(candidates) < 1:
             raise ValueError("every replay row must have at least one negative")
@@ -708,7 +706,9 @@ def calibrate_monotone_coefficient(
 
     candidates = list(observations)
     brackets: list[tuple[float, float, float, float]] = []
-    for (left, left_norm), (right, right_norm) in zip(observations, observations[1:]):
+    for (left, left_norm), (right, right_norm) in zip(
+        observations, observations[1:]
+    ):
         left_delta = left_norm - target
         right_delta = right_norm - target
         if left_delta == 0.0:
@@ -804,15 +804,9 @@ def countdown_training_objective(
     unique_counts: torch.Tensor | None = None,
     reference_distance: float = COUNTDOWN_REFERENCE_DISTANCE,
 ) -> dict[str, Any]:
-    """Build the frozen linear-surprisal objective without selecting a protocol."""
+    """Historical linear-surprisal objective retained for Round-1 compatibility."""
 
-    if (
-        positive_sequence_log_probability.ndim != 1
-        or positive_sequence_log_probability.numel() < 1
-    ):
-        raise ValueError("positive sequence log-probability must be a non-empty vector")
-    if not bool(torch.isfinite(positive_sequence_log_probability).all()):
-        raise ValueError("positive sequence log-probability must be finite")
+    _validate_positive_log_probability(positive_sequence_log_probability)
     if not math.isfinite(alpha) or alpha < 0.0:
         raise ValueError("alpha must be finite and non-negative")
     if not math.isfinite(coefficient) or coefficient < 0.0:
@@ -825,35 +819,31 @@ def countdown_training_objective(
     coordinate = empty
     negative_evaluated = False
     if alpha > 0.0:
-        if (
-            negative_sequence_log_probability is None
-            or row_index is None
-            or unique_counts is None
-        ):
-            raise ValueError(
-                "nonzero alpha requires negative log-probabilities and bank indices"
-            )
-        weights = paper_aligned_linear_weights(
+        negative, indices, counts = _require_negative_inputs(
             negative_sequence_log_probability,
+            row_index,
+            unique_counts,
+        )
+        weights = paper_aligned_linear_weights(
+            negative,
             alpha=alpha,
             coefficient=coefficient,
             reference_distance=reference_distance,
         )
         coordinate = normalized_sequence_surprisal(
-            negative_sequence_log_probability,
+            negative,
             reference_distance=reference_distance,
         )
         weighted_negative_lp = mean_unique_negative_term(
-            negative_sequence_log_probability,
+            negative,
             weights,
-            row_index,
-            unique_counts,
+            indices,
+            counts,
         )
         negative_evaluated = True
 
     loss = -(positive_lp - weighted_negative_lp)
-    if not bool(torch.isfinite(loss)):
-        raise FloatingPointError("Countdown objective is non-finite")
+    _require_finite_scalar(loss, "Countdown objective")
     return {
         "loss": loss,
         "positive_lp": positive_lp,
@@ -872,23 +862,14 @@ def countdown_objective_from_model(
     coefficient: float,
     reference_distance: float = COUNTDOWN_REFERENCE_DISTANCE,
 ) -> dict[str, Any]:
-    """Evaluate the stable objective and skip the bank forward for Positive-only."""
+    """Evaluate the historical objective and skip bank forward for Positive-only."""
 
-    positive_batch = packed.get("positive")
-    if not isinstance(positive_batch, Mapping):
-        raise ValueError("packed Countdown batch has no positive tensor mapping")
+    positive_batch = _require_tensor_mapping(packed, "positive")
     positive_stats = completion_stats(model, positive_batch)
     negative_stats: dict[str, torch.Tensor] | None = None
     if alpha > 0.0:
-        bank_batch = packed.get("bank")
-        row_index = packed.get("bank_row_index")
-        unique_counts = packed.get("unique_counts")
-        if not isinstance(bank_batch, Mapping):
-            raise ValueError("packed Countdown batch has no bank tensor mapping")
-        if not isinstance(row_index, torch.Tensor) or not isinstance(
-            unique_counts, torch.Tensor
-        ):
-            raise ValueError("packed Countdown batch has invalid bank indices")
+        bank_batch = _require_tensor_mapping(packed, "bank")
+        row_index, unique_counts = _require_packed_bank_indices(packed)
         negative_stats = completion_stats(model, bank_batch)
         terms = countdown_training_objective(
             positive_stats["seq_lp"],
@@ -910,6 +891,491 @@ def countdown_objective_from_model(
         **terms,
         "positive_stats": positive_stats,
         "negative_stats": negative_stats,
+    }
+
+
+def _validate_positive_log_probability(values: torch.Tensor) -> None:
+    if values.ndim != 1 or values.numel() < 1:
+        raise ValueError("positive sequence log-probability must be a non-empty vector")
+    if not bool(torch.isfinite(values).all()):
+        raise ValueError("positive sequence log-probability must be finite")
+
+
+def _require_negative_inputs(
+    sequence_log_probability: torch.Tensor | None,
+    row_index: torch.Tensor | None,
+    unique_counts: torch.Tensor | None,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    if sequence_log_probability is None or row_index is None or unique_counts is None:
+        raise ValueError(
+            "negative log-probabilities, row_index, and unique_counts are required"
+        )
+    if not bool(torch.isfinite(sequence_log_probability).all()):
+        raise ValueError("negative sequence log-probability must be finite")
+    return sequence_log_probability, row_index, unique_counts
+
+
+def _require_tensor_mapping(
+    packed: Mapping[str, Any],
+    name: str,
+) -> Mapping[str, torch.Tensor]:
+    value = packed.get(name)
+    if not isinstance(value, Mapping):
+        raise ValueError(f"packed Countdown batch has no {name} tensor mapping")
+    if not all(isinstance(tensor, torch.Tensor) for tensor in value.values()):
+        raise ValueError(f"packed Countdown {name} mapping contains a non-tensor")
+    return value
+
+
+def _require_packed_bank_indices(
+    packed: Mapping[str, Any],
+) -> tuple[torch.Tensor, torch.Tensor]:
+    row_index = packed.get("bank_row_index")
+    unique_counts = packed.get("unique_counts")
+    if not isinstance(row_index, torch.Tensor) or not isinstance(
+        unique_counts, torch.Tensor
+    ):
+        raise ValueError("packed Countdown batch has invalid bank indices")
+    return row_index, unique_counts
+
+
+def _require_finite_scalar(value: torch.Tensor, name: str) -> None:
+    if value.ndim != 0 or not bool(torch.isfinite(value)):
+        raise FloatingPointError(f"{name} is non-finite")
+
+
+def active_tail_objective_from_precomputed_weights(
+    positive_sequence_log_probability: torch.Tensor,
+    *,
+    method: str,
+    shared_negative_scale: float,
+    negative_sequence_log_probability: torch.Tensor | None = None,
+    weights: torch.Tensor | None = None,
+    normalized_excess: torch.Tensor | None = None,
+    distance: torch.Tensor | None = None,
+    row_index: torch.Tensor | None = None,
+    unique_counts: torch.Tensor | None = None,
+) -> dict[str, Any]:
+    """Build the v79 objective from deterministic detached negative weights."""
+
+    _validate_positive_log_probability(positive_sequence_log_probability)
+    if method not in COUNTDOWN_ACTIVE_TAIL_METHODS:
+        raise ValueError(f"unknown Countdown active-tail method: {method}")
+    if not math.isfinite(shared_negative_scale) or shared_negative_scale < 0.0:
+        raise ValueError("shared_negative_scale must be finite and non-negative")
+
+    positive_lp = positive_sequence_log_probability.mean()
+    empty = positive_sequence_log_probability.new_empty((0,))
+    weighted_negative_lp = positive_lp.new_zeros(())
+    effective_negative_lp = positive_lp.new_zeros(())
+    actual_weights = empty
+    actual_normalized = empty
+    actual_distance = empty
+    negative_evaluated = False
+
+    if method != "positive_only":
+        negative, indices, counts = _require_negative_inputs(
+            negative_sequence_log_probability,
+            row_index,
+            unique_counts,
+        )
+        if weights is None or normalized_excess is None or distance is None:
+            raise ValueError("active-tail objective requires precomputed remoteness")
+        if weights.shape != negative.shape:
+            raise ValueError(
+                "active-tail weights must match negative log-probabilities"
+            )
+        if (
+            normalized_excess.shape != negative.shape
+            or distance.shape != negative.shape
+        ):
+            raise ValueError(
+                "active-tail remoteness must match negative log-probabilities"
+            )
+        if (
+            weights.requires_grad
+            or normalized_excess.requires_grad
+            or distance.requires_grad
+        ):
+            raise ValueError("active-tail weights and remoteness must be detached")
+        if not bool(torch.isfinite(weights).all()) or bool((weights < 0).any()):
+            raise ValueError("active-tail weights must be finite and non-negative")
+        weighted_negative_lp = mean_unique_negative_term(
+            negative,
+            weights,
+            indices,
+            counts,
+        )
+        effective_negative_lp = float(shared_negative_scale) * weighted_negative_lp
+        actual_weights = weights
+        actual_normalized = normalized_excess
+        actual_distance = distance
+        negative_evaluated = True
+
+    loss = -(positive_lp - effective_negative_lp)
+    _require_finite_scalar(loss, "Countdown active-tail objective")
+    return {
+        "method": method,
+        "loss": loss,
+        "positive_lp": positive_lp,
+        "weighted_negative_lp": weighted_negative_lp,
+        "effective_weighted_negative_lp": effective_negative_lp,
+        "shared_negative_scale": float(shared_negative_scale),
+        "weights": actual_weights,
+        "normalized_excess": actual_normalized,
+        "distance": actual_distance,
+        "negative_evaluated": negative_evaluated,
+        "weights_detached": True,
+    }
+
+
+def active_tail_training_objective(
+    positive_sequence_log_probability: torch.Tensor,
+    *,
+    method: str,
+    coefficient: float,
+    shared_negative_scale: float,
+    tau: float,
+    surprisal_scale: float,
+    negative_sequence_log_probability: torch.Tensor | None = None,
+    row_index: torch.Tensor | None = None,
+    unique_counts: torch.Tensor | None = None,
+) -> dict[str, Any]:
+    """Build the active-tail objective directly from sequence log-probabilities."""
+
+    if method == "positive_only":
+        return active_tail_objective_from_precomputed_weights(
+            positive_sequence_log_probability,
+            method=method,
+            shared_negative_scale=shared_negative_scale,
+        )
+    negative, indices, counts = _require_negative_inputs(
+        negative_sequence_log_probability,
+        row_index,
+        unique_counts,
+    )
+    normalized, distance = normalized_active_tail_remoteness(
+        negative,
+        tau=tau,
+        surprisal_scale=surprisal_scale,
+    )
+    weights = active_tail_taper_weights(
+        method,
+        distance,
+        coefficient=coefficient,
+    )
+    return active_tail_objective_from_precomputed_weights(
+        positive_sequence_log_probability,
+        method=method,
+        shared_negative_scale=shared_negative_scale,
+        negative_sequence_log_probability=negative,
+        weights=weights,
+        normalized_excess=normalized,
+        distance=distance,
+        row_index=indices,
+        unique_counts=counts,
+    )
+
+
+def deterministic_active_tail_weights_from_model(
+    model: Any,
+    negative_batch: Mapping[str, torch.Tensor],
+    *,
+    method: str,
+    coefficient: float,
+    tau: float,
+    surprisal_scale: float,
+) -> dict[str, torch.Tensor]:
+    """Compute learner-relative weights in eval/no-grad and restore model mode."""
+
+    if method == "positive_only":
+        raise ValueError("Positive-only must skip the negative-bank forward")
+    was_training = bool(model.training)
+    model.eval()
+    try:
+        with torch.no_grad():
+            stats = completion_stats(model, negative_batch)
+            normalized, distance = normalized_active_tail_remoteness(
+                stats["seq_lp"],
+                tau=tau,
+                surprisal_scale=surprisal_scale,
+            )
+            weights = active_tail_taper_weights(
+                method,
+                distance,
+                coefficient=coefficient,
+            )
+    finally:
+        model.train(was_training)
+    return {
+        "sequence_log_probability": stats["seq_lp"].detach(),
+        "normalized_excess": normalized.detach(),
+        "distance": distance.detach(),
+        "weights": weights.detach(),
+    }
+
+
+def active_tail_objective_from_model(
+    model: Any,
+    packed: Mapping[str, Any],
+    *,
+    method: str,
+    coefficient: float,
+    shared_negative_scale: float,
+    tau: float,
+    surprisal_scale: float,
+) -> dict[str, Any]:
+    """Use eval/no-grad weights and a second gradient-bearing negative forward."""
+
+    positive_batch = _require_tensor_mapping(packed, "positive")
+    positive_stats = completion_stats(model, positive_batch)
+    if method == "positive_only":
+        terms = active_tail_objective_from_precomputed_weights(
+            positive_stats["seq_lp"],
+            method=method,
+            shared_negative_scale=shared_negative_scale,
+        )
+        return {
+            **terms,
+            "positive_stats": positive_stats,
+            "weight_stats": None,
+            "negative_stats": None,
+            "negative_forward_count": 0,
+        }
+
+    bank_batch = _require_tensor_mapping(packed, "bank")
+    row_index, unique_counts = _require_packed_bank_indices(packed)
+    weight_stats = deterministic_active_tail_weights_from_model(
+        model,
+        bank_batch,
+        method=method,
+        coefficient=coefficient,
+        tau=tau,
+        surprisal_scale=surprisal_scale,
+    )
+    negative_stats = completion_stats(model, bank_batch)
+    terms = active_tail_objective_from_precomputed_weights(
+        positive_stats["seq_lp"],
+        method=method,
+        shared_negative_scale=shared_negative_scale,
+        negative_sequence_log_probability=negative_stats["seq_lp"],
+        weights=weight_stats["weights"],
+        normalized_excess=weight_stats["normalized_excess"],
+        distance=weight_stats["distance"],
+        row_index=row_index,
+        unique_counts=unique_counts,
+    )
+    return {
+        **terms,
+        "positive_stats": positive_stats,
+        "weight_stats": weight_stats,
+        "negative_stats": negative_stats,
+        "negative_forward_count": 2,
+    }
+
+
+def gradient_l2_from_loss(
+    loss: torch.Tensor,
+    parameters: Sequence[torch.nn.Parameter],
+) -> float:
+    """Return full-parameter raw gradient L2 without mutating ``parameter.grad``."""
+
+    trainable = [parameter for parameter in parameters if parameter.requires_grad]
+    if not trainable:
+        raise ValueError("gradient norm requires at least one trainable parameter")
+    _require_finite_scalar(loss, "calibration loss")
+    gradients = torch.autograd.grad(loss, trainable, allow_unused=True)
+    total = torch.zeros((), dtype=torch.float64)
+    for gradient in gradients:
+        if gradient is not None:
+            if not bool(torch.isfinite(gradient).all()):
+                raise FloatingPointError("calibration gradient is non-finite")
+            total += gradient.detach().double().cpu().square().sum()
+    return float(torch.sqrt(total).item())
+
+
+def active_tail_objective_gradient_l2(
+    model: Any,
+    packed: Mapping[str, Any],
+    parameters: Sequence[torch.nn.Parameter],
+    *,
+    objective: str,
+    method: str,
+    coefficient: float,
+    tau: float,
+    surprisal_scale: float,
+) -> float:
+    """Measure a deterministic positive or unscaled negative gradient norm."""
+
+    if objective not in {"positive", "negative"}:
+        raise ValueError("objective must be 'positive' or 'negative'")
+    was_training = bool(model.training)
+    model.zero_grad(set_to_none=True)
+    model.eval()
+    try:
+        if objective == "positive":
+            positive_batch = _require_tensor_mapping(packed, "positive")
+            stats = completion_stats(model, positive_batch)
+            loss = -stats["seq_lp"].mean()
+        else:
+            if method == "positive_only":
+                raise ValueError("Positive-only has no negative calibration objective")
+            bank_batch = _require_tensor_mapping(packed, "bank")
+            row_index, unique_counts = _require_packed_bank_indices(packed)
+            stats = completion_stats(model, bank_batch)
+            normalized, distance = normalized_active_tail_remoteness(
+                stats["seq_lp"],
+                tau=tau,
+                surprisal_scale=surprisal_scale,
+            )
+            weights = active_tail_taper_weights(
+                method,
+                distance,
+                coefficient=coefficient,
+            )
+            loss = mean_unique_negative_term(
+                stats["seq_lp"],
+                weights,
+                row_index,
+                unique_counts,
+            )
+        return gradient_l2_from_loss(loss, parameters)
+    finally:
+        model.zero_grad(set_to_none=True)
+        model.train(was_training)
+
+
+def calibrate_active_tail_model(
+    model: Any,
+    packed: Mapping[str, Any],
+    parameters: Sequence[torch.nn.Parameter],
+    *,
+    tau: float,
+    surprisal_scale: float,
+    inherited_exponential_coefficient: float,
+    maximum_coefficient: float,
+    bisection_steps: int,
+    relative_l2_tolerance: float,
+    minimum_active_distance_fraction: float,
+    nondegenerate_target_max_ratio: float,
+    minimum_taper_lambda: float,
+) -> dict[str, Any]:
+    """Calibrate v79 coefficients from one independent model-backed batch.
+
+    The caller owns split construction, model identity, batching, and persistence.
+    This function reads no confirmation/test metric and does not select a final
+    experiment coordinate.
+    """
+
+    if not math.isfinite(inherited_exponential_coefficient) or (
+        inherited_exponential_coefficient <= 0.0
+    ):
+        raise ValueError("inherited_exponential_coefficient must be positive")
+    bank_batch = _require_tensor_mapping(packed, "bank")
+    weight_stats = deterministic_active_tail_weights_from_model(
+        model,
+        bank_batch,
+        method="uncontrolled_negative",
+        coefficient=1.0,
+        tau=tau,
+        surprisal_scale=surprisal_scale,
+    )
+    active_fraction = float(
+        (weight_stats["normalized_excess"] > 0).float().mean().item()
+    )
+
+    common = dict(
+        model=model,
+        packed=packed,
+        parameters=parameters,
+        tau=tau,
+        surprisal_scale=surprisal_scale,
+    )
+    positive_norm = active_tail_objective_gradient_l2(
+        objective="positive",
+        method="positive_only",
+        coefficient=0.0,
+        **common,
+    )
+    uncontrolled_norm = active_tail_objective_gradient_l2(
+        objective="negative",
+        method="uncontrolled_negative",
+        coefficient=1.0,
+        **common,
+    )
+    target_unscaled = active_tail_objective_gradient_l2(
+        objective="negative",
+        method="exponential",
+        coefficient=inherited_exponential_coefficient,
+        **common,
+    )
+    if any(
+        not math.isfinite(value) or value <= 0.0
+        for value in (positive_norm, uncontrolled_norm, target_unscaled)
+    ):
+        raise RuntimeError("calibration norms must all be finite and positive")
+
+    shared_negative_scale = positive_norm / uncontrolled_norm
+    coefficients: dict[str, float] = {
+        "positive_only": 0.0,
+        "uncontrolled_negative": 1.0,
+        "global_matched": target_unscaled / uncontrolled_norm,
+        "exponential": float(inherited_exponential_coefficient),
+    }
+    matched_norms: dict[str, float] = {
+        "positive_only": 0.0,
+        "uncontrolled_negative": uncontrolled_norm,
+        "global_matched": coefficients["global_matched"] * uncontrolled_norm,
+        "exponential": target_unscaled,
+    }
+    errors: dict[str, float] = {
+        "global_matched": abs(
+            matched_norms["global_matched"] - target_unscaled
+        )
+        / target_unscaled,
+        "exponential": 0.0,
+    }
+    for method in ("reciprocal_linear", "squared_distance_exponential"):
+        coefficient, matched, relative_error = calibrate_monotone_coefficient(
+            lambda value, method=method: active_tail_objective_gradient_l2(
+                objective="negative",
+                method=method,
+                coefficient=value,
+                **common,
+            ),
+            target_unscaled,
+            maximum=maximum_coefficient,
+            steps=bisection_steps,
+            tolerance=relative_l2_tolerance,
+        )
+        coefficients[method] = coefficient
+        matched_norms[method] = matched
+        errors[method] = relative_error
+
+    guard = validate_active_tail_calibration(
+        active_distance_fraction=active_fraction,
+        uncontrolled_norm=uncontrolled_norm,
+        target_unscaled=target_unscaled,
+        coefficients=coefficients,
+        minimum_active_distance_fraction=minimum_active_distance_fraction,
+        nondegenerate_target_max_ratio=nondegenerate_target_max_ratio,
+        minimum_taper_lambda=minimum_taper_lambda,
+    )
+    return {
+        "positive_gradient_l2": positive_norm,
+        "uncontrolled_negative_gradient_l2": uncontrolled_norm,
+        "shared_negative_scale": shared_negative_scale,
+        "target_unscaled_negative_gradient_l2": target_unscaled,
+        "target_effective_negative_gradient_l2": (
+            shared_negative_scale * target_unscaled
+        ),
+        "method_coefficients": coefficients,
+        "matched_unscaled_negative_gradient_l2": matched_norms,
+        "relative_matching_error": errors,
+        "active_distance_fraction": active_fraction,
+        "calibration_degeneracy_guard": guard,
+        "confirmation_or_test_metrics_used": False,
+        "frozen_before_method_training": True,
     }
 
 
@@ -1040,7 +1506,12 @@ __all__ = [
     "ExpressionVerifier",
     "SYSTEM_PROMPT",
     "active_distance_diagnostics",
+    "active_tail_objective_from_model",
+    "active_tail_objective_from_precomputed_weights",
+    "active_tail_objective_gradient_l2",
     "active_tail_taper_weights",
+    "active_tail_training_objective",
+    "calibrate_active_tail_model",
     "calibrate_monotone_coefficient",
     "calibration_surprisal_scale",
     "chat_prompt",
@@ -1051,9 +1522,11 @@ __all__ = [
     "countdown_objective_from_model",
     "countdown_training_objective",
     "countdown_weight_diagnostics",
+    "deterministic_active_tail_weights_from_model",
     "encode_countdown_training_row",
     "encode_prompt_completion",
     "evaluate_response_batches",
+    "gradient_l2_from_loss",
     "make_prompt_balanced_sampler_plan",
     "mean_unique_negative_term",
     "move_tensor_batch_to_device",
