@@ -1,0 +1,125 @@
+version: 1
+run_id: E8_PAPER_ALIGNED_RECIPROCAL_QUADRATIC_DENSE_LAMBDA_CURVE_20260719_01
+lane: e8
+priority: 152
+created_at: "2026-07-19T16:10:00Z"
+experiment_id: EXT-C-E8-ORACLE-OFFLINE-V2-PAPER-ALIGNED-RECIPROCAL-QUADRATIC-DENSE-LAMBDA-CURVE-0.5B-01
+repo_commit: 5305df6fd4540d2cc57efacfcebc69bc853851db
+
+registration:
+  mode: deferred
+  closure_required: true
+
+provenance:
+  commit_policy: protected_paths_unchanged
+  protected_paths:
+    - configs/countdown_e8_oracle_offline_v2_reciprocal_quadratic_dense_lambda_curve_0p5b.yaml
+    - src/drpo/countdown_e8_alpha1_highc_scan_common.py
+    - src/drpo/countdown_e8_alpha1_c_scan_trainer.py
+    - src/drpo/countdown_e8_alpha1_c_scan_runtime.py
+    - src/drpo/countdown_e8_alpha1_highc_scan_runtime.py
+    - scripts/run_countdown_e8_oracle_offline_v2_alpha1_c_scan_auto.py
+    - scripts/run_countdown_e8_oracle_offline_v2_alpha1_highc_scan_auto.py
+    - scripts/run_countdown_e8_oracle_offline_v2_alpha1_highc_scan_auto_one_click.sh
+    - tests/test_countdown_e8_oracle_offline_v2_alpha1_highc_scan.py
+
+purpose: >
+  Densify the Reciprocal-Quadratic lambda response curve using sixteen new
+  lambda values on the same two paired development seeds, for exactly thirty-
+  two cells. The new points fill the gaps between the completed 19, 39, 79,
+  159, and 319 anchors and extend the right boundary to 1279. Do not rerun
+  completed reciprocal cells, Reciprocal-Linear, Positive-only, Global, or the
+  exponential anchors. This validation-only pilot resolves curve shape and
+  right-boundary behavior; it cannot establish significance, convergence,
+  steady state, or formal method ranking.
+
+entrypoint:
+  cwd: repo_root
+  command: >-
+    E8_ALPHA1_HIGHC_WORK_DIR=outputs/e8/paper_aligned_reciprocal_quadratic_dense_lambda_curve_001
+    E8_ALPHA1_HIGHC_GRID_CONFIG=configs/countdown_e8_oracle_offline_v2_reciprocal_quadratic_dense_lambda_curve_0p5b.yaml
+    bash scripts/run_countdown_e8_oracle_offline_v2_alpha1_highc_scan_auto_one_click.sh
+
+recovery:
+  enabled: true
+  max_attempts: 2
+  resume_command: >-
+    E8_ALPHA1_HIGHC_WORK_DIR=outputs/e8/paper_aligned_reciprocal_quadratic_dense_lambda_curve_001
+    E8_ALPHA1_HIGHC_GRID_CONFIG=configs/countdown_e8_oracle_offline_v2_reciprocal_quadratic_dense_lambda_curve_0p5b.yaml
+    bash scripts/run_countdown_e8_oracle_offline_v2_alpha1_highc_scan_auto_one_click.sh
+  retryable_exit_codes: [137, 143]
+  checkpoint_globs:
+    - outputs/e8/paper_aligned_reciprocal_quadratic_dense_lambda_curve_001/RUNTIME_SELECTION.json
+    - outputs/e8/paper_aligned_reciprocal_quadratic_dense_lambda_curve_001/RUNTIME_SLOTS.json
+    - outputs/e8/paper_aligned_reciprocal_quadratic_dense_lambda_curve_001/SMOKE_GATE.json
+    - outputs/e8/paper_aligned_reciprocal_quadratic_dense_lambda_curve_001/SWEEP_PLAN.json
+    - outputs/e8/paper_aligned_reciprocal_quadratic_dense_lambda_curve_001/SWEEP_STATUS.json
+    - outputs/e8/paper_aligned_reciprocal_quadratic_dense_lambda_curve_001/SWEEP_COMPLETE.json
+    - outputs/e8/paper_aligned_reciprocal_quadratic_dense_lambda_curve_001/aggregate/per_cell_summary.csv
+    - outputs/e8/paper_aligned_reciprocal_quadratic_dense_lambda_curve_001/aggregate/terminal_audit.json
+
+resources:
+  gpu_required: true
+  gpu_ids: [0, 1, 2, 3, 4, 5, 6, 7]
+  parallel_cells_per_gpu: 2
+  expected_full_waves: 2
+
+policy:
+  formal_evidence_allowed: false
+  validation_only: true
+  test_data_forbidden: true
+  method_ranking_claim_allowed: false
+  fixed_horizon_is_convergence: false
+  smoke_is_scientific_evidence: false
+
+success_criteria:
+  - liveness smoke passes for reciprocal_quadratic lambda 511 with 2 steps and 8 validation examples; smoke remains non-scientific
+  - sweep contains exactly 16 parameter points and 32 cells
+  - every cell uses reciprocal_quadratic with alpha 1.0
+  - lambda values are exactly 24, 29, 34, 47, 57, 68, 95, 113, 135, 191, 227, 270, 383, 511, 767, and 1279
+  - paired seed offsets are exactly 4000 and 5000
+  - completed lambda values 1, 3, 7, 19, 39, 79, 159, and 319 are not rerun
+  - Reciprocal-Linear, Positive-only, Global, and exponential anchors are not rerun
+  - training uses fixed 1200 steps without early stopping
+  - primary metric is late-window Pass@8 over steps 800, 900, 1000, 1100, and 1200
+  - terminal Pass@8 is secondary and best-checkpoint metrics remain supplementary
+  - task-performance, valid-rate structure diagnostics, and NaN/Inf failures are reported separately
+  - terminal audit passes and does not adjudicate convergence or formal ranking
+  - execution uses GPU 0-7 with two cells per GPU and two expected full waves
+
+artifacts:
+  include:
+    - outputs/e8/paper_aligned_reciprocal_quadratic_dense_lambda_curve_001/RUNTIME_SELECTION.json
+    - outputs/e8/paper_aligned_reciprocal_quadratic_dense_lambda_curve_001/RUNTIME_SLOTS.json
+    - outputs/e8/paper_aligned_reciprocal_quadratic_dense_lambda_curve_001/SMOKE_GATE.json
+    - outputs/e8/paper_aligned_reciprocal_quadratic_dense_lambda_curve_001/SWEEP_PLAN.json
+    - outputs/e8/paper_aligned_reciprocal_quadratic_dense_lambda_curve_001/SWEEP_STATUS.json
+    - outputs/e8/paper_aligned_reciprocal_quadratic_dense_lambda_curve_001/SWEEP_COMPLETE.json
+    - outputs/e8/paper_aligned_reciprocal_quadratic_dense_lambda_curve_001/aggregate/per_cell_summary.csv
+    - outputs/e8/paper_aligned_reciprocal_quadratic_dense_lambda_curve_001/aggregate/terminal_audit.json
+    - outputs/e8/paper_aligned_reciprocal_quadratic_dense_lambda_curve_001/methods/*/metrics.csv
+    - outputs/e8/paper_aligned_reciprocal_quadratic_dense_lambda_curve_001/methods/*/summary.json
+    - outputs/e8/paper_aligned_reciprocal_quadratic_dense_lambda_curve_001/logs/*.log
+  exclude:
+    - outputs/e8/paper_aligned_reciprocal_quadratic_dense_lambda_curve_001/methods/*/*adapter*/**
+    - outputs/e8/paper_aligned_reciprocal_quadratic_dense_lambda_curve_001/**/*.safetensors
+    - outputs/e8/paper_aligned_reciprocal_quadratic_dense_lambda_curve_001/**/*.bin
+
+review:
+  required: true
+  merge_allowed: false
+  result_status: pilot
+  registration_state: dev_code_first_unregistered
+
+publish:
+  enabled: false
+
+delivery:
+  enabled: true
+  auto: true
+  mode: results_repo
+  repository: easonhuo/drpo-results
+  branch: ingest/e8
+  export_profile: manifest_text_v1
+  max_total_size_mb: 30
+  max_file_size_mb: 10
