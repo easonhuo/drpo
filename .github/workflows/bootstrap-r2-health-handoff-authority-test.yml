@@ -31,15 +31,44 @@ jobs:
           python -m pip install --quiet --upgrade pip
           python -m pip install --quiet -e . pytest pyyaml ruff
 
-      - name: Run focused authority verification
+      - name: Capture focused authority verification
+        shell: bash
+        run: |
+          set +e
+          python -m pytest tests/test_handoff_authority.py -q -vv \
+            > /tmp/pytest.log 2>&1
+          echo $? > /tmp/pytest.exit
+          python scripts/handoff_authority.py verify --repo-root . \
+            > /tmp/authority.log 2>&1
+          echo $? > /tmp/authority.exit
+          python scripts/validate_governance_pipeline_stage_status.py --repo-root . \
+            > /tmp/governance.log 2>&1
+          echo $? > /tmp/governance.exit
+          python -m ruff check tests/test_handoff_authority.py \
+            > /tmp/ruff.log 2>&1
+          echo $? > /tmp/ruff.exit
+          python -m compileall -q tests/test_handoff_authority.py \
+            > /tmp/compile.log 2>&1
+          echo $? > /tmp/compile.exit
+          exit 0
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: r2-health-handoff-authority-diagnostic-${{ github.run_id }}
+          path: |
+            /tmp/*.log
+            /tmp/*.exit
+
+      - name: Enforce focused authority verification
         shell: bash
         run: |
           set -euo pipefail
-          python -m pytest tests/test_handoff_authority.py -q
-          python scripts/handoff_authority.py verify --repo-root .
-          python scripts/validate_governance_pipeline_stage_status.py --repo-root .
-          python -m ruff check tests/test_handoff_authority.py
-          python -m compileall -q tests/test_handoff_authority.py
+          for name in pytest authority governance ruff compile; do
+            echo "=== ${name} ==="
+            cat "/tmp/${name}.log"
+            test "$(cat "/tmp/${name}.exit")" = "0"
+          done
 
       - name: Publish clean candidate commit
         shell: bash
