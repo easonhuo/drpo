@@ -56,9 +56,7 @@ def _arrays() -> tuple[
 ]:
     generator = np.random.default_rng(81)
     observations = generator.normal(size=(96, 5)).astype(np.float32)
-    actions = np.tanh(
-        generator.normal(size=(96, 3))
-    ).astype(np.float32)
+    actions = np.tanh(generator.normal(size=(96, 3))).astype(np.float32)
     advantages = np.empty(96, dtype=np.float32)
     negative_magnitudes = np.tile(
         np.linspace(0.5, 2.0, 16, dtype=np.float32),
@@ -130,34 +128,20 @@ def _legacy_config(protocol: HopperProtocol) -> SimpleNamespace:
         weight_decay=protocol.weight_decay,
         actor_batch_size=protocol.actor_batch_size,
         max_gradient_norm=protocol.max_gradient_norm,
-        support_boundary_threshold=(
-            protocol.support_boundary_threshold
-        ),
+        support_boundary_threshold=(protocol.support_boundary_threshold),
         audit_windows=protocol.audit_windows,
-        actor_state_drift_tolerance=(
-            protocol.actor_state_drift_tolerance
-        ),
+        actor_state_drift_tolerance=(protocol.actor_state_drift_tolerance),
         actor_update_tolerance=protocol.actor_update_tolerance,
-        support_boundary_fraction=(
-            protocol.support_boundary_fraction
-        ),
-        task_return_drop_threshold=(
-            protocol.task_return_drop_threshold
-        ),
+        support_boundary_fraction=(protocol.support_boundary_fraction),
+        task_return_drop_threshold=(protocol.task_return_drop_threshold),
         near_quantile=protocol.near_quantile,
         far_quantile=protocol.far_quantile,
         advantage_bins=protocol.advantage_bins,
-        advantage_match_relative_tolerance=(
-            protocol.advantage_match_relative_tolerance
-        ),
+        advantage_match_relative_tolerance=(protocol.advantage_match_relative_tolerance),
         gradient_probe_pairs=protocol.gradient_probe_pairs,
         distance_bins=protocol.distance_bins,
-        far_cap_reference_quantile=(
-            protocol.far_cap_reference_quantile
-        ),
-        global_budget_audit_size=(
-            protocol.global_budget_audit_size
-        ),
+        far_cap_reference_quantile=(protocol.far_cap_reference_quantile),
+        global_budget_audit_size=(protocol.global_budget_audit_size),
     )
 
 
@@ -177,12 +161,8 @@ def _legacy_suite(
     legacy.seed_everything(seed)
     positive_train = train_indices[advantages[train_indices] > 0]
     negative_train = train_indices[advantages[train_indices] < 0]
-    validation_positive = validation_indices[
-        advantages[validation_indices] > 0
-    ]
-    validation_negative = validation_indices[
-        advantages[validation_indices] < 0
-    ]
+    validation_positive = validation_indices[advantages[validation_indices] > 0]
+    validation_negative = validation_indices[advantages[validation_indices] < 0]
     generator = np.random.default_rng(seed + 321)
     half = max(1, protocol.audit_sample_size // 2)
     audit_positive = generator.choice(
@@ -195,9 +175,7 @@ def _legacy_suite(
         size=min(half, len(validation_negative)),
         replace=False,
     )
-    audit_indices = np.concatenate(
-        [audit_positive, audit_negative]
-    ).astype(np.int64)
+    audit_indices = np.concatenate([audit_positive, audit_negative]).astype(np.int64)
     generator.shuffle(audit_indices)
     fixed_negative_indices = generator.choice(
         negative_train,
@@ -271,12 +249,8 @@ def _legacy_suite(
         device=device,
         output_dir=output_dir / "probes",
     )
-    far_threshold = float(
-        (matching["near_cut"] + matching["far_cut"]) / 2.0
-    )
-    near_pool = negative_train[
-        distances[negative_train] <= matching["near_cut"]
-    ]
+    far_threshold = float((matching["near_cut"] + matching["far_cut"]) / 2.0)
+    near_pool = negative_train[distances[negative_train] <= matching["near_cut"]]
     with torch.no_grad():
         near_scores = (
             policy.output_score_norm(
@@ -336,8 +310,7 @@ def _legacy_suite(
         )
         branch_audits[method] = audit
         branch_states[method] = {
-            name: value.detach().clone()
-            for name, value in branch.state_dict().items()
+            name: value.detach().clone() for name, value in branch.state_dict().items()
         }
     return {
         "positive_audit": positive_audit,
@@ -431,43 +404,21 @@ def test_preparation_and_six_branches_match_legacy(
         actual["global_budget"],
         expected["budget"],
     )
-    assert actual["far_threshold"] == pytest.approx(
-        expected["far_threshold"]
-    )
-    assert actual["far_cap_score"] == pytest.approx(
-        expected["far_cap_score"]
-    )
+    assert actual["far_threshold"] == pytest.approx(expected["far_threshold"])
+    assert actual["far_cap_score"] == pytest.approx(expected["far_cap_score"])
 
-    manifest = json.loads(
-        (
-            tmp_path
-            / "reference"
-            / "prepared_actor_manifest.json"
-        ).read_text()
-    )
-    assert manifest["audit_indices"] == expected[
-        "audit_indices"
-    ].tolist()
-    assert manifest["fixed_negative_indices"] == expected[
-        "fixed_negative_indices"
-    ].tolist()
-    assert manifest["near_indices"] == expected[
-        "near_indices"
-    ].tolist()
-    assert manifest["far_indices"] == expected[
-        "far_indices"
-    ].tolist()
+    manifest = json.loads((tmp_path / "reference" / "prepared_actor_manifest.json").read_text())
+    assert manifest["audit_indices"] == expected["audit_indices"].tolist()
+    assert manifest["fixed_negative_indices"] == expected["fixed_negative_indices"].tolist()
+    assert manifest["near_indices"] == expected["near_indices"].tolist()
+    assert manifest["far_indices"] == expected["far_indices"].tolist()
 
     for method in METHODS:
         for key, value in expected["branch_audits"][method].items():
             if key != "checkpoint":
                 _assert_nested_close(actual["methods"][method][key], value)
         reference_state = _checkpoint_model(
-            tmp_path
-            / "reference"
-            / "methods"
-            / method
-            / "terminal_actor.pt"
+            tmp_path / "reference" / "methods" / method / "terminal_actor.pt"
         )
         for name, value in expected["branch_states"][method].items():
             torch.testing.assert_close(
@@ -500,14 +451,13 @@ def test_branch_failure_is_isolated_and_other_methods_complete(
     ) = _arrays()
     protocol = _protocol()
 
-    def fail_one_branch(**kwargs: Any) -> tuple[
+    def fail_one_branch(
+        **kwargs: Any,
+    ) -> tuple[
         SquashedGaussianPolicy,
         dict[str, Any],
     ]:
-        if (
-            kwargs["method"] == "near_zero"
-            and kwargs["max_steps"] == protocol.branch_steps
-        ):
+        if kwargs["method"] == "near_zero" and kwargs["max_steps"] == protocol.branch_steps:
             raise RuntimeError("injected branch failure")
         return train_actor_stage(**kwargs)
 
@@ -525,28 +475,12 @@ def test_branch_failure_is_isolated_and_other_methods_complete(
     )
     assert summary["suite_status"] == "partial_failure"
     assert summary["failed_methods"] == ["near_zero"]
-    assert set(summary["completed_methods"]) == set(METHODS) - {
-        "near_zero"
-    }
+    assert set(summary["completed_methods"]) == set(METHODS) - {"near_zero"}
     assert set(summary["methods"]) == set(METHODS) - {"near_zero"}
-    assert summary["branch_failures"]["near_zero"][
-        "failure_isolated"
-    ] is True
-    assert (
-        tmp_path
-        / "isolated"
-        / "methods"
-        / "near_zero"
-        / "branch_failure.json"
-    ).is_file()
+    assert summary["branch_failures"]["near_zero"]["failure_isolated"] is True
+    assert (tmp_path / "isolated" / "methods" / "near_zero" / "branch_failure.json").is_file()
     for method in set(METHODS) - {"near_zero"}:
-        assert (
-            tmp_path
-            / "isolated"
-            / "methods"
-            / method
-            / "terminal_audit.json"
-        ).is_file()
+        assert (tmp_path / "isolated" / "methods" / method / "terminal_audit.json").is_file()
 
 
 def test_suite_rejects_a_mixed_output_root(tmp_path: Path) -> None:

@@ -52,17 +52,13 @@ def full_gradient_statistics(
     elements = 0
     for gradient in gradients:
         if gradient is not None:
-            total_square += float(
-                gradient.detach().square().sum().cpu()
-            )
+            total_square += float(gradient.detach().square().sum().cpu())
             elements += int(gradient.numel())
     raw = math.sqrt(total_square)
     return {
         "raw": raw,
         "rms": raw / math.sqrt(max(elements, 1)),
-        "relative_to_parameter_norm": (
-            raw / max(parameter_norm(parameter_list), EPS)
-        ),
+        "relative_to_parameter_norm": (raw / max(parameter_norm(parameter_list), EPS)),
         "elements": float(elements),
     }
 
@@ -83,22 +79,14 @@ def parameter_update_statistics(
     delta_square = 0.0
     elements = 0
     for old, current in zip(previous, parameter_list):
-        delta_square += float(
-            (current.detach() - old).square().sum().cpu()
-        )
+        delta_square += float((current.detach() - old).square().sum().cpu())
         elements += int(current.numel())
     elapsed = max(int(elapsed_steps), 1)
     delta = math.sqrt(delta_square)
     return {
         "raw_per_step": delta / elapsed,
-        "rms_per_step": (
-            delta / math.sqrt(max(elements, 1)) / elapsed
-        ),
-        "relative_per_step": (
-            delta
-            / max(parameter_norm(parameter_list), EPS)
-            / elapsed
-        ),
+        "rms_per_step": (delta / math.sqrt(max(elements, 1)) / elapsed),
+        "relative_per_step": (delta / max(parameter_norm(parameter_list), EPS) / elapsed),
         "elements": float(elements),
     }
 
@@ -110,10 +98,7 @@ def rankdata(values: np.ndarray) -> np.ndarray:
     position = 0
     while position < len(values):
         stop = position + 1
-        while (
-            stop < len(values)
-            and values[order[stop]] == values[order[position]]
-        ):
+        while stop < len(values) and values[order[stop]] == values[order[position]]:
             stop += 1
         average_rank = 0.5 * (position + stop - 1) + 1.0
         ranks[order[position:stop]] = average_rank

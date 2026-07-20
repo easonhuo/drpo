@@ -73,8 +73,7 @@ def run_phase_rows(
                 )
                 summary["task_performance_collapse_event"] = bool(
                     float(summary["reward"])
-                    < protocols.core.task_failure_retention
-                    * positive_ceiling_reward
+                    < protocols.core.task_failure_retention * positive_ceiling_reward
                 )
                 summary["support_or_variance_boundary_event"] = bool(
                     summary.get("support_boundary_onset") is not None
@@ -86,10 +85,7 @@ def run_phase_rows(
                 scan_rows.append(summary)
                 write_run(
                     root,
-                    Path("phase")
-                    / branch
-                    / f"alpha_{float(alpha):.2f}"
-                    / f"seed_{seed}",
+                    Path("phase") / branch / f"alpha_{float(alpha):.2f}" / f"seed_{seed}",
                     summary=summary,
                     trajectory=run.trajectory,
                     state_dict=run.actor.state_dict(),
@@ -142,9 +138,7 @@ def run_taper_rows(
             rows.append(summary)
             write_run(
                 root,
-                Path("taper")
-                / config_name(family, retention)
-                / f"seed_{seed}",
+                Path("taper") / config_name(family, retention) / f"seed_{seed}",
                 summary=summary,
                 trajectory=run.trajectory,
                 diagnostics=run.diagnostics,

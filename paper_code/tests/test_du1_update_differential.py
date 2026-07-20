@@ -55,9 +55,7 @@ def test_global_match_and_first_adam_update_match() -> None:
     )
     old_spec = legacy.method_specs(["global_matched"])[0]
     new_spec = method_specs(("global_matched",))[0]
-    coefficients = legacy.taper_coefficients(
-        protocol.reference_rare_retention
-    )
+    coefficients = legacy.taper_coefficients(protocol.reference_rare_retention)
     raw_spec = legacy.MethodSpec(
         "all_negative",
         legacy.CELL_NAMES,
@@ -107,23 +105,17 @@ def test_global_match_and_first_adam_update_match() -> None:
         **old_diagnostics,
         "negative_raw_gradient_norm": old_raw_norm,
         "negative_target_gradient_norm": old_target_norm,
-        "negative_applied_gradient_norm": (
-            old_scale * old_raw_norm
-        ),
-        "stepwise_budget_match_error": abs(
-            old_scale * old_raw_norm - old_target_norm
-        ),
+        "negative_applied_gradient_norm": (old_scale * old_raw_norm),
+        "stepwise_budget_match_error": abs(old_scale * old_raw_norm - old_target_norm),
         "stepwise_global_scale": old_scale,
     }
 
-    new_negative, new_diagnostics = (
-        negative_loss_and_diagnostics(
-            cells=new_cells,
-            spec=new_spec,
-            calibration=new_calibration,
-            protocol=protocol,
-            model=new_model,
-        )
+    new_negative, new_diagnostics = negative_loss_and_diagnostics(
+        cells=new_cells,
+        spec=new_spec,
+        calibration=new_calibration,
+        protocol=protocol,
+        model=new_model,
     )
     torch.testing.assert_close(
         new_negative,
@@ -150,14 +142,12 @@ def test_global_match_and_first_adam_update_match() -> None:
     old_loss = (
         -old_positive.mean()
         + protocol.negative_alpha * old_negative
-        + protocol.rarity_logit_anchor_coefficient
-        * old_anchor
+        + protocol.rarity_logit_anchor_coefficient * old_anchor
     )
     new_loss = (
         -new_positive.mean()
         + protocol.negative_alpha * new_negative
-        + protocol.rarity_logit_anchor_coefficient
-        * new_anchor
+        + protocol.rarity_logit_anchor_coefficient * new_anchor
     )
     torch.testing.assert_close(
         new_loss,

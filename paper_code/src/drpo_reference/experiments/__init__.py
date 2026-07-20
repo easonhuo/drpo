@@ -88,9 +88,7 @@ def _step_rollout_env(
         observation, reward, done, _info = result
         done = bool(done)
     else:
-        raise RuntimeError(
-            f"D4RL env.step returned {len(result)} values; expected 4 or 5"
-        )
+        raise RuntimeError(f"D4RL env.step returned {len(result)} values; expected 4 or 5")
     array = np.asarray(observation, dtype=np.float32).reshape(-1)
     scalar_reward = float(reward)
     if not np.all(np.isfinite(array)) or not math.isfinite(scalar_reward):
@@ -141,9 +139,7 @@ def evaluate_d4rl_agent(
         low_array = np.asarray(low, dtype=np.float32).reshape(-1)
         high_array = np.asarray(high, dtype=np.float32).reshape(-1)
         if low_array.size != action_dim or high_array.size != action_dim:
-            raise RuntimeError(
-                "D4RL environment action dimension does not match dataset"
-            )
+            raise RuntimeError("D4RL environment action dimension does not match dataset")
         env_limit = getattr(getattr(env, "spec", None), "max_episode_steps", None)
         step_limit = (
             min(int(env_limit), int(max_steps))
@@ -153,9 +149,7 @@ def evaluate_d4rl_agent(
         for episode in range(episodes):
             observation = _reset_rollout_env(env, seed + episode)
             if observation.size != observation_dim:
-                raise RuntimeError(
-                    "D4RL environment observation dimension does not match dataset"
-                )
+                raise RuntimeError("D4RL environment observation dimension does not match dataset")
             total = 0.0
             length = 0
             done = False
@@ -167,9 +161,7 @@ def evaluate_d4rl_agent(
                 clipped = np.clip(action, low_array, high_array)
                 observation, reward, done = _step_rollout_env(env, clipped)
                 if observation.size != observation_dim:
-                    raise RuntimeError(
-                        "D4RL rollout observation dimension changed during episode"
-                    )
+                    raise RuntimeError("D4RL rollout observation dimension changed during episode")
                 total += reward
                 length += 1
             if length <= 0 or not math.isfinite(total):
@@ -214,10 +206,7 @@ def _aggregate_task_evaluations(
         dtype=np.float64,
     )
     normalized_means = np.asarray(
-        [
-            float(evaluation["normalized_score_mean"])
-            for evaluation in evaluations
-        ],
+        [float(evaluation["normalized_score_mean"]) for evaluation in evaluations],
         dtype=np.float64,
     )
     return {
@@ -283,9 +272,7 @@ def run_d4rl(
         method_profile=method_profile,
     )
     legacy_single_exprank_layout = bool(
-        methods is None
-        and len(method_specs) == 1
-        and method_specs[0].method_id == "exprank"
+        methods is None and len(method_specs) == 1 and method_specs[0].method_id == "exprank"
     )
     data_root = Path(dataset_root).expanduser().resolve()
     output = Path(output_root).expanduser().resolve()
@@ -395,19 +382,14 @@ def run_d4rl(
                             device=resolved_device,
                             output_root=run_root,
                         )
-                    losses = [
-                        float(record["loss"])
-                        for record in result["loss_records"]
-                    ]
+                    losses = [float(record["loss"]) for record in result["loss_records"]]
                     finite = all(math.isfinite(loss) for loss in losses)
                     if not finite:
                         raise FloatingPointError(
                             "non-finite D4RL loss for "
                             f"{task.task_id}, method={method.method_id}, seed={seed}"
                         )
-                    checkpoints = tuple(
-                        str(path) for path in result["checkpoints"]
-                    )
+                    checkpoints = tuple(str(path) for path in result["checkpoints"])
                     if not checkpoints:
                         raise RuntimeError(
                             "D4RL run produced no checkpoint: "
@@ -469,9 +451,7 @@ def run_d4rl(
             if legacy_single_exprank_layout:
                 exprank = method_results["exprank"]
                 task_entry["runs"] = exprank["runs"]
-                task_entry["evaluation_summary"] = exprank[
-                    "evaluation_summary"
-                ]
+                task_entry["evaluation_summary"] = exprank["evaluation_summary"]
             task_results[task.task_id] = task_entry
 
         expected_runs = len(tasks) * len(method_specs) * len(resolved_seeds)
@@ -511,9 +491,7 @@ def run_d4rl(
         if not legacy_single_exprank_layout:
             completion.update(
                 {
-                    "method_ids": [
-                        method.method_id for method in method_specs
-                    ],
+                    "method_ids": [method.method_id for method in method_specs],
                     "method_profile": method_profile,
                     "final_method_matrix_frozen": False,
                 }

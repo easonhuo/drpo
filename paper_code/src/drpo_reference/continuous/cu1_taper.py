@@ -175,9 +175,7 @@ def weighted_negative_loss(
 ) -> tuple[torch.Tensor, dict[str, float]]:
     states = split.s if ids is None else split.s[ids]
     actions = split.negative_actions if ids is None else split.negative_actions[ids]
-    advantages = (
-        split.negative_advantages if ids is None else split.negative_advantages[ids]
-    )
+    advantages = split.negative_advantages if ids is None else split.negative_advantages[ids]
     log_probability, mu, log_std = actor_log_prob(
         actor,
         states,
@@ -268,9 +266,7 @@ def full_field_diagnostics(
     )
     negative_norm = float(gradient_norm(negative_gradient).item())
     total_norm = float(gradient_norm(total_gradient).item())
-    residual = total_norm / (
-        positive_norm + taper.negative_alpha * negative_norm + EPS
-    )
+    residual = total_norm / (positive_norm + taper.negative_alpha * negative_norm + EPS)
     return {
         "positive_gradient_norm": positive_norm,
         "negative_gradient_norm": negative_norm,
@@ -323,12 +319,9 @@ def evaluate_taper_state(
         or not support["sigma_output_finite_all_states"]
     )
     boundary = bool(
-        support["support_contraction_boundary"]
-        or support["unexpected_support_expansion_boundary"]
+        support["support_contraction_boundary"] or support["unexpected_support_expansion_boundary"]
     )
-    task_failure = bool(
-        float(task["reward"]) < taper.task_failure_retention * initial_reward
-    )
+    task_failure = bool(float(task["reward"]) < taper.task_failure_retention * initial_reward)
     return {
         **task,
         **field,
@@ -382,9 +375,7 @@ def per_sample_gradient_diagnostic(
             distance = float(components["standardized_distance"].item())
             advantage_abs = abs(float(advantages[contour_index].item()))
             raw_output_mean = advantage_abs * float(components["mean_score"].item())
-            raw_output_log_scale = advantage_abs * abs(
-                float(components["log_scale_score"].item())
-            )
+            raw_output_log_scale = advantage_abs * abs(float(components["log_scale_score"].item()))
             raw_output_joint = advantage_abs * float(components["joint_score"].item())
             weight = float(
                 retention_weight(
@@ -409,8 +400,7 @@ def per_sample_gradient_diagnostic(
                     "raw_output_log_scale_gradient_abs": raw_output_log_scale,
                     "raw_output_joint_gradient_norm": raw_output_joint,
                     "weighted_output_mean_gradient_norm": weight * raw_output_mean,
-                    "weighted_output_log_scale_gradient_abs": weight
-                    * raw_output_log_scale,
+                    "weighted_output_log_scale_gradient_abs": weight * raw_output_log_scale,
                     "weighted_output_joint_gradient_norm": weight * raw_output_joint,
                     "raw_full_parameter_gradient_norm": raw_norm,
                     "weighted_full_parameter_gradient_norm": weight * raw_norm,
@@ -423,14 +413,9 @@ def per_sample_gradient_diagnostic(
         far_region = [
             row
             for row in rows
-            if row["standardized_distance"] >= taper.reference_distance
-            and row[field] > 0.0
+            if row["standardized_distance"] >= taper.reference_distance and row[field] > 0.0
         ]
-        ratio = (
-            float(np.mean(far) / (np.mean(near) + EPS))
-            if near and far
-            else float("nan")
-        )
+        ratio = float(np.mean(far) / (np.mean(near) + EPS)) if near and far else float("nan")
         if len(far_region) < 2:
             return ratio, float("nan")
         x = np.log(
@@ -442,12 +427,8 @@ def per_sample_gradient_diagnostic(
         y = np.log(np.asarray([row[field] for row in far_region], dtype=float))
         return ratio, float(np.polyfit(x, y, 1)[0])
 
-    full_ratio, full_slope = ratio_and_slope(
-        "weighted_full_parameter_gradient_norm"
-    )
-    output_ratio, output_slope = ratio_and_slope(
-        "weighted_output_joint_gradient_norm"
-    )
+    full_ratio, full_slope = ratio_and_slope("weighted_full_parameter_gradient_norm")
+    output_ratio, output_slope = ratio_and_slope("weighted_output_joint_gradient_norm")
     return rows, {
         "far_near_weighted_gradient_ratio": full_ratio,
         "far_loglog_slope": full_slope,
@@ -579,10 +560,7 @@ def run_taper_method(
                 if family == "positive_only"
                 else taper.normalized_field_residual_threshold
             )
-            if (
-                max_slope < taper.normalized_slope_threshold
-                and residual < residual_threshold
-            ):
+            if max_slope < taper.normalized_slope_threshold and residual < residual_threshold:
                 stable_candidate_step = step
                 audit_target_step = two_times_audit_target(
                     step,

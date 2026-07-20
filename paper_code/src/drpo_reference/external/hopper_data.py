@@ -38,19 +38,11 @@ def load_hopper_hdf5(
             "rewards",
             "terminals",
         )
-        missing = [
-            key for key in required if key not in handle
-        ]
+        missing = [key for key in required if key not in handle]
         if missing:
-            raise ValueError(
-                f"Missing legacy D4RL arrays: {missing}"
-            )
+            raise ValueError(f"Missing legacy D4RL arrays: {missing}")
         total = int(handle["observations"].shape[0])
-        limit = (
-            total
-            if max_transitions is None
-            else min(total, int(max_transitions))
-        )
+        limit = total if max_transitions is None else min(total, int(max_transitions))
         observations = np.asarray(
             handle["observations"][:limit],
             dtype=np.float32,
@@ -85,13 +77,9 @@ def load_hopper_hdf5(
                 axis=0,
             )
     if observations.ndim != 2 or actions.ndim != 2:
-        raise ValueError(
-            "observations and actions must be rank-2 arrays"
-        )
+        raise ValueError("observations and actions must be rank-2 arrays")
     if len(observations) < 2:
-        raise ValueError(
-            "dataset must contain at least two transitions"
-        )
+        raise ValueError("dataset must contain at least two transitions")
     return OfflineData(
         observations=observations,
         actions=actions,
@@ -119,9 +107,7 @@ def build_episode_ids(
         dtype=np.bool_,
     ).reshape(-1)
     if terminals.shape != timeouts.shape:
-        raise ValueError(
-            "terminals and timeouts must have the same shape"
-        )
+        raise ValueError("terminals and timeouts must have the same shape")
     output = np.empty(len(terminals), dtype=np.int64)
     episode = 0
     for index in range(len(terminals)):
@@ -152,17 +138,10 @@ def discounted_returns(
     returns = np.empty_like(rewards, dtype=np.float32)
     running = 0.0
     for index in range(len(rewards) - 1, -1, -1):
-        if (
-            index == len(rewards) - 1
-            or terminals[index]
-            or timeouts[index]
-        ):
+        if index == len(rewards) - 1 or terminals[index] or timeouts[index]:
             running = float(rewards[index])
         else:
-            running = (
-                float(rewards[index])
-                + float(gamma) * running
-            )
+            running = float(rewards[index]) + float(gamma) * running
         returns[index] = running
     return returns
 
@@ -175,10 +154,7 @@ def split_episode_indices(
 ) -> dict[str, np.ndarray]:
     episodes = np.unique(episode_ids)
     if len(episodes) < 3:
-        raise ValueError(
-            "At least three episodes are required for "
-            "train/validation/test split"
-        )
+        raise ValueError("At least three episodes are required for train/validation/test split")
     generator = np.random.default_rng(seed)
     shuffled = episodes.copy()
     generator.shuffle(shuffled)
@@ -188,26 +164,18 @@ def split_episode_indices(
     )
     n_validation = max(
         1,
-        int(
-            round(
-                len(shuffled) * validation_fraction
-            )
-        ),
+        int(round(len(shuffled) * validation_fraction)),
     )
     if n_train + n_validation >= len(shuffled):
         n_train = max(1, len(shuffled) - 2)
         n_validation = 1
     groups = {
         "train": shuffled[:n_train],
-        "validation": shuffled[
-            n_train : n_train + n_validation
-        ],
+        "validation": shuffled[n_train : n_train + n_validation],
         "test": shuffled[n_train + n_validation :],
     }
     return {
-        name: np.flatnonzero(
-            np.isin(episode_ids, group)
-        ).astype(np.int64)
+        name: np.flatnonzero(np.isin(episode_ids, group)).astype(np.int64)
         for name, group in groups.items()
     }
 
@@ -238,6 +206,4 @@ class Normalizer:
         self,
         array: np.ndarray,
     ) -> np.ndarray:
-        return (
-            (array - self.mean) / self.std
-        ).astype(np.float32)
+        return ((array - self.mean) / self.std).astype(np.float32)

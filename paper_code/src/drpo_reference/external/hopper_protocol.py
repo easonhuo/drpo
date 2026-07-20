@@ -23,10 +23,7 @@ class HopperProtocol:
     execution_profile: str = "formal"
     role: str = "external_mechanism_validation"
     dataset_basename: str = "hopper_medium_replay-v2.hdf5"
-    dataset_sha256: str = (
-        "e121c5f7c9857a307baa9edc6a2c3b48"
-        "e85fedb9ac316ecddd0f48ca7ef4e39b"
-    )
+    dataset_sha256: str = "e121c5f7c9857a307baa9edc6a2c3b48e85fedb9ac316ecddd0f48ca7ef4e39b"
     rollout_backend: str = "gymnasium_mujoco"
     rollout_dataset_id: str = "hopper-medium-replay-v2"
     env_id: str = "Hopper-v4"
@@ -101,9 +98,7 @@ class HopperProtocol:
         if self.experiment_id != "EXT-H-E7-Q2":
             raise ValueError("Hopper protocol identity is frozen")
         if self.role != "external_mechanism_validation":
-            raise ValueError(
-                "Hopper E7-Q2 is an external mechanism validation"
-            )
+            raise ValueError("Hopper E7-Q2 is an external mechanism validation")
         if self.rollout_backend != "gymnasium_mujoco":
             raise ValueError("Hopper rollout backend is frozen")
         if self.rollout_dataset_id != "hopper-medium-replay-v2":
@@ -129,9 +124,7 @@ class HopperProtocol:
         if not 0.0 < self.validation_fraction < 1.0:
             raise ValueError("validation_fraction must lie in (0, 1)")
         if self.train_fraction + self.validation_fraction >= 1.0:
-            raise ValueError(
-                "train and validation fractions leave no test split"
-            )
+            raise ValueError("train and validation fractions leave no test split")
         if self.critic_steps <= 0 or self.positive_steps <= 0:
             raise ValueError("training budgets must be positive")
         if self.critic_min_steps <= 0:

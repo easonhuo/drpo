@@ -36,12 +36,8 @@ def test_shared_taper_kernel_matches_revision_4(
     family: str,
 ) -> None:
     protocol = small_protocol()
-    coefficients = taper_coefficients(
-        protocol.reference_rare_retention
-    )
-    assert coefficients == legacy.taper_coefficients(
-        protocol.reference_rare_retention
-    )
+    coefficients = taper_coefficients(protocol.reference_rare_retention)
+    assert coefficients == legacy.taper_coefficients(protocol.reference_rare_retention)
     log_probability = torch.tensor(
         [-2.0, -4.0, -8.0],
         dtype=torch.float64,
@@ -132,12 +128,8 @@ def test_active_cell_loss_and_gradients_match(
     )
     old_spec = legacy.method_specs([method])[0]
     new_spec = method_specs((method,))[0]
-    old_coefficients = legacy.taper_coefficients(
-        protocol.reference_rare_retention
-    )
-    new_coefficients = taper_coefficients(
-        protocol.reference_rare_retention
-    )
+    old_coefficients = legacy.taper_coefficients(protocol.reference_rare_retention)
+    new_coefficients = taper_coefficients(protocol.reference_rare_retention)
     old_loss, old_diagnostics = legacy.active_cell_loss(
         old_cells,
         old_spec,

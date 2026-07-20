@@ -56,13 +56,11 @@ def test_policy_cells_calibration_and_metrics_match() -> None:
         201,
     )
     index = torch.tensor([0, 3, 7, 11, 15, 19])
-    old_positive, old_cells, old_residual = (
-        legacy.cell_log_probs(
-            old_model,
-            old_env,
-            old_env.train,
-            index,
-        )
+    old_positive, old_cells, old_residual = legacy.cell_log_probs(
+        old_model,
+        old_env,
+        old_env.train,
+        index,
     )
     new_positive, new_cells, new_residual = cell_log_probs(
         new_model,
@@ -130,16 +128,12 @@ def test_policy_cells_calibration_and_metrics_match() -> None:
         protocol,
     )
     assert new_geometry["passed"] == old_geometry["passed"]
-    assert new_geometry[
-        "positive_rarity_gradient_norm"
-    ] == pytest.approx(
+    assert new_geometry["positive_rarity_gradient_norm"] == pytest.approx(
         old_geometry["positive_rarity_gradient_norm"],
         rel=1.0e-7,
         abs=1.0e-8,
     )
-    assert new_geometry[
-        "cell_shared_rarity_gradient_norms"
-    ] == pytest.approx(
+    assert new_geometry["cell_shared_rarity_gradient_norms"] == pytest.approx(
         old_geometry["cell_shared_rarity_gradient_norms"],
         rel=1.0e-7,
         abs=1.0e-8,

@@ -78,9 +78,7 @@ def _reference_protocol(protocol: legacy.Protocol) -> CU1Protocol:
         hidden_dim=protocol.hidden_dim,
         hidden_layers=protocol.hidden_layers,
         initial_sigma=protocol.initial_sigma,
-        near_far_standardized_threshold=(
-            protocol.near_far_standardized_threshold
-        ),
+        near_far_standardized_threshold=(protocol.near_far_standardized_threshold),
         task_failure_retention=protocol.task_failure_retention,
         task_failure_consecutive_evals=protocol.task_failure_consecutive_evals,
         log_sigma_event_boundary=protocol.log_sigma_event_boundary,
@@ -93,9 +91,7 @@ def _matching_actors(protocol: CU1Protocol, seed: int):
     torch.manual_seed(seed)
     new_actor = make_actor(protocol).to("cpu")
     for name, old_value in old_actor.state_dict().items():
-        torch.testing.assert_close(
-            new_actor.state_dict()[name], old_value, rtol=0.0, atol=0.0
-        )
+        torch.testing.assert_close(new_actor.state_dict()[name], old_value, rtol=0.0, atol=0.0)
     return old_actor, new_actor
 
 
@@ -112,9 +108,7 @@ def _assert_mapping_close(
         if isinstance(expected_value, bool) or expected_value is None:
             assert actual_value == expected_value
         elif isinstance(expected_value, (int, float)):
-            assert float(actual_value) == pytest.approx(
-                float(expected_value), rel=1e-6, abs=1e-7
-            )
+            assert float(actual_value) == pytest.approx(float(expected_value), rel=1e-6, abs=1e-7)
         else:
             assert actual_value == expected_value
 
@@ -180,9 +174,7 @@ def test_intervention_gradients_match_all_legacy_methods(tmp_path: Path) -> None
                     assert actual is None
                 else:
                     assert actual is not None
-                    torch.testing.assert_close(
-                        actual, expected, rtol=1e-6, atol=1e-7
-                    )
+                    torch.testing.assert_close(actual, expected, rtol=1e-6, atol=1e-7)
             _assert_mapping_close(actual_diagnostics, expected_diagnostics)
 
 
@@ -237,11 +229,7 @@ def test_fixed_variance_short_trajectory_matches_legacy(tmp_path: Path) -> None:
     )
 
     legacy_rows = _read_legacy_trajectory(
-        tmp_path
-        / "e3"
-        / "fixed_variance"
-        / "far_cap"
-        / "seed_30_trajectory.csv"
+        tmp_path / "e3" / "fixed_variance" / "far_cap" / "seed_30_trajectory.csv"
     )
     assert len(actual_run.trajectory) == len(legacy_rows)
     legacy_keys = tuple(legacy_rows[0])

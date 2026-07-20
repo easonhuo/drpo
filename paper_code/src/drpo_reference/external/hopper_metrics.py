@@ -65,11 +65,7 @@ def normalized_window_drift(
     tail = rows[-windows:]
     steps = np.asarray([float(row["step"]) for row in tail], dtype=np.float64)
     values = np.asarray([float(row[key]) for row in tail], dtype=np.float64)
-    if (
-        not np.all(np.isfinite(steps))
-        or not np.all(np.isfinite(values))
-        or steps[-1] <= steps[0]
-    ):
+    if not np.all(np.isfinite(steps)) or not np.all(np.isfinite(values)) or steps[-1] <= steps[0]:
         return float("inf")
     slope = float(np.polyfit(steps - steps[0], values, 1)[0])
     span = float(steps[-1] - steps[0])
@@ -119,20 +115,14 @@ def match_near_far_indices(
     far_pool = negative_indices[negative_distances >= far_cut]
     magnitude = np.abs(advantages)
     all_magnitude = magnitude[negative_indices]
-    edges = np.unique(
-        np.quantile(all_magnitude, np.linspace(0.0, 1.0, bins + 1))
-    )
+    edges = np.unique(np.quantile(all_magnitude, np.linspace(0.0, 1.0, bins + 1)))
     generator = np.random.default_rng(seed)
     pairs: list[tuple[int, int, float]] = []
     used_near: set[int] = set()
     used_far: set[int] = set()
     for left, right in zip(edges[:-1], edges[1:]):
-        near = near_pool[
-            (magnitude[near_pool] >= left) & (magnitude[near_pool] <= right)
-        ]
-        far = far_pool[
-            (magnitude[far_pool] >= left) & (magnitude[far_pool] <= right)
-        ]
+        near = near_pool[(magnitude[near_pool] >= left) & (magnitude[near_pool] <= right)]
+        far = far_pool[(magnitude[far_pool] >= left) & (magnitude[far_pool] <= right)]
         if len(near) == 0 or len(far) == 0:
             continue
         generator.shuffle(near)
@@ -141,32 +131,20 @@ def match_near_far_indices(
             near_index = int(near_index)
             if near_index in used_near:
                 continue
-            position = int(
-                np.searchsorted(magnitude[far_sorted], magnitude[near_index])
-            )
-            candidates = far_sorted[
-                max(0, position - 4) : min(len(far_sorted), position + 5)
-            ]
+            position = int(np.searchsorted(magnitude[far_sorted], magnitude[near_index]))
+            candidates = far_sorted[max(0, position - 4) : min(len(far_sorted), position + 5)]
             candidates = np.asarray(
-                [
-                    int(value)
-                    for value in candidates
-                    if int(value) not in used_far
-                ],
+                [int(value) for value in candidates if int(value) not in used_far],
                 dtype=np.int64,
             )
             if len(candidates) == 0:
                 continue
             far_index = int(
-                candidates[
-                    np.argmin(
-                        np.abs(magnitude[candidates] - magnitude[near_index])
-                    )
-                ]
+                candidates[np.argmin(np.abs(magnitude[candidates] - magnitude[near_index]))]
             )
-            relative_error = abs(
-                float(magnitude[far_index] - magnitude[near_index])
-            ) / max(float(magnitude[near_index]), 1.0e-8)
+            relative_error = abs(float(magnitude[far_index] - magnitude[near_index])) / max(
+                float(magnitude[near_index]), 1.0e-8
+            )
             if relative_error <= relative_tolerance:
                 pairs.append((near_index, far_index, relative_error))
                 used_near.add(near_index)
@@ -181,16 +159,12 @@ def match_near_far_indices(
         "near_cut": near_cut,
         "far_cut": far_cut,
         "pairs": len(pairs),
-        "mean_relative_advantage_error": float(
-            np.mean([pair[2] for pair in pairs])
-        ),
+        "mean_relative_advantage_error": float(np.mean([pair[2] for pair in pairs])),
         "advantage_magnitude_far_near_ratio": float(
-            np.mean(magnitude[far_indices])
-            / max(np.mean(magnitude[near_indices]), EPS)
+            np.mean(magnitude[far_indices]) / max(np.mean(magnitude[near_indices]), EPS)
         ),
         "distance_far_near_ratio": float(
-            np.mean(distances[far_indices])
-            / max(np.mean(distances[near_indices]), EPS)
+            np.mean(distances[far_indices]) / max(np.mean(distances[near_indices]), EPS)
         ),
     }
     return near_indices, far_indices, summary
@@ -206,11 +180,7 @@ def per_sample_gradient_norm(
 ) -> np.ndarray:
     norms: list[float] = []
     policy.eval()
-    parameters = [
-        parameter
-        for parameter in policy.parameters()
-        if parameter.requires_grad
-    ]
+    parameters = [parameter for parameter in policy.parameters() if parameter.requires_grad]
     for index in indices:
         observation = _tensor(observations[index : index + 1], device)
         action = _tensor(actions[index : index + 1], device)
@@ -248,18 +218,14 @@ def analytic_output_autograd_relative_error(
         log_std = log_std_initial.detach().clone().requires_grad_(True)
         standard_deviation = torch.exp(log_std)
         standardized = (latent - mean) / standard_deviation
-        base_log_probability = -0.5 * (
-            standardized.square()
-            + 2.0 * log_std
-            + math.log(2.0 * math.pi)
-        ).sum()
+        base_log_probability = (
+            -0.5 * (standardized.square() + 2.0 * log_std + math.log(2.0 * math.pi)).sum()
+        )
         gradient_mean, gradient_log_std = torch.autograd.grad(
             base_log_probability,
             [mean, log_std],
         )
-        analytic_mean = (
-            latent - mean.detach()
-        ) / standard_deviation.detach().square()
+        analytic_mean = (latent - mean.detach()) / standard_deviation.detach().square()
         analytic_log_std = standardized.detach().square() - 1.0
         numerator = torch.sqrt(
             (gradient_mean - analytic_mean).square().sum()
@@ -294,10 +260,7 @@ def _numpy_score_components(
         "raw_action_distance",
         "pre_squash_distance",
     )
-    return {
-        key: values[key].detach().cpu().numpy()
-        for key in keys
-    }
+    return {key: values[key].detach().cpu().numpy() for key in keys}
 
 
 def create_gradient_probe(
@@ -356,9 +319,7 @@ def create_gradient_probe(
         device,
     )
     pair_rows: list[dict[str, Any]] = []
-    for pair_id, (near_index, far_index) in enumerate(
-        zip(near_indices, far_indices)
-    ):
+    for pair_id, (near_index, far_index) in enumerate(zip(near_indices, far_indices)):
         row: dict[str, Any] = {
             "pair_id": pair_id,
             "near_index": int(near_index),
@@ -372,41 +333,33 @@ def create_gradient_probe(
             row[f"near_{key}"] = float(near[key][pair_id])
             row[f"far_{key}"] = float(far[key][pair_id])
         if pair_id < gradient_pairs:
-            row["near_full_parameter_gradient_norm"] = float(
-                near_gradient[pair_id]
-            )
-            row["far_full_parameter_gradient_norm"] = float(
-                far_gradient[pair_id]
-            )
+            row["near_full_parameter_gradient_norm"] = float(near_gradient[pair_id])
+            row["far_full_parameter_gradient_norm"] = float(far_gradient[pair_id])
         pair_rows.append(row)
     write_csv(output_dir / "matched_near_far_components.csv", pair_rows)
 
     radius = population["radius"]
-    edges = np.unique(
-        np.quantile(radius, np.linspace(0.0, 1.0, distance_bins + 1))
-    )
+    edges = np.unique(np.quantile(radius, np.linspace(0.0, 1.0, distance_bins + 1)))
     bin_rows: list[dict[str, Any]] = []
-    gradient_indices = np.concatenate(
-        [near_indices[:gradient_pairs], far_indices[:gradient_pairs]]
-    )
+    gradient_indices = np.concatenate([near_indices[:gradient_pairs], far_indices[:gradient_pairs]])
     gradient_values = np.concatenate([near_gradient, far_gradient])
     with torch.no_grad():
-        gradient_radius = policy.standardized_distance(
-            _tensor(observations[gradient_indices], device),
-            _tensor(actions[gradient_indices], device),
-        ).cpu().numpy()
+        gradient_radius = (
+            policy.standardized_distance(
+                _tensor(observations[gradient_indices], device),
+                _tensor(actions[gradient_indices], device),
+            )
+            .cpu()
+            .numpy()
+        )
     for bin_id, (left, right) in enumerate(zip(edges[:-1], edges[1:])):
         population_mask = (radius >= left) & (
-            radius <= right
-            if bin_id == len(edges) - 2
-            else radius < right
+            radius <= right if bin_id == len(edges) - 2 else radius < right
         )
         if not bool(population_mask.any()):
             continue
         gradient_mask = (gradient_radius >= left) & (
-            gradient_radius <= right
-            if bin_id == len(edges) - 2
-            else gradient_radius < right
+            gradient_radius <= right if bin_id == len(edges) - 2 else gradient_radius < right
         )
         row = {
             "bin": bin_id,
@@ -455,16 +408,14 @@ def create_gradient_probe(
             np.mean(far["radius"]) / max(np.mean(near["radius"]), EPS)
         ),
         "mean_output_score_far_near_ratio": float(
-            np.mean(far["mean_score_norm"])
-            / max(np.mean(near["mean_score_norm"]), EPS)
+            np.mean(far["mean_score_norm"]) / max(np.mean(near["mean_score_norm"]), EPS)
         ),
         "raw_log_scale_output_score_far_near_ratio": float(
             np.mean(far["raw_log_scale_score_norm"])
             / max(np.mean(near["raw_log_scale_score_norm"]), EPS)
         ),
         "corrected_q_xi_far_near_ratio": float(
-            np.mean(far["corrected_q_xi"])
-            / max(np.mean(near["corrected_q_xi"]), EPS)
+            np.mean(far["corrected_q_xi"]) / max(np.mean(near["corrected_q_xi"]), EPS)
         ),
         "joint_output_score_far_near_ratio": float(
             np.mean(far["joint_output_score_norm"])
@@ -482,9 +433,7 @@ def create_gradient_probe(
         "analytic_autograd_relative_error_max": autograd_error,
         "natural_far_threshold_sqrt_2d": natural_far_threshold,
         "far_median_radius": far_median_radius,
-        "natural_far_field_present": bool(
-            far_median_radius >= natural_far_threshold
-        ),
+        "natural_far_field_present": bool(far_median_radius >= natural_far_threshold),
     }
     atomic_json(output_dir / "gradient_probe_summary.json", summary)
     return summary
@@ -589,8 +538,7 @@ def classify_actor_terminal(
         )
     ) or not math.isfinite(relative_update_norm)
     support_event = bool(
-        float(last["mean_boundary_fraction"])
-        >= protocol.support_boundary_fraction
+        float(last["mean_boundary_fraction"]) >= protocol.support_boundary_fraction
         or float(last["log_std_min_fraction"]) > 0.0
         or float(last["log_std_max_fraction"]) > 0.0
     )
@@ -614,31 +562,19 @@ def classify_actor_terminal(
     stable = bool(
         candidate_step is not None
         and extension_complete
-        and all(
-            value <= protocol.actor_state_drift_tolerance
-            for value in state_drifts.values()
-        )
+        and all(value <= protocol.actor_state_drift_tolerance for value in state_drifts.values())
         and relative_update_norm <= protocol.actor_update_tolerance
         and not nonfinite
     )
-    rollout_values = [
-        float(row.get("normalized_return", float("nan")))
-        for row in rows
-    ]
-    finite_rollouts = [
-        value for value in rollout_values if math.isfinite(value)
-    ]
-    rollout_statuses = {
-        str(row.get("rollout_status", "not_evaluated"))
-        for row in rows
-    }
+    rollout_values = [float(row.get("normalized_return", float("nan"))) for row in rows]
+    finite_rollouts = [value for value in rollout_values if math.isfinite(value)]
+    rollout_statuses = {str(row.get("rollout_status", "not_evaluated")) for row in rows}
     initial_return = finite_rollouts[0] if finite_rollouts else float("nan")
     final_return = finite_rollouts[-1] if finite_rollouts else float("nan")
     if finite_rollouts:
         task_status = "available"
         task_collapse: bool | None = bool(
-            initial_return - final_return
-            >= protocol.task_return_drop_threshold
+            initial_return - final_return >= protocol.task_return_drop_threshold
         )
     elif "unavailable" in rollout_statuses:
         task_status = "unavailable"
@@ -657,12 +593,9 @@ def classify_actor_terminal(
     elif stable:
         state = "finite_terminal"
     elif support_event:
-        state = (
-            "support_or_variance_boundary_event_without_terminal_convergence"
-        )
+        state = "support_or_variance_boundary_event_without_terminal_convergence"
     elif len(rows) >= protocol.audit_windows and any(
-        value > protocol.actor_state_drift_tolerance
-        for value in state_drifts.values()
+        value > protocol.actor_state_drift_tolerance for value in state_drifts.values()
     ):
         state = "persistent_or_slow_drift"
     elif fixed_budget_completed:

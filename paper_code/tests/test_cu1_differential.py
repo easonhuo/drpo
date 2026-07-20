@@ -36,13 +36,9 @@ def reference_protocol(**overrides: object) -> reference.CU1Protocol:
         "hidden_dim": legacy.P.hidden_dim,
         "hidden_layers": legacy.P.hidden_layers,
         "initial_sigma": legacy.P.initial_sigma,
-        "near_far_standardized_threshold": (
-            legacy.P.near_far_standardized_threshold
-        ),
+        "near_far_standardized_threshold": (legacy.P.near_far_standardized_threshold),
         "task_failure_retention": legacy.P.task_failure_retention,
-        "task_failure_consecutive_evals": (
-            legacy.P.task_failure_consecutive_evals
-        ),
+        "task_failure_consecutive_evals": (legacy.P.task_failure_consecutive_evals),
         "log_sigma_event_boundary": legacy.P.log_sigma_event_boundary,
     }
     values.update(overrides)

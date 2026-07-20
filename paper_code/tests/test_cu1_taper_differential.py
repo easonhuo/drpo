@@ -107,12 +107,8 @@ def _reference_taper(old: legacy_taper.TaperProtocol) -> CU1TaperProtocol:
         maximum_steps=old.maximum_steps,
         stable_windows=old.stable_windows,
         normalized_slope_threshold=old.normalized_slope_threshold,
-        normalized_field_residual_threshold=(
-            old.normalized_field_residual_threshold
-        ),
-        positive_absolute_gradient_threshold=(
-            old.positive_absolute_gradient_threshold
-        ),
+        normalized_field_residual_threshold=(old.normalized_field_residual_threshold),
+        positive_absolute_gradient_threshold=(old.positive_absolute_gradient_threshold),
         task_failure_retention=old.task_failure_retention,
         probe_states=old.probe_states,
     )
@@ -269,16 +265,14 @@ def test_short_taper_trajectory_matches_authoritative_runner(
     new_environment = make_environment(70, protocol)
     initialization = _matching_state(protocol, seed=922)
 
-    expected_summary, expected_trajectory, expected_diagnostics = (
-        legacy_taper.train_method(
-            70,
-            initialization,
-            old_environment,
-            "reciprocal_quadratic",
-            0.25,
-            tmp_path / "legacy_taper",
-            old_taper,
-        )
+    expected_summary, expected_trajectory, expected_diagnostics = legacy_taper.train_method(
+        70,
+        initialization,
+        old_environment,
+        "reciprocal_quadratic",
+        0.25,
+        tmp_path / "legacy_taper",
+        old_taper,
     )
     actual = run_taper_method(
         seed=70,

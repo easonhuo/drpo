@@ -82,9 +82,7 @@ def _rows(
                 "log_std_max_fraction": 0.0,
                 "rollout_status": rollout_status,
                 "normalized_return": (
-                    40.0 - 5.0 * index
-                    if rollout_status == "available"
-                    else float("nan")
+                    40.0 - 5.0 * index if rollout_status == "available" else float("nan")
                 ),
             }
         )
@@ -125,9 +123,7 @@ def _policy_pair() -> tuple[
 def _mechanism_arrays() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     generator = np.random.default_rng(23)
     observations = generator.normal(size=(48, 4)).astype(np.float32)
-    actions = np.tanh(
-        generator.normal(size=(48, 2))
-    ).astype(np.float32)
+    actions = np.tanh(generator.normal(size=(48, 2))).astype(np.float32)
     magnitudes = np.repeat(
         np.linspace(0.25, 2.0, 12, dtype=np.float32),
         4,
@@ -347,10 +343,14 @@ def test_gradient_probe_summary_and_artifacts_match(
     expected_policy, actual_policy = _policy_pair()
     observations, actions, advantages = _mechanism_arrays()
     with torch.no_grad():
-        distances = expected_policy.standardized_distance(
-            torch.as_tensor(observations),
-            torch.as_tensor(actions),
-        ).cpu().numpy()
+        distances = (
+            expected_policy.standardized_distance(
+                torch.as_tensor(observations),
+                torch.as_tensor(actions),
+            )
+            .cpu()
+            .numpy()
+        )
     negative_indices = np.arange(len(advantages), dtype=np.int64)
     near_indices, far_indices, _ = legacy.match_near_far_indices(
         advantages,
@@ -393,21 +393,13 @@ def test_gradient_probe_summary_and_artifacts_match(
         output_dir=actual_dir,
     )
     _assert_nested(actual, expected)
-    assert _read_csv(
-        actual_dir / "matched_near_far_components.csv"
-    ) == _read_csv(
+    assert _read_csv(actual_dir / "matched_near_far_components.csv") == _read_csv(
         expected_dir / "matched_near_far_components.csv"
     )
-    assert _read_csv(
-        actual_dir / "component_distance_bins.csv"
-    ) == _read_csv(
+    assert _read_csv(actual_dir / "component_distance_bins.csv") == _read_csv(
         expected_dir / "component_distance_bins.csv"
     )
     _assert_nested(
-        json.loads(
-            (actual_dir / "gradient_probe_summary.json").read_text()
-        ),
-        json.loads(
-            (expected_dir / "gradient_probe_summary.json").read_text()
-        ),
+        json.loads((actual_dir / "gradient_probe_summary.json").read_text()),
+        json.loads((expected_dir / "gradient_probe_summary.json").read_text()),
     )

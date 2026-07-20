@@ -83,38 +83,32 @@ class PhaseRun:
 
 
 def positive_advantage_value(protocol: CU1Protocol) -> float:
-    return math.exp(
-        -0.5 * (protocol.positive_contour_radius / protocol.reward_width) ** 2
-    ) - protocol.baseline
+    return (
+        math.exp(-0.5 * (protocol.positive_contour_radius / protocol.reward_width) ** 2)
+        - protocol.baseline
+    )
 
 
 def negative_advantage_value(protocol: CU1Protocol) -> float:
-    return math.exp(
-        -0.5 * (protocol.negative_contour_radius / protocol.reward_width) ** 2
-    ) - protocol.baseline
+    return (
+        math.exp(-0.5 * (protocol.negative_contour_radius / protocol.reward_width) ** 2)
+        - protocol.baseline
+    )
 
 
 def analytic_positive_sigma(protocol: CU1Protocol) -> float:
-    residual_second_moment = (
-        protocol.positive_contour_radius**2
-        - protocol.gap_to_unseen_optimum**2
-    )
+    residual_second_moment = protocol.positive_contour_radius**2 - protocol.gap_to_unseen_optimum**2
     return math.sqrt(residual_second_moment / protocol.action_dim)
 
 
 def analytic_mean_critical_alpha(protocol: CU1Protocol) -> float:
-    return positive_advantage_value(protocol) / abs(
-        negative_advantage_value(protocol)
-    )
+    return positive_advantage_value(protocol) / abs(negative_advantage_value(protocol))
 
 
 def analytic_variance_boundary_alpha(protocol: CU1Protocol) -> float:
     positive = positive_advantage_value(protocol)
     negative = abs(negative_advantage_value(protocol))
-    residual = (
-        protocol.positive_contour_radius**2
-        - protocol.gap_to_unseen_optimum**2
-    )
+    residual = protocol.positive_contour_radius**2 - protocol.gap_to_unseen_optimum**2
 
     def field(alpha: float) -> float:
         weighted_negative = alpha * negative
@@ -124,9 +118,7 @@ def analytic_variance_boundary_alpha(protocol: CU1Protocol) -> float:
             / (positive - weighted_negative)
         )
         positive_moment = residual + displacement**2
-        negative_moment = (
-            protocol.negative_offset_from_positive + displacement
-        ) ** 2
+        negative_moment = (protocol.negative_offset_from_positive + displacement) ** 2
         return positive * positive_moment - weighted_negative * negative_moment
 
     lower = 0.0
@@ -148,38 +140,22 @@ def analytic_local_solution(
     negative = alpha * abs(negative_advantage_value(protocol))
     if negative >= positive:
         return {"finite_mean_fixed_point": False}
-    displacement = (
-        negative
-        * protocol.negative_offset_from_positive
-        / (positive - negative)
-    )
+    displacement = negative * protocol.negative_offset_from_positive / (positive - negative)
     normalized = displacement / protocol.gap_to_unseen_optimum
     reward = math.exp(
-        -0.5
-        * (
-            (protocol.gap_to_unseen_optimum - displacement)
-            / protocol.reward_width
-        )
-        ** 2
+        -0.5 * ((protocol.gap_to_unseen_optimum - displacement) / protocol.reward_width) ** 2
     )
-    residual = (
-        protocol.positive_contour_radius**2
-        - protocol.gap_to_unseen_optimum**2
-    )
+    residual = protocol.positive_contour_radius**2 - protocol.gap_to_unseen_optimum**2
     positive_moment = residual + displacement**2
-    negative_moment = (
-        protocol.negative_offset_from_positive + displacement
-    ) ** 2
-    sigma_squared = (
-        positive * positive_moment - negative * negative_moment
-    ) / (protocol.action_dim * (positive - negative))
+    negative_moment = (protocol.negative_offset_from_positive + displacement) ** 2
+    sigma_squared = (positive * positive_moment - negative * negative_moment) / (
+        protocol.action_dim * (positive - negative)
+    )
     return {
         "finite_mean_fixed_point": True,
         "analytic_normalized_extrapolation_displacement": normalized,
         "analytic_reward": reward,
-        "analytic_sigma": (
-            math.sqrt(sigma_squared) if sigma_squared > 0.0 else float("nan")
-        ),
+        "analytic_sigma": (math.sqrt(sigma_squared) if sigma_squared > 0.0 else float("nan")),
         "finite_variance_fixed_point": sigma_squared > 0.0,
     }
 
@@ -188,9 +164,7 @@ def evaluation_from_geometry(
     distance_to_star: float,
     protocol: CU1Protocol,
 ) -> float:
-    return math.exp(
-        -0.5 * (distance_to_star / protocol.reward_width) ** 2
-    )
+    return math.exp(-0.5 * (distance_to_star / protocol.reward_width) ** 2)
 
 
 def local_objective(
@@ -227,9 +201,7 @@ def policy_distance_diagnostics(
     with torch.no_grad():
         mu, predicted = actor(split.s)
         log_std = (
-            predicted
-            if fixed_sigma is None
-            else torch.full_like(predicted, math.log(fixed_sigma))
+            predicted if fixed_sigma is None else torch.full_like(predicted, math.log(fixed_sigma))
         )
         raw = torch.linalg.vector_norm(
             split.negative_actions - mu[:, None, :],
@@ -243,21 +215,15 @@ def policy_distance_diagnostics(
             "dynamic_near_occupancy": near.float().mean().item(),
             "dynamic_far_occupancy": (~near).float().mean().item(),
             "local_negative_raw_distance": raw[:, 0].mean().item(),
-            "local_negative_standardized_distance": (
-                standardized[:, 0].mean().item()
-            ),
+            "local_negative_standardized_distance": (standardized[:, 0].mean().item()),
             "farthest_negative_raw_distance": raw[:, 4].mean().item(),
-            "farthest_negative_standardized_distance": (
-                standardized[:, 4].mean().item()
-            ),
+            "farthest_negative_standardized_distance": (standardized[:, 4].mean().item()),
         }
 
 
 def _parameter_gradient_norm(parameters: Sequence[torch.nn.Parameter]) -> float:
     gradients = [
-        parameter.grad.reshape(-1)
-        for parameter in parameters
-        if parameter.grad is not None
+        parameter.grad.reshape(-1) for parameter in parameters if parameter.grad is not None
     ]
     if not gradients:
         return 0.0
@@ -294,11 +260,7 @@ def run_phase_scan(
     """Run one frozen E4 local-strength branch and both stationary audits."""
 
     actor = _new_actor(protocol, environment, initialization_state)
-    parameters = (
-        actor.mean_parameters()
-        if fixed_sigma is not None
-        else actor.all_parameters()
-    )
+    parameters = actor.mean_parameters() if fixed_sigma is not None else actor.all_parameters()
     optimizer = make_adam(
         parameters,
         learning_rate=phase.learning_rate,
@@ -307,8 +269,7 @@ def run_phase_scan(
     generator = torch.Generator(device="cpu").manual_seed(seed + 400009)
     analytic = analytic_local_solution(protocol, alpha)
     finite_internal = bool(analytic.get("finite_mean_fixed_point", False)) and (
-        fixed_sigma is not None
-        or bool(analytic.get("finite_variance_fixed_point", False))
+        fixed_sigma is not None or bool(analytic.get("finite_variance_fixed_point", False))
     )
     first_phase_steps = phase.warm_steps if finite_internal else phase.runaway_steps
     trajectory: list[dict[str, Any]] = []
@@ -387,11 +348,7 @@ def run_phase_scan(
                 if fixed_sigma is None
                 else {}
             )
-            event_type = (
-                support_event_type(post_support)
-                if fixed_sigma is None
-                else None
-            )
+            event_type = support_event_type(post_support) if fixed_sigma is None else None
             if event_type is not None and support_onset is None:
                 support_onset = step
                 first_support_event_type = event_type
@@ -400,12 +357,8 @@ def run_phase_scan(
                 "parameter_update_norm": parameter_update_norm,
             }
             if fixed_sigma is None:
-                extra.update(
-                    {f"pre_{key}": value for key, value in pre_support.items()}
-                )
-                extra.update(
-                    {f"post_{key}": value for key, value in post_support.items()}
-                )
+                extra.update({f"pre_{key}": value for key, value in pre_support.items()})
+                extra.update({f"post_{key}": value for key, value in post_support.items()})
             if not finite:
                 stop_reason = "non_finite_parameter"
             elif event_type is not None:
@@ -504,16 +457,11 @@ def run_phase_scan(
             state = "stable_imitation_ceiling"
         elif reward_gain > 0.01 and displacement <= 1.25:
             state = "stable_beneficial_extrapolation"
-        elif (
-            float(final["reward"])
-            < protocol.task_failure_retention * positive_ceiling_reward
-        ):
+        elif float(final["reward"]) < protocol.task_failure_retention * positive_ceiling_reward:
             state = "stable_bad_fixed_point"
         else:
             state = "stable_over_extrapolated_fixed_point"
-    elif stop_reason == "non_finite_parameter" or stop_reason.endswith(
-        "_boundary_event"
-    ):
+    elif stop_reason == "non_finite_parameter" or stop_reason.endswith("_boundary_event"):
         state = stop_reason
     else:
         state = "finite_continuing_drift_or_runaway"
@@ -521,9 +469,7 @@ def run_phase_scan(
     displacement_slope = float("nan")
     log_sigma_slope = float("nan")
     dynamic_rows = [
-        row
-        for row in trajectory
-        if row.get("stage") in {"adam_phase_1", "adam_continuation"}
+        row for row in trajectory if row.get("stage") in {"adam_phase_1", "adam_continuation"}
     ]
     by_step = {int(row["step"]): row for row in dynamic_rows}
     ordered = [by_step[step] for step in sorted(by_step)]
@@ -535,10 +481,7 @@ def run_phase_scan(
                 np.polyfit(
                     steps_array,
                     np.asarray(
-                        [
-                            float(row["normalized_extrapolation_displacement"])
-                            for row in tail
-                        ]
+                        [float(row["normalized_extrapolation_displacement"]) for row in tail]
                     ),
                     1,
                 )[0]
@@ -583,9 +526,7 @@ def run_phase_scan(
             first_support_event_type == "unexpected_support_expansion"
         ),
         "stop_reason": stop_reason,
-        "normalized_extrapolation_displacement_window_slope": (
-            displacement_slope
-        ),
+        "normalized_extrapolation_displacement_window_slope": (displacement_slope),
         "log_sigma_window_slope": log_sigma_slope,
     }
     return PhaseRun(actor=actor, trajectory=trajectory, summary=summary)

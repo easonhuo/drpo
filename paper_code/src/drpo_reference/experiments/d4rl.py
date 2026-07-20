@@ -71,9 +71,7 @@ class D4RLPerformanceBackendSpec:
         if self.implementation_migrated and not self.implementation_selected:
             raise ValueError("a migrated backend must first be selected")
         if self.protocol_frozen and not self.formal_task_matrix_eligible:
-            raise ValueError(
-                "a frozen backend protocol must be formal-matrix eligible"
-            )
+            raise ValueError("a frozen backend protocol must be formal-matrix eligible")
         if self.mechanism_runner_reusable:
             raise ValueError("Hopper mechanism runner is not this backend")
         if set(self.shared_contracts) & set(self.distinct_contracts):
@@ -124,12 +122,8 @@ class D4RLReviewerMethodSpec:
     canonical_alpha: float
     negative_scale: float
     reference_distance: float = LEGACY_PILOT_REFERENCE_DISTANCE
-    reciprocal_linear_coefficient: float = (
-        LEGACY_PILOT_RECIPROCAL_LINEAR_COEFFICIENT
-    )
-    reciprocal_quadratic_coefficient: float = (
-        LEGACY_PILOT_RECIPROCAL_QUADRATIC_COEFFICIENT
-    )
+    reciprocal_linear_coefficient: float = LEGACY_PILOT_RECIPROCAL_LINEAR_COEFFICIENT
+    reciprocal_quadratic_coefficient: float = LEGACY_PILOT_RECIPROCAL_QUADRATIC_COEFFICIENT
     exponential_coefficient: float = LEGACY_PILOT_EXPONENTIAL_COEFFICIENT
     profile_is_final: bool = False
 
@@ -207,9 +201,7 @@ def resolve_d4rl_reviewer_methods(
     """
 
     resolved_ids = (
-        ("exprank",)
-        if method_ids is None
-        else tuple(str(method_id) for method_id in method_ids)
+        ("exprank",) if method_ids is None else tuple(str(method_id) for method_id in method_ids)
     )
     if not resolved_ids:
         raise ValueError("at least one D4RL reviewer method is required")
@@ -219,9 +211,7 @@ def resolve_d4rl_reviewer_methods(
     if unknown:
         raise ValueError(f"unsupported D4RL reviewer methods: {unknown}")
     if method_profile not in {None, LEGACY_PILOT_METHOD_PROFILE}:
-        raise ValueError(
-            f"unsupported D4RL method profile: {method_profile!r}"
-        )
+        raise ValueError(f"unsupported D4RL method profile: {method_profile!r}")
     controls_requested = any(method_id != "exprank" for method_id in resolved_ids)
     if controls_requested and method_profile != LEGACY_PILOT_METHOD_PROFILE:
         raise ValueError(
@@ -260,12 +250,15 @@ class CanonicalExpRankTrainingConfig:
     checkpoint_last_fraction: float = 0.10
 
     def __post_init__(self) -> None:
-        if min(
-            self.steps,
-            self.batch_size,
-            self.eval_interval,
-            self.checkpoint_interval,
-        ) <= 0:
+        if (
+            min(
+                self.steps,
+                self.batch_size,
+                self.eval_interval,
+                self.checkpoint_interval,
+            )
+            <= 0
+        ):
             raise ValueError("canonical D4RL integer controls must be positive")
         if self.learning_rate <= 0.0 or self.alpha < 0.0:
             raise ValueError("canonical D4RL lr/alpha are invalid")
@@ -390,9 +383,7 @@ def canonical_exprank_negative_weights(
     ranks = torch.empty_like(order)
     ranks[order] = torch.arange(count, device=negative_advantages.device)
     score = 1.0 - ranks.float() / float(count - 1)
-    return float(alpha) * torch.exp(
-        torch.clamp(-float(temperature) * score, min=-20.0)
-    )
+    return float(alpha) * torch.exp(torch.clamp(-float(temperature) * score, min=-20.0))
 
 
 def canonical_standardized_action_distance(
@@ -411,9 +402,9 @@ def canonical_standardized_action_distance(
             raise ValueError("actor log_std cannot expand to actor mean") from exc
     safe_log_std = torch.clamp(log_std, min=-20.0, max=5.0)
     with torch.no_grad():
-        standardized = (
-            actions.detach() - mean.detach()
-        ) / safe_log_std.detach().exp().clamp_min(1.0e-8)
+        standardized = (actions.detach() - mean.detach()) / safe_log_std.detach().exp().clamp_min(
+            1.0e-8
+        )
         return standardized.square().mean(dim=-1).sqrt()
 
 
@@ -444,16 +435,9 @@ def canonical_method_negative_factors(
         return base
     normalized_distance = negative_distances / method.reference_distance
     if method.method_id == "reciprocal_linear":
-        shape = 1.0 / (
-            1.0
-            + method.reciprocal_linear_coefficient * normalized_distance
-        )
+        shape = 1.0 / (1.0 + method.reciprocal_linear_coefficient * normalized_distance)
     elif method.method_id == "reciprocal_quadratic":
-        shape = 1.0 / (
-            1.0
-            + method.reciprocal_quadratic_coefficient
-            * normalized_distance.square()
-        )
+        shape = 1.0 / (1.0 + method.reciprocal_quadratic_coefficient * normalized_distance.square())
     elif method.method_id == "exponential":
         shape = torch.exp(
             torch.clamp(
@@ -554,9 +538,7 @@ class SNA2CIQLVExpRankAgent:
         )
         with torch.no_grad():
             next_value = self.critic(next_states).squeeze(-1)
-            target = reward_tensor + self.gamma * next_value * (
-                ~done_tensor
-            ).float()
+            target = reward_tensor + self.gamma * next_value * (~done_tensor).float()
         value = self.critic(states).squeeze(-1)
         advantage = target - value.detach()
 
@@ -735,18 +717,12 @@ def train_canonical_method(
     }
     generator = torch.Generator(device=resolved_device)
     generator.manual_seed(int(seed))
-    output = (
-        None
-        if output_root is None
-        else Path(output_root).expanduser().resolve()
-    )
+    output = None if output_root is None else Path(output_root).expanduser().resolve()
     if output is not None:
         if output.exists() and any(output.iterdir()):
             raise FileExistsError(f"D4RL output must be new or empty: {output}")
         output.mkdir(parents=True, exist_ok=True)
-    checkpoint_start = int(
-        config.steps * (1.0 - config.checkpoint_last_fraction)
-    )
+    checkpoint_start = int(config.steps * (1.0 - config.checkpoint_last_fraction))
     losses: list[dict[str, float | int]] = []
     evaluations: list[dict[str, float | int]] = []
     checkpoints: list[str] = []
@@ -772,10 +748,7 @@ def train_canonical_method(
             evaluations.append(
                 {
                     "step": step,
-                    **{
-                        str(name): float(value)
-                        for name, value in evaluator(agent, step).items()
-                    },
+                    **{str(name): float(value) for name, value in evaluator(agent, step).items()},
                 }
             )
         if (
@@ -894,10 +867,7 @@ class D4RL9ExecutionPlan:
             "runner_version": D4RL9_RUNNER_VERSION,
             "execution_kind": self.execution_kind,
             "tasks": [asdict(task) for task in self.tasks],
-            "dataset_paths": {
-                task_id: str(path)
-                for task_id, path in self.dataset_paths.items()
-            },
+            "dataset_paths": {task_id: str(path) for task_id, path in self.dataset_paths.items()},
             "seeds": list(self.seeds),
             "backend": asdict(self.backend),
             "dataset_identity_complete": self.dataset_identity_complete,
@@ -932,24 +902,16 @@ def resolve_d4rl9_execution(
     missing = sorted(expected_ids - actual_ids)
     extra = sorted(actual_ids - expected_ids)
     if missing or extra:
-        raise ValueError(
-            "D4RL-9 dataset mapping mismatch; "
-            f"missing={missing}, extra={extra}"
-        )
+        raise ValueError(f"D4RL-9 dataset mapping mismatch; missing={missing}, extra={extra}")
     resolved_paths = {
-        task.task_id: Path(dataset_paths[task.task_id]).resolve()
-        for task in resolved_tasks
+        task.task_id: Path(dataset_paths[task.task_id]).resolve() for task in resolved_tasks
     }
     unresolved = tuple(
-        task.task_id
-        for task in resolved_tasks
-        if not task.dataset_identity_verified
+        task.task_id for task in resolved_tasks if not task.dataset_identity_verified
     )
     blocked: list[str] = []
     if unresolved:
-        blocked.append(
-            "unresolved_dataset_sha256:" + ",".join(unresolved)
-        )
+        blocked.append("unresolved_dataset_sha256:" + ",".join(unresolved))
     if not backend.implementation_selected:
         blocked.append("d4rl9_performance_backend_not_selected")
     if not backend.implementation_migrated:
@@ -983,11 +945,7 @@ def resolve_d4rl9_execution(
         dataset_paths=resolved_paths,
         seeds=resolved_seeds,
         backend=backend,
-        execution_kind=(
-            "formal_candidate"
-            if formal_eligible
-            else "blocked_or_non_evidence"
-        ),
+        execution_kind=("formal_candidate" if formal_eligible else "blocked_or_non_evidence"),
         dataset_identity_complete=dataset_complete,
         performance_protocol_frozen=performance_protocol_frozen,
         backend_protocol_complete=backend_complete,
@@ -1020,9 +978,7 @@ def dispatch_d4rl9(
     allow_non_evidence: bool = False,
 ) -> dict[str, Any]:
     if plan.blocked_reasons and not allow_non_evidence:
-        raise RuntimeError(
-            "D4RL-9 dispatch is blocked: " + "; ".join(plan.blocked_reasons)
-        )
+        raise RuntimeError("D4RL-9 dispatch is blocked: " + "; ".join(plan.blocked_reasons))
     output = Path(output_root).resolve()
     if output.exists() and any(output.iterdir()):
         raise FileExistsError(f"D4RL-9 output must be empty: {output}")

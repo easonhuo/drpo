@@ -24,47 +24,27 @@ def critic_advantage_arrays(
     device: torch.device,
 ) -> dict[str, Any]:
     observations = observation_normalizer.transform(data.observations)
-    next_observations = observation_normalizer.transform(
-        data.next_observations
-    )
+    next_observations = observation_normalizer.transform(data.next_observations)
     values: list[np.ndarray] = []
     next_values: list[np.ndarray] = []
     critic.eval()
     with torch.no_grad():
         for offset in range(0, data.size, 65_536):
             stop = min(data.size, offset + 65_536)
-            values.append(
-                critic(
-                    tensor(observations[offset:stop], device)
-                )
-                .cpu()
-                .numpy()
-            )
-            next_values.append(
-                critic(
-                    tensor(next_observations[offset:stop], device)
-                )
-                .cpu()
-                .numpy()
-            )
+            values.append(critic(tensor(observations[offset:stop], device)).cpu().numpy())
+            next_values.append(critic(tensor(next_observations[offset:stop], device)).cpu().numpy())
     value_normalized = np.concatenate(values).astype(np.float32)
-    next_value_normalized = np.concatenate(next_values).astype(
-        np.float32
-    )
+    next_value_normalized = np.concatenate(next_values).astype(np.float32)
     target_scale = float(target_normalizer.std[0])
     target_center = float(target_normalizer.mean[0])
     value = value_normalized * target_scale + target_center
     next_value = next_value_normalized * target_scale + target_center
-    bootstrap_mask = (~(data.terminals | data.timeouts)).astype(
-        np.float32
-    )
+    bootstrap_mask = (~(data.terminals | data.timeouts)).astype(np.float32)
     raw = data.rewards + gamma * bootstrap_mask * next_value - value
     center = float(np.mean(raw[standardization_indices]))
     scale = float(np.std(raw[standardization_indices]))
     if standardize:
-        advantage = (
-            (raw - center) / max(scale, 1.0e-8)
-        ).astype(np.float32)
+        advantage = ((raw - center) / max(scale, 1.0e-8)).astype(np.float32)
     else:
         advantage = raw.astype(np.float32)
         center, scale = 0.0, 1.0

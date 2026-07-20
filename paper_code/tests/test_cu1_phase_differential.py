@@ -88,9 +88,7 @@ def _positive_training(old: legacy.Protocol) -> CU1PositiveProtocol:
         adam_beta1=old.adam_beta1,
         adam_beta2=old.adam_beta2,
         adam_eps=old.adam_eps,
-        absolute_residual_threshold_alpha_zero=(
-            old.absolute_residual_threshold_alpha_zero
-        ),
+        absolute_residual_threshold_alpha_zero=(old.absolute_residual_threshold_alpha_zero),
         formal_seeds=(10,),
     )
 
@@ -105,9 +103,7 @@ def _phase_protocol(old: legacy.Protocol) -> CU1PhaseProtocol:
         runaway_steps=old.e4_runaway_steps,
         evaluation_interval=old.eval_every,
         normalized_residual_threshold=old.normalized_residual_threshold,
-        absolute_residual_threshold_alpha_zero=(
-            old.absolute_residual_threshold_alpha_zero
-        ),
+        absolute_residual_threshold_alpha_zero=(old.absolute_residual_threshold_alpha_zero),
         formal_seeds=(50,),
     )
 
@@ -130,9 +126,7 @@ def _matching_state(protocol: CU1Protocol, seed: int) -> dict[str, torch.Tensor]
     torch.manual_seed(seed)
     new_actor = make_actor(protocol).to("cpu")
     for name, old_value in old_actor.state_dict().items():
-        torch.testing.assert_close(
-            new_actor.state_dict()[name], old_value, rtol=0.0, atol=0.0
-        )
+        torch.testing.assert_close(new_actor.state_dict()[name], old_value, rtol=0.0, atol=0.0)
     return copy.deepcopy(old_actor.state_dict())
 
 
@@ -146,16 +140,12 @@ def _assert_value(actual: object, expected: object) -> None:
         if math.isnan(expected_float):
             assert math.isnan(actual_float)
         else:
-            assert actual_float == pytest.approx(
-                expected_float, rel=1e-6, abs=1e-7
-            )
+            assert actual_float == pytest.approx(expected_float, rel=1e-6, abs=1e-7)
         return
     assert actual == expected
 
 
-def _assert_mapping(
-    actual: dict[str, object], expected: dict[str, object]
-) -> None:
+def _assert_mapping(actual: dict[str, object], expected: dict[str, object]) -> None:
     for key, expected_value in expected.items():
         _assert_value(actual[key], expected_value)
 
@@ -165,9 +155,7 @@ def _read_csv(path: Path) -> list[dict[str, str]]:
         return list(csv.DictReader(handle))
 
 
-def _assert_trajectory(
-    actual: list[dict[str, object]], expected: list[dict[str, str]]
-) -> None:
+def _assert_trajectory(actual: list[dict[str, object]], expected: list[dict[str, str]]) -> None:
     assert len(actual) == len(expected)
     for actual_row, expected_row in zip(actual, expected):
         for key, text in expected_row.items():
@@ -249,19 +237,13 @@ def test_phase_scan_matches_authoritative_short_trajectory(
         branch=branch,
     )
     expected_rows = _read_csv(
-        tmp_path
-        / "e4"
-        / branch
-        / f"alpha_{alpha:.2f}"
-        / "seed_50_trajectory.csv"
+        tmp_path / "e4" / branch / f"alpha_{alpha:.2f}" / "seed_50_trajectory.csv"
     )
     _assert_trajectory(actual.trajectory, expected_rows)
     _assert_mapping(actual.summary, expected_summary)
 
 
-@pytest.mark.parametrize(
-    "method", ("uncontrolled_all", "far_cap", "budget_matched_global")
-)
+@pytest.mark.parametrize("method", ("uncontrolled_all", "far_cap", "budget_matched_global"))
 def test_phase_control_gradients_match_authoritative_runner(
     tmp_path: Path,
     method: str,
@@ -291,16 +273,12 @@ def test_phase_control_gradients_match_authoritative_runner(
         method=method,
         fixed_sigma=fixed_sigma,
     )
-    for actual_gradient, expected_gradient in zip(
-        actual_gradients, expected_gradients
-    ):
+    for actual_gradient, expected_gradient in zip(actual_gradients, expected_gradients):
         if expected_gradient is None:
             assert actual_gradient is None
         else:
             assert actual_gradient is not None
-            torch.testing.assert_close(
-                actual_gradient, expected_gradient, rtol=1e-6, atol=1e-7
-            )
+            torch.testing.assert_close(actual_gradient, expected_gradient, rtol=1e-6, atol=1e-7)
     _assert_mapping(actual_diagnostics, expected_diagnostics)
 
 
@@ -315,9 +293,7 @@ def test_phase_control_short_trajectory_matches_authoritative_runner(
     new_environment = make_environment(50, protocol)
     initialization = _matching_state(protocol, seed=313)
 
-    expected_summary = legacy.run_control_seed(
-        50, initialization, old_environment, "far_cap"
-    )
+    expected_summary = legacy.run_control_seed(50, initialization, old_environment, "far_cap")
     actual = run_far_pressure_control(
         seed=50,
         initialization_state=initialization,
@@ -327,8 +303,6 @@ def test_phase_control_short_trajectory_matches_authoritative_runner(
         control=control,
         method="far_cap",
     )
-    expected_rows = _read_csv(
-        tmp_path / "e4" / "control" / "far_cap" / "seed_50_trajectory.csv"
-    )
+    expected_rows = _read_csv(tmp_path / "e4" / "control" / "far_cap" / "seed_50_trajectory.csv")
     _assert_trajectory(actual.trajectory, expected_rows)
     _assert_mapping(actual.summary, expected_summary)

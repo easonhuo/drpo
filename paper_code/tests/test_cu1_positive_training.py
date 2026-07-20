@@ -70,9 +70,7 @@ def test_full_small_positive_training_matches_legacy(
     monkeypatch.setattr(legacy, "DTYPE", torch.float32)
 
     old_actor, old_environment, old_trajectory, old_summary = legacy.train_positive(19)
-    old_initialization = load_state(
-        legacy.positive_initialization_checkpoint_path(19)
-    )
+    old_initialization = load_state(legacy.positive_initialization_checkpoint_path(19))
     new = train_positive(
         seed=19,
         protocol=protocol,

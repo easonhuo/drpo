@@ -37,17 +37,13 @@ class CartesianPolicy(nn.Module):
         nn.init.zeros_(self.rarity_residual_head.weight)
         nn.init.zeros_(self.rarity_residual_head.bias)
         self.reference_trunk = copy.deepcopy(self.trunk)
-        self.reference_direction_head = copy.deepcopy(
-            self.direction_head
-        )
+        self.reference_direction_head = copy.deepcopy(self.direction_head)
         for parameter in self.reference_trunk.parameters():
             parameter.requires_grad_(False)
         for parameter in self.reference_direction_head.parameters():
             parameter.requires_grad_(False)
         self.fixed_concentration = protocol.fixed_concentration
-        self.initial_rarity_half_gap = (
-            environment.initial_rarity_half_gap()
-        )
+        self.initial_rarity_half_gap = environment.initial_rarity_half_gap()
         self.register_buffer(
             "action_rarity_sign",
             environment.action_rarity_sign.clone().float(),
@@ -64,13 +60,10 @@ class CartesianPolicy(nn.Module):
         if reference_direction is None:
             with torch.no_grad():
                 reference_direction = unit(
-                    self.reference_direction_head(
-                        self.reference_trunk(states)
-                    )
+                    self.reference_direction_head(self.reference_trunk(states))
                 )
         residual = self.fixed_concentration * (
-            (direction - reference_direction)
-            @ action_embeddings.T
+            (direction - reference_direction) @ action_embeddings.T
         )
         return residual, direction, features
 
@@ -79,21 +72,14 @@ class CartesianPolicy(nn.Module):
         states: torch.Tensor,
         action_embeddings: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        semantic_logits, direction, features = (
-            self.semantic_residual(
-                states,
-                action_embeddings,
-            )
+        semantic_logits, direction, features = self.semantic_residual(
+            states,
+            action_embeddings,
         )
-        rarity_coordinate = (
-            self.initial_rarity_half_gap
-            + self.rarity_residual_head(features).squeeze(-1)
-        )
-        logits = (
-            semantic_logits
-            + rarity_coordinate[:, None]
-            * self.action_rarity_sign[None, :]
-        )
+        rarity_coordinate = self.initial_rarity_half_gap + self.rarity_residual_head(
+            features
+        ).squeeze(-1)
+        logits = semantic_logits + rarity_coordinate[:, None] * self.action_rarity_sign[None, :]
         return logits, direction
 
     def rarity_coordinate(
@@ -101,20 +87,13 @@ class CartesianPolicy(nn.Module):
         states: torch.Tensor,
     ) -> torch.Tensor:
         features = self.trunk(states)
-        return (
-            self.initial_rarity_half_gap
-            + self.rarity_residual_head(features).squeeze(-1)
-        )
+        return self.initial_rarity_half_gap + self.rarity_residual_head(features).squeeze(-1)
 
 
 def trainable_parameters(
     model: nn.Module,
 ) -> tuple[nn.Parameter, ...]:
-    return tuple(
-        parameter
-        for parameter in model.parameters()
-        if parameter.requires_grad
-    )
+    return tuple(parameter for parameter in model.parameters() if parameter.requires_grad)
 
 
 def cache_reference_directions(
@@ -124,9 +103,7 @@ def cache_reference_directions(
     with torch.no_grad():
         for split in (environment.train, environment.test):
             split["reference_direction"] = unit(
-                model.reference_direction_head(
-                    model.reference_trunk(split["states"])
-                )
+                model.reference_direction_head(model.reference_trunk(split["states"]))
             )
 
 
@@ -171,25 +148,15 @@ def cell_log_probs(
 ) -> tuple[torch.Tensor, dict[str, torch.Tensor], torch.Tensor]:
     states = split["states"][index]
     reference = split.get("reference_direction")
-    reference_batch = (
-        None if reference is None else reference[index]
-    )
+    reference_batch = None if reference is None else reference[index]
     semantic_logits, _, features = model.semantic_residual(
         states,
         environment.action_embeddings,
         reference_batch,
     )
-    rarity_residual = model.rarity_residual_head(
-        features
-    ).squeeze(-1)
-    rarity_coordinate = (
-        model.initial_rarity_half_gap + rarity_residual
-    )
-    logits = (
-        semantic_logits
-        + rarity_coordinate[:, None]
-        * model.action_rarity_sign[None, :]
-    )
+    rarity_residual = model.rarity_residual_head(features).squeeze(-1)
+    rarity_coordinate = model.initial_rarity_half_gap + rarity_residual
+    logits = semantic_logits + rarity_coordinate[:, None] * model.action_rarity_sign[None, :]
     log_probs = F.log_softmax(logits, dim=-1)
     prototype_logits = semantic_logits[
         :,
@@ -214,11 +181,7 @@ def cell_log_probs(
     cells = {
         "useful_common": useful_pair.max(dim=1).values,
         "useful_rare": useful_pair.min(dim=1).values,
-        "unhelpful_common": (
-            unhelpful_pair.max(dim=1).values
-        ),
-        "unhelpful_rare": (
-            unhelpful_pair.min(dim=1).values
-        ),
+        "unhelpful_common": (unhelpful_pair.max(dim=1).values),
+        "unhelpful_rare": (unhelpful_pair.min(dim=1).values),
     }
     return positive, cells, rarity_residual

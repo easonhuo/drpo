@@ -102,14 +102,8 @@ def test_sampling_rank_and_gradient_utilities_match() -> None:
     )
     assert actual == pytest.approx(expected, rel=1.0e-7, abs=1.0e-8)
 
-    old_snapshot = [
-        parameter.detach().clone()
-        for parameter in old_model.parameters()
-    ]
-    new_snapshot = [
-        parameter.detach().clone()
-        for parameter in new_model.parameters()
-    ]
+    old_snapshot = [parameter.detach().clone() for parameter in old_model.parameters()]
+    new_snapshot = [parameter.detach().clone() for parameter in new_model.parameters()]
     with torch.no_grad():
         for old_parameter, new_parameter in zip(
             old_model.parameters(),
@@ -202,9 +196,7 @@ def test_short_fixed_budget_critic_matches_authoritative_runner(
     root = Path(tmp_path)
     data = _data()
     split = split_episode_indices(data.episode_ids, 29, 0.6, 0.2)
-    observation_normalizer = Normalizer.fit(
-        data.observations[split["train"]]
-    )
+    observation_normalizer = Normalizer.fit(data.observations[split["train"]])
     returns = discounted_returns(
         data.rewards,
         data.terminals,
@@ -237,31 +229,19 @@ def test_short_fixed_budget_critic_matches_authoritative_runner(
         weight_decay=protocol.weight_decay,
         critic_batch_size=protocol.critic_batch_size,
         audit_windows=protocol.audit_windows,
-        critic_relative_slope_tolerance=(
-            protocol.critic_relative_slope_tolerance
-        ),
+        critic_relative_slope_tolerance=(protocol.critic_relative_slope_tolerance),
         critic_update_tolerance=protocol.critic_update_tolerance,
         gamma=protocol.gamma,
         advantage_standardize=protocol.advantage_standardize_once,
         critic_validation_r2_min=protocol.critic_validation_r2_min,
-        critic_validation_pearson_min=(
-            protocol.critic_validation_pearson_min
-        ),
+        critic_validation_pearson_min=(protocol.critic_validation_pearson_min),
         critic_max_final_to_best_validation_mse_ratio=(
             protocol.critic_max_final_to_best_validation_mse_ratio
         ),
-        critic_advantage_sign_agreement_min=(
-            protocol.critic_advantage_sign_agreement_min
-        ),
-        critic_advantage_pearson_min=(
-            protocol.critic_advantage_pearson_min
-        ),
-        critic_advantage_spearman_min=(
-            protocol.critic_advantage_spearman_min
-        ),
-        critic_negative_set_jaccard_min=(
-            protocol.critic_negative_set_jaccard_min
-        ),
+        critic_advantage_sign_agreement_min=(protocol.critic_advantage_sign_agreement_min),
+        critic_advantage_pearson_min=(protocol.critic_advantage_pearson_min),
+        critic_advantage_spearman_min=(protocol.critic_advantage_spearman_min),
+        critic_negative_set_jaccard_min=(protocol.critic_negative_set_jaccard_min),
     )
     old_mode = SimpleNamespace(
         audit_sample_size=protocol.audit_sample_size,
@@ -356,12 +336,7 @@ def test_short_fixed_budget_critic_matches_authoritative_runner(
         if key == "advantage":
             expected_array = expected_advantages
         else:
-            expected_array = np.load(
-                root
-                / "legacy"
-                / "advantages"
-                / "frozen_advantages.npz"
-            )[key]
+            expected_array = np.load(root / "legacy" / "advantages" / "frozen_advantages.npz")[key]
         np.testing.assert_allclose(
             actual.advantages[key],
             expected_array,

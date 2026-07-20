@@ -24,9 +24,7 @@ class CartesianSemanticEnvironment:
         self.semantic_dim = protocol.semantic_dim
         self.prototype_count = protocol.semantic_prototypes
         self.hidden_prototype_count = protocol.hidden_semantic_prototypes
-        self.semantic_family_count = (
-            self.prototype_count + self.hidden_prototype_count
-        )
+        self.semantic_family_count = self.prototype_count + self.hidden_prototype_count
         self.rarity_replicas = protocol.rarity_replicas
         self.observed_action_count = protocol.observed_action_count
         self.hidden_action_count = protocol.hidden_action_count
@@ -45,17 +43,11 @@ class CartesianSemanticEnvironment:
         self.hidden_reward_min = protocol.hidden_reward_min
         self.hidden_reward_max = protocol.hidden_reward_max
 
-        generator = torch.Generator(device="cpu").manual_seed(
-            410_003 + self.seed
-        )
+        generator = torch.Generator(device="cpu").manual_seed(410_003 + self.seed)
         half = self.prototype_count // 2
-        base = unit(
-            torch.randn(half, self.semantic_dim, generator=generator)
-        )
+        base = unit(torch.randn(half, self.semantic_dim, generator=generator))
         observed = torch.cat([base, -base], dim=0)
-        observed = observed[
-            torch.randperm(self.prototype_count, generator=generator)
-        ].contiguous()
+        observed = observed[torch.randperm(self.prototype_count, generator=generator)].contiguous()
         hidden = unit(
             torch.randn(
                 self.hidden_prototype_count,
@@ -65,16 +57,12 @@ class CartesianSemanticEnvironment:
         )
         self.prototype_embeddings = torch.cat([observed, hidden], dim=0)
 
-        observed_action_proto = torch.arange(
-            self.prototype_count
-        ).repeat_interleave(2)
+        observed_action_proto = torch.arange(self.prototype_count).repeat_interleave(2)
         hidden_action_proto = torch.arange(
             self.prototype_count,
             self.semantic_family_count,
         )
-        self.action_prototype = torch.cat(
-            [observed_action_proto, hidden_action_proto]
-        )
+        self.action_prototype = torch.cat([observed_action_proto, hidden_action_proto])
         observed_rarity = torch.tensor(
             [0, 1],
             dtype=torch.long,
@@ -83,21 +71,15 @@ class CartesianSemanticEnvironment:
             self.hidden_action_count,
             dtype=torch.long,
         )
-        self.action_rarity = torch.cat(
-            [observed_rarity, hidden_rarity]
-        )
+        self.action_rarity = torch.cat([observed_rarity, hidden_rarity])
         self.action_rarity_sign = torch.where(
             self.action_rarity == 0,
             torch.tensor(1.0),
             torch.tensor(-1.0),
         )
-        self.action_embeddings = self.prototype_embeddings[
-            self.action_prototype
-        ]
+        self.action_embeddings = self.prototype_embeddings[self.action_prototype]
 
-        geometry = torch.Generator(device="cpu").manual_seed(
-            420_003 + self.seed
-        )
+        geometry = torch.Generator(device="cpu").manual_seed(420_003 + self.seed)
         self.w_plus = torch.randn(
             self.state_dim,
             self.semantic_dim,
@@ -151,22 +133,14 @@ class CartesianSemanticEnvironment:
         if bool(weak.any()):
             fallback = torch.zeros_like(raw)
             fallback[:, 0] = 1.0
-            fallback = fallback - (
-                fallback * t_plus
-            ).sum(-1, keepdim=True) * t_plus
+            fallback = fallback - (fallback * t_plus).sum(-1, keepdim=True) * t_plus
             raw[weak] = fallback[weak]
         direction = unit(raw)
         t_star = unit(t_plus + self.target_offset * direction)
 
-        observed_embeddings = self.prototype_embeddings[
-            : self.prototype_count
-        ]
-        hidden_embeddings = self.prototype_embeddings[
-            self.prototype_count :
-        ]
-        positive_proto = (
-            t_plus @ observed_embeddings.T
-        ).topk(self.n_positive, dim=1).indices
+        observed_embeddings = self.prototype_embeddings[: self.prototype_count]
+        hidden_embeddings = self.prototype_embeddings[self.prototype_count :]
+        positive_proto = (t_plus @ observed_embeddings.T).topk(self.n_positive, dim=1).indices
         banned = torch.zeros(
             count,
             self.prototype_count,
@@ -174,11 +148,7 @@ class CartesianSemanticEnvironment:
         )
         banned.scatter_(1, positive_proto, True)
         utility_geometry = (
-            (
-                t_plus[:, None, :]
-                - observed_embeddings[None, :, :]
-            )
-            * direction[:, None, :]
+            (t_plus[:, None, :] - observed_embeddings[None, :, :]) * direction[:, None, :]
         ).sum(-1)
         useful_proto = self._topk_excluding(
             utility_geometry,
@@ -240,9 +210,10 @@ class CartesianSemanticEnvironment:
             )
 
         hidden_similarity = t_star @ hidden_embeddings.T
-        hidden_rewards = self.hidden_reward_min + (
-            self.hidden_reward_max - self.hidden_reward_min
-        ) * (hidden_similarity + 1.0) * 0.5
+        hidden_rewards = (
+            self.hidden_reward_min
+            + (self.hidden_reward_max - self.hidden_reward_min) * (hidden_similarity + 1.0) * 0.5
+        )
         reward_matrix[:, self.observed_action_count :] = hidden_rewards
         hidden_optimal_actions = (
             hidden_rewards.topk(
@@ -293,10 +264,7 @@ class CartesianSemanticEnvironment:
             unhelpful_common = split["unhelpful_common"]
             unhelpful_rare = split["unhelpful_rare"]
             advantages = torch.stack(
-                [
-                    split[f"{cell}_advantage"]
-                    for cell in CELL_NAMES
-                ],
+                [split[f"{cell}_advantage"] for cell in CELL_NAMES],
                 dim=1,
             )
             checks = {
@@ -318,11 +286,7 @@ class CartesianSemanticEnvironment:
                     and torch.all(unhelpful_common % 2 == 0)
                     and torch.all(unhelpful_rare % 2 == 1)
                 ),
-                "negative_advantage_equal": bool(
-                    torch.all(
-                        advantages == self.negative_advantage
-                    )
-                ),
+                "negative_advantage_equal": bool(torch.all(advantages == self.negative_advantage)),
                 "useful_reward_exact": bool(
                     torch.allclose(
                         split["reward_matrix"][
@@ -368,14 +332,8 @@ class CartesianSemanticEnvironment:
                     )
                 ),
                 "hidden_ids_valid": bool(
-                    torch.all(
-                        split["hidden_optimal_actions"]
-                        >= self.observed_action_count
-                    )
-                    and torch.all(
-                        split["hidden_optimal_actions"]
-                        < self.action_count
-                    )
+                    torch.all(split["hidden_optimal_actions"] >= self.observed_action_count)
+                    and torch.all(split["hidden_optimal_actions"] < self.action_count)
                 ),
             }
             split_passed = all(checks.values())
@@ -392,12 +350,7 @@ class CartesianSemanticEnvironment:
                 "hidden_action_count": self.hidden_action_count,
                 "action_count": self.action_count,
                 "hidden_actions_share_rare_coordinate": bool(
-                    torch.all(
-                        self.action_rarity_sign[
-                            self.observed_action_count :
-                        ]
-                        < 0
-                    )
+                    torch.all(self.action_rarity_sign[self.observed_action_count :] < 0)
                 ),
                 "trainable_per_action_bias": False,
             }

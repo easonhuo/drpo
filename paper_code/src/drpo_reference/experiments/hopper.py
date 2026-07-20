@@ -162,8 +162,7 @@ def validate_dataset_identity(
     digest = _sha256_file(path)
     if digest != protocol.dataset_sha256:
         raise ValueError(
-            "Hopper dataset SHA-256 mismatch: "
-            f"expected {protocol.dataset_sha256}, got {digest}"
+            f"Hopper dataset SHA-256 mismatch: expected {protocol.dataset_sha256}, got {digest}"
         )
     return {
         "path": str(path),
@@ -297,9 +296,7 @@ def prepare_canonical_critic_context(
                 mean=normalizer_payload["mean"].astype(np.float32),
                 std=normalizer_payload["std"].astype(np.float32),
             ),
-            advantage_arrays={
-                name: advantages_payload[name] for name in advantages_payload.files
-            },
+            advantage_arrays={name: advantages_payload[name] for name in advantages_payload.files},
             critic_audit=json.loads(
                 (root / "critic_terminal_audit.json").read_text(encoding="utf-8")
             ),
@@ -356,8 +353,7 @@ def prepare_canonical_critic_context(
         split={name: values.copy() for name, values in split.items()},
         observation_normalizer=observation_normalizer,
         advantage_arrays={
-            name: np.asarray(values).copy()
-            for name, values in critic_run.advantages.items()
+            name: np.asarray(values).copy() for name, values in critic_run.advantages.items()
         },
         critic_audit=dict(critic_run.audit),
         artifact_manifest=manifest,
@@ -407,19 +403,11 @@ def flatten_seed_summary(summary: dict[str, Any]) -> dict[str, Any]:
         ),
         "natural_far_field_present": bool(probe.get("natural_far_field_present")),
         "initial_global_scale": _finite_or_none(global_budget.get("global_scale")),
-        "positive_only_fixed_budget_completed": bool(
-            positive.get("fixed_budget_completed")
-        ),
-        "positive_only_terminal_audit_complete": bool(
-            positive.get("terminal_audit_complete")
-        ),
+        "positive_only_fixed_budget_completed": bool(positive.get("fixed_budget_completed")),
+        "positive_only_terminal_audit_complete": bool(positive.get("terminal_audit_complete")),
         "positive_only_terminal_state": positive.get("state"),
-        "positive_only_task_performance_status": positive.get(
-            "task_performance_status"
-        ),
-        "positive_only_normalized_return": _finite_or_none(
-            positive.get("final_normalized_return")
-        ),
+        "positive_only_task_performance_status": positive.get("task_performance_status"),
+        "positive_only_normalized_return": _finite_or_none(positive.get("final_normalized_return")),
     }
     methods = summary.get("methods", {})
     failures = summary.get("branch_failures", {})
@@ -436,26 +424,14 @@ def flatten_seed_summary(summary: dict[str, Any]) -> dict[str, Any]:
             row[f"{method}_nan_inf_event"] = None
             row[f"{method}_normalized_return"] = None
             continue
-        row[f"{method}_fixed_budget_completed"] = bool(
-            audit.get("fixed_budget_completed")
-        )
-        row[f"{method}_terminal_audit_complete"] = bool(
-            audit.get("terminal_audit_complete")
-        )
+        row[f"{method}_fixed_budget_completed"] = bool(audit.get("fixed_budget_completed"))
+        row[f"{method}_terminal_audit_complete"] = bool(audit.get("terminal_audit_complete"))
         row[f"{method}_terminal_state"] = audit.get("state")
-        row[f"{method}_task_performance_status"] = audit.get(
-            "task_performance_status"
-        )
-        row[f"{method}_task_performance_collapse"] = audit.get(
-            "task_performance_collapse"
-        )
-        row[f"{method}_support_boundary_event"] = audit.get(
-            "support_boundary_event"
-        )
+        row[f"{method}_task_performance_status"] = audit.get("task_performance_status")
+        row[f"{method}_task_performance_collapse"] = audit.get("task_performance_collapse")
+        row[f"{method}_support_boundary_event"] = audit.get("support_boundary_event")
         row[f"{method}_nan_inf_event"] = audit.get("numerical_nonfinite")
-        row[f"{method}_normalized_return"] = _finite_or_none(
-            audit.get("final_normalized_return")
-        )
+        row[f"{method}_normalized_return"] = _finite_or_none(audit.get("final_normalized_return"))
     return row
 
 
@@ -506,9 +482,7 @@ def aggregate_seed_summaries(summaries: Sequence[dict[str, Any]]) -> dict[str, A
 
     aggregate["terminal_state_counts"] = {
         method: {
-            state: sum(
-                row.get(f"{method}_terminal_state") == state for row in rows
-            )
+            state: sum(row.get(f"{method}_terminal_state") == state for row in rows)
             for state in sorted(
                 {
                     str(row[f"{method}_terminal_state"])
@@ -522,16 +496,13 @@ def aggregate_seed_summaries(summaries: Sequence[dict[str, Any]]) -> dict[str, A
     aggregate["reporting_separation"] = {
         method: {
             "task_performance_available_count": sum(
-                row.get(f"{method}_task_performance_status") == "available"
-                for row in rows
+                row.get(f"{method}_task_performance_status") == "available" for row in rows
             ),
             "task_performance_unavailable_count": sum(
-                row.get(f"{method}_task_performance_status") != "available"
-                for row in rows
+                row.get(f"{method}_task_performance_status") != "available" for row in rows
             ),
             "task_performance_collapse_count": sum(
-                row.get(f"{method}_task_performance_collapse") is True
-                for row in rows
+                row.get(f"{method}_task_performance_collapse") is True for row in rows
             ),
             "support_or_variance_boundary_count": sum(
                 row.get(f"{method}_support_boundary_event") is True for row in rows
@@ -539,9 +510,7 @@ def aggregate_seed_summaries(summaries: Sequence[dict[str, Any]]) -> dict[str, A
             "nan_inf_numerical_count": sum(
                 row.get(f"{method}_nan_inf_event") is True for row in rows
             ),
-            "branch_failure_count": sum(
-                bool(row.get(f"{method}_branch_failed")) for row in rows
-            ),
+            "branch_failure_count": sum(bool(row.get(f"{method}_branch_failed")) for row in rows),
         }
         for method in METHODS
     }
@@ -596,19 +565,13 @@ def build_root_terminal_audit(
     )
     all_branch_initial_states_identical = bool(
         summaries
-        and all(
-            summary.get("all_branch_initial_states_identical") for summary in summaries
-        )
+        and all(summary.get("all_branch_initial_states_identical") for summary in summaries)
     )
     positive_fixed_budget = bool(
         summaries
         and all(
-            summary.get("positive_only_initialization", {}).get(
-                "fixed_budget_completed"
-            )
-            and summary.get("positive_only_initialization", {}).get(
-                "terminal_audit_complete"
-            )
+            summary.get("positive_only_initialization", {}).get("fixed_budget_completed")
+            and summary.get("positive_only_initialization", {}).get("terminal_audit_complete")
             for summary in summaries
         )
     )
@@ -627,8 +590,7 @@ def build_root_terminal_audit(
         summaries
         and all(
             all(
-                audit.get("fixed_budget_completed")
-                for audit in summary.get("methods", {}).values()
+                audit.get("fixed_budget_completed") for audit in summary.get("methods", {}).values()
             )
             and set(summary.get("methods", {})) == set(METHODS)
             for summary in summaries
@@ -638,9 +600,7 @@ def build_root_terminal_audit(
         rollout_preflight.get("status") == "passed"
         and summaries
         and all(
-            summary.get("positive_only_initialization", {}).get(
-                "task_performance_status"
-            )
+            summary.get("positive_only_initialization", {}).get("task_performance_status")
             == "available"
             and all(
                 audit.get("task_performance_status") == "available"
@@ -753,9 +713,7 @@ def _make_rollout_evaluator(
         is_preparation = stage == "positive_only_initialization"
         terminal_step = protocol.positive_steps if is_preparation else protocol.branch_steps
         episodes = (
-            protocol.final_rollout_episodes
-            if step >= terminal_step
-            else protocol.rollout_episodes
+            protocol.final_rollout_episodes if step >= terminal_step else protocol.rollout_episodes
         )
         diagnostics = seed_dir / "rollouts" / stage / f"step_{step:08d}.json"
         return rollout_runner(
@@ -848,19 +806,13 @@ def run_hopper(
                 "root": str(canonical.root),
                 "reused": canonical.reused,
                 "identity": canonical.artifact_manifest["identity"],
-                "critic_training_count": canonical.artifact_manifest.get(
-                    "critic_training_count"
-                ),
+                "critic_training_count": canonical.artifact_manifest.get("critic_training_count"),
                 "shared_across_all_actor_seeds": True,
                 "files": canonical.artifact_manifest["files"],
             },
         )
-        normalized_observations = canonical.observation_normalizer.transform(
-            data.observations
-        )
-        advantages = np.asarray(
-            canonical.advantage_arrays["advantage"], dtype=np.float32
-        )
+        normalized_observations = canonical.observation_normalizer.transform(data.observations)
+        advantages = np.asarray(canonical.advantage_arrays["advantage"], dtype=np.float32)
 
         for index, seed in enumerate(plan.seeds, start=1):
             seed_dir = output / "seeds" / f"seed_{seed}"
@@ -942,9 +894,7 @@ def run_hopper(
                 atomic_json(seed_dir / "suite_summary.json", summary)
                 suite_completion_path = seed_dir / "SUITE_COMPLETE.json"
                 if suite_completion_path.is_file():
-                    suite_completion = json.loads(
-                        suite_completion_path.read_text(encoding="utf-8")
-                    )
+                    suite_completion = json.loads(suite_completion_path.read_text(encoding="utf-8"))
                 else:
                     suite_completion = {
                         "seed": seed,
@@ -1000,8 +950,7 @@ def run_hopper(
             }
             atomic_json(output / "RUN_INCOMPLETE.json", incomplete)
             raise RuntimeError(
-                "Hopper public run is incomplete; see terminal_audit.json and "
-                "RUN_INCOMPLETE.json"
+                "Hopper public run is incomplete; see terminal_audit.json and RUN_INCOMPLETE.json"
             )
 
         completion = {

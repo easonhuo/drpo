@@ -275,12 +275,8 @@ def test_preflight_matches_authoritative_runner(
     monkeypatch.setattr(legacy, "utc_now", lambda: "fixed-time")
     monkeypatch.setattr(reference, "utc_now", lambda: "fixed-time")
 
-    expected = legacy.preflight_rollout_environment(
-        **_preflight_kwargs(tmp_path / "legacy")
-    )
-    actual = reference.preflight_rollout_environment(
-        **_preflight_kwargs(tmp_path / "reference")
-    )
+    expected = legacy.preflight_rollout_environment(**_preflight_kwargs(tmp_path / "legacy"))
+    actual = reference.preflight_rollout_environment(**_preflight_kwargs(tmp_path / "reference"))
     assert actual == expected
     assert old_env.reset_seeds == new_env.reset_seeds == [7, 8]
     assert len(old_env.actions) == len(new_env.actions) == 3
@@ -288,9 +284,7 @@ def test_preflight_matches_authoritative_runner(
         np.testing.assert_array_equal(new_action, old_action)
     assert old_env.closed is True
     assert new_env.closed is True
-    saved = json.loads(
-        (tmp_path / "reference" / "rollout_preflight.json").read_text()
-    )
+    saved = json.loads((tmp_path / "reference" / "rollout_preflight.json").read_text())
     assert saved == actual
 
 
@@ -311,12 +305,8 @@ def test_preflight_failure_persists_before_required_raise(
         RuntimeError,
         match="Gymnasium rollout preflight failed",
     ):
-        reference.preflight_rollout_environment(
-            **_preflight_kwargs(output_dir)
-        )
-    report = json.loads(
-        (output_dir / "rollout_preflight.json").read_text()
-    )
+        reference.preflight_rollout_environment(**_preflight_kwargs(output_dir))
+    report = json.loads((output_dir / "rollout_preflight.json").read_text())
     assert report["status"] == "failed"
     assert report["error_type"] == "RuntimeError"
     assert "synthetic failure" in report["error"]
@@ -331,9 +321,7 @@ def test_optional_preflight_failure_is_not_claimed_as_pass(
     monkeypatch.setattr(
         reference,
         "_open_gymnasium_mujoco_env",
-        lambda env_id: (_ for _ in ()).throw(
-            RuntimeError(f"unavailable {env_id}")
-        ),
+        lambda env_id: (_ for _ in ()).throw(RuntimeError(f"unavailable {env_id}")),
     )
     kwargs = _preflight_kwargs(tmp_path / "optional")
     kwargs["required"] = False

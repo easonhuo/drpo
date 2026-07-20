@@ -61,9 +61,7 @@ def taper_weight(
     linear in ``u``.
     """
 
-    distance = torch.sqrt(
-        torch.clamp(normalized_excess.detach(), min=0.0)
-    )
+    distance = torch.sqrt(torch.clamp(normalized_excess.detach(), min=0.0))
     mapping = {
         "reciprocal_linear_distance": TaperFamily.RECIPROCAL_LINEAR,
         "reciprocal_quadratic_distance": TaperFamily.RECIPROCAL_QUADRATIC,
@@ -111,9 +109,7 @@ def coordinate_calibration(
     rare_median = float(rare.median())
     scale = rare_median - threshold
     if scale <= protocol.minimum_calibration_gap:
-        raise RuntimeError(
-            f"initial common/rare surprisal gap too small: {scale}"
-        )
+        raise RuntimeError(f"initial common/rare surprisal gap too small: {scale}")
     return {
         "threshold": threshold,
         "scale": scale,
@@ -128,10 +124,7 @@ def rarity_logit_anchor_loss(
     model: CartesianPolicy,
     states: torch.Tensor,
 ) -> torch.Tensor:
-    residual = (
-        model.rarity_coordinate(states)
-        - model.initial_rarity_half_gap
-    )
+    residual = model.rarity_coordinate(states) - model.initial_rarity_half_gap
     return 0.5 * residual.square().mean()
 
 
@@ -144,10 +137,7 @@ def active_cell_loss(
 ) -> tuple[torch.Tensor, dict[str, float]]:
     if not spec.active_cells:
         zero = next(iter(cells.values())).sum() * 0.0
-        return zero, {
-            f"weight_{cell}": 0.0
-            for cell in CELL_NAMES
-        }
+        return zero, {f"weight_{cell}": 0.0 for cell in CELL_NAMES}
 
     pieces: list[torch.Tensor] = []
     diagnostics: dict[str, float] = {}
@@ -170,12 +160,8 @@ def active_cell_loss(
                 spec.taper_family,
                 float(coefficients[spec.taper_family]),
             )
-        pieces.append(
-            (weight * log_probability).mean()
-        )
-        diagnostics[f"weight_{cell}"] = float(
-            weight.detach().mean()
-        )
+        pieces.append((weight * log_probability).mean())
+        diagnostics[f"weight_{cell}"] = float(weight.detach().mean())
     for cell in CELL_NAMES:
         diagnostics.setdefault(f"weight_{cell}", 0.0)
     return (
@@ -199,13 +185,7 @@ def flat_grad_norm(
     total = torch.zeros((), dtype=torch.float64)
     for gradient in gradients:
         if gradient is not None:
-            total += (
-                gradient.detach()
-                .double()
-                .square()
-                .sum()
-                .cpu()
-            )
+            total += gradient.detach().double().square().sum().cpu()
     return float(torch.sqrt(total))
 
 
@@ -219,9 +199,7 @@ def negative_loss_and_diagnostics(
 ) -> tuple[torch.Tensor, dict[str, float]]:
     """Return the registered negative loss and stepwise budget audit."""
 
-    coefficients = taper_coefficients(
-        protocol.reference_rare_retention
-    )
+    coefficients = taper_coefficients(protocol.reference_rare_retention)
     if spec.taper_family == "global":
         raw_spec = MethodSpec(
             "all_negative",
@@ -270,9 +248,7 @@ def negative_loss_and_diagnostics(
             "negative_raw_gradient_norm": raw_norm,
             "negative_target_gradient_norm": target_norm,
             "negative_applied_gradient_norm": scale * raw_norm,
-            "stepwise_budget_match_error": abs(
-                scale * raw_norm - target_norm
-            ),
+            "stepwise_budget_match_error": abs(scale * raw_norm - target_norm),
             "stepwise_global_scale": scale,
         }
 
@@ -289,7 +265,5 @@ def negative_loss_and_diagnostics(
         "negative_target_gradient_norm": 0.0,
         "negative_applied_gradient_norm": 0.0,
         "stepwise_budget_match_error": 0.0,
-        "stepwise_global_scale": (
-            1.0 if spec.active_cells else 0.0
-        ),
+        "stepwise_global_scale": (1.0 if spec.active_cells else 0.0),
     }

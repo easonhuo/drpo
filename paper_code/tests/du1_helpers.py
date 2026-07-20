@@ -71,9 +71,7 @@ def matching_models(
         protocol,
         new_environment,
     )
-    assert set(old_model.state_dict()) == set(
-        new_model.state_dict()
-    )
+    assert set(old_model.state_dict()) == set(new_model.state_dict())
     for name, old_value in old_model.state_dict().items():
         torch.testing.assert_close(
             new_model.state_dict()[name],

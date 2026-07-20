@@ -18,34 +18,15 @@ def test_du1_smoke_writes_complete_nonformal_matrix(
     )
     assert manifest["protocol_revision"] == 4
     assert manifest["formal_evidence_allowed"] is False
-    assert manifest["terminology"] == (
-        "same-distribution held-out-context generalization"
-    )
-    terminal = json.loads(
-        (tmp_path / "terminal_audit.json").read_text(
-            encoding="utf-8"
-        )
-    )
+    assert manifest["terminology"] == ("same-distribution held-out-context generalization")
+    terminal = json.loads((tmp_path / "terminal_audit.json").read_text(encoding="utf-8"))
     assert terminal["actual_runs"] == len(FORMAL_METHODS)
     assert terminal["all_registered_runs_present"] is True
     assert terminal["formal_evidence_allowed"] is False
-    assert (
-        tmp_path / "aggregate_summary.json"
-    ).exists()
-    assert (
-        tmp_path / "mechanism_summary.json"
-    ).exists()
-    assert (
-        tmp_path / "taper_summary.json"
-    ).exists()
-    checkpoint = (
-        tmp_path
-        / "checkpoints"
-        / "seed_0"
-        / "CHECKPOINT_COMPLETE.json"
-    )
+    assert (tmp_path / "aggregate_summary.json").exists()
+    assert (tmp_path / "mechanism_summary.json").exists()
+    assert (tmp_path / "taper_summary.json").exists()
+    checkpoint = tmp_path / "checkpoints" / "seed_0" / "CHECKPOINT_COMPLETE.json"
     assert checkpoint.exists()
-    complete = json.loads(
-        checkpoint.read_text(encoding="utf-8")
-    )
+    complete = json.loads(checkpoint.read_text(encoding="utf-8"))
     assert complete["methods_completed"] == list(FORMAL_METHODS)

@@ -49,16 +49,9 @@ def _predict(
     with torch.no_grad():
         for offset in range(0, len(indices), 65_536):
             selected = indices[offset : offset + 65_536]
-            chunks.append(
-                model(tensor(observations[selected], device))
-                .cpu()
-                .numpy()
-            )
+            chunks.append(model(tensor(observations[selected], device)).cpu().numpy())
     normalized = np.concatenate(chunks)
-    return (
-        normalized * float(target_normalizer.std[0])
-        + float(target_normalizer.mean[0])
-    )
+    return normalized * float(target_normalizer.std[0]) + float(target_normalizer.mean[0])
 
 
 def train_critic(
@@ -76,12 +69,8 @@ def train_critic(
 
     target_device = torch.device(device)
     observations = observation_normalizer.transform(data.observations)
-    target_normalizer = Normalizer.fit(
-        returns[split["train"]].reshape(-1, 1)
-    )
-    normalized_targets = target_normalizer.transform(
-        returns.reshape(-1, 1)
-    ).reshape(-1)
+    target_normalizer = Normalizer.fit(returns[split["train"]].reshape(-1, 1))
+    normalized_targets = target_normalizer.transform(returns.reshape(-1, 1)).reshape(-1)
     model = ValueNetwork(
         observations.shape[1],
         protocol.hidden_sizes,
@@ -115,10 +104,7 @@ def train_critic(
     candidate_step: int | None = None
     extension_target: int | None = None
     early_stop_reason: str | None = None
-    snapshot = [
-        parameter.detach().clone()
-        for parameter in model.parameters()
-    ]
+    snapshot = [parameter.detach().clone() for parameter in model.parameters()]
     last_eval_step = 0
 
     def evaluate(
@@ -130,9 +116,7 @@ def train_critic(
             "step": step,
             "update_norm_per_step": update["raw_per_step"],
             "update_rms_per_step": update["rms_per_step"],
-            "relative_update_norm_per_step": update[
-                "relative_per_step"
-            ],
+            "relative_update_norm_per_step": update["relative_per_step"],
         }
         for name in ("train", "validation", "test"):
             indices = split[name]
@@ -144,9 +128,7 @@ def train_critic(
                 target_device,
             )
             truth = returns[indices]
-            result[f"{name}_mse"] = float(
-                np.mean((truth - prediction) ** 2)
-            )
+            result[f"{name}_mse"] = float(np.mean((truth - prediction) ** 2))
             result[f"{name}_r2"] = r2_score(truth, prediction)
             result[f"{name}_pearson"] = pearson(
                 truth,
@@ -156,9 +138,7 @@ def train_critic(
             ("train", train_audit),
             ("validation", validation_audit),
         ):
-            prediction = model(
-                tensor(observations[indices], target_device)
-            )
+            prediction = model(tensor(observations[indices], target_device))
             target = tensor(
                 normalized_targets[indices],
                 target_device,
@@ -168,14 +148,10 @@ def train_critic(
                 audit_loss,
                 model.parameters(),
             )
-            result[f"{name}_audit_loss_normalized"] = float(
-                audit_loss.detach().cpu()
-            )
+            result[f"{name}_audit_loss_normalized"] = float(audit_loss.detach().cpu())
             result[f"{name}_gradient_norm"] = gradient["raw"]
             result[f"{name}_gradient_rms"] = gradient["rms"]
-            result[f"{name}_relative_gradient_norm"] = gradient[
-                "relative_to_parameter_norm"
-            ]
+            result[f"{name}_relative_gradient_norm"] = gradient["relative_to_parameter_norm"]
         model.train()
         return result
 
@@ -186,9 +162,7 @@ def train_critic(
             split["train"],
             protocol.critic_batch_size,
         )
-        prediction = model(
-            tensor(observations[indices], target_device)
-        )
+        prediction = model(tensor(observations[indices], target_device))
         loss = F.mse_loss(
             prediction,
             tensor(normalized_targets[indices], target_device),
@@ -211,19 +185,13 @@ def train_critic(
             early_stop_reason = "nonfinite_train_gradient"
             break
         optimizer.step()
-        if (
-            step % protocol.critic_eval_interval == 0
-            or step == protocol.critic_steps
-        ):
+        if step % protocol.critic_eval_interval == 0 or step == protocol.critic_steps:
             update = parameter_update_statistics(
                 snapshot,
                 model.parameters(),
                 step - last_eval_step,
             )
-            snapshot = [
-                parameter.detach().clone()
-                for parameter in model.parameters()
-            ]
+            snapshot = [parameter.detach().clone() for parameter in model.parameters()]
             last_eval_step = step
             row = evaluate(step, update)
             row["train_batch_loss_normalized"] = loss_value
@@ -248,12 +216,9 @@ def train_critic(
                 candidate_step is None
                 and step >= protocol.critic_min_steps
                 and 2 * step <= protocol.critic_steps
-                and validation_slope
-                <= protocol.critic_relative_slope_tolerance
-                and train_slope
-                <= protocol.critic_relative_slope_tolerance
-                and float(row["relative_update_norm_per_step"])
-                <= protocol.critic_update_tolerance
+                and validation_slope <= protocol.critic_relative_slope_tolerance
+                and train_slope <= protocol.critic_relative_slope_tolerance
+                and float(row["relative_update_norm_per_step"]) <= protocol.critic_update_tolerance
             ):
                 candidate_step = step
                 extension_target = 2 * step
@@ -261,10 +226,7 @@ def train_critic(
     if not rows or best_state is None:
         raise RuntimeError("critic produced no auditable checkpoint")
     final_step = int(rows[-1]["step"])
-    fixed_budget_completed = bool(
-        final_step == protocol.critic_steps
-        and early_stop_reason is None
-    )
+    fixed_budget_completed = bool(final_step == protocol.critic_steps and early_stop_reason is None)
     final_metrics = dict(rows[-1])
     final_state = copy.deepcopy(model.state_dict())
     final_advantages = critic_advantage_arrays(
@@ -278,11 +240,7 @@ def train_critic(
         device=target_device,
     )
     model.load_state_dict(best_state)
-    selected_metrics = next(
-        dict(row)
-        for row in rows
-        if int(row["step"]) == best_step
-    )
+    selected_metrics = next(dict(row) for row in rows if int(row["step"]) == best_step)
     best_advantages = critic_advantage_arrays(
         critic=model,
         data=data,
@@ -296,29 +254,18 @@ def train_critic(
     indices = split["train"]
     best_stability = best_advantages["advantage"][indices]
     final_stability = final_advantages["advantage"][indices]
-    sign_agreement = float(
-        np.mean(
-            np.sign(best_stability) == np.sign(final_stability)
-        )
-    )
+    sign_agreement = float(np.mean(np.sign(best_stability) == np.sign(final_stability)))
     advantage_pearson = pearson(best_stability, final_stability)
     advantage_spearman = spearman(best_stability, final_stability)
     best_negative = best_stability < 0
     final_negative = final_stability < 0
     union = int(np.sum(best_negative | final_negative))
-    negative_jaccard = (
-        float(np.sum(best_negative & final_negative)) / union
-        if union
-        else 1.0
-    )
+    negative_jaccard = float(np.sum(best_negative & final_negative)) / union if union else 1.0
     final_to_best = float(final_metrics["validation_mse"]) / max(
         float(selected_metrics["validation_mse"]),
         EPS,
     )
-    extension_complete = bool(
-        candidate_step is not None
-        and final_step >= 2 * candidate_step
-    )
+    extension_complete = bool(candidate_step is not None and final_step >= 2 * candidate_step)
     final_validation_slope = relative_slope(
         rows,
         "validation_mse",
@@ -330,17 +277,12 @@ def train_critic(
         protocol.audit_windows,
     )
     stationarity_reconfirmed = bool(
-        final_validation_slope
-        <= protocol.critic_relative_slope_tolerance
-        and final_train_slope
-        <= protocol.critic_relative_slope_tolerance
-        and float(rows[-1]["relative_update_norm_per_step"])
-        <= protocol.critic_update_tolerance
+        final_validation_slope <= protocol.critic_relative_slope_tolerance
+        and final_train_slope <= protocol.critic_relative_slope_tolerance
+        and float(rows[-1]["relative_update_norm_per_step"]) <= protocol.critic_update_tolerance
     )
     optimization_terminal = bool(
-        candidate_step is not None
-        and extension_complete
-        and stationarity_reconfirmed
+        candidate_step is not None and extension_complete and stationarity_reconfirmed
     )
     operational_checks = {
         "fixed_budget_completed": fixed_budget_completed,
@@ -355,33 +297,20 @@ def train_critic(
     }
     quality_checks = {
         "validation_r2": (
-            float(selected_metrics["validation_r2"])
-            >= protocol.critic_validation_r2_min
+            float(selected_metrics["validation_r2"]) >= protocol.critic_validation_r2_min
         ),
         "validation_pearson": (
-            float(selected_metrics["validation_pearson"])
-            >= protocol.critic_validation_pearson_min
+            float(selected_metrics["validation_pearson"]) >= protocol.critic_validation_pearson_min
         ),
         "final_to_best_validation_mse_ratio": (
-            final_to_best
-            <= protocol.critic_max_final_to_best_validation_mse_ratio
+            final_to_best <= protocol.critic_max_final_to_best_validation_mse_ratio
         ),
         "advantage_sign_agreement": (
-            sign_agreement
-            >= protocol.critic_advantage_sign_agreement_min
+            sign_agreement >= protocol.critic_advantage_sign_agreement_min
         ),
-        "advantage_pearson": (
-            advantage_pearson
-            >= protocol.critic_advantage_pearson_min
-        ),
-        "advantage_spearman": (
-            advantage_spearman
-            >= protocol.critic_advantage_spearman_min
-        ),
-        "negative_set_jaccard": (
-            negative_jaccard
-            >= protocol.critic_negative_set_jaccard_min
-        ),
+        "advantage_pearson": (advantage_pearson >= protocol.critic_advantage_pearson_min),
+        "advantage_spearman": (advantage_spearman >= protocol.critic_advantage_spearman_min),
+        "negative_set_jaccard": (negative_jaccard >= protocol.critic_negative_set_jaccard_min),
     }
     critic_accepted = all(operational_checks.values())
     audit = {
@@ -398,18 +327,10 @@ def train_critic(
         "final_stationarity_reconfirmed": stationarity_reconfirmed,
         "validation_mse_relative_slope": final_validation_slope,
         "train_audit_loss_relative_slope": final_train_slope,
-        "final_train_gradient_norm_diagnostic": rows[-1][
-            "train_gradient_norm"
-        ],
-        "final_validation_gradient_norm_diagnostic": rows[-1][
-            "validation_gradient_norm"
-        ],
-        "final_update_norm_per_step_raw": rows[-1][
-            "update_norm_per_step"
-        ],
-        "final_relative_update_norm_per_step": rows[-1][
-            "relative_update_norm_per_step"
-        ],
+        "final_train_gradient_norm_diagnostic": rows[-1]["train_gradient_norm"],
+        "final_validation_gradient_norm_diagnostic": rows[-1]["validation_gradient_norm"],
+        "final_update_norm_per_step_raw": rows[-1]["update_norm_per_step"],
+        "final_relative_update_norm_per_step": rows[-1]["relative_update_norm_per_step"],
         "optimization_terminal": optimization_terminal,
         "critic_accepted_for_frozen_advantage": critic_accepted,
         "operational_acceptance_checks": operational_checks,
@@ -424,9 +345,7 @@ def train_critic(
             "stability_scope": "actor_training_split",
             "stability_sample_count": int(len(indices)),
             "test_r2_report_only": float(selected_metrics["test_r2"]),
-            "test_pearson_report_only": float(
-                selected_metrics["test_pearson"]
-            ),
+            "test_pearson_report_only": float(selected_metrics["test_pearson"]),
         },
         "selected_checkpoint_role": (
             "best_validation_checkpoint"
@@ -449,9 +368,7 @@ def train_critic(
                 "target_mean": target_normalizer.mean,
                 "target_std": target_normalizer.std,
                 "step": best_step,
-                "checkpoint_role": audit[
-                    "selected_checkpoint_role"
-                ],
+                "checkpoint_role": audit["selected_checkpoint_role"],
             },
             output / "canonical_critic.pt",
         )

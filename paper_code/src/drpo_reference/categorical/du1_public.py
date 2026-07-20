@@ -53,9 +53,7 @@ def _write_jsonl(
 
 def _require_empty_output(path: Path) -> None:
     if path.exists() and any(path.iterdir()):
-        raise RuntimeError(
-            f"output directory must be new or empty: {path}"
-        )
+        raise RuntimeError(f"output directory must be new or empty: {path}")
     path.mkdir(parents=True, exist_ok=True)
 
 
@@ -77,14 +75,8 @@ def _run_seed_payload(
         "seed": seed,
         "audit": bundle.shared_start.audit,
         "calibration": bundle.shared_start.calibration,
-        "trajectories": [
-            row
-            for run in bundle.runs
-            for row in run.trajectory
-        ],
-        "summaries": [
-            run.summary for run in bundle.runs
-        ],
+        "trajectories": [row for run in bundle.runs for row in run.trajectory],
+        "summaries": [run.summary for run in bundle.runs],
     }
 
 
@@ -113,11 +105,7 @@ def run_du1(
     """Run the complete six-method revision-4 D-U1 matrix."""
 
     protocol = smoke_protocol() if smoke else DU1Protocol()
-    terminal = (
-        smoke_terminal_protocol()
-        if smoke
-        else DU1TerminalProtocol()
-    )
+    terminal = smoke_terminal_protocol() if smoke else DU1TerminalProtocol()
     selected = _selected_seeds(protocol, seeds)
     target = torch.device(
         "cuda"
@@ -127,14 +115,8 @@ def run_du1(
         else device
     )
     if not smoke and target.type != "cpu":
-        raise RuntimeError(
-            "the frozen D-U1 revision-4 formal protocol requires CPU"
-        )
-    worker_count = (
-        (1 if smoke else min(8, len(selected)))
-        if workers is None
-        else int(workers)
-    )
+        raise RuntimeError("the frozen D-U1 revision-4 formal protocol requires CPU")
+    worker_count = (1 if smoke else min(8, len(selected))) if workers is None else int(workers)
     if worker_count <= 0:
         raise ValueError("workers must be positive")
     worker_count = min(worker_count, len(selected))
@@ -144,22 +126,14 @@ def run_du1(
     manifest = {
         "experiment_id": "D-U1-E6-CARTESIAN-TAPER-01",
         "protocol_revision": 4,
-        "terminology": (
-            "same-distribution held-out-context generalization"
-        ),
+        "terminology": ("same-distribution held-out-context generalization"),
         "registered_scientific_status": "not_run",
-        "execution_identity": (
-            "reviewer_reproduction_smoke"
-            if smoke
-            else "reviewer_reproduction"
-        ),
+        "execution_identity": ("reviewer_reproduction_smoke" if smoke else "reviewer_reproduction"),
         "smoke": smoke,
         "device": str(target),
         "workers": worker_count,
         "selected_seeds": list(selected),
-        "registered_formal_seeds": list(
-            DU1Protocol().formal_seeds
-        ),
+        "registered_formal_seeds": list(DU1Protocol().formal_seeds),
         "methods": list(FORMAL_METHODS),
         "quartic_active": False,
         "no_method_winner_assumed": True,
@@ -181,9 +155,7 @@ def run_du1(
             for seed in selected
         ]
     else:
-        with concurrent.futures.ProcessPoolExecutor(
-            max_workers=worker_count
-        ) as pool:
+        with concurrent.futures.ProcessPoolExecutor(max_workers=worker_count) as pool:
             future_by_seed = {
                 pool.submit(
                     _run_seed_payload,
@@ -194,29 +166,14 @@ def run_du1(
                 ): seed
                 for seed in selected
             }
-            for future in concurrent.futures.as_completed(
-                future_by_seed
-            ):
+            for future in concurrent.futures.as_completed(future_by_seed):
                 payloads.append(future.result())
     payloads.sort(key=lambda payload: int(payload["seed"]))
 
-    audits = [
-        dict(payload["audit"]) for payload in payloads
-    ]
-    calibrations = {
-        str(payload["seed"]): dict(payload["calibration"])
-        for payload in payloads
-    }
-    trajectories = [
-        dict(row)
-        for payload in payloads
-        for row in payload["trajectories"]
-    ]
-    summaries = [
-        dict(row)
-        for payload in payloads
-        for row in payload["summaries"]
-    ]
+    audits = [dict(payload["audit"]) for payload in payloads]
+    calibrations = {str(payload["seed"]): dict(payload["calibration"]) for payload in payloads}
+    trajectories = [dict(row) for payload in payloads for row in payload["trajectories"]]
+    summaries = [dict(row) for payload in payloads for row in payload["summaries"]]
     trajectories.sort(
         key=lambda row: (
             int(row["seed"]),
@@ -235,14 +192,8 @@ def run_du1(
     for payload in payloads:
         seed = int(payload["seed"])
         seed_root = root / "checkpoints" / f"seed_{seed}"
-        seed_rows = [
-            row for row in trajectories
-            if int(row["seed"]) == seed
-        ]
-        seed_summaries = [
-            row for row in summaries
-            if int(row["seed"]) == seed
-        ]
+        seed_rows = [row for row in trajectories if int(row["seed"]) == seed]
+        seed_summaries = [row for row in summaries if int(row["seed"]) == seed]
         _write_jsonl(
             seed_root / "trajectories.jsonl",
             seed_rows,
@@ -262,18 +213,12 @@ def run_du1(
         atomic_json(
             seed_root / "CHECKPOINT_COMPLETE.json",
             {
-                "experiment_id": (
-                    "D-U1-E6-CARTESIAN-TAPER-01"
-                ),
+                "experiment_id": ("D-U1-E6-CARTESIAN-TAPER-01"),
                 "protocol_revision": 4,
                 "seed": seed,
-                "methods_completed": [
-                    row["method"] for row in seed_summaries
-                ],
+                "methods_completed": [row["method"] for row in seed_summaries],
                 "run_count": len(seed_summaries),
-                "scientific_status": (
-                    "pilot" if smoke else "not_run"
-                ),
+                "scientific_status": ("pilot" if smoke else "not_run"),
                 "payload_files": [
                     "trajectories.jsonl",
                     "per_run_summary.json",
@@ -309,11 +254,7 @@ def run_du1(
     write_csv(
         root / "per_run_summary.csv",
         [
-            {
-                key: value
-                for key, value in row.items()
-                if not isinstance(value, (dict, list))
-            }
+            {key: value for key, value in row.items() if not isinstance(value, (dict, list))}
             for row in summaries
         ],
     )
@@ -333,48 +274,29 @@ def run_du1(
         root / "terminal_audit.json",
         terminal_audit,
     )
-    manifest["formal_evidence_allowed"] = bool(
-        terminal_audit["formal_evidence_allowed"]
-    )
+    manifest["formal_evidence_allowed"] = bool(terminal_audit["formal_evidence_allowed"])
     manifest["terminal_audit"] = "terminal_audit.json"
     manifest["aggregate_summary"] = "aggregate_summary.json"
     atomic_json(root / "run_manifest.json", manifest)
     atomic_json(
         root / "RUN_COMPLETE.json",
         {
-            "experiment_id": (
-                "D-U1-E6-CARTESIAN-TAPER-01"
-            ),
+            "experiment_id": ("D-U1-E6-CARTESIAN-TAPER-01"),
             "protocol_revision": 4,
             "completed": True,
             "smoke": smoke,
-            "expected_runs": len(selected)
-            * len(FORMAL_METHODS),
+            "expected_runs": len(selected) * len(FORMAL_METHODS),
             "actual_runs": len(summaries),
             "terminal_audit_all_checks_passed": bool(
-                terminal_audit[
-                    "formal_scientific_acceptance"
-                ]
+                terminal_audit["formal_scientific_acceptance"]
             ),
-            "formal_evidence_allowed": bool(
-                terminal_audit["formal_evidence_allowed"]
-            ),
-            "environment_validity_failures": (
-                terminal_audit[
-                    "environment_validity_failures"
-                ]
-            ),
+            "formal_evidence_allowed": bool(terminal_audit["formal_evidence_allowed"]),
+            "environment_validity_failures": (terminal_audit["environment_validity_failures"]),
             "task_performance_collapse_events": (
-                terminal_audit[
-                    "task_performance_collapse_events"
-                ]
+                terminal_audit["task_performance_collapse_events"]
             ),
-            "support_boundary_events": terminal_audit[
-                "support_boundary_events"
-            ],
-            "nan_inf_numerical_failures": terminal_audit[
-                "nan_inf_numerical_failures"
-            ],
+            "support_boundary_events": terminal_audit["support_boundary_events"],
+            "nan_inf_numerical_failures": terminal_audit["nan_inf_numerical_failures"],
         },
     )
     return manifest

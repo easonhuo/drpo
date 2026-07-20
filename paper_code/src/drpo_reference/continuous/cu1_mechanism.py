@@ -212,18 +212,14 @@ def source_diagnostic(
             (far_distance / sigma.square()).square()
             + ((far_distance / sigma).square() - protocol.action_dim).square()
         )
-        advantage_ratio = (
-            far_advantage.abs().mean() / near_advantage.abs().mean()
-        ).item()
+        advantage_ratio = (far_advantage.abs().mean() / near_advantage.abs().mean()).item()
 
     return {
         "seed": seed,
         "advantage_far_near_ratio": advantage_ratio,
         "output_score_far_near_ratio": (far_score / near_score).mean().item(),
         "full_parameter_single_sample_far_near_ratio": per_sample_ratio.mean().item(),
-        "full_parameter_single_sample_far_near_median_ratio": (
-            per_sample_ratio.median().item()
-        ),
+        "full_parameter_single_sample_far_near_median_ratio": (per_sample_ratio.median().item()),
         "aggregate_far_near_ratio": (
             gradient_norm(aggregate_far) / (gradient_norm(aggregate_near) + EPS)
         ).item(),
@@ -272,11 +268,7 @@ def intervention_gradients(
 ) -> tuple[GradientTuple, dict[str, float]]:
     """Return the exact E3 controlled gradient and raw-gradient diagnostics."""
 
-    parameters = (
-        actor.mean_parameters()
-        if fixed_sigma is not None
-        else actor.all_parameters()
-    )
+    parameters = actor.mean_parameters() if fixed_sigma is not None else actor.all_parameters()
     positive = positive_loss(actor, split, protocol, ids, fixed_sigma)
     near, far, diagnostics = near_far_losses(
         actor,
@@ -347,9 +339,7 @@ def intervention_gradients(
             "near_negative_gradient_norm": near_norm,
             "far_negative_gradient_norm": far_norm,
             "raw_negative_gradient_norm": raw_norm,
-            "post_control_negative_gradient_norm": gradient_norm(
-                controlled_negative
-            ).item(),
+            "post_control_negative_gradient_norm": gradient_norm(controlled_negative).item(),
             "far_scale": far_scale,
             "total_update_norm": gradient_norm(total).item(),
         }
@@ -395,11 +385,7 @@ def run_causal_intervention(
         initial_sigma=protocol.initial_sigma,
     ).to(environment.train.s.device, dtype=environment.train.s.dtype)
     actor.load_state_dict(copy.deepcopy(initialization_state))
-    parameters = (
-        actor.mean_parameters()
-        if fixed_sigma is not None
-        else actor.all_parameters()
-    )
+    parameters = actor.mean_parameters() if fixed_sigma is not None else actor.all_parameters()
     optimizer = make_adam(
         parameters,
         learning_rate=learning_rate,
@@ -407,13 +393,9 @@ def run_causal_intervention(
     )
     generator = torch.Generator(device="cpu").manual_seed(seed + 300007)
     trajectory: list[dict[str, Any]] = []
-    positive_reference = float(
-        evaluation(actor, environment.test, protocol, fixed_sigma)["reward"]
-    )
+    positive_reference = float(evaluation(actor, environment.test, protocol, fixed_sigma)["reward"])
     task_threshold = protocol.task_failure_retention * positive_reference
-    below_threshold: deque[int] = deque(
-        maxlen=protocol.task_failure_consecutive_evals
-    )
+    below_threshold: deque[int] = deque(maxlen=protocol.task_failure_consecutive_evals)
     task_onset: int | None = None
     support_onset: int | None = None
     first_support_event_type: str | None = None
@@ -421,9 +403,7 @@ def run_causal_intervention(
 
     for step in range(1, steps + 1):
         pre_support = (
-            support_diagnostics(actor, environment.train, protocol)
-            if fixed_sigma is None
-            else {}
+            support_diagnostics(actor, environment.train, protocol) if fixed_sigma is None else {}
         )
         ids = torch.randint(
             0,
@@ -448,13 +428,9 @@ def run_causal_intervention(
 
         finite = finite_model(actor)
         post_support = (
-            support_diagnostics(actor, environment.train, protocol)
-            if fixed_sigma is None
-            else {}
+            support_diagnostics(actor, environment.train, protocol) if fixed_sigma is None else {}
         )
-        support_type = (
-            _support_event_type(post_support) if fixed_sigma is None else None
-        )
+        support_type = _support_event_type(post_support) if fixed_sigma is None else None
         if support_type is not None and support_onset is None:
             support_onset = step
             first_support_event_type = support_type
@@ -483,8 +459,7 @@ def run_causal_intervention(
             else:
                 below_threshold.clear()
             if (
-                len(below_threshold)
-                == protocol.task_failure_consecutive_evals
+                len(below_threshold) == protocol.task_failure_consecutive_evals
                 and task_onset is None
             ):
                 task_onset = below_threshold[0]

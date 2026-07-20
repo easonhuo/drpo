@@ -86,9 +86,7 @@ _CANONICAL_PROTOCOL_CONTRACT = {
         "validation_rows": 500,
         "test_rows": 1000,
         "numbers_per_problem": 4,
-        "split_protocol": (
-            "park_inspired_pattern_first_family_holdout_capacity_audited"
-        ),
+        "split_protocol": ("park_inspired_pattern_first_family_holdout_capacity_audited"),
     },
     "reference": {
         "base_greedy_success_gate": 0.15,
@@ -229,9 +227,7 @@ class CountdownReviewerConfig:
         if unknown:
             raise ValueError("unsupported Countdown methods: " + ", ".join(unknown))
         seeds = _unique_ints(value.get("seeds"), "seeds")
-        target_modules = _unique_strings(
-            lora.get("target_modules"), "lora.target_modules"
-        )
+        target_modules = _unique_strings(lora.get("target_modules"), "lora.target_modules")
         test_value = data.get("test")
         structure_reference_value = data.get("structure_reference")
         initial_adapter = model.get("initial_adapter")
@@ -260,21 +256,13 @@ class CountdownReviewerConfig:
             ),
             lora_r=_positive_int(lora.get("r"), "model.lora.r"),
             lora_alpha=_positive_int(lora.get("alpha"), "model.lora.alpha"),
-            lora_dropout=_probability(
-                lora.get("dropout"), "model.lora.dropout", upper_open=True
-            ),
+            lora_dropout=_probability(lora.get("dropout"), "model.lora.dropout", upper_open=True),
             lora_target_modules=target_modules,
             replay_path=_config_path(data.get("replay"), base_dir, "data.replay"),
-            calibration_path=_config_path(
-                data.get("calibration"), base_dir, "data.calibration"
-            ),
-            validation_path=_config_path(
-                data.get("validation"), base_dir, "data.validation"
-            ),
+            calibration_path=_config_path(data.get("calibration"), base_dir, "data.calibration"),
+            validation_path=_config_path(data.get("validation"), base_dir, "data.validation"),
             test_path=(
-                _config_path(test_value, base_dir, "data.test")
-                if test_value is not None
-                else None
+                _config_path(test_value, base_dir, "data.test") if test_value is not None else None
             ),
             structure_reference_path=(
                 _config_path(
@@ -307,31 +295,21 @@ class CountdownReviewerConfig:
             seeds=seeds,
             max_length=_positive_int(training.get("max_length"), "training.max_length"),
             steps=_positive_int(training.get("steps"), "training.steps"),
-            micro_batch=_positive_int(
-                training.get("micro_batch"), "training.micro_batch"
-            ),
+            micro_batch=_positive_int(training.get("micro_batch"), "training.micro_batch"),
             grad_accum=_positive_int(training.get("grad_accum"), "training.grad_accum"),
-            learning_rate=_positive_float(
-                training.get("learning_rate"), "training.learning_rate"
-            ),
-            weight_decay=_nonnegative_float(
-                training.get("weight_decay"), "training.weight_decay"
-            ),
+            learning_rate=_positive_float(training.get("learning_rate"), "training.learning_rate"),
+            weight_decay=_nonnegative_float(training.get("weight_decay"), "training.weight_decay"),
             warmup_ratio=_probability(
                 training.get("warmup_ratio"),
                 "training.warmup_ratio",
                 upper_open=False,
             ),
-            max_grad_norm=_positive_float(
-                training.get("max_grad_norm"), "training.max_grad_norm"
-            ),
+            max_grad_norm=_positive_float(training.get("max_grad_norm"), "training.max_grad_norm"),
             eval_every=_positive_int(training.get("eval_every"), "training.eval_every"),
             checkpoint_every=_positive_int(
                 training.get("checkpoint_every"), "training.checkpoint_every"
             ),
-            calibration_prompts=_positive_int(
-                calibration.get("prompts"), "calibration.prompts"
-            ),
+            calibration_prompts=_positive_int(calibration.get("prompts"), "calibration.prompts"),
             calibration_seed=_int_value(calibration.get("seed"), "calibration.seed"),
             minimum_surprisal_scale=_positive_float(
                 calibration.get("minimum_surprisal_scale"),
@@ -369,20 +347,14 @@ class CountdownReviewerConfig:
                 calibration.get("minimum_taper_lambda"),
                 "calibration.minimum_taper_lambda",
             ),
-            eval_batch=_positive_int(
-                evaluation.get("batch_size"), "evaluation.batch_size"
-            ),
-            eval_examples=_positive_int(
-                evaluation.get("examples"), "evaluation.examples"
-            ),
+            eval_batch=_positive_int(evaluation.get("batch_size"), "evaluation.batch_size"),
+            eval_examples=_positive_int(evaluation.get("examples"), "evaluation.examples"),
             max_new_tokens=_positive_int(
                 evaluation.get("max_new_tokens"), "evaluation.max_new_tokens"
             ),
             pass_k=_positive_int(evaluation.get("pass_k"), "evaluation.pass_k"),
             evaluation_seed=(
-                _int_value(seed_value, "evaluation.seed")
-                if seed_value is not None
-                else None
+                _int_value(seed_value, "evaluation.seed") if seed_value is not None else None
             ),
             evaluation_seed_offset=(
                 _int_value(seed_offset_value, "evaluation.seed_offset")
@@ -419,25 +391,18 @@ class CountdownReviewerConfig:
             raise ValueError("model.dtype must be bf16, fp16, or fp32")
         if self.selection_metric not in _SELECTION_METRICS:
             raise ValueError(
-                "evaluation.selection_metric must be one of "
-                + ", ".join(_SELECTION_METRICS)
+                "evaluation.selection_metric must be one of " + ", ".join(_SELECTION_METRICS)
             )
         if self.eval_every > self.steps or self.checkpoint_every > self.steps:
-            raise ValueError(
-                "evaluation/checkpoint cadence cannot exceed training steps"
-            )
+            raise ValueError("evaluation/checkpoint cadence cannot exceed training steps")
         if self.calibration_prompts < 2:
             raise ValueError("calibration.prompts must be at least two")
         if self.test_path is not None and self.test_path == self.validation_path:
             raise ValueError("validation and test paths must be distinct")
         if (self.evaluation_seed is None) == (self.evaluation_seed_offset is None):
-            raise ValueError(
-                "evaluation must define exactly one of seed or seed_offset"
-            )
+            raise ValueError("evaluation must define exactly one of seed or seed_offset")
         if self.require_structure_metrics and self.structure_reference_path is None:
-            raise ValueError(
-                "structure_reference is required when structure metrics are enabled"
-            )
+            raise ValueError("structure_reference is required when structure metrics are enabled")
         if self.protocol_id == COUNTDOWN_CANONICAL_PROTOCOL_ID:
             self._validate_canonical_coordinate()
 
@@ -457,15 +422,11 @@ class CountdownReviewerConfig:
             self.model_identity == "Qwen2.5-0.5B-Instruct",
             "canonical model identity must be Qwen2.5-0.5B-Instruct",
         )
-        require(
-            self.initial_adapter is not None, "canonical reference adapter is required"
-        )
+        require(self.initial_adapter is not None, "canonical reference adapter is required")
         require(self.device.startswith("cuda"), "canonical runtime requires CUDA")
         require(self.dtype == "bf16", "canonical dtype must be bf16")
         require(not self.load_in_4bit, "canonical v79 uses BF16, not 4-bit loading")
-        require(
-            self.gradient_checkpointing, "canonical gradient checkpointing is required"
-        )
+        require(self.gradient_checkpointing, "canonical gradient checkpointing is required")
         require(self.lora_r == 32, "canonical LoRA rank must be 32")
         require(self.lora_alpha == 64, "canonical LoRA alpha must be 64")
         require(self.lora_dropout == 0.05, "canonical LoRA dropout must be 0.05")
@@ -500,9 +461,7 @@ class CountdownReviewerConfig:
         require(self.eval_every == 100, "canonical evaluation cadence differs")
         require(self.calibration_prompts == 16, "canonical calibration prompts differ")
         require(self.calibration_seed == 9134, "canonical calibration seed differs")
-        require(
-            self.minimum_surprisal_scale == 1.0e-6, "canonical minimum scale differs"
-        )
+        require(self.minimum_surprisal_scale == 1.0e-6, "canonical minimum scale differs")
         require(
             self.inherited_exponential_coefficient == 0.7,
             "canonical inherited exponential coefficient differs",
@@ -532,17 +491,11 @@ class CountdownReviewerConfig:
             "canonical selection metric differs",
         )
         require(self.selection_delta == 0.002, "canonical selection delta differs")
-        require(
-            self.sample_temperature == 0.8, "canonical sampling temperature differs"
-        )
+        require(self.sample_temperature == 0.8, "canonical sampling temperature differs")
         require(self.sample_top_p == 0.95, "canonical top_p differs")
-        require(
-            self.require_structure_metrics, "canonical structure metrics are required"
-        )
+        require(self.require_structure_metrics, "canonical structure metrics are required")
         if failures:
-            raise ValueError(
-                "canonical Countdown coordinate mismatch: " + "; ".join(failures)
-            )
+            raise ValueError("canonical Countdown coordinate mismatch: " + "; ".join(failures))
 
     def evaluation_seed_for(self, training_seed: int) -> int:
         if self.evaluation_seed_offset is not None:
@@ -608,15 +561,11 @@ class CountdownReviewerConfig:
                 "seed": self.calibration_seed,
                 "tau_rule": COUNTDOWN_ACTIVE_TAIL_TAU_RULE,
                 "minimum_surprisal_scale": self.minimum_surprisal_scale,
-                "inherited_exponential_coefficient": (
-                    self.inherited_exponential_coefficient
-                ),
+                "inherited_exponential_coefficient": (self.inherited_exponential_coefficient),
                 "maximum_coefficient": self.maximum_coefficient,
                 "bisection_steps": self.bisection_steps,
                 "relative_l2_tolerance": self.relative_l2_tolerance,
-                "minimum_active_distance_fraction": (
-                    self.minimum_active_distance_fraction
-                ),
+                "minimum_active_distance_fraction": (self.minimum_active_distance_fraction),
                 "nondegenerate_target_max_ratio": self.nondegenerate_target_max_ratio,
                 "minimum_taper_lambda": self.minimum_taper_lambda,
             },
@@ -833,9 +782,7 @@ def _validate_model_identity(config: CountdownReviewerConfig) -> dict[str, Any]:
         )
         if config.protocol_id == COUNTDOWN_CANONICAL_PROTOCOL_ID:
             if model_type != "qwen2":
-                raise RuntimeError(
-                    f"canonical model_type must be qwen2, observed {model_type!r}"
-                )
+                raise RuntimeError(f"canonical model_type must be qwen2, observed {model_type!r}")
             if not has_chat_template:
                 raise RuntimeError("canonical tokenizer must define a chat template")
     identity_text = _normalized_identity_text(" ".join(hints))
@@ -845,9 +792,7 @@ def _validate_model_identity(config: CountdownReviewerConfig) -> dict[str, Any]:
         fragment in identity_text for fragment in required_fragments
     )
     if not verified:
-        raise RuntimeError(
-            f"model identity does not match Qwen2.5-0.5B-Instruct; hints={hints!r}"
-        )
+        raise RuntimeError(f"model identity does not match Qwen2.5-0.5B-Instruct; hints={hints!r}")
     return {
         "expected_identity": expected,
         "identity_verified": True,
@@ -884,9 +829,7 @@ def _adapter_identity(config: CountdownReviewerConfig) -> dict[str, Any]:
     return {
         "path": str(root),
         "hashes": hashes,
-        "prepared_reference_required": (
-            config.protocol_id == COUNTDOWN_CANONICAL_PROTOCOL_ID
-        ),
+        "prepared_reference_required": (config.protocol_id == COUNTDOWN_CANONICAL_PROTOCOL_ID),
     }
 
 
@@ -957,9 +900,7 @@ def _load_trainable_model(
 
 
 def _trainable_parameters(model: Any) -> list[torch.nn.Parameter]:
-    parameters = [
-        parameter for parameter in model.parameters() if parameter.requires_grad
-    ]
+    parameters = [parameter for parameter in model.parameters() if parameter.requires_grad]
     if not parameters:
         raise RuntimeError("Countdown model exposes no trainable parameters")
     return parameters
@@ -1019,9 +960,7 @@ def _normalize_training_rows(
                 normalized["positive"] = oracle
         if "negative_bank" not in normalized:
             negatives = normalized.get("negatives")
-            if isinstance(negatives, Sequence) and not isinstance(
-                negatives, (str, bytes)
-            ):
+            if isinstance(negatives, Sequence) and not isinstance(negatives, (str, bytes)):
                 normalized["negative_bank"] = list(negatives)
         normalized_rows.append(normalized)
     return normalized_rows
@@ -1109,9 +1048,7 @@ def _assert_prompt_disjoint(
     left_name: str,
     right_name: str,
 ) -> None:
-    overlap = {str(row["prompt"]) for row in left} & {
-        str(row["prompt"]) for row in right
-    }
+    overlap = {str(row["prompt"]) for row in left} & {str(row["prompt"]) for row in right}
     if overlap:
         example = sorted(overlap)[0]
         raise ValueError(f"{left_name} and {right_name} prompt sets overlap: {example}")
@@ -1158,9 +1095,7 @@ def _selected_batch(
     return collate_countdown_training_items(selected, pad_id)
 
 
-def _packed_to_device(
-    packed: Mapping[str, Any], device: torch.device
-) -> dict[str, Any]:
+def _packed_to_device(packed: Mapping[str, Any], device: torch.device) -> dict[str, Any]:
     return {
         "positive": move_tensor_batch_to_device(packed["positive"], device),
         "bank": move_tensor_batch_to_device(packed["bank"], device),
@@ -1176,9 +1111,7 @@ def _calibration_subset(
     seed: int,
 ) -> list[Mapping[str, Any]]:
     if count > len(rows):
-        raise ValueError(
-            f"calibration.prompts={count} exceeds calibration rows={len(rows)}"
-        )
+        raise ValueError(f"calibration.prompts={count} exceeds calibration rows={len(rows)}")
     indices = list(range(len(rows)))
     random.Random(int(seed)).shuffle(indices)
     return [rows[index] for index in indices[:count]]
@@ -1197,10 +1130,7 @@ def _calibrate_for_seed(
         config.calibration_prompts,
         config.calibration_seed,
     )
-    items = [
-        encode_countdown_training_row(row, tokenizer, config.max_length)
-        for row in subset
-    ]
+    items = [encode_countdown_training_row(row, tokenizer, config.max_length) for row in subset]
     packed = collate_countdown_training_items(items, tokenizer.pad_token_id)
     device = next(model.parameters()).device
     packed_device = _packed_to_device(packed, device)
@@ -1271,9 +1201,7 @@ def _gradient_state(parameters: Sequence[torch.nn.Parameter]) -> tuple[float, bo
 
 
 def _parameters_finite(parameters: Sequence[torch.nn.Parameter]) -> bool:
-    return all(
-        bool(torch.isfinite(parameter.detach()).all()) for parameter in parameters
-    )
+    return all(bool(torch.isfinite(parameter.detach()).all()) for parameter in parameters)
 
 
 def _restore_parameters(
@@ -1325,9 +1253,7 @@ class _PatternNode:
         self.op = op
         self.children = children or []
         self.sign = sign
-        self.weight = (
-            1 if not self.children else sum(child.weight for child in self.children)
-        )
+        self.weight = 1 if not self.children else sum(child.weight for child in self.children)
 
 
 def _flip_sign(sign: str) -> str:
@@ -1441,16 +1367,11 @@ def _pattern_metrics(
     known_structures: set[str],
 ) -> dict[str, Any]:
     target_structures = {
-        str(row.get("oracle_structure") or expression_structure(str(row["oracle"])))
-        for row in rows
+        str(row.get("oracle_structure") or expression_structure(str(row["oracle"]))) for row in rows
     }
     heldout_targets = target_structures - known_structures
-    greedy_counts: dict[str, dict[str, int]] = defaultdict(
-        lambda: {"attempts": 0, "correct": 0}
-    )
-    sampled_counts: dict[str, dict[str, int]] = defaultdict(
-        lambda: {"attempts": 0, "correct": 0}
-    )
+    greedy_counts: dict[str, dict[str, int]] = defaultdict(lambda: {"attempts": 0, "correct": 0})
+    sampled_counts: dict[str, dict[str, int]] = defaultdict(lambda: {"attempts": 0, "correct": 0})
     observed_correct: set[str] = set()
     greedy_correct_structures: set[str] = set()
     sampled_correct_structures: set[str] = set()
@@ -1548,12 +1469,8 @@ def _pattern_metrics(
             }
         return result
 
-    greedy_micro, greedy_macro, greedy_attempts, greedy_correct = precision(
-        greedy_counts
-    )
-    sampled_micro, sampled_macro, sampled_attempts, sampled_correct = precision(
-        sampled_counts
-    )
+    greedy_micro, greedy_macro, greedy_attempts, greedy_correct = precision(greedy_counts)
+    sampled_micro, sampled_macro, sampled_attempts, sampled_correct = precision(sampled_counts)
     heldout_correct = observed_correct & heldout_targets
     greedy_heldout_correct = greedy_correct_structures & heldout_targets
     sampled_heldout_correct = sampled_correct_structures & heldout_targets
@@ -1696,17 +1613,13 @@ def evaluate_countdown_model(
             )
     finally:
         model.config.use_cache = cache_value
-        if checkpointing_was_enabled and hasattr(
-            model, "gradient_checkpointing_enable"
-        ):
+        if checkpointing_was_enabled and hasattr(model, "gradient_checkpointing_enable"):
             model.gradient_checkpointing_enable()
         model.train(was_training)
     greedy_text = [group[0] for group in greedy]
     metrics = evaluate_response_batches(selected, greedy_text, sampled)
     if known_structures is not None:
-        metrics.update(
-            _pattern_metrics(selected, greedy_text, sampled, known_structures)
-        )
+        metrics.update(_pattern_metrics(selected, greedy_text, sampled, known_structures))
     elif config.require_structure_metrics:
         raise RuntimeError("canonical evaluation has no structure-reference set")
     return {
@@ -1844,13 +1757,10 @@ def _train_one_method(
                     float(terms["positive_lp"].detach()) / config.grad_accum
                 )
                 accumulated["weighted_negative_lp"] += (
-                    float(terms["effective_weighted_negative_lp"].detach())
-                    / config.grad_accum
+                    float(terms["effective_weighted_negative_lp"].detach()) / config.grad_accum
                 )
                 if terms["weights"].numel():
-                    accumulated["weight_mean"] += (
-                        float(terms["weights"].mean()) / config.grad_accum
-                    )
+                    accumulated["weight_mean"] += float(terms["weights"].mean()) / config.grad_accum
                     accumulated["distance_mean"] += (
                         float(terms["distance"].mean()) / config.grad_accum
                     )
@@ -1865,9 +1775,7 @@ def _train_one_method(
             post_clip_gradient_l2, post_clip_finite = _gradient_state(parameters)
             if not post_clip_finite:
                 raise FloatingPointError("non-finite post-clip Countdown gradient")
-            before_update = [
-                parameter.detach().float().cpu().clone() for parameter in parameters
-            ]
+            before_update = [parameter.detach().float().cpu().clone() for parameter in parameters]
             optimizer.step()
             optimizer_update_l2 = parameter_update_norm(before_update, parameters)
             scheduler.step()
@@ -2144,9 +2052,7 @@ def run_countdown(
             config.protocol_id == COUNTDOWN_CANONICAL_PROTOCOL_ID
         ),
         "final_manuscript_coordinate_frozen": False,
-        "reviewer_code_migration_closed": (
-            config.protocol_id == COUNTDOWN_CANONICAL_PROTOCOL_ID
-        ),
+        "reviewer_code_migration_closed": (config.protocol_id == COUNTDOWN_CANONICAL_PROTOCOL_ID),
         "scientific_experiment_completed": False,
         "scientific_status": "pilot_not_run",
         "countdown_replaces_du1_controlled_identification": False,
@@ -2347,9 +2253,7 @@ def run_countdown(
         "failed_runs": sum(run.get("status") != "completed" for run in all_runs),
         "test_configured": config.test_path is not None,
         "test_input_failure": test_input_failure,
-        "reviewer_code_migration_closed": (
-            config.protocol_id == COUNTDOWN_CANONICAL_PROTOCOL_ID
-        ),
+        "reviewer_code_migration_closed": (config.protocol_id == COUNTDOWN_CANONICAL_PROTOCOL_ID),
         "scientific_experiment_completed": False,
         "scientific_status": "pilot_not_run",
         "formal_result_claim": False,

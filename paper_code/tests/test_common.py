@@ -107,9 +107,9 @@ class _CalibrationLogitModel(torch.nn.Module):
     ) -> SimpleNamespace:
         assert attention_mask.shape == input_ids.shape
         assert use_cache is False
-        logits = self.bias.view(1, 1, -1) + input_ids.float().unsqueeze(
-            -1
-        ) * self.slope.view(1, 1, -1)
+        logits = self.bias.view(1, 1, -1) + input_ids.float().unsqueeze(-1) * self.slope.view(
+            1, 1, -1
+        )
         return SimpleNamespace(logits=logits)
 
 
@@ -133,9 +133,7 @@ def _training_rows() -> list[dict[str, Any]]:
 
 
 def _calibration_packed_batch() -> dict[str, Any]:
-    def batch(
-        input_ids: list[list[int]], labels: list[list[int]]
-    ) -> dict[str, torch.Tensor]:
+    def batch(input_ids: list[list[int]], labels: list[list[int]]) -> dict[str, torch.Tensor]:
         inputs = torch.tensor(input_ids, dtype=torch.long)
         return {
             "input_ids": inputs,
@@ -244,9 +242,7 @@ def test_countdown_encoding_masks_prompt_and_requires_completion() -> None:
         add_special_tokens=False,
     )["input_ids"]
     assert active == expected_completion
-    assert encoded.labels[: -len(active)] == [IGNORE_INDEX] * (
-        len(encoded.labels) - len(active)
-    )
+    assert encoded.labels[: -len(active)] == [IGNORE_INDEX] * (len(encoded.labels) - len(active))
 
     prefix_only_length = len(encoded.input_ids) - len(active)
     with pytest.raises(ValueError, match="no completion token"):
@@ -297,9 +293,7 @@ def test_countdown_linear_surprisal_weights_are_detached_and_not_squared() -> No
         coefficient=0.7,
     )
     expected = 0.5 * torch.exp(-0.7 * torch.tensor([1.0, 2.0], dtype=torch.float64))
-    squared_alternative = 0.5 * torch.exp(
-        -0.7 * torch.tensor([1.0, 4.0], dtype=torch.float64)
-    )
+    squared_alternative = 0.5 * torch.exp(-0.7 * torch.tensor([1.0, 4.0], dtype=torch.float64))
     torch.testing.assert_close(
         coordinate,
         torch.tensor([1.0, 2.0], dtype=torch.float64),
@@ -323,9 +317,7 @@ def test_countdown_unique_bank_uses_cleaned_first_occurrence() -> None:
 
 def test_countdown_training_collator_preserves_unique_negative_denominator() -> None:
     tokenizer = _CharacterTokenizer()
-    items = [
-        encode_countdown_training_row(row, tokenizer, 4096) for row in _training_rows()
-    ]
+    items = [encode_countdown_training_row(row, tokenizer, 4096) for row in _training_rows()]
     assert [item.unique_count for item in items] == [2, 1]
     assert [item.raw_bank_count for item in items] == [3, 2]
 
@@ -380,9 +372,7 @@ def test_countdown_training_objective_matches_legacy_formula() -> None:
 
 def test_countdown_model_objective_skips_bank_forward_for_positive_only() -> None:
     tokenizer = _CharacterTokenizer()
-    items = [
-        encode_countdown_training_row(row, tokenizer, 4096) for row in _training_rows()
-    ]
+    items = [encode_countdown_training_row(row, tokenizer, 4096) for row in _training_rows()]
     packed = collate_countdown_training_items(items, pad_id=0)
     model = _CountingLogitModel()
 
@@ -482,8 +472,7 @@ def test_countdown_first_adamw_update_matches_manual_legacy_objective() -> None:
 
     legacy_positive, legacy_negative = log_probabilities(legacy_parameter)
     legacy_weights = (
-        alpha
-        * torch.exp(-coefficient * ((-legacy_negative.detach()).clamp_min(0.0) / 2.0))
+        alpha * torch.exp(-coefficient * ((-legacy_negative.detach()).clamp_min(0.0) / 2.0))
     ).detach()
     legacy_negative_term = torch.stack(
         [
@@ -541,9 +530,7 @@ def test_countdown_active_tail_objective_matches_manual_unique_bank_formula() ->
 
 def test_countdown_active_tail_model_uses_deterministic_two_forward_boundary() -> None:
     tokenizer = _CharacterTokenizer()
-    items = [
-        encode_countdown_training_row(row, tokenizer, 4096) for row in _training_rows()
-    ]
+    items = [encode_countdown_training_row(row, tokenizer, 4096) for row in _training_rows()]
     packed = collate_countdown_training_items(items, pad_id=0)
     model = _CountingLogitModel()
     model.train()
@@ -582,9 +569,7 @@ def test_countdown_active_tail_model_uses_deterministic_two_forward_boundary() -
     assert positive_only["negative_stats"] is None
 
 
-def test_countdown_model_backed_calibration_freezes_shared_budget_and_coefficients() -> (
-    None
-):
+def test_countdown_model_backed_calibration_freezes_shared_budget_and_coefficients() -> None:
     model = _CalibrationLogitModel()
     model.train()
     payload = calibrate_active_tail_model(
@@ -618,12 +603,8 @@ def test_countdown_model_backed_calibration_freezes_shared_budget_and_coefficien
 def test_countdown_active_tail_first_adamw_update_matches_manual_formula() -> None:
     public_parameter = torch.nn.Parameter(torch.tensor([0.2, -0.3]))
     legacy_parameter = torch.nn.Parameter(public_parameter.detach().clone())
-    public_optimizer = torch.optim.AdamW(
-        [public_parameter], lr=1.0e-2, weight_decay=0.01
-    )
-    legacy_optimizer = torch.optim.AdamW(
-        [legacy_parameter], lr=1.0e-2, weight_decay=0.01
-    )
+    public_optimizer = torch.optim.AdamW([public_parameter], lr=1.0e-2, weight_decay=0.01)
+    legacy_optimizer = torch.optim.AdamW([legacy_parameter], lr=1.0e-2, weight_decay=0.01)
     row_index = torch.tensor([0, 0, 1])
     counts = torch.tensor([2, 1])
 

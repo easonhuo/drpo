@@ -112,10 +112,7 @@ def audit_run_matrix(
     """Audit run presence, uniqueness, and required terminal fields."""
 
     materialized = [dict(row) for row in rows]
-    observed = [
-        tuple(row.get(name) for name in identity_fields)
-        for row in materialized
-    ]
+    observed = [tuple(row.get(name) for name in identity_fields) for row in materialized]
     expected = [tuple(identity) for identity in expected_identities]
     observed_set = set(observed)
     expected_set = set(expected)

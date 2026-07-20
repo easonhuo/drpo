@@ -17,9 +17,7 @@ def activation_layer(name: str) -> nn.Module:
         return nn.Tanh()
     if normalized == "relu":
         return nn.ReLU()
-    raise ValueError(
-        f"unsupported E7 network activation: {name}"
-    )
+    raise ValueError(f"unsupported E7 network activation: {name}")
 
 
 def apply_orthogonal_init(
@@ -60,9 +58,7 @@ def make_mlp(
     if init_name == "orthogonal":
         apply_orthogonal_init(network, init_gain)
     elif init_name != "default":
-        raise ValueError(
-            f"unsupported E7 init scheme: {init_scheme}"
-        )
+        raise ValueError(f"unsupported E7 init scheme: {init_scheme}")
     return network
 
 
@@ -114,14 +110,10 @@ class SquashedGaussianPolicy(nn.Module):
             init_scheme,
             init_gain,
         )
-        self.log_std = nn.Parameter(
-            torch.zeros(action_dim)
-        )
+        self.log_std = nn.Parameter(torch.zeros(action_dim))
         self.log_std_min = float(log_std_min)
         self.log_std_max = float(log_std_max)
-        self.action_clip_epsilon = float(
-            action_clip_epsilon
-        )
+        self.action_clip_epsilon = float(action_clip_epsilon)
 
     def latent_parameters(
         self,
@@ -138,9 +130,7 @@ class SquashedGaussianPolicy(nn.Module):
         self,
         observations: torch.Tensor,
     ) -> torch.Tensor:
-        mean, _ = self.latent_parameters(
-            observations
-        )
+        mean, _ = self.latent_parameters(observations)
         return torch.tanh(mean)
 
     def inverse_action(
@@ -160,17 +150,10 @@ class SquashedGaussianPolicy(nn.Module):
         actions: torch.Tensor,
     ) -> torch.Tensor:
         latent = self.inverse_action(actions)
-        mean, log_std = self.latent_parameters(
-            observations
-        )
-        inverse_variance = torch.exp(
-            -2.0 * log_std
-        )
+        mean, log_std = self.latent_parameters(observations)
+        inverse_variance = torch.exp(-2.0 * log_std)
         gaussian = -0.5 * (
-            (latent - mean).square()
-            * inverse_variance
-            + 2.0 * log_std
-            + math.log(2.0 * math.pi)
+            (latent - mean).square() * inverse_variance + 2.0 * log_std + math.log(2.0 * math.pi)
         )
         bounded_actions = actions.clamp(
             -1.0 + EPS,
@@ -190,19 +173,11 @@ class SquashedGaussianPolicy(nn.Module):
         actions: torch.Tensor,
     ) -> dict[str, torch.Tensor]:
         latent = self.inverse_action(actions)
-        mean, log_std = self.latent_parameters(
-            observations
-        )
+        mean, log_std = self.latent_parameters(observations)
         standard_deviation = torch.exp(log_std)
-        standardized = (
-            latent - mean
-        ) / standard_deviation
-        mean_score = (
-            latent - mean
-        ) / standard_deviation.square()
-        log_scale_score = (
-            standardized.square() - 1.0
-        )
+        standardized = (latent - mean) / standard_deviation
+        mean_score = (latent - mean) / standard_deviation.square()
+        log_scale_score = standardized.square() - 1.0
         mean_norm = torch.linalg.vector_norm(
             mean_score,
             dim=-1,
@@ -211,17 +186,12 @@ class SquashedGaussianPolicy(nn.Module):
             log_scale_score,
             dim=-1,
         )
-        joint_norm = torch.sqrt(
-            mean_norm.square()
-            + log_scale_norm.square()
-        )
+        joint_norm = torch.sqrt(mean_norm.square() + log_scale_norm.square())
         radius = torch.linalg.vector_norm(
             standardized,
             dim=-1,
         )
-        corrected_quadratic = (
-            standardized.square().sum(dim=-1)
-        )
+        corrected_quadratic = standardized.square().sum(dim=-1)
         action_mean = torch.tanh(mean)
         return {
             "latent": latent,
@@ -232,15 +202,10 @@ class SquashedGaussianPolicy(nn.Module):
             "mean_score": mean_score,
             "mean_score_norm": mean_norm,
             "log_scale_score": log_scale_score,
-            "raw_log_scale_score_norm": (
-                log_scale_norm
-            ),
+            "raw_log_scale_score_norm": (log_scale_norm),
             "corrected_q_xi": corrected_quadratic,
             "joint_output_score_norm": joint_norm,
-            "log_scale_to_mean_ratio": (
-                log_scale_norm
-                / mean_norm.clamp_min(EPS)
-            ),
+            "log_scale_to_mean_ratio": (log_scale_norm / mean_norm.clamp_min(EPS)),
             "raw_action_distance": (
                 torch.linalg.vector_norm(
                     actions - action_mean,

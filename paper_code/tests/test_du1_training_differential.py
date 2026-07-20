@@ -68,9 +68,7 @@ def test_short_method_trajectory_matches_revision_4(
         config,
         old_environment,
     ).to("cpu")
-    old_environment.action_embeddings = (
-        old_environment.action_embeddings.to("cpu")
-    )
+    old_environment.action_embeddings = old_environment.action_embeddings.to("cpu")
     for split in (old_environment.train, old_environment.test):
         for key, value in list(split.items()):
             if isinstance(value, torch.Tensor):

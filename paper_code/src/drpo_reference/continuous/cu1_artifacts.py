@@ -104,11 +104,7 @@ def prepare_seed(
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
     torch.save(
         run.initialization_state,
-        checkpoint_dir
-        / (
-            f"seed_{seed}_adam{protocols.positive.positive_steps}"
-            "_initialization.pt"
-        ),
+        checkpoint_dir / (f"seed_{seed}_adam{protocols.positive.positive_steps}_initialization.pt"),
     )
     torch.save(
         run.actor.state_dict(),

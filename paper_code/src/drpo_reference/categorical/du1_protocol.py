@@ -116,14 +116,10 @@ class DU1Protocol:
                 "observed_action_count": self.observed_action_count,
                 "hidden_action_count": self.hidden_action_count,
                 "action_count": self.action_count,
-                "hidden_optimal_actions_per_state": (
-                    self.hidden_optimal_actions_per_state
-                ),
+                "hidden_optimal_actions_per_state": (self.hidden_optimal_actions_per_state),
                 "train_states": self.train_states,
                 "test_states": self.test_states,
-                "positive_prototypes_per_state": (
-                    self.positive_prototypes_per_state
-                ),
+                "positive_prototypes_per_state": (self.positive_prototypes_per_state),
             },
             "geometry": {
                 "target_offset": self.target_offset,
@@ -150,9 +146,7 @@ class DU1Protocol:
                 "evaluation_interval_steps": self.evaluation_interval_steps,
                 "audit_states": self.audit_states,
                 "negative_alpha": self.negative_alpha,
-                "rarity_logit_anchor_coefficient": (
-                    self.rarity_logit_anchor_coefficient
-                ),
+                "rarity_logit_anchor_coefficient": (self.rarity_logit_anchor_coefficient),
                 "positive_warm_start_steps": self.positive_warm_start_steps,
                 "cpu_threads_per_run": 1,
             },
@@ -164,17 +158,13 @@ class DU1Protocol:
                 "task_collapse_ratio_to_paired_positive_only": (
                     self.task_collapse_ratio_to_paired_positive_only
                 ),
-                "prototype_effective_support_boundary": (
-                    self.prototype_effective_support_boundary
-                ),
+                "prototype_effective_support_boundary": (self.prototype_effective_support_boundary),
                 "rarity_mass_boundary": self.rarity_mass_boundary,
             },
             "diagnostics": {
                 "utility_sign_fraction_min": self.utility_sign_fraction_min,
                 "rarity_shift_probe": self.rarity_shift_probe,
-                "minimum_rarity_shift_reward_drop": (
-                    self.minimum_rarity_shift_reward_drop
-                ),
+                "minimum_rarity_shift_reward_drop": (self.minimum_rarity_shift_reward_drop),
                 "minimum_rarity_shift_hidden_probability_drop": (
                     self.minimum_rarity_shift_hidden_probability_drop
                 ),

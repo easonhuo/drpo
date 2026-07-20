@@ -15,22 +15,15 @@ def test_source_smoke_is_audited_but_never_formal(tmp_path: Path) -> None:
         device="cpu",
     )
     assert manifest["paper_stage"] == "source"
-    assert manifest["terminology"] == (
-        "same-distribution held-out-context generalization"
-    )
+    assert manifest["terminology"] == ("same-distribution held-out-context generalization")
     assert manifest["formal_evidence_allowed"] is False
-    audit = json.loads(
-        (tmp_path / "terminal_audit" / "source.json").read_text(encoding="utf-8")
-    )
+    audit = json.loads((tmp_path / "terminal_audit" / "source.json").read_text(encoding="utf-8"))
     assert audit["matrix"]["passed"] is True
     assert audit["formal_evidence_allowed"] is False
     assert (tmp_path / "aggregate" / "source.csv").exists()
     assert (tmp_path / "source" / "seed_10.json").exists()
     assert (
-        tmp_path
-        / "preparation"
-        / "positive_checkpoints"
-        / "seed_10_adam3_initialization.pt"
+        tmp_path / "preparation" / "positive_checkpoints" / "seed_10_adam3_initialization.pt"
     ).exists()
 
 
@@ -60,8 +53,5 @@ def test_cu1_source_cpu_cli_liveness(tmp_path: Path) -> None:
     assert (output / "aggregate" / "source.csv").is_file()
     assert (output / "source" / "seed_10.json").is_file()
     assert (
-        output
-        / "preparation"
-        / "positive_checkpoints"
-        / "seed_10_adam3_initialization.pt"
+        output / "preparation" / "positive_checkpoints" / "seed_10_adam3_initialization.pt"
     ).is_file()

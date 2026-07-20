@@ -49,9 +49,7 @@ def _assert_nested_close(actual: object, expected: object) -> None:
 def _arrays() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     generator = np.random.default_rng(41)
     observations = generator.normal(size=(32, 5)).astype(np.float32)
-    actions = np.tanh(
-        generator.normal(size=(32, 3))
-    ).astype(np.float32)
+    actions = np.tanh(generator.normal(size=(32, 3))).astype(np.float32)
     advantages = np.linspace(-2.0, 2.0, 32).astype(np.float32)
     return observations, actions, advantages
 
@@ -245,9 +243,7 @@ def test_actor_eval_metrics_match_authoritative_runner() -> None:
         loss_value=float(old_loss.detach()),
         gradient_norm=old_gradient["raw"],
         gradient_rms=old_gradient["rms"],
-        relative_gradient_norm=(
-            old_gradient["relative_to_parameter_norm"]
-        ),
+        relative_gradient_norm=(old_gradient["relative_to_parameter_norm"]),
         update_norm=0.25,
         relative_update_norm=0.05,
         step=7,
@@ -264,9 +260,7 @@ def test_actor_eval_metrics_match_authoritative_runner() -> None:
         loss_value=float(new_loss.detach()),
         gradient_norm=new_gradient["raw"],
         gradient_rms=new_gradient["rms"],
-        relative_gradient_norm=(
-            new_gradient["relative_to_parameter_norm"]
-        ),
+        relative_gradient_norm=(new_gradient["relative_to_parameter_norm"]),
         update_norm=0.25,
         relative_update_norm=0.05,
         step=7,
@@ -281,20 +275,12 @@ def _legacy_config(protocol: HopperProtocol) -> SimpleNamespace:
         weight_decay=protocol.weight_decay,
         actor_batch_size=protocol.actor_batch_size,
         max_gradient_norm=protocol.max_gradient_norm,
-        support_boundary_threshold=(
-            protocol.support_boundary_threshold
-        ),
+        support_boundary_threshold=(protocol.support_boundary_threshold),
         audit_windows=protocol.audit_windows,
-        actor_state_drift_tolerance=(
-            protocol.actor_state_drift_tolerance
-        ),
+        actor_state_drift_tolerance=(protocol.actor_state_drift_tolerance),
         actor_update_tolerance=protocol.actor_update_tolerance,
-        support_boundary_fraction=(
-            protocol.support_boundary_fraction
-        ),
-        task_return_drop_threshold=(
-            protocol.task_return_drop_threshold
-        ),
+        support_boundary_fraction=(protocol.support_boundary_fraction),
+        task_return_drop_threshold=(protocol.task_return_drop_threshold),
     )
 
 
@@ -393,10 +379,7 @@ def test_nonfinite_loss_does_not_apply_optimizer_update(
     observations, actions, advantages = _arrays()
     advantages[0] = np.nan
     policy = _new_policy(seed=31)
-    initial = {
-        name: value.detach().clone()
-        for name, value in policy.state_dict().items()
-    }
+    initial = {name: value.detach().clone() for name, value in policy.state_dict().items()}
     protocol = replace(
         HopperProtocol(),
         execution_profile="smoke",

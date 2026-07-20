@@ -117,9 +117,7 @@ def run_cu1_stage(
     }
     if stage == "phase":
         manifest["protocols"]["control"] = asdict(protocols.control)
-        manifest["control_aggregate"] = str(
-            Path("aggregate") / "phase_controls.csv"
-        )
+        manifest["control_aggregate"] = str(Path("aggregate") / "phase_controls.csv")
     atomic_json(root / f"manifest_{stage}.json", manifest)
     return manifest
 
@@ -147,10 +145,7 @@ def run_cu1_all(
         "smoke": smoke,
         "formal_evidence_allowed": bool(
             not smoke
-            and all(
-                manifest["formal_evidence_allowed"]
-                for manifest in manifests.values()
-            )
+            and all(manifest["formal_evidence_allowed"] for manifest in manifests.values())
         ),
     }
     atomic_json(Path(output_root) / "manifest_all.json", summary)

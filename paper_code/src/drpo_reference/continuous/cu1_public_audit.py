@@ -20,13 +20,15 @@ def expected_identities(
 ) -> tuple[tuple[str, ...], list[tuple[Any, ...]], tuple[str, ...]]:
     if stage == "source":
         return (
-            "seed",
-        ), [(seed,) for seed in seeds], (
-            "seed",
-            "advantage_far_near_ratio",
-            "output_score_far_near_ratio",
-            "full_parameter_single_sample_far_near_ratio",
-            "aggregate_far_near_ratio",
+            ("seed",),
+            [(seed,) for seed in seeds],
+            (
+                "seed",
+                "advantage_far_near_ratio",
+                "output_score_far_near_ratio",
+                "full_parameter_single_sample_far_near_ratio",
+                "aggregate_far_near_ratio",
+            ),
         )
     if stage == "causal":
         methods = protocols.causal.primary_methods + protocols.causal.appendix_methods
@@ -37,15 +39,19 @@ def expected_identities(
             for method in methods
         ]
         return (
-            "seed",
-            "branch",
-            "method",
-        ), expected, (
-            "seed",
-            "branch",
-            "method",
-            "steps_completed",
-            "stop_reason",
+            (
+                "seed",
+                "branch",
+                "method",
+            ),
+            expected,
+            (
+                "seed",
+                "branch",
+                "method",
+                "steps_completed",
+                "stop_reason",
+            ),
         )
     if stage == "phase":
         expected = [
@@ -58,16 +64,20 @@ def expected_identities(
             for alpha in protocols.phase.learnable_alphas
         ]
         return (
-            "seed",
-            "branch",
-            "alpha",
-        ), expected, (
-            "seed",
-            "branch",
-            "alpha",
-            "state_class",
-            "steps_completed",
-            "stop_reason",
+            (
+                "seed",
+                "branch",
+                "alpha",
+            ),
+            expected,
+            (
+                "seed",
+                "branch",
+                "alpha",
+                "state_class",
+                "steps_completed",
+                "stop_reason",
+            ),
         )
     if stage == "taper":
         expected = [
@@ -76,15 +86,19 @@ def expected_identities(
             for family, retention in method_configs(protocols.taper)
         ]
         return (
-            "seed",
-            "family",
-            "rho",
-        ), expected, (
-            "seed",
-            "family",
-            "rho",
-            "steps_completed",
-            "stop_reason",
+            (
+                "seed",
+                "family",
+                "rho",
+            ),
+            expected,
+            (
+                "seed",
+                "family",
+                "rho",
+                "steps_completed",
+                "stop_reason",
+            ),
         )
     raise ValueError(stage)
 
@@ -159,11 +173,7 @@ def aggregate_and_audit(
         control_matrix = audit_run_matrix(
             control_rows,
             identity_fields=("seed", "method"),
-            expected_identities=[
-                (seed, method)
-                for seed in seeds
-                for method in CONTROL_METHODS
-            ],
+            expected_identities=[(seed, method) for seed in seeds for method in CONTROL_METHODS],
             required_fields=("seed", "method", "steps_completed"),
         )
         audit["control_matrix"] = control_matrix
@@ -192,9 +202,7 @@ def aggregate_and_audit(
             "unresolved_runs": unresolved,
             "passed": not unresolved,
         }
-        audit["formal_evidence_allowed"] = bool(
-            audit["formal_evidence_allowed"] and not unresolved
-        )
+        audit["formal_evidence_allowed"] = bool(audit["formal_evidence_allowed"] and not unresolved)
 
     atomic_json(root / "terminal_audit" / f"{stage}.json", audit)
     return audit

@@ -23,62 +23,34 @@ from drpo_reference.experiments.hopper import run_hopper
 
 def _seed_list(value: str) -> tuple[int, ...]:
     try:
-        seeds = tuple(
-            int(item.strip())
-            for item in value.split(",")
-            if item.strip()
-        )
+        seeds = tuple(int(item.strip()) for item in value.split(",") if item.strip())
     except ValueError as exc:
-        raise argparse.ArgumentTypeError(
-            "seeds must be comma-separated integers"
-        ) from exc
+        raise argparse.ArgumentTypeError("seeds must be comma-separated integers") from exc
     if not seeds:
-        raise argparse.ArgumentTypeError(
-            "at least one seed is required"
-        )
+        raise argparse.ArgumentTypeError("at least one seed is required")
     if len(set(seeds)) != len(seeds):
-        raise argparse.ArgumentTypeError(
-            "seed list contains duplicates"
-        )
+        raise argparse.ArgumentTypeError("seed list contains duplicates")
     return seeds
 
 
 def _task_list(value: str) -> tuple[str, ...]:
-    tasks = tuple(
-        item.strip()
-        for item in value.split(",")
-        if item.strip()
-    )
+    tasks = tuple(item.strip() for item in value.split(",") if item.strip())
     if not tasks:
-        raise argparse.ArgumentTypeError(
-            "at least one D4RL task is required"
-        )
+        raise argparse.ArgumentTypeError("at least one D4RL task is required")
     if len(set(tasks)) != len(tasks):
-        raise argparse.ArgumentTypeError(
-            "D4RL task list contains duplicates"
-        )
+        raise argparse.ArgumentTypeError("D4RL task list contains duplicates")
     return tasks
 
 
 def _method_list(value: str) -> tuple[str, ...]:
-    methods = tuple(
-        item.strip()
-        for item in value.split(",")
-        if item.strip()
-    )
+    methods = tuple(item.strip() for item in value.split(",") if item.strip())
     if not methods:
-        raise argparse.ArgumentTypeError(
-            "at least one D4RL reviewer method is required"
-        )
+        raise argparse.ArgumentTypeError("at least one D4RL reviewer method is required")
     if len(set(methods)) != len(methods):
-        raise argparse.ArgumentTypeError(
-            "D4RL reviewer method list contains duplicates"
-        )
+        raise argparse.ArgumentTypeError("D4RL reviewer method list contains duplicates")
     unknown = sorted(set(methods) - set(D4RL_REVIEWER_METHOD_IDS))
     if unknown:
-        raise argparse.ArgumentTypeError(
-            "unsupported D4RL reviewer methods: " + ", ".join(unknown)
-        )
+        raise argparse.ArgumentTypeError("unsupported D4RL reviewer methods: " + ", ".join(unknown))
     return methods
 
 
@@ -105,10 +77,7 @@ def build_parser() -> argparse.ArgumentParser:
     cu1.add_argument(
         "--seeds",
         type=_seed_list,
-        help=(
-            "optional comma-separated subset; "
-            "subsets are never formal evidence"
-        ),
+        help=("optional comma-separated subset; subsets are never formal evidence"),
     )
     cu1.add_argument(
         "--device",
@@ -118,10 +87,7 @@ def build_parser() -> argparse.ArgumentParser:
     cu1.add_argument(
         "--smoke",
         action="store_true",
-        help=(
-            "run a tiny integration path; "
-            "never eligible for scientific evidence"
-        ),
+        help=("run a tiny integration path; never eligible for scientific evidence"),
     )
 
     du1 = experiments.add_parser(
@@ -132,18 +98,12 @@ def build_parser() -> argparse.ArgumentParser:
     du1.add_argument(
         "--seeds",
         type=_seed_list,
-        help=(
-            "optional comma-separated subset; "
-            "subsets are never formal evidence"
-        ),
+        help=("optional comma-separated subset; subsets are never formal evidence"),
     )
     du1.add_argument(
         "--device",
         default="cpu",
-        help=(
-            "formal revision-4 runs require cpu; "
-            "smoke may use another PyTorch device"
-        ),
+        help=("formal revision-4 runs require cpu; smoke may use another PyTorch device"),
     )
     du1.add_argument(
         "--workers",
@@ -153,10 +113,7 @@ def build_parser() -> argparse.ArgumentParser:
     du1.add_argument(
         "--smoke",
         action="store_true",
-        help=(
-            "run one tiny six-method matrix; "
-            "never eligible for scientific evidence"
-        ),
+        help=("run one tiny six-method matrix; never eligible for scientific evidence"),
     )
 
     hopper = experiments.add_parser(
@@ -168,10 +125,7 @@ def build_parser() -> argparse.ArgumentParser:
     hopper.add_argument(
         "--seeds",
         type=_seed_list,
-        help=(
-            "registered-order formal subset; "
-            "subsets are never formal evidence"
-        ),
+        help=("registered-order formal subset; subsets are never formal evidence"),
     )
     hopper.add_argument(
         "--device",
@@ -186,10 +140,7 @@ def build_parser() -> argparse.ArgumentParser:
     hopper.add_argument(
         "--smoke",
         action="store_true",
-        help=(
-            "run the tiny integration protocol; "
-            "never eligible for scientific evidence"
-        ),
+        help=("run the tiny integration protocol; never eligible for scientific evidence"),
     )
 
     d4rl = experiments.add_parser(
@@ -206,10 +157,7 @@ def build_parser() -> argparse.ArgumentParser:
     d4rl.add_argument(
         "--tasks",
         type=_task_list,
-        help=(
-            "optional comma-separated task IDs; defaults to all nine; "
-            "subsets remain non-formal"
-        ),
+        help=("optional comma-separated task IDs; defaults to all nine; subsets remain non-formal"),
     )
     d4rl.add_argument(
         "--methods",
@@ -256,10 +204,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--eval-episodes",
         type=int,
         default=0,
-        help=(
-            "real Gymnasium/MuJoCo episodes per seed; "
-            "zero disables rollout evaluation"
-        ),
+        help=("real Gymnasium/MuJoCo episodes per seed; zero disables rollout evaluation"),
     )
     d4rl.add_argument(
         "--eval-max-steps",
@@ -270,10 +215,7 @@ def build_parser() -> argparse.ArgumentParser:
     d4rl.add_argument(
         "--smoke",
         action="store_true",
-        help=(
-            "use three updates and at most 64 transitions; "
-            "never scientific evidence"
-        ),
+        help=("use three updates and at most 64 transitions; never scientific evidence"),
     )
 
     countdown = experiments.add_parser(
@@ -303,9 +245,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.experiment == "cu1":
         if args.stage == "all":
             if args.seeds is not None:
-                raise SystemExit(
-                    "--seeds is not valid with --stage all"
-                )
+                raise SystemExit("--seeds is not valid with --stage all")
             run_cu1_all(
                 output_root=args.output,
                 smoke=args.smoke,

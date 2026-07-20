@@ -13,9 +13,7 @@ def _summary_index(
 ) -> dict[str, dict[int, Mapping[str, Any]]]:
     output: dict[str, dict[int, Mapping[str, Any]]] = {}
     for row in summaries:
-        output.setdefault(str(row["method"]), {})[
-            int(row["seed"])
-        ] = row
+        output.setdefault(str(row["method"]), {})[int(row["seed"])] = row
     return output
 
 
@@ -25,13 +23,9 @@ def paired_metric_effect(
     rhs: str,
     metric: str,
 ) -> dict[str, Any]:
-    common_seeds = sorted(
-        set(index.get(lhs, {})) & set(index.get(rhs, {}))
-    )
+    common_seeds = sorted(set(index.get(lhs, {})) & set(index.get(rhs, {})))
     values = [
-        float(index[lhs][seed][metric])
-        - float(index[rhs][seed][metric])
-        for seed in common_seeds
+        float(index[lhs][seed][metric]) - float(index[rhs][seed][metric]) for seed in common_seeds
     ]
     return {
         **paired_effect(values),
@@ -46,61 +40,36 @@ def mechanism_report(
     audits: Sequence[Mapping[str, Any]],
     summaries: Sequence[Mapping[str, Any]],
 ) -> dict[str, Any]:
-    initial = [
-        dict(audit["policy_geometry_initial"])
-        for audit in audits
-    ]
-    after = [
-        dict(audit["policy_geometry_after_warm_start"])
-        for audit in audits
-    ]
+    initial = [dict(audit["policy_geometry_initial"]) for audit in audits]
+    after = [dict(audit["policy_geometry_after_warm_start"]) for audit in audits]
     return {
         "experiment_id": "D-U1-E6-CARTESIAN-TAPER-01",
         "block": "E6_REV4_ENVIRONMENT_IDENTIFICATION_AUDIT",
         "protocol_revision": 4,
         "seeds": [int(audit["seed"]) for audit in audits],
-        "all_environment_audits_passed": all(
-            bool(audit["passed"]) for audit in audits
-        ),
+        "all_environment_audits_passed": all(bool(audit["passed"]) for audit in audits),
         "minimum_initial_utility_oracle_sign_valid_fraction": min(
-            float(row["utility_oracle_sign_valid_fraction"])
-            for row in initial
+            float(row["utility_oracle_sign_valid_fraction"]) for row in initial
         ),
         "minimum_runtime_utility_oracle_sign_valid_fraction": min(
-            float(
-                row[
-                    "minimum_utility_oracle_sign_valid_fraction"
-                ]
-            )
-            for row in summaries
+            float(row["minimum_utility_oracle_sign_valid_fraction"]) for row in summaries
         ),
         "minimum_initial_rarity_shift_reward_drop": min(
-            float(row["rarity_shift_reward_drop"])
-            for row in initial
+            float(row["rarity_shift_reward_drop"]) for row in initial
         ),
         "minimum_initial_rarity_shift_hidden_probability_drop": min(
-            float(row["rarity_shift_hidden_probability_drop"])
-            for row in initial
+            float(row["rarity_shift_hidden_probability_drop"]) for row in initial
         ),
         "minimum_rare_common_shared_rarity_gradient_ratio": min(
             min(
-                float(
-                    row[
-                        "useful_rare_to_common_shared_rarity_gradient_ratio"
-                    ]
-                ),
-                float(
-                    row[
-                        "unhelpful_rare_to_common_shared_rarity_gradient_ratio"
-                    ]
-                ),
+                float(row["useful_rare_to_common_shared_rarity_gradient_ratio"]),
+                float(row["unhelpful_rare_to_common_shared_rarity_gradient_ratio"]),
             )
             for row in initial + after
         ),
         "hidden_rare_channel_is_evaluation_only": True,
         "interpretation": (
-            "environment validity and causal support-cost audit; "
-            "not a separate method ranking"
+            "environment validity and causal support-cost audit; not a separate method ranking"
         ),
     }
 
@@ -138,10 +107,7 @@ def taper_report(
                 )
                 for metric in metrics
             }
-    label = (
-        "exponential_quadratic_distance_minus_"
-        "reciprocal_quadratic_distance"
-    )
+    label = "exponential_quadratic_distance_minus_reciprocal_quadratic_distance"
     contrasts[label] = {
         metric: paired_metric_effect(
             index,
@@ -163,7 +129,6 @@ def taper_report(
         "quartic_active": False,
         "no_method_winner_assumed": True,
         "interpretation_gate": (
-            "no ranking unless all formal runs and terminal "
-            "audits are complete"
+            "no ranking unless all formal runs and terminal audits are complete"
         ),
     }

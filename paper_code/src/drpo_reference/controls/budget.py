@@ -36,9 +36,7 @@ def scale_to_match_norm(
 
     if not math.isfinite(zero_tolerance) or zero_tolerance < 0.0:
         raise ValueError("zero_tolerance must be finite and non-negative")
-    if maximum_scale is not None and (
-        not math.isfinite(maximum_scale) or maximum_scale <= 0.0
-    ):
+    if maximum_scale is not None and (not math.isfinite(maximum_scale) or maximum_scale <= 0.0):
         raise ValueError("maximum_scale must be finite and positive")
     target = float(gradient_l2_norm(target_gradients).cpu())
     source = float(gradient_l2_norm(source_gradients).cpu())

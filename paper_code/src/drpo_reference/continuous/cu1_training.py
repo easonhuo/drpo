@@ -101,11 +101,7 @@ def add_gradients(
         value: torch.Tensor | None = None
         for gradient, scale in zip(components, scales):
             if gradient is not None:
-                value = (
-                    gradient * scale
-                    if value is None
-                    else value + gradient * scale
-                )
+                value = gradient * scale if value is None else value + gradient * scale
         result.append(value)
     return tuple(result)
 
@@ -114,10 +110,7 @@ def scale_gradients(
     gradients: Sequence[torch.Tensor | None],
     scale: float | torch.Tensor,
 ) -> GradientTuple:
-    return tuple(
-        None if gradient is None else gradient * scale
-        for gradient in gradients
-    )
+    return tuple(None if gradient is None else gradient * scale for gradient in gradients)
 
 
 def set_parameter_gradients(
@@ -198,11 +191,7 @@ def normalized_field_residual(
 ) -> dict[str, float]:
     from .cu1 import local_negative_loss
 
-    parameters = (
-        actor.mean_parameters()
-        if fixed_sigma is not None
-        else actor.all_parameters()
-    )
+    parameters = actor.mean_parameters() if fixed_sigma is not None else actor.all_parameters()
     positive = positive_loss(actor, split, protocol, fixed_sigma=fixed_sigma)
     negative = (
         local_negative_loss(actor, split, protocol, fixed_sigma=fixed_sigma)
@@ -232,8 +221,7 @@ def normalized_field_residual(
         "positive_gradient_norm": positive_norm,
         "negative_gradient_norm": negative_norm,
         "total_gradient_norm": total_norm,
-        "normalized_field_residual": total_norm
-        / (positive_norm + negative_norm + EPS),
+        "normalized_field_residual": total_norm / (positive_norm + negative_norm + EPS),
     }
 
 
@@ -345,10 +333,7 @@ def train_positive(
         loss.backward()
         continuation.step()
         step = training.positive_steps + extra
-        if (
-            extra % training.eval_every == 0
-            or extra == training.positive_continuation_steps
-        ):
+        if extra % training.eval_every == 0 or extra == training.positive_continuation_steps:
             record(step, "continuation")
 
     post_continuation = _copy_state(actor)
@@ -387,12 +372,9 @@ def train_positive(
         loss.backward()
         polish.step()
         polish_steps_used = polish_step
-        should_check = (
-            polish_step >= training.positive_polish_min_steps
-            and (
-                polish_step % training.positive_polish_check_every == 0
-                or polish_step == training.positive_polish_max_steps
-            )
+        should_check = polish_step >= training.positive_polish_min_steps and (
+            polish_step % training.positive_polish_check_every == 0
+            or polish_step == training.positive_polish_max_steps
         )
         if should_check:
             field = normalized_field_residual(
@@ -402,9 +384,7 @@ def train_positive(
                 alpha=0.0,
                 fixed_sigma=None,
             )
-            if field["total_gradient_norm"] < (
-                training.absolute_residual_threshold_alpha_zero
-            ):
+            if field["total_gradient_norm"] < (training.absolute_residual_threshold_alpha_zero):
                 break
 
     record(
@@ -438,8 +418,7 @@ def train_positive(
         "status": (
             "stable_plateau_2x_confirmed"
             if final_audit_succeeded
-            and field["total_gradient_norm"]
-            < training.absolute_residual_threshold_alpha_zero
+            and field["total_gradient_norm"] < training.absolute_residual_threshold_alpha_zero
             else "finite_but_residual_above_strict_threshold"
         ),
     }

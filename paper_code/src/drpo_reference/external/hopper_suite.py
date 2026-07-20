@@ -89,9 +89,7 @@ def _validate_inputs(
         raise ValueError("observations and actions must be rank-two arrays")
     if advantages.ndim != 1:
         raise ValueError("advantages must be a rank-one array")
-    if not (
-        len(observations) == len(actions) == len(advantages)
-    ):
+    if not (len(observations) == len(actions) == len(advantages)):
         raise ValueError("observations, actions, and advantages disagree")
     population = len(advantages)
     for name, indices in (
@@ -116,9 +114,7 @@ def _validate_inputs(
 
 def _require_new_or_empty(path: Path) -> None:
     if path.exists() and any(path.iterdir()):
-        raise FileExistsError(
-            f"Hopper suite output must be new or empty: {path}"
-        )
+        raise FileExistsError(f"Hopper suite output must be new or empty: {path}")
     path.mkdir(parents=True, exist_ok=True)
 
 
@@ -222,19 +218,11 @@ def prepare_positive_only_actor(
     positive_train = train_indices[advantages[train_indices] > 0]
     negative_train = train_indices[advantages[train_indices] < 0]
     if len(positive_train) < 10 or len(negative_train) < 10:
-        raise RuntimeError(
-            "frozen advantages do not yield enough positive and negative samples"
-        )
-    validation_positive = validation_indices[
-        advantages[validation_indices] > 0
-    ]
-    validation_negative = validation_indices[
-        advantages[validation_indices] < 0
-    ]
+        raise RuntimeError("frozen advantages do not yield enough positive and negative samples")
+    validation_positive = validation_indices[advantages[validation_indices] > 0]
+    validation_negative = validation_indices[advantages[validation_indices] < 0]
     if len(validation_positive) == 0 or len(validation_negative) == 0:
-        raise RuntimeError(
-            "validation split must contain positive and negative advantages"
-        )
+        raise RuntimeError("validation split must contain positive and negative advantages")
 
     generator = np.random.default_rng(seed + 321)
     half = max(1, protocol.audit_sample_size // 2)
@@ -248,9 +236,7 @@ def prepare_positive_only_actor(
         size=min(half, len(validation_negative)),
         replace=False,
     )
-    audit_indices = np.concatenate(
-        [audit_positive, audit_negative]
-    ).astype(np.int64)
+    audit_indices = np.concatenate([audit_positive, audit_negative]).astype(np.int64)
     generator.shuffle(audit_indices)
     fixed_negative_indices = generator.choice(
         negative_train,
@@ -287,14 +273,9 @@ def prepare_positive_only_actor(
     if not positive_audit.get("fixed_budget_completed"):
         raise RuntimeError("Positive-only preparation did not finish its budget")
 
-    checkpoint_path = (
-        output_dir
-        / "positive_only_initialization"
-        / "terminal_actor.pt"
-    )
+    checkpoint_path = output_dir / "positive_only_initialization" / "terminal_actor.pt"
     trained_state = {
-        name: value.detach().cpu().clone()
-        for name, value in trained_policy.state_dict().items()
+        name: value.detach().cpu().clone() for name, value in trained_policy.state_dict().items()
     }
     reloaded_policy, checkpoint_payload = _load_prepared_checkpoint(
         checkpoint_path,
@@ -304,8 +285,7 @@ def prepare_positive_only_actor(
         resolved_device,
     )
     reloaded_state = {
-        name: value.detach().cpu().clone()
-        for name, value in reloaded_policy.state_dict().items()
+        name: value.detach().cpu().clone() for name, value in reloaded_policy.state_dict().items()
     }
     reload_identity = _state_dicts_equal(trained_state, reloaded_state)
     if not reload_identity:
@@ -328,18 +308,16 @@ def prepare_positive_only_actor(
                 .numpy()
             )
 
-    near_indices, far_indices, matching_summary = (
-        match_near_far_indices(
-            advantages,
-            all_negative_distances,
-            negative_train,
-            protocol.near_quantile,
-            protocol.far_quantile,
-            protocol.advantage_bins,
-            protocol.matched_pairs,
-            protocol.advantage_match_relative_tolerance,
-            seed,
-        )
+    near_indices, far_indices, matching_summary = match_near_far_indices(
+        advantages,
+        all_negative_distances,
+        negative_train,
+        protocol.near_quantile,
+        protocol.far_quantile,
+        protocol.advantage_bins,
+        protocol.matched_pairs,
+        protocol.advantage_match_relative_tolerance,
+        seed,
     )
     probe_dir = output_dir / "probes"
     pair_rows = [
@@ -352,9 +330,7 @@ def prepare_positive_only_actor(
             "near_distance": float(all_negative_distances[near_index]),
             "far_distance": float(all_negative_distances[far_index]),
         }
-        for pair_id, (near_index, far_index) in enumerate(
-            zip(near_indices, far_indices)
-        )
+        for pair_id, (near_index, far_index) in enumerate(zip(near_indices, far_indices))
     ]
     write_csv(probe_dir / "matching_pairs.csv", pair_rows)
     atomic_json(probe_dir / "matching_summary.json", matching_summary)
@@ -375,16 +351,9 @@ def prepare_positive_only_actor(
         output_dir=probe_dir,
     )
 
-    far_threshold = float(
-        (
-            matching_summary["near_cut"]
-            + matching_summary["far_cut"]
-        )
-        / 2.0
-    )
+    far_threshold = float((matching_summary["near_cut"] + matching_summary["far_cut"]) / 2.0)
     near_negative_pool = negative_train[
-        all_negative_distances[negative_train]
-        <= matching_summary["near_cut"]
+        all_negative_distances[negative_train] <= matching_summary["near_cut"]
     ]
     if len(near_negative_pool) == 0:
         raise RuntimeError("no near negatives are available for Far-cap")
@@ -541,9 +510,7 @@ def run_hopper_six_branch_suite(
                 advantages=advantages,
                 train_indices=prepared.train_indices,
                 audit_indices=prepared.audit_indices,
-                fixed_negative_indices=(
-                    prepared.fixed_negative_indices
-                ),
+                fixed_negative_indices=(prepared.fixed_negative_indices),
                 protocol=protocol,
                 min_steps=protocol.branch_min_steps,
                 max_steps=protocol.branch_steps,
@@ -552,9 +519,7 @@ def run_hopper_six_branch_suite(
                 device=resolved_device,
                 output_dir=output_dir / "methods" / method,
                 far_threshold=prepared.far_threshold,
-                global_scale=float(
-                    prepared.global_budget["global_scale"]
-                ),
+                global_scale=float(prepared.global_budget["global_scale"]),
                 far_cap_score=prepared.far_cap_score,
                 heartbeat=heartbeat,
             )
@@ -576,12 +541,8 @@ def run_hopper_six_branch_suite(
             if not continue_on_branch_failure:
                 raise
 
-    completed_methods = [
-        method for method in METHODS if method in branch_audits
-    ]
-    failed_methods = [
-        method for method in METHODS if method in branch_failures
-    ]
+    completed_methods = [method for method in METHODS if method in branch_audits]
+    failed_methods = [method for method in METHODS if method in branch_failures]
     summary = {
         "seed": seed,
         "execution_profile": protocol.execution_profile,
@@ -625,15 +586,10 @@ def run_hopper_six_branch_suite(
         "completed_methods": completed_methods,
         "failed_methods": failed_methods,
         "prepared_checkpoint_sha256": prepared.checkpoint_sha256,
-        "all_branch_initial_states_identical": summary[
-            "all_branch_initial_states_identical"
-        ],
+        "all_branch_initial_states_identical": summary["all_branch_initial_states_identical"],
         "terminal_audits_complete": bool(
             not failed_methods
-            and all(
-                audit.get("terminal_audit_complete")
-                for audit in branch_audits.values()
-            )
+            and all(audit.get("terminal_audit_complete") for audit in branch_audits.values())
         ),
         "formal_evidence_allowed": False,
     }

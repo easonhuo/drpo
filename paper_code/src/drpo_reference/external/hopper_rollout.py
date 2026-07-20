@@ -46,17 +46,10 @@ def normalize_d4rl_reference_score(
     raw = float(raw_return)
     minimum = float(reference_min_score)
     maximum = float(reference_max_score)
-    if not all(
-        math.isfinite(value)
-        for value in (raw, minimum, maximum)
-    ):
-        raise ValueError(
-            "Raw return and D4RL reference scores must be finite"
-        )
+    if not all(math.isfinite(value) for value in (raw, minimum, maximum)):
+        raise ValueError("Raw return and D4RL reference scores must be finite")
     if maximum <= minimum:
-        raise ValueError(
-            "D4RL reference_max_score must exceed reference_min_score"
-        )
+        raise ValueError("D4RL reference_max_score must exceed reference_min_score")
     normalized = (raw - minimum) / (maximum - minimum)
     return normalized * 100.0 if percent else normalized
 
@@ -90,8 +83,7 @@ def validate_rollout_identity(
     }
     if mismatches:
         raise ValueError(
-            "Hopper rollout identity does not match the frozen protocol: "
-            f"{mismatches}"
+            f"Hopper rollout identity does not match the frozen protocol: {mismatches}"
         )
     return expected
 
@@ -101,22 +93,13 @@ def _open_gymnasium_mujoco_env(
 ) -> tuple[Any, dict[str, Any]]:
     """Open Gymnasium MuJoCo without importing legacy D4RL/mujoco-py."""
 
-    legacy_modules_before = {
-        name: name in sys.modules
-        for name in ("d4rl", "mujoco_py")
-    }
+    legacy_modules_before = {name: name in sys.modules for name in ("d4rl", "mujoco_py")}
     gymnasium = importlib.import_module("gymnasium")
     env = gymnasium.make(env_id)
-    legacy_modules_after = {
-        name: name in sys.modules
-        for name in ("d4rl", "mujoco_py")
-    }
+    legacy_modules_after = {name: name in sys.modules for name in ("d4rl", "mujoco_py")}
     if any(legacy_modules_after.values()):
         env.close()
-        raise RuntimeError(
-            "Gymnasium rollout process contains a legacy "
-            "D4RL/mujoco_py module"
-        )
+        raise RuntimeError("Gymnasium rollout process contains a legacy D4RL/mujoco_py module")
     metadata = {
         "backend": "gymnasium_mujoco",
         "gym_backend": "gymnasium",
@@ -147,11 +130,7 @@ def _reset_env(
         reset_mode = "legacy_env_seed"
     if isinstance(result, tuple):
         observation = result[0]
-        info = (
-            result[1]
-            if len(result) > 1 and isinstance(result[1], dict)
-            else {}
-        )
+        info = result[1] if len(result) > 1 and isinstance(result[1], dict) else {}
     else:
         observation = result
         info = {}
@@ -167,9 +146,7 @@ def _step_env(
 ) -> tuple[np.ndarray, float, bool, dict[str, Any]]:
     result = env.step(action)
     if not isinstance(result, tuple):
-        raise RuntimeError(
-            f"env.step returned {type(result).__name__}, expected tuple"
-        )
+        raise RuntimeError(f"env.step returned {type(result).__name__}, expected tuple")
     if len(result) == 5:
         observation, reward, terminated, truncated, info = result
         done = bool(terminated or truncated)
@@ -179,20 +156,14 @@ def _step_env(
         done = bool(done)
         api = "legacy_four_tuple"
     else:
-        raise RuntimeError(
-            f"env.step returned {len(result)} values, expected 4 or 5"
-        )
+        raise RuntimeError(f"env.step returned {len(result)} values, expected 4 or 5")
     return (
         np.asarray(observation, dtype=np.float32),
         float(reward),
         done,
         {
             "step_api": api,
-            "info_keys": (
-                sorted(str(key) for key in info)
-                if isinstance(info, dict)
-                else []
-            ),
+            "info_keys": (sorted(str(key) for key in info) if isinstance(info, dict) else []),
         },
     )
 
@@ -239,10 +210,7 @@ def _rollout_environment_versions() -> dict[str, Any]:
                 "mujoco-py",
             )
         },
-        "legacy_modules_imported": {
-            name: name in sys.modules
-            for name in ("d4rl", "mujoco_py")
-        },
+        "legacy_modules_imported": {name: name in sys.modules for name in ("d4rl", "mujoco_py")},
     }
 
 
@@ -299,9 +267,7 @@ def _run_rollout_preflight_worker(
         report["reset"] = {
             **reset_metadata,
             "observation_shape": list(observation.shape),
-            "observation_finite": bool(
-                np.all(np.isfinite(observation))
-            ),
+            "observation_finite": bool(np.all(np.isfinite(observation))),
         }
         if observation.size != expected_observation_dim:
             raise RuntimeError(
@@ -314,9 +280,7 @@ def _run_rollout_preflight_worker(
             action_space,
             "sample",
         ):
-            raise RuntimeError(
-                "Environment does not expose a sampleable action_space"
-            )
+            raise RuntimeError("Environment does not expose a sampleable action_space")
         if hasattr(action_space, "seed"):
             action_space.seed(int(seed))
         sample_action = _clip_action_to_space(
@@ -338,15 +302,9 @@ def _run_rollout_preflight_worker(
         report["single_step"] = {
             **step_metadata,
             "action_shape": list(sample_action.shape),
-            "action_finite": bool(
-                np.all(np.isfinite(sample_action))
-            ),
-            "next_observation_shape": list(
-                next_observation.shape
-            ),
-            "next_observation_finite": bool(
-                np.all(np.isfinite(next_observation))
-            ),
+            "action_finite": bool(np.all(np.isfinite(sample_action))),
+            "next_observation_shape": list(next_observation.shape),
+            "next_observation_finite": bool(np.all(np.isfinite(next_observation))),
             "reward": reward,
             "reward_finite": math.isfinite(reward),
             "done": done,
@@ -381,23 +339,15 @@ def _run_rollout_preflight_worker(
             "terminated_or_truncated": done,
             "return": total,
             "normalized_return": normalized,
-            "normalized_return_available": math.isfinite(
-                normalized
-            ),
+            "normalized_return_available": math.isfinite(normalized),
             "last_step_api": last_api,
         }
         if episode_steps <= 0:
-            raise RuntimeError(
-                "Random rollout completed zero steps"
-            )
+            raise RuntimeError("Random rollout completed zero steps")
         if not math.isfinite(total):
-            raise RuntimeError(
-                "Random rollout return is non-finite"
-            )
+            raise RuntimeError("Random rollout return is non-finite")
         if not math.isfinite(normalized):
-            raise RuntimeError(
-                "D4RL-reference normalized score is non-finite"
-            )
+            raise RuntimeError("D4RL-reference normalized score is non-finite")
         report.update(
             {
                 "status": "passed",
@@ -512,9 +462,7 @@ def preflight_rollout_environment(
     """Verify the registered environment, isolating native crashes."""
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    worker_report = (
-        output_dir / "rollout_preflight_worker.json"
-    )
+    worker_report = output_dir / "rollout_preflight_worker.json"
     canonical_report = output_dir / "rollout_preflight.json"
 
     if process_isolated:
@@ -540,36 +488,26 @@ def preflight_rollout_environment(
                 check=False,
             )
             if worker_report.is_file():
-                report = json.loads(
-                    worker_report.read_text(encoding="utf-8")
-                )
+                report = json.loads(worker_report.read_text(encoding="utf-8"))
             else:
                 report = {
                     "status": "failed",
                     "interaction_verified": False,
                     "normalized_score_verified": False,
                     "error_type": (
-                        "NativeProcessSignal"
-                        if completed.returncode < 0
-                        else "WorkerReportMissing"
+                        "NativeProcessSignal" if completed.returncode < 0 else "WorkerReportMissing"
                     ),
                     "error": (
-                        "rollout worker terminated by "
-                        f"{_signal_name(completed.returncode)}"
+                        f"rollout worker terminated by {_signal_name(completed.returncode)}"
                         if completed.returncode < 0
-                        else (
-                            "rollout worker exited without "
-                            "writing its report"
-                        )
+                        else ("rollout worker exited without writing its report")
                     ),
                 }
             report["subprocess_isolation"] = {
                 "enabled": True,
                 "command": command,
                 "returncode": completed.returncode,
-                "signal_name": _signal_name(
-                    completed.returncode
-                ),
+                "signal_name": _signal_name(completed.returncode),
                 "stdout": _diagnostic_text(completed.stdout),
                 "stderr": _diagnostic_text(completed.stderr),
                 "timeout_seconds": int(timeout_seconds),
@@ -579,12 +517,9 @@ def preflight_rollout_environment(
                 report["interaction_verified"] = False
                 report["normalized_score_verified"] = False
                 if completed.returncode < 0:
-                    report["error_type"] = (
-                        "NativeProcessSignal"
-                    )
+                    report["error_type"] = "NativeProcessSignal"
                     report["error"] = (
-                        "rollout worker terminated by "
-                        f"{_signal_name(completed.returncode)}"
+                        f"rollout worker terminated by {_signal_name(completed.returncode)}"
                     )
         except subprocess.TimeoutExpired as exc:
             report = {
@@ -592,10 +527,7 @@ def preflight_rollout_environment(
                 "interaction_verified": False,
                 "normalized_score_verified": False,
                 "error_type": "RolloutPreflightTimeout",
-                "error": (
-                    "rollout worker exceeded "
-                    f"{timeout_seconds} seconds"
-                ),
+                "error": (f"rollout worker exceeded {timeout_seconds} seconds"),
                 "subprocess_isolation": {
                     "enabled": True,
                     "command": command,
@@ -631,9 +563,7 @@ def preflight_rollout_environment(
             reference_max_score=reference_max_score,
             output_report=worker_report,
         )
-        report["subprocess_isolation"] = {
-            "enabled": False
-        }
+        report["subprocess_isolation"] = {"enabled": False}
 
     report["required"] = bool(required)
     report["legacy_d4rl_fallback"] = "forbidden"
@@ -693,9 +623,7 @@ def evaluate_d4rl_rollouts(
             dataset_id=dataset_id,
             env_id=env_id,
         )
-        env, open_metadata = _open_gymnasium_mujoco_env(
-            env_id
-        )
+        env, open_metadata = _open_gymnasium_mujoco_env(env_id)
         returns: list[float] = []
         episode_steps: list[int] = []
         for episode in range(episodes):
@@ -709,9 +637,7 @@ def evaluate_d4rl_rollouts(
             steps = 0
             limit = _max_episode_steps(env, 10_000)
             while not done and steps < limit:
-                normalized_observation = obs_norm.transform(
-                    observation.reshape(1, -1)
-                )
+                normalized_observation = obs_norm.transform(observation.reshape(1, -1))
                 with torch.no_grad():
                     action = (
                         policy.action_mean(
@@ -732,10 +658,7 @@ def evaluate_d4rl_rollouts(
                 total += reward
                 steps += 1
             if steps >= limit and not done:
-                raise RuntimeError(
-                    "Episode reached safety limit "
-                    f"{limit} without termination"
-                )
+                raise RuntimeError(f"Episode reached safety limit {limit} without termination")
             returns.append(total)
             episode_steps.append(steps)
         mean_return = float(np.mean(returns))
@@ -750,33 +673,22 @@ def evaluate_d4rl_rollouts(
             "rollout_return_mean": mean_return,
             "rollout_return_std": float(np.std(returns)),
             "normalized_return": normalized,
-            "normalized_return_available": math.isfinite(
-                normalized
-            ),
+            "normalized_return_available": math.isfinite(normalized),
             "rollout_episodes": int(episodes),
-            "rollout_episode_steps_mean": float(
-                np.mean(episode_steps)
-            ),
+            "rollout_episode_steps_mean": float(np.mean(episode_steps)),
             "rollout_open_metadata": open_metadata,
             "rollout_backend": backend,
             "evaluation_env_id": env_id,
             "offline_dataset_id": dataset_id,
             "normalization": {
                 "protocol": "d4rl_v2_reference",
-                "reference_min_score": float(
-                    reference_min_score
-                ),
-                "reference_max_score": float(
-                    reference_max_score
-                ),
+                "reference_min_score": float(reference_min_score),
+                "reference_max_score": float(reference_max_score),
                 "percent": bool(normalized_score_percent),
             },
         }
         if required and not math.isfinite(normalized):
-            raise RuntimeError(
-                "Required normalized return is unavailable "
-                "or non-finite"
-            )
+            raise RuntimeError("Required normalized return is unavailable or non-finite")
         if diagnostics_path is not None:
             atomic_json(diagnostics_path, result)
         return result
@@ -798,10 +710,7 @@ def evaluate_d4rl_rollouts(
         if diagnostics_path is not None:
             atomic_json(diagnostics_path, failure)
         if required:
-            raise RuntimeError(
-                "Required rollout evaluation failed for "
-                f"{env_id!r}: {exc}"
-            ) from exc
+            raise RuntimeError(f"Required rollout evaluation failed for {env_id!r}: {exc}") from exc
         return failure
     finally:
         if env is not None:
@@ -830,36 +739,19 @@ def preflight_from_protocol(
         expected_action_dim=expected_action_dim,
         seed=seed,
         max_steps=protocol.rollout_preflight_max_steps,
-        normalized_score_percent=(
-            protocol.normalized_score_percent
-        ),
-        reference_min_score=(
-            protocol.normalized_score_reference_min
-        ),
-        reference_max_score=(
-            protocol.normalized_score_reference_max
-        ),
+        normalized_score_percent=(protocol.normalized_score_percent),
+        reference_min_score=(protocol.normalized_score_reference_min),
+        reference_max_score=(protocol.normalized_score_reference_max),
         output_dir=output_dir,
-        required=(
-            protocol.rollout_required
-            if required is None
-            else bool(required)
-        ),
-        process_isolated=(
-            protocol.process_isolated_preflight
-        ),
-        timeout_seconds=(
-            protocol.rollout_preflight_timeout_seconds
-        ),
+        required=(protocol.rollout_required if required is None else bool(required)),
+        process_isolated=(protocol.process_isolated_preflight),
+        timeout_seconds=(protocol.rollout_preflight_timeout_seconds),
     )
 
 
 def _worker_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description=(
-            "Internal Hopper rollout preflight worker; "
-            "not a public experiment runner."
-        )
+        description=("Internal Hopper rollout preflight worker; not a public experiment runner.")
     )
     parser.add_argument(
         "command",
@@ -908,15 +800,11 @@ def main(argv: list[str] | None = None) -> int:
         backend=args.backend,
         dataset_id=args.dataset_id,
         env_id=args.env_id,
-        expected_observation_dim=(
-            args.expected_observation_dim
-        ),
+        expected_observation_dim=(args.expected_observation_dim),
         expected_action_dim=args.expected_action_dim,
         seed=args.seed,
         max_steps=args.max_steps,
-        normalized_score_percent=(
-            args.normalized_score_percent
-        ),
+        normalized_score_percent=(args.normalized_score_percent),
         reference_min_score=args.reference_min_score,
         reference_max_score=args.reference_max_score,
         output_report=args.output_report,

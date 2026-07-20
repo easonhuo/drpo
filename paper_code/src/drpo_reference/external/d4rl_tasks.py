@@ -28,10 +28,7 @@ _ENV_IDS = {
     "walker2d": "Walker2d-v4",
 }
 
-_HOPPER_MEDIUM_REPLAY_SHA256 = (
-    "e121c5f7c9857a307baa9edc6a2c3b48"
-    "e85fedb9ac316ecddd0f48ca7ef4e39b"
-)
+_HOPPER_MEDIUM_REPLAY_SHA256 = "e121c5f7c9857a307baa9edc6a2c3b48e85fedb9ac316ecddd0f48ca7ef4e39b"
 
 
 @dataclass(frozen=True)
@@ -56,55 +53,29 @@ class D4RLTaskSpec:
 
     def __post_init__(self) -> None:
         if self.environment not in ENVIRONMENTS:
-            raise ValueError(
-                f"unsupported D4RL environment: {self.environment}"
-            )
+            raise ValueError(f"unsupported D4RL environment: {self.environment}")
         if self.dataset_tier not in DATASET_TIERS:
-            raise ValueError(
-                f"unsupported D4RL dataset tier: {self.dataset_tier}"
-            )
+            raise ValueError(f"unsupported D4RL dataset tier: {self.dataset_tier}")
         expected_id = f"{self.environment}-{self.dataset_tier}-v2"
         if self.dataset_id != expected_id or self.task_id != expected_id:
             raise ValueError("D4RL task and dataset identities disagree")
-        expected_basename = (
-            f"{self.environment}_"
-            f"{self.dataset_tier.replace('-', '_')}-v2.hdf5"
-        )
+        expected_basename = f"{self.environment}_{self.dataset_tier.replace('-', '_')}-v2.hdf5"
         if self.dataset_basename != expected_basename:
-            raise ValueError(
-                "D4RL dataset basename does not match task identity"
-            )
+            raise ValueError("D4RL dataset basename does not match task identity")
         if self.env_id != _ENV_IDS[self.environment]:
-            raise ValueError(
-                "D4RL Gymnasium environment identity is inconsistent"
-            )
-        if (
-            self.normalized_score_reference_max
-            <= self.normalized_score_reference_min
-        ):
-            raise ValueError(
-                "D4RL reference maximum must exceed reference minimum"
-            )
+            raise ValueError("D4RL Gymnasium environment identity is inconsistent")
+        if self.normalized_score_reference_max <= self.normalized_score_reference_min:
+            raise ValueError("D4RL reference maximum must exceed reference minimum")
         if self.dataset_sha256 is not None:
             if len(self.dataset_sha256) != 64:
-                raise ValueError(
-                    "dataset SHA-256 must contain 64 hexadecimal digits"
-                )
+                raise ValueError("dataset SHA-256 must contain 64 hexadecimal digits")
             try:
                 int(self.dataset_sha256, 16)
             except ValueError as exc:
-                raise ValueError(
-                    "dataset SHA-256 must be hexadecimal"
-                ) from exc
-        expected_status = (
-            "verified"
-            if self.dataset_sha256 is not None
-            else "unresolved"
-        )
+                raise ValueError("dataset SHA-256 must be hexadecimal") from exc
+        expected_status = "verified" if self.dataset_sha256 is not None else "unresolved"
         if self.provenance_status != expected_status:
-            raise ValueError(
-                "D4RL provenance status does not match dataset SHA state"
-            )
+            raise ValueError("D4RL provenance status does not match dataset SHA state")
 
     @property
     def dataset_identity_verified(self) -> bool:
@@ -152,36 +123,25 @@ class D4RLTaskSpec:
             if actual[key] != expected[key]
         }
         if mismatches:
-            raise ValueError(
-                f"D4RL rollout identity mismatch for {self.task_id}: "
-                f"{mismatches}"
-            )
+            raise ValueError(f"D4RL rollout identity mismatch for {self.task_id}: {mismatches}")
         return expected
 
 
 def _make_task(environment: str, dataset_tier: str) -> D4RLTaskSpec:
     dataset_id = f"{environment}-{dataset_tier}-v2"
     minimum, maximum = _REFERENCE_SCORES[environment]
-    digest = (
-        _HOPPER_MEDIUM_REPLAY_SHA256
-        if dataset_id == "hopper-medium-replay-v2"
-        else None
-    )
+    digest = _HOPPER_MEDIUM_REPLAY_SHA256 if dataset_id == "hopper-medium-replay-v2" else None
     return D4RLTaskSpec(
         task_id=dataset_id,
         environment=environment,
         dataset_tier=dataset_tier,
         dataset_id=dataset_id,
-        dataset_basename=(
-            f"{environment}_{dataset_tier.replace('-', '_')}-v2.hdf5"
-        ),
+        dataset_basename=(f"{environment}_{dataset_tier.replace('-', '_')}-v2.hdf5"),
         env_id=_ENV_IDS[environment],
         normalized_score_reference_min=minimum,
         normalized_score_reference_max=maximum,
         dataset_sha256=digest,
-        provenance_status=(
-            "verified" if digest is not None else "unresolved"
-        ),
+        provenance_status=("verified" if digest is not None else "unresolved"),
     )
 
 
@@ -197,9 +157,7 @@ def resolve_d4rl_task(task_id: str) -> D4RLTaskSpec:
     try:
         return D4RL9_BY_ID[task_id]
     except KeyError as exc:
-        raise ValueError(
-            f"unknown manuscript D4RL task: {task_id}"
-        ) from exc
+        raise ValueError(f"unknown manuscript D4RL task: {task_id}") from exc
 
 
 def validate_d4rl9_matrix(
@@ -208,8 +166,7 @@ def validate_d4rl9_matrix(
     resolved = tuple(tasks)
     if resolved != D4RL9_TASKS:
         raise ValueError(
-            "D4RL-9 tasks must contain the exact manuscript matrix "
-            "in registered order"
+            "D4RL-9 tasks must contain the exact manuscript matrix in registered order"
         )
     if len({task.task_id for task in resolved}) != len(resolved):
         raise ValueError("D4RL-9 task matrix contains duplicates")
@@ -238,27 +195,22 @@ def validate_dataset_path(
 
     resolved = Path(path).expanduser().resolve()
     if not resolved.is_file():
-        raise FileNotFoundError(
-            f"D4RL dataset does not exist: {resolved}"
-        )
+        raise FileNotFoundError(f"D4RL dataset does not exist: {resolved}")
     if resolved.name != task.dataset_basename:
         raise ValueError(
-            "D4RL dataset basename mismatch: "
-            f"expected {task.dataset_basename}, got {resolved.name}"
+            f"D4RL dataset basename mismatch: expected {task.dataset_basename}, got {resolved.name}"
         )
     digest = _sha256_file(resolved)
     if task.dataset_sha256 is None:
         if require_verified_sha:
             raise RuntimeError(
-                f"dataset SHA-256 is unresolved for {task.task_id}; "
-                "formal execution is blocked"
+                f"dataset SHA-256 is unresolved for {task.task_id}; formal execution is blocked"
             )
         identity_verified = False
     else:
         if digest != task.dataset_sha256:
             raise ValueError(
-                "D4RL dataset SHA-256 mismatch: "
-                f"expected {task.dataset_sha256}, got {digest}"
+                f"D4RL dataset SHA-256 mismatch: expected {task.dataset_sha256}, got {digest}"
             )
         identity_verified = True
     return {

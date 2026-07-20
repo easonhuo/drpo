@@ -49,13 +49,8 @@ class CU1Protocol:
             raise ValueError("the frozen C-U1 protocol requires action_dim=2")
         if self.hidden_layers != 2:
             raise ValueError("the frozen C-U1 protocol requires two hidden layers")
-        if (
-            self.positive_samples_per_state != 4
-            or self.negative_samples_per_state != 8
-        ):
-            raise ValueError(
-                "the frozen C-U1 contour cardinalities are 4 positive and 8 negative"
-            )
+        if self.positive_samples_per_state != 4 or self.negative_samples_per_state != 8:
+            raise ValueError("the frozen C-U1 contour cardinalities are 4 positive and 8 negative")
 
 
 @dataclass
@@ -95,11 +90,7 @@ def base_from_state(states: torch.Tensor) -> torch.Tensor:
 
 
 def task_direction_from_state(states: torch.Tensor) -> torch.Tensor:
-    angle = 1.15 * torch.tanh(
-        0.75 * states[:, 0]
-        + 0.50 * states[:, 2]
-        - 0.30 * states[:, 5]
-    )
+    angle = 1.15 * torch.tanh(0.75 * states[:, 0] + 0.50 * states[:, 2] - 0.30 * states[:, 5])
     angle = angle + 0.30 * torch.sin(1.35 * states[:, 1])
     return torch.stack([torch.cos(angle), torch.sin(angle)], dim=1)
 
@@ -120,8 +111,7 @@ def reward_from_optimum(
 def positive_angles(protocol: CU1Protocol, dtype: torch.dtype) -> torch.Tensor:
     theta_1 = protocol.positive_angle_1
     cos_theta_2 = (
-        2.0 * protocol.gap_to_unseen_optimum / protocol.positive_contour_radius
-        - math.cos(theta_1)
+        2.0 * protocol.gap_to_unseen_optimum / protocol.positive_contour_radius - math.cos(theta_1)
     )
     if not (-1.0 <= cos_theta_2 <= 1.0):
         raise RuntimeError("invalid positive contour geometry")
@@ -165,9 +155,7 @@ def make_split(states: torch.Tensor, protocol: CU1Protocol) -> Split:
         torch.cos(positive_theta)[None, :, None] * direction[:, None, :]
         + torch.sin(positive_theta)[None, :, None] * perpendicular[:, None, :]
     )
-    positive_actions = (
-        star[:, None, :] + protocol.positive_contour_radius * positive_direction
-    )
+    positive_actions = star[:, None, :] + protocol.positive_contour_radius * positive_direction
     positive_rewards = reward_from_optimum(
         positive_actions,
         star[:, None, :],
@@ -180,9 +168,7 @@ def make_split(states: torch.Tensor, protocol: CU1Protocol) -> Split:
         torch.cos(negative_theta)[None, :, None] * direction[:, None, :]
         + torch.sin(negative_theta)[None, :, None] * perpendicular[:, None, :]
     )
-    negative_actions = (
-        star[:, None, :] + protocol.negative_contour_radius * negative_direction
-    )
+    negative_actions = star[:, None, :] + protocol.negative_contour_radius * negative_direction
     negative_rewards = reward_from_optimum(
         negative_actions,
         star[:, None, :],
@@ -250,17 +236,23 @@ def audit_environment(
         torch.abs(train.positive_actions.mean(dim=1) - train.a_plus)
     ).item()
     negative_reward_range = (
-        train.negative_rewards.max(1).values
-        - train.negative_rewards.min(1).values
-    ).abs().max().item()
+        (train.negative_rewards.max(1).values - train.negative_rewards.min(1).values)
+        .abs()
+        .max()
+        .item()
+    )
     negative_advantage_range = (
-        train.negative_advantages.max(1).values
-        - train.negative_advantages.min(1).values
-    ).abs().max().item()
+        (train.negative_advantages.max(1).values - train.negative_advantages.min(1).values)
+        .abs()
+        .max()
+        .item()
+    )
     positive_reward_range = (
-        train.positive_rewards.max(1).values
-        - train.positive_rewards.min(1).values
-    ).abs().max().item()
+        (train.positive_rewards.max(1).values - train.positive_rewards.min(1).values)
+        .abs()
+        .max()
+        .item()
+    )
     distances = torch.linalg.vector_norm(
         train.negative_actions - train.a_plus[:, None, :],
         dim=-1,
@@ -277,12 +269,8 @@ def audit_environment(
         "positive_reward_max_range_per_state": positive_reward_range,
         "negative_reward_max_range_per_state": negative_reward_range,
         "negative_advantage_max_range_per_state": negative_advantage_range,
-        "positive_advantage_fraction": (
-            (train.positive_advantages > 0).float().mean().item()
-        ),
-        "negative_advantage_fraction": (
-            (train.negative_advantages < 0).float().mean().item()
-        ),
+        "positive_advantage_fraction": ((train.positive_advantages > 0).float().mean().item()),
+        "negative_advantage_fraction": ((train.negative_advantages < 0).float().mean().item()),
         "nearest_negative_distance": nearest,
         "farthest_negative_distance": farthest,
         "farthest_nearest_distance_ratio": farthest / nearest,
@@ -329,21 +317,13 @@ def _selected(
     states = split.s if ids is None else split.s[ids]
     if negative:
         actions = split.negative_actions if ids is None else split.negative_actions[ids]
-        advantages = (
-            split.negative_advantages
-            if ids is None
-            else split.negative_advantages[ids]
-        )
+        advantages = split.negative_advantages if ids is None else split.negative_advantages[ids]
         if local_only:
             actions = actions[:, :1]
             advantages = advantages[:, :1]
     else:
         actions = split.positive_actions if ids is None else split.positive_actions[ids]
-        advantages = (
-            split.positive_advantages
-            if ids is None
-            else split.positive_advantages[ids]
-        )
+        advantages = split.positive_advantages if ids is None else split.positive_advantages[ids]
     return states, actions, advantages
 
 
@@ -453,9 +433,7 @@ def evaluation(
     with torch.no_grad():
         mu, predicted = actor(split.s)
         log_std = (
-            predicted
-            if fixed_sigma is None
-            else torch.full_like(predicted, math.log(fixed_sigma))
+            predicted if fixed_sigma is None else torch.full_like(predicted, math.log(fixed_sigma))
         )
         reward = reward_from_optimum(mu, split.a_star, protocol.reward_width)
         axis = ((mu - split.a_plus) * split.direction).sum(-1)
@@ -467,11 +445,15 @@ def evaluation(
             "distance_to_a_plus": torch.linalg.vector_norm(
                 mu - split.a_plus,
                 dim=-1,
-            ).mean().item(),
+            )
+            .mean()
+            .item(),
             "distance_to_a_star": torch.linalg.vector_norm(
                 mu - split.a_star,
                 dim=-1,
-            ).mean().item(),
+            )
+            .mean()
+            .item(),
             "sigma_mean": sigma.mean().item(),
             "sigma_min": sigma.min().item(),
             "sigma_max": sigma.max().item(),
@@ -521,8 +503,7 @@ def event_flags(
         or not support["sigma_output_finite_all_states"]
     )
     boundary = bool(
-        support["support_contraction_boundary"]
-        or support["unexpected_support_expansion_boundary"]
+        support["support_contraction_boundary"] or support["unexpected_support_expansion_boundary"]
     )
     return EventFlags(
         task_performance_collapse=task_performance_collapse,

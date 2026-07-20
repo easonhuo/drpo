@@ -51,10 +51,7 @@ def _audit(value: float = 10.0, state: str = "finite_terminal") -> dict[str, Any
 
 
 def _summary(seed: int, offset: float = 0.0) -> dict[str, Any]:
-    methods = {
-        method: _audit(value=20.0 + offset + index)
-        for index, method in enumerate(METHODS)
-    }
+    methods = {method: _audit(value=20.0 + offset + index) for index, method in enumerate(METHODS)}
     mechanism_subchecks = {
         "natural_far_field_present": True,
         "corrected_quadratic_branch_empirically_active": True,
@@ -69,9 +66,7 @@ def _summary(seed: int, offset: float = 0.0) -> dict[str, Any]:
     return {
         "seed": seed,
         "canonical_critic_seed": 100,
-        "canonical_critic_artifact": {
-            "identity": {"canonical_critic_seed": 100}
-        },
+        "canonical_critic_artifact": {"identity": {"canonical_critic_seed": 100}},
         "critic": {
             "selected_checkpoint_metrics": {"test_r2": 0.5, "test_pearson": 0.9},
             "fixed_budget_completed": True,
@@ -118,9 +113,7 @@ def _context(tmp_path: Path, data: OfflineData) -> public.CanonicalCriticContext
             mean=np.zeros(3, dtype=np.float32),
             std=np.ones(3, dtype=np.float32),
         ),
-        advantage_arrays={
-            "advantage": np.array([1, -1, 1, -1, 1, -1], dtype=np.float32)
-        },
+        advantage_arrays={"advantage": np.array([1, -1, 1, -1, 1, -1], dtype=np.float32)},
         critic_audit={
             "fixed_budget_completed": True,
             "critic_accepted_for_frozen_advantage": True,
@@ -230,9 +223,7 @@ def test_canonical_reuse_is_identity_and_hash_strict(tmp_path: Path) -> None:
         "shared_across_all_actor_seeds": True,
         "files": public._hash_canonical_files(root),
     }
-    (root / "canonical_critic_manifest.json").write_text(
-        json.dumps(manifest), encoding="utf-8"
-    )
+    (root / "canonical_critic_manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
 
     context = public.prepare_canonical_critic_context(
         data=data,
@@ -280,8 +271,9 @@ def test_aggregation_matches_legacy_event_separation() -> None:
             "support_or_variance_boundary_count",
             "nan_inf_numerical_count",
         ):
-            assert ours["reporting_separation"][method][key] == (
-                theirs["reporting_separation"][method][key]
+            assert (
+                ours["reporting_separation"][method][key]
+                == (theirs["reporting_separation"][method][key])
             )
     assert ours["method_ranking_claim_allowed"] is False
     assert theirs["method_ranking_claim_allowed"] is False

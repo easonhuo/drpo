@@ -34,10 +34,7 @@ from drpo_reference.external.hopper_protocol import HopperProtocol
 
 
 def _paths(root: Path) -> dict[str, Path]:
-    return {
-        task.task_id: root / task.dataset_basename
-        for task in D4RL9_TASKS
-    }
+    return {task.task_id: root / task.dataset_basename for task in D4RL9_TASKS}
 
 
 def _config(*, steps: int = 3) -> CanonicalExpRankTrainingConfig:
@@ -75,9 +72,7 @@ def _fixed_batch() -> tuple[torch.Tensor, ...]:
 def _synthetic_dataset() -> CanonicalD4RLDataset:
     generator = np.random.default_rng(31)
     observations = generator.normal(size=(32, 5)).astype(np.float32)
-    actions = np.tanh(
-        generator.normal(size=(32, 2))
-    ).astype(np.float32)
+    actions = np.tanh(generator.normal(size=(32, 2))).astype(np.float32)
     rewards = generator.normal(size=32).astype(np.float32)
     next_observations = generator.normal(size=(32, 5)).astype(np.float32)
     terminals = np.zeros(32, dtype=np.bool_)
@@ -178,9 +173,7 @@ def _migrated_agent(seed: int) -> SNA2CIQLVExpRankAgent:
 def test_d4rl9_task_matrix_matches_manuscript_order() -> None:
     assert len(D4RL9_TASKS) == 9
     assert tuple(task.task_id for task in D4RL9_TASKS) == tuple(
-        f"{environment}-{tier}-v2"
-        for tier in DATASET_TIERS
-        for environment in ENVIRONMENTS
+        f"{environment}-{tier}-v2" for tier in DATASET_TIERS for environment in ENVIRONMENTS
     )
     assert validate_d4rl9_matrix(D4RL9_TASKS) == D4RL9_TASKS
     with pytest.raises(ValueError, match="exact manuscript matrix"):
@@ -225,9 +218,7 @@ def test_backend_is_selected_and_code_migrated() -> None:
     assert backend.algorithm_family == "SNA2C_IQLV_ExpRank"
     assert backend.implementation_selected is True
     assert backend.implementation_migrated is True
-    assert backend.protocol_status == (
-        "selected_backend_code_migrated_protocol_unfrozen"
-    )
+    assert backend.protocol_status == ("selected_backend_code_migrated_protocol_unfrozen")
     assert backend.protocol_frozen is False
     assert backend.formal_task_matrix_eligible is False
     assert backend.mechanism_runner_reusable is False
@@ -400,10 +391,7 @@ def test_execution_plan_exposes_remaining_formal_blockers(
     )
     assert plan.formal_evidence_eligible is False
     assert plan.backend_protocol_complete is False
-    assert (
-        "d4rl9_performance_backend_protocol_not_frozen"
-        in plan.blocked_reasons
-    )
+    assert "d4rl9_performance_backend_protocol_not_frozen" in plan.blocked_reasons
     assert "d4rl9_performance_backend_not_migrated" not in plan.blocked_reasons
     manifest = plan.as_manifest()
     assert manifest["single_migrated_trainer_across_d4rl9_tasks"] is True
@@ -433,10 +421,7 @@ def test_dispatch_uses_one_backend_runner_for_every_task(tmp_path: Path) -> None
         allow_non_evidence=True,
     )
     assert len(calls) == 9
-    assert all(
-        call["backend"] is CANONICAL_EXPRANK_BACKEND
-        for call in calls
-    )
+    assert all(call["backend"] is CANONICAL_EXPRANK_BACKEND for call in calls)
     assert result["single_migrated_trainer_across_d4rl9_tasks"] is True
     assert result["shared_training_engine_with_hopper_mechanism"] is False
     with pytest.raises(RuntimeError, match="dispatch is blocked"):

@@ -64,24 +64,19 @@ def assign_task_collapse(
     """Assign task collapse only after paired Positive-only is available."""
 
     reference = {
-        int(row["seed"]): float(
-            row["final_expected_semantic_reward"]
-        )
+        int(row["seed"]): float(row["final_expected_semantic_reward"])
         for row in summaries
         if row["method"] == "positive_only"
     }
     observed_seeds = {int(row["seed"]) for row in summaries}
     if set(reference) != observed_seeds:
-        raise RuntimeError(
-            "paired Positive-only reference missing for one or more seeds"
-        )
+        raise RuntimeError("paired Positive-only reference missing for one or more seeds")
     for row in summaries:
         paired = reference[int(row["seed"])]
         row["paired_positive_only_reward"] = paired
         row["task_performance_collapse"] = bool(
             float(row["final_expected_semantic_reward"])
-            < protocol.task_collapse_ratio_to_paired_positive_only
-            * paired
+            < protocol.task_collapse_ratio_to_paired_positive_only * paired
         )
 
 
@@ -123,10 +118,7 @@ def aggregate(
     grouped: dict[str, list[Mapping[str, Any]]] = {}
     for row in summaries:
         grouped.setdefault(str(row["method"]), []).append(row)
-    positive = {
-        int(row["seed"]): row
-        for row in grouped.get("positive_only", [])
-    }
+    positive = {int(row["seed"]): row for row in grouped.get("positive_only", [])}
     output: dict[str, Any] = {}
     for method in FORMAL_METHODS:
         rows = grouped.get(method, [])
@@ -134,94 +126,38 @@ def aggregate(
             continue
         paired = [
             float(row["final_expected_semantic_reward"])
-            - float(
-                positive[int(row["seed"])][
-                    "final_expected_semantic_reward"
-                ]
-            )
+            - float(positive[int(row["seed"])]["final_expected_semantic_reward"])
             for row in rows
         ]
         output[method] = {
             "runs": len(rows),
             "reward_mean": float(
-                np.mean(
-                    [
-                        float(
-                            row[
-                                "final_expected_semantic_reward"
-                            ]
-                        )
-                        for row in rows
-                    ]
-                )
+                np.mean([float(row["final_expected_semantic_reward"]) for row in rows])
             ),
             "reward_delta_vs_positive_only": paired_effect(paired),
             "hidden_probability_mean": float(
-                np.mean(
-                    [
-                        float(
-                            row[
-                                "final_hidden_optimal_family_probability"
-                            ]
-                        )
-                        for row in rows
-                    ]
-                )
+                np.mean([float(row["final_hidden_optimal_family_probability"]) for row in rows])
             ),
             "action_effective_support_mean": float(
-                np.mean(
-                    [
-                        float(
-                            row[
-                                "final_action_effective_support"
-                            ]
-                        )
-                        for row in rows
-                    ]
-                )
+                np.mean([float(row["final_action_effective_support"]) for row in rows])
             ),
             "prototype_effective_support_mean": float(
-                np.mean(
-                    [
-                        float(
-                            row[
-                                "final_prototype_effective_support"
-                            ]
-                        )
-                        for row in rows
-                    ]
-                )
+                np.mean([float(row["final_prototype_effective_support"]) for row in rows])
             ),
             "rare_total_probability_mean": float(
-                np.mean(
-                    [
-                        float(
-                            row["final_rare_total_probability"]
-                        )
-                        for row in rows
-                    ]
-                )
+                np.mean([float(row["final_rare_total_probability"]) for row in rows])
             ),
             "task_performance_collapse_events": sum(
-                bool(row["task_performance_collapse"])
-                for row in rows
+                bool(row["task_performance_collapse"]) for row in rows
             ),
-            "support_boundary_events": sum(
-                bool(row["support_boundary_event"])
-                for row in rows
-            ),
+            "support_boundary_events": sum(bool(row["support_boundary_event"]) for row in rows),
             "nan_inf_numerical_failures": sum(
-                bool(row["nan_inf_numerical_failure"])
-                for row in rows
+                bool(row["nan_inf_numerical_failure"]) for row in rows
             ),
             "environment_validity_failures": sum(
-                bool(row["environment_validity_failure"])
-                for row in rows
+                bool(row["environment_validity_failure"]) for row in rows
             ),
-            "terminal_plateaus": sum(
-                row["terminal_class"] == "terminal_plateau"
-                for row in rows
-            ),
+            "terminal_plateaus": sum(row["terminal_class"] == "terminal_plateau" for row in rows),
         }
     return output
 
@@ -233,42 +169,15 @@ def build_terminal_audit(
     selected_seeds: Sequence[int],
     smoke: bool,
 ) -> dict[str, Any]:
-    expected = {
-        (int(seed), method)
-        for seed in selected_seeds
-        for method in FORMAL_METHODS
-    }
-    observed = {
-        (int(row["seed"]), str(row["method"]))
-        for row in summaries
-    }
-    complete_formal_seed_set = (
-        tuple(int(seed) for seed in selected_seeds)
-        == protocol.formal_seeds
-    )
-    environment_failures = sum(
-        bool(row["environment_validity_failure"])
-        for row in summaries
-    )
-    task_events = sum(
-        bool(row["task_performance_collapse"])
-        for row in summaries
-    )
-    support_events = sum(
-        bool(row["support_boundary_event"])
-        for row in summaries
-    )
-    numerical_events = sum(
-        bool(row["nan_inf_numerical_failure"])
-        for row in summaries
-    )
-    all_terminal_accepted = all(
-        bool(row["terminal_formal_acceptance"])
-        for row in summaries
-    )
-    matrix_complete = (
-        observed == expected and len(summaries) == len(expected)
-    )
+    expected = {(int(seed), method) for seed in selected_seeds for method in FORMAL_METHODS}
+    observed = {(int(row["seed"]), str(row["method"])) for row in summaries}
+    complete_formal_seed_set = tuple(int(seed) for seed in selected_seeds) == protocol.formal_seeds
+    environment_failures = sum(bool(row["environment_validity_failure"]) for row in summaries)
+    task_events = sum(bool(row["task_performance_collapse"]) for row in summaries)
+    support_events = sum(bool(row["support_boundary_event"]) for row in summaries)
+    numerical_events = sum(bool(row["nan_inf_numerical_failure"]) for row in summaries)
+    all_terminal_accepted = all(bool(row["terminal_formal_acceptance"]) for row in summaries)
+    matrix_complete = observed == expected and len(summaries) == len(expected)
     formal_acceptance = bool(
         not smoke
         and complete_formal_seed_set
@@ -291,9 +200,7 @@ def build_terminal_audit(
         "task_performance_collapse_events": task_events,
         "support_boundary_events": support_events,
         "nan_inf_numerical_failures": numerical_events,
-        "all_terminal_classifications_accepted": (
-            all_terminal_accepted
-        ),
+        "all_terminal_classifications_accepted": (all_terminal_accepted),
         "formal_scientific_acceptance": formal_acceptance,
         "method_ranking_allowed": formal_acceptance,
         "formal_evidence_allowed": formal_acceptance,

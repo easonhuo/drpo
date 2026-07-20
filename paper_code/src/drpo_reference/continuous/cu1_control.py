@@ -159,9 +159,7 @@ def control_gradients(
         "local_negative_gradient_norm": local_norm,
         "far_negative_gradient_norm": far_norm,
         "raw_negative_gradient_norm": raw_norm,
-        "post_control_negative_gradient_norm": gradient_norm(
-            controlled_negative
-        ).item(),
+        "post_control_negative_gradient_norm": gradient_norm(controlled_negative).item(),
         "far_scale": far_scale,
         "total_update_norm": gradient_norm(total).item(),
     }
@@ -192,9 +190,7 @@ def run_far_pressure_control(
     task_threshold = protocol.task_failure_retention * float(
         evaluation(actor, environment.test, protocol, fixed_sigma)["reward"]
     )
-    below_threshold: deque[int] = deque(
-        maxlen=protocol.task_failure_consecutive_evals
-    )
+    below_threshold: deque[int] = deque(maxlen=protocol.task_failure_consecutive_evals)
     task_onset: int | None = None
     nonfinite_onset: int | None = None
 
@@ -225,11 +221,7 @@ def run_far_pressure_control(
         if not finite_model(actor):
             nonfinite_onset = step
             break
-        if (
-            step % control.evaluation_interval == 0
-            or step == 1
-            or step == control.steps
-        ):
+        if step % control.evaluation_interval == 0 or step == 1 or step == control.steps:
             metrics = evaluation(
                 actor,
                 environment.test,
@@ -241,8 +233,7 @@ def run_far_pressure_control(
             else:
                 below_threshold.clear()
             if (
-                len(below_threshold)
-                == protocol.task_failure_consecutive_evals
+                len(below_threshold) == protocol.task_failure_consecutive_evals
                 and task_onset is None
             ):
                 task_onset = below_threshold[0]

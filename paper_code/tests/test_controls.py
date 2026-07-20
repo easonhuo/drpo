@@ -53,8 +53,7 @@ def test_cu1_point_retention_formulas_match_legacy_definitions() -> None:
     normalized = distance / reference
     expected = {
         TaperFamily.RECIPROCAL_LINEAR: 1.0 / (1.0 + (1.0 / rho - 1.0) * normalized),
-        TaperFamily.RECIPROCAL_QUADRATIC: 1.0
-        / (1.0 + (1.0 / rho - 1.0) * normalized.square()),
+        TaperFamily.RECIPROCAL_QUADRATIC: 1.0 / (1.0 + (1.0 / rho - 1.0) * normalized.square()),
         TaperFamily.EXPONENTIAL_LINEAR: torch.exp(-(-math.log(rho)) * normalized),
     }
     for family, legacy in expected.items():
@@ -86,9 +85,7 @@ def test_du1_v4_distance_coordinate_matches_legacy_formulas() -> None:
 
 def test_countdown_paper_aligned_weight_is_linear_in_normalized_excess() -> None:
     log_probability = torch.tensor([-1.0, -3.0, -5.0], dtype=torch.float64)
-    normalized = normalized_excess_surprisal(
-        log_probability, threshold=1.0, scale=2.0
-    )
+    normalized = normalized_excess_surprisal(log_probability, threshold=1.0, scale=2.0)
     distance = surprisal_distance(log_probability, threshold=1.0, scale=2.0)
     coefficient = 0.7
     actual = taper_weight(
@@ -224,27 +221,17 @@ def test_d4rl_legacy_control_factors_match_registered_pilot_formulas() -> None:
         "reciprocal_linear": (
             LEGACY_PILOT_CANONICAL_ALPHA
             * 0.1
-            / (
-                1.0
-                + LEGACY_PILOT_RECIPROCAL_LINEAR_COEFFICIENT
-                * normalized
-            )
+            / (1.0 + LEGACY_PILOT_RECIPROCAL_LINEAR_COEFFICIENT * normalized)
         ),
         "reciprocal_quadratic": (
             LEGACY_PILOT_CANONICAL_ALPHA
             * 0.1
-            / (
-                1.0
-                + LEGACY_PILOT_RECIPROCAL_QUADRATIC_COEFFICIENT
-                * normalized.square()
-            )
+            / (1.0 + LEGACY_PILOT_RECIPROCAL_QUADRATIC_COEFFICIENT * normalized.square())
         ),
         "exponential": (
             LEGACY_PILOT_CANONICAL_ALPHA
             * 0.1
-            * torch.exp(
-                -LEGACY_PILOT_EXPONENTIAL_COEFFICIENT * normalized
-            )
+            * torch.exp(-LEGACY_PILOT_EXPONENTIAL_COEFFICIENT * normalized)
         ),
     }
     for method_id, expected_factor in expected.items():
@@ -346,9 +333,7 @@ def test_d4rl_public_runner_executes_explicit_method_axis(
         "exponential",
     }
     for method_id, run_root in calls:
-        assert run_root == (
-            output / task.task_id / method_id / run_root.name
-        )
+        assert run_root == (output / task.task_id / method_id / run_root.name)
     assert summary["manifest"]["final_method_matrix_frozen"] is False
     assert summary["method_ranking_claim_allowed"] is False
 
@@ -362,9 +347,7 @@ def test_countdown_active_tail_method_catalog_and_formulas() -> None:
         "exponential",
         "squared_distance_exponential",
     )
-    distance = torch.tensor(
-        [0.0, 1.0, 2.0], dtype=torch.float64, requires_grad=True
-    )
+    distance = torch.tensor([0.0, 1.0, 2.0], dtype=torch.float64, requires_grad=True)
     coefficient = 0.7
     expected = {
         "positive_only": torch.zeros_like(distance),
@@ -372,14 +355,10 @@ def test_countdown_active_tail_method_catalog_and_formulas() -> None:
         "global_matched": torch.full_like(distance, coefficient),
         "reciprocal_linear": 1.0 / (1.0 + coefficient * distance),
         "exponential": torch.exp(-coefficient * distance),
-        "squared_distance_exponential": torch.exp(
-            -coefficient * distance.square()
-        ),
+        "squared_distance_exponential": torch.exp(-coefficient * distance.square()),
     }
     for method, value in expected.items():
-        actual = active_tail_taper_weights(
-            method, distance, coefficient=coefficient
-        )
+        actual = active_tail_taper_weights(method, distance, coefficient=coefficient)
         torch.testing.assert_close(actual, value.detach())
         assert actual.requires_grad is False
     squared = active_tail_taper_weights(
@@ -407,18 +386,14 @@ def test_countdown_active_tail_remoteness_is_detached_and_exact() -> None:
 
 def test_countdown_calibration_scale_and_tau_match_numpy_median_semantics() -> None:
     values = [8.0, 1.0, 6.0, 3.0, 2.0, 7.0, 4.0, 5.0]
-    scale, diagnostics = calibration_surprisal_scale(
-        values, minimum=1.0e-6
-    )
+    scale, diagnostics = calibration_surprisal_scale(values, minimum=1.0e-6)
     assert diagnostics == {
         "common_half_median_surprisal": 2.5,
         "rare_half_median_surprisal": 6.5,
         "scale": 4.0,
     }
     assert scale == 4.0
-    tau, rule = resolve_active_tail_tau(
-        COUNTDOWN_ACTIVE_TAIL_TAU_RULE, diagnostics
-    )
+    tau, rule = resolve_active_tail_tau(COUNTDOWN_ACTIVE_TAIL_TAU_RULE, diagnostics)
     assert tau == 2.5
     assert rule == COUNTDOWN_ACTIVE_TAIL_TAU_RULE
     fixed, fixed_rule = resolve_active_tail_tau(1.25, diagnostics)
@@ -427,9 +402,7 @@ def test_countdown_calibration_scale_and_tau_match_numpy_median_semantics() -> N
 
 
 def test_countdown_active_distance_diagnostics_and_guard() -> None:
-    diagnostics = active_distance_diagnostics(
-        [1.0, 2.0, 3.0, 5.0], tau=2.0, surprisal_scale=2.0
-    )
+    diagnostics = active_distance_diagnostics([1.0, 2.0, 3.0, 5.0], tau=2.0, surprisal_scale=2.0)
     assert diagnostics["samples"] == 4
     assert diagnostics["active_distance_count"] == 2
     assert diagnostics["active_distance_fraction"] == pytest.approx(0.5)
@@ -470,9 +443,7 @@ def test_countdown_prompt_balanced_sampler_matches_legacy_rng_order() -> None:
         {"negatives": ["c"]},
         {"negatives": ["d", "e", "f"]},
     ]
-    actual = make_prompt_balanced_sampler_plan(
-        rows, seed=17, total_samples=8
-    )
+    actual = make_prompt_balanced_sampler_plan(rows, seed=17, total_samples=8)
     assert actual == [
         {"prompt_index": 0, "negative_index": 1},
         {"prompt_index": 1, "negative_index": 0},

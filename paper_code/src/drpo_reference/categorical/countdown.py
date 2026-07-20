@@ -160,9 +160,7 @@ def verify_expression(
             int(number) for number in numbers
         )
         result["value"] = float(value)
-        result["correct"] = bool(
-            result["uses_numbers"] and value == Fraction(int(target), 1)
-        )
+        result["correct"] = bool(result["uses_numbers"] and value == Fraction(int(target), 1))
     except Exception:
         pass
     return result
@@ -218,9 +216,9 @@ def encode_prompt_completion(
     prefix = chat_prompt(tokenizer, prompt)
     completion_text = clean_expression(completion) + eos_token
     prefix_ids = list(tokenizer(prefix, add_special_tokens=False)["input_ids"])
-    full_ids = list(
-        tokenizer(prefix + completion_text, add_special_tokens=False)["input_ids"]
-    )[:max_length]
+    full_ids = list(tokenizer(prefix + completion_text, add_special_tokens=False)["input_ids"])[
+        :max_length
+    ]
     prefix_length = min(len(prefix_ids), len(full_ids))
     labels = [IGNORE_INDEX] * prefix_length + full_ids[prefix_length:]
     return EncodedCompletion(full_ids, labels)
@@ -308,23 +306,15 @@ def collate_countdown_training_items(
     if not items:
         raise ValueError("at least one Countdown training item is required")
     flattened = [negative for item in items for negative in item.bank]
-    row_index = [
-        row
-        for row, item in enumerate(items)
-        for _ in range(item.unique_count)
-    ]
+    row_index = [row for row, item in enumerate(items) for _ in range(item.unique_count)]
     if len(flattened) != len(row_index):
         raise AssertionError("flattened bank and row index became misaligned")
     return {
         "positive": pad_encoded([item.positive for item in items], pad_id),
         "bank": pad_encoded(flattened, pad_id),
         "bank_row_index": torch.tensor(row_index, dtype=torch.long),
-        "unique_counts": torch.tensor(
-            [item.unique_count for item in items], dtype=torch.long
-        ),
-        "raw_bank_counts": torch.tensor(
-            [item.raw_bank_count for item in items], dtype=torch.long
-        ),
+        "unique_counts": torch.tensor([item.unique_count for item in items], dtype=torch.long),
+        "raw_bank_counts": torch.tensor([item.raw_bank_count for item in items], dtype=torch.long),
     }
 
 
@@ -359,9 +349,7 @@ def completion_statistics_from_logits(
         safe_labels.unsqueeze(-1),
     ).squeeze(-1)
     float_mask = token_mask.to(token_log_probability.dtype)
-    sequence_log_probability = (
-        token_log_probability * float_mask
-    ).sum(dim=-1) / lengths
+    sequence_log_probability = (token_log_probability * float_mask).sum(dim=-1) / lengths
     token_entropy = -(probabilities * log_probabilities).sum(dim=-1)
     entropy = (token_entropy * float_mask).sum(dim=-1) / lengths
     selected_probability = probabilities.gather(
@@ -413,9 +401,7 @@ def weighted_sequence_logprob(
     if token_weights.shape != token_log_probability.shape:
         raise ValueError("token_weights must match token log-probability shape")
     mask = token_mask.to(token_weights.dtype)
-    return (
-        token_log_probability * token_weights * mask
-    ).sum(dim=-1) / lengths
+    return (token_log_probability * token_weights * mask).sum(dim=-1) / lengths
 
 
 def normalized_sequence_surprisal(
@@ -427,9 +413,7 @@ def normalized_sequence_surprisal(
         raise ValueError("reference_distance must be finite and positive")
     if not bool(torch.isfinite(sequence_log_probability).all()):
         raise ValueError("sequence log-probability must be finite")
-    return (-sequence_log_probability.detach()).clamp_min(0.0) / float(
-        reference_distance
-    )
+    return (-sequence_log_probability.detach()).clamp_min(0.0) / float(reference_distance)
 
 
 def paper_aligned_linear_weights(
@@ -519,8 +503,7 @@ def calibration_surprisal_scale(
     scale = rare_median - common_median
     if not math.isfinite(scale) or scale < float(minimum):
         raise ValueError(
-            "calibration surprisal spread is too small: "
-            f"scale={scale}, minimum={minimum}"
+            f"calibration surprisal spread is too small: scale={scale}, minimum={minimum}"
         )
     return scale, {
         "common_half_median_surprisal": common_median,
@@ -596,9 +579,7 @@ def validate_active_tail_calibration(
     if any(not math.isfinite(float(value)) for value in values):
         raise ValueError("calibration scalars must be finite")
     if uncontrolled_norm <= 0.0 or target_unscaled < 0.0:
-        raise ValueError(
-            "gradient norms must be non-negative and uncontrolled positive"
-        )
+        raise ValueError("gradient norms must be non-negative and uncontrolled positive")
     if minimum_active_distance_fraction <= 0.0:
         raise ValueError("minimum_active_distance_fraction must be positive")
     if not 0.0 < nondegenerate_target_max_ratio < 1.0:
@@ -612,9 +593,7 @@ def validate_active_tail_calibration(
         failures.append("reference target is too close to uncontrolled")
     if active_distance_fraction < minimum_active_distance_fraction:
         failures.append("active-distance fraction is too small")
-    if float(coefficients.get("global_matched", 1.0)) >= (
-        nondegenerate_target_max_ratio
-    ):
+    if float(coefficients.get("global_matched", 1.0)) >= (nondegenerate_target_max_ratio):
         failures.append("global_matched is degenerate or near-uncontrolled")
     for method in ("reciprocal_linear", "squared_distance_exponential"):
         if float(coefficients.get(method, 0.0)) <= minimum_taper_lambda:
@@ -628,9 +607,7 @@ def validate_active_tail_calibration(
         "failures": failures,
     }
     if failures:
-        raise RuntimeError(
-            "Countdown active-tail calibration degenerated: " + "; ".join(failures)
-        )
+        raise RuntimeError("Countdown active-tail calibration degenerated: " + "; ".join(failures))
     return payload
 
 
@@ -649,9 +626,7 @@ def make_prompt_balanced_sampler_plan(
     candidate_counts: list[int] = []
     for row in rows:
         candidates = row.get("negatives", row.get("negative_bank", []))
-        if not isinstance(candidates, Sequence) or isinstance(
-            candidates, (str, bytes)
-        ):
+        if not isinstance(candidates, Sequence) or isinstance(candidates, (str, bytes)):
             raise ValueError("every replay row must expose a candidate sequence")
         if len(candidates) < 1:
             raise ValueError("every replay row must have at least one negative")
@@ -706,9 +681,7 @@ def calibrate_monotone_coefficient(
 
     candidates = list(observations)
     brackets: list[tuple[float, float, float, float]] = []
-    for (left, left_norm), (right, right_norm) in zip(
-        observations, observations[1:]
-    ):
+    for (left, left_norm), (right, right_norm) in zip(observations, observations[1:]):
         left_delta = left_norm - target
         right_delta = right_norm - target
         if left_delta == 0.0:
@@ -733,9 +706,7 @@ def calibrate_monotone_coefficient(
             middle = 0.5 * (left + right)
             middle_norm = float(norm_fn(middle))
             if not math.isfinite(middle_norm) or middle_norm < 0.0:
-                raise RuntimeError(
-                    "calibration norm function returned a non-finite value"
-                )
+                raise RuntimeError("calibration norm function returned a non-finite value")
             candidates.append((middle, middle_norm))
             middle_delta = middle_norm - target
             if left_delta * middle_delta <= 0.0:
@@ -763,22 +734,15 @@ def mean_unique_negative_term(
 ) -> torch.Tensor:
     """Average by unique negatives per prompt, never by the weight sum."""
 
-    if (
-        sequence_log_probability.ndim != 1
-        or weights.shape != sequence_log_probability.shape
-    ):
-        raise ValueError(
-            "sequence_log_probability and weights must be matching vectors"
-        )
+    if sequence_log_probability.ndim != 1 or weights.shape != sequence_log_probability.shape:
+        raise ValueError("sequence_log_probability and weights must be matching vectors")
     if row_index.shape != sequence_log_probability.shape:
         raise ValueError("row_index must match the flattened negative vector")
     if unique_counts.ndim != 1 or unique_counts.numel() < 1:
         raise ValueError("unique_counts must be a non-empty vector")
     if bool((unique_counts <= 0).any()):
         raise ValueError("every prompt must have at least one unique negative")
-    if bool((row_index < 0).any()) or bool(
-        (row_index >= unique_counts.numel()).any()
-    ):
+    if bool((row_index < 0).any()) or bool((row_index >= unique_counts.numel()).any()):
         raise ValueError("row_index contains an invalid prompt index")
     indices = row_index.to(device=sequence_log_probability.device)
     counts = unique_counts.to(
@@ -907,9 +871,7 @@ def _require_negative_inputs(
     unique_counts: torch.Tensor | None,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     if sequence_log_probability is None or row_index is None or unique_counts is None:
-        raise ValueError(
-            "negative log-probabilities, row_index, and unique_counts are required"
-        )
+        raise ValueError("negative log-probabilities, row_index, and unique_counts are required")
     if not bool(torch.isfinite(sequence_log_probability).all()):
         raise ValueError("negative sequence log-probability must be finite")
     return sequence_log_probability, row_index, unique_counts
@@ -932,9 +894,7 @@ def _require_packed_bank_indices(
 ) -> tuple[torch.Tensor, torch.Tensor]:
     row_index = packed.get("bank_row_index")
     unique_counts = packed.get("unique_counts")
-    if not isinstance(row_index, torch.Tensor) or not isinstance(
-        unique_counts, torch.Tensor
-    ):
+    if not isinstance(row_index, torch.Tensor) or not isinstance(unique_counts, torch.Tensor):
         raise ValueError("packed Countdown batch has invalid bank indices")
     return row_index, unique_counts
 
@@ -982,21 +942,10 @@ def active_tail_objective_from_precomputed_weights(
         if weights is None or normalized_excess is None or distance is None:
             raise ValueError("active-tail objective requires precomputed remoteness")
         if weights.shape != negative.shape:
-            raise ValueError(
-                "active-tail weights must match negative log-probabilities"
-            )
-        if (
-            normalized_excess.shape != negative.shape
-            or distance.shape != negative.shape
-        ):
-            raise ValueError(
-                "active-tail remoteness must match negative log-probabilities"
-            )
-        if (
-            weights.requires_grad
-            or normalized_excess.requires_grad
-            or distance.requires_grad
-        ):
+            raise ValueError("active-tail weights must match negative log-probabilities")
+        if normalized_excess.shape != negative.shape or distance.shape != negative.shape:
+            raise ValueError("active-tail remoteness must match negative log-probabilities")
+        if weights.requires_grad or normalized_excess.requires_grad or distance.requires_grad:
             raise ValueError("active-tail weights and remoteness must be detached")
         if not bool(torch.isfinite(weights).all()) or bool((weights < 0).any()):
             raise ValueError("active-tail weights must be finite and non-negative")
@@ -1280,9 +1229,7 @@ def calibrate_active_tail_model(
         tau=tau,
         surprisal_scale=surprisal_scale,
     )
-    active_fraction = float(
-        (weight_stats["normalized_excess"] > 0).float().mean().item()
-    )
+    active_fraction = float((weight_stats["normalized_excess"] > 0).float().mean().item())
 
     common = dict(
         model=model,
@@ -1329,10 +1276,7 @@ def calibrate_active_tail_model(
         "exponential": target_unscaled,
     }
     errors: dict[str, float] = {
-        "global_matched": abs(
-            matched_norms["global_matched"] - target_unscaled
-        )
-        / target_unscaled,
+        "global_matched": abs(matched_norms["global_matched"] - target_unscaled) / target_unscaled,
         "exponential": 0.0,
     }
     for method in ("reciprocal_linear", "squared_distance_exponential"):
@@ -1366,9 +1310,7 @@ def calibrate_active_tail_model(
         "uncontrolled_negative_gradient_l2": uncontrolled_norm,
         "shared_negative_scale": shared_negative_scale,
         "target_unscaled_negative_gradient_l2": target_unscaled,
-        "target_effective_negative_gradient_l2": (
-            shared_negative_scale * target_unscaled
-        ),
+        "target_effective_negative_gradient_l2": (shared_negative_scale * target_unscaled),
         "method_coefficients": coefficients,
         "matched_unscaled_negative_gradient_l2": matched_norms,
         "relative_matching_error": errors,
@@ -1417,9 +1359,7 @@ def countdown_weight_diagnostics(
         "weight_p90": _quantile(weights, 0.90),
         "unique_negative_count_mean": float(unique_counts.float().mean()),
         "raw_bank_count_mean": float(raw_bank_counts.float().mean()),
-        "duplicates_removed_mean": float(
-            (raw_bank_counts - unique_counts).float().mean()
-        ),
+        "duplicates_removed_mean": float((raw_bank_counts - unique_counts).float().mean()),
     }
 
 
@@ -1445,11 +1385,7 @@ def evaluate_response_batches(
 ) -> dict[str, Any]:
     """Aggregate verifier-based Greedy, Pass@k, validity, and failure categories."""
 
-    if (
-        not rows
-        or len(rows) != len(greedy_outputs)
-        or len(rows) != len(sampled_outputs)
-    ):
+    if not rows or len(rows) != len(greedy_outputs) or len(rows) != len(sampled_outputs):
         raise ValueError("rows, greedy_outputs, and sampled_outputs must align")
     greedy_success: list[float] = []
     valid: list[float] = []
@@ -1470,15 +1406,10 @@ def evaluate_response_batches(
         greedy_check = verify_expression(greedy_text, numbers, target)
         categories[verifier_category(greedy_check)] += 1
         greedy_success.append(float(greedy_check["correct"]))
-        valid.append(
-            float(greedy_check["valid_format"] and greedy_check["uses_numbers"])
-        )
+        valid.append(float(greedy_check["valid_format"] and greedy_check["uses_numbers"]))
         pass_at_k.append(
             float(
-                any(
-                    verify_expression(sample, numbers, target)["correct"]
-                    for sample in sample_list
-                )
+                any(verify_expression(sample, numbers, target)["correct"] for sample in sample_list)
             )
         )
     if len(sample_counts) != 1:

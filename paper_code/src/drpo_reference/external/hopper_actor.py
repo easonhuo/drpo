@@ -69,37 +69,21 @@ def actor_eval_metrics(
         advantage_t = tensor(advantages[audit_indices], resolved_device)
         positive = advantage_t > 0
         positive_nll = (
-            float((-log_prob[positive]).mean().cpu())
-            if bool(positive.any())
-            else float("nan")
+            float((-log_prob[positive]).mean().cpu()) if bool(positive.any()) else float("nan")
         )
         mean_latent, log_std = policy.latent_parameters(obs_t)
         action_mean = torch.tanh(mean_latent)
-        boundary = (
-            action_mean.abs() >= boundary_threshold
-        ).any(dim=-1)
+        boundary = (action_mean.abs() >= boundary_threshold).any(dim=-1)
         sigma = torch.exp(log_std)
         log_std_vector = policy.log_std.detach().clamp(
             policy.log_std_min,
             policy.log_std_max,
         )
         minimum_fraction = float(
-            (
-                log_std_vector
-                <= policy.log_std_min + 1.0e-7
-            )
-            .float()
-            .mean()
-            .cpu()
+            (log_std_vector <= policy.log_std_min + 1.0e-7).float().mean().cpu()
         )
         maximum_fraction = float(
-            (
-                log_std_vector
-                >= policy.log_std_max - 1.0e-7
-            )
-            .float()
-            .mean()
-            .cpu()
+            (log_std_vector >= policy.log_std_max - 1.0e-7).float().mean().cpu()
         )
         negative_obs = tensor(
             observations[fixed_negative_indices],
@@ -123,26 +107,18 @@ def actor_eval_metrics(
             "update_norm": update_norm,
             "relative_update_norm": relative_update_norm,
             "mean_abs": float(action_mean.abs().mean().cpu()),
-            "mean_boundary_fraction": float(
-                boundary.float().mean().cpu()
-            ),
+            "mean_boundary_fraction": float(boundary.float().mean().cpu()),
             "sigma_mean": float(sigma.mean().cpu()),
             "sigma_min": float(sigma.min().cpu()),
             "sigma_max": float(sigma.max().cpu()),
             "log_std_min_fraction": minimum_fraction,
             "log_std_max_fraction": maximum_fraction,
-            "phantom_distance_mean": float(
-                components["radius"].mean().cpu()
-            ),
-            "phantom_mean_score_norm": float(
-                components["mean_score_norm"].mean().cpu()
-            ),
+            "phantom_distance_mean": float(components["radius"].mean().cpu()),
+            "phantom_mean_score_norm": float(components["mean_score_norm"].mean().cpu()),
             "phantom_raw_log_scale_score_norm": float(
                 components["raw_log_scale_score_norm"].mean().cpu()
             ),
-            "phantom_corrected_q_xi_mean": float(
-                components["corrected_q_xi"].mean().cpu()
-            ),
+            "phantom_corrected_q_xi_mean": float(components["corrected_q_xi"].mean().cpu()),
             "phantom_joint_output_score_mean": float(
                 components["joint_output_score_norm"].mean().cpu()
             ),
@@ -150,9 +126,7 @@ def actor_eval_metrics(
                 components["log_scale_to_mean_ratio"].mean().cpu()
             ),
         }
-        metrics["phantom_score_mean"] = metrics[
-            "phantom_joint_output_score_mean"
-        ]
+        metrics["phantom_score_mean"] = metrics["phantom_joint_output_score_mean"]
     if rollout_metrics:
         metrics.update(rollout_metrics)
     else:
@@ -219,8 +193,7 @@ def actor_batch_loss(
     elif method == "far_cap":
         cap_factor = torch.minimum(
             torch.ones_like(weights),
-            torch.full_like(weights, far_cap_score)
-            / joint_score.clamp_min(EPS),
+            torch.full_like(weights, far_cap_score) / joint_score.clamp_min(EPS),
         )
         weights = torch.where(
             far,
@@ -237,19 +210,15 @@ def actor_batch_loss(
                 negative_far,
                 torch.minimum(
                     torch.ones_like(magnitude),
-                    torch.full_like(magnitude, far_cap_score)
-                    / score.clamp_min(EPS),
+                    torch.full_like(magnitude, far_cap_score) / score.clamp_min(EPS),
                 ),
                 target_factor,
             )
             proxy_before_t = torch.sum(magnitude * score)
-            proxy_target_t = torch.sum(
-                magnitude * score * target_factor
-            )
+            proxy_target_t = torch.sum(magnitude * score * target_factor)
             dynamic_scale = float(
                 torch.clamp(
-                    proxy_target_t
-                    / proxy_before_t.clamp_min(EPS),
+                    proxy_target_t / proxy_before_t.clamp_min(EPS),
                     0.0,
                     1.0,
                 )
@@ -269,24 +238,14 @@ def actor_batch_loss(
 
     active = weights.ne(0)
     if not bool(active.any()):
-        raise RuntimeError(
-            f"method {method} produced an empty active batch"
-        )
+        raise RuntimeError(f"method {method} produced an empty active batch")
     loss = -(weights[active] * log_prob[active]).mean()
     diagnostics = {
-        "active_fraction": float(
-            active.float().mean().detach().cpu()
-        ),
-        "negative_fraction": float(
-            negative.float().mean().detach().cpu()
-        ),
-        "far_negative_fraction": float(
-            far.float().mean().detach().cpu()
-        ),
+        "active_fraction": float(active.float().mean().detach().cpu()),
+        "negative_fraction": float(negative.float().mean().detach().cpu()),
+        "far_negative_fraction": float(far.float().mean().detach().cpu()),
         "far_cap_factor_mean": (
-            float(cap_factor[far].mean().detach().cpu())
-            if bool(far.any())
-            else 1.0
+            float(cap_factor[far].mean().detach().cpu()) if bool(far.any()) else 1.0
         ),
         "dynamic_global_scale": dynamic_scale,
         "negative_influence_proxy_before": proxy_before,
@@ -344,10 +303,7 @@ def train_actor_stage(
     train_batch_gradient = float("inf")
     early_stop_reason: str | None = None
     last_diagnostics: dict[str, float] = {}
-    evaluation_snapshot = [
-        parameter.detach().clone()
-        for parameter in policy.parameters()
-    ]
+    evaluation_snapshot = [parameter.detach().clone() for parameter in policy.parameters()]
     last_evaluation_step = 0
 
     def evaluate(
@@ -382,11 +338,7 @@ def train_actor_stage(
         )
         should_rollout = bool(
             rollout_evaluator
-            and (
-                step == 0
-                or rollout_eval_interval <= 0
-                or step % rollout_eval_interval == 0
-            )
+            and (step == 0 or rollout_eval_interval <= 0 or step % rollout_eval_interval == 0)
         )
         row = actor_eval_metrics(
             policy=policy,
@@ -399,13 +351,9 @@ def train_actor_stage(
             loss_value=float(audit_loss.detach().cpu()),
             gradient_norm=audit_gradient["raw"],
             gradient_rms=audit_gradient["rms"],
-            relative_gradient_norm=(
-                audit_gradient["relative_to_parameter_norm"]
-            ),
+            relative_gradient_norm=(audit_gradient["relative_to_parameter_norm"]),
             update_norm=update_statistics["raw_per_step"],
-            relative_update_norm=(
-                update_statistics["relative_per_step"]
-            ),
+            relative_update_norm=(update_statistics["relative_per_step"]),
             step=step,
             boundary_threshold=protocol.support_boundary_threshold,
             rollout_metrics=(
@@ -414,12 +362,7 @@ def train_actor_stage(
                 else None
             ),
         )
-        row.update(
-            {
-                f"audit_{key}": value
-                for key, value in audit_diagnostics.items()
-            }
-        )
+        row.update({f"audit_{key}": value for key, value in audit_diagnostics.items()})
         row.update(
             {
                 "train_batch_loss": train_batch_loss,
@@ -502,14 +445,10 @@ def train_actor_stage(
                 update_norm=float("nan"),
                 relative_update_norm=float("nan"),
                 step=step,
-                boundary_threshold=(
-                    protocol.support_boundary_threshold
-                ),
+                boundary_threshold=(protocol.support_boundary_threshold),
             )
             row.update(last_diagnostics)
-            row["numerical_failure_reason"] = (
-                early_stop_reason
-            )
+            row["numerical_failure_reason"] = early_stop_reason
             rows.append(row)
             if heartbeat is not None:
                 heartbeat(f"actor:{method}", step)
@@ -521,10 +460,7 @@ def train_actor_stage(
                 policy.parameters(),
                 step - last_evaluation_step,
             )
-            evaluation_snapshot = [
-                parameter.detach().clone()
-                for parameter in policy.parameters()
-            ]
+            evaluation_snapshot = [parameter.detach().clone() for parameter in policy.parameters()]
             last_evaluation_step = step
             row = evaluate(step, update_statistics)
             rows.append(row)
@@ -546,20 +482,14 @@ def train_actor_stage(
                 candidate_step is None
                 and step >= min_steps
                 and 2 * step <= max_steps
-                and all(
-                    value
-                    <= protocol.actor_state_drift_tolerance
-                    for value in state_drifts
-                )
-                and float(row["relative_update_norm"])
-                <= protocol.actor_update_tolerance
+                and all(value <= protocol.actor_state_drift_tolerance for value in state_drifts)
+                and float(row["relative_update_norm"]) <= protocol.actor_update_tolerance
             ):
                 candidate_step = step
                 extension_target = 2 * step
 
     parameters_finite = all(
-        bool(torch.isfinite(parameter).all())
-        for parameter in policy.parameters()
+        bool(torch.isfinite(parameter).all()) for parameter in policy.parameters()
     )
     if (
         rollout_evaluator is not None
@@ -586,14 +516,10 @@ def train_actor_stage(
         final_step == max_steps
         and early_stop_reason is None
         and parameters_finite
-        and math.isfinite(
-            float(rows[-1].get("loss", float("nan")))
-        )
+        and math.isfinite(float(rows[-1].get("loss", float("nan"))))
     )
     if not fixed_budget_completed and early_stop_reason is None:
-        early_stop_reason = (
-            "incomplete_fixed_budget_unknown_reason"
-        )
+        early_stop_reason = "incomplete_fixed_budget_unknown_reason"
 
     checkpoint_path = output_dir / "terminal_actor.pt"
     torch.save(
@@ -601,9 +527,7 @@ def train_actor_stage(
             "model": policy.state_dict(),
             "method": method,
             "step": final_step,
-            "checkpoint_role": (
-                "fixed_budget_final_checkpoint"
-            ),
+            "checkpoint_role": ("fixed_budget_final_checkpoint"),
             "fixed_budget_steps": max_steps,
             "fixed_budget_completed": fixed_budget_completed,
             "far_threshold": far_threshold,
@@ -617,10 +541,7 @@ def train_actor_stage(
         },
         checkpoint_path,
     )
-    extension_complete = bool(
-        candidate_step is not None
-        and rows[-1]["step"] >= 2 * candidate_step
-    )
+    extension_complete = bool(candidate_step is not None and rows[-1]["step"] >= 2 * candidate_step)
     audit = classify_actor_terminal(
         rows,
         protocol,
@@ -657,8 +578,7 @@ def train_actor_stage(
         }
     )
     audit["terminal_audit_complete"] = bool(
-        audit["fixed_budget_completed"]
-        or audit["numerical_nonfinite"]
+        audit["fixed_budget_completed"] or audit["numerical_nonfinite"]
     )
     write_csv(output_dir / "curves.csv", rows)
     atomic_json(output_dir / "terminal_audit.json", audit)
