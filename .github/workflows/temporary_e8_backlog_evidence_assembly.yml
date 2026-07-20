@@ -1,0 +1,37 @@
+name: Temporary E8 backlog evidence assembly
+
+on:
+  push:
+    branches:
+      - dev/e8-completed-backlog-closure-01
+    paths:
+      - .github/workflows/temporary_e8_backlog_evidence_assembly.yml
+
+permissions:
+  contents: write
+
+jobs:
+  assemble:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/e8-completed-backlog-closure-01
+          fetch-depth: 0
+      - name: Assemble durable six-pilot evidence
+        run: python tools/temporary_prepare_e8_backlog_evidence.py
+      - name: Publish evidence-only branch state
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git rm tools/temporary_prepare_e8_backlog_evidence.py
+          git add -A
+          git diff --check --cached
+          test -z "$(git diff --cached --name-only | grep '^.github/workflows/temporary_e8_' || true)" || {
+            echo 'temporary workflow remains in final staged tree' >&2
+            exit 1
+          }
+          git commit -m 'Assemble six completed E8 pilot evidence records'
+          git push origin HEAD:dev/e8-completed-backlog-closure-01
