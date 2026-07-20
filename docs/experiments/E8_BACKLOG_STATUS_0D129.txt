@@ -1,0 +1,6 @@
+29743315115	Build KDD 2027 Stage-A manuscript	pull_request	completed	skipped
+29743315136	Import revised Overleaf project and compiled PDF	pull_request	completed	skipped
+29743315119	PR Gate Log	pull_request	in_progress	null
+29743315351	Evidence Locator Gate	pull_request	completed	success
+29743313782	Code Change Budget	pull_request_target	completed	failure
+29743312312	Temporary E8 completed backlog finalize	push	in_progress	null
