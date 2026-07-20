@@ -1,0 +1,131 @@
+{
+  "schema_version": 2,
+  "protocol_id": "EXT-C-E8-TAPER-0.5B-01-v79",
+  "protocol_contract": {
+    "dataset_generation": {
+      "seed": 1234,
+      "train_rows": 6000,
+      "validation_rows": 500,
+      "test_rows": 1000,
+      "numbers_per_problem": 4,
+      "split_protocol": "park_inspired_pattern_first_family_holdout_capacity_audited"
+    },
+    "reference": {
+      "base_greedy_success_gate": 0.15,
+      "base_valid_rate_gate": 0.8,
+      "pilot_greedy_success_gate": 0.08,
+      "pilot_valid_rate_gate": 0.95,
+      "formal_greedy_success_gate": 0.15,
+      "formal_valid_rate_gate": 0.95,
+      "sft_epochs": 6,
+      "sft_min_epochs": 3,
+      "sft_early_stop_patience": 2,
+      "sft_micro_batch": 1,
+      "sft_gradient_accumulation": 32,
+      "sft_learning_rate": 0.0002,
+      "sft_warmup_ratio": 0.03,
+      "sft_max_gradient_norm": 1.0,
+      "validation_seed": 5000
+    },
+    "replay_collection": {
+      "train_prompt_rows": 900,
+      "calibration_prompt_rows": 16,
+      "train_candidate_prompt_rows": 1800,
+      "calibration_candidate_prompt_rows": 32,
+      "rollouts_per_prompt_per_round": 12,
+      "resample_rounds": 3,
+      "generation_batch_size": 4,
+      "score_batch_size": 16,
+      "temperature": 0.8,
+      "top_p": 0.95,
+      "synthetic_negative_fallback": false,
+      "fixed_negative_count_per_prompt": false,
+      "enforce_training_structure_support": true,
+      "prompt_balanced_sampling": true
+    },
+    "test_access": "after_all_method_training_only",
+    "checkpoint_policy": "best_plus_terminal_or_last_finite"
+  },
+  "model": {
+    "path": "${COUNTDOWN_MODEL_PATH}",
+    "identity": "Qwen2.5-0.5B-Instruct",
+    "initial_adapter": "${COUNTDOWN_REFERENCE_ADAPTER}",
+    "device": "cuda",
+    "dtype": "bf16",
+    "load_in_4bit": false,
+    "gradient_checkpointing": true,
+    "lora": {
+      "r": 32,
+      "alpha": 64,
+      "dropout": 0.05,
+      "target_modules": [
+        "q_proj",
+        "k_proj",
+        "v_proj",
+        "o_proj",
+        "gate_proj",
+        "up_proj",
+        "down_proj"
+      ]
+    }
+  },
+  "data": {
+    "replay": "${COUNTDOWN_PREPARED_ROOT}/replay_train.jsonl",
+    "calibration": "${COUNTDOWN_PREPARED_ROOT}/replay_calibration.jsonl",
+    "validation": "${COUNTDOWN_PREPARED_ROOT}/validation.jsonl",
+    "test": "${COUNTDOWN_PREPARED_ROOT}/test.jsonl",
+    "structure_reference": "${COUNTDOWN_PREPARED_ROOT}/train.jsonl",
+    "expected_rows": {
+      "replay": 900,
+      "calibration": 16,
+      "validation": 500,
+      "test": 1000,
+      "structure_reference": 6000
+    }
+  },
+  "methods": [
+    "positive_only",
+    "uncontrolled_negative",
+    "global_matched",
+    "reciprocal_linear",
+    "exponential",
+    "squared_distance_exponential"
+  ],
+  "seeds": [9234, 10234, 11234],
+  "training": {
+    "max_length": 256,
+    "steps": 1200,
+    "micro_batch": 1,
+    "grad_accum": 8,
+    "learning_rate": 0.00005,
+    "weight_decay": 0.01,
+    "warmup_ratio": 0.03,
+    "max_grad_norm": 1.0,
+    "eval_every": 100,
+    "checkpoint_every": 100
+  },
+  "calibration": {
+    "prompts": 16,
+    "seed": 9134,
+    "minimum_surprisal_scale": 0.000001,
+    "inherited_exponential_coefficient": 0.7,
+    "maximum_coefficient": 64.0,
+    "bisection_steps": 24,
+    "relative_l2_tolerance": 0.01,
+    "minimum_active_distance_fraction": 0.25,
+    "nondegenerate_target_max_ratio": 0.995,
+    "minimum_taper_lambda": 0.000001
+  },
+  "evaluation": {
+    "batch_size": 8,
+    "examples": 500,
+    "max_new_tokens": 80,
+    "pass_k": 8,
+    "seed_offset": 700000,
+    "selection_metric": "greedy_success",
+    "selection_delta": 0.002,
+    "sample_temperature": 0.8,
+    "sample_top_p": 0.95,
+    "require_structure_metrics": true
+  }
+}
