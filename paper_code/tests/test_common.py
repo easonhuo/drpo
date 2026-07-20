@@ -13,6 +13,9 @@ import torch
 
 from drpo_reference.categorical.countdown import (
     IGNORE_INDEX,
+    active_tail_objective_from_model,
+    active_tail_training_objective,
+    calibrate_active_tail_model,
     clean_expression,
     collate_countdown_training_items,
     completion_statistics_from_logits,
@@ -71,6 +74,7 @@ class _CountingLogitModel(torch.nn.Module):
         super().__init__()
         self.bias = torch.nn.Parameter(torch.linspace(-0.2, 0.2, vocabulary_size))
         self.calls = 0
+        self.call_modes: list[tuple[bool, bool]] = []
 
     def forward(
         self,
@@ -82,8 +86,30 @@ class _CountingLogitModel(torch.nn.Module):
         assert attention_mask.shape == input_ids.shape
         assert use_cache is False
         self.calls += 1
+        self.call_modes.append((self.training, torch.is_grad_enabled()))
         batch, sequence = input_ids.shape
         logits = self.bias.view(1, 1, -1).expand(batch, sequence, -1)
+        return SimpleNamespace(logits=logits)
+
+
+class _CalibrationLogitModel(torch.nn.Module):
+    def __init__(self) -> None:
+        super().__init__()
+        self.bias = torch.nn.Parameter(torch.tensor([0.4, -0.2, 0.1, -0.3]))
+        self.slope = torch.nn.Parameter(torch.tensor([0.08, -0.04, 0.03, -0.02]))
+
+    def forward(
+        self,
+        *,
+        input_ids: torch.Tensor,
+        attention_mask: torch.Tensor,
+        use_cache: bool,
+    ) -> SimpleNamespace:
+        assert attention_mask.shape == input_ids.shape
+        assert use_cache is False
+        logits = self.bias.view(1, 1, -1) + input_ids.float().unsqueeze(
+            -1
+        ) * self.slope.view(1, 1, -1)
         return SimpleNamespace(logits=logits)
 
 
@@ -104,6 +130,36 @@ def _training_rows() -> list[dict[str, Any]]:
             "negative_bank": ["2 * 5", {"expression": "Answer: 2 * 5"}],
         },
     ]
+
+
+def _calibration_packed_batch() -> dict[str, Any]:
+    def batch(
+        input_ids: list[list[int]], labels: list[list[int]]
+    ) -> dict[str, torch.Tensor]:
+        inputs = torch.tensor(input_ids, dtype=torch.long)
+        return {
+            "input_ids": inputs,
+            "attention_mask": torch.ones_like(inputs),
+            "labels": torch.tensor(labels, dtype=torch.long),
+        }
+
+    return {
+        "positive": batch(
+            [[0, 1, 2], [1, 2, 3]],
+            [[IGNORE_INDEX, 1, 2], [IGNORE_INDEX, 2, 3]],
+        ),
+        "bank": batch(
+            [[0, 2, 1], [2, 1, 3], [3, 2, 1]],
+            [
+                [IGNORE_INDEX, 2, 1],
+                [IGNORE_INDEX, 1, 3],
+                [IGNORE_INDEX, 2, 1],
+            ],
+        ),
+        "bank_row_index": torch.tensor([0, 0, 1]),
+        "unique_counts": torch.tensor([2, 1]),
+        "raw_bank_counts": torch.tensor([2, 1]),
+    }
 
 
 def test_seed_all_matches_legacy_seed_order() -> None:
@@ -456,6 +512,180 @@ def test_countdown_first_adamw_update_matches_manual_legacy_objective() -> None:
         parameter_update_norm(legacy_before, [legacy_parameter]),
         abs=0.0,
     )
+
+
+def test_countdown_active_tail_objective_matches_manual_unique_bank_formula() -> None:
+    positive = torch.tensor([-0.5, -0.8], dtype=torch.float64)
+    negative = torch.tensor([-2.0, -4.0, -3.0], dtype=torch.float64)
+    row_index = torch.tensor([0, 0, 1])
+    counts = torch.tensor([2, 1])
+    terms = active_tail_training_objective(
+        positive,
+        method="exponential",
+        coefficient=0.7,
+        shared_negative_scale=0.4,
+        tau=1.0,
+        surprisal_scale=2.0,
+        negative_sequence_log_probability=negative,
+        row_index=row_index,
+        unique_counts=counts,
+    )
+    normalized = torch.relu(-negative.detach() - 1.0) / 2.0
+    weights = torch.exp(-0.7 * torch.sqrt(normalized))
+    negative_term = torch.stack(
+        [
+            (weights[:2] * negative[:2]).sum() / 2.0,
+            weights[2] * negative[2],
+        ]
+    ).mean()
+    expected = -(positive.mean() - 0.4 * negative_term)
+    torch.testing.assert_close(terms["loss"], expected)
+    torch.testing.assert_close(terms["weights"], weights)
+    assert terms["weights_detached"] is True
+    assert terms["weights"].requires_grad is False
+
+
+def test_countdown_active_tail_model_uses_deterministic_two_forward_boundary() -> None:
+    tokenizer = _CharacterTokenizer()
+    items = [
+        encode_countdown_training_row(row, tokenizer, 4096)
+        for row in _training_rows()
+    ]
+    packed = collate_countdown_training_items(items, pad_id=0)
+    model = _CountingLogitModel()
+    model.train()
+
+    controlled = active_tail_objective_from_model(
+        model,
+        packed,
+        method="exponential",
+        coefficient=0.7,
+        shared_negative_scale=0.4,
+        tau=1.0,
+        surprisal_scale=2.0,
+    )
+    assert model.call_modes == [
+        (True, True),
+        (False, False),
+        (True, True),
+    ]
+    assert model.training is True
+    assert controlled["negative_forward_count"] == 2
+    assert controlled["weight_stats"]["weights"].requires_grad is False
+
+    model.calls = 0
+    model.call_modes.clear()
+    positive_only = active_tail_objective_from_model(
+        model,
+        packed,
+        method="positive_only",
+        coefficient=0.0,
+        shared_negative_scale=0.4,
+        tau=1.0,
+        surprisal_scale=2.0,
+    )
+    assert model.call_modes == [(True, True)]
+    assert positive_only["negative_forward_count"] == 0
+    assert positive_only["negative_stats"] is None
+
+
+def test_countdown_model_backed_calibration_freezes_shared_budget_and_coefficients(
+) -> None:
+    model = _CalibrationLogitModel()
+    model.train()
+    payload = calibrate_active_tail_model(
+        model,
+        _calibration_packed_batch(),
+        list(model.parameters()),
+        tau=0.5,
+        surprisal_scale=0.5,
+        inherited_exponential_coefficient=1.0,
+        maximum_coefficient=64.0,
+        bisection_steps=30,
+        relative_l2_tolerance=5.0e-3,
+        minimum_active_distance_fraction=0.1,
+        nondegenerate_target_max_ratio=0.9999,
+        minimum_taper_lambda=1.0e-8,
+    )
+    assert model.training is True
+    assert payload["positive_gradient_l2"] > 0.0
+    assert payload["uncontrolled_negative_gradient_l2"] > 0.0
+    assert payload["shared_negative_scale"] == pytest.approx(
+        payload["positive_gradient_l2"]
+        / payload["uncontrolled_negative_gradient_l2"]
+    )
+    assert payload["method_coefficients"]["global_matched"] < 1.0
+    assert payload["method_coefficients"]["reciprocal_linear"] > 0.0
+    assert payload["method_coefficients"]["squared_distance_exponential"] > 0.0
+    assert payload["confirmation_or_test_metrics_used"] is False
+    assert payload["frozen_before_method_training"] is True
+    assert all(parameter.grad is None for parameter in model.parameters())
+
+
+def test_countdown_active_tail_first_adamw_update_matches_manual_formula() -> None:
+    public_parameter = torch.nn.Parameter(torch.tensor([0.2, -0.3]))
+    legacy_parameter = torch.nn.Parameter(public_parameter.detach().clone())
+    public_optimizer = torch.optim.AdamW(
+        [public_parameter], lr=1.0e-2, weight_decay=0.01
+    )
+    legacy_optimizer = torch.optim.AdamW(
+        [legacy_parameter], lr=1.0e-2, weight_decay=0.01
+    )
+    row_index = torch.tensor([0, 0, 1])
+    counts = torch.tensor([2, 1])
+
+    def log_probabilities(
+        parameter: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        return (
+            torch.stack(
+                [
+                    -((parameter[0] - 0.5).square() + 0.2),
+                    -((parameter[1] + 0.1).square() + 0.3),
+                ]
+            ),
+            torch.stack(
+                [
+                    -((parameter[0] + 0.4).square() + 0.5),
+                    -((parameter[1] - 0.6).square() + 1.0),
+                    -((parameter.sum()).square() + 0.7),
+                ]
+            ),
+        )
+
+    public_positive, public_negative = log_probabilities(public_parameter)
+    public_terms = active_tail_training_objective(
+        public_positive,
+        method="squared_distance_exponential",
+        coefficient=0.8,
+        shared_negative_scale=0.4,
+        tau=0.5,
+        surprisal_scale=0.7,
+        negative_sequence_log_probability=public_negative,
+        row_index=row_index,
+        unique_counts=counts,
+    )
+    public_optimizer.zero_grad(set_to_none=True)
+    public_terms["loss"].backward()
+    torch.nn.utils.clip_grad_norm_([public_parameter], 1.0)
+    public_optimizer.step()
+
+    legacy_positive, legacy_negative = log_probabilities(legacy_parameter)
+    normalized = torch.relu(-legacy_negative.detach() - 0.5) / 0.7
+    legacy_weights = torch.exp(-0.8 * normalized).detach()
+    legacy_negative_term = torch.stack(
+        [
+            (legacy_weights[:2] * legacy_negative[:2]).sum() / 2.0,
+            legacy_weights[2] * legacy_negative[2],
+        ]
+    ).mean()
+    legacy_loss = -(legacy_positive.mean() - 0.4 * legacy_negative_term)
+    legacy_optimizer.zero_grad(set_to_none=True)
+    legacy_loss.backward()
+    torch.nn.utils.clip_grad_norm_([legacy_parameter], 1.0)
+    legacy_optimizer.step()
+
+    torch.testing.assert_close(public_parameter, legacy_parameter, rtol=0.0, atol=0.0)
 
 
 def test_countdown_response_metrics_are_lightweight_and_nonfinal() -> None:
