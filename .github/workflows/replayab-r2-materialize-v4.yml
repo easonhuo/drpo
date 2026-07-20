@@ -1,0 +1,129 @@
+name: ReplayAB R2 materialization v4
+
+on:
+  pull_request:
+    branches:
+      - dev/replayab-r2-semantic-acceptance-01
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    if: github.head_ref == 'exec/replayab-r2-materialize-v4'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/replayab-r2-semantic-acceptance-01
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+          python -m pip install pytest ruff pyyaml
+
+      - name: Materialize, harden, test, and commit
+        shell: bash
+        run: |
+          git show origin/exec/replayab-r2-materialize-v3:.github/workflows/replayab-r2-materialize-v3.yml > /tmp/r2-v3.yml
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          import subprocess
+          import yaml
+
+          workflow = yaml.safe_load(Path('/tmp/r2-v3.yml').read_text(encoding='utf-8'))
+          steps = workflow['jobs']['materialize']['steps']
+
+          def run_step(name: str) -> None:
+              script = next(step['run'] for step in steps if step.get('name') == name)
+              subprocess.run(['bash', '-lc', script], check=True)
+
+          run_step('Execute corrected frozen materializer')
+
+          evidence = Path('src/drpo/workflow_replay/evidence.py')
+          text = evidence.read_text(encoding='utf-8')
+
+          start = text.index('def _safe_paths(')
+          end = text.index('\n\n@dataclass(frozen=True)\nclass AcceptanceContract', start)
+          safe_paths = '''def _safe_paths(value: Any, label: str) -> tuple[str, ...]:
+              if not isinstance(value, list):
+                  raise EvidenceError(f"{label} must be a list")
+              paths = tuple(value)
+              if any(
+                  not isinstance(raw, str) or not raw or raw != raw.strip()
+                  for raw in paths
+              ) or paths != tuple(sorted(set(paths))):
+                  raise EvidenceError(f"{label} must contain sorted unique paths")
+              for raw in paths:
+                  path = PurePosixPath(raw)
+                  if raw.startswith(("/", "-")) or chr(92) in raw or path.as_posix() != raw or ".." in path.parts:
+                      raise EvidenceError(f"{label} contains an unsafe path")
+              return paths'''.replace('              ', '')
+          text = text[:start] + safe_paths + text[end:]
+
+          start = text.index('def _semantic_execution_valid(')
+          end = text.index('\n\n\ndef compare_semantic_runs', start)
+          semantic_valid = '''def _semantic_execution_valid(run: NormalizedRun, contract: AcceptanceContract) -> bool:
+              outcome = run.outcome
+              if not run.execution_valid or outcome is None or outcome.terminal_state != "READY":
+                  return False
+              benchmark = contract.base.benchmark
+              historical = contract.base.historical_task
+              roots = tuple(benchmark["expected_changed_paths"])
+              provenance = dict(outcome.provenance)
+              expected_provenance = {
+                  "benchmark_toolchain_sha": benchmark["toolchain_sha"],
+                  "cache_policy": benchmark["cache_policy"],
+                  "environment_id": benchmark["environment_id"],
+                  "historical_base_sha": historical["base_sha"],
+                  "input_spec_sha256": benchmark["input_spec_sha256"],
+              }
+              if historical["frozen_implementation_sha"] is not None:
+                  expected_provenance["frozen_implementation_sha"] = historical["frozen_implementation_sha"]
+              protected = any(
+                  _path_in_roots(path, contract.protected_paths)
+                  for path in outcome.changed_paths
+              )
+              return (
+                  outcome.case_id == contract.base.case_id
+                  and bool(outcome.changed_paths)
+                  and tuple(path for path, _ in outcome.file_modes) == outcome.changed_paths
+                  and bool(outcome.output_hashes)
+                  and all(_path_in_roots(path, roots) for path in outcome.changed_paths)
+                  and not protected
+                  and outcome.authority_result == "PASS"
+                  and outcome.gate_plan == tuple(benchmark["required_gates"])
+                  and set(dict(outcome.gate_results).values()) == {"PASS"}
+                  and all(provenance.get(key) == value for key, value in expected_provenance.items())
+                  and not outcome.diagnostic_codes
+                  and not outcome.partial_mutation
+                  and outcome.recovery_class is None
+              )'''.replace('              ', '')
+          text = text[:start] + semantic_valid + text[end:]
+          evidence.write_text(text, encoding='utf-8')
+
+          fixture = Path('tests/fixtures/workflow_replay/r2/semantic')
+          for arm in ('a', 'b'):
+              path = fixture / f'run-{arm}.json'
+              value = json.loads(path.read_text(encoding='utf-8'))
+              if value['schema_version'] != 2:
+                  raise SystemExit('unexpected generated semantic run schema')
+              value['schema_version'] = 1
+              path.write_text(json.dumps(value, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+
+          for name in (
+              'Verify authorized scope and code budget',
+              'Run focused ReplayAB tests',
+              'Run Ruff on changed Python',
+              'Commit materialized R2 implementation',
+          ):
+              run_step(name)
+          PY
