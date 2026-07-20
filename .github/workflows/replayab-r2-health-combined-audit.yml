@@ -1,0 +1,198 @@
+name: ReplayAB R2 repository-health combined audit
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - reopened
+      - synchronize
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    if: github.head_ref == 'exec/r2-health-combined-current-main-audit-01'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: cd3271f844bcaf2550beb6247451dd3104258d0b
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Materialize exact combined candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'replayab-audit'
+          git config user.email 'replayab-audit@example.invalid'
+          git fetch origin \
+            fix/r2-health-handoff-authority-test-01 \
+            fix/r2-health-runspec-fixtures-01 \
+            fix/r2-health-runtime-resource-tests-01 \
+            fix/r2-health-manuscript-template-resolution-01
+          git merge --no-ff --no-edit 065d09be2429139f2ee68f713cc2874d7542bca1
+          git merge --no-ff --no-edit 368c7a93a6e05716924916736ab252d535c22318
+          git merge --no-ff --no-edit fb1dfb70f433e141da160aeab1ba5efa2e2447d8
+          git merge --no-ff --no-edit 646d80c0412cd6a6f649fe02cb6593e8da8b298c
+          test ! -e .github/workflows/replayab-r2-health-combined-audit.yml
+          test ! -e .github/bootstrap_stage5_merge_history.py
+          test ! -e maintenance.patch
+          git diff --name-only cd3271f844bcaf2550beb6247451dd3104258d0b..HEAD | sort > /tmp/changed-paths.txt
+          python - <<'PY'
+          from pathlib import Path
+          expected = {
+              'docs/governance_pipeline_stage_status.yaml',
+              'docs/governance_stage_authorizations/GOV-STAGE5-MERGE-INTRODUCED-PATH-HISTORY-BUGFIX-2026-07-20.yaml',
+              'docs/scopes/GOV-STAGE5-MERGE-INTRODUCED-PATH-HISTORY-BUGFIX-01.md',
+              'scripts/handoff_authority.py',
+              'scripts/manuscript_release_pipeline.py',
+              'tests/test_agent_runspec.py',
+              'tests/test_claude_runspec_workspace.py',
+              'tests/test_e7_measured_cpu_autotune.py',
+              'tests/test_e7_ppo_w0_runtime_autotune.py',
+              'tests/test_full_manuscript_compiler.py',
+              'tests/test_handoff_authority.py',
+              'tests/test_runspec_deferred_registration.py',
+              'tests/test_runspec_publish.py',
+              'tests/test_runspec_recovery.py',
+              'tests/test_runtime_resource_acceptance.py',
+          }
+          actual = set(Path('/tmp/changed-paths.txt').read_text().splitlines())
+          if actual != expected:
+              raise SystemExit(
+                  f'combined changed-path mismatch\nmissing={sorted(expected-actual)}\n'
+                  f'extra={sorted(actual-expected)}'
+              )
+          PY
+          git rev-parse HEAD > /tmp/integration-head.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --quiet --upgrade pip
+          python -m pip install --quiet -e . pytest ruff pyyaml
+
+      - name: Capture all terminal checks
+        shell: bash
+        run: |
+          set +e
+          python -m pytest -q --junitxml=/tmp/full.xml > /tmp/full.log 2>&1
+          echo $? > /tmp/full.exit
+          python -m ruff check . > /tmp/ruff.log 2>&1
+          echo $? > /tmp/ruff.exit
+          python -m compileall -q src scripts tests > /tmp/compile.log 2>&1
+          echo $? > /tmp/compile.exit
+          python scripts/handoff_authority.py verify --repo-root . --json > /tmp/handoff.json 2>/tmp/handoff.err
+          echo $? > /tmp/handoff.exit
+          python scripts/validate_formal_execution_channel.py --repo-root . > /tmp/formal.log 2>&1
+          echo $? > /tmp/formal.exit
+          python -m pytest tests/test_governance_rule_inventory.py -q > /tmp/inventory.log 2>&1
+          echo $? > /tmp/inventory.exit
+          python scripts/validate_governance_pipeline_stage_status.py --repo-root . > /tmp/stage.log 2>&1
+          echo $? > /tmp/stage.exit
+          python -m pytest \
+            tests/test_workflow_replay_model.py \
+            tests/test_workflow_replay_execute.py \
+            tests/test_workflow_replay_compare.py \
+            tests/test_workflow_replay_r1.py \
+            -q --junitxml=/tmp/focused.xml > /tmp/focused.log 2>&1
+          echo $? > /tmp/focused.exit
+          python -m pytest tests/test_workflow_replay_r1.py -k 'r2_' \
+            -q --junitxml=/tmp/r2.xml > /tmp/r2.log 2>&1
+          echo $? > /tmp/r2.exit
+          python -m pytest tests/test_workflow_replay_r1.py -k 'not r2_' \
+            -q --junitxml=/tmp/r1.xml > /tmp/r1.log 2>&1
+          echo $? > /tmp/r1.exit
+          exit 0
+
+      - name: Build combined terminal report
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          import xml.etree.ElementTree as ET
+
+          checks = [
+              'full', 'ruff', 'compile', 'handoff', 'formal', 'inventory',
+              'stage', 'focused', 'r2', 'r1',
+          ]
+          exits = {
+              name: int(Path(f'/tmp/{name}.exit').read_text().strip())
+              for name in checks
+          }
+
+          def junit(path: str) -> dict[str, int]:
+              root = ET.parse(path).getroot()
+              nodes = [root] if root.tag == 'testsuite' else list(root)
+              return {
+                  key: sum(int(node.attrib.get(key, 0)) for node in nodes)
+                  for key in ('tests', 'failures', 'errors', 'skipped')
+              }
+
+          report = {
+              'schema_version': 1,
+              'work_id': 'REPLAYAB-R2-SEMANTIC-ACCEPTANCE-01',
+              'claim': 'GOV-DEV-WORKFLOW-OPTIMIZATION-BENCHMARK-01',
+              'base_main_sha': 'cd3271f844bcaf2550beb6247451dd3104258d0b',
+              'combined_integration_sha': Path('/tmp/integration-head.txt').read_text().strip(),
+              'candidate_heads': {
+                  'stage5': '065d09be2429139f2ee68f713cc2874d7542bca1',
+                  'runspec': '368c7a93a6e05716924916736ab252d535c22318',
+                  'runtime_resource': 'fb1dfb70f433e141da160aeab1ba5efa2e2447d8',
+                  'manuscript': '646d80c0412cd6a6f649fe02cb6593e8da8b298c',
+              },
+              'exit_codes': exits,
+              'junit': {
+                  'full': junit('/tmp/full.xml'),
+                  'focused': junit('/tmp/focused.xml'),
+                  'r2': junit('/tmp/r2.xml'),
+                  'r1_non_regression': junit('/tmp/r1.xml'),
+              },
+              'changed_paths': Path('/tmp/changed-paths.txt').read_text().splitlines(),
+              'status': 'PASS' if all(code == 0 for code in exits.values()) else 'FAIL',
+              'merge_authorized': False,
+              'closure_review_permitted': False,
+              'scientific_impact': 'none',
+          }
+          Path('/tmp/R2_HEALTH_COMBINED_AUDIT.json').write_text(
+              json.dumps(report, indent=2, sort_keys=True) + '\n'
+          )
+          print(json.dumps(report, indent=2, sort_keys=True))
+          PY
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: replayab-r2-health-combined-audit-${{ github.run_id }}
+          path: |
+            /tmp/R2_HEALTH_COMBINED_AUDIT.json
+            /tmp/changed-paths.txt
+            /tmp/integration-head.txt
+            /tmp/*.xml
+            /tmp/*.log
+            /tmp/*.json
+            /tmp/*.err
+            /tmp/*.exit
+
+      - name: Enforce combined terminal result
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          report = json.load(open('/tmp/R2_HEALTH_COMBINED_AUDIT.json'))
+          assert report['status'] == 'PASS', report
+          assert report['junit']['full']['failures'] == 0
+          assert report['junit']['full']['errors'] == 0
+          assert report['junit']['r2']['failures'] == 0
+          assert report['junit']['r1_non_regression']['failures'] == 0
+          assert report['merge_authorized'] is False
+          assert report['closure_review_permitted'] is False
+          PY
