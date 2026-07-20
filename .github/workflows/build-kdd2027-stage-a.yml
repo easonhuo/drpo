@@ -29,7 +29,10 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p paper/kdd2027
-          cat .github/kdd-stage-a-source/chunk-*.tex > paper/kdd2027/source_locked.tex
+          if compgen -G '.github/kdd-stage-a-source/chunk-*.tex' >/dev/null; then
+            cat .github/kdd-stage-a-source/chunk-*.tex > paper/kdd2027/source_locked.tex
+          fi
+          test -s paper/kdd2027/source_locked.tex
           echo '6e5ee53daf390f50ee2f2098826c02882a53257cbbe97ccee4a4ace1cde45dae  paper/kdd2027/source_locked.tex' | sha256sum --check --strict
 
       - name: Generate anonymous ACM manuscript
@@ -179,5 +182,8 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
           git status --short
+          if git diff --cached --quiet; then
+            exit 0
+          fi
           git commit -m 'Add KDD 2027 Stage-A anonymous ACM manuscript and PDF'
           git push origin "HEAD:${HEAD_BRANCH}"
