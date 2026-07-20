@@ -1,0 +1,102 @@
+name: Sync Countdown closure documents
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          show-progress: false
+          ref: dev/paper-code-reference-01
+      - name: Update live closure documents
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(text: str, old: str, new: str, label: str) -> str:
+              if text.count(old) != 1:
+                  raise SystemExit(f'{label}: expected one anchor, found {text.count(old)}')
+              return text.replace(old, new, 1)
+
+          status_path = Path('docs/paper_code_reference/CURRENT_STATUS.md')
+          status = status_path.read_text()
+          status = replace_once(
+              status,
+              '| Countdown / `EXT-C-E8-TAPER-0.5B-01` | active-tail experiment remains pilot and `not_run` | algorithm core and reviewer runtime implemented | exact-head validation, protected human review, real Qwen/CUDA liveness, final protocol and terminal review |',
+              '| Countdown / `EXT-C-E8-TAPER-0.5B-01` | active-tail experiment remains **pilot / `not_run`** | **reviewer-code migration closed** | real Qwen/CUDA liveness, scientific execution, terminal review |',
+              'current-status table',
+          )
+          marker = '## 9. Countdown reviewer-code closure'
+          if marker not in status:
+              status += '''\n\n## 9. Countdown reviewer-code closure\n\nThe canonical reviewer configuration is\n`paper_code/configs/countdown_e8_taper_0p5b.json`, bound to\n`EXT-C-E8-TAPER-0.5B-01-v79`. Schema version 2 validates the registered\nresult-affecting coordinate fail-closed: Qwen2.5-0.5B-Instruct identity, LoRA\n`r=32/alpha=64/dropout=0.05` and target modules, structured data and reference\ncontracts, natural replay construction, six-method order, seeds\n`9234/10234/11234`, 1200-update AdamW coordinate, active-tail calibration,\nGreedy/Pass@8 evaluation, `seed+700000` paired evaluation, `0.002` selection\ndelta, best plus terminal/last-finite reporting, delayed test access, and\nstructure-aware held-out metrics. Model, adapter, input identities, and canonical\nrow counts are checked at runtime. Schema version 1 remains a custom reviewer\ncoordinate and does not claim canonical-v79 identity.\n\n**Countdown reviewer-code migration is closed.** Remaining real Qwen/PEFT/CUDA\nliveness, interrupted-run resume, protected human review, integration freshness,\nregistered execution, and scientific terminal review are not missing migration\ncode. No experiment was launched and the scientific status remains **pilot /\n`not_run`**.\n'''
+          status_path.write_text(status)
+
+          matrix_path = Path('docs/paper_code_reference/ACCEPTANCE_MATRIX.yaml')
+          matrix = matrix_path.read_text()
+          start = matrix.index('  countdown:\n')
+          end = matrix.index('ready_definition:\n')
+          countdown = '''  countdown:\n    status: reviewer_code_migration_closed\n    experiment_id: EXT-C-E8-TAPER-0.5B-01\n    canonical_protocol_id: EXT-C-E8-TAPER-0.5B-01-v79\n    scientific_role: external_transformer_validity\n    scientific_status: pilot_not_run\n    paths:\n      algorithm_core: paper_code/src/drpo_reference/categorical/countdown.py\n      reviewer_runtime: paper_code/src/drpo_reference/experiments/countdown.py\n      canonical_config: paper_code/configs/countdown_e8_taper_0p5b.json\n      public_cli: paper_code/src/drpo_reference/cli.py\n    approval_records:\n      algorithm_core_comment: 5016309623\n      reviewer_runtime_comment: 5019085196\n      approved_before_creation: true\n      protected_environment_confirmed_by_connector: false\n    result_coordinate:\n      schema_version: 2\n      fail_closed_exact_value_validation: implemented\n      model_and_lora_identity: bound\n      dataset_reference_and_replay_contract: bound\n      method_order: bound\n      seeds_and_1200_update_budget: bound\n      active_tail_calibration: bound\n      paired_evaluation_and_selection_delta: bound\n      best_and_terminal_reporting: bound\n      delayed_test_access: bound\n      structure_metrics: bound\n      schema_1_custom_coordinate_compatibility: retained\n    implementation:\n      verifier_masking_statistics_unique_bank: implemented\n      active_tail_two_forward_objective: implemented\n      model_backed_gradient_calibration: implemented\n      transformers_peft_lora_runtime: implemented\n      paired_multistep_adamw_training: implemented\n      nonfinite_guards_and_rollback: implemented\n      checkpoint_and_generation_evaluation: implemented\n      lightweight_records_and_seed_aggregation: implemented\n      public_cli: implemented\n    engineering_gates:\n      stable_and_active_tail_differential_tests: passed\n      first_clipped_adamw_update_identity: passed\n      controlled_fake_hf_end_to_end: passed\n      canonical_config_exact_and_mutation_tests: passed\n      model_adapter_and_input_identity_tests: passed\n      legacy_replay_normalization_tests: passed\n      structure_metric_tests: passed\n      verified_complete_file_transport: passed\n      temporary_transport_files_absent: passed\n      cumulative_exact_head_ci_after_closure_docs: pending_at_document_write\n    remaining_non_migration_gates:\n      - real_qwen_peft_cuda_liveness_not_run\n      - interrupted_optimizer_scheduler_resume_not_implemented\n      - protected_human_environment_status_not_visible_to_connector\n      - integration_freshness_audit_pending\n      - explicit_user_merge_instruction_required\n    pending_scientific_gates:\n      - registered_real_execution\n      - terminal_result_review\n      - selected_conclusion_report\n    formal_result_claim_allowed: false\n    method_ranking_claim_allowed: false\n    countdown_replaces_du1_controlled_identification: false\n'''
+          matrix_path.write_text(matrix[:start] + countdown + matrix[end:])
+
+          source_path = Path('docs/paper_code_reference/SOURCE_MIGRATION_MAP.md')
+          source = source_path.read_text()
+          source = source.replace('### Still not migrated or not closed', '### Remaining non-migration gates', 1)
+          source = source.replace(
+              'The algorithm core and reviewer lifecycle are implemented. Real Qwen/CUDA\nliveness, final protocol freeze, resume, protected human review, terminal\nscientific review, and integration freshness remain open gates.',
+              'The algorithm core, lifecycle, and registered result-affecting v79 coordinate\nare migrated. The canonical config is\n`paper_code/configs/countdown_e8_taper_0p5b.json`; schema version 2 enforces it\nfail-closed. Countdown reviewer-code migration is closed. Real Qwen/CUDA\nliveness, resume, protected human review, scientific terminal review, and\nintegration freshness remain non-migration gates.',
+              1,
+          )
+          source_path.write_text(source)
+
+          readme_path = Path('paper_code/README.md')
+          readme = readme_path.read_text()
+          readme = replace_once(
+              readme,
+              '- `schema_version: 1`;',
+              '- `schema_version: 2` for the canonical v79 coordinate; schema 1 is retained only for custom reviewer runs;',
+              'README schema',
+          )
+          readme = replace_once(
+              readme,
+              'Real Qwen/CUDA liveness, resume semantics, the final manuscript-facing\ncoordinate, formal seeds/budgets, and scientific terminal review remain pending.\nCountdown remains external validity and does not replace D-U1 controlled causal\nidentification.',
+              'The result-affecting v79 coordinate is bound in\n`configs/countdown_e8_taper_0p5b.json` and validated fail-closed. Real Qwen/CUDA\nliveness, resume semantics, and scientific terminal review remain pending.\nCountdown remains external validity and does not replace D-U1 controlled causal\nidentification.',
+              'README closure paragraph',
+          )
+          readme = replace_once(
+              readme,
+              '- Countdown reviewer runtime implemented and controlled-backend tested; real Qwen/CUDA liveness and final manuscript-facing protocol remain pending.',
+              '- Countdown reviewer-code migration closed with canonical v79 config; scientific experiment remains pilot/not-run and real Qwen/CUDA liveness remains pending.',
+              'README status',
+          )
+          readme_path.write_text(readme)
+          PY
+      - name: Validate document contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'Countdown reviewer-code migration is closed' docs/paper_code_reference/CURRENT_STATUS.md
+          grep -q 'status: reviewer_code_migration_closed' docs/paper_code_reference/ACCEPTANCE_MATRIX.yaml
+          grep -q 'countdown_e8_taper_0p5b.json' docs/paper_code_reference/SOURCE_MIGRATION_MAP.md
+          grep -q 'Countdown reviewer-code migration closed' paper_code/README.md
+      - name: Commit documents and self-remove
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/sync_countdown_closure_docs.yml
+          git add docs/paper_code_reference/CURRENT_STATUS.md docs/paper_code_reference/ACCEPTANCE_MATRIX.yaml docs/paper_code_reference/SOURCE_MIGRATION_MAP.md paper_code/README.md
+          git commit -m 'PAPER-CODE-REFERENCE-01 record Countdown migration closure'
+          git push origin HEAD:dev/paper-code-reference-01
