@@ -12,7 +12,7 @@ FALLBACK_WORKERS="${E7_SQUARED_EXP_FALLBACK_WORKERS:-60}"
 PROBE_STEPS="${E7_SQUARED_EXP_PROBE_STEPS:-5000}"
 PROBE_SECONDS="${E7_SQUARED_EXP_PROBE_SECONDS:-120}"
 THROUGHPUT_RETENTION="${E7_SQUARED_EXP_THROUGHPUT_RETENTION:-0.97}"
-MAX_WORKERS="${E7_SQUARED_EXP_MAX_WORKERS:-}"
+MAX_WORKERS="${E7_SQUARED_EXP_MAX_WORKERS:-${DRPO_RUNTIME_MAX_WORKERS:-}}"
 
 if [[ -n "$(git status --porcelain)" ]]; then
   echo "refusing to run from a dirty checkout" >&2
@@ -40,5 +40,14 @@ if [[ -n "${MAX_WORKERS}" ]]; then
   COMMON_ARGS+=(--max-workers "${MAX_WORKERS}")
 fi
 
-python scripts/run_e7_squared_exp_night_auto.py plan "${COMMON_ARGS[@]}"
-python scripts/run_e7_squared_exp_night_auto.py run "${COMMON_ARGS[@]}" --resume
+SELECTION_PATH="${WORK_DIR}/RUNTIME_SELECTION.json"
+IDENTITY_PATH="${WORK_DIR}/RUN_IDENTITY.json"
+if [[ -f "${SELECTION_PATH}" && -f "${IDENTITY_PATH}" ]]; then
+  python scripts/run_e7_squared_exp_night_auto.py run "${COMMON_ARGS[@]}" --resume
+elif [[ -e "${SELECTION_PATH}" || -e "${IDENTITY_PATH}" ]]; then
+  echo "partial runtime identity: selection and run identity must either both exist or both be absent" >&2
+  exit 2
+else
+  python scripts/run_e7_squared_exp_night_auto.py plan "${COMMON_ARGS[@]}"
+  python scripts/run_e7_squared_exp_night_auto.py run "${COMMON_ARGS[@]}" --resume
+fi
