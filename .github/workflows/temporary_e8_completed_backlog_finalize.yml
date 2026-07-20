@@ -28,6 +28,7 @@ jobs:
       - name: Install dependencies
         run: python -m pip install -e '.[dev]'
       - name: Finalize six completed E8 pilots on current main
+        # Re-triggered after Stage 5 pre-integration history maintenance merged at main@be23ab5441fe9c1536edbf0b5c370a80c1279c7b.
         shell: bash
         run: |
           set +e
