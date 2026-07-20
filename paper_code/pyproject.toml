@@ -12,6 +12,19 @@ dependencies = ["h5py>=3.8", "numpy>=1.24", "torch>=2.0"]
 [project.optional-dependencies]
 test = ["pytest>=8"]
 rollout = ["gymnasium[mujoco]>=1.2,<1.4"]
+countdown = [
+  "accelerate>=1.0",
+  "peft>=0.13",
+  "sentencepiece>=0.2",
+  "transformers>=4.45",
+]
+countdown-4bit = [
+  "accelerate>=1.0",
+  "bitsandbytes>=0.43",
+  "peft>=0.13",
+  "sentencepiece>=0.2",
+  "transformers>=4.45",
+]
 
 [project.scripts]
 drpo-reference = "drpo_reference.cli:main"
