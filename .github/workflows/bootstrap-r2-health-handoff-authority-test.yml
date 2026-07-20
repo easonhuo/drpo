@@ -35,6 +35,18 @@ jobs:
         shell: bash
         run: |
           set +e
+          report='docs/handoff_deltas/EXT-C-E8-COMPLETED-BACKLOG-CLOSURE-2026-07-20/MATERIALIZATION_REPORT.json'
+          {
+            echo 'HEAD:'
+            git rev-parse HEAD
+            echo 'TOUCHES:'
+            git log --format='%H %P %s' -- "$report"
+            echo 'ADDITIONS:'
+            git log --diff-filter=A --format='%H %P %s' -- "$report"
+            echo 'FIRST-PARENT:'
+            git rev-list --first-parent --reverse HEAD -- "$report"
+          } > /tmp/history.log 2>&1
+          echo $? > /tmp/history.exit
           python -m pytest tests/test_handoff_authority.py -q -vv \
             > /tmp/pytest.log 2>&1
           echo $? > /tmp/pytest.exit
@@ -64,7 +76,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for name in pytest authority governance ruff compile; do
+          for name in history pytest authority governance ruff compile; do
             echo "=== ${name} ==="
             cat "/tmp/${name}.log"
             test "$(cat "/tmp/${name}.exit")" = "0"
