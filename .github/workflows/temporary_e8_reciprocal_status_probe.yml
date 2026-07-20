@@ -1,4 +1,4 @@
-name: Temporary E8 repaired-finalizer failure extractor
+name: Temporary current-main pytest baseline
 
 on:
   push:
@@ -8,32 +8,48 @@ on:
       - .github/workflows/temporary_e8_reciprocal_status_probe.yml
 
 permissions:
-  actions: read
   contents: write
 
 jobs:
-  extract:
+  baseline:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: diag/e8-reciprocal-finalizer-48a3e49
-      - name: Extract repaired-finalizer failure
-        env:
-          GH_TOKEN: ${{ github.token }}
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - name: Run current-main full pytest
+        run: |
+          set +e
+          python -m pip install -e '.[dev]'
+          python -m pytest -q > /tmp/main_pytest.log 2>&1
+          rc=$?
+          mkdir -p docs/experiments
+          {
+            echo "main_sha=$(git rev-parse HEAD)"
+            echo "pytest_exit=$rc"
+            grep -E '^FAILED |^ERROR ' /tmp/main_pytest.log || true
+            echo '--- summary tail ---'
+            tail -n 80 /tmp/main_pytest.log
+          } > docs/experiments/TEMP_CURRENT_MAIN_PYTEST_BASELINE.txt
+          exit 0
+      - name: Publish baseline on diagnostic branch
         run: |
           set -euo pipefail
-          mkdir -p docs/experiments
-          gh run view 29730766310 --repo easonhuo/drpo --log-failed > /tmp/finalizer_failed_2.log 2>&1 || true
-          {
-            echo 'run_id=29730766310'
-            grep -Ein 'ERROR|Error|FAILED|failed|Traceback|Process completed|assert|mismatch|missing|KeyError|FileNotFoundError' /tmp/finalizer_failed_2.log | tail -n 160 || true
-            echo '--- tail ---'
-            tail -n 100 /tmp/finalizer_failed_2.log
-          } > docs/experiments/TEMP_RECIPROCAL_FINALIZER_FAILURE_2.txt
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add docs/experiments/TEMP_RECIPROCAL_FINALIZER_FAILURE_2.txt
-          git commit -m 'Extract repaired reciprocal finalizer failure'
+          git switch -C diag-output origin/diag/e8-reciprocal-finalizer-48a3e49
+          cp /tmp/main_pytest.log /tmp/main_pytest.full.log
+          git show main:docs/experiments/TEMP_CURRENT_MAIN_PYTEST_BASELINE.txt >/dev/null 2>&1 || true
+          cp "$GITHUB_WORKSPACE/docs/experiments/TEMP_CURRENT_MAIN_PYTEST_BASELINE.txt" /tmp/baseline.txt
+          mkdir -p docs/experiments
+          cp /tmp/baseline.txt docs/experiments/TEMP_CURRENT_MAIN_PYTEST_BASELINE.txt
+          git add docs/experiments/TEMP_CURRENT_MAIN_PYTEST_BASELINE.txt
+          git commit -m 'Record current-main pytest baseline'
           git push origin HEAD:diag/e8-reciprocal-finalizer-48a3e49
