@@ -16,7 +16,7 @@ jobs:
   diagnose:
     runs-on: ubuntu-latest
     env:
-      TARGET_SHA: 55a602d2e0f6bfdfe119c5454913383b32a92129
+      TARGET_SHA: 83659408f77e611d7cd922ec17a3e24b4e16f520
       TARGET_WORKFLOW: Temporary E8 reciprocal current-main finalize
     steps:
       - name: Report finalizer status and failed logs
