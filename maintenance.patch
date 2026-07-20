@@ -1,0 +1,45 @@
+diff --git a/tests/test_e7_measured_cpu_autotune.py b/tests/test_e7_measured_cpu_autotune.py
+index f27da3c..0000000 100644
+--- a/tests/test_e7_measured_cpu_autotune.py
++++ b/tests/test_e7_measured_cpu_autotune.py
+@@ -167,8 +167,9 @@ def test_high_load_average_does_not_change_frozen_worker_count(
+     patch_identity(monkeypatch)
+     monkeypatch.setattr(cpu, "sample_cpu_interval", lambda *_args, **_kwargs: interval(1.0))
+     result = autotune.revalidate_runtime(**revalidation_kwargs(tmp_path))
++    record = json.loads(Path(result["revalidation"]["path"]).read_text())
+     assert result["selection"]["selected_workers"] == 2
+-    assert result["machine_snapshot"]["load_average_1m"] == 999.0
++    assert record["current_machine_snapshot"]["load_average_1m"] == 999.0
+ 
+ 
+ def test_true_cpu_pressure_blocks_without_downshift(
+diff --git a/tests/test_e7_ppo_w0_runtime_autotune.py b/tests/test_e7_ppo_w0_runtime_autotune.py
+index 768c520..0000000 100644
+--- a/tests/test_e7_ppo_w0_runtime_autotune.py
++++ b/tests/test_e7_ppo_w0_runtime_autotune.py
+@@ -27,7 +27,10 @@ def test_retained_peak_selects_smallest_near_peak_candidate() -> None:
+ 
+ 
+ def test_retained_peak_rejects_all_failed_candidates() -> None:
+-    with pytest.raises(autotune.RuntimeResourceError, match="no concurrency"):
++    with pytest.raises(
++        autotune.RuntimeResourceError,
++        match="no resource-valid concurrency candidate completed",
++    ):
+         autotune.select_from_throughput(
+             [
+                 {
+diff --git a/tests/test_runtime_resource_acceptance.py b/tests/test_runtime_resource_acceptance.py
+index bc7f696..0000000 100644
+--- a/tests/test_runtime_resource_acceptance.py
++++ b/tests/test_runtime_resource_acceptance.py
+@@ -24,9 +24,9 @@ cli = importlib.util.module_from_spec(SPEC)
+ 
+ def _profile(tmp_path: Path, repo: Path) -> Path:
+     external = tmp_path / "external"
+-    external.mkdir()
++    external.mkdir(exist_ok=True)
+     model = external / "model"
+-    model.mkdir()
++    model.mkdir(exist_ok=True)
+     values: dict[str, str] = {}
