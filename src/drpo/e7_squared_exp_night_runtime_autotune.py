@@ -12,15 +12,11 @@ from drpo import e7_ppo_w0_runtime_autotune as legacy
 from drpo import e7_squared_exp_night as pilot
 
 
-ADAPTER_ID = "e7_squared_exp_night_cpu_v3"
-REPRESENTATIVE_DATASET = "walker2d-medium-v2"
-REPRESENTATIVE_W0 = 1.0
-REPRESENTATIVE_COEFFICIENT = 4.0
 SELECTOR_POLICY_VERSION = 3
 PROBE_STEPS_LIMIT = 5_000
-PROBE_SECONDS_LIMIT = 300.0
-CANDIDATE_DIVISIONS = 8
-CANDIDATE_POLICY = "low_first_eighths_v3"
+PROBE_SECONDS_LIMIT = 120.0
+CANDIDATE_GROWTH_FACTOR = 1.75
+CANDIDATE_POLICY = "low_first_geometric_v3"
 
 _REQUESTED_PROBE_STEPS: contextvars.ContextVar[int | None] = contextvars.ContextVar(
     "e7_squared_exp_requested_probe_steps",
@@ -37,9 +33,16 @@ _ORIGINAL_CLEANUP = legacy._cleanup_probe_payload  # noqa: SLF001
 _ORIGINAL_SELECTOR_IMPLEMENTATION = (  # noqa: SLF001
     legacy._selector_implementation_identity
 )
-_ORIGINAL_CANDIDATE_WORKERS = legacy.candidate_workers
 _ORIGINAL_BENCHMARK_CONCURRENCY = legacy.benchmark_concurrency
-_ORIGINAL_SELECTOR_POLICY_VERSION = legacy.SELECTOR_POLICY_VERSION
+
+
+def _v3_adapter_id(profile: dict[str, Any]) -> str:
+    adapter_id = str(profile["adapter_id"])
+    if not adapter_id.endswith("_v2"):
+        raise legacy.RuntimeResourceError(
+            f"squared-night V3 requires a V2 predecessor adapter id: {adapter_id}"
+        )
+    return f"{adapter_id[:-3]}_v3"
 
 
 def _selector_implementation_identity(repo_root: str | Path) -> dict[str, str]:
@@ -118,9 +121,13 @@ def _low_first_candidate_workers(safe_cap: int, fallback_workers: int) -> list[i
     if safe_cap < 1:
         raise legacy.RuntimeResourceError("safe worker cap must be positive")
     values = {1, int(safe_cap)}
-    for numerator in range(1, CANDIDATE_DIVISIONS):
-        candidate = math.ceil(safe_cap * numerator / CANDIDATE_DIVISIONS)
-        values.add(max(1, min(int(safe_cap), int(candidate))))
+    candidate = 1
+    while candidate < safe_cap:
+        candidate = min(
+            int(safe_cap),
+            max(candidate + 1, math.ceil(candidate * CANDIDATE_GROWTH_FACTOR)),
+        )
+        values.add(candidate)
     if 1 <= fallback_workers <= safe_cap:
         values.add(int(fallback_workers))
     return sorted(values)
@@ -248,7 +255,7 @@ def resource_fingerprint(
             hard_fields[key] = profile[key]
     return {
         "schema_version": 2,
-        "adapter_id": profile["adapter_id"],
+        "adapter_id": _v3_adapter_id(profile),
         "selector_policy_version": legacy.SELECTOR_POLICY_VERSION,
         "hard_fields": hard_fields,
         "soft_fields": {
@@ -271,7 +278,7 @@ def resource_fingerprint(
             "fallback_workers": int(fallback_workers),
             "fallback_role": "bounded_candidate_only",
             "candidate_policy": CANDIDATE_POLICY,
-            "candidate_divisions": CANDIDATE_DIVISIONS,
+            "candidate_growth_factor": CANDIDATE_GROWTH_FACTOR,
             "candidate_one_worker_foothold": True,
             "cpu_fraction": float(cpu_fraction),
             "memory_headroom_fraction": float(memory_headroom_fraction),
@@ -329,7 +336,7 @@ def _installed_adapter() -> Iterator[None]:
         legacy.SELECTOR_POLICY_VERSION,
     )
     legacy.pilot = PROXY
-    legacy.ADAPTER_ID = str(profile["adapter_id"])
+    legacy.ADAPTER_ID = _v3_adapter_id(profile)
     legacy.REPRESENTATIVE_DATASET = str(profile["dataset"])
     legacy.REPRESENTATIVE_W0 = float(profile["weight_at_zero"])
     legacy.REPRESENTATIVE_COEFFICIENT = float(profile["exp_coefficient"])
