@@ -139,10 +139,7 @@ jobs:
               raise SystemExit('Stage 5 protected hash binding drift')
           ledger.write_text(ledger_text.replace(old, new), encoding='utf-8')
 
-          auth = Path(
-              'docs/governance_stage_authorizations/'
-              'GOV-STAGE5-MERGE-INTRODUCED-PATH-HISTORY-BUGFIX-2026-07-20.yaml'
-          )
+          auth = Path('docs/governance_stage_authorizations/GOV-STAGE5-MERGE-INTRODUCED-PATH-HISTORY-BUGFIX-2026-07-20.yaml')
           auth.write_text('\n'.join([
               'schema_version: 1',
               'authorization_id: GOV-STAGE5-MERGE-INTRODUCED-PATH-HISTORY-BUGFIX-2026-07-20',
@@ -178,9 +175,7 @@ jobs:
               '',
           ]), encoding='utf-8')
 
-          scope = Path(
-              'docs/scopes/GOV-STAGE5-MERGE-INTRODUCED-PATH-HISTORY-BUGFIX-01.md'
-          )
+          scope = Path('docs/scopes/GOV-STAGE5-MERGE-INTRODUCED-PATH-HISTORY-BUGFIX-01.md')
           scope.write_text('\n'.join([
               '# Stage 5 merge-introduced path-history bugfix',
               '',
@@ -208,20 +203,41 @@ jobs:
           python -m pip install --quiet --upgrade pip
           python -m pip install --quiet -e . pytest pyyaml ruff
 
-      - name: Run bounded Stage 5 verification
+      - name: Capture bounded Stage 5 verification
+        shell: bash
+        run: |
+          set +e
+          python -m pytest tests/test_handoff_authority.py -q -vv > /tmp/authority-tests.log 2>&1
+          echo $? > /tmp/authority-tests.exit
+          python scripts/handoff_authority.py verify --repo-root . > /tmp/authority.log 2>&1
+          echo $? > /tmp/authority.exit
+          python scripts/validate_governance_pipeline_stage_status.py --repo-root . > /tmp/stage.log 2>&1
+          echo $? > /tmp/stage.exit
+          python -m pytest tests/test_governance_pipeline_stage_status.py -q -vv > /tmp/stage-tests.log 2>&1
+          echo $? > /tmp/stage-tests.exit
+          python -m ruff check scripts/handoff_authority.py tests/test_handoff_authority.py > /tmp/ruff.log 2>&1
+          echo $? > /tmp/ruff.exit
+          python -m compileall -q scripts/handoff_authority.py tests/test_handoff_authority.py > /tmp/compile.log 2>&1
+          echo $? > /tmp/compile.exit
+          exit 0
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stage5-merge-history-diagnostic-${{ github.run_id }}
+          path: |
+            /tmp/*.log
+            /tmp/*.exit
+
+      - name: Enforce bounded Stage 5 verification
         shell: bash
         run: |
           set -euo pipefail
-          python -m pytest tests/test_handoff_authority.py -q
-          python scripts/handoff_authority.py verify --repo-root .
-          python scripts/validate_governance_pipeline_stage_status.py --repo-root .
-          python -m pytest tests/test_governance_pipeline_stage_status.py -q
-          python -m ruff check \
-            scripts/handoff_authority.py \
-            tests/test_handoff_authority.py
-          python -m compileall -q \
-            scripts/handoff_authority.py \
-            tests/test_handoff_authority.py
+          for name in authority-tests authority stage stage-tests ruff compile; do
+            echo "=== ${name} ==="
+            cat "/tmp/${name}.log"
+            test "$(cat "/tmp/${name}.exit")" = "0"
+          done
 
       - name: Publish clean candidate commit
         shell: bash
