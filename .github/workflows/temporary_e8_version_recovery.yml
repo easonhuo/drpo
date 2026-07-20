@@ -1,0 +1,37 @@
+name: Temporary E8 version recovery
+
+on:
+  push:
+    branches:
+      - dev/e8-completed-backlog-closure-01
+    paths:
+      - .github/workflows/temporary_e8_version_recovery.yml
+
+permissions:
+  contents: write
+
+jobs:
+  recover:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/e8-completed-backlog-closure-01
+          fetch-depth: 0
+      - name: Recover chronological blob versions
+        run: |
+          set +e
+          python tools/temporary_recover_e8_versions.py
+          test -f docs/experiments/E8_HISTORICAL_CLOSURE_VERSION_RECOVERY.json
+      - name: Publish diagnostics or recovered patch metadata
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git rm .github/workflows/temporary_e8_version_recovery.yml
+          git rm tools/temporary_recover_e8_versions.py
+          git add docs/experiments/E8_HISTORICAL_CLOSURE_VERSION_RECOVERY.json
+          test ! -f docs/experiments/E8_COMPLETED_BACKLOG_VERSION_RECOVERY.md || git add docs/experiments/E8_COMPLETED_BACKLOG_VERSION_RECOVERY.md
+          git commit -m 'Recover chronological E8 closure blob versions'
+          git push origin HEAD:dev/e8-completed-backlog-closure-01
