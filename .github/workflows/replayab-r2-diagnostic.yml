@@ -1,0 +1,92 @@
+name: ReplayAB R2 diagnostic
+
+on:
+  pull_request:
+    branches:
+      - dev/replayab-r2-semantic-acceptance-01
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    if: github.head_ref == 'exec/replayab-r2-diagnostic-01'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev/replayab-r2-semantic-acceptance-01
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+          python -m pip install pytest ruff pyyaml
+
+      - name: Execute corrected frozen materializer
+        shell: bash
+        run: |
+          git show origin/exec/replayab-r2-materialize-01:.github/workflows/replayab-r2-materialize.yml > /tmp/r2-materializer.yml
+          python - <<'PY'
+          from pathlib import Path
+          import subprocess
+          import yaml
+
+          text = Path('/tmp/r2-materializer.yml').read_text(encoding='utf-8')
+          old = '          test_text = test_text.replace("          ", "")\n'
+          if old not in text:
+              raise SystemExit('destructive indentation line not found')
+          text = text.replace(old, '          test_text = test_text\n', 1)
+          workflow = yaml.safe_load(text)
+          script = next(
+              step['run']
+              for step in workflow['jobs']['materialize']['steps']
+              if step.get('name') == 'Materialize R2 implementation and calibration'
+          )
+          subprocess.run(['bash', '-lc', script], check=True)
+          PY
+
+      - name: Run focused tests and capture diagnostics
+        id: pytest
+        shell: bash
+        run: |
+          set +e
+          python -m pytest \
+            tests/test_workflow_replay_model.py \
+            tests/test_workflow_replay_execute.py \
+            tests/test_workflow_replay_compare.py \
+            tests/test_workflow_replay_r1.py -vv > /tmp/pytest.log 2>&1
+          code=$?
+          echo "$code" > /tmp/pytest.exit
+          git diff > /tmp/update.patch
+          mkdir -p /tmp/r2diag/src/drpo/workflow_replay
+          mkdir -p /tmp/r2diag/tests
+          mkdir -p /tmp/r2diag/docs/development_workflow_optimization
+          cp src/drpo/workflow_replay/evidence.py /tmp/r2diag/src/drpo/workflow_replay/evidence.py
+          cp tests/test_workflow_replay_r1.py /tmp/r2diag/tests/test_workflow_replay_r1.py
+          cp -R tests/fixtures/workflow_replay/r2 /tmp/r2diag/tests/fixtures-r2
+          cp -R docs/development_workflow_optimization/replayab_r2_calibration /tmp/r2diag/docs/development_workflow_optimization/
+          exit 0
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: replayab-r2-diagnostic-${{ github.run_id }}
+          path: |
+            /tmp/pytest.log
+            /tmp/pytest.exit
+            /tmp/update.patch
+            /tmp/r2diag
+
+      - name: Enforce diagnostic result
+        run: |
+          code=$(cat /tmp/pytest.exit)
+          if [ "$code" -ne 0 ]; then
+            echo "Focused tests failed with exit code $code"
+            exit "$code"
+          fi
