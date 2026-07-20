@@ -1,4 +1,4 @@
-name: Temporary E8 repair status probe
+name: Temporary E8 repair failure extractor
 
 on:
   push:
@@ -12,34 +12,28 @@ permissions:
   contents: write
 
 jobs:
-  probe:
+  extract:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           ref: diag/e8-reciprocal-finalizer-48a3e49
-      - name: Record repair state
+      - name: Extract fixed-run failure
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          gh api 'repos/easonhuo/drpo/actions/runs?head_sha=51689661ff4a5ab91cbe8a17e0210d97875cbc0b&per_page=100' > /tmp/runs.json
-          python - <<'PY'
-          import json
-          from pathlib import Path
-          payload = json.loads(Path('/tmp/runs.json').read_text())
-          rows = [row for row in payload['workflow_runs'] if row['name'] == 'Temporary E8 reciprocal finalizer repair']
-          if not rows:
-              raise SystemExit('repair run not found')
-          row = rows[0]
-          Path('docs/experiments/TEMP_RECIPROCAL_REPAIR_STATUS.txt').write_text(
-              f"run_id={row['id']}\nstatus={row['status']}\nconclusion={row['conclusion']}\n",
-              encoding='utf-8',
-          )
-          PY
+          mkdir -p docs/experiments
+          gh run view 29730483338 --repo easonhuo/drpo --log-failed > /tmp/repair_failed.log 2>&1 || true
+          {
+            echo 'run_id=29730483338'
+            grep -Ein 'ERROR|Error|FAILED|failed|Traceback|Process completed|fatal|rejected|nothing to commit' /tmp/repair_failed.log | tail -n 120 || true
+            echo '--- tail ---'
+            tail -n 80 /tmp/repair_failed.log
+          } > docs/experiments/TEMP_RECIPROCAL_REPAIR_FAILURE.txt
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add docs/experiments/TEMP_RECIPROCAL_REPAIR_STATUS.txt
-          git commit -m 'Record reciprocal repair state'
+          git add docs/experiments/TEMP_RECIPROCAL_REPAIR_FAILURE.txt
+          git commit -m 'Extract reciprocal repair failure'
           git push origin HEAD:diag/e8-reciprocal-finalizer-48a3e49
