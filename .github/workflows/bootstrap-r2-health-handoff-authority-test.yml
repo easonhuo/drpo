@@ -26,13 +26,6 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Apply narrow maintenance patch
-        shell: bash
-        run: |
-          set -euo pipefail
-          git apply --check maintenance.patch
-          git apply maintenance.patch
-
       - name: Install focused dependencies
         run: |
           python -m pip install --quiet --upgrade pip
@@ -54,7 +47,7 @@ jobs:
           HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
         run: |
           set -euo pipefail
-          rm maintenance.patch
+          rm -f maintenance.patch
           rm .github/workflows/bootstrap-r2-health-handoff-authority-test.yml
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
