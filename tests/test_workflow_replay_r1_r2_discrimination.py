@@ -93,10 +93,26 @@ def _historical_task(case: dict[str, Any], family: dict[str, Any]) -> dict[str, 
     }
 
 
+def _canonical_reference(
+    inventory: dict[str, Any], family_id: str
+) -> dict[str, Any]:
+    controls = [
+        item
+        for item in inventory["cases"]
+        if item["family"] == family_id
+        and item["pair_class"] == "identical_correct"
+    ]
+    assert len(controls) == 1
+    control = controls[0]
+    return control["arms"][control["canonical_arm"]]
+
+
 def _r1_contract(
-    case: dict[str, Any], family: dict[str, Any], evaluator_sha256: str
+    case: dict[str, Any],
+    family: dict[str, Any],
+    canonical: dict[str, Any],
+    evaluator_sha256: str,
 ):
-    canonical = case["arms"][case["canonical_arm"]]
     benchmark = _common_benchmark(case)
     benchmark.update(
         expected_changed_paths=[canonical["changed_path"]],
@@ -216,8 +232,14 @@ def _timing(arm: str) -> tuple[tuple[str, int], ...]:
     return (("child_ns", total), ("self_overhead_ns", 0), ("total_ns", total))
 
 
-def _r1_judgment(case: dict[str, Any], family: dict[str, Any], evaluator_sha256: str):
-    contract = _r1_contract(case, family, evaluator_sha256)
+def _r1_judgment(
+    case: dict[str, Any],
+    family: dict[str, Any],
+    inventory: dict[str, Any],
+    evaluator_sha256: str,
+):
+    canonical = _canonical_reference(inventory, case["family"])
+    contract = _r1_contract(case, family, canonical, evaluator_sha256)
     runs = []
     for arm in ("A", "B"):
         outcome = _outcome(case, arm, contract.base.benchmark["environment_id"])
@@ -357,7 +379,9 @@ def execute_benchmark() -> tuple[list[dict[str, Any]], dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for case in inventory["cases"]:
         family = inventory["families"][case["family"]]
-        r1_report, r1_acceptance = _r1_judgment(case, family, evaluator_sha256)
+        r1_report, r1_acceptance = _r1_judgment(
+            case, family, inventory, evaluator_sha256
+        )
         r2_report, r2_acceptance = _r2_judgment(
             case, family, inventory, evaluator_sha256
         )
