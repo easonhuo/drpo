@@ -1,0 +1,212 @@
+name: ReplayAB R1 repaired formal calibration
+
+on:
+  pull_request:
+    branches:
+      - repair/replayab-r1-authority-binding-01
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: replayab-r1-repaired-formal-calibration
+  cancel-in-progress: false
+
+jobs:
+  calibrate-r1:
+    if: github.event_name != 'pull_request' || github.head_ref == 'exec/replayab-r1-repaired-calibration-01'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      FROZEN_TOOLCHAIN: 5488f3b4f4551239b176906f0934054125fc4305
+      OUT: /tmp/replayab-r1-repaired-formal-calibration
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify execution-only scope and frozen toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          changed=$(git diff --name-only "$FROZEN_TOOLCHAIN"...HEAD)
+          test "$changed" = '.github/workflows/replayab-r1-repaired-calibration.yml'
+          git diff --check "$FROZEN_TOOLCHAIN"...HEAD
+          git worktree add --detach /tmp/replayab-r1-repaired-toolchain "$FROZEN_TOOLCHAIN"
+          test "$(git -C /tmp/replayab-r1-repaired-toolchain rev-parse HEAD)" = "$FROZEN_TOOLCHAIN"
+          test -z "$(git -C /tmp/replayab-r1-repaired-toolchain status --porcelain=v1)"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install exact-toolchain development dependencies
+        run: python -m pip install -e '/tmp/replayab-r1-repaired-toolchain[dev]'
+
+      - name: Run complete frozen R1 calibration module
+        shell: bash
+        run: |
+          set -uo pipefail
+          rm -rf "$OUT"
+          mkdir -p "$OUT"
+          cd /tmp/replayab-r1-repaired-toolchain
+          python --version > "$OUT/environment.txt" 2>&1
+          git rev-parse HEAD >> "$OUT/environment.txt"
+          git status --porcelain=v1 >> "$OUT/environment.txt"
+          uname -a >> "$OUT/environment.txt"
+          set +e
+          python -m pytest -q tests/test_workflow_replay_r1.py \
+            --junitxml="$OUT/junit.xml" 2>&1 | tee "$OUT/pytest.log"
+          status=${PIPESTATUS[0]}
+          set -e
+          printf '%s\n' "$status" > "$OUT/pytest_exit_code.txt"
+          exit 0
+
+      - name: Build structured repaired calibration report
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /tmp/replayab-r1-repaired-toolchain
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+
+          root = Path('/tmp/replayab-r1-repaired-toolchain')
+          out = Path(os.environ['OUT'])
+          junit = ET.parse(out / 'junit.xml').getroot()
+          tests = {}
+          for node in junit.iter('testcase'):
+              name = node.attrib.get('name', '')
+              failed = node.find('failure') is not None or node.find('error') is not None
+              skipped = node.find('skipped') is not None
+              tests[name] = {
+                  'status': 'SKIP' if skipped else ('FAIL' if failed else 'PASS'),
+                  'seconds': float(node.attrib.get('time', '0') or 0),
+              }
+
+          mapping = {
+              'R1-CAL-READY-EXACT': 'test_real_ready_and_failure_boundary_artifacts_match_frozen_verdicts',
+              'R1-CAL-FAILURE-BOUNDARY': 'test_real_ready_and_failure_boundary_artifacts_match_frozen_verdicts',
+              'R1-CAL-ONE-ARM-HASH-MISMATCH': 'test_one_arm_hash_mismatch_is_rejected',
+              'R1-CAL-BOTH-SAME-WRONG': 'test_both_arms_same_wrong_are_rejected',
+              'R1-CAL-WRONG-MODE': 'test_wrong_file_mode_is_rejected_even_when_pair_peer_is_correct',
+              'R1-CAL-INTERRUPTED': 'test_interrupted_run_is_retained_but_cannot_compare_or_release',
+              'R1-CAL-PARTIAL-MUTATION': 'test_failure_boundary_with_workspace_mutation_is_invalid',
+              'R1-CAL-EVIDENCE-DIGEST-MISMATCH': 'test_digest_identity_and_journal_tampering_fail_closed',
+              'R1-CAL-ORDER-BALANCE': 'test_schedule_is_exactly_a_b_then_b_a_and_is_deterministic',
+              'R1-CAL-TIMING-BINDING-MISMATCH': 'test_timing_must_be_bound_to_exact_run_and_evidence_identities',
+          }
+          cases = {
+              case: {'test': test, **tests.get(test, {'status': 'MISSING', 'seconds': 0.0})}
+              for case, test in mapping.items()
+          }
+          authority_names = [
+              'test_calibration_authority_was_frozen_before_behavior_results',
+              'test_frozen_authority_digests_match_actual_files_and_source_blobs',
+          ]
+          authority = {
+              name: tests.get(name, {'status': 'MISSING', 'seconds': 0.0})
+              for name in authority_names
+          }
+          runtime = tests.get(
+              'test_r1_loading_and_reporting_runtime_guardrail',
+              {'status': 'MISSING', 'seconds': 0.0},
+          )
+          agreement = sum(item['status'] == 'PASS' for item in cases.values())
+          pytest_exit = int((out / 'pytest_exit_code.txt').read_text().strip())
+          ready = (
+              agreement == len(cases)
+              and all(item['status'] == 'PASS' for item in authority.values())
+              and runtime['status'] == 'PASS'
+              and pytest_exit == 0
+          )
+          unsafe = {
+              'R1-CAL-ONE-ARM-HASH-MISMATCH',
+              'R1-CAL-BOTH-SAME-WRONG',
+              'R1-CAL-WRONG-MODE',
+              'R1-CAL-INTERRUPTED',
+              'R1-CAL-PARTIAL-MUTATION',
+              'R1-CAL-EVIDENCE-DIGEST-MISMATCH',
+          }
+          correct = {'R1-CAL-READY-EXACT', 'R1-CAL-FAILURE-BOUNDARY'}
+          contract = root / 'docs/development_workflow_optimization/R1_IMPLEMENTATION_CONTRACT.md'
+          report = {
+              'schema_version': 1,
+              'claim_id': 'GOV-DEV-WORKFLOW-OPTIMIZATION-BENCHMARK-01',
+              'calibration_id': 'REPLAYAB-R1-C1-CALIBRATION-01',
+              'toolchain_sha': os.environ['FROZEN_TOOLCHAIN'],
+              'workflow_run_id': os.environ.get('GITHUB_RUN_ID'),
+              'pytest_exit_code': pytest_exit,
+              'case_results': cases,
+              'verdict_agreement': {'passed': agreement, 'total': len(cases)},
+              'covered_unsafe_pass_count': 0 if all(cases[c]['status'] == 'PASS' for c in unsafe) else None,
+              'covered_false_rejection_count': 0 if all(cases[c]['status'] == 'PASS' for c in correct) else None,
+              'authority_checks': authority,
+              'runtime_guardrail': runtime,
+              'implementation_contract_sha256': hashlib.sha256(contract.read_bytes()).hexdigest(),
+              'expected_implementation_contract_sha256': 'ae7f23134285b5314647bd1068bc3fa1f3935deccdd24536eb8183cb57e11494',
+              'state': 'READY_FOR_R1_CLOSURE_REVIEW' if ready else 'BLOCKED',
+              'limitations': [
+                  'Calibration covers the frozen deterministic R1 matrix only.',
+                  'Zero covered errors are not a universal error-rate estimate.',
+                  'This report does not start R2 or adopt Candidate 01 by default.',
+              ],
+          }
+          (out / 'R1_REPAIRED_CALIBRATION_REPORT.json').write_text(
+              json.dumps(report, indent=2, sort_keys=True) + '\n', encoding='utf-8'
+          )
+          rows = [
+              '# ReplayAB R1 Repaired Calibration Report',
+              '',
+              f"- Toolchain: `{report['toolchain_sha']}`",
+              f"- State: **{report['state']}**",
+              f"- Verdict agreement: **{agreement}/{len(cases)}**",
+              f"- Covered unsafe-pass count: `{report['covered_unsafe_pass_count']}`",
+              f"- Covered false-rejection count: `{report['covered_false_rejection_count']}`",
+              f"- Contract SHA-256: `{report['implementation_contract_sha256']}`",
+              '',
+              '| Case | Status |',
+              '|---|---|',
+          ]
+          rows.extend(f'| `{case}` | {item["status"]} |' for case, item in cases.items())
+          (out / 'R1_REPAIRED_CALIBRATION_REPORT.md').write_text(
+              '\n'.join(rows) + '\n', encoding='utf-8'
+          )
+          PY
+          cp docs/development_workflow_optimization/replayab_r1_calibration/INVENTORY.yaml "$OUT/"
+          cp docs/development_workflow_optimization/replayab_r1_calibration/EXPECTED_VERDICTS.yaml "$OUT/"
+          cp docs/development_workflow_optimization/replayab_r1_calibration/R1_AUTHORITY_BINDING_REPAIR.md "$OUT/"
+          find "$OUT" -maxdepth 1 -type f -printf '%f %s bytes\n' | sort > "$OUT/ARTIFACT_INVENTORY.txt"
+
+      - name: Upload repaired R1 calibration evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: replayab-r1-repaired-formal-calibration-${{ github.run_id }}
+          path: /tmp/replayab-r1-repaired-formal-calibration
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Enforce repaired calibration result
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(
+              Path('/tmp/replayab-r1-repaired-formal-calibration/R1_REPAIRED_CALIBRATION_REPORT.json').read_text()
+          )
+          if report['state'] != 'READY_FOR_R1_CLOSURE_REVIEW':
+              raise SystemExit(json.dumps(report, sort_keys=True))
+          if report['implementation_contract_sha256'] != report['expected_implementation_contract_sha256']:
+              raise SystemExit('implementation contract digest mismatch')
+          print(json.dumps(report, sort_keys=True))
+          PY
