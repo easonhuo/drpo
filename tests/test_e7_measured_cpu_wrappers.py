@@ -128,12 +128,75 @@ def test_highc_adapter_binds_and_restores_implementation_identity() -> None:
     assert shared._selector_implementation_identity is original  # noqa: SLF001
 
 
-def test_night_adapter_binds_and_restores_implementation_identity() -> None:
-    original = shared._selector_implementation_identity  # noqa: SLF001
+def test_night_adapter_binds_and_restores_v3_policy() -> None:
+    original_identity = shared._selector_implementation_identity  # noqa: SLF001
+    original_candidates = shared.candidate_workers
+    original_benchmark = shared.benchmark_concurrency
+    original_policy = shared.SELECTOR_POLICY_VERSION
     with night_adapter._installed_adapter():  # noqa: SLF001
         assert shared._selector_implementation_identity is (  # noqa: SLF001
             night_adapter._selector_implementation_identity  # noqa: SLF001
         )
+        assert shared.candidate_workers is night_adapter._low_first_candidate_workers  # noqa: SLF001
+        assert shared.benchmark_concurrency is (  # noqa: SLF001
+            night_adapter._bounded_benchmark_concurrency  # noqa: SLF001
+        )
+        assert shared.SELECTOR_POLICY_VERSION == 3
         values = shared._selector_implementation_identity(Path.cwd())  # noqa: SLF001
         assert "e7_squared_exp_night_runtime_autotune.py" in values
-    assert shared._selector_implementation_identity is original  # noqa: SLF001
+    assert shared._selector_implementation_identity is original_identity  # noqa: SLF001
+    assert shared.candidate_workers is original_candidates
+    assert shared.benchmark_concurrency is original_benchmark
+    assert shared.SELECTOR_POLICY_VERSION == original_policy
+
+
+def test_night_candidate_grid_starts_low_without_configured_cap() -> None:
+    assert night_adapter._low_first_candidate_workers(130, 60) == [  # noqa: SLF001
+        1,
+        17,
+        33,
+        49,
+        60,
+        65,
+        82,
+        98,
+        114,
+        130,
+    ]
+    assert night_adapter._low_first_candidate_workers(3, 60) == [1, 2, 3]  # noqa: SLF001
+
+
+def test_night_throughput_probe_is_bounded_independently(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    observed: dict[str, object] = {}
+
+    def fake_benchmark(**kwargs: object) -> dict[str, object]:
+        observed.update(kwargs)
+        return {
+            "concurrency": kwargs["concurrency"],
+            "probe_steps_per_branch": kwargs["probe_steps"],
+            "valid": True,
+        }
+
+    monkeypatch.setattr(
+        night_adapter,
+        "_ORIGINAL_BENCHMARK_CONCURRENCY",
+        fake_benchmark,
+    )
+    result = night_adapter._bounded_benchmark_concurrency(  # noqa: SLF001
+        probe_root=tmp_path,
+        concurrency=17,
+        probe_steps=100_000,
+    )
+
+    assert observed["probe_steps"] == 5_000
+    assert result["requested_probe_steps_per_branch"] == 100_000
+    assert result["effective_probe_steps_per_branch"] == 5_000
+    assert result["probe_horizon_bounded_by_adapter"] is True
+    persisted = json.loads(
+        (tmp_path / "workers-017" / "BENCHMARK_SUMMARY.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert persisted == result
