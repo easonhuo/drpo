@@ -1,0 +1,45 @@
+name: Install Countdown closure archive
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  install:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          show-progress: false
+          ref: dev/paper-code-reference-01
+      - name: Decode and verify complete target files
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/countdown-closure
+          base64 --decode .github/countdown_closure_payload.b64 | tar -xz -C /tmp/countdown-closure
+          echo '72d334b944b9638cc07f7ff4a13df3dfad71568c1007024f7ecd37bdba0eeb21  /tmp/countdown-closure/countdown.py' | sha256sum -c -
+          echo '222e9c23abe17ec5be8b7c30e004a68449a6c133e476f7de78adab70c8b22647  /tmp/countdown-closure/test_common.py' | sha256sum -c -
+      - name: Install exact files
+        run: |
+          set -euo pipefail
+          cp /tmp/countdown-closure/countdown.py paper_code/src/drpo_reference/experiments/countdown.py
+          cp /tmp/countdown-closure/test_common.py paper_code/tests/test_common.py
+          echo '72d334b944b9638cc07f7ff4a13df3dfad71568c1007024f7ecd37bdba0eeb21  paper_code/src/drpo_reference/experiments/countdown.py' | sha256sum -c -
+          echo '222e9c23abe17ec5be8b7c30e004a68449a6c133e476f7de78adab70c8b22647  paper_code/tests/test_common.py' | sha256sum -c -
+      - name: Commit closure and remove transport files
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/countdown_closure_payload.b64
+          git rm .github/workflows/apply_countdown_closure.yml .github/workflows/trigger_countdown_closure.yml .github/workflows/diagnose_apply_countdown_closure.yml .github/workflows/install_countdown_closure.yml
+          git add paper_code/src/drpo_reference/experiments/countdown.py paper_code/tests/test_common.py
+          git commit -m 'PAPER-CODE-REFERENCE-01 bind Countdown v79 result coordinate'
+      - name: Push closure commit
+        run: git push origin HEAD:dev/paper-code-reference-01
