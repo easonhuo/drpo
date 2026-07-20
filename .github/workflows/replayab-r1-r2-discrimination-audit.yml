@@ -31,8 +31,24 @@ jobs:
           python -m pip install --quiet --upgrade pip
           python -m pip install --quiet -e . pytest ruff pyyaml
 
-      - name: Run frozen discrimination benchmark
-        run: python -m pytest tests/test_workflow_replay_r1_r2_discrimination.py -q
+      - name: Capture frozen discrimination benchmark
+        shell: bash
+        run: |
+          set +e
+          python -m pytest tests/test_workflow_replay_r1_r2_discrimination.py -vv > /tmp/benchmark.log 2>&1
+          echo $? > /tmp/benchmark.exit
+          exit 0
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: replayab-r1-r2-discrimination-debug-${{ github.run_id }}
+          path: |
+            /tmp/benchmark.log
+            /tmp/benchmark.exit
+
+      - name: Enforce frozen discrimination benchmark
+        run: test "$(cat /tmp/benchmark.exit)" = 0
 
       - name: Run closed R1 and R2 calibration suite
         run: python -m pytest tests/test_workflow_replay_r1.py -q
